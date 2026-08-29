@@ -14,5 +14,7 @@
 
 **gate**: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run discovery litmus: env/walk_freeprog_score must escape the [-0.10,-0.05] static-basin band and trend toward/past 0; escape with rising reward but gate unmet at 20M = continue per 08-21; pinned band + flat/falling reward at 20M = aligned FAIL. Eval-side PASS still enforces the full WALKCURR_PF ranking behaviors (slip is priced at eval regardless of the simple training diet).
 
+**verdict**: LAUNCH_CRASH, not a hypothesis result: same defect as the s0 sibling (see its verdict for full root cause) -- ValueError in set_tick_params, 0 training steps. The orphan retry attempt 'cw-walkcurr-pf-decleg-sv-s1-rr1' (W&B m7xb2ffo, this cycle's assigned triage target) crashed identically before a ledger entry was ever written for it (race with a concurrent cycle's relaunch attempts) -- same bug, same non-verdict. Relaunch seed 1 after the concurrent cycle's PENDING_SLOTS fix lands.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

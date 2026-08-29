@@ -1,10 +1,10 @@
-# cw-walkcurr-pf-central-sv-s0-rr1
+# cw-walkcurr-pf-central-sv-s0-rr1-rr1
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: LAUNCH_CRASH
+**status**: REFUSED
 
-**created**: 2026-08-29T15:56:49+00:00
+**created**: 2026-08-29T16:10:59+00:00
 
 **pod**: hexapod-mjx-train-3
 
@@ -14,7 +14,5 @@
 
 **gate**: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run discovery litmus: env/walk_freeprog_score must escape the [-0.10,-0.05] static-basin band and trend toward/past 0; escape with rising reward but gate unmet at 20M = continue per 08-21; pinned band + flat/falling reward at 20M = aligned FAIL. Eval-side PASS still enforces the full WALKCURR_PF ranking behaviors (slip is priced at eval regardless of the simple training diet).
 
-**verdict**: LAUNCH_CRASH, not a hypothesis result: crashed in set_tick_params before any training (0 steps, W&B run jqr4h0bo). Root cause: --cfg-set bus.servo_params=loaded's measured ~106ms per-axis latency exceeds the MJX backend's PENDING_SLOTS=12 ring buffer at control.hz=100 (dt=0.01s) -- identical defect to the parent s0 run (the architecture CONTROL arm) and the decleg-sv sibling. Root fix (PENDING_SLOTS 12->40, mjx_backend.py) landed+pushed by a concurrent cycle at 59227996 with a new regression bank (test_mjx_backend_pending_slots.py) -- verified present on HEAD. No verdict on the architecture-control hypothesis possible from this attempt; relaunching as -rr2 on the fixed code now that it's synced.
-
-**failed_reason**: run never appeared as 'running' in W&B within 240s
+**refused_reason**: hexapod-mjx-train-3 code marker fe0520c909441d3288d217ce0d0bf4877e87ed6d-dirty != local HEAD 59227996c97676c2c5af4d4702686ac43a099cf2 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
 

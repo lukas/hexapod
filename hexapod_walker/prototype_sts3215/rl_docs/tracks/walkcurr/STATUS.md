@@ -250,8 +250,84 @@ top two are built, bank-proven, and launched this cycle.
   (concurrent cycle) — same "not yet a track-level call" caveat as
   the decleg-sv note above applies to the combined 2-wave picture.
 
+- **`cw-walkcurr-phase-sv-obsonly-s0` -> FAIL (aligned), CLOSES the
+  phase-sv wave 2/2 (08-29 ~17:2x).** Phase observation alone (no
+  contact bonus) is actually WORSE than its `-contact-s0` sibling: det
+  gate slip/m med **31.79** (cap 3.0 — ~6x worse than contact-s0's
+  already-bad 5.55), prog_ratio med **-0.01** (net non-progress, not
+  just slow), gait_valid 0/6, legs [4,5] sacrificed 6/6 det episodes,
+  fwd 0.13m/25s — a skate/drag pathology (large slip for ~zero net
+  displacement) rather than contact-s0's static-quiver-to-over_current
+  pattern, though sto mode still shows 5/6 over_current terms.
+  `env/walk_freeprog_score` sat in [-0.045,-0.017] the ENTIRE 20M run
+  with NO drift toward 0 at all (flatter than contact-s0's mild
+  creep); `rollout/ep_rew_mean` peaked early (~201) then declined to
+  170.3 (quarters [194.5,186.2,177.8,172.2]) while
+  `terminations/over_current` oscillated up into 200-300/window —
+  reward falling, an aligned FAIL, not a continue case. Video/
+  contact-sheet: frozen splayed crouch, no visible translation,
+  identical basin signature to every other refuted arm.
+  **TRACK-LEVEL SYNTHESIS: the full 08-29 escalation wave is now
+  CLOSED, 6/6 arms FAIL** — decleg-sv s0/s1/s2 + central-sv-s0
+  control (concurrent cycle, all FAIL, static-quiver-to-over_current)
+  + phase-sv contact-s0 + obsonly-s0 (this entry, static/skate
+  variants of the same basin). Every arm's reward peaked early then
+  went flat-or-down; none crossed the freeprog zero-line by more than
+  an episode-shortening artifact (per the concurrent cycle's decleg
+  dig-in). **Per Next item 2, this fires the operator-named fallback
+  ladder.** A concurrent cycle has ALREADY started building fallback
+  (a), the off-policy SAC probe (`train_ppo_mjx.py --algo sac` +
+  `gru_policy.py` SAC-checkpoint loader + `test_sac_checkpoint_
+  loader.py`, seen as in-flight uncommitted WIP this cycle) — left
+  untouched to avoid duplicating/colliding with it. Fallback (b),
+  Heess-style terrain/environment diversity, stays second-line and
+  UNBUILT (deliberately not started early — "in order" means test (a)
+  before spending effort on (b)).
+
+- **decleg-sv wave dig-in COMPLETE + SAC fallback LAUNCHED (08-29
+  ~17:4x, deep cycle):** `decleg-sv-s1-rr2`/`-s2-rr2`/
+  `central-sv-s0-rr2` all verdicted FAIL (with s0-rr3: 4/4). Two
+  findings beyond the FAILs:
+  1. **LITMUS DEFECT (binding for future gate text):** the
+     `env/walk_freeprog_score` escape/zero-cross these arms showed is
+     an EPISODE-SHORTENING ARTIFACT, not discovery — across report
+     windows it correlates POSITIVELY with the `terminations/
+     over_current` surge (r=+0.37/+0.60/+0.68 per arm) and NEGATIVELY
+     with `env/walk_speed` (r=-0.78/-0.81/-0.19), which stayed pinned
+     at ~0.02 m/s (cmd 0.05-0.06) all 20M in every arm. s2's late
+     "+0.006 crossing" had a det eval that moves BACKWARD (prog med
+     -0.05). Future discovery litmus = walk_speed off the floor +
+     stable-or-rising ep_len; freeprog alone is invalid.
+  2. **Reward mechanics of the basin:** final `env/reward_walk` =
+     ~+0.42/tick for a stationary micro-quiverer (stride-EMA freeprog
+     income harvested with zero locomotion), term_penalty 24 ≈
+     -0.02/tick — ep_rew pinned at exactly ~167 in all three arms
+     while ep_len collapsed 930-1640 -> ~400 and over_current terms
+     surged to ~1000/window. PPO drifts along a reward-indifferent
+     ridge into the mesh-family over_current/leg-sacrifice basin the
+     joystick track already closed against pricing (movecur1, doses
+     1x/2x/5x, 3 architectures).
+  **Fallback (a) EXECUTED:** `--algo sac` landed in train_ppo_mjx.py
+  (stock SB3 SAC, plain-MLP from-scratch only, refuses every
+  PPO-internal mechanism combo; PPO path bit-exact when off) +
+  SAC-aware `load_checkpoint_auto` (gru_policy.py) so the whole
+  eval/video/harness stack works unchanged + `test_sac_checkpoint_
+  loader.py` (3 green). Smoke `smoke-sac-sv-path` (120k, train-4):
+  training/eval/video/save/auto-load/predict all clean. Snapshot
+  `7964fe2e`. **Launched `cw-walkcurr-sac-sv-s0`/`-s1`** (VERIFIED
+  RUNNING train-4/train-5): 2M discovery each, IDENTICAL SV diet/
+  plant — the only lever is the algorithm; gate uses the repaired
+  litmus above.
+
 ## Next (after the decleg-sv wave reads)
 
+0. **Read `cw-walkcurr-sac-sv-s0`/`-s1` (2M discovery, ~40-60 min):**
+   PASS = walk_speed leaves the 0.02 m/s floor with ep_len stable ->
+   continue per 08-21 (seed replicate + budget raise). FAIL both
+   seeds = SAC-on-this-diet closed -> fallback (b) Heess-style
+   terrain/environment diversity (env-side build), and consider the
+   diet itself (freeprog income pays park-quiver ~91% of gait per the
+   bank tally) before any further optimizer lever.
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget
    (3 seeds vs 1). Any arm escaping the static basin = the track's
    first-ever discovery signal; continue per 08-21 and A/B the

@@ -198,6 +198,32 @@ top two are built, bank-proven, and launched this cycle.
   `LAUNCH_CRASH` (not `FAIL`) in the ledger — no science verdict is
   owed on 0 logged steps.
 
+- **First 2x2-wave read landed (08-29 ~17:0x): `decleg-sv-s0-rr3` ->
+  FAIL (aligned).** Full 20M budget. `rollout/ep_rew_mean` quarters
+  [194.2, 173.5, 167.0, 167.4] — peaked early then went FLAT for the
+  back half, not rising. `env/walk_freeprog_score` crept -0.033 ->
+  -0.013 over the whole run (mild upward drift, never nears 0) while
+  `terminations/over_current` climbed from ~4-18 early to ~1000/window
+  late — the behavior got WORSE, not better, on the metric that
+  matters. DR-0 gate (n=6 per mode, walk/det+sto+startjitter/det):
+  **every single episode terminates via a real servo over_current
+  safety trip**; forward_dist ~0.005 m/episode, progress_ratio
+  0.03-0.04 (gate needs >=0.35), slip/m 4.8-6.5 (gate cap 3.0),
+  direction_err ~83deg (gate cap 30deg — heads roughly perpendicular
+  to command), `course_motion_valid_frac_1s`=0.0 in every sampled
+  window, walk_startjitter/det gait_valid collapses to 1/6 with
+  sacrificed legs. Video/contact-sheet: body does not translate; 4 of
+  6 legs sit at duty_cycle 0.9-0.96 (planted) while 2 cycle — static
+  quivering that trips one hot servo's current limit, not a
+  coordinated gait. Same static/no-net-motion signature as the 15
+  previously-refuted centralized classes, now reproduced under the
+  decentralized architecture at seed 0 alone. **Not yet a track-level
+  call** — this is 1 of 4 wave arms; `decleg-sv-s1-rr2`/`-s2-rr2`/
+  `central-sv-s0-rr2` reads belong to a concurrent cycle and are
+  needed before the "2x2"/escalation decision in Next item 1-2 below
+  can be made honestly (one seed failing doesn't refute decentralization
+  as a class if a sibling seed escapes).
+
 ## Next (after the decleg-sv wave reads)
 
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget

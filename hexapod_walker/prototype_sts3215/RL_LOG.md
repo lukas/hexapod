@@ -922,3 +922,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-29 21:44 standwalk: mlp-acq1-rr1-stdanneal PASS -- std-anneal fix works, walk/sto prog med 0.36 slip 2.14, walk/det prog med 0.41, 0 terms, clean 6-leg gait; tf twin verdicted separately 
 - 08-29 21:44 standwalk: tf-acq1-stdanneal PASS -- std-anneal fix works, matches mlp twin (prog 0.41det/0.36sto, slip 2.1-2.4, 0 terms); architecture-independent 
 - 08-29 22:18 cw-walkcurr-sac-sv-tilt2-s1 FAIL: mild anti-tilt dose (k_roll/pitch=2.0) unchanged 24/24-fall signature vs budget10m baseline, flat reward -- low end of dose axis closed, tilt5 sibling pending its own read. 
+- 08-29 22:30 walkcurr: cw-walkcurr-sac-sv-tilt5-s1 FAIL but real dose-response vs tilt2 (fwd 0.024->0.055m median, gait_valid False->True 5/6, over_current emerging) -- extended WALKCURR_SV_TILT bank to dose=10.0 (9/9 green) and launching tilt10-s1 to read saturation/reversal 

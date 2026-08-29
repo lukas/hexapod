@@ -4,7 +4,7 @@
 # machine-local (gitignored), so a fresh worktree is missing them; wire the
 # worktree to the main checkout's copies instead of rebuilding anything.
 set -eu
-ROOT="${ROOT_WORKTREE_PATH:?ROOT_WORKTREE_PATH not set (pass the main checkout path, e.g. /Users/lukas/weird_objects)}"
+ROOT="${ROOT_WORKTREE_PATH:?ROOT_WORKTREE_PATH not set (pass the main checkout path, e.g. /Users/lukas/hexapod)}"
 
 # direnv env: activate the MAIN checkout's .venv. Never create a per-worktree
 # venv — the repo rule is ONE uv-managed venv at $ROOT/.venv.

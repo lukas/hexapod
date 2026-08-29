@@ -21,7 +21,7 @@ For the browser control surface a person or agent should use the managed
 launcher, not a hand-built Python command:
 
 ```sh
-cd ~/weird_objects/hexapod_walker/prototype_sts3215
+cd ~/hexapod/hexapod_walker/prototype_sts3215
 make web-8898-start
 make web-8898-status
 make web-8898-restart
@@ -91,7 +91,7 @@ because `rl_move/sim/policies/` is intentionally ignored. Point the
 server at the populated cache:
 
 ```sh
-POLICY_DIR=/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/rl_move/sim/policies \
+POLICY_DIR=/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies \
   sim_viewer/sim_web.sh
 ```
 
@@ -216,7 +216,7 @@ are expected (cv2 and pygame both bundle SDL2) and harmless.
 ## Environment (repo-root `.venv`, managed with uv — NEVER recreate)
 
 ```sh
-cd ~/weird_objects && uv pip install ftservo-python-sdk \
+cd ~/hexapod && uv pip install ftservo-python-sdk \
   mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
   pygame-ce
 ```

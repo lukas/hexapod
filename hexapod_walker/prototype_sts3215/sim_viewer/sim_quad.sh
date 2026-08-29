@@ -16,12 +16,12 @@ cd "$(dirname "$0")/.."
 # the MAIN checkout's (worktrees share it — see .cursor rules).
 PY=""
 for cand in ../../.venv/bin/python "${VIRTUAL_ENV:-/nonexistent}/bin/python" \
-            "$HOME/weird_objects/.venv/bin/python"; do
+            "$HOME/hexapod/.venv/bin/python"; do
     [ -x "$cand" ] && { PY="$cand"; break; }
 done
 [ -n "$PY" ] || {
     echo "no venv python found - restore the venv:" >&2
-    echo "  cd ~/weird_objects && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh pygame-ce" >&2
+    echo "  cd ~/hexapod && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh pygame-ce" >&2
     exit 1
 }
 

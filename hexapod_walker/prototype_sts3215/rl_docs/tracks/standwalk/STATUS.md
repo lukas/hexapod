@@ -1,5 +1,69 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~21:5x (**BOTH std-anneal repairs PASS outright —
+the all-heading walker is now a genuinely clean mesh/100 Hz walk
+source, and it clears the track's own long-named "cheap first gate"
+too**): `cw-walk-allheading-mlp-acq1-rr1-stdanneal` and
+`cw-walk-allheading-tf-acq1-stdanneal` both verdicted **PASS** (full
+detail in each run's ledger/W&B OUTCOME note). Fresh DR-0 gate (n=6
+each, both twins near-identical): walk/det prog med 0.41 (up from
+0.28/0.33, gate wanted "not regressed" >=0.20/0.25), walk/sto prog med
+0.36 (up from -0.00, gate wanted >=0.15), slip/m med 2.1-2.6 everywhere
+(down from 18-19.6, gate cap 6.0 — **now inside the joystick teacher
+band <=2.9**), gait_valid 6/6 in all 4 sub-panels (det/sto x
+walk/walk_startjitter) on both checkpoints, ZERO terminations anywhere.
+`train/std` fell 2.15/1.92 -> 0.05 exactly on schedule; reward recovered
+past its old mid-run peak on both (mlp quarters 8.6/-33.1/477.1/1100.3,
+tf 7.4/-160.9/.../1328.8). Video (all sub-panel strips, both
+checkpoints) shows upright six-leg cycling, no pathology. 3rd confirmed
+instance of the `--log-std-final` fix on this codebase (standwalk
+hold/lower champions, joystick stotight ladder) — architecture-
+independent, MLP is the practical champion going forward (same skill,
+cheaper).
+
+**Went further this cycle and actually measured the balanced-heading
+"cheap first gate" the acquisition launch's own text has named since
+08-29 ~15:2x but nobody had run yet** (`eval_cmd_suite`, new suite file
+`rl_move/sim/cmd_suites/allheading8_v08.json` — the exact 8 headings
+[0,±45,±90,±135,180]deg @ 0.08 m/s the training diet uses, generated
+via vx=s·cos h / vy=s·sin h same as `probe_teacher_headings`), det+sto,
+3 episodes/heading/pass, both checkpoints: **CLEARS the gate outright
+on EVERY heading** — zero falls in all 32 rows (8 headings x det/sto x
+2 checkpoints), completion (from v_err_med) 0.37-0.44 on every heading
+for both checkpoints (gate wanted >=half the teacher's 0.373-0.385,
+i.e. >=~0.19 — we're at 2x that bar, not just clearing it), slip/m
+1.75-2.35 (inside the joystick teacher band). Isotropic: no
+forward-bias, no weak axis. Artifacts:
+`logs/ckpt_eval/cw_walk_allheading_{mlp_acq1_rr1,tf_acq1}_stdanneal_cmdsuite8.json`.
+
+**Also launched the track's own actual walk-segment DONE-gate
+instrument** (`eval_joystick_gate` — Stage 2's DONE GATE text literally
+names this tool as the walk-segment evaluator) on both checkpoints, to
+see whether translation-only balanced-heading training generalizes to
+the REAL held-out stress_mix script (random_hold/flip_180/
+sweep_circle,square/stop_go/jitter — includes turns this diet never
+trained on, same emergent-generalization question the joystick track's
+own champion answered YES to on a fixed-forward-only diet). Own-dr=0.0
+(DR-0 checkpoint, own-DR pass skipped as redundant per the tool's own
+rule), n=12 det+sto, 60s episodes. Running IN-FLIGHT as of this note:
+`hexapod-mjx-train-3` (mlp, log `/tmp/eval_mlp_joygate.log`) and
+`hexapod-mjx-train-1` (tf, checkpoint pushed + code synced this cycle,
+log `/tmp/eval_tf_joygate.log`), both writing to
+`logs/ckpt_eval/cw_walk_allheading_{mlp_acq1_rr1,tf_acq1}_stdanneal_joygate/`.
+**Next cycle: read `gate_verdict.json` in those two dirs before doing
+anything else on this line** — do not relaunch, do not re-derive the
+suite, just wait/read. If PASS: this all-heading lineage is a strong
+candidate for Stage 2's walking-source role (STATUS Stage 2 text) even
+though it has never seen wz/turns in training — pre-register the
+adoption fork against the joystick champion per Stage 2's own
+never-silent-swap rule. If FAIL (turns are the likely failure axis,
+since stress_mix's sweep_circle/square are genuinely off-distribution
+for a heading-only diet): that's exactly what stage-a's own recorded
+scope note anticipated ("arcs/sweeps enter at stage (c) only after a
+wz case is added to test_course_income_semantics",
+OPERATOR_QUESTIONS q_20260829T16xx) — the next funded arm is the wz
+bank case, not more heading-only budget.
+
 Update, 2026-08-29 ~18:4x (**MLP twin's own triage now recorded —
 `cw-walk-allheading-mlp-acq1-rr1` verdicted PARTIAL, matching the tf
 twin exactly**): confirms the previous update's "not architecture-

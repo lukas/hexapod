@@ -224633,7 +224633,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt2-s1 --steps 2000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 1 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=2.0 --cfg-set reward.k_pitch=2.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt2_s1 --notes 'respec of cw-walkcurr-sac-sv-s1: Plain English: cw-walkcurr-sac-sv-s1-budget10m showed SAC learns real 6-leg stepping at the commanded speed but falls via tilt_roll/tilt_pitch in 24/24 held-out episodes, and 5x more budget alone did not fix it -- because the SV diet has zero balance-shaping gradient (k_roll=k_pitch=0, only a one-time -24 charge AT the fall). This arm adds back a MILD dose (2.0, vs the codebase'\"'\"'s own full default 10.0) of the pre-existing k_roll/k_pitch quadratic tilt penalty on top of the IDENTICAL SV diet/seed/algo/budget as cw-walkcurr-sac-sv-s1 -- the only lever is the tilt price. WALKCURR_SV_TILT bank (6/6 green) confirms this dose does not disturb the travel>stationary>wrongway>topple ranking. Prediction-if-true: held-out rung-1 panel at 2M shows fewer than 24/24 falls and/or forward_dist_m clears the ~0.03-0.05m ceiling s1 was stuck at. Prediction-if-false: still ~24/24 falls at the same roll_peak/forward_dist -- a mild dose is too weak relative to the freeprog income scale (~0.4/tick) to matter, escalate to the higher dose (tilt5-s1, launched alongside) or a bigger dose still. Strongest alternative: the extra charge suppresses exploration entirely and the run regresses to the PPO static-quiver basin (walk_speed pinned near 0) -- that outcome also answers the question (tilt pricing traded one failure mode for the other) and forks to reward-shape design (e.g. gate the charge off during the settle window) rather than more dose.' > /tmp/train_cw-walkcurr-sac-sv-tilt2-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt2-s1.log",
     "wandb_id": "eompce4l",
-    "verified": "2026-08-29T21:39:22+00:00"
+    "verified": "2026-08-29T21:39:22+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-29T21:45:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 46206,
+        "fps": 1012.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s1",
@@ -224773,6 +224785,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s1 --steps 2000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 1 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s1 --notes 'respec of cw-walkcurr-sac-sv-s1: Plain English: same question as cw-walkcurr-sac-sv-tilt2-s1 (does pricing tilt directly fix SAC'\"'\"'s stumble-then-fall pattern) at a HIGHER dose (5.0, half the codebase'\"'\"'s full default 10.0, vs the sibling arm'\"'\"'s 2.0) so the two arms together read as a dose-response, not a single guess. IDENTICAL SV diet/seed/algo/budget as cw-walkcurr-sac-sv-s1, only the k_roll/k_pitch dose differs from the tilt2 sibling. WALKCURR_SV_TILT bank (6/6 green, both 2.0 and 5.0 doses) confirms this dose does not disturb the travel>stationary>wrongway>topple ranking either. Prediction-if-true: fall rate/forward_dist improve MORE than the tilt2 sibling (monotone dose-response) at 2M. Prediction-if-false: no improvement, or improvement saturates/reverses vs tilt2 (over-pricing tilt suppresses the exploration that found stepping in the first place, regressing toward the PPO static-quiver basin) -- either result closes the dose axis and forks to reward-shape design (e.g. gate the charge off during the settle window) or the SAC checkpoint-continuation build instead of more dose.' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s1.log",
     "wandb_id": "12ddmjla",
-    "verified": "2026-08-29T21:41:34+00:00"
+    "verified": "2026-08-29T21:41:34+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-29T21:47:09+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 42942,
+        "fps": 1080.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

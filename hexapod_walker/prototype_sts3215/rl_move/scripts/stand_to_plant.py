@@ -21,7 +21,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
+sys.path.insert(0, str(ROOT / "motor_setup"))
 
 from feetech_bus import load_plant_pose, standing_pose_degrees  # noqa: E402
 from rl_move.config import cfg_get, load_config  # noqa: E402

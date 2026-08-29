@@ -21,10 +21,9 @@ python inplace_demos.py --demo shimmy
 python feetech_bus.py scan
 ```
 
-To run the same wizard **on the Uno Q**, deploy the bundled copy:
+To run the same wizard **on the Uno Q** (this directory deploys to the
+board as part of `linux_control/deploy_ssh.sh` / `deploy_adb.sh`):
 
 ```bash
-cd ../linux_control
-./deploy_urt2_setup.sh          # adb
-# on board:  cd ~/hexapod_sts/urt2_setup && ./run.sh
+# on board:  cd ~/hexapod_sts/motor_setup && ./run.sh
 ```

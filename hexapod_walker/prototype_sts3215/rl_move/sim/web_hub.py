@@ -132,11 +132,14 @@ def _local_robot_demos() -> tuple[list[dict[str, Any]], str | None]:
 
         root = Path(__file__).resolve().parents[2]
         web_control = root / "linux_control"
-        urt2 = web_control / "urt2_setup"
+        # Mirror the robot bundle's PYTHONPATH (vendor:../motor_setup:.:..):
+        # bench_api bare-imports inplace_demos from motor_setup/ and
+        # package-imports motor_setup.*/hexapod_core.* from the root.
+        motor_setup = root / "motor_setup"
         bench_path = web_control / "bench_api.py"
         old_path = list(sys.path)
         try:
-            for p in (str(web_control), str(urt2)):
+            for p in (str(web_control), str(motor_setup), str(root)):
                 if p not in sys.path:
                     sys.path.insert(0, p)
             spec = importlib.util.spec_from_file_location(

@@ -18,7 +18,10 @@ Group=arduino
 SupplementaryGroups=dialout
 WorkingDirectory=/home/arduino/hexapod_sts/linux_control
 Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONPATH=vendor:urt2_setup:../motor_setup:.
+# ".." = the bundle root (/home/arduino/hexapod_sts): makes hexapod_core,
+# rl_move and motor_setup importable as packages. urt2_setup was retired
+# 2026-08-29 (it was a stale-prone duplicate of motor_setup).
+Environment=PYTHONPATH=vendor:../motor_setup:.:..
 # mcu_feetech_bus uses sudo -S to stop arduino-router when claiming ttyHS1.
 Environment=HEXAPOD_SUDO_PASSWORD=arduino
 # Timestamped command/log stream → laptop(s). Auto-discovers via

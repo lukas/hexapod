@@ -17,12 +17,12 @@ import numpy as np
 from rl_move.env import TaskGoal, build_obs
 
 from .joint_task import q_rad_to_action
-from rl_move.joint_frame import (
+from hexapod_core.joint_frame import (
     RAD2DEG,
     robot_abs_rad_to_sim_rad,
     sim_rad_to_robot_abs_deg,
 )
-from .play import (
+from .play_core import (
     _CRUISE,
     _DESC,
     _HIST_K,
@@ -192,11 +192,7 @@ class SimWebSession:
 
         root = Path(__file__).resolve().parents[2]
         self._proto_root = root
-        for p in (root / "linux_control", root / "motor_setup"):
-            if str(p) not in sys.path:
-                sys.path.insert(0, str(p))
-        from sim_gait_compat import NoSlipGait
-        from sim_gait_compat import TripodGait
+        from hexapod_core.sim_gait_compat import NoSlipGait, TripodGait
 
         self.mujoco = mujoco
         self.PPO = PPO
@@ -1498,7 +1494,7 @@ class SimWebSession:
         return [self._dance_upload_dir, self._proto_root / "dances"]
 
     def _dance_file(self, name: str) -> Path | None:
-        import dance_script as DS
+        from hexapod_core import dance_script as DS
         if not isinstance(name, str) or not DS.NAME_RE.match(name):
             return None
         for d in self._dance_sources():
@@ -1540,7 +1536,7 @@ class SimWebSession:
             return None
 
     def save_dance_script(self, script: Any) -> dict[str, Any]:
-        import dance_script as DS
+        from hexapod_core import dance_script as DS
         errs, stats = DS.validate_script(script)
         if errs:
             return {"ok": False, "error": "; ".join(errs[:5])}
@@ -1573,7 +1569,7 @@ class SimWebSession:
     def _run_dance_script(self, name: str, script: dict[str, Any],
                           speed: float) -> dict[str, Any]:
         """Compile a dance script to a sim timeline and start it."""
-        import dance_script as DS
+        from hexapod_core import dance_script as DS
         try:
             kfs = DS.load_standup_keyframes(
                 self._proto_root / "linux_control" / "standup_modes.json")
@@ -1836,7 +1832,7 @@ class SimWebSession:
     def calibration_report(self) -> dict[str, Any]:
         with self.lock:
             try:
-                import tripod_gait as TG
+                from hexapod_core import tripod_gait as TG
             except Exception:
                 TG = None
             plant_deg = [round(math.degrees(float(v)), 3)

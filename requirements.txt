@@ -36,6 +36,6 @@ torch>=2.0,<3
 wireviz>=0.4,<0.5
 
 # rideable_v1 design-consistency check reads design_spec.yaml directly
-# (hexapod_walker/rideable_v1/tools/design_consistency_check.py). PyYAML
+# (hexapod_walker/archive/rideable_v1/tools/design_consistency_check.py). PyYAML
 # was previously only a transitive dep (wireviz); pin it as a direct one.
 pyyaml>=6

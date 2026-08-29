@@ -6,17 +6,11 @@ in planar XY body shifts.
 from __future__ import annotations
 
 import math
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 
-_LINUX = Path(__file__).resolve().parents[1] / "linux_control"
-if str(_LINUX) not in sys.path:
-    sys.path.insert(0, str(_LINUX))
-
-from tripod_gait import (  # noqa: E402
+from hexapod_core.tripod_gait import (
     COXA, FEMUR, TIBIA, LEG_RADIAL, _leg_ik,
 )
 

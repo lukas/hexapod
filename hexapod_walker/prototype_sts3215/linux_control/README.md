@@ -296,8 +296,8 @@ Pair once on the board (`bluetoothctl`), then:
 ```bash
 adb shell
 cd ~/hexapod_sts/linux_control
-PYTHONPATH=vendor:urt2_setup:../motor_setup:. uv run python xbox_drive.py --list
-PYTHONPATH=vendor:urt2_setup:../motor_setup:. uv run python xbox_drive.py
+PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py --list
+PYTHONPATH=vendor:../motor_setup:.:.. uv run python xbox_drive.py
 ```
 
 (User is already in the `input` group on stock Uno Q images.)
@@ -320,6 +320,8 @@ Then open `http://<board-ip>:8080` (and `https://…:8443` for gamepad).
 | File | Role |
 |---|---|
 | `web_drive.py` | HTTPS/HTTP server + bench glue (serves `webui/`) |
+| `bench_api.py` | bench JSON API dispatcher — the route groups live in `api/` |
+| `api/` | BenchAPI route-group mixins (`common` header + core/demos/zero/calibrate/rl/standup/measure) |
 | `webui/` | the browser UI — HTML/CSS/JS + favicon (see `webui/README.md`) |
 | `drive_controller.py` | command parser + 50 Hz gait → bus |
 | `bus_bench.py` | measure feedback/tick rates over the bus (read-only) |

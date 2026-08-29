@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
+sys.path.insert(0, str(ROOT / "motor_setup"))
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.env import open_bus  # noqa: E402

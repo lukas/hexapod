@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Iterable
 
 _HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE / "urt2_setup", _HERE.parent / "motor_setup"):
+for _p in (_HERE, _HERE.parent / "motor_setup"):
     if _p.is_dir() and str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

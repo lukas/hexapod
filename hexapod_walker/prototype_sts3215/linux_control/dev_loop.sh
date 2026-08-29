@@ -66,6 +66,14 @@ root = Path(sys.argv[1])
 files = [
     "linux_control/web_drive.py",
     "linux_control/bench_api.py",
+    "linux_control/api/common.py",
+    "linux_control/api/core.py",
+    "linux_control/api/demos.py",
+    "linux_control/api/zero.py",
+    "linux_control/api/calibrate.py",
+    "linux_control/api/rl.py",
+    "linux_control/api/standup.py",
+    "linux_control/api/measure.py",
     "linux_control/drive_controller.py",
     "linux_control/cpg_controller_loader.py",
     "linux_control/mcu_feetech_bus.py",
@@ -85,8 +93,6 @@ files = [
     "linux_control/sysid_runner.py",
     "linux_control/walk_ready_transition.py",
     "linux_control/rl_walk_start.py",
-    "linux_control/urt2_setup/inplace_demos.py",
-    "linux_control/urt2_setup/motion_telemetry.py",
     "motor_setup/inplace_demos.py",
     "motor_setup/motion_telemetry.py",
     "motor_setup/dance_script.py",
@@ -345,12 +351,11 @@ hex_remote_compile() {
     "cd '$HEX_REMOTE_ROOT' && /home/arduino/.local/bin/uv run python -m py_compile \
       linux_control/web_drive.py \
       linux_control/bench_api.py \
+      linux_control/api/*.py \
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
       linux_control/walk_ready_transition.py \
       linux_control/rl_walk_start.py \
-      linux_control/urt2_setup/inplace_demos.py \
-      linux_control/urt2_setup/motion_telemetry.py \
       motor_setup/inplace_demos.py \
       motor_setup/motion_telemetry.py"
 }

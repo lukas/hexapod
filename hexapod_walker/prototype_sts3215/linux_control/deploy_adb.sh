@@ -39,73 +39,20 @@ if [ "$MODE" = "stop" ]; then
   exit 0
 fi
 
-echo ">> staging motor-setup deps into linux_control/urt2_setup"
-"$SRC/deploy_urt2_setup.sh" >/dev/null || true
-# Also keep a local urt2_setup stage next to web_drive for PYTHONPATH.
+# Stage the EXACT remote layout locally (shared manifest — same tree as
+# deploy_ssh.sh), then push it in one recursive adb push.
+echo ">> staging deploy tree (deploy_manifest.sh)"
+source "$SRC/deploy_manifest.sh"
+STAGE="$(mktemp -d /tmp/hexapod_deploy.XXXXXX)"
+trap 'rm -rf "$STAGE"; deploy_lock_release' EXIT
+stage_deploy_tree "$STAGE" "$SRC"
 
 echo ">> pushing code + vendored SDK → $REMOTE"
-adb shell "mkdir -p '$REMOTE/linux_control' '$REMOTE/motor_setup' '$REMOTE/urt2_setup'"
-adb push "$SRC/tripod_gait.py" "$REMOTE/linux_control/"
-adb push "$SRC/drive_controller.py" "$REMOTE/linux_control/"
-adb push "$SRC/cpg_controller_loader.py" "$REMOTE/linux_control/"
-adb push "$SRC/mcu_feetech_bus.py" "$REMOTE/linux_control/"
-adb push "$SRC/bench_api.py" "$REMOTE/linux_control/"
-adb push "$SRC/web_drive.py" "$REMOTE/linux_control/"
-adb push "$SRC/webui" "$REMOTE/linux_control/"
-adb push "$SRC/xbox_drive.py" "$REMOTE/linux_control/"
-adb push "$SRC/joint_calibrate.py" "$REMOTE/linux_control/"
-adb push "$SRC/plant_calibrate.py" "$REMOTE/linux_control/"
-adb push "$SRC/geometry_plant.py" "$REMOTE/linux_control/"
-adb push "$SRC/imu_calibrate.py" "$REMOTE/linux_control/"
-adb push "$SRC/event_log.py" "$REMOTE/linux_control/"
-adb push "$SRC/status_display.py" "$REMOTE/linux_control/"
-adb push "$SRC/deploy_status_display.py" "$REMOTE/linux_control/"
-adb push "$SRC/servo_watch.py" "$REMOTE/linux_control/"
-adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
-adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
-adb push "$SRC/safe_zero.py" "$REMOTE/linux_control/"
-adb push "$SRC/pinned_tip.py" "$REMOTE/linux_control/"
-adb push "$SRC/noslip_gait.py" "$REMOTE/linux_control/"
-adb push "$SRC/se2_foot_gait.py" "$REMOTE/linux_control/"
-adb push "$SRC/sysid_protocol.py" "$REMOTE/linux_control/"
-adb push "$SRC/sysid_runner.py" "$REMOTE/linux_control/"
-adb push "$SRC/bus_bench.py" "$REMOTE/linux_control/"
-adb push "$SRC/touchdown_zero.py" "$REMOTE/linux_control/"
-adb push "$SRC/walk_ready_transition.py" "$REMOTE/linux_control/"
-adb push "$SRC/rl_walk_start.py" "$REMOTE/linux_control/"
-adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
-adb push "$SRC/rl_walk_weights.json" "$REMOTE/linux_control/"
-# Swappable policy registry (bench_api rl_policies/rl_policy_select):
-# every exported candidate ships so the operator can A/B on the bench.
-adb push "$SRC/policies" "$REMOTE/linux_control/"
-# Stand-up lab: baked keyframes from rl_move/sim/compare_standup.py --export.
-adb push "$SRC/standup_modes.json" "$REMOTE/linux_control/"
-adb push "$SRC/vendor" "$REMOTE/linux_control/"
-adb push "$SRC/systemd" "$REMOTE/linux_control/"
-# rl_move core (numpy-only): obs builder, state estimator, safety layer —
-# imported by rl_policy.py for the RL stand/lower buttons.
-adb shell "mkdir -p '$REMOTE/rl_move'"
-for f in __init__.py env.py robot_state.py attitude.py safety.py \
-         config.py config.yaml body_ik.py control_loop.py logger.py \
-         np_policy.py; do
-  adb push "$SRC/../rl_move/$f" "$REMOTE/rl_move/"
-done
-# rot-60 canonicalizer + sagittal mirror (numpy-only; sim/__init__.py
-# is a bare docstring) — full-circle walk headings (RL_PLAN queue 2.1)
-# and turn= chirality selection (TURN.md deploy port) for rl_policy.py.
-adb shell "mkdir -p '$REMOTE/rl_move/sim'"
-for f in __init__.py rot60.py mirror.py; do
-  adb push "$SRC/../rl_move/sim/$f" "$REMOTE/rl_move/sim/"
-done
-# Full setup bundle (demos + bench helpers) for Motors/Demos tabs.
-adb push "$SRC/urt2_setup/." "$REMOTE/urt2_setup/"
-adb push "$SRC/urt2_setup/." "$REMOTE/linux_control/urt2_setup/"
-# Canonical motor_setup copies (feetech + friends).
-for f in feetech_bus.py urt2_bench.py inplace_demos.py quad_walk.py \
-         motion_telemetry.py motor_setup_registry.json; do
-  adb push "$SRC/../motor_setup/$f" "$REMOTE/motor_setup/"
-done
-adb shell "touch '$REMOTE/motor_setup/__init__.py' '$REMOTE/linux_control/__init__.py'"
+# rm -rf clears the retired urt2_setup bundles (push does not delete
+# stale remote files).
+adb shell "mkdir -p '$REMOTE' && \
+  rm -rf '$REMOTE/urt2_setup' '$REMOTE/linux_control/urt2_setup'"
+adb push "$STAGE/." "$REMOTE/"
 
 BUS_ARGS=""
 DRY=""
@@ -127,7 +74,7 @@ fi
 
 paint_deploy_screen() {
   adb shell "cd '$REMOTE/linux_control' && \
-    PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control' \
+    PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/motor_setup:$REMOTE/linux_control:$REMOTE' \
     '$REMOTE_UV' run python deploy_status_display.py \
       --title DEPLOYING \
       --line 'code updated' \
@@ -154,7 +101,7 @@ else
   # Detach cleanly — a bare `adb shell '... &'` can hang until the child exits.
   adb shell "sh -c 'cd \"$REMOTE/linux_control\" && \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control\" \
+    PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/motor_setup:$REMOTE/linux_control:$REMOTE\" \
     nohup \"$REMOTE_UV\" run python web_drive.py $DRY $BUS_ARGS --http-port 8080 --https-port 8443 \
     >/tmp/hexapod_web.log 2>&1 </dev/null & echo started_pid=\$!'"
   sleep 1.5

@@ -87,7 +87,7 @@ def run_session(stance_p: Path, walk_p: Path, cfg=None,
 
     from rl_move.env import TaskGoal
     from .joint_task import q_rad_to_action
-    from .play import _PlayEnv
+    from .play_core import _PlayEnv
     from .servo_model import SimServoParams
 
     cfg_kw = {"cfg": cfg} if cfg is not None else {}

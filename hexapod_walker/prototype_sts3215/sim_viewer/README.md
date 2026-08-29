@@ -138,7 +138,9 @@ drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
   a fresh episode whenever driving engages. `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
-  description (distilled from RL_LOG.md into `_DESC` in `play.py`).
+  description (distilled from RL_LOG.md into `_DESC` in `play_core.py`,
+  the shared player/session module behind both `play.py` and the web
+  MuJoCo session).
   Markers: `R` = deployed on the physical robot (per the `meta` blocks
   of `linux_control/rl_*_weights.json`; pinned to the top with the
   other most-worth-trying checkpoints), `*` = trained on sim-only

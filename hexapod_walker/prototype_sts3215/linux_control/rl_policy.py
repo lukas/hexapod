@@ -59,15 +59,16 @@ from pathlib import Path
 
 import numpy as np
 
-# rl_move lives one level above linux_control on the robot and in repo.
+# rl_move + hexapod_core live one level above linux_control on the robot
+# bundle and in the repo; make them importable under direct execution.
 _HERE = Path(__file__).resolve().parent
-for _p in (_HERE.parent, _HERE, _HERE / "urt2_setup"):
+for _p in (_HERE.parent, _HERE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
 from rl_move.config import cfg_get, load_config            # noqa: E402
 from rl_move.env import TaskGoal, build_obs                # noqa: E402
-from rl_move.joint_frame import (                          # noqa: E402
+from hexapod_core.joint_frame import (                     # noqa: E402
     FRAME_ROBOT_ABS, normalize_joint_frame,
     policy_joint_frame_from_meta, policy_rad_to_robot_abs_rad,
     robot_abs_rad_to_policy_rad,

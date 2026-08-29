@@ -27,8 +27,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
+# HERE for sibling modules; the bundle/prototype root for the
+# hexapod_core / motor_setup / rl_move packages.
+for _p in (HERE, HERE.parent):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from bench_api import BenchAPI  # noqa: E402
 from drive_controller import DriveController  # noqa: E402
@@ -570,7 +573,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/dances":
             # Upload a dance script (dances as data — dance_script.py).
             try:
-                import dance_script as DS
+                from hexapod_core import dance_script as DS
                 if n > DS.MAX_SCRIPT_BYTES:
                     self._json(413, {"ok": False, "error": "script too big"})
                     return

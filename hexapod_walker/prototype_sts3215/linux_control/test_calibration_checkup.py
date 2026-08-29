@@ -452,11 +452,14 @@ def test_manual_geometry_mismatch_sweep_is_diagnostic() -> None:
 
 
 def test_saved_report_treats_nonblocking_issue_as_diagnostic() -> None:
+    # Redirect report/log writes: since the api/ split the path anchor is
+    # api.common._LC_DIR (read via lc_dir()), not bench_api.__file__.
+    from api import common as bench_common
     api = BenchAPI(object())
-    old_file = bench_api_module.__file__
+    old_dir = bench_common._LC_DIR
     with tempfile.TemporaryDirectory() as td:
         try:
-            bench_api_module.__file__ = str(Path(td) / "bench_api.py")
+            bench_common._LC_DIR = Path(td)
             api._geometry_report = lambda **_kwargs: {"ok": True}
             api.imu_state = lambda: {"ok": True}
             api._actuator_report = lambda _bus=None: {"ok": True}
@@ -476,7 +479,7 @@ def test_saved_report_treats_nonblocking_issue_as_diagnostic() -> None:
                 },
             ])
         finally:
-            bench_api_module.__file__ = old_file
+            bench_common._LC_DIR = old_dir
     assert report["ok"], report
     assert report["diagnostic_issue_count"] == 1
     assert report["msg"] == (

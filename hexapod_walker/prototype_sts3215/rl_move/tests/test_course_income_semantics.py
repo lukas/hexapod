@@ -329,6 +329,104 @@ def test_ordering_every_mover_beats_park(bank):
         assert r[drive] > r["park"] + 100.0, (drive, r)
 
 
+## ---------------------------------------------------------------------
+## WZ / ARC CASE (OPERATOR_QUESTIONS q_20260829T16xx, closes the
+## stage-a scope note: "arcs/sweeps enter at stage (c) only after a wz
+## case is added to test_course_income_semantics"). The windowed
+## course-income mechanism integrates the INSTANTANEOUS commanded
+## vx_ref/vy_ref every tick (never a straight-line snapshot), so a
+## teacher that faithfully tracks a CONTINUOUSLY ROTATING world-frame
+## command (goal.walk_cmd_mode=sweep_circle) is, by construction, no
+## different from tracking a fixed heading at the per-tick level --
+## the mechanism has no separate "chord vs arc" reference to get wrong.
+## Measured here (mesh/100 Hz, this file's own STACK,
+## walk_cmd_resample_s=1.0 to arm the resampler's cmd_mode dispatch --
+## note this key does nothing unless > 0, a real gotcha found while
+## building this case: sweep_circle/square/etc are DEAD without it):
+##   moderate turn (period 6 s, radius ~0.076 m at the 0.08 m/s command):
+##     income 420.6 vs straight-line obey's 444.4 (ratio 0.946),
+##     angle_factor mean 0.959, excess-sway charge -9.5 (near the clean
+##     teacher's ~0) -- a REASONABLE turn rides almost exactly like
+##     straight travel, no arc-specific penalty.
+##   tight turn (period 3 s, radius ~0.038 m -- physically extreme,
+##     faster than the robot's own body can practically re-orient while
+##     translating): income drops to 268.5 (0.638x the moderate arc),
+##     angle_factor falls to 0.621, sway charge grows to -820.8 -- a
+##     REAL, graceful discount (not a cliff/exploit) that tracks actual
+##     course error, not a mechanism bug punishing legitimate turning.
+## Conclusion: the mechanism does not need a reward-formula change to
+## admit wz/arc commands; stage (c) (training exposure to
+## sweep_circle/square/etc, e.g. goal.walk_cmd_mode=stress_mix) is
+## SAFE to fund on the existing course-income/excess-sway stack.
+ARC_MODERATE = dict(STACK)
+ARC_MODERATE[("goal", "walk_cmd_mode")] = "sweep_circle"
+ARC_MODERATE[("goal", "walk_cmd_resample_s")] = 1.0
+ARC_MODERATE[("goal", "walk_cmd_sweep_period_s")] = 6.0
+
+ARC_TIGHT = dict(ARC_MODERATE)
+ARC_TIGHT[("goal", "walk_cmd_sweep_period_s")] = 3.0
+
+
+@pytest.fixture(scope="module")
+def arc_bank() -> dict:
+    out = {
+        "moderate_obey": _rollout("obey", ARC_MODERATE, seconds=8.0),
+        "moderate_stall": _rollout("stall", ARC_MODERATE, seconds=8.0),
+        "moderate_park": _rollout("park", ARC_MODERATE, seconds=8.0),
+        "tight_obey": _rollout("obey", ARC_TIGHT, seconds=8.0),
+    }
+    out["straight_obey"] = _rollout("obey", STACK, seconds=8.0)
+    return out
+
+
+def test_wz_resample_gate_is_not_a_silent_noop(arc_bank):
+    """Regression for the gotcha found building this case: sweep_circle
+    with walk_cmd_resample_s<=0 silently never enters the resample
+    dispatch and the command never turns at all (bit-identical to a
+    fixed heading). Confirms the arc bank's own stack actually turns."""
+    _, c_arc = arc_bank["moderate_obey"]
+    _, c_straight = arc_bank["straight_obey"]
+    # a genuinely turning command must show SOME angle error (a fixed
+    # heading's angle_factor mean would be ~1.0 identically); the
+    # moderate arc's own mean is measurably below the straight case's.
+    mean_arc = float(np.mean(c_arc["walk_course_income_angle_f"]))
+    mean_straight = float(np.mean(c_straight["walk_course_income_angle_f"]))
+    assert mean_arc < mean_straight - 1e-3, (mean_arc, mean_straight)
+
+
+def test_wz_arc_moderate_turn_earns_near_full_income(arc_bank):
+    """A turn radius the robot can plausibly track (period 6 s here)
+    must ride close to straight-line income -- no arc-specific
+    penalty beyond genuine, small tracking error."""
+    r_arc, c_arc = arc_bank["moderate_obey"]
+    r_straight, c_straight = arc_bank["straight_obey"]
+    inc_arc = c_arc["reward_walk_course_income"]
+    inc_straight = c_straight["reward_walk_course_income"]
+    assert inc_arc > 0.85 * inc_straight, (inc_arc, inc_straight)
+    assert float(np.mean(c_arc["walk_course_income_angle_f"])) >= 0.9, c_arc
+    assert abs(c_arc.get("reward_walk_excess_sway", 0.0)) < 50.0, c_arc
+    r_stall, _ = arc_bank["moderate_stall"]
+    r_park, _ = arc_bank["moderate_park"]
+    assert r_arc > r_stall + 700.0, (r_arc, r_stall)
+    assert r_arc > r_park + 1200.0, (r_arc, r_park)
+
+
+def test_wz_arc_tight_turn_gracefully_discounted_not_exploited(arc_bank):
+    """A turn radius near the robot's mechanical limit must be
+    DISCOUNTED (real course error, not a mechanism artifact) but not
+    an exploit: strictly less income than the moderate arc, never
+    negative-runaway, and still clears pure refusal (park) by a wide
+    margin -- graceful degradation, not a cliff or a double-pay."""
+    r_tight, c_tight = arc_bank["tight_obey"]
+    r_moderate, c_moderate = arc_bank["moderate_obey"]
+    r_park, _ = arc_bank["moderate_park"]
+    inc_tight = c_tight["reward_walk_course_income"]
+    inc_moderate = c_moderate["reward_walk_course_income"]
+    assert 0.0 < inc_tight < 0.75 * inc_moderate, (inc_tight, inc_moderate)
+    assert float(np.mean(c_tight["walk_course_income_angle_f"])) < 0.85, c_tight
+    assert r_tight > r_park + 500.0, (r_tight, r_park)
+
+
 def test_overdrive_clean_completion_legitimately_wins(bank):
     """A 4x-driven gait that completes MORE of the command with CLEAN
     slip out-earns the slow 1x teacher -- the optimum is the COMMAND

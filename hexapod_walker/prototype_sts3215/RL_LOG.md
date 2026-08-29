@@ -921,3 +921,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-29 21:33 walkcurr: cw-walkcurr-sac-sv-s1-budget10m FAIL (5x SAC budget did not move fall-rate/forward-dist off baseline, reward flat) -- built WALKCURR_SV_TILT bank + launching k_roll/k_pitch dose grid (2.0/5.0) on SAC seed1 at 2M to test a direct balance-shaping fix 
 - 08-29 21:44 standwalk: mlp-acq1-rr1-stdanneal PASS -- std-anneal fix works, walk/sto prog med 0.36 slip 2.14, walk/det prog med 0.41, 0 terms, clean 6-leg gait; tf twin verdicted separately 
 - 08-29 21:44 standwalk: tf-acq1-stdanneal PASS -- std-anneal fix works, matches mlp twin (prog 0.41det/0.36sto, slip 2.1-2.4, 0 terms); architecture-independent 
+- 08-29 22:18 cw-walkcurr-sac-sv-tilt2-s1 FAIL: mild anti-tilt dose (k_roll/pitch=2.0) unchanged 24/24-fall signature vs budget10m baseline, flat reward -- low end of dose axis closed, tilt5 sibling pending its own read. 

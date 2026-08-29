@@ -347,18 +347,64 @@ top two are built, bank-proven, and launched this cycle.
   do not presume its result; the fallback-ladder close/escalate call
   (item 0 below) needs its own read first.**
 
+- **`cw-walkcurr-sac-sv-s1` read: PARTIAL/CONTINUE (08-29 ~18:4x) —
+  seed 1 is the OPPOSITE outcome from seed 0, and it is the first
+  real discovery signal this whole track has produced.** Same DR-0
+  gate as s0 (walk/walk_startjitter, det+sto, n=6 each, 24 total): every
+  episode still terminates (`tilt_pitch`/`tilt_roll`), but the
+  behavior underneath is categorically different from s0's instant
+  leg-sacrifice topple: `gait_valid=true` on all 24/24 episodes, all
+  SIX legs cycling with real duty-cycle spread (0.14-0.87) and
+  swing_count 1-7 per leg on video (`walk_det_0_sheet.png` — visibly
+  different leg configuration every frame, not a frozen splayed
+  crouch), `speed_mean_m_s` 0.05-0.08 matching the 0.05-0.06 cmd band,
+  roll_peak only 5-11 deg (a stumble, not a violent pitch-over).
+  forward_dist_m stays tiny (0.015-0.052) because it falls within a
+  step or two of starting — a balance/stumble failure, not a
+  stuck-in-place or leg-sacrifice failure. Training curve: `env/
+  walk_speed` leaves the ~0.0 floor by 400k steps and holds 0.05-0.08
+  for the rest of the 2M run; `rollout/ep_len_mean` does NOT collapse
+  (115->452->~190, noisy but no crash); `terminations/over_current`
+  stays at background 1-2/window throughout — none of the freeprog-
+  escape-is-an-artifact signature. `rollout/ep_rew_mean` is flat/noisy
+  like s0 (162->146->138->155), so the run's own gate text ("rising
+  reward" for an unambiguous continue) is not literally met either —
+  this is a judgment call, made on the video+behavior evidence, not a
+  mechanical PASS. Infra: eval_checkpoint's SAC crash (see s0 entry)
+  needed a fresh `snapshot.sh --sync` to train-5 to pick up; confirmed
+  clean end-to-end (`policy_action_std` unit-tested, 2 new tests
+  green). **Attempted continuation was blocked by a real gap in
+  train_ppo_mjx.py: `--algo sac` unconditionally refuses `--init-from`
+  ("plain-MLP from-scratch only") — no SAC checkpoint-continuation
+  path exists yet.** Worked around it the way the stack's own
+  determinism allows: relaunched the IDENTICAL seed/diet/hyperparams
+  from scratch to a 5x budget in one process
+  (`cw-walkcurr-sac-sv-s1-budget10m`, 10M steps, phase=acquisition,
+  VERIFIED RUNNING train-5) — under fixed-seed determinism this
+  reproduces s1's own first 2M exactly and then keeps training past
+  where s1 stopped, standing in for a true warm-start until one is
+  built. Gate: rung-1 panel at 10M, PASS needs progress_ratio>=0.35,
+  slip/m<=3.0, gait_valid>=4/6, falls on <=1/6 det episodes; PARTIAL
+  if fall rate/forward_dist improve vs this baseline even short of
+  the bar; FAIL if unchanged with flat reward -> fork to an anti-tilt
+  pricing dose (roll/pitch pricing already exists in REWARD.md, just
+  zeroed in the SV diet) or build real SAC `--init-from` support.
+
 ## Next (after the decleg-sv wave reads)
 
-0. **Read `cw-walkcurr-sac-sv-s1` (2M discovery, s0 already read
-   FAIL above):** PASS = walk_speed leaves the 0.02 m/s floor with
-   ep_len stable AND reward rising -> continue per 08-21 (seed
-   replicate + budget raise) — s0's fall-not-freeze failure mode
-   would need its own root-cause dig before trusting a raw
-   continuation, though. FAIL (same static-basin OR same instant-fall
-   signature) = SAC-on-this-diet closed for both seeds -> fallback (b)
-   Heess-style terrain/environment diversity (env-side build), and
-   consider the diet itself (freeprog income pays park-quiver ~91% of
-   gait per the bank tally) before any further optimizer lever.
+0. **`cw-walkcurr-sac-sv-s1-budget10m` is running (10M, ~in progress):
+   read it next.** PASS/PARTIAL = fall rate or forward_dist improving
+   past s1's 2M baseline (24/24 falls, fwd med ~0.03m) -> the seed-1
+   line is real; seed-replicate this recipe (2-3 more SAC seeds at the
+   SAME budget scale, since seed variance is already confirmed huge:
+   s0 instant-topples with a sacrificed leg, s1 walks-then-stumbles) and
+   build real SAC `--init-from` support so future budget raises don't
+   need the fresh-relaunch workaround. FAIL (still ~24/24 falls, flat
+   reward at 10M) = the diet lacks a balance-shaping signal at this
+   scale -> try a mild anti-tilt price before more budget, or fallback
+   (b) Heess-style terrain/environment diversity.
+   Track-level note: SAC-on-this-diet is NOT uniformly closed (s0 FAIL
+   != s1 partial escape) — do not read s0 alone as closing the class.
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget
    (3 seeds vs 1). Any arm escaping the static basin = the track's
    first-ever discovery signal; continue per 08-21 and A/B the

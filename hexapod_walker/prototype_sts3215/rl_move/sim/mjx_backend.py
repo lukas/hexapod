@@ -54,10 +54,19 @@ DEG2RAD = math.pi / 180.0
 # a slot may only be overwritten after its goal has matured (applied),
 # so K * dt_ctrl must comfortably exceed the largest latency
 # (air fit ~60 ms; the LOADED fit (sim_model_loaded.json, 08-10) carries
-# ~85-106 ms per axis × DR latency_scale ≤ 1.8 ⇒ ~190 ms; 12 × 40 ms =
-# 480 ms keeps the upload check's 2× margin. Ring scan cost is a
-# fori over slots inside jit — 12 vs 8 is noise).
-PENDING_SLOTS = 12
+# ~85-106 ms per axis x DR latency_scale <= 1.8 => ~190 ms worst case).
+# K=12 was sized for the 25 Hz-era control tick (dt_ctrl=0.04s: 12*40ms
+# = 480ms, a comfortable 2x margin over ~190ms). The 08-24 mesh-model
+# default flipped control.hz to 100 (dt_ctrl=0.01s), which the ring
+# size was never re-derived for: 12*10ms=120ms < 2*190ms — a startup
+# ValueError hit THREE separate times (standwalk 08-25, walkcurr
+# decleg-sv wave 08-29, both times on bus.servo_params=loaded @ 100Hz)
+# before this was fixed at the root instead of worked around per-recipe.
+# K=40 restores the >=2x margin at the new 100Hz floor (40*10ms=400ms
+# >= 2*190ms) while keeping >=2x margin at every legacy rate too. Ring
+# scan cost is a fori over slots inside jit — 40 vs 12 is still noise
+# next to the physics substep cost.
+PENDING_SLOTS = 40
 
 # The MjModel fields per-episode model DR writes (domain_rand
 # EpisodeRandomization.apply_to_model + servo_model.apply_params_to_model

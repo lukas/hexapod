@@ -224997,7 +224997,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walk-allheading-mlp-stressmix-ft1 since 2026-08-29T23:32:03"
   },
   {
     "run": "cw-walk-allheading-tf-stressmix-ft1",
@@ -225207,7 +225208,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-29T23:16:44"
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt10-s1",
@@ -225561,7 +225563,7 @@
       "respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: closes the SAC anti-tilt dose-response axis at the codebase's FULL default dose (k_roll=k_pitch=10.0, vs the sibling tilt5-s1's 5.0 and tilt2-s1's 2.0). tilt5-s1 showed a REAL monotone dose-response vs tilt2 (walk/det forward_dist_m median 0.024m identical-instant-fall -> 0.055m varied-stepping, gait_valid False->True 5/6) but still missed both PASS bars (24/24 falls remain; 0.055m < the 0.06m continue ceiling) and a new over_current failure mode partially replaced pure tilt falls. IDENTICAL SV diet/seed(1)/algo(SAC)/budget(2M) as both siblings -- only the tilt dose changes, now maxed at the value the rest of the codebase already trusts by default. WALKCURR_SV_TILT bank extended to dose=10.0 and reverified (9/9 green, travel still beats every stationary/wrong-way form, topple still the strict floor) before this launch. (This is the -r2 retry of cw-walkcurr-sac-sv-tilt10-s1, whose first attempt was a LAUNCH_CRASH on hexapod-mjx-train-1's stale CPU-only torch, root-caused+fixed this cycle, not a science result -- same hypothesis carries over.) Prediction-if-true (response continues): fall rate drops below 24/24 and/or forward_dist_m median clears ~0.06m -- tilt-pricing alone is the fix, promote toward the rung-1 bar. Prediction-if-false (saturates): forward_dist/gait_valid look about the same as tilt5 (0.05-0.06m band, similar gait_valid) -- dose axis is flat past 5.0, no further gain from raising it more; fork to reward-shape-during-settle-window or the off-policy-SAC-probe/terrain fallback ladder. Prediction-if-reverses (over-priced, the pre-registered risk): walk_speed pinned near 0, policy regresses toward the static-quiver basin seen across the decleg/central/phase-sv waves -- also closes the axis, same fork, and specifically indicts the over_current signature emerging at dose 5.0 as the leading edge of that regression rather than of the fix."
     ],
     "created": "2026-08-29T22:48:23+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -225593,6 +225595,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt10-s1-r2 --steps 2000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 1 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=10.0 --cfg-set reward.k_pitch=10.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt10_s1_r2 --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: closes the SAC anti-tilt dose-response axis at the codebase'\"'\"'s FULL default dose (k_roll=k_pitch=10.0, vs the sibling tilt5-s1'\"'\"'s 5.0 and tilt2-s1'\"'\"'s 2.0). tilt5-s1 showed a REAL monotone dose-response vs tilt2 (walk/det forward_dist_m median 0.024m identical-instant-fall -> 0.055m varied-stepping, gait_valid False->True 5/6) but still missed both PASS bars (24/24 falls remain; 0.055m < the 0.06m continue ceiling) and a new over_current failure mode partially replaced pure tilt falls. IDENTICAL SV diet/seed(1)/algo(SAC)/budget(2M) as both siblings -- only the tilt dose changes, now maxed at the value the rest of the codebase already trusts by default. WALKCURR_SV_TILT bank extended to dose=10.0 and reverified (9/9 green, travel still beats every stationary/wrong-way form, topple still the strict floor) before this launch. (This is the -r2 retry of cw-walkcurr-sac-sv-tilt10-s1, whose first attempt was a LAUNCH_CRASH on hexapod-mjx-train-1'\"'\"'s stale CPU-only torch, root-caused+fixed this cycle, not a science result -- same hypothesis carries over.) Prediction-if-true (response continues): fall rate drops below 24/24 and/or forward_dist_m median clears ~0.06m -- tilt-pricing alone is the fix, promote toward the rung-1 bar. Prediction-if-false (saturates): forward_dist/gait_valid look about the same as tilt5 (0.05-0.06m band, similar gait_valid) -- dose axis is flat past 5.0, no further gain from raising it more; fork to reward-shape-during-settle-window or the off-policy-SAC-probe/terrain fallback ladder. Prediction-if-reverses (over-priced, the pre-registered risk): walk_speed pinned near 0, policy regresses toward the static-quiver basin seen across the decleg/central/phase-sv waves -- also closes the axis, same fork, and specifically indicts the over_current signature emerging at dose 5.0 as the leading edge of that regression rather than of the fix.' > /tmp/train_cw-walkcurr-sac-sv-tilt10-s1-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt10-s1-r2.log",
     "wandb_id": "k10vklkg",
-    "verified": "2026-08-29T22:52:04+00:00"
+    "verified": "2026-08-29T22:52:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-29T22:57:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 27268,
+        "fps": 1052.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "Dose 10.0 (codebase full default) REVERSES vs the tilt5 sibling, closing the anti-tilt dose-response axis for good -- the predicted over-tilt-priced regression, not a continue. Evidence: walk/det forward_dist_m collapses back to a DETERMINISTIC identical-fall pattern (0.026m across all 6 seeds, byte-identical episode stats -- same signature as the tilt2 sibling's over-priced floor), gait_valid regresses from tilt5's 5/6 real-stepping back to 0/6, and roll_peak drops to 5.3deg (vs ~10deg at both tilt2/tilt5) but the robot now dies via tilt_pitch (nose-down collapse, frame strip confirms) instead of tilt_roll -- consistent with the anti-roll/pitch charge suppressing the exploratory recovery motions that let tilt5 keep stepping, not with better balance. walk/sto matches (0.02m med, 0/6 valid, all tilt_pitch). ep_rew_mean quarters [155.8,140.2,132.3,138.2] declining, not rising -- 08-21 ruling: flat/falling reward + bad eval = genuine FAIL. Per the pre-registered fork this is the REVERSED case: dose axis CLOSED (2.0 flat-bad, 5.0 real-but-insufficient, 10.0 worse-than-5.0) -- raising k_roll/k_pitch alone cannot pass the gate at any dose tried. Next: reward-shape-during-settle-window (suppress the tilt charge for the first N ticks after reset/spawn, when recovery motions are most needed and least trained) -- built this cycle (reward.tilt_settle_grace_s/_ramp_s, default 0=off/bit-exact, WALKCURR_SV_TILT_SETTLE bank green) and launched on top of both the best (5.0) and worst (10.0) doses to test whether grace-gating recovers or beats tilt5's ceiling."
   }
 ]

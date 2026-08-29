@@ -101,7 +101,8 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
                    tilt_ref: tuple[float, float] = (0.0, 0.0),
                    height_err: float | None = None,
                    unload_force_n: float | None = None,
-                   ref_quiet: bool = False
+                   ref_quiet: bool = False,
+                   tilt_settle_scale: float = 1.0,
                    ) -> tuple[float, dict]:
     """Task-tracking reward. Shared by hardware env and sim twin.
 
@@ -120,6 +121,17 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     achievable no matter how the IMU is mounted. ``height_err`` =
     measured body height minus (start + height_ref); the sim supplies it
     from privileged chassis state, hardware passes None.
+
+    ``tilt_settle_scale`` (08-29, WALKCURR SAC anti-tilt dose-grid
+    close-out — cw-walkcurr-sac-sv-tilt10-s1-r2 FAIL: raising k_roll/
+    k_pitch monotonically past dose 5.0 REVERSED the response, the
+    charge suppressing the exploratory recovery motions that let the
+    lower dose keep stepping): in [0, 1], multiplies ONLY r_roll/
+    r_pitch below. Callers compute it from wall-clock-since-reset vs
+    ``reward.tilt_settle_grace_s``/``_ramp_s`` (see sim_env.py) so the
+    anti-tilt charge phases in AFTER the vulnerable post-spawn window
+    instead of taxing it. Default 1.0 = always-on = bit-exact with
+    every pre-08-29 caller (hardware env never passes it).
     """
     kt = float(cfg_get(cfg, "reward", "k_track", default=1.0))
     kr = float(cfg_get(cfg, "reward", "k_roll", default=10.0))
@@ -190,8 +202,8 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
     r_task = kt * kernel
 
     # --- weak shaping / regularization ---
-    r_roll = -kr * e_roll ** 2
-    r_pitch = -kp * e_pitch ** 2
+    r_roll = -kr * e_roll ** 2 * tilt_settle_scale
+    r_pitch = -kp * e_pitch ** 2 * tilt_settle_scale
     r_gyro = -kg * float(np.sum(state.imu_gyro ** 2))
     r_act = -ka * float(np.sum(action ** 2))
     r_dad = -kad * float(np.sum((action - prev_action) ** 2))
@@ -239,6 +251,7 @@ def compute_reward(cfg: dict, state: RobotState, action: np.ndarray,
         "still_factor": still_factor,
         "reward_alive": alive,
         "reward_termination": 0.0,
+        "tilt_settle_scale": tilt_settle_scale,
     }
     return (r_task + alive + r_roll + r_pitch + r_height + r_gyro + r_act
             + r_dad + r_cur + r_cur_max + r_unload + r_still, parts)

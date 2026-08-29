@@ -8544,3 +8544,108 @@ def test_walkcurr_sv_tilt_falling_is_strictly_worse(
     assert r["topple_steps"] < 150, (
         f"topple twin did not die fast at tilt dose {r['dose']}; "
         "bank probe is broken")
+
+
+# --- WALKCURR_SV_TILT_SETTLE bank (08-29, cw-walkcurr-sac-sv-tilt10-s1-r2
+# FAIL fork: dose 10.0 REVERSED vs dose 5.0 -- deterministic instant
+# tilt_pitch collapse, gait_valid regressed 5/6->0/6 -- instead of a
+# monotone continuation. Read as over-tilt-pricing suppressing the
+# exploratory recovery motions a freshly-spawned policy needs most and
+# has trained least. This bank adds a SETTLE WINDOW
+# (reward.tilt_settle_grace_s/_ramp_s, env.py compute_reward's
+# tilt_settle_scale, default 1.0 = always-on = bit-exact): for the
+# first grace_s seconds after spawn the k_roll/k_pitch charge is
+# scaled to 0 (optionally ramping back to full over the following
+# ramp_s), so the anti-tilt price phases in AFTER the vulnerable
+# post-spawn window instead of taxing it. Must not disturb the SV_TILT
+# ranking (travel > stationary > wrong-way > topple, strict floor) at
+# the codebase's full default dose (10.0) with a realistic window. ---
+
+WALKCURR_SV_TILT_SETTLE_GRACE_S = 0.5
+WALKCURR_SV_TILT_SETTLE_RAMP_S = 0.5
+
+
+def _walkcurr_sv_tilt_settle_overrides(dose: float) -> dict:
+    out = _walkcurr_sv_tilt_overrides(dose)
+    out[("reward", "tilt_settle_grace_s")] = WALKCURR_SV_TILT_SETTLE_GRACE_S
+    out[("reward", "tilt_settle_ramp_s")] = WALKCURR_SV_TILT_SETTLE_RAMP_S
+    return out
+
+
+@pytest.fixture(scope="module")
+def walkcurr_sv_tilt_settle_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the SV diet, the
+    codebase's full k_roll/k_pitch dose (10.0), AND the settle window
+    (0.5s grace + 0.5s ramp) on top."""
+    overrides = _walkcurr_sv_tilt_settle_overrides(10.0)
+    plan = {
+        "gait": ("gait", 1.0),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_tilt_settle_default_off_is_bit_exact():
+    """grace_s=0 (the unset default) must reproduce the no-settle
+    dose=10.0 bank EXACTLY -- the settle window is purely additive."""
+    base = _walkcurr_sv_tilt_overrides(10.0)
+    plain = float(np.mean([_slipwalk_rollout("gait", s, overrides=base)[0]
+                           for s in SEEDS]))
+    explicit_off = dict(base)
+    explicit_off[("reward", "tilt_settle_grace_s")] = 0.0
+    off = float(np.mean([
+        _slipwalk_rollout("gait", s, overrides=explicit_off)[0]
+        for s in SEEDS]))
+    assert plain == pytest.approx(off, abs=1e-9), (
+        f"explicit tilt_settle_grace_s=0.0 must be bit-exact with the "
+        f"key absent: {plain} vs {off}")
+
+
+def test_walkcurr_sv_tilt_settle_travel_beats_every_stationary_form(
+        walkcurr_sv_tilt_settle_returns):
+    """The settle window must not disturb the SV ranking: real travel
+    still beats every stationary form at the full dose."""
+    r = walkcurr_sv_tilt_settle_returns
+    for still in ("park", "stall", "belly_sit"):
+        assert r["gait"] > r[still] + 3.0, (
+            f"stationary '{still}' competitive with walking under "
+            f"tilt-settle: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "reference gait did not travel under tilt-settle")
+
+
+def test_walkcurr_sv_tilt_settle_wrongway_below_standing(
+        walkcurr_sv_tilt_settle_returns):
+    """Wrong-way travel must still sit below standing still with the
+    settle window added on top of the full tilt dose."""
+    r = walkcurr_sv_tilt_settle_returns
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 1.0, (
+            f"wrong-way '{wrong}' out-earns standing under tilt-settle: {r}")
+
+
+def test_walkcurr_sv_tilt_settle_falling_is_strictly_worse(
+        walkcurr_sv_tilt_settle_returns):
+    """Falling must remain the strict floor -- the settle window gives
+    the early ticks of a topple a FREE ride on the tilt charge, so this
+    is the one test most likely to catch the window being exploited as
+    a "topple during the free window" shortcut."""
+    r = walkcurr_sv_tilt_settle_returns
+    floor = min(r[k] for k in ("gait", "park", "stall", "belly_sit",
+                                "reverse", "sideways"))
+    assert r["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor under tilt-settle: {r}")

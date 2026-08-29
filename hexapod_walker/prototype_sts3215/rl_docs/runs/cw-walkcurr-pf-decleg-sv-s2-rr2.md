@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-29T16:15:51+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 20000000
 
 **parent**: cw-walkcurr-pf-decleg-sv-s2-rr1
+
+**wandb_id**: ptm6a234
 
 **hypothesis**: Plain English: mechanical retry, not a new science question -- the base + rr1 attempts of this arm (decentralized per-leg PPO, seed 2, simple-velocity discovery diet, 20M) never logged a single training step: both crashed at env reset with ValueError 'latency 106 ms too large for 12 pending-command slots at dt=0.01' (mjx_backend.py set_tick_params) -- a launch-time infra bug (PENDING_SLOTS=12 ring buffer sized for the 25Hz-era control tick, never re-derived for the 08-24 mesh/100Hz default), not a training or reward failure. Root-caused and fixed this cycle (PENDING_SLOTS 12->40, restores the >=2x latency margin at 100Hz; regression test added; smoke-tested on hexapod-mjx-train-2 past the exact crash point before this relaunch; snapshot 59227996). Same config as cw-walkcurr-pf-decleg-sv-s2 otherwise -- see that run's hypothesis for the actual science question (decentralized-vs-centralized discovery escape).
 

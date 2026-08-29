@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-29T16:18:03+00:00
 
 **pod**: hexapod-mjx-train-4
 
 **steps**: 20000000
+
+**wandb_id**: 7ie0s7th
 
 **hypothesis**: Plain English: can six INDEPENDENT per-leg actor modules discover walking from scratch where every centralized policy froze? Operator-registered literature (Schilling IROS 2020) shows decentralized per-leg PPO escapes exactly the local-minimum freeze our 15 refuted centralized classes hit, using a plain-velocity discovery reward and a bigger budget. This arm: NEW --decleg actor (6 x 64,64 tanh towers over leg-local q/qd/prev-action + shared tilt/gyro/command, block-diagonal head -- cross-leg coupling impossible on the action path; centralized 128/64/32 critic) + simple-velocity diet (WALKCURR_SV bank: stride-EMA freeprog income at rscale50 scale + term_penalty 24, every other reward term zeroed) + actbias plant fix, from scratch on mesh/100Hz defaults, n-steps 96 preserves the ~1s rollout window, 20M steps, seed 1 of 3 (paper warns of high seed variance). RELAUNCH of cw-walkcurr-pf-decleg-sv-s1 after the PENDING_SLOTS=12->40 root fix (mjx_backend.py, commit 59227996): the original crashed in set_tick_params before any training (0 steps) because bus.servo_params=loaded's ~106ms latency overflowed the 12-slot ring buffer at control.hz=100; fix verified via a 2000-step no-wandb smoke on this exact cfg (smoke-pendingslots-verify, train-4, completed cleanly). Prediction-if-true: walk_freeprog_score escapes the static-basin band and real stepping appears on periodic video before 20M. Prediction-if-false: identical pinned-band static stand/crouch with flat-or-falling reward across all 3 seeds AND the centralized control -- escalating to the operator-named SAC/terrain-diversity fallbacks. Strongest alternative: diet+budget alone suffice and the centralized control walks too (decentralization not the lever).
 

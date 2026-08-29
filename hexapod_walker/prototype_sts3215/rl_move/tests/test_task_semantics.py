@@ -8386,3 +8386,69 @@ def test_walkcurr_sv_more_travel_earns_more(walkcurr_sv_returns):
     assert (walkcurr_sv_returns["fast"] >= walkcurr_sv_returns["gait"]
             > walkcurr_sv_returns["creep"]), (
         f"travel income is not monotone: {walkcurr_sv_returns}")
+
+
+# --- WALKCURR_PHASE_SV bank (operator directive 2026-08-29: the
+# cw-walkcurr-phase-sv line supersedes the track's no-gait-clock rule;
+# runs stay BC/imitation/motion-prior-free but observe a 2-dim tripod
+# clock, optionally paid by reward.k_phase_contact. Reward-mechanism
+# change => this bank must be green before any phase-sv launch.) ---
+
+WALKCURR_PHASE_SV_OVERRIDES = dict(WALKCURR_SV_OVERRIDES)
+WALKCURR_PHASE_SV_OVERRIDES.update({
+    ("goal", "walk_phase_obs"): 1.0,
+    ("goal", "walk_phase_hz"): 1.333333,
+    ("reward", "k_phase_contact"): 0.03,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_phase_sv_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the simple-velocity diet
+    PLUS the tripod phase clock + k_phase_contact=0.03 agreement term
+    (the Arm-B training reward of the phase-sv wave)."""
+    plan = {
+        "gait": ("gait", 1.0),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_PHASE_SV_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+    return out
+
+
+def test_walkcurr_phase_sv_travel_beats_every_stationary_form(
+        walkcurr_phase_sv_returns):
+    """The phase-agreement term must not let any stationary form
+    (park, march-in-place, belly-sit) out-earn real travel: parked or
+    dragged legs average ~50% agreement = ~zero net phase reward, so
+    the SV margins must survive the added term."""
+    gait = walkcurr_phase_sv_returns["gait"]
+    for still in ("park", "stall", "belly_sit"):
+        assert gait > walkcurr_phase_sv_returns[still] + 3.0, (
+            f"stationary '{still}' competitive with walking under the "
+            f"phase-sv diet: {walkcurr_phase_sv_returns}")
+    assert walkcurr_phase_sv_returns["gait_dx"] > 0.15, (
+        "reference gait did not travel; phase-sv bank is broken")
+
+
+def test_walkcurr_phase_sv_wrongway_and_falls_still_lose(
+        walkcurr_phase_sv_returns):
+    """Ranking tail of the WALKCURR semantics under the phase term:
+    commanded travel > wrong-direction travel, and toppling never
+    pays (clock-synced stepping must not subsidize a fall)."""
+    r = walkcurr_phase_sv_returns
+    for wrong in ("reverse", "sideways"):
+        assert r["gait"] > r[wrong] + 3.0, (
+            f"wrong-way '{wrong}' competitive under phase-sv: {r}")
+    assert r["topple"] < r["park"], f"falling out-earns parking: {r}"
+    assert r["topple"] < r["gait"] - 10.0, f"falling near walking: {r}"

@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-29T16:18:02+00:00
+**created**: 2026-08-29T16:22:23+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-4
 
 **steps**: 20000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run discovery litmus: env/walk_freeprog_score must escape the [-0.10,-0.05] static-basin band and trend toward/past 0; escape with rising reward but gate unmet at 20M = continue per 08-21; pinned band + flat/falling reward at 20M = aligned FAIL. Eval-side PASS still enforces the full WALKCURR_PF ranking behaviors (slip is priced at eval regardless of the simple training diet).
 
-**refused_reason**: hexapod-mjx-train-2 already runs cw-walkcurr-pf-decleg-sv-s2-rr2 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-4 already runs cw-walkcurr-pf-decleg-sv-s1-rr2 — GPU pods host exactly one run; pick a free GPU pod.
 

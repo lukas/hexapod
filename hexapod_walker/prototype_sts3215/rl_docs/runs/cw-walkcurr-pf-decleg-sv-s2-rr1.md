@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: LAUNCH_CRASH
 
 **created**: 2026-08-29T15:38:07+00:00
 
@@ -14,5 +14,5 @@
 
 **gate**: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run discovery litmus: env/walk_freeprog_score must escape the [-0.10,-0.05] static-basin band and trend toward/past 0; escape with rising reward but gate unmet at 20M = continue per 08-21; pinned band + flat/falling reward at 20M = aligned FAIL. Eval-side PASS still enforces the full WALKCURR_PF ranking behaviors (slip is priced at eval regardless of the simple training diet).
 
-**verdict**: LAUNCH_CRASH (stale ledger entry, never verified running): same PENDING_SLOTS=12@100Hz defect as its siblings (see decleg-sv-s0's verdict). Its pod (train-1) has since been reassigned to cw-walk-allheading-mlp-acq1 (a different track's live run) -- this entry is dead, not a running arm. Relaunching seed 2 fresh on a synced pod now that PENDING_SLOTS=40 is committed (59227996).
+**verdict**: 0-step launch crash, not a science verdict. Died at env reset before a single training step: ValueError 'latency 106 ms too large for 12 pending-command slots at dt=0.01' (mjx_backend.py set_tick_params) -- bus.servo_params=loaded's ~106ms fitted latency exceeds the PENDING_SLOTS=12 ring buffer's window at the 08-24 mesh/100Hz control default (ring was sized for the retired 25Hz control tick). Same crash hit the base run (cw-walkcurr-pf-decleg-sv-s2), decleg-sv-s0/-s0-rr1, and central-sv-s0/-central-sv-s0-rr1 -- systemic, not arm-specific. Root-caused and fixed this cycle: PENDING_SLOTS 12->40 (mjx_backend.py), regression test added (test_mjx_backend_pending_slots.py), smoke-tested on hexapod-mjx-train-2 past the exact crash line before trusting it, snapshot 59227996. Relaunched with the fix as cw-walkcurr-pf-decleg-sv-s2-rr2 (VERIFIED RUNNING on hexapod-mjx-train-2).
 

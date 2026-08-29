@@ -156,6 +156,35 @@ top two are built, bank-proven, and launched this cycle.
   legacy-diet launches (none planned); recalibrate if the v2e diet is
   ever relaunched.
 
+- **PENDING_SLOTS launch-crash, root-caused + fixed (08-29 ~16:2x):**
+  every arm of the wave (`decleg-sv-s0/-s1/-s2`, `central-sv-s0`) died
+  at env reset on its first attempt AND its first retry (0 training
+  steps, `ValueError: latency 106 ms too large for 12 pending-command
+  slots at dt=0.01`, `mjx_backend.py:set_tick_params`) — a launch-time
+  infra bug, not a science result. `PENDING_SLOTS=12` (the ring buffer
+  that holds a command until its latency matures) was sized for the
+  retired 25 Hz control tick (12*40ms=480ms, 2x margin over the loaded
+  servo fit's ~190ms DR ceiling); the 08-24 mesh/100Hz default flip
+  shrank the same buffer's real time window 4x (12*10ms=120ms) with no
+  corresponding bump, so any `bus.servo_params=loaded` @ `control.hz=100`
+  launch — this wave's exact recipe — was dead on arrival. This is the
+  SAME defect that silently ate a footlow2 wave's first attempt on
+  08-25 (worked around per-recipe there, never fixed at the root, so
+  it recurred here). Fixed this cycle: `PENDING_SLOTS` 12->40 restores
+  >=2x margin at 100Hz while keeping legacy-rate margin unchanged;
+  regression test `test_mjx_backend_pending_slots.py` pins it (asserts
+  the real loaded-fit latency clears the guard at 100Hz AND that a
+  genuinely-too-large latency still refuses); smoke-tested on
+  hexapod-mjx-train-2 past the exact crash line (2000-step `--decleg`
+  run, loaded servo params, control.hz=100 — clean) before trusting it;
+  snapshot `59227996`. All four arms relaunched with the fix and
+  VERIFIED RUNNING: `decleg-sv-s0-rr3` (train-5), `decleg-sv-s1-rr2`
+  (train-4), `decleg-sv-s2-rr2` (train-2), `central-sv-s0-rr2`
+  (train-3) — same hypothesis/gate/config as the original wave, just
+  past the launch-crash floor. The base/-rr1 attempts are recorded
+  `LAUNCH_CRASH` (not `FAIL`) in the ledger — no science verdict is
+  owed on 0 logged steps.
+
 ## Next (after the decleg-sv wave reads)
 
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget

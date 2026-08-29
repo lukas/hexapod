@@ -224,6 +224,32 @@ top two are built, bank-proven, and launched this cycle.
   can be made honestly (one seed failing doesn't refute decentralization
   as a class if a sibling seed escapes).
 
+- **Phase-sv wave, first arm read (08-29 ~17:1x): `cw-walkcurr-
+  phase-sv-contact-s0` -> FAIL (aligned).** Full 20M budget, same
+  parity as the decleg-sv wave. The Siekmann-style small
+  tripod-contact-agreement bonus (`k_phase_contact=0.03` on top of
+  `walk_phase_obs`) does NOT unlock walking either: `env/
+  phase_agreement` sat at 0.50-0.52 (chance-level tripod alternation)
+  for the ENTIRE run, never trending toward the >0.8 exploit band or
+  toward genuine alternation, so `reward_phase_contact` nets ~0
+  (0.0002-0.001/step) — the bonus never got a foothold because legs
+  aren't alternating in the first place. `rollout/ep_rew_mean`
+  quarters [194.6, 183.0, 169.4, 167.7] peaked early then went FLAT/
+  DOWN, while `terminations/over_current` climbed from 0 to 300-700/
+  window over training — same worse-not-better trajectory as
+  `decleg-sv-s0-rr3`, not an 08-21 continue case. DR-0 gate: walk/det
+  6/6 TERM over_current, prog_ratio med 0.13 (gate >=0.5), slip/m med
+  5.55 (cap 3.0), gait_valid 0/6 (gate >=4/6); contact-sheet/video
+  identical frozen splayed-crouch to every other refuted arm. Sibling
+  `cw-walkcurr-phase-sv-obsonly-s0` (phase obs only, no contact bonus)
+  has also finished on W&B (state=finished, ep_rew_mean quarters
+  [194.5,186.2,177.8,172.2] — same peak-then-decline shape) but has
+  no eval report yet as of this entry; do not assume its result,
+  read it fresh. **Track-level phase-sv call still pending** both
+  `-obsonly-s0`'s own read and the decleg-sv/central-sv-s0-rr2 trio
+  (concurrent cycle) — same "not yet a track-level call" caveat as
+  the decleg-sv note above applies to the combined 2-wave picture.
+
 ## Next (after the decleg-sv wave reads)
 
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget

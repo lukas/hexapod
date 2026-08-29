@@ -1329,6 +1329,29 @@ def main(argv: list[str] | None = None) -> int:
                          "--gamma.")
     ap.add_argument("--n-epochs", type=int, default=5)
     ap.add_argument("--lr", type=float, default=3e-4)
+    # Off-policy SAC path (2026-08-29, walkcurr fallback ladder (a):
+    # Haarnoja 2018 Minitaur / Smith 2022). Default 'ppo' is bit-exact
+    # prior behavior; 'sac' is plain-MLP, from-scratch only (refuses
+    # gru/transformer/asym/decleg/transplant/curriculum combos).
+    # --batch-size / --lr / --gamma / --net-arch / --activation-fn are
+    # shared; --n-steps / --n-epochs / --ent-coef / --log-std-init are
+    # PPO-only and ignored under sac.
+    ap.add_argument("--algo", choices=("ppo", "sac"), default="ppo",
+                    help="RL algorithm (default ppo = legacy exact)")
+    ap.add_argument("--sac-buffer-size", type=int, default=2_000_000,
+                    help="replay buffer size in transitions")
+    ap.add_argument("--sac-train-freq", type=int, default=1,
+                    help="vec-env steps between update phases (each "
+                         "step = n-envs transitions)")
+    ap.add_argument("--sac-gradient-steps", type=int, default=32,
+                    help="gradient updates per update phase")
+    ap.add_argument("--sac-learning-starts", type=int, default=25_600,
+                    help="transitions collected before updates begin")
+    ap.add_argument("--sac-tau", type=float, default=0.005,
+                    help="target network soft-update coefficient")
+    ap.add_argument("--sac-ent-coef", default="auto",
+                    help="SAC entropy coefficient ('auto' = learned "
+                         "temperature, or a float)")
     # Update-path protection (08-17, operator-approved
     # fb_20260817T005114 after the scratch3 late-run collapse; all
     # default OFF = legacy single-group optimizer, bit-exact).
@@ -2988,13 +3011,76 @@ def main(argv: list[str] | None = None) -> int:
                              "checkpoint's own activation")
         extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
         print(f"[mjx-train] MLP activation: {args.activation_fn}")
+    if args.algo == "sac":
+        # Plain-MLP from-scratch only: every mechanism below is built
+        # around SB3 PPO internals (rollout buffer, clip/KL, custom
+        # on-policy policy classes) and has no SAC counterpart here.
+        _sac_bad = [
+            ("--init-from", args.init_from is not None),
+            ("--gru/--gru-dual/--gru-experts",
+             args.gru or args.gru_dual or args.gru_experts),
+            ("--transformer", args.transformer),
+            ("--asym-critic", args.asym_critic),
+            ("--critic-encoder", args.critic_encoder is not None),
+            ("--decleg", args.decleg),
+            ("--use-sde", args.use_sde),
+            ("--predictive-live", args.predictive_live),
+            ("--walk-curriculum", bool(args.walk_curriculum)),
+            ("--recover-population-id", bool(args.recover_population_id)),
+            ("--obs-pad-transplant", bool(args.obs_pad_transplant)),
+            ("--hist-stride-transplant", bool(args.hist_stride_transplant)),
+            ("--ent-coef-final", args.ent_coef_final is not None),
+            ("--log-std-final", args.log_std_final is not None),
+            ("--actor-lr (PPO single-optimizer update-path tools)",
+             args.actor_lr > 0.0),
+            ("--amp-style-weight", args.amp_style_weight > 0.0),
+            ("--rnd-coef", args.rnd_coef > 0.0),
+            ("mirror loss (train.mirror_loss_coef)", mirror_coef > 0.0),
+            ("BC anchor (train.bc_anchor_coef)", bc_coef > 0.0),
+        ]
+        _bad = [n for n, v in _sac_bad if v]
+        if _bad:
+            raise SystemExit("--algo sac is plain-MLP from-scratch "
+                             "only; drop " + ", ".join(_bad))
     _validate_use_sde_scratch_only(args.use_sde, args.init_from,
                                     args.init_from_actor_only,
                                     args.init_from_policy_backbone)
     if args.use_sde:
         print(f"[mjx-train] gSDE exploration ON "
               f"(sde_sample_freq={args.sde_sample_freq})")
-    if args.init_from is not None and (
+    if args.algo == "sac":
+        # Off-policy max-entropy probe (walkcurr fallback ladder (a),
+        # 2026-08-29): stock SB3 SAC over the same MjxVecEnv. The
+        # replay buffer stores buffer_size transitions total across
+        # n_envs slots; train_freq is counted in vec-env steps.
+        from stable_baselines3 import SAC
+        _sac_ent = args.sac_ent_coef
+        try:
+            _sac_ent = float(_sac_ent)
+        except (TypeError, ValueError):
+            pass  # 'auto' / 'auto_0.1' pass through as strings
+        model = SAC(
+            "MlpPolicy", venv,
+            buffer_size=args.sac_buffer_size,
+            batch_size=args.batch_size,
+            learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            tau=args.sac_tau,
+            train_freq=(args.sac_train_freq, "step"),
+            gradient_steps=args.sac_gradient_steps,
+            learning_starts=args.sac_learning_starts,
+            ent_coef=_sac_ent,
+            policy_kwargs=dict(net_arch=net_arch, **extra_pk),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir)
+        print(f"[mjx-train] SAC (off-policy max-ent): buffer "
+              f"{args.sac_buffer_size:,}, train_freq "
+              f"{args.sac_train_freq} vec-step(s) x {venv.num_envs} "
+              f"envs, grad_steps {args.sac_gradient_steps}, "
+              f"learning_starts {args.sac_learning_starts:,}, "
+              f"ent_coef {args.sac_ent_coef}, tau {args.sac_tau}, "
+              f"batch {args.batch_size}")
+    elif args.init_from is not None and (
             args.init_from_actor_only or args.init_from_policy_backbone):
         # Condition-D actor-only transfer (operator addendum
         # fb_20260818T085834_588d9a, walkcurr4 tournament arms B/C):

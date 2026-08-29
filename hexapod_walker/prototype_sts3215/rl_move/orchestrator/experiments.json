@@ -220610,7 +220610,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s2-rr1: Plain English: mechanical retry, not a new science question -- the base + rr1 attempts of this arm (decentralized per-leg PPO, seed 2, simple-velocity discovery diet, 20M) never logged a single training step: both crashed at env reset with ValueError 'latency 106 ms too large for 12 pending-command slots at dt=0.01' (mjx_backend.py set_tick_params) -- a launch-time infra bug (PENDING_SLOTS=12 ring buffer sized for the 25Hz-era control tick, never re-derived for the 08-24 mesh/100Hz default), not a training or reward failure. Root-caused and fixed this cycle (PENDING_SLOTS 12->40, restores the >=2x latency margin at 100Hz; regression test added; smoke-tested on hexapod-mjx-train-2 past the exact crash point before this relaunch; snapshot 59227996). Same config as cw-walkcurr-pf-decleg-sv-s2 otherwise -- see that run's hypothesis for the actual science question (decentralized-vs-centralized discovery escape)."
     ],
     "created": "2026-08-29T16:15:51+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -220656,7 +220656,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-central-sv-s0-rr2-cw-walkcurr-pf-decleg-sv-s1 since 2026-08-29T16:51:28"
+    "triage": "done",
+    "verdict": "Decentralized per-leg PPO seed 2 - the wave's best-looking litmus trace - is still not walking, and the deep read shows its late freeprog zero-crossing is the episode-shortening artifact, not discovery, so this is a FAIL and not an 08-21 continue. Evidence FOR the continue case, honestly stated: freeprog reached +0.006 at 19.3M (only run of the wave to cross 0) and walk/sto + startjitter/sto gait_valid hit 5/6. Why it fails anyway: (1) the crossing is a wobble, not a trend - final window -0.006, and freeprog correlates +0.68 with the over_current termination surge while walk_speed stays flat at 0.02 m/s all 20M (corr -0.19); (2) the DETERMINISTIC policy - what the litmus is supposed to predict - moves BACKWARD (det prog med -0.05, fwd 0.01m, legs [1,4] sacrificed 6/6, gait_valid 0/6, 24/24 over_current across modes; det strip shows zero translation and one leg-pair held unloaded); the sto 'gait_valid' episodes are exploration noise jiggling planted legs past the detector while the robot still goes nowhere (fwd 0.01-0.04m); (3) reward is NOT rising - fell 201->168 by 9M then pinned exactly at the wave-wide 167.6 attractor while ep_len collapsed 1644->434 - the 08-21 continue clause requires rising reward and this is the opposite. Root cause identical to siblings (see central-sv verdict): stride-EMA freeprog income pays stationary quiver ~+0.42/tick (final env/reward_walk=0.416 with zero locomotion), term_penalty negligible per-tick, mesh 3.5kg + loaded servos put the sacrifice stance on a current limit. Completes the wave: 4/4 aligned FAIL (decleg s0/s1/s2 + central), decentralization refuted as the lever; pre-registered fallback fires - next is the operator-named ladder (a) off-policy SAC probe (trainer-side build), then (b) Heess-style terrain diversity. Any successor gate text must require walk_speed + stable ep_len corroboration alongside freeprog."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s0-rr2",
@@ -220885,7 +220886,7 @@
       "Plain English: can six INDEPENDENT per-leg actor modules discover walking from scratch where every centralized policy froze? Operator-registered literature (Schilling IROS 2020) shows decentralized per-leg PPO escapes exactly the local-minimum freeze our 15 refuted centralized classes hit, using a plain-velocity discovery reward and a bigger budget. This arm: NEW --decleg actor (6 x 64,64 tanh towers over leg-local q/qd/prev-action + shared tilt/gyro/command, block-diagonal head -- cross-leg coupling impossible on the action path; centralized 128/64/32 critic) + simple-velocity diet (WALKCURR_SV bank: stride-EMA freeprog income at rscale50 scale + term_penalty 24, every other reward term zeroed) + actbias plant fix, from scratch on mesh/100Hz defaults, n-steps 96 preserves the ~1s rollout window, 20M steps, seed 1 of 3 (paper warns of high seed variance). RELAUNCH of cw-walkcurr-pf-decleg-sv-s1 after the PENDING_SLOTS=12->40 root fix (mjx_backend.py, commit 59227996): the original crashed in set_tick_params before any training (0 steps) because bus.servo_params=loaded's ~106ms latency overflowed the 12-slot ring buffer at control.hz=100; fix verified via a 2000-step no-wandb smoke on this exact cfg (smoke-pendingslots-verify, train-4, completed cleanly). Prediction-if-true: walk_freeprog_score escapes the static-basin band and real stepping appears on periodic video before 20M. Prediction-if-false: identical pinned-band static stand/crouch with flat-or-falling reward across all 3 seeds AND the centralized control -- escalating to the operator-named SAC/terrain-diversity fallbacks. Strongest alternative: diet+budget alone suffice and the centralized control walks too (decentralization not the lever). Gate: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run discovery litmus: env/walk_freeprog_score must escape the [-0.10,-0.05] static-basin band and trend toward/past 0; escape with rising reward but gate unmet at 20M = continue per 08-21; pinned band + flat/falling reward at 20M = aligned FAIL. Eval-side PASS still enforces the full WALKCURR_PF ranking behaviors (slip is priced at eval regardless of the simple training diet)."
     ],
     "created": "2026-08-29T16:18:03+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -220934,7 +220935,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-central-sv-s0-rr2-cw-walkcurr-pf-decleg-sv-s1 since 2026-08-29T16:51:27"
+    "triage": "done",
+    "verdict": "Decentralized per-leg PPO seed 1 did not learn to walk: same static leg-sacrifice stance and 24/24 servo over-current eval terminations as the centralized control and both decleg siblings. Evidence: DR-0 det gate 0/6 (prog med -0.03 - slightly BACKWARD, fwd 0.02m/ep, slip med 4.65, legs [1,4] sacrificed in all 6 det episodes); det strip = zero translation across 10 frames. Training: reward fell 201->167 then pinned while ep_len collapsed 1274->399 and over_current terms surged to ~1000/window; walk_speed flat ~0.016-0.02 m/s. Freeprog escape (-0.035->-0.003) is the same artifact as the siblings: corr +0.60 with the over_current surge, corr -0.81 with walk_speed - the litmus improves as the robot gets SLOWER and dies MORE. Root cause identical to the central control (see its verdict): stride-EMA freeprog income pays stationary quiver ~+0.4/tick, term_penalty negligible, mesh 3.5kg plant puts the sacrifice stance on a current limit. Genuine aligned FAIL per 08-21 at the full 20M acquisition budget. Contributes seed 1 of 3 to the wave answer: decentralization does not escape the basin (Schilling mechanism refuted here); fallback ladder (SAC probe, then terrain diversity) fires at track level."
   },
   {
     "run": "cw-walkcurr-pf-central-sv-s0-rr2",
@@ -221038,7 +221040,7 @@
       "respec of cw-walkcurr-pf-central-sv-s0-rr1: Plain English: mechanical retry, not a new science question -- the base + rr1 attempts of this arm (the CENTRALIZED architecture control for the decleg-sv wave, simple-velocity discovery diet, 20M) never logged a single training step: both crashed at env reset with ValueError 'latency ... too large for 12 pending-command slots at dt=0.01' (mjx_backend.py set_tick_params) -- a launch-time infra bug (PENDING_SLOTS=12 ring buffer sized for the 25Hz-era control tick, never re-derived for the 08-24 mesh/100Hz default), not a training or reward failure. Root-caused and fixed this cycle (PENDING_SLOTS 12->40, restores the >=2x latency margin at 100Hz; regression test added; smoke-tested on hexapod-mjx-train-2 past the exact crash point before this relaunch; snapshot 59227996). Same config as cw-walkcurr-pf-central-sv-s0 otherwise -- see that run's hypothesis for the actual science question (does diet+budget alone unlock discovery for the centralized architecture)."
     ],
     "created": "2026-08-29T16:20:13+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -221089,7 +221091,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-central-sv-s0-rr2-cw-walkcurr-pf-decleg-sv-s1 since 2026-08-29T16:51:27"
+    "triage": "done",
+    "verdict": "The centralized-MLP control arm of the 20M simple-velocity wave did not learn to walk: it converges to a static leg-sacrifice stance and dies by a real servo over-current trip every eval episode. Evidence: DR-0 det gate 0/6 (fwd 0.01m/ep at 0.05-0.06 m/s cmd, slip med 5.72 vs cap 3.0, legs [0,4] sacrificed in all 6 det episodes, 24/24 over_current terminations across walk+startjitter det+sto); det frame strip shows zero translation across all 10 frames. Training: reward FELL 200->167 then pinned exactly there while ep_len collapsed 931->397 and terminations/over_current surged 3->~1000/window; walk_speed flat 0.017-0.02 m/s all run. The freeprog litmus escape (-0.025->-0.010) is an ARTIFACT, not discovery: across report windows it correlates POSITIVELY with the over_current surge (r=+0.37) and NEGATIVELY with walk_speed (r=-0.78). Root cause chain: the stride-EMA freeprog income pays ~+0.4/tick to a stationary micro-quiverer (the WALKCURR_SV bank's own tally gave park 202 vs gait 220 - a 9% margin), term_penalty 24 is negligible per-tick so the discounted objective is nearly indifferent to the over_current death, and the 3.5kg mesh plant + loaded servo fit puts the leg-sacrifice stance on a servo current limit - the same mesh-family over_current/leg-sacrifice basin the joystick track closed after refuting current-pricing at 1x/2x/5x across MLP/hist64/transformer. Genuine aligned FAIL per 08-21 (reward falling then flat, task metrics flat/degrading, full 20M acquisition budget) - not a continue case. Wave 2x2 answer: central(1 seed) == decleg(3 seeds), all 4 FAIL with the same signature -> Schilling-style decentralization is refuted as the lever at this diet/budget; the pre-registered ALL-FOUR-pinned fallback fires: operator-named ladder (a) off-policy SAC probe, then (b) Heess terrain diversity. Also recorded: freeprog-escape alone is no longer a valid discovery litmus - future gate text must corroborate with walk_speed and stable ep_len."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s0-rr2",
@@ -222331,7 +222334,7 @@
       "reward.k_phase_contact=0.03"
     ],
     "created": "2026-08-29T16:39:01+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -222377,7 +222380,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-29T17:01:45"
+    "triage": "done",
+    "verdict": "Phase-contact income (k_phase_contact=0.03, phase_obs at 1.333Hz) did NOT unlock walking -- FAIL (aligned), matches the sibling decleg-sv-s0-rr3 static/over_current signature almost exactly. Evidence: full 20M budget; env/phase_agreement sat at 0.50-0.52 (chance-level tripod agreement) the ENTIRE run, never trending toward the >0.8 exploit band OR toward genuine alternation -- the contact term is netting ~0 (reward_phase_contact ~0.0002-0.001/step) because legs aren't alternating, so it never got a chance to shape gait. ep_rew_mean quarters [194.6,183.0,169.4,167.7] peaked early then went FLAT/DOWN for the back half (not rising) while terminations/over_current climbed from 0 to 300-700/window over training -- behavior got worse, not better, on the metric that matters, so this is not a 08-21 continue case. DR-0 gate: walk/det 6/6 TERM over_current, prog_ratio med 0.13 (gate needs >=0.5), slip/m med 5.55 (cap 3.0), gait_valid 0/6 (needs >=4/6), 1-3 legs sacrificed per episode. walk/sto slightly less bad (gait_valid 5/6, prog med 0.05) but still 6/6 over_current terms and prog far below gate. Contact-sheet/det video: frozen splayed crouch, no visible translation, identical to the 15+ previously-refuted static-basin arms. Why: a small phase-agreement bonus alone doesn't force legs off the ground when the underlying freeprog/velocity income still can't escape the static basin at this budget -- same root blocker as the centralized/decleg waves, phase obs+small bonus is not sufficient by itself. Next: sibling -obsonly-s0 (phase obs, no contact bonus) and the concurrent-cycle decleg-sv/central-sv-s0-rr2 reads complete the phase-sv wave 2x2; if all arms stay pinned, escalate to the operator-named fallback ladder (SAC probe or Heess-style terrain diversity) per walkcurr STATUS Next list rather than another phase-dose variant."
   },
   {
     "run": "cw-walk-allheading-mlp-acq1-rr1",

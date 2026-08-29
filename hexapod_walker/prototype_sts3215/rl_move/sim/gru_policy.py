@@ -748,6 +748,24 @@ def is_recurrent_checkpoint(path: str | Path) -> bool:
         return False
 
 
+def is_sac_checkpoint(path: str | Path) -> bool:
+    """True if the SB3 zip at ``path`` holds an off-policy SAC policy.
+
+    Added 2026-08-29 for the walkcurr fallback-ladder SAC probe
+    (train_ppo_mjx --algo sac): every eval/viewer path routes through
+    ``load_checkpoint_auto``, so SAC checkpoints eval with the same
+    harness/video machinery as PPO ones.
+    """
+    from stable_baselines3.common.save_util import load_from_zip_file
+    data, _, _ = load_from_zip_file(path, device="cpu", load_data=True)
+    policy_class = data.get("policy_class")
+    try:
+        from stable_baselines3.sac.policies import SACPolicy
+        return bool(policy_class) and issubclass(policy_class, SACPolicy)
+    except TypeError:
+        return False
+
+
 def repair_legacy_actor_critic_optimizer(path: str | Path,
                                          out_path: str | Path | None = None
                                          ) -> bool:
@@ -859,7 +877,10 @@ def load_checkpoint_auto(path: str | Path, device: str = "cpu", env=None):
     """
     cls = None
     kwargs = dict(env=env, device=device)
-    if is_recurrent_checkpoint(path):
+    if is_sac_checkpoint(path):
+        from stable_baselines3 import SAC
+        cls = SAC
+    elif is_recurrent_checkpoint(path):
         from sb3_contrib import RecurrentPPO
         cls = RecurrentPPO
     else:

@@ -1,6 +1,66 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~21:5x (**BOTH std-anneal repairs PASS outright —
+Update, 2026-08-29 ~22:2x (**Both stdanneal checkpoints' held-out
+60s joygate read: FAIL on direction (as anticipated), zero falls
+(better than anticipated) — wz/arc bank case added (closes
+q_20260829T16xx's stage gate) and a stress_mix continuation pair
+LAUNCHED.**) Plain English: the joygate riders the prior update left
+running (`eval_joystick_gate`, stress_mix, n=24, DR-0) had actually
+finished on-pod but not synced; pulled directly via `kubectl cp`.
+Both checkpoints: **zero falls (0/24 each)**, gait_valid 1.0, no
+sacrificed legs — but `direction_err_med` fails the 40 deg allowance
+(mlp 51.9 deg, tf 45.5 deg) and mlp's slip/m also just misses (2.992
+vs cap 2.9; tf passes slip at 2.799). Root cause: training used
+ONLY discrete 8-heading resamples (`goal.walk_cmd_mode` default
+"legacy", `walk_heading_set` + `walk_cmd_resample_s=6.0`) — the
+eval's own `stress_mix` command families (random_hold/flip_180/
+sweep_circle/square/stop_go/jitter) were never part of the training
+distribution. This is exactly the scope gap `OPERATOR_QUESTIONS
+q_20260829T16xx` flagged in advance ("arcs/sweeps enter at stage (c)
+only after a wz case is added to test_course_income_semantics").
+Artifacts synced to
+`logs/ckpt_eval/cw_walk_allheading_{mlp_acq1_rr1,tf_acq1}_stdanneal_joygate/`.
+
+**Built the wz/arc bank case this cycle** (`rl_move/tests/
+test_course_income_semantics.py`, +3 tests, 12/12 green,
+`exp/walkcurr-tilt2-fail-standwalk-wz-arc-bank`): measured the
+windowed course-income mechanism against a teacher faithfully
+tracking a continuously-rotating world-frame command
+(`goal.walk_cmd_mode=sweep_circle`; found + documented a real gotcha
+— the whole cmd_mode dispatch is dead unless `walk_cmd_resample_s>0`,
+so a naive sweep_circle cfg silently never turns). Result: a
+moderate turn (period 6 s, ~7.6 cm radius at the 0.08 m/s command)
+rides at 0.946x straight-line income with only a small excess-sway
+charge (-9.5 vs a clean teacher's ~0) — no reward-formula change
+needed to admit arcs. A physically-extreme tight turn (period 3 s,
+~3.8 cm radius) is gracefully discounted (0.638x the moderate arc's
+income), not exploited or double-charged. **Conclusion: stage (c) is
+SAFE to fund on the existing reward stack** — the gap is training
+DISTRIBUTION (never saw these command families), not reward
+mechanism.
+
+**Launched the fix as a stress_mix continuation pair** (respec
+`--init-from-source`, +15M steps each, single lever
+`--cfg goal.walk_cmd_mode=stress_mix` added, `--log-std-final -3.0
+--log-std-anneal-frac 1.0` carried over from the source to avoid
+re-triggering the std runaway): `cw-walk-allheading-mlp-stressmix-ft1`
+(VERIFIED RUNNING hexapod-mjx-train-3) and
+`cw-walk-allheading-tf-stressmix-ft1` (VERIFIED RUNNING
+hexapod-mjx-train-0). Gate (both arms): fresh `eval_joystick_gate`
+must show `direction_err_med` improving materially toward/under 40
+deg with slip staying near/under 2.9-3.0 and zero-or-near-zero falls
+preserved; DR-0 fixed-forward gate and `eval_cmd_suite` must not
+regress off the current baseline (prog_ratio med 0.41, gait_valid
+6/6, zero terminations). FAIL (dir_err unchanged/worse, or slip/falls
+regress with flat reward) forks to a `walk_cmd_stage` curriculum ramp
+(the codebase already has this — stage 0 flip_180/stop_go only,
+stage 1 adds random_hold/sweep_circle/square, stage 2 adds jitter)
+instead of a flat full-family fine-tune, or a from-scratch stress_mix
+run if the fine-tune-off-a-heading-only-optimum approach itself is
+the problem. **Next cycle: read these two joygates before anything
+else on this line.**
+
+Previous entry (2026-08-29 ~21:5x (**BOTH std-anneal repairs PASS outright —
 the all-heading walker is now a genuinely clean mesh/100 Hz walk
 source, and it clears the track's own long-named "cheap first gate"
 too**): `cw-walk-allheading-mlp-acq1-rr1-stdanneal` and

@@ -301,6 +301,33 @@ follow-ups.
   treats this track as **DONE** and concentrates registered-goal
   effort on `amp`/`cpg`.
 
+- **MJX PENDING-COMMAND RING BUFFER SIZED FOR 100Hz (08-29, fixed at
+  the root after biting two tracks — binding, cross-track):**
+  `mjx_backend.py`'s `PENDING_SLOTS` (the ring buffer holding a
+  commanded write until its modeled servo latency matures) was a
+  module constant sized for the retired 25Hz control tick
+  (`PENDING_SLOTS=12`, 12*40ms=480ms, a 2x margin over the loaded-
+  servo fit's ~190ms DR-scaled worst case). The 08-24 mesh/100Hz
+  default flip shrank the same buffer's real time window 4x
+  (12*10ms=120ms) with no corresponding bump, so ANY launch combining
+  `--cfg-set bus.servo_params=loaded` with `control.hz=100` (or any
+  explicit 100Hz cfg) crashed at env reset before a single training
+  step (`ValueError: latency ... too large for N pending-command
+  slots`, `set_tick_params`) — a launch-time infra bug, not a science
+  result; any run ending this way is `LAUNCH_CRASH`, never `FAIL`.
+  Hit twice before the root fix: `cw-standwalk-stance-mesh1` (08-25,
+  worked around per-recipe at the time — dropped `servo_params=loaded`
+  instead of fixing the buffer) and the walkcurr decleg-sv/central-sv
+  wave (08-29, all 4 arms + retries dead on stale/pre-fix pods).
+  **Fixed 08-29 (commit `59227996`): `PENDING_SLOTS` 12->40**, restoring
+  >=2x margin at 100Hz while keeping every legacy-rate margin
+  unchanged (purely a capacity increase — bit-exact for any config
+  that already cleared the old check). Regression test
+  `rl_move/tests/test_mjx_backend_pending_slots.py` pins both the
+  100Hz-loaded-latency case and that a genuinely-too-large latency
+  still refuses. Any future 100Hz launch wanting realistic
+  `bus.servo_params=loaded` behavior no longer needs to drop it.
+
 ## Facts that feed the tracks
 
 - **STANDWALK CANONICAL STANCE RECIPE (operator 08-25,

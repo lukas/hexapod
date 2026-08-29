@@ -429,6 +429,42 @@ top two are built, bank-proven, and launched this cycle.
   `95993cc7` (tag `exp/sac-sv-tilt-bank`). Evidence:
   `logs/ckpt_eval/cw_walkcurr_sac_sv_s1_budget10m_gate/`.
 
+- **Dose grid read (08-29 ~22:2x-22:5x): both `tilt2-s1` (2.0) and
+  `tilt5-s1` (5.0) FAIL the gate, but tilt5 shows a REAL monotone
+  dose-response, not a flat/reversed one.** `tilt2-s1`: deterministic
+  identical instant topple, all 6 det seeds fwd=0.024m/roll_peak=10.0
+  deg/gait_valid False/TERM tilt_roll — indistinguishable from the
+  untreated budget10m baseline. `tilt5-s1`: walk/det fwd_dist spread
+  0.005-0.076m (median 0.055m, just under the 0.06m continue
+  ceiling), gait_valid True 5/6 (real stepping most episodes, not the
+  tilt2 sibling's identical-fall artifact), but fall rate stays
+  24/24 across every mode and a NEW over_current termination partly
+  displaces pure tilt falls (2/6 det, 4/6 sto). roll_peak itself did
+  NOT improve (~10 deg both doses) — the gain is in how long the
+  robot keeps stepping before falling, not in how upright it stays.
+  Per the pre-registered fork ("a monotone dose-response opens a
+  bigger-dose follow-up instead"): extended `WALKCURR_SV_TILT` to
+  dose=10.0 (codebase's own full default, 9/9 green, ranking intact)
+  and launched `cw-walkcurr-sac-sv-tilt10-s1` (same SV diet/seed1/SAC/
+  2M as both siblings, only k_roll=k_pitch=10.0). First launch attempt
+  LAUNCH_CRASH'd on `hexapod-mjx-train-1` (stale torch: an 08-15
+  durable-capability record claimed it CUDA-capable but the pod had
+  since been recreated/recycled back to the bootstrap CPU-only build,
+  `torch.cuda.is_available()=False` — `--require-gpu-physics`
+  correctly fail-closed at boot, 0 training steps, not a science
+  result). Root-caused + fixed: `pod_torch_capability.py install` re-
+  run on train-1 (re-verified CAPABLE) and proactively on train-8
+  (separately known-broken since 08-24 per its own stale record, also
+  fixed). Relaunched as `cw-walkcurr-sac-sv-tilt10-s1-r2` pinned to
+  pre-verified `hexapod-mjx-train-4`. Read next: fall rate/forward_dist
+  continuing past tilt5's 0.055m/24-24 -> tilt-pricing alone may still
+  close the gate at a high-enough dose; flat vs tilt5 -> dose axis
+  closes at 5.0-10.0, fork to reward-shape-during-settle-window or the
+  operator's off-policy-SAC-probe/terrain fallback ladder; reversed
+  (worse than tilt5, speed pinned near 0) -> over-tilt-priced, same
+  fork, and the over_current signature at dose 5.0 was the leading
+  edge of that regression rather than of the fix.
+
 ## Next (after the decleg-sv wave reads)
 
 0. **DONE (08-29 ~21:3x): `cw-walkcurr-sac-sv-s1-budget10m` read as

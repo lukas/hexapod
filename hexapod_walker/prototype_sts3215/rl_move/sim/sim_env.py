@@ -3149,12 +3149,35 @@ class SimHexapodBalanceEnv(_GymBase):
                 abs(goal.roll_ref - prev_g.roll_ref) < 1e-9
                 and abs(goal.pitch_ref - prev_g.pitch_ref) < 1e-9
                 and abs(goal.height_ref - prev_g.height_ref) < 1e-9)
+        # Anti-tilt settle window (08-29, cw-walkcurr-sac-sv-tilt10-s1-r2
+        # FAIL: raising k_roll/k_pitch past dose 5.0 REVERSED the
+        # response instead of continuing to improve it -- the charge
+        # taxes the exact post-spawn ticks where a stumble-recovery
+        # motion is needed most and least trained, so the policy folds
+        # instead of catching itself). Default OFF (grace_s=0) ->
+        # tilt_settle_scale=1.0 every tick, bit-exact with every
+        # pre-08-29 run. Episode-absolute clock (self._step_i resets to
+        # 0 in reset()/_seq_switch does NOT reset it) -- the window is
+        # anchored to spawn, not to mid-episode command resamples.
+        tilt_settle_scale = 1.0
+        grace_s = float(cfg_get(self.cfg, "reward", "tilt_settle_grace_s",
+                                default=0.0))
+        if grace_s > 0.0:
+            t_ep = self._step_i * self.dt
+            if t_ep < grace_s:
+                tilt_settle_scale = 0.0
+            else:
+                ramp_s = float(cfg_get(
+                    self.cfg, "reward", "tilt_settle_ramp_s", default=0.0))
+                if ramp_s > 0.0 and t_ep < grace_s + ramp_s:
+                    tilt_settle_scale = (t_ep - grace_s) / ramp_s
         reward, parts = compute_reward(self.cfg, self._state, clipped,
                                        self._prev_action, goal=goal,
                                        tilt_ref=self._tilt_ref0,
                                        height_err=h_err,
                                        unload_force_n=unload_f,
-                                       ref_quiet=ref_quiet)
+                                       ref_quiet=ref_quiet,
+                                       tilt_settle_scale=tilt_settle_scale)
         # HOLD/TRACK stillness+feet pricing (2026-08-11, cfg
         # reward.hold_still_gate in [0,1], default 0 = legacy exact).
         # cw-stand-bc1-hard1's dig-in showed hold/track are not quiet

@@ -465,6 +465,53 @@ top two are built, bank-proven, and launched this cycle.
   fork, and the over_current signature at dose 5.0 was the leading
   edge of that regression rather than of the fix.
 
+- **`cw-walkcurr-sac-sv-tilt10-s1-r2` read: FAIL, REVERSED vs tilt5 —
+  dose axis CLOSED (08-29 ~23:2x).** walk/det collapses to a
+  DETERMINISTIC identical fall (fwd 0.026m all 6 seeds, same
+  signature as the tilt2 sibling's over-priced floor); gait_valid
+  regresses from tilt5's 5/6 real-stepping back to 0/6; roll_peak
+  actually DROPS to 5.3deg (vs ~10deg at both tilt2/tilt5) but the
+  robot now dies via `tilt_pitch` (nose-down collapse, frame strip
+  confirmed) instead of `tilt_roll` — consistent with the charge
+  suppressing the exploratory recovery motions that let tilt5 keep
+  stepping, not with better balance. `ep_rew_mean` quarters
+  [155.8,140.2,132.3,138.2] declining, not rising — 08-21 ruling:
+  genuine FAIL. Dose grid final read: 2.0 flat-bad, 5.0 real-but-
+  insufficient, 10.0 worse-than-5.0 — raising `k_roll`/`k_pitch`
+  alone cannot pass the gate at any dose tried; **no further raw-dose
+  arm should be funded on this lever.**
+  **Built the pre-registered fork this cycle: `reward.
+  tilt_settle_grace_s`/`_ramp_s`** (env.py `compute_reward`'s new
+  `tilt_settle_scale`, multiplies only `r_roll`/`r_pitch`; default
+  0.0/0.0 = always-on = bit-exact with every prior run — see
+  REWARD.md). For the first `grace_s` seconds after spawn (episode-
+  absolute clock, anchored to `reset()`, not mid-episode command
+  resamples) the anti-tilt charge is free, then ramps linearly to
+  full price over `ramp_s` — the idea is to stop taxing the exact
+  post-spawn ticks where a stumble-recovery motion is needed most and
+  is least trained. `WALKCURR_SV_TILT_SETTLE` bank green (4/4:
+  default-off bit-exact, travel still beats every stationary form,
+  wrong-way still below standing, topple still the strict floor at
+  the full 10.0 dose with a 0.5s/0.5s window on). Snapshot
+  `fccf154f`/`65882ef3`. **Launched both siblings, same SV diet/
+  seed(1)/algo(SAC)/2M budget, only the settle window added:
+  `cw-walkcurr-sac-sv-tilt5-settle1`** (VERIFIED RUNNING train-0,
+  dose 5.0 — tests whether the window pushes tilt5's own ceiling,
+  0.055m/5-6-of-6, past the gate) **and `cw-walkcurr-sac-sv-
+  tilt10-settle1`** (VERIFIED RUNNING train-4, dose 10.0 — tests
+  whether the window specifically rescues the reversed dose back to
+  at least tilt5's level, confirming the over-pricing-the-recovery-
+  window diagnosis, or whether dose 10's basin is unrelated to
+  timing). SAC has no `--init-from` support so both are fresh 2M
+  runs, not continuations — the only valid way to add a reward lever
+  to this lineage. Read next cycle: fall rate/forward_dist vs BOTH
+  the tilt5 and tilt10-r2 baselines decide whether the settle window
+  is a real lever (promote, retrofit onto other doses), a no-op
+  (close the window mechanism too, escalate to the operator's
+  terrain-diversity fallback (b) or a structural per-tick balance
+  curriculum), or actively harmful (a free-fall-during-grace
+  exploit — refine before retrying).
+
 ## Next (after the decleg-sv wave reads)
 
 0. **DONE (08-29 ~21:3x): `cw-walkcurr-sac-sv-s1-budget10m` read as

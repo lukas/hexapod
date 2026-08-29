@@ -1,5 +1,18 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+**Phase-sv line (operator directive 2026-08-29 ~16:5x, executed by the
+operator-side agent):** a gait CLOCK is allowed for the
+`cw-walkcurr-phase-sv-*` line only (founding rule (a) superseded for
+this line; these runs are NOT prior-free — still no BC/imitation/AMP/
+warm-start, random init, 18 joint targets). First wave: `-obsonly-s0`
+(phase obs only) + `-contact-s0` (obs + k_phase_contact=0.03), exact
+respec clones of `cw-walkcurr-pf-central-sv-s0-rr2`, which is REUSED as
+the no-phase control (parity by clone construction — no duplicate
+control launched). WALKCURR_PHASE_SV bank green before launch.
+Lightweight pre-registration per operator (no decision tree); Arm B
+name/dose + seed-replicate-on-positive inferred from the truncated
+directive and recorded in the ledger entries.
+
 Registered 2026-08-23 by operator order (MCP focus note
 20260823T154657Z) after the `cw-kawawa2022-pf-flat1` FAIL. Plain
 English: teach a from-scratch PPO policy (no gait clock, no BC

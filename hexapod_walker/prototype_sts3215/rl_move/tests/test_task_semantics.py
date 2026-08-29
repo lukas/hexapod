@@ -8467,7 +8467,7 @@ def test_walkcurr_phase_sv_wrongway_and_falls_still_lose(
 # reward-mechanism change on an existing, already-validated term, so
 # this bank must be green before any tilt-dose launch.) ---
 
-WALKCURR_SV_TILT_DOSES = (2.0, 5.0)
+WALKCURR_SV_TILT_DOSES = (2.0, 5.0, 10.0)
 
 
 def _walkcurr_sv_tilt_overrides(dose: float) -> dict:
@@ -8479,9 +8479,9 @@ def _walkcurr_sv_tilt_overrides(dose: float) -> dict:
 
 @pytest.fixture(scope="module", params=WALKCURR_SV_TILT_DOSES)
 def walkcurr_sv_tilt_returns(request) -> dict[str, float]:
-    """Mean return per scripted behavior under the SV diet plus a mild
-    k_roll/k_pitch dose (2.0 or 5.0, vs the diet's own dose=0 and the
-    codebase full default of 10.0)."""
+    """Mean return per scripted behavior under the SV diet plus a
+    k_roll/k_pitch dose (2.0, 5.0, or 10.0 -- the codebase full
+    default -- vs the diet's own dose=0)."""
     dose = request.param
     overrides = _walkcurr_sv_tilt_overrides(dose)
     plan = {

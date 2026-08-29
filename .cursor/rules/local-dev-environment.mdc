@@ -10,7 +10,7 @@ local-machine knowledge: venv, sim viewer, checkpoint pulling.
 
 ## Python environment — repo root `.venv` (uv). DO NOT recreate it.
 
-One venv at `/Users/lukas/weird_objects/.venv`, managed with **uv**
+One venv at `/Users/lukas/hexapod/.venv`, managed with **uv**
 (`uv venv` / `uv pip install`, Python 3.14). direnv auto-activates it
 anywhere in the repo. It must contain BOTH stacks:
 
@@ -24,7 +24,7 @@ anywhere in the repo. It must contain BOTH stacks:
 Restore everything with:
 
 ```sh
-cd ~/weird_objects && uv pip install ftservo-python-sdk \
+cd ~/hexapod && uv pip install ftservo-python-sdk \
  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
  manifold3d pygame-ce
 ```
@@ -37,7 +37,7 @@ run and the sts3215 CAD silently emits parts with NO bolt holes.
 
 **Never `rm -rf .venv` / recreate it without the user asking** — it was
 nuked once (2026-08-09) by an agent whose `ls` existence check silently
-aborted on a zsh no-match glob. Check with `ls -d ~/weird_objects/.venv`
+aborted on a zsh no-match glob. Check with `ls -d ~/hexapod/.venv`
 (no globs). `.venv-py39-bak` is an old backup; leave it.
 
 ## Local MuJoCo viewer — trying RL policies on the Mac
@@ -73,7 +73,7 @@ The canonical local browser/control surface on the Mac is the managed
 `:8898` hub:
 
 ```sh
-cd ~/weird_objects/hexapod_walker/prototype_sts3215
+cd ~/hexapod/hexapod_walker/prototype_sts3215
 make web-8898-start       # http://localhost:8898/rl
 make web-8898-status
 make web-8898-restart

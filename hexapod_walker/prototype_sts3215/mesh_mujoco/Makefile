@@ -1,4 +1,4 @@
-VENV ?= /Users/lukas/weird_objects/.venv
+VENV ?= /Users/lukas/hexapod/.venv
 
 .PHONY: build view view-stance clean
 

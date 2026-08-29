@@ -23,7 +23,7 @@ The Uno Q is not an exception: its service/deploy path should use
 The canonical Mac-side browser/control surface is:
 
 ```sh
-cd ~/weird_objects/hexapod_walker/prototype_sts3215
+cd ~/hexapod/hexapod_walker/prototype_sts3215
 make web-8898-start       # serves http://localhost:8898/rl
 make web-8898-status
 make web-8898-restart

@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 VENV=../../.venv
 [ -x "$VENV/bin/python" ] || {
     echo "missing $VENV/bin/python - restore the venv:" >&2
-    echo "  cd ~/weird_objects && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh pygame-ce" >&2
+    echo "  cd ~/hexapod && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh pygame-ce" >&2
     exit 1
 }
 

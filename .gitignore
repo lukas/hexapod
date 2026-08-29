@@ -52,8 +52,8 @@ hexapod_walker/prototype_sts3215/.verify_cache.sqlite-shm
 .idea/
 .mcp.json
 
-# Render scratch / WIP outputs (the canonical renders in chandelier/renders/
-# are explicitly committed; everything else is treated as scratch)
+# Render scratch / WIP outputs (canonical committed renders are exempt;
+# everything else is treated as scratch)
 test_*.png
 *.bak
 

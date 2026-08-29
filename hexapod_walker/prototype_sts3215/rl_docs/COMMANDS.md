@@ -55,8 +55,8 @@ report.json, and the W&B API for exactly these questions.
 
 ## Where things are (the #1 recurring failure: wrong paths)
 
-- Controller repo root: `/workspace/weird_objects`. Cycles start HERE.
-- PROTO dir: `/workspace/weird_objects/hexapod_walker/prototype_sts3215`
+- Controller repo root: `/workspace/hexapod`. Cycles start HERE.
+- PROTO dir: `/workspace/hexapod/hexapod_walker/prototype_sts3215`
   — `cd` here first; every doc/tool path below is relative to it.
   (9/9 failures of `cat rl_move/orchestrator/guardrails.yaml` were
   agents trying orchestrator paths from the repo root.)
@@ -422,7 +422,7 @@ Two pieces, both must be up:
    kubectl --kubeconfig=$HOME/.kube/coreweave.yaml exec hexapod-sweep-friction -- \
      bash -c "tmux kill-session -t statusweb 2>/dev/null; \
        tmux new-session -d -s statusweb 'source /root/orchestrator.env; \
-       cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 && \
+       cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && \
        uv run python rl_move/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
    ```
 

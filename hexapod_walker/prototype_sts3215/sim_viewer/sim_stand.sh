@@ -16,7 +16,7 @@ POLICY="${1:-rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip}"
 
 [ -x "$VENV/bin/mjpython" ] || {
     echo "missing $VENV/bin/mjpython - restore the venv:" >&2
-    echo "  cd ~/weird_objects && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh" >&2
+    echo "  cd ~/hexapod && uv pip install ftservo-python-sdk mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh" >&2
     exit 1
 }
 [ -f "$POLICY" ] || {

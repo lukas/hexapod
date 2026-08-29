@@ -32,7 +32,7 @@ worktree. It writes an `.envrc` that activates the MAIN checkout's `.venv`
 `hexapod_walker/prototype_sts3215/rl_move/sim/policies` to the main
 checkout's checkpoint cache (shared — never delete zips from a worktree),
 and copies `.mcp.json`. If imports fail in a fresh worktree, run that script
-by hand with `ROOT_WORKTREE_PATH=/Users/lukas/weird_objects`.
+by hand with `ROOT_WORKTREE_PATH=/Users/lukas/hexapod`.
 
 ## When your session is in the main checkout
 

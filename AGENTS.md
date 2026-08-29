@@ -1,4 +1,4 @@
-# Agent conventions — weird_objects
+# Agent conventions — hexapod
 
 ## Python commands: use uv
 
@@ -103,7 +103,8 @@ viewer on both hubs — via `?project=<p>&build=<b>` and even the legacy
 itself remains a FLAT id registered with `--build-id prototype_ak40` —
 regenerate via `make -C hexapod_walker/prototype_ak40 view-buildviz`).
 `prototype_v1/chassis`, `prototype_v1/leg`, `prototype_v1/leg/coxa`,
-`rideable_v1`, `robot-cat`, plus older collision/demo builds. List them live
+`rideable_v1`, plus older collision/demo builds (and non-hexapod projects
+from the `weird_objects` repo, e.g. `robot-cat`). List them live
 with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
 
 ## Out of scope for agents (unless the user explicitly asks)
@@ -149,7 +150,7 @@ Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
 Canonical command:
 
 ```sh
-cd ~/weird_objects/hexapod_walker/prototype_sts3215
+cd ~/hexapod/hexapod_walker/prototype_sts3215
 make web-8898-start       # http://localhost:8898/rl
 make web-8898-status
 make web-8898-restart

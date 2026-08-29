@@ -1,5 +1,23 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~18:4x (**MLP twin's own triage now recorded —
+`cw-walk-allheading-mlp-acq1-rr1` verdicted PARTIAL, matching the tf
+twin exactly**): confirms the previous update's "not architecture-
+specific" claim was correct rather than a fluke read from a borrowed
+comparison. This arm's own DR-0 gate: walk/det prog med 0.28, slip med
+3.32, gait_valid 6/6, zero terminations (real clean six-leg gait,
+video-checked); walk/sto collapsed (prog med -0.00, slip med 19.55,
+gait_valid 4/6, 1 over_current term) from the identical unbounded
+`train/std` runaway (0.42->2.57, no anneal). Continuation launched
+with the SAME lever as the tf twin: `cw-walk-allheading-mlp-acq1-rr1-
+stdanneal` (`--log-std-final -3.0 --log-std-anneal-frac 1.0`,
+`--init-from-source` off the finished 40M checkpoint, +15M steps),
+VERIFIED RUNNING hexapod-mjx-train-3, alongside `cw-walk-allheading-
+tf-acq1-stdanneal` (train-0) — the tf/mlp matched-lever comparison
+stays intact through this repair. No other standwalk work is
+runnable this cycle; next triage is whichever cycle reads these two
+stdanneal continuations out.
+
 Update, 2026-08-29 ~18:2x (**`cw-walk-allheading-tf-acq1` verdict
 PARTIAL — real det-mode walking, but an UNBOUNDED std/entropy runaway
 (no anneal) crashes reward and torches sto-mode late in every 40M

@@ -224281,7 +224281,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-s1-budget10m --steps 10000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 1 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_s1_budget10m --notes 'respec of cw-walkcurr-sac-sv-s1: Plain English: SAC seed-1'\"'\"'s 2M-step discovery run learned a real stepping gait (all 6 legs cycling, speed matching the 0.05-0.06 cmd band) but falls over via tilt_pitch/tilt_roll in every single eval episode within a couple of steps (fwd 0.02-0.05m) -- a stumble/balance problem, not the stuck-in-place static-quiver problem every PPO arm had. train_ppo_mjx.py'\"'\"'s --algo sac path unconditionally refuses --init-from (stock-SAC-only restriction, found this cycle when the checkpoint-continuation respec died clean at that check) so there is no checkpoint-continuation path yet; this arm instead reruns the IDENTICAL seed/diet/algorithm/hyperparams from scratch to a 5x budget (2M->10M) in one process -- under this stack'\"'\"'s fixed-seed determinism that reproduces s1'\"'\"'s own first-2M trajectory exactly and then keeps training past the point where s1 stopped, which is the practical equivalent of '\"'\"'continuing'\"'\"' until real SAC-checkpoint warm-starting is built. Only lever: total budget. Prediction-if-true: env/walk_speed holds in the 0.05-0.08 m/s band past 2M while roll_peak_deg/fall rate on the rung-1 panel drops and forward_dist_m rises past the current ~0.02-0.05m ceiling by 10M. Prediction-if-false: falls persist at the same rate/roll_peak with speed pinned through 10M -- the diet has no balance-shaping signal strong enough for this lever alone, and the next fork is adding a mild anti-tilt price (still SV-diet-legal magnitude change, roll/pitch pricing already exists in REWARD.md just zeroed here) or building real SAC --init-from support rather than more raw budget.' > /tmp/train_cw-walkcurr-sac-sv-s1-budget10m.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-s1-budget10m.log",
     "wandb_id": "fipmnqt9",
-    "verified": "2026-08-29T18:45:52+00:00"
+    "verified": "2026-08-29T18:45:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-29T18:51:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 30396,
+        "fps": 984.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walk-allheading-mlp-acq1-rr1-stdanneal",
@@ -224428,7 +224440,7 @@
       "1.0"
     ],
     "created": "2026-08-29T18:47:08+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -224441,7 +224453,19 @@
       "code_sha_local": "4df545e2e364e3163f3a762765df0dc8a3bdd470",
       "code_sha_pod": "4df545e2e364e3163f3a762765df0dc8a3bdd470",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "789666",
+      "log_growth_bytes": [
+        11680,
+        21142
+      ],
+      "wandb_id": "8vkl1aci",
+      "trainer_pid": "789666",
+      "global_step_window": [
+        638976,
+        786432
+      ],
+      "fps_estimate": 4915.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -224449,6 +224473,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "retry of cw-walk-allheading-mlp-acq1 after an unrecoverable OOM infra crash at 17.5M/40M (verdicted CRASHED this cycle); scratch1's own checkpoint is the only recoverable state.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-allheading-mlp-acq1-rr1-stdanneal --steps 15000000 --task joint_walk --episode-seconds 20 --dr-scale 0.0 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --goal-mix walk=1.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_allheading_mlp_acq1_rr1_stdanneal --cfg-set obs.history_frames=64 --cfg-set env.model_source=mesh --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set 'goal.walk_heading_set=[0,0.7853982,-0.7853982,1.5707963,-1.5707963,2.3561945,-2.3561945,3.1415927]' --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_stop_frac=0.15 --cfg-set goal.walk_cmd_resample_jitter=0.2 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=3.0 --cfg-set reward.loadslip_max=6.0 --cfg-set reward.k_loadslip_excess=10.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_walk_course_income=2.0 --cfg-set reward.walk_course_income_window_s=0.75 --cfg-set reward.walk_course_income_deadband_deg=6.0 --cfg-set reward.walk_course_income_sigma_deg=20.0 --cfg-set reward.k_walk_excess_sway=2.0 --cfg-set reward.walk_sway_window_s=0.75 --cfg-set reward.walk_sway_allow_mm=5.0 --cfg-set reward.k_walk_course_disp=0.15 --cfg-set reward.walk_course_disp_window_s=1.5 --cfg-set reward.walk_course_disp_min_speed_m_s=0.02 --cfg-set reward.k_walk_course_disp_overspeed=4.0 --cfg-set reward.walk_course_disp_overspeed_tol=0.05 --cfg-set reward.walk_course_disp_overspeed_along=1.0 --cfg-set reward.walk_course_disp_overspeed_ref_floor_m_s=0.06 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_walk=1.0 --cfg-set train.bc_anchor_walk_coef=1.0 --cfg-set train.bc_anchor_phase_lock=1.0 --cfg-set train.bc_anchor_knee_abs=1.0 --cfg-set train.bc_anchor_isolate_update=1 --notes 'respec of cw-walk-allheading-mlp-acq1-rr1: Plain English: the MLP twin of cw-walk-allheading-tf-acq1 (this same cycle'\"'\"'s cw-walk-allheading-mlp-acq1-rr1, verdict PARTIAL) learned the identical real, clean six-leg forward det gait (prog med 0.28, gait_valid 6/6, zero terminations) but its policy action std ran away UNBOUNDED the whole 40M run (0.42->2.57, no anneal), crashing training reward in the back half and collapsing the stochastic-mode gate (walk/sto: prog med -0.00, slip/m med 19.55, gait_valid 4/6, 1 over_current term). This exact signature has already been fixed twice on this codebase by --log-std-final (standwalk stance-hold/lower champions; joystick phasedir9 stotight ladder), and the exact same fix is already running for the transformer twin (cw-walk-allheading-tf-acq1-stdanneal). Single lever: continue from the finished 40M checkpoint with --log-std-final -3.0 (anneal starts from the checkpoint'\"'\"'s own current mean log_std, not a fresh value) over 15M new steps, nothing else changed -- keeps the tf/mlp matched-lever comparison intact. Prediction-if-true: train/std falls back toward ~0.05-0.15, rollout/ep_rew_mean stops crashing and recovers toward/past its mid-run peak, and a fresh DR-0 gate shows walk/sto closing most of the gap to walk/det (progress rising off ~0.00, slip falling toward the det level, terminations dropping) with walk/det NOT regressed. Prediction-if-false: annealing this late also freezes det improvement or the sto gap does not close -- would indicate the defect needs a fresh-run fix (--log-std-final from step 0), and the mlp/tf comparison would need a matched from-scratch retry. Strongest alternative: 15M is not enough for the anneal to fully take hold this late -- judge on trend per 08-21, not absolute gate pass.' --init-from rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_acq1_rr1.zip --log-std-final -3.0 --log-std-anneal-frac 1.0 > /tmp/train_cw-walk-allheading-mlp-acq1-rr1-stdanneal.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walk-allheading-mlp-acq1-rr1-stdanneal.log"
+    "log": "/tmp/train_cw-walk-allheading-mlp-acq1-rr1-stdanneal.log",
+    "wandb_id": "8vkl1aci",
+    "verified": "2026-08-29T18:50:49+00:00"
   }
 ]

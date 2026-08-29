@@ -761,6 +761,25 @@ def _infer_run_name(ckpt: Path) -> str | None:
     return None
 
 
+def policy_action_std(model) -> float | None:
+    """Return the checkpoint's fixed action-noise std, if it has one.
+
+    PPO/RecurrentPPO expose a single global ``log_std`` parameter (one
+    number, action-independent). SAC's actor is state-dependent (a
+    ``log_std`` *layer* clamped per-observation, no single scalar) so
+    there is no equivalent fixed-noise number to report — found 08-29
+    on the first real SAC gate eval (cw-walkcurr-sac-sv-s1): the old
+    unconditional ``model.policy.log_std`` access raised AttributeError
+    and killed the whole eval. ``None`` here is the honest answer for
+    any policy family without a static log_std (report field is
+    diagnostic-only downstream).
+    """
+    log_std = getattr(model.policy, "log_std", None)
+    if log_std is None:
+        return None
+    return float(np.exp(log_std.detach().numpy().mean()))
+
+
 def _ep_median(eps: list[dict], key: str) -> float | None:
     v = [e[key] for e in eps if e.get(key) is not None]
     return round(float(np.median(v)), 3) if v else None
@@ -1102,7 +1121,7 @@ def main() -> None:
                 raise SystemExit(
                     f"checkpoint obs width {n_model} does not fit the "
                     f"eval env ({n_env}); wrong --task or --cfg-set?")
-        std = float(np.exp(model.policy.log_std.detach().numpy().mean()))
+        std = policy_action_std(model)
         if getattr(model.policy, "lstm_actor", None) is not None:
             if args.rot60:
                 raise SystemExit("--rot60 + recurrent checkpoint is not "
@@ -1157,7 +1176,8 @@ def main() -> None:
                   "dr_scale": args.dr_scale, "seed": args.seed,
                   **identity,
                   "motor_contract": contract,
-                  "policy_std": round(std, 3), "episodes": {}}
+                  "policy_std": round(std, 3) if std is not None else None,
+                  "episodes": {}}
         sheet_strips: list[Path] = []
 
         for tag, det in passes:

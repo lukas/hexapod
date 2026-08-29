@@ -276,7 +276,7 @@ def _default_plant_deg() -> np.ndarray:
     try:
         from feetech_bus import load_plant_pose
         if load_plant_pose().get("learned"):
-            from sim_gait_compat import standing_pose_degrees
+            from hexapod_core.sim_gait_compat import standing_pose_degrees
             return np.asarray(standing_pose_degrees(), dtype=float)
     except Exception:
         pass
@@ -1682,7 +1682,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # policy wakes up under. The gait is rolled forward ~1 s
             # plus a uniform slice of one period so its internal
             # command smoothing is engaged and every phase is sampled.
-            from sim_gait_compat import TripodGait
+            from hexapod_core.sim_gait_compat import TripodGait
             traj = self._goal_traj
             i_ss = min(int(round(0.5 / self.dt)), len(traj.vx) - 1)
             g = TripodGait()
@@ -1945,7 +1945,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # +-2 deg jitter matches the gait/park spawn convention.
             # Reached only from quadwalk trajectories, so no legacy
             # rng stream can be perturbed.
-            from sim_gait_compat import TripodGait
+            from hexapod_core.sim_gait_compat import TripodGait
             splay = float(cfg_get(self.cfg, "goal",
                                   "quadwalk_mid_splay_m", default=0.06))
             g = TripodGait()
@@ -2734,28 +2734,12 @@ class SimHexapodBalanceEnv(_GymBase):
         keeps the convention-corrected sim gait, bit-exact."""
         if float(cfg_get(self.cfg, "train", "bc_anchor_knee_abs",
                          default=0.0)) > 0.0:
-            try:
-                from tripod_gait import TripodGait
-            except ImportError:
-                import sys as _sys
-                _lc = str(Path(__file__).resolve().parents[2]
-                          / "linux_control")
-                if _lc not in _sys.path:
-                    _sys.path.insert(0, _lc)
-                from tripod_gait import TripodGait
+            from hexapod_core.tripod_gait import TripodGait
             _g = TripodGait(vx=0.0)
             _g.sync_plant_stance(20.0, 80.0)
             _g.reset_phase()
             return _g
-        try:
-            from sim_gait_compat import TripodGait
-        except ImportError:
-            import sys as _sys
-            _lc = str(Path(__file__).resolve().parents[2]
-                      / "linux_control")
-            if _lc not in _sys.path:
-                _sys.path.insert(0, _lc)
-            from sim_gait_compat import TripodGait
+        from hexapod_core.sim_gait_compat import TripodGait
         _g = TripodGait(vx=0.0)
         # Canonical sim plant stance (same source as _default_plant
         # fallback and the WALK semantics bank): +20/+80.

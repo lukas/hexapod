@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from walk_ready_transition import (
+from hexapod_core.walk_ready_transition import (
     N_JOINTS, TRIPOD_GROUPS, _foot_rz_mm, build_tripod_plant_transition,
 )
 

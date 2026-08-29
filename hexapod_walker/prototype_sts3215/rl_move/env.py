@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import math
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,16 +18,8 @@ from .robot_state import (
 )
 from .safety import SafetyLayer, action_to_body_offset
 
-_LINUX = Path(__file__).resolve().parents[1] / "linux_control"
-if str(_LINUX) not in sys.path:
-    sys.path.insert(0, str(_LINUX))
-_URT2 = _LINUX / "urt2_setup"
-if str(_URT2) not in sys.path:
-    sys.path.insert(0, str(_URT2))
-
-
 def _standing_q_rad() -> np.ndarray:
-    from feetech_bus import standing_pose_degrees
+    from motor_setup.feetech_bus import standing_pose_degrees
     return np.array(standing_pose_degrees(), dtype=float) * DEG2RAD
 
 
@@ -311,7 +302,8 @@ class HexapodBalanceEnv:
                   "sense/IK/safety/log only")
 
     def _load_plant_q_deg(self) -> tuple[np.ndarray | None, dict]:
-        from feetech_bus import load_plant_pose, standing_pose_degrees
+        from motor_setup.feetech_bus import (load_plant_pose,
+                                             standing_pose_degrees)
         plant = load_plant_pose()
         joints = plant.get("joints_deg")
         if joints is not None and len(joints) == 18:

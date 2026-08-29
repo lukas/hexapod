@@ -107,4 +107,4 @@ DEFAULTS=(
 
 echo "[render_prototype] launching Blender Cycles render ..."
 "$BLENDER" --background --factory-startup \
-    --python "$WALKER_DIR/fullsize_v1/render_blender.py" -- "${DEFAULTS[@]}" "$@"
+    --python "$WALKER_DIR/archive/fullsize_v1/render_blender.py" -- "${DEFAULTS[@]}" "$@"

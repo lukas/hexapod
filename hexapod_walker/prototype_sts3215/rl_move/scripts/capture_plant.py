@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
+sys.path.insert(0, str(ROOT / "motor_setup"))
 
 from feetech_bus import save_plant_pose  # noqa: E402
 from rl_move.config import load_config  # noqa: E402

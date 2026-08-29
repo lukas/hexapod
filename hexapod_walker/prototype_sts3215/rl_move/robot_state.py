@@ -2,23 +2,14 @@
 from __future__ import annotations
 
 import math
-import sys
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 from .attitude import ComplementaryAttitude, G0
 from .config import cfg_get
-
-_LINUX = Path(__file__).resolve().parents[1] / "linux_control"
-if str(_LINUX) not in sys.path:
-    sys.path.insert(0, str(_LINUX))
-_URT2 = _LINUX / "urt2_setup"
-if str(_URT2) not in sys.path:
-    sys.path.insert(0, str(_URT2))
 
 N_JOINTS = 18
 DEG2RAD = math.pi / 180.0

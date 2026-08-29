@@ -48,14 +48,14 @@ import mujoco  # noqa: E402
 
 from eval_dances import (CTRL_HZ, STREAM_ACC_UNITS,  # noqa: E402
                          clip_limits, place_at_plant, up_z)
-from rl_move.joint_frame import (  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
     robot_abs_deg_to_sim_rad, robot_stand_degrees,
 )
 from rl_move.sim.servo_model import (SIM_MODEL_PATH, ServoProfile,  # noqa: E402
                                      SimServoParams, apply_params_to_model,
                                      build_model, joint_qpos_addrs,
                                      position_actuator_ids)
-import quad_walk as QW  # noqa: E402
+from hexapod_core import quad_walk as QW  # noqa: E402
 
 WIN = "quad_play — tip-back walk (7 rear · W walk · Space stop · 8 sit)"
 

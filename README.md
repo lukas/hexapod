@@ -17,9 +17,9 @@ layout kept the extraction risk-free.
 - `hexapod_walker/prototype_sts3215/rl_move/` — RL training + the
   CoreWeave orchestrator (`rl_move/orchestrator/`, `RL_PLAN.md`,
   `RL_LOG.md`).
-- `hexapod_walker/prototype_v1/`, `prototype_ak40/`, `fullsize_v1/`,
-  `rideable_v1/`, `rideable_v2/`, `concepts/` — earlier prototypes and
-  design studies.
+- `hexapod_walker/prototype_ak40/` — AK40-actuator concept variant.
+- `hexapod_walker/archive/` — frozen earlier generations (`fullsize_v1`,
+  `prototype_v1`, `sts`, `rideable_v1`, `rideable_v2`, `hex`).
 - `run.sh` / `requirements.txt` — venv-managed script runner used by the
   Makefiles (`../../run.sh` from `prototype_sts3215`).
 

@@ -202,14 +202,14 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
     # this script now produce the true convention-correct motion
     # (default --out bumped to teacher_v2; v1 kept append-only).
     if controller == "se2cpg":
-        from sim_gait_compat import SE2FootGait
+        from hexapod_core.sim_gait_compat import SE2FootGait
         gait = SE2FootGait(
             gait=cpg_params.gait, period=cpg_params.period,
             swing_frac=cpg_params.swing_frac, lift=cpg_params.lift_m,
             cmd_tau=cpg_params.cmd_tau,
             workspace_margin=cpg_params.workspace_margin)
     else:
-        from sim_gait_compat import TripodGait
+        from hexapod_core.sim_gait_compat import TripodGait
         gait = TripodGait(vx=0.0, lift=0.025)
 
     env = _make_env(seed, episode_seconds=clip_s + 1.0)

@@ -48,15 +48,13 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor"
 MOTOR_SETUP = HERE.parent / "motor_setup"
-URT2_SETUP = HERE / "urt2_setup"
-URT2_SETUP_HOME = Path.home() / "hexapod_sts" / "urt2_setup"
 
-# Prefer vendored SDK (offline Uno Q), then urt2_setup bundle, then motor_setup.
-# reversed(): each insert(0) puts the LAST-inserted first, so iterate the
-# priority list back-to-front (the old forward loop silently REVERSED the
-# priority — motor_setup shadowed urt2_setup, bug found 2026-08-18).
-for p in reversed((str(VENDOR), str(URT2_SETUP), str(URT2_SETUP_HOME),
-                   str(MOTOR_SETUP), str(HERE))):
+# Prefer vendored SDK (offline Uno Q), then canonical motor_setup, then
+# linux_control itself. reversed(): each insert(0) puts the LAST-inserted
+# first, so iterate the priority list back-to-front. (The urt2_setup
+# bundle entries were retired 2026-08-29 — that duplicate tree is gone,
+# so there is exactly one copy of every module and nothing to shadow.)
+for p in reversed((str(VENDOR), str(MOTOR_SETUP), str(HERE))):
     if Path(p).is_dir() and p not in sys.path:
         sys.path.insert(0, p)
 

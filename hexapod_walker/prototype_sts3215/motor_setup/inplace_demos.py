@@ -47,8 +47,8 @@ import time
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_LINUX_CONTROL = _HERE.parent
-for _p in (_HERE, _LINUX_CONTROL):
+_ROOT = _HERE.parent
+for _p in (_HERE, _ROOT, _ROOT / "linux_control"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 

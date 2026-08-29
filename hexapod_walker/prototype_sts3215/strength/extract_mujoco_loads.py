@@ -32,7 +32,7 @@ ROOT_DIR = PROTO_DIR.parents[1]
 for path in (
     PROTO_DIR,
     PROTO_DIR / "linux_control",
-    PROTO_DIR / "linux_control" / "urt2_setup",
+    PROTO_DIR / "motor_setup",
 ):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))

@@ -140,11 +140,11 @@ class _GaitActor:
                  noise: float):
         self.rng, self.noise = rng, noise
         if kind == "noslip":
-            from sim_gait_compat import NoSlipGait
+            from hexapod_core.sim_gait_compat import NoSlipGait
             self.gait = NoSlipGait()
             self.gait.sync_plant_stance(*WALK_PLANT)
         else:
-            from sim_gait_compat import TripodGait
+            from hexapod_core.sim_gait_compat import TripodGait
             self.gait = TripodGait(vx=0.0)
             self.gait.sync_plant_stance(*WALK_PLANT)
             self.gait.reset_phase()
@@ -309,7 +309,7 @@ def main() -> None:
     # now means a stale checkout, not an expected environment.
     if mix.get("noslip", 0.0) > 0.0:
         try:
-            import noslip_gait  # noqa: F401
+            from hexapod_core import noslip_gait  # noqa: F401
         except ImportError:
             if args.allow_degraded_mix:
                 print("WARNING: noslip_gait module missing; "

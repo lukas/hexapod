@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import math
-import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -13,15 +11,8 @@ from .body_ik import BodyOffset, N_ACT, N_JOINTS
 from .config import cfg_get
 from .robot_state import RobotState, DEG2RAD, RAD2DEG
 
-_LINUX = Path(__file__).resolve().parents[1] / "linux_control"
-if str(_LINUX) not in sys.path:
-    sys.path.insert(0, str(_LINUX))
-_URT2 = _LINUX / "urt2_setup"
-if str(_URT2) not in sys.path:
-    sys.path.insert(0, str(_URT2))
-
 try:
-    from feetech_bus import AXIS_LIMITS_DEG
+    from motor_setup.feetech_bus import AXIS_LIMITS_DEG
 except Exception:  # pragma: no cover
     AXIS_LIMITS_DEG = {
         0: (-35.0, 35.0),

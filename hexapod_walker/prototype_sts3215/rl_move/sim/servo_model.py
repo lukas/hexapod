@@ -731,7 +731,7 @@ class ServoProfile:
         still use native model qpos, but robot-authored command streams should
         enter through this method.
         """
-        from rl_move.joint_frame import robot_abs_rad_to_model_rel_rad
+        from hexapod_core.joint_frame import robot_abs_rad_to_model_rel_rad
         self.command(robot_abs_rad_to_model_rel_rad(q_robot_abs_rad),
                      speed_deg_s=speed_deg_s, acc_units=acc_units)
 

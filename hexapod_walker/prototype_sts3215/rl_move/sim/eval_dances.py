@@ -32,7 +32,7 @@ for p in (_PROTO, _PROTO / "linux_control", _PROTO / "motor_setup",
 from rl_move.body_ik import fk_all_feet  # noqa: E402
 from rl_move.robot_state import DEG2RAD, N_JOINTS  # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
-from rl_move.joint_frame import (  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
     robot_abs_deg_to_sim_rad, robot_stand_degrees,
 )
 from rl_move.sim.servo_model import (  # noqa: E402

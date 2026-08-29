@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAILED
 
-**created**: 2026-08-29T18:29:15+00:00
+**created**: 2026-08-29T18:29:43+00:00
 
 **pod**: hexapod-mjx-train-5
 
@@ -16,5 +16,5 @@
 
 **gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 10M: PASS needs progress_ratio med >=0.35, slip/m <=3.0, gait_valid >=4/6, and falls (tilt_pitch/tilt_roll term) on <=1/6 det episodes -- i.e. the stumble is fixed, not just the stepping. PARTIAL/continue (08-21): fall rate or forward_dist improving vs this run's baseline (24/24 falls, fwd med ~0.03m) even short of the full bar. FAIL: fall rate and forward_dist unchanged (still ~24/24 falls, fwd ~0.02-0.05m) at 10M with flat reward -- diet lacks a balance-shaping signal, fork to an anti-tilt pricing dose next.
 
-**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 

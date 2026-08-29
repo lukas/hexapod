@@ -8452,3 +8452,95 @@ def test_walkcurr_phase_sv_wrongway_and_falls_still_lose(
             f"wrong-way '{wrong}' competitive under phase-sv: {r}")
     assert r["topple"] < r["park"], f"falling out-earns parking: {r}"
     assert r["topple"] < r["gait"] - 10.0, f"falling near walking: {r}"
+
+
+# --- WALKCURR_SV_TILT bank (08-29, cw-walkcurr-sac-sv-s1-budget10m FAIL
+# fork: SAC seed-1 learned real 6-leg stepping at the 0.05-0.06 cmd band
+# but the held-out rung-1 panel shows EVERY episode still ends in a
+# tilt_roll/tilt_pitch fall within 0.02-0.05m of travel, and 5x more
+# budget (2M->10M, identical seed/diet) did not move fall rate or
+# forward_dist at all -- the diet has no balance-shaping gradient, only
+# a one-time -24 term_penalty charge AT the moment of falling. This
+# bank adds back a MILD dose of the pre-existing k_roll/k_pitch
+# quadratic tilt shaping (REWARD.md default full dose is 10.0/10.0;
+# zeroed in WALKCURR_SV to isolate the freeprog-income question) --
+# reward-mechanism change on an existing, already-validated term, so
+# this bank must be green before any tilt-dose launch.) ---
+
+WALKCURR_SV_TILT_DOSES = (2.0, 5.0)
+
+
+def _walkcurr_sv_tilt_overrides(dose: float) -> dict:
+    out = dict(WALKCURR_SV_OVERRIDES)
+    out[("reward", "k_roll")] = dose
+    out[("reward", "k_pitch")] = dose
+    return out
+
+
+@pytest.fixture(scope="module", params=WALKCURR_SV_TILT_DOSES)
+def walkcurr_sv_tilt_returns(request) -> dict[str, float]:
+    """Mean return per scripted behavior under the SV diet plus a mild
+    k_roll/k_pitch dose (2.0 or 5.0, vs the diet's own dose=0 and the
+    codebase full default of 10.0)."""
+    dose = request.param
+    overrides = _walkcurr_sv_tilt_overrides(dose)
+    plan = {
+        "gait": ("gait", 1.0),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {"dose": dose}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_tilt_travel_beats_every_stationary_form(
+        walkcurr_sv_tilt_returns):
+    """The added tilt shaping must not disturb the SV ranking: real
+    travel still beats every stationary form (park/stall/belly_sit) --
+    all near-level poses, so a roll/pitch quadratic should barely
+    touch them."""
+    r = walkcurr_sv_tilt_returns
+    for still in ("park", "stall", "belly_sit"):
+        assert r["gait"] > r[still] + 3.0, (
+            f"stationary '{still}' competitive with walking at tilt "
+            f"dose {r['dose']}: {r}")
+    assert r["gait_dx"] > 0.15, (
+        f"reference gait did not travel at tilt dose {r['dose']}")
+
+
+def test_walkcurr_sv_tilt_wrongway_below_standing(walkcurr_sv_tilt_returns):
+    """Wrong-way travel must still sit below standing still with the
+    tilt term added."""
+    r = walkcurr_sv_tilt_returns
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 1.0, (
+            f"wrong-way '{wrong}' out-earns standing at tilt dose "
+            f"{r['dose']}: {r}")
+
+
+def test_walkcurr_sv_tilt_falling_is_strictly_worse(
+        walkcurr_sv_tilt_returns):
+    """Falling must be strictly worse than every scripted behavior
+    (including wrong-way travel) and must die at least as fast as the
+    dose=0 bank's 150-step bound -- the added quadratic should tighten
+    the floor, never loosen it."""
+    r = walkcurr_sv_tilt_returns
+    floor = min(r[k] for k in ("gait", "park", "stall", "belly_sit",
+                                "reverse", "sideways"))
+    assert r["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor at tilt dose {r['dose']}: {r}")
+    assert r["topple_steps"] < 150, (
+        f"topple twin did not die fast at tilt dose {r['dose']}; "
+        "bank probe is broken")

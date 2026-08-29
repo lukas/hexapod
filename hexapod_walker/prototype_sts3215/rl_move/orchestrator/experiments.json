@@ -224141,7 +224141,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-29T21:09:14"
+    "triage": "in-cycle cw-walk-allheading-mlp-acq1-rr1-stdanneal-cw-walk-allheading since 2026-08-29T21:34:45"
   },
   {
     "run": "cw-walkcurr-sac-sv-s1-budget10m",
@@ -224491,6 +224491,6 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-29T21:09:15"
+    "triage": "in-cycle cw-walk-allheading-mlp-acq1-rr1-stdanneal-cw-walk-allheading since 2026-08-29T21:34:45"
   }
 ]

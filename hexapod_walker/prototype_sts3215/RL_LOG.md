@@ -919,3 +919,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-29 18:44 cw-walkcurr-sac-sv-s1-cont1: LAUNCH_CRASH -- SystemExit on --activation-fn + --init-from guard, zero training steps; relaunching corrected as -cont1-rr1 
 - 08-29 18:46 cw-walkcurr-sac-sv-s1-cont1: LAUNCH_CRASH -- --activation-fn/--init-from guard (deeper cause: --algo sac unconditionally refuses --init-from, no SAC checkpoint-continuation path exists); concurrent cycle's budget10m rerun supersedes, no duplicate relaunch 
 - 08-29 21:33 walkcurr: cw-walkcurr-sac-sv-s1-budget10m FAIL (5x SAC budget did not move fall-rate/forward-dist off baseline, reward flat) -- built WALKCURR_SV_TILT bank + launching k_roll/k_pitch dose grid (2.0/5.0) on SAC seed1 at 2M to test a direct balance-shaping fix 
+- 08-29 21:44 standwalk: mlp-acq1-rr1-stdanneal PASS -- std-anneal fix works, walk/sto prog med 0.36 slip 2.14, walk/det prog med 0.41, 0 terms, clean 6-leg gait; tf twin verdicted separately 
+- 08-29 21:44 standwalk: tf-acq1-stdanneal PASS -- std-anneal fix works, matches mlp twin (prog 0.41det/0.36sto, slip 2.1-2.4, 0 terms); architecture-independent 

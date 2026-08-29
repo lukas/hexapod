@@ -390,21 +390,65 @@ top two are built, bank-proven, and launched this cycle.
   pricing dose (roll/pitch pricing already exists in REWARD.md, just
   zeroed in the SV diet) or build real SAC `--init-from` support.
 
+- **`cw-walkcurr-sac-sv-s1-budget10m` -> FAIL (08-29 ~21:3x), closes the
+  raw-budget lever on the SAC-seed1 line.** 5x more budget (2M->10M,
+  identical seed/diet/algo) did not move the needle at all: held-out
+  rung-1 panel still shows 24/24 episodes (walk det/sto +
+  walk_startjitter det/sto) terminating via tilt_roll/tilt_pitch (one
+  over_current in sto), forward_dist_m median unchanged at 0.03-0.04m,
+  gait_valid stays true with real 6-leg duty spread throughout — the
+  robot still steps correctly and still falls every single time.
+  `rollout/ep_rew_mean` quarters [151.5, 160.9, 162.6, 162.7]: rose off
+  init then went FLAT for the back 75% of the run — an aligned FAIL,
+  not an 08-21 continue case (raw W&B `env/walk_freeprog_score` does
+  drift toward/past 0 late and `ep_len_mean` rises 139->426, but the
+  fixed-horizon held-out eval shows no corresponding fall-rate or
+  forward-distance gain — consistent with the decleg-sv dig-in's
+  finding that freeprog drift alone is not a trustworthy litmus).
+  **Root cause: the WALKCURR_SV diet has NO balance-shaping gradient**
+  — `k_roll=k_pitch=0`, the only tilt-relevant charge is a one-time
+  `-24` `term_penalty` AT the moment of falling, so nothing in training
+  prices leaning before it becomes a fall. Built + bank-proved
+  `WALKCURR_SV_TILT` (`test_task_semantics.py`, 6/6 green at doses
+  2.0 and 5.0 — confirms the added `k_roll`/`k_pitch` quadratic
+  doesn't disturb the SV ranking: travel still beats every stationary
+  form, wrong-way still sits below standing, falling is still the
+  strict floor and still dies fast) and launched a 2-arm dose grid on
+  the SAME seed1/diet/algo/2M-discovery-budget as the original
+  `cw-walkcurr-sac-sv-s1` — the only lever is the tilt price:
+  `cw-walkcurr-sac-sv-tilt2-s1` (dose 2.0, VERIFIED RUNNING train-5)
+  and `cw-walkcurr-sac-sv-tilt5-s1` (dose 5.0, VERIFIED RUNNING
+  train-0). Gate: fall rate below 24/24 or forward_dist clearing
+  ~0.06m (2x the budget10m ceiling) at 2M is continue-worthy; full
+  rung-1 bar for a track PASS. FAIL on both (still ~24/24 falls, same
+  roll_peak/forward_dist, flat reward) closes the dose axis and forks
+  to reward-shape design (e.g. gate the tilt charge off during the
+  settle window) or building real SAC `--init-from` checkpoint-
+  continuation support next; a monotone dose-response (tilt5 better
+  than tilt2) opens a bigger-dose follow-up instead. Snapshot
+  `95993cc7` (tag `exp/sac-sv-tilt-bank`). Evidence:
+  `logs/ckpt_eval/cw_walkcurr_sac_sv_s1_budget10m_gate/`.
+
 ## Next (after the decleg-sv wave reads)
 
-0. **`cw-walkcurr-sac-sv-s1-budget10m` is running (10M, ~in progress):
-   read it next.** PASS/PARTIAL = fall rate or forward_dist improving
-   past s1's 2M baseline (24/24 falls, fwd med ~0.03m) -> the seed-1
-   line is real; seed-replicate this recipe (2-3 more SAC seeds at the
-   SAME budget scale, since seed variance is already confirmed huge:
-   s0 instant-topples with a sacrificed leg, s1 walks-then-stumbles) and
-   build real SAC `--init-from` support so future budget raises don't
-   need the fresh-relaunch workaround. FAIL (still ~24/24 falls, flat
-   reward at 10M) = the diet lacks a balance-shaping signal at this
-   scale -> try a mild anti-tilt price before more budget, or fallback
-   (b) Heess-style terrain/environment diversity.
+0. **DONE (08-29 ~21:3x): `cw-walkcurr-sac-sv-s1-budget10m` read as
+   FAIL** — raw budget alone (2M->10M) does not fix the fall (see the
+   "Now" entry above). Per that FAIL fork, `WALKCURR_SV_TILT` is built
+   + bank-green and a 2-arm mild/moderate anti-tilt dose grid
+   (`cw-walkcurr-sac-sv-tilt2-s1`/`-tilt5-s1`, both VERIFIED RUNNING at
+   2M) is in flight — **read these next.** PASS/continue = fall rate
+   or forward_dist improving past the budget10m ceiling (24/24 falls,
+   fwd med ~0.03-0.04m) -> the tilt-pricing lever is real; seed-
+   replicate (incl. retrying seed0's instant-topple pattern under the
+   same dose) and consider building real SAC `--init-from` support so
+   future budget raises don't need the fresh-relaunch workaround. FAIL
+   on both doses (still ~24/24 falls, same roll_peak/forward_dist, flat
+   reward) = tilt pricing alone doesn't fix it either -> try reward-
+   shape design (gate the charge off during the settle window) or
+   fallback (b) Heess-style terrain/environment diversity.
    Track-level note: SAC-on-this-diet is NOT uniformly closed (s0 FAIL
-   != s1 partial escape) — do not read s0 alone as closing the class.
+   != s1 partial escape, now further tested under two tilt doses) — do
+   not read s0 alone as closing the class.
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget
    (3 seeds vs 1). Any arm escaping the static basin = the track's
    first-ever discovery signal; continue per 08-21 and A/B the

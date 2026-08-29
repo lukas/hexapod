@@ -319,15 +319,46 @@ top two are built, bank-proven, and launched this cycle.
   plant — the only lever is the algorithm; gate uses the repaired
   litmus above.
 
+- **`cw-walkcurr-sac-sv-s0` read: FAIL (08-29 ~18:2x).** SAC does not
+  discover walking on this diet — it discovers a NEW failure mode
+  instead of escaping the old one. Held-out DR-0 gate: 24/24 episodes
+  (walk + walk_startjitter, det+sto) terminate via `tilt_pitch`/
+  `tilt_roll` within 0.02-0.04 m of travel, `gait_valid` 0/24, leg 0
+  sacrificed in every single episode — the checkpoint topples almost
+  immediately every time, worse than the PPO static-quiver basin (at
+  least that stayed upright). In-training telemetry looked promising
+  in isolation (`env/walk_speed` did leave the 0.02 m/s floor, reaching
+  0.037-0.058 m/s, close to the 0.05-0.06 cmd band, with `terminations/
+  over_current` staying low — NOT the known freeprog/over_current
+  artifact) but `rollout/ep_rew_mean` stayed FLAT the whole 2M run
+  (159.7/161.0/155.2/162.5) — the run's own gate text requires
+  walk_speed-off-floor AND rising reward to earn a continue; reward
+  never rose, so its own fallback applies: FAIL for this seed. Read:
+  `--best-ckpt` likely grabbed a mid-run instant where max-entropy
+  exploration produced a brief high-freeprog burst immediately before
+  a fall, not a stable gait — SAC's exploration found a reward-
+  harvesting topple, not a walk. Harness note: SAC checkpoints could
+  not be evaluated at all until a concurrent cycle's fix landed this
+  same hour (`gru_policy.is_sac_checkpoint`/`load_checkpoint_auto` +
+  `eval_checkpoint.policy_action_std`, commit `2e7bde91`) — this read
+  required `snapshot.sh --sync` to the run's own pod to pick that fix
+  up, plus a follow-up `ops.sh report` null-std crash fix (`61147fe6`).
+  **Seed 1 (`cw-walkcurr-sac-sv-s1`) is a concurrent cycle's own run —
+  do not presume its result; the fallback-ladder close/escalate call
+  (item 0 below) needs its own read first.**
+
 ## Next (after the decleg-sv wave reads)
 
-0. **Read `cw-walkcurr-sac-sv-s0`/`-s1` (2M discovery, ~40-60 min):**
-   PASS = walk_speed leaves the 0.02 m/s floor with ep_len stable ->
-   continue per 08-21 (seed replicate + budget raise). FAIL both
-   seeds = SAC-on-this-diet closed -> fallback (b) Heess-style
-   terrain/environment diversity (env-side build), and consider the
-   diet itself (freeprog income pays park-quiver ~91% of gait per the
-   bank tally) before any further optimizer lever.
+0. **Read `cw-walkcurr-sac-sv-s1` (2M discovery, s0 already read
+   FAIL above):** PASS = walk_speed leaves the 0.02 m/s floor with
+   ep_len stable AND reward rising -> continue per 08-21 (seed
+   replicate + budget raise) — s0's fall-not-freeze failure mode
+   would need its own root-cause dig before trusting a raw
+   continuation, though. FAIL (same static-basin OR same instant-fall
+   signature) = SAC-on-this-diet closed for both seeds -> fallback (b)
+   Heess-style terrain/environment diversity (env-side build), and
+   consider the diet itself (freeprog income pays park-quiver ~91% of
+   gait per the bank tally) before any further optimizer lever.
 1. **Read the wave as a 2x2:** decleg-vs-central at fixed diet/budget
    (3 seeds vs 1). Any arm escaping the static basin = the track's
    first-ever discovery signal; continue per 08-21 and A/B the

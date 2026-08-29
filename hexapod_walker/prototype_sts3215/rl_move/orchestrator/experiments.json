@@ -219536,7 +219536,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walk_allheading_tf_scratch1.zip"
     ],
     "created": "2026-08-29T15:35:25+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -219584,7 +219584,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-allheading-tf-acq1-cw-walkcurr-sac-sv-s0 since 2026-08-29T18:13:08"
+    "triage": "done",
+    "verdict": "Real det-mode walking achieved (progress_ratio med 0.33, gait_valid 6/6, ZERO terminations, clean six-leg gait on video) but the registered det+sto gate is NOT met and reward CRASHED in the back half (quarters 150.7/139.7/-38.8/-310.1) -- root cause is a shared, cross-architecture PPO optimizer defect, not a dead lineage. Evidence: train/std (policy action std) grew UNBOUNDED across the whole 40M run, 0.40->1.91 (this run's own MLP twin cw-walk-allheading-mlp-acq1-rr1, read this cycle for comparison only, shows the identical shape even worse: 0.42->2.57), while rollout/ep_rew_mean peaks mid-run (~170/343) then collapses in the second half in BOTH arms -- an entropy/log_std runaway (ent_coef=0.01, no anneal) that torches stochastic-mode rollouts once the policy has learned enough that the entropy bonus starts dominating the advantage signal. DR-0 gate confirms the split cleanly: walk/det n=6 prog med 0.33, slip med 3.13, fwd med 0.37m, gait_valid 6/6, 0 terminations -- genuine partial forward progress at ~25-35% of the 0.08 m/s target, matching env/walk_speed's real 0.018-0.036 m/s over the run; walk/sto n=6 collapses to prog med -0.00, slip med 18.1 (cap intent ~3), gait_valid 5/6 with 1 over_current termination -- the huge sampled std (1.9) destroys the tuned gait entirely. This is NOT a reward-alignment problem (the det behavior shows the reward's optimum IS real forward walking) and going longer on the SAME recipe would only make it worse per the still-climbing std trend -- it needs the fix this exact codebase already proved twice: --log-std-final annealing (closed the identical sto-mode-collapse-from-runaway-std signature on the standwalk stance-hold/lower champions AND the joystick phasedir9 stotight ladder, both cited in SKILLS.md). Launching a continuation with that lever this cycle rather than closing the lineage."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s2-rr1",
@@ -223143,7 +223144,7 @@
       "Plain English: can off-policy maximum-entropy SAC discover walking where 16 independently-designed on-policy PPO recipe classes all froze in a static stance? The 08-29 decleg-sv wave dig-in showed PPO converges to a stationary micro-quiver that harvests the freeprog income (~+0.4/tick while standing still) and drifts into servo over_current trips, with reward pinned at 167 - an exploration/optimizer failure mode SAC is specifically built against (Haarnoja 2018 walked the Minitaur from scratch; operator-named fallback ladder item (a), pre-registered in walkcurr STATUS Next). This arm: stock SB3 SAC (new --algo sac, snapshot 7964fe2e, smoke-verified end-to-end on train-4 incl. harness auto-load) on the IDENTICAL WALKCURR_SV diet/plant as the failed wave (mesh/100Hz, loaded servos, freeprog income + term_penalty 24, all else zeroed) - the only lever is the algorithm. n-envs 256 / batch 512 / grad-steps 32 / auto temperature. Prediction-if-true: entropy-regularized exploration visits progress-bearing states PPO never samples; env/walk_speed leaves its 0.02 m/s floor toward the 0.05-0.06 cmd band within 2M with ep_len NOT collapsing. Prediction-if-false: same static basin (walk_speed pinned, over_current climb) in both seeds - SAC-on-this-diet closed, escalate to fallback (b) Heess-style terrain diversity. Strongest alternative: SAC quivers HARDER (max-ent bonus rewards action noise) and trips over_current even faster - that outcome also closes the arm but indicts the diet/plant pairing, not exploration. Gate: Discovery gate at 2M (repaired litmus per the 08-29 sv-wave dig-in): PASS requires env/walk_speed rising off the ~0.02 m/s floor toward the commanded 0.05-0.06 band AND rollout/ep_len_mean stable-or-rising while it does. A freeprog escape or zero-crossing co-occurring with a terminations/over_current surge and falling ep_len is the KNOWN ARTIFACT and does not count. End eval: rung-1 C-env det fixed-forward panel (n>=6) read for real stepping on video; walk_speed off the floor + rising reward but gate unmet = continue per 08-21; walk_speed pinned at 2M = FAIL for this seed."
     ],
     "created": "2026-08-29T17:33:51+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -223192,7 +223193,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-allheading-tf-acq1-cw-walkcurr-sac-sv-s0 since 2026-08-29T18:13:08"
+    "triage": "done",
+    "verdict": "SAC-on-WALKCURR_SV-diet seed0: FAIL -- SAC does not escape the static basin, it falls out of it in a NEW, worse way. Held-out DR-0 gate (24/24 episodes, walk/walk_startjitter x det/sto, n=6 each): every single episode TERMINATES via tilt_pitch or tilt_roll within ~0.02-0.04m of travel, gait_valid 0/24, leg 0 sacrificed in every episode, no episode completes. Frame strips show the robot toppling, not walking. In-training telemetry looked encouraging in isolation (env/walk_speed left the 0.02 m/s floor, reaching 0.037-0.058 m/s, close to the 0.05-0.06 cmd band; terminations/over_current stayed low, ruling out the pre-registered over_current-surge artifact) but rollout/ep_rew_mean stayed FLAT the whole 2M run (159.7/161.0/155.2/162.5, no clear rise) -- the run's own pre-registered gate text requires walk_speed-off-floor AND rising reward to earn a continue; reward never rose, so the fallback default applies: 'FAIL for this seed.' Root cause read: the --best-ckpt selection likely grabbed a mid-run high-instantaneous-reward point where SAC's max-entropy exploration produces a brief high-freeprog burst immediately before toppling, rather than a stable gait -- entropy-driven exploration found a reward-harvesting fall, not a walk. This closes the SAC fallback-ladder item (a) for seed 0; seed 1 (cw-walkcurr-sac-sv-s1) is a concurrent cycle's own run and its read is needed before the fallback ladder as a whole is closed or escalated to item (b) Heess-style terrain diversity. Harness note: eval_checkpoint.py/eval_session.py could not evaluate any SAC checkpoint until a concurrent cycle landed the fix this same hour (gru_policy.is_sac_checkpoint/load_checkpoint_auto + eval_checkpoint policy_action_std, commit 2e7bde91); this cycle synced that fix to the run's pod (snapshot.sh --sync) to get this gate, and separately fixed ops.sh report's crash on SAC's null policy_std (commit 61147fe6)."
   },
   {
     "run": "cw-walkcurr-sac-sv-s1",

@@ -1,5 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~18:2x (**`cw-walk-allheading-tf-acq1` verdict
+PARTIAL — real det-mode walking, but an UNBOUNDED std/entropy runaway
+(no anneal) crashes reward and torches sto-mode late in every 40M
+all-heading acquisition arm; cross-architecture, not tf-specific;
+fix is already proven elsewhere in this codebase.**) Plain English:
+the 40M all-heading acquisition arm DID learn a real, clean, six-leg
+forward gait (DR-0 det gate: progress_ratio med 0.33, gait_valid 6/6,
+ZERO terminations, ~25-35% of the 0.08 m/s target speed) — but
+`train/std` (policy action std) climbed UNBOUNDED the entire run,
+0.40->1.91, with no ceiling and no anneal (`--ent-coef 0.01`, no
+`--log-std-final`). That runaway (1) destroys stochastic-mode
+rollouts (walk/sto DR-0: progress_ratio med -0.00, slip/m med 18.1,
+gait_valid 5/6, 1 over_current termination — the tuned gait cannot
+survive its own sampled noise) and (2) crashes `rollout/ep_rew_mean`
+in the back half of training (quarters 150.7/139.7/-38.8/-310.1,
+peaking mid-run then collapsing). **This is NOT architecture-specific
+or a fluke:** the matched MLP twin (`cw-walk-allheading-mlp-acq1-rr1`,
+a concurrent cycle's own run, read here for comparison only) shows the
+identical shape, even more extreme — std 0.42->2.57, reward peaks
+~343 mid-run then crashes to -228/-242. Every 40M-budget all-heading
+acquisition arm launched without a std-anneal lever should be expected
+to reproduce this. **The fix already exists and is already proven on
+this exact codebase**: `--log-std-final` (linear anneal of the
+policy's log_std down to a target, holding after) closed the
+IDENTICAL sto-mode-collapse-from-runaway-std signature twice before —
+the standwalk stance-hold (`bcanchor3_stdanneal`) and stance-lower
+(`loweronly_bcchain3_stdanneal`) champions, AND the joystick track's
+`phasedir9` stotight ladder (`log-std-final` -3.2->-4.5->-5.0->-5.5,
+each rung widening the sto-mode margin with no det trade). Continuing
+from a checkpoint mid-runaway is exactly the tool's supported case
+(anneal start value = the policy's own current mean log_std, not a
+fresh-init value). **Refill this cycle:** `cw-walk-allheading-tf-acq1-
+stdanneal` (`respec --from` the finished 40M checkpoint, +15M,
+`--log-std-final -3.0 --log-std-anneal-frac 1.0`, nothing else
+changed) — tests whether annealing the runaway down while continuing
+training both stops the reward crash and closes the sto-mode gap
+without eroding the det gait. **Any future all-heading (or other
+long-budget PPO) acquisition arm launched on this recipe family should
+set `--log-std-final` from the start** rather than rediscover this
+same collapse at 40M; the MLP twin's own eventual triage should apply
+the same lever if its owning cycle hasn't already.
+
 Update, 2026-08-29 ~16:4x (**`cw-walk-allheading-mlp-acq1` CRASHED —
 infra OOM, not a science verdict, retried**): the MLP acquisition twin
 died at 17.5M/40M steps when its pod (`hexapod-mjx-train-1`) was

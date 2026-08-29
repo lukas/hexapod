@@ -1,5 +1,30 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-29 ~16:4x (**`cw-walk-allheading-mlp-acq1` CRASHED —
+infra OOM, not a science verdict, retried**): the MLP acquisition twin
+died at 17.5M/40M steps when its pod (`hexapod-mjx-train-1`) was
+OOMKilled (container mem limit 96Gi, exit 137) — training itself was
+unremarkable up to the crash (bc_anchor_loss_walk flat/low, no NaN,
+ep_rew_mean noisy-but-not-degenerating, over_current terminations
+single-digit after the shared canary-era transient), and the sibling
+`cw-walk-allheading-tf-acq1` on the SAME node kept running past 21M
+unaffected, so this reads as localized (possibly this 13-day-old
+pod's own accumulated state from many prior sequential jobs — these
+pods have no PVC and are never restarted between launches), not a
+node-wide or recipe-wide memory problem. No checkpoint survived (no
+PVC backs these pods; a pod OOM kill leaves nothing kubectl can
+exec/cp out of once it's Failed) — the 17.5M steps of acquisition
+progress are unrecoverable. Retried as `cw-walk-allheading-mlp-acq1-rr1`
+(same hypothesis/gate/40M budget, `--init-from-source` off the last
+recoverable checkpoint — the scratch1 canary — since acq1's own
+checkpoint never synced), VERIFIED RUNNING on a fresh pod
+(`hexapod-mjx-train-3`). Also recreated+rebootstrapped
+`hexapod-mjx-train-1` itself (delete/apply/bootstrap; it was
+Failed/un-execable and could not host any run) — back in the free
+pool. If `-rr1` ALSO OOMs on its fresh pod, treat that as a real
+memory-leak defect in this recipe (obs.history_frames=64 / mesh /
+100Hz / 3072 envs) worth a root-cause dig-in, not another blind retry.
+
 Update, 2026-08-29 ~15:4x triage (all-heading canary pair VERDICTED PASS,
 **40M acquisition pair LAUNCHED**): both `cw-walk-allheading-tf-scratch1`
 (transformer) and `cw-walk-allheading-mlp-scratch1` (matched MLP twin)

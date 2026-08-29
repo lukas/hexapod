@@ -3082,3 +3082,35 @@ next cycle builds it.
   completes ~0.38 of it under this contract — the income optimum sits
   AT the command and overdriven scripted gaits reach 0.56+ cleanly, so
   the target is achievable-ish and never pays overspeed.
+
+## 2026-08-29 ~16:4x — `cw-walk-allheading-mlp-acq1` OOMKilled at 17.5M/40M: infra note, no operator action needed
+
+`hexapod-mjx-train-1` OOMKilled (container mem limit 96Gi, exit 137)
+partway through the MLP all-heading acquisition run (17,547,264/40M
+steps, ~41 min wall clock). Training itself was unremarkable up to
+the crash (bc_anchor_loss_walk flat/low, no NaN/entropy collapse,
+over_current terminations single-digit, ep_rew_mean noisy but not
+degenerating) — this reads as an infra event, not a science result;
+verdicted CRASHED (not FAIL) and retried as `-rr1` from the last
+recoverable checkpoint (scratch1 canary; acq1's own 17.5M-step
+checkpoint never synced to the controller — no PVC backs these pods,
+so a pod that dies before a normal watcher-prestage finish takes its
+checkpoint with it). The sibling `cw-walk-allheading-tf-acq1`, same
+recipe family, SAME NODE (g131eec), kept running past 21M steps
+unaffected, ruling out node-wide memory pressure as the cause.
+**Working hypothesis (unconfirmed, no code changed on this basis):**
+these train pods are `sleep infinity` containers that live for many
+days (this one: 13 days uptime) executing many sequential training
+jobs via `kubectl exec`, never restarted between jobs — if any prior
+job leaves resident memory behind (a zombie process, a cached
+allocation, orphaned GPU/XLA state), it would accumulate invisibly
+until an unlucky later job's own peak usage tips the pod over its
+96Gi limit, which would explain a crash that looks pod-specific
+rather than recipe-specific. Recreating the pod (delete/apply/
+bootstrap, done this cycle) clears any such accumulated state as a
+side effect. **No action needed from the operator** — recorded so
+that if this pattern recurs (especially on a FRESHLY recreated pod,
+which would rule out the accumulation theory), the next cycle treats
+it as a real defect (periodic pod recycling, or a genuine leak in
+`train_ppo_mjx.py`/the MJX backend) rather than re-deriving the same
+hypothesis from scratch.

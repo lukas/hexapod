@@ -73,3 +73,25 @@ def test_load_checkpoint_auto_ppo_unchanged(ppo_zip):
     from rl_move.sim.gru_policy import load_checkpoint_auto
     model = load_checkpoint_auto(ppo_zip, device="cpu")
     assert isinstance(model, PPO)
+
+
+def test_policy_action_std_none_for_sac(sac_zip):
+    """SAC has no static log_std; eval_checkpoint must not crash on it.
+
+    Regression for the 08-29 cw-walkcurr-sac-sv-s1 gate-eval crash:
+    eval_checkpoint.evaluate() unconditionally read
+    ``model.policy.log_std`` (PPO-only attribute) and raised
+    AttributeError on the very first real SAC gate eval.
+    """
+    from rl_move.sim.gru_policy import load_checkpoint_auto
+    from rl_move.sim.eval_checkpoint import policy_action_std
+    model = load_checkpoint_auto(sac_zip, device="cpu")
+    assert policy_action_std(model) is None
+
+
+def test_policy_action_std_float_for_ppo(ppo_zip):
+    from rl_move.sim.gru_policy import load_checkpoint_auto
+    from rl_move.sim.eval_checkpoint import policy_action_std
+    model = load_checkpoint_auto(ppo_zip, device="cpu")
+    std = policy_action_std(model)
+    assert isinstance(std, float) and std > 0

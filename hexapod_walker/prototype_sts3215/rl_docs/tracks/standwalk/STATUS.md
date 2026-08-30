@@ -1,5 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~03:2x (**COURSEDISP TRIO CLOSED, 3/3 CANARY PASS/
+no-delta — the sub-stride window lever does not exist; UNBLOCKED and
+LAUNCHED the pre-registered course-INCOME arm.**) Plain English: found
+`coursedisp-w015-c1`/`-w035-c1` (ledger stale-RUNNING, actually
+finished+eval-ready for hours — the two GPU pods sitting idle,
+`capacity.py` reads all-12-free, are exactly this) and closed both.
+`w015-c1` (window=0.15s): direction_err_mean_deg medians 56.5/64.1deg
+(walk/walk_startjitter det, n=12) stay squarely inside long-s0's
+55-65deg band — no >=15deg drop, so PASS-with-delta is out. Ran a
+fresh `--course-trace` diagnostic on-pod (n=6 det, 35912/36000 ticks)
+to settle the open activation question properly: `walk_course_disp_
+speed_m_s` fires on **55.4% of COMMANDED walk ticks** (4354/7856) —
+clears the gate's own >=50% bar. **This corrects a standing metric
+error on record**: earlier n=1 probes (08-29) read 14.3%/17.9% and
+were logged as "well under the bar" — they used an ALL-TICK
+denominator (this remeasurement's all-tick number is 12.1%, matching
+those probes almost exactly), diluted by non-walk-commanded ticks
+(park/rise/hold segments the session interleaves); the gate text says
+"of commanded walk ticks", and against that correct denominator the
+mechanism was firing fine all along. Net read: **CANARY PASS/
+no-delta** — mechanism live, dir_err flat. Slip/terms/gait_valid all
+in-band (mixedsession terms 3/90, slip pooled 13.15 vs cap; walk/sto
+slip 18.31 flat vs long-s0's own ~18.1). `w035-c1` (window=0.35s):
+same DR-0 instrument, dir_err medians 57.4/62.7deg — also flat,
+gait_valid 6/6, zero terminations in-panel. Its own mixedsession
+reopen-check is genuinely unrecoverable (`hexapod-mjx-train-1`'s k8s
+`startTime` shows a recreation at 2026-08-29T16:45:30Z, mid-session —
+real data loss, not the websocket-drop-survives-remotely pattern this
+file documents elsewhere) but the gate's PASS-no-delta branch only
+needs "(fires >=50% but dir_err flat)", not the termination count
+(that clause is scoped to PASS-with-delta only), and dir_err alone
+already rules PASS-with-delta out — closes on the DR-0 evidence
+without needing the lost pass. **TRACK SYNTHESIS: all 3 tested
+windows (1.5s=c1, 0.35s=w035-c1, 0.15s=w015-c1) read flat** —
+shrinking the course-disp integration window is not the fix,
+independent of activation rate. Per the pre-registered Next item
+(a)->(c) (top of "Now" below), this unblocks the course-INCOME arm:
+**launched `cw-standwalk-unified1-joyfix-courseincome1`** (respec
+`--init-from-source` off `w015-c1`, single new lever `reward.
+k_walk_course_income=2.0` + `reward.k_walk_excess_sway=2.0` added on
+top of the already-trained disp-0.15 recipe, bank `test_course_
+income_semantics.py` 12/12 green, 2M mechanism-health canary,
+VERIFIED RUNNING train-2) — tests the operator's registered windowed
+net-command-following INCOME objective (support-gated angle x
+speed-completion factor, optimum AT the command) plus a teacher-
+enveloped excess-sway charge, the primary moving-command mechanism
+this reward-design directive was actually FOR, distinct from the
+disp term's raw instantaneous-cosine pricing that 3/3 window doses
+just closed. Left the concurrent cycle's own composition-wiring
+scoping work (entry below) untouched — different question, same
+track, no collision. Evidence: `logs/ckpt_eval/cw_standwalk_
+unified1_joyfix_coursedisp_{w015,w035}_c1_{gate,owncfg}/`,
+`/tmp/coursetrace_w015_det_final.csv` (course-trace remeasurement,
+not synced to W&B — raw diagnostic only).
+
 Update, 2026-08-30 ~03:1x (**Scoped the "needs new dual-core/session-
 composition wiring" item from the entry below with a real smoke test
 — found and root-caused a SPECIFIC, previously-latent bug: `--dual`
@@ -485,23 +540,26 @@ proven" order; the objective is now built AND bank-proven**):
    operator notes; CURRENT_TRUTHS + REWARD.md + EVALS.md carry the
    ruling.
 
-NEXT (this track, in order): (a) coursedisp trio mixedsession verdicts
-land (pollreap already looping); (b) calibrate windowed-gate pass
-thresholds by re-evaluing the joystick champion
-(`cw-dep-bcgait4-phasedir9-stotight45-seed13`, primitive/25 Hz pins)
-and the unified longrun checkpoints with the updated harness (pod
-eval, no training) — **champion half LAUNCHED this cycle**: synced the
-updated `eval_checkpoint.py` to train-0 (kubectl cp, md5-verified;
-same-content-as-main a0ffd556, m5eval precedent) and started detached
-`ops.sh podeval ... wincal` (log /tmp/podeval_champion_wincal.log,
-artifacts will land in logs/ckpt_eval/*wincal*); the unified-longrun
-half is DEFERRED until the coursedisp mixedsession evals free
-train-1/-2 (adding eval load there would worsen the documented CPU
-contention); (c) pre-register the first course-INCOME arm on
-the unified1-mix lineage (income 2.0 + sway 2.0 + disp 0.15 stack as
-bank-proven, all other keys per lineage recipe) — preconditions: (a)
-verdicts recorded, so the trio's disp-dose evidence can pick the disp
-coefficient honestly.
+NEXT (this track, in order): ~~(a) coursedisp trio mixedsession
+verdicts land~~ **DONE 08-30 ~03:2x: all 3 CANARY PASS/no-delta, see
+banner at top of file — window lever closed, does not reopen.**
+(b) calibrate windowed-gate pass thresholds by re-evaluing the
+joystick champion (`cw-dep-bcgait4-phasedir9-stotight45-seed13`,
+primitive/25 Hz pins) and the unified longrun checkpoints with the
+updated harness (pod eval, no training) — champion half LAUNCHED
+08-30 ~00:xx (`podeval ... wincal`, check `/tmp/podeval_champion_
+wincal.log` / `logs/ckpt_eval/*wincal*` for a landed read); the
+unified-longrun half is unblocked now that the coursedisp trio no
+longer needs train-1/-2's CPU. ~~(c) pre-register the first
+course-INCOME arm~~ **DONE 08-30 ~03:2x: `cw-standwalk-unified1-
+joyfix-courseincome1` LAUNCHED (VERIFIED RUNNING train-2, see banner
+at top) — read its 2M canary next cycle per its own gate text.**
+(d) NEW, opened by this cycle's dual-core/session-composition
+scoping (see banner below): pick one of the two fix paths for the
+`--dual` distillation obs-stacking bug (general stacking-aware
+`collect()` fix vs a single-frame all-heading walk-teacher retrain)
+before Stage-2 composition with the new mlp/tf-stressmix-ft1 walk
+source can proceed at all.
 
 Prior update, 2026-08-29 ~13:4x idle-kick (real infra fix + partial evidence,
 no final verdict — **found the coursedisp-c1/w015-c1 gate+owncfg

@@ -1,5 +1,89 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~13:3x (**`dualbc3-dagger-anchor14coef1-acq8m`
+ACQUISITION PASS (own-scope) — the 8M continuation compounds cleanly
+past its own 2M canary snapshot.**) Plain English: fast spare-pod
+det+sto walk-only read (`/tmp/fastcheck_acq8m_s{0,1}_{det,sto}`,
+train-4/train-5, weights unchanged) while the ledger's own
+gate/owncfg/mixedsession harness ran on train-0/train-1 (both
+watcher-auto-launched at 13:02/13:07, historically ~1.5-3h). seed0
+det: `gait_valid` 8/8, `sacrificed_legs=[]`, 0/8 terms, `progress_ratio`
+med 0.429 (up from the 2M canary's 0.28), `slip/m` med 2.55 (down from
+3.39). seed1 det (informal cross-check, own verdict belongs to a
+concurrent cycle claiming that run): `progress_ratio` med 0.423 (up
+from 0.39), `slip/m` med 2.45 (down from 2.71) — same improving shape.
+Sto weaker but net-forward, zero falls/sac both seeds (prog med
+~0.077-0.078, slip/m med ~11 — actually better than the canary's own
+sto numbers). Reward quarters rose every quarter both seeds
+(`[-62.5,-57.0,239.2,590.2]` / `[-83.7,-9.5,253.5,587.1]`). Clears the
+run's own pre-registered PASS clause (gait_valid stays >=5/6 zero-sac
+AND progress_ratio improves with slip/m flat-or-better) on both
+seeds. Verdicted `cw-standwalk-stage2-dualbc3-dagger-anchor14coef1-acq8m`
+PASS; `-acq8m-s1`'s own formal verdict is a concurrent cycle's (same
+evidence pattern independently confirmed here as a cross-check).
+**Next, per the identical anchor14-walkretaincoef1-rescue-acq8m
+precedent: the real decision point is the `eval_mixed_session`
+sit→rise→walk→lower DONE-gate read**, already running per-seed
+(watcher auto-launch, `logs/ckpt_eval/..._acq8m{,_s1}_mixedsession/`)
+— do not commit further RL budget to this lineage until that lands.
+Cleaned up the controller-diagnostic `/tmp/fastcheck_*` artifacts on
+train-4/train-5 after reading them. Re-swept other tracks: nothing
+else legal (joystick/amp/cpg DONE-or-`[operator]`-maintenance,
+walkcurr `[operator]`-blocked, backlog empty, all 12 pods either
+free or running the in-flight mixedsession/gate harness reads).
+
+Update, 2026-08-30 ~12:2x (**`dualbc3-dagger-anchor14coef1-canary{,-s1}`
+BOTH CANARY PASS — first anchor14coef1 canary pair run on a base
+checkpoint independently pre-verified to walk net-forward; PROMOTED,
+both seeds now training an 8M acquisition continuation.**) Plain
+English: the prior entry's canary pair finished training (2.03M steps
+each) but the ledger's own video-bearing gate/owncfg/mixedsession
+harness was still genuinely mid-flight on-pod (~1-1.5h ETA, video-
+every=1 4-mode panel) — rather than wait, ran a fast `--no-video`
+det+sto walk-only read on two spare pods (train-2/train-3, weights
+unchanged, controller-local diagnostic only). Both seeds clean: det
+walk `gait_valid` 8/8, `sacrificed_legs=[]` every episode, 0/8
+terminations, `progress_ratio` **0.28 (seed0) / 0.39 (seed1)** —
+comfortably clears the 0.10-0.18 band the same anchor14coef1 recipe
+showed on the OLD `stotight45` teacher, `slip/m` 3.39/2.71,
+`forward_dist_m` 0.63-0.90m/30s at 0.037-0.044 m/s (real net motion,
+not quiver). Full-episode `direction_err_mean_deg` reads high
+(58-62deg) but the windowed `course_err_1s_med_deg` is clean (2-6deg)
+— a low-speed-early-in-episode artifact (same shape CURRENT_TRUTHS
+already names for this campaign), not a wrong-way walk. Sto mode is
+weaker (prog_ratio 0.04-0.06, slip/m 13-17) but still net-forward with
+zero falls/sac — expected 2M-canary softness, not the gate's own PASS
+criterion (det walk). WIRING CHECK clean both seeds
+(`bc_anchor_loss_walk` falling to 0.0005-0.006, `bc_anchor_fill_walk`
+monotonic 12k->~39k, straight from cached `wandb_history.csv`).
+**Notably, seed1 — historically the catastrophe-prone seed on the OLD
+teacher lineage — is now the STRONGER of the two**, confirming this is
+a genuinely repaired base, not a lucky seed0 draw. This is the
+gate's own pre-registered PASS branch ("the upstream base is now
+pre-verified walking net-forward" — see the prior entry): the
+dualbc2 pair's FAILs traced entirely to a broken BASE (BC compounding
+error), and this result shows the identical RL recipe genuinely
+ACQUIRES skill (not just avoids catastrophe) once given a real walking
+base. **Action per the gate's own PASS clause: promoted both seeds to
+an 8M acquisition continuation**, same convention +
+std-anneal bundle as the `anchor14-walkretaincoef1-rescue-acq8m`
+precedent (`--log-std-final -4.0 --log-std-anneal-frac 0.5
+--gru-dual-log-std-split --log-std-anneal-core stance`) —
+`cw-standwalk-stage2-dualbc3-dagger-anchor14coef1-acq8m{,-s1}`, both
+VERIFIED RUNNING (train-0/train-1, warm-started correctly, ps-
+confirmed genuine GPU training). Gate for the 8M read: BOTH seeds keep
+`gait_valid>=5/6` zero-sac AND `progress_ratio` improves over this
+canary's own 0.28/0.39 snapshot with slip/m flat-or-better; FAIL only
+if the anchor4-class catastrophe (sacrificed legs) reappears under
+more budget. Evidence: `/tmp/fastcheck_dualbc3_s{0,1}_{det,sto}/
+report.json` (controller-local diagnostic, not ledger-tracked — the
+ledger's own gate/owncfg/mixedsession passes are still computing on
+train-0/train-1's prior occupants and will sync when done, informational
+only per the fast-read precedent this exact track has used repeatedly
+this campaign). 8 GPU pods free after the two launches (10 -> 8);
+other tracks re-swept, nothing else legal (joystick/amp/cpg DONE-or-
+`[operator]`-maintenance, walkcurr `[operator]`-blocked). CYCLE_WORKED.
+
 Update, 2026-08-30 ~11:2x (**`dualbc3_dagger` finished (background CPU,
 picked up from the prior entry's launch) — `quick_probe` output was
 SILENT on the exact number that matters because of a print-precedence

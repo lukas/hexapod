@@ -1,0 +1,46 @@
+{
+  "schema": "hexapod.transfer_candidate.v1",
+  "source_demo_summary": "logs/manual_drive/todaypolicy_mlpsf_tuck_v1_fullmesh/summary.json",
+  "no_physical_robot_motion_performed": true,
+  "candidate_is_composition_not_single_policy": true,
+  "components": [
+    {
+      "state": "belly_zero -> walk_ready",
+      "controller": "linux_control/standup_modes.json",
+      "mode": "tuck",
+      "direction": "forward",
+      "hardware_route": "RL tab Stand Up uses STEP stand then sim walk-ready verification."
+    },
+    {
+      "state": "walk_ready -> walk_done",
+      "controller": "rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip",
+      "policy_mode": "deterministic",
+      "joystick_contract": {
+        "body_frame_vx_vy_m_s": true,
+        "demo_script": "human",
+        "demo_speed_m_s": 0.08
+      }
+    },
+    {
+      "state": "walk_ready -> grounded",
+      "controller": "linux_control/standup_modes.json",
+      "mode": "tuck",
+      "direction": "reverse",
+      "hardware_route": "RL tab Stand Up uses STEP stand then sim walk-ready verification."
+    }
+  ],
+  "transfer_blockers_or_work": [
+    "If this checkpoint is an SB3 MlpPolicy, export it with rl_move.sim.export_policy_np and keep the cfg/control_hz meta aligned with this demo.",
+    "Run only the read-only hardware preflight first: 18 servos, IMU, pose near sim_walk_start or STEP stand, tilt within limit.",
+    "Joystick commands must stay inside the trained command envelope until a hardware ladder says otherwise.",
+    "Stop immediately on tip, brownout, high current, missing servo, or hot motor."
+  ],
+  "demo_metrics": {
+    "terminated": false,
+    "termination_reason": "",
+    "walk_progress_ratio": 0.418,
+    "course_err_1s_med_deg": 2.42,
+    "course_err_1s_p90_deg": 6.98,
+    "cur_max_a": 2.64
+  }
+}

@@ -1,0 +1,393 @@
+{
+  "composition": {
+    "schema": "hexapod.hybrid_demo.v1",
+    "name": "todaypolicy-mlpsf-tuck-v1",
+    "model_source": "mesh",
+    "states": {
+      "belly_zero": {
+        "bookkeeping_start_at": "zero",
+        "pose_family": "logical_zero_belly_down"
+      },
+      "step_stand": {
+        "pose_family": "standup_modes.tuck.final"
+      },
+      "walk_ready": {
+        "pose_family": "sim_walk_start",
+        "q_deg": [
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0
+        ]
+      },
+      "walk_done": {
+        "pose_family": "post_policy_runtime_state"
+      },
+      "grounded": {
+        "pose_family": "scripted_lower_limp_settled"
+      }
+    },
+    "controllers": {
+      "align_walk_ready": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "bookkeeping_walk_frame": {
+        "type": "bookkeeping_reanchor",
+        "start_at": "plant",
+        "mode": "hold"
+      },
+      "rl_walk": {
+        "type": "sb3_walk_policy",
+        "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip",
+        "policy_mode": "deterministic",
+        "script": "human",
+        "seconds": 28.0,
+        "speed_m_s": 0.08,
+        "blend_s": 0.5
+      },
+      "align_before_lower": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "limp_settle": {
+        "type": "limp_settle",
+        "seconds": 2.0
+      },
+      "scripted_stand": {
+        "type": "standup_mode",
+        "mode": "tuck",
+        "direction": "forward",
+        "time_scale": 1.0
+      },
+      "scripted_lower": {
+        "type": "standup_mode",
+        "mode": "tuck",
+        "direction": "reverse",
+        "time_scale": 1.0
+      }
+    },
+    "sequence": [
+      {
+        "phase": "stand",
+        "controller": "scripted_stand",
+        "from_state": "belly_zero",
+        "to_state": "step_stand"
+      },
+      {
+        "phase": "walk_ready_align",
+        "controller": "align_walk_ready",
+        "from_state": "step_stand",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk_reanchor",
+        "controller": "bookkeeping_walk_frame",
+        "from_state": "walk_ready",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk",
+        "controller": "rl_walk",
+        "from_state": "walk_ready",
+        "to_state": "walk_done"
+      },
+      {
+        "phase": "pre_lower_align",
+        "controller": "align_before_lower",
+        "from_state": "walk_done",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "lower",
+        "controller": "scripted_lower",
+        "from_state": "walk_ready",
+        "to_state": "grounded"
+      },
+      {
+        "phase": "limp",
+        "controller": "limp_settle",
+        "from_state": "grounded",
+        "to_state": "grounded"
+      }
+    ]
+  },
+  "model_source": "mesh",
+  "model_variant": "full_mesh",
+  "model_nmesh": 34,
+  "model_ngeom": 159,
+  "model_mass_kg": 3.494226,
+  "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 30.76171875,
+    "resolved_vel_max_deg_s_max": 30.76171875,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "safety.max_delta_q_deg": 0.375,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 37.5,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json",
+    "backend_profile": "servo_profile_np"
+  },
+  "reset_info": {
+    "zero_reset": {
+      "episode": 2,
+      "q_nominal_deg": [
+        6.028006726283179e-05,
+        11.35272680018809,
+        0.4690489173311468,
+        6.795705490599205e-05,
+        11.35272687863657,
+        0.4690410811494491,
+        8.088006953813069e-05,
+        11.352726888881406,
+        0.4690418858919563,
+        8.61267115783213e-05,
+        11.352726820704873,
+        0.46905052766385674,
+        7.844960855439163e-05,
+        11.352726742291166,
+        0.46905836540615164,
+        6.552596843909313e-05,
+        11.3527267320149,
+        0.46905755981628333
+      ],
+      "roll_deg": 4.975355514943814e-08,
+      "pitch_deg": 1.9573313626742398e-07,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "rise"
+    },
+    "plant_reset": {
+      "episode": 1,
+      "q_nominal_deg": [
+        -0.04699860858601862,
+        11.439846785759334,
+        89.30632801020768,
+        -0.04674018911294302,
+        11.464100946824288,
+        89.28347888116312,
+        -0.052827892760138044,
+        11.59252674147786,
+        89.59052002690198,
+        -0.04665829334198698,
+        11.412942769703205,
+        89.33382195546017,
+        -0.04667357887930387,
+        11.394510518810028,
+        89.35138549100888,
+        -0.052823764921017945,
+        11.551295937125106,
+        89.63476986892935
+      ],
+      "roll_deg": 0.018279352757199413,
+      "pitch_deg": 0.0023874601456669135,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "hold"
+    },
+    "plant_z_m": 0.11001925773387757
+  },
+  "terminated": false,
+  "termination_reason": "",
+  "truncated": false,
+  "sim_seconds": 50.02,
+  "phase_marks": [
+    {
+      "t": 0.0,
+      "phase": "stand",
+      "event": "start",
+      "from_state": "belly_zero",
+      "to_state": "step_stand",
+      "controller": "scripted_stand"
+    },
+    {
+      "t": 9.26,
+      "phase": "stand",
+      "event": "end",
+      "ok": true,
+      "rows": 926
+    },
+    {
+      "t": 9.26,
+      "phase": "walk_ready_align",
+      "event": "start",
+      "from_state": "step_stand",
+      "to_state": "walk_ready",
+      "controller": "align_walk_ready"
+    },
+    {
+      "t": 10.01,
+      "phase": "walk_ready_align",
+      "event": "end",
+      "ok": true,
+      "rows": 1001
+    },
+    {
+      "t": 10.01,
+      "phase": "walk_reanchor",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_ready",
+      "controller": "bookkeeping_walk_frame"
+    },
+    {
+      "t": 10.02,
+      "phase": "walk_reanchor",
+      "event": "end",
+      "ok": true,
+      "rows": 1002
+    },
+    {
+      "t": 10.02,
+      "phase": "walk",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_done",
+      "controller": "rl_walk"
+    },
+    {
+      "t": 38.02,
+      "phase": "walk",
+      "event": "end",
+      "ok": true,
+      "rows": 3802
+    },
+    {
+      "t": 38.02,
+      "phase": "pre_lower_align",
+      "event": "start",
+      "from_state": "walk_done",
+      "to_state": "walk_ready",
+      "controller": "align_before_lower"
+    },
+    {
+      "t": 38.77,
+      "phase": "pre_lower_align",
+      "event": "end",
+      "ok": true,
+      "rows": 3877
+    },
+    {
+      "t": 38.77,
+      "phase": "lower",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "grounded",
+      "controller": "scripted_lower"
+    },
+    {
+      "t": 48.03,
+      "phase": "lower",
+      "event": "end",
+      "ok": true,
+      "rows": 4803
+    },
+    {
+      "t": 48.03,
+      "phase": "limp",
+      "event": "start",
+      "from_state": "grounded",
+      "to_state": "grounded",
+      "controller": "limp_settle"
+    },
+    {
+      "t": 50.03,
+      "phase": "limp",
+      "event": "end",
+      "ok": true,
+      "rows": 5003
+    }
+  ],
+  "phase_errors": [],
+  "roll_peak_abs_deg": 1.886,
+  "pitch_peak_abs_deg": 0.0,
+  "z_min_m": 0.0399,
+  "z_max_m": 0.1285,
+  "walk_cmd_dist_m": 1.646,
+  "walk_along_dist_m": 0.688,
+  "walk_progress_ratio": 0.418,
+  "slip_m_total_all_phases": 2.718,
+  "slip_per_walk_m_all_phases": 3.951,
+  "duty_cycle_all_phases": [
+    0.615,
+    0.513,
+    0.612,
+    0.505,
+    0.624,
+    0.508
+  ],
+  "swing_count_all_phases": [
+    34,
+    34,
+    35,
+    32,
+    33,
+    37
+  ],
+  "sacrificed_legs_all_phases": [],
+  "cur_max_a": 2.64,
+  "cur_p95_a": 1.886,
+  "course_windows_1s": 206,
+  "course_motion_valid_frac_1s": 0.99,
+  "course_speed_ratio_1s_med": 0.416,
+  "course_err_1s_mean_deg": 3.54,
+  "course_err_1s_med_deg": 2.42,
+  "course_err_1s_p90_deg": 6.98,
+  "wrong_course_frac_1s": 0.0,
+  "course_windows_2s": 183,
+  "course_motion_valid_frac_2s": 1.0,
+  "course_speed_ratio_2s_med": 0.417,
+  "course_err_2s_mean_deg": 3.55,
+  "course_err_2s_med_deg": 2.47,
+  "course_err_2s_p90_deg": 7.02,
+  "wrong_course_frac_2s": 0.0,
+  "walk_gait_valid": true
+}

@@ -66,12 +66,12 @@
           <joint name="L0_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L0_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L0_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L0_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L0_tibia" pos="0.090000 0 0">
             <joint name="L0_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L0_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L0_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
@@ -94,12 +94,12 @@
           <joint name="L1_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L1_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L1_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L1_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L1_tibia" pos="0.090000 0 0">
             <joint name="L1_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L1_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L1_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
@@ -122,12 +122,12 @@
           <joint name="L2_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L2_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L2_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L2_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L2_tibia" pos="0.090000 0 0">
             <joint name="L2_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L2_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L2_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
@@ -150,12 +150,12 @@
           <joint name="L3_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L3_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L3_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L3_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L3_tibia" pos="0.090000 0 0">
             <joint name="L3_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L3_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L3_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
@@ -178,12 +178,12 @@
           <joint name="L4_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L4_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L4_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L4_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L4_tibia" pos="0.090000 0 0">
             <joint name="L4_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L4_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L4_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
@@ -206,12 +206,12 @@
           <joint name="L5_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
           <inertial pos="0.06401396 0.02394244 0.00170716" quat="-0.00761554 0.69498493 -0.01466426 0.71883441" mass="0.142894" diaginertia="1.5207e-04 1.4062e-04 3.4100e-05"/>
           <geom class="legcol" name="L5_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="legcol" name="L5_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="legcol" name="L5_knee_servo_col" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
-          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 0.000000" size="0.022700 0.019150 0.012400"/>
           <body name="L5_tibia" pos="0.090000 0 0">
             <joint name="L5_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
-            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
             <geom class="legcol" name="L5_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
             <geom class="legcol" name="L5_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
             <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>

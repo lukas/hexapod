@@ -3152,6 +3152,16 @@ wait carve-out, exactly as the 08-24 precedent was, NOT as a pause —
 if a tilt5 arm instead shows a real escape, this fallback is moot and
 lever (iv) reopens for seed-replication / real SAC `--init-from`
 support instead.
-status: OPEN, informational — no pause, SAC tilt5 keeps training
-unattended; whichever cycle reads it either reopens lever (iv) or
-executes the fallback above without re-deriving this tally.
+status: CLOSED, answered by outcome (2026-08-30 ~10:2x) — all four
+tilt5 arms read FAIL (`s1-b20m`, `s2`, `s4`, and `s3` last, the latter
+video-confirmed as a drag/skate artifact — robot topples sideways and
+slides on splayed/sacrificed legs, gait_valid 0/6, not a real gait
+despite an inflated progress_ratio). Fallback executed as pre-
+committed: walkcurr rung-1 discovery-from-scratch is recorded BLOCKED
+at the from-scratch-MLP/decleg PPO-and-SAC architecture/budget this
+campaign could fund and test (see `rl_docs/tracks/walkcurr/STATUS.md`
+08-30 ~10:2x entry) — an honest scope/architecture finding, not a
+goal failure. No further rung-1 discovery arms will launch without
+either (a) a genuinely new mechanism idea from the operator, or (b)
+an explicit scope ruling; agent effort concentrates on tracks with
+runnable work (`standwalk`, active).

@@ -43,6 +43,92 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
+## Now (2026-08-30 ~10:2x — sac-sv-tilt5-s3 read: FAIL, video-confirmed drag artifact -- SAC tilt5 20M continuation wave now 4/4 FAIL; rung-1 BLOCKED, every operator-named + self-invented lever closed)
+
+Plain English: read the last of the four operator-ordered SAC tilt5
+20M continuations. `cw-walkcurr-sac-sv-tilt5-s3` looked, from scalars
+alone, like the partial escape the wave was funded to find --
+progress_ratio med clears 0.35 on all 4 sub-panels (0.84-1.99), fwd
+med 0.10-0.12m, above every sibling's ceiling. Frame-strip video
+(`walk_det_0_sheet.png`, `contact_sheet.png`) settles it: the robot
+stands for a few frames, then progressively tips sideways and by
+frame ~9/12 is lying on its side, SLIDING across the floor on
+splayed/flagged-`sacrificed` legs rather than cycling stance/swing --
+gait_valid is 0/6 on every one of the 4 sub-panels, confirming this is
+the track's own known "dragging inflates progress_ratio without a
+real gait" artifact, now confirmed on video rather than inferred.
+Reward flat (quarters 145.7/150.2/149.8/150.4, no rising trend) --
+not an 08-21 continue case. Verdicted **FAIL**.
+
+Tally: `s1-b20m` FAIL, `s2` FAIL, `s4` FAIL, `s3` FAIL (this entry) =
+**SAC tilt5 20M continuation wave 4/4 FAIL**, all four convergent on
+the identical 24/24-fall / flat-or-declining-reward / zero-valid-gait
+signature (s3's only difference from its siblings is a cosmetic
+drag-inflated progress_ratio, not a real gait). This closes lever
+(iv) (off-policy SAC) and with it **every operator-named lever
+(i-iv) from the 08-29 ruling PLUS every self-invented fork this
+campaign built** (terrain diversity, idle-charge, pretrain-staging).
+Per the pre-committed step recorded 08-30 ~07:4x (and mirrored in
+`OPERATOR_QUESTIONS.md`): walkcurr rung-1 discovery-from-scratch is
+now recorded as **BLOCKED** at the from-scratch-MLP/decleg
+PPO-and-SAC architecture/budget this campaign has been able to fund
+and test -- an honest scope/architecture finding, not a permanent
+failure of the walkcurr goal. CPG-style direct optimization remains
+explicitly out of this track's own charter (that lever lives in the
+`cpg` track, already gated separately). The fleet will NOT invent an
+18th unprompted mechanism class or blind-redose a closed lever;
+per-cycle effort on `walkcurr` concentrates on doc/reporting hygiene
+only until either (a) the operator supplies a genuinely new mechanism
+idea, or (b) an explicit scope ruling. `OPERATOR_QUESTIONS.md`'s
+08-30 ~07:4x note is updated to CLOSED/answered-by-outcome below;
+agent effort this cycle redirects to whichever track has runnable
+work (`standwalk`, under active concurrent development).
+Snapshot: none this cycle (verdict + STATUS/OPERATOR_QUESTIONS only,
+no code changes).
+
+## Now (2026-08-30 ~10:1x — sac-sv-tilt5-s4 read: FAIL; 3/4 tilt5-20M continuation arms now in, all FAIL; s3 unread this cycle and looks like a leg-drag artifact, not a clean escape)
+
+Plain English: read the third of the four operator-ordered SAC tilt5
+20M continuations to finish. `cw-walkcurr-sac-sv-tilt5-s4` verdicted
+**FAIL**, matching its own pre-registered FAIL text exactly — no
+anomaly, no dig-in needed. DR-0 gate n=24: ALL 24 episodes end in a
+fall (TERM tilt_pitch/tilt_roll/over_current across all 4 sub-panels),
+fwd med 0.03-0.08m (at/below the already-measured ~0.055-0.07m
+tilt5-s1 ceiling), prog med negative on 3/4 sub-panels. Training
+`env/walk_speed` reached the 0.05 m/s commanded band mid-run (looked
+encouraging) but is an in-rollout pre-termination metric, not held-out
+net displacement -- the policy walks briefly then falls every episode,
+so the training signal and the eval signal disagree in exactly the
+way this whole SAC branch has shown at every prior dose. Reward
+quarters [144.7,152.6,152.3,150.8] peaked ~154 mid-run then declined
+to 149.05 -- flat/declining, not an 08-21 continue case.
+
+Tally: `s1-b20m` FAIL (already recorded), `s2` FAIL (already recorded,
+concurrent cycle), `s4` FAIL (this entry) = **3/4 tilt5-20M arms now
+FAIL**, all the identical 24/24-fall/flat-reward signature.
+`s3` also shows steps=20000000/state=finished (checked this cycle,
+NOT verdicted -- out of this cycle's assigned scope, and its read
+needs its own dig-in) but is clearly the odd one out: prog med
+clears the 0.35 bar on ALL 4 sub-panels (0.84-1.74) and fwd med
+0.10-0.12m (above every other arm's ceiling) -- BUT `gait_valid` is
+0/6 on every sub-panel and 2-3 legs are flagged `sacrificed` in nearly
+every episode, with termination still 24/24 (mostly over_current).
+That combination (large along-command displacement + zero valid gait
++ sacrificed legs) is the track's own known "dragging inflates
+progress_ratio without a real gait" artifact, not the genuine partial
+escape the tilt5 wave was funded to find -- but it has NOT been
+confirmed as that artifact by a per-episode/video read, so it must
+not be treated as either a PASS-adjacent result or folded into this
+FAIL tally by inference. **Do not close the track-wide "if ALL FOUR
+FAIL" pre-committed step off this entry** -- that still needs s3's
+own verdict, ideally with a video/frame-strip check of whether the
+displacement is real inter-leg gait or drag-through-sacrificed-legs.
+Whichever cycle reads `s3` should flag DIG-IN if the drag-artifact
+reading is right (making it 4/4 FAIL and triggering the pre-committed
+operator note below) or treat it as a genuine partial escape needing
+seed-replication if the video shows a real gait.
+Snapshot: none this cycle (verdict + STATUS only, no code changes).
+
 ## Now (2026-08-30 ~07:4x — graduated step-partial pretrain read: FAIL, CLOSES pretrain-staging 4/4; every operator-named non-BC lever now closed except the in-flight SAC tilt5 20M continuation)
 
 Plain English: read the graduated step-completion pretrain pair the

@@ -1,5 +1,77 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~10:3x (**Root cause of the `dualbc2_allheadwalk`
+never-walks defect ISOLATED to plain-BC compounding error, not
+context/mix/architecture — DAgger fix built and the full-scale rerun
+LAUNCHED (`dualbc3_dagger`, background CPU, single lever vs the
+FAILED recipe).**) Plain English: picked up the 09:1x entry's own
+"Next" item (diagnose before re-funding). Ran 4 small scoped probes
+(24-episode toy-scale `distill_gru` reruns, CPU, ~1-2min each) to
+narrow the cause instead of guessing at a fix:
+1. **Context/leftover-cfg hypothesis REFUTED.** `distill_gru._build_cfg`
+   layers a `R3_CFG` baseline (an older recipe's defaults, e.g.
+   `walk_cmd_blend_s_min=0.1`) UNDER the real launch's `--cfg-set`
+   overrides — a plausible context mismatch vs the teacher's own
+   training cfg (which never goes through `_build_cfg`/`R3_CFG` at
+   all). Directly probed the RAW walk teacher
+   (`..._singleframe_acq1_stdanneal.zip`, itself gate-PASSED 06:3x)
+   inside (A) the exact merged dualbc2 context and (B) a plain
+   `load_config()`+overrides-only context with no `R3_CFG` residue:
+   identical per-episode returns/displacement in both (e.g. one
+   episode's return/net_disp_m matched to 4 decimal places across A
+   and B) — the leftover keys have zero effect here, ruling this out.
+   The raw teacher-in-context shows real net displacement on most
+   draws (0.3-0.47m/15s) and near-zero on some (an expected
+   `walk_stop_frac=0.15` stop-commanded segment, not a defect).
+2. **Mode-mixing/dilution hypothesis REFUTED.** A `--dual --mix
+   walk=1.0` toy rerun (rise/lower/hold dropped entirely, 100% walk
+   data, same env/cfg) still collapsed to near-zero net displacement
+   (0.004-0.006m over 15s) despite a plausible-looking BC actor MSE
+   (~0.008) and decent single-episode returns (1219) — walking fails
+   even with ZERO other-mode data to dilute it.
+3. **Dual-core-architecture-bug hypothesis REFUTED.** The identical
+   toy rerun WITHOUT `--dual` (plain `GruActorCriticPolicy`, no mode
+   one-hot/routing at all) reproduced the exact same near-zero
+   displacement (0.004-0.006m) — the `DualGruActorCriticPolicy`
+   mode-gating code is not the culprit either.
+4. **Classic BC compounding-error IS supported.** `train_student`
+   trains the GRU actor by supervised BPTT on the teacher's
+   open-loop-labeled trajectories only; the saved dualbc2 launch used
+   `--dagger-rounds 0` (never invoked, despite the tool's own
+   docstring precedent recipe using `--dagger-rounds 2` and
+   `collect_dagger`'s own comment: "Fixes BC compounding error — the
+   student learns recoveries on its own trajectory distribution").
+   Adding a tiny 3-round/16-episode DAgger pass on top of the SAME
+   walk-only toy setup measurably improved held-out closed-loop
+   displacement on 2/4 replay episodes (0.038m, 0.088m vs 0.0005-
+   0.004m for plain BC on all 4) — an order-of-magnitude direction
+   change on a probe this small, consistent with compounding error
+   being the dominant defect (the small budget is why it's not yet a
+   full fix on all episodes).
+**Action taken (not left as a placeholder): launched the real-scale
+fix.** `ppo_goal_cw_standwalk_stage2_dualbc3_dagger.zip` — BYTE-
+IDENTICAL to the failed `dualbc2_allheadwalk` command (same teachers,
+mix, episodes/epochs, full 80-key merged cfg) with exactly ONE lever
+added: `--dagger-rounds 2 --dagger-episodes 100` (the module's own
+documented precedent dose). Running now, background CPU nohup,
+`logs/distill_gru/dualbc3_dagger.log` (no ledger entry, same
+convention as every prior `distill_gru` build — check the log/output
+zip directly). **Next** once it lands: run the new `quick_probe`
+net-displacement check first (already prints a WARNING under 0.05m —
+this is exactly the guard that would have caught dualbc2 pre-launch);
+only if it clears that bar, fund a fresh RL canary (the
+`anchor14coef1` recipe already used is fine to reuse) — do NOT repeat
+the 09:1x lesson of funding a GPU RL run on an undiagnosed walk clone.
+If DAgger alone doesn't fully clear the 0.05m bar at full budget,
+next levers in order: more dagger rounds/episodes (cheap, CPU-only,
+try before anything else), then `--dagger-extra-mix walk=1.0
+--dagger-extra-episodes N` to concentrate correction density on the
+one broken mode. Toy probe checkpoints
+(`/tmp/probe_walkonly_{dualbc,plaingru,dagger}.zip`, not committed —
+throwaway diagnostics) can be deleted once dualbc3 lands. No code
+changes this cycle (pure diagnostic reruns of existing `distill_gru`
+flags); no bank/snapshot owed.
+
 Update, 2026-08-30 ~09:1x (**`anchor14coef1-canary-s1` VERDICTED CANARY
 FAIL - MECHANISM — but the real finding is upstream: the Stage-2
 `dualbc2_allheadwalk` BASE checkpoint itself never demonstrated real

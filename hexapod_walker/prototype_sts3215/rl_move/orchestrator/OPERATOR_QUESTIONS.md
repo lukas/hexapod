@@ -3165,3 +3165,52 @@ goal failure. No further rung-1 discovery arms will launch without
 either (a) a genuinely new mechanism idea from the operator, or (b)
 an explicit scope ruling; agent effort concentrates on tracks with
 runnable work (`standwalk`, active).
+
+## q_20260830T1530Z — OPEN (assumptions recorded, executing)
+- cycle: operator kick 08-30 ~15:0x UTC (scripted all-heading walk
+  teacher directive)
+- operator order: focus note 08-30 — build the all-heading WALK
+  TEACHER from the scripted gait bank now (harvest mesh/100Hz
+  motion library covering headings/speeds/turn rates, BC-clone,
+  RL fine-tune with the anchor14coef1-class walk-retain anchor,
+  heading-following bars in every gate).
+- conflicted with: nothing binding; three design points were
+  underdetermined — assume-and-go choices recorded here:
+  1. TEACHER = scripted TripodGait via the sim_gait_compat
+     conversion boundary (NOT noslip/se2_foot_gait): it is the
+     hardware-proven teacher the joystick track's goal names, the
+     ONLY gait the in-trainer walk BC anchor can supervise toward
+     (sim_env._make_walk_bc_gait is hardwired to TripodGait), and
+     the 08-29 probe_teacher_headings run validated exactly it on
+     mesh/100Hz at all 8 headings (0 falls, <=2.3deg course err).
+     The note's "se2_foot_gait/noslip" is read as naming the
+     scripted-gait bank loosely; se2/noslip clones would have no
+     matching RL anchor. Correction welcome.
+  2. ANCHOR DIALECT: the RL fine-tune uses bc_anchor_knee_abs=0
+     (convention-corrected sim knees) — the clone is minted from
+     sim_gait_compat, so knee_abs=1 (raw absolute-tibia dialect,
+     used by the closed cw-walk-allheading-* learned-teacher line)
+     would anchor the clone toward mis-posed knees and fight its
+     own init.
+  3. ENVELOPE STAGING: the DEMOS/clone cover the full envelope
+     (continuous +-180deg headings, 0.06-0.10 m/s, wz +-0.3 via
+     --drive-omega; obs contract includes wz_ref) and the clone
+     gate tests turns, but RL WAVE 1 trains with
+     goal.walk_yaw_zero_frac=1.0 (no commanded-turn ticks):
+     (a) the course-income reward stack is bank-proven only for
+     linear commands (turn-in-place ticks would hit idle/still
+     terms unbanked — the exact misalignment class the 08-21
+     ruling warns about), (b) the anchor's phase-locked clock
+     freezes on wz-only ticks while walk_phase_run_on_yaw=1
+     advances the obs clock (known mismatch, sim_env bc_target
+     comment). WAVE 2 (registered in standwalk STATUS) adds the
+     yaw diet after the walk semantics bank is extended with
+     turner-ranking cases + the anchor clock's run_on_yaw gap is
+     closed. The teacher artifact itself tracks vx/vy/wz today.
+- what was executed: harvest+clone
+  (ppo_goal_cw_walkteach_scripted_allhead_bc1.zip + motion library
+  walkteach_scripted_allhead_v1.npz), clone direction/turn panel,
+  and on PASS the canary pair
+  cw-walkteach-scripted-allhead-canary{,-s1}.
+- ANSWER (operator): _
+- rulebook change: _

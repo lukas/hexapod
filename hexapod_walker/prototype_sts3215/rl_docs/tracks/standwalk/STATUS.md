@@ -1,5 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~15:4x (**SCRIPTED all-heading walk-teacher lineage
+OPENED per operator directive 08-30 — harvest + BC clone + direction
+panel PASS, RL canary pair queued.**) Plain English: the operator
+closed the LEARNED all-heading teacher line (dualbc2-allheadwalk base,
+2/2 canary FAIL, confident 100–175° wrong-way walking, defect upstream
+in the BC base) and ordered the teacher rebuilt from the SCRIPTED gait
+bank — the bcgait4→stotight45 recipe class on mesh/100 Hz. Executed
+this cycle: (1) HARVEST — `bc_init_gait` (+ new `--save-dataset`
+option) rolled the scripted TripodGait (sim_gait_compat dialect)
+through real mesh/100 Hz physics over the full joystick envelope:
+continuous ±180° headings, 0.06–0.10 m/s, wz ±0.3 via `--drive-omega`,
+DART noise; 180 eps / 270k pairs →
+`rl_move/sim/motion_library/walkteach_scripted_allhead_v1.npz`.
+(2) BC CLONE — `ppo_goal_cw_walkteach_scripted_allhead_bc1{,_std25}.zip`
+(holdout action err 0.0034; `_std25` bakes log_std −2.5 because the
+σ=0.37 sto panel measurably killed the gait: sto v_err≈cmd at every
+heading — the tool's own documented failure mode). (3) CLONE GATE
+(pre-RL, dualbc2 lesson; heading-following bars per the directive) —
+`eval_cmd_suite` 15-command panel det+sto
+(`logs/ckpt_eval/walkteach_scripted_allhead_bc1_panel/`): det ALL 8
+headings 0 falls, prog_m POSITIVE everywhere, completion 0.374–0.393 =
+ON the teacher band (0.373–0.385), slip/m 1.3–1.9 inside teacher band;
+turns wz≈0.23/0.3 correct sign; known residuals: det stop 1 fall,
+raw-σ0.37 sto collapse (fixed by _std25 + RL anneal). (4) RL CANARY
+PAIR queued: `cw-walkteach-scripted-allhead-canary{,-s1}` (2M×2,
+walk-retain anchor `bc_anchor_walk_coef=1` class, `knee_abs=0` —
+converted-dialect coherence with the clone; bank-proven course-income
+stack unchanged; wave-1 diet has NO commanded-turn ticks,
+`walk_yaw_zero_frac=1.0`). DIRECTION BAR is binding in EVERY gate of
+this lineage: any wrong-way heading = FAIL regardless of reward.
+REGISTERED NEXT (wave 2+): (a) yaw/turn diet — needs walk semantics
+bank extension (turner ranking) + the anchor phase-clock
+`run_on_yaw` gap closed (sim_env bc_target freezes on wz-only ticks
+while the obs clock advances); (b) healthy pair → 8–15M acquisition
+(gate incl. every-heading completion ≥0.19, stress_mix joystick gate
+with course_err bars, turn-retention panel); (c) teacher adoption
+into stage-2 distillation as a PRE-REGISTERED swap vs the dualbc3
+line. Assumptions logged: OPERATOR_QUESTIONS q_20260830T1530Z
+(tripod-not-noslip/se2, knee dialect, envelope staging). The dualbc3
+DONE-gate mixedsession evals on train-0/train-1 were left untouched
+per the same directive.
+
 Update, 2026-08-30 ~13:3x (**`dualbc3-dagger-anchor14coef1-acq8m`
 ACQUISITION PASS (own-scope) — the 8M continuation compounds cleanly
 past its own 2M canary snapshot.**) Plain English: fast spare-pod

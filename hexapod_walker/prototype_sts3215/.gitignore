@@ -65,3 +65,6 @@ rl_move/sim/logs/
 # exclude it either — fixed alongside this).
 wandb/
 rl_move/wandb/
+
+# walkteach demo harvest: 71MB, bit-exact regenerable (see its _manifest.json)
+rl_move/sim/motion_library/walkteach_scripted_allhead_v1.npz

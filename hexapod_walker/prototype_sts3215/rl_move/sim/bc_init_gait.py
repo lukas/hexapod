@@ -239,6 +239,14 @@ def main() -> None:
                          "during turn-in-place segments). Default off "
                          "= bit-exact legacy collection.")
     ap.add_argument("--episodes", type=int, default=60)
+    ap.add_argument("--save-dataset", default=None, metavar="NPZ",
+                    help="also write the harvested (obs, action) demo "
+                         "pairs + collection metadata to this .npz — a "
+                         "durable scripted-gait motion-library artifact "
+                         "reusable for DAgger/distill/audits (operator "
+                         "walk-teacher directive 08-30). Default None = "
+                         "bit-exact legacy behavior (nothing extra "
+                         "written)")
     ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--batch", type=int, default=1024)
     ap.add_argument("--lr", type=float, default=1e-3)
@@ -293,6 +301,27 @@ def main() -> None:
                         period_scale=args.tripod_period_scale,
                         drive_omega=args.drive_omega)
     print(f"dataset: {X.shape[0]} pairs, obs {X.shape[1]}, act {Y.shape[1]}")
+
+    if args.save_dataset:
+        import json as _json
+        ds_path = ROOT / args.save_dataset
+        ds_path.parent.mkdir(parents=True, exist_ok=True)
+        meta = {
+            "teacher": args.teacher,
+            "stack": args.stack,
+            "sets": list(args.sets),
+            "episodes": args.episodes,
+            "seed": args.seed,
+            "drive_omega": bool(args.drive_omega),
+            "tripod_period_scale": args.tripod_period_scale,
+            "obs_dim": int(X.shape[1]),
+            "act_dim": int(Y.shape[1]),
+        }
+        np.savez_compressed(ds_path, obs=X.astype(np.float32),
+                            act=Y.astype(np.float32),
+                            meta=np.array(_json.dumps(meta)))
+        print(f"saved demo dataset {ds_path} "
+              f"({X.shape[0]} pairs + meta)")
 
     # Fresh PPO with the trainer's EXACT policy shape (train_ppo_sim:
     # MlpPolicy, net_arch [128,128], log_std_init -1.0) so --init-from

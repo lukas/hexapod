@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-30T02:59:14+00:00
 
 **pod**: hexapod-mjx-train-0
 
 **steps**: 2000000
+
+**wandb_id**: 5mf00dot
 
 **hypothesis**: Plain English: can the same all-heading course-tracking recipe that produced a clean, formal-joygate-PASSING walker (cw-walk-allheading-mlp-stressmix-ft1) work with SINGLE-FRAME observation instead of the 64-frame history stack that recipe used? This matters because this cycle found the hist64 obs is what makes that checkpoint UNUSABLE as a Stage-2 BC-distillation walk teacher: distill_gru.py's --dual dual-core pipeline (the only tool that composes a walk teacher with the acq8m mesh stance champion into one policy) appends its 6-wide mode-onehot PER TICK (by design, so it survives obs-history stacking), so under history_frames=64 the composed env's true per-frame width (74+6=80) no longer matches what any hist64 teacher was trained on (74) -- a flat prefix-slice teacher-obs extraction (the tool's core mechanism) cannot cleanly reconstruct either teacher's expected input once frame widths diverge like that (confirmed empirically this cycle via a smoke test: env obs 5120 vs expected 4742, root-caused to this exact mechanism, see standwalk/STATUS.md 08-30 ~03:1x). A single-frame variant of the SAME reward/env recipe would be immediately compatible with the existing, well-tested distill_gru.py --dual pipeline with ZERO new code. Single lever vs the parent: drop --cfg-set obs.history_frames=64 entirely (default 1), everything else byte-identical (same course-income/excess-sway/course-disp reward stack, same walk BC-anchor teacher/coef, same balanced 8-heading diet, same mesh/100Hz env). Prediction-if-true: mechanism-health canary looks the same as the hist64 twins did at 2M (bc_anchor_loss_walk falling, course-income terms live, no NaN/termination explosion) -- promote to a 40M acquisition and re-run the formal 60s joygate; if that ALSO passes, this becomes the Stage-2 walk teacher with no further tooling work needed. Prediction-if-false (worse mechanism health, or a materially worse matched-step reward trajectory vs the hist64 mlp/tf scratch1 canaries' own recorded quarters 73-172): single-frame obs is genuinely load-bearing for this recipe's course-tracking win, and the correct fix is instead extending distill_gru.py's collect() to be history-stacking-aware (reshape-and-reslice per frame) rather than retraining a weaker teacher.
 

@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-30T22:20:54+00:00
+**created**: 2026-08-30T22:21:53+00:00
 
 **pod**: hexapod-mjx-train-3
 
@@ -16,5 +16,5 @@
 
 **gate**: Rung-1 gate at 150M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac >= 0.35, direction_err_deg <= 30, slip/m <= 3.0, gait_valid >= 4/6 with all six legs cycling, real stepping on video. Mid-run litmus: env/walk_speed must decisively clear the 0.02 m/s static floor and trend toward the 0.05-0.06 band with stable ep_len (freeprog-escape alone is NOT a valid litmus per the 08-29 close-out). NOTE: over-current termination is OFF by design (operator clamp ruling) -- terminations read tilt-only in training AND eval; do not count over_current absence as progress. PRE-COMMITTED (operator ruling d): if BOTH seeds land park-stand/no-gait with flat reward at 150M, RETIRE walkcurr as an honest DONE-negative scope finding (walkteach carries walking); if either seed shows a real gait_valid>0 escape, seed-replicate and re-price current realism next.
 
-**refused_reason**: steps 150000000 > max_steps_per_run 40000000
+**refused_reason**: discovery runs cap at 2000000 steps (asked 150000000): the question is 'did qualitatively correct behavior emerge?' - continue as --phase hardening with --evidence.
 

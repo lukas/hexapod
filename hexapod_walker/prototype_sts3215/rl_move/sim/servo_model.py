@@ -444,26 +444,28 @@ def lowest_collidable_z(model, data) -> float:
     G = mujoco.mjtGeom
     lows = []
     for g in range(model.ngeom):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, g) or ""
         if model.geom_contype[g] == 0 and model.geom_conaffinity[g] == 0:
             continue
-        t = model.geom_type[g]
-        if t in (G.mjGEOM_PLANE, G.mjGEOM_HFIELD):
+        t = int(model.geom_type[g])
+        if name in {"floor", "terrain"} or t in (
+                int(G.mjGEOM_PLANE), int(G.mjGEOM_HFIELD)):
             continue  # ground, not robot
         pos = data.geom_xpos[g]
         R = data.geom_xmat[g].reshape(3, 3)
         size = model.geom_size[g]
-        if t == G.mjGEOM_MESH:
+        if t == int(G.mjGEOM_MESH):
             mid = int(model.geom_dataid[g])
             adr = int(model.mesh_vertadr[mid])
             num = int(model.mesh_vertnum[mid])
             v = model.mesh_vert[adr:adr + num]
             lows.append(float((v @ R.T + pos)[:, 2].min()))
-        elif t == G.mjGEOM_SPHERE:
+        elif t == int(G.mjGEOM_SPHERE):
             lows.append(float(pos[2]) - float(size[0]))
-        elif t == G.mjGEOM_CAPSULE:
+        elif t == int(G.mjGEOM_CAPSULE):
             lows.append(float(pos[2])
                         - (abs(R[2, 2]) * float(size[1]) + float(size[0])))
-        elif t == G.mjGEOM_BOX:
+        elif t == int(G.mjGEOM_BOX):
             lows.append(float(pos[2]) - float(np.abs(R[2, :]) @ size))
         else:
             lows.append(float(pos[2]) - float(np.max(size)))

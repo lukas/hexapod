@@ -10,6 +10,18 @@ start at the entry point for the one you're working on:
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
 | Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
 
+## Status URLs
+
+- Agent/orchestrator dashboard:
+  `https://hexapod.cwd1f0-new-cluster.coreweave.app/now`
+  (token-gated).
+- Agent/LLM-readable status index:
+  `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt`
+  (no token).
+- Local robot/sim control UI:
+  `http://localhost:8898/rl`
+  via `make web-8898-start`.
+
 ## Layout
 
 | Path | What |

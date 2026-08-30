@@ -2343,7 +2343,8 @@ function drvResetLocalInput(){
   drvClearGamepadCommand();
 }
 function rlButtons(disabled){
-  for(const id of ['rlstand','rllower','rlstandrl','rllowerrl','rlwalkfwd',
+  for(const id of ['rlstand','rllower','rltuckstand','rltucklower',
+                   'rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart','rldriveend'])
@@ -2405,7 +2406,9 @@ async function rlMove(mode, body){
   }
 }
 async function rlScriptedStand(mode, label, direction='up'){
-  if(!(await rlEnsureNoDriveSession('stand/lower'))) return;
+  const lower = direction === 'down';
+  if(!(await rlEnsureNoDriveSession(
+      lower ? 'lowering' : 'stand/lower', lower))) return;
   $('rlstatus').textContent = label+' request sent…';
   rlButtons(true);
   try{
@@ -2429,6 +2432,10 @@ async function rlScriptedStand(mode, label, direction='up'){
 }
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
+if($('rltuckstand')) $('rltuckstand').onclick =
+  ()=> rlScriptedStand('tuck', 'Tuck stand', 'up');
+if($('rltucklower')) $('rltucklower').onclick =
+  ()=> rlScriptedStand('tuck', 'Tuck lower', 'down');
 // Learned stance-policy episodes (opt-in; the plain buttons stay STEP).
 $('rlstandrl').onclick = ()=> rlMove('stand', {learned:true});
 $('rllowerrl').onclick = ()=> rlMove('lower', {learned:true});
@@ -2479,7 +2486,7 @@ const DRV_KEYMAP = {
   e:'yawR', o:'yawR',
 };
 function drvLockRlControls(active){
-  for(const id of ['rlstand','rlstandrl','rlwalkfwd',
+  for(const id of ['rlstand','rltuckstand','rlstandrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
     $(id).disabled = active;

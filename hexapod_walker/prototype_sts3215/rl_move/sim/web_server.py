@@ -22,6 +22,10 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[2]
 WEBUI_DIR = ROOT / "linux_control" / "webui"
 DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
+DEFAULT_STANCE_POLICY = Path(
+    "wandb_downloads/"
+    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m/"
+    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip")
 
 PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
               "/quad", "/debug", "/rl", "/experiments", "/measure",
@@ -309,7 +313,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--policy-dir", type=Path,
                     default=ROOT / "rl_move" / "sim" / "policies")
     ap.add_argument("--stance", type=Path,
-                    default=Path("ppo_goal_cw_stand_footlow2_hard1.zip"))
+                    default=DEFAULT_STANCE_POLICY)
     ap.add_argument("--walk", type=Path,
                     default=Path("ppo_goal_cw_dep_bcgait1_hard1.zip"))
     ap.add_argument("--recover", type=Path,

@@ -177,7 +177,10 @@ reconnects to a live session and resumes heartbeats. · **Timed walk**
 `POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
 `GET/POST /api/rl/roles` (which policy file serves walk / hold /
 stand / lower; no motion) · **Stand up** → STEP stand-up into the sim
-walk-ready stance · **Rise / Lower (learned RL)** →
+walk-ready stance · **Tuck Stand / Tuck Lower** →
+`POST /api/standup {mode:"tuck", direction:"up|down"}` = scripted
+lower-current tuck choreography; preferred non-RL stand/lower when foot
+sliding or side-load is the concern · **Rise / Lower (learned RL)** →
 `POST /api/rl/stand|lower {learned:true}` = the actual stance-policy
 episodes using the `stand` / `lower` role weights (experimental on
 hardware; preflight-gated: rise needs belly-down legs-straight, lower

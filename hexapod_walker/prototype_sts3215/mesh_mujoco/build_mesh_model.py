@@ -284,7 +284,7 @@ def collect_parts(*, allow_missing_electronics: bool = False):
     for name, mesh, M0 in body_parts:
         add("chassis", name, mesh, M0)
 
-    return bodies, assets, (ta, std_run, short_run)
+    return bodies, assets, (ta, std_run)
 
 
 def assign_masses(bodies: dict[str, list[Part]]):
@@ -375,7 +375,7 @@ def _geom_xml(name: str, p: Part, *, asset: str | None = None,
 
 
 def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
-    ta, std_run, short_run = tube_info
+    ta, std_run = tube_info
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0 * MM
     hip = np.array(HP.COXA_HIP_ANCHOR) * MM
     femur = HP.FEMUR_LENGTH * MM
@@ -595,7 +595,7 @@ def build_mjx_xml(bodies, tube_info, inertials: dict, base_z: dict) -> str:
     conaffinity=5, so legcol geoms keep their floor pairing under MJX (the
     legacy hfield->plane rewrite silently dropped it).  Self-contained: no
     mesh assets, safe to check in and load anywhere."""
-    ta, std_run, short_run = tube_info
+    ta, std_run = tube_info
     apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0 * MM
     hip = np.array(HP.COXA_HIP_ANCHOR) * MM
     femur = HP.FEMUR_LENGTH * MM
@@ -771,25 +771,27 @@ def _lowest_collidable_z(model, data) -> float:
     G = mujoco.mjtGeom
     lows = []
     for g in range(model.ngeom):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, g) or ""
         if model.geom_contype[g] == 0 and model.geom_conaffinity[g] == 0:
             continue
-        t = model.geom_type[g]
-        if t in (G.mjGEOM_PLANE, G.mjGEOM_HFIELD):
+        t = int(model.geom_type[g])
+        if name in GROUND_GEOMS or t in (int(G.mjGEOM_PLANE),
+                                        int(G.mjGEOM_HFIELD)):
             continue  # ground, not robot
         pos = data.geom_xpos[g]
         R = data.geom_xmat[g].reshape(3, 3)
         size = model.geom_size[g]
-        if t == G.mjGEOM_MESH:
+        if t == int(G.mjGEOM_MESH):
             mid = int(model.geom_dataid[g])
             adr, num = int(model.mesh_vertadr[mid]), int(model.mesh_vertnum[mid])
             v = model.mesh_vert[adr:adr + num]
             lows.append(float((v @ R.T + pos)[:, 2].min()))
-        elif t == G.mjGEOM_SPHERE:
+        elif t == int(G.mjGEOM_SPHERE):
             lows.append(float(pos[2]) - float(size[0]))
-        elif t == G.mjGEOM_CAPSULE:
+        elif t == int(G.mjGEOM_CAPSULE):
             lows.append(float(pos[2])
                         - (abs(R[2, 2]) * float(size[1]) + float(size[0])))
-        elif t == G.mjGEOM_BOX:
+        elif t == int(G.mjGEOM_BOX):
             lows.append(float(pos[2]) - float(np.abs(R[2, :]) @ size))
         else:
             lows.append(float(pos[2]) - float(np.max(size)))

@@ -85,12 +85,13 @@ listener_command() {
 }
 
 wait_ready() {
-  local url="http://${BIND}:${PORT}/api/ping"
+  local url="http://${BIND}:${PORT}/api/sim/state"
+  local ping="http://${BIND}:${PORT}/api/ping"
   local i
   for i in {1..80}; do
-    if curl -fsS -m 1 "$url" >/dev/null 2>&1; then
+    if curl -fsS -m 2 "$url" >/dev/null 2>&1; then
       echo "ready: http://localhost:${PORT}/rl"
-      curl -fsS -m 2 "$url" || true
+      curl -fsS -m 3 "$ping" || true
       echo
       return 0
     fi
@@ -170,7 +171,9 @@ status() {
     echo "port ${PORT}:"
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || true
     echo
-    curl -fsS -m 2 "http://localhost:${PORT}/api/ping" || true
+    curl -fsS -m 2 "http://localhost:${PORT}/api/sim/state" >/dev/null \
+      && echo "sim: ready" || true
+    curl -fsS -m 3 "http://localhost:${PORT}/api/ping" || true
     echo
     echo "url: http://localhost:${PORT}/rl"
   else

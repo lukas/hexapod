@@ -1,5 +1,113 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~19:3x (**wave-2 prereq (a) OTHER half CLOSED: new
+WALKTEACH semantics bank proves the walkteach/dualbc canary's own
+reward stack reopens the cw-omni-mirror1-r1 freeze-floor exploit on
+turn-in-place ticks — worse than omni's pre-fix ratio — and that the
+already-proven `reward.walk_kernel_yaw_gate=1.0` fix (no new reward
+code) closes it; this is now a BINDING cfg requirement for any wave-2
+launch.**) Plain English: while `-s1`'s own `_gate`/`_owncfg`/
+`_mixedsession` harness kept computing (confirmed genuinely alive on
+train-3, ~800% CPU each, unchanged since 18:39 — nothing to verdict
+yet, matches the 19:1x update, not re-duplicated here) and no other
+track had runnable GPU work, picked up the STATUS's own open item:
+"wave-2's turn-ticks diet needs the walk semantics bank extended for
+turner-ranking under the course-income stack." Traced it to a root
+cause instead of guessing: the walkteach canary's base velocity kernel
+(`r_walk = K_WALK * exp(-err**2/(2*sigma**2))`, err = body-vel vs
+(vx_ref, vy_ref)) is computed UNGATED every tick, before
+`walk_kernel_prog_gate` (which only engages when `s_ref > 1e-3`) ever
+applies. On a pure turn-in-place tick vx_ref=vy_ref=0, so a FROZEN
+body (v=0) matches the reference exactly and banks full kernel income
+while an honest turner's nonzero body velocity earns less — the exact
+cw-omni-mirror1-r1 defect (08-11), independently reproduced from first
+principles in this DIFFERENT reward family (course/kernel, not
+OMNI's), which the STATUS text's "k_walk_course_income/
+k_walk_excess_sway are both gated off" reasoning was pointing at but
+not quite naming correctly (this recipe doesn't even set those two
+keys — the real culprits are the ungated kernel + the ABSENT
+`walk_kernel_yaw_gate`, never set by any dualbc canary to date because
+wave-1's diet has zero turn ticks, `walk_yaw_zero_frac=1.0`, making it
+a true no-op so far). MEASURED (new bank,
+`rl_move/tests/test_task_semantics.py` `WALKTEACH_OVERRIDES`/
+`WALKTEACH_YAWGATE_OVERRIDES`, reusing the existing `_turn_rollout`
+harness): park/turn income ratio **0.98** under the canary's actual
+cfg (worse than omni's pre-fix 0.78 — no anti-drift terms here to
+partially offset it) -> **0.42** once `reward.walk_kernel_yaw_gate=1.0`
+is added (matches the OMNI bank's own <0.5 bar). Two new tests pin
+both the defect and the fix (`test_walkteach_freeze_floor_open_
+without_yaw_gate`, `test_walkteach_yaw_gate_closes_the_freeze_floor`);
+targeted run `pytest -k "walkteach or omni"` 7/7 pass. **REGISTERED
+NEXT (wave 2) is now unblocked design-wise**: any turn-ticks diet arm
+MUST clone the canary cfg-set PLUS `reward.walk_kernel_yaw_gate=1.0`
+— an existing, already-proven mechanism, not new reward code — or PPO
+will rediscover the freeze-the-turn exploit on first contact with
+turn ticks. Not launched this cycle (wave-2 itself stays sequenced
+behind the dualbc4 canary pair's own mechanism-health read, per the
+18:1x update's Next; this closes the OTHER prerequisite so that read
+isn't blocked on missing tooling once it lands). Snapshot pending.
+
+Update, 2026-08-30 ~19:1x (**dualbc4-walkteach-anchor14coef1-canary
+pair: training finished both seeds, NO VERDICT yet — harness genuinely
+mid-flight, not stalled.**) Both seeds hit 2.03M steps; reward-quarter
+dive `[41.3,18.2,-170.4,-101.7]`/`[44.6,-5.3,-161.9,-59.7]` matches the
+dualbc3/anchor14-rescue precedent shape (mid-run anchor-coefficient
+dip), not a new pathology. WIRING CHECK PASS both seeds straight from
+cached `wandb_history.csv` (`bc_anchor_loss_walk` 0.0013-0.0036 nonzero
+every logged update, `bc_anchor_fill_walk` monotonic 12k->~39k). The
+`_gate`/`_owncfg`/`_mixedsession` eval harness started 18:34 (seed0,
+train-2)/18:39 (seed1, train-3), ps-confirmed alive at ~800% CPU each
+at 19:0x — this recipe/harness combo historically runs 1.5-3h; do not
+duplicate-launch, just poll for the SYNCED marker. Verdict + 8M
+promote-or-diagnose decision belongs to whichever cycle sees it land.
+
+Update, 2026-08-30 ~18:1x (**`dualbc4_walkteach` distillation LANDED
+(background CPU, unclaimed) — quick_probe cleared the 0.05m bar, so
+the pre-registered anchor14coef1 canary pair is LAUNCHED, cfg
+reconciled for the new base's +1 obs dim.**) Plain English: the
+`dualbc4_walkteach` distillation the 17:3x update flagged as "already
+distilling" finished at 18:07 with no owning cycle picking it up yet
+(no live process, no ledger/RL_LOG entry past the launch note).
+`quick_probe`'s own trailing log line (net-displacement check, fixed
+2026-08-30) already cleared the STATUS's own gate: walk net_disp_m
+`0.068`/`0.417` over a 15s fixed-heading episode — max clears the
+0.05m in-place-quiver bar (same shape as dualbc3's 0.46-0.49m clear,
+though one episode is lower — plausibly a short/slow-heading draw, not
+re-run separately since the bar is "clears 0.05m", not "matches
+dualbc3 exactly"). Its own distill log also confirms **obs went
+74->75** (`goal.walk_yaw_cmd=1` adds one channel vs the dualbc2/3
+lineage) — this matters because the naive respec (clone dualbc3's
+canary cfg, swap only `--init-from`) would silently truncate the new
+all-heading/turn-capable base back to dualbc3's fixed-heading-only,
+no-yaw-obs regime AND mismatch the actor's expected obs shape.
+Instead, built the canary cfg by cloning dualbc3's PROVEN anchor/
+reward wrapper (`bc_anchor_*`, drag_stance, loadslip, height/rise/
+hold gates — unchanged, since reward keys don't affect BC-trained obs
+shape) and restoring the base's own obs-relevant `goal.*` keys from
+its distillation command: `walk_heading_max_rad=pi` (was 0.0),
+`walk_yaw_cmd=1` (new, the dim that changed 74->75),
+`walk_phase_run_on_yaw=1`, `walk_yaw_zero_frac=1.0`,
+`walk_cmd_resample_s=6.0`/`_jitter=0.2`, `walk_stop_frac=0.15`, plus
+`safety.max_delta_q_deg=0.375` (present in the base's training cfg,
+absent from dualbc3's canary). Launched via `launch_run.py respec
+--from cw-standwalk-stage2-dualbc3-dagger-anchor14coef1-canary{,-s1}
+--now`: `cw-standwalk-stage2-dualbc4-walkteach-anchor14coef1-canary{,
+-s1}` on train-2/train-3. Confirmed alive past first checkpoint
+(seed0 @ 1,048,576/2,000,000 steps, 6,524 env-steps/s, first video
+reel logged `rise:ok walk:ok lower:TERM(over_current)
+rise:TERM(over_current)` — no obs-shape crash, cfg reconciliation
+verified correct in practice, not just in theory; seed1 still in
+JIT-compile warmup at time of writing). Gate: same MECHANISM-HEALTH-
+CANARY-ONLY convention as dualbc2/dualbc3 (wiring check + gait_valid/
+sacrificed-legs/progress_ratio in the 0.28-0.43 order of magnitude),
+PLUS a new clause specific to this swap — per-heading completion must
+not regress below walkteach-acq12m's own 0.31-0.46 teacher band (a
+regression there would mean the unified fine-tune erodes the exact
+turn/all-heading capability this teacher-adoption swap exists to
+capture). Full hypothesis/gate text in the ledger entries. Next once
+these read: promote to 8M acquisition on PASS (same convention), or
+diagnose+fix on FAIL per the 08-21 ruling if reward is still rising.
+
 Update, 2026-08-30 ~17:5x (**dualbc3-dagger acq8m mixedsession reads
 TRIAGED per operator focus note — harness ALIVE, not errored; partial
 dr0 numbers say speed-soft + sto-fragile; unified-policy spend stays

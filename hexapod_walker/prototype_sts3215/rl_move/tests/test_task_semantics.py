@@ -2241,6 +2241,119 @@ def test_omni_episode_mixture_gait_beats_freeze():
 
 
 # --------------------------------------------------------------------------
+# WALKTEACH course/kernel bank — standwalk track, wave-2 prereq (a)
+# "OTHER half" (STATUS.md 08-30 17:3x/18:1x/16:4x updates). The
+# dualbc2/3/4_walkteach anchor14coef1 canary recipe (the ACTUAL cfg-set
+# a wave-2 turn-ticks arm would clone) carries reward.k_walk_course,
+# k_walk_prog, walk_kernel_prog_gate, walk_kernel_vel_ema and friends —
+# a different reward FAMILY from the OMNI-mirror lineage above — but
+# never sets reward.walk_kernel_yaw_gate (absent from every canary's
+# extra_args to date, because wave-1's diet has zero turn-in-place
+# ticks: goal.walk_yaw_zero_frac=1.0, so the gap is a true no-op so
+# far). The base velocity kernel (`r_walk = K_WALK *
+# exp(-err**2/(2*sigma**2))`, err = |v - (vx_ref,vy_ref)| via
+# walk_kernel_vel_ema) is computed UNGATED every tick, BEFORE
+# walk_kernel_prog_gate (which only engages when s_ref > 1e-3) ever
+# applies — on a pure turn-in-place tick vx_ref=vy_ref=0, so a FROZEN
+# body (v=0) matches the reference exactly and banks the kernel's full
+# income while an honest turner's nonzero body velocity earns LESS.
+# This is the identical cw-omni-mirror1-r1 freeze-floor defect
+# (08-11), reproduced from first principles in the walkteach recipe's
+# OWN reward stack, not assumed by analogy. Measured (this bank,
+# 2026-08-30): park/turn income ratio 0.98 with the canary's actual
+# cfg (worse than omni's pre-fix 0.78 — the kernel/course family has
+# no anti-drift terms at all to partially offset it), dropping to 0.42
+# once reward.walk_kernel_yaw_gate=1.0 (the already-proven OMNI fix,
+# same mechanism, no new reward code) is added. CONCLUSION: any wave-2
+# turn-ticks diet MUST add reward.walk_kernel_yaw_gate=1.0 to whatever
+# cfg-set it clones from the canary lineage, or PPO will rediscover
+# the freeze-the-turn exploit on first contact with turn-in-place
+# ticks — closing STATUS.md's "still open, not yet started" item as a
+# CFG REQUIREMENT (existing mechanism), not a new mechanism to build.
+WALKTEACH_OVERRIDES = {
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_park_duty"): 1.0,
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("goal", "walk_park_start_frac"): 0.25,
+    ("reward", "walk_anchor_gate"): 1.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("goal", "walk_speed_min_m_s"): 0.08,
+    ("goal", "walk_speed_max_m_s"): 0.08,
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 30.0,
+    ("goal", "walk_phase_obs"): 1.0,
+    ("goal", "walk_phase_hz"): 1.333333,
+    ("goal", "walk_yaw_cmd"): 1.0,
+    ("reward", "k_walk_course"): 2.0,
+    ("reward", "walk_course_tau_s"): 0.75,
+    ("reward", "k_walk_course_overspeed"): 4.0,
+    ("reward", "walk_course_overspeed_tol"): 0.05,
+    ("reward", "k_walk_idle_charge"): 1.0,
+    ("reward", "walk_idle_speed_m_s"): 0.04,
+    ("reward", "walk_loadslip_gate"): 1.0,
+    ("reward", "loadslip_ok"): 3.0,
+    ("reward", "loadslip_max"): 6.0,
+    ("reward", "k_loadslip_excess"): 10.0,
+    ("reward", "walk_course_overspeed_along"): 1.0,
+    ("reward", "walk_course_min_speed_m_s"): 0.04,
+    ("reward", "k_drag_stance"): 8000.0,
+    ("reward", "drag_stance_allow_mm"): 24.0,
+    ("reward", "drag_stance_tick_floor_mm"): 0.25,
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.75,
+    ("reward", "k_walk_prog"): 2.0,
+    ("reward", "walk_course_overspeed_ref_floor_m_s"): 0.06,
+}
+WALKTEACH_YAWGATE_OVERRIDES = dict(WALKTEACH_OVERRIDES)
+WALKTEACH_YAWGATE_OVERRIDES[("reward", "walk_kernel_yaw_gate")] = 1.0
+
+
+@pytest.fixture(scope="module")
+def walkteach_turn_returns() -> dict[str, float]:
+    return {p: float(np.mean([_turn_rollout(p, s_wz * TURN_CMD_WZ, s,
+                                            overrides=WALKTEACH_OVERRIDES)
+                              for s in SEEDS for s_wz in (+1.0, -1.0)]))
+            for p in ("turn", "park")}
+
+
+@pytest.fixture(scope="module")
+def walkteach_yawgate_turn_returns() -> dict[str, float]:
+    return {p: float(np.mean(
+        [_turn_rollout(p, s_wz * TURN_CMD_WZ, s,
+                       overrides=WALKTEACH_YAWGATE_OVERRIDES)
+         for s in SEEDS for s_wz in (+1.0, -1.0)]))
+        for p in ("turn", "park")}
+
+
+def test_walkteach_freeze_floor_open_without_yaw_gate(walkteach_turn_returns):
+    """Pins the DEFECT: the walkteach/dualbc canary's own cfg-set
+    (course/kernel reward family, no walk_kernel_yaw_gate) lets a
+    frozen body collect ~all of an honest turner's income on a
+    turn-in-place tick — the cw-omni-mirror1-r1 exploit reborn in a
+    different reward family. If this test starts FAILING (park no
+    longer rivals turn), the underlying kernel stack changed and the
+    wave-2 gate requirement below should be re-audited, not deleted."""
+    t = walkteach_turn_returns
+    assert t["park"] > 0.75 * t["turn"], (
+        f"expected the un-gated canary stack to still let park rival "
+        f"turn (freeze-floor defect); got {t} — re-audit this bank "
+        f"before relaxing the wave-2 walk_kernel_yaw_gate requirement.")
+
+
+def test_walkteach_yaw_gate_closes_the_freeze_floor(
+        walkteach_yawgate_turn_returns):
+    """The FIX: adding reward.walk_kernel_yaw_gate=1.0 (the existing,
+    already-proven OMNI mechanism — no new reward code) to the exact
+    same walkteach cfg-set must restore honest turning as the clear
+    winner, matching the OMNI bank's own park<0.5*turn bar. This is
+    the binding requirement for ANY wave-2 turn-ticks diet launch."""
+    t = walkteach_yawgate_turn_returns
+    assert t["park"] < 0.5 * t["turn"], (
+        f"walk_kernel_yaw_gate=1.0 did not close the freeze floor on "
+        f"the walkteach stack: {t}")
+
+
+# --------------------------------------------------------------------------
 # TURN-STACK stillness-subsidy bank — the probe-found latent defect
 # (08-11, probe_walk_income on the mirror2 stack). On LINEAR-command
 # ticks the ungated heading-hold side of the yaw kernel (k_walk_yaw at

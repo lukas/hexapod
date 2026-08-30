@@ -432,14 +432,40 @@ def probe_seq(student, env, n_ep: int = 2) -> None:
               f"return {tot:.0f} fell={fell}")
 
 
+def _com_xy(env):
+    """Best-effort planar body position for a quick displacement check
+    (same field eval_checkpoint.py's valid_plant uses). Returns None if
+    unavailable rather than raising -- this is a sanity print, not a
+    hard dependency."""
+    data = getattr(env, "data", None)
+    com = getattr(data, "subtree_com", None) if data is not None else None
+    if com is None:
+        return None
+    try:
+        return np.array(com[0, :2], dtype=float)
+    except Exception:
+        return None
+
+
 def quick_probe(student, env, modes=("walk", "rise", "hold"),
                 n_ep: int = 2) -> None:
-    """Stateful deterministic sanity rollouts (not the real harness)."""
+    """Stateful deterministic sanity rollouts (not the real harness).
+    For "walk" also prints net planar displacement (start->end body
+    XY distance) alongside the return -- added 2026-08-30 after the
+    dualbc2_allheadwalk lesson: a plausible-looking episode RETURN can
+    mask a checkpoint that never actually leaves the spot (near-zero
+    forward_dist_m, huge slip/m once measured by the real harness).
+    This is still a coarse sanity check (n_ep=2, no direction/slip
+    accounting), not a substitute for eval_checkpoint's harness --
+    but it would have caught that lesson's defect BEFORE funding a
+    GPU RL fine-tune on top of it, which is the whole point."""
     for mode in modes:
         env.set_goal_mix({m: (1.0 if m == mode else 0.0) for m in DIET})
         rews = []
+        disps = []
         for _ in range(n_ep):
             obs, _ = env.reset()
+            start_xy = _com_xy(env) if mode == "walk" else None
             state, ep_start = None, np.ones((1,), dtype=bool)
             done, tot = False, 0.0
             while not done:
@@ -451,8 +477,19 @@ def quick_probe(student, env, modes=("walk", "rise", "hold"),
                 tot += r
                 done = term or trunc
             rews.append(tot)
-        print(f"[distill-gru] probe {mode}: ep returns "
-              f"{[f'{r:.0f}' for r in rews]}")
+            if start_xy is not None:
+                end_xy = _com_xy(env)
+                if end_xy is not None:
+                    disps.append(float(np.linalg.norm(end_xy - start_xy)))
+        msg = (f"[distill-gru] probe {mode}: ep returns "
+               f"{[f'{r:.0f}' for r in rews]}")
+        if disps:
+            msg += (f"  net_disp_m {[f'{d:.3f}' for d in disps]}"
+                    " (WARNING: <0.05m over a full episode usually means"
+                    " in-place quivering, not walking -- do not fund an"
+                    " RL fine-tune on this checkpoint without checking"
+                    " why)" if max(disps) < 0.05 else "")
+        print(msg)
 
 
 def main(argv: list[str] | None = None) -> int:

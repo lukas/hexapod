@@ -29,7 +29,8 @@ sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.distill_gru import (  # noqa: E402
-    _episode_split, collect_transitions, main as distill_main,
+    _com_xy, _episode_split, collect_transitions, main as distill_main,
+    quick_probe,
 )
 from rl_move.sim.walk_task import (  # noqa: E402
     MODE_ONEHOT_ORDER, SimHexapodJointWalkEnv,
@@ -180,3 +181,60 @@ def test_episode_split_matches_legacy_formula():
     assert _episode_split(1, {"rise": 0.4, "walk": 0.3, "lower": 0.15,
                               "hold": 0.15}) == {
         "rise": 1, "walk": 1, "lower": 1, "hold": 1}
+
+
+# ---------------------------------------------------------------------------
+# quick_probe net-displacement sanity check (2026-08-30, the
+# dualbc2_allheadwalk lesson: a plausible episode RETURN can mask a
+# checkpoint that never leaves the spot -- eval_checkpoint's real
+# harness caught near-zero forward_dist_m / huge slip_per_m on a
+# checkpoint whose own quick_probe returns had looked unremarkable).
+# ---------------------------------------------------------------------------
+
+class _ZeroStudent:
+    """Stateful-predict-shaped stub that always commands zero action
+    (stay put) -- the canonical in-place-quivering case this check
+    exists to catch."""
+
+    def __init__(self, n_act: int):
+        self._n_act = n_act
+
+    def predict(self, obs, state=None, episode_start=None,
+                deterministic=True):
+        return np.zeros(self._n_act, dtype=np.float32), None
+
+
+def test_com_xy_helper():
+    env = _make_seq_env(seq=False, episode_seconds=5.0)
+    env.reset()
+    xy = _com_xy(env)
+    assert xy is not None and xy.shape == (2,)
+    assert _com_xy(object()) is None  # no .data -> None, never raises
+    env.close()
+
+
+def test_quick_probe_flags_near_zero_walk_displacement(capsys):
+    env = _make_seq_env(seq=False, episode_seconds=5.0)
+    student = _ZeroStudent(int(env.action_space.shape[0]))
+    quick_probe(student, env, modes=("walk",), n_ep=1)
+    env.close()
+    out = capsys.readouterr().out
+    assert "probe walk" in out
+    assert "net_disp_m" in out
+    # zero action for 2s cannot produce real forward locomotion -- the
+    # WARNING that would have flagged the dualbc2_allheadwalk defect
+    # must fire here too, or the check is not doing its job.
+    assert "WARNING" in out
+
+
+def test_quick_probe_non_walk_mode_has_no_displacement_field(capsys):
+    # rise/hold aren't instrumented (the lesson was specifically about
+    # walk not walking) -- confirm the field is walk-only, not a
+    # silent crash on other modes.
+    env = _make_seq_env(seq=False, episode_seconds=5.0)
+    student = _ZeroStudent(int(env.action_space.shape[0]))
+    quick_probe(student, env, modes=("hold",), n_ep=1)
+    env.close()
+    out = capsys.readouterr().out
+    assert "probe hold" in out
+    assert "net_disp_m" not in out

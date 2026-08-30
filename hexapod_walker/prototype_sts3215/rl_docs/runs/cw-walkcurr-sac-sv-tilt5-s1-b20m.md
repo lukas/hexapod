@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-30T04:23:21+00:00
+**created**: 2026-08-30T04:25:52+00:00
 
 **pod**: hexapod-mjx-train-7
 
@@ -16,5 +16,5 @@
 
 **gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 20M: PASS needs progress_ratio >= 0.35, slip/m <= 3.0, gait_valid >= 4/6, falls on <= 1/6 det episodes. PARTIAL/continue (08-21): fall rate below 24/24 or forward_dist median clearing 0.06m (past tilt5-s1's 0.055m walk/det ceiling) with reward not declining. FAIL: fall rate and forward_dist unchanged at 20M with flat/declining reward. Discovery litmus per the corrected standard: env/walk_speed holding 0.05-0.08 AND ep_len stable/rising AND over_current at background. Selection discipline (operator 08-30): no promotion from the search eval alone -- held-out eval/command seeds plus a replicate seed before any track-level claim.
 
-**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+**refused_reason**: hexapod-mjx-train-7 already runs cw-walkcurr-sac-sv-tilt5-s1-b20m — GPU pods host exactly one run; pick a free GPU pod.
 

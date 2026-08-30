@@ -1,5 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~22:2x (no verdict — both assigned runs genuinely
+mid-flight, not stalled): `cw-standwalk-stage2-dualbc4-walkteach-
+anchor14coef1-acq8m` (train-2, 8M straight continuation of the just-
+PASSED wave-1 canary) and `cw-standwalk-stage2-dualbc4-walkteach-
+turndiet-anchor14coef1-canary{,-s1}` (train-0/train-1, the wave-2
+turn-ticks canary pair launched by the 21:3x cycle) all finished
+training this cycle and their own `_gate`/`_owncfg`/`_mixedsession`
+`eval_checkpoint` harnesses are actively computing on-pod (ps-
+confirmed: multiple live `eval_checkpoint` processes per pod, output
+dirs growing — gate/owncfg at walk_det done, rise_det in progress
+~30min in of this recipe's own documented 1.5-3h class). Left running,
+not duplicated. Two things worth recording while these finish:
+(1) turndiet-canary's `wandb_history.csv` reward-per-quarter shows a
+deep mid-run dive (peak ~+73/ep @720k -> trough ~-286/ep @1.5M ->
+partial recovery to ~-30..-55/ep by 2.03M steps, `terminations/
+over_current` spiking to 27/window at the trough) — this matches the
+SAME shape already logged for the wave-1 canary pair (see the 19:1x
+entry's `[41.3,18.2,-170.4,-101.7]`-class dive) and the dualbc3/
+anchor14-rescue precedent before it: a known mid-run anchor-
+coefficient dip, not a new pathology — noting it here so the eventual
+verdict doesn't need to re-derive this from scratch. (2) confirmed
+(via ledger + `launch_run.py status`) that a DIFFERENT concurrent
+cycle is actively working the `walkcurr` track's litrep-box wave
+(`cw-walkcurr-litrep-box-s0` now RUNNING on train-3 after an earlier
+REFUSED at 150M/discovery-phase) — not this cycle's scope, left
+untouched. Re-swept joystick/amp/cpg (DONE-or-[operator]-maintenance,
+unchanged)/todaypolicy (delivered, unchanged); walkcurr's rung-1 stays
+operator-blocked separately from the litrep-box wave a concurrent
+cycle owns. No legal new launch beyond the in-flight harnesses and the
+concurrent cycle's own litrep-box work.
+
 Update, 2026-08-30 ~21:2x (**dualbc4-walkteach-anchor14coef1-canary{,-s1}
 BOTH CANARY PASS — promoted to 8M acquisition, RUNNING.**) The
 `_mixedsession` harness the 20:5x entry below left in flight actually

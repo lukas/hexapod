@@ -18,6 +18,10 @@ Six registered tracks live in `rl_move/orchestrator/tracks.json`:
 Out-of-scope operator runs get honest triage but no agent follow-ups.
 
 ## Today Answer
+- DELIVERED 2026-08-30: `todaypolicy-mlpsf-tuck-v1` packaged, all TODAY
+  bars PASS on a fresh controller-side full-mesh regen; GO for
+  controller handoff. Durable evidence + GO/NO-GO + selector path:
+  `rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/`.
 - Bundle candidate: `todaypolicy-mlpsf-tuck-v1`.
 - Stand/lower role: scripted tuck by default; compare learned
   `stand_stancemix_tuckclock_scratch8m{,_s1}` when useful.

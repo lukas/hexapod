@@ -1,0 +1,129 @@
+{
+  "schema": "hexapod.hybrid_demo.v1",
+  "name": "todaypolicy-mlpsf-tuck-v1",
+  "model_source": "mesh",
+  "states": {
+    "belly_zero": {
+      "bookkeeping_start_at": "zero",
+      "pose_family": "logical_zero_belly_down"
+    },
+    "step_stand": {
+      "pose_family": "standup_modes.tuck.final"
+    },
+    "walk_ready": {
+      "pose_family": "sim_walk_start",
+      "q_deg": [
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0,
+        0.0,
+        20.0,
+        80.0
+      ]
+    },
+    "walk_done": {
+      "pose_family": "post_policy_runtime_state"
+    },
+    "grounded": {
+      "pose_family": "scripted_lower_limp_settled"
+    }
+  },
+  "controllers": {
+    "align_walk_ready": {
+      "type": "pose_blend",
+      "target": "sim_walk_start",
+      "seconds": 0.75
+    },
+    "bookkeeping_walk_frame": {
+      "type": "bookkeeping_reanchor",
+      "start_at": "plant",
+      "mode": "hold"
+    },
+    "rl_walk": {
+      "type": "sb3_walk_policy",
+      "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip",
+      "policy_mode": "deterministic",
+      "script": "human",
+      "seconds": 28.0,
+      "speed_m_s": 0.08,
+      "blend_s": 0.5
+    },
+    "align_before_lower": {
+      "type": "pose_blend",
+      "target": "sim_walk_start",
+      "seconds": 0.75
+    },
+    "limp_settle": {
+      "type": "limp_settle",
+      "seconds": 2.0
+    },
+    "scripted_stand": {
+      "type": "standup_mode",
+      "mode": "tuck",
+      "direction": "forward",
+      "time_scale": 1.0
+    },
+    "scripted_lower": {
+      "type": "standup_mode",
+      "mode": "tuck",
+      "direction": "reverse",
+      "time_scale": 1.0
+    }
+  },
+  "sequence": [
+    {
+      "phase": "stand",
+      "controller": "scripted_stand",
+      "from_state": "belly_zero",
+      "to_state": "step_stand"
+    },
+    {
+      "phase": "walk_ready_align",
+      "controller": "align_walk_ready",
+      "from_state": "step_stand",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "walk_reanchor",
+      "controller": "bookkeeping_walk_frame",
+      "from_state": "walk_ready",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "walk",
+      "controller": "rl_walk",
+      "from_state": "walk_ready",
+      "to_state": "walk_done"
+    },
+    {
+      "phase": "pre_lower_align",
+      "controller": "align_before_lower",
+      "from_state": "walk_done",
+      "to_state": "walk_ready"
+    },
+    {
+      "phase": "lower",
+      "controller": "scripted_lower",
+      "from_state": "walk_ready",
+      "to_state": "grounded"
+    },
+    {
+      "phase": "limp",
+      "controller": "limp_settle",
+      "from_state": "grounded",
+      "to_state": "grounded"
+    }
+  ]
+}

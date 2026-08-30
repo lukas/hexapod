@@ -1,7 +1,42 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-08-30. This is the delivery track, not the
+Last updated: 2026-08-30 ~17:4x. This is the delivery track, not the
 single-policy research track.
+
+## DONE (2026-08-30): `todaypolicy-mlpsf-tuck-v1` PACKAGED, ALL TODAY BARS PASS
+
+Fresh full-mesh regen on the controller (mesh STL assets rebuilt from
+the CAD tools — `make_xtool_hex_mount_plate.py` +
+`make_xtool_hex_raised_platform.py` were needed first; the gitignored
+electronics-stack STLs did not exist here):
+`logs/manual_drive/todaypolicy_mlpsf_tuck_v1_fullmesh/` — scripted tuck
+stand → 28 s human joystick script on the exported MLP-singleframe walk
+(det) → scripted tuck lower. Every TODAY bar passed: 0 terminations,
+`model_variant=full_mesh` (3.494 kg), no sacrificed legs (6/6 legs
+swing 32–37x, duty 0.51–0.62), course_err_1s med 2.42° / p90 6.98° /
+wrong 0.0, progress_ratio 0.418 (≥0.40; 0.60 stretch not met —
+teacher-ceiling), cur_max 2.64 A / cur_p95 1.886 A, video strip clean
+(level body, roll peak 1.9°, no loaded-foot drag in stand/lower).
+Durable copies + GO/NO-GO + browser/controller selector path:
+`rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/` (GO_NOGO.md,
+summary/composition/transfer_manifest.json, drive.mp4). Verdict: **GO**
+for MuJoCo/controller handoff; hardware steps remain operator-owned
+(read-only preflight first, per transfer_manifest blockers). Remaining
+optional upgrade (not a blocker): swap walk role to a walkteach-acq12m
+lineage export if its UX beats MLP-singleframe on the identical
+12 s-hold suite.
+
+Next #2 CLOSED same cycle — learned-vs-scripted tuck A/B (identical
+harness, seed, script; only stand/lower controller swapped,
+`stancemix_tuckclock_scratch8m` learned stance):
+`logs/manual_drive/todaypolicy_mlpsf_learnedtuck_ab/`. Learned tuck
+completes all phases (0 terminations, no sac legs, video clean) but is
+strictly worse on the deciding bars: **cur_p95 2.153 A BREACHES the
+≤2.0 bar** (scripted 1.886), slip total 3.61 vs 2.72 m, course p90
+8.31° vs 6.98°; progress/course-med equal (walk role identical).
+Ruling: **scripted tuck stays the bundle primary**; learned tuck is a
+working but hotter/slippier fallback. No further stance submodel spend
+for this track.
 
 ## Goal
 

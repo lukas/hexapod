@@ -1,5 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~17:5x (**dualbc3-dagger acq8m mixedsession reads
+TRIAGED per operator focus note — harness ALIVE, not errored; partial
+dr0 numbers say speed-soft + sto-fragile; unified-policy spend stays
+HELD until the session pass lands.**) Plain English: checked the
+"mixedsession errors" the focus note flagged. They are NOT dead evals
+— the `eval_mixed_session` wrappers on train-0/train-1 are healthy and
+mid-flight: dr0 sub-pass finished 16:45 (s0) / 17:07 (s1), the `owndr`
+`eval_checkpoint` sub-pass is actively computing (started 16:45/17:07,
+~750% CPU, videos landing at 17:35), and the final session sub-pass
+(`.._session/`, the actual sit→rise→walk→lower DONE-gate read) has not
+started yet — the 194-byte `owndr.log` is just an in-progress stub,
+not a crash, and this is NOT the acq12m websocket-drop failure class.
+Partial dr0 reads (both seeds, same shape): det rise 4/6 & 5/6; det
+walk **0/6 success** despite gait_valid 6/6 and zero falls — speed
+0.032–0.035 m/s vs the 0.08 command (prog_ratio 0.35–0.38, slip/m
+5.9–6.8, tick dir_err 46–52° vs the joygate's 40° allow, though
+course1s only 5.3–7.3°); sto walk COLLAPSES (prog 0.05–0.07, slip/m
+29–40) — the σ-band fragility the walkteach lineage fixed with
+log-std anneal. Interpretation: the unified dualbc3 line is
+speed-soft at ~40% of command and sto-fragile even before the session
+read; nothing here contradicts the already-recorded acquisition PASS
+(own-scope), but it makes the pre-registered dualbc4_walkteach
+teacher-adoption swap (already distilling, background CPU) look like
+the right bet. HOLD unchanged: **no further unified-policy RL spend
+until the session passes land** (focus-note order upheld; no verdict
+issued — the runs' own verdicts already exist, this is a gate read).
+
 Update, 2026-08-30 ~17:3x (**`cw-walkteach-scripted-allhead-acq12m{,-s1}`
 BOTH ACQUISITION PASS (5/5 clauses, 2/2 seeds) — the wave-1 walkteach
 pair is DONE; teacher-ceiling confirmed (not a regression); Stage-2

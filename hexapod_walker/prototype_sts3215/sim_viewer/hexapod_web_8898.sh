@@ -132,6 +132,8 @@ serve() {
   )
   if [[ "$phase" != "0" ]]; then
     args+=(--phase-obs)
+  else
+    args+=(--no-phase-obs)
   fi
   exec "$UV_BIN" "${args[@]}"
 }
@@ -199,6 +201,8 @@ foreground() {
   )
   if [[ "$PHASE" != "0" ]]; then
     args+=(--phase-obs)
+  else
+    args+=(--no-phase-obs)
   fi
   exec "$UV_BIN" "${args[@]}"
 }

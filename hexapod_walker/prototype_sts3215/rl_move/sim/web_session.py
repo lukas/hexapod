@@ -15,8 +15,9 @@ from typing import Any
 import numpy as np
 
 from rl_move.env import TaskGoal, build_obs
+from rl_move.safety import SafetyLayer
 
-from .joint_task import q_rad_to_action
+from .joint_task import action_to_q_rad, q_rad_to_action
 from hexapod_core.joint_frame import (
     RAD2DEG,
     robot_abs_rad_to_sim_rad,
@@ -94,6 +95,25 @@ def _quad_action(name: str) -> str:
     return name.removeprefix("quad_")
 
 
+def _ms_stats(values: list[float]) -> dict[str, Any]:
+    if not values:
+        return {"samples": 0}
+    arr = np.asarray(values, dtype=float) * 1000.0
+    return {
+        "samples": int(arr.size),
+        "mean_ms": round(float(np.mean(arr)), 3),
+        "p50_ms": round(float(np.percentile(arr, 50)), 3),
+        "p95_ms": round(float(np.percentile(arr, 95)), 3),
+        "max_ms": round(float(np.max(arr)), 3),
+    }
+
+
+_DRIVE_HEARTBEAT_STALE_S = 0.6
+_DRIVE_HOLD_SWITCH_S = 1.5
+_DRIVE_MOVE_EPS_MPS = 1e-4
+_DRIVE_YAW_EPS_RAD_S = 1e-4
+
+
 @dataclass
 class SimWebConfig:
     policy_dir: Path
@@ -129,6 +149,10 @@ class SimWebSession:
         self.sitting = False
         self.drive_active = False
         self.last_drive_cmd_at = 0.0
+        self.drive_zero_since: float | None = None
+        self.drive_last_vx = 0.0
+        self.drive_last_vy = 0.0
+        self.drive_last_wz = 0.0
         self.timed_walk_until: float | None = None
         self.job_kind: str | None = None
         self.job_result: dict[str, Any] = {"ok": True, "ended": "idle"}
@@ -237,17 +261,16 @@ class SimWebSession:
         self.policy_index = self._build_policy_index()
         self._register_uploaded_policies()
 
-        self.stance = self.PPO.load(self.stance_list[self.si], device="cpu")
-        self.walk = self.load_checkpoint_auto(self.walk_list[self.wi],
-                                              device="cpu")
+        self.stance = self._load_model(self.stance_list[self.si],
+                                       device="cpu")
+        self.walk = self._load_model(self.walk_list[self.wi], device="cpu")
         self.n_stance = int(self.stance.observation_space.shape[0])
         self.n_walk = int(self.walk.observation_space.shape[0])
         self.walk_kind = self._walk_kind_of(self.n_walk)
         self.n_env = int(self.env.observation_space.shape[0])
         if self.walk_kind == "plain" and self.n_walk > self.n_env:
             raise ValueError(f"{self.walk_list[self.wi]} needs --phase-obs")
-        self.recover = (self.load_checkpoint_auto(self.cfg.recover,
-                                                  device="cpu")
+        self.recover = (self._load_model(self.cfg.recover, device="cpu")
                         if self.cfg.recover.exists() else None)
 
         self._regime_base: dict[str, Any] = {}
@@ -387,7 +410,7 @@ class SimWebSession:
         if not p.exists():
             raise FileNotFoundError(
                 f"{p} not found; pass --policy-dir or pull checkpoints first")
-        w = _obs_width(p)
+        w = self._policy_obs_width(p)
         if w not in want:
             raise ValueError(f"{p}: obs width {w}, need one of {want}")
         p = p.resolve()
@@ -478,6 +501,58 @@ class SimWebSession:
         except Exception:
             return 0.0, 0.0
 
+    def _clear_drive_dwell(self) -> None:
+        self.drive_zero_since = None
+        self.drive_last_vx = 0.0
+        self.drive_last_vy = 0.0
+        self.drive_last_wz = 0.0
+
+    def _drive_cmd_moving(self, vx: float, vy: float, wz: float) -> bool:
+        return (float(np.hypot(vx, vy)) > _DRIVE_MOVE_EPS_MPS
+                or abs(wz) > _DRIVE_YAW_EPS_RAD_S)
+
+    def _drive_remember_refs(self) -> None:
+        if self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd):
+            self.drive_last_vx = float(self.traj.vx)
+            self.drive_last_vy = float(self.traj.vy)
+            self.drive_last_wz = float(self.om_cmd)
+
+    def _drive_zero_dwell_remaining(self,
+                                    now: float | None = None) -> float:
+        if self.drive_zero_since is None or not self.drive_active:
+            return 0.0
+        if now is None:
+            now = time.monotonic()
+        return max(0.0, _DRIVE_HOLD_SWITCH_S
+                   - (float(now) - self.drive_zero_since))
+
+    def _drive_neutral_dwell_locked(self, now: float) -> bool:
+        was_walking = (
+            self.mode == "walk"
+            or self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd)
+        )
+        if not was_walking:
+            self.drive_zero_since = None
+            return False
+        if self.drive_zero_since is None:
+            self.drive_zero_since = now
+        if self._drive_zero_dwell_remaining(now) <= 0.0:
+            return False
+        if not self._drive_cmd_moving(
+                self.traj.vx, self.traj.vy, self.om_cmd):
+            vx = self.drive_last_vx
+            vy = self.drive_last_vy
+            wz = self.drive_last_wz
+            if not self._drive_cmd_moving(vx, vy, wz):
+                vx, _vmax = self._drive_band()
+                vy = 0.0
+                wz = 0.0
+            self.traj.vx = float(vx)
+            self.traj.vy = float(vy)
+            self._set_drive_wz(float(wz))
+        self.msg = "drive coasting before hold"
+        return True
+
     def _published_height_ref(self) -> float:
         pub = getattr(self.traj, "_pub", self.traj.goal)
         return float(getattr(pub, "height_ref", self.traj.goal.height_ref))
@@ -490,6 +565,7 @@ class SimWebSession:
         self.downed = False
         self.sitting = False
         self.drive_active = False
+        self._clear_drive_dwell()
         self.timed_walk_until = None
         self.gait = None
         self.gait_t = 0.0
@@ -624,6 +700,7 @@ class SimWebSession:
         self.traj.start_at = "plant"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -635,6 +712,7 @@ class SimWebSession:
         self.traj.start_at = "zero"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -686,6 +764,7 @@ class SimWebSession:
         self.traj.goal = TaskGoal()
         self.traj.goal.height_ref = float(prof["target_m"])
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.mode = "rise"
         self.traj.reset_published()
         self._reset_memories(hard=False)
@@ -713,6 +792,7 @@ class SimWebSession:
         self.auto = None
         self.traj.vx = self.traj.vy = 0.0
         self.om_cmd = 0.0
+        self._clear_drive_dwell()
         prof = self._apply_ramp("lower")
         if self.traj.start_at in ("zero", "belly"):
             self.auto = ["fold", 0, int(6.0 / self.env.dt), self._chassis_z()]
@@ -857,6 +937,7 @@ class SimWebSession:
         cr, sr = math.cos(roll / 2), math.sin(roll / 2)
         cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.env.data.qpos[2] = 0.20
         self.env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
         lo, hi = self.env.model.jnt_range[1:, 0], self.env.model.jnt_range[1:, 1]
@@ -951,10 +1032,13 @@ class SimWebSession:
     def _tick_locked(self) -> None:
         self._apply_servo_regime()
         now = time.monotonic()
-        if self.drive_active and now - self.last_drive_cmd_at > 0.6:
-            self.traj.vx = self.traj.vy = 0.0
+        if self.drive_active and now - self.last_drive_cmd_at > _DRIVE_HEARTBEAT_STALE_S:
+            if not self._drive_neutral_dwell_locked(now):
+                self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
         if self.timed_walk_until is not None and self.sim_t >= self.timed_walk_until:
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._finish_job("timed walk complete")
 
@@ -974,6 +1058,11 @@ class SimWebSession:
                      ("lower", "fold", "fell")
                      else "walk" if walking else "hold")
         self.traj.mode = "hold" if self.mode == "demo" else self.mode
+        if self.mode == "walk":
+            self._drive_remember_refs()
+        elif not self._drive_cmd_moving(self.traj.vx, self.traj.vy,
+                                        self.om_cmd):
+            self.drive_zero_since = None
 
         action = None
         if self.push_ticks > 0:
@@ -1110,6 +1199,7 @@ class SimWebSession:
                 self.drive_active = False
                 self.timed_walk_until = None
                 self.traj.vx = self.traj.vy = 0.0
+                self._clear_drive_dwell()
                 reason = info.get("termination_reason") or "episode end"
                 self._finish_job(f"{reason}; DOWN", ok=False)
         self.sim_t += self.env.dt
@@ -1323,6 +1413,7 @@ class SimWebSession:
             "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),
             "height_live": True,
+            "walk_zero_dwell_s": round(self._drive_zero_dwell_remaining(), 2),
             "t_s": round(self.sim_t, 1),
         }
 
@@ -1515,6 +1606,7 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.armed = True
             self.sitting = False
             self.pose_hold_q = None
@@ -1656,6 +1748,7 @@ class SimWebSession:
         self.auto = None
         self.gait = None
         self.om_cmd = 0.0
+        self._clear_drive_dwell()
         self.armed = True
         self.msg = f"{name} running"
         self._open_log(f"demo_{name}")
@@ -1746,6 +1839,7 @@ class SimWebSession:
                 self.auto = None
                 self.gait = None
                 self.om_cmd = 0.0
+                self._clear_drive_dwell()
             self._set_demo_safety(True)
             base_deg = sim_rad_to_robot_abs_deg(self.q_plant)
             gait = QUAD_DEMO_GAITS[name]
@@ -1782,6 +1876,7 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.armed = True
             self.msg = f"{name} running"
             self._open_log(f"demo_{name}")
@@ -1807,6 +1902,7 @@ class SimWebSession:
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.mode = "hold"
             self.traj.mode = "hold"
             self.msg = "demo stopped - holding"
@@ -2061,6 +2157,125 @@ class SimWebSession:
                     "walk": self._model_info(self.walk, self.walk_list[self.wi])
                     if self.walk is not None else self._scripted_info()}
 
+    def rl_timing_probe(self, *, samples: int = 200,
+                        read_samples: int = 8) -> dict[str, Any]:
+        """Non-mutating timing probe for the active MuJoCo walk policy path."""
+        samples = max(1, min(2000, int(samples)))
+        read_samples = max(0, min(50, int(read_samples)))
+        with self.lock:
+            if self.walk is None:
+                return {"ok": False, "sim": True, "motion_free": True,
+                        "error": ("active sim walk driver is scripted; "
+                                  "select a learned walk policy")}
+            model = self.walk
+            policy_path = self.walk_list[self.wi]
+            n_walk = int(self.n_walk)
+            walk_kind = self.walk_kind
+            obs = self.obs.copy()
+            state = self.env._state
+            q_nom = self.env._q_nom.copy()
+            prev_action = self.env._prev_action.copy()
+            goal = self.env._current_goal()
+            tilt_ref = tuple(self.env._tilt_ref0)
+            cfg = self.env.cfg
+            max_dq = self.env.safety.max_dq
+            max_roll = self.env.safety.max_roll
+            max_pitch = self.env.safety.max_pitch
+            dt = float(self.env.dt)
+
+            read_times: list[float] = []
+            for _ in range(read_samples):
+                t0 = time.perf_counter()
+                _ = self._live()
+                _ = self._q_now()
+                _ = self._roll_pitch_deg()
+                read_times.append(time.perf_counter() - t0)
+
+            scratch_safety = SafetyLayer(cfg)
+            scratch_safety.max_dq = max_dq
+            scratch_safety.max_roll = max_roll
+            scratch_safety.max_pitch = max_pitch
+            scratch_safety.set_nominal(q_nom)
+            scratch_safety.set_tilt_reference(*tilt_ref)
+
+            obs_times: list[float] = []
+            policy_times: list[float] = []
+            safety_times: list[float] = []
+            total_times: list[float] = []
+            bad_action = ""
+            safety_trip = ""
+            action_abs_max = 0.0
+
+            def predict_once():
+                if walk_kind == "hist":
+                    frame = obs[:72].copy()
+                    return model.predict(
+                        np.concatenate([frame for _ in range(_HIST_K)]),
+                        deterministic=True)
+                if walk_kind == "gru":
+                    o = np.concatenate([obs[:72], obs[-_N_MODE:]])
+                    return model.policy.predict(
+                        o, state=None, episode_start=np.ones((1,), dtype=bool),
+                        deterministic=True)
+                return model.predict(obs[:n_walk], deterministic=True)
+
+            for _ in range(samples):
+                tick_t0 = time.perf_counter()
+
+                stage_t = time.perf_counter()
+                _ = build_obs(cfg, state, q_nom, prev_action, goal=goal,
+                              tilt_ref=tilt_ref)
+                obs_times.append(time.perf_counter() - stage_t)
+
+                stage_t = time.perf_counter()
+                raw_act, _ = predict_once()
+                policy_times.append(time.perf_counter() - stage_t)
+
+                stage_t = time.perf_counter()
+                action, bad = scratch_safety.validate_action(
+                    raw_act, n_act=18)
+                if action is None:
+                    bad_action = bad
+                    break
+                q_prop = action_to_q_rad(action)
+                q_safe, status = scratch_safety.filter(
+                    q_prop, state, action=action)
+                safety_times.append(time.perf_counter() - stage_t)
+                if status.terminate:
+                    safety_trip = status.reason
+                    break
+
+                prev_action = action.copy()
+                action_abs_max = max(action_abs_max,
+                                     float(np.max(np.abs(action))))
+                _ = q_safe
+                total_times.append(time.perf_counter() - tick_t0)
+
+            return {
+                "ok": not bad_action and not safety_trip,
+                "sim": True,
+                "motion_free": True,
+                "mutates_sim_state": False,
+                "physics_step_not_measured": True,
+                "policy": policy_path.stem,
+                "policy_file": policy_path.name,
+                "obs_dim": n_walk,
+                "policy_hz": round(1.0 / dt, 3) if dt > 0 else None,
+                "budget_ms": round(dt * 1000.0, 3),
+                "snapshot_read": _ms_stats(read_times),
+                "snapshot_read_errors": 0,
+                "hot_path": {
+                    "total": _ms_stats(total_times),
+                    "obs": _ms_stats(obs_times),
+                    "policy": _ms_stats(policy_times),
+                    "safety": _ms_stats(safety_times),
+                },
+                "max_delta_q_deg": round(math.degrees(max_dq), 4),
+                "action_abs_max": round(action_abs_max, 4),
+                "bad_action": bad_action or None,
+                "safety_trip": safety_trip or None,
+            }
+
     def _model_info(self, model: Any, path: Path) -> dict[str, Any]:
         if hasattr(model, "meta"):      # uploaded numpy policy
             return {"source": str(path),
@@ -2234,6 +2449,7 @@ class SimWebSession:
             else:
                 self._record_command(f"/api/rl/{mode}")
             self.drive_active = False
+            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._open_log(mode)
             self.job_kind = mode
@@ -2267,11 +2483,13 @@ class SimWebSession:
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.auto = None
             self._finish_job("stopped - holding")
             return {"ok": True, "status": self.msg, "live": self._live()}
 
-    def rl_drive_start(self) -> dict[str, Any]:
+    def rl_drive_start(self, vx: float = 0.0, vy: float = 0.0,
+                       wz: float = 0.0, dh: float = 0.0) -> dict[str, Any]:
         with self.lock:
             self._record_command("/api/rl/drive/start")
             if self.auto is None and (self.sitting or self._chassis_z() < 0.09):
@@ -2280,6 +2498,13 @@ class SimWebSession:
             self.last_drive_cmd_at = time.monotonic()
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
+            seed_vx = float(vx)
+            seed_vy = float(vy)
+            seed_wz = max(-0.5, min(0.5, float(wz)))
+            seed_dh = max(-1.0, min(1.0, float(dh)))
+            if seed_vx or seed_vy or seed_wz or seed_dh:
+                self.rl_drive_cmd(seed_vx, seed_vy, seed_wz, seed_dh)
             self._open_log("drive")
             self.msg = "drive session active"
             return {"ok": True, "active": True, "status": self.msg,
@@ -2318,8 +2543,9 @@ class SimWebSession:
             hb_dt = min(max(now - self.last_drive_cmd_at, 0.0), 0.5)
             self.last_drive_cmd_at = now
             goal = self.traj.goal
-            moving = (float(np.hypot(vx, vy)) > 1e-4 or abs(wz) > 1e-4)
+            moving = self._drive_cmd_moving(vx, vy, wz)
             if moving and abs(goal.height_ref) > self._DRIVE_HEIGHT_EPS_M:
+                self.drive_zero_since = None
                 # Walk champions trained at height_ref 0: ramp a nudged
                 # body back to the walk anchor height first; the gait
                 # engages on a later heartbeat once the ref is ~0.
@@ -2334,14 +2560,18 @@ class SimWebSession:
                 self.msg = "returning to walk height"
             elif moving:
                 if self._engage_walk():
+                    self.drive_zero_since = None
                     _, vmax = self._drive_band()
                     mag = float(np.hypot(vx, vy))
                     scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
                     self.traj.vx = float(vx * scale)
                     self.traj.vy = float(vy * scale)
                     self._set_drive_wz(wz)
+                    self._drive_remember_refs()
                     if self.msg == "returning to walk height":
                         self.msg = "drive session active"
+            elif self._drive_neutral_dwell_locked(now):
+                pass
             else:
                 self.traj.vx = self.traj.vy = 0.0
                 self._set_drive_wz(0.0)
@@ -2356,6 +2586,8 @@ class SimWebSession:
                             goal.height_ref
                             + dh * self._DRIVE_HEIGHT_RATE_MPS * hb_dt))
                     self.traj._pub.height_ref = goal.height_ref
+                if self.mode != "walk":
+                    self.drive_zero_since = None
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "live": self._live()}
 
@@ -2365,6 +2597,7 @@ class SimWebSession:
             self.drive_active = False
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self._close_log()
             self.job_result = {"ok": True, "ended": "drive stopped",
                                "sim_t_s": round(self.sim_t, 2),
@@ -2394,18 +2627,22 @@ class SimWebSession:
                 self.armed = False
                 self.quad_reared = False
                 self.rl_stop()
+                self._clear_drive_dwell()
                 self.msg = "sim stopped"
             elif head == "SETTLE":
                 self.armed = False
                 self._do_sit()
             elif head == "HOLD":
                 self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
+                self._clear_drive_dwell()
                 self.msg = "holding"
             elif head == "J" and len(parts) >= 4:
                 if self._engage_walk():
                     self.traj.vx = float(parts[1]) / 1000.0
                     self.traj.vy = float(parts[2]) / 1000.0
                     self.om_cmd = float(parts[3])
+                    self._drive_remember_refs()
                     self.msg = "J command routed to sim"
             return {"ok": True, "status": self.msg}
 
@@ -2444,6 +2681,7 @@ class SimWebSession:
             self.traj.start_at = "plant"
             self.traj.goal = TaskGoal()
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.traj.mode = "hold"
             self.traj.reset_published()
             self._reset_memories(hard=True)

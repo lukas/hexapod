@@ -252,6 +252,25 @@ class Handler(BaseHTTPRequestHandler):
             # Live drive-session snapshot (no bus traffic).
             self._json(200, BENCH.rl_drive_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/timing":
+            samples = 200
+            read_samples = 8
+            qs = self.path.split("?", 1)
+            if len(qs) == 2:
+                for part in qs[1].split("&"):
+                    if part.startswith("samples="):
+                        try:
+                            samples = int(part.split("=", 1)[1])
+                        except ValueError:
+                            pass
+                    elif part.startswith("read_samples="):
+                        try:
+                            read_samples = int(part.split("=", 1)[1])
+                        except ValueError:
+                            pass
+            self._json(200, BENCH.rl_timing_probe(
+                samples=samples, read_samples=read_samples) if BENCH
+                else {"ok": False, "error": "no bench"})
         elif path == "/api/measure/list":
             self._json(200, BENCH.measure_list() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -467,6 +486,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200 if ok else 409, msg if ok else msg or "failed")
         elif path == "/api/tft/ready":
             self._json(200, BENCH.tft_ready() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/tft/recover":
+            self._json(200, BENCH.tft_recover() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/tft/selftest":
+            self._json(200, BENCH.tft_selftest() if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/ui_event":
             data = body_obj if isinstance(body_obj, dict) else {}
@@ -771,8 +796,18 @@ class Handler(BaseHTTPRequestHandler):
                     role=str(data.get("role", "")),
                     file=str(data.get("file", ""))))
         elif path == "/api/rl/drive/start":
-            self._json(200, BENCH.rl_drive_start() if BENCH
-                       else {"ok": False, "error": "no bench"})
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_drive_start(
+                    vx=float(data.get("vx", 0.0)),
+                    vy=float(data.get("vy", 0.0)),
+                    wz=float(data.get("wz", 0.0)),
+                    dh=float(data.get("dh", 0.0))))
         elif path == "/api/rl/drive/cmd":
             # High-rate heartbeat (~5 Hz while driving): body-frame
             # vx/vy m/s, yaw-rate wz rad/s, plus dh in [-1, 1] (D-pad

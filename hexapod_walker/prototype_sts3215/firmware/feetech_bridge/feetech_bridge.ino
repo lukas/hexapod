@@ -6,7 +6,8 @@
     Serial1 (LPUART1)       @ 921600  → Linux /dev/ttyHS1 (stop arduino-router)
     Wire    (I2C2)          SDA/SCL   → GY-521 MPU-6050 (header D20/D21, 3V3)
     ST7789 TFT (bitbang SPI): SCL D13, SDA D11, RST D8, DC D9, CS D10,
-      BLK D7
+      BLK D7, VCC 3.3V, GND common
+      Screen module header order: GND VCC SCL SDA RES DC CS BLK.
       (TFT "SDA" is MOSI bitbang — not the I²C SDA pin)
 
   Autonomy (no host required):

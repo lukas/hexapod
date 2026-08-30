@@ -98,6 +98,25 @@ class _FakeEstimator:
         return self.update()
 
 
+class _FakeSampler:
+    def __init__(self, states=None, *, age_s=0.01,
+                 max_age_s=rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S):
+        self.states = list(states or [_state()])
+        self.age_s = age_s
+        self.max_age_s = max_age_s
+        self.commanded = []
+
+    def set_commanded(self, q):
+        self.commanded.append(np.asarray(q, dtype=float).copy())
+
+    def latest(self):
+        state = self.states[-1] if self.states else None
+        return state, self.age_s, {
+            "samples": len(self.states),
+            "good_samples": len([s for s in self.states if s.bus_ok]),
+        }
+
+
 def test_policy_bus_profile_prefers_metadata():
     cfg = {"bus": {"write_speed": 400, "write_acc": 20}}
 
@@ -148,19 +167,18 @@ def test_inner_stream_plan_can_be_disabled():
     assert inner_dt == pytest.approx(0.04)
 
 
-def test_policy_timing_adapts_legacy_and_explicit_rates():
-    legacy = rl_policy._policy_timing(_policy({}))  # noqa: SLF001
+def test_policy_timing_requires_declared_training_rate():
+    with pytest.raises(ValueError, match="missing meta.training_hz"):
+        rl_policy._policy_timing(_policy({}))  # noqa: SLF001
+
     explicit = rl_policy._policy_timing(  # noqa: SLF001
-        _policy({"policy_hz": 100})
+        _policy({"training_hz": 100})
     )
 
-    assert legacy.policy_hz == pytest.approx(25.0)
-    assert legacy.policy_dt == pytest.approx(0.04)
-    assert legacy.adapted is True
     assert explicit.policy_hz == pytest.approx(100.0)
     assert explicit.adapted is False
     assert rl_policy._check_policy_control_hz(  # noqa: SLF001
-        _policy({"policy_hz": 25}), "walk"
+        _policy({"training_hz": 25}), "walk"
     ) is None
 
 
@@ -225,6 +243,69 @@ def test_drive_command_engages_walk_on_translation_or_yaw():
     )
 
 
+def test_drive_walk_engages_on_first_real_command():
+    assert rl_policy.DRIVE_WALK_ENGAGE_S == pytest.approx(0.0)
+
+
+def test_drive_zero_dwell_keeps_walk_through_brief_neutral_input():
+    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
+        "walk", False, None, 9.63
+    )
+    assert keep is True
+    assert zero_since == pytest.approx(9.63)
+
+    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
+        "walk", False, zero_since, 9.63 + rl_policy.DRIVE_HOLD_SWITCH_S - 0.01
+    )
+    assert keep is True
+
+    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
+        "walk", False, zero_since, 9.63 + rl_policy.DRIVE_HOLD_SWITCH_S
+    )
+    assert keep is False
+    assert zero_since == pytest.approx(9.63)
+
+    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
+        "walk", True, zero_since, 12.0
+    )
+    assert keep is False
+    assert zero_since is None
+
+    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
+        "hold", False, 9.63, 10.0
+    )
+    assert keep is False
+    assert zero_since is None
+
+
+def test_drive_timing_trip_applies_to_policy_ticks_only():
+    timing = SimpleNamespace(policy_hz=100.0, policy_dt=0.01)
+
+    assert rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "hold", None, 0, timing, 0.025, 1
+    ) is None
+    assert rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, 0, timing, 0.025, 1
+    ) is None
+    assert rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS,
+        timing, 0.025, 1
+    ) is None
+    assert "consecutive" in rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 20,
+        timing, 0.025, rl_policy.DRIVE_TIMING_MAX_CONSECUTIVE_LATE
+    )
+    assert "missed the 100 Hz deadline" in rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 20,
+        timing, rl_policy.DRIVE_TIMING_HARD_LAG_S + 0.001, 1
+    )
+
+
+def test_async_snapshot_sampler_is_lower_rate_than_policy_loop():
+    assert rl_policy.DRIVE_ASYNC_SNAPSHOT_HZ == pytest.approx(10.0)
+    assert rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S == pytest.approx(0.25)
+
+
 def test_drive_translation_clamps_to_hardware_trained_band():
     vx, vy = rl_policy._drive_clamp_translation(0.002, 0.0)  # noqa: SLF001
 
@@ -276,7 +357,7 @@ def test_stream_target_tolerates_short_feedback_dropouts():
         max_stale_ticks=3,
     )
 
-    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, _timing = out
     assert err == ""
     assert state.bus_ok is True
     assert not rl_policy._stream_state_is_stale(state)  # noqa: SLF001
@@ -305,7 +386,7 @@ def test_stream_target_prefers_combined_step_all_snapshot():
         max_stale_ticks=3,
     )
 
-    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, _timing = out
     assert err == ""
     assert state.bus_ok is True
     assert stale_ticks == 0
@@ -313,6 +394,67 @@ def test_stream_target_prefers_combined_step_all_snapshot():
     assert bus.steps == 4
     assert bus.writes == 0
     assert len(est.snapshots) == 4
+
+
+def test_async_stream_target_writes_without_step_all_snapshot():
+    bus = _FakeStepBus()
+    sampler = _FakeSampler([_state()], age_s=0.02)
+
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus,
+        sampler,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=4,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=_state(),
+        stale_ticks=0,
+        max_stale_ticks=3,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, timing = out
+    assert err == ""
+    assert state.bus_ok is True
+    assert stale_ticks == 0
+    assert stale_samples == 0
+    assert bus.writes == 4
+    assert bus.steps == 0
+    assert len(sampler.commanded) == 4
+    assert timing["read_s"] == pytest.approx(0.0)
+
+
+def test_async_stream_target_marks_old_snapshot_stale():
+    bus = _FakeStepBus()
+    good0 = _state()
+    sampler = _FakeSampler([good0], age_s=0.5, max_age_s=0.1)
+
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus,
+        sampler,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=1,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=good0,
+        stale_ticks=3,
+        max_stale_ticks=3,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, _timing = out
+    assert err == "feedback stale during stream"
+    assert rl_policy._stream_state_is_stale(state)  # noqa: SLF001
+    assert stale_ticks == 4
+    assert stale_samples == 1
+    assert bus.writes == 1
+    assert bus.steps == 0
 
 
 def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
@@ -336,7 +478,7 @@ def test_stream_target_treats_stream_step_all_miss_as_stale_sample():
         max_stale_ticks=3,
     )
 
-    state, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, _timing = out
     assert err == "feedback stale during stream"
     assert rl_policy._stream_state_is_stale(state)  # noqa: SLF001
     diag = state.timing["stale_diag"]
@@ -373,7 +515,8 @@ def test_stream_target_stops_after_stale_feedback_limit():
         max_stale_ticks=3,
     )
 
-    _state_out, _t_next, _overruns, err, stale_ticks, stale_samples = out
+    (_state_out, _t_next, _overruns, err, stale_ticks, stale_samples,
+     _timing) = out
     assert err == "feedback stale during stream"
     assert stale_ticks == 4
     assert stale_samples == 4

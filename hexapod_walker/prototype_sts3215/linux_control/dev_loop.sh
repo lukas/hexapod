@@ -122,6 +122,11 @@ hex_js_syntax() {
   node --check "$HEX_LC_DIR/webui/app.js"
 }
 
+hex_rl_guard_check() {
+  hex_note "RL composed-policy guard check (fake bus/no motion)"
+  hex_py linux_control/test_rl_composed_policy_guard.py
+}
+
 hex_diff_check() {
   hex_note "git whitespace/conflict-marker check"
   git -C "$HEX_ROOT" diff --check -- \
@@ -265,6 +270,7 @@ hex_preferred_ssh_target() {
 hex_check() {
   hex_py_syntax || return
   hex_js_syntax || return
+  hex_rl_guard_check || return
   hex_diff_check
 }
 

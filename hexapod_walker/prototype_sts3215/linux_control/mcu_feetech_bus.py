@@ -1243,6 +1243,11 @@ class McuFeetechBus:
             time.sleep(0.15 * (i + 1))
         return False
 
+    def display_self_test(self, *, timeout: float = 6.0) -> bool:
+        """Run the MCU TFT color self-test (``DT``: white/red/green/blue)."""
+        line = self._transact("DT", timeout=timeout)
+        return bool(line and line.startswith("OK"))
+
     def display_push(self, lines: list[str], *, timeout: float = 8.0
                      ) -> dict | None:
         """Push status lines; MCU also lights motors from live current.

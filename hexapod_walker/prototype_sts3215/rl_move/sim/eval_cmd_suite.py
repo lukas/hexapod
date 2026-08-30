@@ -164,18 +164,21 @@ def main() -> int:
     from .gru_policy import load_checkpoint_auto
     from .servo_model import SimServoParams
     from .walk_task import N_MODE_OBS, SimHexapodJointWalkEnv
+    from .train_ppo_sim import _parse_cfg_set
 
     # Same cfg-before-construction rule as eval_checkpoint (cycle 11:
-    # overrides can change obs WIDTH, baked in __init__).
+    # overrides can change obs WIDTH, baked in __init__). Parsing MUST
+    # share train_ppo_sim._parse_cfg_set, not a local reimplementation
+    # (2026-08-30: this file's own float-or-string-only copy silently
+    # kept a '[..]' JSON-list value — e.g. goal.walk_heading_set=[0,
+    # 0.785,...] -- as the literal bracketed STRING, which crashed
+    # float('[0') deep in walk_task's heading-set parsing; the exact
+    # same class of bug eval_checkpoint.py's own docstring already
+    # names and fixed once, 08-10, cw-stand-b2p1).
     cfg = load_config()
     if args.cfg_set:
-        for spec in args.cfg_set:
-            key, val = spec.split("=", 1)
+        for key, parsed in _parse_cfg_set(args.cfg_set).items():
             sect, name = key.split(".", 1)
-            try:
-                parsed: float | str = float(val)
-            except ValueError:
-                parsed = val.strip()
             cfg.setdefault(sect, {})[name] = parsed
 
     def make_env(c):

@@ -89,6 +89,70 @@ validity, on video. Speed obedience is secondary throughout.
 4. Irregular direction changes (mid-episode resampling).
 5. DR/push hardening (paper's friction 0.5-1.25 + periodic pushes).
 
+Update (2026-08-30 ~05:3x — two more population-sweep arms read: `decleg-sv-s2-b100m` + `decleg-sv-s6-b100m` both FAIL, 3/5 decleg-100M seeds in)
+
+Plain English: both finished this cycle, same static-quiver-to-
+over_current basin as `s5`. `s2` (89.6M steps, exact rerun-and-extend
+of the operator-named "cleanest lineage"): `env/walk_speed` pinned
+0.02-0.03 m/s the WHOLE run (never off the ~0.02 floor),
+`ep_len_mean` spiked to 1210-1249 at 5-10M then collapsed to 300-450
+and stayed there through 85M, `terminations/over_current` rose
+15->~1000-1200/window by ~15M and never returned to background,
+reward peaked 200 at ~5M then declined/flattened to 165-167. DR-0
+gate: prog med -0.09 to -0.18 (need >=0.35), slip/m med 4.1-4.6 (cap
+3.0), gait_valid 0-1/6, every episode TERM over_current. `s6` (83.8M
+steps, fresh seed): identical shape (`walk_speed` 0.017-0.03 pinned,
+`ep_len_mean` 1165@5M -> ~390-440 plateau, `over_current` 79->~1000
+and flat, reward 184.8@5M -> 165-168 flat/declining); DR-0 slip/m
+5.9-6.7 (worse than s2/s5) and 2 sub-panels nominally read
+`gait_valid` 5/6 and 6/6 but the frame strip shows ZERO net
+translation across the full episode — legs cycling in place
+(paddle-creep), not real stepping, terminating in over_current at the
+end; the numeric gait_valid flag is a false positive here, not a
+better arm. Litmus (decleg-sv dig-in, binding) unmet on all 3
+conditions for both — aligned FAILs, not 08-21 continue cases (reward
+flat/declining in both, not rising). Running tally: 3/5 decleg-100M
+seeds now FAIL (s2, s5, s6), same basin every time; `s3`/`s4` still
+training (concurrent cycle owns `s3`), `central-sv-s0-b100m` +
+`sac-sv-tilt5-s1..s4` also still training. Per the Now entry's own
+instruction, this does NOT close the population-sweep question yet —
+read jointly once the remaining 4 arms land. No new launch this
+cycle: nothing in the wave is genuinely ready to read early, and the
+Now entry's candidate-1 (structural anti-freeze/balance pretrain
+curriculum) explicitly needs its own bank/hypothesis build before
+funding, not a rushed same-cycle add-on off a partial wave read.
+Evidence: `logs/ckpt_eval/cw_walkcurr_pf_decleg_sv_{s2,s6}_b100m_gate/`,
+W&B `0mfa0z00` (s2) / `t6mqyye2` (s6).
+
+Update (2026-08-30 ~05:3x — first population-sweep arm read: `decleg-sv-s5-b100m` FAIL, 1/5 decleg-100M seeds in)
+
+Plain English: `cw-walkcurr-pf-decleg-sv-s5-b100m` (fresh seed 5,
+100M target) finished early — auto-stopped by the regress-streak
+health check at 71.5M once `health/composite_score` turned negative
+3 evals in a row — and verdicted **FAIL**: identical static-quiver-
+to-over_current basin as every prior decleg-sv/central-sv arm.
+`env/walk_speed` never left its ~0.02 m/s floor (0.017-0.026 the
+whole run), `rollout/ep_len_mean` spiked once to 1422 at 7M steps
+then collapsed to 340-420 and stayed there through 71M,
+`terminations/over_current` sat at 900-1150/window from ~11M steps
+on (not background), reward peaked 167.9 at ~43M then declined into
+the auto-stop. DR-0 gate n=24: prog med -0.02 to -0.13 across
+sub-panels (need >=0.35), slip/m med 4.7-5.8 (cap 3.0), gait_valid
+0/6 walk/det, every episode TERM over_current. Contact-sheet frame
+strip: near-zero net translation over the full episode, legs quiver
+in place. Litmus (decleg-sv dig-in, binding) unmet on all 3
+conditions — an aligned FAIL, not an 08-21 continue (reward was
+flat-then-declining, not rising). This is 1 of 5 decleg-100M seeds
+(+1 central-sv-100M control +4 SAC-tilt5-20M) in the same wave; do
+NOT treat this as closing the population-sweep question alone — read
+jointly once the remaining arms (`-s2/-s3/-s4/-s6-b100m`,
+`central-sv-s0-b100m`, `sac-sv-tilt5-s1..s4`) report. If all 10 land
+here, the selection-discipline paragraph below already names the
+next step (structural anti-freeze/balance pretrain curriculum,
+candidate 1) — no further same-class seed/budget arm should be
+funded past that point. Evidence: `logs/ckpt_eval/
+cw_walkcurr_pf_decleg_sv_s5_b100m_gate/`, W&B `3w54sn4c`.
+
 ## Now (2026-08-30 ~04:3x — OPERATOR-ORDERED OVERNIGHT POPULATION SWEEP LAUNCHED: 10 arms, 640M+ steps, the budget/seed-population axes get one honest compute-heavy shot)
 
 Plain English: the operator (Lukas, MCP operator lane 20260830T035139Z)

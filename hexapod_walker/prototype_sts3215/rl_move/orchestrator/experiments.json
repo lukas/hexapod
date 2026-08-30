@@ -227843,7 +227843,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s2-rr2: Plain English: does the least-bad decleg seed just need 5x more training time? Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: use the idle fleet, bigger budget is fine, branch many rollouts and select honestly). The operator and the track STATUS both name the decleg-sv-s2 lineage as the cleanest partial signal so far; every prior arm on this diet stopped at 20M, a budget the operator-registered literature (Heess 2017) says can be orders of magnitude too small for from-scratch locomotion. Byte-identical config/diet/seed to cw-walkcurr-pf-decleg-sv-s2-rr2 (FAIL at 20M; WALKCURR_SV bank green by clone construction) -- the ONLY lever is budget 20M->100M; decleg refuses --init-from, so under fixed-seed determinism this reproduces s2's own first 20M exactly and then trains 80M past where it stopped (same workaround precedent as sac-sv-s1-budget10m). Prediction-if-true: env/walk_speed leaves the ~0.02 m/s static floor toward the 0.05-0.06 cmd band somewhere in the extra 80M, with ep_len stable/rising and over_current at background. Prediction-if-false: ep_rew stays pinned on the ~167 reward-indifferent ridge with the over_current surge through 100M -- closes the raw-budget lever for the decleg family and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: a fresh-seed sibling (s3-s6 arms, same wave) escapes while s2 does not -- seed lottery, not budget, is the binding constraint."
     ],
     "created": "2026-08-30T03:57:55+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -227888,7 +227888,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Aligned FAIL, same basin as s5/s6: static-quiver-to-over_current. env/walk_speed pinned 0.02-0.03 m/s the WHOLE 90M steps (never off the ~0.02 floor), rollout/ep_len_mean spiked to ~1210-1249 at 5-10M then collapsed to 300-450 and stayed there through 85M, terminations/over_current rose 15->~1000-1200/window by ~15M and never returned to background, reward peaked 200 at ~5M then declined/flattened to 165-167 (quarters [175.6,167.6,166.6,165.7]). DR-0 gate n=24: prog med -0.09 to -0.18 (need >=0.35), slip/m med 4.1-4.6 (cap 3.0), gait_valid 0-1/6, every episode TERM over_current. Litmus (decleg-sv dig-in, binding) unmet on all 3 conditions -- not an 08-21 continue case (reward flat/declining, not rising). 2nd of 5 decleg-100M seeds in the overnight population sweep; matches s5's read exactly. Next: wait for remaining sweep arms (-s3/-s4/central-sv-s0-b100m/sac-tilt5) before closing the population-sweep question jointly per the Now entry's own instruction."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s3-b100m",
@@ -228269,7 +228271,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s2-rr2: Plain English: is from-scratch decleg walking a seed lottery we have under-sampled? Schilling et al. (IROS 2020, the operator-registered decentralized-hexapod precedent) needed 15 seeds and warned of high seed variance; this track has sampled only 3 decleg seeds (s0/s1/s2, all FAIL at 20M), and the largest single effect ever measured on this track IS seed variance (SAC s0 instant-topple vs s1 real 6-leg stepping under an identical config). Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z): fresh seed 5 of the byte-identical decleg-sv recipe (clone of cw-walkcurr-pf-decleg-sv-s2-rr2, WALKCURR_SV bank green by construction) at the 5x budget (100M) the same order authorizes -- levers are seed + budget only, read jointly with the s2-b100m rerun and 3 sibling seeds as a 5-wide population. Prediction-if-true: at least one population member's env/walk_speed leaves the ~0.02 m/s floor with stable/rising ep_len and background over_current, and shows real six-leg stepping on video. Prediction-if-false: all 5 members converge to the same static-quiver-to-over_current basin at 100M -- the seed-lottery + raw-budget explanation is closed for the decleg family and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: the centralized b100m control escapes too, meaning budget alone (not architecture or seed) was the constraint."
     ],
     "created": "2026-08-30T04:06:10+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -228315,7 +228317,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-30T05:13:20"
+    "triage": "done",
+    "verdict": "Same static-quiver-to-over_current basin as every other decleg-sv/central-sv arm, now confirmed at 5x budget (100M target, auto-stopped by the regress-streak early-stopper at 71.5M once composite_score turned negative for 3 evals in a row). Evidence: env/walk_speed pinned 0.017-0.026 m/s the whole run (never off the ~0.02 floor it started at); rollout/ep_len_mean spiked to 1422 once at 7M steps then collapsed to 340-420 and stayed there through 71M; terminations/over_current sits at 900-1150/window from ~11M steps onward (not background); reward peaked 167.9 at ~43M then declined to 165.2 at the stop (health/regress_streak 0->1->2->3). DR-0 gate n=24 all-zero: walk/det prog med -0.02 (need >=0.35), slip/m med 4.7-5.8 (cap 3.0), gait_valid 0/6 det, every episode TERM over_current. Contact-sheet frame strip: robot barely translates across the full episode (x drifts ~0.3-0.4m total), legs quiver in place, no six-leg gait. Litmus (decleg-sv dig-in, binding) NOT met on any of its three conditions -> aligned FAIL, not a continue-per-08-21 case (reward was not rising; it was flat-then-declining into the auto-stop). This is 1 of 5 population-sweep arms (STATUS 2026-08-30 overnight sweep); read jointly with sibling seeds/central-sv-s0-b100m before closing the budget-raise candidate \u2014 do not relaunch a 6th decleg seed off this single read."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s6-b100m",
@@ -228422,7 +228425,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s2-rr2: Plain English: is from-scratch decleg walking a seed lottery we have under-sampled? Schilling et al. (IROS 2020, the operator-registered decentralized-hexapod precedent) needed 15 seeds and warned of high seed variance; this track has sampled only 3 decleg seeds (s0/s1/s2, all FAIL at 20M), and the largest single effect ever measured on this track IS seed variance (SAC s0 instant-topple vs s1 real 6-leg stepping under an identical config). Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z): fresh seed 6 of the byte-identical decleg-sv recipe (clone of cw-walkcurr-pf-decleg-sv-s2-rr2, WALKCURR_SV bank green by construction) at the 5x budget (100M) the same order authorizes -- levers are seed + budget only, read jointly with the s2-b100m rerun and 3 sibling seeds as a 5-wide population. Prediction-if-true: at least one population member's env/walk_speed leaves the ~0.02 m/s floor with stable/rising ep_len and background over_current, and shows real six-leg stepping on video. Prediction-if-false: all 5 members converge to the same static-quiver-to-over_current basin at 100M -- the seed-lottery + raw-budget explanation is closed for the decleg family and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: the centralized b100m control escapes too, meaning budget alone (not architecture or seed) was the constraint."
     ],
     "created": "2026-08-30T04:10:01+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -228467,7 +228470,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Aligned FAIL, same basin as s2/s5: static-quiver-to-over_current. env/walk_speed pinned 0.017-0.03 m/s the WHOLE 84M steps (never off the ~0.02 floor), rollout/ep_len_mean spiked to ~1165 at 5M then collapsed to ~390-440 and stayed there through 80M, terminations/over_current rose 79->~950-1050/window by ~15M and never returned to background, reward peaked 184.8 at ~5M then declined/flattened to 165-168 (quarters [174.5,167.9,167.8,165.9]). DR-0 gate n=24: prog med -0.03 to -0.14 (need >=0.35), slip/m med 5.9-6.7 (worse than s2/s5, cap 3.0), gait_valid nominally higher in 2 sub-panels (5/6, 6/6) but frame strip shows zero net translation across the full episode -- legs cycling in place (paddle-creep), not real stepping, terminating in over_current at the end. Litmus (decleg-sv dig-in, binding) unmet on all 3 conditions -- reward flat/declining, not rising, so not an 08-21 continue case. 3rd of 5 decleg-100M seeds in the overnight population sweep; matches s2/s5's read exactly, closing decleg-100M at 3/5 FAIL so far. Next: wait for -s3/-s4/central-sv-s0-b100m/sac-tilt5 arms before closing the population-sweep question jointly per the Now entry's own instruction."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s3-b100m",
@@ -228574,7 +228579,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s2-rr2: Plain English: is from-scratch decleg walking a seed lottery we have under-sampled? Schilling et al. (IROS 2020, the operator-registered decentralized-hexapod precedent) needed 15 seeds and warned of high seed variance; this track has sampled only 3 decleg seeds (s0/s1/s2, all FAIL at 20M), and the largest single effect ever measured on this track IS seed variance (SAC s0 instant-topple vs s1 real 6-leg stepping under an identical config). Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z): fresh seed 3 of the byte-identical decleg-sv recipe (clone of cw-walkcurr-pf-decleg-sv-s2-rr2, WALKCURR_SV bank green by construction) at the 5x budget (100M) the same order authorizes -- levers are seed + budget only, read jointly with the s2-b100m rerun and 3 sibling seeds as a 5-wide population. (Relaunch of the first attempt, which was REFUSED for a busy target pod -- my pod-assignment arithmetic error, no training occurred.) Prediction-if-true: at least one population member's env/walk_speed leaves the ~0.02 m/s floor with stable/rising ep_len and background over_current, and shows real six-leg stepping on video. Prediction-if-false: all 5 members converge to the same static-quiver-to-over_current basin at 100M -- the seed-lottery + raw-budget explanation is closed for the decleg family and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: the centralized b100m control escapes too, meaning budget alone (not architecture or seed) was the constraint."
     ],
     "created": "2026-08-30T04:15:02+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -228620,7 +228625,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-30T05:18:26"
+    "triage": "done",
+    "verdict": "Same static-quiver-to-over_current basin as every other decleg-sv wave sibling (s0/s1/s2/s5, idle2). Auto health-stopped at 67.6M/100M steps (reward+survival+direction regressed together for 3 consecutive assays, composite 0.445) -- reward quarters [179.6,167.1,167.0,166.7] peak-early-then-flat, not rising, so this is NOT an 08-21 continue case. DR-0 gate n=24 all 4 sub-panels: prog med -0.00 to -0.09 (negative on det), slip/m med 4.4-5.2 (cap 3.0), gait_valid 0-1/6, 24/24 terminate via over_current, dir_err ~88deg (chance-level, not forward). Corrected discovery litmus unmet on all 3 legs: walk_speed 0.032 m/s barely off the 0.02 floor, ep_len_mean falling not rising (445, was higher pre-health-stop), over_current terminations climbing to 770/window not background. Video/contact sheet: static quiver, zero net translation, no six-leg gait. 2nd of 5 decleg-b100m population-sweep arms read (s5 already FAIL'd this basin; s2/s4/s6 pending sibling cycles) -- population/budget lever closing for decleg architecture at 100M, matching the track's pre-registered fallback: if all 5 fail, structural anti-freeze/balance pretrain curriculum becomes the only untried lever."
   },
   {
     "run": "cw-walkcurr-pf-central-sv-s0-b100m",
@@ -228724,7 +228730,7 @@
       "respec of cw-walkcurr-pf-central-sv-s0-rr2: Plain English: the architecture CONTROL for the overnight 100M population sweep -- if 5x more budget unlocks walking, is decentralization even needed, or was budget the only constraint all along? Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z). Byte-identical config/diet/seed to cw-walkcurr-pf-central-sv-s0-rr2 (the centralized FAIL at 20M; WALKCURR_SV bank green by clone construction) -- the ONLY lever is budget 20M->100M; fixed-seed determinism reproduces the first 20M then trains 80M past it. Read jointly with the 5 decleg b100m siblings: decleg escapes while this stays pinned = Schilling's decentralization claim confirmed at scale; both escape = budget alone was binding; both pinned = the raw-budget axis is closed for BOTH architectures at 100M and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Prediction-if-true: walk_speed off the static floor with stable/rising ep_len and background over_current late in the run. Prediction-if-false: flat ~194 reward ridge and pinned walk_speed through 100M, the 16th-plus centralized refutation now at 50x the original discovery budget."
     ],
     "created": "2026-08-30T04:19:11+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -228769,7 +228775,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Aligned FAIL: the centralized-architecture control arm of the overnight population sweep lands in the identical static-quiver-to-over_current basin as every decleg-sv sibling (s2/s5/s6), confirming budget alone (100M) does not escape it either -- architecture was not the missing lever. Evidence: env/walk_speed pinned 0.012-0.03 m/s the whole 95.5M-step run (never off the ~0.02 floor); rollout/ep_len_mean spiked once to ~1182 at ~5M then collapsed to 350-440 and stayed there through 95M; terminations/over_current rose to ~1000-1200/window by ~10M and never returned to background; reward quarters [173.7,167.4,167.1,166.7] -- peak early, then flat/declining, not rising (not an 08-21 continue case). DR-0 gate n=24: prog med 0.00 (need >=0.35), slip/m med 4.96-6.44 (cap 3.0), fwd med 0.01-0.02m/25s, every episode TERM over_current across all 4 sub-panels; gait_valid nominally 6/6 on det/startjitter-det but that is the same paddle-creep false-positive seen on s6 -- contact-sheet frame strip confirms zero net translation, static splayed crouch across all 10 frames, robot does not move. Litmus (decleg-sv dig-in, binding) unmet on all 3 conditions. This is the centralized control leg of the 10-arm overnight population sweep (STATUS 2026-08-30 ~04:3x): with s2/s5/s6/central all FAIL (4 of 6 PPO population arms read so far, same basin every time), the raw budget/seed-population axis is closing for BOTH architectures at 100M -- only s3 (concurrent cycle) and s4 remain unread on the PPO side, plus the 4 SAC-tilt5-20M arms still training. Do not fund another same-class dose/seed/architecture arm off this read alone; if s3/s4 also FAIL this basin, the structural anti-freeze/balance-pretrain curriculum (STATUS candidate 1) becomes the track's next funded item."
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s1-b20m",
@@ -230285,6 +230293,29 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:standwalk PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-allheading-mlp-singleframe-acq1-stdanneal --steps 15000000 --task joint_walk --episode-seconds 20 --dr-scale 0.0 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --goal-mix walk=1.0 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal --cfg-set env.model_source=mesh --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set 'goal.walk_heading_set=[0,0.7853982,-0.7853982,1.5707963,-1.5707963,2.3561945,-2.3561945,3.1415927]' --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_stop_frac=0.15 --cfg-set goal.walk_cmd_resample_jitter=0.2 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=3.0 --cfg-set reward.loadslip_max=6.0 --cfg-set reward.k_loadslip_excess=10.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_walk_course_income=2.0 --cfg-set reward.walk_course_income_window_s=0.75 --cfg-set reward.walk_course_income_deadband_deg=6.0 --cfg-set reward.walk_course_income_sigma_deg=20.0 --cfg-set reward.k_walk_excess_sway=2.0 --cfg-set reward.walk_sway_window_s=0.75 --cfg-set reward.walk_sway_allow_mm=5.0 --cfg-set reward.k_walk_course_disp=0.15 --cfg-set reward.walk_course_disp_window_s=1.5 --cfg-set reward.walk_course_disp_min_speed_m_s=0.02 --cfg-set reward.k_walk_course_disp_overspeed=4.0 --cfg-set reward.walk_course_disp_overspeed_tol=0.05 --cfg-set reward.walk_course_disp_overspeed_along=1.0 --cfg-set reward.walk_course_disp_overspeed_ref_floor_m_s=0.06 --cfg-set train.bc_anchor_coef=3.0 --cfg-set train.bc_anchor_walk=1.0 --cfg-set train.bc_anchor_walk_coef=1.0 --cfg-set train.bc_anchor_phase_lock=1.0 --cfg-set train.bc_anchor_knee_abs=1.0 --cfg-set train.bc_anchor_isolate_update=1 --notes 'respec of cw-walk-allheading-mlp-singleframe-acq1: Plain English: does annealing the runaway action-noise (train/std) down to a fixed target repair this checkpoint'\"'\"'s collapsed stochastic-mode walking and crashed late-training reward, the same way it already fixed the two sibling hist64 mlp/tf all-heading acq1 checkpoints? Single new lever vs the PARTIAL-verdicted source: --log-std-final -3.0 --log-std-anneal-frac 1.0 (anneal starts from the checkpoint'\"'\"'s own current mean log_std ~1.62/std 5.05, per the tool'\"'\"'s documented warm-start behavior), everything else byte-identical, +15M steps off the finished 40M checkpoint. This is the 3rd confirmed instance of the identical bug on this recipe family (mlp/tf all-heading acq1 already fixed this way) so no new bank is owed -- it is a mechanism repair, not a reward-design change.' --init-from rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1.zip --log-std-final -3.0 --log-std-anneal-frac 1.0 > /tmp/train_cw-walk-allheading-mlp-singleframe-acq1-stdanneal.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-allheading-mlp-singleframe-acq1-stdanneal.log",
     "wandb_id": "m9x82ujn",
-    "verified": "2026-08-30T05:18:06+00:00"
+    "verified": "2026-08-30T05:18:06+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T05:23:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 18844,
+        "fps": 16384.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      },
+      {
+        "time": "2026-08-30T05:23:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 17756,
+        "fps": 16384.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-08-30T05:43:58"
   }
 ]

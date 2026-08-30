@@ -8842,3 +8842,147 @@ def test_walkcurr_sv_idle_dose5_breaks_the_topple_floor_pre_launch():
         "dose 5.0 no longer reproduces the floor-margin violation "
         f"this probe exists to pin -- re-check whether it is now "
         f"safe to add back to WALKCURR_SV_IDLE_DOSES: {r}")
+
+
+# --- WALKCURR_SV_PRETRAIN_STEP bank (08-30, candidate-1 fork: the
+# decleg-sv population sweep's 4/5 reads (s2/s3/s5/s6, this cycle +
+# concurrent) all reproduce the SAME static-quiver-to-over_current
+# basin the whole 15+3+7+2+2-class fallback ladder already hit, ==
+# the operator-registered next fork ("A structural per-tick balance/
+# posture curriculum ... before walk-command reward ever turns on").
+# IMPORTANT DESIGN NOTE ruling out the naive form of that fork: this
+# track ALREADY built and exhaustively tried a raw-|joint-velocity|
+# anti-freeze mechanism (safety.walk_idle_terminate_s, WALKCURR_PF_
+# IDLE_TERM bank, 08-24) in 3 configurations, and its own STATUS.md
+# entry documents the exact failure mode any "reward/preserve ANY
+# joint motion" term will reopen: the "fake fidget" dodge (idleterm1
+# + gSDE converged to an in-place jiggle that kept mean|qvel| above
+# the eviction floor with ZERO real stepping, never triggering the
+# safeguard at all). Since every current SV-wave failure IS already a
+# static QUIVER (small nonzero joint motion, not literally zero), a
+# plain motion-reward pretrain would almost certainly reinforce that
+# exact quiver rather than real stepping.
+#
+# This bank tests the fidget-resistant alternative instead: a PURE
+# discovery-phase income built from the already-existing, already-
+# validated reward.k_step_event term ALONE (reward.k_walk_freeprog=0
+# -- the diet's only other income source, off) at the v2e-precedented
+# dose (1.0). k_step_event pays ONLY a completed lift->swing->
+# touchdown whose NET foot displacement projects >=10 mm along the
+# COMMANDED direction (walk_task.py airborne-then-landed check, `air
+# >= 2` ticks + `along_f >= 0.010`) -- a leg that jitters/quivers in
+# place without ever completing a real forward-projecting swing earns
+# literally nothing, by construction, unlike a raw-|qvel| bonus. The
+# intended use (not yet launched from this bank -- see track STATUS
+# for the launch decision) is a short fresh-random-init PRETRAIN phase
+# on this diet alone, THEN --init-from-source into the standard
+# WALKCURR_SV diet (freeprog back on) for the full acquisition budget
+# -- reward-mechanism change (new diet combination), so this bank
+# gates the launch per the track's binding rule.
+WALKCURR_SV_PRETRAIN_STEP_OVERRIDES = dict(WALKCURR_SV_OVERRIDES)
+WALKCURR_SV_PRETRAIN_STEP_OVERRIDES.update({
+    # NOT a literal 0.0 (bank-probe discovery, 08-30): walk_task.py's
+    # r_walk is EITHER the legacy always-on Gaussian velocity kernel
+    # (`K_WALK=2.0 * exp(-err^2/2 sigma^2)`, a hardcoded module
+    # constant, no cfg key) OR, whenever `k_walk_freeprog > 0`, that
+    # kernel is REPLACED by the freeprog score scaled by the dose --
+    # there is no "both off" state. Measured: literal 0.0 reopens the
+    # legacy kernel and pays ~1.3/tick (~1947/1500-tick episode) to a
+    # frozen 'park' twin regardless of behavior, drowning the whole
+    # point of this diet. A tiny positive epsilon takes the freeprog
+    # branch (so the legacy kernel is replaced) while contributing a
+    # provably negligible amount itself (<=1e-6 * 1.0 per tick).
+    ("reward", "k_walk_freeprog"): 1e-6,
+    ("reward", "k_step_event"): 1.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_sv_pretrain_step_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the pure step-event-only
+    discovery-phase diet (freeprog OFF, k_step_event=1.0 ON, term_penalty
+    the only other live term)."""
+    plan = {
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_SV_PRETRAIN_STEP_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_pretrain_step_gait_earns_real_income(
+        walkcurr_sv_pretrain_step_returns):
+    """The whole point of the pretrain diet: a real forward-stepping
+    gait must actually earn positive income from k_step_event alone
+    (freeprog contributes nothing -- it is zeroed)."""
+    r = walkcurr_sv_pretrain_step_returns
+    assert r["gait"] > 2.0, (
+        f"real forward stepping earns ~nothing under the pure "
+        f"step-event pretrain diet: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "reference gait did not actually travel; bank probe is broken")
+    assert r["gait"] >= r["creep"], (
+        f"faster real stepping does not out-earn slower stepping: {r}")
+
+
+def test_walkcurr_sv_pretrain_step_fidget_forms_earn_near_nothing(
+        walkcurr_sv_pretrain_step_returns):
+    """THE point of choosing k_step_event over a raw-|qvel| bonus: a
+    behavior with genuine per-tick joint motion but no net forward
+    displacement per step ('stall' -- march in place, the closest
+    scripted proxy this bank has for the observed quiver pathology)
+    must NOT out-earn a frozen refusal ('park') by any real margin --
+    both must sit near zero, or this pretrain diet reopens the exact
+    'fake fidget' dodge that already closed the raw-|qvel| idle-
+    terminate mechanism (WALKCURR_PF_IDLE_TERM / idleterm1-3, 08-24)."""
+    r = walkcurr_sv_pretrain_step_returns
+    floor_vals = [r[k] for k in ("park", "stall", "belly_sit")]
+    assert max(floor_vals) - min(floor_vals) < 5.0, (
+        f"stationary/fidget forms differ under the pure step-event "
+        f"diet -- a stray term is leaking, or the fidget dodge "
+        f"reopened: {r}")
+    assert r["gait"] > r["stall"] + 15.0, (
+        f"real stepping does not clearly beat in-place marching: {r}")
+
+
+def test_walkcurr_sv_pretrain_step_wrong_direction_earns_nothing(
+        walkcurr_sv_pretrain_step_returns):
+    """Real stepping in the wrong direction (reverse/sideways) must not
+    be paid either -- k_step_event's `along_f >= 0.010` gate is signed
+    against the commanded direction by construction."""
+    r = walkcurr_sv_pretrain_step_returns
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert abs(r[wrong] - floor) < 5.0, (
+            f"wrong-direction stepping '{wrong}' earns non-trivial "
+            f"income over standing still under the pure step-event "
+            f"diet: {r}")
+    assert r["gait"] > r["reverse"] + 15.0, (
+        f"forward stepping does not clearly beat reverse stepping: {r}")
+
+
+def test_walkcurr_sv_pretrain_step_topple_is_the_floor(
+        walkcurr_sv_pretrain_step_returns):
+    """Dying must still be strictly worse than every live behavior
+    (the diet's only other live term, term_penalty, is unchanged from
+    WALKCURR_SV) and must die fast."""
+    r = walkcurr_sv_pretrain_step_returns
+    floor = min(r[k] for k in ("gait", "creep", "park", "stall",
+                                "belly_sit", "reverse", "sideways"))
+    assert r["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor under the pretrain diet: {r}")
+    assert r["topple_steps"] < 150, (
+        "topple twin did not die fast; bank probe is broken")

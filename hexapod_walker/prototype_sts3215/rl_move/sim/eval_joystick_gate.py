@@ -87,6 +87,25 @@ DIR_ERR_MARGIN_DEG_DEFAULT = 5.0     # same margin the phasedir gates
 SLIP_CAP_DEFAULT = 2.9               # teacher's own measured hardware
                                       # band ceiling (1.4-2.9 m/m).
 
+# 08-29 operator ruling (fb_20260829T141858_9421cd / fb_20260829T142239_
+# 63c818, CURRENT_TRUTHS.md): the windowed 1-2s net-course metric is now
+# the PRIMARY command-following read; per-tick direction_err_deg is a
+# demoted stride-oscillation/wrong-way diagnostic (it can flag a policy
+# that visibly weaves even while net course-following is clean -- and,
+# found 2026-08-29 triaging cw-walk-allheading-{mlp,tf}-stressmix-ft1,
+# it can also flag a FALSE FAIL: a course-correct policy under real
+# per-stride body yaw reads 45-55deg tick mean while its own windowed
+# course err is 2-9deg). `--dir-err-metric` stays default "tick" (bit-
+# exact old behavior/tests) -- opt in to "windowed_1s"/"windowed_2s" for
+# a judgment that matches the current binding ruling. Teacher windowed
+# floor from `probe_dir_floor.py --envelope-windows` (mesh/100Hz/0.08):
+# course err med 1.2-2.2deg, p95<=5.2deg.
+TEACHER_COURSE_ERR_DEG_DEFAULT = 2.0
+COURSE_ERR_MARGIN_DEG_DEFAULT = 10.0  # generous vs the tick margin --
+                                       # this is a new/less-calibrated
+                                       # axis; tighten once more
+                                       # checkpoints have been read.
+
 
 def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
                           seed: int, n: int, episode_seconds: float,
@@ -138,6 +157,9 @@ def aggregate_gate(reports: dict[str, dict], *,
                     slip_cap: float = SLIP_CAP_DEFAULT,
                     teacher_dir_err_deg: float = TEACHER_DIR_ERR_DEG_DEFAULT,
                     dir_err_margin_deg: float = DIR_ERR_MARGIN_DEG_DEFAULT,
+                    dir_err_metric: str = "tick",
+                    teacher_course_err_deg: float = TEACHER_COURSE_ERR_DEG_DEFAULT,
+                    course_err_margin_deg: float = COURSE_ERR_MARGIN_DEG_DEFAULT,
                     ) -> dict:
     """Pure aggregation: parsed report.json dicts -> DONE-gate verdict.
 
@@ -146,6 +168,15 @@ def aggregate_gate(reports: dict[str, dict], *,
     dr_scale under episodes["walk/det"]/["walk/sto"]); this function
     just needs one dict per dr_scale pass (report["dr_scale"] read
     back out of each report for labeling).
+
+    `dir_err_metric`: "tick" (default, bit-exact prior behavior) judges
+    `checks["dir_ok"]` on the per-tick `direction_err_mean_deg` floor.
+    "windowed_1s"/"windowed_2s" judges it on the windowed net-course
+    metric (`course_err_{1s,2s}_med_deg`) instead -- the CURRENT_TRUTHS-
+    binding primary read as of 2026-08-29 (see the module docstring on
+    TEACHER_COURSE_ERR_DEG_DEFAULT). The tick metric is always still
+    computed and reported (as `direction_err_med_deg`) for diagnostic
+    continuity regardless of which one gates `pass`.
     """
     all_eps: list[tuple[str, dict]] = []
     per_pass: dict[str, list[dict]] = {}
@@ -164,14 +195,26 @@ def aggregate_gate(reports: dict[str, dict], *,
             if "direction_err_mean_deg" in e]
     gait_valid = [bool(e.get("gait_valid")) for _l, e in all_eps]
 
+    course_key = {"windowed_1s": "course_err_1s_med_deg",
+                  "windowed_2s": "course_err_2s_med_deg"}.get(dir_err_metric)
+    courses = ([e[course_key] for _l, e in all_eps if e.get(course_key) is not None]
+               if course_key else [])
+
     slip_med = statistics.median(slips) if slips else float("nan")
     dir_med = statistics.median(dirs) if dirs else float("nan")
     dir_allow = teacher_dir_err_deg + dir_err_margin_deg
+    course_med = statistics.median(courses) if courses else None
+    course_allow = teacher_course_err_deg + course_err_margin_deg
+
+    if course_key:
+        dir_ok = bool(courses) and course_med <= course_allow
+    else:
+        dir_ok = bool(dirs) and dir_med <= dir_allow
 
     checks = {
         "zero_falls": len(falls) == 0,
         "slip_ok": bool(slips) and slip_med <= slip_cap,
-        "dir_ok": bool(dirs) and dir_med <= dir_allow,
+        "dir_ok": dir_ok,
         "gait_valid_all": all(gait_valid) if gait_valid else False,
     }
     passed = all(checks.values())
@@ -181,11 +224,14 @@ def aggregate_gate(reports: dict[str, dict], *,
         s = [e["slip_per_m"] for e in eps if e.get("slip_per_m") is not None]
         d = [e["direction_err_mean_deg"] for e in eps
              if "direction_err_mean_deg" in e]
+        c1 = [e["course_err_1s_med_deg"] for e in eps
+              if e.get("course_err_1s_med_deg") is not None]
         per_pass_summary[label] = {
             "n": len(eps),
             "falls": len(pf),
             "slip_med": round(statistics.median(s), 3) if s else None,
             "dir_err_med": round(statistics.median(d), 2) if d else None,
+            "course_err_1s_med": round(statistics.median(c1), 2) if c1 else None,
         }
 
     # Per-leg gait metrics (08-22 follow-up): eval_checkpoint already
@@ -227,8 +273,14 @@ def aggregate_gate(reports: dict[str, dict], *,
         "fall_labels": [lbl for lbl, _e in falls],
         "slip_per_m_med": round(slip_med, 3) if slips else None,
         "slip_cap": slip_cap,
+        # always-reported diagnostic (demoted 08-29; see module docstring)
         "direction_err_med_deg": round(dir_med, 2) if dirs else None,
         "direction_err_allow_deg": dir_allow,
+        # primary metric per the same ruling, only populated when the
+        # source reports carry windowed_course_stats keys
+        "dir_err_metric": dir_err_metric,
+        "course_err_med_deg": round(course_med, 2) if course_med is not None else None,
+        "course_err_allow_deg": course_allow if course_key else None,
         "gait_valid_frac": (sum(gait_valid) / len(gait_valid)
                            if gait_valid else None),
         "checks": checks,
@@ -255,6 +307,18 @@ def main() -> None:
                     default=TEACHER_DIR_ERR_DEG_DEFAULT)
     ap.add_argument("--dir-err-margin-deg", type=float,
                     default=DIR_ERR_MARGIN_DEG_DEFAULT)
+    ap.add_argument("--dir-err-metric", choices=["tick", "windowed_1s",
+                    "windowed_2s"], default="tick",
+                    help="which axis gates checks['dir_ok'] (default "
+                         "'tick', bit-exact prior behavior). 'windowed_1s'/"
+                         "'windowed_2s' judges the net-course metric "
+                         "instead -- the CURRENT_TRUTHS-binding primary "
+                         "read as of 2026-08-29; tick stays a reported "
+                         "diagnostic either way.")
+    ap.add_argument("--teacher-course-err-deg", type=float,
+                    default=TEACHER_COURSE_ERR_DEG_DEFAULT)
+    ap.add_argument("--course-err-margin-deg", type=float,
+                    default=COURSE_ERR_MARGIN_DEG_DEFAULT)
     ap.add_argument("--extra-cfg-set", action="append", default=[],
                     help="checkpoint's own obs-shaping cfg-sets "
                          "(e.g. goal.walk_phase_obs=1) -- repeatable; "
@@ -299,7 +363,10 @@ def main() -> None:
 
     verdict = aggregate_gate(reports, slip_cap=args.slip_cap,
                               teacher_dir_err_deg=args.teacher_dir_err_deg,
-                              dir_err_margin_deg=args.dir_err_margin_deg)
+                              dir_err_margin_deg=args.dir_err_margin_deg,
+                              dir_err_metric=args.dir_err_metric,
+                              teacher_course_err_deg=args.teacher_course_err_deg,
+                              course_err_margin_deg=args.course_err_margin_deg)
     verdict["checkpoint"] = str(args.checkpoint)
     verdict["dr_scales"] = dr_scales
     verdict["episode_seconds"] = args.episode_seconds
@@ -314,7 +381,11 @@ def main() -> None:
           f"slip/m med={verdict['slip_per_m_med']} (cap {args.slip_cap}) "
           f"dir_err med={verdict['direction_err_med_deg']}deg "
           f"(allow <= {verdict['direction_err_allow_deg']}) "
-          f"gait_valid_frac={verdict['gait_valid_frac']}")
+          f"[gating metric: {verdict['dir_err_metric']}"
+          + (f", course_err med={verdict['course_err_med_deg']}deg "
+             f"(allow <= {verdict['course_err_allow_deg']})"
+             if verdict.get("course_err_allow_deg") is not None else "")
+          + f"] gait_valid_frac={verdict['gait_valid_frac']}")
     print(f"  checks: {verdict['checks']}")
     if verdict.get("per_leg"):
         pl = verdict["per_leg"]

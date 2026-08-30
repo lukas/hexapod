@@ -1,6 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~22:2x (**Both stdanneal checkpoints' held-out
+Update, 2026-08-29 ~23:5x-00:0x (**`cw-walk-allheading-tf-stressmix-ft1`
+VERDICTED PASS — the stress_mix fix genuinely works; the prior "FAILS
+direction" read was a metric artifact, and this is now CONFIRMED on
+the real formal 60s joygate script, not just a 20s proxy panel.**)
+Plain English: this run's own held-out DR-0 stress_mix panel (24 eps,
+4 subgroups) showed gait_valid 6/6 everywhere, zero terminations,
+slip/m 2.06-2.6 (cap 2.9), and windowed `course_err_1s_med_deg`
+1.7-9.5deg — clean by the CURRENT_TRUTHS-binding windowed metric even
+though the demoted tick `direction_err_mean_deg` reads WORSE than the
+stdanneal parent's own FAIL (53.0/38.6 vs 45.5) — exactly the
+stride-oscillation false-fail shape the 08-29 windowed-metric ruling
+predicted. **Went further and ran the actual formal 60s randomized
+`eval_joystick_gate` script** (n=24, `resample_s=4.0/jitter=0.5` —
+MORE adversarial than training's own 6.0s/0.2, launched detached on
+the run's own pod as an extra eval): zero_falls, gait_valid_all
+(24/24, all six legs cycling ~duty 0.56-0.59, zero sacrificed),
+slip_ok (2.351 med) all true; the tool's own tick-default `dir_ok`
+reads false (46.3deg vs allow 40) but re-aggregating the SAME real
+report against a new `--dir-err-metric windowed_1s` option (built
+this cycle, see below) flips it true: course_err med 3.77deg (allow
+12deg) — full PASS. Matches the mlp twin's independently-read pattern
+(gait_valid 6/6, slip 2.1-2.7, course_err 1.7-9.5deg) — three separate
+readings (20s panel, 60s formal script, mlp architecture twin) now
+agree. Evidence: `logs/ckpt_eval/cw_walk_allheading_tf_stressmix_ft1_
+{gate,joygate}/`.
+
+**Tool fix landed this cycle** (`rl_move/sim/eval_joystick_gate.py`):
+`aggregate_gate` gained an opt-in `--dir-err-metric {tick,windowed_1s,
+windowed_2s}` (default `tick`, bit-exact prior behavior — no existing
+caller's judgment changes) so the formal joygate's own PASS/FAIL can
+be read against the CURRENT_TRUTHS-binding windowed course metric
+instead of the stale per-tick one its original design predates.
+`test_eval_joystick_gate.py` 16/16 green (5 new tests incl. the exact
+false-fail-flips-to-pass shape found this cycle, a genuinely-bad-course
+still fails, and a pre-08-29 report with no windowed keys fails closed
+rather than silently passing). Snapshot pending this cycle's push.
+
+**Next** (not pre-empted this cycle, to avoid duplicating the
+concurrent cycle's own mlp-side synthesis): (a) once the mlp twin's
+own verdict lands, if both are clean this pair becomes the leading
+candidate walking SOURCE for Stage-2 distillation (composing with the
+mesh stance champion into one sit→rise→walk→lower policy) — that
+needs new dual-core/session-composition wiring, a design task, not a
+quick launch; (b) re-read the mlp twin's own formal joygate (if/when
+run) with `--dir-err-metric windowed_1s` too, for a fully matched
+pair; (c) a true seed replicate of this recipe would require a whole
+new from-scratch multi-stage lineage (canary→acquisition→stdanneal→
+stressmix, ~70M+ steps) — not funded blind; pre-register explicitly
+if the Stage-2 candidacy decision wants it. 10 GPU slots free at this
+cycle's end, backlog empty — no new arm uniquely justified beyond
+what's already running/decided above without stepping on (a).
+
+Previous entry, 2026-08-29 ~22:2x (**Both stdanneal checkpoints' held-out
 60s joygate read: FAIL on direction (as anticipated), zero falls
 (better than anticipated) — wz/arc bank case added (closes
 q_20260829T16xx's stage gate) and a stress_mix continuation pair

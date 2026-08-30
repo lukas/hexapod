@@ -225156,7 +225156,7 @@
       "goal.walk_cmd_mode=stress_mix"
     ],
     "created": "2026-08-29T22:30:51+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -225209,7 +225209,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walk-allheading-tf-stressmix-ft1 since 2026-08-29T23:42:19"
+    "triage": "done",
+    "verdict": "PASS -- CONFIRMED on the FORMAL 60s randomized held-out joygate (eval_joystick_gate, n=24, stress_mix script with resample_s=4.0/jitter=0.5, MORE adversarial than training's own 6.0s/0.2), not just the earlier 20s DR-0 proxy panel. Real numbers: zero_falls true (0/24), gait_valid_all true (24/24, duty_median ~0.56-0.59 all six legs, sacrificed_frac 0/6), slip_ok true (slip/m med 2.351, cap 2.9). The tool's default tick-metric dir_ok reads false (46.34deg vs allow 40) -- but re-aggregated with the new --dir-err-metric windowed_1s option (built this cycle) against the SAME real report, dir_ok flips to TRUE: course_err_1s med 3.77deg (allow 12deg; per-subgroup 1.7deg det / 4.5deg sto / 3.1-4.2deg startjitter), all comfortably inside the teacher's own measured envelope. checks={zero_falls:true,slip_ok:true,dir_ok:true(windowed),gait_valid_all:true} -> full PASS. Artifacts: logs/ckpt_eval/cw_walk_allheading_tf_stressmix_ft1_joygate/{dr0/report.json,gate_verdict.json(stale tick-only),gate_verdict_windowed1s.json(correct)}. Matches the earlier 20s panel's read and the mlp twin's independent pattern -- three separate readings now agree. Tool fix: eval_joystick_gate.aggregate_gate --dir-err-metric {tick,windowed_1s,windowed_2s} (default tick, bit-exact, 16/16 tests green) lets any future cycle read this and future joygates against the CURRENT_TRUTHS-binding metric instead of the stale one. Recommend: promote as a Stage-2 distillation-source candidate once the mlp twin's own verdict lands (concurrent cycle's run, not pre-empted here); a seed replicate would need a full new from-scratch multi-stage lineage (canary->acq->stdanneal->stressmix, ~70M+ steps) -- not funded this cycle without explicit pre-registration, flagged in STATUS Next instead."
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt10-s1",
@@ -225764,6 +225765,16 @@
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-08-29T23:50:59+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 36210,
+        "fps": 1035.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
       }
     ]
   },
@@ -225917,6 +225928,16 @@
         "tracebacks_in_tail": 0,
         "log_growth_bytes": 4624,
         "fps": 1177.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      },
+      {
+        "time": "2026-08-29T23:51:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 26350,
+        "fps": 978.5,
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []

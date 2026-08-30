@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
@@ -26,6 +27,9 @@ DEFAULT_STANCE_POLICY = Path(
     "wandb_downloads/"
     "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m/"
     "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip")
+DEFAULT_WALK_POLICY = (
+    ROOT / "linux_control" / "policies" /
+    "walk_allheading_mlp_singleframe_acq1_stdanneal.json")
 
 PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
               "/quad", "/debug", "/rl", "/experiments", "/measure",
@@ -48,6 +52,14 @@ def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     except ValueError:
         return {"_text": raw.decode("utf-8", "ignore")}
     return obj if isinstance(obj, dict) else {"_value": obj}
+
+
+def _query_int(full_path: str, key: str, default: int) -> int:
+    vals = urllib.parse.parse_qs(urllib.parse.urlsplit(full_path).query)
+    try:
+        return int(vals.get(key, [default])[0])
+    except (TypeError, ValueError):
+        return int(default)
 
 
 def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
@@ -151,6 +163,11 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.rl_roles())
                 elif path == "/api/rl/drive":
                     self._json(200, session.rl_drive_state())
+                elif path == "/api/rl/timing":
+                    self._json(200, session.rl_timing_probe(
+                        samples=_query_int(self.path, "samples", 200),
+                        read_samples=_query_int(
+                            self.path, "read_samples", 8)))
                 elif path == "/api/standup/modes":
                     self._json(200, session.standup_modes())
                 elif path == "/api/sim/state":
@@ -261,7 +278,11 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                         role=str(data.get("role", "")),
                         file=str(data.get("file", ""))))
                 elif path == "/api/rl/drive/start":
-                    self._json(200, session.rl_drive_start())
+                    self._json(200, session.rl_drive_start(
+                        vx=float(data.get("vx", 0.0)),
+                        vy=float(data.get("vy", 0.0)),
+                        wz=float(data.get("wz", 0.0)),
+                        dh=float(data.get("dh", 0.0))))
                 elif path == "/api/rl/drive/cmd":
                     self._json(200, session.rl_drive_cmd(
                         vx=float(data.get("vx", 0.0)),
@@ -315,7 +336,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--stance", type=Path,
                     default=DEFAULT_STANCE_POLICY)
     ap.add_argument("--walk", type=Path,
-                    default=Path("ppo_goal_cw_dep_bcgait1_hard1.zip"))
+                    default=DEFAULT_WALK_POLICY)
     ap.add_argument("--recover", type=Path,
                     default=Path("ppo_goal_cw_recover_any21_pop3_B14.zip"))
     ap.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR)
@@ -337,7 +358,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--target", choices=("sim", "robot", "both"),
                     default="sim",
                     help="initial hub target; robot/both need a robot URL")
-    ap.add_argument("--phase-obs", action="store_true")
+    ap.add_argument("--phase-obs", action="store_true", default=True,
+                    help="enable phase-clock walk observations (default)")
+    ap.add_argument("--no-phase-obs", dest="phase_obs",
+                    action="store_false",
+                    help="disable phase-clock walk observations")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
     ap.add_argument("--all-models", action="store_true")
     return ap

@@ -388,6 +388,21 @@ class RlApi:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def rl_timing_probe(self, *, samples: int = 200,
+                        read_samples: int = 8) -> dict:
+        """No-motion timing probe for the selected drive walk policy."""
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        try:
+            from rl_policy import benchmark_drive_hot_path
+        except ImportError as e:
+            return {"ok": False, "error": f"rl_policy missing: {e}"}
+        return benchmark_drive_hot_path(
+            self.drive,
+            walk_weights=self._role_weights("walk"),
+            samples=samples,
+            read_samples=read_samples)
+
     # Swappable policy registry (operator request 08-10): exported
     # weight JSONs live in linux_control/policies/; selecting one
     # atomically copies it over the live rl_policy_weights.json /
@@ -555,7 +570,7 @@ class RlApi:
     def rl_role_set(self, *, role: str = "", file: str = "") -> dict:
         """Assign policies/<file> to a role (no motion; takes effect at
         the next episode / session start). file="" resets to default;
-        file="walk" (hold role only) = walk policy at zero command."""
+        file="walk" (hold role only) = built-in joint hold."""
         role = (role or "").strip().lower()
         if role not in self._ROLE_OBS:
             return {"ok": False,
@@ -704,7 +719,8 @@ class RlApi:
             self._drive_cmd.request_stop()
         return self.rl_drive_state()
 
-    def rl_drive_start(self) -> dict:
+    def rl_drive_start(self, *, vx: float = 0.0, vy: float = 0.0,
+                       wz: float = 0.0, dh: float = 0.0) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
         Motion-free start contract: read-only preflight accepts the
@@ -719,6 +735,12 @@ class RlApi:
             return {"ok": False, "error": f"rl_policy missing: {e}"}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        with self.drive._lock:
+            armed = bool(self.drive.armed)
+        if not armed:
+            return {"ok": False,
+                    "error": ("robot is limp/disarmed; use RL Stand Up / "
+                              "Walk Ready first")}
         if self._demo_thread and self._demo_thread.is_alive():
             if self._drive_active():
                 return {"ok": True, "already": True,
@@ -754,6 +776,7 @@ class RlApi:
         gen = self._demo_gen
         self._demo_abort.clear()
         cmd = DriveCommand()
+        cmd.set(float(vx), float(vy), float(wz), float(dh))
         self._drive_cmd = cmd
         with self._lock:
             self._demo_name = "rl_drive"
@@ -811,6 +834,10 @@ class RlApi:
                 limped = bool(res.get("limped"))
                 with d._lock:
                     d.armed = not limped
+                    if limped:
+                        d.status = "rl drive disarmed after trip"
+                    elif d.mode == "demo":
+                        d.status = "rl drive holding"
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
@@ -944,6 +971,27 @@ class RlApi:
         if mode == "lower" and not learned:
             return self.standup(mode="step", speed=10.0,
                                 direction="down")
+        weights_path = self._role_weights(mode)
+        if learned and mode in ("stand", "lower"):
+            raw_role = self._roles().get(mode)
+            action = "rise" if mode == "stand" else "lower"
+            if not raw_role:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"learned RL {action} is disabled for the default "
+                        "composed policy. Use Tuck Stand/Tuck Lower, or "
+                        "select a learned-stance bundle / explicit role first."
+                    ),
+                }
+            if weights_path is None:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"learned RL {action} role is set to {raw_role!r}, "
+                        "but that policy file is not available."
+                    ),
+                }
         try:
             from rl_policy import preflight, run_policy_move
         except ImportError as e:
@@ -961,7 +1009,6 @@ class RlApi:
                             "error": "drive session did not stop"}
             else:
                 return {"ok": False, "error": "stop the running job first"}
-        weights_path = self._role_weights(mode)
 
         # Preflight before claiming the worker slot so refusals are
         # instant and motion-free.
@@ -1249,4 +1296,3 @@ class RlApi:
         return {"ok": True, "calibrate": self.calibrate_state(),
                 "target": {"hip_deg": hip_deg, "knee_deg": knee_deg,
                            "seconds": seconds}}
-

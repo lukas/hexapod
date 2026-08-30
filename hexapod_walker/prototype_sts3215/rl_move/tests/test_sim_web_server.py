@@ -52,6 +52,11 @@ class FakeSession:
     def rl_drive_state(self):
         return {"ok": True, "active": False}
 
+    def rl_timing_probe(self, samples=200, read_samples=8):
+        self.calls.append(("rl_timing_probe", samples, read_samples))
+        return {"ok": True, "sim": True, "motion_free": True,
+                "samples": samples, "read_samples": read_samples}
+
     def sim_state(self):
         return {"ok": True, "live": {"mode": "hold"}}
 
@@ -130,8 +135,8 @@ class FakeSession:
         self.calls.append(("rl_role_set", role, file))
         return {"ok": True}
 
-    def rl_drive_start(self):
-        self.calls.append(("rl_drive_start",))
+    def rl_drive_start(self, vx=0.0, vy=0.0, wz=0.0, dh=0.0):
+        self.calls.append(("rl_drive_start", vx, vy, wz, dh))
         return {"ok": True, "active": True}
 
     def rl_drive_cmd(self, vx, vy, wz=0.0, dh=0.0):
@@ -181,13 +186,23 @@ def test_serves_shared_webui_and_sim_ping():
     assert "text/html" in headers["Content-Type"]
     html = payload.decode()
     assert "Hexapod STS3215" in html
+    assert 'id="rlbundletab"' in html
+    assert "Complete policy" in html
+    assert 'id="rlstandrl" disabled' in html
+    assert 'id="rllowerrl" disabled' in html
     assert "__HTTPS_PORT__" not in html
     assert _json(fake, "/api/ping")["service"] == "hexapod-sim"
 
 
 def test_dispatches_rl_drive_and_sim_routes():
     fake = FakeSession()
-    assert _json(fake, "/api/rl/drive/start", method="POST")["active"]
+    timing = _json(fake, "/api/rl/timing?samples=7&read_samples=3")
+    assert timing["motion_free"] is True
+    assert timing["samples"] == 7
+    assert timing["read_samples"] == 3
+    assert _json(fake, "/api/rl/drive/start", method="POST",
+                 body={"vx": 0.04, "vy": 0.01, "wz": -0.1,
+                       "dh": 0.5})["active"]
     assert _json(fake, "/api/rl/drive/cmd", method="POST",
                  body={"vx": 0.05, "vy": -0.02})["active"]
     assert _json(fake, "/api/rl/drive/cmd", method="POST",
@@ -199,6 +214,8 @@ def test_dispatches_rl_drive_and_sim_routes():
                        "source": "test"})["status"] == "synced test pose"
     assert ("rl_drive_cmd", 0.05, -0.02, 0.0, 0.0) in fake.calls
     assert ("rl_drive_cmd", 0.0, 0.0, 0.2, -1.0) in fake.calls
+    assert ("rl_drive_start", 0.04, 0.01, -0.1, 0.5) in fake.calls
+    assert ("rl_timing_probe", 7, 3) in fake.calls
     assert ("sim_reset", "belly") in fake.calls
     assert ("sim_pose", list(range(18)), "test") in fake.calls
 
@@ -471,6 +488,18 @@ def test_hub_syncs_sim_from_robot_pose():
     assert synced["status"] == "synced robot pose"
     assert synced["robot_pose"]["live"] == 18
     assert ("sim_pose", degrees, "robot") in fake.calls
+
+
+def test_hub_routes_sim_timing_probe_with_query_params():
+    fake = FakeSession()
+    hub = HubController(sim=SimTarget(fake), robot=None, target="sim")
+    timing = _hub_json(hub, "/api/rl/timing?samples=11&read_samples=4")
+
+    assert timing["ok"] is True
+    assert timing["sim"] is True
+    assert timing["samples"] == 11
+    assert timing["read_samples"] == 4
+    assert ("rl_timing_probe", 11, 4) in fake.calls
 
 
 def test_hub_broadcasts_drive_commands_only_in_both_mode():

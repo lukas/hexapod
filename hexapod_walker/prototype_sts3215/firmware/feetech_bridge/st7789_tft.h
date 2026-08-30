@@ -5,7 +5,8 @@
   Edges: activity (top-left), live (top-right), amps (bottom-left),
   volts/load (bottom-right). Glyph-diff only (no full wipe).
 
-  Pins: SCL D13, SDA D11, RST D8, DC D9, CS D10, BLK D7, VCC 3.3V
+  Pins: SCL D13, SDA D11, RST D8, DC D9, CS D10, BLK D7, VCC 3.3V, GND common
+  Screen module header order: GND VCC SCL SDA RES DC CS BLK.
 */
 
 #ifndef ST7789_TFT_H

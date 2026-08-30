@@ -2319,7 +2319,8 @@ function startRlPoll(){
       } else {
         clearInterval(rlTimer); rlTimer = null;
         rlButtons(false);
-        drvLockRlControls(false);
+        drvUnlockMoveControlsOnly();
+        refreshRlRuntimeState();
         const res = d.result || {};
         const peak = res.max_current_a ?? res.peak_a ?? '?';
         $('rlstatus').textContent = res.ok
@@ -2343,12 +2344,14 @@ function drvResetLocalInput(){
   drvClearGamepadCommand();
 }
 function rlButtons(disabled){
+  rlMoveControlsLocked = !!disabled;
   for(const id of ['rlstand','rllower','rltuckstand','rltucklower',
                    'rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart','rldriveend'])
     $(id).disabled = disabled;
+  if(!disabled) rlApplyLearnedActionGuard();
 }
 async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
   let active = drvActive;
@@ -2359,7 +2362,7 @@ async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
       drvActive = false;
       drvClearHeartbeat();
       drvResetLocalInput();
-      drvLockRlControls(false);
+      drvUnlockMoveControlsOnly();
       return true;
     }
     drvActive = true;
@@ -2374,6 +2377,11 @@ async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
 async function rlMove(mode, body){
   // No confirms anywhere (operator 08-11: no warning modals);
   // the server preflight refuses bad start poses.
+  if(body && body.learned && (mode === 'stand' || mode === 'lower')
+      && !rlLearnedRoleReady(mode)){
+    $('rlstatus').textContent = rlLearnedDisabledText(mode);
+    return;
+  }
   const lower = mode === 'lower';
   if(lower) rlButtons(true);
   if(!(await rlEnsureNoDriveSession(
@@ -2475,8 +2483,13 @@ let drvGamepad = {dx:0, dy:0, dz:0, du:0, active:false, name:''};
 let drvGamepadNeedsNeutral = false;
 let drvGamepadPollBusy = false;
 let drvGamepadNextStartT = 0;
+let drvInputAllowed = false;
 const DRV_TAP_PULSE_MS = 650;
 const DRV_GAMEPAD_DEADZONE = 0.14;
+const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rltuckstand','rlstandrl',
+                                 'rlwalkfwd','rlwalkleft','rlwalkright',
+                                 'rlwalkback','rlwalkfl','rlwalkfr',
+                                 'rlwalkbl','rlwalkbr'];
 const DRV_KEYMAP = {
   arrowup:'fwd', w:'fwd', i:'fwd',
   arrowdown:'back', s:'back', k:'back',
@@ -2485,18 +2498,45 @@ const DRV_KEYMAP = {
   q:'yawL', u:'yawL',
   e:'yawR', o:'yawR',
 };
-function drvLockRlControls(active){
-  for(const id of ['rlstand','rltuckstand','rlstandrl','rlwalkfwd',
-                   'rlwalkleft','rlwalkright','rlwalkback',
-                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
-    $(id).disabled = active;
+function drvSetMoveControlsLocked(active){
+  for(const id of RL_DRIVE_LOCKED_BUTTONS) $(id).disabled = !!active;
+  if(!active) rlApplyLearnedActionGuard();
+}
+function drvSetPanelState(allowed, label, state='ready'){
+  drvInputAllowed = !!allowed;
+  const panel = $('rldrivepanel');
+  if(panel){
+    panel.disabled = !allowed;
+    panel.classList.toggle('blocked', !allowed);
+    panel.classList.toggle('ready', allowed && state === 'ready');
+    panel.classList.toggle('active', allowed && state === 'active');
   }
+  const gate = $('rldrivegate');
+  if(gate){
+    gate.textContent = label;
+    gate.className = 'drive-gate '
+      + (allowed ? (state === 'active' ? 'active' : 'ready') : 'blocked');
+  }
+}
+function drvCanUseInput(){
+  return drvInputAllowed || drvActive || drvStartPromise;
+}
+function drvLockRlControls(active){
+  rlDriveControlsLocked = !!active;
+  drvSetMoveControlsLocked(active);
+  drvSetPanelState(true, active ? 'Driving' : 'Ready', active ? 'active' : 'ready');
   const start = $('rldrivestart');
   start.disabled = active;
-  start.textContent = active ? 'Driving active' : '▶ Start driving';
+  start.textContent = active ? 'Driving active' : 'Auto-start on input';
   $('rldriveend').disabled = !active;
 }
+function drvUnlockMoveControlsOnly(){
+  rlDriveControlsLocked = false;
+  drvSetMoveControlsLocked(false);
+  $('rldriveend').disabled = true;
+}
 function drvBlockStart(label, detail){
+  drvSetPanelState(false, label, 'blocked');
   const start = $('rldrivestart');
   start.disabled = true;
   start.textContent = label;
@@ -2504,9 +2544,10 @@ function drvBlockStart(label, detail){
   if(detail) $('rldrivestatus').textContent = detail;
 }
 function drvStartReady(detail){
+  drvSetPanelState(true, 'Ready', 'ready');
   const start = $('rldrivestart');
-  start.disabled = false;
-  start.textContent = '▶ Start driving';
+  start.disabled = true;
+  start.textContent = 'Auto-start on input';
   $('rldriveend').disabled = true;
   if(detail) $('rldrivestatus').textContent = detail;
 }
@@ -2622,16 +2663,19 @@ async function drvEnded(){
 async function drvStartSession(source='button'){
   if(drvActive) return true;
   if(drvStartPromise) return await drvStartPromise;
+  if(!drvCanUseInput()) return false;
   drvActive = false;
   drvClearHeartbeat();
   drvStartPromise = (async ()=>{
     // Recover from stale browser state after a service restart/deploy.
+    const [vx, vy, wz, dh] = drvVec();
     uiEvent('rl_drive_start_click', {
       button:'rldrivestart',
       source,
       disabled:$('rldrivestart').disabled,
       active:drvActive,
       status:$('rldrivestatus').textContent,
+      vx, vy, wz, dh,
     });
     drvLockRlControls(true);
     $('rldrivestart').textContent = 'Starting...';
@@ -2639,13 +2683,14 @@ async function drvStartSession(source='button'){
       + ' — no auto-stance move)…';
     try{
       const r = await fetch('/api/rl/drive/start', {
-        method:'POST', cache:'no-store'});
+        method:'POST', cache:'no-store',
+        body: JSON.stringify({vx, vy, wz, dh})});
       const d = await r.json();
       if(!d.ok){
         if(source === 'gamepad') drvGamepadNeedsNeutral = true;
         $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
         showErr('Drive: '+(d.error || 'refused'));
-        drvLockRlControls(false);
+        drvBlockStart('Refused', 'Refused: '+(d.error || 'unknown'));
         $('rldrivestart').textContent = 'Refused';
         return false;
       }
@@ -2658,7 +2703,7 @@ async function drvStartSession(source='button'){
     }catch(e){
       if(source === 'gamepad') drvGamepadNeedsNeutral = true;
       $('rldrivestatus').textContent = 'Start failed (link?)';
-      drvLockRlControls(false);
+      drvBlockStart('Link lost', 'Start failed (link?)');
       $('rldrivestart').textContent = 'Start failed';
       return false;
     }
@@ -2709,7 +2754,7 @@ $('rldriveend').onclick = async ()=>{
   // Heartbeats keep flowing until the server reports inactive, so the
   // decel + wind-down is visible in the status line.
 };
-drvLockRlControls(false);
+drvBlockStart('Checking', 'Checking whether drive is allowed...');
 
 async function refreshRlRuntimeState(){
   let rlMoveRunning = false;
@@ -2720,6 +2765,8 @@ async function refreshRlRuntimeState(){
     if(rlMoveRunning){
       $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
       rlButtons(true);
+      drvBlockStart('Move running',
+        'Drive is locked while the current RL move runs.');
       if(!rlTimer) startRlPoll();
       return true;
     }
@@ -2745,7 +2792,7 @@ async function refreshRlRuntimeState(){
   drvStartPromise = null;
   drvClearHeartbeat();
   drvResetLocalInput();
-  drvLockRlControls(false);
+  drvUnlockMoveControlsOnly();
   try{
     const rb = await (await fetch('/api/robot', {cache:'no-store'})).json();
     if(rb && !rb.armed){
@@ -2753,8 +2800,12 @@ async function refreshRlRuntimeState(){
         'Blocked: robot is limp/disarmed. Use RL Stand Up / Walk Ready first.');
       return true;
     }
-  }catch(e){}
-  drvStartReady('Ready — Start driving, then hold arrows/WASD or the pad.');
+  }catch(e){
+    drvBlockStart('Status unknown',
+      'Blocked: robot state unavailable. Check the robot link.');
+    return false;
+  }
+  drvStartReady('Ready — hold arrows/WASD or press a pad direction.');
   return true;
 }
 
@@ -2769,6 +2820,7 @@ window.addEventListener('keydown', async (e)=>{
   const dir = DRV_KEYMAP[e.key.toLowerCase()];
   if(!dir) return;
   e.preventDefault();
+  if(!drvCanUseInput()) return;
   if(!drvKeys.has(dir)) drvKeys.add(dir);
   if(!drvActive && !(await drvStartSession('key'))) return;
   drvSend();
@@ -2787,6 +2839,7 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   const dv = b.dataset.dv.split(',').map(Number);
   if(!dv[0] && !dv[1]) continue;          // center "hold" cell
   const down = async (e)=>{ e.preventDefault();
+    if(!drvCanUseInput()) return;
     if(drvPadReleaseTimer){
       clearTimeout(drvPadReleaseTimer);
       drvPadReleaseTimer = null;
@@ -2848,6 +2901,10 @@ async function pollRlGamepad(){
     const pct = v => Math.round(v * 100);
     if(drvGamepadNeedsNeutral){
       drvGamepadStatus('Joystick: release sticks and D-pad before auto-start.');
+      return;
+    }
+    if(!drvCanUseInput()){
+      drvGamepadStatus('Joystick: drive is blocked until stand-up.');
       return;
     }
     drvGamepadStatus('Joystick: '+name+' · cmd '
@@ -3332,6 +3389,10 @@ async function refreshRlTab(){
 let rlPolicies = [];
 let rlRoles = {};        // role -> {file, resolved} from /api/rl/roles
 let rlAllowedObs = {};   // role -> [allowed obs widths]
+let rlPolicyMode = 'bundle';
+var rlPolicyPickerReady = false;
+var rlMoveControlsLocked = false;
+var rlDriveControlsLocked = false;
 const RL_SLOT_TITLES = {stance: 'Stand / sit / hold', walk: 'Walk'};
 const RL_ROLE_CHIPS = [  // [role, chip label, slot whose rows offer it]
   ['stand', 'Stand', 'stance'],
@@ -3339,17 +3400,171 @@ const RL_ROLE_CHIPS = [  // [role, chip label, slot whose rows offer it]
   ['walk',  'Walk',  'walk'],
   ['hold',  'Hold',  null],          // any row with an allowed obs width
 ];
-const RL_HOLD_ZERO = 'walk policy @ zero command';
+const RL_HOLD_ZERO = 'built-in joint hold';
+const RL_HOLD_ZERO_ALIASES = new Set([
+  RL_HOLD_ZERO,
+  'walk policy @ zero command',  // older controller backend wording
+]);
+const RL_DEFAULT_WALK_FILE =
+  'walk_allheading_mlp_singleframe_acq1_stdanneal.json';
+const RL_POLICY_BUNDLES = [
+  {
+    id: 'todaypolicy-mlpsf-tuck-v1',
+    tag: 'Default',
+    title: 'MuJoCo default',
+    summary: 'Scripted tuck stand and lower, plus the full-mesh all-heading '
+      + 'MLP walk policy. This is the current controller-ready bundle I would '
+      + 'try first from the MuJoCo work; learned RL rise/lower stay disabled.',
+    files: [RL_DEFAULT_WALK_FILE],
+    walkFile: RL_DEFAULT_WALK_FILE,
+    roleValues: {stand: '', lower: '', walk: '', hold: 'walk'},
+    rows: [
+      ['Stand', 'scripted tuck'],
+      ['Walk', RL_DEFAULT_WALK_FILE],
+      ['Hold', 'built-in joint hold'],
+      ['Lower', 'scripted tuck'],
+    ],
+    metrics: ['full mesh', '0 falls', '1s course err med 2.42deg',
+              'progress ratio 0.418'],
+  },
+  {
+    id: 'learned-stance-compare',
+    tag: 'Compare',
+    title: 'Learned stance A/B',
+    summary: 'Same walk default, but this explicitly enables the learned '
+      + 'Rise/Lower buttons with the mesh stance-mix policy for A/B testing.',
+    files: [RL_DEFAULT_WALK_FILE,
+            'stand_stancemix_tuckclock_scratch8m.json'],
+    walkFile: RL_DEFAULT_WALK_FILE,
+    roleValues: {
+      stand: 'stand_stancemix_tuckclock_scratch8m.json',
+      lower: 'stand_stancemix_tuckclock_scratch8m.json',
+      walk: '',
+      hold: 'walk',
+    },
+    rows: [
+      ['Stand', 'RL stance mix'],
+      ['Walk', RL_DEFAULT_WALK_FILE],
+      ['Hold', 'built-in joint hold'],
+      ['Lower', 'RL stance mix'],
+    ],
+    metrics: ['100 Hz mesh stance', 'rise/hold/lower', 'not bench-tested'],
+  },
+  {
+    id: 'legacy-contract',
+    tag: 'Fallback',
+    title: 'Legacy hardware contract',
+    summary: 'The older dep-vref walk plus holdbc1 stance slot. Kept around '
+      + 'for bench comparisons; it is no longer the default I would reach for '
+      + 'in MuJoCo.',
+    files: ['stand_holdbc1_hard1.json', 'dep_vref1_r1.json'],
+    walkFile: 'dep_vref1_r1.json',
+    roleValues: {stand: '', lower: '', walk: '', hold: 'walk'},
+    rows: [
+      ['Stand', 'scripted walk-ready'],
+      ['Walk', 'dep_vref1_r1.json'],
+      ['Hold', 'built-in joint hold'],
+      ['Lower', 'scripted lower'],
+    ],
+    metrics: ['old hardware contract', '0.05-0.06 m/s', 'fallback only'],
+  },
+];
+
+function rlSetPolicyMode(mode){
+  rlPolicyMode = mode === 'expert' ? 'expert' : 'bundle';
+  const bundleOn = rlPolicyMode === 'bundle';
+  const btab = $('rlbundletab'), etab = $('rlexperttab');
+  const bpane = $('rlbundlepane'), epane = $('rlexpertpane');
+  if(!btab || !etab || !bpane || !epane) return;
+  btab.classList.toggle('on', bundleOn);
+  etab.classList.toggle('on', !bundleOn);
+  btab.setAttribute('aria-selected', bundleOn ? 'true' : 'false');
+  etab.setAttribute('aria-selected', bundleOn ? 'false' : 'true');
+  bpane.hidden = !bundleOn;
+  epane.hidden = bundleOn;
+}
+
+function rlInitPolicyModeTabs(){
+  const btab = $('rlbundletab'), etab = $('rlexperttab');
+  if(!btab || !etab) return;
+  btab.onclick = ()=> rlSetPolicyMode('bundle');
+  etab.onclick = ()=> rlSetPolicyMode('expert');
+  rlSetPolicyMode(rlPolicyMode);
+}
+
+function rlPolicyByFile(file){
+  return rlPolicies.find(p => p.file === file);
+}
+
+function rlPolicyLabel(file){
+  const p = rlPolicyByFile(file);
+  return p ? p.name : file;
+}
+
+function rlRoleValue(role){
+  const r = rlRoles[role] || {};
+  return r.file == null ? '' : String(r.file);
+}
+
+function rlLearnedRoleReady(role){
+  if(!rlPolicyPickerReady) return false;
+  const file = rlRoleValue(role);
+  return !!file && !!rlPolicyByFile(file);
+}
+
+function rlLearnedDisabledText(role){
+  const action = role === 'stand' ? 'rise' : 'lower';
+  const bundle = role === 'stand' ? 'Stand' : 'Sit';
+  return `Learned RL ${action} is disabled for the composed default. `
+    + `Select Learned stance A/B or assign an explicit ${bundle} role first.`;
+}
+
+function rlApplyLearnedActionGuard(){
+  if(!rlPolicyPickerReady || rlMoveControlsLocked || rlDriveControlsLocked)
+    return;
+  for(const [id, role] of [['rlstandrl', 'stand'],
+                           ['rllowerrl', 'lower']]){
+    const b = $(id);
+    if(!b) continue;
+    const ready = rlLearnedRoleReady(role);
+    b.disabled = !ready;
+    b.classList.toggle('blocked', !ready);
+    b.title = ready
+      ? `EXPERIMENTAL learned stance-policy ${role === 'stand' ? 'rise' : 'lower'} `
+        + `using ${rlPolicyLabel(rlRoleValue(role))}. Watch it; keep a hand ready.`
+      : rlLearnedDisabledText(role);
+  }
+}
+
+function rlActiveSlotFile(slot){
+  const p = rlPolicies.find(q => q.slot === slot && q.active);
+  return p ? p.file : '';
+}
+
+function rlBundleMissing(bundle){
+  return (bundle.files || []).filter(f => !rlPolicyByFile(f));
+}
+
+function rlBundleIsActive(bundle){
+  if(bundle.stanceFile && rlActiveSlotFile('stance') !== bundle.stanceFile)
+    return false;
+  if(bundle.walkFile && rlRoleHome('walk') !== bundle.walkFile)
+    return false;
+  for(const [role, want] of Object.entries(bundle.roleValues || {})){
+    if(rlRoleValue(role) !== String(want || '')) return false;
+  }
+  return true;
+}
 
 function rlRoleHome(role){
   // Which picker row serves `role` right now: a row file name, 'zero'
-  // (hold default = the walk policy's trained stop), or null. Trust
+  // (hold default = built-in joint hold), or null. Trust
   // `resolved` over the raw assignment — each backend reports there
   // what actually RUNS (e.g. the sim ignores stale walk-role
   // overrides and drives the live slot).
   const cur = rlRoles[role] || {};
   const res = cur.resolved || '';
-  if(role === 'hold' && res === RL_HOLD_ZERO) return 'zero';
+  if(role === 'hold' && RL_HOLD_ZERO_ALIASES.has(res)) return 'zero';
   const hit = rlPolicies.find(p => p.file === res || p.name === res);
   if(hit) return hit.file;                 // sim: file; robot: meta name
   // Anything else (a "live … slot" label, or a dangling override the
@@ -3361,8 +3576,8 @@ function rlRoleHome(role){
 
 function rlChipTitle(role, on, zero){
   if(zero)
-    return 'Default hold: the walk policy holds at zero command (its '
-      + 'trained stop). Click Hold on another model to override.';
+    return 'Default hold: the built-in joint hold keeps the last safe '
+      + 'commanded pose. Click Hold on another model to override.';
   const what = {walk: 'walk when drive keys are held',
                 hold: 'hold in place when no keys are held',
                 stand: 'stand up (also the stance default for Sit/Hold)',
@@ -3374,6 +3589,130 @@ function rlChipTitle(role, on, zero){
       : `This model currently does "${what}" — click to reset the role `
         + 'to its default.';
   return `Use this model to ${what}. Applies at the next move/session.`;
+}
+
+function rlRenderBundles(){
+  const box = $('rlbundlecards');
+  if(!box) return;
+  box.innerHTML = '';
+  for(const bundle of RL_POLICY_BUNDLES){
+    const missing = rlBundleMissing(bundle);
+    const active = !missing.length && rlBundleIsActive(bundle);
+    const card = document.createElement('div');
+    card.className = 'policy-bundle' + (active ? ' active' : '');
+
+    const head = document.createElement('div');
+    head.className = 'bundle-head';
+    const title = document.createElement('h3');
+    title.textContent = bundle.title;
+    const tag = document.createElement('span');
+    tag.className = 'bundle-tag'
+      + (active ? ' active' : '')
+      + (bundle.tag === 'Default' ? ' default' : '');
+    tag.textContent = active ? 'Active' : bundle.tag;
+    head.appendChild(title);
+    head.appendChild(tag);
+    card.appendChild(head);
+
+    const summary = document.createElement('div');
+    summary.className = 'bundle-summary';
+    summary.textContent = bundle.summary;
+    card.appendChild(summary);
+
+    const roles = document.createElement('div');
+    roles.className = 'bundle-roles';
+    for(const [role, value] of bundle.rows || []){
+      const k = document.createElement('div');
+      k.className = 'bundle-role-name';
+      k.textContent = role;
+      const v = document.createElement('div');
+      const isFile = String(value).endsWith('.json');
+      v.textContent = isFile ? rlPolicyLabel(value) : value;
+      if(isFile && !rlPolicyByFile(value)) v.className = 'missing';
+      roles.appendChild(k);
+      roles.appendChild(v);
+    }
+    card.appendChild(roles);
+
+    const metrics = document.createElement('div');
+    metrics.className = 'bundle-metrics';
+    for(const metric of bundle.metrics || []){
+      const m = document.createElement('span');
+      m.textContent = metric;
+      metrics.appendChild(m);
+    }
+    card.appendChild(metrics);
+
+    const action = document.createElement('button');
+    action.className = 'bundle-action';
+    action.textContent = active ? 'Active' : (missing.length
+      ? 'Missing file'
+      : (bundle.tag === 'Default' ? 'Use default' : 'Use policy'));
+    action.disabled = active || missing.length > 0;
+    action.title = missing.length
+      ? 'Missing: '+missing.join(', ')
+      : 'Select this complete policy for the next move.';
+    action.onclick = ()=> rlApplyBundle(bundle);
+    card.appendChild(action);
+    box.appendChild(card);
+  }
+}
+
+async function rlBundleSelectFile(file){
+  const d = await (await fetch('/api/rl/policies',
+    {cache:'no-store'})).json();
+  if(!d.ok) throw new Error(d.error || 'policy list failed');
+  const live = d.policies || [];
+  const pick = live.find(p => p.file === file);
+  if(!pick || pick.error)
+    throw new Error('missing policy file: '+file);
+  if(!pick.slot)
+    throw new Error(file+' does not fit a controller policy slot');
+  const cur = live.find(p => p.slot === pick.slot && p.active);
+  if(cur && cur.file === pick.file) return pick;
+  const r = await fetch('/api/rl/policy_select', {
+    method:'POST',
+    body: JSON.stringify({file}),
+  });
+  const out = await r.json();
+  if(!out.ok) throw new Error(out.error || 'policy select failed');
+  return pick;
+}
+
+async function rlBundleSetRole(role, file){
+  const r = await fetch('/api/rl/roles', {
+    method:'POST',
+    body: JSON.stringify({role, file}),
+  });
+  const out = await r.json();
+  if(!out.ok) throw new Error(out.error || 'role set failed');
+}
+
+async function rlApplyBundle(bundle){
+  const missing = rlBundleMissing(bundle);
+  if(missing.length){
+    $('rlpickmsg').textContent = 'missing policy file: '+missing.join(', ');
+    return;
+  }
+  const rows = (bundle.rows || []).map(([role, value]) =>
+    `${role}: ${String(value).endsWith('.json') ? rlPolicyLabel(value) : value}`);
+  if(!confirm(`Use ${bundle.title}?\n\n${rows.join('\n')}\n\n`
+      + 'No motion starts. Changes apply at the next move/session.')){
+    $('rlpickmsg').textContent = 'kept current policy';
+    return;
+  }
+  $('rlpickmsg').textContent = 'applying '+bundle.title+'…';
+  try{
+    if(bundle.stanceFile) await rlBundleSelectFile(bundle.stanceFile);
+    if(bundle.walkFile) await rlBundleSelectFile(bundle.walkFile);
+    for(const [role, file] of Object.entries(bundle.roleValues || {}))
+      await rlBundleSetRole(role, file);
+    $('rlpickmsg').textContent = bundle.title+' selected ✔';
+  }catch(e){
+    $('rlpickmsg').textContent = 'bundle failed: '+(e.message || e);
+    showErr('Policy bundle: '+(e.message || e));
+  }
+  await refreshRlTab();
 }
 
 async function rlLoadPicker(){
@@ -3390,8 +3729,10 @@ async function rlLoadPicker(){
       rlRoles = (dr.ok && dr.roles) || {};
       rlAllowedObs = (dr.ok && dr.allowed_obs) || {};
     }catch(e){ rlRoles = {}; rlAllowedObs = {}; }
+    rlPolicyPickerReady = true;
     const home = {};
     for(const [role] of RL_ROLE_CHIPS) home[role] = rlRoleHome(role);
+    rlRenderBundles();
     box.innerHTML = '';
     for(const slot of ['stance','walk']){
       const items = rlPolicies.filter(p => p.slot === slot);
@@ -3420,7 +3761,7 @@ async function rlLoadPicker(){
         for(const [role, label, roleSlot] of RL_ROLE_CHIPS){
           if(roleSlot && roleSlot !== slot) continue;
           if(role === 'hold'){
-            const dims = rlAllowedObs.hold || [68, 72, 74];
+            const dims = rlAllowedObs.hold || [68, 72, 74, 93];
             if(!dims.includes(p.obs_dim)) continue;
             // Scripted gaits can't serve the RL hold role.
             if((p.file || '').startsWith('scripted:')) continue;
@@ -3430,7 +3771,7 @@ async function rlLoadPicker(){
           const on = zero || home[role] === p.file;
           const b = document.createElement('button');
           b.className = 'rolechip' + (on ? ' on' : '') + (zero ? ' zero' : '');
-          b.textContent = zero ? 'Hold @0' : label;
+          b.textContent = zero ? 'Joint Hold' : label;
           b.title = rlChipTitle(role, on, zero);
           b.onclick = ()=> rlChipClick(role, slot, p, on, zero);
           roles.appendChild(b);
@@ -3438,8 +3779,15 @@ async function rlLoadPicker(){
       }
       box.appendChild(tbl);
     }
+    rlApplyLearnedActionGuard();
   }catch(e){
+    rlPolicyPickerReady = true;
+    rlPolicies = [];
+    rlRoles = {};
     box.textContent = 'policy list unavailable (link?)';
+    const bundles = $('rlbundlecards');
+    if(bundles) bundles.textContent = 'policy bundles unavailable (link?)';
+    rlApplyLearnedActionGuard();
   }
 }
 
@@ -3448,7 +3796,7 @@ async function rlChipClick(role, slot, pick, on, zero){
     await rlSlotSelect(role, slot, pick);
   } else if(zero){
     $('rlpickmsg').textContent =
-      'already the default hold (walk policy @ zero command)';
+      'already the default hold (built-in joint hold)';
   } else {
     // Sit / Hold are per-role overrides; clicking the lit chip resets
     // the role to its default.
@@ -3509,6 +3857,7 @@ async function rlSlotSelect(role, slot, pick){
     $('rlpickmsg').textContent = 'policy select failed (link?)';
   }
 }
+rlInitPolicyModeTabs();
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
   stopMotorsPoll();

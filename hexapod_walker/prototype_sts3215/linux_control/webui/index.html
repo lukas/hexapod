@@ -480,8 +480,8 @@ legs can reach instead of clipping it.">
         <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="btns" style="margin-top:8px">
-        <button id="rlstandrl" title="EXPERIMENTAL learned stance-policy rise (the model in the ‘stand’ role, defaults to the live stance model). It releases to walk-ready once the trained ramp is stable, instead of waiting out the whole evaluation profile. Start belly-down with legs straight out (logical zero) — preflight refuses anything else. Watch it; keep a hand ready.">⬆ Rise (learned RL)</button>
-        <button id="rllowerrl" title="EXPERIMENTAL learned stance-policy lower (the model in the ‘lower’ role). Start from the sim walk-ready stand — preflight refuses anything else. Watch it; keep a hand ready.">⬇ Lower (learned RL)</button>
+        <button id="rlstandrl" disabled title="Disabled by the default composed policy. Select a learned-stance bundle or assign an explicit Stand role before using learned RL rise.">⬆ Rise (learned RL)</button>
+        <button id="rllowerrl" disabled title="Disabled by the default composed policy. Select a learned-stance bundle or assign an explicit Sit role before using learned RL lower.">⬇ Lower (learned RL)</button>
       </div>
       <div class="hint">Tuck stand/lower are scripted and usually gentler
         than the foot-sliding press-up family. Learned rise/lower run the actual stance-policy
@@ -489,37 +489,45 @@ legs can reach instead of clipping it.">
         Learned rise hands off as soon as the ramp has settled upright.
         Experimental on hardware — watch the robot the whole time.</div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px" title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
-      <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on" title="Optional pre-arm from the sim walk-ready stance. Direction keys, pad buttons, or joystick movement also start driving automatically.">▶ Start driving</button>
-        <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
-        <label class="hint">speed
-          <select id="rlwalkspeed">
-            <option value="0.05" selected>0.05 m/s</option>
-            <option value="0.055">0.055 m/s</option>
-            <option value="0.06">0.06 m/s</option>
-          </select></label>
-      </div>
-      <div class="hint" id="rldrivestatus" style="margin-top:8px">No
-        session — hold a direction or move the joystick to start. Q/E turn.</div>
-      <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
-        press a controller button to connect. Left stick walks; right stick
-        turns; D-pad up/down lowers/raises the body (needs a stance model
-        in the “hold” role).</div>
-      <div id="rldrivepad" style="margin-top:10px;display:grid;
-                  grid-template-columns:repeat(3,minmax(72px,1fr));
-                  gap:6px;max-width:280px">
-        <button data-dv="1,-1">↖</button>
-        <button data-dv="1,0">▲ Fwd</button>
-        <button data-dv="1,1">↗</button>
-        <button data-dv="0,-1">◀ Strafe L</button>
-        <button data-dv="0,0" disabled
-                title="Release everything = stop and hold.">● hold</button>
-        <button data-dv="0,1">▶ Strafe R</button>
-        <button data-dv="-1,-1">↙</button>
-        <button data-dv="-1,0">▼ Back</button>
-        <button data-dv="-1,1">↘</button>
-      </div>
+      <fieldset id="rldrivepanel" class="drive-panel blocked" disabled>
+        <div class="drive-panel-head">
+          <h2 title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
+          <span id="rldrivegate" class="drive-gate blocked">Stand up first</span>
+        </div>
+        <div class="drive-interactive">
+          <div class="btns" style="margin-top:10px">
+            <button id="rldrivestart" hidden title="Direction keys, pad buttons, or joystick movement start driving automatically.">▶ Start driving</button>
+            <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
+            <label class="hint">speed
+              <select id="rlwalkspeed">
+                <option value="0.05" selected>0.05 m/s</option>
+                <option value="0.055">0.055 m/s</option>
+                <option value="0.06">0.06 m/s</option>
+              </select></label>
+          </div>
+          <div class="hint" id="rldrivestatus" style="margin-top:8px">No
+            session — hold a direction or move the joystick to start. Yaw turns
+            need a yaw-trained walk policy.</div>
+          <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
+            press a controller button to connect. Left stick walks; right stick
+            turns when the walk policy has yaw; D-pad up/down lowers/raises the body (needs a stance model
+            in the “hold” role).</div>
+          <div id="rldrivepad" style="margin-top:10px;display:grid;
+                      grid-template-columns:repeat(3,minmax(72px,1fr));
+                      gap:6px;max-width:280px">
+            <button data-dv="1,-1">↖</button>
+            <button data-dv="1,0">▲ Fwd</button>
+            <button data-dv="1,1">↗</button>
+            <button data-dv="0,-1">◀ Strafe L</button>
+            <button data-dv="0,0" disabled
+                    title="Release everything = stop and hold.">● hold</button>
+            <button data-dv="0,1">▶ Strafe R</button>
+            <button data-dv="-1,-1">↙</button>
+            <button data-dv="-1,0">▼ Back</button>
+            <button data-dv="-1,1">↘</button>
+          </div>
+        </div>
+      </fieldset>
       <details style="margin-top:14px"
                title="Fixed-duration tape-measure runs. Commands ramp in over 1 s, walk, ramp out, and hold. Uses the speed picker above.">
         <summary class="hint" style="cursor:pointer">Timed walk
@@ -560,13 +568,27 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     <div class="pad" style="flex:2 1 480px">
       <h2 title="Policy info for the active exported numpy models.">Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
-      <div class="hint" style="margin-top:12px">Click a role chip to give
-        that model the job — one model can hold several roles.
-        <b>Stand</b>/<b>Sit</b>/<b>Hold</b> live on stance models,
-        <b>Walk</b>/<b>Hold</b> on walk models; lit chips show who does
-        what now. Changes apply at the NEXT move, and clicking a lit
-        Sit/Hold chip resets that role to its default.</div>
-      <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
+      <div class="policy-mode-tabs" role="tablist"
+           aria-label="Policy picker mode">
+        <button id="rlbundletab" class="policy-mode-tab on" type="button"
+                role="tab" aria-selected="true"
+                aria-controls="rlbundlepane">Complete policy</button>
+        <button id="rlexperttab" class="policy-mode-tab" type="button"
+                role="tab" aria-selected="false"
+                aria-controls="rlexpertpane">RL models per action</button>
+      </div>
+      <div id="rlbundlepane" class="policy-pane" role="tabpanel"
+           aria-labelledby="rlbundletab">
+        <div id="rlbundlecards" class="policy-bundles hint">loading…</div>
+      </div>
+      <div id="rlexpertpane" class="policy-pane" role="tabpanel"
+           aria-labelledby="rlexperttab" hidden>
+        <div class="hint">Pick exact exported RL models for learned actions.
+          <b>Stand</b>/<b>Sit</b> use stance models, <b>Walk</b> uses walk
+          models, and <b>Hold</b> defaults to the built-in joint hold unless
+          you assign a model.</div>
+        <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
+      </div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
     </div>
   </div>

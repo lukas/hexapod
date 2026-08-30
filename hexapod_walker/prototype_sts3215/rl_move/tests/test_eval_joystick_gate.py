@@ -14,7 +14,8 @@ from rl_move.sim.eval_joystick_gate import aggregate_gate
 
 
 def _ep(*, terminated=False, slip=2.0, dir_err=34.0, gait_valid=True,
-        duty_cycle=None, swing_count=None, sacrificed_legs=None):
+        duty_cycle=None, swing_count=None, sacrificed_legs=None,
+        course_err_1s=None, course_err_2s=None):
     ep = {"terminated": terminated, "slip_per_m": slip,
           "direction_err_mean_deg": dir_err, "gait_valid": gait_valid}
     if duty_cycle is not None:
@@ -23,6 +24,10 @@ def _ep(*, terminated=False, slip=2.0, dir_err=34.0, gait_valid=True,
         ep["swing_count"] = swing_count
     if sacrificed_legs is not None:
         ep["sacrificed_legs"] = sacrificed_legs
+    if course_err_1s is not None:
+        ep["course_err_1s_med_deg"] = course_err_1s
+    if course_err_2s is not None:
+        ep["course_err_2s_med_deg"] = course_err_2s
     return ep
 
 
@@ -149,3 +154,51 @@ def test_per_leg_metrics_mixed_sacrifice_pattern():
     assert r["per_leg"]["sacrificed_episode_count"] == [0, 0, 0, 0, 0, 2]
     assert r["per_leg"]["sacrificed_frac"][5] == round(2 / 24, 3)
     assert r["per_leg"]["duty_median"] == [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+
+
+def test_dir_err_metric_default_is_tick_bit_exact():
+    # a checkpoint with AWFUL tick dir_err but clean windowed course_err
+    # (the exact false-fail shape found 08-29 on the stress_mix pair):
+    # default metric ("tick") must still fail it, unchanged behavior.
+    eps = [_ep(slip=2.0, dir_err=55.0, course_err_1s=2.0) for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(eps, eps)})
+    assert r["dir_err_metric"] == "tick"
+    assert r["checks"]["dir_ok"] is False
+    assert r["pass"] is False
+
+
+def test_dir_err_metric_windowed_passes_the_false_fail_case():
+    # same episodes as above, but judged on the windowed course metric
+    # (the CURRENT_TRUTHS-binding primary read as of 08-29): passes.
+    eps = [_ep(slip=2.0, dir_err=55.0, course_err_1s=2.0) for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(eps, eps)}, dir_err_metric="windowed_1s")
+    assert r["checks"]["dir_ok"] is True
+    assert r["pass"] is True
+    # the tick diagnostic is still reported, just no longer gates pass
+    assert r["direction_err_med_deg"] == 55.0
+    assert r["course_err_med_deg"] == 2.0
+
+
+def test_dir_err_metric_windowed_still_fails_a_genuinely_bad_course():
+    eps = [_ep(slip=2.0, dir_err=20.0, course_err_1s=25.0) for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(eps, eps)}, dir_err_metric="windowed_1s")
+    assert r["checks"]["dir_ok"] is False
+    assert r["pass"] is False
+
+
+def test_dir_err_metric_windowed_2s_uses_its_own_key():
+    eps = [_ep(slip=2.0, dir_err=55.0, course_err_1s=99.0, course_err_2s=2.0)
+           for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(eps, eps)}, dir_err_metric="windowed_2s")
+    assert r["course_err_med_deg"] == 2.0
+    assert r["checks"]["dir_ok"] is True
+
+
+def test_dir_err_metric_windowed_with_no_course_keys_fails_closed():
+    # older reports (pre-08-29) have no course_err_*_med_deg at all --
+    # requesting the windowed metric on them must not silently pass.
+    eps = [_ep(slip=2.0, dir_err=20.0) for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(eps, eps)}, dir_err_metric="windowed_1s")
+    assert r["course_err_med_deg"] is None
+    assert r["checks"]["dir_ok"] is False
+    assert r["pass"] is False

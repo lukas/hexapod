@@ -4,18 +4,23 @@ Small, single-purpose files so no one (human or LLM) has to dig
 through a 5,000-line log to answer a question. Each file says what
 it is for; keep them SHORT when you edit them.
 
-The campaign runs exactly two tracks (operator reset 2026-08-21):
-`joystick` and `amp`. Superseded docs live in
-`../archive/two_track_reset_2026-08-21/`.
+The campaign's active tracks live in
+`../rl_move/orchestrator/tracks.json`; as of 2026-08-30 they are
+`joystick`, `amp`, `cpg`, `walkcurr`, `standwalk`, and
+`todaypolicy`. Superseded docs live in `../archive/`.
 
 | File | What it answers | When to read |
 |------|-----------------|--------------|
-| `../RL_GOALS.md` | The two goals in plain English | Every cycle, first |
+| `../RL_GOALS.md` | The registered tracks in plain English | Every cycle, first |
 | `../CURRENT_TRUTHS.md` | Accepted facts and rulings; wins on conflict | Every cycle |
-| `../RL_PLAN.md` | The two-track operating plan and queue | Every cycle |
+| `../RL_PLAN.md` | The registered-track operating plan and queue | Every cycle |
 | `../STATUS.md` | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |
 | `tracks/joystick/STATUS.md` | Goal/Now/Next for the RL-from-teacher joystick track | Working that track |
 | `tracks/amp/STATUS.md` | Goal/Milestones/Now/Next for the from-scratch AMP track | Working that track |
+| `tracks/cpg/STATUS.md` | Goal/Now/Next for the Berkeley-style CPG gait-search track | Working that track |
+| `tracks/walkcurr/STATUS.md` | Goal/Now/Next for prior-free PPO walking | Working that track |
+| `tracks/standwalk/STATUS.md` | Goal/Now/Next for mesh-era stance plus one-policy stand/walk/lower distillation | Working that track |
+| `tracks/todaypolicy/STATUS.md` | Goal/Now/Next for composing policy+state into a usable demo bundle today | Packaging or comparing deployable MuJoCo/controller bundles |
 | `AMP_LOCOMOTION.md` | The AMP program charter (binding, incl. repo adaptations — no Isaac Lab) | Before any amp-track design decision |
 | `DOWNLOAD_ANSWER.md` | The current deployable answer + gate evidence | When a verdict might change what we'd put on the robot |
 | `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |

@@ -3214,3 +3214,37 @@ runnable work (`standwalk`, active).
   cw-walkteach-scripted-allhead-canary{,-s1}.
 - ANSWER (operator): _
 - rulebook change: _
+
+## q_20260830T1630Z — tuck submodel: learned clean tuck ALREADY EXISTS; adopting authority/completion gates (focus note 20260830T161149Z)
+- asked by: orchestrator cycle (operator-kick, "better user-feel model + submodels" focus note)
+- context: the note orders "if no learned clean tuck exists, train/BC a
+  tuck-style stand/lower from scripted tuck".
+- assume-and-go finding: a learned clean tuck DOES exist — the
+  from-scratch stance-mix pair
+  `cw-standwalk-stance-mesh2-stancemix-tuckclock-scratch8m{,-s1}`
+  (JOINT ACQUISITION PASS 2/2, 08-29/30): video-confirmed
+  splay-flat -> tuck-under (feet lift/fold BEFORE load) -> level
+  six-foot plant, flat probe 12/12 + 11/12 valid_plant, hold/lower
+  6/6+6/6, reversible lower, over_current gate enforced in eval
+  (rides the 2.4-2.64A structural ceiling non-terminally; the
+  press-pin FAIL family this lineage killed was exactly the
+  loaded-drag/current pathology). Both seeds ALREADY EXPORTED:
+  `linux_control/policies/stand_stancemix_tuckclock_scratch8m{,_s1}.json`.
+  So NO new BC-from-scripted-tuck run was launched — the product
+  composition (scripted/learned tuck stand/lower + best walk role)
+  can consume these exports today. Residual honestly carried: the
+  export notes' "hardest-start current/fall tail" caveat — a
+  loaded-foot-drag/current METRIC read on the existing gate
+  artifacts is the cheap next check if the operator wants a formal
+  no-inward-drag bar before hardware.
+- also adopted from the note: joystick-authority/completion joins
+  direction as a gate axis for the scripted-teacher lineage — the
+  8-15M acquisition pair's gate already carries completion>=0.19
+  det+sto; recorded reads now also report completion vs the teacher
+  band (0.373-0.385 @12s holds) so "soft/underpowered" is measured,
+  not vibes. Like-for-like 12s-hold authority suites for the two UX
+  candidates (mlp-singleframe vs tf-stressmix) launched this cycle
+  (prior reads used mismatched 6s vs 12s holds and were not
+  comparable).
+- ANSWER (operator): _
+- rulebook change: _

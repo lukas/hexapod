@@ -1,5 +1,66 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~17:3x (**`cw-walkteach-scripted-allhead-acq12m{,-s1}`
+BOTH ACQUISITION PASS (5/5 clauses, 2/2 seeds) — the wave-1 walkteach
+pair is DONE; teacher-ceiling confirmed (not a regression); Stage-2
+teacher-adoption swap `dualbc4_walkteach` LAUNCHED per the
+pre-registered next step.**) Plain English: the two finished 12M
+acquisition runs (train-6/train-7) had a crashed prestage — the
+watcher's own gate re-run and the wave-2 cycle's cmdsuite restage both
+died to a `kubectl exec` websocket drop ("close 1006 abnormal
+closure"), NOT a real eval failure; the remote `eval_checkpoint`
+processes kept running fine on their pods the whole time. Reaped both
+via `pollreap` (DR-0 gate) and re-ran the direction-bar `eval_cmd_suite`
++ the formal `eval_joystick_gate` stress_mix fresh (neither had ever
+completed for this pair). Result: **both seeds clear all 5
+pre-registered clauses** — (a) 8-heading cmdsuite zero falls,
+completion 0.31-0.46 (2-4x the 0.19 bar); (b) slip/m 1.3-2.3 med, well
+under the 2.9 cap everywhere; (c) `eval_joystick_gate` stress_mix
+`pass:true` BOTH seeds (n=24, zero falls, slip_med 1.64/1.76, dir_err_med
+22.5/24.3deg vs 40 allow, course_err_1s_med 4.5-5.2deg, gait_valid 1.0,
+zero sacrificed legs) — the first arm in this rebuild to clear the
+formal DONE-gate outright, not just the cheap proxy; (d) turn-retention
+tip wz~0.19-0.22 correct sign, matching the canary; (e) AUTHORITY READ
+is honestly a **teacher-ceiling, not a win**: per-heading det completion
+(0.31-0.40) sits on/near the scripted teacher's own 0.373-0.385 band and
+did NOT move past the 2M canary's own 0.356-0.401 range despite 6x
+budget + a tighter std anneal — confirms the prior entry's prediction
+("soft/underpowered is teacher-ceiling-shaped, the fix is a
+faster-teacher harvest, not more RL budget"). Verdicted PASS both
+(`ops.sh verdict`), SKILLS.md row added. **Refill, per the gate's own
+pre-registered PASS clause ("teacher adoption into stage-2 distillation
+as a PRE-REGISTERED swap vs the dualbc3 line")**: built the merged
+walk+stance cfg-set programmatically from both teachers' own ledger
+`extra_args` (walk 50 + stance 34 keys, 2 identical overlaps —
+`control.hz`, `train.bc_anchor_coef`), smoke-tested `distill_gru.py
+--dual` end-to-end with this walk-teacher (zero crashes, `walk obs 75,
+stance obs 68`, plug-compatible with zero code changes), then launched
+the real-scale run: `distill_gru.py --dual --walk-teacher
+ppo_goal_cw_walkteach_scripted_allhead_acq12m.zip --stance-teacher
+ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal.zip
+--mix walk=0.30,rise=0.40,lower=0.15,hold=0.15 --episodes 100 --epochs 25
+--dagger-rounds 2 --dagger-episodes 100` (DAgger included from the
+start this time — the dualbc2→dualbc3 lesson, not re-discovered from
+scratch) → `ppo_goal_cw_standwalk_stage2_dualbc4_walkteach.zip`,
+background CPU nohup on the controller (no ledger entry, same
+convention as dualbc1-3), `logs/distill_gru/dualbc4_walkteach.log`.
+**Next** once it lands: `quick_probe` net-displacement check FIRST
+(the dualbc2 lesson — do not fund a GPU RL canary on an undiagnosed
+walk clone), then if it clears 0.05m, the anchor14coef1 canary+acq8m
+recipe already proven twice on this exact BC/DAgger pipeline shape.
+Separately still open (unstarted): wave-2's turn-ticks diet needs the
+walk semantics bank extended for turner-ranking under the
+course-income stack specifically — the existing OMNI bank
+(`k_yaw_still`/`walk_kernel_yaw_gate`) does NOT apply here because
+`k_walk_course_income`/`k_walk_excess_sway` are BOTH gated OFF on
+turn-in-place ticks (`s_ref > 1e-3` gate in `walk_task.py`) by
+construction — turn authority in this diet comes entirely from the BC
+anchor/phase-lock imitation term, a different mechanism than the OMNI
+bank checks, so a dedicated bank case is needed, not a reuse. Checked
+the rest of the fleet: joystick/amp/cpg stay DONE-or-maintenance,
+walkcurr stays `[operator]`-blocked (phase-sv wave 2/2 FAIL closed the
+last lever) — no other legal launch this cycle. CYCLE_WORKED.
+
 Update, 2026-08-30 ~16:4x (**walkteach wave-2 prereq (a) HALF CLOSED:
 anchor phase-clock's own `run_on_yaw` gap fixed + unit-tested; the
 canary-r1/-s1-r1 pair and the 12M acquisition pair

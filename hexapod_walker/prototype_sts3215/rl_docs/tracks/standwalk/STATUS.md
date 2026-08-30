@@ -1,5 +1,99 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~23:2x (**DIG-IN flagged, no verdict — two
+confirmed anomalies on the -s1 seeds, both root-cause-worthy, not
+snap-callable from a triage pass.** New tool:
+`rl_move/sim/probe_turn_authority.py`.) Plain English, while the
+on-pod `_gate`/`_owncfg` harness for `cw-standwalk-stage2-dualbc4-
+walkteach-anchor14coef1-acq8m-s1` (train-3) and `..._turndiet-
+anchor14coef1-canary-s1` (train-1) kept computing (still mid-flight at
+write time, ~1h30m in of the 1.5-3h class, det pass through
+walk/rise/lower, sto pass not started — left running, not duplicated):
+
+1. **Built the missing turn-in-place instrument the turndiet gate's
+   own text calls for** ("a turn-in-place probe ... shows real wz
+   tracking") — it did not exist: `eval_checkpoint` never scores yaw
+   tracking (its `info["walk_wz"]`/`reward_walk_yaw` fields are only
+   populated when `reward.k_walk_yaw > 0`, which this reward family
+   never sets — it uses BC-anchor imitation for turning, not the OMNI
+   yaw kernel), and the single-mode `eval_cmd_suite`/`hybrid_demo`
+   tools are the already-documented INCOMPATIBLE-obs-contract class for
+   this dual-core 4-submode checkpoint. New `probe_turn_authority.py`
+   holds a pinned wz command (vx_ref=vy_ref=0, mirrors
+   `test_task_semantics._turn_rollout`), reads the ALWAYS-computed
+   `env._body_wz()` (never the reward-gated info field — a first draft
+   used the info field and produced a FALSE "frozen body" reading even
+   for the SCRIPTED reference gait, caught by its own `--policy
+   scripted` sanity control before it reached a real checkpoint), and
+   filters ticks to `info["goal_mode"]=="walk"` (`goal.mode_seq`
+   composes walk->lower sequences mid-episode even when the goal
+   generator's own probabilities are forced to walk-only — verified
+   directly, unfiltered ticks silently mix in submodes where zero wz is
+   correct behavior). 4 new tests (`test_probe_turn_authority.py`,
+   pure-threshold unit tests + one short env-integration control using
+   the scripted gait), snapshot pending this update.
+2. **`turndiet-anchor14coef1-canary-s1` FAILS its own pre-registered
+   turn-tracking clause — the yaw-gate fix did NOT transfer from the
+   bank to full PPO, exactly the gate's own named "needs a dig-in"
+   branch.** Probe (checkpoint's own cfg incl. `walk_kernel_yaw_gate=1`,
+   `walk_turn_in_place_frac=0.15`; wz_cmd=+-0.25 rad/s, 2 seeds, walk-
+   mode-only ticks): achieved `wz_med` ~0.0004-0.0011 rad/s (both
+   signs, both seeds) vs commanded +-0.25 — `wz_err_med` 0.249-0.2502,
+   essentially IDENTICAL to the frozen-body prediction (`|wz_cmd|`).
+   The tool's own scripted-gait control on the identical cfg achieves
+   real wz_med ~0.21 (verified BEFORE reading the checkpoint), so this
+   is not a measurement artifact — the checkpoint genuinely never
+   rotates its body on command, det walk gait/legs otherwise clean
+   (from the fast dr0 read below). Root-cause NOT yet done (that is the
+   dig-in's job) — leading hypothesis to check first: the BC-anchor
+   imitation term (`bc_anchor_walk_coef=1.0`, `bc_anchor_phase_lock=1.0`)
+   anchors hard to the walk-teacher's own demonstrated footfall
+   trajectory; if that trajectory's turn-episode coverage was thin/
+   absent in the `--mix walk=0.30` harvest, the anchor loss may
+   dominate the (only 2M-budget, 15%-exposure) RL turn incentive before
+   it can move the gait off the straight-walk manifold — testable by
+   reading the walk-teacher's own harvested turn-episode fraction and
+   by an anchor-coefficient-vs-turn-authority ablation.
+3. **`anchor14coef1-acq8m-s1` (8M continuation) shows regressed det
+   walk `progress_ratio`/`slip_per_m` vs its own parent canary despite
+   a monotonically RISING reward curve (Q1-4 `[-97.6, 120.1, 434.7,
+   701.5]`) — the exact rising-reward/bad-eval shape the 08-21 ruling
+   requires a dig-in on, not a reflex read either way.** Fast `--no-
+   video` dr0 walk-only read (own cfg, `/tmp/fastcheck_dualbc4_acq8m_
+   s1_det/report.json`, 8 episodes): `gait_valid` 8/8, `sacrificed_legs`
+   0/8, 0 terminations (clean, no anchor4-class catastrophe) — but
+   `progress_ratio` med **0.362** (all 8 episodes 0.34-0.41) vs the
+   parent canary-s1's own gate/owncfg read of **0.463/0.446**, and
+   `slip_per_m` med **4.41** (range 3.15-8.17) vs the parent's
+   **1.77-1.85** — both a real, consistent (not single-episode-noise)
+   regression on exactly the two clauses this run's own gate names.
+   `course_err_1s_med_deg` stays clean (2.28, well inside band).
+   WIRING CHECK clean (`bc_anchor_loss_walk` 0.00055->0.00018,
+   `bc_anchor_fill_walk` 11844->29262, monotonic). Turn probe on this
+   checkpoint (control, not its own gate clause): also frozen-body
+   (wz_med ~0.0), unsurprising since its wave-1 diet had zero turn
+   ticks — recorded only as context for item 2. Leading hypothesis:
+   the goal-mix is walk=0.30/rise=0.40/lower=0.15/hold=0.15, so most of
+   the reward budget is NOT walk-scored — a real per-submode reward
+   breakdown (or a walk-only ep_rew_mean, not currently logged
+   separately) would show whether rise/lower/hold improved while walk
+   plateaued/regressed, which the pooled scalar curve cannot
+   distinguish from genuine walk misalignment.
+Neither run is verdicted. DIG-IN flagged for both (this cycle is a
+triage pass, not a dig-in — leaving the root-cause chain, any reward
+patch, and the PASS/FAIL call to the deep-model pass per the standing
+protocol). Evidence paths: `/tmp/fastcheck_dualbc4_{acq8m_s1,
+turndiet_canary_s1}_{det,sto}/report.json` (controller-local, weights
+unchanged, checkpoints already on-controller from prestage);
+`/tmp/probe_prod_{turndiet,acq8m_s1}.json` (the productionized tool's
+own output, reproducible via the command in its module docstring).
+Other tracks re-swept: joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr's rung-1 stays operator-blocked
+(separate litrep-box wave is a concurrent cycle's own scope, untouched
+here). No new GPU launch this cycle (nothing legal beyond the two
+in-flight harnesses + the already-running litrep-box pair).
+CYCLE_WORKED (new tool + tests landed, real diagnostic finding).
+
 Update, 2026-08-30 ~22:2x (no verdict — both assigned runs genuinely
 mid-flight, not stalled): `cw-standwalk-stage2-dualbc4-walkteach-
 anchor14coef1-acq8m` (train-2, 8M straight continuation of the just-

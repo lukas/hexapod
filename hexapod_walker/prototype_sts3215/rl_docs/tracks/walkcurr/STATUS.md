@@ -89,6 +89,35 @@ validity, on video. Speed obedience is secondary throughout.
 4. Irregular direction changes (mid-episode resampling).
 5. DR/push hardening (paper's friction 0.5-1.25 + periodic pushes).
 
+Update (2026-08-30 ~05:5x — centralized control arm read: `central-sv-s0-b100m` FAIL, budget-alone closes for the centralized architecture too, 4/6 PPO population-sweep arms in)
+
+Plain English: the sweep's centralized-architecture control (100M
+target, no decleg) lands in the SAME static-quiver-to-over_current
+basin as its decleg siblings — confirming budget alone (100M) does
+not escape it either, for either architecture. `env/walk_speed`
+pinned 0.012-0.03 m/s the whole 95.5M-step run (never off the ~0.02
+floor), `ep_len_mean` spiked once to ~1182 at ~5M then collapsed to
+350-440 and stayed there through 95M, `terminations/over_current`
+rose to ~1000-1200/window by ~10M and never returned to background,
+reward quarters [173.7,167.4,167.1,166.7] — peak early, then
+flat/declining, not rising. DR-0 gate n=24: prog med 0.00 (need
+>=0.35), slip/m med 4.96-6.44 (cap 3.0), fwd med 0.01-0.02m/25s,
+every episode TERM over_current across all 4 sub-panels; `gait_valid`
+nominally 6/6 on det/startjitter-det is the same paddle-creep
+false-positive already seen on `s6` — contact sheet confirms zero
+net translation, static splayed crouch across all 10 frames. Litmus
+unmet on all 3 conditions, aligned FAIL. Tally so far: `s2`/`s5`/`s6`
+(decleg) + `central-sv-s0` (centralized) = 4 of 6 PPO population-sweep
+arms in, ALL FAIL, same basin every time — only `s3` (concurrent
+cycle) and `s4` remain unread on the PPO side, plus the 4 SAC-tilt5-
+20M arms still training. If `s3`/`s4` also close this basin, the raw
+budget/seed-population axis is CLOSED for both architectures at 100M
+and the structural anti-freeze/balance-pretrain curriculum (candidate
+1, below) becomes the track's next funded item — no further same-
+class dose/seed/architecture arm should be launched off this read
+alone. Evidence: `logs/ckpt_eval/cw_walkcurr_pf_central_sv_s0_b100m_gate/`,
+W&B `ha3nppmt`.
+
 Update (2026-08-30 ~05:3x — two more population-sweep arms read: `decleg-sv-s2-b100m` + `decleg-sv-s6-b100m` both FAIL, 3/5 decleg-100M seeds in)
 
 Plain English: both finished this cycle, same static-quiver-to-

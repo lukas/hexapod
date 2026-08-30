@@ -227207,7 +227207,7 @@
       "single-frame (obs.history_frames default=1) all-heading walker: single lever vs cw-walk-allheading-mlp-scratch1 (drop history_frames=64) -- distill-compatibility probe, see standwalk/STATUS.md 08-30 ~03:1x"
     ],
     "created": "2026-08-30T02:59:14+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -227252,7 +227252,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-30T03:11:26"
+    "triage": "done",
+    "verdict": "CANARY PASS (mechanism health, matches the hist64 mlp/tf scratch1 canaries' own precedent signature -- clears all 4 pre-registered criteria). Evidence (W&B 5mf00dot, wandb_history.csv, 2.0M/2.0M steps): (1) no NaN/blowup anywhere (train/loss, value_loss, entropy_loss all finite and stable), train/std rises mildly 0.369->0.396 (healthy exploration, no collapse), approx_kl/clip_fraction settle down over the run; terminations/over_current shows one transient bump (1.33M-1.72M, peak 42) that fully resolves to single digits by 1.8M -- same shared-training-dynamics-wobble shape the precedent canaries showed (peak 86-108, resolved by 1.1M), not a divergent explosion; terminations/truncated stays flat 19-30 throughout. (2) train/bc_anchor_loss_walk: early bump to 0.078 (~490k, anchor warmup) then falls steadily to a 0.006 plateau by 2M -- same falling-after-warmup shape as the precedent pair (tf 0.0041->0.00019, mlp 0.0030->0.00047). (3) course-income terms live: reward_walk_course_income/walk_course_income_support nonzero almost every logged tick (29/31, only 2 exact-zero ticks near 1.77-1.82M), dips through a mid-run trough (supports 0.47->0.21->0.0) then ticks back UP in the final ~250k steps (0.0->0.0003->0.033->0.351) -- textbook match to the precedent's own recorded 'dips through the mid-run valley then ticks back up in the final ~100k steps' signature (tf support 0.22->0.35, mlp 0.30->0.33). (4) reward quarters [69.8, 151.9, 166.0, 113.2] sit inside/near the hist64 twins' own 73-172 band (Q1 slightly under at 69.8, Q4 dips to 113.2 vs the twins' 162-172, but net trajectory still far above Q1, no divergence-down signature). Auto-generated training-video caption at the final checkpoint reads 'walk:ok raise:ok hold:ok' (no formal DR-0/joygate report needed at canary phase per this gate's own text, non-blocking, same convention as the precedent pair). Net: single-frame obs (history_frames=1) reproduces the SAME mechanism-health profile as the hist64/transformer scratch1 canaries that went on to a clean 40M acquisition and a formal-joygate PASS. Per the pre-registered gate, promoting to a 40M acquisition continuation now (cw-walk-allheading-mlp-singleframe-acq1, respec --init-from-source, same eval_cmd_suite balanced-heading first gate the hist64 twins used) -- if that clears the formal 60s joygate too, immediately re-attempt distill_gru.py --dual with this checkpoint as walk-teacher (should now match cleanly, single-frame both sides, zero new code) before funding any acquisition-scale Stage-2 distillation."
   },
   {
     "run": "cw-standwalk-unified1-joyfix-courseincome1",

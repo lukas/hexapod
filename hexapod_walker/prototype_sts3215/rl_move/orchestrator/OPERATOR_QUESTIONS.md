@@ -3114,3 +3114,44 @@ which would rule out the accumulation theory), the next cycle treats
 it as a real defect (periodic pod recycling, or a genuine leak in
 `train_ppo_mjx.py`/the MJX backend) rather than re-deriving the same
 hypothesis from scratch.
+
+## 2026-08-30 ~07:4x — walkcurr: every operator-named 08-29 lever now closed except the in-flight SAC tilt5 continuation; pre-committed fallback recorded (assume-and-go, informational)
+Not a blocking question yet — filed so the cycle that reads the SAC
+tilt5 continuation doesn't need to re-derive the tally. Per the
+operator's 08-29 ruling (fb_20260829T145710_06f739) naming 4 non-BC
+levers in priority order — (i) decentralized per-leg, (ii) plain-
+velocity/no-charge-stack SV diet, (iii) bigger one-shot budget, (iv)
+off-policy SAC — all four have now been executed: (i) decleg-sv 3
+seeds + central-sv control = 4/4 FAIL; (ii) is the SV diet itself,
+tested throughout every arm below, never escaped the static basin;
+(iii) decleg/central population-budget sweep at 100M = 6/6 FAIL
+(2026-08-30 morning); (iv) SAC-SV dose/settle-window branch = 7/7
+FAIL. Two more self-invented forks on top of the same basin also
+closed: terrain diversity 2/2 FAIL, idle-charge lever 2/2 FAIL, and
+this track's own pretrain-staging fork (partial-credit-for-incomplete-
+strides) closed 4/4 FAIL this cycle (`cw-walkcurr-pf-{decleg,central}-
+antifreeze-pretrain-{s0,grad-s0}`). The ONLY thing not yet closed is
+an operator-ordered overnight budget-raise continuation of lever
+(iv)'s single most-promising data point (SAC seed1's partial escape
+at 2M/dose5.0): `cw-walkcurr-sac-sv-tilt5-{s1-b20m,s2,s3,s4}` at 20M,
+still training as of this note.
+Assumed answer (recorded now, per the 08-24 BC-kickstart precedent's
+own resolved path (2), so this doesn't need re-deriving): if all four
+tilt5 arms ALSO read FAIL (same 24/24-fall signature, or no
+fall-rate/forward-dist gain past the already-measured ~0.055m
+ceiling), the fleet will NOT invent an 18th unprompted mechanism
+class or blind-redose a closed lever. It will record walkcurr rung-1
+as blocked at the from-scratch-MLP/decleg-PPO-and-SAC architecture/
+budget this campaign has been able to fund and test — an honest
+scope/architecture finding, not a permanent goal failure — and
+concentrate agent effort on tracks with genuine runnable work
+(currently `standwalk`, under active concurrent development;
+joystick/amp/cpg are all past their own registered gates). This is
+filed as the closest analogue to the spend-approval/physical-robot
+wait carve-out, exactly as the 08-24 precedent was, NOT as a pause —
+if a tilt5 arm instead shows a real escape, this fallback is moot and
+lever (iv) reopens for seed-replication / real SAC `--init-from`
+support instead.
+status: OPEN, informational — no pause, SAC tilt5 keeps training
+unattended; whichever cycle reads it either reopens lever (iv) or
+executes the fallback above without re-deriving this tally.

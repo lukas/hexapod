@@ -230844,7 +230844,7 @@
       "reward.k_step_partial=0.5"
     ],
     "created": "2026-08-30T06:52:01+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -230888,7 +230888,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL (own-cfg 2M PRETRAIN health read) -- graduated k_step_partial=0.5 shaping does NOT rescue exploration. Evidence: env/reward_step_event trace [786k..2.36M] = [0.0026,0.0028,0.0033,0.0032,0.0027] -- already at this tiny value at the FIRST checkpoint and flat/noisy the whole run, never a genuine rising trend (prediction-if-true required a measurable rise off ~0; this is a flat floor, not a climb). env/walk_speed pinned 0.0206-0.0218 the entire run (cmd 0.05-0.06), identical static floor to every other FAIL in this campaign. rollout/ep_len_mean climbs 63->547 (matches the pure-STEP pretrain's identical 63->547) -- the policy learned to survive via a safe static stand, not real stepping; terminations/truncated=153 confirms. ep_rew_mean settles at 202.9 (quarters [151.7,202.0,202.4,202.8]), only +0.9 over the pure-STEP pretrain's 202.0 -- fully explained by the marginal nonzero step_event/partial values, not by any behavior change. Central twin (cw-walkcurr-pf-central-antifreeze-pretrain-grad-s0) is numerically near-identical at every logged step (ep_len_mean 165.87/258.93/350.82/444.67/547.29 matching to 2 decimals) -- architecture is not the confound, exactly reproducing the pure-STEP pretrain's own finding. Why: the graduated taper gives SOME gradient near a partial stride, but 2M steps of PPO from random init still never discovers a genuine forward-projecting swing to reinforce -- the taper widens the target, it doesn't create exploration pressure toward it. Prediction-if-false (same static basin as the pure-STEP pretrain) is CONFIRMED. What's next: this closes pretrain-staging altogether (both the pure k_step_event-only diet and this graduated taper, 4/4 arms FAIL) -- on top of the already-closed PPO population/budget sweep (6/6 FAIL), SAC-SV dose/settle-window branch (7/7 FAIL, though a fresh operator-ordered 20M-budget SAC tilt5 continuation x4 is still training), terrain fallback (2/2 FAIL), and idle-charge lever (2/2 FAIL). This means every operator-named (08-29 ruling) non-BC lever except the in-flight SAC tilt5 continuation is now closed; see STATUS.md Next and OPERATOR_QUESTIONS.md for the pre-committed fallback if that continuation also fails."
   },
   {
     "run": "cw-walkcurr-pf-central-antifreeze-pretrain-grad-s0",
@@ -230994,7 +230996,7 @@
       "reward.k_step_partial=0.5"
     ],
     "created": "2026-08-30T06:54:09+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -231038,6 +231040,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL (own-cfg 2M PRETRAIN health read) -- matched-architecture twin of cw-walkcurr-pf-decleg-antifreeze-pretrain-grad-s0 (same cycle, unclaimed by any concurrent cycle, read together since the pair's whole point is the arch-not-confound check). Numerically near-identical trajectory to the decleg twin at every logged step: ep_len_mean 165.87/258.93/350.82/444.67/547.29 (exact match to 2 decimals), env/walk_speed 0.0207->0.0203 (same static floor, cmd 0.05-0.06), env/reward_step_event flat/noisy 0.0026-0.0034 the whole run (already at this value at the first checkpoint, not a genuine rise), ep_rew_mean settles 202.9 (quarters [151.7,202.0,202.4,202.8]), terminations/truncated=153. Same safe-static-stand convergence as the decleg twin and as the prior pure-STEP pretrain pair -- confirms architecture is not the confound, again. Closes pretrain-staging 4/4 FAIL alongside the decleg twin; see that verdict for the full root-cause writeup and STATUS.md/OPERATOR_QUESTIONS.md for the pre-committed next step."
   }
 ]

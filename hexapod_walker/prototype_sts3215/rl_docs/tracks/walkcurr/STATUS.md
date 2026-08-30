@@ -43,6 +43,82 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
+## Now (2026-08-30 ~07:4x — graduated step-partial pretrain read: FAIL, CLOSES pretrain-staging 4/4; every operator-named non-BC lever now closed except the in-flight SAC tilt5 20M continuation)
+
+Plain English: read the graduated step-completion pretrain pair the
+prior cycle launched. Does giving partial credit for an incomplete
+(sub-10mm) forward swing let a fresh-random-init policy discover real
+stepping where the all-or-nothing `k_step_event`-only pretrain
+(decleg/central-antifreeze-pretrain-s0, both FAIL) could not? **No.**
+`cw-walkcurr-pf-decleg-antifreeze-pretrain-grad-s0` and its
+centralized twin both verdicted **FAIL** — same static-stand-to-
+park-floor basin, numerically near-identical to EACH OTHER (arch not
+the confound, again) and to the pure-STEP pretrain pair (ep_len_mean
+climbs the identical 63->547 shape; ep_rew_mean settles at 202.0
+pure-STEP vs 202.9 graduated — the +0.9 delta is fully explained by
+the graduated taper's own small nonzero income, not by any behavior
+change). `env/reward_step_event` sat flat/noisy in [0.0026,0.0034]
+for the ENTIRE 2M run in both arms — already at that value at the
+FIRST logged checkpoint (786k steps), never a genuine rising trend;
+`env/walk_speed` pinned at the same ~0.02 m/s static floor as every
+other FAIL in this campaign (cmd 0.05-0.06). The taper widens the
+credit-earning TARGET (a partial stride now earns something) but does
+nothing to create exploration PRESSURE toward ever attempting one —
+2M steps of PPO from random init still never samples a real
+forward-projecting swing to reinforce. Prediction-if-false confirmed;
+this closes pretrain-staging at **4/4 FAIL** (pure-STEP x2 archs +
+graduated-taper x2 archs).
+
+**Track-wide tally, all under the operator's 08-29 ruling
+(q_20260824T0233Z, fb 20260829T145710_06f739 — BC-kickstart out of
+bounds, 4 levers named in priority order: (i) decentralized per-leg,
+(ii) plain-velocity/no-charge-stack SV diet, (iii) bigger one-shot
+budget, (iv) off-policy SAC):** (i) decleg-sv 3 seeds + central-sv
+control = 4/4 FAIL (08-29). (ii) is the SV diet itself, tested
+throughout — no arm of it has ever escaped the static basin. (iii)
+decleg/central population-budget sweep at 100M = 6/6 FAIL (this
+morning). (iv) SAC-SV dose/settle-window branch = 7/7 FAIL (08-29
+night), PLUS two self-invented forks tried on top of the same basin —
+terrain diversity 2/2 FAIL, idle-charge lever 2/2 FAIL — PLUS this
+track's own pretrain-staging fork, 4/4 FAIL (this entry). **Every
+operator-named lever and every self-invented fork this campaign could
+build is now closed EXCEPT the operator-ordered overnight SAC tilt5
+20M-budget continuation x4 seeds** (`cw-walkcurr-sac-sv-tilt5-{s1-
+b20m,s2,s3,s4}`, still training as of this entry — a genuine
+budget-raise re-test of lever (iv)'s own most-promising single data
+point, seed1's partial escape at 2M/dose5.0).
+
+**Pre-committed next step (assume-and-go, recorded now so the cycle
+that reads tilt5 doesn't re-derive this): if ALL FOUR tilt5 arms also
+read FAIL** (same 24/24-fall signature, or flat/declining reward with
+no fall-rate/forward-dist gain past the already-measured tilt5-s1
+ceiling of ~0.055m fwd_dist), **that is the same terminal position
+this track reached once before on 08-24 (BC-kickstart question) — but
+now with the operator's own follow-up ladder ALSO exhausted.** Per
+that precedent's resolved path (2): record rung-1 progress as blocked
+at the from-scratch-MLP/decleg-PPO-and-SAC architecture/budget this
+campaign has been able to fund and test (a scope/architecture
+finding, not a permanent failure of the goal) — CPG-style direct
+optimization is explicitly out of this track's from-scratch charter
+and is not a lever this track may adopt on its own initiative. File a
+fresh, explicit operator note (do NOT silently re-close and go quiet)
+naming the two remaining honest options: (a) a genuinely new
+mechanism idea from the operator, or (b) an explicit scope ruling
+(walkcurr rung-1 stays open-but-parked while the fleet's effort
+concentrates on whichever track has runnable work — currently
+`standwalk`, which is under active concurrent development). Do NOT
+invent an 18th mechanism class unprompted; do NOT relaunch any closed
+lever at a new dose without a new mechanism idea attached to it.
+**If even ONE of the four tilt5 arms shows a real escape** (fall rate
+below 24/24, or forward_dist clearing meaningfully past 0.055m, with
+gait_valid true and no over_current confound) — that re-opens lever
+(iv) for real: seed-replicate, consider building genuine SAC
+`--init-from` checkpoint-continuation support (still missing, see
+08-29 ~18:4x entry) so future budget raises don't need the
+fresh-relaunch workaround, and defer the BLOCKED framing above.
+Snapshot: none this cycle (bank/mechanism code unchanged; only
+verdicts + STATUS/OPERATOR_QUESTIONS recorded).
+
 ## Now (2026-08-30 ~06:5x — decleg-sv-s4-b100m dig-in RESOLVED (metric artifact, FAIL); graduated step-shaping mechanism built + launched)
 
 Plain English: resolved the DIG-IN flag left by the prior cycle on

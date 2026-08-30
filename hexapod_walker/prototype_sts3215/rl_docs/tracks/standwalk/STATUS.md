@@ -1,5 +1,61 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~07:0x (**Real-scale Stage-2 BC distillation LAUNCHED
+with the new mesh/100Hz all-heading walk teacher — the concrete
+next-cycle item the 06:3x entry flagged; found + fixed one real
+--transitions incompatibility on the way in, not a rushed retry.**)
+Plain English: acting on this file's own "next-cycle item" (real-scale
+Stage-2 distillation using `cw-walk-allheading-mlp-singleframe-acq1-
+stdanneal` in place of `stotight45-seed13`), built the merged env cfg
+programmatically from both teachers' own ledger `extra_args` (walk 48
+keys + stance 34 keys, exactly 2 overlaps — `control.hz`,
+`train.bc_anchor_coef` — both identical values, matching the smoke
+test's own count) and launched the real-scale `distill_gru.py --dual`
+collection (background CPU nohup, same class as every prior
+`distill_gru` arm, not GPU/ledger-tracked): `--stance-teacher
+ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal.zip`
+(same stance teacher the 06:3x smoke test used), `--mix walk=0.30,
+rise=0.40,lower=0.15,hold=0.15 --episodes 100 --epochs 25` (the
+established real-scale recipe from the original dualbc1 build).
+**FIRST ATTEMPT included `--transitions 20` (matching the original
+recipe) and ABORTED immediately, informatively**: `distill_gru.py`'s
+own `--seq-verify` safety check found 10/12 deterministic composed
+sequences falling (9 rise, 1 hold) and refused to collect
+("TEACHER NOT SEQUENCE-COMPETENT... fix the teacher/context, do not
+collect more demos"). **This means the 06:3x smoke test's "zero
+crashes" read was a false reassurance for the SEQUENCE path
+specifically**: that smoke run used `--transitions 4`, too few draws
+for the 12-sample verify window to ever engage the same statistic —
+it validated obs-width/pipeline plumbing, not sequence competence.
+Root cause matches an already-open track finding, not a new bug: the
+`stancemix_bcchain3_stdanneal` stance teacher still carries the
+tracked flat-start-rise-in-composition residual (segfix/tuckclock
+dig-in lineage) — composed mode_seq segments (6-8s) sometimes cut
+off its ~7s rise ramp, exactly the failure this checkpoint is already
+known for outside distillation too. **Fix applied (one lever,
+directly following the tool's own advice): dropped `--transitions`
+entirely** — plain multi-mode (non-composed) BC collection, which
+does not exercise the fragile composed-sequence timing edge case
+(isolated rise episodes get the full stance episode length, not a
+truncated segment draw). Relaunched, now running past the point of
+the original abort with no error. **Composed-sequence competence
+(`--transitions`) stays a named gap for whichever mechanism finally
+solves flat-rise-in-composition** — not silently dropped, tracked
+here. Log: `logs/distill_gru/dualbc2_allheadwalk.log` (controller,
+pid visible via `ps`); output `rl_move/sim/policies/
+ppo_goal_cw_standwalk_stage2_dualbc2_allheadwalk.zip` when it
+finishes (likely runs well past this cycle's own end — no ledger
+entry to poll; a future cycle's triage should check the log/output
+file directly, same convention as every prior `distill_gru` build).
+**Next** once it lands: smoke-probe the saved zip (`quick_probe`/
+`probe_seq`, matching the anchor1 precedent) before funding any GPU
+RL fine-tune, then design the Phase-2 acquisition launch reading the
+anchor2-14 lessons (in-loss `train.bc_anchor_walk`/`_phase_lock`/
+`_knee_abs`, `--log-std-anneal-core stance`, coef=1.0 per-mode-
+decoupled walk-anchor — the anchor14 recipe already proved this dose
+compounds cleanly with budget on the OLD teacher; same recipe is the
+right first thing to try on the new one, not a fresh lever search).
+
 Update, 2026-08-30 ~06:3x (**`cw-walk-allheading-mlp-singleframe-acq1-stdanneal`
 VERDICTED PASS — 3rd confirmed instance of the std-anneal repair,
 matching both prior siblings; walk-alone skill confirmed, distill-

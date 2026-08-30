@@ -16,7 +16,8 @@ entrypoint is:
 ```sh
 cd /workspace/hexapod/hexapod_walker/prototype_sts3215
 bash rl_move/orchestrator/ops.sh hybriddemo <run> [out-dir] \
-  [--script human|square|sweep] \
+  [--script human|square|sweep|human_turn|turn] \
+  [--wz-max 0.3] \
   [--policy-mode deterministic|stochastic] \
   [--stand-controller scripted|learned] \
   [--lower-controller scripted|learned] \
@@ -75,6 +76,9 @@ Key comparison fields in `summary.json`:
   requested command distance.
 - `course_err_1s_med_deg`, `course_err_1s_p90_deg`,
   `wrong_course_frac_1s`: joystick direction following.
+- `walk_wz_cmd_abs_max_rad_s`, `walk_turn_wz_err_med_rad_s`,
+  `walk_hold_wz_med_rad_s`: yaw-rate command delivery and turn tracking
+  for `human_turn` / `turn` scripts.
 - `cur_max_a`, `cur_p95_a`, `roll_peak_abs_deg`,
   `pitch_peak_abs_deg`.
 
@@ -106,7 +110,8 @@ families and should be comparison/failure modes only. Example:
 
 ```sh
 bash rl_move/orchestrator/ops.sh hybriddemo <walk-run> logs/manual_drive/<name> \
-  --stand-mode tuck --lower-mode tuck --script human --policy-mode deterministic
+  --stand-mode tuck --lower-mode tuck --script human_turn --wz-max 0.3 \
+  --policy-mode deterministic
 ```
 
 For joystick-transfer videos, keep `--stand-release stable` so the

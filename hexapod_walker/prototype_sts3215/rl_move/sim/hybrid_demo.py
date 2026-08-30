@@ -112,6 +112,7 @@ def _default_composition(args: argparse.Namespace,
             "script": args.script,
             "seconds": args.walk_seconds,
             "speed_m_s": args.speed,
+            "wz_max_rad_s": args.wz_max,
             "blend_s": args.blend_s,
         },
         "align_before_lower": {
@@ -262,10 +263,29 @@ def _reanchor(env, *, start_at: str, mode: str) -> None:
     traj.start_at = start_at
     traj.goal = TaskGoal()
     traj.vx = traj.vy = 0.0
+    twz = getattr(traj, "wz", None)
+    if twz is not None:
+        try:
+            twz[:] = 0.0
+        except (TypeError, ValueError):
+            traj.wz = 0.0
     traj.mode = mode
     traj.reset_published()
     env.reset()
     _restore_phys(env, keep_q, keep_v)
+
+
+def _set_traj_cmd(traj, vx: float, vy: float, wz: float) -> None:
+    traj.vx = float(vx)
+    traj.vy = float(vy)
+    twz = getattr(traj, "wz", None)
+    if twz is not None:
+        try:
+            twz[:] = float(wz)
+        except (TypeError, ValueError):
+            traj.wz = float(wz)
+    elif abs(float(wz)) > 1e-9:
+        traj.wz = float(wz)
 
 
 def _fresh_obs(env):
@@ -293,6 +313,9 @@ class _Recorder:
         self.pad_xy: list[list[np.ndarray]] = []
         self.walk_xy: list[tuple[float, float]] = []
         self.walk_cmd: list[tuple[float, float]] = []
+        self.walk_yaw_err_abs: list[float] = []
+        self.walk_hold_wz_abs: list[float] = []
+        self.walk_wz_cmd_abs: list[float] = []
         self.walk_along_m = 0.0
         self.walk_cmd_m = 0.0
         self.termination_reason = ""
@@ -319,14 +342,22 @@ class _Recorder:
             goal = env._current_goal()
             cmd = np.array([float(getattr(goal, "vx_ref", 0.0)),
                             float(getattr(goal, "vy_ref", 0.0))])
+            cmd_wz = float(getattr(goal, "wz_ref", 0.0) or 0.0)
         except Exception:
             cmd = np.zeros(2)
+            cmd_wz = 0.0
         vel = env._body_vel_xy()
+        act_wz = env._body_wz()
         speed_ref = float(np.hypot(cmd[0], cmd[1]))
         if phase == "walk":
             if speed_ref > 1e-6:
                 self.walk_cmd_m += speed_ref * env.dt
                 self.walk_along_m += float(vel @ cmd / speed_ref) * env.dt
+            if abs(cmd_wz) > 1e-4:
+                self.walk_wz_cmd_abs.append(abs(cmd_wz))
+                self.walk_yaw_err_abs.append(abs(act_wz - cmd_wz))
+            else:
+                self.walk_hold_wz_abs.append(abs(act_wz))
             bxy = env.data.xpos[env._chassis_bid, :2].copy()
             self.walk_xy.append((float(bxy[0]), float(bxy[1])))
             self.walk_cmd.append((float(cmd[0]), float(cmd[1])))
@@ -341,8 +372,10 @@ class _Recorder:
             "label": walk_label or label,
             "cmd_vx": round(float(cmd[0]), 4),
             "cmd_vy": round(float(cmd[1]), 4),
+            "cmd_wz": round(float(cmd_wz), 4),
             "act_vx": round(float(vel[0]), 4),
             "act_vy": round(float(vel[1]), 4),
+            "act_wz": round(float(act_wz), 4),
             "z_m": round(_chassis_z(env), 4),
             "roll_deg": round(float(info.get("roll_rel_deg", 0.0)), 3),
             "pitch_deg": round(float(info.get("pitch_rel_deg", 0.0)), 3),
@@ -357,9 +390,9 @@ class _Recorder:
                 f"{self.plan.get('name', 'hybrid')} t={row['t']:5.2f}s "
                 f"{phase}:{row['label']}",
                 f"cmd vx/vy {cmd[0]:+.3f}/{cmd[1]:+.3f} m/s "
-                f"speed {speed_ref:.3f}",
+                f"speed {speed_ref:.3f} wz {cmd_wz:+.3f}",
                 f"act vx/vy {vel[0]:+.3f}/{vel[1]:+.3f} m/s "
-                f"speed {actual_speed:.3f}",
+                f"speed {actual_speed:.3f} wz {act_wz:+.3f}",
                 f"z {row['z_m']:.3f}m tilt r/p "
                 f"{row['roll_deg']:+.1f}/{row['pitch_deg']:+.1f}deg",
             ]
@@ -424,6 +457,15 @@ class _Recorder:
             ],
             "cur_max_a": round(float(cur.max()), 3),
             "cur_p95_a": round(float(np.percentile(cur, 95)), 3),
+            "walk_wz_cmd_abs_max_rad_s": (
+                round(float(max(self.walk_wz_cmd_abs)), 3)
+                if self.walk_wz_cmd_abs else 0.0),
+            "walk_turn_wz_err_med_rad_s": (
+                round(float(np.median(self.walk_yaw_err_abs)), 4)
+                if self.walk_yaw_err_abs else None),
+            "walk_hold_wz_med_rad_s": (
+                round(float(np.median(self.walk_hold_wz_abs)), 4)
+                if self.walk_hold_wz_abs else None),
         }
         if self.walk_xy:
             out.update(self._course_window_ep_keys(
@@ -623,24 +665,24 @@ def _run_walk(env, rec: _Recorder, ctrl: dict[str, Any],
 
     seconds = float(ctrl.get("seconds", 20.0))
     speed = float(ctrl.get("speed_m_s", ctrl.get("speed", 0.08)))
+    wz_max = float(ctrl.get("wz_max_rad_s", ctrl.get("wz_max", 0.3)))
     script = str(ctrl.get("script", "human"))
     blend_s = float(ctrl.get("blend_s", 0.5))
     deterministic = str(ctrl.get("policy_mode", "deterministic")) == (
         "deterministic")
-    vx, vy, labels = _script(script, seconds=seconds, dt=env.dt, speed=speed,
-                             blend_s=blend_s)
+    vx, vy, wz, labels = _script(script, seconds=seconds, dt=env.dt,
+                                 speed=speed, blend_s=blend_s,
+                                 wz_max=wz_max)
     env.traj.mode = "walk"
     env.traj.reset_published()
-    env.traj.vx = float(vx[0])
-    env.traj.vy = float(vy[0])
+    _set_traj_cmd(env.traj, float(vx[0]), float(vy[0]), float(wz[0]))
     obs = _fresh_obs(env)
     if hasattr(model, "reset"):
         model.reset()
     n = max(1, int(round(seconds / env.dt)))
     for i in range(n):
         k = min(i, len(vx) - 1)
-        env.traj.vx = float(vx[k])
-        env.traj.vy = float(vy[k])
+        _set_traj_cmd(env.traj, float(vx[k]), float(vy[k]), float(wz[k]))
         action, _ = model.predict(obs, deterministic=deterministic)
         obs, reward, term, trunc, info = env.step(action)
         rec.record("walk", "policy", info, reward=reward,
@@ -649,7 +691,7 @@ def _run_walk(env, rec: _Recorder, ctrl: dict[str, Any],
             rec.termination_reason = str(info.get("termination_reason", ""))
             rec.truncated = bool(trunc)
             return False, obs
-    env.traj.vx = env.traj.vy = 0.0
+    _set_traj_cmd(env.traj, 0.0, 0.0, 0.0)
     env.traj.mode = "hold"
     return True, obs
 
@@ -717,6 +759,7 @@ def _write_transfer_manifest(path: Path, plan: dict[str, Any],
                     "body_frame_vx_vy_m_s": True,
                     "demo_script": walk.get("script", ""),
                     "demo_speed_m_s": walk.get("speed_m_s"),
+                    "demo_wz_max_rad_s": walk.get("wz_max_rad_s"),
                 },
             },
             stance_component(lower, state="walk_ready -> grounded",
@@ -789,10 +832,13 @@ def main() -> int:
     ap.add_argument("--walk-ready-align-s", type=float, default=0.75)
     ap.add_argument("--pre-lower-align-s", type=float, default=0.75)
     ap.add_argument("--limp-after-lower-s", type=float, default=2.0)
-    ap.add_argument("--script", choices=("square", "human", "sweep"),
+    ap.add_argument("--script", choices=("square", "human", "sweep",
+                                         "human_turn", "turn"),
                     default="human")
     ap.add_argument("--walk-seconds", type=float, default=20.0)
     ap.add_argument("--speed", type=float, default=0.08)
+    ap.add_argument("--wz-max", type=float, default=0.3,
+                    help="max scripted yaw rate for turn-capable scripts")
     ap.add_argument("--blend-s", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dr-scale", type=float, default=0.0)
@@ -886,7 +932,7 @@ def main() -> int:
     traj = env.traj
     traj.start_at = "plant"
     traj.goal = TaskGoal()
-    traj.vx = traj.vy = 0.0
+    _set_traj_cmd(traj, 0.0, 0.0, 0.0)
     traj.mode = "hold"
     traj.reset_published()
     _plant_obs, plant_reset_info = env.reset()
@@ -894,7 +940,7 @@ def main() -> int:
 
     traj.start_at = "zero"
     traj.goal = TaskGoal()
-    traj.vx = traj.vy = 0.0
+    _set_traj_cmd(traj, 0.0, 0.0, 0.0)
     traj.mode = "rise"
     traj.reset_published()
     _obs, reset_info = env.reset()

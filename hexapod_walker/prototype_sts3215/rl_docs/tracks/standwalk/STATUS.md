@@ -1,5 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~00:0x (DIG-IN cycle — both flagged -s1 runs
+root-caused and verdicted). Plain English: the turn-exposure canary
+failed because the yaw dose was homeopathic, and the 8M walk
+regression scare was partly a measurement artifact.
+1. **`turndiet-anchor14coef1-canary-s1` = CANARY FAIL - MECHANISM**
+   (its own pre-registered frozen-body clause). Root cause: incentive
+   (walk_kernel_yaw_gate) and supervision (omega-conditioned TripodGait
+   anchor + run_on_yaw clock fix) both existed and are healthy, but
+   wz!=0 appeared ONLY in tip episodes (walk_yaw_zero_frac=1.0) =
+   ~4.5% of experience, on a lineage whose wz obs channel was constant
+   zero its whole life. Telemetry: env/walk_yaw_kernel_factor DECLINED
+   0.22->0.07 over the 2M — moving AWAY from turning, no partial
+   credit. Its walk-stack telemetry "erosion" (loadslip 0.5->5.1 etc.)
+   is NOT a pathology — the PASSED wave-1 canaries show the identical
+   2M shape; training DR-0.5 telemetry does not predict det-DR0 eval.
+2. **TOOLING TRAP found and recorded: "own cfg" controller fastchecks
+   of this family inherit `goal.mode_seq=0.75`** — 75% of eval
+   episodes compose walk->lower->rise->hold, so slip_per_m/progress
+   accumulate over stance segments and are NOT comparable to the
+   pure-walk `_gate` numbers (parent 0.44-0.46 prog / 1.8 slip). The
+   prior cycle's acq8m-s1 "slip 4.4 vs 1.8" scare compared
+   mode_seq-mixed fastcheck vs pure-walk parent gate (also full_mesh
+   vs pod twin). A clean pure-walk det read (n=8, pod twin, gate cfg)
+   was run this cycle on train-2
+   (`..._acq8m_s1_purewalk_det/report.json`) and decides the acq8m-s1
+   verdict; see its ledger verdict for the final numbers.
+3. Launched `cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary{,-s1}`
+   (2M canary pair): same init/mix as turndiet but yaw commands the
+   policy is actually PAID to track — the bank-proven OMNI turn stack
+   (k_walk_yaw + walk_yaw_kernel_gate + k_yaw_prog w/ overshoot decay
+   + k_yaw_still w/ yaw_still_avg_s + hold_prog_gate) plus denser
+   exposure (tip_frac 0.30, walk_yaw_zero_frac 0.5). Turn bank re-run:
+   core 5 tests GREEN on current code; `walk_kernel_yaw_ema`'s
+   defect-proof clause FAILS on mesh/100Hz (raw kernel already orders
+   tracked>under-rotator, 658 vs 584 — the DC-vs-AC defect does not
+   reproduce on this model), so the EMA is deliberately NOT in the
+   launch stack. Gate = probe_turn_authority off-frozen
+   (wz_med>=0.08 both signs) + gait health.
+
 Update, 2026-08-30 ~23:2x (**DIG-IN flagged, no verdict — two
 confirmed anomalies on the -s1 seeds, both root-cause-worthy, not
 snap-callable from a triage pass.** New tool:

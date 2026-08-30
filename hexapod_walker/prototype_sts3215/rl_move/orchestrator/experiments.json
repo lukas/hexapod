@@ -236503,7 +236503,7 @@
       "goal.walk_turn_in_place_frac=0.15"
     ],
     "created": "2026-08-30T21:30:46+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -236557,7 +236557,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc4-walkteach-anchor14coef1-acq8m-s1 since 2026-08-30T22:25:14"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: turn-in-place training exposure did NOT produce any turn authority at mechanism level - the policy still never rotates its body on command, the canary gate's own pre-registered FAIL clause. Evidence: probe_turn_authority (new instrument, walk-mode-filtered, with a scripted-gait control achieving wz~0.21 on the identical cfg) measured wz_med 0.0004-0.0011 rad/s vs commanded +/-0.25 on both signs and both probe seeds (wz_err_med 0.249-0.250 = exactly the frozen-body prediction); training telemetry shows env/walk_yaw_kernel_factor DECLINING 0.22->0.07 across the 2M run - the policy moved AWAY from turn tracking, not slowly toward it. Straight-walk health is fine within canary scope: det walk gait_valid 8/8, sacrificed legs 0, zero terminations, prog med 0.42-0.425 (NOTE: controller fastcheck ran with the run's own goal.mode_seq=0.75 so episodes compose walk->lower->rise segments; the parent band 0.43-0.46 is pure-walk - the straight-walk clause is not the failure, the turn clause is). Root cause chain: incentive existed (walk_kernel_yaw_gate=1.0 zeroes frozen-body kernel income on tip ticks, linear gradient in wz) and supervision existed (BC walk anchor IS omega-conditioned TripodGait with the run_on_yaw phase-clock fix), but the dose is homeopathic: wz!=0 appears ONLY in tip episodes (walk_yaw_zero_frac=1.0) = 15% of walk episodes = ~4.5% of experience, and the warm-start lineage trained its whole life with the wz obs channel constant zero, so the policy has learned to ignore the channel it now must read. 2M at this exposure produced literally zero wz response - no partial credit to continue. Do NOT promote to 8M. Next: turn-authority canary pair with denser yaw exposure (zero_frac 0.5, tip_frac 0.30) plus direct yaw income (the proven OMNI k_walk_yaw stack with kernel/hold gates + EMA), gated on the same probe instrument."
   },
   {
     "run": "cw-walkcurr-litrep-box-s0",

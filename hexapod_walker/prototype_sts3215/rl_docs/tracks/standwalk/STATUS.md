@@ -1,5 +1,72 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~04:3x (**`cw-standwalk-unified1-joyfix-courseincome1`
+triaged — MIXED/AMBIGUOUS read, does NOT clean-verdict against its own
+pre-registered branches; DIG-IN flagged, left UNVERDICTED.**) Plain
+English: this run (a concurrent cycle's own launch, finished mid-cycle
+per the containment rule) had no prestaged gate/owncfg — the watcher's
+prestage only did wandbdump+pullckpt for this one, no `ckpt_eval`
+artifacts existed. Ran the gate eval myself: pushed the checkpoint +
+synced code to a free pod (train-5), then train-5 got claimed mid-eval
+by the self-repairing launcher's own decleg-sv-s3-b100m relaunch (not
+mine, left untouched) — killed my own video-bearing gate/owncfg passes
+to avoid contending CPU with that training run and kept only a fast
+`--no-video` numeric pass alive (same n=6 det+sto per walk-family mode
+the coursedisp trio used). Result does NOT cleanly match either
+pre-registered branch: **PASS-with-delta is ruled OUT on slip alone**
+(det slip/m pooled walk+startjitter median 6.29, vs the gate's own
+cap of 1.5x long-s0's ~3.2 = 4.8 — genuinely over, not noise) even
+though `direction_err_mean_deg` shows a real, uneven partial move:
+walk/det median 43.2deg (a genuine ~15-20deg drop off the 55-65deg
+band, on its own clearing the "med<=40-50" bar) but
+walk_startjitter/det median 68.3deg (flat-to-slightly-worse, no
+improvement) — pooled (the gate's literal instruction) medians 52.05,
+short of the pooled <=40-50 bar by a couple of degrees. Reward does
+NOT collapse vs its own parent (`w015-c1`)'s quarters trend — recomputed
+both from `wandb_history.csv` `rollout/ep_rew_mean`: w015-c1's own
+quarters [36.0,-15.1,-468.0,-134.3] vs courseincome1's [36.5,-15.3,
+-347.6,-86.6] — Q3/Q4 are LESS negative (better), ruling out the FAIL
+branch (reward collapse). Zero terminations in this DR-0 panel (0/24
+across all 4 walk-family sub-panels), so no termination-spike FAIL
+signature either. Net: the walk-only sub-mode's dir_err improvement
+is real and non-trivial (not matched by any of the 3 disp-window
+canaries, all of which read flat with NO daylight from the 55-65 band)
+but (a) doesn't survive pooling with startjitter, (b) comes with worse
+slip than the parent band, and (c) the PASS-no-delta branch's own
+"do not fund a 3rd reward-shaping lever" advice would be premature to
+apply given the partial signal — this is exactly the "decides a fork"
+trigger (escalate income/sway to acquisition+seed-replicate vs close
+as no-delta), not a call to force through triage. Report at
+`logs/ckpt_eval/cw_standwalk_unified1_joyfix_courseincome1_gate_fast/
+report.json` (fast, no video). Also launched the FULL official
+video-bearing gate+owncfg pair (same command, `--video-every 1`,
+n=6 det+sto x4 modes x2 dr-scales) detached on the one genuinely free
+pod (train-11, checkpoint+code pushed/synced) for whoever picks up the
+dig-in — check `/tmp/eval_ci1_gate.log` / `/tmp/eval_ci1_owncfg.log`
+on train-11 for completion (these passes run 1.5-2h+ per this
+lineage's own precedent) before spending more compute re-deriving
+numbers already in flight. **DIG-IN: cw-standwalk-unified1-joyfix-
+courseincome1 — mixed pooled-vs-submode dir_err signal (43.2 vs
+68.3deg) plus worse-than-parent slip decides whether income/sway
+escalates to acquisition or closes no-delta; needs the video strip +
+per-leg gait read, not another scalar pass.**
+
+Separately, launched the operator-authorized overnight SAC
+population-sweep tail: `cw-walkcurr-sac-sv-tilt5-s1-b20m` (train-7,
+same seed/diet as `tilt5-s1`, budget 2M->20M, SAC refuses
+`--init-from` so this is the same fixed-seed-replay continuation
+workaround as `sac-sv-s1-budget10m`) and `-tilt5-s3` (train-9, fresh
+seed 3, same dose/budget) — the wave's other two arms
+(`-tilt5-s2`/`-tilt5-s4`) were already claimed by concurrent cycles by
+the time I went to launch them (found via `REFUSED: ... already runs`).
+All 10 arms of the operator's named 08-30 overnight wave (6x100M PPO
+decleg-sv-{s2..s6}/central-sv-s0 + 4x20M SAC tilt5-{s1-b20m,s2,s3,s4})
+are now RUNNING-verified on distinct pods (`capacity.py`). Per the
+guardrails file's own restore condition, RESTORED `max_steps_per_run`
+100M->40M this cycle (all 10 arms launched) and pushed the change
+(`snapshot.sh restore-cap-post-overnight-wave`, tag
+`exp/restore-cap-post-overnight-wave`).
+
 Update, 2026-08-30 ~03:4x (**`cw-walk-allheading-mlp-singleframe-canary`
 CANARY PASS — matches the hist64 mlp/tf scratch1 canaries' own
 mechanism-health signature; promoted to a 40M acquisition.**) Plain

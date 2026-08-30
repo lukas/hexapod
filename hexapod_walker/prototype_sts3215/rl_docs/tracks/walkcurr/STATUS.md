@@ -89,7 +89,56 @@ validity, on video. Speed obedience is secondary throughout.
 4. Irregular direction changes (mid-episode resampling).
 5. DR/push hardening (paper's friction 0.5-1.25 + periodic pushes).
 
-## Now (2026-08-30 ~02:4x — IDLE-CHARGE LEVER CLOSED on BOTH architectures; the operator's full named fallback ladder plus this reintroduced primitive are ALL now FAIL — next fork needs a genuinely new mechanism)
+## Now (2026-08-30 ~04:3x — OPERATOR-ORDERED OVERNIGHT POPULATION SWEEP LAUNCHED: 10 arms, 640M+ steps, the budget/seed-population axes get one honest compute-heavy shot)
+
+Plain English: the operator (Lukas, MCP operator lane 20260830T035139Z)
+ordered an overnight compute-heavy population sweep on the idle fleet —
+"branch many rollouts and pick the best", 8-12 arms, 80-150M steps
+fine, sim-only, no BC/imitation. This directly funds the previous Now
+entry's candidate 2 (operator-scale budget raise on the cleanest
+lineages) at population width, and defers candidate 1 (structural
+anti-freeze/balance pretrain curriculum) to its own bank-first build
+cycle — that remains the NEXT CODE ITEM, not abandoned. All 10 arms
+are byte-identical clones of bank-proven, already-verdicted parents
+(WALKCURR_SV / WALKCURR_SV_TILT green by clone construction): the only
+levers anywhere in the wave are SEED and BUDGET — no new reward
+mechanism, so no new bank was owed. Guardrails max_steps_per_run was
+raised 40M->100M for the launch window and restored per the raise's
+own condition (recorded in guardrails.yaml; the same order authorizes
+this cycle's exceedance of the per-cycle launch/step caps). Two arms
+were launched by a concurrent kick cycle executing the same order
+(mechanical name-dedupe coordinated us cleanly). The board:
+
+- **PPO decleg 100M x5** (train-1..5, ~3h each):
+  `cw-walkcurr-pf-decleg-sv-s2-b100m` (exact rerun-and-extend of the
+  operator-named cleanest lineage, fixed-seed determinism reproduces
+  s2's first 20M then trains 80M past it) + fresh seeds
+  `-s3/-s4/-s5/-s6-b100m` (Schilling ran 15 seeds; we had sampled 3).
+- **PPO centralized control 100M x1** (train-6):
+  `cw-walkcurr-pf-central-sv-s0-b100m` — separates budget-alone from
+  decleg-x-budget.
+- **SAC tilt5 20M x4** (train-7..10, ~5h each): `cw-walkcurr-sac-sv-
+  tilt5-s1-b20m` (10x extension of the best-behaving config the track
+  has produced; concurrent cycle's arm) + fresh seeds `-s2/-s3/-s4`
+  (seed variance is the largest effect ever measured here: s0
+  instant-topple vs s1 real stepping; tilt5 had only ever seen seed 1;
+  `-s3` is the concurrent cycle's arm).
+
+**Selection discipline (operator, binding for the triage cycles that
+read these):** do NOT declare success from the same eval used for
+search. Corrected discovery litmus first (`env/walk_speed` off the
+~0.02 m/s floor toward the cmd band + stable/rising `ep_len_mean` +
+`terminations/over_current` at background — freeprog escape alone is
+the known episode-shortening artifact), then video-confirmed real
+six-leg stepping, then held-out eval/command seeds and a replicate
+seed before any promotion. If all 10 arms fail, record it as the
+informative big-budget result it is: the raw budget/seed-population
+axes close for BOTH architectures AND both algorithms on this diet,
+and the structural anti-freeze/balance pretrain curriculum (candidate
+1, bank first) becomes the only untried rule-(a)-legal fork — do not
+invent another same-class dose/seed lever.
+
+Previous entry (2026-08-30 ~02:4x — IDLE-CHARGE LEVER CLOSED on BOTH architectures; the operator's full named fallback ladder plus this reintroduced primitive are ALL now FAIL — next fork needs a genuinely new mechanism)
 
 `cw-walkcurr-pf-decleg-sv-idle2-s0` (decentralized-per-leg arch, dose
 2.0) verdicted **FAIL (aligned)**, matching its `central-sv-idle2-s0`

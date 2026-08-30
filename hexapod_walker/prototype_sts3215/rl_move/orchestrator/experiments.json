@@ -229908,7 +229908,7 @@
       "respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: seed lottery at the best dose -- SAC seed variance is the largest single effect this track has measured (seed 0 instant-topple vs seed 1 real six-leg stepping under an IDENTICAL config), and the tilt5 dose (the only config that ever kept stepping most episodes, fwd median 0.055m) has only ever been run on seed 1. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: branch many rollouts on the idle fleet and select the best honestly): fresh seed 4 of the byte-identical SAC tilt5 recipe (clone of cw-walkcurr-sac-sv-tilt5-s1, WALKCURR_SV_TILT bank green at dose 5.0) at 10x the original budget (20M) -- levers are seed + budget only, read jointly with the s1-b20m extension (concurrent cycle, same operator order) and 2 sibling seeds as a 4-wide SAC population. Prediction-if-true: at least one seed both steps AND balances -- fall rate off 24/24, forward_dist past 0.06m and climbing, walk_speed in the 0.05-0.08 band with rising ep_len. Prediction-if-false: every seed reproduces the step-then-stumble ceiling (or seed-0-style instant topple) at 20M with flat reward -- the seed axis at this dose is closed and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: only the extended seed 1 improves (consolidation, not seed lottery, is the lever)."
     ],
     "created": "2026-08-30T04:32:17+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -229919,7 +229919,19 @@
       "running_experiments_before": 10,
       "code_sha_local": "37721397571b797b2e6c3a72855ea3420cbf93a5",
       "code_sha_pod": "37721397571b797b2e6c3a72855ea3420cbf93a5",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "262344",
+      "log_growth_bytes": [
+        9224,
+        12114
+      ],
+      "wandb_id": "glz9lm94",
+      "trainer_pid": "262344",
+      "global_step_window": [
+        102656,
+        135168
+      ],
+      "fps_estimate": 1083.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -229927,7 +229939,9 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Healthy canary: cw-walkcurr-sac-sv-s1 (2M discovery) showed real six-leg stepping on video (gait_valid 24/24, walk_speed 0.05-0.08 in the cmd band) and cw-walkcurr-sac-sv-tilt5-s1 (2M, this exact diet/dose) extended it to gait_valid 5/6 walk/det with fwd median 0.055m -- the correct behavior class exists on video for this config family. Full-budget precedent: cw-walkcurr-sac-sv-s1-budget10m ran the same SAC stack clean end-to-end at 10M.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s4 --steps 20000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 4 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s4 --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: seed lottery at the best dose -- SAC seed variance is the largest single effect this track has measured (seed 0 instant-topple vs seed 1 real six-leg stepping under an IDENTICAL config), and the tilt5 dose (the only config that ever kept stepping most episodes, fwd median 0.055m) has only ever been run on seed 1. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: branch many rollouts on the idle fleet and select the best honestly): fresh seed 4 of the byte-identical SAC tilt5 recipe (clone of cw-walkcurr-sac-sv-tilt5-s1, WALKCURR_SV_TILT bank green at dose 5.0) at 10x the original budget (20M) -- levers are seed + budget only, read jointly with the s1-b20m extension (concurrent cycle, same operator order) and 2 sibling seeds as a 4-wide SAC population. Prediction-if-true: at least one seed both steps AND balances -- fall rate off 24/24, forward_dist past 0.06m and climbing, walk_speed in the 0.05-0.08 band with rising ep_len. Prediction-if-false: every seed reproduces the step-then-stumble ceiling (or seed-0-style instant topple) at 20M with flat reward -- the seed axis at this dose is closed and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: only the extended seed 1 improves (consolidation, not seed lottery, is the lever).' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s4.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s4.log"
+    "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s4.log",
+    "wandb_id": "glz9lm94",
+    "verified": "2026-08-30T04:36:02+00:00"
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s4",

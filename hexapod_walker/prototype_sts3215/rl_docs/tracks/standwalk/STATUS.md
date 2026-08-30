@@ -1,5 +1,83 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~09:1x (**`anchor14coef1-canary-s1` VERDICTED CANARY
+FAIL - MECHANISM — but the real finding is upstream: the Stage-2
+`dualbc2_allheadwalk` BASE checkpoint itself never demonstrated real
+forward walking before being used to fund 2 GPU RL canaries.**) Plain
+English: while the prior 08:5x entry (below, a concurrent cycle's own
+read) was still waiting on the long video-bearing harness passes, ran
+a cheap parallel **fast (`--no-video`) det-mode harness pass** for
+`-s1` on a spare pod (train-2) instead of waiting ~1-2h: det walk
+`progress_ratio` median **-0.05 (NEGATIVE — net motion runs backward
+relative to command)**, `slip_per_m` 34.9-55.9, `direction_err_mean_deg`
+128.8-132.9 (near-exact OPPOSITE of the single commanded heading),
+`gait_valid` True / `sacrificed_legs=[]` on all 6 — a real pathology,
+but NOT the literal old anchor4 leg-freeze signature the gate names,
+so it needed a second look before the verdict wrote itself. **Root
+cause, confirmed by directly probing the BASE checkpoint
+(`ppo_goal_cw_standwalk_stage2_dualbc2_allheadwalk.zip`, this run's
+`--init-from`, BEFORE any RL) the same way**: det walk `progress_ratio`
+~0.000, `forward_dist_m` 0.018-0.026m over a full 30s episode (in-place
+quiver, not walking), `slip/m` 27-38, `direction_err` 27-47deg det /
+~90deg sto. **The walk clone never walked forward, full stop** — the
+distillation's own `quick_probe` smoke test only ever checked episode
+RETURN (`probe walk: ep returns ['260','-1111']`, logged
+07:0x/`logs/distill_gru/dualbc2_allheadwalk.log`), which looked
+unremarkable enough that nobody caught this before funding
+`anchor14coef1-canary{,-s1}` on top of it. 2M of RL under the
+anchor14coef1 walk-retain recipe made the pathology WORSE, not better
+— near-zero/incoherent direction became a confident ~130deg-off-command
+walk (more distance covered, the wrong way, slip up) — which is the
+gate's own explicit disjunct ("probe pathologies worsen under RL"),
+independent of the literal gait_valid/sacrificed-legs clause. WIRING
+CHECK stays clean throughout (`train/bc_anchor_loss_walk` falls to a
+0.004 plateau, `fill_walk` nonzero every rollout) — this is a
+**distillation-quality defect, not an anchor14coef1 dose/mechanism
+finding**; the anchor mechanism itself is not implicated.
+**CONSEQUENCE for the lineage**: do not fund further RL fine-tunes on
+`ppo_goal_cw_standwalk_stage2_dualbc2_allheadwalk.zip` as-is — its
+seed0 twin (`cw-standwalk-stage2-dualbc2-allheadwalk-anchor14coef1-
+canary`, the concurrent cycle's own run, verdict pending below) almost
+certainly shares this same broken base and should be read with this
+context, not as an independent anchor14coef1-dose data point. The real
+fix is upstream in the Stage-2 distillation recipe (mix/epochs/teacher
+quality) — most likely candidate given the composed-sequence residual
+already on record (07:0x entry): whatever produced the flat-rise
+composed-sequence failures may share a cause with a walk clone that
+also never left the spot; worth checking together, not as two
+unrelated bugs. **TOOLING FIX landed this cycle** (closes the gap that
+let this ship unnoticed, default-off/no behavior change for existing
+callers): `distill_gru.py quick_probe` now also tracks net planar
+body displacement for `walk`-mode probe episodes and prints a
+`WARNING` when it stays under 0.05m over a full episode — the exact
+signature this checkpoint would have tripped before ever reaching an
+RL launch. 2 new tests (`test_distill_transitions.py`:
+`test_com_xy_helper`, `test_quick_probe_flags_near_zero_walk_
+displacement`, `test_quick_probe_non_walk_mode_has_no_displacement_
+field`), full module green (11/11), snapshot
+`exp/quick-probe-net-displacement-check`. **Next**: (1) re-run the
+Stage-2 distillation with a mix/epoch change once diagnosed (or swap
+walk-teacher/mode-collection strategy) and confirm via the new
+`net_disp_m` check BEFORE funding any RL canary on the new zip; (2)
+whoever reads the seed0 twin's own harness numbers should cross-check
+against this same base-checkpoint defect rather than treating its
+result as clean anchor-dose evidence. Evidence: `logs/ckpt_eval/
+cw_standwalk_stage2_dualbc2_allheadwalk_anchor14coef1_canary_s1_
+gate_fast/report.json` (this run's fast probe) and
+`logs/ckpt_eval/cw_standwalk_stage2_dualbc2_allheadwalk_baseprobe_
+gate_fast/report.json` (the base-checkpoint root-cause probe); full
+video-bearing gate/owncfg/mixedsession passes for `-s1` are still
+computing on train-1 (pollreap running detached,
+`/tmp/pollreap_anchor14coef1_canary_s1.log`) — informational only,
+the fast numeric read + base-checkpoint diagnostic already decide
+the verdict per the 08-21/dig-in discipline (root-cause chain over
+another scalar wait). Checked the rest of the fleet: walkcurr stays
+`[operator]`-blocked pending the in-flight SAC tilt5 x4 read (not
+mine this cycle), joystick/amp/cpg stay DONE-or-maintenance-only,
+backlog empty — no other standwalk arm is fundable before the
+distillation defect above is diagnosed/fixed. 8 GPU pods stayed free
+(one genuine finding this cycle, not filler). CYCLE_WORKED.
+
 Update, 2026-08-30 ~08:5x (**anchor14coef1-canary{,-s1} triage: WIRING
 CHECK PASS + reward shape matches the old-teacher precedent almost
 exactly, but the harness gate/owncfg/mixedsession evals are still

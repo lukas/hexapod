@@ -1,0 +1,20 @@
+# cw-walkcurr-pf-decleg-sv-idle2-s0
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-30T02:07:48+00:00
+
+**pod**: hexapod-mjx-train-5
+
+**steps**: 20000000
+
+**parent**: cw-walkcurr-pf-decleg-sv-s0-rr3
+
+**wandb_id**: bbty6htg
+
+**hypothesis**: Plain English: does pricing near-zero forward progress while a walk command is active -- the pre-existing anti-park travel-floor charge (k_walk_idle_charge, operator order 2026-08-21) -- stop PPO from settling into the static-quiver-to-over_current basin that every lever tried so far under the 08-29 SV-diet wave reproduces (centralized-MLP, 3x decleg-per-leg seeds, 2x phase-obs variants, and now both terrain0/terrain1 primitive-family A/B arms)? The SV diet's only charge is a one-time fall termination; nothing prices holding still while a command is active, so freeprog income is harvested near-zero via the stride-EMA kernel's own floor forgiveness and reward peaks early then goes flat/down as the mesh-family body eventually trips a real over_current safety trip. k_walk_idle_charge was purpose-built for exactly this shape (present at dose 2.0 in kawawa2022_recipe.py from day one of this track) but is explicitly zeroed in WALKCURR_SV_OVERRIDES to isolate the freeprog-income question during the operator's discovery-diet simplification -- this is NOT the post-discovery slip/gait-quality re-pricing the operator's own sequencing reserves for after a gait exists, it is the track's pre-existing anti-freeze primitive, reintroduced because the exact failure shape it was designed to price is the one now reproduced six independent ways. Honest counter-precedent on record: the AMP track's own M2 freeprog dig-in (08-22) concluded a charge-only fix cannot cross a pure EXPLORATION basin barrier (no accessible income gradient from statue to stepping) -- this run is a direct, cheap (~15 min wall clock at 20M steps), single-lever test of whether that finding transfers here, or whether this diet's specific failure shape (a body that WOULD rather not be charged for standing, not one with zero income gradient at all) responds differently. Single lever only: reward.k_walk_idle_charge=2.0 (dose matches the kawawa2022 precedent and the WALKCURR_SV_IDLE bank's only launch-safe dose -- 5.0 was probed pre-launch and REFUTES itself in the bank: at 5.0 the sustained per-tick charge over a full wrong-way episode out-costs a topple's brief life + one-time term_penalty, inverting the fall-is-the-floor property the same way the SAC tilt10 dose did -- do not escalate past 2.0 without a settle-window-style fix). Everything else byte-identical to the parent.
+
+**gate**: Rung-1 gate at 20M: C-env det fixed-forward panel (n>=6) -- zero tilt terminations, cmd_prog_frac>=0.35, direction_err_deg<=30, slip/m<=3.0, gait_valid>=4/6 with all six legs cycling, real stepping on video (identical bar to every SV-wave sibling). Discovery litmus per the decleg-sv dig-in correction: env/walk_speed clearly off its ~0.02 m/s static floor AND stable-or-rising rollout/ep_len_mean (freeprog-score crossing alone is not sufficient, proven to be an episode-shortening artifact). Read jointly against the parent (this exact recipe at idle-dose 0, FAIL) per the binding triage rule (reward trend AND walk-eval trend together): escape (walk_speed off floor + stable/rising ep_len, reward rising or at least not degrading into over_current) = the idle floor is a real anti-freeze lever -- continue per 08-21 even short of the full gate, and promote (retrofit onto the sibling architecture / seed-replicate). Reproduces the identical static-quiver-then-over_current (or terrain0-style zero-fall static-park) signature with flat/declining reward = aligned FAIL -- closes the idle-charge lever alongside SAC (fallback a) and terrain (fallback b), and confirms the AMP M2 basin-barrier finding transfers to this diet/architecture family; do not fund a bare dose-escalation retry (5.0 is pre-refuted by the bank) without a genuinely new mechanism (settle-window-style timing fix, or a structural/architecture change, or an operator-scale budget raise).
+

@@ -359,13 +359,16 @@ class _PlayTraj(_InteractiveTraj):
     """
 
     VEL_RATE = 0.06
+    YAW_RATE = 0.30
 
     def __init__(self, dt: float = 0.04):
         super().__init__(dt)
         self.vx = 0.0           # user targets (keyboard writes here)
         self.vy = 0.0
+        self.wz = 0.0
         self._pvx = 0.0         # published (ramped) command
         self._pvy = 0.0
+        self._pwz = 0.0
         # Skill-family label read by walk_task's mode one-hot obs
         # (obs.mode_onehot; the transdagger GRU contract). The player's
         # state machine writes it every tick: rise/lower during autos,
@@ -376,7 +379,7 @@ class _PlayTraj(_InteractiveTraj):
 
     def reset_published(self) -> None:
         super().reset_published()
-        self._pvx = self._pvy = 0.0
+        self._pvx = self._pvy = self._pwz = 0.0
 
     def at(self, step: int) -> WalkGoal:
         n = max(step - self._last_step, 0)
@@ -384,10 +387,12 @@ class _PlayTraj(_InteractiveTraj):
         base = super().at(step)             # ramps tilt/height refs
         self._pvx = self._toward(self._pvx, self.vx, self.VEL_RATE * dt)
         self._pvy = self._toward(self._pvy, self.vy, self.VEL_RATE * dt)
+        self._pwz = self._toward(self._pwz, self.wz, self.YAW_RATE * dt)
         return WalkGoal(roll_ref=base.roll_ref, pitch_ref=base.pitch_ref,
                         height_ref=base.height_ref,
                         unload_leg=base.unload_leg,
-                        vx_ref=self._pvx, vy_ref=self._pvy)
+                        vx_ref=self._pvx, vy_ref=self._pvy,
+                        wz_ref=self._pwz)
 
 
 class _PlayEnv(SimHexapodJointWalkEnv):

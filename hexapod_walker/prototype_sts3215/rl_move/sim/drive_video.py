@@ -31,33 +31,55 @@ _PROTO = Path(__file__).resolve().parents[2]
 
 
 def _script(name: str, *, seconds: float, dt: float, speed: float,
-            blend_s: float) -> tuple[np.ndarray, np.ndarray, list[str]]:
+            blend_s: float, wz_max: float = 0.3
+            ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
     n = max(2, int(round(seconds / dt)) + 1)
     vx = np.zeros(n, dtype=float)
     vy = np.zeros(n, dtype=float)
+    wz = np.zeros(n, dtype=float)
     labels = ["stop"] * n
 
     if name == "square":
         phases = [
-            (0.0, speed, 0.0, "forward"),
-            (4.0, 0.0, speed, "left"),
-            (8.0, -speed, 0.0, "reverse"),
-            (12.0, 0.0, -speed, "right"),
-            (16.0, speed, 0.0, "forward"),
+            (0.0, speed, 0.0, 0.0, "forward"),
+            (4.0, 0.0, speed, 0.0, "left"),
+            (8.0, -speed, 0.0, 0.0, "reverse"),
+            (12.0, 0.0, -speed, 0.0, "right"),
+            (16.0, speed, 0.0, 0.0, "forward"),
         ]
     elif name == "human":
         d = speed / math.sqrt(2.0)
         phases = [
-            (0.0, speed, 0.0, "forward"),
-            (5.0, 0.0, -speed, "crab-right"),
-            (9.0, d, d, "diag-left"),
-            (13.0, -speed, 0.0, "reverse"),
-            (17.0, 0.0, 0.0, "stop"),
-            (19.5, speed, 0.0, "restart"),
-            (24.0, 0.0, 0.0, "final-stop"),
+            (0.0, speed, 0.0, 0.0, "forward"),
+            (5.0, 0.0, -speed, 0.0, "crab-right"),
+            (9.0, d, d, 0.0, "diag-left"),
+            (13.0, -speed, 0.0, 0.0, "reverse"),
+            (17.0, 0.0, 0.0, 0.0, "stop"),
+            (19.5, speed, 0.0, 0.0, "restart"),
+            (24.0, 0.0, 0.0, 0.0, "final-stop"),
+        ]
+    elif name == "human_turn":
+        d = speed / math.sqrt(2.0)
+        phases = [
+            (0.0, speed, 0.0, 0.0, "forward"),
+            (4.0, speed, 0.0, 0.5 * wz_max, "arc-left"),
+            (8.0, 0.0, 0.0, wz_max, "turn-left"),
+            (11.0, 0.0, -speed, 0.0, "crab-right"),
+            (15.0, d, d, -0.5 * wz_max, "diag-turn-right"),
+            (19.0, -speed, 0.0, -0.5 * wz_max, "reverse-arc"),
+            (23.0, 0.0, 0.0, -wz_max, "turn-right"),
+            (26.0, 0.0, 0.0, 0.0, "final-stop"),
+        ]
+    elif name == "turn":
+        phases = [
+            (0.0, 0.0, 0.0, wz_max, "turn-left"),
+            (5.0, 0.0, 0.0, -wz_max, "turn-right"),
+            (10.0, speed, 0.0, 0.5 * wz_max, "arc-left"),
+            (15.0, speed, 0.0, -0.5 * wz_max, "arc-right"),
+            (20.0, 0.0, 0.0, 0.0, "final-stop"),
         ]
     elif name == "sweep":
-        phases = [(0.0, None, None, "sweep")]
+        phases = [(0.0, None, None, 0.0, "sweep")]
     else:
         raise ValueError(f"unknown script {name!r}")
 
@@ -69,28 +91,32 @@ def _script(name: str, *, seconds: float, dt: float, speed: float,
         vx[:] = speed * np.cos(theta)
         vy[:] = speed * np.sin(theta)
         labels = ["sweep"] * n
-        return vx, vy, labels
+        return vx, vy, wz, labels
 
-    cur = (float(phases[0][1]), float(phases[0][2]))
-    for idx, (t0, tvx, tvy, label) in enumerate(phases):
+    cur = (float(phases[0][1]), float(phases[0][2]),
+           float(phases[0][3]))
+    for idx, (t0, tvx, tvy, twz, label) in enumerate(phases):
         k0 = tick(t0)
         k1 = tick(phases[idx + 1][0]) if idx + 1 < len(phases) else n
         if k1 <= k0:
             continue
-        tvx_f, tvy_f = float(tvx), float(tvy)
+        tvx_f, tvy_f, twz_f = float(tvx), float(tvy), float(twz)
         if idx == 0:
             vx[k0:k1] = tvx_f
             vy[k0:k1] = tvy_f
+            wz[k0:k1] = twz_f
         else:
             nb = min(max(1, int(round(blend_s / dt))), k1 - k0)
             vx[k0:k0 + nb] = np.linspace(cur[0], tvx_f, nb)
             vy[k0:k0 + nb] = np.linspace(cur[1], tvy_f, nb)
+            wz[k0:k0 + nb] = np.linspace(cur[2], twz_f, nb)
             vx[k0 + nb:k1] = tvx_f
             vy[k0 + nb:k1] = tvy_f
+            wz[k0 + nb:k1] = twz_f
         for k in range(k0, k1):
             labels[k] = label
-        cur = (tvx_f, tvy_f)
-    return vx, vy, labels
+        cur = (tvx_f, tvy_f, twz_f)
+    return vx, vy, wz, labels
 
 
 def _force_walk_only(env) -> None:
@@ -101,18 +127,31 @@ def _force_walk_only(env) -> None:
             setattr(gen, f"p_{mode}", 1.0 if mode == "walk" else 0.0)
 
 
-def _install_script(env, vx: np.ndarray, vy: np.ndarray) -> None:
+def _install_script(env, vx: np.ndarray, vy: np.ndarray,
+                    wz: np.ndarray | None = None) -> None:
     traj = env._goal_traj
     if traj is None or not hasattr(traj, "vx") or not hasattr(traj, "vy"):
         raise RuntimeError("env did not sample a walk trajectory")
+    if wz is None:
+        wz = np.zeros_like(vx)
     n = min(len(traj.vx), len(vx))
     traj.vx[:n] = vx[:n]
     traj.vy[:n] = vy[:n]
+    if getattr(traj, "wz", None) is None and np.any(np.abs(wz) > 1e-9):
+        traj.wz = np.zeros_like(np.asarray(traj.vx))
+    twz = getattr(traj, "wz", None)
+    if twz is not None:
+        try:
+            twz[:n] = wz[:n]
+        except (TypeError, ValueError):
+            traj.wz = np.zeros_like(np.asarray(traj.vx, dtype=float))
+            traj.wz[:n] = wz[:n]
+            twz = traj.wz
     if n < len(traj.vx):
         traj.vx[n:] = vx[n - 1]
         traj.vy[n:] = vy[n - 1]
-    if getattr(traj, "wz", None) is not None:
-        traj.wz[:] = 0.0
+        if twz is not None:
+            twz[n:] = wz[n - 1]
 
 
 def _fresh_obs_after_command(env):
@@ -135,10 +174,13 @@ def _contact(env) -> list[bool]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("checkpoint", type=Path)
-    ap.add_argument("--script", choices=("square", "human", "sweep"),
+    ap.add_argument("--script", choices=("square", "human", "sweep",
+                                         "human_turn", "turn"),
                     default="square")
     ap.add_argument("--seconds", type=float, default=20.0)
     ap.add_argument("--speed", type=float, default=0.08)
+    ap.add_argument("--wz-max", type=float, default=0.3,
+                    help="max scripted yaw rate for turn-capable scripts")
     ap.add_argument("--blend-s", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dr-scale", type=float, default=0.0)
@@ -189,8 +231,9 @@ def main() -> int:
             "prototype dir, or pass --allow-mesh-fallback explicitly")
 
     _force_walk_only(env)
-    vx, vy, labels = _script(args.script, seconds=args.seconds, dt=env.dt,
-                             speed=args.speed, blend_s=args.blend_s)
+    vx, vy, wz, labels = _script(args.script, seconds=args.seconds, dt=env.dt,
+                                 speed=args.speed, blend_s=args.blend_s,
+                                 wz_max=args.wz_max)
 
     from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
     model = load_checkpoint_auto(args.checkpoint, device="cpu")
@@ -201,7 +244,7 @@ def main() -> int:
 
     obs, reset_info = env.reset()
     del obs
-    _install_script(env, vx, vy)
+    _install_script(env, vx, vy, wz)
     obs = _fresh_obs_after_command(env)
     if hasattr(model, "reset"):
         model.reset()
@@ -216,6 +259,9 @@ def main() -> int:
     rows = []
     course_xy = []
     course_cmd = []
+    yaw_cmd_abs = []
+    yaw_err_abs = []
+    hold_wz_abs = []
     contacts = []
     currents = []
     pads = [env.model.body(f"L{i}_pad").id for i in range(6)]
@@ -232,11 +278,18 @@ def main() -> int:
 
         k = min(env._step_i, len(vx) - 1)
         v = env._body_vel_xy()
+        act_wz = env._body_wz()
         cmd = np.array([vx[k], vy[k]], dtype=float)
+        cmd_wz = float(wz[k])
         speed_ref = float(np.hypot(*cmd))
         if speed_ref > 1e-3:
             cmd_dist += speed_ref * env.dt
             along_dist += float(v @ cmd / speed_ref) * env.dt
+        if abs(cmd_wz) > 1e-4:
+            yaw_cmd_abs.append(abs(cmd_wz))
+            yaw_err_abs.append(abs(act_wz - cmd_wz))
+        else:
+            hold_wz_abs.append(abs(act_wz))
         bxy = env.data.xpos[env._chassis_bid, :2].copy()
         course_xy.append((float(bxy[0]), float(bxy[1])))
         course_cmd.append((float(cmd[0]), float(cmd[1])))
@@ -251,8 +304,10 @@ def main() -> int:
             "label": labels[k],
             "cmd_vx": round(float(cmd[0]), 4),
             "cmd_vy": round(float(cmd[1]), 4),
+            "cmd_wz": round(cmd_wz, 4),
             "act_vx": round(float(v[0]), 4),
             "act_vy": round(float(v[1]), 4),
+            "act_wz": round(float(act_wz), 4),
             "roll_deg": round(float(info.get("roll_rel_deg", 0.0)), 3),
             "pitch_deg": round(float(info.get("pitch_rel_deg", 0.0)), 3),
             "height_mm": info.get("height_mm"),
@@ -266,9 +321,9 @@ def main() -> int:
                 f"{args.script} {args.policy_mode} full-mesh "
                 f"t={row['t']:5.2f}s {row['label']}",
                 f"cmd vx/vy {cmd[0]:+.3f}/{cmd[1]:+.3f} m/s "
-                f"speed {speed_ref:.3f}",
+                f"speed {speed_ref:.3f} wz {cmd_wz:+.3f}",
                 f"act vx/vy {v[0]:+.3f}/{v[1]:+.3f} m/s "
-                f"speed {actual_speed:.3f}",
+                f"speed {actual_speed:.3f} wz {act_wz:+.3f}",
                 f"tilt r/p {row['roll_deg']:+.1f}/{row['pitch_deg']:+.1f}deg",
             ]
             if term:
@@ -324,6 +379,12 @@ def main() -> int:
         ],
         "cur_max_a": round(float(cur.max()), 3),
         "cur_p95_a": round(float(np.percentile(cur, 95)), 3),
+        "wz_cmd_abs_max_rad_s": (
+            round(float(max(yaw_cmd_abs)), 3) if yaw_cmd_abs else 0.0),
+        "turn_wz_err_med_rad_s": (
+            round(float(np.median(yaw_err_abs)), 4) if yaw_err_abs else None),
+        "hold_wz_med_rad_s": (
+            round(float(np.median(hold_wz_abs)), 4) if hold_wz_abs else None),
     }
     summary["gait_valid"] = not summary["sacrificed_legs"]
     summary.update(_course_window_ep_keys(course_xy, course_cmd, env.dt))

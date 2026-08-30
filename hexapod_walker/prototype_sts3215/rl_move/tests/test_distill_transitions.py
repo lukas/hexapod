@@ -238,3 +238,34 @@ def test_quick_probe_non_walk_mode_has_no_displacement_field(capsys):
     out = capsys.readouterr().out
     assert "probe hold" in out
     assert "net_disp_m" not in out
+
+
+def test_quick_probe_forces_single_heading_and_restores_resample(capsys):
+    # 2026-08-30 follow-up to the dualbc2_allheadwalk lesson: the
+    # net-displacement check itself gives a FALSE positive for a
+    # genuine all-heading teacher whose command legitimately changes
+    # heading every walk_cmd_resample_s seconds -- a symmetric
+    # heading set makes START->END displacement cancel to ~0 over a
+    # full multi-segment episode even when every segment is a real
+    # directed walk. quick_probe must force a single fixed heading
+    # (walk_cmd_resample_s=0) for its own walk-mode rollouts, and
+    # restore the caller's original value afterward (env.cfg is
+    # shared/caller-owned) -- both are locked here.
+    env = _make_seq_env(seq=False, episode_seconds=5.0)
+    env.cfg["goal"]["walk_cmd_resample_s"] = 6.0
+    student = _ZeroStudent(int(env.action_space.shape[0]))
+    quick_probe(student, env, modes=("walk",), n_ep=1)
+    env.close()
+    assert env.cfg["goal"]["walk_cmd_resample_s"] == 6.0
+
+
+def test_quick_probe_removes_resample_key_if_caller_never_set_one():
+    # If the caller's cfg had no walk_cmd_resample_s at all (the
+    # common case -- most single-goal probe envs never set it), the
+    # temporary override must not leave a stray key behind.
+    env = _make_seq_env(seq=False, episode_seconds=5.0)
+    assert "walk_cmd_resample_s" not in env.cfg["goal"]
+    student = _ZeroStudent(int(env.action_space.shape[0]))
+    quick_probe(student, env, modes=("walk",), n_ep=1)
+    env.close()
+    assert "walk_cmd_resample_s" not in env.cfg["goal"]

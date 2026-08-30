@@ -1,6 +1,84 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-30 ~00:3x (**`cw-walk-allheading-mlp-stressmix-ft1`
+Update, 2026-08-30 ~03:1x (**Scoped the "needs new dual-core/session-
+composition wiring" item from the entry below with a real smoke test
+— found and root-caused a SPECIFIC, previously-latent bug: `--dual`
+BC distillation is incompatible with a `obs.history_frames>1` teacher
+because `obs.mode_onehot` is a PER-TICK field, not a post-stack one.
+No training launched — this is a code-scoping finding, not a science
+result.**) Plain English: before spending GPU budget on a guess, ran
+`distill_gru.py --dual` (the existing acq8m+stotight45 dual-BC tool)
+with the walk teacher swapped to the new, much better all-heading
+source (`cw-walk-allheading-mlp-stressmix-ft1`, windowed course err
+<12deg, clean six-leg gait) at smoke scale (`--transitions 4
+--episodes 8 --epochs 2`, merged cfg = the full union of the walk
+teacher's own 50 `--cfg-set` flags + the stance teacher's own 41,
+zero key collisions). It failed immediately and informatively: `env
+obs 5120 != expected 4742 (walk teacher 4736 + 6 one-hot)`.
+**Root cause, code-read confirmed:** the walk teacher's own
+`obs.history_frames=64` stacks 64 single-tick frames (`sim_env.py`
+`_hist_n`, "newest-first"); `--dual` turns on `obs.mode_onehot=1`,
+which `walk_task.py` (`_mode_obs`, comment: "+6 obs at the frame
+TAIL... recomputed every tick like mode_onehot/wz_ref so it survives
+obs-history stacking") appends to EVERY tick's base frame BEFORE
+stacking — by design, so the mode signal isn't lost to a stale first
+frame. So the composed env's real per-frame width is 74+6=80, stacked
+64x = 5120 — exactly the observed number. `distill_gru.py`'s own
+width check (and the `collect()` function's core mechanism, `t_obs =
+obs[:n_t_obs]`, a flat prefix slice) both assume the onehot is
+appended ONCE, after stacking (`n_walk + 6`) — true and harmless for
+every teacher pairing tried before this (all single-frame,
+`history_frames=1`, where "per-tick" and "once" are the same thing),
+but wrong here: a flat prefix slice of an 80-wide-per-frame stacked
+vector does not reconstruct a clean 74-wide-per-frame view at all
+(it isn't even a per-frame-respecting operation once the frame width
+changes) — this is not just an off-by-384 constant, the whole
+prefix-slice trick breaks structurally the first time a `--dual`
+teacher pairing includes an `obs.history_frames>1` member, which
+never happened before this cycle (dual-core distillation predates the
+all-heading/hist64 lineage entirely).
+**Two concrete fix paths for whichever cycle picks this up (not
+attempted this cycle — a rushed fix to core obs-stacking/distillation
+code is exactly the kind of change that should be tested carefully,
+not squeezed in after this much investigation already):**
+(a) make `collect()`'s teacher-obs extraction stacking-aware: reshape
+    the composed obs to `(history_frames, per_frame_width)`, slice the
+    first `teacher_per_frame_width` columns of every row, reshape back
+    to flat — this is the general, reusable fix (works for ANY future
+    stacked-teacher pairing, not just this one) but touches the
+    hot path of every existing dual-core/experts BC run, so it needs
+    the full `test_distill_gru`-class regression bank re-run green
+    (byte-identical output for every existing single-frame pairing)
+    before it can be trusted on a real collection run.
+(b) sidestep it for THIS pairing specifically: distill against a
+    walk teacher trained WITHOUT `obs.history_frames` (a single-frame
+    all-heading walker) instead of the hist64 twin — cheaper to try
+    first (no distill_gru.py changes at all) but empirically unproven:
+    the operator specifically ordered hist64/transformer for the
+    all-heading line (fb_20260829T144550_c921fa) after single-frame
+    obs was the norm for every prior walk-quality lineage on this
+    track (stotight45, unified1-mix) — if hist64 was load-bearing for
+    the all-heading twin's own course-tracking win (not yet isolated
+    as a controlled ablation anywhere in this file), a single-frame
+    retrain might not clear the same joygate the twin did, and a
+    lesser walk source would just reproduce the unified1-mix
+    dir_err-can't-close-the-gate story instead of really fixing it.
+Also flagged, orthogonal to the obs bug: even a fixed pairing still
+needs the stance TEACHER side re-checked — `standheight-rung5-acq8m`
+(chosen for its rise->hold(height-cmd)->lower composition win) reports
+its OWN obs at 68 (single-frame, unaffected by this bug), so it is not
+implicated, but has not itself been smoke-verified end-to-end past
+the walk-side crash this cycle; re-verify once (a) or (b) lands.
+Snapshot not needed (no code changed, no checkpoint produced —
+`_smoke_dualbc2.zip` deleted, cfg-set union was scratch-only, not
+committed). 12 GPU slots stayed free the whole cycle; walkcurr
+[operator]-free-but-genuinely-blocked-pending-a-new-mechanism (see its
+own STATUS), joystick/amp/cpg DONE-or-maintenance — this smoke test
+was the one legitimately fundable next step across all 5 tracks this
+cycle, and it is now scoped concretely rather than a bare "needs
+wiring" placeholder.
+
+Previous entry, 2026-08-30 ~00:3x (**`cw-walk-allheading-mlp-stressmix-ft1`
 VERDICTED PASS too — MATCHED PAIR COMPLETE, both architecture twins
 clean.**) Plain English: the mlp twin's own formal 60s joygate (already
 finished, W&B `state=finished`, sitting untriaged) reads exactly like

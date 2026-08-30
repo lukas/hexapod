@@ -89,7 +89,64 @@ validity, on video. Speed obedience is secondary throughout.
 4. Irregular direction changes (mid-episode resampling).
 5. DR/push hardening (paper's friction 0.5-1.25 + periodic pushes).
 
-## Now (2026-08-29 — OPERATOR RULING: BC-kickstart OUT OF BOUNDS; track RESUMES with literature-informed non-BC arms; decleg-sv wave launched)
+## Now (2026-08-30 ~02:4x — IDLE-CHARGE LEVER CLOSED on BOTH architectures; the operator's full named fallback ladder plus this reintroduced primitive are ALL now FAIL — next fork needs a genuinely new mechanism)
+
+`cw-walkcurr-pf-decleg-sv-idle2-s0` (decentralized-per-leg arch, dose
+2.0) verdicted **FAIL (aligned)**, matching its `central-sv-idle2-s0`
+sibling (concurrent cycle, also FAIL): full 20M budget, `env/
+walk_speed` pinned 0.012-0.021 m/s the ENTIRE run (never off the
+~0.02 m/s static floor), `rollout/ep_len_mean` COLLAPSES 638->409
+after an early rise (not stable/rising), `terminations/over_current`
+climbs ~2->~1000+/window, reward quarters [184.0,151.4,159.2,161.1]
+(peak-then-flat/declining, not rising). DR-0 gate n=24: every episode
+across all 4 sub-panels terminates via real over_current; prog med
+0.03-0.07 (need >=0.35), slip/m med 5.5-6.6 (cap 3.0), gait_valid 0/6
+det. Frame strip + contact sheet: zero net translation, static
+quiver-then-trip, identical basin to every other 08-29 SV-wave arm.
+**This closes the idle-charge lever for BOTH tested architectures**
+(central + decentralized) at the only launch-safe dose (2.0; 5.0 was
+pre-launch-refuted in the bank as self-inverting) — the AMP M2
+basin-barrier finding (a charge-only fix cannot cross a pure
+exploration basin with no accessible income gradient) transfers here
+too, same as it did for SAC (fallback a, 7/7 FAIL) and terrain
+diversity (fallback b, 2/2 FAIL).
+
+**Track-wide tally as of this entry:** 15 centralized mechanism/
+architecture/reset/schedule classes (pre-08-29) + 6-arm 08-29
+decleg/central/phase-sv wave + 7-arm SAC-SV branch + 2-arm terrain
+A/B + 2-arm idle-charge A/B = **every rule-(a)-legal lever
+pre-registered so far is FAIL**, all converging on the same
+static-quiver-to-over_current (or terrain0-style zero-fall
+static-park) basin. Per the gate's own pre-registered escalation
+path, **do not fund another bare dose/architecture/algorithm
+permutation on the existing WALKCURR_SV diet** — the next honest fork
+is a genuinely new mechanism. Two concrete, not-yet-tried candidates
+(assume-and-go, recorded here rather than parked on an operator
+wait, per the standing no-pause rule):
+1. **A structural per-tick balance/posture curriculum**: none of the
+   15+3+7+2+2 refuted classes ever shaped the EARLY-episode posture
+   directly (the SV diet's only tilt-relevant charge anywhere in this
+   whole campaign was the SAC-branch's `k_roll`/`k_pitch` dose grid,
+   which fixed falling-while-walking, not freeze-while-standing — a
+   different failure shape). A rung-0-style pre-training phase that
+   rewards ANY joint motion / discourages the specific planted-duty
+   micro-quiver signature (measured this campaign: 4-6/6 legs at
+   duty_cycle 0.9-0.96) before walk-command reward ever turns on could
+   break the exploration deadlock without touching the from-scratch/
+   no-BC/no-clock rule (a plain anti-freeze pretrain phase is not a
+   motion prior in the imitation sense the rule bars).
+2. **An operator-scale budget raise** (100M+, matching the any21
+   precedent's own justification) on the single cleanest-behaving arm
+   so far (`decleg-sv-s2`'s late run showed the only non-artifactual
+   partial freeprog movement recorded this campaign, per the dig-in) —
+   cheap to justify, not yet tried at more than 20M for this diet
+   family.
+Neither is launched this cycle (each needs its own bank/hypothesis
+write-up sized properly, not a rushed same-cycle add-on); flagging
+both as the concrete Next-cycle options instead of leaving a bare
+"needs a new mechanism" placeholder.
+
+Previous entry (2026-08-29 — OPERATOR RULING: BC-kickstart OUT OF BOUNDS; track RESUMES with literature-informed non-BC arms; decleg-sv wave launched)
 
 Plain English: the operator answered the question that had this track
 parked since 08-24 — imitation warm-starts are forbidden, period, but

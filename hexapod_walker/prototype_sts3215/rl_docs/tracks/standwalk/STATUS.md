@@ -1,5 +1,46 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~16:4x (**walkteach wave-2 prereq (a) HALF CLOSED:
+anchor phase-clock's own `run_on_yaw` gap fixed + unit-tested; the
+canary-r1/-s1-r1 pair and the 12M acquisition pair
+(`cw-walkteach-scripted-allhead-acq12m{,-s1}`) were already fully
+triaged/launched by a concurrent cycle before this one spawned — independently
+corroborated here, not re-verdicted or duplicated.**) Plain English:
+per OPERATOR_QUESTIONS q_20260830T1530Z item 3b/STATUS "REGISTERED
+NEXT (wave 2+) (a)", the walk BC-anchor's phase-locked clock
+(`sim_env.py`'s `_walk_bc_t` accumulator, `train.bc_anchor_phase_lock`)
+only ever advanced on a LINEAR-velocity commanded tick, never on a
+wz-only turn-in-place tick — even under `goal.walk_phase_run_on_yaw=1`,
+which already unfreezes the POLICY's own obs phase clock
+(`walk_task._augment_obs`, amp M2-yaw 08-22) for exactly that case. A
+wave-2 arm with turn ticks in the diet would have anchored toward a
+gait phase the policy's own clock had already left behind on every
+turn segment — the exact clock-mismatch class the phase-lock anchor
+was built to prevent. Fixed by mirroring the identical run_on_yaw gate
+onto the anchor accumulator (`sim_env.py`, commit `bc488283`/
+`e35f64bf` — landed inside a concurrent cycle's snapshot commit by the
+normal `git add -A` snapshot mechanism, not misattributed effort);
+3 new tests in `test_bc_anchor.py` (`test_walk_phase_lock_*`) pin the
+legacy-frozen/wz-unfrozen/true-park contract, mirroring
+`test_phase_speed_coupling.py`'s existing obs-clock coverage. Default
+`walk_phase_run_on_yaw=0` (every run to date) makes this bit-exact —
+confirmed by `test_bc_anchor.py`/`test_phase_speed_coupling.py`
+(100/100 pass) — and even the CURRENTLY RUNNING acq12m pair sets
+`walk_phase_run_on_yaw=1` but `walk_yaw_zero_frac=1.0` (no turn ticks
+in the wave-1 diet), so this codepath is a true no-op for it too.
+Wave-2 item (a)'s OTHER half (walk semantics bank extension with
+turner-ranking cases) is still open — `test_task_semantics.py` already
+has turn-in-place park/partial-vs-full-turn income tests for the
+`cw-omni-mirror1` lineage's reward stack (same course-income family);
+whether those transfer as-is to the walkteach diet or need a
+dedicated case is the next item, not yet started. GPU capacity check
+this cycle: all 10 non-acq12m pods free, every OTHER track's own
+Next list is DONE (amp M5, cpg adoption A/B x3) or BLOCKED
+(walkcurr rung-1, all operator-named + self-invented levers closed,
+redirects here) — this code item was the only genuinely runnable
+non-duplicate work found, so it was done instead of idling. Snapshot
+`e35f64bf`.
+
 Update, 2026-08-30 ~16:3x (**operator-kick UX/user-feel cycle:
 scripted-teacher canary pair 2/2 CANARY PASS → 12M acquisition pair
 LAUNCHED; MLP-singleframe exported + beats TF-stressmix on a

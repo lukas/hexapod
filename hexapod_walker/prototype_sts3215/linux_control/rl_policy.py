@@ -139,6 +139,14 @@ _TIMING_KEYS = (
     "lag_s",
 )
 
+# Interactive learned-stand runs should release to joystick control once the
+# trained height ramp has produced a calm upright pose. Full-profile holds are
+# still available by disabling stand_handoff or by requesting extra_hold_s.
+STAND_HANDOFF_STABLE_S = 0.75
+STAND_HANDOFF_SETTLE_S = 0.25
+STAND_HANDOFF_MAX_TILT_DEG = 7.0
+STAND_HANDOFF_MAX_CURRENT_A = 2.2
+
 
 def policy_control_hz_error(meta: dict, name: str = "policy") -> str | None:
     """Compatibility hook: playback now adapts instead of rejecting."""
@@ -1579,7 +1587,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                     weights_path: Path | None = None,
                     tilt_trip_deg: float | None = None,
                     extra_hold_s: float = 0.0,
-                    allow_step_stand_start: bool = False) -> dict:
+                    allow_step_stand_start: bool = False,
+                    stand_handoff: bool = True) -> dict:
     """Blocking policy episode. Call from a worker thread.
 
     ``drive`` is web_drive's DriveController (bus + arm state).
@@ -1604,6 +1613,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     ``extra_hold_s`` (stand/lower only, clamped 0..15): extends the
     episode past the profile's total_s; the height ref simply holds
     the target, so the extension is a longer settled hold.
+    ``stand_handoff`` (stand only): normal interactive learned stands
+    finish once the trained ramp is done and tilt/current stay calm for
+    a short window. Disable it for full-profile validation/soak runs.
     """
     assert mode in ("stand", "lower", "walk")
     if turn is not None and mode != "walk":
@@ -1854,6 +1866,18 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     prev_action = np.zeros(N_JOINTS, dtype=float)
     vx_r = vy_r = 0.0
     n_ticks = int(round(total_s * timing.policy_hz))
+    stand_handoff_enabled = (
+        mode == "stand" and bool(stand_handoff)
+        and float(extra_hold_s or 0.0) <= 0.0)
+    stand_handoff_after_s = 0.0
+    stand_handoff_ticks = 0
+    stand_handoff_good = 0
+    if stand_handoff_enabled:
+        stand_handoff_after_s = (
+            float(prof["hold_s"]) + float(prof["ramp_s"])
+            + STAND_HANDOFF_SETTLE_S)
+        stand_handoff_ticks = max(1, int(round(
+            STAND_HANDOFF_STABLE_S * timing.policy_hz)))
     overruns = 0
     max_cur = 0.0
     tilt_rel_max = 0.0
@@ -1894,6 +1918,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "tilt_trip_deg": tilt_trip_deg,
         "debug_log": debug.name,
         "preflight": details,
+        **({"stand_handoff": {
+            "enabled": True,
+            "after_s": round(stand_handoff_after_s, 2),
+            "stable_s": STAND_HANDOFF_STABLE_S,
+            "max_tilt_deg": STAND_HANDOFF_MAX_TILT_DEG,
+            "max_current_a": STAND_HANDOFF_MAX_CURRENT_A,
+        }} if stand_handoff_enabled else {}),
         **({"vx": round(vx, 3), "vy": round(vy, 3),
             "rot60": canon is not None,
             **({"turn": turn} if turn else {})}
@@ -2041,13 +2072,14 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         if not _stream_state_is_stale(state_robot):
             last_good_stream_state = state_robot
         state = _state_for_policy_frame(state_robot, joint_frame)
+        cur_now = None
         if state.servo_current is not None:
-            max_cur = max(max_cur,
-                          float(np.max(np.abs(state.servo_current))))
-        tilt_rel_max = max(
-            tilt_rel_max,
+            cur_now = float(np.max(np.abs(state.servo_current)))
+            max_cur = max(max_cur, cur_now)
+        tilt_now = max(
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
             abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+        tilt_rel_max = max(tilt_rel_max, tilt_now)
         t_end = t + timing.policy_dt
         service_s = time.monotonic() - tick_t0
         lag_s = float(stream_timing.get("lag_s") or 0.0)
@@ -2086,12 +2118,46 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                               for k, v in runner_timing.items()},
             })
             break
+        if stand_handoff_enabled and t_end >= stand_handoff_after_s:
+            if (tilt_now <= STAND_HANDOFF_MAX_TILT_DEG
+                    and (cur_now is None
+                         or cur_now <= STAND_HANDOFF_MAX_CURRENT_A)):
+                stand_handoff_good += 1
+            else:
+                stand_handoff_good = 0
+            if stand_handoff_good >= stand_handoff_ticks:
+                result.update(
+                    ticks=i + 1,
+                    early_handoff=True,
+                    handoff_t_s=round(t_end, 2),
+                    profile_total_s=round(total_s, 1),
+                    handoff_stable_s=STAND_HANDOFF_STABLE_S,
+                    handoff_tilt_rel_deg=round(tilt_now, 1),
+                    handoff_current_a=(round(cur_now, 2)
+                                       if cur_now is not None else None),
+                )
+                on_progress({
+                    "msg": (f"stand ready for walk t={t_end:4.1f}s "
+                            f"tilt={tilt_now:.1f}deg "
+                            f"maxI={max_cur:.2f}A"),
+                    "t_s": round(t_end, 2),
+                    "phase": "handoff",
+                    "early_handoff": True,
+                    "height_ref_mm": round(goal.height_ref * 1000, 1),
+                    "roll_deg": round((state.imu_roll - tilt_ref0[0])
+                                      * RAD2DEG, 2),
+                    "pitch_deg": round((state.imu_pitch - tilt_ref0[1])
+                                       * RAD2DEG, 2),
+                    "max_current_a": round(max_cur, 2),
+                    "overruns": overruns,
+                })
+                break
         if i % progress_every == 0:
             if mode == "walk":
-                phase = ("settle" if t < WALK_HOLD_S else
-                         "decel" if t > total_s - WALK_RAMP_S else
-                         "ramp" if t < WALK_HOLD_S + WALK_RAMP_S
-                         else "walk")
+                progress_phase = ("settle" if t < WALK_HOLD_S else
+                                  "decel" if t > total_s - WALK_RAMP_S else
+                                  "ramp" if t < WALK_HOLD_S + WALK_RAMP_S
+                                  else "walk")
                 ref_txt = (f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s")
                 if canon is not None and canon.k:
                     ref_txt += f" sec={canon.k:+d}"
@@ -2099,15 +2165,16 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                     ref_txt += (f" {selector.active[:3]}"
                                 f" hd={math.degrees(selector.heading):+.0f}")
             else:
-                phase = ("curl" if mode == "stand" and t < prof["hold_s"]
-                         else "ramp" if t < prof["hold_s"] + prof["ramp_s"]
-                         else "hold")
+                progress_phase = (
+                    "curl" if mode == "stand" and t < prof["hold_s"]
+                    else "ramp" if t < prof["hold_s"] + prof["ramp_s"]
+                    else "hold")
                 ref_txt = f"href={goal.height_ref * 1000:+.0f}mm"
             on_progress({
-                "msg": (f"{mode} {phase} t={t:4.1f}s "
+                "msg": (f"{mode} {progress_phase} t={t:4.1f}s "
                         f"{ref_txt} "
                         f"maxI={max_cur:.2f}A"),
-                "t_s": round(t, 2), "phase": phase,
+                "t_s": round(t, 2), "phase": progress_phase,
                 "height_ref_mm": round(goal.height_ref * 1000, 1),
                 "roll_deg": round((state.imu_roll - tilt_ref0[0])
                                   * RAD2DEG, 2),
@@ -2148,8 +2215,10 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     # AFTER "walk done" — the episode ended holding a ~15° lean and
     # the log stopped with it. Keep READING (never commanding) for a
     # few seconds so a tip-over during the end-of-episode hold (or
-    # the collapse after a trip limp) is in the trace.
-    TAIL_S = 3.0
+    # the collapse after a trip limp) is in the trace. A successful
+    # learned-stand handoff intentionally skips this tail so joystick
+    # control can take over immediately.
+    TAIL_S = 0.0 if result.get("early_handoff") and mode == "stand" else 3.0
     tail_tilt_max = 0.0
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)

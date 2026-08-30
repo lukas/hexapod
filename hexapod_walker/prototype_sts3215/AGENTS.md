@@ -18,6 +18,22 @@ viewer wrapper, because Cocoa needs `mjpython`.
 The Uno Q is not an exception: its service/deploy path should use
 `/home/arduino/.local/bin/uv run python ...`.
 
+## RL orchestrator status URLs
+
+For the autonomous RL agent/orchestrator dashboard, use the public status host
+first:
+
+- Human dashboard: `https://hexapod.cwd1f0-new-cluster.coreweave.app/now`
+  (token-gated; append `?key=<status-token>` on first visit).
+- Agent/LLM index: `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt`
+  (no token required).
+- Local fallback: port-forward `hexapod-sweep-friction` with
+  `kubectl --kubeconfig=$HOME/.kube/coreweave.yaml port-forward hexapod-sweep-friction 8090:8090`
+  and open `http://127.0.0.1:8090/now`.
+
+Do not confuse this with the Mac-side robot/sim web hub at
+`http://localhost:8898/rl`.
+
 ## Local web hub on :8898
 
 The canonical Mac-side browser/control surface is:

@@ -43,10 +43,12 @@ leave the next agent to rediscover it.
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
+| Operator asks for a MuJoCo drive-around video | `ops.sh drivevideo <run> [out-dir] [--script square\|human\|sweep] [--policy-mode stochastic\|deterministic]` — walk-only joystick video, full mesh required by default, run cfg stack carried from the ledger |
+| Operator asks for a transfer-shaped MuJoCo demo | `ops.sh hybriddemo <run> [out-dir] [--script square\|human\|sweep] [--policy-mode deterministic\|stochastic] [--stand-controller learned] [--stand-release stable\|profile]` — composable full-mesh stand->RL-walk->lower demo; learned stand defaults to stable handoff; writes `composition.json` and `transfer_manifest.json` |
 | **What is the orchestrator doing RIGHT NOW?** | `ops.sh activity` — watcher heartbeat, pending kicks, every running cycle with the tail of its LIVE narration, recent finishes, newest ledger rows (works from the Mac) |
 | Watch one cycle work (thoughts + commands, live) | `ops.sh cyclelog [pattern] [n]` (one-shot tail) or `ops.sh waitcycle [pattern]` (follow until `=== CYCLE END`) — cycles stream since 08-21; never blind-poll a kick again |
 | What exactly was a cycle told? | its `.prompt.md` next to the cycle log (`/workspace/cycle_logs/`), or MCP `cycle_log(cycle, part='prompt')` |
-| Operator wants an overview in a browser | status page at http://127.0.0.1:8090 — full setup/restart runbook in "Operator status page" section below |
+| Operator wants an overview in a browser | status page at http://127.0.0.1:8090/now — latest research brief first; full setup/restart runbook in "Operator status page" section below |
 | An external LLM (GPT/Claude) wants to read status | `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt` (no key) — see "LLM-readable mirror" in the status-page runbook |
 
 **DO NOT hand-write python for any row above.** Transcript mining
@@ -92,6 +94,34 @@ report.json, and the W&B API for exactly these questions.
 - `ops.sh frames <mp4> [n]` — contact sheet from any video (but the
   harness already writes `walk_*.png` sheets next to eval videos —
   check those first).
+- `ops.sh drivevideo <run> [out-dir] [args...]` — clean walk-only
+  joystick drive video for "show me driving <run> around": uses the
+  run's own cfg stack, pulls the checkpoint if needed, builds/requires
+  local full-mesh assets, starts from a settled plant walk episode, and
+  writes `drive.mp4`, `contact_sheet.png`, `summary.json`, and
+  `ticks.json`. Extra args pass through to `rl_move.sim.drive_video`
+  (`--script human|square|sweep`, `--policy-mode stochastic|deterministic`,
+  `--seconds N`, `--speed M`, ...).
+- `ops.sh hybriddemo <run> [out-dir] [args...]` — transfer-shaped
+  MuJoCo demo for comparing controller compositions: baked STEP or
+  learned stance stand,
+  explicit sim-walk-ready align, bookkeeping re-anchor into the walk
+  policy's plant frame, RL joystick walk, align-back, STEP or learned
+  lower, limp settle. Full mesh is required by default. It writes
+  `drive.mp4`, `contact_sheet.png`, `composition.json`, `summary.json`,
+  `ticks.json`, and `transfer_manifest.json`. Use
+  `--stand-controller learned` for the promoted mesh stance policy
+  (`stand_stancemix_tuckclock_scratch8m`) and
+  `--lower-controller learned` when specifically comparing learned sit.
+  Use `--stand-mode tuck --lower-mode tuck` for the lower-current
+  scripted tuck stand/lower baseline; this is the preferred non-RL
+  comparison when foot sliding is the concern.
+  Learned stand defaults to `--stand-release stable`, so transfer demos
+  hand off after the trained rise ramp is upright and calm instead of
+  waiting out the full validation profile; use `--stand-release profile`
+  for stance soak/evaluation.
+  Use this when comparing "policy + state" bundles rather than judging a
+  walk-only policy in isolation.
 - `ops.sh pullckpt <run>` — fetch checkpoint from its pod + md5.
 - `ops.sh pushckpt <pod> <ckpt>` — copy a checkpoint TO a pod + md5
   both sides. **`snapshot.sh --sync` EXCLUDES policies/** — a
@@ -406,10 +436,12 @@ report.json, and the W&B API for exactly these questions.
 
 ## Operator status page (web) — setup & restart runbook
 
-One auto-refreshing HTML page for the human operator: watcher
-ON/PAUSED/OFF, in-flight cycles + what they're triaging, analysis
-pipeline (ledger `triage` field), per-pod fleet census, backlog,
-ledger runs, Claude token usage + est. spend, log tails. Code:
+One auto-refreshing HTML page for the human operator: a first-screen
+research brief answering "what is the latest on each topic and where
+are we?", watcher ON/PAUSED/OFF, in-flight cycles + what they're
+triaging, analysis pipeline (ledger `triage` field), per-pod fleet
+census, backlog, ledger runs, Claude token usage + est. spend, log
+tails. Code:
 `rl_move/orchestrator/status_server.py` (stdlib only, port 8090 —
 5183/5173 are BuildViz, 8080 is the robot).
 
@@ -434,9 +466,10 @@ Two pieces, both must be up:
      port-forward hexapod-sweep-friction 8090:8090
    ```
 
-Then open **http://127.0.0.1:8090** (raw data at `/json`).
+Then open **http://127.0.0.1:8090/now** (raw data at `/json`; `/`,
+`/research`, `/dashboard`, and `/status` are aliases).
 
-Health checks: `curl -s http://127.0.0.1:8090/ | head -c 100` on the
+Health checks: `curl -s http://127.0.0.1:8090/now | head -c 100` on the
 laptop; on the pod, `tmux has-session -t statusweb` and
 `/tmp/status_server.log`. If the page loads but fleet/token sections
 are empty, the slow collector hasn't finished its first pass — wait
@@ -448,7 +481,7 @@ touches training, the watcher, or the ledger.
 
 ### Public URL + LLM-readable mirror (GPT/Claude reading status)
 
-The page is public at **https://hexapod.cwd1f0-new-cluster.coreweave.app**
+The page is public at **https://hexapod.cwd1f0-new-cluster.coreweave.app/now**
 (operator 08-10 setup): the `hexapod-status` LoadBalancer service
 routes 80/443 to the controller pod, where **Caddy** (tmux session
 `caddyweb`, `/workspace/caddy run --config /workspace/Caddyfile`,
@@ -492,8 +525,10 @@ Dev standalone: `uv run python rl_move/orchestrator/mcp_server.py` (port
 
 The server also serves a plain-markdown mirror so external LLMs
 (ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is
-the index (llmstxt.org convention), `/llm/status.md` (campaign + all
-per-track STATUS docs), `/llm/plan.md`, `/llm/log.md`, `/llm/runs.md`
+the index (llmstxt.org convention), `/llm/brief.md` is the short
+latest-research-first answer, `/llm/status.md` lists per-track STATUS
+docs first (authoritative for track state) and the campaign digest last,
+`/llm/plan.md`, `/llm/log.md`, `/llm/runs.md`
 (ledger with hypotheses/verdicts, each linking its per-run story),
 `/llm/docs.md` (index of EVERY .md in the prototype tree), and
 `/llm/doc/<path>` (any individual doc, e.g.
@@ -510,6 +545,9 @@ within ~1 min with no manual pull. Sync failures show as a red warning
 card on the dashboard. This covers DOCS only — a `status_server.py`
 code change still needs the tmux kill+restart in step 1 above (the
 pull itself is now automatic).
+
+Human bookmark:
+`https://hexapod.cwd1f0-new-cluster.coreweave.app/now`
 
 Hand an LLM:
 `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt`

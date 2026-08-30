@@ -392,7 +392,13 @@ class _PlayTraj(_InteractiveTraj):
 
 class _PlayEnv(SimHexapodJointWalkEnv):
     def __init__(self, *a, **kw):
-        self.traj = _PlayTraj()
+        cfg = kw.get("cfg") or {}
+        try:
+            from ..config import cfg_get
+            hz = float(cfg_get(cfg, "control", "hz", default=25.0) or 25.0)
+        except Exception:
+            hz = 25.0
+        self.traj = _PlayTraj(1.0 / max(hz, 1e-6))
         super().__init__(*a, **kw)
 
     def _sample_goal(self):

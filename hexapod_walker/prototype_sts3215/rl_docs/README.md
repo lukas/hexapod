@@ -20,6 +20,7 @@ The campaign runs exactly two tracks (operator reset 2026-08-21):
 | `DOWNLOAD_ANSWER.md` | The current deployable answer + gate evidence | When a verdict might change what we'd put on the robot |
 | `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, gotchas; § "Operator status page" = dashboard runbook | Every cycle, before running commands |
+| `HYBRID_DEMO.md` | How to compose stand/walk/lower controllers with explicit states and compare transfer-shaped MuJoCo demos | When judging policy+state bundles for robot transfer |
 | `HARDWARE.md` | Real-robot evidence, sim2real findings | When a decision hinges on real-world data |
 | `SIM.md` | What the physics sim models, actuator numbers, DR coverage | Before touching sim params/DR or judging sim-vs-real gaps |
 | `REWARD.md` | Every reward term: cfg key, default, what it pays/charges, income-gate design rules | Before adding/changing any reward term |

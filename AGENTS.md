@@ -18,6 +18,25 @@ For all local project Python commands, use `uv` instead of bare
 - The Uno Q also uses uv. Its web service should launch as
   `/home/arduino/.local/bin/uv run python ...`.
 
+## RL orchestrator status URLs
+
+When the user asks for the agent/orchestrator/progress dashboard, start here:
+
+- Public human dashboard:
+  `https://hexapod.cwd1f0-new-cluster.coreweave.app/now`
+  (token-gated; append `?key=<status-token>` on first visit).
+- Public agent/LLM-readable index:
+  `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt`
+  (no token required).
+- Local port-forward fallback:
+  `kubectl --kubeconfig=$HOME/.kube/coreweave.yaml port-forward hexapod-sweep-friction 8090:8090`
+  then open `http://127.0.0.1:8090/now`.
+
+The public host is served by the `hexapod-status` LoadBalancer and Caddy on the
+controller pod, proxying to `status_server.py` on `:8090`. This is distinct
+from the local Mac robot/sim web UI at `http://localhost:8898/rl` and from
+BuildViz on `:5183`.
+
 ## BuildViz: two-port convention (5183 central, 5173 dev)
 
 BuildViz uses exactly **two** fixed ports. Never start a server on any other

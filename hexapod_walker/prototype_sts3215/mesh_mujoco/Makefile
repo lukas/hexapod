@@ -1,9 +1,7 @@
-VENV ?= /Users/lukas/hexapod/.venv
-
 .PHONY: build view view-stance clean
 
 build:
-	$(VENV)/bin/python build_mesh_model.py
+	uv run --with numpy --with scipy --with shapely --with trimesh python build_mesh_model.py
 
 view:
 	./view_mesh.sh plant

@@ -112,6 +112,11 @@ class SimWebConfig:
 class SimWebSession:
     """Route-compatible controller for one local MuJoCo hexapod."""
 
+    STAND_HANDOFF_STABLE_S = 0.60
+    STAND_HANDOFF_SETTLE_S = 0.25
+    STAND_HANDOFF_MAX_TILT_DEG = 7.0
+    STAND_HANDOFF_MAX_CURRENT_A = 2.2
+
     def __init__(self, cfg: SimWebConfig):
         self.cfg = cfg
         self.lock = threading.RLock()
@@ -473,6 +478,10 @@ class SimWebSession:
         except Exception:
             return 0.0, 0.0
 
+    def _published_height_ref(self) -> float:
+        pub = getattr(self.traj, "_pub", self.traj.goal)
+        return float(getattr(pub, "height_ref", self.traj.goal.height_ref))
+
     def _do_reset(self, start: str, h_goal: float, note: str) -> None:
         self._stop_demo_locked(status="idle", clear_name=True)
         self.quad_reared = False
@@ -677,12 +686,17 @@ class SimWebSession:
         self.traj.goal = TaskGoal()
         self.traj.goal.height_ref = float(prof["target_m"])
         self.traj.vx = self.traj.vy = 0.0
+        self.traj.mode = "rise"
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
         self._restore_phys(keep_q, keep_v)
-        rise_total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
-        self.auto = ["rise", 0, rise_total]
+        ramp_done_s = float(prof["hold_s"]) + float(prof["ramp_s"])
+        release_after_s = ramp_done_s + self.STAND_HANDOFF_SETTLE_S
+        fallback_s = ramp_done_s + 1.5
+        stable_ticks = max(1, int(round(
+            self.STAND_HANDOFF_STABLE_S / self.env.dt)))
+        self.auto = ["rise", 0, fallback_s, 0, release_after_s, stable_ticks]
         self.msg = "RISE (in place)"
 
     def _do_sit(self) -> None:
@@ -713,6 +727,25 @@ class SimWebSession:
         roll, pitch = self._roll_pitch_deg()
         return (self._chassis_z() > 0.10 and abs(roll) < 17.0
                 and abs(pitch) < 17.0)
+
+    def _stand_handoff_ready(self) -> tuple[bool, dict[str, float | None]]:
+        roll, pitch = self._roll_pitch_deg()
+        z_m = self._chassis_z()
+        min_z = max(0.095, float(getattr(self, "z_plant", 0.11)) - 0.03)
+        state = getattr(self.env, "_state", None)
+        cur_arr = getattr(state, "servo_current", None)
+        cur = (float(np.max(np.abs(cur_arr)))
+               if cur_arr is not None and len(cur_arr) else None)
+        tilt = max(abs(float(roll)), abs(float(pitch)))
+        ok = (z_m >= min_z
+              and tilt <= self.STAND_HANDOFF_MAX_TILT_DEG
+              and (cur is None or cur <= self.STAND_HANDOFF_MAX_CURRENT_A))
+        return ok, {
+            "z_m": z_m,
+            "min_z_m": min_z,
+            "tilt_deg": tilt,
+            "max_current_a": cur,
+        }
 
     def _direct_profile_step_locked(self, q_rad: np.ndarray) -> None:
         """Issue a bus-like joint target directly to MuJoCo's servo model."""
@@ -954,11 +987,23 @@ class SimWebSession:
         elif self.auto is not None and self.auto[0] == "rise":
             action = self._stance_action("stand")
             self.auto[1] += 1
-            if self.auto[1] * self.env.dt >= self.auto[2]:
+            t_s = self.auto[1] * self.env.dt
+            ready, details = self._stand_handoff_ready()
+            if len(self.auto) >= 6 and t_s >= self.auto[4] and ready:
+                self.auto[3] += 1
+            elif len(self.auto) >= 6:
+                self.auto[3] = 0
+            stable_done = len(self.auto) >= 6 and self.auto[3] >= self.auto[5]
+            if stable_done or t_s >= self.auto[2]:
                 if self._chassis_z() > 0.06:
                     self.q_blend_from = self._q_now()
                     self.auto = ["blend", 0, self._blend_ticks()]
-                    self.msg = "aligning to walk stance"
+                    if stable_done:
+                        self.msg = (
+                            "stand stable - aligning to walk stance "
+                            f"(z={details['z_m']:.3f}m)")
+                    else:
+                        self.msg = "aligning to walk stance"
                 else:
                     self.auto = None
                     self._finish_job("rise failed", ok=False)
@@ -1231,7 +1276,7 @@ class SimWebSession:
             "t_s": round(self.sim_t, 3),
             "mode": self.mode,
             "height_mm": round(self._chassis_z() * 1000.0, 1),
-            "height_ref_mm": round(float(self.traj.goal.height_ref)
+            "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),
             "roll_deg": roll,
             "pitch_deg": pitch,
@@ -1275,7 +1320,7 @@ class SimWebSession:
             "roll_deg": roll,
             "pitch_deg": pitch,
             "height_mm": round(self._chassis_z() * 1000.0, 1),
-            "height_ref_mm": round(float(self.traj.goal.height_ref)
+            "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),
             "height_live": True,
             "t_s": round(self.sim_t, 1),

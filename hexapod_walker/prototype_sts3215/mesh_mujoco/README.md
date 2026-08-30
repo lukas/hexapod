@@ -20,6 +20,14 @@ make view-stance    # ... at the CAD display stance (belly-rest, see below)
 `build` also runs the self-checks (mass, penetration scan, 3 s settle at
 both keyframes) and writes `previews/*.png`.
 
+Direct builder invocation, for agents or scripts that must avoid Makefile
+indirection:
+
+```sh
+uv run --with numpy --with scipy --with shapely --with trimesh \
+  python build_mesh_model.py --no-render
+```
+
 ## Where the geometry comes from
 
 - Link/servo placements: `tools/full_robot_viz_build.py`'s leg-0 local-frame

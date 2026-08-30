@@ -228164,7 +228164,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkcurr-pf-decleg-sv-s4-b100m since 2026-08-30T06:24:46"
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s5-b100m",
@@ -230316,7 +230317,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-08-30T05:43:58"
+    "triage": "in-cycle cw-walk-allheading-mlp-singleframe-acq1-stdanneal since 2026-08-30T06:09:28"
   },
   {
     "run": "cw-walkcurr-pf-decleg-antifreeze-pretrain-s0",
@@ -230536,7 +230537,7 @@
       "respec of cw-walkcurr-pf-decleg-sv-s0-rr3: Plain English: a from-scratch policy in this diet always ends up in a static-quiver-to-over_current basin (4/5 decleg-b100m population-sweep arms now FAIL'd this exact way this cycle); this tests whether a short PURE step-completion pretrain phase (no freeprog/body-speed income at all, ONLY the already-validated k_step_event term -- which pays a leg NOTHING unless it completes a real >=10mm-along-command lift-swing-touchdown, so a quiver/fidget in place literally cannot earn anything, unlike a raw-|qvel| anti-freeze bonus which the track's own idle-terminate mechanism already showed gets gamed by fidgeting, WALKCURR_PF_IDLE_TERM/idleterm1-3, 08-24) can dislodge the basin before the normal freeprog diet ever turns on. New bank WALKCURR_SV_PRETRAIN_STEP (test_task_semantics.py, 4/4 green) proves gait >> park/stall/belly_sit/reverse/sideways (all pose-invariant near a common floor, no fidget dodge) and topple is the strict floor under this exact diet. This decleg-architecture half of a 2-arm pair (central sibling launched alongside) is a short 2M PRETRAIN phase only -- fresh random init, matching the track's rule-(a) (no BC/imitation/motion-prior warm-start; this is a same-diet-family RL reward-curriculum stage, not imitation). Prediction-if-true: env/walk_speed or walk_freeprog-analog leaves the static floor, ep_len_mean stable/rising, terminations/over_current at background, and video shows real leg lift-swing-touchdown cycling by 2M. Prediction-if-false: the policy still converges to a static/quiver basin (step_event never fires enough to matter) -- pretrain-staging is refuted alongside every other anti-freeze mechanism tried, and the ONLY remaining candidate becomes a non-PPO search method (matches the CPG track's already-DONE direct-optimization approach, out of walkcurr's own founding-rule scope) or an operator [prior-free constraint] escalation. If PASS: queue phase-2 (--init-from-source into the standard WALKCURR_SV diet, freeprog back on) as the next-cycle continuation."
     ],
     "created": "2026-08-30T05:56:26+00:00",
-    "status": "INTENT",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -230547,13 +230548,191 @@
       "running_experiments_before": 5,
       "code_sha_local": "7051edee5d1a74269c6cd3de13dd0c01b85f7bbf",
       "code_sha_pod": "7051edee5d1a74269c6cd3de13dd0c01b85f7bbf",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "42436",
+      "log_growth_bytes": [
+        6773,
+        8832
+      ],
+      "wandb_id": "xqh01lwj",
+      "trainer_pid": "42436",
+      "global_step_window": [
+        1179648,
+        1966080
+      ],
+      "fps_estimate": 26214.4
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-decleg-antifreeze-pretrain-s0 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 96 --batch-size 98304 --net-arch 128,64,32 --activation-fn tanh --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --decleg --decleg-hidden 64,64 --seed 0 --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=1e-6 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --n-envs 4096 --cfg-set control.hz=100 --out-name ppo_goal_cw_walkcurr_pf_decleg_antifreeze_pretrain_s0 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-decleg-sv-s0-rr3: Plain English: a from-scratch policy in this diet always ends up in a static-quiver-to-over_current basin (4/5 decleg-b100m population-sweep arms now FAIL'\"'\"'d this exact way this cycle); this tests whether a short PURE step-completion pretrain phase (no freeprog/body-speed income at all, ONLY the already-validated k_step_event term -- which pays a leg NOTHING unless it completes a real >=10mm-along-command lift-swing-touchdown, so a quiver/fidget in place literally cannot earn anything, unlike a raw-|qvel| anti-freeze bonus which the track'\"'\"'s own idle-terminate mechanism already showed gets gamed by fidgeting, WALKCURR_PF_IDLE_TERM/idleterm1-3, 08-24) can dislodge the basin before the normal freeprog diet ever turns on. New bank WALKCURR_SV_PRETRAIN_STEP (test_task_semantics.py, 4/4 green) proves gait >> park/stall/belly_sit/reverse/sideways (all pose-invariant near a common floor, no fidget dodge) and topple is the strict floor under this exact diet. This decleg-architecture half of a 2-arm pair (central sibling launched alongside) is a short 2M PRETRAIN phase only -- fresh random init, matching the track'\"'\"'s rule-(a) (no BC/imitation/motion-prior warm-start; this is a same-diet-family RL reward-curriculum stage, not imitation). Prediction-if-true: env/walk_speed or walk_freeprog-analog leaves the static floor, ep_len_mean stable/rising, terminations/over_current at background, and video shows real leg lift-swing-touchdown cycling by 2M. Prediction-if-false: the policy still converges to a static/quiver basin (step_event never fires enough to matter) -- pretrain-staging is refuted alongside every other anti-freeze mechanism tried, and the ONLY remaining candidate becomes a non-PPO search method (matches the CPG track'\"'\"'s already-DONE direct-optimization approach, out of walkcurr'\"'\"'s own founding-rule scope) or an operator [prior-free constraint] escalation. If PASS: queue phase-2 (--init-from-source into the standard WALKCURR_SV diet, freeprog back on) as the next-cycle continuation.' > /tmp/train_cw-walkcurr-pf-decleg-antifreeze-pretrain-s0.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-decleg-antifreeze-pretrain-s0.log"
+    "log": "/tmp/train_cw-walkcurr-pf-decleg-antifreeze-pretrain-s0.log",
+    "wandb_id": "xqh01lwj",
+    "verified": "2026-08-30T06:00:07+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T06:05:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "verdict": "Pure step-event-only pretrain (2M, fresh random init) does NOT dislodge the basin -- but the failure MODE differs informatively from every prior SV-wave arm: env/reward_step_event settled at ~0.0007 (never fires, i.e. no real forward-projecting swing ever completed), env/walk_speed pinned at 0.0205 (the same static floor as every FAILed arm), walk_direction_err_deg 89.9deg (chance), yet terminations/truncated=153 with ZERO over_current/tilt deaths this time (ep_len_mean rose 63->547 over the run, stable/rising per the litmus) -- the policy learned to SURVIVE to truncation via a safe static stand rather than a quivering over_current death, but never stumbled into the step_event income at all. Reward quarters [151.7,201.8,201.9,202.0] rise then flat-cap exactly at the scripted 'park' floor (202, WALKCURR_SV_PRETRAIN_STEP bank), never approaching the scripted 'gait' value (~254) -- converged to stand-still-safely, not real stepping. Own pre-registered gate unmet (walk_speed never left the floor). Read jointly with the central-arch twin (identical numbers, same basin) -- pretrain-staging via step-event-alone at 2M is FAIL for both architectures; 2M may simply be too short to ever randomly complete a first full swing under fresh random init (no shaping reward anywhere near a partial swing), a genuine exploration-bootstrap problem this design does not solve. Closes this specific mechanism; does not license a phase-2 continuation.",
+    "triage": "done"
+  },
+  {
+    "run": "cw-walkcurr-pf-central-antifreeze-pretrain-s0",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: matched centralized-architecture twin of cw-walkcurr-pf-decleg-antifreeze-pretrain-s0 (see that run's hypothesis for the full design rationale: a pure step-completion-only pretrain diet, fidget-resistant by construction via k_step_event's >=10mm-along-command lift-swing-touchdown gate, tested against the static-quiver-to-over_current basin every SV-wave arm (decleg AND central) has hit). New bank WALKCURR_SV_PRETRAIN_STEP (test_task_semantics.py, 4/4 green). Fresh random init, 2M PRETRAIN phase only, matching rule (a). Prediction-if-true/false: identical to the decleg sibling's -- read jointly as a 2-architecture pair (if only one escapes the basin, architecture is the confound, not the mechanism).",
+    "gate": "Same own-cfg health read as the decleg sibling: env/walk_speed off the static floor, ep_len_mean stable/rising, terminations/over_current at background, video shows real per-leg cycling. PASS licenses phase-2 --init-from-source continuation; FAIL (matching decleg) closes the pretrain-staging fork.",
+    "parent": "cw-walkcurr-pf-central-sv-s0-rr2",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "96",
+      "--batch-size",
+      "98304",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "tanh",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--seed",
+      "0",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "goal.joint_action_bias_hip_deg=45.0",
+      "--cfg-set",
+      "goal.joint_action_bias_knee_deg=15.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=1e-6",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--cfg-set",
+      "reward.k_track=0.0",
+      "--cfg-set",
+      "reward.k_roll=0.0",
+      "--cfg-set",
+      "reward.k_pitch=0.0",
+      "--cfg-set",
+      "reward.k_height=0.0",
+      "--cfg-set",
+      "reward.k_gyro=0.0",
+      "--cfg-set",
+      "reward.k_action=0.0",
+      "--cfg-set",
+      "reward.k_action_delta=0.0",
+      "--cfg-set",
+      "reward.k_current=0.0",
+      "--cfg-set",
+      "reward.k_walk_heading=0.0",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--n-envs",
+      "4096",
+      "--cfg-set",
+      "control.hz=100",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_central_antifreeze_pretrain_s0",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-central-sv-s0-rr2: Plain English: matched centralized-architecture twin of cw-walkcurr-pf-decleg-antifreeze-pretrain-s0 (see that run's hypothesis for the full design rationale: a pure step-completion-only pretrain diet, fidget-resistant by construction via k_step_event's >=10mm-along-command lift-swing-touchdown gate, tested against the static-quiver-to-over_current basin every SV-wave arm (decleg AND central) has hit). New bank WALKCURR_SV_PRETRAIN_STEP (test_task_semantics.py, 4/4 green). Fresh random init, 2M PRETRAIN phase only, matching rule (a). Prediction-if-true/false: identical to the decleg sibling's -- read jointly as a 2-architecture pair (if only one escapes the basin, architecture is the confound, not the mechanism)."
+    ],
+    "created": "2026-08-30T05:58:34+00:00",
+    "status": "FAIL",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 6,
+      "code_sha_local": "052dd93bfd8fd6f952b402baaa841541eb9a07c9",
+      "code_sha_pod": "052dd93bfd8fd6f952b402baaa841541eb9a07c9",
+      "wandb_env_on_pod": true,
+      "pid": "919282",
+      "log_growth_bytes": [
+        6081,
+        9065
+      ],
+      "wandb_id": "aasqq9xj",
+      "trainer_pid": "919282",
+      "global_step_window": [
+        1179648,
+        1966080
+      ],
+      "fps_estimate": 26214.4
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-central-antifreeze-pretrain-s0 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 96 --batch-size 98304 --net-arch 128,64,32 --activation-fn tanh --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 0 --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=1e-6 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --n-envs 4096 --cfg-set control.hz=100 --out-name ppo_goal_cw_walkcurr_pf_central_antifreeze_pretrain_s0 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-central-sv-s0-rr2: Plain English: matched centralized-architecture twin of cw-walkcurr-pf-decleg-antifreeze-pretrain-s0 (see that run'\"'\"'s hypothesis for the full design rationale: a pure step-completion-only pretrain diet, fidget-resistant by construction via k_step_event'\"'\"'s >=10mm-along-command lift-swing-touchdown gate, tested against the static-quiver-to-over_current basin every SV-wave arm (decleg AND central) has hit). New bank WALKCURR_SV_PRETRAIN_STEP (test_task_semantics.py, 4/4 green). Fresh random init, 2M PRETRAIN phase only, matching rule (a). Prediction-if-true/false: identical to the decleg sibling'\"'\"'s -- read jointly as a 2-architecture pair (if only one escapes the basin, architecture is the confound, not the mechanism).' > /tmp/train_cw-walkcurr-pf-central-antifreeze-pretrain-s0.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-central-antifreeze-pretrain-s0.log",
+    "wandb_id": "aasqq9xj",
+    "verified": "2026-08-30T06:02:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T06:07:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 173,
+        "fps": 22209.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "verdict": "Matched centralized-architecture twin of decleg-antifreeze-pretrain-s0 -- IDENTICAL numbers (env/reward_step_event ~0.0007, env/walk_speed 0.0203, walk_direction_err_deg 89.8deg, ep_len_mean 547.29, terminations/truncated=153, ep_rew_mean 202.03 == the scripted 'park' floor in WALKCURR_SV_PRETRAIN_STEP). Same read as the decleg sibling: the policy learned to survive to truncation via a safe static stand (zero over_current/tilt deaths) but never completed a real forward-projecting swing, so step_event income never turned on. Architecture is not the confound (both arms converge to the identical basin/value). Closes the step-event-only pretrain mechanism at 2M for both architectures; the exploration-bootstrap problem (fresh random init never randomly stumbles into a full qualifying swing within 2M with no shaping near a partial one) is the likely root cause, not a reward-ranking defect (the bank's own ranking is correct).",
+    "triage": "done"
   }
 ]

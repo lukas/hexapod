@@ -43,6 +43,128 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
+## Now (2026-08-30 ~06:1x — 4/5 decleg-b100m population-sweep arms read FAIL this cycle; built + launched the candidate-1 antifreeze-pretrain fork)
+
+Plain English: triaged the overnight population sweep as its own reads
+landed. `cw-walkcurr-pf-decleg-sv-s3-b100m` (health-stopped 67.6M/
+100M), `-s2-b100m` (89.7M/100M, the operator-named "cleanest lineage"
+re-extended), and `-s6-b100m` (83.8M/100M, fresh seed) all verdicted
+**FAIL** — identical static-quiver-to-over_current basin as the
+concurrent cycle's `-s5-b100m` read (now 4/5 decleg-b100m arms FAIL;
+`-s4-b100m` is the only one still running, another cycle's). All four
+share the signature: reward quarters peak-early-then-flat (not
+rising, so not an 08-21 continue case), DR-0 gate prog med ~0 to
+negative, slip/m 2x the cap, 0-1/6 (occasionally higher but
+zero-net-translation) gait_valid, 24/24 over_current terminations,
+static quiver on video. This closes the decleg half of the operator's
+"budget/seed axis" question at 100M; `central-sv-s0-b100m` (the
+matched-budget centralized control) is still running (claimed by a
+concurrent cycle) and will give the other half.
+
+Per the track's own pre-registered escalation (see the "IDLE-CHARGE
+LEVER CLOSED" entry below): with the population/budget lever now
+reading FAIL 4/4 on decleg, built and launched candidate 1 (the
+structural anti-freeze/posture-curriculum fork) THIS cycle rather than
+leaving it as a placeholder. Design correction on the way in: a naive
+"reward/preserve ANY joint motion" pretrain would reopen the exact
+"fake fidget" dodge that already closed this track's raw-|qvel|
+`safety.walk_idle_terminate_s` mechanism (WALKCURR_PF_IDLE_TERM bank,
+08-24 — idleterm1-3 all FAIL, one of them specifically via a policy
+that kept mean|qvel| above the eviction floor via meaningless in-place
+jiggle, never triggering the safeguard). Since every current SV-wave
+failure IS already a static QUIVER (small nonzero motion, not
+literally frozen), a raw motion reward would very likely reinforce
+that quiver rather than real stepping. Built
+**`WALKCURR_SV_PRETRAIN_STEP`** instead (`test_task_semantics.py`,
+4/4 green): a PURE discovery-phase diet built from the already-
+validated `reward.k_step_event` term ALONE (`k_walk_freeprog` set to
+a 1e-6 epsilon, not literal 0 — bank-probe discovery: literal 0
+reopens a separate always-on legacy Gaussian velocity kernel,
+`K_WALK=2.0` hardcoded in `walk_task.py`, that pays a frozen park
+twin ~1.3/tick regardless of behavior; the epsilon takes the
+freeprog-replaces-the-kernel code branch while contributing
+~nothing itself). `k_step_event` pays a leg NOTHING unless it
+completes a real `>=10mm`-along-command lift-swing-touchdown — a
+quiver/fidget in place structurally cannot earn anything, unlike the
+raw-|qvel| mechanism. Bank proves: real forward stepping earns
+positive income; park/stall(marching-in-place)/belly_sit/reverse/
+sideways are all pose- and fidget-invariant near a common floor
+(no dodge reopened); topple remains the strict floor. Launched a
+matched 2-architecture pair, fresh random init (rule (a): no BC/
+imitation/motion-prior warm-start — this is a same-diet RL reward-
+curriculum stage, not imitation), 2M PRETRAIN phase only (own-cfg
+health read, not a formal gate):
+`cw-walkcurr-pf-decleg-antifreeze-pretrain-s0` (train-1),
+`cw-walkcurr-pf-central-antifreeze-pretrain-s0` (train-3) — BOTH
+finished within the same cycle (2M steps at ~16-26k steps/s, ~2-3 min
+wall clock) and BOTH verdicted **FAIL**, same-cycle: a genuinely
+informative, clean, symmetric result, not the quiver-to-over_current
+basin. `env/reward_step_event` settled at ~0.0007 (essentially never
+fires — no real forward-projecting swing was ever completed),
+`env/walk_speed` pinned at the same 0.0205 static floor as every
+prior FAIL, `walk_direction_err_deg` ~90deg (chance) — BUT
+`ep_len_mean` rose 63->547 over the run and `terminations/truncated`
+(not over_current/tilt) dominates: the policy learned to SURVIVE via
+a safe static stand rather than a quivering death, converging its
+reward EXACTLY to the scripted "park" floor (202 in the
+WALKCURR_SV_PRETRAIN_STEP bank) and never approaching "gait" (~254).
+Central and decleg twins are numerically IDENTICAL (ep_len_mean
+547.29 both, ep_rew_mean 202.0/202.03) — architecture is not the
+confound. **Root cause (assumed, not yet proven): this is an
+exploration-BOOTSTRAP problem, not a reward-ranking problem** — the
+bank already proves the ranking is correct, but `k_step_event` is
+all-or-nothing at a >=10mm-along-command completed swing, so a fresh
+random-init policy that has never once produced anything resembling
+a real stride has no shaping gradient anywhere near a PARTIAL swing
+and 2M steps (further, cheap to fund) may just never sample one by
+chance. **NEXT** (not yet built/launched — a fresh cycle's own
+sized decision, not rushed onto this one's tail): before re-trying at
+higher budget alone (the same one-more-dose mistake this track's
+whole fallback ladder already warns against), build a GRADUATED
+step-completion shaping bank (partial credit for airborne time /
+partial forward displacement below the 10mm bar, tapering to zero at
+truly-zero motion) so a first, incomplete stride attempt is
+reinforced instead of requiring a lucky complete one — genuinely
+different from every already-tried mechanism (idle-terminate/
+park_duty/RND/tilt/terrain/idle-charge, all priced the STATIONARY
+side; this reshapes the ACTIVE side's income curve). If that also
+fails, pretrain-staging is closed altogether and the fork moves to a
+non-PPO search method (already the CPG track's own solved approach,
+out of this track's from-scratch scope) or an operator prior-free-
+constraint escalation.
+Snapshot `47d24895` (bank only, no production-code changes — reused
+existing `reward.k_step_event`/`reward.k_walk_freeprog` cfg keys).
+
+**DIG-IN FLAGGED, NOT VERDICTED (08-30 ~06:2x): `cw-walkcurr-pf-
+decleg-sv-s4-b100m`** (the 5th and last decleg-b100m population-sweep
+arm, 100.3M/100M steps, finished+unclaimed this cycle) reads
+ANOMALOUS vs its 4 already-FAIL'd byte-identical-recipe siblings
+(s2/s3/s5/s6 — seed is the only lever): DR-0 gate shows genuinely
+POSITIVE median progress on 3/4 sub-panels (walk/det prog med
+**0.30**, individual episodes up to 0.55; walk_startjitter/det med
+0.14) vs every sibling's ~0/negative, and frame strips show visible
+net forward translation (checkerboard/marker shift across all 8
+frames) unlike every sibling's flat zero-translation quiver. BUT the
+run's own binding litmus is NOT clearly met: `env/walk_speed` only
+0.026 (barely off the 0.02 floor, not a clean escape),
+`terminations/over_current` still fires 24/24 gate episodes (716/
+window in training, not "background"), slip/m still 2.97-7.84 (mixed,
+some above cap), reward quarters [173.0,166.5,166.7,167.2] identical
+peak-then-flat shape to every FAIL. This could be the population
+sweep's first genuine partial escape (the literal prediction-if-true
+this whole wave was funded to detect) OR a sharper instance of the
+already-named "freeprog escape co-occurring with an over_current
+surge" artifact (a burst of real motion in the seconds before an
+over-current death, not sustained gait) — telling the two apart
+needs a per-episode time-series read (does progress accrue steadily
+across the episode or spike right before termination?) beyond this
+triage cycle's scope. Left UNVERDICTED; flagged for the deep-model
+dig-in cycle. If it reads as a genuine partial escape: this becomes
+the seed the population sweep should replicate/extend BEFORE writing
+off the raw budget/seed axis or funding the graduated-step-shaping
+idea above. Evidence: `logs/ckpt_eval/cw_walkcurr_pf_decleg_sv_s4_
+b100m_gate/`, W&B `6ogllxfh`.
+
 ## Goal (DONE gate)
 
 A prior-free policy passes a held-out C-env contextual walking panel

@@ -43,6 +43,66 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
+## Now (2026-08-30 ~06:5x — decleg-sv-s4-b100m dig-in RESOLVED (metric artifact, FAIL); graduated step-shaping mechanism built + launched)
+
+Plain English: resolved the DIG-IN flag left by the prior cycle on
+`cw-walkcurr-pf-decleg-sv-s4-b100m` (5th/5th decleg-b100m pop-sweep
+seed, anomalous 0.30-0.55 DR-0 progress_ratio vs its 4 FAIL siblings).
+Root cause: `progress_ratio = along_dist_m / cmd_dist_m`, and the
+episodes that die to over_current FASTEST get the SMALLEST `cmd_dist_m`
+denominator (some walk/det episodes were cut off at ~6s vs ~25s for
+others) -- the absolute `along_dist_m` is uniformly tiny across ALL 24
+held-out episodes regardless of episode length (0.007-0.037m total,
+i.e. ~1-2mm/s), identical in magnitude to every already-FAIL'd sibling;
+the short episodes just divide by a smaller number, inflating the
+ratio. Training curves confirm no real escape across the full 100M
+steps: `env/walk_speed` oscillates 0.018-0.028 (never clears the 0.02
+floor decisively), `terminations/over_current` stays 600-1000/window
+throughout (not background), `ep_len_mean` bounces with no clean
+rising trend, `env/walk_freeprog_score` hovers ~0. Verdicted **FAIL**
+-- closes the operator-ordered PPO population/budget-seed sweep at
+**6/6 FAIL** (decleg s2/s3/s4/s5/s6 + central-sv-s0, all the same
+static-quiver-to-over_current basin). SAC tilt5 x4 (s1-b20m/s2/s3/s4)
+still training, another cycle's/the drain's to read.
+
+Per the prior cycle's own deferred NEXT item, built and launched the
+graduated step-completion shaping mechanism instead of leaving it as a
+placeholder. New `reward.k_step_partial` (walk_task.py): the pure
+`k_step_event`-only pretrain (decleg/central-antifreeze-pretrain-s0,
+both FAIL 08-30 ~06:16) gave a fresh-random-init policy NO reward
+gradient anywhere near a partial/incomplete stride (the term is an
+all-or-nothing cliff at along_f>=10mm) -- `k_step_partial` pays a
+LINEAR taper for a genuine completed lift->swing->touchdown that falls
+short of the 10mm gate, seamless with the existing credit at the
+boundary. Bank-probe discovery during construction: a naive zero-floor
+taper measurably breaks the wrong-direction-earns-nothing invariant --
+the scripted "sideways" bank twin (real 90-deg-off-command gait) has a
+small but nonzero net forward drift from its own leg kinematics
+(~2.6cm/episode) that a zero-floor taper pays MORE than an honest tiny
+forward partial stride. Fixed with `reward.step_partial_deadband_mm`
+(default 2mm): holds the taper at exactly 0 up to the deadband, only
+ramps 0->k_step_partial across (deadband, 10mm) -- brings the sideways
+leak back under the same <5 margin every other wrong-direction probe
+in this file uses. New bank `WALKCURR_SV_PRETRAIN_GRAD`
+(test_task_semantics.py, 5/5 green: partial progress earns clearly
+more than floor, income is monotone in stride completeness, fidget
+forms stay near floor, wrong-direction bounded, topple is the floor).
+Default `k_step_partial=0.0` = legacy exact (confirmed: the pure-STEP
+bank's own 4/4 tests are unaffected; wider step_event/walkcurr_sv
+slice 33/33 green, one pre-existing unrelated topple-timing flake
+confirmed identical on clean HEAD). Launched a matched 2-architecture
+pair at the same 2M discovery budget, `k_step_partial=0.5`:
+`cw-walkcurr-pf-decleg-antifreeze-pretrain-grad-s0` (train-0),
+`cw-walkcurr-pf-central-antifreeze-pretrain-grad-s0` (train-1), both
+VERIFIED RUNNING. Prediction-if-true: `env/reward_step_event` (or a
+comparable partial-credit signal) rises measurably off ~0 before 2M
+steps and walk_speed/ep_len show early real motion rather than an
+immediate safe-stand convergence. Prediction-if-false: same static
+basin as the pure-STEP pretrain -- exploration-bootstrap is refuted as
+the blocker, pretrain-staging closes altogether and the fork moves to
+a non-PPO search method or an operator prior-free-constraint
+escalation (per the prior cycle's own NEXT note).
+
 ## Now (2026-08-30 ~06:1x — 4/5 decleg-b100m population-sweep arms read FAIL this cycle; built + launched the candidate-1 antifreeze-pretrain fork)
 
 Plain English: triaged the overnight population sweep as its own reads

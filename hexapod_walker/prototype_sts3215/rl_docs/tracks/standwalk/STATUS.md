@@ -1,5 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~03:4x (**`cw-walk-allheading-mlp-singleframe-canary`
+CANARY PASS — matches the hist64 mlp/tf scratch1 canaries' own
+mechanism-health signature; promoted to a 40M acquisition.**) Plain
+English: triaged the distill-compatibility probe from the prior
+cycle's entry (single-frame retrain of the all-heading recipe, testing
+whether dropping `obs.history_frames=64` sidesteps the `--dual`
+stacking bug cheaply). All 4 pre-registered criteria clear, each one a
+close match to the precedent canaries' own recorded shape, not just a
+loose pass: (1) no NaN/blowup, `train/std` rises mildly (healthy, no
+collapse), `terminations/over_current` shows one transient bump
+(1.33M-1.72M, peak 42) fully resolving to single digits by 1.8M — same
+shape as the precedent's shared 86-108-peak bump, not a divergent
+explosion; (2) `train/bc_anchor_loss_walk` bumps during anchor warmup
+then falls steadily to a 0.006 plateau; (3) course-income
+(`reward_walk_course_income`/`walk_course_income_support`) nonzero on
+29/31 logged ticks, dips through the mid-run 100Hz valley then ticks
+back UP in the final ~250k steps (support 0.0->0.35) — textbook match
+to the precedent's own "dips then recovers in the final ~100k steps"
+language; (4) reward quarters [69.8, 151.9, 166.0, 113.2] sit inside/
+near the twins' 73-172 band (Q4 softer than the twins' 162-172 but
+still a rising trajectory overall, no divergence-down signature).
+Auto-caption on the final training video reads "walk:ok raise:ok
+hold:ok" (no formal DR-0/joygate needed at canary phase, non-blocking,
+same convention as the precedent pair). **Promoted per the gate's own
+text: launched `cw-walk-allheading-mlp-singleframe-acq1`** (respec
+`--init-from-source`, 40M budget, `--phase acquisition`, VERIFIED
+RUNNING train-0, W&B `xkgk2em8`). Cheap first gate: the same
+`eval_cmd_suite` balanced 8-heading panel the hist64 twins used; if
+that clears, the formal 60s `eval_joystick_gate` stress_mix script; if
+THAT also clears, immediately re-attempt the `distill_gru.py --dual`
+smoke test with this checkpoint as walk-teacher (should now match
+cleanly, single-frame both sides, zero new code) before funding any
+acquisition-scale Stage-2 distillation. FAIL on either eval hands the
+job back to fix (a) from the 08-30 ~03:1x entry (stacking-aware
+`distill_gru.py` `collect()` rewrite). Checked the rest of the fleet
+before refilling further: joystick/amp/cpg stay DONE-or-operator-wait
+(joystick's 100Hz hardening thread explicitly deferred to this track;
+amp M6 is hardware-only; cpg's only open item is a non-blocking A/B
+adoption read), and walkcurr's two most-recent arms
+(`central-sv-idle2-s0`/`decleg-sv-idle2-s0`) are already
+FAIL-verdicted with the track's own STATUS recording itself blocked
+pending a genuinely new mechanism — no other track had a justified,
+non-filler launch this cycle. 10 GPU pods stayed free (one honest arm
+existed; batching would have meant inventing untested siblings).
+`cw-standwalk-unified1-joyfix-courseincome1` (a concurrent cycle's
+run) finished mid-cycle (W&B synced) — left untouched/unverdicted per
+the standing containment rule; it belongs to whichever cycle owns it.
+
 Update, 2026-08-30 ~03:2x (**COURSEDISP TRIO CLOSED, 3/3 CANARY PASS/
 no-delta — the sub-stride window lever does not exist; UNBLOCKED and
 LAUNCHED the pre-registered course-INCOME arm.**) Plain English: found

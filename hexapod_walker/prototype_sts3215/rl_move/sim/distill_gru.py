@@ -513,11 +513,12 @@ def quick_probe(student, env, modes=("walk", "rise", "hold"),
         msg = (f"[distill-gru] probe {mode}: ep returns "
                f"{[f'{r:.0f}' for r in rews]}")
         if disps:
-            msg += (f"  net_disp_m {[f'{d:.3f}' for d in disps]}"
-                    " (WARNING: <0.05m over a full episode usually means"
-                    " in-place quivering, not walking -- do not fund an"
-                    " RL fine-tune on this checkpoint without checking"
-                    " why)" if max(disps) < 0.05 else "")
+            msg += f"  net_disp_m {[f'{d:.3f}' for d in disps]}"
+            if max(disps) < 0.05:
+                msg += (" (WARNING: <0.05m over a full episode usually"
+                        " means in-place quivering, not walking -- do not"
+                        " fund an RL fine-tune on this checkpoint without"
+                        " checking why)")
         print(msg)
 
 

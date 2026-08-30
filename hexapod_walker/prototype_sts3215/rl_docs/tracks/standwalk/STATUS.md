@@ -1,6 +1,33 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-29 ~23:5x-00:0x (**`cw-walk-allheading-tf-stressmix-ft1`
+Update, 2026-08-30 ~00:3x (**`cw-walk-allheading-mlp-stressmix-ft1`
+VERDICTED PASS too — MATCHED PAIR COMPLETE, both architecture twins
+clean.**) Plain English: the mlp twin's own formal 60s joygate (already
+finished, W&B `state=finished`, sitting untriaged) reads exactly like
+the tf twin: zero falls (24/24), slip_ok (2.394 med, cap 2.9),
+gait_valid_all (6/6 legs cycling, duty 0.56-0.61, zero sacrificed) —
+the tool's tick-default `dir_ok` reads false (47.73deg vs allow 40)
+but re-aggregating the SAME saved report.json (no re-simulation) with
+`--dir-err-metric windowed_1s` flips it true: `course_err_1s_med`
+3.96deg (allow 12deg) — full PASS. Fresh DR-0 fixed-forward gate (n=24)
+also confirms no regression: prog med 0.36-0.41 (matches the
+pre-finetune ~0.41 baseline), slip med 2.10-2.71, gait_valid 6/6, zero
+terminations, contact sheet clean (upright, level, six legs cycling).
+This CLOSES Next item (b) — both twins now agree under the binding
+windowed metric, a genuinely matched pair, not a one-off reading.
+Evidence: `logs/ckpt_eval/cw_walk_allheading_mlp_stressmix_ft1_
+{gate,joygate}/`.
+**Next item (a) is now live and unblocked**: mlp+tf
+(`cw-walk-allheading-{mlp,tf}-stressmix-ft1`) are the leading candidate
+walking SOURCE pair for Stage-2 sit→rise→walk→lower distillation —
+composing either/both with the mesh stance champion
+(`cw-standwalk-stance-mesh2-*-acq8m`) needs new dual-core/session-
+composition wiring (a design task), not funded/started this cycle
+(flagging for the next cycle with bandwidth to design it, per the
+"do not park on operator input" rule — this is agent design work, not
+an operator wait).
+
+Previous entry, 2026-08-29 ~23:5x-00:0x (**`cw-walk-allheading-tf-stressmix-ft1`
 VERDICTED PASS — the stress_mix fix genuinely works; the prior "FAILS
 direction" read was a metric artifact, and this is now CONFIRMED on
 the real formal 60s joygate script, not just a 20s proxy panel.**)

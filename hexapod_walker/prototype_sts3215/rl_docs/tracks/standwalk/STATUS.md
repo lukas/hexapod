@@ -1,5 +1,49 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~21:2x (**dualbc4-walkteach-anchor14coef1-canary{,-s1}
+BOTH CANARY PASS — promoted to 8M acquisition, RUNNING.**) The
+`_mixedsession` harness the 20:5x entry below left in flight actually
+finished its `_gate`/`_owncfg` sub-passes (both seeds, no live eval
+process left on train-2/train-3 by the time this cycle checked) but
+its final `_session` sub-pass directories are empty on both seeds —
+same INCOMPATIBLE-obs-contract class already documented for the
+dualbc2/dualbc3 line (dual-core-GRU policy vs the single-core session
+harness), informational only, not a blocker for this canary's own
+MECHANISM-HEALTH gate text. Verdicted PASS both seeds straight from
+the DR-0/own-DR reports: det walk `gait_valid` 6/6, `sacrificed_legs`
+0, `progress_ratio` med 0.43-0.46 (dualbc3's own 0.28-0.43 band, same
+order), `slip/m` 1.77-1.86 (inside teacher cap), WIRING CHECK
+(`bc_anchor_loss_walk`/`fill_walk`) confirmed nonzero/monotonic both
+seeds via direct `wandb_history.csv` read. The pre-registered
+per-heading/course clause (does the all-heading teacher-adoption swap
+keep its turn/all-heading capability under the fine-tune?) was
+answered from `eval_checkpoint`'s own per-episode telemetry —
+`course_err_1s_med_deg` 5.5-7.0deg, `wrong_course_frac_1s` 0.0,
+`course_speed_ratio_1s_med` 0.43-0.46 both seeds, inside
+`walkteach-acq12m`'s own 0.31-0.46/4.5-5.2deg band — **not** from a
+fresh `eval_cmd_suite` 8-heading read this cycle also ran, which gave
+a misleading near-zero-velocity result on every heading for this
+checkpoint. Root-caused (not just noted): `eval_cmd_suite` has no
+mode-forcing for a `joint_walk` 4-submode (walk/rise/lower/hold)
+dual-core recipe — it was built for/validated on single-mode
+walk-only checkpoints (`walkteach-acq12m`), so its fixed 12s window on
+THIS checkpoint plausibly spends real time in non-walk submodes where
+near-zero velocity is the correct baseline, not a failure. **BINDING
+NOTE for future cycles**: do not run bare `eval_cmd_suite` against a
+`joint_walk` dual-core/multi-submode checkpoint as evidence without
+first adding walk-mode forcing (or reading `eval_checkpoint`'s own
+`--modes walk` course telemetry instead, as this verdict did) — it
+gave a false-FAIL read here. Promoted both seeds to 8M acquisition
+(`cw-standwalk-stage2-dualbc4-walkteach-anchor14coef1-acq8m{,-s1}`,
+same convention as the dualbc3-dagger promote), VERIFIED RUNNING
+train-2/train-3. SKILLS.md row added. 10 GPU pods free; other tracks
+re-swept unchanged (joystick/amp/cpg DONE-or-maintenance, walkcurr
+operator-blocked, todaypolicy delivered) — no further legal launch
+this cycle beyond the acq8m pair itself (wave-2 still sequenced behind
+this exact canary's own verdict landing, which it now has — wave-2's
+own launch is next-cycle work once its cfg is assembled, not
+pre-registered as a batch here).
+
 Update, 2026-08-30 ~20:5x (idle-kick, no launch — dualbc4-walkteach
 canary `_mixedsession` harness still genuinely mid-flight on
 train-2/train-3 at ~2h20m in, own subprocesses ps-confirmed alive at

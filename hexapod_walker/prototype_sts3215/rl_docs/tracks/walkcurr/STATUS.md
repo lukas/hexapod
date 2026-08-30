@@ -567,6 +567,98 @@ top two are built, bank-proven, and launched this cycle.
   terrain doesn't help at this dose either, closing fallback (b) at
   amp=1.0. Snapshot `32f7548a`.
 
+- **`cw-walkcurr-pf-terrain0-central-s0` (primitive flat control) read:
+  FAIL (aligned), 08-30 ~01:5x.** Confirms model family is NOT the
+  confound for the terrain A/B: this arm stays pinned in the same
+  no-progress basin as the mesh flat control
+  (`cw-walkcurr-pf-central-sv-s0-rr2`, FAIL), just via a different
+  mechanical route. DR-0 gate n=24 (walk+walk_startjitter, det+sto):
+  gait_valid 0/24, prog_ratio med 0.00 (need >=0.35), direction_err
+  det/sto 75/89deg (cap 30), fwd_dist ~0.00-0.02m, **terms=0/24 (zero
+  falls)** — the 2.104 kg primitive body apparently has enough current
+  headroom that the same static quiver never trips over_current the
+  way the 3.50 kg mesh control does every single episode; det-mode
+  slip/m 2.4-2.5 stays under the 3.0 cap but sto-mode slip explodes to
+  16-21 (skate/drag); legs [0,1,2,4] planted/sacrificed every det
+  episode. Video/contact-sheet: identical frozen splayed stance, zero
+  visible translation, whole 25s clip, every sampled episode.
+  Training telemetry: `rollout/ep_rew_mean` quarters
+  [194.2,197.1,194.8,194.5] flat the whole 20M run; `env/walk_speed`
+  pinned 0.018-0.031 m/s throughout (cmd 0.05-0.06, never leaves the
+  ~0.02 static floor); `env/walk_freeprog_score` stays negative
+  [-0.057,-0.013] the entire run, no sustained zero-cross; `ep_len_
+  mean` saturates at the 2500-step cap (matches terms=0). Reward AND
+  task metrics both flat at full budget = aligned FAIL, not a continue
+  case. **Track-level terrain-fallback call still pending the
+  `cw-walkcurr-pf-terrain1-central-s0` sibling's own read (concurrent
+  cycle) — per the pre-registered gate, if terrain1 ALSO stays pinned,
+  fallback (b) closes at amp=1.0 too** (both fallback (a) SAC and now
+  (b) terrain would be exhausted per the operator's "in order" ladder,
+  forcing a genuinely new lever: higher terrain dose, a structural
+  balance curriculum, or a different discovery reward/architecture
+  entirely — not this cycle's call to make alone).
+
+- **`cw-walkcurr-pf-terrain1-central-s0` (the actual hfield treatment)
+  read: FAIL, CLOSES fallback (b) at amp=1.0 (08-30 ~02:0x).**
+  Statistically indistinguishable from its own flat-primitive control
+  `-terrain0-central-s0` on every number that matters: DR-0 gate n=24
+  gait_valid 0/24, prog_ratio med 0.003 (need >=0.35), direction_err
+  det/sto 77deg/89deg (cap 30), fwd_dist 0.002-0.05m/25s, det slip/m
+  1.55-2.75 (only under the 3.0 cap because there is ~no travel to
+  slip on), sto slip/m 16-20 (skate), zero terminations. Frame strip:
+  frozen splayed stance, front-left leg held at an odd angle, no
+  visible translation across 6 sampled frames — same basin as every
+  other 08-29 SV-wave arm. Training telemetry tracked terrain0 almost
+  exactly the entire 20M run (`env/walk_speed` 0.018->0.031 m/s vs
+  terrain0's 0.018->0.031; `ep_rew_mean` quarters [194.2,197.2,195.0,
+  194.7] vs terrain0's [194.2,197.1,194.8,194.5]; both `ep_len_mean`
+  saturate at the 2500-step cap). **TRACK-LEVEL SYNTHESIS: the
+  operator's full named fallback ladder is now exhausted** — fallback
+  (a) off-policy SAC (7 arms: s0, s1, budget10m, tilt2/5/10-s1,
+  tilt5/10-settle1, all FAIL/no-op) AND fallback (b) Heess-style
+  terrain diversity (terrain0/terrain1 matched A-B, both FAIL,
+  terrain adds no exploration signal this basin needed) are both
+  closed, on top of the 08-29 decleg-sv/central-sv/phase-sv wave
+  itself (6/6 FAIL, the static-quiver-to-over_current basin this
+  whole ladder was built to escape). **New lever built + launched
+  this cycle (not an operator wait — assume-and-go per the standing
+  rule):** `WALKCURR_SV_IDLE` bank (`test_task_semantics.py`, 6/6
+  green) reintroduces `reward.k_walk_idle_charge` — the track's
+  pre-existing anti-park travel-floor charge (operator order
+  2026-08-21, present at dose 2.0 in `kawawa2022_recipe.py` since day
+  one) — at dose 2.0 only (dose 5.0 pre-launch-refuted itself in the
+  bank: the sustained per-tick charge over a full wrong-way episode
+  out-costs a topple's brief life + one-time term_penalty, inverting
+  the falling-is-the-floor property the same way the SAC tilt10 dose
+  did). This is explicitly NOT the post-discovery slip/gait-quality
+  re-pricing the operator's own sequencing reserves for after a gait
+  exists — it is the ORIGINAL from-scratch anti-freeze primitive,
+  explicitly zeroed in `WALKCURR_SV_OVERRIDES` to isolate the
+  freeprog-income question, reintroduced because the exact failure
+  shape it was built for (freeze/march-in-place harvesting near-zero
+  freeprog income for free) is the one now reproduced independently
+  across architecture, algorithm, AND terrain. Honest counter-
+  precedent on record: the AMP track's own M2 freeprog dig-in (08-22)
+  concluded charges alone cannot cross a pure exploration basin
+  barrier with no accessible income gradient — this is a direct,
+  cheap (~15 min wall clock/arm at 20M) test of whether that finding
+  transfers to this diet's specific failure shape. Launched as
+  single-lever respec clones (only `reward.k_walk_idle_charge=2.0`
+  added, everything else byte-identical) off the two already-fully-
+  characterized FAIL baselines that anchor this wave:
+  `cw-walkcurr-pf-central-sv-idle2-s0` (parent
+  `central-sv-s0-rr2`) and `cw-walkcurr-pf-decleg-sv-idle2-s0` (parent
+  `decleg-sv-s0-rr3`). Gate: same rung-1 bar as every SV-wave sibling;
+  discovery litmus = `env/walk_speed` off its ~0.02 m/s floor AND
+  stable-or-rising `ep_len_mean`, read jointly with reward trend.
+  Escape (either arm) = the idle floor is a real anti-freeze lever,
+  promote/seed-replicate/retrofit; reproduces the identical basin with
+  flat/declining reward = closes the idle-charge lever too and
+  confirms the AMP basin-barrier finding transfers here — the next
+  fork would then be a genuinely new mechanism (settle-window-style
+  timing fix, a structural balance curriculum, or an operator-scale
+  budget raise), not this cycle's call to make alone.
+
 ## Next (after the decleg-sv wave reads)
 
 0. **DONE (08-29 ~21:3x): `cw-walkcurr-sac-sv-s1-budget10m` read as

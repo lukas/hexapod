@@ -226408,7 +226408,7 @@
       "Terrain-diversity fallback (b), flat-ground primitive-family control paired with cw-walkcurr-pf-terrain1-central-s0. See hypothesis/gate."
     ],
     "created": "2026-08-30T00:30:49+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -226452,7 +226452,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL (aligned). The primitive-family flat control (2.104kg, terrain_amp=0.0) does NOT escape the static-crouch basin either -- confirms model family is not the confound for the terrain fallback A/B. Evidence: DR-0 gate n=24 (walk+walk_startjitter, det+sto): gait_valid 0/24, prog_ratio med 0.00 (gate needs >=0.35), direction_err det/sto 75/89deg (cap 30), fwd_dist ~0.00-0.02m, terms=0/24 (zero falls -- a DIFFERENT mechanical route than the mesh central-sv-s0-rr2 control, which trips over_current every episode at 3.50kg, but the SAME non-locomotion outcome). det-mode slip/m 2.4-2.5 stays under the 3.0 cap but sto-mode slip explodes to 16-21 (skate/drag, not walk); legs [0,1,2,4] planted/sacrificed in every det episode. Video/contact-sheet (det_0, sto_0, contact_sheet.png) all show an identical frozen splayed stance with zero visible net translation across the full 25s clip. Training telemetry: rollout/ep_rew_mean quarters [194.2,197.1,194.8,194.5] flat the whole 20M run; env/walk_speed pinned 0.018-0.031 m/s throughout (cmd 0.05-0.06, never leaves the ~0.02 static floor); env/walk_freeprog_score stays negative [-0.057,-0.013] the entire run with no sustained zero-cross; ep_len_mean saturates at the 2500-step cap (matches terms=0). Reward AND task metrics both flat at full 20M budget = genuine aligned FAIL per RUN_INTERPRETATION_RULES, not a continue case. Why: this run is the pre-registered model-family isolation leg of the terrain fallback(b) A/B -- its only job was to separate \"lighter mass/different kinematics\" from \"terrain treatment diversity\" as the explanation for any future escape. It stays pinned in the identical no-progress basin as the mesh flat control, just via a different failure mechanic (current headroom differs at 2.1kg vs 3.5kg) -- so model family is NOT the lever, licensing a clean read of the terrain1 sibling as a pure test of the terrain-diversity lever. Next: read cw-walkcurr-pf-terrain1-central-s0 (concurrent-cycle run, do not presume its result) against BOTH this floor and the mesh floor per the pre-registered gate text -- if it also stays pinned, fallback(b) closes at terrain_amp=1.0 too and the operator ladder needs a new lever (dose escalation, a structural balance curriculum, or a different discovery reward) rather than more terrain arms at this dose."
   },
   {
     "run": "cw-walkcurr-pf-terrain1-central-s0",
@@ -226560,7 +226562,7 @@
       "Terrain-diversity fallback (b) treatment arm, paired with the terrain0 flat-ground primitive control. See hypothesis/gate."
     ],
     "created": "2026-08-30T00:32:57+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -226592,6 +226594,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-terrain1-central-s0 --steps 20000000 --task joint_walk --episode-seconds 25 --n-steps 96 --batch-size 98304 --net-arch 128,64,32 --activation-fn tanh --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 0 --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --n-envs 4096 --cfg-set control.hz=100 --cfg-set env.model_source=primitive --cfg-set env.terrain_amp=1.0 --out-name ppo_goal_cw_walkcurr_pf_terrain1_central_s0 --impl warp --host-workers 24 --notes 'Terrain-diversity fallback (b) treatment arm, paired with the terrain0 flat-ground primitive control. See hypothesis/gate.' > /tmp/train_cw-walkcurr-pf-terrain1-central-s0.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-terrain1-central-s0.log",
     "wandb_id": "82muplua",
-    "verified": "2026-08-30T00:36:37+00:00"
+    "verified": "2026-08-30T00:36:37+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T00:42:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2995,
+        "fps": 26214.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "FAIL (aligned) -- the full 18mm hfield terrain treatment does NOT escape the static-quiver basin, and is statistically indistinguishable from its own flat-ground primitive control cw-walkcurr-pf-terrain0-central-s0 (concurrent cycle, FAIL): DR-0 gate n=24 (walk+walk_startjitter, det+sto) gait_valid 0/24, progress_ratio med 0.003 (need >=0.35), direction_err det/sto 77deg/89deg (cap 30), fwd_dist 0.002-0.05m/25s, det slip/m 1.55-2.75 (under the 3.0 cap only because there is ~no travel to slip on), sto slip/m 16-20 (over cap, skate), zero terminations/falls (2.104kg-equivalent-headroom primitive body never trips over_current the way the mesh central-sv-s0 control does). Contact sheet/video: frozen splayed stance, front-left leg held out at an angle, near-zero visible motion across all 6 sampled frames of every episode -- same basin signature as terrain0, central-sv-s0, and all 3 decleg-sv seeds. Training telemetry matches terrain0 almost exactly the whole 20M run: env/walk_speed pinned 0.018->0.031 m/s (cmd 0.05-0.06, never leaves the ~0.02 static floor), env/walk_freeprog_score flat negative [-0.05,-0.037] with no sustained zero-cross, rollout/ep_rew_mean flat [194.2,197.2,195.0,194.7], ep_len_mean saturates at the 2500-step cap (matches zero terminations). Reward AND every walk-eval metric flat at full 20M budgapt = aligned FAIL per the 08-21 ruling, not a continue case. TRACK-LEVEL: this CLOSES fallback (b) (Heess-style terrain diversity) at terrain_amp=1.0 -- both the treatment and its own matched flat-primitive control land in the identical no-progress basin, so terrain diversity adds no exploration signal this static-crouch basin needed. Combined with fallback (a)'s prior close (7 SAC-SV arms, all FAIL/no-op) and the 08-29 decleg-sv/central-sv/phase-sv wave (6/6 FAIL), the operator's full named fallback ladder is now exhausted. REFILL this cycle: built+bank-proved WALKCURR_SV_IDLE (test_task_semantics.py, 6/6 green at dose 2.0; dose 5.0 pre-launch-refuted by its own probe test -- inverts the fall-is-the-floor property the same way SAC's tilt10 dose did) and queued a 2-arm single-lever idle-charge test (reward.k_walk_idle_charge=2.0, the pre-existing from-scratch anti-freeze charge, present in kawawa2022_recipe.py since day one but zeroed in the SV diet to isolate the freeprog question) on the two architectures that anchor this wave (central-sv-s0, decleg-sv-s0) -- see next verdict/launch entries this cycle."
   }
 ]

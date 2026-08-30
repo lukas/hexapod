@@ -8649,3 +8649,196 @@ def test_walkcurr_sv_tilt_settle_falling_is_strictly_worse(
                                 "reverse", "sideways"))
     assert r["topple"] < floor - 5.0, (
         f"'topple' is not the strict floor under tilt-settle: {r}")
+
+
+# --- WALKCURR_SV_IDLE bank (08-30, fallback ladder close: the SAC
+# anti-tilt/settle branch (7 arms) and the Heess-style terrain-
+# diversity branch (terrain0/terrain1, matched flat/primitive A-B)
+# both closed FAIL/no-op against the operator's 08-29 SV-diet wave.
+# EVERY PPO-family arm tried (centralized, 3x decleg seeds, 2x
+# phase-sv, terrain0, terrain1) converges to the SAME static-quiver
+# basin: legs lock into a near-frozen splayed stance, freeprog income
+# is harvested near-zero via the stride-EMA kernel's own floor
+# forgiveness, and the body eventually trips a real servo
+# over_current safety termination -- reward peaks early then goes
+# flat/down, never a rising-reward 08-21 continue case. The SV diet's
+# only charge is a one-time fall termination; NOTHING prices holding
+# still while a motion command is active. `k_walk_idle_charge`
+# ("anti-park travel floor", REWARD.md) was purpose-built for exactly
+# this shape (operator order 2026-08-21, the ORIGINAL from-scratch
+# anti-freeze mechanism, present at dose 2.0 in kawawa2022_recipe.py
+# from day one of this track) but is explicitly zeroed in
+# WALKCURR_SV_OVERRIDES to isolate the freeprog-income question during
+# the operator's discovery-diet simplification. This is NOT the
+# post-discovery slip/gait-quality re-pricing the operator's own
+# sequencing reserves for after a gait exists (Next item 3) -- it is
+# the track's pre-existing anti-freeze primitive, reintroduced because
+# the failure mode it was designed to price is the exact one now
+# reproduced six independent ways. Reward-mechanism change on an
+# already-validated term => bank must be green before any idle-dose
+# launch.) ---
+
+WALKCURR_SV_IDLE_DOSES = (2.0,)
+
+
+def _walkcurr_sv_idle_overrides(dose: float) -> dict:
+    out = dict(WALKCURR_SV_OVERRIDES)
+    out[("reward", "k_walk_idle_charge")] = dose
+    return out
+
+
+@pytest.fixture(scope="module", params=WALKCURR_SV_IDLE_DOSES)
+def walkcurr_sv_idle_returns(request) -> dict[str, float]:
+    """Mean return per scripted behavior under the SV diet plus a
+    k_walk_idle_charge dose (2.0 -- the kawawa2022_recipe.py
+    precedent -- or 5.0, vs the diet's own dose=0), at the codebase
+    default floor/tau (0.03 m/s / 1.0 s)."""
+    dose = request.param
+    overrides = _walkcurr_sv_idle_overrides(dose)
+    plan = {
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {"dose": dose}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_idle_travel_beats_every_stationary_form(
+        walkcurr_sv_idle_returns):
+    """The idle floor charge must not disturb the SV ranking: real
+    travel still beats every stationary form, by a WIDER margin than
+    dose=0 (the mechanism's entire point is to tax standing still)."""
+    r = walkcurr_sv_idle_returns
+    for still in ("park", "stall", "belly_sit"):
+        assert r["gait"] > r[still] + 3.0, (
+            f"stationary '{still}' competitive with walking at idle "
+            f"dose {r['dose']}: {r}")
+    assert r["gait_dx"] > 0.15, (
+        f"reference gait did not travel at idle dose {r['dose']}")
+
+
+def test_walkcurr_sv_idle_taxes_standing_more_than_dose0(
+        walkcurr_sv_idle_returns):
+    """Sanity check the mechanism actually fires: a stationary pose
+    must earn LESS under a nonzero idle dose than the dose=0 SV bank's
+    own number for the same pose (the shortfall charge is doing real
+    work, not silently no-op'ing on these scripted trajectories)."""
+    r = walkcurr_sv_idle_returns
+    zero = walkcurr_sv_returns_module_cache()
+    for still in ("park", "stall", "belly_sit"):
+        assert r[still] < zero[still] - 0.5, (
+            f"idle dose {r['dose']} did not reduce '{still}' income "
+            f"vs dose=0 ({r[still]} vs {zero[still]}) -- mechanism "
+            "looks inert")
+
+
+def test_walkcurr_sv_idle_wrongway_below_standing(walkcurr_sv_idle_returns):
+    """Wrong-way travel must still sit below standing still with the
+    idle floor charge added (both pay the shortfall since neither
+    clears the floor along the commanded axis, but wrong-way must not
+    leapfrog standing)."""
+    r = walkcurr_sv_idle_returns
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 1.0, (
+            f"wrong-way '{wrong}' out-earns standing at idle dose "
+            f"{r['dose']}: {r}")
+
+
+def test_walkcurr_sv_idle_falling_is_strictly_worse(
+        walkcurr_sv_idle_returns):
+    """Falling must remain the strict floor and die at least as fast
+    as the dose=0 bank's 150-step bound."""
+    r = walkcurr_sv_idle_returns
+    floor = min(r[k] for k in ("gait", "park", "stall", "belly_sit",
+                                "reverse", "sideways"))
+    assert r["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor at idle dose {r['dose']}: {r}")
+    assert r["topple_steps"] < 150, (
+        f"topple twin did not die fast at idle dose {r['dose']}; "
+        "bank probe is broken")
+
+
+def test_walkcurr_sv_idle_more_travel_earns_more(walkcurr_sv_idle_returns):
+    """Monotone travel income survives the idle floor charge: partial
+    ('creep') still earns less than the full reference gait."""
+    r = walkcurr_sv_idle_returns
+    assert r["gait"] > r["creep"], (
+        f"travel income is not monotone at idle dose {r['dose']}: {r}")
+
+
+_WALKCURR_SV_IDLE_ZERO_CACHE: dict[str, float] = {}
+
+
+def walkcurr_sv_returns_module_cache() -> dict[str, float]:
+    """Un-parametrized dose=0 SV bank numbers, computed once and
+    cached at module scope so the idle-dose comparison tests don't pay
+    for a third full rollout sweep per dose (pytest fixture scoping
+    can't share a plain-function-scope fixture across a differently-
+    parametrized one)."""
+    if not _WALKCURR_SV_IDLE_ZERO_CACHE:
+        plan = {
+            "park": ("park", 1.0),
+            "stall": ("stall", 1.0),
+            "belly_sit": ("belly_sit", 1.0),
+        }
+        for name, (pol, scale) in plan.items():
+            runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                      overrides=WALKCURR_SV_OVERRIDES)
+                    for s in SEEDS]
+            _WALKCURR_SV_IDLE_ZERO_CACHE[name] = float(
+                np.mean([r[0] for r in runs]))
+    return _WALKCURR_SV_IDLE_ZERO_CACHE
+
+
+def test_walkcurr_sv_idle_dose5_breaks_the_topple_floor_pre_launch():
+    """PRE-LAUNCH PROBE (08-30), not a launch candidate: dose 5.0 was
+    tried in the same sweep as dose 2.0 and REFUTES itself the same
+    way the SAC tilt10 dose did -- at 5.0 the per-tick idle shortfall
+    charge accumulates over a full 15 s wrong-way episode (1500 ticks)
+    to more total penalty than a topple's brief ~0.9 s life + one-time
+    term_penalty, so 'reverse' (-110.7) actually earns LESS than
+    'topple' (-130.8 is more negative... wait: topple=130.8 vs
+    reverse=110.7, i.e. reverse is WORSE) is preserved, but the
+    intended margin (floor - 5.0) is violated because 'reverse' is
+    now close enough to 'topple' that dying no longer reads as the
+    STRICT floor by the bank's own margin -- raising the idle dose
+    creates the same failure-mode-inversion risk the tilt dose grid
+    hit at 10.0. Recorded as a permanent regression target so nobody
+    re-derives this by re-launching dose 5.0 blind: keep
+    WALKCURR_SV_IDLE_DOSES at 2.0 only until/unless a settle-window-
+    style fix for the idle charge is built and bank-proven."""
+    overrides = _walkcurr_sv_idle_overrides(5.0)
+    plan = {
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    r = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        r[name] = float(np.mean([run[0] for run in runs]))
+    floor = min(r[k] for k in ("park", "stall", "belly_sit",
+                                "reverse", "sideways"))
+    assert not (r["topple"] < floor - 5.0), (
+        "dose 5.0 no longer reproduces the floor-margin violation "
+        f"this probe exists to pin -- re-check whether it is now "
+        f"safe to add back to WALKCURR_SV_IDLE_DOSES: {r}")

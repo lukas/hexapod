@@ -724,7 +724,8 @@ def test_walk_phase_lock_freezes_on_yaw_only_by_default():
     """Legacy (run_on_yaw unset/0): a wz-only commanded tick still
     freezes the anchor's phase-locked clock — bit-exact preserved."""
     env = _make_walk_env(30, {("train", "bc_anchor_coef"): 1.0,
-                              ("train", "bc_anchor_phase_lock"): 1.0})
+                              ("train", "bc_anchor_phase_lock"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
     env.reset()
     _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)
     hold = q_rad_to_action(env.data.qpos[env._qadr])
@@ -742,7 +743,8 @@ def test_walk_phase_lock_runs_on_yaw_when_enabled():
     the same fixed per-tick rate as a linear-command tick."""
     env_yaw = _make_walk_env(31, {("train", "bc_anchor_coef"): 1.0,
                                   ("train", "bc_anchor_phase_lock"): 1.0,
-                                  ("goal", "walk_phase_run_on_yaw"): 1.0})
+                                  ("goal", "walk_phase_run_on_yaw"): 1.0,
+                                  ("goal", "walk_yaw_cmd"): 1.0})
     env_yaw.reset()
     _pin_walk_cmd_wz(env_yaw, 0.0, 0.0, 0.3)
     hold = q_rad_to_action(env_yaw.data.qpos[env_yaw._qadr])
@@ -752,7 +754,8 @@ def test_walk_phase_lock_runs_on_yaw_when_enabled():
 
     env_lin = _make_walk_env(32, {("train", "bc_anchor_coef"): 1.0,
                                   ("train", "bc_anchor_phase_lock"): 1.0,
-                                  ("goal", "walk_phase_run_on_yaw"): 1.0})
+                                  ("goal", "walk_phase_run_on_yaw"): 1.0,
+                                  ("goal", "walk_yaw_cmd"): 1.0})
     env_lin.reset()
     _pin_walk_cmd_wz(env_lin, 0.055, 0.0, 0.0)
     hold = q_rad_to_action(env_lin.data.qpos[env_lin._qadr])
@@ -771,7 +774,8 @@ def test_walk_phase_lock_still_frozen_on_true_park_with_run_on_yaw():
     since this is exactly the accumulator this fix touches."""
     env = _make_walk_env(33, {("train", "bc_anchor_coef"): 1.0,
                               ("train", "bc_anchor_phase_lock"): 1.0,
-                              ("goal", "walk_phase_run_on_yaw"): 1.0})
+                              ("goal", "walk_phase_run_on_yaw"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
     env.reset()
     _pin_walk_cmd_wz(env, 0.0, 0.0, 0.0)
     hold = q_rad_to_action(env.data.qpos[env._qadr])

@@ -1,5 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~11:2x (**`dualbc3_dagger` finished (background CPU,
+picked up from the prior entry's launch) — `quick_probe` output was
+SILENT on the exact number that matters because of a print-precedence
+bug; fixed the bug, re-ran the check standalone against the saved
+checkpoint (no retraining), confirmed it CLEARS the 0.05m bar, and
+launched the paired RL canary the "Next" item called for.**) Plain
+English: `distill_gru.quick_probe`'s own net-displacement WARNING
+(added 08-30 ~10:2x after the dualbc2 lesson) only printed the
+`net_disp_m` numbers INSIDE the `if max(disps) < 0.05` ternary — i.e.
+adjacent string-literal concatenation happened before the ternary was
+applied, so the whole `net_disp_m [...]` substring (values AND the
+WARNING suffix) only ever appeared when the checkpoint was BAD. When
+displacement was fine, the line printed nothing extra at all — exactly
+backwards from the intent, and exactly why `dualbc3_dagger.log`'s own
+`probe walk: ep returns ['3660','3918']` line showed strong returns
+with zero displacement readout: the check had silently passed but
+hid the evidence. Fixed (`net_disp_m` always prints, WARNING appended
+only when bad; unit-verified with a 3-case string-building smoke,
+snapshot `quick-probe-fixed-heading-fix`→now `0f55c8c1`). Reran the
+check standalone: loaded the SAVED `dualbc3_dagger.zip` weights into a
+freshly-built matching env (same exact `--cfg-set` command replayed,
+BC/DAgger training monkeypatched out — no retraining, no wasted
+compute) and called `quick_probe` directly: **walk-mode
+`net_disp_m` 0.463m / 0.493m over a 15s fixed-heading episode** — an
+order of magnitude above the 0.05m in-place-quiver threshold and
+~20-100x `dualbc2`'s 0.004-0.026m. The DAgger fix worked: this base
+checkpoint genuinely walks net-forward. **Action per the prior
+entry's own pre-registered "Next": launched the anchor14coef1 RL
+canary pair** (`cw-standwalk-stage2-dualbc3-dagger-anchor14coef1-
+canary{,-s1}`, respec'd from the dualbc2 pair with only `--init-from`
+swapped to `dualbc3_dagger.zip`, same 2M mechanism-health gate/
+convention, both VERIFIED RUNNING train-0/train-1). If either seed
+now shows the anchor4-class catastrophe or a worsening probe
+pathology, that would implicate the anchor14coef1 recipe itself (the
+base is pre-verified walking this time, unlike the dualbc2 pair where
+the base was the confound). 10 GPU pods free after this launch; other
+tracks re-swept, nothing else legal (joystick/amp/cpg DONE-or-
+`[operator]`-maintenance-only, walkcurr `[operator]`-blocked). Prior
+banner below.
+
 Update, 2026-08-30 ~10:3x (**Root cause of the `dualbc2_allheadwalk`
 never-walks defect ISOLATED to plain-BC compounding error, not
 context/mix/architecture — DAgger fix built and the full-scale rerun

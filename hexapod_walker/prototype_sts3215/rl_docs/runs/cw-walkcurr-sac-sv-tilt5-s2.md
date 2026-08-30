@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-08-30T04:29:23+00:00
+**created**: 2026-08-30T04:27:14+00:00
 
 **pod**: hexapod-mjx-train-8
 
@@ -12,9 +12,9 @@
 
 **parent**: cw-walkcurr-sac-sv-tilt5-s1
 
-**hypothesis**: Plain English: is tilt5-s1's partial stepping signal (5/6 gait_valid, 0.055m fwd median, still falls 24/24) a real property of the SAC+anti-tilt(k_roll=k_pitch=5.0) diet, or a seed lottery draw the way the concurrent decleg population sweep is testing for PPO? Operator-ordered overnight population sweep (same MCP order as the b20m continuation and the decleg/central 100M PPO wave) -- fresh seed 2, byte-identical tilt5 diet/algo/budget (20M, matching the b20m sibling) otherwise. WALKCURR_SV_TILT bank already green for this dose (6/6, shared by construction with tilt5-s1). Prediction-if-true (diet-driven): this seed matches or beats tilt5-s1's own numbers (gait_valid>=4/6, fwd med approaching/clearing 0.06m) by 20M. Prediction-if-false (seed-lottery only): stays pinned at or below the untreated sac-sv-s1 baseline (24/24 falls, fwd ~0.02-0.05m, gait_valid low) -- narrows the read toward 'tilt5-s1 got lucky', echoing whatever the decleg wave's own s3-s6 arms find for PPO.
+**wandb_id**: iwkcn4f7
 
-**gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 20M: PASS needs progress_ratio med>=0.35, slip/m<=3.0, gait_valid>=4/6, falls (tilt_pitch/tilt_roll term) on <=1/6 det episodes. PARTIAL/continue (08-21 ruling): fall rate or forward_dist improving vs the untreated sac-sv-s1 baseline (24/24 falls, fwd ~0.02-0.05m) even short of the full bar. FAIL: pinned at or below the untreated s1 baseline with flat reward -- read jointly with s3/s4/b20m siblings to settle diet-vs-seed.
+**hypothesis**: Plain English: seed lottery at the best dose -- SAC seed variance is the largest single effect this track has measured (seed 0 instant-topple vs seed 1 real six-leg stepping under an IDENTICAL config), and the tilt5 dose (the only config that ever kept stepping most episodes, fwd median 0.055m) has only ever been run on seed 1. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: branch many rollouts on the idle fleet and select the best honestly): fresh seed 2 of the byte-identical SAC tilt5 recipe (clone of cw-walkcurr-sac-sv-tilt5-s1, WALKCURR_SV_TILT bank green at dose 5.0) at 10x the original budget (20M) -- levers are seed + budget only, read jointly with the s1-b20m extension (concurrent cycle, same operator order) and 2 sibling seeds as a 4-wide SAC population. Prediction-if-true: at least one seed both steps AND balances -- fall rate off 24/24, forward_dist past 0.06m and climbing, walk_speed in the 0.05-0.08 band with rising ep_len. Prediction-if-false: every seed reproduces the step-then-stumble ceiling (or seed-0-style instant topple) at 20M with flat reward -- the seed axis at this dose is closed and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: only the extended seed 1 improves (consolidation, not seed lottery, is the lever).
 
-**refused_reason**: hexapod-mjx-train-8 already runs cw-walkcurr-sac-sv-tilt5-s2 — GPU pods host exactly one run; pick a free GPU pod.
+**gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 20M: PASS needs progress_ratio >= 0.35, slip/m <= 3.0, gait_valid >= 4/6, falls on <= 1/6 det episodes. PARTIAL/continue (08-21): fall rate below 24/24 or forward_dist median clearing 0.06m with reward not declining. FAIL: seed-0-style instant topple or the unchanged 24/24 stumble ceiling at 20M with flat/declining reward. Discovery litmus per the corrected standard: env/walk_speed in the cmd band AND ep_len stable/rising AND over_current at background -- freeprog escape alone is the known artifact. Selection discipline (operator 08-30): no promotion from the search eval alone -- held-out eval/command seeds plus a replicate seed before any track-level claim.
 

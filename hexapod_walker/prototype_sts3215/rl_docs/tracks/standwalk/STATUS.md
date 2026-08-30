@@ -1,5 +1,50 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~08:5x (**anchor14coef1-canary{,-s1} triage: WIRING
+CHECK PASS + reward shape matches the old-teacher precedent almost
+exactly, but the harness gate/owncfg/mixedsession evals are still
+genuinely mid-run on-pod — no verdict yet, same class of wait the
+08-27 anchor14-rescue{,-s1} pair went through.**) Plain English: both
+canary seeds finished training (2.03M steps each, W&B state=finished).
+`train/bc_anchor_loss_walk` (0.002-0.006) and `train/bc_anchor_fill_
+walk` (12k->40k, monotonic) are nonzero on every logged update for
+BOTH seeds — the pre-registered WIRING CHECK clause of the gate PASSES
+directly from cached W&B history, no harness needed for that part.
+Reward-quarter trajectory: canary `[38.2, 2.9, -313.9, -101.0]`,
+`-s1` `[40.0, -2.5, -268.2, -154.7]` — superficially alarming (big mid-
+run dive) but this is the SAME shape the OLD-teacher anchor14-
+walkretaincoef1-rescue pair showed at 2M (`[38.6, 16.0, -108.7,
+-30.9]` / `[40.0, -6.3, -70.8, -66.6]`), which went on to a funded 8M
+acquisition — reading this as a red flag would contradict the track's
+own precedent; it looks like recipe-normal anchor-coefficient dynamics,
+not a new pathology. **What's actually blocking a verdict:** the
+on-pod `_gate`/`_owncfg`/`_mixedsession` eval_checkpoint/eval_mixed_
+session passes (the ones that produce `gait_valid`/`progress_ratio`,
+the gate's real PASS/FAIL clauses) started at 08:11 and were still
+progressing at ~08:50 (confirmed live via `ps`+growing per-episode
+video timestamps on hexapod-mjx-train-0, not stalled — 3 parallel
+eval_checkpoint processes each pegged near 800% CPU, currently mid
+`lower_det`, 3/4 modes through the det pass alone). This exact
+recipe/harness combo historically takes ~1.5-2h wall time (matches
+the 08-27 anchor14-rescue prestage timeout precedent) — expect this
+to finish and sync well after this cycle ends; the finish-triage
+belongs to whichever cycle sees the SYNCED marker. Separately: the
+`_session` (single-mode partner-handoff) pass crashed immediately
+with `walk policy obs (80,) != env (72,)` on BOTH seeds — this is
+`pod_eval.py`'s own DOCUMENTED expected behavior for a joint dual-
+mode policy (`session_side`'s docstring: "a joint-mode dual-core
+policy is EXPECTED to fail eval_session's single-mode partner-based
+composition"), informational-only, not a new incompatibility to
+chase. **Refill check (same as the 08:32 cycle, re-confirmed):** 8
+GPU pods free, backlog empty, but zero legal arms exist anywhere —
+joystick/amp/cpg are DONE-or-operator-maintenance-only; walkcurr's
+sole in-flight lever (SAC tilt5 x4) is training and no further
+rung-1 arm may launch until the operator answers the BC-kickstart
+question (08-25 ruling); standwalk's only queued Next item (the 8M
+acquisition continuation) is explicitly gated on THIS canary pair's
+verdict. Nothing runnable this cycle; next actionable step is reading
+the completed harness eval once SYNCED.
+
 Update, 2026-08-30 ~07:0x (**Real-scale Stage-2 BC distillation LAUNCHED
 with the new mesh/100Hz all-heading walk teacher — the concrete
 next-cycle item the 06:3x entry flagged; found + fixed one real

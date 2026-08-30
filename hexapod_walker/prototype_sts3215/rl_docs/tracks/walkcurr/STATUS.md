@@ -512,6 +512,61 @@ top two are built, bank-proven, and launched this cycle.
   curriculum), or actively harmful (a free-fall-during-grace
   exploit — refine before retrying).
 
+- **SETTLE-WINDOW READ (08-30 ~00:4x): NO-OP at BOTH doses, closes
+  fallback (a) — terrain-diversity fallback (b) opened, 2-arm A/B
+  launched.** `tilt5-settle1`: pooled 24-episode forward_dist_m
+  median 0.051m / gait_valid 21/24 — statistically flat vs
+  `tilt5-s1`'s own no-window number (0.051m / 20/24); the window did
+  change the failure mode (over_current terminations 12/24 -> 0/24,
+  all now die via tilt instead) but not the outcome, and the run's
+  own pre-registered walk/det-only ceiling check (0.055m) regresses
+  to 0.033m (gait_valid on that sub-mode alone does improve 5/6->6/6
+  — a wash, not a clean win). `tilt10-settle1`: the primary
+  deterministic mode (walk/det) stays EXACTLY at `tilt10-s1-r2`'s
+  collapse floor (fwd 0.028m vs 0.026m, gait_valid 0/6 both) — the
+  timing-of-charge diagnosis is falsified on the one sub-mode with no
+  stochastic-exploration confound; the pooled-24 gait_valid bump
+  (1/24->12/24) is carried entirely by noisy sto passes, not the
+  settle mechanism. Reward flat/declining both arms (08-21: aligned
+  FAIL). Both verdicted FAIL. **This closes the whole SAC-SV branch**
+  (7 arms: s0, s1, budget10m, tilt2-s1, tilt5-s1, tilt10-s1-r2,
+  tilt5-settle1, tilt10-settle1 — one partial-discovery signal at s1,
+  everything after it a flat/reversed/no-op dose or mechanism lever)
+  — fallback (a) of the operator's ladder is exhausted per its own
+  "in order" sequencing; fallback (b), Heess-style terrain/
+  environment diversity, opens.
+  **Fallback (b) launched, ZERO new code needed** — the hfield/warp
+  terrain machinery (`env.terrain_amp`/`env.terrain_seed`,
+  `servo_model.py::_populate_terrain`, `mjx_host.py::terrain_from_cfg`)
+  already exists and is independently precedented under
+  `impl=warp`+GPU (pre-08-24 joystick-track `cw-walk-terrain10-payload`/
+  `-deadband`, both PASS). The gap: the checked-in `mesh_mjx` twin
+  (the only mesh asset that exists on pods) ships a flat-plane-only
+  XML — no `<hfield>` element — so rough terrain on GPU today requires
+  `env.model_source=primitive` (confirmed by `_build_mesh_model`'s own
+  guard). Launched a matched A/B, both fresh from-scratch 20M PPO
+  centralized-128,64,32-tanh-MLP arms, IDENTICAL SV diet/budget/seed(0)
+  to `cw-walkcurr-pf-central-sv-s0` (the flat-ground mesh-family
+  arm that stayed pinned in the static-crouch basin, FAIL) — the ONLY
+  levers are `env.model_source=primitive` (both, needed for hfield
+  support) and `env.terrain_amp` (0.0 control / 1.0 treatment):
+  `cw-walkcurr-pf-terrain0-central-s0` (flat primitive control,
+  VERIFIED RUNNING train-1) isolates the model-family switch itself
+  (lighter mass/different kinematics) from the terrain treatment;
+  `cw-walkcurr-pf-terrain1-central-s0` (full 18mm hfield terrain,
+  VERIFIED RUNNING train-0) is the actual Heess-style treatment. Gate
+  (both): rung-1 C-env det fixed-forward panel at 20M (flat ground —
+  the held-out test surface is unchanged; terrain is training-time
+  exploration only), corrected discovery litmus per the decleg-sv
+  dig-in (`env/walk_speed` off its ~0.02 m/s floor AND stable/rising
+  `ep_len_mean`, NOT raw freeprog escape alone — proven to be an
+  episode-shortening artifact). Escape past either flat baseline
+  (mesh central-sv-s0 or primitive terrain0) with rising reward =
+  terrain lever real, promote (retrofit onto decleg-sv, higher doses,
+  more seeds); both terrain0 and terrain1 stay pinned identically =
+  terrain doesn't help at this dose either, closing fallback (b) at
+  amp=1.0. Snapshot `32f7548a`.
+
 ## Next (after the decleg-sv wave reads)
 
 0. **DONE (08-29 ~21:3x): `cw-walkcurr-sac-sv-s1-budget10m` read as

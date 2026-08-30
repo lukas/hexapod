@@ -225723,7 +225723,7 @@
       "reward.tilt_settle_ramp_s=0.5"
     ],
     "created": "2026-08-29T23:38:43+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -225778,7 +225778,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-sac-sv-tilt10-settle1-cw-walkcurr-sac-sv-tilt5-s since 2026-08-30T00:23:07"
+    "triage": "done",
+    "verdict": "FAIL -- the settle-window mechanism is a no-op at dose 5.0, not a real lever. Pooled across all 24 held-out episodes (walk/walk_startjitter x det/sto): forward_dist_m median 0.051m, gait_valid 21/24 -- statistically indistinguishable from tilt5-s1's own no-window sibling (0.051m, 20/24). The window did change the FAILURE MODE (over_current terminations 12/24 -> 0/24, all 24 now die via tilt_pitch/tilt_roll instead) but not the outcome: fall rate stays 24/24 in both, and the specific walk/det sub-mode this arm's own pre-registered gate compares against tilt5-s1's '0.055m det ceiling' actually REGRESSES to 0.033m (though gait_valid on that same sub-mode improves 5/6->6/6 -- a genuine mixed/wash result, not a clean win either way). ep_rew_mean quarters [163.7,146.9,146.5,150.4] -- flat-to-declining, not rising: 08-21 ruling says aligned FAIL, not a continue. Evidence: logs/ckpt_eval/cw_walkcurr_sac_sv_tilt5_settle1_gate/report.json (pooled fwd_med/gait_valid recomputed this cycle from the raw per-episode json)."
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt10-settle1",
@@ -225890,7 +225891,7 @@
       "reward.tilt_settle_ramp_s=0.5"
     ],
     "created": "2026-08-29T23:41:34+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -225945,7 +225946,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-sac-sv-tilt10-settle1-cw-walkcurr-sac-sv-tilt5-s since 2026-08-30T00:23:07"
+    "triage": "done",
+    "verdict": "FAIL -- the settle window does NOT rescue dose 10.0 on its primary (walk/det) mode: fwd_dist stays at 0.028m median, gait_valid 0/6, identical to tilt10-s1-r2's own deterministic-collapse floor (0.026m, 0/6) -- the timing-of-charge diagnosis is falsified for the deterministic evaluation surface. Other sub-modes (walk/sto gait_valid 6/6, walk_startjitter/sto 4/6) show partial stepping recovery, but this tracks with SAC's inherent stochastic-rollout exploration noise (present in every sto pass regardless of the settle mechanism) rather than a settle-window effect specifically -- walk/det, the deterministic read with no exploration noise to confound it, is the clean test and it shows no rescue. Pooled 24-episode fwd_med 0.029m/gait_valid 12/24 (up from tilt10-s1-r2's 1/24) is driven entirely by those noisy sto passes. ep_rew_mean quarters [157.3,123.9,143.7,135.6] -- noisy/declining, not rising: aligned FAIL per 08-21. Evidence: logs/ckpt_eval/cw_walkcurr_sac_sv_tilt10_settle1_gate/report.json. Combined with the tilt5-settle1 sibling, this CLOSES the settle-window mechanism at both doses tested -- SAC-SV branch (7 arms total: s0/s1/budget10m/tilt2/tilt5/tilt10/tilt10-r2/tilt5-settle1/tilt10-settle1) exhausts fallback (a) of the operator's ladder."
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt10-settle1",
@@ -226438,7 +226440,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-terrain0-central-s0 --steps 20000000 --task joint_walk --episode-seconds 25 --n-steps 96 --batch-size 98304 --net-arch 128,64,32 --activation-fn tanh --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 0 --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --n-envs 4096 --cfg-set control.hz=100 --cfg-set env.model_source=primitive --cfg-set env.terrain_amp=0.0 --out-name ppo_goal_cw_walkcurr_pf_terrain0_central_s0 --impl warp --host-workers 24 --notes 'Terrain-diversity fallback (b), flat-ground primitive-family control paired with cw-walkcurr-pf-terrain1-central-s0. See hypothesis/gate.' > /tmp/train_cw-walkcurr-pf-terrain0-central-s0.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-terrain0-central-s0.log",
     "wandb_id": "7qlwv8y8",
-    "verified": "2026-08-30T00:34:29+00:00"
+    "verified": "2026-08-30T00:34:29+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T00:40:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3141,
+        "fps": 26214.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-pf-terrain1-central-s0",

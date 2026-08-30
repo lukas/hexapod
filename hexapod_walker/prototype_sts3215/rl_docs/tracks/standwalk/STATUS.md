@@ -1,5 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~05:1x (**`cw-walk-allheading-mlp-singleframe-acq1`
+verdicted PARTIAL — 3rd confirmed instance of the already-fixed
+cross-architecture std-runaway bug; repair launched, not a new
+finding.**) Plain English: the single-frame distill-compatibility
+probe's 40M acquisition run DID learn a real, clean det-mode
+all-heading walk (DR-0 gate: walk/det prog med 0.47, slip med 2.03,
+walk_startjitter/det prog med 0.45, slip med 2.30 — both inside the
+joystick teacher band, gait_valid 6/6 both, zero terminations,
+video-confirmed six-leg cycling, forward_dist med ~0.5m/20s) — but
+`train/std` climbed UNBOUNDED the entire run (0.397->5.052, no
+`--log-std-final` anywhere in the launch args), the exact same bug
+already documented+fixed twice for the sibling hist64 mlp/tf
+all-heading acq1 checkpoints (08-29 entries below). Consequence:
+`rollout/ep_rew_mean` peaks +405 near 10M then crashes monotonically
+to -836..-1112 by 40M (excess_sway/park_duty/action_delta charges
+compounding on top of increasingly-noisy stochastic actions), and the
+sto-mode DR-0 gate collapses (walk/sto prog med 0.01, slip med 16.73,
+gait_valid 5/6, 1 sacrificed leg, 2/6 over_current terms;
+walk_startjitter/sto prog med -0.01, slip med 16.85, gait_valid 4/6, 2
+terms). The periodic deterministic eval logged during training
+(`eval/walk/*`) stayed flat 37-46deg dir_err / 0.036-0.044 m/s from 6M
+through 40M — the det policy plateaued early; the back half of the
+40M budget was spent feeding the runaway, not learning. Per the 08-21
+ruling this is misaligned/undertrained-by-omission, not a clean FAIL:
+launched the proven fix immediately, same lever as the twins
+(`cw-walk-allheading-mlp-singleframe-acq1-stdanneal`, respec
+`--init-from-source`, +15M, `--log-std-final -3.0
+--log-std-anneal-frac 1.0`, nothing else changed), VERIFIED RUNNING
+hexapod-mjx-train-0. **Any future long-budget all-heading (or other
+PPO) acquisition launch on this recipe family should set
+`--log-std-final` from the start** — this is now the 3rd from-scratch
+rediscovery of the same collapse; CURRENT_TRUTHS/launch defaults
+should stop letting new acquisition-phase launches omit it. Gate for
+the continuation: fresh DR-0 (sto recovers to prog med >=0.15, slip
+med <=6.0, gait_valid>=5/6, no new sacrificed leg, without eroding
+det) AND `train/std` actually lands near -3.0; if PASS, run
+`eval_cmd_suite` balanced 8-heading then the formal 60s
+`eval_joystick_gate` stress_mix, then retry `distill_gru.py --dual`
+(single-frame both sides, zero code changes) as the smoke test this
+whole probe exists to run. Evidence:
+`logs/ckpt_eval/cw_walk_allheading_mlp_singleframe_acq1_gate/`,
+`logs/experiments/cw-walk-allheading-mlp-singleframe-acq1/
+wandb_history.csv`. Checked the rest of the fleet before exiting: 3-4
+walkcurr overnight-wave pods freed mid-cycle (some arms finished) but
+those runs are a concurrent cycle's own read (off-limits per this
+cycle's containment); backlog is empty and no other standwalk/
+walkcurr/joystick/amp/cpg item is pre-registered-and-ready without
+either that read landing or a from-scratch mechanism build the
+walkcurr STATUS explicitly defers until its full wave reads in — no
+filler launched.
+
 Update, 2026-08-30 ~04:5x (**`cw-standwalk-unified1-joyfix-courseincome1`
 DIG-IN RESOLVED -> CANARY PASS, PASS-no-delta branch; income/sway
 lever CLOSED; reward-shaping on unified1-mix is now EXHAUSTED.**)

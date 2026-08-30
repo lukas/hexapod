@@ -330,6 +330,30 @@ follow-ups.
 
 ## Facts that feed the tracks
 
+- **UNBOUNDED `train/std` RUNAWAY ON LONG-BUDGET PPO ACQUISITION
+  LAUNCHES WITHOUT `--log-std-final` (standwalk, 08-29/08-30, 3
+  independent confirmations)**: any PPO acquisition-phase launch
+  (~40M+ steps) with a learnable log_std and NO `--log-std-final`
+  anneal target reliably lets `train/std` climb unbounded for the
+  whole run (observed 0.40->1.91 tf-acq1, 0.42->2.57 mlp-acq1-rr1,
+  0.397->5.05 mlp-singleframe-acq1 — same shape, worse the longer it
+  runs uncapped). Consequence every time: det-mode eval plateaus
+  early and stays fine, but stochastic-mode rollouts/eval collapse
+  (prog_ratio ~0, slip/m 15-20+, gait_valid drops, sacrificed legs,
+  over_current terminations) and `rollout/ep_rew_mean` peaks mid-run
+  then crashes into deeply negative territory as action noise feeds
+  excess_sway/park_duty/action_delta charges. This is NOT a fresh
+  science result each time — it is the same mechanism bug rediscovered
+  from scratch 3x. Fix (proven 3x now, plus the pre-existing
+  bcanchor3/loweronly_bcchain3/phasedir9-stotight precedents):
+  `--log-std-final <target> --log-std-anneal-frac 1.0` continuation
+  off the finished checkpoint (anneal starts from the policy's own
+  current mean log_std). **Any future PPO acquisition-phase launch
+  (>~10M steps) on any track should set `--log-std-final` FROM THE
+  START** unless there is a specific reason not to — omitting it
+  should be treated as a known defect, not a neutral default, and a
+  triage cycle that finds the runaway should launch the stdanneal
+  continuation immediately rather than re-diagnosing it as new.
 - **STANDWALK CANONICAL STANCE RECIPE (operator 08-25,
   fb_20260825T140238_d43b35 — binding)**: the proven rise/lower
   curriculum is the raw-18-joint `joint_goal` **footlow2** lineage —

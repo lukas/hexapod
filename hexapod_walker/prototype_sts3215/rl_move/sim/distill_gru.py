@@ -463,24 +463,53 @@ def quick_probe(student, env, modes=("walk", "rise", "hold"),
         env.set_goal_mix({m: (1.0 if m == mode else 0.0) for m in DIET})
         rews = []
         disps = []
-        for _ in range(n_ep):
-            obs, _ = env.reset()
-            start_xy = _com_xy(env) if mode == "walk" else None
-            state, ep_start = None, np.ones((1,), dtype=bool)
-            done, tot = False, 0.0
-            while not done:
-                a, state = student.predict(
-                    obs, state=state, episode_start=ep_start,
-                    deterministic=True)
-                ep_start = np.zeros((1,), dtype=bool)
-                obs, r, term, trunc, _ = env.step(a)
-                tot += r
-                done = term or trunc
-            rews.append(tot)
-            if start_xy is not None:
-                end_xy = _com_xy(env)
-                if end_xy is not None:
-                    disps.append(float(np.linalg.norm(end_xy - start_xy)))
+        # For the walk net-displacement check specifically, force a
+        # SINGLE fixed heading for the whole probe episode (disable
+        # goal.walk_cmd_resample_s) -- added 2026-08-30 after finding
+        # the dualbc2_allheadwalk lesson's own diagnostic could give a
+        # false positive: an all-heading teacher's episode command
+        # legitimately changes heading every walk_cmd_resample_s
+        # seconds, and a symmetric heading set (e.g. the 8-point
+        # compass) makes the START->END net displacement cancel to
+        # ~0 over a full multi-segment episode EVEN WHEN every segment
+        # is a genuine directed walk -- that is not the "in-place
+        # quivering" this check exists to catch. Restored unconditionally
+        # after the walk probe so every other mode/caller is unaffected
+        # (default behavior for rise/hold probes and any goal cfg the
+        # caller already set stays bit-exact).
+        goal_cfg = env.cfg.get("goal") if isinstance(env.cfg, dict) else None
+        had_key = isinstance(goal_cfg, dict) \
+            and "walk_cmd_resample_s" in goal_cfg
+        prev_resample_s = goal_cfg.get("walk_cmd_resample_s") \
+            if had_key else None
+        if mode == "walk" and isinstance(goal_cfg, dict):
+            goal_cfg["walk_cmd_resample_s"] = 0.0
+        try:
+            for _ in range(n_ep):
+                obs, _ = env.reset()
+                start_xy = _com_xy(env) if mode == "walk" else None
+                state, ep_start = None, np.ones((1,), dtype=bool)
+                done, tot = False, 0.0
+                while not done:
+                    a, state = student.predict(
+                        obs, state=state, episode_start=ep_start,
+                        deterministic=True)
+                    ep_start = np.zeros((1,), dtype=bool)
+                    obs, r, term, trunc, _ = env.step(a)
+                    tot += r
+                    done = term or trunc
+                rews.append(tot)
+                if start_xy is not None:
+                    end_xy = _com_xy(env)
+                    if end_xy is not None:
+                        disps.append(
+                            float(np.linalg.norm(end_xy - start_xy)))
+        finally:
+            if mode == "walk" and isinstance(goal_cfg, dict):
+                if had_key:
+                    goal_cfg["walk_cmd_resample_s"] = prev_resample_s
+                else:
+                    goal_cfg.pop("walk_cmd_resample_s", None)
         msg = (f"[distill-gru] probe {mode}: ep returns "
                f"{[f'{r:.0f}' for r in rews]}")
         if disps:

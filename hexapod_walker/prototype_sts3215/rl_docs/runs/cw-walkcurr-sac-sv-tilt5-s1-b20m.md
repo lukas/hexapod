@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-08-30T04:25:52+00:00
+**created**: 2026-08-30T04:23:42+00:00
 
 **pod**: hexapod-mjx-train-7
 
@@ -12,9 +12,9 @@
 
 **parent**: cw-walkcurr-sac-sv-tilt5-s1
 
-**hypothesis**: Plain English: the best-behaving config this whole track has produced (SAC seed 1 + anti-tilt dose 5.0: real six-leg stepping most episodes, forward_dist median 0.055m, dies by stumble not freeze) has only ever trained for 2M steps -- give it 10x. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, bigger budget explicitly fine). Byte-identical config/seed/diet to cw-walkcurr-sac-sv-tilt5-s1 (WALKCURR_SV_TILT bank green at dose 5.0) -- ONLY lever is budget 2M->20M; SAC has no --init-from, so fixed-seed determinism reproduces the first 2M then trains 18M past it (same workaround precedent as sac-sv-s1-budget10m). Key difference from that budget10m FAIL: that raise ran on the NO-tilt diet with zero balance gradient; tilt5 is the one diet where a balance gradient demonstrably changed behavior (5/6 gait_valid, longer stepping before the fall), so budget may compound here where it could not there. Prediction-if-true: fall rate drops below 24/24 and forward_dist clears 0.06m and keeps climbing across the extra 18M, ep_len rising. Prediction-if-false: fall ceiling unchanged at 20M with flat reward -- the budget lever closes on the tilt5 line too, and the fork moves to the structural balance/anti-freeze pretrain curriculum (STATUS candidate 1). Strongest alternative: a fresh tilt5 seed sibling (s2/s3/s4 arms, same wave) both steps AND balances while seed 1 stays stumble-capped -- seed lottery dominates dose and budget.
+**wandb_id**: q2rze6lz
 
-**gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 20M: PASS needs progress_ratio >= 0.35, slip/m <= 3.0, gait_valid >= 4/6, falls on <= 1/6 det episodes. PARTIAL/continue (08-21): fall rate below 24/24 or forward_dist median clearing 0.06m (past tilt5-s1's 0.055m walk/det ceiling) with reward not declining. FAIL: fall rate and forward_dist unchanged at 20M with flat/declining reward. Discovery litmus per the corrected standard: env/walk_speed holding 0.05-0.08 AND ep_len stable/rising AND over_current at background. Selection discipline (operator 08-30): no promotion from the search eval alone -- held-out eval/command seeds plus a replicate seed before any track-level claim.
+**hypothesis**: Plain English: does SAC seed-1's tilt5 anti-tilt dose (k_roll=k_pitch=5.0) just need more training time to convert its partial stepping signal into a real pass? Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: use the idle fleet, bigger budget is fine, branch many rollouts and select honestly) -- the SAC-branch analogue of the same-order decleg/central 100M PPO wave already running. Byte-identical config/diet/seed/algo to cw-walkcurr-sac-sv-tilt5-s1 (FAIL at 2M: gait_valid 5/6, fwd 0.055m det median, fall rate still 24/24). SAC unconditionally refuses --init-from (train_ppo_mjx.py's own restriction), so the ONLY lever is raw budget 2M->20M (10x); under this stack's fixed-seed determinism this reproduces tilt5-s1's own first 2M trajectory exactly and then trains 18M further past where it stopped (same workaround precedent as sac-sv-s1-budget10m). Prediction-if-true: fall rate drops off 24/24 and forward_dist_m median clears ~0.06m somewhere in the extra 18M, roll_peak staying near the tilt5 baseline (~10deg) rather than regressing to tilt10's over-suppressed near-zero speed. Prediction-if-false: fall rate/roll_peak/forward_dist stay pinned at the 2M numbers through 20M with flat reward -- closes the raw-budget lever for SAC at this dose, same fork as the PPO siblings (anti-freeze/balance pretrain curriculum, STATUS candidate 1).
 
-**refused_reason**: hexapod-mjx-train-7 already runs cw-walkcurr-sac-sv-tilt5-s1-b20m — GPU pods host exactly one run; pick a free GPU pod.
+**gate**: Rung-1 C-env det+sto fixed-forward panel (n>=6 each) at 20M: PASS needs progress_ratio med>=0.35, slip/m<=3.0, gait_valid>=4/6, falls (tilt_pitch/tilt_roll term) on <=1/6 det episodes. PARTIAL/continue (08-21 ruling): fall rate or forward_dist improving vs tilt5-s1's own 2M baseline (24/24 falls, fwd med 0.055m det/0.044m sto) even short of the full bar, litmus = env/walk_speed off the 2M ceiling with stable/rising ep_len and no new failure-mode surge. FAIL: fall rate/forward_dist/roll_peak unchanged at the 2M numbers through 20M with flat reward -- closes the raw-budget SAC lever at this dose.
 

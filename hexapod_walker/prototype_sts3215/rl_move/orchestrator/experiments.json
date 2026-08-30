@@ -229088,7 +229088,7 @@
       "respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: does SAC seed-1's tilt5 anti-tilt dose (k_roll=k_pitch=5.0) just need more training time to convert its partial stepping signal into a real pass? Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: use the idle fleet, bigger budget is fine, branch many rollouts and select honestly) -- the SAC-branch analogue of the same-order decleg/central 100M PPO wave already running. Byte-identical config/diet/seed/algo to cw-walkcurr-sac-sv-tilt5-s1 (FAIL at 2M: gait_valid 5/6, fwd 0.055m det median, fall rate still 24/24). SAC unconditionally refuses --init-from (train_ppo_mjx.py's own restriction), so the ONLY lever is raw budget 2M->20M (10x); under this stack's fixed-seed determinism this reproduces tilt5-s1's own first 2M trajectory exactly and then trains 18M further past where it stopped (same workaround precedent as sac-sv-s1-budget10m). Prediction-if-true: fall rate drops off 24/24 and forward_dist_m median clears ~0.06m somewhere in the extra 18M, roll_peak staying near the tilt5 baseline (~10deg) rather than regressing to tilt10's over-suppressed near-zero speed. Prediction-if-false: fall rate/roll_peak/forward_dist stay pinned at the 2M numbers through 20M with flat reward -- closes the raw-budget lever for SAC at this dose, same fork as the PPO siblings (anti-freeze/balance pretrain curriculum, STATUS candidate 1)."
     ],
     "created": "2026-08-30T04:23:42+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -229099,7 +229099,19 @@
       "running_experiments_before": 7,
       "code_sha_local": "d673238b7fa530dd818e7117b60fe48f1aad3b78",
       "code_sha_pod": "d673238b7fa530dd818e7117b60fe48f1aad3b78",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1620500",
+      "log_growth_bytes": [
+        7393,
+        9257
+      ],
+      "wandb_id": "q2rze6lz",
+      "trainer_pid": "1620500",
+      "global_step_window": [
+        91904,
+        116736
+      ],
+      "fps_estimate": 827.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -229107,7 +229119,9 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: bigger budget is fine, 8-12 arms at 80-150M for PPO / this SAC branch's own matched 20M dose) authorizes exceeding the discovery cap for this named wave; tilt5-s1 itself already cleared discovery at 2M with a genuine partial signal (gait_valid 5/6, fwd 0.055m median, monotone dose-response vs tilt2) -- per the 08-21 interpretation ruling this is a budget continuation of a partially-working recipe, not a fresh discovery probe.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s1-b20m --steps 20000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 1 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s1_b20m --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: does SAC seed-1'\"'\"'s tilt5 anti-tilt dose (k_roll=k_pitch=5.0) just need more training time to convert its partial stepping signal into a real pass? Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: use the idle fleet, bigger budget is fine, branch many rollouts and select honestly) -- the SAC-branch analogue of the same-order decleg/central 100M PPO wave already running. Byte-identical config/diet/seed/algo to cw-walkcurr-sac-sv-tilt5-s1 (FAIL at 2M: gait_valid 5/6, fwd 0.055m det median, fall rate still 24/24). SAC unconditionally refuses --init-from (train_ppo_mjx.py'\"'\"'s own restriction), so the ONLY lever is raw budget 2M->20M (10x); under this stack'\"'\"'s fixed-seed determinism this reproduces tilt5-s1'\"'\"'s own first 2M trajectory exactly and then trains 18M further past where it stopped (same workaround precedent as sac-sv-s1-budget10m). Prediction-if-true: fall rate drops off 24/24 and forward_dist_m median clears ~0.06m somewhere in the extra 18M, roll_peak staying near the tilt5 baseline (~10deg) rather than regressing to tilt10'\"'\"'s over-suppressed near-zero speed. Prediction-if-false: fall rate/roll_peak/forward_dist stay pinned at the 2M numbers through 20M with flat reward -- closes the raw-budget lever for SAC at this dose, same fork as the PPO siblings (anti-freeze/balance pretrain curriculum, STATUS candidate 1).' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s1-b20m.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s1-b20m.log"
+    "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s1-b20m.log",
+    "wandb_id": "q2rze6lz",
+    "verified": "2026-08-30T04:27:26+00:00"
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s1-b20m",

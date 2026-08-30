@@ -38,6 +38,45 @@ Ruling: **scripted tuck stays the bundle primary**; learned tuck is a
 working but hotter/slippier fallback. No further stance submodel spend
 for this track.
 
+Next #3 CLOSED (2026-08-30 ~19:5x, idle-kick — no other track had
+runnable GPU work; standwalk's own dualbc4 canary read was genuinely
+mid-flight): ran the exact swap the "Remaining optional upgrade" line
+asked for — `ops.sh hybriddemo cw-walkteach-scripted-allhead-acq12m
+--script human --walk-seconds 28 --speed 0.08 --policy-mode
+deterministic` (same script/speed/seconds as the bundle's own demo,
+only the walk-role checkpoint swapped; stand controller defaulted to
+`step` not `tuck` for this check, a harmless mismatch since stand
+happens before the walk-phase metrics that decide this and both
+finish clean) — `logs/manual_drive/todaypolicy_walkteach_acq12m_swap_check/`.
+Result: **does NOT beat the bundle, keep MLP-singleframe primary.**
+Head-to-head on the identical harness (current bundle's own
+`bundle_mlpsf_tuck_v1/summary.json` vs this run's `summary.json`):
+`walk_progress_ratio` 0.418 (current) vs **0.38 (candidate, MISSES
+the todaypolicy 0.40 floor)**; `course_err_1s_med_deg` **2.42 vs 6.15**
+(candidate is 2.5x worse and marginally breaches the <=6 bar);
+`course_err_1s_p90_deg` 6.98 vs 12.09 (also worse). Candidate DOES win
+on current draw (`cur_p95_a` 1.886 vs **1.073**, big thermal margin)
+and total slip (3.951 vs 2.799) and, per the earlier per-heading
+`eval_cmd_suite` read (`logs/ckpt_eval/cw_walkteach_scripted_allhead_acq12m_cmdsuite.json`
+vs `..._mlp_singleframe_acq1_stdanneal_cmdsuite12.json`, both 12s
+holds), has real turn authority the MLP-singleframe walk role
+structurally lacks (`tip_ccw`/`tip_cw` `wz_err_med` 0.076-0.106 vs
+0.30/0.30 — MLP-singleframe has zero wz obs channel, so it literally
+cannot respond to a turn command). But turn authority is not a
+todaypolicy DONE-gate axis today (the demo `script=human` only ever
+issues vx/vy, never wz), and the two bars that ARE gated
+(progress_ratio, course tracking) both favor the CURRENT bundle by a
+wide margin on the harness that matters (the real 28 s composed demo,
+not the per-heading fixed-command suite — the per-heading suite's
+"comparable completion, much lower slip" read undersold how much
+worse walkteach-acq12m's course-following gets once the script
+actually changes direction repeatedly, a fair warning that per-heading
+cmdsuite parity does not transfer to human-script parity). **Ruling:
+no bundle swap.** Recorded as a viable alternate walk role for a
+future turn-capable bundle (its own turn authority is real and
+unique), not a replacement for today's candidate. This closes the
+track's own last open Next item; nothing else is queued here.
+
 ## Goal
 
 Produce a useful MuJoCo/controller-transfer candidate today by composing
@@ -95,18 +134,24 @@ Minimum demo bars for a TODAY pass:
 
 ## Next
 
-1. Package `todaypolicy-mlpsf-tuck-v1`: regenerate/keep a fresh
-   `ops.sh hybriddemo` full-mesh video, write a short GO/NO-GO, and
-   make sure the browser/controller can select the bundle.
-2. Compare learned tuck stand/lower vs scripted tuck in the same demo
-   harness. Keep scripted tuck as the fallback if learned lowering is
-   twitchy or drags loaded feet.
-3. If the walk still feels too soft, compare against the running
-   `cw-walkteach-scripted-allhead-acq12m{,-s1}` outputs as soon as they
-   land. Do not spend this track's budget on a monolithic policy unless
-   it is the fastest path to a working bundle.
+1. **DONE 08-30.** Package `todaypolicy-mlpsf-tuck-v1`: regenerate/keep
+   a fresh `ops.sh hybriddemo` full-mesh video, write a short GO/NO-GO,
+   and make sure the browser/controller can select the bundle.
+2. **DONE 08-30.** Compare learned tuck stand/lower vs scripted tuck in
+   the same demo harness. Scripted tuck stays the fallback (learned
+   breaches the current bar).
+3. **DONE 08-30 ~19:5x — NO SWAP.** Compared
+   `cw-walkteach-scripted-allhead-acq12m` as a walk-role swap on the
+   identical hybriddemo harness: it MISSES the progress_ratio (0.38 <
+   0.40) and course_err_1s (6.15 > 6) bars the current bundle clears
+   cleanly, despite better current draw/slip and real (unused) turn
+   authority. Bundle stays `todaypolicy-mlpsf-tuck-v1` unchanged. See
+   the dated entry above for full numbers.
 4. Feed any clean result back to `standwalk` as a teacher/source
    candidate, but do not let this track block on the single-policy gate.
+   Nothing further queued for this track right now — it is DELIVERED
+   and its own Next list is closed 1-3; only a future clean
+   walk/stand/lower improvement elsewhere in the fleet would reopen it.
 
 ## Boundaries
 

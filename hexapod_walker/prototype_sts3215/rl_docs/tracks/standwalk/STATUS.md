@@ -1,5 +1,34 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~20:5x (idle-kick, no launch — dualbc4-walkteach
+canary `_mixedsession` harness still genuinely mid-flight on
+train-2/train-3 at ~2h20m in, own subprocesses ps-confirmed alive at
+~800% CPU; wave-2 stays sequenced behind its verdict, unchanged from
+the 19:3x update below. Recording one new BINDING requirement for
+whenever wave-2 actually launches, per operator-relayed note
+`fb_20260830T204437_6b4bee`: `play_core.py`'s `_PlayTraj.at()` had a
+live bug where the browser/manual-drive `wz` (turn) command was
+accepted but never forwarded to the policy's `wz_ref` obs — fixed
+2026-08-30 13:44 (`fa690dec`, `git log` confirmed on `main`,
+regression `test_drive_video_scripts.py` 3/3 green, re-verified this
+cycle). This bug predates and is orthogonal to the wave-2 freeze-floor
+reward defect above (that one is PPO-side reward pricing on
+`vx_ref=vy_ref=0` ticks; this one was demo/manual-drive tooling only,
+never touched training). No standwalk training run consumed the buggy
+path, so no verdict here is affected — but any FUTURE hybrid-demo/
+browser check of a wave-2 (or dualbc4) turn-capable checkpoint's real
+turn behavior MUST run post-fix and MUST show a nonzero
+`walk_wz_cmd_abs_max_rad_s` in its summary before the run is treated as
+evidence of turn authority, or it silently repeats the same
+zero-wz-always class of false read. Confirmed working post-fix on
+`cw-walkteach-scripted-allhead-acq12m` (`human_turn` script,
+`wz-max=0.3`): `walk_wz_cmd_abs_max_rad_s=0.3`,
+`walk_turn_wz_err_med_rad_s=0.097`, `walk_hold_wz_med_rad_s=0.014`,
+zero falls, full mesh — see
+`logs/manual_drive/todaypolicy_walkteach_acq12m_human_turn_fixed/`.
+No GPU launch this cycle (all 6 tracks re-confirmed DONE/BLOCKED/
+in-flight; backlog empty, 12 pods free but nothing legal to fund).
+
 Update, 2026-08-30 ~19:3x (**wave-2 prereq (a) OTHER half CLOSED: new
 WALKTEACH semantics bank proves the walkteach/dualbc canary's own
 reward stack reopens the cw-omni-mirror1-r1 freeze-floor exploit on

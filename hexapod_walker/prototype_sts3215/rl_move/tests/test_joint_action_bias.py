@@ -37,11 +37,18 @@ from rl_move.sim.joint_task import (  # noqa: E402
     _CENTER_RAD, _HALF_RAD, action_to_q_rad)
 from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES  # noqa: E402
 
-# The fix dose used by the launched arm: shift a=0 from the hardware
+# The fix dose used by the launched arms: shift a=0 from the hardware
 # mid-range toward the semantics bank's WALK_PLANT=(20, 80) stance
 # (yaw unchanged -- already centered at 0).
+# NOTE (2026-08-30): operator commit 88d852c3 (08-28, touchdown-zero
+# calibration) raised the hip cap 30 -> 40 deg, moving the hip
+# mid-range -25 -> -20; the same +45 bias therefore now centers a=0 at
+# hip 25 (not 20), and the raw zero-action collapse this file pins
+# shrank from ~110 mm to ~18 mm. Expectations below updated to the
+# CURRENT limits; the historical values live in this file's git
+# history and the walkcurr STATUS journal.
 FIX_BIAS_OVERRIDES = {
-    ("goal", "joint_action_bias_hip_deg"): 45.0,   # -25 -> 20
+    ("goal", "joint_action_bias_hip_deg"): 45.0,   # -20 -> 25
     ("goal", "joint_action_bias_knee_deg"): 15.0,  # 65 -> 80
 }
 
@@ -107,7 +114,7 @@ def test_bias_shifts_zero_action_target():
     q0_deg = np.degrees(q0).reshape(6, 3)
     # yaw (axis 0) untouched; hip (axis 1) +45; knee (axis 2) +15.
     assert np.allclose(q0_deg[:, 0], 0.0, atol=1e-6)
-    assert np.allclose(q0_deg[:, 1], -25.0 + 45.0, atol=1e-6)
+    assert np.allclose(q0_deg[:, 1], -20.0 + 45.0, atol=1e-6)
     assert np.allclose(q0_deg[:, 2], 65.0 + 15.0, atol=1e-6)
     env.close()
 
@@ -122,7 +129,7 @@ def test_bias_clips_into_axis_range():
     q, ok, _ = env._act_to_q(np.ones(env.n_act))
     assert ok
     q_deg = np.degrees(q).reshape(6, 3)
-    assert np.all(q_deg[:, 1] <= 30.0 + 1e-6)
+    assert np.all(q_deg[:, 1] <= 40.0 + 1e-6)
     assert np.all(q_deg[:, 2] <= 150.0 + 1e-6)
     q2, ok2, _ = env._act_to_q(-np.ones(env.n_act))
     assert ok2
@@ -130,20 +137,22 @@ def test_bias_clips_into_axis_range():
     env.close()
 
 
-def test_zero_action_collapses_without_the_fix():
-    """PIN THE DEFECT: constant all-zero action (no policy at all)
-    sinks the chassis well past the height-gate's 25mm/60mm cutoffs
-    within 2s (50 steps), staying level the whole time (roll/pitch
-    ~0) -- the exact belly_sit signature every rung-1 RND/height-gate
-    arm converged to independent of reward mechanism."""
-    drop_mm, roll_deg, pitch_deg = _zero_action_height_drop_mm({})
-    assert drop_mm > 90.0, (
-        f"expected the known ~110mm zero-action collapse, got {drop_mm}mm "
-        "-- defect may have regressed/moved, re-diagnose before trusting "
-        "the fix test below")
-    assert abs(roll_deg) < 2.0 and abs(pitch_deg) < 2.0, (
-        "collapse should stay level (roll/pitch near 0) -- a tilted "
-        "result is a different failure mode than the one this bias fixes")
+def test_zero_action_sinks_without_the_fix():
+    """PIN THE DEFECT (updated 2026-08-30): constant all-zero action
+    (no policy at all) still sinks the chassis measurably below the
+    reference stance -- a=0 is NOT the settled stance. The 08-24-era
+    ~110mm belly-sit collapse this test originally pinned was mostly
+    fixed UPSTREAM by operator commit 88d852c3 (08-28: hip cap
+    30 -> 40 deg moved the raw mid-range hip -25 -> -20); the residual
+    measured sink at current limits is ~18mm with a small pitch
+    wobble. Keep the tripwire: if this goes to ~0 the bias lever is
+    obsolete; if it grows back toward 110mm the axis limits regressed."""
+    drop_mm, _roll_deg, pitch_deg = _zero_action_height_drop_mm({})
+    assert 5.0 < drop_mm < 90.0, (
+        f"zero-action sink is {drop_mm}mm -- outside the ~18mm band "
+        "measured at the (-80,40) hip limits; axis limits or the model "
+        "changed again, re-measure before trusting the fix test below")
+    assert abs(pitch_deg) < 6.0
 
 
 def test_bias_fixes_zero_action_collapse():

@@ -3248,3 +3248,37 @@ runnable work (`standwalk`, active).
   comparable).
 - ANSWER (operator): _
 - rulebook change: _
+
+## q_20260830T2030Z — ANSWERED same-cycle: operator literature ruling reopens walkcurr rung-1 for ONE final pre-registered wave (2026-08-30, Lukas via Mac agent)
+- cycle: operator kick 08-30 ~20:2x UTC (walkcurr BLOCKED-state ruling).
+- The 08-30 ~10:2x BLOCKED state asked for "(a) a genuinely new
+  mechanism idea from the operator, or (b) an explicit scope ruling."
+  The operator supplied BOTH, grounded in literature (Rudin 2021
+  legged_gym; Smith/Kostrikov/Levine 2022 Walk in the Park; CaT
+  IROS-24; LoComposition arXiv 2606.15896; hexapod arXiv 2511.03167):
+  (1) candidate-1 balance/anti-freeze pretrain NOT funded (standing
+  already exists via joint_action_bias — standing IS the trap);
+  (2) recurrent architectures NOT funded (every cited success is MLP);
+  (3) ONE final literature-replication wave authorized: 2 seeds, MJX
+  parallelism, 100-200M samples/seed, with rule (a) AMENDED — a
+  symmetric per-joint-class action BOX centered on the settled stance
+  is IN-BOUNDS (search-space bound, zero temporal/gait structure);
+  (b) plain velocity tracking + fall termination + mild smoothness,
+  DROP the park/idle/height pricing stack; (c) over-current CLAMPED
+  not terminated during discovery (the 900-1150 kills/window absorbing
+  penalty is absent from every published recipe); (d) PRE-COMMITTED:
+  if this wave also lands park-stand/no-gait, RETIRE walkcurr as an
+  honest DONE-negative scope finding — walkteach carries walking.
+- Executed this cycle: `goal.joint_action_box_{yaw,hip,knee}_deg`
+  built (joint_task.py, default-off bit-exact, tests green);
+  WALKCURR_SV_LITREP bank (SV diet + mild k_action_delta=0.01) 5/5
+  green; stale 08-24 bias tests repaired (operator commit 88d852c3
+  08-28 raised the hip cap 30->40, moving the raw hip mid-range
+  -25 -> -20 and shrinking the pinned 110mm zero-action collapse to
+  ~18mm — bias 40 now recenters a=0 on WALK_PLANT hip 20 exactly, so
+  the wave uses bias hip 40 not the sv arms' 45). Wave launched:
+  `cw-walkcurr-litrep-box-s0`/`-s1`, 150M steps each, box
+  yaw±11/hip±20/knee±23 deg, safety.over_current_trip_s=999999,
+  reward.k_action_delta=0.01 on the WALKCURR_SV diet.
+- status: CLOSED (ruling executed; retirement pre-commitment recorded
+  in walkcurr STATUS).

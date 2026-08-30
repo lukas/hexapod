@@ -8501,6 +8501,105 @@ def test_walkcurr_sv_more_travel_earns_more(walkcurr_sv_returns):
         f"travel income is not monotone: {walkcurr_sv_returns}")
 
 
+# --- WALKCURR_SV_LITREP bank (operator literature ruling 2026-08-30,
+# the walkcurr FINAL pre-registered literature-replication wave —
+# Rudin 2021 legged_gym / Smith 2022 Walk in the Park: plain
+# velocity-command tracking + fall termination + MILD smoothness
+# penalties, nothing else). The diet is WALKCURR_SV plus the one
+# reward change the ruling names: the codebase's own weak
+# action-delta smoothness term at its long-standing default dose
+# (k_action_delta=0.01 — "weak shaping" in env.py). The wave's other
+# levers (the stance-centered action BOX, over-current clamp-not-
+# terminate) are action-space / termination changes with NO reward
+# semantics, covered by test_joint_action_box.py + existing safety
+# cfg; this bank re-proves that the mild smoothness charge does not
+# reopen any pricing dodge: travel still beats every stationary form,
+# stationary income stays pose-invariant, wrong-way stays below
+# standing, dying stays the strict floor, travel income stays
+# monotone. ---
+
+WALKCURR_SV_LITREP_OVERRIDES = dict(WALKCURR_SV_OVERRIDES)
+WALKCURR_SV_LITREP_OVERRIDES[("reward", "k_action_delta")] = 0.01
+
+
+@pytest.fixture(scope="module")
+def walkcurr_sv_litrep_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the literature-
+    replication diet (SV + mild action-delta smoothness)."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_SV_LITREP_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_litrep_travel_beats_every_stationary_form(
+        walkcurr_sv_litrep_returns):
+    """The mild smoothness charge must not make refusal competitive:
+    a moving gait pays more action-delta than a statue, so this is the
+    invariant the added term could most plausibly break."""
+    gait = walkcurr_sv_litrep_returns["gait"]
+    for still in ("park", "stall", "belly_sit"):
+        assert gait > walkcurr_sv_litrep_returns[still] + 3.0, (
+            f"stationary '{still}' is competitive with real walking "
+            f"under the litrep diet: {walkcurr_sv_litrep_returns}")
+    assert walkcurr_sv_litrep_returns["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_sv_litrep_stationary_income_is_pose_invariant(
+        walkcurr_sv_litrep_returns):
+    vals = [walkcurr_sv_litrep_returns[k]
+            for k in ("park", "stall", "belly_sit")]
+    assert max(vals) - min(vals) < 3.0, (
+        f"stationary income differs by pose under the litrep diet: "
+        f"{walkcurr_sv_litrep_returns}")
+
+
+def test_walkcurr_sv_litrep_wrong_way_below_standing(
+        walkcurr_sv_litrep_returns):
+    floor = min(walkcurr_sv_litrep_returns["park"],
+                walkcurr_sv_litrep_returns["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > walkcurr_sv_litrep_returns[wrong] + 1.0, (
+            f"wrong-way '{wrong}' out-earns (or ties) standing still "
+            f"under the litrep diet: {walkcurr_sv_litrep_returns}")
+
+
+def test_walkcurr_sv_litrep_dying_is_the_strict_floor(
+        walkcurr_sv_litrep_returns):
+    floor = min(walkcurr_sv_litrep_returns[k]
+                for k in ("gait", "creep", "park", "stall", "belly_sit",
+                          "reverse", "sideways"))
+    assert walkcurr_sv_litrep_returns["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor: {walkcurr_sv_litrep_returns}")
+    assert walkcurr_sv_litrep_returns["topple_steps"] < 150, (
+        "the topple twin did not die fast; bank probe is broken")
+
+
+def test_walkcurr_sv_litrep_more_travel_earns_more(
+        walkcurr_sv_litrep_returns):
+    assert (walkcurr_sv_litrep_returns["fast"]
+            >= walkcurr_sv_litrep_returns["gait"]
+            > walkcurr_sv_litrep_returns["creep"]), (
+        f"travel income is not monotone: {walkcurr_sv_litrep_returns}")
+
+
 # --- WALKCURR_PHASE_SV bank (operator directive 2026-08-29: the
 # cw-walkcurr-phase-sv line supersedes the track's no-gait-clock rule;
 # runs stay BC/imitation/motion-prior-free but observe a 2-dim tripod

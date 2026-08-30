@@ -43,7 +43,52 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
-## Now (2026-08-30 ~10:2x — sac-sv-tilt5-s3 read: FAIL, video-confirmed drag artifact -- SAC tilt5 20M continuation wave now 4/4 FAIL; rung-1 BLOCKED, every operator-named + self-invented lever closed)
+## Now (2026-08-30 ~20:3x — OPERATOR LITERATURE RULING: BLOCKED state lifted for ONE final pre-registered literature-replication wave; action BOX built; wave launched)
+
+Plain English: the operator answered the 10:2x BLOCKED state with a
+literature-based ruling (Rudin 2021 legged_gym; Smith 2022 Walk in the
+Park — ablation-proven that a TIGHT action box around the stance is
+CRUCIAL; CaT IROS-24; LoComposition 2606.15896; hexapod 2511.03167).
+Rulings: candidate-1 balance pretrain NOT funded; recurrent NOT
+funded; rule (a) AMENDED — a symmetric per-joint-class action BOX
+centered on the settled stance is IN-BOUNDS (search-space bound, no
+temporal/gait structure, same class as joint_action_bias); reward =
+plain velocity tracking + fall termination + MILD smoothness (drop
+the pricing stack — the SV diet already is this, plus
+k_action_delta=0.01); over-current CLAMPED not terminated during
+discovery (the 900-1150 kills/window absorbing penalty is in NO
+published recipe; realism returns after gait_valid>0); ONE final wave,
+2 seeds, 100-200M/seed; PRE-COMMITTED (d): if this wave also lands
+park-stand/no-gait, RETIRE walkcurr as an honest DONE-negative scope
+finding — walkteach carries walking.
+
+Built this cycle: `goal.joint_action_box_{yaw,hip,knee}_deg`
+(joint_task.py — q = clip(stance_center + a*box, axis limits); default
+0.0 = OFF = bit-exact, carried by the same `_act_to_q` the warp/MJX
+host loop calls; `rl_move/tests/test_joint_action_box.py` 6/6 green)
+and the `WALKCURR_SV_LITREP` bank (SV diet + k_action_delta=0.01,
+5/5 green — travel>stationary pose-invariant, wrong-way<standing,
+topple floor, monotone all hold under the mild smoothness charge).
+Also repaired 3 stale 08-24 bias tests: operator commit 88d852c3
+(08-28 touchdown-zero calibration) raised the hip cap 30->40, moving
+the raw hip mid-range -25 -> -20 and shrinking the pinned ~110mm
+zero-action collapse to ~18mm — so the wave uses bias hip 40 (not the
+sv arms' 45) to recenter a=0 on WALK_PLANT hip 20 exactly. Box dose
+tuned to our geometry per the ruling: yaw ±11 / hip ±20 (box [0,40]
+sits exactly inside the (-80,40) hip limit) / knee ±23 deg.
+
+Launched (pre-registered pair, one batch): `cw-walkcurr-litrep-box-s0`
+/`-s1` — 150M steps/seed (operator range 100-200M), 4096 envs, MLP
+128/64/32 tanh, WALKCURR_SV diet + k_action_delta=0.01,
+safety.over_current_trip_s=999999 (clamp-not-terminate: torque still
+saturates in the servo model; the episode just doesn't die),
+--log-std-final per CURRENT_TRUTHS. Gate: rung-1 C-env det
+fixed-forward panel + video; NOTE for the triage cycle: with the trip
+off, training/eval terminations read tilt-only by design. If BOTH
+seeds land park-stand/no-gait with flat reward: execute ruling (d) —
+retire the track DONE-negative, no further arms.
+
+## Prior Now (2026-08-30 ~10:2x — sac-sv-tilt5-s3 read: FAIL, video-confirmed drag artifact -- SAC tilt5 20M continuation wave now 4/4 FAIL; rung-1 BLOCKED, every operator-named + self-invented lever closed)
 
 Plain English: read the last of the four operator-ordered SAC tilt5
 20M continuations. `cw-walkcurr-sac-sv-tilt5-s3` looked, from scalars

@@ -1,6 +1,103 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-08-30 ~05:1x (**`cw-walk-allheading-mlp-singleframe-acq1`
+Update, 2026-08-30 ~06:3x (**`cw-walk-allheading-mlp-singleframe-acq1-stdanneal`
+VERDICTED PASS — 3rd confirmed instance of the std-anneal repair,
+matching both prior siblings; walk-alone skill confirmed, distill-
+compatibility is the next open question.**) Plain English: the
+`--log-std-final -3.0` repair (see the 05:1x entry below) worked
+again, cleanly. Fresh DR-0 gate: det walk prog_med 0.429/slip_med
+2.429, walk_startjitter prog_med 0.433/slip_med 2.453 (both clear
+prog>=0.35/slip<=3.0, gait_valid 6/6, zero terms); sto walk prog_med
+0.363/slip_med 2.182, walk_startjitter prog_med 0.365/slip_med 2.498
+(clear prog>=0.15/slip<=6.0 with real margin — sto slip is actually
+BETTER than det in 3/4 sub-panels); zero sacrificed legs, per-leg
+duty_cycle balanced 0.45-0.70 on all six legs every episode;
+`policy_std=0.05` confirms the anneal landed at target. Video (contact
+sheet + walk_det_0.mp4 frame strip) confirms real six-leg cycling,
+level body (roll_peak 1.0-2.9deg), no dragging/skating. `eval_cmd_suite`
+balanced 8-heading panel: zero falls in all 16 rows, completion
+0.27-0.34 on every heading (isotropic, clears the track's 0.19 cheap-
+gate bar by >=1.4x). SKILLS.md row added.
+**Code landed this cycle (both tested + snapshotted, default-off/
+bit-exact where applicable):** (1) `launch_run.py` now defaults
+`--log-std-final -3.0 --log-std-anneal-frac 1.0` onto new
+acquisition-phase PPO launches that don't set it explicitly (narrow:
+skips `--algo sac`, `--gru-dual`/`--gru-experts`, any explicit
+`--log-std-final`/`--log-std-anneal-core`; escape hatch
+`--allow-no-log-std-final`) — this is the 3rd independent from-scratch
+rediscovery of the exact same bug (mlp-acq1-rr1, tf-acq1, this run),
+so a 4th recipe family should no longer be able to hit it by omission;
+9 new tests (`test_launch_run_log_std_final.py`). (2) `eval_cmd_suite.py`
+reimplemented its own float-or-string-only `--cfg-set` parser instead
+of sharing `train_ppo_sim._parse_cfg_set`, silently keeping a `[..]`
+JSON-list value (`goal.walk_heading_set`) as a literal bracketed
+STRING and crashing `float('[0')` deep in `walk_task.py` — the exact
+bug class `eval_checkpoint.py`'s own docstring already named and
+fixed once (08-10, cw-stand-b2p1); now shares the parser, 4 new tests
+(`test_eval_cmd_suite_cfg_parse.py`). Tags `exp/log-std-final-default-
+injection`, `exp/eval-cmd-suite-cfg-set-bracket-fix`.
+**Full chain now closed out THIS cycle, all three follow-up reads
+PASS:** (a) held-out 60s `eval_joystick_gate` stress_mix (train-0,
+n=24, seed_base=90000): **PASS on every axis, including the stricter
+default TICK metric** — zero_falls, slip_ok (slip/m med 2.222, cap
+2.9), dir_ok (dir_err med **39.94deg**, allow 40.0 — a genuine but
+thin margin; the windowed course metric is comfortably clean too,
+`course_err_1s_med=5.52deg` vs the 12deg allow), gait_valid_frac 1.0,
+zero sacrificed legs. This is a STRONGER result than both stdanneal
+siblings (`mlp-acq1-rr1`/`tf-acq1`, both FAILed dir_ok at 51.9/45.5deg
+tick) — the first all-heading walker on this track to clear the
+formal stress_mix gate outright, not just on the windowed-metric
+reread. `logs/ckpt_eval/cw_walk_allheading_mlp_singleframe_acq1_
+stdanneal_joygate/gate_verdict.json`. (b) `distill_gru.py --dual`
+zero-code-change smoke test (this is the actual point of the whole
+"singleframe" lineage — sidestep path (b) from the 03:1x mode_onehot-
+stacking-bug entry below by using a walk teacher with plain
+`obs.history_frames=1`, avoiding the tool's per-tick-vs-post-stack
+mismatch entirely): ran `--dual --walk-teacher
+ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip
+--stance-teacher ppo_goal_cw_standwalk_stance_mesh2_stancemix_
+bcchain3_stdanneal.zip --episodes 8 --epochs 2 --transitions 4`
+(smoke scale, matching the earlier probe's own scale) with the full
+merged cfg-set union (48 walk keys + 34 stance keys, only 2
+overlapping keys and both identical values — `control.hz=100`,
+`train.bc_anchor_coef=3.0` — no collision). **Completed the ENTIRE
+pipeline with ZERO code changes and zero crashes**: `walk obs 74,
+stance obs 68` (no width mismatch — confirms the fix-free path (b)
+works), collected transitions + per-mode demos + 2 BC epochs +
+walk/rise/hold probes + 2 composed sequence probes, saved a loadable
+student zip. The smoke checkpoint itself is expectedly poor (2
+epochs, actor RMS 0.35 ~30deg, one seq probe fell) — this run answers
+COMPATIBILITY, not quality, and was deleted after confirming it
+loaded (throwaway, not a champion).
+**CONSEQUENCE — this is the biggest capability finding of the
+cycle:** the standwalk track now has, for the first time, a
+mesh/100 Hz all-heading walk teacher that (1) clears its own DR-0
+gate, (2) clears the balanced 8-heading `eval_cmd_suite` panel, (3)
+clears the held-out 60s stress_mix `eval_joystick_gate` DONE-gate
+outright, and (4) is confirmed plug-compatible with the existing
+`distill_gru.py --dual` tool with ZERO code changes. Every prior
+Stage-2 `stance-mesh2-stage2-dualbc1`/`anchor2..14` iteration used
+`stotight45-seed13` — a PRIMITIVE-family, 25 Hz scripted-teacher BC
+clone — as its walk-teacher; this checkpoint is the first genuinely
+learned, mesh/100 Hz, joygate-passing candidate to replace it.
+**NOT launched this cycle (properly scoped, not rushed onto this
+one's tail — same discipline this file already applies to the
+graduated-step-shaping walkcurr candidate and the per-mode-objective-
+normalization fork):** a REAL-scale Stage-2 distillation run with
+this walk teacher needs its own hypothesis/gate registration and a
+deliberate read of the anchor2-14 lessons already banked here (walk-
+retention needs an in-loss BC-anchor term per the operator's
+"evals become audit only" ruling — `train.bc_anchor_walk`/
+`_phase_lock`/`_knee_abs` on the STUDENT side, not just present in
+this teacher's own training recipe; per-core log-std annealing via
+`--log-std-anneal-core` to avoid the anchor4/6b shared-log_std walk
+tax; mix ratio and stance-teacher choice, e.g. `stancemix_bcchain3_
+stdanneal` for full hold+rise+lower coverage vs the cleaner isolated
+`holdminload40`/`loweronly` champions) before committing real
+episodes/epochs budget. Flagging this as the concrete next-cycle
+item rather than a bare placeholder.
+
+Previous entry, 2026-08-30 ~05:1x (**`cw-walk-allheading-mlp-singleframe-acq1`
 verdicted PARTIAL — 3rd confirmed instance of the already-fixed
 cross-architecture std-runaway bug; repair launched, not a new
 finding.**) Plain English: the single-frame distill-compatibility

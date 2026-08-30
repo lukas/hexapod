@@ -8986,3 +8986,144 @@ def test_walkcurr_sv_pretrain_step_topple_is_the_floor(
         f"'topple' is not the strict floor under the pretrain diet: {r}")
     assert r["topple_steps"] < 150, (
         "topple twin did not die fast; bank probe is broken")
+
+
+# --- WALKCURR_SV_PRETRAIN_GRAD bank (08-30, graduated step-completion
+# shaping fork): the WALKCURR_SV_PRETRAIN_STEP diet (k_step_event
+# alone) closed FAIL on its first launch (decleg/central-antifreeze-
+# pretrain-s0, both 2M, both converged to a safe static stand,
+# env/reward_step_event ~0 the whole run) -- root cause (assumed, not
+# yet proven, see track STATUS "NEXT"): k_step_event is an ALL-OR-
+# NOTHING cliff at along_f>=10mm (walk_task.py), so a fresh-random-
+# init policy that has never once produced a complete >=10mm forward-
+# projecting swing has NO reward gradient anywhere near a PARTIAL/
+# incomplete stride attempt. This bank proves the fix
+# (reward.k_step_partial, a linear taper from a small deadband up to
+# the existing 10mm gate, seamless with k_step_event's own credit at
+# the boundary) is itself fidget-resistant and direction-honest before
+# it is allowed to train anything, per the track's binding
+# bank-before-launch rule.
+#
+# DEADBAND DESIGN NOTE (bank-probe discovery, 08-30): a naive taper
+# with NO deadband (straight from along_f>0) measurably breaks the
+# wrong-direction-earns-nothing invariant -- the scripted "sideways"
+# twin (a REAL 90-deg-off-command tripod gait) has a small but nonzero
+# net FORWARD drift from its own leg kinematics (~2.6 cm over a full
+# episode) that a zero-floor taper pays MORE than a genuinely tiny
+# forward-only partial stride. reward.step_partial_deadband_mm
+# (default 2 mm) holds the taper at exactly 0 up to that floor and
+# fixes it (measured below: sideways drops back under the same <5.0
+# margin every other wrong-direction probe in this file uses).
+WALKCURR_SV_PRETRAIN_GRAD_OVERRIDES = dict(WALKCURR_SV_PRETRAIN_STEP_OVERRIDES)
+WALKCURR_SV_PRETRAIN_GRAD_OVERRIDES.update({
+    ("reward", "k_step_partial"): 0.5,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_sv_pretrain_grad_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the graduated pretrain
+    diet (k_step_event=1.0 + k_step_partial=0.5, 2mm deadband). Adds a
+    'tinystep' probe (gait_scale=0.25 -- individual swings measured
+    well short of the 10mm k_step_event gate, so the pure-STEP diet
+    pays it ~nothing; see test_walkcurr_sv_pretrain_step_gait_earns_
+    real_income's own sibling values for the undoped comparison) that
+    this bank's whole point is to give a real, live gradient."""
+    plan = {
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "tinystep": ("gait", 0.25),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_SV_PRETRAIN_GRAD_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_sv_pretrain_grad_partial_progress_earns_more(
+        walkcurr_sv_pretrain_grad_returns):
+    """THE point of this bank: a real completed swing that falls SHORT
+    of the 10mm k_step_event gate ('tinystep', gait_scale=0.25) must
+    earn CLEARLY more than the stationary floor under the graduated
+    diet -- measured +6.2 at dose 0.5/deadband 2mm, versus ~0 under
+    the pure-STEP diet (test_walkcurr_sv_pretrain_step_fidget_forms_
+    earn_near_nothing's own park/stall comparison)."""
+    r = walkcurr_sv_pretrain_grad_returns
+    floor = min(r["park"], r["stall"])
+    assert r["tinystep"] > floor + 4.0, (
+        f"sub-10mm partial stepping still earns ~nothing under the "
+        f"graduated diet -- the taper mechanism is not live: {r}")
+    assert r["tinystep_dx"] > 0.01, (
+        "tinystep probe did not actually travel; bank probe is broken")
+
+
+def test_walkcurr_sv_pretrain_grad_monotone_in_stride_size(
+        walkcurr_sv_pretrain_grad_returns):
+    """Income must increase monotonically with real stride size --
+    full gait > creep > tinystep > stationary floor -- so the taper
+    is a genuine gradient toward more complete strides, not a flat
+    bonus for any nonzero motion."""
+    r = walkcurr_sv_pretrain_grad_returns
+    floor = min(r["park"], r["stall"])
+    assert r["gait"] > r["creep"] > r["tinystep"] > floor, (
+        f"graduated income is not monotone in stride completeness: {r}")
+
+
+def test_walkcurr_sv_pretrain_grad_fidget_forms_stay_near_floor(
+        walkcurr_sv_pretrain_grad_returns):
+    """Stationary/fidget forms (park/stall/belly_sit) must still sit
+    within a tight band under the graduated diet -- the deadband must
+    not have reopened the 'fake fidget' dodge (WALKCURR_PF_IDLE_TERM,
+    08-24) that a raw-|qvel| bonus already fell into."""
+    r = walkcurr_sv_pretrain_grad_returns
+    floor_vals = [r[k] for k in ("park", "stall", "belly_sit")]
+    assert max(floor_vals) - min(floor_vals) < 5.0, (
+        f"stationary/fidget forms differ under the graduated diet -- "
+        f"the deadband is not holding the fidget dodge shut: {r}")
+    assert r["tinystep"] > r["stall"] + 4.0, (
+        f"real (if incomplete) stepping does not clearly beat "
+        f"in-place marching: {r}")
+
+
+def test_walkcurr_sv_pretrain_grad_wrong_direction_bounded(
+        walkcurr_sv_pretrain_grad_returns):
+    """Wrong-direction real gaits (reverse/sideways) must stay within
+    the SAME <5.0 margin over the stationary floor every other
+    wrong-direction probe in this file uses -- the deadband exists
+    specifically to hold this line against the sideways twin's own
+    incidental forward drift (bank-probe discovery, 08-30: an
+    undoped/no-deadband taper measured sideways at +9 over floor,
+    clearing this bar; 2mm deadband brings it back to +3.8)."""
+    r = walkcurr_sv_pretrain_grad_returns
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert abs(r[wrong] - floor) < 5.0, (
+            f"wrong-direction stepping '{wrong}' earns non-trivial "
+            f"income over standing still under the graduated diet: {r}")
+    assert r["tinystep"] > r["sideways"] + 1.0, (
+        f"an honest (if incomplete) forward partial stride does not "
+        f"beat a real wrong-direction gait: {r}")
+
+
+def test_walkcurr_sv_pretrain_grad_topple_is_the_floor(
+        walkcurr_sv_pretrain_grad_returns):
+    """Dying must still be strictly worse than every live behavior."""
+    r = walkcurr_sv_pretrain_grad_returns
+    floor = min(r[k] for k in ("gait", "creep", "tinystep", "park",
+                                "stall", "belly_sit", "reverse",
+                                "sideways"))
+    assert r["topple"] < floor - 5.0, (
+        f"'topple' is not the strict floor under the graduated diet: {r}")
+    assert r["topple_steps"] < 150, (
+        "topple twin did not die fast; bank probe is broken")

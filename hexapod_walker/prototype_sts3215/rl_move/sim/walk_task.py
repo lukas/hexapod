@@ -4608,9 +4608,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # IDLE_TERM, 08-24) because zero net forward displacement
             # per stride still earns nothing. Default 0.0 = off,
             # legacy exact (bank: WALKCURR_SV_PRETRAIN_GRAD in
-            # test_task_semantics.py).
+            # test_task_semantics.py). DEADBAND (bank-probe discovery,
+            # 08-30): a naive taper starting at along_f>0 leaks credit
+            # to genuinely wrong-direction real gaits -- the scripted
+            # "sideways" bank twin (a real 90-deg-off-command tripod
+            # gait) has a small but nonzero net FORWARD drift from its
+            # own leg kinematics (~2.6 cm over a full episode) that a
+            # zero-floor linear taper pays MORE than an honest tiny
+            # forward-only partial stride, breaking the wrong-way-
+            # earns-nothing ordering. step_partial_deadband_mm holds
+            # the taper at exactly 0 for any along_f at or below the
+            # deadband (default 2 mm, comfortably above the measured
+            # sideways-twin per-swing leak) and only ramps 0->k_step
+            # across (deadband, 10mm).
             k_step_partial = float(cfg_get(self.cfg, "reward",
                                            "k_step_partial", default=0.0))
+            step_partial_deadband_m = float(cfg_get(
+                self.cfg, "reward", "step_partial_deadband_mm",
+                default=2.0)) / 1000.0
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
@@ -4781,22 +4796,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                         r_step_denied += credit
                                         credit = 0.0
                                 r_step += credit
-                            elif k_step_partial > 0.0 and along_f > 0.0:
+                            elif (k_step_partial > 0.0
+                                  and along_f > step_partial_deadband_m):
                                 # Linear taper 0 -> k_step_partial as
-                                # along_f goes 0 -> 0.010 m, clipped at
-                                # k_step_partial beyond that (so this
-                                # stays well-defined even if used
-                                # without k_step at all, e.g. an even
-                                # simpler pretrain diet); when k_step
-                                # IS also on, anything >=0.010 already
-                                # took that branch above instead.
-                                # Caller sets k_step_partial <= k_step
-                                # so the taper never out-earns a full
-                                # completed swing. No budget-bank
-                                # gating (pretrain-only diet,
-                                # budget_m unused here).
+                                # along_f goes deadband -> 0.010 m,
+                                # clipped at k_step_partial beyond that
+                                # (so this stays well-defined even if
+                                # used without k_step at all, e.g. an
+                                # even simpler pretrain diet); when
+                                # k_step IS also on, anything >=0.010
+                                # already took that branch above
+                                # instead. Caller sets k_step_partial
+                                # <= k_step so the taper never out-
+                                # earns a full completed swing. No
+                                # budget-bank gating (pretrain-only
+                                # diet, budget_m unused here).
+                                span = max(0.010 - step_partial_deadband_m,
+                                           1e-6)
                                 credit = k_step_partial * (
-                                    min(along_f, 0.010) / 0.010)
+                                    (min(along_f, 0.010)
+                                     - step_partial_deadband_m) / span)
                                 r_step += credit
                     elif on and self._foot_on[f] \
                             and self._foot_prev_xy[f] is not None:

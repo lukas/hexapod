@@ -227499,7 +227499,7 @@
       "reward.k_walk_excess_sway=2.0"
     ],
     "created": "2026-08-30T03:03:03+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -227545,7 +227545,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-unified1-joyfix-courseincome1 since 2026-08-30T04:12:09"
+    "triage": "done",
+    "verdict": "CANARY PASS (mechanism live, NO DELTA -- pre-registered PASS-no-delta branch; dig-in root-caused the ambiguous sub-mode signal as a slip-funded fixed-start artifact, not command tracking). Plain words: adding k_walk_course_income=2.0 + k_walk_excess_sway=2.0 on top of the w015-c1 disp recipe did not move direction tracking; the one sub-panel that looked better is a foot-dragging shuffle that games the metric. Evidence: (1) pooled det walk+startjitter (the gate's literal instrument) direction_err med 52.0deg -- misses the <=40-50 bar and sits inside the lineage's own 52-65deg spread (long-s0 56.5, long-s0-cont1 65.1, w015-c1 gate 56.5 / owncfg 61.7): flat within eval noise. (2) The walk/det-only 43.2deg med is an artifact: 4/6 episodes cluster at 42.6-43.3deg AND switch gait regime to duty_cycle 0.79-0.85 (parent ~0.55-0.61) with slip/m med 6.29 = 2x parent w015-c1's 3.29 and over the gate's own 1.5x cap (4.8); the SAME policy under start jitter reverts to duty ~0.53-0.62 and dir_err 68.3deg flat. From the fixed start the policy buys measured direction error with a planted-feet dragging shuffle (the excess-sway term's perverse optimum: minimize path deviation by not really stepping); it does not transfer to jittered starts. Video walk_det_0 (train-11 full gate pass, pulled to controller at logs/ckpt_eval/cw_standwalk_unified1_joyfix_courseincome1_gate/) confirms a low-stance near-in-place shuffle. (3) Income telemetry fires but pays ~nothing: angle_f 0.78, err 23.5deg, support 0.31, speed_f 0.13 -> income ~0.075/tick -- speed-completion is the binding factor, the policy never achieves commanded-speed net displacement. (4) FAIL branch ruled out: reward quarters [36.5,-15.3,-347.6,-86.6] track parent w015-c1's own [36.0,-15.1,-468.0,-146.1] with Q3/Q4 LESS negative; 0/24 walk-panel terminations; gait_valid 6/6 all walk panels, no sacrificed legs. CONSEQUENCE per the pre-registered branch: income/sway lever CLOSES no-delta -- the 4th reward-shaping lever on unified1-mix to read flat (course windows 1.5s/0.35s/0.15s + income/sway); do NOT fund another reward-shaping lever on this lineage; course tracking needs the structural fix (stage-2 composition/distillation with a genuinely better walk source). Semantics-bank note for any sway reuse: k_walk_excess_sway=2.0 induces high-duty stance-drag (slip 2x) at fixed starts -- a bank case asserting clean stepping outranks planted dragging must PASS before this term is re-armed."
   },
   {
     "run": "cw-walk-allheading-mlp-singleframe-acq1",
@@ -227686,7 +227687,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_canary.zip"
     ],
     "created": "2026-08-30T03:43:04+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -227733,7 +227734,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Real det-mode all-heading walk (prog med 0.47 walk / 0.45 walk_startjitter, slip med 2.03-2.30 -- inside teacher band, gait_valid 6/6 both, zero terminations, video-confirmed clean six-leg cycling, forward_dist med ~0.5m/20s) BUT reproduces the exact already-documented cross-architecture std-runaway bug (train/std 0.397->5.052 over 40M, no --log-std-final anywhere in this launch's args, same as the hist64 mlp/tf acq1 twins): rollout/ep_rew_mean peaks +405 near 10M then crashes monotonically to -836..-1112 by 40M as entropy-driven noise piles up excess_sway/park_duty/action_delta charges; sto-mode DR-0 gate collapses accordingly (walk/sto prog med 0.01, slip med 16.73 vs cap ~6, gait_valid 5/6 w/ 1 sacrificed-leg episode, 2/6 over_current terms; walk_startjitter/sto prog med -0.01, slip med 16.85, gait_valid 4/6, 2 terms). Deterministic periodic eval (wandb eval/walk/*) stayed flat-to-stable direction_err ~37-46deg and speed ~0.036-0.044 m/s from 6M through 40M -- the det policy plateaued early and did not improve further; the back-half budget was wasted feeding the runaway, not learning. This is NOT a fresh finding: it is the third instance of the identical bug (mlp/tf all-heading acq1, now this single-frame twin), for which the fix (--log-std-final anneal) is already proven twice on this exact codebase. Per the 08-21 ruling this is a MISALIGNED/undertrained-by-omission case, not a clean FAIL: launching the same repair now (cw-walk-allheading-mlp-singleframe-acq1-stdanneal, respec --init-from-source, +15M, --log-std-final -3.0 --log-std-anneal-frac 1.0, nothing else changed) rather than closing the distill-compatibility probe on a preventable artifact."
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s2-b100m",
@@ -228311,7 +228314,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-30T05:13:20"
   },
   {
     "run": "cw-walkcurr-pf-decleg-sv-s6-b100m",
@@ -229409,7 +229413,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s2 --steps 20000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 2 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s2 --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: seed lottery at the best dose -- SAC seed variance is the largest single effect this track has measured (seed 0 instant-topple vs seed 1 real six-leg stepping under an IDENTICAL config), and the tilt5 dose (the only config that ever kept stepping most episodes, fwd median 0.055m) has only ever been run on seed 1. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: branch many rollouts on the idle fleet and select the best honestly): fresh seed 2 of the byte-identical SAC tilt5 recipe (clone of cw-walkcurr-sac-sv-tilt5-s1, WALKCURR_SV_TILT bank green at dose 5.0) at 10x the original budget (20M) -- levers are seed + budget only, read jointly with the s1-b20m extension (concurrent cycle, same operator order) and 2 sibling seeds as a 4-wide SAC population. Prediction-if-true: at least one seed both steps AND balances -- fall rate off 24/24, forward_dist past 0.06m and climbing, walk_speed in the 0.05-0.08 band with rising ep_len. Prediction-if-false: every seed reproduces the step-then-stumble ceiling (or seed-0-style instant topple) at 20M with flat reward -- the seed axis at this dose is closed and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: only the extended seed 1 improves (consolidation, not seed lottery, is the lever).' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s2.log",
     "wandb_id": "iwkcn4f7",
-    "verified": "2026-08-30T04:30:58+00:00"
+    "verified": "2026-08-30T04:30:58+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T04:36:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 34306,
+        "fps": 836.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s2",
@@ -229677,7 +229693,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s3 --steps 20000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 3 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s3 --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: is tilt5-s1'\"'\"'s partial stepping signal (5/6 gait_valid, 0.055m fwd median, still falls 24/24) a real property of the SAC+anti-tilt(k_roll=k_pitch=5.0) diet, or a seed lottery draw the way the concurrent decleg population sweep is testing for PPO? Operator-ordered overnight population sweep (same MCP order as the b20m/s2 continuations and the decleg/central 100M PPO wave) -- fresh seed 3, byte-identical tilt5 diet/algo/budget (20M, matching the b20m/s2 siblings) otherwise. WALKCURR_SV_TILT bank already green for this dose (6/6, shared by construction with tilt5-s1). Prediction-if-true (diet-driven): this seed matches or beats tilt5-s1'\"'\"'s own numbers (gait_valid>=4/6, fwd med approaching/clearing 0.06m) by 20M. Prediction-if-false (seed-lottery only): stays pinned at or below the untreated sac-sv-s1 baseline (24/24 falls, fwd ~0.02-0.05m, gait_valid low) -- narrows the read toward '\"'\"'tilt5-s1 got lucky'\"'\"', echoing whatever the decleg wave'\"'\"'s own s3-s6 arms find for PPO.' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s3.log",
     "wandb_id": "e92fmjow",
-    "verified": "2026-08-30T04:33:42+00:00"
+    "verified": "2026-08-30T04:33:42+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T04:39:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 43690,
+        "fps": 813.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s3",
@@ -229941,7 +229969,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-sac-sv-tilt5-s4 --steps 20000000 --task joint_walk --episode-seconds 25 --algo sac --n-envs 256 --batch-size 512 --sac-gradient-steps 32 --sac-learning-starts 25600 --sac-buffer-size 2000000 --net-arch 128,64,32 --activation-fn tanh --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --seed 4 --cfg-set bus.servo_params=loaded --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=5.0 --cfg-set reward.k_pitch=5.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.0 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_sac_sv_tilt5_s4 --notes 'respec of cw-walkcurr-sac-sv-tilt5-s1: Plain English: seed lottery at the best dose -- SAC seed variance is the largest single effect this track has measured (seed 0 instant-topple vs seed 1 real six-leg stepping under an IDENTICAL config), and the tilt5 dose (the only config that ever kept stepping most episodes, fwd median 0.055m) has only ever been run on seed 1. Operator-ordered overnight population sweep (MCP operator lane 20260830T035139Z, Lukas: branch many rollouts on the idle fleet and select the best honestly): fresh seed 4 of the byte-identical SAC tilt5 recipe (clone of cw-walkcurr-sac-sv-tilt5-s1, WALKCURR_SV_TILT bank green at dose 5.0) at 10x the original budget (20M) -- levers are seed + budget only, read jointly with the s1-b20m extension (concurrent cycle, same operator order) and 2 sibling seeds as a 4-wide SAC population. Prediction-if-true: at least one seed both steps AND balances -- fall rate off 24/24, forward_dist past 0.06m and climbing, walk_speed in the 0.05-0.08 band with rising ep_len. Prediction-if-false: every seed reproduces the step-then-stumble ceiling (or seed-0-style instant topple) at 20M with flat reward -- the seed axis at this dose is closed and the fork moves to the structural anti-freeze/balance pretrain curriculum (STATUS candidate 1). Strongest alternative: only the extended seed 1 improves (consolidation, not seed lottery, is the lever).' > /tmp/train_cw-walkcurr-sac-sv-tilt5-s4.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-sac-sv-tilt5-s4.log",
     "wandb_id": "glz9lm94",
-    "verified": "2026-08-30T04:36:02+00:00"
+    "verified": "2026-08-30T04:36:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-30T04:41:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 33524,
+        "fps": 859.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-sac-sv-tilt5-s4",

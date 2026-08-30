@@ -1,5 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~04:5x (**`cw-standwalk-unified1-joyfix-courseincome1`
+DIG-IN RESOLVED -> CANARY PASS, PASS-no-delta branch; income/sway
+lever CLOSED; reward-shaping on unified1-mix is now EXHAUSTED.**)
+Plain English: the ambiguous sub-mode signal the 04:3x triage flagged
+is an artifact, not partial command tracking. The walk/det-only
+43.2deg median comes with a wholesale gait-regime switch — per-leg
+duty_cycle 0.79–0.85 vs the parent w015-c1's ~0.55–0.61 — and slip/m
+med 6.29 = 2x parent's 3.29 (over the gate's own 1.5x cap of 4.8);
+the SAME checkpoint under start jitter reverts to normal duty
+(~0.53–0.62) and flat dir_err 68.3deg. I.e., from the fixed start the
+policy buys measured direction error with a planted-feet dragging
+shuffle — the excess-sway term's perverse optimum (minimize path
+deviation by not really stepping) — and it does not transfer.
+Video (train-11 full gate pass, walk_det_0 pulled to controller)
+confirms a low-stance near-in-place shuffle. Income telemetry fires
+but pays ~0.075/tick (angle_f 0.78, support 0.31, speed_f 0.13 —
+speed-completion is the binding factor). FAIL branch ruled out
+(quarters track w015-c1's own shape, Q3/Q4 less negative; 0/24 walk
+terminations). CONSEQUENCE (pre-registered): 4th and final
+reward-shaping lever on unified1-mix reads flat (disp windows
+1.5s/0.35s/0.15s + income/sway) — no more reward-shaping arms on this
+lineage; course tracking needs the structural fix: stage-2
+composition/distillation with a GENUINELY BETTER WALK SOURCE. That
+source does not exist yet — it is precisely what the running walkcurr
+overnight wave (6x100M PPO decleg/central-sv + 4x20M SAC tilt5) and
+the joystick track are hunting; the stage-2 arm should be specced
+against whichever candidate first clears its own walk gate.
+SEMANTICS-BANK obligation before any sway-term reuse: add a bank case
+asserting clean stepping outranks planted dragging (the observed
+duty-0.8/slip-2x exploit) — k_walk_excess_sway is not re-armable
+until that case PASSES. The full video gate/owncfg passes were still
+running detached on train-11 at verdict time (informational only; the
+numeric fast pass + pulled video already decided the branch).
+
 Update, 2026-08-30 ~04:3x (**`cw-standwalk-unified1-joyfix-courseincome1`
 triaged — MIXED/AMBIGUOUS read, does NOT clean-verdict against its own
 pre-registered branches; DIG-IN flagged, left UNVERDICTED.**) Plain

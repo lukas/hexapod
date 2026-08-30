@@ -4584,6 +4584,33 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             #     (duty ~0.3-0.8) pays nothing.
             k_step = float(cfg_get(self.cfg, "reward", "k_step_event",
                                    default=0.0))
+            # k_step_partial (08-30, WALKCURR_SV_PRETRAIN_GRAD): the
+            # walkcurr population/budget-seed sweep closed 6/6 FAIL in
+            # the same static-quiver-to-over_current basin, and the
+            # step-event-only pretrain fork (antifreeze-pretrain-s0
+            # x2) ALSO closed FAIL — root cause (assumed): k_step_event
+            # is an all-or-nothing cliff at along_f>=10mm, so a
+            # fresh-random-init policy that has never once produced a
+            # >=10mm forward-projecting swing has NO gradient anywhere
+            # near a partial/incomplete stride and 2M steps may simply
+            # never sample one by chance. This term pays a LINEAR taper
+            # from 0 (at along_f<=0, i.e. no forward progress at all)
+            # up to the full k_step credit (at along_f==the 10mm gate,
+            # where the existing hard-gate mechanism above takes over
+            # seamlessly at the boundary) for a genuine completed
+            # lift->swing->touchdown that falls SHORT of the 10mm bar.
+            # Fidget-resistant by the SAME construction as k_step_event
+            # (requires an actual air>=2-tick liftoff-then-landing, not
+            # raw |qvel|): a stall/march-in-place twin whose feet lift
+            # and land back near the liftoff point has along_f~0 and
+            # this term tapers to ~0 right along with it -- it does NOT
+            # reopen the raw-|qvel| "fake fidget" dodge (WALKCURR_PF_
+            # IDLE_TERM, 08-24) because zero net forward displacement
+            # per stride still earns nothing. Default 0.0 = off,
+            # legacy exact (bank: WALKCURR_SV_PRETRAIN_GRAD in
+            # test_task_semantics.py).
+            k_step_partial = float(cfg_get(self.cfg, "reward",
+                                           "k_step_partial", default=0.0))
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
@@ -4670,7 +4697,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 default=0.015))
             tslip_cap = float(cfg_get(
                 self.cfg, "reward", "foot_slip_max_m_s", default=0.25))
-            if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
+            if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
+                    or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or k_tslip > 0.0
                     or contact_diag) and s_ref > 1e-3:
@@ -4739,11 +4767,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
-                        if k_step > 0.0 and air >= 2 and f not in lift:
+                        if (k_step > 0.0 or k_step_partial > 0.0) \
+                                and air >= 2 and f not in lift:
                             along_f = float(
                                 d[0] * goal.vx_ref + d[1] * goal.vy_ref
                             ) / s_ref
-                            if along_f >= 0.010:
+                            if k_step > 0.0 and along_f >= 0.010:
                                 credit = k_step * min(along_f / 0.030, 1.5)
                                 if budget_m > 0.0:
                                     if self._step_disp_bank >= budget_m:
@@ -4751,6 +4780,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                     else:
                                         r_step_denied += credit
                                         credit = 0.0
+                                r_step += credit
+                            elif k_step_partial > 0.0 and along_f > 0.0:
+                                # Linear taper 0 -> k_step_partial as
+                                # along_f goes 0 -> 0.010 m, clipped at
+                                # k_step_partial beyond that (so this
+                                # stays well-defined even if used
+                                # without k_step at all, e.g. an even
+                                # simpler pretrain diet); when k_step
+                                # IS also on, anything >=0.010 already
+                                # took that branch above instead.
+                                # Caller sets k_step_partial <= k_step
+                                # so the taper never out-earns a full
+                                # completed swing. No budget-bank
+                                # gating (pretrain-only diet,
+                                # budget_m unused here).
+                                credit = k_step_partial * (
+                                    min(along_f, 0.010) / 0.010)
                                 r_step += credit
                     elif on and self._foot_on[f] \
                             and self._foot_prev_xy[f] is not None:
@@ -4831,7 +4877,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     reward += r_swing
                 if k_swing > 0.0:
                     info["reward_swing"] = r_swing
-                if k_step > 0.0:
+                if k_step > 0.0 or k_step_partial > 0.0:
                     reward += r_step
                     info["reward_step_event"] = r_step
                     if budget_m > 0.0:

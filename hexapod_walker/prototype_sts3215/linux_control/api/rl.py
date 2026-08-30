@@ -418,6 +418,7 @@ class RlApi:
     # obs 74 = walk + phase clock; obs 93 = AMP walk with phase,
     # yaw-rate command, and all-healthy fault-health tail. Same walk slot.
     _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk", 93: "walk"}
+    DEFAULT_HOLD_POLICY_FILE = "stand_stancemix_tuckclock_scratch8m.json"
 
     def _find_policy_file(self, file: str) -> Path | None:
         """Resolve a picker file name to a path (uploads shadow repo)."""
@@ -518,16 +519,18 @@ class RlApi:
     # "stand" and "lower". Stored on the board's home dir (like
     # ~/.hexapod_cal.json), NOT in the repo. A role of None keeps the
     # pre-roles behavior: the live slot file (rl_policy_select). The
-    # special hold value "walk" (the default) now means the built-in
-    # joint-hold fallback: keep the last safe commanded pose and do not
-    # run the walk policy at zero joystick command.
+    # special hold value "walk" is the legacy built-in joint-hold
+    # fallback: keep the last commanded pose and do not run the walk
+    # policy at zero joystick command. It is no longer the default for
+    # drive, because hardware stop tests showed it can sink/fall after a
+    # walking phase.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
     _ROLE_OBS = {"walk": (72, 74, 93), "hold": (68, 72, 74, 93),
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:
-        roles = {"walk": None, "hold": "walk", "stand": None,
-                 "lower": None}
+        roles = {"walk": None, "hold": self.DEFAULT_HOLD_POLICY_FILE,
+                 "stand": None, "lower": None}
         try:
             d = json.loads(self.ROLES_FILE.read_text())
             for k in roles:
@@ -557,8 +560,10 @@ class RlApi:
                     resolved = meta.get("name") or p.stem
                 except Exception:
                     resolved = p.name
-            elif role == "hold":
+            elif role == "hold" and v == "walk":
                 resolved = "built-in joint hold"
+            elif role == "hold" and v:
+                resolved = f"missing hold policy: {v}"
             else:
                 slot = "walk" if role == "walk" else "stance"
                 resolved = f"live {slot} slot"
@@ -570,14 +575,14 @@ class RlApi:
     def rl_role_set(self, *, role: str = "", file: str = "") -> dict:
         """Assign policies/<file> to a role (no motion; takes effect at
         the next episode / session start). file="" resets to default;
-        file="walk" (hold role only) = built-in joint hold."""
+        file="walk" (hold role only) = legacy built-in joint hold."""
         role = (role or "").strip().lower()
         if role not in self._ROLE_OBS:
             return {"ok": False,
                     "error": f"bad role {role!r} (walk/hold/stand/lower)"}
         val: str | None
         if not file:
-            val = "walk" if role == "hold" else None
+            val = self.DEFAULT_HOLD_POLICY_FILE if role == "hold" else None
         elif file == "walk":
             if role != "hold":
                 return {"ok": False,
@@ -749,6 +754,25 @@ class RlApi:
 
         walk_w = self._role_weights("walk")
         hold_w = self._role_weights("hold")
+        if hold_w is None:
+            hold_role = self._roles().get("hold")
+            if hold_role and hold_role != "walk":
+                error = (
+                    f"configured hold policy {hold_role!r} is not available "
+                    "on this robot; select the MuJoCo default complete "
+                    "policy or assign Hold to an available stance policy."
+                )
+            else:
+                error = (
+                    "drive needs an explicit learned hold role; the legacy "
+                    f"{hold_role or 'default'} joint-hold fallback is not "
+                    "safe after walking. Select the MuJoCo default complete "
+                    "policy or assign Hold to a stance policy."
+                )
+            return {
+                "ok": False,
+                "error": error,
+            }
 
         ok, reason, details = preflight(self.drive.bus, "walk")
         if not ok:

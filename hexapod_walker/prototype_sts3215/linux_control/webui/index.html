@@ -477,7 +477,7 @@ legs can reach instead of clipping it.">
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
         <button id="rltuckstand" class="on" title="Use the scripted tuck stand: lift/fold the feet in the air, touch down under the body, then push up. This is the known lower-current stand-up path from the hardware notes.">⬆ Tuck Stand</button>
         <button id="rltucklower" title="Lower by reversing the scripted tuck keyframes. Start from the tuck/walk-ready standing stance.">⬇ Tuck Lower</button>
-        <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
+        <button id="rlstop" class="danger" title="Stop ends the current policy move and hands off to the configured Hold policy. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="btns" style="margin-top:8px">
         <button id="rlstandrl" disabled title="Disabled by the default composed policy. Select a learned-stance bundle or assign an explicit Stand role before using learned RL rise.">⬆ Rise (learned RL)</button>
@@ -491,13 +491,13 @@ legs can reach instead of clipping it.">
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
       <fieldset id="rldrivepanel" class="drive-panel blocked" disabled>
         <div class="drive-panel-head">
-          <h2 title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
+          <h2 title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to coast briefly, then hand off to the configured Hold policy. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
           <span id="rldrivegate" class="drive-gate blocked">Stand up first</span>
         </div>
         <div class="drive-interactive">
           <div class="btns" style="margin-top:10px">
             <button id="rldrivestart" hidden title="Direction keys, pad buttons, or joystick movement start driving automatically.">▶ Start driving</button>
-            <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
+            <button id="rldriveend" title="Coasts briefly, then hands off to the configured Hold policy.">■ End session (hold policy)</button>
             <label class="hint">speed
               <select id="rlwalkspeed">
                 <option value="0.05" selected>0.05 m/s</option>
@@ -520,7 +520,7 @@ legs can reach instead of clipping it.">
             <button data-dv="1,1">↗</button>
             <button data-dv="0,-1">◀ Strafe L</button>
             <button data-dv="0,0" disabled
-                    title="Release everything = stop and hold.">● hold</button>
+                    title="Release everything = coast briefly, then configured Hold policy.">● hold</button>
             <button data-dv="0,1">▶ Strafe R</button>
             <button data-dv="-1,-1">↙</button>
             <button data-dv="-1,0">▼ Back</button>
@@ -585,8 +585,8 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
            aria-labelledby="rlexperttab" hidden>
         <div class="hint">Pick exact exported RL models for learned actions.
           <b>Stand</b>/<b>Sit</b> use stance models, <b>Walk</b> uses walk
-          models, and <b>Hold</b> defaults to the built-in joint hold unless
-          you assign a model.</div>
+          models, and <b>Hold</b> defaults to the 100&nbsp;Hz mesh stance
+          model. The built-in joint hold is a legacy expert fallback only.</div>
         <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
       </div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>

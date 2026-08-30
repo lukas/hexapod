@@ -21,8 +21,12 @@ from api.rl import RlApi
 class FakeRlApi(RlApi):
     def __init__(self, roles: dict[str, str | None] | None = None, *,
                  dry_run: bool = True, bus=None, armed: bool = False):
-        self._roles_data = {"walk": None, "hold": "walk",
-                            "stand": None, "lower": None}
+        self._roles_data = {
+            "walk": None,
+            "hold": RlApi.DEFAULT_HOLD_POLICY_FILE,
+            "stand": None,
+            "lower": None,
+        }
         self._roles_data.update(roles or {})
         self.drive = types.SimpleNamespace(
             dry_run=dry_run,
@@ -36,7 +40,7 @@ class FakeRlApi(RlApi):
         return dict(self._roles_data)
 
     def _role_weights(self, role: str) -> Path | None:
-        if self._roles_data.get(role):
+        if self._roles_data.get(role) and self._roles_data.get(role) != "walk":
             return Path("/tmp/fake_explicit_policy.json")
         return None
 
@@ -67,6 +71,14 @@ def test_drive_start_refuses_limp_before_preflight_or_motion():
         vx=0.05)
     assert out["ok"] is False
     assert "limp/disarmed" in out["error"]
+
+
+def test_drive_start_refuses_legacy_joint_hold_role_before_motion():
+    out = FakeRlApi({"hold": "walk"}, dry_run=False, bus=object(),
+                    armed=True).rl_drive_start(vx=0.05)
+    assert out["ok"] is False
+    assert "explicit learned hold role" in out["error"]
+    assert "joint-hold fallback is not safe" in out["error"]
 
 
 def _main() -> int:

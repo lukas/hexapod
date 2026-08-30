@@ -2466,14 +2466,14 @@ $('rlwalkbl').onclick    = ()=> rlWalk(-1, -1, 'diagonal BACK-LEFT');
 $('rlwalkbr').onclick    = ()=> rlWalk(-1,  1, 'diagonal BACK-RIGHT');
 $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
-  $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
+  $('rlstatus').textContent = 'Stopping (hold policy; X to limp)…';
 };
 
 // ---- Drive session (hold arrow keys — MuJoCo-viewer-style, 08-11) ---------
 // The browser streams (vx, vy, wz) heartbeats at 5 Hz while the session is
-// active; the robot's 25 Hz loop slews toward them and treats anything
-// older than 0.6 s as "keys released". So: keydown = walk, keyup = stop
-// and hold, dead tab = stop and hold.
+// active; the robot's 100 Hz loop slews toward them and treats anything
+// older than 0.6 s as "keys released". So: keydown = walk, keyup = coast
+// briefly, then hand off to the configured Hold policy.
 let drvActive = false, drvHb = null, drvStartPromise = null;
 const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
@@ -2625,6 +2625,8 @@ function drvPaint(d){
   else if(live.height_ref_mm) bits.push(`h ${live.height_ref_mm} mm`);
   if(live.height_live === false && drvGamepad.du)
     bits.push('D-pad height needs a stance model in the “hold” role');
+  if(live.walk_zero_dwell_s)
+    bits.push(`hold in ${live.walk_zero_dwell_s}s`);
   if(live.roll_deg!=null)
     bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
@@ -2657,8 +2659,8 @@ async function drvEnded(){
     $('rldrivestatus').textContent = 'Session ended'
       + (res.ended ? ` — ${res.ended}` : res.error ? ` — ${res.error}` : '')
       + (res.max_current_a!=null ? ` · maxI ${res.max_current_a} A` : '')
-      + ' · holding (X to limp).';
-  }catch(e){ $('rldrivestatus').textContent = 'Session ended — holding.'; }
+      + ' · hold policy / X to limp.';
+  }catch(e){ $('rldrivestatus').textContent = 'Session ended.'; }
 }
 async function drvStartSession(source='button'){
   if(drvActive) return true;
@@ -2717,7 +2719,7 @@ async function drvStartSession(source='button'){
 async function drvStopAndWaitForInactive(actionLabel, timeoutMs=10000){
   $('rlstatus').textContent = 'Ending drive session before '+actionLabel+'…';
   $('rldrivestatus').textContent = 'Ending session before '+actionLabel
-    + ' (rolls to a stop, holds)…';
+    + ' (coasts, then hold policy)…';
   drvResetLocalInput();
   drvGamepadNeedsNeutral = true;
   if(drvActive) await drvSend();
@@ -2747,7 +2749,7 @@ $('rldrivestart').onclick = async ()=>{
 };
 $('rldriveend').onclick = async ()=>{
   $('rldriveend').disabled = true;
-  $('rldrivestatus').textContent = 'Ending session (rolls to a stop, holds)…';
+  $('rldrivestatus').textContent = 'Ending session (coasts, then hold policy)…';
   drvGamepadNeedsNeutral = true;
   drvResetLocalInput();
   try{ await fetch('/api/rl/drive/stop', {method:'POST'}); }catch(e){}
@@ -3407,21 +3409,24 @@ const RL_HOLD_ZERO_ALIASES = new Set([
 ]);
 const RL_DEFAULT_WALK_FILE =
   'walk_allheading_mlp_singleframe_acq1_stdanneal.json';
+const RL_DEFAULT_HOLD_FILE =
+  'stand_stancemix_tuckclock_scratch8m.json';
 const RL_POLICY_BUNDLES = [
   {
     id: 'todaypolicy-mlpsf-tuck-v1',
     tag: 'Default',
     title: 'MuJoCo default',
-    summary: 'Scripted tuck stand and lower, plus the full-mesh all-heading '
-      + 'MLP walk policy. This is the current controller-ready bundle I would '
-      + 'try first from the MuJoCo work; learned RL rise/lower stay disabled.',
-    files: [RL_DEFAULT_WALK_FILE],
+    summary: 'Scripted tuck stand/lower, the full-mesh all-heading MLP walk, '
+      + 'and the 100 Hz mesh stance model for the stop/hold role. This is '
+      + 'the current controller-ready bundle I would try first from MuJoCo; '
+      + 'learned RL rise/lower stay disabled.',
+    files: [RL_DEFAULT_WALK_FILE, RL_DEFAULT_HOLD_FILE],
     walkFile: RL_DEFAULT_WALK_FILE,
-    roleValues: {stand: '', lower: '', walk: '', hold: 'walk'},
+    roleValues: {stand: '', lower: '', walk: '', hold: RL_DEFAULT_HOLD_FILE},
     rows: [
       ['Stand', 'scripted tuck'],
       ['Walk', RL_DEFAULT_WALK_FILE],
-      ['Hold', 'built-in joint hold'],
+      ['Hold', RL_DEFAULT_HOLD_FILE],
       ['Lower', 'scripted tuck'],
     ],
     metrics: ['full mesh', '0 falls', '1s course err med 2.42deg',
@@ -3440,12 +3445,12 @@ const RL_POLICY_BUNDLES = [
       stand: 'stand_stancemix_tuckclock_scratch8m.json',
       lower: 'stand_stancemix_tuckclock_scratch8m.json',
       walk: '',
-      hold: 'walk',
+      hold: RL_DEFAULT_HOLD_FILE,
     },
     rows: [
       ['Stand', 'RL stance mix'],
       ['Walk', RL_DEFAULT_WALK_FILE],
-      ['Hold', 'built-in joint hold'],
+      ['Hold', RL_DEFAULT_HOLD_FILE],
       ['Lower', 'RL stance mix'],
     ],
     metrics: ['100 Hz mesh stance', 'rise/hold/lower', 'not bench-tested'],
@@ -3459,11 +3464,16 @@ const RL_POLICY_BUNDLES = [
       + 'in MuJoCo.',
     files: ['stand_holdbc1_hard1.json', 'dep_vref1_r1.json'],
     walkFile: 'dep_vref1_r1.json',
-    roleValues: {stand: '', lower: '', walk: '', hold: 'walk'},
+    roleValues: {
+      stand: '',
+      lower: '',
+      walk: '',
+      hold: 'stand_holdbc1_hard1.json',
+    },
     rows: [
       ['Stand', 'scripted walk-ready'],
       ['Walk', 'dep_vref1_r1.json'],
-      ['Hold', 'built-in joint hold'],
+      ['Hold', 'stand_holdbc1_hard1.json'],
       ['Lower', 'scripted lower'],
     ],
     metrics: ['old hardware contract', '0.05-0.06 m/s', 'fallback only'],
@@ -3558,7 +3568,7 @@ function rlBundleIsActive(bundle){
 
 function rlRoleHome(role){
   // Which picker row serves `role` right now: a row file name, 'zero'
-  // (hold default = built-in joint hold), or null. Trust
+  // (legacy joint-hold fallback), or null. Trust
   // `resolved` over the raw assignment — each backend reports there
   // what actually RUNS (e.g. the sim ignores stale walk-role
   // overrides and drives the live slot).
@@ -3576,8 +3586,8 @@ function rlRoleHome(role){
 
 function rlChipTitle(role, on, zero){
   if(zero)
-    return 'Default hold: the built-in joint hold keeps the last safe '
-      + 'commanded pose. Click Hold on another model to override.';
+    return 'Legacy joint hold: freezes the last commanded pose. Do not use '
+      + 'as the normal drive-stop hold; click Hold on a stance model instead.';
   const what = {walk: 'walk when drive keys are held',
                 hold: 'hold in place when no keys are held',
                 stand: 'stand up (also the stance default for Sit/Hold)',
@@ -3796,7 +3806,7 @@ async function rlChipClick(role, slot, pick, on, zero){
     await rlSlotSelect(role, slot, pick);
   } else if(zero){
     $('rlpickmsg').textContent =
-      'already the default hold (built-in joint hold)';
+      'legacy joint hold is already selected';
   } else {
     // Sit / Hold are per-role overrides; clicking the lit chip resets
     // the role to its default.

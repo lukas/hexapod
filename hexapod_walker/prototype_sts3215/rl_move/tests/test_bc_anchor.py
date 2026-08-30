@@ -702,6 +702,85 @@ def test_walk_gait_attr_rides_snapshot_list():
     assert "_walk_bc_gait" in SNAP_ATTRS
 
 
+# --- Phase-locked anchor clock x run_on_yaw (08-30, standwalk
+# walkteach wave-2 prereq, OPERATOR_QUESTIONS q_20260830T1530Z item
+# 3b): train.bc_anchor_phase_lock's _walk_bc_t accumulator must track
+# the SAME wz-only-tick gate as walk_task._augment_obs's obs phase
+# clock (goal.walk_phase_run_on_yaw) — see test_phase_speed_coupling
+# for the obs-clock side of this exact contract. Before this fix the
+# accumulator only ever gated on linear speed, so a turn-in-place tick
+# under run_on_yaw=1 froze the ANCHOR's gait phase while the policy's
+# own obs clock kept advancing.
+
+def _pin_walk_cmd_wz(env, vx: float, vy: float, wz: float) -> None:
+    traj = env._goal_traj
+    traj.vx[:] = vx
+    traj.vy[:] = vy
+    if getattr(traj, "wz", None) is not None:
+        traj.wz[:] = wz
+
+
+def test_walk_phase_lock_freezes_on_yaw_only_by_default():
+    """Legacy (run_on_yaw unset/0): a wz-only commanded tick still
+    freezes the anchor's phase-locked clock — bit-exact preserved."""
+    env = _make_walk_env(30, {("train", "bc_anchor_coef"): 1.0,
+                              ("train", "bc_anchor_phase_lock"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info   # wz alone still commands the gait
+        if term or trunc:
+            break
+    assert env._walk_bc_t == 0.0
+
+
+def test_walk_phase_lock_runs_on_yaw_when_enabled():
+    """goal.walk_phase_run_on_yaw=1 (the obs-clock fix, amp M2-yaw
+    08-22) must also unfreeze the ANCHOR's clock on wz-only ticks, at
+    the same fixed per-tick rate as a linear-command tick."""
+    env_yaw = _make_walk_env(31, {("train", "bc_anchor_coef"): 1.0,
+                                  ("train", "bc_anchor_phase_lock"): 1.0,
+                                  ("goal", "walk_phase_run_on_yaw"): 1.0})
+    env_yaw.reset()
+    _pin_walk_cmd_wz(env_yaw, 0.0, 0.0, 0.3)
+    hold = q_rad_to_action(env_yaw.data.qpos[env_yaw._qadr])
+    for _ in range(5):
+        env_yaw.step(hold)
+    assert env_yaw._walk_bc_t == pytest.approx(5 * env_yaw.dt, rel=1e-9)
+
+    env_lin = _make_walk_env(32, {("train", "bc_anchor_coef"): 1.0,
+                                  ("train", "bc_anchor_phase_lock"): 1.0,
+                                  ("goal", "walk_phase_run_on_yaw"): 1.0})
+    env_lin.reset()
+    _pin_walk_cmd_wz(env_lin, 0.055, 0.0, 0.0)
+    hold = q_rad_to_action(env_lin.data.qpos[env_lin._qadr])
+    for _ in range(5):
+        env_lin.step(hold)
+    # same fixed hz either way — a wz-only tick is not a faster/slower
+    # clock than a linear-command tick, just an unfrozen one.
+    assert env_yaw._walk_bc_t == pytest.approx(env_lin._walk_bc_t, rel=1e-9)
+
+
+def test_walk_phase_lock_still_frozen_on_true_park_with_run_on_yaw():
+    """run_on_yaw=1 must not unfreeze the clock on a genuine stop
+    (vx=vy=wz=0) — that tick emits no bc_target at all (existing
+    stop-tick contract, test_walk_no_target_on_stop_ticks) so the
+    clock question doesn't even arise, but pin it explicitly here
+    since this is exactly the accumulator this fix touches."""
+    env = _make_walk_env(33, {("train", "bc_anchor_coef"): 1.0,
+                              ("train", "bc_anchor_phase_lock"): 1.0,
+                              ("goal", "walk_phase_run_on_yaw"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.0)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, _t, _tr, info = env.step(hold)
+        assert "bc_target" not in info
+    assert env._walk_bc_t == 0.0
+
+
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
 # cw-getup2-r1 warm-started the getup task from the rise+hold
 # specialist and showed the skill does NOT survive contact with the

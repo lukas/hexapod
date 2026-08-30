@@ -4636,8 +4636,34 @@ class SimHexapodBalanceEnv(_GymBase):
                         # and the gait phase — frozen, matching the
                         # obs clock's linear-command gate). Default 0
                         # = legacy wall-clock, bit-exact.
-                        if math.hypot(_bc_goal.vx_ref,
-                                      _bc_goal.vy_ref) > 1e-3:
+                        _bc_clock_run = math.hypot(
+                            _bc_goal.vx_ref, _bc_goal.vy_ref) > 1e-3
+                        if (not _bc_clock_run
+                                and float(cfg_get(
+                                    self.cfg, "goal",
+                                    "walk_phase_run_on_yaw",
+                                    default=0.0)) > 0.0):
+                            # run_on_yaw GAP FIX (08-30, standwalk
+                            # walkteach wave-2 prereq,
+                            # OPERATOR_QUESTIONS q_20260830T1530Z item
+                            # 3b): walk_task._augment_obs already
+                            # advances the POLICY's obs phase clock on
+                            # a wz-only commanded tick when
+                            # goal.walk_phase_run_on_yaw=1 (amp M2-yaw,
+                            # 08-22) — this accumulator did not mirror
+                            # that, so a turn-in-place tick under
+                            # run_on_yaw=1 froze the ANCHOR's gait
+                            # phase while the policy's own clock kept
+                            # advancing, pulling the anchor toward a
+                            # stale phase. Gate identically to the obs
+                            # clock (same key, same wz-nonzero test).
+                            # Bit-exact no-op whenever run_on_yaw=0 OR
+                            # every commanded tick is either linear or
+                            # a true park (wz_ref==0 too) — e.g. every
+                            # wave-1 walkteach run to date
+                            # (walk_yaw_zero_frac=1.0, no turn ticks).
+                            _bc_clock_run = abs(_bc_wz) > 1e-3
+                        if _bc_clock_run:
                             _dt_bc = self.dt
                             # Speed-coupled clock (08-22, amp M2
                             # speedrange root cause): when

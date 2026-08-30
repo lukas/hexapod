@@ -1,5 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-30 ~16:3x (**operator-kick UX/user-feel cycle:
+scripted-teacher canary pair 2/2 CANARY PASS → 12M acquisition pair
+LAUNCHED; MLP-singleframe exported + beats TF-stressmix on a
+like-for-like authority suite; learned clean tuck already exists.**)
+Plain English, per the 08-30 focus note (better user-feel model +
+submodels): (1) `cw-walkteach-scripted-allhead-canary-r1{,-s1-r1}`
+finished healthy — all 5 gate clauses PASS both seeds (std on
+schedule, ep_len 7→617, anchor loss →0.00022, course-income live;
+DIRECTION BAR 8/8 headings det zero falls, completion 0.356–0.401 ON
+the teacher band, slip/m 1.4–1.8; tips wz≈0.19–0.23 correct sign; det
+strips clean six-leg gait). NOTE: the watcher-staged cmdsuite reads
+had CRASHED on a 0-byte suite JSON on both pods — restaged + rerun
+this cycle (`logs/ckpt_eval/cw_walkteach_scripted_allhead_canary_{r1,
+s1_r1}_cmdsuite.json`). Per the pre-registered promote clause the
+**12M acquisition pair is RUNNING**
+(`cw-walkteach-scripted-allhead-acq12m{,-s1}`, train-6/7, warm from
+each canary's own ckpt, sole change log-std −3.0→−4.0 stotight leg;
+gate adds the operator's AUTHORITY READ: det completion vs teacher
+band 0.373–0.385 per heading). (2) UX candidate comparison on the
+IDENTICAL 12 s-hold suite (prior reads were 6 s vs 12 s,
+incomparable): **MLP-singleframe det completion med 0.420
+(0.404–0.453) > TF-stressmix 0.409 (0.385–0.420)**, slip 2.28 vs
+2.30, both 0 falls, sto both ~0.375 — MLP-singleframe is the better
+drive-UX walk role AND is product-exportable: exported this cycle to
+`linux_control/policies/walk_allheading_mlp_singleframe_acq1_stdanneal.json`
+(parity 1.4e-07; TF is 85 MB torch-only). CAVEAT both allheading
+models have ZERO turn authority (tip achieved wz=0.00 — no wz obs
+channel in that diet); turns belong to the scripted-teacher lineage
+(wz≈0.23 retained) or the composition layer. (3) "Soft/underpowered"
+(operator: completion ~0.39 @0.08) is TEACHER-CEILING-shaped: the
+scripted clone itself sits at 0.380 — if acq12m's authority read
+can't beat the band, the fix is a faster-teacher harvest (bc_init_gait
+--save-dataset at a higher speed band), not more RL budget — named
+Next item, not launched. (4) Tuck submodel: NO new run needed — the
+learned clean tuck already exists (`stancemix-tuckclock-scratch8m{,-s1}`
+joint 2/2 PASS, splay→tuck-under-before-load→level plant, reversible
+lower, exported `stand_stancemix_tuckclock_scratch8m{,_s1}.json`);
+recorded in OPERATOR_QUESTIONS q_20260830T1630Z. (5) dualbc3-dagger
+acq8m mixedsession DONE-gate reads still in flight on train-0/1 —
+no further spend on the unified line until they land (focus-note
+order upheld).
+
 Update, 2026-08-30 ~15:4x (**SCRIPTED all-heading walk-teacher lineage
 OPENED per operator directive 08-30 — harvest + BC clone + direction
 panel PASS, RL canary pair queued.**) Plain English: the operator

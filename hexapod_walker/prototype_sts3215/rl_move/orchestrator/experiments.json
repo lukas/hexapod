@@ -236956,7 +236956,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkcurr-litrep-box-s0 since 2026-08-31T02:25:24"
   },
   {
     "run": "cw-walkcurr-litrep-box-s1",
@@ -237115,7 +237116,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-cw-wal since 2026-08-31T02:30:31"
   },
   {
     "run": "cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary",
@@ -237967,7 +237969,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-cw-wal since 2026-08-31T02:30:30"
   },
   {
     "run": "cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-s1",
@@ -238237,6 +238240,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-31T02:15:11"
   }
 ]

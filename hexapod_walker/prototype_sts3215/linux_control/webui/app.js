@@ -3430,8 +3430,8 @@ const RL_POLICY_BUNDLES = [
       ['Hold', RL_DEFAULT_HOLD_FILE],
       ['Lower', 'scripted tuck'],
     ],
-    metrics: ['full mesh', '0 falls', '1s course err med 2.42deg',
-              'progress ratio 0.418'],
+    metrics: ['full mesh', '0.08 m/s trained', '0 falls',
+              '1s course err med 2.42deg', 'progress ratio 0.418'],
   },
   {
     id: 'scripted-tripod-baseline',

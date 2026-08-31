@@ -318,6 +318,21 @@ def test_drive_translation_clamps_to_hardware_trained_band():
     assert vy == pytest.approx(0.0)
 
 
+def test_drive_translation_uses_policy_metadata_band():
+    speed_min, speed_max = rl_policy._policy_walk_speed_band(  # noqa: SLF001
+        _policy({"walk_speed_min_m_s": 0.08, "walk_speed_max_m_s": 0.08})
+    )
+
+    assert speed_min == pytest.approx(0.08)
+    assert speed_max == pytest.approx(0.08)
+
+    vx, vy = rl_policy._drive_clamp_translation(  # noqa: SLF001
+        0.05, 0.0, speed_min, speed_max)
+
+    assert vx == pytest.approx(0.08)
+    assert vy == pytest.approx(0.0)
+
+
 def test_joint_hold_fallback_does_not_use_learned_policy():
     assert not rl_policy._drive_uses_learned_policy(  # noqa: SLF001
         "hold", None

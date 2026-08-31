@@ -884,10 +884,8 @@ WALK_VEL_SCALE = 0.15
 WALK_YAW_SCALE = 0.5         # sim walk_task.WZ_SCALE
 WALK_OBS_DIMS = (72, 74, 93)
 WALK_PHASE_OBS_DIMS = (74, 93)
-WALK_SPEED_MIN = 0.05        # deployed dep-vref walk policies are OOD below
-                             # this; the UI may select slower values for sims,
-                             # but hardware live-drive clamps to the trained band.
-WALK_SPEED_MAX = 0.06        # trained command band is 0.05-0.06 m/s
+WALK_SPEED_MIN = 0.05        # fallback for legacy dep-vref policy exports
+WALK_SPEED_MAX = 0.06        # fallback trained command band for old exports
 WALK_HOLD_S = 1.0
 WALK_RAMP_S = 1.0
 WALK_MAX_TOTAL_S = 20.0
@@ -992,12 +990,27 @@ DRIVE_HEIGHT_MAX_M = 0.030
 DRIVE_HEIGHT_EPS_M = 0.003
 
 
-def _drive_clamp_translation(vx: float, vy: float) -> tuple[float, float]:
+def _policy_walk_speed_band(policy: "NumpyPolicy") -> tuple[float, float]:
+    """Policy-specific nonzero command band, with legacy fallback."""
+    meta = policy.meta or {}
+    lo = _positive_float(meta.get("walk_speed_min_m_s"), WALK_SPEED_MIN)
+    hi = _positive_float(meta.get("walk_speed_max_m_s"), WALK_SPEED_MAX)
+    if hi < lo:
+        hi = lo
+    return lo, hi
+
+
+def _drive_clamp_translation(vx: float, vy: float,
+                             speed_min: float = WALK_SPEED_MIN,
+                             speed_max: float = WALK_SPEED_MAX,
+                             ) -> tuple[float, float]:
     """Clamp nonzero hardware-drive translation into the trained band."""
     spd = math.hypot(vx, vy)
     if spd <= DRIVE_MOVE_EPS_MPS:
         return 0.0, 0.0
-    want = max(WALK_SPEED_MIN, min(WALK_SPEED_MAX, spd))
+    lo = _positive_float(speed_min, WALK_SPEED_MIN)
+    hi = max(lo, _positive_float(speed_max, WALK_SPEED_MAX))
+    want = max(lo, min(hi, spd))
     s = want / spd
     return vx * s, vy * s
 
@@ -1077,10 +1090,6 @@ class DriveCommand:
 
     def set(self, vx: float, vy: float, wz: float = 0.0,
             dh: float = 0.0) -> None:
-        spd = math.hypot(vx, vy)
-        if spd > WALK_SPEED_MAX:
-            s = WALK_SPEED_MAX / spd
-            vx, vy = vx * s, vy * s
         wz = max(-WALK_YAW_SCALE, min(WALK_YAW_SCALE, float(wz)))
         dh = max(-1.0, min(1.0, float(dh)))
         with self._lock:
@@ -1929,10 +1938,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 return {"ok": False,
                         "error": ("turn= is not supported for phase-"
                                   "clock (obs 74) walk policies")}
-        spd = math.hypot(vx, vy)
-        if spd > WALK_SPEED_MAX:
-            s = WALK_SPEED_MAX / spd
-            vx, vy = vx * s, vy * s
+        walk_speed_min, walk_speed_max = _policy_walk_speed_band(policy)
+        vx, vy = _drive_clamp_translation(
+            vx, vy, walk_speed_min, walk_speed_max)
         total_s = min(max(float(duration_s), 3.0), WALK_MAX_TOTAL_S)
         if rot60 and walk_obs == 72:
             canon = make_walk_canonicalizer(policy, cfg)
@@ -2571,6 +2579,7 @@ def benchmark_drive_hot_path(drive, *, walk_weights: Path | None = None,
     if walk_obs not in WALK_OBS_DIMS:
         return {"ok": False,
                 "error": f"{Path(wpath).name} is not a walk policy"}
+    walk_speed_min, walk_speed_max = _policy_walk_speed_band(policy)
     try:
         timing = _policy_timing(policy)
         joint_frame = policy_joint_frame(policy, cfg)
@@ -2625,7 +2634,7 @@ def benchmark_drive_hot_path(drive, *, walk_weights: Path | None = None,
     canon = make_walk_canonicalizer(policy, cfg) if walk_obs == 72 else None
     phase = 0.0
     phase_hz = float(policy.meta.get("phase_hz", 0.0) or 0.0)
-    vx_r = WALK_SPEED_MIN
+    vx_r = walk_speed_min
     vy_r = 0.0
     wz_r = 0.0
     phase_run_on_yaw = bool(float(policy.meta.get(
@@ -2783,6 +2792,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         return {"ok": False,
                 "error": ("walk/hold policy joint_frame mismatch "
                           f"({joint_frame} vs {hold_joint_frame})")}
+    walk_speed_min, walk_speed_max = _policy_walk_speed_band(walk_policy)
     try:
         timing = _policy_timing(walk_policy)
     except ValueError as e:
@@ -2998,7 +3008,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                     # sim it starts at 0 and freezes at zero command
     phase_run_on_yaw = bool(float(walk_policy.meta.get(
         "walk_phase_run_on_yaw", 0.0)))
-    dv_max = WALK_SPEED_MAX * timing.policy_dt / WALK_RAMP_S
+    dv_max = walk_speed_max * timing.policy_dt / WALK_RAMP_S
     active = "hold"
     walk_cmd_since: float | None = None
     walk_active_since: float | None = None
@@ -3064,7 +3074,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                                  height_ref=0.0, unload_leg=None)
             warm_base = build_obs(cfg, state, q_nom, prev_action,
                                   goal=warm_goal, tilt_ref=tilt_ref0)
-            warm_tail = _walk_obs_tail(int(walk_obs), WALK_SPEED_MIN, 0.0,
+            warm_tail = _walk_obs_tail(int(walk_obs), walk_speed_min, 0.0,
                                        phase, 0.0)
             warm_walk_obs = np.concatenate(
                 [warm_base, warm_tail]).astype(np.float32)
@@ -3074,7 +3084,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             if hold_policy is not None:
                 if hold_obs in WALK_OBS_DIMS:
                     hold_tail = _walk_obs_tail(int(hold_obs),
-                                               WALK_SPEED_MIN, 0.0,
+                                               walk_speed_min, 0.0,
                                                phase, 0.0)
                     warm_hold_obs = np.concatenate(
                         [warm_base, hold_tail]).astype(np.float32)
@@ -3200,7 +3210,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             dh_t = 0.0
         if not height_can_track:
             dh_t = 0.0
-        vx_t, vy_t = _drive_clamp_translation(vx_t, vy_t)
+        vx_t, vy_t = _drive_clamp_translation(
+            vx_t, vy_t, walk_speed_min, walk_speed_max)
         moving_requested = _drive_command_is_moving(
             vx_t, vy_t, wz_t, int(walk_obs))
         # A crouched/raised body must return to the walk anchor height
@@ -3244,7 +3255,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 # keep the nonzero ref inside the trained band.
                 vx_r += max(-dv_max, min(dv_max, vx_t - vx_r))
                 vy_r += max(-dv_max, min(dv_max, vy_t - vy_r))
-                vx_r, vy_r = _drive_clamp_translation(vx_r, vy_r)
+                vx_r, vy_r = _drive_clamp_translation(
+                    vx_r, vy_r, walk_speed_min, walk_speed_max)
         elif zero_dwell_active:
             # Do not run walk obs at true zero and do not instant-handoff
             # to static joint hold from an arbitrary gait phase. Brief
@@ -3252,7 +3264,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             # nonzero gait ref; sustained neutral still falls through to
             # the explicit hold handoff below.
             if math.hypot(vx_r, vy_r) <= DRIVE_MOVE_EPS_MPS:
-                vx_r, vy_r = WALK_SPEED_MIN, 0.0
+                vx_r, vy_r = walk_speed_min, 0.0
         elif active == "walk":
             prev_active = active
             vx_r = vy_r = 0.0

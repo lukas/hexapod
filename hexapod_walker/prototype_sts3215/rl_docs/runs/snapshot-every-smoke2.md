@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: SMOKE PASS
 
 **created**: 2026-08-31T17:36:12+00:00
 
@@ -13,6 +13,8 @@
 **hypothesis**: Tool re-smoke after naming fix: --snapshot-every now tags copies with exact env-steps (<out>_s<steps>.zip) so sub-interval snapshots can never collide/overwrite (first smoke showed _at0M collisions). Prediction-if-true: >=3 DISTINCT tagged files at 200k steps with snapshot-every=50k. Prediction-if-false: single file again or crash.
 
 **gate**: SMOKE: >=3 distinct step-tagged snapshot files on pod
+
+**verdict**: The fixed --snapshot-every tool works: 200k-step GPU smoke with snapshot-every=50k produced 3 distinct step-tagged checkpoint copies (_s57344/_s114688/_s172032) plus the normal final checkpoint, training undisturbed (3.6k fps). Tool is live (default OFF, bit-exact when off) and in use by the yaw5x retention pair launched this cycle.
 
 **failed_reason**: process died; log tail:
          |              |

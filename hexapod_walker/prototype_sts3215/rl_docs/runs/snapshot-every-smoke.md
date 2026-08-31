@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: SMOKE PASS (superseded)
 
 **created**: 2026-08-31T17:33:13+00:00
 
@@ -13,6 +13,8 @@
 **hypothesis**: Tool smoke: the new --snapshot-every flag (off-by-default step-tagged checkpoint copies for erosion curves) writes <out>_at<N>M.zip files without disturbing training. Prediction-if-true: run completes 200k steps and >=2 tagged snapshot files exist on the pod. Prediction-if-false: crash at first snapshot or no files.
 
 **gate**: SMOKE: process completes + snapshot files present on pod
+
+**verdict**: Tool smoke passed mechanically (200k steps, snapshot file written, training undisturbed) but exposed a naming defect: sub-1M snapshot intervals all mapped to the same _at0M.zip name and overwrote each other. Fixed same cycle (exact-step _s<steps>.zip tags) and re-smoked as snapshot-every-smoke2.
 
 **failed_reason**: process died; log tail:
           |              |

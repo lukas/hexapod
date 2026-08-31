@@ -102,6 +102,41 @@ concludes. CYCLE_WORKED.
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~17:4x (dig-in cycle — CLOSED the acq1 pair, root-
+caused the erosion, built the missing instrument, launched the
+pre-registered next arm). Plain English: the mirror-fix buys TIME, not
+durability. Both `...mirroraug-turnpay-acq1{,-s1}` finished their full
+38M acquisition with turn authority eroded 60-75% from the 2M canary
+reads (wz_med +0.032/+0.055 & -0.045/-0.046 seed0; +0.025/+0.029 &
+-0.072/-0.057 seed1 — probe classifier: FROZEN-BODY both) while
+everything else stayed clean (walk/rise/lower survived 1.0, det walk
+strips: sit->rise->level six-leg walking, zero falls; direction_err
+flat at 45-53deg all run = joygate clause answered NO). Root cause per
+the hypothesis's own discriminator: RL-EROSION signature, not anchor
+dilution — walk_yaw_kernel_factor collapsed fast-early-then-floor
+(0.42->0.15 inside the canary's first ~300k steps) and sat flat at
+that floor for all 38M while ep_rew still rose; PPO's optimum at 1x
+yaw pricing (~10% of per-tick income) is near-zero turn authority.
+Verdicted seed0 `ACQ FAIL - TURN EROSION` (seed1 verdicted PARTIAL-
+EROSION by a concurrent cycle — same read, joint fork now closed: NOT
+promotable). Prestage gate/owncfg syncs had died on a kubectl
+websocket EOF; re-fired via podeval (mid-sync at cycle end,
+supplementary only — decisive clauses read from probe + W&B + strips).
+Built `--snapshot-every` (train_ppo_mjx, default OFF, smoke-verified
+x2): non-overwriting `_s<steps>.zip` checkpoint copies so erosion
+curves are measurable instead of 2-endpoint inferred. LAUNCHED the
+pre-registered next arm both seeds (VERIFIED RUNNING train-6/7):
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-yaw5x-acq1{,-s1}` —
+identical recipe/init to the failed pair except k_walk_yaw/k_yaw_prog
+1.0->5.0 + snapshot-every=5M. Key distinction from the refuted
+yawscale5x/15x canaries: those asked pricing to RECOVER turning from
+an already-frozen base (impossible via noise); this asks pricing to
+DEFEND live authority (retention) — untested until now. If it also
+erodes: reward-magnitude retention refuted -> escalate to the
+per-tick reward-vs-value credit-assignment trace the yawscale gates
+named. Next cycle: read yaw5x snapshots/finals when they land; do NOT
+duplicate the running pair.
+
 Update, 2026-08-31 ~15:5x (idle-kick — DRAINED the exact "next cycle"
 item the ~15:1x update left (close -s1's own eval gap) and, since the
 evidence already in hand made the outcome near-certain, EXECUTED the

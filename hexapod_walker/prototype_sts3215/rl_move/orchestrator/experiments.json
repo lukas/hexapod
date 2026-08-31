@@ -245656,7 +245656,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-stillbal-acq1- since 2026-08-31T22:29:03"
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-stillbal-acq1",

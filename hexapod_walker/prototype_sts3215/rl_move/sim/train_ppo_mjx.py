@@ -3482,8 +3482,30 @@ def main(argv: list[str] | None = None) -> int:
         # not the (smaller, decaying) actor one (same extension as
         # train_ppo_transfer; test_dynrep_predictive_critic.py pins
         # the split).
-        _markers = (CRITIC_MARKERS + ("value_gate", "latent_adapter")
-                    if args.critic_encoder is not None else None)
+        _markers = CRITIC_MARKERS
+        if args.critic_encoder is not None:
+            _markers = _markers + ("value_gate", "latent_adapter")
+        # GRU-family recurrent policies (--gru/--gru-dual/--gru-
+        # experts) build a SEPARATE recurrent trunk for the critic
+        # (sb3-contrib's enable_critic_lstm=True names it
+        # ``lstm_critic`` — a real nn.GRU/_DualGRU/_QuadGRU module,
+        # not just the final value_net head). That name shares no
+        # substring with the stock markers (``value_net``,
+        # ``vf_features_extractor``), so an UNEXTENDED split puts
+        # ``lstm_critic.*`` in the ACTOR group — freezing it right
+        # alongside the actor under --actor-freeze-steps, which
+        # defeats the entire point of a value-warmup window (the
+        # critic's own encoder can't adapt either). Caught 2026-08-31
+        # scoping the standwalk turn-authority credit-assignment fix
+        # (probe_yaw_credit found the critic value degenerate-
+        # constant on the dualbc6 lineage; --actor-lr/
+        # --actor-freeze-steps had never been launched together with
+        # any --gru* flag before — confirmed via experiments.json,
+        # 0 prior combos) — test_gru_dual_lstm_critic_rides_critic_lr
+        # pins this. Additive only; every existing non-GRU launch
+        # (net_arch/transformer/condition-D) is untouched.
+        if args.gru or args.gru_dual or args.gru_experts:
+            _markers = _markers + ("lstm_critic",)
         attach_actor_critic_lr(
             model, args.actor_lr,
             (args.actor_lr_final if args.actor_lr_final > 0.0

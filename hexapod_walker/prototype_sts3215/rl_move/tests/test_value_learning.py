@@ -45,9 +45,9 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 from gymnasium import spaces  # noqa: E402
 
 from rl_move.sim.update_health import (  # noqa: E402
-    EVTracker, HealthTracker, attach_actor_critic_lr,
+    CRITIC_MARKERS, EVTracker, HealthTracker, attach_actor_critic_lr,
     attach_kl_rollback, load_optimizer_state_if_compatible,
-    split_actor_critic_params,
+    set_actor_freeze, split_actor_critic_params,
 )
 
 ACT_DIM = 4
@@ -144,6 +144,77 @@ def test_transformer_split_puts_vf_extractor_in_critic():
     vf_ids = {id(p) for p in policy.vf_features_extractor.parameters()}
     assert vf_ids <= ids_c, "unshared critic transformer trunk must " \
                             "ride the critic LR group"
+
+
+def _gru_dual_policy(obs_dim: int = 16):
+    """DualGruActorCriticPolicy fixture (standwalk value-warmup
+    scoping, 2026-08-31): needs the trailing one-hot ``_gate`` slots
+    real code reads, so obs_dim must exceed _N_LOCO_SLOTS."""
+    from rl_move.sim.gru_policy import DualGruActorCriticPolicy
+    obs_sp = spaces.Box(-np.inf, np.inf, (obs_dim,), np.float32)
+    act_sp = spaces.Box(-1.0, 1.0, (ACT_DIM,), np.float32)
+    return DualGruActorCriticPolicy(
+        obs_sp, act_sp, _lr_sched, lstm_hidden_size=8, n_lstm_layers=1,
+        enable_critic_lstm=True, shared_lstm=False)
+
+
+def test_gru_dual_default_split_misclassifies_lstm_critic_as_actor():
+    """Documents the gap this cycle found (not a desired behavior):
+    sb3-contrib's separate critic recurrent trunk is named
+    ``lstm_critic`` on EVERY GRU-family policy here (single-core,
+    dual-core, mode-experts) — it shares no substring with the stock
+    markers (``value_net``, ``vf_features_extractor``), so an
+    UNEXTENDED split puts it in the ACTOR group. Freezing the actor
+    group (--actor-freeze-steps, the value-warmup mechanism) would
+    then also freeze the critic's own recurrent encoder — the
+    opposite of what a warmup window is for. --actor-lr had never
+    been launched with any --gru* flag before this was caught
+    (0 combos in experiments.json)."""
+    policy = _gru_dual_policy()
+    _actor, critic = split_actor_critic_params(policy)
+    ids_c = {id(p) for p in critic}
+    lstm_critic_ids = {id(p) for p in policy.lstm_critic.parameters()}
+    assert not (lstm_critic_ids & ids_c), (
+        "if this starts failing, the stock CRITIC_MARKERS default "
+        "was extended to already cover lstm_critic — update "
+        "train_ppo_mjx.py's GRU-family marker extension accordingly")
+
+
+def test_gru_dual_lstm_critic_rides_critic_lr_with_marker_extension():
+    """The fix: extending critic_markers with 'lstm_critic' (what
+    train_ppo_mjx.py now does whenever --gru/--gru-dual/--gru-experts
+    is combined with --actor-lr) puts the WHOLE critic path —
+    dedicated recurrent trunk AND both mode heads (value_net,
+    value_net_b) — in the critic group, so set_actor_freeze's lr=0
+    window leaves the critic free to learn on the frozen actor's
+    rollouts (the value-warmup mechanism this fixture exists for)."""
+    policy = _gru_dual_policy()
+    markers = CRITIC_MARKERS + ("lstm_critic",)
+    actor, critic = split_actor_critic_params(policy, markers)
+    ids_a, ids_c = {id(p) for p in actor}, {id(p) for p in critic}
+    assert not (ids_a & ids_c)
+    all_ids = {id(p) for p in policy.parameters() if p.requires_grad}
+    assert ids_a | ids_c == all_ids
+    for mod in (policy.lstm_critic, policy.value_net, policy.value_net_b):
+        assert {id(p) for p in mod.parameters()} <= ids_c
+    # actor-side sanity: the actor's OWN recurrent trunk + log_std
+    # must stay in the actor group (a broad "critic" substring bug
+    # could accidentally swallow lstm_actor too if it were ever
+    # renamed to share a substring — pin the negative case).
+    lstm_actor_ids = {id(p) for p in policy.lstm_actor.parameters()}
+    assert lstm_actor_ids <= ids_a
+    assert id(policy.log_std) in ids_a
+
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=1e-4, critic_lr=3e-4,
+                           critic_markers=markers)
+    set_actor_freeze(m, until_steps=1_000_000)
+    m.num_timesteps = 0
+    m._update_learning_rate(None)
+    opt = policy.optimizer
+    assert opt.param_groups[0]["lr"] == 0.0   # actor frozen
+    assert opt.param_groups[1]["lr"] == 3e-4  # critic (incl.
+                                               # lstm_critic) learns
 
 
 class _StubLogger:

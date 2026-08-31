@@ -92,3 +92,46 @@ def test_help_text_still_wires_all_three_flags():
     for flag in ("--log-std-final", "--log-std-anneal-core",
                  "--log-std-anneal-frac"):
         assert flag in out.stdout
+
+
+from rl_move.sim.train_ppo_mjx import _fixup_log_std_final_argv  # noqa: E402
+
+
+def test_fixup_merges_comma_list_negative_value():
+    """The exact crash from the stdwalk-mild launch (08-31): a bare
+    two-token '--log-std-final -0.8,-4.0' argv (what launch_run.py's
+    --arg harness always emits) must become one '=' token so
+    argparse's negative-number heuristic never sees it as a stray
+    option string."""
+    out = _fixup_log_std_final_argv(
+        ["--log-std-final", "-0.8,-4.0", "--foo", "bar"])
+    assert out == ["--log-std-final=-0.8,-4.0", "--foo", "bar"]
+
+
+def test_fixup_leaves_bare_negative_number_untouched():
+    """A single negative value already parses fine (argparse's own
+    negative-number regex matches it) — merging it is harmless but
+    unnecessary; confirm the transform still applies it consistently
+    (single code path, no special-casing 'already fine' values)."""
+    out = _fixup_log_std_final_argv(["--log-std-final", "-4.0"])
+    assert out == ["--log-std-final=-4.0"]
+
+
+def test_fixup_leaves_missing_value_untouched():
+    """A dangling --log-std-final with nothing after it (or another
+    flag right after, e.g. a bare store_true flag) is not this
+    function's problem — argparse's own error path handles it."""
+    assert _fixup_log_std_final_argv(["--log-std-final"]) == [
+        "--log-std-final"]
+    assert _fixup_log_std_final_argv(["--log-std-final", "--gru-dual"]) == [
+        "--log-std-final", "--gru-dual"]
+
+
+def test_fixup_leaves_unrelated_flags_untouched():
+    out = _fixup_log_std_final_argv(["--ent-coef", "-0.5", "--steps", "10"])
+    assert out == ["--ent-coef", "-0.5", "--steps", "10"]
+
+
+def test_fixup_is_idempotent_on_already_merged_form():
+    out = _fixup_log_std_final_argv(["--log-std-final=-0.8,-4.0"])
+    assert out == ["--log-std-final=-0.8,-4.0"]

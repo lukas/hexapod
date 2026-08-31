@@ -2,6 +2,74 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~11:3x (idle-kick, no run finished — DRAINED by
+building and launching fix path 2 from the prior cycle's own list,
+"neither attempted this cycle" -> one of the two now attempted).
+Plain English: built the mirror-augmented BC-dataset fix (STATUS
+08-31 ~11:1x listed this as the cheaper alternative to the
+`MirrorRecurrentPPO` build, "worth trying before or alongside... both
+are now credible, neither is built") and launched a real re-distillation
+with it running in the background right now. New
+`distill_gru.mirror_augment_episodes` (+ `mirror.resolve_obs_mirror_maps`,
+a small factored-out helper attach_mirror now also uses so PPO
+training and BC augmentation can never read the cfg flags
+differently): every collected episode batch (initial BC pass AND each
+DAgger round) gets a left-right MIRRORED twin appended via the existing
+`mirror.py` sagittal maps (obs reflected + wz_ref sign-flipped, actions
+reflected) before training, so the SAME optimizer sees an
+algebraically-identical +/- pair at every gradient step instead of
+merely a balanced-but-independently-sampled dataset (the 08-31 ~10:2x/
+~10:4x audit chain's own finding: raw collection is sign-balanced
+9+/8- tip episodes and per-tick BC loss is near-symmetric turn+/turn-
+within 8%, yet the trained checkpoint's CLOSED-LOOP rollout is starkly
+asymmetric — i.e. something in optimization/compounding breaks a
+symmetric input, which a hard per-step symmetry constraint directly
+attacks). Gated behind `--mirror-augment` (default off, requires
+`goal.walk_yaw_cmd=1`, fails fast before any teacher load if missing);
+6 new tests (`test_distill_mirror_augment.py`, doubling/mode-
+preservation/involution/obs-width-mismatch/main-arg-validation) +
+existing `test_mirror.py`/`test_distill_transitions.py`/
+`test_probe_mirror_turn_authority.py`/`test_probe_turn_authority.py`/
+`test_probe_yaw_credit.py` re-run green (59/59 touched). Real-env CLI
+smoke (`--episodes 8 --dagger-rounds 1 --dagger-episodes 8 --epochs 2`,
+tiny) confirmed the doubling happens end to end against the real
+teachers/env (14 eps from 7 raw, 28 after one dagger round from 7 raw
++ mirror) before the full-scale launch. Snapshot
+`exp/standwalk-mirror-augment-distill`.
+
+Launched (background CPU, controller, `logs/distill_gru/
+dualbc6_turncap_mirroraug.log`, PID 2098795/2098801):
+`distill_gru.py --dual --mirror-augment` reusing the EXACT documented
+dualbc5_turncap recipe (bc1_std25 walk-teacher, bcchain3_stdanneal
+stance-teacher, `TURNCAP_CFG_SET` — same 83 cfg-set keys
+`audit_turn_dataset.py` already codified — `--episodes 100 --mix
+walk=0.30,rise=0.40,lower=0.15,hold=0.15 --dagger-rounds 2
+--dagger-episodes 100 --epochs 25`) with only `--mirror-augment` added
+and a new output name (`ppo_goal_cw_standwalk_stage2_
+dualbc6_turncap_mirroraug.zip`) — the single-lever comparison this
+finding needs: same data source, same everything, only the symmetry
+constraint added. **Acceptance bar (unchanged from the priority-
+reorder's own item 2, now the live next-cycle check once this
+finishes):** raw pre-RL checkpoint's `probe_turn_authority` wz_med
+>= 0.15 both signs (teacher band ~0.21) — clears the "turning base"
+bar no dual-distill checkpoint has cleared yet (best so far, naked
+dualbc5_turncap, was -0.038/-0.048 one sign and ~0 the other). If it
+clears: quick_probe net-disp sanity, then a fresh RL canary framed as
+RETENTION (per the meta reorder's order-of-work item 3), reusing the
+turnpay bank. If it does NOT clear: the mirror-augmentation hypothesis
+is refuted too, and the `MirrorRecurrentPPO` build (fix path 1) or the
+runtime reflection-select composition (fix path 2's OWN fallback,
+already measured to clear the FAIL/PASS gap on the untouched
+`dualbc5_turncap` weights, STATUS 08-31 ~11:1x) become the only
+remaining routes — do not start a THIRD dataset-side variant without
+diagnosing why symmetric supervision at the data level didn't fix a
+defect that isn't in the data (per the audit chain's own conclusion).
+No GPU launch this cycle (BC distillation is CPU-only by construction,
+not a `launch_run.py` experiment); swept every other track fresh
+(joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr
+RETIRED) — 12/12 GPU pods free, backlog empty, no other legal GPU arm
+exists regardless. CYCLE_WORKED.
+
 Update, 2026-08-31 ~11:1x (idle-kick, no run finished — DRAINED with a
 **genuine positive finding, not a no-op**). Plain English: mirroring
 the raw `dualbc5_turncap` checkpoint left-right (the existing rot60/

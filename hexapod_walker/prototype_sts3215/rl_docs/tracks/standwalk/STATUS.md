@@ -1,5 +1,70 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~09:4x (no verdict this cycle — `stdwalk-hi` was
+already joint-verdicted by the concurrent cycle handling `-mild`
+moments before this cycle spawned, confirmed correct by an
+independent read of the same evidence. **New: built the "raw per-tick
+reward-vs-value/credit-assignment trace" tool every one of the 7 FAIL
+gate texts has named as the next step, then RAN it on all 5
+mechanism-class checkpoints while the 8th class (`yawscale5x/15x`)
+trains — a clean, quantified, cross-checkpoint finding.**) New tool
+`rl_move/sim/probe_yaw_credit.py` (+ `test_probe_yaw_credit.py`, 16
+tests green): holds the same pinned-`wz` turn-in-place probe as
+`probe_turn_authority`, but steps the dual-core GRU checkpoint through
+its OWN `forward()` path (NOT `model.predict()`, which only threads
+the actor's hidden state — the critic's own recurrent state silently
+resets to zero every call under that convenience method, which would
+score a critic that never saw the episode), threading a real
+`RNNStates(pi, vf)` pair exactly like `RecurrentPPO.collect_rollouts`
+does in training, and computes the per-tick TD residual `delta_t =
+r_t + gamma*V(s_{t+1}) - V(s_t)`. Caught its own trap before trusting
+it: `delta_t` trivially correlates with `reward_walk_yaw` (r_t is a
+literal addend), so the tool ALSO reports `value_delta_t = delta_t -
+r_t` (the bootstrapped value change ALONE, reward excluded) — the
+genuine forward-looking "does the critic anticipate anything" signal,
+with its own `forward_verdict`.
+
+**Result, run on all 5 live mechanism-class checkpoints (base
+`turnpay-canary`, `entboost`, `isolateoff`, `stdwalk-mild`,
+`stdwalk-hi`; wz_cmd=+-0.25, seeds 0/1, 20 probes total):** the plain
+(tautological) `delta_t` read is CREDIT-REWARDS 20/20 (`corr(reward_
+walk_yaw, delta_t)` 0.87-0.98 every probe — confirms the reward
+channel fires live everywhere, matching the STATUS 08-31 ~07:0x
+structural audit). The DECISIVE `value_delta`-only read is uniformly
+WEAK: `|corr(wz_toward_cmd, value_delta)|` <= 0.22 on every probe
+(vs 0.6-0.98 for the reward-inclusive version), split
+CREDIT-BLIND/CREDIT-PUNISHES on `wz_cmd=+0.25` in all 5 checkpoints
+(range -0.14..+0.10) and mostly CREDIT-REWARDS-but-still-small on
+`wz_cmd=-0.25` in 4/5 (range +0.15..+0.22; `stdwalk-hi` is the outlier
+here, itself CREDIT-BLIND/PUNISHES both seeds). **This is direct,
+quantified evidence for the architecture/credit-assignment hypothesis
+every prior canary left as the last suspect: the reward genuinely
+fires, but the trained critic's OWN forward value estimate barely
+reacts to whether a tick's noise happened to nudge the body toward or
+away from the command** — GAE's forward-looking advantage term
+carries almost none of this signal, leaving PPO to reinforce turning
+almost entirely off same-tick reward variance, which cannot sustain a
+coordinated multi-tick behavior change. This REFINES (does not just
+repeat) the exploration-magnitude finding: it is not merely that the
+achieved wz-noise band is tiny at every log_std dose (already shown),
+it is that even the noise CURRENTLY PRESENT does not visibly teach
+the critic a wz-forward gradient — plausibly because that noise band
+is too transient/small for the recurrent critic's hidden state to
+ever pick up a stable trend, a testable mechanism (not yet tested)
+distinct from "raise the noise more" (closed) or "raise the reward
+weight more" (`yawscale5x/15x`, running, verdict pending). Evidence:
+`logs/ckpt_eval/yaw_credit_*.json` (5 files). **No relaunch this
+cycle** — `yawscale5x/15x` (the 8th, salience, mechanism class) is
+already the right next data point and is still training
+(train-1/train-0); this finding is the PRE-REGISTERED next branch if
+salience ALSO fails clean: build a critic-side fix (explicit wz/
+wz-trend critic-input feature, or a value-warmup phase with longer/
+denser turn-segment exposure so the bootstrap has room to learn the
+slope) rather than another actor-side dose. Capacity 10/12 GPU free,
+swept: joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered,
+walkcurr RETIRED — no other track has legal runnable work this cycle.
+Snapshot `exp/standwalk-probe-yaw-credit`. CYCLE_WORKED.
+
 Update, 2026-08-31 ~09:1x (`stdwalk-mild`/`-hi` VERDICT: both **CANARY
 FAIL - MECHANISM** — exploration MAGNITUDE fully refuted, 6th+7th
 turn-authority mechanism classes down; refill launched, new lever).

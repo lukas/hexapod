@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=joyrl2">
+<link rel="stylesheet" href="/style.css?v=joyrl3">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -36,12 +36,12 @@
   <div id="armbar" class="armbar disarmed">
     <span id="armstate" class="armstate">● OFF</span>
     <button id="armbtn" class="armbtn"
-      title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable</button>
+      title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: runs STEP lower, THEN cuts power.">Enable</button>
     <button id="armzero" class="armzero"
       title="Move to logical sit zero: STEP lower if already standing; safe-zero recovery if not standing or tangled.">Zero</button>
     <button id="topsetzero" class="armsetzero"
       title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°. Limp (Motors → Limp all, or E-STOP) and hand-pose the legs first.">Set zero HERE</button>
-    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ E-STOP</button>
+    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For normal power-off use STEP lower via Disarm / Sit &amp; power off.">■ E-STOP</button>
   </div>
   <div id="opsbar">
     <div id="hubtarget" class="hub-target">
@@ -115,27 +115,16 @@
     <span class="hint" style="margin:0; flex:1 1 auto" id="tmstamp">2 Hz while this tab is open</span>
   </div>
   <div class="row">
-    <div class="pad ready-pad">
-      <h2>1 · Get ready</h2>
+    <div class="pad drive-pad">
+      <h2>Manual drive</h2>
       <div class="hint" style="margin-top:0">
-        Normal path: <b>Enable</b> (top bar) → <b>Stand up</b> →
-        <b>Check ready</b>, then walk. Use <b>Set zero HERE</b> only after
-        limp + hand-posing the legs straight out.</div>
-      <div class="btns" style="margin-top:10px">
-        <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
-        <button id="wpreflight" title="Read-only readiness check: all 18 servos answering, IMU alive, tilt sane, and pose close to the expected stand/walk-start stance.">Check ready</button>
+        Select a gait on the left; stand, check, drive, stop, sit, and power
+        off from the controls on the right. For laptop controller input, open
+        the HTTPS URL.
       </div>
-      <div class="hint" id="wpfout">Read-only: checks servos, IMU, tilt, and stand pose. No motion.</div>
-    </div>
-    <div class="pad gait-walk-pad">
-      <h2>2 · Pick gait &amp; walk</h2>
-      <div class="hint" style="margin-top:0">
-        The selected gait runs for both <b>Start walk</b> and the joystick on
-        this page. Default: <b>Central Pattern Generator (CPG) tetrapod</b>,
-        the best MuJoCo gait so far.
-      </div>
-      <div class="gait-walk-layout">
+      <div class="gait-walk-layout drive-layout">
         <section class="gait-pane" aria-label="Gait selection">
+          <h3 class="pane-title">Gait</h3>
           <div class="gait-default">
             <button type="button" class="gait-pick gait-primary recommended"
               data-gait-pick data-gait="6"
@@ -258,12 +247,19 @@ legs can reach instead of clipping it.">
             </div>
           </details>
         </section>
-        <section class="walk-control-pane" aria-label="Walk controls">
-          <h3 class="pane-title">Walk controls</h3>
+        <section class="walk-control-pane manual-drive-pane" aria-label="Manual drive controls">
+          <h3 class="pane-title">Controls</h3>
           <div class="hint" style="margin-top:0">
-            Pick a direction and duration, then start. STOP holds the stand;
-            E-STOP in the header cuts power.
+            Enable → Stand up → Check ready → drive. E-STOP cuts power
+            immediately.
           </div>
+          <div class="session-actions">
+            <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
+            <button id="wpreflight" title="Read-only readiness check: all 18 servos answering, IMU alive, tilt sane, and pose close to the expected stand/walk-start stance.">Check ready</button>
+            <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Keyboard: C.">Center / Sit</button>
+            <button id="stop" class="danger" title="Run STEP lower to sit, wait for it to finish, then cut servo power. Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off</button>
+          </div>
+          <div class="hint drive-check-status" id="wpfout">Check ready is read-only: servos, IMU, tilt, and stand pose. No motion.</div>
           <div class="fields walk-fields">
             <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-30" max="30" step="5"></label>
             <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
@@ -273,36 +269,29 @@ legs can reach instead of clipping it.">
           <div class="walk-actions">
             <button id="wstart" class="on">▶ Start walk</button>
             <button id="wstop" class="danger"
-              title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
+              title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ Stop gait</button>
           </div>
           <div class="hint walk-status" id="wstatus">Idle.</div>
+          <div class="stick-grid">
+            <div class="stick-panel">
+              <h3 class="stick-title">Move</h3>
+              <canvas id="drive"></canvas>
+            </div>
+            <div class="stick-panel">
+              <h3 class="stick-title">Turn</h3>
+              <canvas id="turn"></canvas>
+            </div>
+          </div>
+          <label class="slab">Forward cap: <span id="vlab">30</span> mm/s</label>
+          <input id="vmax" type="range" min="10" max="60" value="30">
+          <div class="hint">
+            <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
+            <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
+            <b>Xbox (HTTPS):</b> left stick walk · right stick turn ·
+            bare <b>B</b> stops.
+          </div>
         </section>
       </div>
-    </div>
-    <div class="pad">
-      <h2>3 · Manual drive (left stick)</h2>
-      <canvas id="drive"></canvas>
-      <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
-      <label class="slab">Forward cap: <span id="vlab">30</span> mm/s</label>
-      <input id="vmax" type="range" min="10" max="60" value="30">
-      <div class="hint">
-        <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
-        <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
-        <b>Xbox (https URL):</b> left stick walk · right stick turn.
-        Bare <b>B</b> stops; use on-screen buttons for stand/sit/zero.
-        Demos: hold <b>LB / LT / RB / RT</b> then tap <b>X Y A B</b> (16 chords;
-        LB row easiest → RT row hardest). Enable servos first.
-      </div>
-    </div>
-    <div class="pad">
-      <h2>4 · Wind down</h2>
-      <div class="btns">
-        <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Controller: X · keyboard: C.">Center / Sit</button>
-      </div>
-      <button id="stop" class="danger" style="margin-top:10px"
-        title="Gently lower to the ground, then cut servo power (firmware SETTLE). Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
-      <div class="hint">E-STOP (header, red) cuts all servo power instantly — the robot
-        drops. Prefer Sit &amp; power off for a normal end of session.</div>
     </div>
   </div>
   </div><!-- /view-drive -->
@@ -331,7 +320,7 @@ legs can reach instead of clipping it.">
       </div>
       <div class="btns nowrap" style="margin-top:10px">
         <button id="mpinned" title="Read-only: is the body tipped ≥12° over a folded knee (the post-fall trapped state)? Never moves the robot.">Pinned-tip check</button>
-        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, settle, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
+        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, wait briefly, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
         <span id="mpinnedout" class="hint" style="margin:0">—</span>
       </div>
       <div style="overflow:auto; margin-top:10px; max-height:420px">
@@ -565,9 +554,9 @@ legs can reach instead of clipping it.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="Stand-up uses STEP as needed, then settles to the sim walk-ready stance. Tuck stand/lower uses the lower-current scripted tuck choreography. Walk still uses the selected RL policy. The ‘learned RL’ pair runs the actual stance-policy rise/lower episodes instead.">Policy moves</h2>
+      <h2 title="Stand-up uses STEP as needed, then finishes at the sim walk-ready stance. Tuck stand/lower uses the lower-current scripted tuck choreography. Walk still uses the selected RL policy. The ‘learned RL’ pair runs the actual stance-policy rise/lower episodes instead.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on" title="Use STEP stand-up as needed, then settle into the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
+        <button id="rlstand" class="on" title="Use STEP stand-up as needed, then hold the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
         <button id="rltuckstand" class="on" title="Use the scripted tuck stand: lift/fold the feet in the air, touch down under the body, then push up. This is the known lower-current stand-up path from the hardware notes.">⬆ Tuck Stand</button>
         <button id="rltucklower" title="Lower by reversing the scripted tuck keyframes. Start from the tuck/walk-ready standing stance.">⬇ Tuck Lower</button>
@@ -1079,6 +1068,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl11"></script>
+  <script src="/app.js?v=joyrl12"></script>
 </body>
 </html>

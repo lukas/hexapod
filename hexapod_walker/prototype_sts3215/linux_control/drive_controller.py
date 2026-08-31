@@ -4,7 +4,7 @@ Runs on the Uno Q Linux side. Prefer the MCU UART bridge (FE-URT on D0/D1);
 fall back to a USB URT-2 if present.  Command language mirrors the v1
 firmware enough that the web UI can stay familiar:
 
-  ARM / X / SETTLE     arm torque / emergency limp / sit then limp
+  ARM / X              arm torque / emergency limp
   P                    stand / park (planted stance)
   C                    centre all joints to 0°
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
@@ -101,7 +101,6 @@ except Exception:  # pragma: no cover - deploy bundle always ships it
 # only changes how often targets refresh, not the trajectory. (Was 20 Hz
 # when each write + telemetry read could eat >20 ms.)
 DT = 0.02  # 50 Hz walk loop
-SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
 WALK_START_TOL_DEG = 30.0
 DEMO_TRIPOD_PERIOD_S = DEFAULT_DEMO_TRIPOD.period_s
@@ -129,7 +128,7 @@ class DriveController:
         self._demo_tripod: DemoTripodPreset = DEFAULT_DEMO_TRIPOD
         self.gait = self._new_demo_tripod_gait()
         self.armed = False
-        self.mode = "idle"  # idle | stand | walk | settle
+        self.mode = "idle"  # idle | stand | walk
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -503,14 +502,10 @@ class DriveController:
             return "limp"
 
         if cmd in ("SETTLE",):
-            if not self.armed:
-                self._torque_all(True)
-                self.armed = True
-            self.mode = "settle"
-            self.gait.stop()
-            self._vx = self._vy = self._omega = 0.0
-            self.status = "settling"
-            return "settle"
+            self.status = "SETTLE removed; use STEP lower, then X"
+            return (
+                "refused SETTLE: removed; run /api/standup "
+                "direction=down, wait for done, then send X")
 
         if cmd == "P":
             if not self.armed:
@@ -755,47 +750,27 @@ class DriveController:
     # -- background loop -----------------------------------------------------
     def _loop(self) -> None:
         t0 = time.monotonic()
-        settle_t0 = None
         stand_hold_t = t0
         while not self._stop.is_set():
             tick = time.monotonic()
             with self._lock:
                 mode = self.mode
                 armed = self.armed
-                if mode == "settle":
-                    if settle_t0 is None:
-                        settle_t0 = tick
-                    u = min(1.0, (tick - settle_t0) / SETTLE_SECONDS)
-                    s = u * u * (3 - 2 * u)
-                    start = self._last_pose
-                    # Ease toward stand plant then limp.
-                    goal = list(standing_pose_degrees())
-                    pose = [a + (b - a) * s for a, b in zip(start, goal)]
-                    if armed:
-                        self._write_pose(pose, speed=200, acc=12)
-                    if u >= 1.0:
-                        self._torque_all(False)
-                        self.armed = False
-                        self.mode = "idle"
-                        self.status = "settled + limp"
-                        settle_t0 = None
-                else:
-                    settle_t0 = None
-                    if mode == "demo":
-                        pass  # bench / inplace_demos owns the bus
-                    elif armed and mode == "walk":
-                        pose = self.gait.desired_deg(tick - t0)
-                        self._write_pose(pose, speed=WALK_SPEED, acc=WALK_ACC)
-                    elif armed and mode == "stand":
-                        # Occasional re-hold so stance doesn't droop. This
-                        # must match the tall walk-ready stance used by
-                        # Stand/RL walk and scripted J drive.
-                        if tick - stand_hold_t >= 2.5:
-                            hold = (list(self._last_pose)
-                                    if self._last_pose
-                                    else walk_start_pose_degrees())
-                            self._write_pose(hold, speed=300, acc=20)
-                            stand_hold_t = tick
-                    else:
+                if mode == "demo":
+                    pass  # bench / inplace_demos owns the bus
+                elif armed and mode == "walk":
+                    pose = self.gait.desired_deg(tick - t0)
+                    self._write_pose(pose, speed=WALK_SPEED, acc=WALK_ACC)
+                elif armed and mode == "stand":
+                    # Occasional re-hold so stance doesn't droop. This
+                    # must match the tall walk-ready stance used by
+                    # Stand/RL walk and scripted J drive.
+                    if tick - stand_hold_t >= 2.5:
+                        hold = (list(self._last_pose)
+                                if self._last_pose
+                                else walk_start_pose_degrees())
+                        self._write_pose(hold, speed=300, acc=20)
                         stand_hold_t = tick
+                else:
+                    stand_hold_t = tick
             time.sleep(DT)

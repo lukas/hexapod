@@ -185,8 +185,7 @@ def main():
         drive.handle(f"J 0 0 {args.max_omega:.3f} 0")
         time.sleep(2)
         drive.handle("J 0 0 0 0")
-        drive.handle("SETTLE")
-        time.sleep(4.5)
+        drive.handle("X")
         drive.close()
         return
 
@@ -263,8 +262,7 @@ def main():
                                 print("[xbox] B → stop demo")
                                 bench_post("/api/demo/stop", base=args.api)
                             elif code in (BTN_SELECT, BTN_MODE):
-                                drive.handle("SETTLE")
-                                time.sleep(4.5)
+                                drive.handle("X")
                                 raise SystemExit
             x = axes[ABS_X]
             y = -axes[ABS_Y]
@@ -283,8 +281,7 @@ def main():
             os.close(fd)
         except OSError:
             pass
-        drive.handle("SETTLE")
-        time.sleep(4.5)
+        drive.handle("X")
         drive.close()
 
 

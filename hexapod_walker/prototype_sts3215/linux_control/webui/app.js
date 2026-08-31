@@ -733,7 +733,7 @@ async function goPoseZero(pose, label){
         +(j.error||'unknown'), true);
       if(j.demo) paintDemoStatus(j.demo);
       if(j.robot) paintRobotActivity(j.robot);
-      return;
+      return false;
     }
     setArmed(true);
     showSent(requestReceiptLine(j, tag)+'; '
@@ -749,21 +749,22 @@ async function goPoseZero(pose, label){
       const st = String(d.status||'');
       const chk = (d.params||{}).stand_check;
       if(st.startsWith('error') || st.startsWith('LIMP')){
-        showSent(st.replace(/^error:\s*/,'')); return;
+        showSent(st.replace(/^error:\s*/,''), true); return false;
       }
       if(st.startsWith('done')){
         if(pose==='stand' && chk && chk.max_err_deg!=null)
           showSent('stand verified · tracking '+Number(chk.max_err_deg).toFixed(1)+'°');
         else
           showSent(tag + ' done');
-        return;
+        return true;
       }
-      if(st.startsWith('aborted')){ showSent(tag + ' aborted'); return; }
-      if(st){ showSent(st); return; }
+      if(st.startsWith('aborted')){ showSent(tag + ' aborted', true); return false; }
+      if(st){ showSent(st); return false; }
       break;
     }
-  }catch(e){ showSent(tag + ' failed'); }
+  }catch(e){ showSent(tag + ' failed', true); }
   refreshRobotState(false);
+  return false;
 }
 async function padSit(){ return goPoseZero('sit', 'sit zero'); }
 async function padStand(){ return goPoseZero('stand', 'stand zero'); }
@@ -842,7 +843,7 @@ function pollGamepad(){
 }
 
 function disc(c){
-  if(c==='X'){ settleServos(); return; }
+  if(c==='X'){ stepLowerThenPowerOff(); return; }
   // Stand / Center: use verified glide, not the old one-shot /cmd P|C.
   if(c==='P'){ goPoseZero('stand', '▲ Stand'); forceResend(); return; }
   if(c==='C'){ goPoseZero('sit', 'Center / Sit'); forceResend(); return; }
@@ -852,7 +853,7 @@ function disc(c){
 
 document.querySelectorAll('button[data-cmd]').forEach(btn=>
   btn.onclick=()=> disc(btn.dataset.cmd));
-document.getElementById('stop').onclick=settleServos;
+document.getElementById('stop').onclick=stepLowerThenPowerOff;
 
 const vmax=document.getElementById('vmax'), lift=document.getElementById('lift');
 const TRIPOD_TUNE_DEFAULT = Object.freeze({
@@ -4444,7 +4445,7 @@ $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
 $('mpinned').onclick = async ()=>{
   // Read-only detector: tipped >=12° over a folded knee? (~1.5s when
-  // tipped — it re-reads after a settle so a rock doesn't classify.)
+  // tipped — it re-reads after a short pause so a rock doesn't classify.)
   const el = $('mpinnedout');
   el.textContent = 'checking…';
   el.style.color = '';
@@ -4944,7 +4945,7 @@ $('qtrotback').onclick = ()=> quadRunAction(
 $('qdown').onclick = ()=> quadRunAction(
   'down', 'quad '+quadVariantLabel()+' come down');
 $('qstop').onclick = ()=> quadRunAction(
-  'hold', 'quad '+quadVariantLabel()+' settle hold');
+  'hold', 'quad '+quadVariantLabel()+' stable hold');
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');
@@ -4978,9 +4979,9 @@ window.addEventListener('hashchange', ()=>{
 // --- SERVO ARM / DISARM gate ------------------------------------------------
 // The firmware boots DISARMED (all PCA9685 channels forced full-off = no PWM,
 // so every servo is limp). This page also defaults to disarmed on EVERY load
-// and NEVER auto-arms. "Enable servos" sends ARM; the big red EMERGENCY STOP,
-// the drive STOP, and Debug's Relax all send DISARM (firmware `X`), which cuts
-// all PWM. needArm() gates every servo-driving send on both pages.
+// and NEVER auto-arms. "Enable servos" sends ARM. The big red EMERGENCY STOP,
+// Motors Limp all, and Debug's Relax send `X`, which cuts all PWM immediately;
+// normal Drive power-off runs STEP lower first.
 function updateArmUI(){
   const bar = $('armbar');
   const zeroBtn = $('armzero');
@@ -5011,8 +5012,8 @@ function updateArmUI(){
   $('armstate').textContent = servosArmed ? '● ON' : '● OFF';
   $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable';
   $('armbtn').title = servosArmed
-    ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
-      +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
+    ? 'Normal power-off: run STEP lower first, then cut servo power. '
+      +'For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
   zeroBtn.disabled = !robotTargetAvailable;
   zeroBtn.title = robotTargetAvailable
@@ -5021,8 +5022,8 @@ function updateArmUI(){
     : 'Robot target is not connected.';
   $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
-    +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
-    +'gentle power-off use Disarm / Sit & power off.';
+    +'goes limp NOW and will drop. Use only in an emergency. For normal '
+    +'power-off use STEP lower via Disarm / Sit & power off.';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){
@@ -5034,12 +5035,45 @@ function armServos(){
   cmd('ARM'); setArmed(true);
   showSent('ARM — servos enabled (nothing moves; press Stand to stand)');
 }
-// GRACEFUL power-off: lower to the ground first (firmware SETTLE = SIT then
-// DISARM), only THEN cut power. This is the NORMAL disarm/relax/off path so the
-// robot settles instead of collapsing. UI shows disarmed once the command is
-// sent (the firmware does the lower, then goes limp on its own).
-function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
-  showSent('DISARM — lowering gently, then servos off'); }
+// NORMAL power-off: explicit STEP lower, wait for it to finish, then limp.
+// The legacy power-off command is intentionally bypassed; it targeted the
+// plant home, not the sit-down choreography we want on hardware.
+let stepPowerOffBusy = false;
+async function stepLowerThenPowerOff(){
+  if(stepPowerOffBusy){
+    showSent('STEP lower + power off already running');
+    return false;
+  }
+  if(targetHasSim && !targetHasRobot){
+    showSent('switch Robot active before STEP lower + power off', true);
+    return false;
+  }
+  if(!robotTargetAvailable){
+    showSent('robot target not connected', true);
+    return false;
+  }
+  stepPowerOffBusy = true;
+  dbgTestAbort = true;
+  try{
+    if(scriptedDriveMoving || walkTimer)
+      stopGaitWalk('stopping gait before STEP lower');
+    showSent('STEP lower → power off…');
+    const lowered = await goPoseZero('sit', 'STEP lower');
+    if(!lowered){
+      showSent('STEP lower did not finish — leaving servos on', true);
+      await refreshRobotState(true);
+      return false;
+    }
+    const res = await cmd('X');
+    setArmed(false);
+    if(res.ok) showSent('STEP lower done — servos off');
+    else showSent('STEP lower done, but power-off failed: '+res.text, true);
+    await refreshRobotState(true);
+    return !!res.ok;
+  }finally{
+    stepPowerOffBusy = false;
+  }
+}
 async function topSafeZero(){
   if(targetHasSim && !targetHasRobot){
     showSent('switch Robot active before STEP lower', true);
@@ -5067,8 +5101,8 @@ function needArm(){
   showSent('⚠ Servos disarmed — press Enable first');
   return true;
 }
-// The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
-$('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
+// The Disarm toggle is a NORMAL power-off: STEP lower, then limp.
+$('armbtn').onclick = ()=> servosArmed ? stepLowerThenPowerOff() : armServos();
 // Header Zero uses the same smart lower: STEP-down from standing,
 // safe-zero recovery from tangled/not-standing poses.
 $('armzero').onclick = topSafeZero;

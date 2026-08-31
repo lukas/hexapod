@@ -322,21 +322,23 @@ chmod +x deploy_adb.sh
 |---|---|
 | Enable servos | ARM (torque on; nothing moves yet) |
 | Stand | planted stand (default hip **+19°**, knee **+28°**, or learned plant) |
-| Check ready | read-only readiness check: servos, IMU/tilt, and walk-start pose |
-| Left stick / WASD | walk with the selected Drive gait |
+| Check ready | read-only readiness check inside Manual Drive: servos, IMU/tilt, and walk-start pose |
+| Left stick / WASD | manual drive with the selected Drive gait |
 | Turn stick / Q·E | yaw rate |
-| Sit & power off | gentle lower, then limp |
+| Sit & power off | STEP lower, then limp |
 | EMERGENCY STOP | limp immediately |
-| Xbox alone | X=sit · Y=stand · A=set-here-as-zero · B=stop demo |
+| Xbox on Drive | left stick walk · right stick turn · B=stop gait/demo |
 | Xbox chords | hold LB/LT/RB/RT then tap X/Y/A/B → 16 demos |
 
-The Drive tab defaults to the Central Pattern Generator (CPG) tetrapod,
-loaded with `CPGLOAD cpg_controller_robust120_yawtrim.json` and selected as
-`GAIT 6`. Its comparison drawer also exposes no-slip tripod (`GAIT 1`),
-no-slip ripple (`GAIT 2`), no-slip wave (`GAIT 3`), smooth no-slip clamp-fit
-tripod (`GAIT 7`), middle-up quad crawl (`GAIT 8`), and the tunable high-step
-tripod (`GAIT 0`). GAIT 0 is the shared preset used by both the real robot
-page and the MuJoCo web session; its editable fields map to
+The Drive tab is a laptop-friendly manual-drive cockpit: gait picker on the
+left, all stand/check/drive/stop/sit controls on the right. It defaults to the
+Central Pattern Generator (CPG) tetrapod, loaded with
+`CPGLOAD cpg_controller_robust120_yawtrim.json` and selected as `GAIT 6`.
+Its comparison drawer also exposes no-slip tripod (`GAIT 1`), no-slip ripple
+(`GAIT 2`), no-slip wave (`GAIT 3`), smooth no-slip clamp-fit tripod
+(`GAIT 7`), middle-up quad crawl (`GAIT 8`), and the tunable high-step tripod
+(`GAIT 0`). GAIT 0 is the shared preset used by both the real robot page and
+the MuJoCo web session; its editable fields map to
 `GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`. Apply
 tuning only while stopped, then start the next walk.
 

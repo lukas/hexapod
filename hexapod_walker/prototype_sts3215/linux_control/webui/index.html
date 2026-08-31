@@ -498,11 +498,13 @@ legs can reach instead of clipping it.">
           <div class="btns" style="margin-top:10px">
             <button id="rldrivestart" hidden title="Direction keys, pad buttons, or joystick movement start driving automatically.">▶ Start driving</button>
             <button id="rldriveend" title="Coasts briefly, then hands off to the configured Hold policy.">■ End session (hold policy)</button>
-            <label class="hint">speed
+            <label class="hint" title="Current MuJoCo-default walk policy was trained at 0.08 m/s. Legacy walk policies clamp back to their exported band.">speed
               <select id="rlwalkspeed">
-                <option value="0.05" selected>0.05 m/s</option>
+                <option value="0.08" selected>0.08 m/s</option>
+                <option value="0.07">0.07 m/s</option>
+                <option value="0.06">0.06 m/s legacy</option>
                 <option value="0.055">0.055 m/s</option>
-                <option value="0.06">0.06 m/s</option>
+                <option value="0.05">0.05 m/s</option>
               </select></label>
           </div>
           <div class="hint" id="rldrivestatus" style="margin-top:8px">No
@@ -983,6 +985,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl9"></script>
+  <script src="/app.js?v=joyrl10"></script>
 </body>
 </html>

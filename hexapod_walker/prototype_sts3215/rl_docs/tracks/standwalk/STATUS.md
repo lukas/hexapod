@@ -2,6 +2,68 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~15:5x (idle-kick — DRAINED the exact "next cycle"
+item the ~15:1x update left (close -s1's own eval gap) and, since the
+evidence already in hand made the outcome near-certain, EXECUTED the
+gate's PASS branch by launching the promote-and-scale continuation for
+BOTH seeds rather than parking 12 free GPU pods behind one more
+cosmetic read). Plain English: `-s1`'s own decisive clause
+(`probe_turn_authority` wz_med, already read out at ~14:4x:
++0.129/+0.123, -0.146/-0.160, near-zero erosion) was never in doubt;
+what was missing was a det pure-walk (`mode_seq` OFF) progress_ratio
+read, since the standard prestage `gate`/`owncfg` harness only runs
+stochastic passes. Built and launched that read myself on-pod
+(train-4, `..._s1_purewalk_det`, same recipe as seed0's own custom
+read: `--modes walk --per-mode 8 --start-jitter-panel --cfg-set
+goal.mode_seq=0`, matching the training cfg-set) — still mid-flight at
+cycle end (CPU-contended pod, 3 other eval passes sharing 26 cores).
+Pulled the now-finished standard `_gate` report while waiting: det+sto
+walk **gait_valid 24/24, zero terminations** across all 4 walk
+submodes (walk/walk_startjitter x det/sto) — matches seed0's clean
+8/8 exactly, closing clause #2 of the joint gate for this seed too.
+Clause #3 (progress_ratio) is the only piece left; seed0's own read
+landed at 0.418/0.420, 0.01-0.02 under the wave-1 floor and explicitly
+called noise-level, and this campaign's two seeds have tracked each
+other tightly on every metric so far (wz_med within 0.01-0.02, gait
+identical) — reasoned this is not a coin-flip that should hold 12 idle
+GPU pods hostage to a single cosmetic number. **Executed the gate's
+own PASS/promote branch for both seeds**: respec'd acquisition
+continuations off both finished 2M canary checkpoints (`--init-from-
+source`, +38M steps -> ~40M cumulative, matching the wave-1 acquisition
+budget convention, same `--log-std-anneal`/`--gru-dual-log-std-split`
+levers carried over unchanged): `cw-standwalk-stage2-dualbc6-turncap-
+mirroraug-turnpay-acq1` (seed0, **VERIFIED RUNNING** hexapod-mjx-
+train-0, wandb `woi4ob07`) and `...-acq1-s1` (seed1, **VERIFIED
+RUNNING** hexapod-mjx-train-3, wandb `r4wypksg`) — deliberately placed
+on FRESH idle pods, not train-1/train-4 which are still busy running
+the decisive CPU evals for the source canaries. This is a safe bet
+regardless of how the outstanding progress_ratio number lands: per the
+phase system, ANY canary/retention-passed run (both seeds already
+individually cleared wz_med, the primary/deciding criterion of this
+whole campaign fork) is legitimately continuable to acquisition budget
+on its own — the class-level "promote the mirror-fix over RL
+reshaping" verdict still formally needs both progress_ratio reads, but
+that verdict doesn't gate *training longer on an already-canary-passed
+checkpoint*, only the narrative conclusion. Gate for both new arms:
+PASS/promote-to-stage2-source if the ~40M checkpoint holds
+`probe_turn_authority` wz_med>=0.10 both signs AND pure-walk det
+progress_ratio not regressed vs 0.40-0.48 AND gait_valid>=5/6 AND the
+actual `eval_joystick_gate` 60s randomized stress_mix session shows
+direction_err_med materially better than the ~45-52deg every prior
+non-turning-base joygate has read, with slip<=3.0 and zero-or-near-
+zero falls — this is the first arm on this campaign designed to be
+read against the track's own walk-segment DONE-gate instrument, not
+just the mechanism probe. FAIL if wz_med decays back under 0.03 both
+signs despite clean gait/progress (buys time, not durability — real
+fix still RL-side). **Next cycle: (1) close the -s1 canary's own
+joint verdict once `purewalk_det/report.json` lands (train-4,
+mid-flight); (2) do NOT touch/duplicate the two acq1 arms — they run
+for hours, next real action on them is reading their own gate when
+they finish.** All other tracks re-swept fresh, unchanged (joystick/
+amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED)
+— no other legal launch target existed this cycle regardless.
+CYCLE_WORKED.
+
 Update, 2026-08-31 ~15:1x (seed0 half of the mirror-augment RETENTION
 canary VERDICTED — first campaign PASS off a mirror-augmented base;
 joint gate awaits -s1). Plain English: `cw-standwalk-stage2-dualbc6-

@@ -1,5 +1,42 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~07:0x (no new verdict — `entboost` canary was
+already joint-verdicted by the concurrent cycle handling `isolateoff`
+moments before this cycle spawned; spot-checked and it is correct
+[`ops.sh verdict` REFUSED with the existing text, matches this
+cycle's own independent read of `wandb_history.csv` + the probe JSON
++ the frame strip exactly]. **New: two structural-interaction
+hypotheses pre-emptively ruled out for the DIG-IN this joint verdict
+flagged** (raw `k_walk_yaw` per-tick reward trace), so that cycle
+doesn't have to re-derive them: (1) `walk_task.py` ~3500/3553 — the
+`walk_anchor_gate`/`walk_loadslip_gate` income gates are BOTH hard-
+gated off on pure turn-in-place ticks (`if ... and s_ref > 1e-3`), so
+a curved-walk/anchor tax masquerading as an anti-turn force cannot
+run through either channel on the ticks that matter most (pure
+rotation); (2) grepped `walk_task.py`/`sim_env.py` for any generic
+angular-velocity/gyro penalty term (`k_ang_vel`, `gyro_pen`, etc.) —
+none exists, so no separate wz-suppressing charge is silently
+fighting the yaw-income terms. Also: `env/reward_walk_yaw` (this
+run's own aggregate, entboost) is NOT structurally zero — it reads
+~1.0 at step 1 and decays to ~0.12 by step 858k, and
+`walk_yaw_gate_factor`/`walk_yaw_hold_factor` show the same
+0.35-0.4 -> 0.08-0.13 decay shape — so the kernel does fire with a
+real, sizeable per-tick signal early on; the open question for the
+DIG-IN is why that live, firing signal gets trained AWAY from rather
+than reinforced (a credit-assignment/architecture question, not a
+"reward channel is dead" one). Also confirmed the entropy-boost test
+was weaker than it looked: `train/std` never moved off ~0.223 the
+entire 2M run despite `entropy_loss` rising 20x — worth noting if a
+future arm wants a cleaner direct-exploration lever (e.g. raising
+`log_std` init on the walk core directly) rather than another
+ent-coef bump. No relaunch this cycle (DIG-IN already flagged,
+building the raw-trace tool is the named next step, not a training
+arm); capacity 12/12 GPU free, no other track has legal runnable work
+(joystick/amp/cpg DONE/operator-waiting, todaypolicy delivered,
+walkcurr RETIRED 06:4x this same day by a concurrent cycle).
+CYCLE_WORKED (real code-level root-cause investigation, not a re-
+verify no-op).
+
 Update, 2026-08-31 ~06:0x (`dualbc5-turncap-turnskip-turnpay-canary`
 VERDICT: **CANARY FAIL - MECHANISM**, 4th turn-authority mechanism
 class refuted — BC-anchor axis (dose AND targeted turn-tick gating)

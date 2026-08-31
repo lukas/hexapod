@@ -322,19 +322,21 @@ chmod +x deploy_adb.sh
 |---|---|
 | Enable servos | ARM (torque on; nothing moves yet) |
 | Stand | planted stand (default hip **+19°**, knee **+28°**, or learned plant) |
-| Left stick / WASD | walk (tripod gait) |
+| Check ready | read-only readiness check: servos, IMU/tilt, and walk-start pose |
+| Left stick / WASD | walk with the selected Drive gait |
 | Turn stick / Q·E | yaw rate |
 | Sit & power off | gentle lower, then limp |
 | EMERGENCY STOP | limp immediately |
 | Xbox alone | X=sit · Y=stand · A=set-here-as-zero · B=stop demo |
 | Xbox chords | hold LB/LT/RB/RT then tap X/Y/A/B → 16 demos |
 
-The Drive tab's recommended gait buttons select the current candidates: loaded
-CPG tetrapod (`GAIT 6` after `CPGLOAD`), no-slip ripple (`GAIT 2`), no-slip
-wave (`GAIT 3`), smooth no-slip clamp-fit tripod (`GAIT 7`), middle-up quad
-crawl (`GAIT 8`), and the tunable high-step tripod (`GAIT 0`). GAIT 0 is the
-shared preset used by both the real robot page and the MuJoCo web session; its
-editable fields map to
+The Drive tab defaults to the Central Pattern Generator (CPG) tetrapod,
+loaded with `CPGLOAD cpg_controller_robust120_yawtrim.json` and selected as
+`GAIT 6`. Its comparison drawer also exposes no-slip tripod (`GAIT 1`),
+no-slip ripple (`GAIT 2`), no-slip wave (`GAIT 3`), smooth no-slip clamp-fit
+tripod (`GAIT 7`), middle-up quad crawl (`GAIT 8`), and the tunable high-step
+tripod (`GAIT 0`). GAIT 0 is the shared preset used by both the real robot
+page and the MuJoCo web session; its editable fields map to
 `GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`. Apply
 tuning only while stopped, then start the next walk.
 

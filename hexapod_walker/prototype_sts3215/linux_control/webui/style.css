@@ -414,11 +414,38 @@
   .telem b { color:#e7eaf0; font-variant-numeric:tabular-nums; }
   .fields { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
   .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#9aa3b2; }
+  .ready-pad, .gait-walk-pad { flex-basis:100%; }
+  .gait-walk-layout { display:grid;
+                      grid-template-columns:minmax(0, 1.18fr) minmax(260px, .82fr);
+                      gap:16px; align-items:start; margin-top:12px; }
+  .gait-pane, .walk-control-pane { min-width:0; }
+  .walk-control-pane { border-left:1px solid #232733; padding-left:16px; }
+  .pane-title { margin:0 0 8px; color:#e7eaf0; font-size:14px;
+                font-weight:850; letter-spacing:0; }
+  .walk-fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+                 gap:10px; }
+  .walk-fields .field input { width:100%; }
+  .walk-actions { display:grid; gap:10px; margin-top:14px; }
+  .walk-actions button { width:100%; padding:15px 12px; font-size:15px; }
+  .walk-status { min-height:1.5em; }
   .gait-tune { margin-top:10px; padding-top:10px;
                border-top:1px solid #232733; }
   .gait-tune[hidden] { display:none; }
+  .gait-default { display:grid; grid-template-columns:1fr;
+                  gap:8px; align-items:stretch; }
+  .gait-primary { min-height:82px; }
+  .gait-selected { min-height:0; display:flex; align-items:center;
+                   padding:10px 12px; border:1px solid #263044;
+                   border-radius:8px; background:#10141e; color:#b6becd;
+                   font-size:13px; font-weight:700; line-height:1.35; }
+  .gait-details { margin-top:10px; border-top:1px solid #232733;
+                  padding-top:8px; }
+  .gait-details summary { cursor:pointer; color:#c4cbda; font-size:13px;
+                          font-weight:850; user-select:none; }
+  .gait-details summary:hover { color:#e7eaf0; }
   .gait-picks { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
                 gap:8px; margin-top:10px; }
+  .gait-picks.compact { grid-template-columns:repeat(auto-fit, minmax(135px, 1fr)); }
   .gait-pick { min-height:78px; align-items:flex-start; justify-content:flex-start;
                text-align:left; padding:9px 10px; border-radius:8px;
                background:#121722; border-color:#30384a; color:#dfe4ee;
@@ -434,6 +461,14 @@
   .gait-pick.active { border-color:#2e7d47; background:#102218;
                       box-shadow:0 0 0 1px rgba(95,208,138,.12) inset; }
   .gait-pick.active span, .gait-pick.active small { color:#80d89f; }
+  @media (max-width: 760px) {
+    .gait-walk-layout { grid-template-columns:1fr; }
+    .walk-control-pane { border-left:0; border-top:1px solid #232733;
+                         padding-left:0; padding-top:12px; }
+  }
+  @media (max-width: 520px) {
+    .walk-fields { grid-template-columns:1fr; }
+  }
   input[type=number] { width:88px; padding:8px; border-radius:8px; border:1px solid #2c3140;
     background:#0c0e13; color:#e7eaf0; font-size:14px; }
   .cal-table { width:100%; border-collapse:collapse; font-size:12px;

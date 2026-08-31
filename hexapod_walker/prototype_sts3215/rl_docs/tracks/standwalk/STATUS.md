@@ -1,5 +1,77 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~20:3x (triage cycle — closed the turndense1 joint
+canary, JOINT CLOSE 2/2). Plain English: **the density lever is dead
+on both seeds — more turn practice does not teach the critic to value
+turning, seed0 or seed1.** Ran the seed0 cycle's exact probe recipe
+(checkpoint pushed to train-5, the identical 96-key training cfg-set)
+on `...turndense1-canary-s1`'s 2M checkpoint: `probe_yaw_credit`
+forward-only value_delta reads BLIND/PUNISHES on ALL 4/4 combos again
+(wz+0.25 -> CREDIT-BLIND corr -0.088/-0.044; wz-0.25 -> CREDIT-PUNISHES
+corr -0.201/-0.278) — 0/4 CREDIT-REWARDS, none clearing +0.15, matching
+seed0's signature almost exactly. `probe_turn_authority` wz_med is
+again fine at this early checkpoint (+0.116/+0.110, -0.140/-0.128,
+clears >=0.10 both signs, within 0.02 of seed0's own read) but the
+gate's own text explicitly does not let that rescue clause 1. Frame
+strip off the in-flight standard harness (train-4): clean six-leg
+gait, upright, no fall — no gait-collapse confound. Verdicted
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turndense1-canary-s1`
+**CANARY FAIL - MECHANISM, JOINT CLOSE 2/2**. **Campaign conclusion
+(both seeds identical signature): 2x turn-segment exposure does NOT
+fix the critic's credit-assignment blindness** — this is not a
+data-density problem. Per the gate's own escalation path the next
+lever is an explicit critic-side feature or a dedicated value-warmup
+phase (architecture-side, genuine new-code work) — still deliberately
+NOT started: the parallel `stillbal-acq1{,-s1}` pricing-symmetry
+retention pair (k_yaw_still 50->5, same erosion phenomenon from a
+different angle, pre-registered as the decisive fork this escalation
+is deferred behind) is still training (train-0 ~26M/38M, train-1
+~10M/38M) — that reasoning still holds. No other track has legal
+runnable GPU work (joystick/amp/cpg DONE-or-maintenance, todaypolicy
+delivered, walkcurr RETIRED, re-confirmed fresh). 10/12 GPU pods free
+but nothing legal to launch ahead of the stillbal fork's own result —
+did not launch a new arm. **Next cycle:** once `stillbal-acq1{,-s1}`
+finish/close, start the critic-side/value-warmup build unconditionally
+— both leverable data-side fixes (density here, pricing-symmetry
+pending) will be closed either way by then. CYCLE_WORKED.
+
+Update, 2026-08-31 ~20:3x (triage cycle — verdicted the turndense1
+canary seed0, joint twin -s1 pending). Plain English: **more turn
+practice does not teach the critic to value turning either.** Pushed
+the finished `...turndense1-canary` (2M) checkpoint to a free pod
+(train-2) and ran the gate's own named instruments with the exact
+96-key training cfg-set (learned from the earlier zeroed-reward-
+channel mistake): `probe_yaw_credit` forward-only value_delta reads
+BLIND/PUNISHES on ALL 4/4 combos (wz_cmd=+-0.25 x seed-internal-probe
+0/1) — 0/4 flip to CREDIT-REWARDS, corr_toward_value_delta
+-0.128/-0.097/-0.316/-0.350. Per the gate's own text this decides FAIL
+regardless of turn authority (which is separately fine at this early
+checkpoint: `probe_turn_authority` wz_med +0.127/+0.117, -0.161/-0.136,
+clears >=0.10 both signs — expected, too early to have eroded).
+Verdicted `cw-standwalk-stage2-dualbc6-turncap-mirroraug-turndense1-canary`
+**CANARY FAIL - MECHANISM (own scope)**: the credit-assignment defect is
+NOT a data-density problem — 2x turn-segment exposure left the critic
+exactly as blind as the 1x baseline. Sanity-checked the CPU-contended
+standard harness's own `walk_det_0` frame strip (mid-flight, informational):
+clean six-leg gait, no fall, no gait-collapse confound. Per the gate's
+own escalation path the next lever is an explicit critic-side feature
+or a dedicated value-warmup phase — genuine new-code work. Did **not**
+start that build this cycle: the parallel `stillbal-acq1{,-s1}`
+pricing-symmetry retention pair (k_yaw_still 50->5, same erosion
+phenomenon from a different angle, launched last cycle) is still
+training and is the pre-registered decisive fork this exact
+architecture escalation was explicitly deferred behind — that
+reasoning still holds. No other track has legal runnable GPU work
+(joystick/amp/cpg last updated 08-24/08-25 DONE-or-maintenance,
+todaypolicy delivered/closed, walkcurr RETIRED, re-confirmed fresh).
+10/12 GPU pods free but nothing legal to launch ahead of the stillbal
+fork's own result. **Next cycle (or whichever reads -s1 first):** close
+the joint verdict once `-s1`'s own prestage/probes land (same 96-key
+cfg-set, same two probes); once BOTH the turndense1 pair (density,
+refuted) and the stillbal pair (pricing symmetry, pending) close,
+decide whether to start the critic-side/value-warmup build.
+CYCLE_WORKED.
+
 Update, 2026-08-31 ~20:1x (deep-model DIG-IN cycle on the closed
 yaw5x pair — executed the verdict's own named escalation and it
 OVERTURNS the assumed mechanism). Plain English: **turning pays

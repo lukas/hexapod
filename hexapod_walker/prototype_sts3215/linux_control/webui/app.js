@@ -2616,9 +2616,16 @@ function drvVec(){
 function drvPaint(d){
   const live = (d && d.live) || {};
   const bits = [];
+  const waiting = !!live.waiting_for_drive_command;
   if(live.model) bits.push(`model <b>${live.model}</b>`);
+  if(waiting) bits.push('waiting for joystick/key command');
+  if(waiting && live.learned_policy_active === false) bits.push('quiet joint hold');
+  if(live.vx_cmd!=null)
+    bits.push(`cmd (${Math.round(live.vx_cmd*1000)}, `
+              + `${Math.round(live.vy_cmd*1000)}) mm/s`);
+  if(live.wz_cmd) bits.push(`cmd yaw ${live.wz_cmd} rad/s`);
   if(live.vx_ref!=null)
-    bits.push(`v (${Math.round(live.vx_ref*1000)}, `
+    bits.push(`ref (${Math.round(live.vx_ref*1000)}, `
               + `${Math.round(live.vy_ref*1000)}) mm/s`);
   if(live.wz_ref) bits.push(`ω ${live.wz_ref} rad/s`);
   if(live.height_returning) bits.push('returning to walk height');
@@ -2632,9 +2639,11 @@ function drvPaint(d){
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
   if(live.rot60_k) bits.push(`sec ${live.rot60_k>0?'+':''}${live.rot60_k}`);
   if(live.t_s!=null) bits.push(`${live.t_s}s`);
+  const label = waiting
+    ? '<b style="color:#f3cc4d">WAITING</b> — move a stick or hold arrows/WASD · '
+    : '<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · ';
   $('rldrivestatus').innerHTML =
-    `<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · `
-    + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
+    label + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
 }
 async function drvSend(){
   if(!drvActive) return;

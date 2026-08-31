@@ -245902,7 +245902,7 @@
       "5000000"
     ],
     "created": "2026-08-31T20:00:15+00:00",
-    "status": "RUNNING",
+    "status": "ACQ FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -245948,6 +245948,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "ACQ FAIL - PRICING-SYMMETRY RETENTION ALSO REFUTED (own scope; joint twin -s1 still training on train-1, not touched). Plain English: cutting the anti-rotation penalty 10x (k_yaw_still 50->5, this run's ONLY change from the already-refuted 5x-yaw-pay yaw5x-acq1) does not stop the robot trading turning away either -- same fast-early-erosion collapse, same floor. Evidence: built the full 8-point probe_turn_authority (own TURNCAP_CFG_SET minus goal.mode_seq, wz_cmd=+-0.25) erosion curve from this run's own --snapshot-every=5M checkpoints (5/10/15/20/25/30/35M + final 38M, pushed to a free pod train-2, not part of standard prestage -- that harness (gate/owncfg/mixedsession, video-every=1) was still mid-flight on train-0 at read time, left running, informational only, does not change this verdict). Result: pos wz_med starts +0.075/+0.074 at 5M (matches yaw5x-acq1's own +0.067/+0.073 within noise) and is already at/under the 0.03-0.05 floor by 15-20M (+0.050/+0.037 at 15M, +0.049/+0.053 at 20M); neg starts -0.105/-0.115 at 5M (matches yaw5x's -0.107/-0.124) and decays to -0.037/-0.062 range by 30-35M. Final 38M: pos +0.046/+0.053, neg -0.047/-0.049 -- both signs land IN the 0.03-0.05 floor band, decisively under the >=0.10-both-signs PASS bar, and the curve SHAPE matches yaw5x-acq1's measured shape exactly as the gate's own FAIL clause names (fast 5M-mark erosion, floor by 15-20M) -- this is the pre-registered FAIL branch, not an ambiguous read. No DRIFT-BREAK: env/walk_direction_err_deg stayed in the same ~50-78deg band throughout training (never blew out), matching every other non-turning-base arm, so k_yaw_still 50->5 did not resurrect the heading-hold drift it was priced to kill -- k_yaw_still stays at 5 for now, no bracket-up needed. No gait-collapse confound: pulled the in-flight harness's own walk_det_0 frame strip (train-0, mid-flight) -- clean six-leg gait, upright, no fall, all legs cycling. reward quarters [789.4, 2701.1, 2913.5, 3024.8] rose then plateaued -- the same RL-erosion signature (reward saturates at the cheap near-zero-turn optimum), not a still-training/needs-more-budget case per the 08-21 ruling. Why: this was the direct test of the pricing-asymmetry hypothesis the yaw-credit-income dig-in raised (k_yaw_still=50 taxes rotation at 10x the turn-income coefficient on zero-cmd segments) -- cutting that asymmetry 10x should have let the shared GRU keep defending turning through the zero-cmd segments if pricing asymmetry were the true cause. It didn't. Campaign conclusion (pending -s1's own read, expected identical per every twin in this campaign so far): BOTH leverable data-side/reward-side fixes for the turn-authority erosion (5x turn-pay dose, 10x anti-rotation-tax cut) are now refuted. Next: per the gate's own escalation path and the STATUS.md 'Next cycle' note, once -s1 also closes (should match), start the critic-side feature / value-warmup-phase build unconditionally -- this is genuine new-code/architecture work, not another coefficient sweep."
   }
 ]

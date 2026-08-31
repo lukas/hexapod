@@ -1,5 +1,48 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~21:4x (triage cycle on `stillbal-acq1` seed0 only
+-- `-s1` still training on train-1, concurrent cycle's own scope, not
+touched). Plain English: **the second and last data-side fix also
+fails -- cutting the anti-rotation tax 10x doesn't rescue turning
+either.** This run cut `k_yaw_still` 50->5 (10x less anti-rotation
+pricing on the ~50% zero-yaw-cmd segments; the one unpriced asymmetry
+the yaw-credit-income dig-in named) off the same mirror-augmented
+turnpay-canary base as the already-refuted `yaw5x-acq1` (5x turn-pay
+dose). Built the full 8-point `probe_turn_authority` erosion curve
+myself (own TURNCAP_CFG_SET minus `goal.mode_seq`, checkpoint +
+7 `--snapshot-every=5M` snapshots pushed to a free pod, train-2, not
+part of standard prestage — that harness was still mid-flight on
+train-0, video-every=1 class, left running/informational). Result:
+**curve shape matches `yaw5x-acq1`'s almost exactly** — pos wz_med
++0.075/+0.074 at 5M (yaw5x: +0.067/+0.073), at/under the 0.03-0.05
+floor by 15-20M (+0.037-0.053); neg -0.105/-0.115 at 5M (yaw5x:
+-0.107/-0.124), decaying into the same floor band by 30-35M. Final
+38M: pos +0.046/+0.053, neg -0.047/-0.049 — both signs sit right in
+the 0.03-0.05 floor band, decisively under the >=0.10-both-signs PASS
+bar, and matching the gate's own pre-registered FAIL branch exactly
+(shape match to yaw5x-acq1). No DRIFT-BREAK: `env/walk_direction_err_deg`
+stayed in the same ~50-78deg band the whole run (never blew out), so
+cutting `k_yaw_still` did not resurrect the heading-hold drift it was
+priced to kill — no bracket-up needed. No gait-collapse confound:
+in-flight harness's own `walk_det_0` frame strip (train-0, mid-flight)
+shows clean six-leg gait, upright, no fall. Verdicted `ACQ FAIL -
+PRICING-SYMMETRY RETENTION ALSO REFUTED (own scope)`. **Both
+leverable reward-side fixes for turn-authority erosion (5x turn-pay
+dose, 10x anti-rotation-tax cut) are now refuted on seed0** — pending
+`-s1`'s own read (still training, ~35M/38M at cycle end, ETA ~10min,
+owned by a concurrent cycle), which every twin in this campaign has
+matched closely so far. **Next cycle (whichever reads `-s1` first):**
+once `-s1` closes (expected to match, per this campaign's own twin
+track record), the "Next" reorder below is unconditionally live — no
+further reward-magnitude/pricing coefficient sweep is worth trying;
+start scoping the critic-side feature / value-warmup-phase build
+(genuine new-code architecture work). No other track has legal
+runnable GPU work (joystick/amp/cpg DONE-or-maintenance, todaypolicy
+delivered, walkcurr RETIRED); 11/12 GPU pods free but the campaign's
+own decisive fork is not yet jointly closed (half of it is this
+cycle's own new evidence) — did not launch a new arm ahead of it or
+start the architecture build blind on one seed. CYCLE_WORKED.
+
 Update, 2026-08-31 ~20:3x (triage cycle — closed the turndense1 joint
 canary, JOINT CLOSE 2/2). Plain English: **the density lever is dead
 on both seeds — more turn practice does not teach the critic to value

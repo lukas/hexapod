@@ -1,5 +1,68 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~09:1x (`stdwalk-mild`/`-hi` VERDICT: both **CANARY
+FAIL - MECHANISM** — exploration MAGNITUDE fully refuted, 6th+7th
+turn-authority mechanism classes down; refill launched, new lever).
+Plain English: forcibly widening the walk-core action noise (log_std
+-1.5->-0.8/std0.45 mild, ->-0.2/std0.82 hi, both confirmed-moved via
+`env/train/std`) produced ZERO turn-in-place authority at 2M —
+`probe_turn_authority` (own 96-key cfg, wz_cmd=+-0.25, walk-mode-
+filtered, seeds 0/1, run locally on the controller since prestage
+gate/owncfg evals were still mid-flight on-pod) reads wz_med in
+[-0.006,+0.0008] both signs both arms, deep inside the 0.03 FAIL
+floor. **New, more specific finding beyond "exploration magnitude
+refuted"**: `wz_p90_abs` stayed in the SAME ~0.02-0.06 rad/s band
+across BOTH arms despite a 3.7x std gap (mild 0.038-0.057, hi
+0.023-0.036, if anything tighter at hi) — quadrupling raw ACTION
+noise did not move the ACHIEVED body-yaw noise at all, i.e. turning
+is a coordinated multi-joint behavior i.i.d. per-tick action noise
+cannot reach by chance regardless of scale. Own frame-strip
+(walk_det_0.png both pods): straight-walk gait fully intact (plant->
+tripod-alternating foot pattern over 30s, v tracking ref by t=30s),
+no collapse — rules out the PASS-blocking "turned via toppling"
+confound cleanly for a FAIL read. Reward crashes hard through the
+back half both arms (same shape as every prior sibling canary) — not
+a rising-reward case. Verdicts + evidence:
+`logs/ckpt_eval/turn_probe_stdwalk_{mild,hi}.json`, wandb
+`0tcfig0w`/`dk3cd0vs`. Sanity-checked `test_task_semantics.py -k
+"turn_reward or turn_overspin or turn_overshoot or kernel_yaw or
+turn_command_signs"` before refilling (no code touched this cycle):
+7/8 green, the 1 fail (`test_kernel_yaw_ema_separates_...`) is a
+pre-existing baseline-drift assertion on the UNRELATED
+`walk_kernel_yaw_ema` flag (default off, not touched by this cycle's
+launches) — confirmed pre-existing (same file untouched since the
+08-30 walkcurr-wave commit, no diff of mine).
+
+**Refill — 8th mechanism class, a genuinely untried lever**: none of
+the 6 prior classes (BC-anchor dose x3, anchor turn-tick skip,
+BC-anchor isolate-update, PPO ent-coef, this cycle's log_std dose x2)
+touched the yaw reward's OWN weight. Hand-calc: a lucky wz=+0.05 tick
+(within the measured noise band, 20% of wz_cmd=0.25) already earns a
+real nonzero `k_walk_yaw` kernel income (~0.02-0.08 at the base
+weight 1.0, since income=`k*exp(-(wz-wz_ref)^2/(2*sigma^2))*
+clip(wz/wz_ref,0,1)`) — the channel is not dead, just tiny next to
+the dominant walk terms (`k_walk_prog=2.0`/tick baseline, anchor
+supervision, `k_drag_stance=8000`). Launched a 2-arm salience dose
+bracket off the SAME `dualbc5_turncap-turnpay-canary` base (no forced
+walk-core log_std anneal this time — isolates ONLY the weight):
+`cw-standwalk-stage2-dualbc5-turncap-yawscale{5x,15x}-turnpay-canary`
+(`k_walk_yaw`/`k_yaw_prog` 1.0->5.0/15.0). VERIFIED RUNNING (train-1
+`offsju6a`, train-0 `vhgpzma8` — launcher's own long verify-poll got
+interrupted by tool timeouts on both attempts; reconciled the ledger
+via `checkup`+direct W&B lookup +`update --set` once mechanically
+confirmed alive/advancing on both pods, not asserted from memory).
+Gate: `probe_turn_authority` wz_med clears 0.03 both signs at either
+dose AND `env/reward_walk_yaw`/`walk_yaw_kernel_factor` scale up
+roughly proportionally (confirms the weight actually multiplied
+through) AND gait/progress survive (a farmed/destabilized "turn" is
+not a PASS). FAIL at both doses exonerates salience too, leaving
+architecture (dual-core GRU wz-conditioning) or a genuine value-
+function credit-assignment defect as the only remaining candidates —
+at that point build the raw per-tick reward-vs-value trace tool
+before any further reward-coefficient arm. No other track had legal
+runnable work this cycle (joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr RETIRED). CYCLE_WORKED.
+
 Update, 2026-08-31 ~07:5x (idle-kick, no run finished — DRAINED the
 named next step instead of a no-op re-verify). The prior update left
 one concrete lead: the entboost CANARY FAIL dig-in found `train/std`

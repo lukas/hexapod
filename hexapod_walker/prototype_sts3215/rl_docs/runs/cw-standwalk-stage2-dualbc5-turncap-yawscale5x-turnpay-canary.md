@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-31T08:53:49+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc5-turncap-turnpay-canary
+
+**wandb_id**: offsju6a
 
 **hypothesis**: Plain English: six independent turn-authority mechanism classes (BC-anchor dose 3.0/1.0/0.3, anchor turn-tick-targeted skip, BC-anchor isolate-update, PPO ent-coef 4x, and this cycles own log_std/action-noise dose x2 up to std 0.82) all left wz_med frozen near zero on this lineage. This cycles own probe_turn_authority instrument found something new and specific: wz_p90_abs stayed in the SAME 0.02-0.06 rad/s band across BOTH the std=0.45 and std=0.82 log_std arms -- QUADRUPLING the raw action-noise magnitude did not increase the ACHIEVED body yaw-rate noise at all, i.e. turning is a coordinated multi-joint behavior random per-tick joint noise cannot reach by chance regardless of scale (refines the exploration-magnitude refutation into something more specific than "credit assignment"). Hand-computed check: at that noise level a lucky wz=+0.05 tick (20pct of wz_cmd=0.25) already earns a real, nonzero walk_yaw-kernel income (~0.02-0.08 at k_walk_yaw=1.0, since income = k*exp(-(wz-wz_ref)^2/(2*sigma^2))*clip(wz/wz_ref,0,1)), so the channel is NOT dead -- it is just TINY relative to the dominant walk reward terms (k_walk_prog=2.0 baseline every tick, anchor supervision, k_drag_stance=8000 etc). None of the 6 prior mechanism classes touched the yaw incomes OWN weight (they touched competing anchor supervision or PPO/action exploration) -- this tests reward SALIENCE directly: does raising k_walk_yaw and k_yaw_prog themselves (5x and 15x, dose bracket) make the already-firing-but-tiny per-tick signal big enough for PPO to notice and reinforce, without touching exploration or supervision at all. Same dualbc5_turncap-turnpay-canary base/init-from, same bank-proven turn reward mechanism (only the two weights scale), no forced log_std anneal (back to the base runs own exploration settings, isolating ONLY the weight-scale variable). Prediction-if-true: probe_turn_authority wz_med clears 0.03 both signs at 15x (or even 5x). Prediction-if-false: identical frozen read at BOTH doses despite the incomes own absolute scale being 5x/15x larger -- reward salience is ALSO refuted, leaving architecture (dual-core GRU wz-conditioning) or a genuine value-function credit-assignment defect as the only remaining candidates, requiring the raw per-tick reward-vs-value trace tool named by the prior two canaries own gate text. Strongest alternative: a much bigger weight could instead farm a DIFFERENT exploit (e.g. false income from noise alone inflating reward without real rotation, or destabilizing the base walk gait by over-weighting a small term) -- caught by the gait_valid clause and by checking wz_med specifically, not just reward.
 

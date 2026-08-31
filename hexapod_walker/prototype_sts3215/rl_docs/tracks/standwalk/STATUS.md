@@ -1,5 +1,39 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~19:2x (triage cycle on `-yaw5x-acq1-s1` only — the
+seed0 half was a concurrent cycle's own scope, already closed ACQ FAIL
+before this cycle started). Plain English: CLOSED the reward-magnitude-
+retention campaign on both seeds/both doses. Verdicted
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-yaw5x-acq1-s1` **PARTIAL
+- EROSION (own scope)**: built the full 8-point `probe_turn_authority`
+snapshot-erosion curve myself (5/10/15/20/25/30/35/38M, on-pod, not
+part of standard prestage) — same fast-early-erosion shape as seed0's
+already-verdicted ACQ FAIL, but this seed plateaus in a softer
+0.045-0.116 mid-band all run and closes at wz_med **+0.084/-0.070**,
+both signs above the gate's own 0.05 clean-FAIL floor (seed0 settled
+at 0.024-0.039). Neither seed clears the >=0.10 PASS bar. Net: **5x
+yaw pricing does not durably rescue turn authority any better than 1x
+did** (seed0's own conclusion, cross-checked and corroborated here) —
+reward-magnitude retention is refuted at both doses on both seeds.
+Video/in-training evidence stays clean throughout (six-leg gait,
+survived_frac=1.0, no falls); direction_err_deg still ~52deg, matching
+every non-turning-base joygate read — no material turn-following
+improvement either. gate/owncfg/mixedsession/purewalk_det numeric
+reports were still mid-flight on the CPU-contended pod at verdict
+time (same 1-2h class every arm in this campaign has hit) — left
+running, cannot change this verdict (PASS already foreclosed by the
+decisive probe clause) and no GAIT-BREAK expected given clean video +
+matching survived_frac. **Campaign closed**: reward-magnitude framing
+(1x turnpay-acq1{,-s1}, 5x yaw5x-acq1{,-s1}) is exhausted. Next real
+lever (named by the seed0 close): a per-tick reward-vs-value
+credit-assignment trace — why doesn't the value function price
+defending already-present turn authority even when immediate reward
+is 5x higher? That is new tool-building work, not a launchable arm.
+No other track has legal runnable GPU work this cycle (joystick/amp/
+cpg DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED) —
+did not launch a new arm; the credit-assignment tool needs designing
+before it can be launched, not blind budget. CYCLE_WORKED.
+
 Update, 2026-08-31 ~17:3x (triage cycle on `-acq1-s1` only — the
 `-acq1`/seed0 half is a concurrent cycle's own scope, not touched.
 CLOSED `-s1`'s own PARTIAL verdict with a genuine root-cause addition,
@@ -101,6 +135,46 @@ root-cause read risks duplicating/pre-empting whatever the dig-in
 concludes. CYCLE_WORKED.
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
+
+Update, 2026-08-31 ~19:2x (triage cycle on `-yaw5x-acq1` seed0 only —
+`-yaw5x-acq1-s1` is a concurrent cycle's own scope, not touched).
+**Plain English: reward-magnitude retention is now refuted at BOTH
+doses tested (1x and 5x) — paying more for turning does not stop PPO
+from trading it away.** Verdicted `cw-standwalk-stage2-dualbc6-
+turncap-mirroraug-yaw5x-acq1` (seed0) **ACQ FAIL - PRICING RETENTION
+REFUTED**. Built the campaign's first full erosion CURVE instead of a
+2-endpoint read: ran `probe_turn_authority` myself on all 7
+`--snapshot-every=5M` checkpoints plus the final 38M checkpoint
+(on-pod train-6, not part of the standard prestage). Result: authority
+collapses fast — by the run's own 5M step mark (already ~40-50% eroded
+from the +0.13/-0.178 canary init), and sits at/under the 0.03-0.05
+frozen floor for the positive sign from ~15M onward, noisy-but-eroded
+on the negative sign (one late partial-recovery blip at 35M decays
+back by the final checkpoint). Final: wz_med **+0.024/+0.034,
+-0.069/-0.073** — decisively under the >=0.10-both-signs PASS bar,
+same shape as the REFUTED 1x `turnpay-acq1` pair (if anything faster).
+Cross-checked against seed-1's own independently-run snapshot curve
+(a concurrent cycle's instrument, not duplicated): same qualitative
+shape, final +0.084/-0.070 — also far under PASS. Two seeds, two doses
+(1x, 5x), same collapse: this is a class property of the reward stack,
+not seed or dose-magnitude noise. Supporting: in-training `eval/walk/
+survived_frac` stayed 1.0 the whole run (no gait-break) and reward
+quarters `[791.8,2711.7,2938.8,2972.0]` rose then plateaued in the
+last two — the RL-erosion signature (reward saturates at the cheap
+near-zero-turn optimum), not an undertrained/"needs more budget" case.
+Standard `gate`/`owncfg` (stochastic) and my own `purewalk_det` (det
+progress_ratio/gait_valid) reads were still mid-flight on a
+CPU-contended pod at verdict time (~35% through after 50min) — left
+running, informational only; does not change the verdict since the
+PASS bar was already missed on the decisive clause alone. **Next:
+reward-magnitude retention (1x, 5x) is CLOSED for this campaign.** The
+gate's own named escalation is a per-tick reward-vs-value
+credit-assignment trace (why doesn't the value function price
+defending an existing behavior even at 5x immediate reward) — that is
+new tool-building work, left for a dedicated dig-in cycle once -s1's
+own joint read closes, not launched blind here. No other track has
+runnable work (joystick/amp/cpg DONE-or-maintenance, todaypolicy
+delivered, walkcurr RETIRED). CYCLE_WORKED.
 
 Update, 2026-08-31 ~17:4x (dig-in cycle — CLOSED the acq1 pair, root-
 caused the erosion, built the missing instrument, launched the

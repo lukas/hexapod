@@ -231,6 +231,56 @@ def summarize(masked: dict) -> dict:
     return out
 
 
+class RewardComponentCollector:
+    """Per-tick collector for every ``reward_*`` scalar the env puts in
+    ``info`` (sim_env builds ``info = {**parts, ...}`` — the components
+    present vary tick to tick by mode/branch). Keys first seen mid-
+    episode are zero-backfilled; keys absent on a tick get 0.0, so all
+    arrays stay equal-length and per-tick means are well defined.
+
+    ADDED 08-31 (turncap retention dig-in): the campaign refuted
+    reward-magnitude retention at 1x AND 5x yaw pricing; the decisive
+    open question is whether turning is even net-PROFITABLE per tick
+    under the full training reward stack (yaw income vs drag/loadslip/
+    course penalties while pivoting), which needs a component-level
+    income account, not just the yaw channel. Pure python — unit-
+    testable without torch/MuJoCo."""
+
+    def __init__(self) -> None:
+        self._cols: dict[str, list[float]] = {}
+        self._n = 0
+
+    def add(self, info: dict) -> None:
+        for k, v in info.items():
+            if not k.startswith("reward_"):
+                continue
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if k not in self._cols:
+                self._cols[k] = [0.0] * self._n
+            self._cols[k].append(fv)
+        self._n += 1
+        for col in self._cols.values():
+            if len(col) < self._n:
+                col.append(0.0)
+
+    def arrays(self) -> dict[str, np.ndarray]:
+        return {k: np.asarray(v, dtype=np.float64)
+                for k, v in self._cols.items()}
+
+    def means(self, idx: np.ndarray) -> dict[str, float]:
+        """Mean of each component over the ``idx`` ticks (e.g. the
+        scored window), sorted by |mean| descending so the biggest
+        income/penalty lines read first."""
+        if len(idx) == 0:
+            return {}
+        out = {k: float(np.mean(a[idx])) for k, a in
+               self.arrays().items()}
+        return dict(sorted(out.items(), key=lambda kv: -abs(kv[1])))
+
+
 # ---------------------------------------------------------------------
 # Rollout — dual-core GRU forward()-threaded value trace.
 # ---------------------------------------------------------------------
@@ -291,6 +341,7 @@ def credit_rollout(*, model, cfg_set: list[str] | None, wz_cmd: float,
     wz_list: list[float] = []
     ryaw_list: list[float] = []
     mode_list: list[str] = []
+    comps = RewardComponentCollector()
     fell = False
     with th.no_grad():
         while True:
@@ -305,6 +356,7 @@ def credit_rollout(*, model, cfg_set: list[str] | None, wz_cmd: float,
             rewards.append(float(r))
             wz_list.append(float(env._body_wz()))
             ryaw_list.append(float(info.get("reward_walk_yaw", 0.0)))
+            comps.add(info)
             mode_list.append(info.get("goal_mode"))
             episode_start = th.zeros(1)
             step += 1
@@ -340,9 +392,24 @@ def credit_rollout(*, model, cfg_set: list[str] | None, wz_cmd: float,
         "value_delta": value_delta[scored],
     }
     summary = summarize(masked)
+    # Income account over the scored window (08-31 retention dig-in):
+    # is the behavior this checkpoint actually exhibits net-profitable
+    # per tick under the training reward, and which components carry
+    # it? Cross-checkpoint comparable (same reward cfg), unlike V(s).
+    r_arr = np.asarray(rewards, dtype=np.float64)
+    v_arr = np.asarray(values[:-1], dtype=np.float64)
+    income = {
+        "wz_med": (float(np.median(np.asarray(wz_list)[scored]))
+                   if len(scored) else None),
+        "reward_total_mean": (float(np.mean(r_arr[scored]))
+                              if len(scored) else None),
+        "value_mean": (float(np.mean(v_arr[scored]))
+                       if len(scored) else None),
+        "reward_components_mean": comps.means(scored),
+    }
     return {
         "wz_cmd": wz_cmd, "seed": seed, "n_total_ticks": step,
-        "gamma": gamma, "fell": fell, **summary,
+        "gamma": gamma, "fell": fell, **summary, **income,
     }
 
 
@@ -379,6 +446,10 @@ def main() -> int:
                   f"corr(toward,value_delta)="
                   f"{res.get('corr_wz_toward_cmd_vs_value_delta')} "
                   f"-> {res.get('forward_verdict')}")
+            print(f"[probe_yaw_credit]   income: wz_med="
+                  f"{res.get('wz_med')} reward_total_mean="
+                  f"{res.get('reward_total_mean')} value_mean="
+                  f"{res.get('value_mean')}")
 
     out = {"checkpoint": str(args.checkpoint), "results": results}
     if args.out:

@@ -230,3 +230,33 @@ def test_load_dual_model_rejects_non_dual_checkpoint(tmp_path):
     model.save(ckpt)
     with pytest.raises(SystemExit):
         load_dual_model(ckpt)
+
+
+def test_component_collector_backfills_and_pads():
+    """Keys first seen mid-episode are zero-backfilled; keys absent on
+    a later tick get 0.0 — all arrays equal length, means well
+    defined over any index subset."""
+    from rl_move.sim.probe_yaw_credit import RewardComponentCollector
+
+    c = RewardComponentCollector()
+    c.add({"reward_task": 1.0, "goal_mode": "walk"})
+    c.add({"reward_task": 2.0, "reward_walk_yaw": 4.0})
+    c.add({"reward_walk_yaw": 6.0, "height_mm": 80.0})
+    arrs = c.arrays()
+    assert list(arrs["reward_task"]) == [1.0, 2.0, 0.0]
+    assert list(arrs["reward_walk_yaw"]) == [0.0, 4.0, 6.0]
+    assert "height_mm" not in arrs and "goal_mode" not in arrs
+    means = c.means(np.array([1, 2]))
+    assert means["reward_walk_yaw"] == 5.0
+    assert means["reward_task"] == 1.0
+    # sorted by |mean| descending
+    assert list(means)[0] == "reward_walk_yaw"
+
+
+def test_component_collector_empty_index_and_non_numeric():
+    from rl_move.sim.probe_yaw_credit import RewardComponentCollector
+
+    c = RewardComponentCollector()
+    c.add({"reward_task": 1.0, "reward_bogus": "not-a-number"})
+    assert "reward_bogus" not in c.arrays()
+    assert c.means(np.array([], dtype=int)) == {}

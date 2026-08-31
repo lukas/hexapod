@@ -136,6 +136,7 @@ TIMING_MAX_CONSECUTIVE_LATE = 3
 DRIVE_TIMING_STARTUP_GRACE_TICKS = 3
 DRIVE_ASYNC_SNAPSHOT_HZ = 10.0
 DRIVE_ASYNC_STATE_MAX_AGE_S = 0.25
+DRIVE_BUS_WRITE_MAX_HZ = 50.0
 DRIVE_TIMING_HARD_LAG_S = 0.05
 DRIVE_TIMING_MAX_CONSECUTIVE_LATE = 12
 
@@ -255,6 +256,16 @@ class PolicyTiming:
     @property
     def adapted(self) -> bool:
         return abs(self.policy_hz - self.runner_config_hz) > 1e-6
+
+
+@dataclass(frozen=True)
+class DriveWriteCadence:
+    """Servo-bus write cadence for live joystick drive."""
+
+    requested_hz: float
+    write_hz: float
+    write_dt: float
+    write_every_ticks: int
 
 
 def policy_training_hz(policy: "NumpyPolicy") -> float:
@@ -430,6 +441,39 @@ def _inner_stream_plan(policy: "NumpyPolicy", cfg: dict,
     steps = max(1, min(MAX_INNER_STEPS, int(round(requested_hz / base_hz))))
     actual_hz = base_hz * steps
     return steps, actual_hz, 1.0 / actual_hz
+
+
+def _drive_write_plan(policy: "NumpyPolicy", cfg: dict,
+                      policy_hz: float | None = None) -> DriveWriteCadence:
+    """Choose hardware write cadence without changing policy cadence.
+
+    Learned obs/action/phase/safety still run at ``policy_hz``. The servo bus
+    can be commanded at a lower divisor cadence when live traces show the
+    transport cannot reliably complete one all-joint write per policy tick.
+    """
+    base_hz = _positive_float(policy_hz if policy_hz is not None else HZ, HZ)
+    fallback_hz = min(base_hz, DRIVE_BUS_WRITE_MAX_HZ)
+    meta = policy.meta or {}
+    raw_hz = None
+    for key in ("drive_write_hz", "bus_write_hz", "servo_write_hz"):
+        if key in meta:
+            raw_hz = meta[key]
+            break
+    if raw_hz is None:
+        raw_hz = cfg_get(cfg, "control", "drive_write_hz",
+                         default=fallback_hz)
+    requested_hz = min(base_hz, _positive_float(raw_hz, fallback_hz))
+    if requested_hz >= base_hz * 0.99:
+        write_every = 1
+    else:
+        write_every = max(1, int(math.ceil(base_hz / requested_hz)))
+    write_hz = base_hz / write_every
+    return DriveWriteCadence(
+        requested_hz=requested_hz,
+        write_hz=write_hz,
+        write_dt=1.0 / write_hz,
+        write_every_ticks=write_every,
+    )
 
 
 def _stream_state_is_stale(state) -> bool:
@@ -742,10 +786,11 @@ def _stream_target_async(bus, sampler: _AsyncSnapshotSampler,
                          write_speed: int, write_acc: int,
                          abort_check, last_good_state=None,
                          stale_ticks: int = 0,
-                         max_stale_ticks: int = 0
+                         max_stale_ticks: int = 0,
+                         write_target: bool = True
                          ) -> tuple[object | None, float, int, str,
                                     int, int, dict]:
-    """Write high-rate targets and consume the latest async snapshot."""
+    """Advance one live-drive tick and consume the latest async snapshot."""
     state_robot = last_good_state
     overruns = 0
     stale_samples = 0
@@ -777,24 +822,27 @@ def _stream_target_async(bus, sampler: _AsyncSnapshotSampler,
         sampler.set_commanded(q_cmd)
         q_cmd_deg = (q_cmd * RAD2DEG).tolist()
         diag = {
-            "transport": "async_write_snapshot",
+            "transport": ("async_write_snapshot" if write_target
+                          else "async_skip_write_snapshot"),
             "substep": sub,
             "inner_steps": steps,
             "stale_ticks_before": stale_ticks,
             "write_speed": int(write_speed),
             "write_acc": int(write_acc),
+            "write_target": bool(write_target),
         }
-        op_t = time.monotonic()
-        try:
-            bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
-        except Exception as e:
-            diag["write_error"] = repr(e)
-            last_diag = diag
-            return (
-                state_robot, t_next, overruns,
-                f"stream write failed: {e}", stale_ticks,
-                stale_samples, stream_timing())
-        write_s += time.monotonic() - op_t
+        if write_target:
+            op_t = time.monotonic()
+            try:
+                bus.write_all(q_cmd_deg, speed=write_speed, acc=write_acc)
+            except Exception as e:
+                diag["write_error"] = repr(e)
+                last_diag = diag
+                return (
+                    state_robot, t_next, overruns,
+                    f"stream write failed: {e}", stale_ticks,
+                    stale_samples, stream_timing())
+            write_s += time.monotonic() - op_t
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
@@ -2811,6 +2859,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     write_speed, write_acc = _policy_bus_profile(walk_policy, cfg)
     inner_steps, inner_hz, inner_dt = _inner_stream_plan(
         walk_policy, cfg, timing.policy_hz)
+    drive_write = _drive_write_plan(walk_policy, cfg, timing.policy_hz)
     debug = _RunDebug("drive", {
         "walk_policy_path": str(wpath),
         "walk_policy_name": walk_policy.meta.get("name"),
@@ -2826,6 +2875,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             "adapted": timing.adapted,
             "inner_hz": inner_hz,
             "inner_steps": inner_steps,
+            "drive_write_hz": drive_write.write_hz,
+            "drive_write_requested_hz": drive_write.requested_hz,
+            "drive_write_every_ticks": drive_write.write_every_ticks,
         },
         "write_speed": write_speed,
         "write_acc": write_acc,
@@ -3198,6 +3250,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         t = i * timing.policy_dt
         tick_t0 = time.monotonic()
         stage_t = tick_t0
+        model_switched = False
+        write_due = False
         vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
         if stop_req and stopping is None:
             stopping = "stopped"
@@ -3239,6 +3293,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             if active != "walk":
                 prev_active = active
                 active = "walk"
+                model_switched = True
                 walk_active_since = t
                 reanchor()
                 debug.event("drive_model_switch", tick=i, t_s=t,
@@ -3269,6 +3324,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             prev_active = active
             vx_r = vy_r = 0.0
             active = "hold"
+            model_switched = True
             walk_active_since = None
             zero_since = None
             reanchor()
@@ -3372,16 +3428,21 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         prev_stale_ticks = stale_stream_ticks
         if uses_policy:
             sampler = ensure_async_sampler()
+            write_due = (model_switched or i == 0
+                         or i % drive_write.write_every_ticks == 0)
+            stream_steps = inner_steps if write_due else 1
+            stream_dt = inner_dt if write_due else timing.policy_dt
             (state_robot, t_next, extra_overruns, stream_err,
              stale_stream_ticks, stale_added, stream_timing) = (
                 _stream_target_async(
                 bus, sampler, last_q_robot_cmd, q_robot_cmd,
-                t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
+                t_next=t_next, inner_steps=stream_steps, inner_dt=stream_dt,
                 write_speed=write_speed, write_acc=write_acc,
                 abort_check=abort_check,
                 last_good_state=last_good_stream_state,
                 stale_ticks=stale_stream_ticks,
-                max_stale_ticks=DRIVE_STREAM_STALE_TICKS))
+                max_stale_ticks=DRIVE_STREAM_STALE_TICKS,
+                write_target=write_due))
         else:
             stop_async_sampler()
             est.set_commanded(q_robot_cmd)
@@ -3394,6 +3455,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                                   speed=write_speed, acc=write_acc)
                     hold_write_s += time.monotonic() - op_t
                     last_hold_refresh_t = t
+                    write_due = True
                 except Exception as e:
                     stream_err = f"hold write failed: {e}"
             if stream_err:
@@ -3539,6 +3601,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             "stale_stream_samples": stale_stream_samples,
             "rot60_k": canon.k if canon is not None else None,
             "stopping": stopping, "overruns": overruns,
+            "drive_write_hz": round(drive_write.write_hz, 3),
+            "drive_write_due": bool(write_due),
             "timing_ms": {
                 "service": round(service_s * 1000.0, 3),
                 "read": round(runner_timing["read_s"] * 1000.0, 3),
@@ -3598,6 +3662,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         runner_config_hz=timing.runner_config_hz,
         policy_rate_adapted=timing.adapted,
         inner_hz=inner_hz, inner_steps=inner_steps,
+        drive_write_hz=drive_write.write_hz,
+        drive_write_requested_hz=drive_write.requested_hz,
+        drive_write_every_ticks=drive_write.write_every_ticks,
         max_delta_q_deg=round(max_dq_deg, 4),
         max_delta_q_deg_explicit=max_dq_explicit,
         write_speed=write_speed, write_acc=write_acc,

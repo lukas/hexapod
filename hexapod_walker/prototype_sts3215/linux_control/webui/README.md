@@ -71,45 +71,37 @@ the RL tooling depend on them.
 
 ### Header arm bar (always visible)
 
-- **Enable servos** → `ARM` · **Disarm** → `SETTLE` (gentle lower, then
-  power off) · **Set zero HERE** → `POST /api/set_zero` (no motion; the
-  current hand pose becomes logical 0° — limp + hand-pose first) ·
-  **EMERGENCY STOP** → `X` (instant limp, robot drops). The
-  long lower-vs-drop explanation lives in the button tooltips.
+- **Enable servos** → `ARM` · **Disarm** → STEP lower via
+  `POST /api/standup {mode:"step", direction:"down"}`, wait for done, then
+  `X` · **Set zero HERE** → `POST /api/set_zero` (no motion; the current hand
+  pose becomes logical 0° — limp + hand-pose first) · **EMERGENCY STOP** →
+  `X` immediately (instant limp, robot drops). The long lower-vs-drop
+  explanation lives in the button tooltips.
 - Link heartbeat: `GET /api/ping` every 1.5 s. Robot activity pill:
   `GET /api/robot` every 2 s.
 - Every servo-driving control in every tab is gated on the arm state
   (`needArm()`), which defaults OFF on each page load.
 
-### Drive (`#drive`) — bench-test workflow, in order of use
+### Drive (`#drive`) — manual-drive cockpit
 
-1. *Get ready*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
-   **Set zero HERE** (top bar) · **Stand up**. If already upright, Stand
-   adjusts/re-verifies the sim walk-ready stance; otherwise it safe-zeros first,
-   then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
-   **Check ready** → `GET /api/rl/preflight?mode=walk` (read-only readiness:
-   all 18 servos, IMU/tilt, and pose close to the walk-start stand).
-2. *Pick gait & walk*: the gait picker lives on the left and the walk controls
-   live on the right. The default visible gait is the Central Pattern Generator
-   (CPG) tetrapod (`CPGLOAD cpg_controller_robust120_yawtrim.json` +
-   `GAIT 6`). The comparison drawer exposes no-slip ripple (`GAIT 2`),
-   no-slip wave (`GAIT 3`), clamp-fit tripod (`GAIT 7`), middle-up quad crawl
-   (`GAIT 8`), no-slip tripod (`GAIT 1`), and the tunable high-step tripod
-   (`GAIT 0`). GAIT 0 exposes the shared high-step tune
-   (`GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`)
-   used by both this page and MuJoCo. **Start walk** sends `J vx vy ω` with
-   the edited caps, timed stop or **STOP GAIT** sends `J 0 0 0`.
-3. *Manual drive*: on-screen sticks / WASD+QE / Xbox left+right stick →
-   throttled `J vx vy ω gait` stream at ≤20 Hz (only on this tab).
-   Keyboard: Space = stand, C = sit.
-4. *Wind down*: **Center / Sit** → STEP lower if standing, safe-zero
-   recovery if not standing/tangled, via
-   `POST /api/standup {mode:"step", direction:"down"}` ·
-   **Sit & power off** → `SETTLE`.
+- The Drive page is intentionally one cockpit, not a four-step checklist:
+  gait picker on the left, laptop-friendly controls on the right.
+- The default visible gait is the Central Pattern Generator (CPG) tetrapod
+  (`CPGLOAD cpg_controller_robust120_yawtrim.json` + `GAIT 6`). The comparison
+  drawer exposes no-slip tripod (`GAIT 1`), no-slip ripple (`GAIT 2`),
+  no-slip wave (`GAIT 3`), clamp-fit tripod (`GAIT 7`), middle-up quad crawl
+  (`GAIT 8`), and the tunable high-step tripod (`GAIT 0`).
+- Prep/end-session controls live inside the manual-drive controls:
+  **Stand up** → `POST /api/zero {pose:"stand"}`; **Check ready** →
+  `GET /api/rl/preflight?mode=walk` (read-only: servos, IMU/tilt, and
+  walk-start pose); **Center / Sit** → STEP lower; **Sit & power off** →
+  STEP lower, then `X` after the lower reports done.
+- On-screen sticks / WASD+QE / Xbox left+right stick stream
+  `J vx vy omega gait` at ≤20 Hz. **Start walk** sends a timed
+  `J vx vy omega`; timed stop, **STOP GAIT**, or bare Xbox **B** sends
+  `J 0 0 0`.
 - Telemetry strip: `GET /api/feedback` at 2 Hz while the tab is open.
-- Xbox (HTTPS page only): face buttons alone X=sit · Y=stand ·
-  A=set-zero-here · B=stop-demo; hold LB/LT/RB/RT + face = 16 demo chords
-  (`POST /api/demo`).
+- Xbox needs an HTTPS page when run from a laptop browser.
 
 ### Calibrate (`#calibrate`)
 

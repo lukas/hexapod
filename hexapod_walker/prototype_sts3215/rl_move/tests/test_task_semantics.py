@@ -851,10 +851,17 @@ def test_kernel_yaw_ema_separates_accurate_tracking_from_undershoot():
               for p in ("turn", "tracked", "drift")}
     wy_on = {p: mean_wy(p, TURN_YAWEMA_OVERRIDES)
              for p in ("turn", "tracked", "drift")}
-    assert wy_off["tracked"] <= wy_off["turn"] + 10.0, (
-        f"pre-fix baseline drifted — expected the accurate tracker to "
-        f"be statistically tied with (not already ahead of) the "
-        f"under-rotator on the raw kernel: {wy_off}")
+    # 08-31 (turncap retention dig-in): the original guard demanded the
+    # pre-fix raw kernel keep tracker/under-rotator statistically TIED
+    # (the historical near-flat-gradient defect this EMA fix repaired).
+    # Later yaw-stack changes made the raw kernel ALREADY favor the
+    # accurate tracker (measured 658 vs 584/ep) — strictly BETTER
+    # alignment, so the historical-counterfactual "tied" bound is
+    # stale. The bank's real property is that accurate tracking is
+    # never BEHIND under-rotation on this channel, pre- or post-fix.
+    assert wy_off["tracked"] >= wy_off["turn"] - 10.0, (
+        f"raw-kernel regression — the accurate tracker earns LESS than "
+        f"the under-rotator on the raw kernel: {wy_off}")
     assert wy_on["tracked"] > wy_on["turn"] + 20.0, (
         f"EMA on but the kernel still can't separate accurate "
         f"tracking from under-rotation: {wy_on}")

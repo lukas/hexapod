@@ -245069,7 +245069,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-31T19:55:28"
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-turndense1-canary-s1",

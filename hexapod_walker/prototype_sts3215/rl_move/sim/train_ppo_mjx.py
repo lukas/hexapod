@@ -1343,7 +1343,51 @@ def _init_wandb(args, params: SimServoParams):
     return run
 
 
+def _fixup_log_std_final_argv(argv: list[str]) -> list[str]:
+    """Rewrites a bare `--log-std-final -0.8,-4.0` two-token argv into
+    the single-token `--log-std-final=-0.8,-4.0` form.
+
+    Pure function so it's unit-testable without argparse/mujoco
+    (mirrors _validate_use_sde_scratch_only above). Born from the
+    standwalk dualbc5-turncap-stdwalk-mild launch crash (08-31):
+    argparse's built-in negative-number heuristic only recognizes a
+    BARE negative number (regex `-\\d+$|-\\d*\\.\\d+$`) as a value
+    token — a comma-list value like `-0.8,-4.0`
+    (`_parse_log_std_anneal_specs`'s multi-core format) does not
+    match, so argparse treats it as an unrecognized option string and
+    crashes the whole trainer process pre-boot with "--log-std-final:
+    expected one argument". The launch_run.py respec/launch harness's
+    `--arg='--log-std-final=...'` convention always re-emits flag and
+    value as SEPARATE argv tokens (`set_flag`'s `args.extend([flag,
+    val])`), so the "=" joining the caller wrote is lost before this
+    process ever sees argv — the fix has to live here, not in the
+    caller. Only touches `--log-std-final` immediately followed by a
+    token starting with a single `-` (a value) but not `--` (another
+    flag — every option in this parser is long-form); every other
+    token, including a bare single negative number (already argparse-
+    safe) or any other flag, passes through untouched.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(argv)
+    while i < n:
+        tok = argv[i]
+        if (tok == "--log-std-final" and i + 1 < n
+                and argv[i + 1].startswith("-")
+                and not argv[i + 1].startswith("--")):
+            out.append(f"{tok}={argv[i + 1]}")
+            i += 2
+            continue
+        out.append(tok)
+        i += 1
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
+    if argv is None:
+        import sys as _sys
+        argv = _sys.argv[1:]
+    argv = _fixup_log_std_final_argv(list(argv))
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--task", choices=sorted(ENV_CLASSES),

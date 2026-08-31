@@ -857,7 +857,7 @@ document.getElementById('wpreflight').onclick = async ()=>{
   const out = document.getElementById('wpfout');
   out.textContent = 'Preflight (read-only)…';
   try{
-    const r = await fetch('/api/rl/preflight?mode=lower&t='+Date.now(), {cache:'no-store'});
+    const r = await fetch('/api/rl/preflight?mode=walk&t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
     const det = [];
     if(d.roll_deg!=null) det.push('roll '+d.roll_deg+'°');

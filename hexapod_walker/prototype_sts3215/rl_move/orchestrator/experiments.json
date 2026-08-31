@@ -243349,7 +243349,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-31T13:32:26+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS - JOINT CLOSE (2/2)",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -243403,7 +243403,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-canary since 2026-08-31T14:17:36"
+    "triage": "done",
+    "verdict": "CANARY PASS, joint close 2/2 with seed0. Plain English: this seed's own pure-walk det progress_ratio read (built same recipe as seed0: --modes walk --per-mode 8 --start-jitter-panel --cfg-set goal.mode_seq=0, pulled from train-4 where it had finished unwatched) lands median 0.4265 (n=12 valid episodes) -- INSIDE the wave-1 0.40-0.48 band, slightly better than seed0's own 0.418/0.420 read. gait_valid 16/16 (walk + walk_startjitter det), zero terminations, slip/m median 2.343 (teacher band 1.4-2.9). Combined with this seed's already-decided probe_turn_authority wz_med +0.129/+0.123,-0.146/-0.160 (>=0.10-both-signs bar, 4x the 0.03 erosion floor) recorded 08-31 14:4x, ALL THREE joint-gate clauses clear for BOTH seeds -- first PASS in the 9-prior-FAIL turn-authority campaign, confirms mirror-augmented-BC-base is the real fix (not RL-side erosion). This does not change any decision already taken: the acquisition continuations (cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1{,-s1}) were already launched off these two passed checkpoints per the 08-31 15:5x cycle's early-execution reasoning, and both have now themselves finished their 38M/40M acquisition budget (this cycle's own subject) -- their own ACQUISITION gate (probe_turn_authority + progress_ratio + gait_valid + eval_joystick_gate at the full budget) is being read as a separate verdict. Next: none for this run (retired into history); the acquisition arms carry the campaign forward."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1",
@@ -243701,7 +243702,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1 since 2026-08-31T17:11:42"
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1-s1",
@@ -243991,6 +243993,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1-s since 2026-08-31T17:16:49"
   }
 ]

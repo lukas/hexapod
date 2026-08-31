@@ -1,5 +1,54 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~17:2x (triage cycle — CLOSED the canary joint
+verdict, DIG-IN flagged on the acquisition pair this closure fed).
+Plain English: (1) pulled `-s1`'s own pure-walk det progress_ratio
+read off train-4 (finished unwatched, `--modes walk --per-mode 8
+--start-jitter-panel --cfg-set goal.mode_seq=0`) — median 0.4265
+(n=12), gait_valid 16/16, zero terms, slip 2.343 — clears the wave-1
+band, matches/beats seed0's 0.418/0.420. Combined with the already-
+decided `probe_turn_authority` wz_med clause, **BOTH seeds now clear
+ALL THREE RETENTION-canary clauses**: verdicted
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-canary-s1`
+CANARY PASS, JOINT CLOSE 2/2 — first PASS in the 9-prior-FAIL
+turn-authority campaign, mirror-augmented-BC-base fix confirmed
+durable through a 2M canary. (2) The ACQUISITION continuations this
+canary result already justified launching last cycle
+(`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1{,-s1}`,
++38M steps -> ~40M cumulative) finished training this cycle. Ran the
+gate's own named instrument (`probe_turn_authority`, own
+TURNCAP_CFG_SET) myself since it isn't part of the standard
+prestage: **both seeds decayed into the gate's own explicitly-named
+AMBIGUOUS middle** — wz_med now +0.032/+0.055 & -0.045/-0.046 (acq1)
+and +0.025/+0.029 & -0.072/-0.057 (acq1-s1). That's below the
+>=0.10-both-signs PASS bar (was +0.12/+0.18 pre-acquisition) but
+mostly ABOVE the <0.03 FAIL floor (one of 4 signs across both seeds,
+acq1-s1's +0.025, sits right at the floor) — real erosion under the
+full 40M RL budget, but not the total collapse every non-mirrored
+mechanism class showed. This is exactly the gate text's own
+PARTIAL/DIG-IN case ("one sign erodes and the other does not... do
+not force a binary call"), decides whether the mirror-fix is durable
+to full acquisition budget or only buys time like every prior class —
+**left both runs UNVERDICTED**, launched the still-required
+`eval_joystick_gate` (60s stress_mix, own-DR 0.5) for both on their
+own pods (train-0/train-3, background, mid-flight at cycle end —
+`logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_turnpay_acq1{,_s1}_joygate/`)
+since it's the gate's binding held-out instrument and isn't
+auto-triggered for non-`joystick`-track runs; the standard
+`gate`/`owncfg`/`mixedsession` prestage passes were also still
+mid-flight (video-every=1, CPU-contended). **Next cycle (deep-model
+dig-in): read the joygate direction_err_med + the gate/owncfg
+progress_ratio/gait_valid once synced, and root-cause the erosion
+CURVE shape (fast-early-then-floor = RL-erosion signature per the
+canary's own alternative-hypothesis text, vs slower monotonic decay
+= still-eroding-at-cycle-end and would fail at any longer budget
+regardless) before calling PASS/PARTIAL/FAIL.** No other track has
+legal runnable work (joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr RETIRED) — re-confirmed fresh. Did
+NOT launch a new mechanism arm: doing so ahead of this pair's own
+root-cause read risks duplicating/pre-empting whatever the dig-in
+concludes. CYCLE_WORKED.
+
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
 Update, 2026-08-31 ~15:5x (idle-kick — DRAINED the exact "next cycle"

@@ -235675,7 +235675,7 @@
       "safety.max_delta_q_deg=0.375"
     ],
     "created": "2026-08-30T21:19:08+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -235722,7 +235722,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc4-walkteach-anchor14coef1-acq8m-cw since 2026-08-30T22:20:07"
+    "triage": "done",
+    "verdict": "FAIL, joint with the already-FAILed -s1 twin -- the 8M unified-policy continuation regressed pure-walk progress on seed0 too, matching -s1's finding closely. Own pure-walk det read (mode_seq=0 forced override, gate cfg, n=8, launched last cycle on train-6, pulled back this cycle): progress_ratio med 0.362 (range 0.345-0.396), below the canary parent's 0.43-0.46 hold-or-improve bar (a real regression, not noise) and close to -s1's 0.373/0.379 read. slip_per_m med 4.15 (2.75-4.71), well over the walkheavy sibling's already-failing band. gait_valid 8/8, sacrificed_legs 0/8, zero terminations -- own contact-sheet reviewed, clean tripod gait, no flag leg. Root cause: same pooled-reward-masks-a-walk<->stance-trade mechanism already root-caused on the -s1 verdict (rising pooled reward from the 70% non-walk goal mix, walk-specific channels flat/declining) -- this seed0 read closes the joint gate the same way. No further budget on this specific lineage's plain acq8m recipe; the walk-heavy remix (walkheavy-acq8m{,-s1}) was the fix attempt and it ALSO failed both seeds (see its own joint verdict) -- diet-share is exonerated, optimization dynamics is the shared open suspect. Hardware-ready: no."
   },
   {
     "run": "cw-standwalk-stage2-dualbc4-walkteach-anchor14coef1-acq8m-s1",
@@ -237926,7 +237927,7 @@
       "safety.max_delta_q_deg=0.375"
     ],
     "created": "2026-08-31T00:53:50+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -237973,7 +237974,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-cw-wal since 2026-08-31T02:30:30"
+    "triage": "done",
+    "verdict": "FAIL, joint with the already-FAILed -s1 twin -- the walk-heavy diet fix (mix 0.60 walk vs the parent's 0.30) did NOT recover the pure-walk progress regression on seed0 either. Own pure-walk det read (mode_seq=0 forced override, gate cfg, n=8, launched last cycle on train-3, pulled back this cycle): progress_ratio med 0.3775 (range 0.362-0.407), every episode below the gate's >=0.44 bar and matching the -s1 twin's 0.3765 almost exactly -- the mix-share lever moved nothing on this seed either. slip_per_m med 4.15 (2.71-4.64), ALSO over the <=2.9 bar (worse than -s1's 2.85, which barely cleared it) -- a second, independent gate clause fails here. gait_valid 8/8, sacrificed_legs 0/8, zero terminations -- own contact-sheet reviewed, clean tripod-alternating six-leg gait, no flag leg, no drag; a speed-soft/slow read, not a collapse. Root cause: same as -s1's verdict -- diet share is exonerated as the lever (both seeds regressed identically despite the mix change), leaving optimization dynamics on this dualbc4/dualbc5 lineage family as the shared suspect (the same territory the concurrent turn-authority campaign later converged on). Joint gate CLOSED both seeds FAIL; no further mix-share dose funded on this lever. Hardware-ready: no."
   },
   {
     "run": "cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-s1",

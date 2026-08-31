@@ -2,6 +2,39 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~12:1x (idle-kick, no run finished — DRAINED the
+exact two eval reads the prior cycle's own update left as "next cycle
+read these to close the seed0 half of both joint verdicts"). Plain
+English: pulled back the seed0 `purewalk_det` reports for both
+`walkheavy-acq8m` and `anchor14coef1-acq8m` from train-3/train-6
+(`kubectl cp`, not re-run — they'd genuinely finished) and verdicted
+both. **`walkheavy-acq8m` seed0**: progress_ratio med 0.3775 (below
+the >=0.44 bar, matching -s1's 0.3765) AND slip/m med 4.15 (over the
+<=2.9 bar, worse than -s1's 2.85) — two independent gate clauses fail;
+own contact-sheet reviewed, clean 6-leg gait, no flag leg, just slow.
+**`anchor14coef1-acq8m` seed0**: progress_ratio med 0.362 (regression
+vs the canary parent's 0.43-0.46 hold-or-improve bar, matching -s1's
+0.373/0.379), slip med 4.15. Both **FAIL, joint gates now CLOSED both
+seeds** — the walk-heavy diet-share fix is exonerated on both seeds
+now, same conclusion as -s1 (optimization dynamics on this dualbc4/
+dualbc5 lineage family is the shared open suspect, matching the turn-
+authority campaign's own conclusion). The `gate`/`owncfg` retention
+harnesses for `walkheavy-acq8m` seed0 were still mid-flight on train-1
+at read time (2/24 videos done, process alive) — not needed for the
+verdict since the progress_ratio+slip clauses already decide FAIL on
+their own (same disjunctive-FAIL-is-decisive pattern this campaign has
+used throughout); left running, harmless, no action needed on them.
+Checked the mirror-augment distillation job (`dualbc6_turncap_
+mirroraug`, PID 2098801, background CPU): still alive, ~84 min in,
+stdout log still unflushed/empty (expected, matches prior BC-training
+jobs' buffering) — no action until it finishes; the acceptance bar
+(`probe_turn_authority` wz_med >=0.15 both signs) is checked THEN, not
+before. Swept every other track fresh: joystick/amp/cpg DONE-or-
+maintenance unchanged, todaypolicy delivered+closed, walkcurr RETIRED
+— none has legal runnable GPU work. 12/12 GPU pods free, backlog
+empty; no legal new training arm exists this cycle regardless (the
+live standwalk lead is CPU-only and mid-flight). CYCLE_WORKED.
+
 Update, 2026-08-31 ~11:5x (idle-kick, no run finished — DRAINED two
 genuine untriaged-eval gaps left behind by the fast-moving turn-
 authority campaign, per the 08-14 directive that agent-doable work

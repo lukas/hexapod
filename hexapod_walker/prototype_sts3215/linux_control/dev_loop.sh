@@ -37,6 +37,7 @@ HEX_LC_DIR="$(cd "$(dirname "$_HEX_SCRIPT")" && pwd)"
 HEX_ROOT="$(cd "$HEX_LC_DIR/.." && pwd)"
 HEXAPOD_HOST="${HEXAPOD_HOST:-http://hexapod.local:8080}"
 HEXAPOD_CURL_TIMEOUT="${HEXAPOD_CURL_TIMEOUT:-2}"
+HEXAPOD_HTTPS_PORT="${HEXAPOD_HTTPS_PORT:-8443}"
 HEXAPOD_SSH="${HEXAPOD_SSH:-arduino@hexapod.local}"
 HEXAPOD_SSH_HOSTKEY_ALIAS="${HEXAPOD_SSH_HOSTKEY_ALIAS:-hexapod.local}"
 HEX_REMOTE_ROOT="${HEX_REMOTE_ROOT:-/home/arduino/hexapod_sts}"
@@ -249,6 +250,15 @@ hex_preferred_http_url() {
   echo "$url"
 }
 
+hex_https_url_for_http() {
+  local url="${1:-$HEXAPOD_HOST}" rest host
+  rest="${url#http://}"
+  rest="${rest#https://}"
+  host="${rest%%/*}"
+  host="${host%%:*}"
+  printf 'https://%s:%s\n' "$host" "$HEXAPOD_HTTPS_PORT"
+}
+
 hex_preferred_ssh_target() {
   local target="${1:-$HEXAPOD_SSH}" cached ip
   if ! hex_is_mdns_default "$target"; then
@@ -288,8 +298,9 @@ hex_unit_check() {
 }
 
 hex_status() {
-  local host_url ip robot_json
+  local host_url https_url ip robot_json
   host_url="$(hex_preferred_http_url "$HEXAPOD_HOST")"
+  https_url="$(hex_https_url_for_http "$host_url")"
   hex_note "robot HTTP health (read-only)"
   if ! curl -fsS -m "$HEXAPOD_CURL_TIMEOUT" "$host_url/api/ping"; then
     if hex_is_mdns_default "$HEXAPOD_HOST" \
@@ -314,6 +325,14 @@ hex_status() {
     fi
   fi
   echo
+  hex_note "robot HTTPS health for browser joystick (read-only)"
+  if curl -k -fsS -m "$HEXAPOD_CURL_TIMEOUT" \
+      "$https_url/api/ping" >/dev/null; then
+    echo "joystick_url=$https_url/rl"
+  else
+    echo "!! HTTPS joystick URL did not answer: $https_url/rl" >&2
+    return 1
+  fi
   if ! robot_json="$(curl -fsS -m "$HEXAPOD_CURL_TIMEOUT" \
       "$host_url/api/robot")"; then
     echo >&2

@@ -1,5 +1,88 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~22:4x (triage cycle on `stillbal-acq1-s1` —
+JOINT CLOSE 2/2, then launched the architecture-side lever the
+campaign has been deferring behind it). Plain English: **the
+pricing-symmetry fix fails on seed-1 too, closing the reward-side
+campaign for good — but the fix for the real next lever turned out
+to already exist in the codebase, just never wired to this policy
+family.** Built the full 8-point `probe_turn_authority` curve myself
+on train-1 (own TURNCAP_CFG_SET, 7 `--snapshot-every=5M` snapshots +
+final): 5M pos +0.076/+0.077, neg -0.129/-0.130 (near seed0's
++0.075/+0.074, -0.105/-0.115); final 38M pos +0.046/+0.069, neg
+-0.073/-0.078 (seed0: +0.046/+0.053, -0.047/-0.049) — same
+fast-early-then-floor erosion shape as `yaw5x-acq1`, decisively under
+the >=0.10-both-signs PASS bar. No DRIFT-BREAK
+(`env/walk_direction_err_deg` 60-94deg all run, never blew out); no
+gait-collapse (`eval/walk/survived_frac`=1.0 throughout, own
+`walk_det_5` frame strip clean six-leg gait). Verdicted `ACQ FAIL -
+PRICING-SYMMETRY RETENTION ALSO REFUTED, JOINT CLOSE 2/2`. **Campaign
+conclusion: all three leverable data/reward-side fixes for
+turn-authority erosion (5x turn-pay dose, 10x anti-rotation-tax cut,
+2x turn-segment density) are now refuted on both seeds each** — per
+`probe_yaw_credit`'s own mechanistic finding (critic V degenerate-
+constant across command signs on every checkpoint probed, 15/16
+combos CREDIT-BLIND/PUNISHES), the erosion is a credit-assignment
+defect in the value function, not a pricing or exposure problem.
+
+**Refill — found the "genuine new-code architecture work" the last
+6 updates deferred was mostly ALREADY BUILT.** `train_ppo_mjx.py`
+already ships `--actor-lr`/`--actor-freeze-steps`/`--critic-lr`
+(`update_health.py`, built 08-18 for a different purpose — warm-
+starting a transplanted actor without a fresh critic erasing it) —
+this IS a value-warmup mechanism: freeze the actor's mean+std at
+lr=0 for N steps while the critic keeps training on the (now
+stationary) frozen policy's own rollouts, exactly the lever every
+FAIL gate text since ~09:4x has named. Before trusting it: found and
+fixed a real gap — `attach_actor_critic_lr`'s default critic markers
+(`value_net`, `vf_features_extractor`) don't match `lstm_critic`, the
+name sb3-contrib gives the critic's OWN dedicated recurrent trunk on
+every `--gru`/`--gru-dual`/`--gru-experts` policy (single-core,
+dual-core, mode-experts alike). Unextended, `--actor-freeze-steps`
+would freeze `lstm_critic` right alongside the actor — defeating the
+entire point (the critic's own encoder couldn't adapt either). 0
+prior `--actor-lr` + `--gru*` combos exist in `experiments.json` (the
+gap was never exercised, let alone caught). Fixed in
+`train_ppo_mjx.py` (extend `critic_markers` with `lstm_critic`
+whenever any `--gru*` flag is active alongside `--actor-lr`); added
+`test_gru_dual_default_split_misclassifies_lstm_critic_as_actor`
+(documents the gap) and
+`test_gru_dual_lstm_critic_rides_critic_lr_with_marker_extension`
+(pins the fix, verifies `set_actor_freeze` correctly zeroes only the
+actor group) to `test_value_learning.py`, 25/25 green. Snapshot
+`exp/standwalk-valuewarmup-lstmcritic-marker-fix`.
+
+**Launched the pre-registered next arm, 2-seed pair (VERIFIED
+RUNNING train-0/train-3):**
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-valuewarmup-acq1{,-s1}`
+— identical recipe/init to the already-FAILED `turnpay-acq1{,-s1}`
+(same `turnpay-canary` checkpoint, same 1x pricing, same 38M budget)
+with exactly ONE new mechanism: `--actor-lr=0.0003` (== the run's own
+constant `--lr`, so unfrozen behavior is bit-identical) +
+`--actor-freeze-steps=8000000` (~21% of budget) so the critic alone
+updates against the canary's stationary, already-turning policy
+before any actor drift can begin, + `--snapshot-every=2000000` for a
+dense curve around the freeze boundary. Confirmed on-pod (both pods)
+before trusting the launch: `[update-health] actor/critic param
+groups: 22 actor tensors @ 3.00e-04, 20 critic tensors @ 3.00e-04` —
+20 critic tensors = the 12 value-head/trunk tensors every prior
+`--actor-lr` run would have counted PLUS the 8 `lstm_critic` tensors
+the fix now correctly routes (would have read 12/30 split without the
+fix). Two-stage gate: (1) MECHANISM check at the ~8M freeze-boundary
+snapshot — `probe_yaw_credit` must flip to CREDIT-REWARDS
+(corr>=+0.15) on >=3/4 combos AND `probe_turn_authority` must still
+read near the canary's own +0.13/-0.18 (actor hasn't moved — a miss
+here voids the read, doesn't mean the hypothesis failed); (2) if the
+mechanism passes, read the final 38M checkpoint the same way for
+durability (PASS >=0.10 both signs + gait/progress clean; PARTIAL if
+credit flips but authority still erodes post-unfreeze; FAIL if it
+erodes to the same <0.05 floor regardless). No other track has legal
+runnable GPU work (joystick/amp/cpg DONE-or-maintenance, todaypolicy
+delivered, walkcurr RETIRED) — re-confirmed fresh. **Next cycle:**
+read the ~8M freeze-boundary snapshot first (should land within a
+cycle or two at ~30-35k fps) — do NOT wait for the full 38M before
+checking the mechanism clause. CYCLE_WORKED.
+
 Update, 2026-08-31 ~21:4x (triage cycle on `stillbal-acq1` seed0 only
 -- `-s1` still training on train-1, concurrent cycle's own scope, not
 touched). Plain English: **the second and last data-side fix also

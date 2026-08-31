@@ -1,0 +1,20 @@
+# cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-canary
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-31T13:10:42+00:00
+
+**pod**: hexapod-mjx-train-1
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stage2-dualbc5-turncap-turnpay-canary
+
+**wandb_id**: w9sn7c8t
+
+**hypothesis**: Plain English: mirror-augmented BC/DAgger distillation gave the raw checkpoint near-symmetric turn-in-place authority BEFORE any RL (probe_turn_authority wz_med +0.148/+0.148 at wz_cmd=+0.25, -0.152/-0.158 at wz_cmd=-0.25, essentially at the pre-registered 0.15-both-signs acceptance bar and close to the walk-teacher's own ~0.21 band) -- a qualitative jump off every prior distillation base (naked dualbc5_turncap: -0.038/-0.048 one sign, ~0 the other; every one of the 8 exhausted RL-side mechanism classes on non-mirrored bases: <0.03 both signs post-RL). This canary asks whether mirror-augmentation fixed the ROOT distillation defect (should survive RL) or whether the SAME reward-magnitude/credit-assignment erosion every prior canary showed (reward_walk_yaw/walk_yaw_kernel_factor decaying toward the frozen floor within 2M steps regardless of RL-side lever) will grind this genuinely-turn-capable seed back down too. Prediction-if-true: probe_turn_authority on the trained 2M checkpoint holds wz_med>=0.10 both signs (allowing some erosion off the 0.148-0.158 pre-RL seed, but nowhere near the ~0.03 frozen floor) with det walk gait_valid>=5/6. Prediction-if-false: even this turn-capable base gets ground back to <0.03 both signs by the same reward stack within 2M steps -- strong evidence the erosion is an RL-side dynamic (yaw income tiny relative to the dominant walk/anchor terms, per the raw reward-vs-value trace already run) rather than a distillation-base defect, meaning the real fix is RL reward-shaping/credit-assignment, not more distillation engineering. Strongest alternative: any erosion could instead be genuine forgetting under continued bc_anchor_coef=3.0 imitation diluting the newly-acquired skill -- distinguishable by whether the reward_walk_yaw/yaw_kernel_factor decay curve matches the established fast-early-decay-then-floor shape (RL-erosion signature) vs a slower/partial decay leaving nonzero authority (anchor-dilution signature).
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY, joint with seed1 twin, RETENTION framing (meta 08-31 priority reorder item 3). PASS/promote if BOTH seeds hold probe_turn_authority (own cfg, wz_cmd=+-0.25, walk-mode-filtered) wz_med >= 0.10 both signs post-RL AND det walk gait_valid >=5/6 AND pure-walk (mode_seq OFF) det progress_ratio not hard-regressed vs the wave-1 0.43-0.48 band. FAIL if wz_med erodes back under 0.03 both signs (RL-side erosion confirmed dominant regardless of distillation-base quality) or gait/progress collapses. PARTIAL/DIG-IN if wz_med lands strictly between 0.03 and 0.10 (real partial retention, quantify the erosion rate/shape) or if the pre-RL near-symmetry breaks into a sign-specific asymmetry post-RL. Do not judge mature turn quality or close the reward class at 2M.
+

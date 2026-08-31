@@ -1,5 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~00:4x (turnpay-canary{,-s1} verdicted — CANARY
+FAIL - MECHANISM, joint). Plain English: paying DIRECTLY for turning
+(not just exposure) still didn't make the robot turn — the reward-
+shaping path on this recipe is exhausted; the next move is imitation,
+not more reward tuning.
+`cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary{,-s1}` (2M,
+bank-proven OMNI turn stack `k_walk_yaw=1` + `walk_yaw_kernel_gate` +
+`k_yaw_prog`/overshoot-decay + `k_yaw_still=50`/`yaw_still_avg_s` +
+`walk_yaw_hold_prog_gate`, PLUS denser exposure `tip_frac` 0.15->0.30,
+`walk_yaw_zero_frac` 1.0->0.5, respec of the just-failed turndiet):
+`probe_turn_authority` (own cfg, wz_cmd=+-0.25, walk-mode-filtered,
+seeds 0/1, both checkpoints) gives `wz_med` in
+[-0.0023, +0.0004] — indistinguishable from frozen-body
+(`wz_err_med` 0.2477-0.2513 vs `|wz_cmd|`=0.25), vs the pass bar
+>=0.08 and fail line <0.03. Training telemetry corroborates:
+`env/walk_yaw_kernel_factor` declines 0.16-0.28->0.05-0.08 over the
+2M (same erosion shape as turndiet) and `env/yaw_prog_wz_avg` stays
+~0 (<3e-4) the WHOLE run — the policy never rotated even once during
+training, on either seed. No falls. This refutes BOTH halves of the
+run's hypothesis (direct income AND denser exposure) — a stronger
+negative than turndiet's exposure-only diagnosis: this lineage's wz
+obs channel appears to carry no exploitable signal for the GRU/
+BC-anchor family at all, reward-shape-independent. **Leading next
+step: architecture/obs-channel resurrection via targeted BC on turn
+episodes harvested from the omega-conditioned scripted gait** (the
+walk-teacher demonstrates real turning; distill that directly rather
+than hoping RL discovers it through reward alone) — not another
+reward-coefficient sweep on this recipe. Full verdicts:
+`cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary{,-s1}` ledger
+entries. Standard `_gate`/`_owncfg`/`_mixedsession` harnesses were
+left running on-pod for the record (not needed for this verdict).
+
 Update, 2026-08-31 ~00:0x (DIG-IN cycle — both flagged -s1 runs
 root-caused and verdicted). Plain English: the turn-exposure canary
 failed because the yaw dose was homeopathic, and the 8M walk

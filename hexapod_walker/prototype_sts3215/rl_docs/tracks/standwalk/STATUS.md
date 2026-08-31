@@ -1,5 +1,55 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~19:4x (same cycle as the ~19:2x close below —
+extended the credit-assignment escalation the seed0 close named, then
+REFILLED). Plain English: applied the EXISTING `probe_yaw_credit.py`
+tool (built 08-31 ~09:4x for the naked dualbc5 mechanism classes,
+never previously run on the mirror-augmented dualbc6 lineage) to all
+4 checkpoints this campaign has touched — the pre-RL distillation
+base is unavailable to probe directly, but both 2M RETENTION-canary
+checkpoints (seed0/seed1) and both 40M acquisition finals (1x
+`turnpay-acq1{,-s1}` already-verdicted-FAIL, 5x `yaw5x-acq1{,-s1}`
+just closed above) all ran clean (first attempt used a minimal
+cfg-set and silently zeroed the yaw reward channel — caught via
+`corr(yaw,td)=None`, fixed by matching the exact training cfg-set,
+96 keys, before trusting any read). **Result: 15 of 16 probes
+(wz_cmd=+-0.25 x seed0/seed1 x all 4 checkpoints) read CREDIT-BLIND or
+CREDIT-PUNISHES on the forward-only `value_delta` signal** — the lone
+exception (`yaw5x-acq1-s1`, wz_cmd=-0.25, seed-internal-probe 0,
+corr=+0.044) is noise-level, not a real reversal. This means the
+critic's own forward-looking belief about the future barely reacts to
+whether a tick nudges the body toward the commanded turn direction —
+on EVERY checkpoint, including the 2M canary that behaviorally DOES
+turn well (wz_med +0.13/-0.16). This extends the 09:4x finding (same
+signature on 5 naked dualbc5 mechanism-class checkpoints) onto the
+mirror-augmented lineage and explains the erosion mechanistically:
+mirror-augmentation gave the ACTOR real turning via imitation, but
+never touched the CRITIC's credit-assignment defect, so subsequent
+PPO fine-tuning (at 1x OR 5x reward weight — both already refuted)
+has no value-side signal defending that imported behavior and drifts
+it back toward whatever the blind/punishing critic actually
+reinforces. Evidence: `logs/ckpt_eval/yaw_credit_dualbc6_turncap_
+mirroraug_{turnpay_canary,turnpay_canary_s1,yaw5x_acq1,yaw5x_acq1_s1}.json`.
+**Refill, same cycle**: launched the cheapest testable fix the 09:4x
+update itself named — denser turn-segment exposure, no reward-weight
+change, single cfg lever (`goal.walk_turn_in_place_frac` 0.30->0.60)
+off the SAME raw `dualbc6_turncap_mirroraug` distillation checkpoint
+the original canary pair used, `--snapshot-every=500000` for a curve:
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turndense1-canary{,-s1}`,
+both **VERIFIED RUNNING** (train-1/train-4, mechanically checked
+HEALTHY after an initial SUSPECT/low-fps read on -s1 that resolved
+once past startup). Gate: PASS if `probe_yaw_credit` forward_verdict
+flips to CREDIT-REWARDS (or corr>=+0.15) on >=3/4 of the 4 probes per
+seed AND `probe_turn_authority` wz_med still clears >=0.10 both signs
+AND gait/progress stay clean. FAIL if credit stays BLIND/PUNISHES
+despite 2x density -> the defect is architectural (dual-core GRU
+wz-conditioning / bootstrap horizon), not a data-density problem, and
+the next escalation is an explicit critic-side feature or a dedicated
+value-warmup phase. No code changes this cycle (existing tool +
+cfg-only lever); no other track has legal runnable work (joystick/
+amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED).
+CYCLE_WORKED.
+
 Update, 2026-08-31 ~19:2x (triage cycle on `-yaw5x-acq1-s1` only — the
 seed0 half was a concurrent cycle's own scope, already closed ACQ FAIL
 before this cycle started). Plain English: CLOSED the reward-magnitude-

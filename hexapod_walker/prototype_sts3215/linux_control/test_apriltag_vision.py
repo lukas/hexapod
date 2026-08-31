@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import math
 import sys
+import time
 from pathlib import Path
 
 import cv2
@@ -28,7 +29,13 @@ from apriltag_vision import (  # noqa: E402
 )
 from foot_tip_tracking import FootTipTracker  # noqa: E402
 from housing_pose import RigidTransform  # noqa: E402
-from track_apriltags import _camera_order_after, _parse_camera_cycle  # noqa: E402
+from track_apriltags import (  # noqa: E402
+    FeedbackClient,
+    _camera_order_after,
+    _parse_camera_cycle,
+    _safe_pose_assessment,
+)
+import track_apriltags as track_cli  # noqa: E402
 
 
 def test_detects_generated_tag36h11_and_decodes_orientation() -> None:
@@ -246,3 +253,85 @@ def test_live_camera_cycle_is_deduplicated_and_wraps() -> None:
     assert cycle == (0, 1)
     assert _camera_order_after(0, cycle) == (1, 0)
     assert _camera_order_after(1, cycle) == (0, 1)
+
+
+def _safe_pose_fixture() -> tuple[dict, dict]:
+    detections = [
+        {"tag_id": tag_id, "label": f"robot {tag_id}", "source": "detected"}
+        for tag_id in range(13)
+    ]
+    feet = [
+        {"leg": leg, "source": "color", "confidence": 1.0}
+        for leg in range(6)
+    ]
+    joints = {
+        f"L{leg}_{axis}": {"value_deg": 0.0}
+        for leg in range(6) for axis in ("yaw", "hip", "knee")
+    }
+    result = {
+        "detections": detections,
+        "foot_tips": feet,
+        "camera_calibration_approximate": False,
+        "full_pose": {
+            "joints": joints,
+            "calibration_disagreements": [],
+            "prediction_only_joints": [],
+            "walking_check": {"body_tilt_deg": 1.0},
+            "zero_check": {"matches_zero": True},
+        },
+    }
+    feedback = {
+        "ok": True,
+        "live_joint_count": 18,
+        "roll_deg": 1.0,
+        "pitch_deg": -1.0,
+    }
+    return result, feedback
+
+
+def test_safe_pose_assessment_requires_support_only_for_motion() -> None:
+    result, feedback = _safe_pose_fixture()
+
+    unsupported = _safe_pose_assessment(
+        result, feedback, operator_supported=False
+    )
+    supported = _safe_pose_assessment(
+        result, feedback, operator_supported=True
+    )
+
+    assert unsupported["verdict"] == "safe"
+    assert unsupported["safe_pose"] is True
+    assert unsupported["safe_for_alignment_motion"] is False
+    assert supported["safe_for_alignment_motion"] is True
+    assert supported["straight_horizontal_candidate"] is True
+
+
+def test_safe_pose_assessment_calls_large_tilt_unsafe() -> None:
+    result, feedback = _safe_pose_fixture()
+    result["full_pose"]["walking_check"]["body_tilt_deg"] = 22.0
+
+    assessment = _safe_pose_assessment(
+        result, feedback, operator_supported=True
+    )
+
+    assert assessment["verdict"] == "unsafe"
+    assert assessment["safe_pose"] is False
+    assert assessment["safe_for_alignment_motion"] is False
+    assert "tilt" in assessment["unsafe_reasons"][0]
+
+
+def test_feedback_poll_never_blocks_camera_loop(monkeypatch) -> None:
+    def slow_failure(*_args, **_kwargs):
+        time.sleep(0.15)
+        raise OSError("offline")
+
+    monkeypatch.setattr(track_cli, "urlopen", slow_failure)
+    client = FeedbackClient("http://robot.invalid", hz=3.0)
+
+    start = time.perf_counter()
+    angles, status = client.sample()
+    elapsed = time.perf_counter() - start
+
+    assert elapsed < 0.05
+    assert angles == {}
+    assert status["configured"] is True

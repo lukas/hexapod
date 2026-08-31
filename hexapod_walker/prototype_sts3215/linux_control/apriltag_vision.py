@@ -259,7 +259,10 @@ def detect_tag_corners(image: np.ndarray) -> list[TagCorners]:
     gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     parameters = cv2.aruco.DetectorParameters()
-    parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
+    # OpenCV's APRILTAG refinement is roughly 3-5x slower than SUBPIX on the
+    # iPhone stream while producing the same decoded set here.  SUBPIX keeps
+    # pose corners accurate without starving the macOS preview event loop.
+    parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
     # The floor references may be much smaller than the robot in a wide shot.
     parameters.minMarkerPerimeterRate = 0.005
     detector = cv2.aruco.ArucoDetector(dictionary, parameters)
@@ -869,16 +872,18 @@ class AprilTagPoseTracker:
             hip_record = robot_result["joints"][f"L{leg}_hip"]
             if not yaw_record["observable"] or not hip_record["observable"]:
                 continue
-            fitted = self._fit_knee_from_tip(
-                leg=leg,
-                tip_px=tip.point_px,
-                yaw_deg=float(yaw_record["value_deg"]),
-                hip_deg=float(hip_record["value_deg"]),
-                world_from_body=world_from_body,
-                world_from_camera=world_from_camera,
-                camera_matrix=camera_matrix,
-                distortion=distortion,
-            )
+            fitted = None
+            if not self.calibration.approximate and self.marker_size_verified:
+                fitted = self._fit_knee_from_tip(
+                    leg=leg,
+                    tip_px=tip.point_px,
+                    yaw_deg=float(yaw_record["value_deg"]),
+                    hip_deg=float(hip_record["value_deg"]),
+                    world_from_body=world_from_body,
+                    world_from_camera=world_from_camera,
+                    camera_matrix=camera_matrix,
+                    distortion=distortion,
+                )
             if (fitted is not None
                     and fitted[1] <= 1.2 * tag_scale_px
                     and not self.calibration.approximate

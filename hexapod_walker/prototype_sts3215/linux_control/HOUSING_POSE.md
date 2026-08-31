@@ -41,6 +41,12 @@ indexes 0 and 1 without ending the diagnostic recording. The active index and
 controls appear at the bottom of the preview. Use `--camera-cycle 0,1,2` if
 more cameras should participate in the cycle.
 
+Live/video input is downscaled to 1280 pixels wide before detection by default;
+this keeps the preview responsive while retaining the full decoded set in the
+reference image. Use `--processing-width 960` for more speed or
+`--processing-width 0` for full-resolution metrology. Raw video output, when
+requested, keeps the capture resolution.
+
 Add read-only servo/IMU feedback for a signed 18-joint pose and visual-vs-
 encoder zero diagnosis:
 
@@ -59,6 +65,14 @@ operator which joints appear away from zero. They never invoke `set_zero` or
 move a joint. That boundary is intentional until the camera, mounts, and
 printed size have been physically calibrated and repeated stationary trials
 show that visual/encoder errors are trustworthy.
+
+The preview also displays `POSE SAFETY: SAFE`, `UNSAFE`, or `UNVERIFIED`.
+That verdict combines direct tag/foot coverage, floor-referenced or IMU body
+tilt, broad joint envelopes, encoder availability, and visual/encoder
+agreement. `UNVERIFIED` is not safe. Because one overhead camera cannot prove
+that the chassis is physically supported, `safe_for_alignment_motion` remains
+false unless the operator starts the program with `--robot-supported`; even
+that flag only records the assertion and does not enable or send motion.
 
 Each feature records `source`, `confidence`, and `occlusion_age_frames`.
 Decoded tags and color-detected boots are measurements. Optical flow bridges a

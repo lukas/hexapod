@@ -1000,6 +1000,75 @@ def _validate_gru_dual_log_std_split(log_std_split: bool,
         raise SystemExit("--gru-dual-log-std-split requires --gru-dual")
 
 
+def _parse_log_std_anneal_specs(log_std_final, log_std_anneal_core,
+                                log_std_anneal_frac):
+    """Parses --log-std-final/--log-std-anneal-core/--log-std-anneal-
+    frac into a list of (core, final, frac) triples, one per anneal
+    callback to construct.
+
+    Pulled out of main() as a pure function so it is unit-testable
+    without mujoco/GPU (mirrors _validate_use_sde_scratch_only above).
+
+    Born from the standwalk dualbc5-turncap lineage (08-31): every
+    prior canary in that mechanism search could anneal only ONE
+    core's log_std per launch (--log-std-anneal-core stance, cooling
+    stance while the walk core's log_std sat untouched under pure PPO
+    gradient) -- there was no way to ALSO give the walk core its own
+    guaranteed-to-move exploration schedule (raising it, not lowering
+    it) in the SAME run without silently overwriting the stance
+    anneal. Comma-separated lists on all three flags let the caller
+    target independent (core, final, frac) triples in one launch,
+    e.g. `--log-std-final=-0.7,-4.0 --log-std-anneal-core=walk,stance
+    --log-std-anneal-frac=0.1,0.5`.
+
+    Single (non-comma) values are the pre-existing behavior, bit-
+    exact: returns exactly one triple, matching every already-launched
+    recipe's CLI byte-for-byte. `log_std_anneal_frac` broadcasts a
+    single value across multiple (core, final) pairs (nearly every
+    existing single-anneal launch never sets it explicitly, so
+    defaulting one frac across N pairs is the least-surprising
+    reading); `log_std_anneal_core` broadcasts "all" the same way only
+    when a single core is requested for multiple finals is NOT the
+    intent -- REFUSES ambiguous input instead (mismatched list
+    lengths, "all" combined with >1 pair, unknown core name, or a
+    duplicate core) rather than guessing.
+
+    Returns [] when log_std_final is None (the anneal is off,
+    unchanged from every pre-08-31 call site's `is not None` gate).
+    """
+    if log_std_final is None:
+        return []
+    finals = [float(x) for x in str(log_std_final).split(",")]
+    cores = [c.strip() for c in str(log_std_anneal_core).split(",")]
+    fracs = [float(x) for x in str(log_std_anneal_frac).split(",")]
+    n = len(finals)
+    if len(cores) == 1 and n > 1:
+        cores = cores * n
+    if len(fracs) == 1 and n > 1:
+        fracs = fracs * n
+    if len(cores) != n or len(fracs) != n:
+        raise SystemExit(
+            "--log-std-final/--log-std-anneal-core/--log-std-anneal-"
+            f"frac list-length mismatch: {n} final(s), {len(cores)} "
+            f"core(s), {len(fracs)} frac(s) — each must be a single "
+            "value (broadcast) or match the others' count exactly")
+    bad_cores = [c for c in cores if c not in ("all", "walk", "stance")]
+    if bad_cores:
+        raise SystemExit(
+            f"--log-std-anneal-core: unknown core(s) {bad_cores!r} — "
+            "must be 'all', 'walk', or 'stance'")
+    if n > 1 and "all" in cores:
+        raise SystemExit(
+            "--log-std-anneal-core: 'all' cannot be combined with "
+            "other cores in a multi-anneal list (ambiguous overlap) "
+            "— name the specific cores instead, e.g. 'walk,stance'")
+    if len(set(cores)) != len(cores):
+        raise SystemExit(
+            f"--log-std-anneal-core: duplicate core(s) in {cores!r} "
+            "— each anneal callback needs its own distinct target")
+    return list(zip(cores, finals, fracs))
+
+
 def _resolve_training_episode_seconds(training_episode_seconds,
                                        episode_seconds: float) -> float:
     """Normalizes --training-episode-seconds vs --episode-seconds.
@@ -1565,36 +1634,52 @@ def main(argv: list[str] | None = None) -> int:
                          "(all four policy._log_stds() reset "
                          "identically); a policy with neither attribute "
                          "prints a warning and is left untouched.")
-    ap.add_argument("--log-std-final", type=float, default=None,
+    ap.add_argument("--log-std-final", type=str, default=None,
                     help="linearly anneal the policy's log_std "
-                         "PARAMETER down to this value (log-space) over "
+                         "PARAMETER to this value (log-space) over "
                          "--log-std-anneal-frac of --steps, then hold — "
                          "the anneal FORCIBLY re-sets the parameter at "
                          "every rollout end (the --warm-log-std-"
                          "override pattern applied on a schedule), so "
                          "unlike --ent-coef-final it is guaranteed to "
-                         "move. Start value = --warm-log-std-override "
-                         "when set, else the policy's own mean log_std "
-                         "at launch. Default None = OFF, bit-exact "
-                         "legacy (no callback constructed). Motivated "
-                         "by the cw-dep-bcgait4-phasedir8 dig-in "
-                         "(08-22, logs/ckpt_eval/pd8_digin_regime/): "
-                         "per-stance drag pricing has NO separating "
-                         "allowance in the NOISY optimization regime "
-                         "(honest clone at std 0.135 needs allow>=48mm "
-                         "untaxed while the pd6 det drag cheat pays "
-                         "ZERO beyond 36mm) — the repair is to make "
-                         "the optimization regime CONVERGE to the det "
+                         "move (in EITHER direction — a final above "
+                         "the start value raises exploration just as "
+                         "reliably as annealing it down). Start value "
+                         "= --warm-log-std-override when set, else the "
+                         "policy's own mean log_std at launch. Default "
+                         "None = OFF, bit-exact legacy (no callback "
+                         "constructed). Motivated by the "
+                         "cw-dep-bcgait4-phasedir8 dig-in (08-22, "
+                         "logs/ckpt_eval/pd8_digin_regime/): per-stance "
+                         "drag pricing has NO separating allowance in "
+                         "the NOISY optimization regime (honest clone "
+                         "at std 0.135 needs allow>=48mm untaxed while "
+                         "the pd6 det drag cheat pays ZERO beyond "
+                         "36mm) — the repair is to make the "
+                         "optimization regime CONVERGE to the det "
                          "regime where the full-stack pricing is "
                          "measured-aligned (clone 1031 > slow 978 > "
                          "drag 639), i.e. anneal exploration noise "
-                         "away instead of widening det-blind bands.")
-    ap.add_argument("--log-std-anneal-frac", type=float, default=1.0,
+                         "away instead of widening det-blind bands. "
+                         "COMMA-LIST (08-31, standwalk dualbc5-turncap "
+                         "mechanism search): pass N comma-separated "
+                         "values paired with an N-long --log-std-"
+                         "anneal-core to run N independent per-core "
+                         "anneal schedules in one launch, e.g. "
+                         "'-0.7,-4.0' with core 'walk,stance' raises "
+                         "walk's exploration while still cooling "
+                         "stance — see "
+                         "_parse_log_std_anneal_specs. A single value "
+                         "is the pre-existing one-callback behavior, "
+                         "bit-exact.")
+    ap.add_argument("--log-std-anneal-frac", type=str, default="1.0",
                     help="fraction of --steps over which the log-std "
                          "anneal completes (only used when "
-                         "--log-std-final is set); 1.0 = whole run.")
+                         "--log-std-final is set); 1.0 = whole run. "
+                         "COMMA-LIST or single value broadcast across "
+                         "a multi-value --log-std-final — see "
+                         "_parse_log_std_anneal_specs.")
     ap.add_argument("--log-std-anneal-core", type=str, default="all",
-                    choices=["all", "walk", "stance"],
                     help="which log_std parameter(s) --log-std-final "
                          "anneals. Default 'all' = every entry in "
                          "policy._log_stds() (bit-identical to pre-08-27 "
@@ -1606,7 +1691,14 @@ def main(argv: list[str] | None = None) -> int:
                          "--gru-dual --gru-dual-log-std-split) via its "
                          "_log_std_core(which) method; on any other "
                          "policy this silently falls back to 'all' "
-                         "(there is no separate parameter to target).")
+                         "(there is no separate parameter to target). "
+                         "COMMA-LIST: 'walk,stance' runs two "
+                         "independent anneal callbacks, one per named "
+                         "core, paired positionally with --log-std-"
+                         "final's own comma list — REFUSES 'all' "
+                         "combined with another core, duplicate "
+                         "cores, or a length mismatch rather than "
+                         "guessing (_parse_log_std_anneal_specs).")
     ap.add_argument("--activation-fn", type=str, default="",
                     choices=["", "tanh", "relu", "elu"],
                     help="MLP activation for from-scratch/transplant "
@@ -4093,15 +4185,18 @@ def main(argv: list[str] | None = None) -> int:
                                "ent_coef_anneal/frac": frac})
 
         callbacks.append(_EntCoefAnnealCb())
-    if args.log_std_final is not None:
+    _log_std_specs = _parse_log_std_anneal_specs(
+        args.log_std_final, args.log_std_anneal_core,
+        args.log_std_anneal_frac)
+    for _core, _final, _frac in _log_std_specs:
         class _LogStdAnnealCb(BaseCallback):
             """Linearly anneal the policy's log_std parameter(s) to
-            args.log_std_final over log_std_anneal_frac * args.steps,
-            then hold. Unlike the entropy-bonus route this SETS the
-            parameter directly (the proven --warm-log-std-override
-            mechanism on a schedule), so PPO's own gradient cannot
-            fight it between rollouts. Default OFF (--log-std-final
-            unset): callback never constructed, bit-exact legacy.
+            ``final`` over ``frac`` * args.steps, then hold. Unlike
+            the entropy-bonus route this SETS the parameter directly
+            (the proven --warm-log-std-override mechanism on a
+            schedule), so PPO's own gradient cannot fight it between
+            rollouts. Default OFF (--log-std-final unset): no
+            callback constructed, bit-exact legacy.
 
             TIMING FIX (08-23, stdanneal45/swinganneal45 forensics):
             the set MUST happen at rollout START, not rollout end.
@@ -4124,11 +4219,20 @@ def main(argv: list[str] | None = None) -> int:
             (bit-identical to pre-08-27 'all') on any policy that
             doesn't implement _log_std_core (no separate parameter to
             target) — printed once so a no-op request is never silent.
+
+            MULTI-ANNEAL (08-31, standwalk dualbc5-turncap mechanism
+            search): each (core, final, frac) triple from
+            _parse_log_std_anneal_specs gets its OWN callback closed
+            over its own values (captured as constructor defaults, not
+            free variables, so a `for` loop building several of these
+            does not all-alias the loop's last value) — e.g. one
+            instance raises the walk core's log_std toward -0.7 while
+            a second, independent instance cools the stance core
+            toward -4.0, in the same launch.
             """
 
             @staticmethod
-            def _targets(pol):
-                core = getattr(args, "log_std_anneal_core", "all")
+            def _targets(pol, core=_core):
                 if core != "all" and hasattr(pol, "_log_std_core"):
                     t = pol._log_std_core(core)
                     if t is not None:
@@ -4139,8 +4243,9 @@ def main(argv: list[str] | None = None) -> int:
                     return [pol.log_std]
                 return []
 
-            def __init__(self):
+            def __init__(self, core=_core, final=_final, frac=_frac):
                 super().__init__()
+                self._core = core
                 self._warned_fallback = False
                 # FAIL-CLOSED (08-27, anchor6-logstdsplit forensics):
                 # a specific --log-std-anneal-core request that the
@@ -4151,7 +4256,6 @@ def main(argv: list[str] | None = None) -> int:
                 # dual policy) instead of whether the core lookup
                 # returned None (split off), so both anchor6 seeds
                 # annealed the shared log_std without a word.
-                core = getattr(args, "log_std_anneal_core", "all")
                 if core != "all":
                     pol = model.policy
                     if not (hasattr(pol, "_log_std_core")
@@ -4170,16 +4274,15 @@ def main(argv: list[str] | None = None) -> int:
                     import torch as _th
                     pol = model.policy
                     with _th.no_grad():
-                        targets = self._targets(pol)
+                        targets = self._targets(pol, core)
                         if targets:
                             vals = [float(_ls.data.mean())
                                     for _ls in targets]
                             self._start = sum(vals) / len(vals)
                         else:
-                            self._start = float(args.log_std_final)
-                self._final = float(args.log_std_final)
-                self._denom = max(1, int(args.log_std_anneal_frac
-                                         * args.steps))
+                            self._start = float(final)
+                self._final = float(final)
+                self._denom = max(1, int(frac * args.steps))
                 self._finished = False
 
             def _on_step(self) -> bool:
@@ -4191,7 +4294,7 @@ def main(argv: list[str] | None = None) -> int:
                 frac = min(1.0, self.num_timesteps / self._denom)
                 val = self._start + frac * (self._final - self._start)
                 pol = self.model.policy
-                core = getattr(args, "log_std_anneal_core", "all")
+                core = self._core
                 if (core != "all" and not self._warned_fallback
                         and not hasattr(pol, "_log_std_core")):
                     self._warned_fallback = True
@@ -4200,20 +4303,21 @@ def main(argv: list[str] | None = None) -> int:
                           "has no _log_std_core — falling back to "
                           "annealing ALL log_std parameters")
                 with _th.no_grad():
-                    for _ls in self._targets(pol):
+                    for _ls in self._targets(pol, core):
                         _ls.data.fill_(float(val))
                 if frac >= 1.0 and not self._finished:
                     self._finished = True
-                    print("[log-std-anneal] complete @ "
+                    print(f"[log-std-anneal:{core}] complete @ "
                           f"{self.num_timesteps:,} steps — holding "
                           f"log_std={val:.3f} "
                           f"(std={_math.exp(val):.3f})")
                 if run is not None:
                     import wandb
                     wandb.log({"global_step": self.num_timesteps,
-                               "log_std_anneal/value": float(val),
-                               "log_std_anneal/std": _math.exp(val),
-                               "log_std_anneal/frac": frac})
+                               f"log_std_anneal/{core}/value": float(val),
+                               f"log_std_anneal/{core}/std":
+                                   _math.exp(val),
+                               f"log_std_anneal/{core}/frac": frac})
 
         callbacks.append(_LogStdAnnealCb())
     if amp_wrap is not None:

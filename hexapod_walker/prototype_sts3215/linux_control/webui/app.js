@@ -3392,6 +3392,7 @@ let rlPolicies = [];
 let rlRoles = {};        // role -> {file, resolved} from /api/rl/roles
 let rlAllowedObs = {};   // role -> [allowed obs widths]
 let rlPolicyMode = 'bundle';
+let rlActiveScriptedBundleId = '';
 var rlPolicyPickerReady = false;
 var rlMoveControlsLocked = false;
 var rlDriveControlsLocked = false;
@@ -3431,6 +3432,34 @@ const RL_POLICY_BUNDLES = [
     ],
     metrics: ['full mesh', '0 falls', '1s course err med 2.42deg',
               'progress ratio 0.418'],
+  },
+  {
+    id: 'scripted-tripod-baseline',
+    kind: 'scripted-tripod',
+    tag: 'Baseline',
+    title: 'Scripted tripod baseline',
+    actionLabel: 'Use baseline',
+    summary: 'Non-RL comparison controller: the old hand-written tripod gait. '
+      + 'On MuJoCo, this selects the scripted walk-driver row when available; '
+      + 'on the robot, it configures the Drive tab for GAIT 0. No learned '
+      + 'stand/walk model is involved.',
+    simWalkFile: 'scripted:tripod_walk_gait',
+    scriptedDrive: {
+      gait: 0,
+      alpha: 0,
+      vxMm: 30,
+      vyMm: 0,
+      omega: 0,
+      durationS: 20,
+    },
+    rows: [
+      ['Stand', 'scripted stand'],
+      ['Walk', 'GAIT 0 tripod'],
+      ['Hold', 'J 0 0 0 planted hold'],
+      ['Lower', 'scripted lower / disarm'],
+    ],
+    metrics: ['non-RL', '30 mm/s default', 'open-loop tripod',
+              'known to drag feet'],
   },
   {
     id: 'learned-stance-compare',
@@ -3552,10 +3581,16 @@ function rlActiveSlotFile(slot){
 }
 
 function rlBundleMissing(bundle){
+  if(bundle.kind === 'scripted-tripod') return [];
   return (bundle.files || []).filter(f => !rlPolicyByFile(f));
 }
 
 function rlBundleIsActive(bundle){
+  if(bundle.kind === 'scripted-tripod'){
+    return rlActiveScriptedBundleId === bundle.id
+      || (!!bundle.simWalkFile && rlActiveSlotFile('walk') === bundle.simWalkFile);
+  }
+  if(rlActiveScriptedBundleId) return false;
   if(bundle.stanceFile && rlActiveSlotFile('stance') !== bundle.stanceFile)
     return false;
   if(bundle.walkFile && rlRoleHome('walk') !== bundle.walkFile)
@@ -3657,11 +3692,15 @@ function rlRenderBundles(){
     action.className = 'bundle-action';
     action.textContent = active ? 'Active' : (missing.length
       ? 'Missing file'
-      : (bundle.tag === 'Default' ? 'Use default' : 'Use policy'));
+      : (bundle.kind === 'scripted-tripod'
+        ? (bundle.actionLabel || 'Use baseline')
+        : (bundle.tag === 'Default' ? 'Use default' : 'Use policy')));
     action.disabled = active || missing.length > 0;
     action.title = missing.length
       ? 'Missing: '+missing.join(', ')
-      : 'Select this complete policy for the next move.';
+      : (bundle.kind === 'scripted-tripod'
+        ? 'Configure the scripted tripod comparison. No motion starts.'
+        : 'Select this complete policy for the next move.');
     action.onclick = ()=> rlApplyBundle(bundle);
     card.appendChild(action);
     box.appendChild(card);
@@ -3698,7 +3737,73 @@ async function rlBundleSetRole(role, file){
   if(!out.ok) throw new Error(out.error || 'role set failed');
 }
 
+function rlSetScriptedDriveDefaults(bundle){
+  const d = bundle.scriptedDrive || {};
+  if(wgaitSel && d.gait != null) wgaitSel.value = String(d.gait);
+  if(walphaEl && d.alpha != null){
+    walphaEl.value = String(d.alpha);
+    const a = parseFloat(walphaEl.value) || 0;
+    const lab = $('walab');
+    if(lab) lab.textContent = a.toFixed(2);
+    const wrap = $('walphawrap');
+    if(wrap) wrap.style.display = (parseInt(wgaitSel.value, 10) || 0) === 1
+      ? '' : 'none';
+  }
+  if($('wvx') && d.vxMm != null) $('wvx').value = String(d.vxMm);
+  if($('wvy') && d.vyMm != null) $('wvy').value = String(d.vyMm);
+  if($('wom') && d.omega != null) $('wom').value = String(d.omega);
+  if($('wdur') && d.durationS != null) $('wdur').value = String(d.durationS);
+  gait = parseInt(wgaitSel && wgaitSel.value, 10) || 0;
+  forceResend();
+}
+
+async function rlSendNoMotionCmd(line){
+  const r = await fetch('/cmd', {method:'POST', body:line});
+  const text = await r.text();
+  const shown = text && text !== 'ok' ? `${line} → ${text}` : line;
+  showSent(shown, !r.ok);
+  if(!r.ok) throw new Error(text || `${line} failed`);
+  setLink(true);
+  return text;
+}
+
+async function rlApplyScriptedBundle(bundle){
+  const rows = (bundle.rows || []).map(([role, value]) => `${role}: ${value}`);
+  const d = bundle.scriptedDrive || {};
+  if(!confirm(`Use ${bundle.title}?\n\n${rows.join('\n')}\n\n`
+      + 'This is the non-RL scripted comparison. It configures MuJoCo or the '
+      + 'Drive tab for the next run; no motion starts.')){
+    $('rlpickmsg').textContent = 'kept current policy';
+    return;
+  }
+  $('rlpickmsg').textContent = 'configuring '+bundle.title+'…';
+  try{
+    let simSelected = false;
+    if(bundle.simWalkFile && rlPolicyByFile(bundle.simWalkFile)){
+      await rlBundleSelectFile(bundle.simWalkFile);
+      simSelected = true;
+    }
+    rlSetScriptedDriveDefaults(bundle);
+    if(d.gait != null)
+      await rlSendNoMotionCmd('GAIT '+String(d.gait)+' '
+        +(Number(d.alpha || 0)).toFixed(2));
+    rlActiveScriptedBundleId = bundle.id;
+    $('rlpickmsg').textContent = bundle.title+' configured ✔ '
+      +(simSelected
+        ? '(MuJoCo walk driver selected; robot Drive tab set to GAIT 0)'
+        : '(Drive tab set to GAIT 0)');
+  }catch(e){
+    $('rlpickmsg').textContent = 'baseline failed: '+(e.message || e);
+    showErr('Policy baseline: '+(e.message || e));
+  }
+  await refreshRlTab();
+}
+
 async function rlApplyBundle(bundle){
+  if(bundle.kind === 'scripted-tripod'){
+    await rlApplyScriptedBundle(bundle);
+    return;
+  }
   const missing = rlBundleMissing(bundle);
   if(missing.length){
     $('rlpickmsg').textContent = 'missing policy file: '+missing.join(', ');
@@ -3713,6 +3818,7 @@ async function rlApplyBundle(bundle){
   }
   $('rlpickmsg').textContent = 'applying '+bundle.title+'…';
   try{
+    rlActiveScriptedBundleId = '';
     if(bundle.stanceFile) await rlBundleSelectFile(bundle.stanceFile);
     if(bundle.walkFile) await rlBundleSelectFile(bundle.walkFile);
     for(const [role, file] of Object.entries(bundle.roleValues || {}))

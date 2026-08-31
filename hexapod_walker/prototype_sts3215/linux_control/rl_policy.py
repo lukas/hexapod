@@ -1089,9 +1089,26 @@ def _drive_uses_learned_policy(active: str, hold_policy) -> bool:
     return active == "walk" or hold_policy is not None
 
 
+def _drive_should_run_learned_policy(active: str, hold_policy, *,
+                                     walk_has_engaged: bool) -> bool:
+    """Choose whether this tick should execute a neural policy.
+
+    A learned hold model is useful after an actual gait handoff, but running
+    it from tick zero makes a no-command drive session look like a broken walk.
+    Before the first real walk command, keep the robot on a quiet direct
+    joint-hold target and let the UI report that it is waiting for input.
+    """
+    if active == "walk":
+        return True
+    if hold_policy is None:
+        return False
+    return bool(walk_has_engaged)
+
+
 def _drive_timing_trip_reason(active: str, hold_policy, tick: int,
                               timing: PolicyTiming, late_s: float,
-                              consecutive_late: int) -> str | None:
+                              consecutive_late: int, *,
+                              uses_policy: bool | None = None) -> str | None:
     """Only persistent learned-policy timing misses make drive fatal.
 
     Hardware joystick drive shares one host UART with snapshot reads, so a
@@ -1099,7 +1116,9 @@ def _drive_timing_trip_reason(active: str, hold_policy, tick: int,
     reason to limp. State freshness/current/tilt gates cover safety; timing
     trips are reserved for sustained controller overload or a large stall.
     """
-    if not _drive_uses_learned_policy(active, hold_policy):
+    if uses_policy is None:
+        uses_policy = _drive_uses_learned_policy(active, hold_policy)
+    if not uses_policy:
         return None
     if active == "walk" and tick < DRIVE_TIMING_STARTUP_GRACE_TICKS:
         return None
@@ -3062,6 +3081,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         "walk_phase_run_on_yaw", 0.0)))
     dv_max = walk_speed_max * timing.policy_dt / WALK_RAMP_S
     active = "hold"
+    walk_has_engaged = False
     walk_cmd_since: float | None = None
     walk_active_since: float | None = None
     zero_since: float | None = None  # first tick of neutral input while walking
@@ -3087,6 +3107,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     last_stale_at_s: float | None = None
     async_sampler: _AsyncSnapshotSampler | None = None
     async_sampler_last_stats: dict | None = None
+    waiting_for_command_logged = False
+    first_drive_command_logged = False
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
         "mode": "drive", "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,
@@ -3104,6 +3126,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                         if hold_policy is not None else None),
         "hold_strategy": ("learned_policy"
                           if hold_policy is not None else "joint_hold"),
+        "initial_hold_strategy": "joint_hold_until_first_walk_command",
         "height_can_track": height_can_track,
         "policy_joint_frame": joint_frame,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
@@ -3268,6 +3291,20 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             vx_t, vy_t, walk_speed_min, walk_speed_max)
         moving_requested = _drive_command_is_moving(
             vx_t, vy_t, wz_t, int(walk_obs))
+        waiting_for_drive_command = (
+            active == "hold" and not walk_has_engaged
+            and not moving_requested and stopping is None)
+        if waiting_for_drive_command and not waiting_for_command_logged:
+            debug.event("drive_waiting_for_command", tick=i, t_s=t,
+                        hold_policy_available=hold_policy is not None,
+                        publish=False, flush=False)
+            waiting_for_command_logged = True
+        if moving_requested and not first_drive_command_logged:
+            debug.event("drive_command_received", tick=i, t_s=t,
+                        vx_cmd=vx_t, vy_cmd=vy_t, wz_cmd=wz_t,
+                        hb_age_s=round(float(hb_age), 3),
+                        publish=False, flush=False)
+            first_drive_command_logged = True
         # A crouched/raised body must return to the walk anchor height
         # before the gait engages (walk champions trained at ref 0).
         height_returning = (moving_requested and active != "walk"
@@ -3295,6 +3332,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 active = "walk"
                 model_switched = True
                 walk_active_since = t
+                walk_has_engaged = True
                 reanchor()
                 debug.event("drive_model_switch", tick=i, t_s=t,
                             from_model=prev_active, to_model=active,
@@ -3359,7 +3397,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         obs = None
         action = None
         policy_s = 0.0
-        uses_policy = _drive_uses_learned_policy(active, hold_policy)
+        uses_policy = _drive_should_run_learned_policy(
+            active, hold_policy, walk_has_engaged=walk_has_engaged)
         if uses_policy:
             if need_obs in WALK_OBS_DIMS:
                 obs = np.concatenate(
@@ -3517,7 +3556,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                 result.update(ok=False, error="aborted",
                               held_pose=True, ticks=i)
             elif (stream_err == "feedback lost during hold"
-                  and not _drive_uses_learned_policy(active, hold_policy)):
+                  and not uses_policy):
                 result.update(ok=False, error=stream_err,
                               held_pose=True, ticks=i)
             elif (stream_err == "feedback stale during stream"
@@ -3565,14 +3604,17 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         }
         timing_stats.add(runner_timing)
         timing_error = _drive_timing_trip_reason(
-            active, hold_policy, i, timing, late_s, consecutive_late)
+            active, hold_policy, i, timing, late_s, consecutive_late,
+            uses_policy=uses_policy)
         # Hold-68 obs would misalign the fixed walk-wide obs columns —
         # blank them for those ticks (walk replay parity is what the
         # offline contract needs).
         obs_for_log = (obs if obs is not None and len(obs) == elog.obs_dim
                        else None)
-        display_active = ("arming" if moving_requested and not moving
-                          and stopping is None else active)
+        display_active = (
+            "waiting" if waiting_for_drive_command else
+            "arming" if moving_requested and not moving
+            and stopping is None else active)
         elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
                   obs=obs_for_log,
                   phase=("stopping" if stopping else display_active),
@@ -3588,6 +3630,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             "height_ref_mm": round(height_ref * 1000.0, 1),
             "height_live": height_can_track,
             "height_returning": height_returning,
+            "waiting_for_drive_command": waiting_for_drive_command,
+            "learned_policy_active": uses_policy,
+            "walk_has_engaged": walk_has_engaged,
             "walk_arming": bool(moving_requested and not moving),
             "walk_zero_dwell_s": round(
                 max(0.0, DRIVE_HOLD_SWITCH_S - (t - zero_since)), 2)
@@ -3620,10 +3665,15 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             on_progress(err_snap)
             break
         if i % progress_every == 0:
+            drive_msg = (f"drive waiting t={t:5.1f}s "
+                         "no joystick/key command received "
+                         if waiting_for_drive_command
+                         else f"drive {display_active} t={t:5.1f}s "
+                              f"v=({vx_r * 1000:+.0f},"
+                              f"{vy_r * 1000:+.0f})mm/s "
+                              f"wz={wz_r:+.2f}rad/s ")
             on_progress({
-                "msg": (f"drive {display_active} t={t:5.1f}s "
-                        f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s "
-                        f"wz={wz_r:+.2f}rad/s "
+                "msg": (drive_msg
                         + (f"h={height_ref * 1000:+.0f}mm "
                            if height_ref else "")
                         + f"maxI={max_cur:.2f}A"
@@ -3665,6 +3715,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         drive_write_hz=drive_write.write_hz,
         drive_write_requested_hz=drive_write.requested_hz,
         drive_write_every_ticks=drive_write.write_every_ticks,
+        walk_command_received=first_drive_command_logged,
+        walk_has_engaged=walk_has_engaged,
         max_delta_q_deg=round(max_dq_deg, 4),
         max_delta_q_deg_explicit=max_dq_explicit,
         write_speed=write_speed, write_acc=write_acc,

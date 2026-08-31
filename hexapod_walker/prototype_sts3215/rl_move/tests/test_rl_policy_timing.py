@@ -377,6 +377,20 @@ def test_joint_hold_fallback_does_not_use_learned_policy():
     )
 
 
+def test_drive_waits_quietly_before_first_walk_command():
+    hold_policy = _policy({"obs_dim": 68})
+
+    assert not rl_policy._drive_should_run_learned_policy(  # noqa: SLF001
+        "hold", hold_policy, walk_has_engaged=False
+    )
+    assert rl_policy._drive_should_run_learned_policy(  # noqa: SLF001
+        "hold", hold_policy, walk_has_engaged=True
+    )
+    assert rl_policy._drive_should_run_learned_policy(  # noqa: SLF001
+        "walk", None, walk_has_engaged=False
+    )
+
+
 def test_stream_target_tolerates_short_feedback_dropouts():
     bus = _FakeBus()
     good0 = _state()

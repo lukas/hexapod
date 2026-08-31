@@ -306,6 +306,38 @@ def test_async_snapshot_sampler_is_lower_rate_than_policy_loop():
     assert rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S == pytest.approx(0.25)
 
 
+def test_drive_write_plan_decimates_100hz_policy_to_50hz_bus():
+    cadence = rl_policy._drive_write_plan(  # noqa: SLF001
+        _policy({"training_hz": 100}), {"control": {}}, policy_hz=100
+    )
+
+    assert cadence.requested_hz == pytest.approx(50.0)
+    assert cadence.write_hz == pytest.approx(50.0)
+    assert cadence.write_every_ticks == 2
+    assert cadence.write_dt == pytest.approx(0.02)
+
+
+def test_drive_write_plan_preserves_legacy_25hz_policy_bus_writes():
+    cadence = rl_policy._drive_write_plan(  # noqa: SLF001
+        _policy({"training_hz": 25}), {"control": {}}, policy_hz=25
+    )
+
+    assert cadence.write_hz == pytest.approx(25.0)
+    assert cadence.write_every_ticks == 1
+
+
+def test_drive_write_plan_honors_policy_metadata_override():
+    cadence = rl_policy._drive_write_plan(  # noqa: SLF001
+        _policy({"training_hz": 100, "drive_write_hz": 25}),
+        {"control": {"drive_write_hz": 50}},
+        policy_hz=100,
+    )
+
+    assert cadence.requested_hz == pytest.approx(25.0)
+    assert cadence.write_hz == pytest.approx(25.0)
+    assert cadence.write_every_ticks == 4
+
+
 def test_drive_translation_clamps_to_hardware_trained_band():
     vx, vy = rl_policy._drive_clamp_translation(0.002, 0.0)  # noqa: SLF001
 
@@ -470,6 +502,38 @@ def test_async_stream_target_marks_old_snapshot_stale():
     assert stale_samples == 1
     assert bus.writes == 1
     assert bus.steps == 0
+
+
+def test_async_stream_target_can_skip_bus_write_on_decimated_tick():
+    bus = _FakeStepBus()
+    sampler = _FakeSampler([_state()], age_s=0.02)
+
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus,
+        sampler,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=0.0,
+        inner_steps=1,
+        inner_dt=0.0,
+        write_speed=100,
+        write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=_state(),
+        stale_ticks=0,
+        max_stale_ticks=3,
+        write_target=False,
+    )
+
+    state, _t_next, _overruns, err, stale_ticks, stale_samples, timing = out
+    assert err == ""
+    assert state.bus_ok is True
+    assert stale_ticks == 0
+    assert stale_samples == 0
+    assert bus.writes == 0
+    assert bus.steps == 0
+    assert len(sampler.commanded) == 1
+    assert timing["write_s"] == pytest.approx(0.0)
 
 
 def test_stream_target_treats_stream_step_all_miss_as_stale_sample():

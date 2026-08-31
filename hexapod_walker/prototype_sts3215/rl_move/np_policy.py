@@ -17,6 +17,7 @@ Artifact = the export_policy_np.py JSON:
               "hidden": [h1, h2], "activation": "tanh",
               "control_hz": 100,       # optional trained policy rate
               "inner_hz": 100,         # optional robot stream override
+              "drive_write_hz": 50,    # optional live robot bus cadence
               "bus_write_speed": 1500, # optional robot bus profile
               "bus_write_acc": 80,
               "profile": {...},        # optional trained goal ramps

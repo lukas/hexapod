@@ -83,15 +83,19 @@ the RL tooling depend on them.
 
 ### Drive (`#drive`) — bench-test workflow, in order of use
 
-1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
+1. *Get ready*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
    **Set zero HERE** (top bar) · **Stand up**. If already upright, Stand
    adjusts/re-verifies the sim walk-ready stance; otherwise it safe-zeros first,
    then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
-   **Preflight** → `GET /api/rl/preflight?mode=lower` (read-only).
-2. *Scripted gait walk*: the recommended gait buttons select CPG tetrapod
-   (`CPGLOAD` + `GAIT 6`), no-slip ripple (`GAIT 2`), no-slip wave (`GAIT 3`),
-   clamp-fit tripod (`GAIT 7`), middle-up quad crawl (`GAIT 8`), or the tunable
-   high-step tripod (`GAIT 0`). GAIT 0 exposes the shared high-step tune
+   **Check ready** → `GET /api/rl/preflight?mode=walk` (read-only readiness:
+   all 18 servos, IMU/tilt, and pose close to the walk-start stand).
+2. *Pick gait & walk*: the gait picker lives on the left and the walk controls
+   live on the right. The default visible gait is the Central Pattern Generator
+   (CPG) tetrapod (`CPGLOAD cpg_controller_robust120_yawtrim.json` +
+   `GAIT 6`). The comparison drawer exposes no-slip ripple (`GAIT 2`),
+   no-slip wave (`GAIT 3`), clamp-fit tripod (`GAIT 7`), middle-up quad crawl
+   (`GAIT 8`), no-slip tripod (`GAIT 1`), and the tunable high-step tripod
+   (`GAIT 0`). GAIT 0 exposes the shared high-step tune
    (`GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`)
    used by both this page and MuJoCo. **Start walk** sends `J vx vy ω` with
    the edited caps, timed stop or **STOP GAIT** sends `J 0 0 0`.
@@ -187,7 +191,7 @@ lower-current tuck choreography; preferred non-RL stand/lower when foot
 sliding or side-load is the concern · **Rise / Lower (learned RL)** →
 `POST /api/rl/stand|lower {learned:true}` = the actual stance-policy
 episodes using the `stand` / `lower` role weights (experimental on
-hardware; preflight-gated: rise needs belly-down legs-straight, lower
+hardware; readiness-gated: rise needs belly-down legs-straight, lower
 needs the walk-ready stand; the sim twin always runs the learned
 versions, so there the pairs behave the same) · **Stop** →
 `POST /api/rl/stop` · readiness checks →

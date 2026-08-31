@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=joyrl1">
+<link rel="stylesheet" href="/style.css?v=joyrl2">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -115,28 +115,86 @@
     <span class="hint" style="margin:0; flex:1 1 auto" id="tmstamp">2 Hz while this tab is open</span>
   </div>
   <div class="row">
-    <div class="pad">
-      <h2>1 · Zero &amp; stand</h2>
+    <div class="pad ready-pad">
+      <h2>1 · Get ready</h2>
       <div class="hint" style="margin-top:0">
-        Bench order: limp (Motors → <b>Limp all</b>, or E-STOP), hand-pose
-        legs straight out → <b>Set zero HERE</b> (top bar) →
-        <b>Enable servos</b> (top bar) →
-        <b>Stand</b> → <b>Preflight</b>, then walk.</div>
+        Normal path: <b>Enable</b> (top bar) → <b>Stand up</b> →
+        <b>Check ready</b>, then walk. Use <b>Set zero HERE</b> only after
+        limp + hand-posing the legs straight out.</div>
       <div class="btns" style="margin-top:10px">
         <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
-        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the expected stance.">Preflight</button>
+        <button id="wpreflight" title="Read-only readiness check: all 18 servos answering, IMU alive, tilt sane, and pose close to the expected stand/walk-start stance.">Check ready</button>
       </div>
-      <div class="hint" id="wpfout">Preflight result shows here.</div>
+      <div class="hint" id="wpfout">Read-only: checks servos, IMU, tilt, and stand pose. No motion.</div>
     </div>
-    <div class="pad">
-      <h2>2 · Scripted gait walk</h2>
-      <div class="hint" style="margin-top:0">Scripted (non-RL) walking:
-        <code>J vx vy ω</code> to walk, <code>J 0 0 0</code> to stop and hold
-        the planted stand. High-step tripod defaults: |vx|≤30 · |vy|≤18 mm/s ·
-        |ω|≤0.35 rad/s · 3–60 s.</div>
-      <div class="btns" style="margin-top:8px">
-        <label class="hint">gait
-          <select id="wgait" title="Which gait runs the J commands. Swaps are
+    <div class="pad gait-walk-pad">
+      <h2>2 · Pick gait &amp; walk</h2>
+      <div class="hint" style="margin-top:0">
+        The selected gait runs for both <b>Start walk</b> and the joystick on
+        this page. Default: <b>Central Pattern Generator (CPG) tetrapod</b>,
+        the best MuJoCo gait so far.
+      </div>
+      <div class="gait-walk-layout">
+        <section class="gait-pane" aria-label="Gait selection">
+          <div class="gait-default">
+            <button type="button" class="gait-pick gait-primary recommended"
+              data-gait-pick data-gait="6"
+              data-cpg="cpg_controller_robust120_yawtrim.json"
+              title="Loads cpg_controller_robust120_yawtrim.json, then selects GAIT 6. Central Pattern Generator gait: zero falls, low slip, good headings and turns in MuJoCo.">
+              <span>Recommended default</span><b>Central Pattern Generator</b>
+              <small>CPG tetrapod · best MuJoCo result · turns</small>
+            </button>
+            <div class="gait-selected" id="wgaitsummary">
+              Selected: Central Pattern Generator (CPG) tetrapod. Stop walking
+              before switching gaits.
+            </div>
+          </div>
+          <details class="gait-details" id="wgaitcompare">
+            <summary>Compare other gaits</summary>
+            <div id="wgaitpicks" class="gait-picks compact">
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="1"
+                title="Selects GAIT 1. Classic no-slip tripod: three legs swing, three legs support.">
+                <span>Classic</span><b>No-slip tripod</b>
+                <small>3 feet down · faster</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="2"
+                title="Selects GAIT 2. Opposite pairs swing, with 4 feet down.">
+                <span>Safer demo</span><b>No-slip ripple</b>
+                <small>4 feet down · slower</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="3"
+                title="Selects GAIT 3. One leg swings at a time, with 5 feet down.">
+                <span>Steadiest</span><b>No-slip wave</b>
+                <small>5 feet down · slowest</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="7"
+                title="Selects GAIT 7. Smooth no-slip tripod preset tuned for the measured servo speed clamp.">
+                <span>Smooth tripod</span><b>No-slip clampfit</b>
+                <small>servo-speed tuned</small>
+              </button>
+              <button type="button" class="gait-pick experimental"
+                data-gait-pick data-gait="8"
+                title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
+                <span>Diagnostic</span><b>Middle-up quad</b>
+                <small>front/rear crawl · slow</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="0"
+                title="Selects GAIT 0. Current high-step tripod baseline; tune the parameters in Advanced.">
+                <span>Editable</span><b>High-step tripod</b>
+                <small>3 feet down · tunable</small>
+              </button>
+            </div>
+          </details>
+          <details class="gait-details" id="wgaitadvanced">
+            <summary>Advanced gait setup</summary>
+            <div class="btns" style="margin-top:8px">
+              <label class="hint">exact gait
+                <select id="wgait" title="Which gait runs the J commands. Swaps are
 refused while walking — stop first. tripod = the legacy body-frame drag gait
 (known-good but loses ~50% of its stride to slip); the no-slip gaits pin
 planted feet to fixed world anchors (zero commanded scrub) and differ only
@@ -145,112 +203,81 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
 with Bézier swings, and auto-scale a too-fast command down to what the
 legs can reach instead of clipping it.">
-            <option value="0" selected>tripod high-step demo</option>
+            <option value="0">tripod high-step demo</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
             <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
             <option value="5">SE2 wave (auto-scaled · 5 down)</option>
-            <option value="6">SE2 CPG (loaded controller)</option>
+            <option value="6" selected>Central Pattern Generator (CPG) tetrapod</option>
             <option value="7">no-slip clampfit tripod (smooth)</option>
             <option value="8">middle-tuck quad crawl (front/rear only)</option>
-          </select></label>
+            </select></label>
+            </div>
+            <div class="btns" style="margin-top:8px; align-items:center">
+              <label class="hint">Central Pattern Generator file
+                <select id="wcpgsel" title="Central Pattern Generator controller artifacts. The recommended default auto-loads cpg_controller_robust120_yawtrim.json.">
+                  <option value="">(refreshing…)</option>
+                </select></label>
+              <button id="wcpgrefresh" type="button">↻ refresh</button>
+              <button id="wcpgload" type="button">Load</button>
+            </div>
+            <div class="hint" id="wcpgstatus">Loading recommended CPG controller…</div>
+            <div id="walphawrap" style="display:none">
+              <label class="slab">No-slip α — body-motion overlap:
+                <span id="walab">0.00</span></label>
+              <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
+              <div class="hint">α 0 = step-then-shift. α 1 = continuous body
+                motion. Applies at the next phase boundary.</div>
+            </div>
+            <div id="wtripodwrap" class="gait-tune">
+              <label class="slab">High-step tripod tune</label>
+              <div class="fields">
+                <label class="field">period s<input id="wperiod" type="number"
+                  value="1.80" min="0.75" max="3.00" step="0.05"></label>
+                <label class="field">lift mm<input id="lift" type="number"
+                  value="40" min="10" max="50" step="1"></label>
+                <label class="field">stride<input id="wstride" type="number"
+                  value="0.55" min="0.30" max="1.20" step="0.05"></label>
+                <label class="field">ramp s<input id="wramp" type="number"
+                  value="0.85" min="0.10" max="2.50" step="0.05"></label>
+                <label class="field">forward mm/s<input id="wvxcap" type="number"
+                  value="30" min="10" max="60" step="5"></label>
+                <label class="field">strafe mm/s<input id="wvycap" type="number"
+                  value="18" min="5" max="40" step="1"></label>
+                <label class="field">turn rad/s<input id="womcap" type="number"
+                  value="0.35" min="0.05" max="0.60" step="0.05"></label>
+              </div>
+              <div class="btns" style="margin-top:8px">
+                <button id="wtripodapply" type="button">Apply tune</button>
+                <button id="wtripodreset" type="button">Reset tune</button>
+              </div>
+              <div class="hint" id="wtripodstatus">
+                Applies to GAIT 0 in both MuJoCo and the real robot. Stop walking before applying.
+              </div>
+            </div>
+          </details>
+        </section>
+        <section class="walk-control-pane" aria-label="Walk controls">
+          <h3 class="pane-title">Walk controls</h3>
+          <div class="hint" style="margin-top:0">
+            Pick a direction and duration, then start. STOP holds the stand;
+            E-STOP in the header cuts power.
+          </div>
+          <div class="fields walk-fields">
+            <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-30" max="30" step="5"></label>
+            <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
+            <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.35" max="0.35" step="0.05"></label>
+            <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
+          </div>
+          <div class="walk-actions">
+            <button id="wstart" class="on">▶ Start walk</button>
+            <button id="wstop" class="danger"
+              title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
+          </div>
+          <div class="hint walk-status" id="wstatus">Idle.</div>
+        </section>
       </div>
-      <div id="wgaitpicks" class="gait-picks">
-        <button type="button" class="gait-pick recommended"
-          data-gait-pick data-gait="6"
-          data-cpg="cpg_controller_robust120_yawtrim.json"
-          title="Loads cpg_controller_robust120_yawtrim.json, then selects GAIT 6. Best sim gate: zero falls, low slip, good headings and turns.">
-          <span>Best sim gate</span><b>CPG tetrapod</b>
-          <small>zero falls · low slip · turns</small>
-        </button>
-        <button type="button" class="gait-pick"
-          data-gait-pick data-gait="2"
-          title="Selects GAIT 2. Opposite pairs swing, with 4 feet down.">
-          <span>Safer demo</span><b>No-slip ripple</b>
-          <small>4 feet down · slower</small>
-        </button>
-        <button type="button" class="gait-pick"
-          data-gait-pick data-gait="3"
-          title="Selects GAIT 3. One leg swings at a time, with 5 feet down.">
-          <span>Steadiest</span><b>No-slip wave</b>
-          <small>5 feet down · slowest</small>
-        </button>
-        <button type="button" class="gait-pick"
-          data-gait-pick data-gait="7"
-          title="Selects GAIT 7. Smooth no-slip tripod preset tuned for the measured servo speed clamp.">
-          <span>Smooth tripod</span><b>No-slip clampfit</b>
-          <small>servo-speed tuned</small>
-        </button>
-        <button type="button" class="gait-pick experimental"
-          data-gait-pick data-gait="8"
-          title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
-          <span>Diagnostic</span><b>Middle-up quad</b>
-          <small>front/rear crawl · slow</small>
-        </button>
-        <button type="button" class="gait-pick"
-          data-gait-pick data-gait="0"
-          title="Selects GAIT 0. Current high-step tripod baseline; tune the parameters below.">
-          <span>Current baseline</span><b>High-step tripod</b>
-          <small>editable · 3 feet down</small>
-        </button>
-      </div>
-      <div class="btns" style="margin-top:8px; align-items:center">
-        <label class="hint">cpg controller
-          <select id="wcpgsel" title="cpg track search artifacts (rl_move/sim/policies + linux_control/policies, cpg_controller_*.json). Load one, then pick 'SE2 CPG' above and Send/Start to walk on it. Loading never swaps gaits by itself.">
-            <option value="">(refreshing…)</option>
-          </select></label>
-        <button id="wcpgrefresh" type="button">↻ refresh</button>
-        <button id="wcpgload" type="button">Load</button>
-      </div>
-      <div class="hint" id="wcpgstatus">No CPG controller loaded.</div>
-      <div id="walphawrap" style="display:none">
-        <label class="slab">No-slip α — body-motion overlap:
-          <span id="walab">0.00</span></label>
-        <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
-        <div class="hint">α 0 = step-then-shift (body only moves with all six
-          feet planted; pause-anywhere). α 1 = continuous body motion spread
-          across the whole cycle (gentler servo tracking). Feet stay pinned to
-          world anchors at every α; applies at the next phase boundary.</div>
-      </div>
-      <div id="wtripodwrap" class="gait-tune">
-        <label class="slab">High-step tripod tune</label>
-        <div class="fields">
-          <label class="field">period s<input id="wperiod" type="number"
-            value="1.80" min="0.75" max="3.00" step="0.05"></label>
-          <label class="field">lift mm<input id="lift" type="number"
-            value="40" min="10" max="50" step="1"></label>
-          <label class="field">stride<input id="wstride" type="number"
-            value="0.55" min="0.30" max="1.20" step="0.05"></label>
-          <label class="field">ramp s<input id="wramp" type="number"
-            value="0.85" min="0.10" max="2.50" step="0.05"></label>
-          <label class="field">forward mm/s<input id="wvxcap" type="number"
-            value="30" min="10" max="60" step="5"></label>
-          <label class="field">strafe mm/s<input id="wvycap" type="number"
-            value="18" min="5" max="40" step="1"></label>
-          <label class="field">turn rad/s<input id="womcap" type="number"
-            value="0.35" min="0.05" max="0.60" step="0.05"></label>
-        </div>
-        <div class="btns" style="margin-top:8px">
-          <button id="wtripodapply" type="button">Apply tune</button>
-          <button id="wtripodreset" type="button">Reset tune</button>
-        </div>
-        <div class="hint" id="wtripodstatus">
-          Applies to GAIT 0 in both MuJoCo and the real robot. Stop walking before applying.
-        </div>
-      </div>
-      <div class="fields">
-        <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-30" max="30" step="5"></label>
-        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
-        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.35" max="0.35" step="0.05"></label>
-        <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
-      </div>
-      <div class="btns" style="margin-top:12px">
-        <button id="wstart" class="on">▶ Start walk</button>
-      </div>
-      <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
-        title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
-      <div class="hint" id="wstatus">Idle.</div>
     </div>
     <div class="pad">
       <h2>3 · Manual drive (left stick)</h2>
@@ -1052,6 +1079,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl10"></script>
+  <script src="/app.js?v=joyrl11"></script>
 </body>
 </html>

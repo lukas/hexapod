@@ -1,7 +1,8 @@
 const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
-let gait = 0, armed = false, dancePaused = false, lastInput = 0;
+const $ = id => document.getElementById(id);
+let gait = 6, armed = false, dancePaused = false, lastInput = 0;
 let activeView = 'drive';  // drive | motors | demos | rl | calibrate | touchdown | debug
 let calAxis = 'all';
 let calTimer = null;
@@ -36,6 +37,7 @@ let simFrameLastAt = 0;
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
 let maxVx = 30, maxVy = 18, maxOmega = 0.35;
+const DEFAULT_CPG_CONTROLLER = 'cpg_controller_robust120_yawtrim.json';
 
 function savedRobotUrl(){
   try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
@@ -984,8 +986,8 @@ if($('wtripodreset')) $('wtripodreset').onclick = ()=>{
 // --- Bench zero workflow -------------------------------------------------------
 // Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →
 // Limp all, or E-STOP), hand-poses, POST /api/set_zero (top bar), ARMs,
-// Stands (P glide), preflights, then the gait gets plain `J vx vy omega`
-// and `J 0 0 0` over /cmd — nothing else.
+// Stands (P glide), runs the read-only readiness check, then the gait gets
+// plain `J vx vy omega` and `J 0 0 0` over /cmd — nothing else.
 async function setZeroHere(fromMotors){
   // No confirm (operator 08-11: no warning modals). Motors do not
   // move — only the zero point is rewritten.
@@ -1002,7 +1004,7 @@ async function setZeroHere(fromMotors){
 document.getElementById('topsetzero').onclick = ()=> setZeroHere(false);
 document.getElementById('wpreflight').onclick = async ()=>{
   const out = document.getElementById('wpfout');
-  out.textContent = 'Preflight (read-only)…';
+  out.textContent = 'Checking readiness (no motion)…';
   try{
     const r = await fetch('/api/rl/preflight?mode=walk&t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
@@ -1016,12 +1018,13 @@ document.getElementById('wpreflight').onclick = async ()=>{
       : '<b style="color:#ff7b72">NOT ready</b>: '+(d.error||'?')
         + (det.length ? ' · '+det.join(' · ') : '')
         + ' — fresh Set zero → Stand before walking.';
-  }catch(e){ out.textContent = 'preflight failed (link?)'; }
+  }catch(e){ out.textContent = 'readiness check failed (link?)'; }
 };
 
 // --- gait picker: 0 tripod high-step · 1 no-slip tripod (+alpha) · 2 no-slip
-// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave · 6 loaded CPG
-// · 7 no-slip clampfit tripod · 8 middle-tuck quad crawl. Alpha only tunes
+// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave ·
+// 6 loaded Central Pattern Generator (CPG) tetrapod ·
+// 7 no-slip clampfit tripod · 8 middle-tuck quad crawl. Alpha only tunes
 // gait 1 (the others run their presets), so the slider hides for them. --------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
@@ -1029,8 +1032,30 @@ document.getElementById('wpreflight').onclick = async ()=>{
 // boundary of a live no-slip gait.
 const wgaitSel = document.getElementById('wgait');
 const walphaEl = document.getElementById('walpha');
+if(wgaitSel) wgaitSel.value = String(gait);
+const GAIT_LABELS = Object.freeze({
+  0: 'High-step tripod',
+  1: 'No-slip tripod',
+  2: 'No-slip ripple',
+  3: 'No-slip wave',
+  4: 'SE2 tetrapod',
+  5: 'SE2 wave',
+  6: 'Central Pattern Generator (CPG) tetrapod',
+  7: 'No-slip clampfit',
+  8: 'Middle-up quad',
+});
 function commandTextFailed(text){
   return /^(failed|bad|refused)/i.test(String(text || ''));
+}
+function updateGaitSummary(extra){
+  const el = $('wgaitsummary');
+  if(!el) return;
+  let text = 'Selected: ' + (GAIT_LABELS[gait] || ('GAIT ' + gait)) + '.';
+  if(gait === 6 && !loadedCpgName)
+    text += ' Loading the Central Pattern Generator file.';
+  text += ' Stop walking before switching gaits.';
+  if(extra) text += ' ' + extra;
+  el.textContent = text;
 }
 function updateGaitPickActive(){
   document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
@@ -1042,10 +1067,20 @@ function updateGaitModePanels(){
     gait === 1 ? '' : 'none';
   updateGaitTuneVisibility();
   updateGaitPickActive();
+  updateGaitSummary();
 }
 async function sendGait(){
   const prev = gait;
   const next = parseInt(wgaitSel.value, 10) || 0;
+  if(next === 6 && !loadedCpgName){
+    const loaded = await ensureCpgLoaded(DEFAULT_CPG_CONTROLLER);
+    if(!loaded){
+      wgaitSel.value = String(prev);
+      gait = prev;
+      updateGaitModePanels();
+      return false;
+    }
+  }
   const a = parseFloat(walphaEl.value) || 0;
   document.getElementById('walab').textContent = a.toFixed(2);
   const line = 'GAIT ' + next + ' ' + a.toFixed(2);
@@ -1072,12 +1107,15 @@ wgaitSel.onchange = sendGait;
 // CPGLIST/CPGLOAD are plain DriveController.handle() lines (same /cmd
 // channel as GAIT/J), so no new HTTP route was needed -- this is just a
 // convenience picker over the two commands. Loading never swaps the live
-// gait; the operator still picks "SE2 CPG" in the gait select above and
-// sends/starts the walk to actually use it.
+// gait; selecting gait 6 uses the loaded Central Pattern Generator controller.
 const wcpgSel = document.getElementById('wcpgsel');
 const wcpgStatus = document.getElementById('wcpgstatus');
-async function refreshCpgList(){
+let loadedCpgName = '';
+let cpgLoadPromise = null;
+async function refreshCpgList(opts){
+  opts = opts || {};
   wcpgSel.innerHTML = '<option value="">(loading…)</option>';
+  let preferredValue = DEFAULT_CPG_CONTROLLER;
   try{
     const r = await fetch('/cmd', {method:'POST', body:'CPGLIST'});
     const text = await r.text();
@@ -1102,15 +1140,25 @@ async function refreshCpgList(){
     }
     const preferred = Array.from(wcpgSel.options).find(opt =>
       /robust120.*yawtrim/i.test(opt.value + ' ' + opt.textContent));
-    if(preferred) wcpgSel.value = preferred.value;
+    if(preferred){
+      wcpgSel.value = preferred.value;
+      preferredValue = preferred.value;
+    }
   }catch(e){
     wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
+  }
+  if(opts.autoLoadDefault && gait === 6){
+    const ok = await ensureCpgLoaded(preferredValue || DEFAULT_CPG_CONTROLLER);
+    if(ok) await sendGait();
   }
 }
 document.getElementById('wcpgrefresh').onclick = refreshCpgList;
 async function loadCpgController(name){
   name = name || wcpgSel.value;
-  if(!name){ wcpgStatus.textContent = 'pick a controller first.'; return false; }
+  if(!name){
+    wcpgStatus.textContent = 'pick a Central Pattern Generator file first.';
+    return false;
+  }
   const line = 'CPGLOAD ' + name;
   try{
     const res = await cmd(line);
@@ -1125,13 +1173,25 @@ async function loadCpgController(name){
           break;
         }
       }
+      loadedCpgName = name;
+      updateGaitSummary('Loaded ' + name + '.');
       forceResend();
+    } else {
+      updateGaitSummary('Central Pattern Generator load failed.');
     }
     return !failed;
   }catch(e){
     wcpgStatus.textContent = 'load failed — link?';
+    updateGaitSummary('Central Pattern Generator load failed.');
     return false;
   }
+}
+async function ensureCpgLoaded(name){
+  name = name || DEFAULT_CPG_CONTROLLER;
+  if(loadedCpgName === name) return true;
+  if(cpgLoadPromise) return cpgLoadPromise;
+  cpgLoadPromise = loadCpgController(name).finally(()=>{ cpgLoadPromise = null; });
+  return cpgLoadPromise;
 }
 document.getElementById('wcpgload').onclick = async ()=>{
   await loadCpgController(wcpgSel.value);
@@ -1143,13 +1203,14 @@ document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
       return;
     }
     const cpg = btn.dataset.cpg || '';
-    if(cpg && !(await loadCpgController(cpg))) return;
+    if(cpg && !(await ensureCpgLoaded(cpg))) return;
     wgaitSel.value = String(parseInt(btn.dataset.gait, 10) || 0);
     await sendGait();
   };
 });
 updateGaitPickActive();
-refreshCpgList();
+updateGaitSummary();
+refreshCpgList({autoLoadDefault:true});
 
 walphaEl.oninput = ()=>{
   document.getElementById('walab').textContent =
@@ -1327,7 +1388,6 @@ let dbgLeg = 0, dbgAxis = 0;
 let dbgTestRunning = false, dbgTestAbort = false;
 const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
-const $ = id => document.getElementById(id);
 
 const robotUrlInput = $('roboturl');
 if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();

@@ -243648,7 +243648,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-31T15:44:45+00:00",
-    "status": "RUNNING",
+    "status": "ACQ FAIL - TURN EROSION",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -243703,7 +243703,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1 since 2026-08-31T17:11:42"
+    "triage": "done",
+    "verdict": "Turn authority did NOT survive the full 40M acquisition budget: the mirror-augmented base buys time, not durability -- the pre-registered prediction-if-false landed. probe_turn_authority (own TURNCAP_CFG_SET, wz_cmd=+-0.25) wz_med fell from +0.130/+0.121 & -0.178/-0.172 at the 2M canary checkpoint to +0.032/+0.055 & -0.045/-0.046 at 40M (60-75% erosion; the probe's own classifier calls it FROZEN-BODY), decisively under the >=0.10-both-signs PASS bar. Everything else stayed clean: final in-training DR evals walk/rise/lower survived_frac 1.0/1.0/1.0, walk det strips show sit->rise->level six-leg walking with zero falls and no flag/sacrificed legs. eval/walk/direction_err_deg sat at 45-53deg the entire run -- no material improvement over the 45-52deg non-turning joygate band, so the joygate clause is also answered NO without waiting for the rider. Dig-in root cause: the hypothesis's own discriminator picked RL-EROSION over anchor-dilution -- walk_yaw_kernel_factor collapsed fast-early-then-floor (0.42->0.15 within the parent canary's first ~300k steps) and sat flat at that floor through all 38M of acquisition while ep_rew still rose (quarters 1952->2247->2282): PPO's optimum under current pricing (yaw income ~0.34/tick of ~3.3/tick total, ~10%) is near-zero turn authority; the mirrored base only slowed the walk toward that optimum. Per the gate letter this is the PARTIAL middle (1 of 4 sign-reads under the 0.03 floor), but the campaign fork is answered: NOT promotable to stage2 source. Next: the retention-vs-recovery case the salience refutation never tested -- yawscale5x pricing ON the mirrored base at acquisition length (defending live authority != rediscovering it from frozen), with interim checkpoint snapshots so the erosion time-constant is finally measurable. Hardware-ready: no (walks cleanly but cannot turn on command)."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1-s1",
@@ -243947,7 +243948,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-31T15:49:29+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -243994,6 +243995,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1-s since 2026-08-31T17:16:49"
+    "triage": "done",
+    "verdict": "PARTIAL - EROSION (own scope; joint fork with -acq1/seed0 read separately by a concurrent cycle). Result: the decisive gate clause (probe_turn_authority, own TURNCAP_CFG_SET, wz_cmd=+-0.25, seeds 0/1, walk-mode-filtered) on this seed's final ~40M-cumulative checkpoint reads wz_med +0.023/+0.029 (wz_cmd=+0.25) and -0.078/-0.070 (wz_cmd=-0.25) -- rules out PASS (needs >=0.10 both signs) but is NOT the clean 'both signs <0.03' FAIL either: the positive sign sits right at/under the 0.03 floor (matches every non-mirrored mechanism-class collapse) while the negative sign retains real, above-floor authority at ~2.3-2.6x the fail threshold (down from this seed's own pre-acquisition RETENTION-canary read of +0.130/+0.121 / -0.178/-0.172 -- roughly 75-80% erosion on the + sign, 55-60% on the - sign). This is exactly the gate's own pre-registered PARTIAL/DIG-IN case ('one sign erodes and the other does not... do not force a binary call'). Evidence: logs/ckpt_eval/probe_turn_authority_dualbc6_turncap_mirroraug_turnpay_acq1_s1.json (my own read, cross-checked against the concurrent cycle's near-identical independent read in STATUS ~17:2x: +0.025/+0.029, -0.072/-0.057). New root-cause evidence this cycle: read env/reward_walk_yaw, env/walk_yaw_kernel_factor and env/yaw_prog_wz_avg from this run's own full wandb_history.csv in 20 even bins across the WHOLE 38M-step continuation -- env/yaw_prog_wz_avg sits in a flat +-0.004 noise band from the VERY FIRST bin (near step 0 of the continuation) through the last, never showing a healthy nonzero signal at any point, while reward_walk_yaw/walk_yaw_kernel_factor stay roughly flat (~0.21-0.35, mild noisy decline, no cliff). This is the FAST-EARLY-THEN-FLOOR shape the gate text named as the RL-erosion signature (matching all 8 prior non-mirrored mechanism-class canaries), not a 'still actively eroding at cycle end' shape -- i.e. most of the damage likely happened early in this 38M-step continuation and then plateaued, so a shorter acquisition budget from the same RETENTION checkpoint is the more promising lever than 'train longer/more budget' per the 08-21 ruling (reward is not misaligned-but-rising here in the yaw channel specifically; it is flat, and task-metric flat+adequate-budget is the ruling's own FAIL/erosion case, not a 'needs more steps' case). Why this matters: mirror-augmentation gave a real, above-baseline HEAD START (the RETENTION canary genuinely passed, first of 9 mechanism/base classes to do so) but does not survive full ~40M acquisition-budget RL pressure intact -- it is degraded, distinctly better than the naked mechanism classes' near-total both-sign collapse, but well short of durable. Gait_valid/pure-walk progress_ratio/eval_joystick_gate direction_err_med (the gate's other 3 clauses) are still mid-flight on-pod (train-3, ~30min in of a typically 1-2h video-eval class, ps-confirmed alive, not duplicated) -- those cannot flip this PARTIAL to PASS (clause 1 already forecloses that) but will decide whether walk quality also degraded or held. Next: a later cycle should (1) read gate/owncfg/joygate once synced to close out whether walking quality/direction-following also eroded, (2) given the fast-early-floor shape, consider a shorter-budget acquisition arm (e.g. 8-10M instead of 38M) off the SAME RETENTION checkpoint as the next real lever, testing whether stopping before the erosion floor preserves more of the canary's turn authority while still maturing walk quality -- distinct from and complementary to whatever the -acq1 (seed0) sibling's own close decides."
   }
 ]

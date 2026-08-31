@@ -1,5 +1,56 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~17:3x (triage cycle on `-acq1-s1` only — the
+`-acq1`/seed0 half is a concurrent cycle's own scope, not touched.
+CLOSED `-s1`'s own PARTIAL verdict with a genuine root-cause addition,
+not a re-read of the ~17:2x numbers alone). Plain English: verdicted
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1-s1`
+**PARTIAL - EROSION (own scope)**. My own `probe_turn_authority` read
+on the final ~40M-cumulative checkpoint: wz_med **+0.023/+0.029**
+(wz_cmd=+0.25) and **-0.078/-0.070** (wz_cmd=-0.25) — cross-checks the
+~17:2x update's own independent read (+0.025/+0.029, -0.072/-0.057)
+within noise. Rules out PASS (needs >=0.10 both signs) but is NOT the
+gate's clean "<0.03 both signs" FAIL either: + sign sits at/under the
+floor (matches every non-mirrored mechanism class), - sign holds real
+authority at ~2.3-2.6x the floor (down from this seed's own RETENTION
+canary +0.130/-0.178 — ~75-80% erosion + sign, ~55-60% - sign). Exactly
+the gate's own named PARTIAL/DIG-IN case. **New this cycle**: read
+`env/reward_walk_yaw`, `env/walk_yaw_kernel_factor`,
+`env/yaw_prog_wz_avg` from this run's own full `wandb_history.csv` in
+20 even bins across the WHOLE 38M-step continuation to answer the
+~17:2x update's own named open question (erosion-curve shape).
+Result: `yaw_prog_wz_avg` sits in a flat +-0.004 noise band from the
+FIRST bin through the last — never shows healthy signal at any point
+in this continuation, no cliff visible mid-run — while
+`reward_walk_yaw`/`walk_yaw_kernel_factor` stay roughly flat (~0.21-
+0.35, noisy, no collapse). This is the **FAST-EARLY-THEN-FLOOR** shape
+(damage front-loaded, then plateaus), matching the RL-erosion
+signature every one of the 8 prior non-mirrored mechanism classes
+showed — NOT a "still actively eroding at cycle end" shape. Per the
+08-21 ruling this is the flat-task-metric-with-adequate-budget FAIL/
+erosion case for the yaw channel specifically (reward isn't misaligned-
+but-rising here, it's flat), so "train this arm longer" is not the
+indicated fix — a SHORTER acquisition budget off the same RETENTION
+checkpoint (stopping before the erosion floor) is the more promising
+next lever, complementary to whatever `-acq1`'s own close decides.
+Evidence: `logs/ckpt_eval/probe_turn_authority_dualbc6_turncap_mirroraug_turnpay_acq1_s1.json`.
+`gate`/`owncfg`/`mixedsession`/`joygate` were still mid-flight on-pod
+(train-3, ~30min in of the standard 1-2h video-eval class,
+ps-confirmed alive, not duplicated) at verdict time — cannot flip
+PASS/PARTIAL (clause 1 already forecloses PASS) but will show whether
+walk quality/direction-following also eroded; left running for a later
+cycle to read. **Next cycle: (1) read gate/owncfg/joygate once synced
+for `-acq1-s1` (walk gait_valid/progress_ratio/direction_err_med,
+purely informational for THIS verdict, but needed for the campaign's
+full picture); (2) once `-acq1` (seed0) closes its own read, compare
+both seeds' erosion magnitude/shape and decide whether to launch a
+shorter-budget (~8-10M) acquisition retry off the RETENTION checkpoint
+as the next real lever.** No other track has legal runnable GPU work
+(re-swept: joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered,
+walkcurr RETIRED); did not launch a new arm — the shorter-budget retry
+this finding motivates should wait for both seeds' full picture rather
+than launching on one seed's read alone. CYCLE_WORKED.
+
 Update, 2026-08-31 ~17:2x (triage cycle — CLOSED the canary joint
 verdict, DIG-IN flagged on the acquisition pair this closure fed).
 Plain English: (1) pulled `-s1`'s own pure-walk det progress_ratio

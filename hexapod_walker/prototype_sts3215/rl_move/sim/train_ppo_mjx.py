@@ -2206,6 +2206,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-name", type=str, default=None)
     ap.add_argument("--save-every", type=int, default=1_000_000,
                     help="checkpoint every N env-steps (0 = end only)")
+    ap.add_argument("--snapshot-every", type=int, default=0,
+                    help="additionally save a NON-overwriting step-tagged "
+                         "checkpoint copy <out>_at<N>M.zip every N "
+                         "env-steps (0 = off, default). Built 08-31 for "
+                         "retention/erosion-curve reads: the standwalk "
+                         "turn-authority campaign could not localize WHEN "
+                         "a 2M-canary-held skill eroded inside a 40M "
+                         "acquisition because --save-every overwrites one "
+                         "file.")
     ap.add_argument("--no-wandb", action="store_true")
     ap.add_argument("--smoke", action="store_true",
                     help="tiny CPU run to validate the pipeline")
@@ -3754,6 +3763,7 @@ def main(argv: list[str] | None = None) -> int:
             super().__init__()
             self._t0 = time.monotonic()
             self._last_save = 0
+            self._last_snapshot = 0
             self._sum: dict[str, float] = {}
             self._cnt: dict[str, int] = {}
             self._terms: dict[str, int] = {}
@@ -4008,6 +4018,15 @@ def main(argv: list[str] | None = None) -> int:
                 self.model.save(out_path)
                 print(f"[mjx-train] checkpoint @ {self.num_timesteps:,} "
                       f"-> {out_path} ({fps:,.0f} env-steps/s)")
+            if (args.snapshot_every and self.num_timesteps
+                    - self._last_snapshot >= args.snapshot_every):
+                self._last_snapshot = self.num_timesteps
+                snap_path = out_path.with_name(
+                    f"{out_path.stem}"
+                    f"_at{self.num_timesteps // 1_000_000}M.zip")
+                self.model.save(snap_path)
+                print(f"[mjx-train] erosion snapshot @ "
+                      f"{self.num_timesteps:,} -> {snap_path}")
 
 
     if args.recover_init_curriculum is not None:

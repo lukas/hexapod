@@ -1,5 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~07:5x (idle-kick, no run finished — DRAINED the
+named next step instead of a no-op re-verify). The prior update left
+one concrete lead: the entboost CANARY FAIL dig-in found `train/std`
+never left ~0.223 the whole 2M run despite `entropy_loss` rising 20x,
+i.e. the entropy-coefficient bump was a WEAKER exploration test than
+it looked — "worth noting if a future arm wants a cleaner direct-
+exploration lever (e.g. raising log_std init on the walk core
+directly)". Built that lever: `train_ppo_mjx.py`'s
+`--log-std-final`/`--log-std-anneal-core`/`--log-std-anneal-frac` now
+accept comma-separated PARALLEL lists
+(`_parse_log_std_anneal_specs`), so one launch can run independent
+per-core anneal schedules — e.g. RAISE the walk core's log_std while
+still COOLING the stance core, impossible before (only one core could
+be targeted per launch). Also fixed a real argparse gotcha the first
+launch attempt hit and crashed pre-boot on:
+`_fixup_log_std_final_argv` rewrites a bare two-token
+`--log-std-final -0.8,-4.0` into the single `=`-joined token, because
+argparse's negative-number heuristic only recognizes a BARE negative
+number as a value, not a comma-list, and the launch harness's own
+`--arg` convention always re-emits flag/value as separate tokens
+(caught on the FIRST real launch attempt, both `stdwalk-mild`/`-hi`
+FAILED identically pre-boot with "expected one argument"; fixed,
+re-tested with a real CLI smoke, both relaunched clean). 41/41 new+
+existing log-std/gru-dual tests green (`test_log_std_anneal_multi.py`
+new), pre-existing 08-30 phasedir failures reconfirmed unrelated
+(same 7 fail on a clean pre-change checkout). Snapshots
+`exp/standwalk-logstd-multicore-walk` (62a4f0dd),
+`exp/standwalk-logstd-argv-fix` (647e0a23).
+
+Launched the 2-arm dose-bracket canary this lever motivates, off the
+SAME `dualbc5_turncap` base + bank-proven OMNI turn reward stack as
+every prior mechanism-class canary (bc_anchor_coef=3.0, isolate-
+update=1, turn-skip off) so this isolates ONLY the walk-core log_std
+target: `cw-standwalk-stage2-dualbc5-turncap-stdwalk-{mild,hi}-
+turnpay-canary` — mild raises walk-core log_std -1.5(std0.22)->-0.8
+(std~0.45), hi -> -0.2 (std~0.82), both over the first 10% of steps
+then pinned, both keeping the existing stance-core -4.0/50% cooling
+untouched via the new multi-core path. VERIFIED RUNNING
+(train-1/train-2, W&B `0tcfig0w`/`dk3cd0vs`). This is the 6th distinct
+turn-authority mechanism class after anchor dose (3x), anchor
+targeted-skip, BC-anchor isolate-update, and PPO ent-coef — all 5
+FAILED at canary scale. Gate: `probe_turn_authority` wz_med clears
+0.03 both signs AND `env/train/std` confirms the lever actually moved
+(unlike entboost's flat std) AND gait/6-leg cycling survives the
+wider noise (a collapsed-gait "turn" via toppling is not a PASS). If
+this ALSO fails clean (std confirmed moved, still frozen), exploration
+MAGNITUDE itself is refuted and the next suspect is the raw per-tick
+reward-vs-value/credit-assignment trace this update's parent already
+named — no further "exploration lever" arms after this pair without a
+new idea. No other track had legal runnable work this cycle (joystick/
+amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED
+06:4x same day). CYCLE_WORKED.
+
 Update, 2026-08-31 ~07:0x (no new verdict — `entboost` canary was
 already joint-verdicted by the concurrent cycle handling `isolateoff`
 moments before this cycle spawned; spot-checked and it is correct

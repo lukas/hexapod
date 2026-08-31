@@ -1,5 +1,53 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~20:1x (deep-model DIG-IN cycle on the closed
+yaw5x pair — executed the verdict's own named escalation and it
+OVERTURNS the assumed mechanism). Plain English: **turning pays
+great; the robot abandons it because NOT-turning is policed 10x
+harder on the other half of the commands.** Extended
+`probe_yaw_credit` with per-tick income accounting
+(`RewardComponentCollector` + reward_total/value/wz means; 19/19
+tests, snapshot `exp/standwalk-yawcredit-income-tool`) and ran it on
+the retention lineage — canary-init (turns), yaw5x 5M snapshot
+(mid-erosion), yaw5x final (frozen) — under the IDENTICAL full 5x
+training reward cfg (parallel on train-8/9/10, artifacts
+`logs/ckpt_eval/yaw_credit_{mirroraug_canary_init,yaw5x_acq1_s5M,
+yaw5x_acq1_final}_5xcfg.json`). Three findings: (1) **turning is
+net-PROFITABLE**: the turning init earns 4.59-5.37/tick vs the
+eroded final's 3.30-4.31 at the same cfg — PPO walked the policy
+DOWN the reward gradient on turn states; penalties negligible; TD
+top-vs-bottom quartile gap **+6/tick in favor of toward-command
+ticks**. The "drag/slip outweighs yaw pay" misalignment story is
+refuted. (2) The **critic is degenerate, not punitive**: V literally
+constant 15.174 across command signs/seeds at the final ckpt;
+value_delta flat everywhere (quartile gaps <=0.01) — the earlier
+frozen-base CREDIT-PUNISHES reads were directionally negative but
+economically negligible. (3) Erosion pressure is therefore invisible
+inside constant-command turn episodes — the one unpriced,
+never-touched channel is **reward.k_yaw_still=50**: quadratic
+anti-rotation charge on the ~50% zero-yaw-cmd segments at 10x the
+turn income coefficient (even in the "5x" arm), plus a ~1s EMA tail
+taxing every turn->hold transition; shared GRU weights generalize
+the suppression across the command boundary. LAUNCHED the
+one-variable pair (VERIFIED RUNNING train-0/train-1):
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-stillbal-acq1{,-s1}`
+— identical recipe/init to yaw5x-acq1 except k_yaw_still 50->5,
+--snapshot-every=5M, curves point-by-point comparable to the yaw5x
+pair's measured erosion. If they erode identically: pricing
+asymmetry refuted -> next suspect is a command-conditioned critic
+(architecture/tool work). Watch the DRIFT clause: k_yaw_still
+existed to kill the ~0.09 rad/s heading-hold drift; if drift
+returns, bracket 12.5-25. Also fixed a stale semantics-bank guard
+(`test_kernel_yaw_ema_separates_accurate_tracking_from_undershoot`
+pre-fix "tied" counterfactual — raw kernel now already favors the
+accurate tracker, 658 vs 584/ep, strictly better alignment; guard
+now pins tracker-never-BEHIND; snapshot
+`exp/standwalk-semantics-yawema-guard-refresh`). Seed0's standard
+gate/owncfg/mixedsession/purewalk_det reads were STILL mid-flight on
+train-6 at cycle end (video-every=1 class, ~1.5h in, left running —
+informational only per both verdicts; a later cycle should pull them
+into the campaign record). CYCLE_WORKED.
+
 Update, 2026-08-31 ~19:4x (same cycle as the ~19:2x close below —
 extended the credit-assignment escalation the seed0 close named, then
 REFILLED). Plain English: applied the EXISTING `probe_yaw_credit.py`

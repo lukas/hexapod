@@ -10,6 +10,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
+import threading
 import time
 from typing import Any
 from urllib.error import URLError
@@ -37,6 +38,8 @@ class FeedbackClient:
         self.timeout_s = timeout_s
         self.last_poll = -float("inf")
         self.last_angles: dict[str, float] = {}
+        self._lock = threading.Lock()
+        self._poll_in_flight = False
         self.status: dict[str, Any] = {
             "configured": True,
             "ok": False,
@@ -46,9 +49,21 @@ class FeedbackClient:
 
     def sample(self) -> tuple[dict[str, float], dict[str, Any]]:
         now = time.monotonic()
-        if now - self.last_poll < self.minimum_interval_s:
-            return self.last_angles, self.status
-        self.last_poll = now
+        with self._lock:
+            should_poll = (
+                not self._poll_in_flight
+                and now - self.last_poll >= self.minimum_interval_s
+            )
+            if should_poll:
+                self.last_poll = now
+                self._poll_in_flight = True
+            angles = dict(self.last_angles)
+            status = dict(self.status)
+        if should_poll:
+            threading.Thread(target=self._poll, daemon=True).start()
+        return angles, status
+
+    def _poll(self) -> None:
         try:
             request = Request(self.url, headers={"Accept": "application/json"})
             with urlopen(request, timeout=self.timeout_s) as response:
@@ -61,8 +76,7 @@ class FeedbackClient:
                 for name, item in zip(JOINT_NAMES, joints)
                 if isinstance(item, dict) and item.get("deg") is not None
             }
-            self.last_angles = angles
-            self.status = {
+            status = {
                 "configured": True,
                 "ok": True,
                 "endpoint": self.url,
@@ -72,14 +86,19 @@ class FeedbackClient:
                 "pitch_deg": payload.get("pitch_deg"),
             }
         except (OSError, URLError, ValueError, json.JSONDecodeError) as error:
-            self.status = {
+            angles = None
+            status = {
                 "configured": True,
                 "ok": False,
                 "endpoint": self.url,
                 "using_cached_joint_count": len(self.last_angles),
                 "error": str(error),
             }
-        return self.last_angles, self.status
+        with self._lock:
+            if angles is not None:
+                self.last_angles = angles
+            self.status = status
+            self._poll_in_flight = False
 
 
 class VideoDiagnosticAccumulator:
@@ -95,6 +114,11 @@ class VideoDiagnosticAccumulator:
         self.disagreement_max: dict[str, float] = {}
         self.zero_error_count: dict[str, int] = {}
         self.max_body_tilt_deg = 0.0
+        self.safety_verdict_counts = {
+            "safe": 0,
+            "unsafe": 0,
+            "unverified": 0,
+        }
 
     def update(self, result: dict[str, Any]) -> None:
         self.frames += 1
@@ -126,6 +150,9 @@ class VideoDiagnosticAccumulator:
         tilt = full.get("walking_check", {}).get("body_tilt_deg")
         if tilt is not None:
             self.max_body_tilt_deg = max(self.max_body_tilt_deg, float(tilt))
+        verdict = result.get("safety_assessment", {}).get("verdict")
+        if verdict in self.safety_verdict_counts:
+            self.safety_verdict_counts[verdict] += 1
 
     def summary(self) -> dict[str, Any]:
         frames = max(1, self.frames)
@@ -161,6 +188,10 @@ class VideoDiagnosticAccumulator:
             "frames": self.frames,
             "mean_decoded_tags_per_frame": round(self.decoded_tags / frames, 2),
             "max_body_tilt_deg": round(self.max_body_tilt_deg, 3),
+            "safety_verdict_fractions": {
+                name: round(count / frames, 3)
+                for name, count in self.safety_verdict_counts.items()
+            },
             "feet": feet,
             "persistent_visual_encoder_disagreements": persistent_disagreements,
             "persistent_zero_pose_errors": persistent_zero_errors,
@@ -173,6 +204,137 @@ class VideoDiagnosticAccumulator:
         }
 
 
+def _safe_pose_assessment(
+    result: dict[str, Any],
+    feedback: dict[str, Any],
+    *,
+    operator_supported: bool,
+) -> dict[str, Any]:
+    full = result.get("full_pose") or {}
+    detections = result.get("detections", [])
+    direct_robot_tags = [
+        item for item in detections
+        if item.get("source") == "detected"
+        and not str(item.get("label", "")).lower().startswith("floor")
+    ]
+    direct_feet = [
+        item for item in result.get("foot_tips", [])
+        if item.get("source") == "color"
+    ]
+    body_tilt = full.get("walking_check", {}).get("body_tilt_deg")
+    imu_roll = feedback.get("roll_deg") if feedback.get("ok") else None
+    imu_pitch = feedback.get("pitch_deg") if feedback.get("ok") else None
+    imu_tilt = None
+    if imu_roll is not None and imu_pitch is not None:
+        imu_tilt = (float(imu_roll) ** 2 + float(imu_pitch) ** 2) ** 0.5
+
+    unsafe: list[str] = []
+    unknown: list[str] = []
+    warnings: list[str] = []
+    if body_tilt is not None and float(body_tilt) > 15.0:
+        unsafe.append(f"visual body tilt is {float(body_tilt):.1f} deg")
+    if imu_tilt is not None and imu_tilt > 15.0:
+        unsafe.append(f"IMU tilt is {imu_tilt:.1f} deg")
+    if body_tilt is None and imu_tilt is None:
+        unknown.append("neither floor-referenced body tilt nor IMU tilt is available")
+
+    joint_limits = {"yaw": 75.0, "hip": 75.0, "knee": 150.0}
+    for name, record in full.get("joints", {}).items():
+        value = record.get("value_deg")
+        if value is None:
+            continue
+        axis = name.rsplit("_", 1)[1]
+        if abs(float(value)) > joint_limits[axis]:
+            unsafe.append(
+                f"{name} is outside the broad safe envelope ({float(value):.1f} deg)"
+            )
+    for disagreement in full.get("calibration_disagreements", []):
+        delta = disagreement.get(
+            "visual_minus_encoder_deg",
+            disagreement.get("visual_abs_minus_encoder_abs_deg"),
+        )
+        if delta is not None and abs(float(delta)) > 15.0:
+            unsafe.append(
+                f"{disagreement['joint']} visual/encoder mismatch is "
+                f"{float(delta):+.1f} deg"
+            )
+
+    if len(direct_robot_tags) < 7:
+        unknown.append(
+            f"only {len(direct_robot_tags)} robot tags are directly decoded"
+        )
+    if len(direct_feet) < 4:
+        unknown.append(f"only {len(direct_feet)} feet are directly visible")
+    if not feedback.get("ok") or feedback.get("live_joint_count", 0) < 18:
+        unknown.append("18/18 read-only encoder feedback is unavailable")
+    if result.get("camera_calibration_approximate"):
+        warnings.append("phone lens calibration is still approximate")
+    if full.get("prediction_only_joints"):
+        warnings.append("one or more joints use short-term prediction")
+
+    if unsafe:
+        verdict = "unsafe"
+    elif unknown:
+        verdict = "unverified"
+    else:
+        verdict = "safe"
+    zero_check = full.get("zero_check", {})
+    straight_horizontal = bool(
+        zero_check.get("matches_zero")
+        and (body_tilt is None or float(body_tilt) <= 5.0)
+        and len(direct_feet) == 6
+    )
+    alignment_blockers = list(unsafe) + list(unknown)
+    if not operator_supported:
+        alignment_blockers.append(
+            "operator has not confirmed the chassis is supported with legs free"
+        )
+    if result.get("camera_calibration_approximate"):
+        alignment_blockers.append("phone lens calibration is approximate")
+    if len(direct_robot_tags) < 13 or len(direct_feet) < 6:
+        alignment_blockers.append(
+            "automatic alignment requires all 13 robot tags and all 6 feet"
+        )
+    return {
+        "verdict": verdict,
+        "safe_pose": verdict == "safe",
+        "straight_horizontal_candidate": straight_horizontal,
+        "safe_for_alignment_motion": not alignment_blockers,
+        "operator_supported": operator_supported,
+        "direct_robot_tag_count": len(direct_robot_tags),
+        "direct_foot_count": len(direct_feet),
+        "body_tilt_deg": body_tilt,
+        "imu_tilt_deg": None if imu_tilt is None else round(imu_tilt, 3),
+        "unsafe_reasons": unsafe,
+        "unknown_reasons": unknown,
+        "warnings": warnings,
+        "alignment_motion_blockers": alignment_blockers,
+        "motor_commands_sent": False,
+    }
+
+
+def _draw_safety_assessment(image: Any, assessment: dict[str, Any]) -> None:
+    verdict = assessment["verdict"]
+    colors = {
+        "safe": (40, 220, 40),
+        "unsafe": (20, 20, 255),
+        "unverified": (0, 180, 255),
+    }
+    scale = max(0.55, image.shape[1] / 2600.0)
+    thickness = max(1, round(scale * 2))
+    text = f"POSE SAFETY: {verdict.upper()}"
+    cv2.putText(
+        image, text, (20, 125), cv2.FONT_HERSHEY_SIMPLEX,
+        scale, colors[verdict], thickness + 1, cv2.LINE_AA,
+    )
+    reasons = assessment["unsafe_reasons"] or assessment["unknown_reasons"]
+    if reasons:
+        cv2.putText(
+            image, reasons[0][:90], (20, 160), cv2.FONT_HERSHEY_SIMPLEX,
+            scale * 0.85, colors[verdict], thickness, cv2.LINE_AA,
+        )
+
+
 def _process_one(
     tracker: AprilTagPoseTracker,
     frame: Any,
@@ -180,6 +342,7 @@ def _process_one(
     frame_index: int = 0,
     time_s: float | None = None,
     feedback: FeedbackClient | None = None,
+    operator_supported: bool = False,
 ) -> tuple[dict[str, Any], Any]:
     encoder, feedback_status = ({}, {"configured": False})
     if feedback is not None:
@@ -191,6 +354,12 @@ def _process_one(
         encoder_joint_deg=encoder or None,
     )
     result["encoder_feedback"] = feedback_status
+    result["safety_assessment"] = _safe_pose_assessment(
+        result,
+        feedback_status,
+        operator_supported=operator_supported,
+    )
+    _draw_safety_assessment(annotated, result["safety_assessment"])
     return result, annotated
 
 
@@ -219,11 +388,17 @@ def _process_image(
     annotated_output: Path | None,
     feedback: FeedbackClient | None,
     summary_output: Path | None,
+    operator_supported: bool,
 ) -> int:
     image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
     if image is None:
         raise OSError(f"could not read image {image_path}")
-    result, annotated = _process_one(tracker, image, feedback=feedback)
+    result, annotated = _process_one(
+        tracker,
+        image,
+        feedback=feedback,
+        operator_supported=operator_supported,
+    )
     _write_json(pose_output, result)
     if summary_output is not None:
         diagnostics = VideoDiagnosticAccumulator()
@@ -290,6 +465,14 @@ def _fit_writer_size(image: Any, size: tuple[int, int]) -> Any:
     return cv2.resize(image, size, interpolation=cv2.INTER_AREA)
 
 
+def _resize_for_processing(frame: Any, maximum_width: int) -> Any:
+    if maximum_width <= 0 or frame.shape[1] <= maximum_width:
+        return frame
+    scale = maximum_width / frame.shape[1]
+    size = (maximum_width, max(1, round(frame.shape[0] * scale)))
+    return cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+
+
 def _process_capture(
     tracker: AprilTagPoseTracker,
     capture: Any,
@@ -305,6 +488,8 @@ def _process_capture(
     summary_output: Path | None,
     camera_index: int | None = None,
     camera_cycle: tuple[int, ...] = (0, 1),
+    processing_width: int = 1280,
+    operator_supported: bool = False,
 ) -> int:
     fps = float(capture.get(cv2.CAP_PROP_FPS))
     if not math_is_finite_positive(fps):
@@ -341,15 +526,18 @@ def _process_capture(
                 time_s = time.monotonic() - start
             else:
                 time_s = float(capture.get(cv2.CAP_PROP_POS_MSEC)) / 1000.0
+            processing_frame = _resize_for_processing(frame, processing_width)
             result, annotated = _process_one(
                 tracker,
-                frame,
+                processing_frame,
                 frame_index=frame_index,
                 time_s=time_s,
                 feedback=feedback,
+                operator_supported=operator_supported,
             )
             if active_camera_index is not None:
                 result["camera_index"] = active_camera_index
+                result["capture_image_size_px"] = [frame.shape[1], frame.shape[0]]
                 cv2.putText(
                     annotated,
                     f"CAMERA {active_camera_index} | C: switch | Q/Esc: stop",
@@ -433,6 +621,7 @@ def _capture_still(
     raw_output: Path | None,
     feedback: FeedbackClient | None,
     summary_output: Path | None,
+    operator_supported: bool,
 ) -> int:
     capture = cv2.VideoCapture(camera_index)
     if not capture.isOpened():
@@ -448,7 +637,12 @@ def _capture_still(
             raise OSError(f"camera {camera_index} produced no frame")
     finally:
         capture.release()
-    result, annotated = _process_one(tracker, frame, feedback=feedback)
+    result, annotated = _process_one(
+        tracker,
+        frame,
+        feedback=feedback,
+        operator_supported=operator_supported,
+    )
     _write_json(pose_output, result)
     if summary_output is not None:
         diagnostics = VideoDiagnosticAccumulator()
@@ -498,6 +692,18 @@ def main(argv: list[str] | None = None) -> int:
         metavar="INDEXES",
         help="camera indexes cycled by C in preview (default: 0,1)",
     )
+    parser.add_argument(
+        "--processing-width",
+        type=int,
+        default=1280,
+        help="downscale video/live processing to this width; 0 disables",
+    )
+    parser.add_argument(
+        "--robot-supported",
+        action="store_true",
+        help=("operator assertion that chassis is supported and every leg is "
+              "free; does not enable or send motion"),
+    )
     args = parser.parse_args(argv)
     if args.duration is not None and args.duration <= 0.0:
         parser.error("--duration must be positive")
@@ -505,6 +711,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--max-frames must be positive")
     if args.feedback_hz <= 0.0:
         parser.error("--feedback-hz must be positive")
+    if args.processing_width != 0 and args.processing_width < 320:
+        parser.error("--processing-width must be 0 or at least 320")
     if args.input is not None and args.raw_output is not None:
         parser.error("--raw-output is only for --camera capture")
 
@@ -521,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
             annotated_output=args.annotated_output,
             feedback=feedback,
             summary_output=args.summary_output,
+            operator_supported=args.robot_supported,
         )
     if args.input is not None:
         capture = cv2.VideoCapture(str(args.input))
@@ -540,6 +749,8 @@ def main(argv: list[str] | None = None) -> int:
             summary_output=args.summary_output,
             camera_index=None,
             camera_cycle=args.camera_cycle,
+            processing_width=args.processing_width,
+            operator_supported=args.robot_supported,
         )
     if args.duration is None and not args.preview:
         return _capture_still(
@@ -550,6 +761,7 @@ def main(argv: list[str] | None = None) -> int:
             raw_output=args.raw_output,
             feedback=feedback,
             summary_output=args.summary_output,
+            operator_supported=args.robot_supported,
         )
 
     capture = cv2.VideoCapture(args.camera)
@@ -569,6 +781,8 @@ def main(argv: list[str] | None = None) -> int:
         summary_output=args.summary_output,
         camera_index=args.camera,
         camera_cycle=args.camera_cycle,
+        processing_width=args.processing_width,
+        operator_supported=args.robot_supported,
     )
 
 

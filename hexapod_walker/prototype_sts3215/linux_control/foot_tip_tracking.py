@@ -72,26 +72,35 @@ def _red_candidates(image: np.ndarray, tag_scale_px: float) -> list[_RedCandidat
     mask = cv2.morphologyEx(
         mask, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8)
     )
-    count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask, 8)
     minimum_area = 0.12 * tag_scale_px * tag_scale_px
     maximum_area = 1.00 * tag_scale_px * tag_scale_px
     minimum_dimension = 0.25 * tag_scale_px
     maximum_dimension = 1.70 * tag_scale_px
     candidates: list[_RedCandidate] = []
-    for label in range(1, count):
-        x, y, width, height, area = stats[label]
+    contours, _hierarchy = cv2.findContours(
+        mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE
+    )
+    for contour in contours:
+        area = float(cv2.contourArea(contour))
+        x, y, width, height = cv2.boundingRect(contour)
         if not minimum_area <= area <= maximum_area:
             continue
         if min(width, height) < minimum_dimension:
             continue
         if max(width, height) > maximum_dimension:
             continue
-        pixels_yx = np.argwhere(labels == label)
-        pixels_xy = pixels_yx[:, ::-1].astype(float)
+        pixels_xy = contour.reshape(-1, 2).astype(float)
+        moments = cv2.moments(contour)
+        if abs(float(moments["m00"])) < 1e-9:
+            continue
+        center = np.asarray([
+            moments["m10"] / moments["m00"],
+            moments["m01"] / moments["m00"],
+        ])
         candidates.append(_RedCandidate(
-            center_px=np.asarray(centroids[label], dtype=float),
+            center_px=center,
             pixels_xy=pixels_xy,
-            area_px=float(area),
+            area_px=area,
         ))
     return candidates
 

@@ -414,6 +414,26 @@
   .telem b { color:#e7eaf0; font-variant-numeric:tabular-nums; }
   .fields { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
   .field { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#9aa3b2; }
+  .gait-tune { margin-top:10px; padding-top:10px;
+               border-top:1px solid #232733; }
+  .gait-tune[hidden] { display:none; }
+  .gait-picks { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+                gap:8px; margin-top:10px; }
+  .gait-pick { min-height:78px; align-items:flex-start; justify-content:flex-start;
+               text-align:left; padding:9px 10px; border-radius:8px;
+               background:#121722; border-color:#30384a; color:#dfe4ee;
+               gap:3px; }
+  .gait-pick span { display:block; font-size:10px; font-weight:900;
+                    letter-spacing:.6px; text-transform:uppercase;
+                    color:#7e879a; line-height:1.1; }
+  .gait-pick b { display:block; font-size:13px; line-height:1.2; }
+  .gait-pick small { display:block; color:#9aa3b2; font-size:11px;
+                     line-height:1.25; }
+  .gait-pick.recommended { border-color:#2b6cff; background:#101b2d; }
+  .gait-pick.experimental { border-color:#8a6a2a; background:#211b10; }
+  .gait-pick.active { border-color:#2e7d47; background:#102218;
+                      box-shadow:0 0 0 1px rgba(95,208,138,.12) inset; }
+  .gait-pick.active span, .gait-pick.active small { color:#80d89f; }
   input[type=number] { width:88px; padding:8px; border-radius:8px; border:1px solid #2c3140;
     background:#0c0e13; color:#e7eaf0; font-size:14px; }
   .cal-table { width:100%; border-collapse:collapse; font-size:12px;

@@ -132,8 +132,8 @@
       <h2>2 · Scripted gait walk</h2>
       <div class="hint" style="margin-top:0">Scripted (non-RL) walking:
         <code>J vx vy ω</code> to walk, <code>J 0 0 0</code> to stop and hold
-        the planted stand. Friend-demo gait caps: |vx|≤30 · |vy|≤18 mm/s · |ω|≤0.35 rad/s ·
-        3–60 s (no-slip clamps itself tighter: 40/35 mm/s, ω 0.30).</div>
+        the planted stand. High-step tripod defaults: |vx|≤30 · |vy|≤18 mm/s ·
+        |ω|≤0.35 rad/s · 3–60 s.</div>
       <div class="btns" style="margin-top:8px">
         <label class="hint">gait
           <select id="wgait" title="Which gait runs the J commands. Swaps are
@@ -152,7 +152,48 @@ legs can reach instead of clipping it.">
             <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
             <option value="5">SE2 wave (auto-scaled · 5 down)</option>
             <option value="6">SE2 CPG (loaded controller)</option>
+            <option value="7">no-slip clampfit tripod (smooth)</option>
+            <option value="8">middle-tuck quad crawl (front/rear only)</option>
           </select></label>
+      </div>
+      <div id="wgaitpicks" class="gait-picks">
+        <button type="button" class="gait-pick recommended"
+          data-gait-pick data-gait="6"
+          data-cpg="cpg_controller_robust120_yawtrim.json"
+          title="Loads cpg_controller_robust120_yawtrim.json, then selects GAIT 6. Best sim gate: zero falls, low slip, good headings and turns.">
+          <span>Best sim gate</span><b>CPG tetrapod</b>
+          <small>zero falls · low slip · turns</small>
+        </button>
+        <button type="button" class="gait-pick"
+          data-gait-pick data-gait="2"
+          title="Selects GAIT 2. Opposite pairs swing, with 4 feet down.">
+          <span>Safer demo</span><b>No-slip ripple</b>
+          <small>4 feet down · slower</small>
+        </button>
+        <button type="button" class="gait-pick"
+          data-gait-pick data-gait="3"
+          title="Selects GAIT 3. One leg swings at a time, with 5 feet down.">
+          <span>Steadiest</span><b>No-slip wave</b>
+          <small>5 feet down · slowest</small>
+        </button>
+        <button type="button" class="gait-pick"
+          data-gait-pick data-gait="7"
+          title="Selects GAIT 7. Smooth no-slip tripod preset tuned for the measured servo speed clamp.">
+          <span>Smooth tripod</span><b>No-slip clampfit</b>
+          <small>servo-speed tuned</small>
+        </button>
+        <button type="button" class="gait-pick experimental"
+          data-gait-pick data-gait="8"
+          title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
+          <span>Diagnostic</span><b>Middle-up quad</b>
+          <small>front/rear crawl · slow</small>
+        </button>
+        <button type="button" class="gait-pick"
+          data-gait-pick data-gait="0"
+          title="Selects GAIT 0. Current high-step tripod baseline; tune the parameters below.">
+          <span>Current baseline</span><b>High-step tripod</b>
+          <small>editable · 3 feet down</small>
+        </button>
       </div>
       <div class="btns" style="margin-top:8px; align-items:center">
         <label class="hint">cpg controller
@@ -172,6 +213,32 @@ legs can reach instead of clipping it.">
           across the whole cycle (gentler servo tracking). Feet stay pinned to
           world anchors at every α; applies at the next phase boundary.</div>
       </div>
+      <div id="wtripodwrap" class="gait-tune">
+        <label class="slab">High-step tripod tune</label>
+        <div class="fields">
+          <label class="field">period s<input id="wperiod" type="number"
+            value="1.80" min="0.75" max="3.00" step="0.05"></label>
+          <label class="field">lift mm<input id="lift" type="number"
+            value="40" min="10" max="50" step="1"></label>
+          <label class="field">stride<input id="wstride" type="number"
+            value="0.55" min="0.30" max="1.20" step="0.05"></label>
+          <label class="field">ramp s<input id="wramp" type="number"
+            value="0.85" min="0.10" max="2.50" step="0.05"></label>
+          <label class="field">forward mm/s<input id="wvxcap" type="number"
+            value="30" min="10" max="60" step="5"></label>
+          <label class="field">strafe mm/s<input id="wvycap" type="number"
+            value="18" min="5" max="40" step="1"></label>
+          <label class="field">turn rad/s<input id="womcap" type="number"
+            value="0.35" min="0.05" max="0.60" step="0.05"></label>
+        </div>
+        <div class="btns" style="margin-top:8px">
+          <button id="wtripodapply" type="button">Apply tune</button>
+          <button id="wtripodreset" type="button">Reset tune</button>
+        </div>
+        <div class="hint" id="wtripodstatus">
+          Applies to GAIT 0 in both MuJoCo and the real robot. Stop walking before applying.
+        </div>
+      </div>
       <div class="fields">
         <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-30" max="30" step="5"></label>
         <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
@@ -183,21 +250,19 @@ legs can reach instead of clipping it.">
       </div>
       <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
         title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
-      <label class="slab">Swing lift: <span id="klab">40</span> mm</label>
-      <input id="lift" type="range" min="4" max="50" value="40">
       <div class="hint" id="wstatus">Idle.</div>
     </div>
     <div class="pad">
       <h2>3 · Manual drive (left stick)</h2>
       <canvas id="drive"></canvas>
       <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
-      <label class="slab">Max speed: <span id="vlab">30</span> mm/s</label>
+      <label class="slab">Forward cap: <span id="vlab">30</span> mm/s</label>
       <input id="vmax" type="range" min="10" max="60" value="30">
       <div class="hint">
         <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
         <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
         <b>Xbox (https URL):</b> left stick walk · right stick turn.
-        Alone: <b>X</b>=sit · <b>Y</b>=stand · <b>A</b>=set HERE as zero · <b>B</b>=stop demo.
+        Bare <b>B</b> stops; use on-screen buttons for stand/sit/zero.
         Demos: hold <b>LB / LT / RB / RT</b> then tap <b>X Y A B</b> (16 chords;
         LB row easiest → RT row hardest). Enable servos first.
       </div>
@@ -493,7 +558,7 @@ legs can reach instead of clipping it.">
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
       <fieldset id="rldrivepanel" class="drive-panel blocked" disabled>
         <div class="drive-panel-head">
-          <h2 title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to coast briefly, then hand off to the configured Hold policy. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
+          <h2 title="Keys and the on-screen pad drive the selected RL policy. The physical joystick defaults to the scripted Drive-tab gait unless an RL drive session is already active. Release input to stop/hold.">Drive — keys / pad</h2>
           <span id="rldrivegate" class="drive-gate blocked">Stand up first</span>
         </div>
         <div class="drive-interactive">
@@ -510,12 +575,12 @@ legs can reach instead of clipping it.">
               </select></label>
           </div>
           <div class="hint" id="rldrivestatus" style="margin-top:8px">No
-            session — hold a direction or move the joystick to start. Yaw turns
-            need a yaw-trained walk policy.</div>
+            RL session — hold a key or press a pad direction to start one.
+            The physical joystick defaults to the scripted Drive-tab gait.</div>
           <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
-            press a controller button to connect. Left stick walks; right stick
-            turns when the walk policy has yaw; D-pad up/down lowers/raises the body (needs a stance model
-            in the “hold” role).</div>
+            press a controller button to connect. Left stick runs the scripted
+            Drive-tab gait by default; right stick turns. In an active RL drive
+            session, the same sticks control the selected walk policy.</div>
           <div id="rldrivepad" style="margin-top:10px;display:grid;
                       grid-template-columns:repeat(3,minmax(72px,1fr));
                       gap:6px;max-width:280px">

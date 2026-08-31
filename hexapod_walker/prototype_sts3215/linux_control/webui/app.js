@@ -279,9 +279,19 @@ async function cmd(line, opts){
   if(opts && opts.globalStop) headers['X-Hexapod-Global-Stop'] = '1';
   try {
     const r = await fetch('/cmd', {method:'POST', body:line, headers});
-    if(!r.ok) throw 0;
+    const text = await r.text();
+    if(!r.ok){
+      const msg = text || 'cmd failed';
+      setLink(false, msg);
+      showSent(msg, true);
+      return {ok:false, text:msg};
+    }
     setLink(true);
-  } catch(e){ setLink(false, 'cmd failed'); }
+    return {ok:true, text};
+  } catch(e){
+    setLink(false, 'cmd failed');
+    return {ok:false, text:'cmd failed'};
+  }
 }
 // Persistent, copyable last-error bar. The header #sent blip is tiny,
 // transient and unselectable on a phone (operator request 08-10).
@@ -561,8 +571,6 @@ function paintFeedback(fb){
   if(!fb || !fb.ok) return;
   lastFeedback = fb;
   const line = feedbackPitchLabel(fb);
-  const gp = $('gp');
-  if(gp && line) gp.textContent = line;
   const q = $('qpitch');
   if(q) q.textContent = line || '—';
 }
@@ -603,7 +611,7 @@ function makeStick(canvas, horizontalOnly){
   canvas.addEventListener('pointerup',release);
   canvas.addEventListener('pointercancel',release);
   window.addEventListener('resize',resize); resize();
-  return { get x(){return nx;}, get y(){return ny;} };
+  return { get x(){return nx;}, get y(){return ny;}, release };
 }
 const driveStick = makeStick(document.getElementById('drive'), false);
 const turnStick  = makeStick(document.getElementById('turn'),  true);
@@ -813,10 +821,13 @@ function pollGamepad(){
       }
     }
   } else {
-    if(press(PAD_FACE.x)) padSit();
-    if(press(PAD_FACE.y)) padStand();
-    if(press(PAD_FACE.a)) padSetZero();
-    if(press(PAD_FACE.b)) padStopDemo();
+    // Default controller mode is steering only. Bare face buttons are too
+    // easy to brush while driving, so zero/stand/sit stay on visible UI
+    // buttons. B remains an explicit stop.
+    if(press(PAD_FACE.b)){
+      stopScriptedDrive('pad B - J 0 0 0');
+      padStopDemo();
+    }
   }
   gpPrev = down;
 
@@ -842,11 +853,133 @@ document.querySelectorAll('button[data-cmd]').forEach(btn=>
 document.getElementById('stop').onclick=settleServos;
 
 const vmax=document.getElementById('vmax'), lift=document.getElementById('lift');
-vmax.oninput=()=>{ maxVx=+vmax.value; maxVy=Math.round(maxVx*0.60);
-  document.getElementById('vlab').textContent=vmax.value; };
-lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
-lift.onchange=()=>cmd('K '+lift.value);
-maxVx = +vmax.value; maxVy = Math.round(maxVx*0.60);
+const TRIPOD_TUNE_DEFAULT = Object.freeze({
+  period: 1.80, lift: 40, stride: 0.55, ramp: 0.85,
+  maxVx: 30, maxVy: 18, maxOmega: 0.35,
+});
+let tripodTune = {...TRIPOD_TUNE_DEFAULT};
+function numInput(id){ return document.getElementById(id); }
+function readTuneNumber(id, fallback, min, max, digits){
+  const el = numInput(id);
+  const raw = el ? parseFloat(el.value) : NaN;
+  const val = clamp(Number.isFinite(raw) ? raw : fallback, min, max);
+  const text = digits == null ? String(Math.round(val)) : val.toFixed(digits);
+  if(el && el.value !== text) el.value = text;
+  return val;
+}
+function writeTuneNumber(id, val, digits){
+  const el = numInput(id);
+  if(!el) return;
+  el.value = digits == null ? String(Math.round(val)) : Number(val).toFixed(digits);
+}
+function syncTimedWalkLimits(){
+  const vx = $('wvx'), vy = $('wvy'), om = $('wom');
+  if(vx){ vx.min = String(-tripodTune.maxVx); vx.max = String(tripodTune.maxVx);
+    vx.value = String(clamp(parseFloat(vx.value)||0, -tripodTune.maxVx, tripodTune.maxVx)); }
+  if(vy){ vy.min = String(-tripodTune.maxVy); vy.max = String(tripodTune.maxVy);
+    vy.value = String(clamp(parseFloat(vy.value)||0, -tripodTune.maxVy, tripodTune.maxVy)); }
+  if(om){ om.min = String(-tripodTune.maxOmega); om.max = String(tripodTune.maxOmega);
+    om.value = String(clamp(parseFloat(om.value)||0, -tripodTune.maxOmega, tripodTune.maxOmega)); }
+}
+function writeTripodTune(t){
+  tripodTune = {...t};
+  writeTuneNumber('wperiod', tripodTune.period, 2);
+  writeTuneNumber('lift', tripodTune.lift, null);
+  writeTuneNumber('wstride', tripodTune.stride, 2);
+  writeTuneNumber('wramp', tripodTune.ramp, 2);
+  writeTuneNumber('wvxcap', tripodTune.maxVx, null);
+  writeTuneNumber('wvycap', tripodTune.maxVy, null);
+  writeTuneNumber('womcap', tripodTune.maxOmega, 2);
+  if(vmax) vmax.value = String(Math.round(tripodTune.maxVx));
+  maxVx = tripodTune.maxVx;
+  maxVy = tripodTune.maxVy;
+  maxOmega = tripodTune.maxOmega;
+  const vlab = $('vlab');
+  if(vlab) vlab.textContent = String(Math.round(maxVx));
+  syncTimedWalkLimits();
+}
+function readTripodTune(){
+  const t = {
+    period: readTuneNumber('wperiod', tripodTune.period, 0.75, 3.00, 2),
+    lift: readTuneNumber('lift', tripodTune.lift, 10, 50, null),
+    stride: readTuneNumber('wstride', tripodTune.stride, 0.30, 1.20, 2),
+    ramp: readTuneNumber('wramp', tripodTune.ramp, 0.10, 2.50, 2),
+    maxVx: readTuneNumber('wvxcap', tripodTune.maxVx, 10, 60, null),
+    maxVy: readTuneNumber('wvycap', tripodTune.maxVy, 5, 40, null),
+    maxOmega: readTuneNumber('womcap', tripodTune.maxOmega, 0.05, 0.60, 2),
+  };
+  writeTripodTune(t);
+  return t;
+}
+function tripodTuneLine(t){
+  return 'GTUNE period='+t.period.toFixed(2)
+    +' lift='+t.lift.toFixed(0)
+    +' stride='+t.stride.toFixed(2)
+    +' ramp='+t.ramp.toFixed(2)
+    +' vx='+t.maxVx.toFixed(0)
+    +' vy='+t.maxVy.toFixed(0)
+    +' omega='+t.maxOmega.toFixed(2);
+}
+function setTripodTuneStatus(text, bad){
+  const el = $('wtripodstatus');
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = bad ? '#ffb4b4' : '';
+}
+async function sendTripodTune(){
+  if(gait !== 0){
+    setTripodTuneStatus('Pick GAIT 0 high-step tripod before applying this tune.', true);
+    return false;
+  }
+  if(scriptedDriveMoving || walkTimer){
+    setTripodTuneStatus('Stop walking before applying a gait tune.', true);
+    return false;
+  }
+  const t = readTripodTune();
+  const line = tripodTuneLine(t);
+  try{
+    const r = await fetch('/cmd', {method:'POST', body:line});
+    const text = await r.text();
+    const failed = !r.ok || /^failed\b/i.test(text);
+    showSent(text && text !== 'ok' ? (line+' → '+text) : line, failed);
+    setTripodTuneStatus(failed ? (text || 'tune failed') : 'Applied: '+line, failed);
+    if(!failed) forceResend();
+    return !failed;
+  }catch(e){
+    showSent('GTUNE failed', true);
+    setTripodTuneStatus('Tune failed — link?', true);
+    return false;
+  }
+}
+function updateGaitTuneVisibility(){
+  const wrap = $('wtripodwrap');
+  if(wrap) wrap.hidden = gait !== 0;
+}
+writeTripodTune(tripodTune);
+updateGaitTuneVisibility();
+['wperiod','lift','wstride','wramp','wvxcap','wvycap','womcap'].forEach(id=>{
+  const el = $(id);
+  if(!el) return;
+  el.oninput = ()=>{ readTripodTune(); setTripodTuneStatus('Edited locally. Apply before the next walk.', false); };
+  el.onchange = sendTripodTune;
+});
+if(vmax){
+  vmax.oninput=()=>{
+    const vx = clamp(parseFloat(vmax.value)||tripodTune.maxVx, 10, 60);
+    writeTuneNumber('wvxcap', vx, null);
+    const vyEl = $('wvycap');
+    if(vyEl && document.activeElement !== vyEl)
+      writeTuneNumber('wvycap', Math.round(vx*0.60), null);
+    readTripodTune();
+    setTripodTuneStatus('Forward cap edited locally. Apply before the next walk.', false);
+  };
+  vmax.onchange=sendTripodTune;
+}
+if($('wtripodapply')) $('wtripodapply').onclick = sendTripodTune;
+if($('wtripodreset')) $('wtripodreset').onclick = ()=>{
+  writeTripodTune(TRIPOD_TUNE_DEFAULT);
+  sendTripodTune();
+};
 
 // --- Bench zero workflow -------------------------------------------------------
 // Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →
@@ -886,8 +1019,9 @@ document.getElementById('wpreflight').onclick = async ()=>{
   }catch(e){ out.textContent = 'preflight failed (link?)'; }
 };
 
-// --- gait picker: 0 tripod drag · 1 no-slip tripod (+alpha) · 2 no-slip
-// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave. Alpha only tunes
+// --- gait picker: 0 tripod high-step · 1 no-slip tripod (+alpha) · 2 no-slip
+// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave · 6 loaded CPG
+// · 7 no-slip clampfit tripod · 8 middle-tuck quad crawl. Alpha only tunes
 // gait 1 (the others run their presets), so the slider hides for them. --------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
@@ -895,14 +1029,42 @@ document.getElementById('wpreflight').onclick = async ()=>{
 // boundary of a live no-slip gait.
 const wgaitSel = document.getElementById('wgait');
 const walphaEl = document.getElementById('walpha');
-function sendGait(){
-  gait = parseInt(wgaitSel.value, 10) || 0;
-  const a = parseFloat(walphaEl.value) || 0;
-  document.getElementById('walab').textContent = a.toFixed(2);
+function commandTextFailed(text){
+  return /^(failed|bad|refused)/i.test(String(text || ''));
+}
+function updateGaitPickActive(){
+  document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
+    btn.classList.toggle('active', parseInt(btn.dataset.gait, 10) === gait);
+  });
+}
+function updateGaitModePanels(){
   document.getElementById('walphawrap').style.display =
     gait === 1 ? '' : 'none';
-  const line = 'GAIT ' + gait + ' ' + a.toFixed(2);
-  cmd(line); showSent(line); forceResend();
+  updateGaitTuneVisibility();
+  updateGaitPickActive();
+}
+async function sendGait(){
+  const prev = gait;
+  const next = parseInt(wgaitSel.value, 10) || 0;
+  const a = parseFloat(walphaEl.value) || 0;
+  document.getElementById('walab').textContent = a.toFixed(2);
+  const line = 'GAIT ' + next + ' ' + a.toFixed(2);
+  const res = await cmd(line);
+  const failed = !res.ok || commandTextFailed(res.text);
+  showSent(res.text && res.text !== 'ok' ? line + ' → ' + res.text : line,
+           failed);
+  if(failed){
+    wgaitSel.value = String(prev);
+    gait = prev;
+    updateGaitModePanels();
+    forceResend();
+    return false;
+  }
+  gait = next;
+  updateGaitModePanels();
+  forceResend();
+  if(gait === 0) await sendTripodTune();
+  return true;
 }
 wgaitSel.onchange = sendGait;
 
@@ -927,7 +1089,7 @@ async function refreshCpgList(){
     }
     for(const row of rows){
       const opt = document.createElement('option');
-      opt.value = row.name || row.file;
+      opt.value = row.file || row.name;
       const gate = row.gate_pass_dr0 === true ? 'PASS'
         : row.gate_pass_dr0 === false ? 'fail' : '?';
       const slip = row.gate_slip_per_m != null
@@ -938,24 +1100,55 @@ async function refreshCpgList(){
           + ', dr0 gate ' + gate + ', slip/m ' + slip + ')');
       wcpgSel.appendChild(opt);
     }
+    const preferred = Array.from(wcpgSel.options).find(opt =>
+      /robust120.*yawtrim/i.test(opt.value + ' ' + opt.textContent));
+    if(preferred) wcpgSel.value = preferred.value;
   }catch(e){
     wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
   }
 }
 document.getElementById('wcpgrefresh').onclick = refreshCpgList;
-document.getElementById('wcpgload').onclick = async ()=>{
-  const name = wcpgSel.value;
-  if(!name){ wcpgStatus.textContent = 'pick a controller first.'; return; }
+async function loadCpgController(name){
+  name = name || wcpgSel.value;
+  if(!name){ wcpgStatus.textContent = 'pick a controller first.'; return false; }
   const line = 'CPGLOAD ' + name;
   try{
-    const r = await fetch('/cmd', {method:'POST', body:line});
-    const msg = await r.text();
-    wcpgStatus.textContent = msg;
-    showSent(line, !r.ok);
+    const res = await cmd(line);
+    const failed = !res.ok || commandTextFailed(res.text);
+    wcpgStatus.textContent = res.text || (failed ? 'load failed' : 'loaded');
+    showSent(res.text && res.text !== 'ok' ? line + ' → ' + res.text : line,
+             failed);
+    if(!failed){
+      for(const opt of wcpgSel.options){
+        if(opt.value === name || opt.textContent.includes(name)){
+          wcpgSel.value = opt.value;
+          break;
+        }
+      }
+      forceResend();
+    }
+    return !failed;
   }catch(e){
     wcpgStatus.textContent = 'load failed — link?';
+    return false;
   }
+}
+document.getElementById('wcpgload').onclick = async ()=>{
+  await loadCpgController(wcpgSel.value);
 };
+document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
+  btn.onclick = async ()=>{
+    if(scriptedDriveMoving || walkTimer){
+      showSent('stop walking before changing gait', true);
+      return;
+    }
+    const cpg = btn.dataset.cpg || '';
+    if(cpg && !(await loadCpgController(cpg))) return;
+    wgaitSel.value = String(parseInt(btn.dataset.gait, 10) || 0);
+    await sendGait();
+  };
+});
+updateGaitPickActive();
 refreshCpgList();
 
 walphaEl.oninput = ()=>{
@@ -978,13 +1171,16 @@ function stopGaitWalk(msg){
 document.getElementById('wstop').onclick = ()=> stopGaitWalk();
 document.getElementById('wstart').onclick = async ()=>{
   if(needArm()) return;
-  // Same caps as the tape script (teleop known-good envelope).
-  const vx = clamp(parseFloat($('wvx').value)||0, -60, 60);
-  const vy = clamp(parseFloat($('wvy').value)||0, -40, 40);
-  const om = clamp(parseFloat($('wom').value)||0, -0.5, 0.5);
+  const vxLimit = gait === 0 ? tripodTune.maxVx : 60;
+  const vyLimit = gait === 0 ? tripodTune.maxVy : 40;
+  const omLimit = gait === 0 ? tripodTune.maxOmega : 0.5;
+  const vx = clamp(parseFloat($('wvx').value)||0, -vxLimit, vxLimit);
+  const vy = clamp(parseFloat($('wvy').value)||0, -vyLimit, vyLimit);
+  const om = clamp(parseFloat($('wom').value)||0, -omLimit, omLimit);
   const dur = clamp(parseFloat($('wdur').value)||20, 3, 60);
   $('wvx').value = vx; $('wvy').value = vy; $('wom').value = om; $('wdur').value = dur;
   if(!vx && !vy && !om){ showSent('walk: zero command — set vx/vy/ω first'); return; }
+  if(gait === 0 && !(await sendTripodTune())) return;
   armed = false; dancePaused = false;   // keep the stick loop from streaming J over this
   if(walkTimer) clearTimeout(walkTimer);
   if(walkTick) clearInterval(walkTick);
@@ -1045,7 +1241,64 @@ async function refreshTelem(){
 // packets at 20 Hz floods and wedges the MCU<->Linux serial bridge.
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 let lastLine='', lastSendT=0;
+let scriptedDriveMoving = false;
 function forceResend(){ lastLine=''; }   // call after any discrete command
+function scriptedDriveState(x, y, t){
+  const vx = clamp(y,-1,1)*maxVx;          // up = forward
+  const vy = clamp(-x,-1,1)*maxVy;         // right = strafe right (chassis -Y)
+  const om = clamp(-t,-1,1)*maxOmega;      // right = turn right
+  const moving = Math.abs(vx) + Math.abs(vy) + Math.abs(om) > 1e-6;
+  return {
+    vx, vy, om, moving,
+    line:`J ${vx.toFixed(0)} ${vy.toFixed(0)} ${om.toFixed(3)} ${gait}`,
+  };
+}
+function sendScriptedDriveStop(label){
+  if(!servosArmed || dancePaused){
+    scriptedDriveMoving = false;
+    armed = false;
+    forceResend();
+    return;
+  }
+  const now = performance.now();
+  const line = `J 0 0 0 ${gait}`;
+  if(scriptedDriveMoving && (line !== lastLine || now - lastSendT > 50)){
+    cmd(line);
+    showSent(label || 'J 0 0 0');
+    lastLine = line;
+    lastSendT = now;
+  }
+  scriptedDriveMoving = false;
+  armed = false;
+}
+function stopScriptedDrive(label){
+  keys.clear();
+  if(driveStick && driveStick.release) driveStick.release();
+  if(turnStick && turnStick.release) turnStick.release();
+  sendScriptedDriveStop(label);
+}
+function streamScriptedDrive(x, y, t){
+  if(!servosArmed || dancePaused){
+    if(!servosArmed){
+      scriptedDriveMoving = false;
+      armed = false;
+      forceResend();
+    }
+    return false;
+  }
+  const st = scriptedDriveState(x, y, t);
+  if(!st.moving){
+    sendScriptedDriveStop('J 0 0 0');
+    return false;
+  }
+  armed = true;
+  scriptedDriveMoving = true;
+  const now = performance.now();
+  if(st.line !== lastLine || now - lastSendT > 300){
+    cmd(st.line); showSent(st.line); lastLine=st.line; lastSendT=now;
+  }
+  return true;
+}
 function loop(){
   if(activeView !== 'drive') return;   // only stream J on Drive tab
   const gpv = pollGamepad();
@@ -1057,19 +1310,10 @@ function loop(){
     y = driveStick.y || kv.y;
     t = turnStick.x  || kv.t;
   }
-  if(servosArmed && armed && !dancePaused){
-    const vx = clamp(y,-1,1)*maxVx;          // up = forward
-    const vy = clamp(-x,-1,1)*maxVy;         // right = strafe right (chassis -Y)
-    const om = clamp(-t,-1,1)*maxOmega;      // right = turn right
-    const line = `J ${vx.toFixed(0)} ${vy.toFixed(0)} ${om.toFixed(3)} ${gait}`;
-    const now = performance.now();
-    if(line !== lastLine || now - lastSendT > 300){   // change or ~3 Hz heartbeat
-      cmd(line); showSent(line); lastLine=line; lastSendT=now;
-    }
-  }
+  streamScriptedDrive(x, y, t);
 }
 setInterval(loop, 50);
-window.addEventListener('gamepadconnected', ()=>{ armed=true; });
+window.addEventListener('gamepadconnected', ()=>{ forceResend(); });
 
 // --- Debug page: per-servo control + movement test -------------------------
 // Firmware protocol used here (prototype_servo_test.ino):
@@ -1378,6 +1622,7 @@ const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
                     calibrate:'Calibrate', touchdown:'Touchdown',
                     debug:'Debug'};
 function showView(which){
+  const prevView = activeView;
   activeView = which;
   VIEWS.forEach(v=>{
     const el = $('view-'+v); if(el) el.classList.toggle('active', v===which);
@@ -1386,7 +1631,9 @@ function showView(which){
   document.title = 'Hexapod · '+(TAB_TITLES[which] || which);
   if(location.hash !== '#'+which)
     history.replaceState(null, '', '#'+which);
-  if(which !== 'drive') armed = false;   // stop streaming J
+  if((prevView === 'drive' || prevView === 'rl') && which !== prevView)
+    stopScriptedDrive('J 0 0 0');
+  if(which !== 'drive') armed = false;   // stop Drive-tab key/pad latch
   if(which !== 'rl' && drvKeys.size){
     drvKeys.clear(); drvSend();          // leaving RL = keys released
   }
@@ -2859,6 +3106,7 @@ window.addEventListener('keyup', (e)=>{
 // Lost focus = treat every key as released (missed keyup otherwise).
 window.addEventListener('blur', ()=>{
   if(drvActive && drvKeys.size){ drvKeys.clear(); drvSend(); }
+  if(scriptedDriveMoving) stopScriptedDrive('J 0 0 0');
 });
 for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   const dv = b.dataset.dv.split(',').map(Number);
@@ -2898,6 +3146,7 @@ async function pollRlGamepad(){
     const gp = drvFirstGamepad();
     if(!gp){
       drvClearGamepadCommand();
+      if(scriptedDriveMoving) sendScriptedDriveStop('J 0 0 0');
       if(wasActive && drvActive) drvSend();
       if(!window.isSecureContext)
         drvGamepadStatus('Joystick: open the HTTPS page to use a controller.');
@@ -2906,6 +3155,37 @@ async function pollRlGamepad(){
       return;
     }
     const name = gp.id ? gp.id.slice(0, 26) : 'connected';
+    // Default physical-controller mode on this page is the scripted Drive-tab
+    // gait. Keys and the on-screen pad still start the RL drive session; once
+    // that session is active, the gamepad also feeds it.
+    if(!drvActive && !drvStartPromise){
+      const x = drvGamepadAxis(gp.axes[0] || 0);
+      const y = drvGamepadAxis(-(gp.axes[1] || 0));
+      const t = drvGamepadAxis(gp.axes[2] || 0);
+      const active = !!(x || y || t);
+      if(!active){
+        if(drvGamepadNeedsNeutral) drvGamepadNeedsNeutral = false;
+        streamScriptedDrive(0, 0, 0);
+        drvGamepadStatus('Joystick: '+name
+          +' - Drive-tab mode. Left stick scripted gait; right stick turn.');
+        return;
+      }
+      if(drvGamepadNeedsNeutral){
+        drvGamepadStatus('Joystick: release sticks before auto-start.');
+        return;
+      }
+      if(!servosArmed){
+        drvGamepadStatus('Joystick: Drive-tab mode blocked - press Enable '
+          +'and stand up first.');
+        return;
+      }
+      streamScriptedDrive(x, y, t);
+      const st = scriptedDriveState(x, y, t);
+      drvGamepadStatus('Joystick: '+name+' - Drive-tab gait '+gait
+        +' - J '+st.vx.toFixed(0)+' '+st.vy.toFixed(0)+' '
+        +st.om.toFixed(3));
+      return;
+    }
     const dx = drvGamepadAxis(-(gp.axes[1] || 0));  // left stick up = forward
     const dy = drvGamepadAxis(gp.axes[0] || 0);     // left stick right = right
     // Right stick X: stick right = turn right = clockwise = -wz
@@ -2954,6 +3234,7 @@ window.addEventListener('gamepadconnected', (e)=>{
 window.addEventListener('gamepaddisconnected', ()=>{
   drvClearGamepadCommand();
   drvGamepadStatus('Joystick: disconnected.');
+  if(scriptedDriveMoving) sendScriptedDriveStop('J 0 0 0');
   if(drvActive) drvSend();
 });
 
@@ -3470,6 +3751,15 @@ const RL_POLICY_BUNDLES = [
     scriptedDrive: {
       gait: 0,
       alpha: 0,
+      tripod: {
+        period: 1.80,
+        lift: 40,
+        stride: 0.55,
+        ramp: 0.85,
+        maxVx: 30,
+        maxVy: 18,
+        maxOmega: 0.35,
+      },
       vxMm: 30,
       vyMm: 0,
       omega: 0,
@@ -3776,7 +4066,9 @@ function rlSetScriptedDriveDefaults(bundle){
   if($('wvy') && d.vyMm != null) $('wvy').value = String(d.vyMm);
   if($('wom') && d.omega != null) $('wom').value = String(d.omega);
   if($('wdur') && d.durationS != null) $('wdur').value = String(d.durationS);
+  if(d.tripod) writeTripodTune({...TRIPOD_TUNE_DEFAULT, ...d.tripod});
   gait = parseInt(wgaitSel && wgaitSel.value, 10) || 0;
+  updateGaitTuneVisibility();
   forceResend();
 }
 
@@ -3810,6 +4102,8 @@ async function rlApplyScriptedBundle(bundle){
     if(d.gait != null)
       await rlSendNoMotionCmd('GAIT '+String(d.gait)+' '
         +(Number(d.alpha || 0)).toFixed(2));
+    if(d.tripod)
+      await rlSendNoMotionCmd(tripodTuneLine(tripodTune));
     rlActiveScriptedBundleId = bundle.id;
     $('rlpickmsg').textContent = bundle.title+' configured ✔ '
       +(simSelected

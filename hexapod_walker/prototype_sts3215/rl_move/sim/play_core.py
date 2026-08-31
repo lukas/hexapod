@@ -19,18 +19,22 @@ import json
 import zipfile
 from pathlib import Path
 
+from hexapod_core.demo_tripod import DEFAULT_DEMO_TRIPOD
+
 from .view import _InteractiveTraj
 from .walk_task import SimHexapodJointWalkEnv, WalkGoal
 
 __all__ = [
     "_CRUISE", "_CURATED", "_DESC", "_HIST_K", "_LEGACY_PROFILE",
+    "_MIDDLE_TUCK_QUAD",
     "_N_MODE", "_NOSLIP", "_NOSLIP_CLEAN", "_NOSLIP_FACTORY",
     "_NOSLIP_MID", "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
     "_ON_ROBOT", "_PROMOTED", "_PlayEnv", "_PlayTraj", "_ROLE_OBS",
+    "_SCRIPTED_SE2", "_SE2_CPG", "_SE2_TETRAPOD", "_SE2_WAVE",
     "_SCRIPTED_ALPHA", "_SCRIPTED_NOSLIP", "_SCRIPTED_ROWS",
-    "_SCRIPTED_TRIPOD", "_SPEED_MAX", "_TRIPOD_GENTLE", "_TRIPOD_PRANCE",
-    "_load_profiles", "_obs_width", "_sim_only_obs", "make_noslip_gait",
-    "scan_policies",
+    "_SCRIPTED_TRIPOD", "_SPEED_MAX", "_TRIPOD_GENTLE", "_TRIPOD_HW",
+    "_TRIPOD_PRANCE", "_load_profiles", "_obs_width", "_sim_only_obs",
+    "make_noslip_gait", "scan_policies",
 ]
 
 _SPEED_MAX = 0.06     # champion's trained command band tops out here
@@ -73,21 +77,35 @@ def make_noslip_gait(row: Path, cls):
     if preset is not None:
         return getattr(cls, preset)()
     return cls(alpha=_SCRIPTED_ALPHA.get(row, 0.0))
+
+
+_SE2_TETRAPOD = Path("se2_tetrapod_gait")
+_SE2_WAVE = Path("se2_wave_gait")
+_SE2_CPG = Path("se2_cpg_loaded_gait")
+_SCRIPTED_SE2 = frozenset({_SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG})
+_MIDDLE_TUCK_QUAD = Path("middle_tuck_quad_crawl")
 # Scripted TRIPOD gait rows (linux_control/tripod_gait.py) — the
 # dance_walk victory-lap gaits, previewable here before hardware runs.
 # "prance" = the aggressive horse settings (quick cadence, high knees,
 # 1.5x the RL band); "gentle" = the stock walk-demo settings for
 # comparison. cruise = hold-arrow speed; omega = the U/O clamp AND the
 # P-key about-face turn rate.
+_TRIPOD_HW = Path("tripod_highstep_demo_gait")
 _TRIPOD_PRANCE = Path("tripod_prance_gait")
 _TRIPOD_GENTLE = Path("tripod_walk_gait")
 _SCRIPTED_TRIPOD = {
+    _TRIPOD_HW: DEFAULT_DEMO_TRIPOD.play_row("hardware high-step demo"),
     _TRIPOD_PRANCE: dict(period=0.58, lift_mm=32.0, cruise=0.09,
                          omega=0.85, tag="PRANCE 0.58s/32mm"),
     _TRIPOD_GENTLE: dict(period=0.85, lift_mm=18.0, cruise=0.045,
                          omega=0.40, tag="gentle 0.85s/18mm"),
 }
-_SCRIPTED_ROWS = _SCRIPTED_NOSLIP | frozenset(_SCRIPTED_TRIPOD)
+_SCRIPTED_ROWS = (
+    _SCRIPTED_NOSLIP
+    | _SCRIPTED_SE2
+    | frozenset({_MIDDLE_TUCK_QUAD})
+    | frozenset(_SCRIPTED_TRIPOD)
+)
 
 
 # Playable obs widths (see module docstring / sim_viewer/README.md).
@@ -232,6 +250,16 @@ _DESC = {
         "classic RIPPLE: pairs step, 4 feet down, no slide",
     "noslip_wave_gait":
         "classic WAVE: one leg at a time, steadiest, slow",
+    "se2_tetrapod_gait":
+        "hand-coded SE2 tetrapod: workspace-scaled, 4 feet down",
+    "se2_wave_gait":
+        "hand-coded SE2 wave: workspace-scaled, 5 feet down",
+    "se2_cpg_loaded_gait":
+        "loaded CPG/SE2 controller artifact, selected by CPGLOAD",
+    "middle_tuck_quad_crawl":
+        "front/rear four-leg crawl with the middle legs tucked up",
+    "tripod_highstep_demo_gait":
+        "same high-step tripod preset used by the real robot Drive page",
     "tripod_prance_gait":
         "hand-coded horse PRANCE - dance lap gait; P about-face",
     "tripod_walk_gait":

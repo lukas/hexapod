@@ -139,12 +139,12 @@ from rl_move.env import TaskGoal
 # Shared player/session machinery lives in play_core.py (2026-08-29);
 # this player keeps only the cv2/pygame interaction layer.
 from .play_core import (  # noqa: F401
-    _CRUISE, _CURATED, _DESC, _HIST_K, _LEGACY_PROFILE, _N_MODE,
+    _CRUISE, _CURATED, _DESC, _HIST_K, _LEGACY_PROFILE, _MIDDLE_TUCK_QUAD, _N_MODE,
     _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_FACTORY, _NOSLIP_MID,
     _NOSLIP_RIPPLE, _NOSLIP_TAGS, _NOSLIP_WAVE, _ON_ROBOT, _PROMOTED,
     _PlayEnv, _PlayTraj, _ROLE_OBS, _SCRIPTED_ALPHA, _SCRIPTED_NOSLIP,
     _SCRIPTED_ROWS, _SCRIPTED_TRIPOD, _SPEED_MAX, _TRIPOD_GENTLE,
-    _TRIPOD_PRANCE, _load_profiles, _obs_width, _sim_only_obs,
+    _TRIPOD_HW, _TRIPOD_PRANCE, _load_profiles, _obs_width, _sim_only_obs,
     make_noslip_gait, scan_policies,
 )
 
@@ -324,7 +324,9 @@ def main() -> None:
     from .joint_task import q_rad_to_action
     from .servo_model import SimServoParams
 
-    from hexapod_core.sim_gait_compat import NoSlipGait, TripodGait
+    from hexapod_core.sim_gait_compat import (
+        MiddleTuckQuadGait, NoSlipGait, TripodGait,
+    )
 
     from ..config import load_config
     cfg = load_config()
@@ -690,11 +692,18 @@ def main() -> None:
         kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
         if kw is not None:
             g = TripodGait(period=kw["period"],
-                           lift=kw["lift_mm"] * 0.001, ramp=0.4)
+                           lift=kw["lift_mm"] * 0.001,
+                           ramp=kw.get("ramp", 0.4),
+                           stride_scale=kw.get("stride_scale", 1.0))
             g.sync_plant_stance(math.degrees(q_plant[1]),
                                 math.degrees(q_plant[2]))
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
+            return g
+        if walk_list[wi] == _MIDDLE_TUCK_QUAD:
+            g = MiddleTuckQuadGait.crawl()
+            g.sync_plant_stance(math.degrees(q_plant[1]),
+                                math.degrees(q_plant[2]))
             return g
         g = make_noslip_gait(walk_list[wi], NoSlipGait)
         g.sync_plant_stance(math.degrees(q_plant[1]),
@@ -1155,7 +1164,9 @@ def main() -> None:
             if lap["gait"] is None:
                 g = TripodGait(period=_PRANCE_KW["period"],
                                lift=_PRANCE_KW["lift_mm"] * 0.001,
-                               ramp=0.4)
+                               ramp=_PRANCE_KW.get("ramp", 0.4),
+                               stride_scale=_PRANCE_KW.get(
+                                   "stride_scale", 1.0))
                 g.sync_plant_stance(math.degrees(q_plant[1]),
                                     math.degrees(q_plant[2]))
                 g.set_lift_mm(_PRANCE_KW["lift_mm"])

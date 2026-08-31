@@ -4,6 +4,17 @@ import json
 from io import BytesIO
 import urllib.error
 
+from hexapod_core.demo_tripod import DEFAULT_DEMO_TRIPOD
+from rl_move.sim.play_core import (
+    _MIDDLE_TUCK_QUAD,
+    _NOSLIP_CLEAN,
+    _NOSLIP_RIPPLE,
+    _SCRIPTED_TRIPOD,
+    _SE2_CPG,
+    _SE2_TETRAPOD,
+    _TRIPOD_HW,
+)
+from rl_move.sim.web_session import SimWebSession
 from rl_move.sim.web_hub import (
     HubController, ROBOT_DEFAULT_TIMEOUT_S, ROBOT_SET_ZERO_TIMEOUT_S,
     RouteResponse, SimTarget, make_hub_handler,
@@ -188,10 +199,90 @@ def test_serves_shared_webui_and_sim_ping():
     assert "Hexapod STS3215" in html
     assert 'id="rlbundletab"' in html
     assert "Complete policy" in html
+    assert 'data-gait="6"' in html
+    assert 'data-gait="8"' in html
+    assert "CPG tetrapod" in html
+    assert "Middle-up quad" in html
     assert 'id="rlstandrl" disabled' in html
     assert 'id="rllowerrl" disabled' in html
     assert "__HTTPS_PORT__" not in html
     assert _json(fake, "/api/ping")["service"] == "hexapod-sim"
+
+
+def test_sim_highstep_tripod_row_uses_shared_default_and_tune():
+    row = _SCRIPTED_TRIPOD[_TRIPOD_HW]
+    assert row["period"] == DEFAULT_DEMO_TRIPOD.period_s
+    assert row["lift_mm"] == DEFAULT_DEMO_TRIPOD.lift_mm
+    assert row["stride_scale"] == DEFAULT_DEMO_TRIPOD.stride_scale
+    assert row["cruise"] == DEFAULT_DEMO_TRIPOD.max_vx_mps
+
+    session = SimWebSession.__new__(SimWebSession)
+    session.demo_tripod = DEFAULT_DEMO_TRIPOD
+    session.walk_list = [_TRIPOD_HW]
+    session.wi = 0
+    session.gait = object()
+    session.msg = ""
+    session.traj = type("T", (), {"vx": 0.0, "vy": 0.0})()
+    session.om_cmd = 0.0
+
+    out = session._apply_demo_tripod_tune(  # noqa: SLF001
+        {"stride": 0.75, "vx": 35})
+
+    assert out["ok"] is True
+    assert session.demo_tripod.stride_scale == 0.75
+    assert session.demo_tripod.max_vx_mps == 0.035
+    assert session.gait is None
+
+    session.traj.vx = 0.01
+    out = session._apply_demo_tripod_tune({"stride": 0.80})  # noqa: SLF001
+    assert out["ok"] is False
+    assert "before GTUNE" in out["error"]
+
+
+def test_sim_drive_gait_ids_map_to_scripted_candidates():
+    session = SimWebSession.__new__(SimWebSession)
+    session.walk_list = [
+        _TRIPOD_HW, _NOSLIP_RIPPLE, _SE2_TETRAPOD, _SE2_CPG, _NOSLIP_CLEAN,
+        _MIDDLE_TUCK_QUAD,
+    ]
+    session.wi = 0
+    session.gait = object()
+    session.walk = object()
+    session.n_walk = 999
+    session.walk_kind = "plain"
+    session.msg = ""
+    session.demo_tripod = DEFAULT_DEMO_TRIPOD
+    session._cpg_loaded = None
+
+    out = session._set_scripted_gait_id(2)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _NOSLIP_RIPPLE
+    assert session.walk is None
+
+    out = session._set_scripted_gait_id(4)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _SE2_TETRAPOD
+
+    out = session._set_scripted_gait_id(6)  # noqa: SLF001
+    assert out["ok"] is False
+    assert "CPGLOAD" in out["status"]
+
+    session._cpg_loaded = {
+        "name": "robust120-winner-yawtrim",
+        "gait": "tetrapod",
+        "gait_kw": {"period": 2.0, "swing_frac": 0.3, "lift": 0.03},
+    }
+    out = session._set_scripted_gait_id(6)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _SE2_CPG
+
+    out = session._set_scripted_gait_id(7)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _NOSLIP_CLEAN
+
+    out = session._set_scripted_gait_id(8)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _MIDDLE_TUCK_QUAD
 
 
 def test_dispatches_rl_drive_and_sim_routes():
@@ -249,6 +340,22 @@ def test_unknown_route_returns_json_404():
         assert e.code == 404
         body = json.loads(e.read().decode())
         assert body["ok"] is False
+
+
+def test_cmd_text_payload_survives_sim_handler():
+    fake = FakeSession()
+
+    def payload_cmd(line):
+        fake.calls.append(("cmd", line))
+        return {"ok": True, "text": '[{"file":"cpg_controller_x.json"}]'}
+
+    fake.cmd = payload_cmd
+    code, _headers, payload = _request(
+        fake, "/cmd", method="POST", body="CPGLIST")
+
+    assert code == 200
+    assert payload.decode() == '[{"file":"cpg_controller_x.json"}]'
+    assert ("cmd", '"CPGLIST"') in fake.calls
 
 
 class FakeTarget:

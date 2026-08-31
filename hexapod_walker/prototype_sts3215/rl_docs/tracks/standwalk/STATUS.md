@@ -1,5 +1,42 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~02:3x (dualbc5_turncap-turnpay-canary{,-s1} LAUNCHED
+— pre-registered next step executed, VERIFIED RUNNING). Plain English:
+ran the probe the prior cycle's decision tree called for on the raw
+BC-distilled `dualbc5_turncap` checkpoint (before any RL) and found a
+real, if partial and asymmetric, crack in the "frozen wz obs channel"
+wall — worth spending a cheap 2M canary pair to find out if RL can
+widen it. `quick_probe` net_disp_m ['0.338','0.070'] already cleared
+the ~0.05m walking-competence bar. `probe_turn_authority` (same merged
+walk+stance cfg-set used to harvest the checkpoint, wz_cmd=+-0.25,
+seeds 0/1, walk-mode-filtered): wz_cmd=-0.25 gives wz_med -0.038/-0.048
+(err 0.20-0.21, `wz_p90_abs` up to 0.12) — a real ~20x jump off the
+turnpay/turndiet fully-frozen baseline (wz_med 0.0004-0.0023 both
+signs) — but wz_cmd=+0.25 is still fully frozen (wz_med ~0.00003).
+Confirmed this is a genuine (if asymmetric) signal, not a probe
+artifact: the scripted-gait sanity control on the identical cfg tracks
+symmetrically both signs (wz_med ~+-0.21, err ~0.10). Per the
+pre-registered decision tree this is enough evidence the distillation-
+base fix (bc1_std25 walk-teacher + denser turn exposure, replacing the
+turn-amnesiac acq12m) is doing SOMETHING real, so launched the
+pre-registered 2-seed 2M canary:
+`cw-standwalk-stage2-dualbc5-turncap-turnpay-canary` (train-1) +
+`-s1` (train-4), same bank-proven OMNI turn reward stack + mix/DR as
+turnpay, `--init-from` the new dualbc5_turncap base. Both VERIFIED
+RUNNING (fps ~13k on -s1; -1 solo-shares train-1 with the still-
+finishing walkheavy-acq8m eval process, watch its fps). Gate: PASS if
+BOTH seeds clear wz_med>=0.08 both signs + gait/progress retention;
+FAIL if both stay <0.03; explicit PARTIAL/DIG-IN branch added if the
+pre-RL asymmetry (one sign tracks, one frozen) persists post-RL — that
+would point at a sign/obs-encoding bug in the wz channel rather than a
+capacity limit, worth a code read before another reward sweep.
+Evidence: `/tmp/dualbc5_turncap_probe.json`,
+`/tmp/dualbc5_turncap_probe_scripted.json`. This cycle's own two
+assigned runs (`walkheavy-acq8m`, `walkcurr-litrep-box-s1`) were both
+genuinely mid-eval (~45min into the 1.5-3h gate-harness class,
+ps-confirmed active on train-1/train-0) — left unverdicted per the
+interpretation ruling, not stalled.
+
 Update, 2026-08-31 ~01:1x (turnpay-canary-s1 verdict CONFIRMED
 already-recorded by the concurrent cycle handling the seed0 parent
 — joint CANARY FAIL - MECHANISM, spot-checked against

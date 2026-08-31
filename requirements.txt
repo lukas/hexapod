@@ -6,6 +6,8 @@ manifold3d
 matplotlib
 imageio
 imageio-ffmpeg
+# Video review, AprilTag tracking, and offscreen sim viewers.
+opencv-python
 rtree
 shapely
 mapbox_earcut

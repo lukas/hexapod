@@ -84,6 +84,10 @@ files = [
     "linux_control/status_display.py",
     "linux_control/deploy_status_display.py",
     "linux_control/video_contact_sheet.py",
+    "linux_control/housing_pose.py",
+    "linux_control/apriltag_vision.py",
+    "linux_control/foot_tip_tracking.py",
+    "linux_control/track_apriltags.py",
     "linux_control/safe_zero.py",
     "linux_control/pinned_tip.py",
     "linux_control/test_calibration_checkup.py",
@@ -295,7 +299,10 @@ hex_unit_check() {
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&
     hex_py linux_control/test_safe_zero.py &&
-    hex_py linux_control/test_pinned_tip.py
+    hex_py linux_control/test_pinned_tip.py &&
+    hex_py -m pytest -q \
+      linux_control/test_housing_pose.py \
+      linux_control/test_apriltag_vision.py
   )
 }
 

@@ -126,6 +126,21 @@ make robot-video VIDEO=/path/run.mov TIMES=0,8,16,24,32 CROP=0,0.33,1,0.98
 The helper lives at `linux_control/video_contact_sheet.py` and writes under
 `artifacts/video_frames/...`.
 
+For the AprilTag + red-boot live phone overlay, short-occlusion tracking, an
+advisory zero-pose report, and optional read-only encoder cross-check, see
+[`HOUSING_POSE.md`](HOUSING_POSE.md). The shortest live command is:
+
+```bash
+uv run python linux_control/track_apriltags.py \
+  linux_control/apriltag_pose_config_20260831.json \
+  --camera 0 --preview --robot-url http://hexapod.local:8080 \
+  --pose-output phone_checkup.jsonl \
+  --summary-output phone_checkup_summary.json
+```
+
+The tracker only reads `GET /api/feedback`; it cannot send motor commands or
+rewrite zero. Use the overlay to hand-adjust and diagnose the pose.
+
 ## Fast test / deploy loop
 
 For UI and controller edits, use the local helper instead of retyping the

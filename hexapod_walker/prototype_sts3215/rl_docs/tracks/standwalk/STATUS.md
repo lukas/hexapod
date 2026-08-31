@@ -39,6 +39,61 @@ SALIENCE is now exonerated too, closing all 8 pre-registered mechanism
 classes. No 9th actor/critic-side class funds on the current non-turning
 base; the priority-reorder audit (item 1 above) is the live next step.
 
+Update, 2026-08-31 ~10:2x (yawscale15x verdicted independently by this
+cycle, confirmed CANARY FAIL - MECHANISM per the above; **executed
+priority-reorder item 1, the dataset AUDIT, with a real quantified
+result — both leading hypotheses for the pre-RL +wz-frozen/-wz-partial
+asymmetry are now REFUTED, not just the RL-side mechanism.**) New tool
+`rl_move/sim/audit_turn_dataset.py`: replays the EXACT documented
+dualbc5_turncap collection recipe (bc1_std25 walk-teacher, the
+walk-teacher-ledger UNION stance-teacher-ledger 83-key merged cfg with
+`walk_yaw_zero_frac` 1.0->0.5 / `walk_turn_in_place_frac` 0.0->0.30,
+seed 0, same env class) for the walk-mode episode count actually
+collected across the initial BC pass + 2 DAgger rounds (30+30+30=90),
+and counts genuine whole-episode turn-in-place ("tip") demos + their
++/- sign split (fixed a real bug in its own first draft first: sampling
+`goal.wz_ref` at t=0 is a universal false negative since EVERY episode,
+tip or not, is forced to vx=vy=wz=0 for the first 1s hold-ramp by
+construction — 0/90 tip found against a 30% draw probability was the
+tell; fix samples the precomputed `env._goal_traj` arrays at t=3s
+instead). **Result: 17/90 tip episodes, +wz 9 / -wz 8 — BALANCED, not
+lopsided** (turn-nonzero ticks 59.1% of all walk ticks, 0/90 teacher
+falls during collection — this recipe collects a clean, well-covered
+turn diet). Combined with a code read of the three places a commanded
+yaw rate touches env code (`draw_wz()` symmetric uniform draw, the
+tip-frac curriculum's explicit 50/50 sign coin flip, the
+`walk_phase_run_on_yaw` clock coupling gated on `abs(wz_ref)` — no sign
+dependence, and the obs-tail append `wz_ref / WZ_SCALE` — direct
+proportional, no sign flip) — no wiring bug found — and the
+already-recorded scripted-gait sanity control on this exact cfg
+(symmetric wz_med ~+-0.21, proving the sim BODY has no CW/CCW physical
+asymmetry): **both "sign/coverage defect" hypotheses named in this
+Next section's own item 1 are refuted.** The dataset going INTO BC is
+balanced and the env pipeline carries the sign correctly both ways; the
+asymmetry the pre-RL checkpoint exhibits must originate in the BC/
+DAgger OPTIMIZATION itself (the dual-core actor's shared trunk
+regressing toward the dominant straight-walk action manifold, with the
+minority-magnitude turn deviation getting drowned asymmetrically by
+whichever sign is "further" from that manifold under L2 BC loss — not
+yet tested, the next concrete hypothesis, distinct from "just re-run
+distillation with more turn exposure"). Evidence:
+`logs/ckpt_eval/audit_turn_dataset_dualbc5.json`. Tests: script smoke-
+tested directly (matches the manual pre-productionized numbers
+bit-for-bit), no existing test file touched, no shared-default behavior
+changed (new standalone tool). Snapshot pending this update.
+**Revises item 2's framing**: iterating distillation with even MORE
+turn exposure is unlikely to fix a balanced-input optimization defect
+by itself — the next cycle should first split the BC action-error by
+tick-sign on the ACTUAL trained student (not just count the dataset)
+to confirm the optimization-dynamics hypothesis before spending a
+redistillation run, i.e. finish item 1's own second clause ("holdout
+action-error split straight-vs-turn ticks") before item 2. No launch
+this cycle (CPU audit + tooling only, per the meta reorder's own "no
+9th RL arm" instruction); 12/12 GPU pods free, swept all tracks
+(joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr
+RETIRED) — no other track has legal runnable GPU work either. Snapshot
+`exp/standwalk-audit-turn-dataset`. CYCLE_WORKED.
+
 Update, 2026-08-31 ~09:4x (no verdict this cycle — `stdwalk-hi` was
 already joint-verdicted by the concurrent cycle handling `-mild`
 moments before this cycle spawned, confirmed correct by an

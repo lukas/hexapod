@@ -314,6 +314,15 @@ chmod +x deploy_adb.sh
 | Xbox alone | X=sit · Y=stand · A=set-here-as-zero · B=stop demo |
 | Xbox chords | hold LB/LT/RB/RT then tap X/Y/A/B → 16 demos |
 
+The Drive tab's recommended gait buttons select the current candidates: loaded
+CPG tetrapod (`GAIT 6` after `CPGLOAD`), no-slip ripple (`GAIT 2`), no-slip
+wave (`GAIT 3`), smooth no-slip clamp-fit tripod (`GAIT 7`), middle-up quad
+crawl (`GAIT 8`), and the tunable high-step tripod (`GAIT 0`). GAIT 0 is the
+shared preset used by both the real robot page and the MuJoCo web session; its
+editable fields map to
+`GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`. Apply
+tuning only while stopped, then start the next walk.
+
 ## Onboard Bluetooth Xbox
 
 Pair once on the board (`bluetoothctl`), then:

@@ -205,7 +205,12 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                 n = int(self.headers.get("Content-Length", 0) or 0)
                 raw = self.rfile.read(n) if n else b""
                 line = raw.decode("utf-8", "ignore").strip()
-                self._send(200, "ok" if session.cmd(line).get("ok") else "failed")
+                out = session.cmd(line)
+                text = out.get("text")
+                if text is None:
+                    text = "ok" if out.get("ok") else (
+                        out.get("error") or out.get("status") or "failed")
+                self._send(200, str(text))
                 return
             data = _json_body(self)
             try:

@@ -576,6 +576,15 @@ class Handler(BaseHTTPRequestHandler):
                 BENCH.estop()
                 self._send(200, "limp")
             else:
+                if BENCH is not None and line.upper().startswith("J"):
+                    robot = BENCH.robot_state()
+                    demo = robot.get("demo") or {}
+                    activity = str(robot.get("activity") or "")
+                    if demo.get("running") or activity in (
+                            "demo", "zeroing", "stopping", "calibrating"):
+                        busy = demo.get("name") or activity or "active job"
+                        self._send(409, f"refused J: robot busy with {busy}")
+                        return
                 if BENCH is not None and line.upper() == "SETTLE":
                     # Graceful power-off also preempts any demo so the
                     # settle doesn't fight a running routine.

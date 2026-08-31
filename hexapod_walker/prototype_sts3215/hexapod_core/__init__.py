@@ -8,6 +8,7 @@ Single home for the modules BOTH the robot stack (``linux_control``,
 - ``tripod_gait``       leg geometry constants, ``_leg_ik``, the tripod gait
 - ``noslip_gait``       world-pinned zero-scrub gait engine
 - ``se2_foot_gait``     SE(2) foot-frame gait
+- ``middle_tuck_quad_gait``  level four-leg crawl with middle pair tucked
 - ``walk_ready_transition``  scripted plant-stance transition
 - ``sim_gait_compat``   the ONE sim/robot knee-convention boundary
 - ``quad_walk``         tip-back quadruped gaits

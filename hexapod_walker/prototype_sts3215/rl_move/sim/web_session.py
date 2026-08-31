@@ -14,8 +14,20 @@ from typing import Any
 
 import numpy as np
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from rl_move.env import TaskGoal, build_obs
 from rl_move.safety import SafetyLayer
+from hexapod_core.demo_tripod import (
+    DEFAULT_DEMO_TRIPOD, DemoTripodPreset, format_demo_tripod,
+    parse_demo_tripod_tune_tokens, tune_demo_tripod,
+)
+from linux_control.cpg_controller_loader import (  # noqa: E402
+    list_cpg_controllers as _list_cpg_controllers,
+    load_cpg_controller as _load_cpg_controller,
+)
 
 from .joint_task import action_to_q_rad, q_rad_to_action
 from hexapod_core.joint_frame import (
@@ -28,15 +40,22 @@ from .play_core import (
     _DESC,
     _HIST_K,
     _LEGACY_PROFILE,
+    _MIDDLE_TUCK_QUAD,
     _N_MODE,
+    _NOSLIP,
     _NOSLIP_CLEAN,
     _NOSLIP_RIPPLE,
     _NOSLIP_WAVE,
     _ROLE_OBS,
+    _SE2_CPG,
+    _SE2_TETRAPOD,
+    _SE2_WAVE,
     _SCRIPTED_ROWS,
+    _SCRIPTED_SE2,
     _SCRIPTED_TRIPOD,
     make_noslip_gait,
     _SPEED_MAX,
+    _TRIPOD_HW,
     _load_profiles,
     _obs_width,
     _sim_only_obs,
@@ -160,6 +179,8 @@ class SimWebSession:
         self.gait = None
         self.gait_t = 0.0
         self.om_cmd = 0.0
+        self.demo_tripod: DemoTripodPreset = DEFAULT_DEMO_TRIPOD
+        self._cpg_loaded: dict[str, Any] | None = None
         self.hist: list[np.ndarray] | None = None
         self.gru = {"state": None, "start": np.ones((1,), dtype=bool)}
         self.push_ticks = 0
@@ -221,7 +242,9 @@ class SimWebSession:
 
         root = Path(__file__).resolve().parents[2]
         self._proto_root = root
-        from hexapod_core.sim_gait_compat import NoSlipGait, TripodGait
+        from hexapod_core.sim_gait_compat import (
+            MiddleTuckQuadGait, NoSlipGait, SE2FootGait, TripodGait,
+        )
 
         self.mujoco = mujoco
         self.PPO = PPO
@@ -229,7 +252,9 @@ class SimWebSession:
             import cv2
             self.cv2 = cv2
         self.load_checkpoint_auto = self._load_checkpoint_auto
+        self.MiddleTuckQuadGait = MiddleTuckQuadGait
         self.NoSlipGait = NoSlipGait
+        self.SE2FootGait = SE2FootGait
         self.TripodGait = TripodGait
 
         cfg = load_config()
@@ -256,7 +281,11 @@ class SimWebSession:
         self.si = self._ensure_listed(self.stance_list, self.cfg.stance, (68,))
         self.wi = self._ensure_listed(self.walk_list, self.cfg.walk,
                                       self.walk_widths)
-        self.walk_list.extend([_NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE])
+        self.walk_list.extend([
+            _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
+            _SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG,
+            _MIDDLE_TUCK_QUAD,
+        ])
         self.walk_list.extend(_SCRIPTED_TRIPOD)
         self.policy_index = self._build_policy_index()
         self._register_uploaded_policies()
@@ -655,18 +684,48 @@ class SimWebSession:
             self.command_log.append(row)
             del self.command_log[:-6]
 
+    def _scripted_tripod_kw(self, p: Path) -> dict[str, Any] | None:
+        if p == _TRIPOD_HW:
+            return self.demo_tripod.play_row("hardware high-step demo")
+        return _SCRIPTED_TRIPOD.get(p)
+
+    def _scripted_se2_kw(self, p: Path) -> dict[str, Any] | None:
+        if p == _SE2_TETRAPOD:
+            return {"gait": "tetrapod"}
+        if p == _SE2_WAVE:
+            return {"gait": "wave"}
+        if p == _SE2_CPG and self._cpg_loaded is not None:
+            return {
+                "gait": self._cpg_loaded["gait"],
+                **self._cpg_loaded["gait_kw"],
+            }
+        return None
+
     def _new_gait(self):
         # sim_gait_compat gait classes accept MuJoCo/model-relative
         # hip/knee inputs here. Robot-absolute knees are only for the
         # hardware demo stack; using them here corrupts the neutral stance.
         plant_deg = [float(v) * RAD2DEG for v in self.q_plant]
-        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        kw = self._scripted_tripod_kw(self.walk_list[self.wi])
         if kw is not None:
             g = self.TripodGait(period=kw["period"],
-                                lift=kw["lift_mm"] * 0.001, ramp=0.4)
+                                lift=kw["lift_mm"] * 0.001,
+                                ramp=kw.get("ramp", 0.4),
+                                stride_scale=kw.get("stride_scale", 1.0))
             g.sync_plant_stance(plant_deg[1], plant_deg[2])
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
+            return g
+        se2_kw = self._scripted_se2_kw(self.walk_list[self.wi])
+        if se2_kw is not None:
+            se2_kw = dict(se2_kw)
+            gait_name = str(se2_kw.pop("gait", "tetrapod"))
+            g = self.SE2FootGait(gait=gait_name, **se2_kw)
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
+            return g
+        if self.walk_list[self.wi] == _MIDDLE_TUCK_QUAD:
+            g = self.MiddleTuckQuadGait.crawl()
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
             return g
         g = make_noslip_gait(self.walk_list[self.wi], self.NoSlipGait)
         g.sync_plant_stance(plant_deg[1], plant_deg[2])
@@ -991,9 +1050,16 @@ class SimWebSession:
         return True
 
     def _drive_band(self) -> tuple[float, float]:
-        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        kw = self._scripted_tripod_kw(self.walk_list[self.wi])
         if kw is not None:
             return kw["cruise"], kw["cruise"]
+        if self.walk_list[self.wi] in _SCRIPTED_SE2:
+            return 0.03, 0.04
+        if self.walk_list[self.wi] == _MIDDLE_TUCK_QUAD:
+            return 0.015, 0.030
+        if self.walk_list[self.wi] in {
+                _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE}:
+            return 0.02, 0.04
         reg = None if self.walk is None else self._ckpt_regime(self.walk_list[self.wi].stem)
         if reg is not None:
             return reg["cruise"], reg["vmax"]
@@ -2612,6 +2678,72 @@ class SimWebSession:
                     "status": self.msg, "result": self.job_result,
                     "live": self._live()}
 
+    _SCRIPTED_GAIT_BY_ID = {
+        0: _TRIPOD_HW,
+        1: _NOSLIP,
+        2: _NOSLIP_RIPPLE,
+        3: _NOSLIP_WAVE,
+        4: _SE2_TETRAPOD,
+        5: _SE2_WAVE,
+        6: _SE2_CPG,
+        7: _NOSLIP_CLEAN,
+        8: _MIDDLE_TUCK_QUAD,
+    }
+
+    def _set_scripted_gait_id(self, gait_id: int) -> dict[str, Any]:
+        p = self._SCRIPTED_GAIT_BY_ID.get(int(gait_id))
+        if p is None:
+            return {"ok": False, "status": f"bad GAIT {gait_id}"}
+        if p == _SE2_CPG and self._cpg_loaded is None:
+            return {"ok": False,
+                    "status": "refused GAIT 6 - CPGLOAD a controller first"}
+        self._set_walk_path(p)
+        if p == _TRIPOD_HW:
+            desc = format_demo_tripod(self.demo_tripod)
+        elif p == _SE2_CPG:
+            desc = f"SE2 CPG ({self._cpg_loaded['name']})"
+        else:
+            desc = p.name
+        self.msg = "walk driver -> scripted " + desc
+        return {"ok": True, "status": self.msg}
+
+    def _cpg_dirs(self) -> tuple[Path, Path]:
+        root = getattr(self, "_proto_root", ROOT)
+        return (
+            root / "linux_control" / "policies",
+            root / "rl_move" / "sim" / "policies",
+        )
+
+    def _load_cpg_controller(self, name: str) -> dict[str, Any]:
+        try:
+            loaded = _load_cpg_controller(name, dirs=self._cpg_dirs())
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": f"bad CPGLOAD: {e}"}
+        self._cpg_loaded = loaded
+        gk = loaded["gait_kw"]
+        self.msg = (
+            f"loaded CPG '{loaded['name']}' ({loaded['gait']}, "
+            f"period={gk['period']:.2f} swing_frac={gk['swing_frac']:.3f} "
+            f"lift={gk['lift'] * 1000:.1f}mm) - send GAIT 6 to use it"
+        )
+        if self.walk_list[self.wi] == _SE2_CPG:
+            self.gait = None
+        return {"ok": True, "status": self.msg, "text": self.msg}
+
+    def _apply_demo_tripod_tune(self, updates: dict[str, float]) -> dict[str, Any]:
+        if abs(self.traj.vx) + abs(self.traj.vy) + abs(self.om_cmd) > 1e-4:
+            self.msg = "tripod tune refused while walking"
+            return {"ok": False, "status": self.msg,
+                    "error": "send J 0 0 0 before GTUNE"}
+        try:
+            self.demo_tripod = tune_demo_tripod(self.demo_tripod, updates)
+        except ValueError as e:
+            return {"ok": False, "error": f"bad GTUNE: {e}"}
+        if self.walk_list[self.wi] == _TRIPOD_HW:
+            self.gait = None
+        self.msg = "GTUNE " + format_demo_tripod(self.demo_tripod)
+        return {"ok": True, "status": self.msg}
+
     def cmd(self, line: str) -> dict[str, Any]:
         parts = line.strip().split()
         head = parts[0].upper() if parts else ""
@@ -2637,11 +2769,59 @@ class SimWebSession:
                 self._set_drive_wz(0.0)
                 self._clear_drive_dwell()
                 self.msg = "holding"
+            elif head == "GAIT" and len(parts) >= 2:
+                try:
+                    out = self._set_scripted_gait_id(int(parts[1]))
+                except ValueError:
+                    out = {"ok": False, "error": "bad GAIT"}
+                self.msg = out.get("status") or out.get("error") or self.msg
+                return out
+            elif head == "CPGLIST":
+                rows = _list_cpg_controllers(dirs=self._cpg_dirs())
+                return {"ok": True, "text": json.dumps(rows)}
+            elif head == "CPGLOAD" and len(parts) >= 2:
+                return self._load_cpg_controller(parts[1])
+            elif head == "GTUNE":
+                if len(parts) == 1:
+                    self.msg = "GTUNE " + format_demo_tripod(
+                        self.demo_tripod)
+                    return {"ok": True, "status": self.msg}
+                try:
+                    updates = parse_demo_tripod_tune_tokens(parts[1:])
+                except ValueError as e:
+                    return {"ok": False, "error": f"bad GTUNE: {e}"}
+                return self._apply_demo_tripod_tune(updates)
+            elif head == "K" and len(parts) >= 2:
+                try:
+                    return self._apply_demo_tripod_tune(
+                        {"lift": float(parts[1])})
+                except ValueError:
+                    return {"ok": False, "error": "bad K"}
             elif head == "J" and len(parts) >= 4:
+                if len(parts) >= 5:
+                    try:
+                        gait_id = int(parts[4])
+                    except ValueError:
+                        gait_id = None
+                    p = self._SCRIPTED_GAIT_BY_ID.get(gait_id)
+                    if p is not None and self.walk_list[self.wi] != p:
+                        out = self._set_scripted_gait_id(gait_id)
+                        if not out.get("ok"):
+                            return out
                 if self._engage_walk():
-                    self.traj.vx = float(parts[1]) / 1000.0
-                    self.traj.vy = float(parts[2]) / 1000.0
-                    self.om_cmd = float(parts[3])
+                    vx = float(parts[1]) / 1000.0
+                    vy = float(parts[2]) / 1000.0
+                    om = float(parts[3])
+                    if self.walk_list[self.wi] == _TRIPOD_HW:
+                        vx = max(-self.demo_tripod.max_vx_mps,
+                                 min(self.demo_tripod.max_vx_mps, vx))
+                        vy = max(-self.demo_tripod.max_vy_mps,
+                                 min(self.demo_tripod.max_vy_mps, vy))
+                        om = max(-self.demo_tripod.max_omega_rad_s,
+                                 min(self.demo_tripod.max_omega_rad_s, om))
+                    self.traj.vx = vx
+                    self.traj.vy = vy
+                    self.om_cmd = om
                     self._drive_remember_refs()
                     self.msg = "J command routed to sim"
             return {"ok": True, "status": self.msg}

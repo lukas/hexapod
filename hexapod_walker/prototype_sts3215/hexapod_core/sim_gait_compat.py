@@ -35,6 +35,7 @@ from __future__ import annotations
 from motor_setup.feetech_bus import standing_pose_degrees as _standing_abs_deg
 
 from . import noslip_gait as _ng
+from . import middle_tuck_quad_gait as _mq
 from . import se2_foot_gait as _s2
 from . import tripod_gait as _tg
 from .joint_frame import (
@@ -43,7 +44,7 @@ from .joint_frame import (
 )
 
 __all__ = [
-    "TripodGait", "NoSlipGait", "SE2FootGait",
+    "TripodGait", "NoSlipGait", "SE2FootGait", "MiddleTuckQuadGait",
     "knee_rel_18", "knee_abs_18", "standing_pose_degrees",
 ]
 
@@ -86,3 +87,7 @@ class NoSlipGait(_SimRelKneeMixin, _ng.NoSlipGait):
 
 class SE2FootGait(_SimRelKneeMixin, _s2.SE2FootGait):
     """se2_foot_gait.SE2FootGait with the sim-relative knee contract."""
+
+
+class MiddleTuckQuadGait(_SimRelKneeMixin, _mq.MiddleTuckQuadGait):
+    """middle_tuck_quad_gait.MiddleTuckQuadGait with sim-relative knees."""

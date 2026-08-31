@@ -23,6 +23,7 @@ from drive_controller import (  # noqa: E402
     DriveController, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
     walk_start_pose_degrees,
 )
+from hexapod_core.middle_tuck_quad_gait import TUCK_DEG  # noqa: E402
 
 
 class FakeBus:
@@ -86,6 +87,22 @@ def test_j_can_select_gait_while_starting_from_stand():
     assert drive._gait_id == 1  # noqa: SLF001
 
 
+def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+
+    assert drive.handle("J 30 0 0 0") == "J"
+    assert drive.mode == "walk"
+
+    assert drive.handle("J 0 0 0 0") == "J"
+
+    assert drive.mode == "idle"
+    assert drive._vx == 0.0  # noqa: SLF001
+    assert drive._vy == 0.0  # noqa: SLF001
+    assert drive._omega == 0.0  # noqa: SLF001
+    assert "quiet hold" in drive.status
+
+
 def test_basic_tripod_caps_full_stick_to_demo_safe_envelope():
     drive = DriveController(dry_run=False)
     drive.bus = FakeBus(walk_start_pose_degrees())
@@ -97,3 +114,58 @@ def test_basic_tripod_caps_full_stick_to_demo_safe_envelope():
     assert drive._vx == DEMO_TRIPOD_MAX_VX_MPS  # noqa: SLF001
     assert drive._vy == DEMO_TRIPOD_MAX_VY_MPS  # noqa: SLF001
     assert drive._omega == DEMO_TRIPOD_MAX_OMEGA_RAD_S  # noqa: SLF001
+
+
+def test_gtune_updates_basic_tripod_params_and_caps():
+    drive = DriveController(dry_run=True)
+
+    result = drive.handle(
+        "GTUNE period=1.95 lift=42 stride=0.75 ramp=0.90 "
+        "vx=35 vy=21 omega=0.40")
+
+    assert result.startswith("GTUNE")
+    assert drive.gait.period == 1.95
+    assert drive.gait.lift == 0.042
+    assert drive.gait.stride_scale == 0.75
+    assert drive.gait.ramp == 0.90
+    assert drive._caps_for_gait(0) == (0.035, 0.021, 0.40)  # noqa: SLF001
+
+
+def test_gtune_refuses_while_basic_tripod_is_walking():
+    drive = DriveController(dry_run=False)
+    drive.bus = FakeBus(walk_start_pose_degrees())
+    drive.armed = True
+
+    assert drive.handle("J 30 0 0 0") == "J"
+    result = drive.handle("GTUNE stride=0.75")
+
+    assert result.startswith("refused GTUNE while walking")
+    assert drive.gait.stride_scale == DEMO_TRIPOD_STRIDE_SCALE
+
+
+def test_clampfit_gait_id_selects_smooth_noslip_tripod():
+    drive = DriveController(dry_run=True)
+
+    result = drive.handle("GAIT 7")
+
+    assert "CLAMP-FIT" in result
+    assert drive._gait_id == 7  # noqa: SLF001
+    assert drive.gait.period == 6.0
+    assert drive.gait.lift == 0.020
+    assert drive.gait.alpha == 1.0
+
+
+def test_middle_tuck_quad_gait_id_tucks_middle_legs_with_ramp():
+    drive = DriveController(dry_run=True)
+
+    result = drive.handle("GAIT 8")
+
+    assert "middle-tuck quad" in result
+    assert drive._gait_id == 8  # noqa: SLF001
+    q0 = drive.gait.desired_deg(0.0)
+    q2 = drive.gait.desired_deg(2.0)
+    for leg in (1, 4):
+        off = 3 * leg
+        assert q0[off:off + 3] == [
+            0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG]
+        assert q2[off:off + 3] == list(TUCK_DEG)

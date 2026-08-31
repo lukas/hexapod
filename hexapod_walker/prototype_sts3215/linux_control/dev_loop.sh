@@ -66,6 +66,8 @@ import sys
 root = Path(sys.argv[1])
 files = [
     "linux_control/web_drive.py",
+    "hexapod_core/demo_tripod.py",
+    "hexapod_core/middle_tuck_quad_gait.py",
     "linux_control/bench_api.py",
     "linux_control/api/common.py",
     "linux_control/api/core.py",
@@ -375,6 +377,8 @@ hex_remote_compile() {
     "$ssh_target" \
     "cd '$HEX_REMOTE_ROOT' && /home/arduino/.local/bin/uv run python -m py_compile \
       linux_control/web_drive.py \
+      hexapod_core/demo_tripod.py \
+      hexapod_core/middle_tuck_quad_gait.py \
       linux_control/bench_api.py \
       linux_control/api/*.py \
       linux_control/drive_controller.py \

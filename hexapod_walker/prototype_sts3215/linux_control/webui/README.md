@@ -88,9 +88,13 @@ the RL tooling depend on them.
    adjusts/re-verifies the sim walk-ready stance; otherwise it safe-zeros first,
    then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
    **Preflight** → `GET /api/rl/preflight?mode=lower` (read-only).
-2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
-   caps |vx|≤60, |vy|≤40 mm/s, |ω|≤0.5 rad/s, 3–60 s), timed stop or
-   **STOP GAIT** sends `J 0 0 0`. Swing lift slider → `K <mm>`.
+2. *Scripted gait walk*: the recommended gait buttons select CPG tetrapod
+   (`CPGLOAD` + `GAIT 6`), no-slip ripple (`GAIT 2`), no-slip wave (`GAIT 3`),
+   clamp-fit tripod (`GAIT 7`), middle-up quad crawl (`GAIT 8`), or the tunable
+   high-step tripod (`GAIT 0`). GAIT 0 exposes the shared high-step tune
+   (`GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`)
+   used by both this page and MuJoCo. **Start walk** sends `J vx vy ω` with
+   the edited caps, timed stop or **STOP GAIT** sends `J 0 0 0`.
 3. *Manual drive*: on-screen sticks / WASD+QE / Xbox left+right stick →
    throttled `J vx vy ω gait` stream at ≤20 Hz (only on this tab).
    Keyboard: Space = stand, C = sit.

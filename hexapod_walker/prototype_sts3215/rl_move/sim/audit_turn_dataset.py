@@ -261,6 +261,64 @@ def audit(walk_teacher_path: str, n_ep: int, seed: int,
     }
 
 
+def action_error_split(walk_teacher_path: str, student_path: str,
+                       n_ep: int, seed: int, dr_scale: float,
+                       episode_seconds: float, cfg_set: list[str]) -> dict:
+    """Holdout action-error split (priority-reorder item 1, second
+    clause): drive TEACHER-labeled rollouts (same recipe as
+    ``audit()``, deterministic — no BC/DAgger training happens here,
+    this only SCORES the already-saved raw distilled checkpoint), and
+    at every tick compare the STUDENT's (dualbc5_turncap.zip) action
+    against the teacher's own label action on that SAME state,
+    bucketed by straight (wz_ref==0) vs turn+ (wz_ref>0) vs turn-
+    (wz_ref<0). A per-bucket MSE gap (esp. turn+ >> turn-, matching the
+    already-measured +wz-frozen/-wz-partial probe asymmetry) would
+    point at the BC/DAgger optimization itself imitating one turn
+    direction worse than the other on states BOTH directions cover —
+    the dataset-coverage hypothesis is already refuted by ``audit()``
+    above, so this isolates whether the gap is optimization-side."""
+    from stable_baselines3 import PPO
+
+    from .gru_policy import load_checkpoint_auto, RecurrentPredictor
+
+    env = build_env(seed, dr_scale, episode_seconds, cfg_set)
+    teacher = PPO.load(walk_teacher_path, device="cpu")
+    n_t_obs = int(teacher.observation_space.shape[0])
+
+    student, _ = load_checkpoint_auto(student_path, device="cpu"), None
+    student_pred = RecurrentPredictor(student) \
+        if getattr(student.policy, "lstm_actor", None) is not None \
+        else student
+
+    buckets = {"straight": [], "turn_pos": [], "turn_neg": []}
+    rng = np.random.default_rng(seed)
+    for _ in range(n_ep):
+        obs, info = env.reset()
+        if hasattr(student_pred, "reset"):
+            student_pred.reset()
+        done = False
+        while not done:
+            t_act, _ = teacher.predict(obs[:n_t_obs], deterministic=True)
+            s_act, _ = student_pred.predict(obs, deterministic=True)
+            g = env._current_goal()
+            wz = float(getattr(g, "wz_ref", 0.0)) if g is not None else 0.0
+            err = float(np.mean((np.asarray(t_act) - np.asarray(s_act)) ** 2))
+            key = ("straight" if abs(wz) <= 1e-3
+                   else "turn_pos" if wz > 0 else "turn_neg")
+            buckets[key].append(err)
+            # advance the env with the TEACHER's action (this scores
+            # the student on genuinely teacher-visited/labeled states,
+            # not a student-drifted rollout).
+            obs, r, term, trunc, info = env.step(t_act)
+            done = term or trunc
+    env.close()
+
+    def stats(v):
+        return {"n": len(v), "mse_med": float(np.median(v)) if v else None,
+                "mse_mean": float(np.mean(v)) if v else None}
+    return {k: stats(v) for k, v in buckets.items()}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--walk-teacher", type=str, default=str(
@@ -281,6 +339,13 @@ def main(argv=None) -> int:
                          "distill_gru.py). Default None = use the "
                          "recipe as-is.")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--student-checkpoint", type=str, default=None,
+                    help="if set, ALSO run the holdout action-error "
+                         "split (priority-reorder item 1's second "
+                         "clause) comparing this raw distilled "
+                         "checkpoint's actions to the teacher's on "
+                         "teacher-driven rollouts, bucketed straight/"
+                         "turn+/turn-.")
     args = ap.parse_args(argv)
 
     cfg_set = list(TURNCAP_CFG_SET) + list(args.cfg_set or [])
@@ -298,6 +363,15 @@ def main(argv=None) -> int:
           f" ({frac * 100:.1f}%)" if frac is not None else "n/a")
     print(f"[audit-turn-dataset] teacher falls during collection: "
           f"{result['teacher_falls']}/{result['n_episodes']}")
+    if args.student_checkpoint:
+        split = action_error_split(
+            args.walk_teacher, args.student_checkpoint, args.episodes,
+            args.seed, args.dr_scale, args.episode_seconds, cfg_set)
+        result["action_error_split"] = split
+        for k in ("straight", "turn_pos", "turn_neg"):
+            s = split[k]
+            print(f"[audit-turn-dataset] action MSE {k}: "
+                  f"n={s['n']} med={s['mse_med']}")
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(result, indent=2))

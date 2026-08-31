@@ -94,6 +94,42 @@ this cycle (CPU audit + tooling only, per the meta reorder's own "no
 RETIRED) — no other track has legal runnable GPU work either. Snapshot
 `exp/standwalk-audit-turn-dataset`. CYCLE_WORKED.
 
+Addendum ~10:4x (finished item 1's own second clause the SAME cycle —
+result REFINES, don't just confirm, the optimization-dynamics
+hypothesis above): added `action_error_split()` to the same tool
+(`--student-checkpoint`) — drives 90 teacher-labeled rollouts
+(identical recipe/seed) and at every tick compares the RAW
+`dualbc5_turncap.zip` checkpoint's action (hidden state correctly
+threaded via `RecurrentPredictor`, the `probe_yaw_credit` lesson) to
+the teacher's own label action on that SAME state, bucketed straight/
+turn+/turn-. **Result: action MSE straight 0.00027, turn+ 0.00066,
+turn- 0.00062** — turning ticks cost ~2.3-2.5x the straight-tick
+imitation error (turns are objectively harder to imitate, expected),
+but turn+ vs turn- are within ~8% of EACH OTHER — **not the large,
+sign-asymmetric open-loop fitting gap the "shared trunk drowns one
+sign worse" hypothesis predicted.** Plain English: the student
+imitates both turn directions almost equally well ONE TICK AT A TIME,
+yet the closed-loop `probe_turn_authority` rollout of the same raw
+checkpoint is starkly asymmetric (near-total freeze one sign, partial
+escape the other) — open-loop per-tick fit does not predict the
+closed-loop behavioral gap. This shifts the leading suspect from
+"BC/DAgger optimization drowns one sign in training" (weakened — the
+loss it actually minimized was near-symmetric) to **closed-loop
+compounding**: tiny, symmetric per-tick GRU-actor biases (0.02-0.03
+action-unit RMS on this checkpoint, `distill_gru.py`'s own reported
+BC actor RMS) accumulating asymmetrically over a multi-second
+autonomous turn-in-place rollout — plausibly interacting with the
+dual-core hidden-state dynamics or a body/actuator nonlinearity that
+makes one rotation direction's error-accumulation self-correcting and
+the other's self-reinforcing. Not yet tested (next concrete step, NOT
+this cycle): replay the checkpoint's own closed-loop rollout (like
+`probe_turn_authority` already does) but log the GRU hidden state /
+action trajectory tick-by-tick for both signs side by side to find
+WHERE in the rollout the two signs diverge, rather than assuming where.
+Evidence: `logs/ckpt_eval/audit_turn_dataset_dualbc5_actionerr.json`.
+Tool re-smoke-tested (4-episode run) before the real 90-episode pass,
+both clean. Re-snapshotting this addendum under the same tag.
+
 Update, 2026-08-31 ~09:4x (no verdict this cycle — `stdwalk-hi` was
 already joint-verdicted by the concurrent cycle handling `-mild`
 moments before this cycle spawned, confirmed correct by an

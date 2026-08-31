@@ -1,5 +1,49 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~06:0x (`dualbc5-turncap-turnskip-turnpay-canary`
+VERDICT: **CANARY FAIL - MECHANISM**, 4th turn-authority mechanism
+class refuted — BC-anchor axis (dose AND targeted turn-tick gating)
+now fully exonerated). Plain English: this canary tested the
+untried "targeted gate instead of global dilution" half of the
+anchor-drowns-yaw hypothesis (new `train.bc_anchor_walk_turn_skip=1`,
+zeroes anchor supervision only on pure turn-in-place ticks, straight-
+walk ticks keep full `bc_anchor_coef=3.0`). `probe_turn_authority`
+(own cfg, wz_cmd=+-0.25, walk-mode-filtered, seeds 0/1) reads wz_med
++0.0047/+0.0029 (+0.25) and -0.0104/-0.0146 (-0.25) — all four under
+the 0.03 FAIL floor, indistinguishable from the exonerated dose band
+(anchor1p0/anchor0p3: -0.03..+0.003). `env/walk_yaw_kernel_factor`
+erodes 0.336->0.090 over the run, same shape as every prior canary in
+this lineage; reward crashes through the back half — not a rising-
+reward case. Frame-strip on `walk_det_0.mp4`: clean 6-leg gait fully
+preserved, no collapse — rules out gait-collapse confound. **The
+anchor mechanism, in every form tried (global 3.0/1.0/0.3 dose,
+turn-tick-targeted skip), is exhausted as a suspect.** Refill:
+launched the two next-suspects the gate text itself named, as a
+batch rather than serially — both respec'd off the ORIGINAL
+`dualbc5-turncap-turnpay-canary` base (same init-from checkpoint,
+same bank-proven OMNI turn reward stack, `bc_anchor_coef=3.0`,
+turn-skip OFF) so each isolates exactly one new variable:
+(1) `cw-standwalk-stage2-dualbc5-turncap-isolateoff-turnpay-canary`
+— `train.bc_anchor_isolate_update=0` (reverts the 08-26 dual-core
+aux-optimizer update-isolation fix, testing whether that specific
+gradient-application change is itself interacting with the walk
+core's yaw-kernel momentum trajectory); (2)
+`cw-standwalk-stage2-dualbc5-turncap-entboost-turnpay-canary` —
+`--ent-coef` 0.005->0.02 (4x), testing PPO exploration collapse on
+the minority turn-in-place ticks (note: this lineage's log_std anneal
+is scoped to the stance core only, so the walk core's std is not
+forced down by that explicit schedule — a natural-entropy-decay
+hypothesis, not the already-checked explicit anneal). Both VERIFIED
+RUNNING (train-1, train-0), 2M steps, single-seed mechanism-health
+canaries. No new code needed (both are pre-existing, tested flags).
+Swept other tracks: joystick/amp/cpg DONE-or-maintenance per the prior
+cycle's sweep (unchanged since then); todaypolicy delivered; walkcurr
+has its own concurrent-cycle activity (litrep-box wave) untouched.
+`capacity.py` showed all 12 GPU slots free at cycle start (ledger has
+21 stale RUNNING entries from other tracks awaiting their own triage
+cycles — not touched, out of this cycle's scope); 10 free after these
+2 launches. CYCLE_WORKED.
+
 Update, 2026-08-31 ~04:4x (`dualbc5-turncap-anchor{1p0,0p3}-turnpay-
 canary` JOINT VERDICT: **CANARY FAIL - MECHANISM**, anchor coefficient
 EXONERATED). Plain English: the prior verdict's leading suspect was

@@ -2,6 +2,122 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~11:1x (idle-kick, no run finished — DRAINED with a
+**genuine positive finding, not a no-op**). Plain English: mirroring
+the raw `dualbc5_turncap` checkpoint left-right (the existing rot60/
+`mirror.py` walk-drift technique, never before applied to this
+dual-core lineage) produces REAL turn-in-place authority on the sign
+that was completely frozen under the naked policy — with ZERO
+training, beating every one of the 8 RL mechanism-class canaries this
+campaign ran (all measured wz_med<0.03 both signs post-RL; this
+composition clears 0.03 with no training at all).
+
+New tool `rl_move/sim/probe_mirror_turn_authority.py`: loads the raw
+pre-RL checkpoint, wraps it in `mirror.MirrorPolicy` (same obs/action
+reflection maps as the walk-drift precedent, `walk=True yaw_cmd=True
+phase_obs=True mode_onehot=True` matching this checkpoint's real
+81-wide obs — verified live, `RecurrentPPO`/`DualGruActorCriticPolicy`),
+and runs both naked and mirrored through the same `probe_turn_authority`
+turn-in-place rollout. **Measured (seeds 0/1, 15s episodes, no falls,
+full 1500/1500 walk-mode ticks both arms):**
+
+| wz_cmd | naked wz_med | mirror wz_med |
+|---|---|---|
+| +0.25 | -0.00007 (frozen) | **+0.0579** (real, correct sign) |
+| -0.25 | -0.0433 (partial) | -0.0012 (frozen) |
+
+Exactly the reflection-symmetric pattern predicted: `mirror(+0.25)` ~=
+`-naked(-0.25)` (0.058 vs 0.043, same order, sign-correct) and
+`mirror(-0.25)` ~= `-naked(+0.25)` (both ~0). **A sign-selected
+composition — mirror for + commands, naked for - commands — gives
+BOTH turn directions a real ~0.04-0.06 rad/s partial escape**, which
+is BETWEEN the campaign's FAIL floor (0.03) and PASS floor (0.08), and
+strictly better than any single one of the 8 exhausted RL mechanism
+classes achieved (all <0.03 both signs — RL made the asymmetry WORSE,
+never better). Straight-walk sanity check (`--check-straight-walk`,
+wz=0 is mirror-INVARIANT so this should be near-unaffected): mirror
+travel 0.386m vs naked 0.392m over 15s (98%, no fall) — mirroring does
+NOT break ordinary forward walking on this architecture. Evidence:
+`logs/ckpt_eval/mirror_turn_authority_dualbc5_turncap.json`.
+
+**What this does and does NOT mean.** It does NOT mean the raw
+checkpoint's own weights are symmetric — querying it naively still
+freezes hard on `+wz`. It DOES mean the network's LEARNED
+REPRESENTATION already contains a usable turn skill for both signs
+(closed-loop, not just open-loop per-tick as the dataset audit already
+showed) — it is just not reachable by feeding the `+wz` command
+through the raw obs/action layout. This reframes the dataset audit's
+"closed-loop compounding" suspect one level more specifically: the
+compounding is APPROXIMATELY reflection-symmetric, not some
+irrecoverable one-sided architecture defect — which is actually good
+news for a fix.
+
+**Two fix paths, in priority order (neither attempted this cycle —
+both are real code-builds, correctly left unrushed rather than
+half-implemented under cycle time pressure):**
+
+1. **PREFERRED — train-time symmetry regularization on the SAME single
+   network** (keeps the DONE gate's "ONE policy" bar clean, no runtime
+   wrapper). `rl_move/sim/mirror.py` already has `make_mirror_ppo_class`
+   (`MirrorPPO`) implementing exactly this loss
+   (`mse(pi_mean(mirror(obs)), mirror(pi_mean(obs)))`) — but **it is
+   NOT recurrent-compatible as written**: it subclasses `PPO` (not
+   `RecurrentPPO`) and its aux step calls
+   `self.policy.get_distribution(obs)` with the NON-recurrent
+   single-arg signature, while `DualGruActorCriticPolicy.get_distribution`
+   requires `(obs, lstm_states, episode_starts)` and threads per-tick
+   expert gating. Needs: a `MirrorRecurrentPPO` variant that threads
+   `RNNStates(pi, vf)` correctly across the aux minibatches (the
+   `probe_yaw_credit.py` lesson — never use the stateless `predict()`
+   shortcut for a recurrent policy's forward pass) and respects episode
+   boundaries in the rollout buffer. This is genuine new code, not a
+   flag flip — budget it as such, do not rush it.
+2. **FALLBACK — inference-time reflection-select composition** (same
+   trained weights, symmetry-aware I/O wrapper choosing naked vs
+   mirrored by commanded sign, exactly the existing deploy precedent
+   `linux_control/rl_policy.py:make_walk_mirror`/`ChiralitySelector` for
+   the walk-drift case). Cheaper to build but reopens a genuine
+   judgment call on the DONE gate's "ONE mesh/100Hz policy" wording —
+   filed as `q_20260831T1115Z` in `OPERATOR_QUESTIONS.md` (assume-and-go
+   answer recorded there: same weights + a symmetry wrapper is judged
+   in-spirit, unlike `todaypolicy`'s multi-lineage bundle, but flagged
+   in case the operator disagrees).
+
+**Bug fixed in the same cycle** (blocking path 1 either way):
+`MirrorPolicy.reset()` was a bare `pass` — any recurrent model wrapped
+by it never had its hidden state cleared at episode boundaries (the
+exact `RecurrentPredictor` class of bug `probe_yaw_credit.py` already
+had to fix once). Now forwards to the wrapped model's own `.reset()`
+when present; audited every existing `MirrorPolicy(...)` call site
+(`probe_mirror_turn.py`: non-recurrent PPO, unaffected;
+`linux_control/rl_policy.py:make_walk_mirror`: nothing currently calls
+`.reset()` on its output, so zero behavior change on any exercised
+deploy path — the fix is defensive-correct for future callers, not a
+live-bug patch). New test
+`test_mirror_policy_reset_propagates_to_wrapped_model`; 16/16
+`test_mirror.py` green.
+
+Tests: 3 new (`test_probe_mirror_turn_authority.py`, pure
+classification logic, no MuJoCo) + 1 new (`test_mirror.py` reset
+propagation) + existing `test_mirror.py`/`test_probe_turn_authority.py`
+suites re-run green (23/23 total touched). No GPU launch this cycle —
+this finding needs the `MirrorRecurrentPPO` build (path 1) before it
+is a fundable canary, and rushing a half-tested recurrent PPO subclass
+this cycle risks a misleading result worse than not launching (the
+exact 08-21-ruling-adjacent judgment: build the tool correctly, then
+train on it). Swept other tracks: joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr RETIRED — no other track has legal
+runnable GPU work either; 12/12 pods free, backlog empty. Snapshot
+`exp/standwalk-mirror-turn-authority`. CYCLE_WORKED.
+
+**Revises priority-reorder item 2** (below): the next dual-distill
+iteration should try MIRROR-AUGMENTING the BC/DAgger dataset itself
+(add a mirrored copy of every collected turn-in-place demo via the
+same `mirror.py` perm/sign maps, forcing genuinely symmetric
+supervision at data-collection time) as an alternative, likely-cheaper
+route to the same goal, worth trying before or alongside the
+`MirrorRecurrentPPO` build — both are now credible, neither is built.
+
 The 24h turn-authority campaign (8 mechanism classes, ~16 canaries, all
 FAIL) asked PPO to DISCOVER turning on a base that cannot turn. The
 evidence says fix the BASE first: the walk teacher bc1_std25 turns at

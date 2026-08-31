@@ -167,7 +167,15 @@ class MirrorPolicy:
         self.act_perm, self.act_sign = joint_perm_sign()
 
     def reset(self):
-        pass
+        # Propagate to the wrapped model's own reset (RecurrentPredictor
+        # etc.) — a bare `pass` here silently breaks recurrent
+        # hidden-state threading: the caller's episode-boundary reset()
+        # would never reach the wrapped model, so its RNN state would
+        # carry over from the PREVIOUS rollout across episode 2/3/...
+        # No behavior change for stateless models (no .reset attr).
+        reset = getattr(self.model, "reset", None)
+        if reset is not None:
+            reset()
 
     def predict(self, obs, deterministic: bool = True, **kw):
         obs = np.asarray(obs, dtype=np.float32)

@@ -194,6 +194,33 @@ def test_mirror_policy_rejects_bad_width():
         MirrorPolicy(_StubModel(70))
 
 
+def test_mirror_policy_reset_propagates_to_wrapped_model():
+    """A bare `pass` reset() would silently break recurrent
+    hidden-state threading across episodes (the RNN state would carry
+    over from the previous rollout). MirrorPolicy.reset() must forward
+    to the wrapped model's own .reset() when it has one, and must not
+    raise when it doesn't (stateless stub, unchanged behavior)."""
+    from rl_move.sim.mirror import MirrorPolicy
+
+    class _StatefulStub(_StubModel):
+        def __init__(self, obs_dim):
+            super().__init__(obs_dim)
+            self.reset_calls = 0
+
+        def reset(self):
+            self.reset_calls += 1
+
+    stateful = _StatefulStub(72)
+    pol = MirrorPolicy(stateful)
+    pol.reset()
+    pol.reset()
+    assert stateful.reset_calls == 2
+
+    stateless = _StubModel(72)  # no .reset attribute at all
+    pol2 = MirrorPolicy(stateless)
+    pol2.reset()  # must not raise
+
+
 # ---------------------------------------------------------------------------
 # Live env width + MirrorPPO smoke (needs mujoco + torch + sb3)
 # ---------------------------------------------------------------------------

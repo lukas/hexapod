@@ -3295,3 +3295,27 @@ runnable work (`standwalk`, active).
   inflate load/ps/proc costs until the controller pod restarts. Not
   urgent (everything works post-fix); restart at next convenience.
 - status: OPEN (operator infra action, no agent-side blocker).
+
+## q_20260831T1115Z — does an inference-time reflection-select wrapper count as "ONE policy" for standwalk's DONE gate? [assume-and-go]
+- standwalk goal 5 requires "one policy (mesh/100 Hz) for sit -> rise
+  -> joystick walk -> lower". This cycle found `mirror.MirrorPolicy`
+  (same trained weights, symmetry-aware obs/action reflection wrapper,
+  the existing rot60/walk-drift deploy precedent
+  `linux_control/rl_policy.py:make_walk_mirror`) recovers real
+  turn-in-place authority on a sign the raw `dualbc5_turncap` checkpoint
+  freezes on completely, with zero additional training (STATUS.md
+  08-31 ~11:1x). If the preferred train-time fix
+  (`MirrorRecurrentPPO`, not yet built) does not pan out, the fallback
+  is a runtime naked-vs-mirrored SELECTOR by commanded turn sign around
+  the SAME single set of weights.
+- Assume-and-go answer adopted: this counts as "one policy" in spirit —
+  it is one trained network with a deterministic, weight-free I/O
+  symmetry transform selected by the command sign the joystick already
+  carries, categorically different from `todaypolicy`'s bundle (which
+  chains SEPARATELY-TRAINED stand/lower + walk artifacts). Proceeding
+  on this basis; will not block on it since the preferred path (path 1
+  in STATUS.md) doesn't need a wrapper at all if it works.
+- status: OPEN for operator override — if the operator judges a
+  reflection-selector wrapper does NOT satisfy "one policy", the
+  fallback path closes and only the train-time `MirrorRecurrentPPO`
+  fix counts toward this gate.

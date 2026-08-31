@@ -14,6 +14,7 @@ HEXAPOD_MDNS_NAME="${HEXAPOD_MDNS_NAME:-hexapod.local}"
 HEXAPOD_CACHE_DIR="${HEXAPOD_CACHE_DIR:-$HOME/.hexapod}"
 HEXAPOD_IP_CACHE="${HEXAPOD_IP_CACHE:-$HEXAPOD_CACHE_DIR/last_ip}"
 HTTP_URL_RAW="${HEXAPOD_HOST:-http://hexapod.local:8080}"
+HTTPS_PORT="${HEXAPOD_HTTPS_PORT:-8443}"
 REMOTE_UV="/home/arduino/.local/bin/uv"
 HOST="$RAW_HOST"
 HTTP_URL="$HTTP_URL_RAW"
@@ -144,6 +145,31 @@ wait_http() {
   curl -s -m 3 "$HTTP_URL/api/ping" || true
 }
 
+https_url_for_http() {
+  local url="$1" rest host
+  rest="${url#http://}"
+  rest="${rest#https://}"
+  host="${rest%%/*}"
+  host="${host%%:*}"
+  printf 'https://%s:%s\n' "$host" "$HTTPS_PORT"
+}
+
+wait_https() {
+  local https_url body i
+  https_url="$(https_url_for_http "$HTTP_URL")"
+  for i in {1..20}; do
+    if body="$(curl -k -fsS -m 1 "$https_url/api/ping" 2>/dev/null)"; then
+      echo "$body"
+      echo ">> joystick HTTPS: $https_url/rl"
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "!! HTTPS joystick URL did not answer: $https_url/rl" >&2
+  curl -k -s -m 3 "$https_url/api/ping" || true
+  return 1
+}
+
 clear_deploy_screen() {
   curl -fsS -m 3 -X POST "$HTTP_URL/api/tft/ready" >/dev/null 2>&1 || true
 }
@@ -224,6 +250,8 @@ fi
 
 echo ">> verify over HTTP ($HTTP_URL)"
 wait_http
+echo ">> verify over HTTPS ($(https_url_for_http "$HTTP_URL"))"
+wait_https
 clear_deploy_screen
 echo
 echo ">> done"

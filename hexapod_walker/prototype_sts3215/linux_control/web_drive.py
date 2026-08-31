@@ -17,8 +17,11 @@ v1 STM32 ``J`` bridge.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
+import re
+import socket
 import ssl
 import subprocess
 import sys
@@ -41,22 +44,102 @@ CERT_FILE = os.path.expanduser("~/.hexapod_sts_cert.pem")
 KEY_FILE = os.path.expanduser("~/.hexapod_sts_key.pem")
 
 
+def _add_unique(xs: list[str], x: str) -> None:
+    if x and x not in xs:
+        xs.append(x)
+
+
+def _https_cert_sans() -> tuple[list[str], list[str]]:
+    dns: list[str] = []
+    ips: list[str] = []
+
+    for name in ("hexapod.local", "localhost"):
+        _add_unique(dns, name)
+    try:
+        host = socket.gethostname().strip()
+    except OSError:
+        host = ""
+    if host:
+        _add_unique(dns, host)
+        if "." not in host:
+            _add_unique(dns, f"{host}.local")
+
+    def add_ip(value: str) -> None:
+        try:
+            ip = ipaddress.ip_address(value.strip())
+        except ValueError:
+            return
+        if ip.version == 4 and not ip.is_unspecified:
+            _add_unique(ips, str(ip))
+
+    add_ip("127.0.0.1")
+    for cmd in (["hostname", "-I"], ["ip", "-4", "-o", "addr", "show"]):
+        try:
+            out = subprocess.check_output(
+                cmd, stderr=subprocess.DEVNULL, text=True, timeout=1.5)
+        except Exception:
+            continue
+        for match in re.finditer(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", out):
+            add_ip(match.group(0))
+
+    return dns, ips
+
+
+def _cert_has_sans(dns: list[str], ips: list[str]) -> bool:
+    if not (os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE)):
+        return False
+    try:
+        decoded = ssl._ssl._test_decode_cert(CERT_FILE)
+    except Exception:
+        return False
+    san = decoded.get("subjectAltName", ())
+    have_dns = {
+        str(v) for k, v in san
+        if str(k).lower() == "dns"
+    }
+    have_ips = {
+        str(v) for k, v in san
+        if str(k).lower().replace(" ", "") == "ipaddress"
+    }
+    return set(dns).issubset(have_dns) and set(ips).issubset(have_ips)
+
+
 def ensure_cert():
-    """Make a long-lived self-signed cert if we don't have one. Returns True
-    when both files are present afterwards."""
-    if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
+    """Make a long-lived self-signed cert for the browser Gamepad API."""
+    dns, ips = _https_cert_sans()
+    if _cert_has_sans(dns, ips):
         return True
+    san = ",".join([f"DNS:{x}" for x in dns] + [f"IP:{x}" for x in ips])
+    tmp_cert = CERT_FILE + ".tmp"
+    tmp_key = KEY_FILE + ".tmp"
+    for path in (tmp_cert, tmp_key):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
     try:
         subprocess.run(
             ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-             "-keyout", KEY_FILE, "-out", CERT_FILE, "-days", "3650",
+             "-keyout", tmp_key, "-out", tmp_cert, "-days", "3650",
              "-subj", "/CN=hexapod.local",
-             "-addext", "subjectAltName=DNS:hexapod.local,DNS:localhost"],
+             "-addext", f"subjectAltName={san}"],
             check=True, capture_output=True)
-        print(f"[https] generated self-signed cert at {CERT_FILE}")
+        try:
+            os.chmod(tmp_key, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp_cert, CERT_FILE)
+        os.replace(tmp_key, KEY_FILE)
+        print(f"[https] generated self-signed cert at {CERT_FILE} "
+              f"with SANs {san}")
         return True
     except (OSError, subprocess.CalledProcessError) as e:
         print(f"[https] cert generation failed ({e}); HTTPS disabled")
+        for path in (tmp_cert, tmp_key):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
         return False
 
 # Persisted calibration (the UNO Q has no EEPROM, so the standing foot height

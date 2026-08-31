@@ -244,6 +244,52 @@ def _video_writer(path: Path, fps: float, size: tuple[int, int]) -> Any:
     return writer
 
 
+def _parse_camera_cycle(value: str) -> tuple[int, ...]:
+    try:
+        indexes = tuple(dict.fromkeys(
+            int(item.strip()) for item in value.split(",") if item.strip()
+        ))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "camera cycle must be comma-separated integer indexes"
+        ) from error
+    if not indexes or any(index < 0 for index in indexes):
+        raise argparse.ArgumentTypeError(
+            "camera cycle needs one or more non-negative indexes"
+        )
+    return indexes
+
+
+def _camera_order_after(current: int, cycle: tuple[int, ...]) -> tuple[int, ...]:
+    indexes = cycle if current in cycle else cycle + (current,)
+    position = indexes.index(current)
+    return indexes[position + 1:] + indexes[:position + 1]
+
+
+def _switch_camera(
+    capture: Any,
+    current: int,
+    cycle: tuple[int, ...],
+) -> tuple[Any, int]:
+    capture.release()
+    failures: list[int] = []
+    for index in _camera_order_after(current, cycle):
+        candidate = cv2.VideoCapture(index)
+        if candidate.isOpened():
+            ok, _frame = candidate.read()
+            if ok:
+                return candidate, index
+        failures.append(index)
+        candidate.release()
+    raise OSError(f"could not open any camera in cycle {failures}")
+
+
+def _fit_writer_size(image: Any, size: tuple[int, int]) -> Any:
+    if (image.shape[1], image.shape[0]) == size:
+        return image
+    return cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+
+
 def _process_capture(
     tracker: AprilTagPoseTracker,
     capture: Any,
@@ -257,6 +303,8 @@ def _process_capture(
     feedback: FeedbackClient | None,
     preview: bool,
     summary_output: Path | None,
+    camera_index: int | None = None,
+    camera_cycle: tuple[int, ...] = (0, 1),
 ) -> int:
     fps = float(capture.get(cv2.CAP_PROP_FPS))
     if not math_is_finite_positive(fps):
@@ -268,6 +316,9 @@ def _process_capture(
     frame_index = 0
     last_result: dict[str, Any] | None = None
     diagnostics = VideoDiagnosticAccumulator()
+    writer_size: tuple[int, int] | None = None
+    active_camera_index = camera_index
+    camera_history = [] if camera_index is None else [camera_index]
     try:
         while True:
             ok, frame = capture.read()
@@ -275,6 +326,7 @@ def _process_capture(
                 break
             if frame_index == 0:
                 height, width = frame.shape[:2]
+                writer_size = (width, height)
                 if annotated_output is not None:
                     annotated_writer = _video_writer(
                         annotated_output, fps, (width, height)
@@ -296,20 +348,42 @@ def _process_capture(
                 time_s=time_s,
                 feedback=feedback,
             )
+            if active_camera_index is not None:
+                result["camera_index"] = active_camera_index
+                cv2.putText(
+                    annotated,
+                    f"CAMERA {active_camera_index} | C: switch | Q/Esc: stop",
+                    (20, annotated.shape[0] - 24),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    max(0.55, annotated.shape[1] / 2600.0),
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
             last_result = result
             diagnostics.update(result)
             if raw_writer is not None:
-                raw_writer.write(frame)
+                raw_writer.write(_fit_writer_size(frame, writer_size))
             if annotated_writer is not None:
-                annotated_writer.write(annotated)
+                annotated_writer.write(_fit_writer_size(annotated, writer_size))
             if json_handle is not None:
                 json_handle.write(json.dumps(result, separators=(",", ":")) + "\n")
             if preview:
-                cv2.imshow("Hexapod visual checkup (Q/Esc to stop)", annotated)
+                cv2.imshow(
+                    "Hexapod visual checkup (C camera, Q/Esc stop)", annotated
+                )
                 key = cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), ord("Q"), 27):
                     frame_index += 1
                     break
+                if (key in (ord("c"), ord("C")) and camera_mode
+                        and active_camera_index is not None):
+                    capture, active_camera_index = _switch_camera(
+                        capture, active_camera_index, camera_cycle
+                    )
+                    camera_history.append(active_camera_index)
+                    tracker.reset_temporal_state()
+                    print(f"switched to camera {active_camera_index}", flush=True)
 
             frame_index += 1
             if max_frames is not None and frame_index >= max_frames:
@@ -337,6 +411,7 @@ def _process_capture(
         ),
         "raw_output": None if raw_output is None else str(raw_output),
         "last_detected_tag_ids": last_result["detected_tag_ids"],
+        "camera_history": camera_history,
         "diagnostic_summary": diagnostics.summary(),
     }
     if summary_output is not None:
@@ -413,7 +488,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--preview",
         action="store_true",
-        help="show the annotated live/video checkup; press Q or Esc to stop",
+        help=("show the annotated live/video checkup; press C to switch "
+              "camera or Q/Esc to stop"),
+    )
+    parser.add_argument(
+        "--camera-cycle",
+        type=_parse_camera_cycle,
+        default=(0, 1),
+        metavar="INDEXES",
+        help="camera indexes cycled by C in preview (default: 0,1)",
     )
     args = parser.parse_args(argv)
     if args.duration is not None and args.duration <= 0.0:
@@ -455,6 +538,8 @@ def main(argv: list[str] | None = None) -> int:
             feedback=feedback,
             preview=args.preview,
             summary_output=args.summary_output,
+            camera_index=None,
+            camera_cycle=args.camera_cycle,
         )
     if args.duration is None and not args.preview:
         return _capture_still(
@@ -482,6 +567,8 @@ def main(argv: list[str] | None = None) -> int:
         feedback=feedback,
         preview=args.preview,
         summary_output=args.summary_output,
+        camera_index=args.camera,
+        camera_cycle=args.camera_cycle,
     )
 
 

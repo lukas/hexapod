@@ -28,6 +28,7 @@ from apriltag_vision import (  # noqa: E402
 )
 from foot_tip_tracking import FootTipTracker  # noqa: E402
 from housing_pose import RigidTransform  # noqa: E402
+from track_apriltags import _camera_order_after, _parse_camera_cycle  # noqa: E402
 
 
 def test_detects_generated_tag36h11_and_decodes_orientation() -> None:
@@ -237,3 +238,11 @@ def test_red_boot_tracker_marks_short_missing_measurement_as_inferred() -> None:
     assert len(first) == len(second) == 6
     assert all(foot.source in {"optical_flow", "prediction"} for foot in second)
     assert all(foot.occlusion_age_frames == 1 for foot in second)
+
+
+def test_live_camera_cycle_is_deduplicated_and_wraps() -> None:
+    cycle = _parse_camera_cycle("0, 1, 1")
+
+    assert cycle == (0, 1)
+    assert _camera_order_after(0, cycle) == (1, 0)
+    assert _camera_order_after(1, cycle) == (0, 1)

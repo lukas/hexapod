@@ -36,6 +36,11 @@ uv run python linux_control/track_apriltags.py \
   --pose-output phone_checkup.jsonl
 ```
 
+While the preview has keyboard focus, press **C** to switch between camera
+indexes 0 and 1 without ending the diagnostic recording. The active index and
+controls appear at the bottom of the preview. Use `--camera-cycle 0,1,2` if
+more cameras should participate in the cycle.
+
 Add read-only servo/IMU feedback for a signed 18-joint pose and visual-vs-
 encoder zero diagnosis:
 

@@ -2,7 +2,12 @@
   "schema_version": 1,
   "tag_family": "tag36h11",
   "marker_size_m": 0.0378968,
+  "marker_size_verified": false,
   "_comment": "As-photographed layout from apriltags.jpeg on 2026-08-31. Tag 1 is L0, confirmed by the handwritten physical 0. Floor coordinates are anchored at tag 12 and remain valid only while floor tags 12/13/15 do not move.",
+  "tracking": {
+    "max_occlusion_frames": 8,
+    "_comment": "Decoded tags and red boot tips may be bridged for at most eight video frames. Outputs always identify optical-flow and prediction sources."
+  },
   "camera": {
     "_comment": "Approximate iPhone 17 Pro main-camera intrinsics derived from EXIF 24 mm-equivalent focal length at 4284x5712. This is sufficient for a first overlay, not metrology; replace with a real calibration for accurate heights/angles.",
     "image_size_px": [4284, 5712],
@@ -12,7 +17,9 @@
       [0.0, 0.0, 1.0]
     ],
     "distortion_coefficients": [0.0, 0.0, 0.0, 0.0, 0.0],
-    "approximate": true
+    "approximate": true,
+    "allow_center_crop": true,
+    "allow_quarter_turn": true
   },
   "floor_tags": {
     "12": {

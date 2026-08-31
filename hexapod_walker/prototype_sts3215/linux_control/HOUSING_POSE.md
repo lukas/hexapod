@@ -16,8 +16,57 @@ robot, and they never write servo zeros.
 | Tibia | `L*_tibia` | Yaw + absolute tibia/knee angle |
 
 The knee servo is bolted to the femur. Its housing does **not** rotate when its
-own output shaft moves, so motor-housing markers alone provide 12 joint angles,
-not 18. Add one small marker to each tibia to recover the six knees.
+own output shaft moves, so motor-housing markers alone provide 12 signed joint
+angles, not 18. The tracker now detects the existing red boot tips instead of
+requiring fragile tags on the feet. A top-down view measures knee bend
+**magnitude** from tibia foreshortening; it cannot distinguish bending above
+from below the femur plane. Read-only encoders resolve that sign and provide the
+best full 18-joint estimate. A rigid tibia tag remains the purely visual way to
+measure a signed knee angle.
+
+## Live phone zero/checkup view
+
+On macOS, select the iPhone as a Continuity Camera and find its OpenCV camera
+index (often 0 or 1). This opens a live overlay; press Q or Escape to stop:
+
+```sh
+uv run python linux_control/track_apriltags.py \
+  linux_control/apriltag_pose_config_20260831.json \
+  --camera 0 --preview \
+  --pose-output phone_checkup.jsonl
+```
+
+Add read-only servo/IMU feedback for a signed 18-joint pose and visual-vs-
+encoder zero diagnosis:
+
+```sh
+uv run python linux_control/track_apriltags.py \
+  linux_control/apriltag_pose_config_20260831.json \
+  --camera 0 --preview \
+  --robot-url http://hexapod.local:8080 \
+  --pose-output phone_checkup.jsonl \
+  --summary-output phone_checkup_summary.json
+```
+
+`--robot-url` only performs `GET /api/feedback`; the tracker has no POST path
+and sends no motor command. The overlay and `full_pose.zero_check` tell the
+operator which joints appear away from zero. They never invoke `set_zero` or
+move a joint. That boundary is intentional until the camera, mounts, and
+printed size have been physically calibrated and repeated stationary trials
+show that visual/encoder errors are trustworthy.
+
+Each feature records `source`, `confidence`, and `occlusion_age_frames`.
+Decoded tags and color-detected boots are measurements. Optical flow bridges a
+brief decoder/segmentation miss; constant-velocity prediction is bounded to
+eight frames by the supplied config. After that the feature becomes
+unobservable instead of being silently extrapolated.
+
+For walking video, every JSONL frame contains `full_pose.walking_check` and the
+terminal prints a cross-frame `diagnostic_summary`: per-leg visibility,
+floor-projection speed, maximum body tilt, persistent zero-pose errors, and
+persistent visual/encoder disagreements. Use repeated asymmetry and persistent
+disagreement to diagnose a leg; one monocular floor-projection speed is only a
+possible slip signal because the image alone cannot prove foot contact.
 
 ## As-photographed map (2026-08-31)
 
@@ -95,11 +144,20 @@ uv run python linux_control/track_apriltags.py \
 ```
 
 The supplied configuration's iPhone intrinsics are an EXIF-derived first
-estimate. They scale safely to another resolution only at the same aspect
-ratio. Replace `camera_matrix` and `distortion_coefficients` with a checkerboard
-calibration for accurate metric height and tilt. The three mapped floor tags
-then solve the camera extrinsics in every frame; if none is visible, output is
+estimate. The configured `allow_quarter_turn` and `allow_center_crop` adapt the
+matrix to portrait/landscape and the common 16:9 Continuity Camera crop while
+keeping the optical center explicit. Replace `camera_matrix` and
+`distortion_coefficients` with a checkerboard calibration of the actual video
+mode for accurate metric height and tilt. The three mapped floor tags then
+solve the camera extrinsics in every frame; if none is visible, output is
 explicitly camera-relative instead of pretending it is in floor/world axes.
+
+Also measure the black square itself (excluding the white quiet zone) and put
+that value in `marker_size_m`, then set `marker_size_verified` to true. The
+current 37.8968 mm value came from the print-sheet design, not a caliper
+measurement of these physical tags. Until both lens and marker size are
+verified, metric positions and signed video-only knee fits are deliberately
+reported as provisional.
 
 ## Input contract
 

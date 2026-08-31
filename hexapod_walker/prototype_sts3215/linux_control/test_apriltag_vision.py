@@ -21,10 +21,12 @@ if str(_HERE) not in sys.path:
 from apriltag_vision import (  # noqa: E402
     CameraCalibration,
     TagCorners,
+    TemporalTagCornerTracker,
     detect_tag_corners,
     estimate_world_reference,
     marker_object_corners,
 )
+from foot_tip_tracking import FootTipTracker  # noqa: E402
 from housing_pose import RigidTransform  # noqa: E402
 
 
@@ -55,6 +57,26 @@ def test_scales_intrinsics_only_for_same_aspect_ratio() -> None:
         assert "aspect ratios differ" in str(error)
     else:
         raise AssertionError("mismatched aspect ratio should fail")
+
+
+def test_scales_rotated_center_crop_for_landscape_phone_video() -> None:
+    calibration = CameraCalibration.from_dict({
+        "image_size_px": [4284, 5712],
+        "camera_matrix": [
+            [3960.0, 0.0, 2142.0],
+            [0.0, 3960.0, 2856.0],
+            [0.0, 0.0, 1.0],
+        ],
+        "distortion_coefficients": [0, 0, 0, 0, 0],
+        "allow_center_crop": True,
+        "allow_quarter_turn": True,
+    })
+
+    matrix, _ = calibration.for_image(1920, 1080)
+
+    assert np.allclose(matrix[0, 0], 1331.0924, atol=0.01)
+    assert np.allclose(matrix[1, 1], 1331.0924, atol=0.01)
+    assert np.allclose(matrix[:2, 2], [959.664, 540.0], atol=0.5)
 
 
 def test_recovers_camera_pose_from_multiple_floor_tags() -> None:
@@ -129,3 +151,88 @@ def test_as_photographed_config_maps_handwritten_zero_to_l0() -> None:
     assert tags["7"]["frame"] == "L0_femur"
     assert "handwritten 0" in tags["1"]["label"]
     assert set(map(int, config["floor_tags"])) == {12, 13, 15}
+    assert config["marker_size_verified"] is False
+
+
+def test_temporal_tag_tracker_bridges_a_decoder_miss_with_optical_flow() -> None:
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+    marker = cv2.aruco.generateImageMarker(dictionary, 3, 180, borderBits=1)
+    first = np.full((420, 520), 210, dtype=np.uint8)
+    second = first.copy()
+    first[120:300, 150:330] = marker
+    second[126:306, 159:339] = marker
+    tracker = TemporalTagCornerTracker(max_occlusion_frames=3)
+
+    decoded = tracker.update(first, detect_tag_corners(first))
+    carried = tracker.update(second, [])
+
+    assert decoded[0].source == "detected"
+    assert len(carried) == 1
+    assert carried[0].tag_id == 3
+    assert carried[0].source == "optical_flow"
+    assert carried[0].occlusion_age_frames == 1
+    assert np.allclose(
+        carried[0].center_px - decoded[0].center_px, [9.0, 6.0], atol=1.0
+    )
+
+
+def _synthetic_red_foot_scene() -> tuple[np.ndarray, np.ndarray, dict[int, np.ndarray]]:
+    image = np.full((900, 900, 3), 80, dtype=np.uint8)
+    body = np.asarray([450.0, 450.0])
+    anchors: dict[int, np.ndarray] = {}
+    for leg in range(6):
+        angle = (leg + 0.5) * math.pi / 3.0
+        direction = np.asarray([math.cos(angle), math.sin(angle)])
+        anchor = body + 150.0 * direction
+        foot = body + 340.0 * direction
+        anchors[leg] = anchor
+        cv2.ellipse(
+            image,
+            tuple(np.rint(foot).astype(int)),
+            (22, 34),
+            math.degrees(angle),
+            0,
+            360,
+            (0, 0, 240),
+            -1,
+        )
+    return image, body, anchors
+
+
+def test_red_boot_detector_associates_all_six_legs_by_outward_ray() -> None:
+    image, body, anchors = _synthetic_red_foot_scene()
+    tracker = FootTipTracker(max_occlusion_frames=3)
+
+    feet = tracker.update(
+        image,
+        body_center_px=body,
+        femur_anchor_px=anchors,
+        tag_scale_px=60.0,
+    )
+
+    assert [foot.leg for foot in feet] == list(range(6))
+    assert all(foot.source == "color" for foot in feet)
+    for foot in feet:
+        radial_distance = np.linalg.norm(foot.point_px - body)
+        assert 350.0 <= radial_distance <= 385.0
+
+
+def test_red_boot_tracker_marks_short_missing_measurement_as_inferred() -> None:
+    image, body, anchors = _synthetic_red_foot_scene()
+    tracker = FootTipTracker(max_occlusion_frames=3)
+    first = tracker.update(
+        image,
+        body_center_px=body,
+        femur_anchor_px=anchors,
+        tag_scale_px=60.0,
+    )
+    second = tracker.update(
+        image,
+        body_center_px=None,
+        femur_anchor_px={},
+        tag_scale_px=60.0,
+    )
+
+    assert len(first) == len(second) == 6
+    assert all(foot.source in {"optical_flow", "prediction"} for foot in second)
+    assert all(foot.occlusion_age_frames == 1 for foot in second)

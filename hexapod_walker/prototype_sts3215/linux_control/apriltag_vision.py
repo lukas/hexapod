@@ -23,6 +23,7 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from foot_tip_tracking import FootTipObservation, FootTipTracker, robust_tag_scale_px
 from housing_pose import HousingPoseEstimator, RigidTransform
 
 
@@ -45,6 +46,8 @@ class CameraCalibration:
     camera_matrix: np.ndarray
     distortion_coefficients: np.ndarray
     approximate: bool = False
+    allow_center_crop: bool = False
+    allow_quarter_turn: bool = False
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "CameraCalibration":
@@ -64,20 +67,43 @@ class CameraCalibration:
             camera_matrix=matrix,
             distortion_coefficients=distortion,
             approximate=bool(value.get("approximate", False)),
+            allow_center_crop=bool(value.get("allow_center_crop", False)),
+            allow_quarter_turn=bool(value.get("allow_quarter_turn", False)),
         )
 
     def for_image(self, width: int, height: int) -> tuple[np.ndarray, np.ndarray]:
         """Scale intrinsics to a same-aspect-ratio image."""
         ref_w, ref_h = self.image_size_px
+        matrix = self.camera_matrix.copy()
+        target_aspect = width / height
+        original_error = abs(math.log(target_aspect / (ref_w / ref_h)))
+        rotated_error = abs(math.log(target_aspect / (ref_h / ref_w)))
+        if self.allow_quarter_turn and rotated_error < original_error:
+            old = matrix.copy()
+            ref_w, ref_h = ref_h, ref_w
+            matrix = np.asarray([
+                [old[1, 1], 0.0, self.image_size_px[1] - 1.0 - old[1, 2]],
+                [0.0, old[0, 0], old[0, 2]],
+                [0.0, 0.0, 1.0],
+            ])
         sx, sy = width / ref_w, height / ref_h
         if not math.isclose(sx, sy, rel_tol=0.015, abs_tol=0.0):
-            raise ValueError(
-                f"image is {width}x{height}, but calibration is {ref_w}x{ref_h}; "
-                "the aspect ratios differ, so a same-lens scale is unsafe"
-            )
-        matrix = self.camera_matrix.copy()
-        matrix[0, :] *= sx
-        matrix[1, :] *= sy
+            if not self.allow_center_crop:
+                raise ValueError(
+                    f"image is {width}x{height}, but calibration is "
+                    f"{ref_w}x{ref_h}; the aspect ratios differ, so a "
+                    "same-lens scale is unsafe"
+                )
+            scale = max(sx, sy)
+            crop_x = (ref_w * scale - width) / 2.0
+            crop_y = (ref_h * scale - height) / 2.0
+            matrix[0, :] *= scale
+            matrix[1, :] *= scale
+            matrix[0, 2] -= crop_x
+            matrix[1, 2] -= crop_y
+        else:
+            matrix[0, :] *= sx
+            matrix[1, :] *= sy
         matrix[2, :] = [0.0, 0.0, 1.0]
         return matrix, self.distortion_coefficients.copy()
 
@@ -86,6 +112,9 @@ class CameraCalibration:
 class TagCorners:
     tag_id: int
     corners_px: np.ndarray  # decoded corner order, shape (4, 2)
+    source: str = "detected"
+    occlusion_age_frames: int = 0
+    confidence: float = 1.0
 
     @property
     def center_px(self) -> np.ndarray:
@@ -97,6 +126,101 @@ class TagCorners:
         bottom = (self.corners_px[2] + self.corners_px[3]) / 2.0
         y_axis = top - bottom
         return math.degrees(math.atan2(float(y_axis[0]), float(-y_axis[1])))
+
+
+class TemporalTagCornerTracker:
+    """Carry decoded tag corners through brief decoder occlusions."""
+
+    def __init__(self, *, max_occlusion_frames: int = 8) -> None:
+        self.max_occlusion_frames = int(max_occlusion_frames)
+        if self.max_occlusion_frames < 0:
+            raise ValueError("max_occlusion_frames cannot be negative")
+        self._previous_gray: np.ndarray | None = None
+        self._previous: dict[int, TagCorners] = {}
+
+    def reset(self) -> None:
+        self._previous_gray = None
+        self._previous = {}
+
+    @staticmethod
+    def _valid_quad(old: np.ndarray, new: np.ndarray, shape: tuple[int, int]) -> bool:
+        height, width = shape
+        if not np.all(np.isfinite(new)):
+            return False
+        margin = 16.0
+        if np.any(new[:, 0] < -margin) or np.any(new[:, 0] > width + margin):
+            return False
+        if np.any(new[:, 1] < -margin) or np.any(new[:, 1] > height + margin):
+            return False
+        old_area = abs(float(cv2.contourArea(old.astype(np.float32))))
+        new_area = abs(float(cv2.contourArea(new.astype(np.float32))))
+        if old_area < 20.0 or not 0.45 * old_area <= new_area <= 2.2 * old_area:
+            return False
+        return bool(cv2.isContourConvex(new.astype(np.float32)))
+
+    def update(
+        self, image: np.ndarray, detections: Sequence[TagCorners]
+    ) -> list[TagCorners]:
+        gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        current = {
+            item.tag_id: TagCorners(
+                item.tag_id,
+                np.asarray(item.corners_px, dtype=np.float32),
+                source="detected",
+                occlusion_age_frames=0,
+                confidence=1.0,
+            )
+            for item in detections
+        }
+        if self._previous_gray is not None:
+            for tag_id, previous in self._previous.items():
+                if tag_id in current or previous.occlusion_age_frames >= self.max_occlusion_frames:
+                    continue
+                old = previous.corners_px.astype(np.float32).reshape(-1, 1, 2)
+                new, status, error = cv2.calcOpticalFlowPyrLK(
+                    self._previous_gray, gray, old, None,
+                    winSize=(31, 31), maxLevel=3,
+                    criteria=(
+                        cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                        25,
+                        0.01,
+                    ),
+                )
+                if new is None or status is None or not np.all(status == 1):
+                    continue
+                back, back_status, _ = cv2.calcOpticalFlowPyrLK(
+                    gray, self._previous_gray, new, None,
+                    winSize=(31, 31), maxLevel=3,
+                    criteria=(
+                        cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                        25,
+                        0.01,
+                    ),
+                )
+                if back is None or back_status is None or not np.all(back_status == 1):
+                    continue
+                new_points = new.reshape(4, 2).astype(np.float32)
+                fb_error = float(np.max(np.linalg.norm(
+                    back.reshape(4, 2) - old.reshape(4, 2), axis=1
+                )))
+                lk_error = 0.0 if error is None else float(np.max(error))
+                if fb_error > 2.5 or lk_error > 45.0:
+                    continue
+                if not self._valid_quad(
+                    previous.corners_px, new_points, gray.shape[:2]
+                ):
+                    continue
+                age = previous.occlusion_age_frames + 1
+                current[tag_id] = TagCorners(
+                    tag_id,
+                    new_points,
+                    source="optical_flow",
+                    occlusion_age_frames=age,
+                    confidence=max(0.12, 0.72 ** age / (1.0 + fb_error)),
+                )
+        self._previous_gray = gray.copy()
+        self._previous = current
+        return [current[tag_id] for tag_id in sorted(current)]
 
 
 @dataclass(frozen=True)
@@ -181,6 +305,7 @@ def estimate_tag_pose(
     distortion: np.ndarray,
     *,
     marker_size_m: float = DEFAULT_MARKER_SIZE_M,
+    preferred_normal_camera: np.ndarray | None = None,
 ) -> TagPose:
     """Estimate ``camera_from_tag`` with the square-specific PnP solver."""
     object_points = marker_object_corners(marker_size_m)
@@ -194,22 +319,34 @@ def estimate_tag_pose(
     if not result[0] or not result[1]:
         raise ValueError(f"pose solve failed for tag {detection.tag_id}")
     rvecs, tvecs = result[1], result[2]
-    ranked = sorted(
-        (
-            _project_rms(
+    candidates = []
+    for rvec, tvec in zip(rvecs, tvecs):
+        rvec = np.asarray(rvec, dtype=float).reshape(3, 1)
+        tvec = np.asarray(tvec, dtype=float).reshape(3, 1)
+        rms = _project_rms(
                 object_points,
                 detection.corners_px,
-                np.asarray(rvec, dtype=float).reshape(3, 1),
-                np.asarray(tvec, dtype=float).reshape(3, 1),
+                rvec,
+                tvec,
                 camera_matrix,
                 distortion,
-            ),
-            np.asarray(rvec, dtype=float).reshape(3, 1),
-            np.asarray(tvec, dtype=float).reshape(3, 1),
-        )
-        for rvec, tvec in zip(rvecs, tvecs)
-    )
-    rms, rvec, tvec = ranked[0]
+            )
+        rotation_matrix, _ = cv2.Rodrigues(rvec)
+        alignment = 0.0
+        if preferred_normal_camera is not None:
+            expected = np.asarray(preferred_normal_camera, dtype=float).reshape(3)
+            expected /= max(1e-12, float(np.linalg.norm(expected)))
+            alignment = float(np.dot(rotation_matrix[:, 2], expected))
+        candidates.append((rms, alignment, rvec, tvec))
+    # IPPE's planar pair can swap on compressed or downscaled video even when
+    # their reprojection errors differ by only hundredths of a pixel.  With a
+    # floor frame, select the face normal that remains most upward; without
+    # that physical prior preserve the ordinary lowest-RMS behavior.
+    if preferred_normal_camera is None:
+        ranked = sorted(candidates, key=lambda item: item[0])
+    else:
+        ranked = sorted(candidates, key=lambda item: (-item[1], item[0]))
+    rms, _alignment, rvec, tvec = ranked[0]
     rotation_matrix, _ = cv2.Rodrigues(rvec)
     transform = RigidTransform(
         np.asarray(tvec, dtype=float).reshape(3),
@@ -232,6 +369,7 @@ def estimate_world_reference(
     distortion: np.ndarray,
     *,
     marker_size_m: float = DEFAULT_MARKER_SIZE_M,
+    previous_world_from_camera: RigidTransform | None = None,
 ) -> WorldReference | None:
     """Solve camera extrinsics from one or more mapped floor tags."""
     visible = [item for item in detections if item.tag_id in floor_tags]
@@ -239,8 +377,17 @@ def estimate_world_reference(
         return None
 
     if len(visible) == 1:
+        preferred_normal_camera = np.asarray([0.0, 0.0, -1.0])
+        if previous_world_from_camera is not None:
+            preferred_normal_camera = (
+                previous_world_from_camera.rotation.inv().apply([0.0, 0.0, 1.0])
+            )
         tag_pose = estimate_tag_pose(
-            visible[0], camera_matrix, distortion, marker_size_m=marker_size_m
+            visible[0],
+            camera_matrix,
+            distortion,
+            marker_size_m=marker_size_m,
+            preferred_normal_camera=preferred_normal_camera,
         )
         world_from_camera = floor_tags[visible[0].tag_id].compose(
             tag_pose.camera_from_tag.inverse()
@@ -311,6 +458,16 @@ class AprilTagPoseTracker:
         self.calibration = CameraCalibration.from_dict(config["camera"])
         self.floor_tags = _read_transform_map(config.get("floor_tags", {}))
         self.robot_pose_config = dict(config.get("robot_pose", {}))
+        tracking_config = dict(config.get("tracking", {}))
+        max_occlusion = int(tracking_config.get("max_occlusion_frames", 8))
+        self.temporal_tags = TemporalTagCornerTracker(
+            max_occlusion_frames=max_occlusion
+        )
+        self.foot_tracker = FootTipTracker(max_occlusion_frames=max_occlusion)
+        self.marker_size_verified = bool(config.get("marker_size_verified", False))
+        self._joint_history: dict[str, tuple[float, int]] = {}
+        self._previous_floor_feet: dict[int, tuple[np.ndarray, float | None]] = {}
+        self._previous_world_from_camera: RigidTransform | None = None
         self.tag_labels = {
             int(raw_id): str(spec.get("label", spec.get("frame", f"tag {raw_id}")))
             for raw_id, spec in self.robot_pose_config.get("tags", {}).items()
@@ -319,6 +476,17 @@ class AprilTagPoseTracker:
             self.tag_labels[int(raw_id)] = str(
                 spec.get("label", f"floor reference {raw_id}")
             )
+        self.frame_by_tag = {
+            int(raw_id): str(spec["frame"])
+            for raw_id, spec in self.robot_pose_config.get("tags", {}).items()
+        }
+
+    def reset_temporal_state(self) -> None:
+        self.temporal_tags.reset()
+        self.foot_tracker.reset()
+        self._joint_history.clear()
+        self._previous_floor_feet.clear()
+        self._previous_world_from_camera = None
 
     @classmethod
     def from_json(cls, path: Path | str) -> "AprilTagPoseTracker":
@@ -334,10 +502,31 @@ class AprilTagPoseTracker:
         *,
         frame_index: int = 0,
         time_s: float | None = None,
+        encoder_joint_deg: Sequence[float] | Mapping[str, float] | None = None,
     ) -> tuple[dict[str, Any], np.ndarray]:
         height, width = image.shape[:2]
         camera_matrix, distortion = self.calibration.for_image(width, height)
-        corners = detect_tag_corners(image)
+        decoded_corners = detect_tag_corners(image)
+        corners = self.temporal_tags.update(image, decoded_corners)
+        reference = estimate_world_reference(
+            corners,
+            self.floor_tags,
+            camera_matrix,
+            distortion,
+            marker_size_m=self.marker_size_m,
+            previous_world_from_camera=self._previous_world_from_camera,
+        )
+        if reference is None:
+            world_from_camera = RigidTransform.identity()
+            reference_name = "camera"
+            preferred_normal_camera = None
+        else:
+            world_from_camera = reference.world_from_camera
+            self._previous_world_from_camera = world_from_camera
+            reference_name = "floor"
+            preferred_normal_camera = world_from_camera.rotation.inv().apply(
+                [0.0, 0.0, 1.0]
+            )
         poses: list[TagPose] = []
         pose_failures: list[int] = []
         for detection in corners:
@@ -347,23 +536,10 @@ class AprilTagPoseTracker:
                     camera_matrix,
                     distortion,
                     marker_size_m=self.marker_size_m,
+                    preferred_normal_camera=preferred_normal_camera,
                 ))
             except (ValueError, cv2.error):
                 pose_failures.append(detection.tag_id)
-
-        reference = estimate_world_reference(
-            corners,
-            self.floor_tags,
-            camera_matrix,
-            distortion,
-            marker_size_m=self.marker_size_m,
-        )
-        if reference is None:
-            world_from_camera = RigidTransform.identity()
-            reference_name = "camera"
-        else:
-            world_from_camera = reference.world_from_camera
-            reference_name = "floor"
 
         serialized_detections: list[dict[str, Any]] = []
         estimator_detections: list[dict[str, Any]] = []
@@ -381,6 +557,9 @@ class AprilTagPoseTracker:
                 "tag_y_clockwise_from_image_up_deg": round(
                     corner.tag_y_clockwise_from_image_up_deg, 3
                 ),
+                "source": corner.source,
+                "occlusion_age_frames": corner.occlusion_age_frames,
+                "confidence": round(float(corner.confidence), 3),
                 "reprojection_rms_px": round(pose.reprojection_rms_px, 4),
                 "alternate_reprojection_rms_px": (
                     None if pose.alternate_reprojection_rms_px is None
@@ -394,7 +573,8 @@ class AprilTagPoseTracker:
                 "tag_id": pose.tag_id,
                 "camera": "camera0",
                 "camera_from_tag": pose.camera_from_tag.to_dict(),
-                "weight": 1.0 / max(0.05, pose.reprojection_rms_px) ** 2,
+                "weight": corner.confidence
+                / max(0.05, pose.reprojection_rms_px) ** 2,
             })
 
         robot_result: dict[str, Any] | None = None
@@ -405,19 +585,72 @@ class AprilTagPoseTracker:
             }
             robot_result = HousingPoseEstimator.from_dict(
                 pose_config
-            ).estimate_detections(estimator_detections)
+            ).estimate_detections(
+                estimator_detections, encoder_joint_deg=encoder_joint_deg
+            )
             robot_result["pose_reference"] = reference_name
 
+        corners_by_id = {item.tag_id: item for item in corners}
+        body_centers = [
+            corners_by_id[tag_id].center_px
+            for tag_id, frame in self.frame_by_tag.items()
+            if frame == "body" and tag_id in corners_by_id
+        ]
+        body_center = None if not body_centers else np.mean(body_centers, axis=0)
+        femur_anchors: dict[int, np.ndarray] = {}
+        for tag_id, frame in self.frame_by_tag.items():
+            if not (frame.startswith("L") and frame.endswith("_femur")):
+                continue
+            if tag_id not in corners_by_id:
+                continue
+            leg = int(frame[1:frame.index("_")])
+            femur_anchors[leg] = corners_by_id[tag_id].center_px
+        tag_scale = robust_tag_scale_px({
+            tag_id: item.corners_px for tag_id, item in corners_by_id.items()
+            if tag_id in self.frame_by_tag
+        })
+        foot_tips = self.foot_tracker.update(
+            image,
+            body_center_px=body_center,
+            femur_anchor_px=femur_anchors,
+            tag_scale_px=40.0 if tag_scale is None else tag_scale,
+        )
+        foot_records = self._serialize_foot_tips(
+            foot_tips,
+            camera_matrix,
+            distortion,
+            reference,
+            time_s=time_s,
+        )
+        full_pose = self._full_pose_diagnostics(
+            robot_result,
+            foot_tips,
+            camera_matrix,
+            distortion,
+            world_from_camera,
+            tag_scale_px=40.0 if tag_scale is None else tag_scale,
+            encoder_joint_deg=encoder_joint_deg,
+            corners=corners,
+        )
+        full_pose["walking_check"] = self._walking_check(
+            robot_result, full_pose, foot_records
+        )
+
         result: dict[str, Any] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "frame_index": int(frame_index),
             "time_s": None if time_s is None else round(float(time_s), 6),
             "image_size_px": [width, height],
             "tag_family": TAG_FAMILY,
             "marker_size_m": self.marker_size_m,
             "camera_calibration_approximate": self.calibration.approximate,
+            "marker_size_verified": self.marker_size_verified,
             "pose_reference": reference_name,
-            "detected_tag_ids": [pose.tag_id for pose in poses],
+            "detected_tag_ids": [item.tag_id for item in decoded_corners],
+            "tracked_tag_ids": [pose.tag_id for pose in poses],
+            "optical_flow_tag_ids": [
+                item.tag_id for item in corners if item.source == "optical_flow"
+            ],
             "pose_failure_tag_ids": pose_failures,
             "detections": serialized_detections,
             "world_reference": (
@@ -430,9 +663,530 @@ class AprilTagPoseTracker:
                 }
             ),
             "hexapod_pose": robot_result,
+            "foot_tips": foot_records,
+            "full_pose": full_pose,
         }
-        return result, self.annotate(image, corners, poses, result, camera_matrix,
-                                     distortion)
+        return result, self.annotate(
+            image, corners, poses, result, camera_matrix, distortion, foot_tips
+        )
+
+    @staticmethod
+    def _encoder_map(
+        value: Sequence[float] | Mapping[str, float] | None,
+        joint_order: Sequence[str],
+    ) -> dict[str, float]:
+        if value is None:
+            return {}
+        if isinstance(value, Mapping):
+            raw = value.items()
+        else:
+            if len(value) != len(joint_order):
+                raise ValueError("encoder_joint_deg must contain 18 values")
+            raw = zip(joint_order, value)
+        result: dict[str, float] = {}
+        for name, angle in raw:
+            if angle is None:
+                continue
+            number = float(angle)
+            if not math.isfinite(number):
+                continue
+            result[str(name)] = number
+        return result
+
+    @staticmethod
+    def _floor_intersection(
+        point_px: np.ndarray,
+        camera_matrix: np.ndarray,
+        distortion: np.ndarray,
+        world_from_camera: RigidTransform,
+    ) -> np.ndarray | None:
+        normalized = cv2.undistortPoints(
+            np.asarray(point_px, dtype=np.float64).reshape(1, 1, 2),
+            camera_matrix,
+            distortion,
+        ).reshape(2)
+        camera_direction = np.asarray([normalized[0], normalized[1], 1.0])
+        world_direction = world_from_camera.rotation.apply(camera_direction)
+        origin = world_from_camera.translation_m
+        if abs(float(world_direction[2])) < 1e-9:
+            return None
+        distance = -float(origin[2]) / float(world_direction[2])
+        if distance <= 0.0:
+            return None
+        return origin + distance * world_direction
+
+    def _serialize_foot_tips(
+        self,
+        observations: Sequence[FootTipObservation],
+        camera_matrix: np.ndarray,
+        distortion: np.ndarray,
+        reference: WorldReference | None,
+        *,
+        time_s: float | None,
+    ) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        current_legs: set[int] = set()
+        for observation in observations:
+            current_legs.add(observation.leg)
+            record = observation.to_dict()
+            floor_point = None
+            if reference is not None:
+                floor_point = self._floor_intersection(
+                    observation.point_px,
+                    camera_matrix,
+                    distortion,
+                    reference.world_from_camera,
+                )
+            if floor_point is not None:
+                record["floor_intersection_world_m"] = [
+                    round(float(value), 6) for value in floor_point
+                ]
+                previous = self._previous_floor_feet.get(observation.leg)
+                if (previous is not None and time_s is not None
+                        and previous[1] is not None and time_s > previous[1]):
+                    speed = float(np.linalg.norm(
+                        floor_point[:2] - previous[0][:2]
+                    )) / (time_s - previous[1])
+                    record["floor_projection_speed_m_s"] = round(speed, 5)
+                self._previous_floor_feet[observation.leg] = (
+                    floor_point,
+                    time_s,
+                )
+            records.append(record)
+        self._previous_floor_feet = {
+            leg: value for leg, value in self._previous_floor_feet.items()
+            if leg in current_legs
+        }
+        return records
+
+    def _fit_knee_from_tip(
+        self,
+        *,
+        leg: int,
+        tip_px: np.ndarray,
+        yaw_deg: float,
+        hip_deg: float,
+        world_from_body: RigidTransform,
+        world_from_camera: RigidTransform,
+        camera_matrix: np.ndarray,
+        distortion: np.ndarray,
+    ) -> tuple[float, float] | None:
+        geometry = self.robot_pose_config.get("geometry", {})
+        chassis = float(geometry.get("chassis_apothem_m", 0.100))
+        coxa = float(geometry.get("coxa_m", 0.0125))
+        femur = float(geometry.get("femur_m", 0.090))
+        tibia = float(geometry.get("tibia_m", 0.150))
+        hip_y = float(geometry.get("hip_anchor_y_m", -0.02565))
+        azimuth = (leg + 0.5) * math.pi / 3.0
+        yaw = math.radians(yaw_deg)
+        hip = math.radians(hip_deg)
+        leg_rotation = Rotation.from_rotvec([0.0, 0.0, azimuth + yaw])
+        yaw_origin = np.asarray([
+            chassis * math.cos(azimuth),
+            chassis * math.sin(azimuth),
+            0.0,
+        ])
+        hip_origin = yaw_origin + leg_rotation.apply([coxa, hip_y, 0.0])
+        knee_origin = hip_origin + (
+            leg_rotation * Rotation.from_rotvec([0.0, hip, 0.0])
+        ).apply([femur, 0.0, 0.0])
+        camera_from_world = world_from_camera.inverse()
+
+        def projected(knee: float) -> np.ndarray | None:
+            foot_body = knee_origin + (
+                leg_rotation * Rotation.from_rotvec([0.0, knee, 0.0])
+            ).apply([tibia, 0.0, 0.0])
+            camera_point = camera_from_world.apply(
+                world_from_body.apply(foot_body)
+            )
+            if camera_point[2] <= 1e-6:
+                return None
+            pixels, _ = cv2.projectPoints(
+                camera_point.reshape(1, 3),
+                np.zeros(3),
+                np.zeros(3),
+                camera_matrix,
+                distortion,
+            )
+            return pixels.reshape(2)
+
+        grid = np.linspace(-math.pi, math.pi, 361)
+        errors: list[float] = []
+        for angle in grid:
+            pixel = projected(float(angle))
+            errors.append(
+                float("inf") if pixel is None
+                else float(np.linalg.norm(pixel - tip_px))
+            )
+        best = int(np.argmin(errors))
+        if not math.isfinite(errors[best]):
+            return None
+        # A small parabolic refinement is sufficient for a diagnostic signal.
+        angle = float(grid[best])
+        if 0 < best < len(grid) - 1:
+            left, center, right = errors[best - 1:best + 2]
+            denominator = left - 2.0 * center + right
+            if abs(denominator) > 1e-9:
+                fraction = max(-1.0, min(1.0, 0.5 * (left - right) / denominator))
+                angle += fraction * float(grid[1] - grid[0])
+        pixel = projected(angle)
+        if pixel is None:
+            return None
+        return math.degrees(angle), float(np.linalg.norm(pixel - tip_px))
+
+    def _full_pose_diagnostics(
+        self,
+        robot_result: Mapping[str, Any] | None,
+        foot_tips: Sequence[FootTipObservation],
+        camera_matrix: np.ndarray,
+        distortion: np.ndarray,
+        world_from_camera: RigidTransform,
+        *,
+        tag_scale_px: float,
+        encoder_joint_deg: Sequence[float] | Mapping[str, float] | None,
+        corners: Sequence[TagCorners],
+    ) -> dict[str, Any]:
+        if not robot_result or not robot_result.get("ok"):
+            return {
+                "ok": False,
+                "complete": False,
+                "motor_commands_sent": False,
+                "error": "body pose unavailable",
+            }
+        joint_order = list(robot_result["joint_order"])
+        encoders = self._encoder_map(encoder_joint_deg, joint_order)
+        corner_by_frame = {
+            self.frame_by_tag[item.tag_id]: item
+            for item in corners if item.tag_id in self.frame_by_tag
+        }
+        tips = {item.leg: item for item in foot_tips}
+        world_from_body = RigidTransform.from_dict(
+            robot_result["body_pose"]["world_from_body"]
+        )
+        video_knees: dict[int, dict[str, Any]] = {}
+        for leg, tip in tips.items():
+            yaw_record = robot_result["joints"][f"L{leg}_yaw"]
+            hip_record = robot_result["joints"][f"L{leg}_hip"]
+            if not yaw_record["observable"] or not hip_record["observable"]:
+                continue
+            fitted = self._fit_knee_from_tip(
+                leg=leg,
+                tip_px=tip.point_px,
+                yaw_deg=float(yaw_record["value_deg"]),
+                hip_deg=float(hip_record["value_deg"]),
+                world_from_body=world_from_body,
+                world_from_camera=world_from_camera,
+                camera_matrix=camera_matrix,
+                distortion=distortion,
+            )
+            if fitted is not None and fitted[1] <= 1.2 * tag_scale_px:
+                confidence = tip.confidence * max(
+                    0.05, 1.0 - fitted[1] / (1.2 * tag_scale_px)
+                )
+                if self.calibration.approximate or not self.marker_size_verified:
+                    confidence *= 0.45
+                video_knees[leg] = {
+                    "signed_deg": fitted[0],
+                    "absolute_deg": abs(fitted[0]),
+                    "residual_px": fitted[1],
+                    "confidence": confidence,
+                    "source": "foot_tip_kinematic_fit",
+                    "sign_ambiguous": False,
+                }
+                continue
+
+            # A top-down phone view directly observes foreshortening but not
+            # whether the tibia bends above or below the femur plane.  The
+            # inner-to-outer lid-tag distance supplies a scale that cancels
+            # camera distance and the still-unverified printed marker size.
+            coxa_frame = f"L{leg}_coxa"
+            femur_frame = f"L{leg}_femur"
+            if coxa_frame not in corner_by_frame or femur_frame not in corner_by_frame:
+                continue
+            inner = corner_by_frame[coxa_frame].center_px
+            outer = corner_by_frame[femur_frame].center_px
+            femur_vector = outer - inner
+            tibia_vector = tip.component_center_px - outer
+            femur_pixels = float(np.linalg.norm(femur_vector))
+            tibia_pixels = float(np.linalg.norm(tibia_vector))
+            if femur_pixels < tag_scale_px or tibia_pixels < tag_scale_px:
+                continue
+            geometry = self.robot_pose_config.get("geometry", {})
+            femur_m = float(geometry.get("femur_m", 0.090))
+            tibia_m = float(geometry.get("tibia_m", 0.150))
+            straight_pixels = femur_pixels * tibia_m / femur_m
+            ratio = tibia_pixels / straight_pixels
+            alignment_cos = float(
+                np.dot(femur_vector, tibia_vector) / (femur_pixels * tibia_pixels)
+            )
+            alignment_deg = math.degrees(math.acos(np.clip(alignment_cos, -1.0, 1.0)))
+            if ratio > 1.25 or alignment_deg > 35.0:
+                continue
+            magnitude = math.degrees(math.acos(np.clip(ratio, 0.0, 1.0)))
+            confidence = tip.confidence * max(0.1, 1.0 - alignment_deg / 35.0)
+            confidence *= max(0.2, 1.0 - max(0.0, ratio - 1.0) / 0.25)
+            video_knees[leg] = {
+                "signed_deg": None,
+                "absolute_deg": magnitude,
+                "residual_px": None,
+                "alignment_deg": alignment_deg,
+                "confidence": confidence * 0.6,
+                "source": "foot_tip_projection_magnitude",
+                "sign_ambiguous": True,
+            }
+
+        joints: dict[str, dict[str, Any]] = {}
+        disagreement: list[dict[str, Any]] = []
+        current_history: dict[str, tuple[float, int]] = {}
+        for name in joint_order:
+            leg = int(name[1:name.index("_")])
+            axis = name.rsplit("_", 1)[1]
+            direct = robot_result["joints"][name]
+            visual_value = (
+                float(direct["value_deg"]) if direct["observable"] else None
+            )
+            visual_abs_value = None
+            visual_source = None
+            visual_confidence = 0.0
+            residual_px = None
+            if visual_value is not None:
+                frames = direct.get("source_frames", [])
+                relevant = [corner_by_frame[frame] for frame in frames
+                            if frame in corner_by_frame]
+                visual_source = (
+                    "apriltag_optical_flow"
+                    if relevant and any(item.source != "detected" for item in relevant)
+                    else "apriltag"
+                )
+                visual_confidence = min(
+                    (item.confidence for item in relevant), default=0.7
+                )
+            elif axis == "knee" and leg in video_knees:
+                knee_fit = video_knees[leg]
+                visual_value = knee_fit["signed_deg"]
+                visual_abs_value = knee_fit["absolute_deg"]
+                residual_px = knee_fit["residual_px"]
+                visual_confidence = knee_fit["confidence"]
+                visual_source = knee_fit["source"]
+            encoder_value = encoders.get(name)
+
+            # Direct tag angles are the physical calibration check.  Knee-tip
+            # fits are provisional, so a live encoder remains the primary knee.
+            if axis == "knee" and encoder_value is not None:
+                value = encoder_value
+                source = "encoder"
+                confidence = 0.95
+            elif visual_value is not None:
+                value = visual_value
+                source = visual_source
+                confidence = visual_confidence
+            elif encoder_value is not None:
+                value = encoder_value
+                source = "encoder"
+                confidence = 0.90
+            else:
+                previous = self._joint_history.get(name)
+                if previous is None or previous[1] >= self.temporal_tags.max_occlusion_frames:
+                    value = None
+                    source = "unobservable"
+                    confidence = 0.0
+                else:
+                    value = previous[0]
+                    age = previous[1] + 1
+                    source = "temporal_prediction"
+                    confidence = max(0.05, 0.5 ** age)
+
+            age = 0 if source != "temporal_prediction" else self._joint_history[name][1] + 1
+            if value is not None:
+                current_history[name] = (float(value), age)
+            record: dict[str, Any] = {
+                "value_deg": None if value is None else round(float(value), 4),
+                "source": source,
+                "confidence": round(float(confidence), 3),
+                "occlusion_age_frames": age,
+                "visual_deg": None if visual_value is None else round(visual_value, 4),
+                "visual_absolute_deg": (
+                    None if visual_abs_value is None
+                    else round(float(visual_abs_value), 4)
+                ),
+                "visual_source": visual_source,
+                "visual_confidence": round(float(visual_confidence), 3),
+                "encoder_deg": None if encoder_value is None else round(encoder_value, 4),
+            }
+            if axis == "knee" and leg in video_knees:
+                record["vision_sign_ambiguous"] = bool(
+                    video_knees[leg]["sign_ambiguous"]
+                )
+                if "alignment_deg" in video_knees[leg]:
+                    record["foot_chain_alignment_deg"] = round(
+                        float(video_knees[leg]["alignment_deg"]), 3
+                    )
+            if residual_px is not None:
+                record["foot_reprojection_residual_px"] = round(residual_px, 3)
+            if visual_value is not None and encoder_value is not None:
+                delta = (visual_value - encoder_value + 180.0) % 360.0 - 180.0
+                record["visual_minus_encoder_deg"] = round(delta, 4)
+                if abs(delta) > 6.0:
+                    disagreement.append({
+                        "joint": name,
+                        "visual_minus_encoder_deg": round(delta, 3),
+                    })
+            elif visual_abs_value is not None and encoder_value is not None:
+                magnitude_delta = visual_abs_value - abs(encoder_value)
+                record["visual_abs_minus_encoder_abs_deg"] = round(
+                    magnitude_delta, 4
+                )
+                if abs(magnitude_delta) > 22.0:
+                    disagreement.append({
+                        "joint": name,
+                        "visual_abs_minus_encoder_abs_deg": round(
+                            magnitude_delta, 3
+                        ),
+                        "unsigned_visual_estimate": True,
+                    })
+            joints[name] = record
+        self._joint_history = current_history
+
+        vector = [joints[name]["value_deg"] for name in joint_order]
+        missing = [name for name in joint_order if joints[name]["value_deg"] is None]
+        prediction_only = [
+            name for name in joint_order
+            if joints[name]["source"] == "temporal_prediction"
+        ]
+        zero_errors = {
+            name: abs(float(joints[name]["value_deg"]))
+            for name in joint_order if joints[name]["value_deg"] is not None
+        }
+        for name in joint_order:
+            absolute = joints[name].get("visual_absolute_deg")
+            if absolute is not None and name not in zero_errors:
+                zero_errors[name] = float(absolute)
+        out_of_zero = []
+        for name, error in zero_errors.items():
+            unsigned = (
+                joints[name].get("vision_sign_ambiguous", False)
+                and joints[name].get("value_deg") is None
+            )
+            tolerance = 22.0 if unsigned else 5.0
+            if error > tolerance:
+                out_of_zero.append({
+                    "joint": name,
+                    "error_deg": round(error, 3),
+                    "tolerance_deg": tolerance,
+                    "unsigned_visual_estimate": unsigned,
+                })
+        issues: list[str] = []
+        if self.calibration.approximate:
+            issues.append("camera intrinsics are approximate; calibrate this phone lens")
+        if not self.marker_size_verified:
+            issues.append("measure and verify the printed black-square tag size")
+        if len([item for item in corners if item.source == "detected"
+                and item.tag_id in self.frame_by_tag]) < 7:
+            issues.append("fewer than seven robot tags are directly decoded")
+        if len([item for item in foot_tips if item.source == "color"]) < 6:
+            issues.append("one or more boot tips are inferred or hidden")
+        if not encoders:
+            issues.append("no read-only encoder feedback; knee fits are provisional")
+        if disagreement:
+            issues.append("visual and encoder angles disagree on one or more joints")
+        if out_of_zero:
+            issues.append("one or more joints are over 5 degrees from zero")
+
+        measured_complete = not missing and not prediction_only
+        zero_observable = all(
+            joints[name]["value_deg"] is not None
+            or joints[name].get("visual_absolute_deg") is not None
+            for name in joint_order
+        )
+        zero_match = zero_observable and not out_of_zero and not disagreement
+        motor_assist_blockers = list(issues)
+        if not zero_observable:
+            motor_assist_blockers.append("the zero pose is not fully observable")
+        return {
+            "ok": True,
+            "complete": not missing,
+            "signed_complete": not missing,
+            "measured_complete": measured_complete,
+            "motor_commands_sent": False,
+            "joint_order": joint_order,
+            "joint_vector_deg": vector,
+            "joints": joints,
+            "missing_joints": missing,
+            "prediction_only_joints": prediction_only,
+            "calibration_disagreements": disagreement,
+            "zero_check": {
+                "advisory_only": True,
+                "automatic_motion_enabled": False,
+                "ready_for_motor_assist": False,
+                "motor_assist_blockers": motor_assist_blockers,
+                "motor_commands_sent": False,
+                "observable": zero_observable,
+                "direct_tolerance_deg": 5.0,
+                "unsigned_knee_tolerance_deg": 22.0,
+                "matches_zero": zero_match,
+                "out_of_tolerance": out_of_zero,
+                "issues": issues,
+                "next_action": (
+                    "pose matches zero; operator may review before any set-zero action"
+                    if zero_match else
+                    "hand-adjust or diagnose the listed joints; do not command "
+                    "motion from this report"
+                ),
+            },
+        }
+
+    @staticmethod
+    def _walking_check(
+        robot_result: Mapping[str, Any] | None,
+        full_pose: Mapping[str, Any],
+        foot_records: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        tilt = None
+        if (robot_result and robot_result.get("ok")
+                and robot_result.get("pose_reference") == "floor"):
+            euler = robot_result["body_pose"].get("euler_xyz_deg")
+            if euler and len(euler) == 3:
+                tilt = math.hypot(float(euler[0]), float(euler[1]))
+        feet = []
+        for record in foot_records:
+            feet.append({
+                "leg": record["leg"],
+                "source": record["source"],
+                "confidence": record["confidence"],
+                "floor_projection_speed_m_s": record.get(
+                    "floor_projection_speed_m_s"
+                ),
+            })
+        flags: list[str] = []
+        if tilt is not None and tilt > 10.0:
+            flags.append(f"body tilt is large ({tilt:.1f} deg)")
+        if full_pose.get("calibration_disagreements"):
+            flags.append("visual/encoder disagreement suggests stale zeros or tag mounts")
+        direct_feet = sum(item["source"] == "color" for item in feet)
+        if direct_feet < 4:
+            flags.append("too few directly observed feet for reliable gait diagnosis")
+        return {
+            "body_tilt_deg": None if tilt is None else round(tilt, 3),
+            "feet": feet,
+            "flags": flags,
+            "signals_available": {
+                "body_motion": bool(robot_result and robot_result.get("ok")),
+                "foot_trajectories": bool(feet),
+                "encoder_cross_check": any(
+                    record.get("encoder_deg") is not None
+                    for record in full_pose.get("joints", {}).values()
+                ),
+            },
+            "interpretation": (
+                "Across a video, compare body tilt, per-leg trajectories, "
+                "floor-projection speed, and visual-minus-encoder errors to "
+                "find asymmetry, drag, possible slip, or calibration drift."
+            ),
+            "limitation": (
+                "A monocular floor projection is not proof of contact; combine "
+                "it with encoder/FK state before calling motion foot slip."
+            ),
+        }
 
     def annotate(
         self,
@@ -442,6 +1196,7 @@ class AprilTagPoseTracker:
         result: Mapping[str, Any],
         camera_matrix: np.ndarray,
         distortion: np.ndarray,
+        foot_tips: Sequence[FootTipObservation] = (),
     ) -> np.ndarray:
         output = image.copy()
         scale = max(0.55, output.shape[1] / 2600.0)
@@ -450,7 +1205,13 @@ class AprilTagPoseTracker:
         floor_ids = set(self.floor_tags)
         for detection in corners:
             points = np.rint(detection.corners_px).astype(int)
-            color = (40, 210, 40) if detection.tag_id in floor_ids else (0, 210, 255)
+            if detection.source == "optical_flow":
+                color = (255, 150, 35)
+            else:
+                color = (
+                    (40, 210, 40)
+                    if detection.tag_id in floor_ids else (0, 210, 255)
+                )
             cv2.polylines(output, [points], True, color, thickness, cv2.LINE_AA)
             pose = pose_by_id.get(detection.tag_id)
             if pose is not None:
@@ -467,7 +1228,11 @@ class AprilTagPoseTracker:
                 )
             center = detection.center_px.astype(int)
             label = self.tag_labels.get(detection.tag_id, "unmapped")
-            text = f"{detection.tag_id}: {label}"
+            suffix = (
+                "" if detection.source == "detected"
+                else f" [flow {detection.occlusion_age_frames}]"
+            )
+            text = f"{detection.tag_id}: {label}{suffix}"
             cv2.putText(
                 output,
                 text,
@@ -479,9 +1244,30 @@ class AprilTagPoseTracker:
                 cv2.LINE_AA,
             )
 
+        foot_colors = {
+            "color": (40, 40, 255),
+            "optical_flow": (255, 90, 255),
+            "prediction": (150, 150, 150),
+        }
+        for foot in foot_tips:
+            point = tuple(np.rint(foot.point_px).astype(int))
+            color = foot_colors.get(foot.source, (255, 255, 255))
+            cv2.circle(output, point, max(5, thickness * 4), color, thickness + 1,
+                       cv2.LINE_AA)
+            cv2.putText(
+                output,
+                f"L{foot.leg} tip {foot.source}",
+                (point[0] + 12, point[1] + 8),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                scale,
+                color,
+                thickness,
+                cv2.LINE_AA,
+            )
+
         header = (
-            f"tag36h11: {len(poses)} tags | pose ref: "
-            f"{result['pose_reference']}"
+            f"tag36h11: {len(poses)} tracked | feet: {len(foot_tips)}/6 | "
+            f"pose ref: {result['pose_reference']}"
         )
         cv2.putText(
             output, header, (20, 42), cv2.FONT_HERSHEY_SIMPLEX,
@@ -491,4 +1277,30 @@ class AprilTagPoseTracker:
             output, header, (20, 42), cv2.FONT_HERSHEY_SIMPLEX,
             scale, (20, 20, 20), thickness, cv2.LINE_AA,
         )
+        full_pose = result.get("full_pose")
+        if isinstance(full_pose, Mapping) and full_pose.get("ok"):
+            zero = full_pose.get("zero_check", {})
+            errors = zero.get("out_of_tolerance", [])
+            if zero.get("matches_zero"):
+                zero_text = "ZERO CHECK: MATCH (advisory only)"
+                zero_color = (50, 230, 50)
+            elif errors:
+                details = ", ".join(
+                    f"{item['joint']} {item['error_deg']:.1f}deg"
+                    for item in errors[:4]
+                )
+                zero_text = f"ZERO CHECK: ADJUST {details}"
+                zero_color = (0, 170, 255)
+            else:
+                zero_text = "ZERO CHECK: INCOMPLETE / OCCLUDED"
+                zero_color = (0, 170, 255)
+            y = 42 + max(34, round(46 * scale))
+            cv2.putText(
+                output, zero_text, (20, y), cv2.FONT_HERSHEY_SIMPLEX,
+                scale, (20, 20, 20), thickness + 2, cv2.LINE_AA,
+            )
+            cv2.putText(
+                output, zero_text, (20, y), cv2.FONT_HERSHEY_SIMPLEX,
+                scale, zero_color, thickness, cv2.LINE_AA,
+            )
         return output

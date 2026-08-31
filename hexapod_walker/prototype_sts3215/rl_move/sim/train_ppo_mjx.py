@@ -2208,7 +2208,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="checkpoint every N env-steps (0 = end only)")
     ap.add_argument("--snapshot-every", type=int, default=0,
                     help="additionally save a NON-overwriting step-tagged "
-                         "checkpoint copy <out>_at<N>M.zip every N "
+                         "checkpoint copy <out>_s<steps>.zip every N "
                          "env-steps (0 = off, default). Built 08-31 for "
                          "retention/erosion-curve reads: the standwalk "
                          "turn-authority campaign could not localize WHEN "
@@ -4022,8 +4022,7 @@ def main(argv: list[str] | None = None) -> int:
                     - self._last_snapshot >= args.snapshot_every):
                 self._last_snapshot = self.num_timesteps
                 snap_path = out_path.with_name(
-                    f"{out_path.stem}"
-                    f"_at{self.num_timesteps // 1_000_000}M.zip")
+                    f"{out_path.stem}_s{self.num_timesteps}.zip")
                 self.model.save(snap_path)
                 print(f"[mjx-train] erosion snapshot @ "
                       f"{self.num_timesteps:,} -> {snap_path}")

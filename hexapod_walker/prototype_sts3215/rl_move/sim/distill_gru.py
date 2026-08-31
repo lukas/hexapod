@@ -154,6 +154,51 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
     return episodes
 
 
+def mirror_augment_episodes(episodes: list, cfg: dict, obs_dim: int
+                            ) -> list:
+    """Double a BC/DAgger episode batch with left-right MIRRORED
+    copies (standwalk STATUS 08-31 ~11:1x fix path 2 / OPERATOR_
+    QUESTIONS q_20260831T1115Z): every episode's whole obs/action
+    trajectory is reflected via ``mirror.py``'s existing sagittal maps
+    (the same rot60/walk-drift-precedent reflection
+    ``probe_mirror_turn_authority.py`` already validated behaviorally
+    on this lineage's checkpoints) and appended as a SECOND episode
+    with the same mode label.
+
+    Why this fixes (rather than just doubles) the turn-authority
+    asymmetry the 08-31 audit chain found: the dataset audit already
+    proved the RAW collection is sign-balanced (17/90 tip episodes,
+    9 '+' / 8 '-') and the per-tick BC loss is near-symmetric
+    (turn+/turn- MSE within 8%) — yet the CLOSED-LOOP rollout of the
+    resulting checkpoint is starkly asymmetric (one sign frozen, one
+    partial). Mirroring every demo forces the exact SAME optimizer to
+    see, for every '+' trajectory it is handed, an ALGEBRAICALLY
+    IDENTICAL '-' trajectory (and vice versa) at every gradient step —
+    a much stronger symmetry constraint than merely having a balanced
+    but independently-sampled dataset, since independent sampling still
+    lets stochastic optimization drift the two signs apart tick by
+    tick (the compounding mechanism the action-error-split addendum
+    flagged as the live suspect).
+
+    Value targets are copied unchanged: this codebase's reward terms
+    are constructed to be command-symmetric (a fixed cfg-set `wz_cmd`
+    magnitude with either sign should earn the same expected teacher
+    return), matching the same assumption ``MirrorPPO``'s auxiliary
+    loss already makes about the actor without touching the critic.
+    Default OFF (`--mirror-augment`, distill_gru.main); episodes are
+    otherwise returned byte-identical when this is not called.
+    """
+    from .mirror import joint_perm_sign, resolve_obs_mirror_maps
+    op, os_ = resolve_obs_mirror_maps(cfg, obs_dim, walk=True)
+    ap, as_ = joint_perm_sign()
+    out = list(episodes)
+    for mode, obs, act, val in episodes:
+        m_obs = (obs[:, op] * os_).astype(np.float32)
+        m_act = (act[:, ap] * as_).astype(np.float32)
+        out.append((mode, m_obs, m_act, val.copy()))
+    return out
+
+
 def _episode_split(total: int, mix: dict[str, float]) -> dict[str, int]:
     """Split ``total`` episodes across ``mix`` weights (dropping
     zero-weight modes), each mode getting at least 1 episode if its
@@ -641,6 +686,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="total episodes for --dagger-extra-mix, split "
                          "per its weights (same convention as "
                          "--episodes/--mix). 0 (default) = off.")
+    ap.add_argument("--mirror-augment", action="store_true",
+                    help="double every collected episode batch (BC "
+                         "initial pass + every DAgger round) with a "
+                         "left-right MIRRORED copy via mirror.py's "
+                         "sagittal maps, forcing the SAME optimizer to "
+                         "see algebraically-identical +/- trajectories "
+                         "instead of merely a balanced-but-independent "
+                         "sample (standwalk turn-authority asymmetry "
+                         "fix path 2, STATUS 08-31 ~11:1x). Requires "
+                         "goal.walk_yaw_cmd=1 (checked). Default False "
+                         "= no augmentation, byte-identical behavior.")
     ap.add_argument("--stochastic-frac", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--gru-hidden-size", type=int, default=256)
@@ -712,6 +768,13 @@ def main(argv: list[str] | None = None) -> int:
     params = SimServoParams.load()
     cfg = _build_cfg(({"obs.mode_onehot": 1.0} if mode_gated else {})
                      | cfg_overrides)
+    if args.mirror_augment:
+        from rl_move.config import cfg_get
+        if float(cfg_get(cfg, "goal", "walk_yaw_cmd", default=0.0)) != 1.0:
+            raise SystemExit(
+                "--mirror-augment requires goal.walk_yaw_cmd=1 (the "
+                "mirror obs map's wz_ref sign-flip is only meaningful "
+                "if the yaw command is actually in the obs)")
 
     walk_teacher = PPO.load(args.walk_teacher, device="cpu")
     stance_teacher = PPO.load(args.stance_teacher, device="cpu")
@@ -776,10 +839,15 @@ def main(argv: list[str] | None = None) -> int:
         seq_eps, _seq_stats = collect_transitions(
             seq_env, teachers, args.transitions, args.stochastic_frac,
             rng, args.seq_verify, args.seq_verify_max_falls)
+        if args.mirror_augment:
+            seq_eps = mirror_augment_episodes(seq_eps, cfg, n_env_obs)
         episodes.extend(seq_eps)
 
-    episodes.extend(collect(envs, teachers, episodes_by_mode,
-                            args.stochastic_frac, rng))
+    initial_eps = collect(envs, teachers, episodes_by_mode,
+                          args.stochastic_frac, rng)
+    if args.mirror_augment:
+        initial_eps = mirror_augment_episodes(initial_eps, cfg, n_env_obs)
+    episodes.extend(initial_eps)
     n_steps_total = sum(len(a) for _, _, a, _ in episodes)
     print(f"[distill-gru] {len(episodes)} episodes, "
           f"{n_steps_total} transitions")
@@ -819,6 +887,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             new_eps = collect_dagger(envs, student, teachers,
                                      dagger_by_mode)
+        if args.mirror_augment:
+            new_eps = mirror_augment_episodes(new_eps, cfg, n_env_obs)
         episodes.extend(new_eps)
         if extra_by_mode:
             # Second, single-mode targeted pass (see --dagger-extra-mix
@@ -827,6 +897,9 @@ def main(argv: list[str] | None = None) -> int:
             # they trigger hard falls.
             extra_eps = collect_dagger(envs, student, teachers,
                                        extra_by_mode)
+            if args.mirror_augment:
+                extra_eps = mirror_augment_episodes(
+                    extra_eps, cfg, n_env_obs)
             episodes.extend(extra_eps)
             print(f"[distill-gru] dagger round {rnd + 1} extra pass: "
                   f"+{len(extra_eps)} eps {extra_by_mode}")

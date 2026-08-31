@@ -260,17 +260,19 @@ def make_mirror_ppo_class():
     return MirrorPPO
 
 
-def attach_mirror(model, *, coef: float, task: str, cfg: dict | None,
-                  obs_dim: int) -> None:
-    """Wire the mirror maps onto a (Mirror)PPO model, validating the
-    layout against the env's actual obs width. Raises on any mismatch
-    or unsupported task so a layout drift can never train silently."""
+def resolve_obs_mirror_maps(cfg: dict | None, obs_dim: int, *,
+                            walk: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    """cfg-driven wrapper around ``obs_perm_sign``: reads the same
+    ``goal.walk_yaw_cmd`` / ``goal.walk_phase_obs`` / ``obs.mode_onehot``
+    / ``obs.history_frames`` keys ``attach_mirror`` already used for
+    MirrorPPO, validates the resulting map width against ``obs_dim``,
+    and raises loudly on any mismatch instead of training/collecting
+    silently on a stale layout. Single source of truth shared by
+    ``attach_mirror`` (PPO training) and ``distill_gru.py``'s
+    ``--mirror-augment`` (BC dataset augmentation) — both need the
+    IDENTICAL flag resolution, and a copy-pasted second version is
+    exactly how these two would drift apart unnoticed."""
     from rl_move.config import cfg_get
-    if task not in ("joint_goal", "joint_walk"):
-        raise SystemExit(
-            f"train.mirror_loss_coef set but task {task!r} has no "
-            "mirror maps (only joint_goal / joint_walk layouts)")
-    walk = task == "joint_walk"
     yaw = walk and float(
         cfg_get(cfg, "goal", "walk_yaw_cmd", default=0.0)) == 1.0
     phase = walk and float(
@@ -284,8 +286,22 @@ def attach_mirror(model, *, coef: float, task: str, cfg: dict | None,
     if len(perm) != int(obs_dim):
         raise SystemExit(
             f"mirror maps expect obs dim {len(perm)} (walk={walk} "
-            f"yaw={yaw} phase={phase} mode={mode} hist={hist}) but env "
-            f"has {obs_dim} — obs layout drifted, fix mirror.py first")
+            f"yaw={yaw} phase={phase} mode={mode} hist={hist}) but got "
+            f"{obs_dim} — obs layout drifted, fix mirror.py first")
+    return perm, sign
+
+
+def attach_mirror(model, *, coef: float, task: str, cfg: dict | None,
+                  obs_dim: int) -> None:
+    """Wire the mirror maps onto a (Mirror)PPO model, validating the
+    layout against the env's actual obs width. Raises on any mismatch
+    or unsupported task so a layout drift can never train silently."""
+    if task not in ("joint_goal", "joint_walk"):
+        raise SystemExit(
+            f"train.mirror_loss_coef set but task {task!r} has no "
+            "mirror maps (only joint_goal / joint_walk layouts)")
+    walk = task == "joint_walk"
+    perm, sign = resolve_obs_mirror_maps(cfg, obs_dim, walk=walk)
     ap, asgn = joint_perm_sign()
     model.mirror_coef = float(coef)
     model.mirror_obs_perm = perm

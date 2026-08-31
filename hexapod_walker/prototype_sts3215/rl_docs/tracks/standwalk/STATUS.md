@@ -31,9 +31,13 @@ one. Order of work:
    (wz/wz-trend critic feature, value-warmup) is the RL-side branch
    AFTER a turning base exists — pair it with a no-critic-fix control.
 
-yawscale5x/15x (8th class, in flight as of this writing) still gets an
-honest verdict, but per the above no 9th actor/critic-side class funds
-on the current non-turning base.
+yawscale5x/15x (8th class) BOTH now verdicted CANARY FAIL - MECHANISM
+(08-31 10:00/10:10): reward path confirmed scaling through proportionally
+(reward_walk_yaw base 0.114 -> 5x 0.581 -> 15x 1.942) with gait intact
+both doses, yet wz_med stayed <0.03 both signs at both doses -- reward
+SALIENCE is now exonerated too, closing all 8 pre-registered mechanism
+classes. No 9th actor/critic-side class funds on the current non-turning
+base; the priority-reorder audit (item 1 above) is the live next step.
 
 Update, 2026-08-31 ~09:4x (no verdict this cycle — `stdwalk-hi` was
 already joint-verdicted by the concurrent cycle handling `-mild`

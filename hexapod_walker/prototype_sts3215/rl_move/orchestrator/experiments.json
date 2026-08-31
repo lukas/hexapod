@@ -236911,7 +236911,7 @@
       "safety.over_current_trip_s=999999"
     ],
     "created": "2026-08-30T22:22:34+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -236957,7 +236957,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkcurr-litrep-box-s0 since 2026-08-31T02:25:24"
+    "triage": "done",
+    "verdict": "Park-stand/no-gait at full 150M budget, matching the pre-committed retirement pattern (ruling d). Evidence: (1) training curves -- env/reward_walk (the only nonzero walk-reward term, k_walk_freeprog=0.06) stayed FLAT ~0.06-0.11 the entire 150M run (no upward trend at 2M, 75M, or 150M), env/walk_speed plateaued at 0.011-0.012 m/s the whole second half of training, decisively BELOW the 0.02 m/s static-floor litmus the hypothesis itself required to clear; ep_rew_mean's slow 110->185 rise is non-walk income (default hold/unload/rise reward components baked into the general reward fn), not a walking signal -- so this is the 08-21 ruling's genuine-FAIL case (reward AND task metric both flat with more-than-adequate budget), not a 'needs more budget/misaligned reward' case. (2) own-cfg harness gate (fresh pod eval, mesh/100Hz, per-mode n=6 det+sto+startjitter): det walk 0/6, gait_valid 0/6, sacrificed legs [0,2,4] (half the legs never swing at all), prog_ratio 0.01 (gate wants >=0.35), dir_err_mean 72.7deg (gate wants <=30), speed_mean 0.001 m/s; sto walk 0/6, gait_valid 4/6 but slip/m 25.4 (gate wants <=3.0) from in-place foot scuffing, prog_ratio 0.02; walk_startjitter det+sto match. Zero tilt terminations/falls both modes (ep_len maxed, roll clean) -- it is a stable, safe, static stand, not a fall. (3) video (walk_det_0, walk_sto_0 frame strips, own pod): robot's pose is visually IDENTICAL frame-to-frame across the full 25s episode in both det and sto -- textbook park-stand, no net travel, confirming forward_dist_m=0.011 over 25s. This was the FINAL pre-registered literature-replication wave (Rudin 2021 budget-scale, Walk-in-the-Park tight action box, plain velocity reward, over-current clamped not terminated) -- a from-scratch mechanism search that has now been tried at 17+ mechanism classes plus this literature-matched recipe and found the same static-stance local optimum every time. Sibling seed cw-walkcurr-litrep-box-s1 shows an identical pre-gate training-curve pattern (env/walk_speed 0.0126 m/s at 150M, direction_err 54-90deg throughout, flat env/reward_walk) but its own harness gate is still computing on a concurrently-owned cycle (train-0, ledger in-cycle claim since 02:30) -- NOT verdicted here; once it lands, if it also reads park-stand, ruling (d) is satisfied 2/2 and walkcurr should be recorded RETIRED (walkteach carries walking) in STATUS.md/tracks-level docs, citing both verdicts."
   },
   {
     "run": "cw-walkcurr-litrep-box-s1",
@@ -238485,7 +238486,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-31T02:37:30+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -238532,7 +238533,9 @@
           "fps 4369 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (joint with seed1 twin cw-standwalk-stage2-dualbc5-turncap-turnpay-canary-s1; identical finding, full evidence text on that verdict). probe_turn_authority on THIS checkpoint (controller-side, same 96-key cfg-set, wz_cmd=+-0.25, walk-mode-filtered): wz_med -0.0001/-0.0018 (wz_cmd=+0.25, seeds 0/1) and -0.0243/-0.0083 (wz_cmd=-0.25, seeds 0/1) -- every reading under the gate's own 0.03 FAIL threshold both signs. Training telemetry matches the s1 twin: env/walk_yaw_kernel_factor erodes 0.31->0.06-0.09, env/walk_wz pinned near 0 the whole 2M run. Joint result: BOTH seeds land squarely in the pre-registered FAIL clause (not PARTIAL -- neither sign clears even 0.03, let alone the 0.08 PASS bar or the 0.03/0.08 split PARTIAL needs). This is the 3rd independently-designed turn-authority mechanism class refuted on the walkteach/dualbc stage-2 lineage (after turndiet and turnpay/walkteach) and the first to fail EVEN THOUGH the base checkpoint demonstrably had a real (if weak+asymmetric) partial escape pre-RL -- RL training on the bank-proven OMNI turn reward stack made that partial signal SMALLER, not bigger. See s1 verdict for the full decisive-finding writeup and named follow-up (BC-anchor turn-tick weighting is the leading suspect, not yet root-caused)."
   },
   {
     "run": "cw-standwalk-stage2-dualbc5-turncap-turnpay-canary-s1",
@@ -238776,7 +238779,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-31T02:46:14+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -238821,6 +238824,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (joint with seed0 twin cw-standwalk-stage2-dualbc5-turncap-turnpay-canary; same finding both checkpoints). Result: probe_turn_authority (own cfg, wz_cmd=+-0.25, walk-mode-filtered, controller-side CPU rollout on the synced checkpoint) on this seed's POST-RL checkpoint gives wz_med +0.0009/+0.0035 (wz_cmd=+0.25, seeds 0/1) and -0.0217/-0.0090 (wz_cmd=-0.25, seeds 0/1) -- every reading under the 0.03 frozen-body FAIL threshold both signs, so the gate's own disjunctive FAIL clause ('wz_med < 0.03 both signs') is met outright; PARTIAL/DIG-IN does not apply since neither sign reaches even the 0.03 floor, let alone the 0.08 PASS bar. Twin seed0 checkpoint probed identically (same 96-key cfg-set, same tool invocation) for the joint read: wz_med -0.0001/-0.0018 (+0.25) and -0.0243/-0.0083 (-0.25) -- same frozen-body shape. Cross-checked against training telemetry (both runs' wandb_history.csv): env/walk_yaw_kernel_factor erodes 0.31-0.33 -> 0.06-0.09 over the run, env/walk_wz stays pinned in [-0.012,+0.004] the whole 2M budget on both seeds -- identical erosion signature to the already-FAILed turndiet/turnpay-walkteach canaries, confirming this is real and reproducible, not eval noise. DECISIVE NEW FINDING vs the pre-registration: this canary existed specifically because the PRE-RL dualbc5_turncap distillation (bc1_std25 walk-teacher + turn ticks in the diet) showed a real, if weak+asymmetric, partial escape off frozen-body (wz_cmd=-0.25 gave wz_med -0.038/-0.048 pre-RL). Post-RL, that partial signal did not survive intact -- it SHRANK to -0.008/-0202 (roughly 2-5x smaller in magnitude), while the +0.25 direction stayed at ~0 both before and after. So the bank-proven OMNI turn reward stack (k_walk_yaw, walk_yaw_kernel_gate, k_yaw_prog+overshoot-decay, k_yaw_still=50, walk_yaw_hold_prog_gate) applied on top of a turn-capable base ERODED rather than amplified the pre-existing partial turn authority. This refutes the diet/teacher-fix hypothesis at the RL stage: fixing the distillation base (turncap) was necessary but not sufficient -- something in the RL training itself (reward stack, BC-anchor pull, or PPO exploration collapse) actively destroys turn signal that demonstrably existed going in. Not further root-caused this cycle (disjunctive FAIL clause already decisive; deeper mechanism analysis -- e.g. whether the phase-locked BC anchor's omega-driven scripted-gait supervision is being correctly weighted during turn-in-place ticks vs being drowned by the majority straight-walk ticks under bc_anchor_coef=3.0 -- is real follow-up work, not needed to close this canary's own pre-registered gate)."
   }
 ]

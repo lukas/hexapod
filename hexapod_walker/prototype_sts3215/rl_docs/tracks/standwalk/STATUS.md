@@ -1,5 +1,102 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~03:4x (`dualbc5-turncap-turnpay-canary{,-s1}`
+JOINT VERDICT: **CANARY FAIL - MECHANISM**, 3rd turn-authority
+mechanism class refuted). Plain English: this canary existed because
+the pre-RL `dualbc5_turncap` distillation (bc1_std25 walk-teacher,
+turn ticks actually in the collection diet) showed a real, if
+weak+asymmetric, partial escape off frozen-body pre-RL (wz_cmd=-0.25
+gave wz_med -0.038/-0.048). The hypothesis was that RL fine-tuning
+with the bank-proven OMNI turn reward stack on top of that
+turn-capable base would grow that signal to >=0.08 both signs. It did
+the opposite: `probe_turn_authority` on both post-RL checkpoints
+(controller-side, same 96-key cfg-set, wz_cmd=+-0.25) reads wz_med
++0.0009/-0.0018 (wz_cmd=+0.25) and -0.0217/-0.0243 (wz_cmd=-0.25)
+across both seeds — every reading under the gate's own 0.03 FAIL
+floor, and the `-0.25` direction actually SHRANK 2-5x from its pre-RL
+value. Training telemetry corroborates on both seeds:
+`env/walk_yaw_kernel_factor` erodes 0.31-0.33 -> 0.06-0.09 over the
+2M run, `env/walk_wz` stays pinned near 0 throughout — same erosion
+shape as the already-FAILed `turndiet` and `turnpay/walkteach`
+canaries. **New conclusion: fixing the distillation base (turn-capable
+teacher + turn ticks in the diet) was necessary but not sufficient —
+something in the RL stage itself (BC-anchor pull, reward-stack
+interaction, or PPO exploration collapse) actively destroys turn
+signal that demonstrably existed going in.** Not root-caused this
+cycle (the gate's disjunctive FAIL clause is already decisive on the
+numbers alone). Leading suspect for a future cycle: the phase-locked
+BC anchor (`bc_anchor_phase_lock`, `bc_anchor_walk_coef=1.0`,
+`bc_anchor_coef=3.0`) IS coded to drive its scripted-gait reference
+with `omega=wz_ref` on commanded turn ticks (`sim_env.py` ~4590-4650,
+the `bc_anchor_phase_lock` branch) — the anchor is not naively
+straight-line-only — but the imitation pull may still be dominated by
+the majority straight-walk ticks at this diet's dose
+(`walk_turn_in_place_frac=0.30`, `walk_yaw_zero_frac=0.5`) under a
+strong `bc_anchor_coef`, drowning the yaw reward's incentive at the
+minority turn ticks. A future arm should isolate this (e.g. an
+ablation with `bc_anchor_coef` lowered or the anchor pull gated off
+specifically on turn-in-place ticks) before trying yet another
+diet/teacher swap — that axis (diet composition) is now the one
+credibly untried lever; teacher choice (turndiet -> turnpay ->
+turncap) and RL-reward-stack choice (turndiet's own bank) have both
+been tried and both failed. Evidence:
+`logs/ckpt_eval/turncap_turnpay_probe_{s0,s1}.json` (== /tmp copies,
+not yet archived), `logs/experiments/cw-standwalk-stage2-dualbc5-
+turncap-turnpay-canary{,-s1}/wandb_history.csv`. The runs' own
+gate/owncfg/mixedsession harnesses were left running on-pod
+(train-1/train-4, already in flight before this verdict, harmless
+background CPU work) — they only mattered for the PASS-path retention
+checks, moot now that the FAIL clause is met; a later cycle may still
+read them for supplementary gait-health evidence on this lineage.
+Swept other tracks: joystick/amp/cpg DONE-or-maintenance unchanged,
+todaypolicy delivered, walkcurr litrep-box-s1 pending under a
+concurrent cycle (train-0), walkheavy-acq8m-s1 purewalk_det pending
+under a concurrent cycle (train-2). `capacity.py` shows all 12 GPU
+training slots free (no run left mid-training after this verdict) but
+no standwalk arm is launch-ready without first designing the
+anchor-ablation follow-up named above — that is real design/code work
+for a future cycle, not filler to rush this cycle. CYCLE_WORKED.
+
+Update, 2026-08-31 ~03:1x (no verdict this cycle on the assigned
+`cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m-s1` — genuinely
+mid-flight, plus one real tooling gap closed). Plain English: the
+run finished training clean (8.06M steps, reward quarters
+[-81.7,-50.3,135.2,446.9], rising) but its joint gate needs a
+pure-walk (`goal.mode_seq=0`) det read, and the standard prestage
+harness for this run only computes the mixed-session `_gate`/`_owncfg`
+(mode_seq=0.75) — the exact trap the acq8m(-s1, old lineage) verdict
+already named as a false-read source. Built and launched that missing
+read on the run's own pod (train-2, no ledger conflict — seed0 lives
+on train-1): pure-walk det, `--modes walk --per-mode 8`, `goal.
+mode_seq=0.0` override on top of the run's own full cfg-set, output ->
+`logs/ckpt_eval/cw_standwalk_stage2_dualbc4_walkteach_walkheavy_acq8m_s1_purewalk_det/`
+(mirrors the exact recipe that decided the old acq8m-s1 FAIL). Also
+confirmed the watcher's own standard `_gate`/`_owncfg`/`_mixedsession`
+harness for this run was ALREADY running remotely (started before
+this cycle spawned, per `pod_eval.py`'s dedup check) — left it alone,
+not duplicated. Polled ~55 min (ps-confirmed 13 eval_checkpoint
+processes alive on train-2, video-file timestamps advancing): gate
+7/24 episodes, owncfg 8/24, purewalk_det 2/16 — three full
+`eval_checkpoint` passes sharing one pod's cores is genuinely slower
+than the single-pass historical 1.5-3h class, projecting nearer
+3-4h total. No report.json yet on any of the three; verdict deferred
+per the interpretation ruling (do not snap-call a mid-flight harness).
+**Next cycle: read `..._purewalk_det/report.json` first (decides the
+joint gate's progress_ratio/slip/gait_valid/course clauses), then
+`..._gate`+`..._owncfg` for the RETENTION clause (rise_det/lower_det
+vs the old acq8m-s1 band), then verdict jointly with whatever the
+concurrent cycle has recorded for seed0.** Swept other tracks:
+joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr
+litrep-box wave is the concurrent cycle's own scope (train-0/train-3),
+dualbc5-turncap-turnpay-canary (train-1/train-4) is training,
+untouched per this cycle's explicit hands-off list. backlog.json
+empty; 12 GPU pods' training slots show only train-1 busy (the
+turncap canary) — no other track has a legal, unblocked launch this
+cycle (every standwalk next-step is sequenced behind one of the two
+in-flight reads above). CYCLE_WORKED (new pure-walk det harness
+invocation designed+launched, correct-by-construction against the
+documented mode_seq=0.75 eval trap, not a re-verify no-op).
+
 Update, 2026-08-31 ~02:3x (dualbc5_turncap-turnpay-canary{,-s1} LAUNCHED
 — pre-registered next step executed, VERIFIED RUNNING). Plain English:
 ran the probe the prior cycle's decision tree called for on the raw

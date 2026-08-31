@@ -43,7 +43,35 @@ WAITING-ON), the closest analogue to the spend-approval carve-out.
 Rebuilding a semantics bank for the already-refuted swing diet would
 be filler.
 
-## Now (2026-08-30 ~20:3x — OPERATOR LITERATURE RULING: BLOCKED state lifted for ONE final pre-registered literature-replication wave; action BOX built; wave launched)
+## Now (2026-08-31 ~02:5x — litrep-box-s0 read: FAIL, park-stand/no-gait at 150M; s1 pending, concurrent cycle)
+
+`cw-walkcurr-litrep-box-s0` (150M, tight action box + plain velocity
+reward + over-current clamp, the final pre-registered literature wave
+below) is verdicted **FAIL**: own-cfg gate harness det walk 0/6,
+gait_valid 0/6, sacrificed legs [0,2,4] (half the legs never swing),
+prog_ratio 0.01 (gate wants >=0.35), dir_err_mean 72.7deg (gate wants
+<=30), speed_mean 0.001 m/s; sto walk 0/6, gait_valid 4/6 but slip/m
+25.4 from in-place scuffing. Training curves: `env/reward_walk` (the
+only nonzero walk-reward term) stayed flat ~0.06-0.11 for the full
+150M steps, `env/walk_speed` plateaued 0.011-0.012 m/s (never cleared
+the 0.02 static-floor litmus). Video (own pod, det+sto frame strips):
+robot's pose is visually identical frame-to-frame across the full 25s
+episode — textbook static stand, zero net travel. This is the 08-21
+ruling's genuine-FAIL case (reward AND task metric both flat with a
+literature-scale budget), not a misalignment/continue case. Sibling
+`cw-walkcurr-litrep-box-s1` shows an identical pre-gate training-curve
+signature (walk_speed 0.0126 m/s at 150M, dir_err 54-90deg throughout)
+but its own harness gate was still computing under a concurrently-
+owned cycle (train-0) when s0 was verdicted — **not yet verdicted**.
+**Binding next step:** once s1's own gate lands, if it also reads
+park-stand/no-gait, ruling (d) below is satisfied 2/2 — record
+walkcurr **RETIRED** (honest DONE-negative scope finding, walkteach
+carries walking) in this file's top banner and in the campaign
+`STATUS.md`/`tracks.json` note, citing both verdicts. Do not launch
+any further litrep-box-style arms in the meantime; the wave is closed
+pending s1's read.
+
+## Prior Now (2026-08-30 ~20:3x — OPERATOR LITERATURE RULING: BLOCKED state lifted for ONE final pre-registered literature-replication wave; action BOX built; wave launched)
 
 Plain English: the operator answered the 10:2x BLOCKED state with a
 literature-based ruling (Rudin 2021 legged_gym; Smith 2022 Walk in the

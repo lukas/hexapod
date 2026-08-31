@@ -1,5 +1,84 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~01:1x (turnpay-canary-s1 verdict CONFIRMED
+already-recorded by the concurrent cycle handling the seed0 parent
+— joint CANARY FAIL - MECHANISM, spot-checked against
+`/tmp/turnpay_probe_s{0,1}.json` directly, matches exactly, no
+further action needed on that pair. **New work this cycle: executing
+the "leading next step" the joint verdict itself named** ("architecture/
+obs-channel resurrection via targeted BC on turn episodes harvested
+from the omega-conditioned scripted gait" — not another reward-
+coefficient sweep). Plain English: every dualbc-line stage-2 base to
+date was distilled from `..._acq12m` — the all-heading walk teacher
+AFTER 12M steps of RL with `walk_yaw_zero_frac=1.0` (literally never
+saw a turn command) — a lineage that plausibly forgot the turn-in-
+place motor pattern its own BC-init ancestor demonstrably had
+(`ppo_goal_cw_walkteach_scripted_allhead_bc1_std25.zip`'s own
+`eval_cmd_suite` panel already measured wz~=0.23/0.3 correct sign,
+08-30 15:4x entry above). Root cause of "zero exploitable wz signal"
+across turndiet AND turnpay may simply be: the stage-2 BC-anchor
+dataset itself never contained a real turn demonstration (distill_gru's
+own collection env used the acq12m-derived cfg with
+`walk_yaw_zero_frac=1.0`, i.e. zero turn ticks, regardless of which
+reward stack RL later applied on top). Fix, not a hypothesis needing
+new code — the tooling already exists (`bc_init_gait.py --drive-omega`,
+08-22; `distill_gru.py --cfg-set` passthrough, 08-14): re-ran the
+Stage-2 BC/DAgger distillation with (a) `--walk-teacher
+ppo_goal_cw_walkteach_scripted_allhead_bc1_std25.zip` (the turn-
+capable clone, NEVER RL'd, so it cannot have forgotten turning) in
+place of `acq12m`, same stance teacher
+(`ppo_goal_cw_standwalk_stance_mesh2_stancemix_bcchain3_stdanneal.zip`),
+same `--mix walk=0.30,rise=0.40,lower=0.15,hold=0.15 --episodes 100
+--epochs 25 --dagger-rounds 2 --dagger-episodes 100` recipe as
+dualbc4_walkteach; (b) the SAME merged walk+stance cfg-set union
+built the identical way (83 keys, 2 overlaps `control.hz`/
+`train.bc_anchor_coef`, both identical) BUT with
+`goal.walk_yaw_zero_frac` 1.0->0.5 and `goal.walk_turn_in_place_frac`
+0.0->0.30 added — turnpay's own denser-exposure dose — so the
+collection env actually PRESENTS turn-in-place ticks to a teacher that
+can really execute them, for the first time in this lineage. Smoke-
+tested first (8 episodes/2 epochs/0 dagger, dualbc2 lesson): zero
+crashes, `walk obs 75, stance obs 68` (plug-compatible, matches
+dualbc4's own smoke shape). Launched the real-scale run, background
+CPU nohup (same class as every prior distill_gru arm, not GPU/ledger-
+tracked): `logs/distill_gru/dualbc5_turncap.log` ->
+`rl_move/sim/policies/ppo_goal_cw_standwalk_stage2_dualbc5_turncap.zip`.
+Still running at cycle end (~14-15 min elapsed, matching dualbc4's
+own real-time class; its stdout is fully-buffered to the log file so
+no incremental read was possible — only the final flush on exit will
+show the collect/epoch/probe lines). **Next cycle, in order:** (1)
+read the tool's own built-in `quick_probe` walk net-displacement
+line at the tail of the log (the dualbc2 lesson — do not fund a GPU
+canary on an undiagnosed walk clone); (2) if it clears ~0.05m, run
+`probe_turn_authority.py` directly on the raw distilled checkpoint
+(BEFORE any RL) with the same merged cfg-set — if `wz_med` moves
+meaningfully off the frozen-body prediction (`|wz_cmd|`) for the
+first time in this lineage, that CONFIRMS the root cause was teacher/
+diet choice, not an architecture/obs-channel dead end, and the
+prediction-if-false branch (irrecoverable obs channel) is refuted;
+(3) promote to a fresh 2-seed 2M canary, reusing the byte-identical
+bank-proven turnpay reward stack (core turn bank already GREEN this
+cycle) via `launch_run.py respec --from
+cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary --run
+cw-standwalk-stage2-dualbc5-turncap-turnpay-canary --arg
+'--init-from=rl_move/sim/policies/ppo_goal_cw_standwalk_stage2_dualbc5_turncap.zip'
+--seed 0` (+ seed-1 twin) — same gate (wz_med>=0.08 both signs PASS,
+<0.03 FAIL, det walk gait_valid>=5/6, progress not hard-regressed vs
+the 0.43-0.48 band). If turn authority is STILL frozen even off a
+teacher/diet that demonstrably can turn, that would be the actually
+strong negative for "no exploitable wz signal" — worth escalating past
+reward/diet tuning into the GRU obs-embedding itself. GPU capacity
+recheck: 8 pods free (train-4..11); concurrent cycle owns
+`walkheavy-acq8m{,-s1}` (train-1/2, a different lever — mix-share
+walk regression, not turn authority) and `walkcurr-litrep-box-{s0,s1}`
+(train-0/3, different track); no other legal standwalk GPU launch
+until dualbc5_turncap lands (can't canary a base that doesn't exist
+yet). Other tracks re-swept: joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr's litrep-box wave is the concurrent
+cycle's own scope. CYCLE_WORKED (new distillation arm designed +
+smoke-tested + launched, root-causing the "why does nothing turn"
+question one level deeper than either canary did).
+
 Update, 2026-08-31 ~00:4x (turnpay-canary{,-s1} verdicted — CANARY
 FAIL - MECHANISM, joint). Plain English: paying DIRECTLY for turning
 (not just exposure) still didn't make the robot turn — the reward-

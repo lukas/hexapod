@@ -39,9 +39,16 @@ for _p in (HERE, HERE.parent):
 from bench_api import BenchAPI  # noqa: E402
 from drive_controller import DriveController  # noqa: E402
 
-# Self-signed TLS material for the HTTPS listener (generated on first run).
-CERT_FILE = os.path.expanduser("~/.hexapod_sts_cert.pem")
-KEY_FILE = os.path.expanduser("~/.hexapod_sts_key.pem")
+# TLS material for the HTTPS listener. By default this server generates a
+# self-signed cert; set both env vars to point at a trusted/mkcert pair.
+CUSTOM_TLS = bool(
+    os.environ.get("HEXAPOD_TLS_CERT_FILE")
+    or os.environ.get("HEXAPOD_TLS_KEY_FILE")
+)
+CERT_FILE = os.path.expanduser(
+    os.environ.get("HEXAPOD_TLS_CERT_FILE", "~/.hexapod_sts_cert.pem"))
+KEY_FILE = os.path.expanduser(
+    os.environ.get("HEXAPOD_TLS_KEY_FILE", "~/.hexapod_sts_key.pem"))
 
 
 def _add_unique(xs: list[str], x: str) -> None:
@@ -106,6 +113,14 @@ def _cert_has_sans(dns: list[str], ips: list[str]) -> bool:
 
 def ensure_cert():
     """Make a long-lived self-signed cert for the browser Gamepad API."""
+    if CUSTOM_TLS:
+        if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
+            print(f"[https] using configured TLS cert {CERT_FILE}")
+            return True
+        print("[https] configured TLS cert/key missing; HTTPS disabled "
+              "(set HEXAPOD_TLS_CERT_FILE and HEXAPOD_TLS_KEY_FILE)")
+        return False
+
     dns, ips = _https_cert_sans()
     if _cert_has_sans(dns, ips):
         return True

@@ -1,5 +1,51 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-08-31 ~04:4x (`dualbc5-turncap-anchor{1p0,0p3}-turnpay-
+canary` JOINT VERDICT: **CANARY FAIL - MECHANISM**, anchor coefficient
+EXONERATED). Plain English: the prior verdict's leading suspect was
+the BC-anchor pull (`bc_anchor_coef=3.0`) drowning the yaw reward's
+signal at the minority turn ticks; this pair tested the "lower the
+dose" half of that hypothesis with a 3x and 10x cut (3.0 -> 1.0 -> 0.3).
+Neither moved the needle: `probe_turn_authority` on both post-RL
+checkpoints stayed under the 0.03 FAIL floor both signs at every dose
+(anchor1p0: +0.0034/+0.0034, -0.0100/-0.0181; anchor0p3: -0.0014/
+-0.0007, -0.0220/-0.0299), and `env/walk_yaw_kernel_factor` eroded
+0.32-0.34 -> ~0.05-0.09 over the 2M run at BOTH doses — an IDENTICAL
+curve shape/magnitude to the uncut 3.0 parent. Own frame-strip check
+on both `walk_det_0..5.mp4`: gait health fully preserved (clean 6-leg
+tripod cycling, real translation, no collapse/drag), so this is a
+clean "coefficient exonerated" read, not a gait-collapse confound
+that would instead indict the anchor as load-bearing. Reward also
+crashes hard through both runs (not a rising-reward case per the
+08-21 ruling — reward and eval fail together). **Conclusion: the
+anchor's DOSE is not the mechanism, across a full order of magnitude.**
+Refill: built+tested the still-untried OTHER half of the same
+hypothesis — a TARGETED gate instead of a global dilution. New env-side
+knob `train.bc_anchor_walk_turn_skip` (default 0, bit-exact off;
+`sim_env.py` ~4703, see `bc_anchor.py` docstring) skips BC-anchor
+target emission ONLY on pure turn-in-place ticks (`vx_ref=vy_ref~0`,
+`wz_ref!=0`), leaving every straight/combined-command tick's
+supervision at the FULL coefficient untouched — the majority-diet
+dilution problem the global cut had is gone by construction. 3 new
+tests (`test_bc_anchor.py::test_walk_turn_skip_*`), 96/96 bc_anchor
+suite green, snapshotted. Launched
+`cw-standwalk-stage2-dualbc5-turncap-turnskip-turnpay-canary` (single
+seed, mechanism-health canary, same dualbc5_turncap base +
+bc_anchor_coef restored to 3.0 + bc_anchor_walk_turn_skip=1) —
+VERIFIED RUNNING on `hexapod-mjx-train-2` after `hexapod-mjx-train-1`
+was found dead (OOMKilled/Failed, `restartPolicy: Never`, the same
+recurring "sleep-infinity pod accumulates state over many sequential
+jobs" pattern first logged 2026-08-29 ~16:4x) — retried once onto a
+healthy free pod per the DEAD-pod protocol, then separately deleted
++recreated+rebootstrapped train-1 itself (idle-time infra hygiene, not
+blocking). If this canary ALSO reads wz_med<0.03 both signs, the
+anchor mechanism as a whole (dose AND targeted gating) is exonerated
+and the next suspect is PPO exploration collapse or a reward-stack
+interaction (e.g. `bc_anchor_isolate_update`/`bc_anchor_percore_clip`
+interacting with the yaw kernel specifically, or an entropy/
+exploration-focused arm) — gate text on the run itself names this
+explicitly so the next cycle doesn't have to re-derive it.
+
 Update, 2026-08-31 ~03:4x (`dualbc5-turncap-turnpay-canary{,-s1}`
 JOINT VERDICT: **CANARY FAIL - MECHANISM**, 3rd turn-authority
 mechanism class refuted). Plain English: this canary existed because

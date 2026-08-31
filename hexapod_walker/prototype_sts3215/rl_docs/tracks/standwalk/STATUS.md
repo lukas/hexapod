@@ -56,8 +56,17 @@ regression scare was partly a measurement artifact.
    mode_seq-mixed fastcheck vs pure-walk parent gate (also full_mesh
    vs pod twin). A clean pure-walk det read (n=8, pod twin, gate cfg)
    was run this cycle on train-2
-   (`..._acq8m_s1_purewalk_det/report.json`) and decides the acq8m-s1
-   verdict; see its ledger verdict for the final numbers.
+   (`..._acq8m_s1_purewalk_det/report.json`) and decided the verdict:
+   **acq8m-s1 = FAIL (own gate, progress clause)** — real but PARTIAL
+   regression: prog med 0.373/0.379 vs parent 0.463/0.469 (every ep
+   below parent min), slip 2.83/3.14 vs 1.77 (band edge), course
+   IMPROVED 5.7->3.4 deg, gait 8/8 clean. Pooled reward rose entirely
+   from the 70% non-walk mix (rise_ref/finish up; walk channels flat/
+   down) — NOT a continue case. Fix arm launched:
+   `cw-standwalk-stage2-dualbc4-walkteach-walkheavy-acq8m{,-s1}`
+   (8M pair, single delta goal-mix walk=0.60/rise=0.20/lower=0.10/
+   hold=0.10, same init/cfg; gate = pure-walk prog>=0.44 + slip<=2.9
+   + rise/lower retention).
 3. Launched `cw-standwalk-stage2-dualbc4-walkteach-turnpay-canary{,-s1}`
    (2M canary pair): same init/mix as turndiet but yaw commands the
    policy is actually PAID to track — the bank-proven OMNI turn stack

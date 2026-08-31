@@ -879,12 +879,13 @@ class AprilTagPoseTracker:
                 camera_matrix=camera_matrix,
                 distortion=distortion,
             )
-            if fitted is not None and fitted[1] <= 1.2 * tag_scale_px:
+            if (fitted is not None
+                    and fitted[1] <= 1.2 * tag_scale_px
+                    and not self.calibration.approximate
+                    and self.marker_size_verified):
                 confidence = tip.confidence * max(
                     0.05, 1.0 - fitted[1] / (1.2 * tag_scale_px)
                 )
-                if self.calibration.approximate or not self.marker_size_verified:
-                    confidence *= 0.45
                 video_knees[leg] = {
                     "signed_deg": fitted[0],
                     "absolute_deg": abs(fitted[0]),

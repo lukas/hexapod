@@ -152,12 +152,11 @@ mode for accurate metric height and tilt. The three mapped floor tags then
 solve the camera extrinsics in every frame; if none is visible, output is
 explicitly camera-relative instead of pretending it is in floor/world axes.
 
-Also measure the black square itself (excluding the white quiet zone) and put
-that value in `marker_size_m`, then set `marker_size_verified` to true. The
-current 37.8968 mm value came from the print-sheet design, not a caliper
-measurement of these physical tags. Until both lens and marker size are
-verified, metric positions and signed video-only knee fits are deliberately
-reported as provisional.
+The physical black squares (excluding the white quiet zone) were measured as
+27 mm on 2026-08-31. That value is recorded in `marker_size_m`, and the
+photo-derived floor-tag translations were rescaled with it. The phone lens
+calibration is still approximate, so metric positions and signed video-only
+knee fits remain provisional until a checkerboard calibration is recorded.
 
 ## Input contract
 

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "tag_family": "tag36h11",
-  "marker_size_m": 0.0378968,
-  "marker_size_verified": false,
-  "_comment": "As-photographed layout from apriltags.jpeg on 2026-08-31. Tag 1 is L0, confirmed by the handwritten physical 0. Floor coordinates are anchored at tag 12 and remain valid only while floor tags 12/13/15 do not move.",
+  "marker_size_m": 0.027,
+  "marker_size_verified": true,
+  "_comment": "As-photographed layout from apriltags.jpeg on 2026-08-31. Lukas measured the printed black squares (excluding the white quiet zone) as 27 mm. Tag 1 is L0, confirmed by the handwritten physical 0. Floor coordinates are anchored at tag 12 and remain valid only while floor tags 12/13/15 do not move.",
   "tracking": {
     "max_occlusion_frames": 8,
     "_comment": "Decoded tags and red boot tips may be bridged for at most eight video frames. Outputs always identify optical-flow and prediction sources."
@@ -32,14 +32,14 @@
     "13": {
       "label": "floor lower-right in photo",
       "world_from_tag": {
-        "translation_m": [-0.9247837, 1.0289087, 0.0],
+        "translation_m": [-0.658872514, 0.733057538, 0.0],
         "euler_xyz_deg": [0.0, 0.0, 2.140635]
       }
     },
     "15": {
       "label": "floor upper-right in photo",
       "world_from_tag": {
-        "translation_m": [-0.9114813, 0.0217590, 0.0],
+        "translation_m": [-0.649395070, 0.015502443, 0.0],
         "euler_xyz_deg": [0.0, 0.0, -179.086657]
       }
     }

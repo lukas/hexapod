@@ -151,7 +151,8 @@ def test_as_photographed_config_maps_handwritten_zero_to_l0() -> None:
     assert tags["7"]["frame"] == "L0_femur"
     assert "handwritten 0" in tags["1"]["label"]
     assert set(map(int, config["floor_tags"])) == {12, 13, 15}
-    assert config["marker_size_verified"] is False
+    assert config["marker_size_m"] == 0.027
+    assert config["marker_size_verified"] is True
 
 
 def test_temporal_tag_tracker_bridges_a_decoder_miss_with_optical_flow() -> None:

@@ -35,7 +35,7 @@ let simFrameLastAt = 0;
 // drives a servo until the human presses Enable. All servo-driving sends are
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
-let maxVx = 40, maxVy = 29, maxOmega = 0.7;
+let maxVx = 30, maxVy = 18, maxOmega = 0.35;
 
 function savedRobotUrl(){
   try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
@@ -828,11 +828,11 @@ document.querySelectorAll('button[data-cmd]').forEach(btn=>
 document.getElementById('stop').onclick=settleServos;
 
 const vmax=document.getElementById('vmax'), lift=document.getElementById('lift');
-vmax.oninput=()=>{ maxVx=+vmax.value; maxVy=Math.round(maxVx*0.73);
+vmax.oninput=()=>{ maxVx=+vmax.value; maxVy=Math.round(maxVx*0.60);
   document.getElementById('vlab').textContent=vmax.value; };
 lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
 lift.onchange=()=>cmd('K '+lift.value);
-maxVx = +vmax.value; maxVy = Math.round(maxVx*0.73);
+maxVx = +vmax.value; maxVy = Math.round(maxVx*0.60);
 
 // --- Bench zero workflow -------------------------------------------------------
 // Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →

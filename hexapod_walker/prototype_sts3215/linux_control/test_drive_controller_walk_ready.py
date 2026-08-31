@@ -14,6 +14,12 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from drive_controller import (  # noqa: E402
+    DEMO_TRIPOD_LIFT_M,
+    DEMO_TRIPOD_MAX_OMEGA_RAD_S,
+    DEMO_TRIPOD_MAX_VX_MPS,
+    DEMO_TRIPOD_MAX_VY_MPS,
+    DEMO_TRIPOD_PERIOD_S,
+    DEMO_TRIPOD_STRIDE_SCALE,
     DriveController, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
     walk_start_pose_degrees,
 )
@@ -38,6 +44,9 @@ def test_default_scripted_gait_uses_tall_walk_ready_stance():
     assert drive._last_pose == walk_start_pose_degrees()  # noqa: SLF001
     assert drive.gait.plant_hip_deg == SIM_WALK_START_HIP_DEG
     assert drive.gait.plant_knee_deg == SIM_WALK_START_KNEE_DEG
+    assert drive.gait.period == DEMO_TRIPOD_PERIOD_S
+    assert drive.gait.lift == DEMO_TRIPOD_LIFT_M
+    assert drive.gait.stride_scale == DEMO_TRIPOD_STRIDE_SCALE
 
 
 def test_moving_j_refuses_when_not_near_walk_ready_pose():
@@ -75,3 +84,16 @@ def test_j_can_select_gait_while_starting_from_stand():
     assert result == "J"
     assert drive.mode == "walk"
     assert drive._gait_id == 1  # noqa: SLF001
+
+
+def test_basic_tripod_caps_full_stick_to_demo_safe_envelope():
+    drive = DriveController(dry_run=False)
+    drive.bus = FakeBus(walk_start_pose_degrees())
+    drive.armed = True
+
+    result = drive.handle("J 100 100 1.0 0")
+
+    assert result == "J"
+    assert drive._vx == DEMO_TRIPOD_MAX_VX_MPS  # noqa: SLF001
+    assert drive._vy == DEMO_TRIPOD_MAX_VY_MPS  # noqa: SLF001
+    assert drive._omega == DEMO_TRIPOD_MAX_OMEGA_RAD_S  # noqa: SLF001

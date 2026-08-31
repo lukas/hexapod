@@ -130,7 +130,7 @@
       <h2>2 · Scripted gait walk</h2>
       <div class="hint" style="margin-top:0">Scripted (non-RL) walking:
         <code>J vx vy ω</code> to walk, <code>J 0 0 0</code> to stop and hold
-        the planted stand. Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s ·
+        the planted stand. Friend-demo gait caps: |vx|≤30 · |vy|≤18 mm/s · |ω|≤0.35 rad/s ·
         3–60 s (no-slip clamps itself tighter: 40/35 mm/s, ω 0.30).</div>
       <div class="btns" style="margin-top:8px">
         <label class="hint">gait
@@ -143,7 +143,7 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
 with Bézier swings, and auto-scale a too-fast command down to what the
 legs can reach instead of clipping it.">
-            <option value="0" selected>tripod (tall walk-ready)</option>
+            <option value="0" selected>tripod high-step demo</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
@@ -171,9 +171,9 @@ legs can reach instead of clipping it.">
           world anchors at every α; applies at the next phase boundary.</div>
       </div>
       <div class="fields">
-        <label class="field">vx mm/s<input id="wvx" type="number" value="30" min="-60" max="60" step="5"></label>
-        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-40" max="40" step="5"></label>
-        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.5" max="0.5" step="0.05"></label>
+        <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-30" max="30" step="5"></label>
+        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
+        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.35" max="0.35" step="0.05"></label>
         <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
       </div>
       <div class="btns" style="margin-top:12px">
@@ -181,16 +181,16 @@ legs can reach instead of clipping it.">
       </div>
       <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
         title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
-      <label class="slab">Swing lift: <span id="klab">25</span> mm</label>
-      <input id="lift" type="range" min="4" max="40" value="25">
+      <label class="slab">Swing lift: <span id="klab">40</span> mm</label>
+      <input id="lift" type="range" min="4" max="50" value="40">
       <div class="hint" id="wstatus">Idle.</div>
     </div>
     <div class="pad">
       <h2>3 · Manual drive (left stick)</h2>
       <canvas id="drive"></canvas>
       <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
-      <label class="slab">Max speed: <span id="vlab">40</span> mm/s</label>
-      <input id="vmax" type="range" min="10" max="100" value="40">
+      <label class="slab">Max speed: <span id="vlab">30</span> mm/s</label>
+      <input id="vmax" type="range" min="10" max="60" value="30">
       <div class="hint">
         <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
         <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>

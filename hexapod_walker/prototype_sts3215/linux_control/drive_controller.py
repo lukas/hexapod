@@ -92,6 +92,13 @@ DT = 0.02  # 50 Hz walk loop
 SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
 WALK_START_TOL_DEG = 30.0
+DEMO_TRIPOD_PERIOD_S = 1.80
+DEMO_TRIPOD_LIFT_M = 0.040
+DEMO_TRIPOD_RAMP_S = 0.85
+DEMO_TRIPOD_STRIDE_SCALE = 0.55
+DEMO_TRIPOD_MAX_VX_MPS = 0.030
+DEMO_TRIPOD_MAX_VY_MPS = 0.018
+DEMO_TRIPOD_MAX_OMEGA_RAD_S = 0.35
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
 # than this from its *present* angle (2026-08-06 cooked-motor incident).
 # Keep a broad emergency delta guard for direct one-shot moves. Normal web
@@ -107,7 +114,7 @@ class DriveController:
         self.baud = baud
         self.dry_run = dry_run
         self.bus = None  # FeetechBus | McuFeetechBus
-        self.gait = TripodGait()
+        self.gait = self._new_demo_tripod_gait()
         self.armed = False
         self.mode = "idle"  # idle | stand | walk | settle
         self._lock = threading.Lock()
@@ -125,6 +132,21 @@ class DriveController:
         # Set by web_drive after construction (optional bench JSON API).
         self.bench = None
         self._sync_gait_walk_stance()
+
+    def _new_demo_tripod_gait(self) -> TripodGait:
+        """Hardware-show preset for the legacy body-frame tripod.
+
+        Gait 0 deliberately remains the simple legacy gait, but the old
+        0.75 s / 25 mm swing asked too much of grippy boots on the shop
+        floor: the feet skimmed, then jammed. This instance-local preset
+        leaves sim/training ``TripodGait()`` defaults untouched.
+        """
+        return TripodGait(
+            period=DEMO_TRIPOD_PERIOD_S,
+            lift=DEMO_TRIPOD_LIFT_M,
+            ramp=DEMO_TRIPOD_RAMP_S,
+            stride_scale=DEMO_TRIPOD_STRIDE_SCALE,
+        )
 
     def start(self) -> None:
         if not self.dry_run:
@@ -327,6 +349,15 @@ class DriveController:
             return f"SE2 CPG ({self._cpg_loaded['name']})"
         return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
 
+    def _caps_for_gait(self, gait_id: int) -> tuple[float, float, float]:
+        if int(gait_id) == 0:
+            return (
+                DEMO_TRIPOD_MAX_VX_MPS,
+                DEMO_TRIPOD_MAX_VY_MPS,
+                DEMO_TRIPOD_MAX_OMEGA_RAD_S,
+            )
+        return (0.20, 0.15, 0.9)
+
     def list_cpg_controllers(self) -> list[dict]:
         """List `cpg_controller_*.json` artifacts available to CPGLOAD."""
         return _list_cpg_controllers()
@@ -390,7 +421,7 @@ class DriveController:
         elif gait_id == 1:
             self.gait = NoSlipGait(alpha=self._noslip_alpha)
         else:
-            self.gait = TripodGait()
+            self.gait = self._new_demo_tripod_gait()
         self._sync_gait_walk_stance()
         if self._lift_mm is not None:
             self.gait.set_lift_mm(self._lift_mm)
@@ -493,10 +524,12 @@ class DriveController:
                     gid = int(parts[4])
                 except ValueError:
                     gid = None
+            target_gid = self._gait_id if gid is None else gid
+            vx_cap, vy_cap, om_cap = self._caps_for_gait(target_gid)
             # UI uses mm/s; gait wants m/s. Cap gently for first teleop.
-            vx = max(-0.20, min(0.20, vx_mm / 1000.0))
-            vy = max(-0.15, min(0.15, vy_mm / 1000.0))
-            om = max(-0.9, min(0.9, omega))
+            vx = max(-vx_cap, min(vx_cap, vx_mm / 1000.0))
+            vy = max(-vy_cap, min(vy_cap, vy_mm / 1000.0))
+            om = max(-om_cap, min(om_cap, omega))
             moving = abs(vx) + abs(vy) + abs(om) > 1e-4
             was_walking = self.mode == "walk"
             if moving and not was_walking:

@@ -38,8 +38,8 @@ directory (`/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/lin
 - `/`, `/index.html`, `/motors`, `/demos`, `/debug`, `/rl`, `/calibrate`
   all serve `index.html`, with the literal `__HTTPS_PORT__` replaced by the
   HTTPS port that actually bound (default 8443). `index.html` stores it as
-  `window.HEXAPOD_HTTPS_PORT`; `app.js` uses it to build the "open secure
-  page" link the gamepad hint shows (browser Gamepad API needs HTTPS).
+  `window.HEXAPOD_HTTPS_PORT`; `app.js` uses it in the gamepad icon tooltip
+  because the browser Gamepad API needs a secure context.
 - `/style.css`, `/app.js` are served with `Cache-Control: no-cache`;
   `/favicon.svg` with `max-age=86400`. Correct MIME types on all three
   (`image/svg+xml` for the favicon).

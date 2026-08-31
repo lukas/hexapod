@@ -38,6 +38,30 @@ chmod +x install_autostart.sh
 
 Then: `systemctl status hexapod-web`, `journalctl -u hexapod-web -f`.
 After a power cycle the UI should answer on `:8080` / `:8443` without a manual start.
+The installer now checks both listeners:
+
+```bash
+curl -s http://127.0.0.1:8080/api/ping
+curl -sk https://127.0.0.1:8443/api/ping
+```
+
+The HTTPS listener auto-generates a self-signed certificate when no cert is
+configured. For a browser-trusted certificate, provide both environment
+variables in a systemd drop-in and restart `hexapod-web`:
+
+```ini
+[Service]
+Environment=HEXAPOD_TLS_CERT_FILE=/home/arduino/.hexapod_sts_cert.pem
+Environment=HEXAPOD_TLS_KEY_FILE=/home/arduino/.hexapod_sts_key.pem
+```
+
+Safari will still warn on the default self-signed cert until macOS trusts it.
+The usual fixes are either:
+
+- add the generated cert to macOS Keychain Access and set it to Always Trust;
+- generate a cert with a locally trusted CA such as `mkcert`, including the
+  names you actually open (`localhost`, `127.0.0.1`, `hexapod.local`, and the
+  board IP), then copy that cert/key to the paths above.
 
 ### Boot chain (2026-08-07)
 
@@ -262,7 +286,8 @@ chmod +x deploy_adb.sh
 4. Open:
    - UI / keyboard / on-screen sticks: **http://127.0.0.1:8080**
    - Xbox on the **Mac** (browser Gamepad API): **https://127.0.0.1:8443**  
-     (accept the self-signed cert warning once)
+     (accept the self-signed cert warning once, or trust/configure a cert as
+     described in "Autostart on the Uno Q")
 
 `deploy_adb.sh` sets `adb forward` for 8080 and 8443 automatically.
 

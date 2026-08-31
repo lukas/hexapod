@@ -318,7 +318,7 @@ document.getElementById('statuscopy').onclick = async ()=>{
   const parts = [
     'link: '+conn.textContent,
     'robot: '+document.getElementById('robotact').textContent];
-  const gpT = gpEl.textContent.trim();
+  const gpT = (gpEl.getAttribute('aria-label') || gpEl.title || gpEl.textContent).trim();
   if(gpT) parts.push('controller: '+gpT);
   const sentT = sentEl.textContent.trim();
   if(sentT) parts.push('last: '+sentT);
@@ -650,6 +650,18 @@ function httpsUrl(){
   const p = window.HEXAPOD_HTTPS_PORT || 8443;   // substituted into index.html
   return 'https://'+location.hostname+(p===443?'':(':'+p))+location.pathname;
 }
+function setGamepadTopStatus(kind, detail){
+  const icon = '🎮';
+  const klass = kind === 'ok' ? 'joy-ok' : (kind === 'need' ? 'joy-need' : 'joy-off');
+  if(gpEl.textContent !== icon) gpEl.textContent = icon;
+  if(gpEl.dataset.kind !== kind){
+    gpEl.dataset.kind = kind;
+    gpEl.className = 'statusline joy-status '+klass;
+  }
+  if(gpEl.title !== detail) gpEl.title = detail;
+  if(gpEl.getAttribute('aria-label') !== detail)
+    gpEl.setAttribute('aria-label', detail);
+}
 function demoMotionLog(){
   const el = $('dmotionlog');
   return !!(el && el.checked);
@@ -772,18 +784,20 @@ function pollGamepad(){
   if(!gp){
     // Browsers only expose gamepads in a secure context (HTTPS/localhost).
     if(!window.isSecureContext)
-      gpEl.innerHTML = '🎮 needs HTTPS &rarr; <a href="'+httpsUrl()+
-        '" style="color:#7cf">open secure page</a> (accept the warning)';
+      setGamepadTopStatus('need',
+        'Controller needs HTTPS. Open '+httpsUrl()+
+        ' and accept/trust the certificate if prompted.');
     else
-      gpEl.textContent = '🎮 press a button on the controller to connect';
+      setGamepadTopStatus('off',
+        'Press a button on the controller to connect it.');
     return null;
   }
   const modHeld = PAD_MODS.map(m => padBtnDown(gp, m.i));
   const modIdx = modHeld.findIndex(Boolean);
   const modLabel = modIdx >= 0 ? PAD_MODS[modIdx].key : '';
-  gpEl.textContent = modLabel
-    ? ('pad '+modLabel+' + X/Y/A/B')
-    : ('pad '+gp.id.slice(0,18));
+  setGamepadTopStatus('ok', modLabel
+    ? ('Controller: '+modLabel+' + X/Y/A/B demo shortcuts are active.')
+    : ('Controller: '+(gp.id || 'gamepad')+'.'));
 
   const down = [];
   for(let i=0;i<gp.buttons.length;i++) down[i] = padBtnDown(gp, i);

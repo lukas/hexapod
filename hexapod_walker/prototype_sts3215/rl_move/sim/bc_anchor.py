@@ -345,6 +345,38 @@ Knobs (set via attach_bc_anchor / cfg):
                                different code path, not a value that
                                happens to match. See attach_bc_anchor
                                and BCAnchorPPO.train().
+  train.bc_anchor_walk_turn_skip  (env-side, default 0 = off, bit-
+                               exact) — sim_env._step_finish's WALK
+                               BC-anchor target emission entirely
+                               skips PURE turn-in-place ticks (linear
+                               command ~0, wz command != 0) when set,
+                               leaving every straight/combined-command
+                               tick's target untouched. MECHANISM
+                               (08-31, standwalk dualbc5 turncap-
+                               turnpay-canary dose-ablation follow-up):
+                               a GLOBAL bc_anchor_coef cut (3.0 -> 1.0
+                               -> 0.3, a 10x range, anchor{1p0,0p3}-
+                               turnpay-canary pair) left the pre-RL
+                               partial turn-authority escape just as
+                               eroded (walk_yaw_kernel_factor
+                               0.34->~0.05-0.09, IDENTICAL curve at
+                               every dose; probe_turn_authority wz_med
+                               stayed <0.03 both signs at every dose),
+                               exonerating the anchor's DOSE as the
+                               mechanism. This is the untried other
+                               half of that same hypothesis: instead
+                               of diluting supervision on the majority
+                               straight-walk ticks too, remove it ONLY
+                               where it competes with the yaw reward
+                               (the minority turn-in-place ticks),
+                               so the actor's mean action at those
+                               specific states is shaped by the yaw
+                               reward's own gradient alone. This knob
+                               is INDEPENDENT of bc_anchor_walk_coef
+                               (dose split) — either, neither, or both
+                               may be set; unset (default) is the
+                               original single-target-per-commanded-
+                               tick control flow, byte-for-byte.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in

@@ -785,6 +785,78 @@ def test_walk_phase_lock_still_frozen_on_true_park_with_run_on_yaw():
     assert env._walk_bc_t == 0.0
 
 
+# --- Turn-tick anchor gate (08-31, standwalk dualbc5 turncap-turnpay
+# dose-ablation follow-up): both anchor1p0/anchor0p3 canaries proved a
+# GLOBAL bc_anchor_coef cut (3.0->1.0->0.3) does not restore turn
+# authority — same walk_yaw_kernel_factor erosion curve at all three
+# doses. The still-untried half of that verdict's own named lever is
+# a TARGETED gate: zero anchor emission only on pure turn-in-place
+# ticks (vx_ref=vy_ref~0, wz_ref!=0), leaving straight-walk ticks at
+# full coefficient. train.bc_anchor_walk_turn_skip, default 0 = legacy
+# (every commanded tick, including turn, emits) — bit-exact off.
+
+def test_walk_turn_skip_default_off_bit_exact():
+    """Unset train.bc_anchor_walk_turn_skip: a pure turn-in-place tick
+    (vx=vy=0, wz!=0) still emits a target, exactly like every prior
+    run in this lineage (legacy behavior preserved)."""
+    env = _make_walk_env(40, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+
+def test_walk_turn_skip_enabled_skips_pure_turn_ticks():
+    """train.bc_anchor_walk_turn_skip=1: the same pure turn-in-place
+    tick now emits NOTHING — the yaw reward is the sole supervisor of
+    the actor's mean action there."""
+    env = _make_walk_env(41, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0,
+                              ("train", "bc_anchor_walk_turn_skip"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" not in info
+        if term or trunc:
+            break
+
+
+def test_walk_turn_skip_leaves_linear_ticks_untouched():
+    """train.bc_anchor_walk_turn_skip=1 must NOT touch straight-walk
+    (vx!=0, wz=0) or combined (vx!=0, wz!=0) ticks — only a PURE turn
+    (zero linear speed) is gated off."""
+    env = _make_walk_env(42, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0,
+                              ("train", "bc_anchor_walk_turn_skip"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.0)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+    env2 = _make_walk_env(43, {("train", "bc_anchor_coef"): 1.0,
+                               ("goal", "walk_yaw_cmd"): 1.0,
+                               ("train", "bc_anchor_walk_turn_skip"): 1.0})
+    env2.reset()
+    _pin_walk_cmd_wz(env2, 0.055, 0.0, 0.3)   # linear + yaw combined
+    hold2 = q_rad_to_action(env2.data.qpos[env2._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env2.step(hold2)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
 # cw-getup2-r1 warm-started the getup task from the rise+hold
 # specialist and showed the skill does NOT survive contact with the

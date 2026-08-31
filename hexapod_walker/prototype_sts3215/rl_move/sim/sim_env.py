@@ -4702,10 +4702,44 @@ class SimHexapodBalanceEnv(_GymBase):
                                     _dt_bc = self.dt * (_hz_eff / _hz0)
                             self._walk_bc_t += _dt_bc
                         _t_bc = self._walk_bc_t
-                    _q_bc = np.asarray(_g.desired_deg(_t_bc)) * DEG2RAD
-                    info["bc_target"] = q_rad_to_action(
-                        _q_bc).astype(np.float32)
-                    info["bc_mode"] = 3    # walk
+                    # TURN-TICK ANCHOR GATE (08-31, standwalk dualbc5
+                    # turncap-turnpay-canary dose-ablation follow-up):
+                    # the anchor1p0/anchor0p3 canaries proved a global
+                    # coefficient cut (3.0 -> 1.0 -> 0.3, a 10x range)
+                    # does NOT restore turn authority — both post-RL
+                    # probes stayed <0.03 wz_med both signs with the
+                    # IDENTICAL walk_yaw_kernel_factor erosion curve
+                    # (0.34 -> ~0.05-0.09) as the uncut 3.0 baseline,
+                    # exonerating the anchor's DOSE. The still-untried
+                    # half of that verdict's own named lever is a
+                    # TARGETED gate: instead of shrinking the anchor
+                    # pull everywhere (which dilutes supervision on the
+                    # majority straight-walk ticks that need it), zero
+                    # the anchor emission ONLY on pure turn-in-place
+                    # ticks (vx_ref=vy_ref~0, wz_ref!=0) so the yaw
+                    # reward's own gradient is the sole supervisor of
+                    # the actor's mean action at those specific states,
+                    # while straight-walk ticks keep full anchor
+                    # coefficient/supervision untouched. Default 0 =
+                    # legacy (every commanded tick, including turn
+                    # ticks, gets a target) — bit-exact no-op whenever
+                    # train.bc_anchor_walk_turn_skip is unset, exactly
+                    # like every other bc_anchor_* knob in this file.
+                    _bc_pure_turn = (
+                        math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref)
+                        <= 1e-3 and abs(_bc_wz) > 1e-3)
+                    _bc_turn_skip = (
+                        _bc_pure_turn
+                        and float(cfg_get(
+                            self.cfg, "train",
+                            "bc_anchor_walk_turn_skip",
+                            default=0.0)) > 0.0)
+                    if not _bc_turn_skip:
+                        _q_bc = np.asarray(
+                            _g.desired_deg(_t_bc)) * DEG2RAD
+                        info["bc_target"] = q_rad_to_action(
+                            _q_bc).astype(np.float32)
+                        info["bc_mode"] = 3    # walk
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

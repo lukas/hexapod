@@ -3282,3 +3282,16 @@ runnable work (`standwalk`, active).
   reward.k_action_delta=0.01 on the WALKCURR_SV diet.
 - status: CLOSED (ruling executed; retirement pre-commitment recorded
   in walkcurr STATUS).
+
+## q_20260831T1000Z — controller pod restart to clear 313k zombie PIDs [operator]
+- Meta 08-31 found ~313,000 unreaped zombie `git` processes on the
+  controller (PID 1 is `sleep infinity`, never reaps; each 60s
+  status_server `git fetch` triggered a self-detaching `git gc --auto`
+  that zombied — 50 packs >= autoPackLimit made it fire every fetch).
+- FIXED at source: `gc.autoDetach=false` + one-time `git gc` (0 loose,
+  3 packs; fetch now leaves no zombie), and the launcher's /proc
+  trainer scan is fork-free (5s vs 70s on the bloated PID table).
+- Remaining: the existing zombies cannot be reaped from userspace and
+  inflate load/ps/proc costs until the controller pod restarts. Not
+  urgent (everything works post-fix); restart at next convenience.
+- status: OPEN (operator infra action, no agent-side blocker).

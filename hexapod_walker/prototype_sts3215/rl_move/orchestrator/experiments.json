@@ -242250,7 +242250,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-31T09:36:42"
   },
   {
     "run": "cw-standwalk-stage2-dualbc5-turncap-yawscale15x-turnpay-canary",
@@ -242547,7 +242548,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-31T09:20:16"
   },
   {
     "run": "cw-standwalk-stage2-dualbc5-turncap-yawscale5x-turnpay-canary",

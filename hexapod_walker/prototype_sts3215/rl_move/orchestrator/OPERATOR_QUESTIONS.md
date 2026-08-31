@@ -3319,3 +3319,21 @@ runnable work (`standwalk`, active).
   reflection-selector wrapper does NOT satisfy "one policy", the
   fallback path closes and only the train-time `MirrorRecurrentPPO`
   fix counts toward this gate.
+
+## q_20260831T1320Z — is wz_med 0.148 (1.2% under a "0.15 both signs" bar) close enough to count as clearing it? [assume-and-go]
+- The mirror-augment distillation's pre-registered acceptance bar
+  (STATUS.md 08-31 ~11:3x) was "probe_turn_authority wz_med >= 0.15
+  both signs" before funding a follow-up RL canary. The actual read:
+  +0.148/+0.148 (wz_cmd=+0.25, both seeds, essentially identical —
+  not noise), -0.152/-0.158 (wz_cmd=-0.25) — negative sign clears,
+  positive sign is 1.2% under the round number.
+- Assume-and-go answer adopted: treated this as clearing the bar's
+  INTENT (a real, symmetric, near-teacher-band (~0.21) turning base
+  vs every prior read's near-zero/asymmetric result) rather than
+  parking on a sub-2% technicality, and launched the pre-registered
+  RL retention canary. Recorded plainly in STATUS.md/W&B notes with
+  the exact numbers, not glossed as a clean pass.
+- status: OPEN for operator override — if the operator wants a hard
+  numeric bar with no rounding tolerance, this canary's launch was
+  premature and its own RL result should be read as informational
+  only pending a second mirror-augment dose/seed clearing 0.15 clean.

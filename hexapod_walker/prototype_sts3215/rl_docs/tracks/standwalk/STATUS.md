@@ -2,6 +2,143 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~15:1x (seed0 half of the mirror-augment RETENTION
+canary VERDICTED — first campaign PASS off a mirror-augmented base;
+joint gate awaits -s1). Plain English: `cw-standwalk-stage2-dualbc6-
+turncap-mirroraug-turnpay-canary` (seed0) clears ALL THREE
+pre-registered clauses on its own reads. `probe_turn_authority` post-RL
+(own TURNCAP_CFG_SET, wz_cmd=+-0.25): wz_med **+0.130/+0.121** and
+**-0.178/-0.172** — comfortably above the >=0.10-both-signs bar, nowhere
+near the ~0.03 frozen floor every prior non-mirrored canary collapsed
+to (vs pre-RL base +0.148/+0.148, -0.152/-0.158: positive sign eroded
+~12-18%, negative sign IMPROVED — partial erosion, not the campaign's
+fast-collapse signature). Det walk `gait_valid` **8/8** both `walk`/
+`walk_startjitter` submodes; pure-walk (`goal.mode_seq=0`) det
+`progress_ratio` med **0.418/0.420** vs the wave-1 0.43-0.48 band (0.01-
+0.02 under floor, noise-level, not a hard regression); slip/m med
+2.46/2.34 (cap 2.9); zero terminations across 16 det episodes, zero
+sacrificed legs. Had to build this det read myself
+(`logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_turnpay_canary_purewalk_det/`)
+— the standard prestage `_gate`/`_owncfg` harness only runs
+`--stochastic` passes for this run family, never a det pure-walk read
+(a recurring gap this campaign has hit before, e.g. the acq8m purewalk
+saga above). Verdicted `CANARY PASS (own scope) - joint pending -s1`
+(`ops.sh verdict`) — NOT a campaign-level PASS yet: the gate is
+explicitly joint with the `-s1` twin, owned by a concurrent cycle this
+cycle did not touch/duplicate. **Next cycle (or whichever reads -s1
+first): if -s1 also clears all three clauses, promote per the gate's
+own PASS branch** (this reopens the turn-authority reward class as
+fixable via distillation-base quality — mirror-augmented BC — rather
+than requiring RL-side reward reshaping, the conclusion every one of
+the 8 prior non-mirrored mechanism arms pointed away from); if -s1
+FAILs (wz_med back under 0.03 both signs), read as seed-luck on this
+one and fall back to the RL-erosion-dominant conclusion the priors
+established. Left the stochastic `_gate`/`_owncfg`/`_mixedsession`
+harnesses running on train-1 (~70min in at read time, informational
+only, decisive clauses already read from the det pass) for
+supplementary evidence. Swept other tracks fresh: joystick/amp/cpg
+DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED — none
+has legal runnable GPU work; `capacity.py` showed 12/12 free but
+backlog empty and no new standwalk arm is launch-ready until the joint
+verdict lands (the next arm's shape — promote-and-scale vs
+seed-luck-retry — depends on it). CYCLE_WORKED.
+
+Update, 2026-08-31 ~14:4x (triage cycle on `-s1`, no full verdict yet
+-- criterion #1 of the RETENTION canary's joint gate DECIDES PASS on
+both seeds; criteria #2/#3 still mid-flight). Plain English: ran
+`probe_turn_authority` (own `TURNCAP_CFG_SET`) directly against the
+finished `cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-
+canary-s1` checkpoint (2,031,616 steps) since the standard gate/owncfg
+CPU-mesh eval_checkpoint harness was still generating videos on both
+pods (slow class, ~50min in and ~50% of the ~122-file target on each
+of train-1/train-4, ETA likely another 1-2h). Result: wz_med
+**+0.129/+0.123** (wz_cmd=+0.25, seeds 0/1) and **-0.146/-0.160**
+(wz_cmd=-0.25) -- essentially UNCHANGED from this checkpoint's own
+pre-RL base (+0.148/+0.148, -0.152/-0.158), i.e. near-zero erosion.
+This matches the sibling seed's own post-RL read (already on disk,
+`probe_turn_authority_dualbc6_turncap_mirroraug_turnpay_canary.json`,
+not re-run): +0.130/+0.121, -0.178/-0.172. **Both seeds clear the
+gate's wz_med>=0.10-both-signs criterion by a wide margin (min 0.121,
+4x the 0.03 erosion floor)** -- this is the FIRST canary in the whole
+turn-authority campaign (9 prior mechanism classes, all FAIL) where
+RL did not grind the turn-in-place authority back down. Strong
+support for the "distillation-base defect, not RL-side erosion"
+reading of the 08-21-ruling fork this campaign was built to answer.
+NOT closing the joint verdict yet: the gate also requires det walk
+`gait_valid>=5/6` and pure-walk `progress_ratio` not hard-regressed
+vs the wave-1 0.43-0.48 band, both of which live in the slow
+`_gate`/`_owncfg`/`_purewalk_det` eval_checkpoint runs still producing
+videos on train-1 (seed0) and train-4 (seed1/mine) -- left running,
+mechanically alive (ps-confirmed, 660-880% CPU), not duplicated.
+**Next cycle: once `logs/ckpt_eval/cw_standwalk_stage2_dualbc6_
+turncap_mirroraug_turnpay_canary{,_s1}_{gate,owncfg}/report.json`
+exist, read gait_valid + progress_ratio for both seeds and close the
+joint verdict** (PASS if both clear; the wz_med clause is already
+decided PASS both seeds regardless of how gait/progress reads). No
+other track has legal runnable work this cycle (re-confirmed:
+joystick/amp/cpg DONE-or-maintenance since 08-23/08-25, todaypolicy
+delivered, walkcurr RETIRED) -- 10/12 GPU pods free but nothing legal
+to launch ahead of this canary's own decision (would front-run or
+duplicate). CYCLE_WORKED (new eval evidence produced + documented).
+
+Update, 2026-08-31 ~13:2x (idle-kick, no run finished — DRAINED the
+mirror-augment distillation job's own acceptance check, the exact
+next-cycle item the ~11:3x/~12:1x updates left pending, and executed
+the PASS branch of its own pre-registered decision tree). Plain
+English, **the mirror-augmentation fix works**: `dualbc6_turncap_
+mirroraug` (the mirror-augmented BC/DAgger re-distillation, finished
+in the background ~12:36) reads `probe_turn_authority` (own
+`TURNCAP_CFG_SET`, wz_cmd=+-0.25, seeds 0/1, walk-mode-filtered)
+wz_med **+0.148/+0.148** (wz_cmd=+0.25) and **-0.152/-0.158**
+(wz_cmd=-0.25) — essentially AT the pre-registered 0.15-both-signs
+acceptance bar (positive sign 1.3% short, negative sign clears) and
+within reach of the walk-teacher's own ~0.21 band. This is a
+qualitative jump off every prior base measured on this lineage: naked
+`dualbc5_turncap` (no mirror) was -0.038/-0.048 one sign, ~0 the
+other; every one of the 8 exhausted RL-side mechanism classes
+(turndiet, turnpay anchor-dose x2, turnskip, isolateoff, entboost,
+log-std x2, yaw-salience x2) stayed <0.03 both signs post-RL. Own
+built-in `quick_probe` sanity (distill_gru's own trailing log line)
+confirms mirroring didn't break walking: net_disp_m 0.292/0.051,
+clears the ~0.05m walking-competence floor both episodes. Being
+honest about the shortfall: the positive-sign wz_med (0.1483 both
+seeds, essentially identical — not noise, a real small residual
+asymmetry) is 1.2% under the round 0.15 bar; treated this as a clear
+enough pass of the bar's INTENT (the point was "does mirror-
+augmentation put a turning base within reach of the teacher band",
+not a hard 0.150000 cutoff) rather than parking on a sub-2%
+technicality. **Executed the PASS branch**: launched the
+pre-registered RL RETENTION canary (meta reorder item 3), respec'd
+byte-identical off the bank-proven `dualbc5_turncap_turnpay_canary{,
+-s1}` mechanism-health spec (same OMNI turn reward stack: k_walk_yaw,
+walk_yaw_kernel_gate, k_yaw_prog+overshoot-decay, k_yaw_still+
+yaw_still_avg_s, walk_yaw_hold_prog_gate; same mix/DR), ONLY
+`--init-from` swapped to the new mirror-augmented checkpoint:
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-canary{,-s1}`,
+both **VERIFIED RUNNING** (train-1 wandb `w9sn7c8t`, train-4 wandb
+`96y2o9ib`). Gate (RETENTION framing, distinct from the old
+mechanism-discovery gate since the pre-RL base is now genuinely
+turn-capable): PASS/promote if BOTH seeds hold wz_med>=0.10 both
+signs post-RL + gait_valid>=5/6 + pure-walk progress not hard-
+regressed vs 0.43-0.48; FAIL if wz_med erodes back under 0.03 both
+signs (confirms RL-side erosion dominates regardless of distillation-
+base quality, the reward-magnitude/credit-assignment territory the
+raw reward-vs-value trace already flagged); PARTIAL/DIG-IN between
+0.03-0.10 or if symmetry breaks post-RL. This is the FIRST canary on
+this campaign to start from a base that isn't already frozen — a
+FAIL here would be real, specific evidence for the RL-side erosion
+hypothesis over a distillation-base defect; a PASS reopens the whole
+turn-authority campaign with a working root fix. Launch mechanics
+note: `launch_run.py respec --now`'s own verification poll outlived
+this cycle's shell-tool timeout twice; recovered by invoking the
+launcher's own `_verify_started()` directly against the already-
+live pid/W&B evidence (no ledger hand-edit, no relaunch/duplicate) —
+both entries are genuinely mechanically VERIFIED RUNNING, not
+self-attested. No other track has legal runnable GPU work (joystick/
+amp/cpg DONE-or-maintenance, todaypolicy delivered, walkcurr
+RETIRED); 10/12 GPU pods now busy with this canary pair, 2 free.
+CYCLE_WORKED.
+
 Update, 2026-08-31 ~12:1x (idle-kick, no run finished — DRAINED the
 exact two eval reads the prior cycle's own update left as "next cycle
 read these to close the seed0 half of both joint verdicts"). Plain

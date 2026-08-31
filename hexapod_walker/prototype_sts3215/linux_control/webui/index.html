@@ -143,7 +143,7 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
 with Bézier swings, and auto-scale a too-fast command down to what the
 legs can reach instead of clipping it.">
-            <option value="0" selected>tripod (legacy — drags feet)</option>
+            <option value="0" selected>tripod (tall walk-ready)</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
@@ -181,8 +181,8 @@ legs can reach instead of clipping it.">
       </div>
       <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
         title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
-      <label class="slab">Swing lift: <span id="klab">18</span> mm</label>
-      <input id="lift" type="range" min="4" max="40" value="18">
+      <label class="slab">Swing lift: <span id="klab">25</span> mm</label>
+      <input id="lift" type="range" min="4" max="40" value="25">
       <div class="hint" id="wstatus">Idle.</div>
     </div>
     <div class="pad">

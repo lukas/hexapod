@@ -72,6 +72,18 @@ from noslip_gait import NoSlipGait  # noqa: E402
 from se2_foot_gait import SE2FootGait  # noqa: E402
 from tripod_gait import TripodGait  # noqa: E402
 
+try:
+    from rl_walk_start import (  # noqa: E402
+        SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
+        walk_start_pose_degrees,
+    )
+except Exception:  # pragma: no cover - deploy bundle always ships it
+    SIM_WALK_START_HIP_DEG = 20.0
+    SIM_WALK_START_KNEE_DEG = 80.0
+
+    def walk_start_pose_degrees() -> list[float]:
+        return [0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG] * 6
+
 # Scripted-gait loop rate. 50 Hz since the MCU stream bridge (2026-08-19)
 # made a SyncWrite ~1-2 ms; the gait itself is wall-clock-based, so this
 # only changes how often targets refresh, not the trajectory. (Was 20 Hz
@@ -79,11 +91,12 @@ from tripod_gait import TripodGait  # noqa: E402
 DT = 0.02  # 50 Hz walk loop
 SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
+WALK_START_TOL_DEG = 30.0
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
 # than this from its *present* angle (2026-08-06 cooked-motor incident).
-# Keep a broad emergency delta guard; default stand is now much shallower
-# (~+19°/+28°), but old learned poses and one-off tests can move farther.
-# Override with trailing FORCE on C / P only when the operator means it.
+# Keep a broad emergency delta guard for direct one-shot moves. Normal web
+# Stand uses the acquisition route; direct /cmd P now targets the tall
+# walk-ready pose and still refuses if that would yank too far.
 MAX_SAFE_DELTA_DEG = 90.0
 
 
@@ -105,12 +118,13 @@ class DriveController:
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
         self._lift_mm: float | None = None   # last K value, re-applied on swap
         self._cpg_loaded: dict | None = None  # last CPGLOAD result (gait 6)
-        self._last_pose = standing_pose_degrees()
+        self._last_pose = walk_start_pose_degrees()
         self.status = "init"
         self._live_ids_cache: set[int] = set()
         self._live_ids_t = 0.0
         # Set by web_drive after construction (optional bench JSON API).
         self.bench = None
+        self._sync_gait_walk_stance()
 
     def start(self) -> None:
         if not self.dry_run:
@@ -254,6 +268,51 @@ class DriveController:
         pose = [0.0 if d is None else float(d) for d in present]
         self._write_pose(pose, speed=250, acc=30)
 
+    def _sync_gait_walk_stance(self) -> None:
+        """Make scripted gaits use the same tall pose as Stand/RL walk."""
+        self.gait.sync_plant_stance(
+            SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG)
+
+    def _walk_start_delta_vs_present(self) -> tuple[float | None, int | None]:
+        if not self.bus:
+            return 0.0, None
+        present = self._read_present_pose()
+        live = self._live_ids()
+        goal = walk_start_pose_degrees()
+        pairs = []
+        for j, g in enumerate(goal):
+            sid = joint_to_servo_id(j)
+            if live and sid not in live:
+                continue
+            p = present[j] if j < len(present) else None
+            if p is not None:
+                pairs.append((j, float(p), float(g)))
+        if len(pairs) < N_JOINTS - 4:
+            return None, None
+        worst = 0.0
+        worst_j: int | None = None
+        for j, p, g in pairs:
+            d = abs(p - g)
+            if d > worst:
+                worst = d
+                worst_j = j
+        return worst, worst_j
+
+    def _refuse_walk_if_not_ready(self) -> str | None:
+        worst, j = self._walk_start_delta_vs_present()
+        if worst is None:
+            self.status = "refused walk: pose feedback unavailable"
+            return ("refused walk: pose feedback unavailable - use Stand, "
+                    "wait for stand verified, then retry")
+        if worst <= WALK_START_TOL_DEG:
+            return None
+        self.status = (
+            f"refused walk: not at walk-ready pose (max Δq={worst:.0f}° "
+            f"on j{j})")
+        return (
+            f"refused walk: not at walk-ready pose (max Δq={worst:.1f}° "
+            f"on j{j}; press Stand first and wait for stand verified)")
+
     # -- gait selection --------------------------------------------------------
     _GAIT_NAMES = {0: "tripod (drag)", 1: "noslip tripod",
                    2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)",
@@ -332,7 +391,7 @@ class DriveController:
             self.gait = NoSlipGait(alpha=self._noslip_alpha)
         else:
             self.gait = TripodGait()
-        self.gait.sync_plant_stance()
+        self._sync_gait_walk_stance()
         if self._lift_mm is not None:
             self.gait.set_lift_mm(self._lift_mm)
         self.gait.reset_phase(t=time.monotonic())
@@ -383,10 +442,10 @@ class DriveController:
                 return "need ARM"
             force = any(p.upper() == "FORCE" for p in parts[1:])
             self.gait.stop()
-            self.gait.sync_plant_stance()
+            self._sync_gait_walk_stance()
             self.gait.reset_phase(t=time.monotonic())
             self._vx = self._vy = self._omega = 0.0
-            stand = standing_pose_degrees()
+            stand = walk_start_pose_degrees()
             refused = self._refuse_large_delta(stand, force=force, label="stand")
             if refused:
                 self.mode = "idle"
@@ -435,28 +494,38 @@ class DriveController:
                 except ValueError:
                     gid = None
             # UI uses mm/s; gait wants m/s. Cap gently for first teleop.
-            self._vx = max(-0.20, min(0.20, vx_mm / 1000.0))
-            self._vy = max(-0.15, min(0.15, vy_mm / 1000.0))
-            self._omega = max(-0.9, min(0.9, omega))
-            moving = abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
+            vx = max(-0.20, min(0.20, vx_mm / 1000.0))
+            vy = max(-0.15, min(0.15, vy_mm / 1000.0))
+            om = max(-0.9, min(0.9, omega))
+            moving = abs(vx) + abs(vy) + abs(om) > 1e-4
             was_walking = self.mode == "walk"
-            self.mode = "walk" if moving else "stand"
+            if moving and not was_walking:
+                refused = self._refuse_walk_if_not_ready()
+                if refused:
+                    self.gait.stop()
+                    self._vx = self._vy = self._omega = 0.0
+                    self.mode = "idle"
+                    return refused
             if gid is not None and gid != self._gait_id:
-                # Picker swap carried on the J stream: lands on the first
-                # stopped packet (refused while moving — see _set_gait).
-                self._set_gait(gid)
+                # Picker swap carried on the J stream: when starting from
+                # stand, swap before publishing the nonzero command so the
+                # gait selector does not misread this as a live swap.
+                msg = self._set_gait(gid)
+                if msg.startswith("refused"):
+                    return msg
+            self._vx, self._vy, self._omega = vx, vy, om
+            self.mode = "walk" if moving else "stand"
             if not (was_walking and moving):
-                # Pick up the latest learned plant when a walk engages /
-                # while standing — but never mid-walk: NoSlipGait's sync
-                # re-pins the world anchors, which would snap planted
-                # feet back to neutral under load.
-                self.gait.sync_plant_stance()
-                if moving and isinstance(self.gait, (NoSlipGait,
-                                                     SE2FootGait)):
+                # Scripted drive uses the same tall walk-ready stance as
+                # Stand/RL walk. Never resync mid-walk: NoSlipGait's sync
+                # re-pins the world anchors, which would snap planted feet
+                # back to neutral under load.
+                self._sync_gait_walk_stance()
+                if moving:
                     # Fresh cycle on engage: re-pin feet under the robot
                     # NOW and restart the startup-softened phase machine.
-                    self.gait.reset_phase()
-            self.gait.set_velocity(vx=self._vx, vy=self._vy, omega=self._omega)
+                    self.gait.reset_phase(t=time.monotonic())
+            self.gait.set_velocity(vx=vx, vy=vy, omega=om)
             self.status = (f"walk[{self._gait_desc()}] vx={self._vx:.3f} "
                            f"vy={self._vy:.3f} w={self._omega:.2f}")
             return "J"
@@ -615,13 +684,12 @@ class DriveController:
                         pose = self.gait.desired_deg(tick - t0)
                         self._write_pose(pose, speed=WALK_SPEED, acc=WALK_ACC)
                     elif armed and mode == "stand":
-                        # Occasional re-hold so stance doesn't droop.
-                        # Must match stand zero / learned plant — NOT the
-                        # old gait neutral (−25/+60), which yanked hips up
-                        # after feet had just planted.
+                        # Occasional re-hold so stance doesn't droop. This
+                        # must match the tall walk-ready stance used by
+                        # Stand/RL walk and scripted J drive.
                         if int(tick * 2) % 5 == 0:
                             hold = (list(self._last_pose)
                                     if self._last_pose
-                                    else standing_pose_degrees())
+                                    else walk_start_pose_degrees())
                             self._write_pose(hold, speed=300, acc=20)
             time.sleep(DT)

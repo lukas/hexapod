@@ -2,6 +2,48 @@
 
 ## Next (meta 08-31 priority reorder — read before funding another RL arm)
 
+Update, 2026-08-31 ~11:5x (idle-kick, no run finished — DRAINED two
+genuine untriaged-eval gaps left behind by the fast-moving turn-
+authority campaign, per the 08-14 directive that agent-doable work
+drains before backoff). Plain English: while the mirror-augment
+distillation runs in the background (still training, ~20min in of a
+likely 1-2h class, no action needed — see the ~11:3x update above),
+swept the ledger for RUNNING entries with no verdict and found real
+ones, not stale cosmetic noise: **(1) `turndiet-anchor14coef1-canary`
+seed0** was never independently probed (only its `-s1` twin had a
+`probe_turn_authority` read) — ran the exact same probe against the
+seed0 checkpoint (full 88-key launch cfg-set replayed), got the same
+FROZEN-BODY result (wz_med 0.0002-0.0023 both signs, gait/progress
+clean 6/6, prog med 0.39), verdicted CANARY FAIL - MECHANISM joint
+with `-s1`. **(2) `walkheavy-acq8m{,-s1}`** (the walk-heavy-diet fix
+arm for the acq8m-s1 progress regression, launched 00:0x, never
+verdicted) had genuinely FINISHED training 8+ hours ago and its
+`-s1` twin's own `purewalk_det`/`gate`/`owncfg` evals had ALSO
+finished on-pod (train-2) with nobody watching — pulled them back
+(`kubectl cp`, not re-run), confirmed the fix did NOT work: progress
+ratio med 0.377 (range 0.337-0.399), unchanged from the failed
+acq8m-s1 parent's own 0.373/0.379 and still well under the gate's
+>=0.44 bar; slip/rise/lower all clean. Verdicted FAIL, diet-share
+lever now exonerated (this run existed specifically to test it).
+Seed0's own reads were incomplete/missing entirely (`walkheavy-acq8m`
+had NO eval ever launched; `anchor14coef1-acq8m` had a mixed-
+mode_seq `gate`/`owncfg` on-pod but never synced, and no
+`purewalk_det`) — pushed both checkpoints to free pods (train-3,
+train-6) and launched the missing reads (matching the exact
+mode_seq=0 override recipe used to decide `-s1`'s verdicts); left
+running, not yet read (mid-flight at cycle end, ps-confirmed alive).
+**Next cycle: read `cw_standwalk_stage2_dualbc4_walkteach_
+{walkheavy_acq8m,anchor14coef1_acq8m}_purewalk_det/report.json`
+(+ `walkheavy_acq8m_{gate,owncfg}`, also launched this cycle on
+train-1) to close the seed0 half of both joint verdicts** — seed1's
+halves are already decided (turndiet-canary: joint FAIL closed both
+seeds; walkheavy-acq8m: `-s1` FAIL, `seed0` pending). No new GPU
+training launch (CPU eval/triage work only); 12/12 GPU training
+slots still free, all other tracks re-swept fresh (joystick/amp/cpg
+DONE-or-maintenance unchanged, todaypolicy delivered+closed,
+walkcurr RETIRED) — no legal new training arm exists regardless.
+CYCLE_WORKED.
+
 Update, 2026-08-31 ~11:3x (idle-kick, no run finished — DRAINED by
 building and launching fix path 2 from the prior cycle's own list,
 "neither attempted this cycle" -> one of the two now attempted).

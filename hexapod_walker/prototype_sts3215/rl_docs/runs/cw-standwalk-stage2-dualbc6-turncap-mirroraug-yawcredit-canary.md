@@ -1,0 +1,18 @@
+# cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-canary
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: INTENT
+
+**created**: 2026-09-01T09:53:51+00:00
+
+**pod**: hexapod-mjx-train-4
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-acq1
+
+**hypothesis**: Plain English: does giving the critic a SECOND value head trained only off the yaw-reward component (reward.k_walk_yaw), and using its own decomposed advantage for an extra actor policy-gradient step, slow or reverse the turn-authority erosion a plain continuation from the same turnpay-canary init shows -- without wrecking walk quality? This is the campaign's own named next lever after the entire single-update-size-constraint mechanism family (actor-freeze/value-warmup/kl-rollback, 3 doses) closed at a durable ceiling of pos~0.075-0.09/neg~-0.10 to -0.12 (never durably >=0.10 both signs). Root cause (probe_yaw_credit.py, 08-31): a real, sizeable per-tick reward_walk_yaw income exists, but the ONE shared value function's advantage is dominated by the much larger walk-forward reward, so the critic never anticipates a yaw-toward-command tick as better-than-expected -- credit is drowned, not absent. New code (rl_move/sim/yaw_critic.py, snapshot exp/yaw-decomposed-critic-standwalk-turnauth): value_net_yaw mirrors value_net off core-A's (locomotion) critic trunk (DETACHED -- cannot perturb the shared value_net used by the main PPO update), trained via its own GAE over reward_walk_yaw alone; a SEPARATE (undetached) actor policy-gradient step uses the yaw-only normalized advantage (mathematically equivalent to summing it into the PPO advantage at ratio=1, matching this codebase's mirror.py/bc_anchor.py separate-step house style). Doses: train.yaw_credit_coef=1.0 (actor pg), train.yaw_credit_vf_coef=0.5 (value regression) -- first-try starting guesses, no prior art. Matched control: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-ctrl-canary, launched alongside, identical recipe/seed/init, coef=0. Prediction-if-true: treatment's final (2M) probe_turn_authority wz_med reads materially above the control's own final, with det walk gait_valid/progress_ratio held. Prediction-if-false: treatment reads within noise of control (the detached-trunk head is too weak a signal to move the actor meaningfully at this coef) or regresses gait/progress (the extra ungated actor step destabilizes core-A) -- next dose would be a higher coef, a shared (non-detached) trunk variant, or accept the credit-assignment fix needs a different mechanism entirely.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. PASS/PROMOTE if final (2M) probe_turn_authority (own TURNCAP_CFG_SET) wz_med improves over the matched control's own final by >=0.02 on BOTH signs (pos higher, neg more negative) AND det walk gait_valid>=5/6 zero falls AND purewalk det progress_ratio within 0.03 of the control's own (mechanism must not trade walk quality for yaw retention) -- promote to a full acquisition-scale continuation next. INFORMATIVE/NO-EFFECT if wz_med reads within ~0.01-0.02 of the control (noise band this campaign has shown throughout) -- the detached-trunk MVP head is too weak at this dose; try coef 3.0-5.0 or a shared-trunk variant before abandoning the lever. FAIL if gait_valid or progress_ratio regress hard vs the control (extra actor step destabilizes core-A) -- cut coef by 5-10x and retry, or gate the pg step to walk-only (already gate>0.5-masked) ticks with a tighter trust region.
+

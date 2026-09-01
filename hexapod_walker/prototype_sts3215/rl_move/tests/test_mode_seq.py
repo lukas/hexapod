@@ -335,3 +335,73 @@ def test_full_mode_seq_draws_no_extra_rng():
     ob, _ = b.reset()
     np.testing.assert_array_equal(oa, ob)
     assert a._seq_plan is not None and b._seq_plan is not None
+
+
+# ---------------------------------------------------------------------------
+# 8. goal.mode_seq_forced_plan (09-01, standwalk DONE-gate session
+#    tool): default "" = bit-exact legacy random plan; when set, an
+#    exact deterministic sit->rise->walk->lower (or any other)
+#    sequence with caller-chosen per-segment durations, bypassing the
+#    uniform 6-8s random draw the DONE gate's own randomized-60s-walk
+#    shape can't get from the training-diet sampler.
+# ---------------------------------------------------------------------------
+
+def test_forced_plan_off_is_bit_exact():
+    a = _make_env(seed=5, episode_seconds=10.0)
+    b = _make_env(seed=5, episode_seconds=10.0,
+                  extra_cfg={"goal.mode_seq_forced_plan": ""})
+    oa, _ = a.reset()
+    ob, _ = b.reset()
+    np.testing.assert_array_equal(oa, ob)
+    assert a._seq_plan == b._seq_plan
+
+
+def test_forced_plan_exact_sequence_and_durations():
+    env = _make_env(
+        seed=0, episode_seconds=90.0,
+        extra_cfg={"goal.mode_seq_forced_plan": "rise:10,walk:60,lower:10"})
+    env.reset()
+    plan = env._seq_plan
+    modes = [p["mode"] for p in plan]
+    assert modes == ["rise", "walk", "lower"]
+    dt = env.dt
+    # tick[1] ~= 10s, tick[2] ~= 70s (10 rise + 60 walk), within one tick
+    assert plan[1]["tick"] == pytest.approx(round(10.0 / dt), abs=1)
+    assert plan[2]["tick"] == pytest.approx(round(70.0 / dt), abs=1)
+    # walk segment really does last ~60s: the third segment starts
+    # ~60s after the second, not the random sampler's 6-8s
+    walk_len_s = (plan[2]["tick"] - plan[1]["tick"]) * dt
+    assert 59.0 <= walk_len_s <= 61.0
+    env.close()
+
+
+def test_forced_plan_no_duration_falls_back_to_segment_midpoint():
+    env = _make_env(seed=0, episode_seconds=30.0, seg_s=(6.0, 8.0),
+                    extra_cfg={"goal.mode_seq_forced_plan": "rise,walk,lower"})
+    env.reset()
+    plan = env._seq_plan
+    assert [p["mode"] for p in plan] == ["rise", "walk", "lower"]
+    dt = env.dt
+    assert plan[1]["tick"] == pytest.approx(round(7.0 / dt), abs=1)  # (6+8)/2
+    env.close()
+
+
+def test_forced_plan_drops_segments_past_episode_end():
+    env = _make_env(
+        seed=0, episode_seconds=15.0,
+        extra_cfg={"goal.mode_seq_forced_plan": "rise:10,walk:60,lower:10"})
+    env.reset()
+    modes = [p["mode"] for p in plan] if (plan := env._seq_plan) else []
+    # walk:60 starts at t=10 < 15s episode -> kept; lower would start
+    # at t=70 >> 15s episode -> dropped (never indexes past the end)
+    assert modes == ["rise", "walk"]
+    env.close()
+
+
+def test_forced_plan_empty_string_raises_are_impossible():
+    # a whitespace-only forced_plan is treated as unset (falls back to
+    # the random sampler), never a zero-segment crash.
+    env = _make_env(seed=0, episode_seconds=10.0,
+                    extra_cfg={"goal.mode_seq_forced_plan": "   "})
+    env.reset()
+    assert env._seq_plan is not None

@@ -375,15 +375,32 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     h_err = None
     chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
     ret, safety_flags, term = 0.0, 0, False
+    # live_mode_hist (09-01, standwalk single-cycle DONE-gate session
+    # tool): `mode` above is the RESET-time label only — for a plain
+    # single-mode episode (mode_seq off) info["goal_mode"] never
+    # changes so this is moot, but for a goal.mode_seq_forced_plan (or
+    # any mode_seq>0) SEQUENCE episode the live segment mode changes
+    # mid-episode while every `if mode in (...)` gate below kept
+    # reading the STALE reset-time value — e.g. a rise-first
+    # rise->walk->lower session never accumulated cmd_dist_m/
+    # along_dist_m at all (mode stayed "rise" the whole time), so
+    # progress_ratio/slip_per_m/gait_valid came back None for a
+    # session that plainly walked. Track the per-tick LIVE mode
+    # instead; every consumer below now keys off it. Bit-exact for any
+    # episode where goal_mode never changes (the entire pre-09-01
+    # corpus).
+    live_mode_hist: list[str] = []
 
     done = False
     while not done:
         a, _ = model.predict(obs, deterministic=deterministic)
         obs, r, term, trunc, info = env.step(a)
+        cur_mode = info.get("goal_mode", mode)
+        live_mode_hist.append(cur_mode)
         ret += float(r)
         done = term or trunc
 
-        if course_trace is not None and mode in ("walk", "quadwalk"):
+        if course_trace is not None and cur_mode in ("walk", "quadwalk"):
             g = env._current_goal()
             bxy = env.data.xpos[env._chassis_bid, :2]
             v = env._body_vel_xy()
@@ -423,12 +440,14 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             direction_wrong.append(float(info["walk_direction_wrong_way"]))
         if "getup_S" in info:
             getup_s_hist.append(float(info["getup_S"]))
-        if mode in ("walk", "quadwalk", "getup"):
+        if cur_mode in ("walk", "quadwalk", "getup"):
             # progress_ratio bookkeeping (operator ruling 2026-08-09
             # WALK-DISTANCE-GATE): along-command body displacement vs
             # commanded displacement, integrated over commanded ticks.
+            # cur_mode (live), not the reset-time `mode` — see
+            # live_mode_hist note above.
             g = env._current_goal()
-            if mode in ("walk", "quadwalk"):
+            if cur_mode in ("walk", "quadwalk"):
                 # windowed course metrics need the raw tick streams
                 bxy = env.data.xpos[env._chassis_bid, :2]
                 course_xy.append((float(bxy[0]), float(bxy[1])))
@@ -591,7 +610,38 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         # near-zero motion-valid windows, it cannot pass by hiding
         # from the angle statistic).
         ep.update(_course_window_ep_keys(course_xy, course_cmd, env.dt))
-    if mode in ("walk", "quadwalk"):
+    # live_modes / walk-run windowing (09-01, same fix as
+    # live_mode_hist above): a legacy single-mode episode has
+    # live_modes constant at `mode` for the whole array, so
+    # `_walk_run_ticks` returns exactly one run spanning [0, T) and
+    # every metric below is BIT-IDENTICAL to the pre-09-01 whole-
+    # episode computation. A mode_seq SEQUENCE episode instead windows
+    # duty/swings/slips to only the tick range(s) where the LIVE
+    # segment was actually walk/quadwalk — a rise or lower segment's
+    # own foot-contact pattern (very different duty signature) no
+    # longer leaks into "did this episode sacrifice a leg while
+    # walking". Multiple disjoint walk segments (a repeating
+    # rise<->walk<->lower mode_seq diet) are handled per-run and
+    # summed (no cross-run diff/slip contamination at the seam).
+    live_modes = np.asarray(live_mode_hist) if live_mode_hist else (
+        np.full(len(contact), mode))
+    if mode == "quadwalk":
+        # quadwalk never rides mode_seq (not in SEQ_NEXT) — keep the
+        # exact legacy whole-episode path untouched.
+        walk_runs = [(0, len(contact))]
+    else:
+        walk_runs = []
+        _in = False
+        for _i, _m in enumerate(live_modes):
+            _is_w = _m in ("walk", "quadwalk")
+            if _is_w and not _in:
+                _start, _in = _i, True
+            elif not _is_w and _in:
+                walk_runs.append((_start, _i))
+                _in = False
+        if _in:
+            walk_runs.append((_start, len(live_modes)))
+    if walk_runs:
         # Gait-validity gate (guardrails, external review §5b): a walking
         # checkpoint is INVALID if any leg is persistently sacrificed,
         # regardless of velocity error. Sacrificed = airborne essentially
@@ -609,9 +659,23 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if mode == "quadwalk":
             lift = tuple(getattr(env._goal_traj, "lift_legs", None)
                          or ()) if env._goal_traj is not None else ()
+        w_ticks = sum(e - s for s, e in walk_runs)
+        duty_w = (sum(contact[s:e].sum(axis=0) for s, e in walk_runs)
+                 / max(w_ticks, 1))
+        swings_w = [0] * 6
+        slips_w = [0.0] * 6
+        for s, e in walk_runs:
+            cw = contact[s:e]
+            pxy = pad_xy[s:e]
+            for f in range(6):
+                cf = cw[:, f]
+                d = np.diff(cf.astype(int))
+                swings_w[f] += int(np.sum(d == -1))
+                moved = np.linalg.norm(np.diff(pxy[:, f], axis=0), axis=1)
+                slips_w[f] += float(moved[cf[:-1]].sum()) if len(cf) > 1 else 0.0
         ep["sacrificed_legs"] = [
             f for f in range(6) if f not in lift
-            and (duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0))]
+            and (duty_w[f] < 0.10 or (duty_w[f] > 0.95 and swings_w[f] == 0))]
         ep["gait_valid"] = not ep["sacrificed_legs"]
         if mode == "quadwalk":
             n_skip = min(int(round(3.0 / env.dt)), max(len(contact) - 1,
@@ -628,7 +692,10 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         # displacement (promotion band 0.75-1.25; >1.25 = overspeed);
         # slip_per_m = episode loaded foot-XY travel per meter of
         # along-command progress (primary skating metric, never
-        # touchdown-reset by construction of slip_m_total).
+        # touchdown-reset by construction of slip_m_total). Both use
+        # cmd_dist_m/along_dist_m, which the live_mode_hist fix above
+        # already accumulates ONLY on live walk/quadwalk ticks (safe
+        # to sum across disjoint runs with no windowing needed there).
         ep["along_dist_m"] = round(along_dist_m, 3)
         ep["cmd_dist_m"] = round(cmd_dist_m, 3)
         ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
@@ -646,7 +713,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         # (raw meters, unguarded) still reports the hold-episode foot
         # travel for anyone auditing "does it stand still on command".
         ep["slip_per_m"] = (round(
-            float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
+            float(np.sum(slips_w)) / max(along_dist_m, 0.05), 3)
             if cmd_dist_m > 1e-6 else None)
     if mode == "getup":
         # Whole-sequence metrics (RISE_WALK_NEXT_48H P1, 08-13): a

@@ -2807,6 +2807,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     #   goal.mode_seq_blend_s_min    per-switch ref blend lo (s, 0.5)
     #   goal.mode_seq_blend_s_max    per-switch ref blend hi (s, 1.0)
     #   goal.mode_seq_max_segments   plan length cap (5)
+    #   goal.mode_seq_forced_plan    "" (off) or a deterministic
+    #                                "mode[:seconds],..." override plan
+    #                                (eval-only DONE-gate session tool,
+    #                                09-01 — see _sample_mode_seq)
     # First segment uses the LEGACY samplers (full start-kind diversity:
     # rise keeps its flat/bridge/crouch mix, walk its park/gait spawn
     # draws, lower its belly-start draw) so a sequence may begin at any
@@ -2831,35 +2835,79 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                               default=1.0))
         max_seg = int(cfg_get(self.cfg, "goal", "mode_seq_max_segments",
                               default=5))
-        # First mode: the configured goal mix restricted to the four
-        # sequence modes (renormalized; uniform fallback) — --goal-mix
-        # keeps steering what sequences train on.
-        modes4 = ("rise", "walk", "hold", "lower")
-        p = np.array([gen.p_rise, float(getattr(gen, "p_walk", 0.0)),
-                      gen.p_hold, gen.p_lower], dtype=float)
-        p = (p / p.sum()) if p.sum() > 0 else np.full(4, 0.25)
-        mode = str(modes4[int(rng.choice(4, p=p))])
-        # Segment boundaries: cumulative U(seg_lo, seg_hi) draws until
-        # the tail can no longer hold a useful (>=3 s) segment; the
-        # last segment runs to the episode end. Guarantee >= 2 segments
-        # (a 1-segment "sequence" tests nothing) by splitting at the
-        # middle if the draw left no boundary.
-        min_tail = int(round(3.0 / dt))
-        ticks = [0]
-        t = 0.0
-        while len(ticks) < max_seg:
-            t += float(rng.uniform(seg_lo, seg_hi))
-            tk = int(round(t / dt))
-            if tk > self.episode_steps - min_tail:
-                break
-            ticks.append(tk)
-        if len(ticks) == 1:
-            ticks.append(max(1, self.episode_steps // 2))
-        plan = [{"mode": mode, "tick": 0, "blend": 0}]
-        for tk in ticks[1:]:
-            mode = str(rng.choice(self.SEQ_NEXT[mode]))
-            bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi)) / dt)))
-            plan.append({"mode": mode, "tick": tk, "blend": bn})
+        # goal.mode_seq_forced_plan (09-01, standwalk DONE-gate session
+        # tool): default "" = bit-exact legacy random plan below. When
+        # set, a comma-separated "mode[:seconds]" spec (e.g.
+        # "rise:10,walk:60,lower:10") REPLACES the random SEQ_NEXT walk
+        # + uniform segment-length draw with this EXACT deterministic
+        # sequence/duration — the one thing the random sampler can't
+        # give an eval harness: a guaranteed single sit->rise->walk->
+        # lower cycle with a full-length (e.g. 60 s) walk segment
+        # instead of the training-diet's uniform 6-12 s segments. Omit
+        # ":seconds" to fall back to the midpoint of the segment-length
+        # cfg (matches the random sampler's own scale). Eval-only lever
+        # (no rng draws consumed beyond what building the plan needs);
+        # never used by any training recipe today. First segment still
+        # goes through the legacy start-kind samplers below, same as
+        # the random path.
+        forced = str(cfg_get(self.cfg, "goal", "mode_seq_forced_plan",
+                             default="") or "").strip()
+        if forced:
+            specs: list[tuple[str, float]] = []
+            for part in forced.split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                m, _, d = part.partition(":")
+                dur = float(d) if d else (seg_lo + seg_hi) / 2.0
+                specs.append((m.strip(), dur))
+            if not specs:
+                raise ValueError(
+                    "goal.mode_seq_forced_plan set but parsed to zero "
+                    "segments — expected 'mode[:seconds],...'")
+            mode = specs[0][0]
+            plan = [{"mode": mode, "tick": 0, "blend": 0}]
+            t = specs[0][1]
+            for m, dur in specs[1:]:
+                tk = int(round(t / dt))
+                if tk >= self.episode_steps:
+                    break  # doesn't fit this episode length — drop it
+                bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi))
+                                     / dt)))
+                plan.append({"mode": m, "tick": tk, "blend": bn})
+                t += dur
+        else:
+            # First mode: the configured goal mix restricted to the
+            # four sequence modes (renormalized; uniform fallback) —
+            # --goal-mix keeps steering what sequences train on.
+            modes4 = ("rise", "walk", "hold", "lower")
+            p = np.array([gen.p_rise, float(getattr(gen, "p_walk", 0.0)),
+                          gen.p_hold, gen.p_lower], dtype=float)
+            p = (p / p.sum()) if p.sum() > 0 else np.full(4, 0.25)
+            mode = str(modes4[int(rng.choice(4, p=p))])
+            # Segment boundaries: cumulative U(seg_lo, seg_hi) draws
+            # until the tail can no longer hold a useful (>=3 s)
+            # segment; the last segment runs to the episode end.
+            # Guarantee >= 2 segments (a 1-segment "sequence" tests
+            # nothing) by splitting at the middle if the draw left no
+            # boundary.
+            min_tail = int(round(3.0 / dt))
+            ticks = [0]
+            t = 0.0
+            while len(ticks) < max_seg:
+                t += float(rng.uniform(seg_lo, seg_hi))
+                tk = int(round(t / dt))
+                if tk > self.episode_steps - min_tail:
+                    break
+                ticks.append(tk)
+            if len(ticks) == 1:
+                ticks.append(max(1, self.episode_steps // 2))
+            plan = [{"mode": mode, "tick": 0, "blend": 0}]
+            for tk in ticks[1:]:
+                mode = str(rng.choice(self.SEQ_NEXT[mode]))
+                bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi))
+                                     / dt)))
+                plan.append({"mode": mode, "tick": tk, "blend": bn})
         self._seq_plan = plan
         self._seq_idx = 0
         self._seq_seg_end = (int(plan[1]["tick"]) if len(plan) > 1

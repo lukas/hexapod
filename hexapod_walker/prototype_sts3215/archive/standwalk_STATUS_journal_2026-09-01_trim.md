@@ -3621,3 +3621,74 @@ real next architecture build needs a dedicated pass, not a rushed
 one. CYCLE_WORKED.
 
 
+
+---- appended 09-01 ~10:5x ----
+Update, 2026-09-01 ~10:1x (this cycle — klrolltight2 DIG-IN resolved,
+reward-decomposed critic BUILT + tested + launched). Plain English:
+**closed the last open fork on the update-size-constraint axis, then
+built and launched the campaign's next lever (a critic that learns a
+SEPARATE value for the yaw reward alone) — its 2M canary pair is
+training now, not yet readable.**
+
+1. **klrolltight2 DIG-IN resolved** (verdict: ACQ PARTIAL -
+   GUARD-REJECT-ALL, CRITIC-ONLY ARTIFACT, AXIS CLOSED). `--kl-
+   rollback=0.01` rejected EVERY post-unfreeze actor update
+   (rollback_count=457, actor tensors bit-identical 2M->38M via direct
+   state_dict diff) — an accidental critic-only continuation, not a
+   genuine tighter-dose test; its nominal wz "PASS" is a false
+   positive (untouched init carried forward). Fork decided: no guard
+   scale-down-and-retry fix funded — the whole freeze/value-warmup/
+   kl-rollback family already closed this window (klrolldriftmatch
+   matched-drift, n=4) at a ceiling a repaired guard would only
+   re-discover. Dose axis stops at 0.02.
+2. **Built the reward-decomposed (yaw-component) critic**
+   (`rl_move/sim/yaw_critic.py`, the campaign's own named next lever —
+   see the archived 09-01 ~09:0x head for the root-cause/scope).
+   `value_net_yaw` mirrors `value_net` off core-A's (locomotion)
+   DETACHED critic trunk, trained via its own hand-derived GAE
+   (cross-checked bit-identical against SB3's own
+   `compute_returns_and_advantage` on a random buffer) over
+   `reward_walk_yaw` alone; a separate (undetached) actor
+   policy-gradient step uses the yaw-only normalized advantage
+   (mathematically equivalent to summing it into the PPO advantage at
+   ratio=1 — matches this codebase's `mirror.py`/`bc_anchor.py`
+   separate-step house style, no sb3-contrib internals touched). New
+   cfg keys `train.yaw_credit_coef`/`_vf_coef` default 0/OFF, bit-exact
+   when off (pinned by test). 13/13 `test_yaw_critic.py` green.
+   Snapshots: `exp/yaw-decomposed-critic-standwalk-turnauth`,
+   `exp/yaw-decomposed-critic-fix-cudnn-and-checkpoint-shape`.
+   **Two real bugs found and fixed on the FIRST on-pod attempt (both
+   invisible to CPU unit tests, both now pinned by new regression
+   tests):** (a) `collect_rollouts` leaves the policy in eval mode;
+   a cuDNN RNN backward pass on GPU requires training mode to have
+   been set before the matching forward or the C++ backend raises —
+   fixed by `policy.set_training_mode(True)` at the top of the aux
+   step. (b) the yaw head must NEVER be a registered `nn.Module`
+   attribute or live in `policy.optimizer`'s param groups: every
+   launch here is a warm start, and a plain (yaw-credit-unaware)
+   `.load()` — used by the trainer's own bg-video helper,
+   `probe_turn_authority`, `pod_eval`, the gate harness — reconstructs
+   the policy from the checkpoint's OWN saved `policy_kwargs` then
+   crashes on `Unexpected key(s) in state_dict` / a param-group-count
+   mismatch. Fixed by keeping the head in a plain (non-`nn.Module`)
+   list with its OWN independent optimizer, invisible to
+   `state_dict()`/`policy.parameters()`/the main optimizer entirely —
+   every checkpoint this mechanism saves is byte-identical in shape to
+   a non-yaw-credit one.
+3. **Canary pair launched** off `turnpay-canary` (the campaign's
+   pre-registered plan): `cw-standwalk-stage2-dualbc6-turncap-
+   mirroraug-yawcredit-ctrl-canary` (matched control, coef=0, DONE at
+   2M) and `...-yawcredit-canary-rr1` (treatment, yaw_credit_coef=1.0/
+   vf_coef=0.5, `-rr1` because attempt 1 crashed on bug (a) above and
+   a W&B run already existed under the base name — training now,
+   confirmed past the crash point). Gate: PASS/PROMOTE if final wz_med
+   beats the control by >=0.02 both signs with gait/progress held;
+   INFORMATIVE if within ~0.01-0.02 (try a higher dose or shared-trunk
+   variant next); FAIL if gait/progress regress hard (cut dose). NOT
+   YET READABLE this cycle — next cycle's triage reads both finals.
+
+Previous entry (2026-09-01 ~09:0x, JOINT CLOSE 2/2 on the
+matched-actor-training-steps confound + the klrolltight2 DIG-IN
+flag) preserved VERBATIM in
+`archive/standwalk_STATUS_journal_2026-09-01_trim.md` (appended
+09-01 ~10:1x) — do not re-derive; read it there if needed.)

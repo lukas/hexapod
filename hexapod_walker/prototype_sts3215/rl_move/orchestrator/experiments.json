@@ -248299,7 +248299,7 @@
       "0.01"
     ],
     "created": "2026-09-01T06:16:01+00:00",
-    "status": "RUNNING",
+    "status": "ACQ PARTIAL - GUARD-REJECT-ALL (CRITIC-ONLY ARTIFACT), AXIS CLOSED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -248348,7 +248348,8 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-09-01T08:43:09"
+    "triage": "done",
+    "verdict": "Result: --kl-rollback=0.01 is unusable at this policy family's realized-KL scale -- this run is an accidental 38M-step CRITIC-ONLY continuation, not a genuine tighter-dose actor test. Evidence (built+pushed by the flagging cycle, re-read this cycle): kl_rollback_count=457 with the LATEST update itself rolled back (train/kl_rollback=1 at final); direct state_dict diff 2M-snapshot vs final shows every ACTOR tensor (mlp_extractor.policy_net/action_net/lstm_actor core_a+core_b/log_std_a) at EXACTLY 0.0 max-abs-diff while CRITIC tensors show real 0.03-0.57 diffs -- the actor never moved a single float after the 8M unfreeze, because 0.01 sits below this family's normal realized-approx_kl operating range (~0.08-0.15/raw update), so every post-unfreeze update got rejected-and-restored. Its nominal probe_turn_authority wz_med (pos avg 0.1116, neg avg -0.1654) nominally clears the >=0.10-both-signs bar but is a FALSE POSITIVE: it is just the untouched turnpay-canary-derived actor init's own pre-existing turn skill carried forward by a critic-only run, not RL-preserved authority -- never cite it as a PASS. Why (the fork): decided NOT to fund a guard scale-down-and-retry code fix, because the campaign already closed the whole update-size-constraint mechanism family this same window (klrolldriftmatch-acq1{,-s1} joint close, matched-drift confirmed n=4): even a REPAIRED guard doing genuine actor training under a tighter cap would, per that closure, converge to the same ~0.075-0.09 pos / ~-0.10-0.12 neg ceiling as accumulated actor-training-steps dominate regardless of freeze/cap mechanics -- fixing the guard would just re-spend budget re-discovering 0.02's own plateau, not open new ground. Verdict: STOP -- the kl-rollback dose axis closes at 0.02 (already-recorded clean band: valuewarmup-klrolltight-acq1 final pos 0.0803/0.0756, neg -0.1131/-0.1175); no relaunch, no guard-scale-down fix funded on this line. What's next: the campaign's only remaining lever is the reward-decomposed command-conditioned critic (STATUS Next item 2, scoped 09-01) -- genuine new architecture, not another dose. Evidence: logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_valuewarmup_klrolltight2_acq1_curve.json, logs/ckpt_eval/klrolltight2_acq1_weightdiff_2Mvfinal.json."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-klrolldriftmatch-acq1",

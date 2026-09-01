@@ -28,7 +28,9 @@ __all__ = [
     "_CRUISE", "_CURATED", "_DEFAULT_STANCE_PROFILE", "_DESC", "_HIST_K",
     "_MIDDLE_TUCK_QUAD",
     "_N_MODE", "_NOSLIP", "_NOSLIP_CLEAN", "_NOSLIP_FACTORY",
-    "_NOSLIP_MID", "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
+    "_NOSLIP_FLUID", "_NOSLIP_FLUID_FAST", "_NOSLIP_FLUID_HYBRID",
+    "_NOSLIP_FLUID_PULSE", "_NOSLIP_FLUID_PUSH", "_NOSLIP_MID",
+    "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
     "_ON_ROBOT", "_PROMOTED", "_PlayEnv", "_PlayTraj", "_ROLE_OBS",
     "_SCRIPTED_SE2", "_SE2_CPG", "_SE2_TETRAPOD", "_SE2_WAVE",
     "_SCRIPTED_ALPHA", "_SCRIPTED_NOSLIP", "_SCRIPTED_ROWS",
@@ -62,17 +64,33 @@ _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
 # scrub in verify_noslip (08-20), like the clampfit tripod.
 _NOSLIP_RIPPLE = Path("noslip_ripple_gait")
 _NOSLIP_WAVE = Path("noslip_wave_gait")
+_NOSLIP_FLUID = Path("noslip_fluid_gait")
+_NOSLIP_FLUID_FAST = Path("noslip_fluid_fast_gait")
+_NOSLIP_FLUID_HYBRID = Path("noslip_fluid_hybrid_gait")
+_NOSLIP_FLUID_PUSH = Path("noslip_fluid_push_gait")
+_NOSLIP_FLUID_PULSE = Path("noslip_fluid_pulse_gait")
 _NOSLIP_FACTORY = {_NOSLIP_CLEAN: "clamp_fit", _NOSLIP_RIPPLE: "ripple",
-                   _NOSLIP_WAVE: "wave"}
+                   _NOSLIP_WAVE: "wave", _NOSLIP_FLUID: "fluid",
+                   _NOSLIP_FLUID_FAST: "fluid_fast",
+                   _NOSLIP_FLUID_HYBRID: "fluid_hybrid",
+                   _NOSLIP_FLUID_PUSH: "fluid_push",
+                   _NOSLIP_FLUID_PULSE: "fluid_pulse"}
 _NOSLIP_TAGS = {_NOSLIP: "tripod alpha=0.0", _NOSLIP_MID: "tripod alpha=0.5",
                 _NOSLIP_CLEAN: "clamp-fit tripod",
                 _NOSLIP_RIPPLE: "RIPPLE pairs (4 feet down)",
-                _NOSLIP_WAVE: "WAVE one-leg (5 feet down)"}
+                _NOSLIP_WAVE: "WAVE one-leg (5 feet down)",
+                _NOSLIP_FLUID: "fluid tripod",
+                _NOSLIP_FLUID_FAST: "fluid fast tripod",
+                _NOSLIP_FLUID_HYBRID: "fluid hybrid tripod",
+                _NOSLIP_FLUID_PUSH: "fluid push tripod",
+                _NOSLIP_FLUID_PULSE: "fluid pulse tripod"}
 _SCRIPTED_NOSLIP = frozenset(_SCRIPTED_ALPHA) | frozenset(_NOSLIP_FACTORY)
 
 
 def make_noslip_gait(row: Path, cls):
     """Build the no-slip gait a picker row selects (cls = NoSlipGait)."""
+    if row == _NOSLIP:
+        return cls.gait1(alpha=_SCRIPTED_ALPHA[row])
     preset = _NOSLIP_FACTORY.get(row)
     if preset is not None:
         return getattr(cls, preset)()

@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "measurement": "AprilTag floor-projected chassis progress; candidate/baseline ratios are paired within one camera session",
+  "runs": [
+    "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_114217",
+    "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115050",
+    "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115532"
+  ],
+  "trial_count": 12,
+  "groups": [
+    {
+      "gait": 0,
+      "direction": "backward",
+      "command_speed_mm_s": 30.0,
+      "attempted": 3,
+      "successful": 3,
+      "success_fraction": 1.0,
+      "actual_speed_mm_s": {
+        "n": 3,
+        "mean": 9.3643,
+        "median": 8.327,
+        "mad": 0.664,
+        "stdev": 2.3949,
+        "cv": 0.2557,
+        "minimum": 7.663,
+        "maximum": 12.103
+      }
+    },
+    {
+      "gait": 0,
+      "direction": "forward",
+      "command_speed_mm_s": 30.0,
+      "attempted": 3,
+      "successful": 3,
+      "success_fraction": 1.0,
+      "actual_speed_mm_s": {
+        "n": 3,
+        "mean": 14.8277,
+        "median": 14.853,
+        "mad": 0.035,
+        "stdev": 0.0762,
+        "cv": 0.0051,
+        "minimum": 14.742,
+        "maximum": 14.888
+      }
+    },
+    {
+      "gait": 10,
+      "direction": "backward",
+      "command_speed_mm_s": 30.0,
+      "attempted": 3,
+      "successful": 3,
+      "success_fraction": 1.0,
+      "actual_speed_mm_s": {
+        "n": 3,
+        "mean": 17.38,
+        "median": 16.726,
+        "mad": 0.733,
+        "stdev": 1.8052,
+        "cv": 0.1039,
+        "minimum": 15.993,
+        "maximum": 19.421
+      }
+    },
+    {
+      "gait": 10,
+      "direction": "forward",
+      "command_speed_mm_s": 30.0,
+      "attempted": 3,
+      "successful": 3,
+      "success_fraction": 1.0,
+      "actual_speed_mm_s": {
+        "n": 3,
+        "mean": 11.0883,
+        "median": 10.973,
+        "mad": 0.693,
+        "stdev": 0.8717,
+        "cv": 0.0786,
+        "minimum": 10.28,
+        "maximum": 12.012
+      }
+    }
+  ],
+  "paired_vs_gait0": [
+    {
+      "gait": 10,
+      "direction": "backward",
+      "speed_ratio_vs_gait0": {
+        "n": 3,
+        "mean": 1.9027,
+        "median": 1.9206,
+        "mad": 0.2621,
+        "stdev": 0.2894,
+        "cv": 0.1521,
+        "minimum": 1.6046,
+        "maximum": 2.1827
+      }
+    },
+    {
+      "gait": 10,
+      "direction": "bidirectional_mean",
+      "speed_ratio_vs_gait0": {
+        "n": 3,
+        "mean": 1.178,
+        "median": 1.1661,
+        "mad": 0.0344,
+        "stdev": 0.0533,
+        "cv": 0.0452,
+        "minimum": 1.1317,
+        "maximum": 1.2363
+      }
+    },
+    {
+      "gait": 10,
+      "direction": "forward",
+      "speed_ratio_vs_gait0": {
+        "n": 3,
+        "mean": 0.7479,
+        "median": 0.7443,
+        "mad": 0.0538,
+        "stdev": 0.0592,
+        "cv": 0.0792,
+        "minimum": 0.6905,
+        "maximum": 0.8087
+      }
+    }
+  ],
+  "trials": [
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_114217",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "forward",
+      "phase": "gait_0_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 14.853,
+      "speed_ratio_to_command": 0.4951,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 127,
+        "measured_duration_s": 5.7455,
+        "floor_projected_body_delta_xy_m": [
+          0.01872,
+          -0.08327
+        ],
+        "horizontal_distance_m": 0.08534,
+        "mean_direct_robot_tags": 12.54,
+        "mean_direct_floor_tags": 2.0,
+        "median_floor_homography_rms_mm": 0.661,
+        "baseline_axis_progress_m": 0.08534,
+        "baseline_axis_lateral_m": 0.00132,
+        "commanded_axis_speed_mm_s": 14.853
+      },
+      "safety": {
+        "samples": 21,
+        "peak_joint_current_a": 0.709,
+        "raw_peak_temperature_c": 64.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 3,
+        "minimum_voltage_v": 11.0,
+        "peak_imu_tilt_deg": 9.11
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_114217",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "backward",
+      "phase": "gait_0_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 12.103,
+      "speed_ratio_to_command": 0.4034333333333333,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 61,
+        "measured_duration_s": 6.78,
+        "floor_projected_body_delta_xy_m": [
+          -0.01546,
+          0.0806
+        ],
+        "horizontal_distance_m": 0.08207,
+        "mean_direct_robot_tags": 12.61,
+        "mean_direct_floor_tags": 2.03,
+        "median_floor_homography_rms_mm": 0.805,
+        "baseline_axis_progress_m": -0.08206,
+        "baseline_axis_lateral_m": 0.00132,
+        "commanded_axis_speed_mm_s": 12.103
+      },
+      "safety": {
+        "samples": 16,
+        "peak_joint_current_a": 0.422,
+        "raw_peak_temperature_c": 58.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 2,
+        "minimum_voltage_v": 11.1,
+        "peak_imu_tilt_deg": 13.49
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_114217",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "forward",
+      "phase": "gait_10_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 12.012,
+      "speed_ratio_to_command": 0.40040000000000003,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 116,
+        "measured_duration_s": 5.7126,
+        "floor_projected_body_delta_xy_m": [
+          0.0214,
+          -0.06563
+        ],
+        "horizontal_distance_m": 0.06903,
+        "mean_direct_robot_tags": 12.22,
+        "mean_direct_floor_tags": 2.59,
+        "median_floor_homography_rms_mm": 1.45,
+        "baseline_axis_progress_m": 0.06862,
+        "baseline_axis_lateral_m": 0.00755,
+        "commanded_axis_speed_mm_s": 12.012
+      },
+      "safety": {
+        "samples": 20,
+        "peak_joint_current_a": 0.598,
+        "raw_peak_temperature_c": 49.0,
+        "confirmed_peak_temperature_c": 33.0,
+        "isolated_high_sample_count": 2,
+        "minimum_voltage_v": 11.0,
+        "peak_imu_tilt_deg": 7.87
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_114217",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "backward",
+      "phase": "gait_10_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 19.421,
+      "speed_ratio_to_command": 0.6473666666666666,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 163,
+        "measured_duration_s": 6.2036,
+        "floor_projected_body_delta_xy_m": [
+          -0.00902,
+          0.12119
+        ],
+        "horizontal_distance_m": 0.12152,
+        "mean_direct_robot_tags": 12.12,
+        "mean_direct_floor_tags": 2.07,
+        "median_floor_homography_rms_mm": 0.98,
+        "baseline_axis_progress_m": -0.12048,
+        "baseline_axis_lateral_m": 0.01592,
+        "commanded_axis_speed_mm_s": 19.421
+      },
+      "safety": {
+        "samples": 19,
+        "peak_joint_current_a": 0.149,
+        "raw_peak_temperature_c": 42.0,
+        "confirmed_peak_temperature_c": 33.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 11.2,
+        "peak_imu_tilt_deg": 14.57
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115050",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "forward",
+      "phase": "gait_0_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 14.888,
+      "speed_ratio_to_command": 0.4962666666666667,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 171,
+        "measured_duration_s": 6.3123,
+        "floor_projected_body_delta_xy_m": [
+          0.03127,
+          -0.08911
+        ],
+        "horizontal_distance_m": 0.09444,
+        "mean_direct_robot_tags": 12.54,
+        "mean_direct_floor_tags": 2.54,
+        "median_floor_homography_rms_mm": 0.992,
+        "baseline_axis_progress_m": 0.09398,
+        "baseline_axis_lateral_m": 0.00926,
+        "commanded_axis_speed_mm_s": 14.888
+      },
+      "safety": {
+        "samples": 20,
+        "peak_joint_current_a": 0.429,
+        "raw_peak_temperature_c": 39.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 11.0,
+        "peak_imu_tilt_deg": 7.55
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115050",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "backward",
+      "phase": "gait_0_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 8.327,
+      "speed_ratio_to_command": 0.2775666666666667,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 165,
+        "measured_duration_s": 5.8435,
+        "floor_projected_body_delta_xy_m": [
+          -0.00253,
+          0.04947
+        ],
+        "horizontal_distance_m": 0.04954,
+        "mean_direct_robot_tags": 12.69,
+        "mean_direct_floor_tags": 2.87,
+        "median_floor_homography_rms_mm": 1.158,
+        "baseline_axis_progress_m": -0.04866,
+        "baseline_axis_lateral_m": 0.00926,
+        "commanded_axis_speed_mm_s": 8.327
+      },
+      "safety": {
+        "samples": 22,
+        "peak_joint_current_a": 0.676,
+        "raw_peak_temperature_c": 33.0,
+        "confirmed_peak_temperature_c": 33.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 10.9,
+        "peak_imu_tilt_deg": 8.35
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115050",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "forward",
+      "phase": "gait_10_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 10.28,
+      "speed_ratio_to_command": 0.3426666666666666,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 160,
+        "measured_duration_s": 6.077,
+        "floor_projected_body_delta_xy_m": [
+          0.00647,
+          -0.06272
+        ],
+        "horizontal_distance_m": 0.06305,
+        "mean_direct_robot_tags": 12.28,
+        "mean_direct_floor_tags": 2.71,
+        "median_floor_homography_rms_mm": 1.189,
+        "baseline_axis_progress_m": 0.06247,
+        "baseline_axis_lateral_m": -0.00858,
+        "commanded_axis_speed_mm_s": 10.28
+      },
+      "safety": {
+        "samples": 22,
+        "peak_joint_current_a": 0.267,
+        "raw_peak_temperature_c": 66.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 2,
+        "minimum_voltage_v": 11.1,
+        "peak_imu_tilt_deg": 10.19
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115050",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "backward",
+      "phase": "gait_10_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 15.993,
+      "speed_ratio_to_command": 0.5331,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 136,
+        "measured_duration_s": 6.1669,
+        "floor_projected_body_delta_xy_m": [
+          -0.00194,
+          0.10105
+        ],
+        "horizontal_distance_m": 0.10107,
+        "mean_direct_robot_tags": 12.29,
+        "mean_direct_floor_tags": 2.14,
+        "median_floor_homography_rms_mm": 0.838,
+        "baseline_axis_progress_m": -0.09863,
+        "baseline_axis_lateral_m": 0.02206,
+        "commanded_axis_speed_mm_s": 15.993
+      },
+      "safety": {
+        "samples": 20,
+        "peak_joint_current_a": 0.169,
+        "raw_peak_temperature_c": 33.0,
+        "confirmed_peak_temperature_c": 33.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 11.1,
+        "peak_imu_tilt_deg": 9.83
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115532",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "forward",
+      "phase": "gait_0_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 14.742,
+      "speed_ratio_to_command": 0.4914,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 68,
+        "measured_duration_s": 4.1663,
+        "floor_projected_body_delta_xy_m": [
+          0.01162,
+          -0.06063
+        ],
+        "horizontal_distance_m": 0.06174,
+        "mean_direct_robot_tags": 12.47,
+        "mean_direct_floor_tags": 2.21,
+        "median_floor_homography_rms_mm": 1.2,
+        "baseline_axis_progress_m": 0.06142,
+        "baseline_axis_lateral_m": 0.00623,
+        "commanded_axis_speed_mm_s": 14.742
+      },
+      "safety": {
+        "samples": 21,
+        "peak_joint_current_a": 0.656,
+        "raw_peak_temperature_c": 34.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 10.9,
+        "peak_imu_tilt_deg": 9.57
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115532",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 0,
+      "direction": "backward",
+      "phase": "gait_0_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 7.663,
+      "speed_ratio_to_command": 0.25543333333333335,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 98,
+        "measured_duration_s": 6.5862,
+        "floor_projected_body_delta_xy_m": [
+          0.00176,
+          0.05082
+        ],
+        "horizontal_distance_m": 0.05085,
+        "mean_direct_robot_tags": 12.66,
+        "mean_direct_floor_tags": 2.12,
+        "median_floor_homography_rms_mm": 1.056,
+        "baseline_axis_progress_m": -0.05047,
+        "baseline_axis_lateral_m": 0.00623,
+        "commanded_axis_speed_mm_s": 7.663
+      },
+      "safety": {
+        "samples": 20,
+        "peak_joint_current_a": 0.435,
+        "raw_peak_temperature_c": 38.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 0,
+        "minimum_voltage_v": 11.0,
+        "peak_imu_tilt_deg": 16.07
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115532",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "forward",
+      "phase": "gait_10_forward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 10.973,
+      "speed_ratio_to_command": 0.3657666666666667,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 163,
+        "measured_duration_s": 6.3046,
+        "floor_projected_body_delta_xy_m": [
+          -0.02371,
+          -0.07155
+        ],
+        "horizontal_distance_m": 0.07537,
+        "mean_direct_robot_tags": 12.35,
+        "mean_direct_floor_tags": 2.03,
+        "median_floor_homography_rms_mm": 1.105,
+        "baseline_axis_progress_m": 0.06918,
+        "baseline_axis_lateral_m": -0.02992,
+        "commanded_axis_speed_mm_s": 10.973
+      },
+      "safety": {
+        "samples": 18,
+        "peak_joint_current_a": 0.442,
+        "raw_peak_temperature_c": 50.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 1,
+        "minimum_voltage_v": 11.1,
+        "peak_imu_tilt_deg": 13.62
+      }
+    },
+    {
+      "run_dir": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/rl_move/hardware_traces/scripted_gait_suite_20260901_115532",
+      "run_status": "complete",
+      "run_error": null,
+      "gait": 10,
+      "direction": "backward",
+      "phase": "gait_10_backward",
+      "command_speed_mm_s": 30.0,
+      "actual_speed_mm_s": 16.726,
+      "speed_ratio_to_command": 0.5575333333333333,
+      "ok": true,
+      "motion": {
+        "usable_vision_frames": 172,
+        "measured_duration_s": 6.2153,
+        "floor_projected_body_delta_xy_m": [
+          -0.01519,
+          0.10302
+        ],
+        "horizontal_distance_m": 0.10414,
+        "mean_direct_robot_tags": 12.27,
+        "mean_direct_floor_tags": 2.0,
+        "median_floor_homography_rms_mm": 1.124,
+        "baseline_axis_progress_m": -0.10396,
+        "baseline_axis_lateral_m": -0.00605,
+        "commanded_axis_speed_mm_s": 16.726
+      },
+      "safety": {
+        "samples": 21,
+        "peak_joint_current_a": 0.221,
+        "raw_peak_temperature_c": 132.0,
+        "confirmed_peak_temperature_c": 34.0,
+        "isolated_high_sample_count": 1,
+        "minimum_voltage_v": 11.2,
+        "peak_imu_tilt_deg": 8.34
+      }
+    }
+  ]
+}

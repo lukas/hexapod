@@ -21,6 +21,9 @@ import cv2
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
+_ROOT = _HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from apriltag_vision import AprilTagPoseTracker  # noqa: E402
 from housing_pose import JOINT_NAMES  # noqa: E402
@@ -522,6 +525,7 @@ def _process_capture(
     camera_index: int | None = None,
     camera_cycle: tuple[int, ...] = (0, 1),
     processing_width: int = 1280,
+    frame_step: int = 1,
     operator_supported: bool = False,
 ) -> int:
     fps = float(capture.get(cv2.CAP_PROP_FPS))
@@ -531,7 +535,8 @@ def _process_capture(
     raw_writer = None
     json_handle = None
     start = time.monotonic()
-    frame_index = 0
+    source_frame_index = 0
+    processed_frames = 0
     last_result: dict[str, Any] | None = None
     diagnostics = VideoDiagnosticAccumulator()
     writer_size: tuple[int, int] | None = None
@@ -542,12 +547,22 @@ def _process_capture(
             ok, frame = capture.read()
             if not ok:
                 break
-            if frame_index == 0:
+            # Offline surveys only need pose samples at roughly 10 Hz. Keep
+            # the original source-frame index/time in JSONL while avoiding
+            # expensive AprilTag detection on intermediate frames.
+            if not camera_mode and source_frame_index % frame_step != 0:
+                source_frame_index += 1
+                if max_frames is not None and source_frame_index >= max_frames:
+                    break
+                continue
+            if processed_frames == 0:
                 height, width = frame.shape[:2]
                 writer_size = (width, height)
                 if annotated_output is not None:
                     annotated_writer = _video_writer(
-                        annotated_output, fps, (width, height)
+                        annotated_output,
+                        fps if camera_mode else fps / frame_step,
+                        (width, height),
                     )
                 if raw_output is not None:
                     raw_writer = _video_writer(raw_output, fps, (width, height))
@@ -563,7 +578,7 @@ def _process_capture(
             result, annotated = _process_one(
                 tracker,
                 processing_frame,
-                frame_index=frame_index,
+                frame_index=source_frame_index,
                 time_s=time_s,
                 feedback=feedback,
                 operator_supported=operator_supported,
@@ -595,7 +610,8 @@ def _process_capture(
                 )
                 key = cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), ord("Q"), 27):
-                    frame_index += 1
+                    source_frame_index += 1
+                    processed_frames += 1
                     break
                 if (key in (ord("c"), ord("C")) and camera_mode
                         and active_camera_index is not None):
@@ -606,8 +622,9 @@ def _process_capture(
                     tracker.reset_temporal_state()
                     print(f"switched to camera {active_camera_index}", flush=True)
 
-            frame_index += 1
-            if max_frames is not None and frame_index >= max_frames:
+            source_frame_index += 1
+            processed_frames += 1
+            if max_frames is not None and source_frame_index >= max_frames:
                 break
             if duration_s is not None and time.monotonic() - start >= duration_s:
                 break
@@ -622,10 +639,12 @@ def _process_capture(
         if preview:
             cv2.destroyAllWindows()
 
-    if frame_index == 0:
+    if processed_frames == 0 or last_result is None:
         raise OSError("capture produced no frames")
     summary = {
-        "frames": frame_index,
+        "frames": processed_frames,
+        "source_frames_read": source_frame_index,
+        "frame_step": frame_step,
         "pose_output": None if pose_output is None else str(pose_output),
         "annotated_output": (
             None if annotated_output is None else str(annotated_output)
@@ -706,6 +725,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-frames", type=int,
                         help="optional video frame limit for testing")
     parser.add_argument(
+        "--frame-step",
+        type=int,
+        default=1,
+        help=("process every Nth frame of an input video while preserving "
+              "source timestamps/indexes (default: 1)"),
+    )
+    parser.add_argument(
         "--robot-url",
         help=("optional robot base URL, e.g. http://hexapod.local:8080; "
               "only GET /api/feedback is used and no motor command is sent"),
@@ -742,6 +768,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--duration must be positive")
     if args.max_frames is not None and args.max_frames <= 0:
         parser.error("--max-frames must be positive")
+    if args.frame_step <= 0:
+        parser.error("--frame-step must be positive")
+    if args.camera is not None and args.frame_step != 1:
+        parser.error("--frame-step is only supported with --input video")
     if args.feedback_hz <= 0.0:
         parser.error("--feedback-hz must be positive")
     if args.processing_width != 0 and args.processing_width < 320:
@@ -783,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
             camera_index=None,
             camera_cycle=args.camera_cycle,
             processing_width=args.processing_width,
+            frame_step=args.frame_step,
             operator_supported=args.robot_supported,
         )
     if args.duration is None and not args.preview:
@@ -815,6 +846,7 @@ def main(argv: list[str] | None = None) -> int:
         camera_index=args.camera,
         camera_cycle=args.camera_cycle,
         processing_width=args.processing_width,
+        frame_step=1,
         operator_supported=args.robot_supported,
     )
 

@@ -132,6 +132,12 @@ class NoSlipGait:
     MAX_VY = 0.035
     MAX_OMEGA = 0.30
     STRIDE_MAX = 0.080      # m of body travel per full cycle
+    # Gait 1 experiment envelope.  Keep this separate from the generic
+    # defaults so ripple/wave/fluid presets do not silently inherit the
+    # aggressive workspace.  60 mm/s over the stock 3.2 s period needs a
+    # 192 mm full-cycle stride; the real servos may saturate well before it.
+    GAIT1_MAX_VX = 0.060
+    GAIT1_STRIDE_MAX = 0.192
     YAW_STEP_MAX = 0.35     # rad of body yaw per full cycle
 
     # Timing that fits the fitted ~31 deg/s servo cruise clamp (the RL
@@ -209,11 +215,17 @@ class NoSlipGait:
         omega: float = 0.0,
         alpha: float = 0.0,
         groups: tuple = GROUPS_TRIPOD,
+        max_vx: float | None = None,
+        stride_max: float | None = None,
     ):
         self.period = max(float(period), 0.4)
         self.lift = _clip(float(lift), 0.005, 0.05)
         self.alpha = _clip(float(alpha), 0.0, 1.0)
         self.groups = tuple(tuple(int(i) for i in g) for g in groups)
+        self.max_vx = self.MAX_VX if max_vx is None else max(
+            0.001, float(max_vx))
+        self.stride_max = self.STRIDE_MAX if stride_max is None else max(
+            0.001, float(stride_max))
         k = len(self.groups)
         assert k >= 2 and sorted(
             i for g in self.groups for i in g) == list(range(6)), \
@@ -253,6 +265,15 @@ class NoSlipGait:
         self._phase_time = 0.0
         self._nshift = 0        # shifts started; motion live from the 2nd
         self._start_phase()
+
+    @classmethod
+    def gait1(cls, **kw) -> "NoSlipGait":
+        """Gait-ID 1 baseline with the operator-raised 60 mm/s envelope."""
+        return cls(**{
+            "max_vx": cls.GAIT1_MAX_VX,
+            "stride_max": cls.GAIT1_STRIDE_MAX,
+            **kw,
+        })
 
     @classmethod
     def clamp_fit(cls, **kw) -> "NoSlipGait":
@@ -326,7 +347,7 @@ class NoSlipGait:
     def set_velocity(self, *, vx=None, vy=None, omega=None) -> None:
         """Takes effect at the next phase boundary (anchors never move)."""
         if vx is not None:
-            self.vx = _clip(float(vx), -self.MAX_VX, self.MAX_VX)
+            self.vx = _clip(float(vx), -self.max_vx, self.max_vx)
         if vy is not None:
             self.vy = _clip(float(vy), -self.MAX_VY, self.MAX_VY)
         if omega is not None:
@@ -380,13 +401,13 @@ class NoSlipGait:
 
     def _cycle_twist(self) -> tuple[float, float, float]:
         """Clamped body-frame twist for one full cycle."""
-        vx = _clip(self.vx, -self.MAX_VX, self.MAX_VX)
+        vx = _clip(self.vx, -self.max_vx, self.max_vx)
         vy = _clip(self.vy, -self.MAX_VY, self.MAX_VY)
         om = _clip(self.omega, -self.MAX_OMEGA, self.MAX_OMEGA)
         dx, dy = vx * self.period, vy * self.period
         stride = math.hypot(dx, dy)
-        if stride > self.STRIDE_MAX:
-            k = self.STRIDE_MAX / stride
+        if stride > self.stride_max:
+            k = self.stride_max / stride
             dx *= k
             dy *= k
         dyaw = _clip(om * self.period, -self.YAW_STEP_MAX, self.YAW_STEP_MAX)

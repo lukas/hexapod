@@ -78,6 +78,12 @@ from cpg_controller_loader import (  # noqa: E402
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
 from hexapod_core.noslip_gait import NoSlipGait  # noqa: E402
+from hexapod_core.scripted_walk_contract import (  # noqa: E402
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_CONTROL_HZ,
+    SCRIPTED_WALK_DT_S,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
+)
 from hexapod_core.se2_foot_gait import SE2FootGait  # noqa: E402
 from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 from hexapod_core.demo_tripod import (  # noqa: E402
@@ -98,11 +104,9 @@ except Exception:  # pragma: no cover - deploy bundle always ships it
     def walk_start_pose_degrees() -> list[float]:
         return [0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG] * 6
 
-# Scripted-gait loop rate. 50 Hz since the MCU stream bridge (2026-08-19)
-# made a SyncWrite ~1-2 ms; the gait itself is wall-clock-based, so this
-# only changes how often targets refresh, not the trajectory. (Was 20 Hz
-# when each write + telemetry read could eat >20 ms.)
-DT = 0.02  # 50 Hz walk loop
+# Scripted gait and MuJoCo share this 100 Hz contract.  The MCU stream bridge
+# reduced a full SyncWrite to ~1-2 ms, leaving margin inside the 10 ms budget.
+DT = SCRIPTED_WALK_DT_S
 LIVE_SCAN_PERIOD_S = 2.0
 WALK_START_TOL_DEG = 30.0
 DEMO_TRIPOD_PERIOD_S = DEFAULT_DEMO_TRIPOD.period_s
@@ -120,6 +124,17 @@ DEMO_TRIPOD_MAX_OMEGA_RAD_S = DEFAULT_DEMO_TRIPOD.max_omega_rad_s
 MAX_SAFE_DELTA_DEG = 90.0
 
 
+def _advance_periodic_deadline(deadline: float, now: float,
+                               period: float = DT) -> tuple[float, int]:
+    """Advance a fixed-rate deadline without accumulating work-time drift."""
+    deadline += period
+    skipped = 0
+    if deadline <= now:
+        skipped = int((now - deadline) // period) + 1
+        deadline += skipped * period
+    return deadline, skipped
+
+
 class DriveController:
     def __init__(self, port: str | None = None, *, baud: int = BAUD_DEFAULT,
                  dry_run: bool = False):
@@ -134,6 +149,7 @@ class DriveController:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._loop_overruns = 0
         self._vx = self._vy = self._omega = 0.0
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
@@ -362,7 +378,8 @@ class DriveController:
         if self._gait_id == 0:
             return f"tripod high-step ({format_demo_tripod(self._demo_tripod)})"
         if self._gait_id == 1:
-            return f"noslip alpha={self._noslip_alpha:.2f}"
+            return (f"noslip alpha={self._noslip_alpha:.2f} "
+                    f"cap={self.gait.max_vx * 1000:.0f}mm/s")
         if self._gait_id == 7:
             return "noslip CLAMP-FIT tripod"
         if self._gait_id == 8:
@@ -388,6 +405,9 @@ class DriveController:
                 self._demo_tripod.max_vy_mps,
                 self._demo_tripod.max_omega_rad_s,
             )
+        if int(gait_id) == 1:
+            return (NoSlipGait.GAIT1_MAX_VX, NoSlipGait.MAX_VY,
+                    NoSlipGait.MAX_OMEGA)
         return (0.20, 0.15, 0.9)
 
     def _moving(self) -> bool:
@@ -395,6 +415,15 @@ class DriveController:
             self.mode == "walk"
             or abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
         )
+
+    def scripted_contract_state(self) -> dict:
+        """Operator-visible hardware/sim contract and missed deadlines."""
+        return {
+            "control_hz": SCRIPTED_WALK_CONTROL_HZ,
+            "servo_speed_counts_s": SCRIPTED_WALK_SPEED_COUNTS_S,
+            "servo_acc_units": SCRIPTED_WALK_ACC_UNITS,
+            "deadline_overruns": self._loop_overruns,
+        }
 
     def _apply_demo_tripod_tune(self, updates: dict[str, float]) -> str:
         if self._moving():
@@ -489,7 +518,7 @@ class DriveController:
         elif gait_id == 13:
             self.gait = NoSlipGait.fluid_pulse()
         elif gait_id == 1:
-            self.gait = NoSlipGait(alpha=self._noslip_alpha)
+            self.gait = NoSlipGait.gait1(alpha=self._noslip_alpha)
         else:
             self.gait = self._new_demo_tripod_gait()
         self._sync_gait_walk_stance()
@@ -777,6 +806,7 @@ class DriveController:
     # -- background loop -----------------------------------------------------
     def _loop(self) -> None:
         t0 = time.monotonic()
+        deadline = t0
         stand_hold_t = t0
         while not self._stop.is_set():
             tick = time.monotonic()
@@ -787,7 +817,11 @@ class DriveController:
                     pass  # bench / inplace_demos owns the bus
                 elif armed and mode == "walk":
                     pose = self.gait.desired_deg(tick - t0)
-                    self._write_pose(pose, speed=WALK_SPEED, acc=WALK_ACC)
+                    self._write_pose(
+                        pose,
+                        speed=SCRIPTED_WALK_SPEED_COUNTS_S,
+                        acc=SCRIPTED_WALK_ACC_UNITS,
+                    )
                 elif armed and mode == "stand":
                     # Occasional re-hold so stance doesn't droop. This
                     # must match the tall walk-ready stance used by
@@ -800,4 +834,9 @@ class DriveController:
                         stand_hold_t = tick
                 else:
                     stand_hold_t = tick
-            time.sleep(DT)
+            deadline, skipped = _advance_periodic_deadline(
+                deadline, time.monotonic())
+            self._loop_overruns += skipped
+            wait_s = deadline - time.monotonic()
+            if wait_s > 0.0:
+                self._stop.wait(wait_s)

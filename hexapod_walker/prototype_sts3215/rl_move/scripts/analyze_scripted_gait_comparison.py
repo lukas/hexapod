@@ -31,13 +31,30 @@ def _rows(path: Path) -> list[dict[str, str]]:
 
 
 def _motion_groups(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:
-    groups: dict[str, list[dict[str, str]]] = defaultdict(list)
+    segments: dict[str, list[list[dict[str, str]]]] = defaultdict(list)
     for row in rows:
         phase = row["phase"]
         if phase.startswith("gait_") and not phase.endswith("_settle") \
                 and phase.rsplit("_", 1)[-1] in {"forward", "backward"}:
-            groups[phase].append(row)
-    return dict(groups)
+            phase_segments = segments[phase]
+            if not phase_segments:
+                phase_segments.append([])
+            current = phase_segments[-1]
+            if current:
+                time_key = "elapsed_s" if "elapsed_s" in row else "sim_t_s"
+                gap = float(row[time_key]) - float(current[-1][time_key])
+                # Recovery and adaptive centering use different phases. When
+                # the measured direction resumes, keep only a contiguous
+                # clean attempt instead of interpolating across that pause.
+                if gap > 0.75:
+                    current = []
+                    phase_segments.append(current)
+            current.append(row)
+    return {
+        phase: max(phase_segments, key=len)
+        for phase, phase_segments in segments.items()
+        if phase_segments
+    }
 
 
 def _trajectory(
@@ -71,6 +88,23 @@ def _phase_compare(
     ])
     sroll = np.asarray([float(row["roll_deg"]) for row in simulation])
     spitch = np.asarray([float(row["pitch_deg"]) for row in simulation])
+    # Hardware body_roll/body_pitch are the complementary-filter IMU
+    # estimate, not an external measurement of the rigid chassis.  Keep the
+    # MuJoCo rigid-body attitude and its simulated IMU estimate separate so
+    # acceleration at an off-centre IMU cannot masquerade as missing rocking.
+    has_sim_imu = all(
+        row.get("imu_roll_deg") not in (None, "")
+        and row.get("imu_pitch_deg") not in (None, "")
+        for row in simulation
+    )
+    sim_imu_roll = (
+        np.asarray([float(row["imu_roll_deg"]) for row in simulation])
+        if has_sim_imu else None
+    )
+    sim_imu_pitch = (
+        np.asarray([float(row["imu_pitch_deg"]) for row in simulation])
+        if has_sim_imu else None
+    )
     x0, y0 = float(simulation[0]["chassis_x_m"]), float(simulation[0]["chassis_y_m"])
     x1, y1 = float(simulation[-1]["chassis_x_m"]), float(simulation[-1]["chassis_y_m"])
     return {
@@ -86,10 +120,15 @@ def _phase_compare(
             {"joint": int(j), "rmse_deg": round(float(joint_rmse[j]), 3)}
             for j in np.argsort(joint_rmse)[-3:][::-1]
         ],
-        "hardware_peak_tilt_deg": round(float(max(
+        "hardware_imu_estimator_peak_tilt_deg": round(float(max(
             np.max(np.abs(hroll)), np.max(np.abs(hpitch)))), 3),
-        "mujoco_peak_tilt_deg": round(float(max(
+        "mujoco_physical_peak_tilt_deg": round(float(max(
             np.max(np.abs(sroll)), np.max(np.abs(spitch)))), 3),
+        "mujoco_imu_estimator_peak_tilt_deg": (
+            None if sim_imu_roll is None else round(float(max(
+                np.max(np.abs(sim_imu_roll)),
+                np.max(np.abs(sim_imu_pitch)))), 3)
+        ),
         "hardware_peak_joint_current_a": round(max(
             float(row["max_joint_current_a"]) for row in hardware), 4),
         "mujoco_peak_joint_current_a": round(max(
@@ -145,6 +184,28 @@ def main() -> int:
             "did not verify hardware-absolute -> MuJoCo-relative -> "
             "hardware-absolute plant round trip"
         )
+    hardware_runtime = hardware_config.get("robot_runtime") or {}
+    hardware_scripted = hardware_runtime.get("scripted_walk")
+    protocol_match = None
+    if hardware_scripted is not None:
+        expected = {
+            "control_hz": sim_protocol.get("scripted_control_hz"),
+            "servo_speed_counts_s": sim_protocol.get(
+                "servo_speed_counts_s"),
+            "servo_acc_units": sim_protocol.get("servo_acc_units"),
+        }
+        mismatch = {
+            key: {"hardware": hardware_scripted.get(key), "mujoco": value}
+            for key, value in expected.items()
+            if value is None or hardware_scripted.get(key) != value
+        }
+        if mismatch:
+            raise RuntimeError(
+                "refusing hardware/MuJoCo comparison with different "
+                "scripted-walk timing/profile contracts: "
+                + json.dumps(mismatch, sort_keys=True)
+            )
+        protocol_match = {"verified": True, **expected}
     hg = _motion_groups(hardware)
     sg = _motion_groups(simulation)
     phases = sorted(set(hg) & set(sg))
@@ -175,6 +236,19 @@ def main() -> int:
         "hardware": str(args.hardware),
         "mujoco": str(args.mujoco),
         "visual_knees_used": False,
+        "tilt_signal_contract": {
+            "hardware": "complementary-filter IMU estimate",
+            "mujoco_physical": "rigid chassis orientation from qpos",
+            "mujoco_imu_estimator": (
+                "same simulated complementary-filter estimate; null for "
+                "legacy replay CSVs"
+            ),
+            "warning": (
+                "hardware IMU tilt and MuJoCo physical tilt are different "
+                "signals and must not be interpreted as a direct physics "
+                "residual"
+            ),
+        },
         "joint_frame": {
             "name": FRAME_ROBOT_ABS,
             "contract": JOINT_CONTRACT,
@@ -186,6 +260,7 @@ def main() -> int:
                 "plant_mujoco_relative_deg"
             ],
         },
+        "scripted_walk_contract_match": protocol_match,
         "matching_motion_phases": phases,
         "posture_during_first_phase": posture,
         "temperature_glitches": _temperature_glitches(hardware),
@@ -194,12 +269,23 @@ def main() -> int:
             "mean_joint_rmse_deg": round(float(np.mean([
                 item["joint_rmse_deg"] for item in comparisons.values()
             ])), 3),
-            "mean_hardware_peak_tilt_deg": round(float(np.mean([
-                item["hardware_peak_tilt_deg"] for item in comparisons.values()
+            "mean_hardware_imu_estimator_peak_tilt_deg": round(float(np.mean([
+                item["hardware_imu_estimator_peak_tilt_deg"]
+                for item in comparisons.values()
             ])), 3),
-            "mean_mujoco_peak_tilt_deg": round(float(np.mean([
-                item["mujoco_peak_tilt_deg"] for item in comparisons.values()
+            "mean_mujoco_physical_peak_tilt_deg": round(float(np.mean([
+                item["mujoco_physical_peak_tilt_deg"]
+                for item in comparisons.values()
             ])), 3),
+            "mean_mujoco_imu_estimator_peak_tilt_deg": (
+                None if not comparisons or any(
+                    item["mujoco_imu_estimator_peak_tilt_deg"] is None
+                    for item in comparisons.values()
+                ) else round(float(np.mean([
+                    item["mujoco_imu_estimator_peak_tilt_deg"]
+                    for item in comparisons.values()
+                ])), 3)
+            ),
         },
     }
     args.output.write_text(json.dumps(report, indent=2) + "\n")

@@ -47,6 +47,8 @@ h2 { font-size: 18px; letter-spacing: -.025em; }
 .top-status { color: var(--muted); font-size: 13px; }
 .top-status b { color: #dce3dc; }
 .readonly-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--green-strong); box-shadow: 0 0 12px #59cf6866; }
+.motion-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--amber); box-shadow: 0 0 14px #f0bd6188; animation: motion-pulse 1.2s ease-in-out infinite; }
+@keyframes motion-pulse { 50% { opacity: .45; transform: scale(.82); } }
 .divider { height: 20px; width: 1px; background: var(--line); }
 .error-banner { margin: 12px 24px 0; border: 1px solid #743a36; background: #2a1716; color: #ffc0bb; padding: 11px 14px; border-radius: 10px; }
 
@@ -59,6 +61,12 @@ h2 { font-size: 18px; letter-spacing: -.025em; }
   gap: 18px;
 }
 .video-column, .control-column { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.camera-panel { order: 1; }
+.safety-card { order: 2; }
+.coverage-card { order: 3; }
+.readiness-card { order: 4; }
+.capture-card { order: 5; }
+.survey-card { order: 6; }
 .video-stage {
   background: #080a08;
   border: 1px solid var(--line);
@@ -84,6 +92,8 @@ h2 { font-size: 18px; letter-spacing: -.025em; }
 .camera-off-prompt b { color: #e6ece6; font-size: 18px; }
 .camera-off-prompt span { max-width: 330px; text-align: center; }
 .camera-off-prompt button.primary { width: auto; padding-inline: 22px; }
+.survey-recording { color: var(--amber); }
+.survey-recording b { color: var(--amber); }
 .video-badges { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px; }
 .video-badges span { background: #0b0e0bdd; border: 1px solid #343b34; border-radius: 7px; padding: 6px 9px; font-size: 11px; color: #d8ded8; }
 .video-badges span.native-badge { border-color: #3b7044; color: var(--green); }
@@ -114,12 +124,18 @@ h2 { font-size: 18px; letter-spacing: -.025em; }
 .camera-state.running { color: var(--green); background: #173019; }
 .camera-state.error { color: var(--red); background: #361b19; }
 .camera-state.switching { color: var(--amber); background: #332817; }
-.camera-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.camera-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px; }
 .camera-picks button { display: flex; flex-direction: column; align-items: flex-start; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 .camera-picks button:hover { border-color: #4d5b4d; }
 .camera-picks button.selected { border-color: var(--green-strong); background: #18271a; box-shadow: inset 0 0 0 1px #59cf6833; }
 .camera-picks button b { font-size: 19px; }
 .camera-picks button span { color: var(--muted); font-size: 10px; margin-top: 2px; }
+.camera-picks button .camera-name { color: #edf2ed; font-size: 13px; font-weight: 800; margin: 0; }
+.camera-discovery { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.camera-discovery span { color: var(--muted); font-size: 11px; }
+.camera-discovery button { flex: 0 0 auto; }
+.camera-help { margin-top: 8px !important; font-size: 11px !important; }
+.camera-error { margin-top: 9px; padding: 8px 9px; border: 1px solid #74403b; border-radius: 8px; background: #2a1716; color: #ffc0bb; font-size: 11px; line-height: 1.4; }
 .camera-custom { display: grid; grid-template-columns: 1fr 60px auto; gap: 7px; align-items: center; margin-top: 9px; }
 .camera-custom label { color: var(--muted); font-size: 11px; }
 .camera-custom input { width: 100%; background: #0f120f; border: 1px solid var(--line); color: #eef2ee; border-radius: 7px; padding: 7px; }
@@ -134,6 +150,42 @@ h2 { font-size: 18px; letter-spacing: -.025em; }
 .camera-power { width: 100%; margin-top: 10px; border: 1px solid #487a4e; background: #1c3820; color: var(--green); border-radius: 9px; padding: 10px 12px; font-weight: 800; cursor: pointer; }
 .camera-power.stop { border-color: #70423e; background: #321c1a; color: #ffaaa4; }
 .camera-power:disabled { opacity: .55; cursor: not-allowed; }
+
+.survey-card { border-left: 4px solid #49604b; }
+.survey-card.is-active { border-left-color: var(--amber); background: linear-gradient(145deg, #211d14, var(--surface) 68%); }
+.survey-card:not(.is-open):not(.is-active) { background: #111511; }
+.survey-collapse { float: right; margin: 8px 0 4px 10px; border: 0; background: transparent; color: var(--muted); font-size: 10px; cursor: pointer; text-decoration: underline; }
+.survey-collapsed { display: flex; flex-direction: column; gap: 10px; }
+.survey-collapsed button { margin: 0; }
+.survey-state { padding: 5px 8px; border-radius: 6px; background: #252b25; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+.survey-state.starting, .survey-state.running, .survey-state.stopping, .survey-state.postprocessing { color: var(--amber); background: #332817; }
+.survey-state.complete { color: var(--green); background: #173019; }
+.survey-state.failed { color: var(--red); background: #361b19; }
+.gait-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; max-height: 250px; overflow-y: auto; margin: 12px 0; padding-right: 3px; }
+.gait-picks label { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 6px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: #101310; cursor: pointer; }
+.gait-picks label.selected { border-color: #4d8052; background: #172319; }
+.gait-picks input, .motion-ack input { accent-color: var(--green-strong); }
+.gait-picks b { color: var(--green); font-size: 12px; }
+.gait-picks span { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.survey-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.survey-fields label { color: var(--muted); font-size: 9px; display: flex; flex-direction: column; gap: 4px; }
+.survey-fields input { min-width: 0; width: 100%; color: #eef2ee; background: #0f120f; border: 1px solid var(--line); border-radius: 7px; padding: 7px; }
+.survey-policy { margin-top: 10px; padding: 9px; display: flex; flex-direction: column; gap: 3px; border: 1px solid #5b4a2a; background: #211b11; border-radius: 8px; }
+.survey-policy b { color: var(--amber); font-size: 11px; }
+.survey-policy span { color: #c8b996; font-size: 10px; line-height: 1.35; }
+.motion-ack { margin: 11px 0; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: flex-start; color: #d8ded8; font-size: 11px; line-height: 1.4; cursor: pointer; }
+.survey-start { border: 1px solid #a16e2b; background: #a76f23; color: #fff7e9; border-radius: 9px; padding: 11px 14px; font-weight: 850; cursor: pointer; }
+.survey-start:disabled { border-color: #3b403b; background: #292e29; color: #747b74; cursor: not-allowed; }
+.survey-running-copy { color: #d7c28f !important; }
+.survey-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 10px 0; }
+.survey-summary span { padding: 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 9px; }
+.survey-summary b { display: block; color: #ece5d3; font-size: 11px; margin-top: 2px; }
+.survey-log { max-height: 112px; overflow: auto; margin: 8px 0; padding: 8px; border: 1px solid var(--line); border-radius: 7px; background: #0b0d0b; color: #aeb6ae; font-size: 9px; line-height: 1.4; white-space: pre-wrap; }
+.survey-result { margin-top: 12px; padding: 10px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px; }
+.survey-result.good { border: 1px solid #315b37; background: #111b12; }
+.survey-result.bad { border: 1px solid #743a36; background: #2a1716; }
+.survey-result span { color: var(--muted); font-size: 11px; }
+.survey-result code { color: #cfd7cf; font-size: 9px; overflow-wrap: anywhere; }
 
 .coverage-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .coverage-pill { background: #1b201b; border: 1px solid var(--line); padding: 9px; border-radius: 9px; display: flex; flex-direction: column; gap: 3px; }

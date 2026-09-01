@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Read-only AprilTag vision routes for the shared local web hub.
+"""AprilTag vision and supervised gait-survey routes for the local web hub.
 
 The service owns the OpenCV camera, publishes a latest-frame MJPEG stream,
 and exposes compact JSON state for the browser UI.  Visual calibration is a
 stationary multi-frame comparison between AprilTag-derived joint angles and
-read-only encoder feedback.  It writes an advisory report only: there are no
-robot POST routes and no servo-zero or motor commands in this module.
+read-only encoder feedback.  Calibration remains observation-only.  The
+explicitly acknowledged gait-survey route delegates motion to the guarded
+HTTP suite and records every run for offline AprilTag/MuJoCo comparison.
 """
 from __future__ import annotations
 
@@ -28,6 +29,7 @@ if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
 from apriltag_vision import AprilTagPoseTracker
+from gait_survey import GaitSurveyManager
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from track_apriltags import (
     FeedbackClient,
@@ -424,6 +426,10 @@ class VisionRuntime:
         if camera_index not in indexes:
             indexes.append(camera_index)
         self.camera_indexes = indexes
+        self._camera_devices: list[dict[str, Any]] = []
+        self._camera_scan_error: str | None = None
+        self._camera_scan_unix: float | None = None
+        self._camera_discovery_exact = False
         self.processing_width = processing_width
         self.target_fps = float(target_fps)
         if self.target_fps <= 0.0:
@@ -473,6 +479,11 @@ class VisionRuntime:
         }
         self._calibration_samples: list[dict[str, Any]] = []
         self._calibration_rejections: Counter[str] = Counter()
+        self.gait_survey = GaitSurveyManager(
+            robot_url=robot_url,
+            vision_runtime=self,
+        )
+        self.refresh_camera_devices()
 
     def start(self) -> None:
         """Start the dormant worker; camera capture remains opt-in."""
@@ -486,6 +497,7 @@ class VisionRuntime:
 
     def stop(self) -> None:
         """Shut down the worker when the shared web server exits."""
+        self.gait_survey.shutdown()
         self._shutdown.set()
         self._camera_enabled.clear()
         with self._frame_ready:
@@ -525,7 +537,21 @@ class VisionRuntime:
         index = int(index)
         if index < 0 or index > 12:
             raise ValueError("camera index must be between 0 and 12")
+        self.refresh_camera_devices()
         with self._lock:
+            detected_indexes = {
+                int(device["index"])
+                for device in self._camera_devices
+                if device.get("available", True)
+            }
+            if self._camera_discovery_exact and index not in detected_indexes:
+                count = len(detected_indexes)
+                noun = "camera" if count == 1 else "cameras"
+                raise ValueError(
+                    f"camera {index} is not currently available; macOS reports "
+                    f"{count} {noun}. Bring the iPhone near the Mac, lock it, "
+                    "then rescan cameras."
+                )
             if index not in self.camera_indexes:
                 self.camera_indexes.append(index)
                 self.camera_indexes.sort()
@@ -536,6 +562,58 @@ class VisionRuntime:
             self._camera_error = None
             self._capture_details = {}
             self._history.clear()
+        return self.public_state()
+
+    def refresh_camera_devices(self) -> dict[str, Any]:
+        """Rescan camera names without opening or enabling a camera."""
+        try:
+            if self.capture_factory is not None:
+                devices = [
+                    {
+                        "index": index,
+                        "name": f"Camera {index}",
+                        "kind": "configured",
+                        "available": True,
+                    }
+                    for index in self.camera_indexes
+                ]
+                exact = False
+            elif sys.platform == "darwin" and self.capture_backend in {
+                "auto", "avfoundation"
+            }:
+                from avfoundation_capture import AVFoundationYuvCapture
+
+                devices = AVFoundationYuvCapture.device_descriptors()
+                exact = True
+            else:
+                devices = [
+                    {
+                        "index": index,
+                        "name": f"Camera {index}",
+                        "kind": "configured",
+                        "available": True,
+                    }
+                    for index in self.camera_indexes
+                ]
+                exact = False
+            error = None
+        except Exception as caught:  # discovery must not take down vision
+            devices = []
+            error = f"camera discovery failed: {caught}"
+            exact = False
+        with self._lock:
+            self._camera_devices = devices
+            self._camera_scan_error = error
+            self._camera_scan_unix = round(time.time(), 3)
+            self._camera_discovery_exact = exact
+            if devices:
+                discovered_indexes = [int(item["index"]) for item in devices]
+                self.camera_indexes = discovered_indexes
+                if (
+                    not self._camera_enabled.is_set()
+                    and self._requested_camera_index not in discovered_indexes
+                ):
+                    self._requested_camera_index = discovered_indexes[0]
         return self.public_state()
 
     def start_calibration(self) -> dict[str, Any]:
@@ -700,6 +778,10 @@ class VisionRuntime:
                         self._capture_details.get("native_luma", False)
                     ),
                     "capture_fps": self._capture_details.get("capture_fps"),
+                    "devices": [dict(item) for item in self._camera_devices],
+                    "scan_error": self._camera_scan_error,
+                    "scan_unix": self._camera_scan_unix,
+                    "discovery_exact": self._camera_discovery_exact,
                 },
                 "performance": {
                     "fps": round(fps, 1),
@@ -747,8 +829,9 @@ class VisionRuntime:
                 # same vision-frame timeline without adding another robot
                 # bus poller during motion.
                 "feedback": latest.get("encoder_feedback"),
-                "read_only": True,
-                "motor_commands_sent": False,
+                "survey": self.gait_survey.public_state(),
+                "read_only": False,
+                "motion_control_scope": "acknowledged_guarded_gait_survey",
             }
 
     @staticmethod
@@ -995,6 +1078,12 @@ class VisionRuntime:
                     continue
                 now = time.monotonic()
                 with self._frame_ready:
+                    # A switch can be requested while the old camera's final
+                    # frame is being processed.  Never publish that stale
+                    # frame as "running" for the new request.
+                    if self._requested_camera_index != active:
+                        self._camera_status = "switching"
+                        continue
                     self._latest_result = result
                     self._latest_jpeg = jpeg.tobytes()
                     self._capture_details = capture_details
@@ -1131,8 +1220,8 @@ def wrap_handler_with_vision(
                     "service": "hexapod-vision",
                     "joint_frame": FRAME_ROBOT_ABS,
                     "joint_contract": JOINT_CONTRACT,
-                    "read_only": True,
-                    "motor_commands_sent": False,
+                    "read_only": False,
+                    "motion_control_scope": "acknowledged_guarded_gait_survey",
                 })
             elif path == "/api/vision/state":
                 self._vision_json(HTTPStatus.OK, runtime.public_state())
@@ -1179,6 +1268,11 @@ def wrap_handler_with_vision(
                         HTTPStatus.ACCEPTED,
                         runtime.switch_camera(int(body["index"])),
                     )
+                elif path == "/api/vision/cameras/rescan":
+                    self._vision_read_json()
+                    self._vision_json(
+                        HTTPStatus.OK, runtime.refresh_camera_devices()
+                    )
                 elif path == "/api/vision/camera/start":
                     body = self._vision_read_json()
                     index = body.get("index")
@@ -1207,6 +1301,18 @@ def wrap_handler_with_vision(
                     self._vision_read_json()
                     self._vision_json(
                         HTTPStatus.OK, runtime.apply_latest_calibration()
+                    )
+                elif path == "/api/vision/survey/start":
+                    body = self._vision_read_json()
+                    self._vision_json(
+                        HTTPStatus.ACCEPTED,
+                        runtime.gait_survey.start(body),
+                    )
+                elif path == "/api/vision/survey/stop":
+                    self._vision_read_json()
+                    self._vision_json(
+                        HTTPStatus.ACCEPTED,
+                        runtime.gait_survey.stop(),
                     )
                 else:
                     self._vision_json(

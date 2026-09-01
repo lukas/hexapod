@@ -7,6 +7,7 @@ import sys
 import time
 
 import numpy as np
+import pytest
 
 
 HERE = Path(__file__).resolve().parent
@@ -242,6 +243,102 @@ def test_shared_server_worker_leaves_camera_off_until_explicit_start() -> None:
         assert state["camera"]["status"] == "off"
     finally:
         runtime.stop()
+
+
+def test_runtime_reports_named_configured_camera_choices() -> None:
+    runtime = VisionRuntime(
+        CONFIG_PATH,
+        camera_cycle=(0, 3),
+        capture_factory=lambda _index: _ClosedCapture(),
+    )
+    try:
+        state = runtime.public_state()
+        assert state["camera"]["devices"] == [
+            {
+                "index": 0,
+                "name": "Camera 0",
+                "kind": "configured",
+                "available": True,
+            },
+            {
+                "index": 3,
+                "name": "Camera 3",
+                "kind": "configured",
+                "available": True,
+            },
+        ]
+        assert state["camera"]["discovery_exact"] is False
+    finally:
+        runtime.stop()
+
+
+def test_exact_camera_discovery_rejects_a_missing_index_without_switching() -> None:
+    runtime = VisionRuntime(
+        CONFIG_PATH,
+        camera_cycle=(0, 1),
+        capture_factory=lambda _index: _ClosedCapture(),
+    )
+    try:
+        runtime._camera_discovery_exact = True
+        runtime._camera_devices = [{
+            "index": 0,
+            "name": "Built-in",
+            "kind": "built_in",
+            "available": True,
+        }]
+        runtime.refresh_camera_devices = lambda: runtime.public_state()
+
+        with pytest.raises(ValueError, match="not currently available"):
+            runtime.switch_camera(1)
+
+        assert runtime.public_state()["camera"]["requested_index"] == 0
+    finally:
+        runtime.stop()
+
+
+def test_avfoundation_descriptors_preserve_names_and_camera_kinds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Device:
+        def __init__(self, name: str, device_type: str) -> None:
+            self.name = name
+            self.device_type = device_type
+
+        def localizedName(self) -> str:
+            return self.name
+
+        def deviceType(self) -> str:
+            return self.device_type
+
+        def isConnected(self) -> bool:
+            return True
+
+        def isSuspended(self) -> bool:
+            return False
+
+    monkeypatch.setattr(
+        AVFoundationYuvCapture,
+        "_devices",
+        staticmethod(lambda: [
+            Device("MacBook Pro Camera", "AVCaptureDeviceTypeBuiltInWideAngleCamera"),
+            Device("Lukas's iPhone", "AVCaptureDeviceTypeExternal"),
+        ]),
+    )
+
+    assert AVFoundationYuvCapture.device_descriptors() == [
+        {
+            "index": 0,
+            "name": "MacBook Pro Camera",
+            "kind": "built_in",
+            "available": True,
+        },
+        {
+            "index": 1,
+            "name": "Lukas's iPhone",
+            "kind": "continuity",
+            "available": True,
+        },
+    ]
 
 
 def test_native_nv12_capture_keeps_full_luma_and_downsizes_color() -> None:

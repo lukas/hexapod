@@ -195,6 +195,12 @@ export default function App() {
   const [showTags, setShowTags] = useState(true)
   const [showFeet, setShowFeet] = useState(true)
   const [showLabels, setShowLabels] = useState(true)
+  const [surveyGaits, setSurveyGaits] = useState<number[]>([1, 11])
+  const [surveySpeed, setSurveySpeed] = useState('30')
+  const [surveyDuration, setSurveyDuration] = useState('8')
+  const [surveyRecoveries, setSurveyRecoveries] = useState('2')
+  const [surveyAck, setSurveyAck] = useState(false)
+  const [showSurvey, setShowSurvey] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -231,7 +237,8 @@ export default function App() {
     setBusy(true)
     setCameraInput(String(index))
     try {
-      await api('/api/vision/camera', {method: 'POST', body: JSON.stringify({index})})
+      const next = await api<VisionState>('/api/vision/camera', {method: 'POST', body: JSON.stringify({index})})
+      setState(next)
       setError(null)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
@@ -243,10 +250,24 @@ export default function App() {
   const setCameraEnabled = async (enabled: boolean) => {
     setBusy(true)
     try {
-      await api(`/api/vision/camera/${enabled ? 'start' : 'stop'}`, {
+      const next = await api<VisionState>(`/api/vision/camera/${enabled ? 'start' : 'stop'}`, {
         method: 'POST',
         body: enabled ? JSON.stringify({index: Number(cameraInput)}) : '{}',
       })
+      setState(next)
+      setError(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rescanCameras = async () => {
+    setBusy(true)
+    try {
+      const next = await api<VisionState>('/api/vision/cameras/rescan', {method: 'POST', body: '{}'})
+      setState(next)
       setError(null)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
@@ -285,9 +306,58 @@ export default function App() {
     }
   }
 
+  const toggleSurveyGait = (gait: number) => {
+    setSurveyGaits((current) => (
+      current.includes(gait)
+        ? current.filter((value) => value !== gait)
+        : [...current, gait].sort((a, b) => a - b)
+    ))
+  }
+
+  const startSurvey = async () => {
+    setBusy(true)
+    try {
+      await api('/api/vision/survey/start', {
+        method: 'POST',
+        body: JSON.stringify({
+          acknowledge_motion: surveyAck,
+          gaits: surveyGaits,
+          speed_mm_s: Number(surveySpeed),
+          direction_s: Number(surveyDuration),
+          settle_s: 1.5,
+          adaptive_centering: true,
+          soft_recovery: true,
+          max_recoveries: Number(surveyRecoveries),
+        }),
+      })
+      setSurveyAck(false)
+      setError(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const stopSurvey = async () => {
+    setBusy(true)
+    try {
+      await api('/api/vision/survey/stop', {method: 'POST', body: '{}'})
+      setError(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const safety = state?.pose.safety
   const readiness = state?.readiness
   const collecting = state?.calibration.status === 'collecting'
+  const survey = state?.survey
+  const surveyActive = survey?.active || false
+  const cameraDevices = state?.camera.devices || []
+  const cameraTransitioning = state?.camera.status === 'starting' || state?.camera.status === 'switching'
   const safetyReasons = safety?.unsafe_reasons.length
     ? safety.unsafe_reasons
     : safety?.unknown_reasons || []
@@ -306,7 +376,8 @@ export default function App() {
           </div>
         </div>
         <div className="top-status">
-          <span className="readonly-dot" /> Read-only observation
+          <span className={surveyActive ? 'motion-dot' : 'readonly-dot'} />
+          {surveyActive ? 'Guarded gait survey active' : 'Observation · survey motion gated'}
           <span className="divider" />
           <b>{state?.performance.fps.toFixed(1) || '—'} fps</b>
           <span>{state?.performance.frame_age_ms === null || state?.performance.frame_age_ms === undefined ? '—' : `${state.performance.frame_age_ms.toFixed(0)} ms`}</span>
@@ -318,13 +389,23 @@ export default function App() {
       <div className="workspace">
         <section className="video-column">
           <div className="video-stage">
-            {state?.camera.enabled && <img src="/api/vision/frame.mjpg" alt="Live camera feed of the hexapod" />}
-            {state && <VideoOverlay state={state} showTags={showTags} showFeet={showFeet} showLabels={showLabels} />}
-            {!state?.camera.enabled ? (
+            {state?.camera.enabled && state.camera.status === 'running' && <img src={`/api/vision/frame.mjpg?camera=${state.camera.active_index}`} alt="Live camera feed of the hexapod" />}
+            {state && state.camera.status === 'running' && <VideoOverlay state={state} showTags={showTags} showFeet={showFeet} showLabels={showLabels} />}
+            {!state?.camera.enabled && surveyActive ? (
+              <div className="video-empty camera-off-prompt survey-recording">
+                <b>Survey recorder owns the camera</b>
+                <span>Raw video is still recording. Live Vision preview returns automatically afterward.</span>
+              </div>
+            ) : !state?.camera.enabled ? (
               <div className="video-empty camera-off-prompt">
                 <b>Camera is off</b>
                 <span>Choose an input, then start the camera when you are ready.</span>
                 <button className="primary" disabled={busy} onClick={() => void setCameraEnabled(true)}>Start camera</button>
+              </div>
+            ) : cameraTransitioning ? (
+              <div className="video-empty camera-off-prompt">
+                <b>{state.camera.status === 'switching' ? 'Switching camera…' : 'Opening camera…'}</b>
+                <span>{cameraDevices.find((device) => device.index === state.camera.requested_index)?.name || `Camera ${state.camera.requested_index}`}</span>
               </div>
             ) : !state?.ok && <div className="video-empty">Waiting for the first camera frame…</div>}
             <div className="video-badges">
@@ -346,7 +427,7 @@ export default function App() {
             <span className="camera-message">{state?.camera.error || 'Latest-frame streaming: stale frames are dropped.'}</span>
           </div>
           <LegMatrix joints={state?.pose.joints || []} />
-          {report && <ReportTable report={report} busy={busy} onApply={() => void applyCalibration()} />}
+          {report && <ReportTable report={report} busy={busy || surveyActive} onApply={() => void applyCalibration()} />}
         </section>
 
         <aside className="control-column">
@@ -361,7 +442,96 @@ export default function App() {
             </div>
           </section>
 
-          <section className="panel">
+          <section className={`panel survey-card ${surveyActive ? 'is-active' : ''} ${showSurvey ? 'is-open' : ''}`}>
+            <div className="panel-heading compact">
+              <div>
+                <div className="eyebrow">Recorded experiment</div>
+                <h2>Gait survey</h2>
+              </div>
+              <span className={`survey-state ${survey?.status || 'idle'}`}>
+                {survey?.status || 'idle'}
+              </span>
+            </div>
+
+            {surveyActive ? (
+              <>
+                <p className="survey-running-copy">
+                  Hardware capture is {survey?.status === 'postprocessing' ? 'finished; generating AprilTag and MuJoCo artifacts' : 'running with adaptive camera centering and guarded telemetry'}.
+                </p>
+                {survey?.config && (
+                  <div className="survey-summary">
+                    <span>gaits <b>{survey.config.gaits.join(', ')}</b></span>
+                    <span>speed <b>{survey.config.speed_mm_s} mm/s</b></span>
+                    <span>pulse <b>{survey.config.direction_s} s</b></span>
+                  </div>
+                )}
+                {!!survey?.log_tail.length && <pre className="survey-log">{survey.log_tail.slice(-5).join('\n')}</pre>}
+                <button className="camera-power stop" disabled={busy} onClick={() => void stopSurvey()}>
+                  {survey?.status === 'postprocessing' ? 'Stop post-processing' : 'Stop survey and limp'}
+                </button>
+              </>
+            ) : showSurvey ? (
+              <>
+                <p>Walk selected scripted gaits forward and backward, recenter using AprilTags, and save hardware plus matched simulation data.</p>
+                <button className="survey-collapse" onClick={() => setShowSurvey(false)}>Hide experiment controls</button>
+                <div className="gait-picks">
+                  {(survey?.gait_choices || []).map((gait) => (
+                    <label key={gait.id} className={surveyGaits.includes(gait.id) ? 'selected' : ''}>
+                      <input
+                        type="checkbox"
+                        checked={surveyGaits.includes(gait.id)}
+                        onChange={() => toggleSurveyGait(gait.id)}
+                      />
+                      <b>{gait.id}</b>
+                      <span>{gait.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="survey-fields">
+                  <label>Speed mm/s<input type="number" min="5" max="40" value={surveySpeed} onChange={(event) => setSurveySpeed(event.target.value)} /></label>
+                  <label>Each direction s<input type="number" min="1" max="20" value={surveyDuration} onChange={(event) => setSurveyDuration(event.target.value)} /></label>
+                  <label>Recovery limit<input type="number" min="0" max="3" value={surveyRecoveries} onChange={(event) => setSurveyRecoveries(event.target.value)} /></label>
+                </div>
+                <div className="survey-policy">
+                  <b>Recovery policy</b>
+                  <span>Pre-trip warnings may pause → safe-zero → stand → retry. {survey?.hard_stop_policy}.</span>
+                </div>
+                <label className="motion-ack">
+                  <input type="checkbox" checked={surveyAck} onChange={(event) => setSurveyAck(event.target.checked)} />
+                  <span>I have cleared the area, can supervise the robot, and understand this starts physical motion.</span>
+                </label>
+                <button
+                  className="survey-start full"
+                  disabled={busy || collecting || !survey?.available || !state?.camera.enabled || safety?.verdict !== 'safe' || surveyGaits.length === 0 || !surveyAck}
+                  onClick={() => void startSurvey()}
+                >
+                  {!survey?.available ? 'Connect robot in the Mac hub first' : !state?.camera.enabled ? 'Start camera for preflight' : safety?.verdict !== 'safe' ? 'Waiting for safe Vision/IMU preflight' : 'Start recorded gait survey'}
+                </button>
+              </>
+            ) : (
+              <div className="survey-collapsed">
+                <p>Optional physical-motion experiment. Camera setup and visual calibration do not require this.</p>
+                <button className="secondary full" onClick={() => setShowSurvey(true)}>Open gait survey</button>
+              </div>
+            )}
+
+            {!surveyActive && survey?.status === 'complete' && (
+              <div className="survey-result good">
+                <b>Capture complete</b>
+                <span>{Object.keys(survey.artifacts).length} artifacts saved</span>
+                <code>{survey.run_dir}</code>
+              </div>
+            )}
+            {!surveyActive && survey?.status === 'failed' && (
+              <div className="survey-result bad">
+                <b>Survey stopped safely</b>
+                <span>{survey.error}</span>
+                {survey.run_dir && <code>{survey.run_dir}</code>}
+              </div>
+            )}
+          </section>
+
+          <section className="panel camera-panel">
             <div className="panel-heading compact">
               <div>
                 <div className="eyebrow">Input</div>
@@ -370,26 +540,32 @@ export default function App() {
               <span className={`camera-state ${state?.camera.status}`}>{state?.camera.status || 'offline'}</span>
             </div>
             <div className="camera-picks">
-              {state?.camera.indexes.map((index) => (
+              {cameraDevices.map((device) => (
                 <button
-                  key={index}
-                  className={state.camera.active_index === index || (!state.camera.enabled && state.camera.requested_index === index) ? 'selected' : ''}
-                  disabled={busy}
-                  onClick={() => void switchCamera(index)}
+                  key={device.index}
+                  className={state?.camera.active_index === device.index || (!state?.camera.enabled && state?.camera.requested_index === device.index) ? 'selected' : ''}
+                  disabled={busy || surveyActive || !device.available}
+                  onClick={() => void switchCamera(device.index)}
                 >
-                  <b>{index}</b>
-                  <span>{index === 1 ? 'iPhone / external' : index === 0 ? 'Built-in / first' : 'Additional'}</span>
+                  <span className="camera-name">{device.name}</span>
+                  <span>{device.kind === 'continuity' ? 'iPhone Continuity Camera' : device.kind === 'built_in' ? 'Built-in camera' : device.kind === 'external' ? 'External camera' : `Camera ${device.index}`}</span>
                 </button>
               ))}
             </div>
-            <form className="camera-custom" onSubmit={(event) => {
-              event.preventDefault()
-              void switchCamera(Number(cameraInput))
-            }}>
-              <label htmlFor="camera-index">Camera index</label>
-              <input id="camera-index" type="number" min="0" max="12" value={cameraInput} onChange={(event) => setCameraInput(event.target.value)} />
-              <button disabled={busy || cameraInput === ''}>{state?.camera.enabled ? 'Switch' : 'Select'}</button>
-            </form>
+            <div className="camera-discovery">
+              <span>
+                {cameraDevices.length === 0
+                  ? 'No camera is currently visible to macOS.'
+                  : `${cameraDevices.length} camera${cameraDevices.length === 1 ? '' : 's'} detected by macOS.`}
+              </span>
+              <button className="secondary" disabled={busy || surveyActive} onClick={() => void rescanCameras()}>Rescan</button>
+            </div>
+            {cameraDevices.every((device) => device.kind !== 'continuity') && (
+              <p className="camera-help">To use an iPhone, bring it near this Mac, lock it, and make sure Continuity Camera is enabled; then press Rescan.</p>
+            )}
+            {(state?.camera.error || state?.camera.scan_error) && (
+              <div className="camera-error">{state.camera.error || state.camera.scan_error}</div>
+            )}
             <div className={`capture-pipeline ${state?.camera.native_luma ? 'native' : ''}`}>
               <div>
                 <span>Capture pipeline</span>
@@ -402,12 +578,12 @@ export default function App() {
               <small>
                 {state?.camera.native_luma
                   ? 'AprilTags use the full-resolution Y plane; color conversion is limited to the preview and feet.'
-                  : 'Auto mode will use native iPhone YUV when macOS and FFmpeg expose it.'}
+                  : 'Auto mode uses native YUV when AVFoundation exposes it.'}
               </small>
             </div>
             <button
               className={state?.camera.enabled ? 'camera-power stop' : 'camera-power'}
-              disabled={busy || (!state?.camera.enabled && cameraInput === '')}
+              disabled={busy || surveyActive || (!state?.camera.enabled && cameraDevices.length === 0)}
               onClick={() => void setCameraEnabled(!state?.camera.enabled)}
             >
               {state?.camera.enabled ? 'Stop camera' : 'Start camera'}
@@ -469,7 +645,7 @@ export default function App() {
             ) : (
               <>
                 <p>Capture robust median vision-to-encoder offsets. Nothing is applied to the robot.</p>
-                <button className="primary full" disabled={!readiness?.ready || busy} onClick={() => void startCalibration()}>
+                <button className="primary full" disabled={!readiness?.ready || busy || surveyActive} onClick={() => void startCalibration()}>
                   {readiness?.ready ? 'Start visual calibration' : 'Waiting for readiness'}
                 </button>
               </>

@@ -67,6 +67,31 @@ export interface CalibrationState {
   last_rejection?: string
 }
 
+export interface GaitSurveyState {
+  available: boolean
+  active: boolean
+  status: 'idle' | 'starting' | 'running' | 'stopping' | 'postprocessing' | 'complete' | 'failed'
+  run_dir: string | null
+  error: string | null
+  started_unix: number | null
+  completed_unix: number | null
+  config: {
+    gaits: number[]
+    speed_mm_s: number
+    direction_s: number
+    settle_s: number
+    gait1_alpha: number
+    adaptive_centering: boolean
+    soft_recovery: boolean
+    max_recoveries: number
+  } | null
+  artifacts: Record<string, string>
+  gait_choices: Array<{id: number; name: string}>
+  log_tail: string[]
+  camera_note: string
+  hard_stop_policy: string
+}
+
 export interface VisionState {
   ok: boolean
   service: string
@@ -83,6 +108,15 @@ export interface VisionState {
     pixel_format: string | null
     native_luma: boolean
     capture_fps: number | null
+    devices: Array<{
+      index: number
+      name: string
+      kind: 'built_in' | 'continuity' | 'external' | 'configured' | 'camera'
+      available: boolean
+    }>
+    scan_error: string | null
+    scan_unix: number | null
+    discovery_exact: boolean
   }
   performance: {
     fps: number
@@ -106,6 +140,7 @@ export interface VisionState {
   }
   readiness: Readiness
   calibration: CalibrationState
+  survey: GaitSurveyState
   pose: {
     image_size_px: [number, number] | null
     tags: Detection[]
@@ -128,8 +163,8 @@ export interface VisionState {
     body_tilt_deg: number | null
     pose_reference: string | null
   }
-  read_only: true
-  motor_commands_sent: false
+  read_only: false
+  motion_control_scope: 'acknowledged_guarded_gait_survey'
 }
 
 export interface CalibrationJoint {

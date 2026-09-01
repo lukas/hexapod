@@ -262,6 +262,57 @@ def test_planar_branch_uses_encoder_only_to_reject_large_hip_flip() -> None:
     assert temporal_decisions[7]["reason"] == "temporal_continuity"
 
 
+def test_body_branch_initializes_from_upward_floor_normal() -> None:
+    tracker = AprilTagPoseTracker.from_json(
+        _HERE / "apriltag_pose_config_20260831.json"
+    )
+    body_mount = tracker._branch_estimator.tag_mounts[0]
+    corners = np.asarray([
+        [0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]
+    ], dtype=np.float32)
+
+    def candidate(tilt_deg: float, rms: float) -> _TagPoseSolution:
+        frame = RigidTransform(
+            np.zeros(3), Rotation.from_euler("x", tilt_deg, degrees=True)
+        )
+        camera_from_tag = frame.compose(body_mount.frame_from_tag)
+        return _TagPoseSolution(
+            camera_from_tag=camera_from_tag,
+            reprojection_rms_px=rms,
+            normal_camera=camera_from_tag.rotation.apply([0.0, 0.0, 1.0]),
+        )
+
+    mirrored = candidate(70.0, 0.01)
+    upright = candidate(5.0, 0.03)
+    expected = upright.normal_camera
+    poses, decisions = tracker._select_robot_tag_solutions(
+        {0: (TagCorners(0, corners), [mirrored, upright])},
+        None,
+        preferred_body_normal_camera=expected,
+    )
+    assert decisions[0]["index"] == 1
+    assert decisions[0]["reason"] == "floor_normal_initialization"
+    assert np.allclose(
+        poses[0].camera_from_tag.rotation.as_matrix(),
+        upright.camera_from_tag.rotation.as_matrix(),
+    )
+
+    # A single noisy frame must not let temporal continuity latch onto the
+    # physically impossible planar mirror branch for the rest of a session.
+    tracker._previous_camera_from_tag[0] = mirrored.camera_from_tag
+    recovered, recovered_decisions = tracker._select_robot_tag_solutions(
+        {0: (TagCorners(0, corners), [mirrored, upright])},
+        None,
+        preferred_body_normal_camera=expected,
+    )
+    assert recovered_decisions[0]["index"] == 1
+    assert recovered_decisions[0]["reason"] == "floor_normal_consistency"
+    assert np.allclose(
+        recovered[0].camera_from_tag.rotation.as_matrix(),
+        upright.camera_from_tag.rotation.as_matrix(),
+    )
+
+
 def test_temporal_tag_tracker_bridges_a_decoder_miss_with_optical_flow() -> None:
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     marker = cv2.aruco.generateImageMarker(dictionary, 3, 180, borderBits=1)

@@ -379,6 +379,7 @@ class CoreApi:
             mode = d.mode
             dry = d.dry_run
             drive_status = d.status
+            scripted_walk = d.scripted_contract_state()
         demo = self.demo_state()
         with self._lock:
             activity = self._activity
@@ -401,6 +402,7 @@ class CoreApi:
             "mode": mode,
             "dry_run": dry,
             "drive_status": drive_status,
+            "scripted_walk": scripted_walk,
             "demo": demo,
             "air_demos_need_zero": True,
             "zero_tol_deg": ZERO_TOL_DEG,

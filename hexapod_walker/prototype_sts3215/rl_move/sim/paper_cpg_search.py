@@ -16,6 +16,12 @@ Use a short straight-ahead run first, then widen to contextual headings:
 
     uv run python -m rl_move.sim.paper_cpg_search --iterations 50 --suite straight
     uv run python -m rl_move.sim.paper_cpg_search --iterations 250 --suite contextual
+
+For sim-to-real gait selection, evaluate every candidate over multiple
+physical-model draws and make the optimizer pay for a weak tail:
+
+    uv run python -m rl_move.sim.paper_cpg_search --iterations 250 \
+      --suite contextual --reality-seeds 6 --dr-scale 0.75 --risk-weight 0.5
 """
 from __future__ import annotations
 
@@ -267,6 +273,14 @@ def _body_yaw(env) -> float:
     return math.atan2(float(r[1, 0]), float(r[0, 0]))
 
 
+def _body_roll_pitch_deg(env) -> tuple[float, float]:
+    """Rigid chassis attitude, deliberately distinct from the IMU estimate."""
+    r = env.data.xmat[env._chassis_bid].reshape(3, 3)
+    pitch = math.asin(float(np.clip(-r[2, 0], -1.0, 1.0)))
+    roll = math.atan2(float(r[2, 1]), float(r[2, 2]))
+    return math.degrees(roll), math.degrees(pitch)
+
+
 def _wrap_angle(a: float) -> float:
     return math.atan2(math.sin(a), math.cos(a))
 
@@ -318,6 +332,8 @@ def rollout(env, params: GaitParams, command: Command, *,
     heights = []
     rolls = []
     pitches = []
+    imu_rolls = []
+    imu_pitches = []
     terminated = ""
     steps = 0
 
@@ -359,8 +375,11 @@ def rollout(env, params: GaitParams, command: Command, *,
             touch_prev = touch
             st = env._state
             heights.append(float(env.data.xpos[env._chassis_bid, 2]))
-            rolls.append(abs(float(st.imu_roll)) * 180.0 / math.pi)
-            pitches.append(abs(float(st.imu_pitch)) * 180.0 / math.pi)
+            body_roll, body_pitch = _body_roll_pitch_deg(env)
+            rolls.append(abs(body_roll))
+            pitches.append(abs(body_pitch))
+            imu_rolls.append(abs(math.degrees(float(st.imu_roll))))
+            imu_pitches.append(abs(math.degrees(float(st.imu_pitch))))
             if st.servo_current is not None:
                 currents.append(np.asarray(st.servo_current, dtype=float))
         if term or trunc:
@@ -412,6 +431,9 @@ def rollout(env, params: GaitParams, command: Command, *,
         "height_mean_m": float(np.mean(heights)) if heights else None,
         "roll_peak_deg": float(max(rolls)) if rolls else 0.0,
         "pitch_peak_deg": float(max(pitches)) if pitches else 0.0,
+        "imu_roll_peak_deg": float(max(imu_rolls)) if imu_rolls else 0.0,
+        "imu_pitch_peak_deg": float(max(imu_pitches)) if imu_pitches else 0.0,
+        "tilt_score_signal": "mujoco_rigid_chassis",
         "current_mean_a": float(np.mean(cur)),
         "current_p95_a": float(np.percentile(cur, 95)),
         "command_scale": float(gait.last_command_scale),
@@ -530,6 +552,100 @@ def evaluate_candidate_panel(envs: list[tuple[float, object]],
     }
 
 
+def aggregate_reality_trials(records: list[dict], *,
+                             risk_weight: float) -> dict:
+    """Combine repeated physical-model draws into one optimizer record.
+
+    ``risk_weight=0`` selects the mean; ``risk_weight=1`` selects the worst
+    draw.  Intermediate values keep useful average performance while making a
+    brittle nominal-sim winner less attractive.
+    """
+    if not records:
+        raise ValueError("reality panel needs at least one trial")
+    risk = float(risk_weight)
+    if not 0.0 <= risk <= 1.0:
+        raise ValueError("risk_weight must be in [0, 1]")
+    scores = np.asarray([float(r["score"]) for r in records], dtype=float)
+    score_mean = float(np.mean(scores))
+    score_worst = float(np.min(scores))
+    robust_score = score_mean - risk * (score_mean - score_worst)
+
+    def mean_summary(key: str):
+        values = [r["summary"].get(key) for r in records]
+        values = [float(v) for v in values if v is not None]
+        return float(np.mean(values)) if values else None
+
+    summary = {
+        "score": robust_score,
+        "score_mean": score_mean,
+        "score_worst": score_worst,
+        "score_std": float(np.std(scores)),
+        "risk_weight": risk,
+        "reality_trials": len(records),
+        "falls": int(sum(int(r["summary"].get("falls") or 0)
+                         for r in records)),
+        "progress_frac_mean": mean_summary("progress_frac_mean"),
+        "cross_frac_mean": mean_summary("cross_frac_mean"),
+        "slip_per_m_mean": mean_summary("slip_per_m_mean"),
+        "speed_m_s_mean": mean_summary("speed_m_s_mean"),
+        "current_p95_a_mean": mean_summary("current_p95_a_mean"),
+    }
+    return {
+        "params": dict(records[0]["params"]),
+        "score": robust_score,
+        "score_mean": score_mean,
+        "score_worst_reality": score_worst,
+        "summary": summary,
+        "reality_trials": records,
+    }
+
+
+def configure_scripted_reality(env, *, dr_scale: float,
+                               ground_tilt_deg: float = 0.0,
+                               ground_azimuth_deg: float = 0.0) -> dict:
+    """Install the physical uncertainty ensemble used for open-loop search.
+
+    Gross fault/bad-start injections are training challenges, not uncertainty
+    in a gait's steady-state quality, so they stay off.  Joint-zero error is a
+    physical command-frame shift.  The search scores rigid chassis attitude;
+    uncalibrated current and IMU proxy trips are raised out of the way and
+    remain visible in the recorded metrics.
+    """
+    from .domain_rand import DomainRandomizer
+
+    rnd = DomainRandomizer.from_params(env.params, scale=float(dr_scale))
+    rnd.set_ground_slope(
+        tilt_deg=ground_tilt_deg,
+        downhill_azimuth_deg=ground_azimuth_deg,
+    )
+    ranges = rnd.ranges
+    ranges.bad_start_prob = 0.0
+    ranges.tipped_start_prob = 0.0
+    ranges.rise_rock_prob = 0.0
+    ranges.walk_kick_prob = 0.0
+    ranges.walk_push_prob = 0.0
+    ranges.fault_prob = 0.0
+    ranges.ext_push_prob = 0.0
+    ranges.zero_drift_cmd_frame = 1.0
+    env.randomizer = rnd
+    env.safety.max_roll = max(env.safety.max_roll, math.radians(40.0))
+    env.safety.max_pitch = max(env.safety.max_pitch, math.radians(40.0))
+    env.safety.max_current = float("inf")
+    return {
+        "name": "scripted_physical_uncertainty_v1",
+        "dr_scale": float(dr_scale),
+        "ground_tilt_baseline_deg": float(ground_tilt_deg),
+        "ground_downhill_azimuth_deg": float(ground_azimuth_deg) % 360.0,
+        "ground_slope_residual_max_deg": float(ranges.ground_tilt_deg),
+        "bad_starts": False,
+        "fault_injection": False,
+        "zero_error_is_command_frame_shift": True,
+        "tilt_score_signal": "mujoco_rigid_chassis",
+        "imu_estimator_recorded_separately": True,
+        "current_trip_during_search": "disabled; proxy is not current-calibrated",
+    }
+
+
 def _write_report(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -555,6 +671,20 @@ def main(argv: list[str] | None = None) -> int:
                          "referenced repo's normal.py 400 x 50ms trials")
     ap.add_argument("--slip-weight", type=float, default=0.70)
     ap.add_argument("--seed", type=int, default=20260822)
+    ap.add_argument("--reality-seeds", type=int, default=0,
+                    help="physical-model draws per candidate; 0 keeps the "
+                         "legacy nominal-sim search")
+    ap.add_argument("--dr-scale", type=float, default=0.75,
+                    help="domain-randomization width for --reality-seeds")
+    ap.add_argument("--risk-weight", type=float, default=0.5,
+                    help="0 scores the reality-panel mean; 1 scores its "
+                         "worst draw")
+    ap.add_argument("--ground-tilt-deg", type=float, default=0.0,
+                    help="measured fixed floor grade; composed with slope "
+                         "randomization")
+    ap.add_argument("--ground-azimuth-deg", type=float, default=0.0,
+                    help="downhill direction in sim world XY: 0 = +X, "
+                         "90 = +Y")
     ap.add_argument("--mu", type=float, default=0.0)
     ap.add_argument("--mu-list", default="",
                     help="comma-separated friction panel (0 = XML "
@@ -579,6 +709,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--replay-seeds", type=int, default=5)
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args(argv)
+    if args.reality_seeds < 0:
+        ap.error("--reality-seeds must be >= 0")
+    if not 0.0 <= args.dr_scale <= 1.0:
+        ap.error("--dr-scale must be in [0, 1]")
+    if not 0.0 <= args.risk_weight <= 1.0:
+        ap.error("--risk-weight must be in [0, 1]")
+    if not 0.0 <= args.ground_tilt_deg < 90.0:
+        ap.error("--ground-tilt-deg must be in [0, 90)")
 
     rng = np.random.default_rng(args.seed)
     commands = command_suite(args.suite, args.speed, args.wz)
@@ -591,13 +729,14 @@ def main(argv: list[str] | None = None) -> int:
         "commands": [asdict(c) for c in commands],
         "history": [],
         "best": None,
+        "reality_profile": None,
     }
 
     mu_list = ([float(x) for x in args.mu_list.split(",") if x.strip()]
                if args.mu_list else [])
 
     def _env(mu: float):
-        return _make_env(
+        built = _make_env(
             mu, args.servo_params, args.seed,
             episode_s=HOLD_S + args.walk_s + 1.0,
             render=False,
@@ -605,12 +744,20 @@ def main(argv: list[str] | None = None) -> int:
             write_acc=args.write_acc,
             vel_max_deg_s=args.vel_max,
         )
+        if args.reality_seeds:
+            report["reality_profile"] = configure_scripted_reality(
+                built,
+                dr_scale=args.dr_scale,
+                ground_tilt_deg=args.ground_tilt_deg,
+                ground_azimuth_deg=args.ground_azimuth_deg,
+            )
+        return built
 
     if mu_list:
         panel = [(mu, _env(mu)) for mu in mu_list]
         env = panel[0][1]
 
-        def _eval(params, seed_base):
+        def _eval_once(params, seed_base):
             return evaluate_candidate_panel(
                 panel, params, commands, walk_s=args.walk_s,
                 seed_base=seed_base, slip_weight=args.slip_weight)
@@ -618,10 +765,21 @@ def main(argv: list[str] | None = None) -> int:
         env = _env(args.mu)
         panel = [(args.mu, env)]
 
-        def _eval(params, seed_base):
+        def _eval_once(params, seed_base):
             return evaluate_candidate(
                 env, params, commands, walk_s=args.walk_s,
                 seed_base=seed_base, slip_weight=args.slip_weight)
+
+    if args.reality_seeds:
+        def _eval(params, seed_base):
+            records = [
+                _eval_once(params, seed_base + k * 10_007)
+                for k in range(args.reality_seeds)
+            ]
+            return aggregate_reality_trials(
+                records, risk_weight=args.risk_weight)
+    else:
+        _eval = _eval_once
 
     try:
         if args.replay_json:

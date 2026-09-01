@@ -1,55 +1,54 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~10:5x (this cycle — yaw-credit canary pair READ +
-verdicted, follow-up grad-clip lever built + a 3-arm dose bracket
-launched). Plain English: **the reward-decomposed yaw critic's FIRST
-dose (coef=1.0/vf=0.5, no trust region) made turn authority WORSE than
-doing nothing — root cause looks like an oversized, unclipped actor
-step, so I built a gradient-norm clip for just that step and launched
-3 doses to find out if capping the step size recovers it.**
+Update, 2026-09-01 ~12:1x (2/3 of the grad-clip dose bracket READ +
+verdicted; NEW CAMPAIGN BEST). Plain English: **the TIGHT clip (0.15)
+doesn't just recover turn authority — it OVERSHOOTS the control on
+both signs AND fixes a walk-quality collapse (2x slip, half progress)
+neither the unclipped dose nor the LOOSE clip (2.0) escape; a 38M
+acquisition + seed-1 twin are running off it now.**
 
-1. **yaw-credit canary pair verdicted** (own `probe_turn_authority`,
-   TURNCAP_CFG_SET, run myself on-pod): `...-ctrl-canary` -> CANARY
-   PASS (baseline, coef=0) wz_med pos avg **+0.083**/neg avg
-   **-0.138**. `...-canary-rr1` (coef=1.0/vf=0.5) -> **CANARY FAIL -
-   MECHANISM**: pos avg **+0.028**/neg avg **-0.097** — WORSE than
-   control BOTH signs by 0.04-0.055 (2-3x the 0.02 gate threshold,
-   wrong direction); reward-quarters crash deeper too (Q3/Q4
-   -337/-62 vs -208/-22). Evidence:
-   `logs/ckpt_eval/turn_probe_yawcredit_{ctrl_canary,canary_rr1}.json`.
-2. **Root cause + fix:** the extra actor pg step
-   (`yaw_critic.py::_yaw_credit_step`) shares the main optimizer with
-   NO trust region — the same update-SIZE failure shape the closed
-   freeze/kl-rollback family guards against, newly uncapped. Added
-   `train.yaw_credit_grad_clip` (default 0/off, bit-exact when unset)
-   = a plain `clip_grad_norm_` on just that step. 18/18
-   `test_yaw_critic.py` green (3 new). Snapshot:
-   `exp/yaw-credit-grad-clip-followup`.
-3. **3-arm dose bracket launched** (respec of `-rr1`, clip-only
-   lever): `grad_clip={0.15 (concurrent cycle's sibling, train-3), 0.5
-   (train-4), 2.0 (train-5)}`, all VERIFIED RUNNING.
+1. **gradclip0p15-canary -> CANARY PASS (best turn result of the
+   campaign).** Built own `probe_turn_authority` + own no-video
+   `purewalk` det (gait_valid/progress_ratio/slip; standard video gate
+   was still 1.5-2h out) on-pod for all 4 siblings — wz_med pos/neg,
+   progress_ratio, slip/m: ctrl 0.083/-0.138, 0.38, 2.7-3.0;
+   **gradclip0p15 0.198/-0.200, 0.38-0.40, 2.2-2.6** (clears/overshoots
+   ctrl on ALL axes); rr1 (closed FAIL) 0.028/-0.097, 0.16-0.18,
+   5.3-5.8; gradclip2p0 0.043/-0.132, 0.16-0.18, 5.6-5.7 (collapsed
+   same as rr1 despite a tiny wz uptick) -> **gradclip2p0 CANARY FAIL**
+   (within noise of rr1 on the decisive gait/progress clause). Sharp
+   dose CLIFF, not a smooth curve: 0.15 fully recovers, 2.0 fully
+   collapses — the concurrent cycle's own 0.5 arm places the middle.
+   Evidence: `logs/ckpt_eval/turn_probe_yawcredit_gradclip{0p15,2p0}
+   _canary.json`, `purewalk_{gradclip0p15,gradclip2p0,ctrl,rr1}.json`.
+2. **Refill (same cycle):** launched `...-gradclip0p15-acq1` (38M,
+   matches turnpay-acq1 precedent) AND a `-canary-s1` seed-1 twin (2M)
+   off gradclip0p15 to check basin robustness before the 38M budget
+   commits to one seed. Both VERIFIED RUNNING (train-7, train-5).
 
-Prior entries (klrolltight2 close, yaw-critic build, canary launch)
-VERBATIM in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
+Prior entries (klrolltight2 close, yaw-critic build, canary pair,
+grad-clip build+launch) VERBATIM in
+`archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
-## Next (meta 09-01 ~10:5x)
+## Next (meta 09-01 ~12:1x)
 
-1. **Read the 3-arm grad-clip bracket**
-   (`gradclip{0p15,0p5,2p0}-canary`). PASS/PROMOTE the best dose if
-   wz_med clears the ctrl-canary baseline (0.083/-0.138) within 0.01
-   both signs + gait/progress held -> acquisition continuation.
-   INFORMATIVE if it beats rr1 (0.028/-0.097) by >=0.02 both signs but
-   short of parity -> intermediate dose. FAIL all 3 -> retire the
-   reward-decomposed-critic lever, accept the mirror-augment ceiling
-   (~0.075-0.09 pos/-0.10 to -0.12 neg) as durable; last untried axes
-   are a shared (non-detached) trunk or a smaller coef.
-2. **Standing bar:** new dual distillations need pre-RL
-   probe_turn_authority >=0.10 both signs; RL arms here are turn
-   RETENTION only, never discovery.
-3. **Closed — do not refund:** update-size constraints (all freeze/
-   value-warmup/kl-rollback doses), reward pricing, exploration
-   magnitude, anchor dose/isolate-update, turn-skip, yaw-credit
-   coef=1.0/vf=0.5 with NO grad clip. Evidence: the archive above.
+1. **Read gradclip0p5-canary** (concurrent cycle's arm) to place the
+   cliff boundary between 0.15 (recovers+overshoots) and 2.0
+   (collapses) — do NOT re-verdict, just fold the number in.
+2. **Read `gradclip0p15-acq1` (38M) + `-canary-s1` (seed1, 2M).** acq1
+   PASS/PROMOTE (new campaign best, stage-2 teacher candidate) if
+   final wz_med stays >=0.15 both signs AND gait/progress/slip hold
+   the control band — every prior acquisition arm here eroded turn
+   authority, so erosion is the default to beat. `-s1` PASS if it
+   reproduces seed0's result (recipe, not basin luck).
+3. **Standing bar:** new dual distillations need pre-RL
+   probe_turn_authority >=0.10 both signs; RL arms here are RETENTION
+   only. gradclip0p15 is the reference recipe until acq1/-s1 say
+   otherwise.
+4. **Closed:** update-size constraints (freeze/value-warmup/
+   kl-rollback), reward pricing, exploration magnitude, anchor
+   dose/isolate-update, turn-skip, yaw-credit with NO clip or
+   clip=2.0. Evidence: archive + this update.
 
 > Journal archives (VERBATIM): pre-08-30 in
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through

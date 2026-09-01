@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T11:00:29+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-canary-rr1
+
+**wandb_id**: xyniw5gk
 
 **hypothesis**: Plain English: does putting the yaw-credit mechanism's extra actor policy-gradient step through a trust region (a plain gradient-norm clip, torch.nn.utils.clip_grad_norm_ over policy.parameters() right before that step's own optimizer.step() -- new cfg train.yaw_credit_grad_clip, default 0.0/off, bit-exact when unset, 18/18 test_yaw_critic.py green incl. 3 new tests) recover the SAME coef=1.0/vf_coef=0.5 dose to at least parity with the matched coef=0 control it lost to? Direct follow-up to this cycle's own cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-canary-rr1 CANARY FAIL - MECHANISM verdict: at grad_clip=0 (the only dose tried), the yaw-advantage step regressed wz_med WORSE than a plain matched continuation on BOTH signs (pos 0.028 vs control 0.083, neg -0.097 vs control -0.138) while its own reward crashed deeper than the control's (Q3/Q4 -337/-62 vs -208/-22) -- a signature consistent with an oversized, unconstrained extra actor update, exactly the failure mode the whole closed freeze/value-warmup/kl-rollback update-size-constraint family exists to guard against, just stacked on a NEW, previously-uncapped step. Prediction-if-true: a clip in some tested range recovers wz_med to >=parity with the coef=0 control (pos delta >=-0.01, neg delta >=-0.01) with gait/progress held -- promote that dose to an acquisition-scale continuation next. Prediction-if-false: even the tightest clip tested still regresses vs control -- the pg step's DIRECTION (not just its size) is bad, ruling out grad-clip as the fix and pointing at either a smaller coef, a shared (non-detached) trunk variant, or retiring the whole reward-decomposed-critic lever in favor of the mirror-augment ceiling this control already re-confirmed (~0.075-0.09 pos / -0.10 to -0.12 neg).
 

@@ -34,10 +34,27 @@ PASS bar. Evidence: own 19-point `probe_turn_authority` curve built
 on-pod train-1, copied to
 `logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_klrolltight_acq1_all.jsons`.
 No other track has runnable work (joystick/amp/cpg
-DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED); no new
-arm launched this cycle (the open dose-response question the fleet
-was resolving is now closed; the live next-step arm was already
-launched last cycle and is training on train-0). CYCLE_WORKED.
+DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED).
+**capacity.py showed 11/12 GPU pods idle** (only klrolltight2-acq1
+running) — designed and launched the decisive test for the confound
+flagged above instead of leaving that capacity idle:
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-klrolldriftmatch-acq1`
+(VERIFIED RUNNING train-1, wandb `jdiv01w8`) continues training FROM
+the freeze+guard=0.02 lineage's own final checkpoint
+(`init-from-source`, `--actor-freeze-steps=0` now — actor already
+warmed up, everything else incl. `--kl-rollback=0.02` unchanged) for
++8M more steps, bringing its ACTOR-training-step total to 38M — exactly
+matching the guard-only sibling's own final actor-training-step count.
+If authority erodes further to converge on the guard-only sibling's
+38M-actor-step read (pos 0.0743-0.0754, neg -0.1154 to -0.1204),
+"freeze protects" is refuted in favor of "freeze only delays, total
+post-canary actor-training-steps is the real driver" — closing the
+whole freeze-mechanism line without further funding. If it holds near
+0.078-0.080, freeze is real and a periodic-re-freeze/re-anchor design
+is the next step. Gate is a full 2M/4M/6M/8M-elapsed probe_turn_authority
+curve, own TURNCAP_CFG_SET, on-pod. First kl_rollback already fired
+(approx_kl 0.47, same generic post-init-shock pattern as every
+sibling) — mechanism healthy. CYCLE_WORKED.
 
 Update, 2026-09-01 ~06:2x (triage cycle — `valuewarmup-klrolltight-acq1`
 own-scope PARTIAL-BETTER, dose-response continues). Plain English:

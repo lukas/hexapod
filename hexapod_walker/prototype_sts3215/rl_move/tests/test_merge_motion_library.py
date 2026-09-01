@@ -43,6 +43,8 @@ def _make_lib(tmp_path, name, clip_names, clip_seeds, lens, tag,
     d["clip_names"] = np.asarray(clip_names)
     d["clip_seeds"] = np.asarray(clip_seeds, dtype=np.int64)
     d["dt"] = np.asarray(dt)
+    d["joint_frame"] = np.asarray("robot_abs")
+    d["joint_contract"] = np.asarray("robot_abs_tibia_v2")
     p = tmp_path / name
     np.savez(p, **d)
     return p

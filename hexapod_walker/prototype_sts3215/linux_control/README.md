@@ -141,6 +141,23 @@ uv run python linux_control/track_apriltags.py \
 The tracker only reads `GET /api/feedback`; it cannot send motor commands or
 rewrite zero. Use the overlay to hand-adjust and diagnose the pose.
 
+For the cleaner React/TypeScript interface, build once and open it from the
+same local web hub used by the robot and simulator UI:
+
+```bash
+make vision-build
+make vision                       # http://localhost:8898/vision
+```
+
+The camera is off by default. The page can start/stop capture and switch
+OpenCV camera indexes, shows direct robot-tag/floor-tag/
+foot coverage, waits for a stable fully observed pose, and records a robust
+multi-frame visual-versus-encoder calibration report. Reports are written to
+`artifacts/apriltag_pose/calibrations/`. A reviewed 12/12 report can be applied
+as `robot_pose.visual_joint_bias_deg` in the vision config. This corrects only
+the displayed AprilTag yaw/hip angles; it never moves a motor or rewrites a
+servo zero. Knees remain visually unobservable without tibia/yoke markers.
+
 ## Fast test / deploy loop
 
 For UI and controller edits, use the local helper instead of retyping the
@@ -327,7 +344,7 @@ chmod +x deploy_adb.sh
 | Turn stick / Q·E | yaw rate |
 | Sit & power off | STEP lower, then limp |
 | EMERGENCY STOP | limp immediately |
-| Xbox on Drive | left stick walk · right stick turn · B=stop gait/demo |
+| Xbox on Drive | left stick walk · right stick turn · D-pad up/down=stand/lower · B=stop gait/demo |
 | Xbox chords | hold LB/LT/RB/RT then tap X/Y/A/B → 16 demos |
 
 The Drive tab is a laptop-friendly manual-drive cockpit: gait picker on the

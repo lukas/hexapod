@@ -41,10 +41,6 @@ import numpy as np
 _PROTO = Path(__file__).resolve().parents[2]
 _STANDUP_FILE = _PROTO / "linux_control" / "standup_modes.json"
 _SIM_WALK_START_DEG = [0.0, 20.0, 80.0] * 6
-_PROMOTED_STANCE_POLICY = Path(
-    "rl_move/sim/policies/wandb_downloads/"
-    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m/"
-    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip")
 _STAND_HANDOFF_STABLE_S = 0.75
 _STAND_HANDOFF_SETTLE_S = 0.25
 _STAND_HANDOFF_MIN_Z_M = 0.10
@@ -58,7 +54,7 @@ def _smooth(s: float) -> float:
 
 
 def _q_now(env) -> np.ndarray:
-    return env.data.qpos[env._qadr].copy()
+    return env._state.joint_position.copy()
 
 
 def _chassis_z(env) -> float:
@@ -81,6 +77,9 @@ def _load_standup_modes(path: Path = _STANDUP_FILE) -> dict[str, Any]:
 def _stance_checkpoint(args: argparse.Namespace, role: str) -> str:
     if role == "lower" and args.lower_policy is not None:
         return str(args.lower_policy)
+    if args.stance_policy is None:
+        raise ValueError(
+            f"learned {role} requires --stance-policy with the v2 contract")
     return str(args.stance_policy)
 
 
@@ -516,18 +515,20 @@ def _load_any_policy(path: Path):
         from rl_move.np_policy import load_np_policy
 
         return load_np_policy(path)
+    from hexapod_core.joint_frame import require_checkpoint_joint_contract
     from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
 
+    require_checkpoint_joint_contract(path)
     return wrap_recurrent_predictor(load_checkpoint_auto(path, device="cpu"))
 
 
 def _stance_profile(path: Path, role: str,
                     override: dict[str, Any] | None = None
                     ) -> dict[str, float]:
-    from .play_core import _LEGACY_PROFILE, _load_profiles
+    from .play_core import _DEFAULT_STANCE_PROFILE, _load_profiles
 
     role_key = "lower" if role == "lower" else "stand"
-    prof: dict[str, Any] = dict(_LEGACY_PROFILE[role_key])
+    prof: dict[str, Any] = dict(_DEFAULT_STANCE_PROFILE[role_key])
     profile: dict[str, Any] | None = None
     if path.suffix == ".json":
         try:
@@ -807,7 +808,7 @@ def main() -> int:
                     choices=("scripted", "learned"), default="scripted",
                     help="controller used for walk_ready -> grounded")
     ap.add_argument("--stance-policy", type=Path,
-                    default=_PROMOTED_STANCE_POLICY,
+                    default=None,
                     help="learned stand/lower checkpoint or exported JSON")
     ap.add_argument("--lower-policy", type=Path, default=None,
                     help="optional learned lower checkpoint/JSON; defaults "
@@ -874,6 +875,7 @@ def main() -> int:
 
     from rl_move.config import load_config
     from rl_move.env import TaskGoal
+    from hexapod_core.joint_frame import require_checkpoint_joint_contract
     from .eval_checkpoint import _save_video, model_identity
     from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
     from .play_core import _PlayEnv
@@ -921,6 +923,7 @@ def main() -> int:
             "python mesh_mujoco/build_mesh_model.py --no-render` from the "
             "prototype dir, or pass --allow-mesh-fallback explicitly")
 
+    require_checkpoint_joint_contract(checkpoint)
     model = load_checkpoint_auto(checkpoint, device="cpu")
     if model.observation_space.shape != env.observation_space.shape:
         raise SystemExit(

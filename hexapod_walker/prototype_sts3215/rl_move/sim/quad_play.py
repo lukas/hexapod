@@ -4,7 +4,7 @@
     ./sim_quad.sh          # from prototype_sts3215/sim_viewer/
     python rl_move/sim/quad_play.py   # plain python, NOT mjpython (cv2)
 
-Drives the EXACT gait module the robot runs (motor_setup/quad_walk.py —
+Drives the EXACT gait module the robot runs (hexapod_core/quad_walk.py —
 the ``quad_walk`` demo behind the webui Quad tab) through the fitted
 servo twin, but as a live state machine instead of a fixed timeline:
 
@@ -49,7 +49,7 @@ import mujoco  # noqa: E402
 from eval_dances import (CTRL_HZ, STREAM_ACC_UNITS,  # noqa: E402
                          clip_limits, place_at_plant, up_z)
 from hexapod_core.joint_frame import (  # noqa: E402
-    robot_abs_deg_to_sim_rad, robot_stand_degrees,
+    robot_abs_deg_to_mujoco_rel_rad, robot_stand_degrees,
 )
 from rl_move.sim.servo_model import (SIM_MODEL_PATH, ServoProfile,  # noqa: E402
                                      SimServoParams, apply_params_to_model,
@@ -78,7 +78,9 @@ def apply_plant_override(pl: "Player", *,
         if knee_deg is not None:
             plant[3 * leg + 2] = float(knee_deg)
     pl.robot_plant_deg = plant
-    pl.q_plant = clip_limits(robot_abs_deg_to_sim_rad(plant))
+    pl.q_plant_abs = clip_limits(np.radians(plant))
+    pl.q_plant = robot_abs_deg_to_mujoco_rel_rad(
+        np.degrees(pl.q_plant_abs))
 
 
 def contact_snapshot(pl: "Player") -> tuple[set[str], set[str]]:
@@ -129,8 +131,9 @@ class Player:
             self.model, mujoco.mjtObj.mjOBJ_JOINT, f"L{i}_{ax}")]
             for i in range(6) for ax in ("yaw", "pitch", "knee")])
         self.robot_plant_deg = robot_stand_degrees()
-        self.q_plant = clip_limits(
-            robot_abs_deg_to_sim_rad(self.robot_plant_deg))
+        self.q_plant_abs = clip_limits(np.radians(self.robot_plant_deg))
+        self.q_plant = robot_abs_deg_to_mujoco_rel_rad(
+            np.degrees(self.q_plant_abs))
         self.h = self.model.opt.timestep
         self.sub = max(1, int(round(1.0 / CTRL_HZ / self.h)))
         self.speed = 1.0
@@ -142,7 +145,7 @@ class Player:
     def reset(self) -> None:
         mujoco.mj_resetData(self.model, self.data)
         place_at_plant(mujoco, self.model, self.data, self.qadr,
-                       self.pos_act, self.q_plant)
+                       self.pos_act, self.q_plant_abs)
         self.profile = ServoProfile(self.params, self.q_plant,
                                     vel_scale=self.VEL_SCALE)
         self.gait = QW.QuadRearWalk(list(self.robot_plant_deg), 1e6,
@@ -194,7 +197,8 @@ class Player:
             if self.tx >= self.exit_fn_end:
                 self.state = self.PLANT
 
-        q = clip_limits(robot_abs_deg_to_sim_rad(self._pose()))
+        q = robot_abs_deg_to_mujoco_rel_rad(
+            np.degrees(clip_limits(np.radians(self._pose()))))
         self.profile.command(q, acc_units=STREAM_ACC_UNITS)
         db = self.profile.deadband_rad
         for _ in range(self.sub):

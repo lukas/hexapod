@@ -152,10 +152,18 @@ class FootTipTracker:
         body_center_px: np.ndarray | None,
         femur_anchor_px: Mapping[int, np.ndarray],
         tag_scale_px: float,
+        gray_image: np.ndarray | None = None,
     ) -> list[FootTipObservation]:
         if image.ndim != 3:
             raise ValueError("foot tracking requires a BGR image")
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        if gray_image is None:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = np.asarray(gray_image)
+            if gray.ndim != 2 or gray.shape != image.shape[:2]:
+                raise ValueError(
+                    "gray_image must match the BGR foot-tracking image"
+                )
         scale = max(8.0, float(tag_scale_px))
         measured: dict[int, tuple[np.ndarray, np.ndarray, float]] = {}
 

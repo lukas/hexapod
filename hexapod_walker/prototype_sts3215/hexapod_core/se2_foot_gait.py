@@ -38,9 +38,9 @@ different machine:
                stance trajectories stay inside every leg's safe workspace
                and pass strict IK — including lift clearance at the
                stride extremes.  ``last_command_scale`` reports k.
-  IK           fixed positive-knee branch only (tripod_gait._leg_ik) with
-               the exact HIP_Y offset-arm yaw solve (noslip_gait); the
-               branch never flips mid-gait.
+  IK           fixed robot branch only (tripod_gait._leg_ik): the tibia is
+               at least as steep as the femur in normal stand/walk poses,
+               with the exact HIP_Y offset-arm yaw solve (noslip_gait).
 
 Leg numbering: 0 front-left, 1 mid-left, 2 rear-left, 3 rear-right,
 4 mid-right, 5 front-right.  Angles: joint = leg*3 + (yaw, hip, knee),
@@ -57,9 +57,9 @@ other gaits.
 
 Grid evaluation over all planar commands (kinematic, no sim):
 
-    uv run python linux_control/se2_foot_gait.py                # default 5^3 grid
-    uv run python linux_control/se2_foot_gait.py --gait wave --n 3
-    uv run python linux_control/se2_foot_gait.py --cmd 0.01,0,0.05 --out out.json
+    uv run python -m hexapod_core.se2_foot_gait                # default 5^3 grid
+    uv run python -m hexapod_core.se2_foot_gait --gait wave --n 3
+    uv run python -m hexapod_core.se2_foot_gait --cmd 0.01,0,0.05 --out out.json
 
 Sim replay (full servo/safety stack) reuses the verify_noslip harness:
 build the gait and pass it to ``rl_move.sim.verify_noslip.rollout``.
@@ -319,6 +319,12 @@ class SE2FootGait:
         self._rebuild_geometry()
         if hasattr(self, "anchors"):
             self._reset_anchors()
+        if hasattr(self, "_req") and self._req is not None:
+            # The workspace changed, so the memoized scale belongs to the
+            # old stance. Re-evaluate the same public robot_abs command.
+            req = self._req
+            self._req = None
+            self.set_velocity(vx=req[0], vy=req[1], omega=req[2])
 
     def set_neutral_offsets(self, offsets: list) -> None:
         """Per-leg (radial, tangential) neutral offsets in metres, in the
@@ -328,6 +334,10 @@ class SE2FootGait:
         self._rebuild_geometry()
         if hasattr(self, "anchors"):
             self._reset_anchors()
+        if hasattr(self, "_req") and self._req is not None:
+            req = self._req
+            self._req = None
+            self.set_velocity(vx=req[0], vy=req[1], omega=req[2])
 
     def _rebuild_geometry(self) -> None:
         self.neutral_body: list[tuple[float, float]] = []
@@ -367,14 +377,15 @@ class SE2FootGait:
         return lo * self.workspace_margin
 
     # ------------------------------------------------------------------
-    # Fixed-branch IK / FK (exact HIP_Y offset arm, positive-knee branch).
+    # Fixed-branch IK / FK (exact HIP_Y offset arm, normal robot branch).
     def leg_ik_body(self, i: int, fx: float, fy: float, fz: float,
                     *, strict: bool = False
                     ) -> tuple[float, float, float] | None:
         """(yaw, hip, knee) rad for a body-frame foot target, or None.
 
-        Always the positive-knee branch (never flips).  ``strict`` also
-        requires the solution inside the joint limits."""
+        Always the normal robot branch (tibia at least as steep as femur;
+        never flips). ``strict`` also requires the solution inside the
+        joint limits."""
         a = self.leg_angles[i]
         ca, sa = math.cos(a), math.sin(a)
         rx = fx - LEG_RADIAL * ca

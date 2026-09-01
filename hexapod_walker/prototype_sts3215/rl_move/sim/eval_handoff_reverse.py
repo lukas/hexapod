@@ -144,7 +144,6 @@ def main() -> int:
 
     gen = env._goal_gen
     dt = env.dt
-    qadr = env._qadr
     tail_n = max(1, int(round(TAIL_S / dt)))
 
     def chassis_z() -> float:
@@ -265,7 +264,7 @@ def main() -> int:
 
     def glide_phase(rec: dict) -> None:
         """Scripted go_zero('sit') analog inside the walk episode."""
-        q_from = env.data.qpos[qadr].copy()
+        q_from = env._state.joint_position.copy()
         q_zero = np.zeros_like(q_from)
         n = int(round(GLIDE_S / dt))
         pad_hist = []

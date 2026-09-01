@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "linux_control"))
 sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from se2_foot_gait import (  # noqa: E402
+from hexapod_core.se2_foot_gait import (  # noqa: E402
     SE2FootGait, evaluate_grid, se2_exp, se2_log, support_margin,
     swing_point,
 )
@@ -43,7 +43,7 @@ def test_neutral_pose_matches_plant():
 
 
 def test_ik_fixed_branch_roundtrip():
-    from tripod_gait import COXA, FEMUR, TIBIA
+    from hexapod_core.tripod_gait import COXA, FEMUR, TIBIA
 
     g = _gait()
     checked = 0
@@ -52,12 +52,11 @@ def test_ik_fixed_branch_roundtrip():
             for knee_d in (10.0, 60.0, 100.0, 140.0):
                 q = (math.radians(yaw_d), math.radians(hip_d),
                      math.radians(knee_d))
-                # Fixed-branch domain: foot in FRONT of the yaw axis
-                # (positive planar radius); folded-behind configs belong
-                # to the other arm branch and must not round-trip.
-                r = (COXA + FEMUR * math.cos(q[1])
-                     + TIBIA * math.cos(q[1] + q[2]))
-                if r < 0.005:
+                # Fixed-branch domain: foot in FRONT of the yaw axis and
+                # tibia at least as steep as the femur. The other circle
+                # intersection is intentionally mapped to this robot branch.
+                r = COXA + FEMUR * math.cos(q[1]) + TIBIA * math.cos(q[2])
+                if r < 0.005 or q[2] < q[1]:
                     continue
                 fx, fy, fz = g.fk_foot_body(2, *q)
                 sol = g.leg_ik_body(2, fx, fy, fz)
@@ -66,8 +65,8 @@ def test_ik_fixed_branch_roundtrip():
                     assert abs(a - b) < 1e-9, (yaw_d, hip_d, knee_d)
                 checked += 1
     assert checked > 50
-    # Negative-knee input maps to the SAME foot point but the solver must
-    # return the fixed positive-knee branch, never flip.
+    # An input on the other intersection maps to the SAME foot point, but
+    # the solver must return the normal robot branch and never flip.
     fx, fy, fz = g.fk_foot_body(0, 0.0, math.radians(30.0),
                                 math.radians(-10.0))
     sol = g.leg_ik_body(0, fx, fy, fz)

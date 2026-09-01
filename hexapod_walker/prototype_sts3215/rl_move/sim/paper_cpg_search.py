@@ -4,8 +4,8 @@ The Yang/Wang/Calandra/Contreras/Levine/Pister microrobot paper trains
 walking by optimizing a small CPG controller, not by training a neural
 policy. This runner ports that idea to our current sim stack:
 
-* controller: SE2FootGait via sim_gait_compat, so knees are in the
-  MuJoCo-relative frame at the one sim boundary;
+* controller: canonical robot-absolute SE2FootGait, converted only at the
+  MuJoCo action boundary;
 * search space: a small set of gait parameters instead of 18 joint
   targets or PPO weights;
 * objective: the same measured rollout metrics we care about at eval
@@ -282,7 +282,7 @@ def _body_command_dir_world(env, vx: float, vy: float) -> np.ndarray:
 def rollout(env, params: GaitParams, command: Command, *,
             walk_s: float, seed: int) -> dict:
     """Run one gait/command in MuJoCo and return eval-aligned metrics."""
-    from sim_gait_compat import SE2FootGait
+    from hexapod_core.se2_foot_gait import SE2FootGait
 
     try:
         env.reset(seed=seed)

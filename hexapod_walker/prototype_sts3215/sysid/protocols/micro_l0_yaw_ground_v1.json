@@ -1,0 +1,39 @@
+{
+  "sysid_protocol": 1,
+  "name": "micro_l0_yaw_ground_v1",
+  "created": "2026-08-31T15:34:00-07:00",
+  "description": "Conservative zero-pose ground micro-test: L0 yaw only, +2/-2 deg, low profile speed/torque, 0.25 A per-joint trip, automatic return and limp. This is not a stand or gait motion.",
+  "hz": 25.0,
+  "write_speed": 120,
+  "write_acc": 10,
+  "soft_torque": 250,
+  "max_current_a": 0.25,
+  "home_deg": [
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0
+  ],
+  "segments": [
+    {
+      "kind": "step",
+      "joint": 0,
+      "amp_deg": 2.0,
+      "pre_s": 0.8,
+      "hold_s": 1.0,
+      "rest_s": 1.0,
+      "label": "L0_yaw_step+2_ground_r0"
+    },
+    {
+      "kind": "step",
+      "joint": 0,
+      "amp_deg": -2.0,
+      "pre_s": 0.8,
+      "hold_s": 1.0,
+      "rest_s": 1.0,
+      "label": "L0_yaw_step-2_ground_r0"
+    }
+  ]
+}

@@ -18,11 +18,11 @@ robot, and they never write servo zeros.
 The knee servo is bolted to the femur. Its housing does **not** rotate when its
 own output shaft moves, so motor-housing markers alone provide 12 signed joint
 angles, not 18. The tracker now detects the existing red boot tips instead of
-requiring fragile tags on the feet. A top-down view measures knee bend
-**magnitude** from tibia foreshortening; it cannot distinguish bending above
-from below the femur plane. Read-only encoders resolve that sign and provide the
-best full 18-joint estimate. A rigid tibia tag remains the purely visual way to
-measure a signed knee angle.
+requiring fragile tags on the feet. Foot-tip foreshortening remains available
+as a low-confidence diagnostic, but it is excluded from safety and calibration
+because an oblique phone view can make a straight tibia appear bent. Read-only
+encoders provide the knee values. A rigid tibia/yoke tag remains the visual way
+to measure a knee angle.
 
 ## Live phone zero/checkup view
 
@@ -66,10 +66,39 @@ move a joint. That boundary is intentional until the camera, mounts, and
 printed size have been physically calibrated and repeated stationary trials
 show that visual/encoder errors are trustworthy.
 
+### Browser vision lab
+
+The React/TypeScript page on the shared `:8898` web hub replaces the dense OpenCV text overlay with
+a clean video canvas, short marker IDs, a six-leg joint matrix, a calibration
+readiness gate, and a camera picker:
+
+```sh
+make vision-build
+make vision                       # http://localhost:8898/vision
+```
+
+The shared local Python service leaves the camera off until **Start camera**
+is pressed, then owns the selected camera and drops stale frames; React only
+renders the newest image and state. A visual calibration starts
+only after all 13 robot markers and at least two floor markers are directly
+decoded, 18/18 encoder feedback is available, and twelve consecutive frames
+are encoder-stationary. Visual jitter is measured rather than mistaken for
+physical robot motion.
+
+The report robustly aggregates `visual_minus_encoder_deg` for the twelve
+signed yaw/hip observations. Knees are reported as visually unobservable
+without rigid tibia/yoke markers. Reports are saved beneath
+`artifacts/apriltag_pose/calibrations/`. **Apply visual calibration** accumulates
+the 12 stable residuals into `robot_pose.visual_joint_bias_deg`; it changes only
+the vision model and never servo zeros or motor state. Until a checkerboard
+calibration replaces the EXIF-derived camera intrinsics, the UI labels every
+report **provisional**.
+
 The preview also displays `POSE SAFETY: SAFE`, `UNSAFE`, or `UNVERIFIED`.
-That verdict combines direct tag/foot coverage, floor-referenced or IMU body
-tilt, broad joint envelopes, encoder availability, and visual/encoder
-agreement. `UNVERIFIED` is not safe. Because one overhead camera cannot prove
+That verdict uses the live IMU as the primary tilt measurement, plus broad
+encoder joint envelopes and observation coverage. Biased monocular tilt and
+unsigned foot-tip knee estimates are calibration warnings, not physical
+`UNSAFE` evidence. `UNVERIFIED` is not safe. Because one overhead camera cannot prove
 that the chassis is physically supported, `safe_for_alignment_motion` remains
 false unless the operator starts the program with `--robot-supported`; even
 that flag only records the assertion and does not enable or send motion.

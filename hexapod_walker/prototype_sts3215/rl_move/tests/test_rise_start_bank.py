@@ -27,6 +27,7 @@ pytest.importorskip("mujoco")
 from rl_move.config import load_config                      # noqa: E402
 from rl_move.sim.goal_task import SimHexapodGoalEnv         # noqa: E402
 from rl_move.sim.sim_env import N_JOINTS                    # noqa: E402
+from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad  # noqa: E402
 
 RISE_REF = ROOT / "rl_move/sim/refs/rise_ref_belly2plant.npz"
 
@@ -38,7 +39,8 @@ def _mk_bank(tmp_path: Path, k: int = 4) -> tuple[Path, np.ndarray]:
     for i in range(k):
         q[i, 2::3] = 0.30 + 0.08 * i
     p = tmp_path / "lower_bank.npz"
-    np.savez(p, q_rad=q, meta="{}")
+    np.savez(p, q_rad=q, meta="{}", joint_frame="robot_abs",
+             joint_contract="robot_abs_tibia_v2")
     return p, q
 
 
@@ -159,9 +161,10 @@ def _mk_full_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
         q[i, 2::3] = 0.30 + 0.08 * i
         qpos[i, 2] = 0.041 + 0.002 * i        # base z: belly-ish heights
         qpos[i, 3] = 1.0                       # identity quat
-        qpos[i, env_probe._qadr] = q[i]
+        qpos[i, env_probe._qadr] = robot_abs_rad_to_mujoco_rel_rad(q[i])
     p = tmp_path / "lower_bank_full.npz"
-    np.savez(p, q_rad=q, qpos_full=qpos, qvel_full=qvel, meta="{}")
+    np.savez(p, q_rad=q, qpos_full=qpos, qvel_full=qvel, meta="{}",
+             joint_frame="robot_abs", joint_contract="robot_abs_tibia_v2")
     return p, q, qpos
 
 
@@ -178,7 +181,7 @@ def test_exact_restore_uses_full_state(tmp_path):
         obs, info = env.reset()
         assert env._goal_traj.start_at == "rise_bank"
         assert np.all(np.isfinite(obs))
-        qj = env.data.qpos[env._qadr]
+        qj = env._state.joint_position
         # nearest bank row: joints exact at placement, then only the
         # 0.3 s stiff hold-settle may move them (servos already at cmd)
         d = np.abs(q - qj[None, :]).max(axis=1).min()
@@ -187,9 +190,9 @@ def test_exact_restore_uses_full_state(tmp_path):
     env.close()
 
 
-def test_exact_flag_with_legacy_bank_falls_back(tmp_path):
-    """exact=1 on a joints-only legacy bank: no error, reconstruction
-    path (jitter present) — never a silent crash on old banks."""
+def test_exact_flag_with_joints_only_bank_falls_back(tmp_path):
+    """Exact restore needs full state; a valid joints-only v2 bank uses
+    the reconstruction path instead."""
     bank_path, q = _mk_bank(tmp_path)
     env = _rise_env(seed=5, rise_start_bank=str(bank_path),
                     rise_start_bank_frac=1.0, rise_start_bank_exact=1.0)
@@ -205,9 +208,10 @@ def test_exact_off_with_full_bank_is_bit_exact_with_legacy_path(tmp_path):
     probe = _rise_env(seed=13)
     full_path, q, _ = _mk_full_bank(tmp_path, probe)
     probe.close()
-    legacy_path = tmp_path / "legacy_twin.npz"
-    np.savez(legacy_path, q_rad=q, meta="{}")
-    env_a = _rise_env(seed=9, rise_start_bank=str(legacy_path),
+    joints_path = tmp_path / "joints_twin.npz"
+    np.savez(joints_path, q_rad=q, meta="{}", joint_frame="robot_abs",
+             joint_contract="robot_abs_tibia_v2")
+    env_a = _rise_env(seed=9, rise_start_bank=str(joints_path),
                       rise_start_bank_frac=1.0)
     env_b = _rise_env(seed=9, rise_start_bank=str(full_path),
                       rise_start_bank_frac=1.0)
@@ -234,14 +238,15 @@ def _mk_anchored_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
         q[i, 2::3] = 0.30 + 0.08 * i
         qpos[i, 2] = 0.041 + 0.002 * i
         qpos[i, 3] = 1.0
-        qpos[i, env_probe._qadr] = q[i]
+        qpos[i, env_probe._qadr] = robot_abs_rad_to_mujoco_rel_rad(q[i])
         # Anchor ~50mm above the synthetic spawn's settle (~40mm): the
         # remaining rise must come out ~half the belly band, so a band
         # leak is unambiguous.
         z_stand[i] = 0.090 + 0.001 * i
     p = tmp_path / "lower_bank_anchored.npz"
     np.savez(p, q_rad=q, qpos_full=qpos, qvel_full=qvel,
-             z_stand=z_stand, meta="{}")
+             z_stand=z_stand, meta="{}", joint_frame="robot_abs",
+             joint_contract="robot_abs_tibia_v2")
     return p, q, z_stand
 
 

@@ -72,7 +72,7 @@ def test_xmat_matches_xquat_rotation():
     """The xmat-based rotation amp_features.py uses (required for MJX
     shim compat) must be numerically identical to build_motion_library
     .py's xquat-based one on a real rollout, not just plausible."""
-    from tripod_gait import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
     from rl_move.robot_state import DEG2RAD
     from rl_move.sim.joint_task import q_rad_to_action
 

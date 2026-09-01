@@ -276,6 +276,7 @@
          text-align:left; border-radius:8px; background:#161a22;
          border:1px solid #2c3140; color:#e7eaf0; cursor:pointer; }
   .tab.on { background:#2b6cff; border-color:#2b6cff; }
+  .tab-link { display:block; color:inherit; text-decoration:none; }
   .view { display:none; } .view.active { display:block; }
   .sim-only { display:none; }
   body.sim-backend .sim-only { display:block; }

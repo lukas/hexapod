@@ -20,7 +20,7 @@ armed-but-unbroadcast sits at the FULL charges so evals always judge
 the bank-proven pricing).
 
 k_loadslip_excess is DELIBERATELY EXCLUDED from the ramp (bank
-finding, same day, test_task_semantics.py
+finding, same day, in the retired pre-v2 semantics bank
 test_walkcurr_chargeramp_min_ranking_holds): scaling it down at the
 shared min_frac=0.15 made 'skate' (+130.6) and the swing-farming
 'shuffle' twin (+227.9) both beat every wrong-way/standing behavior —
@@ -131,7 +131,7 @@ def test_frac_mapping_and_clamping():
     assert out["charge_scale"] == pytest.approx(0.2)
     assert env._walk_charge_scale() == pytest.approx(0.2)
     # default min_frac when the key is absent (0.40, the measured
-    # lowest bank-green floor — see test_task_semantics.py)
+    # lowest historical bank-green floor; recertify under v2)
     env2 = _env(RAMP_KEYS)
     out2 = env2.apply_walk_charge_frac(0.0)
     assert out2["charge_scale"] == pytest.approx(0.40)

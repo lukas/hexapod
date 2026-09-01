@@ -45,7 +45,7 @@ pytest.importorskip("mujoco")
 
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from sim_gait_compat import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 
 from test_walk_move_current import (  # noqa: E402
     JOYFULLCURR_STACK, PLANT_RAD, WALK_PLANT, _command_stop,

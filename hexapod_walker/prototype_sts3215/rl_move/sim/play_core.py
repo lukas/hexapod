@@ -25,7 +25,7 @@ from .view import _InteractiveTraj
 from .walk_task import SimHexapodJointWalkEnv, WalkGoal
 
 __all__ = [
-    "_CRUISE", "_CURATED", "_DESC", "_HIST_K", "_LEGACY_PROFILE",
+    "_CRUISE", "_CURATED", "_DEFAULT_STANCE_PROFILE", "_DESC", "_HIST_K",
     "_MIDDLE_TUCK_QUAD",
     "_N_MODE", "_NOSLIP", "_NOSLIP_CLEAN", "_NOSLIP_FACTORY",
     "_NOSLIP_MID", "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
@@ -42,7 +42,7 @@ _CRUISE = 0.05        # hold-to-drive speed (inside the trained band)
 
 
 # Sentinel rows in the WALK panel: not checkpoints — they select the
-# scripted no-slip gait (linux_control/noslip_gait.py) as the walk
+# scripted no-slip gait (hexapod_core/noslip_gait.py) as the walk
 # driver, at different alpha (body-motion overlap): 0.0 = the original
 # step-then-shift, 0.5 = the midpoint of the continuum (half the body
 # travel rides a constant drift through swings/dwells). Slower than the
@@ -84,7 +84,7 @@ _SE2_WAVE = Path("se2_wave_gait")
 _SE2_CPG = Path("se2_cpg_loaded_gait")
 _SCRIPTED_SE2 = frozenset({_SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG})
 _MIDDLE_TUCK_QUAD = Path("middle_tuck_quad_crawl")
-# Scripted TRIPOD gait rows (linux_control/tripod_gait.py) — the
+# Scripted TRIPOD gait rows (hexapod_core/tripod_gait.py) — the
 # dance_walk victory-lap gaits, previewable here before hardware runs.
 # "prance" = the aggressive horse settings (quick cadence, high knees,
 # 1.5x the RL band); "gentle" = the stock walk-demo settings for
@@ -296,11 +296,11 @@ _DESC = {
 # (linux_control/policies/*.json meta["profile"] — the sb3 zips don't
 # carry them). Driving a model with a DIFFERENT ramp than it trained on
 # is out-of-distribution: holdbc1_hard1 (hold 5s, ramp 6s to +111mm)
-# stalls its rise at ~55mm when fed the old +45mm @ 12mm/s recipe —
+# stalls its rise at ~55mm when fed the generic +45mm @ 12mm/s recipe —
 # right under the player's 60mm success gate, i.e. "7 sometimes doesn't
-# stand" (operator report 08-13). Models without an export fall back to
-# the stance_dr10-era constants the player always used.
-_LEGACY_PROFILE = {
+# stand" (operator report 08-13). New learned stance artifacts must carry
+# their own profile; these constants only define the scripted fallback.
+_DEFAULT_STANCE_PROFILE = {
     "stand": {"hold_s": 5.0, "ramp_s": 4.0, "target_m": 0.045},
     "lower": {"hold_s": 0.0, "ramp_s": 5.0, "target_m": -0.060},
 }

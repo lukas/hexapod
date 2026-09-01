@@ -169,3 +169,59 @@ def test_middle_tuck_quad_gait_id_tucks_middle_legs_with_ramp():
         assert q0[off:off + 3] == [
             0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG]
         assert q2[off:off + 3] == list(TUCK_DEG)
+
+
+def test_fluid_noslip_gait_id_uses_near_continuous_timing():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 9")
+    assert "FLUID" in result
+    assert drive._gait_id == 9  # noqa: SLF001
+    assert drive.gait.alpha == 1.0
+    assert drive.gait.period == 2.9
+    assert abs(drive.gait.lift - 0.018) < 1e-12
+    # Each half-cycle has only 2% shift and 0.5% dwell.
+    assert abs(drive.gait._durations[0] / drive.gait.period - 0.02) < 1e-12
+    assert abs(drive.gait._durations[2] / drive.gait.period - 0.005) < 1e-12
+
+
+def test_fluid_fast_gait_id_raises_cadence_and_lowers_lift():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 10")
+    assert "FLUID-FAST" in result
+    assert drive._gait_id == 10  # noqa: SLF001
+    assert drive.gait.alpha == 1.0
+    assert drive.gait.period == 2.4
+    assert abs(drive.gait.lift - 0.014) < 1e-12
+
+
+def test_fluid_hybrid_gait_id_retains_small_shift_impulse():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 11")
+    assert "FLUID-HYBRID" in result
+    assert drive._gait_id == 11  # noqa: SLF001
+    assert drive.gait.alpha == 0.75
+    assert drive.gait.period == 3.2
+    assert abs(drive.gait._durations[0] / drive.gait.period - 0.08) < 1e-12
+    assert abs(drive.gait._durations[1] / drive.gait.period - 0.40) < 1e-12
+
+
+def test_fluid_push_gait_id_strengthens_short_shift_impulse():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 12")
+    assert "FLUID-PUSH" in result
+    assert drive._gait_id == 12  # noqa: SLF001
+    assert drive.gait.alpha == 0.70
+    assert drive.gait.period == 3.2
+    assert abs(drive.gait._durations[0] / drive.gait.period - 0.12) < 1e-12
+    assert abs(drive.gait._durations[1] / drive.gait.period - 0.36) < 1e-12
+
+
+def test_fluid_pulse_gait_id_compresses_hybrid_shift():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 13")
+    assert "FLUID-PULSE" in result
+    assert drive._gait_id == 13  # noqa: SLF001
+    assert drive.gait.alpha == 0.75
+    assert drive.gait.period == 3.2
+    assert abs(drive.gait._durations[0] / drive.gait.period - 0.06) < 1e-12
+    assert abs(drive.gait._durations[1] / drive.gait.period - 0.42) < 1e-12

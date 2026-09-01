@@ -55,6 +55,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
         sys.path.insert(0, str(_p))
 
 from rl_move.robot_state import DEG2RAD  # noqa: E402
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.paper_cpg_search import GaitParams, _clip_params  # noqa: E402
 from rl_move.sim.verify_noslip import (  # noqa: E402
@@ -149,7 +150,7 @@ def run_session(env, params: GaitParams, script: list[Segment], *,
                 seed: int, video_path: Path | None,
                 yaw_trim: bool = False) -> dict:
     """One continuous plant-hold + scripted 60 s walk; per-segment metrics."""
-    from sim_gait_compat import SE2FootGait
+    from hexapod_core.se2_foot_gait import SE2FootGait
 
     try:
         env.reset(seed=seed)
@@ -559,11 +560,12 @@ def main(argv: list[str] | None = None) -> int:
         art = {
             "kind": "cpg_se2_controller",
             "name": args.name,
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
             "params": asdict(params),
             "plant_stance_deg": {"hip": PLANT_HIP_DEG,
                                  "knee": PLANT_KNEE_DEG},
-            "knee_convention": "sim_relative (load via "
-                               "linux_control/sim_gait_compat.SE2FootGait)",
+            "knee_convention": "absolute_tibia",
             "provenance": {
                 "params_source": source,
                 "gate_verdict": str(out_dir / "gate_verdict.json"),

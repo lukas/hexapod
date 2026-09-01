@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Iterable
 
 _HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
+for _p in (_HERE.parent, _HERE, _HERE.parent / "motor_setup"):
     if _p.is_dir() and str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -30,8 +30,8 @@ except Exception:  # pragma: no cover - fallback for standalone copying
     AXIS_LIMITS_DEG = {1: (-80.0, 40.0), 2: (-20.0, 150.0)}
 
 try:
-    from tripod_gait import FEMUR_MM as DEFAULT_FEMUR_MM
-    from tripod_gait import TIBIA_MM as DEFAULT_TIBIA_MM
+    from hexapod_core.tripod_gait import FEMUR_MM as DEFAULT_FEMUR_MM
+    from hexapod_core.tripod_gait import TIBIA_MM as DEFAULT_TIBIA_MM
 except Exception:  # pragma: no cover - fallback for standalone copying
     DEFAULT_FEMUR_MM = 90.0
     DEFAULT_TIBIA_MM = 150.0

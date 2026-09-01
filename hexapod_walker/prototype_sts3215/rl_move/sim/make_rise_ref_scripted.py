@@ -72,19 +72,19 @@ from .extract_rise_ref import (_blend_pose_ik,  # noqa: E402
 
 
 def _foot_rz(q_rad: np.ndarray, leg: int) -> tuple[float, float]:
-    import tripod_gait as _tg
+    from hexapod_core import tripod_gait as _tg
     hip_deg = math.degrees(q_rad[3 * leg + 1])
-    knee_abs_deg = math.degrees(q_rad[3 * leg + 2] + q_rad[3 * leg + 1])
+    knee_abs_deg = math.degrees(q_rad[3 * leg + 2])
     return _tg.foot_rz_from_hip_knee(hip_deg, knee_abs_deg)
 
 
 def _leg_from_rz(r: float, z: float):
-    import tripod_gait as _tg
+    from hexapod_core import tripod_gait as _tg
     ik = _tg._leg_ik((r, 0.0, z))
     if ik is None:
         return None
     hip_rad, knee_abs_rad = ik
-    return hip_rad, knee_abs_rad - hip_rad   # model-relative knee
+    return hip_rad, knee_abs_rad
 
 
 def build_script(q_start: np.ndarray, q_plant: np.ndarray, dt: float,
@@ -264,7 +264,7 @@ def main() -> None:
           f"{resolve_model_source(None)}  dt={env.dt}s")
     chassis_bid = env.model.body("chassis").id
     z_start = float(env.data.xpos[chassis_bid, 2])
-    q_start = env.data.qpos[env._qadr].copy()
+    q_start = env._state.joint_position.copy()
     q_plant = env._plant_deg * DEG2RAD
 
     q_cmd, ramp_i0 = build_script(q_start, q_plant, env.dt, args.tuck_s,
@@ -280,7 +280,7 @@ def main() -> None:
     info: dict = {}
     for k in range(len(q_cmd)):
         obs, _r, term, trunc, info = env.step(q_rad_to_action(q_cmd[k]))
-        qs.append(env.data.qpos[env._qadr].copy())
+        qs.append(env._state.joint_position.copy())
         hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
         curs.append(float(info.get("max_current_a", 0.0)))
         if term or trunc:
@@ -290,7 +290,7 @@ def main() -> None:
                    if b >= 0)
     h_end_mm = hs[-1] * 1000.0
     q_rms_deg = float(np.degrees(np.sqrt(np.mean(
-        (env.data.qpos[env._qadr] - q_plant) ** 2))))
+        (env._state.joint_position - q_plant) ** 2))))
     cur = np.asarray(curs)
     cur_p95 = float(np.percentile(cur, 95)) if len(cur) else 0.0
     cur_max = float(cur.max()) if len(cur) else 0.0
@@ -330,9 +330,11 @@ def main() -> None:
     env.close()
     n_sub = max(1, int(args.save_every))
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
     np.savez(args.out, q_rad=qs_arr[::n_sub], dt=env.dt * n_sub,
              ramp_i0=ramp_i0_ach // n_sub, h_rel_end_m=hs_arr[-1],
-             h_rel_m=hs_arr[::n_sub])
+             h_rel_m=hs_arr[::n_sub], joint_frame=FRAME_ROBOT_ABS,
+             joint_contract=JOINT_CONTRACT)
     print(f"[make_rise_ref_scripted] wrote {args.out} "
           f"(T={len(qs_arr[::n_sub])}, dt={env.dt * n_sub}s, "
           f"ramp_i0={ramp_i0_ach // n_sub}); ends "

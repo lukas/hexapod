@@ -5,9 +5,9 @@
 # losing to the matched ridge by ~2.7% while beating every baseline at
 # k=2/5/10/25. The pre-registered fork closed training variance as the
 # explanation and left the KNOWN dataset drift as prime suspect:
-# noslip_gait.py never reached the pods, so its 10% actor share fell
+# hexapod_core/noslip_gait.py never reached the pods, so its 10% actor share fell
 # back to tripod — more-periodic data that strengthens exactly the
-# ridge baseline doing the vetoing. noslip_gait.py is committed since
+# ridge baseline doing the vetoing. hexapod_core/noslip_gait.py is committed since
 # decb1fa and rides the code sync, so this pipeline REQUIRES it (and
 # both champion checkpoints): silent degradation was the bug, so any
 # missing ingredient is a hard abort, never a renormalized mix.

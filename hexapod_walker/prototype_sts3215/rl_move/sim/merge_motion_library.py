@@ -47,6 +47,8 @@ from pathlib import Path
 
 import numpy as np
 
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+
 # Per-tick arrays that must be spliced clip-range-by-clip-range (every
 # other key -- clip_starts/clip_lens/clip_names/clip_seeds/dt -- is
 # either recomputed or copied from the base file's own metadata).
@@ -59,6 +61,13 @@ def merge(base_path: Path, override_path: Path,
           families: list[str]) -> dict[str, np.ndarray]:
     b = np.load(base_path, allow_pickle=True)
     o = np.load(override_path, allow_pickle=True)
+    for path, data in ((base_path, b), (override_path, o)):
+        frame = str(data["joint_frame"]) if "joint_frame" in data.files else None
+        contract = (str(data["joint_contract"])
+                    if "joint_contract" in data.files else None)
+        if frame != FRAME_ROBOT_ABS or contract != JOINT_CONTRACT:
+            raise ValueError(
+                f"{path}: pre-v2 motion library ({frame!r}/{contract!r})")
 
     b_names = [str(n) for n in b["clip_names"]]
     o_names = [str(n) for n in o["clip_names"]]
@@ -112,6 +121,8 @@ def merge(base_path: Path, override_path: Path,
     out["clip_lens"] = np.asarray(new_lens, dtype=np.int64)
     out["clip_names"] = np.asarray(b_names)
     out["clip_seeds"] = np.asarray(b_seeds, dtype=np.int64)
+    out["joint_frame"] = np.asarray(FRAME_ROBOT_ABS)
+    out["joint_contract"] = np.asarray(JOINT_CONTRACT)
     out["dt"] = np.asarray(float(b["dt"]))
 
     # Per-clip neutral-pose invariant (mirrors MotionLibrary's own load-

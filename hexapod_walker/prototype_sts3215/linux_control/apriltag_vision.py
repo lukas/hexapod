@@ -17,18 +17,41 @@ from dataclasses import dataclass
 import json
 import math
 from pathlib import Path
+import statistics
 from typing import Any, Mapping, Sequence
 
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from foot_tip_tracking import FootTipObservation, FootTipTracker, robust_tag_scale_px
 from housing_pose import HousingPoseEstimator, RigidTransform
 
 
 TAG_FAMILY = "tag36h11"
 DEFAULT_MARKER_SIZE_M = 37.8968e-3  # black square on the repo's printed sheet
+BRANCH_DISAMBIGUATION_MARGIN_DEG = 15.0
+BRANCH_JOINT_ORDER = tuple(
+    f"L{leg}_{axis}"
+    for leg in range(6)
+    for axis in ("yaw", "hip", "knee")
+)
+
+
+def _make_apriltag_detector() -> Any:
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+    parameters = cv2.aruco.DetectorParameters()
+    # OpenCV's APRILTAG refinement is roughly 3-5x slower than SUBPIX on the
+    # iPhone stream while producing the same decoded set here. SUBPIX keeps
+    # pose corners accurate without starving the preview/UI event loop.
+    parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
+    # The floor references may be much smaller than the robot in a wide shot.
+    parameters.minMarkerPerimeterRate = 0.005
+    return cv2.aruco.ArucoDetector(dictionary, parameters)
+
+
+_APRILTAG_DETECTOR = _make_apriltag_detector()
 
 
 def _finite_array(value: Any, shape: tuple[int, ...], *, name: str) -> np.ndarray:
@@ -233,6 +256,13 @@ class TagPose:
 
 
 @dataclass(frozen=True)
+class _TagPoseSolution:
+    camera_from_tag: RigidTransform
+    reprojection_rms_px: float
+    normal_camera: np.ndarray
+
+
+@dataclass(frozen=True)
 class WorldReference:
     world_from_camera: RigidTransform
     floor_tag_ids: tuple[int, ...]
@@ -257,16 +287,7 @@ def detect_tag_corners(image: np.ndarray) -> list[TagCorners]:
     if image is None or image.ndim not in (2, 3):
         raise ValueError("image must be a grayscale or BGR OpenCV image")
     gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
-    parameters = cv2.aruco.DetectorParameters()
-    # OpenCV's APRILTAG refinement is roughly 3-5x slower than SUBPIX on the
-    # iPhone stream while producing the same decoded set here.  SUBPIX keeps
-    # pose corners accurate without starving the macOS preview event loop.
-    parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_SUBPIX
-    # The floor references may be much smaller than the robot in a wide shot.
-    parameters.minMarkerPerimeterRate = 0.005
-    detector = cv2.aruco.ArucoDetector(dictionary, parameters)
-    raw_corners, raw_ids, _rejected = detector.detectMarkers(gray)
+    raw_corners, raw_ids, _rejected = _APRILTAG_DETECTOR.detectMarkers(gray)
     if raw_ids is None:
         return []
 
@@ -287,6 +308,35 @@ def detect_tag_corners(image: np.ndarray) -> list[TagCorners]:
     return [by_id[tag_id] for tag_id in sorted(by_id)]
 
 
+def _scale_tag_corners(
+    detections: Sequence[TagCorners],
+    *,
+    source_size: tuple[int, int],
+    target_size: tuple[int, int],
+) -> list[TagCorners]:
+    """Map decoded corners from a high-detail image to processing pixels."""
+    source_width, source_height = source_size
+    target_width, target_height = target_size
+    if source_size == target_size:
+        return list(detections)
+    if min(source_width, source_height, target_width, target_height) <= 0:
+        raise ValueError("source and target image sizes must be positive")
+    scale = np.asarray(
+        [target_width / source_width, target_height / source_height],
+        dtype=np.float32,
+    )
+    return [
+        TagCorners(
+            item.tag_id,
+            np.asarray(item.corners_px, dtype=np.float32) * scale,
+            source=item.source,
+            occlusion_age_frames=item.occlusion_age_frames,
+            confidence=item.confidence,
+        )
+        for item in detections
+    ]
+
+
 def _project_rms(
     object_points: np.ndarray,
     image_points: np.ndarray,
@@ -302,15 +352,14 @@ def _project_rms(
     return math.sqrt(float(np.mean(np.sum(error * error, axis=1))))
 
 
-def estimate_tag_pose(
+def _solve_tag_pose_candidates(
     detection: TagCorners,
     camera_matrix: np.ndarray,
     distortion: np.ndarray,
     *,
     marker_size_m: float = DEFAULT_MARKER_SIZE_M,
-    preferred_normal_camera: np.ndarray | None = None,
-) -> TagPose:
-    """Estimate ``camera_from_tag`` with the square-specific PnP solver."""
+) -> list[_TagPoseSolution]:
+    """Return both square-specific planar pose solutions."""
     object_points = marker_object_corners(marker_size_m)
     result = cv2.solvePnPGeneric(
         object_points,
@@ -322,7 +371,7 @@ def estimate_tag_pose(
     if not result[0] or not result[1]:
         raise ValueError(f"pose solve failed for tag {detection.tag_id}")
     rvecs, tvecs = result[1], result[2]
-    candidates = []
+    candidates: list[_TagPoseSolution] = []
     for rvec, tvec in zip(rvecs, tvecs):
         rvec = np.asarray(rvec, dtype=float).reshape(3, 1)
         tvec = np.asarray(tvec, dtype=float).reshape(3, 1)
@@ -335,33 +384,71 @@ def estimate_tag_pose(
                 distortion,
             )
         rotation_matrix, _ = cv2.Rodrigues(rvec)
-        alignment = 0.0
-        if preferred_normal_camera is not None:
-            expected = np.asarray(preferred_normal_camera, dtype=float).reshape(3)
-            expected /= max(1e-12, float(np.linalg.norm(expected)))
-            alignment = float(np.dot(rotation_matrix[:, 2], expected))
-        candidates.append((rms, alignment, rvec, tvec))
+        candidates.append(_TagPoseSolution(
+            camera_from_tag=RigidTransform(
+                np.asarray(tvec, dtype=float).reshape(3),
+                Rotation.from_matrix(rotation_matrix),
+            ),
+            reprojection_rms_px=float(rms),
+            normal_camera=np.asarray(rotation_matrix[:, 2], dtype=float),
+        ))
+    return candidates
+
+
+def _tag_pose_from_solution(
+    detection: TagCorners,
+    chosen: _TagPoseSolution,
+    candidates: Sequence[_TagPoseSolution],
+) -> TagPose:
+    alternate_errors = [
+        item.reprojection_rms_px for item in candidates if item is not chosen
+    ]
+    return TagPose(
+        tag_id=detection.tag_id,
+        corners_px=detection.corners_px,
+        camera_from_tag=chosen.camera_from_tag,
+        reprojection_rms_px=chosen.reprojection_rms_px,
+        alternate_reprojection_rms_px=(
+            None if not alternate_errors else min(alternate_errors)
+        ),
+    )
+
+
+def estimate_tag_pose(
+    detection: TagCorners,
+    camera_matrix: np.ndarray,
+    distortion: np.ndarray,
+    *,
+    marker_size_m: float = DEFAULT_MARKER_SIZE_M,
+    preferred_normal_camera: np.ndarray | None = None,
+) -> TagPose:
+    """Estimate ``camera_from_tag`` with the square-specific PnP solver."""
+    candidates = _solve_tag_pose_candidates(
+        detection,
+        camera_matrix,
+        distortion,
+        marker_size_m=marker_size_m,
+    )
     # IPPE's planar pair can swap on compressed or downscaled video even when
     # their reprojection errors differ by only hundredths of a pixel.  With a
     # floor frame, select the face normal that remains most upward; without
     # that physical prior preserve the ordinary lowest-RMS behavior.
     if preferred_normal_camera is None:
-        ranked = sorted(candidates, key=lambda item: item[0])
+        ranked = sorted(candidates, key=lambda item: item.reprojection_rms_px)
     else:
-        ranked = sorted(candidates, key=lambda item: (-item[1], item[0]))
-    rms, _alignment, rvec, tvec = ranked[0]
-    rotation_matrix, _ = cv2.Rodrigues(rvec)
-    transform = RigidTransform(
-        np.asarray(tvec, dtype=float).reshape(3),
-        Rotation.from_matrix(rotation_matrix),
-    )
-    alternate = None if len(ranked) < 2 else float(ranked[1][0])
-    return TagPose(
-        tag_id=detection.tag_id,
-        corners_px=detection.corners_px,
-        camera_from_tag=transform,
-        reprojection_rms_px=float(rms),
-        alternate_reprojection_rms_px=alternate,
+        expected = np.asarray(preferred_normal_camera, dtype=float).reshape(3)
+        expected /= max(1e-12, float(np.linalg.norm(expected)))
+        ranked = sorted(
+            candidates,
+            key=lambda item: (
+                -float(np.dot(item.normal_camera, expected)),
+                item.reprojection_rms_px,
+            ),
+        )
+    return _tag_pose_from_solution(
+        detection,
+        ranked[0],
+        candidates,
     )
 
 
@@ -461,6 +548,12 @@ class AprilTagPoseTracker:
         self.calibration = CameraCalibration.from_dict(config["camera"])
         self.floor_tags = _read_transform_map(config.get("floor_tags", {}))
         self.robot_pose_config = dict(config.get("robot_pose", {}))
+        self.visual_joint_bias_deg = {
+            str(name): float(value)
+            for name, value in self.robot_pose_config.get(
+                "visual_joint_bias_deg", {}
+            ).items()
+        }
         tracking_config = dict(config.get("tracking", {}))
         max_occlusion = int(tracking_config.get("max_occlusion_frames", 8))
         self.temporal_tags = TemporalTagCornerTracker(
@@ -471,6 +564,7 @@ class AprilTagPoseTracker:
         self._joint_history: dict[str, tuple[float, int]] = {}
         self._previous_floor_feet: dict[int, tuple[np.ndarray, float | None]] = {}
         self._previous_world_from_camera: RigidTransform | None = None
+        self._previous_camera_from_tag: dict[int, RigidTransform] = {}
         self.tag_labels = {
             int(raw_id): str(spec.get("label", spec.get("frame", f"tag {raw_id}")))
             for raw_id, spec in self.robot_pose_config.get("tags", {}).items()
@@ -483,6 +577,14 @@ class AprilTagPoseTracker:
             int(raw_id): str(spec["frame"])
             for raw_id, spec in self.robot_pose_config.get("tags", {}).items()
         }
+        branch_config = dict(self.robot_pose_config)
+        branch_config["cameras"] = {
+            "camera0": {"world_from_camera": RigidTransform.identity().to_dict()}
+        }
+        self._branch_estimator = (
+            None if not self.frame_by_tag
+            else HousingPoseEstimator.from_dict(branch_config)
+        )
 
     def reset_temporal_state(self) -> None:
         self.temporal_tags.reset()
@@ -490,6 +592,212 @@ class AprilTagPoseTracker:
         self._joint_history.clear()
         self._previous_floor_feet.clear()
         self._previous_world_from_camera = None
+        self._previous_camera_from_tag.clear()
+
+    @staticmethod
+    def _rotation_distance_deg(
+        first: RigidTransform, second: RigidTransform
+    ) -> float:
+        relative = first.rotation.inv() * second.rotation
+        return math.degrees(float(relative.magnitude()))
+
+    @staticmethod
+    def _branch_joint_names(frame: str) -> tuple[str, ...]:
+        if not frame.startswith("L") or "_" not in frame:
+            return ()
+        leg = int(frame[1:frame.index("_")])
+        if frame.endswith("_coxa"):
+            return (f"L{leg}_yaw",)
+        if frame.endswith("_femur"):
+            return (f"L{leg}_yaw", f"L{leg}_hip")
+        if frame.endswith("_tibia"):
+            return (f"L{leg}_yaw", f"L{leg}_hip", f"L{leg}_knee")
+        return ()
+
+    def _branch_encoder_error_deg(
+        self,
+        *,
+        body_tag_id: int,
+        body_solution: _TagPoseSolution,
+        tag_id: int,
+        solution: _TagPoseSolution,
+        encoders: Mapping[str, float],
+    ) -> float | None:
+        if self._branch_estimator is None:
+            return None
+        joint_names = self._branch_joint_names(self.frame_by_tag[tag_id])
+        joint_names = tuple(name for name in joint_names if name in encoders)
+        if not joint_names:
+            return None
+        result = self._branch_estimator.estimate_detections(
+            [
+                {
+                    "tag_id": body_tag_id,
+                    "camera": "camera0",
+                    "camera_from_tag": body_solution.camera_from_tag.to_dict(),
+                    "weight": 1.0,
+                },
+                {
+                    "tag_id": tag_id,
+                    "camera": "camera0",
+                    "camera_from_tag": solution.camera_from_tag.to_dict(),
+                    "weight": 1.0,
+                },
+            ],
+            encoder_joint_deg=encoders,
+        )
+        errors: list[float] = []
+        for name in joint_names:
+            record = result.get("joints", {}).get(name, {})
+            visual = record.get("value_deg")
+            if visual is None:
+                continue
+            error = (float(visual) - encoders[name] + 180.0) % 360.0 - 180.0
+            errors.append(abs(error))
+        return None if not errors else float(statistics.median(errors))
+
+    def _fallback_branch_index(
+        self, tag_id: int, candidates: Sequence[_TagPoseSolution]
+    ) -> tuple[int, str]:
+        previous = self._previous_camera_from_tag.get(tag_id)
+        if previous is not None:
+            index = min(
+                range(len(candidates)),
+                key=lambda item: (
+                    self._rotation_distance_deg(
+                        previous, candidates[item].camera_from_tag
+                    ),
+                    candidates[item].reprojection_rms_px,
+                ),
+            )
+            return index, "temporal_continuity"
+        return (
+            min(
+                range(len(candidates)),
+                key=lambda item: candidates[item].reprojection_rms_px,
+            ),
+            "reprojection",
+        )
+
+    def _select_robot_tag_solutions(
+        self,
+        candidate_map: Mapping[int, tuple[TagCorners, Sequence[_TagPoseSolution]]],
+        encoder_joint_deg: Sequence[float] | Mapping[str, float] | None,
+    ) -> tuple[list[TagPose], dict[int, dict[str, Any]]]:
+        """Resolve planar branches without turning encoder residuals into bias."""
+        encoders = self._encoder_map(
+            encoder_joint_deg, BRANCH_JOINT_ORDER
+        )
+        body_ids = [
+            tag_id for tag_id in candidate_map
+            if self.frame_by_tag.get(tag_id) == "body"
+        ]
+        if not body_ids:
+            selected: list[TagPose] = []
+            decisions: dict[int, dict[str, Any]] = {}
+            for tag_id, (detection, candidates) in candidate_map.items():
+                index, reason = self._fallback_branch_index(tag_id, candidates)
+                selected.append(_tag_pose_from_solution(
+                    detection, candidates[index], candidates
+                ))
+                decisions[tag_id] = {"index": index, "reason": reason}
+            return selected, decisions
+
+        body_tag_id = body_ids[0]
+        _body_detection, body_candidates = candidate_map[body_tag_id]
+        body_encoder_errors: list[float | None] = []
+        for body_solution in body_candidates:
+            per_tag: list[float] = []
+            for tag_id, (_detection, candidates) in candidate_map.items():
+                if tag_id == body_tag_id:
+                    continue
+                errors = [
+                    self._branch_encoder_error_deg(
+                        body_tag_id=body_tag_id,
+                        body_solution=body_solution,
+                        tag_id=tag_id,
+                        solution=solution,
+                        encoders=encoders,
+                    )
+                    for solution in candidates
+                ]
+                finite = [value for value in errors if value is not None]
+                if finite:
+                    per_tag.append(min(finite))
+            body_encoder_errors.append(
+                None if not per_tag else float(statistics.median(per_tag))
+            )
+
+        finite_body = [
+            value for value in body_encoder_errors if value is not None
+        ]
+        if (
+            len(finite_body) >= 2
+            and max(finite_body) - min(finite_body)
+                >= BRANCH_DISAMBIGUATION_MARGIN_DEG
+        ):
+            body_index = min(
+                range(len(body_candidates)),
+                key=lambda item: float("inf")
+                if body_encoder_errors[item] is None
+                else body_encoder_errors[item],
+            )
+            body_reason = "whole_robot_encoder_consistency"
+        else:
+            body_index, body_reason = self._fallback_branch_index(
+                body_tag_id, body_candidates
+            )
+        body_solution = body_candidates[body_index]
+
+        selected = []
+        decisions = {}
+        for tag_id, (detection, candidates) in candidate_map.items():
+            if tag_id == body_tag_id:
+                index = body_index
+                reason = body_reason
+                encoder_errors = body_encoder_errors
+            else:
+                encoder_errors = [
+                    self._branch_encoder_error_deg(
+                        body_tag_id=body_tag_id,
+                        body_solution=body_solution,
+                        tag_id=tag_id,
+                        solution=solution,
+                        encoders=encoders,
+                    )
+                    for solution in candidates
+                ]
+                finite = [value for value in encoder_errors if value is not None]
+                if (
+                    len(finite) >= 2
+                    and max(finite) - min(finite)
+                        >= BRANCH_DISAMBIGUATION_MARGIN_DEG
+                ):
+                    index = min(
+                        range(len(candidates)),
+                        key=lambda item: float("inf")
+                        if encoder_errors[item] is None
+                        else encoder_errors[item],
+                    )
+                    reason = "encoder_branch_disambiguation"
+                else:
+                    index, reason = self._fallback_branch_index(tag_id, candidates)
+            selected.append(_tag_pose_from_solution(
+                detection, candidates[index], candidates
+            ))
+            self._previous_camera_from_tag[tag_id] = (
+                candidates[index].camera_from_tag
+            )
+            decisions[tag_id] = {
+                "index": index,
+                "reason": reason,
+                "encoder_error_deg": encoder_errors[index],
+                "alternate_encoder_error_deg": next((
+                    encoder_errors[item]
+                    for item in range(len(encoder_errors)) if item != index
+                ), None),
+            }
+        return selected, decisions
 
     @classmethod
     def from_json(cls, path: Path | str) -> "AprilTagPoseTracker":
@@ -506,11 +814,29 @@ class AprilTagPoseTracker:
         frame_index: int = 0,
         time_s: float | None = None,
         encoder_joint_deg: Sequence[float] | Mapping[str, float] | None = None,
+        render_overlay: bool = True,
+        detection_gray: np.ndarray | None = None,
+        tracking_gray: np.ndarray | None = None,
     ) -> tuple[dict[str, Any], np.ndarray]:
         height, width = image.shape[:2]
+        if detection_gray is not None:
+            detection_gray = np.asarray(detection_gray)
+            if detection_gray.ndim != 2:
+                raise ValueError("detection_gray must be a grayscale image")
+        if tracking_gray is not None:
+            tracking_gray = np.asarray(tracking_gray)
+            if tracking_gray.ndim != 2 or tracking_gray.shape != image.shape[:2]:
+                raise ValueError("tracking_gray must match the processing image")
         camera_matrix, distortion = self.calibration.for_image(width, height)
-        decoded_corners = detect_tag_corners(image)
-        corners = self.temporal_tags.update(image, decoded_corners)
+        detector_image = image if detection_gray is None else detection_gray
+        detector_height, detector_width = detector_image.shape[:2]
+        decoded_corners = _scale_tag_corners(
+            detect_tag_corners(detector_image),
+            source_size=(detector_width, detector_height),
+            target_size=(width, height),
+        )
+        temporal_image = image if tracking_gray is None else tracking_gray
+        corners = self.temporal_tags.update(temporal_image, decoded_corners)
         reference = estimate_world_reference(
             corners,
             self.floor_tags,
@@ -532,17 +858,36 @@ class AprilTagPoseTracker:
             )
         poses: list[TagPose] = []
         pose_failures: list[int] = []
+        robot_candidates: dict[
+            int, tuple[TagCorners, Sequence[_TagPoseSolution]]
+        ] = {}
         for detection in corners:
             try:
-                poses.append(estimate_tag_pose(
-                    detection,
-                    camera_matrix,
-                    distortion,
-                    marker_size_m=self.marker_size_m,
-                    preferred_normal_camera=preferred_normal_camera,
-                ))
+                if detection.tag_id in self.frame_by_tag:
+                    robot_candidates[detection.tag_id] = (
+                        detection,
+                        _solve_tag_pose_candidates(
+                            detection,
+                            camera_matrix,
+                            distortion,
+                            marker_size_m=self.marker_size_m,
+                        ),
+                    )
+                else:
+                    poses.append(estimate_tag_pose(
+                        detection,
+                        camera_matrix,
+                        distortion,
+                        marker_size_m=self.marker_size_m,
+                        preferred_normal_camera=preferred_normal_camera,
+                    ))
             except (ValueError, cv2.error):
                 pose_failures.append(detection.tag_id)
+        robot_poses, branch_decisions = self._select_robot_tag_solutions(
+            robot_candidates, encoder_joint_deg
+        )
+        poses.extend(robot_poses)
+        poses.sort(key=lambda item: item.tag_id)
 
         serialized_detections: list[dict[str, Any]] = []
         estimator_detections: list[dict[str, Any]] = []
@@ -571,6 +916,17 @@ class AprilTagPoseTracker:
                 "camera_from_tag": pose.camera_from_tag.to_dict(),
                 f"{reference_name}_from_tag": world_from_tag.to_dict(),
             }
+            branch = branch_decisions.get(pose.tag_id)
+            if branch is not None:
+                record["pose_branch_index"] = int(branch["index"])
+                record["pose_branch_reason"] = str(branch["reason"])
+                for key in (
+                    "encoder_error_deg", "alternate_encoder_error_deg"
+                ):
+                    value = branch.get(key)
+                    record[f"pose_branch_{key}"] = (
+                        None if value is None else round(float(value), 3)
+                    )
             serialized_detections.append(record)
             estimator_detections.append({
                 "tag_id": pose.tag_id,
@@ -617,6 +973,7 @@ class AprilTagPoseTracker:
             body_center_px=body_center,
             femur_anchor_px=femur_anchors,
             tag_scale_px=40.0 if tag_scale is None else tag_scale,
+            gray_image=tracking_gray,
         )
         foot_records = self._serialize_foot_tips(
             foot_tips,
@@ -641,9 +998,13 @@ class AprilTagPoseTracker:
 
         result: dict[str, Any] = {
             "schema_version": 2,
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
             "frame_index": int(frame_index),
             "time_s": None if time_s is None else round(float(time_s), 6),
             "image_size_px": [width, height],
+            "detection_image_size_px": [detector_width, detector_height],
+            "native_luma_detection": detection_gray is not None,
             "tag_family": TAG_FAMILY,
             "marker_size_m": self.marker_size_m,
             "camera_calibration_approximate": self.calibration.approximate,
@@ -669,9 +1030,18 @@ class AprilTagPoseTracker:
             "foot_tips": foot_records,
             "full_pose": full_pose,
         }
-        return result, self.annotate(
-            image, corners, poses, result, camera_matrix, distortion, foot_tips
-        )
+        rendered = image
+        if render_overlay:
+            rendered = self.annotate(
+                image,
+                corners,
+                poses,
+                result,
+                camera_matrix,
+                distortion,
+                foot_tips,
+            )
+        return result, rendered
 
     @staticmethod
     def _encoder_map(
@@ -866,80 +1236,12 @@ class AprilTagPoseTracker:
         world_from_body = RigidTransform.from_dict(
             robot_result["body_pose"]["world_from_body"]
         )
+        # Knee-servo lid tags move with the femur, not the tibia. A monocular
+        # fit from that lid plus a colored foot tip is perspective-sensitive
+        # and proved materially wrong on the real robot. Do not manufacture a
+        # visual knee angle: knees are encoder-only until rigid tibia markers
+        # (or another directly observed tibia orientation) exist.
         video_knees: dict[int, dict[str, Any]] = {}
-        for leg, tip in tips.items():
-            yaw_record = robot_result["joints"][f"L{leg}_yaw"]
-            hip_record = robot_result["joints"][f"L{leg}_hip"]
-            if not yaw_record["observable"] or not hip_record["observable"]:
-                continue
-            fitted = None
-            if not self.calibration.approximate and self.marker_size_verified:
-                fitted = self._fit_knee_from_tip(
-                    leg=leg,
-                    tip_px=tip.point_px,
-                    yaw_deg=float(yaw_record["value_deg"]),
-                    hip_deg=float(hip_record["value_deg"]),
-                    world_from_body=world_from_body,
-                    world_from_camera=world_from_camera,
-                    camera_matrix=camera_matrix,
-                    distortion=distortion,
-                )
-            if (fitted is not None
-                    and fitted[1] <= 1.2 * tag_scale_px
-                    and not self.calibration.approximate
-                    and self.marker_size_verified):
-                confidence = tip.confidence * max(
-                    0.05, 1.0 - fitted[1] / (1.2 * tag_scale_px)
-                )
-                video_knees[leg] = {
-                    "signed_deg": fitted[0],
-                    "absolute_deg": abs(fitted[0]),
-                    "residual_px": fitted[1],
-                    "confidence": confidence,
-                    "source": "foot_tip_kinematic_fit",
-                    "sign_ambiguous": False,
-                }
-                continue
-
-            # A top-down phone view directly observes foreshortening but not
-            # whether the tibia bends above or below the femur plane.  The
-            # inner-to-outer lid-tag distance supplies a scale that cancels
-            # camera distance and the still-unverified printed marker size.
-            coxa_frame = f"L{leg}_coxa"
-            femur_frame = f"L{leg}_femur"
-            if coxa_frame not in corner_by_frame or femur_frame not in corner_by_frame:
-                continue
-            inner = corner_by_frame[coxa_frame].center_px
-            outer = corner_by_frame[femur_frame].center_px
-            femur_vector = outer - inner
-            tibia_vector = tip.component_center_px - outer
-            femur_pixels = float(np.linalg.norm(femur_vector))
-            tibia_pixels = float(np.linalg.norm(tibia_vector))
-            if femur_pixels < tag_scale_px or tibia_pixels < tag_scale_px:
-                continue
-            geometry = self.robot_pose_config.get("geometry", {})
-            femur_m = float(geometry.get("femur_m", 0.090))
-            tibia_m = float(geometry.get("tibia_m", 0.150))
-            straight_pixels = femur_pixels * tibia_m / femur_m
-            ratio = tibia_pixels / straight_pixels
-            alignment_cos = float(
-                np.dot(femur_vector, tibia_vector) / (femur_pixels * tibia_pixels)
-            )
-            alignment_deg = math.degrees(math.acos(np.clip(alignment_cos, -1.0, 1.0)))
-            if ratio > 1.25 or alignment_deg > 35.0:
-                continue
-            magnitude = math.degrees(math.acos(np.clip(ratio, 0.0, 1.0)))
-            confidence = tip.confidence * max(0.1, 1.0 - alignment_deg / 35.0)
-            confidence *= max(0.2, 1.0 - max(0.0, ratio - 1.0) / 0.25)
-            video_knees[leg] = {
-                "signed_deg": None,
-                "absolute_deg": magnitude,
-                "residual_px": None,
-                "alignment_deg": alignment_deg,
-                "confidence": confidence * 0.6,
-                "source": "foot_tip_projection_magnitude",
-                "sign_ambiguous": True,
-            }
 
         joints: dict[str, dict[str, Any]] = {}
         disagreement: list[dict[str, Any]] = []
@@ -948,8 +1250,13 @@ class AprilTagPoseTracker:
             leg = int(name[1:name.index("_")])
             axis = name.rsplit("_", 1)[1]
             direct = robot_result["joints"][name]
-            visual_value = (
+            visual_raw_value = (
                 float(direct["value_deg"]) if direct["observable"] else None
+            )
+            visual_bias = float(self.visual_joint_bias_deg.get(name, 0.0))
+            visual_value = (
+                None if visual_raw_value is None else
+                (visual_raw_value - visual_bias + 180.0) % 360.0 - 180.0
             )
             visual_abs_value = None
             visual_source = None
@@ -1019,6 +1326,9 @@ class AprilTagPoseTracker:
                 "visual_confidence": round(float(visual_confidence), 3),
                 "encoder_deg": None if encoder_value is None else round(encoder_value, 4),
             }
+            if visual_raw_value is not None and axis != "knee":
+                record["visual_raw_deg"] = round(visual_raw_value, 4)
+                record["visual_bias_deg"] = round(visual_bias, 4)
             if axis == "knee" and leg in video_knees:
                 record["vision_sign_ambiguous"] = bool(
                     video_knees[leg]["sign_ambiguous"]
@@ -1042,14 +1352,8 @@ class AprilTagPoseTracker:
                 record["visual_abs_minus_encoder_abs_deg"] = round(
                     magnitude_delta, 4
                 )
-                if abs(magnitude_delta) > 22.0:
-                    disagreement.append({
-                        "joint": name,
-                        "visual_abs_minus_encoder_abs_deg": round(
-                            magnitude_delta, 3
-                        ),
-                        "unsigned_visual_estimate": True,
-                    })
+                # This is a perspective-sensitive diagnostic, not a measured
+                # knee angle. Never let it poison zero/safety calibration.
             joints[name] = record
         self._joint_history = current_history
 
@@ -1092,7 +1396,9 @@ class AprilTagPoseTracker:
         if len([item for item in foot_tips if item.source == "color"]) < 6:
             issues.append("one or more boot tips are inferred or hidden")
         if not encoders:
-            issues.append("no read-only encoder feedback; knee fits are provisional")
+            issues.append(
+                "no read-only encoder feedback; knee angles are unobservable"
+            )
         if disagreement:
             issues.append("visual and encoder angles disagree on one or more joints")
         if out_of_zero:
@@ -1110,6 +1416,8 @@ class AprilTagPoseTracker:
             motor_assist_blockers.append("the zero pose is not fully observable")
         return {
             "ok": True,
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
             "complete": not missing,
             "signed_complete": not missing,
             "measured_complete": measured_complete,

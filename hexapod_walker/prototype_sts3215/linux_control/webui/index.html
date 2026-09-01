@@ -18,6 +18,7 @@
     <button id="tab-drive" class="tab on">Drive</button>
     <span class="tabsep"></span>
     <button id="tab-calibrate" class="tab">Calibrate</button>
+    <a class="tab tab-link" href="/vision">Vision</a>
     <button id="tab-touchdown" class="tab">Touchdown</button>
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
@@ -165,6 +166,18 @@
                 <span>Smooth tripod</span><b>No-slip clampfit</b>
                 <small>servo-speed tuned</small>
               </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="9"
+                title="Selects GAIT 9. Continuous no-slip tripod with almost no all-feet-down shift or touchdown dwell.">
+                <span>Fluid tripod</span><b>No-slip continuous</b>
+                <small>18 mm lift · minimal pause</small>
+              </button>
+              <button type="button" class="gait-pick experimental"
+                data-gait-pick data-gait="10"
+                title="Selects GAIT 10. Faster 2.4-second fluid tripod with 14 mm lift.">
+                <span>Fluid fast</span><b>No-slip continuous</b>
+                <small>2.4 s · 14 mm lift</small>
+              </button>
               <button type="button" class="gait-pick experimental"
                 data-gait-pick data-gait="8"
                 title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
@@ -201,6 +214,8 @@ legs can reach instead of clipping it.">
             <option value="6" selected>Central Pattern Generator (CPG) tetrapod</option>
             <option value="7">no-slip clampfit tripod (smooth)</option>
             <option value="8">middle-tuck quad crawl (front/rear only)</option>
+            <option value="9">no-slip fluid tripod (continuous)</option>
+            <option value="10">no-slip fluid-fast tripod (2.4 s)</option>
             </select></label>
             </div>
             <div class="btns" style="margin-top:8px; align-items:center">
@@ -254,9 +269,9 @@ legs can reach instead of clipping it.">
             immediately.
           </div>
           <div class="session-actions">
-            <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
+            <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller D-pad up · keyboard: Space.">▲ Stand up</button>
             <button id="wpreflight" title="Read-only readiness check: all 18 servos answering, IMU alive, tilt sane, and pose close to the expected stand/walk-start stance.">Check ready</button>
-            <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Keyboard: C.">Center / Sit</button>
+            <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Controller D-pad down · keyboard: C.">Center / Sit</button>
             <button id="stop" class="danger" title="Run STEP lower to sit, wait for it to finish, then cut servo power. Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off</button>
           </div>
           <div class="hint drive-check-status" id="wpfout">Check ready is read-only: servos, IMU, tilt, and stand pose. No motion.</div>
@@ -288,7 +303,7 @@ legs can reach instead of clipping it.">
             <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
             <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
             <b>Xbox (HTTPS):</b> left stick walk · right stick turn ·
-            bare <b>B</b> stops.
+            D-pad up/down stand/lower · bare <b>B</b> stops.
           </div>
         </section>
       </div>
@@ -1068,6 +1083,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl12"></script>
+  <script src="/app.js?v=joyrl13"></script>
 </body>
 </html>

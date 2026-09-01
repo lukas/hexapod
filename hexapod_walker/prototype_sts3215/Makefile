@@ -17,7 +17,7 @@ else
 MJ_PY  := uv run --active python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs help
+.PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -61,6 +61,9 @@ help:
 	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
 	@echo "  web-8898-start    Start the local Mac web hub at http://localhost:8898/rl (uv + launchctl)."
 	@echo "  web-8898-status   Check the local :8898 hub and robot proxy target."
+	@echo "  vision            Open the shared read-only AprilTag UI at http://localhost:8898/vision."
+	@echo "  vision-build      Install/build the React + TypeScript vision UI."
+	@echo "  vision-check      Type-check the UI and run the off-robot vision tests."
 	@echo "  robot-video       Contact sheet from a diagnosis MOV/MP4: make robot-video VIDEO=/path/movie.mov."
 
 check-cad:
@@ -333,3 +336,18 @@ web-8898-status:
 
 web-8898-logs:
 	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" logs
+
+vision-build:
+	cd "$(CURDIR)/linux_control/vision_ui" && npm install && npm run build
+
+vision-check:
+	cd "$(CURDIR)/linux_control/vision_ui" && npm run typecheck
+	cd "$(CURDIR)" && uv run pytest -q \
+		linux_control/test_vision_server.py \
+		linux_control/test_apriltag_vision.py
+
+vision:
+	@test -f "$(CURDIR)/linux_control/vision_ui/dist/index.html" || \
+		$(MAKE) vision-build
+	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" start
+	@command -v open >/dev/null 2>&1 && open "http://127.0.0.1:8898/vision" || true

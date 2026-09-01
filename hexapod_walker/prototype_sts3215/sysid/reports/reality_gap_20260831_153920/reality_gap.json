@@ -1,0 +1,390 @@
+{
+ "meta": {
+  "generated": "2026-08-31T15:39:20",
+  "git": "df28a138",
+  "param_files": {
+   "air": "sim_model.json (6968268e879e)",
+   "loaded": "sim_model_loaded.json (144d43fa5dd3)",
+   "rl_move/sim/sim_model_sysid.json": "sim_model_sysid.json (8b8d2f260256)"
+  },
+  "traces": [
+   "sysid/datasets/micro_l0_axes_ground_5deg_v1_20260831_153913/sysid_micro_l0_axes_ground_5deg_v1_20260831_223852.csv"
+  ]
+ },
+ "traces": [
+  {
+   "trace": "sysid_micro_l0_axes_ground_5deg_v1_20260831_223852.csv",
+   "protocol": "micro_l0_axes_ground_5deg_v1",
+   "protocol_hash": "71361d4db650",
+   "ticks": 480,
+   "tick_jitter": {
+    "n": 479,
+    "nominal_ms": 40.0,
+    "median_ms": 40.0,
+    "p95_ms": 40.62,
+    "max_ms": 54.0,
+    "late_pct": 0.0
+   },
+   "read_rtt": {
+    "n": 480,
+    "mean_ms": 8.7,
+    "max_ms": 37.5,
+    "p10_ms": 6.5,
+    "p25_ms": 7.2,
+    "p50_ms": 8.2,
+    "p75_ms": 9.2,
+    "p90_ms": 10.1,
+    "p95_ms": 11.8
+   },
+   "cmd_to_motion_latency": {
+    "n": 6,
+    "mean_ms": 121.5,
+    "max_ms": 160.2,
+    "p10_ms": 99.4,
+    "p25_ms": 119.6,
+    "p50_ms": 120.1,
+    "p75_ms": 127.6,
+    "p90_ms": 145.1,
+    "p95_ms": 152.7
+   },
+   "servo_variation": {},
+   "sim": {
+    "air": {
+     "moving_joints": 3,
+     "q_rmse_deg": 0.264,
+     "qd_rmse_deg_s": 1.6
+    },
+    "loaded": {
+     "moving_joints": 3,
+     "q_rmse_deg": 0.269,
+     "qd_rmse_deg_s": 1.97
+    },
+    "rl_move/sim/sim_model_sysid.json": {
+     "moving_joints": 3,
+     "q_rmse_deg": 0.16,
+     "qd_rmse_deg_s": 1.44
+    }
+   },
+   "segments": [
+    {
+     "label": "L0_yaw_step+5_ground_r0",
+     "kind": "step",
+     "joint": 0,
+     "hw": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 130.1,
+      "t90_ms": 480.0,
+      "rise_ms": 349.9,
+      "settle_ms": 440.0,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.078,
+      "tracking_pct": 98.4,
+      "peak_vel_deg_s": 17.5
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 79.8,
+      "t90_ms": 519.8,
+      "rise_ms": 389.7,
+      "settle_ms": 440.0,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.431,
+      "tracking_pct": 91.4,
+      "peak_vel_deg_s": 14.2
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 160.0,
+      "t90_ms": 559.7,
+      "rise_ms": 359.9,
+      "settle_ms": 519.8,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.431,
+      "tracking_pct": 91.4,
+      "peak_vel_deg_s": 10.6
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 160.0,
+      "t90_ms": 559.7,
+      "rise_ms": 399.7,
+      "settle_ms": 519.8,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.174,
+      "tracking_pct": 96.5,
+      "peak_vel_deg_s": 10.6
+     }
+    },
+    {
+     "label": "L0_yaw_step-5_ground_r0",
+     "kind": "step",
+     "joint": 0,
+     "hw": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 79.4,
+      "t90_ms": 479.6,
+      "rise_ms": 360.0,
+      "settle_ms": 439.6,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.078,
+      "tracking_pct": 98.4,
+      "peak_vel_deg_s": 17.7
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 79.4,
+      "t90_ms": 519.6,
+      "rise_ms": 400.0,
+      "settle_ms": 479.6,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.428,
+      "tracking_pct": 98.1,
+      "peak_vel_deg_s": 11.3
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 159.6,
+      "t90_ms": 559.6,
+      "rise_ms": 360.3,
+      "settle_ms": 559.6,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.428,
+      "tracking_pct": 98.1,
+      "peak_vel_deg_s": 11.3
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 159.6,
+      "t90_ms": 559.6,
+      "rise_ms": 400.0,
+      "settle_ms": 519.6,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.163,
+      "tracking_pct": 98.1,
+      "peak_vel_deg_s": 11.3
+     }
+    },
+    {
+     "label": "L0_hip_step+5_ground_r0",
+     "kind": "step",
+     "joint": 1,
+     "hw": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 119.4,
+      "t90_ms": 524.7,
+      "rise_ms": 365.3,
+      "settle_ms": 479.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.078,
+      "tracking_pct": 98.4,
+      "peak_vel_deg_s": 15.5
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 79.2,
+      "t90_ms": 479.2,
+      "rise_ms": 359.8,
+      "settle_ms": 439.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.34,
+      "tracking_pct": 92.7,
+      "peak_vel_deg_s": 11.1
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 159.4,
+      "t90_ms": 559.1,
+      "rise_ms": 359.6,
+      "settle_ms": 524.7,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.34,
+      "tracking_pct": 92.7,
+      "peak_vel_deg_s": 12.1
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 119.4,
+      "t90_ms": 524.7,
+      "rise_ms": 365.3,
+      "settle_ms": 479.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.041,
+      "tracking_pct": 98.3,
+      "peak_vel_deg_s": 11.8
+     }
+    },
+    {
+     "label": "L0_hip_step-5_ground_r0",
+     "kind": "step",
+     "joint": 1,
+     "hw": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 160.2,
+      "t90_ms": 560.2,
+      "rise_ms": 400.0,
+      "settle_ms": 520.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.342,
+      "tracking_pct": 93.2,
+      "peak_vel_deg_s": 19.8
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 80.2,
+      "t90_ms": 480.2,
+      "rise_ms": 360.2,
+      "settle_ms": 440.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.352,
+      "tracking_pct": 91.2,
+      "peak_vel_deg_s": 10.6
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 160.2,
+      "t90_ms": 560.2,
+      "rise_ms": 360.0,
+      "settle_ms": 520.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.352,
+      "tracking_pct": 91.2,
+      "peak_vel_deg_s": 10.6
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 120.0,
+      "t90_ms": 520.2,
+      "rise_ms": 360.0,
+      "settle_ms": 480.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.125,
+      "tracking_pct": 98.3,
+      "peak_vel_deg_s": 10.5
+     }
+    },
+    {
+     "label": "L0_knee_step+5_ground_r0",
+     "kind": "step",
+     "joint": 2,
+     "hw": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 120.0,
+      "t90_ms": 520.0,
+      "rise_ms": 360.0,
+      "settle_ms": 480.0,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.342,
+      "tracking_pct": 93.2,
+      "peak_vel_deg_s": 15.4
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 80.0,
+      "t90_ms": 520.0,
+      "rise_ms": 400.0,
+      "settle_ms": 440.0,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.478,
+      "tracking_pct": 89.9,
+      "peak_vel_deg_s": 10.5
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 160.0,
+      "t90_ms": 560.0,
+      "rise_ms": 400.0,
+      "settle_ms": 520.0,
+      "overshoot_deg": 0.183,
+      "ss_err_deg": -0.132,
+      "tracking_pct": 97.3,
+      "peak_vel_deg_s": 12.8
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": 5.0,
+      "latency_ms": 160.0,
+      "t90_ms": 560.0,
+      "rise_ms": 360.0,
+      "settle_ms": 520.0,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.28,
+      "tracking_pct": 94.2,
+      "peak_vel_deg_s": 10.7
+     }
+    },
+    {
+     "label": "L0_knee_step-5_ground_r0",
+     "kind": "step",
+     "joint": 2,
+     "hw": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 120.2,
+      "t90_ms": 520.2,
+      "rise_ms": 400.0,
+      "settle_ms": 480.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.341,
+      "tracking_pct": 93.2,
+      "peak_vel_deg_s": 13.8
+     },
+     "sim_air": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 87.7,
+      "t90_ms": 480.2,
+      "rise_ms": 360.0,
+      "settle_ms": 480.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.506,
+      "tracking_pct": 96.2,
+      "peak_vel_deg_s": 12.0
+     },
+     "sim_loaded": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 200.3,
+      "t90_ms": 560.2,
+      "rise_ms": 359.9,
+      "settle_ms": 560.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": -0.116,
+      "tracking_pct": 98.5,
+      "peak_vel_deg_s": 23.1
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "amp_deg": -5.0,
+      "latency_ms": 160.4,
+      "t90_ms": 560.2,
+      "rise_ms": 359.9,
+      "settle_ms": 520.2,
+      "overshoot_deg": 0.0,
+      "ss_err_deg": 0.277,
+      "tracking_pct": 96.6,
+      "peak_vel_deg_s": 11.3
+     }
+    }
+   ]
+  }
+ ]
+}

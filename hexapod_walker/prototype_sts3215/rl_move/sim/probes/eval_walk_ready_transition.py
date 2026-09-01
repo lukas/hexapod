@@ -31,7 +31,8 @@ from hexapod_core.walk_ready_transition import (  # noqa: E402
 from rl_move.robot_state import DEG2RAD, N_JOINTS, RAD2DEG  # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
 from hexapod_core.joint_frame import (  # noqa: E402
-    robot_abs_deg_to_sim_rad, robot_stand_degrees, sim_rad_to_robot_abs_deg,
+    mujoco_rel_rad_to_robot_abs_deg, robot_abs_deg_to_mujoco_rel_rad,
+    robot_stand_degrees,
 )
 from rl_move.sim.eval_dances import place_at_plant, up_z  # noqa: E402
 from rl_move.sim.servo_model import (  # noqa: E402
@@ -178,9 +179,11 @@ def run_transition(name: str, frames: list[SimFrame], *,
     touch_addr = _touch_addrs(model)
     pad_bids = _pad_bids(model)
 
-    q_start = clip_limits(robot_abs_deg_to_sim_rad(start_deg))
-    q_target = clip_limits(robot_abs_deg_to_sim_rad(target_deg))
-    place_at_plant(mujoco, model, data, qadr, pos_act, q_start)
+    q_start_abs = clip_limits(np.radians(start_deg))
+    q_target_abs = clip_limits(np.radians(target_deg))
+    q_start = robot_abs_deg_to_mujoco_rel_rad(np.degrees(q_start_abs))
+    q_target = robot_abs_deg_to_mujoco_rel_rad(np.degrees(q_target_abs))
+    place_at_plant(mujoco, model, data, qadr, pos_act, q_start_abs)
     profile = ServoProfile(params, q_start)
 
     h = float(model.opt.timestep)
@@ -254,7 +257,8 @@ def run_transition(name: str, frames: list[SimFrame], *,
         advance_tick((), [None] * 6, [None] * 6)
 
     for i, sf in enumerate(frames, 1):
-        q_goal = clip_limits(robot_abs_deg_to_sim_rad(sf.frame.q_deg))
+        q_goal = robot_abs_deg_to_mujoco_rel_rad(np.degrees(
+            clip_limits(np.radians(sf.frame.q_deg))))
         speed_deg_s = sf.speed_counts_s / COUNTS_PER_DEG
         n_ticks = max(1, int(round(sf.frame.seconds * CTRL_HZ)))
         support_anchor = [None] * 6
@@ -282,7 +286,7 @@ def run_transition(name: str, frames: list[SimFrame], *,
                         acc_units=20.0)
         advance_tick((), [None] * 6, [None] * 6)
 
-    q_final_robot = sim_rad_to_robot_abs_deg(data.qpos[qadr])
+    q_final_robot = mujoco_rel_rad_to_robot_abs_deg(data.qpos[qadr])
     final_err = max(abs(a - b) for a, b in zip(q_final_robot, target_deg))
     verdict = "PASS"
     issues = []

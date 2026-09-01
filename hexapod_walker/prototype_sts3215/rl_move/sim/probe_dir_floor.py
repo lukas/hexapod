@@ -10,8 +10,8 @@ gate judges deltas against that floor (CURRENT_TRUTHS).  No one has
 measured the floor on the MESH family at 100 Hz, which is what every
 standwalk-track policy is judged on.
 
-Method: roll the hardware-proven scripted TripodGait (via the
-sim_gait_compat convention boundary, same as build_motion_library)
+Method: roll the hardware-proven scripted TripodGait (robot-absolute
+joints, same as build_motion_library)
 through real physics at a fixed forward command, and report over the
 commanded ticks:
   - per-tick instantaneous direction error (exact harness definition:
@@ -84,7 +84,7 @@ def main() -> None:
     from rl_move.sim.walk_task import (
         SimHexapodJointWalkEnv, walk_direction_error_deg)
     from rl_move.sim.probe_walk_income import WALK_PLANT
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     max_dq = (args.max_delta_q_deg if args.max_delta_q_deg is not None
               else 37.5 / args.hz)

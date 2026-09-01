@@ -109,7 +109,7 @@ def main() -> None:
                     and float(np.mean(speeds[-win_n:])) < args.stall_speed):
                 parked_ticks += 1
                 if since_snap >= snap_n:
-                    bank.append(env.data.qpos[env._qadr].copy())
+                    bank.append(env._state.joint_position.copy())
                     snaps += 1
                     since_snap = 0
         g = env._current_goal()
@@ -133,7 +133,9 @@ def main() -> None:
             "parked_episodes": parked_eps, "n_states": len(q_rad),
             "ep_stats": ep_stats}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(args.out, q_rad=q_rad, meta=json.dumps(meta))
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+    np.savez(args.out, q_rad=q_rad, meta=json.dumps(meta),
+             joint_frame=FRAME_ROBOT_ABS, joint_contract=JOINT_CONTRACT)
     print(f"[harvest] {len(q_rad)} states from {parked_eps}/"
           f"{args.episodes} parked episodes -> {args.out} "
           f"({time.time() - t0:.0f}s)")

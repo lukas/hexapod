@@ -1,7 +1,9 @@
-"""Fixed-foot body IK: body pose offsets → 18 joint targets (radians).
+"""Fixed-foot body IK: body pose offsets → robot-absolute joints.
 
 Reuses ``tripod_gait._leg_ik`` and plant geometry. Yaw joints participate
-in planar XY body shifts.
+in planar XY body shifts.  All input/output joint vectors use the repository
+joint contract: yaw, absolute femur angle, absolute tibia angle.  MuJoCo's
+relative knee hinge is not accepted here.
 """
 from __future__ import annotations
 
@@ -88,11 +90,10 @@ def body_offset_from_action(action: np.ndarray, *,
 
 def fk_foot_body(yaw: float, hip: float, knee: float, leg_az: float
                  ) -> np.ndarray:
-    """Foot position in body frame (metres) for one leg."""
+    """Foot position for one robot-absolute leg pose (metres)."""
     # Foot in yaw-frame (x out along coxa, z up-ish with plant convention).
-    pt = hip + knee
-    x_yaw = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(pt)
-    z_yaw = -FEMUR * math.sin(hip) - TIBIA * math.sin(pt)
+    x_yaw = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(knee)
+    z_yaw = -FEMUR * math.sin(hip) - TIBIA * math.sin(knee)
     # Rotate yaw joint about body Z at the yaw origin, then place origin.
     c, s = math.cos(leg_az + yaw), math.sin(leg_az + yaw)
     # Point in horizontal plane relative to yaw origin, along (leg_az+yaw).
@@ -110,7 +111,7 @@ def fk_foot_body(yaw: float, hip: float, knee: float, leg_az: float
 
 
 def fk_all_feet(q_rad: np.ndarray) -> np.ndarray:
-    """Return (6,3) foot positions in body frame."""
+    """Return foot positions for a robot-absolute 18-joint vector."""
     q = np.asarray(q_rad, dtype=float).reshape(N_JOINTS)
     az = leg_azimuths()
     feet = np.zeros((N_LEGS, 3), dtype=float)
@@ -135,7 +136,7 @@ def _world_to_body(p_world: np.ndarray, offset: BodyOffset) -> np.ndarray:
 
 def ik_leg_from_foot_body(foot_body: np.ndarray, leg_az: float
                           ) -> tuple[float, float, float] | None:
-    """Body-frame foot → (yaw, hip, knee) rad, or None if unreachable."""
+    """Body-frame foot → robot-absolute joints, or ``None``."""
     c, s = math.cos(leg_az), math.sin(leg_az)
     # Vector from yaw origin to foot in body XY.
     ox, oy = LEG_RADIAL * c, LEG_RADIAL * s
@@ -150,11 +151,6 @@ def ik_leg_from_foot_body(foot_body: np.ndarray, leg_az: float
     if ik is None:
         return None
     hip, knee = ik
-    # Since 30660b51 tripod_gait._leg_ik returns the ABSOLUTE tibia
-    # angle (leg-plane convention of the measured robot); the sim knee
-    # hinge — and this module's fk_foot_body — are RELATIVE to the
-    # femur, so convert at the boundary.
-    knee -= hip
     return float(yaw), float(hip), float(knee)
 
 

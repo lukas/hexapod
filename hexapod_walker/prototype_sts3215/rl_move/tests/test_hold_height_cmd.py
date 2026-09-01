@@ -4,7 +4,7 @@ cmd_*, 08-25, operator MCP request fb_20260825T195117_3dce6e).
 Unit-level contract for GoalGenerator._hold_height_schedule (the RNG-
 driven training-time schedule); the reward ORDERING question (track
 beats stale/flagleg/hover/skate) is banked separately in
-test_task_semantics.py's "HOLD bank, COMMANDABLE HEIGHT variant"
+the retired pre-v2 semantics bank's "HOLD, COMMANDABLE HEIGHT" variant
 against a pinned, exact profile. This file covers the generator
 itself:
   - default (hold_height_cmd_frac=0) is bit-exact legacy: zero extra

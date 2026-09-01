@@ -32,7 +32,9 @@ from rl_move.sim.eval_dances import (  # noqa: E402
     CTRL_HZ, STREAM_ACC_UNITS, clip_limits, place_at_plant, up_z,
 )
 
-from rl_move.joint_frame import robot_abs_deg_to_sim_rad  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
+    robot_abs_deg_to_mujoco_rel_rad,
+)
 from rl_move.robot_state import N_JOINTS  # noqa: E402
 from rl_move.sim.servo_model import (  # noqa: E402
     SIM_MODEL_PATH, ServoProfile, SimServoParams, apply_params_to_model,
@@ -107,7 +109,8 @@ def run_rock(*, seconds: float, speed: float, out_dir: Path,
     max_roll = 0.0
     for i in range(n_ticks):
         t = i / CTRL_HZ * speed          # demo time
-        q_goal = clip_limits(robot_abs_deg_to_sim_rad(pose_fn(t)))
+        q_goal = robot_abs_deg_to_mujoco_rel_rad(
+            np.degrees(clip_limits(np.radians(pose_fn(t)))))
         profile.command(q_goal, acc_units=STREAM_ACC_UNITS)
         advance_tick()
         uz = up_z(data, chassis_bid)

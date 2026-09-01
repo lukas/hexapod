@@ -25,7 +25,9 @@ firmware enough that the web UI can stay familiar:
                        picks one), 7 = no-slip CLAMP-FIT tripod
                        (smoothest measured timing under the servo clamp),
                        8 = middle-tuck quad crawl (middle legs up,
-                       front/rear legs crawl);
+                       front/rear legs crawl), 9 = fluid no-slip tripod
+                       (continuous body, near-zero shift/dwell), 10 = faster
+                       fluid no-slip tripod with lower foot lift;
                        alpha 0..1 = body-motion overlap
                        for gait 1 (0 = step-then-shift, 1 =
                        continuous; ripple/wave/SE2/CPG run their
@@ -75,9 +77,9 @@ from cpg_controller_loader import (  # noqa: E402
     load_cpg_controller as _load_cpg_controller,
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
-from noslip_gait import NoSlipGait  # noqa: E402
-from se2_foot_gait import SE2FootGait  # noqa: E402
-from tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.noslip_gait import NoSlipGait  # noqa: E402
+from hexapod_core.se2_foot_gait import SE2FootGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 from hexapod_core.demo_tripod import (  # noqa: E402
     DEFAULT_DEMO_TRIPOD, DemoTripodPreset, format_demo_tripod,
     parse_demo_tripod_tune_tokens, tune_demo_tripod,
@@ -349,7 +351,12 @@ class DriveController:
                    5: "SE2 WAVE (auto-scaled)",
                    6: "SE2 CPG (loaded)",
                    7: "noslip CLAMP-FIT tripod",
-                   8: "middle-tuck quad crawl"}
+                   8: "middle-tuck quad crawl",
+                   9: "noslip FLUID tripod",
+                   10: "noslip FLUID-FAST tripod",
+                   11: "noslip FLUID-HYBRID tripod",
+                   12: "noslip FLUID-PUSH tripod",
+                   13: "noslip FLUID-PULSE tripod"}
 
     def _gait_desc(self) -> str:
         if self._gait_id == 0:
@@ -360,6 +367,16 @@ class DriveController:
             return "noslip CLAMP-FIT tripod"
         if self._gait_id == 8:
             return "middle-tuck quad crawl"
+        if self._gait_id == 9:
+            return "noslip FLUID tripod (2.90s/18mm/continuous)"
+        if self._gait_id == 10:
+            return "noslip FLUID-FAST tripod (2.40s/14mm/continuous)"
+        if self._gait_id == 11:
+            return "noslip FLUID-HYBRID tripod (3.20s/18mm/alpha=.75)"
+        if self._gait_id == 12:
+            return "noslip FLUID-PUSH tripod (3.20s/18mm/alpha=.70)"
+        if self._gait_id == 13:
+            return "noslip FLUID-PULSE tripod (3.20s/18mm/alpha=.75)"
         if self._gait_id == 6 and self._cpg_loaded is not None:
             return f"SE2 CPG ({self._cpg_loaded['name']})"
         return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
@@ -461,6 +478,16 @@ class DriveController:
             self.gait = NoSlipGait.clamp_fit()
         elif gait_id == 8:
             self.gait = MiddleTuckQuadGait.crawl()
+        elif gait_id == 9:
+            self.gait = NoSlipGait.fluid()
+        elif gait_id == 10:
+            self.gait = NoSlipGait.fluid_fast()
+        elif gait_id == 11:
+            self.gait = NoSlipGait.fluid_hybrid()
+        elif gait_id == 12:
+            self.gait = NoSlipGait.fluid_push()
+        elif gait_id == 13:
+            self.gait = NoSlipGait.fluid_pulse()
         elif gait_id == 1:
             self.gait = NoSlipGait(alpha=self._noslip_alpha)
         else:

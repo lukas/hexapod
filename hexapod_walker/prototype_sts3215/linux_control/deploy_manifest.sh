@@ -15,25 +15,25 @@
 
 # Individual files shipped into linux_control/.
 LC_FILES=(
-  tripod_gait.py drive_controller.py cpg_controller_loader.py
+  drive_controller.py cpg_controller_loader.py
   mcu_feetech_bus.py bench_api.py web_drive.py xbox_drive.py
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py status_display.py deploy_status_display.py servo_watch.py
   mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
-  noslip_gait.py se2_foot_gait.py sysid_protocol.py sysid_runner.py
-  bus_bench.py touchdown_zero.py walk_ready_transition.py rl_walk_start.py
-  rl_policy_weights.json rl_walk_weights.json standup_modes.json
+  sysid_protocol.py sysid_runner.py
+  bus_bench.py touchdown_zero.py rl_walk_start.py
+  standup_modes.json
 )
 
 # Directories shipped wholesale into linux_control/.
 # api/ = the BenchAPI route-group mixins (bench_api.py is the dispatcher).
-LC_DIRS=(api webui policies vendor systemd)
+LC_DIRS=(api webui vendor systemd)
 
 # motor_setup files shipped to the board (canonical copies; includes the
-# on-board run.sh wizard entrypoint and the dance/quad legacy stubs).
+# on-board run.sh wizard entrypoint).
 MOTOR_FILES=(
   __init__.py feetech_bus.py urt2_bench.py inplace_demos.py
-  quad_walk.py dance_script.py motion_telemetry.py
+  motion_telemetry.py
   motor_setup_registry.json urt2_motor_setup.py run.sh README.md
 )
 
@@ -41,7 +41,7 @@ MOTOR_FILES=(
 RLMOVE_FILES=(
   __init__.py env.py robot_state.py attitude.py safety.py
   config.py config.yaml body_ik.py control_loop.py logger.py
-  np_policy.py joint_frame.py
+  np_policy.py
 )
 
 # rl_move/sim numpy-only helpers (rot-60 canonicalizer + sagittal mirror).
@@ -53,7 +53,8 @@ stage_deploy_tree() {
   local stage="$1" src="$2" proto f
   proto="$(cd "$src/.." && pwd)"
 
-  mkdir -p "$stage/linux_control" "$stage/motor_setup" "$stage/rl_move/sim"
+  mkdir -p "$stage/linux_control/policies" "$stage/motor_setup" \
+    "$stage/rl_move/sim"
 
   for f in "${LC_FILES[@]}"; do
     cp "$src/$f" "$stage/linux_control/"

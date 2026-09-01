@@ -4,8 +4,8 @@
 Like the rot60 port, the runner does not re-implement the mirror — it
 wraps rl_move.sim.mirror.MirrorPolicy itself (make_walk_mirror) so
 there is no second implementation to drift. This file locks the
-integration contract with the REAL deployed weights file
-(linux_control/rl_walk_weights.json):
+integration contract with a deterministic policy in the required v2
+coordinate frame:
 
 1. turn=None stays bit-identical: the naked/rot60 tick path is
    untouched (the selector only exists when turn is requested);
@@ -37,10 +37,27 @@ import rl_policy  # noqa: E402  (linux_control runner)
 from rl_move.config import load_config  # noqa: E402
 from rl_move.env import TaskGoal, build_obs  # noqa: E402
 from rl_move.sim import mirror, rot60  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
+    FRAME_ROBOT_ABS, JOINT_CONTRACT,
+)
 
 CFG = load_config(str(_ROOT / "rl_move" / "config.yaml"))
 WALK_VEL_SCALE = rl_policy.WALK_VEL_SCALE
-WALK_POLICY = rl_policy.NumpyPolicy(rl_policy.WALK_WEIGHTS_PATH)
+
+
+class _TestPolicy:
+    meta = {"joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
+            "obs_dim": 72, "act_dim": 18, "training_hz": 25.0}
+
+    @staticmethod
+    def act(obs):
+        obs = np.asarray(obs, dtype=float)
+        return np.tanh(obs[:18] + 0.2 * obs[18:36]
+                       + np.arange(18) * 0.03)
+
+
+WALK_POLICY = _TestPolicy()
 DT = 1.0 / rl_policy.policy_training_hz(WALK_POLICY)
 
 

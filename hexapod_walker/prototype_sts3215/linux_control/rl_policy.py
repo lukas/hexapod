@@ -1,11 +1,9 @@
 """On-robot RL policy runner: STAND UP / LOWER / WALK buttons (web UI).
 
-Runs the sim-trained raw-joint PPO policies (exported to plain numpy
-weights by ``rl_move/sim/export_policy_np.py`` — no torch on the board)
-in the exact conventions they were trained with. Two weight files:
-``rl_policy_weights.json`` = stance champion (stand/lower, obs 68),
-``rl_walk_weights.json`` = active walk slot (obs 72/74/93; see the
-walk-mode constants below for hardware clamps/caveats). Walk files may be
+Runs v2 robot-absolute raw-joint PPO policies exported to plain numpy
+weights by ``rl_move/sim/export_policy_np.py`` (no torch on the board).
+``rl_policy_weights.json`` and ``rl_walk_weights.json`` are runtime slots,
+created only when the operator selects a validated v2 artifact. Walk files may be
 obs 74 = obs 72 + [sin, cos] of a phase clock the runner keeps
 (advances at meta["phase_hz"] while velocity is commanded, frozen at
 zero command — the sim's goal.walk_phase_obs=1 contract; the
@@ -24,17 +22,9 @@ currently feeds an all-healthy fault vector.
   center/half-range map (same as sim joint_task.action_to_q_rad).
 - goal height ramps mirror the training GoalGenerator. The shape
   (hold_s / ramp_s / target_m / total_s) comes from the weight file's
-  OWN meta["profile"] (export_policy_np.py --extra-meta) so it always
-  matches the config the checkpoint trained with; legacy files without
-  a profile get the stance_dr10-era constants:
-  rise  = hold 0 for 5 s (curl window), ramp to +50 mm over 4 s, hold.
-  lower = hold 0 for 1 s, ramp to -45 mm over 5 s, hold, then limp.
-  The rise+hold specialist (ppo_goal_cw_stand_holdbc1_hard1, 08-11 —
-  the sim-proven learned stand-up, rl_docs/RISE.md) ships hold 5 s,
-  ramp 6 s, target +111 mm, total 12.5 s; its settled stand is in the
-  walk champion's start distribution (handoff eval: 12/12 rises handed
-  off with zero falls, scripted blend adds nothing), so the joystick
-  chain on hardware is stand -> walk -> go_zero("sit").
+  OWN meta["profile"] (export_policy_np.py --extra-meta). Missing or
+  partial profiles are rejected instead of borrowing parameters from a
+  different historical policy.
 - every command goes through rl_move.safety.SafetyLayer: 1.5 deg/tick
   rate clamp, joint limits, relative-tilt trip (10 deg for stand/lower,
   25 deg for walk — see WALK_MAX_TILT_DEG), sustained 2.5 A trip,
@@ -69,9 +59,7 @@ for _p in (_HERE.parent, _HERE):
 from rl_move.config import cfg_get, load_config            # noqa: E402
 from rl_move.env import TaskGoal, build_obs                # noqa: E402
 from hexapod_core.joint_frame import (                     # noqa: E402
-    FRAME_ROBOT_ABS, normalize_joint_frame,
-    policy_joint_frame_from_meta, policy_rad_to_robot_abs_rad,
-    robot_abs_rad_to_policy_rad,
+    FRAME_ROBOT_ABS, JOINT_CONTRACT, require_robot_abs_joint_frame,
 )
 from rl_move.robot_state import (                          # noqa: E402
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState, RobotStateEstimator,
@@ -159,67 +147,29 @@ def policy_control_hz_error(meta: dict, name: str = "policy") -> str | None:
     _ = (meta, name)
     return None
 
-# LEGACY trained trajectory shapes (stance_dr10-era rl_move/config.yaml
-# goal section). Policies exported since 08-11 carry their own trained
-# goal profile in meta["profile"] (export_policy_np.py --extra-meta) so
-# runner constants can never drift from the config a checkpoint was
-# actually trained with — see policy_profile(). These constants are the
-# fallback for weight files exported before that (e.g. stance_dr10).
-RISE_HOLD_S = 5.0      # curl window: height ref pinned at 0
-RISE_RAMP_S = 4.0
-RISE_TARGET_M = 0.050  # mid of the trained 30-70 mm range
-RISE_TOTAL_S = 16.0    # hold + ramp + ~7 s stabilise, then hold pose
-LOWER_HOLD_S = 1.0
-LOWER_RAMP_S = 5.0
-LOWER_TARGET_M = -0.045
-LOWER_TOTAL_S = 11.0   # ends resting on the belly -> limp
-
-# mode -> legacy profile; meta["profile"][mode] overrides key-by-key.
-_LEGACY_PROFILE = {
-    "stand": {"hold_s": RISE_HOLD_S, "ramp_s": RISE_RAMP_S,
-              "target_m": RISE_TARGET_M, "total_s": RISE_TOTAL_S},
-    "lower": {"hold_s": LOWER_HOLD_S, "ramp_s": LOWER_RAMP_S,
-              "target_m": LOWER_TARGET_M, "total_s": LOWER_TOTAL_S},
-}
-
-
 def policy_profile(policy: "NumpyPolicy", mode: str) -> dict:
-    """Goal-ramp shape for ``mode``: the policy's own trained profile
-    (meta["profile"][mode], written by export_policy_np.py) over the
-    legacy constants. The rise+hold specialist
-    (ppo_goal_cw_stand_holdbc1_hard1) trained hold 5 s / ramp 6 s /
-    target 108-114 mm — NOT the legacy 5/4/50 shape; feeding it the
-    legacy ramp would command a half-height stand."""
-    prof = dict(_LEGACY_PROFILE[mode])
-    prof.update((policy.meta.get("profile") or {}).get(mode) or {})
-    return prof
+    """Return the exact training profile declared by a v2 policy."""
+    prof = (policy.meta.get("profile") or {}).get(mode)
+    required = {"hold_s", "ramp_s", "target_m", "total_s"}
+    if not isinstance(prof, dict) or not required.issubset(prof):
+        missing = sorted(required - set(prof or {}))
+        raise ValueError(
+            f"policy profile {mode!r} is incomplete; missing {missing}")
+    return {key: float(prof[key]) for key in sorted(required)}
 
 
 def policy_joint_frame(policy: "NumpyPolicy", cfg: dict | None = None) -> str:
-    """Joint frame for policy observations/actions.
-
-    New/default exports use the robot's logical absolute-tibia frame.
-    Older MuJoCo-native checkpoints must carry meta["joint_frame"] =
-    "model_rel" (or cfg compat.policy_joint_frame=model_rel) so the
-    runner converts both observations and bus commands.
-    """
-    return policy_joint_frame_from_meta(policy.meta, cfg)
+    """Validate the repository-wide robot-absolute policy contract."""
+    del cfg
+    source = policy.meta.get("name") or policy.meta.get("source") or "policy"
+    return require_robot_abs_joint_frame(policy.meta, source=str(source))
 
 
 def _state_for_policy_frame(state, joint_frame: str):
-    """Return a RobotState view in the policy's declared joint frame."""
-    frame = normalize_joint_frame(joint_frame)
-    if frame == FRAME_ROBOT_ABS:
-        return state
-    return replace(
-        state,
-        joint_position=robot_abs_rad_to_policy_rad(
-            state.joint_position, frame),
-        joint_velocity=robot_abs_rad_to_policy_rad(
-            state.joint_velocity, frame),
-        commanded_position=robot_abs_rad_to_policy_rad(
-            state.commanded_position, frame),
-    )
+    """Return robot state after rejecting any non-canonical frame."""
+    if joint_frame != FRAME_ROBOT_ABS:
+        raise ValueError(f"unsupported policy joint frame {joint_frame!r}")
+    return state
 
 
 def _finite_float(value, default: float) -> float:
@@ -1197,6 +1147,7 @@ class NumpyPolicy:
     def __init__(self, path: Path = WEIGHTS_PATH):
         d = json.loads(Path(path).read_text())
         self.meta = d["meta"]
+        require_robot_abs_joint_frame(self.meta, source=str(path))
         self.W1 = np.array(d["W1"]); self.b1 = np.array(d["b1"])
         self.W2 = np.array(d["W2"]); self.b2 = np.array(d["b2"])
         self.Wo = np.array(d["Wout"]); self.bo = np.array(d["bout"])
@@ -1329,6 +1280,8 @@ def _state_debug(state, *, q_cmd_rad=None, target_robot=None) -> dict:
     timing = dict(getattr(state, "timing", {}) or {})
     q = np.asarray(state.joint_position, dtype=float)
     out = {
+        "joint_frame": FRAME_ROBOT_ABS,
+        "joint_contract": JOINT_CONTRACT,
         "bus_ok": bool(getattr(state, "bus_ok", False)),
         "imu_ok": bool(getattr(state, "imu_ok", False)),
         "roll_deg": round(float(state.imu_roll) * RAD2DEG, 2),
@@ -2061,6 +2014,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "policy_name": policy.meta.get("name"),
         "obs_dim": policy.meta.get("obs_dim"),
         "joint_frame": joint_frame,
+        "joint_contract": JOINT_CONTRACT,
         "timing": {
             "policy_hz": timing.policy_hz,
             "training_hz": timing.policy_hz,
@@ -2163,7 +2117,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             return {"ok": False,
                     "error": "feedback unavailable during settle"}
         q_nom_robot = state_robot.joint_position.copy()
-    q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
+    q_nom = q_nom_robot.copy()
     est.set_commanded(q_nom_robot)
     bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
@@ -2229,7 +2183,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": mode,
                     "training_hz": timing.policy_hz,
-                    "policy_joint_frame": joint_frame}
+                    "policy_joint_frame": joint_frame,
+                    "policy_joint_contract": JOINT_CONTRACT}
     last_good_stream_state = state_robot
     stale_stream_ticks = 0
     stale_stream_samples = 0
@@ -2253,6 +2208,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "write_speed": write_speed, "write_acc": write_acc,
         "policy": dict(policy.meta),
         "policy_joint_frame": joint_frame,
+        "policy_joint_contract": JOINT_CONTRACT,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
@@ -2343,7 +2299,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             break
         q_prop = _CENTER_RAD + action * _HALF_RAD
         q_safe, status = safety.filter(q_prop, state, action=action)
-        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        q_robot_cmd = q_safe.copy()
         safety_s = time.monotonic() - stage_t
         if status.terminate:
             limp()
@@ -2886,6 +2842,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         "hold_policy_path": str(hold_weights) if hold_weights else None,
         "hold_obs_dim": hold_obs,
         "joint_frame": joint_frame,
+        "joint_contract": JOINT_CONTRACT,
         "timing": {
             "policy_hz": timing.policy_hz,
             "training_hz": timing.policy_hz,
@@ -3024,7 +2981,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             debug, {"ok": False, "error": start_err, "held_pose": True,
                     "limped": False, "preflight": details})
     q_nom_robot = np.asarray(start_target_deg, dtype=float) * DEG2RAD
-    q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
+    q_nom = q_nom_robot.copy()
     est.set_commanded(q_nom_robot)
     bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
@@ -3097,7 +3054,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": "drive",
                     "training_hz": timing.policy_hz,
-                    "policy_joint_frame": joint_frame}
+                    "policy_joint_frame": joint_frame,
+                    "policy_joint_contract": JOINT_CONTRACT}
     last_good_stream_state = state_robot
     stale_stream_ticks = 0
     stale_stream_samples = 0
@@ -3129,6 +3087,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         "initial_hold_strategy": "joint_hold_until_first_walk_command",
         "height_can_track": height_can_track,
         "policy_joint_frame": joint_frame,
+        "policy_joint_contract": JOINT_CONTRACT,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
@@ -3449,7 +3408,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             stage_t = time.monotonic()
             q_prop = last_q_policy_cmd.copy()
         q_safe, status = safety.filter(q_prop, state, action=action)
-        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        q_robot_cmd = q_safe.copy()
         safety_s = time.monotonic() - stage_t
         if status.terminate:
             limp()

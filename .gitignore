@@ -70,3 +70,16 @@ MUJOCO_LOG.TXT
 
 # W&B local run logs (never commit; they poison the snapshot dirty check)
 hexapod_walker/prototype_sts3215/wandb/
+
+# Local vision, hardware-test, and system-identification captures.  Keep the
+# compact calibration/report products in Git; these raw inputs are large and
+# machine-specific.
+hexapod_walker/prototype_sts3215/.agent_worksnap/
+hexapod_walker/prototype_sts3215/linux_control/artifacts/video_frames/
+hexapod_walker/prototype_sts3215/linux_control/vision_ui/node_modules/
+hexapod_walker/prototype_sts3215/rl_move/hardware_traces/
+hexapod_walker/prototype_sts3215/sysid/datasets/
+
+# Repository-root scratch outputs.
+/result.json
+/tmp/

@@ -11,7 +11,7 @@ open-loop teacher follows all headings cleanly, weak sideways walking
 in a trained policy is a training/reward failure, not a robot limit.
 
 Method: per commanded heading, roll TripodGait(vx=s*cos h, vy=s*sin h)
-through real physics (same sim_gait_compat boundary as
+through real physics (same explicit MuJoCo boundary as
 build_motion_library / probe_dir_floor) and report net-path course
 error vs the command, completion (along-command speed / commanded
 speed), trailing-window course error, tick-level direction error,
@@ -71,7 +71,7 @@ def main() -> None:
     from rl_move.sim.walk_task import (
         SimHexapodJointWalkEnv, walk_direction_error_deg)
     from rl_move.sim.probe_walk_income import WALK_PLANT
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     max_dq = (args.max_delta_q_deg if args.max_delta_q_deg is not None
               else 37.5 / args.hz)

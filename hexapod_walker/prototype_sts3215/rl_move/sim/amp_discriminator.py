@@ -60,6 +60,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+
 DEFAULT_LIBRARY = Path(__file__).resolve().parent / "motion_library" / "teacher_v1.npz"
 
 
@@ -91,6 +93,13 @@ class MotionLibrary:
                  mask_dims=()):
         path = Path(path)
         d = np.load(path, allow_pickle=True)
+        frame = str(d["joint_frame"]) if "joint_frame" in d.files else None
+        contract = (str(d["joint_contract"])
+                    if "joint_contract" in d.files else None)
+        if frame != FRAME_ROBOT_ABS or contract != JOINT_CONTRACT:
+            raise ValueError(
+                f"{path}: pre-v2 motion library ({frame!r}/{contract!r}); "
+                "rebuild it in canonical robot coordinates")
         self.obs_style = np.asarray(d["obs_style"], dtype=np.float32)
         # Optional feature mask (default () = bit-exact legacy): zero
         # the named dims BEFORE fitting mean/std, so masked dims carry

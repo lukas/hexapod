@@ -30,12 +30,13 @@ of that recipe with the failure designed out:
      LATER rungs, unlocked only by a rung-1 pass (see RUNG_LADDER).
   3. ``reward.term_penalty=1200``: the original stack left dying free;
      the walk goal tilt-terminated everywhere.  Sized by the 08-23
-     WALKCURR_PF bank calibration in test_task_semantics.py (dying
-     must sit strictly below even the wrong-way honest gaits).
-  4. The reward ranking (clean commanded walking > park/stall >
-     sideways/reverse/wrong-way > high-slip/skate/fall) is PROVEN by
-     the WALKCURR_PF bank in rl_move/tests/test_task_semantics.py
-     under this exact cfg before any launch.
+     historical WALKCURR_PF calibration (dying had to sit strictly
+     below even the wrong-way honest gaits). That pre-v2 calibration
+     is retired and must be regenerated in robot_abs coordinates.
+  4. The required reward ranking (clean commanded walking > park/stall
+     > sideways/reverse/wrong-way > high-slip/skate/fall) must be
+     proven by a fresh robot_abs_tibia_v2 trajectory bank under this
+     exact cfg before any launch.
   5. Binding triage rule: every triage compares training-reward trend
      against the walk-eval trend.  Reward rising while walk eval is
      flat/down or walk terminates = MISALIGNED; stop same-recipe
@@ -98,8 +99,9 @@ HYPOTHESIS = (
     "cw-kawawa2022-pf-flat1 designed out: walk-pure episode diet, "
     "fixed forward command 0.05-0.06 m/s, ELU 128/64/32 MLP with "
     "24-step rollouts, loaded actuator calibration, term_penalty "
-    "closing the suicide exploit, and the WALKCURR_PF semantics bank "
-    "proving the reward ranking before launch. Prediction-if-true: "
+    "closing the suicide exploit, gated on a fresh robot_abs_tibia_v2 "
+    "trajectory bank proving the reward ranking before launch. "
+    "Prediction-if-true: "
     "real six-leg stepping with along-command progress emerges within "
     "2M steps (the walk goal of the failed run survived its 1M/5M "
     "evals even on a 20-30%% walk diet). Prediction-if-false: statue/"
@@ -126,8 +128,8 @@ EVIDENCE = (
     "survived its 1M/5M evals then was starved/broken by the "
     "multi-goal income mix — the recipe learns SOMETHING about "
     "walking early; the diet and the open suicide exploit were the "
-    "named killers. WALKCURR_PF bank in test_task_semantics.py "
-    "proves the reward ranking under this exact cfg."
+    "named killers. Its pre-v2 WALKCURR_PF result is historical only; "
+    "a new robot_abs_tibia_v2 bank must prove the ranking."
 )
 
 
@@ -146,11 +148,13 @@ CFG_SET = (
     "goal.walk_cmd_resample_s=0.0",
     "goal.walk_cmd_metrics=1",
     # Direction-first income on stride-EMA velocity (the validated
-    # anti-noise-cancellation form) at the BANK-CALIBRATED v2e doses
-    # (test_task_semantics.py WALKCURR_PF_OVERRIDES, measured 08-23:
+    # anti-noise-cancellation form) at the historically bank-calibrated
+    # doses (retired pre-v2 WALKCURR_PF measurements from 08-23:
     # gait +346 > stall -31 > park -352 > sideways -609 > reverse
     # -741 > skate -1058 > topple -1164 — the operator's required
-    # ranking exactly). The RAW kawawa launch doses were bank-REFUTED
+    # ranking exactly). These numbers are hypotheses until a fresh
+    # robot_abs_tibia_v2 bank reproduces the ranking. The RAW Kawawa
+    # launch doses were historically bank-refuted
     # (park out-earned walking +387 vs +325); the harsh SLIPWALK doses
     # are equally refuted for from-scratch discovery (8 statue arms on
     # the amp track). These sit in between: real travel is the only

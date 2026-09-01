@@ -3915,3 +3915,46 @@ Prior entries (`gradclip0p15-acq1` 38M PARTIAL read + intermediate-
 checkpoint probe, grad-clip bracket close, `-canary-s1` seed split,
 klrolltight2 close, yaw-critic build) VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
+
+---
+Archived 2026-09-01 ~22:0x (superseded by durfix/durctrl duration-
+mismatch pair): entry below verbatim, previously at STATUS.md top.
+
+Previous entry (2026-08-31 ~18:5x, RISE-DIET SCOPING BUG found in the
+harness built this same day) verbatim below, then archived next trim.
+Plain English: the two `eval_done_gate_session` panels queued by the
+prior update (item 1 below, `gradclip0p15-canary`/`-canary-s1`,
+n=32 each det+sto/DR-0+own-DR, video) finished on-pod and were read.
+Headline: **gate FAILS both seeds** (`zero_falls=false`; canary 9/32
+terminations, `-s1` 4/32) with poor aggregate walk tracking
+(`direction_err_med_deg` 45.5/47.8, `slip_per_m_med` 3.27/3.29 — over
+the 2.9 joystick band; `progress_ratio_med` 0.27/0.34). BUT reading
+`terms_by_start_kind` + `terms_by_segment_mode` in the raw episode
+JSON surfaced a real SCOPING bug in the harness itself, built and
+missed same-day: `eval_done_gate_session` runs each checkpoint's OWN
+training `--extra-cfg-set` stack verbatim, which for this lineage
+carries `goal.rise_rsi_frac=0.5` (the DeepMimic-style mid-rise
+reference-state-init used to bootstrap rise training — spawns the
+robot ALREADY partway up the rise ramp) plus the default 40%/25%
+partial-curl/crouch mix — so the "rise" segment of this "sit -> rise"
+DONE-gate session sampled the FULL training-curriculum start
+distribution, not a literal cold sit/flat start: only 3/32 (canary)
+and 1/32 (`-s1`) episodes were actually `start_kind=flat`. 8/9 and
+4/4 of the terminations landed in the rise segment, concentrated in
+`rsi`/`bridge` starts (4+4 of canary's 9; 3+1 of `-s1`'s 4) — the one
+flat-start termination (canary, n=3) is too small to read either way.
+**This is not the literal DONE-gate question** ("from sit: rise ->
+... -> lower" describes ONE fixed cold start, not a recovery-curriculum
+mix). Fix (no code change — existing `--extra-cfg-set` override
+mechanism, confirmed last-key-wins in `_parse_cfg_set`): layered
+`goal.rise_flat_frac=1.0 rise_partial_frac=0 rise_start_bank_frac=0
+rise_rsi_frac=0` on top of each run's own cfg stack and relaunched
+both sessions (train-3/train-5, n=8 det+sto x DR0+ownDR = 32 literal
+flat-start episodes each, video on, `..._donegate_flatonly` out-dirs)
+— the actual literal-gate instrument going forward. Not yet read (in
+flight, ETA ~1.5-2h). The walk-segment quality flags (slip/direction)
+stand regardless of the rise question and need their own follow-up
+once the flat-only rise read narrows the picture. wandb notes added
+to both runs recording this (informational — does NOT reopen either
+run's already-closed CANARY PASS/FAIL verdicts, which were narrowly
+scoped to mechanism-health turn-authority, not this session shape).

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T21:20:30+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary
+
+**wandb_id**: a9nl73qk
 
 **hypothesis**: Seed-pass-rate twin of durfix-canary (this cycle, same base checkpoint/steps/cfg, --seed 1 only) so the duration-mismatch-fix verdict rests on n=2 seeds, not one -- otherwise identical hypothesis/gate to durfix-canary.
 

@@ -1,7 +1,27 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~21:0x (idle-kick: flat-only DONE-gate sessions
-READ — decisive gate FAIL, and a campaign-reframing root cause).
+Update, 2026-09-01 ~22:0x (triage: durctrl-canary + durctrl-canary-s1
+training finished; launched the flat-only duration-mismatch reads).
+Plain English: the two training runs finished (2M steps each,
+matched no-cfg-change CONTROL twins of the duration-mismatch pair).
+Both are mechanism-health canaries with no independent PASS/FAIL bar
+(recorded `CANARY PASS (own scope) - joint pending flatonly-read` —
+reward curves healthy: both dipped hard mid-run then self-corrected,
+seed0 to 140.6, seed1 to a weaker 4.2, neither flat/blown-up). The
+real decision needs the SAME flat-only `eval_done_gate_session` used
+to find the duration-mismatch bug (`goal.rise_flat_frac=1.0
+rise_partial_frac=0 rise_start_bank_frac=0 rise_rsi_frac=0`, n=8,
+video), read jointly against the `durfix-canary` twins per Next item
+1 below — durfix-canary had ALSO already finished training (checked
+`launch_run.py status`: its pod was free, checkpoint synced) so its
+flat-only read was launched too, alongside durctrl/durctrl-s1, so all
+land together (durfix-canary-s1 is still training on train-4, its
+read follows once it finishes). Launched on-pod (train-1 durctrl,
+train-2 durctrl-s1, train-3 durfix), not yet read.
+
+Previous entry (2026-09-01 ~21:0x, idle-kick: flat-only DONE-gate
+sessions READ — decisive gate FAIL, and a campaign-reframing root
+cause) verbatim below.
 Plain English: the flat-only `eval_done_gate_session` panels queued
 18:5x (`gradclip0p15-canary`/`-canary-s1`, n=32 each, literal cold-
 flat starts) finished. **Gate FAILS both** (`zero_falls=false`, 22/32
@@ -36,65 +56,32 @@ distribution once a single mode sustains past ~8-10s, not merely
 (`--episode-seconds` 30->90, `goal.mode_seq_segment_s_min/max`
 6/8->20/60 — the single coupled lever that lets a segment actually run
 long) vs `...-durctrl-canary` (same warm-start/steps, no cfg change —
-isolates "just more training" from "long-segment exposure"). Both
-VERIFIED RUNNING (train-3, train-1). Not yet read. wandb notes added
-to both evaluated checkpoints (informational — does not reopen their
-closed CANARY PASS/FAIL verdicts, narrowly scoped to mechanism-health
-turn-authority).
+isolates "just more training" from "long-segment exposure"), PLUS
+`--seed 1` twins of both (`...-durfix-canary-s1` / `...-durctrl-canary-
+s1`, same recipe, per this campaign's own same-cycle-seed-twin
+practice) so the verdict rests on n=2 seeds, not one. All four VERIFIED
+RUNNING (train-3/train-1/train-4/train-2). Not yet read. wandb notes
+added to both evaluated checkpoints (informational — does not reopen
+their closed CANARY PASS/FAIL verdicts, narrowly scoped to
+mechanism-health turn-authority).
 
-Previous entry (2026-08-31 ~18:5x, RISE-DIET SCOPING BUG found in the
-harness built this same day) verbatim below, then archived next trim.
-Plain English: the two `eval_done_gate_session` panels queued by the
-prior update (item 1 below, `gradclip0p15-canary`/`-canary-s1`,
-n=32 each det+sto/DR-0+own-DR, video) finished on-pod and were read.
-Headline: **gate FAILS both seeds** (`zero_falls=false`; canary 9/32
-terminations, `-s1` 4/32) with poor aggregate walk tracking
-(`direction_err_med_deg` 45.5/47.8, `slip_per_m_med` 3.27/3.29 — over
-the 2.9 joystick band; `progress_ratio_med` 0.27/0.34). BUT reading
-`terms_by_start_kind` + `terms_by_segment_mode` in the raw episode
-JSON surfaced a real SCOPING bug in the harness itself, built and
-missed same-day: `eval_done_gate_session` runs each checkpoint's OWN
-training `--extra-cfg-set` stack verbatim, which for this lineage
-carries `goal.rise_rsi_frac=0.5` (the DeepMimic-style mid-rise
-reference-state-init used to bootstrap rise training — spawns the
-robot ALREADY partway up the rise ramp) plus the default 40%/25%
-partial-curl/crouch mix — so the "rise" segment of this "sit -> rise"
-DONE-gate session sampled the FULL training-curriculum start
-distribution, not a literal cold sit/flat start: only 3/32 (canary)
-and 1/32 (`-s1`) episodes were actually `start_kind=flat`. 8/9 and
-4/4 of the terminations landed in the rise segment, concentrated in
-`rsi`/`bridge` starts (4+4 of canary's 9; 3+1 of `-s1`'s 4) — the one
-flat-start termination (canary, n=3) is too small to read either way.
-**This is not the literal DONE-gate question** ("from sit: rise ->
-... -> lower" describes ONE fixed cold start, not a recovery-curriculum
-mix). Fix (no code change — existing `--extra-cfg-set` override
-mechanism, confirmed last-key-wins in `_parse_cfg_set`): layered
-`goal.rise_flat_frac=1.0 rise_partial_frac=0 rise_start_bank_frac=0
-rise_rsi_frac=0` on top of each run's own cfg stack and relaunched
-both sessions (train-3/train-5, n=8 det+sto x DR0+ownDR = 32 literal
-flat-start episodes each, video on, `..._donegate_flatonly` out-dirs)
-— the actual literal-gate instrument going forward. Not yet read (in
-flight, ETA ~1.5-2h). The walk-segment quality flags (slip/direction)
-stand regardless of the rise question and need their own follow-up
-once the flat-only rise read narrows the picture. wandb notes added
-to both runs recording this (informational — does NOT reopen either
-run's already-closed CANARY PASS/FAIL verdicts, which were narrowly
-scoped to mechanism-health turn-authority, not this session shape).
-
-Prior entries (mixedsession audit close + `eval_done_gate_session`
-build, `gradclip0p15-acq1` 38M PARTIAL read + intermediate-checkpoint
-probe, grad-clip bracket close, `-canary-s1` seed split, klrolltight2
-close, yaw-critic build) VERBATIM in
+Prior entries (RISE-DIET SCOPING BUG find, mixedsession audit close +
+`eval_done_gate_session` build, `gradclip0p15-acq1` 38M PARTIAL read +
+intermediate-checkpoint probe, grad-clip bracket close, `-canary-s1`
+seed split, klrolltight2 close, yaw-critic build) VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
-## Next (meta 09-01 ~21:0x)
+## Next (meta 09-01 ~22:0x)
 
-1. **Read the duration-mismatch fix pair once it lands** (train-3
-   `...-durfix-canary`, train-1 `...-durctrl-canary`, 2M steps each,
-   ETA ~30-40min at MJX GPU-speed): run the SAME
-   `eval_done_gate_session` flat-only harness (`goal.rise_flat_frac=1.0
-   rise_partial_frac=0 rise_start_bank_frac=0 rise_rsi_frac=0`, n=8
-   min, video) on both checkpoints. DECISION: if `durfix` clears
+1. **Read the duration-mismatch fix pair once the flat-only
+   `eval_done_gate_session` (n=8, video, `goal.rise_flat_frac=1.0
+   rise_partial_frac=0 rise_start_bank_frac=0 rise_rsi_frac=0`) lands**
+   — LAUNCHED this cycle on all 3 checkpoints that had finished
+   training: `durctrl-canary` (train-1), `durctrl-canary-s1`
+   (train-2), `durfix-canary` (train-3); `durfix-canary-s1` is still
+   training on train-4 and needs its own flat-only read once it
+   finishes (same command, its own checkpoint). DECISION: if `durfix`
+   clears
    meaningfully fewer near-instant-onset (`seq_end_t_s` within ~2s of
    the walk segment's start) `over_current` walk-segment terminations
    than `durctrl`, AND its progress/slip/direction move toward the

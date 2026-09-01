@@ -1,5 +1,65 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-09-01 ~00:4x (triage cycle on `valuewarmup-acq1-s1` —
+verdicted own-scope, joint pending seed0). Plain English: **the
+critic-freeze fix partially worked — for the first time this campaign
+the critic actually learns to reward turning — but the behavior still
+dies anyway.** Ran the gate's own two-checkpoint read myself on-pod
+(train-3): at the ~8M freeze-boundary snapshot (`s8126464`),
+`probe_yaw_credit` reads 2/4 combos CREDIT-REWARDS (wz_cmd=+0.25 both
+seeds, corr 0.24/0.29) vs 1 BLIND + 1 PUNISHES on wz_cmd=-0.25 — the
+FIRST-EVER CREDIT-REWARDS reads in the whole campaign (prior baseline:
+15/16 combos BLIND/PUNISHES across 5 checkpoints, 0 REWARDS); short of
+the gate's own >=3/4 PASS-mechanism bar but a real, novel signal.
+`probe_turn_authority` wz_med +0.132/+0.102, -0.136/-0.125 at that
+snapshot clears >=0.10 both signs (freeze held authority at canary
+level — confirmed mechanically: `eval/walk/direction_err_deg` in
+`wandb_history.csv` is byte-identical at global_step 4M vs 8M, direct
+proof the actor never moved during the freeze). At the final 38M
+checkpoint, `probe_yaw_credit` is STILL 2/4 REWARDS (same wz+0.25
+pattern persists through 30M more steps of normal PPO; both wz-0.25
+combos softened to BLIND) — but `probe_turn_authority` wz_med
+collapsed to **+0.0147/+0.0149 (pos), -0.0306/-0.0562 (neg)**,
+decisively under the 0.10 PASS bar on both signs. The positive sign —
+where credit assignment is now measurably fixed — sits LOWER than the
+already-FAILED `turnpay-acq1`'s own final pos read (+0.032/+0.053).
+**This is the key new finding: a partially-fixed credit signal did NOT
+translate into defended turn authority.** It complicates (does not
+confirm-sufficient) the campaign's working hypothesis that critic
+credit-assignment blindness alone explains the erosion — something
+else (PPO clip/objective dynamics on the shared GRU-dual trunk, or
+reward-scale dominance drowning even a now-correctly-signed but still
+small yaw advantage) is also driving the collapse. No DRIFT-BREAK
+(`env/walk_direction_err_deg` stayed in the same ~66-92deg
+non-turning-base band all run). `eval/walk/survived_frac` read 0/0 at
+steps 4M/8M then 1/1 at 17M/28M — informational, likely the harder
+in-training DR-tipped-start eval rather than a real fall (my own
+frozen-boundary probe rollout read `fell=false` on all 4 combos).
+Evidence: `logs/ckpt_eval/{yaw_credit,turn_authority}_dualbc6_
+turncap_mirroraug_valuewarmup_acq1_s1_{8M,final}.json` (built this
+cycle, on-pod). Verdicted `cw-standwalk-stage2-dualbc6-turncap-
+mirroraug-valuewarmup-acq1-s1` **ACQ FAIL (own scope)**. Standard
+gate/owncfg/mixedsession harnesses left running on train-3
+(informational, cannot flip this — durability clause already
+decisively missed). **Joint campaign call still needs seed0's own
+read** (evals were still syncing per orchestrator.log at cycle end,
+untriaged) — if seed0 shows the same asymmetric-partial-fix-still-
+erodes pattern, the 10th mechanism class (actor-freeze/value-warmup)
+closes refuted and the next real lever is either a longer/staged
+freeze (does credit-fix depth scale with freeze duration, and does
+the negative sign ever flip given more critic-only time?) or the
+harder reward-decomposed/multi-head critic architecture the original
+hypothesis named as its own fallback. **Flagging DIG-IN**: the
+"credit partially fixed, behavior still dies" result decides a real
+fork (stay on the critic-architecture track vs suspect a different
+mechanism — PPO clip/entropy/GRU-sharing — as the actual erosion
+driver) and deserves the full root-cause toolkit (behavior <-
+incentive <- pricing <- objective-dynamics chain) rather than a
+same-cycle guess. No other track had legal runnable GPU work this
+cycle (joystick/amp/cpg DONE-or-maintenance, todaypolicy delivered,
+walkcurr RETIRED, re-confirmed fresh) — did not launch a new arm
+ahead of seed0's own joint read landing. CYCLE_WORKED.
+
 Update, 2026-08-31 ~22:4x (triage cycle on `stillbal-acq1-s1` —
 JOINT CLOSE 2/2, then launched the architecture-side lever the
 campaign has been deferring behind it). Plain English: **the

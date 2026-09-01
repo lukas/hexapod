@@ -1,104 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~10:1x (this cycle — klrolltight2 DIG-IN resolved,
-reward-decomposed critic BUILT + tested + launched). Plain English:
-**closed the last open fork on the update-size-constraint axis, then
-built and launched the campaign's next lever (a critic that learns a
-SEPARATE value for the yaw reward alone) — its 2M canary pair is
-training now, not yet readable.**
+Update, 2026-09-01 ~10:5x (this cycle — yaw-credit canary pair READ +
+verdicted, follow-up grad-clip lever built + a 3-arm dose bracket
+launched). Plain English: **the reward-decomposed yaw critic's FIRST
+dose (coef=1.0/vf=0.5, no trust region) made turn authority WORSE than
+doing nothing — root cause looks like an oversized, unclipped actor
+step, so I built a gradient-norm clip for just that step and launched
+3 doses to find out if capping the step size recovers it.**
 
-1. **klrolltight2 DIG-IN resolved** (verdict: ACQ PARTIAL -
-   GUARD-REJECT-ALL, CRITIC-ONLY ARTIFACT, AXIS CLOSED). `--kl-
-   rollback=0.01` rejected EVERY post-unfreeze actor update
-   (rollback_count=457, actor tensors bit-identical 2M->38M via direct
-   state_dict diff) — an accidental critic-only continuation, not a
-   genuine tighter-dose test; its nominal wz "PASS" is a false
-   positive (untouched init carried forward). Fork decided: no guard
-   scale-down-and-retry fix funded — the whole freeze/value-warmup/
-   kl-rollback family already closed this window (klrolldriftmatch
-   matched-drift, n=4) at a ceiling a repaired guard would only
-   re-discover. Dose axis stops at 0.02.
-2. **Built the reward-decomposed (yaw-component) critic**
-   (`rl_move/sim/yaw_critic.py`, the campaign's own named next lever —
-   see the archived 09-01 ~09:0x head for the root-cause/scope).
-   `value_net_yaw` mirrors `value_net` off core-A's (locomotion)
-   DETACHED critic trunk, trained via its own hand-derived GAE
-   (cross-checked bit-identical against SB3's own
-   `compute_returns_and_advantage` on a random buffer) over
-   `reward_walk_yaw` alone; a separate (undetached) actor
-   policy-gradient step uses the yaw-only normalized advantage
-   (mathematically equivalent to summing it into the PPO advantage at
-   ratio=1 — matches this codebase's `mirror.py`/`bc_anchor.py`
-   separate-step house style, no sb3-contrib internals touched). New
-   cfg keys `train.yaw_credit_coef`/`_vf_coef` default 0/OFF, bit-exact
-   when off (pinned by test). 13/13 `test_yaw_critic.py` green.
-   Snapshots: `exp/yaw-decomposed-critic-standwalk-turnauth`,
-   `exp/yaw-decomposed-critic-fix-cudnn-and-checkpoint-shape`.
-   **Two real bugs found and fixed on the FIRST on-pod attempt (both
-   invisible to CPU unit tests, both now pinned by new regression
-   tests):** (a) `collect_rollouts` leaves the policy in eval mode;
-   a cuDNN RNN backward pass on GPU requires training mode to have
-   been set before the matching forward or the C++ backend raises —
-   fixed by `policy.set_training_mode(True)` at the top of the aux
-   step. (b) the yaw head must NEVER be a registered `nn.Module`
-   attribute or live in `policy.optimizer`'s param groups: every
-   launch here is a warm start, and a plain (yaw-credit-unaware)
-   `.load()` — used by the trainer's own bg-video helper,
-   `probe_turn_authority`, `pod_eval`, the gate harness — reconstructs
-   the policy from the checkpoint's OWN saved `policy_kwargs` then
-   crashes on `Unexpected key(s) in state_dict` / a param-group-count
-   mismatch. Fixed by keeping the head in a plain (non-`nn.Module`)
-   list with its OWN independent optimizer, invisible to
-   `state_dict()`/`policy.parameters()`/the main optimizer entirely —
-   every checkpoint this mechanism saves is byte-identical in shape to
-   a non-yaw-credit one.
-3. **Canary pair launched** off `turnpay-canary` (the campaign's
-   pre-registered plan): `cw-standwalk-stage2-dualbc6-turncap-
-   mirroraug-yawcredit-ctrl-canary` (matched control, coef=0, DONE at
-   2M) and `...-yawcredit-canary-rr1` (treatment, yaw_credit_coef=1.0/
-   vf_coef=0.5, `-rr1` because attempt 1 crashed on bug (a) above and
-   a W&B run already existed under the base name — training now,
-   confirmed past the crash point). Gate: PASS/PROMOTE if final wz_med
-   beats the control by >=0.02 both signs with gait/progress held;
-   INFORMATIVE if within ~0.01-0.02 (try a higher dose or shared-trunk
-   variant next); FAIL if gait/progress regress hard (cut dose). NOT
-   YET READABLE this cycle — next cycle's triage reads both finals.
+1. **yaw-credit canary pair verdicted** (own `probe_turn_authority`,
+   TURNCAP_CFG_SET, run myself on-pod): `...-ctrl-canary` -> CANARY
+   PASS (baseline, coef=0) wz_med pos avg **+0.083**/neg avg
+   **-0.138**. `...-canary-rr1` (coef=1.0/vf=0.5) -> **CANARY FAIL -
+   MECHANISM**: pos avg **+0.028**/neg avg **-0.097** — WORSE than
+   control BOTH signs by 0.04-0.055 (2-3x the 0.02 gate threshold,
+   wrong direction); reward-quarters crash deeper too (Q3/Q4
+   -337/-62 vs -208/-22). Evidence:
+   `logs/ckpt_eval/turn_probe_yawcredit_{ctrl_canary,canary_rr1}.json`.
+2. **Root cause + fix:** the extra actor pg step
+   (`yaw_critic.py::_yaw_credit_step`) shares the main optimizer with
+   NO trust region — the same update-SIZE failure shape the closed
+   freeze/kl-rollback family guards against, newly uncapped. Added
+   `train.yaw_credit_grad_clip` (default 0/off, bit-exact when unset)
+   = a plain `clip_grad_norm_` on just that step. 18/18
+   `test_yaw_critic.py` green (3 new). Snapshot:
+   `exp/yaw-credit-grad-clip-followup`.
+3. **3-arm dose bracket launched** (respec of `-rr1`, clip-only
+   lever): `grad_clip={0.15 (concurrent cycle's sibling, train-3), 0.5
+   (train-4), 2.0 (train-5)}`, all VERIFIED RUNNING.
 
-Previous entry (2026-09-01 ~09:0x, JOINT CLOSE 2/2 on the
-matched-actor-training-steps confound + the klrolltight2 DIG-IN
-flag) preserved VERBATIM in
-`archive/standwalk_STATUS_journal_2026-09-01_trim.md` (appended
-09-01 ~10:1x) — do not re-derive; read it there if needed.)
+Prior entries (klrolltight2 close, yaw-critic build, canary launch)
+VERBATIM in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
+## Next (meta 09-01 ~10:5x)
 
-## Next (meta 09-01 ~10:1x — current queue, in order)
+1. **Read the 3-arm grad-clip bracket**
+   (`gradclip{0p15,0p5,2p0}-canary`). PASS/PROMOTE the best dose if
+   wz_med clears the ctrl-canary baseline (0.083/-0.138) within 0.01
+   both signs + gait/progress held -> acquisition continuation.
+   INFORMATIVE if it beats rr1 (0.028/-0.097) by >=0.02 both signs but
+   short of parity -> intermediate dose. FAIL all 3 -> retire the
+   reward-decomposed-critic lever, accept the mirror-augment ceiling
+   (~0.075-0.09 pos/-0.10 to -0.12 neg) as durable; last untried axes
+   are a shared (non-detached) trunk or a smaller coef.
+2. **Standing bar:** new dual distillations need pre-RL
+   probe_turn_authority >=0.10 both signs; RL arms here are turn
+   RETENTION only, never discovery.
+3. **Closed — do not refund:** update-size constraints (all freeze/
+   value-warmup/kl-rollback doses), reward pricing, exploration
+   magnitude, anchor dose/isolate-update, turn-skip, yaw-credit
+   coef=1.0/vf=0.5 with NO grad clip. Evidence: the archive above.
 
-1. **Read the yaw-credit canary pair** (both launched this cycle, see
-   the Update banner): `...-yawcredit-ctrl-canary` (control, done at
-   2M) vs `...-yawcredit-canary-rr1` (treatment, training). PASS/
-   PROMOTE if treatment's final wz_med beats control by >=0.02 both
-   signs with gait/progress held; INFORMATIVE if within ~0.01-0.02
-   (next: coef 3.0-5.0 or a shared, non-detached trunk variant); FAIL
-   if gait/progress regress hard (cut dose 5-10x).
-2. **Standing bar (unchanged):** every new dual distillation must
-   pass pre-RL probe_turn_authority >=0.10 both signs (mirror-augment
-   is the known fix); RL arms on this line are funded as turn
-   RETENTION only, never turn discovery.
-3. **Closed lines — do not refund:** update-size constraints (actor-
-   freeze, value-warmup, kl-rollback 0.05/0.02/~0.01, incl. the
-   guard-reject-all 0.01 artifact; matched-drift confirmed n=4),
-   reward pricing (turnpay 1x/5x, yawscale 5x/15x, k_yaw_still, turn
-   density), exploration magnitude (log_std -0.8/-0.2, ent-coef),
-   anchor dose/isolate-update, turn-skip. Evidence:
-   archive/standwalk_STATUS_journal_2026-09-01_trim.md.
-
-
-> Journal archives (VERBATIM, meta trims): pre-08-30 in
-> `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 ~03:1x
-> through 09-01 ~10:1x in
-> `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
-> Current state lives in the newest Update at the TOP of this file;
-> do not act on archived Next items.
+> Journal archives (VERBATIM): pre-08-30 in
+> `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through
+> 09-01 ~10:5x in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
+> Current state = newest Update at the TOP; don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
 
@@ -156,7 +112,6 @@ Zero falls, directions followed, slip/m within the joystick band
 (<=~2.9), held-out panel n>=12, det+sto, DR-0 + own-DR.
 `eval_joystick_gate` covers the walk segment; the sit->rise->walk->
 lower session harness is stage-2 tooling to build.
-
 
 ## Landmines
 

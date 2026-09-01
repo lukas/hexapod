@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T21:07:33+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary
+
+**wandb_id**: 3uhwm8w5
 
 **hypothesis**: Plain English: today's flat-only sit->rise->walk->lower DONE-gate session on this exact checkpoint (and its seed1 twin) shows walk-segment over_current terminations clustering within 0.3-2.3s of the walk segment's own start (t=10.0s: seq_end_t_s 10.3-12.3 in 16/22 canary + 21/22 s1 terminations), and even the walk segments that survive barely progress (forward_dist ~0.08-0.1m over a nominal 60s) with course_err_1s_med ~100-109deg / wrong_course_frac ~0.6 -- while every isolated per-mode read used to tune this lineage (probe_turn_authority, the 'purewalk' canary evals, the standard DR-0/own-DR harness) runs short (~10-20s) episode windows, and this checkpoint's OWN training recipe (goal.mode_seq=0.75, default mode_seq_segment_s_min/max=6.0/8.0s inside a flat --episode-seconds=30) never once exposes it to more than ~8 continuous seconds of a single mode. This checkpoint has literally never experienced a continuous 60s walk segment -- the DONE gate's actual requirement -- so every mechanism verdict this campaign made (kl-rollback/value-warmup/yaw-credit/grad-clip) was read through a proxy (short-window turn-authority/purewalk probes) that may not predict the real gate at all. Single coupled lever: widen the sequence-episode segment-length band to reach into the gate's own script durations (mode_seq_segment_s_min/max 6/8 -> 20/60) and extend --episode-seconds 30->90 so a drawn segment can actually run that long before the episode ends, then warm-continue this exact checkpoint 2M steps. Prediction-if-true (duration-mismatch is the driver): this run's own eval_done_gate_session flat-only read (paired against the durctrl-canary matched no-cfg-change control) shows meaningfully fewer near-instant-walk-onset over_current terms and walk progress/slip/direction moving toward the isolated-probe band. Prediction-if-false: terminations keep clustering at the same post-switch offset regardless of what the policy has been trained to sustain, pointing at a state-discontinuity defect in the mode-switch mechanism itself (or a long-horizon reward-pricing problem), not a duration-curriculum gap.
 

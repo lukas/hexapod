@@ -1,0 +1,20 @@
+# cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-durctrl-canary
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-09-01T21:09:45+00:00
+
+**pod**: hexapod-mjx-train-1
+
+**steps**: 2000000
+
+**parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary
+
+**wandb_id**: yox05nod
+
+**hypothesis**: Matched control for durfix-canary (same cycle): identical warm start (gradclip0p15-canary checkpoint) and step budget (2M), but NO episode-seconds/mode_seq_segment_s widening -- isolates 'just 2M more training steps on the unchanged short-segment diet' from durfix's 'exposure to a genuinely long single-mode segment' as the explanation for any eval_done_gate_session improvement. Prediction: this control's own flat-only DONE-gate read stays at the same walk-segment near-instant-onset over_current signature as the un-continued parent (16/22 canary baseline), since nothing about the training diet changed.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. Comparison-only run: no independent PASS/FAIL bar. Its eval_done_gate_session flat-only read (n=8 min, video) is read jointly against durfix-canary's at the same step count -- if durfix clears bars this control does not, duration-mismatch is confirmed as (part of) the driver; if both move together, the improvement (if any) is just from extra steps, not the widened duration lever.
+

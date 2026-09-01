@@ -297,6 +297,18 @@ def make_yaw_credit_ppo_class(base_cls):
     class YawCreditPPO(base_cls):
         yaw_credit_coef: float = 0.0
         yaw_credit_vf_coef: float = 0.0
+        # Trust-region cap for the extra actor policy-gradient step
+        # ONLY (09-01, post-canary-FAIL follow-up: cw-standwalk-stage2-
+        # dualbc6-turncap-mirroraug-yawcredit-canary-rr1 read WORSE
+        # turn authority than its matched coef=0 control on BOTH
+        # signs at coef=1.0/vf=0.5 -- the pg step below is a plain,
+        # UNCLIPPED policy-gradient update sharing the main actor
+        # optimizer, exactly the update-SIZE shape the whole closed
+        # freeze/value-warmup/kl-rollback family exists to guard
+        # against. Default 0.0 = OFF/no clip (bit-exact vs the
+        # canary's own behavior when unset -- see
+        # test_yaw_credit_grad_clip_off_path_bit_exact).
+        yaw_credit_grad_clip: float = 0.0
 
         def _excluded_save_params(self) -> list:
             # Rollout data, not model state (the yaw value head lives
@@ -424,12 +436,26 @@ def make_yaw_credit_ppo_class(base_cls):
                 pg_loss = -(log_prob[gate_flat] * adv_norm.detach()).mean()
                 policy.optimizer.zero_grad()
                 (coef * pg_loss).backward()
+                clip = float(getattr(self, "yaw_credit_grad_clip", 0.0))
+                grad_norm = None
+                if clip > 0.0:
+                    # Clips ONLY this step's gradients -- zero_grad()
+                    # just above means no other params carry a stale
+                    # .grad at this point, and the main super().train()
+                    # PPO update below does its own independent
+                    # zero_grad/backward/(optional) clip per epoch, so
+                    # this never touches the main step's trust region.
+                    grad_norm = float(th.nn.utils.clip_grad_norm_(
+                        policy.parameters(), clip))
                 policy.optimizer.step()
                 if logger is not None:
                     logger.record("train/yaw_credit_pg_loss",
                                   float(pg_loss.item()))
                     logger.record("train/yaw_credit_adv_yaw_mean",
                                   float(adv_m.mean().item()))
+                    if grad_norm is not None:
+                        logger.record("train/yaw_credit_grad_norm",
+                                      grad_norm)
             if logger is not None:
                 logger.record("train/yaw_credit_n_masked", float(n_mask))
 
@@ -437,7 +463,7 @@ def make_yaw_credit_ppo_class(base_cls):
 
 
 def attach_yaw_credit(model, *, coef: float, vf_coef: float,
-                      cfg: dict | None) -> None:
+                      cfg: dict | None, grad_clip: float = 0.0) -> None:
     """Validates the run can actually produce a live signal (same
     "never silently no-op at launch" contract as
     ``bc_anchor.attach_bc_anchor``), attaches the value head, and sets
@@ -458,3 +484,4 @@ def attach_yaw_credit(model, *, coef: float, vf_coef: float,
     attach_yaw_value_head(model.policy)
     model.yaw_credit_coef = float(coef)
     model.yaw_credit_vf_coef = float(vf_coef)
+    model.yaw_credit_grad_clip = float(grad_clip)

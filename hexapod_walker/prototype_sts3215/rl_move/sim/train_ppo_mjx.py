@@ -2608,6 +2608,8 @@ def main(argv: list[str] | None = None) -> int:
         "train.yaw_credit_coef", 0.0) or 0.0)
     yaw_credit_vf_coef = float(_parse_cfg_set(args.cfg_set).get(
         "train.yaw_credit_vf_coef", 0.0) or 0.0)
+    yaw_credit_grad_clip = float(_parse_cfg_set(args.cfg_set).get(
+        "train.yaw_credit_grad_clip", 0.0) or 0.0)
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -3496,6 +3498,7 @@ def main(argv: list[str] | None = None) -> int:
         from .yaw_critic import attach_yaw_credit
         attach_yaw_credit(model, coef=yaw_credit_coef,
                           vf_coef=yaw_credit_vf_coef,
+                          grad_clip=yaw_credit_grad_clip,
                           cfg=env_kw.get("cfg"))
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:

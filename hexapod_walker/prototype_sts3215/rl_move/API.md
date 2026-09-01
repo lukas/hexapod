@@ -78,7 +78,10 @@ resume automatically. Heat requires three consecutive over-threshold samples
 from the same joint. After a thermal limp, the raw camera and telemetry logs
 remain open until three complete samples are below the warm threshold (or the
 five-minute cooldown timeout). A later safe-zero requires explicit operator
-authorization.
+authorization. Tilt also requires three valid consecutive samples; an
+instantaneous near-180-degree Euler jump that contradicts the gyro is logged
+and excluded from the trip vote rather than being mistaken for a physical
+tip.
 
 The survey keeps the initial operator-approved chassis image position as its
 centering anchor and resolves duplicate floor-tag IDs by global reprojection

@@ -103,7 +103,10 @@ consecutive over-threshold readings from the same joint. After a thermal stop,
 raw video and telemetry continue until three complete readings are below the
 warm threshold (or a five-minute timeout); the robot remains limp until the
 operator explicitly authorizes a collision-aware safe-zero recovery. The
-operator must remain present.
+operator must remain present. A hard tilt stop likewise requires three valid
+consecutive samples. An approximately 180-degree Euler jump is rejected when
+it is discontinuous with the last trusted attitude and the gyro reports only
+small motion; the raw sample and a `tilt_glitch_ignored` event are still saved.
 
 After hardware motion ends, the Mac processes the raw video into AprilTag
 JSONL plus annotated MP4, replays the selected protocol in MuJoCo, renders a
@@ -149,6 +152,12 @@ garage direction points to floor grade or surface friction; an advantage that
 stays in robot-local forward/backward points to the gait/controller. Capture a
 new starting anchor after the rotation. Do not compare unpaired sessions or
 reuse the old image anchor.
+
+The 2026-09-01 rotation test found gait 0's large forward/backward split in
+both robot orientations, while gait 9 remained nearly symmetric. That result
+points primarily to gait/controller asymmetry rather than garage grade. A
+small floor contribution is still possible and should remain in MuJoCo domain
+randomization.
 
 For ordinary infrastructure or centering failures after motion, the suite now
 stops, runs collision-aware safe-zero, verifies all 18 joints within 6°, and

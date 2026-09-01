@@ -1,5 +1,57 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-09-01 ~01:0x (DIG-IN cycle: valuewarmup joint close +
+root cause measured + klroll pair launched). Plain English: **the
+critic-freeze warmup genuinely fixed the critic — seed0 hit the
+gate's full mechanism-PASS bar, first of the whole campaign — but
+the behavior still collapsed, and the dig-in found the measured
+culprit: PPO's realized update sizes are enormous, including a
+catastrophic single update at the unfreeze boundary.** Ran seed0's
+own two-checkpoint read + a 12-point erosion curve on train-0 (own
+TURNCAP_CFG_SET): (1) 8M freeze boundary: `probe_yaw_credit` 3/4
+CREDIT-REWARDS (corr +0.31/+0.26/+0.24; 4th combo +0.23 classified
+BLIND) — **meets the >=3/4 PASS-mechanism bar** (s1 got 2/4);
+authority +0.108/+0.114, −0.147/−0.152 >=0.10 both signs. So
+co-training non-stationarity WAS a real cause of critic credit
+blindness. (2) Final 38M: authority +0.029/+0.032, −0.069/−0.065 —
+floor again; and the credit fix itself DECAYS (4/4 BLIND already by
+16M, corr 0.09–0.14) once co-training resumes. Curve:
+2M/8M ~canary, 10M pos 0.063 (−43% within 2M of unfreeze), 12M
+rebound 0.088, then chronic grind 0.072/0.060/0.040 → 0.03 floor.
+**Root cause (wandb_history, both seeds): the FIRST post-unfreeze
+update realized approx_kl 3.76 (s1: 4.90)** vs 5e-6 frozen, elevated
+0.2–0.8 for ~1.5M steps — an advantage shock (8M of critic-only
+convergence → large confident advantages → actor slams in at full
+LR); the collapse window coincides exactly. Beyond the shock, EVERY
+run in this family trains at realized approx_kl 0.08–0.15 /
+clip_fraction ~0.28 despite default `--target-kl 0.02` (SB3
+early-stop cannot undo an applied minibatch — `update_health.py`'s
+own documented gap). Verdicted seed0 **ACQ FAIL — MECHANISM PASS,
+DURABILITY FAIL, JOINT CLOSE 2/2** (10th mechanism class closed:
+warmup alone insufficient). Methodology note: `env/reward_walk_yaw`
+declined 0.37→0.24 during the freeze with the actor PROVABLY frozen
+— that in-training decline shape is an env/logging artifact, never
+cite it as erosion evidence again. Evidence:
+`logs/ckpt_eval/{yaw_credit,turn_authority}_dualbc6_turncap_
+mirroraug_valuewarmup_acq1_{2M,8M,10M,12M,14M,16M,20M,24M,28M,32M,
+36M,final}.json` (synced to controller). **Launched the measured
+countermeasure (already built+tested, never used in this family:
+`--kl-rollback=0.05`, transactional update rollback + actor-LR
+backoff on realized-KL overshoot), one seed each under the 80M/cycle
+cap: `cw-standwalk-stage2-dualbc6-turncap-mirroraug-valuewarmup-
+klroll-acq1` (warmup + guard, VERIFIED RUNNING train-0) and a
+no-freeze guard-only control.** Concurrency note: a concurrent cycle
+independently launched the same control off the same verdict —
+`...-klrollctrl-acq1` (train-1, identical cfg+seed, created 7 min
+before my `...-klroll-acq1`); I killed MY later duplicate at ~1M
+(ledger KILLED, train-2 freed) — **the live pair is
+`valuewarmup-klroll-acq1` (train-0) + `klrollctrl-acq1`
+(train-1).** Joint read decides: guard sufficient alone / both
+needed / oversized-update hypothesis refuted (→ escalate to
+reward-decomposed multi-head critic). Next cycle: seed twins if
+informative; pull seed0's still-mid-flight gate/owncfg/mixedsession
+for the campaign record (cannot flip).
+
 Update, 2026-09-01 ~00:4x (triage cycle on `valuewarmup-acq1-s1` —
 verdicted own-scope, joint pending seed0). Plain English: **the
 critic-freeze fix partially worked — for the first time this campaign

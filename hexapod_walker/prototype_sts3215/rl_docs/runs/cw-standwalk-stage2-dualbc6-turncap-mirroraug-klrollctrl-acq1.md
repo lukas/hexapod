@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T01:00:28+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 38000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-turnpay-canary
+
+**wandb_id**: loa21si2
 
 **hypothesis**: Is bounded-KL alone (no actor freeze) sufficient to stop turn-authority erosion, isolating kl-rollback from the value-warmup freeze it was paired with in the sibling klroll-acq1 arm?
 

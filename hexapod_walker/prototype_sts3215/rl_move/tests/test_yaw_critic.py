@@ -119,18 +119,32 @@ def test_attach_yaw_value_head_requires_dual_policy():
 
 
 def test_attach_yaw_value_head_idempotent_and_mirrors_value_net():
+    from rl_move.sim.yaw_critic import _yaw_head
     pol = _dual_policy()
+    main_groups_before = [dict(g) for g in pol.optimizer.param_groups]
     attach_yaw_value_head(pol)
-    assert hasattr(pol, "value_net_yaw")
-    w1 = pol.value_net_yaw.weight.clone()
+    head = _yaw_head(pol)
+    w1 = head.weight.clone()
     attach_yaw_value_head(pol)  # second call: no-op, no re-init
-    assert pol.value_net_yaw.weight is w1 or th.equal(
-        pol.value_net_yaw.weight, w1)
-    assert (pol.value_net_yaw.weight.shape
-            == pol.value_net.weight.shape)
-    # Optimizer now covers the new head.
-    ids = {id(p) for g in pol.optimizer.param_groups for p in g["params"]}
-    assert all(id(p) in ids for p in pol.value_net_yaw.parameters())
+    assert _yaw_head(pol) is head
+    assert th.equal(_yaw_head(pol).weight, w1)
+    assert head.weight.shape == pol.value_net.weight.shape
+    # The MAIN optimizer is untouched (own SEPARATE optimizer instead
+    # -- see the docstring: an added param group there would change
+    # the checkpoint's saved optimizer shape and break loading by any
+    # yaw-credit-unaware tool).
+    assert pol.optimizer.param_groups == main_groups_before
+    yaw_ids = {id(p) for g in pol._yaw_value_optimizer.param_groups
+              for p in g["params"]}
+    assert all(id(p) in yaw_ids for p in head.parameters())
+    # NOT a registered submodule -- must never appear in state_dict()
+    # or policy.parameters() (see attach_yaw_value_head's docstring:
+    # this is what keeps every checkpoint loadable by yaw-credit-
+    # unaware tools).
+    sd_keys = pol.state_dict().keys()
+    assert not any("yaw" in k.lower() for k in sd_keys), sd_keys
+    head_ids = {id(p) for p in head.parameters()}
+    assert not any(id(p) in head_ids for p in pol.parameters())
 
 
 def test_value_yaw_over_sequence_detach_trunk_isolates_gradient():
@@ -153,8 +167,9 @@ def test_value_yaw_over_sequence_detach_trunk_isolates_gradient():
     for p in trunk:
         assert p.grad is None or float(p.grad.abs().sum()) == 0.0, \
             "detach_trunk leaked gradient into the shared critic trunk"
+    from rl_move.sim.yaw_critic import _yaw_head
     assert any(p.grad is not None and float(p.grad.abs().sum()) > 0.0
-              for p in pol.value_net_yaw.parameters())
+              for p in _yaw_head(pol).parameters())
 
 
 def test_value_yaw_over_sequence_without_head_raises():
@@ -225,6 +240,25 @@ class _DeterministicYawEnv(_TinyYawEnv):
         return np.concatenate([core, _onehot_tail(3)])
 
 
+def test_yaw_credit_checkpoint_loadable_by_a_plain_recurrentppo(tmp_path):
+    """Regression for the 09-01 canary crash: the trainer's own
+    background video helper (and probe_turn_authority/pod_eval/the
+    gate harness -- every consumer that reconstructs the policy from
+    ITS OWN saved policy_kwargs before calling set_parameters) loaded
+    a yaw-credit checkpoint through a plain, yaw-credit-UNAWARE
+    RecurrentPPO.load() and crashed: "Unexpected key(s) in
+    state_dict(): value_net_yaw.weight/.bias". The yaw head must never
+    appear in the saved state_dict at all."""
+    from sb3_contrib import RecurrentPPO
+
+    model = _yaw_model()
+    ckpt = tmp_path / "yawcredit_ckpt.zip"
+    model.save(ckpt)
+    # Must load with the STOCK class, no yaw_critic knowledge at all.
+    reloaded = RecurrentPPO.load(ckpt, device="cpu")
+    assert isinstance(reloaded.policy, DualGruActorCriticPolicy)
+
+
 def test_yaw_credit_off_path_is_bit_exact():
     """coef=0 and vf_coef=0 -> _yaw_credit_step is a hard no-op even
     with the collector wired and the head attached: PPO's own train()
@@ -285,6 +319,32 @@ def test_yaw_credit_step_runs_and_trains_yaw_head():
     assert "train/yaw_credit_pg_loss" in val
     assert np.isfinite(val["train/yaw_credit_vf_loss"])
     assert np.isfinite(val["train/yaw_credit_pg_loss"])
+
+
+def test_yaw_credit_step_restores_training_mode():
+    """Regression for the 09-01 canary crash: collect_rollouts leaves
+    the policy in eval mode (set_training_mode(False)) before
+    train() runs; a cuDNN RNN backward pass on GPU REQUIRES training
+    mode to have been set before the matching forward, so
+    _yaw_credit_step must flip it back to True before it does any of
+    its own forward+backward work (CPU torch does not enforce this,
+    so a CPU-only test cannot reproduce the crash directly -- this
+    pins the fix's observable effect instead)."""
+    model = _yaw_model()
+    from stable_baselines3.common.logger import configure
+    model.set_logger(configure(None, ["stdout"]))
+    cb = make_yaw_credit_collect_callback()
+    from stable_baselines3.common.callbacks import CallbackList
+    model._setup_learn(16, CallbackList([cb]))
+    callback = CallbackList([cb])
+    callback.init_callback(model)
+    callback.on_training_start(locals(), globals())
+    model.collect_rollouts(model.env, callback, model.rollout_buffer,
+                           model.n_steps)
+    assert model.policy.training is False, \
+        "test precondition: collect_rollouts should leave eval mode"
+    model._yaw_credit_step()  # must not raise, must restore train mode
+    assert model.policy.training is True
 
 
 def test_yaw_credit_step_noop_without_collector_callback():

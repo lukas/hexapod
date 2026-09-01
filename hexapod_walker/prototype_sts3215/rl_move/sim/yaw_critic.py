@@ -134,22 +134,72 @@ def _swap_flat(arr: np.ndarray) -> np.ndarray:
 # --------------------------------------------------------------------
 
 def attach_yaw_value_head(policy) -> None:
-    """Idempotent. Adds ``value_net_yaw`` (deep-copied architecture of
-    ``value_net``, core-A/locomotion only) if not already present, and
-    rebuilds the optimizer over the enlarged parameter set (same
-    pattern ``DualGruActorCriticPolicy.__init__`` uses for
-    ``value_net_b``/``log_std_b``)."""
+    """Idempotent. Adds a yaw-only value head (deep-copied architecture
+    of ``value_net``, core-A/locomotion only) if not already present.
+
+    DELIBERATELY NOT a registered ``nn.Module`` attribute (unlike
+    ``value_net_b``/``log_std_b``, which the constructor itself owns
+    and which therefore round-trip through save/load via the
+    checkpoint's own ``policy_kwargs``): every launch on this campaign
+    is a WARM START (``--init-from``), and ``BaseAlgorithm.load()``
+    reconstructs the policy from the CHECKPOINT's OWN saved
+    ``policy_kwargs`` — a constructor kwarg added only at attach-time
+    has nowhere to round-trip to, so it would need to be threaded
+    through every consumer of a yaw-credit-enabled checkpoint
+    (``probe_turn_authority``, ``pod_eval``, the gate harness, the
+    trainer's own background video helper) or every one of them raises
+    ``Unexpected key(s) in state_dict: "value_net_yaw.*"`` on load
+    (hit for real, 09-01 canary attempt 1: the bg-video helper crashed
+    exactly this way). Keeping the head OUT of ``policy.state_dict()``
+    entirely sidesteps the whole problem: every checkpoint this run
+    saves is byte-identical in shape to a non-yaw-credit checkpoint,
+    loadable by every existing tool unmodified. The head is stored in
+    a plain ``list`` (invisible to ``nn.Module``'s parameter/
+    state_dict traversal, which only follows registered Parameter/
+    Module children) and its parameters are added to the EXISTING
+    optimizer via ``add_param_group`` — NOT a full optimizer rebuild,
+    which would discard the Adam momentum ``.load()`` restores for
+    every pre-existing (warm-started) parameter.
+
+    Cost of this choice: the yaw head does not persist across a
+    training restart/respec boundary (each resume re-attaches a FRESH
+    head). Acceptable for an auxiliary, experimental credit signal —
+    it does not touch the actor's own warm-started weights, which are
+    the ones this campaign actually needs to survive a restart.
+    """
     from .gru_policy import DualGruActorCriticPolicy
     if not isinstance(policy, DualGruActorCriticPolicy):
         raise ValueError("attach_yaw_value_head requires a "
                          "DualGruActorCriticPolicy (pass --gru-dual)")
-    if hasattr(policy, "value_net_yaw"):
+    if getattr(policy, "_yaw_value_head_holder", None) is not None:
         return
     import copy
-    policy.value_net_yaw = copy.deepcopy(policy.value_net)
+    head = copy.deepcopy(policy.value_net)
+    policy._yaw_value_head_holder = [head]
+    # A SEPARATE optimizer, not policy.optimizer.add_param_group(...):
+    # SB3 saves policy.optimizer.state_dict() into every checkpoint,
+    # and an added param group changes its SHAPE -- a plain (yaw-
+    # credit-unaware) RecurrentPPO.load() reconstructs a fresh
+    # single-group optimizer from the checkpoint's own policy_kwargs,
+    # then torch.optim.Optimizer.load_state_dict raises "loaded state
+    # dict has a different number of parameter groups" (hit for real,
+    # 09-01 canary attempt 2 -- see test_yaw_credit_checkpoint_
+    # loadable_by_a_plain_recurrentppo). A fully independent optimizer
+    # that SB3 never knows about, never saves, and never restores
+    # sidesteps this completely, and as a bonus never disturbs the
+    # Adam momentum ``.load()`` restores for every pre-existing
+    # (warm-started) parameter in the MAIN optimizer.
     lr = policy.optimizer.defaults["lr"]
-    policy.optimizer = policy.optimizer_class(
-        policy.parameters(), lr=lr, **policy.optimizer_kwargs)
+    policy._yaw_value_optimizer = policy.optimizer_class(
+        head.parameters(), lr=lr, **policy.optimizer_kwargs)
+
+
+def _yaw_head(policy):
+    holder = getattr(policy, "_yaw_value_head_holder", None)
+    if holder is None:
+        raise RuntimeError("attach_yaw_value_head was not called on "
+                           "this policy")
+    return holder[0]
 
 
 def value_yaw_over_sequence(policy, obs_flat: th.Tensor,
@@ -174,9 +224,7 @@ def value_yaw_over_sequence(policy, obs_flat: th.Tensor,
     """
     from .gru_policy import GruActorCriticPolicy
     from stable_baselines3.common.policies import ActorCriticPolicy
-    if not hasattr(policy, "value_net_yaw"):
-        raise RuntimeError("attach_yaw_value_head was not called on "
-                           "this policy")
+    head = _yaw_head(policy)
     feats = super(ActorCriticPolicy, policy).extract_features(
         obs_flat, policy.vf_features_extractor)
     zero = th.zeros_like(h0)
@@ -185,7 +233,7 @@ def value_yaw_over_sequence(policy, obs_flat: th.Tensor,
     trunk = policy.mlp_extractor.forward_critic(out_a)
     if detach_trunk:
         trunk = trunk.detach()
-    return policy.value_net_yaw(trunk).flatten()
+    return head(trunk).flatten()
 
 
 def actor_mean_core_a_over_sequence(policy, obs_flat: th.Tensor,
@@ -251,8 +299,11 @@ def make_yaw_credit_ppo_class(base_cls):
         yaw_credit_vf_coef: float = 0.0
 
         def _excluded_save_params(self) -> list:
-            # Rollout data, not model state (value_net_yaw itself IS
-            # model state — a real nn.Module — and saves normally).
+            # Rollout data, not model state (the yaw value head lives
+            # in policy._yaw_value_head_holder, a plain list invisible
+            # to nn.Module's own state_dict traversal -- see
+            # attach_yaw_value_head's docstring for why it must stay
+            # that way).
             return super()._excluded_save_params() + ["_yawcred_rew"]
 
         def train(self) -> None:
@@ -265,7 +316,7 @@ def make_yaw_credit_ppo_class(base_cls):
             if coef <= 0.0 and vf_coef <= 0.0:
                 return
             policy = self.policy
-            if not hasattr(policy, "value_net_yaw"):
+            if getattr(policy, "_yaw_value_head_holder", None) is None:
                 return  # not attached -- defensive no-op, never crash
             buf = self.rollout_buffer
             if getattr(buf, "generator_ready", False):
@@ -274,6 +325,17 @@ def make_yaw_credit_ppo_class(base_cls):
                 raise RuntimeError(
                     "_yaw_credit_step must run before super().train() "
                     "consumes the rollout buffer")
+            # collect_rollouts leaves the policy in eval mode
+            # (set_training_mode(False), sb3-contrib convention); a
+            # cuDNN RNN backward pass REQUIRES training mode to have
+            # been set before its matching forward pass or the C++
+            # backend raises ("cudnn RNN backward can only be called
+            # in training mode") -- caught on-pod (GPU/cuDNN), not by
+            # the CPU unit tests (cuDNN isn't in the CPU path at all).
+            # super().train() would flip this right back to True
+            # itself in a moment; doing it here first just makes OUR
+            # forward+backward passes consistent too.
+            policy.set_training_mode(True)
             yaw_rew = getattr(self, "_yawcred_rew", None)
             n_steps, n_envs = buf.rewards.shape
             if (yaw_rew is None
@@ -333,9 +395,10 @@ def make_yaw_credit_ppo_class(base_cls):
                     dtype=th.float32)
                 vf_loss = th.nn.functional.mse_loss(
                     value_yaw_pred[gate_flat], ret_yaw_flat[gate_flat])
-                policy.optimizer.zero_grad()
+                yaw_opt = policy._yaw_value_optimizer
+                yaw_opt.zero_grad()
                 (vf_coef * vf_loss).backward()
-                policy.optimizer.step()
+                yaw_opt.step()
                 if logger is not None:
                     logger.record("train/yaw_credit_vf_loss",
                                   float(vf_loss.item()))

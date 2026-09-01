@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T11:03:07+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-canary-rr1
+
+**wandb_id**: u64d1bho
 
 **hypothesis**: Plain English: dose-bracket sibling of this cycle's gradclip0p5-canary (launched moments earlier, batched per operator 08-22 batch-the-grid rule instead of dribbling one clip value per cycle) -- does a TIGHTER trust-region clip (0.15, ~3x tighter than 0.5) on the same coef=1.0/vf_coef=0.5 yaw-advantage actor step recover parity with the matched coef=0 control (pos avg 0.083/neg avg -0.138) more fully than 0.5 does, confirming a monotonic dose-response (tighter=better, i.e. update SIZE is the whole story) vs the alternative that even the tightest clip still regresses (update DIRECTION is the problem, not size, ruling out grad-clip as a class of fix entirely)? Same parent/init/seed/recipe as gradclip0p5-canary and the rr1 FAIL, single lever changed (clip value only).
 

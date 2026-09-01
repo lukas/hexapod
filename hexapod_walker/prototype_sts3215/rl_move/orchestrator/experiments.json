@@ -251783,7 +251783,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-01T12:30:10"
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-acq1",

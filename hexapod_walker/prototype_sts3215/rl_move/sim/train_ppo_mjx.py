@@ -2598,6 +2598,16 @@ def main(argv: list[str] | None = None) -> int:
         from .bc_anchor import make_bc_anchor_ppo_class
         algo_cls = make_bc_anchor_ppo_class(algo_cls)
         print(f"[mjx-train] BC anchor loss ON (coef={bc_coef})")
+    # Reward-decomposed (yaw-component) critic (cfg-gated, default off
+    # -- see rl_move/sim/yaw_critic.py; standwalk turn-authority
+    # retention campaign's next lever after the whole update-size-
+    # constraint mechanism family closed, 09-01). Composes with
+    # BCAnchorPPO/MirrorPPO the same way those compose with each
+    # other -- wraps whatever algo_cls already is.
+    yaw_credit_coef = float(_parse_cfg_set(args.cfg_set).get(
+        "train.yaw_credit_coef", 0.0) or 0.0)
+    yaw_credit_vf_coef = float(_parse_cfg_set(args.cfg_set).get(
+        "train.yaw_credit_vf_coef", 0.0) or 0.0)
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
@@ -2660,6 +2670,17 @@ def main(argv: list[str] | None = None) -> int:
             # bc_anchor.py::_bc_policy_mean).
             from .bc_anchor import make_bc_anchor_ppo_class
             algo_cls = make_bc_anchor_ppo_class(RecurrentPPO)
+        if yaw_credit_coef > 0.0 or yaw_credit_vf_coef > 0.0:
+            if not args.gru_dual:
+                raise SystemExit(
+                    "train.yaw_credit_coef/_vf_coef require --gru-dual "
+                    "(the yaw-value head hangs off "
+                    "DualGruActorCriticPolicy's core-A critic)")
+            from .yaw_critic import make_yaw_credit_ppo_class
+            algo_cls = make_yaw_credit_ppo_class(algo_cls)
+            print("[mjx-train] yaw-decomposed critic ON "
+                  f"(pg_coef={yaw_credit_coef}, "
+                  f"vf_coef={yaw_credit_vf_coef})")
         policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
                       else DualGruActorCriticPolicy if args.gru_dual
                       else GruActorCriticPolicy)
@@ -3471,6 +3492,11 @@ def main(argv: list[str] | None = None) -> int:
         from .bc_anchor import attach_bc_anchor
         attach_bc_anchor(model, coef=bc_coef, cfg=env_kw.get("cfg"),
                          task=args.task)
+    if yaw_credit_coef > 0.0 or yaw_credit_vf_coef > 0.0:
+        from .yaw_critic import attach_yaw_credit
+        attach_yaw_credit(model, coef=yaw_credit_coef,
+                          vf_coef=yaw_credit_vf_coef,
+                          cfg=env_kw.get("cfg"))
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
         from .update_health import (CRITIC_MARKERS,
@@ -4564,6 +4590,9 @@ def main(argv: list[str] | None = None) -> int:
     if bc_coef > 0.0:
         from .bc_anchor import make_bc_collect_callback
         callbacks.append(make_bc_collect_callback())
+    if yaw_credit_coef > 0.0 or yaw_credit_vf_coef > 0.0:
+        from .yaw_critic import make_yaw_credit_collect_callback
+        callbacks.append(make_yaw_credit_collect_callback())
 
     cert_cb = None
     if (args.recover_cert_every > 0 and args.recover_cert_envs > 0

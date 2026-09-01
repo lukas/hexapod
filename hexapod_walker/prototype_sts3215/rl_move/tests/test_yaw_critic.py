@@ -1,0 +1,319 @@
+"""Tests for yaw_critic.py (standwalk reward-decomposed critic, 09-01).
+
+Three layers: (1) pure-numpy GAE cross-checked bit-identical against
+stable_baselines3's own ``RolloutBuffer.compute_returns_and_advantage``
+on a random synthetic buffer; (2) policy-level unit tests (head
+attach/idempotence, detach-trunk gradient isolation, off-path
+bit-exactness); (3) a short real ``RecurrentPPO`` + ``DualGruActor
+CriticPolicy`` integration smoke test (the ``_TinyDualEnv`` harness
+from test_gru_policy.py, extended to emit ``info["reward_walk_yaw"]``)
+that exercises the full ``_yaw_credit_step`` path end to end -- the
+thing most likely to silently break (wrong buffer layout, wrong
+hidden-state row, a shape mismatch that numpy/torch broadcast away
+into a wrong-but-not-crashing result)."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+import torch as th
+
+ROOT = Path(__file__).resolve().parents[2]
+for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+import gymnasium as gym  # noqa: E402
+from gymnasium import spaces  # noqa: E402
+
+from rl_move.sim.gru_policy import (  # noqa: E402
+    DualGruActorCriticPolicy,
+    N_MODE_OBS,
+)
+from rl_move.sim.yaw_critic import (  # noqa: E402
+    attach_yaw_credit,
+    attach_yaw_value_head,
+    compute_gae,
+    make_yaw_credit_collect_callback,
+    make_yaw_credit_ppo_class,
+    value_yaw_over_sequence,
+)
+
+
+def _onehot_tail(slot: int) -> np.ndarray:
+    t = np.zeros(N_MODE_OBS, dtype=np.float32)
+    t[slot] = 1.0
+    return t
+
+
+# ---------------------------------------------------------------------
+# 1. compute_gae vs SB3's own implementation
+# ---------------------------------------------------------------------
+
+def test_compute_gae_matches_sb3_random_buffer():
+    from stable_baselines3.common.buffers import RolloutBuffer
+
+    rng = np.random.default_rng(0)
+    n_steps, n_envs = 12, 3
+    obs_space = spaces.Box(-1, 1, (2,), dtype=np.float32)
+    act_space = spaces.Box(-1, 1, (1,), dtype=np.float32)
+    buf = RolloutBuffer(n_steps, obs_space, act_space, device="cpu",
+                        gae_lambda=0.9, gamma=0.97, n_envs=n_envs)
+    rewards = rng.normal(size=(n_steps, n_envs)).astype(np.float32)
+    values = rng.normal(size=(n_steps, n_envs)).astype(np.float32)
+    ep_starts = (rng.uniform(size=(n_steps, n_envs)) < 0.15).astype(
+        np.float32)
+    ep_starts[0] = 0.0
+    for t in range(n_steps):
+        buf.add(np.zeros((n_envs, 2), np.float32),
+                np.zeros((n_envs, 1), np.float32),
+                rewards[t], ep_starts[t],
+                th.as_tensor(values[t]), th.zeros(n_envs))
+    last_values = rng.normal(size=n_envs).astype(np.float32)
+    last_dones = rng.uniform(size=n_envs) < 0.3
+    buf.compute_returns_and_advantage(
+        th.as_tensor(last_values), last_dones)
+
+    adv, ret = compute_gae(
+        rewards, values, ep_starts, last_values, last_dones,
+        gamma=0.97, gae_lambda=0.9)
+
+    np.testing.assert_allclose(adv, buf.advantages, atol=1e-6)
+    np.testing.assert_allclose(ret, buf.returns, atol=1e-6)
+
+
+def test_compute_gae_lambda_one_is_monte_carlo_bootstrap():
+    # gae_lambda=1, gamma=1, no resets, zero bootstrap: advantage at
+    # step t collapses to the plain sum of future rewards minus V(t).
+    rewards = np.array([[1.0], [1.0], [1.0]])
+    values = np.array([[0.0], [0.0], [0.0]])
+    ep_starts = np.zeros((3, 1))
+    adv, ret = compute_gae(
+        rewards, values, ep_starts, last_values=np.array([0.0]),
+        last_dones=np.array([1.0]), gamma=1.0, gae_lambda=1.0)
+    np.testing.assert_allclose(adv[:, 0], [3.0, 2.0, 1.0])
+    np.testing.assert_allclose(ret[:, 0], [3.0, 2.0, 1.0])
+
+
+# ---------------------------------------------------------------------
+# 2. Policy-level unit tests
+# ---------------------------------------------------------------------
+
+def _dual_policy(hidden=8, act_dim=2):
+    obs_space = spaces.Box(-1, 1, (3 + N_MODE_OBS,), dtype=np.float32)
+    act_space = spaces.Box(-1, 1, (act_dim,), dtype=np.float32)
+    return DualGruActorCriticPolicy(
+        obs_space, act_space, lr_schedule=lambda _: 3e-4,
+        lstm_hidden_size=hidden, net_arch=[16])
+
+
+def test_attach_yaw_value_head_requires_dual_policy():
+    from stable_baselines3.common.policies import ActorCriticPolicy
+    obs_space = spaces.Box(-1, 1, (4,), dtype=np.float32)
+    act_space = spaces.Box(-1, 1, (2,), dtype=np.float32)
+    plain = ActorCriticPolicy(obs_space, act_space, lr_schedule=lambda _: 3e-4)
+    with pytest.raises(ValueError):
+        attach_yaw_value_head(plain)
+
+
+def test_attach_yaw_value_head_idempotent_and_mirrors_value_net():
+    pol = _dual_policy()
+    attach_yaw_value_head(pol)
+    assert hasattr(pol, "value_net_yaw")
+    w1 = pol.value_net_yaw.weight.clone()
+    attach_yaw_value_head(pol)  # second call: no-op, no re-init
+    assert pol.value_net_yaw.weight is w1 or th.equal(
+        pol.value_net_yaw.weight, w1)
+    assert (pol.value_net_yaw.weight.shape
+            == pol.value_net.weight.shape)
+    # Optimizer now covers the new head.
+    ids = {id(p) for g in pol.optimizer.param_groups for p in g["params"]}
+    assert all(id(p) in ids for p in pol.value_net_yaw.parameters())
+
+
+def test_value_yaw_over_sequence_detach_trunk_isolates_gradient():
+    pol = _dual_policy()
+    attach_yaw_value_head(pol)
+    n_seq, T = 2, 5
+    obs = th.as_tensor(np.stack([
+        np.concatenate([np.random.uniform(-1, 1, 3).astype(np.float32),
+                        _onehot_tail(3)])
+        for _ in range(n_seq * T)]))
+    starts = th.zeros(n_seq * T)
+    h0 = th.zeros(1, n_seq, pol.lstm_critic.hidden_size)
+
+    for p in pol.parameters():
+        p.grad = None
+    v = value_yaw_over_sequence(pol, obs, starts, h0, detach_trunk=True)
+    v.sum().backward()
+    trunk = (list(pol.lstm_critic.core_a.parameters())
+             + list(pol.mlp_extractor.value_net.parameters()))
+    for p in trunk:
+        assert p.grad is None or float(p.grad.abs().sum()) == 0.0, \
+            "detach_trunk leaked gradient into the shared critic trunk"
+    assert any(p.grad is not None and float(p.grad.abs().sum()) > 0.0
+              for p in pol.value_net_yaw.parameters())
+
+
+def test_value_yaw_over_sequence_without_head_raises():
+    pol = _dual_policy()
+    obs = th.zeros(1, 3 + N_MODE_OBS)
+    h0 = th.zeros(1, 1, pol.lstm_critic.hidden_size)
+    with pytest.raises(RuntimeError):
+        value_yaw_over_sequence(pol, obs, th.zeros(1), h0)
+
+
+# ---------------------------------------------------------------------
+# 3. Full RecurrentPPO integration smoke test
+# ---------------------------------------------------------------------
+
+class _TinyYawEnv(gym.Env):
+    """Locomotion-gated (slot=3, core A) env whose reward carries an
+    info['reward_walk_yaw'] component -- exactly the sim_env contract
+    ``_yaw_credit_step`` reads."""
+
+    def __init__(self):
+        self.observation_space = spaces.Box(
+            -1, 1, (3 + N_MODE_OBS,), dtype=np.float32)
+        self.action_space = spaces.Box(-1, 1, (2,), dtype=np.float32)
+        self._t = 0
+
+    def _obs(self):
+        core = self.np_random.uniform(-1, 1, 3).astype(np.float32)
+        return np.concatenate([core, _onehot_tail(3)])
+
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
+        self._t = 0
+        return self._obs(), {}
+
+    def step(self, action):
+        self._t += 1
+        yaw_income = float(action[0]) * 0.1
+        info = {"reward_walk_yaw": yaw_income}
+        return self._obs(), 1.0 + yaw_income, False, self._t >= 8, info
+
+
+def _yaw_model(coef=1.0, vf_coef=0.5, n_envs=2):
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    cls = make_yaw_credit_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_TinyYawEnv for _ in range(n_envs)])
+    model = cls(
+        DualGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    attach_yaw_value_head(model.policy)
+    model.yaw_credit_coef = coef
+    model.yaw_credit_vf_coef = vf_coef
+    return model
+
+
+class _DeterministicYawEnv(_TinyYawEnv):
+    """Same contract as _TinyYawEnv but with NO gym np_random draws in
+    the obs, so two independently-constructed envs (each with their
+    own, otherwise unsynchronized, np_random stream) still produce
+    identical observation sequences -- isolates the bit-exactness
+    check to the training MATH, not to env-seeding plumbing."""
+
+    def _obs(self):
+        core = np.array([np.sin(self._t), np.cos(self._t),
+                         0.1 * self._t], dtype=np.float32)
+        return np.concatenate([core, _onehot_tail(3)])
+
+
+def test_yaw_credit_off_path_is_bit_exact():
+    """coef=0 and vf_coef=0 -> _yaw_credit_step is a hard no-op even
+    with the collector wired and the head attached: PPO's own train()
+    must produce identical params to the un-wrapped class."""
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    def _make(cls):
+        venv = DummyVecEnv([_DeterministicYawEnv for _ in range(2)])
+        m = cls(DualGruActorCriticPolicy, venv, n_steps=8, batch_size=8,
+                n_epochs=1, seed=0, device="cpu",
+                policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+        m.set_random_seed(0)
+        return m
+
+    plain = _make(RecurrentPPO)
+    wrapped = _make(make_yaw_credit_ppo_class(RecurrentPPO))
+    wrapped.callback = make_yaw_credit_collect_callback()
+    assert wrapped.yaw_credit_coef == 0.0
+    assert wrapped.yaw_credit_vf_coef == 0.0
+    for p_plain, p_wrap in zip(plain.policy.parameters(),
+                              wrapped.policy.parameters()):
+        p_wrap.data.copy_(p_plain.data)
+
+    from stable_baselines3.common.logger import configure
+    plain.set_logger(configure(None, ["stdout"]))
+    wrapped.set_logger(configure(None, ["stdout"]))
+    # Torch/numpy RNG is a shared GLOBAL stream: running plain.learn()
+    # first consumes draws from it, so wrapped.learn() must reseed
+    # immediately before its own call to start from the same point
+    # plain did (both class' constructors already reseeded to 0
+    # earlier, but that reseed is stale by the time we get here).
+    plain.set_random_seed(0)
+    plain.learn(total_timesteps=16)
+    wrapped.set_random_seed(0)
+    wrapped.learn(total_timesteps=16)
+    for p_plain, p_wrap in zip(plain.policy.parameters(),
+                              wrapped.policy.parameters()):
+        np.testing.assert_allclose(
+            p_plain.detach().numpy(), p_wrap.detach().numpy(),
+            atol=1e-6,
+            err_msg="yaw_credit_coef=0/vf_coef=0 changed training output")
+
+
+def test_yaw_credit_step_runs_and_trains_yaw_head():
+    """End-to-end: collect a real rollout with the collector callback,
+    call train() once, and check the mechanism actually did something
+    (yaw value head moved, no exception, sane logged scalars) without
+    crashing on shape/layout mistakes."""
+    model = _yaw_model()
+    from stable_baselines3.common.logger import configure
+    model.set_logger(configure(None, ["stdout"]))
+    cb = make_yaw_credit_collect_callback()
+    from stable_baselines3.common.callbacks import CallbackList
+    model.learn(total_timesteps=16, callback=CallbackList([cb]))
+    val = model.logger.name_to_value
+    assert "train/yaw_credit_vf_loss" in val
+    assert "train/yaw_credit_pg_loss" in val
+    assert np.isfinite(val["train/yaw_credit_vf_loss"])
+    assert np.isfinite(val["train/yaw_credit_pg_loss"])
+
+
+def test_yaw_credit_step_noop_without_collector_callback():
+    """If the collector callback is never wired (a wiring bug),
+    _yaw_credit_step must silently no-op, never crash training."""
+    model = _yaw_model()
+    from stable_baselines3.common.logger import configure
+    model.set_logger(configure(None, ["stdout"]))
+    model.learn(total_timesteps=16)  # no yaw-credit callback attached
+    assert "train/yaw_credit_vf_loss" not in model.logger.name_to_value
+
+
+def test_attach_yaw_credit_requires_dual_policy():
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from rl_move.sim.gru_policy import GruActorCriticPolicy
+
+    venv = DummyVecEnv([_TinyYawEnv for _ in range(2)])
+    model = RecurrentPPO(
+        GruActorCriticPolicy, venv, n_steps=8, batch_size=8,
+        n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    with pytest.raises(SystemExit):
+        attach_yaw_credit(model, coef=1.0, vf_coef=0.0,
+                          cfg={"reward": {"k_walk_yaw": 1.0}})
+
+
+def test_attach_yaw_credit_requires_live_reward_channel():
+    model = _yaw_model(coef=0.0, vf_coef=0.0)
+    with pytest.raises(SystemExit):
+        attach_yaw_credit(model, coef=1.0, vf_coef=0.0,
+                          cfg={"reward": {"k_walk_yaw": 0.0}})

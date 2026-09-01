@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-01T21:18:21+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary
+
+**wandb_id**: ovccwihp
 
 **hypothesis**: Seed-pass-rate twin of durctrl-canary (this cycle, same base checkpoint/steps, no cfg change, --seed 1 only) -- matched control for durfix-canary-s1.
 

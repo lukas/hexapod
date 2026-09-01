@@ -1,98 +1,74 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~15:0x (MIXEDSESSION AUDIT CLOSED, root cause NOT
-a cfg bug; new single-cycle DONE-gate session tool built + running).
-Plain English: the 09-01 landmine ("`_mixedsession` shows 100%
-over_current on EVERY submode incl. plain rise/det, but cfg-matched
-probe/purewalk reads are clean -- audit before trusting it") is
-CLOSED: it is NOT a `--cfg-set`/`--extra-cfg-set` propagation bug (all
-of gradclip0p15-canary's own cfg-set overrides, incl. the low
-`actions.max_height_mm=88`/`goal.rise_height_mm=[79,87]` envelope,
-were already reaching `eval_mixed_session`'s inner `eval_checkpoint`
-call correctly -- traced by hand through `pod_eval.py`'s `all_cfgs`
-plumbing and `eval_mixed_session._run_eval_checkpoint`, both correct).
-The real mechanism, found by reading one terminated episode's
-`seq_plan`/`seq_end_seg_mode`/`seq_end_t_s` directly: mixedsession's
-canonical grammar REPEATS rise<->{hold|walk}<->lower cycles for the
-WHOLE episode (4-7 segments per 60s episode), so ANY single-rise-
-after-self-lower fragility compounds across those forced repeats --
-a checkpoint that fails only ~15-25% of individual rise attempts
-still reads as a ~100% SESSION failure once forced through 4-7 of
-them back to back. The standwalk DONE gate itself only ever asks for
-ONE cycle ("sit -> rise -> randomized 60s walk -> lower"), which
-mixedsession was never built to isolate.
+Update, 2026-09-01 ~18:5x (idle-kick: DONE-gate session READ +
+RISE-DIET SCOPING BUG found in the harness built this same day).
+Plain English: the two `eval_done_gate_session` panels queued by the
+prior update (item 1 below, `gradclip0p15-canary`/`-canary-s1`,
+n=32 each det+sto/DR-0+own-DR, video) finished on-pod and were read.
+Headline: **gate FAILS both seeds** (`zero_falls=false`; canary 9/32
+terminations, `-s1` 4/32) with poor aggregate walk tracking
+(`direction_err_med_deg` 45.5/47.8, `slip_per_m_med` 3.27/3.29 — over
+the 2.9 joystick band; `progress_ratio_med` 0.27/0.34). BUT reading
+`terms_by_start_kind` + `terms_by_segment_mode` in the raw episode
+JSON surfaced a real SCOPING bug in the harness itself, built and
+missed same-day: `eval_done_gate_session` runs each checkpoint's OWN
+training `--extra-cfg-set` stack verbatim, which for this lineage
+carries `goal.rise_rsi_frac=0.5` (the DeepMimic-style mid-rise
+reference-state-init used to bootstrap rise training — spawns the
+robot ALREADY partway up the rise ramp) plus the default 40%/25%
+partial-curl/crouch mix — so the "rise" segment of this "sit -> rise"
+DONE-gate session sampled the FULL training-curriculum start
+distribution, not a literal cold sit/flat start: only 3/32 (canary)
+and 1/32 (`-s1`) episodes were actually `start_kind=flat`. 8/9 and
+4/4 of the terminations landed in the rise segment, concentrated in
+`rsi`/`bridge` starts (4+4 of canary's 9; 3+1 of `-s1`'s 4) — the one
+flat-start termination (canary, n=3) is too small to read either way.
+**This is not the literal DONE-gate question** ("from sit: rise ->
+... -> lower" describes ONE fixed cold start, not a recovery-curriculum
+mix). Fix (no code change — existing `--extra-cfg-set` override
+mechanism, confirmed last-key-wins in `_parse_cfg_set`): layered
+`goal.rise_flat_frac=1.0 rise_partial_frac=0 rise_start_bank_frac=0
+rise_rsi_frac=0` on top of each run's own cfg stack and relaunched
+both sessions (train-3/train-5, n=8 det+sto x DR0+ownDR = 32 literal
+flat-start episodes each, video on, `..._donegate_flatonly` out-dirs)
+— the actual literal-gate instrument going forward. Not yet read (in
+flight, ETA ~1.5-2h). The walk-segment quality flags (slip/direction)
+stand regardless of the rise question and need their own follow-up
+once the flat-only rise read narrows the picture. wandb notes added
+to both runs recording this (informational — does NOT reopen either
+run's already-closed CANARY PASS/FAIL verdicts, which were narrowly
+scoped to mechanism-health turn-authority, not this session shape).
 
-**Built (CODE, tested, snapshotted `b9ea6d2e`): the actual missing
-DONE-gate instrument.** (1) `walk_task._sample_mode_seq` gets a new
-`goal.mode_seq_forced_plan` key (default `""` = bit-exact legacy
-random plan; 16 tests incl. off-by-default equivalence) -- a
-deterministic `"mode:seconds,..."` override, e.g.
-`"rise:10,walk:60,lower:15"`, replacing the random SEQ_NEXT walk for
-exactly this one-cycle session shape. (2) Found + fixed a SEPARATE
-real `eval_checkpoint.py` bug while building this: `run_episode`
-captured the episode's goal-mode ONCE at reset and every
-`progress_ratio`/`slip_per_m`/`gait_valid`/course-window gate kept
-reading that STALE label all episode -- a rise-first sequence that
-switches to a real walk segment never accumulated `cmd_dist_m`/
-`along_dist_m` at all (mode stayed "rise"), so those metrics silently
-came back `None` for a session that plainly walked. Fixed to track the
-LIVE per-tick `info["goal_mode"]`, windowing the gait/slip computation
-to the walk-only tick run(s) (summed per disjoint run, no cross-run
-diff/slip contamination at a segment seam); bit-identical for every
-pre-09-01 single-mode episode (single run spanning the whole array) --
-4 new regression tests incl. a direct formula-equivalence check
-against the untouched `slip_m_total` field. (3) New
-`rl_move.sim.eval_done_gate_session` (reuses `eval_mixed_session`'s
-`aggregate_session`/`_run_eval_checkpoint`/resume-safety verbatim) +
-`ops.sh donegatecmd <run> [rise_s] [walk_s] [lower_s]` -- the literal
-DONE-gate session harness this track's own Goal section named as
-unbuilt stage-2 tooling. All new tests green
-(`test_mode_seq.py`+`test_eval_checkpoint_seq_walk_metrics.py`, 19
-new + 67 adjacent regression tests re-run clean).
-
-**Launched same-cycle (informational, on-pod, no training spend):**
-`eval_done_gate_session` against `gradclip0p15-canary` (train-3) and
-`-canary-s1` (train-5), n=8 det+sto, DR-0 + own-DR (0.5), rise:10s
--> walk:60s (own stress_mix joystick diet) -> lower:15s, WITH video --
-both still running (long: 32 episodes x ~95s sim + video render each).
-A quick n=2 hand-smoke on the controller (no video, `--own-dr-scale`
-omitted) on `canary` alone already surfaced a REAL signal worth
-flagging before the full read lands: 2/4 episodes terminated (both
-det+sto) on the actual randomized-diet single cycle -- softer than
-mixedsession's 100% (confirming the repeat-cycle theory) but NOT the
-clean zero-fall result the isolated `probe_turn_authority`/`purewalk`
-reads showed either. Too small an n to verdict (need the n=8 x
-det+sto+DR0+ownDR panel now running); do not treat this as a gate
-read. Evidence so far: `/tmp/forced_plan_smoke2` (controller
-hand-smoke, no diet), `/tmp/donegate_smoke` (controller hand-smoke,
-own diet, n=2) -- both superseded by the on-pod n=8 runs once they
-land.
-
-Prior entries (`gradclip0p15-acq1` 38M PARTIAL read + intermediate-
-checkpoint probe, grad-clip bracket close, `-canary-s1` seed split,
-klrolltight2 close, yaw-critic build) VERBATIM in
+Prior entries (mixedsession audit close + `eval_done_gate_session`
+build, `gradclip0p15-acq1` 38M PARTIAL read + intermediate-checkpoint
+probe, grad-clip bracket close, `-canary-s1` seed split, klrolltight2
+close, yaw-critic build) VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
-## Next (meta 09-01 ~15:0x)
+## Next (meta 09-01 ~18:5x)
 
-1. **DIG-IN queued (not yet read).** Read the two on-pod
-   `eval_done_gate_session` panels once they finish (n=8 det+sto,
-   DR-0+own-DR, video): `logs/ckpt_eval/
+1. **Read the flat-only DONE-gate sessions once they land** (train-3
+   / train-5, ETA ~1.5-2h): `logs/ckpt_eval/
    cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_
-   gradclip0p15_{canary,canary_s1}_donegate/{dr0,owndr}/report.json`
-   + `session_verdict.json` (train-3 / train-5). This is the FIRST
-   real single-cycle sit->rise->walk(60s,own diet)->lower read on
-   this lineage — it decides whether `gradclip0p15-canary` is close
-   to the literal DONE gate or still has a real fall-rate problem
-   under the randomized diet (the n=2 hand-smoke split the difference:
-   not mixedsession's 100%, not probe/purewalk's 0% either — see
-   Update). Watch video for pathology, not just the scalar gate.
+   gradclip0p15_{canary,canary_s1}_donegate_flatonly/
+   {dr0,owndr}/report.json` + `session_verdict.json`. This IS the
+   literal "from sit" DONE-gate read (32 pure flat-start episodes per
+   seed). Zero falls here + slip/direction still bad -> the checkpoint
+   has a real walk-segment quality gap, not a rise gap, under a fair
+   single-cycle read. Any falls here -> a genuine cold-start rise
+   problem survives independent of the RSI/bridge curriculum dilution
+   found this cycle. Either way, also address the direction_err
+   (~46deg) / slip (~3.3) numbers from the mixed-diet read — worse
+   than `probe_turn_authority`'s narrower wz-only diet, so the fuller
+   stress_mix walk diet may be exposing a real steering gap the
+   turn-authority probe doesn't see.
 2. **Campaign reference artifact:** the 2M `...-gradclip0p15-canary`
    checkpoint (NOT `-acq1`) is still the best turn-authority +
-   walk-quality SINGLE-MODE combination found in this campaign;
-   whether it also clears the single-CYCLE session is item 1's open
-   question. Any stage-2 distillation needing a turn-capable walk
-   teacher starts from that checkpoint pending item 1's answer.
+   walk-quality SINGLE-MODE combination found in this campaign; item
+   1's flat-only read is now the decisive DONE-gate evidence (the
+   mixed-diet read is confounded, see Update). Any stage-2
+   distillation needing a turn-capable walk teacher starts from that
+   checkpoint pending item 1's answer.
 3. **Standing bar:** new dual distillations need pre-RL
    probe_turn_authority >=0.10 both signs; RL arms here are RETENTION
    only.
@@ -103,6 +79,11 @@ klrolltight2 close, yaw-critic build) VERBATIM in
    PARTIAL: turn authority+stability hold, walk quality regresses vs
    the 2M canary), and the mixedsession-audit landmine (root cause =
    repeating-cycle statistics, not a cfg bug; see Update + archive).
+   Also closed: the mixed-diet `eval_done_gate_session` read (own-cfg
+   RSI/bridge/crouch rise-start mix) as THE literal DONE-gate
+   instrument — it answers a curriculum-robustness question, not the
+   gate's fixed "from sit" one; the flat-only variant (`goal.
+   rise_flat_frac=1.0`, etc., see Update) is the corrected instrument.
 
 > Journal archives (VERBATIM): pre-08-30 in
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through

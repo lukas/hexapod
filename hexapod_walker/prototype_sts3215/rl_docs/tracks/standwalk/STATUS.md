@@ -1,107 +1,112 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~14:0x (`gradclip0p15-acq1` READ, 38M — TURN
-AUTHORITY + STABILITY HOLD, WALK QUALITY REGRESSES). Plain English: at
-acquisition scale, turn authority and zero-fall stability from the 2M
-canary checkpoint both HOLD — but forward walk quality (progress/slip)
-gets WORSE with the extra 36M steps, not better. Own
-`probe_turn_authority`: wz_med pos 0.189/0.171 (avg 0.180), neg
--0.214/-0.218 (avg -0.216) — clears the >=0.15 bar both signs, close
-to the 2M canary's own 0.198/-0.200 (essentially held, unlike every
-prior acquisition arm in this campaign that eroded turn authority).
-Own no-video `purewalk` det (`--modes walk --per-mode 8
---start-jitter-panel`): gait_valid 16/16, terminated 0/16 — zero
-falls, matching the 2M canary's clean record and NOT reproducing
-seed1's 44% over-current fall rate. But progress_ratio 0.313/0.324
-(mean, both submodes) is BELOW the 0.40-0.48 wave-1 band and below
-the 2M canary's own 0.38-0.40; slip/m 5.76/10.18 (mean) is well above
-the 2.9 cap and above the canary's own 2.2-2.6. Not a full collapse
-(FAIL needs prog<0.25 AND slip>4 together; progress stays >0.25
-throughout) so this is **PARTIAL** by the gate's letter. Training
-curve corroborates: reward flat after ~25% of the run (quarters
-459/1995/2215/2191), periodic eval/walk/survived_frac=1.0 from 50%
-onward (falls-free held throughout, not just at the final checkpoint),
-eval/walk/speed_m_s stayed low/flat (~0.02-0.035 m/s) the whole back
-half — a plateaued optimum, not an under-trained one; per the 08-21
-ruling this is erosion to fix, not a "just run longer" case. Video
-frame strip (walk_det_0) confirms visually: legs cycle, robot stays
-upright, but progress is slow/slippy, not pathological. **Verdict:
-do NOT promote acq1 (38M) over the 2M canary checkpoint as the
-walk-quality reference — the 2M checkpoint remains the cleanest
-turn-authority+walk-quality artifact in this lineage; acquisition
-budget past ~2M buys nothing on turn authority (already at ceiling)
-and costs walk quality.** Evidence:
-`logs/ckpt_eval/turn_probe_yawcredit_gradclip0p15_acq1.json`,
-`logs/ckpt_eval/purewalk_gradclip0p15_acq1_det.json/report.json`.
+Update, 2026-09-01 ~15:0x (MIXEDSESSION AUDIT CLOSED, root cause NOT
+a cfg bug; new single-cycle DONE-gate session tool built + running).
+Plain English: the 09-01 landmine ("`_mixedsession` shows 100%
+over_current on EVERY submode incl. plain rise/det, but cfg-matched
+probe/purewalk reads are clean -- audit before trusting it") is
+CLOSED: it is NOT a `--cfg-set`/`--extra-cfg-set` propagation bug (all
+of gradclip0p15-canary's own cfg-set overrides, incl. the low
+`actions.max_height_mm=88`/`goal.rise_height_mm=[79,87]` envelope,
+were already reaching `eval_mixed_session`'s inner `eval_checkpoint`
+call correctly -- traced by hand through `pod_eval.py`'s `all_cfgs`
+plumbing and `eval_mixed_session._run_eval_checkpoint`, both correct).
+The real mechanism, found by reading one terminated episode's
+`seq_plan`/`seq_end_seg_mode`/`seq_end_t_s` directly: mixedsession's
+canonical grammar REPEATS rise<->{hold|walk}<->lower cycles for the
+WHOLE episode (4-7 segments per 60s episode), so ANY single-rise-
+after-self-lower fragility compounds across those forced repeats --
+a checkpoint that fails only ~15-25% of individual rise attempts
+still reads as a ~100% SESSION failure once forced through 4-7 of
+them back to back. The standwalk DONE gate itself only ever asks for
+ONE cycle ("sit -> rise -> randomized 60s walk -> lower"), which
+mixedsession was never built to isolate.
 
-**Same-cycle follow-up (no new GPU launch, on-pod checkpoints):** probed
-3 of acq1's own intermediate checkpoints (`purewalk` det, same
-instrument) to see where the regression happens. s2097152 (~2M into
-this run's OWN trajectory, not the same file as the verdicted
-`-canary` checkpoint): prog 0.386/0.394 (good) but walk/det
-TERMINATED 8/8 (100% fall rate!) and walk_startjitter/det 5/8, slip
-6.1/5.0. s10485760 (~10M): 0 terminations either submode, prog
-dropped to 0.286/0.294, slip 6.8/11.7. s20447232 (~20M): 0
-terminations, prog 0.296/0.295, slip 6.8/12.5 — essentially unchanged
-from 10M through the 38M final read. **Revised picture:** this run's
-own early trajectory was UNSTABLE (not clean like the officially-read
-canary checkpoint's 2M numbers) and stabilizes (zero falls) by ~10M;
-progress/slip regress once between ~2M and ~10M and then hold flat
-through 38M, rather than eroding continuously. **Methodology caveat:**
-`acq1` is a FRESH 38M launch sharing recipe+seed=0 with the `-canary`
-run and the same `turnpay_canary` ancestor — it is NOT a continuation
-of the specific passing 2M canary checkpoint file, so "same seed"
-does not reproduce that run's exact trajectory (4096-env PPO isn't
-bit-deterministic in practice here). Treat any acq-vs-canary
-comparison in this campaign as basin-comparison, not a strict
-extension, unless the acquisition arm is launched via `--init-from`
-the exact prior checkpoint. Evidence:
-`logs/ckpt_eval/purewalk_gradclip0p15_acq1_{s2097152,s10485760,
-s20447232}_det.json/report.json`.
+**Built (CODE, tested, snapshotted `b9ea6d2e`): the actual missing
+DONE-gate instrument.** (1) `walk_task._sample_mode_seq` gets a new
+`goal.mode_seq_forced_plan` key (default `""` = bit-exact legacy
+random plan; 16 tests incl. off-by-default equivalence) -- a
+deterministic `"mode:seconds,..."` override, e.g.
+`"rise:10,walk:60,lower:15"`, replacing the random SEQ_NEXT walk for
+exactly this one-cycle session shape. (2) Found + fixed a SEPARATE
+real `eval_checkpoint.py` bug while building this: `run_episode`
+captured the episode's goal-mode ONCE at reset and every
+`progress_ratio`/`slip_per_m`/`gait_valid`/course-window gate kept
+reading that STALE label all episode -- a rise-first sequence that
+switches to a real walk segment never accumulated `cmd_dist_m`/
+`along_dist_m` at all (mode stayed "rise"), so those metrics silently
+came back `None` for a session that plainly walked. Fixed to track the
+LIVE per-tick `info["goal_mode"]`, windowing the gait/slip computation
+to the walk-only tick run(s) (summed per disjoint run, no cross-run
+diff/slip contamination at a segment seam); bit-identical for every
+pre-09-01 single-mode episode (single run spanning the whole array) --
+4 new regression tests incl. a direct formula-equivalence check
+against the untouched `slip_m_total` field. (3) New
+`rl_move.sim.eval_done_gate_session` (reuses `eval_mixed_session`'s
+`aggregate_session`/`_run_eval_checkpoint`/resume-safety verbatim) +
+`ops.sh donegatecmd <run> [rise_s] [walk_s] [lower_s]` -- the literal
+DONE-gate session harness this track's own Goal section named as
+unbuilt stage-2 tooling. All new tests green
+(`test_mode_seq.py`+`test_eval_checkpoint_seq_walk_metrics.py`, 19
+new + 67 adjacent regression tests re-run clean).
 
-Prior entries (grad-clip bracket close, `-canary-s1` seed split,
+**Launched same-cycle (informational, on-pod, no training spend):**
+`eval_done_gate_session` against `gradclip0p15-canary` (train-3) and
+`-canary-s1` (train-5), n=8 det+sto, DR-0 + own-DR (0.5), rise:10s
+-> walk:60s (own stress_mix joystick diet) -> lower:15s, WITH video --
+both still running (long: 32 episodes x ~95s sim + video render each).
+A quick n=2 hand-smoke on the controller (no video, `--own-dr-scale`
+omitted) on `canary` alone already surfaced a REAL signal worth
+flagging before the full read lands: 2/4 episodes terminated (both
+det+sto) on the actual randomized-diet single cycle -- softer than
+mixedsession's 100% (confirming the repeat-cycle theory) but NOT the
+clean zero-fall result the isolated `probe_turn_authority`/`purewalk`
+reads showed either. Too small an n to verdict (need the n=8 x
+det+sto+DR0+ownDR panel now running); do not treat this as a gate
+read. Evidence so far: `/tmp/forced_plan_smoke2` (controller
+hand-smoke, no diet), `/tmp/donegate_smoke` (controller hand-smoke,
+own diet, n=2) -- both superseded by the on-pod n=8 runs once they
+land.
+
+Prior entries (`gradclip0p15-acq1` 38M PARTIAL read + intermediate-
+checkpoint probe, grad-clip bracket close, `-canary-s1` seed split,
 klrolltight2 close, yaw-critic build) VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
-## Next (meta 09-01 ~14:0x)
+## Next (meta 09-01 ~15:0x)
 
-1. **DONE this cycle.** `gradclip0p15-acq1` (seed0, 38M) read+verdicted
-   PARTIAL: turn authority + stability retained at scale, walk quality
-   (progress/slip) regressed vs the 2M canary checkpoint. See the
-   Update above; do not re-verdict.
-2. **Campaign reference artifact:** the 2M
-   `cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary`
-   checkpoint (NOT `-acq1`) is now the best turn-authority +
-   walk-quality combination found in this campaign. Any stage-2
-   distillation attempt that needs a turn-capable walk teacher should
-   start from that checkpoint, not a longer-trained descendant, unless
-   a future arm demonstrates it can hold walk quality at acquisition
-   scale (e.g. an early-stop variant, or a reward fix that keeps
-   pricing progress/slip past ~2M steps).
-3. **DONE this cycle.** Probed 3 intermediate `-acq1` checkpoints
-   (~2M/10M/20M) — regression is NOT monotonic-with-budget: this run's
-   own early (~2M) trajectory was actually UNSTABLE (100% fall rate on
-   walk/det, unlike the clean officially-read `-canary` 2M checkpoint —
-   different basin despite matching seed/recipe), stabilizes to zero
-   falls by ~10M, and progress/slip regress once by ~10M then hold
-   flat to 38M. See the methodology-caveat paragraph above: acq-vs-
-   canary numbers are basin comparisons, not strict extensions, since
-   acq1 was not `--init-from`'d off the exact canary checkpoint file.
-4. **Standing bar:** new dual distillations need pre-RL
+1. **DIG-IN queued (not yet read).** Read the two on-pod
+   `eval_done_gate_session` panels once they finish (n=8 det+sto,
+   DR-0+own-DR, video): `logs/ckpt_eval/
+   cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_
+   gradclip0p15_{canary,canary_s1}_donegate/{dr0,owndr}/report.json`
+   + `session_verdict.json` (train-3 / train-5). This is the FIRST
+   real single-cycle sit->rise->walk(60s,own diet)->lower read on
+   this lineage — it decides whether `gradclip0p15-canary` is close
+   to the literal DONE gate or still has a real fall-rate problem
+   under the randomized diet (the n=2 hand-smoke split the difference:
+   not mixedsession's 100%, not probe/purewalk's 0% either — see
+   Update). Watch video for pathology, not just the scalar gate.
+2. **Campaign reference artifact:** the 2M `...-gradclip0p15-canary`
+   checkpoint (NOT `-acq1`) is still the best turn-authority +
+   walk-quality SINGLE-MODE combination found in this campaign;
+   whether it also clears the single-CYCLE session is item 1's open
+   question. Any stage-2 distillation needing a turn-capable walk
+   teacher starts from that checkpoint pending item 1's answer.
+3. **Standing bar:** new dual distillations need pre-RL
    probe_turn_authority >=0.10 both signs; RL arms here are RETENTION
-   only. gradclip0p15 (2M canary checkpoint specifically) is the
-   reference recipe/artifact until a walk-quality-clean acquisition-
-   scale replicate exists.
-5. **Closed:** update-size constraints (freeze/value-warmup/
+   only.
+4. **Closed:** update-size constraints (freeze/value-warmup/
    kl-rollback), reward pricing, exploration magnitude, anchor
    dose/isolate-update, turn-skip, yaw-credit with NO clip, clip=0.5,
-   clip=2.0, and now acquisition-scale retention of clip=0.15 (turn
-   authority holds, walk quality doesn't). Evidence: archive + this
-   update.
+   clip=2.0, acquisition-scale retention of clip=0.15 (`-acq1` 38M
+   PARTIAL: turn authority+stability hold, walk quality regresses vs
+   the 2M canary), and the mixedsession-audit landmine (root cause =
+   repeating-cycle statistics, not a cfg bug; see Update + archive).
 
 > Journal archives (VERBATIM): pre-08-30 in
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through
-> 09-01 ~14:0x in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
+> 09-01 ~15:0x in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
@@ -168,17 +173,10 @@ lower session harness is stage-2 tooling to build.
 - The joystick track owns generic mesh walking; this track owns
   rise/lower + the unification. Coordinate via STATUS, don't
   duplicate its mesh conversion arms.
-- **Tooling flag (09-01):** the standard prestage `_mixedsession`
-  harness's `rise->walk` mode-seq read for `gradclip0p15-canary`
-  showed 100% `over_current` termination on EVERY submode, including
-  plain `rise/det` — but that checkpoint's own cfg-matched
-  `probe_turn_authority`/`purewalk` reads (this run's actual verdict
-  evidence) show zero falls. Suspect `_mixedsession` isn't inheriting
-  the run's `--cfg-set` overrides (goal/actions/safety height+height-
-  gate params this recipe depends on) the way `_gate`/`_owncfg` do —
-  consistent with the campaign's existing practice of treating
-  `_mixedsession` as informational-only and never letting it flip a
-  cfg-matched read. Someone should audit `ops.sh podeval`'s
-  mixedsession invocation before trusting it for a real DONE-gate
-  session read.
+- **Tooling flag (09-01) CLOSED:** the standing `_mixedsession`
+  harness's REPEATING rise<->walk<->lower grammar compounds any
+  single-rise fragility into a misleadingly total session failure
+  (see Update) — treat it as a mechanism-robustness stress test, NOT
+  the DONE-gate instrument; use `eval_done_gate_session`
+  (`ops.sh donegatecmd`) for the actual one-cycle DONE-gate read.
 

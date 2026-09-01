@@ -3776,3 +3776,68 @@ above it. Evidence: `logs/ckpt_eval/turn_probe_yawcredit_gradclip{0p15,
 0p5,2p0}_canary.json`, `purewalk_{gradclip0p15,gradclip2p0,ctrl,rr1}
 .json`, `cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_
 {gradclip0p5_canary,ctrl_canary}_purewalk_det_myread/report.json`.
+
+---
+
+(Appended 09-01 ~15:0x, trimmed from STATUS.md to hold the line
+budget when the mixedsession-audit tool-building update landed.)
+
+Update, 2026-09-01 ~14:0x (`gradclip0p15-acq1` READ, 38M — TURN
+AUTHORITY + STABILITY HOLD, WALK QUALITY REGRESSES). Plain English: at
+acquisition scale, turn authority and zero-fall stability from the 2M
+canary checkpoint both HOLD — but forward walk quality (progress/slip)
+gets WORSE with the extra 36M steps, not better. Own
+`probe_turn_authority`: wz_med pos 0.189/0.171 (avg 0.180), neg
+-0.214/-0.218 (avg -0.216) — clears the >=0.15 bar both signs, close
+to the 2M canary's own 0.198/-0.200 (essentially held, unlike every
+prior acquisition arm in this campaign that eroded turn authority).
+Own no-video `purewalk` det (`--modes walk --per-mode 8
+--start-jitter-panel`): gait_valid 16/16, terminated 0/16 — zero
+falls, matching the 2M canary's clean record and NOT reproducing
+seed1's 44% over-current fall rate. But progress_ratio 0.313/0.324
+(mean, both submodes) is BELOW the 0.40-0.48 wave-1 band and below
+the 2M canary's own 0.38-0.40; slip/m 5.76/10.18 (mean) is well above
+the 2.9 cap and above the canary's own 2.2-2.6. Not a full collapse
+(FAIL needs prog<0.25 AND slip>4 together; progress stays >0.25
+throughout) so this is **PARTIAL** by the gate's letter. Training
+curve corroborates: reward flat after ~25% of the run (quarters
+459/1995/2215/2191), periodic eval/walk/survived_frac=1.0 from 50%
+onward (falls-free held throughout, not just at the final checkpoint),
+eval/walk/speed_m_s stayed low/flat (~0.02-0.035 m/s) the whole back
+half — a plateaued optimum, not an under-trained one; per the 08-21
+ruling this is erosion to fix, not a "just run longer" case. Video
+frame strip (walk_det_0) confirms visually: legs cycle, robot stays
+upright, but progress is slow/slippy, not pathological. **Verdict:
+do NOT promote acq1 (38M) over the 2M canary checkpoint as the
+walk-quality reference — the 2M checkpoint remains the cleanest
+turn-authority+walk-quality artifact in this lineage; acquisition
+budget past ~2M buys nothing on turn authority (already at ceiling)
+and costs walk quality.** Evidence:
+`logs/ckpt_eval/turn_probe_yawcredit_gradclip0p15_acq1.json`,
+`logs/ckpt_eval/purewalk_gradclip0p15_acq1_det.json/report.json`.
+
+**Same-cycle follow-up (no new GPU launch, on-pod checkpoints):** probed
+3 of acq1's own intermediate checkpoints (`purewalk` det, same
+instrument) to see where the regression happens. s2097152 (~2M into
+this run's OWN trajectory, not the same file as the verdicted
+`-canary` checkpoint): prog 0.386/0.394 (good) but walk/det
+TERMINATED 8/8 (100% fall rate!) and walk_startjitter/det 5/8, slip
+6.1/5.0. s10485760 (~10M): 0 terminations either submode, prog
+dropped to 0.286/0.294, slip 6.8/11.7. s20447232 (~20M): 0
+terminations, prog 0.296/0.295, slip 6.8/12.5 — essentially unchanged
+from 10M through the 38M final read. **Revised picture:** this run's
+own early trajectory was UNSTABLE (not clean like the officially-read
+canary checkpoint's 2M numbers) and stabilizes (zero falls) by ~10M;
+progress/slip regress once between ~2M and ~10M and then hold flat
+through 38M, rather than eroding continuously. **Methodology caveat:**
+`acq1` is a FRESH 38M launch sharing recipe+seed=0 with the `-canary`
+run and the same `turnpay_canary` ancestor — it is NOT a continuation
+of the specific passing 2M canary checkpoint file, so "same seed"
+does not reproduce that run's exact trajectory (4096-env PPO isn't
+bit-deterministic in practice here). Treat any acq-vs-canary
+comparison in this campaign as basin-comparison, not a strict
+extension, unless the acquisition arm is launched via `--init-from`
+the exact prior checkpoint. Evidence:
+`logs/ckpt_eval/purewalk_gradclip0p15_acq1_{s2097152,s10485760,
+s20447232}_det.json/report.json`.
+

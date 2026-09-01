@@ -1,5 +1,83 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-09-01 ~07:4x (triage cycle — `klrolltight-acq1` own-scope
+PARTIAL-BETTER, JOINT dose-response question now CLOSED). Plain
+English: **the guard-only (no actor-freeze) sibling of the tighter-
+cap pair shows the SAME shape as its 0.05 predecessor (klrollctrl-
+acq1) at a higher amplitude: tightening the cap raises the early-
+training PEAK of turn authority a lot (2M-10M pos 0.11-0.13, neg
+-0.13 to -0.17 — campaign-best, clears the >=0.10-both-signs bar with
+room to spare) but does NOT stop the late-training erosion — final
+38M lands at pos 0.0754/0.0743, neg -0.1154/-0.1204, beating both 0.05
+arms' finals but still short of PASS.** Root-cause instrument:
+`train/kl_rollback_count` fires 24 times total, all by 6.68M steps,
+then ZERO for the remaining 31.3M steps (guard fully satisfied) — yet
+authority keeps declining all the way to 38M. This decouples "guard
+engaged" from "durable": the erosion is ordinary small compliant
+gradient drift accumulating over a long window, not unblocked oversize
+jumps, so a tighter cap raises the ceiling without slowing the decay
+rate. **JOINT conclusion (closes the pair with valuewarmup-klrolltight-
+acq1, ACQ PARTIAL-BETTER last cycle): tightening the cap helps BOTH
+arms' peak, but only freeze+guard converts that into a durable
+full-budget result** (freeze+guard=0.02 final 0.080/0.076 pos beats
+guard-only=0.02 final 0.075/0.074 pos on the sign that gates PASS).
+No further no-freeze-only tightening arm is warranted — the mechanism
+predicts it would not fix durability. Flagged confound for future
+dig-in: the freeze arm's actor only trains 30M of 38M steps (8M
+frozen), so part of its apparent durability may be a shorter drift
+window rather than protection per se; an actor-update-step-matched
+freeze/no-freeze comparison would separate the two. The correct next
+step (already in flight, launched previous cycle) is
+`valuewarmup-klrolltight2-acq1` (freeze+guard, `--kl-rollback=0.01`)
+pushing the durable branch one more notch toward the >=0.10-both-signs
+PASS bar. Evidence: own 19-point `probe_turn_authority` curve built
+on-pod train-1, copied to
+`logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_klrolltight_acq1_all.jsons`.
+No other track has runnable work (joystick/amp/cpg
+DONE-or-maintenance, todaypolicy delivered, walkcurr RETIRED); no new
+arm launched this cycle (the open dose-response question the fleet
+was resolving is now closed; the live next-step arm was already
+launched last cycle and is training on train-0). CYCLE_WORKED.
+
+Update, 2026-09-01 ~06:2x (triage cycle — `valuewarmup-klrolltight-acq1`
+own-scope PARTIAL-BETTER, dose-response continues). Plain English:
+**tightening the update-size cap from 0.05 to 0.02 (freeze+guard combo)
+improves turn authority further on BOTH signs — the dose-response
+lever from the last cycle's klroll pair keeps paying off, not yet
+diminishing.** Built the 18-point `probe_turn_authority` curve +
+`probe_yaw_credit` (8M/final) myself on-pod (own TURNCAP_CFG_SET):
+2M-8M frozen bit-identical at canary-init (confirms freeze held);
+post-unfreeze settles into a durable 12M-38M plateau; final pos
+0.0803/0.0756 (+15% over the 0.05 sibling's 0.068/0.068) and neg
+-0.1131/-0.1175 (more negative than -0.109/-0.110) — both signs beat
+the 0.05 arm, still short of the >=0.10-both-signs PASS bar (pos
+only). Mechanism unchanged in kind: `kl_rollback_count` fires 5x
+within 260k steps of the 8M unfreeze (approx_kl 3.83 shock, same
+generic pattern every sibling shows), realized approx_kl then bounded
+0.012-0.019 for the rest of training (tighter than the 0.05 sibling's
+0.01-0.03 — guard engaging harder). `probe_yaw_credit` forward-verdict
+stayed flat weak (1/4 CREDIT-REWARDS at both 8M and final, no further
+degradation) while authority kept climbing — reinforces the
+decoupling finding: bounding update size, not fixing credit, drives
+the defense. In-training clean (survived_frac=1 throughout, reward
+rising every quarter). Verdicted **ACQ PARTIAL-BETTER (own scope)**;
+the guard-only 0.02 sibling (`klrolltight-acq1`) is still training on
+train-1, so the pair's own joint dose-response conclusion (does
+tightening help the no-freeze arm too, or only the freeze+guard
+combo?) is still open. **Launched the next notch the gate's own
+PARTIAL-BETTER branch names:** `cw-standwalk-stage2-dualbc6-turncap-
+mirroraug-valuewarmup-klrolltight2-acq1` (`--kl-rollback=0.01`, now
+BELOW the trainer's own `--target-kl=0.02`, VERIFIED RUNNING train-0)
+— tests whether the dose-response keeps climbing or the cap gets
+tight enough to starve adaptation. Evidence:
+`logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_
+valuewarmup_klrolltight_acq1_*.json`,
+`yaw_credit_..._valuewarmup_klrolltight_acq1_{8M,final}.json`. No
+other track has runnable work (joystick/amp/cpg DONE-or-maintenance,
+todaypolicy delivered, walkcurr RETIRED); 38M/80M cycle GPU-step
+budget used, 1/4 launch cap used, 10/12 pods busy (this new arm +
+klrolltight-acq1 sibling), 10 free. CYCLE_WORKED.
+
 Update, 2026-09-01 ~03:3x (triage cycle — JOINT close of the klroll
 pair, best result of the whole turn-authority campaign). Plain
 English: **capping how big a single PPO update is allowed to be

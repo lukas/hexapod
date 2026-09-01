@@ -8,6 +8,8 @@ imageio
 imageio-ffmpeg
 # Video review, AprilTag tracking, and offscreen sim viewers.
 opencv-python
+# Same-process native 420v/AVFoundation capture for the macOS vision UI.
+pyobjc-framework-AVFoundation>=12.2; sys_platform == "darwin"
 rtree
 shapely
 mapbox_earcut

@@ -14,6 +14,7 @@ from cpg_controller_loader import list_cpg_controllers, load_cpg_controller
 HERE = Path(__file__).resolve().parent
 SIM_POLICIES = HERE.parent / "rl_move" / "sim" / "policies"
 REAL_ARTIFACT = SIM_POLICIES / "cpg_controller_robust120_yawtrim.json"
+LEGACY_ARTIFACT = HERE / "policies" / "cpg_controller_robust120_yawtrim.json"
 
 
 @pytest.fixture()
@@ -36,6 +37,10 @@ def test_list_finds_real_artifact(real_artifact_present):
 
 def test_load_real_artifact_matches_raw_params(real_artifact_present):
     raw = json.loads(real_artifact_present.read_text())
+    if raw.get("joint_frame") != "robot_abs":
+        with pytest.raises(ValueError, match="expected joint_frame='robot_abs'"):
+            load_cpg_controller("robust120_yawtrim", dirs=[SIM_POLICIES])
+        return
     result = load_cpg_controller("robust120_yawtrim", dirs=[SIM_POLICIES])
     assert result["gait"] == raw["params"]["gait"]
     assert result["gait_kw"]["period"] == pytest.approx(
@@ -62,7 +67,7 @@ def test_load_by_bare_name_and_by_full_path(real_artifact_present):
 def test_load_gait_kw_constructs_se2_foot_gait(real_artifact_present):
     # This is the point of the loader: the result must be directly
     # usable as SE2FootGait(**gait_kw).
-    from se2_foot_gait import SE2FootGait
+    from hexapod_core.se2_foot_gait import SE2FootGait
 
     result = load_cpg_controller("robust120_yawtrim", dirs=[SIM_POLICIES])
     gait = SE2FootGait(gait=result["gait"], **result["gait_kw"])
@@ -73,6 +78,13 @@ def test_load_gait_kw_constructs_se2_foot_gait(real_artifact_present):
 def test_missing_artifact_raises():
     with pytest.raises(ValueError):
         load_cpg_controller("no_such_controller_xyz", dirs=[SIM_POLICIES])
+
+
+def test_pre_v2_controller_is_rejected():
+    if not LEGACY_ARTIFACT.is_file():
+        pytest.skip(f"missing {LEGACY_ARTIFACT}")
+    with pytest.raises(ValueError, match="robot_abs_tibia_v2"):
+        load_cpg_controller(str(LEGACY_ARTIFACT))
 
 
 def test_bad_kind_reported_not_raised(tmp_path):
@@ -118,6 +130,8 @@ def test_list_dedupes_by_filename_first_dir_wins(tmp_path):
     d2.mkdir()
     payload = {
         "kind": "cpg_se2_controller", "name": "d1-copy",
+        "joint_frame": "robot_abs",
+        "joint_contract": "robot_abs_tibia_v2",
         "params": {"gait": "tetrapod", "period": 2.0, "swing_frac": 0.3,
                    "lift_m": 0.03, "cmd_tau": 0.1, "workspace_margin": 0.9},
     }

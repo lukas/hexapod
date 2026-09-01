@@ -418,8 +418,6 @@ class RlApi:
     # obs 74 = walk + phase clock; obs 93 = AMP walk with phase,
     # yaw-rate command, and all-healthy fault-health tail. Same walk slot.
     _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk", 93: "walk"}
-    DEFAULT_HOLD_POLICY_FILE = "stand_stancemix_tuckclock_scratch8m.json"
-
     def _find_policy_file(self, file: str) -> Path | None:
         """Resolve a picker file name to a path (uploads shadow repo)."""
         name = Path(str(file)).name          # forbid path traversal
@@ -458,10 +456,16 @@ class RlApi:
                     continue
                 seen.add(f.name)
                 try:
-                    meta = json.loads(f.read_text())["meta"]
+                    obj = json.loads(f.read_text())
+                    meta = obj["meta"]
                 except Exception as e:
                     out.append({"file": f.name, "error": str(e)})
                     continue
+                try:
+                    from rl_move.np_policy import validate_np_policy
+                    errors, _ = validate_np_policy(obj)
+                except Exception as e:
+                    errors = [str(e)]
                 slot = self._SLOT_OBS.get(meta.get("obs_dim"))
                 out.append({
                     "file": f.name,
@@ -471,7 +475,10 @@ class RlApi:
                     "source": (meta.get("source") or "").rsplit("/", 1)[-1],
                     "notes": meta.get("notes", ""),
                     "uploaded": uploaded,
+                    "runnable": not errors,
+                    **({"error": "; ".join(errors[:3])} if errors else {}),
                     "active": (slot is not None
+                               and not errors
                                and _md5(f) == active.get(slot)),
                 })
         out.sort(key=lambda r: r["file"])
@@ -489,7 +496,13 @@ class RlApi:
             return {"ok": False, "error": f"no such policy file: {name}"}
         try:
             payload = src.read_text()
-            meta = json.loads(payload)["meta"]
+            obj = json.loads(payload)
+            meta = obj["meta"]
+            from rl_move.np_policy import validate_np_policy
+            errors, _ = validate_np_policy(obj)
+            if errors:
+                return {"ok": False,
+                        "error": "invalid v2 policy: " + "; ".join(errors[:3])}
         except Exception as e:
             return {"ok": False, "error": f"unreadable policy: {e}"}
         slot = self._SLOT_OBS.get(meta.get("obs_dim"))
@@ -529,7 +542,7 @@ class RlApi:
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:
-        roles = {"walk": None, "hold": self.DEFAULT_HOLD_POLICY_FILE,
+        roles = {"walk": None, "hold": "walk",
                  "stand": None, "lower": None}
         try:
             d = json.loads(self.ROLES_FILE.read_text())
@@ -582,7 +595,7 @@ class RlApi:
                     "error": f"bad role {role!r} (walk/hold/stand/lower)"}
         val: str | None
         if not file:
-            val = self.DEFAULT_HOLD_POLICY_FILE if role == "hold" else None
+            val = "walk" if role == "hold" else None
         elif file == "walk":
             if role != "hold":
                 return {"ok": False,
@@ -594,7 +607,14 @@ class RlApi:
             if p is None:
                 return {"ok": False, "error": f"no such policy: {name}"}
             try:
-                meta = json.loads(p.read_text())["meta"]
+                obj = json.loads(p.read_text())
+                meta = obj["meta"]
+                from rl_move.np_policy import validate_np_policy
+                errors, _ = validate_np_policy(obj)
+                if errors:
+                    return {"ok": False,
+                            "error": "invalid v2 policy: "
+                                     + "; ".join(errors[:3])}
             except Exception as e:
                 return {"ok": False, "error": f"unreadable policy: {e}"}
             if meta.get("obs_dim") not in self._ROLE_OBS[role]:

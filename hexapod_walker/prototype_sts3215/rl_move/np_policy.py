@@ -74,6 +74,11 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
                     f"93 AMP yaw+fault walk)")
     if act != 18:
         errs.append(f"act_dim must be 18, got {act!r}")
+    try:
+        from hexapod_core.joint_frame import require_robot_abs_joint_frame
+        require_robot_abs_joint_frame(meta, source="numpy policy")
+    except ValueError as exc:
+        errs.append(str(exc))
     if meta.get("activation", "tanh") != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
     try:

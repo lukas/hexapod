@@ -19,11 +19,18 @@ from rl_move.sim.domain_rand import (  # noqa: E402
     DomainRandomizer, RandRanges,
 )
 from rl_move.sim.servo_model import (  # noqa: E402
-    N_JOINTS, ServoProfile, SimServoParams,
+    N_JOINTS, ServoProfile, SimServoParams, build_model,
 )
 from rl_move.sim.sim_env import N_ACT, N_OBS, SimHexapodBalanceEnv  # noqa: E402
 
 DEG = math.pi / 180.0
+
+
+def test_fixed_base_model_compiles_without_free_base_keyframes():
+    model = build_model(fixed_base=True, flat_terrain=True,
+                        mesh_visuals=False)
+    assert model.nq == N_JOINTS
+    assert model.nkey == 0
 
 
 def test_servo_profile_latency_and_slew():
@@ -180,7 +187,10 @@ def test_struct_compliance_applies_model_and_reported_q():
     env.data.qfrc_actuator[env._vadr[j]] = 1.2
     env._att_rp = None
     st = env._read_state()
-    assert st.joint_position[j] == pytest.approx(q_phys[j] - 1.2 / k[j])
+    q_reported_model = q_phys.copy()
+    q_reported_model[j] -= 1.2 / k[j]
+    expected = env._mujoco_to_logical_q(q_reported_model)
+    assert st.joint_position[j] == pytest.approx(expected[j])
 
 
 def test_bad_start_adopts_settled_pose_and_does_not_crash():

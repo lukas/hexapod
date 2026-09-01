@@ -97,7 +97,8 @@ the RL tooling depend on them.
   walk-start pose); **Center / Sit** → STEP lower; **Sit & power off** →
   STEP lower, then `X` after the lower reports done.
 - On-screen sticks / WASD+QE / Xbox left+right stick stream
-  `J vx vy omega gait` at ≤20 Hz. **Start walk** sends a timed
+  `J vx vy omega gait` at ≤20 Hz. Xbox D-pad up runs **Stand up**; D-pad down
+  runs **Center / Sit** via STEP lower. **Start walk** sends a timed
   `J vx vy omega`; timed stop, **STOP GAIT**, or bare Xbox **B** sends
   `J 0 0 0`.
 - Telemetry strip: `GET /api/feedback` at 2 Hz while the tab is open.

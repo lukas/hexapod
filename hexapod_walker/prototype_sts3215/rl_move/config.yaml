@@ -22,13 +22,6 @@ control:
   # not change the selected policy's trained control rate.
   drive_write_hz: 50
 
-compat:
-  # Policy joint frame. Default is the real robot's logical convention:
-  # hip = femur angle, knee = absolute tibia angle. Older checkpoints
-  # trained directly against MuJoCo's femur-relative knee hinge should
-  # set this, or export metadata joint_frame, to "model_rel".
-  policy_joint_frame: robot_abs
-
 episode:
   seconds: 5
   settle_seconds: 2.5          # unused unless allow_stand_blend

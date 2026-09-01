@@ -11,7 +11,7 @@ action-space MSE cannot price)? Three legs, same env, DR-0 det:
   1. a policy checkpoint rollout      (records bc_target + realized)
   2. optionally a second checkpoint   (e.g. the raw BC clone control)
   3. a scripted RAW TEACHER rollout   (un-phase-locked TripodGait on
-                                       the wall clock, knee_abs dialect)
+                                       the wall clock, robot_abs)
 
 Per rollout it reports, per leg family:
   - joint-space cycle period of the realized coxa/yaw joints
@@ -120,11 +120,11 @@ def _contact_metrics(contact: np.ndarray, pad_xy: np.ndarray,
 
 class _ScriptedTeacher:
     """Raw un-phase-locked TripodGait driven by the wall clock and the
-    live blended command (knee_abs dialect = the phase-clone lineage's
-    own action dialect; matches _make_walk_bc_gait knee_abs=1)."""
+    live blended command. Both the gait output and action mapper use the
+    canonical robot_abs joint frame."""
 
     def __init__(self, env):
-        from tripod_gait import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
         self.env = env
         self.gait = TripodGait(vx=0.0)
         self.gait.sync_plant_stance(20.0, 80.0)

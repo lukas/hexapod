@@ -397,6 +397,20 @@ def _populate_terrain(model, flat_terrain: bool, terrain_amp: float,
     MP._populate_hfield(model, heights)
 
 
+def _make_fixed_base_xml(xml: str) -> str:
+    """Remove free-base state whose dimensions no longer fit the model."""
+    xml = xml.replace('<freejoint name="root"/>', '')
+    # Mesh MJCF keyframes include the root's 7 qpos values.  Once the root
+    # freejoint is removed MuJoCo expects only 18 joint values, and rejects
+    # those otherwise-unused 25-value keyframes at compile time.  Fixed-base
+    # bench/sysid models always initialize qpos explicitly, so omit the block.
+    start = xml.find("<keyframe>")
+    end = xml.find("</keyframe>", start)
+    if start >= 0 and end >= 0:
+        xml = xml[:start] + xml[end + len("</keyframe>"):]
+    return xml
+
+
 def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
                       mjx_compat: bool, terrain_amp: float,
                       terrain_seed: int, leg_chassis_collision: bool):
@@ -411,7 +425,7 @@ def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
             "full mesh model on CPU or env.model_source=primitive — the "
             "mesh_mjx twin ships a flat plane only")
     if fixed_base:
-        xml = xml.replace('<freejoint name="root"/>', '')
+        xml = _make_fixed_base_xml(xml)
     if leg_chassis_collision:
         if is_full:
             # the full mesh model has REAL chassis/leg hulls; enabling the
@@ -529,7 +543,7 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     finally:
         MP.USE_PART_MESHES, MP.USE_SERVO_MESHES = saved
     if fixed_base:
-        xml = xml.replace('<freejoint name="root"/>', '')
+        xml = _make_fixed_base_xml(xml)
     if leg_chassis_collision:
         # cfg env.leg_chassis_collision=1 — model the belly knife-edge
         # (SIM.md known-gap 4, added 08-12). replay_trace.py's diagnosis
@@ -733,8 +747,8 @@ class ServoProfile:
         still use native model qpos, but robot-authored command streams should
         enter through this method.
         """
-        from hexapod_core.joint_frame import robot_abs_rad_to_model_rel_rad
-        self.command(robot_abs_rad_to_model_rel_rad(q_robot_abs_rad),
+        from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+        self.command(robot_abs_rad_to_mujoco_rel_rad(q_robot_abs_rad),
                      speed_deg_s=speed_deg_s, acc_units=acc_units)
 
     def tick(self, dt: float) -> np.ndarray:

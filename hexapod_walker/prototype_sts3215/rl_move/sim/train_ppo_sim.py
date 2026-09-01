@@ -1886,6 +1886,8 @@ def train(args) -> int:
     venv = make_vec_env(env_fn, n_envs=args.n_envs, seed=args.seed,
                         vec_env_cls=vec_cls)
     if args.init_from:
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
         # Warm start. Only works if obs/action spaces still match the
         # checkpoint (the 2026-08-07 redesign changed both, so runs from
         # before it must start fresh) — unless --obs-pad-transplant
@@ -2108,6 +2110,10 @@ def train(args) -> int:
                 "canary_protected": canary_protected,
                 "canary_stop_after": args.canary_stop_after,
             }, allow_val_change=True)
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+    model.joint_frame = FRAME_ROBOT_ABS
+    model.joint_contract = JOINT_CONTRACT
+
     callbacks = [CheckpointCallback(
         save_freq=max(10_000 // args.n_envs, 1000),
         save_path=str(POLICY_DIR), name_prefix=name)]

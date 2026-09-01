@@ -144,6 +144,37 @@ class NoSlipGait:
     CLAMP_FIT_KW = dict(period=6.0, lift=0.020, shift_frac=0.10,
                         swing_frac=0.40, alpha=1.0)
 
+    # Hardware experiment preset (2026-08-31): continuous body drift and
+    # almost the entire half-cycle assigned to the alternating tripod swing.
+    # The minimum 2% all-feet-down transition plus 0.5% dwell preserve a
+    # deterministic phase boundary without the visible stop/shift/wait of the
+    # original no-slip gait.  Kept as a separate preset so gait 1 remains a
+    # reproducible baseline.
+    FLUID_KW = dict(period=2.9, lift=0.018, shift_frac=0.02,
+                    swing_frac=0.475, alpha=1.0)
+    # Faster clock with lower lift: kinematic sweep at 40 mm/s keeps the
+    # 95th-percentile joint demand near the measured ~31 deg/s cruise clamp
+    # (31.9 deg/s versus FLUID's 30.2) while raising stride frequency 21%.
+    FLUID_FAST_KW = dict(period=2.4, lift=0.014, shift_frac=0.02,
+                         swing_frac=0.475, alpha=1.0)
+    # Hybrid intended to retain the useful planted-body impulse of the fast
+    # alpha=.75 baseline without its long pauses: 80 ms-equivalent phase
+    # fractions become 256 ms shift / 1280 ms swing / 64 ms dwell per side.
+    # The longer swing cuts predicted qdot p95 from ~52 to ~34 deg/s.
+    FLUID_HYBRID_KW = dict(period=3.2, lift=0.018, shift_frac=0.08,
+                           swing_frac=0.40, alpha=0.75)
+    # Stronger hybrid: keep the transition short, but assign more of the
+    # cycle displacement to an all-feet-down shift.  This probes whether the
+    # measured forward-speed gain of FLUID_HYBRID comes from planted impulse
+    # rather than cadence (FLUID_FAST showed that cadence alone did not help).
+    FLUID_PUSH_KW = dict(period=3.2, lift=0.018, shift_frac=0.12,
+                         swing_frac=0.36, alpha=0.70)
+    # Same planted displacement share as FLUID_HYBRID, delivered in a 25%
+    # shorter shift.  The recovered time extends swing rather than dwell, so
+    # the experiment isolates shift impulse without reintroducing a pause.
+    FLUID_PULSE_KW = dict(period=3.2, lift=0.018, shift_frac=0.06,
+                          swing_frac=0.42, alpha=0.75)
+
     TRIPOD_A = (0, 2, 4)
     TRIPOD_B = (1, 3, 5)
     GROUPS_TRIPOD = (TRIPOD_A, TRIPOD_B)
@@ -227,6 +258,31 @@ class NoSlipGait:
     def clamp_fit(cls, **kw) -> "NoSlipGait":
         """The 'cleanest under the servo clamp' preset (08-12 sweep)."""
         return cls(**{**cls.CLAMP_FIT_KW, **kw})
+
+    @classmethod
+    def fluid(cls, **kw) -> "NoSlipGait":
+        """Near-continuous alternating-tripod hardware preset."""
+        return cls(**{**cls.FLUID_KW, **kw})
+
+    @classmethod
+    def fluid_fast(cls, **kw) -> "NoSlipGait":
+        """Higher-cadence fluid preset with reduced vertical travel."""
+        return cls(**{**cls.FLUID_FAST_KW, **kw})
+
+    @classmethod
+    def fluid_hybrid(cls, **kw) -> "NoSlipGait":
+        """Mostly-continuous gait with a small planted shift impulse."""
+        return cls(**{**cls.FLUID_HYBRID_KW, **kw})
+
+    @classmethod
+    def fluid_push(cls, **kw) -> "NoSlipGait":
+        """Fluid gait with a stronger, brief all-feet-down push."""
+        return cls(**{**cls.FLUID_PUSH_KW, **kw})
+
+    @classmethod
+    def fluid_pulse(cls, **kw) -> "NoSlipGait":
+        """Fluid hybrid with the planted shift compressed in time."""
+        return cls(**{**cls.FLUID_PULSE_KW, **kw})
 
     @classmethod
     def ripple(cls, **kw) -> "NoSlipGait":

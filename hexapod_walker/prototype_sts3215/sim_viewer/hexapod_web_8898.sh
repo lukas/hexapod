@@ -44,6 +44,9 @@ Environment:
   SIM_WEB_PORT=${PORT}                          local port
   SIM_WEB_TARGET=${TARGET}                      sim, robot, or both
   POLICY_DIR=${POLICY_DIR}                      policy cache
+
+The same process serves http://localhost:${PORT}/vision. Camera capture is
+off until Start camera is pressed on that page.
 EOF
 }
 
@@ -178,6 +181,9 @@ status() {
     curl -fsS -m 3 "http://localhost:${PORT}/api/ping" || true
     echo
     echo "url: http://localhost:${PORT}/rl"
+    curl -fsS -m 2 "http://localhost:${PORT}/api/vision/health" >/dev/null \
+      && echo "vision: ready (camera off until requested)" || true
+    echo "vision url: http://localhost:${PORT}/vision"
   else
     echo "port ${PORT}: not listening"
   fi

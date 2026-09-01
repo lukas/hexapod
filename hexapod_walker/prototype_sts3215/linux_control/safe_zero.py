@@ -72,8 +72,9 @@ import time
 from pathlib import Path
 
 from feetech_bus import AXIS_LIMITS_DEG, N_JOINTS, joint_to_servo_id
-from tripod_gait import (CHASSIS_FLAT_TO_FLAT_MM, COXA_MM, FEMUR_MM,
-                         TIBIA_MM)
+from hexapod_core.tripod_gait import (
+    CHASSIS_FLAT_TO_FLAT_MM, COXA_MM, FEMUR_MM, TIBIA_MM,
+)
 
 LEG_RADIAL_MM = CHASSIS_FLAT_TO_FLAT_MM / 2.0
 AXIS_NAMES = ("yaw", "hip", "knee")

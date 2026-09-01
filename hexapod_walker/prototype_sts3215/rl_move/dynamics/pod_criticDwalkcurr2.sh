@@ -44,7 +44,8 @@
 # gate-tiering, table-selection-bit-exact), test_dynrep_predictive_
 # critic.py (11, incl. 3 new: extended CRITIC_MARKERS covers
 # value_gate/latent_adapter), test_value_learning.py (12) all green;
-# full test_task_semantics.py bank 126 passed/4 skipped/1 xfailed.
+# historical pre-v2 semantics bank 126 passed/4 skipped/1 xfailed;
+# this is not a robot_abs_tibia_v2 launch certificate.
 # CUDA canary (canary-walkcurr2, --no-wandb, 300k steps, this exact
 # CLI) verified before the full launch: update-health attaches (7
 # actor/11 critic tensors matching the extended-marker split), at

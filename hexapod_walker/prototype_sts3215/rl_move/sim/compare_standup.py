@@ -95,9 +95,10 @@ class RealLegFK:
         self._grid_rz = arr[:, 2:]
 
     def fk(self, hip: float, knee: float) -> tuple[float, float]:
+        """FK from canonical absolute femur/tibia angles."""
         self.data.qpos[:] = 0.0
         self.data.qpos[self._qadr[1]] = hip
-        self.data.qpos[self._qadr[2]] = knee
+        self.data.qpos[self._qadr[2]] = knee - hip
         self._mujoco.mj_forward(self.model, self.data)
         p = (self.data.geom_xpos[self._foot_gid]
              - self.data.xpos[self._chassis_bid])
@@ -333,8 +334,9 @@ def reset_at_zero(env: SimHexapodBalanceEnv, *,
     env._settle(0.4)
     env._settle(0.5, limp=True)
     env.model.geom_friction[:, 0] = fr
-    env._q_nom = env.data.qpos[env._qadr].copy()
-    env._profile.reset(env._q_nom)
+    q_nom_mujoco = env.data.qpos[env._qadr].copy()
+    env._q_nom = env._mujoco_to_logical_q(q_nom_mujoco)
+    env._profile.reset(q_nom_mujoco)
     env._cmd = env._q_nom.copy()
     env._settle(0.3)
 

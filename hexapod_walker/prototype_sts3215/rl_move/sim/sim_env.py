@@ -23,6 +23,13 @@ from typing import Any
 
 import numpy as np
 
+from hexapod_core.joint_frame import (
+    JOINT_CONTRACT,
+    FRAME_ROBOT_ABS,
+    mujoco_rel_rad_to_robot_abs_rad,
+    robot_abs_rad_to_mujoco_rel_rad,
+)
+
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
@@ -54,11 +61,26 @@ N_OBS = 47
 # quadruped_feasibility.FRONT_POSES (kept literal here so env workers
 # don't import that mujoco-loading probe module; c57 static sweep GO,
 # within joint limits yaw ±0.61 / hip −1.40..0.52 / knee −0.35..2.62).
-_QUAD_TUCK_RAD = (0.0, -1.10, 2.40)
+_QUAD_TUCK_ROBOT_RAD = (0.0, -1.10, 1.30)
 
 # Rise-reference cache (reward.rise_ref_path): one load per process —
 # the MJX vec envs build thousands of shims that share this module.
 _RISE_REF_CACHE: dict[str, dict] = {}
+
+
+def _load_robot_abs_q_npz(path: str, *, source: str) -> tuple[np.ndarray, object]:
+    """Load a v2 joint trajectory/bank and reject unlabeled legacy data."""
+    npz = np.load(path)
+    frame = str(npz["joint_frame"]) if "joint_frame" in npz.files else None
+    contract = (str(npz["joint_contract"])
+                if "joint_contract" in npz.files else None)
+    if frame != FRAME_ROBOT_ABS or contract != JOINT_CONTRACT:
+        npz.close()
+        raise ValueError(
+            f"{source} {path}: expected {FRAME_ROBOT_ABS}/"
+            f"{JOINT_CONTRACT}, got {frame}/{contract}; migrate or "
+            "regenerate the artifact")
+    return np.asarray(npz["q_rad"], dtype=float), npz
 
 
 def load_rise_ref(path: str) -> dict:
@@ -68,8 +90,7 @@ def load_rise_ref(path: str) -> dict:
     rollout (Stage-II reference, HumanUP/HoST style)."""
     ref = _RISE_REF_CACHE.get(path)
     if ref is None:
-        z = np.load(path)
-        q = np.asarray(z["q_rad"], dtype=float)
+        q, z = _load_robot_abs_q_npz(path, source="rise_ref")
         if q.ndim != 2 or q.shape[1] != 18 or len(q) == 0:
             raise ValueError(
                 f"rise_ref {path}: expected (T,18) q_rad, got {q.shape}")
@@ -79,6 +100,7 @@ def load_rise_ref(path: str) -> dict:
         # spawn). Older npz lack it — RSI refuses, tracking still works.
         if "h_rel_m" in z.files:
             ref["h"] = np.asarray(z["h_rel_m"], dtype=float)
+        z.close()
         _RISE_REF_CACHE[path] = ref
     return ref
 
@@ -154,7 +176,7 @@ def support_margin_m(feet_xy: np.ndarray, com_xy: np.ndarray) -> float:
 #
 # One function, three consumers: the training reward gate, the eval
 # harness (report + optional success gate), and the MDP_PREFLIGHT
-# rise bank in test_task_semantics.py. Never let these drift apart.
+# Fresh v2 rise banks must use these same canonical limits.
 
 PLANT_SPEC = {
     "height_err_mm": 15.0,
@@ -263,24 +285,15 @@ def leg_chassis_collision_from_cfg(cfg) -> bool:
 
 
 def _default_plant_deg() -> np.ndarray:
-    """Standing plant in SIM joint convention (knee relative to femur).
-
-    A genuinely CAPTURED plant (plant_pose.json) is authoritative: it is
-    stored in the measured robot's absolute-tibia convention since
-    30660b51 and sim_gait_compat converts it at the boundary. The
-    hardware DEFAULT stand home (+19/+28 absolute = +19/+9 relative) is
-    deliberately NOT adopted: it sits on the leg-extension boundary
-    (hip->foot ~239.9 of 240 mm), where the fixed-foot body IK is
-    singular, and the sim's canonical training/eval stance has always
-    been +20/+80 relative."""
+    """Canonical robot plant in the repository joint contract."""
     try:
         from feetech_bus import load_plant_pose
         if load_plant_pose().get("learned"):
-            from hexapod_core.sim_gait_compat import standing_pose_degrees
+            from feetech_bus import standing_pose_degrees
             return np.asarray(standing_pose_degrees(), dtype=float)
     except Exception:
         pass
-    return np.array([0.0, 20.0, 80.0] * 6, dtype=float)
+    return np.asarray([0.0, 20.0, 80.0] * 6, dtype=float)
 
 
 class SimHexapodBalanceEnv(_GymBase):
@@ -664,6 +677,14 @@ class SimHexapodBalanceEnv(_GymBase):
         """
         return obs
 
+    def _mujoco_to_logical_q(self, q_rad: np.ndarray) -> np.ndarray:
+        """Convert the private MuJoCo hinge vector to the joint contract."""
+        return mujoco_rel_rad_to_robot_abs_rad(q_rad)
+
+    def _logical_to_mujoco_q(self, q_rad: np.ndarray) -> np.ndarray:
+        """Convert the joint contract to the private MuJoCo hinge vector."""
+        return robot_abs_rad_to_mujoco_rel_rad(q_rad)
+
     def _final_obs(self, obs: np.ndarray, *, reset: bool,
                    augment_reset: bool | None = None) -> np.ndarray:
         """Apply the augment hook, then the obs-history stack."""
@@ -716,6 +737,8 @@ class SimHexapodBalanceEnv(_GymBase):
         if self._struct_comp is not None and self._struct_comp_k is not None:
             q = self._struct_comp.reported_q(q, torque,
                                              k=self._struct_comp_k)
+        q = self._mujoco_to_logical_q(q)
+        qd = self._mujoco_to_logical_q(qd)
 
         # Attitude the way the hardware computes it: from the accelerometer
         # specific force f = a - g at the IMU's mounting point. Gravity may
@@ -969,6 +992,7 @@ class SimHexapodBalanceEnv(_GymBase):
 
     @staticmethod
     def _clip_to_joint_limits(q: np.ndarray) -> np.ndarray:
+        """Clip a robot-absolute joint vector to hardware limits."""
         from rl_move.safety import AXIS_LIMITS_DEG
         q = q.copy()
         for j in range(N_JOINTS):
@@ -1232,8 +1256,9 @@ class SimHexapodBalanceEnv(_GymBase):
         path = cfg_get(self.cfg, "goal", "walk_park_bank", default=None)
         bank = None
         if path:
-            arr = np.load(str(path))["q_rad"]
-            arr = np.asarray(arr, dtype=float)
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="walk_park_bank")
+            npz.close()
             if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
                 raise ValueError(
                     f"walk_park_bank {path}: expected (K,{N_JOINTS}) "
@@ -1253,7 +1278,9 @@ class SimHexapodBalanceEnv(_GymBase):
                        default=None)
         bank = None
         if path:
-            arr = np.asarray(np.load(str(path))["q_rad"], dtype=float)
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="recover_start_bank")
+            npz.close()
             if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
                 raise ValueError(
                     f"recover_start_bank {path}: expected "
@@ -1275,7 +1302,9 @@ class SimHexapodBalanceEnv(_GymBase):
                        default=None)
         bank = None
         if path:
-            arr = np.asarray(np.load(str(path))["q_rad"], dtype=float)
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="recover_rsi_bank")
+            npz.close()
             if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
                 raise ValueError(
                     f"recover_rsi_bank_path {path}: expected "
@@ -1297,8 +1326,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rise_bank_full = None
         self._rise_bank_zstand = None
         if path:
-            npz = np.load(str(path))
-            arr = np.asarray(npz["q_rad"], dtype=float)
+            arr, npz = _load_robot_abs_q_npz(
+                str(path), source="rise_start_bank")
             if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
                 raise ValueError(
                     f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
@@ -1325,6 +1354,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 np.asarray(npz["z_stand"], dtype=float)
                 if "z_stand" in npz.files
                 and len(npz["z_stand"]) == len(arr) else None)
+            npz.close()
         self._rise_bank_cache = bank
         return bank
 
@@ -1332,7 +1362,7 @@ class SimHexapodBalanceEnv(_GymBase):
         """Set qpos to ``q_rad`` with the chassis at foot-contact height."""
         import mujoco_prototype as MP
         mujoco = self._mujoco
-        feet = fk_all_feet(q_rad)              # body frame, z at yaw plane
+        feet = fk_all_feet(self._mujoco_to_logical_q(q_rad))
         foot_drop = float(np.min(feet[:, 2]))  # most negative = lowest foot
         base_z = MP.YAW_OUTPUT_HEIGHT - foot_drop + MP.FOOT_R + 0.002
 
@@ -1537,7 +1567,8 @@ class SimHexapodBalanceEnv(_GymBase):
                     q_rsi = ref["q"][j] + self.rng.uniform(
                         -2.0, 2.0, N_JOINTS) * DEG2RAD
                     self._rsi_pending = True
-                    return self._clip_to_joint_limits(q_rsi)
+                    return self._logical_to_mujoco_q(
+                        self._clip_to_joint_limits(q_rsi))
         # RECOVER RSI (08-16, zero-family mechanism fix): spawn a
         # flagged recover episode ON the demonstrated belly->plant
         # path instead of its family pose. Root cause (cw-recover-any8
@@ -1574,7 +1605,8 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_rsi = q_rsi + self._ep_rand.start_offset_rad
             self._tipped_applied = True
-            return self._clip_to_joint_limits(q_rsi)
+            return self._logical_to_mujoco_q(
+                self._clip_to_joint_limits(q_rsi))
         # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
         # mechanism fix): spawn on a pose harvested from a checkpoint's
         # OWN successful rollouts of the target kind
@@ -1597,7 +1629,8 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_rsi = q_rsi + self._ep_rand.start_offset_rad
             self._tipped_applied = True
-            return self._clip_to_joint_limits(q_rsi)
+            return self._logical_to_mujoco_q(
+                self._clip_to_joint_limits(q_rsi))
         if start_at == "zero":
             q_start = np.zeros(N_JOINTS, dtype=float)
             # Bridge start (rise reverse-curriculum): blend the start
@@ -1682,7 +1715,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # policy wakes up under. The gait is rolled forward ~1 s
             # plus a uniform slice of one period so its internal
             # command smoothing is engaged and every phase is sampled.
-            from hexapod_core.sim_gait_compat import TripodGait
+            from hexapod_core.tripod_gait import TripodGait
             traj = self._goal_traj
             i_ss = min(int(round(0.5 / self.dt)), len(traj.vx) - 1)
             g = TripodGait()
@@ -1843,10 +1876,10 @@ class SimHexapodBalanceEnv(_GymBase):
                     # known to stay clear while the other four feet form
                     # a support polygon. Small jitter keeps this a family,
                     # not one memorized target.
-                    q_start[3 * leg + 1] = (_QUAD_TUCK_RAD[1]
+                    q_start[3 * leg + 1] = (_QUAD_TUCK_ROBOT_RAD[1]
                                              + self.rng.uniform(-3.0, 3.0)
                                              * DEG2RAD)
-                    q_start[3 * leg + 2] = (_QUAD_TUCK_RAD[2]
+                    q_start[3 * leg + 2] = (_QUAD_TUCK_ROBOT_RAD[2]
                                              + self.rng.uniform(-4.0, 4.0)
                                              * DEG2RAD)
             elif kind == "bank":
@@ -1945,7 +1978,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # +-2 deg jitter matches the gait/park spawn convention.
             # Reached only from quadwalk trajectories, so no legacy
             # rng stream can be perturbed.
-            from hexapod_core.sim_gait_compat import TripodGait
+            from hexapod_core.tripod_gait import TripodGait
             splay = float(cfg_get(self.cfg, "goal",
                                   "quadwalk_mid_splay_m", default=0.06))
             g = TripodGait()
@@ -1961,12 +1994,11 @@ class SimHexapodBalanceEnv(_GymBase):
             g._foot_target_in_body = _splayed
             g.set_velocity(vx=0.0, vy=0.0)
             g.reset_phase()
-            q_start = np.asarray(g.desired_deg(0.0),
-                                 dtype=float) * DEG2RAD
+            q_start = np.asarray(g.desired_deg(0.0), dtype=float) * DEG2RAD
             lift = tuple(getattr(self._goal_traj, "lift_legs", None)
                          or (0, 5))
             for leg in lift:
-                q_start[3 * leg: 3 * leg + 3] = _QUAD_TUCK_RAD
+                q_start[3 * leg: 3 * leg + 3] = _QUAD_TUCK_ROBOT_RAD
             q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
             if self._ep_rand is not None:
                 q_start = q_start + self._ep_rand.start_offset_rad
@@ -1988,7 +2020,7 @@ class SimHexapodBalanceEnv(_GymBase):
         else:
             q_start = self._clip_to_joint_limits(
                 self._apply_tipped_start(self._start_pose_rad()))
-        return q_start
+        return self._logical_to_mujoco_q(q_start)
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):
         del options
@@ -2070,7 +2102,7 @@ class SimHexapodBalanceEnv(_GymBase):
             vel_scale=((1.0 if er is None else er.vel_scale)
                        * self._ease_v),
         )
-        self._cmd = q_start.copy()
+        self._cmd = self._mujoco_to_logical_q(q_start)
         if exact_start is None:
             # Settle with slippery feet AND limp servos first: when a
             # human sets the robot down (torque off), feet micro-slip and
@@ -2089,8 +2121,9 @@ class SimHexapodBalanceEnv(_GymBase):
         # not the ideal plant. Capturing the PASSIVE equilibrium means
         # "hold this pose" needs ~zero torque — like hardware, where
         # q_nom is read from encoders while the servos are unloaded.
-        self._q_nom = self.data.qpos[self._qadr].copy()
-        self._profile.reset(self._q_nom)
+        q_nom_mujoco = self.data.qpos[self._qadr].copy()
+        self._q_nom = self._mujoco_to_logical_q(q_nom_mujoco)
+        self._profile.reset(q_nom_mujoco)
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
         obs, info = self._reset_finalize()
@@ -2113,7 +2146,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # Curl channel target: the ideal plant footprint (foot anchors can
         # slide from wherever they started toward it — required to stand
         # up from the zero pose, useful to fix a badly-placed leg).
-        self.ik.reset(self._q_nom, plant_q_rad=self._plant_deg * DEG2RAD)
+        self.ik.reset(
+            self._q_nom,
+            plant_q_rad=self._plant_deg * DEG2RAD,
+        )
         self.safety.set_nominal(self._q_nom)
         self._cur_filt = None
         self._imu_prev_v = None
@@ -2161,7 +2197,8 @@ class SimHexapodBalanceEnv(_GymBase):
         if getattr(self, "_rsi_pending", False) and self._goal_traj is not None:
             ref = load_rise_ref(str(cfg_get(
                 self.cfg, "reward", "rise_ref_path", default="")))
-            q_set = np.asarray(self.data.qpos[self._qadr], dtype=float)
+            q_set = self._mujoco_to_logical_q(
+                self.data.qpos[self._qadr])
             rms = np.sqrt(((ref["q"] - q_set[None, :]) ** 2).mean(axis=1))
             j0 = int(np.argmin(rms))
             self._rsi_ref_tick0 = j0
@@ -2420,7 +2457,8 @@ class SimHexapodBalanceEnv(_GymBase):
     def _curl_dist(self) -> float:
         """Mean XY distance (m) from each foot to its plant anchor,
         computed in the body frame from true joint angles."""
-        feet = fk_all_feet(self.data.qpos[self._qadr])[:, :2]
+        feet = fk_all_feet(self._mujoco_to_logical_q(
+            self.data.qpos[self._qadr]))[:, :2]
         return float(np.mean(
             np.linalg.norm(feet - self._plant_feet_xy, axis=1)))
 
@@ -2625,7 +2663,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 if kick is not None:
                     cmd_phys = self._clip_to_joint_limits(cmd_phys + kick)
                 self._profile.command(
-                    cmd_phys, speed_deg_s=self.write_speed_deg_s,
+                    self._logical_to_mujoco_q(cmd_phys),
+                    speed_deg_s=self.write_speed_deg_s,
                     acc_units=self.write_acc_units)
         return None, (clipped, terminated, status, pen)
 
@@ -2719,30 +2758,9 @@ class SimHexapodBalanceEnv(_GymBase):
         return min(max(j, 0), len(ref["q"]) - 1), is_rsi
 
     def _make_walk_bc_gait(self):
-        """Per-episode TripodGait instance for the walk BC anchor
-        (shared by _reset_finalize and the mode-seq switch path).
-
-        train.bc_anchor_knee_abs=1 (default 0) selects the RAW
-        hardware-module TripodGait, whose post-30660b51 desired_deg
-        knees are ABSOLUTE-tibia angles fed unconverted into the sim
-        knee joints. That IS the joint-space dialect of the 08-22
-        phase-BC-clone lineage (ppo_goal_cw_bcgait_init_fullprof_
-        phase1 was minted from the raw module before the
-        sim_gait_compat boundary existed, and it walks clean at the
-        measured plant) — anchoring that lineage to the CONVERTED
-        gait would pull the clone off its own proven gait. Default 0
-        keeps the convention-corrected sim gait, bit-exact."""
-        if float(cfg_get(self.cfg, "train", "bc_anchor_knee_abs",
-                         default=0.0)) > 0.0:
-            from hexapod_core.tripod_gait import TripodGait
-            _g = TripodGait(vx=0.0)
-            _g.sync_plant_stance(20.0, 80.0)
-            _g.reset_phase()
-            return _g
-        from hexapod_core.sim_gait_compat import TripodGait
+        """Canonical robot-coordinate gait for the walk BC anchor."""
+        from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(vx=0.0)
-        # Canonical sim plant stance (same source as _default_plant
-        # fallback and the WALK semantics bank): +20/+80.
         _g.sync_plant_stance(20.0, 80.0)
         _g.reset_phase()
         return _g
@@ -2778,8 +2796,9 @@ class SimHexapodBalanceEnv(_GymBase):
         identical frame. No rng draws (legacy streams bit-exact)."""
         frames: dict = {}
         for fam, q_probe in (
-                ("plant", self._clip_to_joint_limits(
-                    self._plant_deg * DEG2RAD)),
+                ("plant", self._logical_to_mujoco_q(
+                    self._clip_to_joint_limits(
+                        self._plant_deg * DEG2RAD))),
                 ("belly", np.zeros(N_JOINTS, dtype=float))):
             self._place_at_plant(q_probe)
             er = self._ep_rand
@@ -2790,14 +2809,15 @@ class SimHexapodBalanceEnv(_GymBase):
                 vel_scale=((1.0 if er is None else er.vel_scale)
                            * self._ease_v),
             )
-            self._cmd = q_probe.copy()
+            self._cmd = self._mujoco_to_logical_q(q_probe)
             fr = self.model.geom_friction[:, 0].copy()
             self.model.geom_friction[:, 0] = self.SLIP_MU
             self._settle(0.4)
             self._settle(0.5, limp=True)
             self.model.geom_friction[:, 0] = fr
-            q_nom = self.data.qpos[self._qadr].copy()
-            self._profile.reset(q_nom)
+            q_nom_mujoco = self.data.qpos[self._qadr].copy()
+            q_nom = self._mujoco_to_logical_q(q_nom_mujoco)
+            self._profile.reset(q_nom_mujoco)
             self._cmd = q_nom.copy()
             self._settle(0.3)
             frames[fam] = {
@@ -3199,7 +3219,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # Blend: f = (1-g) + g*feet*still. Scoped strictly to
         # hold/track (quad lifts legs on purpose, unload opens a
         # contact on purpose, rise/lower/raise have their own stacks).
-        # HOLD bank in test_task_semantics.py pins the orderings.
+        # A fresh v2 HOLD bank must re-pin these orderings before promotion.
         g_hold = float(cfg_get(self.cfg, "reward", "hold_still_gate",
                                default=0.0))
         if (g_hold > 0.0 and goal is not None
@@ -3759,7 +3779,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 ref = load_rise_ref(str(ref_path))
                 j, _is_rsi = self._rise_ref_clock(ref)
                 parts["rise_rsi"] = 1.0 if _is_rsi else 0.0
-                err = self.data.qpos[self._qadr] - ref["q"][j]
+                err = (self._mujoco_to_logical_q(
+                    self.data.qpos[self._qadr]) - ref["q"][j])
                 sig = float(cfg_get(
                     self.cfg, "reward", "rise_ref_sigma_deg",
                     default=12.0)) * DEG2RAD
@@ -4127,8 +4148,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 elif float(cfg_get(self.cfg, "train",
                                  "bc_anchor_state_aligned",
                                  default=0.0)) > 0.0:
-                    _bc_qnow = np.asarray(
-                        self.data.qpos[self._qadr], dtype=float)
+                    _bc_qnow = self._mujoco_to_logical_q(
+                        self.data.qpos[self._qadr])
                     _bc_j = int(np.argmin(
                         ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
                         .mean(axis=1)))
@@ -4291,8 +4312,8 @@ class SimHexapodBalanceEnv(_GymBase):
             if _bc_ref_path:
                 from .joint_task import q_rad_to_action
                 _bc_ref = load_rise_ref(str(_bc_ref_path))
-                _bc_qnow = np.asarray(
-                    self.data.qpos[self._qadr], dtype=float)
+                _bc_qnow = self._mujoco_to_logical_q(
+                    self.data.qpos[self._qadr])
                 _bc_j = int(np.argmin(
                     ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
                     .mean(axis=1)))
@@ -4343,8 +4364,8 @@ class SimHexapodBalanceEnv(_GymBase):
                     info["recover_bc_eligible"] = 1.0
                     from .joint_task import q_rad_to_action
                     _bc_ref = load_rise_ref(str(_bc_ref_path))
-                    _bc_qnow = np.asarray(
-                        self.data.qpos[self._qadr], dtype=float)
+                    _bc_qnow = self._mujoco_to_logical_q(
+                        self.data.qpos[self._qadr])
                     _bc_dist = ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2
                                 ).mean(axis=1)
                     # Recover starts span belly to plant height.  Nearest-q
@@ -4571,9 +4592,10 @@ class SimHexapodBalanceEnv(_GymBase):
             _ik = FixedFootBodyIK()
             # Mode-seq lower segments descend from the stance carried
             # INTO the segment; None outside mode_seq = legacy q_nom.
-            _ik.reset(self._q_nom
-                      if getattr(self, "_seq_pose_anchor", None) is None
-                      else self._seq_pose_anchor)
+            _ik.reset(
+                self._q_nom
+                if getattr(self, "_seq_pose_anchor", None) is None
+                else self._seq_pose_anchor)
             _res = _ik.solve(BodyOffset(
                 height=float(_g_next.height_ref)))
             if _res.ok:

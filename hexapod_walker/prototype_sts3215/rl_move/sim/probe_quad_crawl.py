@@ -61,8 +61,7 @@ off, quadwalk mode, champion walk stack + quad income):
   probe_quad_rear.py shows a REARED stance — nose-up 14-17 deg, body
   30-40 mm back — moves the CoM aft of the level-body gap and an
   open-loop 4-beat creep then walks forward statically stable.)
-  The QUADWALK bank stays SKIPped
-  (test_task_semantics.QUADWALK_REFERENCE_BLOCKED) pending the
+  The historical QUADWALK bank stayed skipped pending the
   operator ruling on a feedback/RL-derived reference (quad/STATUS
   route 2) — that ruling is now the ONLY route.
 
@@ -118,7 +117,7 @@ class QuadCrawl:
                  mid_fwd: float = 0.05, body_back: float = 0.05,
                  sway: float = 0.06, shift_gain: float = 0.0,
                  shift_cap: float = 0.08, advance: str = "two"):
-        from sim_gait_compat import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
         self.scheme = scheme
         self.g = TripodGait(vx=0.0, lift=lift)
         self.g.sync_plant_stance(*plant)
@@ -158,7 +157,7 @@ class QuadCrawl:
         self.phase = 0.0
 
     def desired_rad(self, t: float, vx: float) -> np.ndarray:
-        import tripod_gait as TG
+        from hexapod_core import tripod_gait as TG
         g = self.g
         dt = 0.0 if self._last_t is None else max(0.0, t - self._last_t)
         self._last_t = t
@@ -297,7 +296,7 @@ def main() -> None:
     from rl_move.sim.joint_task import q_rad_to_action
     from rl_move.sim.servo_model import SimServoParams
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     cfg = load_config()
     for (sec, leaf), val in STACK.items():

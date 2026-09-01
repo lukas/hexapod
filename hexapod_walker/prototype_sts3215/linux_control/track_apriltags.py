@@ -231,10 +231,26 @@ def _safe_pose_assessment(
     unsafe: list[str] = []
     unknown: list[str] = []
     warnings: list[str] = []
-    if body_tilt is not None and float(body_tilt) > 15.0:
-        unsafe.append(f"visual body tilt is {float(body_tilt):.1f} deg")
-    if imu_tilt is not None and imu_tilt > 15.0:
-        unsafe.append(f"IMU tilt is {imu_tilt:.1f} deg")
+    # Prefer the robot's calibrated IMU for safety. The monocular visual tilt
+    # remains a useful calibration diagnostic, but approximate phone
+    # intrinsics and a slightly tilted chassis tag can bias it by several
+    # degrees without making the physical pose unsafe.
+    if imu_tilt is not None:
+        if imu_tilt > 15.0:
+            unsafe.append(f"IMU tilt is {imu_tilt:.1f} deg")
+        if body_tilt is not None and abs(float(body_tilt) - imu_tilt) > 3.0:
+            warnings.append(
+                f"visual tilt {float(body_tilt):.1f} deg disagrees with "
+                f"IMU tilt {imu_tilt:.1f} deg"
+            )
+    elif body_tilt is not None and float(body_tilt) > 15.0:
+        if result.get("camera_calibration_approximate"):
+            unknown.append(
+                f"visual tilt is {float(body_tilt):.1f} deg but phone "
+                "calibration is approximate"
+            )
+        else:
+            unsafe.append(f"visual body tilt is {float(body_tilt):.1f} deg")
     if body_tilt is None and imu_tilt is None:
         unknown.append("neither floor-referenced body tilt nor IMU tilt is available")
 
@@ -253,11 +269,19 @@ def _safe_pose_assessment(
             "visual_minus_encoder_deg",
             disagreement.get("visual_abs_minus_encoder_abs_deg"),
         )
-        if delta is not None and abs(float(delta)) > 15.0:
-            unsafe.append(
-                f"{disagreement['joint']} visual/encoder mismatch is "
-                f"{float(delta):+.1f} deg"
-            )
+        if delta is None or abs(float(delta)) <= 15.0:
+            continue
+        message = (
+            f"{disagreement['joint']} visual/encoder mismatch is "
+            f"{float(delta):+.1f} deg"
+        )
+        if disagreement.get("unsigned_visual_estimate"):
+            warnings.append(message + " (provisional foot-tip estimate)")
+        else:
+            # A disagreement diagnoses a vision/tag-mount calibration problem;
+            # it does not prove that the encoder-reported physical pose is
+            # unsafe. Keep automatic alignment blocked via UNVERIFIED.
+            unknown.append(message)
 
     if len(direct_robot_tags) < 7:
         unknown.append(
@@ -271,6 +295,14 @@ def _safe_pose_assessment(
         warnings.append("phone lens calibration is still approximate")
     if full.get("prediction_only_joints"):
         warnings.append("one or more joints use short-term prediction")
+    if any(
+        record.get("visual_source") == "foot_tip_projection_magnitude"
+        for name, record in full.get("joints", {}).items()
+        if name.endswith("_knee")
+    ):
+        warnings.append(
+            "knee vision is unobservable with lid tags; using encoders"
+        )
 
     if unsafe:
         verdict = "unsafe"
@@ -279,9 +311,10 @@ def _safe_pose_assessment(
     else:
         verdict = "safe"
     zero_check = full.get("zero_check", {})
+    primary_tilt = imu_tilt if imu_tilt is not None else body_tilt
     straight_horizontal = bool(
         zero_check.get("matches_zero")
-        and (body_tilt is None or float(body_tilt) <= 5.0)
+        and (primary_tilt is None or float(primary_tilt) <= 5.0)
         and len(direct_feet) == 6
     )
     alignment_blockers = list(unsafe) + list(unknown)

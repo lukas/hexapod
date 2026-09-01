@@ -98,12 +98,12 @@ files = [
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
-    "linux_control/walk_ready_transition.py",
+    "hexapod_core/walk_ready_transition.py",
     "linux_control/rl_walk_start.py",
     "motor_setup/inplace_demos.py",
     "motor_setup/motion_telemetry.py",
-    "motor_setup/dance_script.py",
-    "motor_setup/quad_walk.py",
+    "hexapod_core/dance_script.py",
+    "hexapod_core/quad_walk.py",
 ]
 
 ok = True
@@ -390,7 +390,7 @@ hex_remote_compile() {
       linux_control/api/*.py \
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
-      linux_control/walk_ready_transition.py \
+      hexapod_core/walk_ready_transition.py \
       linux_control/rl_walk_start.py \
       motor_setup/inplace_demos.py \
       motor_setup/motion_telemetry.py"

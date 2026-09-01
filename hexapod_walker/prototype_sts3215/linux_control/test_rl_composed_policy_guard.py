@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import sys
 import threading
+import json
+import tempfile
 import types
 from pathlib import Path
 
@@ -23,7 +25,7 @@ class FakeRlApi(RlApi):
                  dry_run: bool = True, bus=None, armed: bool = False):
         self._roles_data = {
             "walk": None,
-            "hold": RlApi.DEFAULT_HOLD_POLICY_FILE,
+            "hold": "walk",
             "stand": None,
             "lower": None,
         }
@@ -79,6 +81,21 @@ def test_drive_start_refuses_legacy_joint_hold_role_before_motion():
     assert out["ok"] is False
     assert "explicit learned hold role" in out["error"]
     assert "joint-hold fallback is not safe" in out["error"]
+
+
+def test_policy_picker_rejects_unversioned_coordinates():
+    with tempfile.TemporaryDirectory() as directory:
+        api = FakeRlApi()
+        api.UPLOAD_POLICIES_DIR = Path(directory)
+        api.POLICIES_DIR = Path(directory) / "repo"
+        path = Path(directory) / "old.json"
+        path.write_text(json.dumps({
+            "meta": {"obs_dim": 68, "act_dim": 18,
+                     "training_hz": 25.0},
+        }))
+        out = api.rl_policy_select(file=path.name)
+        assert out["ok"] is False
+        assert "invalid v2 policy" in out["error"]
 
 
 def _main() -> int:

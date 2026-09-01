@@ -72,8 +72,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
+
+_PROTO_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROTO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROTO_ROOT))
+
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 
 # ---------------------------------------------------------------------------
 # Joint model (mirrors firmware/prototype_servo_bridge.ino and mujoco_prototype)
@@ -204,16 +211,20 @@ def _parse_joints_deg(data: dict) -> list[float] | None:
 
 
 def load_plant_pose() -> dict:
-    """Return ``{hip_deg, knee_deg, ...}`` or defaults if missing/invalid.
+    """Return a v2 ``robot_abs`` plant or defaults if missing/invalid.
 
     If ``joints_deg`` (len 18) is present it is the authoritative plant;
-    hip/knee fields remain as summary / legacy for calibrate UI.
+    hip/knee fields remain a summary for the calibration UI. Unstamped
+    pre-v2 files are ignored instead of being guessed into the live frame.
     """
     for path in PLANT_PATH_CANDIDATES:
         if not path.is_file():
             continue
         try:
             data = json.loads(path.read_text())
+            if (data.get("joint_frame") != FRAME_ROBOT_ABS
+                    or data.get("joint_contract") != JOINT_CONTRACT):
+                continue
             hip = float(data["hip_deg"])
             knee = float(data["knee_deg"])
         except (OSError, ValueError, KeyError, TypeError):
@@ -230,6 +241,8 @@ def load_plant_pose() -> dict:
             "contact_found": bool(data.get("contact_found", True)),
             "timestamp": data.get("timestamp"),
             "source": data.get("source") or "plant_calibrate",
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
         }
     return {
         "hip_deg": DEFAULT_STAND_HIP_DEG,
@@ -240,6 +253,8 @@ def load_plant_pose() -> dict:
         "contact_found": False,
         "timestamp": None,
         "source": "default",
+        "joint_frame": FRAME_ROBOT_ABS,
+        "joint_contract": JOINT_CONTRACT,
     }
 
 
@@ -258,6 +273,8 @@ def save_plant_pose(hip_deg: float, knee_deg: float, *,
     }
     if extra:
         payload.update(extra)
+    payload["joint_frame"] = FRAME_ROBOT_ABS
+    payload["joint_contract"] = JOINT_CONTRACT
     path.write_text(json.dumps(payload, indent=2))
     return path
 

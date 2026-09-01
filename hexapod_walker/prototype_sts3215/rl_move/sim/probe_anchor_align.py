@@ -140,7 +140,7 @@ def main() -> None:
             for t in range(n):
                 act, _ = model.predict(obs, deterministic=det)
                 obs, _r, term, trunc, info = env.step(act)
-                qnow = np.asarray(env.data.qpos[env._qadr], dtype=float)
+                qnow = np.asarray(env._state.joint_position, dtype=float)
                 d2 = ((ref["q"] - qnow[None, :]) ** 2).mean(axis=1)
                 j = int(np.argmin(d2))
                 jn_time = min(j + ahead, T - 1)

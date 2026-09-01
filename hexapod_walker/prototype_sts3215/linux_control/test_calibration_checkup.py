@@ -618,14 +618,12 @@ def test_manual_geometry_is_reported_separately_from_fk() -> None:
         assert summary["manual_hip_center_radius_mm"] == 114.0
         assert summary["manual_center_minus_nominal_mm"] == 1.5
         assert abs(summary["manual_absolute_minus_manual_height_mm"]) < 1.0
-        assert summary["manual_serial_minus_manual_height_mm"] > 30.0
         assert summary["active_angle_convention"] == "absolute_tibia"
         hyp = summary["manual_zero_hypotheses"]
         assert hyp["ok"], hyp
         assert hyp["sample_count"] == len(sweep_samples)
-        assert hyp["recommended_angle_convention"] == "absolute_knee"
-        assert hyp["models"]["absolute_knee_no_offset"]["rms_error_mm"] < 1.0
-        assert hyp["models"]["serial_no_offset"]["rms_error_mm"] > 30.0
+        assert hyp["joint_contract"] == "robot_abs_tibia_v2"
+        assert hyp["models"]["no_offset"]["rms_error_mm"] < 1.0
         assert geom["mujoco_hint"]["neutral_foot_z_m"] == -0.1
         assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.1
         assert geom["mujoco_hint"]["per_leg_servo_height_source"] == (

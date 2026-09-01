@@ -10,10 +10,10 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
         sys.path.insert(0, str(_p))
 
 from rl_move.sim.paper_cpg_search import score_rollouts  # noqa: E402
-from sim_gait_compat import SE2FootGait  # noqa: E402
+from hexapod_core.se2_foot_gait import SE2FootGait  # noqa: E402
 
 
-def test_se2_compat_outputs_sim_relative_knees():
+def test_se2_gait_outputs_canonical_robot_absolute_knees():
     g = SE2FootGait(gait="tetrapod", vx=0.0, vy=0.0, omega=0.0)
     g.sync_plant_stance(20.0, 80.0)
     q = g.desired_deg(0.0)

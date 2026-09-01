@@ -19,7 +19,25 @@ from rl_move.sim.web_hub import (
     HubController, ROBOT_DEFAULT_TIMEOUT_S, ROBOT_SET_ZERO_TIMEOUT_S,
     RouteResponse, SimTarget, make_hub_handler,
 )
-from rl_move.sim.web_server import PAGE_PATHS, STATIC_FILES, WEBUI_DIR, make_handler
+from rl_move.sim.web_server import (
+    DEFAULT_STANCE_POLICY,
+    DEFAULT_WALK_POLICY,
+    PAGE_PATHS,
+    STATIC_FILES,
+    WEBUI_DIR,
+    _resolve_policy,
+    build_arg_parser,
+    make_handler,
+)
+
+
+def test_web_defaults_do_not_boot_a_learned_legacy_policy(tmp_path):
+    args = build_arg_parser().parse_args([])
+
+    assert DEFAULT_STANCE_POLICY is None
+    assert args.stance is None
+    assert str(DEFAULT_WALK_POLICY).startswith("scripted:")
+    assert _resolve_policy(tmp_path, args.walk) == _TRIPOD_HW
 
 
 class FakeSession:

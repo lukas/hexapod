@@ -97,7 +97,7 @@ def main() -> None:
         h_mm = float(info.get("height_mm", 1e9))
         ok = (not term) and abs(h_err) <= args.h_err_tol_mm
         if ok:
-            bank.append(env.data.qpos[env._qadr].copy())
+            bank.append(env._state.joint_position.copy())
             # Full-state twin (08-14, postlower2 dig-in): the joints-only
             # bank re-planted by _place_at_plant + slip/limp settle proved
             # OFF-DISTRIBUTION — even the harvested policy's own parent
@@ -139,11 +139,13 @@ def main() -> None:
             "kept": kept, "fell": fell, "unsettled": unsettled,
             "ep_stats": ep_stats}
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
     np.savez(args.out, q_rad=q_rad,
              qpos_full=np.asarray(bank_qpos, dtype=np.float64),
              qvel_full=np.asarray(bank_qvel, dtype=np.float64),
              z_stand=np.asarray(bank_zstand, dtype=np.float64),
-             meta=json.dumps(meta))
+             meta=json.dumps(meta), joint_frame=FRAME_ROBOT_ABS,
+             joint_contract=JOINT_CONTRACT)
     print(f"[harvest] kept {kept}/{args.episodes} settled lower "
           f"endpoints (fell {fell}, unsettled {unsettled}) -> {args.out} "
           f"({time.time() - t0:.0f}s)")

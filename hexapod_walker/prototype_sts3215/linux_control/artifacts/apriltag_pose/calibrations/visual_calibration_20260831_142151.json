@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "kind": "advisory_visual_encoder_calibration",
+  "created_unix": 1788211311.455,
+  "camera_index": 1,
+  "config_path": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/linux_control/apriltag_pose_config_20260831.json",
+  "sample_count": 45,
+  "camera_calibration_approximate": true,
+  "quality": "provisional",
+  "signed_joint_count": 12,
+  "good_signed_joint_count": 12,
+  "joints": [
+    {
+      "joint": "L0_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": -2.785,
+      "median_absolute_deviation_deg": 1.048,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L0_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L0_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.599,
+      "median_absolute_deviation_deg": 0.23,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L1_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 1.096,
+      "median_absolute_deviation_deg": 0.922,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L1_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L1_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 8.763,
+      "median_absolute_deviation_deg": 0.898,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L2_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.57,
+      "median_absolute_deviation_deg": 0.565,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L2_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L2_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": -0.038,
+      "median_absolute_deviation_deg": 0.189,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L3_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": -5.841,
+      "median_absolute_deviation_deg": 0.815,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L3_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L3_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.376,
+      "median_absolute_deviation_deg": 0.216,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L4_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.489,
+      "median_absolute_deviation_deg": 1.02,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L4_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L4_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.177,
+      "median_absolute_deviation_deg": 0.516,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L5_hip",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 1.806,
+      "median_absolute_deviation_deg": 0.392,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    },
+    {
+      "joint": "L5_knee",
+      "observable": false,
+      "signed": false,
+      "sample_count": 0,
+      "quality": "unobservable",
+      "interpretation": "no direct visual/encoder comparison"
+    },
+    {
+      "joint": "L5_yaw",
+      "observable": true,
+      "signed": true,
+      "sample_count": 45,
+      "visual_minus_encoder_deg": 0.826,
+      "median_absolute_deviation_deg": 0.277,
+      "median_confidence": 1.0,
+      "quality": "good",
+      "interpretation": "visual angle minus current logical encoder angle; review this signed delta before changing any zero"
+    }
+  ],
+  "advisory_only": true,
+  "configuration_changed": true,
+  "servo_zeros_changed": false,
+  "motor_commands_sent": false,
+  "next_action": "Review repeated captures and physically verify tag mounts before using any signed delta to change a servo zero.",
+  "rejected_frames": 64,
+  "rejection_reasons": {
+    "Show every robot lid tag (12/13 direct; missing 5)": 63,
+    "Show every robot lid tag (12/13 direct; missing 6)": 1
+  },
+  "report_path": "/Users/lukas/hexapod/hexapod_walker/prototype_sts3215/linux_control/artifacts/apriltag_pose/calibrations/visual_calibration_20260831_142151.json",
+  "applied_visual_bias_delta_deg": {
+    "L0_hip": -2.785,
+    "L0_yaw": 0.599,
+    "L1_hip": 1.096,
+    "L1_yaw": 8.763,
+    "L2_hip": 0.57,
+    "L2_yaw": -0.038,
+    "L3_hip": -5.841,
+    "L3_yaw": 0.376,
+    "L4_hip": 0.489,
+    "L4_yaw": 0.177,
+    "L5_hip": 1.806,
+    "L5_yaw": 0.826
+  }
+}

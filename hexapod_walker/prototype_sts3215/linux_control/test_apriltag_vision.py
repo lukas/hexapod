@@ -20,9 +20,12 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from apriltag_vision import (  # noqa: E402
+    AprilTagPoseTracker,
     CameraCalibration,
     TagCorners,
     TemporalTagCornerTracker,
+    _TagPoseSolution,
+    _scale_tag_corners,
     detect_tag_corners,
     estimate_world_reference,
     marker_object_corners,
@@ -49,6 +52,32 @@ def test_detects_generated_tag36h11_and_decodes_orientation() -> None:
     assert [item.tag_id for item in detections] == [7]
     assert np.allclose(detections[0].center_px, [199.5, 199.5], atol=1.0)
     assert abs(detections[0].tag_y_clockwise_from_image_up_deg) < 0.5
+
+
+def test_full_resolution_tag_corners_scale_to_preview_coordinates() -> None:
+    detections = [TagCorners(7, np.asarray([
+        [300.0, 450.0],
+        [600.0, 450.0],
+        [600.0, 750.0],
+        [300.0, 750.0],
+    ], dtype=np.float32))]
+
+    scaled = _scale_tag_corners(
+        detections,
+        source_size=(1920, 1440),
+        target_size=(1280, 960),
+    )
+
+    assert scaled[0].tag_id == 7
+    assert np.allclose(
+        scaled[0].corners_px,
+        np.asarray([
+            [200.0, 300.0],
+            [400.0, 300.0],
+            [400.0, 500.0],
+            [200.0, 500.0],
+        ]),
+    )
 
 
 def test_scales_intrinsics_only_for_same_aspect_ratio() -> None:
@@ -161,6 +190,76 @@ def test_as_photographed_config_maps_handwritten_zero_to_l0() -> None:
     assert set(map(int, config["floor_tags"])) == {12, 13, 15}
     assert config["marker_size_m"] == 0.027
     assert config["marker_size_verified"] is True
+
+
+def test_planar_branch_uses_encoder_only_to_reject_large_hip_flip() -> None:
+    tracker = AprilTagPoseTracker.from_json(
+        _HERE / "apriltag_pose_config_20260831.json"
+    )
+    assert tracker._branch_estimator is not None
+    body_mount = tracker._branch_estimator.tag_mounts[0]
+    femur_mount = tracker._branch_estimator.tag_mounts[7]
+    body_from_body = RigidTransform.identity()
+    body_from_femur_zero = RigidTransform(
+        np.zeros(3),
+        Rotation.from_euler("z", 30.0, degrees=True),
+    )
+    body_from_femur_flipped = RigidTransform(
+        np.zeros(3),
+        Rotation.from_euler("z", 30.0, degrees=True)
+        * Rotation.from_euler("y", 48.0, degrees=True),
+    )
+
+    def solution(
+        frame: RigidTransform,
+        mount: RigidTransform,
+        rms: float,
+    ) -> _TagPoseSolution:
+        camera_from_tag = frame.compose(mount)
+        return _TagPoseSolution(
+            camera_from_tag=camera_from_tag,
+            reprojection_rms_px=rms,
+            normal_camera=camera_from_tag.rotation.apply([0.0, 0.0, 1.0]),
+        )
+
+    body_solution = solution(body_from_body, body_mount.frame_from_tag, 0.1)
+    correct = solution(body_from_femur_zero, femur_mount.frame_from_tag, 0.2)
+    flipped = solution(body_from_femur_flipped, femur_mount.frame_from_tag, 0.05)
+    corners = np.asarray([
+        [0.0, 0.0],
+        [10.0, 0.0],
+        [10.0, 10.0],
+        [0.0, 10.0],
+    ], dtype=np.float32)
+    candidate_map = {
+        0: (TagCorners(0, corners), [body_solution]),
+        # The physically wrong branch deliberately has the better pixel fit.
+        7: (TagCorners(7, corners), [flipped, correct]),
+    }
+
+    poses, decisions = tracker._select_robot_tag_solutions(
+        candidate_map,
+        {"L0_yaw": 0.0, "L0_hip": 0.0},
+    )
+
+    selected = next(pose for pose in poses if pose.tag_id == 7)
+    assert decisions[7]["index"] == 1
+    assert decisions[7]["reason"] == "encoder_branch_disambiguation"
+    assert decisions[7]["encoder_error_deg"] < 0.01
+    assert decisions[7]["alternate_encoder_error_deg"] > 20.0
+    assert np.allclose(
+        selected.camera_from_tag.rotation.as_matrix(),
+        correct.camera_from_tag.rotation.as_matrix(),
+    )
+
+    # If telemetry disappears, preserve the already selected physical branch
+    # instead of snapping back to the lower-RMS mirror pose.
+    _poses, temporal_decisions = tracker._select_robot_tag_solutions(
+        candidate_map,
+        None,
+    )
+    assert temporal_decisions[7]["index"] == 1
+    assert temporal_decisions[7]["reason"] == "temporal_continuity"
 
 
 def test_temporal_tag_tracker_bridges_a_decoder_miss_with_optical_flow() -> None:
@@ -308,7 +407,7 @@ def test_safe_pose_assessment_requires_support_only_for_motion() -> None:
 
 def test_safe_pose_assessment_calls_large_tilt_unsafe() -> None:
     result, feedback = _safe_pose_fixture()
-    result["full_pose"]["walking_check"]["body_tilt_deg"] = 22.0
+    feedback["pitch_deg"] = 22.0
 
     assessment = _safe_pose_assessment(
         result, feedback, operator_supported=True
@@ -318,6 +417,39 @@ def test_safe_pose_assessment_calls_large_tilt_unsafe() -> None:
     assert assessment["safe_pose"] is False
     assert assessment["safe_for_alignment_motion"] is False
     assert "tilt" in assessment["unsafe_reasons"][0]
+
+
+def test_safe_pose_prefers_live_imu_over_biased_visual_tilt() -> None:
+    result, feedback = _safe_pose_fixture()
+    result["camera_calibration_approximate"] = True
+    result["full_pose"]["walking_check"]["body_tilt_deg"] = 7.2
+    feedback["roll_deg"] = 0.0
+    feedback["pitch_deg"] = 3.0
+
+    assessment = _safe_pose_assessment(
+        result, feedback, operator_supported=False
+    )
+
+    assert assessment["verdict"] == "safe"
+    assert assessment["imu_tilt_deg"] == 3.0
+    assert "visual tilt 7.2 deg disagrees" in assessment["warnings"][0]
+
+
+def test_unsigned_foot_tip_knee_error_is_warning_not_unsafe() -> None:
+    result, feedback = _safe_pose_fixture()
+    result["full_pose"]["calibration_disagreements"] = [{
+        "joint": "L2_knee",
+        "visual_abs_minus_encoder_abs_deg": 27.4,
+        "unsigned_visual_estimate": True,
+    }]
+
+    assessment = _safe_pose_assessment(
+        result, feedback, operator_supported=False
+    )
+
+    assert assessment["verdict"] == "safe"
+    assert assessment["unsafe_reasons"] == []
+    assert "provisional foot-tip estimate" in assessment["warnings"][0]
 
 
 def test_feedback_poll_never_blocks_camera_loop(monkeypatch) -> None:

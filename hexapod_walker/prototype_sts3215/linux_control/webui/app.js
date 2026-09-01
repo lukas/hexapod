@@ -641,9 +641,12 @@ function keyVec(){
 // Standard Xbox mapping (Chrome Gamepad API):
 //   0=A 1=B 2=X 3=Y  4=LB 5=RB  6=LT 7=RT
 // Hold LB/LT/RB/RT, then tap X/Y/A/B → 16 demos (rows get harder).
-// Face alone: X=sit, Y=stand, A=set-zero-here, B=stop demo.
+// Drive page default: left stick walks, right stick turns, D-pad up/down
+// stands/lowers, B stops. Face-button stand/sit/set-zero shortcuts stay off;
+// they were too easy to brush while driving.
 let gpPrev = [];
 const PAD_FACE = {x:2, y:3, a:0, b:1};          // button indices
+const PAD_DPAD = {up:12, down:13};               // standard Gamepad mapping
 const PAD_MODS = [                               // easiest → hardest
   {i:4, key:'LB'}, {i:6, key:'LT'},
   {i:5, key:'RB'}, {i:7, key:'RT'},
@@ -808,7 +811,8 @@ function pollGamepad(){
   const modLabel = modIdx >= 0 ? PAD_MODS[modIdx].key : '';
   setGamepadTopStatus('ok', modLabel
     ? ('Controller: '+modLabel+' + X/Y/A/B demo shortcuts are active.')
-    : ('Controller: '+(gp.id || 'gamepad')+'.'));
+    : ('Controller: '+(gp.id || 'gamepad')
+      +'. Left stick walk, right stick turn, D-pad up/down stand/lower.'));
 
   const down = [];
   for(let i=0;i<gp.buttons.length;i++) down[i] = padBtnDown(gp, i);
@@ -826,7 +830,14 @@ function pollGamepad(){
   } else {
     // Default controller mode is steering only. Bare face buttons are too
     // easy to brush while driving, so zero/stand/sit stay on visible UI
-    // buttons. B remains an explicit stop.
+    // buttons. B remains an explicit stop; D-pad up/down is intentional
+    // enough for stand/lower.
+    if(press(PAD_DPAD.up)){
+      disc('P');
+    }
+    if(press(PAD_DPAD.down)){
+      disc('C');
+    }
     if(press(PAD_FACE.b)){
       stopScriptedDrive('pad B - J 0 0 0');
       padStopDemo();
@@ -845,8 +856,18 @@ function pollGamepad(){
 function disc(c){
   if(c==='X'){ stepLowerThenPowerOff(); return; }
   // Stand / Center: use verified glide, not the old one-shot /cmd P|C.
-  if(c==='P'){ goPoseZero('stand', '▲ Stand'); forceResend(); return; }
-  if(c==='C'){ goPoseZero('sit', 'Center / Sit'); forceResend(); return; }
+  if(c==='P'){
+    stopDriveMotionForPose('stand');
+    goPoseZero('stand', '▲ Stand');
+    forceResend();
+    return;
+  }
+  if(c==='C'){
+    stopDriveMotionForPose('STEP lower');
+    goPoseZero('sit', 'Center / Sit');
+    forceResend();
+    return;
+  }
   if(needArm()) return;
   cmd(c); forceResend();
 }
@@ -1025,7 +1046,8 @@ document.getElementById('wpreflight').onclick = async ()=>{
 // --- gait picker: 0 tripod high-step · 1 no-slip tripod (+alpha) · 2 no-slip
 // ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave ·
 // 6 loaded Central Pattern Generator (CPG) tetrapod ·
-// 7 no-slip clampfit tripod · 8 middle-tuck quad crawl. Alpha only tunes
+// 7 no-slip clampfit tripod · 8 middle-tuck quad crawl ·
+// 9 no-slip fluid tripod · 10 no-slip fluid-fast tripod. Alpha only tunes
 // gait 1 (the others run their presets), so the slider hides for them. --------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
@@ -1044,6 +1066,8 @@ const GAIT_LABELS = Object.freeze({
   6: 'Central Pattern Generator (CPG) tetrapod',
   7: 'No-slip clampfit',
   8: 'Middle-up quad',
+  9: 'No-slip fluid tripod',
+  10: 'No-slip fluid-fast tripod',
 });
 function commandTextFailed(text){
   return /^(failed|bad|refused)/i.test(String(text || ''));
@@ -1338,6 +1362,14 @@ function stopScriptedDrive(label){
   if(driveStick && driveStick.release) driveStick.release();
   if(turnStick && turnStick.release) turnStick.release();
   sendScriptedDriveStop(label);
+}
+function stopDriveMotionForPose(label){
+  if(walkTimer || walkTick){
+    stopGaitWalk('stopping gait before '+label);
+    return;
+  }
+  if(scriptedDriveMoving) stopScriptedDrive('stopping gait before '+label);
+  else forceResend();
 }
 function streamScriptedDrive(x, y, t){
   if(!servosArmed || dancePaused){
@@ -2329,11 +2361,8 @@ function renderCalDimensions(res){
     ? `operator measurement${manual.timestamp ? (' · '+htmlEscape(manual.timestamp)) : ''}`
     : 'not saved';
   const consistencyBits = [
-    gsum.manual_relative_height_mm != null
-      ? `old hip+knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
-      : null,
     gsum.manual_absolute_height_mm != null
-      ? `active tibia-angle FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
+      ? `absolute-tibia FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
       : null,
   ].filter(Boolean);
   const zeroHyp = gsum.manual_zero_hypotheses || {};
@@ -2346,11 +2375,10 @@ function renderCalDimensions(res){
   }
   const zeroHypBits = [
     zeroHypBit('best', zeroHyp.best_model),
-    zeroHypBit('serial best', zeroHyp.best_serial),
-    zeroHypBit('tibia-angle best', zeroModels.absolute_knee_best_pair),
-    zeroHypBit('hip-only', zeroModels.serial_hip_only),
-    zeroHypBit('knee-only', zeroModels.serial_knee_only),
-    zeroHypBit('tibia-angle check', zeroModels.absolute_knee_no_offset),
+    zeroHypBit('pair fit', zeroModels.best_pair),
+    zeroHypBit('hip-only', zeroModels.hip_only),
+    zeroHypBit('knee-only', zeroModels.knee_only),
+    zeroHypBit('no-offset check', zeroModels.no_offset),
   ].filter(Boolean);
   const rows = [
     ['manual measurements',
@@ -2402,7 +2430,7 @@ function renderCalDimensions(res){
         : fitSource)],
     ['zero offset hints',
       `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
-      'relative hints from contact-height residuals'],
+      'robot-absolute offset hints from contact-height residuals'],
     ['stance foot z',
       `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
       hint.neutral_foot_z_m != null

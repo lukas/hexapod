@@ -136,7 +136,7 @@ def _rollout(env, mode: str, behavior: str, model) -> dict:
     psum: dict = {}
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
     ref_dt = float(ref["dt"])
-    q0 = env.data.qpos[env._qadr].copy()
+    q0 = env._state.joint_position.copy()
     n_ref = len(q_ref)
     if model is not None:
         state, ep_start = None, np.ones((1,), dtype=bool)

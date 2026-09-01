@@ -359,8 +359,9 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                         dr_model = dr_scratch.model
                     if seq_mint:
                         for fam, qp in (
-                                ("plant", env._clip_to_joint_limits(
-                                    env._plant_deg * DEG2RAD)),
+                                ("plant", env._logical_to_mujoco_q(
+                                    env._clip_to_joint_limits(
+                                        env._plant_deg * DEG2RAD))),
                                 ("belly", np.zeros(N_JOINTS,
                                                    dtype=float))):
                             shm[f"seq_q_{fam}"][g] = qp

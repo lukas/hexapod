@@ -24,8 +24,8 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
     # DIG-IN): mirrors the existing HEXAPOD_MODEL_SOURCE pattern
     # (servo_model.resolve_model_source) for the SAME reason. config.yaml's
     # `control.hz` default flipped 25 -> 100 on 2026-08-24
-    # (fb_20260824T174619_c49b7e); `rl_move/tests/test_task_semantics.py`'s
-    # ~230-test calibrated reward-pricing bank calls this function with NO
+    # (fb_20260824T174619_c49b7e); the now-retired pre-v2 reward-pricing
+    # bank called this function with NO
     # override anywhere, so every fixed-magnitude threshold in that bank
     # (charges/bonuses accumulate per TICK, and 100 Hz banks 4x more ticks
     # per wall-clock second than the 25 Hz dynamics they were measured

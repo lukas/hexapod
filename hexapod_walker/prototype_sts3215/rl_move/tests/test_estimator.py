@@ -29,10 +29,10 @@ from rl_move.estimator import LegOdometryVelocity, integrate_track  # noqa: E402
 DT = 0.04  # 25 Hz, the control rate everywhere in this stack
 DEG = math.pi / 180.0
 
-# Crouch-plant base pose: yaw 0, hip +25 deg, knee +70 deg per leg —
+# Crouch-plant base pose: yaw 0, femur +25 deg, tibia +95 deg per leg —
 # feet tucked in with xy reach margin, so small body glides stay
 # IK-reachable (a long glide on pinned feet is not; robots step).
-Q0 = np.tile([0.0, 25.0 * DEG, 70.0 * DEG], 6)
+Q0 = np.tile([0.0, 25.0 * DEG, 95.0 * DEG], 6)
 
 
 def _q_from_feet(feet_body: np.ndarray) -> np.ndarray:

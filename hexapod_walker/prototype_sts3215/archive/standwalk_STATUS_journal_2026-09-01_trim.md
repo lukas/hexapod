@@ -3692,3 +3692,30 @@ matched-actor-training-steps confound + the klrolltight2 DIG-IN
 flag) preserved VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md` (appended
 09-01 ~10:1x) — do not re-derive; read it there if needed.)
+
+---
+Appended 09-01 ~12:1x (previous top-of-STATUS block, now archived):
+
+Update, 2026-09-01 ~10:5x (yaw-credit canary pair READ + verdicted,
+follow-up grad-clip lever built + a 3-arm dose bracket launched).
+Plain English: the reward-decomposed yaw critic's FIRST dose
+(coef=1.0/vf=0.5, no trust region) made turn authority WORSE than
+doing nothing — root cause looks like an oversized, unclipped actor
+step, so a gradient-norm clip was built for just that step and 3
+doses launched to find out if capping the step size recovers it.
+
+1. yaw-credit canary pair verdicted (own probe_turn_authority,
+   TURNCAP_CFG_SET, run on-pod): ctrl-canary -> CANARY PASS (baseline,
+   coef=0) wz_med pos avg +0.083/neg avg -0.138. canary-rr1
+   (coef=1.0/vf=0.5) -> CANARY FAIL - MECHANISM: pos avg +0.028/neg
+   avg -0.097 — WORSE than control BOTH signs; reward-quarters crash
+   deeper too. Evidence:
+   logs/ckpt_eval/turn_probe_yawcredit_{ctrl_canary,canary_rr1}.json.
+2. Root cause + fix: the extra actor pg step (yaw_critic.py::
+   _yaw_credit_step) shares the main optimizer with NO trust region.
+   Added train.yaw_credit_grad_clip (default 0/off, bit-exact when
+   unset) = a plain clip_grad_norm_ on just that step. 18/18
+   test_yaw_critic.py green (3 new). Snapshot:
+   exp/yaw-credit-grad-clip-followup.
+3. 3-arm dose bracket launched (respec of -rr1, clip-only lever):
+   grad_clip={0.15, 0.5, 2.0}, all VERIFIED RUNNING.

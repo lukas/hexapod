@@ -248600,7 +248600,7 @@
       "0.02"
     ],
     "created": "2026-09-01T07:42:02+00:00",
-    "status": "RUNNING",
+    "status": "ACQ PARTIAL - MATCHED-DRIFT CONFIRMED, JOINT CLOSE 2/2",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -248649,7 +248649,9 @@
         ]
       }
     ],
-    "checkup_0901": "SUSPECT fps 2913 root-caused: (1) watcher prestage evals for already-verdicted klrolltight-acq1 shared train-1's cgroup (mixedsession killed after 1h stuck in dr0/rise + orphan worker killed; gate/owncfg report passes SIGSTOPped with auto-SIGCONT babysitter on trainer exit \u2014 reports still complete); (2) residual ~2x-vs-twin slowness is RUN-intrinsic, not pod: GPU healthy (no ECC, clocks normal, duty cycle matches twin), but seed-0 arm fired 35 kl-rollbacks vs twin's 8 and ep_rew 201 vs 752 \u2014 unstable seed => shorter episodes/more resets/more host work. Science unaffected (gate probes are step-indexed). Launcher now soft-prefers eval-quiet pods."
+    "checkup_0901": "SUSPECT fps 2913 root-caused: (1) watcher prestage evals for already-verdicted klrolltight-acq1 shared train-1's cgroup (mixedsession killed after 1h stuck in dr0/rise + orphan worker killed; gate/owncfg report passes SIGSTOPped with auto-SIGCONT babysitter on trainer exit \u2014 reports still complete); (2) residual ~2x-vs-twin slowness is RUN-intrinsic, not pod: GPU healthy (no ECC, clocks normal, duty cycle matches twin), but seed-0 arm fired 35 kl-rollbacks vs twin's 8 and ep_rew 201 vs 752 \u2014 unstable seed => shorter episodes/more resets/more host work. Science unaffected (gate probes are step-indexed). Launcher now soft-prefers eval-quiet pods.",
+    "triage": "done",
+    "verdict": "JOINT CLOSE (n=2, with seed0 klrolldriftmatch-acq1): MATCHED-DRIFT CONFIRMED. Continued the freeze+guard=0.02 lineages own final checkpoint (valuewarmup-klrolltight-acq1, actor already warmed up) for +8M more steps with --actor-freeze-steps=0, matching its ACTOR-training-step total (38M) to the guard-only siblings own 38M-actor-step final read (pos 0.0743-0.0754, neg -0.1154 to -0.1204). Built the own 4-point probe_turn_authority curve (2M/4M/6M/8M elapsed=32/34/36/38M actor-steps, TURNCAP_CFG_SET) on BOTH training seeds myself, on-pod: seed0 final pos 0.0897/0.0637, neg -0.1122/-0.1028; seed1(this run) final pos 0.0891/0.0639, neg -0.1029/-0.1091. Combined (n=4) final pos avg 0.0766 (vs guard-only avg 0.0749, diff 0.0017 -- within noise) and neg avg -0.1068 (vs guard-only avg -0.1179, diff 0.0111 -- at the edge of/within the runs own ~0.01 noise band given 0.02-0.03 seed-to-seed scatter observed throughout this campaign). Trend across both seeds shows a slow CONTINUED decline from the shared 0M-elapsed starting point (pos 0.0803/0.0756 avg 0.078, neg -0.1131/-0.1175 avg -0.1153) down toward the guard-only band -- NOT a flat plateau held near the higher starting value (which the gates own FREEZE-PROTECTS branch required, e.g. pos staying >=0.078: both seeds final avg 0.0766-0.0767, under that bar; neg eroded materially from -0.115 to -0.107, also failing the no-material-decline clause). No gait-collapse confound: eval/walk/survived_frac=1.0 both seeds, all probe rollouts fell=false. This CLOSES the freeze-vs-total-actor-steps confound with confidence: freeze delays erosion, it does not add durable protection beyond what the same number of actor-training-steps would produce anyway. Per the gates own text: total-actor-training-steps is the dominant driver -- do NOT fund further freeze-only or periodic-re-freeze mechanism work on this axis. Evidence: logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_klrolldriftmatch_acq1{,_s1}_curve.json (built this cycle, on-pod, pushed to controller)."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-klrolldriftmatch-acq1-s1",
@@ -248901,7 +248903,7 @@
       "0.02"
     ],
     "created": "2026-09-01T07:54:03+00:00",
-    "status": "RUNNING",
+    "status": "ACQ PARTIAL - MATCHED-DRIFT CONFIRMED, JOINT CLOSE 2/2",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -248948,6 +248950,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-01T08:27:47"
+    "triage": "done",
+    "verdict": "JOINT CLOSE (n=2, with seed0 klrolldriftmatch-acq1, verdicted same cycle). Seed-1 twin of the matched-actor-training-steps confound test: same conclusion. Own 4-point probe_turn_authority curve (2M/4M/6M/8M elapsed=32/34/36/38M actor-steps, TURNCAP_CFG_SET) built on-pod: pos 0.0864/0.0730 (2M) -> 0.0846/0.0739 (4M) -> 0.0870/0.0662 (6M) -> 0.0891/0.0639 (final); neg -0.1055/-0.1019 (2M) -> -0.1110/-0.1091 (4M) -> -0.1046/-0.1148 (6M) -> -0.1029/-0.1091 (final). Final avg pos 0.0765, neg -0.1060 -- within noise of seed0s own final (pos 0.0767, neg -0.1075) and of the guard-only siblings 38M-actor-step floor (pos 0.0743-0.0754, neg -0.1154 to -0.1204); slow continued decline from the shared 0M-elapsed start (pos avg 0.078, neg avg -0.1153), not a held-flat plateau. eval/walk/survived_frac=1.0, all probe rollouts fell=false -- no gait-collapse confound. MATCHED-DRIFT CONFIRMED with n=2: freeze only delays erosion, total actor-training-steps is the real driver of the durable-authority ceiling (~0.075-0.09 pos / ~-0.10 to -0.12 neg), not freeze itself. Closes the freeze-based mechanism line -- no further freeze-only or periodic-re-freeze work funded on this axis; the campaigns remaining named escalation is a reward-decomposed/command-conditioned critic architecture (genuine new-code work, scoped in STATUS.md this cycle, not yet built). Evidence: logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_klrolldriftmatch_acq1_s1_curve.json (built this cycle, on-pod)."
   }
 ]

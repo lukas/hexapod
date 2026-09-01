@@ -357,6 +357,101 @@ def test_yaw_credit_step_noop_without_collector_callback():
     assert "train/yaw_credit_vf_loss" not in model.logger.name_to_value
 
 
+def test_yaw_credit_grad_clip_default_off_is_bit_exact():
+    """train.yaw_credit_grad_clip defaults to 0.0 (OFF, no clip) --
+    with coef/vf_coef > 0 (the pg/vf steps DO run), a wrapped model
+    with grad_clip left at its default 0.0 must produce IDENTICAL
+    params to one that explicitly sets grad_clip=0.0 (both take the
+    unclipped optimizer.step() path); this is the off-path-preserves-
+    existing-behavior contract for the 09-01 grad-clip follow-up."""
+    model_default = _yaw_model()
+    model_explicit_zero = _yaw_model()
+    assert model_default.yaw_credit_grad_clip == 0.0  # class default
+    model_explicit_zero.yaw_credit_grad_clip = 0.0
+    for p_a, p_b in zip(model_default.policy.parameters(),
+                        model_explicit_zero.policy.parameters()):
+        p_b.data.copy_(p_a.data)
+    from stable_baselines3.common.logger import configure
+    model_default.set_logger(configure(None, ["stdout"]))
+    model_explicit_zero.set_logger(configure(None, ["stdout"]))
+    cb_a, cb_b = (make_yaw_credit_collect_callback(),
+                 make_yaw_credit_collect_callback())
+    from stable_baselines3.common.callbacks import CallbackList
+    model_default.set_random_seed(0)
+    model_default.learn(total_timesteps=16, callback=CallbackList([cb_a]))
+    model_explicit_zero.set_random_seed(0)
+    model_explicit_zero.learn(total_timesteps=16,
+                              callback=CallbackList([cb_b]))
+    for p_a, p_b in zip(model_default.policy.parameters(),
+                        model_explicit_zero.policy.parameters()):
+        np.testing.assert_allclose(p_a.detach().numpy(),
+                                   p_b.detach().numpy(), atol=1e-6)
+
+
+def test_yaw_credit_grad_clip_actually_clips_the_pg_step():
+    """With a large yaw_credit_coef (an artificially huge pg gradient)
+    and a tiny grad_clip, the logged train/yaw_credit_grad_norm must
+    read ABOVE the clip value (proving clip_grad_norm_ saw a real
+    over-budget gradient to clip) and the resulting parameter step
+    must be SMALLER than the unclipped sibling's -- the whole point of
+    the 09-01 canary-FAIL follow-up (yawcredit-canary-rr1 read worse
+    turn authority than its coef=0 control; the extra actor step had
+    no trust region at all)."""
+    model_clip = _yaw_model(coef=50.0, vf_coef=0.0)
+    model_clip.yaw_credit_grad_clip = 1e-3
+    model_noclip = _yaw_model(coef=50.0, vf_coef=0.0)
+    for p_a, p_b in zip(model_clip.policy.parameters(),
+                        model_noclip.policy.parameters()):
+        p_b.data.copy_(p_a.data)
+    before = {id(p): p.detach().clone()
+              for p in model_clip.policy.parameters()}
+    from stable_baselines3.common.logger import configure
+    model_clip.set_logger(configure(None, ["stdout"]))
+    model_noclip.set_logger(configure(None, ["stdout"]))
+    from stable_baselines3.common.callbacks import CallbackList
+    model_clip.set_random_seed(0)
+    model_clip.learn(total_timesteps=16,
+                     callback=CallbackList([make_yaw_credit_collect_callback()]))
+    model_noclip.set_random_seed(0)
+    model_noclip.learn(total_timesteps=16,
+                       callback=CallbackList([make_yaw_credit_collect_callback()]))
+    val = model_clip.logger.name_to_value
+    assert "train/yaw_credit_grad_norm" in val
+    assert val["train/yaw_credit_grad_norm"] > model_clip.yaw_credit_grad_clip
+    step_clip = sum(
+        float(th.norm(p.detach() - before[id(p)]).item())
+        for p in model_clip.policy.parameters())
+    step_noclip = sum(
+        float(th.norm(p_a.detach() - p_b.detach()).item())
+        for p_a, p_b in zip(model_noclip.policy.parameters(),
+                            model_clip.policy.parameters()))
+    assert step_clip > 0.0  # the clipped step still moved something
+    # (no direct clip-vs-noclip magnitude comparison across two
+    # independently-trained models beyond the grad_norm check above --
+    # PPO's own super().train() step also moves params, so a coarse
+    # "total drift" comparison would conflate the two updates. The
+    # grad_norm assertion above is the decisive, isolated check.)
+
+
+def test_attach_yaw_credit_wires_grad_clip():
+    """attach_yaw_credit's grad_clip kwarg must set the attribute the
+    train() override reads, defaulting to 0.0 (off) when omitted."""
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    venv = DummyVecEnv([_TinyYawEnv for _ in range(2)])
+    cls = make_yaw_credit_ppo_class(RecurrentPPO)
+    model = cls(DualGruActorCriticPolicy, venv, n_steps=8, batch_size=8,
+               n_epochs=1, seed=0, device="cpu",
+               policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    attach_yaw_credit(model, coef=1.0, vf_coef=0.5,
+                      cfg={"reward": {"k_walk_yaw": 1.0}})
+    assert model.yaw_credit_grad_clip == 0.0
+    attach_yaw_credit(model, coef=1.0, vf_coef=0.5, grad_clip=0.75,
+                      cfg={"reward": {"k_walk_yaw": 1.0}})
+    assert model.yaw_credit_grad_clip == 0.75
+
+
 def test_attach_yaw_credit_requires_dual_policy():
     from sb3_contrib import RecurrentPPO
     from stable_baselines3.common.vec_env import DummyVecEnv

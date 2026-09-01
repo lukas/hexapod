@@ -251738,7 +251738,7 @@
       "train.yaw_credit_grad_clip=0.15"
     ],
     "created": "2026-09-01T12:06:18+00:00",
-    "status": "RUNNING",
+    "status": "CANARY_FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -251784,7 +251784,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-01T12:30:10"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (own scope; NOT a refutation of the grad-clip mechanism itself -- see caveat). Ran the gate's own two decisive instruments myself on-pod (train-5, idle): probe_turn_authority (own 96-key TURNCAP_CFG_SET, wz_cmd=+-0.25, seeds 0/1) and a no-video purewalk det harness (--modes walk --per-mode 8 --start-jitter-panel). Clause 1 (turn authority >=0.15 both signs) CLEARS with a wide margin, even beating seed0: wz_med pos 0.217/0.218 (avg 0.218) and neg -0.216/-0.200 (avg -0.208) vs the >=0.15 bar and seed0's own 0.198/-0.200; fell=false on all 4 probe reads. Clause 2 (own purewalk det gait_valid>=5/6 zero falls) MISSES: gait_valid itself reads 8/8 both submodes (no sacrificed legs), but 4/8 walk/det and 3/8 walk_startjitter/det episodes actually TERMINATED on an over_current safety trip (7/16 = 44% fall rate) -- seed0's own read was gait_valid 8/8 with ZERO terminations, ZERO falls; this seed does not reproduce that. Clause 3 (prog>=0.35/slip<=3.0 vs control) is mixed: progress_ratio 0.39/0.38 clears fine (close to seed0's 0.384/0.402), but slip/m 6.57/5.71 is ~2x the 3.0 cap, landing in the SAME range as the two already-closed collapse siblings (rr1 slip 5.34/5.76, gradclip2p0 slip 5.63/5.67) even though this seed's progress did NOT collapse the way theirs did. Since the PASS bar requires all three clauses and 2 of 3 miss, this canary FAILS by the gate's own letter -- per the gate's own text, 'seed0's result would then be basin-specific, not a recipe property' for the WALK-QUALITY/STABILITY half of the result specifically. IMPORTANT CAVEAT the binary verdict vocabulary can't carry: the actual NEW mechanism under test (train.yaw_credit_grad_clip=0.15, the tight trust-region clip on the yaw-decomposed critic's extra actor step) reproduced and even exceeded seed0 on the ONE clause it was invented to fix (turn authority) -- it is the walk-quality/stability of the underlying dualbc6/mirroraug base checkpoint at THIS seed, not the grad-clip addition, that shows a basin-specific stability gap (over-current drag/falls). Does not retroactively touch the already-verdicted seed0 CANARY PASS or the already-launched 38M gradclip0p15-acq1 (per the gate's own text, that arm 'stands on its own seed0 evidence regardless' -- left untouched, still training). Evidence (pulled to controller): logs/ckpt_eval/turn_probe_yawcredit_gradclip0p15_canary_s1.json, logs/ckpt_eval/purewalk_gradclip0p15_canary_s1_det.json/report.json. Standard stochastic multi-mode gate/owncfg/mixedsession (video-every=1) left running on-pod (train-5) for later supplementary video -- informational only, cannot flip this read (falls already directly observed). Next: do not spend acquisition budget on a fresh seed1 lineage off this basin without first checking whether more RL steps (i.e. reading gradclip0p15-acq1 once it finishes) narrows or widens this stability gap on seed0's own longer run; treat gradclip0p15 as the reference recipe for TURN AUTHORITY specifically, not yet as a proven zero-fall walk-quality fix across seeds."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-acq1",
@@ -252036,7 +252037,7 @@
       "train.yaw_credit_grad_clip=0.15"
     ],
     "created": "2026-09-01T12:09:32+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -252082,6 +252083,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "PARTIAL - turn authority + stability RETAIN at 38M acquisition scale, but forward walk-quality (progress/slip) REGRESSES vs this exact lineage's own 2M canary read. Ran the gate's own two decisive instruments myself on-pod (train-7, idle post-training): probe_turn_authority (96-key TURNCAP_CFG_SET, wz_cmd=+-0.25, seeds 0/1) and a no-video purewalk det harness (--modes walk --per-mode 8 --start-jitter-panel). Clause 1 (turn authority >=0.15 both signs) CLEARS: wz_med pos 0.189/0.171 (avg 0.180), neg -0.214/-0.218 (avg -0.216) vs the >=0.15 bar -- close to (pos slightly under, neg slightly over) the 2M canary's own 0.198/-0.200, i.e. essentially held, not eroded the way every prior acquisition-scale arm in this campaign eroded turn authority. fell=false all 4 probe reads. Clause 2 (own purewalk det gait_valid>=5/6 zero falls) CLEARS CLEANLY: gait_valid 16/16 across both walk/det and walk_startjitter/det (8 eps each), terminated=0/16 -- zero falls, matching the 2M canary's clean record and NOT reproducing seed1's 44% over-current fall rate, so the seed1 instability does not show up here on seed0's own longer run. Clause 3+4 (progress_ratio 0.40-0.48 band, slip/m<=2.9) MISS: progress_ratio mean/median 0.313/0.318 (walk/det) and 0.324/0.332 (walk_startjitter/det) -- both BELOW the wave-1 band and below the 2M canary's own 0.38-0.40; slip/m mean/median 5.76/4.85 (walk/det) and 10.18/7.12 (walk_startjitter/det) -- both well above the 2.9 cap and above the 2M canary's own 2.2-2.6. Not a full collapse per the gate's FAIL definition (needs prog<0.25 AND slip>4 together; progress stays >0.25 throughout, e.g. never resembles rr1/gradclip2p0's collapse pattern), so this lands PARTIAL by the gate's own letter, not FAIL. Training-curve corroboration (wandb_history.csv): reward is essentially FLAT after ~25% of the run (quarters 459/1995/2215/2191 -- last 3 quarters within noise of each other, not climbing), own periodic eval/walk/survived_frac reads 1.0 from 50% of training onward (corroborates zero falls held throughout, not just at the final checkpoint), but eval/walk/speed_m_s stayed low and flat (~0.02-0.035 m/s) for the whole back half of training -- this is a plateaued optimum, not a run that needs more budget per the 08-21 ruling; the reward is not pricing forward progress/slip enough to keep improving them past ~2M steps on this recipe. Frame strip (walk_det_0, gate video) confirms visually: all legs appear to cycle (no single stuck/dragging leg), robot stays upright and roughly in place -- slow and slippy, not pathological/collapsed. Evidence: logs/ckpt_eval/turn_probe_yawcredit_gradclip0p15_acq1.json, logs/ckpt_eval/purewalk_gradclip0p15_acq1_det.json/report.json, /tmp/acq1_frames_check/walk_det_0_sheet.png. Standard stochastic gate/owncfg/mixedsession left running on-pod (train-7) for supplementary video/report -- informational only. Next: do NOT promote acq1 (38M) over the 2M canary checkpoint (ppo_goal_..._gradclip0p15_canary.zip) as the walk-quality reference for stage-2 -- the 2M checkpoint remains the cleanest turn-authority+walk-quality artifact in this lineage; acquisition-scale budget past ~2M degrades walk quality here without buying anything on turn authority (which was already at ceiling). gradclip0p15 stays the reference recipe for turn authority; the 2M canary checkpoint (not acq1) is the candidate to carry into any stage-2 distillation attempt."
   }
 ]

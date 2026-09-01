@@ -3719,3 +3719,60 @@ doses launched to find out if capping the step size recovers it.
    exp/yaw-credit-grad-clip-followup.
 3. 3-arm dose bracket launched (respec of -rr1, clip-only lever):
    grad_clip={0.15, 0.5, 2.0}, all VERIFIED RUNNING.
+
+---
+
+(Appended 09-01 ~14:0x, trimmed from STATUS.md to hold the 120-line
+budget when the `gradclip0p15-acq1` verdict landed.)
+
+Update, 2026-09-01 ~13:1x (`gradclip0p15-canary-s1` READ — seed twin
+SPLITS the result). Plain English: **the grad-clip=0.15 MECHANISM
+(the actual thing under test) reproduces and even exceeds seed0 on
+turn authority — but seed0's clean zero-fall/in-band-slip walk-quality
+result does NOT reproduce on seed1.** Own `probe_turn_authority`:
+wz_med pos 0.217/0.218 (avg 0.218), neg -0.216/-0.200 (avg -0.208) —
+both WELL above the >=0.15 bar and above seed0's own 0.198/-0.200.
+Own no-video `purewalk` det (`--modes walk --per-mode 8
+--start-jitter-panel`): gait_valid 8/8 both submodes (no sacrificed
+legs) BUT 7/16 (44%) episodes actually TERMINATED on an over_current
+safety trip — seed0 had ZERO terminations across the same 16-episode
+read. slip/m 6.57/5.71 (~2x the 3.0 cap, same range as the two
+already-closed collapse siblings rr1/gradclip2p0) while progress_ratio
+0.39/0.38 held fine (did NOT collapse the way those siblings' progress
+did). Verdicted **CANARY FAIL - MECHANISM** by the gate's own strict
+letter (PASS needs all 3 clauses; 2 of 3 miss) — but this is a
+basin-specific WALK-QUALITY/STABILITY gap on the dualbc6/mirroraug
+base checkpoint at this seed, not a refutation of the grad-clip
+mechanism itself (that clause reproduced cleanly). Does NOT touch
+seed0's own CANARY PASS or the already-launched 38M `gradclip0p15-acq1`
+(seed0, still training, unaffected per the gate's own text). Evidence:
+`logs/ckpt_eval/turn_probe_yawcredit_gradclip0p15_canary_s1.json`,
+`logs/ckpt_eval/purewalk_gradclip0p15_canary_s1_det.json/report.json`.
+
+Prior update, 2026-09-01 ~12:3x (3/3 grad-clip bracket READ — cliff placed;
+NEW CAMPAIGN BEST). Plain English: **the tight clip (0.15) doesn't
+just recover turn authority — it OVERSHOOTS control AND fixes the
+walk-quality collapse; 0.5 shows this is a real gradient (wz alone
+recovers, but progress/slip are ALREADY half-collapsed by then, a
+misleading-in-isolation signal), and 2.0/uncapped fully collapse.**
+All 3 read via own `probe_turn_authority` + own no-video `purewalk`
+det (gait_valid/progress_ratio/slip; standard video gate was 1.5-2h
+out), apples-to-apples against a fresh control re-read. wz_med
+pos/neg, progress_ratio, slip/m: **ctrl** 0.083/-0.138, 0.376, 2.96;
+**0.15** 0.198/-0.200, 0.38-0.40, 2.2-2.6 (clears/overshoots ctrl on
+ALL axes) -> **CANARY PASS**, promoted; **0.5** 0.1025/-0.1373, 0.225,
+4.11 (wz clears parity but progress misses the 0.03 band 5x, slip
+breaches the 2.9 cap) -> **CANARY FAIL - MECHANISM**; **2.0**
+0.043/-0.132, 0.176, 5.6-5.7 (within noise of unclipped rr1's
+0.028/-0.097, 0.16-0.18, 5.3-5.8) -> **CANARY FAIL - MECHANISM**.
+Reward quarters agree with the same ordering (ctrl best, 0.15 close
+2nd, 0.5 mid, 2.0~rr1 worst). **Refill (same cycle as the 0.15 read):**
+launched `...-gradclip0p15-acq1` (38M, matches turnpay-acq1
+precedent) + a `-canary-s1` seed-1 twin (2M) off gradclip0p15 to check
+basin robustness before the 38M budget commits to one seed — both
+VERIFIED RUNNING (train-7, train-5). No promotion off 0.5/2.0; if a
+finer dose point is ever wanted, bracket BETWEEN 0.15 and 0.5, not
+above it. Evidence: `logs/ckpt_eval/turn_probe_yawcredit_gradclip{0p15,
+0p5,2p0}_canary.json`, `purewalk_{gradclip0p15,gradclip2p0,ctrl,rr1}
+.json`, `cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_
+{gradclip0p5_canary,ctrl_canary}_purewalk_det_myread/report.json`.

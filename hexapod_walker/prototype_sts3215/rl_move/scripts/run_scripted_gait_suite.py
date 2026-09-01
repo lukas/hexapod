@@ -349,6 +349,7 @@ class Suite:
         self.direction = ""
         self.high_current_count = 0
         self.high_tilt_count = 0
+        self.last_trusted_tilt: tuple[float, float, float] | None = None
         self.high_temp_counts = [0] * 18
         self.warm_temp_counts = [0] * 18
         self.pause_current_count = 0
@@ -546,6 +547,46 @@ class Suite:
         body_roll = feedback.get("body_roll_deg")
         body_pitch = feedback.get("body_pitch_deg")
         gyro = feedback.get("gyro_dps") or []
+        sample_monotonic = time.monotonic()
+        tilt_sample_valid = True
+        if self.last_trusted_tilt is not None:
+            previous_roll, previous_pitch, previous_time = (
+                self.last_trusted_tilt
+            )
+            dt = max(0.001, sample_monotonic - previous_time)
+
+            def _wrapped_delta_deg(current: float, previous: float) -> float:
+                return abs((current - previous + 180.0) % 360.0 - 180.0)
+
+            observed_jump = max(
+                _wrapped_delta_deg(roll, previous_roll),
+                _wrapped_delta_deg(pitch, previous_pitch),
+            )
+            gyro_values = [
+                abs(float(value)) for value in gyro
+                if value is not None
+            ]
+            max_gyro_dps = max(gyro_values or [0.0])
+            # The Uno occasionally repeats an Euler solution near +/-180 deg
+            # while its gyro remains almost still.  A real fall has either a
+            # continuous tilt trajectory or a corresponding angular-rate
+            # impulse.  Keep comparing rejected samples with the last trusted
+            # pose so a frozen corrupt solution cannot accumulate trip votes.
+            allowed_jump = max(35.0, max_gyro_dps * dt * 4.0 + 10.0)
+            if observed_jump > allowed_jump:
+                tilt_sample_valid = False
+                self.log_event("tilt_glitch_ignored", {
+                    "roll_deg": roll,
+                    "pitch_deg": pitch,
+                    "previous_roll_deg": previous_roll,
+                    "previous_pitch_deg": previous_pitch,
+                    "observed_jump_deg": round(observed_jump, 2),
+                    "max_gyro_dps": round(max_gyro_dps, 2),
+                    "dt_s": round(dt, 3),
+                    "allowed_jump_deg": round(allowed_jump, 2),
+                })
+        if tilt_sample_valid:
+            self.last_trusted_tilt = (roll, pitch, sample_monotonic)
         elapsed = time.monotonic() - self.started
         self.telemetry.writerow([
             feedback.get("t_unix"), round(time.time(), 6), round(elapsed, 3),
@@ -582,6 +623,7 @@ class Suite:
             "max_temp_c": max_temp,
             "min_voltage_v": min_voltage,
             "tilt_deg": max(abs(roll), abs(pitch)),
+            "tilt_sample_valid": tilt_sample_valid,
         }
         # After a thermal stop, motion is already limp. Continue using this
         # exact telemetry writer without recursively firing safety exceptions
@@ -637,11 +679,13 @@ class Suite:
             )
         tilt = metrics["tilt_deg"]
         self.high_tilt_count = (
-            self.high_tilt_count + 1 if tilt >= self.args.tilt_trip_deg else 0
+            self.high_tilt_count + 1
+            if tilt_sample_valid and tilt >= self.args.tilt_trip_deg else 0
         )
-        if self.high_tilt_count >= 2:
+        if self.high_tilt_count >= self.args.tilt_trip_samples:
             raise HardSafetyTrip(
-                f"body tilt {tilt:.1f} deg sustained across samples"
+                f"body tilt {tilt:.1f} deg sustained across "
+                f"{self.args.tilt_trip_samples} valid samples"
             )
 
         if not self.args.soft_recovery or not allow_soft_pause:
@@ -653,7 +697,7 @@ class Suite:
         )
         self.pause_tilt_count = (
             self.pause_tilt_count + 1
-            if tilt >= self.args.tilt_pause_deg else 0
+            if tilt_sample_valid and tilt >= self.args.tilt_pause_deg else 0
         )
         self.pause_voltage_count = (
             self.pause_voltage_count + 1
@@ -1330,6 +1374,7 @@ def main() -> int:
     parser.add_argument("--current-sustained-a", type=float, default=2.4)
     parser.add_argument("--current-hard-a", type=float, default=3.0)
     parser.add_argument("--tilt-trip-deg", type=float, default=22.0)
+    parser.add_argument("--tilt-trip-samples", type=int, default=3)
     parser.add_argument("--temp-trip-c", type=float, default=55.0)
     parser.add_argument("--temp-trip-samples", type=int, default=3)
     parser.add_argument("--temp-clear-samples", type=int, default=3)

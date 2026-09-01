@@ -28,6 +28,7 @@ def _args() -> SimpleNamespace:
         current_hard_a=3.0,
         current_sustained_a=2.4,
         tilt_trip_deg=22.0,
+        tilt_trip_samples=3,
         soft_recovery=True,
         current_pause_a=1.8,
         tilt_pause_deg=14.0,
@@ -37,12 +38,14 @@ def _args() -> SimpleNamespace:
 
 
 def _feedback(*, current: float = 0.2, temp: float = 30.0,
-              voltage: float = 12.0, roll: float = 0.0) -> dict:
+              voltage: float = 12.0, roll: float = 0.0,
+              pitch: float = 0.0, gyro: tuple[float, float, float] = (0, 0, 0)) -> dict:
     return {
         "ok": True,
         "live": 18,
         "roll_deg": roll,
-        "pitch_deg": 0.0,
+        "pitch_deg": pitch,
+        "gyro_dps": list(gyro),
         "joints": [
             {
                 "deg": 0.0,
@@ -94,6 +97,43 @@ def test_temperature_trip_requires_three_same_joint_samples(
             survey.ThermalSafetyTrip, match="3 consecutive samples"
         ):
             suite.sample_feedback()
+    finally:
+        suite.close()
+
+
+def test_tilt_trip_requires_three_valid_samples(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        survey, "_request", lambda *_args, **_kwargs: _feedback(roll=30.0)
+    )
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    try:
+        suite.sample_feedback(allow_soft_pause=False)
+        suite.sample_feedback(allow_soft_pause=False)
+        with pytest.raises(
+            survey.HardSafetyTrip, match="3 valid samples"
+        ):
+            suite.sample_feedback(allow_soft_pause=False)
+    finally:
+        suite.close()
+
+
+def test_impossible_180_tilt_jump_with_quiet_gyro_is_ignored(
+        tmp_path, monkeypatch):
+    samples = iter([
+        _feedback(roll=0.6, pitch=1.6),
+        _feedback(roll=-179.87, pitch=20.11, gyro=(-2.24, -0.73, -1.07)),
+        _feedback(roll=-179.87, pitch=20.11, gyro=(-2.24, -0.73, -1.07)),
+        _feedback(roll=-179.87, pitch=20.11, gyro=(-2.24, -0.73, -1.07)),
+        _feedback(roll=-2.9, pitch=-3.5),
+    ])
+    monkeypatch.setattr(
+        survey, "_request", lambda *_args, **_kwargs: next(samples)
+    )
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    try:
+        for _ in range(5):
+            suite.sample_feedback()
+        assert suite.high_tilt_count == 0
     finally:
         suite.close()
 

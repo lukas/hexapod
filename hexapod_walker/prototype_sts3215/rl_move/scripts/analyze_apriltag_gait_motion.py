@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -17,6 +18,46 @@ from scipy.spatial.transform import Rotation
 def _csv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="") as stream:
         return list(csv.DictReader(stream))
+
+
+def _best_floor_homography(
+    detections: dict[int, dict[str, Any]],
+    floor_corners: dict[int, np.ndarray],
+    *,
+    maximum_rms_m: float = 0.008,
+) -> tuple[np.ndarray, list[int], float] | None:
+    """Fit the largest self-consistent subset of visible mapped floor tags.
+
+    The garage currently contains two physical tag-13 prints. The pose tracker
+    emits one decode for that ID, which may be the unmapped spare. Trying all
+    3-tag then 2-tag subsets prevents that spare from changing the world frame
+    while retaining the two unambiguous references.
+    """
+    visible = sorted(tag_id for tag_id in floor_corners if tag_id in detections)
+    for subset_size in range(len(visible), 1, -1):
+        acceptable: list[tuple[np.ndarray, list[int], float]] = []
+        for subset in itertools.combinations(visible, subset_size):
+            image_points = np.concatenate([
+                np.asarray(detections[tag_id]["corners_px"], dtype=np.float32)
+                for tag_id in subset
+            ])
+            world_points = np.concatenate([
+                floor_corners[tag_id].astype(np.float32) for tag_id in subset
+            ])
+            homography, _ = cv2.findHomography(image_points, world_points, 0)
+            if homography is None:
+                continue
+            projected = cv2.perspectiveTransform(
+                image_points.reshape(-1, 1, 2), homography
+            ).reshape(-1, 2)
+            rms_m = float(np.sqrt(np.mean(np.sum(
+                (projected - world_points) ** 2, axis=1
+            ))))
+            if rms_m <= maximum_rms_m:
+                acceptable.append((homography, list(subset), rms_m))
+        if acceptable:
+            return min(acceptable, key=lambda item: item[2])
+    return None
 
 
 def main() -> int:
@@ -62,10 +103,7 @@ def main() -> int:
                 int(item["tag_id"]): item for item in pose.get("detections", [])
                 if item.get("source") == "detected"
             }
-            visible_floor = [
-                tag_id for tag_id in floor_corners if tag_id in detections
-            ]
-            if len(visible_floor) < 2 or 0 not in detections:
+            if 0 not in detections:
                 continue
             direct_tags = sum(
                 item.get("source") == "detected"
@@ -74,23 +112,10 @@ def main() -> int:
             )
             if direct_tags < 6:
                 continue
-            image_points = np.concatenate([
-                np.asarray(detections[tag_id]["corners_px"], dtype=np.float32)
-                for tag_id in visible_floor
-            ])
-            world_points = np.concatenate([
-                floor_corners[tag_id].astype(np.float32)
-                for tag_id in visible_floor
-            ])
-            homography, _ = cv2.findHomography(image_points, world_points, 0)
-            if homography is None:
+            fit = _best_floor_homography(detections, floor_corners)
+            if fit is None:
                 continue
-            projected = cv2.perspectiveTransform(
-                image_points.reshape(-1, 1, 2), homography
-            ).reshape(-1, 2)
-            floor_rms_m = float(np.sqrt(np.mean(np.sum(
-                (projected - world_points) ** 2, axis=1
-            ))))
+            homography, selected_floor, floor_rms_m = fit
             body_center = np.asarray(
                 detections[0]["center_px"], dtype=np.float32
             ).reshape(1, 1, 2)
@@ -108,7 +133,7 @@ def main() -> int:
                     in {"forward", "backward"}):
                 continue
             groups[phase].append([
-                unix_s, *body_floor_xy, direct_tags, len(visible_floor),
+                unix_s, *body_floor_xy, direct_tags, len(selected_floor),
                 floor_rms_m,
             ])
 
@@ -118,9 +143,13 @@ def main() -> int:
         edge = max(2, round(len(array) * 0.15))
         start = np.median(array[:edge, 1:3], axis=0)
         end = np.median(array[-edge:, 1:3], axis=0)
+        start_t = float(np.median(array[:edge, 0]))
+        end_t = float(np.median(array[-edge:, 0]))
+        duration_s = max(0.0, end_t - start_t)
         delta = end - start
         phases[phase] = {
             "usable_vision_frames": len(array),
+            "measured_duration_s": round(duration_s, 4),
             "floor_projected_body_delta_xy_m": np.round(delta, 5).tolist(),
             "horizontal_distance_m": round(float(np.linalg.norm(delta)), 5),
             "mean_direct_robot_tags": round(float(np.mean(array[:, 3])), 2),
@@ -153,6 +182,16 @@ def main() -> int:
             )
             record["baseline_axis_lateral_m"] = round(
                 float(np.dot(delta, np.asarray([-reference[1], reference[0]]))), 5
+            )
+            duration_s = float(record["measured_duration_s"])
+            direction_sign = -1.0 if phase.endswith("_backward") else 1.0
+            record["commanded_axis_speed_mm_s"] = (
+                None if duration_s <= 0.0 else round(
+                    direction_sign
+                    * float(record["baseline_axis_progress_m"])
+                    / duration_s * 1000.0,
+                    3,
+                )
             )
     report = {
         "visual_knees_used": False,

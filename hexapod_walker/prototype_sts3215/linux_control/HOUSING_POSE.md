@@ -70,7 +70,8 @@ show that visual/encoder errors are trustworthy.
 
 The React/TypeScript page on the shared `:8898` web hub replaces the dense OpenCV text overlay with
 a clean video canvas, short marker IDs, a six-leg joint matrix, a calibration
-readiness gate, and a camera picker:
+readiness gate, a camera picker, and an explicitly acknowledged **Gait survey**
+panel:
 
 ```sh
 make vision-build
@@ -84,6 +85,79 @@ only after all 13 robot markers and at least two floor markers are directly
 decoded, 18/18 encoder feedback is available, and twelve consecutive frames
 are encoder-stationary. Visual jitter is measured rather than mistaken for
 physical robot motion.
+
+The Gait survey is the page's one motion-capable feature. It requires a live
+robot connection, direct chassis tag 0 plus two floor tags, a SAFE Vision/IMU
+preflight, selected gaits, and an operator motion acknowledgement. During a
+run, the recorder temporarily owns the camera, logs raw video/timestamps,
+motor/IMU telemetry, commands, and recovery/centering events, and adaptively
+returns the chassis toward the operator-approved starting image anchor. This
+is intentionally not the optical center: an oblique camera can project its
+image center to an unsafe or unreachable floor point. Duplicate floor-tag IDs
+are resolved by the lowest global corner-reprojection error instead of decode
+order. Pre-trip warnings may use a bounded
+pause → collision-aware safe-zero → stand → retry sequence. A tip, brownout,
+confirmed hot motor, missing servo, hard-current event, or failed recovery
+always stops and limps; it is never automatically retried. Heat requires three
+consecutive over-threshold readings from the same joint. After a thermal stop,
+raw video and telemetry continue until three complete readings are below the
+warm threshold (or a five-minute timeout); the robot remains limp until the
+operator explicitly authorizes a collision-aware safe-zero recovery. The
+operator must remain present.
+
+After hardware motion ends, the Mac processes the raw video into AprilTag
+JSONL plus annotated MP4, replays the selected protocol in MuJoCo, renders a
+sim MP4, and writes `apriltag_motion.json`, a comparison report, and a manifest
+in the run directory
+under `rl_move/hardware_traces/`. The raw recordings remain available even if
+post-processing or a hardware trial fails.
+
+Offline AprilTag processing samples the 30 Hz recording at 10 Hz by default.
+The JSONL retains original video frame indexes and timestamps, and the
+annotated video is written at the corresponding reduced frame rate so its
+duration remains correct. Run `track_apriltags.py --frame-step 1` when a
+full-frame diagnostic render is needed.
+
+### Follow-up gait reliability protocol
+
+Keep gait 0 and one candidate in the **same** survey. The paired ratio cancels
+most camera-scale drift and is more trustworthy than comparing two videos
+captured on different days. Start at 30 mm/s with 6.4–8 seconds in each
+direction and collect at least three complete surveys. Advance a candidate to
+35 or 40 mm/s only after it is 3/3 complete without recovery or a safety trip.
+Do not promote a gait from raw path length: sideways drift and turning can look
+fast. Use `commanded_axis_speed_mm_s` from `apriltag_motion.json`.
+
+Aggregate any number of completed run directories with:
+
+```sh
+uv run python -m rl_move.scripts.summarize_scripted_gait_reliability \
+  --runs rl_move/hardware_traces \
+  --output rl_move/hardware_traces/gait_reliability.json
+```
+
+The report retains every attempted phase, counts missing phases, reports
+median/MAD/stdev/CV of measured speed, and computes within-run speed ratios
+against gait 0. Keep the raw video, timestamp sidecar, telemetry, events,
+AprilTag pose JSONL, motion report, MuJoCo replay, and manifest together; those
+files are the reproducible experiment record.
+
+If forward/backward performance is strongly asymmetric, repeat the paired
+survey after physically rotating the robot 180 degrees while leaving the
+camera and mapped floor tags fixed. A speed advantage that stays in the same
+garage direction points to floor grade or surface friction; an advantage that
+stays in robot-local forward/backward points to the gait/controller. Capture a
+new starting anchor after the rotation. Do not compare unpaired sessions or
+reuse the old image anchor.
+
+For ordinary infrastructure or centering failures after motion, the suite now
+stops, runs collision-aware safe-zero, verifies all 18 joints within 6°, and
+limps. Confirmed hard trips are different: they limp immediately and never
+command a recovery move. One or two impossible temperature bytes are recorded
+as glitches; the same joint must cross the threshold on three consecutive
+samples to be treated as real heat. A thermal stop keeps the camera and motor
+telemetry recorder running through three consecutive cool readings. Safe-zero
+afterward is an explicit supervised operator action, not an automatic retry.
 
 The report robustly aggregates `visual_minus_encoder_deg` for the twelve
 signed yaw/hip observations. Knees are reported as visually unobservable

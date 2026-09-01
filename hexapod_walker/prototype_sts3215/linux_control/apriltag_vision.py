@@ -32,6 +32,7 @@ from housing_pose import HousingPoseEstimator, RigidTransform
 TAG_FAMILY = "tag36h11"
 DEFAULT_MARKER_SIZE_M = 37.8968e-3  # black square on the repo's printed sheet
 BRANCH_DISAMBIGUATION_MARGIN_DEG = 15.0
+BODY_FLOOR_NORMAL_MIN_DOT = math.cos(math.radians(45.0))
 BRANCH_JOINT_ORDER = tuple(
     f"L{leg}_{axis}"
     for leg in range(6)
@@ -683,6 +684,7 @@ class AprilTagPoseTracker:
         self,
         candidate_map: Mapping[int, tuple[TagCorners, Sequence[_TagPoseSolution]]],
         encoder_joint_deg: Sequence[float] | Mapping[str, float] | None,
+        preferred_body_normal_camera: np.ndarray | None = None,
     ) -> tuple[list[TagPose], dict[int, dict[str, Any]]]:
         """Resolve planar branches without turning encoder residuals into bias."""
         encoders = self._encoder_map(
@@ -728,10 +730,46 @@ class AprilTagPoseTracker:
                 None if not per_tag else float(statistics.median(per_tag))
             )
 
-        finite_body = [
-            value for value in body_encoder_errors if value is not None
-        ]
-        if (
+        finite_body = [value for value in body_encoder_errors if value is not None]
+        previous_body = self._previous_camera_from_tag.get(body_tag_id)
+        body_normal_dots: list[float] | None = None
+        floor_body_index: int | None = None
+        floor_normal_viable = False
+        if preferred_body_normal_camera is not None:
+            expected = np.asarray(
+                preferred_body_normal_camera, dtype=float
+            ).reshape(3)
+            expected /= max(1e-12, float(np.linalg.norm(expected)))
+            body_normal_dots = [
+                float(np.dot(candidate.normal_camera, expected))
+                for candidate in body_candidates
+            ]
+            floor_body_index = max(
+                range(len(body_candidates)), key=lambda item: (
+                    body_normal_dots[item],
+                    -body_candidates[item].reprojection_rms_px,
+                )
+            )
+            floor_normal_viable = (
+                body_normal_dots[floor_body_index]
+                    >= BODY_FLOOR_NORMAL_MIN_DOT
+            )
+
+        if previous_body is None and floor_body_index is not None:
+            body_index = floor_body_index
+            body_reason = "floor_normal_initialization"
+        elif floor_body_index is not None and floor_normal_viable:
+            # Temporal PnP continuity can otherwise latch onto the mirrored
+            # planar solution after one noisy frame. The chassis tag is on the
+            # top face, so one candidate being clearly upright relative to the
+            # mapped floor is a stronger physical constraint than sub-pixel
+            # reprojection differences. The 45-degree viability bound avoids
+            # inventing an upright solution when neither branch is plausible;
+            # a true physical tip also remains guarded by the independent IMU
+            # safety threshold.
+            body_index = floor_body_index
+            body_reason = "floor_normal_consistency"
+        elif (
             len(finite_body) >= 2
             and max(finite_body) - min(finite_body)
                 >= BRANCH_DISAMBIGUATION_MARGIN_DEG
@@ -884,7 +922,9 @@ class AprilTagPoseTracker:
             except (ValueError, cv2.error):
                 pose_failures.append(detection.tag_id)
         robot_poses, branch_decisions = self._select_robot_tag_solutions(
-            robot_candidates, encoder_joint_deg
+            robot_candidates,
+            encoder_joint_deg,
+            preferred_body_normal_camera=preferred_normal_camera,
         )
         poses.extend(robot_poses)
         poses.sort(key=lambda item: item.tag_id)

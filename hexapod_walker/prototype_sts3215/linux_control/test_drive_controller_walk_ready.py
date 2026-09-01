@@ -20,8 +20,14 @@ from drive_controller import (  # noqa: E402
     DEMO_TRIPOD_MAX_VY_MPS,
     DEMO_TRIPOD_PERIOD_S,
     DEMO_TRIPOD_STRIDE_SCALE,
-    DriveController, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
+    DT, DriveController, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
+    _advance_periodic_deadline,
     walk_start_pose_degrees,
+)
+from hexapod_core.scripted_walk_contract import (  # noqa: E402
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_CONTROL_HZ,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
 )
 from hexapod_core.middle_tuck_quad_gait import TUCK_DEG  # noqa: E402
 
@@ -37,6 +43,30 @@ class FakeBus:
 
     def read_all_positions(self):
         return {j: q for j, q in enumerate(self.pose)}
+
+
+def test_scripted_walk_uses_shared_100hz_raised_profile_contract():
+    assert SCRIPTED_WALK_CONTROL_HZ == 100.0
+    assert DT == 0.01
+    assert SCRIPTED_WALK_SPEED_COUNTS_S == 2000
+    assert SCRIPTED_WALK_ACC_UNITS == 80
+    state = DriveController(dry_run=True).scripted_contract_state()
+    assert state == {
+        "control_hz": 100.0,
+        "servo_speed_counts_s": 2000,
+        "servo_acc_units": 80,
+        "deadline_overruns": 0,
+    }
+
+
+def test_scripted_deadline_scheduler_does_not_accumulate_work_time():
+    deadline, skipped = _advance_periodic_deadline(10.0, 10.002)
+    assert deadline == 10.01
+    assert skipped == 0
+
+    deadline, skipped = _advance_periodic_deadline(deadline, 10.035)
+    assert abs(deadline - 10.04) < 1e-12
+    assert skipped == 2
 
 
 def test_default_scripted_gait_uses_tall_walk_ready_stance():
@@ -85,6 +115,22 @@ def test_j_can_select_gait_while_starting_from_stand():
     assert result == "J"
     assert drive.mode == "walk"
     assert drive._gait_id == 1  # noqa: SLF001
+
+
+def test_gait1_accepts_raised_60mm_s_envelope_only_for_gait1():
+    drive = DriveController(dry_run=False)
+    drive.bus = FakeBus(walk_start_pose_degrees())
+    drive.armed = True
+
+    assert drive.handle("J 60 0 0 1") == "J"
+    assert drive._vx == 0.060  # noqa: SLF001
+    assert drive.gait.max_vx == 0.060
+    assert drive.gait.stride_max == 0.192
+
+    fluid_drive = DriveController(dry_run=True)
+    assert "FLUID" in fluid_drive.handle("GAIT 9")
+    assert fluid_drive.gait.max_vx == fluid_drive.gait.MAX_VX == 0.040
+    assert fluid_drive.gait.stride_max == fluid_drive.gait.STRIDE_MAX == 0.080
 
 
 def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():

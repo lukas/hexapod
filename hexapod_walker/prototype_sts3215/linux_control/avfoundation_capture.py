@@ -130,6 +130,46 @@ class AVFoundationYuvCapture:
             )
         return list(discovery.devices())
 
+    @classmethod
+    def device_descriptors(cls) -> list[dict[str, Any]]:
+        """Return the cameras AVFoundation can actually open, in index order.
+
+        Camera indexes on macOS are ephemeral.  In particular, index 1 is not
+        inherently an iPhone: Continuity Camera may disappear when the phone
+        is out of range, unlocked, in use, or disabled.  The UI therefore
+        needs the live AVFoundation names instead of guessing from an index.
+        """
+        descriptors: list[dict[str, Any]] = []
+        for index, device in enumerate(cls._devices()):
+            name = str(device.localizedName())
+            device_type = str(
+                device.deviceType() if hasattr(device, "deviceType") else ""
+            )
+            # macOS 26 currently reports an iPhone webcam using the generic
+            # AVCaptureDeviceTypeExternal value, so keep the localized name
+            # as the secondary Continuity signal.
+            if "Continuity" in device_type or "iphone" in name.lower():
+                kind = "continuity"
+            elif "BuiltIn" in device_type:
+                kind = "built_in"
+            elif "External" in device_type:
+                kind = "external"
+            else:
+                kind = "camera"
+            connected = bool(
+                device.isConnected() if hasattr(device, "isConnected") else True
+            )
+            suspended = bool(
+                device.isSuspended() if hasattr(device, "isSuspended") else False
+            )
+            descriptors.append({
+                "index": index,
+                "name": name,
+                "kind": kind,
+                "available": connected and not suspended,
+            })
+        return descriptors
+
     def _select_format(self, device: Any) -> Any:
         formats: dict[tuple[int, int], Any] = {}
         for candidate in device.formats():

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +34,11 @@ from hexapod_core.joint_frame import (
     mujoco_rel_rad_to_robot_abs_deg,
     robot_abs_deg_to_mujoco_rel_rad,
 )
+from hexapod_core.scripted_walk_contract import (
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_CONTROL_HZ,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
+)
 
 
 GAITS = {
@@ -45,6 +51,11 @@ GAITS = {
     6: "se2_cpg_robust120",
     7: "noslip_clamp_fit",
     8: "middle_tuck_quad",
+    9: "noslip_fluid",
+    10: "noslip_fluid_fast",
+    11: "noslip_fluid_hybrid",
+    12: "noslip_fluid_push",
+    13: "noslip_fluid_pulse",
 }
 
 
@@ -70,6 +81,15 @@ def main() -> int:
     parser.add_argument("--speed-mm-s", type=float, default=30.0)
     parser.add_argument("--direction-s", type=float, default=10.0)
     parser.add_argument("--settle-s", type=float, default=1.5)
+    parser.add_argument(
+        "--video", type=Path,
+        help="optional rendered MuJoCo MP4 synchronized to sim telemetry",
+    )
+    parser.add_argument("--video-fps", type=float, default=30.0)
+    parser.add_argument(
+        "--gait1-alpha", type=float, default=None,
+        help="Override gait 1 body-motion overlap to match a hardware trial",
+    )
     parser.add_argument("--plant-hip-abs-deg", type=float, default=20.0)
     parser.add_argument("--plant-knee-abs-deg", type=float, default=80.0)
     parser.add_argument("--cpg", default="cpg_controller_robust120_yawtrim.json")
@@ -85,6 +105,8 @@ def main() -> int:
     bad = [gait for gait in args.gaits if gait not in GAITS]
     if bad:
         parser.error(f"unknown gait IDs: {bad}")
+    if args.video_fps <= 0.0:
+        parser.error("--video-fps must be positive")
 
     args.output_dir.mkdir(parents=True, exist_ok=False)
     cfg = SimWebConfig(
@@ -95,10 +117,16 @@ def main() -> int:
         log_dir=DEFAULT_LOG_DIR,
         realtime=0.0,
         viewer=True,       # prevents the background realtime tick thread
-        web_frames=False,
+        web_frames=args.video is not None,
         phase_obs=True,
     )
     session = SimWebSession(cfg)
+    expected_dt = 1.0 / SCRIPTED_WALK_CONTROL_HZ
+    if not np.isclose(session.env.dt, expected_dt, atol=1e-12):
+        raise RuntimeError(
+            "scripted cadence mismatch: "
+            f"MuJoCo dt={session.env.dt}, contract dt={expected_dt}"
+        )
     session.armed = True
     # Hardware telemetry and gait code use an ABSOLUTE-tibia knee, while the
     # MuJoCo hinge is relative to the femur. A hardware 20/80 plant is thus a
@@ -141,12 +169,16 @@ def main() -> int:
 
     csv_path = args.output_dir / "sim_telemetry.csv"
     summaries: list[dict[str, Any]] = []
+    video_writer: cv2.VideoWriter | None = None
+    video_next_t = 0.0
+    video_error: str | None = None
     with csv_path.open("w", newline="") as stream:
         writer = csv.writer(stream)
         writer.writerow([
             "sim_t_s", "phase", "gait", "gait_name", "direction",
             "chassis_x_m", "chassis_y_m", "chassis_z_m",
             "vx_body_mps", "vy_body_mps", "roll_deg", "pitch_deg",
+            "imu_roll_deg", "imu_pitch_deg",
             "max_joint_current_a", "bus_current_a", "joint_degrees",
             "joint_command_degrees", "joint_currents_a", "foot_xyz_m",
             "joint_frame", "joint_contract", "downed", "status",
@@ -160,6 +192,14 @@ def main() -> int:
                 if state is not None and state.servo_current is not None
                 else np.zeros(18, dtype=float)
             )
+            imu_roll_deg = (
+                float(np.degrees(state.imu_roll)) if state is not None
+                else float("nan")
+            )
+            imu_pitch_deg = (
+                float(np.degrees(state.imu_pitch)) if state is not None
+                else float("nan")
+            )
             command = (
                 np.degrees(np.asarray(
                     state.commanded_position, dtype=float)).tolist()
@@ -170,6 +210,7 @@ def main() -> int:
                 round(session.sim_t, 4), phase, gait, GAITS[gait], direction,
                 xyz[0], xyz[1], xyz[2], live["vx_body"], live["vy_body"],
                 live["roll_deg"], live["pitch_deg"],
+                round(imu_roll_deg, 5), round(imu_pitch_deg, 5),
                 round(float(np.max(currents)), 5),
                 round(float(np.sum(currents)), 5),
                 _json(live["joint_deg"]), _json(command),
@@ -180,16 +221,49 @@ def main() -> int:
 
         def advance(seconds: float, phase: str, gait: int,
                     direction: str) -> None:
+            nonlocal video_writer, video_next_t, video_error
             ticks = int(round(seconds / session.env.dt))
             for _ in range(ticks):
                 with session.lock:
                     session._tick_locked()
                     sample(phase, gait, direction)
+                    if (
+                        args.video is not None
+                        and video_error is None
+                        and session.sim_t + 1e-9 >= video_next_t
+                    ):
+                        try:
+                            rgb = session.env.render()
+                            if rgb is None:
+                                raise RuntimeError("MuJoCo renderer returned no frame")
+                            if video_writer is None:
+                                args.video.parent.mkdir(parents=True, exist_ok=True)
+                                height, width = rgb.shape[:2]
+                                video_writer = cv2.VideoWriter(
+                                    str(args.video),
+                                    cv2.VideoWriter_fourcc(*"mp4v"),
+                                    args.video_fps,
+                                    (width, height),
+                                )
+                                if not video_writer.isOpened():
+                                    video_writer.release()
+                                    video_writer = None
+                                    raise RuntimeError("could not open sim video writer")
+                            video_writer.write(cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+                            video_next_t += 1.0 / args.video_fps
+                        except Exception as error:
+                            video_error = str(error)
+                            if video_writer is not None:
+                                video_writer.release()
+                                video_writer = None
 
         for gait in args.gaits:
             selected = session.cmd(f"GAIT {gait}")
             if not selected.get("ok"):
                 raise RuntimeError(selected)
+            if gait == 1 and args.gait1_alpha is not None:
+                session.gait = session._new_gait()
+                session.gait.set_alpha(args.gait1_alpha)
             start = np.asarray(session._live()["chassis_xyz_m"], dtype=float)
             gait_peak_current = 0.0
             gait_peak_tilt = 0.0
@@ -235,6 +309,10 @@ def main() -> int:
                 session.sim_reset("plant")
                 session.armed = True
 
+    if video_writer is not None:
+        video_writer.release()
+    session.env.close()
+
     # Fill peak aggregates from the canonical tick CSV.
     by_gait: dict[int, dict[str, float]] = {
         gait: {"peak_current_a": 0.0, "peak_tilt_deg": 0.0}
@@ -260,6 +338,10 @@ def main() -> int:
             "speed_mm_s": args.speed_mm_s,
             "direction_s": args.direction_s,
             "settle_s": args.settle_s,
+            "gait1_alpha": args.gait1_alpha,
+            "scripted_control_hz": SCRIPTED_WALK_CONTROL_HZ,
+            "servo_speed_counts_s": SCRIPTED_WALK_SPEED_COUNTS_S,
+            "servo_acc_units": SCRIPTED_WALK_ACC_UNITS,
             "gaits": args.gaits,
             "cpg": args.cpg,
             "plant_robot_absolute_deg": plant_robot_abs_deg.tolist(),
@@ -271,6 +353,11 @@ def main() -> int:
         "dt_s": session.env.dt,
         "gaits": summaries,
         "unavailable": unavailable,
+        "video": {
+            "path": None if args.video is None else str(args.video),
+            "fps": args.video_fps,
+            "error": video_error,
+        },
     }
     (args.output_dir / "summary.json").write_text(
         json.dumps(payload, indent=2) + "\n"

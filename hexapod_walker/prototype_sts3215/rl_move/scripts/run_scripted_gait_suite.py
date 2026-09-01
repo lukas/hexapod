@@ -3,13 +3,17 @@
 
 The camera path is deliberately independent of the AprilTag worker: it opens
 AVFoundation directly and writes clean frames plus a timestamp sidecar.  Robot
-motion uses the HTTP API only.  Any guard trip calls the bench-level emergency
-stop, which preempts workers before limping the bus.
+motion uses the HTTP API only.  Hard guard trips call the bench-level emergency
+stop, which preempts workers before limping the bus. Optional survey recovery
+acts only on lower pre-trip thresholds: stop, pause until readings clear,
+collision-aware safe-zero, stand, then retry. A tip, brownout, hot servo,
+missing ID, or hard-current event is never auto-retried.
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 import math
 import signal
@@ -34,6 +38,11 @@ if str(ROOT) not in sys.path:
 
 from avfoundation_capture import AVFoundationYuvCapture  # noqa: E402
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
+from hexapod_core.scripted_walk_contract import (  # noqa: E402
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_CONTROL_HZ,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
+)
 
 
 GAITS = {
@@ -52,6 +61,116 @@ GAITS = {
     12: "noslip_fluid_push",
     13: "noslip_fluid_pulse",
 }
+
+
+def _select_floor_homography(
+    candidates_by_id: dict[int, list[np.ndarray]],
+    floor_tag_specs: dict[str, Any],
+    tag_size_m: float,
+) -> tuple[dict[int, np.ndarray], list[int], np.ndarray, np.ndarray,
+           np.ndarray, float] | None:
+    """Choose duplicate floor-tag decodes by global reprojection fit.
+
+    A second physical tag with the same ID can be visible in a workshop.  A
+    last-decode-wins dictionary makes centering intermittently fail or, worse,
+    use the wrong floor point.  Testing the small candidate product against
+    every configured floor-tag corner makes the choice deterministic.
+    """
+    floor_ids = sorted(
+        marker_id
+        for marker_id in candidates_by_id
+        if str(marker_id) in floor_tag_specs
+    )
+    if len(floor_ids) < 2:
+        return None
+    candidate_groups = [
+        sorted(
+            candidates_by_id[marker_id],
+            key=lambda corners: abs(float(cv2.contourArea(
+                corners.astype(np.float32)
+            ))),
+            reverse=True,
+        )[:3]
+        for marker_id in floor_ids
+    ]
+    half = tag_size_m / 2.0
+    local_corners = np.asarray([
+        [-half, half],
+        [half, half],
+        [half, -half],
+        [-half, -half],
+    ])
+    world_corners: dict[int, np.ndarray] = {}
+    for marker_id in floor_ids:
+        spec = floor_tag_specs[str(marker_id)]["world_from_tag"]
+        tx, ty, _tz = spec["translation_m"]
+        yaw = math.radians(float(spec["euler_xyz_deg"][2]))
+        rotation = np.asarray([
+            [math.cos(yaw), -math.sin(yaw)],
+            [math.sin(yaw), math.cos(yaw)],
+        ])
+        world_corners[marker_id] = (
+            local_corners @ rotation.T + np.asarray([tx, ty])
+        )
+
+    best: tuple[dict[int, np.ndarray], np.ndarray, np.ndarray,
+                np.ndarray, float] | None = None
+    for combination in itertools.product(*candidate_groups):
+        image_points_array = np.asarray(
+            [point for corners in combination for point in corners],
+            dtype=np.float32,
+        )
+        floor_points_array = np.asarray(
+            [
+                point
+                for marker_id in floor_ids
+                for point in world_corners[marker_id]
+            ],
+            dtype=np.float32,
+        )
+        image_to_floor, _mask = cv2.findHomography(
+            image_points_array, floor_points_array, method=0
+        )
+        if image_to_floor is None:
+            continue
+        projected = cv2.perspectiveTransform(
+            image_points_array.reshape(1, -1, 2), image_to_floor
+        )[0].astype(float)
+        rms_mm = float(np.sqrt(np.mean(np.sum(
+            (projected - floor_points_array) ** 2, axis=1
+        ))) * 1000.0)
+        if best is None or rms_mm < best[-1]:
+            best = (
+                dict(zip(floor_ids, combination)),
+                image_to_floor,
+                image_points_array,
+                floor_points_array,
+                rms_mm,
+            )
+    if best is None:
+        return None
+    selected, transform, image_points, floor_points, rms_mm = best
+    return selected, floor_ids, transform, image_points, floor_points, rms_mm
+
+
+class HardSafetyTrip(RuntimeError):
+    """A condition for which automatic motion must never resume."""
+
+
+class ThermalSafetyTrip(HardSafetyTrip):
+    """Confirmed heat: limp immediately, then record until clearly cool."""
+
+
+class SoftSafetyPause(RuntimeError):
+    """A pre-trip condition eligible for bounded pause/zero recovery."""
+
+
+class CameraExitRisk(SoftSafetyPause):
+    """The chassis is nearing the frame boundary and should be recentered."""
+
+    def __init__(self, observation: dict[str, Any] | None, reason: str) -> None:
+        super().__init__(reason)
+        self.observation = observation
 
 
 def _request(
@@ -231,8 +350,19 @@ class Suite:
         self.high_current_count = 0
         self.high_tilt_count = 0
         self.high_temp_counts = [0] * 18
+        self.warm_temp_counts = [0] * 18
+        self.pause_current_count = 0
+        self.pause_tilt_count = 0
+        self.pause_voltage_count = 0
+        self.recoveries = 0
+        self.recenters = 0
+        self.center_check_failures = 0
         self.feedback_failures = 0
         self.low_live_count = 0
+        # Adaptive centering returns to the operator-approved starting
+        # framing.  It must not assume the optical center is a safe/desired
+        # floor position for an oblique camera.
+        self.center_target_px: np.ndarray | None = None
         self.events_file = (output_dir / "events.csv").open("w", newline="")
         self.events = csv.writer(self.events_file)
         self.events.writerow([
@@ -293,6 +423,43 @@ class Suite:
         except Exception as error:
             self.log_event("emergency_stop_error", str(error))
 
+    def recover_nonhard_failure_to_zero(self, reason: str) -> None:
+        """After a non-safety failure, lower to verified zero and limp.
+
+        HardSafetyTrip deliberately never reaches this method.  A confirmed
+        tip, brownout, missing servo, hot motor, hard current, or lost
+        telemetry remains a stop-and-limp event with no further motion.
+        """
+        self.log_event("failure_zero_recovery_start", reason)
+        reply = _request(
+            self.base, "/api/safe_zero", json_body={}, timeout=8.0
+        )
+        self.log_event("failure_zero_recovery_reply", reply)
+        if isinstance(reply, dict) and reply.get("ok") is False:
+            raise RuntimeError(
+                "collision-aware zero recovery refused: "
+                + str(reply.get("error") or reply)
+            )
+
+        deadline = time.monotonic() + 50.0
+        while time.monotonic() < deadline:
+            state = self.robot_state()
+            if not bool((state.get("demo") or {}).get("running")):
+                pose = _request(self.base, "/api/pose", timeout=5.0)
+                degrees = pose.get("degrees") if isinstance(pose, dict) else None
+                if isinstance(degrees, list) and len(degrees) == 18:
+                    max_error = max(abs(float(value)) for value in degrees)
+                    if max_error <= 6.0:
+                        self.command("X")
+                        self.motion_started = False
+                        self.log_event(
+                            "failure_zero_recovery_complete",
+                            {"max_abs_deg": round(max_error, 3)},
+                        )
+                        return
+            time.sleep(0.25)
+        raise RuntimeError("collision-aware zero recovery timed out")
+
     def robot_state(self) -> dict[str, Any]:
         state = _request(self.base, "/api/robot", timeout=5.0)
         if not isinstance(state, dict):
@@ -305,11 +472,13 @@ class Suite:
         if int(servo.get("live", 0)) != 18 or servo.get("missing"):
             raise RuntimeError(f"servo health is not 18/18: {servo}")
         # ServoWatch intentionally publishes even a one-scan WARN_C sample so
-        # the UI can display it, while its hard cutoff is already two-read
-        # debounced. Do not turn that display warning back into a one-read
-        # suite abort; sample_feedback() owns the same two-read confirmation.
+        # the UI can display it. Do not turn that display warning back into a
+        # one-read suite abort; sample_feedback() owns the same per-joint
+        # three-read confirmation.
         if servo.get("tripped"):
-            raise RuntimeError(f"servo thermal cutoff is latched: {servo}")
+            raise ThermalSafetyTrip(
+                f"servo thermal cutoff is latched: {servo}"
+            )
         if float(servo.get("max_temp_c", 0.0) or 0.0) >= self.args.temp_trip_c:
             self.log_event("unconfirmed_temperature_warning", servo)
         if require_armed and not state.get("armed"):
@@ -317,7 +486,8 @@ class Suite:
         if (state.get("demo") or {}).get("running"):
             raise RuntimeError(f"robot job unexpectedly active: {state}")
 
-    def sample_feedback(self) -> None:
+    def sample_feedback(self, *, allow_soft_pause: bool = True,
+                        enforce_safety: bool = True) -> dict[str, float]:
         if self.stop_requested:
             raise RuntimeError("operator stop requested")
         self.recorder.assert_live()
@@ -329,9 +499,11 @@ class Suite:
         except Exception as error:
             self.feedback_failures += 1
             self.log_event("feedback_error", str(error))
-            if self.feedback_failures >= 3:
-                raise RuntimeError("three consecutive telemetry failures") from error
-            return
+            if enforce_safety and self.feedback_failures >= 3:
+                raise HardSafetyTrip(
+                    "three consecutive telemetry failures; cannot move blind"
+                ) from error
+            return {}
 
         joints = feedback.get("joints") or []
         records = [item for item in joints if isinstance(item, dict)]
@@ -404,51 +576,170 @@ class Suite:
         ])
         self.telemetry_file.flush()
 
+        metrics = {
+            "live": live,
+            "max_current_a": max_current,
+            "max_temp_c": max_temp,
+            "min_voltage_v": min_voltage,
+            "tilt_deg": max(abs(roll), abs(pitch)),
+        }
+        # After a thermal stop, motion is already limp. Continue using this
+        # exact telemetry writer without recursively firing safety exceptions
+        # so the recording contains the complete cooldown trace.
+        if not enforce_safety:
+            return metrics
+
         self.low_live_count = self.low_live_count + 1 if live < 16 else 0
         if self.low_live_count >= 3:
-            raise RuntimeError(f"persistent incomplete servo feedback: {live}/18")
+            raise HardSafetyTrip(
+                f"persistent incomplete servo feedback: {live}/18"
+            )
         # A corrupt bulk-feedback byte can look like a physically impossible
-        # 30+ C jump for one sample. Confirm the SAME servo on consecutive
-        # samples so unrelated glitches cannot combine into a false trip. The
-        # robot's independent ServoWatch uses its own consecutive-read cutoff.
+        # 30+ C jump for one sample. Confirm the SAME servo on three
+        # consecutive samples so unrelated glitches cannot combine into a
+        # false trip. The robot's independent ServoWatch uses the same count.
         for joint, value in enumerate(temperatures):
             self.high_temp_counts[joint] = (
                 self.high_temp_counts[joint] + 1
                 if value is not None and value >= self.args.temp_trip_c
                 else 0
             )
+            self.warm_temp_counts[joint] = (
+                self.warm_temp_counts[joint] + 1
+                if value is not None and value >= self.args.temp_pause_c
+                else 0
+            )
         confirmed_hot = [
             joint for joint, count in enumerate(self.high_temp_counts)
-            if count >= 2
+            if count >= self.args.temp_trip_samples
         ]
         if confirmed_hot:
-            raise RuntimeError(
+            raise ThermalSafetyTrip(
                 f"temperature {max_temp:.1f} C confirmed on joints "
-                f"{confirmed_hot} across consecutive samples"
+                f"{confirmed_hot} across {self.args.temp_trip_samples} "
+                "consecutive samples"
             )
         if min_voltage < self.args.voltage_trip_v:
-            raise RuntimeError(f"bus voltage {min_voltage:.2f} V below trip")
+            raise HardSafetyTrip(
+                f"bus voltage {min_voltage:.2f} V below trip"
+            )
         if max_current >= self.args.current_hard_a:
-            raise RuntimeError(f"joint current {max_current:.2f} A exceeds hard trip")
+            raise HardSafetyTrip(
+                f"joint current {max_current:.2f} A exceeds hard trip"
+            )
         self.high_current_count = (
             self.high_current_count + 1
             if max_current >= self.args.current_sustained_a else 0
         )
         if self.high_current_count >= 2:
-            raise RuntimeError(
+            raise HardSafetyTrip(
                 f"joint current {max_current:.2f} A sustained across samples"
             )
-        tilt = max(abs(roll), abs(pitch))
+        tilt = metrics["tilt_deg"]
         self.high_tilt_count = (
             self.high_tilt_count + 1 if tilt >= self.args.tilt_trip_deg else 0
         )
         if self.high_tilt_count >= 2:
-            raise RuntimeError(f"body tilt {tilt:.1f} deg sustained across samples")
+            raise HardSafetyTrip(
+                f"body tilt {tilt:.1f} deg sustained across samples"
+            )
 
-    def wait_guarded(self, seconds: float) -> None:
+        if not self.args.soft_recovery or not allow_soft_pause:
+            return metrics
+
+        self.pause_current_count = (
+            self.pause_current_count + 1
+            if max_current >= self.args.current_pause_a else 0
+        )
+        self.pause_tilt_count = (
+            self.pause_tilt_count + 1
+            if tilt >= self.args.tilt_pause_deg else 0
+        )
+        self.pause_voltage_count = (
+            self.pause_voltage_count + 1
+            if min_voltage <= self.args.voltage_pause_v else 0
+        )
+        soft_reason = None
+        if self.pause_current_count >= 2:
+            soft_reason = f"pre-trip current {max_current:.2f} A"
+        elif self.pause_tilt_count >= 2:
+            soft_reason = f"pre-trip body tilt {tilt:.1f} deg"
+        elif any(
+            count >= self.args.temp_trip_samples
+            for count in self.warm_temp_counts
+        ):
+            warm_joints = [
+                joint for joint, count in enumerate(self.warm_temp_counts)
+                if count >= self.args.temp_trip_samples
+            ]
+            soft_reason = (
+                f"warm servo {max_temp:.1f} C on joints {warm_joints}"
+            )
+        elif self.pause_voltage_count >= 2:
+            soft_reason = f"low bus-voltage warning {min_voltage:.2f} V"
+        if soft_reason is not None:
+            self.pause_current_count = 0
+            self.pause_tilt_count = 0
+            self.warm_temp_counts = [0] * 18
+            self.pause_voltage_count = 0
+            raise SoftSafetyPause(soft_reason)
+        return metrics
+
+    def monitor_thermal_cooldown(self, reason: str) -> bool:
+        """Keep raw video and telemetry running after a thermal limp.
+
+        This method never commands motion or torque. It requires three
+        consecutive complete readings below the warning/pause threshold before
+        declaring the robot cool. A bounded timeout leaves the robot limp and
+        records an explicit incomplete-cooldown event.
+        """
+        self.phase = "thermal_cooldown"
+        self.direction = ""
+        clear_samples = 0
+        deadline = time.monotonic() + self.args.thermal_cooldown_timeout_s
+        self.log_event("thermal_cooldown_start", {
+            "reason": reason,
+            "clear_below_c": self.args.temp_pause_c,
+            "required_clear_samples": self.args.temp_clear_samples,
+            "timeout_s": self.args.thermal_cooldown_timeout_s,
+        })
+        while time.monotonic() < deadline:
+            try:
+                metrics = self.sample_feedback(
+                    allow_soft_pause=False, enforce_safety=False
+                )
+            except Exception as error:
+                clear_samples = 0
+                self.log_event("thermal_cooldown_read_error", str(error))
+                time.sleep(self.args.thermal_cooldown_poll_s)
+                continue
+            complete = int(metrics.get("live", 0)) == 18
+            max_temp = float(metrics.get("max_temp_c", float("inf")))
+            cool = complete and max_temp < self.args.temp_pause_c
+            clear_samples = clear_samples + 1 if cool else 0
+            self.log_event("thermal_cooldown_sample", {
+                **metrics,
+                "clear_samples": clear_samples,
+            })
+            if clear_samples >= self.args.temp_clear_samples:
+                self.log_event("thermal_cooldown_complete", {
+                    "max_temp_c": max_temp,
+                    "clear_samples": clear_samples,
+                    "robot_remains_limp": True,
+                })
+                return True
+            time.sleep(self.args.thermal_cooldown_poll_s)
+        self.log_event("thermal_cooldown_timeout", {
+            "timeout_s": self.args.thermal_cooldown_timeout_s,
+            "robot_remains_limp": True,
+        })
+        return False
+
+    def wait_guarded(self, seconds: float, *,
+                     allow_soft_pause: bool = True) -> None:
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
-            self.sample_feedback()
+            self.sample_feedback(allow_soft_pause=allow_soft_pause)
             time.sleep(min(0.18, max(0.0, deadline - time.monotonic())))
 
     def wait_for_job(self, label: str, timeout_s: float = 35.0) -> None:
@@ -470,6 +761,204 @@ class Suite:
             time.sleep(0.25)
         raise RuntimeError(f"{label} timed out")
 
+    def stop_walk(self, label: str) -> None:
+        response = self.command("J 0 0 0")
+        if response != "J":
+            raise HardSafetyTrip(f"{label} stop refused: {response}")
+
+    def _readings_clear_for_recovery(self, metrics: dict[str, float]) -> bool:
+        if not metrics:
+            return False
+        return (
+            metrics["max_current_a"] < self.args.current_pause_a * 0.85
+            and metrics["tilt_deg"] < self.args.tilt_pause_deg * 0.8
+            and metrics["max_temp_c"] < self.args.temp_pause_c - 2.0
+            and metrics["min_voltage_v"] > self.args.voltage_pause_v + 0.1
+        )
+
+    def recover_to_zero(self, reason: str, gait: int) -> None:
+        """Bounded recovery for a warning that has not crossed a hard trip."""
+        if self.recoveries >= self.args.max_recoveries:
+            raise RuntimeError(
+                f"soft-recovery limit reached ({self.args.max_recoveries}): "
+                f"{reason}"
+            )
+        self.recoveries += 1
+        self.phase = f"recovery_{self.recoveries}_pause"
+        self.log_event("soft_recovery_start", {
+            "attempt": self.recoveries,
+            "reason": reason,
+            "resume_gait": gait,
+        })
+        self.stop_walk("soft recovery")
+
+        earliest = time.monotonic() + self.args.recovery_pause_s
+        deadline = time.monotonic() + self.args.recovery_clear_timeout_s
+        clear_samples = 0
+        while time.monotonic() < deadline:
+            metrics = self.sample_feedback(allow_soft_pause=False)
+            clear_samples = (
+                clear_samples + 1
+                if self._readings_clear_for_recovery(metrics) else 0
+            )
+            if time.monotonic() >= earliest and clear_samples >= 3:
+                break
+            time.sleep(0.25)
+        else:
+            raise RuntimeError(
+                f"readings did not clear during recovery from: {reason}"
+            )
+
+        self.phase = f"recovery_{self.recoveries}_safe_zero"
+        reply = _request(
+            self.base, "/api/safe_zero", json_body={}, timeout=8.0
+        )
+        self.log_event("soft_recovery_safe_zero_start", reply)
+        if isinstance(reply, dict) and reply.get("ok") is False:
+            raise RuntimeError(
+                "collision-aware safe-zero refused recovery: "
+                + str(reply.get("error") or reply)
+            )
+        self.wait_for_job(f"recovery_{self.recoveries}_safe_zero", timeout_s=45.0)
+        self.assert_robot_health(require_armed=False)
+
+        self.phase = f"recovery_{self.recoveries}_stand"
+        reply = _request(
+            self.base, "/api/zero", json_body={"pose": "stand"}, timeout=8.0
+        )
+        self.log_event("soft_recovery_stand_start", reply)
+        self.wait_for_job(f"recovery_{self.recoveries}_stand")
+        self.assert_robot_health(require_armed=True)
+        selected = self.command(
+            f"GAIT 1 {self.args.gait1_alpha:.3f}" if gait == 1
+            else f"GAIT {gait}"
+        )
+        if selected.lower().startswith(("bad", "refused", "unknown")):
+            raise RuntimeError(f"could not restore gait {gait}: {selected}")
+        self.log_event("soft_recovery_complete", {
+            "attempt": self.recoveries,
+            "resume_gait": gait,
+        })
+
+    def _adaptive_center_check(self) -> None:
+        try:
+            observation = self.camera_center_observation()
+        except Exception as error:
+            self.center_check_failures += 1
+            self.log_event("adaptive_center_check_unavailable", {
+                "consecutive": self.center_check_failures,
+                "error": str(error),
+            })
+            if self.center_check_failures >= 2:
+                raise CameraExitRisk(
+                    None, "chassis/floor tags lost during active walk"
+                ) from error
+            return
+        self.center_check_failures = 0
+        self.log_event("adaptive_center_check", observation)
+        if float(observation["error_px_norm"]) >= self.args.center_trigger_px:
+            raise CameraExitRisk(
+                observation,
+                f"chassis reached {observation['error_px_norm']} px from frame center",
+            )
+
+    def run_direction(self, gait: int, direction: str,
+                      vx_mm_s: float, vy_mm_s: float) -> None:
+        """Run one measured direction, recentering or retrying when allowed."""
+        remaining = self.args.direction_s
+        while remaining > 1e-6:
+            self.direction = direction
+            self.phase = f"gait_{gait}_{direction}"
+            response = self.command(
+                f"J {vx_mm_s:.1f} {vy_mm_s:.1f} 0 {gait}"
+            )
+            if response != "J":
+                raise RuntimeError(
+                    f"gait {gait} {direction} refused: {response}"
+                )
+            try:
+                while remaining > 1e-6:
+                    chunk = min(
+                        remaining,
+                        self.args.center_check_s
+                        if self.args.adaptive_centering else remaining,
+                    )
+                    self.wait_guarded(chunk)
+                    remaining -= chunk
+                    if self.args.adaptive_centering and remaining > 1e-6:
+                        self._adaptive_center_check()
+            except CameraExitRisk as issue:
+                if self.recenters >= self.args.max_recenters:
+                    raise RuntimeError(
+                        f"adaptive-centering limit reached "
+                        f"({self.args.max_recenters}): {issue}"
+                    ) from issue
+                self.recenters += 1
+                self.phase = f"gait_{gait}_{direction}_recenter"
+                self.log_event("adaptive_center_pause", {
+                    "attempt": self.recenters,
+                    "reason": str(issue),
+                })
+                self.stop_walk("adaptive centering")
+                self.wait_guarded(
+                    self.args.center_settle_s, allow_soft_pause=False
+                )
+                selected = self.command(f"GAIT {self.args.center_gait}")
+                if selected.lower().startswith(("bad", "refused", "unknown")):
+                    raise RuntimeError(selected)
+                centered = self.return_to_camera_center()
+                if not centered:
+                    self.wait_guarded(
+                        self.args.recovery_pause_s, allow_soft_pause=False
+                    )
+                    centered = self.return_to_camera_center()
+                if not centered:
+                    raise RuntimeError(
+                        "camera centering failed twice; refusing blind resume"
+                    )
+                selected = self.command(
+                    f"GAIT 1 {self.args.gait1_alpha:.3f}" if gait == 1
+                    else f"GAIT {gait}"
+                )
+                if selected.lower().startswith(("bad", "refused", "unknown")):
+                    raise RuntimeError(f"could not restore gait {gait}: {selected}")
+                continue
+            except SoftSafetyPause as issue:
+                self.log_event("soft_guard_pause", str(issue))
+                self.recover_to_zero(str(issue), gait)
+                # Start a fresh full-duration sample after recovery so the
+                # retained trial is comparable rather than a stitched pulse.
+                remaining = self.args.direction_s
+                continue
+
+            self.phase = f"gait_{gait}_{direction}_settle"
+            self.stop_walk(f"gait {gait} {direction}")
+            try:
+                self.wait_guarded(self.args.settle_s)
+            except SoftSafetyPause as issue:
+                self.log_event("soft_guard_pause_during_settle", str(issue))
+                self.recover_to_zero(str(issue), gait)
+                remaining = self.args.direction_s
+                continue
+            self.assert_robot_health(require_armed=True)
+            return
+
+    def capture_camera_center_anchor(self) -> None:
+        """Remember the initial, operator-approved chassis image position."""
+        self.center_target_px = None
+        observation = self.camera_center_observation()
+        self.center_target_px = np.asarray(
+            observation["chassis_px"], dtype=float
+        )
+        self.log_event("camera_center_anchor", {
+            "target_px": [
+                round(float(value), 2) for value in self.center_target_px
+            ],
+            "image_size_px": observation["image_size_px"],
+            "floor_tag_ids": observation["floor_tag_ids"],
+            "floor_fit_rms_mm": observation["floor_fit_rms_mm"],
+        })
+
     def camera_center_observation(self) -> dict[str, Any]:
         """Project chassis and image center into the fixed floor-tag plane."""
         if not hasattr(cv2, "aruco"):
@@ -489,50 +978,42 @@ class Suite:
             frame, frame_unix_s = self.recorder.snapshot()
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             corners, ids, _rejected = self.apriltag_detector.detectMarkers(gray)
-            by_id: dict[int, np.ndarray] = {}
+            candidates_by_id: dict[int, list[np.ndarray]] = {}
             if ids is not None:
                 last_ids = [int(value) for value in ids.flatten()]
                 for marker_corners, marker_id in zip(corners, last_ids):
-                    by_id[marker_id] = marker_corners.reshape(4, 2)
+                    candidates_by_id.setdefault(marker_id, []).append(
+                        marker_corners.reshape(4, 2)
+                    )
+
+            by_id = {
+                marker_id: max(
+                    marker_candidates,
+                    key=lambda marker_corners: abs(float(cv2.contourArea(
+                        marker_corners.astype(np.float32)
+                    ))),
+                )
+                for marker_id, marker_candidates in candidates_by_id.items()
+            }
 
             floor_ids = sorted(
                 marker_id
-                for marker_id in by_id
+                for marker_id in candidates_by_id
                 if str(marker_id) in self.floor_tag_specs
             )
             if 0 not in by_id or len(floor_ids) < self.args.center_min_floor_tags:
                 time.sleep(0.12)
                 continue
 
-            half = self.tag_size_m / 2.0
-            local_corners = np.asarray([
-                [-half, half],
-                [half, half],
-                [half, -half],
-                [-half, -half],
-            ])
-            image_points = []
-            floor_points = []
-            for marker_id in floor_ids:
-                spec = self.floor_tag_specs[str(marker_id)]["world_from_tag"]
-                tx, ty, _tz = spec["translation_m"]
-                yaw = math.radians(float(spec["euler_xyz_deg"][2]))
-                rotation = np.asarray([
-                    [math.cos(yaw), -math.sin(yaw)],
-                    [math.sin(yaw), math.cos(yaw)],
-                ])
-                image_points.extend(by_id[marker_id])
-                floor_points.extend(
-                    local_corners @ rotation.T + np.asarray([tx, ty])
-                )
-            image_points_array = np.asarray(image_points, dtype=np.float32)
-            floor_points_array = np.asarray(floor_points, dtype=np.float32)
-            image_to_floor, _mask = cv2.findHomography(
-                image_points_array, floor_points_array, method=0
+            fit = _select_floor_homography(
+                candidates_by_id, self.floor_tag_specs, self.tag_size_m
             )
-            if image_to_floor is None:
+            if fit is None:
                 time.sleep(0.12)
                 continue
+            (selected_floor, floor_ids, image_to_floor, image_points_array,
+             floor_points_array, floor_rms_mm) = fit
+            by_id.update(selected_floor)
 
             def to_floor(points: Any) -> np.ndarray:
                 return cv2.perspectiveTransform(
@@ -540,13 +1021,6 @@ class Suite:
                     image_to_floor,
                 )[0].astype(float)
 
-            projected_control_points = to_floor(image_points_array)
-            floor_rms_mm = float(
-                np.sqrt(np.mean(np.sum(
-                    (projected_control_points - floor_points_array) ** 2,
-                    axis=1,
-                ))) * 1000.0
-            )
             if floor_rms_mm > self.args.center_floor_rms_max_mm:
                 time.sleep(0.12)
                 continue
@@ -554,7 +1028,11 @@ class Suite:
             chassis_corners = by_id[0]
             chassis_px = chassis_corners.mean(axis=0)
             height, width = frame.shape[:2]
-            target_px = np.asarray([width / 2.0, height / 2.0])
+            target_px = (
+                np.asarray([width / 2.0, height / 2.0])
+                if self.center_target_px is None
+                else self.center_target_px.copy()
+            )
             chassis_floor, target_floor = to_floor([chassis_px, target_px])
             error_floor = target_floor - chassis_floor
 
@@ -580,6 +1058,11 @@ class Suite:
                 basis_floor[1] - basis_floor[0],
                 basis_floor[2] - basis_floor[0],
             ])
+            basis_norms = np.linalg.norm(body_to_floor, axis=0)
+            if float(np.min(basis_norms)) < 1e-6:
+                time.sleep(0.12)
+                continue
+            body_to_floor = body_to_floor / basis_norms
             if abs(float(np.linalg.det(body_to_floor))) < 1e-8:
                 time.sleep(0.12)
                 continue
@@ -619,7 +1102,7 @@ class Suite:
             f"IDs were {sorted(last_ids)}"
         )
 
-    def return_to_camera_center(self) -> None:
+    def return_to_camera_center(self) -> bool:
         """Move toward image center in guarded, visually checked pulses."""
         self.phase = "return_to_camera_center"
         self.direction = "camera_center"
@@ -629,7 +1112,7 @@ class Suite:
                 observation = self.camera_center_observation()
             except Exception as error:
                 self.log_event("camera_center_unavailable", str(error))
-                return
+                return False
             error_px = float(observation["error_px_norm"])
             self.log_event(
                 "camera_center_observation",
@@ -637,7 +1120,7 @@ class Suite:
             )
             if error_px <= self.args.center_deadband_px:
                 self.log_event("camera_center_reached", observation)
-                return
+                return True
             if (
                 float(observation["error_floor_norm_m"])
                 > self.args.center_max_distance_m
@@ -649,10 +1132,10 @@ class Suite:
                         **observation,
                     },
                 )
-                return
+                return False
             if correction >= self.args.center_max_corrections:
                 self.log_event("camera_center_limit", observation)
-                return
+                return False
             if (
                 previous_error is not None
                 and error_px > previous_error * self.args.center_wrong_way_ratio
@@ -661,7 +1144,7 @@ class Suite:
                     "camera_center_wrong_way",
                     {"previous_error_px": previous_error, **observation},
                 )
-                return
+                return False
 
             error_body = observation["error_body"]
             desired_angle = math.degrees(
@@ -687,7 +1170,7 @@ class Suite:
             )
             if response != "J":
                 self.log_event("camera_center_refused", response)
-                return
+                return False
             self.wait_guarded(self.args.center_pulse_s)
             response = self.command("J 0 0 0")
             if response != "J":
@@ -695,6 +1178,7 @@ class Suite:
             self.wait_guarded(self.args.center_settle_s)
             self.assert_robot_health(require_armed=True)
             previous_error = error_px
+        return False
 
     def run(self) -> None:
         self.recorder.assert_live()
@@ -706,6 +1190,8 @@ class Suite:
         if max(abs(float(value)) for value in degrees if value is not None) > 6.0:
             raise RuntimeError(f"robot is not at visually verified zero: {degrees}")
         self.log_event("preflight_ok", {"pose_deg": degrees})
+        if self.args.return_to_camera_center or self.args.adaptive_centering:
+            self.capture_camera_center_anchor()
 
         self.phase = "stand"
         self.motion_started = True
@@ -753,20 +1239,7 @@ class Suite:
                     ("backward", -self.args.speed_mm_s, 0.0),
                 )
             for direction_index, (direction, vx_mm_s, vy_mm_s) in enumerate(directions):
-                self.direction = direction
-                self.phase = f"gait_{gait}_{direction}"
-                response = self.command(
-                    f"J {vx_mm_s:.1f} {vy_mm_s:.1f} 0 {gait}"
-                )
-                if response != "J":
-                    raise RuntimeError(f"gait {gait} {direction} refused: {response}")
-                self.wait_guarded(self.args.direction_s)
-                self.phase = f"gait_{gait}_{direction}_settle"
-                response = self.command("J 0 0 0")
-                if response != "J":
-                    raise RuntimeError(f"stop refused: {response}")
-                self.wait_guarded(self.args.settle_s)
-                self.assert_robot_health(require_armed=True)
+                self.run_direction(gait, direction, vx_mm_s, vy_mm_s)
                 if gait == 8 and direction_index == 0:
                     # Middle-tuck quad intentionally stops with its middle
                     # legs folded, which is not the common walk-ready plant
@@ -788,7 +1261,11 @@ class Suite:
             selected = self.command(f"GAIT {self.args.center_gait}")
             if selected.lower().startswith(("bad", "refused", "unknown")):
                 raise RuntimeError(selected)
-            self.return_to_camera_center()
+            if not self.return_to_camera_center():
+                self.log_event(
+                    "final_camera_center_incomplete",
+                    "continuing to collision-aware sit instead of resuming walk",
+                )
             self.direction = ""
 
         self.phase = "sit"
@@ -826,6 +1303,13 @@ def main() -> int:
         action="store_true",
         help="use fixed floor tags to return to image center before sitting",
     )
+    parser.add_argument(
+        "--adaptive-centering",
+        action="store_true",
+        help="pause and recenter before the chassis reaches the frame edge",
+    )
+    parser.add_argument("--center-check-s", type=float, default=1.5)
+    parser.add_argument("--center-trigger-px", type=float, default=260.0)
     parser.add_argument("--center-gait", type=int, default=11)
     parser.add_argument("--center-speed-mm-s", type=float, default=30.0)
     parser.add_argument("--center-pulse-s", type=float, default=6.4)
@@ -833,6 +1317,7 @@ def main() -> int:
     parser.add_argument("--center-deadband-px", type=float, default=90.0)
     parser.add_argument("--center-max-distance-m", type=float, default=0.25)
     parser.add_argument("--center-max-corrections", type=int, default=4)
+    parser.add_argument("--max-recenters", type=int, default=4)
     parser.add_argument("--center-wrong-way-ratio", type=float, default=1.12)
     parser.add_argument("--center-min-floor-tags", type=int, default=2)
     parser.add_argument("--center-floor-rms-max-mm", type=float, default=8.0)
@@ -846,21 +1331,80 @@ def main() -> int:
     parser.add_argument("--current-hard-a", type=float, default=3.0)
     parser.add_argument("--tilt-trip-deg", type=float, default=22.0)
     parser.add_argument("--temp-trip-c", type=float, default=55.0)
+    parser.add_argument("--temp-trip-samples", type=int, default=3)
+    parser.add_argument("--temp-clear-samples", type=int, default=3)
+    parser.add_argument("--thermal-cooldown-timeout-s", type=float, default=300.0)
+    parser.add_argument("--thermal-cooldown-poll-s", type=float, default=0.5)
     parser.add_argument("--voltage-trip-v", type=float, default=9.5)
+    parser.add_argument(
+        "--soft-recovery",
+        action="store_true",
+        help=("on pre-trip warnings only, stop, wait for stable readings, "
+              "safe-zero, stand, and retry"),
+    )
+    parser.add_argument("--max-recoveries", type=int, default=0)
+    parser.add_argument("--recovery-pause-s", type=float, default=3.0)
+    parser.add_argument("--recovery-clear-timeout-s", type=float, default=30.0)
+    parser.add_argument("--current-pause-a", type=float, default=1.8)
+    parser.add_argument("--tilt-pause-deg", type=float, default=14.0)
+    parser.add_argument("--temp-pause-c", type=float, default=50.0)
+    parser.add_argument("--voltage-pause-v", type=float, default=10.5)
     args = parser.parse_args()
     bad = [gait for gait in [*args.gaits, args.center_gait] if gait not in GAITS]
     if bad:
         parser.error(f"unknown gait IDs: {bad}")
+    if args.adaptive_centering and not args.return_to_camera_center:
+        parser.error("--adaptive-centering requires --return-to-camera-center")
+    if args.center_check_s <= 0.0:
+        parser.error("--center-check-s must be positive")
+    if args.center_trigger_px <= args.center_deadband_px:
+        parser.error("--center-trigger-px must exceed --center-deadband-px")
+    if not 0 <= args.max_recenters <= 12:
+        parser.error("--max-recenters must be between 0 and 12")
+    if not 0 <= args.max_recoveries <= 3:
+        parser.error("--max-recoveries must be between 0 and 3")
+    if args.soft_recovery and args.max_recoveries == 0:
+        parser.error("--soft-recovery requires --max-recoveries >= 1")
+    if args.recovery_pause_s < 0.0:
+        parser.error("--recovery-pause-s must be non-negative")
+    if args.recovery_clear_timeout_s <= args.recovery_pause_s:
+        parser.error(
+            "--recovery-clear-timeout-s must exceed --recovery-pause-s"
+        )
+    if not args.current_pause_a < args.current_sustained_a <= args.current_hard_a:
+        parser.error("current thresholds must satisfy pause < sustained <= hard")
+    if not args.tilt_pause_deg < args.tilt_trip_deg:
+        parser.error("--tilt-pause-deg must be below --tilt-trip-deg")
+    if not args.temp_pause_c < args.temp_trip_c:
+        parser.error("--temp-pause-c must be below --temp-trip-c")
+    if args.temp_trip_samples < 3:
+        parser.error("--temp-trip-samples must be at least 3")
+    if args.temp_clear_samples < 3:
+        parser.error("--temp-clear-samples must be at least 3")
+    if args.thermal_cooldown_timeout_s <= 0.0:
+        parser.error("--thermal-cooldown-timeout-s must be positive")
+    if args.thermal_cooldown_poll_s <= 0.0:
+        parser.error("--thermal-cooldown-poll-s must be positive")
+    if not args.voltage_trip_v < args.voltage_pause_v:
+        parser.error("--voltage-pause-v must be above --voltage-trip-v")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir / f"scripted_gait_suite_{stamp}"
     output_dir.mkdir(parents=True, exist_ok=False)
-    (output_dir / "config.json").write_text(
-        json.dumps({**vars(args), "output_dir": str(output_dir),
-                    "joint_frame": FRAME_ROBOT_ABS,
-                    "joint_contract": JOINT_CONTRACT},
-                   default=str, indent=2)
-        + "\n"
+    config_path = output_dir / "config.json"
+    config_payload = {
+        **vars(args),
+        "output_dir": str(output_dir),
+        "joint_frame": FRAME_ROBOT_ABS,
+        "joint_contract": JOINT_CONTRACT,
+        "expected_scripted_walk_contract": {
+            "control_hz": SCRIPTED_WALK_CONTROL_HZ,
+            "servo_speed_counts_s": SCRIPTED_WALK_SPEED_COUNTS_S,
+            "servo_acc_units": SCRIPTED_WALK_ACC_UNITS,
+        },
+    }
+    config_path.write_text(
+        json.dumps(config_payload, default=str, indent=2) + "\n"
     )
 
     recorder = RawRecorder(
@@ -879,6 +1423,33 @@ def main() -> int:
     try:
         recorder.start()
         suite.log_event("recorder_ready")
+        robot_state = suite.robot_state()
+        actual_contract = robot_state.get("scripted_walk")
+        if not isinstance(actual_contract, dict):
+            raise RuntimeError(
+                "robot API does not expose scripted_walk contract; deploy "
+                "the matching controller before collecting a parity run"
+            )
+        expected_contract = config_payload["expected_scripted_walk_contract"]
+        mismatches = {
+            key: {"expected": value, "actual": actual_contract.get(key)}
+            for key, value in expected_contract.items()
+            if actual_contract.get(key) != value
+        }
+        if mismatches:
+            raise RuntimeError(
+                "robot scripted-walk contract does not match this recorder: "
+                + json.dumps(mismatches, sort_keys=True)
+            )
+        config_payload["robot_runtime"] = {
+            "scripted_walk": actual_contract,
+            "drive_status": robot_state.get("drive_status"),
+            "activity": robot_state.get("activity"),
+        }
+        config_path.write_text(
+            json.dumps(config_payload, default=str, indent=2) + "\n"
+        )
+        suite.log_event("scripted_contract_verified", actual_contract)
         warmup_deadline = time.monotonic() + max(0.0, args.camera_warmup_s)
         while time.monotonic() < warmup_deadline:
             recorder.assert_live()
@@ -891,10 +1462,28 @@ def main() -> int:
         if recorder.error:
             raise RuntimeError(f"recorder failed: {recorder.error}")
         return 0
+    except ThermalSafetyTrip as error:
+        suite.log_event("suite_error", str(error))
+        if suite.motion_started:
+            suite.emergency_stop(str(error))
+        suite.monitor_thermal_cooldown(str(error))
+        return 1
+    except HardSafetyTrip as error:
+        suite.log_event("suite_error", str(error))
+        if suite.motion_started:
+            suite.emergency_stop(str(error))
+        return 1
     except Exception as error:
         suite.log_event("suite_error", str(error))
         if suite.motion_started:
             suite.emergency_stop(str(error))
+            try:
+                suite.recover_nonhard_failure_to_zero(str(error))
+            except Exception as recovery_error:
+                suite.log_event("failure_zero_recovery_error", str(recovery_error))
+                suite.emergency_stop(
+                    f"zero recovery failed after {error}: {recovery_error}"
+                )
         return 1
     finally:
         recorder.stop()

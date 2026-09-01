@@ -36,6 +36,10 @@ from hexapod_core.joint_frame import (
     mujoco_rel_rad_to_robot_abs_deg,
     robot_abs_rad_to_mujoco_rel_rad,
 )
+from hexapod_core.scripted_walk_contract import (
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
+)
 from .play_core import (
     _CRUISE,
     _DESC,
@@ -45,6 +49,11 @@ from .play_core import (
     _N_MODE,
     _NOSLIP,
     _NOSLIP_CLEAN,
+    _NOSLIP_FLUID,
+    _NOSLIP_FLUID_FAST,
+    _NOSLIP_FLUID_HYBRID,
+    _NOSLIP_FLUID_PULSE,
+    _NOSLIP_FLUID_PUSH,
     _NOSLIP_RIPPLE,
     _NOSLIP_WAVE,
     _ROLE_OBS,
@@ -282,6 +291,8 @@ class SimWebSession:
         self.walk_list = self._current_contract_policies(cats["walk"])
         self.walk_list.extend([
             _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
+            _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+            _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE,
             _SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG,
             _MIDDLE_TUCK_QUAD,
         ])
@@ -1138,7 +1149,9 @@ class SimWebSession:
         if self.walk_list[self.wi] == _MIDDLE_TUCK_QUAD:
             return 0.015, 0.030
         if self.walk_list[self.wi] in {
-                _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE}:
+                _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
+                _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+                _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE}:
             return 0.02, 0.04
         reg = None if self.walk is None else self._ckpt_regime(self.walk_list[self.wi].stem)
         if reg is not None:
@@ -1154,14 +1167,16 @@ class SimWebSession:
             self._regime_base["speed"] = self.env.write_speed_deg_s
             self._regime_base["acc"] = self.env.write_acc_units
             self._regime_base["dq"] = self.env.safety.max_dq
-        tripod_live = self.walk_list[self.wi] in _SCRIPTED_TRIPOD
-        reg = None if tripod_live or self.walk is None else self._ckpt_regime(
+        scripted_live = self.walk_list[self.wi] in _SCRIPTED_ROWS
+        reg = None if scripted_live or self.walk is None else self._ckpt_regime(
             self.walk_list[self.wi].stem)
-        if tripod_live:
-            s = 1500.0 / max(self.servo_fit_counts, 1.0)
+        if scripted_live:
+            s = (SCRIPTED_WALK_SPEED_COUNTS_S
+                 / max(self.servo_fit_counts, 1.0))
             prof._vel_default[:] = self._regime_base["vel"] * s
-            self.env.write_speed_deg_s = 1500.0 * 360.0 / 4096.0
-            self.env.write_acc_units = 80.0
+            self.env.write_speed_deg_s = (
+                SCRIPTED_WALK_SPEED_COUNTS_S * 360.0 / 4096.0)
+            self.env.write_acc_units = SCRIPTED_WALK_ACC_UNITS
             self.env.safety.max_dq = self._regime_base["dq"]
         elif reg is not None:
             s = reg["speed"] / max(self.servo_fit_counts, 1.0)
@@ -2827,6 +2842,11 @@ class SimWebSession:
         6: _SE2_CPG,
         7: _NOSLIP_CLEAN,
         8: _MIDDLE_TUCK_QUAD,
+        9: _NOSLIP_FLUID,
+        10: _NOSLIP_FLUID_FAST,
+        11: _NOSLIP_FLUID_HYBRID,
+        12: _NOSLIP_FLUID_PUSH,
+        13: _NOSLIP_FLUID_PULSE,
     }
 
     def _set_scripted_gait_id(self, gait_id: int) -> dict[str, Any]:

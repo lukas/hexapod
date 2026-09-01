@@ -1,5 +1,61 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-09-01 ~03:3x (triage cycle — JOINT close of the klroll
+pair, best result of the whole turn-authority campaign). Plain
+English: **capping how big a single PPO update is allowed to be
+(kl-rollback) is the first lever in this 10-mechanism-class campaign
+that genuinely ARRESTS turn-authority erosion instead of merely
+slowing it — and the pair's own fork resolves to BOTH the actor-freeze
+AND the update-size guard being needed for it to hold.** Both arms of
+the pre-registered pair finished this cycle (my assigned run
+`valuewarmup-klroll-acq1` + its untriaged sibling `klrollctrl-acq1`,
+no other cycle had claimed it, read jointly per the pair's own gate).
+Built full 10-12-point `probe_turn_authority` erosion curves myself
+on-pod for both (own TURNCAP_CFG_SET) plus `probe_yaw_credit` reads at
+the freeze boundary and 16M for `valuewarmup-klroll-acq1`. **Mechanism
+confirmed on both:** `train/kl_rollback_count` fires within the first
+~260k steps of the first live PPO update against a good init (either
+the 8M unfreeze boundary for the freeze+guard arm, approx_kl 3.39, or
+the very first post-init update for the no-freeze arm, approx_kl 2.05
+— same generic shock, not unfreeze-specific), then realized approx_kl
+stays bounded ~0.01-0.03 for the rest of the run on BOTH arms (vs the
+family's chronic 0.08-0.15 baseline). **Durability DIVERGES:**
+freeze+guard (`valuewarmup-klroll-acq1`) reaches a plateau by 10M
+(pos 0.071-0.086, neg -0.103 to -0.135) and HOLDS IT FLAT through 38M
+(final pos 0.068/0.068, neg **-0.109/-0.110 — first sign in the whole
+campaign to clear the >=0.10 PASS bar**); guard-only, no freeze
+(`klrollctrl-acq1`) reaches the SAME plateau ~2M steps FASTER (no
+8M critic-only wait) but the plateau is NOT durable — it resumes
+eroding from ~24M onward, ending at final pos 0.055/0.055, neg
+-0.065/-0.070, close to the UNGUARDED parent's own floor (pos
+0.029/0.032, neg -0.069/-0.065). Answers the pair's own pre-registered
+fork as **BOTH NEEDED** (not "guard sufficient alone", not "oversized-
+update hypothesis refuted"). `probe_yaw_credit` on the freeze+guard
+arm: 2/4 CREDIT-REWARDS at the 8M freeze boundary, degrading to 1/4 by
+16M (re-blinding, same direction as every prior class) — YET authority
+barely moved 12-22M despite the credit signal degrading, DECOUPLING
+credit-assignment from authority-defense: bounding update size, not
+fixing credit, is what is actually doing the defending. In-training
+clean on both: `eval/walk/survived_frac`=1, `walk_startjitter`=1, no
+gait-collapse. Verdicted both **ACQ PARTIAL** (own scope each) — best
+PARTIAL of the campaign, not yet promotable (positive sign still under
+the 0.10 PASS bar on both arms). Evidence:
+`logs/ckpt_eval/turn_authority_dualbc6_turncap_mirroraug_{klrollctrl,
+valuewarmup_klroll}_acq1_*.json`,
+`logs/ckpt_eval/yaw_credit_dualbc6_turncap_mirroraug_valuewarmup_klroll_acq1_{8M,16M}.json`
+(all built this cycle, on-pod). **Launched the 2-arm tighter-cap
+(0.02, matching `--target-kl`) dose bracket the finding motivates, both
+VERIFIED RUNNING:** `cw-standwalk-stage2-dualbc6-turncap-mirroraug-
+klrolltight-acq1` (guard-only 0.02, no freeze, train-1 — tests whether
+tightening alone fixes guard-only's late-stage re-erosion) and
+`...-valuewarmup-klrolltight-acq1` (freeze+guard 0.02, train-0 — the
+combination most likely to close the remaining positive-sign gap to
+PASS). No other track has runnable work (joystick/amp/cpg DONE-or-
+maintenance, todaypolicy delivered, walkcurr RETIRED, re-swept fresh
+this cycle); 80M/80M new-GPU-step cycle cap used by this pair, 10/12
+pods otherwise free but budget-capped, not idle-next-to-runnable-work.
+CYCLE_WORKED.
+
 Update, 2026-09-01 ~01:0x (DIG-IN cycle: valuewarmup joint close +
 root cause measured + klroll pair launched). Plain English: **the
 critic-freeze warmup genuinely fixed the critic — seed0 hit the

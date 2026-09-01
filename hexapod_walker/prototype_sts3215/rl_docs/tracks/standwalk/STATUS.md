@@ -1,7 +1,34 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~22:0x (triage: durctrl-canary + durctrl-canary-s1
-training finished; launched the flat-only duration-mismatch reads).
+Update, 2026-09-01 ~22:3x (triage: durfix-canary training finished;
+durfix-canary-s1 ALSO quietly finished mid-cycle — launched its
+missing flat-only read, completing the 4-arm quartet).
+Plain English: `durfix-canary` (the assigned run) finished at 2M
+steps, reward healthy (dips hard mid-run then partially recovers to
+-353.8, same shape as both durctrl arms) — recorded `CANARY PASS (own
+scope) - joint pending flatonly-read`, no new info since its own
+flat-only read was already launched last cycle (train-3, still
+running). While checking pod state, found `durfix-canary-s1` had ALSO
+finished training on train-4 (ledger was stale `RUNNING`; checkpoint
+synced 22:13) with its OWN flat-only read still un-launched (STATUS
+Next#1 flagged this as the missing 4th arm) — launched it on train-4
+this cycle (same flat-only cfg as durfix-canary, own checkpoint) and
+verdicted the training run `CANARY PASS (own scope)` too (reward
+healthy: dips then recovers to -240.5). **All 4 arms of the
+duration-mismatch quartet are now running concurrently**
+(durctrl-canary train-1, durctrl-canary-s1 train-2, durfix-canary
+train-3, durfix-canary-s1 train-4), none landed yet — checked via
+`ps aux` on each pod, not guessed. Other 5 tracks re-confirmed
+green/retired/closed per the 15:1x fresh sweep, no new runnable work
+found (`hexapod-mjx-train-0` is Pending on cluster CPU pressure,
+already flagged as infra 21:26, not re-poked this cycle — 11 other
+pods available and the standwalk queue itself has nothing further to
+launch until these 4 reads land). Nothing else to do this cycle but
+wait for the joint read; no filler launched.
+
+Previous entry (2026-09-01 ~22:0x, triage: durctrl-canary +
+durctrl-canary-s1 training finished; launched the flat-only
+duration-mismatch reads) verbatim below.
 Plain English: the two training runs finished (2M steps each,
 matched no-cfg-change CONTROL twins of the duration-mismatch pair).
 Both are mechanism-health canaries with no independent PASS/FAIL bar
@@ -71,16 +98,17 @@ intermediate-checkpoint probe, grad-clip bracket close, `-canary-s1`
 seed split, klrolltight2 close, yaw-critic build) VERBATIM in
 `archive/standwalk_STATUS_journal_2026-09-01_trim.md`.
 
-## Next (meta 09-01 ~22:0x)
+## Next (meta 09-01 ~22:3x)
 
-1. **Read the duration-mismatch fix pair once the flat-only
+1. **Read the duration-mismatch fix quartet once the flat-only
    `eval_done_gate_session` (n=8, video, `goal.rise_flat_frac=1.0
    rise_partial_frac=0 rise_start_bank_frac=0 rise_rsi_frac=0`) lands**
-   — LAUNCHED this cycle on all 3 checkpoints that had finished
-   training: `durctrl-canary` (train-1), `durctrl-canary-s1`
-   (train-2), `durfix-canary` (train-3); `durfix-canary-s1` is still
-   training on train-4 and needs its own flat-only read once it
-   finishes (same command, its own checkpoint). DECISION: if `durfix`
+   — ALL 4 checkpoints now have their read LAUNCHED and running:
+   `durctrl-canary` (train-1), `durctrl-canary-s1` (train-2),
+   `durfix-canary` (train-3), `durfix-canary-s1` (train-4, launched
+   this cycle once its training was found finished). Nothing left to
+   launch on this item — just needs the next cycle to read all 4
+   `session_verdict.json`s jointly. DECISION: if `durfix`
    clears
    meaningfully fewer near-instant-onset (`seq_end_t_s` within ~2s of
    the walk segment's start) `over_current` walk-segment terminations

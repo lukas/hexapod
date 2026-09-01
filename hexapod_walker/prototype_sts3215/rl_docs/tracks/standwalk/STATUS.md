@@ -54,7 +54,13 @@ whole freeze-mechanism line without further funding. If it holds near
 is the next step. Gate is a full 2M/4M/6M/8M-elapsed probe_turn_authority
 curve, own TURNCAP_CFG_SET, on-pod. First kl_rollback already fired
 (approx_kl 0.47, same generic post-init-shock pattern as every
-sibling) — mechanism healthy. CYCLE_WORKED.
+sibling) — mechanism healthy. Still 10/12 pods free after that one
+arm, so launched the seed-pass-rate twin
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-klrolldriftmatch-acq1-s1`
+(`--seed 1`, otherwise identical, train-2) so the confound verdict
+rests on n=2 rather than a single training run before the campaign
+either abandons freeze-based mechanism work or funds a periodic-
+re-freeze design off it. CYCLE_WORKED.
 
 Update, 2026-09-01 ~06:2x (triage cycle — `valuewarmup-klrolltight-acq1`
 own-scope PARTIAL-BETTER, dose-response continues). Plain English:

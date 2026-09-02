@@ -155,7 +155,8 @@ def _ledger_cfg_set(run: str) -> list[str]:
 def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
              episode_seconds: float, stochastic: bool,
              train_run: str | None = None,
-             extra_cfg_set: list[str] | None = None) -> dict:
+             extra_cfg_set: list[str] | None = None,
+             task: str = "joint_walk") -> dict:
     cfg = load_config()
     overrides = list(FLATONLY_FORCED_PLAN_CFG)
     if train_run:
@@ -173,7 +174,7 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
     for key, parsed in _parse_cfg_set(overrides).items():
         sect, name = key.split(".", 1)
         cfg.setdefault(sect, {})[name] = parsed
-    env = ENV_CLASSES["joint_walk"](
+    env = ENV_CLASSES[task](
         params=SimServoParams.from_cfg(cfg), cfg=cfg,
         randomize=(dr_scale > 0), dr_scale=dr_scale,
         episode_seconds=episode_seconds, seed=seed_base,
@@ -183,11 +184,15 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
     n_env = int(env.observation_space.shape[0])
     if n_model != n_env:
         raise SystemExit(
-            f"obs width mismatch: ckpt={n_model} env={n_env} -- "
-            f"add the missing --cfg-set override(s) to "
+            f"obs width mismatch: ckpt={n_model} env={n_env} (task="
+            f"{task!r}) -- add the missing --cfg-set override(s) to "
             f"FLATONLY_FORCED_PLAN_CFG (probably obs.mode_onehot=1 or "
             f"goal.walk_phase_obs=1; check the run's own training cfg "
-            f"via `ops.sh evalcmd <run>`).")
+            f"via `ops.sh evalcmd <run>`), OR (2026-09-02: legacy "
+            f"joint_goal-family checkpoints, e.g. ppo_goal_cw_stance_dr10, "
+            f"CANNOT reach joint_walk's obs width at all -- walk_task.py's "
+            f"WALK_GOAL_DIM/N_VEL_OBS add 4 UNCONDITIONAL dims no cfg flag "
+            f"disables -- pass --task joint_goal instead).")
     episodes = []
     for i in range(n):
         obs, info0 = env.reset(seed=seed_base + i)
@@ -291,12 +296,26 @@ def main() -> int:
                          "goal.rise_ramp_s=12.0 to test a torque-margin "
                          "hypothesis) -- never changes any default, "
                          "repeatable")
+    ap.add_argument("--task", choices=sorted(ENV_CLASSES),
+                    default="joint_walk",
+                    help="env task class (default joint_walk, matching "
+                         "every mesh/100Hz standwalk checkpoint so far). "
+                         "Legacy PRE-WALK-TASK checkpoints (e.g. the "
+                         "primitive-family stance champion "
+                         "ppo_goal_cw_stance_dr10) were trained on "
+                         "joint_goal, which is 4 obs dims NARROWER than "
+                         "joint_walk (walk_task.py's command+measured-"
+                         "velocity channels are unconditional, not cfg-"
+                         "gated) -- pass --task joint_goal for those; "
+                         "_seq_maybe_switch/mode_seq forced-plan live on "
+                         "the shared sim_env base so this probe works "
+                         "the same way on either task.")
     args = ap.parse_args()
     result = run_probe(
         args.checkpoint, dr_scale=args.dr_scale, n=args.n,
         seed_base=args.seed_base, episode_seconds=args.episode_seconds,
         stochastic=args.stochastic, train_run=args.train_run,
-        extra_cfg_set=args.extra_cfg_set)
+        extra_cfg_set=args.extra_cfg_set, task=args.task)
     out = args.out or Path(
         f"logs/ckpt_eval/{args.checkpoint.stem}_seqswitch_probe.json")
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,18 @@ terminations don't drop and in seed1's case explode. Verdicted
 sweeping. Item 1 (cap=2.9 decisive session read) is still mid-flight
 on train-1 (started 05:18, ETA ~1-2h, not yet read this cycle).
 
+Interim check 09-02 ~07:3x (idle-kick, zero new compute, no verdict —
+job still running): the flat-only dr0 HALF of the cap=2.9
+`eval_done_gate_session` for `durctrl-canary` finished at 06:52 and is
+already decisive on its own axis — **16/16 det+sto episodes
+`seq_completed=true`, ZERO terminations**, femur `cur_max_a` still
+2.64 (still riding the cap, not lowered) but no longer tripping it,
+vs. the un-capped control's 24/32 session-level over_current rate.
+own-DR half started 06:52, ~7/8 det episodes rendered by 07:35 (own-DR
+sto not started yet) — ETA ~45-60 more min. Matches the cap-raise
+prediction so far; still waiting on own-DR before landing the cfg
+default per item 1's own criteria (do not act on the dr0-only half).
+
 Prior update, 2026-09-02 ~05:3x (idle-kick): the SAME per-joint current
 probe run against the LEGACY primitive-family (2.104kg)
 `ppo_goal_cw_stance_dr10` found femur pins at the IDENTICAL ~2.64A cap

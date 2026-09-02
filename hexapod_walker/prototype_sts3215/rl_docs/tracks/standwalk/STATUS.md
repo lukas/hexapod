@@ -1,6 +1,72 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~03:0x (idle-kick, drained a real bug): found the
+Update, 2026-09-02 ~04:0x (idle-kick DIG-IN, not verdicted):
+`frameblend-canary`'s (non-s1) flat-only `eval_done_gate_session`
+landed this cycle — DOES NOT confirm the blend fix, and roots the
+campaign's real dominant defect. Numbers: 27/32 term (all
+`over_current`) at t=7.01-11.59s (median 8.67s), vs the matched
+no-blend control `durctrl-canary`'s 24/32 term at t=8.56-12.30s
+(median 9.57s) — pulled the control's own raw dr0/owndr episode jsons
+fresh this cycle (`/tmp/..._durctrl_canary_donegate_flatonly_{dr0,
+owndr}.json`, never summarized into a `session_verdict.json` before)
+to make this an apples-to-apples per-episode comparison, not a
+re-quote. The prior "20 rise-term / 7 walk-term" split is an artifact
+of the segment-label boundary at the switch's t=10.0s tick, not a
+real behavior difference (control splits 14/10 at the same
+boundary) — both arms' terminations form ONE tight cluster straddling
+the switch, blend or no blend, count and spread slightly WORSE with
+the blend on.
+
+**Root cause, confirmed via new instrumentation this cycle:** ran
+`debug_seq_switch_obs_jump.py --train-run <run>` (its existing
+`--train-run` flag, previously unused live) on `frameblend-canary`,
+then pulled the full per-tick `cur_trace`/`act_trace` it already
+records. Episode 3 (terminated 8.52s, entirely BEFORE the 10.0s
+switch — the blend literally cannot touch this episode): current
+climbs smoothly from ~2.4A at t=5.5s to a hard plateau at **2.517A by
+t=6.9s** (just over the 2.5A `safety.max_current_a` cap) and stays
+pinned there for the full `over_current_trip_s=0.8s` window while
+`|action|` keeps climbing 0.37->0.54 the whole time — a genuine
+sustained whole-body current cost during the post-ramp RISE HOLD
+itself (rise_ramp_s=6.0 completes ~t=6s, then the policy must hold
+until the t=10.0 switch), not a switch-adjacent shock at all.
+`cur_leg_imbalance` sits at 1.02-1.07 (near-perfectly balanced across
+all 6 legs) on every terminated episode in the full n=32 report —
+rules out one leg fighting alone; this is a uniform, whole-body
+current cost. This is the SAME pattern flagged-but-unexplored as
+"separate mid-rise sustained current fragility" in the prior Next
+list (`durfix-canary-s1`: 3/4 terms at t=4.6-9.8s, current pinned
+200ms+ pre-trip) — now confirmed as the DOMINANT term cause on the
+frameblend/durctrl lineage too, and it explains why neither
+`durfix-canary` (duration fix) nor `frameblend-canary` (blend fix)
+move total termination count: both target the switch; the actual
+majority defect predates it.
+
+**Tooling gap found (not yet fixed):** `debug_seq_switch_obs_jump.py`'s
+family-jump metric reads `env._q_nom` directly, which the blend
+mechanism does NOT touch (only `_q_nom_for_obs()`, blended over the
+following ticks, is obs-facing) — so its `worst_family_jump=219.9deg`
+readout on this checkpoint does NOT mean the blend failed to engage;
+it means the probe measures the wrong variable. Do not use that
+metric to judge blend efficacy until it's patched to trace
+`_q_nom_for_obs()` per-tick across the blend window instead.
+
+Sibling `frameblend-canary-s1` flat-only read still in flight
+(train-5, started 03:00 by a concurrent cycle after the donegate-bug
+fix) at this cycle's end — not read, joint call deferred. No
+verdict issued on either arm this cycle (DIG-IN, per the model-tiering
+rule: this result is anomalous vs the pre-registered hypothesis and
+decides whether item 1 below gets promoted/dose-swept or dropped).
+No other launchable work found (all 5 other tracks re-confirmed
+DONE/retired/delivered this cycle by re-reading each track's own
+STATUS banner fresh); did not launch a blind fix — the sustained-hold
+current defect needs its own root-cause pass (what commanded
+height/pose is active during t=6-10s hold, is `current_hot_a=2.0`
+pricing simply too weak, does the heavier mesh mass (3.50kg vs legacy
+2.104kg) make a normal hold cost more torque than 2.5A allows) before
+any reward/cfg change, per guardrails discipline.
+
+Prior update, 2026-09-02 ~03:0x (idle-kick, drained a real bug): found the
 in-flight `frameblend-canary-s1` `eval_done_gate_session` read (on
 train-5, started ~02:28 by a concurrent cycle) had REGRESSED the
 09-01 mixedsession-diet scoping bug — it was running plain
@@ -162,48 +228,55 @@ sim-scope, cpg DONE pending `[operator]` hardware-adoption, walkcurr
 RETIRED 08-31, todaypolicy DELIVERED 08-30) — standwalk remains the
 only track with agent-launchable open work.
 
-## Next (meta 09-02 ~01:4x)
+## Next (meta 09-02 ~04:0x)
 
-1. **Read `frameblend-canary{,-s1}` once they finish 2M steps** (same
-   pod flat-only `eval_done_gate_session` as the quartet). PASS
-   signal: near-switch/near-instant `over_current` fraction drops
-   meaningfully below `durctrl-canary{,-s1}` (24 term / 5 term
-   respectively) without `progress_ratio`/`slip_per_m` regressing
-   outside noise. If it clears: (a) promote as the new default lever
-   for every future mode_seq mechanism arm in this campaign (re-run
-   the closed turn-authority verdicts through it only if a later
-   result depends on walk-segment survivability, not reflexively);
-   (b) dose-sweep `mode_seq_frame_blend_s` (0.25/0.5/1.0/2.0) to find
-   the ceiling; (c) consider whether `z0`/`pad_z_ref` also need the
-   same treatment (height reward, not touched this round). If it does
-   NOT clear: the action-saturation shock may be necessary-but-not-
-   sufficient (something else about the walk segment's own dynamics
-   is also hostile right after a rise) — pull the SAME per-tick
-   current/action trace on the blended checkpoint to see whether the
-   shock itself is gone (blend working as designed) even if
-   termination doesn't improve (a different defect dominates).
-2. **Separate, NOT YET INVESTIGATED: mid-rise sustained-current
-   fragility.** `durfix-canary-s1` n=24 probe: 3/4 terminations at
-   t=4.6-9.8s (well before any switch), current PINNED near the 2.64A
-   cap for 200ms+ before tripping (a sustained-load pattern, not a
-   spike) — orthogonal to the frame-blend fix, unexplained. Next dig-in
-   candidate once item 1 lands: pull the same per-tick trace on a bank
-   of these specific episodes, check foot-contact/leg-imbalance at the
-   moment current pins (one leg fighting load asymmetrically?) before
-   proposing a reward/DR change.
+1. **PROMOTED TOP ITEM: root-cause the mid/late-rise sustained-current
+   fragility.** Confirmed this cycle as the DOMINANT term cause on
+   `frameblend-canary`/`durctrl-canary` alike (27/32, 24/32 term, both
+   clustered t=7-12s regardless of blend) — not the switch shock item
+   2 (below) was built to fix. Per-tick trace (ep3, `frameblend-canary`):
+   current climbs smoothly from ~2.4A (t=5.5s) to a pinned 2.517A
+   plateau by t=6.9s (just over the 2.5A cap), held through the
+   0.8s trip window, while `|action|` keeps climbing the whole time;
+   `cur_leg_imbalance` ~1.02-1.07 (balanced, rules out one leg alone).
+   Next actions, in order: (a) pull the same per-tick trace on a bank
+   of `durctrl-canary`'s own 14 rise-segment terminations (already
+   trained+read, zero new compute) to confirm this isn't
+   frameblend-specific; (b) inspect the commanded height/pose/goal
+   trajectory during the t=6-10s hold window on a surviving vs a
+   terminating episode — is the ramp target itself demanding (e.g.
+   `rise_height_mm=[79,87]` at the heavier 3.50kg mesh mass) or is
+   this idle-hold drift; (c) only after (a)+(b) name a mechanism
+   (reward pricing `current_hot_a`/`k_current_hot` too weak, torque/
+   gear-ratio mismatch for the +66% mass, or a genuine posture defect)
+   before proposing any reward/cfg change — no blind dose arm.
+2. **Frame-blend fix: NOT CONFIRMED, likely orthogonal to the
+   dominant defect.** `frameblend-canary` (blend=0.5s) read WORSE
+   than `durctrl-canary` (no blend) on total term count and timing
+   spread — but per item 1, most terminations (both arms) happen
+   before or straddling the switch for a reason unrelated to the
+   q_nom teleport. Do not dose-sweep `mode_seq_frame_blend_s` or
+   promote it as a default lever yet. `frameblend-canary-s1` flat-only
+   read still in flight (train-5) — read it for the n=2 seed
+   confirmation once done, but expect it to tell the same story.
+   **Tooling gap:** `debug_seq_switch_obs_jump.py`'s family-jump
+   metric reads `env._q_nom` (unblended by design) — it cannot judge
+   blend efficacy; patch it to trace `_q_nom_for_obs()` per-tick
+   across the blend window before using it for that question again.
 3. **Standing bar, still SUSPECT:** `probe_turn_authority >=0.10 both
    signs` predicts the isolated short-window probe, not the literal
    60s DONE gate — do not fund a short-probe-scored turn-authority arm
-   until item 1's read says whether the switch-shock (which this bar's
-   own probes never traverse, being single-mode) was hiding/inflating
+   until item 1 says whether the sustained-current fragility (which
+   this bar's own probes may or may not traverse) was hiding/inflating
    any of the closed verdicts.
 4. **Closed (pre-09-02, see prior archives):** update-size constraints
    (freeze/value-warmup/kl-rollback), reward pricing, exploration
    magnitude, anchor dose/isolate-update, turn-skip, yaw-credit at
    every clip dose, the mixedsession-audit landmine, the mixed-diet
-   `eval_done_gate_session` scoping bug, and the original 4-arm
-   duration-mismatch PASS/PARTIAL/FAIL branching (superseded by the
-   causal read above).
+   `eval_done_gate_session` scoping bug, the original 4-arm
+   duration-mismatch PASS/PARTIAL/FAIL branching, and the switch-jump
+   causal lead itself (superseded by item 1's finding that it's not
+   the dominant term cause).
 
 > Journal archives (VERBATIM): pre-08-30 in
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through

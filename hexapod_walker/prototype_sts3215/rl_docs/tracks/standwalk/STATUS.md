@@ -1,6 +1,96 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-01 ~22:3x (triage: durfix-canary training finished;
+Update, 2026-09-02 ~00:4x (idle-kick triage: read 3/4 duration-mismatch
+quartet flat-only `eval_done_gate_session` verdicts — `durctrl-canary`
+train-1 DONE, `durfix-canary` train-3 DONE, `durfix-canary-s1` train-4
+DONE; `durctrl-canary-s1` train-2 STILL RUNNING, ~2h45m elapsed vs
+~20-40min for the other three — pod is heavily CPU-contended (122
+python procs incl. 3 OTHER concurrent eval jobs for the same
+checkpoint: mixedsession/gate/owncfg, likely another cycle's reads;
+left running, not killed, per "trust only mechanical state"/don't
+fight concurrent-cycle traffic).
+
+**FINDING: the quartet's own pre-registered PASS/PARTIAL/FAIL text
+does not cleanly resolve — DIG-IN, not closeable this cycle** (see
+DIG-IN line below). Per-episode analysis (pulled `report.json` per
+dr0+owndr pass, not just the summary — walk-segment terminations
+`seq_end_seg_mode=='walk'`, near-instant := `seq_end_t_s` within 2s of
+that segment's own start):
+
+| run | n_term | walk_term | near-instant/n_term | prog_med | slip_med | dir_err_med | gait_valid |
+|---|---|---|---|---|---|---|---|
+| durctrl-canary (control) | 24 | 10 | 6/24=25% | 0.051 | 12.465 | 75.1° | 0.444 |
+| durfix-canary (seed0) | 21 | 18 | 15/21=71% | 0.141 | 9.756 | 72.0° | 0.379 |
+| durfix-canary-s1 (seed1) | 24 | 13 | 10/24=42% | 0.291 | 5.985 | 57.6° | 0.381 |
+
+Gate text: PASS needs near-instant terms drop MEANINGFULLY below the
+pre-continuation baseline (16/22=73%|21/22=95%) AND prog>=0.25 AND
+slip<=4.0, a gap the control does not close. Neither durfix seed
+clears all three; **durfix-canary is basically UNCHANGED from its own
+baseline (71% vs 73%) and its walk-segment termination COUNT (18) is
+almost double the control's (10)** — durfix reaches the walk segment
+far more often (fewer rise-mode terminations: 3 vs 14) but then still
+dies almost immediately once there. durfix-canary-s1 does show a real
+near-instant improvement (95%->42%) and clears the progress bar
+(0.291) but misses slip (5.985 vs cap 4.0). Reads as **PARTIAL at best
+on seed1, matching-the-control (not beating it) on seed0** — an
+inconsistent, seed-dependent result, not the clean PASS or clean FAIL
+either gate branch predicted. `zero_falls=false`/`gate.pass=false` on
+all three (as expected, mechanism-health canary only).
+
+**Root-cause LEAD (code-read, not yet instrumented/confirmed) for why
+duration alone wouldn't fix this even if it fully worked**:
+`sim_env._seq_maybe_switch` installs the NEW segment family's
+canonical `q_nom`/`z0`/`pad_z_ref` (`SEQ_FRAME_FAMILY = {"rise":
+"belly", "walk": "plant", ...}`) at the exact switch tick — but the
+blend window (`traj.height/roll/pitch`) only smooths the GOAL
+trajectory, not the frame used to compute the observation itself
+(`build_obs` reads `q - q_nom`, height rel. `z0`). `_seq_capture_frames`
+probes "belly" from an all-zero joint pose and "plant" from the
+standing `plant_deg` pose — two genuinely different canonical
+baselines (the full rise range apart). At the rise->walk boundary the
+robot's ACTUAL joints are near the plant pose (rise's whole job), so
+`q_nom` teleporting from belly->plant makes the WALK segment's very
+first observed joint-delta jump from "large, has been shrinking all of
+rise" to "near zero" in one tick — a genuine input discontinuity at
+the identical offset every switch, independent of how long the
+segment that follows is allowed to run. This is consistent with (a)
+terminations clustering at a FIXED short offset post-switch regardless
+of duration budget, and (b) durfix (which only widened the ALLOWED
+segment length, never touched the switch's frame-blend) not closing
+the near-instant fraction. NOT YET instrumented (no per-tick obs-delta
+trace pulled, no video frame-by-frame check of the exact switch tick) —
+a hypothesis worth a dig-in cycle's time, not a repair to land blind.
+
+**DIG-IN: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
+gradclip0p15-durfix-canary (+ -s1, + read durctrl-canary-s1 once its
+flat-only session lands on train-2) — mixed/seed-inconsistent
+duration-mismatch quartet result (one seed PARTIAL-improves, one seed
+matches-or-worsens vs control) decides the mechanism-campaign fork
+(widen duration further vs. fix the switch's frame-blend); a candidate
+code-level cause (q_nom/z0 canonical-frame teleport at
+`_seq_maybe_switch`, unblended unlike the goal trajectory) is
+identified but not instrumented. Needs: per-tick obs-delta/action-norm
+trace across 2-3 actual near-instant-terminating episodes (both
+durctrl and durfix) plus frame-by-frame video at the switch tick,
+before deciding whether to blend `q_nom`/`z0` across switches too or
+whether this is a red herring.**
+
+No same-recipe mechanism arm launched this cycle pending that dig-in,
+per Next item 3's own standing bar. All other 5 tracks re-confirmed
+DONE/retired/delivered this cycle (joystick DONE-gate met 08-23,
+100Hz/mesh hardening explicitly non-blocking and deferred to this
+track; amp DONE at M5 sim-scope, M6 hardware `[operator]`-only; cpg
+DONE pending only an `[operator]` hardware-adoption call; walkcurr
+RETIRED 08-31; todaypolicy DELIVERED 08-30) — standwalk is the fleet's
+only track with agent-launchable open work right now, and its own
+queue is this dig-in until it lands. 11/12 pods free
+(`hexapod-mjx-train-0` still cluster-Pending, unrelated) — no filler
+launched; a same-cycle blind mechanism arm before the dig-in reads the
+switch-frame lead would burn a GPU-hour on a guess this cycle already
+has a cheaper, code-level next step for.
+
+Previous entry (2026-09-01 ~22:3x, triage: durfix-canary training finished;
 durfix-canary-s1 ALSO quietly finished mid-cycle — launched its
 missing flat-only read, completing the 4-arm quartet).
 Plain English: `durfix-canary` (the assigned run) finished at 2M

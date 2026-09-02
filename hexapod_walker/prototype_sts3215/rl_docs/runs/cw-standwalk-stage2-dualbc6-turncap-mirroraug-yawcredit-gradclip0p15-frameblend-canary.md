@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-02T01:39:27+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-durctrl-canary
+
+**wandb_id**: lw4ejrib
 
 **hypothesis**: Blending the mode_seq switch observation (not the reward/anchor frame, only what the policy SEES) removes the confirmed action-saturation shock at rise->walk handoff, reducing walk-segment near-switch over_current terminations relative to the matched no-blend durctrl-canary control.
 

@@ -1,88 +1,58 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~05:4x (idle-kick, drained Next item 2 — frame-blend
-joint verdict, zero new training compute, pulled+read both pending
-on-pod session files): **frame-blend is REFUTED, not just
-"unconfirmed."** `frameblend-canary` (seed0) and `-s1` (seed1)
-flat-only `eval_done_gate_session` (n=32 each) both landed: seed0
-27/32 term vs its no-blend control's 24/32 (worse); seed1 21/32 term
-vs its control's 5/32 (4x worse). Both directions agree: blending only
-the obs-facing switch handoff does not touch the dominant mid-rise
-sustained-femur-current fragility (see item 2 below), so total
-terminations don't drop and in seed1's case explode. Verdicted
-`CANARY FAIL - MECHANISM` on both runs; no further frame-blend dose
-sweeping. Item 1 (cap=2.9 decisive session read) is still mid-flight
-on train-1 (started 05:18, ETA ~1-2h, not yet read this cycle).
+Update, 2026-09-02 ~09:1x (meta session read the landed verdict —
+zero new compute): **cap=2.9 DECISIVE — CONFIRMED per item 1's own
+pre-registered criteria.** `durctrl-canary` flat-only
+`eval_done_gate_session` with `safety.max_current_a=2.9` (train-1,
+`..._donegate_flatonly_cap29/session_verdict.json`): **32/32 episodes
+seq_completed, ZERO terminations, BOTH dr0 (16/16) and own-DR (16/16)**
+vs the un-capped control's 24/32 over-current. Femur still rides
+~2.64-2.69 A (cap not lowered, just no longer tripped), no new failure
+mode (height_err 1.9 mm, track_err 0.66°, gait_valid 1.0, zero falls).
+Gate soft-flags that remain are the REAL remaining science:
+`direction_err_med` **46.8°** (steering authority) and `slip_per_m_med`
+**3.09** vs the <=~2.9 band (marginal). Prior context (sustained
+femur-current localization, mass refuted at both body weights,
+frame-blend refuted n=2): see archives. Note: every prior turn/session
+arm TRAINED and EVALED under cap 2.5 with rife spurious over-current
+terminations — closed turn-authority verdicts are suspect (item 2).
 
-Interim check 09-02 ~07:3x (idle-kick, zero new compute, no verdict —
-job still running): the flat-only dr0 HALF of the cap=2.9
-`eval_done_gate_session` for `durctrl-canary` finished at 06:52 and is
-already decisive on its own axis — **16/16 det+sto episodes
-`seq_completed=true`, ZERO terminations**, femur `cur_max_a` still
-2.64 (still riding the cap, not lowered) but no longer tripping it,
-vs. the un-capped control's 24/32 session-level over_current rate.
-own-DR half started 06:52, ~7/8 det episodes rendered by 07:35 (own-DR
-sto not started yet) — ETA ~45-60 more min. Matches the cap-raise
-prediction so far; still waiting on own-DR before landing the cfg
-default per item 1's own criteria (do not act on the dr0-only half).
+## Next (meta 09-02 ~09:1x)
 
-Prior update, 2026-09-02 ~05:3x (idle-kick): the SAME per-joint current
-probe run against the LEGACY primitive-family (2.104kg)
-`ppo_goal_cw_stance_dr10` found femur pins at the IDENTICAL ~2.64A cap
-(8/8 episodes, 5/8 terminate) — **mass REFUTED** as the sustained-
-current driver, it's intrinsic to the curl-up-from-flat rise motion at
-both body weights. Cheap zero-training follow-up: raising
-`safety.max_current_a` 2.5->2.9A (grounded in HARDWARE.md's recorded
-real 2.97A/"3A lab guard") eliminated all terminations (0/8) on the
-same read-only probe. Front-running lever is now **raise
-`safety.max_current_a`**, gated on the in-flight `durctrl-canary`
-`eval_done_gate_session` cap=2.9 read (item 1, train-1, still mid-
-flight). Full detail archived verbatim in
-`archive/standwalk_STATUS_journal_2026-09-02c_trim.md`.
-
-## Next (meta 09-02 ~05:3x)
-
-1. **TOP ITEM: read the in-flight cap=2.9 `eval_done_gate_session`
-   flat-only session** (train-1, launched this cycle, ETA ~1-2h from
-   ~05:3x) for `durctrl-canary`. If the session-level over_current
-   rate drops sharply (from the un-capped control's 24/32) with no new
-   failure mode (falls, tips, slip blowup) and femur current settles
-   rather than staying pinned, that CONFIRMS raising
-   `safety.max_current_a` (propose 2.5->2.8 or 2.9, still under the
-   documented 3A real guard) as the lever: land it as a training cfg
-   default for the standwalk stance/rise recipe (new launches only,
-   `require_root_cause_chain` satisfied by this Update's 3-part
-   comparison) and re-verify against the DONE gate's zero-falls/
-   joystick-band-slip bars. If it does NOT resolve session-level
-   terminations (e.g. current now sustains even higher, or a NEW
-   failure mode appears), the cap-raise lever is refuted at this dose
-   and the remaining options (reprice `k_current_hot`/`current_hot_a`
-   harder, or re-author `rise_ref_mesh_scripted.npz`) need their own
-   dose test — still one lever at a time.
-2. **CLOSED 09-02 ~05:4x: frame-blend REFUTED** (n=2 seeds, see
-   Update). `goal.mode_seq_frame_blend_s` does not reduce total
-   over_current terminations — it increases them on both seeds. No
-   further dose-sweeping; the family-jump-metric tooling gap
-   (`debug_seq_switch_obs_jump.py` reading unblended `env._q_nom`) is
-   now moot, not worth fixing.
-3. **Standing bar, still SUSPECT:** `probe_turn_authority >=0.10 both
-   signs` predicts the isolated short-window probe, not the literal
-   60s DONE gate — do not fund a short-probe-scored turn-authority arm
-   until item 1 is closed (the sustained-current fragility may have
-   hidden/inflated some closed verdicts).
-4. **Closed (pre-09-02, see archives):** update-size constraints,
-   reward pricing, exploration magnitude, anchor dose/isolate-update,
-   turn-skip, yaw-credit at every clip dose, mixedsession-audit,
-   mixed-diet `eval_done_gate_session` scoping (x2), duration-
-   mismatch, switch-jump causal lead (partial), ramp-rate/target-
-   height/mass as the sustained-current driver (all A/B-refuted),
-   frame-blend (09-02, this cycle).
+1. **LAND the cap: launch the cap=2.9 acquisition arm + seed twin as
+   ONE batch** — respec from the `gradclip0p15-acq1` lineage base (or
+   turnpay-canary base, launcher's judgment) with
+   `--cfg safety.max_current_a=2.9` (training-time too, so the policy
+   stops learning under spurious mid-rise terminations; still under
+   HARDWARE.md's real 2.97A/3A lab guard). Gate: flat-only
+   `eval_done_gate_session` n>=12 det+sto dr0+own-dr, zero falls
+   (bar now MET by the teacher control — regression = refute), plus
+   direction_err/slip vs the cap29 read above (46.8°/3.09) as the
+   baselines to beat. Register the eval via `ops.sh evalpending add`.
+2. **Read-only re-probe of closed turn-authority champions under
+   cap=2.9** (zero training compute, free pods): rerun
+   `probe_turn_authority` + a short walk read on `klrolltight-acq1`
+   and `gradclip0p15-acq1` checkpoints with
+   `safety.max_current_a=2.9`. If wz authority reads materially better
+   than the recorded 0.075-0.09 ceiling, the erosion-campaign closures
+   were current-confounded and the cheapest reopened line wins;
+   if unchanged, the ceiling is real and the steering gap needs its
+   own mechanism arm.
+3. **Steering gap (direction_err 46.8° med) is the largest remaining
+   DONE-gate distance** — after 1-2 land, design the arm against the
+   literal 60s session direction-following read, not the short probe
+   (item 3's standing SUSPECT on probe_turn_authority stands).
+4. **Closed (see archives):** update-size constraints, reward pricing,
+   exploration magnitude, anchor dose, turn-skip, yaw-credit clip
+   doses, mixedsession-audit + diet scoping (x2), duration-mismatch,
+   switch-jump lead, ramp/height/mass as current driver, frame-blend
+   (n=2), cap-diagnostic (POSITIVE, landed as item 1).
 
 > Journal archives (VERBATIM, oldest->newest):
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,
 > `2026-09-01_trim.md`, `2026-09-02_trim.md`, `2026-09-02b_trim.md`,
-> `2026-09-02c_trim.md`. Current state = newest Update at the TOP;
-> don't act on archived Next.
+> `2026-09-02c_trim.md`, `2026-09-02d_trim.md`. Current state = newest
+> Update at the TOP; don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
 
@@ -112,11 +82,7 @@ randomized 60 s joystick session with zero falls, and lowers back.
 ## Stage 1 — mesh/100 Hz stance retrain (rise + lower)
 
 Recipe basis: the `stance_dr10` lineage recipe (exact cfg in the
-ledger/W&B). The rise-reference machinery (`extract_rise_ref.py`,
-rise bank) is green as of 08-24. Bank/semantics-check the stance
-reward ON MESH before the first launch (mass went 2.104 -> 3.50 kg;
-thresholds calibrated on primitive may rank behaviors differently).
-
+ledger/W&B); rise-reference machinery green since 08-24.
 GATE (pre-registered): stance panel rise/hold/lower (pod_eval stance
 modes), n>=12, det+sto, DR-0 + own-DR: zero falls/tips, quiet hold
 (no creep), rise/lower height tracking comparable to the legacy
@@ -148,10 +114,7 @@ lower session harness is stage-2 tooling to build.
 - The joystick track owns generic mesh walking; this track owns
   rise/lower + the unification. Coordinate via STATUS, don't
   duplicate its mesh conversion arms.
-- **Tooling flag (09-01) CLOSED:** the standing `_mixedsession`
-  harness's REPEATING rise<->walk<->lower grammar compounds any
-  single-rise fragility into a misleadingly total session failure
-  (see Update) — treat it as a mechanism-robustness stress test, NOT
-  the DONE-gate instrument; use `eval_done_gate_session`
-  (`ops.sh donegatecmd`) for the actual one-cycle DONE-gate read.
+- `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test,
+  NOT the DONE-gate instrument; the gate read is
+  `eval_done_gate_session` (`ops.sh donegatecmd`, flat=1).
 

@@ -1,6 +1,22 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~01:4x (idle-kick DRAINED the DIG-IN: instrumented +
+Update, 2026-09-02 ~02:4x: `frameblend-canary-s1` (train-5) finished
+training (2M, healthy dip-recover). No prestaged eval existed for this
+custom canary harness (expected — track-built tooling, not the
+standard gate), so this cycle launched its flat-only
+`eval_done_gate_session` read on-pod (n=8, video, matching
+`durctrl-canary-s1`'s exact flat cfg). Confirmed genuinely progressing
+via kubectl exec (not just assumed) but SLOW: train-5 is heavily
+CPU-contended (3-4 other eval_checkpoint/eval_mixed_session procs at
+600-780% CPU sharing 26 cores, leftovers from other cycles' work) —
+still mid-flight at cycle end, not read. Comparison baseline already
+in hand (`durctrl_canary_s1_flatonly_{dr0,owndr}_report.json`): 5/32
+total term, all `over_current`, all at post-switch offset 3.16-3.24s
+— this is the number the blend fix must beat. `frameblend-canary`
+(non-s1, train-1) is a separate concurrent cycle's remit (pid 3753212)
+— not touched here. wandbnote added to h58vj6eg with full detail.
+
+Prior update, 2026-09-02 ~01:4x (idle-kick DRAINED the DIG-IN: instrumented +
 CONFIRMED the switch-frame-teleport root-cause lead, built a matched
 fix, launched a canary pair). Full journal of the duration-mismatch
 quartet read + this dig-in in `archive/standwalk_STATUS_journal_

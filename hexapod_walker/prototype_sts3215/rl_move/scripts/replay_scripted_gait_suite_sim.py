@@ -181,6 +181,7 @@ def main() -> int:
             "imu_roll_deg", "imu_pitch_deg",
             "max_joint_current_a", "bus_current_a", "joint_degrees",
             "joint_command_degrees", "joint_currents_a", "foot_xyz_m",
+            "foot_contact_force_n", "foot_contact",
             "joint_frame", "joint_contract", "downed", "status",
         ])
 
@@ -205,6 +206,11 @@ def main() -> int:
                     state.commanded_position, dtype=float)).tolist()
                 if state is not None else [None] * 18
             )
+            contact_force_n = [
+                max(float(session.env.data.sensordata[address]), 0.0)
+                if address >= 0 else 0.0
+                for address in session.env._touch_adr
+            ]
             xyz = live["chassis_xyz_m"]
             writer.writerow([
                 round(session.sim_t, 4), phase, gait, GAITS[gait], direction,
@@ -215,7 +221,10 @@ def main() -> int:
                 round(float(np.sum(currents)), 5),
                 _json(live["joint_deg"]), _json(command),
                 _json(np.round(currents, 5).tolist()),
-                _json(live["foot_xyz_m"]), FRAME_ROBOT_ABS, JOINT_CONTRACT,
+                _json(live["foot_xyz_m"]),
+                _json(np.round(contact_force_n, 5).tolist()),
+                _json([force > 0.5 for force in contact_force_n]),
+                FRAME_ROBOT_ABS, JOINT_CONTRACT,
                 int(session.downed), live["status"],
             ])
 

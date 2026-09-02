@@ -1,0 +1,92 @@
+schema_version: 1
+
+experiment:
+  id: hexapod-1-joint-flex
+  robot_id: hexapod-1
+  state: setup_pending
+  created: 2026-09-02
+  updated: 2026-09-02
+  objective: "Localize increasing compliance among the servo/output, horn/screw interface, printed yoke, and femur without accessing the hidden horn."
+
+reported_observations:
+  - evidence: confirmed
+    observation: "The accessible screws appear to rock with the femur."
+  - evidence: confirmed
+    observation: "The looseness increases over time."
+  - evidence: confirmed
+    observation: "The horn itself is not physically accessible."
+  - evidence: confirmed
+    observation: "Two cameras are set up and an AprilTag is mounted on the side."
+
+safety_scope:
+  robot_motion_commands_allowed: false
+  operator_applied_static_load_only: true
+  robot_must_be_rigidly_supported: true
+  servo_state_required: "Power off, or electronics powered with all tested joints confirmed limp/torque-disabled."
+  stop_on:
+    - crack or snap sound
+    - visible crack growth
+    - sudden permanent displacement
+    - hot motor
+    - unexpected powered motion
+    - support movement or impending tip
+
+setup_needed:
+  - "Identify the suspect leg as L0-L5 and confirm hip versus knee joint."
+  - "Record both camera models, indices, resolution, frame rate, and view names."
+  - "Record exactly which rigid part carries the existing side AprilTag and its ID/size."
+  - "Add a stationary floor/reference marker visible to both cameras."
+  - "Add moving-side markers described in the runbook; one side tag alone cannot localize joint compliance."
+  - "Measure the load application lever arm from the tested joint axis."
+  - "Have the operator choose a safe maximum manual force below normal service load."
+
+target:
+  leg: unknown
+  joint: hip
+  joint_evidence: inferred
+  rationale: "The report mentions the femur moving with the screws; confirm before capture."
+
+capture:
+  face_camera: unknown
+  edge_camera: unknown
+  synchronization: "Visible LED flash in both recordings at start and end."
+  calibration: pending
+  output_root: "artifacts/joint_flex/hexapod-1/<run-id>/"
+
+phases:
+  preflight: pending
+  stationary_noise_floor: pending
+  bidirectional_load_sweep: pending
+  constant_load_creep: pending
+  post_cycle_repeat: pending
+  optional_axial_spread_test: pending
+  analysis: pending
+  conclusion: pending
+
+hypotheses:
+  horn_screw_engagement:
+    status: open
+    signature: "Encoder and center-screw reference remain fixed while perimeter screw heads and proximal yoke move together."
+  printed_hole_clearance:
+    status: open
+    signature: "Perimeter screw head moves relative to an adjacent plastic-yoke marker."
+  yoke_or_femur_flex:
+    status: open
+    signature: "Increasing relative angle from proximal yoke to distal femur, or asymmetric yoke-arm spreading in the edge view."
+  screw_unwinding:
+    status: open
+    signature: "Witness line rotates across the screw-head-to-print boundary."
+  servo_output_or_geartrain:
+    status: open
+    signature: "Visual link/output motion is accompanied by encoder motion."
+  creep_or_progressive_settling:
+    status: open
+    signature: "Deflection grows under constant force, leaves a residual after unloading, or stiffness changes after repeated cycles."
+
+latest_run: null
+conclusion: null
+
+history:
+  - date: 2026-09-02
+    event: "Experiment plan created; no physical test has been run."
+

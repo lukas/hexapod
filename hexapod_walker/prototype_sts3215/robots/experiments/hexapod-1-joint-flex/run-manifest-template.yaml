@@ -1,0 +1,95 @@
+schema_version: 1
+
+experiment_id: hexapod-1-joint-flex
+robot_id: hexapod-1
+run_id: null
+started_at: null
+timezone: America/Los_Angeles
+
+target:
+  leg: null
+  joint: null
+  tested_side_or_face: null
+
+operator_confirmations:
+  chassis_rigidly_supported: false
+  tested_leg_off_ground: false
+  tested_joints_limp_or_power_off: false
+  no_visible_crack_requires_stop: false
+  safe_force_ceiling_selected: false
+  no_fasteners_changed_since_baseline: false
+
+servo_state:
+  power: unknown
+  torque: unknown
+  read_only_feedback_enabled: false
+
+cameras:
+  face:
+    device_model: null
+    device_index: null
+    resolution_px: null
+    frame_rate_hz: null
+    intrinsics_file: null
+    calibrated: false
+  edge:
+    device_model: null
+    device_index: null
+    resolution_px: null
+    frame_rate_hz: null
+    intrinsics_file: null
+    calibrated: false
+  common_extrinsics_file: null
+  led_sync_start_frame:
+    face: null
+    edge: null
+  led_sync_end_frame:
+    face: null
+    edge: null
+
+markers:
+  world_reference: null
+  R_fixed_reference: null
+  C_center_screw_optional: null
+  S_perimeter_screw: null
+  Y_adjacent_yoke: null
+  F1_proximal_femur: null
+  F2_distal_femur: null
+  apriltag:
+    id: null
+    rigid_part: null
+    black_square_size_mm: null
+
+load:
+  application_point_description: null
+  lever_arm_mm: null
+  force_measurement_device: null
+  operator_max_force_N: null
+  sweep_steps_N: []
+  creep_force_N: null
+  creep_hold_seconds: null
+  recovery_seconds: null
+  manual_cycle_count: null
+
+artifacts:
+  face_raw_video: face_raw.mp4
+  edge_raw_video: edge_raw.mp4
+  encoder_jsonl: null
+  measurements_csv: measurements.csv
+  analysis_yaml: analysis.yaml
+  face_annotated_video: null
+  edge_annotated_video: null
+
+phase_results:
+  stationary_noise_floor: null
+  bidirectional_load_sweep: null
+  constant_load_creep: null
+  post_cycle_repeat: null
+  optional_axial_spread_test: null
+
+stopped_early:
+  value: false
+  reason: null
+
+notes: []
+

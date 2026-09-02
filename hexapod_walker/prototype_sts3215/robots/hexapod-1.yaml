@@ -1,0 +1,88 @@
+schema_version: 1
+
+robot:
+  id: hexapod-1
+  platform: prototype_sts3215
+  assembly_generation: legacy_mixed
+  physical_status: assembled
+  record_created: 2026-09-02
+  record_updated: 2026-09-02
+
+evidence_levels:
+  confirmed: "Directly reported by Lukas for this physical robot."
+  inferred: "Matched to repository design history; not yet physically verified on this robot."
+  unknown: "Not yet inspected or associated with this robot."
+
+assembly:
+  defaults:
+    applicability: "Robot-wide default for L0-L5 until a per-leg exception is recorded."
+
+    coxa_link:
+      construction: two_piece
+      evidence: confirmed
+      user_description: "Old assembly with the coxa link in two parts."
+      inferred_legacy_parts:
+        evidence: inferred
+        parts:
+          - coxa_yaw_hub
+          - coxa_hip_bracket
+        joint:
+          fastener_count: 4
+          fastener_size: M3
+          bolt_circle_diameter_mm: 32.0
+        note: "These names and join details match the retired two-part CAD path."
+
+    yaw_bearings:
+      description: "Legacy thinner yaw-bearing pair."
+      evidence: confirmed
+      inferred_part:
+        evidence: inferred
+        model: 6706-2RS
+        quantity_per_yaw_joint: 2
+        dimensions_mm:
+          inside_diameter: 30.0
+          outside_diameter: 37.0
+          width: 4.0
+        arrangement: spaced_pair
+        nominal_gap_between_bearings_mm: 3.0
+        note: "Matches the pre-Aug-2026 4 + 3 + 4 mm yaw-bearing stack."
+
+  per_leg_overrides: {}
+
+current_cad_differences:
+  - subsystem: coxa_link
+    hexapod_1: "Two printed pieces joined with screws."
+    current_cad: "One-piece fused coxa_link with horn-screw access shafts."
+    compatibility_note: "Do not assume the current coxa_link is a drop-in replacement without checking the complete yaw stack."
+  - subsystem: yaw_bearings
+    hexapod_1: "Thinner legacy bearings; likely 6706-2RS, 30 x 37 x 4 mm."
+    current_cad: "Touching 6805-2RS pair, 25 x 37 x 7 mm."
+    compatibility_note: "The ID, width, hub boss, bearing cap, lips, and axial stack differ."
+
+not_recorded_as_installed:
+  - horn_compression_spacers
+  - service-slot servo-holder revision
+
+diagnostics:
+  - id: hexapod-1-joint-flex
+    status: setup_pending
+    runbook: experiments/hexapod-1-joint-flex/README.md
+    status_file: experiments/hexapod-1-joint-flex/status.yaml
+
+unknowns:
+  - "Confirm whether every leg still has the same two-piece coxa configuration."
+  - "Read one yaw-bearing marking or measure ID x OD x width to confirm 6706-2RS."
+  - "Identify the chassis_bottom and yaw_bearing_cap print revisions."
+  - "Confirm whether motor_setup/motor_setup_registry.json belongs to hexapod-1."
+  - "Record any leg-specific replaced servos, links, bearings, horns, or fasteners."
+
+history:
+  - date: 2026-09-02
+    event: "Created the physical-unit record."
+    evidence: confirmed
+    details: "Lukas identified hexapod-1 as an older assembly with a two-part coxa link and thinner yaw bearings."
+  - date: 2026-09-02
+    event: "Registered the two-camera static joint-flex diagnostic."
+    evidence: confirmed
+    details: "Two cameras and one side AprilTag are available; exact camera and marker geometry remains to be recorded."
+

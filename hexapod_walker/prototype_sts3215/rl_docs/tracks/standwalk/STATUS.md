@@ -1,6 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~02:4x: `frameblend-canary-s1` (train-5) finished
+Update, 2026-09-02 ~02:4x (this cycle, non-s1 remit): `frameblend-canary`
+(train-1, seed0) finished training (2M steps, `ep_rew_mean=166.4`,
+reward quarters `[55.7, 79.6, -208.5, -22.6]` — dipped then partially
+recovered, same healthy pattern as its siblings). No prestaged eval
+covers this custom canary harness, so launched its flat-only
+`eval_done_gate_session` on-pod (train-1, own pod — synced code
+first), n=8, video, same flat-start overrides as the rest of the
+quartet (`goal.rise_flat_frac=1.0 rise_partial_frac=0
+rise_start_bank_frac=0`, plus `rise_rsi_frac=0` implied by
+`rise_flat_frac=1.0`'s draw order) and the checkpoint's own
+`goal.mode_seq_frame_blend_s=0.5`. Confirmed genuinely progressing via
+repeated kubectl exec artifact counts (8/8 `rise_det` done, into
+`rise_sto` by cycle end) but SLOW — 2 other prestage `eval_checkpoint`
+procs (gate dr0 + owncfg dr0.5) are running concurrently on the same
+pod sharing 26 cores, plus whatever contention `frameblend-canary-s1`'s
+own reader (a different concurrent cycle, train-5) adds cluster-wide;
+not read this cycle. **The matched control this run must beat**
+(seed0, already read, see the archived table above):
+`durctrl-canary` — 24/32 term, 10 walk-segment term, 6/24=25%
+near-instant-onset, `progress_ratio` med 0.051, `slip_per_m` med
+12.465, `dir_err` med 75.1°, `gait_valid` frac 0.444. Out-dir:
+`logs/ckpt_eval/..._frameblend_canary_donegate_flatonly/{dr0,owndr}/`.
+Next cycle: read both `frameblend-canary` (here) and `-s1` (other
+cycle's remit) jointly once both `session_verdict.json`s exist —
+neither alone should be over-interpreted per this campaign's own
+seed-inconsistency lesson (durfix seed0 vs seed1 disagreed). No other
+launchable work found (all 5 other tracks DONE/retired/delivered;
+single-dose discipline blocks a second frame-blend dose pending this
+read) — no filler launched.
+
+Prior update, 2026-09-02 ~02:4x: `frameblend-canary-s1` (train-5) finished
 training (2M, healthy dip-recover). No prestaged eval existed for this
 custom canary harness (expected — track-built tooling, not the
 standard gate), so this cycle launched its flat-only

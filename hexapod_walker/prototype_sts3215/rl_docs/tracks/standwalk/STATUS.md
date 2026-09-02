@@ -1,5 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
+Update, 2026-09-02 ~15:3x (idle-kick, zero-compute root-cause dig +
+4-way canary launch on the det/sto walk-progress asymmetry flagged
+last cycle): **config archaeology on the cap29-acq1{,+s1} launch args
++ cached W&B history found a concrete, untested cause candidate.**
+Only the STANCE core's log_std is annealed down this whole lineage
+(`--log-std-anneal-core stance --log-std-final -4.0`, confirmed live
+in `log_std_anneal/stance/std` dropping to 0.0183 by 10% of training);
+the WALK core's log_std is never touched by the anneal and its
+`train/std` metric sits flat at 0.222-0.223 (log_std≈-1.5) for the
+*entire* 38M-step run — i.e. walk-mode action noise never shrinks
+while stance's does, a structural asymmetry that lines up with the
+det/sto walk-progress gap being far worse than any stance-mode
+degradation. This is NOT the same question the already-closed
+`stdwalk-mild/hi` canary answered (08-31, dualbc5 lineage): that pair
+RAISED walk log_std (-1.5→-0.8/-0.2) chasing turn authority and found
+achieved body-yaw noise completely insensitive to input std — refuted
+in that direction only. Lowering walk's log_std (this cycle's lever)
+is the untested opposite move, and per that same 08-31 finding should
+be safe for turn authority (already shown std-insensitive) while
+plausibly tightening the walk policy's own sto-vs-det consistency.
+**Launched a 2-dose x 2-seed canary grid (2M steps each, cap=2.9,
+warm-started from the SAME `gradclip0p15-canary` 2M ancestor cap29-
+acq1 itself used, not the degraded 38M checkpoint)**:
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-
+cap29-stdwalklo-{mild,hi}{,-s1}` — mild anneals walk log_std to -2.0,
+hi to -3.5, both paired with stance's existing -4.0
+(`--log-std-anneal-core walk,stance --log-std-final <X>,-4.0`, the
+multi-core anneal tool built 08-31 for exactly this kind of per-core
+schedule, `test_log_std_anneal_multi.py` reconfirmed green pre-
+launch). All 4 VERIFIED RUNNING (train-2/3/4/5). Not a reward/task-
+mechanism change (pure PPO exploration schedule, no reward-pricing
+touched) so `test_task_semantics.py` was not required as a
+precondition. Gate (pre-registered, full text in the ledger): (1)
+`probe_turn_authority` wz_med stays >=0.07 rad/s (no turn-authority
+regression); (2) det+sto `eval_checkpoint.py` walk-mode read shows
+sto `progress_ratio_med` rise materially off the cap29-acq1 baseline
+(0.045-0.085) toward det (0.32-0.38) without det itself dropping
+outside 0.28-0.40 or slip rising. Not yet read (still training this
+cycle). Evidence once read: `logs/ckpt_eval/turn_probe_stdwalklo_
+{mild,hi}.json`, `logs/ckpt_eval/purewalk_stdwalklo_{mild,hi}_{det,
+sto}.json` (paths to be created by the reading cycle).
+
 Update, 2026-09-02 ~15:0x: **cap29-acq1 pair's flat-only
 `eval_done_gate_session` READ (n=32 each), both verdicted PARTIAL.**
 Zero falls held (0/32 term each, matches the `durctrl-canary` bar —
@@ -46,44 +88,31 @@ this pair:
   contribute no walk metrics — not a bug, not silently inflating the
   medians either way.
 
-Prior update, 2026-09-02 ~10:4x: cap29-acq1 pair TRAINING FINISHED (38M
-steps each, healthy reward curves, fps>11k) — Next item #1's read is
-now IN FLIGHT: flat-only `eval_done_gate_session` (n=8/pass x4 passes
-= 32 total, matching the durctrl-canary decisive-read precedent),
-launched on-pod (acq1 on train-3, `-s1` on train-1), both registered
-via `ops.sh evalpending`. Not yet read.
+Earlier 09-02 updates (~10:4x cap29-acq1 training-finish note, ~09:3x
+cap29 acquisition launch + current-confound re-probe CLOSED) moved
+VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02e_trim.md`
+(purewalk cap29 det baselines: gradclip0p15-acq1 prog 0.35/slip 2.81,
+klrolltight-acq1 prog 0.36-0.39/slip 2.74-3.16 — referenced above).
 
-Prior update, 2026-09-02 ~09:3x (idle-kick executed item 1+2, zero
-backlog left): **cap=2.9 LANDED as a training-time acquisition** —
-`cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-acq1`
-(seed0, train-3) + `-s1` (seed1, train-1), warm-started from the
-lineage's own best walk-quality+turn-authority checkpoint (the 2M
-`gradclip0p15-canary`, NOT the degraded 38M `-acq1` — that acq1 run
-itself REGRESSED walk quality under the OLD 2.5A cap, see its own
-PARTIAL verdict), `safety.max_current_a=2.9` set both training- and
-eval-time.
+## Next (idle-kick 09-02 ~15:3x)
 
-Item 2 (read-only re-probe, zero training compute) **CLOSED this
-cycle**: reran `probe_turn_authority` + a purewalk det harness on
-`klrolltight-acq1` and `gradclip0p15-acq1` with
-`safety.max_current_a=2.9`. **Turn ceiling is REAL, NOT
-current-confounded**: both checkpoints' wz_med (klrolltight 0.081/
--0.110, gradclip0p15 0.188/-0.224) are unchanged from their archived
-cap-2.5 reads within noise. **But walk QUALITY improves under the
-raised cap** (side-finding): gradclip0p15-acq1 purewalk det prog 0.35/
-slip 2.81/dir_err 46.4°/cur_max 2.58A/zero term vs its cap-2.5 PARTIAL
-(prog 0.31-0.32/slip 4.9-5.8) — corroborates item 1's hypothesis that
-the old cap's spurious terminations, not steering, capped walk
-quality. klrolltight-acq1 purewalk det: gait_valid 8/8, zero term,
-prog 0.36-0.39, slip 2.74-3.16, dir_err 43.4°. Evidence:
-`logs/ckpt_eval/turn_probe_{klrolltight_acq1,
-yawcredit_gradclip0p15_acq1}_cap29.json`,
-`logs/ckpt_eval/purewalk_{klrolltight_acq1,gradclip0p15_acq1}_cap29_det.json/`.
+0. **READ the stdwalklo-{mild,hi}{,-s1} canary grid** (launched this
+   cycle, train-2/3/4/5, 2M steps each — should finish fast): does
+   annealing walk-core log_std down (mild -2.0 / hi -3.5, paired with
+   stance's -4.0) close the sto-vs-det walk-progress gap
+   (baseline sto 0.045-0.085 vs det 0.32-0.38) without regressing det
+   or the turn-authority floor (wz_med >=0.07)? Full gate text in the
+   ledger entry / STATUS update above. If PASS-for-acquisition, fund
+   an acq-scale pair on the winning dose; if FAIL (gap persists
+   despite the std cut), the asymmetry is NOT std-driven and the next
+   suspect is the credit-assignment angle the 08-31 yaw-credit probe
+   already found weak (critic barely reacts to per-tick noise
+   direction) — extend `probe_yaw_credit`-style analysis to whole-
+   episode sto-vs-det progress instead of just yaw.
 
-## Next (idle-kick 09-02 ~15:0x)
-
-1. **DIG-IN flagged (this cycle): design the next mechanism against
-   the det/sto walk-progress ASYMMETRY, not steering alone.** STO-mode
+1. Original DIG-IN framing (superseded by item 0's concrete launch,
+   kept for the record): design the next mechanism against
+   the det/sto walk-progress ASYMMETRY, not steering alone. STO-mode
    walk segments reach only 5-8% of commanded progress (slip
    10.6-28.5) vs DET's 32-38% (slip 2.8-3.6) on the exact same
    cap29-acq1{,+s1} DONE-gate session read — this gap is bigger than

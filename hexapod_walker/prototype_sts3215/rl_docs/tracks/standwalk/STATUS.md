@@ -48,18 +48,37 @@ zero new training compute) three ways, all on-pod (train-2):
      effect) as the dominant term driver. `reward.current_hot_a=2.0
      k_current_hot=1.0` prices current above 2.0A but apparently not
      hard enough to push the policy toward a cheaper curl-up posture.
-   All 3 diagnostics + code: `logs/ckpt_eval/durctrl_canary_seqswitch_*
-   _n8*.json` / `_n24.json`; `rl_move/sim/debug_seq_switch_obs_jump.py`
-   (`git tag exp/standwalk-seqswitch-height-trace`,
-   `exp/standwalk-seqswitch-extracfg`).
+4. **(d) LOCALIZED to the FEMUR joint, cleanly, all 8/8 episodes.**
+   Extended the probe again with a per-tick `[coxa,femur,tibia]`
+   max-over-legs current trace (`cur_joint_trace`, 6/6 tests green,
+   snapshotted) and reran the same DR-0 window (t=3-9.5s): **femur
+   (hip-pitch/thigh) pins at 2.63-2.64A (p95 2.57-2.64A) in EVERY
+   episode** — essentially always at the safety cap; tibia (knee) runs
+   hot but clearly below cap (peak 2.37-2.55A, p95 2.07-2.39A); coxa
+   (hip yaw) is comfortable (peak 0.56-0.86A, p95 0.4-0.8A). This
+   matches the physics exactly: the femur/thigh joint carries the
+   primary body-weight-lifting torque during a stand-up curl, so it's
+   the joint the +66% mesh mass loads hardest — CONFIRMS "the heavier
+   mesh body's stand-up lifting torque, borne mainly by the femur
+   joint, is right at the actuator's modeled current limit" as the
+   root mechanism, not a diffuse/uniform posture cost.
+   `logs/ckpt_eval/durctrl_canary_seqswitch_dr0_perjoint_n8.json`
+   (`git tag exp/standwalk-perjoint-current-trace`).
 
-No reward/cfg change proposed or launched this cycle — the mechanism
-is named (curl-up transient torque under the heavier mesh body) but
-NOT yet localized to a specific joint/phase-of-motion, and any fix
-(current pricing increase, a cheaper-curl-up posture prior, or
-accepting a slower/gentler rise strategy) needs that localization
-first per guardrails ("name a mechanism before any reward/cfg
-change" — done; "no blind dose arm" — still true, one level down).
+No reward/cfg change proposed or launched this cycle. The mechanism
+is now named AND localized (femur-joint stand-up lifting torque vs.
+the heavier mesh mass, right at the modeled current cap) but a fix
+still needs one more comparison before choosing a lever: is 2.5A
+`safety.max_current_a` simply the wrong number for this femur servo
+at 3.50kg (an actuator-model calibration question), or is
+`reward.k_current_hot`/`current_hot_a` supposed to be steering the
+policy toward a lower-torque stand-up strategy (e.g. wider stance,
+different curl trajectory) and isn't strong enough to do so — those
+call for different fixes (raise the cap vs. reprice vs. re-author
+`rise_ref_mesh_scripted.npz`) and picking wrong risks masking a real
+hardware-safety signal. Per guardrails ("name a mechanism before any
+reward/cfg change" — done twice over; "no blind dose arm" — still
+true one level down: WHICH of cap/pricing/reference to touch).
 `frameblend-canary-s1`'s flat-only read (train-5, a concurrent
 cycle's remit) is still mid-flight (dr0 done, owndr partial) — not
 joined this cycle. Full prior journal (duration-mismatch quartet,
@@ -69,26 +88,26 @@ trim.md`. Other 5 tracks reconfirmed DONE/retired/delivered.
 
 ## Next (meta 09-02 ~05:0x)
 
-1. **TOP ITEM: localize the curl-up transient's torque cost to a
-   joint/phase, then pick a fix.** Mechanism is named (see Update):
-   near-cap current during rise is tied to the curl-up-from-flat
-   MOTION under the heavier 3.50kg mesh body, roughly independent of
-   ramp rate and target height (both A/B-refuted), uniform across legs
-   (`cur_leg_imbalance`~1.0). NOT localized to a specific joint or
-   sub-phase of the curl yet. Next actions: (a) per-SERVO (not just
-   per-leg-mean) current trace across the curl-up window to find which
-   joint(s) — coxa/femur/tibia — actually hit the cap, and at what
-   joint angle (a lever-arm/gearing pinch point vs a uniform cost);
-   (b) compare against the legacy primitive-family (2.104kg) stance
-   champion's own rise current profile on the SAME probe (need a
-   `model_source=primitive` env — legacy-family only, per the
-   CONTINUITY RULE) to quantify how much of the cost is the +66% mass
-   vs the corrected mesh kinematics (hip-pitch axis shift) vs always
-   having been this expensive; (c) only after (a)+(b) choose a fix
-   (stronger `k_current_hot`/`current_hot_a` pricing to force a
-   cheaper posture, a gentler curl-up reference in
-   `rise_ref_mesh_scripted.npz`, or accepting the cost and raising the
-   safety margin) — no blind dose arm.
+1. **TOP ITEM: pick the fix lever for the now-localized femur-torque
+   cap-hit.** Mechanism named AND localized (see Update): the FEMUR
+   joint alone pins at 2.63-2.64A (the safety cap) in every surveyed
+   episode during the curl-up-from-flat rise motion, independent of
+   ramp rate and target height (both A/B-refuted), under the heavier
+   3.50kg mesh body — tibia runs hot but under-cap, coxa is
+   comfortable. One more comparison before choosing: (a) run the SAME
+   per-joint probe against the legacy primitive-family (2.104kg)
+   stance champion (needs a `model_source=primitive` env — legacy-
+   family checkpoint only, per the CONTINUITY RULE) to quantify how
+   much of the femur cost is the +66% mass vs. the corrected mesh
+   kinematics (hip-pitch axis shift) vs. this always having run this
+   hot; (b) only after (a), choose ONE lever — raise
+   `safety.max_current_a` for this joint if the real servo's
+   continuous rating actually supports it (an actuator-spec question,
+   not a training one), increase `reward.k_current_hot`/lower
+   `current_hot_a` to price the policy toward a cheaper stand-up
+   trajectory, or re-author `rise_ref_mesh_scripted.npz` with a
+   femur-lighter curl-up reference — no blind dose arm across all
+   three at once.
 2. **Frame-blend fix: NOT CONFIRMED, orthogonal to the dominant
    defect (item 1).** `frameblend-canary` read WORSE than
    `durctrl-canary` on term count/spread; most terminations predate or

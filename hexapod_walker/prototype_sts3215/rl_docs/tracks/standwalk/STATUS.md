@@ -1,25 +1,29 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~21:3x: idle-kick (item 0's read still mid-flight,
-confirmed live on train-6/7) drained the semantics-bank dig-in the
-09-02 ~19:1x/20:1x note flagged as next: 6/8 standwalk-relevant
-failures (stopcurrent, rise_rock, hold x2) were stale test-fixture
-calibrations, fixed+verified. The other 2 (`trans_drag`) are a REAL
-production bug: `trans_drag_mm`/`k_drag_loaded`'s per-tick slip
-deadband (hardcoded `slip > 0.0005` m, `sim_env.py`/`walk_task.py`)
-was calibrated at the pre-08-24 default 25 Hz control rate and is now
-4x too loose at the current 100 Hz default (12.5mm/s intended floor
-read as 50mm/s) — **every current standwalk arm's live
-`k_drag_loaded=10.0`/`k_drag_stance=8000.0` inherits this**, plausibly
-under-pricing slow persistent slip ("paddle-creep") and relevant to
-the still-open steering/slip gap (item 1). NOT patched this cycle
-(shared training default, needs a full-bank regression pass before
-touching); full writeup + proposed dt-scaled fix in
-`OPERATOR_QUESTIONS.md` 2026-09-02 ~21:0x-21:3x entry — **try this
-FIRST** before designing a new steering mechanism for item 1.
-`getup_honest_ordering` traced to a genuine income-vs-effort balance
-gap (getup isn't in any live arm's mode mix, left for later).
-Snapshotted+pushed.
+Update, 2026-09-02 ~22:2x: idle-kick (item 0's read still mid-flight
+on train-6/7) found a shared-repo infra emergency mid-cycle and fixed
+it before anything else: a concurrent cycle's routine `snapshot.sh`
+pull fast-forwarded main onto the operator's `66c4af30` merge, which
+DELETED `test_task_semantics.py` + 7 sibling spec files, several
+motion-library assets, a BC checkpoint, AND a real `joint_task.py`
+mechanism (`goal.joint_action_bias/box_*`) with no replacement code —
+collateral damage from an otherwise-legitimate joint-frame-v2 /
+"remove pre-v2 compat" cleanup upstream. Restored everything verbatim
+from `631d7f4c` (commit `07d0a475`) + fixed one downstream break
+(`sim_gait_compat.py`'s `joint_frame` import got renamed out from
+under it) + landed the previously-flagged `trans_drag_mm`/
+`k_drag_loaded` dt-scaled deadband fix (bit-exact at legacy
+`control.hz=25`, correctly tightens at the 100Hz default — the
+`test_trans_drag_*` bank now passes 4/4). Full writeup, including one
+STILL-OPEN unrelated regression this same merge introduced in
+`k_walk_course_income` walk-mode physics (confirmed via a disposable
+`631d7f4c` worktree, confirmed NOT caused by the drag fix, not yet
+root-caused — flagged for a dedicated dig-in), in
+`OPERATOR_QUESTIONS.md` 2026-09-02 ~22:0x entry. Full-bank regression
+re-run in flight at cycle end (not read this cycle). Snapshotted+
+pushed. Prior 09-02 ~21:3x update (the semantics-bank dig-in that
+found this bug) moved verbatim to
+`archive/standwalk_STATUS_journal_2026-09-02g_trim.md`.
 
 Update, 2026-09-02 ~18:3x (`stdwalklohi-acq1{,-s1}` 38M pair FINISHED
 training clean; auto SESSION/MIXEDSESSION harness errored rc=1 with

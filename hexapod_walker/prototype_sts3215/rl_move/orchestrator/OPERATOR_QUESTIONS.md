@@ -3647,3 +3647,108 @@ partial progress), not a stale-literal or metric bug — no fix
 attempted (would need a properly-designed income-scale change +
 regression, out of scope for this cycle; `getup` isn't in any current
 standwalk arm's active mode mix, so it's not blocking a live launch).
+
+## 2026-09-02 ~22:0x — merge 66c4af30 deleted load-bearing RL infra; restored, one physics regression still open
+
+**What happened:** mid-cycle, a concurrent cycle's routine `snapshot.sh`
+(`git pull --rebase --autostash origin main`) fast-forwarded this
+shared checkout from our own `631d7f4c` to `16480022`, which includes
+`66c4af30` ("Merge local main hardware and vision work" — operator
+branch `72bb6017`, real author Lukas Biewald, pushed ~14:47-14:54
+-0700 today). That merge resolved a modify/delete conflict on 5 files
+and cleanly applied deletions on ~16 more, sourced from the operator
+branch's own `b7e7ea05` ("Unify hexapod vision and joint coordinates",
+Aug 31 -- a real joint-frame-v2 migration + "remove pre-v2
+compatibility paths and assets" cleanup). Collateral damage: this
+DELETED `rl_move/tests/test_task_semantics.py` (the reward<->eval
+alignment bank every reward/task-mechanism launch is gated on per the
+standing orchestrator directive) + 7 sibling spec files, several
+motion-library `.npz` teacher assets + manifests still referenced by
+name as defaults in `train_ppo_mjx.py`/`amp_features.py`/`sim_env.py`,
+one BC-init policy checkpoint, AND (found by actually running the
+tests, not just checking file existence) a real mechanism block in
+`rl_move/sim/joint_task.py` (`goal.joint_action_bias_*`/
+`goal.joint_action_box_*`, the 08-24 walkcurr belly-sit root-cause
+fix) that the conflict resolution dropped with no replacement code.
+
+**Assume-and-go action taken (no operator input needed, but flagging
+per the standing prompt since it touches a shared/committed history
+event):**
+1. Restored `test_task_semantics.py` + `test_course_disp_semantics.py`
+   + `test_course_disp_window_semantics.py` +
+   `test_course_income_semantics.py` + `test_joint_action_bias.py` +
+   `test_joint_action_box.py` + `test_phasedir_semantics.py` +
+   `test_quad_body_frame_trim.py`, the motion-library assets, and the
+   bcgait checkpoint verbatim from `631d7f4c` (commit `07d0a475`).
+   Did NOT restore `rl_move/joint_frame.py` (superseded cleanly by
+   `hexapod_core.joint_frame`, zero remaining importers) or
+   `rl_move/sim/robot_joint_bridge.py` (zero importers anywhere) --
+   both are genuine, correct pre-v2 cleanup.
+2. Restored the deleted `joint_task.py` action-bias/box mechanism
+   verbatim (content-diffed against `631d7f4c`, confirmed NO
+   replacement was substituted; all 58 historical consumers are
+   retired-track `cw-walkcurr-*` runs, all keys default 0.0/OFF, so
+   this is bit-exact for every currently-relevant launch).
+3. `hexapod_core/sim_gait_compat.py` additionally needed a one-line
+   internal fix post-restore: the v2 migration renamed its
+   `joint_frame` imports (`model_rel_to_robot_abs`/
+   `robot_abs_to_model_rel` -> private `_mujoco_rel_to_robot_abs`/
+   `_robot_abs_to_mujoco_rel`, content byte-identical, confirmed by
+   diff) without updating this (deleted, now-restored) consumer.
+   Fixed the import, verified the module loads and
+   `standing_pose_degrees()` returns sane values.
+4. Also restored the three tiny legacy bare-import stub files
+   (`linux_control/tripod_gait.py`, `linux_control/sim_gait_compat.py`,
+   `motor_setup/quad_walk.py`) rather than rewriting the 5 test files'
+   `sys.path` — first tried the sys.path-rewrite approach, found it
+   SILENTLY SHADOWS `sim_gait_compat`'s package-relative imports
+   (`hexapod_core` in `sys.path` makes bare `import sim_gait_compat`
+   load `hexapod_core/sim_gait_compat.py` as a top-level module outside
+   its package, breaking its own `from . import noslip_gait`) --
+   reverted that approach in favor of restoring the proven-correct
+   original stubs verbatim.
+
+**Verification, not just collection:** all 8 restored/fixed test files
+now COLLECT and mostly EXECUTE against current post-merge code.
+`test_joint_action_bias.py`/`test_joint_action_box.py` (12/12) and the
+`test_task_semantics.py::test_trans_drag_*` bank (4/4, see the
+drag-deadband entry above) are fully GREEN. Full-bank counts pending
+(background run in flight at cycle end).
+
+**One regression still OPEN, NOT yet root-caused (flagging, not
+blocking):** `test_course_income_semantics.py` fails 7/12 (was 12/12
+green at `631d7f4c`, verified via a disposable `git worktree` at that
+SHA -- this is a REAL post-merge behavior shift, not a stale
+threshold). Isolated: reverting my own `sim_env.py`/`walk_task.py`
+trans_drag/k_drag_loaded edits and re-running gives the IDENTICAL 7
+failures, so this is NOT caused by today's drag-deadband fix -- it is
+some other physical/pricing shift from the `b7e7ea05` merge (joint-
+frame-v2 kinematics? `noslip_gait.py` gained 85 lines in the same
+commit; `tripod_gait.py` itself is byte-unchanged). Failure shape:
+scripted "tight turn"/"backward"/cheat-form rollouts under
+`k_walk_course_income` now score MUCH more negative relative to
+`park` than the calibrated margins expect (e.g. tight-turn margin off
+by ~700-900 reward units, not a rounding-sized drift) -- looks like a
+real dynamics change, not a flaky threshold. `k_walk_course_income` is
+NOT zero in 19 historical runs including the entire
+`cw-walk-allheading-*` lineage (the `todaypolicy` walk-role champion)
+and `cw-standwalk-unified1-joyfix-courseincome1` -- none currently
+training, so nothing LIVE is blocked today, but any future
+respec/continuation of those lineages should re-verify this bank
+first. `test_course_disp_semantics.py`/`test_course_disp_window_
+semantics.py` show a similar-shaped (smaller-margin) failure and may
+share the root cause; not yet cross-checked against a `631d7f4c`
+worktree baseline (checked `test_course_income_semantics.py` only, for
+time). **Next dig-in should**: (a) confirm course_disp{,_window} share
+the same 631d7f4c-clean / HEAD-red pattern, (b) bisect within
+`b7e7ea05`'s diff (prime suspect: `hexapod_core/noslip_gait.py`'s
+85-line change, or a geometry constant inside the "unify joint
+coordinates" work) using the scripted TripodGait rollouts directly
+(no RL, fully deterministic) rather than guessing, (c) decide loosen-
+vs-fix per the usual measured-not-guessed discipline.
+
+status: informational + one flagged regression for a dedicated dig-in;
+restoration is committed+pushed, the open regression is documented
+here and in `rl_docs/tracks/joystick/STATUS.md` /
+`rl_docs/tracks/standwalk/STATUS.md` (both cite `k_walk_course_income`
+lineages) so a future cycle picks it up without re-discovering it.

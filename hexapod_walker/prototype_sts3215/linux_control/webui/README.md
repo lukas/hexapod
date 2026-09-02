@@ -38,8 +38,8 @@ directory (`/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/lin
 - `/`, `/index.html`, `/motors`, `/demos`, `/debug`, `/rl`, `/calibrate`
   all serve `index.html`, with the literal `__HTTPS_PORT__` replaced by the
   HTTPS port that actually bound (default 8443). `index.html` stores it as
-  `window.HEXAPOD_HTTPS_PORT`; `app.js` uses it to build the "open secure
-  page" link the gamepad hint shows (browser Gamepad API needs HTTPS).
+  `window.HEXAPOD_HTTPS_PORT`; `app.js` uses it in the gamepad icon tooltip
+  because the browser Gamepad API needs a secure context.
 - `/style.css`, `/app.js` are served with `Cache-Control: no-cache`;
   `/favicon.svg` with `max-age=86400`. Correct MIME types on all three
   (`image/svg+xml` for the favicon).
@@ -71,37 +71,38 @@ the RL tooling depend on them.
 
 ### Header arm bar (always visible)
 
-- **Enable servos** → `ARM` · **Disarm** → `SETTLE` (gentle lower, then
-  power off) · **Set zero HERE** → `POST /api/set_zero` (no motion; the
-  current hand pose becomes logical 0° — limp + hand-pose first) ·
-  **EMERGENCY STOP** → `X` (instant limp, robot drops). The
-  long lower-vs-drop explanation lives in the button tooltips.
+- **Enable servos** → `ARM` · **Disarm** → STEP lower via
+  `POST /api/standup {mode:"step", direction:"down"}`, wait for done, then
+  `X` · **Set zero HERE** → `POST /api/set_zero` (no motion; the current hand
+  pose becomes logical 0° — limp + hand-pose first) · **EMERGENCY STOP** →
+  `X` immediately (instant limp, robot drops). The long lower-vs-drop
+  explanation lives in the button tooltips.
 - Link heartbeat: `GET /api/ping` every 1.5 s. Robot activity pill:
   `GET /api/robot` every 2 s.
 - Every servo-driving control in every tab is gated on the arm state
   (`needArm()`), which defaults OFF on each page load.
 
-### Drive (`#drive`) — bench-test workflow, in order of use
+### Drive (`#drive`) — manual-drive cockpit
 
-1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
-   **Set zero HERE** (top bar) · **Stand up**. If already upright, Stand
-   adjusts/re-verifies the sim walk-ready stance; otherwise it safe-zeros first,
-   then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
-   **Preflight** → `GET /api/rl/preflight?mode=lower` (read-only).
-2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
-   caps |vx|≤60, |vy|≤40 mm/s, |ω|≤0.5 rad/s, 3–60 s), timed stop or
-   **STOP GAIT** sends `J 0 0 0`. Swing lift slider → `K <mm>`.
-3. *Manual drive*: on-screen sticks / WASD+QE / Xbox left+right stick →
-   throttled `J vx vy ω gait` stream at ≤20 Hz (only on this tab).
-   Keyboard: Space = stand, C = sit.
-4. *Wind down*: **Center / Sit** → STEP lower if standing, safe-zero
-   recovery if not standing/tangled, via
-   `POST /api/standup {mode:"step", direction:"down"}` ·
-   **Sit & power off** → `SETTLE`.
+- The Drive page is intentionally one cockpit, not a four-step checklist:
+  gait picker on the left, laptop-friendly controls on the right.
+- The default visible gait is the Central Pattern Generator (CPG) tetrapod
+  (`CPGLOAD cpg_controller_robust120_yawtrim.json` + `GAIT 6`). The comparison
+  drawer exposes no-slip tripod (`GAIT 1`), no-slip ripple (`GAIT 2`),
+  no-slip wave (`GAIT 3`), clamp-fit tripod (`GAIT 7`), middle-up quad crawl
+  (`GAIT 8`), and the tunable high-step tripod (`GAIT 0`).
+- Prep/end-session controls live inside the manual-drive controls:
+  **Stand up** → `POST /api/zero {pose:"stand"}`; **Check ready** →
+  `GET /api/rl/preflight?mode=walk` (read-only: servos, IMU/tilt, and
+  walk-start pose); **Center / Sit** → STEP lower; **Sit & power off** →
+  STEP lower, then `X` after the lower reports done.
+- On-screen sticks / WASD+QE / Xbox left+right stick stream
+  `J vx vy omega gait` at ≤20 Hz. Xbox D-pad up runs **Stand up**; D-pad down
+  runs **Center / Sit** via STEP lower. **Start walk** sends a timed
+  `J vx vy omega`; timed stop, **STOP GAIT**, or bare Xbox **B** sends
+  `J 0 0 0`.
 - Telemetry strip: `GET /api/feedback` at 2 Hz while the tab is open.
-- Xbox (HTTPS page only): face buttons alone X=sit · Y=stand ·
-  A=set-zero-here · B=stop-demo; hold LB/LT/RB/RT + face = 16 demo chords
-  (`POST /api/demo`).
+- Xbox needs an HTTPS page when run from a laptop browser.
 
 ### Calibrate (`#calibrate`)
 
@@ -183,7 +184,7 @@ lower-current tuck choreography; preferred non-RL stand/lower when foot
 sliding or side-load is the concern · **Rise / Lower (learned RL)** →
 `POST /api/rl/stand|lower {learned:true}` = the actual stance-policy
 episodes using the `stand` / `lower` role weights (experimental on
-hardware; preflight-gated: rise needs belly-down legs-straight, lower
+hardware; readiness-gated: rise needs belly-down legs-straight, lower
 needs the walk-ready stand; the sim twin always runs the learned
 versions, so there the pairs behave the same) · **Stop** →
 `POST /api/rl/stop` · readiness checks →

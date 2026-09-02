@@ -33,14 +33,21 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 
 import mujoco  # noqa: E402
 
+from hexapod_core.joint_frame import (  # noqa: E402
+    FRAME_ROBOT_ABS,
+    JOINT_CONTRACT,
+    mujoco_rel_rad_to_robot_abs_rad,
+    robot_abs_rad_to_mujoco_rel_rad,
+)
+
 from rl_move.config import cfg_get, load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD, N_JOINTS  # noqa: E402
+from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
 from rl_move.sim.servo_model import (  # noqa: E402
     ServoProfile,
     SimServoParams,
     apply_params_to_model,
     build_model,
-    joint_names,
     joint_qpos_addrs,
     joint_qvel_addrs,
     lowest_collidable_z,
@@ -83,7 +90,7 @@ class RealismLimits:
 class FlipCandidate:
     """Low-dimensional side-roll program.
 
-    Angles are in degrees in the robot/model joint frame used by MuJoCo.
+    Angles are robot-absolute degrees (absolute femur and tibia angles).
     The candidate is symmetric across the chosen side: the roll-side legs
     tuck, the opposite legs brace and kick.
     """
@@ -91,10 +98,10 @@ class FlipCandidate:
     side: str = "left"
     tuck_yaw_deg: float = 0.0
     tuck_hip_deg: float = -62.0
-    tuck_knee_deg: float = 138.0
+    tuck_knee_deg: float = 76.0
     kick_yaw_deg: float = 0.0
     kick_hip_deg: float = 30.0
-    kick_knee_deg: float = -12.0
+    kick_knee_deg: float = 18.0
     windup_s: float = 1.4
     kick_s: float = 1.0
     coast_s: float = 1.0
@@ -118,12 +125,12 @@ class RockCandidate:
     side: str = "left"
     tuck_yaw_deg: float = 0.0
     tuck_hip_deg: float = -70.0
-    tuck_knee_deg: float = 145.0
+    tuck_knee_deg: float = 75.0
     lever_yaw_deg: float = 0.0
     lever_hip_deg: float = 28.0
-    lever_knee_deg: float = 62.0
+    lever_knee_deg: float = 90.0
     raise_hip_deg: float = 28.0
-    raise_knee_deg: float = 62.0
+    raise_knee_deg: float = 90.0
     raise_s: float = 1.2
     half_s: float = 1.0
     cycles: int = 5
@@ -173,10 +180,10 @@ class RolloutMetrics:
 _BOUNDS = (
     ("tuck_yaw_deg", -25.0, 25.0),
     ("tuck_hip_deg", -80.0, -25.0),
-    ("tuck_knee_deg", 95.0, 150.0),
+    ("tuck_knee_deg", 35.0, 120.0),
     ("kick_yaw_deg", -25.0, 25.0),
     ("kick_hip_deg", 5.0, 30.0),
-    ("kick_knee_deg", -20.0, 75.0),
+    ("kick_knee_deg", -15.0, 105.0),
     ("windup_s", 0.7, 3.2),
     ("kick_s", 0.4, 2.6),
     ("coast_s", 0.3, 2.4),
@@ -186,12 +193,12 @@ _BOUNDS = (
 _ROCK_BOUNDS = (
     ("tuck_yaw_deg", -35.0, 35.0),
     ("tuck_hip_deg", -80.0, -20.0),
-    ("tuck_knee_deg", 100.0, 150.0),
+    ("tuck_knee_deg", 30.0, 125.0),
     ("lever_yaw_deg", -35.0, 35.0),
     ("lever_hip_deg", 10.0, 30.0),
-    ("lever_knee_deg", -20.0, 95.0),
+    ("lever_knee_deg", -10.0, 125.0),
     ("raise_hip_deg", 18.0, 30.0),
-    ("raise_knee_deg", 52.0, 78.0),
+    ("raise_knee_deg", 70.0, 108.0),
     ("raise_s", 0.0, 2.5),
     ("half_s", 0.25, 2.3),
     ("cycles", 0.0, 8.0),
@@ -332,27 +339,25 @@ class FlipLab:
                           default=0.375)) * DEG2RAD)
 
     def _joint_ranges(self) -> np.ndarray:
-        ranges = []
-        for name in joint_names():
-            jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,
-                                    name)
-            if jid < 0:
-                raise RuntimeError(f"joint {name!r} missing")
-            ranges.append(self.model.jnt_range[jid])
-        return np.asarray(ranges, dtype=float)
+        return np.asarray([
+            [AXIS_LIMITS_DEG[j % 3][0] * DEG2RAD,
+             AXIS_LIMITS_DEG[j % 3][1] * DEG2RAD]
+            for j in range(N_JOINTS)
+        ], dtype=float)
 
     def _clip_q(self, q: np.ndarray) -> np.ndarray:
         q = np.asarray(q, dtype=float).reshape(N_JOINTS).copy()
         return np.clip(q, self.joint_ranges[:, 0], self.joint_ranges[:, 1])
 
     def _place(self, q_rad: np.ndarray, *, roll_deg: float = 0.0) -> None:
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_rad)
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:3] = (0.0, 0.0, 0.22)
         self.data.qpos[3:7] = _quat_roll(roll_deg * DEG2RAD)
-        self.data.qpos[self.qadr] = q_rad
+        self.data.qpos[self.qadr] = q_model
         self.data.qvel[:] = 0.0
         self.data.ctrl[:] = 0.0
-        self.data.ctrl[self.pos_act] = q_rad
+        self.data.ctrl[self.pos_act] = q_model
         mujoco.mj_forward(self.model, self.data)
         low = lowest_collidable_z(self.model, self.data)
         self.data.qpos[2] += 0.002 - low
@@ -548,7 +553,8 @@ class FlipLab:
 
         targets = self.phase_targets(cand)
         profile = ServoProfile(self.params, self.data.qpos[self.qadr].copy())
-        cmd = self.data.qpos[self.qadr].copy()
+        cmd = mujoco_rel_rad_to_robot_abs_rad(
+            self.data.qpos[self.qadr])
         next_control_t = self.data.time
         t0 = self.data.time
         h = self.model.opt.timestep
@@ -580,7 +586,8 @@ class FlipLab:
                 delta = np.clip(desired - cmd, -self.max_delta_q_rad,
                                 self.max_delta_q_rad)
                 cmd = self._clip_q(cmd + delta)
-                profile.command(cmd, speed_deg_s=self.write_speed_deg_s,
+                profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd),
+                                speed_deg_s=self.write_speed_deg_s,
                                 acc_units=self.write_acc_units)
                 next_control_t += self.control_dt
 
@@ -709,7 +716,8 @@ class FlipLab:
         initial_side_z = self._side_z()
 
         profile = ServoProfile(self.params, self.data.qpos[self.qadr].copy())
-        cmd = self.data.qpos[self.qadr].copy()
+        cmd = mujoco_rel_rad_to_robot_abs_rad(
+            self.data.qpos[self.qadr])
         next_control_t = self.data.time
         t0 = self.data.time
         h = self.model.opt.timestep
@@ -740,7 +748,8 @@ class FlipLab:
                 delta = np.clip(desired - cmd, -self.max_delta_q_rad,
                                 self.max_delta_q_rad)
                 cmd = self._clip_q(cmd + delta)
-                profile.command(cmd, speed_deg_s=self.write_speed_deg_s,
+                profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd),
+                                speed_deg_s=self.write_speed_deg_s,
                                 acc_units=self.write_acc_units)
                 next_control_t += self.control_dt
 
@@ -968,7 +977,8 @@ class FlipLab:
                     self.data.xfrc_applied[self.chassis_bid, 3:6] = (
                         R[:, 0] * torque * side_sign)
                 self.data.ctrl[:] = 0.0
-                self.data.ctrl[self.pos_act] = self.plant_q
+                self.data.ctrl[self.pos_act] = (
+                    robot_abs_rad_to_mujoco_rel_rad(self.plant_q))
                 mujoco.mj_step(self.model, self.data)
                 warning_count = self._warning_count() - warning0
                 if warning_count or not self._state_finite():
@@ -1041,7 +1051,8 @@ class FlipLab:
 
         targets = self.phase_targets(cand)
         profile = ServoProfile(self.params, self.data.qpos[self.qadr].copy())
-        cmd = self.data.qpos[self.qadr].copy()
+        cmd = mujoco_rel_rad_to_robot_abs_rad(
+            self.data.qpos[self.qadr])
         next_control_t = self.data.time
         t0 = self.data.time
         h = self.model.opt.timestep
@@ -1057,7 +1068,8 @@ class FlipLab:
                 cmd = self._clip_q(
                     cmd + np.clip(desired - cmd, -self.max_delta_q_rad,
                                   self.max_delta_q_rad))
-                profile.command(cmd, speed_deg_s=self.write_speed_deg_s,
+                profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd),
+                                speed_deg_s=self.write_speed_deg_s,
                                 acc_units=self.write_acc_units)
                 next_control_t += self.control_dt
             target = profile.tick(h)
@@ -1100,7 +1112,8 @@ class FlipLab:
         cam.lookat[:] = (0.0, 0.0, 0.08)
 
         profile = ServoProfile(self.params, self.data.qpos[self.qadr].copy())
-        cmd = self.data.qpos[self.qadr].copy()
+        cmd = mujoco_rel_rad_to_robot_abs_rad(
+            self.data.qpos[self.qadr])
         next_control_t = self.data.time
         t0 = self.data.time
         h = self.model.opt.timestep
@@ -1115,7 +1128,8 @@ class FlipLab:
                 cmd = self._clip_q(
                     cmd + np.clip(desired - cmd, -self.max_delta_q_rad,
                                   self.max_delta_q_rad))
-                profile.command(cmd, speed_deg_s=self.write_speed_deg_s,
+                profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd),
+                                speed_deg_s=self.write_speed_deg_s,
                                 acc_units=self.write_acc_units)
                 next_control_t += self.control_dt
             target = profile.tick(h)
@@ -1299,6 +1313,9 @@ def cem_rock_search(lab: FlipLab, *, side: str, iterations: int,
 def _write_json(path: str | None, blob: dict | list) -> None:
     if not path:
         return
+    if isinstance(blob, dict):
+        blob = {**blob, "joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT}
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(blob, indent=2, allow_nan=False) + "\n")
@@ -1307,20 +1324,25 @@ def _write_json(path: str | None, blob: dict | list) -> None:
 
 def _load_candidate_blob(path: str) -> dict:
     blob = json.loads(Path(path).read_text())
+    if (blob.get("joint_frame") != FRAME_ROBOT_ABS
+            or blob.get("joint_contract") != JOINT_CONTRACT):
+        raise ValueError(
+            f"{path}: legacy/unlabeled flip candidate; regenerate it "
+            "under robot_abs_tibia_v2")
     if "best" in blob and isinstance(blob["best"], dict):
         blob = blob["best"]
     if "candidate" in blob and isinstance(blob["candidate"], dict):
         out = dict(blob["candidate"])
         if "half_s" in out and "raise_s" not in out:
             out.setdefault("raise_hip_deg", 28.0)
-            out.setdefault("raise_knee_deg", 62.0)
+            out.setdefault("raise_knee_deg", 90.0)
             out["raise_s"] = 0.0
         return out
     if isinstance(blob, dict):
         out = dict(blob)
         if "half_s" in out and "raise_s" not in out:
             out.setdefault("raise_hip_deg", 28.0)
-            out.setdefault("raise_knee_deg", 62.0)
+            out.setdefault("raise_knee_deg", 90.0)
             out["raise_s"] = 0.0
         return out
     raise ValueError(f"{path}: expected candidate dict or search result")

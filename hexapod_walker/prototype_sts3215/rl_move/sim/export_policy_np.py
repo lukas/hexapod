@@ -21,11 +21,11 @@ from pathlib import Path
 
 import numpy as np
 
-from rl_move.joint_frame import FRAME_ROBOT_ABS, normalize_joint_frame
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 
 
 def export(policy_path: str, out_path: str, *, name: str = "",
-           notes: str = "", joint_frame: str = FRAME_ROBOT_ABS,
+           notes: str = "",
            extra_meta: dict | None = None,
            training_hz: float | None = None,
            control_hz: float | None = None) -> None:
@@ -33,6 +33,12 @@ def export(policy_path: str, out_path: str, *, name: str = "",
     import torch
 
     model = PPO.load(policy_path, device="cpu")
+    if (getattr(model, "joint_frame", None) != FRAME_ROBOT_ABS
+            or getattr(model, "joint_contract", None) != JOINT_CONTRACT):
+        raise ValueError(
+            f"{policy_path}: checkpoint lacks the {FRAME_ROBOT_ABS!r}/"
+            f"{JOINT_CONTRACT!r} coordinate contract; old checkpoints "
+            "cannot be relabeled during export")
     pol = model.policy
     assert type(pol.mlp_extractor.policy_net[1]).__name__ == "Tanh", \
         "expected tanh activations (SB3 MlpPolicy default)"
@@ -64,17 +70,17 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         "training_hz": hz,
         "hidden": [int(net[0].out_features), int(net[2].out_features)],
         "activation": "tanh",
-        # New/default policies speak the real robot's logical
-        # absolute-tibia joint frame. Old MuJoCo-native checkpoints must
-        # be exported with --joint-frame model_rel.
-        "joint_frame": normalize_joint_frame(joint_frame),
+        "joint_frame": FRAME_ROBOT_ABS,
+        "joint_contract": JOINT_CONTRACT,
         # Free-form extras (e.g. the trained goal "profile" —
         # hold/ramp/target shapes — which linux_control/rl_policy.py
         # reads so runner constants can never drift from the config
         # a checkpoint was actually trained with).
         **extra,
     }
-    meta["joint_frame"] = normalize_joint_frame(meta.get("joint_frame"))
+    if (meta.get("joint_frame") != FRAME_ROBOT_ABS
+            or meta.get("joint_contract") != JOINT_CONTRACT):
+        raise ValueError("extra metadata cannot override the joint contract")
     # Trained control cadence (2026-08-24 100 Hz flip,
     # fb_20260824T174619_c49b7e): the robot runner
     # (linux_control/rl_policy.py) REFUSES a policy whose control_hz
@@ -135,10 +141,6 @@ if __name__ == "__main__":
                     help="optional robot bus write_speed for this policy")
     ap.add_argument("--bus-write-acc", type=int, default=None,
                     help="optional robot bus write_acc for this policy")
-    ap.add_argument("--joint-frame", default=FRAME_ROBOT_ABS,
-                    help=("policy joint frame: robot_abs (default, real "
-                          "robot logical knee) or model_rel (legacy "
-                          "MuJoCo femur-relative knee)"))
     ap.add_argument("--control-hz", type=float, default=None,
                     help=("trained control rate written to meta.control_hz "
                           "(default: training_hz; legacy compatibility "
@@ -154,7 +156,6 @@ if __name__ == "__main__":
         if value is not None:
             extra_meta[key] = value
     export(args.policy, args.out, name=args.name, notes=args.notes,
-           joint_frame=args.joint_frame,
            extra_meta=extra_meta or None,
            training_hz=args.training_hz,
            control_hz=args.control_hz)

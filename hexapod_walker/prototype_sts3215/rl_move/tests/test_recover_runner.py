@@ -69,8 +69,10 @@ def test_obs_parity_reset_and_steps(kind):
     # nominal at the passive-equilibrium tick ~0.3 s (7-8 mrad) before
     # the first obs read. Parity passes the env's own q_nom; the
     # deployment gap is the settle drift, bounded here.
+    # Absolute tibia drift contains both femur and private hinge drift;
+    # allow their small settle contributions to add.
     assert float(np.max(np.abs(reset_state.joint_position
-                               - env._q_nom))) < 0.03
+                               - env._q_nom))) < 0.04
     builder.begin(reset_state, tilt_bias=env._tilt_ref0,
                   q_nom=env._q_nom)
     for s in states[-(HISTORY - 1):]:

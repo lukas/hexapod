@@ -37,6 +37,7 @@ HEX_LC_DIR="$(cd "$(dirname "$_HEX_SCRIPT")" && pwd)"
 HEX_ROOT="$(cd "$HEX_LC_DIR/.." && pwd)"
 HEXAPOD_HOST="${HEXAPOD_HOST:-http://hexapod.local:8080}"
 HEXAPOD_CURL_TIMEOUT="${HEXAPOD_CURL_TIMEOUT:-2}"
+HEXAPOD_HTTPS_PORT="${HEXAPOD_HTTPS_PORT:-8443}"
 HEXAPOD_SSH="${HEXAPOD_SSH:-arduino@hexapod.local}"
 HEXAPOD_SSH_HOSTKEY_ALIAS="${HEXAPOD_SSH_HOSTKEY_ALIAS:-hexapod.local}"
 HEX_REMOTE_ROOT="${HEX_REMOTE_ROOT:-/home/arduino/hexapod_sts}"
@@ -65,6 +66,8 @@ import sys
 root = Path(sys.argv[1])
 files = [
     "linux_control/web_drive.py",
+    "hexapod_core/demo_tripod.py",
+    "hexapod_core/middle_tuck_quad_gait.py",
     "linux_control/bench_api.py",
     "linux_control/api/common.py",
     "linux_control/api/core.py",
@@ -81,6 +84,10 @@ files = [
     "linux_control/status_display.py",
     "linux_control/deploy_status_display.py",
     "linux_control/video_contact_sheet.py",
+    "linux_control/housing_pose.py",
+    "linux_control/apriltag_vision.py",
+    "linux_control/foot_tip_tracking.py",
+    "linux_control/track_apriltags.py",
     "linux_control/safe_zero.py",
     "linux_control/pinned_tip.py",
     "linux_control/test_calibration_checkup.py",
@@ -91,12 +98,12 @@ files = [
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
-    "linux_control/walk_ready_transition.py",
+    "hexapod_core/walk_ready_transition.py",
     "linux_control/rl_walk_start.py",
     "motor_setup/inplace_demos.py",
     "motor_setup/motion_telemetry.py",
-    "motor_setup/dance_script.py",
-    "motor_setup/quad_walk.py",
+    "hexapod_core/dance_script.py",
+    "hexapod_core/quad_walk.py",
 ]
 
 ok = True
@@ -120,6 +127,11 @@ hex_js_syntax() {
   fi
   hex_note "web UI syntax check"
   node --check "$HEX_LC_DIR/webui/app.js"
+}
+
+hex_rl_guard_check() {
+  hex_note "RL composed-policy guard check (fake bus/no motion)"
+  hex_py linux_control/test_rl_composed_policy_guard.py
 }
 
 hex_diff_check() {
@@ -244,6 +256,15 @@ hex_preferred_http_url() {
   echo "$url"
 }
 
+hex_https_url_for_http() {
+  local url="${1:-$HEXAPOD_HOST}" rest host
+  rest="${url#http://}"
+  rest="${rest#https://}"
+  host="${rest%%/*}"
+  host="${host%%:*}"
+  printf 'https://%s:%s\n' "$host" "$HEXAPOD_HTTPS_PORT"
+}
+
 hex_preferred_ssh_target() {
   local target="${1:-$HEXAPOD_SSH}" cached ip
   if ! hex_is_mdns_default "$target"; then
@@ -265,6 +286,7 @@ hex_preferred_ssh_target() {
 hex_check() {
   hex_py_syntax || return
   hex_js_syntax || return
+  hex_rl_guard_check || return
   hex_diff_check
 }
 
@@ -277,13 +299,17 @@ hex_unit_check() {
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&
     hex_py linux_control/test_safe_zero.py &&
-    hex_py linux_control/test_pinned_tip.py
+    hex_py linux_control/test_pinned_tip.py &&
+    hex_py -m pytest -q \
+      linux_control/test_housing_pose.py \
+      linux_control/test_apriltag_vision.py
   )
 }
 
 hex_status() {
-  local host_url ip robot_json
+  local host_url https_url ip robot_json
   host_url="$(hex_preferred_http_url "$HEXAPOD_HOST")"
+  https_url="$(hex_https_url_for_http "$host_url")"
   hex_note "robot HTTP health (read-only)"
   if ! curl -fsS -m "$HEXAPOD_CURL_TIMEOUT" "$host_url/api/ping"; then
     if hex_is_mdns_default "$HEXAPOD_HOST" \
@@ -308,6 +334,14 @@ hex_status() {
     fi
   fi
   echo
+  hex_note "robot HTTPS health for browser joystick (read-only)"
+  if curl -k -fsS -m "$HEXAPOD_CURL_TIMEOUT" \
+      "$https_url/api/ping" >/dev/null; then
+    echo "joystick_url=$https_url/rl"
+  else
+    echo "!! HTTPS joystick URL did not answer: $https_url/rl" >&2
+    return 1
+  fi
   if ! robot_json="$(curl -fsS -m "$HEXAPOD_CURL_TIMEOUT" \
       "$host_url/api/robot")"; then
     echo >&2
@@ -350,11 +384,13 @@ hex_remote_compile() {
     "$ssh_target" \
     "cd '$HEX_REMOTE_ROOT' && /home/arduino/.local/bin/uv run python -m py_compile \
       linux_control/web_drive.py \
+      hexapod_core/demo_tripod.py \
+      hexapod_core/middle_tuck_quad_gait.py \
       linux_control/bench_api.py \
       linux_control/api/*.py \
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
-      linux_control/walk_ready_transition.py \
+      hexapod_core/walk_ready_transition.py \
       linux_control/rl_walk_start.py \
       motor_setup/inplace_demos.py \
       motor_setup/motion_telemetry.py"

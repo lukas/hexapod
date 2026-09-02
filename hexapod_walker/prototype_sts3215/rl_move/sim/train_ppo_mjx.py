@@ -3250,6 +3250,8 @@ def main(argv: list[str] | None = None) -> int:
               f"batch {args.batch_size}")
     elif args.init_from is not None and (
             args.init_from_actor_only or args.init_from_policy_backbone):
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
         # Condition-D actor-only transfer (operator addendum
         # fb_20260818T085834_588d9a, walkcurr4 tournament arms B/C):
         # build the model EXACTLY as the fresh (no-init-from) branch
@@ -3286,6 +3288,8 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(copied)} tensors copied ({copied}); predictive "
               "adapters/gates + transformer snapshot untouched")
     elif args.init_from is not None:
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
         if args.obs_pad_transplant or args.hist_stride_transplant:
             # Obs-widening warm start (port of train_ppo_sim's
             # --obs-pad-transplant): parent weights copy exactly, the
@@ -3447,6 +3451,10 @@ def main(argv: list[str] | None = None) -> int:
                                **extra_pk),
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
+
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+    model.joint_frame = FRAME_ROBOT_ABS
+    model.joint_contract = JOINT_CONTRACT
 
     if args.warm_log_std_override is not None and args.init_from is not None:
         import math as _math

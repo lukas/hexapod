@@ -10,6 +10,8 @@ def _policy(training_hz=25.0):
             "act_dim": 18,
             "activation": "tanh",
             "training_hz": training_hz,
+            "joint_frame": "robot_abs",
+            "joint_contract": "robot_abs_tibia_v2",
         },
         "W1": [[0.0] * 68],
         "b1": [0.0],

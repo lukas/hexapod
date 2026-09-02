@@ -63,7 +63,7 @@ FINDINGS (08-18, CPU twin, fitted air servo params):
   strides just slip more). Swept via quad_walk.GAITS overrides on the
   QuadRearWalk instance, not this file. Deployed as ``quad_trot``.
 
-  Deployed as the ``quad_walk`` demo (motor_setup/quad_walk.py — the
+  Deployed as the ``quad_walk`` demo (hexapod_core/quad_walk.py — the
   hardware port, validated end-to-end in this sim incl. entry/exit):
 
     python probe_quad_rear.py walk --pitch -17 --body-dx -0.04 \
@@ -99,7 +99,7 @@ from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
 
 FRONT_LEGS = (0, 5)
 SUPPORT_LEGS = (1, 2, 3, 4)
-TUCK = (0.0, -1.10, 2.40)      # feasibility FRONT_POSES["tuck"], c57 GO
+TUCK = (0.0, -1.10, 1.30)      # feasibility FRONT_POSES["tuck"], c57 GO
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +393,7 @@ def run_walk(args) -> None:
         apply_params_to_model, build_model, joint_qpos_addrs,
         position_actuator_ids)
     from rl_move.sim.sim_env import support_margin_m
+    from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
 
     gait = RearQuadGait(
         pitch=args.pitch * DEG2RAD, body_dx=args.body_dx,
@@ -414,7 +415,7 @@ def run_walk(args) -> None:
                                   f"L{i}_foot") for i in range(6)]
 
     # place at the 6-leg plant (t=0 of the entry)
-    q0 = gait.q_at(0.0)
+    q0 = robot_abs_rad_to_mujoco_rel_rad(gait.q_at(0.0))
     mujoco.mj_resetData(model, data)
     data.qpos[:3] = (0.0, 0.0, gait.base_z0)
     data.qpos[3:7] = (1.0, 0.0, 0.0, 0.0)
@@ -469,7 +470,7 @@ def run_walk(args) -> None:
     x0 = float(data.qpos[0])
     for i in range(n_ticks):
         t = i / ctrl_hz
-        q_goal = gait.q_at(t)
+        q_goal = robot_abs_rad_to_mujoco_rel_rad(gait.q_at(t))
         profile.command(q_goal, acc_units=200)
         advance_tick()
         Rm = data.xmat[chassis].reshape(3, 3)

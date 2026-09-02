@@ -68,14 +68,14 @@ CURRENT_PER_NM = 1.2       # sim_env: servo current ~ |torque| * 1.2
 CURRENT_CAP_A = 3.0
 TRIP_A = 2.5
 
-# Raised front-leg joint presets (yaw, hip, knee) rad. Limits:
+# Raised front-leg presets (yaw, absolute femur, absolute tibia) rad. Limits:
 # yaw +-0.61, hip -1.40..0.52, knee -0.35..2.62.
 FRONT_POSES = {
     # tucked claw: hip high up, knee folded — CoM of the leg pulled in
-    "tuck": (0.0, -1.10, 2.40),
+    "tuck": (0.0, -1.10, 1.30),
     # forward reach: raised but extended ahead (manipulation-ish pose,
     # worst case for CoM: leg mass forward)
-    "reach": (0.0, -0.60, 1.20),
+    "reach": (0.0, -0.60, 0.60),
 }
 
 
@@ -168,12 +168,14 @@ class Sweep:
 
     # -- physics ----------------------------------------------------------
     def _place(self, q, dx, dz, pitch):
+        from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q)
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:3] = (dx, 0.0, self.base_z0 + dz)
         self.data.qpos[3:7] = _quat_pitch(pitch)
-        self.data.qpos[self.qadr] = q
+        self.data.qpos[self.qadr] = q_model
         self.data.ctrl[:] = 0.0
-        self.data.ctrl[self.pos_act] = q
+        self.data.ctrl[self.pos_act] = q_model
         mujoco.mj_forward(self.model, self.data)
         for _ in range(40):
             worst = min((self.data.contact[ci].dist

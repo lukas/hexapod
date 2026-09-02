@@ -36,6 +36,14 @@ class SafetyStatus:
 
 
 _AXIS_NAMES = ("yaw", "hip", "knee")
+_JOINT_LIMIT_LO_RAD = np.array(
+    [AXIS_LIMITS_DEG[j % 3][0] * DEG2RAD for j in range(N_JOINTS)],
+    dtype=float,
+)
+_JOINT_LIMIT_HI_RAD = np.array(
+    [AXIS_LIMITS_DEG[j % 3][1] * DEG2RAD for j in range(N_JOINTS)],
+    dtype=float,
+)
 
 
 def _joint_name(j: int) -> str:
@@ -274,10 +282,7 @@ class SafetyLayer:
         q = self._last_safe + dq
 
         # Joint limits (deg in AXIS_LIMITS).
-        for j in range(N_JOINTS):
-            axis = j % 3
-            lo, hi = AXIS_LIMITS_DEG[axis]
-            q[j] = float(np.clip(q[j], lo * DEG2RAD, hi * DEG2RAD))
+        q = np.clip(q, _JOINT_LIMIT_LO_RAD, _JOINT_LIMIT_HI_RAD)
 
         self._last_safe = q.copy()
         return q, status

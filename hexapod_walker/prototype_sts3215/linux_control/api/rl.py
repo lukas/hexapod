@@ -388,6 +388,21 @@ class RlApi:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def rl_timing_probe(self, *, samples: int = 200,
+                        read_samples: int = 8) -> dict:
+        """No-motion timing probe for the selected drive walk policy."""
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        try:
+            from rl_policy import benchmark_drive_hot_path
+        except ImportError as e:
+            return {"ok": False, "error": f"rl_policy missing: {e}"}
+        return benchmark_drive_hot_path(
+            self.drive,
+            walk_weights=self._role_weights("walk"),
+            samples=samples,
+            read_samples=read_samples)
+
     # Swappable policy registry (operator request 08-10): exported
     # weight JSONs live in linux_control/policies/; selecting one
     # atomically copies it over the live rl_policy_weights.json /
@@ -403,7 +418,6 @@ class RlApi:
     # obs 74 = walk + phase clock; obs 93 = AMP walk with phase,
     # yaw-rate command, and all-healthy fault-health tail. Same walk slot.
     _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk", 93: "walk"}
-
     def _find_policy_file(self, file: str) -> Path | None:
         """Resolve a picker file name to a path (uploads shadow repo)."""
         name = Path(str(file)).name          # forbid path traversal
@@ -442,10 +456,16 @@ class RlApi:
                     continue
                 seen.add(f.name)
                 try:
-                    meta = json.loads(f.read_text())["meta"]
+                    obj = json.loads(f.read_text())
+                    meta = obj["meta"]
                 except Exception as e:
                     out.append({"file": f.name, "error": str(e)})
                     continue
+                try:
+                    from rl_move.np_policy import validate_np_policy
+                    errors, _ = validate_np_policy(obj)
+                except Exception as e:
+                    errors = [str(e)]
                 slot = self._SLOT_OBS.get(meta.get("obs_dim"))
                 out.append({
                     "file": f.name,
@@ -455,7 +475,10 @@ class RlApi:
                     "source": (meta.get("source") or "").rsplit("/", 1)[-1],
                     "notes": meta.get("notes", ""),
                     "uploaded": uploaded,
+                    "runnable": not errors,
+                    **({"error": "; ".join(errors[:3])} if errors else {}),
                     "active": (slot is not None
+                               and not errors
                                and _md5(f) == active.get(slot)),
                 })
         out.sort(key=lambda r: r["file"])
@@ -473,7 +496,13 @@ class RlApi:
             return {"ok": False, "error": f"no such policy file: {name}"}
         try:
             payload = src.read_text()
-            meta = json.loads(payload)["meta"]
+            obj = json.loads(payload)
+            meta = obj["meta"]
+            from rl_move.np_policy import validate_np_policy
+            errors, _ = validate_np_policy(obj)
+            if errors:
+                return {"ok": False,
+                        "error": "invalid v2 policy: " + "; ".join(errors[:3])}
         except Exception as e:
             return {"ok": False, "error": f"unreadable policy: {e}"}
         slot = self._SLOT_OBS.get(meta.get("obs_dim"))
@@ -503,16 +532,18 @@ class RlApi:
     # "stand" and "lower". Stored on the board's home dir (like
     # ~/.hexapod_cal.json), NOT in the repo. A role of None keeps the
     # pre-roles behavior: the live slot file (rl_policy_select). The
-    # special hold value "walk" (the default) now means the built-in
-    # joint-hold fallback: keep the last safe commanded pose and do not
-    # run the walk policy at zero joystick command.
+    # special hold value "walk" is the legacy built-in joint-hold
+    # fallback: keep the last commanded pose and do not run the walk
+    # policy at zero joystick command. It is no longer the default for
+    # drive, because hardware stop tests showed it can sink/fall after a
+    # walking phase.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
     _ROLE_OBS = {"walk": (72, 74, 93), "hold": (68, 72, 74, 93),
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:
-        roles = {"walk": None, "hold": "walk", "stand": None,
-                 "lower": None}
+        roles = {"walk": None, "hold": "walk",
+                 "stand": None, "lower": None}
         try:
             d = json.loads(self.ROLES_FILE.read_text())
             for k in roles:
@@ -542,8 +573,10 @@ class RlApi:
                     resolved = meta.get("name") or p.stem
                 except Exception:
                     resolved = p.name
-            elif role == "hold":
+            elif role == "hold" and v == "walk":
                 resolved = "built-in joint hold"
+            elif role == "hold" and v:
+                resolved = f"missing hold policy: {v}"
             else:
                 slot = "walk" if role == "walk" else "stance"
                 resolved = f"live {slot} slot"
@@ -555,7 +588,7 @@ class RlApi:
     def rl_role_set(self, *, role: str = "", file: str = "") -> dict:
         """Assign policies/<file> to a role (no motion; takes effect at
         the next episode / session start). file="" resets to default;
-        file="walk" (hold role only) = walk policy at zero command."""
+        file="walk" (hold role only) = legacy built-in joint hold."""
         role = (role or "").strip().lower()
         if role not in self._ROLE_OBS:
             return {"ok": False,
@@ -574,7 +607,14 @@ class RlApi:
             if p is None:
                 return {"ok": False, "error": f"no such policy: {name}"}
             try:
-                meta = json.loads(p.read_text())["meta"]
+                obj = json.loads(p.read_text())
+                meta = obj["meta"]
+                from rl_move.np_policy import validate_np_policy
+                errors, _ = validate_np_policy(obj)
+                if errors:
+                    return {"ok": False,
+                            "error": "invalid v2 policy: "
+                                     + "; ".join(errors[:3])}
             except Exception as e:
                 return {"ok": False, "error": f"unreadable policy: {e}"}
             if meta.get("obs_dim") not in self._ROLE_OBS[role]:
@@ -704,7 +744,8 @@ class RlApi:
             self._drive_cmd.request_stop()
         return self.rl_drive_state()
 
-    def rl_drive_start(self) -> dict:
+    def rl_drive_start(self, *, vx: float = 0.0, vy: float = 0.0,
+                       wz: float = 0.0, dh: float = 0.0) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
         Motion-free start contract: read-only preflight accepts the
@@ -719,6 +760,12 @@ class RlApi:
             return {"ok": False, "error": f"rl_policy missing: {e}"}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        with self.drive._lock:
+            armed = bool(self.drive.armed)
+        if not armed:
+            return {"ok": False,
+                    "error": ("robot is limp/disarmed; use RL Stand Up / "
+                              "Walk Ready first")}
         if self._demo_thread and self._demo_thread.is_alive():
             if self._drive_active():
                 return {"ok": True, "already": True,
@@ -727,6 +774,25 @@ class RlApi:
 
         walk_w = self._role_weights("walk")
         hold_w = self._role_weights("hold")
+        if hold_w is None:
+            hold_role = self._roles().get("hold")
+            if hold_role and hold_role != "walk":
+                error = (
+                    f"configured hold policy {hold_role!r} is not available "
+                    "on this robot; select the MuJoCo default complete "
+                    "policy or assign Hold to an available stance policy."
+                )
+            else:
+                error = (
+                    "drive needs an explicit learned hold role; the legacy "
+                    f"{hold_role or 'default'} joint-hold fallback is not "
+                    "safe after walking. Select the MuJoCo default complete "
+                    "policy or assign Hold to a stance policy."
+                )
+            return {
+                "ok": False,
+                "error": error,
+            }
 
         ok, reason, details = preflight(self.drive.bus, "walk")
         if not ok:
@@ -754,6 +820,7 @@ class RlApi:
         gen = self._demo_gen
         self._demo_abort.clear()
         cmd = DriveCommand()
+        cmd.set(float(vx), float(vy), float(wz), float(dh))
         self._drive_cmd = cmd
         with self._lock:
             self._demo_name = "rl_drive"
@@ -811,6 +878,10 @@ class RlApi:
                 limped = bool(res.get("limped"))
                 with d._lock:
                     d.armed = not limped
+                    if limped:
+                        d.status = "rl drive disarmed after trip"
+                    elif d.mode == "demo":
+                        d.status = "rl drive holding"
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
@@ -944,6 +1015,27 @@ class RlApi:
         if mode == "lower" and not learned:
             return self.standup(mode="step", speed=10.0,
                                 direction="down")
+        weights_path = self._role_weights(mode)
+        if learned and mode in ("stand", "lower"):
+            raw_role = self._roles().get(mode)
+            action = "rise" if mode == "stand" else "lower"
+            if not raw_role:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"learned RL {action} is disabled for the default "
+                        "composed policy. Use Tuck Stand/Tuck Lower, or "
+                        "select a learned-stance bundle / explicit role first."
+                    ),
+                }
+            if weights_path is None:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"learned RL {action} role is set to {raw_role!r}, "
+                        "but that policy file is not available."
+                    ),
+                }
         try:
             from rl_policy import preflight, run_policy_move
         except ImportError as e:
@@ -961,7 +1053,6 @@ class RlApi:
                             "error": "drive session did not stop"}
             else:
                 return {"ok": False, "error": "stop the running job first"}
-        weights_path = self._role_weights(mode)
 
         # Preflight before claiming the worker slot so refusals are
         # instant and motion-free.
@@ -1249,4 +1340,3 @@ class RlApi:
         return {"ok": True, "calibrate": self.calibrate_state(),
                 "target": {"hip_deg": hip_deg, "knee_deg": knee_deg,
                            "seconds": seconds}}
-

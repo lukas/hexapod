@@ -5,8 +5,7 @@ The robot runner does not port the canonicalizer — it wraps
 rl_move.sim.rot60.Rot60Policy itself through a NumpyPolicy shim
 (make_walk_canonicalizer), so there is no second implementation to
 drift. What CAN still break silently is the integration contract, and
-that is what this file locks, using the REAL deployed weights file
-(linux_control/rl_walk_weights.json = ppo_goal_cw_dep_vref1_r1):
+that is what this file locks with a deterministic v2 policy:
 
 1. the runner's walk obs (build_obs + vel tail) is exactly the 72-wide
    frame rot60.py's slices assume, block by block;
@@ -15,8 +14,8 @@ that is what this file locks, using the REAL deployed weights file
 3. full-circle command sequences (incl. zero-cmd holds and sector-
    boundary dither) produce the same sector trace and bit-identical
    actions as the manually composed rot60 primitives — the replay-
-   parity check: logged REAL-frame obs replayed through the runner's
-   canonicalizer must reproduce the logged actions;
+parity check: deterministic v2-frame obs replayed through the runner's
+canonicalizer must reproduce the reference actions;
 4. the wedge fallback used when the module is missing on-board.
 """
 from __future__ import annotations
@@ -38,6 +37,9 @@ import rl_policy  # noqa: E402  (linux_control runner)
 from rl_move.config import load_config  # noqa: E402
 from rl_move.env import TaskGoal, build_obs  # noqa: E402
 from rl_move.sim import rot60  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
+    FRAME_ROBOT_ABS, JOINT_CONTRACT,
+)
 
 CFG = load_config(str(_ROOT / "rl_move" / "config.yaml"))
 WALK_VEL_SCALE = rl_policy.WALK_VEL_SCALE
@@ -67,7 +69,21 @@ def _walk_obs(rng, vx_r, vy_r, prev_action=None, state=None):
 
 
 def _policy():
-    return rl_policy.NumpyPolicy(rl_policy.WALK_WEIGHTS_PATH)
+    class TestPolicy:
+        meta = {"joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT,
+                "obs_dim": 72, "act_dim": 18, "training_hz": 25.0}
+
+        @staticmethod
+        def act(obs):
+            obs = np.asarray(obs, dtype=float)
+            # Deliberately leg-asymmetric so wrappers must actually
+            # permute/relabel actions; a symmetric identity actor would
+            # make the non-trivial-sector assertions vacuous.
+            return np.tanh(obs[:18] + 0.2 * obs[18:36]
+                           + np.arange(18) * 0.03)
+
+    return TestPolicy()
 
 
 def test_runner_obs_layout_matches_rot60_slices():

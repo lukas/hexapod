@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Interactive playground for the tip-back QUAD walk (the webui Quad
-# tab's gait, motor_setup/quad_walk.py) in the fitted servo twin.
+# tab's gait, hexapod_core/quad_walk.py) in the fitted servo twin.
 # 7/W rear up, W walk, Space stop, 8 sit down, 9 reset, -/= speed,
 # P forward shove, drag to orbit, Z/X zoom, Q quit. Keys are drawn in
 # the window. OpenCV window: no MuJoCo letter-toggle collisions.

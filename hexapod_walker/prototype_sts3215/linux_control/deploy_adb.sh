@@ -15,6 +15,7 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 REMOTE="/home/arduino/hexapod_sts"
 REMOTE_UV="/home/arduino/.local/bin/uv"
+HTTPS_PORT="${HEXAPOD_HTTPS_PORT:-8443}"
 MODE="start"
 NEED_BUS=0
 for a in "$@"; do
@@ -110,15 +111,17 @@ fi
 
 adb forward --remove-all >/dev/null 2>&1 || true
 adb forward tcp:8080 tcp:8080
-adb forward tcp:8443 tcp:8443
+adb forward tcp:"$HTTPS_PORT" tcp:"$HTTPS_PORT"
 curl -fsS -m 3 -X POST http://127.0.0.1:8080/api/tft/ready \
   >/dev/null 2>&1 || true
+echo ">> verify HTTPS joystick listener"
+curl -k -fsS -m 3 "https://127.0.0.1:${HTTPS_PORT}/api/ping"
 
 echo ">> log / listen:"
 adb shell 'journalctl -u hexapod-web -n 20 --no-pager 2>/dev/null || tail -n 30 /tmp/hexapod_web.log || true'
-adb shell 'ss -tln 2>/dev/null | grep -E ":8080|:8443" || netstat -tln 2>/dev/null | grep -E ":8080|:8443" || true'
+adb shell "ss -tln 2>/dev/null | grep -E ':8080|:${HTTPS_PORT}' || netstat -tln 2>/dev/null | grep -E ':8080|:${HTTPS_PORT}' || true"
 echo
 echo ">> open on this Mac:"
 echo "     http://127.0.0.1:8080"
-echo "     https://127.0.0.1:8443   (Xbox / Gamepad API — accept cert warning)"
+echo "     https://127.0.0.1:${HTTPS_PORT}   (Xbox / Gamepad API — accept cert warning)"
 echo ">> live log:  adb shell 'tail -f /tmp/hexapod_web.log'"

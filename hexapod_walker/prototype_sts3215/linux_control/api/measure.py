@@ -208,24 +208,28 @@ class MeasureApi:
                 except Exception:
                     need_stand = True
                 if need_stand or not d.armed:
-                    if need_stand:
+                    # A disarmed zero pose can fall within the loose
+                    # standing-pose distance gate even though its knees are
+                    # ~80 deg away from walk-ready.  Never replace physical
+                    # acquisition with `_enter_stand_hold()`, which only
+                    # updates controller state and torque limits.
+                    with self._lock:
+                        self._demo_status = (
+                            "acquiring stand before walk…")
+                    res_a = self._acquire_start("stand", gen=gen)
+                    if gen != self._demo_gen:
+                        return
+                    if not res_a.get("ok"):
                         with self._lock:
+                            self._cal_result = {
+                                "ok": False,
+                                "error": (
+                                    "start pose not reached — "
+                                    + str(res_a.get("error")
+                                          or "aborted"))}
                             self._demo_status = (
-                                "acquiring stand before walk…")
-                        res_a = self._acquire_start("stand", gen=gen)
-                        if gen != self._demo_gen:
-                            return
-                        if not res_a.get("ok"):
-                            with self._lock:
-                                self._cal_result = {
-                                    "ok": False,
-                                    "error": (
-                                        "start pose not reached — "
-                                        + str(res_a.get("error")
-                                              or "aborted"))}
-                                self._demo_status = (
-                                    self._cal_result["error"])
-                            return
+                                self._cal_result["error"])
+                        return
                     self._enter_stand_hold()
                     time.sleep(0.5)
                     with self._lock:

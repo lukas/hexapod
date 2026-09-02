@@ -7,7 +7,7 @@
 # two encoder seeds lose to the linear baseline at k=1 on the SAME pod
 # dataset => the dataset drift (noslip actor falling back to tripod,
 # collect.py pod-side limitation) is the prime suspect and the fix is
-# operator-side (push noslip_gait.py or revise the recipe) — do NOT
+# operator-side (push hexapod_core/noslip_gait.py or revise the recipe) — do NOT
 # train a third seed.)
 # Reuses the existing v2pod dataset; encoder artifacts *_s1 so the
 # failed seed-0 gate record stays intact.

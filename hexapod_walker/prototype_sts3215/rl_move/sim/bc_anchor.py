@@ -419,8 +419,9 @@ def _bc_foot_z(actions):
     Supervising the FK foot height directly makes a 10 mm commanded
     hover cost ~1.0 (at the default 10 mm scale) instead of ~1e-4.
 
-    Foot z depends only on hip and knee (yaw rotates in-plane):
-        z = -FEMUR*sin(hip) - TIBIA*sin(hip+knee)
+    Foot z depends only on the absolute femur/tibia angles (yaw rotates
+    in-plane):
+        z = -FEMUR*sin(hip) - TIBIA*sin(knee)
     """
     import torch
     global _FOOT_Z_CONST
@@ -439,7 +440,7 @@ def _bc_foot_z(actions):
     q = center + actions * half
     hip = q[..., 1::3]
     knee = q[..., 2::3]
-    return -femur * torch.sin(hip) - tibia * torch.sin(hip + knee)
+    return -femur * torch.sin(hip) - tibia * torch.sin(knee)
 
 
 def _lazy_sb3():

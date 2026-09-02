@@ -45,6 +45,9 @@ from .servo_model import (  # noqa: E402
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, position_actuator_ids,
 )
+from hexapod_core.joint_frame import (  # noqa: E402
+    mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad,
+)
 
 DEG2RAD = math.pi / 180.0
 RAD2DEG = 180.0 / math.pi
@@ -144,6 +147,7 @@ class _ReplaySim:
                 self.model.sensor_adr[sid] if sid >= 0 else -1)
 
     def place(self, q_rad: np.ndarray) -> None:
+        """Place a recorded robot-absolute pose in the private model."""
         import mujoco_prototype as MP
         from rl_move.body_ik import fk_all_feet
         mujoco = self._mujoco
@@ -153,10 +157,11 @@ class _ReplaySim:
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:3] = (0.0, 0.0, base_z)
         self.data.qpos[3:7] = (1.0, 0.0, 0.0, 0.0)
-        self.data.qpos[self._qadr] = q_rad
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_rad)
+        self.data.qpos[self._qadr] = q_model
         self.data.qvel[:] = 0.0
         self.data.ctrl[:] = 0.0
-        self.data.ctrl[self._pos_act] = q_rad
+        self.data.ctrl[self._pos_act] = q_model
         mujoco.mj_forward(self.model, self.data)
         for _ in range(40):
             worst = 0.0
@@ -229,7 +234,8 @@ class _ReplaySim:
         out = {k: [] for k in ("roll", "pitch", "gyro_x", "gyro_y", "q",
                                "foot_f", "foot_xyz")}
         for k in range(n):
-            profile.command(cmd[k], speed_deg_s=speed_deg_s,
+            profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd[k]),
+                            speed_deg_s=speed_deg_s,
                             acc_units=acc_units)
             # Honor the recorded inter-tick duration (loop overruns).
             tick_s = (t_hw[k + 1] - t_hw[k]) if k + 1 < n else 0.04
@@ -244,7 +250,8 @@ class _ReplaySim:
             out["pitch"].append(p * RAD2DEG)
             out["gyro_x"].append(float(g[0]))
             out["gyro_y"].append(float(g[1]))
-            out["q"].append(self.data.qpos[self._qadr] * RAD2DEG)
+            out["q"].append(mujoco_rel_rad_to_robot_abs_rad(
+                self.data.qpos[self._qadr]) * RAD2DEG)
             out["foot_f"].append(f)
             out["foot_xyz"].append(xyz)
         res = {k: np.asarray(v) for k, v in out.items()}

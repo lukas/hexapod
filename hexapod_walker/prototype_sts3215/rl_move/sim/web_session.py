@@ -14,28 +14,58 @@ from typing import Any
 
 import numpy as np
 
-from rl_move.env import TaskGoal, build_obs
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from .joint_task import q_rad_to_action
+from rl_move.env import TaskGoal, build_obs
+from rl_move.safety import SafetyLayer
+from hexapod_core.demo_tripod import (
+    DEFAULT_DEMO_TRIPOD, DemoTripodPreset, format_demo_tripod,
+    parse_demo_tripod_tune_tokens, tune_demo_tripod,
+)
+from linux_control.cpg_controller_loader import (  # noqa: E402
+    list_cpg_controllers as _list_cpg_controllers,
+    load_cpg_controller as _load_cpg_controller,
+)
+
+from .joint_task import action_to_q_rad, q_rad_to_action
 from hexapod_core.joint_frame import (
-    RAD2DEG,
-    robot_abs_rad_to_sim_rad,
-    sim_rad_to_robot_abs_deg,
+    FRAME_ROBOT_ABS,
+    JOINT_CONTRACT,
+    mujoco_rel_rad_to_robot_abs_deg,
+    robot_abs_rad_to_mujoco_rel_rad,
+)
+from hexapod_core.scripted_walk_contract import (
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
 )
 from .play_core import (
     _CRUISE,
     _DESC,
     _HIST_K,
-    _LEGACY_PROFILE,
+    _DEFAULT_STANCE_PROFILE,
+    _MIDDLE_TUCK_QUAD,
     _N_MODE,
+    _NOSLIP,
     _NOSLIP_CLEAN,
+    _NOSLIP_FLUID,
+    _NOSLIP_FLUID_FAST,
+    _NOSLIP_FLUID_HYBRID,
+    _NOSLIP_FLUID_PULSE,
+    _NOSLIP_FLUID_PUSH,
     _NOSLIP_RIPPLE,
     _NOSLIP_WAVE,
     _ROLE_OBS,
+    _SE2_CPG,
+    _SE2_TETRAPOD,
+    _SE2_WAVE,
     _SCRIPTED_ROWS,
+    _SCRIPTED_SE2,
     _SCRIPTED_TRIPOD,
     make_noslip_gait,
     _SPEED_MAX,
+    _TRIPOD_HW,
     _load_profiles,
     _obs_width,
     _sim_only_obs,
@@ -94,10 +124,29 @@ def _quad_action(name: str) -> str:
     return name.removeprefix("quad_")
 
 
+def _ms_stats(values: list[float]) -> dict[str, Any]:
+    if not values:
+        return {"samples": 0}
+    arr = np.asarray(values, dtype=float) * 1000.0
+    return {
+        "samples": int(arr.size),
+        "mean_ms": round(float(np.mean(arr)), 3),
+        "p50_ms": round(float(np.percentile(arr, 50)), 3),
+        "p95_ms": round(float(np.percentile(arr, 95)), 3),
+        "max_ms": round(float(np.max(arr)), 3),
+    }
+
+
+_DRIVE_HEARTBEAT_STALE_S = 0.6
+_DRIVE_HOLD_SWITCH_S = 1.5
+_DRIVE_MOVE_EPS_MPS = 1e-4
+_DRIVE_YAW_EPS_RAD_S = 1e-4
+
+
 @dataclass
 class SimWebConfig:
     policy_dir: Path
-    stance: Path
+    stance: Path | None
     walk: Path
     recover: Path
     log_dir: Path
@@ -129,6 +178,10 @@ class SimWebSession:
         self.sitting = False
         self.drive_active = False
         self.last_drive_cmd_at = 0.0
+        self.drive_zero_since: float | None = None
+        self.drive_last_vx = 0.0
+        self.drive_last_vy = 0.0
+        self.drive_last_wz = 0.0
         self.timed_walk_until: float | None = None
         self.job_kind: str | None = None
         self.job_result: dict[str, Any] = {"ok": True, "ended": "idle"}
@@ -136,6 +189,8 @@ class SimWebSession:
         self.gait = None
         self.gait_t = 0.0
         self.om_cmd = 0.0
+        self.demo_tripod: DemoTripodPreset = DEFAULT_DEMO_TRIPOD
+        self._cpg_loaded: dict[str, Any] | None = None
         self.hist: list[np.ndarray] | None = None
         self.gru = {"state": None, "start": np.ones((1,), dtype=bool)}
         self.push_ticks = 0
@@ -149,7 +204,7 @@ class SimWebSession:
         self.demo_duration = 0.0
         self.demo_started_sim_t = 0.0
         self.demo_telemetry: dict[str, Any] | None = None
-        # Dance scripts (dances-as-data, motor_setup/dance_script.py):
+        # Dance scripts (dances-as-data, hexapod_core/dance_script.py):
         # notes = [(t, msg)] surfaced live; cap = tightest per-act speed cap.
         self.demo_notes: list[tuple[float, str]] = []
         self.demo_note: str = ""
@@ -157,7 +212,6 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
-        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s: float | None = None
         self.demo_write_acc_units: float | None = None
         self.demo_last_target_deg: list[float] | None = None
@@ -197,7 +251,10 @@ class SimWebSession:
 
         root = Path(__file__).resolve().parents[2]
         self._proto_root = root
-        from hexapod_core.sim_gait_compat import NoSlipGait, TripodGait
+        from hexapod_core.middle_tuck_quad_gait import MiddleTuckQuadGait
+        from hexapod_core.noslip_gait import NoSlipGait
+        from hexapod_core.se2_foot_gait import SE2FootGait
+        from hexapod_core.tripod_gait import TripodGait
 
         self.mujoco = mujoco
         self.PPO = PPO
@@ -205,7 +262,9 @@ class SimWebSession:
             import cv2
             self.cv2 = cv2
         self.load_checkpoint_auto = self._load_checkpoint_auto
+        self.MiddleTuckQuadGait = MiddleTuckQuadGait
         self.NoSlipGait = NoSlipGait
+        self.SE2FootGait = SE2FootGait
         self.TripodGait = TripodGait
 
         cfg = load_config()
@@ -227,40 +286,80 @@ class SimWebSession:
 
         cats = scan_policies(self.cfg.policy_dir,
                              all_models=self.cfg.all_models)
-        self.stance_list = cats["stance"]
-        self.walk_list = cats["walk"]
-        self.si = self._ensure_listed(self.stance_list, self.cfg.stance, (68,))
-        self.wi = self._ensure_listed(self.walk_list, self.cfg.walk,
-                                      self.walk_widths)
-        self.walk_list.extend([_NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE])
+        self.rejected_policy_errors: dict[str, str] = {}
+        self.stance_list = self._current_contract_policies(cats["stance"])
+        self.walk_list = self._current_contract_policies(cats["walk"])
+        self.walk_list.extend([
+            _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
+            _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+            _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE,
+            _SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG,
+            _MIDDLE_TUCK_QUAD,
+        ])
         self.walk_list.extend(_SCRIPTED_TRIPOD)
+
+        self.stance = None
+        self.n_stance = 68
+        self.si = -1
+        if self.cfg.stance is not None:
+            try:
+                self.si = self._ensure_listed(
+                    self.stance_list, self.cfg.stance, (68,))
+                self.stance = self._load_model(
+                    self.stance_list[self.si], device="cpu")
+                self.n_stance = int(self.stance.observation_space.shape[0])
+            except (FileNotFoundError, OSError, ValueError) as exc:
+                self.rejected_policy_errors[str(self.cfg.stance)] = str(exc)
+
+        try:
+            if self.cfg.walk in _SCRIPTED_ROWS:
+                self.wi = self.walk_list.index(self.cfg.walk)
+            else:
+                self.wi = self._ensure_listed(
+                    self.walk_list, self.cfg.walk, self.walk_widths)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            self.rejected_policy_errors[str(self.cfg.walk)] = str(exc)
+            self.wi = self.walk_list.index(_TRIPOD_HW)
         self.policy_index = self._build_policy_index()
         self._register_uploaded_policies()
 
-        self.stance = self.PPO.load(self.stance_list[self.si], device="cpu")
-        self.walk = self.load_checkpoint_auto(self.walk_list[self.wi],
-                                              device="cpu")
-        self.n_stance = int(self.stance.observation_space.shape[0])
-        self.n_walk = int(self.walk.observation_space.shape[0])
-        self.walk_kind = self._walk_kind_of(self.n_walk)
         self.n_env = int(self.env.observation_space.shape[0])
-        if self.walk_kind == "plain" and self.n_walk > self.n_env:
-            raise ValueError(f"{self.walk_list[self.wi]} needs --phase-obs")
-        self.recover = (self.load_checkpoint_auto(self.cfg.recover,
-                                                  device="cpu")
-                        if self.cfg.recover.exists() else None)
+        selected_walk = self.walk_list[self.wi]
+        if selected_walk in _SCRIPTED_ROWS:
+            self.walk = None
+            self.n_walk = 72
+            self.walk_kind = "plain"
+        else:
+            self.walk = self._load_model(selected_walk, device="cpu")
+            self.n_walk = int(self.walk.observation_space.shape[0])
+            self.walk_kind = self._walk_kind_of(self.n_walk)
+            if self.walk_kind == "plain" and self.n_walk > self.n_env:
+                raise ValueError(f"{selected_walk} needs --phase-obs")
+        self.recover = None
+        if self.cfg.recover.exists():
+            try:
+                self.recover = self._load_model(
+                    self.cfg.recover, device="cpu")
+            except (OSError, ValueError) as exc:
+                self.rejected_policy_errors[str(self.cfg.recover)] = str(exc)
 
         self._regime_base: dict[str, Any] = {}
         self.servo_fit_counts = float(
             getattr(SimServoParams.load(), "speed_counts_s", 350.0))
-        self._apply_vel_contract(self.walk_list[self.wi].stem)
+        if self.walk is not None:
+            self._apply_vel_contract(self.walk_list[self.wi].stem)
 
         self.traj.start_at = "plant"
         self.obs, _ = self.env.reset()
         self.q_plant = self._q_now()
         self.z_plant = self._chassis_z()
         self.q_sit = self.q_plant.copy()
-        self.msg = "ready"
+        hidden = len(self.rejected_policy_errors)
+        stance_note = ("" if self.stance is not None
+                       else "; no v2 stance selected")
+        hidden_note = (f"; {hidden} pre-v2/missing policies rejected"
+                       if hidden else "")
+        self.msg = f"ready: {self._active_walk_name()}{stance_note}{hidden_note}"
 
     def _load_checkpoint_auto(self, path: Path, device: str = "cpu"):
         """Load plain PPO checkpoints without requiring sb3-contrib.
@@ -269,10 +368,14 @@ class SimWebSession:
         sb3-contrib dependency; the default web-sim stance/walk pair is
         plain PPO and should start in a lean local venv.
         """
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(path)
         if _obs_width(path) == 78:
             from .gru_policy import load_checkpoint_auto
-            return load_checkpoint_auto(path, device=device)
-        return self.PPO.load(path, device=device)
+            model = load_checkpoint_auto(path, device=device)
+        else:
+            model = self.PPO.load(path, device=device)
+        return model
 
     # -- uploaded numpy policies (policies as data, rl_move/np_policy) ---
     # The robot's export_policy_np.py JSON is an uploadable artifact:
@@ -286,6 +389,33 @@ class SimWebSession:
             from ..np_policy import np_policy_obs_width
             return np_policy_obs_width(p)
         return _obs_width(p)
+
+    def _policy_contract_error(self, p: Path) -> str:
+        try:
+            if p.suffix == ".json":
+                from ..np_policy import validate_np_policy
+                obj = json.loads(p.read_text())
+                errors, _ = validate_np_policy(obj)
+                if errors:
+                    return "; ".join(errors[:3])
+            else:
+                from hexapod_core.joint_frame import (
+                    require_checkpoint_joint_contract,
+                )
+                require_checkpoint_joint_contract(p)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return str(exc)
+        return ""
+
+    def _current_contract_policies(self, paths: list[Path]) -> list[Path]:
+        current: list[Path] = []
+        for path in paths:
+            error = self._policy_contract_error(path)
+            if error:
+                self.rejected_policy_errors[str(path)] = error
+            else:
+                current.append(path)
+        return current
 
     def _load_model(self, p: Path, device: str = "cpu"):
         if p.suffix == ".json":
@@ -306,6 +436,10 @@ class SimWebSession:
         except OSError:
             paths = []
         for p in paths:
+            error = self._policy_contract_error(p)
+            if error:
+                self.rejected_policy_errors[str(p)] = error
+                continue
             w = self._policy_obs_width(p)
             p = p.resolve()
             if w == 68 and p not in self.stance_list:
@@ -360,7 +494,9 @@ class SimWebSession:
         if not p.is_file():
             return {"ok": False, "error": f"no uploaded policy {name!r}"}
         with self.lock:
-            active = {self.stance_list[self.si], self.walk_list[self.wi]}
+            active = {self.walk_list[self.wi]}
+            if self.si >= 0:
+                active.add(self.stance_list[self.si])
             in_role = any(isinstance(e, tuple) and e[1] == p
                           for e in self.role_models.values())
             if p in active or in_role:
@@ -371,13 +507,14 @@ class SimWebSession:
                 p.unlink()
             except OSError as e:
                 return {"ok": False, "error": str(e)}
-            keep_s = self.stance_list[self.si]
+            keep_s = self.stance_list[self.si] if self.si >= 0 else None
             keep_w = self.walk_list[self.wi]
             if p in self.stance_list:
                 self.stance_list.remove(p)
             if p in self.walk_list:
                 self.walk_list.remove(p)
-            self.si = self.stance_list.index(keep_s)
+            self.si = (self.stance_list.index(keep_s)
+                       if keep_s is not None else -1)
             self.wi = self.walk_list.index(keep_w)
             self.policy_index = self._build_policy_index()
         return {"ok": True, "deleted": name}
@@ -387,9 +524,12 @@ class SimWebSession:
         if not p.exists():
             raise FileNotFoundError(
                 f"{p} not found; pass --policy-dir or pull checkpoints first")
-        w = _obs_width(p)
+        w = self._policy_obs_width(p)
         if w not in want:
             raise ValueError(f"{p}: obs width {w}, need one of {want}")
+        error = self._policy_contract_error(p)
+        if error:
+            raise ValueError(error)
         p = p.resolve()
         if p not in lst:
             lst.insert(0, p)
@@ -464,6 +604,10 @@ class SimWebSession:
     def _q_now(self) -> np.ndarray:
         return self.env.data.qpos[7:25].copy()
 
+    def _q_now_robot_abs(self) -> np.ndarray:
+        from hexapod_core.joint_frame import mujoco_rel_rad_to_robot_abs_rad
+        return mujoco_rel_rad_to_robot_abs_rad(self._q_now())
+
     def _roll_pitch_deg(self) -> tuple[float, float]:
         qw, qx, qy, qz = self.env.data.qpos[3:7]
         roll = math.atan2(2 * (qw * qx + qy * qz),
@@ -478,6 +622,58 @@ class SimWebSession:
         except Exception:
             return 0.0, 0.0
 
+    def _clear_drive_dwell(self) -> None:
+        self.drive_zero_since = None
+        self.drive_last_vx = 0.0
+        self.drive_last_vy = 0.0
+        self.drive_last_wz = 0.0
+
+    def _drive_cmd_moving(self, vx: float, vy: float, wz: float) -> bool:
+        return (float(np.hypot(vx, vy)) > _DRIVE_MOVE_EPS_MPS
+                or abs(wz) > _DRIVE_YAW_EPS_RAD_S)
+
+    def _drive_remember_refs(self) -> None:
+        if self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd):
+            self.drive_last_vx = float(self.traj.vx)
+            self.drive_last_vy = float(self.traj.vy)
+            self.drive_last_wz = float(self.om_cmd)
+
+    def _drive_zero_dwell_remaining(self,
+                                    now: float | None = None) -> float:
+        if self.drive_zero_since is None or not self.drive_active:
+            return 0.0
+        if now is None:
+            now = time.monotonic()
+        return max(0.0, _DRIVE_HOLD_SWITCH_S
+                   - (float(now) - self.drive_zero_since))
+
+    def _drive_neutral_dwell_locked(self, now: float) -> bool:
+        was_walking = (
+            self.mode == "walk"
+            or self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd)
+        )
+        if not was_walking:
+            self.drive_zero_since = None
+            return False
+        if self.drive_zero_since is None:
+            self.drive_zero_since = now
+        if self._drive_zero_dwell_remaining(now) <= 0.0:
+            return False
+        if not self._drive_cmd_moving(
+                self.traj.vx, self.traj.vy, self.om_cmd):
+            vx = self.drive_last_vx
+            vy = self.drive_last_vy
+            wz = self.drive_last_wz
+            if not self._drive_cmd_moving(vx, vy, wz):
+                vx, _vmax = self._drive_band()
+                vy = 0.0
+                wz = 0.0
+            self.traj.vx = float(vx)
+            self.traj.vy = float(vy)
+            self._set_drive_wz(float(wz))
+        self.msg = "drive coasting before hold"
+        return True
+
     def _published_height_ref(self) -> float:
         pub = getattr(self.traj, "_pub", self.traj.goal)
         return float(getattr(pub, "height_ref", self.traj.goal.height_ref))
@@ -490,6 +686,7 @@ class SimWebSession:
         self.downed = False
         self.sitting = False
         self.drive_active = False
+        self._clear_drive_dwell()
         self.timed_walk_until = None
         self.gait = None
         self.gait_t = 0.0
@@ -542,7 +739,6 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
-        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_last_target_deg = None
@@ -555,7 +751,7 @@ class SimWebSession:
         speed = float(self.demo_speed_live)
         if self.demo_name in QUAD_DEMO_GAITS:
             try:
-                import quad_walk as QW
+                from hexapod_core import quad_walk as QW
                 gait = QUAD_DEMO_GAITS[self.demo_name]
                 cap = QW.GAITS.get(gait, {}).get("speed_cap")
                 if cap is not None:
@@ -579,18 +775,47 @@ class SimWebSession:
             self.command_log.append(row)
             del self.command_log[:-6]
 
+    def _scripted_tripod_kw(self, p: Path) -> dict[str, Any] | None:
+        if p == _TRIPOD_HW:
+            return self.demo_tripod.play_row("hardware high-step demo")
+        return _SCRIPTED_TRIPOD.get(p)
+
+    def _scripted_se2_kw(self, p: Path) -> dict[str, Any] | None:
+        if p == _SE2_TETRAPOD:
+            return {"gait": "tetrapod"}
+        if p == _SE2_WAVE:
+            return {"gait": "wave"}
+        if p == _SE2_CPG and self._cpg_loaded is not None:
+            return {
+                "gait": self._cpg_loaded["gait"],
+                **self._cpg_loaded["gait_kw"],
+            }
+        return None
+
     def _new_gait(self):
-        # sim_gait_compat gait classes accept MuJoCo/model-relative
-        # hip/knee inputs here. Robot-absolute knees are only for the
-        # hardware demo stack; using them here corrupts the neutral stance.
-        plant_deg = [float(v) * RAD2DEG for v in self.q_plant]
-        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        # Gaits use robot-absolute joints. q_plant is private MuJoCo state,
+        # so its femur-relative hinge crosses the boundary explicitly here.
+        plant_deg = mujoco_rel_rad_to_robot_abs_deg(self.q_plant)
+        kw = self._scripted_tripod_kw(self.walk_list[self.wi])
         if kw is not None:
             g = self.TripodGait(period=kw["period"],
-                                lift=kw["lift_mm"] * 0.001, ramp=0.4)
+                                lift=kw["lift_mm"] * 0.001,
+                                ramp=kw.get("ramp", 0.4),
+                                stride_scale=kw.get("stride_scale", 1.0))
             g.sync_plant_stance(plant_deg[1], plant_deg[2])
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
+            return g
+        se2_kw = self._scripted_se2_kw(self.walk_list[self.wi])
+        if se2_kw is not None:
+            se2_kw = dict(se2_kw)
+            gait_name = str(se2_kw.pop("gait", "tetrapod"))
+            g = self.SE2FootGait(gait=gait_name, **se2_kw)
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
+            return g
+        if self.walk_list[self.wi] == _MIDDLE_TUCK_QUAD:
+            g = self.MiddleTuckQuadGait.crawl()
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
             return g
         g = make_noslip_gait(self.walk_list[self.wi], self.NoSlipGait)
         g.sync_plant_stance(plant_deg[1], plant_deg[2])
@@ -601,9 +826,12 @@ class SimWebSession:
         return int(round(min(max(gap / 0.020, 0.5), 4.0) / self.env.dt))
 
     def _stance_profile(self, kind: str) -> dict[str, float]:
-        path = self._role_path(kind) or self.stance_list[self.si]
+        path = self._role_path(kind) or self._active_stance_path()
+        if path is None:
+            raise RuntimeError(
+                f"{kind} needs a {JOINT_CONTRACT} stance policy")
         prof = self.profiles.get(path.stem, {})
-        return {**_LEGACY_PROFILE[kind], **prof.get(kind, {})}
+        return {**_DEFAULT_STANCE_PROFILE[kind], **prof.get(kind, {})}
 
     def _apply_ramp(self, kind: str) -> dict[str, float]:
         prof = self._stance_profile(kind)
@@ -616,7 +844,7 @@ class SimWebSession:
         self.env.data.qvel[:] = keep_v
         self.mujoco.mj_forward(self.env.model, self.env.data)
         self.env._profile.reset(self._q_now())
-        self.env.safety.set_nominal(self._q_now())
+        self.env.safety.set_nominal(self._q_now_robot_abs())
 
     def _re_anchor_plant(self) -> None:
         keep_q = self.env.data.qpos.copy()
@@ -624,6 +852,7 @@ class SimWebSession:
         self.traj.start_at = "plant"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -635,6 +864,7 @@ class SimWebSession:
         self.traj.start_at = "zero"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -656,11 +886,17 @@ class SimWebSession:
 
     def _stance_action(self, role: str) -> np.ndarray:
         model, n = self._role_model(role)
+        if model is None:
+            return q_rad_to_action(self._q_now_robot_abs())
         a, _ = model.predict(self.obs[:n], deterministic=True)
         return a
 
     def _do_stand(self) -> None:
         self.pose_hold_q = None
+        if self._role_model("stand")[0] is None:
+            self.msg = (
+                f"stand unavailable: select a {JOINT_CONTRACT} stance policy")
+            return
         if self.auto is not None:
             if self.auto[0] == "lower":
                 self.auto = None
@@ -686,6 +922,7 @@ class SimWebSession:
         self.traj.goal = TaskGoal()
         self.traj.goal.height_ref = float(prof["target_m"])
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.traj.mode = "rise"
         self.traj.reset_published()
         self._reset_memories(hard=False)
@@ -713,11 +950,16 @@ class SimWebSession:
         self.auto = None
         self.traj.vx = self.traj.vy = 0.0
         self.om_cmd = 0.0
-        prof = self._apply_ramp("lower")
+        self._clear_drive_dwell()
         if self.traj.start_at in ("zero", "belly"):
             self.auto = ["fold", 0, int(6.0 / self.env.dt), self._chassis_z()]
             self.msg = "LOWER: settling to the ground"
             return
+        if self._role_model("lower")[0] is None:
+            self.msg = (
+                f"lower unavailable: select a {JOINT_CONTRACT} stance policy")
+            return
+        prof = self._apply_ramp("lower")
         self.traj.goal.height_ref = float(prof["target_m"])
         total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
         self.auto = ["lower", 0, total]
@@ -748,20 +990,12 @@ class SimWebSession:
         }
 
     def _direct_profile_step_locked(self, q_rad: np.ndarray) -> None:
-        """Issue a bus-like joint target directly to MuJoCo's servo model."""
-        if self.demo_pose_frame == "robot_abs":
-            q_model = robot_abs_rad_to_sim_rad(q_rad)
-            self.env._profile.command_robot_abs(
-                q_rad,
-                speed_deg_s=self.demo_write_speed_deg_s,
-                acc_units=self.demo_write_acc_units)
-        else:
-            q_model = np.asarray(q_rad, dtype=float).copy()
-            self.env._profile.command(
-                q_model,
-                speed_deg_s=self.demo_write_speed_deg_s,
-                acc_units=self.demo_write_acc_units)
-        self.env._cmd = q_model.copy()
+        """Issue one canonical robot-absolute target at the MuJoCo boundary."""
+        self.env._profile.command_robot_abs(
+            q_rad,
+            speed_deg_s=self.demo_write_speed_deg_s,
+            acc_units=self.demo_write_acc_units)
+        self.env._cmd = np.asarray(q_rad, dtype=float).copy()
         self.env._advance()
         self.env._state = self.env._read_state()
         self.env._step_i += 1
@@ -780,10 +1014,7 @@ class SimWebSession:
             "pitch_deg": pitch,
         }
         if self.demo_last_target_deg is not None:
-            if self.demo_pose_frame == "robot_abs":
-                actual = sim_rad_to_robot_abs_deg(self._q_now())
-            else:
-                actual = [math.degrees(float(v)) for v in self._q_now()]
+            actual = mujoco_rel_rad_to_robot_abs_deg(self._q_now())
             out["max_lag_deg"] = round(max(
                 abs(a - b) for a, b in zip(actual, self.demo_last_target_deg)
             ), 2)
@@ -835,7 +1066,6 @@ class SimWebSession:
         self.demo_status = "done" if ok else "failed"
         self.demo_end_home = ""
         self.demo_direct_profile = False
-        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_telemetry = {
@@ -857,6 +1087,7 @@ class SimWebSession:
         cr, sr = math.cos(roll / 2), math.sin(roll / 2)
         cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
         self.traj.vx = self.traj.vy = 0.0
+        self._clear_drive_dwell()
         self.env.data.qpos[2] = 0.20
         self.env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
         lo, hi = self.env.model.jnt_range[1:, 0], self.env.model.jnt_range[1:, 1]
@@ -910,9 +1141,18 @@ class SimWebSession:
         return True
 
     def _drive_band(self) -> tuple[float, float]:
-        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        kw = self._scripted_tripod_kw(self.walk_list[self.wi])
         if kw is not None:
             return kw["cruise"], kw["cruise"]
+        if self.walk_list[self.wi] in _SCRIPTED_SE2:
+            return 0.03, 0.04
+        if self.walk_list[self.wi] == _MIDDLE_TUCK_QUAD:
+            return 0.015, 0.030
+        if self.walk_list[self.wi] in {
+                _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
+                _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+                _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE}:
+            return 0.02, 0.04
         reg = None if self.walk is None else self._ckpt_regime(self.walk_list[self.wi].stem)
         if reg is not None:
             return reg["cruise"], reg["vmax"]
@@ -927,14 +1167,16 @@ class SimWebSession:
             self._regime_base["speed"] = self.env.write_speed_deg_s
             self._regime_base["acc"] = self.env.write_acc_units
             self._regime_base["dq"] = self.env.safety.max_dq
-        tripod_live = self.walk_list[self.wi] in _SCRIPTED_TRIPOD
-        reg = None if tripod_live or self.walk is None else self._ckpt_regime(
+        scripted_live = self.walk_list[self.wi] in _SCRIPTED_ROWS
+        reg = None if scripted_live or self.walk is None else self._ckpt_regime(
             self.walk_list[self.wi].stem)
-        if tripod_live:
-            s = 1500.0 / max(self.servo_fit_counts, 1.0)
+        if scripted_live:
+            s = (SCRIPTED_WALK_SPEED_COUNTS_S
+                 / max(self.servo_fit_counts, 1.0))
             prof._vel_default[:] = self._regime_base["vel"] * s
-            self.env.write_speed_deg_s = 1500.0 * 360.0 / 4096.0
-            self.env.write_acc_units = 80.0
+            self.env.write_speed_deg_s = (
+                SCRIPTED_WALK_SPEED_COUNTS_S * 360.0 / 4096.0)
+            self.env.write_acc_units = SCRIPTED_WALK_ACC_UNITS
             self.env.safety.max_dq = self._regime_base["dq"]
         elif reg is not None:
             s = reg["speed"] / max(self.servo_fit_counts, 1.0)
@@ -951,10 +1193,13 @@ class SimWebSession:
     def _tick_locked(self) -> None:
         self._apply_servo_regime()
         now = time.monotonic()
-        if self.drive_active and now - self.last_drive_cmd_at > 0.6:
-            self.traj.vx = self.traj.vy = 0.0
+        if self.drive_active and now - self.last_drive_cmd_at > _DRIVE_HEARTBEAT_STALE_S:
+            if not self._drive_neutral_dwell_locked(now):
+                self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
         if self.timed_walk_until is not None and self.sim_t >= self.timed_walk_until:
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._finish_job("timed walk complete")
 
@@ -974,6 +1219,11 @@ class SimWebSession:
                      ("lower", "fold", "fell")
                      else "walk" if walking else "hold")
         self.traj.mode = "hold" if self.mode == "demo" else self.mode
+        if self.mode == "walk":
+            self._drive_remember_refs()
+        elif not self._drive_cmd_moving(self.traj.vx, self.traj.vy,
+                                        self.om_cmd):
+            self.drive_zero_since = None
 
         action = None
         if self.push_ticks > 0:
@@ -983,7 +1233,7 @@ class SimWebSession:
             self.env.data.xfrc_applied[self.chassis_bid, :3] = 0.0
 
         if self.downed:
-            action = q_rad_to_action(self._q_now())
+            action = q_rad_to_action(self._q_now_robot_abs())
         elif self.auto is not None and self.auto[0] == "rise":
             action = self._stance_action("stand")
             self.auto[1] += 1
@@ -1010,8 +1260,9 @@ class SimWebSession:
         elif self.auto is not None and self.auto[0] == "blend":
             self.auto[1] += 1
             s = min(self.auto[1] / max(self.auto[2], 1), 1.0)
-            action = q_rad_to_action((1.0 - s) * self.q_blend_from
-                                     + s * self.q_plant)
+            q_model = ((1.0 - s) * self.q_blend_from + s * self.q_plant)
+            action = q_rad_to_action(
+                self.env._mujoco_to_logical_q(q_model))
             if self.auto[1] >= self.auto[2]:
                 self._re_anchor_plant()
                 self.auto = None
@@ -1064,8 +1315,6 @@ class SimWebSession:
             if self.demo_direct_profile:
                 self._direct_profile_step_locked(pose_rad)
             else:
-                if self.demo_pose_frame == "robot_abs":
-                    pose_rad = robot_abs_rad_to_sim_rad(pose_rad)
                 action = q_rad_to_action(pose_rad)
             self.demo_t += self.env.dt * self._demo_speed_eff_locked()
             while self.demo_notes and self.demo_notes[0][0] <= self.demo_t:
@@ -1077,21 +1326,20 @@ class SimWebSession:
             if self.demo_t >= self.demo_duration:
                 self._finish_demo_locked()
         elif self.sitting:
-            action = q_rad_to_action(self.q_sit)
+            action = q_rad_to_action(
+                self.env._mujoco_to_logical_q(self.q_sit))
         elif self.pose_hold_q is not None:
-            action = q_rad_to_action(self.pose_hold_q)
+            action = q_rad_to_action(
+                self.env._mujoco_to_logical_q(self.pose_hold_q))
         elif walking and scripted:
             if self.gait is None:
                 self.gait = self._new_gait()
                 self.gait_t = 0.0
             self.gait.set_velocity(vx=self.traj.vx, vy=self.traj.vy,
                                    omega=self.om_cmd)
-            # _new_gait() builds the sim_gait_compat variants, whose
-            # desired_deg() already returns MuJoCo/model-relative knees.
-            # Converting again folds the knee by one hip angle and makes
-            # the scripted rows look broken in the web UI.
-            q_model = np.radians(self.gait.desired_deg(self.gait_t))
-            action = q_rad_to_action(q_model)
+            # Gait output is robot-absolute; actions here drive MuJoCo.
+            q_robot = np.radians(self.gait.desired_deg(self.gait_t))
+            action = q_rad_to_action(q_robot)
             self.gait_t += self.env.dt
         elif walking:
             action = self._walk_predict()
@@ -1110,6 +1358,7 @@ class SimWebSession:
                 self.drive_active = False
                 self.timed_walk_until = None
                 self.traj.vx = self.traj.vy = 0.0
+                self._clear_drive_dwell()
                 reason = info.get("termination_reason") or "episode end"
                 self._finish_job(f"{reason}; DOWN", ok=False)
         self.sim_t += self.env.dt
@@ -1298,7 +1547,13 @@ class SimWebSession:
         self._log_writer = None
 
     def _active_stance_name(self) -> str:
-        return self.stance_list[self.si].name
+        path = self._active_stance_path()
+        return path.name if path is not None else "unassigned"
+
+    def _active_stance_path(self) -> Path | None:
+        if self.si < 0 or self.si >= len(self.stance_list):
+            return None
+        return self.stance_list[self.si]
 
     def _active_walk_name(self) -> str:
         p = self.walk_list[self.wi]
@@ -1307,7 +1562,27 @@ class SimWebSession:
     def _live(self) -> dict[str, Any]:
         roll, pitch = self._roll_pitch_deg()
         vx, vy = self._body_vel()
+        chassis_xyz = [
+            round(float(value), 6)
+            for value in self.env.data.xpos[self.chassis_bid]
+        ]
+        joint_deg = [
+            round(float(value), 4)
+            for value in mujoco_rel_rad_to_robot_abs_deg(self._q_now())
+        ]
+        feet_xyz: list[list[float] | None] = []
+        for leg in range(6):
+            try:
+                site_id = self.env.model.site(f"L{leg}_foot_site").id
+                feet_xyz.append([
+                    round(float(value), 6)
+                    for value in self.env.data.site_xpos[site_id]
+                ])
+            except (KeyError, ValueError):
+                feet_xyz.append(None)
         return {
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
             "model": self._active_walk_name(),
             "stance": self._active_stance_name(),
             "mode": self.mode,
@@ -1323,7 +1598,11 @@ class SimWebSession:
             "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),
             "height_live": True,
+            "walk_zero_dwell_s": round(self._drive_zero_dwell_remaining(), 2),
             "t_s": round(self.sim_t, 1),
+            "chassis_xyz_m": chassis_xyz,
+            "joint_deg": joint_deg,
+            "foot_xyz_m": feet_xyz,
         }
 
     # Public API methods used by web_server.py -------------------------
@@ -1400,7 +1679,7 @@ class SimWebSession:
     def pose(self) -> dict[str, Any]:
         with self.lock:
             deg = [round(float(v), 2)
-                   for v in sim_rad_to_robot_abs_deg(self._q_now())]
+                   for v in mujoco_rel_rad_to_robot_abs_deg(self._q_now())]
             return {"ok": True, "sim": True, "degrees": deg, "live": 18,
                     "armed": self.armed, "mode": self.mode,
                     "ts": time.time()}
@@ -1413,7 +1692,7 @@ class SimWebSession:
         mode = (mode or "tuck").strip()
         if mode == "plant":
             kfs = data["modes"]["tuck"]["keyframes"]
-            plant = sim_rad_to_robot_abs_deg(self.q_plant)
+            plant = mujoco_rel_rad_to_robot_abs_deg(self.q_plant)
             keyframes = list(kfs[:-1]) + [{"q_deg": plant, "s": 0.5}]
         else:
             keyframes = data["modes"][mode]["keyframes"]
@@ -1479,7 +1758,7 @@ class SimWebSession:
                 f"speed={speed:.2f}")
             self._do_reset("plant" if down else "zero", 0.0,
                            f"{name}: command playback")
-            start_deg = sim_rad_to_robot_abs_deg(self._q_now())
+            start_deg = mujoco_rel_rad_to_robot_abs_deg(self._q_now())
             pose_fn, dur = self._pose_fn_from_frames(start_deg, frames)
             self._set_demo_safety(True)
             self.demo_pose_fn = pose_fn
@@ -1491,7 +1770,6 @@ class SimWebSession:
             self.demo_is_script = False
             self.demo_end_home = home
             self.demo_direct_profile = True
-            self.demo_pose_frame = "robot_abs"
             # compare_standup.py validated these stand-up paths with a
             # 90 deg/s bus profile; the ServoProfile still applies its
             # fitted per-axis velocity ceiling, latency, deadband, and
@@ -1515,6 +1793,7 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.armed = True
             self.sitting = False
             self.pose_hold_q = None
@@ -1638,7 +1917,6 @@ class SimWebSession:
         self.demo_speed_cap = cap
         self.demo_is_script = True
         self.demo_direct_profile = True
-        self.demo_pose_frame = "robot_abs"
         self.demo_write_speed_deg_s = self.env.write_speed_deg_s
         self.demo_write_acc_units = self.env.write_acc_units
         self.demo_started_sim_t = self.sim_t
@@ -1656,6 +1934,7 @@ class SimWebSession:
         self.auto = None
         self.gait = None
         self.om_cmd = 0.0
+        self._clear_drive_dwell()
         self.armed = True
         self.msg = f"{name} running"
         self._open_log(f"demo_{name}")
@@ -1709,7 +1988,7 @@ class SimWebSession:
                     self._clamp_float(speed, 1.0, 0.25, 3.0))
         with self.lock:
             try:
-                import quad_walk as QW
+                from hexapod_core import quad_walk as QW
             except Exception as e:
                 return {"ok": False, "error": f"quad_walk missing: {e}"}
 
@@ -1746,8 +2025,9 @@ class SimWebSession:
                 self.auto = None
                 self.gait = None
                 self.om_cmd = 0.0
+                self._clear_drive_dwell()
             self._set_demo_safety(True)
-            base_deg = sim_rad_to_robot_abs_deg(self.q_plant)
+            base_deg = mujoco_rel_rad_to_robot_abs_deg(self.q_plant)
             gait = QUAD_DEMO_GAITS[name]
             phase = (
                 "rear" if action == "rear"
@@ -1762,7 +2042,6 @@ class SimWebSession:
             self.demo_started_sim_t = self.sim_t
             self.demo_end_home = "stand" if name in QUAD_DOWN_DEMOS else ""
             self.demo_direct_profile = True
-            self.demo_pose_frame = "robot_abs"
             self.demo_write_speed_deg_s = self.env.write_speed_deg_s
             self.demo_write_acc_units = 254.0
             self.demo_name = name
@@ -1782,6 +2061,7 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.armed = True
             self.msg = f"{name} running"
             self._open_log(f"demo_{name}")
@@ -1807,6 +2087,7 @@ class SimWebSession:
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.mode = "hold"
             self.traj.mode = "hold"
             self.msg = "demo stopped - holding"
@@ -1880,8 +2161,8 @@ class SimWebSession:
                 from hexapod_core import tripod_gait as TG
             except Exception:
                 TG = None
-            plant_deg = [round(math.degrees(float(v)), 3)
-                         for v in self.q_plant]
+            plant_deg = [round(float(v), 3) for v in
+                         mujoco_rel_rad_to_robot_abs_deg(self.q_plant)]
 
             def foot_from(hip_deg: float, knee_deg: float) -> dict[str, float]:
                 if TG is None:
@@ -1889,9 +2170,9 @@ class SimWebSession:
                 hip = math.radians(float(hip_deg))
                 knee = math.radians(float(knee_deg))
                 reach = (TG.COXA_MM + TG.FEMUR_MM * math.cos(hip)
-                         + TG.TIBIA_MM * math.cos(hip + knee))
+                         + TG.TIBIA_MM * math.cos(knee))
                 z = (-TG.FEMUR_MM * math.sin(hip)
-                     - TG.TIBIA_MM * math.sin(hip + knee))
+                     - TG.TIBIA_MM * math.sin(knee))
                 return {"radial_mm": round(reach, 2), "z_mm": round(z, 2)}
 
             per_leg = []
@@ -2034,6 +2315,8 @@ class SimWebSession:
     def sim_state(self) -> dict[str, Any]:
         with self.lock:
             return {"ok": True, "active": self.drive_active,
+                    "joint_frame": FRAME_ROBOT_ABS,
+                    "joint_contract": JOINT_CONTRACT,
                     "auto": self.auto[0] if self.auto else None,
                     "downed": self.downed, "sitting": self.sitting,
                     "viewer": self.cfg.viewer,
@@ -2056,10 +2339,134 @@ class SimWebSession:
 
     def rl_policy_info(self) -> dict[str, Any]:
         with self.lock:
-            return {"ok": True, **self._model_info(self.stance,
-                                                   self.stance_list[self.si]),
+            stance_path = self._active_stance_path()
+            stance_info = (
+                self._model_info(self.stance, stance_path)
+                if self.stance is not None and stance_path is not None
+                else self._unavailable_stance_info()
+            )
+            return {"ok": True, **stance_info,
                     "walk": self._model_info(self.walk, self.walk_list[self.wi])
                     if self.walk is not None else self._scripted_info()}
+
+    def rl_timing_probe(self, *, samples: int = 200,
+                        read_samples: int = 8) -> dict[str, Any]:
+        """Non-mutating timing probe for the active MuJoCo walk policy path."""
+        samples = max(1, min(2000, int(samples)))
+        read_samples = max(0, min(50, int(read_samples)))
+        with self.lock:
+            if self.walk is None:
+                return {"ok": False, "sim": True, "motion_free": True,
+                        "error": ("active sim walk driver is scripted; "
+                                  "select a learned walk policy")}
+            model = self.walk
+            policy_path = self.walk_list[self.wi]
+            n_walk = int(self.n_walk)
+            walk_kind = self.walk_kind
+            obs = self.obs.copy()
+            state = self.env._state
+            q_nom = self.env._q_nom.copy()
+            prev_action = self.env._prev_action.copy()
+            goal = self.env._current_goal()
+            tilt_ref = tuple(self.env._tilt_ref0)
+            cfg = self.env.cfg
+            max_dq = self.env.safety.max_dq
+            max_roll = self.env.safety.max_roll
+            max_pitch = self.env.safety.max_pitch
+            dt = float(self.env.dt)
+
+            read_times: list[float] = []
+            for _ in range(read_samples):
+                t0 = time.perf_counter()
+                _ = self._live()
+                _ = self._q_now()
+                _ = self._roll_pitch_deg()
+                read_times.append(time.perf_counter() - t0)
+
+            scratch_safety = SafetyLayer(cfg)
+            scratch_safety.max_dq = max_dq
+            scratch_safety.max_roll = max_roll
+            scratch_safety.max_pitch = max_pitch
+            scratch_safety.set_nominal(q_nom)
+            scratch_safety.set_tilt_reference(*tilt_ref)
+
+            obs_times: list[float] = []
+            policy_times: list[float] = []
+            safety_times: list[float] = []
+            total_times: list[float] = []
+            bad_action = ""
+            safety_trip = ""
+            action_abs_max = 0.0
+
+            def predict_once():
+                if walk_kind == "hist":
+                    frame = obs[:72].copy()
+                    return model.predict(
+                        np.concatenate([frame for _ in range(_HIST_K)]),
+                        deterministic=True)
+                if walk_kind == "gru":
+                    o = np.concatenate([obs[:72], obs[-_N_MODE:]])
+                    return model.policy.predict(
+                        o, state=None, episode_start=np.ones((1,), dtype=bool),
+                        deterministic=True)
+                return model.predict(obs[:n_walk], deterministic=True)
+
+            for _ in range(samples):
+                tick_t0 = time.perf_counter()
+
+                stage_t = time.perf_counter()
+                _ = build_obs(cfg, state, q_nom, prev_action, goal=goal,
+                              tilt_ref=tilt_ref)
+                obs_times.append(time.perf_counter() - stage_t)
+
+                stage_t = time.perf_counter()
+                raw_act, _ = predict_once()
+                policy_times.append(time.perf_counter() - stage_t)
+
+                stage_t = time.perf_counter()
+                action, bad = scratch_safety.validate_action(
+                    raw_act, n_act=18)
+                if action is None:
+                    bad_action = bad
+                    break
+                q_prop = action_to_q_rad(action)
+                q_safe, status = scratch_safety.filter(
+                    q_prop, state, action=action)
+                safety_times.append(time.perf_counter() - stage_t)
+                if status.terminate:
+                    safety_trip = status.reason
+                    break
+
+                prev_action = action.copy()
+                action_abs_max = max(action_abs_max,
+                                     float(np.max(np.abs(action))))
+                _ = q_safe
+                total_times.append(time.perf_counter() - tick_t0)
+
+            return {
+                "ok": not bad_action and not safety_trip,
+                "sim": True,
+                "motion_free": True,
+                "mutates_sim_state": False,
+                "physics_step_not_measured": True,
+                "policy": policy_path.stem,
+                "policy_file": policy_path.name,
+                "obs_dim": n_walk,
+                "policy_hz": round(1.0 / dt, 3) if dt > 0 else None,
+                "budget_ms": round(dt * 1000.0, 3),
+                "snapshot_read": _ms_stats(read_times),
+                "snapshot_read_errors": 0,
+                "hot_path": {
+                    "total": _ms_stats(total_times),
+                    "obs": _ms_stats(obs_times),
+                    "policy": _ms_stats(policy_times),
+                    "safety": _ms_stats(safety_times),
+                },
+                "max_delta_q_deg": round(math.degrees(max_dq), 4),
+                "action_abs_max": round(action_abs_max, 4),
+                "bad_action": bad_action or None,
+                "safety_trip": safety_trip or None,
+            }
 
     def _model_info(self, model: Any, path: Path) -> dict[str, Any]:
         if hasattr(model, "meta"):      # uploaded numpy policy
@@ -2068,12 +2475,24 @@ class SimWebSession:
                     "act_dim": int(model.action_space.shape[0]),
                     "hidden": list(model.hidden),
                     "activation": model.meta.get("activation", "tanh"),
-                    "uploaded": True}
+                    "uploaded": True,
+                    "joint_frame": FRAME_ROBOT_ABS,
+                    "joint_contract": JOINT_CONTRACT}
         return {"source": str(path), "obs_dim": int(model.observation_space.shape[0]),
                 "act_dim": int(model.action_space.shape[0]),
                 "hidden": self._hidden_layers(model),
+                "joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT,
                 "activation": getattr(getattr(model.policy, "activation_fn", None),
                                       "__name__", model.policy.__class__.__name__)}
+
+    @staticmethod
+    def _unavailable_stance_info() -> dict[str, Any]:
+        return {"source": None, "obs_dim": 68, "act_dim": 18,
+                "hidden": [], "activation": "unavailable",
+                "joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT,
+                "error": f"select a {JOINT_CONTRACT} stance policy"}
 
     @staticmethod
     def _hidden_layers(model: Any) -> list[int]:
@@ -2086,14 +2505,16 @@ class SimWebSession:
 
     def _scripted_info(self) -> dict[str, Any]:
         return {"source": self._active_walk_name(), "obs_dim": 72,
-                "act_dim": 18, "hidden": [], "activation": "scripted"}
+                "act_dim": 18, "hidden": [], "activation": "scripted",
+                "joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT}
 
     def rl_policies(self) -> dict[str, Any]:
         with self.lock:
             rows = []
             for p in self.stance_list:
                 rows.append(self._policy_row(p, "stance", 68,
-                                             p == self.stance_list[self.si]))
+                                             p == self._active_stance_path()))
             for p in self.walk_list:
                 if p in _SCRIPTED_ROWS:
                     rows.append(self._policy_row(p, "walk", 72,
@@ -2104,6 +2525,9 @@ class SimWebSession:
                         p, "walk", self._policy_obs_width(p) or 0,
                         p == self.walk_list[self.wi]))
             return {"ok": True, "dir": str(self.cfg.policy_dir),
+                    "joint_frame": FRAME_ROBOT_ABS,
+                    "joint_contract": JOINT_CONTRACT,
+                    "rejected_count": len(self.rejected_policy_errors),
                     "policies": rows}
 
     def _policy_row(self, p: Path, slot: str, obs_dim: int, active: bool,
@@ -2192,9 +2616,10 @@ class SimWebSession:
             return {"ok": False, "error": f"unsupported obs width {w}"}
 
     def _set_stance_path(self, p: Path) -> None:
+        model = self._load_model(p)
         self.si = self.stance_list.index(p.resolve())
-        self.stance = self._load_model(p)
-        self.n_stance = int(self.stance.observation_space.shape[0])
+        self.stance = model
+        self.n_stance = int(model.observation_space.shape[0])
         self.msg = f"stance model -> {p.stem}"
 
     def _set_walk_path(self, p: Path) -> None:
@@ -2234,15 +2659,22 @@ class SimWebSession:
             else:
                 self._record_command(f"/api/rl/{mode}")
             self.drive_active = False
+            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._open_log(mode)
             self.job_kind = mode
             if mode == "stand":
                 self._do_stand()
                 if self.auto is None:
-                    self._finish_job(self.msg)
+                    self._finish_job(self.msg, ok=False)
+                    return {"ok": False, "error": self.msg,
+                            "active": False, "live": self._live()}
             elif mode == "lower":
                 self._do_sit()
+                if self.auto is None:
+                    self._finish_job(self.msg, ok=False)
+                    return {"ok": False, "error": self.msg,
+                            "active": False, "live": self._live()}
             elif mode == "walk":
                 if not self._engage_walk():
                     self._finish_job(self.msg, ok=False)
@@ -2267,19 +2699,32 @@ class SimWebSession:
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self.auto = None
             self._finish_job("stopped - holding")
             return {"ok": True, "status": self.msg, "live": self._live()}
 
-    def rl_drive_start(self) -> dict[str, Any]:
+    def rl_drive_start(self, vx: float = 0.0, vy: float = 0.0,
+                       wz: float = 0.0, dh: float = 0.0) -> dict[str, Any]:
         with self.lock:
             self._record_command("/api/rl/drive/start")
             if self.auto is None and (self.sitting or self._chassis_z() < 0.09):
                 self._do_stand()
+                if self.auto is None:
+                    return {"ok": False, "active": False,
+                            "error": self.msg, "status": self.msg,
+                            "live": self._live()}
             self.drive_active = True
             self.last_drive_cmd_at = time.monotonic()
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
+            seed_vx = float(vx)
+            seed_vy = float(vy)
+            seed_wz = max(-0.5, min(0.5, float(wz)))
+            seed_dh = max(-1.0, min(1.0, float(dh)))
+            if seed_vx or seed_vy or seed_wz or seed_dh:
+                self.rl_drive_cmd(seed_vx, seed_vy, seed_wz, seed_dh)
             self._open_log("drive")
             self.msg = "drive session active"
             return {"ok": True, "active": True, "status": self.msg,
@@ -2318,8 +2763,9 @@ class SimWebSession:
             hb_dt = min(max(now - self.last_drive_cmd_at, 0.0), 0.5)
             self.last_drive_cmd_at = now
             goal = self.traj.goal
-            moving = (float(np.hypot(vx, vy)) > 1e-4 or abs(wz) > 1e-4)
+            moving = self._drive_cmd_moving(vx, vy, wz)
             if moving and abs(goal.height_ref) > self._DRIVE_HEIGHT_EPS_M:
+                self.drive_zero_since = None
                 # Walk champions trained at height_ref 0: ramp a nudged
                 # body back to the walk anchor height first; the gait
                 # engages on a later heartbeat once the ref is ~0.
@@ -2334,14 +2780,18 @@ class SimWebSession:
                 self.msg = "returning to walk height"
             elif moving:
                 if self._engage_walk():
+                    self.drive_zero_since = None
                     _, vmax = self._drive_band()
                     mag = float(np.hypot(vx, vy))
                     scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
                     self.traj.vx = float(vx * scale)
                     self.traj.vy = float(vy * scale)
                     self._set_drive_wz(wz)
+                    self._drive_remember_refs()
                     if self.msg == "returning to walk height":
                         self.msg = "drive session active"
+            elif self._drive_neutral_dwell_locked(now):
+                pass
             else:
                 self.traj.vx = self.traj.vy = 0.0
                 self._set_drive_wz(0.0)
@@ -2356,6 +2806,8 @@ class SimWebSession:
                             goal.height_ref
                             + dh * self._DRIVE_HEIGHT_RATE_MPS * hb_dt))
                     self.traj._pub.height_ref = goal.height_ref
+                if self.mode != "walk":
+                    self.drive_zero_since = None
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "live": self._live()}
 
@@ -2365,6 +2817,7 @@ class SimWebSession:
             self.drive_active = False
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
+            self._clear_drive_dwell()
             self._close_log()
             self.job_result = {"ok": True, "ended": "drive stopped",
                                "sim_t_s": round(self.sim_t, 2),
@@ -2378,6 +2831,77 @@ class SimWebSession:
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "result": self.job_result,
                     "live": self._live()}
+
+    _SCRIPTED_GAIT_BY_ID = {
+        0: _TRIPOD_HW,
+        1: _NOSLIP,
+        2: _NOSLIP_RIPPLE,
+        3: _NOSLIP_WAVE,
+        4: _SE2_TETRAPOD,
+        5: _SE2_WAVE,
+        6: _SE2_CPG,
+        7: _NOSLIP_CLEAN,
+        8: _MIDDLE_TUCK_QUAD,
+        9: _NOSLIP_FLUID,
+        10: _NOSLIP_FLUID_FAST,
+        11: _NOSLIP_FLUID_HYBRID,
+        12: _NOSLIP_FLUID_PUSH,
+        13: _NOSLIP_FLUID_PULSE,
+    }
+
+    def _set_scripted_gait_id(self, gait_id: int) -> dict[str, Any]:
+        p = self._SCRIPTED_GAIT_BY_ID.get(int(gait_id))
+        if p is None:
+            return {"ok": False, "status": f"bad GAIT {gait_id}"}
+        if p == _SE2_CPG and self._cpg_loaded is None:
+            return {"ok": False,
+                    "status": "refused GAIT 6 - CPGLOAD a controller first"}
+        self._set_walk_path(p)
+        if p == _TRIPOD_HW:
+            desc = format_demo_tripod(self.demo_tripod)
+        elif p == _SE2_CPG:
+            desc = f"SE2 CPG ({self._cpg_loaded['name']})"
+        else:
+            desc = p.name
+        self.msg = "walk driver -> scripted " + desc
+        return {"ok": True, "status": self.msg}
+
+    def _cpg_dirs(self) -> tuple[Path, Path]:
+        root = getattr(self, "_proto_root", ROOT)
+        return (
+            root / "linux_control" / "policies",
+            root / "rl_move" / "sim" / "policies",
+        )
+
+    def _load_cpg_controller(self, name: str) -> dict[str, Any]:
+        try:
+            loaded = _load_cpg_controller(name, dirs=self._cpg_dirs())
+        except (ValueError, OSError) as e:
+            return {"ok": False, "error": f"bad CPGLOAD: {e}"}
+        self._cpg_loaded = loaded
+        gk = loaded["gait_kw"]
+        self.msg = (
+            f"loaded CPG '{loaded['name']}' ({loaded['gait']}, "
+            f"period={gk['period']:.2f} swing_frac={gk['swing_frac']:.3f} "
+            f"lift={gk['lift'] * 1000:.1f}mm) - send GAIT 6 to use it"
+        )
+        if self.walk_list[self.wi] == _SE2_CPG:
+            self.gait = None
+        return {"ok": True, "status": self.msg, "text": self.msg}
+
+    def _apply_demo_tripod_tune(self, updates: dict[str, float]) -> dict[str, Any]:
+        if abs(self.traj.vx) + abs(self.traj.vy) + abs(self.om_cmd) > 1e-4:
+            self.msg = "tripod tune refused while walking"
+            return {"ok": False, "status": self.msg,
+                    "error": "send J 0 0 0 before GTUNE"}
+        try:
+            self.demo_tripod = tune_demo_tripod(self.demo_tripod, updates)
+        except ValueError as e:
+            return {"ok": False, "error": f"bad GTUNE: {e}"}
+        if self.walk_list[self.wi] == _TRIPOD_HW:
+            self.gait = None
+        self.msg = "GTUNE " + format_demo_tripod(self.demo_tripod)
+        return {"ok": True, "status": self.msg}
 
     def cmd(self, line: str) -> dict[str, Any]:
         parts = line.strip().split()
@@ -2394,18 +2918,70 @@ class SimWebSession:
                 self.armed = False
                 self.quad_reared = False
                 self.rl_stop()
+                self._clear_drive_dwell()
                 self.msg = "sim stopped"
             elif head == "SETTLE":
                 self.armed = False
                 self._do_sit()
             elif head == "HOLD":
                 self.traj.vx = self.traj.vy = 0.0
+                self._set_drive_wz(0.0)
+                self._clear_drive_dwell()
                 self.msg = "holding"
+            elif head == "GAIT" and len(parts) >= 2:
+                try:
+                    out = self._set_scripted_gait_id(int(parts[1]))
+                except ValueError:
+                    out = {"ok": False, "error": "bad GAIT"}
+                self.msg = out.get("status") or out.get("error") or self.msg
+                return out
+            elif head == "CPGLIST":
+                rows = _list_cpg_controllers(dirs=self._cpg_dirs())
+                return {"ok": True, "text": json.dumps(rows)}
+            elif head == "CPGLOAD" and len(parts) >= 2:
+                return self._load_cpg_controller(parts[1])
+            elif head == "GTUNE":
+                if len(parts) == 1:
+                    self.msg = "GTUNE " + format_demo_tripod(
+                        self.demo_tripod)
+                    return {"ok": True, "status": self.msg}
+                try:
+                    updates = parse_demo_tripod_tune_tokens(parts[1:])
+                except ValueError as e:
+                    return {"ok": False, "error": f"bad GTUNE: {e}"}
+                return self._apply_demo_tripod_tune(updates)
+            elif head == "K" and len(parts) >= 2:
+                try:
+                    return self._apply_demo_tripod_tune(
+                        {"lift": float(parts[1])})
+                except ValueError:
+                    return {"ok": False, "error": "bad K"}
             elif head == "J" and len(parts) >= 4:
+                if len(parts) >= 5:
+                    try:
+                        gait_id = int(parts[4])
+                    except ValueError:
+                        gait_id = None
+                    p = self._SCRIPTED_GAIT_BY_ID.get(gait_id)
+                    if p is not None and self.walk_list[self.wi] != p:
+                        out = self._set_scripted_gait_id(gait_id)
+                        if not out.get("ok"):
+                            return out
                 if self._engage_walk():
-                    self.traj.vx = float(parts[1]) / 1000.0
-                    self.traj.vy = float(parts[2]) / 1000.0
-                    self.om_cmd = float(parts[3])
+                    vx = float(parts[1]) / 1000.0
+                    vy = float(parts[2]) / 1000.0
+                    om = float(parts[3])
+                    if self.walk_list[self.wi] == _TRIPOD_HW:
+                        vx = max(-self.demo_tripod.max_vx_mps,
+                                 min(self.demo_tripod.max_vx_mps, vx))
+                        vy = max(-self.demo_tripod.max_vy_mps,
+                                 min(self.demo_tripod.max_vy_mps, vy))
+                        om = max(-self.demo_tripod.max_omega_rad_s,
+                                 min(self.demo_tripod.max_omega_rad_s, om))
+                    self.traj.vx = vx
+                    self.traj.vy = vy
+                    self.om_cmd = om
+                    self._drive_remember_refs()
                     self.msg = "J command routed to sim"
             return {"ok": True, "status": self.msg}
 
@@ -2429,7 +3005,8 @@ class SimWebSession:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-        q_rad = np.radians(q_deg)
+        q_robot = np.radians(q_deg)
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_robot)
         with self.lock:
             self._record_command(f"/api/sim/pose source={source}")
             self._stop_demo_locked(status="idle", clear_name=True)
@@ -2444,21 +3021,22 @@ class SimWebSession:
             self.traj.start_at = "plant"
             self.traj.goal = TaskGoal()
             self.traj.vx = self.traj.vy = 0.0
+            self._clear_drive_dwell()
             self.traj.mode = "hold"
             self.traj.reset_published()
             self._reset_memories(hard=True)
             if hasattr(self.env, "_place_at_plant"):
-                self.env._place_at_plant(q_rad)
+                self.env._place_at_plant(q_model)
             else:
                 qpos = self.env.data.qpos.copy()
-                qpos[7:25] = q_rad
+                qpos[7:25] = q_model
                 qvel = np.zeros_like(self.env.data.qvel)
                 self._restore_phys(qpos, qvel)
-            self.pose_hold_q = q_rad.copy()
-            self.q_plant = q_rad.copy()
+            self.pose_hold_q = q_model.copy()
+            self.q_plant = q_model.copy()
             self.z_plant = self._chassis_z()
             self.env._profile.reset(self._q_now())
-            self.env.safety.set_nominal(self._q_now())
+            self.env.safety.set_nominal(q_robot)
             self._finish_job(f"synced {source} pose")
             return {
                 "ok": True,

@@ -33,7 +33,7 @@ from rl_move.body_ik import fk_all_feet  # noqa: E402
 from rl_move.robot_state import DEG2RAD, N_JOINTS  # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
 from hexapod_core.joint_frame import (  # noqa: E402
-    robot_abs_deg_to_sim_rad, robot_stand_degrees,
+    robot_abs_rad_to_mujoco_rel_rad, robot_stand_degrees,
 )
 from rl_move.sim.servo_model import (  # noqa: E402
     SIM_MODEL_PATH, ServoProfile, SimServoParams, apply_params_to_model,
@@ -58,8 +58,7 @@ def clip_limits(q_rad: np.ndarray) -> np.ndarray:
 
 def place_at_plant(mujoco, model, data, qadr, pos_act,
                    q_rad: np.ndarray) -> None:
-    """qpos at ``q_rad`` with the chassis at foot-contact height
-    (mirror of SimHexapodBalanceEnv._place_at_plant)."""
+    """Place a public robot-absolute pose at foot-contact height."""
     import mujoco_prototype as MP
     feet = fk_all_feet(q_rad)
     foot_drop = float(np.min(feet[:, 2]))
@@ -67,10 +66,11 @@ def place_at_plant(mujoco, model, data, qadr, pos_act,
     mujoco.mj_resetData(model, data)
     data.qpos[:3] = (0.0, 0.0, base_z)
     data.qpos[3:7] = (1.0, 0.0, 0.0, 0.0)
-    data.qpos[qadr] = q_rad
+    q_model = robot_abs_rad_to_mujoco_rel_rad(q_rad)
+    data.qpos[qadr] = q_model
     data.qvel[:] = 0.0
     data.ctrl[:] = 0.0
-    data.ctrl[pos_act] = q_rad
+    data.ctrl[pos_act] = q_model
     mujoco.mj_forward(model, data)
     for _ in range(40):
         worst = min((float(data.contact[ci].dist)
@@ -105,8 +105,9 @@ def run_dance(name: str, *, seconds: float, speed: float,
     chassis_bid = mujoco.mj_name2id(
         model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
 
-    q_plant = clip_limits(robot_abs_deg_to_sim_rad(ROBOT_PLANT_DEG))
-    place_at_plant(mujoco, model, data, qadr, pos_act, q_plant)
+    q_plant_abs = clip_limits(np.radians(ROBOT_PLANT_DEG))
+    q_plant = robot_abs_rad_to_mujoco_rel_rad(q_plant_abs)
+    place_at_plant(mujoco, model, data, qadr, pos_act, q_plant_abs)
     profile = ServoProfile(params, q_plant)
 
     h = model.opt.timestep
@@ -145,7 +146,8 @@ def run_dance(name: str, *, seconds: float, speed: float,
     fell_at = None
     for i in range(n_ticks):
         t = i / CTRL_HZ * speed          # dance/demo time
-        q_goal = clip_limits(robot_abs_deg_to_sim_rad(pose_fn(t)))
+        q_goal = robot_abs_rad_to_mujoco_rel_rad(
+            clip_limits(np.radians(pose_fn(t))))
         profile.command(q_goal, acc_units=STREAM_ACC_UNITS)
         advance_tick()
         uz = up_z(data, chassis_bid)

@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
@@ -22,10 +23,8 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[2]
 WEBUI_DIR = ROOT / "linux_control" / "webui"
 DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
-DEFAULT_STANCE_POLICY = Path(
-    "wandb_downloads/"
-    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m/"
-    "ppo_goal_cw_standwalk_stance_mesh2_stancemix_tuckclock_scratch8m.zip")
+DEFAULT_STANCE_POLICY: Path | None = None
+DEFAULT_WALK_POLICY = Path("scripted:tripod_highstep_demo_gait")
 
 PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
               "/quad", "/debug", "/rl", "/experiments", "/measure",
@@ -38,6 +37,22 @@ STATIC_FILES = {
 }
 
 
+def _camera_indexes(value: str) -> tuple[int, ...]:
+    try:
+        indexes = tuple(dict.fromkeys(
+            int(item.strip()) for item in value.split(",") if item.strip()
+        ))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "camera indexes must be comma-separated integers"
+        ) from error
+    if not indexes or any(index < 0 for index in indexes):
+        raise argparse.ArgumentTypeError(
+            "camera indexes need one or more non-negative values"
+        )
+    return indexes
+
+
 def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     n = int(handler.headers.get("Content-Length", 0) or 0)
     raw = handler.rfile.read(n) if n else b""
@@ -48,6 +63,14 @@ def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     except ValueError:
         return {"_text": raw.decode("utf-8", "ignore")}
     return obj if isinstance(obj, dict) else {"_value": obj}
+
+
+def _query_int(full_path: str, key: str, default: int) -> int:
+    vals = urllib.parse.parse_qs(urllib.parse.urlsplit(full_path).query)
+    try:
+        return int(vals.get(key, [default])[0])
+    except (TypeError, ValueError):
+        return int(default)
 
 
 def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
@@ -151,6 +174,11 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.rl_roles())
                 elif path == "/api/rl/drive":
                     self._json(200, session.rl_drive_state())
+                elif path == "/api/rl/timing":
+                    self._json(200, session.rl_timing_probe(
+                        samples=_query_int(self.path, "samples", 200),
+                        read_samples=_query_int(
+                            self.path, "read_samples", 8)))
                 elif path == "/api/standup/modes":
                     self._json(200, session.standup_modes())
                 elif path == "/api/sim/state":
@@ -188,7 +216,12 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                 n = int(self.headers.get("Content-Length", 0) or 0)
                 raw = self.rfile.read(n) if n else b""
                 line = raw.decode("utf-8", "ignore").strip()
-                self._send(200, "ok" if session.cmd(line).get("ok") else "failed")
+                out = session.cmd(line)
+                text = out.get("text")
+                if text is None:
+                    text = "ok" if out.get("ok") else (
+                        out.get("error") or out.get("status") or "failed")
+                self._send(200, str(text))
                 return
             data = _json_body(self)
             try:
@@ -261,7 +294,11 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                         role=str(data.get("role", "")),
                         file=str(data.get("file", ""))))
                 elif path == "/api/rl/drive/start":
-                    self._json(200, session.rl_drive_start())
+                    self._json(200, session.rl_drive_start(
+                        vx=float(data.get("vx", 0.0)),
+                        vy=float(data.get("vy", 0.0)),
+                        wz=float(data.get("wz", 0.0)),
+                        dh=float(data.get("dh", 0.0))))
                 elif path == "/api/rl/drive/cmd":
                     self._json(200, session.rl_drive_cmd(
                         vx=float(data.get("vx", 0.0)),
@@ -315,7 +352,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--stance", type=Path,
                     default=DEFAULT_STANCE_POLICY)
     ap.add_argument("--walk", type=Path,
-                    default=Path("ppo_goal_cw_dep_bcgait1_hard1.zip"))
+                    default=DEFAULT_WALK_POLICY)
     ap.add_argument("--recover", type=Path,
                     default=Path("ppo_goal_cw_recover_any21_pop3_B14.zip"))
     ap.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR)
@@ -337,13 +374,39 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--target", choices=("sim", "robot", "both"),
                     default="sim",
                     help="initial hub target; robot/both need a robot URL")
-    ap.add_argument("--phase-obs", action="store_true")
+    ap.add_argument("--phase-obs", action="store_true", default=True,
+                    help="enable phase-clock walk observations (default)")
+    ap.add_argument("--no-phase-obs", dest="phase_obs",
+                    action="store_false",
+                    help="disable phase-clock walk observations")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
     ap.add_argument("--all-models", action="store_true")
+    ap.add_argument("--no-vision", action="store_true",
+                    help="disable the local /vision camera worker and page")
+    ap.add_argument("--vision-camera", type=int, default=0)
+    ap.add_argument("--vision-camera-cycle", type=_camera_indexes,
+                    default=(0, 1), metavar="INDEXES")
+    ap.add_argument("--vision-processing-width", type=int, default=1280)
+    ap.add_argument("--vision-target-fps", type=float, default=10.0)
+    ap.add_argument("--vision-opencv-threads", type=int, default=4)
+    ap.add_argument(
+        "--vision-capture-backend",
+        choices=("auto", "avfoundation", "opencv"),
+        default="auto",
+        help="camera transport; auto prefers native macOS NV12 capture",
+    )
+    ap.add_argument("--vision-capture-width", type=int, default=1920)
+    ap.add_argument("--vision-capture-height", type=int, default=1440)
+    ap.add_argument("--vision-capture-fps", type=float, default=30.0)
     return ap
 
 
-def _resolve_policy(pdir: Path, p: Path) -> Path:
+def _resolve_policy(pdir: Path, p: Path | None) -> Path | None:
+    if p is None:
+        return None
+    raw = str(p)
+    if raw.startswith("scripted:"):
+        return Path(raw.removeprefix("scripted:"))
     return p if p.is_absolute() else pdir / p
 
 
@@ -369,6 +432,19 @@ def _reexec_under_mjpython_for_viewer() -> None:
 
 def main(session_factory: Callable[..., Any] | None = None) -> None:
     args = build_arg_parser().parse_args()
+    if args.vision_camera < 0:
+        raise SystemExit("--vision-camera must be non-negative")
+    if (args.vision_processing_width != 0
+            and args.vision_processing_width < 320):
+        raise SystemExit("--vision-processing-width must be 0 or at least 320")
+    if args.vision_target_fps <= 0.0:
+        raise SystemExit("--vision-target-fps must be positive")
+    if args.vision_opencv_threads <= 0:
+        raise SystemExit("--vision-opencv-threads must be positive")
+    if min(args.vision_capture_width, args.vision_capture_height) <= 0:
+        raise SystemExit("--vision-capture-width/height must be positive")
+    if args.vision_capture_fps <= 0.0:
+        raise SystemExit("--vision-capture-fps must be positive")
     if args.viewer and session_factory is None:
         _reexec_under_mjpython_for_viewer()
     use_hub = session_factory is None
@@ -403,12 +479,48 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
         session = session_factory(args)
         handler_factory = lambda: make_handler(session)
     srv = None
+    vision_runtime = None
     try:
         handler = handler_factory()
+        if not args.no_vision:
+            linux_control = ROOT / "linux_control"
+            if str(linux_control) not in sys.path:
+                sys.path.insert(0, str(linux_control))
+            from vision_server import (  # noqa: PLC0415
+                DEFAULT_CONFIG,
+                DEFAULT_REPORT_DIR,
+                DEFAULT_UI_DIR,
+                VisionRuntime,
+                wrap_handler_with_vision,
+            )
+            vision_runtime = VisionRuntime(
+                DEFAULT_CONFIG,
+                camera_index=args.vision_camera,
+                camera_cycle=args.vision_camera_cycle,
+                processing_width=args.vision_processing_width,
+                target_fps=args.vision_target_fps,
+                opencv_threads=args.vision_opencv_threads,
+                capture_backend=args.vision_capture_backend,
+                capture_width=args.vision_capture_width,
+                capture_height=args.vision_capture_height,
+                capture_fps=args.vision_capture_fps,
+                robot_url=args.robot_url or None,
+                report_dir=DEFAULT_REPORT_DIR,
+            )
+            vision_runtime.start()
+            handler = wrap_handler_with_vision(
+                handler, vision_runtime, DEFAULT_UI_DIR
+            )
         srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
         srv.daemon_threads = True
         url = f"http://{args.bind}:{args.http_port}/rl"
         print(f"sim web UI: {url}", flush=True)
+        if vision_runtime is not None:
+            print(
+                f"vision UI: http://{args.bind}:{args.http_port}/vision "
+                "(read-only)",
+                flush=True,
+            )
         if use_hub:
             robot = args.robot_url or "(connect from web UI)"
             print(f"hub target: {session.target} | robot: {robot}",
@@ -431,6 +543,8 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
     finally:
         if srv is not None:
             srv.server_close()
+        if vision_runtime is not None:
+            vision_runtime.stop()
         close = getattr(session, "close", None)
         if close:
             close()

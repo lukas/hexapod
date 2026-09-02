@@ -197,7 +197,7 @@ class MjxVecEnv(VecEnv):
             for i, env in enumerate(self.envs):
                 self._push_output(env, i, outs)
                 frames[i][fam] = {
-                    "q_nom": q_nom[i].copy(),
+                    "q_nom": env._mujoco_to_logical_q(q_nom[i]),
                     "z0": float(env.data.xpos[env._chassis_bid, 2]),
                     "pad_z_ref": np.array(
                         [float(env.data.xpos[b, 2]) if b >= 0 else 0.0
@@ -269,8 +269,9 @@ class MjxVecEnv(VecEnv):
                 # Probe placements on the SAME DR'd model as the episode
                 # placement below (C order: probes, then episode start).
                 for fam, qp in (
-                        ("plant", env._clip_to_joint_limits(
-                            env._plant_deg * DEG2RAD)),
+                        ("plant", env._logical_to_mujoco_q(
+                            env._clip_to_joint_limits(
+                                env._plant_deg * DEG2RAD))),
                         ("belly", np.zeros(N_JOINTS, dtype=float))):
                     q_probe[fam][i] = qp
                     qpos_probe[fam][i] = place_env(
@@ -278,7 +279,7 @@ class MjxVecEnv(VecEnv):
             qpos0[i] = place_env(env, self._scratch_data, q_start,
                                  model=dr_model)
             env._profile = CommandStub()
-            env._cmd = q_start.copy()
+            env._cmd = env._mujoco_to_logical_q(q_start)
         self._tp_host = {k: np.stack(v) for k, v in tp.items()}
         if self._model_dr:
             self._dr_host = {k: np.stack(v) for k, v in dr_rows.items()}
@@ -303,14 +304,14 @@ class MjxVecEnv(VecEnv):
         q_nom = np.asarray(outs.q, dtype=float)        # (B, 18)
         st.reset_profiles(q_nom)
         for i, env in enumerate(self.envs):
-            env._cmd = q_nom[i].copy()
+            env._cmd = env._mujoco_to_logical_q(q_nom[i])
         for _ in range(int(round(0.3 / dt))):          # stiff, normal feet
             out = st.tick(hold)
         outs = self._jax.device_get(out)
 
         finalized = []
         for i, env in enumerate(self.envs):
-            env._q_nom = q_nom[i].copy()
+            env._q_nom = env._mujoco_to_logical_q(q_nom[i])
             self._push_output(env, i, outs)
             obs, info = env._reset_finalize()
             finalized.append([obs, info])

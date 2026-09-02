@@ -1,7 +1,8 @@
 const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
-let gait = 0, armed = false, dancePaused = false, lastInput = 0;
+const $ = id => document.getElementById(id);
+let gait = 6, armed = false, dancePaused = false, lastInput = 0;
 let activeView = 'drive';  // drive | motors | demos | rl | calibrate | touchdown | debug
 let calAxis = 'all';
 let calTimer = null;
@@ -35,7 +36,8 @@ let simFrameLastAt = 0;
 // drives a servo until the human presses Enable. All servo-driving sends are
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
-let maxVx = 40, maxVy = 29, maxOmega = 0.7;
+let maxVx = 30, maxVy = 18, maxOmega = 0.35;
+const DEFAULT_CPG_CONTROLLER = 'cpg_controller_robust120_yawtrim.json';
 
 function savedRobotUrl(){
   try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
@@ -279,9 +281,19 @@ async function cmd(line, opts){
   if(opts && opts.globalStop) headers['X-Hexapod-Global-Stop'] = '1';
   try {
     const r = await fetch('/cmd', {method:'POST', body:line, headers});
-    if(!r.ok) throw 0;
+    const text = await r.text();
+    if(!r.ok){
+      const msg = text || 'cmd failed';
+      setLink(false, msg);
+      showSent(msg, true);
+      return {ok:false, text:msg};
+    }
     setLink(true);
-  } catch(e){ setLink(false, 'cmd failed'); }
+    return {ok:true, text};
+  } catch(e){
+    setLink(false, 'cmd failed');
+    return {ok:false, text:'cmd failed'};
+  }
 }
 // Persistent, copyable last-error bar. The header #sent blip is tiny,
 // transient and unselectable on a phone (operator request 08-10).
@@ -318,7 +330,7 @@ document.getElementById('statuscopy').onclick = async ()=>{
   const parts = [
     'link: '+conn.textContent,
     'robot: '+document.getElementById('robotact').textContent];
-  const gpT = gpEl.textContent.trim();
+  const gpT = (gpEl.getAttribute('aria-label') || gpEl.title || gpEl.textContent).trim();
   if(gpT) parts.push('controller: '+gpT);
   const sentT = sentEl.textContent.trim();
   if(sentT) parts.push('last: '+sentT);
@@ -561,8 +573,6 @@ function paintFeedback(fb){
   if(!fb || !fb.ok) return;
   lastFeedback = fb;
   const line = feedbackPitchLabel(fb);
-  const gp = $('gp');
-  if(gp && line) gp.textContent = line;
   const q = $('qpitch');
   if(q) q.textContent = line || '—';
 }
@@ -603,7 +613,7 @@ function makeStick(canvas, horizontalOnly){
   canvas.addEventListener('pointerup',release);
   canvas.addEventListener('pointercancel',release);
   window.addEventListener('resize',resize); resize();
-  return { get x(){return nx;}, get y(){return ny;} };
+  return { get x(){return nx;}, get y(){return ny;}, release };
 }
 const driveStick = makeStick(document.getElementById('drive'), false);
 const turnStick  = makeStick(document.getElementById('turn'),  true);
@@ -631,9 +641,12 @@ function keyVec(){
 // Standard Xbox mapping (Chrome Gamepad API):
 //   0=A 1=B 2=X 3=Y  4=LB 5=RB  6=LT 7=RT
 // Hold LB/LT/RB/RT, then tap X/Y/A/B → 16 demos (rows get harder).
-// Face alone: X=sit, Y=stand, A=set-zero-here, B=stop demo.
+// Drive page default: left stick walks, right stick turns, D-pad up/down
+// stands/lowers, B stops. Face-button stand/sit/set-zero shortcuts stay off;
+// they were too easy to brush while driving.
 let gpPrev = [];
 const PAD_FACE = {x:2, y:3, a:0, b:1};          // button indices
+const PAD_DPAD = {up:12, down:13};               // standard Gamepad mapping
 const PAD_MODS = [                               // easiest → hardest
   {i:4, key:'LB'}, {i:6, key:'LT'},
   {i:5, key:'RB'}, {i:7, key:'RT'},
@@ -649,6 +662,18 @@ const PAD_FACE_ORDER = ['x', 'y', 'a', 'b'];
 function httpsUrl(){
   const p = window.HEXAPOD_HTTPS_PORT || 8443;   // substituted into index.html
   return 'https://'+location.hostname+(p===443?'':(':'+p))+location.pathname;
+}
+function setGamepadTopStatus(kind, detail){
+  const icon = '🎮';
+  const klass = kind === 'ok' ? 'joy-ok' : (kind === 'need' ? 'joy-need' : 'joy-off');
+  if(gpEl.textContent !== icon) gpEl.textContent = icon;
+  if(gpEl.dataset.kind !== kind){
+    gpEl.dataset.kind = kind;
+    gpEl.className = 'statusline joy-status '+klass;
+  }
+  if(gpEl.title !== detail) gpEl.title = detail;
+  if(gpEl.getAttribute('aria-label') !== detail)
+    gpEl.setAttribute('aria-label', detail);
 }
 function demoMotionLog(){
   const el = $('dmotionlog');
@@ -711,7 +736,7 @@ async function goPoseZero(pose, label){
         +(j.error||'unknown'), true);
       if(j.demo) paintDemoStatus(j.demo);
       if(j.robot) paintRobotActivity(j.robot);
-      return;
+      return false;
     }
     setArmed(true);
     showSent(requestReceiptLine(j, tag)+'; '
@@ -727,21 +752,22 @@ async function goPoseZero(pose, label){
       const st = String(d.status||'');
       const chk = (d.params||{}).stand_check;
       if(st.startsWith('error') || st.startsWith('LIMP')){
-        showSent(st.replace(/^error:\s*/,'')); return;
+        showSent(st.replace(/^error:\s*/,''), true); return false;
       }
       if(st.startsWith('done')){
         if(pose==='stand' && chk && chk.max_err_deg!=null)
           showSent('stand verified · tracking '+Number(chk.max_err_deg).toFixed(1)+'°');
         else
           showSent(tag + ' done');
-        return;
+        return true;
       }
-      if(st.startsWith('aborted')){ showSent(tag + ' aborted'); return; }
-      if(st){ showSent(st); return; }
+      if(st.startsWith('aborted')){ showSent(tag + ' aborted', true); return false; }
+      if(st){ showSent(st); return false; }
       break;
     }
-  }catch(e){ showSent(tag + ' failed'); }
+  }catch(e){ showSent(tag + ' failed', true); }
   refreshRobotState(false);
+  return false;
 }
 async function padSit(){ return goPoseZero('sit', 'sit zero'); }
 async function padStand(){ return goPoseZero('stand', 'stand zero'); }
@@ -772,18 +798,21 @@ function pollGamepad(){
   if(!gp){
     // Browsers only expose gamepads in a secure context (HTTPS/localhost).
     if(!window.isSecureContext)
-      gpEl.innerHTML = '🎮 needs HTTPS &rarr; <a href="'+httpsUrl()+
-        '" style="color:#7cf">open secure page</a> (accept the warning)';
+      setGamepadTopStatus('need',
+        'Controller needs HTTPS. Open '+httpsUrl()+
+        ' and accept/trust the certificate if prompted.');
     else
-      gpEl.textContent = '🎮 press a button on the controller to connect';
+      setGamepadTopStatus('off',
+        'Press a button on the controller to connect it.');
     return null;
   }
   const modHeld = PAD_MODS.map(m => padBtnDown(gp, m.i));
   const modIdx = modHeld.findIndex(Boolean);
   const modLabel = modIdx >= 0 ? PAD_MODS[modIdx].key : '';
-  gpEl.textContent = modLabel
-    ? ('pad '+modLabel+' + X/Y/A/B')
-    : ('pad '+gp.id.slice(0,18));
+  setGamepadTopStatus('ok', modLabel
+    ? ('Controller: '+modLabel+' + X/Y/A/B demo shortcuts are active.')
+    : ('Controller: '+(gp.id || 'gamepad')
+      +'. Left stick walk, right stick turn, D-pad up/down stand/lower.'));
 
   const down = [];
   for(let i=0;i<gp.buttons.length;i++) down[i] = padBtnDown(gp, i);
@@ -799,10 +828,20 @@ function pollGamepad(){
       }
     }
   } else {
-    if(press(PAD_FACE.x)) padSit();
-    if(press(PAD_FACE.y)) padStand();
-    if(press(PAD_FACE.a)) padSetZero();
-    if(press(PAD_FACE.b)) padStopDemo();
+    // Default controller mode is steering only. Bare face buttons are too
+    // easy to brush while driving, so zero/stand/sit stay on visible UI
+    // buttons. B remains an explicit stop; D-pad up/down is intentional
+    // enough for stand/lower.
+    if(press(PAD_DPAD.up)){
+      disc('P');
+    }
+    if(press(PAD_DPAD.down)){
+      disc('C');
+    }
+    if(press(PAD_FACE.b)){
+      stopScriptedDrive('pad B - J 0 0 0');
+      padStopDemo();
+    }
   }
   gpPrev = down;
 
@@ -815,30 +854,162 @@ function pollGamepad(){
 }
 
 function disc(c){
-  if(c==='X'){ settleServos(); return; }
+  if(c==='X'){ stepLowerThenPowerOff(); return; }
   // Stand / Center: use verified glide, not the old one-shot /cmd P|C.
-  if(c==='P'){ goPoseZero('stand', '▲ Stand'); forceResend(); return; }
-  if(c==='C'){ goPoseZero('sit', 'Center / Sit'); forceResend(); return; }
+  if(c==='P'){
+    stopDriveMotionForPose('stand');
+    goPoseZero('stand', '▲ Stand');
+    forceResend();
+    return;
+  }
+  if(c==='C'){
+    stopDriveMotionForPose('STEP lower');
+    goPoseZero('sit', 'Center / Sit');
+    forceResend();
+    return;
+  }
   if(needArm()) return;
   cmd(c); forceResend();
 }
 
 document.querySelectorAll('button[data-cmd]').forEach(btn=>
   btn.onclick=()=> disc(btn.dataset.cmd));
-document.getElementById('stop').onclick=settleServos;
+document.getElementById('stop').onclick=stepLowerThenPowerOff;
 
 const vmax=document.getElementById('vmax'), lift=document.getElementById('lift');
-vmax.oninput=()=>{ maxVx=+vmax.value; maxVy=Math.round(maxVx*0.73);
-  document.getElementById('vlab').textContent=vmax.value; };
-lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
-lift.onchange=()=>cmd('K '+lift.value);
-maxVx = +vmax.value; maxVy = Math.round(maxVx*0.73);
+const TRIPOD_TUNE_DEFAULT = Object.freeze({
+  period: 1.80, lift: 40, stride: 0.55, ramp: 0.85,
+  maxVx: 30, maxVy: 18, maxOmega: 0.35,
+});
+let tripodTune = {...TRIPOD_TUNE_DEFAULT};
+function numInput(id){ return document.getElementById(id); }
+function readTuneNumber(id, fallback, min, max, digits){
+  const el = numInput(id);
+  const raw = el ? parseFloat(el.value) : NaN;
+  const val = clamp(Number.isFinite(raw) ? raw : fallback, min, max);
+  const text = digits == null ? String(Math.round(val)) : val.toFixed(digits);
+  if(el && el.value !== text) el.value = text;
+  return val;
+}
+function writeTuneNumber(id, val, digits){
+  const el = numInput(id);
+  if(!el) return;
+  el.value = digits == null ? String(Math.round(val)) : Number(val).toFixed(digits);
+}
+function syncTimedWalkLimits(){
+  const vx = $('wvx'), vy = $('wvy'), om = $('wom');
+  if(vx){ vx.min = String(-tripodTune.maxVx); vx.max = String(tripodTune.maxVx);
+    vx.value = String(clamp(parseFloat(vx.value)||0, -tripodTune.maxVx, tripodTune.maxVx)); }
+  if(vy){ vy.min = String(-tripodTune.maxVy); vy.max = String(tripodTune.maxVy);
+    vy.value = String(clamp(parseFloat(vy.value)||0, -tripodTune.maxVy, tripodTune.maxVy)); }
+  if(om){ om.min = String(-tripodTune.maxOmega); om.max = String(tripodTune.maxOmega);
+    om.value = String(clamp(parseFloat(om.value)||0, -tripodTune.maxOmega, tripodTune.maxOmega)); }
+}
+function writeTripodTune(t){
+  tripodTune = {...t};
+  writeTuneNumber('wperiod', tripodTune.period, 2);
+  writeTuneNumber('lift', tripodTune.lift, null);
+  writeTuneNumber('wstride', tripodTune.stride, 2);
+  writeTuneNumber('wramp', tripodTune.ramp, 2);
+  writeTuneNumber('wvxcap', tripodTune.maxVx, null);
+  writeTuneNumber('wvycap', tripodTune.maxVy, null);
+  writeTuneNumber('womcap', tripodTune.maxOmega, 2);
+  if(vmax) vmax.value = String(Math.round(tripodTune.maxVx));
+  maxVx = tripodTune.maxVx;
+  maxVy = tripodTune.maxVy;
+  maxOmega = tripodTune.maxOmega;
+  const vlab = $('vlab');
+  if(vlab) vlab.textContent = String(Math.round(maxVx));
+  syncTimedWalkLimits();
+}
+function readTripodTune(){
+  const t = {
+    period: readTuneNumber('wperiod', tripodTune.period, 0.75, 3.00, 2),
+    lift: readTuneNumber('lift', tripodTune.lift, 10, 50, null),
+    stride: readTuneNumber('wstride', tripodTune.stride, 0.30, 1.20, 2),
+    ramp: readTuneNumber('wramp', tripodTune.ramp, 0.10, 2.50, 2),
+    maxVx: readTuneNumber('wvxcap', tripodTune.maxVx, 10, 60, null),
+    maxVy: readTuneNumber('wvycap', tripodTune.maxVy, 5, 40, null),
+    maxOmega: readTuneNumber('womcap', tripodTune.maxOmega, 0.05, 0.60, 2),
+  };
+  writeTripodTune(t);
+  return t;
+}
+function tripodTuneLine(t){
+  return 'GTUNE period='+t.period.toFixed(2)
+    +' lift='+t.lift.toFixed(0)
+    +' stride='+t.stride.toFixed(2)
+    +' ramp='+t.ramp.toFixed(2)
+    +' vx='+t.maxVx.toFixed(0)
+    +' vy='+t.maxVy.toFixed(0)
+    +' omega='+t.maxOmega.toFixed(2);
+}
+function setTripodTuneStatus(text, bad){
+  const el = $('wtripodstatus');
+  if(!el) return;
+  el.textContent = text;
+  el.style.color = bad ? '#ffb4b4' : '';
+}
+async function sendTripodTune(){
+  if(gait !== 0){
+    setTripodTuneStatus('Pick GAIT 0 high-step tripod before applying this tune.', true);
+    return false;
+  }
+  if(scriptedDriveMoving || walkTimer){
+    setTripodTuneStatus('Stop walking before applying a gait tune.', true);
+    return false;
+  }
+  const t = readTripodTune();
+  const line = tripodTuneLine(t);
+  try{
+    const r = await fetch('/cmd', {method:'POST', body:line});
+    const text = await r.text();
+    const failed = !r.ok || /^failed\b/i.test(text);
+    showSent(text && text !== 'ok' ? (line+' → '+text) : line, failed);
+    setTripodTuneStatus(failed ? (text || 'tune failed') : 'Applied: '+line, failed);
+    if(!failed) forceResend();
+    return !failed;
+  }catch(e){
+    showSent('GTUNE failed', true);
+    setTripodTuneStatus('Tune failed — link?', true);
+    return false;
+  }
+}
+function updateGaitTuneVisibility(){
+  const wrap = $('wtripodwrap');
+  if(wrap) wrap.hidden = gait !== 0;
+}
+writeTripodTune(tripodTune);
+updateGaitTuneVisibility();
+['wperiod','lift','wstride','wramp','wvxcap','wvycap','womcap'].forEach(id=>{
+  const el = $(id);
+  if(!el) return;
+  el.oninput = ()=>{ readTripodTune(); setTripodTuneStatus('Edited locally. Apply before the next walk.', false); };
+  el.onchange = sendTripodTune;
+});
+if(vmax){
+  vmax.oninput=()=>{
+    const vx = clamp(parseFloat(vmax.value)||tripodTune.maxVx, 10, 60);
+    writeTuneNumber('wvxcap', vx, null);
+    const vyEl = $('wvycap');
+    if(vyEl && document.activeElement !== vyEl)
+      writeTuneNumber('wvycap', Math.round(vx*0.60), null);
+    readTripodTune();
+    setTripodTuneStatus('Forward cap edited locally. Apply before the next walk.', false);
+  };
+  vmax.onchange=sendTripodTune;
+}
+if($('wtripodapply')) $('wtripodapply').onclick = sendTripodTune;
+if($('wtripodreset')) $('wtripodreset').onclick = ()=>{
+  writeTripodTune(TRIPOD_TUNE_DEFAULT);
+  sendTripodTune();
+};
 
 // --- Bench zero workflow -------------------------------------------------------
 // Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →
 // Limp all, or E-STOP), hand-poses, POST /api/set_zero (top bar), ARMs,
-// Stands (P glide), preflights, then the gait gets plain `J vx vy omega`
-// and `J 0 0 0` over /cmd — nothing else.
+// Stands (P glide), runs the read-only readiness check, then the gait gets
+// plain `J vx vy omega` and `J 0 0 0` over /cmd — nothing else.
 async function setZeroHere(fromMotors){
   // No confirm (operator 08-11: no warning modals). Motors do not
   // move — only the zero point is rewritten.
@@ -855,9 +1026,9 @@ async function setZeroHere(fromMotors){
 document.getElementById('topsetzero').onclick = ()=> setZeroHere(false);
 document.getElementById('wpreflight').onclick = async ()=>{
   const out = document.getElementById('wpfout');
-  out.textContent = 'Preflight (read-only)…';
+  out.textContent = 'Checking readiness (no motion)…';
   try{
-    const r = await fetch('/api/rl/preflight?mode=lower&t='+Date.now(), {cache:'no-store'});
+    const r = await fetch('/api/rl/preflight?mode=walk&t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
     const det = [];
     if(d.roll_deg!=null) det.push('roll '+d.roll_deg+'°');
@@ -869,11 +1040,14 @@ document.getElementById('wpreflight').onclick = async ()=>{
       : '<b style="color:#ff7b72">NOT ready</b>: '+(d.error||'?')
         + (det.length ? ' · '+det.join(' · ') : '')
         + ' — fresh Set zero → Stand before walking.';
-  }catch(e){ out.textContent = 'preflight failed (link?)'; }
+  }catch(e){ out.textContent = 'readiness check failed (link?)'; }
 };
 
-// --- gait picker: 0 tripod drag · 1 no-slip tripod (+alpha) · 2 no-slip
-// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave. Alpha only tunes
+// --- gait picker: 0 tripod high-step · 1 no-slip tripod (+alpha) · 2 no-slip
+// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave ·
+// 6 loaded Central Pattern Generator (CPG) tetrapod ·
+// 7 no-slip clampfit tripod · 8 middle-tuck quad crawl ·
+// 9 no-slip fluid tripod · 10 no-slip fluid-fast tripod. Alpha only tunes
 // gait 1 (the others run their presets), so the slider hides for them. --------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
@@ -881,14 +1055,76 @@ document.getElementById('wpreflight').onclick = async ()=>{
 // boundary of a live no-slip gait.
 const wgaitSel = document.getElementById('wgait');
 const walphaEl = document.getElementById('walpha');
-function sendGait(){
-  gait = parseInt(wgaitSel.value, 10) || 0;
-  const a = parseFloat(walphaEl.value) || 0;
-  document.getElementById('walab').textContent = a.toFixed(2);
+if(wgaitSel) wgaitSel.value = String(gait);
+const GAIT_LABELS = Object.freeze({
+  0: 'High-step tripod',
+  1: 'No-slip tripod',
+  2: 'No-slip ripple',
+  3: 'No-slip wave',
+  4: 'SE2 tetrapod',
+  5: 'SE2 wave',
+  6: 'Central Pattern Generator (CPG) tetrapod',
+  7: 'No-slip clampfit',
+  8: 'Middle-up quad',
+  9: 'No-slip fluid tripod',
+  10: 'No-slip fluid-fast tripod',
+});
+function commandTextFailed(text){
+  return /^(failed|bad|refused)/i.test(String(text || ''));
+}
+function updateGaitSummary(extra){
+  const el = $('wgaitsummary');
+  if(!el) return;
+  let text = 'Selected: ' + (GAIT_LABELS[gait] || ('GAIT ' + gait)) + '.';
+  if(gait === 6 && !loadedCpgName)
+    text += ' Loading the Central Pattern Generator file.';
+  text += ' Stop walking before switching gaits.';
+  if(extra) text += ' ' + extra;
+  el.textContent = text;
+}
+function updateGaitPickActive(){
+  document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
+    btn.classList.toggle('active', parseInt(btn.dataset.gait, 10) === gait);
+  });
+}
+function updateGaitModePanels(){
   document.getElementById('walphawrap').style.display =
     gait === 1 ? '' : 'none';
-  const line = 'GAIT ' + gait + ' ' + a.toFixed(2);
-  cmd(line); showSent(line); forceResend();
+  updateGaitTuneVisibility();
+  updateGaitPickActive();
+  updateGaitSummary();
+}
+async function sendGait(){
+  const prev = gait;
+  const next = parseInt(wgaitSel.value, 10) || 0;
+  if(next === 6 && !loadedCpgName){
+    const loaded = await ensureCpgLoaded(DEFAULT_CPG_CONTROLLER);
+    if(!loaded){
+      wgaitSel.value = String(prev);
+      gait = prev;
+      updateGaitModePanels();
+      return false;
+    }
+  }
+  const a = parseFloat(walphaEl.value) || 0;
+  document.getElementById('walab').textContent = a.toFixed(2);
+  const line = 'GAIT ' + next + ' ' + a.toFixed(2);
+  const res = await cmd(line);
+  const failed = !res.ok || commandTextFailed(res.text);
+  showSent(res.text && res.text !== 'ok' ? line + ' → ' + res.text : line,
+           failed);
+  if(failed){
+    wgaitSel.value = String(prev);
+    gait = prev;
+    updateGaitModePanels();
+    forceResend();
+    return false;
+  }
+  gait = next;
+  updateGaitModePanels();
+  forceResend();
+  if(gait === 0) await sendTripodTune();
+  return true;
 }
 wgaitSel.onchange = sendGait;
 
@@ -896,12 +1132,15 @@ wgaitSel.onchange = sendGait;
 // CPGLIST/CPGLOAD are plain DriveController.handle() lines (same /cmd
 // channel as GAIT/J), so no new HTTP route was needed -- this is just a
 // convenience picker over the two commands. Loading never swaps the live
-// gait; the operator still picks "SE2 CPG" in the gait select above and
-// sends/starts the walk to actually use it.
+// gait; selecting gait 6 uses the loaded Central Pattern Generator controller.
 const wcpgSel = document.getElementById('wcpgsel');
 const wcpgStatus = document.getElementById('wcpgstatus');
-async function refreshCpgList(){
+let loadedCpgName = '';
+let cpgLoadPromise = null;
+async function refreshCpgList(opts){
+  opts = opts || {};
   wcpgSel.innerHTML = '<option value="">(loading…)</option>';
+  let preferredValue = DEFAULT_CPG_CONTROLLER;
   try{
     const r = await fetch('/cmd', {method:'POST', body:'CPGLIST'});
     const text = await r.text();
@@ -913,7 +1152,7 @@ async function refreshCpgList(){
     }
     for(const row of rows){
       const opt = document.createElement('option');
-      opt.value = row.name || row.file;
+      opt.value = row.file || row.name;
       const gate = row.gate_pass_dr0 === true ? 'PASS'
         : row.gate_pass_dr0 === false ? 'fail' : '?';
       const slip = row.gate_slip_per_m != null
@@ -924,25 +1163,79 @@ async function refreshCpgList(){
           + ', dr0 gate ' + gate + ', slip/m ' + slip + ')');
       wcpgSel.appendChild(opt);
     }
+    const preferred = Array.from(wcpgSel.options).find(opt =>
+      /robust120.*yawtrim/i.test(opt.value + ' ' + opt.textContent));
+    if(preferred){
+      wcpgSel.value = preferred.value;
+      preferredValue = preferred.value;
+    }
   }catch(e){
     wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
   }
+  if(opts.autoLoadDefault && gait === 6){
+    const ok = await ensureCpgLoaded(preferredValue || DEFAULT_CPG_CONTROLLER);
+    if(ok) await sendGait();
+  }
 }
 document.getElementById('wcpgrefresh').onclick = refreshCpgList;
-document.getElementById('wcpgload').onclick = async ()=>{
-  const name = wcpgSel.value;
-  if(!name){ wcpgStatus.textContent = 'pick a controller first.'; return; }
+async function loadCpgController(name){
+  name = name || wcpgSel.value;
+  if(!name){
+    wcpgStatus.textContent = 'pick a Central Pattern Generator file first.';
+    return false;
+  }
   const line = 'CPGLOAD ' + name;
   try{
-    const r = await fetch('/cmd', {method:'POST', body:line});
-    const msg = await r.text();
-    wcpgStatus.textContent = msg;
-    showSent(line, !r.ok);
+    const res = await cmd(line);
+    const failed = !res.ok || commandTextFailed(res.text);
+    wcpgStatus.textContent = res.text || (failed ? 'load failed' : 'loaded');
+    showSent(res.text && res.text !== 'ok' ? line + ' → ' + res.text : line,
+             failed);
+    if(!failed){
+      for(const opt of wcpgSel.options){
+        if(opt.value === name || opt.textContent.includes(name)){
+          wcpgSel.value = opt.value;
+          break;
+        }
+      }
+      loadedCpgName = name;
+      updateGaitSummary('Loaded ' + name + '.');
+      forceResend();
+    } else {
+      updateGaitSummary('Central Pattern Generator load failed.');
+    }
+    return !failed;
   }catch(e){
     wcpgStatus.textContent = 'load failed — link?';
+    updateGaitSummary('Central Pattern Generator load failed.');
+    return false;
   }
+}
+async function ensureCpgLoaded(name){
+  name = name || DEFAULT_CPG_CONTROLLER;
+  if(loadedCpgName === name) return true;
+  if(cpgLoadPromise) return cpgLoadPromise;
+  cpgLoadPromise = loadCpgController(name).finally(()=>{ cpgLoadPromise = null; });
+  return cpgLoadPromise;
+}
+document.getElementById('wcpgload').onclick = async ()=>{
+  await loadCpgController(wcpgSel.value);
 };
-refreshCpgList();
+document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
+  btn.onclick = async ()=>{
+    if(scriptedDriveMoving || walkTimer){
+      showSent('stop walking before changing gait', true);
+      return;
+    }
+    const cpg = btn.dataset.cpg || '';
+    if(cpg && !(await ensureCpgLoaded(cpg))) return;
+    wgaitSel.value = String(parseInt(btn.dataset.gait, 10) || 0);
+    await sendGait();
+  };
+});
+updateGaitPickActive();
+updateGaitSummary();
+refreshCpgList({autoLoadDefault:true});
 
 walphaEl.oninput = ()=>{
   document.getElementById('walab').textContent =
@@ -964,13 +1257,16 @@ function stopGaitWalk(msg){
 document.getElementById('wstop').onclick = ()=> stopGaitWalk();
 document.getElementById('wstart').onclick = async ()=>{
   if(needArm()) return;
-  // Same caps as the tape script (teleop known-good envelope).
-  const vx = clamp(parseFloat($('wvx').value)||0, -60, 60);
-  const vy = clamp(parseFloat($('wvy').value)||0, -40, 40);
-  const om = clamp(parseFloat($('wom').value)||0, -0.5, 0.5);
+  const vxLimit = gait === 0 ? tripodTune.maxVx : 60;
+  const vyLimit = gait === 0 ? tripodTune.maxVy : 40;
+  const omLimit = gait === 0 ? tripodTune.maxOmega : 0.5;
+  const vx = clamp(parseFloat($('wvx').value)||0, -vxLimit, vxLimit);
+  const vy = clamp(parseFloat($('wvy').value)||0, -vyLimit, vyLimit);
+  const om = clamp(parseFloat($('wom').value)||0, -omLimit, omLimit);
   const dur = clamp(parseFloat($('wdur').value)||20, 3, 60);
   $('wvx').value = vx; $('wvy').value = vy; $('wom').value = om; $('wdur').value = dur;
   if(!vx && !vy && !om){ showSent('walk: zero command — set vx/vy/ω first'); return; }
+  if(gait === 0 && !(await sendTripodTune())) return;
   armed = false; dancePaused = false;   // keep the stick loop from streaming J over this
   if(walkTimer) clearTimeout(walkTimer);
   if(walkTick) clearInterval(walkTick);
@@ -1031,7 +1327,72 @@ async function refreshTelem(){
 // packets at 20 Hz floods and wedges the MCU<->Linux serial bridge.
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 let lastLine='', lastSendT=0;
+let scriptedDriveMoving = false;
 function forceResend(){ lastLine=''; }   // call after any discrete command
+function scriptedDriveState(x, y, t){
+  const vx = clamp(y,-1,1)*maxVx;          // up = forward
+  const vy = clamp(-x,-1,1)*maxVy;         // right = strafe right (chassis -Y)
+  const om = clamp(-t,-1,1)*maxOmega;      // right = turn right
+  const moving = Math.abs(vx) + Math.abs(vy) + Math.abs(om) > 1e-6;
+  return {
+    vx, vy, om, moving,
+    line:`J ${vx.toFixed(0)} ${vy.toFixed(0)} ${om.toFixed(3)} ${gait}`,
+  };
+}
+function sendScriptedDriveStop(label){
+  if(!servosArmed || dancePaused){
+    scriptedDriveMoving = false;
+    armed = false;
+    forceResend();
+    return;
+  }
+  const now = performance.now();
+  const line = `J 0 0 0 ${gait}`;
+  if(scriptedDriveMoving && (line !== lastLine || now - lastSendT > 50)){
+    cmd(line);
+    showSent(label || 'J 0 0 0');
+    lastLine = line;
+    lastSendT = now;
+  }
+  scriptedDriveMoving = false;
+  armed = false;
+}
+function stopScriptedDrive(label){
+  keys.clear();
+  if(driveStick && driveStick.release) driveStick.release();
+  if(turnStick && turnStick.release) turnStick.release();
+  sendScriptedDriveStop(label);
+}
+function stopDriveMotionForPose(label){
+  if(walkTimer || walkTick){
+    stopGaitWalk('stopping gait before '+label);
+    return;
+  }
+  if(scriptedDriveMoving) stopScriptedDrive('stopping gait before '+label);
+  else forceResend();
+}
+function streamScriptedDrive(x, y, t){
+  if(!servosArmed || dancePaused){
+    if(!servosArmed){
+      scriptedDriveMoving = false;
+      armed = false;
+      forceResend();
+    }
+    return false;
+  }
+  const st = scriptedDriveState(x, y, t);
+  if(!st.moving){
+    sendScriptedDriveStop('J 0 0 0');
+    return false;
+  }
+  armed = true;
+  scriptedDriveMoving = true;
+  const now = performance.now();
+  if(st.line !== lastLine || now - lastSendT > 300){
+    cmd(st.line); showSent(st.line); lastLine=st.line; lastSendT=now;
+  }
+  return true;
+}
 function loop(){
   if(activeView !== 'drive') return;   // only stream J on Drive tab
   const gpv = pollGamepad();
@@ -1043,19 +1404,10 @@ function loop(){
     y = driveStick.y || kv.y;
     t = turnStick.x  || kv.t;
   }
-  if(servosArmed && armed && !dancePaused){
-    const vx = clamp(y,-1,1)*maxVx;          // up = forward
-    const vy = clamp(-x,-1,1)*maxVy;         // right = strafe right (chassis -Y)
-    const om = clamp(-t,-1,1)*maxOmega;      // right = turn right
-    const line = `J ${vx.toFixed(0)} ${vy.toFixed(0)} ${om.toFixed(3)} ${gait}`;
-    const now = performance.now();
-    if(line !== lastLine || now - lastSendT > 300){   // change or ~3 Hz heartbeat
-      cmd(line); showSent(line); lastLine=line; lastSendT=now;
-    }
-  }
+  streamScriptedDrive(x, y, t);
 }
 setInterval(loop, 50);
-window.addEventListener('gamepadconnected', ()=>{ armed=true; });
+window.addEventListener('gamepadconnected', ()=>{ forceResend(); });
 
 // --- Debug page: per-servo control + movement test -------------------------
 // Firmware protocol used here (prototype_servo_test.ino):
@@ -1069,7 +1421,6 @@ let dbgLeg = 0, dbgAxis = 0;
 let dbgTestRunning = false, dbgTestAbort = false;
 const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
-const $ = id => document.getElementById(id);
 
 const robotUrlInput = $('roboturl');
 if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
@@ -1364,6 +1715,7 @@ const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
                     calibrate:'Calibrate', touchdown:'Touchdown',
                     debug:'Debug'};
 function showView(which){
+  const prevView = activeView;
   activeView = which;
   VIEWS.forEach(v=>{
     const el = $('view-'+v); if(el) el.classList.toggle('active', v===which);
@@ -1372,7 +1724,9 @@ function showView(which){
   document.title = 'Hexapod · '+(TAB_TITLES[which] || which);
   if(location.hash !== '#'+which)
     history.replaceState(null, '', '#'+which);
-  if(which !== 'drive') armed = false;   // stop streaming J
+  if((prevView === 'drive' || prevView === 'rl') && which !== prevView)
+    stopScriptedDrive('J 0 0 0');
+  if(which !== 'drive') armed = false;   // stop Drive-tab key/pad latch
   if(which !== 'rl' && drvKeys.size){
     drvKeys.clear(); drvSend();          // leaving RL = keys released
   }
@@ -2007,11 +2361,8 @@ function renderCalDimensions(res){
     ? `operator measurement${manual.timestamp ? (' · '+htmlEscape(manual.timestamp)) : ''}`
     : 'not saved';
   const consistencyBits = [
-    gsum.manual_relative_height_mm != null
-      ? `old hip+knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
-      : null,
     gsum.manual_absolute_height_mm != null
-      ? `active tibia-angle FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
+      ? `absolute-tibia FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
       : null,
   ].filter(Boolean);
   const zeroHyp = gsum.manual_zero_hypotheses || {};
@@ -2024,11 +2375,10 @@ function renderCalDimensions(res){
   }
   const zeroHypBits = [
     zeroHypBit('best', zeroHyp.best_model),
-    zeroHypBit('serial best', zeroHyp.best_serial),
-    zeroHypBit('tibia-angle best', zeroModels.absolute_knee_best_pair),
-    zeroHypBit('hip-only', zeroModels.serial_hip_only),
-    zeroHypBit('knee-only', zeroModels.serial_knee_only),
-    zeroHypBit('tibia-angle check', zeroModels.absolute_knee_no_offset),
+    zeroHypBit('pair fit', zeroModels.best_pair),
+    zeroHypBit('hip-only', zeroModels.hip_only),
+    zeroHypBit('knee-only', zeroModels.knee_only),
+    zeroHypBit('no-offset check', zeroModels.no_offset),
   ].filter(Boolean);
   const rows = [
     ['manual measurements',
@@ -2080,7 +2430,7 @@ function renderCalDimensions(res){
         : fitSource)],
     ['zero offset hints',
       `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
-      'relative hints from contact-height residuals'],
+      'robot-absolute offset hints from contact-height residuals'],
     ['stance foot z',
       `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
       hint.neutral_foot_z_m != null
@@ -2319,7 +2669,8 @@ function startRlPoll(){
       } else {
         clearInterval(rlTimer); rlTimer = null;
         rlButtons(false);
-        drvLockRlControls(false);
+        drvUnlockMoveControlsOnly();
+        refreshRlRuntimeState();
         const res = d.result || {};
         const peak = res.max_current_a ?? res.peak_a ?? '?';
         $('rlstatus').textContent = res.ok
@@ -2343,12 +2694,14 @@ function drvResetLocalInput(){
   drvClearGamepadCommand();
 }
 function rlButtons(disabled){
+  rlMoveControlsLocked = !!disabled;
   for(const id of ['rlstand','rllower','rltuckstand','rltucklower',
                    'rlstandrl','rllowerrl','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart','rldriveend'])
     $(id).disabled = disabled;
+  if(!disabled) rlApplyLearnedActionGuard();
 }
 async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
   let active = drvActive;
@@ -2359,7 +2712,7 @@ async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
       drvActive = false;
       drvClearHeartbeat();
       drvResetLocalInput();
-      drvLockRlControls(false);
+      drvUnlockMoveControlsOnly();
       return true;
     }
     drvActive = true;
@@ -2374,6 +2727,11 @@ async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
 async function rlMove(mode, body){
   // No confirms anywhere (operator 08-11: no warning modals);
   // the server preflight refuses bad start poses.
+  if(body && body.learned && (mode === 'stand' || mode === 'lower')
+      && !rlLearnedRoleReady(mode)){
+    $('rlstatus').textContent = rlLearnedDisabledText(mode);
+    return;
+  }
   const lower = mode === 'lower';
   if(lower) rlButtons(true);
   if(!(await rlEnsureNoDriveSession(
@@ -2458,14 +2816,14 @@ $('rlwalkbl').onclick    = ()=> rlWalk(-1, -1, 'diagonal BACK-LEFT');
 $('rlwalkbr').onclick    = ()=> rlWalk(-1,  1, 'diagonal BACK-RIGHT');
 $('rlstop').onclick = async ()=>{
   await fetch('/api/rl/stop', {method:'POST'});
-  $('rlstatus').textContent = 'Stopping (holds pose; X to limp)…';
+  $('rlstatus').textContent = 'Stopping (hold policy; X to limp)…';
 };
 
 // ---- Drive session (hold arrow keys — MuJoCo-viewer-style, 08-11) ---------
 // The browser streams (vx, vy, wz) heartbeats at 5 Hz while the session is
-// active; the robot's 25 Hz loop slews toward them and treats anything
-// older than 0.6 s as "keys released". So: keydown = walk, keyup = stop
-// and hold, dead tab = stop and hold.
+// active; the robot's 100 Hz loop slews toward them and treats anything
+// older than 0.6 s as "keys released". So: keydown = walk, keyup = coast
+// briefly, then hand off to the configured Hold policy.
 let drvActive = false, drvHb = null, drvStartPromise = null;
 const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
@@ -2475,8 +2833,13 @@ let drvGamepad = {dx:0, dy:0, dz:0, du:0, active:false, name:''};
 let drvGamepadNeedsNeutral = false;
 let drvGamepadPollBusy = false;
 let drvGamepadNextStartT = 0;
+let drvInputAllowed = false;
 const DRV_TAP_PULSE_MS = 650;
 const DRV_GAMEPAD_DEADZONE = 0.14;
+const RL_DRIVE_LOCKED_BUTTONS = ['rlstand','rltuckstand','rlstandrl',
+                                 'rlwalkfwd','rlwalkleft','rlwalkright',
+                                 'rlwalkback','rlwalkfl','rlwalkfr',
+                                 'rlwalkbl','rlwalkbr'];
 const DRV_KEYMAP = {
   arrowup:'fwd', w:'fwd', i:'fwd',
   arrowdown:'back', s:'back', k:'back',
@@ -2485,18 +2848,45 @@ const DRV_KEYMAP = {
   q:'yawL', u:'yawL',
   e:'yawR', o:'yawR',
 };
-function drvLockRlControls(active){
-  for(const id of ['rlstand','rltuckstand','rlstandrl','rlwalkfwd',
-                   'rlwalkleft','rlwalkright','rlwalkback',
-                   'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr']){
-    $(id).disabled = active;
+function drvSetMoveControlsLocked(active){
+  for(const id of RL_DRIVE_LOCKED_BUTTONS) $(id).disabled = !!active;
+  if(!active) rlApplyLearnedActionGuard();
+}
+function drvSetPanelState(allowed, label, state='ready'){
+  drvInputAllowed = !!allowed;
+  const panel = $('rldrivepanel');
+  if(panel){
+    panel.disabled = !allowed;
+    panel.classList.toggle('blocked', !allowed);
+    panel.classList.toggle('ready', allowed && state === 'ready');
+    panel.classList.toggle('active', allowed && state === 'active');
   }
+  const gate = $('rldrivegate');
+  if(gate){
+    gate.textContent = label;
+    gate.className = 'drive-gate '
+      + (allowed ? (state === 'active' ? 'active' : 'ready') : 'blocked');
+  }
+}
+function drvCanUseInput(){
+  return drvInputAllowed || drvActive || drvStartPromise;
+}
+function drvLockRlControls(active){
+  rlDriveControlsLocked = !!active;
+  drvSetMoveControlsLocked(active);
+  drvSetPanelState(true, active ? 'Driving' : 'Ready', active ? 'active' : 'ready');
   const start = $('rldrivestart');
   start.disabled = active;
-  start.textContent = active ? 'Driving active' : '▶ Start driving';
+  start.textContent = active ? 'Driving active' : 'Auto-start on input';
   $('rldriveend').disabled = !active;
 }
+function drvUnlockMoveControlsOnly(){
+  rlDriveControlsLocked = false;
+  drvSetMoveControlsLocked(false);
+  $('rldriveend').disabled = true;
+}
 function drvBlockStart(label, detail){
+  drvSetPanelState(false, label, 'blocked');
   const start = $('rldrivestart');
   start.disabled = true;
   start.textContent = label;
@@ -2504,9 +2894,10 @@ function drvBlockStart(label, detail){
   if(detail) $('rldrivestatus').textContent = detail;
 }
 function drvStartReady(detail){
+  drvSetPanelState(true, 'Ready', 'ready');
   const start = $('rldrivestart');
-  start.disabled = false;
-  start.textContent = '▶ Start driving';
+  start.disabled = true;
+  start.textContent = 'Auto-start on input';
   $('rldriveend').disabled = true;
   if(detail) $('rldrivestatus').textContent = detail;
 }
@@ -2575,23 +2966,34 @@ function drvVec(){
 function drvPaint(d){
   const live = (d && d.live) || {};
   const bits = [];
+  const waiting = !!live.waiting_for_drive_command;
   if(live.model) bits.push(`model <b>${live.model}</b>`);
+  if(waiting) bits.push('waiting for joystick/key command');
+  if(waiting && live.learned_policy_active === false) bits.push('quiet joint hold');
+  if(live.vx_cmd!=null)
+    bits.push(`cmd (${Math.round(live.vx_cmd*1000)}, `
+              + `${Math.round(live.vy_cmd*1000)}) mm/s`);
+  if(live.wz_cmd) bits.push(`cmd yaw ${live.wz_cmd} rad/s`);
   if(live.vx_ref!=null)
-    bits.push(`v (${Math.round(live.vx_ref*1000)}, `
+    bits.push(`ref (${Math.round(live.vx_ref*1000)}, `
               + `${Math.round(live.vy_ref*1000)}) mm/s`);
   if(live.wz_ref) bits.push(`ω ${live.wz_ref} rad/s`);
   if(live.height_returning) bits.push('returning to walk height');
   else if(live.height_ref_mm) bits.push(`h ${live.height_ref_mm} mm`);
   if(live.height_live === false && drvGamepad.du)
     bits.push('D-pad height needs a stance model in the “hold” role');
+  if(live.walk_zero_dwell_s)
+    bits.push(`hold in ${live.walk_zero_dwell_s}s`);
   if(live.roll_deg!=null)
     bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
   if(live.rot60_k) bits.push(`sec ${live.rot60_k>0?'+':''}${live.rot60_k}`);
   if(live.t_s!=null) bits.push(`${live.t_s}s`);
+  const label = waiting
+    ? '<b style="color:#f3cc4d">WAITING</b> — move a stick or hold arrows/WASD · '
+    : '<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · ';
   $('rldrivestatus').innerHTML =
-    `<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · `
-    + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
+    label + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
 }
 async function drvSend(){
   if(!drvActive) return;
@@ -2616,22 +3018,25 @@ async function drvEnded(){
     $('rldrivestatus').textContent = 'Session ended'
       + (res.ended ? ` — ${res.ended}` : res.error ? ` — ${res.error}` : '')
       + (res.max_current_a!=null ? ` · maxI ${res.max_current_a} A` : '')
-      + ' · holding (X to limp).';
-  }catch(e){ $('rldrivestatus').textContent = 'Session ended — holding.'; }
+      + ' · hold policy / X to limp.';
+  }catch(e){ $('rldrivestatus').textContent = 'Session ended.'; }
 }
 async function drvStartSession(source='button'){
   if(drvActive) return true;
   if(drvStartPromise) return await drvStartPromise;
+  if(!drvCanUseInput()) return false;
   drvActive = false;
   drvClearHeartbeat();
   drvStartPromise = (async ()=>{
     // Recover from stale browser state after a service restart/deploy.
+    const [vx, vy, wz, dh] = drvVec();
     uiEvent('rl_drive_start_click', {
       button:'rldrivestart',
       source,
       disabled:$('rldrivestart').disabled,
       active:drvActive,
       status:$('rldrivestatus').textContent,
+      vx, vy, wz, dh,
     });
     drvLockRlControls(true);
     $('rldrivestart').textContent = 'Starting...';
@@ -2639,13 +3044,14 @@ async function drvStartSession(source='button'){
       + ' — no auto-stance move)…';
     try{
       const r = await fetch('/api/rl/drive/start', {
-        method:'POST', cache:'no-store'});
+        method:'POST', cache:'no-store',
+        body: JSON.stringify({vx, vy, wz, dh})});
       const d = await r.json();
       if(!d.ok){
         if(source === 'gamepad') drvGamepadNeedsNeutral = true;
         $('rldrivestatus').textContent = 'Refused: '+(d.error || 'unknown');
         showErr('Drive: '+(d.error || 'refused'));
-        drvLockRlControls(false);
+        drvBlockStart('Refused', 'Refused: '+(d.error || 'unknown'));
         $('rldrivestart').textContent = 'Refused';
         return false;
       }
@@ -2658,7 +3064,7 @@ async function drvStartSession(source='button'){
     }catch(e){
       if(source === 'gamepad') drvGamepadNeedsNeutral = true;
       $('rldrivestatus').textContent = 'Start failed (link?)';
-      drvLockRlControls(false);
+      drvBlockStart('Link lost', 'Start failed (link?)');
       $('rldrivestart').textContent = 'Start failed';
       return false;
     }
@@ -2672,7 +3078,7 @@ async function drvStartSession(source='button'){
 async function drvStopAndWaitForInactive(actionLabel, timeoutMs=10000){
   $('rlstatus').textContent = 'Ending drive session before '+actionLabel+'…';
   $('rldrivestatus').textContent = 'Ending session before '+actionLabel
-    + ' (rolls to a stop, holds)…';
+    + ' (coasts, then hold policy)…';
   drvResetLocalInput();
   drvGamepadNeedsNeutral = true;
   if(drvActive) await drvSend();
@@ -2702,14 +3108,14 @@ $('rldrivestart').onclick = async ()=>{
 };
 $('rldriveend').onclick = async ()=>{
   $('rldriveend').disabled = true;
-  $('rldrivestatus').textContent = 'Ending session (rolls to a stop, holds)…';
+  $('rldrivestatus').textContent = 'Ending session (coasts, then hold policy)…';
   drvGamepadNeedsNeutral = true;
   drvResetLocalInput();
   try{ await fetch('/api/rl/drive/stop', {method:'POST'}); }catch(e){}
   // Heartbeats keep flowing until the server reports inactive, so the
   // decel + wind-down is visible in the status line.
 };
-drvLockRlControls(false);
+drvBlockStart('Checking', 'Checking whether drive is allowed...');
 
 async function refreshRlRuntimeState(){
   let rlMoveRunning = false;
@@ -2720,6 +3126,8 @@ async function refreshRlRuntimeState(){
     if(rlMoveRunning){
       $('rlstatus').textContent = (d.progress||{}).msg || 'running…';
       rlButtons(true);
+      drvBlockStart('Move running',
+        'Drive is locked while the current RL move runs.');
       if(!rlTimer) startRlPoll();
       return true;
     }
@@ -2745,7 +3153,7 @@ async function refreshRlRuntimeState(){
   drvStartPromise = null;
   drvClearHeartbeat();
   drvResetLocalInput();
-  drvLockRlControls(false);
+  drvUnlockMoveControlsOnly();
   try{
     const rb = await (await fetch('/api/robot', {cache:'no-store'})).json();
     if(rb && !rb.armed){
@@ -2753,8 +3161,12 @@ async function refreshRlRuntimeState(){
         'Blocked: robot is limp/disarmed. Use RL Stand Up / Walk Ready first.');
       return true;
     }
-  }catch(e){}
-  drvStartReady('Ready — Start driving, then hold arrows/WASD or the pad.');
+  }catch(e){
+    drvBlockStart('Status unknown',
+      'Blocked: robot state unavailable. Check the robot link.');
+    return false;
+  }
+  drvStartReady('Ready — hold arrows/WASD or press a pad direction.');
   return true;
 }
 
@@ -2769,6 +3181,7 @@ window.addEventListener('keydown', async (e)=>{
   const dir = DRV_KEYMAP[e.key.toLowerCase()];
   if(!dir) return;
   e.preventDefault();
+  if(!drvCanUseInput()) return;
   if(!drvKeys.has(dir)) drvKeys.add(dir);
   if(!drvActive && !(await drvStartSession('key'))) return;
   drvSend();
@@ -2782,11 +3195,13 @@ window.addEventListener('keyup', (e)=>{
 // Lost focus = treat every key as released (missed keyup otherwise).
 window.addEventListener('blur', ()=>{
   if(drvActive && drvKeys.size){ drvKeys.clear(); drvSend(); }
+  if(scriptedDriveMoving) stopScriptedDrive('J 0 0 0');
 });
 for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   const dv = b.dataset.dv.split(',').map(Number);
   if(!dv[0] && !dv[1]) continue;          // center "hold" cell
   const down = async (e)=>{ e.preventDefault();
+    if(!drvCanUseInput()) return;
     if(drvPadReleaseTimer){
       clearTimeout(drvPadReleaseTimer);
       drvPadReleaseTimer = null;
@@ -2820,6 +3235,7 @@ async function pollRlGamepad(){
     const gp = drvFirstGamepad();
     if(!gp){
       drvClearGamepadCommand();
+      if(scriptedDriveMoving) sendScriptedDriveStop('J 0 0 0');
       if(wasActive && drvActive) drvSend();
       if(!window.isSecureContext)
         drvGamepadStatus('Joystick: open the HTTPS page to use a controller.');
@@ -2828,6 +3244,37 @@ async function pollRlGamepad(){
       return;
     }
     const name = gp.id ? gp.id.slice(0, 26) : 'connected';
+    // Default physical-controller mode on this page is the scripted Drive-tab
+    // gait. Keys and the on-screen pad still start the RL drive session; once
+    // that session is active, the gamepad also feeds it.
+    if(!drvActive && !drvStartPromise){
+      const x = drvGamepadAxis(gp.axes[0] || 0);
+      const y = drvGamepadAxis(-(gp.axes[1] || 0));
+      const t = drvGamepadAxis(gp.axes[2] || 0);
+      const active = !!(x || y || t);
+      if(!active){
+        if(drvGamepadNeedsNeutral) drvGamepadNeedsNeutral = false;
+        streamScriptedDrive(0, 0, 0);
+        drvGamepadStatus('Joystick: '+name
+          +' - Drive-tab mode. Left stick scripted gait; right stick turn.');
+        return;
+      }
+      if(drvGamepadNeedsNeutral){
+        drvGamepadStatus('Joystick: release sticks before auto-start.');
+        return;
+      }
+      if(!servosArmed){
+        drvGamepadStatus('Joystick: Drive-tab mode blocked - press Enable '
+          +'and stand up first.');
+        return;
+      }
+      streamScriptedDrive(x, y, t);
+      const st = scriptedDriveState(x, y, t);
+      drvGamepadStatus('Joystick: '+name+' - Drive-tab gait '+gait
+        +' - J '+st.vx.toFixed(0)+' '+st.vy.toFixed(0)+' '
+        +st.om.toFixed(3));
+      return;
+    }
     const dx = drvGamepadAxis(-(gp.axes[1] || 0));  // left stick up = forward
     const dy = drvGamepadAxis(gp.axes[0] || 0);     // left stick right = right
     // Right stick X: stick right = turn right = clockwise = -wz
@@ -2848,6 +3295,10 @@ async function pollRlGamepad(){
     const pct = v => Math.round(v * 100);
     if(drvGamepadNeedsNeutral){
       drvGamepadStatus('Joystick: release sticks and D-pad before auto-start.');
+      return;
+    }
+    if(!drvCanUseInput()){
+      drvGamepadStatus('Joystick: drive is blocked until stand-up.');
       return;
     }
     drvGamepadStatus('Joystick: '+name+' · cmd '
@@ -2872,6 +3323,7 @@ window.addEventListener('gamepadconnected', (e)=>{
 window.addEventListener('gamepaddisconnected', ()=>{
   drvClearGamepadCommand();
   drvGamepadStatus('Joystick: disconnected.');
+  if(scriptedDriveMoving) sendScriptedDriveStop('J 0 0 0');
   if(drvActive) drvSend();
 });
 
@@ -3332,6 +3784,11 @@ async function refreshRlTab(){
 let rlPolicies = [];
 let rlRoles = {};        // role -> {file, resolved} from /api/rl/roles
 let rlAllowedObs = {};   // role -> [allowed obs widths]
+let rlPolicyMode = 'bundle';
+let rlActiveScriptedBundleId = '';
+var rlPolicyPickerReady = false;
+var rlMoveControlsLocked = false;
+var rlDriveControlsLocked = false;
 const RL_SLOT_TITLES = {stance: 'Stand / sit / hold', walk: 'Walk'};
 const RL_ROLE_CHIPS = [  // [role, chip label, slot whose rows offer it]
   ['stand', 'Stand', 'stance'],
@@ -3339,17 +3796,222 @@ const RL_ROLE_CHIPS = [  // [role, chip label, slot whose rows offer it]
   ['walk',  'Walk',  'walk'],
   ['hold',  'Hold',  null],          // any row with an allowed obs width
 ];
-const RL_HOLD_ZERO = 'walk policy @ zero command';
+const RL_HOLD_ZERO = 'built-in joint hold';
+const RL_HOLD_ZERO_ALIASES = new Set([
+  RL_HOLD_ZERO,
+  'walk policy @ zero command',  // older controller backend wording
+]);
+const RL_DEFAULT_WALK_FILE =
+  'walk_allheading_mlp_singleframe_acq1_stdanneal.json';
+const RL_DEFAULT_HOLD_FILE =
+  'stand_stancemix_tuckclock_scratch8m.json';
+const RL_POLICY_BUNDLES = [
+  {
+    id: 'todaypolicy-mlpsf-tuck-v1',
+    tag: 'Default',
+    title: 'MuJoCo default',
+    summary: 'Scripted tuck stand/lower, the full-mesh all-heading MLP walk, '
+      + 'and the 100 Hz mesh stance model for the stop/hold role. This is '
+      + 'the current controller-ready bundle I would try first from MuJoCo; '
+      + 'learned RL rise/lower stay disabled.',
+    files: [RL_DEFAULT_WALK_FILE, RL_DEFAULT_HOLD_FILE],
+    walkFile: RL_DEFAULT_WALK_FILE,
+    roleValues: {stand: '', lower: '', walk: '', hold: RL_DEFAULT_HOLD_FILE},
+    rows: [
+      ['Stand', 'scripted tuck'],
+      ['Walk', RL_DEFAULT_WALK_FILE],
+      ['Hold', RL_DEFAULT_HOLD_FILE],
+      ['Lower', 'scripted tuck'],
+    ],
+    metrics: ['full mesh', '0.08 m/s trained', '0 falls',
+              '1s course err med 2.42deg', 'progress ratio 0.418'],
+  },
+  {
+    id: 'scripted-tripod-baseline',
+    kind: 'scripted-tripod',
+    tag: 'Baseline',
+    title: 'Scripted tripod baseline',
+    actionLabel: 'Use baseline',
+    summary: 'Non-RL comparison controller: the old hand-written tripod gait. '
+      + 'On MuJoCo, this selects the scripted walk-driver row when available; '
+      + 'on the robot, it configures the Drive tab for GAIT 0. No learned '
+      + 'stand/walk model is involved.',
+    simWalkFile: 'scripted:tripod_walk_gait',
+    scriptedDrive: {
+      gait: 0,
+      alpha: 0,
+      tripod: {
+        period: 1.80,
+        lift: 40,
+        stride: 0.55,
+        ramp: 0.85,
+        maxVx: 30,
+        maxVy: 18,
+        maxOmega: 0.35,
+      },
+      vxMm: 30,
+      vyMm: 0,
+      omega: 0,
+      durationS: 20,
+    },
+    rows: [
+      ['Stand', 'scripted stand'],
+      ['Walk', 'GAIT 0 tripod'],
+      ['Hold', 'J 0 0 0 planted hold'],
+      ['Lower', 'scripted lower / disarm'],
+    ],
+    metrics: ['non-RL', '30 mm/s default', 'open-loop tripod',
+              'known to drag feet'],
+  },
+  {
+    id: 'learned-stance-compare',
+    tag: 'Compare',
+    title: 'Learned stance A/B',
+    summary: 'Same walk default, but this explicitly enables the learned '
+      + 'Rise/Lower buttons with the mesh stance-mix policy for A/B testing.',
+    files: [RL_DEFAULT_WALK_FILE,
+            'stand_stancemix_tuckclock_scratch8m.json'],
+    walkFile: RL_DEFAULT_WALK_FILE,
+    roleValues: {
+      stand: 'stand_stancemix_tuckclock_scratch8m.json',
+      lower: 'stand_stancemix_tuckclock_scratch8m.json',
+      walk: '',
+      hold: RL_DEFAULT_HOLD_FILE,
+    },
+    rows: [
+      ['Stand', 'RL stance mix'],
+      ['Walk', RL_DEFAULT_WALK_FILE],
+      ['Hold', RL_DEFAULT_HOLD_FILE],
+      ['Lower', 'RL stance mix'],
+    ],
+    metrics: ['100 Hz mesh stance', 'rise/hold/lower', 'not bench-tested'],
+  },
+  {
+    id: 'legacy-contract',
+    tag: 'Fallback',
+    title: 'Legacy hardware contract',
+    summary: 'The older dep-vref walk plus holdbc1 stance slot. Kept around '
+      + 'for bench comparisons; it is no longer the default I would reach for '
+      + 'in MuJoCo.',
+    files: ['stand_holdbc1_hard1.json', 'dep_vref1_r1.json'],
+    walkFile: 'dep_vref1_r1.json',
+    roleValues: {
+      stand: '',
+      lower: '',
+      walk: '',
+      hold: 'stand_holdbc1_hard1.json',
+    },
+    rows: [
+      ['Stand', 'scripted walk-ready'],
+      ['Walk', 'dep_vref1_r1.json'],
+      ['Hold', 'stand_holdbc1_hard1.json'],
+      ['Lower', 'scripted lower'],
+    ],
+    metrics: ['old hardware contract', '0.05-0.06 m/s', 'fallback only'],
+  },
+];
+
+function rlSetPolicyMode(mode){
+  rlPolicyMode = mode === 'expert' ? 'expert' : 'bundle';
+  const bundleOn = rlPolicyMode === 'bundle';
+  const btab = $('rlbundletab'), etab = $('rlexperttab');
+  const bpane = $('rlbundlepane'), epane = $('rlexpertpane');
+  if(!btab || !etab || !bpane || !epane) return;
+  btab.classList.toggle('on', bundleOn);
+  etab.classList.toggle('on', !bundleOn);
+  btab.setAttribute('aria-selected', bundleOn ? 'true' : 'false');
+  etab.setAttribute('aria-selected', bundleOn ? 'false' : 'true');
+  bpane.hidden = !bundleOn;
+  epane.hidden = bundleOn;
+}
+
+function rlInitPolicyModeTabs(){
+  const btab = $('rlbundletab'), etab = $('rlexperttab');
+  if(!btab || !etab) return;
+  btab.onclick = ()=> rlSetPolicyMode('bundle');
+  etab.onclick = ()=> rlSetPolicyMode('expert');
+  rlSetPolicyMode(rlPolicyMode);
+}
+
+function rlPolicyByFile(file){
+  return rlPolicies.find(p => p.file === file);
+}
+
+function rlPolicyLabel(file){
+  const p = rlPolicyByFile(file);
+  return p ? p.name : file;
+}
+
+function rlRoleValue(role){
+  const r = rlRoles[role] || {};
+  return r.file == null ? '' : String(r.file);
+}
+
+function rlLearnedRoleReady(role){
+  if(!rlPolicyPickerReady) return false;
+  const file = rlRoleValue(role);
+  return !!file && !!rlPolicyByFile(file);
+}
+
+function rlLearnedDisabledText(role){
+  const action = role === 'stand' ? 'rise' : 'lower';
+  const bundle = role === 'stand' ? 'Stand' : 'Sit';
+  return `Learned RL ${action} is disabled for the composed default. `
+    + `Select Learned stance A/B or assign an explicit ${bundle} role first.`;
+}
+
+function rlApplyLearnedActionGuard(){
+  if(!rlPolicyPickerReady || rlMoveControlsLocked || rlDriveControlsLocked)
+    return;
+  for(const [id, role] of [['rlstandrl', 'stand'],
+                           ['rllowerrl', 'lower']]){
+    const b = $(id);
+    if(!b) continue;
+    const ready = rlLearnedRoleReady(role);
+    b.disabled = !ready;
+    b.classList.toggle('blocked', !ready);
+    b.title = ready
+      ? `EXPERIMENTAL learned stance-policy ${role === 'stand' ? 'rise' : 'lower'} `
+        + `using ${rlPolicyLabel(rlRoleValue(role))}. Watch it; keep a hand ready.`
+      : rlLearnedDisabledText(role);
+  }
+}
+
+function rlActiveSlotFile(slot){
+  const p = rlPolicies.find(q => q.slot === slot && q.active);
+  return p ? p.file : '';
+}
+
+function rlBundleMissing(bundle){
+  if(bundle.kind === 'scripted-tripod') return [];
+  return (bundle.files || []).filter(f => !rlPolicyByFile(f));
+}
+
+function rlBundleIsActive(bundle){
+  if(bundle.kind === 'scripted-tripod'){
+    return rlActiveScriptedBundleId === bundle.id
+      || (!!bundle.simWalkFile && rlActiveSlotFile('walk') === bundle.simWalkFile);
+  }
+  if(rlActiveScriptedBundleId) return false;
+  if(bundle.stanceFile && rlActiveSlotFile('stance') !== bundle.stanceFile)
+    return false;
+  if(bundle.walkFile && rlRoleHome('walk') !== bundle.walkFile)
+    return false;
+  for(const [role, want] of Object.entries(bundle.roleValues || {})){
+    if(rlRoleValue(role) !== String(want || '')) return false;
+  }
+  return true;
+}
 
 function rlRoleHome(role){
   // Which picker row serves `role` right now: a row file name, 'zero'
-  // (hold default = the walk policy's trained stop), or null. Trust
+  // (legacy joint-hold fallback), or null. Trust
   // `resolved` over the raw assignment — each backend reports there
   // what actually RUNS (e.g. the sim ignores stale walk-role
   // overrides and drives the live slot).
   const cur = rlRoles[role] || {};
   const res = cur.resolved || '';
-  if(role === 'hold' && res === RL_HOLD_ZERO) return 'zero';
+  if(role === 'hold' && RL_HOLD_ZERO_ALIASES.has(res)) return 'zero';
   const hit = rlPolicies.find(p => p.file === res || p.name === res);
   if(hit) return hit.file;                 // sim: file; robot: meta name
   // Anything else (a "live … slot" label, or a dangling override the
@@ -3361,8 +4023,8 @@ function rlRoleHome(role){
 
 function rlChipTitle(role, on, zero){
   if(zero)
-    return 'Default hold: the walk policy holds at zero command (its '
-      + 'trained stop). Click Hold on another model to override.';
+    return 'Legacy joint hold: freezes the last commanded pose. Do not use '
+      + 'as the normal drive-stop hold; click Hold on a stance model instead.';
   const what = {walk: 'walk when drive keys are held',
                 hold: 'hold in place when no keys are held',
                 stand: 'stand up (also the stance default for Sit/Hold)',
@@ -3374,6 +4036,205 @@ function rlChipTitle(role, on, zero){
       : `This model currently does "${what}" — click to reset the role `
         + 'to its default.';
   return `Use this model to ${what}. Applies at the next move/session.`;
+}
+
+function rlRenderBundles(){
+  const box = $('rlbundlecards');
+  if(!box) return;
+  box.innerHTML = '';
+  for(const bundle of RL_POLICY_BUNDLES){
+    const missing = rlBundleMissing(bundle);
+    const active = !missing.length && rlBundleIsActive(bundle);
+    const card = document.createElement('div');
+    card.className = 'policy-bundle' + (active ? ' active' : '');
+
+    const head = document.createElement('div');
+    head.className = 'bundle-head';
+    const title = document.createElement('h3');
+    title.textContent = bundle.title;
+    const tag = document.createElement('span');
+    tag.className = 'bundle-tag'
+      + (active ? ' active' : '')
+      + (bundle.tag === 'Default' ? ' default' : '');
+    tag.textContent = active ? 'Active' : bundle.tag;
+    head.appendChild(title);
+    head.appendChild(tag);
+    card.appendChild(head);
+
+    const summary = document.createElement('div');
+    summary.className = 'bundle-summary';
+    summary.textContent = bundle.summary;
+    card.appendChild(summary);
+
+    const roles = document.createElement('div');
+    roles.className = 'bundle-roles';
+    for(const [role, value] of bundle.rows || []){
+      const k = document.createElement('div');
+      k.className = 'bundle-role-name';
+      k.textContent = role;
+      const v = document.createElement('div');
+      const isFile = String(value).endsWith('.json');
+      v.textContent = isFile ? rlPolicyLabel(value) : value;
+      if(isFile && !rlPolicyByFile(value)) v.className = 'missing';
+      roles.appendChild(k);
+      roles.appendChild(v);
+    }
+    card.appendChild(roles);
+
+    const metrics = document.createElement('div');
+    metrics.className = 'bundle-metrics';
+    for(const metric of bundle.metrics || []){
+      const m = document.createElement('span');
+      m.textContent = metric;
+      metrics.appendChild(m);
+    }
+    card.appendChild(metrics);
+
+    const action = document.createElement('button');
+    action.className = 'bundle-action';
+    action.textContent = active ? 'Active' : (missing.length
+      ? 'Missing file'
+      : (bundle.kind === 'scripted-tripod'
+        ? (bundle.actionLabel || 'Use baseline')
+        : (bundle.tag === 'Default' ? 'Use default' : 'Use policy')));
+    action.disabled = active || missing.length > 0;
+    action.title = missing.length
+      ? 'Missing: '+missing.join(', ')
+      : (bundle.kind === 'scripted-tripod'
+        ? 'Configure the scripted tripod comparison. No motion starts.'
+        : 'Select this complete policy for the next move.');
+    action.onclick = ()=> rlApplyBundle(bundle);
+    card.appendChild(action);
+    box.appendChild(card);
+  }
+}
+
+async function rlBundleSelectFile(file){
+  const d = await (await fetch('/api/rl/policies',
+    {cache:'no-store'})).json();
+  if(!d.ok) throw new Error(d.error || 'policy list failed');
+  const live = d.policies || [];
+  const pick = live.find(p => p.file === file);
+  if(!pick || pick.error)
+    throw new Error('missing policy file: '+file);
+  if(!pick.slot)
+    throw new Error(file+' does not fit a controller policy slot');
+  const cur = live.find(p => p.slot === pick.slot && p.active);
+  if(cur && cur.file === pick.file) return pick;
+  const r = await fetch('/api/rl/policy_select', {
+    method:'POST',
+    body: JSON.stringify({file}),
+  });
+  const out = await r.json();
+  if(!out.ok) throw new Error(out.error || 'policy select failed');
+  return pick;
+}
+
+async function rlBundleSetRole(role, file){
+  const r = await fetch('/api/rl/roles', {
+    method:'POST',
+    body: JSON.stringify({role, file}),
+  });
+  const out = await r.json();
+  if(!out.ok) throw new Error(out.error || 'role set failed');
+}
+
+function rlSetScriptedDriveDefaults(bundle){
+  const d = bundle.scriptedDrive || {};
+  if(wgaitSel && d.gait != null) wgaitSel.value = String(d.gait);
+  if(walphaEl && d.alpha != null){
+    walphaEl.value = String(d.alpha);
+    const a = parseFloat(walphaEl.value) || 0;
+    const lab = $('walab');
+    if(lab) lab.textContent = a.toFixed(2);
+    const wrap = $('walphawrap');
+    if(wrap) wrap.style.display = (parseInt(wgaitSel.value, 10) || 0) === 1
+      ? '' : 'none';
+  }
+  if($('wvx') && d.vxMm != null) $('wvx').value = String(d.vxMm);
+  if($('wvy') && d.vyMm != null) $('wvy').value = String(d.vyMm);
+  if($('wom') && d.omega != null) $('wom').value = String(d.omega);
+  if($('wdur') && d.durationS != null) $('wdur').value = String(d.durationS);
+  if(d.tripod) writeTripodTune({...TRIPOD_TUNE_DEFAULT, ...d.tripod});
+  gait = parseInt(wgaitSel && wgaitSel.value, 10) || 0;
+  updateGaitTuneVisibility();
+  forceResend();
+}
+
+async function rlSendNoMotionCmd(line){
+  const r = await fetch('/cmd', {method:'POST', body:line});
+  const text = await r.text();
+  const shown = text && text !== 'ok' ? `${line} → ${text}` : line;
+  showSent(shown, !r.ok);
+  if(!r.ok) throw new Error(text || `${line} failed`);
+  setLink(true);
+  return text;
+}
+
+async function rlApplyScriptedBundle(bundle){
+  const rows = (bundle.rows || []).map(([role, value]) => `${role}: ${value}`);
+  const d = bundle.scriptedDrive || {};
+  if(!confirm(`Use ${bundle.title}?\n\n${rows.join('\n')}\n\n`
+      + 'This is the non-RL scripted comparison. It configures MuJoCo or the '
+      + 'Drive tab for the next run; no motion starts.')){
+    $('rlpickmsg').textContent = 'kept current policy';
+    return;
+  }
+  $('rlpickmsg').textContent = 'configuring '+bundle.title+'…';
+  try{
+    let simSelected = false;
+    if(bundle.simWalkFile && rlPolicyByFile(bundle.simWalkFile)){
+      await rlBundleSelectFile(bundle.simWalkFile);
+      simSelected = true;
+    }
+    rlSetScriptedDriveDefaults(bundle);
+    if(d.gait != null)
+      await rlSendNoMotionCmd('GAIT '+String(d.gait)+' '
+        +(Number(d.alpha || 0)).toFixed(2));
+    if(d.tripod)
+      await rlSendNoMotionCmd(tripodTuneLine(tripodTune));
+    rlActiveScriptedBundleId = bundle.id;
+    $('rlpickmsg').textContent = bundle.title+' configured ✔ '
+      +(simSelected
+        ? '(MuJoCo walk driver selected; robot Drive tab set to GAIT 0)'
+        : '(Drive tab set to GAIT 0)');
+  }catch(e){
+    $('rlpickmsg').textContent = 'baseline failed: '+(e.message || e);
+    showErr('Policy baseline: '+(e.message || e));
+  }
+  await refreshRlTab();
+}
+
+async function rlApplyBundle(bundle){
+  if(bundle.kind === 'scripted-tripod'){
+    await rlApplyScriptedBundle(bundle);
+    return;
+  }
+  const missing = rlBundleMissing(bundle);
+  if(missing.length){
+    $('rlpickmsg').textContent = 'missing policy file: '+missing.join(', ');
+    return;
+  }
+  const rows = (bundle.rows || []).map(([role, value]) =>
+    `${role}: ${String(value).endsWith('.json') ? rlPolicyLabel(value) : value}`);
+  if(!confirm(`Use ${bundle.title}?\n\n${rows.join('\n')}\n\n`
+      + 'No motion starts. Changes apply at the next move/session.')){
+    $('rlpickmsg').textContent = 'kept current policy';
+    return;
+  }
+  $('rlpickmsg').textContent = 'applying '+bundle.title+'…';
+  try{
+    rlActiveScriptedBundleId = '';
+    if(bundle.stanceFile) await rlBundleSelectFile(bundle.stanceFile);
+    if(bundle.walkFile) await rlBundleSelectFile(bundle.walkFile);
+    for(const [role, file] of Object.entries(bundle.roleValues || {}))
+      await rlBundleSetRole(role, file);
+    $('rlpickmsg').textContent = bundle.title+' selected ✔';
+  }catch(e){
+    $('rlpickmsg').textContent = 'bundle failed: '+(e.message || e);
+    showErr('Policy bundle: '+(e.message || e));
+  }
+  await refreshRlTab();
 }
 
 async function rlLoadPicker(){
@@ -3390,8 +4251,10 @@ async function rlLoadPicker(){
       rlRoles = (dr.ok && dr.roles) || {};
       rlAllowedObs = (dr.ok && dr.allowed_obs) || {};
     }catch(e){ rlRoles = {}; rlAllowedObs = {}; }
+    rlPolicyPickerReady = true;
     const home = {};
     for(const [role] of RL_ROLE_CHIPS) home[role] = rlRoleHome(role);
+    rlRenderBundles();
     box.innerHTML = '';
     for(const slot of ['stance','walk']){
       const items = rlPolicies.filter(p => p.slot === slot);
@@ -3420,7 +4283,7 @@ async function rlLoadPicker(){
         for(const [role, label, roleSlot] of RL_ROLE_CHIPS){
           if(roleSlot && roleSlot !== slot) continue;
           if(role === 'hold'){
-            const dims = rlAllowedObs.hold || [68, 72, 74];
+            const dims = rlAllowedObs.hold || [68, 72, 74, 93];
             if(!dims.includes(p.obs_dim)) continue;
             // Scripted gaits can't serve the RL hold role.
             if((p.file || '').startsWith('scripted:')) continue;
@@ -3430,7 +4293,7 @@ async function rlLoadPicker(){
           const on = zero || home[role] === p.file;
           const b = document.createElement('button');
           b.className = 'rolechip' + (on ? ' on' : '') + (zero ? ' zero' : '');
-          b.textContent = zero ? 'Hold @0' : label;
+          b.textContent = zero ? 'Joint Hold' : label;
           b.title = rlChipTitle(role, on, zero);
           b.onclick = ()=> rlChipClick(role, slot, p, on, zero);
           roles.appendChild(b);
@@ -3438,8 +4301,15 @@ async function rlLoadPicker(){
       }
       box.appendChild(tbl);
     }
+    rlApplyLearnedActionGuard();
   }catch(e){
+    rlPolicyPickerReady = true;
+    rlPolicies = [];
+    rlRoles = {};
     box.textContent = 'policy list unavailable (link?)';
+    const bundles = $('rlbundlecards');
+    if(bundles) bundles.textContent = 'policy bundles unavailable (link?)';
+    rlApplyLearnedActionGuard();
   }
 }
 
@@ -3448,7 +4318,7 @@ async function rlChipClick(role, slot, pick, on, zero){
     await rlSlotSelect(role, slot, pick);
   } else if(zero){
     $('rlpickmsg').textContent =
-      'already the default hold (walk policy @ zero command)';
+      'legacy joint hold is already selected';
   } else {
     // Sit / Hold are per-role overrides; clicking the lit chip resets
     // the role to its default.
@@ -3509,6 +4379,7 @@ async function rlSlotSelect(role, slot, pick){
     $('rlpickmsg').textContent = 'policy select failed (link?)';
   }
 }
+rlInitPolicyModeTabs();
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
   stopMotorsPoll();
@@ -3602,7 +4473,7 @@ $('msetzero').onclick = ()=> setZeroHere(true);
 $('mlimp').onclick = ()=>{ cmd('X'); setArmed(false); };
 $('mpinned').onclick = async ()=>{
   // Read-only detector: tipped >=12° over a folded knee? (~1.5s when
-  // tipped — it re-reads after a settle so a rock doesn't classify.)
+  // tipped — it re-reads after a short pause so a rock doesn't classify.)
   const el = $('mpinnedout');
   el.textContent = 'checking…';
   el.style.color = '';
@@ -4102,7 +4973,7 @@ $('qtrotback').onclick = ()=> quadRunAction(
 $('qdown').onclick = ()=> quadRunAction(
   'down', 'quad '+quadVariantLabel()+' come down');
 $('qstop').onclick = ()=> quadRunAction(
-  'hold', 'quad '+quadVariantLabel()+' settle hold');
+  'hold', 'quad '+quadVariantLabel()+' stable hold');
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');
@@ -4136,9 +5007,9 @@ window.addEventListener('hashchange', ()=>{
 // --- SERVO ARM / DISARM gate ------------------------------------------------
 // The firmware boots DISARMED (all PCA9685 channels forced full-off = no PWM,
 // so every servo is limp). This page also defaults to disarmed on EVERY load
-// and NEVER auto-arms. "Enable servos" sends ARM; the big red EMERGENCY STOP,
-// the drive STOP, and Debug's Relax all send DISARM (firmware `X`), which cuts
-// all PWM. needArm() gates every servo-driving send on both pages.
+// and NEVER auto-arms. "Enable servos" sends ARM. The big red EMERGENCY STOP,
+// Motors Limp all, and Debug's Relax send `X`, which cuts all PWM immediately;
+// normal Drive power-off runs STEP lower first.
 function updateArmUI(){
   const bar = $('armbar');
   const zeroBtn = $('armzero');
@@ -4169,8 +5040,8 @@ function updateArmUI(){
   $('armstate').textContent = servosArmed ? '● ON' : '● OFF';
   $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable';
   $('armbtn').title = servosArmed
-    ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
-      +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
+    ? 'Normal power-off: run STEP lower first, then cut servo power. '
+      +'For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
   zeroBtn.disabled = !robotTargetAvailable;
   zeroBtn.title = robotTargetAvailable
@@ -4179,8 +5050,8 @@ function updateArmUI(){
     : 'Robot target is not connected.';
   $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
-    +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
-    +'gentle power-off use Disarm / Sit & power off.';
+    +'goes limp NOW and will drop. Use only in an emergency. For normal '
+    +'power-off use STEP lower via Disarm / Sit & power off.';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){
@@ -4192,12 +5063,45 @@ function armServos(){
   cmd('ARM'); setArmed(true);
   showSent('ARM — servos enabled (nothing moves; press Stand to stand)');
 }
-// GRACEFUL power-off: lower to the ground first (firmware SETTLE = SIT then
-// DISARM), only THEN cut power. This is the NORMAL disarm/relax/off path so the
-// robot settles instead of collapsing. UI shows disarmed once the command is
-// sent (the firmware does the lower, then goes limp on its own).
-function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
-  showSent('DISARM — lowering gently, then servos off'); }
+// NORMAL power-off: explicit STEP lower, wait for it to finish, then limp.
+// The legacy power-off command is intentionally bypassed; it targeted the
+// plant home, not the sit-down choreography we want on hardware.
+let stepPowerOffBusy = false;
+async function stepLowerThenPowerOff(){
+  if(stepPowerOffBusy){
+    showSent('STEP lower + power off already running');
+    return false;
+  }
+  if(targetHasSim && !targetHasRobot){
+    showSent('switch Robot active before STEP lower + power off', true);
+    return false;
+  }
+  if(!robotTargetAvailable){
+    showSent('robot target not connected', true);
+    return false;
+  }
+  stepPowerOffBusy = true;
+  dbgTestAbort = true;
+  try{
+    if(scriptedDriveMoving || walkTimer)
+      stopGaitWalk('stopping gait before STEP lower');
+    showSent('STEP lower → power off…');
+    const lowered = await goPoseZero('sit', 'STEP lower');
+    if(!lowered){
+      showSent('STEP lower did not finish — leaving servos on', true);
+      await refreshRobotState(true);
+      return false;
+    }
+    const res = await cmd('X');
+    setArmed(false);
+    if(res.ok) showSent('STEP lower done — servos off');
+    else showSent('STEP lower done, but power-off failed: '+res.text, true);
+    await refreshRobotState(true);
+    return !!res.ok;
+  }finally{
+    stepPowerOffBusy = false;
+  }
+}
 async function topSafeZero(){
   if(targetHasSim && !targetHasRobot){
     showSent('switch Robot active before STEP lower', true);
@@ -4225,8 +5129,8 @@ function needArm(){
   showSent('⚠ Servos disarmed — press Enable first');
   return true;
 }
-// The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
-$('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
+// The Disarm toggle is a NORMAL power-off: STEP lower, then limp.
+$('armbtn').onclick = ()=> servosArmed ? stepLowerThenPowerOff() : armServos();
 // Header Zero uses the same smart lower: STEP-down from standing,
 // safe-zero recovery from tangled/not-standing poses.
 $('armzero').onclick = topSafeZero;

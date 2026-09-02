@@ -1,0 +1,357 @@
+{
+ "created": "2026-08-31T15:42:40",
+ "description": "Protected zero-pose ground battery: every joint individually at +5/-5 deg, low profile speed/torque, 0.25 A per-joint trip, automatic return and limp. No stand or gait motion.",
+ "home_deg": [
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "hz": 25.0,
+ "max_current_a": 0.25,
+ "name": "servo_spread_ground_5deg_v1",
+ "segments": [
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 0,
+   "kind": "step",
+   "label": "L0_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 0,
+   "kind": "step",
+   "label": "L0_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 1,
+   "kind": "step",
+   "label": "L0_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 1,
+   "kind": "step",
+   "label": "L0_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 2,
+   "kind": "step",
+   "label": "L0_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 2,
+   "kind": "step",
+   "label": "L0_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 3,
+   "kind": "step",
+   "label": "L1_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 3,
+   "kind": "step",
+   "label": "L1_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 4,
+   "kind": "step",
+   "label": "L1_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 4,
+   "kind": "step",
+   "label": "L1_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 5,
+   "kind": "step",
+   "label": "L1_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 5,
+   "kind": "step",
+   "label": "L1_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 6,
+   "kind": "step",
+   "label": "L2_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 6,
+   "kind": "step",
+   "label": "L2_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 9,
+   "kind": "step",
+   "label": "L3_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 9,
+   "kind": "step",
+   "label": "L3_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 10,
+   "kind": "step",
+   "label": "L3_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 10,
+   "kind": "step",
+   "label": "L3_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 11,
+   "kind": "step",
+   "label": "L3_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 11,
+   "kind": "step",
+   "label": "L3_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 12,
+   "kind": "step",
+   "label": "L4_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 12,
+   "kind": "step",
+   "label": "L4_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 13,
+   "kind": "step",
+   "label": "L4_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 13,
+   "kind": "step",
+   "label": "L4_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 14,
+   "kind": "step",
+   "label": "L4_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 14,
+   "kind": "step",
+   "label": "L4_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 15,
+   "kind": "step",
+   "label": "L5_yaw_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 15,
+   "kind": "step",
+   "label": "L5_yaw_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 1.2,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_step+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 1.2,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_step-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.2
+  }
+ ],
+ "soft_torque": 250,
+ "sysid_protocol": 1,
+ "write_acc": 10,
+ "write_speed": 120
+}

@@ -19,18 +19,24 @@ import json
 import zipfile
 from pathlib import Path
 
+from hexapod_core.demo_tripod import DEFAULT_DEMO_TRIPOD
+
 from .view import _InteractiveTraj
 from .walk_task import SimHexapodJointWalkEnv, WalkGoal
 
 __all__ = [
-    "_CRUISE", "_CURATED", "_DESC", "_HIST_K", "_LEGACY_PROFILE",
+    "_CRUISE", "_CURATED", "_DEFAULT_STANCE_PROFILE", "_DESC", "_HIST_K",
+    "_MIDDLE_TUCK_QUAD",
     "_N_MODE", "_NOSLIP", "_NOSLIP_CLEAN", "_NOSLIP_FACTORY",
-    "_NOSLIP_MID", "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
+    "_NOSLIP_FLUID", "_NOSLIP_FLUID_FAST", "_NOSLIP_FLUID_HYBRID",
+    "_NOSLIP_FLUID_PULSE", "_NOSLIP_FLUID_PUSH", "_NOSLIP_MID",
+    "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
     "_ON_ROBOT", "_PROMOTED", "_PlayEnv", "_PlayTraj", "_ROLE_OBS",
+    "_SCRIPTED_SE2", "_SE2_CPG", "_SE2_TETRAPOD", "_SE2_WAVE",
     "_SCRIPTED_ALPHA", "_SCRIPTED_NOSLIP", "_SCRIPTED_ROWS",
-    "_SCRIPTED_TRIPOD", "_SPEED_MAX", "_TRIPOD_GENTLE", "_TRIPOD_PRANCE",
-    "_load_profiles", "_obs_width", "_sim_only_obs", "make_noslip_gait",
-    "scan_policies",
+    "_SCRIPTED_TRIPOD", "_SPEED_MAX", "_TRIPOD_GENTLE", "_TRIPOD_HW",
+    "_TRIPOD_PRANCE", "_load_profiles", "_obs_width", "_sim_only_obs",
+    "make_noslip_gait", "scan_policies",
 ]
 
 _SPEED_MAX = 0.06     # champion's trained command band tops out here
@@ -38,7 +44,7 @@ _CRUISE = 0.05        # hold-to-drive speed (inside the trained band)
 
 
 # Sentinel rows in the WALK panel: not checkpoints — they select the
-# scripted no-slip gait (linux_control/noslip_gait.py) as the walk
+# scripted no-slip gait (hexapod_core/noslip_gait.py) as the walk
 # driver, at different alpha (body-motion overlap): 0.0 = the original
 # step-then-shift, 0.5 = the midpoint of the continuum (half the body
 # travel rides a constant drift through swings/dwells). Slower than the
@@ -58,36 +64,66 @@ _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
 # scrub in verify_noslip (08-20), like the clampfit tripod.
 _NOSLIP_RIPPLE = Path("noslip_ripple_gait")
 _NOSLIP_WAVE = Path("noslip_wave_gait")
+_NOSLIP_FLUID = Path("noslip_fluid_gait")
+_NOSLIP_FLUID_FAST = Path("noslip_fluid_fast_gait")
+_NOSLIP_FLUID_HYBRID = Path("noslip_fluid_hybrid_gait")
+_NOSLIP_FLUID_PUSH = Path("noslip_fluid_push_gait")
+_NOSLIP_FLUID_PULSE = Path("noslip_fluid_pulse_gait")
 _NOSLIP_FACTORY = {_NOSLIP_CLEAN: "clamp_fit", _NOSLIP_RIPPLE: "ripple",
-                   _NOSLIP_WAVE: "wave"}
+                   _NOSLIP_WAVE: "wave", _NOSLIP_FLUID: "fluid",
+                   _NOSLIP_FLUID_FAST: "fluid_fast",
+                   _NOSLIP_FLUID_HYBRID: "fluid_hybrid",
+                   _NOSLIP_FLUID_PUSH: "fluid_push",
+                   _NOSLIP_FLUID_PULSE: "fluid_pulse"}
 _NOSLIP_TAGS = {_NOSLIP: "tripod alpha=0.0", _NOSLIP_MID: "tripod alpha=0.5",
                 _NOSLIP_CLEAN: "clamp-fit tripod",
                 _NOSLIP_RIPPLE: "RIPPLE pairs (4 feet down)",
-                _NOSLIP_WAVE: "WAVE one-leg (5 feet down)"}
+                _NOSLIP_WAVE: "WAVE one-leg (5 feet down)",
+                _NOSLIP_FLUID: "fluid tripod",
+                _NOSLIP_FLUID_FAST: "fluid fast tripod",
+                _NOSLIP_FLUID_HYBRID: "fluid hybrid tripod",
+                _NOSLIP_FLUID_PUSH: "fluid push tripod",
+                _NOSLIP_FLUID_PULSE: "fluid pulse tripod"}
 _SCRIPTED_NOSLIP = frozenset(_SCRIPTED_ALPHA) | frozenset(_NOSLIP_FACTORY)
 
 
 def make_noslip_gait(row: Path, cls):
     """Build the no-slip gait a picker row selects (cls = NoSlipGait)."""
+    if row == _NOSLIP:
+        return cls.gait1(alpha=_SCRIPTED_ALPHA[row])
     preset = _NOSLIP_FACTORY.get(row)
     if preset is not None:
         return getattr(cls, preset)()
     return cls(alpha=_SCRIPTED_ALPHA.get(row, 0.0))
-# Scripted TRIPOD gait rows (linux_control/tripod_gait.py) — the
+
+
+_SE2_TETRAPOD = Path("se2_tetrapod_gait")
+_SE2_WAVE = Path("se2_wave_gait")
+_SE2_CPG = Path("se2_cpg_loaded_gait")
+_SCRIPTED_SE2 = frozenset({_SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG})
+_MIDDLE_TUCK_QUAD = Path("middle_tuck_quad_crawl")
+# Scripted TRIPOD gait rows (hexapod_core/tripod_gait.py) — the
 # dance_walk victory-lap gaits, previewable here before hardware runs.
 # "prance" = the aggressive horse settings (quick cadence, high knees,
 # 1.5x the RL band); "gentle" = the stock walk-demo settings for
 # comparison. cruise = hold-arrow speed; omega = the U/O clamp AND the
 # P-key about-face turn rate.
+_TRIPOD_HW = Path("tripod_highstep_demo_gait")
 _TRIPOD_PRANCE = Path("tripod_prance_gait")
 _TRIPOD_GENTLE = Path("tripod_walk_gait")
 _SCRIPTED_TRIPOD = {
+    _TRIPOD_HW: DEFAULT_DEMO_TRIPOD.play_row("hardware high-step demo"),
     _TRIPOD_PRANCE: dict(period=0.58, lift_mm=32.0, cruise=0.09,
                          omega=0.85, tag="PRANCE 0.58s/32mm"),
     _TRIPOD_GENTLE: dict(period=0.85, lift_mm=18.0, cruise=0.045,
                          omega=0.40, tag="gentle 0.85s/18mm"),
 }
-_SCRIPTED_ROWS = _SCRIPTED_NOSLIP | frozenset(_SCRIPTED_TRIPOD)
+_SCRIPTED_ROWS = (
+    _SCRIPTED_NOSLIP
+    | _SCRIPTED_SE2
+    | frozenset({_MIDDLE_TUCK_QUAD})
+    | frozenset(_SCRIPTED_TRIPOD)
+)
 
 
 # Playable obs widths (see module docstring / sim_viewer/README.md).
@@ -232,6 +268,16 @@ _DESC = {
         "classic RIPPLE: pairs step, 4 feet down, no slide",
     "noslip_wave_gait":
         "classic WAVE: one leg at a time, steadiest, slow",
+    "se2_tetrapod_gait":
+        "hand-coded SE2 tetrapod: workspace-scaled, 4 feet down",
+    "se2_wave_gait":
+        "hand-coded SE2 wave: workspace-scaled, 5 feet down",
+    "se2_cpg_loaded_gait":
+        "loaded CPG/SE2 controller artifact, selected by CPGLOAD",
+    "middle_tuck_quad_crawl":
+        "front/rear four-leg crawl with the middle legs tucked up",
+    "tripod_highstep_demo_gait":
+        "same high-step tripod preset used by the real robot Drive page",
     "tripod_prance_gait":
         "hand-coded horse PRANCE - dance lap gait; P about-face",
     "tripod_walk_gait":
@@ -268,11 +314,11 @@ _DESC = {
 # (linux_control/policies/*.json meta["profile"] — the sb3 zips don't
 # carry them). Driving a model with a DIFFERENT ramp than it trained on
 # is out-of-distribution: holdbc1_hard1 (hold 5s, ramp 6s to +111mm)
-# stalls its rise at ~55mm when fed the old +45mm @ 12mm/s recipe —
+# stalls its rise at ~55mm when fed the generic +45mm @ 12mm/s recipe —
 # right under the player's 60mm success gate, i.e. "7 sometimes doesn't
-# stand" (operator report 08-13). Models without an export fall back to
-# the stance_dr10-era constants the player always used.
-_LEGACY_PROFILE = {
+# stand" (operator report 08-13). New learned stance artifacts must carry
+# their own profile; these constants only define the scripted fallback.
+_DEFAULT_STANCE_PROFILE = {
     "stand": {"hold_s": 5.0, "ramp_s": 4.0, "target_m": 0.045},
     "lower": {"hold_s": 0.0, "ramp_s": 5.0, "target_m": -0.060},
 }

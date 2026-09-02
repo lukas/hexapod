@@ -128,7 +128,7 @@ def main() -> None:
             done = False
             info: dict = {}
             while not done:
-                traj_q.append(env.data.qpos[env._qadr].copy())
+                traj_q.append(env._state.joint_position.copy())
                 # Deterministic, not stochastic: this campaign's own
                 # "sto collapses to 0/N everywhere" recover finding
                 # (action-noise vs the strict consecutive-hold success
@@ -185,7 +185,9 @@ def main() -> None:
             "max_poses_per_episode": args.max_poses_per_episode,
             "per_kind_stats": per_kind_stats, "total_poses": len(q_rad)}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(args.out, q_rad=q_rad, meta=json.dumps(meta))
+    from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+    np.savez(args.out, q_rad=q_rad, meta=json.dumps(meta),
+             joint_frame=FRAME_ROBOT_ABS, joint_contract=JOINT_CONTRACT)
     print(f"[harvest] wrote {len(q_rad)} on-path poses from "
           f"{sum(s['episodes_contributed'] for s in per_kind_stats.values())} "
           f"successful episodes -> {args.out} "

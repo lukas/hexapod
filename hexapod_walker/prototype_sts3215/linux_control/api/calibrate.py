@@ -6,6 +6,7 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 from .common import *  # noqa: F401,F403
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 
 
 class CalibrateApi:
@@ -516,17 +517,13 @@ class CalibrateApi:
         femur = float(manual_femur_mm)
         tibia = float(manual_tibia_mm)
 
-        def _height(row: dict, hip_off: float, knee_off: float,
-                    convention: str) -> float:
+        def _height(row: dict, hip_off: float, knee_off: float) -> float:
             hip = math.radians(float(row["hip_deg"]) + hip_off)
             knee = math.radians(float(row["knee_deg"]) + knee_off)
-            if convention == "absolute_knee":
-                return femur * math.sin(hip) + tibia * math.sin(knee)
-            return femur * math.sin(hip) + tibia * math.sin(hip + knee)
+            return femur * math.sin(hip) + tibia * math.sin(knee)
 
-        def _eval(hip_off: float, knee_off: float,
-                  convention: str) -> dict:
-            heights = [_height(r, hip_off, knee_off, convention) for r in rows]
+        def _eval(hip_off: float, knee_off: float) -> dict:
+            heights = [_height(r, hip_off, knee_off) for r in rows]
             errs = [h - target for h in heights]
             mean_h = sum(heights) / len(heights)
             rms = math.sqrt(sum(e * e for e in errs) / len(errs))
@@ -534,10 +531,8 @@ class CalibrateApi:
             penalty = 0.03 * (abs(hip_off) + abs(knee_off))
             return {
                 "ok": True,
-                "angle_convention": (
-                    "hip_deg+knee_deg is tibia angle"
-                    if convention == "serial" else "knee_deg is tibia angle"),
-                "angle_convention_key": convention,
+                "angle_convention": "knee_deg is absolute tibia angle",
+                "angle_convention_key": "absolute_tibia",
                 "hip_zero_deg": round(float(hip_off), 2),
                 "knee_zero_deg": round(float(knee_off), 2),
                 "mean_height_mm": round(mean_h, 2),
@@ -551,12 +546,12 @@ class CalibrateApi:
             n = int(round((hi - lo) / step))
             return [round(lo + i * step, 4) for i in range(n + 1)]
 
-        def _fit(convention: str, hip_vals: list[float],
-                 knee_vals: list[float], *, refine: bool = True) -> dict:
+        def _fit(hip_vals: list[float], knee_vals: list[float], *,
+                 refine: bool = True) -> dict:
             best: dict | None = None
             for hip_off in hip_vals:
                 for knee_off in knee_vals:
-                    row = _eval(hip_off, knee_off, convention)
+                    row = _eval(hip_off, knee_off)
                     if best is None or row["score"] < best["score"]:
                         best = row
             if refine and best is not None:
@@ -564,12 +559,12 @@ class CalibrateApi:
                 knee0 = float(best["knee_zero_deg"])
                 for hip_off in _frange(hip0 - 0.6, hip0 + 0.6, 0.1):
                     for knee_off in _frange(knee0 - 0.6, knee0 + 0.6, 0.1):
-                        row = _eval(hip_off, knee_off, convention)
+                        row = _eval(hip_off, knee_off)
                         if row["score"] < best["score"]:
                             best = row
             return best or {
                 "ok": False,
-                "angle_convention": convention,
+                "angle_convention": "absolute_tibia",
                 "status": "no_candidates",
             }
 
@@ -577,29 +572,15 @@ class CalibrateApi:
         fine = _frange(-30.0, 30.0, 0.5)
         zero = [0.0]
         models = {
-            "serial_no_offset": _eval(0.0, 0.0, "serial"),
-            "serial_hip_only": _fit("serial", fine, zero),
-            "serial_knee_only": _fit("serial", zero, fine),
-            "serial_best_pair": _fit("serial", coarse, coarse),
-            "absolute_knee_no_offset": _eval(0.0, 0.0, "absolute_knee"),
-            "absolute_knee_hip_only": _fit("absolute_knee", fine, zero),
-            "absolute_knee_knee_only": _fit("absolute_knee", zero, fine),
-            "absolute_knee_best_pair": _fit(
-                "absolute_knee", coarse, coarse),
+            "no_offset": _eval(0.0, 0.0),
+            "hip_only": _fit(fine, zero),
+            "knee_only": _fit(zero, fine),
+            "best_pair": _fit(coarse, coarse),
         }
-        best_serial = min(
-            (models[k] for k in (
-                "serial_hip_only", "serial_knee_only", "serial_best_pair")
-             if models[k].get("ok")),
-            key=lambda r: float(r.get("score", 1e9)),
-            default=None)
         best_model = min(
             (row for row in models.values() if row.get("ok")),
             key=lambda r: float(r.get("score", 1e9)),
             default=None)
-        recommended = (
-            best_model.get("angle_convention_key")
-            if isinstance(best_model, dict) else None)
         return {
             "ok": True,
             "status": "fit_to_operator_measurements",
@@ -607,14 +588,11 @@ class CalibrateApi:
             "target_height_mm": round(target, 2),
             "femur_mm": round(femur, 2),
             "tibia_mm": round(tibia, 2),
-            "best_serial": best_serial,
             "best_model": best_model,
-            "recommended_angle_convention": recommended,
+            "joint_frame": FRAME_ROBOT_ABS,
+            "joint_contract": JOINT_CONTRACT,
             "models": models,
-            "note": (
-                "If absolute_knee_no_offset beats serial_no_offset, the knee "
-                "reading is best interpreted as the tibia's absolute angle, "
-                "not an angle relative to the femur."),
+            "note": "All fits use the absolute-tibia joint contract.",
         }
 
     def _geometry_report(
@@ -876,15 +854,11 @@ class CalibrateApi:
         height_delta_mm = (
             None if model_height_mm is None or manual_height_mm is None
             else round(model_height_mm - manual_height_mm, 2))
-        manual_serial_height_mm = None
         manual_absolute_height_mm = None
         if (manual_femur_mm is not None and manual_tibia_mm is not None
                 and mean_hip_deg is not None and mean_knee_deg is not None):
             hip = math.radians(mean_hip_deg)
             knee = math.radians(mean_knee_deg)
-            manual_serial_height_mm = round(
-                manual_femur_mm * math.sin(hip)
-                + manual_tibia_mm * math.sin(hip + knee), 2)
             manual_absolute_height_mm = round(
                 manual_femur_mm * math.sin(hip)
                 + manual_tibia_mm * math.sin(knee), 2)
@@ -956,20 +930,8 @@ class CalibrateApi:
                 "manual_femur_mm": manual_femur_mm,
                 "manual_tibia_mm": manual_tibia_mm,
                 "model_minus_manual_height_mm": height_delta_mm,
-                "manual_relative_height_mm": manual_serial_height_mm,
-                "manual_serial_height_mm": manual_serial_height_mm,
                 "manual_absolute_height_mm": manual_absolute_height_mm,
                 "manual_active_height_mm": manual_absolute_height_mm,
-                "manual_relative_minus_manual_height_mm": (
-                    None if (manual_serial_height_mm is None
-                             or manual_height_mm is None)
-                    else round(manual_serial_height_mm
-                               - manual_height_mm, 2)),
-                "manual_serial_minus_manual_height_mm": (
-                    None if (manual_serial_height_mm is None
-                             or manual_height_mm is None)
-                    else round(manual_serial_height_mm
-                               - manual_height_mm, 2)),
                 "manual_absolute_minus_manual_height_mm": (
                     None if (manual_absolute_height_mm is None
                              or manual_height_mm is None)
@@ -3597,4 +3559,3 @@ class CalibrateApi:
         out = self.stop_demo()
         out["calibrate"] = self.calibrate_state()
         return out
-

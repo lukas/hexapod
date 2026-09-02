@@ -60,6 +60,39 @@ the process rules below are what remain).
 Drive `C` (centre) and `P` (stand) refuse if any live joint would move
 more than **25°** from present unless the command includes `FORCE`.
 
+## Mac Vision gait-survey routes (`http://localhost:8898`)
+
+These routes live on the Mac hub, not the Uno Q. `POST survey/start` is the
+Vision page's only motion-capable endpoint and requires
+`{"acknowledge_motion":true}` plus a SAFE camera/IMU preflight.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/vision/state` | Camera/pose/calibration state plus `survey` status, logs, run directory, and artifacts |
+| POST | `/api/vision/survey/start` | Start a supervised recorded suite, e.g. `{"acknowledge_motion":true,"gaits":[1,11],"speed_mm_s":30,"direction_s":8,"adaptive_centering":true,"soft_recovery":true,"max_recoveries":2}` |
+| POST | `/api/vision/survey/stop` | Interrupt the suite; its signal handler stops and limps, retaining captured artifacts |
+
+Soft recovery is only for confirmed pre-trip warnings. Tip, brownout, hot or
+missing servos, hard current, and lost telemetry are hard stops and never
+resume automatically. Heat requires three consecutive over-threshold samples
+from the same joint. After a thermal limp, the raw camera and telemetry logs
+remain open until three complete samples are below the warm threshold (or the
+five-minute cooldown timeout). A later safe-zero requires explicit operator
+authorization. Tilt also requires three valid consecutive samples; an
+instantaneous near-180-degree Euler jump that contradicts the gyro is logged
+and excluded from the trip vote rather than being mistaken for a physical
+tip.
+
+The survey keeps the initial operator-approved chassis image position as its
+centering anchor and resolves duplicate floor-tag IDs by global reprojection
+fit. A completed run contains raw/annotated video, camera timestamps,
+hardware telemetry/events, AprilTag poses, `apriltag_motion.json`, a matched
+MuJoCo replay/video, `comparison.json`, and `manifest.json`. Aggregate repeated
+runs with `uv run python -m
+rl_move.scripts.summarize_scripted_gait_reliability --runs
+rl_move/hardware_traces --output
+rl_move/hardware_traces/gait_reliability.json`.
+
 ## Deployed policies (2026-08-10, hardware attempt #2)
 
 - stance = `ppo_goal_cw_stance_dr10` (`rl_policy_weights.json`, obs 68)

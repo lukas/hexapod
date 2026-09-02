@@ -60,7 +60,7 @@ from feetech_bus import (  # noqa: E402
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
 )
-from tripod_gait import FEMUR_MM, TIBIA_MM  # noqa: E402
+from hexapod_core.tripod_gait import FEMUR_MM, TIBIA_MM  # noqa: E402
 from urt2_bench import default_port, keystroke_abort_watch, limp_now  # noqa: E402
 
 # SRAM torque limit (0..1000). Softened for demos so PID can't hammer
@@ -2990,7 +2990,7 @@ for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
 def _make_quad_fn(seconds: float, *, gait: str = "walk",
                   direction: float = 1.0, phase: str = "walk",
                   trim_fn=None, base_deg: list[float] | None = None):
-    from quad_walk import make_quad_walk_pose_fn
+    from hexapod_core.quad_walk import make_quad_walk_pose_fn
     base = list(base_deg) if base_deg is not None else _stand_zero_pose()
     return make_quad_walk_pose_fn(
         base, seconds, gait=gait, direction=direction,
@@ -3069,7 +3069,7 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     if name in QUAD_DEMO_GAITS:
         # Per-gait speed caps are hardware prudence: trot and the more
         # pitched variants use fewer support margins than the stable walk.
-        from quad_walk import GAITS
+        from hexapod_core.quad_walk import GAITS
         cap = GAITS.get(QUAD_DEMO_GAITS[name], {}).get("speed_cap")
         if cap is not None:
             base_fn = speed_fn
@@ -3077,7 +3077,7 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     quad = name in QUAD_STREAM_DEMOS
     standing = name in STAND_STREAM_DEMOS or quad
     if name in QUAD_DOWN_DEMOS:
-        from quad_walk import EXIT_TOTAL_S
+        from hexapod_core.quad_walk import EXIT_TOTAL_S
         dur = EXIT_TOTAL_S
     elif seconds is None:
         dur = (QUAD_STREAM_SECONDS if quad
@@ -3089,11 +3089,11 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     rear_pitch_target_deg = None
     rear_pitch_check_after_s = 0.0
     if quad:
-        from quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
+        from hexapod_core.quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
         if name in QUAD_REAR_DEMOS:
             # Entry choreography needs room before the hold phase.
             dur = max(dur, ENTRY_TOTAL_S + 0.5)
-            from quad_walk import GAITS
+            from hexapod_core.quad_walk import GAITS
             gait_key = QUAD_DEMO_GAITS.get(name)
             pitch = GAITS.get(gait_key or "", {}).get("pitch")
             if pitch is not None:
@@ -3121,7 +3121,7 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
 
     balance_trim = None
     if quad and name in QUAD_BALANCE_TRIM_DEMOS:
-        from quad_walk import GAITS
+        from hexapod_core.quad_walk import GAITS
         gait_key = QUAD_DEMO_GAITS.get(name)
         gait_cfg = GAITS.get(gait_key or "", {})
         pitch = gait_cfg.get("pitch")
@@ -4569,8 +4569,9 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                 return r
 
             # --- THE BIG CHORUS: the circus horse ---------------------
-            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S,
-                                   FRONT_LEGS, TUCK_DEG)
+            from hexapod_core.quad_walk import (
+                ENTRY_TOTAL_S, EXIT_TOTAL_S, FRONT_LEGS, TUCK_DEG,
+            )
             cur_note[0] = ""
             note("the BIG chorus — THE HORSE (tipping back …)")
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
@@ -4585,7 +4586,7 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                           trimmed: bool = True) -> str | None:
                 trim = None
                 if trimmed:
-                    from quad_walk import GAITS
+                    from hexapod_core.quad_walk import GAITS
                     pitch = GAITS["rear"].get("pitch")
                     trim = QuadPitchTrim(
                         expected_pitch_deg=(
@@ -4967,8 +4968,10 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
     now rear support): gesturing a planted support leg mid-rear would
     drop the back of the robot.
     """
-    from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, FRONT_LEGS,
-                           TUCK_DEG, make_quad_walk_pose_fn)
+    from hexapod_core.quad_walk import (
+        ENTRY_TOTAL_S, EXIT_TOTAL_S, FRONT_LEGS, TUCK_DEG,
+        make_quad_walk_pose_fn,
+    )
     quad = make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait="rear")
     t_exit = max(ENTRY_TOTAL_S, seconds - EXIT_TOTAL_S)
     hold = max(0.1, t_exit - ENTRY_TOTAL_S)
@@ -5653,12 +5656,7 @@ def run_encore_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             # machinery as choreography): clamp-fit timing, omega-only.
             # Feet never scrub; the body sweeps ~30° and comes back.
             note("act VI — the compass (no-slip pirouette)")
-            try:
-                from noslip_gait import NoSlipGait
-            except ImportError:
-                sys.path.insert(
-                    0, str(_HERE.parent / "linux_control"))
-                from noslip_gait import NoSlipGait
+            from hexapod_core.noslip_gait import NoSlipGait
             gait = NoSlipGait.clamp_fit()
             gait.sync_plant_stance(hip, knee)
 
@@ -5685,8 +5683,9 @@ def run_encore_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
 
             # ---- Act VII: THE CIRCUS HORSE ----------------------------
             note("act VII — THE CIRCUS HORSE (tipping back …)")
-            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S,
-                                   FRONT_LEGS, GAITS, TUCK_DEG)
+            from hexapod_core.quad_walk import (
+                ENTRY_TOTAL_S, EXIT_TOTAL_S, FRONT_LEGS, GAITS, TUCK_DEG,
+            )
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
             if not ease_to_pose(bus, _stand_zero_pose(),
                                 abort_check=check, seconds=0.8,
@@ -7344,7 +7343,7 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
                   log_path: Path | None = None) -> str:
     """Tripod gait: forward / spin / short oval, then hold stand plant."""
     try:
-        from tripod_gait import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
     except ImportError as e:
         print(f"  walk demo needs tripod_gait: {e}")
         return "skipped"
@@ -7470,7 +7469,7 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
     """
     assert phase in ("out", "halfturn", "home")
     try:
-        from tripod_gait import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
     except ImportError as e:
         print(f"  prance needs tripod_gait: {e}")
         return "skipped"

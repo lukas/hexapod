@@ -1310,7 +1310,8 @@ def test_slipwalk_toppling_fast_is_not_an_escape(slipwalk_returns):
     stabilizing, never at falling over. (skate's deeper -1195 is an
     undiscounted 375-tick accumulation; per-state at gamma=0.99 the
     worst survivable continuation costs ~-300, which 400 covers.)"""
-    assert slipwalk_returns["topple_steps"] < 75, (
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert slipwalk_returns["topple_steps"] < 150, (
         f"the topple twin did not die fast (steps="
         f"{slipwalk_returns['topple_steps']}); the bank probe is broken")
     assert slipwalk_returns["topple"] < slipwalk_returns["park"] - 100.0, (
@@ -1471,7 +1472,8 @@ def test_slipwalk_swing_bonus_keeps_topple_the_worst_live_option(
     bonus (a toppling twin gets no swing credit — it never completes a
     touchdown before terminating — but check it wasn't accidentally
     reordered)."""
-    assert slipwalk_swing_returns["topple_steps"] < 75, (
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert slipwalk_swing_returns["topple_steps"] < 150, (
         "the topple twin did not die fast under the swing-armed "
         f"stack; bank probe is broken: {slipwalk_swing_returns}")
     assert (slipwalk_swing_returns["topple"]
@@ -1746,7 +1748,8 @@ def test_amp_minimal_toppling_is_not_an_escape(amp_minimal_returns):
     """The reused anti-suicide fix (reward.term_penalty=400) must carry
     over cleanly to the minimal stack: dying fast must sit far below
     every survival behavior, not just below real walking."""
-    assert amp_minimal_returns["topple_steps"] < 75, (
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert amp_minimal_returns["topple_steps"] < 150, (
         "the topple twin did not die fast; the bank probe is broken: "
         f"{amp_minimal_returns}")
     assert amp_minimal_returns["topple"] < amp_minimal_returns["park"] - 300.0, (
@@ -6947,7 +6950,8 @@ def test_walkcurr_pf_slip_and_fall_are_the_floor(walkcurr_pf_returns):
         assert walkcurr_pf_returns[worst] < floor - 50.0, (
             f"'{worst}' is not the floor of the bank: "
             f"{walkcurr_pf_returns}")
-    assert walkcurr_pf_returns["topple_steps"] < 75, (
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert walkcurr_pf_returns["topple_steps"] < 150, (
         "the topple twin did not die fast; bank probe is broken")
 
 
@@ -7052,7 +7056,8 @@ def test_walkcurr_swing_ranking_holds(walkcurr_pf_swing_returns):
     for worst in ("skate", "topple"):
         assert r[worst] < tier3 - 50.0, (
             f"'{worst}' is not the floor: {r}")
-    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert r["topple_steps"] < 150, "topple twin did not die fast"
     assert (r["fast"] >= r["gait"] > r["creep"]), (
         f"travel income not monotone: {r}")
     assert r["stall"] > r["park"], f"freeze basin has no exit: {r}"
@@ -7172,7 +7177,8 @@ def test_walkcurr_chargeramp_min_ranking_holds(
     for worst in ("skate", "topple"):
         assert r[worst] < tier3, (
             f"'{worst}' is not the floor at ramp minimum: {r}")
-    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert r["topple_steps"] < 150, "topple twin did not die fast"
 
 
 def test_walkcurr_chargeramp_min_shrinks_the_discovery_penalty(
@@ -7283,7 +7289,8 @@ def test_walkcurr_loadslip_bootstrap_min_ranking_holds(
     for worst in ("skate", "topple"):
         assert r[worst] < tier3, (
             f"'{worst}' is not the floor at bootstrap minimum: {r}")
-    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert r["topple_steps"] < 150, "topple twin did not die fast"
 
 
 def test_walkcurr_loadslip_bootstrap_min_shuffle_not_profitable(
@@ -7437,7 +7444,8 @@ def test_walkcurr_pf_scaled_ranking_holds(walkcurr_pf_scaled_returns):
     for worst in ("skate", "topple"):
         assert r[worst] < tier3 - 50.0 * c, (
             f"'{worst}' is not the floor at scale {c}: {r}")
-    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert r["topple_steps"] < 150, "topple twin did not die fast"
     assert (r["fast"] >= r["gait"] > r["creep"]), (
         f"travel income not monotone at scale {c}: {r}")
     assert r["stall"] > r["park"], (
@@ -7746,7 +7754,8 @@ def test_walkcurr_rung0_slip_and_fall_are_the_floor(walkcurr_rung0_returns):
     for worst in ("skate", "topple"):
         assert r[worst] < floor - 50.0 * c, (
             f"'{worst}' is not the floor under rung-0: {r}")
-    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    # 100 Hz default (mesh era): ~150 ticks = 1.5 s topple fall time; 75 was the 25 Hz-era bound (see walkcurr_sv_dying_is_the_strict_floor).
+    assert r["topple_steps"] < 150, "topple twin did not die fast"
 
 
 def test_walkcurr_rung0_deltas_linear_in_scale(walkcurr_rung0_returns):
@@ -7882,19 +7891,24 @@ def walkcurr_pf_hgt_returns(request) -> dict[str, float]:
 def test_walkcurr_pf_hgt_gate_bites_belly_sit(walkcurr_pf_hgt_returns):
     """The safety cutoff must actually fire and fire FAST: belly_sit
     should die within ~1 grace period under the gated stack, forfeiting
-    the vast majority of the 15 s probe (375 steps at the sim's 25 Hz
-    control rate) the ungated twin rides out unmolested. Comparing raw
-    RETURNS gated-vs-ungated is a false test here: both share the
-    probes' synthetic 1 s zero-command hold (a fixed, large-relative-
-    to-episode-length K_WALK-kernel artifact documented in the
-    WALKCURR_PF scaled bank above, "cannot occur in training") which
-    dominates a short terminated episode's total; steps-to-termination
-    is the honest signal that the mechanism engaged."""
+    the vast majority of the 15 s probe (1500 steps at the mesh-era
+    100 Hz control rate; was 375 steps/25 Hz pre-08-24) the ungated
+    twin rides out unmolested. Comparing raw RETURNS gated-vs-ungated
+    is a false test here: both share the probes' synthetic 1 s
+    zero-command hold (a fixed, large-relative-to-episode-length
+    K_WALK-kernel artifact documented in the WALKCURR_PF scaled bank
+    above, "cannot occur in training") which dominates a short
+    terminated episode's total; steps-to-termination is the honest
+    signal that the mechanism engaged."""
     r = walkcurr_pf_hgt_returns
     assert r["belly_sit_gated_steps"] < 0.3 * r["belly_sit_ungated_steps"], (
         f"height cutoff did not shorten the belly_sit episode: {r}")
-    assert r["belly_sit_gated_steps"] < 100, (
-        f"belly_sit did not terminate near the 1.5 s grace period: {r}")
+    # 100 Hz default: grace_s is 1.5-2.0 s -> 150-200 ticks (measured
+    # 170/200 across the loose/tight doses); bound was 100 (25 Hz era,
+    # grace_s*25=37-50 ticks). 250 keeps comfortable margin below the
+    # 0.3x-ungated check above and the 1500-tick full episode.
+    assert r["belly_sit_gated_steps"] < 250, (
+        f"belly_sit did not terminate near the grace period: {r}")
     assert r["belly_sit_ungated_steps"] >= 350, (
         f"belly_sit twin is broken (should survive to truncation "
         f"ungated): {r}")
@@ -8322,11 +8336,15 @@ def test_walkcurr_idle_term_only_cuts_the_frozen_twin(
     BODY barely moves -- must run the full episode untouched, because
     their legs are genuinely being commanded to move."""
     r = walkcurr_pf_idle_term_returns
-    assert r["park_steps"] < 200, (
+    # 100 Hz default: the 6.0 s grace+term trigger fires at ~600 ticks
+    # (measured), not the 25 Hz-era ~150; bound was 200. Non-park twins
+    # must run the full 1500-tick episode untouched; bound was 300
+    # (25 Hz era, full episode = 375 ticks).
+    assert r["park_steps"] < 700, (
         f"park did not terminate early: {r['park_steps']} steps")
     for pol in ("gait", "fast", "creep", "stall", "reverse", "sideways",
                 "skate"):
-        assert r[f"{pol}_steps"] > 300, (
+        assert r[f"{pol}_steps"] > 1000, (
             f"'{pol}' terminated early under idle-terminate -- the "
             f"qvel discriminator is not surgical: {r[pol + '_steps']} "
             f"steps")

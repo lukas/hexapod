@@ -3378,3 +3378,159 @@ runnable work (`standwalk`, active).
   real servo datasheet rather than one bench anecdote + a safety.py
   comment, this lever should be held pending that verification instead
   of adopted from the in-flight session read alone.
+
+## 2026-09-02 ~19:1x-20:1x — test_task_semantics.py 54/44-failure regression: 10 MORE hz-tick-count bugs found+fixed+verified (46->36 red); remaining ~36 categorized by root-cause class for the next dig-in (research note, no operator action needed)
+Idle-kick cycle (standwalk's own Next item 0, the stdwalklohi-acq1{,-s1}
+flat-only session read, was mid-flight on train-6/7, ~50min-2h into a
+multi-hour n=32 read; no other track had an unblocked Next/backlog
+item) picked up the 08-25 "large open item for a dedicated dig-in"
+this note's own predecessor recommended and never got worked. Ran the
+full bank fresh: **46 failed / 249 passed / 4 skipped / 1 xfailed**
+(the 08-25 08:5x entry's re-read was 44/196; test count grew, red
+count roughly held).
+**Fixed and VERIFIED (re-ran each named test after editing, all now
+green) — all the same shape: a hardcoded raw TICK-COUNT literal
+calibrated for the pre-08-24 25 Hz default, now measuring 4x more
+ticks per real second at the mesh-era 100 Hz default, exactly the
+class the 08-25 ~08:5x entry root-caused on one example
+(`test_walkcurr_idle_term_only_cuts_the_frozen_twin`) but did not fix
+file-wide:**
+- 9x `topple_steps < 75` (the scripted 1s-fall probe reused across
+  `slipwalk`, `slipwalk_swing`, `amp_minimal`, `walkcurr_pf`, `_swing`,
+  `_chargeramp_min`, `_loadslip_bootstrap_min`, `_rung0` fixtures) ->
+  `< 150`, matching the ALREADY-CORRECT precedent value used by the
+  newer `walkcurr_sv_*` bank (measured: topple actually dies at
+  88-100 ticks at 100 Hz, was passing at 75 only pre-08-24).
+  Confirmed fixed: `test_slipwalk_toppling_fast_is_not_an_escape`,
+  `test_slipwalk_swing_bonus_keeps_topple_the_worst_live_option`,
+  `test_amp_minimal_toppling_is_not_an_escape`,
+  `test_walkcurr_rung0_slip_and_fall_are_the_floor[x0.02-swing3,
+  x0.02-swing9]` (2 of 3 params — the 3rd, `x1-swing3`, fails on a
+  SEPARATE ranking issue, see below). The other 5 topple_steps sites
+  (`walkcurr_pf_returns`, `_swing_returns`, `_chargeramp_min_returns`,
+  `_loadslip_bootstrap_min_returns`, `_scaled_returns`) are STILL RED
+  because an EARLIER assertion in the same test function (a genuine
+  return-margin ranking check, not the step-count line) fails first —
+  the topple_steps fix was necessary but not sufficient for those.
+- `test_walkcurr_pf_hgt_gate_bites_belly_sit` (4 dose params):
+  `belly_sit_gated_steps < 100` -> `< 250` (measured 170-200 ticks at
+  the 1.5-2.0s grace periods used by the doses, was calibrated for
+  25 Hz's 37-50 ticks). Docstring's stale "375 steps at 25Hz" note
+  corrected too. All 4 params confirmed passing.
+- `test_walkcurr_idle_term_only_cuts_the_frozen_twin`: `park_steps <
+  200` -> `< 700` (measured exactly 600 ticks = the 6.0s grace+term
+  trigger at 100Hz) and non-park `_steps > 300` -> `> 1000` (full
+  episode is 1500 ticks at 100Hz, was 375 at 25Hz). Confirmed passing.
+**Net: 46 -> 36 red, all fixes are pure numeric-literal edits with a
+dated comment citing the measured ticks, zero behavior-code changes,
+zero risk of masking a real regression** (every new bound was set
+from a DIRECT measurement this cycle, not guessed). Snapshotted +
+pushed.
+**Deliberately NOT fixed this cycle (each needs its own root-cause
+pass, not a blind threshold bump) — categorized for whoever continues:**
+1. **Real accumulated-return distortion under the same 4x tick-count
+   change** (the OPERATOR_QUESTIONS 08-25 08:5x entry's item (c),
+   never investigated): `test_walkcurr_idle_term_ranking_holds`
+   (sideways -124.9 now barely OUT-earns park -128.2, missing the
+   required 50pt margin — and the sign itself: park should be BETTER
+   than sideways, not worse); `test_walkcurr_pf_slip_and_fall_are_the_
+   floor`, `_swing_ranking_holds[swing,swingterm800]`,
+   `_chargeramp_min_ranking_holds`, `_loadslip_bootstrap_min_ranking_
+   holds`, `_pf_scaled_ranking_holds[x0.02,x0.1]`, `_stagea_slip_
+   ranking_holds`, `_rung0_..._floor[x1-swing3]`,
+   `_pf_hgt_gait_beats_belly_sit[tight_pdw05,tight_pdw05_pdx1p5]` (a
+   genuine park<belly_sit inversion at the higher park-duty-charge
+   doses) all fail on an EARLIER ranking/margin assertion than the
+   step-count line, i.e. a real "does behavior X still out-earn Y by
+   the required margin" comparison that the 4x-longer episode
+   apparently narrows or flips for some per-tick-vs-one-time reward
+   term combinations. Companion tests sharing the same fixtures
+   (`_swing_no_farming_rest_point[swing,swingterm800]`,
+   `_chargeramp_min_shuffle_not_profitable`,
+   `_loadslip_bootstrap_min_shuffle_not_profitable`,
+   `_pf_scaled_deltas_are_linear_in_scale[x0.02,x0.1]`,
+   `_rung0_deltas_linear_in_scale[x0.02-swing3]`,
+   `_pf_stationary_beats_wrong_way` — present in the same 46-failure
+   list but not individually re-run this cycle) almost certainly share
+   the same root cause; NOT verified individually, flagging rather
+   than assuming. ALL of these (this bullet's full ~18-test list) are
+   `walkcurr_pf`-family banks — the walkcurr track was RETIRED
+   2026-08-31 (STATUS.md), so no agent-initiated launch will ever cite
+   these specific banks again; recommend down-prioritizing this whole
+   cluster rather than chasing it, unless some other track's reward
+   stack turns out to share the exact mechanism (not checked).
+2. **Possibly-unrelated-to-hz, individually large deviations found by
+   a targeted run of every non-walkcurr failure** (score, slipwalk_
+   swing income, freeprog, hold, rise_rock, trans_drag, getup,
+   joycanary, recover, stopcurrent — 16 tests total, listed by name in
+   the failing-test summary of this cycle's `/tmp/tts_priority.log`
+   run, not reproduced verbatim here): the two most alarming by
+   measured magnitude (NOT simple hz-margin drift, an order of
+   magnitude or a sign flip) —
+   - `test_trans_drag_metric_sees_the_scrape_with_price_off` /
+     `_charge_bites_the_scraper` / `_honest_rise_keeps_full_pay`: the
+     scripted "scrape" probe now measures only 56mm of loaded drag
+     (bank expects >700mm) and the demonstrated rise reference only
+     300mm (expects 550-750mm) — an ~5-12x drop, not a 4x hz artifact,
+     meaning either the scripted probe rollout is terminating early
+     for an unrelated reason (untested) or the `trans_drag_mm` metric
+     itself changed behavior. `reward.k_drag_trans` (this bank's own
+     lever) is NOT one of the keys any current standwalk launch arms
+     (checked stdwalklohi-acq1's full arg list) — the WALK-mode
+     `k_drag_stance`/`k_drag_loaded` levers standwalk actually uses
+     are a different reward path/bank, so this specific regression is
+     not blocking today's in-flight standwalk arms, but the metric
+     itself (`trans_drag_mm`) is an eval/W&B surface per the bank's
+     own docstring and deserves a dig-in before anyone trusts it.
+   - `test_recover_replay_succeeds_and_terminates`: the reference
+     belly->plant rise now returns -85.2 (bank requires >0) despite
+     terminating correctly with `success=True` before the horizon —
+     a genuine reward-sign concern for the recovery bank, not a step-
+     count issue.
+   - `test_joycanary_bounded_term_cost_keeps_early_death_unpaid`: a
+     drag-then-fall-at-6s now nets +378.8 (bank requires <0) under the
+     term-cost cap — the test's own failure message says exactly what
+     to try ("raise term_cost_max above 240.0"), a joystick-track
+     canary the DONE-green joystick track probably doesn't need
+     revisited but flagging since it's a live exploit-shaped hole.
+   - `test_stopcurrent_reprices_the_isometric_fight`: the brace-pose
+     current charge doesn't fire at all (`brace_charged ==
+     brace_base` exactly) — `k_current_hot`-adjacent mechanism,
+     POSSIBLY relevant to standwalk's live `reward.k_current_hot`
+     lever (the safety.max_current_a cap-raise work this cycle-window
+     already did) — worth a look before the next current-pricing arm.
+   - `test_getup_honest_ordering`: partial-crouch (-48.9) now pays
+     WORSE than freeze/refusal (-38.2), inverting the required
+     ordering — rise/getup-bank-relevant, standwalk-adjacent.
+   - `test_hold_gate_bites_the_stepping` / `_hold_bank_policies_are_
+     the_right_shapes`: hold_still_gate now only cuts stepping's
+     return by ~34% (bank requires >=35% cut) and the scripted
+     "stepping" swing probe measures 19mm peak clearance (bank wants
+     20-60mm) — HOLD bank is directly relevant to standwalk's live
+     `reward.hold_still_gate`/`hold_feet_load` levers.
+   - `test_rise_rock_default_off_is_inert`: the legacy flat-start
+     replay now tilts 4.12 deg with the rock axis OFF (bank wants
+     <4.0) — a hair over a tight bound, possibly just noise/margin,
+     rise-bank-relevant.
+   - `test_score_flagleg_earns_scraps` / `_score_honest_ordering`,
+     `test_slipwalk_swing_bonus_boosts_real_travel_substantially` /
+     `_does_not_reward_marching_or_shuffling`, `test_freeprog_ema_
+     default_off_is_bit_exact` / `_creep_vs_stall_gap_measured`: not
+     yet individually root-caused this cycle (ran out of cycle budget
+     after the trans_drag/getup/hold/recover/joycanary/stopcurrent
+     batch above); same "run it, read the real numbers, decide
+     recalibrate-vs-fix" procedure applies.
+**Recommended next step**: whoever picks this up next should NOT
+blindly bump thresholds — for each of the 16 non-walkcurr tests above,
+reproduce with `-v` (numbers are all in this note or `/tmp/tts_
+priority.log` if still on this pod), decide per `RUN_INTERPRETATION_
+RULES.md`-style discipline whether the current sim behavior is
+actually right (recalibrate the bound, dated comment) or wrong (fix
+the mechanism), starting with `hold`/`getup`/`rise_rock`/`stopcurrent`
+/`trans_drag` since those five banks price mechanisms standwalk's
+live launches actually use.
+status: informational/escalating — no operator input needed (code-
+quality/test-debt, continuing the 08-25 thread), flagged for the next
+dig-in pass; not full bank green yet (36 still red) so any NEW
+reward-mechanism launch should still re-run the SPECIFIC bank it
+depends on rather than trust "bank green" as a blanket claim.

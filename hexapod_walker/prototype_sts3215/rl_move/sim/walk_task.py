@@ -4676,6 +4676,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 default=2.0)) / 1000.0
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
+            # Deadband was a bare 0.5mm/tick literal calibrated at the
+            # pre-08-24 default control.hz=25 (dt=0.04s) -- a PER-TICK
+            # floor, not per-second. At today's default control.hz=100
+            # (dt=0.01s) the identical literal is a 4x LOOSER real
+            # velocity floor (50mm/s vs the intended ~12.5mm/s),
+            # silently under-pricing slow persistent slip
+            # ("paddle-creep"). Scale by dt/0.04 so hz=25 stays
+            # bit-exact (scale=1.0) and hz=100 correctly shrinks to the
+            # same real-velocity floor (2026-09-02 trans_drag
+            # semantics-bank dig-in; mirrors sim_env.py's identical
+            # trans_drag_mm fix and safety.max_delta_q_deg's existing
+            # hz-scaling convention). k_drag_stance's own
+            # drag_stance_tick_floor_mm deadband is the SAME shape but
+            # is NOT touched here -- it needs its own measurement
+            # before changing (OPERATOR_QUESTIONS.md 2026-09-02).
+            k_drag_deadband_m = 0.0005 * (self.dt / 0.04)
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
                                    default=0.0)) \
                 * self._walk_charge_scale()
@@ -4880,7 +4896,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             if tslip_cap > 0.0:
                                 ex = min(ex, tslip_cap)
                             tangent_excess.append(ex)
-                        if k_drag > 0.0 and slip > 0.0005:
+                        if k_drag > 0.0 and slip > k_drag_deadband_m:
                             r_drag -= k_drag * slip
                         if k_ds > 0.0 and slip > ds_floor:
                             acc0 = self._stance_slip_acc[f]

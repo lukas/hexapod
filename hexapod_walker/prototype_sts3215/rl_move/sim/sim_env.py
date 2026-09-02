@@ -3428,6 +3428,19 @@ class SimHexapodBalanceEnv(_GymBase):
             k_td = float(cfg_get(self.cfg, "reward", "k_drag_trans",
                                  default=0.0))
             drag_td = 0.0
+            # Deadband was a bare 0.5mm/tick literal calibrated at the
+            # pre-08-24 default control.hz=25 (dt=0.04s) against
+            # "dragging strokes run 0.4-0.5mm/tick" measurements -- a
+            # PER-TICK floor, not a per-second one. At today's default
+            # control.hz=100 (dt=0.01s) the identical literal represents
+            # a 4x LOOSER real-world velocity floor (50mm/s instead of
+            # the intended ~12.5mm/s), silently swallowing genuine slow
+            # persistent slip (2026-09-02 trans_drag semantics-bank
+            # dig-in). Scale by dt/0.04 so hz=25 stays bit-exact
+            # (scale=1.0) and hz=100 correctly shrinks to the same
+            # real-velocity floor -- mirrors how safety.max_delta_q_deg
+            # is already hz-scaled by convention.
+            tdrag_deadband_m = 0.0005 * (self.dt / 0.04)
             for f_td in range(6):
                 adr_td = self._touch_adr[f_td]
                 on_td = (adr_td >= 0 and
@@ -3437,7 +3450,7 @@ class SimHexapodBalanceEnv(_GymBase):
                         and self._tdrag_prev_xy[f_td] is not None):
                     slip_td = float(np.linalg.norm(
                         xy_td - self._tdrag_prev_xy[f_td]))
-                    if slip_td > 0.0005:
+                    if slip_td > tdrag_deadband_m:
                         drag_td += slip_td
                 self._tdrag_prev_xy[f_td] = xy_td.copy()
                 self._tdrag_prev_on[f_td] = on_td

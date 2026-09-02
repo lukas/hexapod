@@ -190,11 +190,28 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
         term_tick = None
         term_reason = None
         term_mode = None
+        # Per-tick trace (2026-09-02 extension): the family-change jump
+        # SIZE is ~constant every episode (belly vs plant are fixed
+        # canonical poses, ~weakly dependent on the trained policy) --
+        # it cannot by itself explain why only SOME episodes die right
+        # after it. What can differ per-episode is the SHOCK RESPONSE:
+        # does the policy's action/current spike right at the jump
+        # tick (a real disturbance response) or does current climb
+        # gradually (a different, switch-unrelated cause)? Track a
+        # cheap per-tick (cur_max, |action|_max) trace so a human/
+        # next-cycle can eyeball the window around each switch/term.
+        cur_trace: list[float] = []
+        act_trace: list[float] = []
         done = False
         while not done:
             a, _ = model.predict(obs, deterministic=not stochastic)
             obs, r, term, trunc, info = env.step(a)
             done = term or trunc
+            st = env._state
+            cur_trace.append(
+                float(np.max(np.abs(st.servo_current)))
+                if st.servo_current is not None else float("nan"))
+            act_trace.append(float(np.max(np.abs(np.asarray(a)))))
             if term:
                 term_tick = env._step_i
                 term_reason = info.get("termination_reason")
@@ -204,6 +221,7 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
             "term_tick": term_tick, "term_t_s":
                 (term_tick * env.dt) if term_tick is not None else None,
             "term_reason": term_reason, "term_mode": term_mode,
+            "cur_trace": cur_trace, "act_trace": act_trace, "dt": env.dt,
         })
     return {"checkpoint": str(ckpt), "dr_scale": dr_scale, "n": n,
             "stochastic": stochastic, "episodes": episodes}

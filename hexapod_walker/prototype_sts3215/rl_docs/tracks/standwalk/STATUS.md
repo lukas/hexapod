@@ -1,6 +1,36 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~02:4x (this cycle, non-s1 remit): `frameblend-canary`
+Update, 2026-09-02 ~03:0x (idle-kick, drained a real bug): found the
+in-flight `frameblend-canary-s1` `eval_done_gate_session` read (on
+train-5, started ~02:28 by a concurrent cycle) had REGRESSED the
+09-01 mixedsession-diet scoping bug — it was running plain
+`ops.sh donegatecmd` output (`goal.rise_rsi_frac=0.5`, the
+checkpoint's own training-curriculum rise-start mix, out-dir
+`..._s1_donegate` with NO `_flatonly` suffix), not the flat/sit-start
+overrides its own STATUS text claimed and that the matched non-s1 run
+(train-1) actually used. Root cause: `ops.sh donegatecmd` has no
+flat-start mode, so anyone invoking it directly (instead of
+hand-adding the override args the way the quartet + non-s1 frameblend
+runs did) silently reproduces the exact bug closed on 09-01. Killed
+it early (3/8 `rise_det` episodes in, minimal waste) and fixed at the
+source: `donegatecmd` now takes an optional `flat=0/1` 6th arg — `1`
+appends `goal.rise_flat_frac=1.0/rise_partial_frac=0/
+rise_start_bank_frac=0/rise_rsi_frac=0` and suffixes the out-dir
+`_donegate_flatonly` so a flat and a mixed-diet read of the same
+checkpoint can never collide; default stays `0` (existing
+call-sites/behavior unaffected). Verified the generated command
+matches the non-s1 sibling's actual flat cfg byte-for-byte apart from
+the checkpoint name, then relaunched the corrected
+`frameblend-canary-s1` flat-only read on train-5 (n=8, video,
+`..._s1_donegate_flatonly`), confirmed running with the right
+`--extra-cfg-set goal.rise_flat_frac=1.0 ... rise_rsi_frac=0` args.
+Non-s1 `frameblend-canary` read (train-1) untouched, still mid-flight
+(dr0 phase done, owndr partial per its own prior update below). No
+other launchable work found this cycle (all 5 other tracks
+DONE/retired/delivered, backlog empty, single-dose discipline holds
+pending both reads landing).
+
+Prior update, 2026-09-02 ~02:4x (this cycle, non-s1 remit): `frameblend-canary`
 (train-1, seed0) finished training (2M steps, `ep_rew_mean=166.4`,
 reward quarters `[55.7, 79.6, -208.5, -22.6]` — dipped then partially
 recovered, same healthy pattern as its siblings). No prestaged eval

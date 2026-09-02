@@ -138,3 +138,48 @@ trim.md`. Other 5 tracks reconfirmed DONE/retired/delivered.
 > through ~04:0x in `archive/standwalk_STATUS_journal_2026-09-02b_
 > trim.md`. Current state = newest Update at the TOP; don't act on
 > archived Next.
+
+---
+Appended 09-02 ~05:4x (verbatim prior Update block, trimmed from
+STATUS.md to make room for the frame-blend-refuted update):
+
+Update, 2026-09-02 ~05:3x (idle-kick, drained Next item 1's "one more
+comparison" — zero training, all read-only pod evals): ran the SAME
+per-joint current probe against the LEGACY primitive-family (2.104kg)
+`ppo_goal_cw_stance_dr10` — decisive, mass-REFUTING result.
+
+1. **Tooling fix:** `debug_seq_switch_obs_jump.py` was hardcoded to
+   `joint_walk`; this legacy checkpoint trains on `joint_goal`, 4 obs
+   dims narrower (walk_task's command+measured-velocity channels are
+   UNCONDITIONAL, no cfg flag shrinks them). Added `--task` (default
+   `joint_walk`, bit-exact for existing callers), 7/7 tests,
+   snapshotted (`exp/standwalk-perjoint-legacy-task-flag`).
+2. **Femur pins at cap in BOTH mass regimes, ~identically.** n=8 DR-0
+   flat-start pure rise (primitive, this checkpoint's native recipe):
+   femur peaks 2.638-2.640A in 8/8 episodes (mean-of-max 2.6396A) —
+   matches the mesh finding (2.63-2.64A) almost exactly; coxa/tibia
+   stay under cap, same pattern as mesh. 5/8 episodes TERMINATE
+   over_current, sustained 0.6-3.9s (not a brief spike) — matches
+   HARDWARE.md's standing flag ("belly RISE is the risky part...
+   incident class"), i.e. this was never mesh-specific.
+   `logs/ckpt_eval/ppo_goal_cw_stance_dr10_seqswitch_dr0_perjoint_n8.json`.
+   Mass is NOT the primary driver — the cap-hit is intrinsic to the
+   curl-up-from-flat motion, present at both masses under two
+   different rise references.
+3. Cheap follow-up: is the cap itself just too low? Same primitive
+   probe, only `safety.max_current_a` raised 2.5->2.9A (HARDWARE.md
+   already recorded a real servo at 2.97A, "a hair under the 3A lab
+   guard", 08-10) — 0/8 terminations (was 5/8), current settles to
+   1.3-1.9A by episode end (not runaway). Reran `durctrl-canary`'s own
+   flat-only `eval_done_gate_session` (n=32, the real DONE-gate
+   harness) with the same override — launched, in flight on train-1,
+   ETA ~1-2h, not read this cycle: does it resolve the control's 24/32
+   session-level over_current rate cleanly?
+
+No reward/cfg DEFAULT changed (both cap tests were read-only
+`--extra-cfg-set` overrides on already-trained checkpoints, zero new
+training compute). Front-running lever is raise `safety.max_current_a`
+(sim's cap sits below the recorded real "3A lab guard"; reprice/
+re-author were both already implicitly active and neither escaped the
+cap alone) — recorded in `OPERATOR_QUESTIONS.md`, still gated on the
+in-flight session read before any training launch bakes it in.

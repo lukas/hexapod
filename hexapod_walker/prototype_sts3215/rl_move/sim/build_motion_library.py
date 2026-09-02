@@ -3,7 +3,7 @@ dataset (rl_docs/AMP_LOCOMOTION.md §4 "Motion-Prior Dataset").
 
 Source (§4.3, "a clean hand-designed alternating-tripod kinematic
 generator"): the hardware-proven scripted teacher
-(linux_control/tripod_gait.py TripodGait), driven through REAL MuJoCo
+(hexapod_core/tripod_gait.py TripodGait), driven through REAL MuJoCo
 physics at the measured tibia-150 plant (CURRENT_TRUTHS.md: 0.06-0.10
 m/s x 4 headings, zero falls, slip/m 1.4-2.9) — not a bare kinematic
 replay, so joint velocities/contacts/orientation come from the actual
@@ -70,6 +70,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 
 import mujoco  # noqa: E402
 
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
 from rl_move.config import load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
@@ -118,7 +119,8 @@ def _clip_transition_pairs(obs_style: np.ndarray) -> tuple[np.ndarray, np.ndarra
 # Command coverage (§4.2). Each entry: name, a function t -> (vx, vy, wz),
 # and a clip duration. Speeds/rates are the teacher's own measured/tested
 # operating points (CURRENT_TRUTHS teacher band 0.06-0.10 m/s; TURN_CMD_WZ
-# 0.25 rad/s from the turn bank in test_task_semantics.py).
+# 0.25 rad/s from the retired pre-v2 turn bank; regenerate the v2
+# calibration before treating this as a certified operating point).
 RAMP_S = 1.0
 
 
@@ -188,28 +190,17 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
     validation) is identical so a downstream A/B compares only the
     GAIT, not the harness.
     """
-    # FRAME FIX (08-22, fb_20260822T145428 audit): import through the
-    # ONE sim-side knee-convention boundary (sim_gait_compat), NOT raw
-    # tripod_gait. Since 30660b51 the raw class speaks the hardware's
-    # ABSOLUTE-tibia convention: feeding its desired_deg() straight to
-    # q_rad_to_action mis-poses every knee, and WALK_PLANT (20, 80) is
-    # the SIM-RELATIVE canonical plant, which the raw
-    # sync_plant_stance misreads as absolute. Measured divergence of
-    # the raw stream vs the verified compat stream at this plant:
-    # knee up to 15.7 deg (mean 80.6 vs 85.2), coxa up to 4.9 deg —
-    # teacher_v1.npz clips are physically valid (15/15 accepted, low
-    # slip) but are NOT the verified teacher's gait. Rebuilds from
-    # this script now produce the true convention-correct motion
-    # (default --out bumped to teacher_v2; v1 kept append-only).
+    # Gait targets and recorded library joints use the canonical robot
+    # absolute-tibia frame. The joint env converts only at MuJoCo actuation.
     if controller == "se2cpg":
-        from hexapod_core.sim_gait_compat import SE2FootGait
+        from hexapod_core.se2_foot_gait import SE2FootGait
         gait = SE2FootGait(
             gait=cpg_params.gait, period=cpg_params.period,
             swing_frac=cpg_params.swing_frac, lift=cpg_params.lift_m,
             cmd_tau=cpg_params.cmd_tau,
             workspace_margin=cpg_params.workspace_margin)
     else:
-        from hexapod_core.sim_gait_compat import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
         gait = TripodGait(vx=0.0, lift=0.025)
 
     env = _make_env(seed, episode_seconds=clip_s + 1.0)
@@ -230,7 +221,7 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
 
     dt = env.dt
     n = int(round(clip_s / dt))
-    neutral_q = env.data.qpos[env._qadr].copy()
+    neutral_q = env._state.joint_position.copy()
     # Closed-loop yaw trim (only meaningful for a PURE turn-in-place
     # clip -- name starts with "turn_"; forward+turn/diagonal clips are
     # untouched, matching the verified eval_cpg_gate.py scope): see
@@ -270,15 +261,16 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
                 measured_wz = (yaw_cum - trim_ref_yaw) / (period_steps * dt)
                 trim_ref_yaw = yaw_cum
                 trim_scale = update_trim(trim_scale, measured_wz, wz)
-        q_prev = env.data.qpos[env._qadr].copy()
+        q_prev = env._state.joint_position.copy()
         act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         _obs, _r, term, trunc, _info = env.step(act)
-        q_now = env.data.qpos[env._qadr].copy()
+        q_now = env._state.joint_position.copy()
         max_delta_q_deg = max(max_delta_q_deg,
                               float(np.max(np.abs(q_now - q_prev))) / DEG2RAD)
 
-        joint_pos.append(q_now.copy())
-        joint_vel.append(env.data.qvel[env._vadr].copy())
+        joint_pos.append(q_now)
+        joint_vel.append(env._mujoco_to_logical_q(
+            env.data.qvel[env._vadr].copy()))
         quat = env.data.xquat[env._chassis_bid].copy()
         base_quat.append(quat)
         gyro = env.data.sensordata[
@@ -458,6 +450,9 @@ def main():
             sys.exit(1)
         from rl_move.sim.paper_cpg_search import GaitParams, _clip_params
         raw = json.loads(Path(args.cpg_params_from).read_text())
+        from hexapod_core.joint_frame import require_robot_abs_joint_frame
+        require_robot_abs_joint_frame(
+            raw, source=str(args.cpg_params_from))
         params_dict = raw["params"] if "params" in raw else raw["best"]["params"]
         cpg_params = _clip_params(GaitParams(**params_dict))
 
@@ -465,16 +460,16 @@ def main():
     turn_scales = None
     if (args.turn_stride_scale != 1.0 or args.turn_period_scale != 1.0):
         turn_scales = (args.turn_stride_scale, args.turn_period_scale)
-    source = ("scripted_tripod_gait_teacher via sim_gait_compat "
-              "knee-convention boundary (linux_control/tripod_gait.py"
-              " + linux_control/sim_gait_compat.py)"
+    source = ("canonical robot-absolute scripted_tripod_gait teacher"
               " @ tibia-150 plant, real MuJoCo physics, no RL"
               if args.controller == "tripod" else
               "cpg_search_se2_foot_gait winner (params from "
-              f"{args.cpg_params_from}) via sim_gait_compat.SE2FootGait"
+              f"{args.cpg_params_from}) via canonical SE2FootGait"
               " @ tibia-150 plant, real MuJoCo physics, no RL"
               f"{'' if args.no_yaw_trim else ' + closed-loop yaw trim on turn_* clips (rl_move/sim/yaw_trim.py)'}")
     manifest = {"families": sorted(families), "clips": [], "source": source,
+                "joint_frame": FRAME_ROBOT_ABS,
+                "joint_contract": JOINT_CONTRACT,
                 "controller": args.controller,
                 "turn_wz": args.turn_wz,
                 "turn_stride_scale": args.turn_stride_scale,
@@ -559,6 +554,8 @@ def main():
         clip_lens=np.asarray(clip_lens),
         clip_names=np.asarray([c["name"] for c in accepted]),
         clip_seeds=np.asarray([c["seed"] for c in accepted]),
+        joint_frame=np.asarray(FRAME_ROBOT_ABS),
+        joint_contract=np.asarray(JOINT_CONTRACT),
         dt=accepted[0]["dt"],
     )
     with open(str(out_path) + "_manifest.json", "w") as f:

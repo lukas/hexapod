@@ -50,8 +50,8 @@ EPISODE_S = 15.0
 
 
 def rollout(policy: str, seed: int) -> dict:
-    import mujoco
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
+    from rl_move.safety import AXIS_LIMITS_DEG
 
     stack = dict(STACKS["vref1"])
     stack[("goal", "walk_height_off_mm")] = HEIGHT_OFF_MM
@@ -60,8 +60,6 @@ def rollout(policy: str, seed: int) -> dict:
     pin_command(env, CMD, 0.0)
     traj = env._goal_traj
     n = len(traj.vx)
-    m = env.model
-
     model, gait = None, None
     if policy == "ckpt":
         from stable_baselines3 import PPO
@@ -71,16 +69,13 @@ def rollout(policy: str, seed: int) -> dict:
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
 
-    # joint bookkeeping: 18 hinge joints after the free root
-    cls_idx = {"yaw": [], "pitch": [], "knee": []}
-    qadr, lo, hi = {}, {}, {}
-    for j in range(m.njnt):
-        name = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_JOINT, j) or ""
-        for cls in cls_idx:
-            if name.endswith(cls):
-                cls_idx[cls].append(j)
-                qadr[j] = int(m.jnt_qposadr[j])
-                lo[j], hi[j] = np.degrees(m.jnt_range[j])
+    # Public diagnostics use the same robot-absolute vector and hardware
+    # limits as the controller. MuJoCo hinge ranges are private model data.
+    cls_idx = {
+        "yaw": list(range(0, 18, 3)),
+        "pitch": list(range(1, 18, 3)),
+        "knee": list(range(2, 18, 3)),
+    }
 
     z0 = float(env._z0)
     heights, radii = [], []
@@ -109,12 +104,14 @@ def rollout(policy: str, seed: int) -> dict:
                                              pad[1] - body[1])))
             if rr:
                 radii.append(float(np.mean(rr)) * 1000.0)
+            q_deg = np.degrees(env._state.joint_position)
             for cls, joints in cls_idx.items():
-                a = [np.degrees(float(env.data.qpos[qadr[j]])) for j in joints]
+                a = [float(q_deg[j]) for j in joints]
                 angles[cls].append(float(np.mean(a)))
+                axis = {"yaw": 0, "pitch": 1, "knee": 2}[cls]
+                lo, hi = AXIS_LIMITS_DEG[axis]
                 margins[cls].append(float(min(
-                    min(v - lo[j], hi[j] - v)
-                    for j, v in zip(joints, a))))
+                    min(v - lo, hi - v) for v in a)))
         step += 1
         if term or trunc:
             break

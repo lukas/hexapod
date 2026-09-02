@@ -52,6 +52,9 @@ from .servo_model import (  # noqa: E402
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, position_actuator_ids,
 )
+from hexapod_core.joint_frame import (  # noqa: E402
+    mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad,
+)
 
 DEG2RAD = math.pi / 180.0
 RAD2DEG = 180.0 / math.pi
@@ -89,6 +92,7 @@ class _Rig:
         self._cur = None
 
     def place(self, q_rad: np.ndarray) -> None:
+        """Place from a public robot-absolute pose."""
         import mujoco_prototype as MP
         from rl_move.body_ik import fk_all_feet
         mj = self.mujoco
@@ -98,8 +102,9 @@ class _Rig:
         mj.mj_resetData(self.model, self.data)
         self.data.qpos[:3] = (0.0, 0.0, base_z)
         self.data.qpos[3:7] = (1.0, 0.0, 0.0, 0.0)
-        self.data.qpos[self.qadr] = q_rad
-        self.data.ctrl[self.pos_act] = q_rad
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_rad)
+        self.data.qpos[self.qadr] = q_model
+        self.data.ctrl[self.pos_act] = q_model
         mj.mj_forward(self.model, self.data)
         for _ in range(40):
             worst = min((float(self.data.contact[ci].dist)
@@ -111,8 +116,9 @@ class _Rig:
         self._cur = None
 
     def settle(self, q_cmd: np.ndarray, seconds: float) -> None:
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_cmd)
         for _ in range(int(seconds / self.dt)):
-            self.data.ctrl[self.pos_act] = q_cmd
+            self.data.ctrl[self.pos_act] = q_model
             self.mujoco.mj_step(self.model, self.data)
             self._lowpass()
 
@@ -130,7 +136,7 @@ class _Rig:
 
     def run(self, cmd_fn, seconds: float, *, speed: float, acc: float,
             record_from: float = 0.0):
-        """cmd_fn(t)->q_rad target at 25 Hz; returns per-tick arrays."""
+        """Run robot-absolute commands and return robot-absolute joints."""
         profile = ServoProfile(self.params,
                                self.data.qpos[self.qadr].copy())
         per = int(round(0.04 / self.dt))
@@ -139,20 +145,24 @@ class _Rig:
                                "err_cmd_deg", "q_deg", "xy")}
         for k in range(ticks):
             t = k * 0.04
-            cmd = cmd_fn(t)
-            profile.command(cmd, speed_deg_s=speed, acc_units=acc)
+            cmd = np.asarray(cmd_fn(t), dtype=float)
+            cmd_model = robot_abs_rad_to_mujoco_rel_rad(cmd)
+            profile.command(cmd_model, speed_deg_s=speed, acc_units=acc)
             for _ in range(per):
                 self.data.ctrl[self.pos_act] = profile.tick(self.dt)
                 self.mujoco.mj_step(self.model, self.data)
                 cur = self._lowpass()
             if t < record_from:
                 continue
-            q = self.data.qpos[self.qadr]
+            q_model = self.data.qpos[self.qadr]
+            q = mujoco_rel_rad_to_robot_abs_rad(q_model)
+            profile_q = mujoco_rel_rad_to_robot_abs_rad(
+                self.data.ctrl[self.pos_act])
             out["cur"].append(cur.copy())
             out["qfrc"].append(
                 np.abs(self.data.qfrc_actuator[self.vadr]).copy())
             out["err_prof_deg"].append(
-                np.abs(self.data.ctrl[self.pos_act] - q) * RAD2DEG)
+                np.abs(profile_q - q) * RAD2DEG)
             out["err_cmd_deg"].append(np.abs(cmd - q) * RAD2DEG)
             out["q_deg"].append(q * RAD2DEG)
             out["xy"].append(self.data.qpos[:2].copy())
@@ -210,7 +220,8 @@ def main(argv=None) -> int:
         rig = _Rig(params)
         rig.place(PLANT)
         rig.settle(PLANT, 1.5)
-        cmd = (rig.data.qpos[rig.qadr].copy() if name == "hold_sync"
+        cmd = (mujoco_rel_rad_to_robot_abs_rad(
+                   rig.data.qpos[rig.qadr]) if name == "hold_sync"
                else PLANT.copy())
         rec = rig.run(lambda t, c=cmd: c, 5.0, speed=GAIT_SPEED,
                       acc=GAIT_ACC, record_from=2.0)
@@ -218,7 +229,7 @@ def main(argv=None) -> int:
 
     # C: scripted walk 30 mm/s, hardware gait write profile.
     try:
-        from sim_gait_compat import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
         gait = TripodGait(vx=0.03)
         gait.sync_plant_stance(20.0, 80.0)
         gait.set_lift_mm(25.0)
@@ -227,7 +238,7 @@ def main(argv=None) -> int:
         rig.place(PLANT)
         rig.settle(PLANT, 1.5)
         rec = rig.run(
-            lambda t: np.asarray(gait.desired_deg(t)) * DEG2RAD,
+            lambda t: np.radians(gait.desired_deg(t)),
             10.0, speed=GAIT_SPEED, acc=GAIT_ACC, record_from=1.0)
         results.append(summarize("walk30", rec))
     except ImportError as e:

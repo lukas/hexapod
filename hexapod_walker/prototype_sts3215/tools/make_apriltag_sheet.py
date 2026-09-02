@@ -2,7 +2,8 @@
 """Generate a printable US Letter sheet of 16 AprilTag tag36h11 markers (IDs 0–15).
 
 Renders official AprilRobotics bit layouts (same codes / bit_x,y as tag36h11.c).
-Output is SVG — open and Print at 100% / Actual size (no "fit to page").
+Outputs SVG and PDF with dashed cut lines outside each tag's white quiet zone.
+Print at 100% / Actual size (no "fit to page").
 """
 
 from __future__ import annotations
@@ -42,6 +43,8 @@ BIT_Y = [
 NBITS = 36
 WIDTH_AT_BORDER = 8
 TOTAL_WIDTH = 10  # includes 1-cell white quiet zone each side
+ID_STRIP_IN = 0.18
+CUT_MARGIN_IN = 0.08  # extra white paper outside the required quiet zone
 
 
 def tag_grid(code: int) -> list[list[int]]:
@@ -92,22 +95,28 @@ def _layout(
     page_w_in: float,
     page_h_in: float,
     margin_in: float,
+    cut_margin_in: float,
     cols: int,
     rows: int,
 ) -> dict:
-    id_strip = 0.18
+    id_strip = ID_STRIP_IN
     usable_w = page_w_in - 2 * margin_in
     usable_h = page_h_in - 2 * margin_in
-    tag_w = usable_w / cols
-    tag_h = (usable_h / rows) - id_strip
+    tag_w = usable_w / cols - 2 * cut_margin_in
+    tag_h = (usable_h / rows) - id_strip - 2 * cut_margin_in
     tag_size = min(tag_w, tag_h)
-    gap_x = (usable_w - cols * tag_size) / max(cols - 1, 1) if cols > 1 else 0.0
-    cell_h = tag_size + id_strip
+    if tag_size <= 0:
+        raise ValueError("page, margin, or cut margin leaves no room for tags")
+    cut_size = tag_size + 2 * cut_margin_in
+    gap_x = (usable_w - cols * cut_size) / max(cols - 1, 1) if cols > 1 else 0.0
+    cell_h = cut_size + id_strip
     gap_y = (usable_h - rows * cell_h) / max(rows - 1, 1) if rows > 1 else 0.0
     black_in = tag_size * (WIDTH_AT_BORDER / TOTAL_WIDTH)
     return {
         "id_strip": id_strip,
         "tag_size": tag_size,
+        "cut_margin": cut_margin_in,
+        "cut_size": cut_size,
         "gap_x": gap_x,
         "gap_y": gap_y,
         "cell_h": cell_h,
@@ -123,14 +132,17 @@ def make_sheet_svg(
     cols: int = 4,
     rows: int = 4,
     start_id: int = 0,
+    cut_margin_in: float = CUT_MARGIN_IN,
 ) -> dict:
     n = cols * rows
     codes = CODES_0_15[start_id : start_id + n]
     if len(codes) < n:
         raise SystemExit(f"Need {n} codes starting at {start_id}; only have through 15")
 
-    lay = _layout(page_w_in, page_h_in, margin_in, cols, rows)
+    lay = _layout(page_w_in, page_h_in, margin_in, cut_margin_in, cols, rows)
     tag_size = lay["tag_size"]
+    cut_size = lay["cut_size"]
+    cut_margin = lay["cut_margin"]
     id_strip = lay["id_strip"]
     black_in = lay["black_in"]
 
@@ -143,17 +155,25 @@ def make_sheet_svg(
         f'<text x="{margin_in}" y="{margin_in * 0.55}" font-family="Helvetica,Arial,sans-serif" '
         f'font-size="0.08" fill="#444">'
         f"tag36h11 · IDs {start_id}-{start_id + n - 1} · print Actual size / 100% · "
-        f"black square ≈ {black_in:.3f} in ({black_in * 25.4:.1f} mm)</text>",
+        f"cut on gray dashes · black square ≈ {black_in:.3f} in "
+        f"({black_in * 25.4:.1f} mm)</text>",
     ]
 
     for i, code in enumerate(codes):
         r, c = divmod(i, cols)
-        x = margin_in + c * (tag_size + lay["gap_x"])
+        cut_x = margin_in + c * (cut_size + lay["gap_x"])
         y = margin_in + r * (lay["cell_h"] + lay["gap_y"])
         tid = start_id + i
-        lines.extend(svg_tag(code, x, y, tag_size, tid))
-        cx = x + tag_size / 2
-        ty = y + tag_size + id_strip * 0.72
+        lines.append(
+            f'<rect id="cut-{tid}" x="{cut_x:.4f}" y="{y:.4f}" '
+            f'width="{cut_size:.4f}" height="{cut_size:.4f}" fill="none" '
+            f'stroke="#9aa0a6" stroke-width="0.006" stroke-dasharray="0.05 0.04"/>'
+        )
+        tag_x = cut_x + cut_margin
+        tag_y = y + cut_margin
+        lines.extend(svg_tag(code, tag_x, tag_y, tag_size, tid))
+        cx = cut_x + cut_size / 2
+        ty = y + cut_size + id_strip * 0.72
         lines.append(
             f'<text x="{cx:.4f}" y="{ty:.4f}" text-anchor="middle" '
             f'font-family="Helvetica,Arial,sans-serif" font-size="0.12" fill="#000">'
@@ -168,6 +188,7 @@ def make_sheet_svg(
         "tag_outer_in": tag_size,
         "black_square_in": black_in,
         "black_square_mm": black_in * 25.4,
+        "cut_margin_in": cut_margin,
         "margin_in": margin_in,
     }
 
@@ -180,6 +201,7 @@ def make_sheet_pdf(
     cols: int = 4,
     rows: int = 4,
     start_id: int = 0,
+    cut_margin_in: float = CUT_MARGIN_IN,
 ) -> dict:
     """Dependency-free vector PDF (US Letter points)."""
     n = cols * rows
@@ -187,12 +209,14 @@ def make_sheet_pdf(
     if len(codes) < n:
         raise SystemExit(f"Need {n} codes starting at {start_id}; only have through 15")
 
-    lay = _layout(page_w_in, page_h_in, margin_in, cols, rows)
+    lay = _layout(page_w_in, page_h_in, margin_in, cut_margin_in, cols, rows)
     tag_size_in = lay["tag_size"]
     black_in = lay["black_in"]
     page_w, page_h = page_w_in * 72, page_h_in * 72
     margin = margin_in * 72
     tag_size = tag_size_in * 72
+    cut_size = lay["cut_size"] * 72
+    cut_margin = lay["cut_margin"] * 72
     id_strip = lay["id_strip"] * 72
     gap_x = lay["gap_x"] * 72
     gap_y = lay["gap_y"] * 72
@@ -205,18 +229,24 @@ def make_sheet_pdf(
     ops.append(f"1 0 0 1 {margin:.2f} {page_h - margin * 0.55:.2f} Tm")
     hdr = (
         f"tag36h11 · IDs {start_id}-{start_id + n - 1} · print Actual size / 100% · "
-        f"black square ~ {black_in:.3f} in ({black_in * 25.4:.1f} mm)"
+        f"cut on gray dashes · black square ~ {black_in:.3f} in "
+        f"({black_in * 25.4:.1f} mm)"
     )
     ops.append(f"({esc(hdr)}) Tj")
     ops.append("ET")
 
     for i, code in enumerate(codes):
         r, c = divmod(i, cols)
-        x = margin + c * (tag_size + gap_x)
+        cut_x = margin + c * (cut_size + gap_x)
         y_top = page_h - (margin + r * (cell_h + gap_y))
-        y = y_top - tag_size
+        cut_y = y_top - cut_size
+        x = cut_x + cut_margin
+        y = cut_y + cut_margin
+        tag_y_top = y + tag_size
         grid = tag_grid(code)
         cell = tag_size / TOTAL_WIDTH
+        ops.append("q 0.60 G 0.432 w [3.6 2.88] 0 d")
+        ops.append(f"{cut_x:.3f} {cut_y:.3f} {cut_size:.3f} {cut_size:.3f} re S Q")
         ops.append("1 1 1 rg")
         ops.append(f"{x:.3f} {y:.3f} {tag_size:.3f} {tag_size:.3f} re f")
         ops.append("0 0 0 rg")
@@ -229,14 +259,14 @@ def make_sheet_pdf(
                 c0 = col
                 while col < TOTAL_WIDTH and grid[row][col] == 0:
                     col += 1
-                ry = y_top - (row + 1) * cell
+                ry = tag_y_top - (row + 1) * cell
                 ops.append(
                     f"{x + c0 * cell:.3f} {ry:.3f} {(col - c0) * cell:.3f} {cell:.3f} re f"
                 )
         label = str(start_id + i)
         tw = 0.5 * 9 * len(label)
-        cx = x + tag_size / 2
-        ty = y - id_strip * 0.55
+        cx = cut_x + cut_size / 2
+        ty = cut_y - id_strip * 0.55
         ops.append("BT /F1 9 Tf 0 0 0 rg")
         ops.append(f"1 0 0 1 {cx - tw / 2:.2f} {ty:.2f} Tm")
         ops.append(f"({label}) Tj")
@@ -277,6 +307,7 @@ def make_sheet_pdf(
         "tag_outer_in": tag_size_in,
         "black_square_in": black_in,
         "black_square_mm": black_in * 25.4,
+        "cut_margin_in": lay["cut_margin"],
         "margin_in": margin_in,
     }
 
@@ -293,16 +324,28 @@ def main() -> None:
         help="SVG path (PDF written alongside with .pdf)",
     )
     p.add_argument("--margin", type=float, default=0.2, help="page margin inches")
+    p.add_argument(
+        "--cut-margin",
+        type=float,
+        default=CUT_MARGIN_IN,
+        help="extra white paper between the tag quiet zone and cut line, in inches",
+    )
     args = p.parse_args()
-    info = make_sheet_svg(args.output, margin_in=args.margin)
+    info = make_sheet_svg(
+        args.output, margin_in=args.margin, cut_margin_in=args.cut_margin
+    )
     pdf_path = args.output.with_suffix(".pdf")
-    info_pdf = make_sheet_pdf(pdf_path, margin_in=args.margin)
+    info_pdf = make_sheet_pdf(
+        pdf_path, margin_in=args.margin, cut_margin_in=args.cut_margin
+    )
     print(
         f"Wrote {info['path']}\n"
         f"Wrote {info_pdf['path']}\n"
         f"  outer tag (w/ quiet zone): {info['tag_outer_in']:.3f} in\n"
         f"  black square: {info['black_square_in']:.3f} in "
         f"({info['black_square_mm']:.1f} mm)\n"
+        f"  extra white margin to cut line: {info['cut_margin_in']:.3f} in "
+        f"({info['cut_margin_in'] * 25.4:.1f} mm)\n"
         f"  Print at 100% / Actual size — do not scale to fit."
     )
 

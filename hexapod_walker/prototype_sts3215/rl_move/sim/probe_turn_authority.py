@@ -83,8 +83,10 @@ from .servo_model import SimServoParams  # noqa: E402
 from .walk_task import SimHexapodJointWalkEnv  # noqa: E402
 from .joint_task import q_rad_to_action  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)   # (hip, knee) deg — same plant stance as
-                            # test_task_semantics._make_turn_env
+# Preserve the probe's original physical pose after the repository-wide
+# robot-absolute coordinate migration.  Its former compatibility wrapper took
+# (hip=20, relative-knee=80) and commanded absolute tibia 20+80=100 degrees.
+WALK_PLANT = (20.0, 100.0)
 
 
 def _build_cfg(cfg_set: list[str] | None, mode_onehot: bool = False) -> dict:
@@ -152,7 +154,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     traj.wz[:hold_n] = 0.0
     traj.wz[hold_n:hold_n + ramp_n] = np.linspace(0.0, wz_cmd, ramp_n)
     if policy == "scripted":
-        from sim_gait_compat import TripodGait
+        from hexapod_core.tripod_gait import TripodGait
         gait = TripodGait(vx=0.0)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()

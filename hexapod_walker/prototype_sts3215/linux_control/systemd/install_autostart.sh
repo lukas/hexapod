@@ -44,4 +44,5 @@ sudo systemctl restart hexapod-web.service
 sleep 5
 sudo systemctl --no-pager --full status hexapod-web.service || true
 curl -s -m 3 http://127.0.0.1:8080/api/ping && echo
-echo "ok — hexapod-web enabled on boot"
+curl -sk -m 3 https://127.0.0.1:8443/api/ping && echo
+echo "ok — hexapod-web enabled on boot (HTTP :8080, HTTPS :8443)"

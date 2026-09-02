@@ -139,8 +139,6 @@ def main() -> int:
 
     gen = env._goal_gen
     dt = env.dt
-    qadr = env._qadr
-
     def chassis_z() -> float:
         return float(env.data.xpos[env._chassis_bid, 2])
 
@@ -164,11 +162,11 @@ def main() -> int:
                         np.hstack(strip_frames))
         strip_frames.clear()
 
-    # One clean plant reset up front: the blend arm's target joint pose
-    # (play.py captures q_plant the same way).
+    # One clean plant reset up front. Public blend poses are canonical
+    # robot-absolute values; the env owns the MuJoCo boundary.
     _set_mix(gen, walk=1.0)
     env.reset()
-    q_plant = env.data.qpos[qadr].copy()
+    q_plant = env._state.joint_position.copy()
 
     def reanchor_keep_state():
         """Fresh plant-frame walk episode, specialist's physics kept.
@@ -266,7 +264,7 @@ def main() -> int:
 
     def blend_phase() -> bool:
         """Scripted 1.5 s joint blend to the walk plant pose (key-7)."""
-        q_from = env.data.qpos[qadr].copy()
+        q_from = env._state.joint_position.copy()
         n = int(round(BLEND_S / dt))
         for i in range(n):
             s = (i + 1) / n

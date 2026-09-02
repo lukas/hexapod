@@ -121,7 +121,7 @@ def test_frac_mapping_and_clamping():
     assert env._loadslip_excess_scale() == pytest.approx(0.2)
     # default min_frac when the key is absent (0.65 — measured
     # separately from the walk-charge ramp's 0.40; see the
-    # module docstring / test_task_semantics.py bank)
+    # module docstring / retired pre-v2 semantics bank)
     env2 = _env(BOOT_KEYS)
     out2 = env2.apply_loadslip_bootstrap_frac(0.0)
     assert out2["excess_scale"] == pytest.approx(0.65)

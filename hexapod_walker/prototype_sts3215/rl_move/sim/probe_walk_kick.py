@@ -61,8 +61,7 @@ def make_kick_env(seed: int, dr_scale: float = 0.0):
     """Build the env with randomize=True EXPLICITLY (not gated on
     dr_scale>0 like probe_walk_income.make_env) so the absolute
     dr.walk_kick_* cfg override actually applies — dr_scale still
-    zeroes every OTHER DR axis, isolating the kick (mirrors
-    test_task_semantics.py's _make_kick_env)."""
+    zeroes every OTHER DR axis, isolating the kick."""
     cfg = load_config()
     for (sec, leaf), val in kick_stack().items():
         cfg.setdefault(sec, {})[leaf] = val

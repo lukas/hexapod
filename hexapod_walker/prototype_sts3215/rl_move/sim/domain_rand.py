@@ -534,6 +534,20 @@ class DomainRandomizer:
                  scale: float = 1.0):
         self.scale = float(scale)
         self.ranges = (ranges or RandRanges()).scaled(self.scale)
+        # A measured, persistent floor grade is systematic rather than DR.
+        # ``ground_tilt_deg`` above is residual uncertainty around this
+        # baseline.  Azimuth names the downhill direction in world XY:
+        # 0 degrees = +X, 90 degrees = +Y.
+        self.ground_tilt_base_deg = 0.0
+        self.ground_azimuth_base_deg = 0.0
+
+    def set_ground_slope(self, *, tilt_deg: float,
+                         downhill_azimuth_deg: float) -> None:
+        """Set the fixed floor grade composed with per-episode slope DR."""
+        if not 0.0 <= float(tilt_deg) < 90.0:
+            raise ValueError("ground tilt must be in [0, 90) degrees")
+        self.ground_tilt_base_deg = float(tilt_deg)
+        self.ground_azimuth_base_deg = float(downhill_azimuth_deg) % 360.0
 
     @classmethod
     def from_params(cls, params: SimServoParams, *,
@@ -564,13 +578,22 @@ class DomainRandomizer:
         link_scale = global_len * u(
             1.0 - r.link_len_leg_pct, 1.0 + r.link_len_leg_pct, (N_LEGS, 3))
 
-        # Ground slope: random azimuth, tilt up to ground_tilt_deg.
+        # Ground slope: a persistent measured grade plus a smaller random
+        # residual.  Compose the two as grade vectors (tan(theta)) so the
+        # zero-baseline case remains identical in distribution and opposite
+        # slopes can correctly cancel.
         tilt = u(0.0, r.ground_tilt_deg) * DEG2RAD
         az = u(0.0, 2.0 * math.pi)
-        gravity = G0 * np.array([
-            math.sin(tilt) * math.cos(az),
-            math.sin(tilt) * math.sin(az),
-            -math.cos(tilt)])
+        base_tilt = self.ground_tilt_base_deg * DEG2RAD
+        base_az = self.ground_azimuth_base_deg * DEG2RAD
+        grade_xy = np.array([
+            math.tan(base_tilt) * math.cos(base_az)
+            + math.tan(tilt) * math.cos(az),
+            math.tan(base_tilt) * math.sin(base_az)
+            + math.tan(tilt) * math.sin(az),
+        ])
+        gravity_dir = np.array([grade_xy[0], grade_xy[1], -1.0])
+        gravity = G0 * gravity_dir / np.linalg.norm(gravity_dir)
 
         mnt = r.imu_mount_deg * DEG2RAD
         imu_mount_rot = _rot_rpy(u(-mnt, mnt), u(-mnt, mnt), u(-mnt, mnt))

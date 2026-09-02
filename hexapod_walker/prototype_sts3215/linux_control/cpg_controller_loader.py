@@ -21,6 +21,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from hexapod_core.joint_frame import (
+    FRAME_ROBOT_ABS,
+    JOINT_CONTRACT as CORE_JOINT_CONTRACT,
+)
+
 HERE = Path(__file__).resolve().parent
 
 # Search order: the deployable hardware-bench location first (mirrors
@@ -34,6 +39,8 @@ DEFAULT_DIRS = (
 )
 
 KIND = "cpg_se2_controller"
+JOINT_FRAME = FRAME_ROBOT_ABS
+JOINT_CONTRACT = CORE_JOINT_CONTRACT
 
 # rl_move.sim.paper_cpg_search / build_motion_library param names ->
 # linux_control.se2_foot_gait.SE2FootGait constructor kwarg names.
@@ -88,6 +95,13 @@ def list_cpg_controllers(dirs=None) -> list[dict]:
                 entry["error"] = f"not a {KIND} artifact"
                 out.append(entry)
                 continue
+            if (raw.get("joint_frame") != JOINT_FRAME
+                    or raw.get("joint_contract") != JOINT_CONTRACT):
+                entry["error"] = (
+                    f"expected {JOINT_FRAME!r}/{JOINT_CONTRACT!r}; regenerate "
+                    "this pre-v2 artifact")
+                out.append(entry)
+                continue
             gate = raw.get("gate_summary") or {}
             dr0 = gate.get("dr0") or {}
             entry.update({
@@ -112,8 +126,7 @@ def load_cpg_controller(name: str, dirs=None) -> dict:
     bare stem, or a full path. Returns
     ``{"name", "file", "gait", "gait_kw", "plant_stance_deg", "raw"}``
     where ``gait_kw`` is exactly the dict ``SE2FootGait(**gait_kw)``
-    (or ``linux_control.sim_gait_compat.SE2FootGait`` for sim-relative
-    knee replay) expects, alongside ``gait=gait_kw.pop("gait")``.
+    expects, alongside ``gait=gait_kw.pop("gait")``.
     Raises ``ValueError`` on any schema problem — this loader never
     silently falls back to defaults, so a bad artifact can't sneak a
     stale/no-op gait swap onto a live robot.
@@ -138,6 +151,13 @@ def load_cpg_controller(name: str, dirs=None) -> dict:
     if raw.get("kind") != KIND:
         raise ValueError(
             f"{path}: kind={raw.get('kind')!r}, expected {KIND!r}")
+    if (raw.get("joint_frame") != JOINT_FRAME
+            or raw.get("joint_contract") != JOINT_CONTRACT):
+        raise ValueError(
+            f"{path}: expected joint_frame={JOINT_FRAME!r} and "
+            f"joint_contract={JOINT_CONTRACT!r}, got "
+            f"{raw.get('joint_frame')!r}/{raw.get('joint_contract')!r}; "
+            "regenerate the controller in the canonical robot frame")
     params = raw.get("params") or {}
     missing = [k for k in _REQUIRED_PARAMS if k not in params]
     if missing:

@@ -17,8 +17,11 @@ v1 STM32 ``J`` bridge.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
+import re
+import socket
 import ssl
 import subprocess
 import sys
@@ -36,27 +39,122 @@ for _p in (HERE, HERE.parent):
 from bench_api import BenchAPI  # noqa: E402
 from drive_controller import DriveController  # noqa: E402
 
-# Self-signed TLS material for the HTTPS listener (generated on first run).
-CERT_FILE = os.path.expanduser("~/.hexapod_sts_cert.pem")
-KEY_FILE = os.path.expanduser("~/.hexapod_sts_key.pem")
+# TLS material for the HTTPS listener. By default this server generates a
+# self-signed cert; set both env vars to point at a trusted/mkcert pair.
+CUSTOM_TLS = bool(
+    os.environ.get("HEXAPOD_TLS_CERT_FILE")
+    or os.environ.get("HEXAPOD_TLS_KEY_FILE")
+)
+CERT_FILE = os.path.expanduser(
+    os.environ.get("HEXAPOD_TLS_CERT_FILE", "~/.hexapod_sts_cert.pem"))
+KEY_FILE = os.path.expanduser(
+    os.environ.get("HEXAPOD_TLS_KEY_FILE", "~/.hexapod_sts_key.pem"))
+
+
+def _add_unique(xs: list[str], x: str) -> None:
+    if x and x not in xs:
+        xs.append(x)
+
+
+def _https_cert_sans() -> tuple[list[str], list[str]]:
+    dns: list[str] = []
+    ips: list[str] = []
+
+    for name in ("hexapod.local", "localhost"):
+        _add_unique(dns, name)
+    try:
+        host = socket.gethostname().strip()
+    except OSError:
+        host = ""
+    if host:
+        _add_unique(dns, host)
+        if "." not in host:
+            _add_unique(dns, f"{host}.local")
+
+    def add_ip(value: str) -> None:
+        try:
+            ip = ipaddress.ip_address(value.strip())
+        except ValueError:
+            return
+        if ip.version == 4 and not ip.is_unspecified:
+            _add_unique(ips, str(ip))
+
+    add_ip("127.0.0.1")
+    for cmd in (["hostname", "-I"], ["ip", "-4", "-o", "addr", "show"]):
+        try:
+            out = subprocess.check_output(
+                cmd, stderr=subprocess.DEVNULL, text=True, timeout=1.5)
+        except Exception:
+            continue
+        for match in re.finditer(r"\b\d{1,3}(?:\.\d{1,3}){3}\b", out):
+            add_ip(match.group(0))
+
+    return dns, ips
+
+
+def _cert_has_sans(dns: list[str], ips: list[str]) -> bool:
+    if not (os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE)):
+        return False
+    try:
+        decoded = ssl._ssl._test_decode_cert(CERT_FILE)
+    except Exception:
+        return False
+    san = decoded.get("subjectAltName", ())
+    have_dns = {
+        str(v) for k, v in san
+        if str(k).lower() == "dns"
+    }
+    have_ips = {
+        str(v) for k, v in san
+        if str(k).lower().replace(" ", "") == "ipaddress"
+    }
+    return set(dns).issubset(have_dns) and set(ips).issubset(have_ips)
 
 
 def ensure_cert():
-    """Make a long-lived self-signed cert if we don't have one. Returns True
-    when both files are present afterwards."""
-    if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
+    """Make a long-lived self-signed cert for the browser Gamepad API."""
+    if CUSTOM_TLS:
+        if os.path.exists(CERT_FILE) and os.path.exists(KEY_FILE):
+            print(f"[https] using configured TLS cert {CERT_FILE}")
+            return True
+        print("[https] configured TLS cert/key missing; HTTPS disabled "
+              "(set HEXAPOD_TLS_CERT_FILE and HEXAPOD_TLS_KEY_FILE)")
+        return False
+
+    dns, ips = _https_cert_sans()
+    if _cert_has_sans(dns, ips):
         return True
+    san = ",".join([f"DNS:{x}" for x in dns] + [f"IP:{x}" for x in ips])
+    tmp_cert = CERT_FILE + ".tmp"
+    tmp_key = KEY_FILE + ".tmp"
+    for path in (tmp_cert, tmp_key):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
     try:
         subprocess.run(
             ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-             "-keyout", KEY_FILE, "-out", CERT_FILE, "-days", "3650",
+             "-keyout", tmp_key, "-out", tmp_cert, "-days", "3650",
              "-subj", "/CN=hexapod.local",
-             "-addext", "subjectAltName=DNS:hexapod.local,DNS:localhost"],
+             "-addext", f"subjectAltName={san}"],
             check=True, capture_output=True)
-        print(f"[https] generated self-signed cert at {CERT_FILE}")
+        try:
+            os.chmod(tmp_key, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp_cert, CERT_FILE)
+        os.replace(tmp_key, KEY_FILE)
+        print(f"[https] generated self-signed cert at {CERT_FILE} "
+              f"with SANs {san}")
         return True
     except (OSError, subprocess.CalledProcessError) as e:
         print(f"[https] cert generation failed ({e}); HTTPS disabled")
+        for path in (tmp_cert, tmp_key):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
         return False
 
 # Persisted calibration (the UNO Q has no EEPROM, so the standing foot height
@@ -252,6 +350,25 @@ class Handler(BaseHTTPRequestHandler):
             # Live drive-session snapshot (no bus traffic).
             self._json(200, BENCH.rl_drive_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/rl/timing":
+            samples = 200
+            read_samples = 8
+            qs = self.path.split("?", 1)
+            if len(qs) == 2:
+                for part in qs[1].split("&"):
+                    if part.startswith("samples="):
+                        try:
+                            samples = int(part.split("=", 1)[1])
+                        except ValueError:
+                            pass
+                    elif part.startswith("read_samples="):
+                        try:
+                            read_samples = int(part.split("=", 1)[1])
+                        except ValueError:
+                            pass
+            self._json(200, BENCH.rl_timing_probe(
+                samples=samples, read_samples=read_samples) if BENCH
+                else {"ok": False, "error": "no bench"})
         elif path == "/api/measure/list":
             self._json(200, BENCH.measure_list() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -451,6 +568,12 @@ class Handler(BaseHTTPRequestHandler):
                 pass
         if path == "/cmd":
             line = body.strip()
+            if line.upper() == "SETTLE":
+                self._send(
+                    409,
+                    "SETTLE removed; run STEP lower, wait for done, "
+                    "then send X")
+                return
             # E-STOP / limp MUST go through the bench so the demo worker is
             # aborted first — a bare drive-level X limps the bus but the
             # still-running demo re-enables torque on its next write and
@@ -459,14 +582,25 @@ class Handler(BaseHTTPRequestHandler):
                 BENCH.estop()
                 self._send(200, "limp")
             else:
-                if BENCH is not None and line.upper() == "SETTLE":
-                    # Graceful power-off also preempts any demo so the
-                    # settle doesn't fight a running routine.
-                    BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
+                if BENCH is not None and line.upper().startswith("J"):
+                    robot = BENCH.robot_state()
+                    demo = robot.get("demo") or {}
+                    activity = str(robot.get("activity") or "")
+                    if demo.get("running") or activity in (
+                            "demo", "zeroing", "stopping", "calibrating"):
+                        busy = demo.get("name") or activity or "active job"
+                        self._send(409, f"refused J: robot busy with {busy}")
+                        return
                 ok, msg = LINK.send(line)
                 self._send(200 if ok else 409, msg if ok else msg or "failed")
         elif path == "/api/tft/ready":
             self._json(200, BENCH.tft_ready() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/tft/recover":
+            self._json(200, BENCH.tft_recover() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/tft/selftest":
+            self._json(200, BENCH.tft_selftest() if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/ui_event":
             data = body_obj if isinstance(body_obj, dict) else {}
@@ -771,8 +905,18 @@ class Handler(BaseHTTPRequestHandler):
                     role=str(data.get("role", "")),
                     file=str(data.get("file", ""))))
         elif path == "/api/rl/drive/start":
-            self._json(200, BENCH.rl_drive_start() if BENCH
-                       else {"ok": False, "error": "no bench"})
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            else:
+                self._json(200, BENCH.rl_drive_start(
+                    vx=float(data.get("vx", 0.0)),
+                    vy=float(data.get("vy", 0.0)),
+                    wz=float(data.get("wz", 0.0)),
+                    dh=float(data.get("dh", 0.0))))
         elif path == "/api/rl/drive/cmd":
             # High-rate heartbeat (~5 Hz while driving): body-frame
             # vx/vy m/s, yaw-rate wz rad/s, plus dh in [-1, 1] (D-pad

@@ -10,7 +10,7 @@ the sanctioned fix is to calibrate the PHYSICS so the same scripted
 gait loses the same fraction of its stride in sim.
 
 This script replays the EXACT hardware gait generator
-(``linux_control/tripod_gait.py`` — the stdlib port that ran on the
+(``hexapod_core/tripod_gait.py`` — the stdlib controller that runs on the
 robot, plant stance +20/+80) through the sim env's full servo/safety
 stack at 25 Hz, and sweeps the foot-ground slide friction
 (cfg ``env.foot_friction_slide``, see ``sim_env.set_foot_ground_friction``)
@@ -89,7 +89,7 @@ def _make_env(mu: float, servo_params: str, seed: int = 0):
 def replay(mu: float, vx: float, *, lift_mm: float = 25.0,
            servo_params: str = "", seed: int = 0) -> dict:
     """One scripted-gait episode; returns travel/current stats."""
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     from rl_move.sim.joint_task import q_rad_to_action
 

@@ -231,23 +231,28 @@ class _StanceStepSim:
         self._qadr = joint_qpos_addrs(self.model)
         self._vadr = joint_qvel_addrs(self.model)
         self._pos_act = position_actuator_ids(self.model)
-        self._plant_rad = _default_plant_deg() * DEG2RAD
+        from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+        self._plant_robot_rad = _default_plant_deg() * DEG2RAD
+        self._plant_rad = robot_abs_rad_to_mujoco_rel_rad(
+            self._plant_robot_rad)
 
     def place(self, q_rad: np.ndarray) -> None:
-        """Same recipe as SimHexapodBalanceEnv._place_at_plant."""
+        """Place a public robot-absolute pose in the private model."""
         import mujoco_prototype as MP
         from rl_move.body_ik import fk_all_feet
         mujoco = self._mujoco
+        from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
         feet = fk_all_feet(q_rad)
+        q_model = robot_abs_rad_to_mujoco_rel_rad(q_rad)
         foot_drop = float(np.min(feet[:, 2]))
         base_z = MP.YAW_OUTPUT_HEIGHT - foot_drop + MP.FOOT_R + 0.002
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[:3] = (0.0, 0.0, base_z)
         self.data.qpos[3:7] = (1.0, 0.0, 0.0, 0.0)
-        self.data.qpos[self._qadr] = q_rad
+        self.data.qpos[self._qadr] = q_model
         self.data.qvel[:] = 0.0
         self.data.ctrl[:] = 0.0
-        self.data.ctrl[self._pos_act] = q_rad
+        self.data.ctrl[self._pos_act] = q_model
         mujoco.mj_forward(self.model, self.data)
         for _ in range(40):
             worst = 0.0
@@ -260,7 +265,7 @@ class _StanceStepSim:
 
     def _settle_at_plant(self, params: SimServoParams) -> np.ndarray:
         apply_params_to_model(self.model, params)
-        self.place(self._plant_rad)
+        self.place(self._plant_robot_rad)
         q = self._plant_rad
         for _ in range(int(0.6 / self.model.opt.timestep)):
             self.data.ctrl[self._pos_act] = q
@@ -276,9 +281,13 @@ class _StanceStepSim:
         mujoco = self._mujoco
         q0 = self._settle_at_plant(params)
         profile = ServoProfile(params, q0)
-        q_goal = q0.copy()
-        q_goal[joint] += amp_deg * DEG2RAD
-        profile.command(q_goal, speed_deg_s=speed_deg_s, acc_units=acc_units)
+        from hexapod_core.joint_frame import (
+            mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad,
+        )
+        q_goal_abs = mujoco_rel_rad_to_robot_abs_rad(q0)
+        q_goal_abs[joint] += amp_deg * DEG2RAD
+        profile.command(robot_abs_rad_to_mujoco_rel_rad(q_goal_abs),
+                        speed_deg_s=speed_deg_s, acc_units=acc_units)
         dt = self.model.opt.timestep
         t, ts, qs = 0.0, [], []
         next_s = 0.0
@@ -288,7 +297,9 @@ class _StanceStepSim:
             t += dt
             if t >= next_s:
                 ts.append(t)
-                qs.append(float(self.data.qpos[self._qadr[joint]]) * RAD2DEG)
+                q_abs = mujoco_rel_rad_to_robot_abs_rad(
+                    self.data.qpos[self._qadr])
+                qs.append(float(q_abs[joint]) * RAD2DEG)
                 next_s += sample_dt
         return np.asarray(ts), np.asarray(qs)
 
@@ -496,20 +507,27 @@ def validate_stand_replay(params: SimServoParams,
             apply_params_to_model(mujoco_m, prm)
             q0 = meas[0]
             sim.place(q0)
+            from hexapod_core.joint_frame import (
+                mujoco_rel_rad_to_robot_abs_rad,
+                robot_abs_rad_to_mujoco_rel_rad,
+            )
+            q0_model = robot_abs_rad_to_mujoco_rel_rad(q0)
             for _ in range(int(0.4 / mujoco_m.opt.timestep)):
-                data.ctrl[sim._pos_act] = q0
+                data.ctrl[sim._pos_act] = q0_model
                 mujoco.mj_step(mujoco_m, data)
             profile = ServoProfile(prm, data.qpos[sim._qadr].copy())
             dt = mujoco_m.opt.timestep
             per = int(round(0.04 / dt))
             sim_q = []
             for k in range(len(cmd)):
-                profile.command(cmd[k], speed_deg_s=RL_SPEED_DEG_S,
+                profile.command(robot_abs_rad_to_mujoco_rel_rad(cmd[k]),
+                                speed_deg_s=RL_SPEED_DEG_S,
                                 acc_units=RL_ACC_UNITS)
                 for _ in range(per):
                     data.ctrl[sim._pos_act] = profile.tick(dt)
                     mujoco.mj_step(mujoco_m, data)
-                sim_q.append(data.qpos[sim._qadr].copy())
+                sim_q.append(mujoco_rel_rad_to_robot_abs_rad(
+                    data.qpos[sim._qadr]))
             sim_q = np.asarray(sim_q)
             err = (sim_q - meas)[:, moving] * RAD2DEG
             res[tag] = round(float(np.sqrt(np.mean(err ** 2))), 2)

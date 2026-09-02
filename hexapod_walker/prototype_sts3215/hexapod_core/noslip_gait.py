@@ -132,6 +132,12 @@ class NoSlipGait:
     MAX_VY = 0.035
     MAX_OMEGA = 0.30
     STRIDE_MAX = 0.080      # m of body travel per full cycle
+    # Gait 1 experiment envelope.  Keep this separate from the generic
+    # defaults so ripple/wave/fluid presets do not silently inherit the
+    # aggressive workspace.  60 mm/s over the stock 3.2 s period needs a
+    # 192 mm full-cycle stride; the real servos may saturate well before it.
+    GAIT1_MAX_VX = 0.060
+    GAIT1_STRIDE_MAX = 0.192
     YAW_STEP_MAX = 0.35     # rad of body yaw per full cycle
 
     # Timing that fits the fitted ~31 deg/s servo cruise clamp (the RL
@@ -143,6 +149,37 @@ class NoSlipGait:
     # keeps peak joint rates under the clamp.
     CLAMP_FIT_KW = dict(period=6.0, lift=0.020, shift_frac=0.10,
                         swing_frac=0.40, alpha=1.0)
+
+    # Hardware experiment preset (2026-08-31): continuous body drift and
+    # almost the entire half-cycle assigned to the alternating tripod swing.
+    # The minimum 2% all-feet-down transition plus 0.5% dwell preserve a
+    # deterministic phase boundary without the visible stop/shift/wait of the
+    # original no-slip gait.  Kept as a separate preset so gait 1 remains a
+    # reproducible baseline.
+    FLUID_KW = dict(period=2.9, lift=0.018, shift_frac=0.02,
+                    swing_frac=0.475, alpha=1.0)
+    # Faster clock with lower lift: kinematic sweep at 40 mm/s keeps the
+    # 95th-percentile joint demand near the measured ~31 deg/s cruise clamp
+    # (31.9 deg/s versus FLUID's 30.2) while raising stride frequency 21%.
+    FLUID_FAST_KW = dict(period=2.4, lift=0.014, shift_frac=0.02,
+                         swing_frac=0.475, alpha=1.0)
+    # Hybrid intended to retain the useful planted-body impulse of the fast
+    # alpha=.75 baseline without its long pauses: 80 ms-equivalent phase
+    # fractions become 256 ms shift / 1280 ms swing / 64 ms dwell per side.
+    # The longer swing cuts predicted qdot p95 from ~52 to ~34 deg/s.
+    FLUID_HYBRID_KW = dict(period=3.2, lift=0.018, shift_frac=0.08,
+                           swing_frac=0.40, alpha=0.75)
+    # Stronger hybrid: keep the transition short, but assign more of the
+    # cycle displacement to an all-feet-down shift.  This probes whether the
+    # measured forward-speed gain of FLUID_HYBRID comes from planted impulse
+    # rather than cadence (FLUID_FAST showed that cadence alone did not help).
+    FLUID_PUSH_KW = dict(period=3.2, lift=0.018, shift_frac=0.12,
+                         swing_frac=0.36, alpha=0.70)
+    # Same planted displacement share as FLUID_HYBRID, delivered in a 25%
+    # shorter shift.  The recovered time extends swing rather than dwell, so
+    # the experiment isolates shift impulse without reintroducing a pause.
+    FLUID_PULSE_KW = dict(period=3.2, lift=0.018, shift_frac=0.06,
+                          swing_frac=0.42, alpha=0.75)
 
     TRIPOD_A = (0, 2, 4)
     TRIPOD_B = (1, 3, 5)
@@ -178,11 +215,17 @@ class NoSlipGait:
         omega: float = 0.0,
         alpha: float = 0.0,
         groups: tuple = GROUPS_TRIPOD,
+        max_vx: float | None = None,
+        stride_max: float | None = None,
     ):
         self.period = max(float(period), 0.4)
         self.lift = _clip(float(lift), 0.005, 0.05)
         self.alpha = _clip(float(alpha), 0.0, 1.0)
         self.groups = tuple(tuple(int(i) for i in g) for g in groups)
+        self.max_vx = self.MAX_VX if max_vx is None else max(
+            0.001, float(max_vx))
+        self.stride_max = self.STRIDE_MAX if stride_max is None else max(
+            0.001, float(stride_max))
         k = len(self.groups)
         assert k >= 2 and sorted(
             i for g in self.groups for i in g) == list(range(6)), \
@@ -224,9 +267,43 @@ class NoSlipGait:
         self._start_phase()
 
     @classmethod
+    def gait1(cls, **kw) -> "NoSlipGait":
+        """Gait-ID 1 baseline with the operator-raised 60 mm/s envelope."""
+        return cls(**{
+            "max_vx": cls.GAIT1_MAX_VX,
+            "stride_max": cls.GAIT1_STRIDE_MAX,
+            **kw,
+        })
+
+    @classmethod
     def clamp_fit(cls, **kw) -> "NoSlipGait":
         """The 'cleanest under the servo clamp' preset (08-12 sweep)."""
         return cls(**{**cls.CLAMP_FIT_KW, **kw})
+
+    @classmethod
+    def fluid(cls, **kw) -> "NoSlipGait":
+        """Near-continuous alternating-tripod hardware preset."""
+        return cls(**{**cls.FLUID_KW, **kw})
+
+    @classmethod
+    def fluid_fast(cls, **kw) -> "NoSlipGait":
+        """Higher-cadence fluid preset with reduced vertical travel."""
+        return cls(**{**cls.FLUID_FAST_KW, **kw})
+
+    @classmethod
+    def fluid_hybrid(cls, **kw) -> "NoSlipGait":
+        """Mostly-continuous gait with a small planted shift impulse."""
+        return cls(**{**cls.FLUID_HYBRID_KW, **kw})
+
+    @classmethod
+    def fluid_push(cls, **kw) -> "NoSlipGait":
+        """Fluid gait with a stronger, brief all-feet-down push."""
+        return cls(**{**cls.FLUID_PUSH_KW, **kw})
+
+    @classmethod
+    def fluid_pulse(cls, **kw) -> "NoSlipGait":
+        """Fluid hybrid with the planted shift compressed in time."""
+        return cls(**{**cls.FLUID_PULSE_KW, **kw})
 
     @classmethod
     def ripple(cls, **kw) -> "NoSlipGait":
@@ -270,7 +347,7 @@ class NoSlipGait:
     def set_velocity(self, *, vx=None, vy=None, omega=None) -> None:
         """Takes effect at the next phase boundary (anchors never move)."""
         if vx is not None:
-            self.vx = _clip(float(vx), -self.MAX_VX, self.MAX_VX)
+            self.vx = _clip(float(vx), -self.max_vx, self.max_vx)
         if vy is not None:
             self.vy = _clip(float(vy), -self.MAX_VY, self.MAX_VY)
         if omega is not None:
@@ -324,13 +401,13 @@ class NoSlipGait:
 
     def _cycle_twist(self) -> tuple[float, float, float]:
         """Clamped body-frame twist for one full cycle."""
-        vx = _clip(self.vx, -self.MAX_VX, self.MAX_VX)
+        vx = _clip(self.vx, -self.max_vx, self.max_vx)
         vy = _clip(self.vy, -self.MAX_VY, self.MAX_VY)
         om = _clip(self.omega, -self.MAX_OMEGA, self.MAX_OMEGA)
         dx, dy = vx * self.period, vy * self.period
         stride = math.hypot(dx, dy)
-        if stride > self.STRIDE_MAX:
-            k = self.STRIDE_MAX / stride
+        if stride > self.stride_max:
+            k = self.stride_max / stride
             dx *= k
             dy *= k
         dyaw = _clip(om * self.period, -self.YAW_STEP_MAX, self.YAW_STEP_MAX)

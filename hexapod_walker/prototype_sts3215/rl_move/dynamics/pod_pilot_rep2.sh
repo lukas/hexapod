@@ -3,10 +3,10 @@
 # (RISE_WALK_NEXT_48H P2 "Continue dynrep cleanly", 08-13).
 #
 # Context: v2pod drifted from the successful laptop-v2 recipe because
-# noslip_gait.py was laptop-local — collect.py silently reassigned the
+# hexapod_core/noslip_gait.py was laptop-local — collect.py silently reassigned the
 # noslip actor's 10% share to tripod, and the more-periodic tripod data
 # is exactly what strengthens the ridge baseline the encoder must beat.
-# Both v2pod seeds then failed G1 at k=1 only. noslip_gait.py is in git
+# Both v2pod seeds then failed G1 at k=1 only. hexapod_core/noslip_gait.py is in git
 # since decb1fa; collect.py now HARD-FAILS on a missing mix component
 # (no --allow-degraded-mix here, ever: this run exists to test the
 # dataset-recipe-replication hypothesis, so the recipe must be exact).

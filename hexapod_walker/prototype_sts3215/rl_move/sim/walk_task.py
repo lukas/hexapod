@@ -683,7 +683,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # 0.40 is the lowest floor that keeps skate/shuffle priced
             # below every honest behavior while the top of the
             # landscape stays positive-sum (gait > stall > park, all
-            # positive) — see test_task_semantics.py
+            # positive); re-baseline against canonical v2 trajectories.
             # WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES.
             _wc_min = float(cfg_get(
                 self.cfg, "reward", "walk_charge_ramp_min_frac",
@@ -717,7 +717,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # bootstrap's min_frac (loadslip alone loosened, the other three
         # discovery-friction charges at full dose — the opposite
         # combination from the rejected chargeramp-min design) — see
-        # test_task_semantics.py WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES.
+        # This dose requires a fresh canonical v2 trajectory-bank baseline.
         # cfg: reward.walk_loadslip_bootstrap_steps (int, 0=off),
         # reward.walk_loadslip_bootstrap_min_frac (float in [0,1],
         # default 0.65 — MEASURED separately from the walk-charge
@@ -730,7 +730,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # is the lowest floor in a 0.5-0.8 sweep that keeps
         # park/stall strictly above every wrong-way gait (margin
         # ~37) while still cutting the skate penalty by ~30% (-1339
-        # -> -940) relative to full dose — see test_task_semantics.py
+        # -> -940) relative to the retired pre-v2 full dose.
         # WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES.
         self._ls_bootstrap: dict | None = None
         self._ls_bootstrap_override: float | None = None
@@ -4215,7 +4215,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # walk_course_min_speed_m_s, raise walk_course_tau_s) were
             # closed by direct measurement: every floor value in the
             # diagnosed activation band breaks 8 of this file's own
-            # `test_phasedir_semantics.py` invariants, and raising tau
+            # the retired pre-v2 phase-direction invariants, and raising tau
             # measurably LOWERS the achieved EMA magnitude instead of
             # raising it. Direct local repro against the FAILED
             # checkpoint's own real rollout (not a scripted proxy)
@@ -4656,7 +4656,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # IDLE_TERM, 08-24) because zero net forward displacement
             # per stride still earns nothing. Default 0.0 = off,
             # legacy exact (bank: WALKCURR_SV_PRETRAIN_GRAD in
-            # test_task_semantics.py). DEADBAND (bank-probe discovery,
+            # the retired pre-v2 bank). DEADBAND (bank-probe discovery,
             # 08-30): a naive taper starting at along_f>0 leaks credit
             # to genuinely wrong-direction real gaits -- the scripted
             # "sideways" bank twin (a real 90-deg-off-command tripod
@@ -5416,7 +5416,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             default=0.60))
         unt_deg = float(cfg_get(self.cfg, "reward", "getup_untangle_deg",
                                 default=60.0))
-        q_now = np.asarray(self.data.qpos[self._qadr], dtype=float)
+        q_now = self._mujoco_to_logical_q(self.data.qpos[self._qadr])
         mean_q_deg = float(np.mean(np.abs(q_now))) * 180.0 / math.pi
         f_unt = min(max(1.0 - mean_q_deg / max(unt_deg, 1e-6), 0.0), 1.0)
         # Middle stage = fraction of BODY WEIGHT carried by the feet
@@ -5438,7 +5438,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if d_p > 0.0:
             self._getup_best = p_now
         # Recalibrated 08-22 (getup_honest_ordering dig-in,
-        # test_task_semantics.py's GETUP bank): at the old default 60
+        # the retired pre-v2 GETUP bank): at the old default 60
         # a genuine partial rise (holding a real mid-ramp crouch, feet
         # loaded) earned LESS than freezing at the untouched spawn
         # pose (partial -12.16 vs freeze -11.26, bank-measured 3

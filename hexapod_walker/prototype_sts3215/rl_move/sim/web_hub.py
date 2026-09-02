@@ -102,6 +102,13 @@ def _query_value(full_path: str, key: str, default: str = "") -> str:
     return vals.get(key, [default])[0]
 
 
+def _query_int(full_path: str, key: str, default: int) -> int:
+    try:
+        return int(_query_value(full_path, key, str(default)))
+    except (TypeError, ValueError):
+        return int(default)
+
+
 def _normalize_base_url(base_url: str) -> str:
     raw = (base_url or "").strip()
     if not raw:
@@ -240,6 +247,10 @@ class SimTarget:
             return RouteResponse.json(s.rl_roles())
         if path == "/api/rl/drive":
             return RouteResponse.json(s.rl_drive_state())
+        if path == "/api/rl/timing":
+            return RouteResponse.json(s.rl_timing_probe(
+                samples=_query_int(full_path, "samples", 200),
+                read_samples=_query_int(full_path, "read_samples", 8)))
         if path == "/api/standup/modes":
             return RouteResponse.json(s.standup_modes())
         if path == "/api/sim/state":
@@ -339,7 +350,11 @@ class SimTarget:
                 role=str(data.get("role", "")),
                 file=str(data.get("file", ""))))
         if path == "/api/rl/drive/start":
-            return RouteResponse.json(s.rl_drive_start())
+            return RouteResponse.json(s.rl_drive_start(
+                vx=float(data.get("vx", 0.0)),
+                vy=float(data.get("vy", 0.0)),
+                wz=float(data.get("wz", 0.0)),
+                dh=float(data.get("dh", 0.0))))
         if path == "/api/rl/drive/cmd":
             return RouteResponse.json(s.rl_drive_cmd(
                 vx=float(data.get("vx", 0.0)),

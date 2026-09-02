@@ -5,8 +5,9 @@ single bulk transaction covering all 18 expected servos) and publishes:
 
 - which expected servos are MISSING (drives the TFT error panel and the
   ``servo`` block in ``/api/robot``), and
-- each servo's temperature. Any servo at/above ``SHUTOFF_C`` gets its
-  torque cut immediately and is latched ``tripped`` until it cools below
+- each servo's temperature. Any servo at/above ``SHUTOFF_C`` for three
+  consecutive watchdog reads gets its torque cut and is latched ``tripped``
+  until it cools below
   ``CLEAR_C``. Torque is never re-enabled automatically — that is the
   operator's call (ARM again once it has cooled).
 
@@ -30,7 +31,7 @@ from feetech_bus import N_JOINTS, joint_to_servo_id
 
 WATCH_PERIOD_S = 3.0    # idle cadence
 BUSY_PERIOD_S = 5.0     # while a demo/job owns the bus (10.0 until 08-11:
-                        # with the 2-read debounce that meant up to ~20 s of
+                        # with the old sparse debounce that meant long periods
                         # blind time exactly while motion makes heat — two
                         # hips sailed past shutoff mid-glide before anything
                         # bus-side noticed)
@@ -38,6 +39,7 @@ WARN_C = 55             # show on screen / web
 SHUTOFF_C = 65          # cut that servo's torque (rl_move safety uses 65)
 CLEAR_C = 50            # un-latch "tripped" once cooled below this
 STALE_S = 30.0          # snapshot older than this counts as unknown
+TEMP_TRIP_READS = 3     # same joint; rejects consecutive corrupt bus bytes
 
 
 class ServoWatch:
@@ -60,11 +62,10 @@ class ServoWatch:
         self._thread: threading.Thread | None = None
         self._snap: dict = {"ok": False, "ts": 0.0}
         self._tripped: set[int] = set()   # joints we torqued off for heat
-        # Joints that read >= SHUTOFF_C on the LAST tick. A single hot read
-        # is not trusted: corrupted bytes on the shared bus produced four
-        # phantom 70-90 C trips on 2026-08-09 (each "cooled" to ~33 C within
-        # seconds — thermally impossible). Real heat survives two ticks.
-        self._hot_pending: set[int] = set()
+        # Per-joint consecutive hot counts. Corrupted bytes on the shared bus
+        # produced phantom 70-102 C sequences that "cooled" to ~33 C within
+        # seconds — thermally impossible. Real heat persists across reads.
+        self._hot_counts: dict[int, int] = {}
 
     # -- public ---------------------------------------------------------
     def start(self) -> None:
@@ -129,12 +130,11 @@ class ServoWatch:
             if t > max_t:
                 max_t, max_j = t, j
             if t >= SHUTOFF_C and j not in self._tripped:
-                if j in self._hot_pending:      # 2nd consecutive hot read
+                self._hot_counts[j] = self._hot_counts.get(j, 0) + 1
+                if self._hot_counts[j] >= TEMP_TRIP_READS:
                     self._trip(bus, j, t)
-                else:
-                    self._hot_pending.add(j)
             elif t < SHUTOFF_C:
-                self._hot_pending.discard(j)
+                self._hot_counts.pop(j, None)
             if j in self._tripped and t <= CLEAR_C:
                 self._tripped.discard(j)
                 self._emit("servo_cooled",
@@ -161,6 +161,7 @@ class ServoWatch:
                                   for j in sorted(self._tripped)],
                 "warn_c": WARN_C,
                 "shutoff_c": SHUTOFF_C,
+                "temp_trip_reads": TEMP_TRIP_READS,
                 "imu_ok": imu_ok,
             }
 

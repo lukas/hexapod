@@ -63,7 +63,10 @@ from rl_move.sim.servo_model import (  # noqa: E402
 DEG2RAD = math.pi / 180.0
 DT_CTRL = 0.04
 WALK_PLANT = (20.0, 80.0)
-PLANT_RAD = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad
+
+PLANT_MODEL_RAD = robot_abs_deg_to_mujoco_rel_rad(
+    np.array([0.0, *WALK_PLANT] * 6))
 SPEED_DEG_S = 400 * 360.0 / 4096.0   # scripted-gait bus write (bench_mjx)
 ACC_UNITS = 20.0
 TOUCH_ON_N = 0.5                     # walk_task loaded threshold
@@ -116,9 +119,9 @@ def settle_start(params: SimServoParams):
     pos_act = position_actuator_ids(model)
     data = mujoco.MjData(model)
     mujoco.mj_resetData(model, data)
-    data.qpos[qadr] = PLANT_RAD
+    data.qpos[qadr] = PLANT_MODEL_RAD
     data.qpos[2] = 0.085
-    data.ctrl[pos_act] = PLANT_RAD
+    data.ctrl[pos_act] = PLANT_MODEL_RAD
     mujoco.mj_forward(model, data)
     for _ in range(int(1.2 / model.opt.timestep)):
         mujoco.mj_step(model, data)
@@ -133,8 +136,8 @@ def settle_start(params: SimServoParams):
 def build_stream(stream: str, ticks: int, vx: float) -> np.ndarray:
     """(T,18) joint goal commands in rad — identical for every config."""
     if stream == "freeze":
-        return np.tile(PLANT_RAD, (ticks, 1))
-    from sim_gait_compat import TripodGait
+        return np.tile(PLANT_MODEL_RAD, (ticks, 1))
+    from hexapod_core.tripod_gait import TripodGait
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()
@@ -149,7 +152,7 @@ def build_stream(stream: str, ticks: int, vx: float) -> np.ndarray:
         else:
             v = vx
         gait.set_velocity(vx=float(v), vy=0.0, omega=0.0)
-        cmds[k] = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        cmds[k] = robot_abs_deg_to_mujoco_rel_rad(gait.desired_deg(t))
     return cmds
 
 

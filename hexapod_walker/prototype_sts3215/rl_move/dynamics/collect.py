@@ -140,11 +140,11 @@ class _GaitActor:
                  noise: float):
         self.rng, self.noise = rng, noise
         if kind == "noslip":
-            from hexapod_core.sim_gait_compat import NoSlipGait
+            from hexapod_core.noslip_gait import NoSlipGait
             self.gait = NoSlipGait()
             self.gait.sync_plant_stance(*WALK_PLANT)
         else:
-            from hexapod_core.sim_gait_compat import TripodGait
+            from hexapod_core.tripod_gait import TripodGait
             self.gait = TripodGait(vx=0.0)
             self.gait.sync_plant_stance(*WALK_PLANT)
             self.gait.reset_phase()
@@ -305,7 +305,7 @@ def main() -> None:
                 f"drift lesson). Pull the checkpoint, or pass "
                 f"--allow-degraded-mix to accept the substitution "
                 f"knowingly (the dataset dir will record it).")
-    # noslip_gait.py is in git since decb1fa (08-13); a missing module
+    # hexapod_core/noslip_gait.py is in git since decb1fa (08-13); a missing module
     # now means a stale checkout, not an expected environment.
     if mix.get("noslip", 0.0) > 0.0:
         try:
@@ -324,7 +324,7 @@ def main() -> None:
                     "the exact recipe drift that invalidated v2pod "
                     "(dynrep STATUS 08-13; more-periodic tripod data "
                     "strengthens the ridge baseline G1 compares "
-                    "against). noslip_gait.py is committed since "
+                    "against). hexapod_core/noslip_gait.py is committed since "
                     "decb1fa — git pull, or pass --allow-degraded-mix "
                     "to accept the substitution knowingly.")
     names = sorted(mix)

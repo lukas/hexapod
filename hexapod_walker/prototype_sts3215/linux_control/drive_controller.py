@@ -4,11 +4,13 @@ Runs on the Uno Q Linux side. Prefer the MCU UART bridge (FE-URT on D0/D1);
 fall back to a USB URT-2 if present.  Command language mirrors the v1
 firmware enough that the web UI can stay familiar:
 
-  ARM / X / SETTLE     arm torque / emergency limp / sit then limp
+  ARM / X              arm torque / emergency limp
   P                    stand / park (planted stance)
   C                    centre all joints to 0°
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
   K <lift_mm>          swing foot lift
+  GTUNE key=value ...  tune GAIT 0 high-step tripod while stopped. Keys:
+                       period, lift, stride, ramp, vx, vy, omega.
   GAIT <id> [alpha]    pick the walk gait: 0 = tripod (body-frame drag,
                        legacy), 1 = no-slip world-pinned tripod
                        (noslip_gait), 2 = no-slip RIPPLE (opposite
@@ -20,7 +22,13 @@ firmware enough that the web UI can stay familiar:
                        at a time), 6 = SE2 CPG (same engine, loaded
                        parameters from a `cpg_controller_*.json`
                        search-track artifact — refused until CPGLOAD
-                       picks one); alpha 0..1 = body-motion overlap
+                       picks one), 7 = no-slip CLAMP-FIT tripod
+                       (smoothest measured timing under the servo clamp),
+                       8 = middle-tuck quad crawl (middle legs up,
+                       front/rear legs crawl), 9 = fluid no-slip tripod
+                       (continuous body, near-zero shift/dwell), 10 = faster
+                       fluid no-slip tripod with lower foot lift;
+                       alpha 0..1 = body-motion overlap
                        for gait 1 (0 = step-then-shift, 1 =
                        continuous; ripple/wave/SE2/CPG run their
                        presets and ignore it). Swaps are refused while
@@ -48,13 +56,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 VENDOR = HERE / "vendor"
 MOTOR_SETUP = HERE.parent / "motor_setup"
+ROOT = HERE.parent
 
 # Prefer vendored SDK (offline Uno Q), then canonical motor_setup, then
 # linux_control itself. reversed(): each insert(0) puts the LAST-inserted
 # first, so iterate the priority list back-to-front. (The urt2_setup
 # bundle entries were retired 2026-08-29 — that duplicate tree is gone,
 # so there is exactly one copy of every module and nothing to shadow.)
-for p in reversed((str(VENDOR), str(MOTOR_SETUP), str(HERE))):
+for p in reversed((str(VENDOR), str(MOTOR_SETUP), str(HERE), str(ROOT))):
     if Path(p).is_dir() and p not in sys.path:
         sys.path.insert(0, p)
 
@@ -68,23 +77,62 @@ from cpg_controller_loader import (  # noqa: E402
     load_cpg_controller as _load_cpg_controller,
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
-from noslip_gait import NoSlipGait  # noqa: E402
-from se2_foot_gait import SE2FootGait  # noqa: E402
-from tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.noslip_gait import NoSlipGait  # noqa: E402
+from hexapod_core.scripted_walk_contract import (  # noqa: E402
+    SCRIPTED_WALK_ACC_UNITS,
+    SCRIPTED_WALK_CONTROL_HZ,
+    SCRIPTED_WALK_DT_S,
+    SCRIPTED_WALK_SPEED_COUNTS_S,
+)
+from hexapod_core.se2_foot_gait import SE2FootGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.demo_tripod import (  # noqa: E402
+    DEFAULT_DEMO_TRIPOD, DemoTripodPreset, format_demo_tripod,
+    parse_demo_tripod_tune_tokens, tune_demo_tripod,
+)
+from hexapod_core.middle_tuck_quad_gait import MiddleTuckQuadGait  # noqa: E402
 
-# Scripted-gait loop rate. 50 Hz since the MCU stream bridge (2026-08-19)
-# made a SyncWrite ~1-2 ms; the gait itself is wall-clock-based, so this
-# only changes how often targets refresh, not the trajectory. (Was 20 Hz
-# when each write + telemetry read could eat >20 ms.)
-DT = 0.02  # 50 Hz walk loop
-SETTLE_SECONDS = 4.0
+try:
+    from rl_walk_start import (  # noqa: E402
+        SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG,
+        walk_start_pose_degrees,
+    )
+except Exception:  # pragma: no cover - deploy bundle always ships it
+    SIM_WALK_START_HIP_DEG = 20.0
+    SIM_WALK_START_KNEE_DEG = 80.0
+
+    def walk_start_pose_degrees() -> list[float]:
+        return [0.0, SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG] * 6
+
+# Scripted gait and MuJoCo share this 100 Hz contract.  The MCU stream bridge
+# reduced a full SyncWrite to ~1-2 ms, leaving margin inside the 10 ms budget.
+DT = SCRIPTED_WALK_DT_S
 LIVE_SCAN_PERIOD_S = 2.0
+WALK_START_TOL_DEG = 30.0
+DEMO_TRIPOD_PERIOD_S = DEFAULT_DEMO_TRIPOD.period_s
+DEMO_TRIPOD_LIFT_M = DEFAULT_DEMO_TRIPOD.lift_m
+DEMO_TRIPOD_RAMP_S = DEFAULT_DEMO_TRIPOD.ramp_s
+DEMO_TRIPOD_STRIDE_SCALE = DEFAULT_DEMO_TRIPOD.stride_scale
+DEMO_TRIPOD_MAX_VX_MPS = DEFAULT_DEMO_TRIPOD.max_vx_mps
+DEMO_TRIPOD_MAX_VY_MPS = DEFAULT_DEMO_TRIPOD.max_vy_mps
+DEMO_TRIPOD_MAX_OMEGA_RAD_S = DEFAULT_DEMO_TRIPOD.max_omega_rad_s
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
 # than this from its *present* angle (2026-08-06 cooked-motor incident).
-# Keep a broad emergency delta guard; default stand is now much shallower
-# (~+19°/+28°), but old learned poses and one-off tests can move farther.
-# Override with trailing FORCE on C / P only when the operator means it.
+# Keep a broad emergency delta guard for direct one-shot moves. Normal web
+# Stand uses the acquisition route; direct /cmd P now targets the tall
+# walk-ready pose and still refuses if that would yank too far.
 MAX_SAFE_DELTA_DEG = 90.0
+
+
+def _advance_periodic_deadline(deadline: float, now: float,
+                               period: float = DT) -> tuple[float, int]:
+    """Advance a fixed-rate deadline without accumulating work-time drift."""
+    deadline += period
+    skipped = 0
+    if deadline <= now:
+        skipped = int((now - deadline) // period) + 1
+        deadline += skipped * period
+    return deadline, skipped
 
 
 class DriveController:
@@ -94,23 +142,36 @@ class DriveController:
         self.baud = baud
         self.dry_run = dry_run
         self.bus = None  # FeetechBus | McuFeetechBus
-        self.gait = TripodGait()
+        self._demo_tripod: DemoTripodPreset = DEFAULT_DEMO_TRIPOD
+        self.gait = self._new_demo_tripod_gait()
         self.armed = False
-        self.mode = "idle"  # idle | stand | walk | settle
+        self.mode = "idle"  # idle | stand | walk
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._loop_overruns = 0
         self._vx = self._vy = self._omega = 0.0
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
         self._lift_mm: float | None = None   # last K value, re-applied on swap
         self._cpg_loaded: dict | None = None  # last CPGLOAD result (gait 6)
-        self._last_pose = standing_pose_degrees()
+        self._last_pose = walk_start_pose_degrees()
         self.status = "init"
         self._live_ids_cache: set[int] = set()
         self._live_ids_t = 0.0
         # Set by web_drive after construction (optional bench JSON API).
         self.bench = None
+        self._sync_gait_walk_stance()
+
+    def _new_demo_tripod_gait(self) -> TripodGait:
+        """Hardware-show preset for the legacy body-frame tripod.
+
+        Gait 0 deliberately remains the simple legacy gait, but the old
+        0.75 s / 25 mm swing asked too much of grippy boots on the shop
+        floor: the feet skimmed, then jammed. This instance-local preset
+        leaves sim/training ``TripodGait()`` defaults untouched.
+        """
+        return TripodGait(**self._demo_tripod.tripod_kwargs())
 
     def start(self) -> None:
         if not self.dry_run:
@@ -254,19 +315,133 @@ class DriveController:
         pose = [0.0 if d is None else float(d) for d in present]
         self._write_pose(pose, speed=250, acc=30)
 
+    def _sync_gait_walk_stance(self) -> None:
+        """Make scripted gaits use the same tall pose as Stand/RL walk."""
+        self.gait.sync_plant_stance(
+            SIM_WALK_START_HIP_DEG, SIM_WALK_START_KNEE_DEG)
+
+    def _walk_start_delta_vs_present(self) -> tuple[float | None, int | None]:
+        if not self.bus:
+            return 0.0, None
+        present = self._read_present_pose()
+        live = self._live_ids()
+        goal = walk_start_pose_degrees()
+        pairs = []
+        for j, g in enumerate(goal):
+            sid = joint_to_servo_id(j)
+            if live and sid not in live:
+                continue
+            p = present[j] if j < len(present) else None
+            if p is not None:
+                pairs.append((j, float(p), float(g)))
+        if len(pairs) < N_JOINTS - 4:
+            return None, None
+        worst = 0.0
+        worst_j: int | None = None
+        for j, p, g in pairs:
+            d = abs(p - g)
+            if d > worst:
+                worst = d
+                worst_j = j
+        return worst, worst_j
+
+    def _refuse_walk_if_not_ready(self) -> str | None:
+        worst, j = self._walk_start_delta_vs_present()
+        if worst is None:
+            self.status = "refused walk: pose feedback unavailable"
+            return ("refused walk: pose feedback unavailable - use Stand, "
+                    "wait for stand verified, then retry")
+        if worst <= WALK_START_TOL_DEG:
+            return None
+        self.status = (
+            f"refused walk: not at walk-ready pose (max Δq={worst:.0f}° "
+            f"on j{j})")
+        return (
+            f"refused walk: not at walk-ready pose (max Δq={worst:.1f}° "
+            f"on j{j}; press Stand first and wait for stand verified)")
+
     # -- gait selection --------------------------------------------------------
     _GAIT_NAMES = {0: "tripod (drag)", 1: "noslip tripod",
                    2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)",
                    4: "SE2 TETRAPOD (auto-scaled)",
                    5: "SE2 WAVE (auto-scaled)",
-                   6: "SE2 CPG (loaded)"}
+                   6: "SE2 CPG (loaded)",
+                   7: "noslip CLAMP-FIT tripod",
+                   8: "middle-tuck quad crawl",
+                   9: "noslip FLUID tripod",
+                   10: "noslip FLUID-FAST tripod",
+                   11: "noslip FLUID-HYBRID tripod",
+                   12: "noslip FLUID-PUSH tripod",
+                   13: "noslip FLUID-PULSE tripod"}
 
     def _gait_desc(self) -> str:
+        if self._gait_id == 0:
+            return f"tripod high-step ({format_demo_tripod(self._demo_tripod)})"
         if self._gait_id == 1:
-            return f"noslip alpha={self._noslip_alpha:.2f}"
+            return (f"noslip alpha={self._noslip_alpha:.2f} "
+                    f"cap={self.gait.max_vx * 1000:.0f}mm/s")
+        if self._gait_id == 7:
+            return "noslip CLAMP-FIT tripod"
+        if self._gait_id == 8:
+            return "middle-tuck quad crawl"
+        if self._gait_id == 9:
+            return "noslip FLUID tripod (2.90s/18mm/continuous)"
+        if self._gait_id == 10:
+            return "noslip FLUID-FAST tripod (2.40s/14mm/continuous)"
+        if self._gait_id == 11:
+            return "noslip FLUID-HYBRID tripod (3.20s/18mm/alpha=.75)"
+        if self._gait_id == 12:
+            return "noslip FLUID-PUSH tripod (3.20s/18mm/alpha=.70)"
+        if self._gait_id == 13:
+            return "noslip FLUID-PULSE tripod (3.20s/18mm/alpha=.75)"
         if self._gait_id == 6 and self._cpg_loaded is not None:
             return f"SE2 CPG ({self._cpg_loaded['name']})"
         return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
+
+    def _caps_for_gait(self, gait_id: int) -> tuple[float, float, float]:
+        if int(gait_id) == 0:
+            return (
+                self._demo_tripod.max_vx_mps,
+                self._demo_tripod.max_vy_mps,
+                self._demo_tripod.max_omega_rad_s,
+            )
+        if int(gait_id) == 1:
+            return (NoSlipGait.GAIT1_MAX_VX, NoSlipGait.MAX_VY,
+                    NoSlipGait.MAX_OMEGA)
+        return (0.20, 0.15, 0.9)
+
+    def _moving(self) -> bool:
+        return (
+            self.mode == "walk"
+            or abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
+        )
+
+    def scripted_contract_state(self) -> dict:
+        """Operator-visible hardware/sim contract and missed deadlines."""
+        return {
+            "control_hz": SCRIPTED_WALK_CONTROL_HZ,
+            "servo_speed_counts_s": SCRIPTED_WALK_SPEED_COUNTS_S,
+            "servo_acc_units": SCRIPTED_WALK_ACC_UNITS,
+            "deadline_overruns": self._loop_overruns,
+        }
+
+    def _apply_demo_tripod_tune(self, updates: dict[str, float]) -> str:
+        if self._moving():
+            self.status = "tripod tune refused while walking (J 0 0 0 first)"
+            return "refused GTUNE while walking - send J 0 0 0 first"
+        try:
+            tuned = tune_demo_tripod(self._demo_tripod, updates)
+        except ValueError as e:
+            return f"bad GTUNE: {e}"
+        self._demo_tripod = tuned
+        if "lift" in updates or "lift_mm" in updates:
+            self._lift_mm = tuned.lift_mm
+        if self._gait_id == 0:
+            self.gait = self._new_demo_tripod_gait()
+            self._sync_gait_walk_stance()
+            self.gait.reset_phase(t=time.monotonic())
+        self.status = f"GTUNE {format_demo_tripod(self._demo_tripod)}"
+        return self.status
 
     def list_cpg_controllers(self) -> list[dict]:
         """List `cpg_controller_*.json` artifacts available to CPGLOAD."""
@@ -328,11 +503,25 @@ class DriveController:
         elif gait_id == 6:
             self.gait = SE2FootGait(gait=self._cpg_loaded["gait"],
                                     **self._cpg_loaded["gait_kw"])
+        elif gait_id == 7:
+            self.gait = NoSlipGait.clamp_fit()
+        elif gait_id == 8:
+            self.gait = MiddleTuckQuadGait.crawl()
+        elif gait_id == 9:
+            self.gait = NoSlipGait.fluid()
+        elif gait_id == 10:
+            self.gait = NoSlipGait.fluid_fast()
+        elif gait_id == 11:
+            self.gait = NoSlipGait.fluid_hybrid()
+        elif gait_id == 12:
+            self.gait = NoSlipGait.fluid_push()
+        elif gait_id == 13:
+            self.gait = NoSlipGait.fluid_pulse()
         elif gait_id == 1:
-            self.gait = NoSlipGait(alpha=self._noslip_alpha)
+            self.gait = NoSlipGait.gait1(alpha=self._noslip_alpha)
         else:
-            self.gait = TripodGait()
-        self.gait.sync_plant_stance()
+            self.gait = self._new_demo_tripod_gait()
+        self._sync_gait_walk_stance()
         if self._lift_mm is not None:
             self.gait.set_lift_mm(self._lift_mm)
         self.gait.reset_phase(t=time.monotonic())
@@ -369,24 +558,20 @@ class DriveController:
             return "limp"
 
         if cmd in ("SETTLE",):
-            if not self.armed:
-                self._torque_all(True)
-                self.armed = True
-            self.mode = "settle"
-            self.gait.stop()
-            self._vx = self._vy = self._omega = 0.0
-            self.status = "settling"
-            return "settle"
+            self.status = "SETTLE removed; use STEP lower, then X"
+            return (
+                "refused SETTLE: removed; run /api/standup "
+                "direction=down, wait for done, then send X")
 
         if cmd == "P":
             if not self.armed:
                 return "need ARM"
             force = any(p.upper() == "FORCE" for p in parts[1:])
             self.gait.stop()
-            self.gait.sync_plant_stance()
+            self._sync_gait_walk_stance()
             self.gait.reset_phase(t=time.monotonic())
             self._vx = self._vy = self._omega = 0.0
-            stand = standing_pose_degrees()
+            stand = walk_start_pose_degrees()
             refused = self._refuse_large_delta(stand, force=force, label="stand")
             if refused:
                 self.mode = "idle"
@@ -434,29 +619,51 @@ class DriveController:
                     gid = int(parts[4])
                 except ValueError:
                     gid = None
+            target_gid = self._gait_id if gid is None else gid
+            vx_cap, vy_cap, om_cap = self._caps_for_gait(target_gid)
             # UI uses mm/s; gait wants m/s. Cap gently for first teleop.
-            self._vx = max(-0.20, min(0.20, vx_mm / 1000.0))
-            self._vy = max(-0.15, min(0.15, vy_mm / 1000.0))
-            self._omega = max(-0.9, min(0.9, omega))
-            moving = abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
+            vx = max(-vx_cap, min(vx_cap, vx_mm / 1000.0))
+            vy = max(-vy_cap, min(vy_cap, vy_mm / 1000.0))
+            om = max(-om_cap, min(om_cap, omega))
+            moving = abs(vx) + abs(vy) + abs(om) > 1e-4
             was_walking = self.mode == "walk"
-            self.mode = "walk" if moving else "stand"
+            if not moving:
+                self.gait.stop()
+                self._vx = self._vy = self._omega = 0.0
+                if was_walking:
+                    self._hold_here()
+                self.mode = "idle"
+                self.status = (
+                    f"walk stopped[{self._gait_desc()}] quiet hold"
+                    if was_walking else "quiet hold")
+                return "J"
+            if moving and not was_walking:
+                refused = self._refuse_walk_if_not_ready()
+                if refused:
+                    self.gait.stop()
+                    self._vx = self._vy = self._omega = 0.0
+                    self.mode = "idle"
+                    return refused
             if gid is not None and gid != self._gait_id:
-                # Picker swap carried on the J stream: lands on the first
-                # stopped packet (refused while moving — see _set_gait).
-                self._set_gait(gid)
+                # Picker swap carried on the J stream: when starting from
+                # stand, swap before publishing the nonzero command so the
+                # gait selector does not misread this as a live swap.
+                msg = self._set_gait(gid)
+                if msg.startswith("refused"):
+                    return msg
+            self._vx, self._vy, self._omega = vx, vy, om
+            self.mode = "walk" if moving else "stand"
             if not (was_walking and moving):
-                # Pick up the latest learned plant when a walk engages /
-                # while standing — but never mid-walk: NoSlipGait's sync
-                # re-pins the world anchors, which would snap planted
-                # feet back to neutral under load.
-                self.gait.sync_plant_stance()
-                if moving and isinstance(self.gait, (NoSlipGait,
-                                                     SE2FootGait)):
+                # Scripted drive uses the same tall walk-ready stance as
+                # Stand/RL walk. Never resync mid-walk: NoSlipGait's sync
+                # re-pins the world anchors, which would snap planted feet
+                # back to neutral under load.
+                self._sync_gait_walk_stance()
+                if moving:
                     # Fresh cycle on engage: re-pin feet under the robot
                     # NOW and restart the startup-softened phase machine.
-                    self.gait.reset_phase()
-            self.gait.set_velocity(vx=self._vx, vy=self._vy, omega=self._omega)
+                    self.gait.reset_phase(t=time.monotonic())
+            self.gait.set_velocity(vx=vx, vy=vy, omega=om)
             self.status = (f"walk[{self._gait_desc()}] vx={self._vx:.3f} "
                            f"vy={self._vy:.3f} w={self._omega:.2f}")
             return "J"
@@ -468,7 +675,22 @@ class DriveController:
                 return "bad K"
             self._lift_mm = lift_mm       # survives gait swaps
             self.gait.set_lift_mm(lift_mm)
+            if self._gait_id == 0:
+                try:
+                    self._demo_tripod = tune_demo_tripod(
+                        self._demo_tripod, {"lift": lift_mm})
+                except ValueError:
+                    pass
             return "K"
+
+        if cmd == "GTUNE":
+            if len(parts) == 1:
+                return f"GTUNE {format_demo_tripod(self._demo_tripod)}"
+            try:
+                updates = parse_demo_tripod_tune_tokens(parts[1:])
+            except ValueError as e:
+                return f"bad GTUNE: {e}"
+            return self._apply_demo_tripod_tune(updates)
 
         if cmd == "GAIT":
             if len(parts) < 2:
@@ -584,44 +806,37 @@ class DriveController:
     # -- background loop -----------------------------------------------------
     def _loop(self) -> None:
         t0 = time.monotonic()
-        settle_t0 = None
+        deadline = t0
+        stand_hold_t = t0
         while not self._stop.is_set():
             tick = time.monotonic()
             with self._lock:
                 mode = self.mode
                 armed = self.armed
-                if mode == "settle":
-                    if settle_t0 is None:
-                        settle_t0 = tick
-                    u = min(1.0, (tick - settle_t0) / SETTLE_SECONDS)
-                    s = u * u * (3 - 2 * u)
-                    start = self._last_pose
-                    # Ease toward stand plant then limp.
-                    goal = list(standing_pose_degrees())
-                    pose = [a + (b - a) * s for a, b in zip(start, goal)]
-                    if armed:
-                        self._write_pose(pose, speed=200, acc=12)
-                    if u >= 1.0:
-                        self._torque_all(False)
-                        self.armed = False
-                        self.mode = "idle"
-                        self.status = "settled + limp"
-                        settle_t0 = None
+                if mode == "demo":
+                    pass  # bench / inplace_demos owns the bus
+                elif armed and mode == "walk":
+                    pose = self.gait.desired_deg(tick - t0)
+                    self._write_pose(
+                        pose,
+                        speed=SCRIPTED_WALK_SPEED_COUNTS_S,
+                        acc=SCRIPTED_WALK_ACC_UNITS,
+                    )
+                elif armed and mode == "stand":
+                    # Occasional re-hold so stance doesn't droop. This
+                    # must match the tall walk-ready stance used by
+                    # Stand/RL walk and scripted J drive.
+                    if tick - stand_hold_t >= 2.5:
+                        hold = (list(self._last_pose)
+                                if self._last_pose
+                                else walk_start_pose_degrees())
+                        self._write_pose(hold, speed=300, acc=20)
+                        stand_hold_t = tick
                 else:
-                    settle_t0 = None
-                    if mode == "demo":
-                        pass  # bench / inplace_demos owns the bus
-                    elif armed and mode == "walk":
-                        pose = self.gait.desired_deg(tick - t0)
-                        self._write_pose(pose, speed=WALK_SPEED, acc=WALK_ACC)
-                    elif armed and mode == "stand":
-                        # Occasional re-hold so stance doesn't droop.
-                        # Must match stand zero / learned plant — NOT the
-                        # old gait neutral (−25/+60), which yanked hips up
-                        # after feet had just planted.
-                        if int(tick * 2) % 5 == 0:
-                            hold = (list(self._last_pose)
-                                    if self._last_pose
-                                    else standing_pose_degrees())
-                            self._write_pose(hold, speed=300, acc=20)
-            time.sleep(DT)
+                    stand_hold_t = tick
+            deadline, skipped = _advance_periodic_deadline(
+                deadline, time.monotonic())
+            self._loop_overruns += skipped
+            wait_s = deadline - time.monotonic()
+            if wait_s > 0.0:
+                self._stop.wait(wait_s)

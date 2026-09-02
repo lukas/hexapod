@@ -38,6 +38,30 @@ chmod +x install_autostart.sh
 
 Then: `systemctl status hexapod-web`, `journalctl -u hexapod-web -f`.
 After a power cycle the UI should answer on `:8080` / `:8443` without a manual start.
+The installer now checks both listeners:
+
+```bash
+curl -s http://127.0.0.1:8080/api/ping
+curl -sk https://127.0.0.1:8443/api/ping
+```
+
+The HTTPS listener auto-generates a self-signed certificate when no cert is
+configured. For a browser-trusted certificate, provide both environment
+variables in a systemd drop-in and restart `hexapod-web`:
+
+```ini
+[Service]
+Environment=HEXAPOD_TLS_CERT_FILE=/home/arduino/.hexapod_sts_cert.pem
+Environment=HEXAPOD_TLS_KEY_FILE=/home/arduino/.hexapod_sts_key.pem
+```
+
+Safari will still warn on the default self-signed cert until macOS trusts it.
+The usual fixes are either:
+
+- add the generated cert to macOS Keychain Access and set it to Always Trust;
+- generate a cert with a locally trusted CA such as `mkcert`, including the
+  names you actually open (`localhost`, `127.0.0.1`, `hexapod.local`, and the
+  board IP), then copy that cert/key to the paths above.
 
 ### Boot chain (2026-08-07)
 
@@ -101,6 +125,38 @@ make robot-video VIDEO=/path/run.mov TIMES=0,8,16,24,32 CROP=0,0.33,1,0.98
 
 The helper lives at `linux_control/video_contact_sheet.py` and writes under
 `artifacts/video_frames/...`.
+
+For the AprilTag + red-boot live phone overlay, short-occlusion tracking, an
+advisory zero-pose report, and optional read-only encoder cross-check, see
+[`HOUSING_POSE.md`](HOUSING_POSE.md). The shortest live command is:
+
+```bash
+uv run python linux_control/track_apriltags.py \
+  linux_control/apriltag_pose_config_20260831.json \
+  --camera 0 --preview --robot-url http://hexapod.local:8080 \
+  --pose-output phone_checkup.jsonl \
+  --summary-output phone_checkup_summary.json
+```
+
+The tracker only reads `GET /api/feedback`; it cannot send motor commands or
+rewrite zero. Use the overlay to hand-adjust and diagnose the pose.
+
+For the cleaner React/TypeScript interface, build once and open it from the
+same local web hub used by the robot and simulator UI:
+
+```bash
+make vision-build
+make vision                       # http://localhost:8898/vision
+```
+
+The camera is off by default. The page can start/stop capture and switch
+OpenCV camera indexes, shows direct robot-tag/floor-tag/
+foot coverage, waits for a stable fully observed pose, and records a robust
+multi-frame visual-versus-encoder calibration report. Reports are written to
+`artifacts/apriltag_pose/calibrations/`. A reviewed 12/12 report can be applied
+as `robot_pose.visual_joint_bias_deg` in the vision config. This corrects only
+the displayed AprilTag yaw/hip angles; it never moves a motor or rewrites a
+servo zero. Knees remain visually unobservable without tibia/yoke markers.
 
 ## Fast test / deploy loop
 
@@ -262,7 +318,8 @@ chmod +x deploy_adb.sh
 4. Open:
    - UI / keyboard / on-screen sticks: **http://127.0.0.1:8080**
    - Xbox on the **Mac** (browser Gamepad API): **https://127.0.0.1:8443**  
-     (accept the self-signed cert warning once)
+     (accept the self-signed cert warning once, or trust/configure a cert as
+     described in "Autostart on the Uno Q")
 
 `deploy_adb.sh` sets `adb forward` for 8080 and 8443 automatically.
 
@@ -282,12 +339,25 @@ chmod +x deploy_adb.sh
 |---|---|
 | Enable servos | ARM (torque on; nothing moves yet) |
 | Stand | planted stand (default hip **+19°**, knee **+28°**, or learned plant) |
-| Left stick / WASD | walk (tripod gait) |
+| Check ready | read-only readiness check inside Manual Drive: servos, IMU/tilt, and walk-start pose |
+| Left stick / WASD | manual drive with the selected Drive gait |
 | Turn stick / Q·E | yaw rate |
-| Sit & power off | gentle lower, then limp |
+| Sit & power off | STEP lower, then limp |
 | EMERGENCY STOP | limp immediately |
-| Xbox alone | X=sit · Y=stand · A=set-here-as-zero · B=stop demo |
+| Xbox on Drive | left stick walk · right stick turn · D-pad up/down=stand/lower · B=stop gait/demo |
 | Xbox chords | hold LB/LT/RB/RT then tap X/Y/A/B → 16 demos |
+
+The Drive tab is a laptop-friendly manual-drive cockpit: gait picker on the
+left, all stand/check/drive/stop/sit controls on the right. It defaults to the
+Central Pattern Generator (CPG) tetrapod, loaded with
+`CPGLOAD cpg_controller_robust120_yawtrim.json` and selected as `GAIT 6`.
+Its comparison drawer also exposes no-slip tripod (`GAIT 1`), no-slip ripple
+(`GAIT 2`), no-slip wave (`GAIT 3`), smooth no-slip clamp-fit tripod
+(`GAIT 7`), middle-up quad crawl (`GAIT 8`), and the tunable high-step tripod
+(`GAIT 0`). GAIT 0 is the shared preset used by both the real robot page and
+the MuJoCo web session; its editable fields map to
+`GTUNE period=... lift=... stride=... ramp=... vx=... vy=... omega=...`. Apply
+tuning only while stopped, then start the next walk.
 
 ## Onboard Bluetooth Xbox
 

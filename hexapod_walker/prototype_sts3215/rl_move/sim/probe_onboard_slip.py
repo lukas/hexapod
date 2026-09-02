@@ -35,6 +35,7 @@ from rl_move.sim.servo_model import (  # noqa: E402
     position_actuator_ids,
 )
 from rl_move.sim.sim_env import set_foot_ground_friction  # noqa: E402
+from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad  # noqa: E402
 
 DEG2RAD = math.pi / 180.0
 RAD2DEG = 180.0 / math.pi
@@ -86,7 +87,8 @@ def _run_segment(model, data, params, q_goal_deg: np.ndarray,
 
     q0 = data.qpos[qadr].copy()
     profile = ServoProfile(params, q0)
-    profile.command(q_goal_deg * DEG2RAD,
+    q_goal_model = robot_abs_deg_to_mujoco_rel_rad(q_goal_deg)
+    profile.command(q_goal_model,
                     speed_deg_s=SPEED_COUNTS_S / COUNTS_PER_DEG,
                     acc_units=ACC_UNITS)
     substeps = int(round(DT_CTRL / model.opt.timestep))
@@ -136,8 +138,9 @@ def run(mu: float, *, legs: list[int]) -> dict:
     data = mujoco.MjData(model)
     mujoco.mj_resetData(model, data)
     data.qpos[2] = 0.16
-    data.qpos[qadr] = PLANT * DEG2RAD
-    data.ctrl[pos_act] = PLANT * DEG2RAD
+    plant_model = robot_abs_deg_to_mujoco_rel_rad(PLANT)
+    data.qpos[qadr] = plant_model
+    data.ctrl[pos_act] = plant_model
     mujoco.mj_forward(model, data)
     for _ in range(int(round(1.5 / model.opt.timestep))):
         mujoco.mj_step(model, data)

@@ -51,7 +51,7 @@ from .train_ppo_sim import ENV_CLASSES  # noqa: E402
 
 def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
                    s: float) -> np.ndarray:
-    """Foot-anchored (Cartesian) blend between two model-relative poses.
+    """Foot-anchored blend between two robot-absolute poses.
 
     08-22 tibia-150 finding: a raw joint-ANGLE lerp between the
     champion's crouch-stand and the env plant pose falls on every seed
@@ -68,7 +68,7 @@ def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
     geometry. Coxa (yaw) keeps the plain lerp: it only rotates the
     leg's reach direction and was never implicated.
     """
-    import tripod_gait as _tg
+    from hexapod_core import tripod_gait as _tg
     q_from = np.asarray(q_from_rad, dtype=float).reshape(18)
     q_plant = np.asarray(q_plant_rad, dtype=float).reshape(18)
     q_out = (1.0 - s) * q_from + s * q_plant
@@ -76,9 +76,8 @@ def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
         hip_j, knee_j = 3 * leg + 1, 3 * leg + 2
         hip_from_deg = math.degrees(q_from[hip_j])
         hip_plant_deg = math.degrees(q_plant[hip_j])
-        # model-relative knee -> absolute-tibia knee (knee_abs = hip + knee_rel).
-        knee_abs_from_deg = math.degrees(q_from[knee_j] + q_from[hip_j])
-        knee_abs_plant_deg = math.degrees(q_plant[knee_j] + q_plant[hip_j])
+        knee_abs_from_deg = math.degrees(q_from[knee_j])
+        knee_abs_plant_deg = math.degrees(q_plant[knee_j])
         r_from, z_from = _tg.foot_rz_from_hip_knee(hip_from_deg,
                                                      knee_abs_from_deg)
         r_plant, z_plant = _tg.foot_rz_from_hip_knee(hip_plant_deg,
@@ -90,7 +89,7 @@ def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
             continue  # keep the joint-space lerp fallback for this leg/tick
         hip_rad, knee_abs_rad = ik
         q_out[hip_j] = hip_rad
-        q_out[knee_j] = knee_abs_rad - hip_rad  # abs -> model-relative
+        q_out[knee_j] = knee_abs_rad
     return q_out
 
 
@@ -98,8 +97,7 @@ def _validate_open_loop_robustness(qs: np.ndarray, ramp_i0: int, env_cls,
                                    seeds, margin_deg: float) -> tuple[bool, str]:
     """Replay the candidate reference open-loop into FRESH resets at
     OTHER seeds than the one it was extracted from, mirroring exactly
-    how the consumers (test_task_semantics._rise_rollout, and any
-    reward.k_rise_ref_track training rollout) align it: hold
+    how reference-tracking consumers align it: hold
     ``q_rad[0]`` until the new env's own ramp-start tick
     (``env._rise_ramp_i0``), then play ``q_rad[ramp_i0:]`` verbatim.
 
@@ -223,7 +221,7 @@ def main() -> None:
         obs, _ = env.reset()
         chassis_bid = env.model.body("chassis").id
         z_start = float(env.data.xpos[chassis_bid, 2])
-        qs = [env.data.qpos[env._qadr].copy()]
+        qs = [env._state.joint_position.copy()]
         hs = [0.0]   # chassis height above start, per tick (RSI schedules)
         term = False
         info: dict = {}
@@ -231,7 +229,7 @@ def main() -> None:
         for _ in range(n_rise):
             act, _ = model.predict(obs, deterministic=True)
             obs, _r, term, trunc, info = env.step(act)
-            qs.append(env.data.qpos[env._qadr].copy())
+            qs.append(env._state.joint_position.copy())
             hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
             if term or trunc:
                 break
@@ -257,7 +255,7 @@ def main() -> None:
 
         if args.blend_to_plant:
             q_plant = env._plant_deg * DEG2RAD
-            q_from = env.data.qpos[env._qadr].copy()
+            q_from = env._state.joint_position.copy()
             n_blend = max(1, int(round(args.blend_s / env.dt)))
             n_hold = int(round(args.plant_hold_s / env.dt))
             fell = False
@@ -269,7 +267,7 @@ def main() -> None:
                     q_blend = (1.0 - s) * q_from + s * q_plant
                 act = q_rad_to_action(q_blend)
                 obs, _r, term, trunc, info = env.step(act)
-                qs.append(env.data.qpos[env._qadr].copy())
+                qs.append(env._state.joint_position.copy())
                 hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
                 if term or trunc:
                     fell = True
@@ -278,7 +276,7 @@ def main() -> None:
             h_rel_mm = (float(env.data.xpos[chassis_bid, 2])
                         - z_start) * 1000.0
             q_err_deg = float(np.sqrt(np.mean(
-                (env.data.qpos[env._qadr] - q_plant) ** 2))) / DEG2RAD
+                (env._state.joint_position - q_plant) ** 2))) / DEG2RAD
             ok = (not fell and clear_mm <= args.end_clear_mm
                   and q_err_deg <= 10.0)
             print(f"[seed {seed}] blend: rel height {h_rel_mm:+.0f}mm "
@@ -303,9 +301,11 @@ def main() -> None:
 
         h_rel_end_m = (float(env.data.xpos[chassis_bid, 2]) - z_start)
         args.out.parent.mkdir(parents=True, exist_ok=True)
+        from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
         np.savez(args.out, q_rad=np.asarray(qs), dt=env.dt,
                  ramp_i0=ramp_i0, h_rel_end_m=h_rel_end_m,
-                 h_rel_m=np.asarray(hs))
+                 h_rel_m=np.asarray(hs), joint_frame=FRAME_ROBOT_ABS,
+                 joint_contract=JOINT_CONTRACT)
         print(f"[extract_rise_ref] wrote {args.out} "
               f"(T={len(qs)}, dt={env.dt}s, ramp_i0={ramp_i0}, "
               f"seed={seed}, start={args.start}, "

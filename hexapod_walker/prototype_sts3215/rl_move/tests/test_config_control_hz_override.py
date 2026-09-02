@@ -1,7 +1,7 @@
 """HEXAPOD_CONTROL_HZ override for `rl_move.config.load_config`
 (2026-08-25, leg-sacrifice-fingerprint DIG-IN).
 
-Built while chasing a 54-test `test_task_semantics.py` full-bank
+Built while chasing a 54-test failure in the retired pre-v2 full-bank
 regression (was 1 known-red as of 2026-08-22) discovered the same
 cycle: config.yaml's `control.hz` default flipped 25 -> 100 on 08-24
 and the calibrated bank calls `load_config()` with no override anywhere,

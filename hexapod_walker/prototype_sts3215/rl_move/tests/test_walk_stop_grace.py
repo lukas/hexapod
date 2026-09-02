@@ -40,7 +40,7 @@ from rl_move.config import load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from sim_gait_compat import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 
 WALK_PLANT = (20.0, 80.0)
 
@@ -83,7 +83,7 @@ def _creep_action(t):
 
 def _command_stop(env):
     """Flip the active goal trajectory to a commanded stop (s_ref ~
-    0) starting THIS tick, mirroring test_task_semantics.py's own
+    0) starting THIS tick, matching the original semantics check's
     all-stop twin construction."""
     traj = env._goal_traj
     traj.vx[:] = 0.0

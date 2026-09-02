@@ -13,7 +13,7 @@ is actually planted more accurately than the gait clock alone?
 
 ## Method
 
-The evaluation replay recorded its six MuJoCo foot touch sensors as independent
+The scripted MuJoCo replay now records its six foot touch sensors as independent
 labels. A small class-balanced linear logistic model uses some or all of:
 
 - commanded foot clearance derived from joint commands;
@@ -70,19 +70,15 @@ grading a touchdown detector.
 
 ## Reproduce
 
-Given a touch-labeled simulator CSV, from
-`hexapod_walker/prototype_sts3215`:
+From `hexapod_walker/prototype_sts3215`:
 
 ```sh
 eval_parent=$(mktemp -d /tmp/hexapod-contact-eval.XXXXXX)
-touch_csv=/path/to/touch_labeled_sim_telemetry.csv
+uv run python -m rl_move.scripts.replay_scripted_gait_suite_sim \
+  --output-dir "$eval_parent/replay" --gaits 1 2 3 9 \
+  --speed-mm-s 30 --direction-s 3.2 --settle-s 0.4
 uv run python -m rl_move.scripts.evaluate_foot_contact_predictor \
-  --sim-telemetry "$touch_csv" \
+  --sim-telemetry "$eval_parent/replay/sim_telemetry.csv" \
   --output-json "$eval_parent/evaluation.json" \
   --model-json "$eval_parent/model.json"
 ```
-
-The CSV needs the simulator time, phase/gait/direction, robot-absolute measured
-and commanded joint vectors, per-joint current, and six-element
-`foot_contact_force_n` fields. A `joint_contract` column is validated when
-present but is optional for older robot-absolute replay artifacts.

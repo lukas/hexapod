@@ -116,7 +116,7 @@ MIRROR2_STACK.update({
 # mirror2 + the 08-11 latent-defect fixes (walk_task.py): heading-hold
 # yaw income gated on achieved linear progress, drift charge on the wz
 # EMA instead of the instantaneous oscillation. The stack any future
-# turn arm must train with (TURN_OVERRIDES in test_task_semantics.py).
+# turn arm must train with (the retired pre-v2 turn calibration bank).
 MIRROR2FIX_STACK = dict(MIRROR2_STACK)
 MIRROR2FIX_STACK.update({
     ("reward", "walk_yaw_hold_prog_gate"): 1.0,
@@ -204,7 +204,7 @@ DIRS = {
 # stacks without a yaw channel.
 YAW_DIRS = {"tip_left": 1.0, "tip_right": -1.0, "hold": 0.0}
 # Scripted TripodGait realizes ~40% of commanded omega while turning
-# (measured, test_task_semantics.py DRIFT_RIDE_WZ) — scripted turner
+# (measured by the retired pre-v2 drift audit) — scripted turner
 # references command omega = wz_ref / 0.4 to ACHIEVE the pinned rate.
 TURN_OMEGA_GAIN = 2.5
 
@@ -218,9 +218,9 @@ TURN_OMEGA_GAIN = 2.5
 #          left drift, collecting the yaw kernel's heading-hold band.
 #          Scripted omega 0.25 calibrated to ACHIEVE ~0.088 rad/s
 #          while translating (the gait realizes ~40% of commanded
-#          omega — measured, test_task_semantics.py DRIFT_RIDE_WZ).
+#          omega — measured by the retired pre-v2 drift audit).
 #   noslip / noslip_slow / noslip_clean: the step-then-shift
-#          world-anchored gait (linux_control/noslip_gait.py) —
+#          world-anchored gait (hexapod_core/noslip_gait.py) —
 #          quasi-static, zero commanded foot drag. noslip = default
 #          timing (realizes ~0.02-0.03 m/s, BELOW the trained 0.05-0.06
 #          band); noslip_slow = an early slow timing (~0.005 m/s);
@@ -309,7 +309,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
             deterministic: bool = True, dr_scale: float = 0.0,
             extra_sets: tuple = (), cmd: float = CMD_V,
             wz_cmd: float = 0.3) -> dict:
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     base_pol, period_scale = parse_policy_spec(policy)
     stack = STACKS[stack_name]
@@ -333,7 +333,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         from stable_baselines3 import PPO
         model = PPO.load(str(ROOT / base_pol[5:]), device="cpu")
     elif base_pol.startswith("noslip"):
-        from sim_gait_compat import NoSlipGait
+        from hexapod_core.noslip_gait import NoSlipGait
         if base_pol == "noslip_clean":
             gait = NoSlipGait.clamp_fit()
         else:

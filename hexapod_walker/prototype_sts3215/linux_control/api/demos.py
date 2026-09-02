@@ -69,7 +69,7 @@ class DemosApi:
         return out
 
     # -- uploaded dance scripts (dances as data) -----------------------------
-    # Portable JSON choreography (motor_setup/dance_script.py): baked from
+    # Portable JSON choreography (hexapod_core/dance_script.py): baked from
     # any dance runner, uploaded over HTTP, replayed through the same
     # guarded primitives.  Stored OUTSIDE the deploy tree so code pushes
     # never wipe them; the same file can be pushed to any robot.
@@ -1102,4 +1102,3 @@ class DemosApi:
             result["error"] = ("walk-ready start failed verification: "
                                + str(check.get("error") or check))
         return result
-

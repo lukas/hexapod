@@ -471,11 +471,12 @@ the four jumpers have clear exit room; short run up to the Uno Q.
 > rim), fed ONCE from the Uno Q 3V3 pin through the plate's east Ø8 wire
 > port — one lever nut is the whole 3.3 V rail.  Current load = GY-521
 > VCC only (3 spares): the **screen does NOT tap this Wago** — its whole
-> 8-wire pigtail (VCC GND SCL SDA RES DC CS BLK) runs from the Uno Q up
+> 8-wire pigtail (screen header order: GND VCC SCL SDA RES DC CS BLK)
+> runs from the Uno Q up
 > the az-330 platform leg and through the 24×5 wire slot in the
 > platform's top plate; the panel is held by 4× M2 self-tappers in the
 > top plate's corner pilot holes.  Screen pin map (Uno layout, SPI):
-> VCC → **3V3**, GND → **GND** (power header), SCL → **D13** (SCK),
+> GND → **GND**, VCC → **3V3** (power header), SCL → **D13** (SCK),
 > SDA → **D11** (MOSI), CS → **D10**, DC → **D9**, RES → **D8**,
 > BLK → **D7**.
 >

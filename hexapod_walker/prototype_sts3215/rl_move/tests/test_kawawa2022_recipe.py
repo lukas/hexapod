@@ -65,24 +65,6 @@ def test_recipe_rung1_has_no_dr_pushes():
     assert not any("friction_scale" in a for a in args)
 
 
-def test_recipe_bank_cfg_matches_launch_cfg():
-    """The WALKCURR_PF semantics bank must price the EXACT reward cfg
-    the run launches with (reward/eval alignment is the whole point).
-    Every reward.* key in CFG_SET must appear with the same value in
-    WALKCURR_PF_OVERRIDES."""
-    from rl_move.tests.test_task_semantics import WALKCURR_PF_OVERRIDES
-    for item in CFG_SET:
-        key, val = item.split("=", 1)
-        sec, leaf = key.split(".", 1)
-        if sec != "reward":
-            continue
-        assert (sec, leaf) in WALKCURR_PF_OVERRIDES, (
-            f"bank does not price {key}")
-        assert float(WALKCURR_PF_OVERRIDES[(sec, leaf)]) == float(val), (
-            f"bank prices {key}={WALKCURR_PF_OVERRIDES[(sec, leaf)]} "
-            f"but the run launches with {val}")
-
-
 def test_recipe_backlog_command_is_launcher_ready():
     cmd = backlog_command()
     assert cmd[:4] == ["python", "launch_run.py", "backlog", "add"]

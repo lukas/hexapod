@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=joyrl1">
+<link rel="stylesheet" href="/style.css?v=joyrl3">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -18,6 +18,7 @@
     <button id="tab-drive" class="tab on">Drive</button>
     <span class="tabsep"></span>
     <button id="tab-calibrate" class="tab">Calibrate</button>
+    <a class="tab tab-link" href="/vision">Vision</a>
     <button id="tab-touchdown" class="tab">Touchdown</button>
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
@@ -36,12 +37,12 @@
   <div id="armbar" class="armbar disarmed">
     <span id="armstate" class="armstate">● OFF</span>
     <button id="armbtn" class="armbtn"
-      title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable</button>
+      title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: runs STEP lower, THEN cuts power.">Enable</button>
     <button id="armzero" class="armzero"
       title="Move to logical sit zero: STEP lower if already standing; safe-zero recovery if not standing or tangled.">Zero</button>
     <button id="topsetzero" class="armsetzero"
       title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°. Limp (Motors → Limp all, or E-STOP) and hand-pose the legs first.">Set zero HERE</button>
-    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ E-STOP</button>
+    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For normal power-off use STEP lower via Disarm / Sit &amp; power off.">■ E-STOP</button>
   </div>
   <div id="opsbar">
     <div id="hubtarget" class="hub-target">
@@ -72,7 +73,9 @@
         <div class="statusline">
           <span id="conn" class="warn">checking…</span>
         </div>
-        <div class="statusline" id="gp"></div>
+        <div class="statusline joy-status joy-off" id="gp"
+          title="Controller not seen yet"
+          aria-label="Controller not seen yet">🎮</div>
         <div class="statusline" id="sent"></div>
       </div>
       <button id="statuscopy" title="Copy all status text (link, robot activity, controller, last command)">Copy</button>
@@ -113,28 +116,87 @@
     <span class="hint" style="margin:0; flex:1 1 auto" id="tmstamp">2 Hz while this tab is open</span>
   </div>
   <div class="row">
-    <div class="pad">
-      <h2>1 · Zero &amp; stand</h2>
+    <div class="pad drive-pad">
+      <h2>Manual drive</h2>
       <div class="hint" style="margin-top:0">
-        Bench order: limp (Motors → <b>Limp all</b>, or E-STOP), hand-pose
-        legs straight out → <b>Set zero HERE</b> (top bar) →
-        <b>Enable servos</b> (top bar) →
-        <b>Stand</b> → <b>Preflight</b>, then walk.</div>
-      <div class="btns" style="margin-top:10px">
-        <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
-        <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the expected stance.">Preflight</button>
+        Select a gait on the left; stand, check, drive, stop, sit, and power
+        off from the controls on the right. For laptop controller input, open
+        the HTTPS URL.
       </div>
-      <div class="hint" id="wpfout">Preflight result shows here.</div>
-    </div>
-    <div class="pad">
-      <h2>2 · Scripted gait walk</h2>
-      <div class="hint" style="margin-top:0">Scripted (non-RL) walking:
-        <code>J vx vy ω</code> to walk, <code>J 0 0 0</code> to stop and hold
-        the planted stand. Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s ·
-        3–60 s (no-slip clamps itself tighter: 40/35 mm/s, ω 0.30).</div>
-      <div class="btns" style="margin-top:8px">
-        <label class="hint">gait
-          <select id="wgait" title="Which gait runs the J commands. Swaps are
+      <div class="gait-walk-layout drive-layout">
+        <section class="gait-pane" aria-label="Gait selection">
+          <h3 class="pane-title">Gait</h3>
+          <div class="gait-default">
+            <button type="button" class="gait-pick gait-primary recommended"
+              data-gait-pick data-gait="6"
+              data-cpg="cpg_controller_robust120_yawtrim.json"
+              title="Loads cpg_controller_robust120_yawtrim.json, then selects GAIT 6. Central Pattern Generator gait: zero falls, low slip, good headings and turns in MuJoCo.">
+              <span>Recommended default</span><b>Central Pattern Generator</b>
+              <small>CPG tetrapod · best MuJoCo result · turns</small>
+            </button>
+            <div class="gait-selected" id="wgaitsummary">
+              Selected: Central Pattern Generator (CPG) tetrapod. Stop walking
+              before switching gaits.
+            </div>
+          </div>
+          <details class="gait-details" id="wgaitcompare">
+            <summary>Compare other gaits</summary>
+            <div id="wgaitpicks" class="gait-picks compact">
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="1"
+                title="Selects GAIT 1. Classic no-slip tripod: three legs swing, three legs support.">
+                <span>Classic</span><b>No-slip tripod</b>
+                <small>3 feet down · faster</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="2"
+                title="Selects GAIT 2. Opposite pairs swing, with 4 feet down.">
+                <span>Safer demo</span><b>No-slip ripple</b>
+                <small>4 feet down · slower</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="3"
+                title="Selects GAIT 3. One leg swings at a time, with 5 feet down.">
+                <span>Steadiest</span><b>No-slip wave</b>
+                <small>5 feet down · slowest</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="7"
+                title="Selects GAIT 7. Smooth no-slip tripod preset tuned for the measured servo speed clamp.">
+                <span>Smooth tripod</span><b>No-slip clampfit</b>
+                <small>servo-speed tuned</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="9"
+                title="Selects GAIT 9. Continuous no-slip tripod with almost no all-feet-down shift or touchdown dwell.">
+                <span>Fluid tripod</span><b>No-slip continuous</b>
+                <small>18 mm lift · minimal pause</small>
+              </button>
+              <button type="button" class="gait-pick experimental"
+                data-gait-pick data-gait="10"
+                title="Selects GAIT 10. Faster 2.4-second fluid tripod with 14 mm lift.">
+                <span>Fluid fast</span><b>No-slip continuous</b>
+                <small>2.4 s · 14 mm lift</small>
+              </button>
+              <button type="button" class="gait-pick experimental"
+                data-gait-pick data-gait="8"
+                title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
+                <span>Diagnostic</span><b>Middle-up quad</b>
+                <small>front/rear crawl · slow</small>
+              </button>
+              <button type="button" class="gait-pick"
+                data-gait-pick data-gait="0"
+                title="Selects GAIT 0. Current high-step tripod baseline; tune the parameters in Advanced.">
+                <span>Editable</span><b>High-step tripod</b>
+                <small>3 feet down · tunable</small>
+              </button>
+            </div>
+          </details>
+          <details class="gait-details" id="wgaitadvanced">
+            <summary>Advanced gait setup</summary>
+            <div class="btns" style="margin-top:8px">
+              <label class="hint">exact gait
+                <select id="wgait" title="Which gait runs the J commands. Swaps are
 refused while walking — stop first. tripod = the legacy body-frame drag gait
 (known-good but loses ~50% of its stride to slip); the no-slip gaits pin
 planted feet to fixed world anchors (zero commanded scrub) and differ only
@@ -143,72 +205,108 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
 with Bézier swings, and auto-scale a too-fast command down to what the
 legs can reach instead of clipping it.">
-            <option value="0" selected>tripod (legacy — drags feet)</option>
+            <option value="0">tripod high-step demo</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
             <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
             <option value="5">SE2 wave (auto-scaled · 5 down)</option>
-            <option value="6">SE2 CPG (loaded controller)</option>
-          </select></label>
+            <option value="6" selected>Central Pattern Generator (CPG) tetrapod</option>
+            <option value="7">no-slip clampfit tripod (smooth)</option>
+            <option value="8">middle-tuck quad crawl (front/rear only)</option>
+            <option value="9">no-slip fluid tripod (continuous)</option>
+            <option value="10">no-slip fluid-fast tripod (2.4 s)</option>
+            </select></label>
+            </div>
+            <div class="btns" style="margin-top:8px; align-items:center">
+              <label class="hint">Central Pattern Generator file
+                <select id="wcpgsel" title="Central Pattern Generator controller artifacts. The recommended default auto-loads cpg_controller_robust120_yawtrim.json.">
+                  <option value="">(refreshing…)</option>
+                </select></label>
+              <button id="wcpgrefresh" type="button">↻ refresh</button>
+              <button id="wcpgload" type="button">Load</button>
+            </div>
+            <div class="hint" id="wcpgstatus">Loading recommended CPG controller…</div>
+            <div id="walphawrap" style="display:none">
+              <label class="slab">No-slip α — body-motion overlap:
+                <span id="walab">0.00</span></label>
+              <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
+              <div class="hint">α 0 = step-then-shift. α 1 = continuous body
+                motion. Applies at the next phase boundary.</div>
+            </div>
+            <div id="wtripodwrap" class="gait-tune">
+              <label class="slab">High-step tripod tune</label>
+              <div class="fields">
+                <label class="field">period s<input id="wperiod" type="number"
+                  value="1.80" min="0.75" max="3.00" step="0.05"></label>
+                <label class="field">lift mm<input id="lift" type="number"
+                  value="40" min="10" max="50" step="1"></label>
+                <label class="field">stride<input id="wstride" type="number"
+                  value="0.55" min="0.30" max="1.20" step="0.05"></label>
+                <label class="field">ramp s<input id="wramp" type="number"
+                  value="0.85" min="0.10" max="2.50" step="0.05"></label>
+                <label class="field">forward mm/s<input id="wvxcap" type="number"
+                  value="30" min="10" max="60" step="5"></label>
+                <label class="field">strafe mm/s<input id="wvycap" type="number"
+                  value="18" min="5" max="40" step="1"></label>
+                <label class="field">turn rad/s<input id="womcap" type="number"
+                  value="0.35" min="0.05" max="0.60" step="0.05"></label>
+              </div>
+              <div class="btns" style="margin-top:8px">
+                <button id="wtripodapply" type="button">Apply tune</button>
+                <button id="wtripodreset" type="button">Reset tune</button>
+              </div>
+              <div class="hint" id="wtripodstatus">
+                Applies to GAIT 0 in both MuJoCo and the real robot. Stop walking before applying.
+              </div>
+            </div>
+          </details>
+        </section>
+        <section class="walk-control-pane manual-drive-pane" aria-label="Manual drive controls">
+          <h3 class="pane-title">Controls</h3>
+          <div class="hint" style="margin-top:0">
+            Enable → Stand up → Check ready → drive. E-STOP cuts power
+            immediately.
+          </div>
+          <div class="session-actions">
+            <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller D-pad up · keyboard: Space.">▲ Stand up</button>
+            <button id="wpreflight" title="Read-only readiness check: all 18 servos answering, IMU alive, tilt sane, and pose close to the expected stand/walk-start stance.">Check ready</button>
+            <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Controller D-pad down · keyboard: C.">Center / Sit</button>
+            <button id="stop" class="danger" title="Run STEP lower to sit, wait for it to finish, then cut servo power. Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off</button>
+          </div>
+          <div class="hint drive-check-status" id="wpfout">Check ready is read-only: servos, IMU, tilt, and stand pose. No motion.</div>
+          <div class="fields walk-fields">
+            <label class="field">vx mm/s<input id="wvx" type="number" value="25" min="-60" max="60" step="5"></label>
+            <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-18" max="18" step="3"></label>
+            <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.35" max="0.35" step="0.05"></label>
+            <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
+          </div>
+          <div class="walk-actions">
+            <button id="wstart" class="on">▶ Start walk</button>
+            <button id="wstop" class="danger"
+              title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ Stop gait</button>
+          </div>
+          <div class="hint walk-status" id="wstatus">Idle.</div>
+          <div class="stick-grid">
+            <div class="stick-panel">
+              <h3 class="stick-title">Move</h3>
+              <canvas id="drive"></canvas>
+            </div>
+            <div class="stick-panel">
+              <h3 class="stick-title">Turn</h3>
+              <canvas id="turn"></canvas>
+            </div>
+          </div>
+          <label class="slab">Forward cap: <span id="vlab">30</span> mm/s</label>
+          <input id="vmax" type="range" min="10" max="60" value="30">
+          <div class="hint">
+            <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
+            <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
+            <b>Xbox (HTTPS):</b> left stick walk · right stick turn ·
+            D-pad up/down stand/lower · bare <b>B</b> stops.
+          </div>
+        </section>
       </div>
-      <div class="btns" style="margin-top:8px; align-items:center">
-        <label class="hint">cpg controller
-          <select id="wcpgsel" title="cpg track search artifacts (rl_move/sim/policies + linux_control/policies, cpg_controller_*.json). Load one, then pick 'SE2 CPG' above and Send/Start to walk on it. Loading never swaps gaits by itself.">
-            <option value="">(refreshing…)</option>
-          </select></label>
-        <button id="wcpgrefresh" type="button">↻ refresh</button>
-        <button id="wcpgload" type="button">Load</button>
-      </div>
-      <div class="hint" id="wcpgstatus">No CPG controller loaded.</div>
-      <div id="walphawrap" style="display:none">
-        <label class="slab">No-slip α — body-motion overlap:
-          <span id="walab">0.00</span></label>
-        <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
-        <div class="hint">α 0 = step-then-shift (body only moves with all six
-          feet planted; pause-anywhere). α 1 = continuous body motion spread
-          across the whole cycle (gentler servo tracking). Feet stay pinned to
-          world anchors at every α; applies at the next phase boundary.</div>
-      </div>
-      <div class="fields">
-        <label class="field">vx mm/s<input id="wvx" type="number" value="30" min="-60" max="60" step="5"></label>
-        <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-40" max="40" step="5"></label>
-        <label class="field">ω rad/s (+CW)<input id="wom" type="number" value="0" min="-0.5" max="0.5" step="0.05"></label>
-        <label class="field">duration s<input id="wdur" type="number" value="20" min="3" max="60" step="1"></label>
-      </div>
-      <div class="btns" style="margin-top:12px">
-        <button id="wstart" class="on">▶ Start walk</button>
-      </div>
-      <button id="wstop" class="danger" style="margin-top:8px; width:100%; padding:14px; font-size:15px"
-        title="Send J 0 0 0 NOW — stops the gait and holds the planted stand (torque stays on). Instant limp = EMERGENCY STOP in the header.">■ STOP GAIT (hold stand)</button>
-      <label class="slab">Swing lift: <span id="klab">18</span> mm</label>
-      <input id="lift" type="range" min="4" max="40" value="18">
-      <div class="hint" id="wstatus">Idle.</div>
-    </div>
-    <div class="pad">
-      <h2>3 · Manual drive (left stick)</h2>
-      <canvas id="drive"></canvas>
-      <div class="turn"><h2 style="margin-top:12px">Turn</h2><canvas id="turn"></canvas></div>
-      <label class="slab">Max speed: <span id="vlab">40</span> mm/s</label>
-      <input id="vmax" type="range" min="10" max="100" value="40">
-      <div class="hint">
-        <b>Keyboard:</b> <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> drive,
-        <kbd>Q</kbd>/<kbd>E</kbd> turn, <kbd>Space</kbd> stand, <kbd>C</kbd> sit.<br>
-        <b>Xbox (https URL):</b> left stick walk · right stick turn.
-        Alone: <b>X</b>=sit · <b>Y</b>=stand · <b>A</b>=set HERE as zero · <b>B</b>=stop demo.
-        Demos: hold <b>LB / LT / RB / RT</b> then tap <b>X Y A B</b> (16 chords;
-        LB row easiest → RT row hardest). Enable servos first.
-      </div>
-    </div>
-    <div class="pad">
-      <h2>4 · Wind down</h2>
-      <div class="btns">
-        <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Controller: X · keyboard: C.">Center / Sit</button>
-      </div>
-      <button id="stop" class="danger" style="margin-top:10px"
-        title="Gently lower to the ground, then cut servo power (firmware SETTLE). Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
-      <div class="hint">E-STOP (header, red) cuts all servo power instantly — the robot
-        drops. Prefer Sit &amp; power off for a normal end of session.</div>
     </div>
   </div>
   </div><!-- /view-drive -->
@@ -237,7 +335,7 @@ legs can reach instead of clipping it.">
       </div>
       <div class="btns nowrap" style="margin-top:10px">
         <button id="mpinned" title="Read-only: is the body tipped ≥12° over a folded knee (the post-fall trapped state)? Never moves the robot.">Pinned-tip check</button>
-        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, settle, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
+        <button id="muntrap" class="danger" title="Escape a pinned-leg tip: limp, wait briefly, then fold hips+knees at 20% torque (heat-bounded). Refuses unless the check says pinned. Success leaves it level+folded — run Go zero next.">Untrap fold</button>
         <span id="mpinnedout" class="hint" style="margin:0">—</span>
       </div>
       <div style="overflow:auto; margin-top:10px; max-height:420px">
@@ -471,17 +569,17 @@ legs can reach instead of clipping it.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="Stand-up uses STEP as needed, then settles to the sim walk-ready stance. Tuck stand/lower uses the lower-current scripted tuck choreography. Walk still uses the selected RL policy. The ‘learned RL’ pair runs the actual stance-policy rise/lower episodes instead.">Policy moves</h2>
+      <h2 title="Stand-up uses STEP as needed, then finishes at the sim walk-ready stance. Tuck stand/lower uses the lower-current scripted tuck choreography. Walk still uses the selected RL policy. The ‘learned RL’ pair runs the actual stance-policy rise/lower episodes instead.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on" title="Use STEP stand-up as needed, then settle into the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
+        <button id="rlstand" class="on" title="Use STEP stand-up as needed, then hold the sim walk-ready stance expected by RL walk.">⬆ RL Stand Up / Walk Ready</button>
         <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
         <button id="rltuckstand" class="on" title="Use the scripted tuck stand: lift/fold the feet in the air, touch down under the body, then push up. This is the known lower-current stand-up path from the hardware notes.">⬆ Tuck Stand</button>
         <button id="rltucklower" title="Lower by reversing the scripted tuck keyframes. Start from the tuck/walk-ready standing stance.">⬇ Tuck Lower</button>
-        <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
+        <button id="rlstop" class="danger" title="Stop ends the current policy move and hands off to the configured Hold policy. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="btns" style="margin-top:8px">
-        <button id="rlstandrl" title="EXPERIMENTAL learned stance-policy rise (the model in the ‘stand’ role, defaults to the live stance model). It releases to walk-ready once the trained ramp is stable, instead of waiting out the whole evaluation profile. Start belly-down with legs straight out (logical zero) — preflight refuses anything else. Watch it; keep a hand ready.">⬆ Rise (learned RL)</button>
-        <button id="rllowerrl" title="EXPERIMENTAL learned stance-policy lower (the model in the ‘lower’ role). Start from the sim walk-ready stand — preflight refuses anything else. Watch it; keep a hand ready.">⬇ Lower (learned RL)</button>
+        <button id="rlstandrl" disabled title="Disabled by the default composed policy. Select a learned-stance bundle or assign an explicit Stand role before using learned RL rise.">⬆ Rise (learned RL)</button>
+        <button id="rllowerrl" disabled title="Disabled by the default composed policy. Select a learned-stance bundle or assign an explicit Sit role before using learned RL lower.">⬇ Lower (learned RL)</button>
       </div>
       <div class="hint">Tuck stand/lower are scripted and usually gentler
         than the foot-sliding press-up family. Learned rise/lower run the actual stance-policy
@@ -489,37 +587,47 @@ legs can reach instead of clipping it.">
         Learned rise hands off as soon as the ramp has settled upright.
         Experimental on hardware — watch the robot the whole time.</div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px" title="Hold arrow keys, WASD, the pad, or a gamepad left stick. The first direction press starts the RL drive session from the sim walk-ready stance. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — keys / joystick</h2>
-      <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on" title="Optional pre-arm from the sim walk-ready stance. Direction keys, pad buttons, or joystick movement also start driving automatically.">▶ Start driving</button>
-        <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
-        <label class="hint">speed
-          <select id="rlwalkspeed">
-            <option value="0.05" selected>0.05 m/s</option>
-            <option value="0.055">0.055 m/s</option>
-            <option value="0.06">0.06 m/s</option>
-          </select></label>
-      </div>
-      <div class="hint" id="rldrivestatus" style="margin-top:8px">No
-        session — hold a direction or move the joystick to start. Q/E turn.</div>
-      <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
-        press a controller button to connect. Left stick walks; right stick
-        turns; D-pad up/down lowers/raises the body (needs a stance model
-        in the “hold” role).</div>
-      <div id="rldrivepad" style="margin-top:10px;display:grid;
-                  grid-template-columns:repeat(3,minmax(72px,1fr));
-                  gap:6px;max-width:280px">
-        <button data-dv="1,-1">↖</button>
-        <button data-dv="1,0">▲ Fwd</button>
-        <button data-dv="1,1">↗</button>
-        <button data-dv="0,-1">◀ Strafe L</button>
-        <button data-dv="0,0" disabled
-                title="Release everything = stop and hold.">● hold</button>
-        <button data-dv="0,1">▶ Strafe R</button>
-        <button data-dv="-1,-1">↙</button>
-        <button data-dv="-1,0">▼ Back</button>
-        <button data-dv="-1,1">↘</button>
-      </div>
+      <fieldset id="rldrivepanel" class="drive-panel blocked" disabled>
+        <div class="drive-panel-head">
+          <h2 title="Keys and the on-screen pad drive the selected RL policy. The physical joystick defaults to the scripted Drive-tab gait unless an RL drive session is already active. Release input to stop/hold.">Drive — keys / pad</h2>
+          <span id="rldrivegate" class="drive-gate blocked">Stand up first</span>
+        </div>
+        <div class="drive-interactive">
+          <div class="btns" style="margin-top:10px">
+            <button id="rldrivestart" hidden title="Direction keys, pad buttons, or joystick movement start driving automatically.">▶ Start driving</button>
+            <button id="rldriveend" title="Coasts briefly, then hands off to the configured Hold policy.">■ End session (hold policy)</button>
+            <label class="hint" title="Current MuJoCo-default walk policy was trained at 0.08 m/s. Legacy walk policies clamp back to their exported band.">speed
+              <select id="rlwalkspeed">
+                <option value="0.08" selected>0.08 m/s</option>
+                <option value="0.07">0.07 m/s</option>
+                <option value="0.06">0.06 m/s legacy</option>
+                <option value="0.055">0.055 m/s</option>
+                <option value="0.05">0.05 m/s</option>
+              </select></label>
+          </div>
+          <div class="hint" id="rldrivestatus" style="margin-top:8px">No
+            RL session — hold a key or press a pad direction to start one.
+            The physical joystick defaults to the scripted Drive-tab gait.</div>
+          <div class="hint" id="rlgpstatus" style="margin-top:6px">Joystick:
+            press a controller button to connect. Left stick runs the scripted
+            Drive-tab gait by default; right stick turns. In an active RL drive
+            session, the same sticks control the selected walk policy.</div>
+          <div id="rldrivepad" style="margin-top:10px;display:grid;
+                      grid-template-columns:repeat(3,minmax(72px,1fr));
+                      gap:6px;max-width:280px">
+            <button data-dv="1,-1">↖</button>
+            <button data-dv="1,0">▲ Fwd</button>
+            <button data-dv="1,1">↗</button>
+            <button data-dv="0,-1">◀ Strafe L</button>
+            <button data-dv="0,0" disabled
+                    title="Release everything = coast briefly, then configured Hold policy.">● hold</button>
+            <button data-dv="0,1">▶ Strafe R</button>
+            <button data-dv="-1,-1">↙</button>
+            <button data-dv="-1,0">▼ Back</button>
+            <button data-dv="-1,1">↘</button>
+          </div>
+        </div>
+      </fieldset>
       <details style="margin-top:14px"
                title="Fixed-duration tape-measure runs. Commands ramp in over 1 s, walk, ramp out, and hold. Uses the speed picker above.">
         <summary class="hint" style="cursor:pointer">Timed walk
@@ -560,13 +668,27 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     <div class="pad" style="flex:2 1 480px">
       <h2 title="Policy info for the active exported numpy models.">Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
-      <div class="hint" style="margin-top:12px">Click a role chip to give
-        that model the job — one model can hold several roles.
-        <b>Stand</b>/<b>Sit</b>/<b>Hold</b> live on stance models,
-        <b>Walk</b>/<b>Hold</b> on walk models; lit chips show who does
-        what now. Changes apply at the NEXT move, and clicking a lit
-        Sit/Hold chip resets that role to its default.</div>
-      <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
+      <div class="policy-mode-tabs" role="tablist"
+           aria-label="Policy picker mode">
+        <button id="rlbundletab" class="policy-mode-tab on" type="button"
+                role="tab" aria-selected="true"
+                aria-controls="rlbundlepane">Complete policy</button>
+        <button id="rlexperttab" class="policy-mode-tab" type="button"
+                role="tab" aria-selected="false"
+                aria-controls="rlexpertpane">RL models per action</button>
+      </div>
+      <div id="rlbundlepane" class="policy-pane" role="tabpanel"
+           aria-labelledby="rlbundletab">
+        <div id="rlbundlecards" class="policy-bundles hint">loading…</div>
+      </div>
+      <div id="rlexpertpane" class="policy-pane" role="tabpanel"
+           aria-labelledby="rlexperttab" hidden>
+        <div class="hint">Pick exact exported RL models for learned actions.
+          <b>Stand</b>/<b>Sit</b> use stance models, <b>Walk</b> uses walk
+          models, and <b>Hold</b> defaults to the 100&nbsp;Hz mesh stance
+          model. The built-in joint hold is a legacy expert fallback only.</div>
+        <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
+      </div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
     </div>
   </div>
@@ -961,6 +1083,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-  <script src="/app.js?v=joyrl8"></script>
+  <script src="/app.js?v=joyrl13"></script>
 </body>
 </html>

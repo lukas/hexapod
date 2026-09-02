@@ -42,7 +42,7 @@ from rl_move.config import load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from sim_gait_compat import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 
 WALK_PLANT = (20.0, 80.0)
 PLANT_RAD = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
@@ -61,7 +61,7 @@ FC_GOAL = {
 }
 
 # The exact joyfullcurr reward stack (mirrors the stopcharge bank in
-# test_task_semantics.py) -- the launch-rule proof must run under the
+# retired pre-v2 semantics bank) -- the launch-rule proof must run under the
 # recipe the relaunch trains.
 JOYFULLCURR_STACK = {
     ("reward", "k_step_event"): 1.0,

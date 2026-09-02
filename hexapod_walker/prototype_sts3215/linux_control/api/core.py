@@ -116,6 +116,60 @@ class CoreApi:
             return {"ok": False, "error": "TFT ready repaint failed"}
         return {"ok": True, "mode": "tft_ready", "display": painted}
 
+    def tft_recover(self) -> dict:
+        """Hard-reset/reinitialize the TFT through the MCU ``DI`` command."""
+        d = self.drive
+        bus = getattr(d, "bus", None)
+        if getattr(d, "dry_run", False) or bus is None:
+            return {"ok": False, "skipped": True, "error": "no bus"}
+        with self._lock:
+            busy = (
+                self._bus_hot > 0
+                or bool(self._demo_thread and self._demo_thread.is_alive())
+                or self._activity in ("calibrating", "zeroing", "stopping", "demo")
+            )
+        if busy:
+            return {
+                "ok": False,
+                "skipped": True,
+                "error": "motion or calibration owns the MCU link",
+            }
+        recover = getattr(bus, "display_recover", None)
+        if not callable(recover):
+            return {"ok": False, "skipped": True, "error": "no TFT display API"}
+        try:
+            ok = bool(recover(attempts=3, timeout=6.0))
+        except Exception as e:
+            return {"ok": False, "error": f"TFT recover failed: {e}"}
+        return {"ok": ok, "mode": "tft_recover"}
+
+    def tft_selftest(self) -> dict:
+        """Run the TFT white/red/green/blue firmware self-test."""
+        d = self.drive
+        bus = getattr(d, "bus", None)
+        if getattr(d, "dry_run", False) or bus is None:
+            return {"ok": False, "skipped": True, "error": "no bus"}
+        with self._lock:
+            busy = (
+                self._bus_hot > 0
+                or bool(self._demo_thread and self._demo_thread.is_alive())
+                or self._activity in ("calibrating", "zeroing", "stopping", "demo")
+            )
+        if busy:
+            return {
+                "ok": False,
+                "skipped": True,
+                "error": "motion or calibration owns the MCU link",
+            }
+        selftest = getattr(bus, "display_self_test", None)
+        if not callable(selftest):
+            return {"ok": False, "skipped": True, "error": "no TFT self-test API"}
+        try:
+            ok = bool(selftest(timeout=6.0))
+        except Exception as e:
+            return {"ok": False, "error": f"TFT self-test failed: {e}"}
+        return {"ok": ok, "mode": "tft_selftest"}
+
     def _bus_hot_begin(self) -> None:
         with self._lock:
             self._bus_hot = int(self._bus_hot) + 1
@@ -325,6 +379,7 @@ class CoreApi:
             mode = d.mode
             dry = d.dry_run
             drive_status = d.status
+            scripted_walk = d.scripted_contract_state()
         demo = self.demo_state()
         with self._lock:
             activity = self._activity
@@ -347,6 +402,7 @@ class CoreApi:
             "mode": mode,
             "dry_run": dry,
             "drive_status": drive_status,
+            "scripted_walk": scripted_walk,
             "demo": demo,
             "air_demos_need_zero": True,
             "zero_tol_deg": ZERO_TOL_DEG,
@@ -702,4 +758,3 @@ class CoreApi:
             if stand is not None:
                 d._last_pose = list(stand)
             d.status = "standing"
-

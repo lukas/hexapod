@@ -17,6 +17,7 @@ Artifact = the export_policy_np.py JSON:
               "hidden": [h1, h2], "activation": "tanh",
               "control_hz": 100,       # optional trained policy rate
               "inner_hz": 100,         # optional robot stream override
+              "drive_write_hz": 50,    # optional live robot bus cadence
               "bus_write_speed": 1500, # optional robot bus profile
               "bus_write_acc": 80,
               "profile": {...},        # optional trained goal ramps
@@ -73,6 +74,11 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
                     f"93 AMP yaw+fault walk)")
     if act != 18:
         errs.append(f"act_dim must be 18, got {act!r}")
+    try:
+        from hexapod_core.joint_frame import require_robot_abs_joint_frame
+        require_robot_abs_joint_frame(meta, source="numpy policy")
+    except ValueError as exc:
+        errs.append(str(exc))
     if meta.get("activation", "tanh") != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
     try:

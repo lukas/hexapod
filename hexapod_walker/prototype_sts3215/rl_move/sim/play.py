@@ -62,7 +62,7 @@ velocity tail, so they are fed obs[:72] (their exact layout); the
 stance policy always reads obs[:68].
 
 The WALK list additionally ends with non-checkpoint rows, flagged
-`S`: the SCRIPTED no-slip gait (linux_control/noslip_gait.py —
+`S`: the SCRIPTED no-slip gait (hexapod_core/noslip_gait.py —
 rules-based, no RL) at alpha=0 (the original step-then-shift) and at
 alpha=0.5 (the middle of the overlap continuum: half the body travel
 rides a constant drift through swings and dwells instead of the shift
@@ -75,7 +75,7 @@ commanded to fixed world anchors at every alpha (zero commanded scrub,
 see verify_noslip --alpha), and unlike the walk champions it can TURN:
 U/O trim a yaw rate +-0.05 rad/s per tap, including turn-in-place.
 
-Two more `S` rows run the TRIPOD gait (linux_control/tripod_gait.py) —
+Two more `S` rows run the TRIPOD gait (hexapod_core/tripod_gait.py) —
 the dance_walk victory-lap drivers: `tripod_prance_gait` (the
 aggressive horse settings: 0.58 s cadence, 32 mm knee lift, cruise
 0.09 m/s — 1.5x the RL band) and `tripod_walk_gait` (the stock gentle
@@ -139,12 +139,13 @@ from rl_move.env import TaskGoal
 # Shared player/session machinery lives in play_core.py (2026-08-29);
 # this player keeps only the cv2/pygame interaction layer.
 from .play_core import (  # noqa: F401
-    _CRUISE, _CURATED, _DESC, _HIST_K, _LEGACY_PROFILE, _N_MODE,
+    _CRUISE, _CURATED, _DEFAULT_STANCE_PROFILE, _DESC, _HIST_K,
+    _MIDDLE_TUCK_QUAD, _N_MODE,
     _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_FACTORY, _NOSLIP_MID,
     _NOSLIP_RIPPLE, _NOSLIP_TAGS, _NOSLIP_WAVE, _ON_ROBOT, _PROMOTED,
     _PlayEnv, _PlayTraj, _ROLE_OBS, _SCRIPTED_ALPHA, _SCRIPTED_NOSLIP,
     _SCRIPTED_ROWS, _SCRIPTED_TRIPOD, _SPEED_MAX, _TRIPOD_GENTLE,
-    _TRIPOD_PRANCE, _load_profiles, _obs_width, _sim_only_obs,
+    _TRIPOD_HW, _TRIPOD_PRANCE, _load_profiles, _obs_width, _sim_only_obs,
     make_noslip_gait, scan_policies,
 )
 
@@ -281,28 +282,19 @@ class _Gamepad:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    # footlow2: the only stance model that both rises to FULL height and
-    # sits cleanly in this env (holdbc1 tips tilt_pitch on every sit
-    # here — measured 08-13, see its panel note).
-    ap.add_argument("--stance", type=Path,
-                    default=Path("rl_move/sim/policies/"
-                                 "ppo_goal_cw_stand_footlow2_hard1.zip"))
-    # bcgait1_hard1: best all-round walker of the 08-17 operator-session
-    # eval (0 real falls, full-height gait, progress ~1.0 with
-    # footlow2_hard1) — see rl_docs/runs and the eval transcript.
-    ap.add_argument("--walk", type=Path,
-                    default=Path("rl_move/sim/policies/"
-                                 "ppo_goal_cw_dep_bcgait1_hard1.zip"))
+    ap.add_argument(
+        "--stance", type=Path, required=True,
+        help="robot_abs_tibia_v2 stance checkpoint (no implicit legacy model)")
+    ap.add_argument(
+        "--walk", type=Path, required=True,
+        help="robot_abs_tibia_v2 walk checkpoint (no implicit legacy model)")
     ap.add_argument("--all", action="store_true",
                     help="list every scanned checkpoint in the picker "
                          "(default: curated set only — the full list "
                          "overflows the panel)")
-    # B14: the newest promotion of the recover-any21-pop3 population
-    # run (08-18, step 15.0M) — universal recover-to-plant specialist,
-    # standard 72-obs walk-env contract. Bound to the R key.
     ap.add_argument("--recover", type=Path,
-                    default=Path("rl_move/sim/policies/"
-                                 "ppo_goal_cw_recover_any21_pop3_B14.zip"))
+                    default=None,
+                    help="optional robot_abs_tibia_v2 recovery checkpoint")
     ap.add_argument("--realtime", type=float, default=1.0)
     ap.add_argument("--phase-obs", action="store_true",
                     help="enable the walk env's phase clock (+2 obs) so "
@@ -324,7 +316,9 @@ def main() -> None:
     from .joint_task import q_rad_to_action
     from .servo_model import SimServoParams
 
-    from hexapod_core.sim_gait_compat import NoSlipGait, TripodGait
+    from hexapod_core.middle_tuck_quad_gait import MiddleTuckQuadGait
+    from hexapod_core.noslip_gait import NoSlipGait
+    from hexapod_core.tripod_gait import TripodGait
 
     from ..config import load_config
     cfg = load_config()
@@ -421,6 +415,9 @@ def main() -> None:
 
     from .gru_policy import load_checkpoint_auto
 
+    from hexapod_core.joint_frame import require_checkpoint_joint_contract
+    require_checkpoint_joint_contract(stance_list[si])
+    require_checkpoint_joint_contract(walk_list[wi])
     stance = PPO.load(stance_list[si], device="cpu")
     walk = load_checkpoint_auto(walk_list[wi], device="cpu")
     apply_vel_contract(walk_list[wi].stem)
@@ -435,7 +432,8 @@ def main() -> None:
         "stance policy obs must be a prefix of the walk env obs")
 
     recover = None
-    if args.recover.exists():
+    if args.recover is not None and args.recover.exists():
+        require_checkpoint_joint_contract(args.recover)
         recover = load_checkpoint_auto(args.recover, device="cpu")
         assert int(recover.observation_space.shape[0]) == 72, (
             f"{args.recover}: recovery checkpoints must be 72-obs")
@@ -519,6 +517,7 @@ def main() -> None:
     def set_stance(i: int) -> None:
         nonlocal stance, si, n_stance, msg
         si = i % len(stance_list)
+        require_checkpoint_joint_contract(stance_list[si])
         m = PPO.load(stance_list[si], device="cpu")
         if m.action_space.shape != env.action_space.shape:
             msg = f"{stance_list[si].stem}: action space mismatch - skipped"
@@ -545,6 +544,7 @@ def main() -> None:
             msg = ("walk driver -> SCRIPTED no-slip "
                    f"{_NOSLIP_TAGS[walk_list[wi]]} (U/O to turn)")
             return
+        require_checkpoint_joint_contract(walk_list[wi])
         m = load_checkpoint_auto(walk_list[wi], device="cpu")
         if m.action_space.shape != env.action_space.shape:
             msg = f"{walk_list[wi].stem}: action space mismatch - skipped"
@@ -654,6 +654,9 @@ def main() -> None:
     def q_now() -> np.ndarray:
         return env.data.qpos[7:25].copy()
 
+    def q_now_robot_abs() -> np.ndarray:
+        return env._mujoco_to_logical_q(q_now())
+
     def do_reset(start: str, h_goal: float, note: str) -> None:
         nonlocal obs, msg, auto, downed, gait, om_cmd, sitting
         nonlocal lap, lap_pending
@@ -687,18 +690,26 @@ def main() -> None:
         # Sync the gait's stance geometry to THIS env's plant pose (leg 0
         # hip/knee — all legs plant identically), so its neutral feet sit
         # where the robot is actually standing when driving engages.
+        plant_abs = env._mujoco_to_logical_q(q_plant)
         kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
         if kw is not None:
             g = TripodGait(period=kw["period"],
-                           lift=kw["lift_mm"] * 0.001, ramp=0.4)
-            g.sync_plant_stance(math.degrees(q_plant[1]),
-                                math.degrees(q_plant[2]))
+                           lift=kw["lift_mm"] * 0.001,
+                           ramp=kw.get("ramp", 0.4),
+                           stride_scale=kw.get("stride_scale", 1.0))
+            g.sync_plant_stance(math.degrees(plant_abs[1]),
+                                math.degrees(plant_abs[2]))
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
             return g
+        if walk_list[wi] == _MIDDLE_TUCK_QUAD:
+            g = MiddleTuckQuadGait.crawl()
+            g.sync_plant_stance(math.degrees(plant_abs[1]),
+                                math.degrees(plant_abs[2]))
+            return g
         g = make_noslip_gait(walk_list[wi], NoSlipGait)
-        g.sync_plant_stance(math.degrees(q_plant[1]),
-                            math.degrees(q_plant[2]))
+        g.sync_plant_stance(math.degrees(plant_abs[1]),
+                            math.degrees(plant_abs[2]))
         return g
 
     # Scripted crouch->plant blend, PACED like a real motion: the old
@@ -718,7 +729,7 @@ def main() -> None:
     def stance_profile(kind: str) -> dict:
         """Trained goal ramp of the ACTIVE stance model ('stand'/'lower')."""
         prof = profiles.get(stance_list[si].stem, {})
-        return {**_LEGACY_PROFILE[kind], **prof.get(kind, {})}
+        return {**_DEFAULT_STANCE_PROFILE[kind], **prof.get(kind, {})}
 
     def apply_ramp(kind: str) -> dict:
         """Point the traj's ref ramp at the active model's trained rate."""
@@ -919,7 +930,8 @@ def main() -> None:
         # episodes SPAWN fallen, so goal frames anchor where it lies.
         nonlocal auto, msg, downed, sitting, om_cmd, upright_ticks
         if recover is None:
-            msg = f"no recovery checkpoint ({args.recover.name} missing)"
+            name = args.recover.name if args.recover is not None else "unassigned"
+            msg = f"no recovery checkpoint ({name})"
             return
         if auto is not None and auto[0] == "recover":
             msg = "already recovering - hands off (9 aborts)"
@@ -1069,7 +1081,7 @@ def main() -> None:
             # No auto-reset: freeze the joints where they are and wait
             # for the operator (7 = try to stand in place, 9 = reset) —
             # same "stop and wait" rule as the real robot.
-            action = q_rad_to_action(q_now())
+            action = q_rad_to_action(q_now_robot_abs())
         elif auto is not None and auto[0] == "rise":
             action, _ = stance.predict(obs[:n_stance], deterministic=True)
             auto[1] += 1
@@ -1087,7 +1099,8 @@ def main() -> None:
             auto[1] += 1
             s = min(auto[1] / auto[2], 1.0)
             action = q_rad_to_action(
-                (1.0 - s) * q_blend_from + s * q_plant)
+                env._mujoco_to_logical_q(
+                    (1.0 - s) * q_blend_from + s * q_plant))
             if auto[1] >= auto[2]:
                 re_anchor_plant()
                 auto = None
@@ -1149,15 +1162,18 @@ def main() -> None:
             # (deadband makes this ~zero torque). A fixed target — NOT
             # q_now() re-read each tick, which self-chases and ratchets
             # the body back up (measured +1.5mm/tick, 08-13).
-            action = q_rad_to_action(q_sit)
+            action = q_rad_to_action(env._mujoco_to_logical_q(q_sit))
         elif lap is not None:
             phase, dur = lap["seq"][lap["i"]]
             if lap["gait"] is None:
                 g = TripodGait(period=_PRANCE_KW["period"],
                                lift=_PRANCE_KW["lift_mm"] * 0.001,
-                               ramp=0.4)
-                g.sync_plant_stance(math.degrees(q_plant[1]),
-                                    math.degrees(q_plant[2]))
+                               ramp=_PRANCE_KW.get("ramp", 0.4),
+                               stride_scale=_PRANCE_KW.get(
+                                   "stride_scale", 1.0))
+                plant_abs = env._mujoco_to_logical_q(q_plant)
+                g.sync_plant_stance(math.degrees(plant_abs[1]),
+                                    math.degrees(plant_abs[2]))
                 g.set_lift_mm(_PRANCE_KW["lift_mm"])
                 g.reset_phase(t=0.0)
                 lap["gait"], lap["gt"] = g, 0.0

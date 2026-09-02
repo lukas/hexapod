@@ -54,7 +54,7 @@ def _make_teacher(teacher: str, period_scale: float = 1.0):
 
     tripod = the hardware-proven drag gait (the original BC-INIT
     teacher); noslip = the world-anchored step-then-shift gait
-    (linux_control/noslip_gait.py) — quasi-static, zero commanded foot
+    (hexapod_core/noslip_gait.py) — quasi-static, zero commanded foot
     drag, clamps commands to its own envelope (MAX_VX 0.04);
     noslip_clean = the same gait on NoSlipGait.CLAMP_FIT_KW — the 08-12
     sweep's cleanest timing under the fitted ~31 deg/s servo clamp
@@ -71,12 +71,12 @@ def _make_teacher(teacher: str, period_scale: float = 1.0):
             raise SystemExit(
                 "--tripod-period-scale only applies to the tripod "
                 "teacher; noslip gaits own their timing")
-        from hexapod_core.sim_gait_compat import NoSlipGait
+        from hexapod_core.noslip_gait import NoSlipGait
         gait = (NoSlipGait.clamp_fit() if teacher == "noslip_clean"
                 else NoSlipGait())
         gait.sync_plant_stance(*WALK_PLANT)
         return gait
-    from hexapod_core.sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
     gait = TripodGait(vx=0.0, period_scale=period_scale)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()

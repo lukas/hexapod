@@ -17,11 +17,10 @@ from typing import Sequence
 
 import numpy as np
 
-from hexapod_core.joint_frame import FRAME_ROBOT_ABS
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from hexapod_core.tripod_gait import foot_rz_from_hip_knee
 
 
-ROBOT_ABS_TIBIA_CONTRACT = "robot_abs_tibia_v2"
 PHASE_FEATURES = ("command_clearance_mm",)
 PROPRIOCEPTIVE_FEATURES = (
     "measured_clearance_mm",
@@ -262,7 +261,7 @@ def load_sim_contact_dataset(
     required = {
         "sim_t_s", "phase", "gait", "direction", "joint_degrees",
         "joint_command_degrees", "joint_currents_a", "foot_contact_force_n",
-        "joint_frame",
+        "joint_frame", "joint_contract",
     }
     missing = required - set(rows[0])
     if missing:
@@ -283,11 +282,8 @@ def load_sim_contact_dataset(
     for row in rows:
         if row["joint_frame"] != FRAME_ROBOT_ABS:
             raise ValueError(f"expected {FRAME_ROBOT_ABS}, got {row['joint_frame']}")
-        joint_contract = row.get("joint_contract", "").strip()
-        if joint_contract and joint_contract != ROBOT_ABS_TIBIA_CONTRACT:
-            raise ValueError(
-                f"expected {ROBOT_ABS_TIBIA_CONTRACT}, got {joint_contract}"
-            )
+        if row["joint_contract"] != JOINT_CONTRACT:
+            raise ValueError(f"expected {JOINT_CONTRACT}, got {row['joint_contract']}")
         time_s = float(row["sim_t_s"])
         measured = np.asarray(json.loads(row["joint_degrees"]), dtype=float)
         command = np.asarray(json.loads(row["joint_command_degrees"]), dtype=float)

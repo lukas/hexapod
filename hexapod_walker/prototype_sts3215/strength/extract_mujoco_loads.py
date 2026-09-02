@@ -240,10 +240,12 @@ class MujocoLoadProbe:
         acc_units: float,
     ) -> dict:
         from rl_move.sim.servo_model import ServoProfile
+        from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
 
-        self.place_at_pose(q0_rad)
+        q0_model = robot_abs_rad_to_mujoco_rel_rad(q0_rad)
+        self.place_at_pose(q0_model)
         for _ in range(int(round(settle_s / self.dt))):
-            self.data.ctrl[self.pos_act] = q0_rad
+            self.data.ctrl[self.pos_act] = q0_model
             self.mujoco.mj_step(self.model, self.data)
 
         profile = ServoProfile(self.params, self.data.qpos[self.qadr].copy())
@@ -252,7 +254,8 @@ class MujocoLoadProbe:
         samples = []
         t = 0.0
         for tick in range(total_ticks):
-            cmd = np.asarray(command_fn(t), dtype=float)
+            cmd = robot_abs_rad_to_mujoco_rel_rad(
+                np.asarray(command_fn(t), dtype=float))
             profile.command(cmd, speed_deg_s=speed_deg_s, acc_units=acc_units)
             for _ in range(per_command):
                 self.data.ctrl[self.pos_act] = profile.tick(self.dt)
@@ -447,7 +450,7 @@ def run_stand(probe: MujocoLoadProbe, args: argparse.Namespace) -> dict:
 
 
 def run_scripted_walk(probe: MujocoLoadProbe, args: argparse.Namespace) -> dict:
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     q0 = _default_plant_rad()
     gait = TripodGait(vx=args.walk_speed_m_s)
@@ -458,7 +461,7 @@ def run_scripted_walk(probe: MujocoLoadProbe, args: argparse.Namespace) -> dict:
     return probe.run_profiled(
         name=f"scripted_tripod_walk_{args.walk_speed_m_s:.3f}mps",
         q0_rad=q0,
-        command_fn=lambda t: np.asarray(gait.desired_deg(t), dtype=float) * DEG2RAD,
+        command_fn=lambda t: np.asarray(gait.desired_deg(t)) * DEG2RAD,
         settle_s=args.settle_s,
         record_s=args.walk_s,
         command_dt=args.sample_dt,
@@ -468,9 +471,19 @@ def run_scripted_walk(probe: MujocoLoadProbe, args: argparse.Namespace) -> dict:
 
 
 def _reference_q_rad(path: Path, *, reverse: bool) -> tuple[np.ndarray, float]:
+    from hexapod_core.joint_frame import (
+        FRAME_ROBOT_ABS, JOINT_CONTRACT, require_robot_abs_joint_frame,
+    )
     data = np.load(path)
     if "q_rad" not in data:
         raise RuntimeError(f"{path} does not contain q_rad")
+    require_robot_abs_joint_frame(
+        {"joint_frame": (str(data["joint_frame"])
+                         if "joint_frame" in data else None),
+         "joint_contract": (str(data["joint_contract"])
+                            if "joint_contract" in data else None)},
+        source=str(path),
+    )
     q_rad = np.asarray(data["q_rad"], dtype=float)
     if q_rad.ndim != 2 or q_rad.shape[1] != 18:
         raise RuntimeError(f"{path} q_rad has shape {q_rad.shape}; expected (T, 18)")

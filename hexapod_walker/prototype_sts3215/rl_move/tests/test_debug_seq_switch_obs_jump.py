@@ -144,6 +144,71 @@ def test_run_probe_traces_height_alongside_current(tmp_path):
         assert all(np.isfinite(h) for h in ep["h_trace_mm"])
 
 
+def test_run_probe_extra_cfg_set_overrides_ramp(tmp_path):
+    """--extra-cfg-set (2026-09-02 torque-margin diagnostic) must win
+    over the built-in flat-only forced-plan defaults: doubling
+    goal.rise_ramp_s must actually slow the observed href climb rate,
+    not get silently shadowed by FLATONLY_FORCED_PLAN_CFG's own
+    (absent) rise_ramp_s -- i.e. this is a precedence-order test, not
+    just an argparse-plumbing test."""
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.debug_seq_switch_obs_jump import (
+        FLATONLY_FORCED_PLAN_CFG, run_probe,
+    )
+    from rl_move.sim.eval_checkpoint import ENV_CLASSES
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+
+    cfg = load_config()
+    for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():
+        sect, name = key.split(".", 1)
+        cfg.setdefault(sect, {})[name] = parsed
+    # config.yaml's own goal.rise_hold_s default (5.0s, NOT the
+    # goal_task.py code fallback of 3.0 -- load_config() always
+    # supplies it) is a fixed pre-ramp hold at height 0; pin it
+    # explicitly here so this test doesn't silently depend on that
+    # project default ever changing, then probe 1s into the ramp.
+    cfg["goal"]["mode_seq_forced_plan"] = "rise:12.0,walk:2.0,lower:2.0"
+    cfg["goal"]["rise_hold_s"] = 5.0
+    cfg["goal"]["rise_hold_min_s"] = 5.0
+
+    def _make():
+        return ENV_CLASSES["joint_walk"](
+            params=SimServoParams.from_cfg(cfg), cfg=cfg,
+            randomize=False, dr_scale=0.0, episode_seconds=16.0,
+            seed=0, render_mode=None)
+
+    model = PPO("MlpPolicy", DummyVecEnv([_make]), n_steps=8,
+               batch_size=8, device="cpu")
+    ckpt = tmp_path / "tiny.zip"
+    model.save(ckpt)
+
+    fast = run_probe(ckpt, dr_scale=0.0, n=1, seed_base=0,
+                     episode_seconds=16.0, stochastic=False,
+                     train_run=None,
+                     extra_cfg_set=["goal.rise_hold_s=5.0",
+                                    "goal.rise_hold_min_s=5.0",
+                                    "goal.rise_ramp_s=2.0"])
+    slow = run_probe(ckpt, dr_scale=0.0, n=1, seed_base=0,
+                     episode_seconds=16.0, stochastic=False,
+                     train_run=None,
+                     extra_cfg_set=["goal.rise_hold_s=5.0",
+                                    "goal.rise_hold_min_s=5.0",
+                                    "goal.rise_ramp_s=6.0"])
+    # href at a fixed tick 1s into the ramp (t=6.0s: 5.0s hold + 1.0s)
+    # must be further along for the FAST (2s) ramp than the SLOW (6s)
+    # one -- the only way this differs is if --extra-cfg-set actually
+    # reached the goal generator (mode_seq_forced_plan's own segment
+    # doesn't set rise_ramp_s, so without precedence both would use
+    # the same config default and this assertion would fail).
+    tick = int(6.0 / fast["episodes"][0]["dt"])
+    fast_h = fast["episodes"][0]["href_trace_mm"][tick]
+    slow_h = slow["episodes"][0]["href_trace_mm"][tick]
+    assert fast_h > slow_h + 1.0
+
+
 def test_probe_is_read_only():
     """Wrapping _seq_maybe_switch must not perturb the env's own
     step() outputs — same seed/actions, with vs without the probe

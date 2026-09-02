@@ -154,7 +154,8 @@ def _ledger_cfg_set(run: str) -> list[str]:
 
 def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
              episode_seconds: float, stochastic: bool,
-             train_run: str | None = None) -> dict:
+             train_run: str | None = None,
+             extra_cfg_set: list[str] | None = None) -> dict:
     cfg = load_config()
     overrides = list(FLATONLY_FORCED_PLAN_CFG)
     if train_run:
@@ -163,6 +164,12 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
         # order) so e.g. rise_rsi_frac=0 wins over the training
         # default 0.5.
         overrides = _ledger_cfg_set(train_run) + overrides
+    if extra_cfg_set:
+        # Applied LAST (highest precedence) -- a read-only diagnostic
+        # override (e.g. goal.rise_ramp_s=12.0 to test a torque-margin
+        # hypothesis) must win over both the training cfg and the
+        # flat-only forced-plan defaults, never get shadowed by them.
+        overrides = overrides + list(extra_cfg_set)
     for key, parsed in _parse_cfg_set(overrides).items():
         sect, name = key.split(".", 1)
         cfg.setdefault(sect, {})[name] = parsed
@@ -257,11 +264,19 @@ def main() -> int:
                          "checkpoint's obs width happens to match the "
                          "bare flat-only overrides)")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--extra-cfg-set", action="append", default=[],
+                    metavar="key.sub=val",
+                    help="read-only diagnostic override applied AFTER "
+                         "the training + flat-only cfg stack (e.g. "
+                         "goal.rise_ramp_s=12.0 to test a torque-margin "
+                         "hypothesis) -- never changes any default, "
+                         "repeatable")
     args = ap.parse_args()
     result = run_probe(
         args.checkpoint, dr_scale=args.dr_scale, n=args.n,
         seed_base=args.seed_base, episode_seconds=args.episode_seconds,
-        stochastic=args.stochastic, train_run=args.train_run)
+        stochastic=args.stochastic, train_run=args.train_run,
+        extra_cfg_set=args.extra_cfg_set)
     out = args.out or Path(
         f"logs/ckpt_eval/{args.checkpoint.stem}_seqswitch_probe.json")
     out.parent.mkdir(parents=True, exist_ok=True)

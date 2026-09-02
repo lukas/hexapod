@@ -285,7 +285,33 @@ def leg_chassis_collision_from_cfg(cfg) -> bool:
 
 
 def _default_plant_deg() -> np.ndarray:
-    """Canonical robot plant in the repository joint contract."""
+    """Canonical robot plant in the repository joint contract (robot_abs).
+
+    2026-09-02 regression fix: the pre-2026-08-31 sim canonical stance was
+    hip=20/knee=80 in MuJoCo's femur-RELATIVE knee convention (the value
+    ``sim_gait_compat`` used to hand back after converting from this
+    module's absolute-tibia hardware frame). The b7e7ea05 "unify joint
+    coordinates" merge switched every internal TripodGait consumer in
+    this file from the ``sim_gait_compat``-wrapped gait to the raw
+    ``hexapod_core.tripod_gait`` (absolute-tibia) gait AND made this
+    default plant a directly-robot_abs value, but kept the OLD numeric
+    literal (80) instead of its robot_abs equivalent -- silently
+    RELABELING a mujoco-relative number as an absolute-tibia one without
+    converting it. knee_abs = knee_rel + hip = 80 + 20 = 100 is the
+    value that reproduces the ORIGINAL physical stance
+    (``_robot_abs_to_mujoco_rel`` only shifts the knee by hip, so
+    robot_abs (20, 100) <-> mujoco_rel (20, 80), unchanged geometry).
+    Measured regression before this fix (mesh/100Hz, `walk` mode,
+    static-hold "park" episode, 8s/800 ticks): chassis height drifts
+    +82mm above the reset-settled height (height_err_mm 0 -> 82,
+    reward_height -436, reward_loadslip_excess -160, reward_drag -3,
+    reward_current -80, total park reward -1168 vs the historical +90).
+    After this fix (same probe): height_err_mm stays ~13mm, loadslip/drag
+    go to 0, reward_current -3, total park reward +89 -- matches the
+    pre-merge band. See OPERATOR_QUESTIONS.md 2026-09-02 ~23:xx and
+    rl_docs/tracks/standwalk/STATUS.md for the full derivation
+    (`test_course_income_semantics.py`'s 7 failures this unblocks).
+    """
     try:
         from feetech_bus import load_plant_pose
         if load_plant_pose().get("learned"):
@@ -293,7 +319,7 @@ def _default_plant_deg() -> np.ndarray:
             return np.asarray(standing_pose_degrees(), dtype=float)
     except Exception:
         pass
-    return np.asarray([0.0, 20.0, 80.0] * 6, dtype=float)
+    return np.asarray([0.0, 20.0, 100.0] * 6, dtype=float)
 
 
 class SimHexapodBalanceEnv(_GymBase):
@@ -2777,10 +2803,14 @@ class SimHexapodBalanceEnv(_GymBase):
         return min(max(j, 0), len(ref["q"]) - 1), is_rsi
 
     def _make_walk_bc_gait(self):
-        """Canonical robot-coordinate gait for the walk BC anchor."""
+        """Canonical robot-coordinate gait for the walk BC anchor.
+
+        2026-09-02: knee arg is robot_abs (absolute tibia); 100, not 80
+        -- see ``_default_plant_deg`` for the full derivation of this
+        literal (100 = the historical mujoco-relative 80 + hip 20)."""
         from hexapod_core.tripod_gait import TripodGait
         _g = TripodGait(vx=0.0)
-        _g.sync_plant_stance(20.0, 80.0)
+        _g.sync_plant_stance(20.0, 100.0)
         _g.reset_phase()
         return _g
 

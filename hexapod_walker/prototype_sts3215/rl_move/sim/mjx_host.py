@@ -114,6 +114,14 @@ SNAP_ATTRS = (
     # own EMA + sustained-low-seconds counter, universal (every task
     # class supports hold mode) — see sim_env._reset_finalize.
     "_hold_minload_ema", "_hold_minload_low_s",
+    # Obs-only q_nom blend across a mode_seq family-changing switch
+    # (goal.mode_seq_frame_blend_s, 09-02 DIG-IN): the active blend
+    # window (old/new q_nom + start/end tick), None outside one. A
+    # pool-restored episode mid-blend must keep interpolating from ITS
+    # own pre-switch frame, not silently snap to the post-switch value
+    # (the exact commit-65edba7 bug class this list exists to catch) —
+    # default off (None every tick) is bit-exact regardless.
+    "_frame_blend",
 )
 
 

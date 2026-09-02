@@ -630,6 +630,24 @@ class SimHexapodBalanceEnv(_GymBase):
         # segment's obs frame up to ~79 deg (knee, belly-vs-plant) off
         # the teachers' training distribution.
         self._seq_frames: dict | None = None
+        # Obs-only q_nom blend across a family-changing mode_seq switch
+        # (goal.mode_seq_frame_blend_s, DIG-IN 2026-09-02: instrumented
+        # proof the instant belly<->plant q_nom teleport at
+        # _seq_maybe_switch is a real, near-universal shock -- every
+        # surveyed episode's action output saturates (clipped near
+        # max magnitude) on the EXACT switch tick and stays saturated
+        # for seconds, driving current from its pre-switch baseline
+        # toward the safety cap; episodes already running hot pre-
+        # switch tip into over_current, others merely lose margin. See
+        # rl_move/sim/debug_seq_switch_obs_jump.py + STATUS.md).
+        # Default None = off = bit-exact legacy (_q_nom_for_obs()
+        # returns self._q_nom unchanged, identical to every pre-09-02
+        # build_obs call). Deliberately blends ONLY the observation
+        # input (self._q_nom itself still teleports instantly for
+        # reward/anchor/IK consumers, which is untouched behavior) --
+        # the isolated defect this dig-in measured is the policy's
+        # raw NETWORK INPUT jumping, not the reward pricing.
+        self._frame_blend: dict | None = None
         self._imu_prev_v: np.ndarray | None = None
         self._imu_f_accum = np.zeros(3)
         self._imu_f_n = 0
@@ -699,7 +717,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._state = self._read_state()
         goal = self._current_goal()
         return self._final_obs(
-            build_obs(self.cfg, self._state, self._q_nom,
+            build_obs(self.cfg, self._state, self._q_nom_for_obs(),
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0),
             reset=False, augment_reset=True)
@@ -1470,6 +1488,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._seq_stand_z = None       # abs z of the last commanded stand
         self._seq_seg_end = None       # active segment's end tick
         self._seq_pose_anchor = None   # hold/lower BC base pose mid-seq
+        self._frame_blend = None       # obs-only q_nom blend (09-02)
         # Active segment's own start tick (manual-drive-session-s1
         # dig-in, 08-28: the *_grace_s windows below were all gated on
         # the EPISODE-absolute clock `self._step_i * self.dt`, so any
@@ -2413,7 +2432,7 @@ class SimHexapodBalanceEnv(_GymBase):
         if goal is not None:
             info["goal_mode"] = self._goal_traj.mode
         return self._final_obs(
-            build_obs(self.cfg, self._state, self._q_nom,
+            build_obs(self.cfg, self._state, self._q_nom_for_obs(),
                       self._prev_action, goal=goal,
                       tilt_ref=self._tilt_ref0), reset=True), info
 
@@ -2572,7 +2591,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 pen += rem_cost
             parts = {"reward_termination": -pen}
             return (self._final_obs(
-                        build_obs(self.cfg, self._state, self._q_nom,
+                        build_obs(self.cfg, self._state, self._q_nom_for_obs(),
                                   self._prev_action,
                                   goal=self._current_goal(),
                                   tilt_ref=self._tilt_ref0), reset=False),
@@ -2855,9 +2874,30 @@ class SimHexapodBalanceEnv(_GymBase):
         # rise-after-lower must NOT aim at a stale frame — and the
         # trans-dagger2 lesson above: the frame must be the one the
         # specialists trained in, not the episode's start frame).
+        old_q_nom = self._q_nom
+        old_family = self.SEQ_FRAME_FAMILY[str(self._seq_plan[self._seq_idx]["mode"])]
+        new_family = self.SEQ_FRAME_FAMILY[str(seg["mode"])]
         self._z0 = float(frame["z0"])
         self._q_nom = frame["q_nom"].copy()
         self._pad_z_ref = frame["pad_z_ref"].copy()
+        # Obs-only q_nom blend (goal.mode_seq_frame_blend_s, default 0
+        # = off = bit-exact instant install, unchanged above). Only
+        # armed on a FAMILY-CHANGING switch (belly<->plant) -- a
+        # same-family switch (e.g. walk->lower, both "plant") installs
+        # the identical frame, so there is nothing to blend and no
+        # behavior to gate.
+        blend_s = float(cfg_get(self.cfg, "goal", "mode_seq_frame_blend_s",
+                                default=0.0))
+        if blend_s > 0.0 and old_family != new_family:
+            n_blend = max(1, round(blend_s / self.dt))
+            self._frame_blend = {
+                "old_q_nom": old_q_nom.copy(),
+                "new_q_nom": self._q_nom.copy(),
+                "start_tick": self._step_i,
+                "end_tick": self._step_i + n_blend,
+            }
+        else:
+            self._frame_blend = None
         traj, h_target, ramp_i0 = self._seq_segment_traj(
             str(seg["mode"]), i0)
         # Blend window: refs continuous in ABSOLUTE terms across the
@@ -2882,6 +2922,26 @@ class SimHexapodBalanceEnv(_GymBase):
                              if nxt + 1 < len(self._seq_plan)
                              else int(self.episode_steps))
         self._seq_reset_mode_state(str(seg["mode"]), ramp_i0, h_target)
+
+    def _q_nom_for_obs(self) -> np.ndarray:
+        """The q_nom build_obs should read THIS tick: self._q_nom
+        (the true canonical frame, used unchanged for reward/anchor/IK)
+        unless a goal.mode_seq_frame_blend_s window is active, in which
+        case a linear blend from the pre-switch to the post-switch
+        canonical q_nom (see _seq_maybe_switch). Default (no active
+        blend, the universal pre-09-02 state) returns self._q_nom
+        exactly -- bit-exact when the feature is off or between
+        switches."""
+        fb = self._frame_blend
+        if fb is None:
+            return self._q_nom
+        end = fb["end_tick"]
+        if self._step_i >= end:
+            self._frame_blend = None
+            return self._q_nom
+        start = fb["start_tick"]
+        s = min(max((self._step_i - start) / max(end - start, 1), 0.0), 1.0)
+        return (1.0 - s) * fb["old_q_nom"] + s * fb["new_q_nom"]
 
     def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
                               h_target: float) -> None:
@@ -4760,7 +4820,7 @@ class SimHexapodBalanceEnv(_GymBase):
             if unload_f is not None:
                 info["unload_force_n"] = unload_f
         return (self._final_obs(
-                    build_obs(self.cfg, self._state, self._q_nom,
+                    build_obs(self.cfg, self._state, self._q_nom_for_obs(),
                               self._prev_action, goal=goal,
                               tilt_ref=self._tilt_ref0), reset=False),
                 float(reward), terminated, truncated, info)

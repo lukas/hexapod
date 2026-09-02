@@ -1,62 +1,49 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~16:4x (canary grid READ -- `hi`/`hi-s1` CANARY
-PASS, acq-scale pair funded): stdwalklo-{mild,hi}{,-s1} 2M grid
-(archived below) finished. This cycle's assignment was `hi`/`hi-s1`;
-`mild`/`mild-s1` are a concurrent cycle's (own RL_LOG lines, not
-duplicated here). Both `hi`/`hi-s1` **CANARY PASS-for-acquisition**,
-strongest of the grid: `probe_turn_authority` wz_med 0.19-0.21 rad/s
-(both seeds/signs, floor 0.07) -- untouched. `purewalk` det-vs-sto
-walk `progress_ratio_med`: hi 0.32/0.32, hi-s1 0.32/0.28 -- STO
-essentially MATCHES det on both seeds, closing the cap29-acq1 session
-baseline's sto/det gap (0.045-0.085 sto vs 0.32-0.38 det) almost
-completely (well past the ~0.15 PASS bar); slip flat-to-better in sto.
-Zero falls, 32/32 episodes. (`mild`'s -2.0 dose was weaker: sto
-0.14-0.16, right at the PASS floor, worse slip -- `hi`'s -3.5 is the
-clear winner.) Confirms the WALK core's un-annealed log_std was the
-sto/det-gap driver, not credit assignment/command-resample dynamics.
+Update, 2026-09-02 ~18:3x (`stdwalklohi-acq1{,-s1}` 38M pair FINISHED
+training clean; auto SESSION/MIXEDSESSION harness errored rc=1 with
+the SAME expected-broken "obs contract mismatch" every arm in this
+exotic dual-core-obs lineage has hit since 09-01 — not a new defect):
+verdicted both CANARY PASS (own scope) - joint pending flatonly-read.
+Per Next item 0, dispatched the track's own flat-only
+`eval_done_gate_session` (n=32, matching the cap29-acq1 baseline
+read's own n) directly on-pod (train-6/7, code synced c70333b),
+backgrounded + registered via `evalpending` — this is the acq-scale
+read of whether the `hi`-dose walk-core log_std anneal's canary-scale
+sto/det convergence (0.28-0.32 vs 0.32-0.36 progress_ratio) survives
+to full budget, and whether direction_err_med/slip_per_m_med drop
+to/below the cap29-acq1 baseline (46.8 deg/3.09). Not yet landed —
+the reading cycle gets a fresh `session_verdict.json` on each pod.
 
-**Funded the acq-scale follow-up**: respec'd both `hi` canaries to
-the full 38M-step budget on the SAME recipe as `cap29-acq1` itself
-(one lever changed) -- `...cap29-stdwalklohi-acq1{,-s1}`, VERIFIED
-RUNNING train-6/7. Gate: flat-only `eval_done_gate_session` n>=12
-det+sto DR-0+own-DR vs the cap29-acq1 baseline (46.8 deg/3.09; acq1
-itself came in worse at 55.5-61.1/3.45-3.46) -- PASS if steering+slip
-drop to/below baseline AND sto/det convergence survives at session
-scale; PARTIAL if falls+convergence hold but steering doesn't
-(separate defect, Next item 1); FAIL if sto regresses at scale.
-Evidence: `logs/ckpt_eval/{turn_probe,purewalk}_..._stdwalklo_
-{hi,hi_s1}*`.
+Earlier 09-02 updates (config archaeology, the stdwalklo grid launch
++ read, cap29 zero-training session read + windowed course-metrics
+tooling) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
 
-Earlier 09-02 updates (config archaeology + grid launch, cap29
-zero-training session read + windowed course-metrics tooling) moved
-VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
+## Next (updated 09-02 ~18:3x)
 
-## Next (updated 09-02 ~16:4x)
-
-0. **READ the stdwalklohi-acq1{,-s1} full-budget pair** (train-6/7,
-   38M steps, acq-scale continuation of the CANARY-PASS `hi` dose):
-   does the sto/det walk-progress convergence survive to full budget,
-   and does `eval_done_gate_session` direction_err_med/slip_per_m_med
-   improve on the cap29-acq1 baseline (46.8 deg/3.09)? Gate text in
-   the ledger. PASS -> new steering/slip reference; PARTIAL (falls+
-   convergence hold, steering doesn't) -> item 1 is the next target;
-   FAIL (sto regresses at scale) -> credit-assignment angle (08-31
-   yaw-credit probe) is next.
+0. **READ `logs/ckpt_eval/cw_..._stdwalklohi_acq1{,_s1}_donegate_
+   flatonly/session_verdict.json`** once both land (in flight on
+   train-6/7, n=32 det+sto DR-0+own-DR each): does the sto/det
+   walk-progress convergence survive to full budget, and does
+   direction_err_med/slip_per_m_med improve on the cap29-acq1
+   baseline (46.8 deg/3.09)? Gate text in the ledger. PASS -> new
+   steering/slip reference; PARTIAL (falls+convergence hold, steering
+   doesn't) -> item 1 is the next target; FAIL (sto regresses at
+   scale) -> credit-assignment angle (08-31 yaw-credit probe) is next.
 1. Steering gap (windowed course_err ~22-23 deg, cap 2.9) — was
    secondary to the sto/det asymmetry; worst course_speed_ratio dips
    land at the ~4s `walk_cmd_resample_s` boundaries, consistent with
    the closed turn-authority ceiling (wz_med 0.075-0.21). Revisit once
    item 0 reads back.
-2. **Closed (see archives):** update-size constraints, reward pricing,
-   exploration magnitude, anchor dose, turn-skip, yaw-credit clip
-   doses, mixedsession-audit + diet scoping (x2), duration-mismatch,
-   switch-jump lead, ramp/height/mass as current driver, frame-blend
-   (n=2), cap-diagnostic (POSITIVE), current-confound re-probe
-   (NEGATIVE — ceiling real), cap29 training-time acquisition (PARTIAL
-   both seeds — zero-falls transfers, steering/slip did not), walk-core
-   log_std anneal canary grid (`hi` CANARY PASS 2/2 seeds — this
-   cycle; `mild` weaker — concurrent cycle's own verdict).
+2. **Closed (full list in archives):** update-size constraints, reward
+   pricing, exploration magnitude, anchor dose, turn-skip, yaw-credit
+   clip doses, mixedsession/diet scoping, duration-mismatch,
+   switch-jump/ramp/height/mass/frame-blend/cap-diagnostic/current-
+   confound (see 09-02{,b..f} archives), cap29 training-time
+   acquisition (PARTIAL, steering/slip didn't transfer), walk-core
+   log_std anneal dose grid (`hi` PASS 2/2, `mild` FAIL - dose too
+   low, both closed this cycle-window).
 
 > Journal archives (VERBATIM, oldest->newest):
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,

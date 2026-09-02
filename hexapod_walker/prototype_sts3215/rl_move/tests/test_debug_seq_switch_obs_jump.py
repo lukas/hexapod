@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.debug_seq_switch_obs_jump import (  # noqa: E402
-    _install_switch_probe,
+    _install_switch_probe, run_probe,
 )
 from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
 
@@ -91,6 +91,57 @@ def test_family_changing_switch_nonzero_jump():
     # a robot 6s into a rise attempt is not sitting at exactly that
     # pose, so the reinstalled plant frame must move q_rel measurably.
     assert e["q_jump_l2_deg"] > 5.0
+
+
+def test_run_probe_traces_height_alongside_current(tmp_path):
+    """2026-09-02 sustained-current dig-in (STATUS.md Next item 1b):
+    run_probe must expose per-tick actual vs commanded height
+    (h_trace_mm/href_trace_mm) with the SAME length as the existing
+    cur_trace/act_trace, and a mode_trace naming which segment each
+    tick belongs to -- otherwise a human/next-cycle cannot tell
+    whether a current climb coincides with a height/pose demand or
+    is unrelated drift."""
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.debug_seq_switch_obs_jump import (
+        FLATONLY_FORCED_PLAN_CFG, run_probe,
+    )
+    from rl_move.sim.eval_checkpoint import ENV_CLASSES
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+
+    cfg = load_config()
+    for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():
+        sect, name = key.split(".", 1)
+        cfg.setdefault(sect, {})[name] = parsed
+    # Short episode so the whole probe (train + probe) stays a
+    # unit-test-scale few seconds of MuJoCo stepping.
+    cfg["goal"]["mode_seq_forced_plan"] = "rise:8.0,walk:2.0,lower:2.0"
+
+    def _make():
+        return ENV_CLASSES["joint_walk"](
+            params=SimServoParams.from_cfg(cfg), cfg=cfg,
+            randomize=False, dr_scale=0.0, episode_seconds=12.0,
+            seed=0, render_mode=None)
+
+    model = PPO("MlpPolicy", DummyVecEnv([_make]), n_steps=8,
+               batch_size=8, device="cpu")
+    ckpt = tmp_path / "tiny.zip"
+    model.save(ckpt)
+
+    result = run_probe(ckpt, dr_scale=0.0, n=2, seed_base=0,
+                       episode_seconds=12.0, stochastic=False,
+                       train_run=None)
+    for ep in result["episodes"]:
+        n_ticks = len(ep["cur_trace"])
+        assert n_ticks > 0
+        assert len(ep["h_trace_mm"]) == n_ticks
+        assert len(ep["href_trace_mm"]) == n_ticks
+        assert len(ep["mode_trace"]) == n_ticks
+        assert all(m in ("rise", "walk", "lower", "")
+                  for m in ep["mode_trace"])
+        assert all(np.isfinite(h) for h in ep["h_trace_mm"])
 
 
 def test_probe_is_read_only():

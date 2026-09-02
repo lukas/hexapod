@@ -202,6 +202,16 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
         # next-cycle can eyeball the window around each switch/term.
         cur_trace: list[float] = []
         act_trace: list[float] = []
+        # Height trace (2026-09-02 sustained-current dig-in, STATUS.md
+        # Next item 1b): is the mid/late-rise current climb driven by a
+        # commanded-height/pose demand the heavier mesh mass can't hold
+        # cheaply, or is it drift unrelated to the height goal? `info`
+        # already exposes the actual vs commanded height every tick
+        # (sim_env.py height_mm/height_ref_mm) -- no new env plumbing
+        # needed, just record what's already computed.
+        h_trace: list[float] = []
+        href_trace: list[float] = []
+        mode_trace: list[str] = []
         done = False
         while not done:
             a, _ = model.predict(obs, deterministic=not stochastic)
@@ -212,6 +222,10 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
                 float(np.max(np.abs(st.servo_current)))
                 if st.servo_current is not None else float("nan"))
             act_trace.append(float(np.max(np.abs(np.asarray(a)))))
+            h_trace.append(float(info.get("height_mm", float("nan"))))
+            href_trace.append(
+                float(info.get("height_ref_mm", float("nan"))))
+            mode_trace.append(str(info.get("goal_mode", "")))
             if term:
                 term_tick = env._step_i
                 term_reason = info.get("termination_reason")
@@ -221,7 +235,9 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
             "term_tick": term_tick, "term_t_s":
                 (term_tick * env.dt) if term_tick is not None else None,
             "term_reason": term_reason, "term_mode": term_mode,
-            "cur_trace": cur_trace, "act_trace": act_trace, "dt": env.dt,
+            "cur_trace": cur_trace, "act_trace": act_trace,
+            "h_trace_mm": h_trace, "href_trace_mm": href_trace,
+            "mode_trace": mode_trace, "dt": env.dt,
         })
     return {"checkpoint": str(ckpt), "dr_scale": dr_scale, "n": n,
             "stochastic": stochastic, "episodes": episodes}

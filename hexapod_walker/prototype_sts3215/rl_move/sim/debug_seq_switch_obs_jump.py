@@ -219,15 +219,33 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
         h_trace: list[float] = []
         href_trace: list[float] = []
         mode_trace: list[str] = []
+        # Per-joint-TYPE current trace (2026-09-02 curl-up localization,
+        # STATUS.md Next item 1a): cur_leg_imbalance already rules out
+        # one LEG fighting alone (eval_checkpoint.py's per-leg mean is
+        # ~1.0 on every terminated episode) -- this instead reduces the
+        # OTHER way, max-over-legs per joint TYPE, to see whether the
+        # curl-up cost is concentrated in one joint role (coxa=hip yaw,
+        # femur=hip pitch/thigh, tibia=knee) common to all 6 legs, which
+        # a pure per-leg-mean can't distinguish from a uniform cost
+        # spread evenly across all 3 joint types. Servo layout is
+        # (leg, joint) = (6, 3) coxa/femur/tibia, same convention as
+        # eval_checkpoint.py's leg_mean and domain_rand.py's link_scale.
+        cur_joint_trace: list[list[float]] = []
         done = False
         while not done:
             a, _ = model.predict(obs, deterministic=not stochastic)
             obs, r, term, trunc, info = env.step(a)
             done = term or trunc
             st = env._state
+            cur = st.servo_current
             cur_trace.append(
-                float(np.max(np.abs(st.servo_current)))
-                if st.servo_current is not None else float("nan"))
+                float(np.max(np.abs(cur))) if cur is not None
+                else float("nan"))
+            if cur is not None and len(cur) == 18:
+                cur_joint_trace.append(
+                    np.abs(cur).reshape(6, 3).max(axis=0).tolist())
+            else:
+                cur_joint_trace.append([float("nan")] * 3)
             act_trace.append(float(np.max(np.abs(np.asarray(a)))))
             h_trace.append(float(info.get("height_mm", float("nan"))))
             href_trace.append(
@@ -244,7 +262,9 @@ def run_probe(ckpt: Path, *, dr_scale: float, n: int, seed_base: int,
             "term_reason": term_reason, "term_mode": term_mode,
             "cur_trace": cur_trace, "act_trace": act_trace,
             "h_trace_mm": h_trace, "href_trace_mm": href_trace,
-            "mode_trace": mode_trace, "dt": env.dt,
+            "mode_trace": mode_trace,
+            "cur_joint_trace": cur_joint_trace,  # [coxa,femur,tibia]
+            "dt": env.dt,
         })
     return {"checkpoint": str(ckpt), "dr_scale": dr_scale, "n": n,
             "stochastic": stochastic, "episodes": episodes}

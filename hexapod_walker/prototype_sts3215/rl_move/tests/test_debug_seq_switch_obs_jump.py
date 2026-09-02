@@ -209,6 +209,57 @@ def test_run_probe_extra_cfg_set_overrides_ramp(tmp_path):
     assert fast_h > slow_h + 1.0
 
 
+def test_run_probe_traces_per_joint_type_current(tmp_path):
+    """2026-09-02 curl-up localization (STATUS.md Next item 1a):
+    run_probe must expose a per-tick [coxa,femur,tibia] max-over-legs
+    current trace (`cur_joint_trace`), same length as cur_trace, so a
+    human/next-cycle can tell whether the near-cap rise current is
+    concentrated in one joint role common to all 6 legs (a lever-arm/
+    gearing pinch point) rather than spread uniformly -- something the
+    existing per-LEG cur_leg_imbalance metric cannot distinguish."""
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.debug_seq_switch_obs_jump import (
+        FLATONLY_FORCED_PLAN_CFG, run_probe,
+    )
+    from rl_move.sim.eval_checkpoint import ENV_CLASSES
+    from rl_move.sim.servo_model import SimServoParams
+    from rl_move.sim.train_ppo_sim import _parse_cfg_set
+
+    cfg = load_config()
+    for key, parsed in _parse_cfg_set(FLATONLY_FORCED_PLAN_CFG).items():
+        sect, name = key.split(".", 1)
+        cfg.setdefault(sect, {})[name] = parsed
+    cfg["goal"]["mode_seq_forced_plan"] = "rise:8.0,walk:2.0,lower:2.0"
+
+    def _make():
+        return ENV_CLASSES["joint_walk"](
+            params=SimServoParams.from_cfg(cfg), cfg=cfg,
+            randomize=False, dr_scale=0.0, episode_seconds=12.0,
+            seed=0, render_mode=None)
+
+    model = PPO("MlpPolicy", DummyVecEnv([_make]), n_steps=8,
+               batch_size=8, device="cpu")
+    ckpt = tmp_path / "tiny.zip"
+    model.save(ckpt)
+
+    result = run_probe(ckpt, dr_scale=0.0, n=1, seed_base=0,
+                       episode_seconds=12.0, stochastic=False,
+                       train_run=None)
+    ep = result["episodes"][0]
+    n_ticks = len(ep["cur_trace"])
+    assert len(ep["cur_joint_trace"]) == n_ticks
+    for row in ep["cur_joint_trace"]:
+        assert len(row) == 3
+        assert all(np.isfinite(v) for v in row)
+    # The per-tick max over joint types must equal (within fp noise)
+    # the already-trusted whole-body cur_trace max, or the two traces
+    # disagree about the same underlying servo_current array.
+    for c, row in zip(ep["cur_trace"], ep["cur_joint_trace"]):
+        assert c == pytest.approx(max(row), abs=1e-6)
+
+
 def test_probe_is_read_only():
     """Wrapping _seq_maybe_switch must not perturb the env's own
     step() outputs — same seed/actions, with vs without the probe

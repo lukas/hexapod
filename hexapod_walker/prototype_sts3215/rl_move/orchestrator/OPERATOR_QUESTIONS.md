@@ -3736,15 +3736,16 @@ and `cw-standwalk-unified1-joyfix-courseincome1` -- none currently
 training, so nothing LIVE is blocked today, but any future
 respec/continuation of those lineages should re-verify this bank
 first. `test_course_disp_semantics.py`/`test_course_disp_window_
-semantics.py` show a similar-shaped (smaller-margin) failure and may
-share the root cause; not yet cross-checked against a `631d7f4c`
-worktree baseline (checked `test_course_income_semantics.py` only, for
-time). **Next dig-in should**: (a) confirm course_disp{,_window} share
-the same 631d7f4c-clean / HEAD-red pattern, (b) bisect within
+semantics.py` show a similar-shaped (smaller-margin) failure and share
+the root cause -- CONFIRMED via the same `631d7f4c` disposable
+worktree (`git worktree add`, never touched the shared checkout): both
+files pass CLEAN there (37 passed, 1 skipped, 0 failed), so this is
+the same class of merge-introduced regression, not three independent
+flaky thresholds. **Next dig-in should**: (a) bisect within
 `b7e7ea05`'s diff (prime suspect: `hexapod_core/noslip_gait.py`'s
 85-line change, or a geometry constant inside the "unify joint
 coordinates" work) using the scripted TripodGait rollouts directly
-(no RL, fully deterministic) rather than guessing, (c) decide loosen-
+(no RL, fully deterministic) rather than guessing, (b) decide loosen-
 vs-fix per the usual measured-not-guessed discipline.
 
 status: informational + one flagged regression for a dedicated dig-in;

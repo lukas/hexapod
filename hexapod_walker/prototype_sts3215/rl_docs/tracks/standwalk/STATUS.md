@@ -1,6 +1,52 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~10:4x: **cap29-acq1 pair TRAINING FINISHED** (38M
+Update, 2026-09-02 ~15:0x: **cap29-acq1 pair's flat-only
+`eval_done_gate_session` READ (n=32 each), both verdicted PARTIAL.**
+Zero falls held (0/32 term each, matches the `durctrl-canary` bar —
+the training-time cap-raise does NOT regress fall-safety) but
+direction_err_med/slip_per_m_med came in WORSE than the cap29
+zero-training baseline (acq1 55.5°/3.46, s1 61.1°/3.45, vs baseline
+46.8°/3.09) — two seeds agree, not noise. Evidence:
+`logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_
+yawcredit_gradclip0p15_cap29_acq1{,_s1}_donegate_flatonly/{dr0,owndr}/
+report.json` (+ pulled to `/tmp/pull_acq1{,s1}` for the windowed
+re-analysis below).
+
+**Deeper zero-compute read of the SAME artifacts** (built the tool
+first): `eval_mixed_session.aggregate_session` did not surface the
+already-computed windowed course metrics (`eval_checkpoint.
+windowed_course_stats`, the operator's 08-29 PRIMARY command-following
+read, fb_20260829T141858_9421cd) at the session level — every prior
+standwalk session triage had to hand-dig report.json for it. Fixed:
+`walk.course_err_{1s,2s}_med_deg` / `course_speed_ratio_1s_med` now
+ride along in every `aggregate_session` output, INFORMATIONAL ONLY
+(gate.soft unchanged, bit-exact when the source report predates the
+field — `test_eval_mixed_session.py` 11/11 green). Reading it back on
+this pair:
+- windowed course_err (acq1 22.0°, s1 23.2°) is BELOW the tick number
+  but still ~2x the joystick-track's calibrated windowed allow
+  (2.0+10=12°) — the steering gap is real by either metric, this is
+  NOT the "false fail" shape 08-29 found elsewhere (tick 45-55°/
+  windowed 2-9°); here windowed stays elevated too.
+- **Bigger finding: det vs sto asymmetry dominates the gap more than
+  steering does.** Per-episode: DET walk segments with a real command
+  (`cmd_dist_m` 4-4.7m) reach `progress_ratio` ~0.32-0.38 (real, if
+  ~65% underspeed) with slip 2.8-3.6 — plausible. STO walk segments
+  with the SAME command scale reach `progress_ratio` only 0.045-0.085
+  (5-8% of commanded distance!) with slip 10.6-28.5 — action-sampling
+  noise during walk is closer to non-functional than "degraded."
+  Per-window course_speed_ratio_1s on the worst DET windows goes
+  slightly negative (-0.05) at exactly the ~4s `walk_cmd_resample_s`
+  boundaries — consistent with (not a new refutation of) the closed
+  turn-authority-ceiling finding: command changes outrun the policy's
+  turn rate, and the DONE-gate's stress_mix diet resamples direction
+  every ~4s by design.
+- 14/32 session episodes had `cmd_dist_m=0.0` (a stress_mix command
+  that sampled near-zero net displacement that segment) and correctly
+  contribute no walk metrics — not a bug, not silently inflating the
+  medians either way.
+
+Prior update, 2026-09-02 ~10:4x: cap29-acq1 pair TRAINING FINISHED (38M
 steps each, healthy reward curves, fps>11k) — Next item #1's read is
 now IN FLIGHT: flat-only `eval_done_gate_session` (n=8/pass x4 passes
 = 32 total, matching the durctrl-canary decisive-read precedent),
@@ -34,32 +80,48 @@ prog 0.36-0.39, slip 2.74-3.16, dir_err 43.4°. Evidence:
 yawcredit_gradclip0p15_acq1}_cap29.json`,
 `logs/ckpt_eval/purewalk_{klrolltight_acq1,gradclip0p15_acq1}_cap29_det.json/`.
 
-## Next (idle-kick 09-02 ~09:3x)
+## Next (idle-kick 09-02 ~15:0x)
 
-1. **Read the cap29-acq1 pair's flat-only `eval_done_gate_session`**
-   (launched 10:4x, IN FLIGHT on train-3/train-1, registered via
-   `ops.sh evalpending`, ETA hours). Gate: zero falls (bar MET by the
-   teacher control `durctrl-canary` at 32/32 — regression here
-   refutes); direction_err_med/slip_per_m_med at/below the cap29
-   zero-training baselines (46.8°/3.09) — the purewalk side-read above
-   (dir 43-46°, slip 2.7-3.2) suggests this is plausible, not yet
-   confirmed at full acquisition scale or on the session harness.
-2. **Steering gap (direction_err ~44-47°, cap 2.5 or 2.9) is the
-   largest remaining DONE-gate distance, CONFIRMED not a current
-   artifact** (item 2, closed) — design the next arm against the
-   literal 60s session direction-following read, not the short probe.
+1. **DIG-IN flagged (this cycle): design the next mechanism against
+   the det/sto walk-progress ASYMMETRY, not steering alone.** STO-mode
+   walk segments reach only 5-8% of commanded progress (slip
+   10.6-28.5) vs DET's 32-38% (slip 2.8-3.6) on the exact same
+   cap29-acq1{,+s1} DONE-gate session read — this gap is bigger than
+   the ~2x windowed-course-err overshoot (22-23° vs the joystick
+   track's calibrated 12° allow). Needs the full toolkit (per-leg
+   gait metrics under sto sampling specifically, root-cause chain
+   behavior<-incentive<-pricing) before any reward patch — root
+   candidate hypotheses to test, not yet run: (a) action-noise
+   (SDE/Gaussian std) is large enough relative to the turn/velocity
+   command scale that sto sampling knocks the gait off the DET
+   trajectory near every ~4s command resample and it never recovers
+   within the segment; (b) the value/advantage estimate used at
+   training time is itself computed under stochastic rollouts, so a
+   policy this fragile to its OWN sampling noise should show up in
+   training-time eval curves too (check `eval/sto/*` vs `eval/dr0/*`
+   W&B history on this lineage before hypothesizing further). Any
+   reward-mechanism arm from this needs `test_task_semantics.py`
+   green first (bank status not re-checked this cycle — long-running,
+   verify before launch).
+2. Steering gap (windowed course_err ~22-23°, cap 2.9) is real but
+   secondary to item 1 — the worst per-window course_speed_ratio dips
+   (~0 or slightly negative) land at the ~4s `walk_cmd_resample_s`
+   boundaries, consistent with the already-closed turn-authority
+   ceiling (wz_med 0.075-0.19 rad/s) rather than a new defect.
 3. **Closed (see archives):** update-size constraints, reward pricing,
    exploration magnitude, anchor dose, turn-skip, yaw-credit clip
    doses, mixedsession-audit + diet scoping (x2), duration-mismatch,
    switch-jump lead, ramp/height/mass as current driver, frame-blend
    (n=2), cap-diagnostic (POSITIVE), current-confound re-probe
-   (NEGATIVE — ceiling real).
+   (NEGATIVE — ceiling real), cap29 training-time acquisition (item 1
+   of the 09-02 09:3x Next, PARTIAL both seeds — zero-falls transfers,
+   steering/slip does not).
 
 > Journal archives (VERBATIM, oldest->newest):
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,
 > `2026-09-01_trim.md`, `2026-09-02_trim.md`, `2026-09-02b_trim.md`,
-> `2026-09-02c_trim.md`, `2026-09-02d_trim.md`. Current state = newest
-> Update at the TOP; don't act on archived Next.
+> `2026-09-02c_trim.md`, `2026-09-02d_trim.md`, `2026-09-02e_trim.md`.
+> Current state = newest Update at the TOP; don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
 

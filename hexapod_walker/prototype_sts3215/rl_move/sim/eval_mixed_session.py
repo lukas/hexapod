@@ -193,6 +193,15 @@ def aggregate_session(reports: dict[str, dict], *,
     term_by_seg: dict[str, int] = {}
     term_by_start: dict[str, int] = {}
     dir_errs, vel_errs, slips, slips_total, prog = [], [], [], [], []
+    # windowed net-course diagnostics (operator 08-29 ruling,
+    # fb_20260829T141858_9421cd/fb_20260829T142239_63c818): the tick
+    # direction_err_mean_deg headline can both over-flag a course-
+    # correct-but-swaying policy AND (measured 09-02, cap29-acq1 pair)
+    # genuinely agree with a real steering defect -- surfacing both
+    # every session read means triage never has to hand-dig
+    # report.json to tell which case a run is in. INFORMATIONAL ONLY:
+    # these do not enter `soft`/`gate` below (no default-gate change).
+    course_err_1s, course_err_2s, course_speed_1s = [], [], []
     gait_flags, sac_legs = [], set()
     h_errs, track_errs = [], []
     cur_max, cur_p95, cur_soft = [], [], []
@@ -228,6 +237,13 @@ def aggregate_session(reports: dict[str, dict], *,
                 slips_total.append(float(ep["slip_m_total"]))
             if ep.get("progress_ratio") is not None:
                 prog.append(float(ep["progress_ratio"]))
+            if ep.get("course_err_1s_med_deg") is not None:
+                course_err_1s.append(float(ep["course_err_1s_med_deg"]))
+            if ep.get("course_err_2s_med_deg") is not None:
+                course_err_2s.append(float(ep["course_err_2s_med_deg"]))
+            if ep.get("course_speed_ratio_1s_med") is not None:
+                course_speed_1s.append(
+                    float(ep["course_speed_ratio_1s_med"]))
             if "gait_valid" in ep:
                 gait_flags.append(bool(ep["gait_valid"]))
                 sac_legs.update(ep.get("sacrificed_legs") or [])
@@ -266,6 +282,11 @@ def aggregate_session(reports: dict[str, dict], *,
             "progress_ratio_med": _med(prog),
             "gait_valid_frac": gait_frac,
             "sacrificed_legs_seen": sorted(sac_legs),
+            # diagnostic-only (see comment above at collection site);
+            # None when the source report predates windowed_course_stats.
+            "course_err_1s_med_deg": _med(course_err_1s),
+            "course_err_2s_med_deg": _med(course_err_2s),
+            "course_speed_ratio_1s_med": _med(course_speed_1s),
         },
         "height_err_end_med_mm": _med(h_errs),
         "track_err_med_deg": _med(track_errs),

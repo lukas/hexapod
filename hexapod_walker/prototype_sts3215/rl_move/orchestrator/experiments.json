@@ -254961,7 +254961,7 @@
       "safety.max_current_a=2.9"
     ],
     "created": "2026-09-02T09:23:51+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -255007,7 +255007,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: training-time cap=2.9 acquisition (38M steps, warm-started off gradclip0p15-canary) holds zero falls (0/32 term, dr0+ownDR, matches durctrl-canary's 32/32 bar) but does NOT beat the cap29 zero-training baseline on steering/slip: direction_err_med 55.5 deg (baseline 46.8), slip_per_m_med 3.46 (baseline 3.09) -- flat-only eval_done_gate_session, n=32. Evidence: logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_donegate_flatonly/session_verdict.json (gate.pass=true on the soft zero-falls/gait_valid/height bar, gate.soft.slip_ok=false, dir_err_ok=false -- this is the pre-registered PARTIAL branch, not a surprise). Why: confirms the cap-raise's fall-avoidance benefit generalizes to training-time (matches the zero-training-only control), but the walk-quality/steering gain seen in the zero-training probe (dir 43-46/slip 2.7-3.2 on purewalk) does NOT carry through a full retrain at acquisition scale -- reward curve is healthy (566.8/1970.7/2219.5/2165.5 quarters, plateaued not blown up), so this is not a training failure, just a real ceiling: cap-raise alone doesn't buy steering. Next: standwalk Next item 2 (steering-gap arm, already flagged as the largest remaining DONE-gate distance, confirmed not current-confounded) is now the one lever left -- design a dedicated steering/direction-following reward or curriculum change against the 60s session harness, gated by test_task_semantics.py before launch."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-acq1-s1",
@@ -255261,7 +255263,7 @@
       "safety.max_current_a=2.9"
     ],
     "created": "2026-09-02T09:27:12+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -255307,6 +255309,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: seed1 twin of cap29-acq1, same outcome. 38M steps, zero falls (0/32 term, dr0+ownDR), reward quarters 554.4/2029.3/2257.7/2274.5 (healthy, plateaued). Flat-only eval_done_gate_session n=32: direction_err_med 61.1 deg, slip_per_m_med 3.45 -- both worse than the cap29 zero-training baseline (46.8/3.09), matching seed0's result within seed noise (55.5/3.46). Evidence: logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_s1_donegate_flatonly/session_verdict.json. Why: two independent seeds converging on the same PARTIAL pattern (zero-falls transfers, steering/slip gain does not) makes this a robust conclusion, not seed noise -- pre-registered PARTIAL branch. Next: same as seed0 -- item 2/3 steering-gap arm is the next lever; do not launch a third cap29-training-time seed, the question this pair was built to answer is answered."
   }
 ]

@@ -1,1 +1,14 @@
-[]
+[
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_donegate_flatonly/session_verdict.json",
+  "label": "cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_donegate_flatonly",
+  "added": "2026-09-02T10:45:23"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_s1_donegate_flatonly/session_verdict.json",
+  "label": "cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_acq1_s1_donegate_flatonly",
+  "added": "2026-09-02T10:45:23"
+ }
+]

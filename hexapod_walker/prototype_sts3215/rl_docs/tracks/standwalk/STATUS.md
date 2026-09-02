@@ -1,14 +1,21 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~09:3x (idle-kick executed item 1+2, zero backlog
-left): **cap=2.9 LANDED as a training-time acquisition** —
+Update, 2026-09-02 ~10:4x: **cap29-acq1 pair TRAINING FINISHED** (38M
+steps each, healthy reward curves, fps>11k) — Next item #1's read is
+now IN FLIGHT: flat-only `eval_done_gate_session` (n=8/pass x4 passes
+= 32 total, matching the durctrl-canary decisive-read precedent),
+launched on-pod (acq1 on train-3, `-s1` on train-1), both registered
+via `ops.sh evalpending`. Not yet read.
+
+Prior update, 2026-09-02 ~09:3x (idle-kick executed item 1+2, zero
+backlog left): **cap=2.9 LANDED as a training-time acquisition** —
 `cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-acq1`
-(seed0, train-3) + `-s1` (seed1, train-1), both VERIFIED RUNNING, 38M
-steps, warm-started from the lineage's own best walk-quality+turn-
-authority checkpoint (the 2M `gradclip0p15-canary`, NOT the degraded
-38M `-acq1` — that acq1 run itself REGRESSED walk quality under the
-OLD 2.5A cap, see its own PARTIAL verdict), `safety.max_current_a=2.9`
-set both training- and eval-time. Not yet read (in flight).
+(seed0, train-3) + `-s1` (seed1, train-1), warm-started from the
+lineage's own best walk-quality+turn-authority checkpoint (the 2M
+`gradclip0p15-canary`, NOT the degraded 38M `-acq1` — that acq1 run
+itself REGRESSED walk quality under the OLD 2.5A cap, see its own
+PARTIAL verdict), `safety.max_current_a=2.9` set both training- and
+eval-time.
 
 Item 2 (read-only re-probe, zero training compute) **CLOSED this
 cycle**: reran `probe_turn_authority` + a purewalk det harness on
@@ -29,15 +36,14 @@ yawcredit_gradclip0p15_acq1}_cap29.json`,
 
 ## Next (idle-kick 09-02 ~09:3x)
 
-1. **Read the cap29-acq1 pair once training finishes** (38M steps,
-   ETA hours): flat-only `eval_done_gate_session` n>=12 det+sto
-   DR-0+own-DR on each seed's final checkpoint. Gate: zero falls (bar
-   MET by the teacher control `durctrl-canary` at 32/32 — regression
-   here refutes); direction_err_med/slip_per_m_med at/below the cap29
+1. **Read the cap29-acq1 pair's flat-only `eval_done_gate_session`**
+   (launched 10:4x, IN FLIGHT on train-3/train-1, registered via
+   `ops.sh evalpending`, ETA hours). Gate: zero falls (bar MET by the
+   teacher control `durctrl-canary` at 32/32 — regression here
+   refutes); direction_err_med/slip_per_m_med at/below the cap29
    zero-training baselines (46.8°/3.09) — the purewalk side-read above
    (dir 43-46°, slip 2.7-3.2) suggests this is plausible, not yet
    confirmed at full acquisition scale or on the session harness.
-   Register via `ops.sh evalpending add` once the on-pod eval starts.
 2. **Steering gap (direction_err ~44-47°, cap 2.5 or 2.9) is the
    largest remaining DONE-gate distance, CONFIRMED not a current
    artifact** (item 2, closed) — design the next arm against the

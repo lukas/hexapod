@@ -21,7 +21,8 @@ from rl_move.sim.eval_mixed_session import (
 def _ep(*, terminated=False, term_reason="", start_kind="flat",
         planned=5, reached=5, end_seg="lower", slip=2.0,
         dir_err=30.0, gait_valid=True, sacrificed=None, h_err=3.0,
-        cur_max=2.2, seq=True):
+        cur_max=2.2, seq=True, course_err_1s=None, course_err_2s=None,
+        course_speed_1s=None):
     ep = {"terminated": terminated, "term_reason": term_reason,
           "start_kind": start_kind, "height_err_end_mm": h_err,
           "cur_max_a": cur_max, "cur_p95_a": 1.5,
@@ -39,6 +40,12 @@ def _ep(*, terminated=False, term_reason="", start_kind="flat",
         ep["progress_ratio"] = 0.8
         ep["gait_valid"] = gait_valid
         ep["sacrificed_legs"] = sacrificed or []
+    if course_err_1s is not None:
+        ep["course_err_1s_med_deg"] = course_err_1s
+    if course_err_2s is not None:
+        ep["course_err_2s_med_deg"] = course_err_2s
+    if course_speed_1s is not None:
+        ep["course_speed_ratio_1s_med"] = course_speed_1s
     return ep
 
 
@@ -97,8 +104,28 @@ def test_none_guards_and_medians():
                           strict=True)
     assert r["walk"]["slip_per_m_med"] is None
     assert r["walk"]["direction_err_med_deg"] is None
+    assert r["walk"]["course_err_1s_med_deg"] is None
     assert r["gate"]["soft"]["slip_ok"] is False
     assert r["zero_falls"] is True
+
+
+def test_windowed_course_diagnostics_surfaced_but_not_gating():
+    # 08-29 ruling: windowed course err is the PRIMARY read but this
+    # harness's gate stays on the tick metric (bit-exact) -- the
+    # windowed numbers must be REPORTED for triage without changing
+    # gate.pass. Case: tick reads bad (60deg, over the 40deg cap) but
+    # windowed course is clean (5deg) -- the "false fail" shape 08-29
+    # found on cw-walk-allheading-*-stressmix-ft1.
+    eps = [_ep(dir_err=60.0, course_err_1s=5.0, course_err_2s=4.0,
+               course_speed_1s=0.9) for _ in range(6)]
+    r = aggregate_session({"dr0": _report({"walk/det": eps})})
+    assert r["walk"]["direction_err_med_deg"] == 60.0
+    assert r["walk"]["course_err_1s_med_deg"] == 5.0
+    assert r["walk"]["course_err_2s_med_deg"] == 4.0
+    assert r["walk"]["course_speed_ratio_1s_med"] == 0.9
+    # gate still judges the tick metric only (no default-behavior change)
+    assert r["gate"]["soft"]["dir_err_ok"] is False
+    assert "course_err_ok" not in r["gate"]["soft"]
 
 
 def test_non_sequence_episodes_still_counted():

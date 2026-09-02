@@ -3337,3 +3337,44 @@ runnable work (`standwalk`, active).
   numeric bar with no rounding tolerance, this canary's launch was
   premature and its own RL result should be read as informational
   only pending a second mirror-augment dose/seed clearing 0.15 clean.
+
+## q_20260902T0530Z — raise sim's `safety.max_current_a` (2.5->~2.9A) as the fix lever for the standwalk femur-current cap-hit? [assume-and-go]
+- Context: the standwalk campaign's dominant DONE-gate blocker is the
+  FEMUR joint pinning at the 2.5A safety cap during the rise-up curl,
+  causing most `over_current` terminations (STATUS.md 09-02). This
+  cycle's cross-family comparison (mesh vs the legacy primitive-family
+  stance champion, same probe, `--task joint_goal` tooling fix) showed
+  the femur pins at the IDENTICAL ~2.64A cap in BOTH body-mass regimes
+  (2.104kg and 3.50kg) — ruling out the +66% mesh mass as the primary
+  driver. A read-only follow-up (same checkpoints, only
+  `safety.max_current_a` raised 2.5->2.9A) eliminated ALL terminations
+  on the isolated rise probe (0/8 vs 5/8 for the legacy checkpoint),
+  with current settling (not runaway) by episode end.
+- The 2.9A figure is not arbitrary: HARDWARE.md already records a REAL
+  08-10 hardware test where the `step` stand-up mode peaked at 2.97A,
+  "a hair under the 3 A lab guard" (a configured protective limit),
+  with no reported distress. `rl_move/safety.py`'s own comment notes
+  STS3215s "tolerate short excursions past 2.5A harmlessly (the cooked
+  knee took minutes at ~7A)" — i.e. sim's 2.5A/0.8s trip is understood
+  to already be a conservative TRAINING margin, not the servo's actual
+  damage threshold.
+- Assume-and-go answer adopted: raising `safety.max_current_a` (to
+  ~2.8-2.9A, still under the documented real 3A guard) is the
+  front-running fix lever over repricing `reward.k_current_hot`/
+  `current_hot_a` or re-authoring the rise reference trajectory,
+  since (a) it is a SIM-only calibration parameter (no hardware
+  contact, Real Robot Boundary untouched — any eventual hardware
+  transfer stays separately operator-gated regardless of what sim
+  trains against), (b) both alternative levers were already
+  implicitly active in the mesh recipe and neither escaped the cap on
+  its own, (c) it is directly grounded in already-recorded hardware
+  evidence rather than a novel assumption. NOT YET baked into any
+  training default — a full `eval_done_gate_session` (n=32,
+  dr0+owndr x det+sto) read of `durctrl-canary` with this override is
+  in flight (train-1, launched 09-02 ~05:3x) to confirm it resolves
+  session-level terminations before any launch adopts it.
+- status: OPEN for operator override — if the operator judges that
+  changing a current SAFETY cap (even sim-only) needs an authoritative
+  real servo datasheet rather than one bench anecdote + a safety.py
+  comment, this lever should be held pending that verification instead
+  of adopted from the in-flight session read alone.

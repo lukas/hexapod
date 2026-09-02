@@ -1,0 +1,15 @@
+{
+  "artifact": "walkteach_scripted_allhead_v1.npz",
+  "committed": false,
+  "note": "71MB (270k pairs x 75-dim obs) — NOT committed; bit-exact regenerable in ~7 min from the command below (deterministic seed). Scripted-gait all-heading walk-teacher demo harvest, operator directive 2026-08-30. Teacher = sim_gait_compat TripodGait (converted knee dialect) rolled through real mesh/100Hz physics, DART noise (0/0.05/0.10 by ep%3), full joystick envelope: continuous +-180deg headings, 0.06-0.10 m/s, wz +-0.3 (--drive-omega), 15% stop segments, resample 6s +-20%.",
+  "pairs": 270000,
+  "episodes": 180,
+  "obs_dim": 75,
+  "act_dim": 18,
+  "clones": [
+    "rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_bc1.zip (log_std -1.0, holdout act err 0.0034)",
+    "rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_bc1_std25.zip (same weights recipe, baked log_std -2.5 — the sigma-0.37 sto panel killed the gait)"
+  ],
+  "clone_gate": "logs/ckpt_eval/walkteach_scripted_allhead_bc1_panel/ — det all 8 headings 0 falls, prog_m>0 everywhere, completion 0.374-0.393 (teacher band 0.373-0.385), slip/m 1.3-1.9; turns wz~0.23/0.3 correct sign",
+  "regenerate": "uv run python -m rl_move.sim.bc_init_gait --out rl_move/sim/policies/ppo_goal_cw_walkteach_scripted_allhead_bc1_std25.zip --save-dataset rl_move/sim/motion_library/walkteach_scripted_allhead_v1.npz --teacher tripod --stack vref1 --drive-omega --episodes 180 --epochs 80 --seed 0 --log-std -2.5 --set env.model_source=mesh --set control.hz=100 --set safety.max_delta_q_deg=0.375 --set goal.walk_speed_min_m_s=0.06 --set goal.walk_speed_max_m_s=0.10 --set goal.walk_heading_max_rad=3.1415927 --set goal.walk_stop_frac=0.15 --set goal.walk_cmd_resample_s=6.0 --set goal.walk_cmd_resample_jitter=0.2 --set goal.walk_phase_obs=1 --set goal.walk_phase_hz=1.333333 --set goal.walk_yaw_cmd=1 --set goal.walk_phase_run_on_yaw=1"
+}

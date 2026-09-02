@@ -260,6 +260,69 @@ def test_run_probe_traces_per_joint_type_current(tmp_path):
         assert c == pytest.approx(max(row), abs=1e-6)
 
 
+def test_run_probe_task_joint_goal_matches_narrower_legacy_obs(tmp_path):
+    """2026-09-02 femur-cost cross-family comparison (STATUS.md Next
+    item 1a): the primitive-family stance champion
+    ppo_goal_cw_stance_dr10 was trained on joint_goal, whose obs is 4
+    dims NARROWER than joint_walk (walk_task.py's WALK_GOAL_DIM/
+    N_VEL_OBS additions are unconditional, not cfg-gated -- no
+    --cfg-set override closes the gap). run_probe's new --task plumbing
+    must actually build the narrower joint_goal env instead of the
+    hardcoded joint_walk default, so a plain rise-only probe (pure
+    goal.p_rise=1.0, no mode_seq -- joint_goal's own sequence key is
+    the DIFFERENT goal.mode_seq_stance, which does not support a
+    literal forced_plan grammar the way joint_walk's goal.mode_seq
+    does) against a joint_goal checkpoint is legitimate, not silently
+    falling back to joint_walk's wider obs and crashing or (worse)
+    truncating garbage into the model."""
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from rl_move.sim.eval_checkpoint import ENV_CLASSES
+    from rl_move.sim.servo_model import SimServoParams
+
+    cfg = load_config()
+    goal_env = ENV_CLASSES["joint_goal"](
+        params=SimServoParams.from_cfg(cfg), cfg=cfg, randomize=False,
+        dr_scale=0.0, episode_seconds=12.0, seed=0, render_mode=None)
+    walk_env = ENV_CLASSES["joint_walk"](
+        params=SimServoParams.from_cfg(cfg), cfg=cfg, randomize=False,
+        dr_scale=0.0, episode_seconds=12.0, seed=0, render_mode=None)
+    n_goal = int(goal_env.observation_space.shape[0])
+    n_walk = int(walk_env.observation_space.shape[0])
+    assert n_walk == n_goal + 4  # locks the "4 unconditional dims" claim
+
+    def _make():
+        return ENV_CLASSES["joint_goal"](
+            params=SimServoParams.from_cfg(cfg), cfg=cfg,
+            randomize=False, dr_scale=0.0, episode_seconds=12.0,
+            seed=0, render_mode=None)
+
+    model = PPO("MlpPolicy", DummyVecEnv([_make]), n_steps=8,
+               batch_size=8, device="cpu")
+    ckpt = tmp_path / "tiny_goal.zip"
+    model.save(ckpt)
+    assert int(model.observation_space.shape[0]) == n_goal
+
+    result = run_probe(
+        ckpt, dr_scale=0.0, n=2, seed_base=0, episode_seconds=12.0,
+        stochastic=False, train_run=None, task="joint_goal",
+        extra_cfg_set=["goal.p_rise=1.0", "goal.p_hold=0.0",
+                       "goal.p_lean=0.0", "goal.p_track=0.0",
+                       "goal.p_unload=0.0", "goal.p_raise=0.0",
+                       "goal.p_lower=0.0", "goal.p_quad=0.0"])
+    for ep in result["episodes"]:
+        assert len(ep["cur_joint_trace"]) == len(ep["cur_trace"])
+        for row in ep["cur_joint_trace"]:
+            assert len(row) == 3
+        # forced pure-rise goal mix (p_rise=1.0, everything else 0) ->
+        # every tick must report mode="rise", never switching (no
+        # forced_plan mechanism exists on joint_goal's own
+        # mode_seq_stance sampler).
+        assert all(m == "rise" for m in ep["mode_trace"])
+        assert ep["switches"] == []
+
+
 def test_probe_is_read_only():
     """Wrapping _seq_maybe_switch must not perturb the env's own
     step() outputs — same seed/actions, with vs without the probe

@@ -92,3 +92,95 @@ VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02e_trim.md`
 (purewalk cap29 det baselines: gradclip0p15-acq1 prog 0.35/slip 2.81,
 klrolltight-acq1 prog 0.36-0.39/slip 2.74-3.16 — referenced above).
 
+
+---
+(Appended 09-02 ~16:5x, verbatim record of the two per-cycle Update
+blocks before they were merged/condensed in STATUS.md for the
+80-line-ish budget — the merged summary lives in STATUS.md itself.)
+
+Update, 2026-09-02 ~16:4x (canary grid READ -- `hi`/`hi-s1` CANARY
+PASS, acq-scale pair funded): stdwalklo-{mild,hi}{,-s1} 2M grid
+(archived below) finished. This cycle's assignment was `hi`/`hi-s1`;
+`mild`/`mild-s1` are a concurrent cycle's (own RL_LOG lines, not
+duplicated here). Both `hi`/`hi-s1` **CANARY PASS-for-acquisition**,
+strongest of the grid: `probe_turn_authority` wz_med 0.19-0.21 rad/s
+(both seeds/signs, floor 0.07) -- untouched. `purewalk` det-vs-sto
+walk `progress_ratio_med`: hi 0.32/0.32, hi-s1 0.32/0.28 -- STO
+essentially MATCHES det on both seeds, closing the cap29-acq1 session
+baseline's sto/det gap (0.045-0.085 sto vs 0.32-0.38 det) almost
+completely (well past the ~0.15 PASS bar); slip flat-to-better in sto.
+Zero falls, 32/32 episodes. (`mild`'s -2.0 dose was weaker: sto
+0.14-0.16, right at the PASS floor, worse slip -- `hi`'s -3.5 is the
+clear winner.) Confirms the WALK core's un-annealed log_std was the
+sto/det-gap driver, not credit assignment/command-resample dynamics.
+
+**Funded the acq-scale follow-up**: respec'd both `hi` canaries to
+the full 38M-step budget on the SAME recipe as `cap29-acq1` itself
+(one lever changed) -- `...cap29-stdwalklohi-acq1{,-s1}`, VERIFIED
+RUNNING train-6/7. Gate: flat-only `eval_done_gate_session` n>=12
+det+sto DR-0+own-DR vs the cap29-acq1 baseline (46.8 deg/3.09; acq1
+itself came in worse at 55.5-61.1/3.45-3.46) -- PASS if steering+slip
+drop to/below baseline AND sto/det convergence survives at session
+scale; PARTIAL if falls+convergence hold but steering doesn't
+(separate defect, Next item 1); FAIL if sto regresses at scale.
+Evidence: `logs/ckpt_eval/{turn_probe,purewalk}_..._stdwalklo_
+{hi,hi_s1}*`.
+
+Update, 2026-09-02 ~16:5x (grid closed -- `mild`/`mild-s1` own-cycle
+read, CANARY FAIL - MECHANISM both seeds, joint dose-response with the
+already-PASSED `hi`/`hi-s1` above): this cycle's assignment was
+`mild`/`mild-s1` (the `hi` pair above is a concurrent cycle's own
+verdict, not re-derived here, cross-checked for the dose comparison
+only). Ran the same two instruments (own cfg, controller CPU,
+`--dr-scale 0.2` to match the lineage's own ancestor baseline
+methodology — `purewalk_gradclip0p15_acq1_cap29_det`: prog 0.35/slip
+2.69). `probe_turn_authority` wz_med 0.189-0.190/-0.198 to -0.204
+(both seeds) — clears the 0.07 floor with room to spare, statistically
+identical to `hi`'s 0.194-0.209/-0.203 to -0.213: turn authority is
+unaffected by seed OR dose, confirming (again) it's not the failure
+mode. `purewalk` det/sto: mild det prog 0.35-0.37/slip 3.85-4.23
+(healthy progress, slip +40-55% over the 2.69 ancestor baseline); sto
+prog 0.11-0.13/slip 9.48-9.83 — only 1.3-2.9x the OLD session-baseline
+sto ceiling (0.045-0.085) and just 31-36% of this run's OWN det
+progress, missing the gate's own "~0.15+" PASS-for-acquisition bar on
+BOTH seeds. Contrast with `hi`: sto 0.28/0.28, 78-90% of det, clearing
+0.15 with room. Clean 2-seed-per-arm dose-response, not noise: -2.0
+(mild) is on the right side of the mechanism (real improvement over
+flat-std) but under-shoots the threshold; -3.5 (hi) clears it. No
+further spend on the -2.0 dose — the campaign's next step
+(`stdwalklohi-acq1{,-s1}`, full 38M budget) is already funded and
+RUNNING (train-6/7) on the winning `hi` dose only. Evidence:
+`logs/ckpt_eval/{turn_probe,purewalk}_..._stdwalklo_mild{,_s1}*`.
+
+---
+(Appended 09-02 ~18:3x, verbatim record of the merged 16:5x
+grid-close Update block before STATUS.md compacted it further.)
+
+Update, 2026-09-02 ~16:5x (4-way stdwalklo-{mild,hi}{,-s1} 2M canary
+grid CLOSED, split across two concurrent cycles): the grid tested
+whether annealing the WALK core's log_std down (paired with stance's
+already-proven -4.0) closes the sto-vs-det walk-progress asymmetry
+found in cap29-acq1 (sto 0.045-0.085 vs det 0.32-0.38 progress_ratio).
+`probe_turn_authority` (own cfg, wz_cmd=+-0.25, seeds 0/1) confirms
+turn authority is UNAFFECTED by seed or dose on all 4 arms (wz_med
+0.189-0.209/-0.198 to -0.213, all >> the 0.07 floor) — not the failure
+mode either way. `purewalk` det/sto (dr-scale=0.2, matching the
+lineage's own ancestor baseline `purewalk_gradclip0p15_acq1_cap29_det`:
+det prog 0.35/slip 2.69): **`hi`/`hi-s1` (-3.5 dose) CANARY PASS-for-
+acquisition** — sto prog 0.28-0.32 (78-100% of own det 0.31-0.36),
+clearing the "~0.15+" bar with room, slip flat-to-better in sto, zero
+falls 32/32. **`mild`/`mild-s1` (-2.0 dose) CANARY FAIL - MECHANISM**
+— sto prog only 0.11-0.13 (31-36% of own det 0.35-0.37), missing the
+0.15 bar; det slip also up 40-55% over baseline on both arms. Clean
+2-seed-per-dose dose-response, not noise: -2.0 is the right direction
+but under-shoots; -3.5 clears it. **Funded the acq-scale follow-up on
+the winning dose only**: `...cap29-stdwalklohi-acq1{,-s1}`, full 38M
+budget, same recipe as `cap29-acq1` (one lever changed), VERIFIED
+RUNNING train-6/7. Gate: flat-only `eval_done_gate_session` n>=12
+det+sto DR-0+own-DR vs the cap29-acq1 baseline (46.8 deg/3.09; acq1
+itself came in worse at 55.5-61.1/3.45-3.46) — PASS if steering+slip
+drop to/below baseline AND convergence survives at session scale;
+PARTIAL if falls+convergence hold but steering doesn't (Next item 1);
+FAIL if sto regresses at scale (credit-assignment angle next).
+Evidence: `logs/ckpt_eval/{turn_probe,purewalk}_..._stdwalklo_
+{mild,mild_s1,hi,hi_s1}*`.

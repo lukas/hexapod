@@ -1,47 +1,31 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~05:3x (idle-kick, drained Next item 1's "one more
-comparison" — zero training, all read-only pod evals): ran the SAME
-per-joint current probe against the LEGACY primitive-family (2.104kg)
-`ppo_goal_cw_stance_dr10` — decisive, mass-REFUTING result.
+Update, 2026-09-02 ~05:4x (idle-kick, drained Next item 2 — frame-blend
+joint verdict, zero new training compute, pulled+read both pending
+on-pod session files): **frame-blend is REFUTED, not just
+"unconfirmed."** `frameblend-canary` (seed0) and `-s1` (seed1)
+flat-only `eval_done_gate_session` (n=32 each) both landed: seed0
+27/32 term vs its no-blend control's 24/32 (worse); seed1 21/32 term
+vs its control's 5/32 (4x worse). Both directions agree: blending only
+the obs-facing switch handoff does not touch the dominant mid-rise
+sustained-femur-current fragility (see item 2 below), so total
+terminations don't drop and in seed1's case explode. Verdicted
+`CANARY FAIL - MECHANISM` on both runs; no further frame-blend dose
+sweeping. Item 1 (cap=2.9 decisive session read) is still mid-flight
+on train-1 (started 05:18, ETA ~1-2h, not yet read this cycle).
 
-1. **Tooling fix:** `debug_seq_switch_obs_jump.py` was hardcoded to
-   `joint_walk`; this legacy checkpoint trains on `joint_goal`, 4 obs
-   dims narrower (walk_task's command+measured-velocity channels are
-   UNCONDITIONAL, no cfg flag shrinks them). Added `--task` (default
-   `joint_walk`, bit-exact for existing callers), 7/7 tests,
-   snapshotted (`exp/standwalk-perjoint-legacy-task-flag`).
-2. **Femur pins at cap in BOTH mass regimes, ~identically.** n=8 DR-0
-   flat-start pure rise (primitive, this checkpoint's native recipe):
-   femur peaks 2.638-2.640A in **8/8** episodes (mean-of-max 2.6396A)
-   — matches the mesh finding (2.63-2.64A) almost exactly; coxa/tibia
-   stay under cap, same pattern as mesh. **5/8 episodes TERMINATE
-   over_current**, sustained 0.6-3.9s (not a brief spike) — matches
-   HARDWARE.md's standing flag ("belly RISE is the risky part...
-   incident class"), i.e. this was never mesh-specific.
-   `logs/ckpt_eval/ppo_goal_cw_stance_dr10_seqswitch_dr0_perjoint_n8.json`.
-   **Mass is NOT the primary driver** — the cap-hit is intrinsic to
-   the curl-up-from-flat motion, present at both masses under two
-   different rise references.
-3. **Cheap follow-up: is the cap itself just too low?** Same primitive
-   probe, only `safety.max_current_a` raised 2.5->2.9A (HARDWARE.md
-   already recorded a real servo at 2.97A, "a hair under the 3A lab
-   guard", 08-10) — **0/8 terminations** (was 5/8), current settles to
-   1.3-1.9A by episode end (not runaway). Reran `durctrl-canary`'s own
-   flat-only `eval_done_gate_session` (n=32, the real DONE-gate
-   harness) with the same override — **launched, in flight on
-   train-1**, ETA ~1-2h, not read this cycle: does it resolve the
-   control's 24/32 session-level over_current rate cleanly?
-
-No reward/cfg DEFAULT changed (both cap tests were read-only
-`--extra-cfg-set` overrides on already-trained checkpoints, zero new
-training compute). Front-running lever is now **raise
-`safety.max_current_a`** (sim's cap sits below the recorded real "3A
-lab guard"; reprice/re-author were both already implicitly active and
-neither escaped the cap alone) — recorded in `OPERATOR_QUESTIONS.md`,
-still gated on the in-flight session read before any training launch
-bakes it in. Other 5 tracks reconfirmed DONE/retired/delivered. Full
-prior journal archived verbatim in
+Prior update, 2026-09-02 ~05:3x (idle-kick): the SAME per-joint current
+probe run against the LEGACY primitive-family (2.104kg)
+`ppo_goal_cw_stance_dr10` found femur pins at the IDENTICAL ~2.64A cap
+(8/8 episodes, 5/8 terminate) — **mass REFUTED** as the sustained-
+current driver, it's intrinsic to the curl-up-from-flat rise motion at
+both body weights. Cheap zero-training follow-up: raising
+`safety.max_current_a` 2.5->2.9A (grounded in HARDWARE.md's recorded
+real 2.97A/"3A lab guard") eliminated all terminations (0/8) on the
+same read-only probe. Front-running lever is now **raise
+`safety.max_current_a`**, gated on the in-flight `durctrl-canary`
+`eval_done_gate_session` cap=2.9 read (item 1, train-1, still mid-
+flight). Full detail archived verbatim in
 `archive/standwalk_STATUS_journal_2026-09-02c_trim.md`.
 
 ## Next (meta 09-02 ~05:3x)
@@ -63,34 +47,30 @@ prior journal archived verbatim in
    and the remaining options (reprice `k_current_hot`/`current_hot_a`
    harder, or re-author `rise_ref_mesh_scripted.npz`) need their own
    dose test — still one lever at a time.
-2. **Frame-blend fix: NOT CONFIRMED, orthogonal to item 1** (see
-   archive). Do not dose-sweep `mode_seq_frame_blend_s`.
-   `frameblend-canary-s1` flat-only read may still be in flight
-   (another cycle's remit) — join once done. **Tooling gap:**
-   `debug_seq_switch_obs_jump.py`'s family-jump metric reads
-   `env._q_nom` (unblended by design); patch to trace
-   `_q_nom_for_obs()` before using it to judge blend efficacy.
+2. **CLOSED 09-02 ~05:4x: frame-blend REFUTED** (n=2 seeds, see
+   Update). `goal.mode_seq_frame_blend_s` does not reduce total
+   over_current terminations — it increases them on both seeds. No
+   further dose-sweeping; the family-jump-metric tooling gap
+   (`debug_seq_switch_obs_jump.py` reading unblended `env._q_nom`) is
+   now moot, not worth fixing.
 3. **Standing bar, still SUSPECT:** `probe_turn_authority >=0.10 both
    signs` predicts the isolated short-window probe, not the literal
    60s DONE gate — do not fund a short-probe-scored turn-authority arm
    until item 1 is closed (the sustained-current fragility may have
    hidden/inflated some closed verdicts).
 4. **Closed (pre-09-02, see archives):** update-size constraints,
-   reward pricing (original pass), exploration magnitude, anchor
-   dose/isolate-update, turn-skip, yaw-credit at every clip dose, the
-   mixedsession-audit landmine, the mixed-diet `eval_done_gate_session`
-   scoping bug (x2), duration-mismatch, the switch-jump causal lead
-   (partial only), ramp-rate/target-height/mass as the sustained-
-   current driver (all three A/B-refuted 09-02).
+   reward pricing, exploration magnitude, anchor dose/isolate-update,
+   turn-skip, yaw-credit at every clip dose, mixedsession-audit,
+   mixed-diet `eval_done_gate_session` scoping (x2), duration-
+   mismatch, switch-jump causal lead (partial), ramp-rate/target-
+   height/mass as the sustained-current driver (all A/B-refuted),
+   frame-blend (09-02, this cycle).
 
-> Journal archives (VERBATIM): pre-08-30 in
-> `archive/standwalk_STATUS_journal_2026-08-30_trim.md`; 08-30 through
-> 09-01 ~15:0x in `archive/standwalk_STATUS_journal_2026-09-01_trim.md`;
-> 09-01 ~15:0x through 09-02 ~00:4x in
-> `archive/standwalk_STATUS_journal_2026-09-02_trim.md`; 09-02 ~01:4x
-> through ~05:0x in `archive/standwalk_STATUS_journal_2026-09-02b_
-> trim.md` and `archive/standwalk_STATUS_journal_2026-09-02c_trim.md`.
-> Current state = newest Update at the TOP; don't act on archived Next.
+> Journal archives (VERBATIM, oldest->newest):
+> `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,
+> `2026-09-01_trim.md`, `2026-09-02_trim.md`, `2026-09-02b_trim.md`,
+> `2026-09-02c_trim.md`. Current state = newest Update at the TOP;
+> don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
 

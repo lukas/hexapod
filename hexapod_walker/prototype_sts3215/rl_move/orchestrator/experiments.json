@@ -254083,7 +254083,7 @@
       "goal.mode_seq_frame_blend_s=0.5"
     ],
     "created": "2026-09-02T01:38:10+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -254137,7 +254137,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-02T02:25:52"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: seed1 twin of frameblend-canary -- same refutation, more dramatic. Flat-only eval_done_gate_session (n=32, DR-0+ownDR) vs matched no-blend control durctrl-canary-s1: terminations jump 21/32 vs control's 5/32 (over 4x worse) -- walk-segment terms go 5->14, rise-segment terms 0->7. No progress_ratio/slip improvement to offset it, and too few surviving walk-segment episodes to trust the metric either way (6 vs 16 with_walk_metrics); neither session clears the gate's soft bars. Read jointly with frameblend-canary (seed0, verdicted same cycle, also worse 27/32 vs 24/32): frame-blend (goal.mode_seq_frame_blend_s=0.5) is REFUTED as a fix for the switch shock at both seeds -- closes STATUS Next item 2, no further dose-sweeping. Evidence: logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_frameblend_canary_s1_donegate_flatonly/session_verdict.json (train-5, read this cycle)."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-frameblend-canary",
@@ -254391,7 +254392,7 @@
       "goal.mode_seq_frame_blend_s=0.5"
     ],
     "created": "2026-09-02T01:39:27+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -254445,6 +254446,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-02T02:30:59"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: frame-blend does NOT fix the switch shock -- it makes total over_current terminations WORSE, not better, refuting the pre-registered gate. Flat-only eval_done_gate_session (n=32, DR-0+ownDR) vs matched no-blend control durctrl-canary: terminations 27/32 vs control 24/32; rise-segment terms jump 14->20 (blend only touches the obs-facing switch handoff, not the already-identified mid-rise sustained-current fragility that dominates rise terms); walk-segment terms drop slightly 10->7 but total termination rate still rises. progress_ratio (0.059 vs 0.051) and slip_per_m (10.95 vs 12.47) are inside noise on the handful of survivors (n_with_walk_metrics 5 vs 11) -- not a real walk-quality gain. Joint call with the seed1 twin (frameblend-canary-s1, verdicted same cycle): both seeds move the SAME direction (worse), closing the frame-blend axis -- STATUS Next item 2 CLOSED, no further dose-sweeping. Evidence: logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_{durctrl_canary,frameblend_canary}_donegate_flatonly/session_verdict.json (train-1, read this cycle)."
   }
 ]

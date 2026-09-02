@@ -3753,3 +3753,104 @@ restoration is committed+pushed, the open regression is documented
 here and in `rl_docs/tracks/joystick/STATUS.md` /
 `rl_docs/tracks/standwalk/STATUS.md` (both cite `k_walk_course_income`
 lineages) so a future cycle picks it up without re-discovering it.
+
+## 2026-09-02 ~23:1x — ROOT-CAUSED the k_walk_course_income regression flagged at ~22:0x: stale plant-stance literal, not a course-income bug
+
+**Answers the dig-in the ~22:0x entry flagged** ("Next dig-in should
+bisect within b7e7ea05's diff... using the scripted TripodGait
+rollouts directly"). Root cause found and FIXED, not just isolated.
+
+**Root cause:** `rl_move/sim/sim_env.py`'s `_default_plant_deg()` (the
+sim's canonical crouched stance, historically hip=20/knee=**80** in
+MuJoCo's femur-RELATIVE knee convention) and its `_make_walk_bc_gait()`
+sibling (`TripodGait().sync_plant_stance(20.0, 80.0)`) were swept up in
+the b7e7ea05 "unify joint coordinates" merge's mechanical switch from
+the `sim_gait_compat`-wrapped TripodGait to the raw
+`hexapod_core.tripod_gait` (absolute-tibia) gait, needed because the
+whole env now speaks `robot_abs` internally (`_mujoco_to_logical_q`/
+`_logical_to_mujoco_q` at the physics boundary — a real, coherent, and
+mostly-correctly-executed refactor). But these two call sites kept the
+OLD numeric literal (**80**) instead of converting it to its robot_abs
+equivalent, silently RELABELING a mujoco-relative number as an
+absolute-tibia one: `_robot_abs_to_mujoco_rel` only shifts the knee by
+the hip (`mujoco_rel = robot_abs_knee - robot_abs_hip`), so feeding 80
+straight through as robot_abs produces `mujoco_rel = 80-20 = 60`
+instead of the intended 80 — a real ~20 deg LESS-BENT knee, chassis
+rides measurably taller. (Contrast: the SAME commit's `_QUAD_TUCK_RAD`
+→ `_QUAD_TUCK_ROBOT_RAD` rename WAS correctly converted, `2.40 rad
+mujoco_rel == 1.30 - (-1.10) robot_abs` — confirming this was an
+isolated oversight on 2 call sites, not a systemic frame-boundary
+defect.)
+
+**Empirical proof (mesh/100Hz, `SimHexapodJointWalkEnv`, static-hold
+"park" episode = pure evidence of the pose held, no gait mechanism
+involved):** holding `q_rad_to_action(_default_plant_deg()*DEG2RAD)`
+for 8s/800 ticks drifts chassis height +82mm above the reset-settled
+height (`height_err_mm` 0 -> 82 -> plateaus ~82), `reward_height` -436,
+`reward_loadslip_excess` -160, `reward_drag` -3, `reward_current` -80,
+total park reward **-1168** (historical band ~+90). After changing the
+literal from 80 to **100** (its robot_abs equivalent, 80 + hip 20) in
+BOTH call sites: `height_err_mm` stays ~13mm the whole episode, NO
+drift, `reward_loadslip_excess`/`reward_drag` -> 0.00, `reward_current`
+-3, total park reward **+89** — matches the historical +90 band almost
+exactly.
+
+**Fix landed** (`rl_move/sim/sim_env.py`, this cycle, commit at
+snapshot below): `_default_plant_deg()`'s fallback literal
+`[0,20,80]*6` -> `[0,20,100]*6`; `_make_walk_bc_gait`'s
+`sync_plant_stance(20.0, 80.0)` -> `sync_plant_stance(20.0, 100.0)`.
+The other two `sync_plant_stance(self._plant_deg[1],
+self._plant_deg[2])` call sites needed NO code change — they
+automatically inherit the corrected value through `_plant_deg`, and
+were already correct for the learned/hardware-plant branch (that one
+was already genuinely robot_abs, sourced from `feetech_bus`). Every
+`WALK_PLANT = (20.0, 80.0)` constant used THROUGH `sim_gait_compat`
+elsewhere in the repo (probes, tests, `build_motion_library.py`) is
+UNCHANGED and correct — that wrapper still does the hip+knee_rel
+conversion internally, so 80 there still means sim-relative and stays
+80.
+
+**Effect on the flagged bank:** `test_course_income_semantics.py`
+7 failed/5 passed -> **4 failed/8 passed**; `test_course_disp_semantics.py`
++ `test_course_disp_window_semantics.py` (was some failures, exact
+pre-fix count not separately isolated by the ~22:0x entry) -> **1
+failed/37 passed**, and that one failure is a 22.7-vs-15.0-unit margin
+edge (a few % over a NOISE tolerance), not a mechanism break. Remaining
+failures in `test_course_income_semantics.py` (`backward` vs `park`
+margin, two `wz_arc` sway/margin bars, `overdrive` vs `obey`) read as
+genuine RECALIBRATION-needed thresholds against the now-CORRECT physics
+(the module's own docstring already flags `backward`-vs-`park` as a
+historically tight, contested-tradeoff bar, not a hard invariant) —
+next pass should re-tune those 4 threshold constants against fresh
+rollouts, not hunt for another mechanism bug.
+`test_phasedir_semantics.py`/`test_quad_body_frame_trim.py` pre- vs
+post-fix cross-check (disposable worktree at HEAD `26401c23` = pre-fix,
+vs the working tree = post-fix, same seed/config, both run this cycle):
+**17 failed/19 passed (pre-fix) -> 10 failed/26 passed (post-fix)** --
+a clear net improvement, ZERO new failures introduced (every pre-fix
+PASS is still a PASS post-fix; the one `test_quad_body_frame_trim.py`
+failure, `test_mujoco_quad_walk_brace_holds_and_recovers_from_tip`,
+fails IDENTICALLY (same assertion, same message) in both trees --
+pre-existing, not caused by or fixed by this change, left alone). The
+remaining 10 `test_phasedir_semantics.py` failures were not
+individually triaged this cycle (this bank calibrates a DIFFERENT
+scripted-teacher dialect/reward stack than course_income/course_disp
+and needs its own margin review); flagging for the next toucher rather
+than guessing further fixes blind.
+
+status: FIX LANDED + bank-verified net-positive on all 4 originally-
+flagged files (course_income 7fail/5pass -> 4fail/8pass, course_disp+
+course_disp_window ~unknown-> 1fail/37pass, phasedir+quad_body_frame_trim
+17fail/19pass -> 10fail/26pass, zero regressions anywhere checked). The
+full 398-test regression (also started by the ~22:0x entry, PID
+186875, started 22:19) and this cycle's own
+`test_task_semantics.py`+`test_joint_action_bias.py`+
+`test_joint_action_box.py` recheck (started 22:55) are BOTH still
+running past this cycle's exit -- read them before declaring the
+thread fully closed; neither showed new failures in partial output
+inspected so far. No operator input needed (assume-and-go: this is
+exactly the kind of "shared training default" fix the ~22:0x entry
+asked the next toucher to try first). Remaining follow-up for whoever
+next touches this: (a) retune the 4 course_income margin constants
+against the now-correct physics, (b) triage the 10 phasedir failures,
+(c) read the two in-flight full-bank runs.

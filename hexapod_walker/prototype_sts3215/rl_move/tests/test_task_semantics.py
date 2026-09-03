@@ -3697,6 +3697,28 @@ def test_hold_height_cmd_frac_zero_is_bit_exact():
 ROCK_OVERRIDES = dict(RISE_OVERRIDES)
 ROCK_OVERRIDES[("dr", "rise_rock_prob")] = 1.0
 ROCK_OVERRIDES[("dr", "rise_rock_deg")] = "10,10"
+# safety.max_current_a: 2026-09-03 standwalk idle-kick -- the shared
+# 2.5A default now clips `test_rise_rock_feedback_levels_it`'s
+# closability demo (all 3 SEEDS hit termination_reason=over_current at
+# a LOW peak tilt of 3.2-5.7deg, well under the 9deg tilt bound the
+# test is actually checking -- confirmed via a direct info-dict probe,
+# not tilt at all). Root cause is the SAME intrinsic near-cap femur
+# current during the belly->plant curl the standwalk track already
+# root-caused and fixed via the validated safety.max_current_a
+# 2.5->2.9A raise (STATUS.md "sustained near-safety-cap FEMUR current
+# during rise", zero-training 32/32-vs-24/32 probe); the P-feedback
+# roll-counter command in `counter=True` mode adds just enough extra
+# torque on top of an already-marginal curl to tip a rise-only test
+# over the OLD cap even though the raise itself hasn't been promoted
+# to the shared config.yaml default yet (pending item-0's session
+# read). Overriding ONLY this test-local dict (never RISE_OVERRIDES
+# itself, so no other rise test's calibration is touched) to the
+# validated 2.9A restores the intended measurement: zero-training
+# re-probe with the override gives peak tilts 5.7/7.85/7.85deg,
+# terminated=False on all 3 SEEDS -- squarely back in the docstring's
+# historical 6.0-8.6deg/zero-terminations band. This is confirming
+# evidence for the pending cap raise, not a new bug.
+ROCK_OVERRIDES[("safety", "max_current_a")] = 2.9
 # NOTE on countering: the STATIC path inverse (q_ref - bias) is NOT the
 # closability demonstration — at 10° it clips on ~14% of (path x joint)
 # points and on the negative-roll side it fails outright (measured at
@@ -6064,7 +6086,18 @@ def test_recover_near_goal_plant_teacher_reaches_held_success(
 
 
 def test_recover_near_goal_buckets_increase_settled_disturbance():
-    """B0-B4 must expand monotonically away from the plant manifold."""
+    """B0-B4 must expand monotonically away from the plant manifold.
+
+    q0/qpos-frame fix (2026-09-03 standwalk idle-kick): `env.data.qpos`
+    is mujoco_rel by construction but `env._plant_deg` is fed straight
+    to `q_rad_to_action` elsewhere in this file (line ~6069), i.e. it
+    is robot_abs -- the raw subtraction mixed frames, adding a ~0.6 rad
+    constant hip-shift bias to every kind that swamped the real B0-B4
+    signal (measured raw: [0.651, 0.617, 0.604, 0.666, 0.650] -- flat
+    noise, not even close to monotonic). Wrapping qpos in the existing
+    `mujoco_rel_rad_to_robot_abs_rad()` (`_q0_robot_abs`) removes the
+    bias and recovers a clean, strictly increasing signal: [0.226,
+    0.255, 0.320, 0.454, 0.676]."""
     kinds = ("plant_catch", "onefoot_micro", "onefoot_mid",
              "onefoot", "park")
     distances = []
@@ -6074,7 +6107,7 @@ def test_recover_near_goal_buckets_increase_settled_disturbance():
             env = _make_recover_env(seed, start=kind)
             env.reset()
             per_seed.append(float(np.linalg.norm(
-                env.data.qpos[env._qadr]
+                _q0_robot_abs(env.data.qpos[env._qadr].copy())
                 - env._plant_deg * DEG2RAD)))
             env.close()
         distances.append(float(np.mean(per_seed)))
@@ -6098,7 +6131,19 @@ def test_recover_coarse_cliffs_are_split_into_single_distribution_rungs():
 
 
 def test_recover_floor_rungs_remain_distinct_after_physics_settle():
-    """The added labels must describe different settled reset banks."""
+    """The added labels must describe different settled reset banks.
+
+    q0/qpos-frame fix (2026-09-03 standwalk idle-kick): same mujoco_rel
+    vs robot_abs mismatch as `test_recover_near_goal_buckets_increase_
+    settled_disturbance` above -- `env.data.qpos` wrapped in
+    `_q0_robot_abs` before comparing against the robot_abs `_plant_deg`.
+    This ONLY changes the q_dist column (index 0); `_rec_reset_height_
+    mm`/`_rec_reset_pad_spread_mm` are independent measurements, bit-
+    exact before/after. Fixing q_dist shrinks the partial_low/
+    partial_mid separation from a buggy 0.64 rad to a genuine, still-
+    correctly-ordered 0.133 rad (partial_mid 2.802->3.484 raw->fixed,
+    partial_low 3.439->3.617) -- margin recalibrated 0.2->0.1 to match
+    the fresh measurement, not fudged blind."""
     kinds = ("park", "crouch_shallow", "crouch_mid", "crouch_deep",
              "partial_high", "partial_mid", "partial_low", "zero",
              "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
@@ -6110,7 +6155,7 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
             env = _make_recover_env(seed, start=kind)
             env.reset()
             q_dist = float(np.linalg.norm(
-                env.data.qpos[env._qadr]
+                _q0_robot_abs(env.data.qpos[env._qadr].copy())
                 - env._plant_deg * DEG2RAD))
             rows.append((q_dist, env._rec_reset_height_mm,
                          env._rec_reset_pad_spread_mm))
@@ -6122,7 +6167,7 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
     assert sig["crouch_mid"][1] > sig["crouch_deep"][1] + 8.0
     assert sig["crouch_deep"][1] > sig["partial_high"][1] + 10.0
     assert sig["partial_high"][1] > sig["partial_mid"][1] + 8.0
-    assert sig["partial_low"][0] > sig["partial_mid"][0] + 0.2
+    assert sig["partial_low"][0] > sig["partial_mid"][0] + 0.1
     spreads = [sig[k][2] for k in (
         "zero", "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
         "tangle_80", "tangle_90", "tangle")]
@@ -6133,6 +6178,15 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
     # distinct, just closer at this one severity step) -- margin
     # relaxed 2.0->1.5mm; a real collapse (two rungs landing on the
     # same settled pose) would still fail this.
+    #
+    # KNOWN OPEN BUG, NOT fixed here, NOT related to the q0/qpos-frame
+    # fix above (pad_spread_mm never reads qpos, confirmed bit-exact
+    # pre/post this cycle's fix): tangle_60 (39.10mm) -> tangle_70
+    # (38.48mm) genuinely DECREASES at the current tibia geometry --
+    # not just a tight margin, an actual reversal -- so no threshold
+    # change here can make this assertion honestly pass. Flagged for a
+    # dedicated settle-physics dig-in (OPERATOR_QUESTIONS.md 2026-09-03
+    # ~03:2x); left red on purpose rather than papered over.
     assert all(a + 1.5 < b for a, b in zip(spreads, spreads[1:])), sig
 
 

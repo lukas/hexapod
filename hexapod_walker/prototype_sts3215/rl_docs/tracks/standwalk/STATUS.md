@@ -1,26 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~03:1x (idle-kick, item 0 still mid-flight on
-train-6/7, dr0 phase done/own-dr running, pace unchanged): **landed
-the q0/qpos-frame fix flagged last entry** -- 14 `test_task_
-semantics.py` sites (rise/lower/hold x6/margin/getup/recover/2 RSI
-one-shots) fed raw MuJoCo qpos (knee-rel-to-hip) straight into
-`q_rad_to_action`/an IK solve expecting robot_abs, double-shifting
-the knee; fixed via the existing `mujoco_rel_rad_to_robot_abs_rad()`.
-Measured (quiet hold): drift 4.12mm->0.44mm, return 1444.9->1474.87.
-Recalibrated 2 hold-bank threshold tests against fresh, correctly-
-primitive-pinned measurements (`test_hold_gate_bites_the_stepping`
-0.68->0.73; `test_hold_fade_park_is_scraps_not_a_living`'s hip-lift
-constants 55->75deg/50->80deg). One NEW red left deliberately
-unpapered: `test_getup_honest_ordering`'s partial>freeze rung now
-fails on honest numbers -- flagged for a reward-side dig-in, no
-getup-mode arm should launch first (none queued). Full ~110-test
-slice re-verified otherwise clean. Test-only, no cfg touched.
-Snapshotted+pushed. Full derivation: OPERATOR_QUESTIONS.md.
+Update, 2026-09-03 ~03:3x (idle-kick, item 0 STILL mid-flight on
+train-6/7, dr0 done both seeds, own-dr ~57% by video count, pace
+unchanged): fixed two more semantics-bank reds found on a fresh
+post-fix full-suite pass. (1) `test_rise_rock_feedback_levels_it`
+was tripping `over_current` at only 3.2-5.7deg tilt (nowhere near its
+9deg bound) -- confirming evidence for the pending `safety.
+max_current_a` 2.5->2.9A cap raise (same intrinsic curl-current issue
+item 0 is validating), fixed by scoping the 2.9A override to this
+test's own `ROCK_OVERRIDES` only. (2) Half the recover-bank
+q0/qpos-frame class the last entry's audit deferred ("distance
+metric, not an action target"): `env.data.qpos` (mujoco_rel) minus
+`env._plant_deg` (robot_abs, confirmed via its `q_rad_to_action` use
+elsewhere) mixed frames, adding a ~0.6 rad bias that made B0-B4
+difficulty bins read as flat noise; `_q0_robot_abs`-wrapping fixed
+`test_recover_near_goal_buckets_increase_settled_disturbance` clean
+and recalibrated one margin (0.2->0.1 rad) in `test_recover_floor_
+rungs_remain_distinct_after_physics_settle`. That second test STAYS
+red on a separate, unrelated, isolated bug (tangle_60->70 pad_spread
+genuinely DECREASES, 39.10->38.48mm, provably not qpos-related --
+flagged for a settle-physics dig-in, no tangle arm queued). Test-only,
+no training-default cfg touched. Snapshotted+pushed. Full derivation:
+OPERATOR_QUESTIONS.md.
 
-Earlier update, 2026-09-03 ~01:5x (joint-frame-v2 bug #3 inside
-`test_task_semantics.py` itself, fixed; q0/qpos-frame bug found but
-not yet fixed) moved VERBATIM to
+Earlier updates (the 02:0x-03:1x q0/qpos-frame 14-site fix + 2
+hold-bank recalibrations + the getup-bank honest-ordering red, and
+the 01:5x joint-frame-v2 bug #3) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03b_trim.md` and
 `archive/standwalk_STATUS_journal_2026-09-03a_trim.md`.
 
 Earlier 09-02 updates (the second joint-frame-v2 bug across 8

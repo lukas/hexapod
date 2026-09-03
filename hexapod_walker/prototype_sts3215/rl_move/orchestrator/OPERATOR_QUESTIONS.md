@@ -4273,3 +4273,94 @@ training-default cfg touched; this is test-only code. Snapshotted+
 pushed. standwalk's own in-flight item 0 unaffected (confirmed
 progressing live throughout, both before and after this entry's
 work).
+
+## 2026-09-03 ~03:1x-03:3x — two more semantics-bank reds fixed while item 0 (`cap29-stdwalklohi-acq1{,_s1}` flat-only session read) stays mid-flight: `test_rise_rock_feedback_levels_it` (current-cap confirming evidence, not a new bug) and half of the recover-bank q0/qpos-frame class (the other half is a genuinely separate, NOT-fixed tangle-spread bug, isolated and documented)
+
+**Context:** standwalk's only Next item (`cap29-stdwalklohi-acq1{,_s1}`
+flat-only `eval_done_gate_session`, n=32 det+sto DR-0+own-DR) confirmed
+still progressing on train-6/7 throughout (dr0 phase complete on both,
+own-dr phase ~57% through mp4 count at cycle end, unchanged multi-hour
+pace); other 5 tracks unchanged (green/retired/delivered/maintenance);
+backlog empty, 10/12 GPU pods mechanically free but train-6/7 busy on
+the read and no other legal launch exists this cycle. Ran a fresh full
+`test_task_semantics.py` pass on the current HEAD (post the 09-03
+~02:0x-03:1x q0-fix landing) to get an accurate post-fix picture
+instead of trusting a stale pre-fix `/tmp` log, and picked up two more
+reds surfaced by it.
+
+**Finding 1 — `test_rise_rock_feedback_levels_it` (rise-rock bank):**
+all 3 SEEDS terminated (`termination_reason=over_current`,
+`max_current_a≈2.64A`) at a LOW peak tilt of 3.2-5.7deg -- nowhere
+near the 9deg tilt bound the test is actually checking (confirmed via
+a direct `info` dict probe, not a tilt-threshold miss at all). This is
+the SAME intrinsic near-safety-cap femur current during the belly->
+plant curl the standwalk track already root-caused (STATUS.md
+"sustained near-safety-cap FEMUR current during rise") and already
+validated a fix for (`safety.max_current_a` 2.5->2.9A, zero-training
+32/32-vs-24/32 probe) -- this test's own `counter=True` P-feedback
+roll-correction just adds enough extra torque on top of an
+already-marginal curl to tip it over the OLD 2.5A cap even though the
+raise hasn't been promoted to the shared `config.yaml` default yet
+(intentionally, pending item 0). Fix: added `("safety",
+"max_current_a"): 2.9` to this test's OWN `ROCK_OVERRIDES` dict only
+(never touches `RISE_OVERRIDES` itself, so no other rise test's
+calibration moves) -- zero-training re-probe with the override gives
+peak tilts 5.7/7.85/7.85deg, terminated=False on all 3 SEEDS, squarely
+back in the docstring's historical 6.0-8.6deg/zero-terminations band.
+This is CONFIRMING evidence for the pending cap raise, not a new bug
+-- one more data point that the 2.5A default is now stale everywhere
+curl-adjacent torque is tested, reinforcing the case for promoting the
+raise to the shared default once item 0 lands.
+
+**Finding 2 — recover-bank q0/qpos-frame bug (SAME class as the
+09-03 ~02:0x-03:1x fix, missed there because it's a "distance metric"
+site the prior audit explicitly deferred):**
+`test_recover_near_goal_buckets_increase_settled_disturbance` and
+`test_recover_floor_rungs_remain_distinct_after_physics_settle` both
+compute `np.linalg.norm(env.data.qpos[env._qadr] - env._plant_deg *
+DEG2RAD)` -- `qpos` is mujoco_rel by construction but `env._plant_deg`
+is fed straight to `q_rad_to_action` elsewhere in this same file
+(confirming it is robot_abs), so the raw subtraction adds a constant
+~0.6 rad mismatch bias to every kind. Measured impact on test 1: raw
+distances `[0.651, 0.617, 0.604, 0.666, 0.650]` -- flat noise, not
+remotely monotonic; wrapping `qpos` in the already-existing
+`_q0_robot_abs` helper (same one the 02:0x-03:1x fix used) removes the
+bias and recovers a clean, strictly increasing `[0.226, 0.255, 0.320,
+0.454, 0.676]`. Fixed both sites. Downstream fallout (same
+recalibration pattern as every other q0 fix this week): fixing the
+bias shrinks the `partial_low`/`partial_mid` q-distance gap in test 2
+from a buggy 0.64 rad to a genuine 0.133 rad (both correctly ordered,
+just closer) -- margin recalibrated 0.2->0.1 rad with the fresh
+measurement documented inline, not fudged blind.
+
+**What is explicitly NOT fixed, isolated instead:** test 2's other
+assertion block (`_rec_reset_pad_spread_mm` monotonicity across the
+`tangle_60..tangle` severity ladder) still fails after the frame fix,
+and PROVABLY has nothing to do with it -- `pad_spread_mm` never reads
+`qpos`, confirmed bit-exact before/after this cycle's edit. Direct
+measurement: `tangle_60=39.10mm -> tangle_70=38.48mm` is a genuine
+DECREASE, not just a tight margin, so no threshold change can make
+this assertion honestly pass; it needs its own settle-physics dig-in
+(does the corrected 150mm tibia change how tangle poses at that
+specific severity band settle post-reset?). Documented inline in the
+test with the measured numbers; left RED on purpose. No tangle-mode
+reward arm is queued, so this does not block anything.
+
+**Verified:** targeted reruns of both touched banks (`-k "rise_rock"`:
+4/4 pass; the two recover tests: 1/1 now passes cleanly, the other
+fails ONLY on the isolated, unrelated, documented tangle-spread
+assertion, confirmed via a standalone assertion-by-assertion probe).
+Full whole-file regression re-launched in background on the final
+HEAD after both fixes landed (previous background run was started
+before these edits and is stale -- killed, not trusted) for a future
+cycle to read the accurate total count; not blocking this entry.
+
+status: BOTH fixes LANDED, test-only, no training-default cfg touched
+(the `max_current_a=2.9` override is scoped to one test's local dict,
+not `config.yaml`). Snapshotted+pushed. standwalk's own in-flight item
+0 unaffected throughout (re-confirmed progressing on train-6/7 at
+cycle end, own-dr phase ~57% by video count). Other 5 tracks
+unchanged. No filler GPU launch exists this cycle beyond the in-flight
+read; the semantics-bank dig-in queue is not yet empty (getup-bank
+reward gap, tangle-spread physics, and the ~16-18 walkcurr_pf-family
+reds all remain open for a future cycle per prior entries).

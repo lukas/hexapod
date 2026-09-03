@@ -1,57 +1,66 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~05:0x (idle-kick): item 0's flat-only donegate
-session still mid-flight on train-6/7 (~91/90 mp4s, ETA unchanged
-~08:3x UTC) -- while it runs, dispatched an EARLY INFORMAL READ on
-spare pods (train-2/3, dualbc3-dagger 08-30 fast-read precedent):
-walk-mode-only, no video, n=16 det+sto x DR-0+own-DR, SAME train cfg.
-**direction_err clearly improved** vs the cap29-acq1 baseline
-(46.8deg) on all 8 subgroups/2 seeds: 24.8-35.6deg. **sto/det
-convergence holds at acquisition scale**: sto progress_ratio 84-92%
-of det (was the old 5-8% collapse) -- canary finding replicates both
-seeds. **slip/m MIXED**: dr0-det ties/beats 3.09 (2.83/3.12) but
-dr0-sto/owndr-det/owndr-sto read worse (3.39-4.63). Zero falls in all
-128 episodes. Reads gate-PARTIAL-shaped (steering fixed, slip not
-uniform) not full PASS -- informal proxy only, real verdict still
-awaits the video-bearing session. Evidence:
-`logs/ckpt_eval/standwalk_stdwalklohi_acq1_{s0,s1}_fastwalkcheck/`.
-Also: prior cycle's full-suite regression finished, 39F/256P (was
-40F) -- all 5 banks pricing standwalk's LIVE levers (hold/getup/
-rise_rock/stopcurrent/trans_drag) now green; remaining reds are 24
-RETIRED walkcurr_pf/sv + 1 stale-log getup + 14 non-live-lever banks,
-not blocking any funded arm, not chased.
+Update, 2026-09-03 ~09:4x (idle-kick): **item 0 CLOSED, both seeds
+PASS (own-scope) on the real video-bearing flat-only donegate session**
+(n=128 ep each, train-6/7): `stdwalklohi-acq1` dir_err_med 44.56deg/
+slip_med 2.819, `-s1` 43.6deg/2.939 — BOTH beat the cap29 baseline
+(46.8deg/3.09), sto/det progress_ratio convergence holds at full 38M
+scale (94-107% of each other) — the arm's own PASS bar, cleared. Zero
+falls/256 episodes, gait_valid 1.0. NOT the track DONE gate: dir_err
+still misses the ~40deg reference, slip sits at the 2.9 cap — steering
+(item 1) is the sole open item. New reference band: 44-45deg/2.8-2.9
+slip. SKILLS.md updated.
 
-Earlier updates (getup-ordering fix, q0-frame fixes, hold-bank
-recalibrations, joint-frame-v2 bugs, tangle-spread close, the 09-02
-merge-recovery/plant-stance/stdwalklohi-acq1 window) moved VERBATIM
-to `archive/standwalk_STATUS_journal_2026-09-03{a,b,c,d,e}_trim.md`
-and `2026-09-02{f,h}_trim.md`.
+**Also found+fixed a fleet-wide infra blocker while refilling item 1**
+(full account `OPERATOR_QUESTIONS.md` 09-03 ~09:3x): the 09-02 ~22:0x
+operator merge's `require_checkpoint_joint_contract` rejects EVERY
+checkpoint predating it — including this lineage's own ancestor and
+champions — silently blocking ALL warm-starts fleet-wide. Confirmed
+the action<->joint mapping itself never changed (pose-literal fixes
+only), so backfilling is safe. Built+tested
+`rl_move.sim.stamp_legacy_checkpoint` (3/3 green, bit-exact weights),
+ran it fleet-wide (1128 stamped, 3 already-current, 0 refused).
 
-## Next (updated 09-02 ~18:3x)
+**Refilled item 1** (09-02 dig-in lead: worst `course_speed_ratio`
+dips land at the eval diet's ~4s `walk_cmd_resample_s` boundaries,
+training only ever used a slower 6s/jitter-0.2 diet) — launched a
+2-seed 2M canary `cap29-stdwalklohi-resamplematch-canary{,-s1}` (one
+lever: match train-time `walk_cmd_mode=stress_mix`/`resample_s=4.0`/
+`jitter=0.5` to the eval diet), warm-started from the re-stamped
+ancestor. VERIFIED RUNNING (train-1/train-2 — `-s1` is ledger-named
+`...-turndiet-canary-s1`, a naming artifact, same cfg). Gate:
+`probe_turn_authority` wz_med >=0.07; det+sto walk read under the
+matched diet vs this cycle's own baseline (44.56/43.6deg dir,
+2.82-2.94 slip) — PASS if dir/course_err drops >=20% clean; PARTIAL
+if authority+zero-fall hold but steering doesn't move; FAIL if
+authority regresses or terminations appear.
 
-0. **READ `logs/ckpt_eval/cw_..._stdwalklohi_acq1{,_s1}_donegate_
-   flatonly/session_verdict.json`** once both land (n=32 det+sto
-   DR-0+own-DR each; the 09-03 fast-check above already leans
-   PARTIAL-shaped, see Update). Gate text in the ledger. PASS -> new
-   steering/slip reference; PARTIAL -> item 1 next; FAIL -> credit-
-   assignment (08-31 yaw-credit probe) next.
-1. Steering gap (windowed course_err ~22-23 deg, cap 2.9) — was
-   secondary to the sto/det asymmetry; worst course_speed_ratio dips
-   land at the ~4s `walk_cmd_resample_s` boundaries, consistent with
-   the closed turn-authority ceiling (wz_med 0.075-0.21). Revisit once
-   item 0 reads back.
-2. **Closed (full list in archives 09-02{,b..h}):** update-size/reward/
-   exploration/anchor/turn-skip/yaw-credit/diet/duration/switch-jump/
-   frame-blend/current-confound sweeps; cap29 acquisition (PARTIAL);
-   walk-core log_std anneal dose grid (`hi` PASS, `mild` FAIL).
+Earlier updates (item-0 fast-read, getup-ordering fix, q0-frame fixes,
+hold-bank recalibrations, joint-frame-v2 pose-literal bugs,
+tangle-spread close, the 09-02 merge-recovery/plant-stance window)
+moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-03{a,b,c,
+d,e,f}_trim.md` and `2026-09-02{f,h}_trim.md`.
 
-> Journal archives (VERBATIM, oldest->newest):
-> `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,
-> `2026-09-01_trim.md`, `2026-09-02_trim.md`, `2026-09-02b_trim.md`,
-> `2026-09-02c_trim.md`, `2026-09-02d_trim.md`, `2026-09-02e_trim.md`,
-> `2026-09-02f_trim.md`, `2026-09-02g_trim.md`, `2026-09-02h_trim.md`,
-> `2026-09-03a_trim.md`, `2026-09-03b_trim.md`, `2026-09-03c_trim.md`.
-> Current state = newest Update at the TOP; don't act on archived Next.
+## Next (updated 09-03 ~09:4x)
+
+0. **Closed 09-03**: item 0 (sto/det std-anneal survives to 38M
+   acquisition) PASS both seeds, joint. See Update.
+1. **Read `resamplematch-canary{,-s1}`** once landed (train-1/2) —
+   steering-gap train/eval diet-mismatch test. PASS -> promote to
+   acquisition (38M, matching stdwalklohi-acq1); PARTIAL -> real
+   turn-rate ceiling not a diet mismatch, next lever is structural
+   turn-authority (std/diet both already refuted); FAIL -> diet too
+   hard, retry milder resample_s.
+2. **Closed (archives 09-02{,b..h}, 09-03{a..f}):** update-size/
+   reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
+   switch-jump/frame-blend/current-confound sweeps; cap29 acquisition
+   (PARTIAL); log_std anneal dose grid (`hi` PASS, `mild` FAIL); item
+   0 sto/det convergence-at-scale (PASS).
+
+> Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
+> STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
+> 09-03{a..c,f}. Current state = newest Update at the TOP; don't act
+> on archived Next.
 
 ## Goal (operator, 08-24 evening)
 
@@ -68,52 +77,44 @@ randomized 60 s joystick session with zero falls, and lowers back.
   `ppo_goal_cw_dep_bcgait4_phasedir9_stotight45_seed13` are
   primitive-family 25 Hz policies. NO `respec --from` / warm-start of
   them onto mesh — stage 1 is a recipe rerun on the new model.
-- New launches already get `control.hz=100` (launcher-injected) and
-  `env.model_source=mesh` (the default) — do not pin legacy values
-  here, and never pin `model_source=primitive` in this track.
-- Legacy champions MAY be queried as teachers (same obs layout), but
-  they carry 25 Hz action scale and primitive dynamics: any
-  distillation mechanism must handle the 25->100 Hz gap (query at
-  25 Hz + interpolate, distill trajectories, DAgger with rate
-  conversion, ...) and must MEASURE whether primitive-trained advice
-  is good on mesh dynamics before trusting it.
+- New launches already get `control.hz=100`/`env.model_source=mesh`
+  (launcher-injected defaults) — never pin `model_source=primitive`.
+- Legacy champions MAY be queried as teachers (same obs layout) but
+  carry 25 Hz action scale/primitive dynamics: any distillation must
+  handle the 25->100 Hz gap and MEASURE whether primitive-trained
+  advice is good on mesh dynamics before trusting it.
 
 ## Stage 1 — mesh/100 Hz stance retrain (rise + lower)
 
 Recipe basis: `stance_dr10` (exact cfg in ledger/W&B); rise-reference
-machinery green since 08-24.
-GATE (pre-registered): stance panel rise/hold/lower (pod_eval stance
-modes), n>=12, det+sto, DR-0 + own-DR: zero falls/tips, quiet hold
-(no creep), rise/lower height tracking comparable to the legacy
-champion's band. Absolute numbers shift with the +66% mass — the
-first passing run's numbers become the recorded mesh reference band.
+machinery green since 08-24. GATE (pre-registered): stance panel
+rise/hold/lower (pod_eval stance modes), n>=12, det+sto, DR-0+own-DR:
+zero falls/tips, quiet hold, rise/lower height tracking comparable to
+the legacy champion's band (absolute numbers shift with +66% mass).
 
 ## Stage 2 — teacher distillation into the best walking model
 
 Use the stage-1 policy as the rise/lower TEACHER. Walking source: the
 joystick champion lineage (`stotight45-seed13`) or its mesh-era
 successor if the joystick track's in-flight mesh arms produce one
-first — either adoption is PRE-REGISTERED here, never a silent
-teacher swap (cpg containment rule applies). Mechanism is
-cycle-designed (BC clone + RL fine-tune a la bcgait, KL-to-teacher,
-phase-scheduled multi-teacher, ...); every mechanism arm pre-registers
-its gate and a matched control.
+first — either adoption is PRE-REGISTERED, never a silent teacher
+swap (cpg containment rule applies). Mechanism is cycle-designed (BC
+clone + RL fine-tune, KL-to-teacher, phase-scheduled multi-teacher);
+every mechanism arm pre-registers its gate and a matched control.
 
 DONE GATE (the track's): ONE mesh-family 100 Hz policy, from sit:
-rise -> randomized 60 s joystick command script -> lower to sit.
-Zero falls, directions followed, slip/m within the joystick band
-(<=~2.9), held-out panel n>=12, det+sto, DR-0 + own-DR.
-`eval_joystick_gate` covers the walk segment; the sit->rise->walk->
-lower session harness is stage-2 tooling to build.
+rise -> randomized 60 s joystick command script -> lower to sit. Zero
+falls, directions followed, slip/m within the joystick band (<=~2.9),
+held-out panel n>=12, det+sto, DR-0+own-DR. `eval_done_gate_session`
+is the session harness (flat=1 is the literal gate shape).
 
 ## Landmines
 
 - Sim only — hardware stand/plant transfer stays operator-owned.
 - No stage-2 arm may warm-start from a primitive checkpoint.
 - The joystick track owns generic mesh walking; this track owns
-  rise/lower + the unification. Coordinate via STATUS, don't duplicate
-  its mesh conversion arms.
-- `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test, NOT
-  the DONE-gate instrument; the gate read is `eval_done_gate_session`
-  (`ops.sh donegatecmd`, flat=1).
+  rise/lower + the unification. Coordinate via STATUS, don't duplicate.
+- `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test,
+  NOT the DONE-gate instrument (that's `eval_done_gate_session`,
+  `ops.sh donegatecmd`, flat=1).
 

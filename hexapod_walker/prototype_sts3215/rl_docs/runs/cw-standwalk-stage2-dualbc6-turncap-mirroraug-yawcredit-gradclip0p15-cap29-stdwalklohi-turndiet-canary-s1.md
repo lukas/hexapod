@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-03T09:23:38+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-acq1-s1
+
+**wandb_id**: wpyov6ep
 
 **hypothesis**: Plain English: seed-1 companion to turndiet-canary -- same question, does matching training's command-resample diet to the eval's faster stress_mix diet close the steering gap, replicated on the seed-1 twin.
 

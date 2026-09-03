@@ -27,14 +27,11 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `stand_stancemix_tuckclock_scratch8m{,_s1}` when useful.
 - Walk role: `cw-walk-allheading-mlp-singleframe-acq1-stdanneal`,
   exported as `linux_control/policies/walk_allheading_mlp_singleframe_acq1_stdanneal.json`.
-- Full-mesh evidence:
-  `logs/manual_drive/cw_walk_allheading_mlp_singleframe_stdanneal_hybrid_tuck_ux_human28/`
-  had zero falls, no sacrificed legs, `walk_progress_ratio=0.418`,
-  `course_err_1s_med_deg=2.57`, `wrong_course_frac_1s=0.0`,
-  `cur_max_a=2.64`. Verdict: stable and directionally obedient, but
-  speed-soft.
-- Upgrade candidate: `cw-walkteach-scripted-allhead-acq12m{,-s1}` is
-  running for better all-heading joystick authority.
+- Full-mesh evidence (`logs/manual_drive/cw_walk_allheading_mlp_
+  singleframe_stdanneal_hybrid_tuck_ux_human28/`): zero falls, no
+  sacrificed legs, progress_ratio 0.418, course_err_1s_med 2.57deg,
+  wrong_course_frac 0.0. Stable and obedient, but speed-soft.
+- Upgrade candidate: `cw-walkteach-scripted-allhead-acq12m{,-s1}`.
 
 ## Model And Control Contracts
 - New PPO/MJX launches use mesh-family 100 Hz unless a registered
@@ -59,10 +56,14 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
 ## Known Tooling Gotchas
 - Recurrent checkpoints must use `rl_move.sim.gru_policy.RecurrentPredictor`;
   raw per-tick `model.predict(obs)` resets hidden state.
-- Some post-2026-08-24 100 Hz evals before the `pod_eval.py` fixes may
-  have wrong timeout or slew-contract evidence; re-run suspicious gates.
+- Some post-08-24 100 Hz evals before the `pod_eval.py` fixes may have
+  wrong timeout/slew-contract evidence; re-run suspicious gates.
 - Train pods have non-uniform `/dev/shm`; route obs-heavy launches to
   4.0G pods or let `_check_shm_budget` refuse them.
+- Pre-09-02 checkpoints lack the `joint_frame` stamp and get rejected
+  by `--init-from`/respec; fleet backfilled via
+  `rl_move.sim.stamp_legacy_checkpoint` (bit-exact) — re-run on any
+  `joint_frame=None` ckpt, don't relax the check.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

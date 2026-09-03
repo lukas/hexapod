@@ -4515,3 +4515,81 @@ the still-running `/tmp/full_after_tanglefix_0903.log` full-suite
 regression (started before this fix, so it will show the OLD red for
 this one test — a future cycle reading that log should expect and
 discount that single F) surfaces fresh.
+
+## 2026-09-03 ~09:3x — fleet-wide warm-start blocker: require_checkpoint_joint_contract rejects EVERY extant checkpoint (found + fixed, no operator input needed)
+
+**What happened:** attempting a routine `respec --from` continuation
+on the standwalk track's current best lineage (`cap29-stdwalklohi-
+acq1`, warm-starting from the SAME 2M `gradclip0p15_canary.zip`
+ancestor that lineage's OWN acquisition runs used successfully days
+earlier) crashed at process startup:
+`ValueError: checkpoint frame/contract is None/None ... pre-v2 weights
+cannot be warm-started`. Traced to `hexapod_core/joint_frame.py`'s
+`require_checkpoint_joint_contract`, added by the operator's own
+`b7e7ea05` ("Unify hexapod vision and joint coordinates", Aug 31,
+merged into this branch via `66c4af30` 09-02 ~22:0x — see the 09-02
+~22:0x entry above for that merge's other collateral damage). The
+function hard-rejects any `--init-from` checkpoint whose saved SB3
+`data` dict lacks `joint_frame="robot_abs"`/
+`joint_contract="robot_abs_tibia_v2"`. `train_ppo_mjx.py` stamps this
+onto NEW checkpoints going forward (`model.joint_frame = ...` at
+construction, added by the same merge) but does nothing for
+checkpoints already on disk. **Checked empirically across the whole
+fleet, not just this lineage**: the standwalk `canary.zip` ancestor,
+the standwalk `stdwalklohi-acq1{,-s1}` champions themselves, AND an
+unrelated joystick-track champion (`walk_allheading_mlp_singleframe_
+acq1_stdanneal.zip`, `walkteach_scripted_allhead_acq12m.zip`) all read
+`joint_frame=None`. Every checkpoint saved by a process launched
+before the merge landed (i.e. the entire multi-week campaign) is
+unconditionally rejected — this silently blocks ALL agent-initiated
+`--init-from`/`respec` warm-starts fleet-wide, direct contradiction of
+the standing prompt's "warm-start by default" default mode, until
+someone hits it (this cycle).
+
+**Confirmed NOT a real numeric incompatibility** (so backfilling the
+stamp is not "papering over" a genuine contract violation): diffed
+`b7e7ea05~1..b7e7ea05` directly — the migration did not touch
+`rl_move/sim/joint_task.py`'s `action_to_q_rad`/`q_rad_to_action` (the
+actual action<->joint-angle mapping every trained policy's weights are
+numerically tied to). It fixed scattered MuJoCo-relative POSE LITERALS
+in harness/probe code (e.g. `sim_env.py`'s tuck-knee constant
+2.40->1.30, the robot_abs-equivalent of the same physical pose) and
+added the stamp/enforcement. Every extant mesh-family checkpoint
+genuinely IS `robot_abs`/`robot_abs_tibia_v2` — it just never recorded
+that fact, because the recording code didn't exist yet when it was
+trained.
+
+**Fix landed (assume-and-go, no operator input needed):**
+`rl_move/sim/stamp_legacy_checkpoint.py` — opens a checkpoint zip,
+verifies its `data` entry has NO existing (and therefore no
+CONFLICTING) `joint_frame`/`joint_contract` key, injects
+`robot_abs`/`robot_abs_tibia_v2`, and rewrites every other zip member
+(policy/optimizer .pth, pytorch_variables) byte-for-byte unchanged.
+Refuses (raises, does not silently overwrite) if a checkpoint already
+carries a DIFFERENT stamp — a real foreign-contract file must still be
+caught, this tool only backfills the gap, never reinterprets a
+disagreement. `rl_move/tests/test_stamp_legacy_checkpoint.py` (3/3
+green): weights bit-identical before/after (md5 + direct byte
+compare), idempotent on rerun, refuses a synthetic foreign-contract
+fixture. Ran across the ENTIRE fleet:
+`uv run python -m rl_move.sim.stamp_legacy_checkpoint --all-in-dir
+rl_move/sim/policies` — 1128 stamped, 3 already-current (freshly
+trained post-merge), 0 refused (no genuine foreign-contract file
+found in the whole store). Zero training-default cfg touched; this is
+a pure metadata backfill on artifact files at rest.
+
+**Practical note for the next cycle that warm-starts from a pod that
+DIDN'T already have the ancestor checkpoint**: `ops.sh pushckpt`
+copies whatever is on the CONTROLLER's `rl_move/sim/policies/` (now
+stamped) to the target pod — no extra step needed. Pods that already
+have an OLD (unstamped) local copy of a checkpoint from before this
+fix will still fail until that pod's copy is also re-pushed; this
+cycle re-pushed only the specific ancestor its own two new launches
+needed (`gradclip0p15_canary.zip` -> train-1/train-2).
+
+status: FIX LANDED, fleet-wide, zero-behavior-impact backfill.
+Snapshotted+pushed. Superseded run: `cap29-stdwalklohi-turndiet-
+canary` (LAUNCH_CRASH from this exact bug, verdicted CANARY FAIL -
+INFRASTRUCTURE, not a science result) -> replaced by
+`cap29-stdwalklohi-resamplematch-canary{,-s1}`, both RUNNING clean on
+the re-stamped ancestor.

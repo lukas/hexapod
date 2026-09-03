@@ -244,10 +244,29 @@ banner above for full detail. This closes Next items 1 and 2 below
    (WORSE-BUT-WALKING, see banner): CPG library sustains real walking
    as an AMP style source but det margins run ~15-20% softer than
    teacher_v2 (sto matched/better). ANSWER: viable, not yet superior;
-   no teacher swap, no bar recalibration off one result. A second data
-   point (CPG-clone init, or matched larger budget) would be needed
-   before any real adoption fork — not funded this cycle, amp M4
-   composition has GPU priority.
+   no teacher swap, no bar recalibration off one result.
+   **STALE TEXT CORRECTED 09-03 ~13:2x: the "second data point ...
+   not funded this cycle" sentence above is LEFTOVER 08-23 text that
+   was never trimmed after the question closed — see the file's TOP
+   banner (current state), which shows the matched/larger-budget
+   second (and third) data point ALREADY RUN AND READ 08-23/08-24
+   (`cw-cpg-ab6m-cpglib`/`-teachlib` @6M, `cw-cpg-teacherfork-ab-
+   cpgv1-acq1b`/`-style05-budget2` @8M, `cw-cpg-teacherfork-ab8m-
+   cpgv1r`/`-teacherr` @8M — three independent matched pairs, cpg_v1
+   co-equal-or-better every time). ADOPTION DECISION RECORDED, cpg
+   gate GREEN. Do not re-fund this cell again — a 09-03 cycle did
+   exactly that on nothing but this stale bullet (missed the top
+   banner) and burned a launch on `cw-cpg-teacherfork-ab-cpgv1-b8m`,
+   VERDICTED FAILED (infra: `cpg_v1.npz` predates the 09-02/09-03
+   joint-frame-v2 migration and no longer loads --
+   `amp_discriminator.MotionLibrary` now hard-requires the
+   `joint_frame`/`joint_contract` stamp). If a FUTURE arm has a real
+   NEW reason to use `cpg_v1.npz` on current code, it must first be
+   rebuilt: `build_motion_library.py --controller se2cpg
+   --cpg-params-from rl_move/sim/policies/
+   cpg_controller_robust120_yawtrim.json` (regenerates with current
+   stamping) — filed as unfunded maintenance, nothing currently
+   needs it since the adoption question is closed.**
 4. **DONE 08-23**: a loader for `cpg_controller_*.json` in the web UI,
    per the gate's own text. `linux_control/cpg_controller_loader.py`
    (10/10 tests, pure file I/O, no hardware) parses/validates the

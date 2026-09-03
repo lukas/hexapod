@@ -250,7 +250,24 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     got = _pull(client, csv_name, out_dir)
     sum_name = csv_name.replace(".csv", "_summary.json")
-    _pull(client, sum_name, out_dir)
+    got_summary = _pull(client, sum_name, out_dir)
+    # ``/api/rl/state`` has historically substituted the latest full
+    # calibration report after a sysid worker goes idle.  The sidecar summary
+    # written by that worker is the authoritative result for this exact CSV;
+    # prefer it so a trip cannot be misreported as a successful old checkup.
+    if got_summary is not None:
+        try:
+            pulled_result = json.loads(got_summary.read_text())
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            print(f"  !! invalid pulled summary ({sum_name}): {error}")
+        else:
+            if isinstance(pulled_result, dict):
+                result = pulled_result
+                print(f"hardware summary: ok={result.get('ok')} "
+                      f"ticks {result.get('ticks_done')}/"
+                      f"{result.get('ticks_planned')} "
+                      f"overruns={result.get('overruns')} "
+                      f"error={result.get('error')}")
     (out_dir / "protocol.json").write_text(json.dumps(doc, indent=1,
                                                       sort_keys=True))
     if vision_thread is not None:

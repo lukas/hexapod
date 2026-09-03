@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T23:26:20.706Z",
+  "generatedAt": "2026-09-03T22:34:13.556Z",
   "build": {
     "id": "out",
     "name": "TT-motor kid 4x4 classic pickup truck"
@@ -8,61 +8,7 @@
     "toleranceMm": 0.35,
     "clearanceMm": 0.8,
     "minWallMm": 1.5,
-    "matingToleranceMm": 1.1,
-    "ignoreOverlapPairs": [
-      [
-        "chassis",
-        "tt_motor"
-      ],
-      [
-        "chassis",
-        "motor_clamp"
-      ],
-      [
-        "chassis",
-        "electronics_deck"
-      ],
-      [
-        "motor_clamp",
-        "tt_motor"
-      ],
-      [
-        "electronics_deck",
-        "l298n_board"
-      ],
-      [
-        "tt_motor",
-        "wheel"
-      ],
-      [
-        "truck_body_lower",
-        "electronics_deck"
-      ],
-      [
-        "truck_body_lower",
-        "truck_hood"
-      ],
-      [
-        "truck_body_lower",
-        "truck_roof"
-      ],
-      [
-        "truck_body_lower",
-        "truck_glazing"
-      ],
-      [
-        "truck_body_lower",
-        "truck_grille"
-      ],
-      [
-        "truck_body_lower",
-        "headlight"
-      ],
-      [
-        "truck_body_lower",
-        "taillight"
-      ]
-    ]
+    "matingToleranceMm": 1.1
   },
   "summary": {
     "total": 84,
@@ -650,7 +596,7 @@
       "id": "mating_contact-0",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "taillight ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "taillight ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
       "instances": [
         "taillight-left",
         "truck-body-lower"
@@ -665,7 +611,7 @@
       "id": "mating_contact-1",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "taillight ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "taillight ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
       "instances": [
         "taillight-right",
         "truck-body-lower"
@@ -680,27 +626,57 @@
       "id": "mating_contact-2",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "electronics_deck ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "chassis ⟷ wheel (likely mate): in contact, gap 0.25mm",
       "instances": [
-        "electronics-deck",
-        "truck-body-lower"
+        "chassis",
+        "wheel-rear-left"
+      ],
+      "point": [
+        -29,
+        38.25,
+        15.725
       ]
     },
     {
       "id": "mating_contact-3",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "electronics_deck ⟷ chassis (declared mate): in contact, gap 0mm",
+      "label": "chassis ⟷ wheel (likely mate): in contact, gap 0.25mm",
       "instances": [
-        "electronics-deck",
-        "chassis"
+        "chassis",
+        "wheel-rear-right"
+      ],
+      "point": [
+        -29,
+        -38.25,
+        15.725
       ]
     },
     {
       "id": "mating_contact-4",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ wheel (declared mate): seated, contact 0.967mm",
+      "label": "electronics_deck ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
+      "instances": [
+        "electronics-deck",
+        "truck-body-lower"
+      ]
+    },
+    {
+      "id": "mating_contact-5",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "electronics_deck ⟷ chassis (likely mate): in contact, gap 0mm",
+      "instances": [
+        "electronics-deck",
+        "chassis"
+      ]
+    },
+    {
+      "id": "mating_contact-6",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "tt_motor ⟷ wheel (likely mate): seated, contact 0.967mm",
       "instances": [
         "motor-rear-left",
         "wheel-rear-left"
@@ -712,10 +688,10 @@
       ]
     },
     {
-      "id": "mating_contact-5",
+      "id": "mating_contact-7",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ chassis (declared mate): seated, contact 0.333mm",
+      "label": "tt_motor ⟷ chassis (likely mate): seated, contact 0.333mm",
       "instances": [
         "motor-rear-left",
         "chassis"
@@ -727,10 +703,10 @@
       ]
     },
     {
-      "id": "mating_contact-6",
+      "id": "mating_contact-8",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ wheel (declared mate): seated, contact 0.967mm",
+      "label": "tt_motor ⟷ wheel (likely mate): seated, contact 0.967mm",
       "instances": [
         "motor-rear-right",
         "wheel-rear-right"
@@ -742,10 +718,10 @@
       ]
     },
     {
-      "id": "mating_contact-7",
+      "id": "mating_contact-9",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ chassis (declared mate): seated, contact 0.333mm",
+      "label": "tt_motor ⟷ chassis (likely mate): seated, contact 0.333mm",
       "instances": [
         "motor-rear-right",
         "chassis"
@@ -757,60 +733,60 @@
       ]
     },
     {
-      "id": "mating_contact-8",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ tt_motor (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-rear-left",
-        "motor-rear-left"
-      ]
-    },
-    {
-      "id": "mating_contact-9",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ chassis (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-rear-left",
-        "chassis"
-      ]
-    },
-    {
       "id": "mating_contact-10",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "motor_clamp ⟷ tt_motor (declared mate): in contact, gap 0mm",
+      "label": "motor_clamp ⟷ chassis (likely mate): in contact, gap 0mm",
       "instances": [
-        "clamp-rear-right",
-        "motor-rear-right"
+        "clamp-rear-left",
+        "chassis"
       ]
     },
     {
       "id": "mating_contact-11",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "motor_clamp ⟷ chassis (declared mate): in contact, gap 0mm",
+      "label": "motor_clamp ⟷ tt_motor (likely mate): in contact, gap 0mm",
       "instances": [
-        "clamp-rear-right",
-        "chassis"
+        "clamp-rear-left",
+        "motor-rear-left"
       ]
     },
     {
       "id": "mating_contact-12",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_roof ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "motor_clamp ⟷ chassis (likely mate): in contact, gap 0mm",
       "instances": [
-        "truck-roof",
-        "truck-body-lower"
+        "clamp-rear-right",
+        "chassis"
       ]
     },
     {
       "id": "mating_contact-13",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_glazing ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "motor_clamp ⟷ tt_motor (likely mate): in contact, gap 0mm",
+      "instances": [
+        "clamp-rear-right",
+        "motor-rear-right"
+      ]
+    },
+    {
+      "id": "mating_contact-14",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "truck_roof ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
+      "instances": [
+        "truck-roof",
+        "truck-body-lower"
+      ]
+    },
+    {
+      "id": "mating_contact-15",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "truck_glazing ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
       "instances": [
         "truck-rear-window",
         "truck-body-lower"
@@ -822,10 +798,10 @@
       ]
     },
     {
-      "id": "mating_contact-14",
+      "id": "mating_contact-16",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_glazing ⟷ truck_body_lower (declared mate): seated, contact 0.663mm",
+      "label": "truck_glazing ⟷ truck_body_lower (likely mate): seated, contact 0.663mm",
       "instances": [
         "truck-window-left",
         "truck-body-lower"
@@ -837,10 +813,10 @@
       ]
     },
     {
-      "id": "mating_contact-15",
+      "id": "mating_contact-17",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_glazing ⟷ truck_body_lower (declared mate): seated, contact 0.663mm",
+      "label": "truck_glazing ⟷ truck_body_lower (likely mate): seated, contact 0.663mm",
       "instances": [
         "truck-window-right",
         "truck-body-lower"
@@ -852,10 +828,10 @@
       ]
     },
     {
-      "id": "mating_contact-16",
+      "id": "mating_contact-18",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ chassis (declared mate): seated, contact 0.333mm",
+      "label": "tt_motor ⟷ chassis (likely mate): seated, contact 0.333mm",
       "instances": [
         "motor-front-left",
         "chassis"
@@ -867,10 +843,10 @@
       ]
     },
     {
-      "id": "mating_contact-17",
+      "id": "mating_contact-19",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "tt_motor ⟷ chassis (declared mate): seated, contact 0.333mm",
+      "label": "tt_motor ⟷ chassis (likely mate): seated, contact 0.333mm",
       "instances": [
         "motor-front-right",
         "chassis"
@@ -882,10 +858,10 @@
       ]
     },
     {
-      "id": "mating_contact-18",
+      "id": "mating_contact-20",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_glazing ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
+      "label": "truck_glazing ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
       "instances": [
         "truck-windshield",
         "truck-body-lower"
@@ -897,10 +873,10 @@
       ]
     },
     {
-      "id": "mating_contact-19",
+      "id": "mating_contact-21",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "truck_hood ⟷ truck_body_lower (declared mate): seated, contact 0.8mm",
+      "label": "truck_hood ⟷ truck_body_lower (likely mate): seated, contact 0.8mm",
       "instances": [
         "truck-hood",
         "truck-body-lower"
@@ -912,30 +888,30 @@
       ]
     },
     {
-      "id": "mating_contact-20",
+      "id": "mating_contact-22",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "l298n_board ⟷ electronics_deck (declared mate): in contact, gap 0mm",
+      "label": "l298n_board ⟷ electronics_deck (likely mate): in contact, gap 0mm",
       "instances": [
         "l298n-a",
         "electronics-deck"
       ]
     },
     {
-      "id": "mating_contact-21",
+      "id": "mating_contact-23",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "l298n_board ⟷ electronics_deck (declared mate): in contact, gap 0mm",
+      "label": "l298n_board ⟷ electronics_deck (likely mate): in contact, gap 0mm",
       "instances": [
         "l298n-b",
         "electronics-deck"
       ]
     },
     {
-      "id": "mating_contact-22",
+      "id": "mating_contact-24",
       "kind": "mating_contact",
       "status": "pass",
-      "label": "wheel ⟷ tt_motor (declared mate): seated, contact 0.967mm",
+      "label": "wheel ⟷ tt_motor (likely mate): seated, contact 0.967mm",
       "instances": [
         "wheel-front-left",
         "motor-front-left"
@@ -947,137 +923,7 @@
       ]
     },
     {
-      "id": "mating_contact-23",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "wheel ⟷ tt_motor (declared mate): seated, contact 0.967mm",
-      "instances": [
-        "wheel-front-right",
-        "motor-front-right"
-      ],
-      "point": [
-        56.567,
-        -57.433,
-        14
-      ]
-    },
-    {
-      "id": "mating_contact-24",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ tt_motor (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-front-left",
-        "motor-front-left"
-      ]
-    },
-    {
       "id": "mating_contact-25",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ chassis (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-front-left",
-        "chassis"
-      ]
-    },
-    {
-      "id": "mating_contact-26",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ tt_motor (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-front-right",
-        "motor-front-right"
-      ]
-    },
-    {
-      "id": "mating_contact-27",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "motor_clamp ⟷ chassis (declared mate): in contact, gap 0mm",
-      "instances": [
-        "clamp-front-right",
-        "chassis"
-      ]
-    },
-    {
-      "id": "mating_contact-28",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "truck_grille ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
-      "instances": [
-        "truck-grille",
-        "truck-body-lower"
-      ],
-      "point": [
-        76,
-        -20.175,
-        51
-      ]
-    },
-    {
-      "id": "mating_contact-29",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "headlight ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
-      "instances": [
-        "headlight-left",
-        "truck-body-lower"
-      ],
-      "point": [
-        76,
-        32.4,
-        63
-      ]
-    },
-    {
-      "id": "mating_contact-30",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "headlight ⟷ truck_body_lower (declared mate): in contact, gap 0mm",
-      "instances": [
-        "headlight-right",
-        "truck-body-lower"
-      ],
-      "point": [
-        76,
-        -45.6,
-        63
-      ]
-    },
-    {
-      "id": "mating_contact-31",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "chassis ⟷ wheel (likely mate): in contact, gap 0.25mm",
-      "instances": [
-        "chassis",
-        "wheel-rear-left"
-      ],
-      "point": [
-        -29,
-        38.25,
-        15.725
-      ]
-    },
-    {
-      "id": "mating_contact-32",
-      "kind": "mating_contact",
-      "status": "pass",
-      "label": "chassis ⟷ wheel (likely mate): in contact, gap 0.25mm",
-      "instances": [
-        "chassis",
-        "wheel-rear-right"
-      ],
-      "point": [
-        -29,
-        -38.25,
-        15.725
-      ]
-    },
-    {
-      "id": "mating_contact-33",
       "kind": "mating_contact",
       "status": "pass",
       "label": "wheel ⟷ chassis (likely mate): in contact, gap 0.25mm",
@@ -1092,7 +938,7 @@
       ]
     },
     {
-      "id": "mating_contact-34",
+      "id": "mating_contact-26",
       "kind": "mating_contact",
       "status": "pass",
       "label": "wheel ⟷ chassis (likely mate): in contact, gap 0.25mm",
@@ -1104,6 +950,106 @@
         29,
         -38.25,
         15.725
+      ]
+    },
+    {
+      "id": "mating_contact-27",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "wheel ⟷ tt_motor (likely mate): seated, contact 0.967mm",
+      "instances": [
+        "wheel-front-right",
+        "motor-front-right"
+      ],
+      "point": [
+        56.567,
+        -57.433,
+        14
+      ]
+    },
+    {
+      "id": "mating_contact-28",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "motor_clamp ⟷ tt_motor (likely mate): in contact, gap 0mm",
+      "instances": [
+        "clamp-front-left",
+        "motor-front-left"
+      ]
+    },
+    {
+      "id": "mating_contact-29",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "motor_clamp ⟷ chassis (likely mate): in contact, gap 0mm",
+      "instances": [
+        "clamp-front-left",
+        "chassis"
+      ]
+    },
+    {
+      "id": "mating_contact-30",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "motor_clamp ⟷ chassis (likely mate): in contact, gap 0mm",
+      "instances": [
+        "clamp-front-right",
+        "chassis"
+      ]
+    },
+    {
+      "id": "mating_contact-31",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "motor_clamp ⟷ tt_motor (likely mate): in contact, gap 0mm",
+      "instances": [
+        "clamp-front-right",
+        "motor-front-right"
+      ]
+    },
+    {
+      "id": "mating_contact-32",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "truck_grille ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
+      "instances": [
+        "truck-grille",
+        "truck-body-lower"
+      ],
+      "point": [
+        76,
+        -20.175,
+        51
+      ]
+    },
+    {
+      "id": "mating_contact-33",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "headlight ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
+      "instances": [
+        "headlight-left",
+        "truck-body-lower"
+      ],
+      "point": [
+        76,
+        32.4,
+        63
+      ]
+    },
+    {
+      "id": "mating_contact-34",
+      "kind": "mating_contact",
+      "status": "pass",
+      "label": "headlight ⟷ truck_body_lower (likely mate): in contact, gap 0mm",
+      "instances": [
+        "headlight-right",
+        "truck-body-lower"
+      ],
+      "point": [
+        76,
+        -45.6,
+        63
       ]
     }
   ],
@@ -1128,6 +1074,7 @@
     "collisions": [],
     "floating": [],
     "gaps": [],
+    "declaredInterferences": [],
     "printability": [
       {
         "meshId": "stl:chassis",
@@ -1502,7 +1449,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -1534,7 +1481,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -1557,6 +1504,48 @@
       },
       {
         "a": {
+          "instanceId": "chassis",
+          "partType": "chassis",
+          "name": "Lower truck chassis"
+        },
+        "b": {
+          "instanceId": "wheel-rear-left",
+          "partType": "wheel",
+          "name": "65 mm wheel rear-left"
+        },
+        "declared": false,
+        "gapMm": 0.25,
+        "penetrationMm": 0,
+        "point": [
+          -29,
+          38.25,
+          15.725
+        ],
+        "region": null
+      },
+      {
+        "a": {
+          "instanceId": "chassis",
+          "partType": "chassis",
+          "name": "Lower truck chassis"
+        },
+        "b": {
+          "instanceId": "wheel-rear-right",
+          "partType": "wheel",
+          "name": "65 mm wheel rear-right"
+        },
+        "declared": false,
+        "gapMm": 0.25,
+        "penetrationMm": 0,
+        "point": [
+          -29,
+          -38.25,
+          15.725
+        ],
+        "region": null
+      },
+      {
+        "a": {
           "instanceId": "electronics-deck",
           "partType": "electronics_deck",
           "name": "Electronics + battery deck"
@@ -1566,7 +1555,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1583,7 +1572,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1600,7 +1589,7 @@
           "partType": "wheel",
           "name": "65 mm wheel rear-left"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.967,
         "point": [
@@ -1632,7 +1621,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.333,
         "point": [
@@ -1664,7 +1653,7 @@
           "partType": "wheel",
           "name": "65 mm wheel rear-right"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.967,
         "point": [
@@ -1696,7 +1685,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.333,
         "point": [
@@ -1724,11 +1713,11 @@
           "name": "Motor clamp rear-left"
         },
         "b": {
-          "instanceId": "motor-rear-left",
-          "partType": "tt_motor",
-          "name": "TT motor rear-left"
+          "instanceId": "chassis",
+          "partType": "chassis",
+          "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1741,11 +1730,28 @@
           "name": "Motor clamp rear-left"
         },
         "b": {
+          "instanceId": "motor-rear-left",
+          "partType": "tt_motor",
+          "name": "TT motor rear-left"
+        },
+        "declared": false,
+        "gapMm": 0,
+        "penetrationMm": 0,
+        "point": null,
+        "region": null
+      },
+      {
+        "a": {
+          "instanceId": "clamp-rear-right",
+          "partType": "motor_clamp",
+          "name": "Motor clamp rear-right"
+        },
+        "b": {
           "instanceId": "chassis",
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1762,24 +1768,7 @@
           "partType": "tt_motor",
           "name": "TT motor rear-right"
         },
-        "declared": true,
-        "gapMm": 0,
-        "penetrationMm": 0,
-        "point": null,
-        "region": null
-      },
-      {
-        "a": {
-          "instanceId": "clamp-rear-right",
-          "partType": "motor_clamp",
-          "name": "Motor clamp rear-right"
-        },
-        "b": {
-          "instanceId": "chassis",
-          "partType": "chassis",
-          "name": "Lower truck chassis"
-        },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1796,7 +1785,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -1813,7 +1802,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -1845,7 +1834,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.663,
         "point": [
@@ -1877,7 +1866,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.663,
         "point": [
@@ -1909,7 +1898,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.333,
         "point": [
@@ -1941,7 +1930,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.333,
         "point": [
@@ -1973,7 +1962,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -2005,7 +1994,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.8,
         "point": [
@@ -2037,7 +2026,7 @@
           "partType": "electronics_deck",
           "name": "Electronics + battery deck"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -2065,7 +2054,7 @@
           "partType": "electronics_deck",
           "name": "Electronics + battery deck"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -2093,7 +2082,7 @@
           "partType": "tt_motor",
           "name": "TT motor front-left"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.967,
         "point": [
@@ -2116,6 +2105,48 @@
       },
       {
         "a": {
+          "instanceId": "wheel-front-left",
+          "partType": "wheel",
+          "name": "65 mm wheel front-left"
+        },
+        "b": {
+          "instanceId": "chassis",
+          "partType": "chassis",
+          "name": "Lower truck chassis"
+        },
+        "declared": false,
+        "gapMm": 0.25,
+        "penetrationMm": 0,
+        "point": [
+          29,
+          38.25,
+          15.725
+        ],
+        "region": null
+      },
+      {
+        "a": {
+          "instanceId": "wheel-front-right",
+          "partType": "wheel",
+          "name": "65 mm wheel front-right"
+        },
+        "b": {
+          "instanceId": "chassis",
+          "partType": "chassis",
+          "name": "Lower truck chassis"
+        },
+        "declared": false,
+        "gapMm": 0.25,
+        "penetrationMm": 0,
+        "point": [
+          29,
+          -38.25,
+          15.725
+        ],
+        "region": null
+      },
+      {
+        "a": {
           "instanceId": "wheel-front-right",
           "partType": "wheel",
           "name": "65 mm wheel front-right"
@@ -2125,7 +2156,7 @@
           "partType": "tt_motor",
           "name": "TT motor front-right"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0.967,
         "point": [
@@ -2157,7 +2188,7 @@
           "partType": "tt_motor",
           "name": "TT motor front-left"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -2174,24 +2205,7 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
-        "gapMm": 0,
-        "penetrationMm": 0,
-        "point": null,
-        "region": null
-      },
-      {
-        "a": {
-          "instanceId": "clamp-front-right",
-          "partType": "motor_clamp",
-          "name": "Motor clamp front-right"
-        },
-        "b": {
-          "instanceId": "motor-front-right",
-          "partType": "tt_motor",
-          "name": "TT motor front-right"
-        },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -2208,7 +2222,24 @@
           "partType": "chassis",
           "name": "Lower truck chassis"
         },
-        "declared": true,
+        "declared": false,
+        "gapMm": 0,
+        "penetrationMm": 0,
+        "point": null,
+        "region": null
+      },
+      {
+        "a": {
+          "instanceId": "clamp-front-right",
+          "partType": "motor_clamp",
+          "name": "Motor clamp front-right"
+        },
+        "b": {
+          "instanceId": "motor-front-right",
+          "partType": "tt_motor",
+          "name": "TT motor front-right"
+        },
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": null,
@@ -2225,7 +2256,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -2257,7 +2288,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -2289,7 +2320,7 @@
           "partType": "truck_body_lower",
           "name": "Classic pickup lower body"
         },
-        "declared": true,
+        "declared": false,
         "gapMm": 0,
         "penetrationMm": 0,
         "point": [
@@ -2309,90 +2340,6 @@
             71.591
           ]
         }
-      },
-      {
-        "a": {
-          "instanceId": "chassis",
-          "partType": "chassis",
-          "name": "Lower truck chassis"
-        },
-        "b": {
-          "instanceId": "wheel-rear-left",
-          "partType": "wheel",
-          "name": "65 mm wheel rear-left"
-        },
-        "declared": false,
-        "gapMm": 0.25,
-        "penetrationMm": 0,
-        "point": [
-          -29,
-          38.25,
-          15.725
-        ],
-        "region": null
-      },
-      {
-        "a": {
-          "instanceId": "chassis",
-          "partType": "chassis",
-          "name": "Lower truck chassis"
-        },
-        "b": {
-          "instanceId": "wheel-rear-right",
-          "partType": "wheel",
-          "name": "65 mm wheel rear-right"
-        },
-        "declared": false,
-        "gapMm": 0.25,
-        "penetrationMm": 0,
-        "point": [
-          -29,
-          -38.25,
-          15.725
-        ],
-        "region": null
-      },
-      {
-        "a": {
-          "instanceId": "wheel-front-left",
-          "partType": "wheel",
-          "name": "65 mm wheel front-left"
-        },
-        "b": {
-          "instanceId": "chassis",
-          "partType": "chassis",
-          "name": "Lower truck chassis"
-        },
-        "declared": false,
-        "gapMm": 0.25,
-        "penetrationMm": 0,
-        "point": [
-          29,
-          38.25,
-          15.725
-        ],
-        "region": null
-      },
-      {
-        "a": {
-          "instanceId": "wheel-front-right",
-          "partType": "wheel",
-          "name": "65 mm wheel front-right"
-        },
-        "b": {
-          "instanceId": "chassis",
-          "partType": "chassis",
-          "name": "Lower truck chassis"
-        },
-        "declared": false,
-        "gapMm": 0.25,
-        "penetrationMm": 0,
-        "point": [
-          29,
-          -38.25,
-          15.725
-        ],
-        "region": null
       }
     ],
     "routing": [],
@@ -2408,14 +2355,14 @@
       "loadMs": 36,
       "bvhMs": 1,
       "broadMs": 0,
-      "narrowMs": 811,
+      "narrowMs": 630,
       "connectivityMs": 0,
-      "printabilityMs": 673,
+      "printabilityMs": 539,
       "threadMs": 0,
       "accessMs": 0,
-      "matingMs": 835,
+      "matingMs": 620,
       "routingMs": 0,
-      "totalMs": 2356
+      "totalMs": 1826
     }
   }
 }

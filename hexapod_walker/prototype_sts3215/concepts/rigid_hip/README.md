@@ -868,7 +868,7 @@ npx buildviz push --project prototype_sts3215 --build rigid-hip \
     -m "<what changed>"
 # http://127.0.0.1:5183/?project=prototype_sts3215&build=rigid-hip
 # cloud mirror (BUILDVIZ_API_KEY from the k8s secret -- see AGENTS.md):
-uv run tools/push_cloud_buildviz.py --build-id prototype_sts3215/rigid-hip
+uv run ../../tools/push_cloud_buildviz.py --build-id prototype_sts3215/rigid-hip
 # https://buildviz.cwd1f0-new-cluster.coreweave.app/?project=prototype_sts3215&build=rigid-hip
 ```
 

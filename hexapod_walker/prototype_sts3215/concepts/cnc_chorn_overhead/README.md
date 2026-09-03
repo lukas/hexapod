@@ -284,7 +284,7 @@ npx buildviz push --project prototype_sts3215 --build cnc-chorn-overhead \
 # view: http://127.0.0.1:5183/?project=prototype_sts3215&build=cnc-chorn-overhead
 
 # cloud mirror (BUILDVIZ_API_KEY from the k8s secret -- see AGENTS.md):
-uv run tools/push_cloud_buildviz.py \
+uv run ../../tools/push_cloud_buildviz.py \
     --build-id prototype_sts3215/cnc-chorn-overhead
 # https://buildviz.cwd1f0-new-cluster.coreweave.app/?project=prototype_sts3215&build=cnc-chorn-overhead
 ```

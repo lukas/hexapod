@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mirror this project's current DEFAULT BuildViz version to the CLOUD hub.
+"""Mirror a BuildViz build's current default version to the cloud hub.
 
 Standing convention (Lukas, Aug 2026): every local `verify-buildviz` publish
 should also land on the CoreWeave-hosted BuildViz hub so the build is
@@ -23,7 +23,8 @@ Auth: the remote hub requires X-API-Key.  The key lives in BUILDVIZ_API_KEY
 Called from the Makefile at the end of `verify-buildviz` (failure-tolerant:
 a dead network must not fail the local verify), or standalone:
 
-    BUILDVIZ_API_KEY=... tools/push_cloud_buildviz.py [--build-id <id>]
+    BUILDVIZ_API_KEY=... uv run python tools/push_cloud_buildviz.py \
+        [--build-id <id>]
 """
 
 import argparse

@@ -44,6 +44,7 @@ it there -- never start a per-project dev server on 5173/etc:
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -77,6 +78,27 @@ FASTENERS_DIR = _HERE.parent / "fasteners"
 # hub cache via ``push --bump``.)
 SCENE_BUILD_ID = "prototype_sts3215"
 SCENE_ASSET_BASE = "stl"
+
+
+_MARKDOWN_LINK_RE = re.compile(
+    r"(?P<prefix>!?\[[^]]*\]\()(?P<target>[^)]+)(?P<suffix>\))"
+)
+
+
+def _rebase_project_markdown_links(text: str) -> str:
+    """Rebase project-relative links for a copy one directory deeper."""
+
+    def replace(match: re.Match[str]) -> str:
+        target = match.group("target")
+        if (
+            target.startswith(("#", "/"))
+            or "://" in target
+            or target.startswith("mailto:")
+        ):
+            return match.group(0)
+        return f"{match.group('prefix')}../{target}{match.group('suffix')}"
+
+    return _MARKDOWN_LINK_RE.sub(replace, text)
 
 # Joint screws to render (the leg "connecting" fasteners).  Bright colours
 # for the hip bolts so the coxa<->femur connection stands out.  Chassis-level
@@ -2314,7 +2336,13 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
     ):
         source = project_dir / source_name
         if source.exists():
-            shutil.copy2(source, OUT_DIR / dest_name)
+            destination = OUT_DIR / dest_name
+            if source_name == "PROTOTYPE.md":
+                destination.write_text(
+                    _rebase_project_markdown_links(source.read_text())
+                )
+            else:
+                shutil.copy2(source, destination)
 
     # Precompute the BuildViz checks sidecar (read on scene load).
     sidecar = _build_checks_sidecar(tagged, instances_json, chassis_lift)

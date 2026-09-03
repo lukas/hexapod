@@ -14,61 +14,7 @@
     "toleranceMm": 0.35,
     "clearanceMm": 0.8,
     "minWallMm": 1.5,
-    "matingToleranceMm": 1.1,
-    "ignoreOverlapPairs": [
-      [
-        "chassis",
-        "tt_motor"
-      ],
-      [
-        "chassis",
-        "motor_clamp"
-      ],
-      [
-        "chassis",
-        "electronics_deck"
-      ],
-      [
-        "motor_clamp",
-        "tt_motor"
-      ],
-      [
-        "electronics_deck",
-        "l298n_board"
-      ],
-      [
-        "tt_motor",
-        "wheel"
-      ],
-      [
-        "truck_body_lower",
-        "electronics_deck"
-      ],
-      [
-        "truck_body_lower",
-        "truck_hood"
-      ],
-      [
-        "truck_body_lower",
-        "truck_roof"
-      ],
-      [
-        "truck_body_lower",
-        "truck_glazing"
-      ],
-      [
-        "truck_body_lower",
-        "truck_grille"
-      ],
-      [
-        "truck_body_lower",
-        "headlight"
-      ],
-      [
-        "truck_body_lower",
-        "taillight"
-      ]
-    ]
+    "matingToleranceMm": 1.1
   },
   "meshes": [
     {

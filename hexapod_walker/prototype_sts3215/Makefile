@@ -145,7 +145,7 @@ buildviz-horn-compression-limiters:
 		--name "STS3215 horn compression-limiter experiment" \
 		--bump --upload-assets \
 		--message "load spacer dimensions from editable config; retain coupon-tested bore"
-	-$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+	-$(RUN) tools/push_cloud_buildviz.py \
 		--build-id prototype_sts3215/horn-compression-limiters || \
 		echo "    WARNING: cloud mirror failed; local compression-limiter build is unaffected"
 
@@ -166,7 +166,7 @@ buildviz-premade-chorn-56:
 		--name "STS3215 premade 56 mm C-horn experiment" \
 		--bump --upload-assets \
 		--message "replace circled coxa rail with solid servo-tab block"
-	-$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+	-$(RUN) tools/push_cloud_buildviz.py \
 		--build-id prototype_sts3215/premade-chorn-56 || \
 		echo "    WARNING: cloud mirror failed; local premade-chorn build is unaffected"
 
@@ -302,14 +302,14 @@ verify-buildviz:
 		echo ">>> (skipping expensive swept self-overlap test; pass SWEEP=1 to run it)"; \
 	fi
 	@echo ">>> Mirroring the new default version to the CLOUD hub (standing convention, Aug 2026)..."
-	-$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+	-$(RUN) tools/push_cloud_buildviz.py \
 		--build-id $(BUILDVIZ_BUILD_ID) || \
 		echo "    WARNING: cloud mirror failed (offline / no BUILDVIZ_API_KEY?) -- local publish is unaffected; run 'make push-cloud' later"
 
 # Mirror the current local default version to the CoreWeave cloud hub by hand
 # (verify-buildviz already does this automatically at the end).
 push-cloud:
-	$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+	$(RUN) tools/push_cloud_buildviz.py \
 		--build-id $(BUILDVIZ_BUILD_ID)
 
 # ---------------------------------------------------------------------------

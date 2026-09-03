@@ -110,7 +110,12 @@ hub PROJECT also groups sibling builds:
 `prototype_sts3215/cnc-chorn-overhead` (CNC C-clamp legs-over-head
 concept, `concepts/cnc_chorn_overhead`),
 `prototype_sts3215/chassis-reinforcement-test`, and
-`prototype_sts3215/tibia-yoke-reinforcement-test`. The old standalone
+`prototype_sts3215/tibia-yoke-reinforcement-test`. Additional isolated
+concept builds are `prototype_sts3215/cnc-chorn-two-piece`,
+`prototype_sts3215/fsr-sensor-foot`,
+`prototype_sts3215/horn-compression-limiters`, and
+`prototype_sts3215/premade-chorn-56`; see
+`hexapod_walker/prototype_sts3215/concepts/README.md` for the catalog. The old standalone
 concept project ids were retired and deleted locally, but the cloud hub
 has no delete endpoint, so STALE copies linger there — ignore:
 `cnc_chorn_overhead` (retired 2026-08-27), `sts3215-rigid-hip`

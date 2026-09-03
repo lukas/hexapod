@@ -1,0 +1,3 @@
+[submodule "hexapod_walker/prototype_sts3215/hexapod-tracker"]
+	path = hexapod_walker/prototype_sts3215/hexapod-tracker
+	url = https://github.com/lukas/hexapod-tracker.git

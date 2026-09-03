@@ -25,7 +25,12 @@ from avfoundation_capture import AVFoundationYuvCapture  # noqa: E402
 
 ROBOT_TAG_IDS = set(range(13))
 FLOOR_TAG_IDS = {20, 21, 22}
-CONFIG_PATH = HERE / "apriltag_pose_config_20260831.json"
+CONFIG_PATH = (
+    HERE.parent
+    / "hexapod-tracker"
+    / "configs"
+    / "apriltag_pose_config_20260831.json"
+)
 
 
 class _ClosedCapture:

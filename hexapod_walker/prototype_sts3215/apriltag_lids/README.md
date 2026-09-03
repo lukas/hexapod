@@ -24,7 +24,8 @@ white and black regions, so the camera-facing surface has no raised pixels or
 raised lettering.
 
 IDs 1-6 match `L0_coxa` through `L5_coxa`; IDs 7-12 match `L0_femur` through
-`L5_femur` in `linux_control/housing_pose_config.example.json`. IDs 13-16 are
+`L5_femur` in `hexapod-tracker/configs/housing_pose_config.example.json`.
+IDs 13-16 are
 extra numbered covers in the same clamp-cap geometry; they are not assigned
 to motor caps by the current pose configuration. Tag 0 and the tibia/yaw
 locations need different mount geometry.

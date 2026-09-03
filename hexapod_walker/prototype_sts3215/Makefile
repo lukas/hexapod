@@ -338,16 +338,16 @@ web-8898-logs:
 	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" logs
 
 vision-build:
-	cd "$(CURDIR)/linux_control/vision_ui" && npm install && npm run build
+	$(MAKE) -C "$(CURDIR)/hexapod-tracker" web-build
 
 vision-check:
-	cd "$(CURDIR)/linux_control/vision_ui" && npm run typecheck
-	cd "$(CURDIR)" && uv run pytest -q \
+	$(MAKE) -C "$(CURDIR)/hexapod-tracker" check
+	cd "$(CURDIR)" && uv run --project hexapod-tracker --extra dev pytest -q \
 		linux_control/test_vision_server.py \
-		linux_control/test_apriltag_vision.py
+		linux_control/test_gait_survey.py
 
 vision:
-	@test -f "$(CURDIR)/linux_control/vision_ui/dist/index.html" || \
+	@test -f "$(CURDIR)/hexapod-tracker/web/vision_ui/dist/index.html" || \
 		$(MAKE) vision-build
 	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" start
 	@command -v open >/dev/null 2>&1 && open "http://127.0.0.1:8898/vision" || true

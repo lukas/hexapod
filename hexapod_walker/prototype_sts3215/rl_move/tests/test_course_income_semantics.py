@@ -165,15 +165,26 @@ def _mesh_family():
 
 def _rollout(drive: str, stack: dict, seconds: float = EP_SECONDS,
              seed: int = 0) -> tuple[float, dict]:
-    # sim_gait_compat: the hardware-proven teacher dialect used by
-    # probe_dir_floor / build_motion_library on the mesh family.
+    # 2026-09-02 joint-frame-v2 fix: was `from sim_gait_compat import
+    # TripodGait` (the doc comment's claim that probe_dir_floor /
+    # build_motion_library use that dialect on mesh is now STALE --
+    # both migrated to the raw hexapod_core.tripod_gait module in the
+    # b7e7ea05 unification, same as this rollout now). Driving
+    # env.step() with sim_gait_compat's mujoco-relative output is
+    # actively WRONG post-migration: env.step()'s action pipeline
+    # unconditionally converts a robot_abs action to mujoco_rel before
+    # physics now, so a value that is ALREADY mujoco_rel gets a second,
+    # spurious hip subtraction (measured: sideways/backward/overdrive
+    # rewards were off by 20-140% under the old import; switching to
+    # the raw dialect + WALK_PLANT=(20,100) recovers pre-migration
+    # reward levels within ~5-20%, see probe_walk_income.WALK_PLANT).
     from rl_move.config import load_config
     from rl_move.robot_state import DEG2RAD
     from rl_move.sim.joint_task import q_rad_to_action
     from rl_move.sim.servo_model import SimServoParams
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
     from rl_move.sim.probe_walk_income import WALK_PLANT
-    from sim_gait_compat import TripodGait
+    from hexapod_core.tripod_gait import TripodGait
 
     cfg = load_config()
     for (sec, leaf), val in stack.items():

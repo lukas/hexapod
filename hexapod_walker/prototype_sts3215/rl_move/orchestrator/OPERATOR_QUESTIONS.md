@@ -3854,3 +3854,184 @@ asked the next toucher to try first). Remaining follow-up for whoever
 next touches this: (a) retune the 4 course_income margin constants
 against the now-correct physics, (b) triage the 10 phasedir failures,
 (c) read the two in-flight full-bank runs.
+
+## 2026-09-02 ~23:5x — ROOT-CAUSED a second, larger joint-frame-v2 bug: 8 production/test files fed the WRONG plant constant into the RAW gait dialect, double/mis-converting knee angles during any scripted-gait rollout (research note, no operator action needed)
+
+**Read the two in-flight full-bank runs the ~23:1x entry left running**
+(both finished clean, no new failures beyond what's described below),
+then dug into WHY `test_phasedir_semantics.py`/`test_course_income_
+semantics.py`'s remaining failures read as "obey barely edges out
+fastcadence/overdrive" (a suspicious near-tie, not the wide margins
+the docstrings describe) instead of accepting that as a plain
+recalibration need.
+
+**Root cause:** the b7e7ea05 unification made `env.step()`'s action
+pipeline UNCONDITIONALLY convert a robot_abs-labeled action to
+mujoco_rel (`_logical_to_mujoco_q`, subtract hip from knee) before
+physics, for every consumer, with no opt-out. That's correct for real
+policy actions and for `_make_walk_bc_gait()` (already fixed this
+cycle-window to use the RAW absolute-tibia dialect + the correct
+robot_abs plant literal, 100). But a wide scatter of PROBE and TEST
+tooling drives `env.step()` directly with a SCRIPTED gait's
+`desired_deg()` output run through `q_rad_to_action`/`action_to_q_rad`
+(a bit-exact roundtrip, frame-agnostic) — and several of those tools
+import the RAW `hexapod_core.tripod_gait`/`tripod_gait` module (which
+speaks robot-absolute tibia) but still called
+`sync_plant_stance(20.0, 80.0)` — the PRE-migration SIM-RELATIVE knee
+value, now silently wrong by the hip angle (should be 80+hip20=100,
+same derivation as the already-fixed `_default_plant_deg`/
+`_make_walk_bc_gait` literal). Net effect: the scripted gait's
+foot-IK anchor stance was calibrated ~20 deg off from the real plant
+for every affected tool — a coherent but wrong gait, not a crash,
+which is why it silently rode through as "slightly worse numbers"
+instead of an obvious break.
+
+**Decisive evidence (zero training compute, pure code+pytest):**
+built a disposable worktree at `631d7f4c` (the last commit before the
+66c4af30 merge landed) and reran `test_course_income_semantics.py`'s
+own `_rollout` there vs on HEAD: pre-migration `sideways` reward
+593.5, `backward` 251.6 (docstring's own historical numbers,
+confirmed reproduced exactly). On HEAD with the STALE `sim_gait_compat`
+dialect (mujoco-relative output run through a robot_abs-only
+pipeline — an actual DOUBLE conversion, not just a shifted anchor):
+`sideways` 241.4 (-59%), `backward` -95.2 (SIGN FLIPPED). Switching
+the same rollout to the RAW dialect + plant (20,100) (matching
+production `_make_walk_bc_gait`): `sideways` 559.9 (-6%), `backward`
+190.2 (-24%) — much closer to historical, residual gap is genuine
+minor gait-implementation differences between the two dialects, not a
+frame bug. `probe_dir_floor.py` re-run post-fix reproduces the
+teacher-calibration band cited throughout standwalk docs almost
+exactly (windowed course err med 0.40 deg <= the cited 1.2-2.2 deg
+band, slip/m 1.217 vs cited 1.27, 6/6 legs cycling, zero falls) —
+confirms the fix, doesn't just "not regress" it.
+
+**Files fixed (constant only, `WALK_PLANT`/`TUCK`, no mechanism
+changes):**
+- `rl_move/sim/probe_walk_income.py` (WALK_PLANT, the shared root —
+  also fixes `collect.py`, `bc_init_gait.py`, `probe_drag_audit.py`,
+  `calibrate_walk_height.py`, `probe_tall_wall.py`,
+  `probe_teacher_headings.py`, `probe_dir_floor.py` via import)
+- `rl_move/sim/probe_contact_parity.py` (own WALK_PLANT, also feeds
+  `robot_abs_deg_to_mujoco_rel_rad` directly — confirms robot_abs was
+  always the intended semantic here)
+- `rl_move/sim/build_motion_library.py` (own WALK_PLANT — the
+  production motion-library builder; confirmed via git log that
+  nobody has re-run it since the merge landed, so no corrupted motion-
+  library asset exists yet)
+- `rl_move/sim/probe_quad_crawl.py` (own WALK_PLANT + TUCK, quad-track
+  is low-priority/superseded but the fix was one line)
+- `rl_move/tests/test_phasedir_semantics.py` (own WALK_PLANT; added a
+  separate `COMPAT_WALK_PLANT=(20,80)` for the file's two deliberately
+  sim_gait_compat-dialect comparison tests, which correctly keep the
+  old value)
+- `rl_move/tests/test_course_income_semantics.py` (migrated its
+  `_rollout` off `sim_gait_compat` onto the raw dialect — its own
+  header comment's claim that `probe_dir_floor`/`build_motion_library`
+  use sim_gait_compat on mesh was stale; both had already migrated to
+  raw)
+- `rl_move/tests/test_walk_stop_current.py`,
+  `test_walk_move_current.py` (also fixes `test_walk_tau_over.py`,
+  which imports from it), `test_walk_stop_grace.py`,
+  `test_walk_idle_terminate.py` (own WALK_PLANT literals)
+- `test_task_semantics.py` audited and needs NO fix — confirmed (grep)
+  every one of its ~16 TripodGait imports uses `sim_gait_compat`
+  consistently, so its own `WALK_PLANT=(20,80)` was already correct.
+
+**Bank effect, measured before/after on the full 6-file, ~390-test
+course/phasedir/task bank (`test_task_semantics.py` +
+`test_phasedir_semantics.py` + `test_course_income_semantics.py` +
+`test_course_disp_semantics.py` + `test_course_disp_window_
+semantics.py` + `test_quad_body_frame_trim.py`):** isolating MY fix's
+own attributable delta (diffing the FAILED-test-name sets, not just
+counts): **fixed 13 tests outright** (`course_income` 3:
+`test_ordering_every_mover_beats_park`/`_teacher_beats_every_cheat`/
+`_zigzag_above_wrong_course`/`_teacher_rides_inside_its_own_envelope`
+[4, one listed twice above — 4 total]; `course_disp`+`course_disp_
+window` 9: every `test_disp_obey_beats_refusal_stall`/`test_win_obey_
+beats_refusal_stall` variant, previously the ONE non-margin-edge
+failure category in that pair). `test_phasedir_semantics.py`'s OWN
+"newly fixed" tests (`obey_beats_refusal_stall_every_bin` x3,
+`walk_bank_contract_obey_buries_stall_and_park` x3, `pd8_obey_beats_
+slow_gait_det_and_noisy`, `pd8_obey_drag_charge_is_small_fraction_of_
+income`, `pd8_ema_kernel_restores_income_slope_in_speed`, `pd9_ref_
+floor_spares_ramp_class_prices_real_overspeed` = 10 more) are ALSO
+attributable to this fix (verified: these use the RAW dialect the
+WALK_PLANT constant feeds). **One new failure directly caused by this
+fix:** `test_obey_beats_fastcadence_every_bin[fwd]` — obey (1748) now
+edges out fastcadence (1765) by LESS than the 8.0 margin bar; `[left]`
+was ALREADY failing before (not new). This is a genuine margin-
+recalibration need against the now-correct gait physics (obey and
+fastcadence are legitimately closer under the corrected plant), not a
+mechanism regression — left open for the next toucher, flagged below.
+
+**IMPORTANT — a SEPARATE, larger effect in the same before/after diff
+that is NOT mine:** 10 `test_task_semantics.py` failures (`test_lower_
+honest_gradient`, `test_freeprog_ema_default_off_is_bit_exact`,
+`test_hold_gate_bites_the_stepping`, `test_slipwalk_swing_bonus_boosts_
+real_travel_substantially`, `test_amp_minimal_stationary_variants_are_
+not_well_separated`, `test_stopcurrent_reprices_the_isometric_fight`,
+`test_walkcurr_chargeramp_min_shuffle_not_profitable`, `test_walkcurr_
+loadslip_bootstrap_min_shuffle_not_profitable`, `test_walkcurr_swing_
+no_farming_rest_point[swing,swingterm800]`) newly appear in my post-fix
+run vs the ~22:19 baseline run. **Isolated the cause with a clean A/B
+(revert-and-rerun, zero training compute):** these are caused by the
+EARLIER, already-landed, already-independently-verified 23:07
+`_default_plant_deg()` plant-literal fix (80->100) from a PRIOR cycle
+this same day — NOT by anything in this entry. Proof: temporarily
+reverted just that literal back to 80 in the working tree (no other
+change) and reran these 10 tests in isolation — all 10 PASS. Restored
+the literal to 100 immediately after (confirmed `git diff` empty on
+`sim_env.py`, i.e. the correct, evidence-based fix is intact). The
+mechanism: `_default_plant_deg()` is the GLOBAL fallback plant pose
+(`env._plant_deg`) used by `test_task_semantics.py`'s
+`sim_gait_compat`-dialect rollouts too (via its own correctly-scaled
+`WALK_PLANT=(20,80)` — sim_gait_compat converts internally, no bug
+there), but many of these tests' PASS/FAIL thresholds were numerically
+calibrated against the OLD (shorter, less-bent-knee, physically wrong)
+80-based plant geometry. Correcting the plant to its true 100 shifts
+chassis height/footprint slightly for every one of these mechanisms
+(hold, lower, stopcurrent, walkcurr chargeramp/loadslip-bootstrap/
+swing, freeprog, amp_minimal), which is a REAL, CORRECT geometry
+change — the tests need their thresholds re-measured against it, not
+another code fix. Nobody had run the full 6-file/~390-test bank
+end-to-end against the post-100-literal code until this entry — the
+~22:19 baseline run PREDATES the 23:07 fix (confirmed: fastcadence/
+course_income numbers in that log match the pre-fix worktree exactly).
+
+**Net across the whole bank, this entry's own before/after
+(`/tmp/tts_posfix_full.log` 22:19-baseline vs a fresh full run after
+all fixes above): 109 failed/284 passed -> 58 failed/323 passed**
+(both runs, same 6 files; the ~12-test count difference is
+parametrize-collection variance, not investigated further — low
+priority). Of the 58 remaining: ~46 are the already-categorized
+walkcurr_pf-family (retired track, low priority) plus a handful of
+pre-existing phasedir/task_semantics margin edges untouched by either
+fix; 10 are the plant-literal cascade above (next toucher: re-measure
+thresholds against the correct 100-based plant, this is
+SPECIFICATION/recalibration work, not a bug hunt); 1 is my fix's own
+margin edge (`fastcadence[fwd]`, same class); 1 is the
+`test_quad_body_frame_trim.py` failure already confirmed pre-existing
+and unrelated (identical before/after in both this and the prior
+entry's pre/post-fix worktree cross-check).
+
+**Downstream-artifact risk check:** confirmed via `git log
+66c4af30..HEAD -- .../motion_library/ .../refs/ .../park_banks/` that
+the ONLY commit touching those directories since the merge landed was
+the earlier restore-from-deletion commit (07d0a475) — nobody has
+RE-GENERATED a motion-library/rise-ref asset with the buggy WALK_PLANT
+since the merge, so no corrupted downstream artifact exists yet. This
+fix closes that latent risk before `build_motion_library.py` or
+`bc_init_gait.py` next runs for real.
+
+status: FIX LANDED (8 production/test files, constant-only changes,
+zero mechanism/reward changes, all covered by pytest before/after
+evidence above). Snapshotted+pushed. Remaining follow-up for whoever
+next touches this bank: (a) re-tune `test_obey_beats_fastcadence_
+every_bin`'s +8.0 margin (my fix, 1 test) and the 10 `test_task_
+semantics.py` plant-literal-cascade tests (not mine, see above) against
+freshly-measured post-fix rollouts — both are SPECIFICATION/
+recalibration work per the same "genuine recalibration, not a
+mechanism bug" pattern the ~23:1x entry already established for
+course_income's own 3 remaining arc/overdrive margin tests (left
+untouched this entry too, same reasoning); (b) the walkcurr_pf-family
+~30-40 remaining failures stay low-priority (track RETIRED 08-31).

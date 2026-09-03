@@ -62,7 +62,14 @@ from rl_move.sim.servo_model import (  # noqa: E402
 
 DEG2RAD = math.pi / 180.0
 DT_CTRL = 0.04
-WALK_PLANT = (20.0, 80.0)
+# 2026-09-02 joint-frame-v2 fix: WALK_PLANT is fed to
+# robot_abs_deg_to_mujoco_rel_rad below AND to the raw
+# hexapod_core.tripod_gait.TripodGait (robot-absolute dialect) in
+# build_stream -- both want the robot-absolute value. The pre-
+# migration (20, 80) was the SIM-RELATIVE knee; its robot-absolute
+# equivalent is 80 + hip 20 = 100 (see probe_walk_income.WALK_PLANT
+# for the full derivation/evidence, same fix applied there).
+WALK_PLANT = (20.0, 100.0)
 from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad
 
 PLANT_MODEL_RAD = robot_abs_deg_to_mujoco_rel_rad(

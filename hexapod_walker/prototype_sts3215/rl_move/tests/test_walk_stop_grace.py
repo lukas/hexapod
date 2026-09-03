@@ -42,7 +42,11 @@ from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)
+# 2026-09-02 joint-frame-v2 fix: raw hexapod_core.tripod_gait dialect
+# (robot-absolute), was the pre-migration sim-relative (20.0, 80.0);
+# robot-abs equivalent = 80+hip 20 = 100 (see
+# probe_walk_income.WALK_PLANT for the derivation/measured evidence).
+WALK_PLANT = (20.0, 100.0)
 
 FC_GOAL = {
     ("goal", "walk_yaw_cmd"): 1.0,

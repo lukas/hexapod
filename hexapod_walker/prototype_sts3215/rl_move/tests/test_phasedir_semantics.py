@@ -101,7 +101,26 @@ from rl_move.robot_state import DEG2RAD                     # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action          # noqa: E402
 from rl_move.sim.servo_model import SimServoParams          # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)
+# 2026-09-02 joint-frame-v2 fix: this bank drives the RAW
+# hexapod_core.tripod_gait dialect (see header note above -- "raw
+# hardware tripod_gait module, NOT sim_gait_compat"), which speaks
+# robot-absolute tibia. The pre-migration (20.0, 80.0) was the
+# SIM-RELATIVE knee; fed raw (unconverted) it under-bends the knee by
+# the hip angle every tick once env.step()'s action pipeline started
+# unconditionally converting robot_abs->mujoco_rel (b7e7ea05,
+# 2026-08-31/merged 09-02). Robot-abs equivalent = 80+hip 20 = 100
+# (see probe_walk_income.WALK_PLANT for the cross-checked derivation:
+# an env-info-breakdown A/B against a pre-migration worktree showed
+# reward_current/drag/loadslip_excess/roll all measurably worse under
+# the stale 80, and switching to 100 recovers pre-migration reward
+# levels within ~10-20%, the residual being genuine minor gait-detail
+# differences, not a frame error).
+WALK_PLANT = (20.0, 100.0)
+# A minority of this file's tests deliberately drive the LEGACY
+# sim_gait_compat dialect (a bit-exact-default / cross-dialect
+# comparison, not the bank's main raw-gait rollout) -- that wrapper
+# still means sim-relative knee, so it keeps the pre-migration value.
+COMPAT_WALK_PLANT = (20.0, 80.0)
 CMD_SPEED = 0.08                 # the staged line's ONE fixed speed
 ATTR_SPEED = 0.139               # phasedir1's measured overspeed attractor
 SKEW_DEG = 50.0                  # phasedir1's excess course error class
@@ -508,7 +527,7 @@ def test_course_charge_spares_honest_sway_charges_wrongway():
         env.reset()
         traj, n = _pin_command(env, math.pi)     # rear command
         gait = TripodGait(vx=0.0)
-        gait.sync_plant_stance(*WALK_PLANT)
+        gait.sync_plant_stance(*COMPAT_WALK_PLANT)
         gait.reset_phase()
         tot, keys, step, t_gait = 0.0, 0, 0, 0.0
         while True:
@@ -608,7 +627,7 @@ def test_bc_anchor_phase_lock_matches_command_gated_clock():
     # convention-corrected compat gait).
     targets_off, traj_off, dt_off = run(None)
     legacy = CompatGait(vx=0.0)
-    legacy.sync_plant_stance(*WALK_PLANT)
+    legacy.sync_plant_stance(*COMPAT_WALK_PLANT)
     legacy.reset_phase()
     n = len(traj_off.vx)
     for tick, tgt in targets_off:

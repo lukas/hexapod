@@ -89,8 +89,14 @@ for p in (str(_PROTO), str(_PROTO / "linux_control")):
 from rl_move.config import load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)
-TUCK = np.array([0.0, -1.10, 2.40])   # feasibility FRONT_POSES["tuck"]
+# 2026-09-02 joint-frame-v2 fix: WALK_PLANT feeds the RAW
+# hexapod_core.tripod_gait dialect (robot-absolute); was the
+# pre-migration sim-relative (20.0, 80.0), equivalent robot-abs =
+# 80+hip 20 = 100 (see probe_walk_income.WALK_PLANT for derivation).
+# TUCK likewise moved to its robot-abs form (sim_env._QUAD_TUCK_ROBOT_RAD
+# = (0.0, -1.10, 1.30), same 09-02 fix, same rename there).
+WALK_PLANT = (20.0, 100.0)
+TUCK = np.array([0.0, -1.10, 1.30])   # feasibility FRONT_POSES["tuck"]
 LIFT_LEGS = (0, 5)
 MID_LEGS = (1, 4)
 # The stack the quad lineage trains with (cw-quad-hold2 cfg-sets).

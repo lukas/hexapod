@@ -72,7 +72,20 @@ from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)
+# 2026-09-02 joint-frame-v2 fix: this constant feeds the RAW
+# hexapod_core.tripod_gait.TripodGait (robot-absolute tibia) via
+# sync_plant_stance below, whose output is stepped through env.step()
+# -- which now ALWAYS converts a robot_abs action through
+# _logical_to_mujoco_q before physics (post-b7e7ea05 unification). The
+# pre-migration value here (20, 80) was the SIM-RELATIVE knee (the
+# sim_gait_compat dialect's convention); fed raw it under-bends the
+# knee by the hip angle every tick, a real ~20+ deg error during any
+# non-trivial gait (confirmed by an env-info-breakdown A/B against a
+# pre-migration worktree, 09-02: reward_current/drag/loadslip_excess/
+# roll all measurably worse under the stale 80). Robot-absolute
+# equivalent = 80 + hip 20 = 100 (see sim_env._default_plant_deg's
+# derivation of the same fix for the training-side plant literal).
+WALK_PLANT = (20.0, 100.0)
 CMD_V = 0.055           # mid of the trained 0.05-0.06 band
 EPISODE_S = 15.0
 

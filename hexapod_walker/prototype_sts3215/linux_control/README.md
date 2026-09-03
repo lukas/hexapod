@@ -112,6 +112,62 @@ Identical repeats (a poll loop hitting the same failure) are deduped
 to once per 10 s. Browse the recent ones without SSH:
 `GET /api/errors?n=100`.
 
+### Toggleable full telemetry + foot-contact observer
+
+The command/error event log above is always on. A separate high-rate JSONL
+recorder can be started or stopped while another web test is already running:
+
+```bash
+# Start a named session. 50 Hz is the default and the recommended first run.
+curl -s -X POST http://hexapod.local:8080/api/telemetry \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"start","label":"floor-gait-1","max_hz":50}'
+
+# Optional timestamped annotation while it runs.
+curl -s -X POST http://hexapod.local:8080/api/telemetry \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"mark","label":"front-left-dragged"}'
+
+# Status is in-memory only; it causes no bus traffic.
+curl -s http://hexapod.local:8080/api/telemetry
+
+curl -s -X POST http://hexapod.local:8080/api/telemetry \
+  -H 'Content-Type: application/json' -d '{"action":"stop"}'
+```
+
+Sessions are saved as `logs/telemetry_<UTC>_<label>.jsonl`, appear in
+`GET /api/logs`, and are never automatically pruned. Each line contains all
+state that the active operation already made available: commanded joints,
+encoder position/speed, full current/load/voltage/temperature feedback, IMU,
+or power summary as applicable. Tests that only write commands produce
+command-only records; the recorder deliberately does not insert a feedback
+read behind their backs.
+
+This timing isolation is structural: the bus callback only attempts a bounded
+in-memory enqueue. JSON encoding, the five-reading contact filter, and file
+writes run on a background thread. High-rate command/snapshot records are
+capped at `max_hz` (1–100 Hz); richer full-feedback, IMU, power, and marker
+records are always accepted when observed. If storage cannot keep up, the
+queue drops samples instead of blocking motion. Check `rate_limited` for
+intentional sampling and `queue_dropped`/`write_error` for actual loss.
+
+On stream-capable MCU firmware, a due sample on an ordinary SyncWrite uses the
+existing combined `S` write+snapshot command instead of `W`. The servo command
+and cached encoder/speed/IMU reply share one transaction—there is no second
+polling transaction or competing reader. The reply is longer than `W`'s `OK`,
+so `max_hz` also bounds that transport overhead. This is the same combined path
+used by the 100 Hz RL controller; the recorder defaults to 50 Hz.
+
+Set `HEXAPOD_TELEMETRY_AUTO=1` to start an `auto` session with the web service,
+and optionally set `HEXAPOD_TELEMETRY_HZ` or `HEXAPOD_TELEMETRY_QUEUE`. Manual
+start is the safer default because persistent logs consume disk indefinitely.
+
+The six `contact` probabilities in the records are from the simulation-trained
+observer documented in `../rl_move/CONTACT_PREDICTOR_EVAL.md`. They are for
+physical validation only: `observer_only=true` and `gait_gating=false` are
+written into both status and every estimate. Nothing in this recorder changes
+a gait or declares a leg safe to unload.
+
 ### Phone-video diagnosis
 
 When a run fails, save the phone video and generate timestamped stills plus a

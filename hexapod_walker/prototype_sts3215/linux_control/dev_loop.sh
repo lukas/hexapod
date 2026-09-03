@@ -81,6 +81,7 @@ files = [
     "linux_control/cpg_controller_loader.py",
     "linux_control/mcu_feetech_bus.py",
     "linux_control/event_log.py",
+    "linux_control/telemetry_recorder.py",
     "linux_control/status_display.py",
     "linux_control/deploy_status_display.py",
     "linux_control/video_contact_sheet.py",
@@ -94,6 +95,7 @@ files = [
     "linux_control/plant_calibrate.py",
     "linux_control/geometry_plant.py",
     "linux_control/test_geometry_sweep_fit.py",
+    "linux_control/test_telemetry_recorder.py",
     "linux_control/imu_calibrate.py",
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
@@ -296,6 +298,7 @@ hex_unit_check() {
   (
     hex_py linux_control/test_calibration_checkup.py &&
     hex_py linux_control/test_mcu_stream.py &&
+    hex_py linux_control/test_telemetry_recorder.py &&
     hex_py linux_control/test_geometry_sweep_fit.py &&
     hex_py linux_control/test_quad_pitch_trim.py &&
     hex_py linux_control/test_safe_zero.py &&
@@ -388,6 +391,7 @@ hex_remote_compile() {
       linux_control/api/*.py \
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
+      linux_control/telemetry_recorder.py \
       hexapod_core/walk_ready_transition.py \
       linux_control/rl_walk_start.py \
       motor_setup/inplace_demos.py \

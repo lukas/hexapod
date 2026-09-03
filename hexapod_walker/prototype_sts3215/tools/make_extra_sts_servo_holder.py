@@ -6,8 +6,9 @@ apart in a square. The bottom should be 8mm thick").
 
 The holder is the CURRENT production hip cradle -- the exact "top part"
 of the merged ``coxa_link`` (``_sandwich_fixed_side(end_face_bolts=False,
-wire_exit=False, rear_tab=True)``: 4-wall clamshell, output-face lip with
-the 4 front-case self-tap counterbores, clamp-cap pilots for a
+wire_exit=False, rear_tab=True)``: clamshell, output-face lip with the
+open Phi 24 horn service slot + 3 retained front-case self-tap counterbores,
+clamp-cap pilots for a
 ``servo_clamp_cap.stl``, and the rear retention tab) -- in the same
 orientation it has on the coxa (solid long wall DOWN, clamp mouth UP,
 output axis horizontal), SUNK into a base plate spanning the cradle
@@ -31,7 +32,7 @@ shafts).  Plastic under the head is ~4.6 mm, so an M3 x 8 leaves
 ~3.4 mm of thread proud of the base bottom (M3 x 10 -> ~5.4 mm).
 
 Assembly: bolt the base down, drop the 4 base screws first, seat the
-servo, close with ``servo_clamp_cap.stl`` (2x M3), then the 4x M2.5x6
+servo, close with ``servo_clamp_cap.stl`` (2x M3), then the 3x M2.5x6
 front-case self-tappers and 2x M2.5x6 into the rear tab.
 
 EXTRA part: not in the production print set, the scene, or the BOM.
@@ -128,8 +129,8 @@ def main() -> None:
           "base material between the bores (solid)")
     # The cradle's own motor-screw features survive: front-case bores.
     fc = [(fx, -(hp.WELL_H - hp.FRONT_CASE_CBORE_DEPTH / 2.0), fy + dz)
-          for fx, fy in hp.servo_front_case_hole_centres()]
-    probe(fc, False, "front-case screw counterbores (void)")
+          for fx, fy in hp.servo_holder_front_case_hole_centres()]
+    probe(fc, False, "3 retained front-case screw counterbores (void)")
 
     path = os.path.join(OUT_DIR, OUT_NAME)
     mesh.export(path)
@@ -141,7 +142,7 @@ def main() -> None:
           f"{MOUNT_SQUARE:.0f} x {MOUNT_SQUARE:.0f} square, heads pocketed "
           f"flush at the floor")
     print("Print base-down.  Pairs with servo_clamp_cap.stl + 2x M3, "
-          "4x M2.5x6 front-case self-tappers, 2x M2.5x6 rear-tab screws, "
+          "3x M2.5x6 front-case self-tappers, 2x M2.5x6 rear-tab screws, "
           "4x M3x8 base screws (dropped in before the servo).")
 
 

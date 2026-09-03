@@ -145,6 +145,17 @@ def _mk_bus(reply: bytes) -> McuFeetechBus:
     return bus
 
 
+class SnapshotSink:
+    def __init__(self):
+        self.offered = []
+
+    def wants_snapshot(self):
+        return True
+
+    def __call__(self, kind, payload):
+        self.offered.append((kind, payload))
+
+
 def _scan_reply(ids: list[int]) -> bytes:
     return ("OK " + ",".join(str(sid) for sid in ids) + "\n").encode("ascii")
 
@@ -191,6 +202,28 @@ def test_step_all_round_trip():
     assert abs(imu["gy_dps"] + 1.0) < 1e-6
     # Position cache refreshed for read_position_deg fast hits.
     assert abs(bus._pos_cache[0] - count_to_deg(0, 2048)) < 1e-9
+
+
+def test_step_all_offers_passive_command_and_snapshot():
+    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
+    servos = [(2 + j, 1, 2048 + j, 20) for j in range(18)]
+    reply = _fw_snapshot_frame(
+        _fw_snapshot_payload(9, 3, 2, imu_raw, servos), 18)
+    bus = _mk_bus(reply)
+    offered = []
+    bus.set_telemetry_sink(lambda kind, payload: offered.append((kind, payload)))
+
+    command = [float(j) for j in range(N_JOINTS)]
+    assert bus.step_all(command, speed=400, acc=20) is not None
+
+    assert len(offered) == 1
+    kind, payload = offered[0]
+    assert kind == "step"
+    assert payload["command_deg"] == command
+    assert len(payload["position_deg"]) == N_JOINTS
+    assert len(payload["speed_deg_s"]) == N_JOINTS
+    assert payload["snapshot_seq"] == 9
+    assert payload["imu"]["az_g"] == 1.0
 
 
 def test_step_all_marks_dead_servo():
@@ -264,6 +297,28 @@ def test_flush_sync_uses_wp_fallback_when_sync_failure_persists():
     assert tx.count(encode_sync_frame(ord("W"), [(2, 2048, 2239, 200)])) == 2
     assert b"SW 1 2 2048 2239 200\n" in tx
     assert b"WP 2 2048 2239 200\n" in tx
+
+
+def test_flush_sync_piggybacks_due_snapshot_without_extra_transaction():
+    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
+    servos = [(2 + j, 1, 2048 + j, 20) for j in range(18)]
+    reply = _fw_snapshot_frame(
+        _fw_snapshot_payload(12, 2, 1, imu_raw, servos), 18)
+    bus = _mk_bus(reply)
+    sink = SnapshotSink()
+    bus.set_telemetry_sink(sink)
+    item = (2, 2048, 400, 20)
+    bus._pending = [item]
+
+    bus._flush_sync()
+
+    tx = bytes(bus._ser.tx)
+    assert tx == encode_sync_frame(ord("S"), [item])
+    assert len(sink.offered) == 1
+    kind, payload = sink.offered[0]
+    assert kind == "step"
+    assert payload["transport"] == "combined_write_snapshot"
+    assert payload["snapshot_seq"] == 12
 
 
 def test_flush_sync_chunks_ascii_fallback_after_full_sw_fails():

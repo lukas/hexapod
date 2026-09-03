@@ -1633,10 +1633,21 @@ WELL_BODY_CL = 0.7   # mm clearance on every body face inside the well.
 #   * a separate ``make_servo_clamp_cap`` bolts over the +Y face and clamps
 #     the body against the -Y wall (2x M3 into the +/-X wall +Y ends);
 #   * the output face is left OPEN (Phi HORN_CLEAR_OPENING_OD bore through
-#     the top lip) so the disc horn seats on the spline and spins free.
+#     the top lip) so the disc horn seats on the spline and spins free; the
+#     bore opens into the +Y mouth so the fitted horn can lift out with the
+#     servo and clamp cap.
 HORN_CLEAR_OPENING_OD  = 24.0   # = DISC_HORN_OD (20) + HORN_CLEAR_OPENING_MARGIN
                                 #   (4 mm); tied to DISC_HORN_OD by an assert at
                                 #   the DISC_HORN_OD definition (single source)
+# Sep 2026 serviceability: the circular output opening continues toward the
+# OPEN +Y clamp face as a straight, same-width slot through the output lip.
+# With the clamp bolts removed, the servo + fitted disc horn + clamp cap can
+# therefore lift together along +Y; the old closed, rounded bridge over the
+# horn trapped the fitted disc behind the output lip.  The swept slot consumes
+# exactly one of the four small front-case capture sites, (x, y) =
+# (+4.2, +10.25); the other three remain.  It stops at y=0 because the circular
+# opening already clears the starting half of the horn envelope.
+HORN_SERVICE_SLOT_W   = HORN_CLEAR_OPENING_OD
 WELL_LIP_SLIDE_CL      = 0.4    # lift the top retaining lip off the front face
 CLAMP_CAP_T            = 5.0    # clamp-cap flange thickness (Y)
 CLAMP_TONGUE_INTERF    = 0.5    # mm -- PRESS-FIT: the tongue reaches this far PAST
@@ -4738,9 +4749,13 @@ def _servo_well_solid(*, remove_floor: bool = False,
     Jun 2026 clamshell redesign (see the ``CLAMP_*`` constants block): the
     full front-face mount PLATE is gone.  The cradle is now open on the +Y
     long face (lateral drop-in) and open at the centre of the output face
-    (Phi ``HORN_CLEAR_OPENING_OD`` bore) so the disc horn seats + spins;
-    the body is captured by the -Y + corner top LIP and held by the bolt-on
-    ``make_servo_clamp_cap`` on the +Y face."""
+    (Phi ``HORN_CLEAR_OPENING_OD`` bore) so the disc horn seats + spins.
+    Since Sep 2026 that bore continues into the +Y mouth as a straight
+    service slot: after removing the two clamp bolts, the servo, fitted horn
+    and clamp cap lift out together.  The slot deletes one small front-case
+    capture site, leaving three.  The body is captured by the -Y + corner
+    top LIP and held by the bolt-on ``make_servo_clamp_cap`` on the +Y face.
+    """
     outer = _box((WELL_W, WELL_D, WELL_H),
                  center=(0, 0, WELL_H / 2.0))
     cuts: list[trimesh.Trimesh] = []
@@ -4771,13 +4786,29 @@ def _servo_well_solid(*, remove_floor: bool = False,
     horn.apply_translation([SERVO_OUTPUT_X, 0.0, WELL_RIM_Z])
     cuts.append(horn)
 
-    # FRONT-face case-screw capture (Aug 2026): 4x small self-tap screws
+    # Horn service slot (Sep 2026, user): open the circular horn bore into
+    # the +Y clamp mouth.  This removes the rounded bridge that trapped a
+    # fitted horn behind the fixed output lip, making the +Y extraction path
+    # monotone for the servo + horn + attached clamp cap.  A same-width box
+    # from the horn centreline outward is exactly the straight part of the
+    # swept capsule; the circular cut above supplies its rounded starting end.
+    service_y0 = 0.0
+    service_y1 = WELL_D / 2.0 + 1.0
+    service_slot = _box(
+        (HORN_SERVICE_SLOT_W, service_y1 - service_y0,
+         WELL_PLATE_T * 4.0),
+        center=(SERVO_OUTPUT_X, 0.5 * (service_y0 + service_y1),
+                WELL_RIM_Z))
+    cuts.append(service_slot)
+
+    # FRONT-face case-screw capture (Aug 2026; Sep 2026 service refit): 3x
+    # small self-tap screws
     # drive -Z through the top lip into the servo's molded front-shell
-    # pilots (``servo_front_case_hole_centres`` -- the FRONT twin of the
+    # pilots (``servo_holder_front_case_hole_centres`` -- the three surviving
+    # sites from the FRONT twin of the
     # yaw saddle's rear capture; one pair matches the rear pattern, one
-    # pair is 3.8 mm offset).  Both pairs clear the Phi 24 horn bore
-    # (nearest at r ~13.2 from the output axis) and both sit under the
-    # surviving lip (|y| = 10.25 < the +Y drop-in opening at ~13.1).
+    # pair is 3.8 mm offset).  The three retained sites clear the Phi 24 horn
+    # opening/service slot and sit under the surviving lip.
     # Heads are counterbored FLUSH: the moving yoke's arm sweeps only
     # 3 mm above the lip top and its horn pad (r 10.5) spins 0.4 mm
     # inside the nearest head edge, so a proud head would foul.  The
@@ -4785,7 +4816,10 @@ def _servo_well_solid(*, remove_floor: bool = False,
     # below the front face) and its tension pulls the body's front face
     # up against the lip underside -- positive retention on top of the
     # clamp cap, which the knee cradle (no end-face bolts) lacked.
-    for (fx, fy) in servo_front_case_hole_centres():
+    # The fourth physical case site at (+4.2, +10.25) lies in the horn service
+    # slot and is intentionally omitted; see
+    # ``servo_holder_front_case_hole_centres``.
+    for (fx, fy) in servo_holder_front_case_hole_centres():
         bore = _cyl(FRONT_CASE_SCREW_OD / 2.0, WELL_PLATE_T + 4.0)
         bore.apply_translation([fx, fy, WELL_RIM_Z + WELL_PLATE_T / 2.0])
         cuts.append(bore)
@@ -5839,6 +5873,23 @@ def servo_front_case_hole_centres():
     ]
 
 
+def servo_holder_front_case_hole_centres():
+    """The three front-case capture sites retained by the serviceable holder.
+
+    ``servo_front_case_hole_centres`` describes all four molded sites on the
+    physical STS3215.  The hip/knee holder deliberately omits the one site
+    swept away by the +Y horn service slot so the servo, fitted disc horn and
+    clamp cap can lift out together.  Keep the filter geometric: if the horn
+    opening or the physical case pattern changes, this helper continues to
+    identify the site that actually lies in the extraction slot.
+    """
+    return [
+        (x, y) for x, y in servo_front_case_hole_centres()
+        if not (y > 0.0 and
+                abs(x - SERVO_OUTPUT_X) < HORN_SERVICE_SLOT_W / 2.0)
+    ]
+
+
 def servo_end_face_bolt_centres():
     """The 4 STS3215 body-retention hole centres on ONE END (+/-X) face.
 
@@ -5968,8 +6019,9 @@ def _disc_horn_bolt_centres():
 # sts on the other side"; Aug 17 2026 the coxa hip cradle grew the SAME tab
 # -- user: "copy that same part to be on the coxa link as well so I can
 # screw into the servo from both sides") -------------------------------------
-# The knee cradle holds its servo by the clamp cap + lip + the 4 front-case
-# self-tappers on the OUTPUT side only (its end-face bolts were dropped in
+# The knee cradle holds its servo by the clamp cap + lip + the 3 retained
+# front-case self-tappers on the OUTPUT side (the Sep 2026 horn service slot
+# consumes the fourth; its end-face bolts were dropped in
 # Jul 2026 -- the fused spar covers that wall).  This tab hangs under the
 # OPEN back (idler) face and picks up the servo's rear molded screw-hole
 # PAIR nearer the -X (spar / hip-yoke) end -- body-frame

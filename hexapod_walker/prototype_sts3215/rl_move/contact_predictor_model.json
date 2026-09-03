@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "purpose": "observer-only hardware logging; not authorized for gait gating",
+  "training_protocol": {
+    "source": "MuJoCo scripted gait replay",
+    "gaits": [1, 2, 3, 9],
+    "speed_mm_s": 30.0,
+    "direction_s": 3.2,
+    "settle_s": 0.4,
+    "samples": 17280,
+    "joint_frame": "robot_abs",
+    "joint_contract": "robot_abs_tibia_v2"
+  },
+  "validation": {
+    "protocol": "leave-one-gait-out",
+    "all_samples_balanced_accuracy": 0.91755,
+    "transition_window_s": 0.15,
+    "transition_balanced_accuracy": 0.77237,
+    "physical_contact_labels": false
+  },
+  "plant_robot_abs_deg": [0.0, 20.0, 80.0],
+  "touch_label_threshold_n": 0.5,
+  "model": {
+    "model_type": "standardized_logistic_regression",
+    "feature_names": [
+      "command_clearance_mm",
+      "measured_clearance_mm",
+      "abs_vertical_speed_mm_s",
+      "vertical_speed_mm_s",
+      "tracking_error_deg"
+    ],
+    "mean": [
+      2.3526223430654283,
+      3.4990288816647626,
+      8.933867139938545,
+      0.13552838513205526,
+      1.524851287701683
+    ],
+    "scale": [
+      4.783798143488066,
+      4.1098337059964125,
+      15.437453507267174,
+      17.835654877798373,
+      0.9936581577997535
+    ],
+    "weights_intercept_first": [
+      0.9009486890453454,
+      -1.238461810642698,
+      -0.5861433610198049,
+      -1.0137582055685772,
+      0.12315091195598014,
+      -0.1354762219914139
+    ],
+    "probability_threshold": 0.5
+  }
+}

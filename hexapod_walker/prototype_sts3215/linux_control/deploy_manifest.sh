@@ -18,7 +18,8 @@ LC_FILES=(
   drive_controller.py cpg_controller_loader.py
   mcu_feetech_bus.py bench_api.py web_drive.py xbox_drive.py
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
-  event_log.py status_display.py deploy_status_display.py servo_watch.py
+  event_log.py telemetry_recorder.py
+  status_display.py deploy_status_display.py servo_watch.py
   mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
   sysid_protocol.py sysid_runner.py
   bus_bench.py touchdown_zero.py rl_walk_start.py
@@ -41,7 +42,7 @@ MOTOR_FILES=(
 RLMOVE_FILES=(
   __init__.py env.py robot_state.py attitude.py safety.py
   config.py config.yaml body_ik.py control_loop.py logger.py
-  np_policy.py
+  np_policy.py contact_predictor_model.json
 )
 
 # rl_move/sim numpy-only helpers (rot-60 canonicalizer + sagittal mirror).

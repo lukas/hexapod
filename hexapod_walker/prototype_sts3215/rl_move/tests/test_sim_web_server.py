@@ -21,12 +21,16 @@ from rl_move.sim.web_hub import (
 )
 from rl_move.sim.web_server import (
     DEFAULT_STANCE_POLICY,
+    DEFAULT_TLS_CERT,
+    DEFAULT_TLS_KEY,
     DEFAULT_WALK_POLICY,
     PAGE_PATHS,
     STATIC_FILES,
     WEBUI_DIR,
+    _cert_has_sans,
     _resolve_policy,
     build_arg_parser,
+    ensure_tls_certificate,
     make_handler,
 )
 
@@ -36,8 +40,26 @@ def test_web_defaults_do_not_boot_a_learned_legacy_policy(tmp_path):
 
     assert DEFAULT_STANCE_POLICY is None
     assert args.stance is None
+    assert args.http_port == 8898
+    assert args.https_port == 8443
+    assert args.tls_cert is None
+    assert args.tls_key is None
+    assert DEFAULT_TLS_CERT.name == ".hexapod_sts_cert.pem"
+    assert DEFAULT_TLS_KEY.name == ".hexapod_sts_key.pem"
     assert str(DEFAULT_WALK_POLICY).startswith("scripted:")
     assert _resolve_policy(tmp_path, args.walk) == _TRIPOD_HW
+
+
+def test_generated_tls_certificate_covers_localhost(tmp_path):
+    cert = tmp_path / "cert.pem"
+    key = tmp_path / "key.pem"
+
+    ensure_tls_certificate(cert, key, "127.0.0.1")
+
+    assert cert.is_file()
+    assert key.is_file()
+    assert key.stat().st_mode & 0o777 == 0o600
+    assert _cert_has_sans(cert, ["localhost"], ["127.0.0.1"])
 
 
 class FakeSession:

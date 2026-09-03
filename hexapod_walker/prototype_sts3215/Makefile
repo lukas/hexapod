@@ -17,7 +17,7 @@ else
 MJ_PY  := uv run --active python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
+.PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement buildviz-horn-compression-limiters buildviz-premade-chorn-56 validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -36,6 +36,10 @@ help:
 	@echo "                    Regenerate + push the BuildViz chassis reinforcement concept test."
 	@echo "  buildviz-tibia-yoke-reinforcement"
 	@echo "                    Regenerate + push the evidence-backed tibia/yoke load-path concept test."
+	@echo "  buildviz-horn-compression-limiters"
+	@echo "                    Generate + check + push hip/knee/yaw metal compression-limiter test parts."
+	@echo "  buildviz-premade-chorn-56"
+	@echo "                    Generate + check + push the rigid-bearing robot with 12 premade 56 mm C horns."
 	@echo "  validate          Run scripts/validate_geometry.py only (no renders, no report)."
 	@echo "  render            Run scripts/render_views.py only."
 	@echo "  build             Re-run build_all.py → step_prototype/ (BREP STEP truth) + stl_prototype/ + stl_reference/."
@@ -59,8 +63,8 @@ help:
 	@echo "  robot-status      Read-only robot web health summary."
 	@echo "  robot-deploy      robot-check + SSH deploy + remote compile + health."
 	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
-	@echo "  web-8898-start    Start the local Mac web hub at http://localhost:8898/rl (uv + launchctl)."
-	@echo "  web-8898-status   Check the local :8898 hub and robot proxy target."
+	@echo "  web-8898-start    Start the Mac hub at https://localhost:8443/rl + HTTP :8898."
+	@echo "  web-8898-status   Check the local HTTP/HTTPS hub and robot proxy target."
 	@echo "  vision            Open the shared read-only AprilTag UI at http://localhost:8898/vision."
 	@echo "  vision-build      Install/build the React + TypeScript vision UI."
 	@echo "  vision-check      Type-check the UI and run the off-robot vision tests."
@@ -125,6 +129,46 @@ buildviz-tibia-yoke-reinforcement:
 		--name "STS3215 tibia/yoke reinforcement load-path test" \
 		--bump --upload-assets \
 		--message "focused tibia/yoke load-path reinforcement concept"
+
+buildviz-horn-compression-limiters:
+	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
+		--with trimesh --with numpy --with manifold3d \
+		python hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/make_horn_compression_limiter_concept.py
+	$(RUN) hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/verify_workspace_variant.py
+	$(RUN) hexapod_walker/prototype_sts3215/tools/buildviz_checks.py \
+		$(CURDIR)/concepts/horn_compression_limiters/scene.json \
+		--pitch 0.4 --emit --json
+	cd "$$(pwd)/../.." && npx buildviz push \
+		--build-id prototype_sts3215/horn-compression-limiters \
+		--scene hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/scene.json \
+		--design-spec hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/design_spec.yaml \
+		--name "STS3215 horn compression-limiter experiment" \
+		--bump --upload-assets \
+		--message "load spacer dimensions from editable config; retain coupon-tested bore"
+	-$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+		--build-id prototype_sts3215/horn-compression-limiters || \
+		echo "    WARNING: cloud mirror failed; local compression-limiter build is unaffected"
+
+buildviz-premade-chorn-56:
+	cd $(CURDIR) && uv run --no-project --python 3.12 --with build123d \
+		python concepts/premade_chorn_56/build_premade_chorn_hardware_step.py
+	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
+		--with trimesh --with numpy --with manifold3d --with rtree --with scipy \
+		python hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/make_premade_chorn_56_variant.py
+	cd "$$(pwd)/../.." && npx buildviz check \
+		hexapod_walker/prototype_sts3215/concepts/premade_chorn_56 \
+		--checks mesh_overlap,declared_interference,scene_meta \
+		--max-pairs 1000 --emit
+	cd "$$(pwd)/../.." && npx buildviz push \
+		--build-id prototype_sts3215/premade-chorn-56 \
+		--scene hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/scene.json \
+		--design-spec hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/design_spec.yaml \
+		--name "STS3215 premade 56 mm C-horn experiment" \
+		--bump --upload-assets \
+		--message "replace circled coxa rail with solid servo-tab block"
+	-$(RUN) hexapod_walker/prototype_sts3215/tools/push_cloud_buildviz.py \
+		--build-id prototype_sts3215/premade-chorn-56 || \
+		echo "    WARNING: cloud mirror failed; local premade-chorn build is unaffected"
 
 validate:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/validate_geometry.py

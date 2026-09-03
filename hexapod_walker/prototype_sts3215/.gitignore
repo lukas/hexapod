@@ -36,6 +36,7 @@ linux_control/logs/recv_stdout.txt
 linux_control/logs/robot_events.jsonl
 linux_control/logs/events.jsonl
 linux_control/logs/errors.jsonl
+linux_control/logs/telemetry_*.jsonl
 joint_viz/
 stl_prototype/
 # STEP-first print-set exports (build_step_prototype.py): .step + BREP

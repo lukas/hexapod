@@ -62,7 +62,7 @@ make -C hexapod_walker/prototype_sts3215 build
 make -C hexapod_walker/prototype_sts3215 verify-fast
 make -C hexapod_walker/prototype_sts3215 robot-check       # safe local robot/web checks
 make -C hexapod_walker/prototype_sts3215 robot-deploy      # check + SSH deploy + remote health
-make -C hexapod_walker/prototype_sts3215 web-8898-restart  # local Mac web hub on http://localhost:8898/rl
+make -C hexapod_walker/prototype_sts3215 web-8898-restart  # Mac hub: HTTPS :8443 + HTTP :8898
 ```
 
 Robot-control dev loop details live in `linux_control/README.md` and
@@ -73,5 +73,7 @@ The canonical local browser/control surface is `make -C
 hexapod_walker/prototype_sts3215 web-8898-start`. It runs on the Mac via
 `uv run`, manages a `launchctl` job, dynamically resolves the robot's
 `:8080` service unless `HEXAPOD_HOST` is set, and serves
-`http://localhost:8898/rl`. Use `web-8898-status`, `web-8898-restart`,
-`web-8898-stop`, and `web-8898-logs` for operations.
+`https://localhost:8443/rl` for gamepad access, with the legacy
+`http://localhost:8898/rl` still available. Accept the self-signed certificate
+warning once. Use `web-8898-status`, `web-8898-restart`, `web-8898-stop`, and
+`web-8898-logs` for operations.

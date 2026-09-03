@@ -531,7 +531,22 @@ def _servo_well_solid(*, end_face_bolts: bool = True) -> object:
         )
     )
 
-    for fx, fy in hp.servo_front_case_hole_centres():
+    # Sep 2026 service extraction: continue the circular horn opening into
+    # the +Y clamp mouth at the same width.  This is the BREP twin of
+    # ``hexapod_prototype._servo_well_solid`` and lets the servo, fitted horn
+    # and attached clamp cap lift out together.
+    service_y0 = 0.0
+    service_y1 = hp.WELL_D / 2.0 + 1.0
+    cuts.append(
+        _box(
+            (hp.HORN_SERVICE_SLOT_W, service_y1 - service_y0,
+             hp.WELL_PLATE_T * 4.0),
+            (hp.SERVO_OUTPUT_X, 0.5 * (service_y0 + service_y1),
+             hp.WELL_RIM_Z),
+        )
+    )
+
+    for fx, fy in hp.servo_holder_front_case_hole_centres():
         cuts.append(
             _cyl_z(
                 hp.FRONT_CASE_SCREW_OD / 2.0,

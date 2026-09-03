@@ -329,10 +329,15 @@ def write_multimaterial_3mf(
     path: Path,
     tag_meshes: list[tuple[int, trimesh.Trimesh, trimesh.Trimesh]],
     *,
-    columns: int = 5,
+    columns: int | None = None,
     gap_mm: float = 4.0,
 ) -> None:
     """Write independent white/black holder objects arranged as a tray."""
+    if columns is None:
+        # Six 38 mm flags with five 4 mm gaps occupy 248 mm, fitting the
+        # 256 x 256 mm A1 plate. Smaller sets stay in the roomier 5-column
+        # layout used by the original 16-32 tray.
+        columns = 6 if len(tag_meshes) > 25 else 5
     material_id = 1
     next_id = 2
     objects: list[str] = []
@@ -676,7 +681,7 @@ def main() -> None:
             },
             "pass": passed,
         }
-        (out / "tray_manifest.json").write_text(
+        (out / f"{stem}_manifest.json").write_text(
             json.dumps(manifest, indent=2) + "\n"
         )
         print(json.dumps(manifest, indent=2))

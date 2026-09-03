@@ -22,6 +22,10 @@ For the full inclusive ID 16–32 set (17 holders), use
 `out/tag36h11_16-32_knee_yoke_snap_flags_BambuStudio.3mf`. It is arranged as
 one two-colour print plate, with every human-readable ID on the rear.
 
+The next inclusive set, IDs 33–64 (32 holders), is in
+`out/tag36h11_33-64_knee_yoke_snap_flags_BambuStudio.3mf`. Its denser 6-column
+layout remains within the 256 x 256 mm A1 build area.
+
 - Material: PETG recommended for the four split grip cups; PLA may work but is
   more likely to crack if the fit is tight.
 - Orientation: tag face directly on the build plate, cups upward.
@@ -51,6 +55,7 @@ From `hexapod_walker/prototype_sts3215`:
 ```sh
 uv run python knee_yoke_apriltag_flag/make_knee_yoke_apriltag_flag.py
 uv run python knee_yoke_apriltag_flag/make_knee_yoke_apriltag_flag.py --tray 16-32
+uv run python knee_yoke_apriltag_flag/make_knee_yoke_apriltag_flag.py --tray 33-64
 uv run python knee_yoke_apriltag_flag/check_fit.py
 ```
 

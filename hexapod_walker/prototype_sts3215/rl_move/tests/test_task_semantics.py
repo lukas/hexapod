@@ -30,7 +30,9 @@ the ordering. Never fix a reward without pinning the exploit in a test.
 """
 from __future__ import annotations
 
+import contextlib
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -44,7 +46,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config  # noqa: E402
+from rl_move.config import cfg_get, load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
 from rl_move.sim.joint_task import (  # noqa: E402
     SimHexapodJointGoalEnv, q_rad_to_action)
@@ -2593,7 +2595,7 @@ def test_drift_rider_never_beats_honest_straight_walk(subsidy_returns):
 # park; the gate must do the work (stepping loses hard when it turns
 # on) and must NOT tax the honest quiet stand.
 
-from rl_move.sim.sim_env import PLANT_SPEC  # noqa: E402
+from rl_move.sim.sim_env import PLANT_SPEC, load_rise_ref  # noqa: E402
 
 PLANT_SPEC_FLAG_MM = float(PLANT_SPEC["flag_leg_mm"])
 HOLD_OVERRIDES = dict(SCORE_OVERRIDES)
@@ -9839,6 +9841,22 @@ def test_steer_income_is_monotone_in_tracking_accuracy(steer_returns):
 # construction available without that trace. If a future arm dumps a
 # real stalling rollout's qpos/actions, rebuild this bank from that
 # replay instead of the hand-built offset below.
+# BUG FOUND WHILE BUILDING THE REPLAY FOLLOW-UP BELOW (09-03): this
+# whole bank's "deliberate exception to the primitive pin" via a
+# `env.model_source: mesh` CFG entry is a NO-OP under pytest --
+# `conftest.py` sets the `HEXAPOD_MODEL_SOURCE` env var, and
+# `resolve_model_source()` checks the env var FIRST, unconditionally
+# (before ever looking at cfg). Every rollout in this bank has
+# actually been running on PRIMITIVE (2.104kg) dynamics the whole
+# time, not the claimed mesh/100Hz (3.5kg) family -- caught only
+# because the faithful-replay twin below diverged wildly from a real
+# mesh-family trace until `_mesh_family_env()` (below) was added and
+# applied here too. Re-verified AFTER the fix: this bank's own
+# qualitative PASS (partial > stall) still holds on genuine mesh
+# dynamics (see the updated numbers in the test docstrings below);
+# had it flipped, every prior "+66% mass torque-starving" narrative
+# in this comment block would have been reasoning about a family
+# that was never actually exercised.
 MESH_RISE_OVERRIDES = {
     ("env", "model_source"): "mesh",
     ("control", "hz"): 100,
@@ -9869,9 +9887,35 @@ RISE_STALL_KNEE_OFFSET_DEG = 40.0   # measured 2026-09-03: sustains
                                     # MORE, i.e. wasn't a stall at all).
 
 
+@contextlib.contextmanager
+def _mesh_family_env():
+    """Force genuine mesh-family dynamics for the duration of the
+    `with` block, overriding `conftest.py`'s session-wide
+    `HEXAPOD_MODEL_SOURCE=primitive` default -- required because
+    `resolve_model_source()` checks that env var BEFORE ever looking
+    at cfg (`env.model_source: mesh` in a cfg dict is silently
+    ignored while the var is set; see the BUG FOUND note above)."""
+    prev = os.environ.get("HEXAPOD_MODEL_SOURCE")
+    os.environ["HEXAPOD_MODEL_SOURCE"] = "mesh"
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop("HEXAPOD_MODEL_SOURCE", None)
+        else:
+            os.environ["HEXAPOD_MODEL_SOURCE"] = prev
+
+
 def _rise_stall_rollout(policy: str, seed: int,
                         overrides: dict | None = None,
                         ref_path: str = MESH_RISE_REF_PATH) -> dict:
+    with _mesh_family_env():
+        return _rise_stall_rollout_inner(policy, seed, overrides, ref_path)
+
+
+def _rise_stall_rollout_inner(policy: str, seed: int,
+                              overrides: dict | None,
+                              ref_path: str) -> dict:
     env = _make_rise_env(seed, overrides or MESH_RISE_OVERRIDES)
     env.reset()
     ref = np.load(ROOT / ref_path)
@@ -9965,3 +10009,247 @@ def test_rise_stall_prices_worse_than_honest_partial(rise_stall_returns):
         f"reward fix (price sustained saturation more directly, or "
         f"gate rise_ref income on achieved-not-commanded joint state) "
         f"is now justified and should be built next.")
+
+
+# --- rise-stall FAITHFUL REPLAY (09-03 follow-up: the bank above's own
+# CAVEAT names the exact follow-up -- "if a future arm dumps a real
+# stalling rollout's qpos/actions, rebuild this bank from that replay
+# instead of the hand-built offset". `eval_checkpoint.py
+# --rollout-trace-out` (built earlier the same day) dumped one: a real
+# `yawdensity_canary_s1` DR-0 rise/det episode (idx5 of an isolated-
+# rise panel) whose height plateaus at 29mm against an 86.5mm target
+# from t~6s for the rest of a 30s episode while the hottest servo
+# sits >2.0A 82.6% of the time -- the exact "isometric fight" video
+# signature this bank was built to price, now with the checkpoint's
+# OWN chosen actions instead of a synthetic +40deg knee offset.
+# METHODOLOGY: a flat cold reset (the hand-built bank's own start)
+# does NOT reproduce this failure at all -- measured directly: feeding
+# these exact recorded actions from a flat start climbs normally
+# (stall ends HIGHER than partial, the opposite signature), because
+# the stall is specific to this episode's actual RSI mid-rise spawn,
+# not to the actions alone. So the replay INJECTS the trace's own
+# recorded physical state (qpos/qvel at tick 0, already a real
+# simulated RSI-settled pose, no re-sampling needed) directly into a
+# freshly-reset env, then re-derives the env's internal rise-height
+# schedule from that injected pose via the SAME nearest-reference-
+# match re-alignment `sim_env.py` reset() itself runs for every RSI
+# spawn (`_inject_rsi_replay_state` below mirrors that block verbatim
+# -- physics/servo dynamics never depend on the goal schedule, only
+# reward-shaping does, so this is the one piece that must be
+# reproduced by hand rather than left to a generic override). "stall"
+# then replays every recorded action end to end from that injected
+# state (the actual failure, this time on the actual start condition
+# that produces it). "partial" replays the identical actions up to
+# `split_step` -- derived from the TRACE ITSELF (the tick its own
+# height-reference schedule first reaches its final plateau value,
+# not a hand-tuned number) -- then substitutes a genuine HOLD at
+# whatever pose the replay actually reached, the honest "stop
+# fighting, keep what you have" alternative built from the SAME real
+# trajectory and the SAME injected start. Both conditions share one
+# injected start + one env/goal-clock, so the comparison stays fair.
+RISE_STALL_TRACE_PATH = (
+    ROOT / "logs/ckpt_eval/yawdensity_s1_riseAB_cap29cf"
+    / "rollout_trace_det5_silentstall.npz")
+
+
+def _load_rise_stall_trace(path: Path) -> dict:
+    d = np.load(path, allow_pickle=True)
+    return {"action": np.asarray(d["action"], dtype=np.float64),
+            "qpos0": np.asarray(d["qpos"][0], dtype=np.float64),
+            "qvel0": np.asarray(d["qvel"][0], dtype=np.float64),
+            "height_ref_mm": np.asarray(d["height_ref_mm"],
+                                        dtype=np.float64)}
+
+
+def _rise_stall_trace_split_step(trace: dict) -> int:
+    """First tick the recorded height-reference schedule reaches its
+    own final plateau value -- derived from the trace, not tuned."""
+    href = trace["height_ref_mm"]
+    target = href[-1]
+    hit = np.nonzero(href >= target - 0.5)[0]
+    assert hit.size, "reference never reaches its own plateau"
+    return int(hit[0])
+
+
+def _inject_rsi_replay_state(env, qpos0: np.ndarray, qvel0: np.ndarray,
+                             ref_path: str) -> None:
+    """Force `env`'s physical state to `(qpos0, qvel0)` (a real
+    simulated pose lifted from a trace) and re-derive the rise-height
+    schedule from it exactly like `sim_env.py` reset()'s own RSI
+    re-alignment block (nearest-neighbor match against the reference
+    path, then rewrite the remaining ramp from there) -- copied by
+    hand because that block only runs from inside reset()'s own
+    sampling path, never from an externally-injected pose."""
+    env.data.qpos[:] = qpos0
+    env.data.qvel[:] = qvel0
+    env._mujoco.mj_forward(env.model, env.data)
+    ref = load_rise_ref(ref_path)
+    q_set = env._mujoco_to_logical_q(env.data.qpos[env._qadr])
+    rms = np.sqrt(((ref["q"] - q_set[None, :]) ** 2).mean(axis=1))
+    j0 = int(np.argmin(rms))
+    env._rsi_ref_tick0 = j0
+    # CRITICAL (found by running this: without it, the very next
+    # action trips over_current within ~0.2s): the SafetyLayer's own
+    # slew-limit anchor (`_last_safe`, set by `set_nominal()` at
+    # reset() to the FLAT starting pose) never learns about the
+    # injected mid-rise qpos -- the first replayed action's slew clip
+    # then crawls from the flat pose at the tiny per-tick rate limit
+    # while the PHYSICAL joint is already at the mid-rise pose, a
+    # huge target/actual mismatch the servo model reads as a current
+    # spike. Re-anchor it to the pose we just injected.
+    env.safety.set_nominal(q_set)
+    h_end_ref = float(ref["h"][-1])
+    h_target = float(np.asarray(env._goal_traj.height)[-1])
+    frac_done = min(max(float(ref["h"][j0]) / max(h_end_ref, 1e-6),
+                        0.0), 1.0)
+    h_left = max(h_target * (1.0 - frac_done), 0.002)
+    ramp_s = float(cfg_get(env.cfg, "goal", "rise_ramp_s", default=6.0))
+    n_ramp = max(int(round(ramp_s
+                          * min(h_left / max(h_target, 1e-3), 1.0)
+                          / env.dt)), 3)
+    n_ep = len(np.asarray(env._goal_traj.height))
+    env._goal_traj.height = h_left * np.clip(
+        np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
+    env._cur_filt = None
+    env._state = env._read_state()
+
+
+def _make_rise_stall_replay_env(seed: int) -> SimHexapodJointGoalEnv:
+    """`_make_rise_env` twin with a 30s episode budget (matching the
+    30s/3000-tick source trace) instead of the bank's default 16s --
+    the real failure's sustained-hot signature only shows up ~t6-30s,
+    well past a 16s truncation."""
+    cfg = load_config()
+    for (sec, leaf), val in MESH_RISE_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=30.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+    gen.force_rise_start = "flat"
+    return env
+
+
+def _rise_stall_replay_rollout(policy: str, seed: int, trace: dict,
+                               split_step: int) -> dict:
+    with _mesh_family_env():
+        env = _make_rise_stall_replay_env(seed)
+        env.reset()
+        _inject_rsi_replay_state(env, trace["qpos0"], trace["qvel0"],
+                                 MESH_RISE_REF_PATH)
+        actions = trace["action"]
+        n = len(actions)
+        hold_action = None
+        total, cur_max, cur_sum, over_ticks, step = 0.0, 0.0, 0.0, 0, 0
+        h_end, terminated = 0.0, False
+        while True:
+            if policy == "stall" or step < split_step:
+                act = actions[min(step, n - 1)]
+            else:
+                if hold_action is None:
+                    q_now = _q0_robot_abs(env.data.qpos[env._qadr].copy())
+                    hold_action = q_rad_to_action(q_now)
+                act = hold_action
+            _obs, r, term, trunc, _info = env.step(act)
+            total += float(r)
+            cur = getattr(env._state, "servo_current", None)
+            if cur is not None:
+                cm = float(np.max(np.abs(cur)))
+                cur_sum += cm
+                cur_max = max(cur_max, cm)
+                if cm > 2.0:
+                    over_ticks += 1
+            h_end = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+            step += 1
+            if term or trunc or step >= n:
+                terminated = bool(term)
+                break
+        env.close()
+    return {"ret": total, "terminated": terminated, "steps": step,
+            "mean_cur": cur_sum / max(step, 1), "max_cur": cur_max,
+            "over2A_s": over_ticks * env.dt, "h_end_mm": h_end * 1000.0}
+
+
+@pytest.fixture(scope="module")
+def rise_stall_replay_trace() -> dict:
+    return _load_rise_stall_trace(RISE_STALL_TRACE_PATH)
+
+
+@pytest.fixture(scope="module")
+def rise_stall_replay_split(rise_stall_replay_trace) -> int:
+    return _rise_stall_trace_split_step(rise_stall_replay_trace)
+
+
+@pytest.fixture(scope="module")
+def rise_stall_replay_bank(rise_stall_replay_trace,
+                          rise_stall_replay_split) -> dict[str, list[dict]]:
+    return {p: [_rise_stall_replay_rollout(p, s, rise_stall_replay_trace,
+                                           rise_stall_replay_split)
+               for s in SEEDS]
+           for p in ("partial", "stall")}
+
+
+@pytest.fixture(scope="module")
+def rise_stall_replay_returns(rise_stall_replay_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in rise_stall_replay_bank.items()}
+
+
+def test_rise_stall_replay_reproduces_the_video_signature(
+        rise_stall_replay_bank):
+    """Bank-sanity, faithful-replay version: replaying the REAL
+    recorded actions end to end must still show the same "keeps
+    fighting, stays hot" signature the source video/trace showed.
+    MEASURED 09-03 (recalibration, see the pricing test below for the
+    matching note): the height-ranking half of the original hand-built
+    twin's signature does NOT survive faithful replay and was DROPPED
+    here, not just loosened -- the real recorded rollout keeps
+    climbing (barely) through the whole isometric fight and ends
+    HIGHER (h_end~29.3mm) than an early-frozen hold at the trace's own
+    height-ref-plateau tick (h_end~19.4mm, the hold target sags below
+    where it was frozen once the servo stops actively driving it), the
+    literal opposite of the synthetic +40deg-offset twin's height
+    story. That comparison was never the actual failure signature
+    anyway -- the real distinguishing feature the source video/canary
+    flagged is DURATION at dangerous current, not final height: the
+    genuine fight sustains >2A for ~25 of 30s (`over2A_s`) while the
+    honest early-hold only spikes through the shared pre-split prefix
+    (~1s) before going quiet. That is what this test now pins."""
+    for r in rise_stall_replay_bank["stall"]:
+        assert r["max_cur"] > 2.0, (
+            f"replayed stall does not reproduce sustained hot current: {r}")
+    for p, s in zip(rise_stall_replay_bank["partial"],
+                    rise_stall_replay_bank["stall"]):
+        assert s["over2A_s"] > p["over2A_s"] + 10.0, (
+            f"replayed stall does not sustain dangerous current far "
+            f"longer than the honest partial: partial={p} stall={s}")
+
+
+def test_rise_stall_replay_prices_worse_than_honest_partial(
+        rise_stall_replay_returns):
+    """THE faithful-replay version of the rider above, using the real
+    checkpoint's own recorded actions instead of a hand-built +40deg
+    knee offset: does continuing the genuine isometric fight still
+    price WORSE than the honest "stop fighting, hold what you
+    reached" alternative? MEASURED 09-03 (recalibration from this
+    trace, per this docstring's own instruction): direction confirms
+    (partial beats stall by ~82 pts/30s-episode, 3-seed mean -1089.8
+    vs -1172.2) but the hand-built twin's +100 margin does not survive
+    -- that number was never measured from real data, it was picked
+    to match the synthetic offset's exaggerated gap. Recalibrated to
+    +50 (still >4x the run-to-run seed spread of ~7-8 pts visible in
+    the raw per-seed returns, so this is margin outside noise, not a
+    coin flip) -- lower the bar to match reality, per the docstring's
+    own "trust this result over the hand-built one" instruction,
+    rather than re-inflate the synthetic twin's number."""
+    r = rise_stall_replay_returns
+    assert r["partial"] > r["stall"] + 50.0, (
+        f"the REAL recorded isometric fight rivals the honest partial "
+        f"on this faithful replay: {r} -- unlike the hand-built twin, "
+        f"this uses the actual checkpoint's own actions, so this "
+        f"result should be trusted over the hand-built one if they "
+        f"ever disagree.")

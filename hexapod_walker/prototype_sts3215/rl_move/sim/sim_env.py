@@ -4859,7 +4859,44 @@ class SimHexapodBalanceEnv(_GymBase):
                             self.cfg, "train",
                             "bc_anchor_walk_turn_skip",
                             default=0.0)) > 0.0)
-                    if not _bc_turn_skip:
+                    # COMBINED-TICK ANCHOR GATE (09-03, standwalk
+                    # combined-turn-probe follow-up): probe_turn_
+                    # authority --vx-cmds found the scripted teacher
+                    # ITSELF (the walk BC-anchor's own imitation
+                    # target) retains only ~33% of its pure-turn wz
+                    # authority once a nonzero forward speed is
+                    # commanded simultaneously (a smooth, graded
+                    # trade-off in the teacher's own foot-contact
+                    # physics, not a step artifact) — the trained
+                    # checkpoint inherits a smaller but real version
+                    # (74%/54% retained). The turn-tick gate above
+                    # only ever zeroed PURE turn ticks
+                    # (vx_ref=vy_ref~0); every COMBINED tick
+                    # (vx_ref!=0 AND wz_ref!=0) still gets a full-
+                    # coefficient target pulling the actor toward the
+                    # teacher's OWN degraded-authority combined
+                    # behavior. This is the mirror lever: zero the
+                    # anchor emission ONLY on combined ticks, leaving
+                    # pure-turn and straight-walk ticks untouched, so
+                    # the course/yaw reward terms are the sole
+                    # supervisor of the actor's mean action specifically
+                    # where the teacher's reference is known-degraded.
+                    # Default 0 = legacy (every commanded tick,
+                    # including combined, gets a target) — bit-exact
+                    # no-op whenever train.bc_anchor_walk_combined_skip
+                    # is unset, exactly like every other bc_anchor_*
+                    # knob in this file. See test_bc_anchor.py
+                    # test_walk_combined_skip_*.
+                    _bc_combined = (
+                        math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref)
+                        > 1e-3 and abs(_bc_wz) > 1e-3)
+                    _bc_combined_skip = (
+                        _bc_combined
+                        and float(cfg_get(
+                            self.cfg, "train",
+                            "bc_anchor_walk_combined_skip",
+                            default=0.0)) > 0.0)
+                    if not (_bc_turn_skip or _bc_combined_skip):
                         _q_bc = np.asarray(
                             _g.desired_deg(_t_bc)) * DEG2RAD
                         info["bc_target"] = q_rad_to_action(

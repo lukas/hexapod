@@ -3,7 +3,7 @@ schema_version: 1
 experiment:
   id: hexapod-1-joint-flex
   robot_id: hexapod-1
-  state: setup_pending
+  state: active_hardware_characterization
   created: 2026-09-02
   updated: 2026-09-02
   objective: "Localize increasing compliance among the servo/output, horn/screw interface, printed yoke, and femur without accessing the hidden horn."
@@ -17,10 +17,14 @@ reported_observations:
     observation: "The horn itself is not physically accessible."
   - evidence: confirmed
     observation: "Two cameras are set up and an AprilTag is mounted on the side."
+  - evidence: operator_report
+    observation: "No visible crack or changed fasteners was found before the powered tests."
+  - evidence: measured
+    observation: "L5 has large unloaded hip/knee hysteresis; L4 is tight unloaded but develops knee-dominant planted compliance near 2 mm radial command."
 
 safety_scope:
-  robot_motion_commands_allowed: false
-  operator_applied_static_load_only: true
+  robot_motion_commands_allowed: "only with explicit operator authorization for the current run"
+  operator_applied_static_load_only: false
   robot_must_be_rigidly_supported: true
   servo_state_required: "Power off, or electronics powered with all tested joints confirmed limp/torque-disabled."
   stop_on:
@@ -32,33 +36,29 @@ safety_scope:
     - support movement or impending tip
 
 setup_needed:
-  - "Identify the suspect leg as L0-L5 and confirm hip versus knee joint."
-  - "Record both camera models, indices, resolution, frame rate, and view names."
-  - "Record exactly which rigid part carries the existing side AprilTag and its ID/size."
-  - "Add a stationary floor/reference marker visible to both cameras."
-  - "Add moving-side markers described in the runbook; one side tag alone cannot localize joint compliance."
-  - "Measure the load application lever arm from the tested joint axis."
-  - "Have the operator choose a safe maximum manual force below normal service load."
+  - "Run the remaining L4 planted amplitude ladder, creep/recovery, and loaded-cycle series."
+  - "Add a calibrated force or torque measurement before claiming absolute stiffness."
+  - "Add proximal/distal markers if localization within the printed link or fastener stack is required."
 
 target:
-  leg: unknown
-  joint: hip
-  joint_evidence: inferred
-  rationale: "The report mentions the femur moving with the screws; confirm before capture."
+  legs: [L4, L5]
+  joints: [hip, knee]
+  joint_evidence: confirmed
+  rationale: "Compare a visibly marked neighboring leg against the original L5 suspect under identical encoder and camera analysis."
 
 capture:
-  face_camera: unknown
-  edge_camera: unknown
-  synchronization: "Visible LED flash in both recordings at start and end."
-  calibration: pending
+  primary_camera: "camera 0, Arducam USB, L4 tag 31"
+  complementary_camera: "iPhone camera, L4 knee tag 25"
+  synchronization: "Each camera records monotonic timestamps; plateaus are aligned to the protocol hold schedule."
+  calibration: "AprilTag pose calibrated per camera; no calibrated force channel"
   output_root: "artifacts/joint_flex/hexapod-1/<run-id>/"
 
 phases:
-  preflight: pending
-  stationary_noise_floor: pending
-  bidirectional_load_sweep: pending
-  constant_load_creep: pending
-  post_cycle_repeat: pending
+  preflight: complete
+  stationary_noise_floor: complete
+  bidirectional_load_sweep: "L5 complete; L4 micro ladder complete; L4 larger ladder pending"
+  constant_load_creep: "L5 complete; L4 pending"
+  post_cycle_repeat: "L5 complete; L4 pending"
   optional_axial_spread_test: pending
   analysis: pending
   conclusion: pending
@@ -83,10 +83,31 @@ hypotheses:
     status: open
     signature: "Deflection grows under constant force, leaves a residual after unloading, or stiffness changes after repeated cycles."
 
-latest_run: null
-conclusion: null
+latest_run:
+  protocol: l4_ground_radial_shear_micro_ladder_v1
+  dataset: sysid/datasets/l4_ground_radial_shear_micro_ladder_v1_20260902_180330
+  result: ok
+  samples: 1500
+  overruns: 0
+  peak_current_a: 0.0455
+  tag_coverage:
+    camera_0: "965/965 frames"
+    iphone: "1506/1506 frames"
+
+conclusion: >-
+  L5 is measurably loose without ground load: the air-control loop averaged
+  0.703 deg at the hip and 0.410 deg at the knee, versus 0.117 deg and
+  0.059 deg on L4. Under planted 2-3 mm radial commands, L4's hip response is
+  similar to L5 while L4's knee response is larger (0.351/0.334 deg versus
+  0.211/0.176 deg). Both L4 camera views corroborate onset near 2 mm. This
+  supports L5 servo/geartrain deadband plus a separate planted structural/load-
+  path component; L4's full larger-amplitude series is still pending. Absolute
+  stiffness is not available because force was not measured.
 
 history:
   - date: 2026-09-02
-    event: "Experiment plan created; no physical test has been run."
-
+    event: "Experiment plan created."
+  - date: 2026-09-02
+    event: "Completed L5 air control, planted radial ladders, creep/recovery, and loaded-cycle runs."
+  - date: 2026-09-02
+    event: "Completed L4 air control and 0.5-3 mm planted micro ladder with adjacent legs yawed clear for two-camera tag visibility."

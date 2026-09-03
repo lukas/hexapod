@@ -1,0 +1,43 @@
+{
+  "sysid_protocol": 1,
+  "name": "micro_l5_hip_knee_ground_2deg_v1",
+  "created": "2026-09-02T15:35:00-07:00",
+  "description": "Supported-chassis ground-contact diagnostic: L5 hip and knee individually at +2/-2 deg from a freshly established zero, low speed/torque, three consecutive readings above 0.75 A trip, 3.0 A hard trip, automatic return and limp. Isolated high readings reset after a normal reading. This is not a stand or gait motion.",
+  "hz": 25.0,
+  "write_speed": 120,
+  "write_acc": 10,
+  "soft_torque": 250,
+  "max_current_a": 0.75,
+  "current_trip_polls": 3,
+  "hard_current_a": 3.0,
+  "home_deg": [
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0
+  ],
+  "segments": [
+    {
+      "kind": "step", "joint": 16, "amp_deg": 2.0,
+      "pre_s": 1.0, "hold_s": 1.5, "rest_s": 1.5,
+      "label": "L5_hip_step+2_ground_r0"
+    },
+    {
+      "kind": "step", "joint": 16, "amp_deg": -2.0,
+      "pre_s": 1.0, "hold_s": 1.5, "rest_s": 1.5,
+      "label": "L5_hip_step-2_ground_r0"
+    },
+    {
+      "kind": "step", "joint": 17, "amp_deg": 2.0,
+      "pre_s": 1.0, "hold_s": 1.5, "rest_s": 1.5,
+      "label": "L5_knee_step+2_ground_r0"
+    },
+    {
+      "kind": "step", "joint": 17, "amp_deg": -2.0,
+      "pre_s": 1.0, "hold_s": 1.5, "rest_s": 1.5,
+      "label": "L5_knee_step-2_ground_r0"
+    }
+  ]
+}

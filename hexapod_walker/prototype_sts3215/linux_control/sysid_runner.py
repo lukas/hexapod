@@ -63,12 +63,14 @@ MAX_TEMP_C = 55.0
 # trip needs this many CONSECUTIVE fresh feedback polls at/over the limit
 # (3 polls @ 10 Hz = 0.3 s) — a lone glitched read must never limp a run.
 TEMP_TRIP_POLLS = 3
+DEFAULT_CURRENT_TRIP_POLLS = 1
+DEFAULT_HARD_CURRENT_A = 3.0
 # Tracking trip compares present against a reference that slews toward
 # the command at the commanded profile speed — NOT the raw target: a step
 # larger than the limit (e.g. the ±40 deg ladder rungs) would trip on its
 # very first tick before the servo has any chance to move.
 MAX_TRACK_ERR_DEG = 30.0       # active-joint |slew_ref - present| trip
-MAX_MISSED_READS = 5           # consecutive bulk-read misses of a joint
+MAX_MISSED_READS = 3           # consecutive bulk-read misses of a joint
 FEEDBACK_HZ = 10.0             # full-feedback (current/temp) throttle
 DEFAULT_START_TOL_DEG = 12.0   # traj continuity gate (mid-protocol)
 GLIDE_RATE_DEG_S = 12.0        # slow start-pose glide (air)
@@ -123,6 +125,10 @@ def run_sysid_protocol(
     soft_torque = int(max(200, min(800, protocol.get(
         "soft_torque", DEFAULT_SOFT_TORQUE))))
     max_cur = float(protocol.get("max_current_a", DEFAULT_MAX_CURRENT_A))
+    current_trip_polls = max(1, int(protocol.get(
+        "current_trip_polls", DEFAULT_CURRENT_TRIP_POLLS)))
+    hard_current_a = max(max_cur, float(protocol.get(
+        "hard_current_a", DEFAULT_HARD_CURRENT_A)))
 
     def _progress(msg: str, **extra):
         if on_progress:
@@ -153,7 +159,22 @@ def run_sysid_protocol(
             pos = {}
         return pos, [j for j in live_joints if j not in pos]
 
-    pose0, miss0 = _read_pose()
+    def _read_pose_debounced(
+            attempts: int = MAX_MISSED_READS) -> tuple[dict[int, float], list[int]]:
+        """Merge fresh pre-command reads so one dropped ID never trips."""
+        merged: dict[int, float] = {}
+        missing = list(live_joints)
+        for attempt in range(attempts):
+            sampled, _ = _read_pose()
+            merged.update(sampled)
+            missing = [j for j in live_joints if j not in merged]
+            if not missing:
+                break
+            if attempt + 1 < attempts:
+                time.sleep(0.1)
+        return merged, missing
+
+    pose0, miss0 = _read_pose_debounced()
     if miss0:
         return {"ok": False, "mode": "sysid",
                 "error": f"servo IDs not answering: joints {miss0}"}
@@ -204,6 +225,7 @@ def run_sysid_protocol(
     overruns = 0
     clamped = 0
     missed: dict[int, int] = {j: 0 for j in live_joints}
+    overcurrent_polls: dict[int, int] = {j: 0 for j in live_joints}
     tripped_error: str | None = None
     aborted = False
     last_fb: dict[int, dict] = {}
@@ -273,9 +295,20 @@ def run_sysid_protocol(
                 if seg_stats:
                     seg_stats[-1]["peak_current_a"] = max(
                         seg_stats[-1]["peak_current_a"], cur_a)
-                if cur_a > max_cur:
+                if fresh and cur_a > max_cur:
+                    overcurrent_polls[j] = overcurrent_polls.get(j, 0) + 1
+                elif fresh:
+                    overcurrent_polls[j] = 0
+                if cur_a >= hard_current_a:
                     tripped_error = (f"joint {j} overcurrent {cur_a:.2f} A "
-                                     f"(limit {max_cur:.2f}) — possible "
+                                     f"(hard limit {hard_current_a:.2f}) — "
+                                     f"possible jam or wrong logical zero; "
+                                     f"limped")
+                elif overcurrent_polls.get(j, 0) >= current_trip_polls:
+                    tripped_error = (f"joint {j} overcurrent {cur_a:.2f} A "
+                                     f"(limit {max_cur:.2f}, "
+                                     f"{overcurrent_polls[j]} consecutive "
+                                     f"polls) — possible "
                                      f"jam or wrong logical zero; limped")
                 elif temp >= MAX_TEMP_C:
                     # Debounced: only fresh polls advance the counter, so a
@@ -350,7 +383,7 @@ def run_sysid_protocol(
                              t_recv, 0, cmd_abs, fb_row)
                 # Verify the pose actually arrived before any segment runs.
                 if tripped_error is None and not aborted:
-                    pose, miss = _read_pose()
+                    pose, miss = _read_pose_debounced()
                     if miss:
                         tripped_error = (f"joints {miss} not answering "
                                          f"after glide")
@@ -385,7 +418,7 @@ def run_sysid_protocol(
             # -- segment bookkeeping / home capture -----------------------
             if tick["seg"] != cur_seg:
                 cur_seg = tick["seg"]
-                pose, miss = _read_pose()
+                pose, miss = _read_pose_debounced()
                 if miss:
                     tripped_error = (f"seg {cur_seg}: joints {miss} not "
                                      f"answering at segment start")

@@ -223,6 +223,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         try:
+            # Avoid accepting a stale idle/result snapshot before the newly
+            # spawned async worker has published its running state.
+            time.sleep(1.0)
             res = client.wait_idle(timeout_s=secs + 120.0, poll_s=1.0)
         except KeyboardInterrupt:
             print("\n^C — sending stop (robot limps)")

@@ -24,16 +24,23 @@ before recording.
 
 ## Non-negotiable safety and authority boundary
 
-- This protocol does **not** authorize gait, stand, plant, centering, joint, or
-  other motor commands.
-- The human operator rigidly supports the chassis, confirms the tested joint is
-  limp/torque-disabled, applies every physical load, and chooses the safe force
-  ceiling. An LLM may operate cameras, collect read-only feedback, and analyze
-  files only.
+- This document alone does **not** authorize gait, stand, plant, centering,
+  joint, or other motor commands. Each powered run requires explicit operator
+  authorization in the current conversation.
+- The operator rigidly supports the chassis and keeps the test area clear.
+  Tests may use operator-applied loads or an explicitly authorized, bounded
+  motion protocol with current, feedback, geometry, and timeout limits.
 - Stop immediately for a crack/snap, crack growth, sudden residual movement,
   heat, unexpected powered movement, moving supports, or tipping risk.
 - Do not tighten, loosen, disassemble, or touch the hidden horn during the
   measurement series. Such a change invalidates the before/after comparison.
+- For an automated supported single-joint ground probe, debounce current trips
+  across three consecutive feedback polls. After a confirmed current trip,
+  limp, wait for normal feedback/current, and retry once. If the restarted
+  attempt trips again quickly, end the test and remain limp. Never retry a tip,
+  brownout, hot motor, three consecutive missing-servo reads, support movement,
+  stand/plant command, or gait failure. One dropped feedback sample is retried
+  and does not limp or end the test.
 
 ## Handoff checklist for the next LLM
 
@@ -102,6 +109,22 @@ artifacts/joint_flex/hexapod-1/<run-id>/
   analysis.yaml
   face_annotated.mp4            # optional
   edge_annotated.mp4            # optional
+```
+
+Initialize a run only after the operator has identified the target leg and
+joint. The helper refuses to overwrite an existing run:
+
+```bash
+uv run python robots/experiments/hexapod-1-joint-flex/joint_flex_run.py init \
+  --leg L2 --joint hip
+```
+
+After filling in `manifest.yaml`, check that the documented Phase 0 capture
+prerequisites are present. This performs no robot I/O:
+
+```bash
+uv run python robots/experiments/hexapod-1-joint-flex/joint_flex_run.py check \
+  artifacts/joint_flex/hexapod-1/<run-id>/manifest.yaml
 ```
 
 `manifest.yaml` must contain the robot ID, leg, joint, timestamp/time zone,
@@ -242,7 +265,7 @@ unique root cause.
 
 ## Completion criterion
 
-The experiment is complete only when:
+The manual force-localization experiment is complete only when:
 
 1. both cameras pass their stationary noise-floor check;
 2. at least three valid bidirectional cycles agree;

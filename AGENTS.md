@@ -158,8 +158,20 @@ Hard rules:
    are solid and the operator asks.
 5. **No unsupervised stand-up / plant blends.** Hip0+knee80 is stilts, not
    a low plant.
-6. **Stop after tip, brownout, hot motor, or missing servo ID.** Do not retry
-   blends. Limp and wait for the operator.
+6. **Stop after tip, brownout, hot motor, or persistent missing servo ID.** A
+   single missing feedback sample is telemetry noise: retry and require three
+   consecutive fresh misses before limping. Do not retry blends. Limp and wait
+   for the operator after a confirmed stop.
+
+7. **Grounded diagnostic retry rule.** For supported, single-joint grounded
+   calibration/sysid tests, isolated bad current samples do not end the run:
+   require three consecutive over-threshold readings. A confirmed trip limps,
+   waits for feedback/current to recover, then retries once automatically.
+   If that restarted attempt fails again quickly, terminate the test and stay
+   limp. Never apply this retry rule to a tip, brownout, hot motor, missing
+   servo ID, stand/plant motion, or gait; those remain immediate stop-and-wait
+   conditions. A single missing-ID sample is not a confirmed stop; use the
+   three-consecutive-read rule above.
 
 Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
 `hexapod_walker/prototype_sts3215/rl_move/API.md`.

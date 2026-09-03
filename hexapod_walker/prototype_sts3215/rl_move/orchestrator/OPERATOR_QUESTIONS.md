@@ -4364,3 +4364,84 @@ unchanged. No filler GPU launch exists this cycle beyond the in-flight
 read; the semantics-bank dig-in queue is not yet empty (getup-bank
 reward gap, tangle-spread physics, and the ~16-18 walkcurr_pf-family
 reds all remain open for a future cycle per prior entries).
+
+## 2026-09-03 ~03:4x-04:0x — tangle-spread "physics bug" flagged 03:2x was actually a methodology bug in the PROBE, not the sim: fixed with a bigger seed sample, closing the last open recover-bank item
+
+**Context:** standwalk's only Next item (`cap29-stdwalklohi-acq1{,_s1}`
+flat-only `eval_done_gate_session`) confirmed still progressing live on
+train-6/7 throughout this cycle (own-dr det phase ~13->16 / ~12->15
+episodes across the check, unchanged multi-hour pace); other 5 tracks
+unchanged (green/retired/delivered/maintenance); backlog empty, 11/12
+GPU pods mechanically free but nothing legal to launch. Picked up the
+next flagged item from the semantics-bank dig-in queue: the 03:2x
+entry's "KNOWN OPEN BUG... tangle_60 (39.10mm) -> tangle_70 (38.48mm)
+genuinely DECREASES" claim in
+`test_recover_floor_rungs_remain_distinct_after_physics_settle`.
+
+**Finding: the 03:2x probe itself had a bug, not the sim.** Reproducing
+`_rec_reset_pad_spread_mm` for the tangle family standalone (outside
+pytest) gave WILDLY different numbers (tangle_60 mean ~70mm) than the
+test's own numbers (~39mm) for the identical seeds/kind. Root cause:
+`tests/conftest.py` does `os.environ.setdefault("HEXAPOD_MODEL_SOURCE",
+"primitive")` to pin the calibrated bank to the legacy model, but a
+bare `uv run python` script never imports conftest, so it silently ran
+on the `mesh` default instead (+66% mass, shifted hip axis) --
+completely different settling physics for a chaotic random-joint-pose
+reset. Re-ran WITH `HEXAPOD_MODEL_SOURCE=primitive` set explicitly and
+reproduced the test's exact numbers.
+
+**Second finding, the real one:** even correctly pinned, `pad_spread_mm`
+at `SEEDS[:3]` (n=3) is dominated by noise for the adjacent tangle
+rungs. Zero-training sweep at N=40 seeds: per-kind std is 9-48mm while
+the TRUE tangle_60->tangle_70 gap is only ~5mm and tangle_90->tangle is
+only ~3mm -- both genuinely positive (severity does increase spread on
+average) but smaller than one seed's noise, so SEM at n=3
+(~11-14mm) swamps the effect and a 3-sample mean can land on either
+side by chance. This is exactly what happened: the "39.10mm ->
+38.48mm decrease" was 2 unlucky draws out of 3, not a real physics
+reversal. Confirmed by resampling: 8/8 independent trials at N=24 or
+N=30 seeds (4 disjoint seed-offset blocks each) give a clean, correctly
+monotonic order across the whole `zero -> tangle_mild -> tangle_mid ->
+tangle_60 -> tangle_70 -> tangle_80 -> tangle_90 -> tangle` ladder, min
+adjacent gap 1.6-7.3mm every time.
+
+**Fix:** the pad-spread half of the test now averages over its OWN
+30-seed sample (`range(30)`, independent of the shared 3-value `SEEDS`
+tuple every other assertion in the file still uses -- untouched) instead
+of inflating the margin on a 3-seed mean; margin dropped 1.5->0.5mm to
+match a real, resolvable gap at this N (1.5mm was never a genuine
+safety margin at n=3 -- it was smaller than the noise it claimed to
+guard against, i.e. it could never have reliably failed on an actual
+regression either). `park`'s q_dist row (only needed by the
+`park < crouch_shallow` assertion, previously computed inside the same
+15-kind loop as the tangle family) was split into its own small
+3-seed loop so the 30-seed cost is paid only where the statistics
+actually need it; verified this split alone changes nothing (still the
+same 3-seed mean as before).
+
+**Verified:** the fixed test passes 4/4 consecutive runs (~26s each,
+no flakiness). `-k recover` (33 tests): 30 passed, 3 failed -- all 3
+pre-existing and unrelated (`test_recover_replay_succeeds_and_terminates`,
+`test_recover_replay_dominates_all_cheats`,
+`test_recover_rsi_bank_spawns_from_harvested_poses`, all failing on an
+unrelated `rsi_bank.npz` joint-frame-migration `ValueError`, confirmed
+present in the pre-fix full-suite log too). Fresh full-suite regression
+launched in background (`/tmp/full_after_tanglefix_0903.log`) for a
+future cycle to read the final count (last full read before this fix:
+40 failed / 255 passed / 4 skipped / 1 xfailed at HEAD ec7bf19f,
+confirms `test_recover_floor_rungs_remain_distinct_after_physics_settle`
+and `test_getup_honest_ordering` were the only 2 of those 40 relevant
+to this cycle's edits — the getup one is untouched, still red on
+purpose per the 02:0x-03:1x entry).
+
+status: FIX LANDED, test-only, no training-default cfg touched. This
+closes the "tangle-spread physics dig-in" item the 02:0x-03:1x and
+03:1x-03:3x entries both flagged as open — it was never a physics dig-in
+candidate, it was an underpowered test. Remaining open semantics-bank
+items: `test_getup_honest_ordering` (genuine reward-side gap, needs
+design judgment, no getup-mode arm queued so non-blocking) and the
+~16-18 `walkcurr_pf`-family reds (RETIRED track, no further
+agent-initiated launches there per its STATUS -- not worth further
+cycle time chasing). standwalk's own in-flight item 0 unaffected
+throughout (re-confirmed progressing on train-6/7 at cycle end).
+Snapshotted+pushed.

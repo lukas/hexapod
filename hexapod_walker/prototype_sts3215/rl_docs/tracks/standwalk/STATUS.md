@@ -1,42 +1,30 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~03:3x (idle-kick, item 0 STILL mid-flight on
-train-6/7, dr0 done both seeds, own-dr ~57% by video count, pace
-unchanged): fixed two more semantics-bank reds found on a fresh
-post-fix full-suite pass. (1) `test_rise_rock_feedback_levels_it`
-was tripping `over_current` at only 3.2-5.7deg tilt (nowhere near its
-9deg bound) -- confirming evidence for the pending `safety.
-max_current_a` 2.5->2.9A cap raise (same intrinsic curl-current issue
-item 0 is validating), fixed by scoping the 2.9A override to this
-test's own `ROCK_OVERRIDES` only. (2) Half the recover-bank
-q0/qpos-frame class the last entry's audit deferred ("distance
-metric, not an action target"): `env.data.qpos` (mujoco_rel) minus
-`env._plant_deg` (robot_abs, confirmed via its `q_rad_to_action` use
-elsewhere) mixed frames, adding a ~0.6 rad bias that made B0-B4
-difficulty bins read as flat noise; `_q0_robot_abs`-wrapping fixed
-`test_recover_near_goal_buckets_increase_settled_disturbance` clean
-and recalibrated one margin (0.2->0.1 rad) in `test_recover_floor_
-rungs_remain_distinct_after_physics_settle`. That second test STAYS
-red on a separate, unrelated, isolated bug (tangle_60->70 pad_spread
-genuinely DECREASES, 39.10->38.48mm, provably not qpos-related --
-flagged for a settle-physics dig-in, no tangle arm queued). Test-only,
-no training-default cfg touched. Snapshotted+pushed. Full derivation:
-OPERATOR_QUESTIONS.md.
+Update, 2026-09-03 ~04:0x (idle-kick, item 0 STILL mid-flight on
+train-6/7, pace unchanged): closed the "tangle-spread physics" item
+flagged last entry -- it was a PROBE bug, not a sim bug. The prior
+"tangle_60->70 pad_spread genuinely DECREASES" claim came from a repro
+script that skipped `conftest.py`'s `HEXAPOD_MODEL_SOURCE=primitive`
+pin, measuring on `mesh` instead. Correctly-pinned, the true gap is
+real (~5mm) but smaller than one seed's noise (std 9-48mm) -- the
+bank's n=3 mean was 2 unlucky draws, not a reversal (8/8 clean
+monotonic resamples at N=24-30 seeds). Fix: pad-spread now averages
+its own 30-seed sample (shared 3-seed `SEEDS` untouched elsewhere);
+margin 1.5->0.5mm to match. Verified 4/4 stable reruns, `-k recover`
+30/33 (3 pre-existing unrelated npz-migration fails). Test-only, no
+cfg touched. Fresh full-suite regression running for a future cycle
+(`/tmp/full_after_tanglefix_0903.log`; pre-fix baseline 40 failed/255
+passed at ec7bf19f). Open items left: `test_getup_honest_ordering`
+(reward-design gap, no arm queued) and ~16-18 `walkcurr_pf` reds
+(RETIRED track). Snapshotted+pushed. Full derivation: OPERATOR_
+QUESTIONS.md.
 
-Earlier updates (the 02:0x-03:1x q0/qpos-frame 14-site fix + 2
-hold-bank recalibrations + the getup-bank honest-ordering red, and
-the 01:5x joint-frame-v2 bug #3) moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-03b_trim.md` and
-`archive/standwalk_STATUS_journal_2026-09-03a_trim.md`.
-
-Earlier 09-02 updates (the second joint-frame-v2 bug across 8
-production/test files, the merge-recovery emergency, the
-`k_walk_course_income` plant-stance-literal root-cause+fix, the
-`stdwalklohi-acq1{,-s1}` 38M finish + item-0 session-read dispatch,
-config archaeology, the stdwalklo grid launch+read, cap29 zero-
-training session read + windowed course-metrics tooling) moved
-VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02h_trim.md`
-and `archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
+Earlier updates (rise-rock/recover q0-frame fixes, the 14-site q0/qpos
+fix + hold-bank recalibrations + getup-bank red, joint-frame-v2 bug
+#3, and the whole 09-02 merge-recovery/plant-stance/stdwalklohi-acq1
+window) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03{a,b,c}_trim.md` and
+`2026-09-02{f,h}_trim.md`.
 
 ## Next (updated 09-02 ~18:3x)
 
@@ -54,20 +42,18 @@ and `archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
    land at the ~4s `walk_cmd_resample_s` boundaries, consistent with
    the closed turn-authority ceiling (wz_med 0.075-0.21). Revisit once
    item 0 reads back.
-2. **Closed (full list in archives):** update-size constraints, reward
-   pricing, exploration magnitude, anchor dose, turn-skip, yaw-credit
-   clip doses, mixedsession/diet scoping, duration-mismatch,
-   switch-jump/ramp/height/mass/frame-blend/cap-diagnostic/current-
-   confound (see 09-02{,b..f} archives), cap29 training-time
-   acquisition (PARTIAL, steering/slip didn't transfer), walk-core
-   log_std anneal dose grid (`hi` PASS 2/2, `mild` FAIL - dose too
-   low, both closed this cycle-window).
+2. **Closed (full list in archives 09-02{,b..h}):** update-size/reward/
+   exploration/anchor/turn-skip/yaw-credit/diet/duration/switch-jump/
+   frame-blend/current-confound sweeps; cap29 training-time acquisition
+   (PARTIAL); walk-core log_std anneal dose grid (`hi` PASS, `mild`
+   FAIL).
 
 > Journal archives (VERBATIM, oldest->newest):
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,
 > `2026-09-01_trim.md`, `2026-09-02_trim.md`, `2026-09-02b_trim.md`,
 > `2026-09-02c_trim.md`, `2026-09-02d_trim.md`, `2026-09-02e_trim.md`,
-> `2026-09-02f_trim.md`, `2026-09-02g_trim.md`, `2026-09-02h_trim.md`.
+> `2026-09-02f_trim.md`, `2026-09-02g_trim.md`, `2026-09-02h_trim.md`,
+> `2026-09-03a_trim.md`, `2026-09-03b_trim.md`, `2026-09-03c_trim.md`.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
 ## Goal (operator, 08-24 evening)
@@ -97,8 +83,8 @@ randomized 60 s joystick session with zero falls, and lowers back.
 
 ## Stage 1 — mesh/100 Hz stance retrain (rise + lower)
 
-Recipe basis: the `stance_dr10` lineage recipe (exact cfg in the
-ledger/W&B); rise-reference machinery green since 08-24.
+Recipe basis: `stance_dr10` (exact cfg in ledger/W&B); rise-reference
+machinery green since 08-24.
 GATE (pre-registered): stance panel rise/hold/lower (pod_eval stance
 modes), n>=12, det+sto, DR-0 + own-DR: zero falls/tips, quiet hold
 (no creep), rise/lower height tracking comparable to the legacy
@@ -128,9 +114,9 @@ lower session harness is stage-2 tooling to build.
 - Sim only — hardware stand/plant transfer stays operator-owned.
 - No stage-2 arm may warm-start from a primitive checkpoint.
 - The joystick track owns generic mesh walking; this track owns
-  rise/lower + the unification. Coordinate via STATUS, don't
-  duplicate its mesh conversion arms.
-- `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test,
-  NOT the DONE-gate instrument; the gate read is
-  `eval_done_gate_session` (`ops.sh donegatecmd`, flat=1).
+  rise/lower + the unification. Coordinate via STATUS, don't duplicate
+  its mesh conversion arms.
+- `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test, NOT
+  the DONE-gate instrument; the gate read is `eval_done_gate_session`
+  (`ops.sh donegatecmd`, flat=1).
 

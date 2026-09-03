@@ -1,81 +1,76 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~10:3x: **item 1 (resamplematch/turndiet-canary-s1)
-CANARY PASS (mechanism)/behavioral: diet-match REFUTED as the sole
-steering-gap driver, cross-seed replicated.** `turndiet-canary-s1`
-(seed 1 of the resamplematch pair): `probe_turn_authority` is strong
-(wz_med 0.216-0.220/-0.177-0.180 rad/s vs +-0.25 cmd, err_med
-0.064-0.074, well above the 0.07 floor) — turn AUTHORITY is intact.
-But a same-instrument fast walk-only read (`eval_checkpoint.py
---modes walk`, n=16 x {dr0,ownDR} x {det,sto} = 64 eps, no video,
-spare pods) shows the diet-match lever does NOT cleanly win:
-`direction_err_med` 37.6/42.5/39.8/44.1deg is flat-to-worse vs the
-44.56/43.6deg session baseline (no subgroup clears >=20%);
-`course_err_1s_med` is a genuine mixed bag — 30-45% BETTER under
-DR-0 (15.1/18.3 vs 22.6-28.2 baseline) but 65-100% WORSE under own-DR
-det (44.8 vs 22.6-28.2); `slip_per_m_med` is UNIFORMLY WORSE in every
-subgroup (3.47/4.54/4.50/4.65) vs both the session baseline
-(2.82-2.94) and a newly-established same-instrument PARENT baseline
-(`stdwalklohi-acq1` own fastwalkcheck: 2.29/2.92/2.97/3.12,
-`logs/ckpt_eval/standwalk_stdwalklohi_acq1_s0_fastwalkcheck/`) —
-breaching the gate's ~3.0 slip ceiling every time. Termination rate
-(1/16 owndr/sto) matched the PARENT's own established own-DR noise
-floor (also 1/16 in that subgroup), not a new fall mode. Video frame
-strips confirm clean six-leg gait, gait_valid 1.0 throughout.
-**Cross-seed replicated** almost number-for-number by the
-`resamplematch-canary` sibling (seed 0, verdicted separately, harsher
-CANARY-FAIL: a NEW immediate-tilt own-DR fall, 3/16 owndr/det eps —
-**this cycle's own raw fastcheck data for that SAME checkpoint shows
-0/16 terms in that subgroup**, a discrepancy between two nominally-
-identical `eval_checkpoint.py` reads worth a future dig-in, not
-reconciled here; direction/course/slip numbers agree closely either
-way). Net conclusion both readings share: the diet mismatch is NOT
-the (sole) driver — matching it buys DR-0-only, inconsistent course
-gains at a real slip/own-DR cost. (Addendum: the resamplematch-canary
-verdict's falls sub-claim was REVISED after this cross-check — my
-own-DR 3/16-terms read reproduced byte-identical across 2 of my own
-invocations, but is unreconciled against this cycle's 0/16-terms read
-of the same checkpoint; likely a knife-edge own-DR draw landing on
-opposite sides of the tilt_roll boundary between processes, not a
-clean deterministic difference. Dig-in flagged in
-OPERATOR_QUESTIONS.md, doesn't change the FAIL verdict — steering-
-not-improved + slip-breach alone already fails the gate's PASS bar.)
-**Both mild-dose canary seeds now RUNNING**
-(`cap29-stdwalklohi-resamplematch-mild-canary` train-1,
-`-mild-canary-s1` train-2, seed pair launched this cycle, ~2M steps
-each, near done at cycle end) — read both before any further
-diet-family arm. If they also fail, pivot
-to structural turn-authority (not diet): probe-confirmed authority is
-strong turn-IN-PLACE; untested is whether forward+turn CO-OCCURRENCE
-is under-trained (`walk_yaw_zero_frac=0.5`/`walk_turn_in_place_
-frac=0.30` held constant across every diet arm so far).
+Update, 2026-09-03 ~12:1x: **item 1 CLOSED — resamplematch-mild-canary
+{,-s1} CANARY FAIL - MECHANISM (PARTIAL-shaped), diet-rate family
+CLOSED at both doses, both seeds; pivoting to the structural
+forward+turn co-occurrence lever.** The milder dose (resample_s
+5.0/jitter 0.35, down from the CANARY-FAIL hard dose 4.0/0.5) DOES fix
+the falls sub-claim cleanly on both seeds: `probe_turn_authority`
+wz_med 0.147-0.212 rad/s (well above the 0.07 floor, zero probe
+falls); a matched `eval_checkpoint.py --modes walk --per-mode 16`
+own-DR read (dr-scale 0.0/0.5 x det/sto, no-video for speed, dr0
+video spot-check confirms clean six-leg gait/gait_valid=true) shows
+**0/16 immediate-tilt terms in either seed's own-DR subgroup** — the
+hard-dose fall mode does not reproduce; the only termination present
+(1/16, both seeds identically) is a late (t~22-23s, deep in the hold
+segment) `hold_min_load` term matching the same baseline own-DR noise
+floor seen elsewhere (stdwalklohi-acq1 fastwalkcheck, also 1/16). But
+steering/slip still do NOT clear the gate's PASS bar: `dir_err_med`
+35.1-40.5deg (seed0) / 38.6-39.5deg (seed1), flat vs the hard-dose
+FAIL band (38-41deg), nowhere near the required >=20% drop;
+`course_err_1s_med` mixed-to-worse (seed0 own-DR 20.7-22.8 vs that
+run's 9.6-12.6 FAIL band; seed1 roughly flat 7.3-11.4); `slip_per_m_med`
+still breaches ~3.8 in the own-DR subgroups that matter (seed0
+4.53-4.82, seed1 3.98). **Conclusion: the resample_s/jitter DIET-RATE
+lever does not move steering at ANY dose tested (hard or mild, either
+seed) — the earlier own-DR-fall scare was dose-linked knife-edge
+instability, now resolved by the milder dose alone, not evidence the
+lever helps steering.** Diet-rate family is CLOSED. Per the
+pre-registered fork: pivoting to the STRUCTURAL forward+turn
+co-occurrence lever — reduce `goal.walk_yaw_zero_frac`
+(0.5->lower)/`goal.walk_turn_in_place_frac` (0.30->lower) so more
+training episodes require simultaneous forward+turn, since
+probe-confirmed turn-IN-PLACE authority is already strong (wz_med
+0.15-0.22 across every arm tried so far) but forward+turn
+CO-OCCURRENCE has never actually been exercised at training time —
+every diet-family arm held those two fractions constant. Full verdict
+text + numbers: ledger verdicts for `resamplematch-mild-canary`/`-s1`;
+raw artifacts `logs/ckpt_eval/standwalk_resamplematch_mild_canary{,_s1}
+_walkcheck/`, `logs/ckpt_eval/probe_turn_authority_resamplematch_mild_
+canary{,_s1}.json`.
 
-Earlier updates (item 0 close, joint-frame-stamp fix, fast-read,
-getup/q0/hold/joint-frame-v2 fixes, 09-02 merge-recovery) moved
-VERBATIM to `archive/standwalk_STATUS_journal_2026-09-03g_trim.md`
-+ `2026-09-03{a..f}_trim.md` + `2026-09-02{f,h}_trim.md`.
+Earlier updates (item 0 close, resamplematch/turndiet-s1 diet-match
+refutation, joint-frame-stamp fix, fast-read, getup/q0/hold/
+joint-frame-v2 fixes, 09-02 merge-recovery) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03h_trim.md` +
+`2026-09-03{a..g}_trim.md` + `2026-09-02{f,h}_trim.md`.
 
-## Next (updated 09-03 ~10:3x)
+## Next (updated 09-03 ~12:1x)
 
-1. **Read `resamplematch-mild-canary`** once landed (train-1) — does a
-   milder resample_s/jitter dose avoid the own-DR fall/slip cost while
-   still nudging steering, or does even this dose fail (implicating
-   `walk_cmd_mode=stress_mix` itself, not the resample rate)? PASS ->
-   promote; FAIL both dose levels -> diet family closed, pivot to the
-   structural forward+turn co-occurrence lever above (untested:
-   reducing `walk_yaw_zero_frac`/`walk_turn_in_place_frac` so more
-   training episodes require simultaneous forward+turn, since the
-   probe shows turn-IN-PLACE authority is already strong).
-2. **Closed (archives 09-02{,b..h}, 09-03{a..g}):** update-size/
+1. **Launch the structural forward+turn co-occurrence canary**: a 2M
+   cheap mechanism-health canary pair (2 seeds) off the SAME
+   stdwalklohi-acq1 ancestor the whole diet family used, one lever —
+   lower `goal.walk_yaw_zero_frac` and/or `goal.walk_turn_in_place_frac`
+   so training exposes forward-motion-while-turning far more often
+   (currently 50%/30% of segments are pure-yaw-zero or pure-turn-in-
+   place, i.e. forward+turn co-occurrence is comparatively rare). Gate:
+   same probe_turn_authority + walk-only n=16 det/sto x dr0/ownDR
+   instrument as the diet-family canaries, same PASS/PARTIAL/FAIL
+   rubric, compared against the SAME resamplematch-canary FAIL numbers
+   (dir_err 38-41deg/course_err_1s 9.6-12.6deg/slip~3.8) — this is the
+   next and last item on the track's own pre-registered turn-authority
+   fork before escalating to a full acquisition-scale reward change.
+2. **Closed (archives 09-02{,b..h}, 09-03{a..h}):** update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
    switch-jump/frame-blend/current-confound sweeps; cap29 acquisition
    (PARTIAL); log_std anneal dose grid (`hi` PASS, `mild` FAIL); item
-   0 sto/det convergence-at-scale (PASS); resamplematch/turndiet-s1
-   diet-match hypothesis (refuted, this update).
+   0 sto/det convergence-at-scale (PASS); resamplematch/turndiet-s1 +
+   resamplematch-mild-canary{,-s1} diet-match-rate hypothesis (CLOSED,
+   refuted at both doses/both seeds, this update).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..c,f,g}. Current state = newest Update at the TOP; don't act
+> 09-03{a..h}. Current state = newest Update at the TOP; don't act
 > on archived Next.
 
 ## Goal (operator, 08-24 evening)

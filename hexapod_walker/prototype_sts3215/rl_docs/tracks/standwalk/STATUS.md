@@ -23,7 +23,7 @@ Both are now real qpos/action replay material for rebuilding the
 rise-stall semantics-bank twin as a faithful replay instead of a
 hand-built guess (Next item 2 sub-step (i), still open — the replay
 twin itself is not built yet, only its input data now exists).
-Snapshot `<pending>`.
+Snapshot `e579a144` (`exp/standwalk-riseB-rollout-trace-tool-09-03`).
 
 Earlier updates (15:0x semantics-bank twins, 14:2x seed1 dig-in
 resolution, 13:3x seed0 verdict, 13:2x initial flagged dig-in, and

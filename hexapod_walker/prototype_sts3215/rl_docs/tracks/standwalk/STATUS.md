@@ -1,66 +1,51 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-02 ~23:5x (idle-kick, item 0's read still mid-flight):
-**Found + fixed a SECOND, larger joint-frame-v2 bug**, same family as
-the ~23:1x entry below but wider blast radius: 8 production/test files
-(`probe_walk_income.py` [root, fixes 6 more importers], `probe_contact_
-parity.py`, `build_motion_library.py`, `probe_quad_crawl.py`,
-`test_phasedir_semantics.py`, `test_course_income_semantics.py` [also
-migrated off the stale `sim_gait_compat` import], `test_walk_stop_
-current.py`, `test_walk_move_current.py`, `test_walk_stop_grace.py`,
-`test_walk_idle_terminate.py`) drove the RAW `hexapod_core.tripod_gait`
-dialect through `env.step()` with the pre-migration sim-relative plant
-constant `(20.0, 80.0)` instead of its robot_abs equivalent `(20.0,
-100.0)` — env.step()'s action pipeline now unconditionally converts
-robot_abs->mujoco_rel, so the stale constant silently anchored every
-scripted-gait rollout in these tools ~20 deg off. Zero-training A/B
-against a disposable pre-merge (`631d7f4c`) worktree: `sideways`/
-`backward` rewards were off 20-140%(!) under the bug; fixing it
-recovers pre-migration levels within 5-20%. `probe_dir_floor.py`
-re-run post-fix reproduces the cited teacher-calibration band almost
-exactly (course err med 0.40 deg, slip/m 1.217, 6/6 legs, 0 falls).
-Confirmed via git log that no motion-library asset has actually been
-regenerated with the bug since the merge landed, so no corrupted
-downstream artifact exists yet — this closes that latent risk.
-Full-bank before/after (6-file course/phasedir/task suite): **109
-failed/284 passed -> 58 failed/323 passed**; isolated my own
-attributable delta (13 tests fixed, 1 new margin-edge needing
-recalibration, `test_obey_beats_fastcadence_every_bin[fwd]`) from a
-SEPARATE, unrelated cascade the already-landed ~23:1x plant-stance fix
-exposes in 10 `test_task_semantics.py` tests (proven via a revert-and-
-rerun A/B: reverting just that literal to 80 makes all 10 pass) — that
-cascade is a genuine recalibration need against the now-correct plant
-geometry, not a new bug, and is NOT this entry's to fix. Full
-derivation, per-file list, and the next-toucher recalibration list:
-`OPERATOR_QUESTIONS.md` 2026-09-02 ~23:5x entry. Snapshotted+pushed.
-Item 0 (stdwalklohi-acq1{,-s1} flat-only session read) still confirmed
-in-flight on train-6/7 throughout this entry, unaffected (this is a
-code/test-infra fix, not a training change, and does not itself
-require re-running that read).
+Update, 2026-09-03 ~01:5x (idle-kick, item 0's read still mid-flight):
+**Found + fixed a THIRD instance of the joint-frame-v2 stale-plant-
+literal bug — this time inside `test_task_semantics.py` itself**, the
+one file the 09-02 ~23:5x audit had cleared ("every ~16 TripodGait
+import uses `sim_gait_compat` consistently"). That audit was right
+about the TripodGait path but missed 12 helpers that ALSO build a RAW
+plant pose (`plant_rad`/`stork_rad`/`topple_rad`/`bellysit_rad`/
+`_stopcurrent_rollout`'s own literal) fed straight to `q_rad_to_action`,
+bypassing `sim_gait_compat` — same bug, same fix shape: added
+`RAW_PLANT = (20.0, 100.0)` (robot_abs equivalent of `WALK_PLANT`'s
+sim-relative 80) for the bypass literals only; `WALK_PLANT` itself is
+unchanged (still correct for the TripodGait path). Decisive zero-
+training A/B on `_stopcurrent_rollout`'s still/brace twins: at the
+stale literal "still" drew MORE current (0.439A) than "brace" (0.322A,
+BACKWARDS) and the isometric-fight charge barely fired (0.97 vs the
+1.0 bar); at the fix, "still" settles to 0.160A and "brace" separates
+cleanly at 0.268A with a 16.1-pt margin. Verified: `test_stopcurrent_
+reprices_the_isometric_fight` now PASSES (was one of the 09-02 ~23:5x
+"10 plant-literal-cascade" reds); the other 9 in that set (4 walkcurr_
+pf-family, low-priority/retired-track, + 5 with confirmed DIFFERENT
+root causes) correctly stay red, not papered over. A full whole-file
+regression is running in the background (`/tmp/full_after_fix.log`,
+not finished at cycle end) to confirm zero regressions beyond the
+targeted 10-test check; the manual per-site code audit (all 12 touched
+call sites individually read) already gives high confidence. **Found
+but NOT fixed:** a related, likely LARGER bug where several helpers
+(`_hold_rollout`, `_lower_rollout`, `_getup_rollout`'s freeze/stilt)
+feed raw `env.data.qpos` (MuJoCo-native, i.e. mujoco_rel) straight to
+`q_rad_to_action` without the `mujoco_rel_rad_to_robot_abs_rad()`
+conversion — measured on `_hold_rollout`'s "quiet" policy: un-fixed it
+drifts 4.12mm off its settled height over 15s; converting q0 first
+drops that to 0.44mm. Flagged for a dedicated next dig-in (full
+derivation: `OPERATOR_QUESTIONS.md` 2026-09-03 ~01:2x-01:5x entry) —
+touches more helpers than one cycle should rush. No training-default
+cfg touched. Snapshotted+pushed. Item 0 (`cap29-stdwalklohi-acq1{,
+-s1}` flat-only session read) confirmed still progressing live on
+train-6/7 throughout (dr0 sto sub-pass ~20-25/32, normal pace).
 
-Earlier 09-02 ~22:2x/23:1x updates (the merge-recovery emergency, the
-`k_walk_course_income` plant-stance-literal root-cause+fix) moved
-VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02h_trim.md`.
-
-Update, 2026-09-02 ~18:3x (`stdwalklohi-acq1{,-s1}` 38M pair FINISHED
-training clean; auto SESSION/MIXEDSESSION harness errored rc=1 with
-the SAME expected-broken "obs contract mismatch" every arm in this
-exotic dual-core-obs lineage has hit since 09-01 — not a new defect):
-verdicted both CANARY PASS (own scope) - joint pending flatonly-read.
-Per Next item 0, dispatched the track's own flat-only
-`eval_done_gate_session` (n=32, matching the cap29-acq1 baseline
-read's own n) directly on-pod (train-6/7, code synced c70333b),
-backgrounded + registered via `evalpending` — this is the acq-scale
-read of whether the `hi`-dose walk-core log_std anneal's canary-scale
-sto/det convergence (0.28-0.32 vs 0.32-0.36 progress_ratio) survives
-to full budget, and whether direction_err_med/slip_per_m_med drop
-to/below the cap29-acq1 baseline (46.8 deg/3.09). Not yet landed —
-the reading cycle gets a fresh `session_verdict.json` on each pod.
-
-Earlier 09-02 updates (config archaeology, the stdwalklo grid launch
-+ read, cap29 zero-training session read + windowed course-metrics
-tooling) moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
+Earlier 09-02 updates (the second joint-frame-v2 bug across 8
+production/test files, the merge-recovery emergency, the
+`k_walk_course_income` plant-stance-literal root-cause+fix, the
+`stdwalklohi-acq1{,-s1}` 38M finish + item-0 session-read dispatch,
+config archaeology, the stdwalklo grid launch+read, cap29 zero-
+training session read + windowed course-metrics tooling) moved
+VERBATIM to `archive/standwalk_STATUS_journal_2026-09-02h_trim.md`
+and `archive/standwalk_STATUS_journal_2026-09-02f_trim.md`.
 
 ## Next (updated 09-02 ~18:3x)
 

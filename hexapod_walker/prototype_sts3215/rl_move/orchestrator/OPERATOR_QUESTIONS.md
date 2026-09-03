@@ -4035,3 +4035,124 @@ mechanism bug" pattern the ~23:1x entry already established for
 course_income's own 3 remaining arc/overdrive margin tests (left
 untouched this entry too, same reasoning); (b) the walkcurr_pf-family
 ~30-40 remaining failures stay low-priority (track RETIRED 08-31).
+
+## 2026-09-03 ~01:2x-01:5x — THIRD instance of the joint-frame-v2 stale-plant-literal bug, this time inside `test_task_semantics.py` itself (the 09-02 ~23:5x audit missed it); confirmed fix landed on the module's raw (bypass-`sim_gait_compat`) helpers; a related, larger q0/qpos-frame issue found but NOT fixed this cycle (research note, no operator action needed)
+
+**Context:** standwalk's only Next item (`cap29-stdwalklohi-acq1{,_s1}` flat-
+only `eval_done_gate_session`, n=32) was still mid-flight all cycle
+(confirmed live via `kubectl exec` at both the start and end of this
+entry, dr0 sto sub-pass ~20-25/32 on both pods, normal ~6-7min/episode
+pace held); backlog empty, other 5 tracks unchanged DONE/retired/
+delivered/maintenance. Drained the next agent-doable item instead:
+picked up the 09-02 ~19:1x/20:1x note's still-open "16-18 individually
+large, not-yet-root-caused" semantics-bank failures, specifically the
+5 non-walkcurr ones the ~23:5x entry's before/after diff flagged as a
+"plant-literal cascade... not yet root-caused" follow-up:
+`test_lower_honest_gradient`, `test_freeprog_ema_default_off_is_bit_
+exact`, `test_hold_gate_bites_the_stepping`, `test_slipwalk_swing_
+bonus_boosts_real_travel_substantially`, `test_amp_minimal_stationary_
+variants_are_not_well_separated`, `test_stopcurrent_reprices_the_
+isometric_fight`.
+
+**Root cause (confirmed, fixed):** the ~23:5x audit's blanket claim
+"`test_task_semantics.py` needs no fix — every ~16 TripodGait import
+uses `sim_gait_compat` consistently" was TRUE for the TripodGait/
+`gait.desired_deg()` path but INCOMPLETE: the same file ALSO builds a
+RAW plant pose directly in 12 separate helpers — a bare `plant_rad =
+np.array([0.0, *WALK_PLANT] * 6)` (plus `stork_rad`/`topple_rad`
+derived from it, plus a standalone `bellysit_rad`, plus
+`_stopcurrent_rollout`'s own inline literal) — fed STRAIGHT to
+`q_rad_to_action`, bypassing the compat wrapper entirely. `env.step()`
+unconditionally treats every action as robot_abs and subtracts hip
+from knee (`_logical_to_mujoco_q`), so these bypass literals needed
+`WALK_PLANT`'s robot_abs equivalent (100), not its sim-relative value
+(80) — the exact same defect class as the two `probe_walk_income.py`/
+`test_walk_stop_current.py`-family fixes already landed 09-02, just
+missed in that file because the earlier audit only grepped for
+"TripodGait imports."
+
+**Decisive evidence (zero training compute):** a direct A/B on
+`_stopcurrent_rollout`'s still/brace twins (the clearest, most
+diagnostic case) — at the stale (20,80) literal, "still" (the
+nominally-relaxed certified pose) actually drew MORE current
+(cur_mean 0.439 A) than "brace" (the isometric-fight probe, 0.322 A,
+BACKWARDS) and the isometric-fight charge could barely fire
+(brace_charged - brace_base = 0.97, under the test's 1.0 bar — this
+is exactly why `test_stopcurrent_reprices_the_isometric_fight` was
+red). At the corrected robot_abs (20,100) literal: "still" settles to
+0.160 A (near the reset-settled floor, matching `_default_plant_
+deg()`'s own 100-based default) and "brace" separates cleanly at
+0.268 A, with the charge firing for a clear 16.1-point margin.
+
+**Fix landed:** added `RAW_PLANT = (WALK_PLANT[0], WALK_PLANT[1] +
+WALK_PLANT[0])` = `(20.0, 100.0)` next to `WALK_PLANT`; switched all
+11 raw `plant_rad = np.array([0.0, *WALK_PLANT] * 6)` constructions
+(and their `stork_rad`/`topple_rad` derivatives, which inherit the fix
+automatically via `.copy()`) plus the standalone `bellysit_rad`
+(155->175, its own robot_abs equivalent) plus `_stopcurrent_rollout`'s
+inline literal to `RAW_PLANT`. `WALK_PLANT` itself is UNCHANGED (the
+TripodGait/`sim_gait_compat` path still needs sim-relative 80 and
+stays correct). `q_stilt`/`GG_FLAG_RAD`/`QW_TUCK_RAD` were AUDITED and
+correctly left alone: all three have hip=0, so the robot_abs/sim-
+relative shift (`knee_abs = knee_rel + hip`) is zero regardless of
+convention — no ambiguity, no fix needed.
+
+**Verified:** re-ran the same 10 originally-failing tests after the
+fix: `test_stopcurrent_reprices_the_isometric_fight` now PASSES
+(9 failed -> 9 failed + 1 passed, i.e. net +1, zero new regressions
+in this targeted set). The other 9 (4 walkcurr_pf-family — retired
+track, low priority — plus `lower_honest_gradient`/`freeprog`/
+`amp_minimal`/`hold_gate`/the 3 walkcurr shuffle/chargeramp/loadslip
+tests) are confirmed by inspection to have DIFFERENT, unrelated root
+causes (see next finding below) and were correctly left red, not
+papered over.
+
+**A full whole-file regression (`test_task_semantics.py`, ~300 tests)
+was launched in the background to confirm zero regressions outside
+the 10-test targeted set** (`/tmp/full_after_fix.log`) — progressing
+normally at cycle end (~50/300 done, no failures seen yet beyond the
+pre-existing ones already known) but not finished; a future cycle
+should read it before treating this fix as fully bank-clean, though
+the manual code audit above (every one of the 12 touched call sites
+individually read and confirmed to be the same raw-bypass shape) and
+the zero-regression targeted-subset result already give high
+confidence.
+
+**SEPARATE, LARGER finding, NOT fixed this cycle (flagging for a
+dedicated dig-in):** several of the same file's helpers (`_hold_
+rollout`'s "quiet"/"stepping"/"flag" policies, `_lower_rollout`'s IK
+blend, `_getup_rollout`'s "freeze"/"stilt" policies, plausibly others)
+build their action from `q0 = env.data.qpos[env._qadr]` — MuJoCo's
+OWN native hinge coordinates, i.e. mujoco_rel by construction
+(confirmed reading `hexapod_core/joint_frame.py`'s docstring: "MuJoCo
+necessarily stores its knee hinge relative to the femur") — then feed
+`q0` (or a small delta off it) STRAIGHT to `q_rad_to_action`, which
+the SAME `env.step()` unconditional robot_abs->mujoco_rel conversion
+then mis-treats, silently commanding a per-leg-hip-degree-shifted pose
+instead of "hold exactly where you are." Zero-training A/B on `_hold_
+rollout`'s "quiet" policy (the simplest, cleanest case): un-fixed,
+quiet hold drifts up to 4.12mm off its settled height over 15s and
+returns 1444.9; converting q0 with the already-existing
+`hexapod_core.joint_frame.mujoco_rel_rad_to_robot_abs_rad()` helper
+before `q_rad_to_action` drops the drift to 0.44mm and raises the
+return to 1472.5 — a real, measurable, in-the-expected-direction
+improvement. This plausibly explains (at least partially) WHY `test_
+hold_gate_bites_the_stepping`'s ratio needed recalibrating twice in
+three days (09-02 ~21:0x and again implicitly here) — "quiet" was
+never quite as quiet as the test assumed. NOT fixed this cycle: it
+touches more helpers than the raw-plant-literal issue (at least 3
+found, likely more — a full audit needs to check every `env.data.
+qpos` read in the file, not just the ones already surfaced by a
+failing test), and a hasty fix risks a FOURTH generation of this bug
+family in a single day. Next toucher: grep `env.data.qpos\[env._qadr\]`
+across `test_task_semantics.py`, classify each use (raw target vs.
+blended into an IK/reference solve that might already be internally
+consistent), and apply `mujoco_rel_rad_to_robot_abs_rad()` wherever a
+q0-derived array is fed to `q_rad_to_action` as a target pose.
+
+status: FIX LANDED (narrow, confirmed, zero-regression) for the raw-
+plant-literal class; the q0/qpos-frame class is DOCUMENTED, MEASURED,
+NOT YET FIXED — flagged above for a dedicated next dig-in. No
+training-default cfg touched; this is test-only code. Snapshotted+
+pushed. standwalk's own in-flight item 0 (`cap29-stdwalklohi-acq1{,
+_s1}`) unaffected (confirmed still progressing live throughout).

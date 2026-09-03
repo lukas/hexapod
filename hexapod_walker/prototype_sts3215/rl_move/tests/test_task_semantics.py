@@ -575,6 +575,30 @@ WALK_OVERRIDES = {
 }
 WALK_CMD_VX = 0.05      # champion command band; tape ran 0.03/0.05
 WALK_PLANT = (20.0, 80.0)
+# 2026-09-03 (standwalk idle-kick, semantics-bank dig-in, third
+# instance of the joint-frame-v2 stale-plant-literal family found this
+# week): many helpers below build a RAW plant pose directly -- a bare
+# `plant_rad = np.array([0.0, *WALK_PLANT] * 6)` fed straight to
+# `q_rad_to_action`, bypassing `sim_gait_compat.TripodGait.desired_deg()`
+# (which already returns robot_abs-correct values; that path is fine
+# and stays on WALK_PLANT, confirmed 09-02). `env.step()` unconditionally
+# treats EVERY action as robot_abs and subtracts hip from knee
+# (`_logical_to_mujoco_q`), so a bypass literal must itself be
+# robot_abs, not WALK_PLANT's sim-relative 80. RAW_PLANT is WALK_PLANT's
+# robot_abs equivalent (knee_abs = knee_rel + hip = 80+20=100), the
+# same derivation `_default_plant_deg()` and every sibling file fixed
+# 2026-09-02 already used. Confirmed with a zero-training A/B on
+# `_stopcurrent_rollout`'s still/brace twins: at the stale (20,80)
+# literal "still" (the nominally-relaxed pose, cur_mean 0.439 A)
+# actually draws MORE current than "brace" (the isometric-fight probe,
+# 0.322 A) -- backwards, and the isometric-fight charge barely fires
+# (brace_charged - brace_base = 0.97, under the test's 1.0 bar). At
+# the corrected (20,100) "still" settles to 0.160 A (near the
+# reset-settled floor, matching `_default_plant_deg()`'s own 100-based
+# default) and "brace" separates cleanly at 0.268 A, and the charge
+# fires for a clear 16.1-point margin -- restores the intended
+# ordering and the mechanism the test bank exists to certify.
+RAW_PLANT = (WALK_PLANT[0], WALK_PLANT[1] + WALK_PLANT[0])   # (20.0, 100.0)
 
 
 # --------------------------------------------------------------------------
@@ -673,7 +697,7 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
 
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
 
     total, step, yp_sum, wy_sum = 0.0, 0, 0.0, 0.0
@@ -1129,7 +1153,7 @@ def _slipwalk_rollout(policy: str, seed: int, *,
 
     gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     # Stork statue: plant triad {0,2,4}, park triad {1,3,5} in the air
     # (hip -50 / knee -50 = the ~190 mm "parked high" splay class the
     # hold bank calibrated 08-11; matches the M2 -c1 videos' airborne
@@ -1152,8 +1176,11 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     # drops) — probe-measured -109.8 mm at hip=20/knee=155 sim-
     # relative, matching the -116 mm height_err_end_mm on every
     # FAILed RND arm (rung-0 swing3-rnd1/rnd3, rung-1 rnd02/rnd10/
-    # rnd100/rscale50-rnd1).
-    bellysit_rad = np.array([0.0, 20.0, 155.0] * 6) * DEG2RAD
+    # rnd100/rscale50-rnd1). 2026-09-03: this is fed raw to
+    # q_rad_to_action (same bypass as plant_rad above), so it needs
+    # the robot_abs equivalent of the cited 155-sim-relative reading:
+    # knee_abs = 155+hip(20) = 175.
+    bellysit_rad = np.array([0.0, 20.0, 175.0] * 6) * DEG2RAD
     gait.reset_phase()
 
     x0 = float(env.data.xpos[env._chassis_bid, 0])
@@ -1540,7 +1567,7 @@ def _slipwalk_ema_rollout(policy: str, seed: int, *,
         traj.wz[:] = 0.0
     gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
     x0 = float(env.data.xpos[env._chassis_bid, 0])
     total, step = 0.0, 0
@@ -2191,7 +2218,7 @@ def _mix_rollout(policy: str, seed: int) -> float:
     n = len(traj.vx)
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
     total, step = 0.0, 0
     while True:
@@ -2420,7 +2447,7 @@ def _walk_rollout_terms(policy: str, seed: int,
 
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
 
     total, step = 0.0, 0
@@ -4275,7 +4302,7 @@ def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
     j_part = r_i0 + int((n_ref - r_i0) * 0.4)
     q0 = env.data.qpos[env._qadr].copy()
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*(WALK_PLANT if policy != "shuffle"
                              else (0.0, 15.0)))
@@ -4735,7 +4762,7 @@ def _quadwalk_rollout(policy: str, seed: int, *,
                 dx += 0.06
             return (dx, dy, dz)
         gait._foot_target_in_body = _splayed
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
     tuck = np.array(QW_TUCK_RAD)
 
@@ -4940,7 +4967,7 @@ def _quad_hold_rollout(policy: str, seed: int, overrides: dict) -> float:
                 dx += 0.06
             return (dx, dy, dz)
         gait._foot_target_in_body = _splayed
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
     tuck = np.array(QW_TUCK_RAD)
 
@@ -5207,7 +5234,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
         traj.wz[:] = 0.0
     gait = TripodGait(vx=0.0, lift=0.025)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     flag = np.array(GG_FLAG_RAD)
     gait.reset_phase()
     total, step = 0.0, 0
@@ -5269,7 +5296,7 @@ def _gait_gate_midpin_rollout(seed: int, overrides: dict) -> dict:
             dx += 0.06
         return (dx, dy, dz)
     gait._foot_target_in_body = _splayed
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
     tuck = np.array(QW_TUCK_RAD)
     gait.set_velocity(vx=0.0, vy=0.0)
@@ -8048,7 +8075,7 @@ def _stopcharge_rollout(policy: str, seed: int, *,
     speed_cmd = {"creep": 0.04, "walk": 0.06}.get(policy, 0.0)
     gait = TripodGait(vx=speed_cmd, lift=0.025)
     gait.sync_plant_stance(*WALK_PLANT)
-    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
 
     total, step, sp_sum = 0.0, 0, 0.0
     while True:
@@ -8186,7 +8213,23 @@ def _stopcurrent_rollout(policy: str, seed: int, *,
     k_walk_stop_current block). +8deg measures 2.34A (comfortably
     clears the threshold, ~21pt return margin over 15s, deterministic
     since dr_scale=0.0) while still reading as "a few degrees off
-    equilibrium" per the bank's own docstring above."""
+    equilibrium" per the bank's own docstring above.
+
+    2026-09-03 (second recalibration, same dig-in family): this
+    helper's own `plant_rad` was STILL built from raw `WALK_PLANT`
+    (sim-relative 80), the same bypass-`sim_gait_compat` bug as the
+    module-level `RAW_PLANT` fix above -- `env.step()` unconditionally
+    treats the action as robot_abs, so the un-shifted literal silently
+    put "still" ~20deg off the actual settled/certified plant (knee
+    landed at 60 mujoco-relative, not 80), which is why "still" used to
+    draw MORE current (0.439A) than "brace" (0.322A) and the charge
+    could barely separate them (0.97 diff, under the 1.0 bar). Now
+    built from `RAW_PLANT` (robot_abs 100): "still" settles to 0.160A
+    (near the reset-settled floor) and "brace" separates cleanly at
+    0.268A with the charge firing for a 16.1-point margin -- the +8deg
+    offset docstring above is stale narrative (predates this fix) but
+    the offset ITSELF (still correct in spirit) is applied to the new
+    base."""
     overrides = dict(JOYFULLCURR_STOP_OVERRIDES)
     if k_cur > 0.0:
         overrides[("reward", "k_walk_stop_current")] = k_cur
@@ -8206,7 +8249,7 @@ def _stopcurrent_rollout(policy: str, seed: int, *,
 
     off_deg = 8.0 if policy == "brace" else 0.0
     plant_rad = np.array(
-        [0.0, WALK_PLANT[0] + off_deg, WALK_PLANT[1] + off_deg] * 6
+        [0.0, RAW_PLANT[0] + off_deg, RAW_PLANT[1] + off_deg] * 6
     ) * DEG2RAD
 
     total, step, cur_max_sum = 0.0, 0, 0.0

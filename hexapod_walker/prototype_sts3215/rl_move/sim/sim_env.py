@@ -2807,9 +2807,18 @@ class SimHexapodBalanceEnv(_GymBase):
 
         2026-09-02: knee arg is robot_abs (absolute tibia); 100, not 80
         -- see ``_default_plant_deg`` for the full derivation of this
-        literal (100 = the historical mujoco-relative 80 + hip 20)."""
+        literal (100 = the historical mujoco-relative 80 + hip 20).
+
+        ``train.bc_anchor_teacher_yaw_arm_scale`` (standwalk Next item
+        2, candidate (i)-v2, 09-03 -- see tripod_gait.py's
+        ``combined_yaw_arm_scale`` docstring for the full derivation):
+        default 1.0 = legacy identity (bit-exact off); a static
+        per-run dose, read once here since the cfg never changes
+        mid-run."""
         from hexapod_core.tripod_gait import TripodGait
-        _g = TripodGait(vx=0.0)
+        _g = TripodGait(vx=0.0, combined_yaw_arm_scale=float(cfg_get(
+            self.cfg, "train", "bc_anchor_teacher_yaw_arm_scale",
+            default=1.0)))
         _g.sync_plant_stance(20.0, 100.0)
         _g.reset_phase()
         return _g

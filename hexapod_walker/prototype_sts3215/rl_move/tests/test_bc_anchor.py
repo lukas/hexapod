@@ -1131,6 +1131,164 @@ def test_walk_omega_boost_leaves_straight_walk_untouched():
         assert np.allclose(info["bc_target"], expect, atol=1e-6)
 
 
+# --- combined-tick yaw-arm-scale lever (09-03, standwalk candidate
+# (i)-v2) -------------------------------------------------------------
+# The joint-tracking probe (probe_joint_tracking.py,
+# logs/ckpt_eval/joint_tracking_cap29_scripted_09-03.json) measured the
+# SafetyLayer's per-tick yaw slew clip (physically pinned at
+# 0.375deg/tick @100Hz = 37.5deg/s, operator order
+# fb_20260824T174619_c49b7e) saturating ~48% of combined-tick legs vs
+# ~0% of pure-turn legs at the identical |wz_cmd|. Discounting omega on
+# combined ticks (the mirror-image of the ALREADY-refuted
+# bc_anchor_teacher_omega_boost lever, boost<1 this time) does not even
+# help at the zero-training scripted level -- combined wz_med gets
+# MONOTONICALLY WORSE as the discount strengthens (probe_turn_authority
+# --scripted-omega-boost 1.0->0.3: wz_med 0.0723->0.0620 rad/s), because
+# the raw per-tick yaw delta is a period-INDEPENDENT direct function of
+# the physical foot velocity -- any uniform demand scaling trades
+# achieved rotation 1:1 against clip relief, no net win either
+# direction.
+#
+# This lever is different: TripodGait.combined_yaw_arm_scale inflates
+# ONLY the atan2 denominator (`x_yaw`) used to back out the yaw SERVO
+# ANGLE from a given true tangential foot displacement -- hip/knee IK
+# still uses the TRUE (unscaled) r_planar/z target, so foot placement
+# and lift height are untouched; only the commanded yaw excursion for
+# the SAME physical swing shrinks, needing less per-tick slew. Gated to
+# combined ticks only (self.vx!=0 AND self.omega!=0, mirrored via
+# train.bc_anchor_teacher_yaw_arm_scale here) so pure-turn is bit-exact
+# regardless of dose. Zero-training probe (dose 1.0->2.0,
+# probe_turn_authority.py --scripted-yaw-arm-scale): combined wz_med
+# improves 0.0723->0.0807 rad/s (BOTH signs) at flat vx_med, pure-turn
+# wz_med stays EXACTLY 0.2198 every dose; probe_joint_tracking.py
+# confirms clip_sat_frac_yaw on combined drops 0.477->0.226 (toward the
+# pure-turn 0.0 baseline) at the SAME dose, with pure-turn's own
+# clip_sat_frac_yaw untouched (still 0.0). Past dose 2.5 the gain
+# reverses. Default 1.0 = legacy identity -- bit-exact off.
+
+def test_walk_yaw_arm_scale_default_off_bit_exact():
+    """Unset train.bc_anchor_teacher_yaw_arm_scale: a combined tick's
+    bc_target matches an independent TripodGait with the default
+    (unscaled) yaw arm, exactly like the legacy walk BC-anchor."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(64, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_yaw_arm_scale_scales_combined_ticks():
+    """train.bc_anchor_teacher_yaw_arm_scale=2.0: a combined tick's
+    bc_target now matches an independent TripodGait constructed with
+    combined_yaw_arm_scale=2.0 -- proving the dose actually reaches the
+    teacher's IK -- and differs from the unscaled target."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(65, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_yaw_arm_scale"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref_scaled = TripodGait(vx=0.0, combined_yaw_arm_scale=2.0)
+    ref_scaled.sync_plant_stance(20.0, 100.0)
+    ref_scaled.reset_phase()
+    ref_plain = TripodGait(vx=0.0)
+    ref_plain.sync_plant_stance(20.0, 100.0)
+    ref_plain.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    saw_diff = False
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref_scaled.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                 omega=float(g.wz_ref))
+        expect_scaled = q_rad_to_action(np.asarray(
+            ref_scaled.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        ref_plain.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                omega=float(g.wz_ref))
+        expect_plain = q_rad_to_action(np.asarray(
+            ref_plain.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect_scaled, atol=1e-6)
+        if not np.allclose(expect_scaled, expect_plain, atol=1e-6):
+            saw_diff = True
+    assert saw_diff, "scaled and unscaled teacher targets never diverged"
+
+
+def test_walk_yaw_arm_scale_leaves_pure_turn_untouched():
+    """train.bc_anchor_teacher_yaw_arm_scale=2.0 must NOT touch a PURE
+    turn-in-place tick (vx=0, wz!=0) -- bc_target still matches the
+    UNSCALED reference there."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(66, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_yaw_arm_scale"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)   # pure turn
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_yaw_arm_scale_leaves_straight_walk_untouched():
+    """train.bc_anchor_teacher_yaw_arm_scale=2.0 must NOT change a
+    straight-walk tick (vx!=0, wz=0) -- omega is 0 either way, so the
+    combined gate never fires and the target matches the plain
+    reference exactly."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(67, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_yaw_arm_scale"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.0)   # straight walk only
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
 # cw-getup2-r1 warm-started the getup task from the rise+hold
 # specialist and showed the skill does NOT survive contact with the

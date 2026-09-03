@@ -49,11 +49,25 @@ Usage:
       --cfg-set env.model_source=mesh --cfg-set control.hz=100 \
       --wz-cmds 0.25,-0.25 --out logs/ckpt_eval/turn_probe_scripted.json
 
-Output JSON: per (wz_cmd, seed) wz_med/wz_p90_abs/wz_err_med over
-walk-mode ticks only, plus the frozen-body prediction (|wz_cmd|) for
-direct comparison, and an aggregate PASS/FAIL-style summary line
-printed to stdout (median |wz_err| vs a configurable
-`--frozen-margin` fraction of |wz_cmd|).
+  # COMBINED walk+turn probe (09-03, standwalk redesign-spec item 2
+  # sub-step: every prior anchor-coef/turn-authority read here held
+  # vx_ref=0 — this crosses a nonzero forward command with wz so the
+  # SAME tool answers "does wz/vx tracking hold when both are
+  # commanded at once", zero training required either against the
+  # scripted teacher (the BC anchor's own target) or a live checkpoint:
+  uv run python -m rl_move.sim.probe_turn_authority --policy scripted \
+      --cfg-set env.model_source=mesh --cfg-set control.hz=100 \
+      --wz-cmds 0.25,-0.25,0.0 --vx-cmds 0.0,0.08 \
+      --out logs/ckpt_eval/turn_probe_combined_scripted.json
+
+Output JSON: per (wz_cmd, vx_cmd, seed) wz_med/wz_p90_abs/wz_err_med
+and vx_med/vx_err_med (body-frame forward speed, robust to a rotating
+heading) over walk-mode ticks only, plus the frozen-body wz
+prediction (|wz_cmd|) for direct comparison, and an aggregate
+PASS/FAIL-style summary line printed to stdout (median |wz_err| vs a
+configurable `--frozen-margin` fraction of |wz_cmd|) — the summary
+verdict is wz-only and unaffected by `--vx-cmds`; read vx_err_med
+per-row for the combined-tick course question.
 """
 from __future__ import annotations
 
@@ -126,7 +140,22 @@ def _load_model(checkpoint: Path):
 
 def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             episode_seconds: float, policy: str = "checkpoint",
-            model_obs_width: int | None = None) -> dict:
+            model_obs_width: int | None = None,
+            vx_cmd: float = 0.0) -> dict:
+    """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
+    "COMBINED walk+turn ticks specifically" branch — every prior
+    anchor-coef/turn-authority probe in this lineage held vx_ref=0,
+    i.e. PURE turn-in-place; nobody had measured wz/vx tracking with a
+    simultaneous nonzero linear command). Default 0.0 reproduces the
+    exact prior behavior bit-for-bit (``traj.vx[:] = 0.0`` either way,
+    same ramp-from-zero shape since ramping 0->0 is a no-op) — this is
+    an additive probe capability, not a semantics change. When nonzero,
+    vx is ramped over the SAME 1s hold + ramp window as wz so both
+    axes reach their commanded value together, and per-tick BODY-FRAME
+    forward speed (``env._body_vel_xy()[0]``, robust to the heading
+    rotating under a live wz command — unlike a world-frame track)
+    is recorded over the identical walk-mode-filtered tick set as wz.
+    """
     mode_onehot = False
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
                    mode_onehot=env_cls_kwargs.get("mode_onehot", False))
@@ -148,10 +177,12 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     traj = env._goal_traj
     n = len(traj.vx)
     hold_n = ramp_n = int(round(1.0 / env.dt))
-    traj.vx[:] = 0.0
+    traj.vx[:] = vx_cmd
     traj.vy[:] = 0.0
     traj.wz[:] = wz_cmd
+    traj.vx[:hold_n] = 0.0
     traj.wz[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = np.linspace(0.0, vx_cmd, ramp_n)
     traj.wz[hold_n:hold_n + ramp_n] = np.linspace(0.0, wz_cmd, ramp_n)
     if policy == "scripted":
         from hexapod_core.tripod_gait import TripodGait
@@ -160,13 +191,15 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         gait.reset_phase()
     step = 0
     wz_list: list[float] = []
+    vx_list: list[float] = []
     modes_seen: list[str] = []
     fell = False
     while True:
-        cmd = float(traj.wz[min(step, n - 1)])
+        cmd_wz = float(traj.wz[min(step, n - 1)])
+        cmd_vx = float(traj.vx[min(step, n - 1)])
         if policy == "scripted":
             t = step * env.dt
-            gait.set_velocity(omega=cmd)
+            gait.set_velocity(vx=cmd_vx, omega=cmd_wz)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         else:
             act, _ = model.predict(obs, deterministic=True)
@@ -175,6 +208,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         modes_seen.append(gm)
         if step >= hold_n + ramp_n and gm == "walk":
             wz_list.append(float(env._body_wz()))
+            vx_list.append(float(env._body_vel_xy()[0]))
         step += 1
         if term:
             fell = True
@@ -183,8 +217,11 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     env.close()
     wz_arr = np.array(wz_list)
     wz_err = np.abs(wz_arr - wz_cmd)
+    vx_arr = np.array(vx_list)
+    vx_err = np.abs(vx_arr - vx_cmd)
     return {
         "wz_cmd": wz_cmd,
+        "vx_cmd": vx_cmd,
         "seed": seed,
         "n_walk_ticks": len(wz_arr),
         "n_total_ticks": step,
@@ -194,6 +231,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
                        if len(wz_arr) else None),
         "wz_err_med": float(np.median(wz_err)) if len(wz_arr) else None,
         "frozen_body_wz_err_pred": abs(wz_cmd),
+        "vx_med": float(np.median(vx_arr)) if len(vx_arr) else None,
+        "vx_err_med": (float(np.median(vx_err)) if len(vx_arr) else None),
         "fell": fell,
     }
 
@@ -228,6 +267,12 @@ def main() -> int:
     ap.add_argument("--cfg-set", action="append", default=None)
     ap.add_argument("--wz-cmds", default="0.25,-0.25",
                     help="comma-separated commanded wz values (rad/s)")
+    ap.add_argument("--vx-cmds", default="0.0",
+                    help="comma-separated commanded body-frame forward "
+                         "speeds (m/s), crossed with every --wz-cmds "
+                         "value (09-03 COMBINED walk+turn probe "
+                         "extension) — default '0.0' reproduces the "
+                         "original pure-turn-in-place behavior exactly")
     ap.add_argument("--seeds", default="0,1")
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--frozen-margin", type=float, default=0.5,
@@ -245,17 +290,19 @@ def main() -> int:
         model, model_obs_width = _load_model(args.checkpoint)
 
     wz_cmds = [float(x) for x in args.wz_cmds.split(",") if x.strip()]
+    vx_cmds = [float(x) for x in args.vx_cmds.split(",") if x.strip()]
     seeds = [int(x) for x in args.seeds.split(",") if x.strip()]
     env_kwargs = {"cfg_set": args.cfg_set}
     results = []
     for wz_cmd in wz_cmds:
-        for seed in seeds:
-            res = rollout(model=model, env_cls_kwargs=env_kwargs,
-                          wz_cmd=wz_cmd, seed=seed,
-                          episode_seconds=args.episode_seconds,
-                          policy=args.policy,
-                          model_obs_width=model_obs_width)
-            results.append(res)
+        for vx_cmd in vx_cmds:
+            for seed in seeds:
+                res = rollout(model=model, env_cls_kwargs=env_kwargs,
+                              wz_cmd=wz_cmd, vx_cmd=vx_cmd, seed=seed,
+                              episode_seconds=args.episode_seconds,
+                              policy=args.policy,
+                              model_obs_width=model_obs_width)
+                results.append(res)
 
     summary = summarize(results, frozen_margin=args.frozen_margin)
     print(f"[probe_turn_authority] policy={args.policy} "

@@ -300,9 +300,7 @@ hex_unit_check() {
     hex_py linux_control/test_quad_pitch_trim.py &&
     hex_py linux_control/test_safe_zero.py &&
     hex_py linux_control/test_pinned_tip.py &&
-    hex_py -m pytest -q \
-      linux_control/test_housing_pose.py \
-      linux_control/test_apriltag_vision.py
+    (cd hexapod-tracker && uv run --extra dev pytest -q)
   )
 }
 

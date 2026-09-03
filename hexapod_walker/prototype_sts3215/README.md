@@ -38,6 +38,7 @@ start at the entry point for the one you're working on:
 | `stl_prototype/` | Slicer-ready printables (healed BREP tessellations) |
 | `stl_reference/` | Sim / viz meshes (not for printing) |
 | `firmware/` / `linux_control/` / `motor_setup/` | On-robot software |
+| `hexapod-tracker/` | Git submodule containing AprilTag tracking, camera server/UI, configs, and off-robot vision tests |
 | `full_robot_viz/` | BuildViz scene + local `buildviz` npm dep |
 | `rl_docs/` | RL campaign docs index: goal, operator wishlist, commands, log conventions |
 | `RL_PLAN.md` / `RL_LOG.md` | Current RL plan + condensed campaign history (full history in `archive/`) |
@@ -52,6 +53,8 @@ do not copy old bare `python3` examples from logs/archive. The repo-root
 `AGENTS.md` and this project's `AGENTS.md` record the rule. Native
 MuJoCo GUI/viewer launches on macOS are the special exception: use
 `uv run mjpython ...` or the Makefile viewer targets.
+
+After a fresh clone, initialize the tracker with `git submodule update --init`.
 
 ```sh
 make -C hexapod_walker/prototype_sts3215 help

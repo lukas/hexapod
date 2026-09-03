@@ -21,7 +21,9 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_ROOT = ROOT / "rl_move" / "hardware_traces"
-POSE_CONFIG = ROOT / "linux_control" / "apriltag_pose_config_20260831.json"
+POSE_CONFIG = (
+    ROOT / "hexapod-tracker" / "configs" / "apriltag_pose_config_20260831.json"
+)
 
 GAITS = {
     0: "tripod drag",

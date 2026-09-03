@@ -134,11 +134,10 @@ two videos with one visible LED flash at the start and another at the end. Do
 not claim stereo/3-D accuracy unless both cameras have individual intrinsic
 calibrations and a measured common-world extrinsic calibration.
 
-If `linux_control/track_apriltags.py` exists in the checkout, it may record one
-camera per process and optionally collect read-only feedback. Use a separately
-calibrated config for each camera. `--robot-url`, when supported by that local
-version, must remain GET/read-only; inspect the implementation before use. An
-example camera-only command is:
+The `hexapod-tracker` submodule may record one camera per process and
+optionally collect read-only feedback. Use a separately calibrated config for
+each camera. `--robot-url` remains GET/read-only. An example camera-only
+command using the compatibility entry point is:
 
 ```bash
 cd hexapod_walker/prototype_sts3215

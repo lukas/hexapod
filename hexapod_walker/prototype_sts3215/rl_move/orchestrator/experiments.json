@@ -256769,7 +256769,7 @@
       "safety.max_current_a=2.9"
     ],
     "created": "2026-09-02T16:46:33+00:00",
-    "status": "CANARY PASS (own scope) - joint pending flatonly-read",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -256817,7 +256817,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "Training finished clean at 38.0M (ep_rew_mean 2915, reward quarters [626,2447,2898,2987] rising then flattening, std normal). The auto prestage SESSION/MIXEDSESSION harness errored rc=1 'obs contract mismatch with the deployed session env' -- this is the SAME expected-broken result every arm in this exotic dual-core-obs lineage has hit since 09-01 (not a new defect, not evidence either way on the actual gate). Per STATUS Next item 0, dispatched the track's own flat-only eval_done_gate_session (n=32, matching the cap29-acq1 baseline read's own n) on-pod (train-6, code synced to c70333b) instead, backgrounded and registered via evalpending -- this is the acq-scale read of whether the stdwalklo-hi walk-core log_std anneal (CANARY PASS at 2M canary scale: sto/det progress_ratio converged 0.28-0.32 vs 0.32-0.36) survives to full 38M budget and whether direction_err_med/slip_per_m_med drop to/below the cap29-acq1 baseline (46.8 deg/3.09). Not yet landed; joint verdict with the -s1 seed once both flatonly reads are in."
+    "verdict": "Flat-only eval_done_gate_session (n=128 ep, det+sto x DR0+ownDR) landed on-pod (train-6) and clears this arm's own pre-registered PASS bar: direction_err_med 44.56deg (< the cap29 zero-training baseline 46.8deg) and slip_per_m_med 2.819 (< baseline 3.09), AND sto/det progress_ratio convergence survives to full 38M acquisition scale (dr0 sto/det 0.379/0.3605=105%, owndr 0.363/0.3865=94%; nowhere near the old 5-8%-of-det collapse). Zero falls/terminations across all 128 episodes, gait_valid_frac=1.0, height_err_end 0.85mm. Confirms the walk-core log_std-anneal-down fix (dose -3.5, canary-scale PASS 09-02) survives and compounds at acquisition scale on seed0 -- joint with -s1 (same read, also PASS). This closes STATUS item 0. NOT the track DONE gate yet: absolute direction_err (44.6deg) still misses the track's tighter ~40deg cap and slip sits right at the 2.9 hard cap, so the steering gap (STATUS item 1) remains open -- this run sets the new best-known reference band (44-45deg dir / 2.8-2.9 slip) to beat next, it does not mark standwalk DONE."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-acq1-s1",
@@ -257071,7 +257071,7 @@
       "safety.max_current_a=2.9"
     ],
     "created": "2026-09-02T16:49:38+00:00",
-    "status": "CANARY PASS (own scope) - joint pending flatonly-read",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -257119,6 +257119,6 @@
       }
     ],
     "triage": "done",
-    "verdict": "Training finished clean at 38.0M, same shape as the seed-0 twin (reward rising then flat, no numerical issues). Auto SESSION/MIXEDSESSION harness errored rc=1 with the same expected obs-contract-mismatch this whole exotic-obs lineage always hits (not new). Dispatched the track's own flat-only eval_done_gate_session (n=32) on-pod (train-7, code synced to c70333b), backgrounded and registered via evalpending -- completes the seed pair for the acq-scale read of whether the stdwalklo-hi anneal dose's canary-scale sto/det convergence survives to full budget vs the cap29-acq1 baseline (46.8 deg/3.09). Not yet landed; joint verdict with the seed-0 run once both flatonly reads are in."
+    "verdict": "Seed-1 twin of stdwalklohi-acq1, same flat-only eval_done_gate_session read (n=128 ep, det+sto x DR0+ownDR, on-pod train-7): direction_err_med 43.6deg and slip_per_m_med 2.939, BOTH below the cap29 zero-training baseline (46.8deg/3.09) -- clears this arm's own pre-registered PASS bar. sto/det progress_ratio convergence replicates (dr0 sto/det 0.3665/0.341=107%, owndr 0.3515/0.3635=97%), confirming seed0's finding is not a seed-specific fluke. Zero falls across all 128 episodes, gait_valid_frac=1.0. Joint PASS with seed0 closes STATUS item 0 with 2-seed replication. Track DONE gate still open: dir_err (43.6) just misses the track's tighter ~40deg cap and slip (2.939) sits marginally over the 2.9 hard cap by generic soft-gate accounting -- steering (STATUS item 1) is the next open item, not a regression from this run."
   }
 ]

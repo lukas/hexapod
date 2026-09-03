@@ -9662,3 +9662,306 @@ def test_walkcurr_sv_pretrain_grad_topple_is_the_floor(
         f"'topple' is not the strict floor under the graduated diet: {r}")
     assert r["topple_steps"] < 150, (
         "topple twin did not die fast; bank probe is broken")
+
+
+# --------------------------------------------------------------------------
+# STANDWALK steering-while-walking-forward bank (2026-09-03 idle-kick,
+# standwalk STATUS Next item 2, "full reward-mechanism redesign for
+# steering-while-walking-forward" -- spec-first prerequisite). The
+# yawdensity-canary family (both seeds, CANARY FAIL - MECHANISM)
+# measured dir_err_med 40-45deg / course_err_1s_med 19-25deg while
+# WALKING FORWARD with a commanded turn, despite turn-IN-PLACE
+# authority being clean everywhere (probe_turn_authority wz_med
+# 0.18-0.23 rad/s, zero probe falls) -- the miss is specifically
+# combined forward+turn tracking, not turning itself. This bank builds
+# the twin-rollout the redesign spec calls for: does a policy that
+# actually EXECUTES the commanded turn WHILE walking forward out-earn
+# one that walks straight and ignores the turn, under the exact
+# reward.* cfg-set the yawdensity family trained with (course/kernel
+# family from WALKTEACH_OVERRIDES above + the full yaw stack + the
+# family's current_hot charge)? ``goal.vx_ref``/``vy_ref``/``wz_ref``
+# are BODY-FRAME (walk_task.py's ``_body_vel_xy``/``_body_wz``, same
+# convention amp_features.py documents), so a scripted TripodGait fed
+# the SAME body-frame (vx, omega) the goal carries is a literal,
+# non-approximate twin -- no world-frame heading reconstruction needed.
+STEER_OVERRIDES = dict(WALKTEACH_OVERRIDES)
+STEER_OVERRIDES.update({
+    ("goal", "walk_yaw_cmd"): 1.0,
+    ("reward", "k_walk_yaw"): 1.0,
+    ("reward", "walk_yaw_kernel_gate"): 1.0,
+    ("reward", "k_yaw_prog"): 1.0,
+    ("reward", "k_yaw_still"): 50.0,
+    ("reward", "walk_yaw_hold_prog_gate"): 1.0,
+    ("reward", "yaw_still_avg_s"): 1.0,
+    ("reward", "yaw_prog_overshoot_decay"): 1.0,
+    ("reward", "yaw_prog_avg_s"): 1.0,
+    ("reward", "walk_kernel_yaw_gate"): 1.0,
+    ("reward", "k_current_hot"): 1.0,
+    ("reward", "current_hot_a"): 2.0,
+})
+STEER_CMD_VX = 0.08      # the yawdensity family's fixed walk_speed
+STEER_CMD_WZ = TURN_CMD_WZ  # 0.25 rad/s, same magnitude probe_turn_authority uses
+STEER_SEEDS = (0, 1, 2)
+
+
+def _steer_rollout(policy: str, seed: int, *, frac: float = 1.0,
+                   vx_cmd: float = STEER_CMD_VX,
+                   wz_cmd: float = STEER_CMD_WZ,
+                   overrides: dict | None = None,
+                   episode_seconds: float = 15.0) -> float:
+    """Force a sustained forward+turn command (hold 1s, ramp 1s, then
+    constant (vx_cmd, wz_cmd) for the rest of the episode -- same
+    forcing technique ``_turn_rollout``/``_walk_rollout`` already use)
+    and compare TWO scripted executions of it: ``policy="steer"``
+    tracks BOTH vx and omega every tick (``frac`` scales the omega
+    actually executed, 1.0 = perfect tracking, 0.0 = "straight",
+    >1.0 = overshoot); ``policy`` is otherwise unused when ``frac`` is
+    passed directly by the sweep test below."""
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, overrides or STEER_OVERRIDES,
+                         episode_seconds=episode_seconds)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = vx_cmd
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = vx_cmd * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = wz_cmd
+        traj.wz[:hold_n] = 0.0
+        traj.wz[hold_n:hold_n + ramp_n] = wz_cmd * ramp
+
+    gait = TripodGait(vx=0.0)
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    omega_frac = {"steer": 1.0, "straight": 0.0}.get(policy, frac)
+
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        vxc = float(traj.vx[i])
+        wzc = float(traj.wz[i]) if traj.wz is not None else 0.0
+        gait.set_velocity(vx=vxc, vy=0.0, omega=omega_frac * wzc)
+        act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+@pytest.fixture(scope="module")
+def steer_returns() -> dict[str, float]:
+    return {p: float(np.mean([_steer_rollout(p, s) for s in STEER_SEEDS]))
+            for p in ("steer", "straight")}
+
+
+def test_steer_while_walking_beats_going_straight(steer_returns):
+    """THE twin the redesign spec calls for: under the yawdensity
+    family's exact reward.* cfg-set, actually executing a commanded
+    turn WHILE walking forward must out-earn walking straight and
+    ignoring it -- otherwise the reward stack itself explains the
+    measured 40-45deg dir_err, and no amount of training-time diet
+    tuning (already 2-seed refuted, see STATUS) could fix it. Measured
+    2026-09-03: steer beats straight by ~230-300/ep on every seed
+    (e.g. seed0 3203.9 vs 2969.1) -- the isolated per-tick reward
+    ordering is NOT the defect; this PASS narrows the redesign target
+    away from "course/yaw pricing prefers going straight" and toward
+    the training-time interaction (BC-anchor supervision toward a
+    straight-walking teacher, or PPO exploration/credit-assignment
+    under the joint vx+wz action coupling) -- see STATUS.md."""
+    r = steer_returns
+    assert r["steer"] > r["straight"] + 100.0, (
+        f"the course/yaw reward stack does not reward accurate "
+        f"steering-while-walking over going straight: {r} -- THIS "
+        f"would directly explain the measured dir_err and justifies "
+        f"a course/yaw reward-shape fix.")
+
+
+def test_steer_income_is_monotone_in_tracking_accuracy(steer_returns):
+    """Sweep the fraction of the commanded omega actually executed
+    (0.0 = straight .. 1.0 = perfect .. 1.3 = 30% overshoot): income
+    must increase with tracking accuracy, so PPO's local gradient
+    always points toward MORE accurate steering, never toward
+    settling for a partial turn. Measured 2026-09-03: monotone
+    increasing all the way through 1.3x overshoot (2642 -> 2763 ->
+    2804 -> 2830 -> 2863 -> 2899 -> 2948 mean-over-3-seeds at fracs
+    0.0/0.2/0.4/0.6/0.8/1.0/1.3) -- no local optimum short of full
+    tracking, and (separately) no penalty yet visible for modest
+    overshoot in this COMBINED vx+wz regime (the turn-in-place
+    overshoot-decay fix, test_turn_overspin_farm_existed_in_legacy_stack,
+    was only ever proven on wz-only ticks -- flag for the redesign,
+    not asserted strictly here since overshoot pricing is not this
+    bank's question)."""
+    fracs = (0.0, 0.4, 0.8, 1.0)
+    vals = {f: float(np.mean([_steer_rollout("sweep", s, frac=f)
+                              for s in STEER_SEEDS])) for f in fracs}
+    ordered = [vals[f] for f in fracs]
+    assert ordered == sorted(ordered), (
+        f"steering income is not monotone in tracking accuracy: {vals} "
+        f"-- PPO's gradient has a local optimum short of full tracking, "
+        f"which would explain a stable partial-turn undershoot basin.")
+
+
+# --------------------------------------------------------------------------
+# STANDWALK rise isometric-overcommit bank (same Next item 2, the
+# rise-stall rider: "a rise-stall test where a saturated isometric
+# freeze prices WORSE than honest rise progress -- the stall is
+# currently reward-survivable"). Built under the yawdensity family's
+# ACTUAL rise cfg (mesh/100Hz, rise_ref_mesh_scripted.npz,
+# rise_height_mm=[79,87]) -- a deliberate exception to this suite's
+# usual primitive-family pin (CURRENT_TRUTHS "mesh-family coverage is
+# test_model_source.py"), because the failure this test targets --
+# +66% mass torque-starving the rise -- cannot exist under primitive
+# dynamics: a direct check found ``replay``/a bare final-target jump
+# BOTH complete the mesh reference cleanly here (no lag, no
+# saturation; the env's own slew limiter absorbs any jump smoothly),
+# so a genuine multi-second torque-saturated stall could not be
+# reproduced by any HAND-SCRIPTED open-loop joint target in this
+# harness -- only a large, sustained, materially wrong joint-target
+# offset (which also drags the reference-tracking term down with it)
+# gets sustained current near the family's own measured ceiling
+# (2.5-2.64A). That IS what this bank encodes: a "keep fighting for
+# more height than the actuator can hold" twin vs the honest
+# "reach what's achievable, then hold it exactly" twin.
+# CAVEAT (read before trusting this as the whole story): this twin is
+# NOT a replay of the real yawdensity-canary-s1 failure trace (no raw
+# qpos/action log survived that dig-in, only aggregate metrics in
+# logs/ckpt_eval/yawdensity_s1_riseAB_cap29cf/report.json -- cur_max_a
+# 2.64, height_err_end_mm 60.9); it is the most direct HONEST
+# construction available without that trace. If a future arm dumps a
+# real stalling rollout's qpos/actions, rebuild this bank from that
+# replay instead of the hand-built offset below.
+MESH_RISE_OVERRIDES = {
+    ("env", "model_source"): "mesh",
+    ("control", "hz"): 100,
+    ("actions", "max_height_mm"): 88.0,
+    ("goal", "rise_height_mm"): [79.0, 87.0],
+    ("goal", "rise_ramp_s"): 6.0,
+    ("reward", "rise_score_income"): 1.0,
+    ("reward", "rise_score_strip_pen"): 1.0,
+    ("reward", "k_rise_ref_track"): 2.0,
+    ("reward", "rise_ref_path"): "rl_move/sim/refs/rise_ref_mesh_scripted.npz",
+    ("reward", "rise_ref_sigma_deg"): 6.0,
+    ("reward", "rise_posture_gate"): 1.0,
+    ("reward", "rise_income_prog_gate"): 1.0,
+    ("reward", "rise_finish_gate_signed"): 1.0,
+    ("reward", "k_current_hot"): 1.0,
+    ("reward", "current_hot_a"): 2.0,
+}
+MESH_RISE_REF_PATH = "rl_move/sim/refs/rise_ref_mesh_scripted.npz"
+RISE_STALL_KNEE_OFFSET_DEG = 40.0   # measured 2026-09-03: sustains
+                                    # max_cur ~2.62A (family ceiling),
+                                    # ends ~60mm below the honest
+                                    # partial's own height -- matches
+                                    # the canary's measured signature
+                                    # (cur_max_a 2.64, height miss
+                                    # 45-62mm) far better than smaller
+                                    # offsets tried (10-20deg stayed
+                                    # under 2.0A and/or moved the body
+                                    # MORE, i.e. wasn't a stall at all).
+
+
+def _rise_stall_rollout(policy: str, seed: int,
+                        overrides: dict | None = None,
+                        ref_path: str = MESH_RISE_REF_PATH) -> dict:
+    env = _make_rise_env(seed, overrides or MESH_RISE_OVERRIDES)
+    env.reset()
+    ref = np.load(ROOT / ref_path)
+    q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
+    ref_dt = float(ref["dt"])
+    j_half = ramp_ref + (len(q_ref) - ramp_ref) // 2
+    q_hold = q_ref[j_half].copy()
+    q_stall = q_hold.copy()
+    q_stall[2::3] += RISE_STALL_KNEE_OFFSET_DEG * DEG2RAD  # every knee
+
+    total, step, cur_max, cur_sum, over_ticks = 0.0, 0, 0.0, 0.0, 0
+    h_end = 0.0
+    while True:
+        j = _ref_row(env, step, ref_dt, ramp_ref)
+        if j < j_half:
+            q = q_ref[min(max(j, 0), len(q_ref) - 1)]
+        else:
+            q = q_hold if policy == "partial" else q_stall
+        act = q_rad_to_action(q)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        cur = getattr(env._state, "servo_current", None)
+        if cur is not None:
+            cm = float(np.max(np.abs(cur)))
+            cur_sum += cm
+            cur_max = max(cur_max, cm)
+            if cm > 2.0:
+                over_ticks += 1
+        h_end = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+        step += 1
+        if term or trunc:
+            terminated = bool(term)
+            break
+    env.close()
+    return {"ret": total, "terminated": terminated, "steps": step,
+            "mean_cur": cur_sum / max(step, 1), "max_cur": cur_max,
+            "over2A_s": over_ticks * env.dt, "h_end_mm": h_end * 1000.0}
+
+
+@pytest.fixture(scope="module")
+def rise_stall_bank() -> dict[str, list[dict]]:
+    return {p: [_rise_stall_rollout(p, s) for s in SEEDS]
+            for p in ("partial", "stall")}
+
+
+@pytest.fixture(scope="module")
+def rise_stall_returns(rise_stall_bank) -> dict[str, float]:
+    return {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in rise_stall_bank.items()}
+
+
+def test_rise_stall_draws_more_current_and_less_height_than_partial(
+        rise_stall_bank):
+    """Bank-sanity: the constructed twins must actually differ the way
+    the docstring claims (else the comparison below is vacuous) --
+    stall sustains current near the family's own trip-adjacent ceiling
+    and ends up LOWER than the honest partial, matching the real
+    canary's "stuck below target, current pinned" signature."""
+    for r in rise_stall_bank["stall"]:
+        assert r["max_cur"] > 2.5, (
+            f"stall twin does not actually saturate current: {r}")
+    for p, s in zip(rise_stall_bank["partial"], rise_stall_bank["stall"]):
+        assert s["h_end_mm"] < p["h_end_mm"] - 20.0, (
+            f"stall twin does not actually end up lower than partial: "
+            f"partial={p} stall={s}")
+
+
+def test_rise_stall_prices_worse_than_honest_partial(rise_stall_returns):
+    """THE rider the redesign spec calls for, tested directly: does a
+    saturated isometric freeze price WORSE than honest partial
+    progress? Measured 2026-09-03: YES, by a wide margin (partial
+    ~1670-1720/ep vs stall ~514-517/ep, seeds 0-2) -- driven mostly by
+    reward_rise_ref collapsing (746 vs 1999 summed) once the target
+    diverges from the reference, with reward_current_hot adding a
+    smaller further charge (-19 vs 0). This PASS means the naive
+    "isometric fight earns more than giving up cleanly" hypothesis
+    does NOT hold for THIS constructed twin -- do not read this as
+    proof the real trained-checkpoint stall is reward-aligned overall
+    (see the bank's caveat: this twin is hand-built, not a replay of
+    the real failure trace); it narrows the redesign toward either (a)
+    a genuinely different failure shape this twin doesn't capture, or
+    (b) a within-episode exploration/credit-assignment gap (PPO
+    reaching this state already has poor alternatives available, even
+    if the GLOBAL optimum was always "stop pushing"), not a static
+    reward-ordering hole a scripted comparison from a common start can
+    show."""
+    r = rise_stall_returns
+    assert r["partial"] > r["stall"] + 100.0, (
+        f"an isometric-fight stall rivals honest partial rise progress: "
+        f"{r} -- the stall IS reward-survivable here; a rise-stall "
+        f"reward fix (price sustained saturation more directly, or "
+        f"gate rise_ref income on achieved-not-commanded joint state) "
+        f"is now justified and should be built next.")

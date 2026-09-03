@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-03T12:20:11+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-canary
+
+**wandb_id**: rfas35tp
 
 **hypothesis**: Seed replicate of yawdensity-canary (seed0): same single lever (walk_yaw_zero_frac 0.5->0.2), second seed closes the pass-rate question before any acquisition-scale commitment.
 

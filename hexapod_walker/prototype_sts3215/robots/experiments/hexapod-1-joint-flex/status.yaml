@@ -3,7 +3,7 @@ schema_version: 1
 experiment:
   id: hexapod-1-joint-flex
   robot_id: hexapod-1
-  state: active_hardware_characterization
+  state: hardware_characterization_complete
   created: 2026-09-02
   updated: 2026-09-02
   objective: "Localize increasing compliance among the servo/output, horn/screw interface, printed yoke, and femur without accessing the hidden horn."
@@ -36,7 +36,6 @@ safety_scope:
     - support movement or impending tip
 
 setup_needed:
-  - "Run the remaining L4 planted amplitude ladder, creep/recovery, and loaded-cycle series."
   - "Add a calibrated force or torque measurement before claiming absolute stiffness."
   - "Add proximal/distal markers if localization within the printed link or fastener stack is required."
 
@@ -48,7 +47,7 @@ target:
 
 capture:
   primary_camera: "camera 0, Arducam USB, L4 tag 31"
-  complementary_camera: "iPhone camera, L4 knee tag 25"
+  complementary_camera: "Initial iPhone view on L4 knee tag 25; later camera 1 and MacBook camera on L4 hip tag 31"
   synchronization: "Each camera records monotonic timestamps; plateaus are aligned to the protocol hold schedule."
   calibration: "AprilTag pose calibrated per camera; no calibrated force channel"
   output_root: "artifacts/joint_flex/hexapod-1/<run-id>/"
@@ -56,12 +55,12 @@ capture:
 phases:
   preflight: complete
   stationary_noise_floor: complete
-  bidirectional_load_sweep: "L5 complete; L4 micro ladder complete; L4 larger ladder pending"
-  constant_load_creep: "L5 complete; L4 pending"
-  post_cycle_repeat: "L5 complete; L4 pending"
-  optional_axial_spread_test: pending
-  analysis: pending
-  conclusion: pending
+  bidirectional_load_sweep: complete
+  constant_load_creep: complete
+  post_cycle_repeat: complete
+  optional_axial_spread_test: "not run; not required for the relative L4/L5 conclusion"
+  analysis: complete
+  conclusion: complete
 
 hypotheses:
   horn_screw_engagement:
@@ -77,32 +76,35 @@ hypotheses:
     status: open
     signature: "Witness line rotates across the screw-head-to-print boundary."
   servo_output_or_geartrain:
-    status: open
+    status: supported_for_L5
     signature: "Visual link/output motion is accompanied by encoder motion."
   creep_or_progressive_settling:
-    status: open
+    status: not_supported_at_tested_load
     signature: "Deflection grows under constant force, leaves a residual after unloading, or stiffness changes after repeated cycles."
 
 latest_run:
-  protocol: l4_ground_radial_shear_micro_ladder_v1
-  dataset: sysid/datasets/l4_ground_radial_shear_micro_ladder_v1_20260902_180330
+  protocol: l4_vertical_loaded_cycles_v1
+  dataset: sysid/datasets/l4_vertical_loaded_cycles_v1_20260902_184407
   result: ok
-  samples: 1500
+  samples: 620
   overruns: 0
-  peak_current_a: 0.0455
+  peak_current_a: 0.104
   tag_coverage:
-    camera_0: "965/965 frames"
-    iphone: "1506/1506 frames"
+    camera_0: "456 tag-31/tag-11 frames out of 484 recorded"
+    camera_1: "828 tag-31/tag-11 frames out of 867 recorded"
+    macbook_camera_2: "700 tag-31/tag-11 frames out of 757 recorded"
 
 conclusion: >-
   L5 is measurably loose without ground load: the air-control loop averaged
   0.703 deg at the hip and 0.410 deg at the knee, versus 0.117 deg and
-  0.059 deg on L4. Under planted 2-3 mm radial commands, L4's hip response is
-  similar to L5 while L4's knee response is larger (0.351/0.334 deg versus
-  0.211/0.176 deg). Both L4 camera views corroborate onset near 2 mm. This
-  supports L5 servo/geartrain deadband plus a separate planted structural/load-
-  path component; L4's full larger-amplitude series is still pending. Absolute
-  stiffness is not available because force was not measured.
+  0.059 deg on L4. In the larger planted ladder, L5 measured 0.732-1.143
+  deg hip and 0.674-0.938 deg knee, versus only 0.176-0.293 deg hip and
+  0.146-0.352 deg knee on L4. L4 moved only one hip encoder count during a
+  90-second hold and neither joint drifted during recovery. This supports L5
+  servo/output/geartrain deadband plus additional planted hysteresis, with no
+  meaningful creep at the tested load. The relative diagnosis is complete;
+  absolute stiffness and localization inside the fastener/yoke/link stack
+  remain unavailable because force and component-local markers were absent.
 
 history:
   - date: 2026-09-02
@@ -111,3 +113,9 @@ history:
     event: "Completed L5 air control, planted radial ladders, creep/recovery, and loaded-cycle runs."
   - date: 2026-09-02
     event: "Completed L4 air control and 0.5-3 mm planted micro ladder with adjacent legs yawed clear for two-camera tag visibility."
+  - date: 2026-09-02
+    event: "Completed L4 3.75-15 mm planted amplitude ladder: 1740/1740 ticks, no overruns or trips, 0.039 A peak."
+  - date: 2026-09-02
+    event: "Completed L4 90-second creep/120-second recovery run: 1200/1200 ticks, 0.052 A peak, one hip encoder count loaded drift, zero recovery drift."
+  - date: 2026-09-02
+    event: "Completed L4 five-cycle vertical repeatability run: 620/620 ticks, no overruns or trips, 0.104 A peak; all runs ended limp."

@@ -76,6 +76,7 @@ hexapod_walker/prototype_sts3215/wandb/
 # machine-specific.
 hexapod_walker/prototype_sts3215/.agent_worksnap/
 hexapod_walker/prototype_sts3215/linux_control/artifacts/video_frames/
+hexapod_walker/prototype_sts3215/artifacts/joint_flex/
 hexapod_walker/prototype_sts3215/linux_control/vision_ui/node_modules/
 hexapod_walker/prototype_sts3215/rl_move/hardware_traces/
 hexapod_walker/prototype_sts3215/sysid/datasets/

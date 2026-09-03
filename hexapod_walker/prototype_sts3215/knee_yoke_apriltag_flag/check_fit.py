@@ -55,6 +55,7 @@ def main() -> None:
         head_height=flag.DEFAULT_HEAD_H,
         throat_clearance=flag.DEFAULT_THROAT_CLEARANCE,
     )
+    white, black = flag.build_colour_parts(holder, flag.DEFAULT_TAG_ID)
     installed = flag.installed_mesh(holder, dimensions["total_height_mm"])
     yoke = hp.make_tibia_knee_yoke()
     fixed = hp._femur_knee_fixed_solid()
@@ -109,6 +110,8 @@ def main() -> None:
             and np.max(np.abs(radii - hp.DISC_HORN_BOLT_PCD / 2.0)) < 1e-9
             and flag.DEFAULT_TAG_ID in decoded_ids
             and (not bambu_path.is_file() or bambu_extruders == ["1", "2"])
+            and white.is_watertight
+            and black.bounds[1][2] >= flag.PLATE_T + flag.BACK_LABEL_H - 1e-6
         ),
         "holder_watertight": bool(holder.is_watertight),
         "holder_components": len(holder.split(only_watertight=False)),
@@ -120,6 +123,10 @@ def main() -> None:
         "expected_bolt_radius_mm": hp.DISC_HORN_BOLT_PCD / 2.0,
         "opencv_decoded_tag_ids": decoded_ids,
         "bambu_assigned_extruders": bambu_extruders,
+        "white_component_watertight": bool(white.is_watertight),
+        "black_component_max_z_mm": float(black.bounds[1][2]),
+        "black_rear_label_expected_top_z_mm": flag.PLATE_T + flag.BACK_LABEL_H,
+        "rear_label_material": "black / extruder 2",
         "dimensions": dimensions,
         "samples": sweep,
     }

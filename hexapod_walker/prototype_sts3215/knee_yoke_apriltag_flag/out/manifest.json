@@ -4,8 +4,12 @@
   "tag_family": "tag36h11",
   "tag_id": 16,
   "attachment": "four split friction cups over M3 SHCS heads",
-  "camera_face": "tag and full white quiet zone only; human-readable ID is on back",
-  "print_orientation": "tag face on build plate; cups and raised ID upward; no supports",
+  "camera_face": "tag and full white quiet zone only; black human-readable ID is on back",
+  "print_orientation": "tag face on build plate; cups and black raised ID upward; no supports",
+  "colour_assignment": {
+    "white": "holder plate and four grip cups",
+    "black": "AprilTag cells and raised rear ID"
+  },
   "dimensions": {
     "plate_size_mm": 38.0,
     "tag_size_mm": 34.0,

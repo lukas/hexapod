@@ -1,42 +1,41 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~04:0x (idle-kick, item 0 STILL mid-flight on
-train-6/7, pace unchanged): closed the "tangle-spread physics" item
-flagged last entry -- it was a PROBE bug, not a sim bug. The prior
-"tangle_60->70 pad_spread genuinely DECREASES" claim came from a repro
-script that skipped `conftest.py`'s `HEXAPOD_MODEL_SOURCE=primitive`
-pin, measuring on `mesh` instead. Correctly-pinned, the true gap is
-real (~5mm) but smaller than one seed's noise (std 9-48mm) -- the
-bank's n=3 mean was 2 unlucky draws, not a reversal (8/8 clean
-monotonic resamples at N=24-30 seeds). Fix: pad-spread now averages
-its own 30-seed sample (shared 3-seed `SEEDS` untouched elsewhere);
-margin 1.5->0.5mm to match. Verified 4/4 stable reruns, `-k recover`
-30/33 (3 pre-existing unrelated npz-migration fails). Test-only, no
-cfg touched. Fresh full-suite regression running for a future cycle
-(`/tmp/full_after_tanglefix_0903.log`; pre-fix baseline 40 failed/255
-passed at ec7bf19f). Open items left: `test_getup_honest_ordering`
-(reward-design gap, no arm queued) and ~16-18 `walkcurr_pf` reds
-(RETIRED track). Snapshotted+pushed. Full derivation: OPERATOR_
-QUESTIONS.md.
+Update, 2026-09-03 ~05:0x (idle-kick, item 0 STILL mid-flight on
+train-6/7, pace unchanged): closed the last open semantics-bank item,
+`test_getup_honest_ordering` (genuine reward-design gap, not papered
+over). Root cause: the same-day q0-frame fix made "freeze"'s held
+pose correct (ret -40.4 buggy -> -30.3 accurate, cheaper to hold),
+eating the 08-22 margin over "partial" (-35.1, untouched) since that
+margin was only ever sized against freeze's old buggier cost. Fix:
+`getup_k_progress` 200->350 (partial's ratchet income scales
+~0.18/unit-k, freeze's ~flat 0.006) restores partial -8.2 > freeze
+-29.3 (~20+ margin); swept 250->350, every other GETUP ordering stays
+intact/widens. `-k getup`: 9/9 pass. Global default, but `p_getup`
+isn't wired into any training recipe (0 ledger matches) so this is
+SPECIFICATION work, no behavior change to anything running today.
+Snapshotted+pushed (`exp/getup-honest-ordering-krecal-fix-0903`).
+Closes the semantics-bank dig-in queue from the 09-02/09-03 window --
+only RETIRED-track `walkcurr_pf` reds (~16-18) and whatever
+`/tmp/full_after_tanglefix_0903.log` surfaces fresh remain. Full
+derivation: OPERATOR_QUESTIONS.md.
 
-Earlier updates (rise-rock/recover q0-frame fixes, the 14-site q0/qpos
-fix + hold-bank recalibrations + getup-bank red, joint-frame-v2 bug
-#3, and the whole 09-02 merge-recovery/plant-stance/stdwalklohi-acq1
-window) moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-03{a,b,c}_trim.md` and
+Earlier updates (q0-frame fixes, hold-bank recalibrations,
+joint-frame-v2 bug #3, tangle-spread probe-bug close, the 09-02
+merge-recovery/plant-stance/stdwalklohi-acq1 window) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03{a,b,c,d}_trim.md` and
 `2026-09-02{f,h}_trim.md`.
 
 ## Next (updated 09-02 ~18:3x)
 
 0. **READ `logs/ckpt_eval/cw_..._stdwalklohi_acq1{,_s1}_donegate_
    flatonly/session_verdict.json`** once both land (in flight on
-   train-6/7, n=32 det+sto DR-0+own-DR each): does the sto/det
-   walk-progress convergence survive to full budget, and does
-   direction_err_med/slip_per_m_med improve on the cap29-acq1
-   baseline (46.8 deg/3.09)? Gate text in the ledger. PASS -> new
-   steering/slip reference; PARTIAL (falls+convergence hold, steering
-   doesn't) -> item 1 is the next target; FAIL (sto regresses at
-   scale) -> credit-assignment angle (08-31 yaw-credit probe) is next.
+   train-6/7, n=32 det+sto DR-0+own-DR each): does sto/det walk-
+   progress convergence survive to full budget, and does
+   direction_err_med/slip_per_m_med improve on cap29-acq1's baseline
+   (46.8 deg/3.09)? Gate text in the ledger. PASS -> new steering/slip
+   reference; PARTIAL (falls+convergence hold, steering doesn't) ->
+   item 1 is next; FAIL (sto regresses at scale) -> credit-assignment
+   (08-31 yaw-credit probe) is next.
 1. Steering gap (windowed course_err ~22-23 deg, cap 2.9) — was
    secondary to the sto/det asymmetry; worst course_speed_ratio dips
    land at the ~4s `walk_cmd_resample_s` boundaries, consistent with
@@ -44,9 +43,8 @@ window) moved VERBATIM to
    item 0 reads back.
 2. **Closed (full list in archives 09-02{,b..h}):** update-size/reward/
    exploration/anchor/turn-skip/yaw-credit/diet/duration/switch-jump/
-   frame-blend/current-confound sweeps; cap29 training-time acquisition
-   (PARTIAL); walk-core log_std anneal dose grid (`hi` PASS, `mild`
-   FAIL).
+   frame-blend/current-confound sweeps; cap29 acquisition (PARTIAL);
+   walk-core log_std anneal dose grid (`hi` PASS, `mild` FAIL).
 
 > Journal archives (VERBATIM, oldest->newest):
 > `archive/standwalk_STATUS_journal_2026-08-30_trim.md`,

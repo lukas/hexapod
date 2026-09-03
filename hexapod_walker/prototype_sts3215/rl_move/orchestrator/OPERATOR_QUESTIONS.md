@@ -4445,3 +4445,73 @@ agent-initiated launches there per its STATUS -- not worth further
 cycle time chasing). standwalk's own in-flight item 0 unaffected
 throughout (re-confirmed progressing on train-6/7 at cycle end).
 Snapshotted+pushed.
+
+## 2026-09-03 ~05:0x — `test_getup_honest_ordering` FIXED: re-recalibrated `getup_k_progress` 200->350
+
+**Context:** left RED on purpose earlier today after the q0-frame fix
+(see the 04:0x entry above) made `freeze`'s held pose *more accurate*
+(a genuinely worse-computed pose costs MORE regularizer charge, so
+fixing the frame bug made freeze cheaper: mean ret -40.4 -> -30.3,
+bank-measured 3 seeds), which erased the 08-22 recalibration's margin
+of "partial" (a held 40%-crouch, -35.1, untouched by the frame fix)
+over "freeze" — `partial > freeze` flipped to false.
+
+**Root cause, not a task-shape bug:** the 08-22 fix sized
+`getup_k_progress` (the one-shot ratchet credit for the honest
+partial-rise's potential gain) to clear freeze's OLD, buggy, more
+expensive cost with a ~20-point margin. It was never a task-shape
+under-pricing of partial itself — partial's own regularizer cost is
+unchanged. A correctly-computed freeze is legitimately cheaper to
+hold, so the fix has to re-widen the ratchet credit, not touch either
+policy's physics charges (same principle the 08-22 comment already
+established).
+
+**Measurement (`/tmp/getup_probe*.py`, `HEXAPOD_MODEL_SOURCE=primitive`,
+3 seeds, `_getup_rollout` via the test module's own helpers):**
+- `d_p` (the ratchet's per-tick potential delta) is ~0 for a held
+  `freeze` (its potential P never rises after tick 1 — it never
+  moves), so `r_prog` for freeze is flat in `k_prog`: measured slope
+  only ~0.006 return/unit-k (residual settling noise, not signal).
+  `partial` keeps banking new potential through its 40%-ramp, so its
+  slope is ~0.18 return/unit-k — 30x freeze's.
+- Swept k_prog in {200 (current red), 250, 300, 350, 400}: partial-
+  freeze margin goes -4.8 (200) -> +3.8 (250) -> +12.5 (300) -> +21.2
+  (350) -> ~29 (400, extrapolated). Picked **350** to match the 08-22
+  convention's ~20+ margin without overshooting.
+- Re-verified EVERY other GETUP-bank inequality at k=250/300/350 (not
+  just the one that was red): `replay > 2*best_cheat+50`,
+  `freeze < 1.0`, `replay > partial+50`, `partial > thrash+20`,
+  `flagleg < 0.35*replay`, both `ratchet` `best`-fraction bounds
+  (potential-only, correctly unaffected by k_prog: replay best min
+  0.851 >= 0.80, freeze best max 0.177 <= 0.30 at every k tested).
+  All hold at every value swept, margins widening with k, not just at
+  the chosen 350.
+
+**Fix landed:** `rl_move/sim/walk_task.py` `_getup_reward`,
+`getup_k_progress` default 200.0 -> 350.0, with a dated code comment
+carrying the full derivation (mirrors the 08-22 comment's style) plus
+a matching docstring update on `test_getup_honest_ordering` itself
+(the stale "KNOWN RED" note replaced with the fix + numbers).
+
+**Verified:** `uv run pytest rl_move/tests/test_task_semantics.py -k
+getup` — 9/9 pass (was 8/9 red on `honest_ordering` before the fix).
+Confirmed via source read that `p_getup` / the getup task mode has NO
+other test-file callers outside this one bank (lines ~4330-4620) and
+zero matches in the experiments ledger — no currently-training recipe
+uses this mode, so the default change is pure SPECIFICATION work
+(unblocks a *future* getup-mode reward-mechanism arm per the 08-21/
+guardrails rule that such arms need their semantics bank green first)
+and changes nothing about any run in flight today, including the
+in-flight `stdwalklohi-acq1{,_s1}` flat-only gate reads (unrelated
+task mode, unaffected).
+
+status: FIX LANDED, reward-code default change (not test-only, but
+zero-behavior-impact on anything currently training). Snapshotted+
+pushed (`exp/getup-honest-ordering-krecal-fix-0903`). This closes the
+semantics-bank dig-in queue the 09-02/09-03 q0-frame-fix window
+opened (tangle-spread closed earlier this cycle-chain, now getup);
+remaining reds are only the RETIRED `walkcurr_pf` family and whatever
+the still-running `/tmp/full_after_tanglefix_0903.log` full-suite
+regression (started before this fix, so it will show the OLD red for
+this one test — a future cycle reading that log should expect and
+discount that single F) surfaces fresh.

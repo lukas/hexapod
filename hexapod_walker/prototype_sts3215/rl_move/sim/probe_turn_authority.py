@@ -43,6 +43,24 @@ transitioned walk -> lower mid-episode) — scoring un-filtered ticks
 silently mixes in submodes where zero wz is the CORRECT behavior, not
 evidence of a turn-tracking failure.
 
+CHECKPOINT-POLICY CFG WARNING (09-03, found triaging the yawarm{1p5,
+2p0} canaries): ``--policy checkpoint`` needs the FULL non-``train.*``
+``--cfg-set`` list from the checkpoint's own training command replayed
+here, not a short "obs-width" summary (e.g. just ``goal.walk_yaw_cmd``/
+``obs.mode_onehot``/``goal.mode_seq``/``goal.walk_phase_obs``/``goal.
+walk_obs_body_vel``). A missing ``goal.*`` field that feeds the phase-
+obs channel (e.g. ``goal.walk_phase_hz``, ``goal.walk_phase_run_on_
+yaw``) puts the model on an out-of-distribution observation and
+silently returns a near-zero/"frozen" ``wz_med`` even on a checkpoint
+that tracks turns fine — reproduced on a KNOWN-PASSING checkpoint
+(near-zero with the short cfg vs the correct +0.22/-0.25 pure-turn
+read with the full cfg replayed). Tick counts / ``modes`` composition
+will still MATCH between the short and full cfg (goal-mode sequencing
+is a DR-free function of seed, independent of the policy), so do not
+use matching tick counts as evidence the cfg is sufficient. Always
+sanity-check a new probe cfg against a checkpoint with an already-
+verified read before trusting a fresh number.
+
 Usage:
   uv run python -m rl_move.sim.probe_turn_authority CKPT.zip \
       --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_phase_run_on_yaw=1 \

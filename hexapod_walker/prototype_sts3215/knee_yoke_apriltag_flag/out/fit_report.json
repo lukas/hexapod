@@ -23,6 +23,10 @@
     "1",
     "2"
   ],
+  "white_component_watertight": true,
+  "black_component_max_z_mm": 2.1,
+  "black_rear_label_expected_top_z_mm": 2.1,
+  "rear_label_material": "black / extruder 2",
   "dimensions": {
     "plate_size_mm": 38.0,
     "tag_size_mm": 34.0,

@@ -49,9 +49,7 @@ if str(PROTO_DIR) not in sys.path:
 import hexapod_prototype as hp  # noqa: E402
 
 
-# Official tag36h11 codedata[0..18].  IDs 16..18 are included because the
-# pose-estimator configuration continues through 18 even though the motor-lid
-# set itself uses 1..12.
+# Official tag36h11 codedata[0..18].
 TAG36H11_CODES = [
     0x0000000D7E00984B,
     0x0000000DDA664CA7,
@@ -73,6 +71,31 @@ TAG36H11_CODES = [
     0x000000068A7CC2EC,
     0x00000006F0BA2652,
 ]
+
+# Official codedata[100..119], used by the second 20-cover plate.  Keeping the
+# high-ID block separate avoids embedding unused IDs 19..99 in this generator.
+TAG36H11_EXTRA_CODES = {
+    100: 0x0000000533FE2404,
+    101: 0x000000063DE7D35E,
+    102: 0x0000000925EDDC72,
+    103: 0x000000099B8B3896,
+    104: 0x0000000AACE4C708,
+    105: 0x0000000C22994AF0,
+    106: 0x00000008F1EAE41B,
+    107: 0x0000000D95FB486C,
+    108: 0x000000013FB77857,
+    109: 0x00000004FE0983A3,
+    110: 0x0000000D559BF8A9,
+    111: 0x0000000E1855D78D,
+    112: 0x0000000FEC8DAAAD,
+    113: 0x000000071ECB6D95,
+    114: 0x0000000DC9E50E4C,
+    115: 0x0000000CA3A4C259,
+    116: 0x0000000740D12BBF,
+    117: 0x0000000AEEDD18E0,
+    118: 0x0000000B509B9C8E,
+    119: 0x00000005232FEA1C,
+}
 
 BIT_X = [
     1, 2, 3, 4, 5, 2, 3, 4, 3, 6, 6, 6, 6, 6, 5, 5, 5, 4,
@@ -192,11 +215,15 @@ def resolved_bambu_profile(path: Path) -> dict:
 
 def tag_grid(tag_id: int) -> list[list[int]]:
     """Return a 10x10 tag image; 0 is black and 1 is white."""
-    if not 0 <= tag_id < len(TAG36H11_CODES):
+    if 0 <= tag_id < len(TAG36H11_CODES):
+        code = TAG36H11_CODES[tag_id]
+    elif tag_id in TAG36H11_EXTRA_CODES:
+        code = TAG36H11_EXTRA_CODES[tag_id]
+    else:
         raise ValueError(
-            f"tag ID {tag_id} is outside the embedded 0..{len(TAG36H11_CODES)-1} range"
+            f"tag ID {tag_id} is not embedded; available ranges are "
+            f"0..{len(TAG36H11_CODES)-1} and 100..119"
         )
-    code = TAG36H11_CODES[tag_id]
     image = [[0] * TOTAL_WIDTH for _ in range(TOTAL_WIDTH)]
     for i in range(TOTAL_WIDTH):
         image[0][i] = 1
@@ -492,8 +519,10 @@ def write_3mf(path: Path, tag_meshes: list[tuple[int, trimesh.Trimesh,
 
     if arrange:
         cols = 3
-        gap_x = 5.0
-        gap_y = 5.0
+        # Twenty horizontal covers fit an A1 as a tight 3x7 grid.  Smaller
+        # sets keep the more generous visual spacing used by the first tray.
+        gap_x = 2.0 if len(tag_meshes) >= 20 else 5.0
+        gap_y = 1.5 if len(tag_meshes) >= 20 else 5.0
         rows = math.ceil(len(tag_meshes) / cols)
         set_w = cols * PLATE_W + (cols - 1) * gap_x
         set_h = rows * PLATE_H + (rows - 1) * gap_y
@@ -955,8 +984,13 @@ def main() -> None:
         "clearance_reference": str(reference_path.relative_to(output)),
         "parts": manifest_rows,
     }
-    manifest_path = output / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    manifest_text = json.dumps(manifest, indent=2) + "\n"
+    manifest_path = output / f"manifest_{first:02d}-{last:02d}.json"
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+    # Preserve the historical default manifest name for the primary 1..16
+    # robot set while allowing additional plates to coexist in the same out/.
+    if ids == list(range(1, 17)):
+        (output / "manifest.json").write_text(manifest_text, encoding="utf-8")
     print(f"wrote {set_path}")
     if bambu_written:
         print(f"wrote {bambu_path}")

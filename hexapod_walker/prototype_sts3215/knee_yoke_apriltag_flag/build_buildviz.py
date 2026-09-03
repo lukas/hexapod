@@ -26,7 +26,6 @@ import make_knee_yoke_apriltag_flag as flag  # noqa: E402
 
 BUILD_ID = "prototype_sts3215/knee-yoke-apriltag-flag"
 EXPLODE_Z = 24.0
-TAG_DISPLAY_T = 0.12
 
 
 def mat(tx: float = 0.0, ty: float = 0.0, tz: float = 0.0) -> list[float]:
@@ -59,30 +58,6 @@ def m3x12_shcs_reference() -> trimesh.Trimesh:
     )
     head.apply_translation((0.0, 0.0, flag.DEFAULT_HEAD_H / 2.0))
     return flag.boolean_union([shank, head])
-
-
-def black_cell_reference(total_height: float) -> trimesh.Trimesh:
-    """One clean display cell, reused for every black square in the tag."""
-    cell = flag.TAG_SIZE / 10.0
-    print_mesh = trimesh.creation.box(extents=(cell, cell, TAG_DISPLAY_T))
-    print_mesh.apply_translation((0.0, 0.0, -TAG_DISPLAY_T / 2.0))
-    return flag.installed_mesh(print_mesh, total_height)
-
-
-def black_cell_offsets(tag_id: int) -> list[tuple[float, float]]:
-    """Cell centres in installed XY; X is mirrored for the -Z print face."""
-    grid = flag.tag_grid(tag_id)
-    cell = flag.TAG_SIZE / 10.0
-    offsets: list[tuple[float, float]] = []
-    for row in range(10):
-        for col in range(10):
-            if grid[row, col] != 0:
-                continue
-            face_col = 9 - col
-            x = -flag.TAG_SIZE / 2.0 + (face_col + 0.5) * cell
-            y = flag.TAG_SIZE / 2.0 - (row + 0.5) * cell
-            offsets.append((x, y))
-    return offsets
 
 
 def mesh_entry(mesh_id: str, filename: str) -> dict:
@@ -124,15 +99,16 @@ def main() -> None:
         head_height=flag.DEFAULT_HEAD_H,
         throat_clearance=flag.DEFAULT_THROAT_CLEARANCE,
     )
-    installed_holder = flag.installed_mesh(holder, dimensions["total_height_mm"])
-    installed_black_cell = black_cell_reference(dimensions["total_height_mm"])
+    white, black = flag.build_colour_parts(holder, flag.DEFAULT_TAG_ID)
+    installed_white = flag.installed_mesh(white, dimensions["total_height_mm"])
+    installed_black = flag.installed_mesh(black, dimensions["total_height_mm"])
 
     assets = {
         "stl:tibia_knee_yoke": ("tibia_knee_yoke.stl", hp.make_tibia_knee_yoke()),
         "stl:tibia_tube_reference": ("tibia_tube_reference.stl", tube_reference()),
         "stl:m3x12_shcs_reference": ("m3x12_shcs_reference.stl", m3x12_shcs_reference()),
-        "stl:tag_holder": ("tag_holder.stl", installed_holder),
-        "stl:tag_black_cell": ("tag_black_cell.stl", installed_black_cell),
+        "stl:tag_holder_white": ("tag_holder_white.stl", installed_white),
+        "stl:tag_features_black": ("tag_features_black.stl", installed_black),
     }
     for _mesh_id, (filename, mesh) in assets.items():
         mesh.export(STL_DIR / filename)
@@ -161,12 +137,22 @@ def main() -> None:
         ),
         instance(
             "tag-holder",
-            "stl:tag_holder",
-            "white holder, rear ID, and four split grip cups",
+            "stl:tag_holder_white",
+            "white holder and four split grip cups",
             "knee_yoke_apriltag_holder_white",
             "measurement_accessory",
             "knee-tag",
             "#f5f5f0",
+            mat(),
+        ),
+        instance(
+            "tag-black",
+            "stl:tag_features_black",
+            "black AprilTag cells and raised rear ID",
+            "knee_yoke_apriltag_features_black",
+            "measurement_target",
+            "knee-tag",
+            "#111111",
             mat(),
         ),
     ]
@@ -186,22 +172,7 @@ def main() -> None:
             )
         )
 
-    tag_instance_ids: list[str] = ["tag-holder"]
-    for index, (x, y) in enumerate(black_cell_offsets(flag.DEFAULT_TAG_ID)):
-        instance_id = f"tag-cell-{index:02d}"
-        tag_instance_ids.append(instance_id)
-        instances.append(
-            instance(
-                instance_id,
-                "stl:tag_black_cell",
-                f"AprilTag 16 black cell {index + 1}",
-                "knee_yoke_apriltag_inlay_black",
-                "measurement_target",
-                "knee-tag",
-                "#111111",
-                mat(x, y, 0.0),
-            )
-        )
+    tag_instance_ids: list[str] = ["tag-holder", "tag-black"]
 
     scene = {
         "name": "STS3215 knee-yoke AprilTag push-on measurement flag",
@@ -240,7 +211,7 @@ def main() -> None:
             "tagId": flag.DEFAULT_TAG_ID,
             "tagSizeMm": flag.TAG_SIZE,
             "plateSizeMm": flag.PLATE_SIZE,
-            "humanReadableId": "raised on rear/cup side only",
+            "humanReadableId": "raised black material on rear/cup side only",
             "cameraFace": "unobstructed tag and full white quiet zone",
             "attachment": "four split cups over existing M3 SHCS heads",
             "cupThroatDiameterMm": dimensions["cup_throat_diameter_mm"],

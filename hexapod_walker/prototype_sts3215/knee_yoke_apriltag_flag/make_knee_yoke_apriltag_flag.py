@@ -166,7 +166,7 @@ def tag_grid(tag_id: int) -> np.ndarray:
 
 
 def back_label_2d(tag_id: int):
-    """Raised human-readable ID at the lower-right of the non-camera face."""
+    """Human-readable ID at the lower-right of the non-camera face."""
     text = str(tag_id)
     pitch = BACK_LABEL_PIXEL + BACK_LABEL_GAP
     digit_w = 3 * BACK_LABEL_PIXEL + 2 * BACK_LABEL_GAP
@@ -188,6 +188,20 @@ def back_label_2d(tag_id: int):
                         px0 + BACK_LABEL_PIXEL, py1)
                 )
     return unary_union(pixels)
+
+
+def black_back_label(tag_id: int) -> trimesh.Trimesh:
+    """Raised rear ID volume assigned to the black material component.
+
+    The 0.05 mm embed into the white plate matches the original fused label
+    geometry, giving the two material parts a positive mechanical key rather
+    than relying only on a coplanar contact surface.
+    """
+    return extrude_2d(
+        back_label_2d(tag_id),
+        BACK_LABEL_H + 0.05,
+        z0=PLATE_T - 0.05,
+    )
 
 
 def boolean_union(parts: list[trimesh.Trimesh]) -> trimesh.Trimesh:
@@ -260,11 +274,7 @@ def build_holder(
         )
         slots.append(slot)
 
-    label = extrude_2d(
-        back_label_2d(tag_id),
-        BACK_LABEL_H + 0.05,
-        z0=PLATE_T - 0.05,
-    )
+    label = black_back_label(tag_id)
     solid = boolean_union([plate, *cup_parts, label])
     holder = boolean_difference(solid, [*cavities, *slots])
     dimensions = {
@@ -379,9 +389,9 @@ def write_multimaterial_3mf(
     model = f'''<?xml version="1.0" encoding="UTF-8"?>
 <model unit="millimeter" xml:lang="en-US"
  xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
- <metadata name="Title">STS3215 knee-yoke AprilTag flags 16-32</metadata>
+ <metadata name="Title">STS3215 knee-yoke AprilTag flags {tag_meshes[0][0]}-{tag_meshes[-1][0]}</metadata>
  <metadata name="Designer">hexapod parametric CAD</metadata>
- <metadata name="Description">tag36h11; raised ID on back; tighter M3 head cups</metadata>
+ <metadata name="Description">tag36h11; black raised ID on back; tighter M3 head cups</metadata>
  <resources>
   <basematerials id="{material_id}">
    <base name="White" displaycolor="{WHITE}FF"/>
@@ -416,12 +426,15 @@ def write_multimaterial_3mf(
 def build_colour_parts(
     holder: trimesh.Trimesh, tag_id: int
 ) -> tuple[trimesh.Trimesh, trimesh.Trimesh]:
-    black = black_tag_cells(tag_id)
-    white = boolean_difference(holder, [black])
+    tag_cells = black_tag_cells(tag_id)
+    rear_label = black_back_label(tag_id)
+    white = boolean_difference(holder, [tag_cells, rear_label])
     # Return an exact-height black insert after using a slightly overshooting
-    # copy as the cutter.
-    black = black_tag_cells(tag_id)
-    black.apply_translation((0.0, 0.0, 0.005))
+    # camera-face copy as the cutter. The disconnected rear label is kept in
+    # the same black object so Bambu Studio assigns both features to slot 2.
+    exact_tag_cells = black_tag_cells(tag_id)
+    exact_tag_cells.apply_translation((0.0, 0.0, 0.005))
+    black = trimesh.util.concatenate([exact_tag_cells, rear_label])
     return white, black
 
 
@@ -465,10 +478,10 @@ def write_preview(
         ),
         (
             figure.add_subplot(1, 3, 2, projection="3d"),
-            "rear: raised ID and four split cups",
+            "rear: black raised ID and four split cups",
             62,
             -55,
-            ((holder, "#D8D8D8", 1.0),),
+            ((white, WHITE, 1.0), (black, BLACK, 1.0)),
             ((-21, 21), (-21, 21), (0.0, 6.0)),
             (42, 42, 10),
         ),
@@ -660,11 +673,15 @@ def main() -> None:
             "part_count": len(args.tray),
             "attachment": "four split friction cups over M3 SHCS heads",
             "camera_face": (
-                "tag and full white quiet zone only; human-readable ID is on back"
+                "tag and full white quiet zone only; black human-readable ID is on back"
             ),
             "print_orientation": (
-                "tag faces on build plate; cups and raised IDs upward; no supports"
+                "tag faces on build plate; cups and black raised IDs upward; no supports"
             ),
+            "colour_assignment": {
+                "white": "holder plate and four grip cups",
+                "black": "AprilTag cells and raised rear IDs",
+            },
             "dimensions": dimensions,
             "opencv_decoded_tag_ids": decoded,
             "holders": holder_reports,
@@ -722,11 +739,15 @@ def main() -> None:
         "tag_id": args.tag_id,
         "attachment": "four split friction cups over M3 SHCS heads",
         "camera_face": (
-            "tag and full white quiet zone only; human-readable ID is on back"
+            "tag and full white quiet zone only; black human-readable ID is on back"
         ),
         "print_orientation": (
-            "tag face on build plate; cups and raised ID upward; no supports"
+            "tag face on build plate; cups and black raised ID upward; no supports"
         ),
+        "colour_assignment": {
+            "white": "holder plate and four grip cups",
+            "black": "AprilTag cells and raised rear ID",
+        },
         "dimensions": dimensions,
         "bolt_centres_mm": bolt_centres_about_output(),
         "holder": {

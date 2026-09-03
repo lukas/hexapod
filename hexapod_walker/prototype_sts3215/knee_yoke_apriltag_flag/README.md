@@ -8,8 +8,9 @@ require disassembling the joint.
 
 The default build carries unused `tag36h11` ID 16 on a 38 x 38 mm face. The
 actual tag, including its white quiet zone, is 34 x 34 mm—the same verified
-size as the existing motor-lid tags. The human-readable ID is a raised label
-on the rear/cup side; nothing intrudes into the camera-facing quiet zone.
+size as the existing motor-lid tags. The human-readable ID is a raised **black
+material part** on the rear/cup side; it is not merely raised white geometry,
+and nothing intrudes into the camera-facing quiet zone.
 
 ## Print and install
 
@@ -20,7 +21,8 @@ STL and adhere the supplied 34 mm SVG.
 
 For the full inclusive ID 16–32 set (17 holders), use
 `out/tag36h11_16-32_knee_yoke_snap_flags_BambuStudio.3mf`. It is arranged as
-one two-colour print plate, with every human-readable ID on the rear.
+one two-colour print plate, with every human-readable ID printed black on the
+rear.
 
 The next inclusive set, IDs 33–64 (32 holders), is in
 `out/tag36h11_33-64_knee_yoke_snap_flags_BambuStudio.3mf`. Its denser 6-column

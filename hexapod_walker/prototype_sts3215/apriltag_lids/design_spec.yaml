@@ -18,6 +18,13 @@ scope:
     tibias and also need a different mount. IDs 13-16 in this tray are spare
     clamp-cap covers rather than current pose-estimator assignments.
 
+additional_plate:
+  quantity: 20
+  tag_ids: [100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
+            110, 111, 112, 113, 114, 115, 116, 117, 118, 119]
+  output: out/tag36h11_motor_lids_100-119_BambuStudio.3mf
+  assignment: additional marker IDs; not assigned in the current pose config
+
 geometry_mm:
   overall: [61.8, 34.3, 1.4]
   corner_radius: 2.0

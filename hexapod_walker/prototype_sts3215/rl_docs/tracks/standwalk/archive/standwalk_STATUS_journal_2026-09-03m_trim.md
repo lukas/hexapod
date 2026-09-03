@@ -87,3 +87,25 @@ readings, none touching a GPU:
 canaried and CANARY FAIL - MECHANISM verdicted 09-03 ~17:2x; see the
 current STATUS.md top Update and the ledger verdicts for
 `cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-combskip{,-s1}`.)
+
+---
+
+(Appended, same file, 09-03 ~17:5x — this was the STATUS.md top Update
+before the omega-boost lever launch replaced it.)
+
+Update, 2026-09-03 ~17:2x (idle-kick, Next item 2, branch (b) —
+**RESULT: CANARY FAIL - MECHANISM, both seeds, verdicted**): read the
+`cap29-stdwalklohi-combskip{,-s1}` pair (finished, 2.03M steps) with
+`probe_turn_authority.py --vx-cmds` against the pre-registered
+comparator (`yawdensity_canary_s1` combined read, +0.145/-0.107) and
+the matched control (`cap29-stdwalklo-hi{,-s1}`, same probe), 2/2
+seeds: pure-turn wz_med regresses 10-24% vs control (over the 10%
+cap), and the combined-tick (vx=0.08) gain is sign-asymmetric — beats
+the comparator on the negative-turn direction, stays WORSE on the
+positive direction. PASS needed both signs beating the comparator AND
+<=10% pure-turn regression; neither clears. Branch (b)
+(`train.bc_anchor_walk_combined_skip`) is REFUTED — removing BC-anchor
+supervision on combined ticks trades pure-turn accuracy for a partial,
+lopsided gain, not a net win. Evidence:
+`logs/ckpt_eval/probe_turn_authority_comb{skip_s0,skip_s1,cap29_stdwalklo_hi,cap29_stdwalklo_hi_s1}_combined_09-03.json`;
+verdicts on ledger/W&B.

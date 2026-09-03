@@ -406,6 +406,51 @@ Knobs (set via attach_bc_anchor / cfg):
                                (default) is the original control flow,
                                byte-for-byte. See test_bc_anchor.py
                                test_walk_combined_skip_*.
+  train.bc_anchor_walk_combined_dose  (env+trainer, default 1.0 =
+                               legacy full weight, bit-exact) — a
+                               CONTINUOUS per-tick anchor-weight
+                               multiplier on combined ticks (vx_ref!=0
+                               AND wz_ref!=0) only, the untried middle
+                               between bc_anchor_walk_combined_skip's
+                               two extremes (1.0 = full pull, legacy;
+                               0.0 = full skip, already refuted 4/4 at
+                               the RL stage under the mirror lever
+                               train.bc_anchor_teacher_yaw_arm_scale,
+                               standwalk 09-03: every dose strong
+                               enough to win the combined-tick wz axis
+                               blew the pure-turn regression cap,
+                               because the SHARED dual-core policy's
+                               representation gets pulled by the
+                               combined-tick target even though the
+                               geometry lever itself is bit-exact on
+                               pure-turn by construction — the fix
+                               has to touch the SUPERVISION, not the
+                               geometry). MECHANISM: the env tags a
+                               combined tick's target with
+                               ``info["bc_walk_weight"] = dose``
+                               (omitted -> 1.0 for every other tick);
+                               the collect callback carries the weight
+                               into a new per-row ring column
+                               (``_bc_wwt``, default-initialized to
+                               1.0 so a checkpoint warm-started from
+                               before this knob existed backfills to
+                               the legacy weight exactly); the walk-
+                               mode MSE in ``train()`` becomes a
+                               per-row-weighted mean instead of a flat
+                               ``F.mse_loss`` — mathematically IDENTICAL
+                               to the flat mean whenever every weight
+                               is 1.0 (multiplying by exactly 1.0 is a
+                               floating-point no-op), so dose=1.0 (the
+                               default) reproduces every prior run's
+                               update bit-for-bit. Requires
+                               bc_anchor_walk_coef to be set (the
+                               weighting only touches the walk-mode
+                               loss group in the per-mode branch); a
+                               dose other than 1.0 with walk_coef
+                               unset raises (ambiguous which loss the
+                               weight would apply to). See
+                               test_bc_anchor.py test_walk_combined_
+                               dose_*.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -472,6 +517,17 @@ def _bc_foot_z(actions):
     return -femur * torch.sin(hip) - tibia * torch.sin(knee)
 
 
+def _weighted_mse(pred, target, w):
+    """Per-row-weighted MSE — ``bc_anchor_walk_combined_dose`` (09-03).
+
+    ``w`` is a (N,) per-row weight broadcast over the action dim.
+    IDENTICAL to ``F.mse_loss(pred, target)`` whenever every row's
+    weight is exactly 1.0 (multiplying by 1.0 is an IEEE-754 no-op),
+    so this is a bit-exact drop-in for the plain flat mean used by
+    every anchor tick before the combined-dose knob existed."""
+    return ((pred - target).pow(2) * w.unsqueeze(-1)).mean()
+
+
 def _lazy_sb3():
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
@@ -523,7 +579,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             # one warm start (the _bc_mode backfill above). Fresh runs
             # refill the ring within one rollout.
             return super()._excluded_save_params() + [
-                "_bc_obs", "_bc_act", "_bc_mode", "_bc_h",
+                "_bc_obs", "_bc_act", "_bc_mode", "_bc_wwt", "_bc_h",
                 "_bc_n", "_bc_i"]
 
         def _bc_init_buffer(self, obs_dim: int) -> None:
@@ -531,11 +587,17 @@ def make_bc_anchor_ppo_class(base_cls=None):
             self._bc_obs = np.zeros((cap, obs_dim), dtype=np.float32)
             self._bc_act = np.zeros((cap, N_ACT), dtype=np.float32)
             self._bc_mode = np.zeros(cap, dtype=np.int8)
+            # Per-row walk anchor-loss weight (bc_anchor_walk_combined_
+            # dose, 09-03): ones = legacy full weight for every mode,
+            # not just walk — a combined-tick push is the only caller
+            # that ever writes a value != 1.0.
+            self._bc_wwt = np.ones(cap, dtype=np.float32)
             self._bc_n = 0          # valid rows
             self._bc_i = 0          # write cursor
 
         def _bc_push(self, obs: np.ndarray, act: np.ndarray,
-                     mode: int = 0, h: np.ndarray | None = None) -> None:
+                     mode: int = 0, h: np.ndarray | None = None,
+                     wwt: float = 1.0) -> None:
             if not hasattr(self, "_bc_obs"):
                 self._bc_init_buffer(int(np.asarray(obs).shape[-1]))
             if not hasattr(self, "_bc_mode"):
@@ -546,6 +608,12 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 # on its first launch: AttributeError on tick one).
                 self._bc_mode = np.zeros(self._bc_obs.shape[0],
                                          dtype=np.int8)
+            if not hasattr(self, "_bc_wwt"):
+                # Same warm-start backfill, for checkpoints trained
+                # before the combined-dose weight column existed:
+                # fill with 1.0 (legacy full weight), never 0.0.
+                self._bc_wwt = np.ones(self._bc_obs.shape[0],
+                                       dtype=np.float32)
             cap = self._bc_obs.shape[0]
             if h is not None and not hasattr(self, "_bc_h"):
                 # Recurrent anchor: the pair's supervision point is the
@@ -555,6 +623,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             self._bc_obs[self._bc_i] = obs
             self._bc_act[self._bc_i] = act
             self._bc_mode[self._bc_i] = mode
+            self._bc_wwt[self._bc_i] = wwt
             if h is not None:
                 self._bc_h[self._bc_i] = h
             self._bc_i = (self._bc_i + 1) % cap
@@ -854,6 +923,22 @@ def make_bc_anchor_ppo_class(base_cls=None):
             n = int(getattr(self, "_bc_n", 0))
             if coef <= 0.0 or n == 0:
                 return
+            combined_dose = float(getattr(
+                self, "bc_walk_combined_dose", 1.0))
+            if combined_dose != 1.0 and float(
+                    getattr(self, "bc_walk_coef", -1.0)) < 0.0:
+                # bc_anchor_walk_combined_dose only ever weights the
+                # WALK-mode loss group, which only exists once
+                # bc_anchor_walk_coef splits the minibatch by mode
+                # (see the per-mode branch below) — with walk_coef
+                # unset there is no separate walk loss to weight, so
+                # a non-default dose here would silently do nothing.
+                # Fail loud instead of training on a no-op knob.
+                raise ValueError(
+                    "train.bc_anchor_walk_combined_dose="
+                    f"{combined_dose} requires train.bc_anchor_"
+                    "walk_coef to also be set (the dose weights the "
+                    "walk-mode loss group in the per-mode branch).")
             import torch
             import torch.nn.functional as F
             recurrent = hasattr(self, "_bc_h")
@@ -909,9 +994,20 @@ def make_bc_anchor_ppo_class(base_cls=None):
                     loss_stance = (
                         F.mse_loss(mean[stance_mask], th_act[stance_mask])
                         if bool(stance_mask.any()) else zero)
-                    loss_walk = (
-                        F.mse_loss(mean[walk_mask], th_act[walk_mask])
-                        if bool(walk_mask.any()) else zero)
+                    if bool(walk_mask.any()):
+                        # bc_anchor_walk_combined_dose (09-03): the
+                        # ring's per-row weight is 1.0 everywhere
+                        # except combined ticks pushed with a
+                        # non-default dose, so this reduces to the
+                        # PLAIN flat-mean F.mse_loss bit-exactly
+                        # whenever the knob is unset (every weight is
+                        # 1.0 -- see _weighted_mse's own docstring).
+                        th_w = torch.as_tensor(
+                            self._bc_wwt[idx], device=dev)[walk_mask]
+                        loss_walk = _weighted_mse(
+                            mean[walk_mask], th_act[walk_mask], th_w)
+                    else:
+                        loss_walk = zero
                     if fz_coef > 0.0:
                         scale = float(getattr(
                             self, "bc_foot_z_mm", 10.0)) * 1e-3
@@ -1021,7 +1117,8 @@ def make_bc_collect_callback():
                 if t is None or (dones is not None and dones[i]):
                     continue
                 push(new_obs[i], t, int(info.get("bc_mode", 0)),
-                     h=None if h_np is None else h_np[i])
+                     h=None if h_np is None else h_np[i],
+                     wwt=float(info.get("bc_walk_weight", 1.0)))
             return True
 
     return BCAnchorCollectCallback()
@@ -1098,3 +1195,5 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
             "train.bc_anchor_walk_coef set but train.bc_anchor_walk<=0 "
             "— no walk-tick pairs would ever enter the ring, so the "
             "per-mode split would silently never fire on the walk side")
+    model.bc_walk_combined_dose = float(cfg_get(
+        cfg, "train", "bc_anchor_walk_combined_dose", default=1.0))

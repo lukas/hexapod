@@ -4950,6 +4950,38 @@ class SimHexapodBalanceEnv(_GymBase):
                         info["bc_target"] = q_rad_to_action(
                             _q_bc).astype(np.float32)
                         info["bc_mode"] = 3    # walk
+                        # PHASE-SCHEDULED (dose) COMBINED-TICK ANCHOR
+                        # WEIGHT (09-03, standwalk item-2 escalation:
+                        # candidate (i)-v2 combined_yaw_arm_scale
+                        # closed 4/4 FAIL — every dose that wins the
+                        # combined-tick wz axis blows the pure-turn
+                        # regression cap, and the lever is bit-exact
+                        # on pure-turn by construction, so the RL
+                        # regression must come from the SHARED
+                        # dual-core policy's representation being
+                        # pulled by the combined-tick anchor target,
+                        # not the geometry. The binary combined-skip
+                        # gate above (dose 0 vs 1, no middle) is
+                        # already refuted (train.bc_anchor_walk_
+                        # combined_skip, FAIL). This is the untried
+                        # middle: a CONTINUOUS per-tick anchor-weight
+                        # multiplier on combined ticks only, so the
+                        # walk BC-anchor loss can be dosed anywhere in
+                        # (0, 1) instead of only the two extremes —
+                        # full anchor pull (1.0, legacy) at one end,
+                        # full skip (0.0, already refuted) at the
+                        # other. Default 1.0 = legacy weight, bit-
+                        # exact off: the collect callback treats a
+                        # missing/1.0 ``bc_walk_weight`` identically to
+                        # every prior tick in this lineage (see
+                        # bc_anchor.py's weighted-MSE note). See
+                        # test_bc_anchor.py test_walk_combined_dose_*.
+                        _combined_dose = float(cfg_get(
+                            self.cfg, "train",
+                            "bc_anchor_walk_combined_dose",
+                            default=1.0))
+                        if _bc_combined and _combined_dose != 1.0:
+                            info["bc_walk_weight"] = _combined_dose
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

@@ -988,6 +988,107 @@ def test_walk_combined_skip_and_turn_skip_compose():
             break
 
 
+# --- Combined-tick anchor DOSE (09-03, standwalk item-2 escalation:
+# candidate (i)-v2 combined_yaw_arm_scale closed 4/4 FAIL at the RL
+# stage — every dose that won the combined-tick wz axis blew the
+# pure-turn regression cap, because the lever's geometry is bit-exact
+# on pure-turn by construction, so the regression comes from the
+# shared dual-core policy's representation being pulled by the
+# combined-tick BC-anchor target, not the geometry). The binary
+# combined-skip gate above (dose 0 vs 1, no middle) is refuted; this
+# is the untried continuous middle: train.bc_anchor_walk_combined_dose
+# weights (not skips) the combined-tick target's contribution to the
+# walk-mode loss. Default 1.0 = legacy full weight, bit-exact off.
+
+def test_walk_combined_dose_default_off_no_weight_key():
+    """Unset train.bc_anchor_walk_combined_dose: a combined tick still
+    emits a target with NO bc_walk_weight key -- the collect callback
+    reads a missing key as 1.0 (legacy), exactly like every prior run
+    in this lineage."""
+    env = _make_walk_env(51, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined tick
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        assert "bc_walk_weight" not in info
+        if term or trunc:
+            break
+
+
+def test_walk_combined_dose_tags_combined_ticks_only():
+    """train.bc_anchor_walk_combined_dose=0.4: a combined tick's
+    target carries bc_walk_weight==0.4; a pure-turn tick and a
+    straight-walk tick carry NO weight key (full 1.0), mirroring the
+    combined-skip gate's own tick classification exactly."""
+    env = _make_walk_env(52, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_dose"): 0.4})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    saw_weight = False
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if "bc_walk_weight" in info:
+            assert info["bc_walk_weight"] == pytest.approx(0.4)
+            saw_weight = True
+        if term or trunc:
+            break
+    assert saw_weight, "combined tick never carried the dose weight"
+
+    env2 = _make_walk_env(53, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_dose"): 0.4})
+    env2.reset()
+    _pin_walk_cmd_wz(env2, 0.0, 0.0, 0.3)   # pure turn
+    hold2 = q_rad_to_action(env2.data.qpos[env2._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env2.step(hold2)
+        assert "bc_target" in info
+        assert "bc_walk_weight" not in info
+        if term or trunc:
+            break
+
+    env3 = _make_walk_env(54, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_dose"): 0.4})
+    env3.reset()
+    _pin_walk_cmd_wz(env3, 0.055, 0.0, 0.0)   # straight walk
+    hold3 = q_rad_to_action(env3.data.qpos[env3._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env3.step(hold3)
+        assert "bc_target" in info
+        assert "bc_walk_weight" not in info
+        if term or trunc:
+            break
+
+
+def test_walk_combined_dose_one_omits_weight_key_like_default():
+    """An EXPLICIT dose of 1.0 must take the identical no-op path as
+    leaving the knob unset (both omit bc_walk_weight) -- there is only
+    one legacy code path, not two that happen to agree numerically."""
+    env = _make_walk_env(55, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_dose"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        assert "bc_walk_weight" not in info
+        if term or trunc:
+            break
+
+
 # --- Combined-tick teacher omega boost (09-03, standwalk branch-(a)
 # follow-up to the combined-turn-probe finding): a zero-training
 # sweep of the teacher's own foot-target formula
@@ -2794,3 +2895,131 @@ def test_walk_coef_split_logs_the_same_joint_bc_anchor_loss_key():
     model.train()
     assert "train/bc_anchor_loss" in model.logger.name_to_value
     assert model.logger.name_to_value["train/bc_anchor_loss"] > 0.0
+
+
+# --- Combined-tick anchor DOSE, loss-level (09-03, see the env-level
+# block above for the mechanism/motivation). These pin the actual
+# WEIGHTED loss math in BCAnchorPPO.train(), not just the env's tag.
+
+def test_weighted_mse_matches_flat_mse_when_all_ones():
+    """_weighted_mse must be a bit-exact drop-in for F.mse_loss
+    whenever every row's weight is 1.0 -- multiplying by exactly 1.0
+    is an IEEE-754 no-op, so dose=1.0 (the default) must reproduce
+    every prior run's update bit-for-bit."""
+    import torch
+    import torch.nn.functional as F
+    from rl_move.sim.bc_anchor import _weighted_mse
+    rng = np.random.default_rng(0)
+    pred = torch.as_tensor(rng.uniform(-1, 1, (20, 18)).astype(np.float32))
+    tgt = torch.as_tensor(rng.uniform(-1, 1, (20, 18)).astype(np.float32))
+    w = torch.ones(20)
+    assert torch.equal(F.mse_loss(pred, tgt), _weighted_mse(pred, tgt, w))
+
+
+def test_weighted_mse_scales_by_row_weight():
+    """A row weighted 0.0 must contribute nothing to the mean; a row
+    weighted 1.0 contributes its full squared error -- direct pin of
+    the weighted-mean math, independent of the model/env plumbing."""
+    import torch
+    from rl_move.sim.bc_anchor import _weighted_mse
+    pred = torch.zeros(2, 3)
+    tgt = torch.ones(2, 3)
+    w = torch.tensor([1.0, 0.0])
+    out = _weighted_mse(pred, tgt, w)
+    # row0: (1)^2 * 1.0 * 3 elems = 3; row1: 0 -- mean over 6 elems = 0.5
+    assert abs(float(out) - 0.5) < 1e-6
+
+
+def test_combined_dose_default_is_unset_sentinel():
+    """attach_bc_anchor with no train.bc_anchor_walk_combined_dose key
+    must leave the model at the 1.0 sentinel (legacy full weight),
+    same as every existing cfg dict in this file that predates the
+    knob."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=1.0,
+        cfg={"train": {"bc_anchor_walk_coef": 1.0}},
+        task="joint_walk")
+    assert model.bc_walk_combined_dose == 1.0
+
+
+def test_combined_dose_requires_walk_coef_to_be_set():
+    """A non-default dose with bc_walk_coef left at the -1 sentinel
+    (no per-mode split, so there is no separate walk loss group to
+    weight) must fail loud at train() time, not silently no-op."""
+    model = _tiny_model(coef=1.0)
+    model.learn(total_timesteps=32)
+    model.bc_walk_combined_dose = 0.3     # walk_coef stays -1.0 (unset)
+    rng = np.random.default_rng(14)
+    _push_mode_block(model, rng, 20, 0.2, mode=3)
+    with pytest.raises(ValueError):
+        model.train()
+
+
+def _push_mode_block_wwt(model, rng, n, tgt_value, mode, wwt):
+    obs = rng.uniform(-1, 1, (n, 12)).astype(np.float32)
+    tgt = np.full((n, 18), tgt_value, dtype=np.float32)
+    for o, t in zip(obs, tgt):
+        model._bc_push(o, t, mode=mode, wwt=wwt)
+    return obs, tgt
+
+
+def test_combined_dose_one_matches_legacy_walk_coef_update():
+    """Explicit dose=1.0 (every row weight 1.0) must land the model at
+    IDENTICAL parameters to the pre-existing walk_coef-only path
+    (dose knob entirely absent) after train() -- the weighted branch
+    is only ever exercised through _weighted_mse's all-ones no-op."""
+    import torch
+    models = []
+    for set_dose in (False, True):
+        m = _tiny_model(coef=2.0)
+        m.learn(total_timesteps=32)
+        m.bc_walk_coef = 1.0
+        if set_dose:
+            m.bc_walk_combined_dose = 1.0
+        rng = np.random.default_rng(15)
+        _push_mode_block(m, rng, 30, 0.3, mode=0)
+        _push_mode_block(m, rng, 30, -0.3, mode=3)
+        m.train()
+        models.append(m)
+    for p1, p2 in zip(models[0].policy.parameters(),
+                       models[1].policy.parameters()):
+        assert torch.equal(p1, p2), (
+            "explicit dose=1.0 diverged from the dose-absent default "
+            "-- both must take the exact same weighted-mse no-op path")
+
+
+def test_combined_dose_downweights_pull_without_full_skip():
+    """The mechanism's whole point, isolated the same way
+    ``test_walk_coef_positive_trains_the_walk_side_too`` isolates its
+    own dose (two separately-seeded models, identical rollout/pushes,
+    ONLY the group-under-test's weight differs): a 'combined' group
+    pushed with a LOW-but-nonzero weight converges LESS than the
+    SAME group pushed with full weight -- a real graded middle, not
+    the already-refuted binary skip. A THIRD model with weight
+    EXACTLY 0.0 pins the other end of the range (the refuted full
+    skip): the low-weight group must sit strictly between full-skip
+    and full-weight, not collapse onto either extreme."""
+    finals = {}
+    for combined_w in (0.0, 0.2, 1.0):
+        m = _tiny_model(coef=2.0)
+        m.learn(total_timesteps=32)
+        m.bc_walk_coef = 3.0
+        rng = np.random.default_rng(16)
+        # An unrelated same-mode group at full weight is always
+        # present, exactly like the walk_coef test's stance group --
+        # this group under test is the only thing that varies below.
+        _push_mode_block_wwt(m, rng, 40, -0.4, mode=3, wwt=1.0)
+        test_obs, test_tgt = _push_mode_block_wwt(
+            m, rng, 40, 0.4, mode=3, wwt=combined_w)
+        for _ in range(10):
+            m.train()
+        finals[combined_w] = _mse(m, test_obs, test_tgt)
+    assert finals[1.0] < finals[0.2], (
+        f"full weight (mse {finals[1.0]:.4f}) did not converge better "
+        f"than the low dose (mse {finals[0.2]:.4f}) on identical data")
+    assert finals[0.2] < finals[0.0], (
+        f"the low dose (mse {finals[0.2]:.4f}) did not converge better "
+        f"than the full-skip twin (mse {finals[0.0]:.4f}) -- the dose "
+        f"is not a real graded middle between skip and full weight")

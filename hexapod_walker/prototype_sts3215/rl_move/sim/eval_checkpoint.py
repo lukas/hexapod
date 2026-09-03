@@ -332,7 +332,8 @@ def _course_window_ep_keys(course_xy, course_cmd, dt: float) -> dict:
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False,
-                course_trace=None) -> tuple[dict, list]:
+                course_trace=None,
+                trace_sink: list | None = None) -> tuple[dict, list]:
     """``course_trace``: an open, writable file handle (CSV, no
     header) -- when given, every commanded walk tick appends
     ``step,vx,vy,bx,by,vx_ref,vy_ref,walk_course_cos,
@@ -344,6 +345,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     EMA vs windowed-displacement course mechanisms against a REAL
     checkpoint's own tick stream instead of a scripted proxy; reusable
     for any future course/direction diagnostic on a live checkpoint.
+
+    ``trace_sink``: an existing (empty) list -- when given, every
+    tick appends a plain dict of ``{step, t_s, mode, action, qpos,
+    qvel, servo_current, height_mm, height_ref_mm, reward,
+    terminated}`` (numpy arrays copied, not views). Diagnostic-only,
+    no effect on the returned ep dict/reward/frames -- built
+    (2026-09-03, standwalk rise-stall redesign spec item) so a
+    real qpos/action/current trace from a genuinely stalling rollout
+    can be dumped once and replayed/inspected offline instead of
+    hand-building a scripted twin from aggregate metrics alone (see
+    ``dump_rollout_trace.py``).
     """
     obs, info0 = env.reset()
     if hasattr(model, "reset"):
@@ -416,6 +428,22 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         st = env._state
         if st.servo_current is not None:
             cur_hist.append(st.servo_current.copy())
+        if trace_sink is not None:
+            trace_sink.append({
+                "step": int(env._step_i),
+                "t_s": float(env._step_i * env.dt),
+                "mode": str(cur_mode),
+                "action": np.asarray(a, dtype=np.float32).copy(),
+                "qpos": np.asarray(env.data.qpos, dtype=np.float64).copy(),
+                "qvel": np.asarray(env.data.qvel, dtype=np.float64).copy(),
+                "servo_current": (st.servo_current.copy()
+                                  if st.servo_current is not None
+                                  else None),
+                "height_mm": info.get("height_mm"),
+                "height_ref_mm": info.get("height_ref_mm"),
+                "reward": float(r),
+                "terminated": bool(term),
+            })
         contact_hist.append([
             float(env.data.sensordata[adr]) > CONTACT_N
             for adr in env._touch_adr])
@@ -789,6 +817,55 @@ def _save_video(frames: list, path: Path) -> None:
     imageio.imwrite(path.with_suffix(".png"), strip)
 
 
+def _save_rollout_trace(trace: list[dict], out_path: Path,
+                        ep: dict) -> None:
+    """Write a ``--rollout-trace-out`` sink (see run_episode's
+    trace_sink docstring) to one .npz: stacked per-tick arrays
+    (``step``, ``t_s``, ``action``, ``qpos``, ``qvel``,
+    ``servo_current``, ``height_mm``, ``height_ref_mm``, ``reward``,
+    ``terminated``) plus the episode's own summary dict as a single
+    JSON string field (``ep_json``) for provenance (mode, start_kind,
+    term_reason, cur_max_a, height_err_end_mm, ...). None-valued
+    fields (e.g. servo_current/height on a mode that lacks them) are
+    replaced by NaN-filled arrays of the first non-None tick's shape
+    so np.stack never chokes on a ragged/ mixed-None column.
+    """
+    import json as _json
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if not trace:
+        print(f"[eval_checkpoint] --rollout-trace-out: empty trace, "
+              f"nothing written to {out_path}")
+        return
+
+    def _col(key):
+        vals = [t[key] for t in trace]
+        first_real = next((v for v in vals if v is not None), None)
+        if first_real is None:
+            return None
+        arr0 = np.asarray(first_real)
+        filler = np.full_like(arr0, np.nan, dtype=np.float64)
+        return np.stack([np.asarray(v, dtype=np.float64)
+                         if v is not None else filler for v in vals])
+
+    payload = {
+        "step": np.asarray([t["step"] for t in trace], dtype=np.int64),
+        "t_s": np.asarray([t["t_s"] for t in trace], dtype=np.float64),
+        "mode": np.asarray([t["mode"] for t in trace]),
+        "reward": np.asarray([t["reward"] for t in trace],
+                             dtype=np.float64),
+        "terminated": np.asarray([t["terminated"] for t in trace]),
+        "ep_json": _json.dumps(ep),
+    }
+    for key in ("action", "qpos", "qvel", "servo_current",
+               "height_mm", "height_ref_mm"):
+        col = _col(key)
+        if col is not None:
+            payload[key] = col
+    np.savez(out_path, **payload)
+    print(f"[eval_checkpoint] rollout trace ({len(trace)} ticks) -> "
+          f"{out_path}")
+
+
 def _save_contact_sheet(strip_paths: list[Path], out: Path) -> None:
     """Stack one strip per mode into a single review image.
 
@@ -1113,6 +1190,24 @@ def main() -> None:
                          "keys for every WALK-mode episode (see "
                          "run_episode's course_trace docstring). "
                          "Default off, no report/reward effect.")
+    ap.add_argument("--rollout-trace-out", type=Path, default=None,
+                    help="diagnostic: dump ONE episode's full per-tick "
+                         "qpos/qvel/action/servo_current/height trace "
+                         "to this .npz path (see run_episode's "
+                         "trace_sink docstring). Picks the episode at "
+                         "--rollout-trace-index within "
+                         "--rollout-trace-mode/--rollout-trace-tag "
+                         "(defaults: index 0, first requested mode, "
+                         "det pass). Default off, no report/reward "
+                         "effect.")
+    ap.add_argument("--rollout-trace-mode", type=str, default=None,
+                    help="mode to trace (default: first --modes entry "
+                         "actually run)")
+    ap.add_argument("--rollout-trace-tag", choices=("det", "sto"),
+                    default="det")
+    ap.add_argument("--rollout-trace-index", type=int, default=0,
+                    help="episode index (0-based) within that mode/"
+                         "tag's per-mode loop to trace")
     args = ap.parse_args()
     course_trace_fh = (open(args.course_trace, "a")
                        if args.course_trace else None)
@@ -1282,12 +1377,22 @@ def main() -> None:
                     video = (not args.no_video
                              and (scheduled
                                   or mode in ("walk", "quadwalk")))
+                    _want_trace = (
+                        args.rollout_trace_out is not None
+                        and tag == args.rollout_trace_tag
+                        and mode == (args.rollout_trace_mode or modes[0])
+                        and k == args.rollout_trace_index)
+                    _trace_sink = [] if _want_trace else None
                     ep, frames = run_episode(
                         env, model, deterministic=det, video=video,
                         annotate=_annotate_frame,
                         end_posture_gate=args.end_posture_gate,
                         valid_plant_gate=args.valid_plant_gate,
-                        course_trace=course_trace_fh)
+                        course_trace=course_trace_fh,
+                        trace_sink=_trace_sink)
+                    if _want_trace:
+                        _save_rollout_trace(
+                            _trace_sink, args.rollout_trace_out, ep)
                     # A forced mode MUST be the mode that actually ran
                     # (see ALL_MODES note): a silent sampler fallback
                     # voids the whole report, so die loudly instead.

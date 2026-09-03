@@ -36,7 +36,9 @@ geometry_mm:
 tag:
   family: tag36h11
   id: 16
-  tray_ids_inclusive: [16, 32]
+  tray_ranges_inclusive:
+    - [16, 32]
+    - [33, 64]
   reason: unused by the current robot and floor pose configuration
   camera_face: full tag and white quiet zone only
   human_readable_id: raised on the rear/cup side

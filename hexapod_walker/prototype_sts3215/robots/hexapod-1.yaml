@@ -6,7 +6,16 @@ robot:
   assembly_generation: legacy_mixed
   physical_status: assembled
   record_created: 2026-09-02
-  record_updated: 2026-09-02
+  record_updated: 2026-09-03
+
+vision:
+  apriltag_layout:
+    path: hexapod-tracker/configs/hexapod-1-apriltag-layout.json
+    status: complete
+    evidence: confirmed
+    captured: 2026-09-03
+    robot_tag_mounts: 37
+    floor_tag_anchors: 7
 
 evidence_levels:
   confirmed: "Directly reported by Lukas for this physical robot."
@@ -77,6 +86,10 @@ unknowns:
   - "Record any leg-specific replaced servos, links, bearings, horns, or fasteners."
 
 history:
+  - date: 2026-09-03
+    event: "Recorded the AprilTag layout."
+    evidence: confirmed
+    details: "Mapped 37 unique robot tag mounts and seven one-foot-grid floor anchors, including each tag's frame-relative orientation."
   - date: 2026-09-02
     event: "Created the physical-unit record."
     evidence: confirmed
@@ -85,4 +98,3 @@ history:
     event: "Registered the two-camera static joint-flex diagnostic."
     evidence: confirmed
     details: "Two cameras and one side AprilTag are available; exact camera and marker geometry remains to be recorded."
-

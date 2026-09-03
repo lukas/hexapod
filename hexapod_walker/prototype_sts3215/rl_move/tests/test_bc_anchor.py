@@ -581,14 +581,20 @@ def _pin_walk_cmd(env, vx: float, vy: float) -> None:
 
 def test_walk_emission_matches_scripted_gait():
     """Commanded walk ticks emit the TripodGait pose one tick ahead —
-    verified against an independent gait instance driven identically."""
+    verified against an independent gait instance driven identically.
+
+    Plant knee arg is 100 (robot-absolute tibia, matching
+    ``_make_walk_bc_gait``'s 09-02 migration comment), NOT the
+    pre-migration mujoco-relative 80 this test was pinned to before —
+    stale-constant drift caught incidentally while adding the 09-03
+    omega-boost tests below; unrelated to that change."""
     from hexapod_core.tripod_gait import TripodGait
     env = _make_walk_env(0, {("train", "bc_anchor_coef"): 1.0})
     env.reset()
     assert env._walk_bc_gait is not None
     _pin_walk_cmd(env, 0.055, 0.0)
     ref = TripodGait(vx=0.0)
-    ref.sync_plant_stance(20.0, 80.0)
+    ref.sync_plant_stance(20.0, 100.0)
     ref.reset_phase()
     hold = q_rad_to_action(env._state.joint_position)
     for _ in range(10):
@@ -980,6 +986,149 @@ def test_walk_combined_skip_and_turn_skip_compose():
         assert "bc_target" in info
         if term or trunc:
             break
+
+
+# --- Combined-tick teacher omega boost (09-03, standwalk branch-(a)
+# follow-up to the combined-turn-probe finding): a zero-training
+# sweep of the teacher's own foot-target formula
+# (v_x_at = vx - omega*r*sin(a)) found the combined-tick wz collapse
+# is a friction/thrust-ALLOCATION effect, not an IK/workspace
+# artifact — vx numerically dominates the per-leg omega contribution,
+# starving yaw of the shared ground-reaction budget. Multiplying the
+# omega FED TO THE TEACHER (equivalent to a boosted `omega` argument
+# to TripodGait.set_velocity, since `self.omega` is used nowhere else
+# in the class) recovers real wz at a graded vx cost
+# (probe_turn_authority.py --policy scripted --vx-cmds: boost
+# 1.0->2.0, wz_med 0.072->0.160 rad/s, vx_med 0.034->0.026 m/s at
+# vx_cmd=0.08/wz_cmd=0.25). train.bc_anchor_teacher_omega_boost,
+# default 1.0 = legacy no-op (identity multiply) — bit-exact off.
+# Applied ONLY on COMBINED ticks (vx_ref!=0 AND wz_ref!=0); pure-turn
+# and straight-walk ticks are untouched by construction (boost only
+# multiplies the omega fed to set_velocity, gated on the linear-speed
+# condition, and straight-walk ticks have omega=0 regardless of
+# boost).
+
+def test_walk_omega_boost_default_off_bit_exact():
+    """Unset train.bc_anchor_teacher_omega_boost: a combined tick's
+    bc_target matches an independent TripodGait fed the UNBOOSTED
+    wz_ref, exactly like the legacy walk BC-anchor."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(60, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_omega_boost_scales_combined_ticks():
+    """train.bc_anchor_teacher_omega_boost=2.0: a combined tick's
+    bc_target now matches an independent TripodGait fed
+    omega=wz_ref*2.0 (NOT wz_ref) — proving the boost actually reaches
+    the teacher's foot-target math, and differs from the unboosted
+    target."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(61, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_omega_boost"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref_boosted = TripodGait(vx=0.0)
+    ref_boosted.sync_plant_stance(20.0, 100.0)
+    ref_boosted.reset_phase()
+    ref_plain = TripodGait(vx=0.0)
+    ref_plain.sync_plant_stance(20.0, 100.0)
+    ref_plain.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    saw_diff = False
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref_boosted.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                  omega=float(g.wz_ref) * 2.0)
+        expect_boosted = q_rad_to_action(np.asarray(
+            ref_boosted.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        ref_plain.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                omega=float(g.wz_ref))
+        expect_plain = q_rad_to_action(np.asarray(
+            ref_plain.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect_boosted, atol=1e-6)
+        if not np.allclose(expect_boosted, expect_plain, atol=1e-6):
+            saw_diff = True
+    assert saw_diff, "boosted and unboosted teacher targets never diverged"
+
+
+def test_walk_omega_boost_leaves_pure_turn_untouched():
+    """train.bc_anchor_teacher_omega_boost=2.0 must NOT touch a PURE
+    turn-in-place tick (vx=0, wz!=0) — bc_target still matches the
+    UNBOOSTED reference there."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(62, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_omega_boost"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)   # pure turn
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_omega_boost_leaves_straight_walk_untouched():
+    """train.bc_anchor_teacher_omega_boost=2.0 must NOT change a
+    straight-walk tick (vx!=0, wz=0) — omega is 0 either way, so the
+    target matches the plain reference exactly."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(63, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_omega_boost"): 2.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.0)   # straight walk only
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
 
 
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------

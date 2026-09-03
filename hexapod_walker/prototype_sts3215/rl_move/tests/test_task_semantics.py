@@ -9710,7 +9710,9 @@ def _steer_rollout(policy: str, seed: int, *, frac: float = 1.0,
                    vx_cmd: float = STEER_CMD_VX,
                    wz_cmd: float = STEER_CMD_WZ,
                    overrides: dict | None = None,
-                   episode_seconds: float = 15.0) -> float:
+                   episode_seconds: float = 15.0,
+                   return_terms: bool = False,
+                   tail_only: bool = False):
     """Force a sustained forward+turn command (hold 1s, ramp 1s, then
     constant (vx_cmd, wz_cmd) for the rest of the episode -- same
     forcing technique ``_turn_rollout``/``_walk_rollout`` already use)
@@ -9718,7 +9720,16 @@ def _steer_rollout(policy: str, seed: int, *, frac: float = 1.0,
     tracks BOTH vx and omega every tick (``frac`` scales the omega
     actually executed, 1.0 = perfect tracking, 0.0 = "straight",
     >1.0 = overshoot); ``policy`` is otherwise unused when ``frac`` is
-    passed directly by the sweep test below."""
+    passed directly by the sweep test below. ``return_terms`` (09-03,
+    walk_yaw_combined_only bank) additionally returns the summed
+    ``info["reward_walk_yaw"]`` income, mirroring ``_turn_rollout``'s
+    own ``return_terms="walk_yaw"`` convention. ``tail_only`` (09-03,
+    same bank) excludes the initial 1s-hold + 1s-ramp window from both
+    summed quantities -- that window is genuinely command-free
+    (vx_ref=wz_ref=0) on every call regardless of ``frac``/sign, so it
+    is not a combined tick by construction; comparisons that claim to
+    isolate steady-state COMBINED-tick income must not let that
+    shared, frac-independent segment dilute the result."""
     from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, overrides or STEER_OVERRIDES,
@@ -9742,7 +9753,8 @@ def _steer_rollout(policy: str, seed: int, *, frac: float = 1.0,
     gait.reset_phase()
     omega_frac = {"steer": 1.0, "straight": 0.0}.get(policy, frac)
 
-    total, step = 0.0, 0
+    total, step, wy_sum = 0.0, 0, 0.0
+    skip_n = hold_n + ramp_n if tail_only else 0
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -9751,11 +9763,15 @@ def _steer_rollout(policy: str, seed: int, *, frac: float = 1.0,
         gait.set_velocity(vx=vxc, vy=0.0, omega=omega_frac * wzc)
         act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         _obs, r, term, trunc, _info = env.step(act)
-        total += float(r)
+        if step >= skip_n:
+            total += float(r)
+            wy_sum += float(_info.get("reward_walk_yaw", 0.0))
         step += 1
         if term or trunc:
             break
     env.close()
+    if return_terms:
+        return total, wy_sum
     return total
 
 
@@ -9810,6 +9826,148 @@ def test_steer_income_is_monotone_in_tracking_accuracy(steer_returns):
         f"steering income is not monotone in tracking accuracy: {vals} "
         f"-- PPO's gradient has a local optimum short of full tracking, "
         f"which would explain a stable partial-turn undershoot basin.")
+
+
+# --------------------------------------------------------------------------
+# STANDWALK combined-tick-targeted yaw term bank (2026-09-03 idle-kick,
+# standwalk STATUS Next item 2 candidate (ii): "a combined-tick-
+# targeted course/yaw reward term" -- the remaining fallback after
+# both branch-(a) (bc_anchor_teacher_omega_boost) and branch-(b)
+# (bc_anchor_walk_combined_skip) canaries REFUTED 4/4 + 2/2 cells on
+# the SAME signature: the negative-wz combined side beats the
+# comparator, the positive side does not -- a genuine SIGN ASYMMETRY
+# neither mechanism closes because both only ever push BOTH signs
+# together. IMPORTANT CORRECTION mid-build (09-03): the family's own
+# ledger cfg (cap29-stdwalklo-hi and every downstream canary) already
+# trains with reward.k_walk_yaw=1.0 (plus walk_yaw_kernel_gate/
+# k_yaw_prog/k_yaw_still/etc, exactly STEER_OVERRIDES above -- that
+# bank's own docstring names it "the yawdensity family's exact
+# reward.* cfg-set") applied to EVERY walk tick, not zero as an
+# earlier draft of this bank assumed from probe_turn_authority.py's
+# now-stale docstring claim -- a GATE that zeroed this income outside
+# combined ticks would have REMOVED supervision from the already-
+# working pure-turn behavior instead of adding it where degraded. The
+# surgical lever is a multiplicative BOOST
+# (reward.walk_yaw_combined_boost, walk_task.py -- no new reward math,
+# just a new *_boost knob mirroring train.bc_anchor_teacher_omega_
+# boost's own gating), not a gate: only combined ticks get their
+# EXISTING k_walk_yaw income scaled up, every other walk tick is
+# bit-exact unchanged. Per RESEARCH_RULES ("every new exploit... gets
+# encoded in the bank BEFORE the reward is fixed"), this bank first
+# PINS the asymmetry as a live exploit the CURRENT (boost=1.0) family
+# stack cannot see, then proves the boost fixes it with real margin.
+CURRENT_FAMILY_OVERRIDES = STEER_OVERRIDES
+COMBINED_YAW_BOOST_DOSE = 6.0
+COMBINED_YAW_BOOST_OVERRIDES = dict(CURRENT_FAMILY_OVERRIDES)
+COMBINED_YAW_BOOST_OVERRIDES[("reward", "walk_yaw_combined_boost")] = (
+    COMBINED_YAW_BOOST_DOSE)
+# Measured 2026-09-03, probe_turn_authority combined-tick comparator
+# reads (cap29-stdwalklo-hi{,-s1}, the pre-registered comparator named
+# in STATUS item 2): positive-wz combined ticks retain only ~44% of
+# the pure-turn magnitude (wz_med 0.110/0.25 rad/s), negative-wz ticks
+# retain ~68% (0.171/0.25) -- the exact sign asymmetry neither refuted
+# mechanism closed.
+COMBINED_ASYM_POS_FRAC = 0.44
+COMBINED_ASYM_NEG_FRAC = 0.68
+
+
+def test_walk_yaw_combined_boost_default_off_bit_exact():
+    """New key absent vs explicitly 1.0 (the documented identity
+    value): identical return -- the boost branch must be dead code
+    (no behavior change) whenever it is unset or exactly 1.0, matching
+    every other *_boost knob's own off-path contract
+    (train.bc_anchor_teacher_omega_boost)."""
+    explicit = dict(CURRENT_FAMILY_OVERRIDES)
+    explicit[("reward", "walk_yaw_combined_boost")] = 1.0
+    a = _steer_rollout("sweep", 0, frac=0.6,
+                       overrides=CURRENT_FAMILY_OVERRIDES)
+    b = _steer_rollout("sweep", 0, frac=0.6, overrides=explicit)
+    assert a == pytest.approx(b, abs=1e-9), (a, b)
+
+
+def test_walk_yaw_combined_boost_leaves_pure_turn_income_untouched():
+    """A PURE turn-in-place tick (vx_cmd=0, no linear command at all)
+    must earn IDENTICAL reward_walk_yaw income with the boost on or
+    off -- the whole point of scoping the boost to combined ticks is
+    to leave the already-adequate pure-turn supervision (probe_turn_
+    authority: wz~0.18-0.23 rad/s on a 0.25 rad/s pure-turn command)
+    completely alone."""
+    _, wy_off = _steer_rollout("steer", 0, vx_cmd=0.0,
+                               overrides=CURRENT_FAMILY_OVERRIDES,
+                               return_terms=True)
+    _, wy_on = _steer_rollout("steer", 0, vx_cmd=0.0,
+                              overrides=COMBINED_YAW_BOOST_OVERRIDES,
+                              return_terms=True)
+    assert wy_off > 1.0, (
+        f"sanity failed: pure-turn should earn real reward_walk_yaw "
+        f"income before the boost is even relevant, got {wy_off}")
+    assert wy_on == pytest.approx(wy_off, abs=1e-6), (
+        f"walk_yaw_combined_boost changed pure-turn-tick income it "
+        f"must leave untouched: on={wy_on} off={wy_off}")
+
+
+def test_walk_yaw_combined_boost_scales_combined_tick_income():
+    """A genuine STEADY-STATE combined tick (both vx and wz commanded,
+    ``tail_only=True`` so the shared frac-independent 1s-hold+1s-ramp
+    window -- which is NOT a combined tick and must not dilute the
+    ratio) must have its yaw income scaled by (approximately) the
+    configured boost factor -- the mechanism must actually DO
+    something measurable, not merely avoid regressing other ticks."""
+    _, wy_off = _steer_rollout("steer", 0, tail_only=True,
+                               overrides=CURRENT_FAMILY_OVERRIDES,
+                               return_terms=True)
+    _, wy_on = _steer_rollout("steer", 0, tail_only=True,
+                              overrides=COMBINED_YAW_BOOST_OVERRIDES,
+                              return_terms=True)
+    assert wy_off > 1.0, f"sanity: combined-tick income should be nonzero, got {wy_off}"
+    ratio = wy_on / wy_off
+    assert ratio == pytest.approx(COMBINED_YAW_BOOST_DOSE, rel=0.1), (
+        f"combined-tick income did not scale by the configured boost "
+        f"({COMBINED_YAW_BOOST_DOSE}x): off={wy_off} on={wy_on} "
+        f"ratio={ratio:.2f}")
+
+
+def test_combined_yaw_boost_prices_symmetric_authority_over_asymmetric_exploit():
+    """PINS THE CURRENT EXPLOIT, then proves the fix (standwalk item 2
+    candidate (ii)). Reproduces the measured sign-asymmetric combined-
+    tick retention (COMBINED_ASYM_POS_FRAC/NEG_FRAC) as a scripted
+    twin, and a SYMMETRIC twin that achieves the same GOOD retention
+    on both signs (the behavior any real fix must reach). Under the
+    CURRENT trained family's stack (boost=1.0, i.e. today's actual
+    training cfg), the two twins must price within noise of each
+    other -- proving the stack has no gradient today toward closing
+    the asymmetry, which is exactly why PPO never found it despite two
+    independent mechanism attempts. Under reward.walk_yaw_combined_
+    boost, the symmetric twin must clearly out-earn the asymmetric one
+    before any GPU budget is spent training this mechanism."""
+    def totals(overrides):
+        asym = [
+            _steer_rollout("sweep", s, frac=COMBINED_ASYM_POS_FRAC,
+                          wz_cmd=+STEER_CMD_WZ, overrides=overrides)
+            + _steer_rollout("sweep", s, frac=COMBINED_ASYM_NEG_FRAC,
+                            wz_cmd=-STEER_CMD_WZ, overrides=overrides)
+            for s in STEER_SEEDS]
+        sym = [
+            _steer_rollout("sweep", s, frac=COMBINED_ASYM_NEG_FRAC,
+                          wz_cmd=+STEER_CMD_WZ, overrides=overrides)
+            + _steer_rollout("sweep", s, frac=COMBINED_ASYM_NEG_FRAC,
+                            wz_cmd=-STEER_CMD_WZ, overrides=overrides)
+            for s in STEER_SEEDS]
+        return float(np.mean(asym)), float(np.mean(sym))
+
+    asym_before, sym_before = totals(CURRENT_FAMILY_OVERRIDES)
+    asym_after, sym_after = totals(COMBINED_YAW_BOOST_OVERRIDES)
+
+    assert abs(sym_before - asym_before) < 0.03 * abs(sym_before), (
+        f"the CURRENT (boost=1.0) stack already distinguishes the "
+        f"asymmetric exploit from the symmetric fix (asym="
+        f"{asym_before} vs sym={sym_before}) -- this bank's premise "
+        f"(PPO has no gradient today toward closing the asymmetry) "
+        f"does not hold; re-audit before building the reward fix.")
+    assert sym_after > asym_after + 50.0, (
+        f"reward.walk_yaw_combined_boost does not price symmetric "
+        f"combined-tick authority over the measured asymmetric "
+        f"exploit with useful margin: asym={asym_after} sym={sym_after}")
 
 
 # --------------------------------------------------------------------------

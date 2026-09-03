@@ -3357,6 +3357,42 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     factor = min(max(along / s_ref, 0.0), 1.0)
                     r_yaw *= (1.0 - g_hold) + g_hold * factor
                     info["walk_yaw_hold_factor"] = factor
+                # COMBINED-TICK BOOST (09-03, standwalk item-2
+                # branch-(b)-v2, "a combined-tick-targeted course/yaw
+                # reward term" — the remaining fallback after
+                # bc_anchor_walk_combined_skip/bc_anchor_teacher_
+                # omega_boost both REFUTED 4/4 canary cells). The
+                # family's own ledger cfg already trains with
+                # k_walk_yaw=1.0 applied to EVERY walk tick (cap29-
+                # stdwalklo-hi and every downstream canary), so a GATE
+                # that zeroed this income outside combined ticks would
+                # remove supervision from the already-working pure-
+                # turn behavior (probe_turn_authority: wz~0.18-0.23
+                # rad/s on a 0.25 rad/s pure-turn command) instead of
+                # adding to the known-degraded combined-tick behavior
+                # (sim_env.py's `_bc_combined_early` comment: the
+                # scripted teacher itself retains only ~33% of its
+                # pure-turn wz authority once a forward speed is
+                # commanded simultaneously). A multiplicative BOOST,
+                # not a gate, is the surgical lever: only combined
+                # ticks get their existing k_walk_yaw income scaled
+                # up, so the yaw kernel's gradient can compete with
+                # the anchor's own degraded pull specifically there,
+                # while every other walk tick (pure-turn, straight,
+                # hold) is bit-exact unchanged. cfg reward.walk_yaw_
+                # combined_boost, default 1.0 = identity (bit-exact
+                # no-op), matching every other *_boost knob in this
+                # file (train.bc_anchor_teacher_omega_boost). See
+                # test_task_semantics.py test_walk_yaw_combined_boost_*.
+                _yaw_combined_boost = float(cfg_get(
+                    self.cfg, "reward", "walk_yaw_combined_boost",
+                    default=1.0))
+                if _yaw_combined_boost != 1.0:
+                    _combined_tick = (s_ref > 1e-3
+                                      and abs(goal.wz_ref) > 1e-3)
+                    if _combined_tick:
+                        r_yaw *= _yaw_combined_boost
+                    info["walk_yaw_combined_tick"] = float(_combined_tick)
                 reward = float(reward) + r_yaw
                 info["reward_walk_yaw"] = r_yaw
                 info["walk_yaw_err"] = abs(yaw_err)

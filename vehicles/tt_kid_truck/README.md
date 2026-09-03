@@ -41,10 +41,10 @@ not replacement motors, wheels, or electronics.
 All Python commands use `uv` per the repository convention.
 
 ```sh
-make build          # STEP, STL, assembly STEP, scene, checks
-make check          # re-check generated meshes and recorded dimensions
-make view-buildviz  # publish to the shared :5183 hub; mirror to cloud if authenticated
-make pack           # export a printer-ready 3MF plate set
+make -C vehicles/tt_kid_truck build          # STEP, STL, assembly STEP, scene, checks
+make -C vehicles/tt_kid_truck check          # re-check generated meshes and recorded dimensions
+make -C vehicles/tt_kid_truck view-buildviz  # publish to :5183; optionally mirror to cloud
+make -C vehicles/tt_kid_truck pack           # export a printer-ready 3MF plate set
 ```
 
 Primary outputs after `make build`:

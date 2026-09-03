@@ -69,7 +69,7 @@ npx buildviz push --project prototype_sts3215 --build cnc-chorn-two-piece \
   --upload-assets --scene concepts/cnc_chorn_two_piece/scene.json \
   -m "experimental keyed two-piece horn clamp"
 
-uv run tools/push_cloud_buildviz.py \
+uv run ../../tools/push_cloud_buildviz.py \
   --build-id prototype_sts3215/cnc-chorn-two-piece
 ```
 

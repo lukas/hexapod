@@ -1,6 +1,10 @@
 # Hexapod Walker — Tabletop Prototype Build Guide
 
-> A scaled-down sibling of the [full-size walker](../fullsize_v1/ASSEMBLY.md) intended
+Physical robots can differ from the current CAD. Their installed configurations
+are tracked separately in [`robots/`](../robots/README.md), beginning with
+[`hexapod-1`](../robots/hexapod-1.yaml).
+
+> A scaled-down sibling of the [full-size walker](../../archive/fullsize_v1/ASSEMBLY.md) intended
 > for proving out the geometry, kinematics, and gait controller before
 > you commit to industrial servomotors. Same architecture: regular hex
 > chassis, six identical 3-DOF legs, alternating-tripod gait — but
@@ -9,10 +13,10 @@
 > servo** instead of a $5000 harmonic-drive servomotor.
 >
 > Total parts cost: **~$615 – $1000** in 2026 USD (see
-> [`docs/BOM.md`](docs/BOM.md)). A motivated builder can have
+> [`docs/BOM.md`](../docs/BOM.md)). A motivated builder can have
 > it walking on a tabletop in a weekend.
 
-![Cycles render of the prototype hexapod](renders/prototype.png)
+![Cycles render of the prototype hexapod](../renders/prototype.png)
 
 ---
 
@@ -52,7 +56,7 @@ when you graduate to the big version — just re-tune the gains.
 | Per-leg static load (tripod stance) | ~ 4.3 N (~ 0.43 kg) |
 | Peak knee torque | ~ 0.6 N·m (~ 6 kg·cm) |
 | Battery | 2 × 3S 2200 mAh shorty LiPo (11.1 V nom / 12.6 V full, ≤ 75 × 34 × 26.5 mm each) in parallel via an XT60 Y-harness, velcro'd under the belly |
-| Servo rail | Raw 3S (12 V) via the central trunk pair (two 5-port Wago 221-415 at the chassis_top centre) → corner power Wago pairs (seated between tray walls printed into the chassis_bottom top face at the hex corners) → per-leg branches (as-built: no PDB, all lever nuts); see [`firmware/WIRING.md`](firmware/WIRING.md) §6 |
+| Servo rail | Raw 3S (12 V) via the central trunk pair (two 5-port Wago 221-415 at the chassis_top centre) → corner power Wago pairs (seated between tray walls printed into the chassis_bottom top face at the hex corners) → per-leg branches (as-built: no PDB, all lever nuts); see [`firmware/WIRING.md`](../firmware/WIRING.md) §6 |
 | Logic rail | Raw 3S straight to Uno Q (on-board regulator; **no external buck**) |
 | Continuous draw (cruise) | ~ 9 A @ 12 V (all 18 servos walking) + Uno Q on its own battery feed |
 | Run time, level ground | ~ 30 min |
@@ -199,8 +203,8 @@ make -C hexapod_walker/prototype check-cad-fast   # inner-loop variant
 
 Both targets rebuild `stl_prototype/`, run the validators, render
 4-view PNGs per part under `artifacts/views/`, and write
-`artifacts/cad_report.md`. See [`docs/CAD_WORKFLOW.md`](docs/CAD_WORKFLOW.md) for
-the full pipeline and [`docs/CAD_AGENT_INSTRUCTIONS.md`](docs/CAD_AGENT_INSTRUCTIONS.md)
+`artifacts/cad_report.md`. See [`docs/CAD_WORKFLOW.md`](../docs/CAD_WORKFLOW.md) for
+the full pipeline and [`docs/CAD_AGENT_INSTRUCTIONS.md`](../docs/CAD_AGENT_INSTRUCTIONS.md)
 for the rules LLM coding agents should follow when editing CAD.
 
 The legacy verifier `_verify_prototype.py` is parallelised via a
@@ -459,7 +463,7 @@ regression fails CI before you waste filament.
 > external buck, no PDB** — `battery → trunk Wagos → power Wagos →
 > servos` (all Wago 221 lever nuts) and
 > `battery → Uno Q` (share ground only).  Full detail in
-> [`firmware/WIRING.md`](firmware/WIRING.md) §6.  There is **no servo
+> [`firmware/WIRING.md`](../firmware/WIRING.md) §6.  There is **no servo
 > BEC** — the STS3215 run directly off the raw 3S (12 V) rail.
 
 | Item | Spec | Qty | Cost |
@@ -499,7 +503,7 @@ regression fails CI before you waste filament.
 ### 4.4 Fasteners
 
 The authoritative, auto-generated fastener counts live in the
-**Fasteners** table of [`docs/BOM.md`](docs/BOM.md)
+**Fasteners** table of [`docs/BOM.md`](../docs/BOM.md)
 (edit `fastener_registry.py`, not the table).  The key items:
 
 | Item | Qty | Notes |
@@ -529,7 +533,7 @@ The authoritative, auto-generated fastener counts live in the
 ### 4.6 Total
 
 Cost buckets mirror the **Rough Cost** table in
-[`docs/BOM.md`](docs/BOM.md):
+[`docs/BOM.md`](../docs/BOM.md):
 
 | Bucket | STS3215 build |
 |---|---:|
@@ -548,7 +552,7 @@ Cost buckets mirror the **Rough Cost** table in
 
 A single Ender 3-class printer runs the whole BOM in roughly **22 hours**
 (see the **Printed Parts** print table + suggested order in
-[`docs/BOM.md`](docs/BOM.md)):
+[`docs/BOM.md`](../docs/BOM.md)):
 
 | Pass | Parts | Time |
 |---|---|---|
@@ -591,7 +595,7 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > (epoxy-only since Aug 2026 — no retention pin); the femur is ONE printed part
 > (`femur_link`, Jul 2026) — nothing to join at all.
 > Full joint detail is in the **Bench Test Order** of
-> [`docs/BOM.md`](docs/BOM.md).
+> [`docs/BOM.md`](../docs/BOM.md).
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
@@ -758,7 +762,7 @@ times.
 
 ## 7. Wiring
 
-> **Wiring of record: [`firmware/WIRING.md`](firmware/WIRING.md).**
+> **Wiring of record: [`firmware/WIRING.md`](../firmware/WIRING.md).**
 > That doc is the buildable, step-by-step plan (two power domains, the
 > half-duplex serial bus, the distributed fused power harness, and the
 > bench bring-up checklist). This section is only a summary; when the

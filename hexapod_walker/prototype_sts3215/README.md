@@ -1,14 +1,15 @@
 # Hexapod STS3215 prototype
 
 Tabletop 3D-printed hexapod driven by Feetech STS3215 bus servos and an
-Arduino Uno Q. This directory holds THREE projects that share the robot;
-start at the entry point for the one you're working on:
+Arduino Uno Q. The work is split into four areas that share the robot; start
+at the entry point for the one you're working on:
 
 | You are here to… | Start at |
 |------------------|----------|
 | Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
 | Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
+| Track it with cameras and AprilTags | [`hexapod-tracker/README.md`](hexapod-tracker/README.md) — standalone submodule with its own package, configs, UI, tests, and agent instructions |
 
 ## Status URLs
 
@@ -31,9 +32,10 @@ start at the entry point for the one you're working on:
 | `build_step_prototype.py` / `step_pipeline.py` | Print-set exporter + equivalence gates / shared plumbing |
 | `design_spec.yaml` | Human-readable geometry contract |
 | `build_all.py` / `Makefile` | Regenerate STEP + STLs + common targets |
-| `docs/` | BOM, shopping list, CAD workflow, BuildViz notes |
+| [`docs/`](docs/) | Maintained design-document index: BOM, CAD workflow, BuildViz, and variant notes |
+| `concepts/` | Isolated mechanical and sensing experiments; see the [`concept catalog`](concepts/README.md) before choosing a variant |
 | `scripts/` | CLI helpers (verify helpers, renders, print orientation, inspect) |
-| `tools/` | BuildViz / diagnostic utilities |
+| `tools/` | Hexapod-specific BuildViz and diagnostic utilities; shared utilities live at the repository root `tools/` |
 | `step_prototype/` | Per-printable `.step` CAD truth + BREP tessellations + manifest |
 | `stl_prototype/` | Slicer-ready printables (healed BREP tessellations) |
 | `stl_reference/` | Sim / viz meshes (not for printing) |

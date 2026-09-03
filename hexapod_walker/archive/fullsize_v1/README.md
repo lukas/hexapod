@@ -552,7 +552,7 @@ make -C hexapod_walker/prototype_sts3215 verify-prototype   # full verifier suit
 make -C hexapod_walker/prototype_sts3215 verify-fast        # inner-loop variant (skips workspace sweep)
 ```
 
-See [`prototype_sts3215/CAD_WORKFLOW.md`](../prototype_sts3215/CAD_WORKFLOW.md) for the
+See [`prototype_sts3215/docs/CAD_WORKFLOW.md`](../../prototype_sts3215/docs/CAD_WORKFLOW.md) for the
 pipeline overview, [`prototype_sts3215/design_spec.yaml`](../prototype_sts3215/design_spec.yaml)
 for the human-readable geometry contract, and
 [`prototype_sts3215/CAD_AGENT_INSTRUCTIONS.md`](../prototype_sts3215/CAD_AGENT_INSTRUCTIONS.md)

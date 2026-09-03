@@ -377,6 +377,35 @@ Knobs (set via attach_bc_anchor / cfg):
                                may be set; unset (default) is the
                                original single-target-per-commanded-
                                tick control flow, byte-for-byte.
+  train.bc_anchor_walk_combined_skip  (env-side, default 0 = off,
+                               bit-exact) — the MIRROR of
+                               bc_anchor_walk_turn_skip: zeroes the
+                               WALK BC-anchor target on COMBINED ticks
+                               (vx_ref!=0 AND wz_ref!=0) instead of
+                               pure-turn ticks, leaving pure-turn and
+                               straight-walk ticks untouched. MECHANISM
+                               (09-03, standwalk combined-turn-probe):
+                               probe_turn_authority --vx-cmds found the
+                               scripted teacher's OWN turn authority
+                               degrades smoothly with simultaneous
+                               forward speed (33% of pure-turn wz
+                               retained on a combined tick) — the walk
+                               BC-anchor imitates that degraded
+                               reference on every combined tick,
+                               pulling the actor toward it. This knob
+                               lets the course/yaw reward terms alone
+                               supervise the actor on combined ticks
+                               while pure-turn/straight-walk ticks keep
+                               full anchor supervision. Independent of
+                               bc_anchor_walk_turn_skip — either, both,
+                               or neither may be set; a tick cannot be
+                               BOTH pure-turn and combined (mutually
+                               exclusive by construction), so setting
+                               both together only widens coverage, it
+                               never double-skips one tick. Unset
+                               (default) is the original control flow,
+                               byte-for-byte. See test_bc_anchor.py
+                               test_walk_combined_skip_*.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in

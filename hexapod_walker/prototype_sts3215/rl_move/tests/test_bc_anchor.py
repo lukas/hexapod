@@ -856,6 +856,132 @@ def test_walk_turn_skip_leaves_linear_ticks_untouched():
             break
 
 
+# --- Combined-tick anchor gate (09-03, standwalk combined-turn-probe
+# follow-up): probe_turn_authority --vx-cmds found the scripted
+# teacher's OWN turn authority degrades smoothly with simultaneous
+# forward speed (33% of pure-turn wz retained on a combined tick,
+# vs the trained checkpoint's 74%/54% retained) — the walk BC-anchor
+# imitates that degraded reference on every combined tick. This is
+# the MIRROR of the turn-tick gate above: zero anchor emission ONLY
+# on combined ticks (vx_ref!=0 AND wz_ref!=0), leaving pure-turn and
+# straight-walk ticks untouched. train.bc_anchor_walk_combined_skip,
+# default 0 = legacy (every commanded tick, including combined,
+# emits) — bit-exact off.
+
+def test_walk_combined_skip_default_off_bit_exact():
+    """Unset train.bc_anchor_walk_combined_skip: a combined tick
+    (vx!=0, wz!=0) still emits a target, exactly like every prior
+    run in this lineage (legacy behavior preserved)."""
+    env = _make_walk_env(44, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+
+def test_walk_combined_skip_enabled_skips_combined_ticks():
+    """train.bc_anchor_walk_combined_skip=1: the same combined tick
+    now emits NOTHING — the course/yaw reward terms are the sole
+    supervisor of the actor's mean action there."""
+    env = _make_walk_env(45, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" not in info
+        if term or trunc:
+            break
+
+
+def test_walk_combined_skip_leaves_pure_turn_and_linear_ticks_untouched():
+    """train.bc_anchor_walk_combined_skip=1 must NOT touch a PURE
+    turn-in-place tick (vx=0, wz!=0) or a straight-walk tick
+    (vx!=0, wz=0) — only a tick with BOTH nonzero is gated off."""
+    env = _make_walk_env(46, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)   # pure turn
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+    env2 = _make_walk_env(47, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env2.reset()
+    _pin_walk_cmd_wz(env2, 0.055, 0.0, 0.0)   # straight walk only
+    hold2 = q_rad_to_action(env2.data.qpos[env2._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env2.step(hold2)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+
+def test_walk_combined_skip_and_turn_skip_compose():
+    """Both knobs set together: pure-turn ticks are skipped by the
+    turn-skip gate, combined ticks are skipped by the combined-skip
+    gate, and NEITHER gate ever double-fires on the same tick (a tick
+    cannot be both vx_ref~0 AND vx_ref!=0) — straight-walk ticks are
+    the only ones still anchored."""
+    env = _make_walk_env(48, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_turn_skip"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)   # pure turn -> skipped
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" not in info
+        if term or trunc:
+            break
+
+    env2 = _make_walk_env(49, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_turn_skip"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env2.reset()
+    _pin_walk_cmd_wz(env2, 0.055, 0.0, 0.3)   # combined -> skipped
+    hold2 = q_rad_to_action(env2.data.qpos[env2._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env2.step(hold2)
+        assert "bc_target" not in info
+        if term or trunc:
+            break
+
+    env3 = _make_walk_env(50, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_walk_turn_skip"): 1.0,
+        ("train", "bc_anchor_walk_combined_skip"): 1.0})
+    env3.reset()
+    _pin_walk_cmd_wz(env3, 0.055, 0.0, 0.0)   # straight -> untouched
+    hold3 = q_rad_to_action(env3.data.qpos[env3._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env3.step(hold3)
+        assert "bc_target" in info
+        if term or trunc:
+            break
+
+
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
 # cw-getup2-r1 warm-started the getup task from the rise+hold
 # specialist and showed the skill does NOT survive contact with the

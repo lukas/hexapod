@@ -35,16 +35,15 @@ matched diet vs this cycle's own baseline (44.56/43.6deg dir,
 if authority+zero-fall hold but steering doesn't move; FAIL if
 authority regresses or terminations appear.
 
-Earlier updates (item-0 fast-read, getup-ordering fix, q0-frame fixes,
-hold-bank recalibrations, joint-frame-v2 pose-literal bugs,
-tangle-spread close, the 09-02 merge-recovery/plant-stance window)
-moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-03{a,b,c,
-d,e,f}_trim.md` and `2026-09-02{f,h}_trim.md`.
+Earlier updates (fast-read, getup/q0/hold/joint-frame-v2 fixes, 09-02
+merge-recovery) moved VERBATIM to `archive/standwalk_STATUS_journal_
+2026-09-03{a..f}_trim.md` + `2026-09-02{f,h}_trim.md`.
 
-## Next (updated 09-03 ~09:4x)
+## Next (updated 09-03 ~09:4x; item 0 = one command, meta 09-03)
 
-0. **Closed 09-03**: item 0 (sto/det std-anneal survives to 38M
-   acquisition) PASS both seeds, joint. See Update.
+0. **FIRST cycle run:** `nohup bash rl_move/orchestrator/restart_watcher.sh >> /workspace/restart_watcher.log 2>&1 &`
+   — activates the watcher's pending-eval kick registry (built 09-02,
+   never went live) + code autorestart; then proceed normally.
 1. **Read `resamplematch-canary{,-s1}`** once landed (train-1/2) —
    steering-gap train/eval diet-mismatch test. PASS -> promote to
    acquisition (38M, matching stdwalklohi-acq1); PARTIAL -> real

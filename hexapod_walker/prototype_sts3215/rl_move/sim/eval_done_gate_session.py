@@ -82,6 +82,19 @@ def main() -> int:
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--video", action="store_true")
     ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--shards", type=int, default=1,
+                    help="split each pass's n episodes across this many "
+                         "CONCURRENT eval_checkpoint subprocesses with "
+                         "disjoint seed streams (seed_base+1000*shard). "
+                         "1 = exact historical serial behavior. The 09-02 "
+                         "item-0 panel ran ~14h SERIAL on one pod's CPU "
+                         "while 9 GPUs idled — sharding is ~shards x "
+                         "faster; episodes stay statistically identical "
+                         "draws, but a sharded panel is only episode-"
+                         "matched to reads with the same --shards/--n")
+    ap.add_argument("--jobs", type=int, default=None,
+                    help="max concurrent shard subprocesses across all "
+                         "passes (default min(total shards, 8))")
     args = ap.parse_args()
 
     ep_s = args.rise_s + args.walk_s + args.lower_s + args.episode_buffer_s
@@ -103,20 +116,56 @@ def main() -> int:
         passes.append(("owndr", args.own_dr_scale))
 
     reports: dict[str, dict] = {}
-    for pname, dr in passes:
-        rp = _run_eval_checkpoint(
-            args.ckpt, task=args.task, dr_scale=dr,
-            seed=args.seed_base, n=args.n, episode_seconds=ep_s,
-            modes=["rise"], extra_cfg=cfg, out_dir=out_root / pname,
-            log_path=out_root / f"{pname}.log", video=args.video)
-        reports[pname] = json.loads(rp.read_text())
-        _safe_print(f"[done-gate-session] pass {pname} done")
+    if args.shards <= 1:
+        for pname, dr in passes:
+            rp = _run_eval_checkpoint(
+                args.ckpt, task=args.task, dr_scale=dr,
+                seed=args.seed_base, n=args.n, episode_seconds=ep_s,
+                modes=["rise"], extra_cfg=cfg, out_dir=out_root / pname,
+                log_path=out_root / f"{pname}.log", video=args.video)
+            reports[pname] = json.loads(rp.read_text())
+            _safe_print(f"[done-gate-session] pass {pname} done")
+    else:
+        # Sharded: every (pass, shard) is an independent, resume-safe
+        # eval_checkpoint subprocess (out_dir <pass>/shard<i>); the
+        # union of per-episode rows feeds the SAME aggregate_session,
+        # so gate semantics are unchanged — only wall clock drops.
+        from concurrent.futures import ThreadPoolExecutor
+        jobs = []
+        for pname, dr in passes:
+            base, rem = divmod(args.n, args.shards)
+            for si in range(args.shards):
+                n_i = base + (1 if si < rem else 0)
+                if n_i == 0:
+                    continue
+                jobs.append((f"{pname}.s{si}", dr,
+                             args.seed_base + 1000 * si, n_i,
+                             out_root / pname / f"shard{si}",
+                             out_root / f"{pname}_shard{si}.log"))
+
+        def _run(job):
+            key, dr, seed, n_i, od, lp = job
+            rp = _run_eval_checkpoint(
+                args.ckpt, task=args.task, dr_scale=dr, seed=seed,
+                n=n_i, episode_seconds=ep_s, modes=["rise"],
+                extra_cfg=cfg, out_dir=od, log_path=lp,
+                video=args.video)
+            _safe_print(f"[done-gate-session] shard {key} done")
+            return key, json.loads(rp.read_text())
+
+        mw = args.jobs or min(len(jobs), 8)
+        _safe_print(f"[done-gate-session] {len(jobs)} shard jobs, "
+                    f"{mw} concurrent")
+        with ThreadPoolExecutor(max_workers=mw) as ex:
+            for key, rep in ex.map(_run, jobs):
+                reports[key] = rep
 
     verdict = aggregate_session(
         reports, slip_cap=args.slip_cap, dir_err_cap=args.dir_err_cap,
         height_err_cap=HEIGHT_ERR_CAP_MM, strict=args.strict)
     verdict["checkpoint"] = str(args.ckpt)
     verdict["passes"] = [p[0] for p in passes]
+    verdict["shards"] = args.shards
     verdict["rise_s"] = args.rise_s
     verdict["walk_s"] = args.walk_s
     verdict["lower_s"] = args.lower_s

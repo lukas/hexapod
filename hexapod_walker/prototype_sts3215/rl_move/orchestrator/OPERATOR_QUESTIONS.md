@@ -4156,3 +4156,120 @@ NOT YET FIXED — flagged above for a dedicated next dig-in. No
 training-default cfg touched; this is test-only code. Snapshotted+
 pushed. standwalk's own in-flight item 0 (`cap29-stdwalklohi-acq1{,
 _s1}`) unaffected (confirmed still progressing live throughout).
+
+## 2026-09-03 ~02:0x-03:1x — FOURTH instance of the q0/qpos-frame bug, this time FIXED: the "SEPARATE, LARGER finding" flagged above (14 raw-target call sites across rise/lower/hold/margin/getup/recover) is landed; two downstream calibration tests recalibrated with fresh measurements; one new, genuine (not-papered-over) red surfaced in the getup bank
+
+**Context:** standwalk's only Next item (`cap29-stdwalklohi-acq1{,_s1}`
+flat-only `eval_done_gate_session`, n=32 det+sto DR-0+own-DR) was
+confirmed still progressing live on train-6/7 throughout this cycle
+(dr0 phase completed -- 64 videos + report.json -- own-dr phase
+started; ~7h/phase pace, unchanged from the 09-02 ~01:5x read); other
+5 tracks unchanged (green/retired/delivered/maintenance); GPU backlog
+empty, 9 of 11 slots genuinely idle (train-6/7 busy on the eval
+above, CPU-bound, 0% GPU util). Picked up the dedicated q0/qpos-frame
+dig-in the 09-02 ~01:5x entry explicitly flagged and declined to rush.
+
+**Fix:** grepped every `env.data.qpos[env._qadr]` read in
+`test_task_semantics.py` (14 sites: `_rise_rollout`, `_lower_rollout`,
+`_hold_rollout`, `_hold_fade_rollout`, `_hold_load_rollout`,
+`_hold_flop_rollout`, `_hold_minload_rollout`, `_hold_height_rollout`,
+`_tdrag_hold_rollout`, `_margin_rollout`, `_getup_rollout`,
+`_recover_rollout`, plus 2 one-shot RSI-stats tests) that feed the
+raw read straight into `q_rad_to_action` (or an FK/IK solve, e.g.
+`_lower_rollout`'s `FixedFootBodyIK.reset(q0)` --
+`fk_all_feet`'s own docstring: "for a robot-absolute 18-joint
+vector"). All 14 wrap the read in the already-existing
+`hexapod_core.joint_frame.mujoco_rel_rad_to_robot_abs_rad()` (aliased
+`_q0_robot_abs` in this file) before use. Two sites were explicitly
+AUDITED and left alone: `_hold_height_rollout`'s `ik.reset(env._q_nom)`
+uses the env's OWN nominal pose, which `sim_env.py` already converts
+via `self._q_nom = self._mujoco_to_logical_q(q_nom_mujoco)` at
+capture time -- converting it again would be a double-fix. And the
+distance-metric sites in `test_recover_near_goal_buckets_increase_
+settled_disturbance` / `test_recover_floor_rungs_remain_distinct_
+after_physics_settle` (`np.linalg.norm(qpos - plant_deg*DEG2RAD)`)
+were deliberately NOT touched this cycle -- a different bug class
+(a distance metric, not an action target) that was ALREADY failing
+before this fix (confirmed against the pre-fix full-suite log) and
+stays out of scope; noted below for completeness, not claimed fixed.
+
+**Decisive zero-training evidence:** `_hold_rollout`'s "quiet" policy
+mean return rose from ~1444.9 (pre-fix, drifting 4.12mm/15s) to
+1474.87 (post-fix, drifting 0.44mm/15s) -- exactly the improvement
+the 09-02 finding predicted and measured in isolation, now confirmed
+inside the real fixture path.
+
+**Downstream fallout (expected, per the same "genuine recalibration"
+pattern as the RAW_PLANT fix earlier this cycle-window): fixing q0
+changed measured magnitudes for every policy that reads it, so
+threshold tests PINNED to the old (buggy) magnitudes needed
+re-measuring, not re-guessing.** Ran the full hold/lower/rise/getup/
+recover/margin slice (~110 tests) TWICE -- once accidentally without
+this suite's `HEXAPOD_MODEL_SOURCE=primitive` pin (conftest.py;
+mesh-family numbers do NOT match the pinned suite, a false lead this
+entry corrects for the next reader) and once correctly pinned -- and
+found:
+
+1. `test_hold_gate_bites_the_stepping`: ratio moved from 0.6649 (last
+   recalibrated 09-02) to a fresh 0.7140 (both "gated" and "ungated"
+   stepping returns rose together since both derive from the same
+   corrected q0). Bound loosened 0.68->0.73 with the exact measured
+   number in the docstring; the gate itself still cuts a genuine
+   28.6% (was 33.5%), not "barely moves."
+2. `test_hold_fade_park_is_scraps_not_a_living`: the stale
+   `flag_low` hip-lift constant (-55deg, "probe-calibrated 08-11" --
+   i.e. calibrated AGAINST the bug, a genuinely different physical
+   pose since the double-shift's magnitude depends on the settled hip
+   angle) reached ~113mm pre-fix; post-fix the same -55deg only
+   reaches ~80mm and, by the fade's OWN designed monotone slope
+   (lower pose legitimately earns more), collects 49% of the quiet
+   stand -- not "scraps" (<25%). Root-caused via a fresh clearance
+   sweep (correctly pinned to primitive this time) instead of just
+   loosening the ratio: -55..-65deg all land in a 79-88mm/32-49%-of-
+   quiet basin, then -70deg+ crosses into the reward's own
+   `[flag_leg_mm, 2x]=[60,120]mm` fade taper; -75deg (98.3mm, 12% of
+   quiet) is the shallowest lift that actually lands in the taper the
+   bank means to test. Constant recalibrated 55->75deg; the sibling
+   `_hold_rollout` "flag" pose (hip+knee -50deg) was ALSO re-swept the
+   same way (its docstring already claimed "~190mm" but post-fix only
+   reached 102.3mm) and recalibrated 50->80deg (reaches 193.2mm,
+   matching the intended severity) -- both changes documented inline
+   with the measured numbers, not just the new constants.
+3. **NEW, genuine, NOT papered over:** `test_getup_honest_ordering`'s
+   "partial(crouch) > freeze(refusal)" rung flips: freeze's return
+   rose -40.4->-30.3 (correct, a true hold now) while partial stayed
+   at -35.1 (bit-exact, doesn't touch q0), so partial no longer beats
+   an honestly-measured freeze. Unlike (1)/(2) above (pure magnitude
+   recalibrations of an already-good pose), this is the file's core
+   "PPO must never learn to refuse" invariant actually failing on
+   honest numbers in the getup task specifically. Left RED on purpose
+   (documented inline in the test) rather than loosened -- it needs a
+   reward-side look (why doesn't a 40%-into-the-ramp honest crouch
+   beat sitting still here?), which is out of scope for this cycle;
+   flagging for the next toucher. No getup-mode reward-mechanism arm
+   should launch until this is understood (none is queued right now).
+
+**Verified:** re-ran the full ~110-test slice after both the fix and
+the two recalibrations: 2 previously-red hold tests now PASS; the 8
+walkcurr_pf-family reds and 5 recover/rock reds in that slice are
+CONFIRMED pre-existing (cross-checked byte-for-byte against the
+09-02-fix full-suite log from earlier this cycle window, before this
+q0 change) -- unrelated, retired-track or already-known, not
+newly caused. Only `test_getup_honest_ordering` is new, and it is
+intentionally left red per above. rise/lower/margin banks: 100% clean
+(every rise/lower/margin-named test passed both runs).
+
+status: FIX LANDED for the q0/qpos-frame class (14 sites, `rise`/
+`lower`/`hold`/`margin`/`getup`/`recover` banks). Two hold-bank
+calibration tests recalibrated with fresh, correctly-pinned
+measurements (not fudged). One new getup-bank red is genuine and
+intentionally NOT papered over -- flagged inline + here for a
+dedicated reward-side dig-in. The recover-bank distance-metric sites
+(a different, lower-priority bug class, already red beforehand) are
+NOT fixed this cycle -- still open, noted for whoever next touches
+`test_recover_near_goal_buckets_increase_settled_disturbance` /
+`test_recover_floor_rungs_remain_distinct_after_physics_settle`. No
+training-default cfg touched; this is test-only code. Snapshotted+
+pushed. standwalk's own in-flight item 0 unaffected (confirmed
+progressing live throughout, both before and after this entry's
+work).

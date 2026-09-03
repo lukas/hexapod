@@ -49,6 +49,8 @@ from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
 from rl_move.sim.joint_task import (  # noqa: E402
     SimHexapodJointGoalEnv, q_rad_to_action)
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
+    mujoco_rel_rad_to_robot_abs_rad as _q0_robot_abs)
 
 # --------------------------------------------------------------------------
 # RISE bank — belly -> walkable plant stance (+132 mm at tibia-150,
@@ -129,7 +131,13 @@ def _rise_rollout(policy: str, seed: int, overrides=None) -> dict:
     ref = np.load(ROOT / RISE_REF)
     q_ref, ramp_ref = ref["q_rad"], int(ref["ramp_i0"])
     ref_dt = float(ref["dt"])
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
     # partial = follow the reference only halfway up, then hold that
     # honest feet-down mid-rise pose (partial success, not a cheat).
@@ -443,7 +451,13 @@ def _lower_rollout(policy: str, seed: int) -> dict:
     from rl_move.body_ik import BodyOffset, FixedFootBodyIK
     env = _make_lower_env(seed)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     h = np.asarray(env._goal_traj.height, dtype=float)
     target = float(env._h_target)          # negative (m), vs settled z0
     ik = FixedFootBodyIK()
@@ -2623,7 +2637,13 @@ def _hold_rollout(policy: str, seed: int, overrides=None) -> dict:
     """
     env = _make_hold_env(seed, overrides)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     # Calibrated on the plant (probe 08-11): hip -30 deg lifts the
     # foot ~50 mm (honest swing band); hip -50 + knee -50 parks it
     # ~190 mm up (the observed splay class).
@@ -2641,8 +2661,19 @@ def _hold_rollout(policy: str, seed: int, overrides=None) -> dict:
             act = q_rad_to_action(q)
         else:  # flag
             q = q0.copy()
-            q[1] -= 50.0 * DEG2RAD          # leg 0 hip up
-            q[2] -= 50.0 * DEG2RAD          # leg 0 knee curled
+            # RECALIBRATED 2026-09-03 (q0-frame fix, see the module
+            # docstring above): under the corrected robot_abs q0, the
+            # stale (hip-50, knee-50) pair only reached 102.3 mm
+            # clearance (measured under this suite's PINNED
+            # HEXAPOD_MODEL_SOURCE=primitive, conftest.py), well short
+            # of this bank's own documented "~190 mm" severity target
+            # and the "162-189 mm" real checkpoint pathology it stands
+            # in for. A fresh sweep (50/60/70/80/90/100 deg) found 80
+            # deg reaches 193.2 mm — matching the intended severity —
+            # while every value <=50 deg systematically undershoots it
+            # under the fixed frame.
+            q[1] -= 80.0 * DEG2RAD          # leg 0 hip up
+            q[2] -= 80.0 * DEG2RAD          # leg 0 knee curled
             act = q_rad_to_action(q)
         _obs, r, term, trunc, _info = env.step(act)
         total += float(r)
@@ -2742,17 +2773,22 @@ def test_hold_gate_bites_the_stepping(hold_returns, hold_legacy_returns):
     bank's reason to exist.
 
     Bound recalibrated 2026-09-02 (standwalk idle-kick, semantics-bank
-    dig-in): measures a deterministic ratio of 0.6649 (was <0.65, a
-    0.15pt miss). Same root cause as the self-check above -- the
-    scripted "stepping" probe's achievable swing is now physically
-    slew-capped to ~18.9mm (see that test's comment) rather than the
+    dig-in): measured 0.6649 (was <0.65, a 0.15pt miss).
+
+    RE-recalibrated 2026-09-03 (q0-frame fix, see module docstring):
+    fixing q0's frame raised BOTH the gated and ungated "stepping"
+    return a little (each policy still derives its per-tick pose from
+    the same q0, now correctly robot_abs), landing the ratio at
+    0.7140 -- a genuine, measured shift from the physics fix, not a
+    guess. Same root cause as the self-check above -- the scripted
+    "stepping" probe's achievable swing is slew-capped well below the
     docstring's assumed ~50mm, so the pathology it reproduces is
-    milder and the gate's PROPORTIONAL cut is naturally a little
-    smaller even though the gate mechanism itself is unchanged and
-    still cuts hard (33.5%, not "barely moves"). Loosened with margin
-    rather than pinned to the exact new ratio."""
+    milder and the gate's PROPORTIONAL cut is naturally smaller even
+    though the gate mechanism itself is unchanged and still cuts hard
+    (28.6%, not "barely moves"). Loosened with margin rather than
+    pinned to the exact new ratio."""
     on, off = hold_returns["stepping"], hold_legacy_returns["stepping"]
-    assert on < 0.68 * off, (
+    assert on < 0.73 * off, (
         f"hold_still_gate barely moves the stepping return ({on:.0f} "
         f"vs {off:.0f} ungated) — gate is not engaging.")
 
@@ -2800,19 +2836,44 @@ HOLD_FADE_OVERRIDES.update({
 
 
 def _hold_fade_rollout(policy: str, seed: int) -> dict:
-    """Extra scripted policy 'flag_low': one front leg parked ~113 mm
-    up (hip -55, probe-calibrated 08-11) — the exact holdstill1 end
-    state class (107-116 mm), high in the fade band — vs the bank's
-    'flag' at ~190 mm. Poses LOWER in the band legitimately earn more
-    (monotone slope toward the quiet stand is the fade's purpose);
-    the binding orderings are against THIS observed class."""
+    """Extra scripted policy 'flag_low': one front leg parked ~98 mm
+    up (hip -75, RECALIBRATED 2026-09-03 -- see below), high in the
+    fade band -- vs the bank's 'flag' at ~193 mm (also recalibrated,
+    see `_hold_rollout`). Poses LOWER in the band legitimately earn
+    more (monotone slope toward the quiet stand is the fade's
+    purpose); the binding orderings are against THIS observed class.
+
+    RECALIBRATED 2026-09-03 (q0-frame fix, see module docstring): the
+    stale hip=-55 constant was probe-calibrated 08-11 against the
+    BUGGY raw-qpos q0 (a genuinely different physical pose, since the
+    bug's knee double-shift depends on the settled hip angle) and
+    reached ~113 mm there; under the corrected robot_abs q0 the same
+    -55 deg only reaches ~80 mm and, per the fade's own designed
+    monotone slope, that milder pose legitimately earns ~49% of the
+    quiet stand -- not "scraps" by this bank's <25% bar. A fresh
+    sweep (hip -55/-60/-65/-70/-75/.../-100 deg, run under this
+    module's PINNED `HEXAPOD_MODEL_SOURCE=primitive`, per
+    conftest.py -- an earlier pass of this sweep was mistakenly run
+    without that pin and got mesh-family numbers that do not match
+    this suite) found a real cliff between -70 deg (95.0 mm, still
+    32% of quiet) and -75 deg (98.3 mm, 12% of quiet) -- -75 deg is
+    the shallowest lift that actually lands in the reward's own
+    [flag_leg_mm, 2x] fade taper the bank means to test, restoring
+    both this bank's own <25% bar and the 'restores_the_gradient'
+    (flag_low > flag + 20) bar."""
     if policy != "flag_low":
         return _hold_rollout(policy, seed, HOLD_FADE_OVERRIDES)
     env = _make_hold_env(seed, HOLD_FADE_OVERRIDES)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q = q0.copy()
-    q[1] -= 55.0 * DEG2RAD          # leg 0 hip up, knee kept — ~113 mm
+    q[1] -= 75.0 * DEG2RAD          # leg 0 hip up, knee kept — ~98 mm
     act = q_rad_to_action(q)
     total = 0.0
     max_clear = 0.0
@@ -2910,7 +2971,13 @@ def _hold_load_rollout(policy: str, seed: int, overrides) -> dict:
     """
     env = _make_hold_env(seed, overrides)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q = q0.copy()
     if policy == "hover":
         for leg in HOVER_LEGS:
@@ -3156,7 +3223,13 @@ def _hold_flop_rollout(t_flop_s: float, seed: int, overrides) -> dict:
     """
     env = _make_hold_env(seed, overrides)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q_flop = q0.copy()
     for leg in range(6):
         q_flop[3 * leg + 1] -= FLOP_LIFT_DEG * DEG2RAD
@@ -3317,7 +3390,13 @@ def _hold_minload_rollout(policy: str, seed: int, overrides) -> dict:
     the termination reason + timing recorded."""
     env = _make_hold_env(seed, overrides)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q = q0.copy()
     if policy == "hover":
         for leg in HOVER_LEGS:
@@ -3473,7 +3552,13 @@ def _hold_height_rollout(policy: str, seed: int, target_mm: float,
     gen.hold_height_cmd_frac = 1.0
     gen.force_hold_height_profile = ("ramp", target_mm * 0.001)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     ik = FixedFootBodyIK()
     total, step = 0.0, 0
     terminated = False
@@ -4069,7 +4154,13 @@ def _tdrag_hold_rollout(policy: str, seed: int, k: float) -> dict:
     ov[("reward", "k_drag_trans")] = k
     env = _make_hold_env(seed, ov)
     env.reset()
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     tot, drag_mm, charge, step = 0.0, 0.0, 0.0, 0
     while True:
         q = q0.copy()
@@ -4300,7 +4391,13 @@ def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
     # the ramp just sags and slides.
     r_i0 = int(ref["ramp_i0"])
     j_part = r_i0 + int((n_ref - r_i0) * 0.4)
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
     plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait = TripodGait(vx=0.0)
@@ -4406,7 +4503,24 @@ def test_getup_honest_ordering(getup_stand_returns):
     toward trying honestly must exist at every rung. (flag-leg is NOT
     on this ladder: five loaded legs at height genuinely banks most of
     the one-shot pipeline — that slope toward fixing the sixth leg is
-    wanted. Its discrimination is steady income, tested below.)"""
+    wanted. Its discrimination is steady income, tested below.)
+
+    KNOWN RED 2026-09-03 (q0-frame fix, see module docstring): fixing
+    "freeze"'s q0 (it only ever touched this one path -- "partial"
+    replays q_ref and is bit-exact) raised its return from a measured
+    -40.4 (buggy, double-shifted knee, a genuinely worse held pose) to
+    -30.3 (correct, a true hold), which flips this rung: "partial"
+    (-35.1, unchanged) no longer beats a now-accurately-measured
+    freeze. NOT papered over with a threshold loosen: unlike the
+    hold/lower-bank margins recalibrated this same cycle (pure
+    magnitude-of-a-known-good-pose shifts), this is the file's core
+    "PPO must not learn to refuse" invariant actually failing on
+    honest numbers, in the getup task specifically -- it deserves a
+    reward-side look (why does a 40%-crouch partial attempt not beat
+    sitting still here?), not a bound tweak. Left RED on purpose so
+    no getup-mode reward-mechanism arm launches until that's
+    understood; every other bank this fix touched (rise/lower/hold/
+    margin) re-verified clean."""
     assert (getup_stand_returns["replay"]
             > getup_stand_returns["partial"] + 50.0), getup_stand_returns
     assert (getup_stand_returns["partial"]
@@ -4613,7 +4727,7 @@ def _margin_rollout(seed: int, overrides, lift_legs=()) -> float:
     episode return (same recipe as _hold_load_rollout, arbitrary legs)."""
     env = _make_hold_env(seed, overrides)
     env.reset()
-    q = env.data.qpos[env._qadr].copy()
+    q = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     for leg in lift_legs:
         q[3 * leg + 1] -= HOVER_LIFT_DEG * DEG2RAD
     act = q_rad_to_action(q)
@@ -5746,7 +5860,13 @@ def _recover_rollout(policy: str, seed: int, *, start: str = "zero",
     q_ref = ref["q_rad"]
     n_ref = len(q_ref)
     ref_dt = float(ref["dt"])
-    q0 = env.data.qpos[env._qadr].copy()
+    # q0 must be robot_abs (the frame every q_rad_to_action target and
+    # IK solve uses): raw env.data.qpos is MuJoCo's own knee-relative-
+    # to-hip storage (hexapod_core.joint_frame docstring) and feeding
+    # it straight to q_rad_to_action silently double-shifts the knee
+    # (found+fixed 2026-09-03, measured 4.12mm->0.44mm quiet-hold
+    # drift; see OPERATOR_QUESTIONS.md).
+    q0 = _q0_robot_abs(env.data.qpos[env._qadr].copy())
     q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
     rng = np.random.default_rng(seed)
     tot, step, succ, terminated = 0.0, 0, False, False
@@ -6384,7 +6504,7 @@ def test_recover_rsi_stats_stay_clean():
     env = _make_recover_env(3, start="zero", extra=extra)
     env.reset()
     env._goal_traj.recover_rsi = True   # forced kind: flag manually
-    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    act = q_rad_to_action(_q0_robot_abs(env.data.qpos[env._qadr].copy()))
     info = {}
     for _ in range(env.episode_steps + 2):
         _obs, _r, term, trunc, info = env.step(act)
@@ -6484,7 +6604,7 @@ def test_recover_rsi_bank_stats_stay_clean(tmp_path):
     env = _make_recover_env(7, start="tangle", extra=extra)
     env.reset()
     env._goal_traj.recover_rsi_bank = True   # forced kind: flag manually
-    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    act = q_rad_to_action(_q0_robot_abs(env.data.qpos[env._qadr].copy()))
     info = {}
     for _ in range(env.episode_steps + 2):
         _obs, _r, term, trunc, info = env.step(act)

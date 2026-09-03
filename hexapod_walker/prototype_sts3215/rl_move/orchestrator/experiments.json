@@ -259717,7 +259717,7 @@
       "train.yaw_credit_grad_clip=0.15"
     ],
     "created": "2026-09-03T12:21:26+00:00",
-    "status": "RUNNING",
+    "status": "CANARY_FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -259763,7 +259763,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-03T13:06:25"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (closes the whole turn-authority-lever family, both diet-rate AND structural branches now refuted). Evidence (same harsh eval-time diet override as the FAIL numbers it must beat, goal.walk_cmd_mode=stress_mix/resample_s=4.0/jitter=0.5, n=16 per group, no-video fast read logs/ckpt_eval/standwalk_yawdensity_canary_walkcheck/{s0dr0det,s0dr0sto,s0owndrdet,s0owndrsto}/report.json): walk/det dir_err_mean_med 40.65deg (flat inside the FAIL band 38-41deg, no 20% clearance toward the 25-34deg acq1 band); course_err_1s_med_med 23.49deg (dr0) / 18.88deg (own-DR) -- roughly 1.5-2.4x WORSE than the FAIL band's own 9.6-12.6deg, not better; slip_per_m_med 4.32 (dr0det)/4.47 (owndrdet), both above the <=~3.8 ceiling. Every axis this lever was supposed to move (dir_err, course_err, slip) is flat-to-worse than the ancestor's own FAIL numbers -- the gate's own explicit FAIL branch ('the run behaves worse than the ancestor on any axis'). Turn-in-place authority intact (probe_turn_authority_yawdensity_canary.json: med_wz_err 0.045, wz_med 0.18-0.23 rad/s across all 4 wz_cmd/seed combos, well above the 0.07 floor, zero probe falls) -- confirms this is a steering-while-walking-forward miss specifically, not a general turn-command regression. Own-DR det shows 2/16 terminations in walk/det (hold_min_load at t=22.76 deep in the hold segment, over_current at t=17.77 during the RISE segment) -- both match the ALREADY-ESTABLISHED baseline noise floor pattern from this exact lineage (stdwalklohi-acq1's own 1/16 hold_min_load, and rise/lower termination noise seen throughout this campaign), NOT new walk-steering falls -- the 'zero new own-DR falls' bar holds. Gait stays clean (gait_valid 16/16 in 3 of 4 groups, 15/16 in the 4th with one sacrificed-leg episode tied to the over_current term above) -- this is a pure steering-accuracy miss, not a gait breakdown. CONCLUSION per the gate's own pre-registered text: walk_yaw_zero_frac (0.5->0.2, densifying forward+turn co-occurrence) does NOT fix the steering gap either -- implicates walk_yaw_zero_frac as not the driver, closing the STRUCTURAL branch of the turn-authority-lever family exactly as the diet-rate branch closed at resamplematch{,-mild}-canary. Both pre-registered branches of the track's own turn-authority fork are now refuted. Per the gate's own text this forces an escalation to a full reward-mechanism change (not another single-lever canary on this family) -- flagging that redesign as dig-in-tier cycle work (root-cause chain behavior<-incentive<-pricing<-sim defect, matching how amp's analogous slip/yaw-tip mechanism closure was handled), not something to improvise same-cycle. Full DR-0 gate/owncfg video panel (rise/lower/hold modes) was still computing at verdict time via a backgrounded pollreap (up to 60min) -- not needed for this call since the pre-registered PASS/FAIL branches are decided purely on the walk-mode dir/course/slip numbers + probe, and gait_valid already confirms no collapse; if it later shows anything contradicting this read (e.g. a real fall in rise/lower), that would be a fresh anomaly, not a reversal of this steering verdict."
   },
   {
     "run": "cw-cpg-teacherfork-ab-cpgv1-b8m",

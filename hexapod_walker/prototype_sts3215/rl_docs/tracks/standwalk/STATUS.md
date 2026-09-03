@@ -1,7 +1,48 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~13:2x: **item 1 (yawdensity-canary) built + read
-both seeds — FLAGGED DIG-IN, NOT verdicted.** `probe_turn_authority`:
+Update, 2026-09-03 ~13:3x: **item 1 seed0 (`yawdensity-canary`)
+VERDICTED CANARY FAIL - MECHANISM; seed1 stays the concurrent cycle's
+open DIG-IN (below) — do not let this close the family alone.**
+Same walk-only steering read (n=16, dr0/ownDR x det/sto, no-video,
+harsh eval-diet override): walk/det dir_err_mean_med 40.65deg (flat
+inside the 38-41deg FAIL band); course_err_1s_med_med 23.49deg
+(dr0)/18.88deg (ownDR) — 1.5-2.4x WORSE than the FAIL band's own
+9.6-12.6deg, not better; slip_per_m_med 4.32-4.47, above the ~3.8
+ceiling. `probe_turn_authority`: clean (wz_med 0.18-0.23 rad/s, zero
+probe falls) — the miss is steering-while-walking-forward specifically,
+not a general turn regression. gait_valid 16/16 in 3/4 subgroups
+(15/16 in the 4th). This clears the gate's own FAIL branch ("worse
+than the ancestor on any axis") on the primary dir/course/slip
+metrics ALONE — that call does not depend on the termination question
+below, so seed0 is verdicted now rather than waiting on seed1's
+reconciliation. **Caveat carried forward, not resolved**: seed0's
+own-DR-det group has the SAME failure shape seed1 shows at high rate
+(one `over_current` term at t=17.77 with `seq_end_seg_mode=rise`) —
+at seed0's low incidence (1/16, plus one unrelated late `hold_min_load`
+in the hold segment matching prior baseline noise) this reads as
+noise, but seed1's 7-12/16 rate in EVERY subgroup says it may be a
+real (dose- or seed-dependent) rise-phase fragility inside the mixed
+walk->rise mode_seq episode under the forced harsh diet, possibly an
+INSTRUMENT defect (the canary-family gate's mode_seq mixing), not a
+checkpoint property. Do NOT treat seed0's clean-looking termination
+count as proof the anomaly is seed1-only until the reconciliation
+item below (isolated per-mode rise-only gate/owncfg, no mode_seq
+mixing) actually reads clean on seed0 too. **Verdict on the
+STRUCTURAL branch stands regardless**: walk_yaw_zero_frac (0.5->0.2)
+does not close the steering gap on seed0, matching the diet-rate
+branch's own closure — both pre-registered branches of the track's
+turn-authority fork are refuted on seed0. The FAMILY-WIDE escalation
+call (full reward-mechanism redesign) stays open pending seed1's
+termination-anomaly reconciliation, per the concurrent cycle's own
+Next item 1 below — do not launch a redesign arm until that resolves,
+since if it's an instrument defect the "escalate" conclusion itself
+would be built on a miscalibrated gate. Evidence: ledger verdict on
+`yawdensity-canary`, `logs/ckpt_eval/standwalk_yawdensity_canary_
+walkcheck/*/report.json`, `logs/ckpt_eval/probe_turn_authority_
+yawdensity_canary.json`.
+
+Previous update, 2026-09-03 ~13:2x: **item 1 (yawdensity-canary) built
++ read both seeds — FLAGGED DIG-IN, NOT verdicted (seed1 side).** `probe_turn_authority`:
 clean both seeds (wz_med 0.18-0.23 rad/s, zero probe falls). Walk-only
 steering read (n=16, dr0/ownDR x det/sto, no-video, same instrument as
 the diet-family canaries): det dir_err_med 40.7-45.5deg (vs the
@@ -35,22 +76,34 @@ fast-read, getup/q0/hold/joint-frame-v2 fixes, 09-02 merge-recovery)
 moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-03i_trim.md`
 + `2026-09-03{a..h}_trim.md` + `2026-09-02{f,h}_trim.md`.
 
-## Next (updated 09-03 ~13:2x)
+## Next (updated 09-03 ~13:3x)
 
-1. **Reconcile the yawdensity-canary-s1 seed-asymmetric rise-phase
-   over_current anomaly before any PASS/FAIL/escalation call**: read
-   the standard prestage gate/owncfg evals (isolated per-mode rise-only
-   rollouts, no mode_seq mixing) once synced on train-3/train-4 to
-   check whether seed1's rise sub-skill fails in ISOLATION too (true
-   checkpoint fragility, orthogonal to the density lever — resolve as
-   seed noise, verdict on det steering alone) or only inside the mixed
-   walk->rise episode under the forced harsh diet (implicates the gate
-   instrument's mode_seq composition, needs a protocol fix before this
-   canary family can be trusted at all). Either way, close item 1 with
-   a real verdict once reconciled: on the walk-steering evidence alone,
-   det numbers already look FAIL-shaped (flat-to-worse vs the 38-41deg/
-   ~3.8 band), matching every prior canary in this family.
-2. **Closed (archives 09-02{,b..h}, 09-03{a..h}):** update-size/
+1. **seed0 CLOSED (verdicted CANARY FAIL - MECHANISM this cycle,
+   see Update above): the structural forward+turn co-occurrence lever
+   (walk_yaw_zero_frac 0.5->0.2) does not close the steering gap —
+   dir_err flat, course_err/slip WORSE than the FAIL band. seed1 STILL
+   OPEN — reconcile its seed-asymmetric rise-phase `over_current`
+   anomaly (7-12/16 terms in every subgroup, `seq_end_seg_mode=rise`,
+   vs seed0's 1/16 at the same failure shape) before ruling on whether
+   it's checkpoint fragility (seed noise) or a mode_seq-mixing
+   instrument defect in the canary gate itself**: read the standard
+   prestage gate/owncfg evals (isolated per-mode rise-only rollouts, no
+   mode_seq mixing) once synced on train-3/train-4 for BOTH seeds — if
+   seed0's isolated rise-only read is also clean (expected, given its
+   low mixed-episode incidence), that's evidence FOR the instrument-
+   defect branch (seed1 drew unlucky under a flawed mixed-mode gate,
+   not a real checkpoint difference), which would also caveat seed0's
+   otherwise-clean-looking termination count above.
+2. **Escalation to a full reward-mechanism redesign** (both
+   pre-registered branches of the turn-authority fork — diet-rate AND
+   structural — are now refuted on seed0's steering metrics): DO NOT
+   launch a redesign arm until item 1's reconciliation resolves the
+   instrument-defect question, since an escalation built on a
+   miscalibrated gate would misdirect the whole next design. Flagged
+   dig-in-tier (root-cause chain behavior<-incentive<-pricing<-sim
+   defect before any reward patch), matching how amp's analogous
+   slip/yaw-tip mechanism closure was handled.
+3. **Closed (archives 09-02{,b..h}, 09-03{a..h}):** update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
    switch-jump/frame-blend/current-confound sweeps; cap29 acquisition
    (PARTIAL); log_std anneal dose grid (`hi` PASS, `mild` FAIL); item

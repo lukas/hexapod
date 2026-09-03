@@ -4527,22 +4527,22 @@ def test_getup_honest_ordering(getup_stand_returns):
     the one-shot pipeline — that slope toward fixing the sixth leg is
     wanted. Its discrimination is steady income, tested below.)
 
-    KNOWN RED 2026-09-03 (q0-frame fix, see module docstring): fixing
-    "freeze"'s q0 (it only ever touched this one path -- "partial"
-    replays q_ref and is bit-exact) raised its return from a measured
-    -40.4 (buggy, double-shifted knee, a genuinely worse held pose) to
-    -30.3 (correct, a true hold), which flips this rung: "partial"
-    (-35.1, unchanged) no longer beats a now-accurately-measured
-    freeze. NOT papered over with a threshold loosen: unlike the
-    hold/lower-bank margins recalibrated this same cycle (pure
-    magnitude-of-a-known-good-pose shifts), this is the file's core
-    "PPO must not learn to refuse" invariant actually failing on
-    honest numbers, in the getup task specifically -- it deserves a
-    reward-side look (why does a 40%-crouch partial attempt not beat
-    sitting still here?), not a bound tweak. Left RED on purpose so
-    no getup-mode reward-mechanism arm launches until that's
-    understood; every other bank this fix touched (rise/lower/hold/
-    margin) re-verified clean."""
+    FIXED 2026-09-03 (was RED for a few hours the same day, see
+    `_getup_reward`'s dated comment in walk_task.py): the q0-frame fix
+    (only ever touched "freeze"'s path -- "partial" replays q_ref and
+    is bit-exact) raised freeze's return from a measured -40.4 (buggy,
+    double-shifted knee, a genuinely worse held pose) to -30.3
+    (correct, a true hold), which briefly flipped this rung: "partial"
+    (-35.1, unchanged) no longer beat the now-accurately-measured
+    freeze. Root cause was NOT the reward shape -- it was that the
+    08-22 recalibration's k=200 progress-ratchet credit was only ever
+    sized to clear freeze's old (buggy, more expensive) cost with
+    margin; a correctly-cheaper freeze ate that margin. Re-recalibrated
+    `getup_k_progress` 200->350 (bank-measured: partial -8.2 > freeze
+    -29.3, restores the ~20+ margin) restores the ordering without
+    touching the physics regularizers or the honest partial-rise's own
+    cost; every other GETUP bank ordering re-verified intact/widened at
+    the new value (see the code comment for the full sweep)."""
     assert (getup_stand_returns["replay"]
             > getup_stand_returns["partial"] + 50.0), getup_stand_returns
     assert (getup_stand_returns["partial"]

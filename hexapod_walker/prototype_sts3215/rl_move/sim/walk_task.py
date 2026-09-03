@@ -5468,12 +5468,37 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # untouched (they price real physics, not this task's shape;
         # see the strip comment above) so the fix is sizing the
         # progress ratchet to clear that physical cost with margin,
-        # not editing the physics charges. 200 gives partial +10.8 >
+        # not editing the physics charges. 200 gave partial +10.8 >
         # freeze -11.5 (>=20 margin) while leaving every other GETUP
         # bank ordering intact (replay/flagleg/stilt/thrash all keep
         # their required gaps at this value, swept 60->500).
+        #
+        # RE-RECALIBRATED 09-03 (test_getup_honest_ordering went RED
+        # from the SAME-DAY q0-frame fix, not a new task-shape bug):
+        # `freeze`'s q0 used to feed MuJoCo's raw knee-relative qpos
+        # straight into q_rad_to_action, double-shifting the knee into
+        # a genuinely worse held pose; fixing that (see `_q0_robot_abs`
+        # call above, OPERATOR_QUESTIONS.md 09-03) made freeze cheaper
+        # to hold (mean ret -40.4 -> -30.3, bank-measured 3 seeds) —
+        # correct, since a physically-consistent frozen pose really
+        # does cost less gyro/action/current than the old bugged one —
+        # while `partial` is untouched by that fix (-35.1). That
+        # erodes the 08-22 margin entirely (partial's ratchet credit at
+        # k=200 no longer clears freeze's now-accurate, lower physical
+        # cost) without any change to the honest partial-rise's own
+        # cost or progress. d_p is ~0 for a held `freeze` pose (its
+        # potential P never rises after the first tick), so r_prog for
+        # freeze is ~flat in k_prog while r_prog for partial scales
+        # with it (measured slope ~0.18 return/unit-k for partial vs
+        # ~0.006 for freeze) — raising k_prog is still the right lever
+        # (partial's cost is real physics, per the 08-22 note; the fix
+        # is sizing the credit, not the charges). 350 gives partial
+        # -8.2 > freeze -29.3 (>=20 margin again) while every other
+        # GETUP bank ordering stays intact at this value (replay/
+        # flagleg/stilt/thrash margins all widen, swept 250->350;
+        # ratchet `best` fractions are potential-only and untouched).
         k_prog = float(cfg_get(self.cfg, "reward", "getup_k_progress",
-                               default=200.0))
+                               default=350.0))
         r_prog = k_prog * d_p
 
         # 4) Gated steady income. Zero-command ticks: quiet-stand pay,

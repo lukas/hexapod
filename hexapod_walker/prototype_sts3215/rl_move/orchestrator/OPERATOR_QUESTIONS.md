@@ -4593,3 +4593,67 @@ canary` (LAUNCH_CRASH from this exact bug, verdicted CANARY FAIL -
 INFRASTRUCTURE, not a science result) -> replaced by
 `cap29-stdwalklohi-resamplematch-canary{,-s1}`, both RUNNING clean on
 the re-stamped ancestor.
+
+---
+
+## 09-03 ~10:5x standwalk: unreconciled own-DR fall-count discrepancy between two independent eval_checkpoint.py reads of the SAME checkpoint (dig-in flagged, not resolved this cycle)
+
+Triaging `cw-standwalk-...-cap29-stdwalklohi-resamplematch-canary`
+(CANARY FAIL - MECHANISM, steering-diet-match hypothesis, verdicted
+this cycle), my own walk-mode-only proxy read (`eval_checkpoint.py
+--modes walk --per-mode 16`, dr-scale 0.5, seed 0, same full
+obs-contract cfg-set stack the checkpoint trained with) found 3/16
+`walk/det` episodes terminate IMMEDIATELY (`seq_end_t_s=0.01`,
+`term_reason=tilt_roll`, all six legs sacrificed, `cur_max_a`
+0.7-0.84A i.e. essentially pre-actuation) — reproduced byte-for-byte
+identical across two independent invocations of my own (same 3
+episode indices, same numbers). A CONCURRENT cycle (working the
+sibling `turndiet-canary-s1`) independently ran what looks like the
+same nominal read (same checkpoint, `dr_scale=0.5`, `seed=0`) on
+spare pods and got 0/16 terms in that subgroup
+(`logs/ckpt_eval/resamplematch_canary_fastwalkcheck/owndr/
+report.json`) — but with an unusually large `course_err_1s_med`
+(51.2deg vs my 11.0deg) on `walk/det`, and per-episode `roll_peak_deg`
+up to 13.8deg with no termination.
+
+**Hypothesis (untested):** the SAME small number of near-knife-edge
+own-DR mass/friction/geometry draws produced borderline instability in
+both reads, landing on opposite sides of the `tilt_roll` termination
+boundary (`safety.py`'s `abs(imu_roll - tilt_ref) > max_roll`, NOT
+raw world-frame roll — `roll_peak_deg` in the report may not be the
+same quantity the termination check compares) due to floating-point
+non-associativity / physics-substep ordering differences between two
+independently-run processes (different host, different BLAS/thread
+count, etc.), not a genuine deterministic per-checkpoint difference.
+Both reads otherwise agree closely on `direction_err_med`
+(38-42deg) and `slip_per_m_med` (3.6-5.2) for this subgroup.
+
+**Why not resolved now:** reconciling requires either (a) re-running
+both commands on the SAME pod back-to-back with byte-identical
+cfg-set lists dumped and diffed first (my command is in this same
+OPERATOR_QUESTIONS entry's git blame / the ledger's respec command;
+the other cycle's exact command is not yet recovered — check its
+STATUS.md update or its own /tmp eval log on whichever pod it used),
+or (b) instrumenting `safety.py`'s tilt_ref/imu_roll at the exact
+terminating tick to see whether `roll_peak_deg` (report field) and the
+internal `abs(imu_roll - tilt_ref)` comparison actually diverge the
+way hypothesized above. Neither was done this cycle (time-boxed).
+
+**Practical resolution taken:** the verdict does NOT depend on this
+falls sub-claim — the steering-not-improved + slip-breach finding is
+independently corroborated by both reads and is sufficient by itself
+for CANARY FAIL - MECHANISM under the pre-registered gate's PASS bar.
+The verdict text was revised (FORCE=1) to state the falls claim with
+appropriate uncertainty instead of asserting a confident new failure
+mode.
+
+**Next step for whoever picks this up:** worth a dedicated dig-in
+only if a FUTURE canary's PASS/FAIL boundary actually turns on an
+own-DR fall count (this one didn't need to). If so: (1) diff the two
+exact eval commands, (2) rerun both on the same pod with `--seed 0`
+fixed and compare, (3) if still divergent, add a debug print of
+`imu_roll`/`tilt_ref` at termination alongside `roll_peak_deg` to
+settle whether they're the same quantity.
+
+status: OPEN, low priority (didn't gate the verdict), flagged for
+whichever cycle next needs own-DR fall-count precision.

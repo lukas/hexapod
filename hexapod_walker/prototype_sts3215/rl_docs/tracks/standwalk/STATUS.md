@@ -31,10 +31,20 @@ identical `eval_checkpoint.py` reads worth a future dig-in, not
 reconciled here; direction/course/slip numbers agree closely either
 way). Net conclusion both readings share: the diet mismatch is NOT
 the (sole) driver — matching it buys DR-0-only, inconsistent course
-gains at a real slip/own-DR cost. **The sibling cycle already
-refilled with a milder-dose canary
-(`cap29-stdwalklohi-resamplematch-mild-canary`, train-1, RUNNING)** —
-read that before any further diet-family arm. If it also fails, pivot
+gains at a real slip/own-DR cost. (Addendum: the resamplematch-canary
+verdict's falls sub-claim was REVISED after this cross-check — my
+own-DR 3/16-terms read reproduced byte-identical across 2 of my own
+invocations, but is unreconciled against this cycle's 0/16-terms read
+of the same checkpoint; likely a knife-edge own-DR draw landing on
+opposite sides of the tilt_roll boundary between processes, not a
+clean deterministic difference. Dig-in flagged in
+OPERATOR_QUESTIONS.md, doesn't change the FAIL verdict — steering-
+not-improved + slip-breach alone already fails the gate's PASS bar.)
+**Both mild-dose canary seeds now RUNNING**
+(`cap29-stdwalklohi-resamplematch-mild-canary` train-1,
+`-mild-canary-s1` train-2, seed pair launched this cycle, ~2M steps
+each, near done at cycle end) — read both before any further
+diet-family arm. If they also fail, pivot
 to structural turn-authority (not diet): probe-confirmed authority is
 strong turn-IN-PLACE; untested is whether forward+turn CO-OCCURRENCE
 is under-trained (`walk_yaw_zero_frac=0.5`/`walk_turn_in_place_

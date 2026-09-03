@@ -1,127 +1,105 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~19:1x (**Next item 2, branch (a) 4-ARM CANARY
-BATCH COMPLETE — ALL 4 FAIL; branch (a) REFUTED. Next item 1
-(rise-stall faithful replay) CLOSED same cycle, with a mesh/primitive
-model-family test-harness bug fixed along the way.**)
+Update, 2026-09-03 ~20:2x (**Next item 2 candidate (ii) BUILT +
+LAUNCHED: `reward.walk_yaw_combined_boost` harness + 4-arm canary
+batch now RUNNING.**)
 
-**Item 2 (steering, top item):** all 4 omega-boost canary cells now
-read (`cap29-stdwalklohi-omegaboost{1p5,2p0}{,-s1}`, 2 doses x 2
-seeds, concurrent cycles): FAIL/FAIL/FAIL/FAIL. Every cell reproduces
-the SAME sign-asymmetric signature already seen in `combskip`: the
-negative-wz combined-tick side clearly beats the pre-registered
-comparator (+57-61% magnitude) but the positive side falls short
-(does not beat +0.145 rad/s), AND pure-turn wz_med regresses >10% vs
-the matched control on BOTH signs in every cell (10-25%, not dose-
-monotonic — 1.5-s1 regressed worse than 2.0-s0). Conclusion: the
-scripted-teacher-level authority gain from `train.bc_anchor_
-teacher_omega_boost` (proven zero-training on the SCRIPTED teacher
-itself) does NOT survive PPO fine-tuning into a real, symmetric
-combined-tick wz gain on the RL checkpoint — it trades pure-turn
-authority for a lopsided partial gain, 4/4 cells, 2 independent
-mechanisms now (`combskip`, `omegaboost`). **Branch (a) is REFUTED.**
-Per the pre-registered fallback, the remaining candidates are (i) the
-`tripod_gait.py` class-level combined vx+omega foot-target geometry
-edit (shared hardware-adjacent code — needs its own before/after
-validation harness before any launch) or (ii) a combined-tick-
-targeted course/yaw reward term (needs a `test_task_semantics.py`
-bank entry pinning the exploit before any launch, per RESEARCH_RULES).
-Neither is launch-ready yet — this is the track's next NEW-CODE item.
-Evidence: `logs/ckpt_eval/probe_turn_authority_omegaboost{1p5,2p0}_
-{s0,s1}_combined_09-03.json`, `..._cap29_stdwalklo_hi{,_s1}_combined_
-09-03.json`; ledger verdicts on all 4 run names.
+Item 2's own prescription ("pick one, build its validation/bank
+harness, THEN launch a matched canary") is done for candidate (ii).
+Built `reward.walk_yaw_combined_boost` (`walk_task.py`, default
+1.0=bit-exact identity, mirrors `train.bc_anchor_teacher_omega_
+boost`'s own gating): a MULTIPLIER, not a gate, applied only to the
+existing `k_walk_yaw` kernel income on genuine combined ticks (linear
+speed AND yaw rate both commanded) — corrected mid-build: an earlier
+draft assumed (from `probe_turn_authority.py`'s stale docstring) that
+this family trains with `k_walk_yaw=0`; the ledger's own cfg for
+`cap29-stdwalklo-hi` shows `k_walk_yaw=1.0` applied to EVERY walk
+tick already, so a zeroing GATE (the first design) would have
+REMOVED supervision from the already-working pure-turn behavior
+instead of adding it where degraded — a boost multiplier is the
+correct surgical lever. Semantics bank
+(`test_task_semantics.py`, "STANDWALK combined-tick-targeted yaw term
+bank"): pins the measured sign-asymmetric exploit (positive combined
+wz retains ~44% of pure-turn magnitude, negative ~68%, from the
+cap29-stdwalklo-hi comparator) as a scripted twin the CURRENT
+(boost=1.0) stack cannot distinguish from a symmetric-good twin
+(asym/sym price within ~1% of each other), then proves boost=6.0
+separates them by >600pts/ep — the mechanism has real gradient before
+any GPU spend. 8 new/modified tests, all green (4 gate-mechanics +
+the exploit-pinning test, plus `_steer_rollout` gained `return_terms`/
+`tail_only`); full `-k "steer or yaw or turn or walkteach"` + all 101
+`test_bc_anchor.py` tests rerun green except one PRE-EXISTING failure
+(`test_kernel_yaw_ema_separates_accurate_tracking_from_undershoot`,
+confirmed failing identically on unmodified `main` — not caused by
+this change, not fixed this cycle). Also applied item-2 rider (a):
+new arms set `safety.max_current_a=2.5` (below the measured 2.64A
+model ceiling; the sibling canaries' `2.9` silently disabled
+`over_current`). Snapshot `0b15f140`
+(`exp/standwalk-combined-yaw-boost-lever-09-03`).
 
-**Item 1 (rise-stall, CLOSED):** finished the faithful-replay twin
-(`test_task_semantics.py::test_rise_stall_replay_*`, built off the
-real `yawdensity_s1_riseAB_cap29cf` silent-stall trace). Two findings:
-(1) **A REAL BUG, now FIXED**: the replay ran on `conftest.py`'s
-session-pinned `HEXAPOD_MODEL_SOURCE=primitive` the whole time,
-silently ignoring its own `env.model_source: mesh` cfg override
-(`resolve_model_source()` checks the env var first, unconditionally)
-— the hand-built bank above it had the SAME latent bug but happened
-to still pass qualitatively either way since it's purely comparative;
-the faithful replay diverged wildly (wrong mass family) until wrapped
-in a new `_mesh_family_env()` context manager (now applied to both
-banks). (2) Once genuinely mesh-family, the replay **does not fully
-confirm the hand-built twin's story**: the real recorded "stall" ends
-up HIGHER (h_end 29.3mm) than an early-frozen "partial" hold
-(19.4mm) — the opposite of the synthetic +40deg-offset twin's height
-ranking — because the real fight keeps inching upward the whole
-episode while a frozen hold sags. The TRUE distinguishing signature
-is duration at dangerous current, not final height: real stall
-sustains >2A for ~25/30s vs partial's ~1s (`over2A_s`), and the
-pricing gap survives but shrinks (partial beats stall by ~82pts/30s,
-not the hand-built twin's larger margin). Tests recalibrated to match
-measured reality (not re-inflated to match the synthetic version), per
-the twin's own pre-written instruction to trust the faithful replay
-over the hand-built one on disagreement. Net effect: the height-
-ranking half of the rise-stall reward-fix motivation is retracted;
-the current-duration half still stands. No reward change made yet —
-a future rise-stall fix should price sustained near-ceiling current
-directly (matching `over2A_s`), not a stall-vs-partial-height
-framing. 4/4 replay tests green; full `-k rise`/`-k steer` reruns
-green (18 tests). Snapshot `54cb4765`
-(`exp/standwalk-risestall-replay-mesh-family-fix-09-03`).
+**LAUNCHED**: 2-dose x 2-seed canary batch, respec'd from the matched
+comparators `cap29-stdwalklo-hi{,-s1}` (identical recipe minus the new
+flag): `cap29-stdwalklohi-yawboost{3p0,6p0}{,-s1}`, all 4 VERIFIED
+RUNNING (train-1/2/3/10). One infra snag hit 3/4 arms (`tar: ...
+linux_control/vision_ui: Cannot open: File exists` on train-1/2/3,
+the same AprilTag-submodule-extraction stale-directory class noted in
+the 09-03 17:5x omegaboost launch) — cleared via `kubectl exec ... rm
+-rf .../vision_ui` on the affected pods, then requeued; all 4 now
+running clean. NEXT CYCLE: read the 4-cell canary
+(`probe_turn_authority.py --vx-cmds` combined read vs the pre-
+registered gate) — do NOT trust the raw final-step reward number
+alone (rider c: the whole cap29 family, incl. both combskip seeds,
+showed a Q3 training-reward collapse).
 
-Earlier update, 2026-09-03 ~17:5x (root cause found + omega-boost
-lever built + the 4-arm canary batch launched — now fully read and
-REFUTED, see the top Update) moved VERBATIM to `archive/standwalk_
-STATUS_journal_2026-09-03n_trim.md`.
+Earlier update, 2026-09-03 ~19:1x (Next item 2 branch-(a) 4-arm
+omega-boost canary batch REFUTED 4/4; Next item 1 rise-stall faithful
+replay CLOSED, mesh/primitive test-harness bug fixed) moved VERBATIM
+to `archive/standwalk_STATUS_journal_2026-09-03o_trim.md`.
 
-Earlier updates (17:2x combskip verdicts/branch-b REFUTED, 16:4x
-branch-(b) lever build+launch, 16:0x combined-probe mechanism
-discovery, 15:2x rollout-trace tool, 15:0x semantics-bank twins, and
-everything before) moved VERBATIM to `archive/standwalk_STATUS_
-journal_2026-09-03m_trim.md` (which points on to `...-03l_trim.md` —
-noted gap: that file and the `09-03{a..k}`/`09-02{f,h}` files it in
-turn points to do not exist on disk, unrepaired here).
+## Next (updated 09-03 ~20:2x)
 
-## Next (updated 09-03 ~19:1x)
-
-1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** Faithful-replay twin
-   built, a model-family test-harness bug fixed
-   (`_mesh_family_env()`), tests recalibrated to the real (not
-   hand-built) signature. See Update. No reward code changed; a
-   future fix should price sustained near-ceiling current directly
-   (`over2A_s`-style), not a stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM. Branch (a) (omega-boost) now ALSO
-   REFUTED 09-03 ~19:1x — 4/4 canary cells FAIL** (same sign-
-   asymmetric + pure-turn-regression pattern as branch (b)'s
-   `combskip`). Two candidates remain, NEITHER launch-ready:
-   (i) `tripod_gait.py` class-level combined vx+omega foot-target
-   geometry edit (shared hardware-adjacent code — build its own
-   before/after validation harness first, e.g. extend
-   `probe_turn_authority.py`/`test_probe_turn_authority.py` to cover
-   the edited function directly); (ii) a combined-tick-targeted
-   course/yaw reward term (needs a `test_task_semantics.py` bank
-   entry pinning the current combined-tick exploit BEFORE any reward
-   change, per RESEARCH_RULES — nothing built yet). NEXT CYCLE: pick
-   one, build its validation/bank harness, THEN launch a matched
-   canary — don't launch either without that harness. Prior findings
+1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
+   `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
+   up. No reward code changed; a future fix should price sustained
+   near-ceiling current directly (`over2A_s`-style), not a
+   stall-vs-partial-height framing.
+2. **Steering branch — TOP ITEM. Candidate (ii) (`reward.walk_yaw_
+   combined_boost`) BUILT + LAUNCHED 09-03 ~20:2x, awaiting the 4-cell
+   canary read** (`cap29-stdwalklohi-yawboost{3p0,6p0}{,-s1}`, doses
+   3.0/6.0 x seeds 0/1, all VERIFIED RUNNING). NEXT CYCLE: read
+   `probe_turn_authority.py --vx-cmds` combined results vs the
+   pre-registered gate (both signs must beat the cap29-stdwalklo-hi
+   comparator AND the asymmetry must actually close, not just
+   narrow), with a pure-turn/straight-walk regression check <=10% vs
+   control. Do not trust the raw final-step reward alone — rider (c)
+   (Q3 collapse, still unexplained) applies to this family. If ALL 4
+   cells FAIL the same way branch (a) did, candidate (i) (`tripod_
+   gait.py` class-level combined vx+omega foot-target geometry edit)
+   is the only remaining lever — build its own before/after
+   validation harness (extend `probe_turn_authority.py` to exercise
+   the edited function directly) before any launch. Prior findings
    still hold: turn-in-place authority alone is strong everywhere (wz
    ~0.18-0.23 on 0.25 cmd); diet-rate, structural co-occurrence
-   (`walk_yaw_zero_frac`), combined-tick BC-anchor-skip, and now
-   teacher-omega-boost are ALL refuted, 2+ seeds each — 3 independent
-   mechanisms down. Must-fix riders for whatever arm eventually
-   launches: (a) current-cap trip threshold must sit BELOW the 2.64 A
-   model ceiling (cap 2.9 silently disables over_current); (b) verify
-   `safety.max_current_a`/speed keys in the ledger `extra_args`
-   explicitly, names lie; (c) investigate the family-wide Q3
-   training-reward collapse (all lineage members incl. both combskip
-   seeds) before trusting any 2M canary endpoint again.
-3. **Closed (archives 09-02{,b..h}, 09-03{a..m}):** update-size/
+   (`walk_yaw_zero_frac`), combined-tick BC-anchor-skip, and teacher-
+   omega-boost are ALL refuted, 2+ seeds each — 3 independent
+   mechanisms down before this one. Riders applied to this batch: (a)
+   `safety.max_current_a=2.5` (was 2.9, above the 2.64A ceiling,
+   silently disabling `over_current`); (b) key names verified against
+   `rl_move/safety.py` directly, not assumed.
+3. **Closed (archives 09-02{,b..h}, 09-03{a..o}):** update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
-   switch-jump/frame-blend/current-confound/combined-tick-anchor-skip
-   sweeps; cap29 acquisition (PARTIAL); log_std anneal dose grid (`hi`
-   PASS, `mild` FAIL); item 0 sto/det convergence-at-scale (PASS);
-   resamplematch diet-match-rate hypothesis (refuted both doses/seeds);
-   rise over_current dig-in (genuine lineage fragility, not an
-   instrument defect); steering/rise-stall semantics-bank twins (both
-   PASS).
+   switch-jump/frame-blend/current-confound/combined-tick-anchor-skip/
+   omega-boost sweeps; cap29 acquisition (PARTIAL); log_std anneal
+   dose grid (`hi` PASS, `mild` FAIL); item 0 sto/det convergence-at-
+   scale (PASS); resamplematch diet-match-rate hypothesis (refuted
+   both doses/seeds); rise over_current dig-in (genuine lineage
+   fragility, not an instrument defect); rise-stall faithful replay
+   (CLOSED, see item 1); steering/rise-stall semantics-bank twins
+   (both PASS).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n}. Current state = newest Update at the TOP; don't act
+> 09-03{a..i,n,o}. Current state = newest Update at the TOP; don't act
 > on archived Next.
 
 ## Goal (operator, 08-24 evening)

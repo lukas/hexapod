@@ -46,7 +46,8 @@ readings, none touching a GPU:
    command foot-target geometry, or add a combined-tick-targeted
    course/yaw reward gate) each still need their own semantics-bank
    proof or hardware-adjacent-code validation before spending budget —
-   see Next item 2 below. Snapshot pending this update.
+   see Next item 2 below. Snapshot `bd148144`
+   (`exp/standwalk-combined-turn-probe-09-03`).
 
 Earlier updates (15:2x rollout-trace tool, 15:0x semantics-bank twins,
 14:2x seed1 dig-in resolution, 13:3x seed0 verdict, 13:2x initial

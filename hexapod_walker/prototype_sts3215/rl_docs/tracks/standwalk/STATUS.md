@@ -1,68 +1,69 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~23:1x (**Candidate (i)-v2 seed0/dose1.5 read:
-CANARY FAIL — combined-tick wins BOTH signs cleanly for the first time
-via a pure geometry lever, but pure-turn regression still blows the
-10% cap. Also found + fixed a probe-usage gotcha: the abbreviated
-5-flag cfg shorthand used in prior verdict prose silently FREEZES the
-policy (near-zero wz on a known-good checkpoint) — the full non-train
-cfg-set must be replayed.**)
+Update, 2026-09-03 ~23:2x (**Candidate (i)-v2 dose x seed grid now 3/4
+FAIL. Both dose-2.0 cells (seed0 AND seed1) are in: dose 2.0 is WORSE
+than dose 1.5 on every axis — pure-turn regression grows and the
+combined-tick win degrades from "clean both-signs win" (dose 1.5,
+seed0) to sign-asymmetric-or-outright-losing. Only the seed1/dose1.5
+twin (a concurrent cycle) remains to close 4/4.**)
 
-`cap29-stdwalklohi-yawarm1p5` (seed0, dose 1.5) verdicted FAIL-
+`cap29-stdwalklohi-yawarm2p0-s1` (seed1, dose 2.0) verdicted FAIL-
 MECHANISM. `probe_turn_authority.py --vx-cmds` (full 84-key non-train
-cfg-set replayed — see gotcha below): pure-turn `wz_med` (seed-avg)
-+0.196/-0.187 vs control `cap29-stdwalklo-hi` +0.221/-0.250 →
-regression 11.7% (+) / 25.4% (-), BOTH over the 10% cap. Combined-tick
-(`vx=0.08`) `wz_med` +0.143/-0.219 vs the pre-registered comparator
-+0.110/-0.171 → BOTH signs beat it cleanly (+30%/+28% magnitude) — only
-the second mechanism ever to do this (after `yawboost6p0-s1`; every
-`combskip`/`omegaboost` cell was sign-asymmetric). No falls (8/8 probe
-rows). Reward: quarters `[24.2, 74.9, -191.1, 137.2]`, final `ep_rew_
-mean` 238.4 — same rider-c Q3 dip/recovery shape as every cap29
-sibling, actually the family's best final value so far. Per the
-pre-registered gate (needs both signs to beat the comparator AND
-<=10% pure-turn regression), this FAILS on the regression clause alone
-despite the genuine combined win — reinforcing a real pattern: 2/2
-mechanisms that win the combined axis on both signs at once still cost
-pure-turn beyond cap. `dose 2.0` (same seed) is still training; the
-1.5-seed1 twin belongs to a concurrent cycle. Full verdict + evidence:
-`rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
-gradclip0p15-cap29-stdwalklohi-yawarm1p5.md`.
+cfg-set replayed against a FRESH seed1 control run — the cached 17:19
+seed1-control probe predates the probe-usage-gotcha fix and was NOT
+reused, per this ledger's own gate text "read against the seed1
+control instead"): pure-turn `wz_med` (seed-avg) +0.207/-0.180 vs
+seed1 control `cap29-stdwalklo-hi-s1` +0.226/-0.247 → regression 8.3%
+(+, inside the 10% cap) / 27.4% (-, blows it) — same shape as every
+sibling cell (the negative side always breaks first). Combined-tick
+(`vx=0.08`) `wz_med` +0.109/-0.136 vs the seed1 control's own combined
+read +0.087/-0.142 → positive side beats cleanly (+26%) but negative
+side is WEAKER than its own control (-4.5%) — sign-asymmetric, same
+failure shape as combskip/omegaboost/yawboost-lodose, and a step down
+from dose 1.5's clean bidirectional win. No falls on any turn row
+(12/12); reward quarters `[23.5, 59.3, -200.6, 116.8]`, final `ep_rew_
+mean` 164.6 — same Q3 dip/recovery shape, weakest final value of the
+four cells so far but still positive/still climbing in Q4, not a
+collapse. FAILS both gate clauses. Combined with the already-verdicted
+`yawarm2p0` (seed0, dose 2.0: pure-turn regression 22.7%/25.0%, BOTH
+over cap; combined-tick sign-asymmetric, positive side actually below
+the control's own read) and `yawarm1p5` (seed0, dose 1.5: clean
+bidirectional combined win, but regression 11.7%/25.4% still blows the
+cap), the dose x seed grid is now 3/4 FAIL, with a clear dose-response:
+1.5 is the family's best cell (only one to win combined on both signs)
+and 2.0 is strictly worse on every measured axis at both seeds tried.
+Only `yawarm1p5-s1` (seed1, dose 1.5, a concurrent cycle's run as of
+this writing) remains. Full verdict + evidence: `rl_docs/runs/cw-
+standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-
+cap29-stdwalklohi-yawarm2p0-s1.md`, `logs/ckpt_eval/probe_turn_
+authority_yawarm2p0_s1_combined_09-03.json` vs `logs/ckpt_eval/probe_
+turn_authority_cap29_stdwalklo_hi_s1_combined_09-03_fullcfg.json`.
 
-**PROBE-USAGE GOTCHA (logged, not yet a code fix):** `probe_turn_
-authority.py --vx-cmds` requires the FULL non-`train.*` cfg-set from
-the checkpoint's training command, not the 5-flag shorthand
-(`goal.walk_yaw_cmd`, `obs.mode_onehot`, `goal.mode_seq`, `goal.walk_
-phase_obs`, `goal.walk_obs_body_vel`) quoted in several prior verdict
-paragraphs as "the cfg to match training obs width". Re-running the
-KNOWN-PASSING control `cap29-stdwalklo-hi` with only those 5 flags
-reproduces a near-zero/frozen `wz_med` (~0.002) even though the
-checkpoint truly tracks turns fine (+0.221/-0.250 once the full cfg is
-replayed) — almost certainly a missing `goal.walk_phase_hz`/`goal.walk_
-phase_run_on_yaw` (or another goal.* field feeding the phase-obs
-channel) putting the model on a badly out-of-distribution observation,
-not a genuine behavior. `n_walk_ticks`/mode composition matched exactly
-between the short and full cfg (mode sequencing is a DR-free function
-of seed, independent of the policy), which is why this was not obvious
-from tick counts alone — always diff wz_med against a fresh control
-re-run with the SAME cfg-set before trusting a probe read, and default
-to replaying the full training cfg-set for any future combined-tick
-probe run. Every PRIOR combined-tick verdict in this branch (combskip,
-omegaboost, yawboost, this run) that explicitly said "full training
-cfg-set replayed" is unaffected; only the shorthand-cfg summaries in
-verdict prose were ever at risk, and none of those summaries were
-themselves used to compute the numbers quoted (spot-checked: the
-quoted numbers match a full-cfg recompute for `omegaboost1p5` control
-figures already in evidence).
+**PROBE-USAGE GOTCHA (still logged, not yet a code fix — see prior
+banner, archived below, for the full writeup):** always replay the
+FULL non-`train.*` cfg-set from the checkpoint's own training command
+for any `probe_turn_authority.py --vx-cmds` read; the 5-flag shorthand
+silently freezes the policy. This cycle additionally re-ran the seed1
+control fresh under the full cfg rather than trusting the pre-gotcha
+17:19 cached file, since that file's provenance (shorthand vs full)
+was never logged at write time.
 
-**NEXT CYCLE:** read dose-2.0 (still training) and the 1.5-seed1 twin
-once available; if both also show the same shape (real combined win,
-disqualifying pure-turn cost), candidate (i)/(i)-v2 and the whole
-omega-scaling axis close together, and item 2 should escalate to a
-structurally different lever (phase-scheduled BC-anchor strength, per
-the redesign spec's next class) rather than another single-scalar
-dose on the same trade-off. Prior banner moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-03s_trim.md`.
+**NEXT CYCLE:** read the `yawarm1p5-s1` twin once available (it may
+already be verdicted by its concurrent cycle by the time you read
+this — check `rl_docs/runs/...yawarm1p5-s1.md` and the ledger status
+before re-deriving anything). If it also FAILS (likely, given the
+dose-2.0 pattern and the seed0/dose1.5 cell already failing on the
+regression clause alone), candidate (i)/(i)-v2 and the whole
+omega/yaw-arm-scaling axis close 4/4: no single-scalar dose on this
+lever clears the pure-turn cap without giving up the combined win, at
+either seed. Item 2 should then escalate to a structurally different
+lever (phase-scheduled BC-anchor strength, per the redesign spec's
+next class) rather than another dose/seed on the same mechanism — do
+NOT pre-launch that new mechanism before the 4th cell confirms; it is
+new reward/task-mechanism work and needs its own `test_task_
+semantics.py` bank pass before any training launch regardless. Prior
+banner moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-
+03t_trim.md`.
 
 ## Next (updated 09-03 ~23:1x)
 
@@ -110,18 +111,21 @@ dose on the same trade-off. Prior banner moved VERBATIM to
 > 09-03{a..i,n,o,p,q,r,s}. Current state = newest Update at the TOP;
 > don't act on archived Next.
 
-## Fleet capacity note (09-03 ~23:1x)
+## Fleet capacity note (09-03 ~23:2x)
 
-All 4 item-2 canary cells finished training; 2/4 read this cycle
-(seed0 dose1.5 + dose2.0, both FAIL — see banner), the seed1 twins are
-locked to a concurrent cycle (`in-cycle` triage claim) — do not
-re-read them. 11/11 GPU slots FREE. No launch this cycle: seed0 is
-already 2/2 FAIL and the pre-registered next step (close 4/4 before
-deciding whether to escalate to phase-scheduled BC-anchor strength)
-explicitly waits on those seed1 reads, and jumping to the next
-escalation now would risk duplicate/wasted design against whatever the
-concurrent cycle's close-out finds. Every OTHER track is non-launchable
-by design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
+All 4 item-2 canary cells finished training; 3/4 read (seed0 dose1.5,
+seed0 dose2.0, seed1 dose2.0 — all FAIL, see banner). The last cell
+(`yawarm1p5-s1`, seed1 dose1.5) was `in-cycle` to a concurrent triage
+claim as of this writing — do not re-read it without first checking
+whether it has already been verdicted. 11/11 GPU slots FREE. No launch
+this cycle: the pre-registered next step (close 4/4 before deciding
+whether to escalate to phase-scheduled BC-anchor strength) explicitly
+waits on that last seed1 read, and the escalation target is a NEW
+reward/task mechanism that needs its own `test_task_semantics.py` bank
+pass before any training launch regardless — jumping to design it now,
+ahead of the 4th confirmation and without that bank, would be
+premature on both counts. Every OTHER track is non-launchable by
+design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
 RETIRED; `todaypolicy` DELIVERED) — reconfirmed this cycle, all five
 STATUS banners unchanged since the last check.
 

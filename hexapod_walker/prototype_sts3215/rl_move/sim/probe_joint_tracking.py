@@ -81,7 +81,11 @@ _AXIS_NAMES = ("yaw", "hip", "knee")
 
 
 def rollout(*, cfg_set: list[str] | None, wz_cmd: float, vx_cmd: float,
-            seed: int, episode_seconds: float) -> dict:
+            seed: int, episode_seconds: float,
+            yaw_arm_scale: float = 1.0) -> dict:
+    """``yaw_arm_scale`` (09-03, standwalk candidate (i)-v2): forwarded
+    to ``TripodGait(combined_yaw_arm_scale=...)``; the combined-tick
+    gate lives inside TripodGait itself. Default 1.0 is bit-exact."""
     from hexapod_core.tripod_gait import TripodGait
 
     env = make_env(cfg_set, seed, episode_seconds)
@@ -97,7 +101,7 @@ def rollout(*, cfg_set: list[str] | None, wz_cmd: float, vx_cmd: float,
     traj.vx[hold_n:hold_n + ramp_n] = np.linspace(0.0, vx_cmd, ramp_n)
     traj.wz[hold_n:hold_n + ramp_n] = np.linspace(0.0, wz_cmd, ramp_n)
 
-    gait = TripodGait(vx=0.0)
+    gait = TripodGait(vx=0.0, combined_yaw_arm_scale=yaw_arm_scale)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()
 
@@ -210,6 +214,10 @@ def main() -> int:
     ap.add_argument("--vx-cmds", default="0.0,0.08")
     ap.add_argument("--seeds", default="0,1")
     ap.add_argument("--episode-seconds", type=float, default=15.0)
+    ap.add_argument("--yaw-arm-scale", type=float, default=1.0,
+                    help="TripodGait combined_yaw_arm_scale (standwalk "
+                         "candidate (i)-v2), combined ticks only; "
+                         "default 1.0 is bit-exact")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
@@ -223,7 +231,8 @@ def main() -> int:
             for seed in seeds:
                 res = rollout(cfg_set=args.cfg_set, wz_cmd=wz_cmd,
                                vx_cmd=vx_cmd, seed=seed,
-                               episode_seconds=args.episode_seconds)
+                               episode_seconds=args.episode_seconds,
+                               yaw_arm_scale=args.yaw_arm_scale)
                 results.append(res)
                 print(f"[probe_joint_tracking] wz={wz_cmd} vx={vx_cmd} "
                       f"seed={seed} n={res.get('n_ticks')} "

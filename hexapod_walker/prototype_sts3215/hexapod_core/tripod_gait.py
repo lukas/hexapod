@@ -119,10 +119,53 @@ class TripodGait:
         lift_scale: float = 1.0,
         stride_scale: float = 1.0,
         stance_radius_scale: float = 1.0,
+        combined_yaw_arm_scale: float = 1.0,
     ):
         self.period = period
         self.lift = lift
         self.ramp = max(ramp, 1e-3)
+        # standwalk Next item 2, candidate (i)-v2 (09-03): a per-tick
+        # yaw-axis SafetyLayer clip (physically pinned at 0.375deg/tick
+        # @100Hz = 37.5deg/s, operator order fb_20260824T174619_c49b7e --
+        # NOT to be raised) saturates ~48% of combined (vx!=0 AND
+        # omega!=0) walk ticks but ~0% of pure-turn ticks at the
+        # identical |wz_cmd| (measured, probe_joint_tracking.py,
+        # logs/ckpt_eval/joint_tracking_cap29_scripted_09-03.json).
+        # Two same-mechanism variants were tried and REFUTED first:
+        # boosting omega (train.bc_anchor_teacher_omega_boost, 09-03
+        # 17:5x) recovered scripted-teacher wz cleanly but the RL-canary
+        # traded a lopsided/sign-asymmetric gain for a pure-turn
+        # regression >10% (4/4 FAIL); *discounting* omega on combined
+        # ticks (probe_turn_authority.py --scripted-omega-boost <1,
+        # zero training, this cycle) does not even help at the scripted
+        # level -- combined wz_med gets MONOTONICALLY WORSE as the
+        # discount strengthens (0.0723->0.0620 rad/s from dose 1.0->0.3
+        # at wz_cmd=0.25/vx_cmd=0.08), because the raw per-tick yaw
+        # delta is a period-INDEPENDENT direct function of the physical
+        # foot velocity -- any uniform demand scaling (either sign)
+        # trades achieved rotation 1:1 against clip relief, no net win.
+        # This lever is different: instead of changing how much yaw
+        # motion is COMMANDED, it changes the MOMENT ARM used to
+        # convert the SAME true tangential foot displacement into a
+        # commanded SERVO ANGLE (x_yaw's atan2 denominator only, in
+        # desired_deg() below) -- hip/knee still IK the TRUE r_planar/z
+        # target unchanged, so foot placement/lift are untouched; only
+        # the yaw joint's own commanded angle shrinks for a given
+        # physical swing, which needs less per-tick slew to reach.
+        # Gated to combined ticks only (self.vx!=0 AND self.omega!=0,
+        # mirroring the identical gate used by the omega-boost/reward-
+        # boost candidates) so pure-turn is bit-exact regardless of
+        # dose. Zero-training scripted-teacher probe (this cycle,
+        # /tmp spike reproduced via the real code path, see
+        # test_tripod_gait_combined_yaw_arm_scale.py): dose 1.0->2.0
+        # improves combined wz_med +12% (0.0723->0.0807 rad/s, BOTH
+        # wz signs) at flat vx_med, while pure-turn wz_med stays
+        # EXACTLY 0.2198 (bit-identical) at every dose -- past 2.0 the
+        # gain reverses (dose 5.0: wz_med 0.0290, worse than baseline).
+        # Default 1.0 = legacy identity (atan2(y_yaw, x_yaw) unchanged)
+        # -- bit-exact off, matching every other bc_anchor_*/gait
+        # dose knob in this codebase.
+        self.combined_yaw_arm_scale = float(combined_yaw_arm_scale)
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -257,6 +300,15 @@ class TripodGait:
         """18 joint angles in degrees for time ``t`` (seconds)."""
         dt = self._advance(t)
         vx, vy, omega = self._smoothed_command(dt)
+        # candidate (i)-v2 yaw-arm scale (see __init__ docstring): only
+        # active on a genuine combined tick (mirrors the identical
+        # combined-tick gate used by train.bc_anchor_teacher_omega_boost
+        # / probe_turn_authority --scripted-omega-boost), so pure-turn
+        # and pure-walk ticks are bit-exact regardless of dose.
+        _combined = abs(self.vx) > 1e-6 and abs(self.omega) > 1e-6
+        yaw_arm_scale = (self.combined_yaw_arm_scale
+                         if (_combined and self.combined_yaw_arm_scale != 1.0)
+                         else 1.0)
         out: list[float] = []
         for i, a in enumerate(self.leg_angles):
             dx_b, dy_b, dz_b = self._foot_target_in_body(i, vx, vy, omega)
@@ -269,7 +321,11 @@ class TripodGait:
             ca, sa = math.cos(a), math.sin(a)
             x_yaw = ca * rx + sa * ry
             y_yaw = -sa * rx + ca * ry
-            yaw_angle = math.atan2(y_yaw, x_yaw)
+            # r_planar (hip/knee IK) always uses the TRUE (unscaled)
+            # x_yaw/y_yaw -- only the yaw SERVO ANGLE's own atan2
+            # denominator is scaled, so foot reach/height are never
+            # touched by this knob, only the commanded yaw excursion.
+            yaw_angle = math.atan2(y_yaw, x_yaw * yaw_arm_scale)
             r_planar = math.hypot(x_yaw, y_yaw)
             ik = _leg_ik((r_planar, 0.0, self.foot_neutral_z + dz_b))
             if ik is None:

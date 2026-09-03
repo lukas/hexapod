@@ -147,7 +147,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             episode_seconds: float, policy: str = "checkpoint",
             model_obs_width: int | None = None,
             vx_cmd: float = 0.0,
-            scripted_omega_boost: float = 1.0) -> dict:
+            scripted_omega_boost: float = 1.0,
+            scripted_yaw_arm_scale: float = 1.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
@@ -171,6 +172,13 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     TripodGait). Default 1.0 is bit-exact (identity multiply, and a
     no-op on pure-turn/pure-walk ticks regardless since the gate
     requires BOTH nonzero).
+
+    ``scripted_yaw_arm_scale`` (09-03, standwalk candidate (i)-v2,
+    ``--policy scripted`` only): forwarded straight to
+    ``TripodGait(combined_yaw_arm_scale=...)`` -- the combined-tick
+    gate lives INSIDE TripodGait itself (see its docstring), so this
+    probe just passes the dose through at construction. Default 1.0
+    is bit-exact.
     """
     mode_onehot = False
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
@@ -202,7 +210,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     traj.wz[hold_n:hold_n + ramp_n] = np.linspace(0.0, wz_cmd, ramp_n)
     if policy == "scripted":
         from hexapod_core.tripod_gait import TripodGait
-        gait = TripodGait(vx=0.0)
+        gait = TripodGait(vx=0.0,
+                           combined_yaw_arm_scale=scripted_yaw_arm_scale)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
     step = 0
@@ -304,6 +313,11 @@ def main() -> int:
                          "this factor on combined ticks only (mirrors "
                          "sim_env.py's train.bc_anchor_teacher_omega_"
                          "boost); default 1.0 is bit-exact")
+    ap.add_argument("--scripted-yaw-arm-scale", type=float, default=1.0,
+                    help="--policy scripted only: TripodGait's "
+                         "combined_yaw_arm_scale (standwalk candidate "
+                         "(i)-v2) on combined ticks only; default 1.0 "
+                         "is bit-exact")
     args = ap.parse_args()
 
     if args.policy == "checkpoint" and args.checkpoint is None:
@@ -328,7 +342,9 @@ def main() -> int:
                               policy=args.policy,
                               model_obs_width=model_obs_width,
                               scripted_omega_boost=(
-                                  args.scripted_omega_boost))
+                                  args.scripted_omega_boost),
+                              scripted_yaw_arm_scale=(
+                                  args.scripted_yaw_arm_scale))
                 results.append(res)
 
     summary = summarize(results, frozen_margin=args.frozen_margin)

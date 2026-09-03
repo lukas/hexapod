@@ -1,91 +1,82 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~21:1x (**Candidate (ii) (`reward.walk_yaw_
-combined_boost`) CLOSED: 4/4 canary cells FAIL — pure-turn regression
-blows the 10% cap every time, even where the combined-tick number
-itself beats the comparator.**)
+Update, 2026-09-03 ~22:1x (**Candidate (i) harness BUILT + first read:
+the scripted teacher's YAW joint saturates the SafetyLayer slew clip
+on combined ticks but almost NEVER on pure-turn ticks at the SAME
+|wz_cmd| — hypothesis (a) CONFIRMED on the open-loop reference.**)
 
-Read the full 4-cell batch (`cap29-stdwalklohi-yawboost{3p0,6p0}
-{,-s1}`) with `probe_turn_authority.py --vx-cmds` (full training
-cfg-set replayed per checkpoint for an exact obs-contract match) vs
-each cell's seed-matched control (`cap29-stdwalklo-hi{,-s1}`).
-Pure-turn regression vs control / combined-vs-comparator(+0.110/
--0.171): 3p0(s0) 46.9%/17.8% regression, + WORSE than control (0.063),
-- beats; 3p0-s1 18.2%/28.1%, + fails (0.101), - beats; 6p0(s0)
-26.8%/10.8%, + fails (0.101), - fails too (0.133); 6p0-s1 15.3%/31.2%,
-+ beats (0.120), - beats (0.188). Every cell blows the pre-registered
-<=10% pure-turn regression cap (the gate's own disqualifying clause),
-most by 2-4x; only one of four (6p0-s1) even clears the combined-tick
-comparator on both signs, and it still fails the regression cap. No
-falls in any probe rollout (32/32 `fell=False`); training reward shows
-the same rider-(c) Q3 dip/recovery shape as every cap29 sibling — a
-mechanism trade-off, not a training-collapse story. **Candidate (ii)
-REFUTED at every dose (3.0/6.0) and seed (0/1)**: boosting the
-yaw-kernel income on combined ticks reallocates supervision away from
-pure-turn ticks through the shared GRU/value-function update — correct
-in its FIRING gate, not clean in its EFFECT. Verdicts + evidence on
-ledger/W&B (`logs/ckpt_eval/probe_turn_authority_yawboost{3p0,3p0_s1,
-6p0,6p0_s1}_combined_09-03.json`). Earlier build/launch note moved
-VERBATIM to `archive/standwalk_STATUS_journal_2026-09-03p_trim.md`.
+Built `rl_move/sim/probe_joint_tracking.py` (+ 3 tests, all green) per
+Next item 2's own prescription: drives the LIVE mesh/100Hz sim with
+the scripted `TripodGait` teacher and records, every walk-mode tick,
+`desired` (open-loop IK target) vs `cmd` (env's post-SafetyLayer-clip
+target, `env._cmd`) vs `actual` (physics-settled `joint_position`),
+split per axis (yaw/hip/knee) and PURE-TURN (vx=0) vs COMBINED
+(vx=0.08) at the identical `wz_cmd=+-0.25`. Result (15s episodes,
+det. scripted policy, seeds 0/1 identical since no DR):
+**yaw-axis clip saturation frac (fraction of walk ticks where the raw
+per-tick yaw delta alone exceeds `max_delta_q_deg`): pure-turn 0.0%,
+combined 47.7%** — every cell, both wz signs, both seeds, exactly
+reproduced (symmetric, deterministic). p90 accumulated yaw
+desired-vs-commanded gap: pure-turn ~0deg, combined 8.3deg. The
+downstream actuator/physics tracking gap (`cmd` vs `actual`) does NOT
+show the same asymmetry — if anything it is SMALLER on combined for
+yaw specifically (2.4deg med) than pure-turn (4.3deg med), i.e. once
+the SafetyLayer has already truncated the target, physics has an
+easier (smaller) residual to chase. **This answers Next item 2's own
+question: the combined-tick turn-authority loss lives in the
+SafetyLayer clip stage, specifically on the yaw joint, not in
+downstream stance-leg slip/contact-force competition** — no falls in
+any probe cell. Root mechanism (not yet fixed): `_foot_target_in_body`
+sums `vx` and `omega*r*sin/cos(leg_angle)` into one raw per-leg
+velocity vector before the yaw-angle IK solve; adding a nonzero `vx`
+term changes the per-tick yaw-angle swing enough to blow the slew
+budget that a rotate-only command never touches — exactly the
+"vx+omega superposition formula" candidate (i) named, now measured
+rather than inferred. Evidence:
+`logs/ckpt_eval/joint_tracking_cap29_scripted_09-03.json`. Prior
+banner (candidate (ii) 4/4 FAIL close) moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03q_trim.md`.
 
-**Candidate (i) groundwork (not a validated harness yet — Next item
-2):** per this item's fallback, started the zero-training diagnosis a
-`tripod_gait.py` geometry edit needs before any GPU spend. (1) IK
-feasibility is NOT the bottleneck: walking the scripted teacher's own
-`_foot_target_in_body -> _leg_ik` chain at the combined command
-(vx=0.08, wz=+-0.25) over a full 15s episode, `_leg_ik` never returns
-`None` and the tightest workspace margin is 47mm — always reachable.
-(2) The `safety.max_delta_q_deg=0.375` slew cap is already deeply
-saturated in BOTH regimes (raw per-tick joint delta median: pure-turn
-0.93deg/tick, 82% over cap; combined 0.99deg/tick, 99.6% over cap) —
-both ~2.5x over the cap already, which is odd given achieved body wz
-is ~3x higher for pure-turn (0.22-0.25) than combined (0.07-0.19): if
-slew-clipping alone drove the gap, both should saturate similarly.
-This points AWAY from "the vx+omega superposition formula is simply
-wrong" and toward the loss living downstream — either the SafetyLayer
-clip interacting differently with a two-term (translate+rotate) vs
-one-term (rotate-only) raw target, or genuine stance-leg contact/slip
-physics competing for a shared thrust budget. Neither sub-hypothesis
-is measured yet; DIG-IN flagged for the live-sim desired-vs-actual
-joint-tracking instrument this needs (see Next item 2).
-
-## Next (updated 09-03 ~21:1x)
+## Next (updated 09-03 ~22:1x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM. Candidate (ii) CLOSED 09-03 ~21:1x,
-   4/4 FAIL (see banner). Candidate (i) is the only remaining named
-   lever, and its own harness is NOT yet built** — this cycle only
-   did zero-training groundwork (IK-feasibility check: clean, not the
-   bottleneck; slew-clip saturation check: both pure-turn and
-   combined already 2.5x over the `max_delta_q_deg` cap, which
-   complicates rather than confirms a pure open-loop-geometry-bug
-   story — see banner for both). DIG-IN flagged this cycle (see
-   bottom of the orchestrator log) for the deep-root-cause chain a
-   `tripod_gait.py` edit needs before any launch:
-   - Instrument the LIVE sim (not just the open-loop `desired_deg()`
-     trajectory) to compare desired-vs-actual per-tick joint angle
-     during a scripted combined rollout, split pure-turn vs combined
-     ticks — does the SafetyLayer clip MORE severely (in a way that
-     differentially removes rotation vs translation displacement) on
-     combined ticks specifically, or does actuator tracking hold and
-     the loss instead shows up as stance-leg slip/contact-force
-     competition between the two commanded axes?
-   - Only once that split is measured does a `tripod_gait.py` edit
-     (e.g. a stride-time-budget split between vx/omega demand, or a
-     priority weighting when the combined raw target exceeds the slew
-     budget) have a falsifiable target; editing blind risks another
-     REFUTED-mechanism cycle on shared hardware-adjacent code.
+2. **Steering branch — TOP ITEM. Candidate (ii) CLOSED (4/4 FAIL).
+   Candidate (i)'s root-cause chain is now MEASURED (see banner):
+   the SafetyLayer yaw-slew clip fires on ~48% of combined-tick legs
+   and ~0% of pure-turn ones, at identical |wz_cmd| — the harness
+   (`probe_joint_tracking.py`) is reusable for validating any fix.**
+   Still NOT launch-ready (no `tripod_gait.py` edit made this cycle —
+   editing blind was the exact mistake candidate (ii) and its
+   predecessors avoided by pre-registering a gate first). Next
+   sub-steps, in order:
+   - Design ONE falsifiable `tripod_gait.py` geometry fix that
+     specifically shrinks the per-tick YAW delta on combined ticks
+     without shrinking the pure-turn yaw delta (candidates: a
+     stride-time-budget split that discounts `omega`'s contribution
+     to `_foot_target_in_body` when `vx!=0`, or clamping/pre-slewing
+     the OPEN-LOOP target itself before IK so the teacher never asks
+     for more than `max_delta_q_deg` can deliver in the first place).
+   - Validate the fix with `probe_joint_tracking.py` FIRST (zero
+     training): combined-tick yaw clip-sat-frac should drop toward
+     the pure-turn baseline (~0%) while pure-turn's own clip-sat-frac
+     and achieved wz/vx stay unchanged (matched control, same tool).
+   - Only once that zero-training gate passes does a BC-anchor/GRU
+     canary (mirroring the candidate (i)/(ii) launch shape) spend GPU
+     budget — this preserves the "measure before launch" discipline
+     4 refuted mechanisms already paid for.
    - Prior findings still hold: turn-in-place authority alone is
      strong everywhere (wz ~0.18-0.25 on 0.25 cmd); diet-rate,
      structural co-occurrence (`walk_yaw_zero_frac`), combined-tick
-     BC-anchor-skip, teacher-omega-boost, and now the combined-tick
-     reward boost are ALL refuted, 2+ seeds/doses each — 4 independent
-     reward/BC-anchor mechanisms down before candidate (i).
-3. **Closed (archives 09-02{,b..h}, 09-03{a..p}):** update-size/
+     BC-anchor-skip, teacher-omega-boost, and combined-tick reward
+     boost are ALL refuted, 2+ seeds/doses each — 4 independent
+     reward/BC-anchor mechanisms down; candidate (i) is the only one
+     that touches the actual open-loop geometry rather than the
+     reward/BC-anchor supervision layered on top of it.
+3. **Closed (archives 09-02{,b..h}, 09-03{a..q}):** update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
    switch-jump/frame-blend/current-confound/combined-tick-anchor-skip/
    omega-boost/combined-yaw-boost sweeps; cap29 acquisition (PARTIAL);
@@ -94,14 +85,16 @@ joint-tracking instrument this needs (see Next item 2).
    hypothesis (refuted both doses/seeds); rise over_current dig-in
    (genuine lineage fragility, not an instrument defect); rise-stall
    faithful replay (CLOSED, see item 1); steering/rise-stall
-   semantics-bank twins (both PASS).
+   semantics-bank twins (both PASS); candidate (i) IK-feasibility +
+   naive slew-saturation groundwork (superseded by the per-axis
+   split above, see archive 09-03q for the superseded framing).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p}. Current state = newest Update at the TOP; don't
+> 09-03{a..i,n,o,p,q}. Current state = newest Update at the TOP; don't
 > act on archived Next.
 
-## Fleet capacity note (09-03 ~21:1x)
+## Fleet capacity note (09-03 ~22:1x)
 
 All 11 GPU slots are free. Every OTHER registered track is currently
 non-launchable by design, not by neglect: `joystick` DONE (08-23

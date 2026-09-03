@@ -8,8 +8,13 @@ frozen-body wz_err~wz_ref prediction)" — that did not exist as a
 runnable tool before this: `eval_checkpoint.py` never computes a body
 yaw-rate error (its own `info["walk_wz"]`/`reward_walk_yaw` fields are
 only populated when `reward.k_walk_yaw > 0`, which the walkteach/dualbc
-reward stack never sets — it relies on BC-anchor imitation for turning,
-not the OMNI yaw kernel), and the single-mode `eval_cmd_suite`/
+reward stack never sets as of 08-30 — it relies on BC-anchor imitation
+for turning, not the OMNI yaw kernel; STALE as of the yawcredit/turncap
+wave, cw-standwalk-stage2-dualbc6-...-cap29-stdwalklo-hi's own ledger
+cfg sets `reward.k_walk_yaw=1.0` (plus walk_yaw_kernel_gate/k_yaw_prog/
+k_yaw_still/etc) applied to every walk tick — this tool's own combined-
+tick reads still hold, this note just no longer describes why the tool
+was needed), and the single-mode `eval_cmd_suite`/
 `hybrid_demo` session tools do not support this dual-core 4-submode
 `joint_walk` checkpoint family at all (documented INCOMPATIBLE-obs-
 contract class, standwalk STATUS 08-30).

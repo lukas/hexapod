@@ -76,7 +76,14 @@ from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)   # hip/knee deg, matches the tibia-150 measured plant
+# hip/knee deg, robot-absolute-tibia (this module's own canonical
+# frame per the docstring below). 2026-09-02 joint-frame-v2 fix: was
+# (20.0, 80.0), the pre-migration SIM-RELATIVE knee value; the
+# robot-absolute equivalent is 80 + hip 20 = 100 (see
+# probe_walk_income.WALK_PLANT for the derivation + measured evidence
+# -- feeding the old value into the raw hexapod_core.tripod_gait
+# dialect under-bends the knee by the hip angle every tick).
+WALK_PLANT = (20.0, 100.0)
 CTRL_HZ = 25.0
 GRAVITY_WORLD = np.array([0.0, 0.0, -1.0])
 TURN_RADIUS_APPROX_M = 0.09  # nominal foot-to-yaw-axis radius for the

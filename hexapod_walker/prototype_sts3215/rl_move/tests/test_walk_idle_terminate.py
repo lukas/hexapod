@@ -42,7 +42,11 @@ from rl_move.robot_state import DEG2RAD  # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 
-WALK_PLANT = (20.0, 80.0)
+# 2026-09-02 joint-frame-v2 fix: this feeds q_rad_to_action directly
+# (robot-absolute pipeline), was the pre-migration sim-relative
+# (20.0, 80.0); robot-abs equivalent = 80+hip 20 = 100 (see
+# probe_walk_income.WALK_PLANT for the derivation/measured evidence).
+WALK_PLANT = (20.0, 100.0)
 
 FC_GOAL = {
     ("goal", "walk_yaw_cmd"): 1.0,

@@ -5,7 +5,7 @@ experiment:
   robot_id: hexapod-1
   state: hardware_characterization_complete
   created: 2026-09-02
-  updated: 2026-09-02
+  updated: 2026-09-03
   objective: "Localize increasing compliance among the servo/output, horn/screw interface, printed yoke, and femur without accessing the hidden horn."
 
 reported_observations:
@@ -83,28 +83,29 @@ hypotheses:
     signature: "Deflection grows under constant force, leaves a residual after unloading, or stiffness changes after repeated cycles."
 
 latest_run:
-  protocol: l4_vertical_loaded_cycles_v1
-  dataset: sysid/datasets/l4_vertical_loaded_cycles_v1_20260902_184407
+  protocol: l4_l5_repeat_usb_suite
+  dataset: artifacts/joint_flex/hexapod-1/repeat_usb_20260903T082639
   result: ok
-  samples: 620
-  overruns: 0
-  peak_current_a: 0.104
+  samples: 11680
+  overruns: 4
+  peak_current_a: 0.130
   tag_coverage:
-    camera_0: "456 tag-31/tag-11 frames out of 484 recorded"
-    camera_1: "828 tag-31/tag-11 frames out of 867 recorded"
-    macbook_camera_2: "700 tag-31/tag-11 frames out of 757 recorded"
+    camera_0: "8,324/8,324 frames contained at least one AprilTag"
+    camera_1: "14,942/14,942 frames contained at least one AprilTag"
+    macbook_camera_2: "not used"
 
 conclusion: >-
   L5 is measurably loose without ground load: the air-control loop averaged
-  0.703 deg at the hip and 0.410 deg at the knee, versus 0.117 deg and
-  0.059 deg on L4. In the larger planted ladder, L5 measured 0.732-1.143
-  deg hip and 0.674-0.938 deg knee, versus only 0.176-0.293 deg hip and
-  0.146-0.352 deg knee on L4. L4 moved only one hip encoder count during a
-  90-second hold and neither joint drifted during recovery. This supports L5
-  servo/output/geartrain deadband plus additional planted hysteresis, with no
-  meaningful creep at the tested load. The relative diagnosis is complete;
-  absolute stiffness and localization inside the fastener/yoke/link stack
-  remain unavailable because force and component-local markers were absent.
+  1.143 deg at the hip and 0.352 deg at the knee in the 2026-09-03 repeat,
+  versus 0.059 deg and 0.088 deg on L4. In the repeated larger planted ladder,
+  L5 measured 0.645-1.259 deg hip and 0.586-1.113 deg knee, versus only
+  0.088-0.147 deg hip and 0.088-0.351 deg knee on L4. Neither leg drifted more
+  than two encoder counts during the 90-second loaded holds or 120-second
+  recovery. This independently repeats the L5 servo/output/geartrain deadband
+  plus additional planted hysteresis diagnosis, with no meaningful creep at
+  the tested load. Absolute stiffness and localization inside the
+  fastener/yoke/link stack remain unavailable because force and
+  component-local markers were absent.
 
 history:
   - date: 2026-09-02
@@ -119,3 +120,5 @@ history:
     event: "Completed L4 90-second creep/120-second recovery run: 1200/1200 ticks, 0.052 A peak, one hip encoder count loaded drift, zero recovery drift."
   - date: 2026-09-02
     event: "Completed L4 five-cycle vertical repeatability run: 620/620 ticks, no overruns or trips, 0.104 A peak; all runs ended limp."
+  - date: 2026-09-03
+    event: "Repeated the complete five-protocol battery on L4 and L5 using only the two Arducam USB cameras: 11,680/11,680 ticks, no trips, 4 catch-up overruns after one feedback stall, 0.130 A peak, 23,266/23,266 camera frames with AprilTags, and final limp."

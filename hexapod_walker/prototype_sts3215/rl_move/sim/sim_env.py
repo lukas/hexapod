@@ -4726,12 +4726,53 @@ class SimHexapodBalanceEnv(_GymBase):
                 _bc_wz = float(getattr(_bc_goal, "wz_ref", 0.0) or 0.0)
                 _bc_cmd = (math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref)
                            > 1e-3 or abs(_bc_wz) > 1e-3)
+                # COMBINED-TICK OMEGA BOOST (09-03, standwalk branch-(a)
+                # follow-up to the combined-turn-probe finding): a
+                # zero-training sweep of the teacher's own per-leg
+                # foot-target formula (v_x_at = vx - omega*r*sin(a),
+                # v_y_at = vy + omega*r*cos(a)) found the combined-tick
+                # wz collapse is NOT an IK/workspace artifact (no IK
+                # infeasibility, coxa-yaw excursion is if anything
+                # LARGER under combined than pure-turn) but a
+                # friction/thrust-ALLOCATION effect: vx numerically
+                # dominates the per-leg omega contribution
+                # (omega*r ~ 0.018 m/s vs vx ~ 0.08 m/s), so almost all
+                # of the shared ground-reaction budget goes to forward
+                # thrust, starving yaw. Multiplying the omega term by a
+                # boost factor before it ever reaches the teacher's
+                # foot-target math (equivalent to feeding TripodGait a
+                # boosted omega, since `self.omega` is used nowhere
+                # else in the class) recovers real wz at a graded vx
+                # cost, measured with probe_turn_authority.py
+                # --policy scripted --vx-cmds on THIS exact call site's
+                # formula (boost 1.0->5.0: wz_med 0.072->0.207 rad/s,
+                # vx_med 0.034->0.010 m/s at vx_cmd=0.08/wz_cmd=0.25;
+                # boost=2.0 is the knee: wz +122%, vx -24%). Applied
+                # ONLY on COMBINED ticks (vx_ref!=0 AND wz_ref!=0,
+                # computed early here so it is available before
+                # set_velocity) so pure-turn ticks (already-good
+                # wz~0.18-0.23) and straight-walk ticks (omega=0, boost
+                # is a no-op regardless) are bit-exact untouched.
+                # Default 1.0 = legacy no-op (1.0x is mathematically
+                # identity), exactly like every other bc_anchor_* knob
+                # in this file. See test_bc_anchor.py
+                # test_walk_combined_omega_boost_*.
+                _bc_combined_early = (
+                    math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref) > 1e-3
+                    and abs(_bc_wz) > 1e-3)
+                _bc_omega_boost = float(cfg_get(
+                    self.cfg, "train", "bc_anchor_teacher_omega_boost",
+                    default=1.0))
+                _bc_wz_teacher = (
+                    _bc_wz * _bc_omega_boost
+                    if (_bc_combined_early and _bc_omega_boost != 1.0)
+                    else _bc_wz)
                 if _bc_cmd:
                     from .joint_task import q_rad_to_action
                     _g = self._walk_bc_gait
                     _g.set_velocity(vx=float(_bc_goal.vx_ref),
                                     vy=float(_bc_goal.vy_ref),
-                                    omega=_bc_wz)
+                                    omega=_bc_wz_teacher)
                     # _step_i was already incremented at the top of
                     # _step_finish: it IS the next pre-step tick index,
                     # so the next scripted action is desired_deg at
@@ -4887,9 +4928,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     # is unset, exactly like every other bc_anchor_*
                     # knob in this file. See test_bc_anchor.py
                     # test_walk_combined_skip_*.
-                    _bc_combined = (
-                        math.hypot(_bc_goal.vx_ref, _bc_goal.vy_ref)
-                        > 1e-3 and abs(_bc_wz) > 1e-3)
+                    _bc_combined = _bc_combined_early
                     _bc_combined_skip = (
                         _bc_combined
                         and float(cfg_get(

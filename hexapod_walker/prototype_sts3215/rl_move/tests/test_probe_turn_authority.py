@@ -90,3 +90,55 @@ def test_vx_cmd_combined_scripted_teacher_actually_walks_and_turns():
     assert res["vx_med"] is not None and res["wz_med"] is not None
     assert res["vx_med"] > 0.02        # real forward motion, not stalled
     assert abs(res["wz_med"]) > 0.05   # real rotation, not suppressed to ~0
+
+
+# --- scripted_omega_boost (09-03, standwalk branch-(a) fix candidate):
+# multiplies the omega fed to TripodGait.set_velocity ONLY on a
+# combined tick (mirrors sim_env.py's train.bc_anchor_teacher_omega_
+# boost exactly). Default 1.0 = bit-exact identity.
+
+def test_omega_boost_default_is_bit_exact():
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    baseline = rollout(**kwargs)
+    explicit_one = rollout(scripted_omega_boost=1.0, **kwargs)
+    for key in ("wz_med", "vx_med", "wz_err_med", "n_walk_ticks", "fell"):
+        assert baseline[key] == explicit_one[key], key
+
+
+def test_omega_boost_recovers_combined_tick_wz_at_a_vx_cost():
+    """boost=2.0 on a combined tick must raise |wz_med| toward the
+    commanded rate (recovering authority the unboosted teacher loses)
+    while vx_med drops somewhat — the measured trade this lever
+    exists to make, not a free win."""
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    plain = rollout(**kwargs)
+    boosted = rollout(scripted_omega_boost=2.0, **kwargs)
+    assert abs(boosted["wz_med"]) > abs(plain["wz_med"])
+    assert boosted["vx_med"] <= plain["vx_med"]
+
+
+def test_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
+    """The combined-only gate means boost must NOT touch a pure-turn
+    (vx_cmd=0) or pure-walk (wz_cmd=0) rollout — both must match their
+    boost=1.0 baseline exactly."""
+    turn_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.25, vx_cmd=0.0, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_turn = rollout(**turn_kwargs)
+    boosted_turn = rollout(scripted_omega_boost=2.0, **turn_kwargs)
+    assert plain_turn["wz_med"] == boosted_turn["wz_med"]
+
+    walk_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.0, vx_cmd=0.08, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_walk = rollout(**walk_kwargs)
+    boosted_walk = rollout(scripted_omega_boost=2.0, **walk_kwargs)
+    assert plain_walk["vx_med"] == boosted_walk["vx_med"]

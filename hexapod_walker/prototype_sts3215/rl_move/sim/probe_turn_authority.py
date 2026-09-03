@@ -141,7 +141,8 @@ def _load_model(checkpoint: Path):
 def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             episode_seconds: float, policy: str = "checkpoint",
             model_obs_width: int | None = None,
-            vx_cmd: float = 0.0) -> dict:
+            vx_cmd: float = 0.0,
+            scripted_omega_boost: float = 1.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
@@ -155,6 +156,16 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     forward speed (``env._body_vel_xy()[0]``, robust to the heading
     rotating under a live wz command — unlike a world-frame track)
     is recorded over the identical walk-mode-filtered tick set as wz.
+
+    ``scripted_omega_boost`` (09-03, standwalk branch-(a) combined-tick
+    fix candidate, ``--policy scripted`` only): multiplies the omega
+    handed to ``TripodGait.set_velocity`` ONLY on a combined tick
+    (vx_cmd!=0 AND wz_cmd!=0) — mirrors the sim_env.py BC-anchor
+    ``train.bc_anchor_teacher_omega_boost`` knob exactly (same gate,
+    same multiply site: `self.omega` is used nowhere else in
+    TripodGait). Default 1.0 is bit-exact (identity multiply, and a
+    no-op on pure-turn/pure-walk ticks regardless since the gate
+    requires BOTH nonzero).
     """
     mode_onehot = False
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
@@ -199,7 +210,11 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         cmd_vx = float(traj.vx[min(step, n - 1)])
         if policy == "scripted":
             t = step * env.dt
-            gait.set_velocity(vx=cmd_vx, omega=cmd_wz)
+            _combined = abs(cmd_vx) > 1e-3 and abs(cmd_wz) > 1e-3
+            _omega = (cmd_wz * scripted_omega_boost
+                      if (_combined and scripted_omega_boost != 1.0)
+                      else cmd_wz)
+            gait.set_velocity(vx=cmd_vx, omega=_omega)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         else:
             act, _ = model.predict(obs, deterministic=True)
@@ -279,6 +294,11 @@ def main() -> int:
                     help="PASS if median wz_err <= this fraction of "
                          "the frozen-body prediction |wz_cmd|")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--scripted-omega-boost", type=float, default=1.0,
+                    help="--policy scripted only: multiply omega by "
+                         "this factor on combined ticks only (mirrors "
+                         "sim_env.py's train.bc_anchor_teacher_omega_"
+                         "boost); default 1.0 is bit-exact")
     args = ap.parse_args()
 
     if args.policy == "checkpoint" and args.checkpoint is None:
@@ -301,7 +321,9 @@ def main() -> int:
                               wz_cmd=wz_cmd, vx_cmd=vx_cmd, seed=seed,
                               episode_seconds=args.episode_seconds,
                               policy=args.policy,
-                              model_obs_width=model_obs_width)
+                              model_obs_width=model_obs_width,
+                              scripted_omega_boost=(
+                                  args.scripted_omega_boost))
                 results.append(res)
 
     summary = summarize(results, frozen_margin=args.frozen_margin)

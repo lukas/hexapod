@@ -1,6 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~16:0x (idle-kick, Next item 2 sub-step (ii) —
+Update, 2026-09-03 ~16:4x (idle-kick, Next item 2, branch (b) —
+**LEVER BUILT + IN FLIGHT**): implemented the combined-tick BC-anchor
+gate named as the untried next action: `train.bc_anchor_walk_combined_skip`
+(env-side, `sim_env.py`, default 0 = off, bit-exact — mirrors the
+already-existing pure-turn `bc_anchor_walk_turn_skip`), zeroing the
+walk BC-anchor's emitted target on COMBINED ticks (`vx_ref!=0 AND
+wz_ref!=0`) only, leaving pure-turn and straight-walk ticks untouched.
+5 new tests green in `test_bc_anchor.py`
+(`test_walk_combined_skip_*`, incl. a compose-with-turn-skip test
+proving the two gates never double-fire on the same tick) — this is
+the mechanism's alignment proof (mirrors the bar the pure-turn
+version cleared before its own canary). Launched the matched pair
+`cw-standwalk-...-cap29-stdwalklohi-combskip{,-s1}` (2M-step canaries,
+seeds 0/1, otherwise byte-identical to the already-PASSED
+`cap29-stdwalklo-hi{,-s1}` log-std-anneal-hi recipe — those two runs
+ARE the matched controls, no duplicate control spend needed) — both
+RUNNING as of this update. Pre-registered gate: probe_turn_authority
+combined-tick wz_med must beat this cycle's own checkpoint-scope
+combined read (yawdensity_canary_s1: +0.145/-0.107, 74%/54% of
+pure-turn retained) without a >10% pure-turn/straight-walk regression
+or new terminations vs the matched control. Snapshot `48ab3945`
+(`exp/standwalk-bc-anchor-combined-skip-09-03`). Branch (a) (the
+`tripod_gait.py` foot-target geometry fix) is NOT started — it is
+shared hardware-adjacent code needing its own dedicated before/after
+validation pass, correctly deferred rather than rushed this cycle.
+
+Earlier update, 2026-09-03 ~16:0x (idle-kick, Next item 2 sub-step (ii) —
 the OTHER named branch, "zero-training ablation scoped to COMBINED
 walk+turn ticks"): **found a genuine, quantified, reproducible NEW
 mechanism candidate: the scripted TripodGait reference itself — the
@@ -56,7 +82,7 @@ flagged dig-in, and everything before) moved VERBATIM to
 notes a gap: the `09-03{a..k}`/`09-02{f,h}` files it in turn points to
 do not exist on disk, unrepaired here).
 
-## Next (updated 09-03 ~16:0x)
+## Next (updated 09-03 ~16:4x)
 
 1. **Rise-stall branch (open):** tool + raw data DONE 09-03 ~15:2x
    (`eval_checkpoint.py --rollout-trace-out`, two real qpos/action/
@@ -64,22 +90,29 @@ do not exist on disk, unrepaired here).
    over_current failure shapes). STILL OPEN: build the faithful-replay
    rise-stall twin in `test_task_semantics.py` from those traces (the
    existing twin is hand-built from aggregate numbers only).
-2. **Steering branch — TOP ITEM. Mechanism found 09-03 ~16:0x** (see
-   Update): a zero-training COMBINED walk+turn probe
-   (`probe_turn_authority.py --vx-cmds`, no GPU) found the scripted
-   teacher's own turn authority degrades in smooth proportion to
-   simultaneous forward speed (33% of pure-turn wz retained combined);
-   the trained checkpoint inherits a smaller but real version (74%/54%
-   retained). Two concrete, NEITHER-started next actions: (a) a
-   carefully-validated fix to `hexapod_core/tripod_gait.py`'s combined
-   vx+omega per-leg foot-target geometry — shared hardware-adjacent
-   code, needs its own before/after combined-probe proof (no
-   pure-turn/pure-walk/hardware regression) before any BC-anchor
-   retrain spends budget; (b) a combined-tick-targeted course/yaw
-   reward gate (`vx_ref!=0 AND wz_ref!=0`, mirroring the already-
-   refuted pure-turn-only `bc_anchor_walk_turn_skip`) — a reward
-   MECHANISM change, needs its own `test_task_semantics.py` twin PASS
-   before any launch per RESEARCH_RULES. Prior canary-campaign
+2. **Steering branch — TOP ITEM. Mechanism found 09-03 ~16:0x, branch
+   (b) LEVER BUILT + IN FLIGHT 09-03 ~16:4x** (see Update): a
+   zero-training COMBINED walk+turn probe (`probe_turn_authority.py
+   --vx-cmds`, no GPU) found the scripted teacher's own turn authority
+   degrades in smooth proportion to simultaneous forward speed (33% of
+   pure-turn wz retained combined); the trained checkpoint inherits a
+   smaller but real version (74%/54% retained). Two concrete next
+   actions were named: (a) STILL NOT STARTED — a carefully-validated
+   fix to `hexapod_core/tripod_gait.py`'s combined vx+omega per-leg
+   foot-target geometry — shared hardware-adjacent code, needs its own
+   before/after combined-probe proof (no pure-turn/pure-walk/hardware
+   regression) before any BC-anchor retrain spends budget; (b) BUILT
+   AND RUNNING — `train.bc_anchor_walk_combined_skip` (new env-side
+   cfg knob, default 0/bit-exact, 5 green tests in `test_bc_anchor.py`)
+   zeroes the walk BC-anchor target on combined ticks only; the
+   matched pair `cap29-stdwalklohi-combskip{,-s1}` (2M canaries,
+   seeds 0/1) is training against the already-PASSED
+   `cap29-stdwalklo-hi{,-s1}` controls. NEXT CYCLE (once these land):
+   read `probe_turn_authority.py --vx-cmds` combined-tick wz_med on
+   both checkpoints vs the pre-registered gate in the launch
+   hypothesis; on PASS this is a live candidate for the next full
+   acquisition rung; on FAIL, move to branch (a) (the geometry fix) as
+   the remaining candidate. Prior canary-campaign
    findings still hold: turn-in-place authority alone is strong
    everywhere (wz ~0.18-0.23 on 0.25 cmd); diet-rate and structural
    co-occurrence (`walk_yaw_zero_frac`) levers are BOTH refuted,

@@ -1,41 +1,40 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~05:0x (idle-kick, item 0 STILL mid-flight on
-train-6/7, pace unchanged): closed the last open semantics-bank item,
-`test_getup_honest_ordering` (genuine reward-design gap, not papered
-over). Root cause: the same-day q0-frame fix made "freeze"'s held
-pose correct (ret -40.4 buggy -> -30.3 accurate, cheaper to hold),
-eating the 08-22 margin over "partial" (-35.1, untouched) since that
-margin was only ever sized against freeze's old buggier cost. Fix:
-`getup_k_progress` 200->350 (partial's ratchet income scales
-~0.18/unit-k, freeze's ~flat 0.006) restores partial -8.2 > freeze
--29.3 (~20+ margin); swept 250->350, every other GETUP ordering stays
-intact/widens. `-k getup`: 9/9 pass. Global default, but `p_getup`
-isn't wired into any training recipe (0 ledger matches) so this is
-SPECIFICATION work, no behavior change to anything running today.
-Snapshotted+pushed (`exp/getup-honest-ordering-krecal-fix-0903`).
-Closes the semantics-bank dig-in queue from the 09-02/09-03 window --
-only RETIRED-track `walkcurr_pf` reds (~16-18) and whatever
-`/tmp/full_after_tanglefix_0903.log` surfaces fresh remain. Full
-derivation: OPERATOR_QUESTIONS.md.
+Update, 2026-09-03 ~05:0x (idle-kick): item 0's flat-only donegate
+session still mid-flight on train-6/7 (~91/90 mp4s, ETA unchanged
+~08:3x UTC) -- while it runs, dispatched an EARLY INFORMAL READ on
+spare pods (train-2/3, dualbc3-dagger 08-30 fast-read precedent):
+walk-mode-only, no video, n=16 det+sto x DR-0+own-DR, SAME train cfg.
+**direction_err clearly improved** vs the cap29-acq1 baseline
+(46.8deg) on all 8 subgroups/2 seeds: 24.8-35.6deg. **sto/det
+convergence holds at acquisition scale**: sto progress_ratio 84-92%
+of det (was the old 5-8% collapse) -- canary finding replicates both
+seeds. **slip/m MIXED**: dr0-det ties/beats 3.09 (2.83/3.12) but
+dr0-sto/owndr-det/owndr-sto read worse (3.39-4.63). Zero falls in all
+128 episodes. Reads gate-PARTIAL-shaped (steering fixed, slip not
+uniform) not full PASS -- informal proxy only, real verdict still
+awaits the video-bearing session. Evidence:
+`logs/ckpt_eval/standwalk_stdwalklohi_acq1_{s0,s1}_fastwalkcheck/`.
+Also: prior cycle's full-suite regression finished, 39F/256P (was
+40F) -- all 5 banks pricing standwalk's LIVE levers (hold/getup/
+rise_rock/stopcurrent/trans_drag) now green; remaining reds are 24
+RETIRED walkcurr_pf/sv + 1 stale-log getup + 14 non-live-lever banks,
+not blocking any funded arm, not chased.
 
-Earlier updates (q0-frame fixes, hold-bank recalibrations,
-joint-frame-v2 bug #3, tangle-spread probe-bug close, the 09-02
-merge-recovery/plant-stance/stdwalklohi-acq1 window) moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-03{a,b,c,d}_trim.md` and
-`2026-09-02{f,h}_trim.md`.
+Earlier updates (getup-ordering fix, q0-frame fixes, hold-bank
+recalibrations, joint-frame-v2 bugs, tangle-spread close, the 09-02
+merge-recovery/plant-stance/stdwalklohi-acq1 window) moved VERBATIM
+to `archive/standwalk_STATUS_journal_2026-09-03{a,b,c,d,e}_trim.md`
+and `2026-09-02{f,h}_trim.md`.
 
 ## Next (updated 09-02 ~18:3x)
 
 0. **READ `logs/ckpt_eval/cw_..._stdwalklohi_acq1{,_s1}_donegate_
-   flatonly/session_verdict.json`** once both land (in flight on
-   train-6/7, n=32 det+sto DR-0+own-DR each): does sto/det walk-
-   progress convergence survive to full budget, and does
-   direction_err_med/slip_per_m_med improve on cap29-acq1's baseline
-   (46.8 deg/3.09)? Gate text in the ledger. PASS -> new steering/slip
-   reference; PARTIAL (falls+convergence hold, steering doesn't) ->
-   item 1 is next; FAIL (sto regresses at scale) -> credit-assignment
-   (08-31 yaw-credit probe) is next.
+   flatonly/session_verdict.json`** once both land (n=32 det+sto
+   DR-0+own-DR each; the 09-03 fast-check above already leans
+   PARTIAL-shaped, see Update). Gate text in the ledger. PASS -> new
+   steering/slip reference; PARTIAL -> item 1 next; FAIL -> credit-
+   assignment (08-31 yaw-credit probe) next.
 1. Steering gap (windowed course_err ~22-23 deg, cap 2.9) — was
    secondary to the sto/det asymmetry; worst course_speed_ratio dips
    land at the ~4s `walk_cmd_resample_s` boundaries, consistent with

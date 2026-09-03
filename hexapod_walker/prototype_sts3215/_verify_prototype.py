@@ -5012,61 +5012,76 @@ def _boot_envelope_sample_points(z_offset: float) -> np.ndarray:
 
 
 def check_servo_insertion_path():
-    """Verify that the servo's molded +X wire-exit boot has a clear
-    insertion path through the +X wall of every cradle (Design E,
-    May 2026 regression probe).
+    """Verify the shared hip/knee holder's +Y service-extraction path.
 
-    For each cradle (coxa_bracket yaw, coxa_link hip, femur_link knee)
-    we slide the boot's swept volume DOWN through the +X wall in
-    ``SERVO_INSERTION_PATH_Z_STEP_MM`` (= 1 mm) Z steps from
-    ``z = WELL_RIM_Z + WIRE_BOOT_H`` (boot bottom face above the rim,
-    boot entirely outside the cradle) down to the seated position
-    (boot bottom at ``WIRE_BOOT_Z_BASE``).  At each step we count the
-    sample points inside the printed cradle mesh and reject the
-    cradle if any step's overlap volume exceeds
-    ``SERVO_INSERTION_PATH_TOL_MM3`` (= 1.0 mm^3).
-
-    The boot's swept volume is the canonical proxy for "can the user
-    seat the servo?" -- the boot is a rigid molded feature on the
-    servo case; any printed material in its swept volume means the
-    servo cannot be pushed down past that Z without bending or
-    shearing the boot.
-
-    Regression history (May 2026):
-      * commit f03d59b shortened the +X wire channel from
-        z = WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM (= 29.5) down to
-        z = (WELL_RIM_Z - CRADLE_BOSS_HEIGHT_MM) - 0.5 (= 16.5) to
-        clear the new heat-set bosses.  Real DS3225 servos could
-        not be seated in their printed cradles; the user reported
-        the regression on receipt of physical hardware.
-      * Design E (May 2026) restored the channel cap to
-        WELL_RIM_Z + WIRE_CHANNEL_TOP_OVER_RIM and reverted the +X
-        cradle bolts to Phi 2.5 mm self-tap so the channel + bolts
-        could coexist; this check was added at the same time so
-        the regression cannot ship again.
+    The body and fitted disc horn move together when the servo is lifted out
+    with its clamp cap attached.  Probe both rigid envelopes through the full
+    +Y travel: the body must pass through the open clamp mouth, and a disc with
+    1.5 mm radial running clearance must pass through the output-lip service
+    slot.  This specifically catches restoration of the old rounded bridge
+    over the horn, which made the fitted assembly captive.
     """
-    print(f"\n[5f] Servo insertion-path probe "
-          f"(boot {hp.WIRE_BOOT_PROTRUSION:.1f} x {hp.WIRE_BOOT_W:.1f} "
-          f"x {hp.WIRE_BOOT_H:.1f} mm slides down +X wall in "
-          f"{SERVO_INSERTION_PATH_Z_STEP_MM:.0f} mm Z steps; "
-          f"max overlap {SERVO_INSERTION_PATH_TOL_MM3:.1f} mm^3 per step):")
+    print("\n[5f] Hip/knee servo + fitted-horn service-extraction path:")
+    holder = hp._servo_well_solid(end_face_bolts=False)
+    all_ok = True
 
-    # STS3215 front-face mount (Jun 2026): RETIRED.
-    #
-    # The DS3225 servo had a molded +X wire-exit boot that had to slide
-    # DOWN past the cradle's +X wall as the servo dropped into its
-    # open-top bucket; this check swept that boot volume to catch a
-    # channel that was too short to clear it.  The STS3215 has no molded
-    # boot (its bus harness exits via 2-pin connectors on the body ends)
-    # and it does NOT drop in from the top -- it is inserted from the
-    # cradle's OPEN BACK and pushed forward until its front face seats
-    # against the mount plate.  The "can the servo be seated?" question
-    # is now answered by ``check_cradle_openness``, which verifies the
-    # body's final resting volume is clear of cradle material and that
-    # the back is open for insertion.  The boot-sweep probe is retired.
-    print("  [SKIP]  boot-sweep probe retired (STS3215 has no molded boot "
-          "and inserts from the open back; see Cradle openness)")
-    return True
+    # Sweep a slightly shrunken servo body from seated to clear of the +Y
+    # mouth.  The 0.5 mm surface inset avoids counting intended wall contact
+    # or voxel-boundary noise as interference.
+    xs = np.linspace(-hp.SERVO_BODY_W / 2.0 + 0.5,
+                     +hp.SERVO_BODY_W / 2.0 - 0.5, 7)
+    ys = np.linspace(-hp.SERVO_BODY_D / 2.0 + 0.5,
+                     +hp.SERVO_BODY_D / 2.0 - 0.5, 5)
+    zs = np.linspace(0.5, hp.SERVO_BODY_H - 0.5, 9)
+    bx, by, bz = np.meshgrid(xs, ys, zs, indexing="ij")
+    body_seated = np.stack([bx.ravel(), by.ravel(), bz.ravel()], axis=1)
+    y_travel = hp.WELL_D + hp.SERVO_BODY_D
+    body_blocked = 0
+    for dy in np.linspace(0.0, y_travel, 25):
+        pts = body_seated + np.array([0.0, dy, 0.0])
+        body_blocked += int(points_inside(holder, pts).sum())
+    body_ok = body_blocked == 0
+    all_ok &= _label(
+        "servo body through +Y clamp mouth", body_ok,
+        f"25 lift positions, blocked samples={body_blocked}")
+
+    # Sweep the fitted horn in the output-lip plane.  The real horn radius is
+    # 10 mm; probe at 11.5 mm so the test requires >=1.5 mm radial clearance
+    # inside the nominal 12 mm-radius opening/slot without sampling its exact
+    # boolean boundary.
+    probe_r = hp.DISC_HORN_OD / 2.0 + 1.5
+    p = 0.5
+    gx = np.arange(-probe_r + p / 2.0, probe_r, p)
+    gy = np.arange(-probe_r + p / 2.0, probe_r, p)
+    xx, yy = np.meshgrid(gx, gy, indexing="ij")
+    mask = xx * xx + yy * yy <= probe_r * probe_r
+    disc_xy = np.stack([xx[mask], yy[mask]], axis=1)
+    horn_blocked = 0
+    for dy in np.linspace(0.0, y_travel, 31):
+        for z in (hp.WELL_RIM_Z + 0.6,
+                  hp.WELL_RIM_Z + hp.WELL_PLATE_T / 2.0,
+                  hp.WELL_H - 0.6):
+            pts = np.column_stack([
+                hp.SERVO_OUTPUT_X + disc_xy[:, 0],
+                dy + disc_xy[:, 1],
+                np.full(len(disc_xy), z),
+            ])
+            horn_blocked += int(points_inside(holder, pts).sum())
+    horn_ok = horn_blocked == 0
+    all_ok &= _label(
+        "fitted disc horn through +Y output service slot", horn_ok,
+        f"31 lift positions x 3 lip planes, blocked samples={horn_blocked}; "
+        f"probe radius={probe_r:.1f} mm")
+
+    active_front = hp.servo_holder_front_case_hole_centres()
+    screw_pattern_ok = (len(active_front) == 3 and
+                        (4.2, +hp.SERVO_FRONT_CASE_HOLE_Y) not in active_front)
+    all_ok &= _label(
+        "service slot removes only the intended front-case site",
+        screw_pattern_ok,
+        f"retained={active_front}; removed=(4.2, "
+        f"+{hp.SERVO_FRONT_CASE_HOLE_Y:.2f})")
+    return all_ok
 
     R_inv = rotation_matrix(+np.pi / 2.0, [1, 0, 0])
 

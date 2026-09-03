@@ -1,8 +1,8 @@
-"""HTTP bridge that serves the robot web UI against a MuJoCo session.
+"""HTTP/HTTPS bridge that serves the robot web UI against a MuJoCo session.
 
 Run from ``hexapod_walker/prototype_sts3215``:
 
-    uv run python -m rl_move.sim.web_server --http-port 8898
+    uv run python -m rl_move.sim.web_server --http-port 8898 --https-port 8443
 
 The route shapes intentionally match ``linux_control/web_drive.py`` so the
 same browser UI can drive either the physical robot or the MuJoCo twin.
@@ -10,8 +10,13 @@ same browser UI can drive either the physical robot or the MuJoCo twin.
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
+import re
+import socket
+import ssl
+import subprocess
 import sys
 import threading
 import urllib.parse
@@ -25,6 +30,8 @@ WEBUI_DIR = ROOT / "linux_control" / "webui"
 DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
 DEFAULT_STANCE_POLICY: Path | None = None
 DEFAULT_WALK_POLICY = Path("scripted:tripod_highstep_demo_gait")
+DEFAULT_TLS_CERT = Path("~/.hexapod_sts_cert.pem").expanduser()
+DEFAULT_TLS_KEY = Path("~/.hexapod_sts_key.pem").expanduser()
 
 PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
               "/quad", "/debug", "/rl", "/experiments", "/measure",
@@ -35,6 +42,111 @@ STATIC_FILES = {
                 "no-cache"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
 }
+
+
+def _add_unique(values: list[str], value: str) -> None:
+    if value and value not in values:
+        values.append(value)
+
+
+def _https_cert_sans(bind: str) -> tuple[list[str], list[str]]:
+    """Return the local names covered by the generated laptop certificate."""
+    dns = ["localhost"]
+    ips = ["127.0.0.1"]
+    try:
+        host = socket.gethostname().strip()
+    except OSError:
+        host = ""
+    if host:
+        _add_unique(dns, host)
+        if "." not in host:
+            _add_unique(dns, f"{host}.local")
+
+    try:
+        ip = ipaddress.ip_address(bind)
+    except ValueError:
+        if bind not in ("0.0.0.0", "::", ""):
+            _add_unique(dns, bind)
+    else:
+        if not ip.is_unspecified:
+            _add_unique(ips, str(ip))
+    return dns, ips
+
+
+def _cert_has_sans(cert_file: Path, dns: list[str], ips: list[str]) -> bool:
+    if not cert_file.is_file():
+        return False
+    try:
+        decoded = ssl._ssl._test_decode_cert(str(cert_file))
+    except Exception:
+        return False
+    sans = decoded.get("subjectAltName", ())
+    have_dns = {str(value) for kind, value in sans
+                if str(kind).lower() == "dns"}
+    have_ips = {str(value) for kind, value in sans
+                if re.sub(r"\s+", "", str(kind).lower()) == "ipaddress"}
+    return set(dns).issubset(have_dns) and set(ips).issubset(have_ips)
+
+
+def ensure_tls_certificate(cert_file: Path, key_file: Path, bind: str,
+                           *, configured: bool = False) -> None:
+    """Ensure a TLS keypair exists, generating a local self-signed pair."""
+    cert_file = cert_file.expanduser()
+    key_file = key_file.expanduser()
+    if configured:
+        if cert_file.is_file() and key_file.is_file():
+            print(f"TLS: using configured certificate {cert_file}", flush=True)
+            return
+        raise RuntimeError(
+            "configured TLS certificate/key missing: "
+            f"{cert_file} / {key_file}")
+
+    dns, ips = _https_cert_sans(bind)
+    if key_file.is_file() and _cert_has_sans(cert_file, dns, ips):
+        return
+
+    cert_file.parent.mkdir(parents=True, exist_ok=True)
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    san = ",".join([f"DNS:{value}" for value in dns]
+                   + [f"IP:{value}" for value in ips])
+    tmp_cert = cert_file.with_name(cert_file.name + ".tmp")
+    tmp_key = key_file.with_name(key_file.name + ".tmp")
+    for path in (tmp_cert, tmp_key):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+    try:
+        subprocess.run(
+            ["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+             "-keyout", str(tmp_key), "-out", str(tmp_cert), "-days", "3650",
+             "-subj", "/CN=localhost", "-addext", f"subjectAltName={san}"],
+            check=True, capture_output=True,
+        )
+        tmp_key.chmod(0o600)
+        tmp_cert.replace(cert_file)
+        tmp_key.replace(key_file)
+        print(f"TLS: generated self-signed certificate {cert_file} "
+              f"with SANs {san}", flush=True)
+    except Exception:
+        for path in (tmp_cert, tmp_key):
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        raise
+
+
+def make_https_server(bind: str, port: int,
+                      handler: type[BaseHTTPRequestHandler],
+                      cert_file: Path, key_file: Path) -> ThreadingHTTPServer:
+    """Create a threaded HTTPS server using the supplied certificate."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(str(cert_file), str(key_file))
+    server = ThreadingHTTPServer((bind, port), handler)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    server.daemon_threads = True
+    return server
 
 
 def _camera_indexes(value: str) -> tuple[int, ...]:
@@ -347,6 +459,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--bind", default="127.0.0.1")
     ap.add_argument("--http-port", type=int, default=8898)
+    ap.add_argument("--https-port", type=int, default=8443,
+                    help="HTTPS listener for browser Gamepad API "
+                         "(default: 8443)")
+    ap.add_argument("--tls-cert", type=Path,
+                    help="custom TLS certificate (requires --tls-key)")
+    ap.add_argument("--tls-key", type=Path,
+                    help="custom TLS private key (requires --tls-cert)")
     ap.add_argument("--policy-dir", type=Path,
                     default=ROOT / "rl_move" / "sim" / "policies")
     ap.add_argument("--stance", type=Path,
@@ -432,6 +551,10 @@ def _reexec_under_mjpython_for_viewer() -> None:
 
 def main(session_factory: Callable[..., Any] | None = None) -> None:
     args = build_arg_parser().parse_args()
+    if args.https_port <= 0:
+        raise SystemExit("--https-port must be positive")
+    if bool(args.tls_cert) != bool(args.tls_key):
+        raise SystemExit("--tls-cert and --tls-key must be provided together")
     if args.vision_camera < 0:
         raise SystemExit("--vision-camera must be non-negative")
     if (args.vision_processing_width != 0
@@ -474,11 +597,14 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
                 insecure_tls=args.robot_insecure_tls),
             target=args.target if args.robot_url else "sim")
         handler_factory = lambda: make_hub_handler(
-            session, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
+            session, WEBUI_DIR, args.https_port, PAGE_PATHS, STATIC_FILES)
     else:
         session = session_factory(args)
-        handler_factory = lambda: make_handler(session)
-    srv = None
+        handler_factory = lambda: make_handler(
+            session, https_port=args.https_port)
+    http_srv = None
+    https_srv = None
+    https_thread = None
     vision_runtime = None
     try:
         handler = handler_factory()
@@ -511,13 +637,28 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             handler = wrap_handler_with_vision(
                 handler, vision_runtime, DEFAULT_UI_DIR
             )
-        srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
-        srv.daemon_threads = True
-        url = f"http://{args.bind}:{args.http_port}/rl"
-        print(f"sim web UI: {url}", flush=True)
+        cert_file = (args.tls_cert or DEFAULT_TLS_CERT).expanduser()
+        key_file = (args.tls_key or DEFAULT_TLS_KEY).expanduser()
+        ensure_tls_certificate(cert_file, key_file, args.bind,
+                               configured=bool(args.tls_cert))
+        https_srv = make_https_server(
+            args.bind, args.https_port, handler, cert_file, key_file)
+        https_thread = threading.Thread(
+            target=https_srv.serve_forever,
+            name="sim-web-https",
+            daemon=True,
+        )
+        https_thread.start()
+
+        http_srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
+        http_srv.daemon_threads = True
+        http_url = f"http://{args.bind}:{args.http_port}/rl"
+        https_url = f"https://{args.bind}:{args.https_port}/rl"
+        print(f"sim web UI: {http_url}", flush=True)
+        print(f"sim web UI (gamepad): {https_url}", flush=True)
         if vision_runtime is not None:
             print(
-                f"vision UI: http://{args.bind}:{args.http_port}/vision "
+                f"vision UI: https://{args.bind}:{args.https_port}/vision "
                 "(read-only)",
                 flush=True,
             )
@@ -527,22 +668,27 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
                   flush=True)
         run_viewer = getattr(session, "run_native_viewer", None)
         if args.viewer and run_viewer:
-            server_thread = threading.Thread(target=srv.serve_forever,
+            server_thread = threading.Thread(target=http_srv.serve_forever,
                                              name="sim-web-http",
                                              daemon=True)
             server_thread.start()
             try:
-                run_viewer(url)
+                run_viewer(https_url)
             finally:
-                srv.shutdown()
+                http_srv.shutdown()
                 server_thread.join(timeout=2.0)
         else:
-            srv.serve_forever()
+            http_srv.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        if srv is not None:
-            srv.server_close()
+        if http_srv is not None:
+            http_srv.server_close()
+        if https_srv is not None:
+            https_srv.shutdown()
+            https_srv.server_close()
+        if https_thread is not None:
+            https_thread.join(timeout=2.0)
         if vision_runtime is not None:
             vision_runtime.stop()
         close = getattr(session, "close", None)

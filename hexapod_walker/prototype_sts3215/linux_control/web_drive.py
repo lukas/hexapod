@@ -440,6 +440,10 @@ class Handler(BaseHTTPRequestHandler):
                 })
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
+        elif path == "/api/telemetry":
+            # Pure in-memory status; never touches the servo bus.
+            self._json(200, BENCH.telemetry_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/errors":
             try:
                 from event_log import errors_path, recent
@@ -618,6 +622,36 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
             self._json(200, {"ok": True})
+        elif path == "/api/telemetry":
+            data = body_obj if isinstance(body_obj, dict) else {}
+            action = str(data.get("action") or "").strip().lower()
+            if not action and "enabled" in data:
+                action = "start" if bool(data.get("enabled")) else "stop"
+            try:
+                if BENCH is None:
+                    result = {"ok": False, "error": "no bench"}
+                elif action in ("start", "on", "enable"):
+                    result = BENCH.telemetry_start(
+                        label=str(data.get("label") or "session"),
+                        max_hz=(float(data["max_hz"])
+                                if data.get("max_hz") is not None else None),
+                    )
+                elif action in ("stop", "off", "disable"):
+                    result = BENCH.telemetry_stop()
+                elif action == "mark":
+                    result = BENCH.telemetry_mark(
+                        str(data.get("label") or "marker"),
+                        data=data.get("data")
+                        if isinstance(data.get("data"), dict) else None,
+                    )
+                else:
+                    result = {
+                        "ok": False,
+                        "error": "action must be start, stop, or mark",
+                    }
+                self._json(200 if result.get("ok") else 400, result)
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")
@@ -1137,6 +1171,11 @@ def _main_after_bus(args) -> None:
     BENCH = BenchAPI(DRIVE)
     DRIVE.bench = BENCH
     LINK = Link(DRIVE)
+    telemetry_auto = os.environ.get(
+        "HEXAPOD_TELEMETRY_AUTO", "").strip().lower()
+    if telemetry_auto in ("1", "true", "yes", "on"):
+        result = BENCH.telemetry_start(label="auto")
+        print(f"[web] passive telemetry auto-start: {result}")
     if not args.dry_run:
         # The ST7789 shares the MCU serial path with motion/test commands.
         # Keep it opt-in so cosmetic screen repaints cannot delay robot work.
@@ -1180,6 +1219,7 @@ def _main_after_bus(args) -> None:
     finally:
         if BENCH:
             BENCH.stop_status_display()
+            BENCH.telemetry_stop()
         srv.server_close()
         DRIVE.close()
 

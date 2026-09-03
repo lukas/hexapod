@@ -7,7 +7,7 @@ Written 2026-08-09 after re-deriving all of this one too many times.
 
 ```sh
 cd hexapod_walker/prototype_sts3215
-make web-8898-start     # canonical local Mac web hub: http://localhost:8898/rl
+make web-8898-start     # local hub: HTTPS :8443 (gamepad) + HTTP :8898
 sim_viewer/sim_play.sh     # ← the one to use: stand up AND walk, one window
 sim_viewer/sim_web.sh      # same web UI as the robot, routed to MuJoCo
 sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
@@ -29,14 +29,22 @@ make web-8898-stop
 ```
 
 This runs on the Mac via `uv run` and `launchctl`, resolves
-`hexapod.local` to the current robot IP when possible, and serves
-`http://localhost:8898/rl`. Override the robot target for one run with
+`hexapod.local` to the current robot IP when possible, and serves both
+`https://localhost:8443/rl` (the gamepad-ready URL) and the legacy
+`http://localhost:8898/rl`. The first HTTPS visit uses a long-lived
+self-signed certificate, so accept the browser warning once. Override the
+robot target for one run with
 `HEXAPOD_HOST=http://<robot-ip>:8080 make web-8898-restart`. Logs are in
 `/tmp/hexapod_web_8898.log` and `make web-8898-logs` tails them.
 
+To use a browser-trusted certificate instead, set both
+`SIM_WEB_TLS_CERT_FILE` and `SIM_WEB_TLS_KEY_FILE` before restarting. The
+HTTPS port can be changed with `SIM_WEB_HTTPS_PORT` (default `8443`).
+
 `sim_web.sh` is the foreground/dev wrapper. It also uses `uv run`; by
 default it starts a native `mujoco.viewer` window and serves the real
-robot's `linux_control/webui/` at `http://127.0.0.1:8898/rl`. The web
+robot's `linux_control/webui/` at `https://127.0.0.1:8443/rl` (with HTTP
+still available at `http://127.0.0.1:8898/rl`). The web
 page is the controller; the MuJoCo window is the visual surface. The
 shared UI routes the RL tab's stand/lower/held-key
 drive/policy-picker commands into the local sim session. Sim-only

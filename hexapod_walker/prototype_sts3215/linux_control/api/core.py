@@ -11,6 +11,10 @@ from .common import *  # noqa: F401,F403
 class CoreApi:
     def __init__(self, drive: "DriveController"):
         self.drive = drive
+        # Detailed telemetry is operator-toggleable and passive: it receives
+        # only bus data that the active test already acquired.
+        from telemetry_recorder import TelemetryRecorder
+        self._telemetry_recorder = TelemetryRecorder()
         self.names = _load_names()
         self._demo_thread: threading.Thread | None = None
         self._demo_abort = threading.Event()
@@ -336,6 +340,24 @@ class CoreApi:
             self._servo_watch.stop()
             self._servo_watch = None
 
+    # -- passive telemetry recorder ----------------------------------------
+    def telemetry_state(self) -> dict:
+        return {"ok": True, **self._telemetry_recorder.status()}
+
+    def telemetry_start(self, *, label: str = "session",
+                        max_hz: float | None = None) -> dict:
+        bus = getattr(self.drive, "bus", None)
+        if bus is None:
+            return {"ok": False, "error": "no bus"}
+        return self._telemetry_recorder.start(
+            bus, label=label, max_hz=max_hz)
+
+    def telemetry_stop(self) -> dict:
+        return self._telemetry_recorder.stop()
+
+    def telemetry_mark(self, label: str, data: dict | None = None) -> dict:
+        return self._telemetry_recorder.mark(label, data=data)
+
     # -- robot / demo state --------------------------------------------------
     def _set_activity(self, activity: str, detail: str = "") -> None:
         with self._lock:
@@ -406,6 +428,7 @@ class CoreApi:
             "demo": demo,
             "air_demos_need_zero": True,
             "zero_tol_deg": ZERO_TOL_DEG,
+            "telemetry": self._telemetry_recorder.status(),
         }
         if self._servo_watch is not None:
             out["servo"] = self._servo_watch.state()

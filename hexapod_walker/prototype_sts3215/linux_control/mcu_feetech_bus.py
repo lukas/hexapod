@@ -303,6 +303,9 @@ class _PktProxy:
         line = self._bus._transact(
             f"WP {int(sid)} {int(pos)} {int(speed)} {int(acc)}", timeout=0.6)
         ok = bool(line and line.startswith("OK"))
+        self._bus._emit_goal_items(
+            [(int(sid), int(pos), int(speed), int(acc))],
+            kind="joint_write", ok=ok)
         return 0 if ok else COMM_FAIL
 
     def write1ByteTxRx(self, sid, addr, val):
@@ -390,6 +393,10 @@ class McuFeetechBus:
             os.environ.get("HEXAPOD_BUS_TRACE_SLOW_MS", "30"))
         self._bin_trace_keep = int(
             os.environ.get("HEXAPOD_BUS_TRACE_KEEP", "64"))
+        # Optional passive observer.  None in the normal case, so there is
+        # no logger function call at all on the bus hot path until an
+        # operator starts a telemetry session.
+        self._telemetry_sink = None
         self._imu_calib: dict | None = None
         self.reload_imu_calib()
         self._imu_mount: str = "normal"
@@ -461,6 +468,87 @@ class McuFeetechBus:
             self.streaming = line.strip().endswith("1")
             print(f"[bus] MCU stream mode "
                   f"{'ON' if self.streaming else 'off'}")
+
+    def set_telemetry_sink(self, sink) -> None:
+        """Attach/detach a nonblocking passive recorder callback.
+
+        The sink receives only data already acquired by the caller; this
+        method never starts a polling thread or adds a bus transaction.
+        Assignment is atomic under CPython, so it can be toggled by an HTTP
+        handler while another test owns the bus.
+        """
+        if sink is not None and not callable(sink):
+            raise TypeError("telemetry sink must be callable or None")
+        self._telemetry_sink = sink
+
+    def _emit_telemetry(self, kind: str, payload: dict) -> None:
+        sink = getattr(self, "_telemetry_sink", None)
+        if sink is None:
+            return
+        try:
+            sink(kind, payload)
+        except Exception:
+            # Observability must never be able to fail a bus operation.
+            pass
+
+    def _telemetry_wants_snapshot(self) -> bool:
+        sink = getattr(self, "_telemetry_sink", None)
+        probe = getattr(sink, "wants_snapshot", None)
+        if not getattr(self, "has_stream", False) or not callable(probe):
+            return False
+        try:
+            return bool(probe())
+        except Exception:
+            return False
+
+    def _command_from_items(
+            self, items: list[tuple[int, int, int, int]]) -> tuple[
+                list[float | None], list[int | None], list[int | None]]:
+        command: list[float | None] = [None] * N_JOINTS
+        speeds: list[int | None] = [None] * N_JOINTS
+        accelerations: list[int | None] = [None] * N_JOINTS
+        for sid, count, speed, acc in items:
+            joint = int(sid) - 2
+            if not 0 <= joint < N_JOINTS:
+                continue
+            # count_to_deg ignores trim; undo the trim that deg_to_count
+            # added so the logged target stays in logical robot degrees.
+            command[joint] = (
+                count_to_deg(joint, int(count)) - float(self.trims[joint]))
+            speeds[joint] = int(speed)
+            accelerations[joint] = int(acc)
+        return command, speeds, accelerations
+
+    def _emit_goal_items(self, items: list[tuple[int, int, int, int]], *,
+                         kind: str, ok: bool | None = None) -> None:
+        if getattr(self, "_telemetry_sink", None) is None:
+            return
+        command, speeds, accelerations = self._command_from_items(items)
+        payload = {
+            "command_deg": command,
+            "speed_counts_s": speeds,
+            "acc_units": accelerations,
+        }
+        if ok is not None:
+            payload["ok"] = bool(ok)
+        self._emit_telemetry(kind, payload)
+
+    @staticmethod
+    def _snapshot_payload(snapshot: dict | None) -> dict:
+        if not isinstance(snapshot, dict):
+            return {"snapshot_ok": False}
+        positions = snapshot.get("pos_deg") or {}
+        speeds = snapshot.get("speed_deg_s") or {}
+        return {
+            "snapshot_ok": True,
+            "snapshot_seq": snapshot.get("seq"),
+            "position_age_ms": snapshot.get("pos_age_ms"),
+            "imu_age_ms": snapshot.get("imu_age_ms"),
+            "position_deg": [positions.get(j) for j in range(N_JOINTS)],
+            "speed_deg_s": [speeds.get(j) for j in range(N_JOINTS)],
+            "imu": dict(snapshot["imu"])
+            if isinstance(snapshot.get("imu"), dict) else None,
+        }
 
     def reload_imu_calib(self) -> dict | None:
         """Load ``logs/imu_calib.json`` (or clear if missing)."""
@@ -865,6 +953,30 @@ class McuFeetechBus:
             self._pos_cache[fb["joint"]] = float(fb["deg"])
         self._fb_cache_mono = time.monotonic()
         self._pos_cache_mono = self._fb_cache_mono
+        if getattr(self, "_telemetry_sink", None) is not None:
+            self._emit_telemetry("feedback", {
+                "position_deg": [
+                    out[j].get("deg") if j in out else None
+                    for j in range(N_JOINTS)],
+                "speed_deg_s": [
+                    out[j].get("speed_deg_s") if j in out else None
+                    for j in range(N_JOINTS)],
+                "current_a": [
+                    out[j].get("current_a") if j in out else None
+                    for j in range(N_JOINTS)],
+                "load_pct": [
+                    out[j].get("load_pct") if j in out else None
+                    for j in range(N_JOINTS)],
+                "voltage_v": [
+                    out[j].get("volt") if j in out else None
+                    for j in range(N_JOINTS)],
+                "temperature_c": [
+                    out[j].get("temp_c") if j in out else None
+                    for j in range(N_JOINTS)],
+                "moving": [
+                    out[j].get("moving") if j in out else None
+                    for j in range(N_JOINTS)],
+            })
         return out
 
     def read_all_positions(self, ids: list[int] | None = None
@@ -885,6 +997,10 @@ class McuFeetechBus:
                 out[joint] = deg
                 self._pos_cache[joint] = deg
         self._pos_cache_mono = time.monotonic()
+        if getattr(self, "_telemetry_sink", None) is not None:
+            self._emit_telemetry("positions", {
+                "position_deg": [out.get(j) for j in range(N_JOINTS)],
+            })
         return out
 
     def _read_pos_counts(self, sid: int) -> int | None:
@@ -972,12 +1088,22 @@ class McuFeetechBus:
             return None
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
+        degrees = [float(value) for value in degrees]
         items = []
         for joint, deg in enumerate(degrees):
             items.append((joint_to_servo_id(joint),
                           deg_to_count(joint, deg, self.trims[joint]),
                           speed, acc))
-        return self._snapshot_txn(items, apply_calib=apply_calib)
+        snapshot = self._snapshot_txn(items, apply_calib=apply_calib)
+        if getattr(self, "_telemetry_sink", None) is not None:
+            payload = self._snapshot_payload(snapshot)
+            payload.update({
+                "command_deg": degrees,
+                "speed_counts_s": int(speed),
+                "acc_units": int(acc),
+            })
+            self._emit_telemetry("step", payload)
+        return snapshot
 
     def read_snapshot(self, *, apply_calib: bool = True) -> dict | None:
         """Positions + speed + IMU in ONE round trip ('S' n=0, no write).
@@ -986,7 +1112,11 @@ class McuFeetechBus:
         """
         if not getattr(self, "has_stream", False):
             return None
-        return self._snapshot_txn([], apply_calib=apply_calib)
+        snapshot = self._snapshot_txn([], apply_calib=apply_calib)
+        if getattr(self, "_telemetry_sink", None) is not None:
+            self._emit_telemetry(
+                "snapshot", self._snapshot_payload(snapshot))
+        return snapshot
 
     def _snapshot_txn(self, items: list[tuple[int, int, int, int]], *,
                       apply_calib: bool) -> dict | None:
@@ -1029,6 +1159,26 @@ class McuFeetechBus:
         self._pending.clear()
         if not items:
             return
+        # When recording is due, replace this W write with the already-tested
+        # S combined write+snapshot transaction. It applies the identical
+        # SyncWrite and returns cached encoder/speed/IMU in the SAME round
+        # trip, so the observer works for ordinary scripted gaits without a
+        # competing polling thread. Other ticks and recorder-off behavior stay
+        # on the original W path byte-for-byte.
+        if self._telemetry_wants_snapshot():
+            snapshot = self._snapshot_txn(items, apply_calib=True)
+            if snapshot is not None:
+                command, speeds, accelerations = self._command_from_items(items)
+                payload = self._snapshot_payload(snapshot)
+                payload.update({
+                    "command_deg": command,
+                    "speed_counts_s": speeds,
+                    "acc_units": accelerations,
+                    "transport": "combined_write_snapshot",
+                })
+                self._emit_telemetry("step", payload)
+                return
+        self._emit_goal_items(items, kind="sync_write")
         binary_replies: list[str | None] = []
         frame = encode_sync_frame(ord("W"), items)
         for attempt in range(2):
@@ -1123,12 +1273,14 @@ class McuFeetechBus:
         i_ma = int(parts[2])
         v10 = int(parts[3])
         load10 = int(parts[4])
-        return {
+        summary = {
             "live": n,
             "current_a": i_ma / 1000.0,
             "volt": v10 / 10.0,
             "max_load_pct": load10 / 10.0,
         }
+        self._emit_telemetry("power", dict(summary))
+        return summary
 
     def read_imu(self, *, timeout: float = 0.6,
                  apply_calib: bool = True) -> dict | None:
@@ -1179,8 +1331,10 @@ class McuFeetechBus:
                 return None
             if not any((ax, ay, az, gx, gy, gz, temp_raw)):
                 return None
-        return self._imu_sample(ax, ay, az, gx, gy, gz, temp_raw,
-                                apply_calib=apply_calib)
+        sample = self._imu_sample(ax, ay, az, gx, gy, gz, temp_raw,
+                                  apply_calib=apply_calib)
+        self._emit_telemetry("imu", {"imu": dict(sample)})
+        return sample
 
     def _imu_sample(self, ax: int, ay: int, az: int, gx: int, gy: int,
                     gz: int, temp_raw: int, *, apply_calib: bool = True

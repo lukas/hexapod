@@ -637,6 +637,11 @@ parts:
             mates_to: "hip STS3215 servo front (output) face -- the servo bolts to the mount plate with 4 x M2.5 into its own metal case; the femur_link hip yoke's top arm + disc horn sit just beyond the plate on coxa -Y"
             mating_plane_z_local_mm: 0.0
           notes: "Frame mapping: joint-local +Z (output) -> coxa +/-Y, joint-local X (WELL_W) -> coxa X, joint-local Y (WELL_D) -> coxa Z."
+        - name: hip_horn_service_slot
+          type: open_clearance
+          description: "Sep 2026 service extraction: the shared holder's circular Phi 24 driven-horn opening continues straight to the open +Y clamp mouth at the same 24 mm width. After the two clamp-cap bolts are removed, the hip servo, fitted disc horn and attached clamp cap lift out together without removing the horn. The slot consumes the physical front-case site at well-local (x, y) = (4.2, +10.25), leaving the other three small case-capture sites; both M3 clamp-cap pilots remain. Guarded by check_servo_insertion_path."
+          width_mm: 24.0
+          axis: y
         - name: passive_horn_rear_boss
           type: open_clearance
           description: "Symmetric-yoke refit: the old +X-half 688 ball-bearing back housing is RETIRED.  The back of the servo well is now OPEN so the STOCK metal PASSIVE horn rides the STS3215's own rear idler boss (Jul 2026 stock-horn refit: its centre bore slides over the boss, seating FLUSH on the back face -- printed passive_horn_adapter retired; one M2.5 retention screw holds it); the femur_link hip yoke's bottom arm bolts to that passive disc horn exactly as the top arm bolts to the driven horn.  This entry documents the kept-clear rear volume; the only printed intrusion is the Aug 17 2026 hip_rear_retention_tab, 5.5 mm deep (flush-head recess included) but >= 30.7 mm from the hip axis -- far outside the Phi 20 passive horn and clear of the swinging yoke arm."
@@ -820,6 +825,11 @@ parts:
             normal: -y
             mates_to: "knee STS3215 servo front (output) face -- seats flush against the lip underside (no fasteners; the clamp cap + lip retain the body)"
           holes_on_feature: [output_coupling_bore]
+        - name: knee_horn_service_slot
+          type: open_clearance
+          description: "Same Sep 2026 Phi 24 open horn slot as the hip holder: a straight continuation from the driven-horn circle to the +Y clamp mouth gives the knee servo, fitted horn and attached cap a monotone lift-out path. One small front-case capture site is removed and three remain; both clamp-cap pilots remain."
+          width_mm: 24.0
+          axis: y
         - name: knee_servo_well_walls
           type: rectangular_well
           description: "4 side walls (knee-local z in [0, WELL_RIM_Z = 34.3]) locating the knee servo body with WELL_BODY_CL = 0.7 mm clearance; open at the back for slide-in.  The fused spar arrives through the -X wall (1 mm bury)."

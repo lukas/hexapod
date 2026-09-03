@@ -59,6 +59,13 @@ evaluation; walking would still use no camera. Until that test, the model should
 remain a logged confidence channel and must not delay or trigger support
 transfer.
 
+That logged-confidence stage is now available through the robot web service's
+passive telemetry recorder (`GET/POST /api/telemetry`). It evaluates the model
+on a background writer thread, filters over the five most recent readings, and
+requires three consecutive filtered confirmations. It never adds a servo-bus
+read and its output is still explicitly excluded from gait control. See
+`../linux_control/README.md` for start/stop and log-download commands.
+
 ### Recent hardware-trace audit
 
 The 2026-09-01 13:32 gait 1/9 run cannot supply that validation after the

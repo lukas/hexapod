@@ -1,5 +1,9 @@
 # Hexapod Walker — Tabletop Prototype Build Guide
 
+Physical robots can differ from the current CAD. Their installed configurations
+are tracked separately in [`robots/`](robots/README.md), beginning with
+[`hexapod-1`](robots/hexapod-1.yaml).
+
 > A scaled-down sibling of the [full-size walker](../fullsize_v1/ASSEMBLY.md) intended
 > for proving out the geometry, kinematics, and gait controller before
 > you commit to industrial servomotors. Same architecture: regular hex
@@ -607,6 +611,14 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > flush-horn refit; see the chassis_bottom note above).  There are
 > **no heat-set inserts and no vertical tab bolts** anywhere on the
 > leg.
+
+> **Hip/knee servo removal (Sep 2026).** Remove the two M3 clamp-cap
+> bolts, then lift the servo with its fitted disc horn and clamp cap toward
+> the open clamp face. The former rounded bridge over the horn is now a
+> straight, 24 mm-wide continuation of the horn opening, so that assembly has
+> a monotone lift-out path. The service slot removes one small front-case
+> capture location; three remain, together with both clamp-cap bolts and the
+> two rear-tab screws.
 
 1. **Join the leg segments first.**  FEMUR: nothing to do — `femur_link`
    comes off the printer as one finished part (Jul 2026 one-piece merge;

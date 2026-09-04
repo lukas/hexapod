@@ -2814,11 +2814,33 @@ class SimHexapodBalanceEnv(_GymBase):
         ``combined_yaw_arm_scale`` docstring for the full derivation):
         default 1.0 = legacy identity (bit-exact off); a static
         per-run dose, read once here since the cfg never changes
-        mid-run."""
+        mid-run.
+
+        ``train.bc_anchor_teacher_selective_omega_boost`` (standwalk
+        Next item 2, "selective per-leg omega boost" candidate,
+        09-04 -- see tripod_gait.py's ``combined_selective_omega_
+        boost`` docstring): unlike the yaw-arm-scale/amplify-scale
+        family (angle-only reshape, all refuted), this boosts the
+        TRUE foot target for only the 3 legs the vx cross term
+        attenuates, restricted internally to combined ticks --
+        mirrors the already-tried UNIFORM ``bc_anchor_teacher_omega_
+        boost`` (applied earlier, to ``_bc_wz`` itself, before
+        ``set_velocity``) but at the per-leg level, inside
+        ``TripodGait.desired_deg`` itself. Zero-training scripted-
+        teacher validation (``probe_turn_authority.py --policy
+        scripted --scripted-selective-omega-boost``): dose 3.0 beats
+        the uniform lever's own best dose on real body wz_med, both
+        signs, with a comparable vx cost. Default 1.0 = legacy
+        identity (bit-exact off)."""
         from hexapod_core.tripod_gait import TripodGait
-        _g = TripodGait(vx=0.0, combined_yaw_arm_scale=float(cfg_get(
-            self.cfg, "train", "bc_anchor_teacher_yaw_arm_scale",
-            default=1.0)))
+        _g = TripodGait(
+            vx=0.0,
+            combined_yaw_arm_scale=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_yaw_arm_scale",
+                default=1.0)),
+            combined_selective_omega_boost=float(cfg_get(
+                self.cfg, "train", "bc_anchor_teacher_selective_omega_boost",
+                default=1.0)))
         _g.sync_plant_stance(20.0, 100.0)
         _g.reset_phase()
         return _g

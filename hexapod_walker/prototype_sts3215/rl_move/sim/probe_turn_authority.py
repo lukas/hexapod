@@ -167,7 +167,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             vx_cmd: float = 0.0,
             scripted_omega_boost: float = 1.0,
             scripted_yaw_arm_scale: float = 1.0,
-            scripted_yaw_amplify_scale: float = 1.0) -> dict:
+            scripted_yaw_amplify_scale: float = 1.0,
+            scripted_selective_omega_boost: float = 1.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
@@ -207,6 +208,16 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     ``TripodGait.__init__`` docstring and
     ``rl_move.sim.probe_leg_yaw_rate`` for the zero-training rate/
     de-saturation evidence). Default 1.0 is bit-exact.
+
+    ``scripted_selective_omega_boost`` (09-04, standwalk Next item 2
+    "selective per-leg omega boost" candidate, ``--policy scripted``
+    only): forwarded straight to
+    ``TripodGait(combined_selective_omega_boost=...)`` -- the mirror
+    image of ``scripted_yaw_amplify_scale`` (same per-leg
+    classification, opposite leg SET, and a genuinely different
+    mechanism: it boosts the TRUE foot target via omega, not just the
+    yaw-angle atan2 denominator, so hip/knee move too). Default 1.0
+    is bit-exact.
     """
     mode_onehot = False
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
@@ -238,9 +249,11 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     traj.wz[hold_n:hold_n + ramp_n] = np.linspace(0.0, wz_cmd, ramp_n)
     if policy == "scripted":
         from hexapod_core.tripod_gait import TripodGait
-        gait = TripodGait(vx=0.0,
-                           combined_yaw_arm_scale=scripted_yaw_arm_scale,
-                           combined_yaw_amplify_scale=scripted_yaw_amplify_scale)
+        gait = TripodGait(
+            vx=0.0,
+            combined_yaw_arm_scale=scripted_yaw_arm_scale,
+            combined_yaw_amplify_scale=scripted_yaw_amplify_scale,
+            combined_selective_omega_boost=scripted_selective_omega_boost)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
     step = 0
@@ -353,6 +366,13 @@ def main() -> int:
                          "candidate (iii), SELECTIVE per-leg sibling "
                          "of --scripted-yaw-arm-scale) on combined "
                          "ticks only; default 1.0 is bit-exact")
+    ap.add_argument("--scripted-selective-omega-boost", type=float, default=1.0,
+                    help="--policy scripted only: TripodGait's "
+                         "combined_selective_omega_boost (standwalk "
+                         "Next item 2, selective per-leg omega boost "
+                         "candidate) on combined ticks only, ONLY the "
+                         "legs the vx cross term attenuates; default "
+                         "1.0 is bit-exact")
     args = ap.parse_args()
 
     if args.policy == "checkpoint" and args.checkpoint is None:
@@ -381,7 +401,9 @@ def main() -> int:
                               scripted_yaw_arm_scale=(
                                   args.scripted_yaw_arm_scale),
                               scripted_yaw_amplify_scale=(
-                                  args.scripted_yaw_amplify_scale))
+                                  args.scripted_yaw_amplify_scale),
+                              scripted_selective_omega_boost=(
+                                  args.scripted_selective_omega_boost))
                 results.append(res)
 
     summary = summarize(results, frozen_margin=args.frozen_margin)

@@ -78,9 +78,11 @@ Soft recovery is only for confirmed pre-trip warnings. The canonical anomaly
 response matrix is in [`../EMERGENCY_HANDLING.md`](../EMERGENCY_HANDLING.md).
 A single missing reply does not stop or reposition the robot; persistent servo
 loss requires three consecutive incomplete scans with distinct fresh
-timestamps. Tip, brownout, confirmed hot or persistently missing servos, hard
-current, and confirmed lost telemetry are hard stops and never resume
-automatically. An ordinary camera/recorder/framework failure uses a
+timestamps. After a recoverable signal or framework stop, a normal camera view
+plus three fresh healthy telemetry samples permits up to two retries of the
+complete failed step. Tip, visibly bad posture, brownout, confirmed heat, jam,
+surprise force, hard/sustained current, and stand/plant blend failures never
+resume automatically. An ordinary camera/recorder/framework failure uses a
 phase-aware stop and hold when walking, or preserves the pose when already
 stationary—never an automatic sit or safe-zero. Heat requires three
 consecutive over-threshold samples from the same joint. After a thermal limp,

@@ -535,15 +535,25 @@ def _lazy_sb3():
 
 
 def _dual_core_param_groups(policy):
-    """Classify every named parameter of a dual-core policy
-    (gru_policy.DualGruActorCriticPolicy) as core 'a' (locomotion/
-    walk), 'b' (stance), or 'shared' (the parameterless
-    FlattenExtractor plus anything else not name-matched). FROZEN
-    CONTRACT (08-27): both _gradnorm_diag_ctx (measurement) and
+    """Classify every named parameter of a dual- or triple-core policy
+    (gru_policy.DualGruActorCriticPolicy /
+    gru_policy.TripleGruActorCriticPolicy) as core 'a' (locomotion/
+    walk), 't' (pure-turn, Triple only), 'b' (stance), or 'shared'
+    (the parameterless FlattenExtractor plus anything else not
+    name-matched). FROZEN CONTRACT (08-27, extended 09-04 for the
+    Triple 3rd core): both _gradnorm_diag_ctx (measurement) and
     _percore_clip_ctx (mechanism) call this SAME helper so the groups
     a measurement was taken over are byte-identical to the groups a
-    clip acts on — do not fork this logic per-caller."""
+    clip acts on — do not fork this logic per-caller. A Dual-only
+    policy never has a 'core_t'-matching name, so this extension is a
+    no-op (every param still classifies 'a'/'b'/'shared' exactly as
+    before) for every existing Dual checkpoint/recipe."""
     def _group(name: str) -> str:
+        if (name == "log_std_t" or "core_t" in name
+                or name.startswith(("mlp_extractor_t",
+                                     "action_net_t",
+                                     "value_net_t"))):
+            return "t"
         if (name == "log_std_b" or "core_b" in name
                 or name.startswith(("mlp_extractor_b",
                                      "action_net_b",
@@ -752,7 +762,10 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 return _noop()
 
             names, groups = _dual_core_param_groups(policy)
-            samples: list[tuple[float, float, float]] = []
+            group_set = sorted(set(groups))  # e.g. ["a","b","shared"] or
+            # ["a","b","shared","t"] on a Triple policy — generic over
+            # however many groups this particular policy actually has.
+            samples: list[dict] = []
             self_ = self
 
             @contextlib.contextmanager
@@ -763,13 +776,12 @@ def make_bc_anchor_ppo_class(base_cls=None):
 
                 def _clip(parameters, max_norm, *a, **kw):
                     params = list(parameters)
-                    sq = {"a": 0.0, "b": 0.0, "shared": 0.0}
+                    sq = {g: 0.0 for g in group_set}
                     for n, g, p in zip(names, groups, params):
                         if p.grad is None:
                             continue
                         sq[g] += float(p.grad.detach().pow(2).sum())
-                    samples.append(
-                        (sq["a"] ** 0.5, sq["b"] ** 0.5, sq["shared"] ** 0.5))
+                    samples.append({g: v ** 0.5 for g, v in sq.items()})
                     return orig_clip(params, max_norm, *a, **kw)
 
                 torch.nn.utils.clip_grad_norm_ = _clip
@@ -778,15 +790,13 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 finally:
                     torch.nn.utils.clip_grad_norm_ = orig_clip
                     if samples:
-                        arr = np.asarray(samples)
-                        self_.logger.record(
-                            "train/gradnorm_a_mean", float(arr[:, 0].mean()))
-                        self_.logger.record(
-                            "train/gradnorm_b_mean", float(arr[:, 1].mean()))
-                        if arr[:, 2].max() > 0.0:
+                        for g in group_set:
+                            vals = [s[g] for s in samples]
+                            if g == "shared" and max(vals) <= 0.0:
+                                continue
                             self_.logger.record(
-                                "train/gradnorm_shared_mean",
-                                float(arr[:, 2].mean()))
+                                f"train/gradnorm_{g}_mean",
+                                float(np.mean(vals)))
 
             return _patched()
 
@@ -832,6 +842,8 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 return _noop()
 
             names, groups = _dual_core_param_groups(policy)
+            group_set = sorted(set(groups))  # generic over 3-way (Dual)
+            # or 4-way (Triple: a/t/b/shared) group sets.
 
             @contextlib.contextmanager
             def _patched():
@@ -841,8 +853,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
 
                 def _clip(parameters, max_norm, *a, **kw):
                     params = list(parameters)
-                    buckets: dict[str, list] = {
-                        "a": [], "b": [], "shared": []}
+                    buckets: dict[str, list] = {g: [] for g in group_set}
                     for n, g, p in zip(names, groups, params):
                         buckets[g].append(p)
                     norms = [orig_clip(plist, max_norm, *a, **kw)

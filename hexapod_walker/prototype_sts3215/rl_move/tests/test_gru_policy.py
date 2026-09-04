@@ -980,6 +980,386 @@ def test_gru_learns_memory_task():
 
 
 # ---------------------------------------------------------------------------
+# 5c. Triple-core (walk / turn / stance) GRU — standwalk item-2
+#     escalation (09-04): core_a (Dual's locomotion core) split into
+#     core_a (walk/quad) + core_t (pure turn), core_b untouched.
+# ---------------------------------------------------------------------------
+
+from rl_move.sim.gru_policy import (  # noqa: E402
+    TripleGruActorCriticPolicy,
+    _TURN_SLOT,
+    dual_to_triple_transplant,
+)
+
+
+def _triple_model(hidden=8, env_ctor=_TinyDualEnv, **kw):
+    from sb3_contrib import RecurrentPPO
+    return RecurrentPPO(
+        TripleGruActorCriticPolicy, env_ctor(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=hidden, net_arch=[16]), **kw)
+
+
+def test_triple_slots_match_walk_task():
+    """Frozen contract with walk_task — 'turn' is MODE_ONEHOT_ORDER
+    index 4, the same slot obs.mode_onehot_turn_cmd lights."""
+    from rl_move.sim.walk_task import MODE_ONEHOT_ORDER
+    assert MODE_ONEHOT_ORDER[_TURN_SLOT] == "turn"
+    assert MODE_ONEHOT_ORDER == (
+        "hold", "rise", "lower", "walk", "turn", "quad")
+
+
+def test_triple_routing_selects_core():
+    """Poison each core's action head with a distinct constant: the
+    3-way gate must pick core A's constant on walk/quad, core T's on
+    turn, and core B's on hold/rise/lower — per sample in one batch."""
+    model = _triple_model()
+    pol = model.policy
+    pol.set_training_mode(False)
+    with th.no_grad():
+        pol.action_net.weight.zero_()
+        pol.action_net.bias.fill_(-0.3)
+        pol.action_net_t.weight.zero_()
+        pol.action_net_t.bias.fill_(0.9)
+        pol.action_net_b.weight.zero_()
+        pol.action_net_b.bias.fill_(0.7)
+    obs = th.as_tensor(np.stack([
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(3)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(4)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(0)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(1)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(2)]),
+        np.concatenate([np.ones(3, np.float32) * 0.1, _onehot_tail(5)]),
+    ]))
+    h = th.zeros(3, 6, 8)
+    starts = th.ones(6)
+    with th.no_grad():
+        dist, _ = pol.get_distribution(obs, (h, th.zeros_like(h)), starts)
+        mean = dist.distribution.mean
+    exp = th.tensor([[-0.3, -0.3], [0.9, 0.9], [0.7, 0.7], [0.7, 0.7],
+                     [0.7, 0.7], [-0.3, -0.3]])
+    assert th.allclose(mean, exp, atol=1e-6), (
+        f"triple mode routing broken: {mean} vs {exp} (rows: walk->A, "
+        f"turn->T, hold/rise/lower->B, quad->A)")
+
+
+def _triple_param_groups(pol):
+    core_a = (list(pol.lstm_actor.core_a.parameters())
+              + list(pol.lstm_critic.core_a.parameters())
+              + list(pol.mlp_extractor.parameters())
+              + list(pol.action_net.parameters())
+              + list(pol.value_net.parameters()))
+    core_t = (list(pol.lstm_actor.core_t.parameters())
+              + list(pol.lstm_critic.core_t.parameters())
+              + list(pol.mlp_extractor_t.parameters())
+              + list(pol.action_net_t.parameters())
+              + list(pol.value_net_t.parameters())
+              + [pol.log_std_t])
+    core_b = (list(pol.lstm_actor.core_b.parameters())
+              + list(pol.lstm_critic.core_b.parameters())
+              + list(pol.mlp_extractor_b.parameters())
+              + list(pol.action_net_b.parameters())
+              + list(pol.value_net_b.parameters()))
+    return {"a": core_a, "t": core_t, "b": core_b}
+
+
+@pytest.mark.parametrize("slot", [3, 4, 0])
+def test_triple_gradient_isolation(slot):
+    """THE property the architecture exists for: a batch gated
+    entirely to one family (walk=3, turn=4, hold=0) must leave the
+    OTHER TWO cores (GRU cells, heads, AND log_std where separate)
+    with exactly zero gradient."""
+    from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
+    model = _triple_model()
+    pol = model.policy
+    obs = th.as_tensor(np.stack([np.concatenate([
+        np.random.default_rng(i).uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail(slot)]) for i in range(8)]))
+    actions = th.zeros(8, 2)
+    h = th.zeros(3, 8, 8)
+    states = RNNStates((h, th.zeros_like(h)), (h.clone(), th.zeros_like(h)))
+    starts = th.ones(8)
+
+    groups = _triple_param_groups(pol)
+    for plist in groups.values():
+        for p in plist:
+            p.grad = None
+    values, log_prob, entropy = pol.evaluate_actions(
+        obs, actions, states, starts)
+    (values.sum() + log_prob.sum()).backward()
+
+    hot_name = {3: "a", 4: "t", 0: "b"}[slot]
+    for name, plist in groups.items():
+        norm = sum(float(p.grad.abs().sum())
+                   for p in plist if p.grad is not None)
+        if name == hot_name:
+            assert norm > 0.0, f"active core {name!r} received no gradient"
+        else:
+            assert norm == 0.0, (
+                f"gradient leaked into gated-out core {name!r} "
+                f"(slot={slot}, norm={norm})")
+
+
+def test_triple_save_load_stateful_roundtrip(tmp_path):
+    from sb3_contrib import RecurrentPPO
+
+    model = _triple_model()
+    model.learn(64)
+    zip_path = tmp_path / "triple.zip"
+    model.save(zip_path)
+    assert is_recurrent_checkpoint(zip_path)
+    loaded = load_checkpoint_auto(zip_path)
+    assert isinstance(loaded, RecurrentPPO)
+    assert isinstance(loaded.policy, TripleGruActorCriticPolicy)
+
+    rng = np.random.default_rng(7)
+    obs_seq = []
+    for i in range(10):
+        slot = (3, 4, 0)[i % 3]
+        obs_seq.append(np.concatenate([
+            rng.uniform(-1, 1, 3).astype(np.float32), _onehot_tail(slot)]))
+    for m in (model, loaded):
+        m.policy.set_training_mode(False)
+
+    def rollout(m):
+        acts, state = [], None
+        ep_start = np.ones((1,), dtype=bool)
+        for o in obs_seq:
+            a, state = m.predict(o, state=state, episode_start=ep_start,
+                                 deterministic=True)
+            ep_start = np.zeros((1,), dtype=bool)
+            acts.append(a)
+        assert state[0].shape == (3, 1, 8), \
+            f"triple state facade broken: {state[0].shape}"
+        return np.stack(acts)
+
+    np.testing.assert_array_equal(rollout(model), rollout(loaded))
+
+
+def test_triple_bptt_forward_matches_entry_points():
+    """distill_gru's whole-episode path must agree with the production
+    get_distribution path from zero states (same math, two routes)."""
+    model = _triple_model()
+    pol = model.policy
+    pol.set_training_mode(False)
+    t_len, b = 5, 3
+    rng = np.random.default_rng(3)
+    obs = np.zeros((t_len, b, 3 + N_MODE_OBS), dtype=np.float32)
+    slots = (3, 4, 0)
+    for k in range(b):
+        for t in range(t_len):
+            obs[t, k] = np.concatenate([
+                rng.uniform(-1, 1, 3).astype(np.float32),
+                _onehot_tail(slots[k])])
+    feats = th.as_tensor(obs)
+    with th.no_grad():
+        mu_bptt, _ = pol.bptt_forward(feats)
+        flat = feats.transpose(0, 1).reshape(t_len * b, -1)
+        starts = th.zeros(t_len * b)
+        h = th.zeros(3, b, 8)
+        dist, _ = pol.get_distribution(flat, (h, th.zeros_like(h)), starts)
+        mu_ref = dist.distribution.mean.reshape(b, t_len, -1).transpose(0, 1)
+    assert th.allclose(mu_bptt, mu_ref, atol=1e-5), \
+        "bptt_forward diverges from the production sequence path"
+
+
+def test_triple_bc_anchor_mean_and_detach():
+    """Recurrent BC anchor on the TRIPLE policy: the aux mean must
+    match the stateful predict path at the stored hidden state, and
+    detach_trunk must train only the per-core heads (all three)."""
+    from stable_baselines3.common.vec_env import DummyVecEnv
+
+    from sb3_contrib import RecurrentPPO
+
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+
+    class _TripleAnchorEnv(_TinyDualEnv):
+        def __init__(self):
+            super().__init__()
+            self.action_space = spaces.Box(-1, 1, (18,), dtype=np.float32)
+
+        def _obs(self):
+            core = self.np_random.uniform(-1, 1, 3).astype(np.float32)
+            slot = (3, 4, 0)[self._ep % 3]
+            return np.concatenate([core, _onehot_tail(slot)])
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_TripleAnchorEnv for _ in range(3)])
+    model = cls(
+        TripleGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    pol = model.policy
+    pol.set_training_mode(False)
+    rng = np.random.default_rng(0)
+    slots = (3, 4, 0)
+    obs_np = np.stack([np.concatenate([
+        rng.uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail(slots[i % 3])]) for i in range(6)])
+    h_np = rng.uniform(-1, 1, (6, 3 * 8)).astype(np.float32)
+
+    with th.no_grad():
+        mean = model._bc_policy_mean(
+            th.as_tensor(obs_np), th.as_tensor(h_np))
+    # Cross-check row 0 against the production stateful predict.
+    h1 = h_np[:1].reshape(1, 3, 8).transpose(1, 0, 2)
+    a, _ = pol.predict(
+        obs_np[:1], state=(h1, np.zeros_like(h1)),
+        episode_start=np.zeros(1, dtype=bool), deterministic=True)
+    np.testing.assert_allclose(
+        a[0], np.clip(mean.numpy()[0], -1, 1), atol=1e-5)
+
+    # detach_trunk: gradient reaches ALL THREE heads (mixed-mode batch
+    # covers walk/turn/hold), never the feature extractor or any GRU
+    # cell.
+    model.bc_detach_trunk = True
+    trunk = (list(pol.features_extractor.parameters())
+             + list(pol.lstm_actor.parameters()))
+    for p in trunk:
+        p.grad = None
+    heads = {
+        "A": (list(pol.mlp_extractor.parameters())
+              + list(pol.action_net.parameters())),
+        "T": (list(pol.mlp_extractor_t.parameters())
+              + list(pol.action_net_t.parameters())),
+        "B": (list(pol.mlp_extractor_b.parameters())
+              + list(pol.action_net_b.parameters())),
+    }
+    for plist in heads.values():
+        for p in plist:
+            p.grad = None
+    tgt = th.as_tensor(rng.uniform(-1, 1, (6, 18)).astype(np.float32))
+    mean = model._bc_policy_mean(th.as_tensor(obs_np), th.as_tensor(h_np))
+    th.nn.functional.mse_loss(mean, tgt).backward()
+    for p in trunk:
+        assert p.grad is None or float(p.grad.abs().sum()) == 0.0, \
+            "detach_trunk leaked gradient into a recurrent core"
+    for name, plist in heads.items():
+        norm = sum(float(p.grad.abs().sum())
+                   for p in plist if p.grad is not None)
+        assert norm > 0.0, f"anchor gradient never reached head {name}"
+
+
+def test_triple_log_std_core_targeting():
+    """--log-std-anneal-core hook: 'turn' targets log_std_t alone,
+    'walk' targets the shared log_std, 'stance' is untargetable (core_b
+    shares log_std with core_a on this class — no separate parameter)."""
+    pol = _triple_model().policy
+    assert pol._log_stds() == (pol.log_std, pol.log_std_t)
+    assert pol._log_std_core("turn") == (pol.log_std_t,)
+    assert pol._log_std_core("walk") == (pol.log_std,)
+    assert pol._log_std_core("stance") is None
+
+
+def _dual_to_triple_fixture(hidden=8):
+    """A trained-enough Dual model (so core_a/core_b have diverged from
+    each other and from init) plus a fresh, untrained Triple model of
+    matching geometry — the transplant's real precondition."""
+    from sb3_contrib import RecurrentPPO
+
+    old = _dual_model(hidden=hidden)
+    old.learn(64)
+    new = RecurrentPPO(
+        TripleGruActorCriticPolicy, _TinyDualEnv(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=1, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=hidden, net_arch=[16]))
+    return old, new
+
+
+def test_dual_to_triple_transplant_wrong_types_refused():
+    from sb3_contrib import RecurrentPPO
+
+    old = _dual_model()
+    not_triple = RecurrentPPO(
+        GruActorCriticPolicy, _TinyDualEnv(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    with pytest.raises(SystemExit, match="TripleGruActorCriticPolicy"):
+        dual_to_triple_transplant(old, not_triple)
+
+    triple = RecurrentPPO(
+        TripleGruActorCriticPolicy, _TinyDualEnv(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    not_dual = RecurrentPPO(
+        GruActorCriticPolicy, _TinyDualEnv(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    with pytest.raises(SystemExit, match="DualGruActorCriticPolicy"):
+        dual_to_triple_transplant(not_dual, triple)
+
+
+def test_dual_to_triple_transplant_core_b_verbatim_core_a_to_both():
+    old, new = _dual_to_triple_fixture()
+    copied = dual_to_triple_transplant(old, new)
+    assert "log_std_t" in copied
+    assert "lstm_actor.core_t.weight_ih_l0" in copied
+    assert "lstm_actor.core_b.weight_ih_l0" in copied
+
+    op, npd = old.policy, new.policy
+    # core_b: byte-identical (verbatim transplant, same names both
+    # sides).
+    for pb_old, pb_new in zip(op.lstm_actor.core_b.parameters(),
+                              npd.lstm_actor.core_b.parameters()):
+        assert th.equal(pb_old, pb_new)
+    for pb_old, pb_new in zip(op.mlp_extractor_b.parameters(),
+                              npd.mlp_extractor_b.parameters()):
+        assert th.equal(pb_old, pb_new)
+    # core_a: byte-identical too (verbatim, same name both sides).
+    for pa_old, pa_new in zip(op.lstm_actor.core_a.parameters(),
+                              npd.lstm_actor.core_a.parameters()):
+        assert th.equal(pa_old, pa_new)
+    # core_t: a COPY of core_a (same values, different tensor storage).
+    for pa_old, pt_new in zip(op.lstm_actor.core_a.parameters(),
+                              npd.lstm_actor.core_t.parameters()):
+        assert th.equal(pa_old, pt_new)
+    for pa_old, pt_new in zip(op.mlp_extractor.parameters(),
+                              npd.mlp_extractor_t.parameters()):
+        assert th.equal(pa_old, pt_new)
+    for pa_old, pt_new in zip(op.action_net.parameters(),
+                              npd.action_net_t.parameters()):
+        assert th.equal(pa_old, pt_new)
+    assert th.equal(op.log_std, npd.log_std_t)
+    assert th.equal(op.log_std, npd.log_std)
+    # Independent storage — mutating one side must not move the other.
+    with th.no_grad():
+        npd.log_std_t.data.add_(1.0)
+    assert not th.equal(op.log_std, npd.log_std_t)
+
+
+def test_dual_to_triple_transplant_forward_matches_before_divergence():
+    """Immediately after transplant (before any further training),
+    core_t reproduces core_a's forward pass EXACTLY on the identical
+    input (feature vector, not routed through the mode gate — the gate
+    picks WHICH core's output is used, this checks the two outputs
+    would be identical if either were picked): same GRU output, same
+    actor-mean through the (copied) heads. Confirms turn behavior
+    starts as an exact clone of the Dual parent's walk behavior, only
+    diverging once turn-tick gradients start training core_t alone."""
+    old, new = _dual_to_triple_fixture()
+    dual_to_triple_transplant(old, new)
+    pol = new.policy
+    pol.set_training_mode(False)
+    feats = th.as_tensor(
+        np.full((1, 1, 3 + N_MODE_OBS), 0.2, np.float32))
+    h0 = th.zeros(1, 1, 8)
+    with th.no_grad():
+        out_a, _ = GruActorCriticPolicy._process_sequence(
+            feats, (h0, h0), th.ones(1), pol.lstm_actor.core_a)
+        out_t, _ = GruActorCriticPolicy._process_sequence(
+            feats, (h0, h0), th.ones(1), pol.lstm_actor.core_t)
+        assert th.allclose(out_a, out_t, atol=1e-6), (
+            "core_t's GRU output must match core_a's on identical "
+            "input immediately post-transplant")
+        mu_a = pol.action_net(pol.mlp_extractor.forward_actor(out_a))
+        mu_t = pol.action_net_t(pol.mlp_extractor_t.forward_actor(out_t))
+        assert th.allclose(mu_a, mu_t, atol=1e-6), (
+            "core_t's action mean must match core_a's on identical "
+            "input immediately post-transplant")
+
+
+# ---------------------------------------------------------------------------
 # 6. Mode-experts (four-expert) GRU — operator directive
 #    fb_20260815T013349_488ffd (08-15): complete per-expert isolation
 #    (actor GRU, critic GRU, heads, per-expert log_std) + optional

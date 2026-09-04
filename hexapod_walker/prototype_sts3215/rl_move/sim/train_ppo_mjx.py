@@ -1000,6 +1000,48 @@ def _validate_gru_dual_log_std_split(log_std_split: bool,
         raise SystemExit("--gru-dual-log-std-split requires --gru-dual")
 
 
+def _validate_gru_triple(gru_triple: bool, gru_dual: bool,
+                         gru_experts: bool, init_from,
+                         init_from_actor_only: bool,
+                         init_from_policy_backbone: bool,
+                         mode_onehot: float,
+                         mode_onehot_turn_cmd: float) -> None:
+    """--gru-triple (gru_policy.TripleGruActorCriticPolicy) is a
+    WARM-START-ONLY architecture (standwalk item-2 escalation, 09-04):
+    it exists to specialize an already-decent walk core onto pure-turn
+    ticks, not to learn locomotion from scratch, so it requires a
+    Dual-policy --init-from (checked here structurally; the actual
+    isinstance check happens once the checkpoint is loaded, in
+    dual_to_triple_transplant). Pulled out of main() as a pure function
+    so it is unit-testable without mujoco/GPU, mirroring
+    _validate_gru_dual_log_std_split/_validate_use_sde_scratch_only.
+    No-op (returns None) when --gru-triple is off (default).
+    """
+    if not gru_triple:
+        return
+    if gru_dual or gru_experts:
+        raise SystemExit("--gru-triple is exclusive with --gru-dual/"
+                         "--gru-experts")
+    if init_from is None:
+        raise SystemExit("--gru-triple requires --init-from (a "
+                         "DualGruActorCriticPolicy checkpoint — Triple "
+                         "is a warm-start-only architecture, see "
+                         "gru_policy.dual_to_triple_transplant)")
+    if init_from_actor_only or init_from_policy_backbone:
+        raise SystemExit("--gru-triple uses its own dedicated "
+                         "Dual->Triple transplant; drop --init-from-"
+                         "actor-only/--init-from-policy-backbone")
+    if float(mode_onehot) <= 0.0:
+        raise SystemExit("--gru-triple requires --cfg-set "
+                         "obs.mode_onehot=1 (the policy routes by the "
+                         "obs-tail skill one-hot)")
+    if float(mode_onehot_turn_cmd) <= 0.0:
+        raise SystemExit("--gru-triple requires --cfg-set "
+                         "obs.mode_onehot_turn_cmd=1 (otherwise the "
+                         "\"turn\" slot never lights and core_t trains "
+                         "on nothing)")
+
+
 def _parse_log_std_anneal_specs(log_std_final, log_std_anneal_core,
                                 log_std_anneal_frac):
     """Parses --log-std-final/--log-std-anneal-core/--log-std-anneal-
@@ -1052,11 +1094,13 @@ def _parse_log_std_anneal_specs(log_std_final, log_std_anneal_core,
             f"frac list-length mismatch: {n} final(s), {len(cores)} "
             f"core(s), {len(fracs)} frac(s) — each must be a single "
             "value (broadcast) or match the others' count exactly")
-    bad_cores = [c for c in cores if c not in ("all", "walk", "stance")]
+    bad_cores = [c for c in cores
+                if c not in ("all", "walk", "stance", "turn")]
     if bad_cores:
         raise SystemExit(
             f"--log-std-anneal-core: unknown core(s) {bad_cores!r} — "
-            "must be 'all', 'walk', or 'stance'")
+            "must be 'all', 'walk', 'stance', or 'turn' (the last "
+            "only targetable on TripleGruActorCriticPolicy)")
     if n > 1 and "all" in cores:
         raise SystemExit(
             "--log-std-anneal-core: 'all' cannot be combined with "
@@ -1732,10 +1776,12 @@ def main(argv: list[str] | None = None) -> int:
                          "--gru-experts). 'walk'/'stance' target only "
                          "one gated core's log_std and require a policy "
                          "that actually separates them (currently: "
-                         "--gru-dual --gru-dual-log-std-split) via its "
-                         "_log_std_core(which) method; on any other "
-                         "policy this silently falls back to 'all' "
-                         "(there is no separate parameter to target). "
+                         "--gru-dual --gru-dual-log-std-split); 'turn' "
+                         "requires --gru-triple (log_std_t is always a "
+                         "separate parameter there). Via each policy's "
+                         "_log_std_core(which) method; a core the "
+                         "policy cannot isolate REFUSES to launch "
+                         "rather than silently annealing 'all'. "
                          "COMMA-LIST: 'walk,stance' runs two "
                          "independent anneal callbacks, one per named "
                          "core, paired positionally with --log-std-"
@@ -1790,6 +1836,26 @@ def main(argv: list[str] | None = None) -> int:
                          "stance's stochastic-hold failure. Combine with "
                          "--log-std-anneal-core stance to anneal only "
                          "core B")
+    ap.add_argument("--gru-triple", action="store_true",
+                    help="mode-gated TRIPLE-core GRU (gru_policy."
+                         "TripleGruActorCriticPolicy): DualGruActorCritic"
+                         "Policy's locomotion core A split into A (walk/"
+                         "quad) + a NEW core T (pure turn, routed by the "
+                         "obs.mode_onehot_turn_cmd \"turn\" bit); core B "
+                         "(stance) untouched. standwalk item-2 escalation "
+                         "(09-04): the whole open-loop bc_anchor_walk_"
+                         "combined_dose / TripodGait.combined_yaw_arm_"
+                         "scale lever family closed 8/8 FAIL, the "
+                         "signature of one shared core computing both "
+                         "pure-turn and combined-tick wz. Requires "
+                         "--cfg-set obs.mode_onehot=1,"
+                         "obs.mode_onehot_turn_cmd=1 and --init-from a "
+                         "DualGruActorCriticPolicy checkpoint (warm-start-"
+                         "only architecture: core_b transplants verbatim, "
+                         "core_a transplants to BOTH core_a and core_t — "
+                         "see gru_policy.dual_to_triple_transplant). "
+                         "Implies --gru; exclusive with --gru-dual/"
+                         "--gru-experts")
     ap.add_argument("--gru-experts", action="store_true",
                     help="mode-gated FOUR-expert GRU (gru_policy."
                          "ModeExpertsGruActorCriticPolicy): fully "
@@ -2471,7 +2537,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.pred_gate_action_kl < 0.0:
             raise SystemExit("--pred-gate-action-kl must be >= 0")
     if args.critic_encoder is not None:
-        if args.gru or args.gru_dual or args.gru_experts \
+        if args.gru or args.gru_dual or args.gru_experts or args.gru_triple \
                 or args.transformer:
             raise SystemExit("--critic-encoder uses a raw MLP policy plus "
                              "the pretrained dynamics transformer; drop "
@@ -2617,12 +2683,20 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--gru-dual and --gru-experts are exclusive")
     _validate_gru_dual_log_std_split(args.gru_dual_log_std_split,
                                      args.gru_dual)
-    if args.gru_dual or args.gru_experts:
+    _validate_gru_triple(
+        args.gru_triple, args.gru_dual, args.gru_experts, args.init_from,
+        args.init_from_actor_only, args.init_from_policy_backbone,
+        float(_parse_cfg_set(args.cfg_set).get("obs.mode_onehot", 0.0)),
+        float(_parse_cfg_set(args.cfg_set).get(
+            "obs.mode_onehot_turn_cmd", 0.0)))
+    if args.gru_dual or args.gru_experts or args.gru_triple:
         args.gru = True
         if float(_parse_cfg_set(args.cfg_set).get(
                 "obs.mode_onehot", 0.0)) <= 0.0:
+            _which = ("dual" if args.gru_dual
+                      else "experts" if args.gru_experts else "triple")
             raise SystemExit(
-                f"--gru-{'dual' if args.gru_dual else 'experts'} requires "
+                f"--gru-{_which} requires "
                 "--cfg-set obs.mode_onehot=1 (the policy routes by the "
                 "obs-tail skill one-hot)")
     if args.hist_stride_transplant:
@@ -2664,7 +2738,8 @@ def main(argv: list[str] | None = None) -> int:
         from sb3_contrib import RecurrentPPO
         from .gru_policy import (DualGruActorCriticPolicy,
                                  GruActorCriticPolicy,
-                                 ModeExpertsGruActorCriticPolicy)
+                                 ModeExpertsGruActorCriticPolicy,
+                                 TripleGruActorCriticPolicy)
         algo_cls = RecurrentPPO
         if bc_coef > 0.0:
             # Recurrent BC anchor: pairs carry the rollout hidden state
@@ -2684,6 +2759,7 @@ def main(argv: list[str] | None = None) -> int:
                   f"(pg_coef={yaw_credit_coef}, "
                   f"vf_coef={yaw_credit_vf_coef})")
         policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
+                      else TripleGruActorCriticPolicy if args.gru_triple
                       else DualGruActorCriticPolicy if args.gru_dual
                       else GruActorCriticPolicy)
         extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
@@ -2694,6 +2770,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.gru_dual_log_std_split:
             extra_pk.update(log_std_split=True)
         cores_note = (" x4 isolated mode experts" if args.gru_experts
+                      else " x3 mode-gated cores (walk/turn/stance)"
+                      if args.gru_triple
                       else (" x2 mode-gated cores"
                             + (" (SPLIT log_std)"
                                if args.gru_dual_log_std_split else ""))
@@ -3287,6 +3365,43 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[mjx-train] {scope} transplant from {args.init_from}: "
               f"{len(copied)} tensors copied ({copied}); predictive "
               "adapters/gates + transformer snapshot untouched")
+    elif args.gru_triple:
+        # Dual->Triple warm start (standwalk item-2 escalation, 09-04):
+        # build a FRESH TripleGruActorCriticPolicy (never a plain
+        # algo_cls.load — that would reconstruct the OLD Dual
+        # architecture from the checkpoint's own saved policy_kwargs)
+        # then copy core_b verbatim + core_a into both core_a and
+        # core_t. _validate_gru_triple already required --init-from and
+        # refused init_from_actor_only/policy_backbone, so this branch
+        # owns --init-from exclusively whenever --gru-triple is set.
+        from hexapod_core.joint_frame import require_checkpoint_joint_contract
+        require_checkpoint_joint_contract(args.init_from)
+        from sb3_contrib import RecurrentPPO as _RPPO
+        from .gru_policy import dual_to_triple_transplant
+        old = _RPPO.load(args.init_from, device="cpu")
+        model = algo_cls(
+            policy_cls, venv,
+            n_steps=args.n_steps, batch_size=args.batch_size,
+            n_epochs=args.n_epochs, learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            gae_lambda=(0.95 if args.gae_lambda is None
+                        else args.gae_lambda),
+            use_sde=args.use_sde,
+            sde_sample_freq=args.sde_sample_freq,
+            ent_coef=args.ent_coef,
+            clip_range=0.2,
+            target_kl=(args.target_kl if args.target_kl > 0 else None),
+            policy_kwargs=dict(net_arch=net_arch,
+                               log_std_init=args.log_std_init,
+                               **extra_pk),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir)
+        copied = dual_to_triple_transplant(old, model)
+        del old
+        print(f"[mjx-train] Dual->Triple transplant from {args.init_from}"
+              f": {len(copied)} tensors copied (core_b verbatim, "
+              "core_a->core_a+core_t, log_std->log_std+log_std_t); "
+              "optimizer state fresh")
     elif args.init_from is not None:
         from hexapod_core.joint_frame import require_checkpoint_joint_contract
         require_checkpoint_joint_contract(args.init_from)

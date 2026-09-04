@@ -422,6 +422,393 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
         return self._actor_mean(pa, pb, gate)
 
 
+# --- Triple-core (walk / turn / stance) GRU -------------------------
+#
+# standwalk item-2 escalation (09-04): the whole open-loop scalar-
+# weight/geometry lever family for "walk while turning loses turn
+# authority" is closed 8/8 FAIL (bc_anchor_walk_combined_dose axis +
+# TripodGait.combined_yaw_arm_scale axis) — every dose/scale strong
+# enough to win combined-tick wz blows the pure-turn regression cap,
+# the signature of ONE shared representation (DualGruActorCriticPolicy's
+# core_a) computing both skills and fighting itself. This gives
+# pure-turn ticks (obs.mode_onehot_turn_cmd=1's "turn" bit, walk_task.py)
+# their OWN core — core_t — so its gradient can never come from a
+# combined-tick sample: complete isolation by construction, the same
+# principle _DualGRU used to separate walk from stance. core_b (stance)
+# is UNTOUCHED from the Dual contract (same attribute names/shapes) —
+# this class only ever ADDS a core between the existing two.
+#
+# REQUIREMENT: same env contract as Dual (obs.mode_onehot=1) PLUS
+# obs.mode_onehot_turn_cmd=1 so the "turn" slot (MODE_ONEHOT_ORDER
+# index 4) actually lights on pure-turn ticks — without it "turn"
+# never fires (no goal-trajectory mode string sets it) and core_t
+# trains on nothing.
+
+_TURN_SLOT = 4  # MODE_ONEHOT_ORDER.index("turn"); frozen, see walk_task.py
+
+
+class _TripleGRU(nn.Module):
+    """Three parallel single-layer GRU cores behind one state facade.
+
+    ``num_layers=3`` is a facade (like _DualGRU's 2 / _QuadGRU's 4):
+    RecurrentPPO sizes its opaque state buffers as (3, n_envs, H); row
+    0 = core_a (walk/quad), row 1 = core_t (pure turn), row 2 = core_b
+    (stance) — this row order is the transplant/bc_anchor contract,
+    keep it stable.
+    """
+
+    def __init__(self, input_size: int, hidden_size: int, **gru_kwargs):
+        super().__init__()
+        self.core_a = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_t = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_b = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = 3  # facade: 3 state rows, not stacked layers
+
+
+class TripleGruActorCriticPolicy(GruActorCriticPolicy):
+    """Mode-gated triple-core GRU: locomotion core + turn core + stance
+    core.
+
+    core_a and core_b reuse the exact DualGruActorCriticPolicy contract
+    (attribute names ``mlp_extractor``/``action_net``/``value_net``/
+    ``log_std`` for A, the ``_b``-suffixed set for B) — core_b needs no
+    new logic anywhere it is touched today. core_t is new: its own
+    ``mlp_extractor_t``/``action_net_t``/``value_net_t`` AND its own
+    ``log_std_t`` (unconditional, not behind a flag — a shared std
+    would let turn-tick exploration gradient bleed into core_a's
+    parameter even though the GRU/heads stay fully separate, defeating
+    part of the point). ``log_std`` (core A's) is shared with core_b
+    by default, exactly like Dual's ``log_std_split=False`` default —
+    this class does not touch that knob.
+
+    Same constructor surface as GruActorCriticPolicy. Requires the
+    default recurrent layout (critic GRU enabled, no shared_lstm, no
+    SDE) and n_lstm_layers=1 per core, identical restrictions to
+    DualGruActorCriticPolicy.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.lstm_critic is None or self.shared_lstm:
+            raise ValueError(
+                "TripleGruActorCriticPolicy requires enable_critic_lstm="
+                "True and shared_lstm=False (the defaults)")
+        if self.use_sde:
+            raise ValueError("TripleGruActorCriticPolicy does not "
+                             "support use_sde")
+        if self.lstm_actor.num_layers != 1:
+            raise ValueError("TripleGruActorCriticPolicy requires "
+                             "n_lstm_layers=1 (one layer per core)")
+        import copy
+
+        self.lstm_actor = _TripleGRU(
+            self.lstm_actor.input_size, self.lstm_actor.hidden_size,
+            **self.lstm_kwargs)
+        self.lstm_critic = _TripleGRU(
+            self.lstm_critic.input_size, self.lstm_critic.hidden_size,
+            **self.lstm_kwargs)
+        self.lstm_hidden_state_shape = (
+            3, 1, self.lstm_actor.hidden_size)
+        # Core B's own heads — identical construction to Dual.
+        self.mlp_extractor_b = copy.deepcopy(self.mlp_extractor)
+        self.action_net_b = copy.deepcopy(self.action_net)
+        self.value_net_b = copy.deepcopy(self.value_net)
+        # Core T's own heads + own log_std (see class docstring).
+        self.mlp_extractor_t = copy.deepcopy(self.mlp_extractor)
+        self.action_net_t = copy.deepcopy(self.action_net)
+        self.value_net_t = copy.deepcopy(self.value_net)
+        self.log_std_t = nn.Parameter(
+            self.log_std.data.clone(), requires_grad=True)
+        lr = self.optimizer.defaults["lr"]
+        self.optimizer = self.optimizer_class(
+            self.parameters(), lr=lr, **self.optimizer_kwargs)
+
+    # -- gating --------------------------------------------------
+
+    @staticmethod
+    def _gate3(obs_or_feats: th.Tensor
+              ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """(..., obs) -> (g_a, g_t, g_b), each (..., 1), summing to 1.0.
+
+        Reads the frozen obs-tail one-hot (walk_task.MODE_ONEHOT_ORDER
+        = hold, rise, lower, walk, turn, quad). g_t lights on the
+        "turn" slot alone; g_b sums the three stance slots; g_a is the
+        exact remainder (walk+quad) via 1-g_t-g_b, never re-summed
+        directly, so the three weights always partition exactly."""
+        tail = obs_or_feats[..., -N_MODE_OBS:]
+        g_b = tail[..., :_N_LOCO_SLOTS].sum(
+            dim=-1, keepdim=True).clamp(0.0, 1.0)
+        g_t = tail[..., _TURN_SLOT:_TURN_SLOT + 1].clamp(0.0, 1.0)
+        g_a = (1.0 - g_b - g_t).clamp(0.0, 1.0)
+        return g_a, g_t, g_b
+
+    def _triple_sequence(self, features, lstm_states, episode_starts,
+                         triple):
+        """Run ALL THREE cores over the sequence (memories stay warm
+        across mode switches); return per-core outputs and the
+        repacked (h, c) with h rows [core_a, core_t, core_b]."""
+        base = GruActorCriticPolicy._process_sequence
+        h, c = lstm_states[0], lstm_states[1]
+        out_a, (h_a, _) = base(
+            features, (h[0:1], c[0:1]), episode_starts, triple.core_a)
+        out_t, (h_t, _) = base(
+            features, (h[1:2], c[0:1]), episode_starts, triple.core_t)
+        out_b, (h_b, _) = base(
+            features, (h[2:3], c[0:1]), episode_starts, triple.core_b)
+        return out_a, out_t, out_b, (
+            th.cat([h_a, h_t, h_b], dim=0), c)
+
+    def _actor_mean(self, out_a, out_t, out_b, g_a, g_t, g_b):
+        mu_a = self.action_net(self.mlp_extractor.forward_actor(out_a))
+        mu_t = self.action_net_t(
+            self.mlp_extractor_t.forward_actor(out_t))
+        mu_b = self.action_net_b(
+            self.mlp_extractor_b.forward_actor(out_b))
+        return g_a * mu_a + g_t * mu_t + g_b * mu_b
+
+    def _critic_value(self, out_a, out_t, out_b, g_a, g_t, g_b):
+        v_a = self.value_net(self.mlp_extractor.forward_critic(out_a))
+        v_t = self.value_net_t(
+            self.mlp_extractor_t.forward_critic(out_t))
+        v_b = self.value_net_b(
+            self.mlp_extractor_b.forward_critic(out_b))
+        return g_a * v_a + g_t * v_t + g_b * v_b
+
+    def _dist_from_mean(self, mean_actions, g_a, g_t, g_b):
+        # core_a and core_b share self.log_std (Dual's default,
+        # untouched); core_t always has its own — see class docstring.
+        log_std = (g_a + g_b) * self.log_std + g_t * self.log_std_t
+        return self.action_dist.proba_distribution(mean_actions, log_std)
+
+    def _log_stds(self):
+        """Both learnable log_std parameters — warm_log_std_override's
+        generic reset hook (train_ppo_mjx.py) uses this exactly like
+        Dual's log_std_split=True case."""
+        return (self.log_std, self.log_std_t)
+
+    def _log_std_core(self, which: str):
+        """--log-std-anneal-core targeting hook (train_ppo_mjx.py),
+        same contract as Dual's log_std_split=True case: return the
+        param(s) for ONE named core, or None if this policy cannot
+        isolate it (caller then fails closed rather than silently
+        annealing everything). 'turn' targets ``log_std_t`` (always a
+        real, separate parameter on this class). 'walk' targets the
+        shared ``log_std`` — but that parameter is ALSO core_b's
+        (stance's), since Triple never splits core_a/core_b apart
+        (that split is Dual's log_std_split=True, not this class), so
+        'stance' returns None: there is no parameter that targets
+        stance alone here."""
+        if which == "turn":
+            return (self.log_std_t,)
+        if which == "walk":
+            return (self.log_std,)
+        return None
+
+    # -- RecurrentPPO entry points ---------------------------------
+
+    def forward(self, obs, lstm_states, episode_starts,
+                deterministic: bool = False):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        g_a, g_t, g_b = self._gate3(obs)
+        pa, pt, pb, st_pi = self._triple_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        va, vt, vb, st_vf = self._triple_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        values = self._critic_value(va, vt, vb, g_a, g_t, g_b)
+        distribution = self._dist_from_mean(
+            self._actor_mean(pa, pt, pb, g_a, g_t, g_b), g_a, g_t, g_b)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))
+        from sb3_contrib.common.recurrent.type_aliases import RNNStates
+        return actions, values, log_prob, RNNStates(st_pi, st_vf)
+
+    def get_distribution(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.pi_features_extractor)
+        g_a, g_t, g_b = self._gate3(obs)
+        pa, pt, pb, st = self._triple_sequence(
+            features, lstm_states, episode_starts, self.lstm_actor)
+        return self._dist_from_mean(
+            self._actor_mean(pa, pt, pb, g_a, g_t, g_b),
+            g_a, g_t, g_b), st
+
+    def predict_values(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.vf_features_extractor)
+        g_a, g_t, g_b = self._gate3(obs)
+        va, vt, vb, _ = self._triple_sequence(
+            features, lstm_states, episode_starts, self.lstm_critic)
+        return self._critic_value(va, vt, vb, g_a, g_t, g_b)
+
+    def evaluate_actions(self, obs, actions, lstm_states, episode_starts):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        g_a, g_t, g_b = self._gate3(obs)
+        pa, pt, pb, _ = self._triple_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        va, vt, vb, _ = self._triple_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        distribution = self._dist_from_mean(
+            self._actor_mean(pa, pt, pb, g_a, g_t, g_b), g_a, g_t, g_b)
+        log_prob = distribution.log_prob(actions)
+        values = self._critic_value(va, vt, vb, g_a, g_t, g_b)
+        return values, log_prob, distribution.entropy()
+
+    # -- auxiliary paths (distillation, BC anchor) ------------------
+
+    def bptt_forward(self, feats: th.Tensor):
+        """Whole-episode fused BPTT pass for distill_gru.train_student.
+
+        ``feats`` is (T, B, obs) padded episodes starting at reset
+        (zero initial hidden state is the truth). Returns (mu, value).
+        """
+        g_a, g_t, g_b = self._gate3(feats)
+        out_a, _ = self.lstm_actor.core_a(feats)
+        out_t, _ = self.lstm_actor.core_t(feats)
+        out_b, _ = self.lstm_actor.core_b(feats)
+        mu = self._actor_mean(out_a, out_t, out_b, g_a, g_t, g_b)
+        v_a, _ = self.lstm_critic.core_a(feats)
+        v_t, _ = self.lstm_critic.core_t(feats)
+        v_b, _ = self.lstm_critic.core_b(feats)
+        value = self._critic_value(v_a, v_t, v_b, g_a, g_t, g_b)
+        return mu, value
+
+    def bc_anchor_mean(self, th_obs: th.Tensor, th_h: th.Tensor,
+                       detach_trunk: bool = False):
+        """Policy mean at stored hidden states, for the BC anchor's
+        auxiliary step (bc_anchor._bc_policy_mean delegates here).
+
+        ``th_h`` is (B, 3*H) flat rows as stored by the anchor ring
+        (row-major over the (3, B, H) state: core A, core T, core B —
+        same convention as Dual's (2, B, H) / Experts' (4, B, H)).
+        """
+        hidden = self.lstm_actor.hidden_size
+        h = (th_obs.new_zeros((3, th_obs.shape[0], hidden))
+             if th_h is None
+             else th_h.reshape(th_obs.shape[0], 3, hidden)
+             .transpose(0, 1).contiguous())
+        starts = th.zeros(th_obs.shape[0], device=th_obs.device)
+        g_a, g_t, g_b = self._gate3(th_obs)
+        if detach_trunk:
+            with th.no_grad():
+                feats = self.extract_features(th_obs)
+                if not self.share_features_extractor:
+                    feats = feats[0]
+                pa, pt, pb, _ = self._triple_sequence(
+                    feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+            pa, pt, pb = pa.detach(), pt.detach(), pb.detach()
+        else:
+            feats = self.extract_features(th_obs)
+            if not self.share_features_extractor:
+                feats = feats[0]
+            pa, pt, pb, _ = self._triple_sequence(
+                feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+        return self._actor_mean(pa, pt, pb, g_a, g_t, g_b)
+
+
+def dual_to_triple_transplant(old_model, new_model) -> list[str]:
+    """Warm-start a fresh TripleGruActorCriticPolicy from an already-
+    trained DualGruActorCriticPolicy checkpoint (standwalk item-2
+    escalation, 09-04).
+
+    core_b (stance) transplants VERBATIM — same attribute names/shapes
+    in both policies, Triple never touches core_b's contract. core_a
+    (walk) transplants to BOTH the new core_a AND the new core_t: turn
+    starts as a COPY of the current combined-tuned walk core, not from
+    scratch, so it specializes from already-decent competence instead
+    of relearning locomotion from zero — the same convention as every
+    other architecture-changing transplant in this file (optimizer
+    state is always fresh; only weights carry over). ``log_std_t``
+    likewise starts as a copy of the parent's ``log_std``.
+
+    Requires ``old_model.policy`` to be a DualGruActorCriticPolicy and
+    ``new_model.policy`` a freshly constructed TripleGruActorCriticPolicy
+    with the SAME lstm_hidden_size/net_arch (a shape mismatch raises,
+    never silently truncates/pads — this is a same-width core add, not
+    an obs-widening transplant like pad_obs_transplant).
+    """
+    if not isinstance(old_model.policy, DualGruActorCriticPolicy):
+        raise SystemExit("dual_to_triple_transplant requires a "
+                         "DualGruActorCriticPolicy source checkpoint "
+                         f"(got {type(old_model.policy).__name__})")
+    if not isinstance(new_model.policy, TripleGruActorCriticPolicy):
+        raise SystemExit("dual_to_triple_transplant requires a "
+                         "TripleGruActorCriticPolicy destination model "
+                         f"(got {type(new_model.policy).__name__})")
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    copied: list[str] = []
+
+    def _copy(dst_name: str, src_name: str) -> None:
+        v_new = sd_new[dst_name]
+        v_old = sd_old[src_name]
+        if v_new.shape != v_old.shape:
+            raise SystemExit(
+                "dual_to_triple_transplant: shape mismatch "
+                f"{src_name} {tuple(v_old.shape)} -> {dst_name} "
+                f"{tuple(v_new.shape)} (hidden_size/net_arch must "
+                "match between the Dual parent and the fresh Triple)")
+        with th.no_grad():
+            v_new.copy_(v_old)
+        copied.append(dst_name)
+
+    # Verbatim: every new-policy tensor that ALSO exists in the old
+    # policy under the identical name — core_b.*, mlp_extractor_b.*,
+    # log_std_b (if log_std_split), log_std, shared feature extractor,
+    # core_a.*, mlp_extractor.*, etc. This single pass covers both
+    # core_a and core_b at once (Triple's core_a-named tensors are
+    # byte-identical in shape/name to Dual's).
+    for name in sd_new:
+        if name in sd_old:
+            _copy(name, name)
+
+    # core_t / log_std_t: brand new names with no old-model
+    # counterpart — map each back to its core-A-named source.
+    for name in sd_new:
+        if name in sd_old:
+            continue
+        if name == "log_std_t":
+            src = "log_std"
+        elif ".core_t." in name:
+            src = name.replace(".core_t.", ".core_a.")
+        elif name.startswith("mlp_extractor_t."):
+            src = "mlp_extractor." + name[len("mlp_extractor_t."):]
+        elif name.startswith("action_net_t."):
+            src = "action_net." + name[len("action_net_t."):]
+        elif name.startswith("value_net_t."):
+            src = "value_net." + name[len("value_net_t."):]
+        else:
+            raise SystemExit(
+                "dual_to_triple_transplant: unmapped new-only tensor "
+                f"{name} — add a mapping rule or this is a genuine "
+                "architecture mismatch")
+        if src not in sd_old:
+            raise SystemExit(
+                "dual_to_triple_transplant: mapped source "
+                f"{src} (for {name}) not found in the old checkpoint")
+        _copy(name, src)
+
+    required = {"lstm_actor.core_b.weight_ih_l0",
+               "lstm_actor.core_t.weight_ih_l0", "log_std_t"}
+    if not required.issubset(copied):
+        raise SystemExit(
+            "dual_to_triple_transplant did not copy the expected "
+            "core_b/core_t/log_std_t tensors")
+    return copied
+
+
 # --- Mode-experts (four-expert, fully isolated) GRU -----------------
 #
 # Operator directive fb_20260815T013349_488ffd (08-15, executed via

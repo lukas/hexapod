@@ -120,6 +120,7 @@ class TripodGait:
         stride_scale: float = 1.0,
         stance_radius_scale: float = 1.0,
         combined_yaw_arm_scale: float = 1.0,
+        combined_yaw_amplify_scale: float = 1.0,
     ):
         self.period = period
         self.lift = lift
@@ -166,6 +167,60 @@ class TripodGait:
         # -- bit-exact off, matching every other bc_anchor_*/gait
         # dose knob in this codebase.
         self.combined_yaw_arm_scale = float(combined_yaw_arm_scale)
+        # standwalk Next item 2, candidate (iii) (09-04): per-leg
+        # SELECTIVE variant of the above, built after the per-leg
+        # foot-target instrumentation (probe_leg_yaw_rate.py) found the
+        # combined-tick clip saturation is NOT uniform across legs --
+        # projecting the true combined tangential foot velocity onto
+        # each leg's own yaw-servo axis shows vx's cross term (-vx*
+        # sin(leg_angle)) ADDS to omega*r for 3 of 6 legs (amplifying
+        # them well past the pure-turn magnitude, e.g. 99 vs 34.5 deg/s
+        # of commanded-yaw rate at vx=0.08/omega=0.25) while it
+        # SUBTRACTS for the other 3 (attenuating them toward zero) --
+        # a real per-leg cancellation/reinforcement pattern, not a
+        # uniform "vx drowns out omega" effect. The already-tried
+        # ``combined_yaw_arm_scale`` scales EVERY leg's atan2
+        # denominator equally, spending correction budget on legs that
+        # were never over the clip and distorting their foot-target
+        # direction for no saturation benefit -- REFUTED zero-training
+        # first (this cycle): a symmetric "detangle the cross term out
+        # of the yaw numerator" alternative was tried and discarded
+        # because at any dose that meaningfully de-saturates the worst
+        # legs it flips the SIGN of the previously-near-cancelled
+        # legs' yaw command (up to ~12deg foot-target direction error)
+        # and, at full dose, creates a NEW saturated leg (4/6 over clip
+        # vs the legacy 3/6) -- worse, not better.
+        # This knob instead multiplies the SAME atan2 denominator as
+        # ``combined_yaw_arm_scale`` but ONLY on legs where the true
+        # combined tangential magnitude |y_yaw| exceeds that same
+        # leg's pure-omega-only magnitude (i.e. only the AMPLIFIED
+        # legs) -- the other 3 legs are bit-exact untouched at any
+        # dose. Zero-training probe_leg_yaw_rate.py sweep: scale=3.0
+        # applied only to the 3 amplified legs fully de-saturates ALL
+        # SIX legs' commanded-yaw RATE (0/6 over the 37.5deg/s clip,
+        # vs 3/6 for the unscaled baseline).
+        # REFUTED anyway (09-04, same cycle, before any RL spend):
+        # de-saturating the rate proxy does NOT translate into more
+        # real turn authority -- probe_turn_authority.py's scripted-
+        # teacher body wz_med at vx=0.08/wz_cmd=0.25 goes 0.0723
+        # (dose 1.0) -> 0.0715 (1.5) -> 0.0737 (2.0) -> 0.0295 (3.0,
+        # the fully-desaturating dose) -> 0.0104 (4.0), monotonically
+        # WORSE past dose ~2.0, matching (and now generalizing) the
+        # 09-04 05:35 finding that raising the SafetyLayer's yaw slew
+        # clip 0.375->8.0deg barely moves combined wz either: shrinking
+        # a leg's COMMANDED yaw excursion shrinks the PHYSICAL rotation
+        # it produces right along with it, clip or no clip -- there is
+        # no free "de-saturate without losing torque" regime for this
+        # family of atan2-denominator tricks. See
+        # test_probe_turn_authority.py::
+        # test_yaw_amplify_scale_desaturates_clip_but_REGRESSES_real_wz
+        # for the pinned numbers. Kept as a bit-exact-off knob (like
+        # every other refuted dose lever in this file) for
+        # reproducibility, NOT a candidate for BC-anchor wiring or an
+        # RL canary. Default 1.0 = legacy identity (composes
+        # multiplicatively with ``combined_yaw_arm_scale``, itself
+        # default-off).
+        self.combined_yaw_amplify_scale = float(combined_yaw_amplify_scale)
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -296,6 +351,23 @@ class TripodGait:
         dy = prog * v_y_at * t_eff / 2.0 * ramp_amp * self.stride_scale
         return dx, dy, dz
 
+    def _yaw_frame_xy(self, dx_b: float, dy_b: float, a: float) -> tuple[float, float]:
+        """Project a body-frame foot offset ``(dx_b, dy_b)`` for the leg
+        planted at angle ``a`` into that leg's own yaw-servo frame
+        (radial ``x_yaw`` / tangential ``y_yaw``). Shared by the main
+        ``desired_deg`` computation and the ``combined_yaw_amplify_scale``
+        per-leg reference lookup so both use IDENTICAL geometry."""
+        fx_b = self._foot_radius_eff * math.cos(a) + dx_b
+        fy_b = self._foot_radius_eff * math.sin(a) + dy_b
+        yaw_origin_x = LEG_RADIAL * math.cos(a)
+        yaw_origin_y = LEG_RADIAL * math.sin(a)
+        rx = fx_b - yaw_origin_x
+        ry = fy_b - yaw_origin_y
+        ca, sa = math.cos(a), math.sin(a)
+        x_yaw = ca * rx + sa * ry
+        y_yaw = -sa * rx + ca * ry
+        return x_yaw, y_yaw
+
     def desired_deg(self, t: float) -> list[float]:
         """18 joint angles in degrees for time ``t`` (seconds)."""
         dt = self._advance(t)
@@ -312,20 +384,27 @@ class TripodGait:
         out: list[float] = []
         for i, a in enumerate(self.leg_angles):
             dx_b, dy_b, dz_b = self._foot_target_in_body(i, vx, vy, omega)
-            fx_b = self._foot_radius_eff * math.cos(a) + dx_b
-            fy_b = self._foot_radius_eff * math.sin(a) + dy_b
-            yaw_origin_x = LEG_RADIAL * math.cos(a)
-            yaw_origin_y = LEG_RADIAL * math.sin(a)
-            rx = fx_b - yaw_origin_x
-            ry = fy_b - yaw_origin_y
-            ca, sa = math.cos(a), math.sin(a)
-            x_yaw = ca * rx + sa * ry
-            y_yaw = -sa * rx + ca * ry
+            x_yaw, y_yaw = self._yaw_frame_xy(dx_b, dy_b, a)
+            # candidate (iii) combined_yaw_amplify_scale (see __init__
+            # docstring): only multiplies THIS leg's denominator (on
+            # top of the uniform yaw_arm_scale, if any) when the true
+            # combined tangential magnitude exceeds the same leg's
+            # pure-omega-only magnitude -- i.e. only legs the vx cross
+            # term AMPLIFIES past pure-turn, never the attenuated ones.
+            # Skipped entirely (bit-exact) when the dose is 1.0 or the
+            # tick isn't combined, so it costs nothing by default.
+            leg_yaw_arm_scale = yaw_arm_scale
+            if _combined and self.combined_yaw_amplify_scale != 1.0:
+                dx_t, dy_t, _ = self._foot_target_in_body(i, 0.0, vy, omega)
+                x_turn, y_turn = self._yaw_frame_xy(dx_t, dy_t, a)
+                if abs(y_yaw) > abs(y_turn) + 1e-12:
+                    leg_yaw_arm_scale = (leg_yaw_arm_scale
+                                         * self.combined_yaw_amplify_scale)
             # r_planar (hip/knee IK) always uses the TRUE (unscaled)
             # x_yaw/y_yaw -- only the yaw SERVO ANGLE's own atan2
             # denominator is scaled, so foot reach/height are never
             # touched by this knob, only the commanded yaw excursion.
-            yaw_angle = math.atan2(y_yaw, x_yaw * yaw_arm_scale)
+            yaw_angle = math.atan2(y_yaw, x_yaw * leg_yaw_arm_scale)
             r_planar = math.hypot(x_yaw, y_yaw)
             ik = _leg_ik((r_planar, 0.0, self.foot_neutral_z + dz_b))
             if ik is None:

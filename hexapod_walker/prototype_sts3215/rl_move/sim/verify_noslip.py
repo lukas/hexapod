@@ -26,6 +26,7 @@ world anchors, so slip should collapse to servo-tracking residuals.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -40,7 +41,9 @@ from rl_move.config import load_config  # noqa: E402
 from rl_move.robot_state import DEG2RAD  # noqa: E402
 
 PLANT_HIP_DEG = 20.0
-PLANT_KNEE_DEG = 80.0
+# Repository-wide robot-absolute tibia convention: this is the same geometry
+# as the historical MuJoCo-relative (hip=20, knee=80) plant.
+PLANT_KNEE_DEG = 100.0
 HOLD_S = 1.5
 TOUCH_N = 0.5      # N; feet carry ~3.4 N each at rest
 
@@ -136,9 +139,24 @@ def _geom_ids(env) -> tuple[list[int], int]:
     import mujoco
     foot_gids = [mujoco.mj_name2id(
         env.model, mujoco.mjtObj.mjOBJ_GEOM, f"L{i}_foot") for i in range(6)]
-    floor_gid = mujoco.mj_name2id(
-        env.model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
-    assert floor_gid >= 0 and all(g >= 0 for g in foot_gids)
+    floor_gid = next((
+        gid
+        for name in ("floor", "terrain")
+        if (gid := mujoco.mj_name2id(
+            env.model, mujoco.mjtObj.mjOBJ_GEOM, name
+        )) >= 0
+    ), -1)
+    missing_feet = [i for i, gid in enumerate(foot_gids) if gid < 0]
+    if floor_gid < 0 or missing_feet:
+        names = [
+            mujoco.mj_id2name(env.model, mujoco.mjtObj.mjOBJ_GEOM, gid)
+            for gid in range(env.model.ngeom)
+        ]
+        raise RuntimeError(
+            "contact geometry lookup failed: "
+            f"floor/terrain={floor_gid}, missing feet={missing_feet}; "
+            f"available named geoms={sorted(name for name in names if name)}"
+        )
     return foot_gids, floor_gid
 
 
@@ -164,15 +182,34 @@ def rollout(env, gait, walk_s: float, *, cmd_dist_fn,
     prev_touch = None
     xy0 = None
     terminated = ""
+    target_prev = None
+    target_rates: list[np.ndarray] = []
+    target_min = np.full(18, np.inf)
+    target_max = np.full(18, -np.inf)
+    max_tilt_deg = 0.0
     for step in range(hold_steps + walk_steps):
         walking = step >= hold_steps
         if not walking:
-            act = q_rad_to_action(plant_rad)
+            target_deg = plant_rad / DEG2RAD
         else:
             t = (step - hold_steps) * env.dt
-            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+            target_deg = np.asarray(gait.desired_deg(t), dtype=float)
+        act = q_rad_to_action(target_deg * DEG2RAD)
         _obs, _r, term, trunc, info = env.step(act)
         if walking:
+            target_min = np.minimum(target_min, target_deg)
+            target_max = np.maximum(target_max, target_deg)
+            if target_prev is not None:
+                target_rates.append(np.abs(target_deg - target_prev) / env.dt)
+            target_prev = target_deg.copy()
+            rotation = env.data.xmat[env._chassis_bid].reshape(3, 3)
+            roll_deg = np.degrees(np.arctan2(rotation[2, 1], rotation[2, 2]))
+            pitch_deg = np.degrees(np.arctan2(
+                -rotation[2, 0], np.hypot(rotation[2, 1], rotation[2, 2])
+            ))
+            max_tilt_deg = max(
+                max_tilt_deg, abs(float(roll_deg)), abs(float(pitch_deg))
+            )
             if xy0 is None:
                 xy0 = env.data.xpos[env._chassis_bid, :2].copy()
             xy = env.data.site_xpos[sids][:, :2].copy()
@@ -209,6 +246,13 @@ def rollout(env, gait, walk_s: float, *, cmd_dist_fn,
     xy_end = env.data.xpos[env._chassis_bid, :2].copy()
     travel_m = float(np.linalg.norm(xy_end - xy0)) if xy0 is not None else 0.0
     cmd_m = float(cmd_dist_fn())
+    rates = np.concatenate(target_rates) if target_rates else np.zeros(1)
+    axis_limits = np.asarray([[-35.0, 35.0], [-80.0, 30.0],
+                              [-20.0, 150.0]] * 6)
+    joint_margin_deg = float(min(
+        np.min(target_min - axis_limits[:, 0]),
+        np.min(axis_limits[:, 1] - target_max),
+    ))
     return {
         "travel_m": travel_m,
         "cmd_m": cmd_m,
@@ -222,6 +266,13 @@ def rollout(env, gait, walk_s: float, *, cmd_dist_fn,
                        if travel_m > 1e-6 else float("nan")),
         "max_tick_slip_mm": max_tick_slip * 1000.0,
         "stance_duty": float(stance_ticks.mean()) / max(walk_steps - 1, 1),
+        "target_joint_rate_p95_deg_s": float(np.percentile(rates, 95.0)),
+        "target_joint_rate_max_deg_s": float(np.max(rates)),
+        "target_joint_delta_max_deg_per_tick": float(np.max(rates) * env.dt),
+        "joint_limit_margin_min_deg": joint_margin_deg,
+        "workspace_fallbacks": int(getattr(gait, "workspace_fallbacks", 0)),
+        "joint_limit_clips": int(getattr(gait, "joint_limit_clips", 0)),
+        "max_tilt_deg": max_tilt_deg,
         "terminated": terminated,
     }
 
@@ -242,6 +293,14 @@ def _report(name: str, r: dict) -> None:
           f"   max single tick: {r['max_tick_slip_mm']:.2f} mm")
     print(f"  mean stance duty {r['stance_duty']:.2f}"
           + (f"   TERMINATED: {r['terminated']}" if r["terminated"] else ""))
+    print(f"  target joint rate p95/max "
+          f"{r['target_joint_rate_p95_deg_s']:.1f}/"
+          f"{r['target_joint_rate_max_deg_s']:.1f} deg/s; "
+          f"max tick {r['target_joint_delta_max_deg_per_tick']:.2f} deg")
+    print(f"  workspace fallbacks {r['workspace_fallbacks']}; "
+          f"joint-limit clips {r['joint_limit_clips']}; "
+          f"minimum limit margin {r['joint_limit_margin_min_deg']:.1f} deg; "
+          f"max body tilt {r['max_tilt_deg']:.1f} deg")
 
 
 def main() -> None:
@@ -276,6 +335,8 @@ def main() -> None:
                     help="also replay the classic drag gait (tripod_gait)")
     ap.add_argument("--video", type=Path, default=None,
                     help="write an mp4 of the noslip rollout")
+    ap.add_argument("--json", type=Path, default=None,
+                    help="write machine-readable rollout metrics")
     args = ap.parse_args()
 
     from hexapod_core.noslip_gait import NoSlipGait
@@ -315,6 +376,27 @@ def main() -> None:
             f"omega={args.omega} lift={gait.lift * 1000:g}mm  "
             f"walk {args.walk_s}s "
             f"mu={'XML(2.0)' if args.mu <= 0 else args.mu}", r)
+    if args.json is not None:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps({
+            "configuration": {
+                "vx_m_s": args.vx,
+                "vy_m_s": args.vy,
+                "omega_rad_s": args.omega,
+                "period_s": gait.period,
+                "lift_mm": gait.lift * 1000.0,
+                "alpha": gait.alpha,
+                "walk_s": args.walk_s,
+                "mu": args.mu,
+                "servo_params": args.servo_params,
+                "write_speed": args.write_speed,
+                "write_acc": args.write_acc,
+            },
+            "metrics": r,
+        }, indent=2, default=lambda value: (
+            value.tolist() if isinstance(value, np.ndarray) else float(value)
+        )) + "\n")
+        print(f"  json: {args.json}")
     if writer is not None:
         writer.release()
         print(f"  video: {args.video}")

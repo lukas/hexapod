@@ -240,6 +240,18 @@ def test_fluid_fast_gait_id_raises_cadence_and_lowers_lift():
     assert abs(drive.gait.lift - 0.014) < 1e-12
 
 
+def test_fluid_mid_gait_id_interpolates_cadence_and_lift():
+    drive = DriveController(dry_run=True)
+    result = drive.handle("GAIT 14")
+    assert "FLUID-MID" in result
+    assert drive._gait_id == 14  # noqa: SLF001
+    assert drive.gait.alpha == 1.0
+    assert drive.gait.period == 2.65
+    assert abs(drive.gait.lift - 0.016) < 1e-12
+    assert abs(drive.gait._durations[0] / drive.gait.period - 0.02) < 1e-12
+    assert abs(drive.gait._durations[2] / drive.gait.period - 0.005) < 1e-12
+
+
 def test_fluid_hybrid_gait_id_retains_small_shift_impulse():
     drive = DriveController(dry_run=True)
     result = drive.handle("GAIT 11")

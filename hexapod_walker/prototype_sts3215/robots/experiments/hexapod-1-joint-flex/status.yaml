@@ -94,6 +94,27 @@ latest_run:
     camera_1: "14,942/14,942 frames contained at least one AprilTag"
     macbook_camera_2: "not used"
 
+acceptance_retest:
+  date: 2026-09-03
+  disposition: not_cleared_as_repaired
+  report: ACCEPTANCE_2026-09-03.md
+  air_loop_deg:
+    l5_hip: 0.830
+    l5_knee: 0.181
+  planted_loop_range_deg:
+    l5_hip: [0.776, 1.271]
+    l5_knee: [0.688, 1.085]
+  safety:
+    completed_ticks: 2520
+    planned_ticks: 2520
+    peak_current_a: 0.0845
+    confirmed_max_temperature_c: 33
+    final_live_servos: 18
+    final_state: limp_at_zero
+  blocks:
+    - "Whole-body gait/policy motion pending service or explicit operator acceptance of the residual L5 hysteresis."
+    - "Gait 14 deployment pending a robot SSH identity in ssh-agent."
+
 conclusion: >-
   L5 is measurably loose without ground load: the air-control loop averaged
   1.143 deg at the hip and 0.352 deg at the knee in the 2026-09-03 repeat,
@@ -122,3 +143,5 @@ history:
     event: "Completed L4 five-cycle vertical repeatability run: 620/620 ticks, no overruns or trips, 0.104 A peak; all runs ended limp."
   - date: 2026-09-03
     event: "Repeated the complete five-protocol battery on L4 and L5 using only the two Arducam USB cameras: 11,680/11,680 ticks, no trips, 4 catch-up overruns after one feedback stall, 0.130 A peak, 23,266/23,266 camera frames with AprilTags, and final limp."
+  - date: 2026-09-03
+    event: "Ran the short supported L5 air plus planted acceptance ladder: 2,520/2,520 ticks, no trip, 0.0845 A peak, final 18/18 limp at zero. Air improved to 0.830/0.181 deg hip/knee, but planted hysteresis remained 0.776-1.271/0.688-1.085 deg; L5 was not cleared as repaired for whole-body motion."

@@ -43,6 +43,7 @@ def _capture_vision_sidecar(
     *,
     hz: float,
     save_frames: bool,
+    frame_url: str | None,
     summary: dict,
 ) -> None:
     """Record unique vision frames plus the worker's synchronized IMU sample."""
@@ -51,7 +52,9 @@ def _capture_vision_sidecar(
     frames_dir = out_dir / "vision_frames"
     if save_frames:
         frames_dir.mkdir(parents=True, exist_ok=True)
-    frame_url = state_url.rsplit("/", 1)[0] + "/frame.jpg"
+    resolved_frame_url = (
+        frame_url or state_url.rsplit("/", 1)[0] + "/frame.jpg"
+    )
     started = time.monotonic()
     last_sequence = None
     captured = 0
@@ -65,6 +68,13 @@ def _capture_vision_sidecar(
                 sequence = (state.get("performance") or {}).get(
                     "frame_sequence"
                 )
+                if sequence is None:
+                    # The standalone multi-camera server exposes a fused
+                    # pose document instead of the legacy /api/vision/state
+                    # shape. Its generation timestamp is a monotonic-enough
+                    # unique sample key, and retaining the whole state keeps
+                    # the L4/L5 joint-pose and IMU fields available.
+                    sequence = state.get("generated_at_unix_s")
                 if sequence is not None and sequence != last_sequence:
                     record = {
                         "capture_unix": round(time.time(), 6),
@@ -77,11 +87,12 @@ def _capture_vision_sidecar(
                         "coverage": state.get("coverage"),
                         "pose": state.get("pose"),
                         "feedback": state.get("feedback"),
+                        "state": state,
                     }
                     if save_frames:
-                        filename = f"frame_{int(sequence):08d}.jpg"
+                        filename = f"frame_{captured:08d}.jpg"
                         with urllib.request.urlopen(
-                            frame_url, timeout=2.0
+                            resolved_frame_url, timeout=2.0
                         ) as response:
                             (frames_dir / filename).write_bytes(response.read())
                         record["image"] = f"vision_frames/{filename}"
@@ -99,6 +110,8 @@ def _capture_vision_sidecar(
         "errors": errors,
         "jsonl": str(jsonl_path),
         "images_saved": bool(save_frames),
+        "state_url": state_url,
+        "frame_url": resolved_frame_url if save_frames else None,
     })
 
 
@@ -153,6 +166,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="also save one JPEG for every captured vision frame")
     ap.add_argument("--vision-url",
                     default="http://127.0.0.1:8898/api/vision/state")
+    ap.add_argument(
+        "--vision-frame-url",
+        default=None,
+        help=("JPEG endpoint paired with --vision-url; needed when using "
+              "the standalone camera server, e.g. "
+              "http://127.0.0.1:8766/snapshot/1.jpg"),
+    )
     ap.add_argument("--vision-hz", type=float, default=10.0)
     args = ap.parse_args(argv)
 
@@ -203,6 +223,7 @@ def main(argv: list[str] | None = None) -> int:
             kwargs={
                 "hz": args.vision_hz,
                 "save_frames": bool(args.capture_frames),
+                "frame_url": args.vision_frame_url,
                 "summary": vision_summary,
             },
             name="sysid-vision-capture",

@@ -157,15 +157,17 @@ buildviz-premade-chorn-56:
 		python hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/make_premade_chorn_56_variant.py
 	cd "$$(pwd)/../.." && npx buildviz check \
 		hexapod_walker/prototype_sts3215/concepts/premade_chorn_56 \
-		--checks mesh_overlap,declared_interference,scene_meta \
+		--checks mesh_overlap,declared_interference,scene_meta,disconnected_components \
 		--max-pairs 1000 --emit
+	jq -e '.summary.fail == 0' \
+		$(CURDIR)/concepts/premade_chorn_56/buildviz_checks.json >/dev/null
 	cd "$$(pwd)/../.." && npx buildviz push \
 		--build-id prototype_sts3215/premade-chorn-56 \
 		--scene hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/scene.json \
 		--design-spec hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/design_spec.yaml \
 		--name "STS3215 premade 56 mm C-horn experiment" \
 		--bump --upload-assets \
-		--message "replace circled coxa rail with solid servo-tab block"
+		--message "remove knee-cap island and enforce connected-print gate"
 	-$(RUN) tools/push_cloud_buildviz.py \
 		--build-id prototype_sts3215/premade-chorn-56 || \
 		echo "    WARNING: cloud mirror failed; local premade-chorn build is unaffected"

@@ -2867,6 +2867,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # follow-up lever).
     SEQ_NEXT = {"rise": ("hold", "walk"), "hold": ("walk", "lower"),
                 "walk": ("lower",), "lower": ("rise",)}
+    # goal.mode_seq_stress=1 (default 0 = bit-exact legacy SEQ_NEXT):
+    # transition-stress grammar for the smooth universal-command
+    # directive (operator fb_20260904T074505) — adds the mid-transition
+    # switches the product must survive but the legacy grammar never
+    # samples: rise->lower (interrupted/reversed rise), walk->hold
+    # (stop/hold/restart mid-walk). Pair with short
+    # goal.mode_seq_segment_s_min/max draws to interrupt transitions
+    # before they settle. lower->rise unchanged (a short lower segment
+    # followed by rise IS the interrupted-lower reversal).
+    SEQ_NEXT_STRESS = {
+        "rise": ("hold", "walk", "lower"),
+        "hold": ("walk", "lower"),
+        "walk": ("lower", "hold"),
+        "lower": ("rise",),
+    }
 
     def _sample_mode_seq(self):
         gen = self._goal_gen
@@ -2950,9 +2965,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 ticks.append(tk)
             if len(ticks) == 1:
                 ticks.append(max(1, self.episode_steps // 2))
+            seq_next = (self.SEQ_NEXT_STRESS
+                        if float(cfg_get(self.cfg, "goal",
+                                         "mode_seq_stress",
+                                         default=0.0)) > 0.0
+                        else self.SEQ_NEXT)
             plan = [{"mode": mode, "tick": 0, "blend": 0}]
             for tk in ticks[1:]:
-                mode = str(rng.choice(self.SEQ_NEXT[mode]))
+                mode = str(rng.choice(seq_next[mode]))
                 bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi))
                                      / dt)))
                 plan.append({"mode": mode, "tick": tk, "blend": bn})

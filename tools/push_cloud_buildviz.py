@@ -118,11 +118,20 @@ def main() -> int:
                 "ext": file.suffix.lstrip(".") or "stl",
             })
 
+    # The hub REQUIRES a version message naming the change. Mirror the local
+    # version's own message when it has one; otherwise say what this is.
+    message = next(
+        (entry.get("message") for entry in meta.get("versions", [])
+         if entry.get("name") == version and entry.get("message")),
+        None,
+    ) or f"mirror of local {args.build_id}@{version}"
+
     payload = {
         "buildId": args.build_id,
         "version": version,
         "scene": scene,
         "setDefault": True,
+        "message": message,
         "maxUploadBytes": MAX_UPLOAD_BYTES,
         "assets": assets,
     }

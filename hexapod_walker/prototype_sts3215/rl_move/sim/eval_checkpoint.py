@@ -329,6 +329,46 @@ def _course_window_ep_keys(course_xy, course_cmd, dt: float) -> dict:
 # below, matching this module's deliberate deferral of torch imports.
 
 
+def _smoothness_fields(cmd_hist: list, env) -> dict:
+    """Additive per-episode actuator-smoothness telemetry (operator
+    directive fb_20260904T074505: measure command rate / jerk /
+    slew-saturation dwell so 'smooth' is a number, not an adjective).
+
+    Computed on the POST-SafetyLayer commanded joint targets (deg) —
+    the signal the servos actually receive. Purely additive report
+    keys; returns {} when the env exposes no commanded positions, so
+    every existing report stays byte-identical in shape otherwise.
+
+    - cmd_rate_p95_deg_s / cmd_rate_max_deg_s: per-tick worst-joint
+      |dcmd|/dt percentile / max — 'how fast are targets moving'.
+    - cmd_jerk_p95_deg_s2: per-tick worst-joint |d2cmd|/dt^2 p95 —
+      'how violently do target rates change'.
+    - slew_sat_frac: fraction of ticks where some joint's |dcmd| is at
+      >=98% of the SafetyLayer slew cap (safety.max_delta_q_deg) —
+      dwell AT the rate limiter = the actuator is being driven as hard
+      as the contract allows.
+    """
+    if len(cmd_hist) < 3:
+        return {}
+    from rl_move.config import cfg_get as _cfg_get
+    # RobotState.commanded_position is the logical joint vector in
+    # RADIANS (sim_env._cmd); the safety contract talks degrees.
+    cmd = np.degrees(np.asarray(cmd_hist, dtype=np.float64))
+    dt = float(env.dt)
+    d1 = np.abs(np.diff(cmd, axis=0)).max(axis=1)          # deg/tick
+    d2 = np.abs(np.diff(cmd, n=2, axis=0)).max(axis=1)     # deg/tick^2
+    slew_cap = float(_cfg_get(env.cfg, "safety", "max_delta_q_deg",
+                              default=2.0))
+    return {
+        "cmd_rate_p95_deg_s": round(float(np.percentile(d1, 95)) / dt, 2),
+        "cmd_rate_max_deg_s": round(float(d1.max()) / dt, 2),
+        "cmd_jerk_p95_deg_s2": round(
+            float(np.percentile(d2, 95)) / (dt * dt), 1),
+        "slew_sat_frac": round(
+            float((d1 >= 0.98 * slew_cap).mean()), 3),
+    }
+
+
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False,
@@ -376,6 +416,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
 
     frames = []
     cur_hist = []            # (T, 18) per-servo current
+    cmd_hist = []            # (T, 18) post-SafetyLayer joint targets, deg
     contact_hist = []        # (T, 6) bool
     pad_xy_hist = []         # (T, 6, 2) world
     rolls_rel = []           # (T,) |roll − ref|, deg
@@ -428,6 +469,13 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         st = env._state
         if st.servo_current is not None:
             cur_hist.append(st.servo_current.copy())
+        if st.commanded_position is not None:
+            # Post-SafetyLayer joint targets (deg) — what the servos are
+            # actually asked to do. Basis for the smoothness telemetry
+            # below (operator directive fb_20260904T074505: report
+            # action-rate/jerk/saturation dwell alongside gate scalars).
+            cmd_hist.append(np.asarray(st.commanded_position,
+                                       dtype=np.float64).copy())
         if trace_sink is not None:
             trace_sink.append({
                 "step": int(env._step_i),
@@ -439,6 +487,13 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 "servo_current": (st.servo_current.copy()
                                   if st.servo_current is not None
                                   else None),
+                "commanded_position": (
+                    np.asarray(st.commanded_position,
+                               dtype=np.float64).copy()
+                    if st.commanded_position is not None else None),
+                "contact": np.asarray(
+                    [float(env.data.sensordata[adr]) > CONTACT_N
+                     for adr in env._touch_adr], dtype=np.float64),
                 "height_mm": info.get("height_mm"),
                 "height_ref_mm": info.get("height_ref_mm"),
                 "reward": float(r),
@@ -562,6 +617,14 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                   * len(cur) * env.dt), 2),
         "cur_leg_imbalance": round(
             float(leg_mean.max() / max(leg_mean.mean(), 1e-6)), 2),
+        # Estimator-rail dwell (operator directive fb_20260904T074505):
+        # sim servo current is min(|torque|*1.2, 3.0) low-passed, so a
+        # bit-exact 2.64 A = the 2.2 N*m actuator forcerange image, NOT
+        # a measured stall. Report rail dwell separately so an
+        # uncalibrated rail hit is visible without vetoing a trial.
+        "cur_rail_frac": round(
+            float((cur >= 2.639).any(axis=1).mean()), 3),
+        **_smoothness_fields(cmd_hist, env),
         # gait (RL_PLAN_NEXT §5)
         "duty_cycle": [round(float(x), 2) for x in duty],
         "swing_count": swings,
@@ -575,6 +638,18 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     }
     if info0.get("reset_start_jitter"):
         ep["reset_start_jitter"] = info0["reset_start_jitter"]
+    # Per-episode DR draw (standwalk STATUS Next#1, 09-04): sim_env's
+    # reset info already computes EpisodeRandomization.summary() every
+    # episode (`info0["randomization"]`) but no consumer persisted it
+    # into the eval report, so no dig-in could correlate WHICH sampled
+    # friction/mass/gain/etc axis correlates with a fired termination
+    # (e.g. hold_min_load at the mlcontprice dose ceiling). Purely
+    # additive: None when DR is off (dr_scale=0 -> randomizer is None
+    # -> info0["randomization"] is already None), a small dict of the
+    # already-rounded summary fields otherwise. No existing consumer
+    # reads this key, so every prior report.json shape is unaffected.
+    if info0.get("randomization") is not None:
+        ep["randomization"] = info0["randomization"]
     # Composed-session fields (08-27, eval_mixed_session instrument):
     # written ONLY when this episode actually ran a goal.mode_seq /
     # goal.mode_seq_stance sequence (sim_env._reset_begin clears
@@ -857,6 +932,7 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
         "ep_json": _json.dumps(ep),
     }
     for key in ("action", "qpos", "qvel", "servo_current",
+               "commanded_position", "contact",
                "height_mm", "height_ref_mm"):
         col = _col(key)
         if col is not None:

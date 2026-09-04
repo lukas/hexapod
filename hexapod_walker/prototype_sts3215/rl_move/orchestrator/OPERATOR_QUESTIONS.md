@@ -4782,3 +4782,17 @@ warrants a real code dig-in instead of another pod-swap retry.
   failures are exactly this class. If the operator prefers preventing
   from the 2M transtress-s1 checkpoint instead, say so — the arm is a
   one-line respec swap.
+
+## 2026-09-04 ~16:2x — standwalk steering-axis scoring methodology (ANSWER ASSUMED, acting on it)
+Q: The steering-branch lever re-score (09-04) collapsed +/- command signs into one PASS/FAIL vs a single
+matched-continuation control. The cont-s1b falsifier showed sign-asymmetric drift; how should lever cells
+be scored?
+Assumed answer (deep-model dig-in, evidence in cont-s1b verdict + standwalk STATUS 09-04 ~16:2x):
+(1) single-control sign-collapsed scoring is invalid on this axis — measured n=4 zero-lever seed1
+continuation spread is 50-65% rel on the positive clauses and zero-lever controls PASS each other under
+the old criterion; (2) adopted per-clause band scoring: 4 clauses (pure/combined x +/-) scored separately
+vs an n>=3 matched zero-lever continuation band, WIN above max / LOSS below min / no-call in-band,
+family claims need clause replication (tool: `rescore_turn_authority band`, tests green); (3) the 5/10
+seed1 lever reopening was comparator noise — FAIL wall on "levers improve combined turn authority" stays
+closed; real replicated finding is levers partially PROTECT cb_neg against continuation erosion
+(9/10 above band, p~4e-6) and frozen parents keep the best pure-turn (0.223-0.226 vs all continuations).

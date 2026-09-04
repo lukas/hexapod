@@ -3,11 +3,12 @@
 
 The camera path is deliberately independent of the AprilTag worker: it opens
 AVFoundation directly and writes clean frames plus a timestamp sidecar.  Robot
-motion uses the HTTP API only.  Hard guard trips call the bench-level emergency
+motion uses the HTTP API only. Hard guard trips call the bench-level emergency
 stop, which preempts workers before limping the bus. Optional survey recovery
-acts only on lower pre-trip thresholds: stop, pause until readings clear,
-collision-aware safe-zero, stand, then retry. A tip, brownout, hot servo,
-missing ID, or hard-current event is never auto-retried.
+acts only on lower pre-trip thresholds: stop neutrally, hold until three fresh
+samples are clear, then retry the full failed direction. The survey service
+defaults to two such recoveries. A physical tip, brownout, confirmed hot servo,
+jam, or hard-current event is never auto-retried.
 """
 from __future__ import annotations
 
@@ -914,8 +915,8 @@ class Suite:
             and metrics["min_voltage_v"] > self.args.voltage_pause_v + 0.1
         )
 
-    def recover_to_zero(self, reason: str, gait: int) -> None:
-        """Bounded recovery for a warning that has not crossed a hard trip."""
+    def recover_and_retry(self, reason: str, gait: int) -> None:
+        """Stop, hold for clear readings, and prepare a bounded retry."""
         if self.recoveries >= self.args.max_recoveries:
             raise RuntimeError(
                 f"soft-recovery limit reached ({self.args.max_recoveries}): "
@@ -947,25 +948,9 @@ class Suite:
                 f"readings did not clear during recovery from: {reason}"
             )
 
-        self.phase = f"recovery_{self.recoveries}_safe_zero"
-        reply = _request(
-            self.base, "/api/safe_zero", json_body={}, timeout=8.0
-        )
-        self.log_event("soft_recovery_safe_zero_start", reply)
-        if isinstance(reply, dict) and reply.get("ok") is False:
-            raise RuntimeError(
-                "collision-aware safe-zero refused recovery: "
-                + str(reply.get("error") or reply)
-            )
-        self.wait_for_job(f"recovery_{self.recoveries}_safe_zero", timeout_s=45.0)
-        self.assert_robot_health(require_armed=False)
-
-        self.phase = f"recovery_{self.recoveries}_stand"
-        reply = _request(
-            self.base, "/api/zero", json_body={"pose": "stand"}, timeout=8.0
-        )
-        self.log_event("soft_recovery_stand_start", reply)
-        self.wait_for_job(f"recovery_{self.recoveries}_stand")
+        # The phase-aware gait stop has already left the robot in its healthy
+        # neutral plant. A safe-zero/sit/stand cycle would be extra motion and
+        # is not needed to retry this direction.
         self.assert_robot_health(require_armed=True)
         selected = self.command(
             f"GAIT 1 {self.args.gait1_alpha:.3f}" if gait == 1
@@ -1063,7 +1048,7 @@ class Suite:
                 continue
             except SoftSafetyPause as issue:
                 self.log_event("soft_guard_pause", str(issue))
-                self.recover_to_zero(str(issue), gait)
+                self.recover_and_retry(str(issue), gait)
                 # Start a fresh full-duration sample after recovery so the
                 # retained trial is comparable rather than a stitched pulse.
                 remaining = self.args.direction_s
@@ -1075,7 +1060,7 @@ class Suite:
                 self.wait_guarded(self.args.settle_s)
             except SoftSafetyPause as issue:
                 self.log_event("soft_guard_pause_during_settle", str(issue))
-                self.recover_to_zero(str(issue), gait)
+                self.recover_and_retry(str(issue), gait)
                 remaining = self.args.direction_s
                 continue
             self.assert_robot_health(require_armed=True)
@@ -1520,8 +1505,8 @@ def main() -> int:
     parser.add_argument(
         "--soft-recovery",
         action="store_true",
-        help=("on pre-trip warnings only, stop, wait for stable readings, "
-              "safe-zero, stand, and retry"),
+        help=("on pre-trip warnings only, stop neutrally, hold for three "
+              "stable readings, and retry the full failed direction"),
     )
     parser.add_argument("--max-recoveries", type=int, default=0)
     parser.add_argument("--recovery-pause-s", type=float, default=3.0)

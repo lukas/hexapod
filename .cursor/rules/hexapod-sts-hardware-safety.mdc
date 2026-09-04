@@ -25,6 +25,11 @@ issue; only the process lessons below remain.)
   canonical hold-versus-controlled-stop-versus-limp decision. Never add a
   sit, zero, stand, or plant transition merely because an experiment or
   recorder failed.
+- For a recoverable signal, camera, recorder, or framework stop, inspect the
+  camera and require three fresh healthy telemetry samples, then retry the
+  complete failed step up to twice. A third failed attempt ends that step.
+  Actual tip, visibly bad posture, brownout, confirmed heat, jam, surprise
+  force, or hard/sustained current still requires operator direction.
 
 ## Zero frame before any absolute pose
 

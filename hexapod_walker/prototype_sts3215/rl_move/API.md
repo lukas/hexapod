@@ -13,7 +13,9 @@ the process rules below are what remain).
 
 1. Limp / hand-set a **known visual** pose (usually legs straight out).
 2. `POST /api/set_zero` — that pose becomes logical 0°.
-3. Tiny air moves; predict then read. Stop if a servo ID is missing/hot.
+3. Tiny air moves; predict then read. A single missing reply is noise; require
+   three consecutive incomplete scans with fresh timestamps. Stop on a
+   persistent missing ID or confirmed hot servo.
 4. Treat `plant_pose.json` as calibration/diagnostics only; RL walk/drive
    starts from the simulator's canonical walk-ready stance.
 5. **No** autonomous stand-up.
@@ -72,16 +74,22 @@ Vision page's only motion-capable endpoint and requires
 | POST | `/api/vision/survey/start` | Start a supervised recorded suite, e.g. `{"acknowledge_motion":true,"gaits":[1,11],"speed_mm_s":30,"direction_s":8,"adaptive_centering":true,"soft_recovery":true,"max_recoveries":2}` |
 | POST | `/api/vision/survey/stop` | Interrupt the suite; its signal handler stops and limps, retaining captured artifacts |
 
-Soft recovery is only for confirmed pre-trip warnings. Tip, brownout, hot or
-missing servos, hard current, and lost telemetry are hard stops and never
-resume automatically. Heat requires three consecutive over-threshold samples
-from the same joint. After a thermal limp, the raw camera and telemetry logs
-remain open until three complete samples are below the warm threshold (or the
-five-minute cooldown timeout). A later safe-zero requires explicit operator
-authorization. Tilt also requires three valid consecutive samples; an
-instantaneous near-180-degree Euler jump that contradicts the gyro is logged
-and excluded from the trip vote rather than being mistaken for a physical
-tip.
+Soft recovery is only for confirmed pre-trip warnings. The canonical anomaly
+response matrix is in [`../EMERGENCY_HANDLING.md`](../EMERGENCY_HANDLING.md).
+A single missing reply does not stop or reposition the robot; persistent servo
+loss requires three consecutive incomplete scans with distinct fresh
+timestamps. Tip, brownout, confirmed hot or persistently missing servos, hard
+current, and confirmed lost telemetry are hard stops and never resume
+automatically. An ordinary camera/recorder/framework failure uses a
+phase-aware stop and hold when walking, or preserves the pose when already
+stationary—never an automatic sit or safe-zero. Heat requires three
+consecutive over-threshold samples from the same joint. After a thermal limp,
+the raw camera and telemetry logs remain open until three complete samples are
+below the warm threshold (or the five-minute cooldown timeout). A later
+safe-zero requires explicit operator authorization. Tilt also requires three
+valid consecutive samples; an instantaneous near-180-degree Euler jump that
+contradicts the gyro is logged and excluded from the trip vote rather than
+being mistaken for a physical tip.
 
 The survey keeps the initial operator-approved chassis image position as its
 centering anchor and resolves duplicate floor-tag IDs by global reprojection

@@ -17,8 +17,14 @@ issue; only the process lessons below remain.)
   the user **explicitly** asks for that exact action in the current message.
 - Prefer **HTTP** `http://hexapod.local:8080` (`/api/rl/*`, `/api/pose`, `/cmd`)
   over SSH. SSH is deploy/recovery only when the user asks.
-- After any brownout, tip, hot motor, or missing servo ID: **stop**. Do not
-  “try again” with another blend.
+- After any brownout, tip, confirmed hot motor, or persistent missing servo
+  ID: **stop**. One missing reply is telemetry noise: require three
+  consecutive incomplete scans with distinct fresh timestamps. Do not “try
+  again” with another blend.
+- Follow `hexapod_walker/prototype_sts3215/EMERGENCY_HANDLING.md` for the
+  canonical hold-versus-controlled-stop-versus-limp decision. Never add a
+  sit, zero, stand, or plant transition merely because an experiment or
+  recorder failed.
 
 ## Zero frame before any absolute pose
 
@@ -39,7 +45,12 @@ a **tall stilt** pose (~tibia length), not “1–2 inches off the ground.”
   write a stale `_last_pose` that yanks other legs toward 0 or plant.
 - No autonomous stand-up, `stand_to_plant`, geometry plant, or `go_zero stand`
  unless the user explicitly orders that script **and** is watching.
-- On tip, overcurrent, missing ID, or hot motor: limp (`X`) and stop.
+- On tip, confirmed overcurrent, persistent missing ID, or confirmed hot
+  motor: limp (`X`) and stop. A single noisy feedback sample is not a trip.
+- If healthy telemetry shows the robot is already stationary after an
+  ordinary software/camera failure, preserve the current pose. If it is
+  walking, stop at a neutral gait phase and hold. Sitting and safe-zero are
+  planned whole-body motions, not generic emergency handlers.
 - **Surprise force = stop, limp, descriptive error.** In any recovery or
  zeroing routine (safe_zero, pinned-tip untrap, glides), unexpected force
  can always be a mechanical jam or a WRONG LOGICAL ZERO — never push

@@ -1,39 +1,32 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~14:1x (idle-kick, no GPU spend): executed item-2's
-own order to re-score the 6-lever-family FAIL wall vs matched
-continuations — pure CPU analysis (`probe_turn_authority`, zero
-training), filled 3 missing reads, reused existing 09-03/09-04 files
-for the rest, re-scored all 10 seed0 + 10 seed1 lever cells against
-`cont`/`cont-s1` (matched 2M plain-continuation, zero-lever controls)
-instead of the frozen `cap29-stdwalklo-hi{,-s1}` baseline the original
-gates used. **Real fork, not noise:** seed0 stays 9/10 FAIL (only
-`yawarm1p5` clears combined-both-signs-win + <=10% pure-turn), but
-**seed1 flips 5/10 to PASS** (`yawarm1p5-s1`, `yawarm2p0-s1`,
-`omegaboost1p5-s1`, `omegaboost2p0-s1`, `combdose0p3-s1`: combined wins
-both signs +4.5% to +53%, pure-turn worst -11% only for the one
-exception `yawboost6p0-s1`). Corroborates the `selomegaboost4p0-s1`
-asymmetry (09-04 10:0x) across 5 more families — likely `cont-s1` is
-itself a weaker floor than `cont` (own pure-turn/combined wz_med
-0.152/0.105 vs 0.172/0.132) — but every median is still only 2 probe-
-seeds wide. Does NOT overturn any run's own verdict (each was scored
-correctly against its own pre-registered gate); says the frozen-parent
-comparator was the wrong yardstick for the seed1 half. Landed the
-re-score as a real tool (not a throwaway script), tests green:
-`rl_move/sim/rescore_turn_authority.py` (`cfg <run>` replays a
-checkpoint's own non-`train.*` cfg-set from the ledger — no more
-hand-copying, the exact gotcha that bit 09-03's yawarm triage;
-`table <manifest.json> <control> [<control_s1>]` reproduces the table
-above verbatim over `logs/ckpt_eval/probe_turn_authority_*_combined_
-09-0{3,4}.json` + `cont`/`cont-s1`), `rl_move/tests/
-test_rescore_turn_authority.py` (6 tests). Snapshot: see RL_LOG.
-DIG-IN owed before any relaunch — see Next item 2's falsifier.
+Update, 2026-09-04 ~13:2x: `mlcontprice8` (k=8.0 continuity+price canary,
+2M off the acq8m checkpoint) TRIAGED — CANARY FAIL-MECHANISM vs its own
+zero-mech-term gate, but the fix is real and dose-responsive, not dead.
+`eval_cmd_stress` at 2M: hold_min_load HALVED (3/72, was acq8m's 6/72);
+DR-0 pass is now fully CLEAN (0/36, was 2/36) and the companion
+gait-validity/sacrificed-leg pathology is FULLY CLOSED
+(gait_valid_frac=1.0, sacrificed_legs_seen=[], was 0.986/[1,2,3]); the
+3 residual fires are ALL under own-DR (was 4/36). Walk quality held
+(progress_ratio -4.9%, dir_err +3.2%, slip/m -7.5%, all inside the 10%
+cap) — the price did not corrupt the walk optimum, so this is not the
+dose-ceiling FAIL shape. DIG-IN this cycle on the 3 residual fires'
+timing (per-episode `seq_plan`/`seq_end_t_s` in the cmdstress
+report.json) REFUTES the "entry-window artifact" reading: fires land
+2.2-5.1 s into the hold segment (well past grace 1.0 s + term_s 1.0 s
+= 2.0 s minimum), and the pre-fix acq8m baseline's own 6 fires show
+the IDENTICAL 2.4-5.3 s timing signature — the mechanism reduced the
+RATE (via training pressure from the price) but did not change the
+qualitative failure shape. Also: `_hold_minload_low_s` never
+accumulates outside `hold` mode (checked `sim_env.py`), so there is no
+pre-switch counter to "carry over" — the residual failures read as a
+genuine hold-under-own-DR robustness gap, not a segment-entry code
+defect. Verdict: `mlcontprice8`. Sibling `mlcontprice2` (k=2.0) is a
+concurrent cycle's run — compound "both doses" call and any next-lever
+design wait for its read. Prior banner archived:
+`archive/standwalk_STATUS_journal_2026-09-04ff_trim.md`.
 
-Prior update (09-04 ~13:2x, `mlcontprice8` k=8.0 CANARY FAIL-MECHANISM
-but dose-responsive/real fix, residual own-DR fires NOT an entry-
-window artifact) archived verbatim in this cycle's journal copy below.
-
-## Next (updated 09-04 ~14:1x)
+## Next (updated 09-04 ~13:2x)
 
 1. **Universal-command branch — mechanism CONFIRMED real + dose-
    responsive at k=8 (halves fires, fully closes DR-0 + gait-validity),
@@ -54,27 +47,22 @@ window artifact) archived verbatim in this cycle's journal copy below.
    dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_stdwalklohi_
    transtress_s1_acq8m_mlcontprice8_cmdstress/` (per-episode detail in
    `dr0/report.json` + `owndr/report.json`).
-2. **Steering branch — re-score EXECUTED this cycle (see Update); axis
-   is NOT closed on seed1.** 5/10 seed1 lever cells (yawarm1p5-s1,
-   yawarm2p0-s1, omegaboost1p5-s1, omegaboost2p0-s1, combdose0p3-s1)
-   PASS the reformulated gate (combined-tick wins both signs, pure-
-   turn within 10% of the matched `cont-s1` continuation control);
-   seed0 stays 9/10 FAIL (only yawarm1p5 passes). DIG-IN owed BEFORE
-   any relaunch: root-cause the seed0/seed1 asymmetry — is `cont-s1`'s
-   own weaker floor (pure-turn/combined wz_med 0.152/0.105 vs `cont`'s
-   0.172/0.132) a real per-seed training-dynamics effect or a
-   `cont-s1`-specific idiosyncrasy? Candidate falsifier: launch a
-   SECOND independent seed1 continuation control (fresh seed, same
-   2M-plain-continuation recipe) and re-score the 5 PASS cells against
-   it — if they still pass, the effect is real and `yawarm1p5`/
-   `omegaboost*`/`combdose0p3` on seed1 (plus `yawarm1p5` seed0) are
-   legitimate reopen candidates for a confirmatory acquisition run; if
-   they collapse, the floor-weakening was `cont-s1`-specific and the
-   FAIL wall re-closes. `selomegaboost4p0-s1`'s own podeval DR-0 proxy
-   (train-2, long-running) still pending — read it before folding that
-   arm into any reopen decision. Numbers: STATUS Update banner above +
-   `logs/ckpt_eval/probe_turn_authority_*_combined_09-0{3,4}.json` +
-   `cont`/`cont-s1` verdicts. Rise-stall stays CLOSED (09-03o archive).
+2. **Steering branch — CONFIRMED continuation-drift confound; axis
+   needs re-scoring, not more lever canaries.** `cont`/`cont-s1`
+   `probe_turn_authority` pure-turn wz_med sits 22-35% below the FROZEN
+   cap29-stdwalklo-hi{,-s1} baselines gating all ~26 steering-lever
+   canaries (6 families) — from PLAIN continuation, zero lever.
+   Re-scored vs this matched control, `selomegaboost4p0-s1` (verdict
+   pending its podeval DR-0 proxy, running on train-2) looks BETTER on
+   pure-turn (+30-46% vs `cont-s1`) and mixed on combined-tick (neg-wz
+   better, pos-wz ~8-17% worse) — opposite of scoring vs the frozen
+   baseline (flat/failing like every prior lever). DIG-IN owed:
+   re-score the 6-lever-family FAIL wall vs matched continuations
+   before declaring the axis closed, or at minimum re-open
+   `selomegaboost4p0-s1` once its DR-0 proxy lands. Numbers: `cont`/
+   `cont-s1` verdicts + `logs/ckpt_eval/probe_turn_authority_
+   cap29_stdwalklohi_{cont,cont_s1,selomegaboost4p0_s1}_combined_
+   09-04.json`. Rise-stall stays CLOSED (09-03o archive).
 3. **Closed** (full list in archives 09-02{,b..h}, 09-03{a..u},
    09-04{aa,cc,dd}): architecture-split; lever/dose/seed sweeps up to
    09-04 (all FAIL/REFUTED pre-continuation-drift-finding, see item 2);
@@ -84,21 +72,20 @@ window artifact) archived verbatim in this cycle's journal copy below.
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg}.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,ee,ff}.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~14:1x)
+## Fleet capacity note (updated 09-04 ~13:2x)
 
 11/12 GPU pods free (train-2 busy running selomegaboost4p0-s1's podeval
 walk-only DR-0 proxy — long-running since 11:51, still progressing,
-not stuck; train-10 busy running mlcontprice2's eval_cmd_stress gate,
-started ~13:0x, progressing). No new GPU launch this cycle: item 1
-needs `mlcontprice2`'s read; item 2's re-score (done this cycle, pure
-CPU analysis, zero spend) surfaced a fork that needs root-causing
-(seed0/seed1 asymmetry) before any relaunch is well-justified — see
-Next item 2's named falsifier experiment. train-4 still Pending
-(OOMKilled 08:06, recreated from the fixed 4Gi-dshm scaleout spec;
-g142d86 at 98% CPU requests) — `bootstrap_train_pod.sh
+not stuck; leave it, its owner reads it). No acquisition/lever launch
+this cycle — item 1's compound dose call needs the concurrent
+`mlcontprice2` cycle's read first, and this cycle's per-episode dig-in
+refuted the only named next-lever theory (see Update banner), so there
+is no evidence-backed code fix to land yet either. train-4 still
+Pending (OOMKilled 08:06, recreated from the fixed 4Gi-dshm scaleout
+spec; g142d86 at 98% CPU requests) — `bootstrap_train_pod.sh
 hexapod-mjx-train-4` + `pod_torch_capability.py install` once Running.
 Every OTHER track remains non-launchable by design (`joystick`/`amp`/
 `cpg` DONE or maintenance-only; `walkcurr` RETIRED; `todaypolicy`

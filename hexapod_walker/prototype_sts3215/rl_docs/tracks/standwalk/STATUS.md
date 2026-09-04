@@ -1,50 +1,50 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~07:4x (**selomegaboost dose3.0/seed1 arm ALSO
-reports CANARY FAIL - MECHANISM, 3rd of the 4-arm grid to close.
-Only selomegaboost4p0-s1 remains (another cycle's territory); 3/3
-triaged so far fail the identical sign-asymmetric pure-turn way.**)
+Update, 2026-09-04 ~08:3x (**OPERATOR DIRECTIVE fb_20260904T074505
+executed: over_current AUDITED (2.64 A = forcerange rail image, trip
+knife-edge in uncalibrated constants, counterfactual replay shows NO
+fall/stall past the trip), transition-stress promotion suite BUILT
+(`eval_cmd_stress.py`), and the transtress-diet canary pair LAUNCHED
+(arm+matched control x 2 seeds, train-6/7/8/9).**)
 
-`probe_turn_authority.py` run fresh this cycle on the run's own pod
-(train-3) on the finished `...-selomegaboost3p0-s1` checkpoint (full
-84-key non-train cfg-set replayed, 2 probe seeds averaged) vs the
-matched `cap29-stdwalklo-hi-s1` (seed1) control: pure-turn wz_med
-+0.203/-0.213 vs control +0.226/-0.247 — positive 9.9% (just under the
-10% cap) but NEGATIVE 14.0% breaches it. Combined-tick (vx=0.08)
-wz_med +0.095/-0.143 vs control +0.087/-0.142 — beats control on BOTH
-signs this time (+9.2%/+0.9%), clearing that bar, but the pure-turn
-cap breach alone is FAIL per the pre-registered gate regardless.
-Training reward healthy (Q3 collapse to -252, clean recovery to 230
-peak/172 final) — 08-21 ruling: mechanism failing on an aligned
-reward with adequate budget, not a starved run. Same sign-asymmetric
-erosion (negative sign hit harder) as dose3.0/seed0 and dose4.0/seed0.
-1 sibling arm (selomegaboost4p0-s1) still awaiting triage (another
-cycle's territory) — full axis-close needs all 4; see Next item 2.
-Probe JSON: `logs/ckpt_eval/probe_turn_authority_
-cap29_stdwalklohi_selomegaboost3p0_s1_combined_09-04.json`.
+Audit: `logs/ckpt_eval/oc_audit_09-04/OC_AUDIT_SUMMARY.md` +
+CURRENT_TRUTHS ruling — rail hits alone never condemn a policy;
+`audit_over_current.py` classifies RAIL_MOVING vs CORROBORATED_STALL;
+note safety.max_current_a=2.9 (cap29 training) can NEVER trip (rail
+2.64 < 2.9) while 2.5-riders trip on ANY sustained rail. New telemetry
+on every eval episode: cur_rail_frac + cmd_rate/jerk/slew_sat (the
+champion spends ~30-70% of transition ticks AT the 37.5 deg/s slew cap
+— smoothness headroom is real). New training lever
+`goal.mode_seq_stress` (SEQ_NEXT_STRESS: rise->lower, walk->hold;
+default OFF bit-exact). Snapshot 2751a537, 65 tests green + 8 new.
 
-Prior banner (dose4.0/seed0 FAIL) moved to `archive/standwalk_STATUS_
-journal_2026-09-04dd_trim.md`.
+Steering branch unchanged: selomegaboost 3/4 FAIL, 4th arm
+(selomegaboost4p0-s1) finished, prestage evals running — its triage
+still belongs to the concurrent cycle; gait-structure candidate still
+gated on that verdict (unchanged Next item).
 
-## Next (updated 09-04 ~07:4x)
+Prior banner (selomegaboost3p0-s1 FAIL) archived:
+`archive/standwalk_STATUS_journal_2026-09-04ee_trim.md`.
 
-1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
-   `standwalk_STATUS_journal_2026-09-03o_trim.md`. No reward code
-   changed; a future fix should price sustained near-ceiling current
-   directly (`over2A_s`-style), not a stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM, 3/4 arms FAIL (dose3.0/seed0,
-   dose4.0/seed0, dose3.0/seed1), awaiting 1 sibling (-4p0-s1,
-   another cycle's territory) to close the axis.** All 3 breach the
-   pure-turn regression cap on the negative sign regardless of dose or
-   seed — see Update. If the last seed-1 arm fails the same way
-   (near-certain given 3/3), the geometry/teacher-lever axis closes
-   for good and the honest next move is a gait-STRUCTURE change
-   (per-leg period/tripod-grouping on combined ticks, untried) or a
-   DONE-gate turn-authority renegotiation. Do not re-open
-   architecture-split (Triple/yaw_critic.py) — done. **Do not launch
-   the gait-structure candidate until the 4th arm's verdict lands —
-   avoid duplicating design work with whichever cycle closes the
-   axis.**
+## Next (updated 09-04 ~08:3x)
+
+1. **Universal-command branch (operator directive 09-04) — TOP ITEM.**
+   4 canaries RUNNING: `cap29-stdwalklohi-transtress{,-s1}`
+   (transition-stress diet: mode_seq_stress grammar + 2.5-9 s segments
+   + 3 s cmd resample) vs `cap29-stdwalklohi-cont{,-s1}` (matched
+   plain continuations = baselines). Gate: `eval_cmd_stress` (seed
+   base 93000) — zero MECHANICAL terms, completion/walk within bands
+   of control, smoothness medians not worse; over_current reported
+   separately, never vetoes alone. If the diet holds at 2M, next rung
+   is an acquisition-length transtress run; if smoothness telemetry
+   stays pinned at the slew cap, THEN design a measured action-rate/
+   jerk objective (semantics-bank entry first — not yet written).
+2. **Steering branch — 3/4 arms FAIL, awaiting selomegaboost4p0-s1
+   verdict (concurrent cycle).** If it fails the same sign-asymmetric
+   way, the teacher-lever axis closes; honest next move is a
+   gait-STRUCTURE change or DONE-gate turn-authority renegotiation.
+   Do not launch the gait-structure candidate until that verdict
+   lands. Rise-stall branch stays CLOSED (09-03o archive).
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa,cc,dd}):**
    architecture-split; yaw-arm-scale dose x seed grid (4/4 FAIL);
    `combined_yaw_amplify_scale` + "detangle" idea (both REFUTED
@@ -62,18 +62,14 @@ journal_2026-09-04dd_trim.md`.
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd}. Current
 > state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~07:4x)
+## Fleet capacity note (updated 09-04 ~08:3x)
 
-3/4 selective-omega-boost canary grid runs triaged (all FAIL, same
-sign-asymmetric pure-turn erosion); pods free (11/12 free per
-capacity.py). No launchable next arm this cycle: the axis's own
-decision rule needs the last sibling's verdict (selomegaboost4p0-s1,
-concurrent cycle's territory) before a new lever can be designed (a
-gait-structure-change candidate isn't built yet — deliberately not
-started this cycle to avoid duplicating whichever cycle closes the
-axis). Every OTHER track remains non-launchable by design
-(`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
-`todaypolicy` DELIVERED).
+4 GPU pods training the transtress/cont canary quartet (train-6/7/8/9,
+2M each); train-2/4 hosting the watcher's selomegaboost4p0{,-s1}
+prestage evals; rest free. Steering-axis follow-up still gated on the
+selomegaboost4p0-s1 verdict (concurrent cycle). Every OTHER track
+remains non-launchable by design (`joystick`/`amp`/`cpg` DONE or
+maintenance-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
 
 ## Goal (operator, 08-24 evening)
 

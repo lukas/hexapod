@@ -4699,3 +4699,26 @@ explicitly targeted (`respec --now --pod`) at `hexapod-mjx-train-2`
 variable. If `-r3` also fails to advance `global_step`, that would
 rule out node load and point back at the spec/checkpoint itself and
 warrants a real code dig-in instead of another pod-swap retry.
+
+## q_20260904T083x — OPEN (assumptions recorded, no answer needed unless wrong)
+- cycle: 09-04 ~08:3x operator-kick (fb_20260904T074505_6a3ac9 execution)
+- operator order: audit 2.64A over_current truth; build mixed-command
+  stress suite as promotion gate; launch smoother universal-policy arm
+  + matched control.
+- assumptions adopted (assume-and-go):
+  1. "Smoother arm" = transition-stress DIET continuation
+     (goal.mode_seq_stress grammar + 2.5-9s segments + 3s cmd
+     resample) with smoothness MEASURED (new cmd_rate/jerk/slew_sat/
+     cur_rail telemetry), not a new reward term — a smoothness
+     objective needs its semantics-bank entry first and the telemetry
+     baseline decides whether it's needed (champion sits at the slew
+     cap 30-70% of transition ticks, so a later priced arm is likely).
+  2. eval_cmd_stress hard gate = zero MECHANICAL terminations;
+     over_current counted/reported separately per the directive; the
+     older eval_mixed_session/done-gate instruments keep their
+     historical zero-ALL-terminations semantics (unchanged defaults)
+     until the operator says to migrate them.
+  3. Stress grammar adds rise->lower and walk->hold only (hold->rise
+     and lower->hold judged semantically incoherent for a supported
+     hold; can extend if the operator wants full arbitrary order in
+     TRAINING too — eval forced plans already allow any order).

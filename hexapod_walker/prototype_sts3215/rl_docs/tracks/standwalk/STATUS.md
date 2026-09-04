@@ -28,12 +28,17 @@ could equally mean genuine per-run bimodality. Left `cont-s1b`
 UNVERDICTED (mechanism-health canary, no fixed pass/fail; the decisive
 question is the fork, not this run's own pass/fail). Evidence:
 `logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_cont_s1b_
-combined_09-04.json`. **DIG-IN owed** (flagged this cycle, see below)
-— do not spend on the 5 reopened lever cells nor re-close the FAIL
-wall until a deep-model pass decides: (a) run a 3rd/4th independent
-continuation to get a real control DISTRIBUTION instead of n=1, or
-(b) treat +/- signs as two independently-scored sub-questions instead
-of collapsing to one number, or (c) some other resolution.
+combined_09-04.json`. **DIG-IN owed** (flagged this cycle) — do not
+spend on the 5 reopened lever cells nor re-close the FAIL wall until
+a deep-model pass decides: (a) treat +/- signs as two independently-
+scored sub-questions instead of collapsing to one number, or (b) some
+other resolution. Started building resolution path (a)'s prerequisite
+same cycle: launched `cont-s1c` (seed=31, train-9) and `cont-s1d`
+(seed=41, train-1), both VERIFIED RUNNING, 2M steps, exact same
+recipe as `cont-s1`/`cont-s1b` (init-from the frozen `cap29-stdwalklo-
+hi-s1` checkpoint, zero lever, only trainer seed differs) — by next
+read there will be n=4 independent seed1-family continuations to
+compute a real per-sign spread instead of trusting any single draw.
 
 Prior updates (09-04 ~13:2x, ~14:1x, ~14:4x — mlcontprice2 FAIL-
 MECHANISM/dose-bracket-to-k16 read, cont-s1b launch) archived verbatim
@@ -72,9 +77,13 @@ by a concurrent cycle — see Next item 1.
    as the yardstick for the 5/10 seed1 lever-cell flip. DO NOT launch
    a confirmatory acquisition run off the 5 reopened cells, and do NOT
    re-close the FAIL wall, until a deep-model dig-in decides how to
-   get a stable control (more independent continuations for a real
-   distribution, and/or score +/- signs as separate sub-questions
-   rather than one collapsed number). `selomegaboost4p0-s1`'s podeval
+   score it (score +/- signs as separate sub-questions rather than one
+   collapsed number is the leading candidate). `cont-s1c`/`cont-s1d`
+   (seed=31/41, VERIFIED RUNNING train-9/train-1, ~15-20 min class,
+   same recipe as `cont-s1`/`cont-s1b`) are in flight to hand the
+   dig-in a real n=4 seed1-continuation spread instead of n=1/2 —
+   read both (`probe_turn_authority` + `rescore_cell` vs cont/cont-s1/
+   cont-s1b) before the dig-in decision. `selomegaboost4p0-s1`'s podeval
    DR-0 proxy (train-2) is no longer running and left no report under
    its expected path — treat as lost/inconclusive, not a pending
    read; don't block on it. Rise-stall
@@ -92,16 +101,18 @@ by a concurrent cycle — see Next item 1.
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh}.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~14:4x)
+## Fleet capacity note (updated 09-04 ~15:5x)
 
-10/12 GPU pods free (train-5 busy: `mlcontprice16` dose-bracket canary;
-train-9 busy: `cont-s1b` falsifier control — both launched this cycle,
-~15-20 min class). train-4 still Pending (OOMKilled 08:06, recreated
-from the fixed 4Gi-dshm scaleout spec; g142d86 at 98% CPU requests) —
-`bootstrap_train_pod.sh hexapod-mjx-train-4` + `pod_torch_capability.py
-install` once Running. No further launch this cycle: both open Next
-items are now result-blocked on the two arms just started, not
-launch-blocked. Every OTHER track remains non-launchable by design
+9/12 GPU pods free (train-1 busy: `cont-s1d` seed=41 control; train-9
+busy: `cont-s1c` seed=31 control — both launched this cycle, ~15-20
+min class, building the seed1-continuation spread for the dig-in).
+`mlcontprice16` finished and is owned by a concurrent cycle. train-4
+still Pending (OOMKilled 08:06, recreated from the fixed 4Gi-dshm
+scaleout spec; g142d86 at 98% CPU requests) — `bootstrap_train_pod.sh
+hexapod-mjx-train-4` + `pod_torch_capability.py install` once Running.
+No further launch this cycle: item 2 is now result-blocked on the
+4-continuation spread, not launch-blocked; item 1 belongs to the
+concurrent cycle. Every OTHER track remains non-launchable by design
 (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
 `todaypolicy` DELIVERED).
 

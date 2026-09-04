@@ -44,6 +44,7 @@ leave the next agent to rediscover it.
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
 | Operator asks for a MuJoCo drive-around video | `ops.sh drivevideo <run> [out-dir] [--script square\|human\|sweep\|human_turn\|turn] [--wz-max 0.3] [--policy-mode stochastic\|deterministic]` — walk-only joystick video, full mesh required by default, run cfg stack carried from the ledger; `human_turn`/`turn` also record commanded/actual `wz` |
+| Operator asks how a promising policy "feels" | `ops.sh feeltest <run> [out-root] [--unified]` — one-command transition plus yaw-heavy drive suite. Default composes scripted tuck rise/lower around any walk policy; `--unified` makes the checkpoint itself perform rise/walk/lower. Writes separate `transitions/` and `yaw/` artifacts. |
 | Operator asks for a transfer-shaped MuJoCo demo | `ops.sh hybriddemo <run> [out-dir] [--script square\|human\|sweep\|human_turn\|turn] [--wz-max 0.3] [--policy-mode deterministic\|stochastic] [--stand-controller learned] [--stand-release stable\|profile]` — composable full-mesh stand->RL-walk->lower demo; learned stand defaults to stable handoff; writes `composition.json`, `transfer_manifest.json`, and `wz` metrics for turn-capable scripts |
 | **What is the orchestrator doing RIGHT NOW?** | `ops.sh activity` — watcher heartbeat, pending kicks, every running cycle with the tail of its LIVE narration, recent finishes, newest ledger rows (works from the Mac) |
 | Watch one cycle work (thoughts + commands, live) | `ops.sh cyclelog [pattern] [n]` (one-shot tail) or `ops.sh waitcycle [pattern]` (follow until `=== CYCLE END`) — cycles stream since 08-21; never blind-poll a kick again |
@@ -122,7 +123,19 @@ report.json, and the W&B API for exactly these questions.
   for stance soak/evaluation.
   Use this when comparing "policy + state" bundles rather than judging a
   walk-only policy in isolation.
-- `ops.sh pullckpt <run>` — fetch checkpoint from its pod + md5.
+- `ops.sh feeltest <run> [out-root] [--unified]` — the standard
+  subjective-control suite. It runs a forward/reverse transition demo and a
+  separate `human_turn` drive (arcs plus pure left/right yaw). Default uses
+  scripted tuck rise/lower so any walk checkpoint can be compared;
+  `--unified` evaluates a unified checkpoint's learned rise/lower directly.
+  Inspect both `summary.json` files and both videos/contact sheets. The helper
+  also regenerates the gitignored electronics-stack STLs and full MuJoCo mesh
+  when absent, so a clean checkout does not require manual CAD preparation.
+- `ops.sh pullckpt <run>` — fetch checkpoint + md5. It prefers the controller's
+  durable canonical repo copy (`/workspace/hexapod/.../rl_move/sim/policies/`),
+  then falls back to the original training pod for a fresh unsynced run. This
+  order is deliberate: training pods are reused and may contain different
+  weights under a historical filename.
 - `ops.sh pushckpt <pod> <ckpt>` — copy a checkpoint TO a pod + md5
   both sides. **`snapshot.sh --sync` EXCLUDES policies/** — a
   warm-start parent must be pushed explicitly or the run dies at

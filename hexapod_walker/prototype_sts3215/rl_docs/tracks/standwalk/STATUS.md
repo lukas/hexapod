@@ -92,18 +92,35 @@ geometry-lever grid: the regression traces to the SHARED dual-core
 representation, not to whichever knob (geometry scale or now anchor
 dose) is turned. Full verdict:
 `rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
-gradclip0p15-cap29-stdwalklohi-combdose0p3.md`. **3 cells still
-pending** (`combdose0p3-s1` awaiting triage; `combdose0p6` in-cycle
-elsewhere; `combdose0p6-s1` FAILED TO LAUNCH — ledger shows 0
-global_step for 1200s, needs a clean/retry pass by whichever cycle
-picks it up). Do NOT launch the next escalation lever yet — read the
-remaining 3 cells first; if they also FAIL the dose axis closes 4/4
-and the next lever must act on something neither the geometry-scale
-nor the anchor-dose family reaches (phase-schedule the weight WITHIN a
+gradclip0p15-cap29-stdwalklohi-combdose0p3.md`.
+
+**2nd/3rd cells read, 09-04 ~01:0x: `combdose0p3-s1` and `combdose0p6`
+(seed0) — BOTH CANARY FAIL-MECHANISM, dose axis now 3/4 FAIL.**
+`combdose0p3-s1` (dose 0.3, seed1): combined-tick `wz_med` wins both
+signs (+0.1206 vs ctrl +0.0868 = +39.0%; -0.1533 vs ctrl -0.1369 =
++12.0%, seed1 control), zero falls, but pure-turn REGRESSES past cap
+on both signs (+0.2023 vs ctrl +0.2279 = 11.2%; -0.1954 vs ctrl
+-0.2459 = 20.5%) and straight-walk drift flips sign — numbers track
+its seed0 twin within 1-2pp on every axis, ruling out seed noise.
+Full verdict: `rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-
+mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-combdose0p3-s1.md`.
+`combdose0p6` (dose 0.6, seed0, verdicted by a concurrent cycle):
+combined-tick benefit COLLAPSED vs dose 0.3 (positive sign flat at
++0.14%, negative sign a marginal +1.6%) while pure-turn regression got
+WORSE (21.2%/18.5% vs dose-0.3's 12.0%/19.8%) — doubling the dose
+spent more pure-turn budget for near-zero combined-tick return, a
+non-monotonic/diminishing-returns confirmation of the same shared-
+representation root cause, not a new failure mode. **Dose axis: 3/4
+FAIL** (only `combdose0p6-s1` open, retrying as `...-s1-r2` after its
+first launch attempt never trained — INTENT/training, another cycle's
+scope). Do NOT launch the next escalation lever yet — if `-s1-r2`
+also FAILs the whole `bc_anchor_walk_combined_dose` axis closes 4/4
+alongside the geometry-lever axis, and the next lever must act on
+something neither family reaches (phase-schedule the weight WITHIN a
 stride, or split policy capacity so pure-turn gets a protected
 sub-path).
 
-## Next (updated 09-04 ~00:1x)
+## Next (updated 09-04 ~01:0x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
@@ -114,22 +131,27 @@ sub-path).
    CLOSED 4/4 FAIL — see banner.** Every dose that wins the
    combined-tick wz axis blows the pure-turn regression cap; the
    whole geometry/scaling-lever axis (yaw-arm-scale + both omega-boost
-   directions) is now closed. Escalation lever BUILT + unit-tested
-   this cycle: `train.bc_anchor_walk_combined_dose` (continuous
-   per-tick BC-anchor weight on combined ticks only, the untried
-   middle between the refuted full-skip and legacy full-weight
-   extremes). 4-cell canary LAUNCHED (`cap29-stdwalklohi-combdose
-   {0p3,0p6}{,-s1}`) against the same matched comparators
-   (`cap29-stdwalklo-hi{,-s1}`). NEXT CYCLE: read all 4 with
-   `probe_turn_authority.py --vx-cmds` (full 84-key cfg replay) the
-   SAME way as every prior cell (beat the control's own combined read
-   on BOTH signs, <=10% pure-turn/straight-walk regression). If this
-   also closes 4/4 FAIL, the BC-anchor-DOSE axis is exhausted too and
-   the next lever must touch something the dose/skip/scale family
-   cannot reach (candidates: phase-schedule the weight WITHIN a
+   directions) is now closed. Escalation lever BUILT + unit-tested:
+   `train.bc_anchor_walk_combined_dose` (continuous per-tick BC-anchor
+   weight on combined ticks only, the untried middle between the
+   refuted full-skip and legacy full-weight extremes). 4-cell canary
+   LAUNCHED (`cap29-stdwalklohi-combdose{0p3,0p6}{,-s1}`) against the
+   same matched comparators (`cap29-stdwalklo-hi{,-s1}`). **3/4 cells
+   read, all CANARY FAIL-MECHANISM — see banner** (`combdose0p3` +
+   `combdose0p3-s1` both blow the pure-turn cap while winning
+   combined-tick; `combdose0p6` seed0 blows pure-turn WORSE for a
+   near-zero combined-tick gain, non-monotonic). **1 cell open**
+   (`combdose0p6-s1`, retrying as `...-s1-r2`, in flight on another
+   cycle's scope). NEXT: once `-s1-r2` reads, if it also FAILs the
+   BC-anchor-DOSE axis is exhausted 4/4 alongside the geometry-lever
+   axis and the next lever must touch something the dose/skip/scale
+   family cannot reach (candidates: phase-schedule the weight WITHIN a
    stride instead of per-tick-class, or redirect effort to
    standwalk's other remaining gap rather than a fourth variant of
-   "weaken the combined-tick anchor").
+   "weaken the combined-tick anchor"). Do not pre-build that next lever
+   until the 4th cell is read — a single non-monotonic cell
+   (`combdose0p6`) already warns against assuming the trend
+   extrapolates.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
    candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/

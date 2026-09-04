@@ -4667,3 +4667,35 @@ because eval procs still burn the pod's CFS quota. Adopted answer (no pause): wh
 flags this, pin the eval process trees to a small core set (taskset, ~6 cores) instead of
 killing them — done tonight, trainer recovered (485%->791% CPU). Suggested durable fix for a
 machinery cycle: podeval should prefer a trainer-free pod, or self-cap affinity at start.
+
+## 2026-09-04 ~01:4x — combdose0p6-s1 second death, same pod (hexapod-mjx-train-1): node-load infra, corrective retry on a different node (no operator input needed)
+
+`cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-
+cap29-stdwalklohi-combdose0p6-s1` failed to train twice in a row, both
+times on `hexapod-mjx-train-1` (node `g129004`): W&B run created,
+`[mjx-train] vec env up in 8.2s` logged, warm-start + servo-model
+loaded, then a multiprocessing `resource_tracker: 45 leaked
+shared_memory objects` warning and silence — no PPO iteration, no
+further log lines, process gone within ~25 min, W&B run state
+`crashed`. Same exact failure shape both attempts (attempt 1: 23:52,
+attempt 2 `-r2`: 00:53). Investigated: `hexapod-mjx-train-1` itself
+looks healthy at read time (idle GPU, empty `/dev/shm`, no shm
+segments, disk 3% used, 145 zombie `<defunct>` procs but those predate
+today) — but `/proc/loadavg` on node `g129004` read 66-85 (`hexapod-
+mjx-train-8`, same node) and node `g142d86` (`hexapod-mjx-train-4`)
+read **140+** load average vs `hexapod-mjx-train-2`/`-3` (node
+`g131eec`) at 8-10, i.e. some nodes are under heavy ALL-TENANT
+contention right now (consistent with the 09-04 CHECKUP note on
+`g142d86` load1 87/128 earlier tonight). Read as CPU-starvation during
+`host_workers=24` env-vec worker spawn hitting some internal timeout
+and crashing rather than a code or checkpoint defect — no other run on
+`train-1` today failed this way (prior `train-1` runs today: PARTIAL/
+FAIL/CANARY-verdicted normally, i.e. they trained).
+**Practical resolution taken (no operator input needed):** per the
+"second death = infra escalation" rule, do not blindly retry a third
+time on the same pod/node; relaunch the identical spec as `...-s1-r3`
+explicitly targeted (`respec --now --pod`) at `hexapod-mjx-train-2`
+(node `g131eec`, load ~8.7, uncontended) to control for the node-load
+variable. If `-r3` also fails to advance `global_step`, that would
+rule out node load and point back at the spec/checkpoint itself and
+warrants a real code dig-in instead of another pod-swap retry.

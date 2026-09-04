@@ -60,6 +60,24 @@ Prior banner (`TripleGruActorCriticPolicy` build + 2/2 FAIL + the
 confound discovery) moved VERBATIM to `archive/standwalk_STATUS_
 journal_2026-09-04y_trim.md`.
 
+**Same-cycle teacher-side groundwork (zero-training):** a
+`probe_turn_authority.py --policy scripted` sweep of `wz_cmd`
+0.05-0.25 at `vx_cmd=0.08` finds the scripted teacher's OWN
+combined-tick `wz_med` nearly FLAT (0.056-0.073 rad/s) across the
+whole range — a real ceiling, not proportional to the command past a
+low threshold. Re-running with `safety.max_delta_q_deg` raised
+0.375->8.0 (diagnostic only — it's a hard physical servo-bus contract,
+never a production value) barely moves it (`wz_cmd=0.60` still only
+reaches 0.16), so the bottleneck is `TripodGait`'s own combined
+foot-target formula/thrust allocation, NOT the slew clip — consistent
+with, and now quantified beyond, the 09-03 17:5x finding that vx
+dominates the per-leg omega term. (Small-wz 0.05-0.10 pure-turn cells
+in the same sweep read as unreliable measurement-window artifacts,
+not capacity results — don't reuse them.) Next concrete step:
+instrument per-leg foot-target magnitude across the vx sweep to see
+exactly how omega gets starved, design one falsifiable formula fix,
+and validate it zero-training with this probe BEFORE any RL spend.
+
 ## Next (updated 09-04 ~05:2x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive

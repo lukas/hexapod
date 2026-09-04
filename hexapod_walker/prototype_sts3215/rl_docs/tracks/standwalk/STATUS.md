@@ -1,44 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~15:3x (this cycle): closed the `cont-s1b` falsifier
-(training finished clean, W&B state=finished @2.03M steps) — ran
-`probe_turn_authority` on the pod (train-9), full 84-key non-`train.*`
-cfg-set replayed from its own ledger `extra_args`. Then re-ran it
-through `rescore_turn_authority.rescore_cell` (the SAME both-signs
-tool that produced the 5/10 seed1 flip) against both `cont` and
-`cont-s1` as controls, not just the shorthand positive-only numbers
-quoted in the falsifier's gate text. **Result is neither branch the
-falsifier pre-registered — a third, SIGN-ASYMMETRIC pattern:**
-pure-turn/combined vs `cont` = +14.1%/+0.7% (positive dir, "strong,
-matches cont") but -15.1%/-36.9% (negative dir, "weak, WORSE than
-cont-s1"); vs `cont-s1` = +28.5%/+26.6% (positive) but -10.8%/-2.6%
-(negative). Raw wz_med: pos pure-turn 0.196 (beats `cont`'s 0.172),
-neg pure-turn -0.170 (below even `cont-s1`'s -0.190). The shorthand
-positive-only read ("0.196/0.132, lands at/above `cont`'s 0.172/0.132,
-FAIL wall re-closes") would have been a false-clean answer — the
-negative-command floor independently reproduces-or-worsens the
-`cont-s1` weak read. **This means a single matched-continuation
-control (n=1 per seed) is not a stable comparator** for this axis:
-three independent seed1-family continuations (`cont-s1`, `cont-s1b`,
-and by extension every lever-arm's own continuation) now show
-run-to-run turn-authority variance large enough, and asymmetric
-enough between +/- command, to plausibly explain the whole 5/10 flip
-as control noise rather than a real per-seed dynamics effect — but it
-could equally mean genuine per-run bimodality. Left `cont-s1b`
-UNVERDICTED (mechanism-health canary, no fixed pass/fail; the decisive
-question is the fork, not this run's own pass/fail). Evidence:
-`logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_cont_s1b_
-combined_09-04.json`. **DIG-IN owed** (flagged this cycle) — do not
-spend on the 5 reopened lever cells nor re-close the FAIL wall until
-a deep-model pass decides: (a) treat +/- signs as two independently-
-scored sub-questions instead of collapsing to one number, or (b) some
-other resolution. Started building resolution path (a)'s prerequisite
-same cycle: launched `cont-s1c` (seed=31, train-9) and `cont-s1d`
-(seed=41, train-1), both VERIFIED RUNNING, 2M steps, exact same
-recipe as `cont-s1`/`cont-s1b` (init-from the frozen `cap29-stdwalklo-
-hi-s1` checkpoint, zero lever, only trainer seed differs) — by next
-read there will be n=4 independent seed1-family continuations to
-compute a real per-sign spread instead of trusting any single draw.
+Update, 2026-09-04 ~16:2x (DIG-IN RESOLVED, deep-model cycle): the
+5/10 seed1 lever-cell reopening was **COMPARATOR NOISE**; the
+sign-collapsed single-control `rescore_cell` PASS is INVALID on this
+axis. Completed the n=4 spread: `cont-s1c`/`cont-s1d` finished
+training (final checkpoints on pod), ran both probes on their own
+pods (full 84-key cfg replay from each run's own ledger) ->
+`logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_cont_s1{c,d}_
+combined_09-04.json`. Evidence, three independent lines: (1)
+control-vs-control cells trigger the old criterion — `cont` vs
+`cont-s1` scores +25.8%/+54.2% combined and PASSes; (2) all 5
+reopened cells flip to FAIL when the denominator swaps `cont-s1` ->
+`cont-s1b`; per-cell PASS counts across the 4 control draws are only
+0/4–2/4; (3) measured n=4 zero-lever seed1-continuation spread is
+enormous on the positive clauses — pt_pos 0.119–0.196 (50% rel),
+cb_pos 0.064–0.136 (65% rel; `cont-s1d` is the worst positive draw
+yet, not an OOD-cfg artifact — its pt_neg 0.195 tracks fine) — vs
+tight negative clauses pt_neg 0.170–0.198, cb_neg 0.120–0.138.
+**Adopted methodology (encoded as `rescore_turn_authority band`,
+tests green):** score the FOUR clauses (pure/combined x +/-)
+separately against the control-DISTRIBUTION band (n>=3 matched
+zero-lever continuations); WIN only above band max, LOSS only below
+band min, in-band = no-call; family claims need clause replication
+across lever draws. **Real per-sign finding the collapsed score
+hid:** cb_neg collapses in 4/4 zero-lever continuations (0.127
++/-0.008) vs frozen parent-s1 0.142 and seed0 `cont` 0.190, while
+9/10 lever arms sit ABOVE the band (0.14–0.19; binomial p~4e-6) —
+geometry levers do NOT improve steering (cb_pos: 0/10 wins), they
+partially PROTECT it against continuation erosion. Frozen parents
+hold the best pure-turn by far (0.223–0.226 vs ALL continuations
+0.119–0.214): plain 2M continuation of this lineage is actively
+steering-destructive; any future continuation needs the 4-clause
+probe as a canary vs the band. FAIL wall on "levers improve combined
+turn authority" stays CLOSED; NO acquisition run on the 5 cells.
+`cont-s1b` verdicted PASS (canary); `cont-s1c`/`cont-s1d` verdicted
+on W&B-finish this same cycle. Launched `cont-b`/`cont-c` (seed0
+zero-lever continuations, seeds 21/31) so the seed0 half of the wall
+(currently scored 9/10 FAIL vs the single `cont` draw) gets the same
+n=3 band treatment — also tests whether cb_neg-protection replicates
+where the control (0.190) did NOT collapse. n=4 manifest:
+`logs/ckpt_eval/rescore_turn_authority_09-04/manifest_n4.json`.
 
 Prior updates (09-04 ~13:2x, ~14:1x, ~14:4x — mlcontprice2 FAIL-
 MECHANISM/dose-bracket-to-k16 read, cont-s1b launch) archived verbatim
@@ -65,29 +66,27 @@ by a concurrent cycle — see Next item 1.
    eval_cmd_stress to correlate residual fires with specific
    randomized params). Do NOT build an "entry-window termination
    carry-over" fix — already refuted (09-04 12:15 dig-in).
-2. **Steering branch — re-score fork DIG-IN OWED (falsifier read
-   09-04 ~15:3x, result ambiguous, not resolved).** `cont-s1b`
-   (independent 2nd seed1 plain-continuation) neither reproduces
-   `cont-s1`'s weak floor nor `cont`'s strong floor cleanly — it's a
-   THIRD, sign-asymmetric pattern (positive-command turn authority
-   beats even `cont`; negative-command turn authority is at/below
-   `cont-s1`'s weak floor). Full both-signs numbers + `rescore_cell`
-   output in the Update above. This means the single matched-
-   continuation control (n=1/seed) may itself be too noisy to trust
-   as the yardstick for the 5/10 seed1 lever-cell flip. DO NOT launch
-   a confirmatory acquisition run off the 5 reopened cells, and do NOT
-   re-close the FAIL wall, until a deep-model dig-in decides how to
-   score it (score +/- signs as separate sub-questions rather than one
-   collapsed number is the leading candidate). `cont-s1c`/`cont-s1d`
-   (seed=31/41, VERIFIED RUNNING train-9/train-1, ~15-20 min class,
-   same recipe as `cont-s1`/`cont-s1b`) are in flight to hand the
-   dig-in a real n=4 seed1-continuation spread instead of n=1/2 —
-   read both (`probe_turn_authority` + `rescore_cell` vs cont/cont-s1/
-   cont-s1b) before the dig-in decision. `selomegaboost4p0-s1`'s podeval
-   DR-0 proxy (train-2) is no longer running and left no report under
-   its expected path — treat as lost/inconclusive, not a pending
-   read; don't block on it. Rise-stall
-   stays CLOSED (09-03o archive).
+2. **Steering branch — DIG-IN RESOLVED 09-04 ~16:2x (see Update):
+   read `cont-b`/`cont-c` (seed0 zero-lever continuations, seeds
+   21/31, launched this cycle, ~15-20 min class).** On finish: run
+   `probe_turn_authority` on each pod (full cfg replay via
+   `rescore_turn_authority cfg <run>`, `--vx-cmds 0.0,0.08`), add to
+   the manifest, then `rescore_turn_authority band manifest_n4.json
+   cont cont_b cont_c` over the 10 seed0 lever cells. Questions it
+   answers: (a) does the seed0 half of the FAIL wall survive band
+   scoring (it currently rests on the single `cont` draw); (b) does
+   cb_neg-protection replicate in the lineage where the one control
+   draw did NOT collapse (if seed0 controls spread down to ~0.12,
+   `cont` was a lucky draw and continuation-erosion is lineage-
+   independent; if they stay ~0.19, the collapse is seed1-specific).
+   Binding rules from the resolution: sign-collapsed single-control
+   scoring is DEAD on this axis; no lever acquisition runs (levers
+   protect, they don't improve — cb_pos 0/10 wins); plain continuation
+   of this lineage without a 4-clause probe canary is steering-
+   destructive (frozen parents hold the best pure-turn 0.223-0.226).
+   `selomegaboost4p0-s1`'s podeval DR-0 proxy (train-2) was lost —
+   inconclusive, don't block on it. Rise-stall stays CLOSED (09-03o
+   archive).
 3. **Closed** (full list in archives 09-02{,b..h}, 09-03{a..u},
    09-04{aa,cc,dd}): architecture-split; lever/dose/seed sweeps up to
    09-04 (all FAIL/REFUTED pre-continuation-drift-finding, see item 2);
@@ -98,21 +97,19 @@ by a concurrent cycle — see Next item 1.
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh}.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii}.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~15:5x)
+## Fleet capacity note (updated 09-04 ~16:2x)
 
-9/12 GPU pods free (train-1 busy: `cont-s1d` seed=41 control; train-9
-busy: `cont-s1c` seed=31 control — both launched this cycle, ~15-20
-min class, building the seed1-continuation spread for the dig-in).
-`mlcontprice16` finished and is owned by a concurrent cycle. train-4
-still Pending (OOMKilled 08:06, recreated from the fixed 4Gi-dshm
-scaleout spec; g142d86 at 98% CPU requests) — `bootstrap_train_pod.sh
-hexapod-mjx-train-4` + `pod_torch_capability.py install` once Running.
-No further launch this cycle: item 2 is now result-blocked on the
-4-continuation spread, not launch-blocked; item 1 belongs to the
-concurrent cycle. Every OTHER track remains non-launchable by design
+7/12 GPU slots free after this cycle's launches (train-1/train-9
+freed as cont-s1d/cont-s1c finished; cont-b/cont-c now occupy two
+slots, ~15-20 min class, seed0 control band for Next item 2).
+`mlcontprice16` finished and is owned by a concurrent cycle (Next
+item 1). train-4 still Pending (OOMKilled 08:06, recreated from the
+fixed 4Gi-dshm scaleout spec) — `bootstrap_train_pod.sh
+hexapod-mjx-train-4` + `pod_torch_capability.py install` once
+Running. Every OTHER track remains non-launchable by design
 (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
 `todaypolicy` DELIVERED).
 

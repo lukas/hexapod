@@ -90,3 +90,57 @@ def test_rescore_cell_pass_requires_both_combined_signs_and_pure_turn_cap():
     cell2 = rescore_cell(summarize_probe(loser_combined_flat), ctrl)
     assert cell2["pass"] is False
     assert cell2["combined_both_sign_win"] is False
+
+
+def test_band_score_win_loss_nocall_per_clause():
+    from rl_move.sim.rescore_turn_authority import band_score
+    # Two zero-lever control draws -> band [0.10, 0.14] on every clause.
+    lo = _result([
+        (0.25, 0.0, 0, 0.10), (0.25, 0.0, 1, 0.10),
+        (-0.25, 0.0, 0, -0.10), (-0.25, 0.0, 1, -0.10),
+        (0.25, 0.08, 0, 0.10), (0.25, 0.08, 1, 0.10),
+        (-0.25, 0.08, 0, -0.10), (-0.25, 0.08, 1, -0.10),
+    ])
+    hi = _result([
+        (0.25, 0.0, 0, 0.14), (0.25, 0.0, 1, 0.14),
+        (-0.25, 0.0, 0, -0.14), (-0.25, 0.0, 1, -0.14),
+        (0.25, 0.08, 0, 0.14), (0.25, 0.08, 1, 0.14),
+        (-0.25, 0.08, 0, -0.14), (-0.25, 0.08, 1, -0.14),
+    ])
+    # Arm: WIN on cb_neg (0.18 > 0.14), LOSS on cb_pos (0.08 < 0.10),
+    # in-band no-call on both pure-turn clauses (0.12).
+    arm = _result([
+        (0.25, 0.0, 0, 0.12), (0.25, 0.0, 1, 0.12),
+        (-0.25, 0.0, 0, -0.12), (-0.25, 0.0, 1, -0.12),
+        (0.25, 0.08, 0, 0.08), (0.25, 0.08, 1, 0.08),
+        (-0.25, 0.08, 0, -0.18), (-0.25, 0.08, 1, -0.18),
+    ])
+    controls = [summarize_probe(lo), summarize_probe(hi)]
+    cells = band_score(summarize_probe(arm), controls)
+    assert cells["cb_neg"]["call"] == "WIN"
+    assert cells["cb_pos"]["call"] == "LOSS"
+    assert cells["pt_pos"]["call"] == "no-call"
+    assert cells["pt_neg"]["call"] == "no-call"
+    assert cells["cb_neg"]["band_hi"] == 0.14
+    assert cells["cb_pos"]["band_lo"] == 0.10
+
+
+def test_band_score_negative_sign_uses_commanded_direction_magnitude():
+    from rl_move.sim.rescore_turn_authority import band_score
+    # A MORE-negative wz_med on a negative command must read as WIN,
+    # not LOSS (the sign-asymmetry bug class the 09-04 dig-in targets).
+    ctrl = _result([
+        (0.25, 0.0, 0, 0.10), (0.25, 0.0, 1, 0.10),
+        (-0.25, 0.0, 0, -0.10), (-0.25, 0.0, 1, -0.10),
+        (0.25, 0.08, 0, 0.10), (0.25, 0.08, 1, 0.10),
+        (-0.25, 0.08, 0, -0.10), (-0.25, 0.08, 1, -0.10),
+    ])
+    arm = _result([
+        (0.25, 0.0, 0, 0.10), (0.25, 0.0, 1, 0.10),
+        (-0.25, 0.0, 0, -0.20), (-0.25, 0.0, 1, -0.20),
+        (0.25, 0.08, 0, 0.10), (0.25, 0.08, 1, 0.10),
+        (-0.25, 0.08, 0, -0.10), (-0.25, 0.08, 1, -0.10),
+    ])
+    cells = band_score(summarize_probe(arm), [summarize_probe(ctrl)])
+    assert cells["pt_neg"]["call"] == "WIN"
+    assert cells["pt_neg"]["value"] == 0.20

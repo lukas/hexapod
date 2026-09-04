@@ -130,6 +130,56 @@ def rescore_cell(arm: dict[tuple[float, float], float],
     }
 
 
+CLAUSES: tuple[tuple[str, float, float], ...] = (
+    ("pt_pos", WZ_POS, VX_PURE),
+    ("pt_neg", WZ_NEG, VX_PURE),
+    ("cb_pos", WZ_POS, VX_COMBINED),
+    ("cb_neg", WZ_NEG, VX_COMBINED),
+)
+
+
+def band_score(arm: dict[tuple[float, float], float],
+               controls: list[dict[tuple[float, float], float]]) -> dict:
+    """Per-clause placement of one arm against a control DISTRIBUTION
+    (n>=2 zero-lever matched-continuation draws), per the 09-04 dig-in
+    ruling: the sign-collapsed single-control `rescore_cell` PASS is
+    invalid on this axis (control-vs-control cells PASS each other;
+    measured n=4 seed1 spread: cb_pos 65%, pt_pos 50% rel range). A
+    clause is a WIN only ABOVE max(controls), a LOSS only BELOW
+    min(controls); anything inside the band is a NO-CALL, and family-
+    level claims need the same clause to replicate across lever draws
+    (binomial vs p=1/(n_controls+1))."""
+    out: dict = {}
+    for name, wz, vx in CLAUSES:
+        vals = [magnitude(c, wz, vx) for c in controls]
+        lo, hi = min(vals), max(vals)
+        v = magnitude(arm, wz, vx)
+        out[name] = {
+            "value": v, "band_lo": lo, "band_hi": hi,
+            "call": "WIN" if v > hi else ("LOSS" if v < lo else "no-call"),
+        }
+    return out
+
+
+def _cmd_band(args: argparse.Namespace) -> int:
+    manifest = json.loads(Path(args.manifest).read_text())
+    summaries = {name: summarize_probe(json.loads(Path(path).read_text()))
+                 for name, path in manifest.items()}
+    controls = [summaries[c] for c in args.controls]
+    for name, wz, vx in CLAUSES:
+        vals = sorted(magnitude(summaries[c], wz, vx) for c in args.controls)
+        print(f"# control band {name}: [{vals[0]:.4f}, {vals[-1]:.4f}] "
+              f"n={len(vals)}")
+    for name, summary in summaries.items():
+        if name in args.controls:
+            continue
+        cells = band_score(summary, controls)
+        print(f"{name:24s} " + " ".join(
+            f"{cl}={c['value']:.3f}[{c['call']}]"
+            for cl, c in cells.items()))
+    return 0
+
+
 def _cmd_cfg(args: argparse.Namespace) -> int:
     ops_sh = Path(__file__).resolve().parents[2] / "rl_move" / "orchestrator" / "ops.sh"
     cfg = fetch_ledger_cfg_args(args.run, ops_sh)
@@ -170,6 +220,15 @@ def main(argv: list[str] | None = None) -> int:
     table_ap.add_argument("control")
     table_ap.add_argument("control_s1", nargs="?", default=None)
     table_ap.set_defaults(fn=_cmd_table)
+
+    band_ap = sub.add_parser("band", help="score every non-control manifest "
+                              "entry per-clause (pure/combined x +/-) against "
+                              "the control-distribution band (09-04 ruling)")
+    band_ap.add_argument("manifest")
+    band_ap.add_argument("controls", nargs="+",
+                         help="manifest names forming the control "
+                              "distribution (n>=2 zero-lever draws)")
+    band_ap.set_defaults(fn=_cmd_band)
 
     args = ap.parse_args(argv)
     return args.fn(args)

@@ -108,6 +108,87 @@ def test_temperature_trip_requires_three_same_joint_samples(
         suite.close()
 
 
+def test_health_check_ignores_one_fresh_missing_servo_scan(
+        tmp_path, monkeypatch):
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    states = iter([
+        {
+            "armed": True,
+            "demo": {"running": False},
+            "servo": {"live": 17, "missing": [1], "ts": 1.0,
+                      "tripped": [], "max_temp_c": 30.0},
+        },
+        {
+            "armed": True,
+            "demo": {"running": False},
+            "servo": {"live": 18, "missing": [], "ts": 2.0,
+                      "tripped": [], "max_temp_c": 30.0},
+        },
+    ])
+    monkeypatch.setattr(suite, "robot_state", lambda: next(states))
+    try:
+        suite.assert_robot_health(require_armed=True)
+    finally:
+        suite.close()
+
+
+def test_health_check_requires_three_fresh_missing_servo_scans(
+        tmp_path, monkeypatch):
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    states = iter([
+        {
+            "armed": True,
+            "demo": {"running": False},
+            "servo": {"live": 17, "missing": [1], "ts": float(index),
+                      "tripped": [], "max_temp_c": 30.0},
+        }
+        for index in range(3)
+    ])
+    monkeypatch.setattr(suite, "robot_state", lambda: next(states))
+    try:
+        with pytest.raises(RuntimeError, match="three fresh scans"):
+            suite.assert_robot_health(require_armed=True)
+    finally:
+        suite.close()
+
+
+def test_nonhard_stationary_failure_preserves_armed_pose(
+        tmp_path, monkeypatch):
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    monkeypatch.setattr(suite, "robot_state", lambda: {
+        "armed": True, "mode": "idle", "activity": "armed",
+        "demo": {"running": False},
+    })
+    monkeypatch.setattr(
+        suite, "emergency_stop",
+        lambda _reason: pytest.fail("stationary pause must not limp"),
+    )
+    try:
+        suite.pause_without_posture_change("camera unavailable")
+    finally:
+        suite.close()
+
+
+def test_nonhard_walking_failure_uses_phase_aware_stop(
+        tmp_path, monkeypatch):
+    suite = survey.Suite(_args(), tmp_path, _Recorder())
+    monkeypatch.setattr(suite, "robot_state", lambda: {
+        "armed": True, "mode": "walk", "activity": "walking",
+        "demo": {"running": False},
+    })
+    stopped = []
+    monkeypatch.setattr(suite, "stop_walk", lambda label: stopped.append(label))
+    monkeypatch.setattr(
+        suite, "emergency_stop",
+        lambda _reason: pytest.fail("successful gait stop must not limp"),
+    )
+    try:
+        suite.pause_without_posture_change("camera unavailable")
+        assert stopped == ["failure pause"]
+    finally:
+        suite.close()
+
+
 def test_tilt_trip_requires_three_valid_samples(tmp_path, monkeypatch):
     monkeypatch.setattr(
         survey, "_request", lambda *_args, **_kwargs: _feedback(roll=30.0)

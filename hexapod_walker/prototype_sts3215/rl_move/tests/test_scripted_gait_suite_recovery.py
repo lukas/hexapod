@@ -66,6 +66,29 @@ def _feedback(*, current: float = 0.2, temp: float = 30.0,
     }
 
 
+def test_raw_video_cadence_uses_wall_clock_not_capture_rate():
+    next_t = 10.0
+    emitted = []
+    # Model one second of a camera that ignores the 30 fps request and
+    # produces at 120 fps.  The MP4 must still contain 31 presentation frames
+    # including t=0, not 121 sensor frames played back at quarter speed.
+    for index in range(121):
+        due, next_t = survey._due_video_frame_times(
+            next_t, 10.0 + index / 120.0, 30.0,
+        )
+        emitted.extend(due)
+    assert len(emitted) == 31
+    assert emitted[0] == pytest.approx(10.0)
+    assert emitted[-1] == pytest.approx(11.0)
+
+
+def test_raw_video_cadence_repeats_slots_after_capture_stall():
+    due, next_t = survey._due_video_frame_times(5.0, 5.101, 30.0)
+    assert due == pytest.approx([5.0, 5.0 + 1 / 30, 5.0 + 2 / 30,
+                                5.1])
+    assert next_t == pytest.approx(5.0 + 4 / 30)
+
+
 def test_pretrip_current_pauses_only_after_confirmation(tmp_path, monkeypatch):
     monkeypatch.setattr(survey, "_request", lambda *_args, **_kwargs: _feedback(
         current=1.9

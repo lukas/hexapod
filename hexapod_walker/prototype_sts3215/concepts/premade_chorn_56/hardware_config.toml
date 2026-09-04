@@ -46,6 +46,20 @@ driven_head_pocket_depth_mm = 2.8
 driven_tool_access_diameter_mm = 4.2
 passive_center_through_diameter_mm = 8.6
 
+[servo_clamp_caps]
+# Replace the two M3 self-tapped plastic threads at each removable hip and
+# knee clamp cap with ordinary captive M3 hex nuts. The nuts load from the
+# open clamp face and are trapped when the cap is seated; the servo-case
+# M2.5 self-tappers remain unchanged. The screw length is the existing M3x8
+# (M3 diameter, 8 mm under-head length), not an M8-diameter fastener.
+screw_length_mm = 8.0
+m3_clearance_diameter_mm = 3.40
+nut_pocket_across_flats_mm = 5.80
+nut_pocket_depth_mm = 2.70
+nut_nominal_thickness_mm = 2.40
+tip_clearance_mm = 0.20
+minimum_thread_beyond_nut_mm = 1.00
+
 [coxa_support_tower]
 # Vertical rear crescent fused into the coxa. Its footprint copies the lower
 # yaw hub's circular contour and never exceeds that existing plan envelope.
@@ -59,22 +73,25 @@ top_screw_x_mm = -14.0
 top_screw_ys_mm = [-6.0, 6.0]
 yaw_driver_extra_radial_clearance_mm = 2.0
 
-# Two top-entry M3x8 SHCS through the 5 mm hip-cap flange into heat-set inserts
-# in the integral coxa tower. Rotate the assembly for installation access.
+# Two top-entry M3x8 SHCS through the removable bearing-carrier flange into
+# captive M3 nuts dropped into hex pockets in the top of the integral coxa
+# tower. The carrier closes the pockets after the nuts are installed. Rotate
+# the assembly for installation access.
 m3_clearance_diameter_mm = 3.40
 shcs_head_pocket_diameter_mm = 6.20
 shcs_head_pocket_depth_mm = 3.0
-insert_bore_diameter_mm = 4.60
-insert_depth_mm = 5.70
-insert_leadin_diameter_mm = 5.10
-insert_leadin_depth_mm = 0.80
+nut_pocket_across_flats_mm = 5.80
+nut_pocket_depth_mm = 2.70
+screw_tip_clearance_depth_mm = 7.00
 
 [coxa_reinforcement]
 # The negative-Y side retains separate upper/lower ribs. On positive Y, the
 # former pair of long stepped ribs is one full-height rectangular block that
 # stops at the servo's rear-retention tab. All three supports retain curved
 # roots following the lower R19 yaw-hub contour. The centre of the lower hub
-# stays open instead of recreating the old perforated slab.
+# stays open instead of recreating the old perforated slab. Keep this relief
+# exactly flush with the R16.9 yaw-cartridge socket: the former R20 cut ran
+# 3.1 mm into the flat servo-holder foot and left a stray D-shaped bottom hole.
 arm_x0_mm = -13.0
 arm_x1_mm = 42.0
 curve_x1_mm = 2.0
@@ -84,7 +101,7 @@ lower_straight_center_y_mm = 21.9
 upper_curve_inner_radius_mm = 17.0
 upper_curve_outer_radius_mm = 25.1
 upper_straight_center_y_mm = 21.9
-centre_relief_radius_mm = 20.0
+centre_relief_radius_mm = 16.9
 straight_width_mm = 4.0
 lower_bridge_z0_mm = 4.0
 lower_bridge_z1_mm = 10.0
@@ -132,35 +149,44 @@ foot_z_range_mm = [4.00, 12.00]
 [hip_bearing_carrier]
 # The upper 6805 pedestal is now a separate flat-backed cartridge. Three
 # M3x8 countersunk screws enter from the underside of the flat hip-cap pad
-# into short heat-set inserts in the cartridge. The asymmetric triangle stays
-# clear of the two existing tower-to-cap screws at X=-14, Y=+/-6.
+# into captive M3 nuts dropped into hex pockets in the cartridge mounting
+# face. The cap closes the pockets after the nuts are installed. The
+# asymmetric triangle stays clear of the two tower-to-carrier screws at
+# X=-14, Y=+/-6.
 mount_radius_mm = 19.0
 cap_pad_inner_face_y_mm = 17.0
 mount_screw_radius_mm = 15.5
-mount_screw_angles_deg = [0.0, 97.5, 262.5]
+# The first screw moves off 0 degrees so its countersink stays clear of the
+# fixed inboard clamp-cap bolt. The other two retain the asymmetric pattern
+# that clears the coxa tower's two top-entry screws.
+mount_screw_angles_deg = [35.0, 97.5, 262.5]
 m3_clearance_diameter_mm = 3.40
 countersink_major_diameter_mm = 6.50
 countersink_depth_mm = 2.0
-insert_bore_diameter_mm = 4.60
-insert_depth_mm = 3.10
-insert_leadin_diameter_mm = 5.10
-insert_leadin_depth_mm = 0.60
+nut_pocket_across_flats_mm = 5.80
+nut_pocket_depth_mm = 2.70
+screw_tip_clearance_depth_mm = 3.30
 flange_top_gap_below_bearing_mm = 0.40
 
 [coxa_yaw_hub_split]
-# Split the lower yaw bearing/horn hub from the coxa at the existing flat
-# underside of the servo-holder slab. Two top-entry M3x8 low-profile SHCS
-# land in two small rear-diagonal mounting tongues instead of forming a second
-# four-hole pattern around the five horn-driver corridors. The inserts stay
-# inside the 25.15 mm bearing press boss and the central plate is removed.
+# The lower yaw carrier grows an annular male collar upward into a matching
+# coxa socket. Three radial M3 screws enter through edge-access tunnels at the
+# rear half of the socket and engage captive nuts in the carrier collar. This
+# deletes the two thin top-screw tongues while keeping the five vertical horn
+# driver corridors open.
 interface_z_mm = 4.0
-radial_clearance_mm = 0.10
-mount_screw_radius_mm = 9.2
-mount_screw_angles_deg = [135.0, 225.0]
+carrier_collar_inner_radius_mm = 13.00
+carrier_collar_outer_radius_mm = 16.60
+coxa_socket_inner_radius_mm = 16.90
+coxa_socket_outer_radius_mm = 19.00
+collar_top_z_mm = 12.00
+radial_clearance_mm = 0.30
+radial_screw_axis_z_mm = 8.00
+radial_screw_angles_deg = [120.0, 180.0, 240.0]
 m3_clearance_diameter_mm = 3.40
-head_pocket_diameter_mm = 5.80
-head_pocket_depth_mm = 2.0
-insert_bore_diameter_mm = 4.00
-insert_depth_mm = 4.00
-insert_leadin_diameter_mm = 4.40
-insert_leadin_depth_mm = 0.60
+head_access_diameter_mm = 6.20
+head_seat_radius_mm = 18.00
+head_access_outer_radius_mm = 26.00
+nut_pocket_across_flats_mm = 5.80
+nut_pocket_depth_mm = 2.70
+screw_length_mm = 6.0

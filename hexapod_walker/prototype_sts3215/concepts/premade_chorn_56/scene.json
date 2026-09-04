@@ -14,6 +14,10 @@
   "clearanceMm": 0.0,
   "minWallMm": 0.8,
   "minThreadEngagementMm": 2.0,
+  "expectedMeshComponents": {
+   "stl:servo_body": 3,
+   "stl:yaw_bearing_upper": 2
+  },
   "allowedInterferences": [
    {
     "kind": "press_fit",
@@ -28,7 +32,7 @@
     "kind": "press_fit",
     "instances": [
      "014-L0 yaw servo",
-     "098-L0 screw-on lower yaw hub carrier"
+     "098-L0 deep lower yaw carrier"
     ],
     "reason": "L0 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -36,7 +40,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "098-L0 screw-on lower yaw hub carrier",
+     "098-L0 deep lower yaw carrier",
      "009-L0 yaw bearing (tower-seated)"
     ],
     "reason": "L0 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -82,7 +86,7 @@
     "kind": "press_fit",
     "instances": [
      "029-L1 yaw servo",
-     "104-L1 screw-on lower yaw hub carrier"
+     "104-L1 deep lower yaw carrier"
     ],
     "reason": "L1 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -90,7 +94,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "104-L1 screw-on lower yaw hub carrier",
+     "104-L1 deep lower yaw carrier",
      "024-L1 yaw bearing (tower-seated)"
     ],
     "reason": "L1 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -136,7 +140,7 @@
     "kind": "press_fit",
     "instances": [
      "044-L2 yaw servo",
-     "110-L2 screw-on lower yaw hub carrier"
+     "110-L2 deep lower yaw carrier"
     ],
     "reason": "L2 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -144,7 +148,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "110-L2 screw-on lower yaw hub carrier",
+     "110-L2 deep lower yaw carrier",
      "039-L2 yaw bearing (tower-seated)"
     ],
     "reason": "L2 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -190,7 +194,7 @@
     "kind": "press_fit",
     "instances": [
      "059-L3 yaw servo",
-     "116-L3 screw-on lower yaw hub carrier"
+     "116-L3 deep lower yaw carrier"
     ],
     "reason": "L3 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -198,7 +202,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "116-L3 screw-on lower yaw hub carrier",
+     "116-L3 deep lower yaw carrier",
      "054-L3 yaw bearing (tower-seated)"
     ],
     "reason": "L3 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -244,7 +248,7 @@
     "kind": "press_fit",
     "instances": [
      "074-L4 yaw servo",
-     "122-L4 screw-on lower yaw hub carrier"
+     "122-L4 deep lower yaw carrier"
     ],
     "reason": "L4 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -252,7 +256,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "122-L4 screw-on lower yaw hub carrier",
+     "122-L4 deep lower yaw carrier",
      "069-L4 yaw bearing (tower-seated)"
     ],
     "reason": "L4 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -298,7 +302,7 @@
     "kind": "press_fit",
     "instances": [
      "089-L5 yaw servo",
-     "128-L5 screw-on lower yaw hub carrier"
+     "128-L5 deep lower yaw carrier"
     ],
     "reason": "L5 yaw output boss deliberately engages the coaxial screw-on driven coxa hub",
     "maxPenetrationMm": 2.25
@@ -306,7 +310,7 @@
    {
     "kind": "bearing_seat",
     "instances": [
-     "128-L5 screw-on lower yaw hub carrier",
+     "128-L5 deep lower yaw carrier",
      "084-L5 yaw bearing (tower-seated)"
     ],
     "reason": "L5 screw-on lower hub deliberately press-seats the tower 6805 inner race",
@@ -684,7 +688,7 @@
   {
    "id": "008-L0 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L0 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L0 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 0,
@@ -916,7 +920,7 @@
   {
    "id": "016-L0 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L0 femur six-hole receiver body (NEW)",
+   "name": "L0 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 0,
@@ -1119,7 +1123,7 @@
   {
    "id": "023-L1 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L1 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L1 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 1,
@@ -1351,7 +1355,7 @@
   {
    "id": "031-L1 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L1 femur six-hole receiver body (NEW)",
+   "name": "L1 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 1,
@@ -1554,7 +1558,7 @@
   {
    "id": "038-L2 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L2 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L2 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 2,
@@ -1786,7 +1790,7 @@
   {
    "id": "046-L2 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L2 femur six-hole receiver body (NEW)",
+   "name": "L2 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 2,
@@ -1989,7 +1993,7 @@
   {
    "id": "053-L3 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L3 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L3 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 3,
@@ -2221,7 +2225,7 @@
   {
    "id": "061-L3 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L3 femur six-hole receiver body (NEW)",
+   "name": "L3 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 3,
@@ -2424,7 +2428,7 @@
   {
    "id": "068-L4 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L4 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L4 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 4,
@@ -2656,7 +2660,7 @@
   {
    "id": "076-L4 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L4 femur six-hole receiver body (NEW)",
+   "name": "L4 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 4,
@@ -2859,7 +2863,7 @@
   {
    "id": "083-L5 coxa OVH outboard arm (NEW)",
    "meshId": "stl:coxa_link_ovh",
-   "name": "L5 coxa OVH + rear tower + solid servo-tab block (NEW)",
+   "name": "L5 coxa OVH + yaw socket + clamp nut traps (NEW)",
    "partType": "coxa_link_ovh",
    "role": "variant",
    "leg": 5,
@@ -3091,7 +3095,7 @@
   {
    "id": "091-L5 femur body OVH (NEW)",
    "meshId": "stl:femur_ovh_body",
-   "name": "L5 femur six-hole receiver body (NEW)",
+   "name": "L5 femur six-hole receiver + clamp nut traps (NEW)",
    "partType": "femur_ovh_body",
    "role": "variant",
    "leg": 5,
@@ -3292,9 +3296,9 @@
    ]
   },
   {
-   "id": "098-L0 screw-on lower yaw hub carrier",
+   "id": "098-L0 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L0 screw-on lower yaw hub carrier (NEW)",
+   "name": "L0 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 0,
@@ -3323,7 +3327,7 @@
   {
    "id": "099-L0 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L0 screw-on upper bearing carrier (NEW)",
+   "name": "L0 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 0,
@@ -3466,9 +3470,9 @@
    ]
   },
   {
-   "id": "104-L1 screw-on lower yaw hub carrier",
+   "id": "104-L1 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L1 screw-on lower yaw hub carrier (NEW)",
+   "name": "L1 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 1,
@@ -3497,7 +3501,7 @@
   {
    "id": "105-L1 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L1 screw-on upper bearing carrier (NEW)",
+   "name": "L1 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 1,
@@ -3640,9 +3644,9 @@
    ]
   },
   {
-   "id": "110-L2 screw-on lower yaw hub carrier",
+   "id": "110-L2 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L2 screw-on lower yaw hub carrier (NEW)",
+   "name": "L2 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 2,
@@ -3671,7 +3675,7 @@
   {
    "id": "111-L2 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L2 screw-on upper bearing carrier (NEW)",
+   "name": "L2 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 2,
@@ -3814,9 +3818,9 @@
    ]
   },
   {
-   "id": "116-L3 screw-on lower yaw hub carrier",
+   "id": "116-L3 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L3 screw-on lower yaw hub carrier (NEW)",
+   "name": "L3 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 3,
@@ -3845,7 +3849,7 @@
   {
    "id": "117-L3 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L3 screw-on upper bearing carrier (NEW)",
+   "name": "L3 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 3,
@@ -3988,9 +3992,9 @@
    ]
   },
   {
-   "id": "122-L4 screw-on lower yaw hub carrier",
+   "id": "122-L4 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L4 screw-on lower yaw hub carrier (NEW)",
+   "name": "L4 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 4,
@@ -4019,7 +4023,7 @@
   {
    "id": "123-L4 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L4 screw-on upper bearing carrier (NEW)",
+   "name": "L4 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 4,
@@ -4162,9 +4166,9 @@
    ]
   },
   {
-   "id": "128-L5 screw-on lower yaw hub carrier",
+   "id": "128-L5 deep lower yaw carrier",
    "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-   "name": "L5 screw-on lower yaw hub carrier (NEW)",
+   "name": "L5 deep lower yaw hub carrier + 3 radial screws (NEW)",
    "partType": "coxa_yaw_hub_carrier_ovh",
    "role": "variant",
    "leg": 5,
@@ -4193,7 +4197,7 @@
   {
    "id": "129-L5 screw-on upper bearing carrier",
    "meshId": "stl:hip_bearing_carrier_ovh",
-   "name": "L5 screw-on upper bearing carrier (NEW)",
+   "name": "L5 upper bearing carrier + 3 nut traps (NEW)",
    "partType": "hip_bearing_carrier_ovh",
    "role": "variant",
    "leg": 5,
@@ -4356,7 +4360,7 @@
     "010-L0 hip servo",
     "011-L0 hip cap OVH + yaw pedestal (NEW)",
     "012-L0 third 6805",
-    "098-L0 screw-on lower yaw hub carrier",
+    "098-L0 deep lower yaw carrier",
     "099-L0 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4443,7 +4447,7 @@
     "025-L1 hip servo",
     "026-L1 hip cap OVH + yaw pedestal (NEW)",
     "027-L1 third 6805",
-    "104-L1 screw-on lower yaw hub carrier",
+    "104-L1 deep lower yaw carrier",
     "105-L1 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4530,7 +4534,7 @@
     "040-L2 hip servo",
     "041-L2 hip cap OVH + yaw pedestal (NEW)",
     "042-L2 third 6805",
-    "110-L2 screw-on lower yaw hub carrier",
+    "110-L2 deep lower yaw carrier",
     "111-L2 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4617,7 +4621,7 @@
     "055-L3 hip servo",
     "056-L3 hip cap OVH + yaw pedestal (NEW)",
     "057-L3 third 6805",
-    "116-L3 screw-on lower yaw hub carrier",
+    "116-L3 deep lower yaw carrier",
     "117-L3 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4704,7 +4708,7 @@
     "070-L4 hip servo",
     "071-L4 hip cap OVH + yaw pedestal (NEW)",
     "072-L4 third 6805",
-    "122-L4 screw-on lower yaw hub carrier",
+    "122-L4 deep lower yaw carrier",
     "123-L4 screw-on upper bearing carrier"
    ],
    "limits": {
@@ -4791,7 +4795,7 @@
     "085-L5 hip servo",
     "086-L5 hip cap OVH + yaw pedestal (NEW)",
     "087-L5 third 6805",
-    "128-L5 screw-on lower yaw hub carrier",
+    "128-L5 deep lower yaw carrier",
     "129-L5 screw-on upper bearing carrier"
    ],
    "limits": {

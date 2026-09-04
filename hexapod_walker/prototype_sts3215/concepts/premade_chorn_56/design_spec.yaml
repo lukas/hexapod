@@ -126,14 +126,16 @@ coxa_support_tower:
     holder by a solid positive-Y tab block plus two negative-Y contour arms;
     no separate tower print
   upper_attachment: 2x top-entry M3x8 SHCS at X -14 mm and Y +/-6 mm through
-    the screw-on bearing-carrier flange into heat-set inserts in the coxa tower
+    the screw-on bearing-carrier flange into captive M3 nuts in top-open hex
+    pockets in the coxa tower
   assembly: rotate assembly for direct top-screw access
   driver_access: existing under-plate hip-cap path is outside the R19 tower;
     rear yaw-horn shaft has a 2 mm extra radial-clearance scallop
   chassis_clearance: checked against lower chassis, upper chassis, and hatch
     at all six yaw stations
-  insert_pilot_mm: 4.6
-  insert_pilot_note: tune to the actual insert vendor and print process
+  tower_nut_pocket_mm: 5.8 across flats x 2.7 deep
+  tower_nut_loading: drop nuts into the tower top before seating the carrier;
+    the carrier closes and captures both pockets
 
 coxa_reinforcement:
   intent: connect the rear yaw tower to the outboard servo holder along the
@@ -161,8 +163,8 @@ coxa_reinforcement:
     negative-Y upper arm at coxa-local X 25.5 / Z 34.65; the positive side is
     open because its block stops at X 23.8
   centre_relief: the ancestor's perforated circular bridge is removed from
-    the coxa body; the five horn-driver paths are open air and the two lower
-    arms alone carry the screw-on bearing cartridge
+    the coxa body; the five horn-driver paths remain open inside the new
+    annular socket, which carries the deep bearing cartridge without tabs
   centre_relief_radius_mm: 20.0
   service_clearance: fitted hip servo and horn can still slide out through
     the open face
@@ -184,22 +186,48 @@ coxa_servo_holder_centering:
     ending at X 23.8; the former rail continuing across the top of the servo is
     removed
 
+servo_clamp_cap_captive_nuts:
+  scope: replace every remaining M3x8 clamp-cap screw that self-tapped into a
+    printed cradle wall; screws entering the molded servo case are unchanged
+  hip: two face-loaded captive M3 nuts in each coxa cradle
+  knee: one face-loaded captive M3 nut in each femur cradle; the inboard side
+    screw was already removed by the overhead bracket design and its separate
+    vertical cap-retention screw remains unchanged
+  quantity_per_robot: 18 ordinary M3 hex nuts and 18 M3x8 SHCS
+  pocket: 5.8 mm across flats x 2.7 mm deep, opening at the clamp mating face
+    and closed by the removable cap
+  wall_shell: hex flats face the 9 mm wall sides, leaving 1.6 mm printed shell
+    on the cavity and outside faces
+  screw_stack: the existing recessed head seat leaves the M3x8 screw 3.3 mm
+    beyond the conservative back plane of the nut pocket, with a full 3.4 mm
+    clearance tunnel so the tip cannot bottom in the former self-tap pilot
+  upper_bearing_interaction: the nearest carrier screw moves from 0 to 35
+    degrees on the same 15.5 mm radius, leaving at least 4.3 mm between its
+    countersink and the fixed hip clamp screw counterbore
+
 coxa_yaw_hub_split:
-  interface: lower yaw bearing/horn hub separates at the existing flat
-    coxa-slab underside, coxa-local Z 4.0 mm
-  main_part: reinforced coxa/hip-holder body has coplanar Z 4.0 mm tower and
-    lower-arm print faces after the circular yaw-hub cartridge is removed
+  interface: lower yaw bearing/horn hub separates at coxa-local Z 4.0 mm, but
+    an annular carrier collar continues upward to Z 12.0 mm inside the coxa
+  main_part: reinforced coxa/hip-holder body contains a continuous R16.9 to
+    R19.0 socket ring from Z 4.0 to 12.0 mm; the former two small vertical
+    screw tongues and pads are deleted
   carrier: lower yaw hub retains the original horn drive, 6805 press boss,
-    bearing-retaining rim, and dust brim; its Z 4.0 mm top is a flat print face
-  radial_assembly_clearance_mm: 0.10
-  attachment: 2x top-entry M3x8 low-profile SHCS in small rear-diagonal
-    tongues branching from the two lower reinforcement roots; screw centres are on a
-    9.2 mm radius at 135/225 degrees, between the original driver corridors
-  insert_shell_mm: at least 1.17 mm between each 4.4 mm lead-in and the
-    25.15 mm bearing press surface
+    bearing-retaining rim, and dust brim, plus an R13.0 to R16.6 annular collar
+    extending 8.0 mm upward into the coxa socket
+  radial_assembly_clearance_mm: 0.30
+  attachment: 3x radial M3x6 low-profile SHCS entering through edge-access
+    tunnels at 120/180/240 degrees and engaging captive M3 nuts in the carrier
+    collar; the five original vertical horn-driver corridors remain open
+  captive_nut_pockets: 5.8 mm across flats x 2.7 mm deep, open on the collar
+    outer edge and captured by the coxa socket after insertion
+  minimum_shells_mm:
+    nut_back: 0.9
+    nut_top_bottom: 1.1
+    head_seat_shoulder: 1.1
   print_orientation:
-    coxa_link_ovh: coplanar Z 4.0 mm tower/lower-arm faces on the build plate
-    coxa_yaw_hub_carrier_ovh: flat Z 4.0 mm top on the build plate, upside down
+    coxa_link_ovh: main Z 4.0 mm underside on the build plate; socket points up
+    coxa_yaw_hub_carrier_ovh: existing horn/boss base on the build plate with
+      the new collar pointing up
 
 hip_bearing_split:
   cap: upper 6805 pedestal removed; replacement circular mounting pad ends in
@@ -207,9 +235,13 @@ hip_bearing_split:
   carrier: separate flat-backed R19 cartridge carrying the original upper
     6805 press seat and puller notches
   cap_to_carrier_attachment: 3x M3x8 countersunk screws from the cap underside
-    into 4.6 mm x 3.1 mm heat-set-insert pilots in the carrier
+    into captive M3 nuts in 5.8 mm AF x 2.7 mm-deep hex pockets in the carrier
+    mounting face
   tower_to_carrier_attachment: 2x top-entry M3x8 SHCS into the integral coxa
-    tower, retaining the requested rotate-and-screw assembly sequence
+    tower's captive M3 nuts, retaining the requested rotate-and-screw assembly
+    sequence
+  nut_loading: load three nuts into the carrier face and two into the tower
+    top; the mating flat parts close the pockets before the screws are driven
   print_orientation:
     hip_clamp_cap_ovh: flat bearing-pad face on the build plate
     hip_bearing_carrier_ovh: flat cartridge back on the build plate
@@ -231,7 +263,8 @@ parts:
   femur_ovh_body:
     description: servo-safe 3.6 mm six-hole front receiver fused to the
       inherited overhead knee body, using six short bracket-side insert
-      pockets without entering the servo cavity; the 24 mm horn opening
+      pockets without entering the servo cavity; the remaining side clamp
+      screw uses a face-loaded captive M3 nut and the 24 mm horn opening
       continues through the open clamp face
     material: PETG
     qty_per_robot: 6
@@ -247,20 +280,23 @@ parts:
     printable: false
   coxa_link_ovh:
     description: flat-bottomed outboard coxa/hip-holder body with the lower yaw
-      hub moved to a screw-on cartridge, plus a contour-matched integral rear
-      tower; two negative-Y contour arms and one solid positive-Y rectangular
-      block wrap into the R19 lower contour, with the block stopping at the
-      servo rear-retention tab and carrying two 6.8 mm driver openings; no
+      hub moved to a deep socketed cartridge retained by three radial edge
+      screws, plus a contour-matched integral rear tower; the two old lower
+      screw pads are deleted and replaced by a continuous R16.9-R19 socket;
+      two negative-Y contour arms and one solid positive-Y rectangular block
+      wrap into the R19 lower contour, with the block stopping at the servo
+      rear-retention tab and carrying two 6.8 mm driver openings; no
       reinforcement continues across the servo and there is no perforated
-      central bridge; its low foot remains centered within 0.20 mm of the
-      seated servo and the 24 mm horn opening continues through the open face
+      central bridge; its two clamp-cap screws use face-loaded captive M3 nuts,
+      its low foot remains centered within 0.20 mm of the seated servo, and the
+      24 mm horn opening continues through the open face
     material: PETG
     qty_per_robot: 6
   coxa_yaw_hub_carrier_ovh:
-    description: separate flat-printing lower yaw cartridge preserving the
-      original horn drive, lower 6805 press boss, race-retaining rim, and dust
-      brim; mounts through two small rear-diagonal tongues branching from the
-      lower contour arms, using two top-entry M3x8 screws
+    description: deep lower yaw cartridge preserving the original horn drive,
+      lower 6805 press boss, race-retaining rim, and dust brim; an 8 mm annular
+      collar nests into the coxa and carries three edge-facing captive-nut
+      pockets for radial M3x6 screws
     material: PETG
     qty_per_robot: 6
   hip_clamp_cap_ovh:
@@ -271,8 +307,8 @@ parts:
     qty_per_robot: 6
   hip_bearing_carrier_ovh:
     description: separate flat-backed cartridge containing the upper 6805
-      press seat, puller notches, three cap-mount inserts, and two top-entry
-      coxa-tower screw paths
+      press seat, puller notches, three cap-mount captive-nut pockets, and two
+      top-entry coxa-tower screw paths
     material: PETG
     qty_per_robot: 6
   knee_clamp_cap_ovh:

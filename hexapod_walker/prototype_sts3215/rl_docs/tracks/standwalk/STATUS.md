@@ -1,27 +1,45 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~14:4x (idle-kick): read `mlcontprice2` (k=2.0
-canary, left unverdicted by its launching cycle) -> **CANARY
-FAIL-MECHANISM**: 19/216 hold_min_load fires, session_complete 0.912,
-sacrificed legs [0,2,3,5], dir_err +11.1% over cap. Also caught a
-data-quality bug: this eval ran n=54/mode/pass (216 total), 3x its
-k=8.0 twin's matched n=18 (72) — not an apples-to-apples pair. Rate-
-normalized: k=2's 8.8% fire rate ~= the UNFIXED acq8m baseline's 8.3%
-(zero net protection) vs k=8's 4.2% (halves it, cleans DR-0+gait-
-validity) — real, monotonic dose-response; k=2 is below threshold.
-Bracketed one step higher: `mlcontprice16` (k=16.0, same acq8m parent/
-diet, matched n=18) VERIFIED RUNNING train-5. Also executed item 2's
-named falsifier (seed1 re-score's 5 PASS cells ride entirely on
-`cont-s1`, whose floor is weaker than `cont`'s): `cont-s1b`, an
-INDEPENDENT 2nd seed1 plain-continuation (same recipe, trainer seed
-1->21) VERIFIED RUNNING train-9. Both ~15-20 min class; next cycle
-reads `mlcontprice16`'s stress_verdict.json vs `mlcontprice8`'s 3/72,
-and runs `probe_turn_authority` on `cont-s1b` vs `cont-s1`'s
-0.152/0.105 and `cont`'s 0.172/0.132 wz_med before touching the 5
-provisionally-reopened lever cells.
+Update, 2026-09-04 ~15:3x (this cycle): closed the `cont-s1b` falsifier
+(training finished clean, W&B state=finished @2.03M steps) — ran
+`probe_turn_authority` on the pod (train-9), full 84-key non-`train.*`
+cfg-set replayed from its own ledger `extra_args`. Then re-ran it
+through `rescore_turn_authority.rescore_cell` (the SAME both-signs
+tool that produced the 5/10 seed1 flip) against both `cont` and
+`cont-s1` as controls, not just the shorthand positive-only numbers
+quoted in the falsifier's gate text. **Result is neither branch the
+falsifier pre-registered — a third, SIGN-ASYMMETRIC pattern:**
+pure-turn/combined vs `cont` = +14.1%/+0.7% (positive dir, "strong,
+matches cont") but -15.1%/-36.9% (negative dir, "weak, WORSE than
+cont-s1"); vs `cont-s1` = +28.5%/+26.6% (positive) but -10.8%/-2.6%
+(negative). Raw wz_med: pos pure-turn 0.196 (beats `cont`'s 0.172),
+neg pure-turn -0.170 (below even `cont-s1`'s -0.190). The shorthand
+positive-only read ("0.196/0.132, lands at/above `cont`'s 0.172/0.132,
+FAIL wall re-closes") would have been a false-clean answer — the
+negative-command floor independently reproduces-or-worsens the
+`cont-s1` weak read. **This means a single matched-continuation
+control (n=1 per seed) is not a stable comparator** for this axis:
+three independent seed1-family continuations (`cont-s1`, `cont-s1b`,
+and by extension every lever-arm's own continuation) now show
+run-to-run turn-authority variance large enough, and asymmetric
+enough between +/- command, to plausibly explain the whole 5/10 flip
+as control noise rather than a real per-seed dynamics effect — but it
+could equally mean genuine per-run bimodality. Left `cont-s1b`
+UNVERDICTED (mechanism-health canary, no fixed pass/fail; the decisive
+question is the fork, not this run's own pass/fail). Evidence:
+`logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_cont_s1b_
+combined_09-04.json`. **DIG-IN owed** (flagged this cycle, see below)
+— do not spend on the 5 reopened lever cells nor re-close the FAIL
+wall until a deep-model pass decides: (a) run a 3rd/4th independent
+continuation to get a real control DISTRIBUTION instead of n=1, or
+(b) treat +/- signs as two independently-scored sub-questions instead
+of collapsing to one number, or (c) some other resolution.
 
-Prior updates (09-04 ~13:2x, ~14:1x) archived verbatim in
-`archive/standwalk_STATUS_journal_2026-09-04hh_trim.md`.
+Prior updates (09-04 ~13:2x, ~14:1x, ~14:4x — mlcontprice2 FAIL-
+MECHANISM/dose-bracket-to-k16 read, cont-s1b launch) archived verbatim
+in `archive/standwalk_STATUS_journal_2026-09-04hh_trim.md`. `mlcontprice16`
+(k=16.0 dose-bracket canary) is still VERIFIED RUNNING train-5, owned
+by a concurrent cycle — see Next item 1.
 
 ## Next (updated 09-04 ~14:4x)
 
@@ -42,22 +60,24 @@ Prior updates (09-04 ~13:2x, ~14:1x) archived verbatim in
    eval_cmd_stress to correlate residual fires with specific
    randomized params). Do NOT build an "entry-window termination
    carry-over" fix — already refuted (09-04 12:15 dig-in).
-2. **Steering branch — re-score fork (09-04 ~14:1x) not yet resolved;
-   falsifier now running.** 5/10 seed1 lever cells provisionally PASS
-   only against `cont-s1`, whose own floor (pure-turn/combined wz_med
-   0.152/0.105) is weaker than `cont`'s (0.172/0.132) — could be a
-   real per-seed effect or a `cont-s1`-specific unlucky draw.
-   `cont-s1b` (independent 2nd seed1 plain-continuation, same recipe,
-   trainer seed 1->21) is VERIFIED RUNNING train-9, ~15-20 min class.
-   Next cycle: run `probe_turn_authority` on its checkpoint, compare
-   pure-turn/combined wz_med to `cont-s1`'s 0.152/0.105 and `cont`'s
-   0.172/0.132. If it lands near `cont-s1`'s weak floor, the 5 PASS
-   cells are legitimate reopen candidates for a confirmatory
-   acquisition run; if it lands near `cont`'s strong floor, the
-   floor-weakening was `cont-s1`-specific and the FAIL wall re-closes.
-   `selomegaboost4p0-s1`'s podeval DR-0 proxy (train-2) is no longer
-   running and left no report under its expected path — treat as lost/
-   inconclusive, not a pending read; don't block on it. Rise-stall
+2. **Steering branch — re-score fork DIG-IN OWED (falsifier read
+   09-04 ~15:3x, result ambiguous, not resolved).** `cont-s1b`
+   (independent 2nd seed1 plain-continuation) neither reproduces
+   `cont-s1`'s weak floor nor `cont`'s strong floor cleanly — it's a
+   THIRD, sign-asymmetric pattern (positive-command turn authority
+   beats even `cont`; negative-command turn authority is at/below
+   `cont-s1`'s weak floor). Full both-signs numbers + `rescore_cell`
+   output in the Update above. This means the single matched-
+   continuation control (n=1/seed) may itself be too noisy to trust
+   as the yardstick for the 5/10 seed1 lever-cell flip. DO NOT launch
+   a confirmatory acquisition run off the 5 reopened cells, and do NOT
+   re-close the FAIL wall, until a deep-model dig-in decides how to
+   get a stable control (more independent continuations for a real
+   distribution, and/or score +/- signs as separate sub-questions
+   rather than one collapsed number). `selomegaboost4p0-s1`'s podeval
+   DR-0 proxy (train-2) is no longer running and left no report under
+   its expected path — treat as lost/inconclusive, not a pending
+   read; don't block on it. Rise-stall
    stays CLOSED (09-03o archive).
 3. **Closed** (full list in archives 09-02{,b..h}, 09-03{a..u},
    09-04{aa,cc,dd}): architecture-split; lever/dose/seed sweeps up to

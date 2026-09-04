@@ -8,6 +8,7 @@ from hexapod_core.demo_tripod import DEFAULT_DEMO_TRIPOD
 from rl_move.sim.play_core import (
     _MIDDLE_TUCK_QUAD,
     _NOSLIP_CLEAN,
+    _NOSLIP_FLUID_MID,
     _NOSLIP_RIPPLE,
     _SCRIPTED_TRIPOD,
     _SE2_CPG,
@@ -283,7 +284,7 @@ def test_sim_drive_gait_ids_map_to_scripted_candidates():
     session = SimWebSession.__new__(SimWebSession)
     session.walk_list = [
         _TRIPOD_HW, _NOSLIP_RIPPLE, _SE2_TETRAPOD, _SE2_CPG, _NOSLIP_CLEAN,
-        _MIDDLE_TUCK_QUAD,
+        _MIDDLE_TUCK_QUAD, _NOSLIP_FLUID_MID,
     ]
     session.wi = 0
     session.gait = object()
@@ -323,6 +324,10 @@ def test_sim_drive_gait_ids_map_to_scripted_candidates():
     out = session._set_scripted_gait_id(8)  # noqa: SLF001
     assert out["ok"] is True
     assert session.walk_list[session.wi] == _MIDDLE_TUCK_QUAD
+
+    out = session._set_scripted_gait_id(14)  # noqa: SLF001
+    assert out["ok"] is True
+    assert session.walk_list[session.wi] == _NOSLIP_FLUID_MID
 
 
 def test_dispatches_rl_drive_and_sim_routes():

@@ -51,6 +51,7 @@ from .play_core import (
     _NOSLIP_CLEAN,
     _NOSLIP_FLUID,
     _NOSLIP_FLUID_FAST,
+    _NOSLIP_FLUID_MID,
     _NOSLIP_FLUID_HYBRID,
     _NOSLIP_FLUID_PULSE,
     _NOSLIP_FLUID_PUSH,
@@ -291,7 +292,8 @@ class SimWebSession:
         self.walk_list = self._current_contract_policies(cats["walk"])
         self.walk_list.extend([
             _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
-            _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+            _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_MID,
+            _NOSLIP_FLUID_HYBRID,
             _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE,
             _SE2_TETRAPOD, _SE2_WAVE, _SE2_CPG,
             _MIDDLE_TUCK_QUAD,
@@ -1150,7 +1152,8 @@ class SimWebSession:
             return 0.015, 0.030
         if self.walk_list[self.wi] in {
                 _NOSLIP, _NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE,
-                _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_HYBRID,
+                _NOSLIP_FLUID, _NOSLIP_FLUID_FAST, _NOSLIP_FLUID_MID,
+                _NOSLIP_FLUID_HYBRID,
                 _NOSLIP_FLUID_PUSH, _NOSLIP_FLUID_PULSE}:
             return 0.02, 0.04
         reg = None if self.walk is None else self._ckpt_regime(self.walk_list[self.wi].stem)
@@ -2847,6 +2850,7 @@ class SimWebSession:
         11: _NOSLIP_FLUID_HYBRID,
         12: _NOSLIP_FLUID_PUSH,
         13: _NOSLIP_FLUID_PULSE,
+        14: _NOSLIP_FLUID_MID,
     }
 
     def _set_scripted_gait_id(self, gait_id: int) -> dict[str, Any]:

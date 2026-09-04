@@ -56,6 +56,7 @@ GAITS = {
     11: "noslip_fluid_hybrid",
     12: "noslip_fluid_push",
     13: "noslip_fluid_pulse",
+    14: "noslip_fluid_mid",
 }
 
 

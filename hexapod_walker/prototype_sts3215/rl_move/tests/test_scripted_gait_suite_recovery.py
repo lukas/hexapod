@@ -8,7 +8,13 @@ import numpy as np
 import pytest
 
 from rl_move.scripts import run_scripted_gait_suite as survey
+from rl_move.scripts.analyze_apriltag_gait_motion import (
+    _body_yaw_deg, _reference_axis,
+)
 from rl_move.scripts.analyze_scripted_gait_comparison import _motion_groups
+from rl_move.scripts.analyze_scripted_gait_comparison import (
+    _trusted_hardware_tilt,
+)
 
 
 class _Recorder:
@@ -34,6 +40,7 @@ def _args() -> SimpleNamespace:
         tilt_pause_deg=14.0,
         temp_pause_c=50.0,
         voltage_pause_v=10.5,
+        center_target_floor_m=None,
     )
 
 
@@ -171,6 +178,30 @@ def test_comparison_uses_longest_contiguous_attempt_after_recovery():
     ]
 
 
+def test_comparison_rejects_quiet_impossible_euler_jump():
+    rows = [
+        {
+            "elapsed_s": "0.0", "roll_deg": "1.0", "pitch_deg": "2.0",
+            "body_roll_deg": "", "body_pitch_deg": "",
+            "gyro_xyz_dps": "[0,0,0]",
+        },
+        {
+            "elapsed_s": "0.1", "roll_deg": "-179.0", "pitch_deg": "20.0",
+            "body_roll_deg": "", "body_pitch_deg": "",
+            "gyro_xyz_dps": "[1,1,1]",
+        },
+        {
+            "elapsed_s": "0.2", "roll_deg": "3.0", "pitch_deg": "4.0",
+            "body_roll_deg": "", "body_pitch_deg": "",
+            "gyro_xyz_dps": "[1,1,1]",
+        },
+    ]
+    roll, pitch, rejected = _trusted_hardware_tilt(rows)
+    assert rejected == 1
+    assert roll.tolist() == [1.0, 3.0]
+    assert pitch.tolist() == [2.0, 4.0]
+
+
 def test_camera_center_anchor_uses_operator_approved_start(tmp_path, monkeypatch):
     suite = survey.Suite(_args(), tmp_path, _Recorder())
     observation = {
@@ -185,6 +216,29 @@ def test_camera_center_anchor_uses_operator_approved_start(tmp_path, monkeypatch
     try:
         suite.capture_camera_center_anchor()
         assert suite.center_target_px.tolist() == [1317.9, 868.9]
+    finally:
+        suite.close()
+
+
+def test_camera_center_anchor_preserves_explicit_floor_target(
+        tmp_path, monkeypatch):
+    args = _args()
+    args.center_target_floor_m = [0.285, 0.697]
+    suite = survey.Suite(args, tmp_path, _Recorder())
+    observation = {
+        "target_px": [421.5, 166.6],
+        "target_floor_m": [0.285, 0.697],
+        "image_size_px": [1280, 720],
+        "floor_tag_ids": [100, 101, 103],
+        "floor_fit_rms_mm": 1.2,
+    }
+    monkeypatch.setattr(
+        suite, "camera_center_observation", lambda: observation
+    )
+    try:
+        suite.capture_camera_center_anchor()
+        assert suite.center_target_px is None
+        assert suite.center_target_floor.tolist() == [0.285, 0.697]
     finally:
         suite.close()
 
@@ -239,3 +293,40 @@ def test_floor_homography_rejects_duplicate_id_at_wrong_location():
     selected, _ids, _transform, _image, _floor, rms_mm = fit
     assert np.allclose(selected[13], correct[13])
     assert rms_mm < 0.01
+
+
+def test_floor_motion_uses_gait9_axis_when_gait0_is_absent():
+    phases = {
+        "gait_9_forward": {
+            "floor_projected_body_delta_xy_m": [0.01, 0.10],
+        },
+        "gait_9_backward": {
+            "floor_projected_body_delta_xy_m": [-0.01, -0.08],
+        },
+        "gait_14_forward": {
+            "floor_projected_body_delta_xy_m": [0.0, 0.11],
+        },
+    }
+    axis, gait = _reference_axis(phases)
+    assert gait == 9
+    assert axis is not None
+    assert axis[1] > 0.99
+
+
+def test_floor_projected_body_yaw_applies_mount_offset():
+    corners = np.asarray([
+        [0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0],
+    ], dtype=np.float32)
+    yaw = _body_yaw_deg(corners, np.eye(3), 0.0)
+    assert yaw == pytest.approx(0.0)
+
+
+def test_current_floor_tag_map_loads_in_metres():
+    specs, size = survey._load_floor_tag_map(
+        survey.LINUX_CONTROL / "floor_tag_map_20260903.json"
+    )
+    assert sorted(map(int, specs)) == [100, 101, 102, 103, 104, 105, 112]
+    assert size == pytest.approx(0.0272)
+    assert specs["103"]["world_from_tag"]["translation_m"] == pytest.approx(
+        [0.6096, 0.0, 0.0]
+    )

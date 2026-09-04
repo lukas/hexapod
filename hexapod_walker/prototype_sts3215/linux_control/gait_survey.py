@@ -24,6 +24,7 @@ DEFAULT_OUTPUT_ROOT = ROOT / "rl_move" / "hardware_traces"
 POSE_CONFIG = (
     ROOT / "hexapod-tracker" / "configs" / "apriltag_pose_config_20260831.json"
 )
+FLOOR_MAP = ROOT / "linux_control" / "floor_tag_map_20260903.json"
 
 GAITS = {
     0: "tripod drag",
@@ -40,6 +41,7 @@ GAITS = {
     11: "no-slip fluid hybrid",
     12: "no-slip fluid push",
     13: "no-slip fluid pulse",
+    14: "no-slip fluid mid",
 }
 
 
@@ -301,6 +303,7 @@ class GaitSurveyManager:
                     "--run-dir", str(run_dir),
                     "--pose-jsonl", str(pose),
                     "--config", str(POSE_CONFIG),
+                    "--floor-map", str(FLOOR_MAP),
                     "--output", str(motion),
                 ], label="AprilTag gait motion")
                 if motion_code == 0:

@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAILED
 
-**created**: 2026-09-04T03:30:00+00:00
+**created**: 2026-09-04T03:31:38+00:00
 
-**pod**: hexapod-mjx-train-8
+**pod**: hexapod-mjx-train-3
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition or require mature gait. 2M-step canary vs the matched control (cap29-stdwalklo-hi{,-s1}, identical recipe minus --gru-triple/the dropped yaw_credit+log_std_split mechanisms): PASS if probe_turn_authority.py --vx-cmds combined-tick wz_med (vx=0.08,wz=+-0.25) beats the checkpoint-scope combined comparator on BOTH signs WITHOUT a pure-turn wz regression >10% vs the SAME control, and without new terminations on a walk-only flat DR-0 proxy read -- the exact bar every dose/geometry-lever cell in the 8/8-FAIL family was held to, so the read is apples-to-apples with that closed family. FAIL if combined wz_med is flat/worse on either sign, or the pure-turn cap is blown (same 8/8 signature), or course/direction_err_med/gait_valid regress vs control. Read the full training-reward curve (rider c): the whole cap29 family showed a Q3 training-reward collapse in prior siblings.
 
-**refused_reason**: hexapod-mjx-train-8 code marker 7e384981cc59030338b67ac73f405158ce2be7ee-dirty != local HEAD 7e384981cc59030338b67ac73f405158ce2be7ee and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-8 (and snapshot/commit before that if the tree is dirty).
+**failed_reason**: self-inflicted: identical net_arch-mismatch crash as the seed0 twin (see that entry); fixed in code, relaunching
 

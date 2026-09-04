@@ -1,98 +1,110 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-03 ~23:2x (**Candidate (i)-v2 dose x seed grid now 3/4
-FAIL. Both dose-2.0 cells (seed0 AND seed1) are in: dose 2.0 is WORSE
-than dose 1.5 on every axis — pure-turn regression grows and the
-combined-tick win degrades from "clean both-signs win" (dose 1.5,
-seed0) to sign-asymmetric-or-outright-losing. Only the seed1/dose1.5
-twin (a concurrent cycle) remains to close 4/4.**)
+Update, 2026-09-04 ~00:1x (**Candidate (i)-v2 (yaw-arm-scale) dose x
+seed grid now CLOSED 4/4 FAIL. New lever built + unit-tested + a
+4-cell canary LAUNCHED to test the escalation path.**)
 
-`cap29-stdwalklohi-yawarm2p0-s1` (seed1, dose 2.0) verdicted FAIL-
-MECHANISM. `probe_turn_authority.py --vx-cmds` (full 84-key non-train
-cfg-set replayed against a FRESH seed1 control run — the cached 17:19
-seed1-control probe predates the probe-usage-gotcha fix and was NOT
-reused, per this ledger's own gate text "read against the seed1
-control instead"): pure-turn `wz_med` (seed-avg) +0.207/-0.180 vs
-seed1 control `cap29-stdwalklo-hi-s1` +0.226/-0.247 → regression 8.3%
-(+, inside the 10% cap) / 27.4% (-, blows it) — same shape as every
-sibling cell (the negative side always breaks first). Combined-tick
-(`vx=0.08`) `wz_med` +0.109/-0.136 vs the seed1 control's own combined
-read +0.087/-0.142 → positive side beats cleanly (+26%) but negative
-side is WEAKER than its own control (-4.5%) — sign-asymmetric, same
-failure shape as combskip/omegaboost/yawboost-lodose, and a step down
-from dose 1.5's clean bidirectional win. No falls on any turn row
-(12/12); reward quarters `[23.5, 59.3, -200.6, 116.8]`, final `ep_rew_
-mean` 164.6 — same Q3 dip/recovery shape, weakest final value of the
-four cells so far but still positive/still climbing in Q4, not a
-collapse. FAILS both gate clauses. Combined with the already-verdicted
-`yawarm2p0` (seed0, dose 2.0: pure-turn regression 22.7%/25.0%, BOTH
-over cap; combined-tick sign-asymmetric, positive side actually below
-the control's own read) and `yawarm1p5` (seed0, dose 1.5: clean
-bidirectional combined win, but regression 11.7%/25.4% still blows the
-cap), the dose x seed grid is now 3/4 FAIL, with a clear dose-response:
-1.5 is the family's best cell (only one to win combined on both signs)
-and 2.0 is strictly worse on every measured axis at both seeds tried.
-Only `yawarm1p5-s1` (seed1, dose 1.5, a concurrent cycle's run as of
-this writing) remains. Full verdict + evidence: `rl_docs/runs/cw-
-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-
-cap29-stdwalklohi-yawarm2p0-s1.md`, `logs/ckpt_eval/probe_turn_
-authority_yawarm2p0_s1_combined_09-03.json` vs `logs/ckpt_eval/probe_
-turn_authority_cap29_stdwalklo_hi_s1_combined_09-03_fullcfg.json`.
+`yawarm1p5-s1` (seed1, dose 1.5) verdicted FAIL-MECHANISM, closing the
+candidate (i)-v2 grid at 4/4 (seed0/1.5 FAIL, seed1/1.5 FAIL, seed0/2.0
+FAIL, seed1/2.0 FAIL). `probe_turn_authority.py --vx-cmds` (full
+84-key non-train cfg-set replayed, seed1 control re-verified fresh vs
+the cached file — matched within noise): pure-turn `wz_med` (seed-avg)
++0.197/-0.188 vs seed1 control `cap29-stdwalklo-hi-s1` +0.226/-0.247 →
+regression 12.6% (+) / 24.0% (-), BOTH over the 10% cap. Combined-tick
+(`vx=0.08`) `wz_med` +0.106/-0.158 vs the seed1 control's own combined
+read +0.087/-0.142 → BOTH signs beat the comparator cleanly (+22%/
++11%) — a clean bidirectional win, matching its seed0 twin (the only
+other cell to win both signs; both dose-2.0 cells were sign-
+asymmetric). No falls. Reward quarters `[25.6, 55.9, -190.7, 121.9]`,
+final `ep_rew_mean` 167.97 — the same family Q3 dip/recovery shape,
+not a collapse. FAILS on the regression clause alone, exactly
+reproducing the seed0 twin's shape. Full verdict + evidence:
+`rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
+gradclip0p15-cap29-stdwalklohi-yawarm1p5-s1.md`.
 
-**PROBE-USAGE GOTCHA (still logged, not yet a code fix — see prior
-banner, archived below, for the full writeup):** always replay the
-FULL non-`train.*` cfg-set from the checkpoint's own training command
-for any `probe_turn_authority.py --vx-cmds` read; the 5-flag shorthand
-silently freezes the policy. This cycle additionally re-ran the seed1
-control fresh under the full cfg rather than trusting the pre-gotcha
-17:19 cached file, since that file's provenance (shorthand vs full)
-was never logged at write time.
+**Read across all 4 cells:** every cell that wins the combined-tick
+axis (both dose-1.5 cells, bidirectionally) blows the pure-turn
+regression cap on the negative sign by 23-27%; cells that stay
+near/under the cap on pure-turn (dose 2.0) lose the combined-tick win
+instead (sign-asymmetric or outright worse). Combined with the
+already-refuted omega-boost/omega-discount axis (both directions,
+09-03), the WHOLE geometry/scaling-lever search for item 2 is closed:
+no single-scalar open-loop dose clears the gate without trading away
+pure-turn authority it isn't supposed to touch — the lever is bit-
+exact on pure-turn BY CONSTRUCTION at the scripted-teacher level, so
+the RL-trained regression must come from the SHARED dual-core policy's
+representation being pulled by the combined-tick BC-anchor imitation
+target, not the geometry.
 
-**NEXT CYCLE:** read the `yawarm1p5-s1` twin once available (it may
-already be verdicted by its concurrent cycle by the time you read
-this — check `rl_docs/runs/...yawarm1p5-s1.md` and the ledger status
-before re-deriving anything). If it also FAILS (likely, given the
-dose-2.0 pattern and the seed0/dose1.5 cell already failing on the
-regression clause alone), candidate (i)/(i)-v2 and the whole
-omega/yaw-arm-scaling axis close 4/4: no single-scalar dose on this
-lever clears the pure-turn cap without giving up the combined win, at
-either seed. Item 2 should then escalate to a structurally different
-lever (phase-scheduled BC-anchor strength, per the redesign spec's
-next class) rather than another dose/seed on the same mechanism — do
-NOT pre-launch that new mechanism before the 4th cell confirms; it is
-new reward/task-mechanism work and needs its own `test_task_
-semantics.py` bank pass before any training launch regardless. Prior
-banner moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-
-03t_trim.md`.
+**Escalation, built this cycle:** `train.bc_anchor_walk_combined_dose`
+(env: `sim_env.py` tags a combined tick's target with
+`info["bc_walk_weight"]=dose`; trainer: `bc_anchor.py` carries the
+weight through a new per-row ring column `_bc_wwt` and computes the
+walk-mode loss as a per-row-weighted mean via a new `_weighted_mse`
+helper) — the untried CONTINUOUS middle between the already-refuted
+extremes (1.0 = full anchor pull, legacy; 0.0 = full skip,
+`bc_anchor_walk_combined_skip`, refuted). Default 1.0 = legacy, bit-
+exact off (multiplying by exactly 1.0 is an IEEE-754 no-op — proven by
+a dedicated bit-exact-parameter-match test, not just inspection). 9
+new tests (env-level tagging + loss-level weighted-mse math +
+bit-exact-off + the graded-middle behavior sitting strictly between
+full-skip and full-weight) all green; full `test_bc_anchor.py` rerun
+114/114 (105 prior + 9 new). This is a training/imitation-loss
+mechanism, not a reward change, so — matching every other BC-anchor
+lever in this family (omega-boost, combined-skip, yaw-arm-scale) —
+it's gated by `test_bc_anchor.py`, not `test_task_semantics.py` (that
+bank's own reward-return tests don't exercise this code path at all,
+confirmed by grep). Snapshot pending this cycle's `snapshot.sh` run
+(see commit log for the hash).
 
-## Next (updated 09-03 ~23:1x)
+**LAUNCHED**: 2-dose (0.3, 0.6) x 2-seed canary respec'd from the
+matched comparators `cap29-stdwalklo-hi{,-s1}` (no other cfg changes —
+single-lever discipline): `cap29-stdwalklohi-combdose{0p3,0p6}{,-s1}`,
+all 4 VERIFIED training on their pods (`combdose0p3`@train-4,
+`combdose0p3-s1`@train-5, `combdose0p6`@train-11 all ledger-RUNNING;
+`combdose0p6-s1`@train-1 confirmed training on-pod via `kubectl exec`
+— `train_ppo_mjx` process alive with the correct
+`train.bc_anchor_walk_combined_dose=0.6` flag — but the CONTROLLER-
+side ledger entry was still stuck at `INTENT` when this cycle ended;
+NEXT CYCLE: reconcile that one ledger row to RUNNING/verify progress
+before triaging, the training itself is not in question). NEXT CYCLE:
+read all 4 with `probe_turn_authority.py --vx-cmds` (full cfg replay)
+against the SAME pre-registered gate shape as every prior cell in this
+family (beat the matched control's own combined read on BOTH signs,
+<=10% pure-turn/straight-walk regression vs that control) — read the
+FULL reward curve first (rider c: the cap29 family's Q3 dip/recovery
+shape is not itself a fail signal). Prior banner moved VERBATIM to
+`archive/standwalk_STATUS_journal_2026-09-03u_trim.md`.
+
+## Next (updated 09-04 ~00:1x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM. Candidate (i)-v2 (`combined_yaw_arm_
-   scale`) 1/4 cells read: seed0/dose1.5 FAIL — see banner.** Combined
-   axis genuinely wins both signs (2nd mechanism ever to do so, after
-   `yawboost6p0-s1`) but pure-turn regression (11.7%/25.4%) still blows
-   the 10% cap. NEXT CYCLE: read `dose2.0` (still training) + the
-   `1.5-seed1` twin (concurrent cycle) the SAME way (`probe_turn_
-   authority.py --vx-cmds` with the FULL non-train cfg-set replayed —
-   see the probe-usage gotcha in the banner, do not use the 5-flag
-   shorthand). If both remaining cells also show a real-but-
-   disqualified combined win, candidate (i)/(i)-v2 closes 4/4 alongside
-   the omega-scaling axis (both directions), meaning the achieved-wz
-   ceiling under THIS reward/BC-anchor stack is a genuinely hard
-   structural limit, not geometry-fixable at the single-scalar-dose
-   level — next lever must touch WHAT the BC-anchor supervises (e.g.
-   phase-scheduled anchor strength), not another multiplier on the
-   existing one. Prior findings still hold: turn-in-place authority
-   alone is strong everywhere (wz ~0.18-0.25 on 0.25 cmd); diet-rate,
-   structural co-occurrence (`walk_yaw_zero_frac`), combined-tick
-   BC-anchor-skip, teacher-omega-boost (both directions), and
-   combined-tick reward boost are ALL refuted, 2+ seeds/doses each.
-3. **Closed (archives 09-02{,b..h}, 09-03{a..s}):** update-size/
+2. **Steering branch — TOP ITEM. Candidate (i)-v2 (yaw-arm-scale)
+   CLOSED 4/4 FAIL — see banner.** Every dose that wins the
+   combined-tick wz axis blows the pure-turn regression cap; the
+   whole geometry/scaling-lever axis (yaw-arm-scale + both omega-boost
+   directions) is now closed. Escalation lever BUILT + unit-tested
+   this cycle: `train.bc_anchor_walk_combined_dose` (continuous
+   per-tick BC-anchor weight on combined ticks only, the untried
+   middle between the refuted full-skip and legacy full-weight
+   extremes). 4-cell canary LAUNCHED (`cap29-stdwalklohi-combdose
+   {0p3,0p6}{,-s1}`) against the same matched comparators
+   (`cap29-stdwalklo-hi{,-s1}`). NEXT CYCLE: read all 4 with
+   `probe_turn_authority.py --vx-cmds` (full 84-key cfg replay) the
+   SAME way as every prior cell (beat the control's own combined read
+   on BOTH signs, <=10% pure-turn/straight-walk regression). If this
+   also closes 4/4 FAIL, the BC-anchor-DOSE axis is exhausted too and
+   the next lever must touch something the dose/skip/scale family
+   cannot reach (candidates: phase-schedule the weight WITHIN a
+   stride instead of per-tick-class, or redirect effort to
+   standwalk's other remaining gap rather than a fourth variant of
+   "weaken the combined-tick anchor").
+3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
+   candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
    switch-jump/frame-blend/current-confound/combined-tick-anchor-skip/
    omega-boost (both directions)/combined-yaw-boost sweeps; cap29
@@ -108,26 +120,18 @@ banner moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s}. Current state = newest Update at the TOP;
+> 09-03{a..i,n,o,p,q,r,s,t,u}. Current state = newest Update at the TOP;
 > don't act on archived Next.
 
-## Fleet capacity note (09-03 ~23:2x)
+## Fleet capacity note (09-04 ~00:1x)
 
-All 4 item-2 canary cells finished training; 3/4 read (seed0 dose1.5,
-seed0 dose2.0, seed1 dose2.0 — all FAIL, see banner). The last cell
-(`yawarm1p5-s1`, seed1 dose1.5) was `in-cycle` to a concurrent triage
-claim as of this writing — do not re-read it without first checking
-whether it has already been verdicted. 11/11 GPU slots FREE. No launch
-this cycle: the pre-registered next step (close 4/4 before deciding
-whether to escalate to phase-scheduled BC-anchor strength) explicitly
-waits on that last seed1 read, and the escalation target is a NEW
-reward/task mechanism that needs its own `test_task_semantics.py` bank
-pass before any training launch regardless — jumping to design it now,
-ahead of the 4th confirmation and without that bank, would be
-premature on both counts. Every OTHER track is non-launchable by
-design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
-RETIRED; `todaypolicy` DELIVERED) — reconfirmed this cycle, all five
-STATUS banners unchanged since the last check.
+4 of 11 GPU slots spent on the item-2 dose-canary batch
+(`combdose{0p3,0p6}{,-s1}`, train-4/5/11/1); 7 free. Every OTHER track
+is non-launchable by design (`joystick`/`amp`/`cpg` DONE or
+maintenance-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
+`standwalk`'s only Next item now has a launched, gated canary in
+flight — next cycle's job is to read it, not launch more speculative
+arms ahead of that read.
 
 ## Goal (operator, 08-24 evening)
 

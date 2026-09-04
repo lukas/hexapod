@@ -4657,3 +4657,13 @@ settle whether they're the same quantity.
 
 status: OPEN, low priority (didn't gate the verdict), flagged for
 whichever cycle next needs own-DR fall-count precision.
+
+## 2026-09-04 — eval/trainer co-location starves trainers (observation + adopted answer)
+Watcher-staged podevals run on "the run's own pod", but the drain can later place a NEW
+trainer on that same pod: tonight 4 video evals (~24 cores, nice-19) for yawarm1p5/combskip
+starved the fresh combdose0p3 trainer on train-4 to fps 2913 (<5000 floor); attempt-1 died
+under the squeeze and self-repair relaunched it. Nice-19 alone does not protect the trainer
+because eval procs still burn the pod's CFS quota. Adopted answer (no pause): when a checkup
+flags this, pin the eval process trees to a small core set (taskset, ~6 cores) instead of
+killing them — done tonight, trainer recovered (485%->791% CPU). Suggested durable fix for a
+machinery cycle: podeval should prefer a trainer-free pod, or self-cap affinity at start.

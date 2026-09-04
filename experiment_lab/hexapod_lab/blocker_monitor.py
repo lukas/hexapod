@@ -61,10 +61,10 @@ def send_messages_text(recipient: str, message: str) -> None:
             timeout=20,
             check=False,
         )
-    except subprocess.TimeoutExpired as exc:
+    except subprocess.TimeoutExpired:
         raise RuntimeError(
             "Messages automation timed out; allow the alert process to control Messages"
-        ) from exc
+        ) from None
     if result.returncode:
         detail = (result.stderr or result.stdout or "Messages rejected the send").strip()
         raise RuntimeError(detail[:500])

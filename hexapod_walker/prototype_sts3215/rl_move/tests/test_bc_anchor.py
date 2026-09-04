@@ -1390,6 +1390,143 @@ def test_walk_yaw_arm_scale_leaves_straight_walk_untouched():
         assert np.allclose(info["bc_target"], expect, atol=1e-6)
 
 
+
+# train.bc_anchor_teacher_selective_omega_boost (standwalk Next item
+# 2, "selective per-leg omega boost" candidate, 09-04): mirrors
+# bc_anchor_teacher_yaw_arm_scale's wiring pattern (a static per-run
+# dose read once in _make_walk_bc_gait), but on
+# TripodGait.combined_selective_omega_boost -- a genuinely different
+# mechanism (boosts the TRUE foot target for only the vx-attenuated
+# legs, not just the yaw servo angle's atan2 denominator). See
+# tripod_gait.py's docstring + probe_turn_authority.py's
+# test_selective_omega_boost_* for the zero-training scripted-teacher
+# validation this canary is funded on. Default 1.0 = legacy identity.
+
+def test_walk_selective_omega_boost_default_off_bit_exact():
+    """Unset train.bc_anchor_teacher_selective_omega_boost: a combined
+    tick's bc_target matches an independent TripodGait with the
+    default (unboosted) gait, exactly like the legacy walk BC-anchor."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(68, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_selective_omega_boost_boosts_combined_ticks():
+    """train.bc_anchor_teacher_selective_omega_boost=3.0: a combined
+    tick's bc_target now matches an independent TripodGait constructed
+    with combined_selective_omega_boost=3.0 -- proving the dose
+    actually reaches the teacher's IK -- and differs from the
+    unboosted target."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(69, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_selective_omega_boost"): 3.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    ref_boosted = TripodGait(vx=0.0, combined_selective_omega_boost=3.0)
+    ref_boosted.sync_plant_stance(20.0, 100.0)
+    ref_boosted.reset_phase()
+    ref_plain = TripodGait(vx=0.0)
+    ref_plain.sync_plant_stance(20.0, 100.0)
+    ref_plain.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    saw_diff = False
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref_boosted.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                  omega=float(g.wz_ref))
+        expect_boosted = q_rad_to_action(np.asarray(
+            ref_boosted.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        ref_plain.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                                omega=float(g.wz_ref))
+        expect_plain = q_rad_to_action(np.asarray(
+            ref_plain.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect_boosted, atol=1e-6)
+        if not np.allclose(expect_boosted, expect_plain, atol=1e-6):
+            saw_diff = True
+    assert saw_diff, "boosted and unboosted teacher targets never diverged"
+
+
+def test_walk_selective_omega_boost_leaves_pure_turn_untouched():
+    """train.bc_anchor_teacher_selective_omega_boost=3.0 must NOT
+    touch a PURE turn-in-place tick (vx=0, wz!=0) -- bc_target still
+    matches the UNBOOSTED reference there (gate lives inside
+    TripodGait itself)."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(70, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_selective_omega_boost"): 3.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.0, 0.0, 0.3)   # pure turn
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
+def test_walk_selective_omega_boost_leaves_straight_walk_untouched():
+    """train.bc_anchor_teacher_selective_omega_boost=3.0 must NOT
+    change a straight-walk tick (vx!=0, wz=0) -- omega is 0 either
+    way, so the combined gate never fires and the target matches the
+    plain reference exactly."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(71, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_teacher_selective_omega_boost"): 3.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.0)   # straight walk only
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(10):
+        step_i = env._step_i
+        _o, _r, term, trunc, info = env.step(hold)
+        if term or trunc:
+            break
+        g = env._current_goal()
+        ref.set_velocity(vx=float(g.vx_ref), vy=float(g.vy_ref),
+                          omega=float(g.wz_ref))
+        expect = q_rad_to_action(
+            np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
+        assert np.allclose(info["bc_target"], expect, atol=1e-6)
+
+
 # --- GETUP lever (08-12, cw-getup2-r1 follow-up) ---------------------
 # cw-getup2-r1 warm-started the getup task from the rise+hold
 # specialist and showed the skill does NOT survive contact with the

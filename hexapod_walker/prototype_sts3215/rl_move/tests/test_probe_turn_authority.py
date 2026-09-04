@@ -183,3 +183,70 @@ def test_yaw_amplify_scale_is_a_no_op_on_pure_turn_and_pure_walk():
     plain_walk = rollout(**walk_kwargs)
     dosed_walk = rollout(scripted_yaw_amplify_scale=3.0, **walk_kwargs)
     assert plain_walk["vx_med"] == dosed_walk["vx_med"]
+
+
+def test_selective_omega_boost_default_is_bit_exact():
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    baseline = rollout(**kwargs)
+    explicit_one = rollout(scripted_selective_omega_boost=1.0, **kwargs)
+    for key in ("wz_med", "vx_med", "wz_err_med", "n_walk_ticks", "fell"):
+        assert baseline[key] == explicit_one[key], key
+
+
+def test_selective_omega_boost_recovers_combined_tick_wz_at_a_vx_cost():
+    """standwalk Next item 2, "selective per-leg omega boost"
+    candidate (09-04): dose=3.0 must raise |wz_med| toward the
+    commanded rate on BOTH signs (unlike the uniform omega_boost/
+    yaw_arm_scale/yaw_amplify_scale levers, which all showed a
+    sign-asymmetric response at the RL stage) while vx_med drops
+    somewhat -- the measured trade, not a free win."""
+    for wz_cmd in (0.25, -0.25):
+        kwargs = dict(model=None,
+                      env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                      wz_cmd=wz_cmd, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                      policy="scripted")
+        plain = rollout(**kwargs)
+        boosted = rollout(scripted_selective_omega_boost=3.0, **kwargs)
+        assert abs(boosted["wz_med"]) > abs(plain["wz_med"]), wz_cmd
+        assert boosted["vx_med"] <= plain["vx_med"], wz_cmd
+
+
+def test_selective_omega_boost_beats_uniform_boost_at_matched_dose():
+    """Pinned zero-training finding motivating the RL canary: at
+    dose=3.0 the selective (per-leg) boost achieves a LARGER wz gain
+    than the already-RL-tested uniform ``scripted_omega_boost`` at the
+    same dose, on the same command -- the uniform lever's gain nearly
+    saturates by dose 2.0-3.0 (0.165->0.168 rad/s) while the selective
+    lever keeps climbing (0.160->0.231 rad/s)."""
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    uniform = rollout(scripted_omega_boost=3.0, **kwargs)
+    selective = rollout(scripted_selective_omega_boost=3.0, **kwargs)
+    assert abs(selective["wz_med"]) > abs(uniform["wz_med"])
+
+
+def test_selective_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
+    """The combined-only gate (inside TripodGait itself) means this
+    boost must NOT touch a pure-turn (vx_cmd=0) or pure-walk
+    (wz_cmd=0) rollout -- both must match their boost=1.0 baseline
+    exactly."""
+    turn_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.25, vx_cmd=0.0, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_turn = rollout(**turn_kwargs)
+    boosted_turn = rollout(scripted_selective_omega_boost=2.0, **turn_kwargs)
+    assert plain_turn["wz_med"] == boosted_turn["wz_med"]
+
+    walk_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.0, vx_cmd=0.08, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_walk = rollout(**walk_kwargs)
+    boosted_walk = rollout(scripted_selective_omega_boost=2.0, **walk_kwargs)
+    assert plain_walk["vx_med"] == boosted_walk["vx_med"]

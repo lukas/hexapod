@@ -121,6 +121,7 @@ class TripodGait:
         stance_radius_scale: float = 1.0,
         combined_yaw_arm_scale: float = 1.0,
         combined_yaw_amplify_scale: float = 1.0,
+        combined_selective_omega_boost: float = 1.0,
     ):
         self.period = period
         self.lift = lift
@@ -221,6 +222,38 @@ class TripodGait:
         # multiplicatively with ``combined_yaw_arm_scale``, itself
         # default-off).
         self.combined_yaw_amplify_scale = float(combined_yaw_amplify_scale)
+        # standwalk Next item 2, SELECTIVE per-leg omega boost (09-04,
+        # the mirror image of ``combined_yaw_amplify_scale`` using the
+        # SAME per-leg classification, but a genuinely DIFFERENT
+        # mechanism). Every candidate in the 09-04 "reshape the
+        # commanded yaw ANGLE" family (uniform ``combined_yaw_arm_
+        # scale``, selective ``combined_yaw_amplify_scale``, the
+        # unwired "detangle the vx cross term" idea) was refuted
+        # because scaling the yaw SERVO angle's atan2 denominator only
+        # changes how much slew is COMMANDED for a fixed true foot
+        # offset -- it never changes the true offset itself, so the
+        # physical rotation the leg produces shrinks right along with
+        # the commanded angle. This knob instead changes the TRUE FOOT
+        # OFFSET: on a combined tick (self.vx!=0 and self.omega!=0),
+        # for each leg classified as ATTENUATED (the true combined
+        # tangential magnitude |y_yaw| is SMALLER than that leg's own
+        # pure-omega-only magnitude |y_turn| -- the vx cross term
+        # ``-vx*sin(leg_angle)`` partially CANCELS omega*r for it,
+        # mirror image of the AMPLIFIED legs ``combined_yaw_amplify_
+        # scale`` targets), the ENTIRE foot target (dx/dy/dz, not just
+        # the yaw angle) is recomputed with omega multiplied by this
+        # dose before IK -- i.e. the leg is told to physically swing
+        # through more angle, exactly mirroring the already-tried
+        # UNIFORM ``train.bc_anchor_teacher_omega_boost`` mechanism
+        # (09-03, proven to recover real scripted-teacher wz at the
+        # cost of vx) but restricted to only the 3 legs that lost
+        # authority to vx cancellation, leaving the 3 already-
+        # AMPLIFIED legs byte-identical to dose 1.0 at any dose.
+        # Gated to combined ticks only, so pure-turn and pure-walk are
+        # bit-exact regardless of dose. Default 1.0 = legacy identity
+        # (skips the extra _foot_target_in_body call entirely).
+        self.combined_selective_omega_boost = float(
+            combined_selective_omega_boost)
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -384,6 +417,21 @@ class TripodGait:
         out: list[float] = []
         for i, a in enumerate(self.leg_angles):
             dx_b, dy_b, dz_b = self._foot_target_in_body(i, vx, vy, omega)
+            # SELECTIVE per-leg omega boost (see __init__ docstring):
+            # unlike yaw_arm_scale/amplify_scale, this changes the TRUE
+            # foot target (dx/dy/dz), not just the yaw-angle denominator
+            # -- only for legs the vx cross term ATTENUATES below their
+            # own pure-omega-only magnitude, and only on a combined
+            # tick. Runs BEFORE the yaw-angle reshaping levers below so
+            # they compose on top of the (possibly boosted) true target
+            # exactly like they compose with each other.
+            if _combined and self.combined_selective_omega_boost != 1.0:
+                x_yaw0, y_yaw0 = self._yaw_frame_xy(dx_b, dy_b, a)
+                dx_t, dy_t, _ = self._foot_target_in_body(i, 0.0, vy, omega)
+                x_turn, y_turn = self._yaw_frame_xy(dx_t, dy_t, a)
+                if abs(y_yaw0) < abs(y_turn) - 1e-12:
+                    dx_b, dy_b, dz_b = self._foot_target_in_body(
+                        i, vx, vy, omega * self.combined_selective_omega_boost)
             x_yaw, y_yaw = self._yaw_frame_xy(dx_b, dy_b, a)
             # candidate (iii) combined_yaw_amplify_scale (see __init__
             # docstring): only multiplies THIS leg's denominator (on

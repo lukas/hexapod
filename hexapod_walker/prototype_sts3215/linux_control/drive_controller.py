@@ -482,7 +482,8 @@ class DriveController:
         """
         gait_id = int(gait_id)
         if gait_id not in self._GAIT_NAMES:
-            gait_id = 0
+            self.status = f"gait selection refused: unknown GAIT {gait_id}"
+            return f"refused unknown GAIT {gait_id}"
         if gait_id == 6 and self._cpg_loaded is None:
             return "refused GAIT 6 - CPGLOAD a controller first"
         if alpha is not None:

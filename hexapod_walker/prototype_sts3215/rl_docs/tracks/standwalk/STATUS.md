@@ -1,50 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~08:3x (**OPERATOR DIRECTIVE fb_20260904T074505
-executed: over_current AUDITED (2.64 A = forcerange rail image, trip
-knife-edge in uncalibrated constants, counterfactual replay shows NO
-fall/stall past the trip), transition-stress promotion suite BUILT
-(`eval_cmd_stress.py`), and the transtress-diet canary pair LAUNCHED
-(arm+matched control x 2 seeds, train-6/7/8/9).**)
-
-Audit: `logs/ckpt_eval/oc_audit_09-04/OC_AUDIT_SUMMARY.md` +
-CURRENT_TRUTHS ruling — rail hits alone never condemn a policy;
-`audit_over_current.py` classifies RAIL_MOVING vs CORROBORATED_STALL;
-note safety.max_current_a=2.9 (cap29 training) can NEVER trip (rail
-2.64 < 2.9) while 2.5-riders trip on ANY sustained rail. New telemetry
-on every eval episode: cur_rail_frac + cmd_rate/jerk/slew_sat (the
-champion spends ~30-70% of transition ticks AT the 37.5 deg/s slew cap
-— smoothness headroom is real). New training lever
-`goal.mode_seq_stress` (SEQ_NEXT_STRESS: rise->lower, walk->hold;
-default OFF bit-exact). Snapshot 2751a537, 65 tests green + 8 new.
-
-Steering branch unchanged: selomegaboost 3/4 FAIL, 4th arm
-(selomegaboost4p0-s1) finished, prestage evals running — its triage
-still belongs to the concurrent cycle; gait-structure candidate still
-gated on that verdict (unchanged Next item).
-
-Prior banner (selomegaboost3p0-s1 FAIL) archived:
+Update, 2026-09-04 ~09:4x (meta): transtress/cont canary quartet
+FINISHED + prestaged, triage owed (Next item 1); steering axis awaits
+the cont{,-s1} confound read (Next item 2). 08-3x banner (operator
+directive fb_20260904T074505: over_current audit — see
+`logs/ckpt_eval/oc_audit_09-04/OC_AUDIT_SUMMARY.md` + CURRENT_TRUTHS
+ruling (rail hits alone never condemn; cap29's 2.9 threshold can NEVER
+trip vs the 2.64 A rail); `eval_cmd_stress.py` promotion suite +
+cur_rail_frac/cmd_rate/jerk/slew_sat telemetry (champion pins the
+37.5 deg/s slew cap 30-70% of transition ticks); `goal.mode_seq_stress`
+lever, default OFF bit-exact; snapshot 2751a537) — details archived:
 `archive/standwalk_STATUS_journal_2026-09-04ee_trim.md`.
 
-## Next (updated 09-04 ~08:3x)
+## Next (updated 09-04 meta)
 
 1. **Universal-command branch (operator directive 09-04) — TOP ITEM.**
-   4 canaries RUNNING: `cap29-stdwalklohi-transtress{,-s1}`
-   (transition-stress diet: mode_seq_stress grammar + 2.5-9 s segments
-   + 3 s cmd resample) vs `cap29-stdwalklohi-cont{,-s1}` (matched
-   plain continuations = baselines). Gate: `eval_cmd_stress` (seed
-   base 93000) — zero MECHANICAL terms, completion/walk within bands
-   of control, smoothness medians not worse; over_current reported
-   separately, never vetoes alone. If the diet holds at 2M, next rung
-   is an acquisition-length transtress run; if smoothness telemetry
-   stays pinned at the slew cap, THEN design a measured action-rate/
-   jerk objective (semantics-bank entry first — not yet written).
-2. **Steering branch — 3/4 arms FAIL, awaiting selomegaboost4p0-s1
-   verdict (concurrent cycle).** If it fails the same sign-asymmetric
-   way, the teacher-lever axis closes; honest next move is a
-   gait-STRUCTURE change or DONE-gate turn-authority renegotiation.
-   Do not launch the gait-structure candidate until that verdict
-   lands. Rise-stall branch stays CLOSED (09-03o archive).
+   All 4 canaries FINISHED + prestaged (~08:5x): `cap29-stdwalklohi-
+   transtress{,-s1}` (transition-stress diet: mode_seq_stress grammar
+   + 2.5-9 s segments + 3 s cmd resample) vs `cap29-stdwalklohi-
+   cont{,-s1}` (matched plain continuations = baselines). Gate:
+   `eval_cmd_stress` (seed base 93000) — zero MECHANICAL terms,
+   completion/walk within bands of control, smoothness medians not
+   worse; over_current reported separately, never vetoes alone. If the
+   diet holds at 2M, next rung is an acquisition-length transtress
+   run; if smoothness stays pinned at the slew cap, THEN design a
+   measured action-rate/jerk objective (semantics-bank entry first).
+2. **Steering branch — READ `cont{,-s1}` AS THE MISSING CONTROL FIRST
+   (meta 09-04).** Every steering-lever FAIL (~26 canaries, 6 lever
+   families) was scored against the FROZEN cap29-stdwalklo-hi{,-s1}
+   checkpoints; the one prior continuation control (dualcontinue-
+   noyawcredit) ALSO dropped yaw_credit/log_std_split. cont{,-s1} =
+   plain 2M continuations, mechanisms kept — run their pure-turn
+   probe_turn_authority vs the frozen baseline BEFORE any new lever/
+   gait-structure/gate-renegotiation move: if plain continuation alone
+   breaches the 10% pure-turn cap, the whole FAIL wall measured
+   continuation drift, not lever harm, and the axis must be re-scored
+   against matched-continuation controls. selomegaboost4p0-s1 verdict
+   still owed: checkpoint IS on the controller (pulled 07:12); its
+   prestage evals died with old train-4 — rerun `ops.sh podeval` on a
+   live pod. Rise-stall branch stays CLOSED (09-03o archive).
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa,cc,dd}):**
    architecture-split; yaw-arm-scale dose x seed grid (4/4 FAIL);
    `combined_yaw_amplify_scale` + "detangle" idea (both REFUTED
@@ -62,13 +56,15 @@ Prior banner (selomegaboost3p0-s1 FAIL) archived:
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd}. Current
 > state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~08:3x)
+## Fleet capacity note (updated 09-04 meta ~09:4x)
 
-4 GPU pods training the transtress/cont canary quartet (train-6/7/8/9,
-2M each); train-2/4 hosting the watcher's selomegaboost4p0{,-s1}
-prestage evals; rest free. Steering-axis follow-up still gated on the
-selomegaboost4p0-s1 verdict (concurrent cycle). Every OTHER track
-remains non-launchable by design (`joystick`/`amp`/`cpg` DONE or
+All pods idle (transtress/cont quartet finished, awaiting triage).
+train-4 OOMKilled 08:06 -> deleted + recreated from the fixed 4Gi-dshm
+scaleout spec (meta 09-04); still Pending (g142d86 at 98% CPU requests,
+other tenants) — when it goes Running, run `bootstrap_train_pod.sh
+hexapod-mjx-train-4` + `pod_torch_capability.py install` before use.
+g131eec is now SchedulingDisabled (train-2/3 keep running). Every OTHER
+track remains non-launchable by design (`joystick`/`amp`/`cpg` DONE or
 maintenance-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
 
 ## Goal (operator, 08-24 evening)

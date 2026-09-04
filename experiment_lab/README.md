@@ -96,6 +96,19 @@ The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.a
 
 The laptop's Codex configuration registers this endpoint as `robot_lab`. Its `bearer_token_env_var` is `HEXAPOD_LAB_TOKEN`; a login LaunchAgent reads the value from Keychain and places it in the user's launchd environment. Restart the Codex/ChatGPT desktop app after initial setup so newly launched tasks inherit it.
 
+## Read-only mobile gateway
+
+`/api/mobile/openapi.json` publishes a deliberately read-only OpenAPI schema
+for a ChatGPT action or another mobile client. It combines Robot Lab experiment
+evidence with the RL orchestrator's public LLM documents. Every data endpoint
+requires the existing viewer/operator bearer token; the schema itself is public
+so clients can import it.
+
+The mobile surface cannot queue or cancel experiments, upload results, move the
+robot, kick the orchestrator, or submit feedback. Import:
+
+`https://robot-lab.cwd1f0-new-cluster.coreweave.app/api/mobile/openapi.json`
+
 ## Operations
 
 - Run only one worker against a SQLite file. Read/API replicas must set `HEXAPOD_AUTO_WORKER=false`.

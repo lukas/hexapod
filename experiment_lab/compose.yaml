@@ -1,0 +1,14 @@
+services:
+  lab:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8767:8767"
+    env_file: .env
+    volumes:
+      - ./lab-data:/data
+      # Add device mappings only after validating the real robot and camera adapters.
+    environment:
+      HEXAPOD_DATA_DIR: /data
+      HEXAPOD_BIND: 0.0.0.0
+    init: true

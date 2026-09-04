@@ -179,7 +179,9 @@ Hard rules:
    three-consecutive-read rule above.
 
 Details: `.cursor/rules/hexapod-sts-hardware-safety.mdc`,
-`hexapod_walker/prototype_sts3215/rl_move/API.md`.
+`hexapod_walker/prototype_sts3215/EMERGENCY_HANDLING.md`, and
+`hexapod_walker/prototype_sts3215/rl_move/API.md`. The emergency-handling
+document is canonical when choosing hold versus controlled stop versus limp.
 
 ### Local Mac web hub on `:8898`
 

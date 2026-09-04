@@ -57,3 +57,10 @@ instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 No physical robot motion unless the user explicitly asks for it in the
 current turn. Local checks, deploys, and service restarts are okay when
 requested; motion endpoints are not.
+
+For any anomaly during an authorized run, follow
+[`EMERGENCY_HANDLING.md`](EMERGENCY_HANDLING.md). In particular, a single
+missing servo reply is telemetry noise, not permission to sit or limp. Require
+three consecutive incomplete scans with distinct fresh timestamps. Ordinary
+camera, recorder, or framework failures stop active motion neutrally and hold
+the current stable pose; they do not trigger a posture transition.

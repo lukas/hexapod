@@ -461,42 +461,52 @@ class Suite:
         except Exception as error:
             self.log_event("emergency_stop_error", str(error))
 
-    def recover_nonhard_failure_to_zero(self, reason: str) -> None:
-        """After a non-safety failure, lower to verified zero and limp.
-
-        HardSafetyTrip deliberately never reaches this method.  A confirmed
-        tip, brownout, missing servo, hot motor, hard current, or lost
-        telemetry remains a stop-and-limp event with no further motion.
-        """
-        self.log_event("failure_zero_recovery_start", reason)
-        reply = _request(
-            self.base, "/api/safe_zero", json_body={}, timeout=8.0
-        )
-        self.log_event("failure_zero_recovery_reply", reply)
-        if isinstance(reply, dict) and reply.get("ok") is False:
-            raise RuntimeError(
-                "collision-aware zero recovery refused: "
-                + str(reply.get("error") or reply)
-            )
-
-        deadline = time.monotonic() + 50.0
-        while time.monotonic() < deadline:
+    def pause_without_posture_change(self, reason: str) -> None:
+        """Stop active motion without adding a sit or limp transition."""
+        self.log_event("failure_pause_in_place_start", reason)
+        try:
             state = self.robot_state()
-            if not bool((state.get("demo") or {}).get("running")):
-                pose = _request(self.base, "/api/pose", timeout=5.0)
-                degrees = pose.get("degrees") if isinstance(pose, dict) else None
-                if isinstance(degrees, list) and len(degrees) == 18:
-                    max_error = max(abs(float(value)) for value in degrees)
-                    if max_error <= 6.0:
-                        self.command("X")
-                        self.motion_started = False
-                        self.log_event(
-                            "failure_zero_recovery_complete",
-                            {"max_abs_deg": round(max_error, 3)},
-                        )
-                        return
-            time.sleep(0.25)
-        raise RuntimeError("collision-aware zero recovery timed out")
+        except Exception as error:
+            # If even the controller state is unreachable, a best-effort
+            # torque-off remains the only deterministic stop available.
+            self.log_event("failure_pause_state_unavailable", str(error))
+            self.emergency_stop(f"could not inspect active motion: {error}")
+            return
+        if not state.get("armed"):
+            self.log_event("failure_pause_already_limp")
+            return
+        if state.get("mode") == "walk":
+            try:
+                self.stop_walk("failure pause")
+                self.log_event("failure_pause_holding_walk_pose")
+                return
+            except Exception as error:
+                self.log_event("failure_pause_walk_stop_failed", str(error))
+                self.emergency_stop(f"could not stop active gait: {error}")
+                return
+        demo = state.get("demo") or {}
+        if demo.get("running"):
+            name = str(demo.get("name") or "")
+            if name.startswith("standup_"):
+                path = "/api/standup/stop"
+            elif name.startswith("rl_"):
+                path = "/api/rl/stop"
+            else:
+                path = "/api/demo/stop"
+            try:
+                reply = _request(self.base, path, json_body={}, timeout=5.0)
+                self.log_event("failure_pause_job_stop", {
+                    "job": name, "path": path, "reply": reply,
+                })
+            except Exception as error:
+                self.log_event("failure_pause_job_stop_failed", str(error))
+                self.emergency_stop(f"could not stop active job: {error}")
+            return
+        # The controller is armed but already stationary. Preserve its last
+        # commanded pose and let the operator decide whether/when to sit.
+        self.log_event("failure_pause_holding_stationary_pose", {
+            "mode": state.get("mode"), "activity": state.get("activity"),
+        })
 
     def robot_state(self) -> dict[str, Any]:
         state = _request(self.base, "/api/robot", timeout=5.0)
@@ -507,8 +517,43 @@ class Suite:
     def assert_robot_health(self, *, require_armed: bool) -> None:
         state = self.robot_state()
         servo = state.get("servo") or {}
+        # ServoWatch publishes individual scan results for the UI. A single
+        # missing reply is known bus noise and is not a confirmed stop. Count
+        # only distinct, fresh scan timestamps and require three consecutive
+        # incomplete scans, matching sample_feedback() and the hardware rule.
         if int(servo.get("live", 0)) != 18 or servo.get("missing"):
-            raise RuntimeError(f"servo health is not 18/18: {servo}")
+            bad_scans = [servo]
+            previous_ts = servo.get("ts")
+            while len(bad_scans) < 3:
+                deadline = time.monotonic() + 2.0
+                fresh_state: dict[str, Any] | None = None
+                while time.monotonic() < deadline:
+                    candidate = self.robot_state()
+                    candidate_servo = candidate.get("servo") or {}
+                    if candidate_servo.get("ts") != previous_ts:
+                        fresh_state = candidate
+                        break
+                    time.sleep(0.1)
+                if fresh_state is None:
+                    raise HardSafetyTrip(
+                        "servo health scan stopped updating after an "
+                        f"incomplete sample: {servo}"
+                    )
+                state = fresh_state
+                servo = state.get("servo") or {}
+                previous_ts = servo.get("ts")
+                if int(servo.get("live", 0)) == 18 and not servo.get("missing"):
+                    self.log_event("transient_missing_servo_ignored", {
+                        "incomplete_scans": len(bad_scans),
+                        "recovered_servo": servo,
+                    })
+                    break
+                bad_scans.append(servo)
+            else:
+                raise HardSafetyTrip(
+                    "servo health is not 18/18 across three fresh scans: "
+                    f"{bad_scans}"
+                )
         # ServoWatch intentionally publishes even a one-scan WARN_C sample so
         # the UI can display it. Do not turn that display warning back into a
         # one-read suite abort; sample_feedback() owns the same per-joint
@@ -1300,11 +1345,7 @@ class Suite:
         if max(abs(float(value)) for value in degrees if value is not None) > 6.0:
             raise RuntimeError(f"robot is not at visually verified zero: {degrees}")
         self.log_event("preflight_ok", {"pose_deg": degrees})
-        if (
-            self.args.return_to_camera_center
-            or self.args.adaptive_centering
-            or self.args.center_only
-        ):
+        if self.args.return_to_camera_center or self.args.adaptive_centering:
             self.capture_camera_center_anchor()
 
         self.phase = "stand"
@@ -1318,6 +1359,10 @@ class Suite:
         self.sample_feedback()
 
         if self.args.center_only:
+            # In the low zero pose the chassis marker can be occluded by the
+            # top deck. An explicit floor target does not depend on the start
+            # pose, so acquire its visual lock only after the validated stand.
+            self.capture_camera_center_anchor()
             self.gait = self.args.center_gait
             self.phase = "camera_center_only"
             selected = self.command(f"GAIT {self.args.center_gait}")
@@ -1614,14 +1659,7 @@ def main() -> int:
     except Exception as error:
         suite.log_event("suite_error", str(error))
         if suite.motion_started:
-            suite.emergency_stop(str(error))
-            try:
-                suite.recover_nonhard_failure_to_zero(str(error))
-            except Exception as recovery_error:
-                suite.log_event("failure_zero_recovery_error", str(recovery_error))
-                suite.emergency_stop(
-                    f"zero recovery failed after {error}: {recovery_error}"
-                )
+            suite.pause_without_posture_change(str(error))
         return 1
     finally:
         recorder.stop()

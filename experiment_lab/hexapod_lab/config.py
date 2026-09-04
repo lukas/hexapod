@@ -16,6 +16,7 @@ class Settings:
     public_base_url: str
     auto_worker: bool
     max_duration_seconds: int
+    max_artifact_bytes: int = 2 * 1024 * 1024 * 1024
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -34,4 +35,7 @@ class Settings:
             public_base_url=os.getenv("HEXAPOD_PUBLIC_BASE_URL", "").rstrip("/"),
             auto_worker=os.getenv("HEXAPOD_AUTO_WORKER", "true").lower() in {"1", "true", "yes"},
             max_duration_seconds=int(os.getenv("HEXAPOD_MAX_DURATION_SECONDS", "900")),
+            max_artifact_bytes=int(os.getenv(
+                "HEXAPOD_MAX_ARTIFACT_BYTES", str(2 * 1024 * 1024 * 1024)
+            )),
         )

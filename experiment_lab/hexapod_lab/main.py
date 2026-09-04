@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 from html import escape
 import json
 import mimetypes
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
+import uuid
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -21,6 +23,12 @@ class ExperimentIn(BaseModel):
     description: str = Field(default="", max_length=4000)
     duration_seconds: float = Field(gt=0)
     parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CompletedResultIn(ExperimentIn):
+    status: Literal["succeeded", "failed", "cancelled"] = "succeeded"
+    error: str = Field(default="", max_length=4000)
+    summary_markdown: str = Field(min_length=1, max_length=262_144)
 
 
 def create_app(settings: Optional[Settings] = None) -> FastAPI:
@@ -59,15 +67,52 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(404, "Artifact not found")
         return path
 
+    def artifact_destination(experiment_id: str, filename: str) -> Path:
+        item = require_experiment(experiment_id)
+        if item["status"] not in {"succeeded", "failed", "cancelled"}:
+            raise HTTPException(409, "Artifacts may only be attached to a completed result")
+        if Path(filename).name != filename or filename in {"manifest.json", "experiment.json"}:
+            raise HTTPException(400, "Invalid artifact name")
+        return settings.data_dir / "experiments" / experiment_id / filename
+
     def enrich(item):
         run_dir = settings.data_dir / "experiments" / item["id"]
         item = dict(item)
-        item["artifacts"] = ([{"name": p.name, "size": p.stat().st_size,
-                              "content_type": mimetypes.guess_type(p.name)[0] or "application/octet-stream",
-                              "url": f"/api/experiments/{item['id']}/artifacts/{p.name}"}
-                             for p in sorted(run_dir.iterdir()) if p.is_file()] if run_dir.exists() else [])
+        artifacts = []
+        if run_dir.exists():
+            for path in sorted(run_dir.iterdir()):
+                if not path.is_file():
+                    continue
+                relative_url = f"/api/experiments/{item['id']}/artifacts/{path.name}"
+                artifacts.append({
+                    "name": path.name,
+                    "size": path.stat().st_size,
+                    "content_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                    "url": relative_url,
+                    "download_url": (
+                        f"{settings.public_base_url}{relative_url}"
+                        if settings.public_base_url else relative_url
+                    ),
+                })
+        item["artifacts"] = artifacts
         item["events"] = store.events(item["id"])
         return item
+
+    def register_result(spec: CompletedResultIn, principal: Principal):
+        item = store.import_result(
+            spec.model_dump(exclude={"status", "error", "summary_markdown"}),
+            principal.name,
+            spec.status,
+            spec.error or None,
+        )
+        run_dir = settings.data_dir / "experiments" / item["id"]
+        run_dir.mkdir(parents=True, exist_ok=False)
+        (run_dir / "experiment.json").write_text(
+            json.dumps(item, indent=2) + "\n", encoding="utf-8"
+        )
+        (run_dir / "summary.md").write_text(spec.summary_markdown, encoding="utf-8")
+        runner._write_manifest(run_dir)
+        return enrich(item)
 
     @app.get("/healthz")
     def health():
@@ -85,6 +130,10 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         runner.wake()
         return enrich(item)
 
+    @app.post("/api/results", status_code=201)
+    def import_result(spec: CompletedResultIn, principal: Principal = Depends(operator)):
+        return register_result(spec, principal)
+
     @app.get("/api/experiments/{experiment_id}")
     def get_experiment(experiment_id: str, _: Principal = Depends(viewer)):
         return enrich(require_experiment(experiment_id))
@@ -100,6 +149,50 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def artifact(experiment_id: str, filename: str, _: Principal = Depends(viewer)):
         path = artifact_path(experiment_id, filename)
         return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0])
+
+    @app.put("/api/experiments/{experiment_id}/artifacts/{filename}", status_code=201)
+    async def upload_artifact(
+        experiment_id: str,
+        filename: str,
+        request: Request,
+        _: Principal = Depends(operator),
+    ):
+        destination = artifact_destination(experiment_id, filename)
+        if destination.exists():
+            raise HTTPException(409, "Artifact already exists")
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                announced_size = int(content_length)
+            except ValueError as exc:
+                raise HTTPException(400, "Invalid Content-Length") from exc
+            if announced_size < 0:
+                raise HTTPException(400, "Invalid Content-Length")
+            if announced_size > settings.max_artifact_bytes:
+                raise HTTPException(413, "Artifact exceeds configured size limit")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.upload")
+        written = 0
+        try:
+            with temporary.open("xb") as output:
+                async for chunk in request.stream():
+                    written += len(chunk)
+                    if written > settings.max_artifact_bytes:
+                        raise HTTPException(413, "Artifact exceeds configured size limit")
+                    output.write(chunk)
+            try:
+                # Linking a fully written temporary file is atomic and, unlike
+                # Path.replace(), cannot overwrite a racing upload.
+                os.link(temporary, destination)
+            except FileExistsError as exc:
+                raise HTTPException(409, "Artifact already exists") from exc
+        finally:
+            temporary.unlink(missing_ok=True)
+        runner._write_manifest(destination.parent)
+        return next(
+            artifact for artifact in enrich(require_experiment(experiment_id))["artifacts"]
+            if artifact["name"] == filename
+        )
 
     @app.post("/mcp")
     async def mcp(request: Request, principal: Principal = Depends(viewer)):
@@ -119,7 +212,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             params = message.get("params", {})
             try:
                 result = call_mcp_tool(params.get("name", ""), params.get("arguments", {}), principal,
-                                       store, runner, settings, enrich, artifact_path)
+                                       store, runner, settings, enrich, artifact_path, register_result)
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
             except (ValueError, HTTPException) as exc:
                 detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
@@ -159,13 +252,21 @@ def mcp_tools():
           "required": ["name", "duration_seconds"]}},
         {"name": "cancel_experiment", "description": "Cancel a queued or running experiment (operator role required).",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}}, "required": ["experiment_id"]}},
+        {"name": "register_result", "description": "Register a completed run from an external guarded robot runner; upload large artifacts through the returned authenticated HTTP API URLs (operator role required).",
+         "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "description": {"type": "string"},
+          "duration_seconds": {"type": "number", "exclusiveMinimum": 0}, "parameters": {"type": "object"},
+          "status": {"type": "string", "enum": ["succeeded", "failed", "cancelled"]}, "error": {"type": "string"},
+          "summary_markdown": {"type": "string"}}, "required": ["name", "duration_seconds", "summary_markdown"]}},
         {"name": "read_artifact", "description": "Read a text artifact, or a small binary artifact as base64.",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}, "filename": {"type": "string"}},
           "required": ["experiment_id", "filename"]}},
     ]
 
 
-def call_mcp_tool(name, args, principal, store, runner, settings, enrich, artifact_path):
+def call_mcp_tool(
+    name, args, principal, store, runner, settings, enrich, artifact_path,
+    register_result,
+):
     if name == "list_experiments":
         data = [enrich(i) for i in store.list(min(int(args.get("limit", 25)), 100))]
     elif name == "get_experiment":
@@ -187,10 +288,17 @@ def call_mcp_tool(name, args, principal, store, runner, settings, enrich, artifa
         if not data:
             raise ValueError("Experiment not found")
         data = enrich(data)
+    elif name == "register_result":
+        if principal.role == "viewer":
+            raise ValueError("Operator role required")
+        data = register_result(CompletedResultIn(**args), principal)
     elif name == "read_artifact":
         path = artifact_path(args["experiment_id"], args["filename"])
         if path.stat().st_size > 1024 * 1024:
+            item = enrich(store.get(args["experiment_id"]))
+            artifact = next(a for a in item["artifacts"] if a["name"] == path.name)
             data = {"name": path.name, "size": path.stat().st_size,
+                    "url": artifact["download_url"],
                     "message": "Artifact is larger than 1 MiB; use its authenticated HTTP API URL."}
         elif (mimetypes.guess_type(path.name)[0] or "").startswith(("text/", "application/json")) or path.suffix in {".md", ".jsonl", ".log"}:
             data = {"name": path.name, "encoding": "utf-8", "data": path.read_text(errors="replace")}

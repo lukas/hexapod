@@ -63,3 +63,57 @@ def test_duration_limit_and_basic_site_login(tmp_path):
         response = client.post("/api/experiments", headers={"Authorization": "Bearer secret"},
                                json={"name": "too long", "duration_seconds": 3})
         assert response.status_code == 422
+
+
+def test_register_completed_result_and_stream_artifacts(tmp_path):
+    configured = settings(tmp_path)
+    configured = Settings(**{
+        **configured.__dict__,
+        "public_base_url": "https://robot-lab.example",
+        "max_artifact_bytes": 16,
+    })
+    app = create_app(configured)
+    operator = {"Authorization": "Bearer secret"}
+    viewer = {"Authorization": "Bearer read-only"}
+    with TestClient(app) as client:
+        rpc = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "params": {"name": "register_result", "arguments": {
+                "name": "Guarded L5 acceptance", "duration_seconds": 252,
+                "summary_markdown": "# Guarded L5 acceptance\n\nNo safety trip.\n",
+                "parameters": {"runner": "sysid.run_hw"},
+            }},
+        })
+        result = rpc.json()["result"]["structuredContent"]
+        assert result["status"] == "succeeded"
+        experiment_id = result["id"]
+
+        upload = client.put(
+            f"/api/experiments/{experiment_id}/artifacts/video.mp4",
+            headers={**operator, "Content-Type": "video/mp4"},
+            content=b"0123456789",
+        )
+        assert upload.status_code == 201
+        assert upload.json()["download_url"] == (
+            f"https://robot-lab.example/api/experiments/{experiment_id}/artifacts/video.mp4"
+        )
+        assert client.get(
+            f"/api/experiments/{experiment_id}/artifacts/video.mp4", headers=viewer
+        ).content == b"0123456789"
+        assert client.put(
+            f"/api/experiments/{experiment_id}/artifacts/video.mp4",
+            headers=operator,
+            content=b"replace",
+        ).status_code == 409
+        assert client.put(
+            f"/api/experiments/{experiment_id}/artifacts/too-big.bin",
+            headers=operator,
+            content=b"x" * 17,
+        ).status_code == 413
+
+        page = client.get(f"/experiments/{experiment_id}", auth=("alice", "secret"))
+        assert "<video controls" in page.text
+        manifest = client.get(
+            f"/api/experiments/{experiment_id}/artifacts/manifest.json", headers=viewer
+        ).json()
+        assert any(item["name"] == "video.mp4" for item in manifest["artifacts"])

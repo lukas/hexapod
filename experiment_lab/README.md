@@ -11,6 +11,7 @@ It defaults to a simulated robot so the complete workflow can be tested without 
 - Browser results UI using HTTP Basic with the same named tokens
 - One evidence directory per experiment containing the submitted spec, JSONL telemetry, logs, MP4 video when configured, and a Markdown summary
 - REST artifact streaming and MCP artifact discovery/reading
+- Registration of externally completed guarded runs plus streamed artifact upload
 - A single-consumer worker so two experiments never command the robot concurrently
 - Duration limits, cancellation, an append-only event trail, and no shell interpolation of configured commands
 
@@ -39,9 +40,16 @@ curl -H 'Authorization: Bearer a-long-random-secret' \
 
 The OpenAPI explorer is at `/docs`. Data is stored under `lab-data/experiments/<experiment-id>/` and queue metadata is in `lab-data/lab.sqlite3`.
 
+Guarded runners that already own robot-specific safety can register a completed
+result with `POST /api/results`, then stream each flat-named evidence file with
+`PUT /api/experiments/<id>/artifacts/<filename>`. Existing artifacts are never
+overwritten. The equivalent MCP metadata tool is `register_result`; large files
+use the authenticated HTTP upload path and are subsequently discoverable from
+both MCP and the website.
+
 ## MCP connection
 
-The Streamable HTTP JSON-RPC endpoint is `http://127.0.0.1:8767/mcp` with an `Authorization: Bearer <token>` header. It exposes `list_experiments`, `get_experiment`, `queue_experiment`, `cancel_experiment`, and `read_artifact`.
+The Streamable HTTP JSON-RPC endpoint is `http://127.0.0.1:8767/mcp` with an `Authorization: Bearer <token>` header. It exposes `list_experiments`, `get_experiment`, `queue_experiment`, `cancel_experiment`, `register_result`, and `read_artifact`.
 
 Text and small binary artifacts can be returned directly; artifacts larger than 1 MiB are discovered through MCP and streamed through their authenticated REST URL. Video stays out of model context and is watched on the result page or streamed from the API.
 
@@ -74,6 +82,7 @@ The adapter must enforce robot-specific constraints: allowed gaits, workspace bo
 | `HEXAPOD_ROBOT_COMMAND` | empty | Real adapter argv |
 | `HEXAPOD_CAMERA_INPUT` | empty | ffmpeg-compatible input |
 | `HEXAPOD_MAX_DURATION_SECONDS` | `900` | Hard submission limit |
+| `HEXAPOD_MAX_ARTIFACT_BYTES` | `2147483648` | Maximum streamed artifact size |
 | `HEXAPOD_AUTO_WORKER` | `true` | Set false for API-only processes |
 | `HEXAPOD_BIND` / `HEXAPOD_PORT` | `127.0.0.1` / `8767` | Listener |
 

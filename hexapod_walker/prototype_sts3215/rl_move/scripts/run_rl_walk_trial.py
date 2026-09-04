@@ -39,6 +39,10 @@ DIRECTIONS = {
 COURSE = ("forward", "left", "backward", "right")
 
 
+class ConfirmedHealthTrip(RuntimeError):
+    """Three fresh scans confirmed a hard health fault."""
+
+
 class Trial:
     def __init__(self, args: argparse.Namespace, output_dir: Path) -> None:
         self.args = args
@@ -201,7 +205,9 @@ class Trial:
         if hot_confirmed:
             bad.extend(hot_samples)
         if bad:
-            raise RuntimeError(f"health samples not clear: {samples}")
+            raise ConfirmedHealthTrip(
+                f"health samples not clear: {samples}"
+            )
         self.event("three_fresh_health_samples", samples)
         return samples
 
@@ -670,7 +676,17 @@ def main() -> int:
     except Exception as issue:
         error = str(issue)
         trial.event("trial_error", error)
-        if trial.motion_started:
+        limped_for_confirmed_health = False
+        if isinstance(issue, ConfirmedHealthTrip):
+            try:
+                limped = _request(
+                    trial.base, "/cmd", text_body="X", timeout=5.0,
+                )
+                limped_for_confirmed_health = True
+                trial.event("confirmed_health_limp", limped)
+            except Exception as limp_error:
+                trial.event("confirmed_health_limp_error", str(limp_error))
+        elif trial.motion_started:
             try:
                 stopped = trial.request("/api/rl/stop", {})
                 trial.event("failure_pause", stopped)
@@ -682,7 +698,22 @@ def main() -> int:
             trial.event("failure_camera_error", str(camera_error))
         try:
             trial.three_fresh_health_samples(require_armed=False)
+        except ConfirmedHealthTrip as health_error:
+            trial.event("failure_health_error", str(health_error))
+            if not limped_for_confirmed_health:
+                try:
+                    limped = _request(
+                        trial.base, "/cmd", text_body="X", timeout=5.0,
+                    )
+                    trial.event("confirmed_health_limp", limped)
+                except Exception as limp_error:
+                    trial.event(
+                        "confirmed_health_limp_error", str(limp_error)
+                    )
         except Exception as health_error:
+            # An unavailable health snapshot is not itself proof of a tip,
+            # hot motor, or lost servo.  Preserve the paused pose and report;
+            # only ConfirmedHealthTrip above authorizes the automatic limp.
             trial.event("failure_health_error", str(health_error))
         return 1
     finally:

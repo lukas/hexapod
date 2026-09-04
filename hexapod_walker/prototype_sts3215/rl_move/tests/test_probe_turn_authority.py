@@ -142,3 +142,44 @@ def test_omega_boost_is_a_no_op_on_pure_turn_and_pure_walk():
     plain_walk = rollout(**walk_kwargs)
     boosted_walk = rollout(scripted_omega_boost=2.0, **walk_kwargs)
     assert plain_walk["vx_med"] == boosted_walk["vx_med"]
+
+
+def test_yaw_amplify_scale_desaturates_clip_but_REGRESSES_real_wz():
+    """standwalk Next item 2, candidate (iii) (09-04): built after
+    ``probe_leg_yaw_rate.py`` found ``combined_yaw_amplify_scale=3.0``
+    fully de-saturates the per-tick yaw-command RATE against the
+    SafetyLayer clip (0/6 legs over 37.5deg/s vs 3/6 unscaled) --  but
+    the ACTUAL scripted-teacher body wz achieved at that same dose
+    gets WORSE, not better, matching (and extending) the 09-04 05:35
+    finding that the slew clip is NOT the dominant bottleneck: shrink
+    the commanded yaw excursion via any atan2-denominator trick (this
+    lever, or its uniform ``combined_yaw_arm_scale`` sibling past
+    dose 2.0) and you shrink the PHYSICAL rotation the leg produces
+    right along with it, clip or no clip. Pinned here so nobody wires
+    this knob into BC-anchor training or spends an RL canary on it --
+    refuted zero-training, same cycle it was built."""
+    kwargs = dict(model=None,
+                  env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=0.25, vx_cmd=0.08, seed=0, episode_seconds=3.0,
+                  policy="scripted")
+    plain = rollout(**kwargs)
+    desaturated = rollout(scripted_yaw_amplify_scale=3.0, **kwargs)
+    assert abs(desaturated["wz_med"]) < abs(plain["wz_med"])
+
+
+def test_yaw_amplify_scale_is_a_no_op_on_pure_turn_and_pure_walk():
+    turn_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.25, vx_cmd=0.0, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_turn = rollout(**turn_kwargs)
+    dosed_turn = rollout(scripted_yaw_amplify_scale=3.0, **turn_kwargs)
+    assert plain_turn["wz_med"] == dosed_turn["wz_med"]
+
+    walk_kwargs = dict(model=None,
+                        env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                        wz_cmd=0.0, vx_cmd=0.08, seed=0,
+                        episode_seconds=3.0, policy="scripted")
+    plain_walk = rollout(**walk_kwargs)
+    dosed_walk = rollout(scripted_yaw_amplify_scale=3.0, **walk_kwargs)
+    assert plain_walk["vx_med"] == dosed_walk["vx_med"]

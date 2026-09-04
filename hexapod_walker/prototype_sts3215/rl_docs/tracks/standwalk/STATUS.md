@@ -1,140 +1,141 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~05:2x (**Confound-isolation pair READ — the
-architecture-split axis is now DEFINITIVELY CLOSED, not provisional.
-`TripleGruActorCriticPolicy` is dead; the sole live steering lever is
-the teacher-side branch.**)
+Update, 2026-09-04 ~06:3x (**Two more teacher-side geometry
+candidates built + REFUTED zero-training, no RL spend — the "reshape
+the commanded yaw ANGLE without changing physical stride magnitude"
+lever family is now closed, not just the uniform-scale corner of it.**)
 
-`cap29-stdwalklohi-dualcontinue-noyawcredit{,-s1}` (same start
-checkpoint/steps/reward/goal/obs cfg-set and same dropped
-`train.yaw_credit_coef/_vf_coef/_grad_clip` +
-`--gru-dual-log-std-split`/`--log-std-anneal-core` mechanisms as the
-Triple canary, but plain `--gru-dual`) finished and was read with the
-same `probe_turn_authority.py --vx-cmds` (85-key non-train cfg-set
-replay) instrument against the same `cap29-stdwalklo-hi{,-s1}`
-control. Both pre-registered readings landed, and they agree:
+Built the per-leg instrumentation the prior Next item called for
+(`rl_move/sim/probe_leg_yaw_rate.py`, drives the real `TripodGait`,
+reports per-leg commanded-yaw RATE vs. the 37.5deg/s SafetyLayer clip
+plus a foot-placement-direction-consistency check) and used it to
+design and screen TWO new candidates before touching any RL budget:
 
-- **Reading (A) CONFIRMED — the pure-turn loss is the mechanism drop,
-  not the architecture.** This Dual-continuation regresses pure-turn
-  `wz_med` 11.8-26.5% both signs, both seeds — matching the
-  already-closed Triple canary's own 12.7-27.7% loss on the SAME
-  confound-matched cells almost exactly. Dropping yaw_credit/
-  log_std_split during ANY further continuation costs ~12-27% pure-
-  turn authority by itself; those mechanisms are load-bearing, the
-  architecture swap is not implicated by the pure-turn axis at all.
-- **Reading (C) CONFIRMED — architecture bought nothing on
-  combined-tick either, even with the identical confound in both
-  arms.** This Dual run's own combined-tick (`vx_cmd=0.08`) `wz_med`
-  beats or matches Triple's on all 8 matched cells (both signs, both
-  seeds) — 2 cells even beat the ORIGINAL FROZEN control outright.
-  Triple never wins a single combined-tick cell against a plain
-  continuation sharing its own confound.
-- Reading (B) (mechanisms innocent, pure-turn holds inside the 10%
-  cap) did NOT land — ruled out by (A).
+- **Candidate "detangle the vx cross term out of the yaw numerator"
+  — REFUTED zero-training, never wired into TripodGait.** The
+  derivation (tangential foot-velocity projection per leg,
+  `omega*r - vx*sin(leg_angle)`) shows the vx term partially cancels
+  omega's contribution for 3 of 6 legs and reinforces it for the
+  other 3. Removing the cancelling cross term from the yaw-angle
+  numerator sounds like a clean fix, but at any dose that meaningfully
+  reduces the worst legs' rate it FLIPS THE SIGN of the previously
+  near-cancelled legs' commanded yaw (up to ~12deg foot-target
+  direction error) and, at full dose, creates a brand-new saturated
+  leg (4/6 over clip vs. the legacy 3/6) — worse, not better. Not
+  built into production code at all, just measured and discarded.
+- **Candidate (iii) `TripodGait.combined_yaw_amplify_scale`
+  (SELECTIVE per-leg sibling of the already-tried uniform
+  `combined_yaw_arm_scale`) — mechanically built, tested, and
+  REFUTED zero-training.** Only multiplies the atan2 denominator for
+  legs the vx cross term AMPLIFIES past their own pure-omega
+  magnitude (the other 3 legs stay bit-exact, unlike the uniform
+  lever). `probe_leg_yaw_rate.py` confirms dose 3.0 fully
+  de-saturates ALL SIX legs' commanded-yaw rate (0/6 over clip, was
+  3/6) — but `probe_turn_authority.py`'s scripted-teacher body
+  `wz_med` at the SAME command (vx=0.08, wz_cmd=0.25) gets WORSE at
+  that dose, not better (0.0723 -> 0.0295 rad/s, and 0.0104 at dose
+  4.0), monotonically past ~dose 2.0. Pinned as a regression test
+  (`test_yaw_amplify_scale_desaturates_clip_but_REGRESSES_real_wz`)
+  so nobody wires it into BC-anchor training or spends an RL canary
+  on it. 5 new TripodGait-level tests + 2 new probe-level tests, all
+  green; full bc_anchor/tripod_gait/probe_turn/joint_tracking subset
+  (142 tests) rerun clean (1 pre-existing unrelated failure,
+  confirmed identical on unmodified main via git stash).
 
-**Net: the architecture-split (`TripleGruActorCriticPolicy`) lever is
-CLOSED for good — 2/2 Triple canary FAIL, confound now explained
-rather than provisional, and even a maximally-favorable matched
-comparison shows zero-to-negative combined-tick benefit.** Do not
-build the `yaw_critic.py`-on-Triple follow-up, and do not spend a
-"mechanisms-kept" clean Triple rerun either — (C) already answers the
-practical question (architecture vs. plain continuation) on its own
-terms, independent of how (A) vs (B) landed; a cleaner rerun would
-only add methodological polish to an already-decided comparison. The
-dualcontinue runs themselves are disqualified from adoption by their
-own pure-turn regression (>10% cap) — they are explanatory controls,
-not new candidates. Full per-cell numbers: ledger / W&B notes for
-`...-dualcontinue-noyawcredit{,-s1}`.
+**Net finding (generalizes the 09-04 05:35 result): shrinking a
+leg's COMMANDED yaw excursion via ANY atan2-denominator trick shrinks
+the PHYSICAL rotation it produces right along with it — there is no
+"de-saturate the clip proxy without losing real torque" regime for
+this family of fixes, whether applied uniformly (`combined_yaw_arm_
+scale`, refuted at RL) or selectively (`combined_yaw_amplify_scale`,
+now refuted before even reaching RL) or via cross-term cancellation
+(new "detangle" idea, refuted before being wired in at all). The
+commanded-yaw-RATE-vs-clip metric that motivated this whole geometry
+sub-axis (09-03 22:2x) is a RED HERRING for real turn authority; do
+not propose another candidate that scores itself on that metric
+alone — cross-check `probe_turn_authority.py`'s actual body `wz_med`
+every time (now spelled out in `probe_leg_yaw_rate.py`'s own
+docstring).**
 
-**Steering branch state after this closure:** every policy-side lever
-tried so far is now refuted (BC-anchor dose/skip x2 seeds, teacher
-omega-boost x2 doses x2 seeds, combined_yaw_arm_scale x2 doses x2
-seeds, walk_yaw_combined_boost x2 doses x2 seeds, TripleGruActorCriticPolicy
-x2 seeds, and now the mechanism-drop confound explaining Triple's own
-pure-turn loss). The ONE standing, independently-verified finding that
-hasn't been chased yet is teacher-side: the scripted `TripodGait`
-itself only retains ~33% of its pure-turn `wz` once walking forward
-combined (09-03 16:1x). That is now the sole active lever — see Next.
+Prior banner (confound-isolation pair closing the architecture-split
+axis) moved VERBATIM to `archive/standwalk_STATUS_journal_
+2026-09-04z_trim.md`.
 
-Prior banner (`TripleGruActorCriticPolicy` build + 2/2 FAIL + the
-confound discovery) moved VERBATIM to `archive/standwalk_STATUS_
-journal_2026-09-04y_trim.md`.
-
-**Same-cycle teacher-side groundwork (zero-training):** a
-`probe_turn_authority.py --policy scripted` sweep of `wz_cmd`
-0.05-0.25 at `vx_cmd=0.08` finds the scripted teacher's OWN
-combined-tick `wz_med` nearly FLAT (0.056-0.073 rad/s) across the
-whole range — a real ceiling, not proportional to the command past a
-low threshold. Re-running with `safety.max_delta_q_deg` raised
-0.375->8.0 (diagnostic only — it's a hard physical servo-bus contract,
-never a production value) barely moves it (`wz_cmd=0.60` still only
-reaches 0.16), so the bottleneck is `TripodGait`'s own combined
-foot-target formula/thrust allocation, NOT the slew clip — consistent
-with, and now quantified beyond, the 09-03 17:5x finding that vx
-dominates the per-leg omega term. (Small-wz 0.05-0.10 pure-turn cells
-in the same sweep read as unreliable measurement-window artifacts,
-not capacity results — don't reuse them.) Next concrete step:
-instrument per-leg foot-target magnitude across the vx sweep to see
-exactly how omega gets starved, design one falsifiable formula fix,
-and validate it zero-training with this probe BEFORE any RL spend.
-
-## Next (updated 09-04 ~05:2x)
+## Next (updated 09-04 ~06:3x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM, now teacher-side ONLY.** Every
-   policy-side lever (BC-anchor dose/skip, teacher-omega-boost,
-   combined-yaw-arm-scale, combined-yaw-boost, GRU architecture split)
-   is refuted; the architecture-split confound is resolved (see
-   banner). The one open, positive lead: build a fix on the SCRIPTED
-   `TripodGait` teacher itself for its own combined-motion
-   turn-authority loss (09-03 16:1x: only ~33% of pure-turn `wz`
-   survives at `vx_cmd=0.08`, dose-monotone not a step-clip) —
-   candidate mechanism is a shared foot-contact/thrust budget under
-   the tripod gait's per-leg omega/vx allocation. Validate any
-   geometry fix zero-training first with `probe_turn_authority.py
-   --policy scripted --scripted-omega-boost`/`--scripted-yaw-arm-scale`
-   (or a new scripted-side lever) BEFORE spending any RL fine-tune
-   budget on it — that is what let every refuted policy-side lever get
-   closed cheaply. Do not re-open the architecture-split axis
-   (Triple/yaw_critic.py) — it is done.
-3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{v,w,x,y}):**
+2. **Steering branch — TOP ITEM, teacher-side ONLY. The
+   "reshape/shrink the commanded yaw ANGLE" geometry sub-axis is now
+   CLOSED (uniform `combined_yaw_arm_scale` FAILED at RL 4/4;
+   selective `combined_yaw_amplify_scale` and the unwired "detangle"
+   idea both REFUTED zero-training, this cycle — see banner).** The
+   one lever proven to move REAL physical wz at the scripted-teacher
+   level, `train.bc_anchor_teacher_omega_boost` (uniform, all 6
+   legs), still failed 4/4 at the RL stage on pure-turn regression —
+   that failure is a BC-anchor/PPO training-dynamics issue, not a
+   geometry defect, so a genuinely NEW candidate must change WHICH
+   legs get boosted, not just re-try uniform magnitude tricks:
+   **untried candidate — SELECTIVE per-leg omega boost**, applying
+   `bc_anchor_teacher_omega_boost`-style extra omega ONLY to the 3
+   legs `probe_leg_yaw_rate.py` identifies as ATTENUATED by the vx
+   cross term (restoring their own pure-turn capability) while
+   leaving the 3 already-AMPLIFIED legs at dose 1.0 — the mirror
+   image of this cycle's selective-scale idea, using the SAME per-leg
+   classification machinery (`_yaw_frame_xy` + a pure-omega
+   reference) but targeting the physically-effective boost lever
+   instead of the physically-null angle-reshape lever. Validate zero-
+   training with `probe_turn_authority.py --policy scripted` (extend
+   with a `--scripted-omega-boost-legs`-style selective variant)
+   BEFORE any RL canary — if the scripted-level combined wz gain
+   survives a check against the SAME clip/direction-consistency
+   instruments this cycle used, THEN it's worth spending an RL
+   canary; if it reproduces the uniform boost's sign-asymmetric RL
+   failure anyway, that closes the ENTIRE geometry-fix axis for good
+   and the honest next move is a gait-STRUCTURE change (per-leg
+   period/tripod-grouping during combined ticks — not yet tried at
+   all) or escalating a DONE-gate turn-authority renegotiation. Do
+   not re-open the architecture-split axis (Triple/yaw_critic.py) —
+   it is done.
+3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{v,w,x,y,z}):**
    architecture-split (`TripleGruActorCriticPolicy`, 2/2 FAIL +
    confound-isolation pair explaining it, 09-04); yaw-arm-scale
-   candidate (i)-v2 dose x seed grid (4/4 FAIL); update-size/reward/
-   exploration/anchor/turn-skip/yaw-credit/diet/duration/switch-jump/
-   frame-blend/current-confound/combined-tick-anchor-skip/omega-boost
-   (both directions)/combined-yaw-boost sweeps; cap29 acquisition
-   (PARTIAL); log_std anneal dose grid (`hi` PASS, `mild` FAIL); item
-   0 sto/det convergence-at-scale (PASS); resamplematch diet-match-
-   rate hypothesis (refuted both doses/seeds); rise over_current
-   dig-in (genuine lineage fragility, not an instrument defect);
-   rise-stall faithful replay (CLOSED, see item 1); steering/
-   rise-stall semantics-bank twins (both PASS); candidate (i)
-   IK-feasibility + naive slew-saturation groundwork (superseded).
+   candidate (i)-v2 dose x seed grid (4/4 FAIL); candidate (iii)
+   `combined_yaw_amplify_scale` (selective per-leg scale, fully
+   de-saturates the clip proxy but REGRESSES real scripted-teacher
+   wz, 09-04); "detangle the vx cross term" idea (foot-placement
+   direction-consistency REFUTED before being wired in, 09-04);
+   update-size/reward/exploration/anchor/turn-skip/yaw-credit/diet/
+   duration/switch-jump/frame-blend/current-confound/combined-tick-
+   anchor-skip/omega-boost (both directions)/combined-yaw-boost
+   sweeps; cap29 acquisition (PARTIAL); log_std anneal dose grid (`hi`
+   PASS, `mild` FAIL); item 0 sto/det convergence-at-scale (PASS);
+   resamplematch diet-match-rate hypothesis (refuted both doses/
+   seeds); rise over_current dig-in (genuine lineage fragility, not
+   an instrument defect); rise-stall faithful replay (CLOSED, see
+   item 1); steering/rise-stall semantics-bank twins (both PASS);
+   candidate (i) IK-feasibility + naive slew-saturation groundwork
+   (superseded).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y}. Current state = newest
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z}. Current state = newest
 > Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~05:2x)
+## Fleet capacity note (updated 09-04 ~06:3x)
 
-Both `dualcontinue-noyawcredit{,-s1}` confound-isolation runs
-verdicted this cycle (CANARY FAIL - MECHANISM, informative — see
-banner), freeing 2 GPU slots. No GPU launch this cycle: the only
-open Next item (teacher-side `TripodGait` fix) needs zero-training
-validation FIRST (candidate geometry/allocation fix + a
-`probe_turn_authority.py --policy scripted` proof, mirroring how every
-prior policy-side lever was screened before spending a canary) — that
-tool-building/validation step is not built yet, so there is no
-pre-registered arm ready to launch. Every OTHER track remains
-non-launchable by design (`joystick`/`amp`/`cpg` DONE or maintenance-
-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED). All 11 reachable
-GPU pods free.
+No GPU launch this cycle either: this cycle's two zero-training
+candidates (selective-scale + detangle) were BOTH refuted before
+reaching the RL stage — exactly the outcome the validate-first
+discipline is for (a wasted canary avoided, not a stall). The next
+candidate (Next item 2, selective per-leg omega boost) still needs
+its own zero-training probe extension + validation before it's a
+pre-registered arm. Every OTHER track remains non-launchable by
+design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
+RETIRED; `todaypolicy` DELIVERED). All 11 reachable GPU pods free.
 
 ## Goal (operator, 08-24 evening)
 

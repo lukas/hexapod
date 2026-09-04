@@ -30,3 +30,25 @@ DIG-IN owed before any relaunch — see Next item 2's falsifier.
 Prior update (09-04 ~13:2x, `mlcontprice8` k=8.0 CANARY FAIL-MECHANISM
 but dose-responsive/real fix, residual own-DR fires NOT an entry-
 window artifact) archived verbatim in this cycle's journal copy below.
+
+--- appended 2026-09-04 ~15:3x (superseded by cont-s1b falsifier read) ---
+
+Prior update (2026-09-04 ~14:4x, idle-kick): read `mlcontprice2` (k=2.0
+canary, left unverdicted by its launching cycle) -> **CANARY
+FAIL-MECHANISM**: 19/216 hold_min_load fires, session_complete 0.912,
+sacrificed legs [0,2,3,5], dir_err +11.1% over cap. Also caught a
+data-quality bug: this eval ran n=54/mode/pass (216 total), 3x its
+k=8.0 twin's matched n=18 (72) — not an apples-to-apples pair. Rate-
+normalized: k=2's 8.8% fire rate ~= the UNFIXED acq8m baseline's 8.3%
+(zero net protection) vs k=8's 4.2% (halves it, cleans DR-0+gait-
+validity) — real, monotonic dose-response; k=2 is below threshold.
+Bracketed one step higher: `mlcontprice16` (k=16.0, same acq8m parent/
+diet, matched n=18) VERIFIED RUNNING train-5. Also executed item 2's
+named falsifier (seed1 re-score's 5 PASS cells ride entirely on
+`cont-s1`, whose floor is weaker than `cont`'s): `cont-s1b`, an
+INDEPENDENT 2nd seed1 plain-continuation (same recipe, trainer seed
+1->21) VERIFIED RUNNING train-9. Both ~15-20 min class; next cycle
+reads `mlcontprice16`'s stress_verdict.json vs `mlcontprice8`'s 3/72,
+and runs `probe_turn_authority` on `cont-s1b` vs `cont-s1`'s
+0.152/0.105 and `cont`'s 0.172/0.132 wz_med before touching the 5
+provisionally-reopened lever cells.

@@ -3379,6 +3379,33 @@ def main(argv: list[str] | None = None) -> int:
         from sb3_contrib import RecurrentPPO as _RPPO
         from .gru_policy import dual_to_triple_transplant
         old = _RPPO.load(args.init_from, device="cpu")
+        # DERIVE net_arch/lstm_hidden_size from the OLD checkpoint,
+        # never trust the CLI's own --net-arch/--gru-hidden-size
+        # defaults here — dual_to_triple_transplant requires identical
+        # geometry and a plain --init-from warm start (this class's own
+        # sibling branches) already gets this for free via
+        # algo_cls.load() reconstructing from the checkpoint's saved
+        # policy_kwargs; this branch builds a FRESH policy class so it
+        # must reproduce that geometry explicitly. Found live (09-04,
+        # first triplecore canary launch): the CLI's net_arch defaults
+        # to [128,128] but this specific lineage's own checkpoints were
+        # built with net_arch=None (SB3's OWN default before any
+        # --net-arch flag existed), which resolves to {'pi': [64,64],
+        # 'vf': [64,64]} — a silent mismatch that legitimately used to
+        # crash construction (dual_to_triple_transplant's own shape
+        # check caught it cleanly, zero corruption, but this derivation
+        # avoids ever hitting that path for an ordinary same-recipe
+        # respec).
+        _old_net_arch = getattr(old.policy, "net_arch", net_arch)
+        _old_hidden = int(getattr(old.policy.lstm_actor, "hidden_size",
+                                  args.gru_hidden_size))
+        if _old_hidden != args.gru_hidden_size:
+            print(f"[mjx-train] --gru-hidden-size {args.gru_hidden_size} "
+                  f"overridden by the Dual parent's own "
+                  f"{_old_hidden} (geometry must match for the "
+                  "transplant)")
+        _triple_pk = dict(extra_pk)
+        _triple_pk["lstm_hidden_size"] = _old_hidden
         model = algo_cls(
             policy_cls, venv,
             n_steps=args.n_steps, batch_size=args.batch_size,
@@ -3391,9 +3418,9 @@ def main(argv: list[str] | None = None) -> int:
             ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
-            policy_kwargs=dict(net_arch=net_arch,
+            policy_kwargs=dict(net_arch=_old_net_arch,
                                log_std_init=args.log_std_init,
-                               **extra_pk),
+                               **_triple_pk),
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
         copied = dual_to_triple_transplant(old, model)

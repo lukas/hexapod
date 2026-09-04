@@ -1231,3 +1231,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-04 16:20 standwalk dig-in: 5/10 seed1 lever reopening = comparator noise (n=4 zero-lever band, controls PASS each other); real finding = levers protect cb_neg vs continuation erosion, improve nothing; band scoring now in rescore tool 
 - 09-04 16:25 standwalk cont-s1c control read: strong-neg/weak-pos draw, completes n=4 seed1 band; cb_neg collapse 4/4 confirmed 
 - 09-04 16:28 standwalk cont-s1d control read: weakest positive draw (cb_pos 0.064) — nails the 65% control spread; cb_neg collapse 4/4; n=4 seed1 band complete 
+- 09-04 16:32 standwalk: mlcontprice16 (k=16) CANARY FAIL-MECHANISM, rate 12.0pct>k8's 4.2pct (n-mismatch caveat, corroborated by independent soft-gate breaches) -- dose bracket CLOSED, k=8 stands, next lever is own-DR-specific 

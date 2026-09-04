@@ -1,71 +1,60 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~16:2x (DIG-IN RESOLVED, deep-model cycle): the
-5/10 seed1 lever-cell reopening was **COMPARATOR NOISE**; the
-sign-collapsed single-control `rescore_cell` PASS is INVALID on this
-axis. Completed the n=4 spread: `cont-s1c`/`cont-s1d` finished
-training (final checkpoints on pod), ran both probes on their own
-pods (full 84-key cfg replay from each run's own ledger) ->
-`logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_cont_s1{c,d}_
-combined_09-04.json`. Evidence, three independent lines: (1)
-control-vs-control cells trigger the old criterion — `cont` vs
-`cont-s1` scores +25.8%/+54.2% combined and PASSes; (2) all 5
-reopened cells flip to FAIL when the denominator swaps `cont-s1` ->
-`cont-s1b`; per-cell PASS counts across the 4 control draws are only
-0/4–2/4; (3) measured n=4 zero-lever seed1-continuation spread is
-enormous on the positive clauses — pt_pos 0.119–0.196 (50% rel),
-cb_pos 0.064–0.136 (65% rel; `cont-s1d` is the worst positive draw
-yet, not an OOD-cfg artifact — its pt_neg 0.195 tracks fine) — vs
-tight negative clauses pt_neg 0.170–0.198, cb_neg 0.120–0.138.
-**Adopted methodology (encoded as `rescore_turn_authority band`,
-tests green):** score the FOUR clauses (pure/combined x +/-)
-separately against the control-DISTRIBUTION band (n>=3 matched
-zero-lever continuations); WIN only above band max, LOSS only below
-band min, in-band = no-call; family claims need clause replication
-across lever draws. **Real per-sign finding the collapsed score
-hid:** cb_neg collapses in 4/4 zero-lever continuations (0.127
-+/-0.008) vs frozen parent-s1 0.142 and seed0 `cont` 0.190, while
-9/10 lever arms sit ABOVE the band (0.14–0.19; binomial p~4e-6) —
-geometry levers do NOT improve steering (cb_pos: 0/10 wins), they
-partially PROTECT it against continuation erosion. Frozen parents
-hold the best pure-turn by far (0.223–0.226 vs ALL continuations
-0.119–0.214): plain 2M continuation of this lineage is actively
-steering-destructive; any future continuation needs the 4-clause
-probe as a canary vs the band. FAIL wall on "levers improve combined
-turn authority" stays CLOSED; NO acquisition run on the 5 cells.
-`cont-s1b` verdicted PASS (canary); `cont-s1c`/`cont-s1d` verdicted
-on W&B-finish this same cycle. Launched `cont-b`/`cont-c` (seed0
-zero-lever continuations, seeds 21/31) so the seed0 half of the wall
-(currently scored 9/10 FAIL vs the single `cont` draw) gets the same
-n=3 band treatment — also tests whether cb_neg-protection replicates
-where the control (0.190) did NOT collapse. n=4 manifest:
-`logs/ckpt_eval/rescore_turn_authority_09-04/manifest_n4.json`.
+Update, 2026-09-04 ~16:3x: **`mlcontprice16` (k=16.0, top of the
+3-point dose bracket) is CANARY FAIL-MECHANISM — dose bracket CLOSED,
+k=8 stands as the ceiling.** `eval_cmd_stress` (seed 93000, --strict):
+26 hold_min_load fires, session_complete_frac 0.88 (<0.95),
+gait_valid_frac 0.991 with sacrificed_legs_seen=[1,2,3,4] (the
+companion pathology k=8 fully closed REAPPEARS), direction_err_med
+48.72deg vs acq8m's 43.1deg (+13.0%, breaches the 10% cap). DATA-
+QUALITY NOTE (repeat of the mlcontprice2 bug, now fixed in tooling):
+ran at `--n 18` -> n_episodes=216 (12*N per the harness's actual
+6-bucket-x-2-pass structure), NOT the matched `--n 6`->72-total read
+k=8 used — this run's own pre-registered "n=18/mode/pass (72 total)"
+text was internally inconsistent. Rate-normalized: combined dr0+ownDR
+fire rate 12.0% (dr0 15.7%, ownDR 8.3%) is WORSE than k=8's matched
+4.2%, worse than k=2's rate-normalized 8.8%, and worse than the
+unfixed acq8m baseline's own 8.3% — dose-response is NON-monotonic
+(0->8.3%, 2->8.8%, 8->4.2% best, 16->12.0% worst). The sacrificed-leg/
+direction-err/session-complete breaches are median/fraction stats,
+not raw counts, so they corroborate the FAIL independent of the n
+mismatch. Dose search on `reward.k_hold_min_load_short` is CLOSED
+(both directions bracketed: k=2 below threshold, k=16 past the
+ceiling and actively corrupting walk quality); k=8 is the adopted
+standing recipe. TOOLING FIX landed: `ops.sh evalcmdstress` doc now
+states the matched-72 read needs the DEFAULT `--n 6` (12*N formula),
+not 18 or 54, to stop a third mis-derivation. Full report:
+`logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_
+yawcredit_gradclip0p15_cap29_stdwalklohi_transtress_s1_acq8m_
+mlcontprice16_cmdstress/stress_verdict.json`.
 
-Prior updates (09-04 ~13:2x, ~14:1x, ~14:4x — mlcontprice2 FAIL-
-MECHANISM/dose-bracket-to-k16 read, cont-s1b launch) archived verbatim
-in `archive/standwalk_STATUS_journal_2026-09-04hh_trim.md`. `mlcontprice16`
-(k=16.0 dose-bracket canary) is still VERIFIED RUNNING train-5, owned
-by a concurrent cycle — see Next item 1.
+Prior update (09-04 ~16:2x — steering-branch dig-in resolution,
+`cont-b`/`cont-c` launch) archived verbatim in `archive/standwalk_
+STATUS_journal_2026-09-04jj_trim.md`; that item (Next #2) is
+untouched by this update and remains owned by its own cycle.
 
-## Next (updated 09-04 ~14:4x)
+Older updates (09-04 ~13:2x, ~14:1x, ~14:4x, ~16:2x — mlcontprice2
+FAIL-MECHANISM/dose-bracket-to-k16 read, cont-s1b launch, steering
+dig-in resolution) archived verbatim in `archive/standwalk_
+STATUS_journal_2026-09-04{hh,jj}_trim.md`.
 
-1. **Universal-command branch — 3-point dose bracket now running:
-   k=0 (acq8m baseline, 8.3%) -> k=2 (FAIL, ~8.8%, below threshold,
-   verdicted this cycle) -> k=8 (FAIL-MECHANISM but real partial fix,
-   halves fires to 4.2%, cleans DR-0+gait-validity) -> k=16
-   (`mlcontprice16`, VERIFIED RUNNING train-5, ~15-20 min class).**
-   Read `mlcontprice16`'s `stress_verdict.json` next cycle
-   (`logs/ckpt_eval/cw_standwalk_stage2_dualbc6_turncap_mirroraug_
-   yawcredit_gradclip0p15_cap29_stdwalklohi_transtress_s1_acq8m_
-   mlcontprice16_cmdstress/`, matched n=18/mode/pass so it's a clean
-   comparator to `mlcontprice8`'s 3/72). If fires keep dropping without
-   breaching the walk/smoothness caps, dose is still climbing — raise
-   again or add steps; if it plateaus near k=8 or corrupts walk
-   quality, k=8 is near the mechanism's usable ceiling and the next
-   lever is genuinely own-DR-specific (log per-episode DR draws in
-   eval_cmd_stress to correlate residual fires with specific
-   randomized params). Do NOT build an "entry-window termination
-   carry-over" fix — already refuted (09-04 12:15 dig-in).
+## Next (updated 09-04 ~16:3x)
+
+1. **Universal-command branch — dose bracket CLOSED (see Update):
+   k=0 (8.3%) -> k=2 (FAIL, below threshold, ~8.8%) -> k=8
+   (FAIL-MECHANISM but the real partial fix, 4.2%, best) -> k=16
+   (FAIL-MECHANISM, worse than baseline, 12.0%, dose ceiling
+   confirmed both directions). Adopt k=8's recipe
+   (`safety.hold_min_load_ema_continuous=1`,
+   `reward.k_hold_min_load_short=8.0`) as standing; do NOT raise the
+   dose further. NEXT LEVER (own-DR-specific, not dose): add
+   per-episode DR-draw logging to `eval_cmd_stress`/`eval_checkpoint`
+   own-DR pass (record the sampled friction/mass/gain/etc multipliers
+   per episode) and correlate against which episodes still fire
+   `hold_min_load` at k=8, to find the specific randomized axis the
+   price under-covers. This is new harness code (SPECIFICATION work,
+   not a reason to wait) — write it, smoke-test against a k=8 rerun,
+   snapshot, before the next acquisition spend on this axis.
 2. **Steering branch — DIG-IN RESOLVED 09-04 ~16:2x (see Update):
    read `cont-b`/`cont-c` (seed0 zero-lever continuations, seeds
    21/31, launched this cycle, ~15-20 min class).** On finish: run
@@ -92,12 +81,13 @@ by a concurrent cycle — see Next item 1.
    09-04 (all FAIL/REFUTED pre-continuation-drift-finding, see item 2);
    cap29 acquisition (PARTIAL); log_std anneal grid; sto/det
    convergence; resamplematch; rise over_current dig-in; semantics-bank
-   twins; IK-feasibility groundwork; mlcontprice2 (k=2.0, below dose
-   threshold, 09-04 ~14:4x).
+   twins; IK-feasibility groundwork; mlcontprice2/mlcontprice16 dose
+   bracket (k=2 below threshold, k=8 the adopted ceiling, k=16 past it
+   and regressing — 09-04 ~14:4x/~16:3x).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii}.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii,jj}.
 > Current state = newest Update at the TOP; don't act on archived Next.
 
 ## Fleet capacity note (updated 09-04 ~16:2x)

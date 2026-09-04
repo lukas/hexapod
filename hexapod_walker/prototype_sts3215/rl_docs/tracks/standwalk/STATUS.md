@@ -1,175 +1,168 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~00:1x (**Candidate (i)-v2 (yaw-arm-scale) dose x
-seed grid now CLOSED 4/4 FAIL. New lever built + unit-tested + a
-4-cell canary LAUNCHED to test the escalation path.**)
+Update, 2026-09-04 ~02:4x (**`combdose0p6-s1-r3` FAIL-MECHANISM closes
+the `bc_anchor_walk_combined_dose` axis 4/4 FAIL. Combined with the
+already-closed yaw-arm-scale geometry axis, the WHOLE open-loop scalar-
+weight/geometry lever family for item 2 is exhausted 8/8 FAIL. Built +
+tested the first prerequisite piece of the next lever (protected
+turn-tick sub-path); full architecture NOT yet built — see design
+below. No new training launched this cycle.**)
 
-`yawarm1p5-s1` (seed1, dose 1.5) verdicted FAIL-MECHANISM, closing the
-candidate (i)-v2 grid at 4/4 (seed0/1.5 FAIL, seed1/1.5 FAIL, seed0/2.0
-FAIL, seed1/2.0 FAIL). `probe_turn_authority.py --vx-cmds` (full
-84-key non-train cfg-set replayed, seed1 control re-verified fresh vs
-the cached file — matched within noise): pure-turn `wz_med` (seed-avg)
-+0.197/-0.188 vs seed1 control `cap29-stdwalklo-hi-s1` +0.226/-0.247 →
-regression 12.6% (+) / 24.0% (-), BOTH over the 10% cap. Combined-tick
-(`vx=0.08`) `wz_med` +0.106/-0.158 vs the seed1 control's own combined
-read +0.087/-0.142 → BOTH signs beat the comparator cleanly (+22%/
-+11%) — a clean bidirectional win, matching its seed0 twin (the only
-other cell to win both signs; both dose-2.0 cells were sign-
-asymmetric). No falls. Reward quarters `[25.6, 55.9, -190.7, 121.9]`,
-final `ep_rew_mean` 167.97 — the same family Q3 dip/recovery shape,
-not a collapse. FAILS on the regression clause alone, exactly
-reproducing the seed0 twin's shape. Full verdict + evidence:
+`combdose0p6-s1-r3` (dose 0.6, seed1, 3rd launch attempt after 2
+node-load infra deaths — see prior banner, archived) finally trained a
+full budget (2,031,616 steps, quarters `[23.9, 53.1, -91.1, 140.9]`,
+final `ep_rew_mean` 176.1, the family's own Q3-dip/Q4-recovery shape,
+zero falls). `probe_turn_authority.py --vx-cmds`, full 84-key non-train
+cfg-set (extracted straight from the run's own ledger `extra_args`,
+minus `train.*`) replayed on the run's own pod, seed-avg vs the seed1
+control `cap29-stdwalklo-hi-s1`'s cached `combined_09-03` read:
+combined-tick (`vx=0.08`) `wz_med` WINS both signs cleanly (+0.1046 vs
+ctrl +0.0868 = +20.4%; -0.1653 vs ctrl -0.1369 = +20.7% — the
+STRONGEST combined-tick win of any dose-0.6 cell; its own seed0 twin
+had COLLAPSED to a near-zero win at the same dose, so this is a real
+seed-dependent swing, not a replay). But pure-turn (`vx=0.0`) `wz_med`
+REGRESSES past the 10% cap on BOTH signs (+0.1996 vs ctrl +0.2279 =
+12.4%; -0.2051 vs ctrl -0.2459 = 16.6%). Straight-walk drift shrinks
+toward zero (not a regression). **Verdict: CANARY FAIL - MECHANISM** —
+the identical signature every one of the 8 cells across both lever
+families (4 geometry-scale doses + 4 anchor-weight doses) has now
+shown: any dose/seed strong enough to win combined-tick wz blows the
+pure-turn cap. Full verdict:
 `rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
-gradclip0p15-cap29-stdwalklohi-yawarm1p5-s1.md`.
+gradclip0p15-cap29-stdwalklohi-combdose0p6-s1-r3.md`. Prior banner
+(the full 4-cell dose-canary read + the node-load infra investigation)
+moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-04v_trim.md`.
 
-**Read across all 4 cells:** every cell that wins the combined-tick
-axis (both dose-1.5 cells, bidirectionally) blows the pure-turn
-regression cap on the negative sign by 23-27%; cells that stay
-near/under the cap on pure-turn (dose 2.0) lose the combined-tick win
-instead (sign-asymmetric or outright worse). Combined with the
-already-refuted omega-boost/omega-discount axis (both directions,
-09-03), the WHOLE geometry/scaling-lever search for item 2 is closed:
-no single-scalar open-loop dose clears the gate without trading away
-pure-turn authority it isn't supposed to touch — the lever is bit-
-exact on pure-turn BY CONSTRUCTION at the scripted-teacher level, so
-the RL-trained regression must come from the SHARED dual-core policy's
-representation being pulled by the combined-tick BC-anchor imitation
-target, not the geometry.
+**The open-loop lever family is now closed 8/8 FAIL — do not launch a
+9th dose/scale variant.** Both lever families act on a SCALAR that
+weights (or scales) the SAME shared walk-core's imitation pull; the
+consistent 8/8 signature is strong evidence the interference is
+representational (one GRU core computing both pure-turn and combined
+behavior), not a pricing problem any scalar dose can fix.
 
-**Escalation, built this cycle:** `train.bc_anchor_walk_combined_dose`
-(env: `sim_env.py` tags a combined tick's target with
-`info["bc_walk_weight"]=dose`; trainer: `bc_anchor.py` carries the
-weight through a new per-row ring column `_bc_wwt` and computes the
-walk-mode loss as a per-row-weighted mean via a new `_weighted_mse`
-helper) — the untried CONTINUOUS middle between the already-refuted
-extremes (1.0 = full anchor pull, legacy; 0.0 = full skip,
-`bc_anchor_walk_combined_skip`, refuted). Default 1.0 = legacy, bit-
-exact off (multiplying by exactly 1.0 is an IEEE-754 no-op — proven by
-a dedicated bit-exact-parameter-match test, not just inspection). 9
-new tests (env-level tagging + loss-level weighted-mse math +
-bit-exact-off + the graded-middle behavior sitting strictly between
-full-skip and full-weight) all green; full `test_bc_anchor.py` rerun
-114/114 (105 prior + 9 new). This is a training/imitation-loss
-mechanism, not a reward change, so — matching every other BC-anchor
-lever in this family (omega-boost, combined-skip, yaw-arm-scale) —
-it's gated by `test_bc_anchor.py`, not `test_task_semantics.py` (that
-bank's own reward-return tests don't exercise this code path at all,
-confirmed by grep). Snapshot pending this cycle's `snapshot.sh` run
-(see commit log for the hash).
+**Next lever, designed this cycle (protected turn sub-path) — NOT yet
+built as a trainable architecture, first safe prerequisite slice IS
+built+tested:**
 
-**LAUNCHED**: 2-dose (0.3, 0.6) x 2-seed canary respec'd from the
-matched comparators `cap29-stdwalklo-hi{,-s1}` (no other cfg changes —
-single-lever discipline): `cap29-stdwalklohi-combdose{0p3,0p6}{,-s1}`,
-all 4 VERIFIED training on their pods (`combdose0p3`@train-4,
-`combdose0p3-s1`@train-5, `combdose0p6`@train-11 all ledger-RUNNING;
-`combdose0p6-s1`@train-1 confirmed training on-pod via `kubectl exec`
-— `train_ppo_mjx` process alive with the correct
-`train.bc_anchor_walk_combined_dose=0.6` flag — but the CONTROLLER-
-side ledger entry was still stuck at `INTENT` when this cycle ended;
-NEXT CYCLE: reconcile that one ledger row to RUNNING/verify progress
-before triaging, the training itself is not in question). NEXT CYCLE:
-read all 4 with `probe_turn_authority.py --vx-cmds` (full cfg replay)
-against the SAME pre-registered gate shape as every prior cell in this
-family (beat the matched control's own combined read on BOTH signs,
-<=10% pure-turn/straight-walk regression vs that control) — read the
-FULL reward curve first (rider c: the cap29 family's Q3 dip/recovery
-shape is not itself a fail signal). Prior banner moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-03u_trim.md`.
+1. *(DONE this cycle, tested, snapshotted)* `obs.mode_onehot_turn_cmd`
+   (`walk_task.py`, default 0/bit-exact-off): un-reserves
+   `MODE_ONEHOT_ORDER`'s never-lit `"turn"` slot (the 08-11 comment's
+   own "future re-scope needs no width change" — this IS that
+   re-scope). On a walk-family tick, when the LIVE command is a PURE
+   turn (`hypot(vx_ref,vy_ref)<=1e-3 and |wz_ref|>1e-3` — the EXACT
+   threshold `sim_env.py`'s `_bc_pure_turn` already uses for the
+   turn-skip/combined-dose tick tagging, so any future architecture
+   routed off this bit sees the IDENTICAL tick partition the BC-anchor
+   levers already reason about), the obs tail lights `"turn"` instead
+   of `"walk"`; every other tick (combined, straight-walk, non-walk
+   families) is untouched. 5 new tests in `test_mode_onehot.py`
+   (bit-exact-off, turn-lights-on-pure-turn, combined-stays-walk,
+   non-walk-modes-unchanged, documented precedence when combined with
+   the pre-existing `mode_onehot_cmd`); also fixed 2 PRE-EXISTING
+   unrelated test failures in the same file (`n_steps=80` was shorter
+   than the 100-tick settle hold at the mesh-era 100 Hz default — a
+   latent gap since the 08-24 25->100 Hz flip, unrelated to this
+   change, fixed alongside since the root cause was already
+   diagnosed). Full suite green: `test_mode_onehot.py` 23/23,
+   `test_gru_policy.py`+`test_bc_anchor.py`+`test_mirror.py` 164/164
+   (no regression from the new `_MODE_FAMILY["turn"]="turn"` entry).
+2. *(NOT built — the actual gradient-isolation mechanism, scoped, not
+   started)* A THIRD GRU core (mirroring the existing `_DualGRU`
+   locomotion/stance split in `gru_policy.py`, and the further-
+   generalized `_QuadGRU`/`ModeExpertsGruActorCriticPolicy` 4-expert
+   precedent already in the same file) so PURE-turn ticks (now
+   identifiable via item 1's bit) get their own actor/critic/log_std
+   head, isolated by construction from the combined-tick gradient that
+   is pulling the shared walk core off pure-turn — exactly the
+   "protected sub-path" both prior banners named as the only untried
+   axis. Design, scoped by reading the existing code (not guessed):
+   - New `TripleGruActorCriticPolicy(GruActorCriticPolicy)` (or a
+     `DualGruActorCriticPolicy` subclass) with cores `core_a` (walk +
+     quad, unchanged role), `core_t` (new, turn), `core_b` (stance,
+     UNCHANGED — keep the exact same attribute names/shapes as today's
+     Dual class so core_b needs no new logic). 3-way gate from the
+     onehot tail: `g_t=onehot[...,4]`, `g_b=onehot[...,:3].sum()`,
+     `g_a=1-g_t-g_b` (exact partition, one bit lit per tick).
+   - Warm start: a NEW transplant helper (same family as the existing
+     `raw_policy_backbone_transplant`/`pad_obs_transplant` pattern in
+     `train_ppo_mjx.py`'s `--init-from` branch) that builds the fresh
+     Triple model, `PPO.load`s the old Dual checkpoint, copies its
+     core_b -> new core_b verbatim and its core_a -> BOTH new core_a
+     AND new core_t (turn starts as a copy of the current
+     combined-tuned walk core, not from scratch — optimizer state
+     fresh, same convention as every other architecture-changing
+     transplant in this file).
+   - **Named risk, found by reading the code, not by running anything:**
+     `yaw_critic.py` (the `train.yaw_credit_coef`/`_vf_coef`/
+     `_grad_clip` mechanism ACTIVE in this exact recipe) hard-requires
+     `isinstance(policy, DualGruActorCriticPolicy)` and reaches
+     directly for `policy.lstm_actor.core_a`/`lstm_critic.core_a` — it
+     has NO generic hook. `bc_anchor.py`'s `_dual_core_param_groups`
+     (used by BOTH `train.bc_anchor_isolate_update` and
+     `train.yaw_credit_grad_clip`'s per-core clip) also hard-codes
+     exactly 2 groups (`"a"`/`"b"`/`"shared"`) by name-matching
+     `core_a`/`core_b`/`mlp_extractor_b`/etc — a `core_t`-named
+     parameter would silently fall into the WRONG group (`"shared"`,
+     unclipped/unisolated) without an explicit 3-way update. Wiring a
+     Triple policy into THIS SPECIFIC recipe (which uses BOTH
+     mechanisms) without updating both files first would silently
+     break exactly the isolation machinery the whole point of this
+     lever depends on — a subtle, hard-to-detect failure mode, not a
+     crash. `bc_anchor.py`'s `bc_anchor_mean` dispatch IS already
+     generic (`hasattr(pol, "bc_anchor_mean")`) — only a Triple-side
+     override is needed there, no dispatcher change.
+   - **Recommended mitigation for the FIRST canary** (single-lever
+     discipline): fine-tune WITHOUT `train.yaw_credit_coef`/
+     `_vf_coef`/`_grad_clip` active (warm-starting FROM a
+     yaw-credit-trained checkpoint is fine — yaw_credit is a
+     training-time hook, not a permanent weight change) so the first
+     read isolates the core-split's own effect before touching
+     `yaw_critic.py`'s Dual-only assumptions at all. Update
+     `_dual_core_param_groups` to a 3-way `_group()` (add `"core_t"` /
+     `mlp_extractor_t`/`action_net_t`/`value_net_t`/`log_std_t`
+     name-matches -> `"t"`) regardless, since `bc_anchor_isolate_update`
+     is active in this recipe and IS needed for correctness even
+     without yaw_credit.
+   - Test bank to build alongside (mirror `test_gru_policy.py`'s
+     existing Dual/Experts suites, scaled down): bit-exact-off,
+     3-way gate partition matches `walk_task.MODE_ONEHOT_ORDER`,
+     routing selects the right core's mean, gradient isolation (a
+     gradient on a core_t-only batch touches ONLY core_t params),
+     save/load roundtrip, and the Dual->Triple transplant (core_a and
+     core_t both equal old core_a immediately after transplant, core_b
+     unchanged).
+   Sizing this honestly: item 2 touches 3 files with active,
+   currently-load-bearing mechanisms (`gru_policy.py`, `bc_anchor.py`,
+   optionally `yaw_critic.py`) plus a new transplant path and a new
+   test bank — a multi-cycle build, not a same-cycle one. Building it
+   carelessly to hit "launch something" this cycle risks silently
+   breaking `bc_anchor_isolate_update`/`yaw_credit_grad_clip`'s own
+   isolation guarantees, which would confound the very question the
+   lever exists to answer. Item 1 (tested, safe, real) is genuine
+   forward progress; item 2 is scoped precisely enough for direct
+   implementation next cycle with no re-discovery needed.
 
-**1st cell read, 09-04 ~00:4x: `combdose0p3` (dose 0.3, seed0) —
-CANARY FAIL-MECHANISM, same shape as the geometry-lever grid.**
-`probe_turn_authority.py --vx-cmds`, full 84-key non-train cfg-set
-replayed, seed-avg vs the matched control's own `combined_09-03` read:
-combined-tick (`vx=0.08`) `wz_med` WINS both signs (+0.1313 vs ctrl
-+0.1101 = +19.3%; -0.1854 vs ctrl -0.1701 = +9.0%), zero falls
-(12/12) — but pure-turn (`vx=0.0`) `wz_med` REGRESSES past the 10% cap
-on BOTH signs (+0.1964 vs ctrl +0.2230 = 12.0%; -0.2005 vs ctrl
--0.2501 = 19.8%), and straight-walk wz drift (`vx=0.08, wz=0`) flips
-sign and grows (+0.0295 vs ctrl -0.0408). Training reward healthy
-(quarters `[23.4, 70.4, -81.3, 145.6]`, final `ep_rew_mean` 264.7, the
-family's known Q3-dip/Q4-recovery shape). Same root-cause read as the
-geometry-lever grid: the regression traces to the SHARED dual-core
-representation, not to whichever knob (geometry scale or now anchor
-dose) is turned. Full verdict:
-`rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
-gradclip0p15-cap29-stdwalklohi-combdose0p3.md`.
-
-**2nd/3rd cells read, 09-04 ~01:0x: `combdose0p3-s1` and `combdose0p6`
-(seed0) — BOTH CANARY FAIL-MECHANISM, dose axis now 3/4 FAIL.**
-`combdose0p3-s1` (dose 0.3, seed1): combined-tick `wz_med` wins both
-signs (+0.1206 vs ctrl +0.0868 = +39.0%; -0.1533 vs ctrl -0.1369 =
-+12.0%, seed1 control), zero falls, but pure-turn REGRESSES past cap
-on both signs (+0.2023 vs ctrl +0.2279 = 11.2%; -0.1954 vs ctrl
--0.2459 = 20.5%) and straight-walk drift flips sign — numbers track
-its seed0 twin within 1-2pp on every axis, ruling out seed noise.
-Full verdict: `rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-
-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-combdose0p3-s1.md`.
-`combdose0p6` (dose 0.6, seed0, verdicted by a concurrent cycle):
-combined-tick benefit COLLAPSED vs dose 0.3 (positive sign flat at
-+0.14%, negative sign a marginal +1.6%) while pure-turn regression got
-WORSE (21.2%/18.5% vs dose-0.3's 12.0%/19.8%) — doubling the dose
-spent more pure-turn budget for near-zero combined-tick return, a
-non-monotonic/diminishing-returns confirmation of the same shared-
-representation root cause, not a new failure mode. **Dose axis: 3/4
-FAIL** (only `combdose0p6-s1` open). Its FIRST launch attempt never
-trained (0 global_step for 1200s); the `-r2` retry (identical spec,
-same pod `hexapod-mjx-train-1`) ALSO failed to train the same way
-(vec-env up, warm-start loaded, then silent crash to W&B `crashed`
-within ~25 min, no PPO iteration) — second death on the same pod.
-Investigation (09-04 ~01:4x): `hexapod-mjx-train-1`'s node `g129004`
-read `/proc/loadavg` 66-85 and sibling node `g142d86` read 140+ (heavy
-ALL-TENANT contention on some nodes right now) vs `g131eec` at 8-10 —
-read as node-load starvation during `host_workers=24` env-vec spawn,
-not a spec/checkpoint defect (no other `train-1` run today failed this
-way). Corrective per the second-death infra-escalation rule: relaunched
-as `...-s1-r3` explicitly pinned to `hexapod-mjx-train-2` (node
-`g131eec`, low load) via `respec --now --pod`; VERIFIED RUNNING 09-04
-~01:5x. Full note: `rl_move/orchestrator/OPERATOR_QUESTIONS.md`
-2026-09-04 ~01:4x entry. Do NOT launch the next escalation lever yet
-— once `-r3` reads, if it also FAILs the whole
-`bc_anchor_walk_combined_dose` axis closes 4/4 alongside the
-geometry-lever axis, and the next lever must act on something neither
-family reaches (phase-schedule the weight WITHIN a stride, or split
-policy capacity so pure-turn gets a protected sub-path). If `-r3`
-instead fails to TRAIN again on an uncontended pod, that rules out
-node-load and reopens this as a real code/checkpoint dig-in.
-
-## Next (updated 09-04 ~01:0x)
+## Next (updated 09-04 ~02:4x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM. Candidate (i)-v2 (yaw-arm-scale)
-   CLOSED 4/4 FAIL — see banner.** Every dose that wins the
-   combined-tick wz axis blows the pure-turn regression cap; the
-   whole geometry/scaling-lever axis (yaw-arm-scale + both omega-boost
-   directions) is now closed. Escalation lever BUILT + unit-tested:
-   `train.bc_anchor_walk_combined_dose` (continuous per-tick BC-anchor
-   weight on combined ticks only, the untried middle between the
-   refuted full-skip and legacy full-weight extremes). 4-cell canary
-   LAUNCHED (`cap29-stdwalklohi-combdose{0p3,0p6}{,-s1}`) against the
-   same matched comparators (`cap29-stdwalklo-hi{,-s1}`). **3/4 cells
-   read, all CANARY FAIL-MECHANISM — see banner** (`combdose0p3` +
-   `combdose0p3-s1` both blow the pure-turn cap while winning
-   combined-tick; `combdose0p6` seed0 blows pure-turn WORSE for a
-   near-zero combined-tick gain, non-monotonic). **1 cell open**
-   (`combdose0p6-s1`): first attempt AND its `-r2` retry both failed
-   to train (2x on the same pod `hexapod-mjx-train-1`) — read as
-   node-load infra (node `g129004`/`g142d86` load1 66-140+ vs
-   uncontended `g131eec` at 8-10, see OPERATOR_QUESTIONS.md 09-04
-   ~01:4x), not a spec defect. Relaunched as `...-s1-r3` pinned to the
-   uncontended `hexapod-mjx-train-2`; VERIFIED RUNNING 09-04 ~01:5x.
-   NEXT: once `-r3` reads, if it also FAILs the BC-anchor-DOSE axis is
-   exhausted 4/4 alongside the geometry-lever axis and the next lever
-   must touch something the dose/skip/scale family cannot reach
-   (candidates: phase-schedule the weight WITHIN a stride instead of
-   per-tick-class, or redirect effort to standwalk's other remaining
-   gap rather than a fourth variant of "weaken the combined-tick
-   anchor"). Do not pre-build that next lever until the 4th cell is
-   read — a single non-monotonic cell (`combdose0p6`) already warns
-   against assuming the trend extrapolates.
+2. **Steering branch — TOP ITEM. Whole open-loop lever family (yaw-
+   arm-scale geometry axis + bc_anchor_walk_combined_dose axis) now
+   CLOSED 8/8 FAIL — see banner.** Next lever (protected turn-tick
+   sub-path, a 3rd GRU core): prerequisite `obs.mode_onehot_turn_cmd`
+   tick-tagging BUILT + tested this cycle; the actual
+   `TripleGruActorCriticPolicy` architecture + transplant + test bank
+   is designed (exact touchpoints + the `yaw_critic.py`/
+   `_dual_core_param_groups` entanglement risk named in the banner)
+   but NOT built — multi-cycle scope, do not rush it to force a launch
+   this cycle. NEXT: build `TripleGruActorCriticPolicy` per the
+   banner's design, update `_dual_core_param_groups` to 3-way, add the
+   Dual->Triple transplant + test bank, THEN launch one single-lever
+   canary (yaw_credit OFF for the first read, per the banner's
+   mitigation) from the `dualbc6...canary` base.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
    candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
@@ -187,21 +180,21 @@ node-load and reopens this as a real code/checkpoint dig-in.
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}. Current state = newest Update at the TOP;
-> don't act on archived Next.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04v. Current state = newest Update at
+> the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~01:5x)
+## Fleet capacity note (updated 09-04 ~02:4x)
 
-3/4 dose-canary cells now read (all FAIL-MECHANISM); the 4th
-(`combdose0p6-s1`) died to train twice on the same pod
-(`hexapod-mjx-train-1`, node-load infra, see banner) and is now
-in flight a 3rd time as `-r3` on `hexapod-mjx-train-2` — 1 of 11 GPU
-slots spent, 10 free. Every OTHER track is non-launchable by design
-(`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
-`todaypolicy` DELIVERED). `standwalk`'s only Next item now has a
-launched, gated canary in flight — next cycle's job is to read it, not
-launch more speculative arms ahead of that read (the 09-04 ~00:1x note
-above still holds; only the pod/attempt count changed).
+The whole open-loop dose/geometry lever family for item 2 is now
+closed 8/8 FAIL (banner). The next lever needs real (multi-file,
+multi-cycle) architecture work before it is safely launchable — see
+item 2's design above. 0 of 11 GPU slots spent; every OTHER track is
+non-launchable by design (`joystick`/`amp`/`cpg` DONE or maintenance-
+only; `walkcurr` RETIRED; `todaypolicy` DELIVERED). This cycle spent
+its budget building + testing the safe prerequisite slice
+(`obs.mode_onehot_turn_cmd`) rather than rushing an untested 3-core
+architecture onto a live H200 budget; next cycle's job is the
+`TripleGruActorCriticPolicy` build itself.
 
 ## Goal (operator, 08-24 evening)
 

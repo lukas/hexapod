@@ -307,6 +307,16 @@ _MODE_FAMILY = {
     # WALKING" spec): the quad one-hot bit + non-zero vx/vy refs carry
     # the within-mode command, exactly the walk-vs-hold convention.
     "quadwalk": "quad",
+    # "turn" (09-04, standwalk item-2 escalation: the whole open-loop
+    # BC-anchor-dose/geometry-scale lever family closed 8/8 FAIL, every
+    # cell showing the SAME shared-representation signature — winning
+    # combined-tick wz always costs pure-turn wz on the ONE shared walk
+    # core). This un-reserves the slot the 08-11 comment above named as
+    # future-proofing: it is never produced by a real goal-trajectory
+    # mode string (no generator sets .mode="turn"), only synthesized
+    # per-tick by mode_onehot_turn_cmd below, so this entry is a pure
+    # ADDITION with no effect on any existing mode string lookup.
+    "turn": "turn",
 }
 
 
@@ -873,6 +883,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Default OFF = bit-exact obs for every existing lineage.
         self._mode_cmd = float(cfg_get(self.cfg, "obs", "mode_onehot_cmd",
                                        default=0.0)) == 1.0
+        # Pure-turn command-derived slot (obs.mode_onehot_turn_cmd=1;
+        # 09-04, standwalk item-2 escalation, see MODE_ONEHOT_ORDER's
+        # "turn" entry above). Independent of mode_onehot_cmd (may be
+        # combined or used alone): on a walk-family tick, if the LIVE
+        # command is a PURE turn (both |vx_ref| and |vy_ref| <= 1e-3 AND
+        # |wz_ref| > 1e-3 — the EXACT same threshold sim_env.py's
+        # ``_bc_pure_turn`` uses for the bc_anchor_walk_turn_skip /
+        # bc_anchor_walk_combined_dose tick classification, so any
+        # future architecture routed off this bit sees the identical
+        # tick partition the BC-anchor levers already reason about),
+        # light "turn" instead of "walk"; every other tick (combined,
+        # straight-walk, non-walk families) is completely unaffected.
+        # Default OFF = bit-exact obs for every existing lineage (no
+        # effect unless obs.mode_onehot=1 too).
+        self._mode_turn_cmd = float(cfg_get(
+            self.cfg, "obs", "mode_onehot_turn_cmd", default=0.0)) == 1.0
         # Recovery needs a task-stable pose frame.  q-q_nom is zero at
         # every reset because q_nom is the arbitrary settled bad pose, so
         # two very different tangles can otherwise begin with identical
@@ -1049,6 +1075,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                            and abs(wz) <= eps_w)
                 obs = np.concatenate(
                     [obs, mode_onehot("hold" if stopped else "walk")])
+            elif (self._mode_turn_cmd
+                    and _MODE_FAMILY.get(str(mode), "hold") == "walk"):
+                # Pure-turn command-derived slot (obs.mode_onehot_
+                # turn_cmd=1, see __init__ note): same _current_goal()
+                # per-tick read as the branch above, but a DIFFERENT
+                # partition — pure-turn ticks (not stop ticks) get
+                # their own "turn" bit, matching sim_env.py's
+                # _bc_pure_turn threshold exactly (1e-3, not the
+                # obs.mode_cmd_stop_* knobs, which are a separate,
+                # coarser stop-detection tuned for the hold/walk
+                # split above).
+                goal = self._current_goal()
+                vx = float(getattr(goal, "vx_ref", 0.0)) \
+                    if goal is not None else 0.0
+                vy = float(getattr(goal, "vy_ref", 0.0)) \
+                    if goal is not None else 0.0
+                wz = float(getattr(goal, "wz_ref", 0.0)) \
+                    if goal is not None else 0.0
+                pure_turn = (math.hypot(vx, vy) <= 1e-3
+                             and abs(wz) > 1e-3)
+                obs = np.concatenate(
+                    [obs, mode_onehot("turn" if pure_turn else "walk")])
             else:
                 obs = np.concatenate([obs, mode_onehot(mode)])
         if self._recover_plant_q_obs:

@@ -266470,7 +266470,7 @@
       "train.bc_anchor_walk_combined_dose=0.6"
     ],
     "created": "2026-09-03T23:48:46+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -266516,7 +266516,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-04T00:44:00"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (train.bc_anchor_walk_combined_dose=0.6, seed0). probe_turn_authority.py --vx-cmds, full 84-key non-train cfg-set replayed (wz-cmds 0.25,-0.25,0.0 x vx-cmds 0.0,0.08 x seeds 0,1), seed-avg vs matched control cap29-stdwalklo-hi's own combined_09-03 read: combined-tick (vx=0.08) wz_med is FLAT on the positive sign (+0.1103 vs ctrl +0.1101 = +0.14%, inside noise) and only a marginal win on the negative sign (-0.1727 vs ctrl -0.1701 = +1.6%) -- far weaker than the dose-0.3 twin's clean +19.3%/+9.0% win, i.e. raising the dose from 0.3 to 0.6 did NOT scale the combined-tick benefit, it erased it. Meanwhile pure-turn (vx=0.0) wz_med REGRESSES on both signs past the 10% cap and WORSE than dose-0.3: +0.1758 vs ctrl +0.2230 = 21.2% regression; -0.2037 vs ctrl -0.2501 = 18.5% regression (dose-0.3 was 12.0%/19.8%). Straight-walk wz drift (vx=0.08,wz=0) shrinks toward zero (+0.0073 vs ctrl -0.0408) -- not a regression, ideal is 0. Zero falls (12/12 rows). Training reward healthy (quarters [22.4, 71.0, -84.1, 142.7], final ep_rew_mean 246.4, the family's known Q3-dip/Q4-recovery shape, not a collapse), so this is a genuine mechanism verdict, not a starved run. Why: doubling the dose from 0.3->0.6 pushes MORE pure-turn cost for LESS (in fact near-zero) combined-tick benefit -- the opposite of a clean dose-response, confirming (not just replicating) the shared-representation root-cause read: the SAME weight that lets combined-tick wz move also lets pure-turn drift, and past some point extra dose just spends pure-turn budget without buying combined-tick wz back (diminishing/negative returns, not a monotonic trade). Combined with combdose0p3's FAIL, the low half of the dose axis (0.3, 0.6) is 2/2 FAIL, both for the same shared-representation reason as the geometry-lever grid. Next: read combdose0p3-s1 and combdose0p6-s1 (once relaunched -- combdose0p6-s1 failed-to-launch per its own ledger, needs a clean retry) the same way; if the seed twins confirm, the WHOLE bc_anchor_walk_combined_dose axis closes 4/4 FAIL alongside the geometry-lever axis, and the next lever must act on something neither family reaches (phase-scheduling the anchor weight WITHIN a stride, or splitting policy capacity so pure-turn gets a protected sub-path)."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-combdose0p6-s1",

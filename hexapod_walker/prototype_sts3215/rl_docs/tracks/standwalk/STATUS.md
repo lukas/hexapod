@@ -1,63 +1,52 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~11:4x: `transtress-s1-acq8m` (8M continuation of the
-clean seed1 canary) TRIAGED — FAIL vs its own pre-registered gate, and
-it REFRAMES Next item 1's "seed-dependent divergence" as a budget/
-timing effect, not a true fork. eval_cmd_stress at 8060928 steps:
-hold_min_load reappeared (6/72, all mid-transition-hold segments, the
-documented segment-entry-EMA-reset mechanism) and gait_valid_frac
-dropped to 0.986 with sacrificed_legs_seen=[1,2,3] — the SAME
-sacrificed-leg signature seed0's `transtress` showed AT 2M (legs
-[3,4,5]). Walk quality itself did NOT regress (progress_ratio/dir_err
-both improved vs the 2M read; smoothness tied). Reward rose the whole
-8M window (08-21 ruling: not a collapse) but the run's own FAIL clause
-named the fix in advance: a priced/carried-over segment-switch
-foot-load mechanism, not more steps — "more budget" is now measured to
-NOT close this alone. Verdict: `transtress-s1-acq8m`. Prior 08-3x
-banner (over_current audit, `eval_cmd_stress.py` suite,
-`goal.mode_seq_stress` default-OFF, snapshot 2751a537) archived:
-`archive/standwalk_STATUS_journal_2026-09-04ee_trim.md`.
+Update, 2026-09-04 ~13:2x: `mlcontprice8` (k=8.0 continuity+price canary,
+2M off the acq8m checkpoint) TRIAGED — CANARY FAIL-MECHANISM vs its own
+zero-mech-term gate, but the fix is real and dose-responsive, not dead.
+`eval_cmd_stress` at 2M: hold_min_load HALVED (3/72, was acq8m's 6/72);
+DR-0 pass is now fully CLEAN (0/36, was 2/36) and the companion
+gait-validity/sacrificed-leg pathology is FULLY CLOSED
+(gait_valid_frac=1.0, sacrificed_legs_seen=[], was 0.986/[1,2,3]); the
+3 residual fires are ALL under own-DR (was 4/36). Walk quality held
+(progress_ratio -4.9%, dir_err +3.2%, slip/m -7.5%, all inside the 10%
+cap) — the price did not corrupt the walk optimum, so this is not the
+dose-ceiling FAIL shape. DIG-IN this cycle on the 3 residual fires'
+timing (per-episode `seq_plan`/`seq_end_t_s` in the cmdstress
+report.json) REFUTES the "entry-window artifact" reading: fires land
+2.2-5.1 s into the hold segment (well past grace 1.0 s + term_s 1.0 s
+= 2.0 s minimum), and the pre-fix acq8m baseline's own 6 fires show
+the IDENTICAL 2.4-5.3 s timing signature — the mechanism reduced the
+RATE (via training pressure from the price) but did not change the
+qualitative failure shape. Also: `_hold_minload_low_s` never
+accumulates outside `hold` mode (checked `sim_env.py`), so there is no
+pre-switch counter to "carry over" — the residual failures read as a
+genuine hold-under-own-DR robustness gap, not a segment-entry code
+defect. Verdict: `mlcontprice8`. Sibling `mlcontprice2` (k=2.0) is a
+concurrent cycle's run — compound "both doses" call and any next-lever
+design wait for its read. Prior banner archived:
+`archive/standwalk_STATUS_journal_2026-09-04ff_trim.md`.
 
-## Next (updated 09-04 ~11:4x)
+## Next (updated 09-04 ~13:2x)
 
-1. **Universal-command branch — root cause is now MECHANISM-LEVEL, not
-   seed-level; fix the segment-switch foot-load gap before any further
-   acquisition rung on this diet.** `eval_cmd_stress` (seed 93000, 72
-   seq eps, dr0+ownDR): `transtress-s1` PASS clean at 2M — ZERO mech
-   terms (control `cont-s1`: 38/72=52.8%!), completion 1.0 (vs 0.472).
-   Seed0 `transtress` FAILS the SAME eval at 2M vs its own control
-   `cont`: 33/72 mech terms, 3 sacrificed legs [3,4,5]. `transtress-s1`
-   continued to 8M (`-acq8m`, FAIL verdict 09-04 ~11:4x): the clean win
-   partly erodes with budget too — 6/72 hold_min_load (all
-   walk->lower->rise / walk->hold / rise->hold mid-transition entries,
-   the documented per-foot EMA-has-no-carry-over-across-a-switch bug,
-   `sim_env.py`/`manual_drive_session.py`) and sacrificed_legs_seen
-   [1,2,3] reappears — matching seed0's early pathology, just later/
-   milder (8.3% vs seed0's ~46% at 2M). Both seeds drift the SAME
-   direction; this is a shared mechanism gap, not a seed coin-flip.
-   FIX LANDED (09-04 ~12:xx, this cycle, dig-in of the acq8m FAIL):
-   measured first that with grace 1.0 s = 4x tau the stale/zero entry
-   EMA washes out (e^-4) before the termination clock unpins — the
-   entry artifact alone cannot fire the cliff; the fires are a REAL
-   unloaded-through-the-switch foot whose only training signal was the
-   cliff ~2 s after the causal placement. Landed BOTH halves,
-   default-off/bit-exact (sim_env.py): `safety.hold_min_load_ema_
-   continuous=1` (EMA seeded from measured load at reset + updated
-   every tick in every mode — hold entries read the load actually
-   carried through the switch) and `reward.k_hold_min_load_short`
-   (dense hold-tick price `-k*dt*max(0,1-ema/floor)`, same EMA/floor
-   as the termination, active through the grace window — the priced
-   twin per the 08-24 ruling). Semantics bank: 6 new tests green
-   (test_hold_minload_cont_*/short_* in test_task_semantics.py) +
-   existing minload/grace banks green. CANARY PAIR LAUNCHED: 2M
-   mechanism-health arms `...-acq8m-mlcontprice2/-mlcontprice8`
-   (k=2.0/8.0, continuity on, continuing the acq8m checkpoint on the
-   same stress diet — repair test; acq8m is otherwise the lineage's
-   best walker). Gate: eval_cmd_stress seed 93000, zero hold_min_load
-   + gait_valid 1.0 + walk within 10% of the acq8m read. Seed0
-   `transtress`'s own video/per-leg dig-in stays lower-priority (same
-   mechanism, already characterized). Numbers: `cont`/`cont-s1`/
-   `transtress-s1`/`transtress-s1-acq8m` verdicts (09-04).
+1. **Universal-command branch — mechanism CONFIRMED real + dose-
+   responsive at k=8 (halves fires, fully closes DR-0 + gait-validity),
+   but residual own-DR fires are NOT an entry-window code artifact —
+   read `mlcontprice8`'s verdict before designing any further lever.**
+   Wait for `mlcontprice2` (k=2.0 twin, concurrent cycle) to complete
+   the dose-response read: if it fails WORSE (more fires) the price is
+   working as intended and a higher dose or more steps is the next
+   experiment; if it fails SIMILARLY the price has saturated and the
+   next question is what makes own-DR specifically harder to sustain
+   hold-load on (candidate: log per-episode DR draws in eval_cmd_stress
+   to correlate residual fires with specific randomized params — mass/
+   friction/gain extremes — before writing any new mechanism). Do NOT
+   build an "entry-window termination carry-over" fix on the untested
+   theory named in the original gate text — this cycle's per-episode
+   timing evidence refutes it (see Update banner). Numbers:
+   `mlcontprice8` verdict + `logs/ckpt_eval/cw_standwalk_stage2_
+   dualbc6_turncap_mirroraug_yawcredit_gradclip0p15_cap29_stdwalklohi_
+   transtress_s1_acq8m_mlcontprice8_cmdstress/` (per-episode detail in
+   `dr0/report.json` + `owndr/report.json`).
 2. **Steering branch — CONFIRMED continuation-drift confound; axis
    needs re-scoring, not more lever canaries.** `cont`/`cont-s1`
    `probe_turn_authority` pure-turn wz_med sits 22-35% below the FROZEN
@@ -83,14 +72,18 @@ banner (over_current audit, `eval_cmd_stress.py` suite,
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd}. Current
-> state = newest Update at the TOP; don't act on archived Next.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,ee,ff}.
+> Current state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~10:0x)
+## Fleet capacity note (updated 09-04 ~13:2x)
 
-11/12 GPU pods free (quartet triaged; only train-2 busy running
-selomegaboost4p0-s1's podeval walk-only DR-0 proxy). No acquisition
-launch this cycle — item 1's fork must resolve first. train-4 still
+11/12 GPU pods free (train-2 busy running selomegaboost4p0-s1's podeval
+walk-only DR-0 proxy — long-running since 11:51, still progressing,
+not stuck; leave it, its owner reads it). No acquisition/lever launch
+this cycle — item 1's compound dose call needs the concurrent
+`mlcontprice2` cycle's read first, and this cycle's per-episode dig-in
+refuted the only named next-lever theory (see Update banner), so there
+is no evidence-backed code fix to land yet either. train-4 still
 Pending (OOMKilled 08:06, recreated from the fixed 4Gi-dshm scaleout
 spec; g142d86 at 98% CPU requests) — `bootstrap_train_pod.sh
 hexapod-mjx-train-4` + `pod_torch_capability.py install` once Running.

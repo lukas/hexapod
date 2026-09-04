@@ -94,6 +94,19 @@ Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory fo
 
 The deployed stable lab URL is `https://robot-lab.cwd1f0-new-cluster.coreweave.app`. Caddy terminates TLS and forwards this hostname without adding another authentication layer; Hexapod Lab itself enforces Basic authentication for the website and bearer authentication for API/MCP clients. The local service and dual-port SSH tunnel run as macOS LaunchAgents, and the operator token is stored in Keychain under `Hexapod Lab API`. The background-safe runtime and evidence live under `~/Library/Application Support/Hexapod Lab/` because macOS restricts LaunchAgent access to `Documents`.
 
+## Blocker text alerts
+
+`hexapod-blocker-monitor` is an independent Mac LaunchAgent that polls the
+private CoreWeave `/api/blockers` feed and the local Robot Lab experiment API.
+It sends a Messages text only for a newly filed operator blocker, a new failed
+or stuck Robot Lab experiment, or three consecutive service-check failures;
+alerts are deduplicated in `data/blocker-alert-state.json`, and recovery is
+reported once. Historical Robot Lab failures are baselined on first launch.
+The recipient is stored in Keychain as account `recipient`, service
+`Hexapod Blocker Alerts`; the phone number is never committed. The runner is
+`scripts/run-blocker-monitor.sh`, and the LaunchAgent definition is
+`deploy/com.lbiewald.hexapod-blocker-alerts.plist`.
+
 The laptop's Codex configuration registers this endpoint as `robot_lab`. Its `bearer_token_env_var` is `HEXAPOD_LAB_TOKEN`; a login LaunchAgent reads the value from Keychain and places it in the user's launchd environment. Restart the Codex/ChatGPT desktop app after initial setup so newly launched tasks inherit it.
 
 ## Read-only mobile gateway

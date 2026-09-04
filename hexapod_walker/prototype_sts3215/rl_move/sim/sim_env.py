@@ -2230,6 +2230,19 @@ class SimHexapodBalanceEnv(_GymBase):
         # SimHexapodJointWalkEnv) — snapshot via mjx_host.SNAP_ATTRS.
         self._hold_minload_ema = 0.0
         self._hold_minload_low_s = 0.0
+        # Continuity variant (safety.hold_min_load_ema_continuous,
+        # 09-04): seed the EMA from the MEASURED min-over-feet force at
+        # the settled spawn instead of 0.0, so the very first ticks
+        # (and any price built on the EMA) read the true planted state
+        # rather than a zero-init charging artifact. Default off =
+        # legacy 0.0 init, bit-exact.
+        if (float(cfg_get(self.cfg, "safety",
+                          "hold_min_load_ema_continuous",
+                          default=0.0)) > 0.0
+                and self._pad_z_ref is not None):
+            self._hold_minload_ema = self._minload_min_force_now(
+                float(cfg_get(self.cfg, "safety",
+                              "hold_min_load_terminate_n", default=0.3)))
         # Per-episode cache: first charged tick of the terminal
         # end-posture window (computed lazily from the goal schedule).
         self._end_posture_from = None
@@ -3068,6 +3081,27 @@ class SimHexapodBalanceEnv(_GymBase):
                                   default=1.0)) > 0.0):
             self._walk_bc_gait = self._make_walk_bc_gait()
 
+    def _minload_min_force_now(self, floor_n: float) -> float:
+        """Worst (min-over-feet) touch force right now, the quantity the
+        hold_min_load termination/price EMA tracks. A foot with no touch
+        sensor (adr<0) falls back to the clearance test used elsewhere
+        in this file (clear > foot_down_mm => "up" => scored unloaded,
+        else scored comfortably above the floor). Factored out 09-04 so
+        the reset-time EMA seed (hold_min_load_ema_continuous) and the
+        per-tick update read the identical measurement."""
+        forces_now = []
+        for i in range(6):
+            if self._touch_adr[i] >= 0:
+                forces_now.append(max(float(
+                    self.data.sensordata[self._touch_adr[i]]), 0.0))
+            else:
+                clear_i = (float(self.data.xpos[self._pad_bids[i], 2])
+                           - self._pad_z_ref[i])
+                forces_now.append(
+                    0.0 if clear_i > PLANT_SPEC["foot_down_mm"] * 0.001
+                    else floor_n * 2.0)
+        return min(forces_now)
+
     def _step_finish(self, ctx):
         """Post-physics half of step: state read, reward, obs."""
         clipped, terminated, status, pen = ctx
@@ -3162,33 +3196,51 @@ class SimHexapodBalanceEnv(_GymBase):
         # existing task/cfg.
         hold_minload_term_s = float(cfg_get(
             self.cfg, "safety", "hold_min_load_terminate_s", default=0.0))
-        if (not terminated and hold_minload_term_s > 0.0
-                and self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "hold"
-                and self._pad_z_ref is not None):
-            minload_grace_s = float(cfg_get(
-                self.cfg, "safety", "hold_min_load_terminate_grace_s",
-                default=0.0))
-            minload_floor_n = float(cfg_get(
-                self.cfg, "safety", "hold_min_load_terminate_n",
-                default=0.3))
+        # Segment-entry EMA CONTINUITY (2026-09-04, standwalk
+        # transtress-s1-acq8m dig-in). The legacy EMA lifecycle only
+        # updates INSIDE a hold segment: at a mode_seq mid-transition
+        # hold entry (walk->hold, rise->hold, walk->lower->rise->hold)
+        # the EMA is zero (first hold) or stale (value frozen at the
+        # END of the previous hold segment) instead of the true recent
+        # per-foot load. With the training grace (1.0 s) at 4x the EMA
+        # tau (0.25 s) the seed washes out before the termination clock
+        # unpins (e^-4 residual), so the stale seed alone cannot fire
+        # the termination -- but it DOES make any entry-window signal
+        # built on the EMA (the k_hold_min_load_short price below)
+        # blind or spurious exactly at the switch, the one place the
+        # acq8m fires cluster. safety.hold_min_load_ema_continuous=1
+        # keeps the EMA honest: seeded from the measured min force at
+        # reset (feet are planted at spawn) and updated EVERY control
+        # tick in EVERY mode, so a hold entry reads the actual load
+        # carried through the switch. Termination clock/grace/floor are
+        # untouched. Default 0 = legacy lifecycle, bit-exact.
+        minload_cont = float(cfg_get(
+            self.cfg, "safety", "hold_min_load_ema_continuous",
+            default=0.0)) > 0.0
+        minload_short_k = float(cfg_get(
+            self.cfg, "reward", "k_hold_min_load_short", default=0.0))
+        minload_in_hold = (self._goal_traj is not None
+                           and getattr(self._goal_traj, "mode", "")
+                           == "hold")
+        minload_floor_n = float(cfg_get(
+            self.cfg, "safety", "hold_min_load_terminate_n",
+            default=0.3))
+        if (self._pad_z_ref is not None
+                and (hold_minload_term_s > 0.0 or minload_short_k > 0.0)
+                and (minload_cont
+                     or (not terminated and hold_minload_term_s > 0.0
+                         and minload_in_hold))):
             minload_tau_s = max(float(cfg_get(
                 self.cfg, "safety", "hold_min_load_terminate_tau_s",
                 default=0.25)), self.dt)
-            forces_now = []
-            for i in range(6):
-                if self._touch_adr[i] >= 0:
-                    forces_now.append(max(float(
-                        self.data.sensordata[self._touch_adr[i]]), 0.0))
-                else:
-                    clear_i = (float(self.data.xpos[self._pad_bids[i], 2])
-                               - self._pad_z_ref[i])
-                    forces_now.append(
-                        0.0 if clear_i > PLANT_SPEC["foot_down_mm"] * 0.001
-                        else minload_floor_n * 2.0)
-            min_force_now = min(forces_now)
+            min_force_now = self._minload_min_force_now(minload_floor_n)
             self._hold_minload_ema += (self.dt / minload_tau_s) * (
                 min_force_now - self._hold_minload_ema)
+        if (not terminated and hold_minload_term_s > 0.0
+                and minload_in_hold and self._pad_z_ref is not None):
+            minload_grace_s = float(cfg_get(
+                self.cfg, "safety", "hold_min_load_terminate_grace_s",
+                default=0.0))
             if (self._step_i - self._seg_entry_step) * self.dt < minload_grace_s:
                 self._hold_minload_low_s = 0.0
             else:
@@ -3457,6 +3509,38 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["reward_task"] = r_task_h * f_hold
             parts["hold_feet_factor"] = feet_h
             parts["hold_still_factor"] = still_h
+        # HOLD min-foot-load SHORTFALL price (2026-09-04, standwalk
+        # transtress-s1-acq8m dig-in -- the priced twin of the
+        # hold_min_load termination, per the 08-24 op ruling pattern
+        # "termination WITH a price"). The acq8m FAIL showed the
+        # termination alone does not teach the switch: 6/72 stress
+        # episodes still die in mid-transition hold entries after 8M
+        # steps because the only signal against an unloaded-through-
+        # the-switch foot is a CLIFF that fires ~grace+sustain (~2 s)
+        # AFTER the causal foot placement, with zero dense gradient in
+        # between (hold_feet_load only scales income, and the
+        # termination grace window is a blind spot by design). This
+        # charge is that gradient: every hold-mode tick pays
+        #   -k * dt * max(0, 1 - ema/floor)
+        # with the SAME min-over-feet EMA and floor the termination
+        # reads (reward optimum == gate behavior, 08-21 alignment
+        # rule), active from the very FIRST hold tick INCLUDING the
+        # grace window -- planting the worst foot faster genuinely
+        # shrinks the integral, so the optimum is "re-plant all six
+        # feet at entry", exactly what the eval terminates on. Designed
+        # to run WITH hold_min_load_ema_continuous=1 (otherwise the
+        # zero/stale entry EMA makes the entry ticks spuriously
+        # charged/blind). reward.k_hold_min_load_short default 0.0 =
+        # off, bit-exact.
+        if (minload_short_k > 0.0 and minload_in_hold
+                and self._pad_z_ref is not None):
+            short_ml = max(0.0, 1.0 - self._hold_minload_ema
+                           / max(minload_floor_n, 1e-6))
+            if short_ml > 0.0:
+                pen_ml = minload_short_k * short_ml * self.dt
+                reward -= pen_ml
+                parts["hold_minload_short"] = parts.get(
+                    "hold_minload_short", 0.0) - pen_ml
         # Transition foot-drag charge (operator 08-11 night: stand/sit
         # scrape their feet across the floor and NOTHING outside walk
         # mode priced it — k_drag_loaded/k_drag_stance live in the

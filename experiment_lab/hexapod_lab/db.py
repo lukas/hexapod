@@ -68,6 +68,49 @@ class Store:
                         (experiment_id, now, "submitted", "Experiment added to queue"))
         return self.get(experiment_id)
 
+    def import_result(
+        self,
+        spec: Dict[str, Any],
+        submitted_by: str,
+        status: str,
+        error: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Register evidence produced by an external guarded runner."""
+        if status not in TERMINAL:
+            raise ValueError("invalid terminal status")
+        experiment_id = uuid.uuid4().hex
+        now = utcnow()
+        with self.connect() as con:
+            con.execute(
+                "INSERT INTO experiments(id,name,description,duration_seconds,"
+                "parameters_json,status,submitted_by,created_at,started_at,"
+                "finished_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    experiment_id,
+                    spec["name"],
+                    spec.get("description", ""),
+                    spec["duration_seconds"],
+                    json.dumps(spec.get("parameters", {}), sort_keys=True),
+                    status,
+                    submitted_by,
+                    now,
+                    now,
+                    now,
+                    error,
+                ),
+            )
+            con.execute(
+                "INSERT INTO events(experiment_id,timestamp,kind,message) "
+                "VALUES(?,?,?,?)",
+                (
+                    experiment_id,
+                    now,
+                    "imported",
+                    "Completed result registered from an external guarded runner",
+                ),
+            )
+        return self.get(experiment_id)
+
     def get(self, experiment_id: str) -> Optional[Dict[str, Any]]:
         with self.connect() as con:
             row = con.execute("SELECT * FROM experiments WHERE id=?", (experiment_id,)).fetchone()

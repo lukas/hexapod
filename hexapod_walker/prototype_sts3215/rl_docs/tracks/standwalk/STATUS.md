@@ -25,24 +25,44 @@ pure-turn core (`core_t` starts as a byte-exact copy of `core_a`, so
 it begins at exact parity with the shared-core control) still lost
 10-26% of its pure-turn authority AND gained ZERO combined-tick
 benefit in both seeds — worse on every axis than the shared-core Dual
-control it was meant to beat. This is real evidence against the
-representational-interference hypothesis itself, not just this one
-lever: if two skills fighting over one representation were the cause,
-isolating them should have protected pure-turn at minimum. It didn't.
-The better-supported explanation is now upstream of the policy
-entirely: the 09-03 16:1x zero-training finding that the SCRIPTED
-teacher itself (the BC-anchor's own imitation target) retains only
-~33% of its pure-turn `wz` once walking forward — the RL-trained Dual
-control already exceeds that (38-49% combined/pure retention), so the
-ceiling any policy-capacity mechanism can buy is bounded by how good
-the TEACHER's combined-motion turn command is, not by how the policy
-represents it. **Architecture-split lever CLOSED 2/2 FAIL. Do not
-build the `yaw_critic.py`-on-Triple follow-up** (prior Next item) —
-it inherits this now-doubted premise. Next step is teacher-side: build
-a zero-training instrument that measures/repairs the scripted
-`TripodGait`'s own combined-motion turn-command shortfall (candidate
-fix direction: the foot-contact/thrust-budget mechanism named in the
-09-03 16:1x note) BEFORE trying another policy-side mechanism.
+control it was meant to beat. **Architecture-split lever CLOSED 2/2
+FAIL against its own pre-registered gate — that verdict stands.**
+
+**CONFOUND FOUND, before drawing the causal conclusion (this cycle):**
+the "matched control" (`cap29-stdwalklo-hi{,-s1}`) is a FROZEN
+checkpoint trained WITH `train.yaw_credit_coef/_vf_coef/_grad_clip` +
+`--gru-dual-log-std-split`/`--log-std-anneal-core` running throughout
+its own training. The Triple arm warm-started from that exact
+checkpoint but then trained 2M MORE steps with those training-time
+mechanisms DROPPED (by design, first-canary discipline) AT THE SAME
+TIME as the Dual->Triple swap — two levers moving at once, not one.
+Dropping yaw_credit/log_std_split during a further 2M-step
+continuation could by itself explain a pure-turn regression, with the
+architecture innocent. Launched (this cycle, zero-cost since both
+freed GPU slots were otherwise idle): a matched confound-isolation
+pair, SAME start checkpoint/steps/reward/goal/obs cfg-set and SAME
+dropped yaw_credit/log_std_split mechanisms as the Triple arm, but
+`--gru-dual` instead of `--gru-triple` —
+`cap29-stdwalklohi-dualcontinue-noyawcredit{,-s1}`, both VERIFIED
+RUNNING (`hexapod-mjx-train-{1,3}`). Reads it will settle: (A) this
+Dual-continuation ALSO regresses pure-turn ~10-26% -> the mechanism
+drop, not the architecture, was the cause; the representational-
+interference hypothesis is neither confirmed nor refuted, and the
+Triple canary should be re-run WITH yaw_credit/log_std_split kept on
+for a clean single-lever read. (B) it holds pure-turn inside the 10%
+cap -> the mechanisms are innocent, Triple's own regression is real,
+strengthening architecture-side skepticism. (C) either way, compare
+this run's own combined-tick `wz_med` to Triple's — if plain
+continuation beats Triple there too, the architecture split bought
+nothing. **Until this pair is read, treat "representational-
+interference hypothesis is wrong" as PROVISIONAL, not settled** — do
+not build the `yaw_critic.py`-on-Triple follow-up either way (its
+premise is in question regardless of which reading lands), but do not
+fully commit to the teacher-side pivot until reading (A) vs (B). The
+zero-training teacher-side measurement (09-03 16:1x: scripted
+`TripodGait` retains only ~33% of pure-turn `wz` once walking forward)
+remains independently true and worth instrumenting in parallel — it
+does not depend on this confound's resolution.
 
 Build details for `TripleGruActorCriticPolicy` (architecture, CLI,
 tests, the self-inflicted net_arch-derivation bug + same-cycle fix)
@@ -57,20 +77,28 @@ STATUS_journal_2026-09-04x_trim.md`.
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM, now teacher-side.
-   `TripleGruActorCriticPolicy` CLOSED 2/2 FAIL this cycle (see
-   banner) — the whole policy-capacity/architecture-split family
-   (open-loop geometry/dose levers 8/8 FAIL + this 2/2 FAIL) is now
-   exhausted. NEXT: build a zero-training instrument on the SCRIPTED
-   `TripodGait` teacher itself to measure/repair its own combined-
-   motion turn-command shortfall (09-03 16:1x finding: only ~33% of
-   pure-turn `wz` survives at vx=0.08) — candidate mechanism named in
-   that finding is a shared foot-contact/thrust budget under the
-   tripod gait; a fix there raises the BC-anchor's own imitation
-   TARGET, which every downstream policy mechanism has been bounded
-   by. Do NOT queue the `yaw_critic.py`-on-Triple follow-up (inherits
-   the now-doubted interference premise) or another policy-side dose/
-   architecture lever before this teacher-side measurement pass.
+2. **Steering branch — TOP ITEM.
+   `TripleGruActorCriticPolicy` CLOSED 2/2 FAIL against its own gate
+   this cycle (see banner), but a CONFOUND was found in the same
+   cycle: the Triple arm changed architecture AND dropped
+   yaw_credit/log_std_split training mechanisms at once vs the frozen
+   control. A matched confound-isolation pair
+   (`cap29-stdwalklohi-dualcontinue-noyawcredit{,-s1}`: same
+   start/steps/cfg/dropped-mechanisms, `--gru-dual` not
+   `--gru-triple`) is LAUNCHED + VERIFIED RUNNING
+   (`hexapod-mjx-train-{1,3}`, 2M steps each), unread. NEXT CYCLE
+   reads this pair FIRST with the same `probe_turn_authority.py
+   --vx-cmds` instrument against the same control, per the 3-reading
+   plan in the banner, before deciding whether the architecture-split
+   hypothesis is genuinely dead or just the training-mechanism drop.
+   In PARALLEL (does not block on the pair above): build a
+   zero-training instrument on the SCRIPTED `TripodGait` teacher
+   itself to measure/repair its own combined-motion turn-command
+   shortfall (09-03 16:1x finding: only ~33% of pure-turn `wz`
+   survives at vx=0.08) — candidate mechanism is a shared foot-
+   contact/thrust budget under the tripod gait. Do NOT queue the
+   `yaw_critic.py`-on-Triple follow-up or another policy-side
+   architecture lever before the confound pair is read.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
    candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
@@ -93,15 +121,16 @@ STATUS_journal_2026-09-04x_trim.md`.
 
 ## Fleet capacity note (updated 09-04 ~04:3x)
 
-Both `triplecore-{r2,s1-r2}` seeds verdicted FAIL this cycle — 2 GPU
-slots freed, both idle. Every OTHER track remains non-launchable by
-design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
-RETIRED; `todaypolicy` DELIVERED). The next standwalk step (Next
-item 2, teacher-side scripted-gait measurement) is ZERO-TRAINING
-instrument/tool-building work (extend `probe_turn_authority.py` or a
-sibling tool against `--policy scripted`, no GPU needed) before any
-new training arm is launchable — do not launch a 3rd architecture-
-split seed or a new policy-side lever on the now-closed hypothesis.
+Both `triplecore-{r2,s1-r2}` seeds verdicted FAIL this cycle, freeing
+2 GPU slots; both immediately re-spent this same cycle on the matched
+confound-isolation pair `cap29-stdwalklohi-dualcontinue-noyawcredit
+{,-s1}` (VERIFIED RUNNING, `hexapod-mjx-train-{1,3}`, 2M steps each —
+see Next item 2). Every OTHER track remains non-launchable by design
+(`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
+`todaypolicy` DELIVERED). Do not launch a 3rd/4th seed on either
+architecture question before this pair is read; the teacher-side
+zero-training instrument (Next item 2, parallel track) needs no GPU
+and can proceed independently.
 
 ## Goal (operator, 08-24 evening)
 

@@ -52,14 +52,22 @@ def fetch_json(url: str, token: str, timeout: float = 15.0):
 
 def send_messages_text(recipient: str, message: str) -> None:
     """Send without interpolating untrusted alert text into AppleScript."""
-    subprocess.run(
-        ["/usr/bin/osascript", "-", recipient, message],
-        input=APPLE_SCRIPT,
-        text=True,
-        capture_output=True,
-        timeout=20,
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            ["/usr/bin/osascript", "-", recipient, message],
+            input=APPLE_SCRIPT,
+            text=True,
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            "Messages automation timed out; allow the alert process to control Messages"
+        ) from exc
+    if result.returncode:
+        detail = (result.stderr or result.stdout or "Messages rejected the send").strip()
+        raise RuntimeError(detail[:500])
 
 
 @dataclass(frozen=True)

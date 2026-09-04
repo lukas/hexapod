@@ -1,105 +1,76 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~03:5x (**`TripleGruActorCriticPolicy` (the 3rd-GRU-
-core protected turn-tick lever item 2's banner scoped last cycle) is
-now BUILT, fully unit-tested (26 new tests: architecture + CLI
-validator + `--log-std-anneal-core turn`, all green; zero regressions
-in `test_gru_policy.py`/`test_bc_anchor.py`/`test_gru_triple_cli.py`),
-and LAUNCHED as a 2-seed canary against the `cap29-stdwalklo-hi`
-control. First launch attempt crashed at 0 training steps on a
-self-inflicted net_arch-derivation bug (caught cleanly by the
-transplant's own shape check, no corruption); fixed same-cycle,
-re-launched as `-r2`, both seeds VERIFIED RUNNING. Unread.**)
+Update, 2026-09-04 ~04:3x (**Seed1 twin `cap29-stdwalklohi-triplecore-
+s1-r2` also CANARY FAIL - MECHANISM — the 2-seed `TripleGruActor
+CriticPolicy` canary now CLOSES 2/2 FAIL, confirming seed0's read was
+not a fluke.**)
 
-Built exactly per last cycle's scoped design
-(`gru_policy.TripleGruActorCriticPolicy`: `core_a` walk/quad unchanged,
-new `core_t` pure-turn with its own actor/critic/log_std head, `core_b`
-stance byte-for-byte unchanged from Dual's contract; 3-way gate off the
-frozen `MODE_ONEHOT_ORDER` tail). `gru_policy.dual_to_triple_transplant`
-copies `core_b` verbatim and `core_a` into BOTH `core_a` and `core_t`
-(turn starts as a copy of the current combined-tuned walk core, fresh
-optimizer state). `bc_anchor._dual_core_param_groups` extended to a
-generic 3-way `"a"/"t"/"b"/"shared"` classifier (both call sites —
-`_gradnorm_diag_ctx`/`_percore_clip_ctx` — reworked to iterate an
-arbitrary group set instead of a hardcoded `{a,b,shared}` dict, so
-`bc_anchor_isolate_update`/`bc_anchor_percore_clip` stay correct on a
-Triple policy without a silent misclassification). New CLI
-`--gru-triple` (`train_ppo_mjx.py`): warm-start-only (requires
-`--init-from` a Dual checkpoint + `obs.mode_onehot=1,
-obs.mode_onehot_turn_cmd=1`; refuses `--gru-dual`/`--gru-experts`/
-actor-only/policy-backbone transplants), builds a fresh Triple policy
-and calls the transplant. Per the banner's own mitigation, `yaw_critic.py`
-was NOT touched — the first canary drops `train.yaw_credit_coef`/
-`_vf_coef`/`_grad_clip` and the Dual-only `log_std_split`/
-`--log-std-anneal-core` mechanism entirely (warm-starting FROM a
-yaw-credit-trained checkpoint is fine, yaw_credit is training-time
-only) so this read isolates the core-split's own effect. Test bank:
-`test_gru_policy.py` (slots/routing/3-way gradient isolation/save-load/
-bptt/bc_anchor+detach_trunk/log_std_core targeting/transplant
-correctness incl. a byte-equality + forward-match check) +
-`test_gru_triple_cli.py` (validator + `--help` wiring +
-`--log-std-anneal-core turn` parsing).
+`probe_turn_authority.py --vx-cmds` (full 85-key non-train cfg-set
+replay; `logs/ckpt_eval/probe_turn_authority_triplecore_s1_r2_
+combined_09-04.json` vs control `cap29-stdwalklo-hi-s1`'s cached
+combined read): combined-tick (vx=0.08) `wz_med` +0.086/-0.103 vs
+control +0.087/-0.137(-.142) — FLAT on the positive sign (-0.7%, the
+gate's own explicit "flat" FAIL trigger) and ~25-28% WEAKER on the
+negative sign; no combined-tick win on either sign, let alone both.
+Pure-turn (vx=0) also regressed past the 10% cap on both signs
+(+0.182 vs control +0.228 = -20.2%; -0.201 vs control -0.246 = -18.5%),
+matching seed0's shape closely (13-26% seed0 vs 18-20% seed1 — same
+double-fail signature, not seed noise). No falls in any of the 8
+probe rows; training reward quarters [29.6, 49.5, -105.1, 27.8], final
+177/126.6 (s0/s1) — same family Q3-dip shape. Full verdict: ledger /
+W&B notes for `...-triplecore-s1-r2`.
 
-**Self-inflicted bug, caught and fixed same cycle:** the first launch
-(`cap29-stdwalklohi-triplecore{,-s1}`) crashed at 0 steps —
-`dual_to_triple_transplant`'s own shape check refused cleanly
-(`mlp_extractor.policy_net.0.weight (64,256) -> (128,256)`): this
-specific Dual lineage's checkpoints were built with `net_arch=None`
-(SB3's own pre-`--net-arch`-flag default, `{'pi':[64,64],'vf':[64,64]}`)
-while the fresh Triple construction blindly used the CLI's `--net-arch`
-default `[128,128]`. Root cause: the new `--gru-triple` branch built a
-FRESH policy using CLI defaults instead of the loaded checkpoint's OWN
-resolved geometry (a plain `--init-from` warm start gets this for free
-via `algo_cls.load()`; this branch builds a different policy class so
-must reproduce it explicitly). Fixed: derive both `net_arch` and
-`lstm_hidden_size` from the already-loaded `old.policy` object, never
-from CLI defaults. Both entries marked FAILED in the ledger (0 GPU
-budget lost beyond ~1 min of vec-env compile); relaunched as `-r2`,
-both VERIFIED RUNNING within the same cycle. No corruption, no
-retraining from a bad state — the transplant's fail-closed shape check
-did exactly its job.
+**Reading, both seeds together:** a fully architecturally isolated
+pure-turn core (`core_t` starts as a byte-exact copy of `core_a`, so
+it begins at exact parity with the shared-core control) still lost
+10-26% of its pure-turn authority AND gained ZERO combined-tick
+benefit in both seeds — worse on every axis than the shared-core Dual
+control it was meant to beat. This is real evidence against the
+representational-interference hypothesis itself, not just this one
+lever: if two skills fighting over one representation were the cause,
+isolating them should have protected pure-turn at minimum. It didn't.
+The better-supported explanation is now upstream of the policy
+entirely: the 09-03 16:1x zero-training finding that the SCRIPTED
+teacher itself (the BC-anchor's own imitation target) retains only
+~33% of its pure-turn `wz` once walking forward — the RL-trained Dual
+control already exceeds that (38-49% combined/pure retention), so the
+ceiling any policy-capacity mechanism can buy is bounded by how good
+the TEACHER's combined-motion turn command is, not by how the policy
+represents it. **Architecture-split lever CLOSED 2/2 FAIL. Do not
+build the `yaw_critic.py`-on-Triple follow-up** (prior Next item) —
+it inherits this now-doubted premise. Next step is teacher-side: build
+a zero-training instrument that measures/repairs the scripted
+`TripodGait`'s own combined-motion turn-command shortfall (candidate
+fix direction: the foot-contact/thrust-budget mechanism named in the
+09-03 16:1x note) BEFORE trying another policy-side mechanism.
 
-Gate (unread, 2M-step canary each):
-`probe_turn_authority.py --vx-cmds` combined-tick `wz_med` must beat
-`cap29-stdwalklo-hi{,-s1}`'s own combined comparator on BOTH signs
-WITHOUT a pure-turn `wz_med` regression >10% vs the same control and
-without new DR-0 walk-only terminations — the identical bar the whole
-8/8-FAIL open-loop family was held to, so this is apples-to-apples
-with that closed family. A PASS here would be the first mechanism in
-this whole campaign to win combined-tick turn authority without
-blowing the pure-turn cap.
+Build details for `TripleGruActorCriticPolicy` (architecture, CLI,
+tests, the self-inflicted net_arch-derivation bug + same-cycle fix)
+moved VERBATIM to `archive/standwalk_STATUS_journal_2026-09-04w_trim.md`;
+seed0's own verdict banner moved VERBATIM to `archive/standwalk_
+STATUS_journal_2026-09-04x_trim.md`.
 
-Prior banner (the full `combdose0p6-s1-r3` FAIL verdict closing the
-whole 8/8 open-loop lever family, plus the `TripleGruActorCriticPolicy`
-design this cycle executed) moved VERBATIM to
-`archive/standwalk_STATUS_journal_2026-09-04v_trim.md`.
-
-## Next (updated 09-04 ~03:5x)
+## Next (updated 09-04 ~04:3x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md` for the full write-
    up. No reward code changed; a future fix should price sustained
    near-ceiling current directly (`over2A_s`-style), not a
    stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM. `TripleGruActorCriticPolicy` BUILT +
-   tested + LAUNCHED this cycle (see banner) — a 2-seed canary
-   (`cap29-stdwalklohi-triplecore-r2{,-s1-r2}`, 2M steps each) is
-   RUNNING, unread.** NEXT: when finished, triage with
-   `probe_turn_authority.py --vx-cmds` against the banner's
-   pre-registered gate (beat `cap29-stdwalklo-hi{,-s1}`'s combined-tick
-   `wz_med` both signs, pure-turn regression <=10% vs the same control,
-   no new DR-0 terminations). If it PASSES: this is the first mechanism
-   in the whole campaign to win combined-tick turn authority without
-   blowing the pure-turn cap — next step is wiring `yaw_critic.py`'s
-   yaw-decomposed critic onto the Triple policy (currently refused,
-   Dual-only) for a second, stronger-signal canary, then an acquisition
-   budget. If it FAILS: the representational-interference hypothesis
-   itself needs re-examination (a fully isolated 3rd core still not
-   fixing it would be strong evidence the problem is upstream of any
-   architecture split — e.g. the shared BC-anchor teacher reference
-   itself, per the 09-03 16:1x finding that the SCRIPTED teacher
-   already loses 67% of its own turn authority combined with forward
-   motion).
+2. **Steering branch — TOP ITEM, now teacher-side.
+   `TripleGruActorCriticPolicy` CLOSED 2/2 FAIL this cycle (see
+   banner) — the whole policy-capacity/architecture-split family
+   (open-loop geometry/dose levers 8/8 FAIL + this 2/2 FAIL) is now
+   exhausted. NEXT: build a zero-training instrument on the SCRIPTED
+   `TripodGait` teacher itself to measure/repair its own combined-
+   motion turn-command shortfall (09-03 16:1x finding: only ~33% of
+   pure-turn `wz` survives at vx=0.08) — candidate mechanism named in
+   that finding is a shared foot-contact/thrust budget under the
+   tripod gait; a fix there raises the BC-anchor's own imitation
+   TARGET, which every downstream policy mechanism has been bounded
+   by. Do NOT queue the `yaw_critic.py`-on-Triple follow-up (inherits
+   the now-doubted interference premise) or another policy-side dose/
+   architecture lever before this teacher-side measurement pass.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
    candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
@@ -117,21 +88,20 @@ design this cycle executed) moved VERBATIM to
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04v. Current state = newest Update at
-> the TOP; don't act on archived Next.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x}. Current state = newest
+> Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~03:5x)
+## Fleet capacity note (updated 09-04 ~04:3x)
 
-`TripleGruActorCriticPolicy` built + tested + launched this cycle (see
-banner): 2 GPU slots spent on `cap29-stdwalklohi-triplecore-r2{,-s1-r2}`
-(2M-step canary each, both VERIFIED RUNNING after a same-cycle
-self-inflicted-bug fix). Every OTHER track remains non-launchable by
+Both `triplecore-{r2,s1-r2}` seeds verdicted FAIL this cycle — 2 GPU
+slots freed, both idle. Every OTHER track remains non-launchable by
 design (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr`
-RETIRED; `todaypolicy` DELIVERED). Next cycle's job is triaging this
-canary pair once finished (~2M steps at ~2-3k fps on an H200 is a
-short wait) — do not launch a 3rd/4th seed before that read; two
-matched seeds is the standard first-mechanism-health grid this whole
-campaign has used throughout.
+RETIRED; `todaypolicy` DELIVERED). The next standwalk step (Next
+item 2, teacher-side scripted-gait measurement) is ZERO-TRAINING
+instrument/tool-building work (extend `probe_turn_authority.py` or a
+sibling tool against `--policy scripted`, no GPU needed) before any
+new training arm is launchable — do not launch a 3rd architecture-
+split seed or a new policy-side lever on the now-closed hypothesis.
 
 ## Goal (operator, 08-24 evening)
 

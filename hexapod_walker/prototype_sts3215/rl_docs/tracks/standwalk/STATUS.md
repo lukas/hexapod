@@ -76,6 +76,33 @@ FULL reward curve first (rider c: the cap29 family's Q3 dip/recovery
 shape is not itself a fail signal). Prior banner moved VERBATIM to
 `archive/standwalk_STATUS_journal_2026-09-03u_trim.md`.
 
+**1st cell read, 09-04 ~00:4x: `combdose0p3` (dose 0.3, seed0) —
+CANARY FAIL-MECHANISM, same shape as the geometry-lever grid.**
+`probe_turn_authority.py --vx-cmds`, full 84-key non-train cfg-set
+replayed, seed-avg vs the matched control's own `combined_09-03` read:
+combined-tick (`vx=0.08`) `wz_med` WINS both signs (+0.1313 vs ctrl
++0.1101 = +19.3%; -0.1854 vs ctrl -0.1701 = +9.0%), zero falls
+(12/12) — but pure-turn (`vx=0.0`) `wz_med` REGRESSES past the 10% cap
+on BOTH signs (+0.1964 vs ctrl +0.2230 = 12.0%; -0.2005 vs ctrl
+-0.2501 = 19.8%), and straight-walk wz drift (`vx=0.08, wz=0`) flips
+sign and grows (+0.0295 vs ctrl -0.0408). Training reward healthy
+(quarters `[23.4, 70.4, -81.3, 145.6]`, final `ep_rew_mean` 264.7, the
+family's known Q3-dip/Q4-recovery shape). Same root-cause read as the
+geometry-lever grid: the regression traces to the SHARED dual-core
+representation, not to whichever knob (geometry scale or now anchor
+dose) is turned. Full verdict:
+`rl_docs/runs/cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-
+gradclip0p15-cap29-stdwalklohi-combdose0p3.md`. **3 cells still
+pending** (`combdose0p3-s1` awaiting triage; `combdose0p6` in-cycle
+elsewhere; `combdose0p6-s1` FAILED TO LAUNCH — ledger shows 0
+global_step for 1200s, needs a clean/retry pass by whichever cycle
+picks it up). Do NOT launch the next escalation lever yet — read the
+remaining 3 cells first; if they also FAIL the dose axis closes 4/4
+and the next lever must act on something neither the geometry-scale
+nor the anchor-dose family reaches (phase-schedule the weight WITHIN a
+stride, or split policy capacity so pure-turn gets a protected
+sub-path).
+
 ## Next (updated 09-04 ~00:1x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive

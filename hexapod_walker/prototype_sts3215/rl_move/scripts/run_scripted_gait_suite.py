@@ -64,6 +64,35 @@ GAITS = {
 }
 
 
+class StableAVFoundationYuvCapture(AVFoundationYuvCapture):
+    """Make numeric camera selection stable across AVFoundation enumerations."""
+
+    @staticmethod
+    def _devices() -> list[Any]:
+        devices = AVFoundationYuvCapture._devices()
+        return sorted(devices, key=lambda device: str(device.uniqueID()))
+
+
+def _load_floor_tag_map(path: Path) -> tuple[dict[str, Any], float]:
+    """Convert the measured millimetre floor map into pose-fit specs."""
+    config = json.loads(path.read_text())
+    if config.get("units") != "millimeters":
+        raise ValueError(f"unsupported floor-map units in {path}")
+    tag_size_m = float(config["tag_black_square_size"]) / 1000.0
+    specs: dict[str, Any] = {}
+    for tag in config["tags"]:
+        center = [float(value) / 1000.0 for value in tag["center"]]
+        specs[str(int(tag["id"]))] = {
+            "world_from_tag": {
+                "translation_m": center,
+                "euler_xyz_deg": [0.0, 0.0, float(tag["yaw_degrees"])],
+            }
+        }
+    if len(specs) < 2:
+        raise ValueError(f"floor map {path} needs at least two tags")
+    return specs, tag_size_m
+
+
 def _select_floor_homography(
     candidates_by_id: dict[int, list[np.ndarray]],
     floor_tag_specs: dict[str, Any],
@@ -264,7 +293,7 @@ class RawRecorder:
             raise RuntimeError(f"recorder frame is stale by {age_s:.2f} s")
 
     def _run(self) -> None:
-        capture = AVFoundationYuvCapture(
+        capture = StableAVFoundationYuvCapture(
             self.camera_index,
             preferred_sizes=((1920, 1440), (1920, 1080), (1280, 720)),
             fps=30.0,
@@ -365,6 +394,12 @@ class Suite:
         # framing.  It must not assume the optical center is a safe/desired
         # floor position for an oblique camera.
         self.center_target_px: np.ndarray | None = None
+        center_target_floor_m = getattr(args, "center_target_floor_m", None)
+        self.center_target_floor: np.ndarray | None = (
+            np.asarray(center_target_floor_m, dtype=float)
+            if center_target_floor_m is not None
+            else None
+        )
         self.events_file = (output_dir / "events.csv").open("w", newline="")
         self.events = csv.writer(self.events_file)
         self.events.writerow([
@@ -388,8 +423,9 @@ class Suite:
         pose_config = json.loads(
             (LINUX_CONTROL / "apriltag_pose_config_20260831.json").read_text()
         )
-        self.floor_tag_specs = pose_config["floor_tags"]
-        self.tag_size_m = float(pose_config["marker_size_m"])
+        self.floor_tag_specs, self.tag_size_m = _load_floor_tag_map(
+            LINUX_CONTROL / "floor_tag_map_20260903.json"
+        )
         self.body_from_tag_yaw_deg = float(
             pose_config["robot_pose"]["tags"]["0"]["frame_from_tag"]
             ["euler_xyz_deg"][2]
@@ -807,9 +843,21 @@ class Suite:
         raise RuntimeError(f"{label} timed out")
 
     def stop_walk(self, label: str) -> None:
+        response = self.command("GAITSTOP")
+        if not response.startswith("gaitstop_s="):
+            raise HardSafetyTrip(f"{label} settle refused: {response}")
+        try:
+            settle_s = float(response.split("=", 1)[1])
+        except ValueError as error:
+            raise HardSafetyTrip(
+                f"{label} returned invalid settle duration: {response}"
+            ) from error
+        self.log_event("neutral_settle_start", {"seconds": settle_s})
+        self.wait_guarded(settle_s, allow_soft_pause=False)
         response = self.command("J 0 0 0")
         if response != "J":
             raise HardSafetyTrip(f"{label} stop refused: {response}")
+        self.log_event("neutral_settle_done")
 
     def _readings_clear_for_recovery(self, metrics: dict[str, float]) -> bool:
         if not metrics:
@@ -990,6 +1038,16 @@ class Suite:
 
     def capture_camera_center_anchor(self) -> None:
         """Remember the initial, operator-approved chassis image position."""
+        if self.center_target_floor is not None:
+            observation = self.camera_center_observation()
+            self.log_event("camera_center_fixed_floor_target", {
+                "target_px": observation["target_px"],
+                "target_floor_m": observation["target_floor_m"],
+                "image_size_px": observation["image_size_px"],
+                "floor_tag_ids": observation["floor_tag_ids"],
+                "floor_fit_rms_mm": observation["floor_fit_rms_mm"],
+            })
+            return
         self.center_target_px = None
         observation = self.camera_center_observation()
         self.center_target_px = np.asarray(
@@ -1073,12 +1131,21 @@ class Suite:
             chassis_corners = by_id[0]
             chassis_px = chassis_corners.mean(axis=0)
             height, width = frame.shape[:2]
-            target_px = (
-                np.asarray([width / 2.0, height / 2.0])
-                if self.center_target_px is None
-                else self.center_target_px.copy()
-            )
-            chassis_floor, target_floor = to_floor([chassis_px, target_px])
+            chassis_floor = to_floor([chassis_px])[0]
+            if self.center_target_floor is not None:
+                target_floor = self.center_target_floor.copy()
+                floor_to_image = np.linalg.inv(image_to_floor)
+                target_px = cv2.perspectiveTransform(
+                    target_floor.astype(np.float32).reshape(1, 1, 2),
+                    floor_to_image,
+                )[0, 0].astype(float)
+            else:
+                target_px = (
+                    np.asarray([width / 2.0, height / 2.0])
+                    if self.center_target_px is None
+                    else self.center_target_px.copy()
+                )
+                target_floor = to_floor([target_px])[0]
             error_floor = target_floor - chassis_floor
 
             # Tag 0 is body-fixed. Convert its decoded axes through the same
@@ -1217,9 +1284,7 @@ class Suite:
                 self.log_event("camera_center_refused", response)
                 return False
             self.wait_guarded(self.args.center_pulse_s)
-            response = self.command("J 0 0 0")
-            if response != "J":
-                raise RuntimeError(f"centering stop refused: {response}")
+            self.stop_walk("camera centering correction")
             self.wait_guarded(self.args.center_settle_s)
             self.assert_robot_health(require_armed=True)
             previous_error = error_px
@@ -1235,7 +1300,11 @@ class Suite:
         if max(abs(float(value)) for value in degrees if value is not None) > 6.0:
             raise RuntimeError(f"robot is not at visually verified zero: {degrees}")
         self.log_event("preflight_ok", {"pose_deg": degrees})
-        if self.args.return_to_camera_center or self.args.adaptive_centering:
+        if (
+            self.args.return_to_camera_center
+            or self.args.adaptive_centering
+            or self.args.center_only
+        ):
             self.capture_camera_center_anchor()
 
         self.phase = "stand"
@@ -1248,15 +1317,24 @@ class Suite:
         self.assert_robot_health(require_armed=True)
         self.sample_feedback()
 
+        if self.args.center_only:
+            self.gait = self.args.center_gait
+            self.phase = "camera_center_only"
+            selected = self.command(f"GAIT {self.args.center_gait}")
+            if selected.lower().startswith(("bad", "refused", "unknown")):
+                raise RuntimeError(selected)
+            if not self.return_to_camera_center():
+                raise RuntimeError("camera-center-only move did not reach target")
+
         # Loading a CPG artifact is relevant only to gait 6.  Keeping this
         # conditional also lets the canonical-frame guard reject an old CPG
         # artifact without blocking unrelated scripted gait experiments.
-        if 6 in self.args.gaits:
+        if not self.args.center_only and 6 in self.args.gaits:
             loaded = self.command(f"CPGLOAD {self.args.cpg}")
             if loaded.lower().startswith(("bad", "refused", "unknown")):
                 raise RuntimeError(loaded)
 
-        for gait in self.args.gaits:
+        for gait in (() if self.args.center_only else self.args.gaits):
             self.gait = gait
             self.phase = f"gait_{gait}_select"
             gait_command = (
@@ -1301,7 +1379,7 @@ class Suite:
                     self.assert_robot_health(require_armed=True)
             self.direction = ""
 
-        if self.args.return_to_camera_center:
+        if self.args.return_to_camera_center and not self.args.center_only:
             self.gait = self.args.center_gait
             selected = self.command(f"GAIT {self.args.center_gait}")
             if selected.lower().startswith(("bad", "refused", "unknown")):
@@ -1362,6 +1440,18 @@ def main() -> int:
     parser.add_argument("--center-deadband-px", type=float, default=90.0)
     parser.add_argument("--center-max-distance-m", type=float, default=0.25)
     parser.add_argument("--center-max-corrections", type=int, default=4)
+    parser.add_argument(
+        "--center-target-floor-m",
+        type=float,
+        nargs=2,
+        metavar=("X", "Y"),
+        help="return to an explicit fixed floor coordinate instead of the start",
+    )
+    parser.add_argument(
+        "--center-only",
+        action="store_true",
+        help="stand, return to --center-target-floor-m, sit, and limp",
+    )
     parser.add_argument("--max-recenters", type=int, default=4)
     parser.add_argument("--center-wrong-way-ratio", type=float, default=1.12)
     parser.add_argument("--center-min-floor-tags", type=int, default=2)
@@ -1401,6 +1491,8 @@ def main() -> int:
         parser.error(f"unknown gait IDs: {bad}")
     if args.adaptive_centering and not args.return_to_camera_center:
         parser.error("--adaptive-centering requires --return-to-camera-center")
+    if args.center_only and args.center_target_floor_m is None:
+        parser.error("--center-only requires --center-target-floor-m X Y")
     if args.center_check_s <= 0.0:
         parser.error("--center-check-s must be positive")
     if args.center_trigger_px <= args.center_deadband_px:

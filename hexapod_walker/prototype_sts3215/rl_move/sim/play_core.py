@@ -28,7 +28,8 @@ __all__ = [
     "_CRUISE", "_CURATED", "_DEFAULT_STANCE_PROFILE", "_DESC", "_HIST_K",
     "_MIDDLE_TUCK_QUAD",
     "_N_MODE", "_NOSLIP", "_NOSLIP_CLEAN", "_NOSLIP_FACTORY",
-    "_NOSLIP_FLUID", "_NOSLIP_FLUID_FAST", "_NOSLIP_FLUID_HYBRID",
+    "_NOSLIP_FLUID", "_NOSLIP_FLUID_FAST", "_NOSLIP_FLUID_MID",
+    "_NOSLIP_FLUID_HYBRID",
     "_NOSLIP_FLUID_PULSE", "_NOSLIP_FLUID_PUSH", "_NOSLIP_MID",
     "_NOSLIP_RIPPLE", "_NOSLIP_TAGS", "_NOSLIP_WAVE",
     "_ON_ROBOT", "_PROMOTED", "_PlayEnv", "_PlayTraj", "_ROLE_OBS",
@@ -66,12 +67,14 @@ _NOSLIP_RIPPLE = Path("noslip_ripple_gait")
 _NOSLIP_WAVE = Path("noslip_wave_gait")
 _NOSLIP_FLUID = Path("noslip_fluid_gait")
 _NOSLIP_FLUID_FAST = Path("noslip_fluid_fast_gait")
+_NOSLIP_FLUID_MID = Path("noslip_fluid_mid_gait")
 _NOSLIP_FLUID_HYBRID = Path("noslip_fluid_hybrid_gait")
 _NOSLIP_FLUID_PUSH = Path("noslip_fluid_push_gait")
 _NOSLIP_FLUID_PULSE = Path("noslip_fluid_pulse_gait")
 _NOSLIP_FACTORY = {_NOSLIP_CLEAN: "clamp_fit", _NOSLIP_RIPPLE: "ripple",
                    _NOSLIP_WAVE: "wave", _NOSLIP_FLUID: "fluid",
                    _NOSLIP_FLUID_FAST: "fluid_fast",
+                   _NOSLIP_FLUID_MID: "fluid_mid",
                    _NOSLIP_FLUID_HYBRID: "fluid_hybrid",
                    _NOSLIP_FLUID_PUSH: "fluid_push",
                    _NOSLIP_FLUID_PULSE: "fluid_pulse"}
@@ -81,6 +84,7 @@ _NOSLIP_TAGS = {_NOSLIP: "tripod alpha=0.0", _NOSLIP_MID: "tripod alpha=0.5",
                 _NOSLIP_WAVE: "WAVE one-leg (5 feet down)",
                 _NOSLIP_FLUID: "fluid tripod",
                 _NOSLIP_FLUID_FAST: "fluid fast tripod",
+                _NOSLIP_FLUID_MID: "fluid mid tripod",
                 _NOSLIP_FLUID_HYBRID: "fluid hybrid tripod",
                 _NOSLIP_FLUID_PUSH: "fluid push tripod",
                 _NOSLIP_FLUID_PULSE: "fluid pulse tripod"}

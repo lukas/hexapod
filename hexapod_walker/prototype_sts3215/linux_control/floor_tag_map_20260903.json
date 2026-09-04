@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "family": "tag36h11",
+  "units": "millimeters",
+  "tag_black_square_size": 27.2,
+  "measurement_convention": "Coordinates are tag centers on a 304.8 mm grid. The position uncertainty is 5 mm until the grid is tape-surveyed.",
+  "coordinate_frame": {
+    "origin": "center of tag 104",
+    "positive_x": "from tag 104 toward tags 102 and 103",
+    "positive_y": "from tag 104 toward tags 112 and 105",
+    "positive_z": "up from the floor"
+  },
+  "tags": [
+    {"id": 104, "center": [0.0, 0.0, 0.0], "yaw_degrees": -89.814},
+    {"id": 102, "center": [304.8, 0.0, 0.0], "yaw_degrees": -90.447},
+    {"id": 103, "center": [609.6, 0.0, 0.0], "yaw_degrees": -88.981},
+    {"id": 112, "center": [0.0, 304.8, 0.0], "yaw_degrees": -90.655},
+    {"id": 100, "center": [609.6, 304.8, 0.0], "yaw_degrees": -89.206},
+    {"id": 105, "center": [0.0, 609.6, 0.0], "yaw_degrees": -90.798},
+    {"id": 101, "center": [609.6, 609.6, 0.0], "yaw_degrees": -90.915}
+  ],
+  "provisional": true,
+  "source": "Operator-installed floor grid measured from 2026-09-03 overhead images; independent planar fits had 1.405 mm and 1.558 mm RMS error."
+}

@@ -37,8 +37,10 @@ class FakeBus:
 
     def __init__(self, pose):
         self.pose = [float(x) for x in pose]
+        self.scan_calls = 0
 
     def scan(self, ids):
+        self.scan_calls += 1
         return list(ids)
 
     def read_all_positions(self):
@@ -67,6 +69,19 @@ def test_scripted_deadline_scheduler_does_not_accumulate_work_time():
     deadline, skipped = _advance_periodic_deadline(deadline, 10.035)
     assert abs(deadline - 10.04) < 1e-12
     assert skipped == 2
+
+
+def test_walk_loop_can_reuse_verified_live_id_cache_without_scan():
+    drive = DriveController(dry_run=False)
+    bus = FakeBus(walk_start_pose_degrees())
+    drive.bus = bus
+    drive._live_ids_cache = set(range(2, 20))  # noqa: SLF001
+    drive._live_ids_t = 0.0  # deliberately expired  # noqa: SLF001
+
+    assert drive._live_ids(allow_stale=True) == set(range(2, 20))  # noqa: SLF001
+    assert bus.scan_calls == 0
+    assert drive._live_ids() == set(range(2, 20))  # noqa: SLF001
+    assert bus.scan_calls == 1
 
 
 def test_default_scripted_gait_uses_tall_walk_ready_stance():
@@ -147,6 +162,37 @@ def test_neutral_j_after_walk_enters_quiet_hold_not_stand_pulse():
     assert drive._vy == 0.0  # noqa: SLF001
     assert drive._omega == 0.0  # noqa: SLF001
     assert "quiet hold" in drive.status
+
+
+def test_settle_keeps_gait_loop_live_and_zeroes_velocity():
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    assert drive.handle("GAIT 14").startswith("gait")
+    assert drive.handle("J 30 0 0 14") == "J"
+
+    response = drive.handle("GAITSTOP")
+
+    assert response == "gaitstop_s=4.475"
+    assert drive.mode == "walk"
+    assert drive._vx == drive._vy == drive._omega == 0.0  # noqa: SLF001
+    assert drive.gait.vx == drive.gait.vy == drive.gait.omega == 0.0
+
+
+def test_fluid_gait_settle_reaches_motionless_neutral_stance():
+    drive = DriveController(dry_run=True)
+    drive.armed = True
+    assert drive.handle("GAIT 14").startswith("gait")
+    assert drive.handle("J 30 0 0 14") == "J"
+    gait = drive.gait
+    for tick in range(601):
+        gait.desired_deg(tick / 100.0)
+    assert drive.handle("GAITSTOP") == "gaitstop_s=4.475"
+    for tick in range(602, 1101):
+        settled = gait.desired_deg(tick / 100.0)
+    later = gait.desired_deg(11.5)
+    goal = walk_start_pose_degrees()
+    assert max(abs(a - b) for a, b in zip(settled, goal)) < 0.01
+    assert max(abs(a - b) for a, b in zip(later, settled)) < 0.01
 
 
 def test_basic_tripod_caps_full_stick_to_demo_safe_envelope():

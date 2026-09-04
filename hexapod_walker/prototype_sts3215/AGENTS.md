@@ -63,4 +63,6 @@ For any anomaly during an authorized run, follow
 missing servo reply is telemetry noise, not permission to sit or limp. Require
 three consecutive incomplete scans with distinct fresh timestamps. Ordinary
 camera, recorder, or framework failures stop active motion neutrally and hold
-the current stable pose; they do not trigger a posture transition.
+the current stable pose; they do not trigger a posture transition. When the
+camera and three fresh telemetry samples are normal, retry the complete failed
+step up to twice before ending it.

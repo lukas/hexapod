@@ -189,6 +189,45 @@ def test_nonhard_walking_failure_uses_phase_aware_stop(
         suite.close()
 
 
+def test_soft_warning_retries_twice_without_posture_transition(
+        tmp_path, monkeypatch):
+    args = _args()
+    args.max_recoveries = 2
+    args.recovery_pause_s = 0.0
+    args.recovery_clear_timeout_s = 1.0
+    args.gait1_alpha = 0.75
+    suite = survey.Suite(args, tmp_path, _Recorder())
+    stopped = []
+    commands = []
+    clear = {
+        "max_current_a": 0.2,
+        "tilt_deg": 1.0,
+        "max_temp_c": 30.0,
+        "min_voltage_v": 12.0,
+    }
+    monkeypatch.setattr(survey.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(
+        suite, "stop_walk", lambda label: stopped.append(label)
+    )
+    monkeypatch.setattr(suite, "sample_feedback", lambda **_kwargs: clear)
+    monkeypatch.setattr(
+        suite, "assert_robot_health", lambda **_kwargs: None
+    )
+    monkeypatch.setattr(
+        suite, "command",
+        lambda line: commands.append(line) or "gait selected",
+    )
+    try:
+        suite.recover_and_retry("pre-trip warning", 9)
+        suite.recover_and_retry("pre-trip warning", 9)
+        with pytest.raises(RuntimeError, match=r"limit reached \(2\)"):
+            suite.recover_and_retry("pre-trip warning", 9)
+        assert stopped == ["soft recovery", "soft recovery"]
+        assert commands == ["GAIT 9", "GAIT 9"]
+    finally:
+        suite.close()
+
+
 def test_tilt_trip_requires_three_valid_samples(tmp_path, monkeypatch):
     monkeypatch.setattr(
         survey, "_request", lambda *_args, **_kwargs: _feedback(roll=30.0)

@@ -252,6 +252,18 @@ def test_fluid_mid_gait_id_interpolates_cadence_and_lift():
     assert abs(drive.gait._durations[2] / drive.gait.period - 0.005) < 1e-12
 
 
+def test_unknown_gait_id_is_refused_without_changing_gait():
+    drive = DriveController(dry_run=True)
+    assert "FLUID" in drive.handle("GAIT 9")
+    gait = drive.gait
+
+    result = drive.handle("GAIT 99")
+
+    assert result == "refused unknown GAIT 99"
+    assert drive._gait_id == 9  # noqa: SLF001
+    assert drive.gait is gait
+
+
 def test_fluid_hybrid_gait_id_retains_small_shift_impulse():
     drive = DriveController(dry_run=True)
     result = drive.handle("GAIT 11")

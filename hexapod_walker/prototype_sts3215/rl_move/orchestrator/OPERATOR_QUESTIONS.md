@@ -4699,3 +4699,100 @@ explicitly targeted (`respec --now --pod`) at `hexapod-mjx-train-2`
 variable. If `-r3` also fails to advance `global_step`, that would
 rule out node load and point back at the spec/checkpoint itself and
 warrants a real code dig-in instead of another pod-swap retry.
+
+## q_20260904T083x — OPEN (assumptions recorded, no answer needed unless wrong)
+- cycle: 09-04 ~08:3x operator-kick (fb_20260904T074505_6a3ac9 execution)
+- operator order: audit 2.64A over_current truth; build mixed-command
+  stress suite as promotion gate; launch smoother universal-policy arm
+  + matched control.
+- assumptions adopted (assume-and-go):
+  1. "Smoother arm" = transition-stress DIET continuation
+     (goal.mode_seq_stress grammar + 2.5-9s segments + 3s cmd
+     resample) with smoothness MEASURED (new cmd_rate/jerk/slew_sat/
+     cur_rail telemetry), not a new reward term — a smoothness
+     objective needs its semantics-bank entry first and the telemetry
+     baseline decides whether it's needed (champion sits at the slew
+     cap 30-70% of transition ticks, so a later priced arm is likely).
+  2. eval_cmd_stress hard gate = zero MECHANICAL terminations;
+     over_current counted/reported separately per the directive; the
+     older eval_mixed_session/done-gate instruments keep their
+     historical zero-ALL-terminations semantics (unchanged defaults)
+     until the operator says to migrate them.
+  3. Stress grammar adds rise->lower and walk->hold only (hold->rise
+     and lower->hold judged semantically incoherent for a supported
+     hold; can extend if the operator wants full arbitrary order in
+     TRAINING too — eval forced plans already allow any order).
+
+## q_20260904T100x — OPEN (assumptions recorded, no answer needed unless wrong)
+- cycle: 09-04 ~09:4x-10:0x triage of cont/cont-s1/transtress-s1
+  (standwalk steering + universal-command branches)
+- finding: `probe_turn_authority` on the plain-continuation controls
+  `cont`/`cont-s1` (mechanisms kept, no lever) shows pure-turn wz_med
+  22-35% below the FROZEN cap29-stdwalklo-hi{,-s1} checkpoints used as
+  the comparator baseline for every steering-lever canary gate to date
+  (~26 canaries, 6 lever families, all scored FAIL). Continuation
+  alone — zero lever — breaches the axis's own 10% pure-turn cap.
+- assumption adopted (assume-and-go): the honest reading is that the
+  FAIL wall measured continuation drift (further PPO steps away from
+  the frozen checkpoint erode pure-turn authority regardless of any
+  lever), not lever harm — the axis's comparator should be a matched
+  plain-continuation control, not a frozen ancestor checkpoint. Did
+  NOT retroactively flip any of the ~26 closed canary verdicts (each
+  stands on its own pre-registered gate text); instead flagged a
+  DIG-IN (`rl_docs/tracks/standwalk/STATUS.md` Next item 2) to decide
+  whether any are worth re-scoring/reviving, using `selomegaboost4p0-
+  s1` (now reads BETTER than `cont-s1` on pure-turn when re-scored)
+  as the worked example. Keep moving; if the operator disagrees with
+  matched-continuation as the correct comparator for this axis, say so
+  and this gets reverted to frozen-baseline scoring.
+
+## q_20260904T12xx — OPEN (assumptions recorded, no answer needed unless wrong)
+  (standwalk universal-command branch: hold_min_load segment-entry fix design)
+- context: `transtress-s1-acq8m` FAIL dig-in (escalated). 6/72
+  eval_cmd_stress episodes terminate `hold_min_load`, all in mode_seq
+  MID-TRANSITION hold entries. STATUS Next item 1 offered two fix
+  shapes: "carry the EMA across a switch, or price the specific
+  unloaded-foot-at-switch case".
+- measurement made before choosing: with the training cfg (grace 1.0 s,
+  tau 0.25 s) the zero/stale entry EMA washes out at e^-4 (~1.7%
+  residual) BEFORE the termination clock unpins — the entry-seed
+  artifact alone cannot fire the cliff. The fires therefore reflect a
+  REAL foot left near-unloaded ~2 s past entry; the mechanism gap is
+  that the cliff is the ONLY training signal against it (~2 s after
+  the causal foot placement, zero dense gradient; 8M extra steps
+  measured NOT to close the residual 8.3%).
+- assumption adopted (assume-and-go): land BOTH halves, default-off,
+  bit-exact when off (snapshot pending this cycle):
+  1. `safety.hold_min_load_ema_continuous=1` — EMA seeded from the
+     measured min-over-feet load at reset and updated every tick in
+     every mode, so a hold entry reads the load actually carried
+     through the switch (the literal continuity repair);
+  2. `reward.k_hold_min_load_short` — dense hold-tick price
+     `-k*dt*max(0, 1 - ema/floor)` sharing the termination's EMA and
+     floor, active from the first entry tick INCLUDING the grace
+     window (priced twin per the 08-24 "termination WITH a price"
+     ruling; 08-21 alignment: reward optimum == the stress-gate
+     behavior). Bank tests added (6, green): default-off bit-exact,
+     reset seed, mid-seq rise->hold continuity, hover priced, quiet
+     byte-identical, cliff still fires with both keys on.
+- follow-up launched: 2M mechanism-health canary pair (k=2.0 / k=8.0,
+  both with continuity on) continuing the acq8m checkpoint on the same
+  transition-stress diet — repair test, not prevention: acq8m is
+  otherwise the best walker in the lineage and its only stress-gate
+  failures are exactly this class. If the operator prefers preventing
+  from the 2M transtress-s1 checkpoint instead, say so — the arm is a
+  one-line respec swap.
+
+## 2026-09-04 ~16:2x — standwalk steering-axis scoring methodology (ANSWER ASSUMED, acting on it)
+Q: The steering-branch lever re-score (09-04) collapsed +/- command signs into one PASS/FAIL vs a single
+matched-continuation control. The cont-s1b falsifier showed sign-asymmetric drift; how should lever cells
+be scored?
+Assumed answer (deep-model dig-in, evidence in cont-s1b verdict + standwalk STATUS 09-04 ~16:2x):
+(1) single-control sign-collapsed scoring is invalid on this axis — measured n=4 zero-lever seed1
+continuation spread is 50-65% rel on the positive clauses and zero-lever controls PASS each other under
+the old criterion; (2) adopted per-clause band scoring: 4 clauses (pure/combined x +/-) scored separately
+vs an n>=3 matched zero-lever continuation band, WIN above max / LOSS below min / no-call in-band,
+family claims need clause replication (tool: `rescore_turn_authority band`, tests green); (3) the 5/10
+seed1 lever reopening was comparator noise — FAIL wall on "levers improve combined turn authority" stays
+closed; real replicated finding is levers partially PROTECT cb_neg against continuation erosion
+(9/10 above band, p~4e-6) and frozen parents keep the best pure-turn (0.223-0.226 vs all continuations).

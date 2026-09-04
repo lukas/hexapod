@@ -46,6 +46,15 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
 
 ## Run Interpretation
 - Video and gate eval outrank reward alone.
+- Simulated over_current is UNCALIBRATED (operator 09-04,
+  fb_20260904T074505): a bit-exact 2.64 A pin is the actuator
+  forcerange rail image (2.2 N*m x 1.2 A/N*m), not a measured stall;
+  at trip threshold 2.9 the estimator (railing at 2.64) can never
+  trip. Rail hits alone never fail a run or close a mechanism —
+  corroborate with `audit_over_current.py` (CORROBORATED_STALL vs
+  RAIL_MOVING) and report current telemetry separately. Evidence:
+  `logs/ckpt_eval/oc_audit_09-04/OC_AUDIT_SUMMARY.md`. Real-robot
+  protections stay untouched.
 - Compare reward trend to gate/eval trend before spending more. Rising
   reward with flat/bad eval means audit reward, eval, simulator, or
   tooling before same-recipe seed sweeps.

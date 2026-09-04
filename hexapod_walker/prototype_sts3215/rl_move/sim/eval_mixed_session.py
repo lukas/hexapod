@@ -133,7 +133,8 @@ def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
                          seed: int, n: int, episode_seconds: float,
                          modes: list[str], extra_cfg: list[str],
                          out_dir: Path, log_path: Path,
-                         video: bool = False) -> Path:
+                         video: bool = False,
+                         bundle: list[str] | None = None) -> Path:
     """One eval_checkpoint pass (det+sto via --stochastic).
 
     RESUME (2026-08-28, same fix as `_safe_print`'s docstring): if this
@@ -155,8 +156,14 @@ def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
            "--episode-seconds", str(episode_seconds),
            "--no-wandb", "--out", str(out_dir)]
     cmd += ["--video-every", "1"] if video else ["--no-video"]
-    for kv in (list(extra_cfg) + MIXED_SESSION_CFG
-               + [f"goal.mode_seq_max_segments={_seg_cap(episode_seconds)}"]):
+    # `bundle` (09-04, eval_cmd_stress): the canonical session cfg this
+    # pass rides. Default None = MIXED_SESSION_CFG + derived segment
+    # cap, byte-identical to every pre-09-04 invocation. A caller
+    # passing its own bundle (the cmd-stress suite) owns max_segments.
+    if bundle is None:
+        bundle = (MIXED_SESSION_CFG
+                  + [f"goal.mode_seq_max_segments={_seg_cap(episode_seconds)}"])
+    for kv in (list(extra_cfg) + list(bundle)):
         cmd += ["--cfg-set", kv]
     with open(log_path, "w") as fh:
         rc = subprocess.run(cmd, cwd=str(_PROTO), stdout=fh,

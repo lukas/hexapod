@@ -3483,6 +3483,186 @@ def test_hold_minload_quiet_untaxed(hold_minload_bank):
 
 
 # --------------------------------------------------------------------------
+# HOLD bank, MIN-LOAD EMA CONTINUITY + SHORTFALL PRICE variant
+# (safety.hold_min_load_ema_continuous + reward.k_hold_min_load_short,
+# 2026-09-04 — standwalk transtress-s1-acq8m dig-in).
+#
+# The acq8m FAIL (8M-step acquisition of the clean transtress-s1 2M
+# canary): 6/72 eval_cmd_stress episodes still terminate hold_min_load,
+# ALL of them in mode_seq MID-TRANSITION hold entries (walk->hold,
+# rise->hold, walk->lower->rise->hold). Two mechanism gaps feed it:
+# (a) the legacy min-load EMA lifecycle only updates INSIDE hold
+#     segments and inits at 0.0, so a hold entry reads a zero/stale
+#     value instead of the load actually carried through the switch
+#     (documented in manual_drive_session.py; with the training grace
+#     at 4x tau the seed washes out before the termination clock
+#     unpins, so the artifact cannot fire the cliff by itself — but it
+#     blinds any ENTRY-window signal built on the EMA);
+# (b) the cliff termination is the ONLY training signal against an
+#     unloaded-through-the-switch foot, arriving ~grace+sustain (~2 s)
+#     after the causal foot placement with zero dense gradient — 8M
+#     steps measured NOT to close the residual 8.3% on its own.
+# The pair under test: hold_min_load_ema_continuous=1 keeps the EMA
+# honest (seeded from measured load at reset, updated every tick in
+# every mode), and k_hold_min_load_short prices the shortfall
+# max(0, 1 - ema/floor) on every hold tick INCLUDING the grace window
+# — the priced twin of the termination (op ruling 08-24: termination
+# WITH a price), sharing its EMA and floor so the reward optimum IS
+# the gate behavior (08-21 alignment rule).
+
+HOLD_MINLOAD_CONT_PRICE = dict(HOLD_MINLOAD_STACK)  # min-load TERM off
+HOLD_MINLOAD_CONT_PRICE.update({
+    ("safety", "hold_min_load_ema_continuous"): 1.0,
+    ("reward", "k_hold_min_load_short"): 5.0,
+})
+
+
+def test_hold_minload_cont_default_off_bit_exact():
+    """Explicit zeros for BOTH new keys must reproduce the no-key path
+    EXACTLY (same seed, same hover1 rollout, full min-load-term stack
+    on) — default-off, bit-exact."""
+    zero = dict(HOLD_MINLOAD_ON)
+    zero[("safety", "hold_min_load_ema_continuous")] = 0.0
+    zero[("reward", "k_hold_min_load_short")] = 0.0
+    a = _hold_minload_rollout("hover1", SEEDS[0], HOLD_MINLOAD_ON)
+    b = _hold_minload_rollout("hover1", SEEDS[0], zero)
+    assert (a["ret"] == b["ret"] and a["terminated"] == b["terminated"]
+            and a["reason"] == b["reason"]
+            and a["end_t_s"] == b["end_t_s"]), (
+        f"explicit-zero continuity/price keys changed the path "
+        f"({a} vs {b})")
+
+
+def test_hold_minload_cont_reset_seeds_from_measured_load():
+    """At reset the hold episode starts at the plant (all feet loaded):
+    the continuity key must seed the EMA from that measured load, the
+    legacy path must keep the 0.0 init."""
+    on = dict(HOLD_MINLOAD_ON)
+    on[("safety", "hold_min_load_ema_continuous")] = 1.0
+    env_off = _make_hold_env(SEEDS[0], HOLD_MINLOAD_ON)
+    env_off.reset()
+    ema_off = float(env_off._hold_minload_ema)
+    env_off.close()
+    env_on = _make_hold_env(SEEDS[0], on)
+    env_on.reset()
+    ema_on = float(env_on._hold_minload_ema)
+    env_on.close()
+    assert ema_off == 0.0, (
+        f"legacy path no longer inits the EMA at 0.0 ({ema_off})")
+    assert ema_on > 0.0, (
+        f"continuity seed read no load at the settled plant ({ema_on})")
+
+
+def test_hold_minload_cont_midseq_hold_entry_reads_carried_load():
+    """The documented segment-entry gap: force a rise(5s)->hold switch
+    (mode_seq, the exact entry class every acq8m fire sits in) and read
+    the EMA at the FIRST hold tick. Legacy: exactly 0.0 (never updated
+    outside hold). Continuity on: positive — the load actually carried
+    through the switch — and continuous across the switch tick (no
+    reset/jump bigger than one EMA step)."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def run(cont: bool):
+        cfg = load_config()
+        g = cfg.setdefault("goal", {})
+        g["mode_seq"] = 1.0
+        s = cfg.setdefault("safety", {})
+        s["hold_min_load_terminate_s"] = 1.0
+        s["hold_min_load_terminate_n"] = 0.3
+        s["hold_min_load_terminate_grace_s"] = 1.0
+        if cont:
+            s["hold_min_load_ema_continuous"] = 1.0
+        env = SimHexapodJointWalkEnv(cfg, seed=0, episode_seconds=12.0)
+        env.reset()
+        dt = env.dt
+        tk = lambda sec: int(round(sec / dt))  # noqa: E731
+        # Force a genuine switch INTO segment 0 (rise) at the first
+        # tick — the reset-time _goal_traj belongs to the seed's own
+        # random plan and must not leak a hold segment into the
+        # "legacy EMA never updates before hold" claim.
+        env._seq_plan = [
+            {"mode": "rise", "tick": 1, "blend": 0},
+            {"mode": "hold", "tick": tk(5.0), "blend": 0},
+        ]
+        env._seq_idx = -1
+        env._seq_seg_end = 1
+        rng = np.random.default_rng(1)
+        ema_pre = ema_first_hold = None
+        for _ in range(tk(5.0) + 2):
+            env.step(rng.uniform(-0.05, 0.05,
+                                 env.action_space.shape[0]))
+            if env._seq_idx <= 0:
+                ema_pre = float(env._hold_minload_ema)
+            elif ema_first_hold is None:
+                ema_first_hold = float(env._hold_minload_ema)
+                break
+        env.close()
+        assert ema_first_hold is not None, "never entered the hold segment"
+        return ema_pre, ema_first_hold, dt
+
+    ema_pre_legacy, _, _ = run(cont=False)
+    ema_pre_on, ema_on, dt = run(cont=True)
+    assert ema_pre_legacy == 0.0, (
+        f"legacy EMA no longer stale-zero through the pre-hold rise "
+        f"({ema_pre_legacy}) — did the default path change?")
+    assert ema_pre_on > 0.0 and ema_on > 0.0, (
+        f"continuity EMA reads no load around the rise->hold switch "
+        f"(pre={ema_pre_on}, hold={ema_on}) despite planted feet")
+    # continuity proper: at most one EMA step of movement across the
+    # switch tick (tau >= 0.25 s => per-tick alpha = dt/tau <= dt/0.25)
+    alpha = dt / 0.25
+    assert abs(ema_on - ema_pre_on) <= alpha * max(
+        ema_pre_on, ema_on, 1.0) + 1e-9, (
+        f"EMA jumped across the switch ({ema_pre_on} -> {ema_on}) — "
+        f"not continuous")
+
+
+def test_hold_minload_short_prices_the_hover():
+    """The price: with the min-load TERMINATION off (isolating the
+    charge), the hover1 unloaded-foot park must pay materially for its
+    shortfall over the episode, and terminate nothing."""
+    for s in SEEDS:
+        r_on = _hold_minload_rollout("hover1", s, HOLD_MINLOAD_CONT_PRICE)
+        r_off = _hold_minload_rollout("hover1", s, HOLD_MINLOAD_STACK)
+        assert not r_on["terminated"], (
+            f"price-only stack terminated ({r_on['reason']}) — the "
+            f"charge must be a price, not a cliff")
+        assert r_on["ret"] < r_off["ret"] - 10.0, (
+            f"hover1 shortfall not priced: {r_on['ret']:.1f} vs "
+            f"{r_off['ret']:.1f} (seed {s})")
+
+
+def test_hold_minload_short_quiet_untaxed():
+    """The honest quiet stand keeps its min-over-feet load above the
+    floor, so the price must charge it NOTHING: byte-identical return
+    (the EMA bookkeeping itself never touches the dynamics)."""
+    for s in SEEDS:
+        r_on = _hold_minload_rollout("quiet", s, HOLD_MINLOAD_CONT_PRICE)
+        r_off = _hold_minload_rollout("quiet", s, HOLD_MINLOAD_STACK)
+        assert r_on["ret"] == r_off["ret"], (
+            f"price taxes the quiet stand ({r_on['ret']:.1f} vs "
+            f"{r_off['ret']:.1f}, seed {s}) — floor inside the honest "
+            f"hold's load band")
+
+
+def test_hold_minload_cont_termination_still_fires():
+    """Continuity + price must not blunt the cliff: hover1 under the
+    full termination stack with both new keys on still terminates
+    hold_min_load within the bank's timing bound."""
+    on = dict(HOLD_MINLOAD_ON)
+    on[("safety", "hold_min_load_ema_continuous")] = 1.0
+    on[("reward", "k_hold_min_load_short")] = 5.0
+    for s in SEEDS:
+        r = _hold_minload_rollout("hover1", s, on)
+        assert r["terminated"] and r["reason"] == "hold_min_load", (
+            f"hover1 not caught with continuity on: "
+            f"terminated={r['terminated']} reason={r['reason']}")
+        assert r["end_t_s"] < 6.0, (
+            f"hover1 took {r['end_t_s']:.1f}s to terminate with the "
+            f"seeded EMA — continuity loosened the clock")
+
+
+# --------------------------------------------------------------------------
 # HOLD bank, COMMANDABLE HEIGHT variant (goal.hold_height_cmd_*, 08-25,
 # operator MCP request fb_20260825T195117_3dce6e: "once standing, move
 # the body up/down to a specified height; from a non-solid stand,

@@ -95,6 +95,38 @@ PASSIVE_CENTER_THROUGH_D = float(
 ASSEMBLED_INNER_SPAN = base.DISC_SPAN + 2.0 * SPACER_T
 BRACKET_SPREAD = ASSEMBLED_INNER_SPAN - CHORN_INNER_SPAN
 
+# Removable hip/knee servo clamp caps. The hip cap retains both original side
+# screws; the overhead knee cap intentionally deleted its inboard side screw
+# where the bought bracket replaces that wall, leaving one side screw plus its
+# separate vertical retention bolt. This concept replaces the 18 remaining
+# Phi2.5 self-tapped side pilots (2 hip + 1 knee per leg) with face-loaded
+# captive M3 nuts and full-clearance screw-tip tunnels.
+CLAMP_CAP = CONFIG["servo_clamp_caps"]
+CLAMP_CAP_SCREW_LENGTH = float(CLAMP_CAP["screw_length_mm"])
+CLAMP_CAP_M3_D = float(CLAMP_CAP["m3_clearance_diameter_mm"])
+CLAMP_CAP_NUT_AF = float(CLAMP_CAP["nut_pocket_across_flats_mm"])
+CLAMP_CAP_NUT_DEPTH = float(CLAMP_CAP["nut_pocket_depth_mm"])
+CLAMP_CAP_NUT_T = float(CLAMP_CAP["nut_nominal_thickness_mm"])
+CLAMP_CAP_TIP_CLEARANCE = float(CLAMP_CAP["tip_clearance_mm"])
+CLAMP_CAP_MIN_THREAD_BEYOND_NUT = float(
+    CLAMP_CAP["minimum_thread_beyond_nut_mm"]
+)
+CLAMP_CAP_WALL_FACE_Y = hp.WELL_D / 2.0
+CLAMP_CAP_HEAD_SEAT_Y = (
+    CLAMP_CAP_WALL_FACE_Y + hp.CLAMP_CAP_T - hp.CLAMP_HEAD_CB_DEPTH
+)
+CLAMP_CAP_SCREW_TIP_Y = CLAMP_CAP_HEAD_SEAT_Y - CLAMP_CAP_SCREW_LENGTH
+CLAMP_CAP_NUT_INNER_Y = CLAMP_CAP_WALL_FACE_Y - CLAMP_CAP_NUT_DEPTH
+CLAMP_CAP_THREAD_BEYOND_NUT = (
+    CLAMP_CAP_NUT_INNER_Y - CLAMP_CAP_SCREW_TIP_Y
+)
+CLAMP_CAP_LATERAL_SHELL = (
+    hp.WELL_WALL_X - CLAMP_CAP_NUT_AF
+) / 2.0
+assert CLAMP_CAP_NUT_T <= CLAMP_CAP_NUT_DEPTH
+assert CLAMP_CAP_THREAD_BEYOND_NUT >= CLAMP_CAP_MIN_THREAD_BEYOND_NUT
+assert CLAMP_CAP_LATERAL_SHELL >= 1.5
+
 # Straight rear tower for the long outboard coxa/cap pair. Its footprint is a
 # crescent copied from the lower yaw hub: the outer contour is identical and
 # nothing extends beyond the existing coxa plan envelope.
@@ -113,10 +145,9 @@ TOWER_YAW_DRIVER_EXTRA_R = float(
 TOWER_M3_D = float(TOWER["m3_clearance_diameter_mm"])
 TOWER_HEAD_D = float(TOWER["shcs_head_pocket_diameter_mm"])
 TOWER_HEAD_DEPTH = float(TOWER["shcs_head_pocket_depth_mm"])
-TOWER_INSERT_D = float(TOWER["insert_bore_diameter_mm"])
-TOWER_INSERT_DEPTH = float(TOWER["insert_depth_mm"])
-TOWER_INSERT_LEADIN_D = float(TOWER["insert_leadin_diameter_mm"])
-TOWER_INSERT_LEADIN_DEPTH = float(TOWER["insert_leadin_depth_mm"])
+TOWER_NUT_AF = float(TOWER["nut_pocket_across_flats_mm"])
+TOWER_NUT_DEPTH = float(TOWER["nut_pocket_depth_mm"])
+TOWER_TIP_CLEARANCE_DEPTH = float(TOWER["screw_tip_clearance_depth_mm"])
 
 COXA_REINF = CONFIG["coxa_reinforcement"]
 COXA_REINF_X0 = float(COXA_REINF["arm_x0_mm"])
@@ -210,17 +241,14 @@ BEARING_CARRIER_CSK_D = float(
 BEARING_CARRIER_CSK_DEPTH = float(
     BEARING_CARRIER["countersink_depth_mm"]
 )
-BEARING_CARRIER_INSERT_D = float(
-    BEARING_CARRIER["insert_bore_diameter_mm"]
+BEARING_CARRIER_NUT_AF = float(
+    BEARING_CARRIER["nut_pocket_across_flats_mm"]
 )
-BEARING_CARRIER_INSERT_DEPTH = float(
-    BEARING_CARRIER["insert_depth_mm"]
+BEARING_CARRIER_NUT_DEPTH = float(
+    BEARING_CARRIER["nut_pocket_depth_mm"]
 )
-BEARING_CARRIER_INSERT_LEADIN_D = float(
-    BEARING_CARRIER["insert_leadin_diameter_mm"]
-)
-BEARING_CARRIER_INSERT_LEADIN_DEPTH = float(
-    BEARING_CARRIER["insert_leadin_depth_mm"]
+BEARING_CARRIER_TIP_CLEARANCE_DEPTH = float(
+    BEARING_CARRIER["screw_tip_clearance_depth_mm"]
 )
 BEARING_CARRIER_TOP_GAP = float(
     BEARING_CARRIER["flange_top_gap_below_bearing_mm"]
@@ -230,31 +258,51 @@ BEARING_CARRIER_CENTER_Z = rv.AXIS_Z
 BEARING_CARRIER_BASE_Y = rv.CAP_FACE_Y
 BEARING_CARRIER_FLANGE_TOP_Y = rv.PED_Y1 - BEARING_CARRIER_TOP_GAP
 assert BEARING_CARRIER_FLANGE_TOP_Y > (
-    BEARING_CARRIER_BASE_Y + BEARING_CARRIER_INSERT_DEPTH + 0.3
+    BEARING_CARRIER_BASE_Y + BEARING_CARRIER_TIP_CLEARANCE_DEPTH + 0.3
 )
 
 COXA_HUB_SPLIT = CONFIG["coxa_yaw_hub_split"]
 COXA_HUB_INTERFACE_Z = float(COXA_HUB_SPLIT["interface_z_mm"])
+COXA_HUB_COLLAR_R0 = float(
+    COXA_HUB_SPLIT["carrier_collar_inner_radius_mm"]
+)
+COXA_HUB_COLLAR_R1 = float(
+    COXA_HUB_SPLIT["carrier_collar_outer_radius_mm"]
+)
+COXA_HUB_SOCKET_R0 = float(
+    COXA_HUB_SPLIT["coxa_socket_inner_radius_mm"]
+)
+COXA_HUB_SOCKET_R1 = float(
+    COXA_HUB_SPLIT["coxa_socket_outer_radius_mm"]
+)
+COXA_HUB_COLLAR_Z1 = float(COXA_HUB_SPLIT["collar_top_z_mm"])
 COXA_HUB_RADIAL_CLEARANCE = float(
     COXA_HUB_SPLIT["radial_clearance_mm"]
 )
-COXA_HUB_SCREW_R = float(COXA_HUB_SPLIT["mount_screw_radius_mm"])
+COXA_HUB_SCREW_Z = float(COXA_HUB_SPLIT["radial_screw_axis_z_mm"])
 COXA_HUB_SCREW_ANGLES = [
     math.radians(float(value))
-    for value in COXA_HUB_SPLIT["mount_screw_angles_deg"]
+    for value in COXA_HUB_SPLIT["radial_screw_angles_deg"]
 ]
 COXA_HUB_M3_D = float(COXA_HUB_SPLIT["m3_clearance_diameter_mm"])
-COXA_HUB_HEAD_D = float(COXA_HUB_SPLIT["head_pocket_diameter_mm"])
-COXA_HUB_HEAD_DEPTH = float(COXA_HUB_SPLIT["head_pocket_depth_mm"])
-COXA_HUB_INSERT_D = float(COXA_HUB_SPLIT["insert_bore_diameter_mm"])
-COXA_HUB_INSERT_DEPTH = float(COXA_HUB_SPLIT["insert_depth_mm"])
-COXA_HUB_INSERT_LEADIN_D = float(
-    COXA_HUB_SPLIT["insert_leadin_diameter_mm"]
+COXA_HUB_HEAD_D = float(COXA_HUB_SPLIT["head_access_diameter_mm"])
+COXA_HUB_HEAD_SEAT_R = float(COXA_HUB_SPLIT["head_seat_radius_mm"])
+COXA_HUB_HEAD_ACCESS_R1 = float(
+    COXA_HUB_SPLIT["head_access_outer_radius_mm"]
 )
-COXA_HUB_INSERT_LEADIN_DEPTH = float(
-    COXA_HUB_SPLIT["insert_leadin_depth_mm"]
+COXA_HUB_NUT_AF = float(
+    COXA_HUB_SPLIT["nut_pocket_across_flats_mm"]
 )
+COXA_HUB_NUT_DEPTH = float(COXA_HUB_SPLIT["nut_pocket_depth_mm"])
+COXA_HUB_SCREW_LENGTH = float(COXA_HUB_SPLIT["screw_length_mm"])
 assert abs(COXA_HUB_INTERFACE_Z - rv.SLAB_BOT_Z) < 1e-9
+assert abs(
+    COXA_HUB_SOCKET_R0 - COXA_HUB_COLLAR_R1 - COXA_HUB_RADIAL_CLEARANCE
+) < 1e-9
+assert abs(COXA_REINF_CENTRE_RELIEF_R - COXA_HUB_SOCKET_R0) < 1e-9, (
+    "coxa centre relief must stop at the yaw socket instead of cutting "
+    "a D-shaped opening into the servo-holder foot"
+)
 
 # The hip cap STL is authored in cap-local coordinates.  Derive the rigid
 # cap-to-coxa relationship from the ancestor so this sidecar can add the
@@ -262,6 +310,7 @@ assert abs(COXA_HUB_INTERFACE_Z - rv.SLAB_BOT_Z) < 1e-9
 _T_REF = base.leg_transforms(0)
 HIP_CAP_TO_COXA = np.linalg.inv(_T_REF["coxa"]) @ _T_REF["hip_cap"]
 COXA_TO_HIP_CAP = np.linalg.inv(HIP_CAP_TO_COXA)
+KNEE_CAP_TO_FEMUR = np.linalg.inv(base.MH) @ base.M_KNEE_JP
 
 # The inboard hip-cap clamp screw is serviced through the fixed chassis plate.
 # Transform that existing access-hole centre into coxa-local coordinates so
@@ -410,6 +459,150 @@ def _hex_x(across_flats: float, x0: float, x1: float,
     )
     mesh.apply_transform(rotation_matrix(math.pi / 2.0, [0, 1, 0]))
     mesh.apply_translation([(x0 + x1) / 2.0, y, z])
+    return mesh
+
+
+def _hex_y(
+    across_flats: float,
+    y0: float,
+    y1: float,
+    x: float,
+    z: float,
+    *,
+    flat_normal_angle_rad: float = 0.0,
+) -> trimesh.Trimesh:
+    """Hex prism on Y with one flat normal in the requested XZ direction."""
+    mesh = trimesh.creation.cylinder(
+        radius=across_flats / math.sqrt(3.0), height=y1 - y0, sections=6
+    )
+    mesh.apply_transform(rotation_matrix(math.pi / 2.0, [1, 0, 0]))
+    mesh.apply_transform(rotation_matrix(
+        math.pi / 6.0 - flat_normal_angle_rad, [0, 1, 0]
+    ))
+    mesh.apply_translation([x, (y0 + y1) / 2.0, z])
+    return mesh
+
+
+def _hex_z(
+    across_flats: float,
+    z0: float,
+    z1: float,
+    x: float,
+    y: float,
+    *,
+    flat_normal_angle_rad: float = 0.0,
+) -> trimesh.Trimesh:
+    """Hex prism on Z with one flat normal in the requested XY direction."""
+    mesh = trimesh.creation.cylinder(
+        radius=across_flats / math.sqrt(3.0), height=z1 - z0, sections=6
+    )
+    mesh.apply_transform(rotation_matrix(
+        flat_normal_angle_rad - math.pi / 6.0, [0, 0, 1]
+    ))
+    mesh.apply_translation([x, y, (z0 + z1) / 2.0])
+    return mesh
+
+
+def _clamp_cap_captive_nut_cuts(
+    well_to_part: np.ndarray,
+    bolt_centres: list[tuple[float, float]] | None = None,
+) -> list[trimesh.Trimesh]:
+    """Face-loaded M3 nut traps for one printed servo cradle.
+
+    The pocket opens at the existing +Y clamp mating face. A standard M3 nut
+    drops into the 5.8 mm-AF recess, the removable cap closes that recess, and
+    its existing M3x8 screw enters along -Y. The clearance tunnel continues
+    past the nut to the exact screw-tip plane, so the screw cannot bottom in
+    the former Phi2.5 self-tap pilot before its threads pass through the nut.
+
+    Hex flats are normal to local X. That keeps the 5.8 mm across-flats width
+    inside the cradle's 9 mm wall, leaving 1.6 mm of printed shell on both the
+    cavity and outer sides instead of putting the wider hex corners there.
+    """
+    cuts: list[trimesh.Trimesh] = []
+    if bolt_centres is None:
+        bolt_centres = hp.servo_clamp_bolt_centres()
+    for bx, bz in bolt_centres:
+        shaft = _cyl_y(
+            CLAMP_CAP_M3_D / 2.0,
+            CLAMP_CAP_SCREW_TIP_Y - CLAMP_CAP_TIP_CLEARANCE,
+            CLAMP_CAP_WALL_FACE_Y + 0.30,
+            x=bx,
+            z=bz,
+        )
+        pocket = _hex_y(
+            CLAMP_CAP_NUT_AF,
+            CLAMP_CAP_NUT_INNER_Y,
+            CLAMP_CAP_WALL_FACE_Y + 0.30,
+            x=bx,
+            z=bz,
+            flat_normal_angle_rad=0.0,
+        )
+        shaft.apply_transform(well_to_part)
+        pocket.apply_transform(well_to_part)
+        cuts.extend((shaft, pocket))
+    return cuts
+
+
+def _clamp_cap_screw_recuts() -> list[trimesh.Trimesh]:
+    """Restore the two original cap bores after adding adjacent solids."""
+    cuts: list[trimesh.Trimesh] = []
+    cap_outer_y = CLAMP_CAP_WALL_FACE_Y + hp.CLAMP_CAP_T
+    for bx, bz in hp.servo_clamp_bolt_centres():
+        cuts.append(_cyl_y(
+            CLAMP_CAP_M3_D / 2.0,
+            CLAMP_CAP_WALL_FACE_Y - 0.30,
+            cap_outer_y + 0.30,
+            x=bx,
+            z=bz,
+        ))
+        cuts.append(_cyl_y(
+            hp.CLAMP_HEAD_CB_OD / 2.0,
+            CLAMP_CAP_HEAD_SEAT_Y,
+            cap_outer_y + 0.30,
+            x=bx,
+            z=bz,
+        ))
+    return cuts
+
+
+def _cyl_radial_xy(
+    radius: float,
+    radial0: float,
+    radial1: float,
+    angle_rad: float,
+    *,
+    z: float,
+) -> trimesh.Trimesh:
+    """Cylinder on an XY radial axis at a fixed Z height."""
+    mesh = _cyl_x(radius, radial0, radial1, z=z)
+    mesh.apply_transform(rotation_matrix(angle_rad, [0, 0, 1]))
+    return mesh
+
+
+def _hex_radial_xy(
+    across_flats: float,
+    radial0: float,
+    radial1: float,
+    angle_rad: float,
+    *,
+    z: float,
+) -> trimesh.Trimesh:
+    """Radial hex prism with a horizontal flat at its top and bottom."""
+    mesh = trimesh.creation.cylinder(
+        radius=across_flats / math.sqrt(3.0),
+        height=radial1 - radial0,
+        sections=6,
+    )
+    mesh.apply_transform(rotation_matrix(math.pi / 2.0, [0, 1, 0]))
+    mesh.apply_transform(rotation_matrix(math.pi / 2.0, [1, 0, 0]))
+    mesh.apply_transform(rotation_matrix(angle_rad, [0, 0, 1]))
+    radial_mid = (radial0 + radial1) / 2.0
+    mesh.apply_translation([
+        radial_mid * math.cos(angle_rad),
+        radial_mid * math.sin(angle_rad),
+        z,
+    ])
     return mesh
 
 
@@ -621,7 +814,7 @@ def _keep_x_ge(mesh: trimesh.Trimesh, x0: float) -> trimesh.Trimesh:
 
 
 def make_femur_body(source: trimesh.Trimesh) -> trimesh.Trimesh:
-    """Inherited knee block with a servo-safe six-insert receiver wall."""
+    """Inherited knee block with receiver wall and captive clamp-cap nuts."""
     trimmed = _keep_x_ge(source, RECEIVER_X0 + 0.05)
     # The inherited body begins 0.05 mm beyond the mating datum, still well
     # inside the receiver, while its mating face stays exactly on the metal
@@ -630,7 +823,18 @@ def make_femur_body(source: trimesh.Trimesh) -> trimesh.Trimesh:
     body = _union(trimmed, receiver)
     # The inherited wall overlaps the receiver and would otherwise refill the
     # insert pockets during union, so cut the final interface once more.
-    return _diff(body, *_femur_receiver_cuts())
+    body = _diff(body, *_femur_receiver_cuts())
+    knee_outboard_bolt = [
+        centre for centre in hp.servo_clamp_bolt_centres()
+        if centre[0] > 0.0
+    ]
+    return _diff(
+        body,
+        *_clamp_cap_captive_nut_cuts(
+            KNEE_CAP_TO_FEMUR,
+            knee_outboard_bolt,
+        ),
+    )
 
 
 def make_knee_cap_premade(source: trimesh.Trimesh) -> trimesh.Trimesh:
@@ -646,7 +850,13 @@ def make_knee_cap_premade(source: trimesh.Trimesh) -> trimesh.Trimesh:
     cap = source.copy()
     cap.apply_transform(cap_to_femur)
     clearance = 0.25
-    x0 = FRONT_X0 - clearance
+    # The inherited jaw starts 1.15 mm behind the bought web. Cutting exactly
+    # to the normal clearance plane left that terminal root as a detached
+    # 20.6 mm3 island after float32 STL tessellation. Carry the same clearance
+    # envelope through the abandoned root; the retained cap begins another
+    # 3.85 mm farther inboard, so no useful clamp material is removed.
+    severed_root_cleanup = 1.25
+    x0 = FRONT_X0 - clearance - severed_root_cleanup
     x1 = FEMUR_RECEIVER_X1 + clearance
     cut = _box(
         (
@@ -661,6 +871,10 @@ def make_knee_cap_premade(source: trimesh.Trimesh) -> trimesh.Trimesh:
         ),
     )
     cap = _diff(cap, cut)
+    assert cap.body_count == 1, (
+        f"knee clamp cap has {cap.body_count} disconnected bodies after "
+        "the bought-web clearance cut"
+    )
     cap.apply_transform(femur_to_cap)
     return cap
 
@@ -760,23 +974,24 @@ def _rear_contour_solid(z0: float, z1: float) -> trimesh.Trimesh:
     return _diff(body, front_cut, driver_scallop)
 
 
-def _tower_insert_cuts() -> list[trimesh.Trimesh]:
-    """Top-entry heat-set insert pilots in the integral coxa tower."""
+def _tower_nut_cuts() -> list[trimesh.Trimesh]:
+    """Top-open captive-nut pockets and screw-tip relief in the tower."""
     cuts = []
     for y in TOWER_SCREW_YS:
         cuts.append(_cyl_z(
-            TOWER_INSERT_D / 2.0,
-            TOWER_TOP_Z - TOWER_INSERT_DEPTH,
+            TOWER_M3_D / 2.0,
+            TOWER_TOP_Z - TOWER_TIP_CLEARANCE_DEPTH,
             TOWER_TOP_Z + 0.2,
             x=TOWER_SCREW_X,
             y=y,
         ))
-        cuts.append(_cyl_z(
-            TOWER_INSERT_LEADIN_D / 2.0,
-            TOWER_TOP_Z - TOWER_INSERT_LEADIN_DEPTH,
+        cuts.append(_hex_z(
+            TOWER_NUT_AF,
+            TOWER_TOP_Z - TOWER_NUT_DEPTH,
             TOWER_TOP_Z + 0.3,
             x=TOWER_SCREW_X,
             y=y,
+            flat_normal_angle_rad=math.atan2(y, TOWER_SCREW_X),
         ))
     return cuts
 
@@ -784,7 +999,7 @@ def _tower_insert_cuts() -> list[trimesh.Trimesh]:
 def make_integral_tower_body() -> trimesh.Trimesh:
     """Extrude the lower coxa's rear circular contour straight upward."""
     body = _rear_contour_solid(TOWER_BOTTOM_Z, TOWER_TOP_Z)
-    return _diff(body, *_tower_insert_cuts())
+    return _diff(body, *_tower_nut_cuts())
 
 
 def _xy_beam(
@@ -939,33 +1154,6 @@ def make_coxa_reinforcement_rails() -> trimesh.Trimesh:
         )
         for side in (-1,)
     ]
-    # Two narrow rear-diagonal tongues connect the lower contour arms to the
-    # cartridge screws.  They replace the old nine-hole centre plate while
-    # staying between the five original yaw-horn driver envelopes.
-    lower_mounts = []
-    anchor_r = COXA_REINF_LO_CURVE_R0 + 1.0
-    tongue_width = 3.4
-    pad_r = COXA_HUB_HEAD_D / 2.0 + 0.5
-    for angle, (x, y) in zip(
-        COXA_HUB_SCREW_ANGLES,
-        _coxa_hub_screw_centres(),
-    ):
-        lower_mounts.extend([
-            _xy_beam(
-                (x, y),
-                (anchor_r * math.cos(angle), anchor_r * math.sin(angle)),
-                tongue_width,
-                COXA_REINF_LO_Z0,
-                COXA_REINF_LO_Z1,
-            ),
-            _cyl_z(
-                pad_r,
-                COXA_REINF_LO_Z0,
-                COXA_REINF_LO_Z1,
-                x=x,
-                y=y,
-            ),
-        ])
     upper_arms = [
         _contoured_arm(
             side,
@@ -979,7 +1167,6 @@ def make_coxa_reinforcement_rails() -> trimesh.Trimesh:
     ]
     rails = _union(
         *lower_arms,
-        *lower_mounts,
         *upper_arms,
         _positive_servo_tab_block(),
     )
@@ -1020,14 +1207,16 @@ def make_centered_servo_holder_foot() -> trimesh.Trimesh:
 
 
 def make_integral_tower_coxa(source: trimesh.Trimesh) -> trimesh.Trimesh:
-    """Fuse the rear tower, tab block, and two contour arms into the coxa."""
+    """Fuse the tower/arms and add the hip clamp-cap captive nuts."""
     tower = make_integral_tower_body()
     rails = make_coxa_reinforcement_rails()
     holder_foot = make_centered_servo_holder_foot()
     source = _union(source, holder_foot)
     # Remove the ancestor's perforated circular bridge above the yaw hub.
-    # The tower and three side supports replace it, leaving the five horn-driver
-    # shafts in open air rather than turning the bottom into a 3x3 hole grid.
+    # The relief stops at the R16.9 cartridge bore; extending it to R20 cut a
+    # stray D-shaped opening into the flat servo-holder foot. The tower and
+    # three side supports replace the bridge while the five horn-driver shafts
+    # remain in open air rather than becoming a 3x3 hole grid.
     centre_relief = _cyl_z(
         COXA_REINF_CENTRE_RELIEF_R,
         TOWER_BOTTOM_Z,
@@ -1042,26 +1231,19 @@ def make_integral_tower_coxa(source: trimesh.Trimesh) -> trimesh.Trimesh:
     assert source_overlap >= 100.0, (
         f"coxa contour arms have only {source_overlap:.1f} mm3 cradle overlap"
     )
-    return _union(source.copy(), tower, rails)
-
-
-def _coxa_hub_screw_centres() -> list[tuple[float, float]]:
-    return [
-        (COXA_HUB_SCREW_R * math.cos(angle),
-         COXA_HUB_SCREW_R * math.sin(angle))
-        for angle in COXA_HUB_SCREW_ANGLES
-    ]
+    body = _union(source.copy(), tower, rails)
+    return _diff(body, *_clamp_cap_captive_nut_cuts(HIP_CAP_TO_COXA))
 
 
 def split_coxa_yaw_hub(
     reinforced: trimesh.Trimesh,
 ) -> tuple[trimesh.Trimesh, trimesh.Trimesh]:
-    """Split the lower yaw hub from the flat coxa/hip-holder underside.
+    """Split off a deep, radially screwed lower-yaw carrier.
 
-    The interface is the existing z=4 mm slab plane. Two top-entry M3x8
-    low-profile screws land in two small rear-diagonal tongues joined to the
-    lower contour arms.  Short inserts stay inside the 25.15 mm press boss,
-    avoiding both the 6805 race and the original horn-driver shafts.
+    An annular collar on the carrier rises 8 mm into a matching socket in the
+    coxa. Three edge-access M3 screws enter radially through that socket and
+    engage captive nuts in the collar. This removes the former pair of thin
+    top-screw tongues while leaving the central horn-driver region open.
     """
     lo, _ = reinforced.bounds
     hub_envelope = _cyl_z(
@@ -1080,40 +1262,79 @@ def split_coxa_yaw_hub(
         COXA_HUB_INTERFACE_Z,
     )
     main = _diff(reinforced, main_relief)
+    # Open a true cylindrical socket through the old rear tower/foot material;
+    # the carrier collar occupies this volume instead of merely overlapping
+    # the nominally open centre of the former bridge.
+    main = _diff(
+        main,
+        _cyl_z(
+            COXA_HUB_SOCKET_R0,
+            COXA_HUB_INTERFACE_Z - 0.2,
+            COXA_HUB_COLLAR_Z1 + 0.2,
+        ),
+    )
+
+    socket_ring = _diff(
+        _cyl_z(
+            COXA_HUB_SOCKET_R1,
+            COXA_HUB_INTERFACE_Z,
+            COXA_HUB_COLLAR_Z1,
+        ),
+        _cyl_z(
+            COXA_HUB_SOCKET_R0,
+            COXA_HUB_INTERFACE_Z - 0.2,
+            COXA_HUB_COLLAR_Z1 + 0.2,
+        ),
+    )
+    main = _union(main, socket_ring)
+
+    carrier_collar = _diff(
+        _cyl_z(
+            COXA_HUB_COLLAR_R1,
+            COXA_HUB_INTERFACE_Z - 0.4,
+            COXA_HUB_COLLAR_Z1,
+        ),
+        _cyl_z(
+            COXA_HUB_COLLAR_R0,
+            COXA_HUB_INTERFACE_Z - 0.6,
+            COXA_HUB_COLLAR_Z1 + 0.2,
+        ),
+    )
+    hub = _union(hub, carrier_collar)
 
     main_cuts = []
     hub_cuts = []
-    for x, y in _coxa_hub_screw_centres():
+    for angle in COXA_HUB_SCREW_ANGLES:
         main_cuts.extend([
-            _cyl_z(
+            _cyl_radial_xy(
                 COXA_HUB_M3_D / 2.0,
-                COXA_HUB_INTERFACE_Z - 0.3,
-                COXA_REINF_LO_Z1 + 0.3,
-                x=x,
-                y=y,
+                COXA_HUB_COLLAR_R1 - 0.2,
+                COXA_HUB_HEAD_SEAT_R + 0.3,
+                angle,
+                z=COXA_HUB_SCREW_Z,
             ),
-            _cyl_z(
+            _cyl_radial_xy(
                 COXA_HUB_HEAD_D / 2.0,
-                COXA_REINF_LO_Z1 - COXA_HUB_HEAD_DEPTH,
-                COXA_REINF_LO_Z1 + 0.3,
-                x=x,
-                y=y,
+                COXA_HUB_HEAD_SEAT_R,
+                COXA_HUB_HEAD_ACCESS_R1,
+                angle,
+                z=COXA_HUB_SCREW_Z,
             ),
         ])
         hub_cuts.extend([
-            _cyl_z(
-                COXA_HUB_INSERT_D / 2.0,
-                COXA_HUB_INTERFACE_Z - COXA_HUB_INSERT_DEPTH,
-                COXA_HUB_INTERFACE_Z + 0.3,
-                x=x,
-                y=y,
+            _cyl_radial_xy(
+                COXA_HUB_M3_D / 2.0,
+                COXA_HUB_COLLAR_R0 - 0.3,
+                COXA_HUB_COLLAR_R1 + 0.3,
+                angle,
+                z=COXA_HUB_SCREW_Z,
             ),
-            _cyl_z(
-                COXA_HUB_INSERT_LEADIN_D / 2.0,
-                COXA_HUB_INTERFACE_Z - COXA_HUB_INSERT_LEADIN_DEPTH,
-                COXA_HUB_INTERFACE_Z + 0.3,
-                x=x,
-                y=y,
+            _hex_radial_xy(
+                COXA_HUB_NUT_AF,
+                COXA_HUB_COLLAR_R1 - COXA_HUB_NUT_DEPTH,
+                COXA_HUB_COLLAR_R1 + 0.3,
+                angle,
+                z=COXA_HUB_SCREW_Z,
             ),
         ])
     return _diff(main, *main_cuts), _diff(hub, *hub_cuts)
@@ -1223,18 +1444,22 @@ def make_hip_bearing_carrier() -> trimesh.Trimesh:
         ))
     for sx, sz in _bearing_carrier_screw_centres():
         cuts.append(_cyl_y(
-            BEARING_CARRIER_INSERT_D / 2.0,
+            BEARING_CARRIER_M3_D / 2.0,
             BEARING_CARRIER_BASE_Y - 0.2,
-            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_INSERT_DEPTH,
+            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_TIP_CLEARANCE_DEPTH,
             x=sx,
             z=sz,
         ))
-        cuts.append(_cyl_y(
-            BEARING_CARRIER_INSERT_LEADIN_D / 2.0,
+        cuts.append(_hex_y(
+            BEARING_CARRIER_NUT_AF,
             BEARING_CARRIER_BASE_Y - 0.3,
-            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_INSERT_LEADIN_DEPTH,
+            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_NUT_DEPTH,
             x=sx,
             z=sz,
+            flat_normal_angle_rad=math.atan2(
+                sz - BEARING_CARRIER_CENTER_Z,
+                sx - BEARING_CARRIER_CENTER_X,
+            ),
         ))
     return _diff(body, *cuts)
 
@@ -1287,7 +1512,10 @@ def make_reinforced_hip_cap(
             ))
     cap = _diff(cap, *cuts)
     cap.apply_transform(COXA_TO_HIP_CAP)
-    return cap
+    # The new circular bearing pad crosses the inboard clamp screw station.
+    # Recut both original clearance/counterbore paths last so that the M3x8
+    # clamp hardware remains coaxial with the unchanged servo-cradle walls.
+    return _diff(cap, *_clamp_cap_screw_recuts())
 
 
 def _tibia_tube() -> tuple[trimesh.Trimesh, np.ndarray]:
@@ -1555,6 +1783,139 @@ def check_parts(meshes: dict[str, trimesh.Trimesh]) -> dict:
     return masses
 
 
+def check_clamp_cap_captive_nuts(
+    meshes: dict[str, trimesh.Trimesh],
+) -> dict:
+    """Validate every face-loaded nut and its complete M3x8 path."""
+    joints = (
+        (
+            "hip",
+            meshes["coxa_link_ovh"],
+            meshes["hip_clamp_cap_ovh"],
+            HIP_CAP_TO_COXA,
+            hp.servo_clamp_bolt_centres(),
+        ),
+        (
+            "knee",
+            meshes["femur_ovh_body"],
+            meshes["knee_clamp_cap_ovh"],
+            KNEE_CAP_TO_FEMUR,
+            [
+                centre for centre in hp.servo_clamp_bolt_centres()
+                if centre[0] > 0.0
+            ],
+        ),
+    )
+    pocket_mid_y = 0.5 * (
+        CLAMP_CAP_NUT_INNER_Y + CLAMP_CAP_WALL_FACE_Y
+    )
+    shell_probe_offset = (
+        CLAMP_CAP_NUT_AF / 2.0 + CLAMP_CAP_LATERAL_SHELL / 2.0
+    )
+
+    for joint_name, cradle, cap, well_to_part, bolt_centres in joints:
+        for index, (bx, bz) in enumerate(bolt_centres):
+            # The whole under-head M3 shaft path is clearance through the cap,
+            # nut and former self-tap pilot, ending 0.2 mm past the screw tip.
+            shaft = _cyl_y(
+                CLAMP_CAP_M3_D / 2.0 - 0.05,
+                CLAMP_CAP_SCREW_TIP_Y - 0.10,
+                CLAMP_CAP_WALL_FACE_Y + 0.05,
+                x=bx,
+                z=bz,
+            )
+            shaft.apply_transform(well_to_part)
+            assert _inter_vol(cradle, shaft) < 0.02, (
+                f"{joint_name} clamp screw path {index} is blocked"
+            )
+
+            pocket = _hex_y(
+                CLAMP_CAP_NUT_AF - 0.10,
+                CLAMP_CAP_NUT_INNER_Y + 0.05,
+                CLAMP_CAP_WALL_FACE_Y + 0.05,
+                x=bx,
+                z=bz,
+                flat_normal_angle_rad=0.0,
+            )
+            pocket.apply_transform(well_to_part)
+            assert _inter_vol(cradle, pocket) < 0.02, (
+                f"{joint_name} clamp nut pocket {index} is obstructed"
+            )
+
+            # Probe the middle of the remaining printed shell on both sides
+            # of the correctly oriented hex flats. This catches a pocket that
+            # breaks into either the servo cavity or the outer wall.
+            local_shell_points = np.array([
+                [bx - shell_probe_offset, pocket_mid_y, bz, 1.0],
+                [bx + shell_probe_offset, pocket_mid_y, bz, 1.0],
+            ])
+            part_shell_points = (
+                well_to_part @ local_shell_points.T
+            ).T[:, :3]
+            assert cradle.contains(part_shell_points).all(), (
+                f"{joint_name} clamp nut pocket {index} breaks its side shell"
+            )
+
+            # The removable cap's existing bore must remain open from its
+            # recessed head seat to the cradle mating face.
+            cap_path = _cyl_y(
+                CLAMP_CAP_M3_D / 2.0 - 0.05,
+                CLAMP_CAP_WALL_FACE_Y - 0.05,
+                CLAMP_CAP_HEAD_SEAT_Y + 0.10,
+                x=bx,
+                z=bz,
+            )
+            assert _inter_vol(cap, cap_path) < 0.02, (
+                f"{joint_name} clamp cap screw bore {index} is blocked"
+            )
+
+    bearing_to_clamp_edge_clearances = []
+    for carrier_x, carrier_z in _bearing_carrier_screw_centres():
+        for clamp_x, clamp_z in hp.servo_clamp_bolt_centres():
+            centre_distance = math.hypot(
+                carrier_x - clamp_x,
+                carrier_z - clamp_z,
+            )
+            bearing_to_clamp_edge_clearances.append(
+                centre_distance
+                - BEARING_CARRIER_CSK_D / 2.0
+                - hp.CLAMP_HEAD_CB_OD / 2.0
+            )
+    min_bearing_to_clamp_edge = min(bearing_to_clamp_edge_clearances)
+    assert min_bearing_to_clamp_edge >= 0.80, (
+        "upper-bearing and hip-clamp screw head pockets are too close: "
+        f"{min_bearing_to_clamp_edge:.2f} mm edge clearance"
+    )
+
+    result = {
+        "converted_joints_per_robot": 12,
+        "captive_m3_nuts_per_hip": 2,
+        "captive_m3_nuts_per_knee": 1,
+        "captive_m3_nuts_per_robot": 18,
+        "screw": "M3x8 SHCS",
+        "nut_pocket_across_flats_mm": CLAMP_CAP_NUT_AF,
+        "nut_pocket_depth_mm": CLAMP_CAP_NUT_DEPTH,
+        "minimum_lateral_shell_each_side_mm": round(
+            CLAMP_CAP_LATERAL_SHELL, 2
+        ),
+        "conservative_thread_beyond_nut_mm": round(
+            CLAMP_CAP_THREAD_BEYOND_NUT, 2
+        ),
+        "minimum_upper_bearing_to_clamp_head_edge_mm": round(
+            min_bearing_to_clamp_edge, 2
+        ),
+        "servo_case_self_tapping_screws_changed": False,
+        "knee_vertical_retention_screw_changed": False,
+    }
+    print(
+        "  servo clamp caps: 18 self-tapped plastic threads replaced by "
+        f"face-loaded M3 nuts; M3x8 reaches {CLAMP_CAP_THREAD_BEYOND_NUT:.1f} "
+        f"mm beyond each pocket; bearing/clamp heads clear by "
+        f"{min_bearing_to_clamp_edge:.1f} mm"
+    )
+    return result
+
+
 def check_femur_servo_fit(meshes: dict[str, trimesh.Trimesh]) -> dict:
     """The final six-insert femur body must not occupy the servo envelope."""
     transforms = base.leg_transforms(0)
@@ -1640,80 +2001,134 @@ def _assembled_coxa_meshes(
 def check_split_lower_yaw_hub(
     meshes: dict[str, trimesh.Trimesh],
 ) -> dict:
-    """Validate the two flat coxa pieces and their two arm screw paths."""
+    """Validate the deep collar/socket and three radial screw paths."""
     main = meshes["coxa_link_ovh"]
     hub = meshes["coxa_yaw_hub_carrier_ovh"]
     assert main.is_watertight and hub.is_watertight
     assert main.body_count == 1 and hub.body_count == 1
     assert abs(float(main.bounds[0, 2]) - COXA_HUB_INTERFACE_Z) < 0.02, \
-        "reinforced coxa body no longer has its flat split-plane underside"
-    main_radial = np.hypot(main.vertices[:, 0], main.vertices[:, 1])
-    inner_vertices = main.vertices[main_radial < TOWER_OUTER_R - 0.1]
-    assert inner_vertices.size > 0
-    assert inner_vertices[:, 2].min() >= COXA_HUB_INTERFACE_Z - 0.02, \
-        "coxa body intrudes below the circular hub split plane"
-    assert abs(float(hub.bounds[1, 2]) - COXA_HUB_INTERFACE_Z) < 0.02, \
-        "lower yaw hub no longer has a flat split face"
+        "reinforced coxa body lost its main Z=4 print face"
+    assert abs(float(hub.bounds[1, 2]) - COXA_HUB_COLLAR_Z1) < 0.02, \
+        "lower yaw carrier collar does not reach its full socket depth"
     interface_overlap = _inter_vol(main, hub)
     assert interface_overlap < 0.25, (
         f"split lower yaw parts overlap by {interface_overlap:.2f} mm3"
     )
+
+    radial_clearance = COXA_HUB_SOCKET_R0 - COXA_HUB_COLLAR_R1
+    assert abs(radial_clearance - COXA_HUB_RADIAL_CLEARANCE) < 1e-9
+    collar_height = COXA_HUB_COLLAR_Z1 - COXA_HUB_INTERFACE_Z
+    assert collar_height >= 8.0
+
+    # Sample intact sectors between the screws to prove both annuli survived
+    # the booleans and remain tied into their parent pieces.
+    for angle in (0.0, math.radians(60.0), math.radians(300.0)):
+        unit = np.array([math.cos(angle), math.sin(angle)])
+        socket_probe = np.r_[
+            unit * ((COXA_HUB_SOCKET_R0 + COXA_HUB_SOCKET_R1) / 2.0),
+            COXA_HUB_COLLAR_Z1 - 0.5,
+        ]
+        collar_probe = np.r_[
+            unit * ((COXA_HUB_COLLAR_R0 + COXA_HUB_COLLAR_R1) / 2.0),
+            COXA_HUB_COLLAR_Z1 - 0.5,
+        ]
+        assert main.contains([socket_probe]).all(), \
+            "coxa socket ring is not continuous"
+        assert hub.contains([collar_probe]).all(), \
+            "yaw-carrier collar is not continuous"
 
     radius = hp.DISC_HORN_BOLT_PCD / 2.0
     horn_stations = [(0.0, 0.0)] + [
         (radius * math.cos(angle), radius * math.sin(angle))
         for angle in hp.DISC_HORN_BOLT_ANGLES_RAD
     ]
-    for index, (x, y) in enumerate(_coxa_hub_screw_centres()):
-        main_line = np.array([
-            [x, y, z]
-            for z in np.linspace(
-                COXA_HUB_INTERFACE_Z - 0.1,
-                COXA_REINF_LO_Z1 + 0.1,
-                40,
-            )
-        ])
-        hub_line = np.array([
-            [x, y, z]
-            for z in np.linspace(
-                COXA_HUB_INTERFACE_Z - COXA_HUB_INSERT_DEPTH + 0.1,
-                COXA_HUB_INTERFACE_Z + 0.1,
-                30,
-            )
-        ])
-        assert not main.contains(main_line).any(), \
-            f"lower-hub screw {index} blocked in coxa body"
-        assert not hub.contains(hub_line).any(), \
-            f"lower-hub insert {index} blocked"
+    driver_outer_r = max(
+        math.hypot(x, y) for x, y in horn_stations
+    ) + hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0
+    assert COXA_HUB_HEAD_SEAT_R - COXA_HUB_HEAD_D / 2.0 > driver_outer_r
 
-        # Probe the thinnest radial shell between the insert and the 6805
-        # inner-race press diameter, halfway down the insert.
-        radial = np.array([x, y], dtype=float) / COXA_HUB_SCREW_R
-        wall_probe = np.array([[
-            x + radial[0] * (COXA_HUB_INSERT_D / 2.0 + 0.7),
-            y + radial[1] * (COXA_HUB_INSERT_D / 2.0 + 0.7),
-            COXA_HUB_INTERFACE_Z - COXA_HUB_INSERT_DEPTH / 2.0,
-        ]])
-        assert hub.contains(wall_probe).all(), \
-            f"lower-hub insert {index} lost its outer retaining shell"
-
-        mount_head = _cyl_z(
-            COXA_HUB_HEAD_D / 2.0,
-            COXA_REINF_LO_Z1 - COXA_HUB_HEAD_DEPTH,
-            COXA_REINF_LO_Z1,
-            x=x,
-            y=y,
+    for index, angle in enumerate(COXA_HUB_SCREW_ANGLES):
+        main_shaft_probe = _cyl_radial_xy(
+            COXA_HUB_M3_D / 2.0 - 0.12,
+            COXA_HUB_COLLAR_R1 - 0.1,
+            COXA_HUB_HEAD_SEAT_R + 0.15,
+            angle,
+            z=COXA_HUB_SCREW_Z,
         )
-        for hx, hy in horn_stations:
-            driver = _cyl_z(
-                hp.YAW_HUB_HORN_HEAD_CB_OD / 2.0,
-                COXA_HUB_INTERFACE_Z,
-                COXA_REINF_LO_Z1,
-                x=hx,
-                y=hy,
+        head_access_probe = _cyl_radial_xy(
+            COXA_HUB_HEAD_D / 2.0 - 0.12,
+            COXA_HUB_HEAD_SEAT_R + 0.1,
+            COXA_HUB_HEAD_ACCESS_R1 - 0.1,
+            angle,
+            z=COXA_HUB_SCREW_Z,
+        )
+        hub_shaft_probe = _cyl_radial_xy(
+            COXA_HUB_M3_D / 2.0 - 0.12,
+            COXA_HUB_COLLAR_R0 - 0.1,
+            COXA_HUB_COLLAR_R1 + 0.1,
+            angle,
+            z=COXA_HUB_SCREW_Z,
+        )
+        nut_probe = _hex_radial_xy(
+            COXA_HUB_NUT_AF - 0.15,
+            COXA_HUB_COLLAR_R1 - COXA_HUB_NUT_DEPTH + 0.1,
+            COXA_HUB_COLLAR_R1 + 0.1,
+            angle,
+            z=COXA_HUB_SCREW_Z,
+        )
+        assert _inter_vol(main, main_shaft_probe) < 0.02, \
+            f"radial lower-hub screw shaft {index} blocked in coxa"
+        assert _inter_vol(main, head_access_probe) < 0.02, \
+            f"radial lower-hub screw head tunnel {index} blocked"
+        assert _inter_vol(hub, hub_shaft_probe) < 0.02, \
+            f"radial lower-hub screw shaft {index} blocked in carrier"
+        assert _inter_vol(hub, nut_probe) < 0.02, \
+            f"radial lower-hub nut pocket {index} blocked"
+
+        radial_unit = np.array([math.cos(angle), math.sin(angle)])
+        tangent_unit = np.array([-math.sin(angle), math.cos(angle)])
+        back_r = (
+            COXA_HUB_COLLAR_R1 - COXA_HUB_NUT_DEPTH - 0.2
+        )
+        back_ring_r = (
+            COXA_HUB_M3_D / 2.0 + COXA_HUB_NUT_AF / 2.0
+        ) / 2.0
+        back_ring = []
+        for cross_angle in np.linspace(
+            0.0, 2.0 * math.pi, 12, endpoint=False
+        ):
+            xy = (
+                radial_unit * back_r
+                + tangent_unit * back_ring_r * math.cos(cross_angle)
             )
-            assert _inter_vol(mount_head, driver) < 1e-6, \
-                "lower-hub fastener pocket crosses a horn-driver corridor"
+            back_ring.append([
+                xy[0],
+                xy[1],
+                COXA_HUB_SCREW_Z
+                + back_ring_r * math.sin(cross_angle),
+            ])
+        assert hub.contains(np.asarray(back_ring)).all(), \
+            f"radial lower-hub nut pocket {index} has no back wall"
+
+    nut_back_shell = (
+        COXA_HUB_COLLAR_R1 - COXA_HUB_NUT_DEPTH - COXA_HUB_COLLAR_R0
+    )
+    nut_vertical_shell = min(
+        COXA_HUB_SCREW_Z - COXA_HUB_NUT_AF / 2.0
+        - (COXA_HUB_INTERFACE_Z - 0.4),
+        COXA_HUB_COLLAR_Z1
+        - (COXA_HUB_SCREW_Z + COXA_HUB_NUT_AF / 2.0),
+    )
+    head_shoulder = COXA_HUB_HEAD_SEAT_R - COXA_HUB_SOCKET_R0
+    thread_beyond_nut = (
+        COXA_HUB_SCREW_LENGTH
+        - (COXA_HUB_HEAD_SEAT_R - COXA_HUB_COLLAR_R1)
+        - COXA_HUB_NUT_DEPTH
+    )
+    assert nut_back_shell >= 0.85
+    assert nut_vertical_shell >= 1.0
+    assert head_shoulder >= 1.0
+    assert thread_beyond_nut >= 1.0
 
     bearing = meshes["yaw_bearing_upper"].copy()
     bearing.apply_transform(base._trans([0.0, 0.0, rv.YAWBR_DROP]))
@@ -1721,23 +2136,36 @@ def check_split_lower_yaw_hub(
     assert 20.0 < bearing_press < 80.0, (
         f"lower 6805 press geometry changed: {bearing_press:.2f} mm3"
     )
-    insert_r = COXA_HUB_INSERT_LEADIN_D / 2.0
-    min_shell = hp.YAW_HUB_BOSS_OD / 2.0 - COXA_HUB_SCREW_R - insert_r
-    assert min_shell >= 0.95
     result = {
         "interface_z_mm": COXA_HUB_INTERFACE_Z,
         "main_flat_print_face_z_mm": round(float(main.bounds[0, 2]), 2),
-        "circular_interface_z_mm": COXA_HUB_INTERFACE_Z,
-        "hub_flat_face_z_mm": round(float(hub.bounds[1, 2]), 2),
+        "carrier_collar_z_range_mm": [
+            COXA_HUB_INTERFACE_Z, COXA_HUB_COLLAR_Z1
+        ],
+        "carrier_collar_radii_mm": [
+            COXA_HUB_COLLAR_R0, COXA_HUB_COLLAR_R1
+        ],
+        "coxa_socket_radii_mm": [
+            COXA_HUB_SOCKET_R0, COXA_HUB_SOCKET_R1
+        ],
+        "radial_assembly_clearance_mm": radial_clearance,
         "interface_overlap_mm3": round(interface_overlap, 4),
-        "attachment": "2x top-entry M3x8 low-profile SHCS in lower arms",
-        "insert_bore_mm": [COXA_HUB_INSERT_D, COXA_HUB_INSERT_DEPTH],
-        "minimum_insert_to_bearing_shell_mm": round(min_shell, 2),
+        "attachment": "3x radial M3x6 low-profile SHCS into captive nuts",
+        "radial_screw_angles_deg": [
+            round(math.degrees(angle), 1) for angle in COXA_HUB_SCREW_ANGLES
+        ],
+        "nut_pocket_across_flats_mm": COXA_HUB_NUT_AF,
+        "nut_pocket_depth_mm": COXA_HUB_NUT_DEPTH,
+        "minimum_nut_back_shell_mm": round(nut_back_shell, 2),
+        "minimum_nut_vertical_shell_mm": round(nut_vertical_shell, 2),
+        "head_seat_shoulder_mm": round(head_shoulder, 2),
+        "thread_beyond_nut_mm": round(thread_beyond_nut, 2),
         "bearing_press_overlap_mm3": round(bearing_press, 2),
     }
     print(
-        "  split lower yaw hub: flat coxa underside + flat hub cartridge, "
-        f"2x top-entry M3x8 in contour arms, {min_shell:.2f} mm shell"
+        "  deep lower yaw carrier: "
+        f"{collar_height:.1f} mm collar, {radial_clearance:.2f} mm radial gap, "
+        "3x edge-entry M3x6 + captive nuts"
     )
     return result
 
@@ -1764,19 +2192,49 @@ def check_split_hip_bearing(
             [x, y, z]
             for y in np.linspace(
                 BEARING_CARRIER_CAP_PAD_Y0 - 0.2,
-                BEARING_CARRIER_BASE_Y + BEARING_CARRIER_INSERT_DEPTH - 0.1,
+                BEARING_CARRIER_BASE_Y
+                + BEARING_CARRIER_TIP_CLEARANCE_DEPTH - 0.1,
                 48,
             )
         ])
         assert not (cap.contains(open_path) | carrier.contains(open_path)).any(), \
             f"bearing-carrier screw path {index} is blocked"
-        retaining_skin = np.array([[
-            x,
-            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_INSERT_DEPTH + 0.2,
-            z,
-        ]])
-        assert carrier.contains(retaining_skin).all(), \
-            f"bearing-carrier insert {index} has no retaining skin"
+        back_ring_r = (
+            BEARING_CARRIER_M3_D / 2.0
+            + BEARING_CARRIER_NUT_AF / 2.0
+        ) / 2.0
+        back_ring = np.array([
+            [
+                x + back_ring_r * math.cos(angle),
+                BEARING_CARRIER_BASE_Y + BEARING_CARRIER_NUT_DEPTH + 0.2,
+                z + back_ring_r * math.sin(angle),
+            ]
+            for angle in np.linspace(0.0, 2.0 * math.pi, 12, endpoint=False)
+        ])
+        assert carrier.contains(back_ring).all(), \
+            f"bearing-carrier nut pocket {index} has no closed back wall"
+
+        radial_angle = math.atan2(
+            z - BEARING_CARRIER_CENTER_Z,
+            x - BEARING_CARRIER_CENTER_X,
+        )
+        nut_probe = _hex_y(
+            BEARING_CARRIER_NUT_AF - 0.15,
+            BEARING_CARRIER_BASE_Y - 0.1,
+            BEARING_CARRIER_BASE_Y + BEARING_CARRIER_NUT_DEPTH - 0.1,
+            x=x,
+            z=z,
+            flat_normal_angle_rad=radial_angle,
+        )
+        assert _inter_vol(carrier, nut_probe) < 0.02, \
+            f"bearing-carrier nut pocket {index} is obstructed"
+
+    nut_shell = (
+        BEARING_CARRIER_R - BEARING_CARRIER_SCREW_R
+        - BEARING_CARRIER_NUT_AF / 2.0
+    )
+    assert nut_shell >= 0.55, \
+        f"bearing-carrier nut pockets leave only {nut_shell:.2f} mm shell"
 
     transforms = base.leg_transforms(0)
     placed_carrier = base._placed(
@@ -1797,13 +2255,15 @@ def check_split_hip_bearing(
         "carrier_flat_face_y_mm": round(float(carrier.bounds[0, 1]), 2),
         "cap_carrier_overlap_mm3": round(cap_carrier_overlap, 4),
         "bearing_press_overlap_mm3": round(bearing_press, 3),
-        "attachment": "3x M3x8 countersunk screws into heat-set inserts",
-        "insert_depth_mm": BEARING_CARRIER_INSERT_DEPTH,
+        "attachment": "3x M3x8 countersunk screws into captive M3 nuts",
+        "nut_pocket_across_flats_mm": BEARING_CARRIER_NUT_AF,
+        "nut_pocket_depth_mm": BEARING_CARRIER_NUT_DEPTH,
+        "minimum_nut_to_outer_shell_mm": round(nut_shell, 2),
         "mount_radius_mm": BEARING_CARRIER_R,
     }
     print(
         "  split upper bearing: flat hip cap + flat-backed carrier, "
-        f"3x M3x8 CSK, bearing press {bearing_press:.2f} mm3"
+        f"3x M3x8 CSK + captive nuts, bearing press {bearing_press:.2f} mm3"
     )
     return result
 
@@ -1885,13 +2345,13 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
                 cap.contains(cap_driver_line)).any(), \
         "contoured support blocks the existing hip-cap screwdriver path"
 
-    # Both top screw centrelines are open through the bearing carrier and into
-    # the heat-set insert pilots in the integral coxa tower.
+    # Both top screw centrelines are open through the bearing carrier and the
+    # top-loaded captive-nut pockets in the integral coxa tower.
     for index, y in enumerate(TOWER_SCREW_YS):
         line = np.array([
             [TOWER_SCREW_X, y, z] for z in np.linspace(
                 TOWER_CAP_FLANGE_Z1 + 10.0,
-                TOWER_TOP_Z - TOWER_INSERT_DEPTH + 0.1,
+                TOWER_TOP_Z - TOWER_TIP_CLEARANCE_DEPTH + 0.1,
                 64,
             )
         ])
@@ -1901,6 +2361,25 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
             f"tower screw path {index} blocked in cap"
         assert not carrier.contains(line).any(), \
             f"tower screw path {index} blocked in bearing carrier"
+
+        radial_angle = math.atan2(y, TOWER_SCREW_X)
+        nut_probe = _hex_z(
+            TOWER_NUT_AF - 0.15,
+            TOWER_TOP_Z - TOWER_NUT_DEPTH + 0.1,
+            TOWER_TOP_Z + 0.1,
+            x=TOWER_SCREW_X,
+            y=y,
+            flat_normal_angle_rad=radial_angle,
+        )
+        assert _inter_vol(coxa, nut_probe) < 0.02, \
+            f"tower captive-nut pocket {index} is obstructed"
+
+    tower_nut_radius = math.hypot(TOWER_SCREW_X, TOWER_SCREW_YS[0])
+    tower_nut_shell = (
+        TOWER_OUTER_R - tower_nut_radius - TOWER_NUT_AF / 2.0
+    )
+    assert tower_nut_shell >= 0.80, \
+        f"tower nut pockets leave only {tower_nut_shell:.2f} mm shell"
 
     # Existing yaw service is a centre shaft plus four shafts on the horn PCD.
     # The rear one gets a contour scallop with a deliberate 2 mm radial margin.
@@ -1917,9 +2396,8 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         assert _inter_vol(rails, envelope) < 1e-6, \
             "coxa reinforcement blocks a yaw-horn screwdriver shaft"
 
-    # The former lower full-width rail and its nine-hole grid are gone.
-    # At the lower-arm band the centre is open air; only the two side arms
-    # carry cartridge screws.
+    # The former lower full-width rail, nine-hole grid, and two screw tongues
+    # are gone. The centre remains open inside the narrow socket/collar pair.
     centre_void = _cyl_z(
         4.0,
         COXA_REINF_LO_Z0 + 0.2,
@@ -1962,6 +2440,10 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         "cap_coxa_overlap_mm3": round(cap_coxa_overlap, 4),
         "cap_seat_gap_mm": round(seat_gap, 2),
         "top_entry_m3_screws_per_leg": len(TOWER_SCREW_YS),
+        "top_captive_nuts_per_leg": len(TOWER_SCREW_YS),
+        "top_nut_pocket_across_flats_mm": TOWER_NUT_AF,
+        "top_nut_pocket_depth_mm": TOWER_NUT_DEPTH,
+        "minimum_top_nut_to_outer_shell_mm": round(tower_nut_shell, 2),
         "yaw_driver_envelope_diameter_mm": hp.YAW_HUB_HORN_HEAD_CB_OD,
         "rear_yaw_driver_extra_radial_clearance_mm": TOWER_YAW_DRIVER_EXTRA_R,
         "reinforcement": (
@@ -1997,7 +2479,7 @@ def check_integral_coxa_tower(meshes: dict[str, trimesh.Trimesh]) -> dict:
         f"rear R{TOWER_OUTER_R:.1f} contour, x <= {TOWER_FRONT_X:.1f}, "
         f"{result['height_mm']:.2f} mm straight rise, solid tab block, "
         f"centered holder within {holder_centre_error:.2f} mm, "
-        "2x top-entry M3, "
+        "2x top-entry M3 + captive nuts, "
         f"{TOWER_YAW_DRIVER_EXTRA_R:.1f} mm rear-driver scallop margin"
     )
     return result
@@ -2266,6 +2748,13 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
         "clearanceMm": 0.0,
         "minWallMm": 0.8,
         "minThreadEngagementMm": 2.0,
+        # These two DO_NOT_PRINT reference meshes intentionally model separate
+        # purchased subcomponents. Every printable mesh still defaults to one
+        # connected body, so a detached print island is a hard failure.
+        "expectedMeshComponents": {
+            "stl:servo_body": 3,
+            "stl:yaw_bearing_upper": 2,
+        },
         "allowedInterferences": [],
     }
     scene["meshes"] = [
@@ -2281,7 +2770,8 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
             instance["color"] = "#2f343b"
         elif instance["partType"] == "femur_ovh_body":
             instance["name"] = instance["name"].replace(
-                "femur body OVH", "femur six-hole receiver body"
+                "femur body OVH",
+                "femur six-hole receiver + clamp nut traps",
             )
         elif instance["partType"] == "tibia_ovh_socket":
             instance["name"] = instance["name"].replace(
@@ -2290,7 +2780,7 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
         elif instance["partType"] == "coxa_link_ovh":
             instance["name"] = instance["name"].replace(
                 "coxa OVH outboard arm",
-                "coxa OVH + rear tower + solid servo-tab block",
+                "coxa OVH + yaw socket + clamp nut traps",
             )
         elif instance["partType"] == "hip_clamp_cap_ovh":
             instance["name"] = instance["name"].replace(
@@ -2308,14 +2798,12 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
     next_id = len(scene["instances"])
     for leg in range(6):
         transforms = base.leg_transforms(leg)
-        lower_carrier_id = (
-            f"{next_id:03d}-L{leg} screw-on lower yaw hub carrier"
-        )
+        lower_carrier_id = f"{next_id:03d}-L{leg} deep lower yaw carrier"
         next_id += 1
         scene["instances"].append({
             "id": lower_carrier_id,
             "meshId": "stl:coxa_yaw_hub_carrier_ovh",
-            "name": f"L{leg} screw-on lower yaw hub carrier (NEW)",
+            "name": f"L{leg} deep lower yaw hub carrier + 3 radial screws (NEW)",
             "partType": "coxa_yaw_hub_carrier_ovh",
             "role": "variant",
             "leg": leg,
@@ -2330,7 +2818,7 @@ def build_scene(meshes: dict[str, trimesh.Trimesh], limit: float) -> dict:
         scene["instances"].append({
             "id": carrier_id,
             "meshId": "stl:hip_bearing_carrier_ovh",
-            "name": f"L{leg} screw-on upper bearing carrier (NEW)",
+            "name": f"L{leg} upper bearing carrier + 3 nut traps (NEW)",
             "partType": "hip_bearing_carrier_ovh",
             "role": "variant",
             "leg": leg,
@@ -2525,6 +3013,7 @@ def main() -> None:
     meshes = build_meshes()
     print("premade-chorn checks ...")
     masses = check_parts(meshes)
+    clamp_cap_captive_nuts = check_clamp_cap_captive_nuts(meshes)
     femur_servo_fit = check_femur_servo_fit(meshes)
     tibia_screw_access = check_tibia_screw_access(meshes)
     serviceability = check_horn_on_servo_extraction(meshes)
@@ -2605,6 +3094,7 @@ def main() -> None:
             ),
         },
         "masses": masses,
+        "clamp_cap_captive_nuts": clamp_cap_captive_nuts,
         "femur_servo_fit": femur_servo_fit,
         "split_lower_yaw_hub": split_lower_yaw_hub,
         "split_hip_bearing": split_hip_bearing,

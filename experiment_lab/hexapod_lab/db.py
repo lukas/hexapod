@@ -46,7 +46,92 @@ class Store:
               timestamp TEXT NOT NULL, kind TEXT NOT NULL, message TEXT NOT NULL,
               FOREIGN KEY(experiment_id) REFERENCES experiments(id)
             );
+            CREATE TABLE IF NOT EXISTS tag_layout_revisions (
+              sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+              id TEXT NOT NULL UNIQUE,
+              robot_id TEXT NOT NULL,
+              layout_sha256 TEXT NOT NULL,
+              pose_config_sha256 TEXT,
+              floor_map_sha256 TEXT,
+              part_map_sha256 TEXT,
+              layout_json TEXT NOT NULL,
+              pose_config_json TEXT,
+              floor_map_json TEXT,
+              part_map_json TEXT,
+              observed_at TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              source_kind TEXT NOT NULL,
+              source_experiment_id TEXT UNIQUE,
+              parent_revision_id TEXT,
+              baseline_sha256 TEXT,
+              review_ready INTEGER NOT NULL,
+              changed_tag_ids_json TEXT NOT NULL,
+              FOREIGN KEY(source_experiment_id) REFERENCES experiments(id),
+              FOREIGN KEY(parent_revision_id) REFERENCES tag_layout_revisions(id)
+            );
+            CREATE TABLE IF NOT EXISTS tag_layout_activations (
+              revision_id TEXT PRIMARY KEY,
+              effective_from TEXT NOT NULL UNIQUE,
+              activated_at TEXT NOT NULL,
+              activated_by TEXT NOT NULL,
+              note TEXT NOT NULL,
+              idempotency_key TEXT NOT NULL UNIQUE,
+              request_sha256 TEXT NOT NULL,
+              FOREIGN KEY(revision_id) REFERENCES tag_layout_revisions(id)
+            );
+            CREATE TABLE IF NOT EXISTS experiment_tag_layouts (
+              experiment_id TEXT PRIMARY KEY,
+              revision_id TEXT NOT NULL,
+              recorded_at TEXT NOT NULL,
+              pinned_at TEXT NOT NULL,
+              pin_basis TEXT NOT NULL,
+              FOREIGN KEY(experiment_id) REFERENCES experiments(id),
+              FOREIGN KEY(revision_id) REFERENCES tag_layout_revisions(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_experiment_tag_layouts_revision
+              ON experiment_tag_layouts(revision_id);
+            CREATE TRIGGER IF NOT EXISTS tag_layout_revisions_no_update
+              BEFORE UPDATE ON tag_layout_revisions BEGIN
+                SELECT RAISE(ABORT, 'tag layout revisions are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS tag_layout_revisions_no_delete
+              BEFORE DELETE ON tag_layout_revisions BEGIN
+                SELECT RAISE(ABORT, 'tag layout revisions are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS tag_layout_activations_no_update
+              BEFORE UPDATE ON tag_layout_activations BEGIN
+                SELECT RAISE(ABORT, 'tag layout activations are append-only');
+              END;
+            CREATE TRIGGER IF NOT EXISTS tag_layout_activations_no_delete
+              BEFORE DELETE ON tag_layout_activations BEGIN
+                SELECT RAISE(ABORT, 'tag layout activations are append-only');
+              END;
+            CREATE TRIGGER IF NOT EXISTS experiment_tag_layouts_no_update
+              BEFORE UPDATE ON experiment_tag_layouts BEGIN
+                SELECT RAISE(ABORT, 'experiment layout pins are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS experiment_tag_layouts_no_delete
+              BEFORE DELETE ON experiment_tag_layouts BEGIN
+                SELECT RAISE(ABORT, 'experiment layout pins are immutable');
+              END;
             """)
+            # These columns were added while the history feature was still in
+            # development. Keep startup safe for a database created by an
+            # earlier preview build.
+            columns = {
+                row["name"]
+                for row in con.execute("PRAGMA table_info(tag_layout_revisions)")
+            }
+            for name in (
+                "floor_map_sha256",
+                "part_map_sha256",
+                "floor_map_json",
+                "part_map_json",
+            ):
+                if name not in columns:
+                    con.execute(f"ALTER TABLE tag_layout_revisions ADD COLUMN {name} TEXT")
+            con.execute("PRAGMA optimize")
 
     @staticmethod
     def row(row: sqlite3.Row) -> Dict[str, Any]:
@@ -55,10 +140,19 @@ class Store:
         item["cancel_requested"] = bool(item["cancel_requested"])
         return item
 
-    def create(self, spec: Dict[str, Any], submitted_by: str) -> Dict[str, Any]:
+    def create(
+        self,
+        spec: Dict[str, Any],
+        submitted_by: str,
+        *,
+        tag_layout_revision_id: Optional[str] = None,
+        tag_layout_recorded_at: Optional[str] = None,
+        tag_layout_pin_basis: str = "active_at_submission",
+    ) -> Dict[str, Any]:
         experiment_id = uuid.uuid4().hex
         now = utcnow()
         with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
             con.execute(
                 "INSERT INTO experiments(id,name,description,duration_seconds,parameters_json,status,submitted_by,created_at) VALUES(?,?,?,?,?,?,?,?)",
                 (experiment_id, spec["name"], spec.get("description", ""), spec["duration_seconds"],
@@ -66,6 +160,20 @@ class Store:
             )
             con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
                         (experiment_id, now, "submitted", "Experiment added to queue"))
+            if tag_layout_revision_id:
+                con.execute(
+                    "INSERT INTO experiment_tag_layouts("
+                    "experiment_id,revision_id,recorded_at,pinned_at,pin_basis"
+                    ") VALUES(?,?,?,?,?)",
+                    (
+                        experiment_id,
+                        tag_layout_revision_id,
+                        tag_layout_recorded_at or now,
+                        now,
+                        tag_layout_pin_basis,
+                    ),
+                )
+            con.execute("COMMIT")
         return self.get(experiment_id)
 
     def import_result(
@@ -74,19 +182,54 @@ class Store:
         submitted_by: str,
         status: str,
         error: Optional[str] = None,
+        experiment_id: Optional[str] = None,
+        tag_layout_revision_id: Optional[str] = None,
+        tag_layout_recorded_at: Optional[str] = None,
+        tag_layout_pin_basis: str = "active_at_registration",
     ) -> Dict[str, Any]:
         """Register evidence produced by an external guarded runner."""
         if status not in TERMINAL:
             raise ValueError("invalid terminal status")
-        experiment_id = uuid.uuid4().hex
+        result_id = experiment_id or uuid.uuid4().hex
         now = utcnow()
         with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            if experiment_id:
+                existing = con.execute(
+                    "SELECT * FROM experiments WHERE id=?", (result_id,)
+                ).fetchone()
+                if existing:
+                    if tag_layout_revision_id:
+                        existing_pin = con.execute(
+                            "SELECT revision_id,recorded_at,pin_basis "
+                            "FROM experiment_tag_layouts WHERE experiment_id=?",
+                            (result_id,),
+                        ).fetchone()
+                        requested_pin = (
+                            tag_layout_revision_id,
+                            tag_layout_recorded_at or now,
+                            tag_layout_pin_basis,
+                        )
+                        if existing_pin and tuple(existing_pin) != requested_pin:
+                            con.execute("ROLLBACK")
+                            raise ValueError(
+                                "existing result has a different immutable tag layout pin"
+                            )
+                        if not existing_pin:
+                            con.execute(
+                                "INSERT INTO experiment_tag_layouts("
+                                "experiment_id,revision_id,recorded_at,pinned_at,pin_basis"
+                                ") VALUES(?,?,?,?,?)",
+                                (result_id, *requested_pin[:2], now, requested_pin[2]),
+                            )
+                    con.execute("COMMIT")
+                    return self.row(existing)
             con.execute(
                 "INSERT INTO experiments(id,name,description,duration_seconds,"
                 "parameters_json,status,submitted_by,created_at,started_at,"
                 "finished_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (
-                    experiment_id,
+                    result_id,
                     spec["name"],
                     spec.get("description", ""),
                     spec["duration_seconds"],
@@ -94,7 +237,7 @@ class Store:
                     status,
                     submitted_by,
                     now,
-                    now,
+                    tag_layout_recorded_at or now,
                     now,
                     error,
                 ),
@@ -103,13 +246,27 @@ class Store:
                 "INSERT INTO events(experiment_id,timestamp,kind,message) "
                 "VALUES(?,?,?,?)",
                 (
-                    experiment_id,
+                    result_id,
                     now,
                     "imported",
                     "Completed result registered from an external guarded runner",
                 ),
             )
-        return self.get(experiment_id)
+            if tag_layout_revision_id:
+                con.execute(
+                    "INSERT INTO experiment_tag_layouts("
+                    "experiment_id,revision_id,recorded_at,pinned_at,pin_basis"
+                    ") VALUES(?,?,?,?,?)",
+                    (
+                        result_id,
+                        tag_layout_revision_id,
+                        tag_layout_recorded_at or now,
+                        now,
+                        tag_layout_pin_basis,
+                    ),
+                )
+            con.execute("COMMIT")
+        return self.get(result_id)
 
     def get(self, experiment_id: str) -> Optional[Dict[str, Any]]:
         with self.connect() as con:

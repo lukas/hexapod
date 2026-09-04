@@ -4722,3 +4722,63 @@ warrants a real code dig-in instead of another pod-swap retry.
      and lower->hold judged semantically incoherent for a supported
      hold; can extend if the operator wants full arbitrary order in
      TRAINING too — eval forced plans already allow any order).
+
+## q_20260904T100x — OPEN (assumptions recorded, no answer needed unless wrong)
+- cycle: 09-04 ~09:4x-10:0x triage of cont/cont-s1/transtress-s1
+  (standwalk steering + universal-command branches)
+- finding: `probe_turn_authority` on the plain-continuation controls
+  `cont`/`cont-s1` (mechanisms kept, no lever) shows pure-turn wz_med
+  22-35% below the FROZEN cap29-stdwalklo-hi{,-s1} checkpoints used as
+  the comparator baseline for every steering-lever canary gate to date
+  (~26 canaries, 6 lever families, all scored FAIL). Continuation
+  alone — zero lever — breaches the axis's own 10% pure-turn cap.
+- assumption adopted (assume-and-go): the honest reading is that the
+  FAIL wall measured continuation drift (further PPO steps away from
+  the frozen checkpoint erode pure-turn authority regardless of any
+  lever), not lever harm — the axis's comparator should be a matched
+  plain-continuation control, not a frozen ancestor checkpoint. Did
+  NOT retroactively flip any of the ~26 closed canary verdicts (each
+  stands on its own pre-registered gate text); instead flagged a
+  DIG-IN (`rl_docs/tracks/standwalk/STATUS.md` Next item 2) to decide
+  whether any are worth re-scoring/reviving, using `selomegaboost4p0-
+  s1` (now reads BETTER than `cont-s1` on pure-turn when re-scored)
+  as the worked example. Keep moving; if the operator disagrees with
+  matched-continuation as the correct comparator for this axis, say so
+  and this gets reverted to frozen-baseline scoring.
+
+## q_20260904T12xx — OPEN (assumptions recorded, no answer needed unless wrong)
+  (standwalk universal-command branch: hold_min_load segment-entry fix design)
+- context: `transtress-s1-acq8m` FAIL dig-in (escalated). 6/72
+  eval_cmd_stress episodes terminate `hold_min_load`, all in mode_seq
+  MID-TRANSITION hold entries. STATUS Next item 1 offered two fix
+  shapes: "carry the EMA across a switch, or price the specific
+  unloaded-foot-at-switch case".
+- measurement made before choosing: with the training cfg (grace 1.0 s,
+  tau 0.25 s) the zero/stale entry EMA washes out at e^-4 (~1.7%
+  residual) BEFORE the termination clock unpins — the entry-seed
+  artifact alone cannot fire the cliff. The fires therefore reflect a
+  REAL foot left near-unloaded ~2 s past entry; the mechanism gap is
+  that the cliff is the ONLY training signal against it (~2 s after
+  the causal foot placement, zero dense gradient; 8M extra steps
+  measured NOT to close the residual 8.3%).
+- assumption adopted (assume-and-go): land BOTH halves, default-off,
+  bit-exact when off (snapshot pending this cycle):
+  1. `safety.hold_min_load_ema_continuous=1` — EMA seeded from the
+     measured min-over-feet load at reset and updated every tick in
+     every mode, so a hold entry reads the load actually carried
+     through the switch (the literal continuity repair);
+  2. `reward.k_hold_min_load_short` — dense hold-tick price
+     `-k*dt*max(0, 1 - ema/floor)` sharing the termination's EMA and
+     floor, active from the first entry tick INCLUDING the grace
+     window (priced twin per the 08-24 "termination WITH a price"
+     ruling; 08-21 alignment: reward optimum == the stress-gate
+     behavior). Bank tests added (6, green): default-off bit-exact,
+     reset seed, mid-seq rise->hold continuity, hover priced, quiet
+     byte-identical, cliff still fires with both keys on.
+- follow-up launched: 2M mechanism-health canary pair (k=2.0 / k=8.0,
+  both with continuity on) continuing the acq8m checkpoint on the same
+  transition-stress diet — repair test, not prevention: acq8m is
+  otherwise the best walker in the lineage and its only stress-gate
+  failures are exactly this class. If the operator prefers preventing
+  from the 2M transtress-s1 checkpoint instead, say so — the arm is a
+  one-line respec swap.

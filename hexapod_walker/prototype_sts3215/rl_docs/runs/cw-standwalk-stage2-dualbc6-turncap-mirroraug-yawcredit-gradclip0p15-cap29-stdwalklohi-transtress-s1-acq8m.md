@@ -1,0 +1,22 @@
+# cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-transtress-s1-acq8m
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: FAIL
+
+**created**: 2026-09-04T10:02:38+00:00
+
+**pod**: hexapod-mjx-train-10
+
+**steps**: 8000000
+
+**parent**: cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-transtress-s1
+
+**wandb_id**: ra1iv8mb
+
+**hypothesis**: Plain English: give the seed-1 transition-stress-diet arm (which just passed its 2M-step mechanism-health canary CLEAN -- zero mechanical terminations vs its matched plain-continuation control's 38/72=52.8%, on the exact adversarial mid-transition eval the operator's smoother-universal-policy directive registered) a real acquisition-length budget to see whether the win holds or was a 2M-step fluke. Same training diet (goal.mode_seq_stress grammar, 2.5-9s segments, 3s cmd resample), continuing from the transtress-s1 checkpoint itself (not a fresh restart). The seed-0 sibling (-transtress) FAILED the identical 2M canary (33/72 mech terms, 3 sacrificed legs) -- that divergence is under separate DIG-IN (video/per-leg root-cause) and is NOT re-run here; only the clean seed advances.
+
+**gate**: PASS if eval_cmd_stress (dr0+ownDR, seed base 93000) at 8M holds or improves on the 2M canary's win: mech_term_reasons=={} (zero mechanical terminations), session_complete_frac >= 0.90 (vs the 2M checkpoint's 1.0), walk progress_ratio_med/direction_err_med not regressed >10% vs the 2M transtress-s1 checkpoint's own read (progress_ratio 0.214, dir_err 49.85deg), and smoothness medians not worse (cmd_jerk_p95_deg_s2, slew_sat_frac <= the 2M read +10%). over_current reported separately, never vetoes alone. FAIL if mech terms reappear, completion drops materially, or walk/turn quality regresses past the cap -- would mean the 2M win doesn't survive a real budget and the diet needs the priced action-rate/jerk objective (semantics-bank first) instead of more steps.
+
+**verdict**: FAIL vs its own pre-registered gate -- the 2M mechanism-health win (0/72 mech terms) did NOT fully survive the acquisition-length (8060928-step) budget. eval_cmd_stress DR-0+ownDR (72 seq episodes, seed base 93000, --strict, identical stress bundle): hold_min_load reappeared in 6/72 episodes (8.3%, vs the 2M checkpoint's 0/72) -- dr0 2/36, owndr 4/36. Every one of the 6 fires in a mid-transition HOLD segment reached via walk->lower->rise, walk->hold, or rise->hold (seq_plan confirms), the exact class hold_min_load is documented (sim_env.py, manual_drive_session.py) to reliably trip: the per-foot-load EMA has no carry-over across a mode_seq segment switch, so a foot left unloaded through the switch reads as unloaded from t=0 of the new segment. height_err_end at termination (3.9-17.7mm) shows a soft posture loss, not a violent fall. session_complete_frac 0.917 still clears the run's own >=0.90 soft bar; segments_reached_frac 0.962. Walk quality did NOT regress -- it IMPROVED vs the 2M read: progress_ratio_med 0.242 (2M: 0.214, +13%), direction_err_med 43.1deg (2M: 49.85, -14%), slip/m 6.57 (2M: 7.38, better). Smoothness tied exactly at the champion's slew cap (cmd_jerk_p95 7500=2M, slew_sat_frac 1.0=2M, cur_rail_frac 0.008=2M). NEW FINDING: gait_valid_frac dropped from the 2M checkpoint's clean 1.0 to 0.986 with sacrificed_legs_seen=[1,2,3] appearing -- the SAME sacrificed-leg signature that characterized the seed0 sibling's (-transtress) 2M FAIL (legs [3,4,5]), now showing up in this seed1 lineage after more steps. Reframes the STATUS 'seed-specific divergence' finding: both seeds drift toward the same hold-transition/sacrificed-leg pathology, seed1 just later/milder (8.3% here vs seed0's 2M read of ~46% mech-term rate) -- a budget/timing difference, not a true fork. Training reward rose the whole 8M window (quarters -32.4/166.9/519.2/852.9, final ep_rew_mean 1087.3) -- per the 08-21 ruling this is not a collapse, but the run's own pre-written FAIL clause explicitly anticipated exactly this outcome and named the fix: not more steps, but a priced mechanism for the segment-switch foot-load-continuity gap (semantics-bank first) -- generic 'more budget' already shown here not to close it alone. Do not promote this checkpoint or launch a further acquisition-length continuation on this diet as-is; next step is a targeted reward/termination-carry-over fix for the mode_seq segment-entry EMA reset (STATUS Next item 1), tested against the semantics bank before any relaunch.
+

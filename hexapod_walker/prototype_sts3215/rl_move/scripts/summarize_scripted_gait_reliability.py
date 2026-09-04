@@ -125,12 +125,23 @@ def _load_trials(run_dir: Path) -> list[dict[str, Any]]:
         json.loads(manifest_file.read_text()) if manifest_file.is_file() else {}
     )
     motion_file = run_dir / "apriltag_motion.json"
+    if not motion_file.is_file():
+        motion_file = run_dir / "apriltag_motion_v2.json"
     motion = json.loads(motion_file.read_text()) if motion_file.is_file() else {}
     motion_phases = motion.get("phases") or {}
     telemetry_file = run_dir / "telemetry.csv"
     telemetry = _csv_rows(telemetry_file) if telemetry_file.is_file() else []
+    events_file = run_dir / "events.csv"
+    events = _csv_rows(events_file) if events_file.is_file() else []
     command_speed = float(config["speed_mm_s"])
-    run_complete = manifest.get("status") == "complete"
+    event_names = {row.get("event") for row in events}
+    run_complete = (
+        manifest.get("status") == "complete"
+        or ("suite_complete" in event_names and "suite_error" not in event_names)
+    )
+    run_status = manifest.get("status") or (
+        "complete" if run_complete else "unknown"
+    )
     trials: list[dict[str, Any]] = []
     for gait in config.get("gaits", []):
         for direction in ("forward", "backward"):
@@ -142,7 +153,7 @@ def _load_trials(run_dir: Path) -> list[dict[str, Any]]:
             )
             trials.append({
                 "run_dir": str(run_dir),
-                "run_status": manifest.get("status"),
+                "run_status": run_status,
                 "run_error": manifest.get("error"),
                 "gait": int(gait),
                 "direction": direction,
@@ -184,7 +195,7 @@ def _distribution(values: list[float]) -> dict[str, Any]:
     }
 
 
-def build_report(run_dirs: list[Path]) -> dict[str, Any]:
+def build_report(run_dirs: list[Path], *, baseline_gait: int = 0) -> dict[str, Any]:
     trials = [trial for run_dir in run_dirs for trial in _load_trials(run_dir)]
     grouped: dict[tuple[int, str, float], list[dict[str, Any]]] = defaultdict(list)
     for trial in trials:
@@ -216,12 +227,14 @@ def build_report(run_dirs: list[Path]) -> dict[str, Any]:
     ratio_values: dict[tuple[int, str], list[float]] = defaultdict(list)
     for phase_speeds in by_run.values():
         for (gait, direction), speed in phase_speeds.items():
-            baseline = phase_speeds.get((0, direction))
-            if gait != 0 and baseline is not None and baseline > 0.0:
+            baseline = phase_speeds.get((baseline_gait, direction))
+            if gait != baseline_gait and baseline is not None and baseline > 0.0:
                 ratio_values[(gait, direction)].append(speed / baseline)
-        candidate_gaits = sorted({gait for gait, _ in phase_speeds if gait != 0})
+        candidate_gaits = sorted({
+            gait for gait, _ in phase_speeds if gait != baseline_gait
+        })
         baseline_pair = [
-            phase_speeds.get((0, direction))
+            phase_speeds.get((baseline_gait, direction))
             for direction in ("forward", "backward")
         ]
         if all(speed is not None for speed in baseline_pair):
@@ -238,24 +251,28 @@ def build_report(run_dirs: list[Path]) -> dict[str, Any]:
                         statistics.mean(float(speed) for speed in candidate_pair)
                         / baseline_mean
                     )
-    paired = [
-        {
+    paired = []
+    for (gait, direction), values in sorted(ratio_values.items()):
+        distribution = _distribution(values)
+        paired.append({
             "gait": gait,
             "direction": direction,
-            "speed_ratio_vs_gait0": _distribution(values),
-        }
-        for (gait, direction), values in sorted(ratio_values.items())
-    ]
+            "speed_ratio_vs_baseline": distribution,
+            **({"speed_ratio_vs_gait0": distribution}
+               if baseline_gait == 0 else {}),
+        })
     return {
         "schema_version": 1,
         "measurement": (
             "AprilTag floor-projected chassis progress; candidate/baseline "
             "ratios are paired within one camera session"
         ),
+        "baseline_gait": baseline_gait,
         "runs": [str(run_dir) for run_dir in run_dirs],
         "trial_count": len(trials),
         "groups": groups,
-        "paired_vs_gait0": paired,
+        "paired_vs_baseline": paired,
+        **({"paired_vs_gait0": paired} if baseline_gait == 0 else {}),
         "trials": trials,
     }
 
@@ -263,12 +280,13 @@ def build_report(run_dirs: list[Path]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--runs", type=Path, nargs="+", required=True)
+    parser.add_argument("--baseline-gait", type=int, default=0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     run_dirs = _discover_runs(args.runs)
     if not run_dirs:
         parser.error("no scripted_gait_suite_* run directories found")
-    report = build_report(run_dirs)
+    report = build_report(run_dirs, baseline_gait=args.baseline_gait)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))

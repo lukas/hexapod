@@ -1,57 +1,47 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~07:0x (**SELECTIVE per-leg omega boost — the
-untried candidate the prior cycle named — built, validated
-zero-training, and now spending its first RL canary (2-dose x
-2-seed, 4 runs, all VERIFIED RUNNING).**)
+Update, 2026-09-04 ~07:2x (**selomegaboost dose3.0/seed0 arm reports:
+CANARY FAIL - MECHANISM, 1st of the 4-arm grid to close, same
+sign-asymmetric-pure-turn-erosion pattern as every prior teacher-lever
+candidate despite this one's clean zero-training validation.**)
 
-Unlike every REFUTED candidate on the "reshape the commanded yaw
-ANGLE" axis (uniform `combined_yaw_arm_scale`, selective
-`combined_yaw_amplify_scale`, the unwired "detangle" idea — archived
-below), this lever changes the TRUE foot target: on a combined tick,
-only the 3 legs the vx cross term ATTENUATES below their own
-pure-omega magnitude get their foot displacement (dx/dy/dz, hip+knee
-included) recomputed with a boosted omega — mirroring the
-already-tried UNIFORM `train.bc_anchor_teacher_omega_boost` but
-restricted to the legs that actually lose authority. New
-`TripodGait.combined_selective_omega_boost` +
-`probe_turn_authority.py --scripted-selective-omega-boost` +
-`train.bc_anchor_teacher_selective_omega_boost` BC-anchor wiring (13
-new tests, 149/149 green overall). Zero-training scripted-teacher
-validation (real MuJoCo physics, not the kinematic replay): dose
-3.0-4.0 raises combined wz_med from ~0.081/-0.077 to
-0.20-0.24/-0.20-0.24 rad/s — BOTH signs, sign-SYMMETRIC (unlike every
-prior lever) — with pure-turn/pure-walk BIT-EXACT untouched; beats
-the uniform lever's own best dose on real wz (0.231 vs 0.168 rad/s).
-Launched `cap29-stdwalklohi-selomegaboost{3p0,4p0}{,-s1}` (2M-step
-canaries, respec off the `yawarm1p5{,-s1}` ancestor, that lever reset
-to identity) against the same `cap29-stdwalklo-hi{,-s1}` control used
-throughout — VERIFIED RUNNING train-1/2/3/4. Pre-committed decision
-rule: sign-asymmetric pure-turn regression like every prior lever
-closes the geometry/teacher-lever axis for good; clearing it makes
-this the first candidate that is genuinely different in kind (real
-torque, not commanded-angle reshape).
+`probe_turn_authority.py` on the finished `cw-standwalk-stage2-
+dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-
+selomegaboost3p0` checkpoint (full 84-key non-train cfg-set replayed,
+2 probe seeds averaged) vs the matched `cap29-stdwalklo-hi` seed0
+control: pure-turn wz_med +0.166/-0.215 vs control +0.223/-0.250 (25.5%/
+14.0% regression, BOTH signs breach the pre-registered 10% cap);
+combined-tick (vx=0.08) wz_med +0.084/-0.181 vs control +0.110/-0.170
+— positive sign is WORSE, failing the "beats control on both signs"
+bar outright regardless of the negative-sign gain. Training reward
+genuinely healthy (rising monotonically to 290 at the final step, no
+flat tail) so this is the mechanism failing, not a starved run. Same
+failure signature as every predecessor on this axis (uniform
+omega_boost, yaw_arm_scale, combined-dose ablations, yawboost) —
+RL fine-tuning erodes pure-turn even when the teacher-side lever is
+bit-exact-by-construction on pure-turn ticks. 3 sibling arms
+(selomegaboost4p0, -4p0-s1, -3p0-s1) still finishing/awaiting their
+own triage — full axis-close verdict needs all 4; see Next item 2.
 
-Prior banner (per-leg instrumentation + 2 REFUTED candidates closing
-the angle-reshape axis) moved VERBATIM to `archive/standwalk_
-STATUS_journal_2026-09-04aa_trim.md`.
+Prior banner (candidate build + all-4-launched note) moved to
+`archive/standwalk_STATUS_journal_2026-09-04bb_trim.md`.
 
-## Next (updated 09-04 ~07:0x)
+## Next (updated 09-04 ~07:2x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md`. No reward code
    changed; a future fix should price sustained near-ceiling current
    directly (`over2A_s`-style), not a stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM, awaiting the selective-omega-boost
-   canary above.** PASS bar (pre-registered in the ledger/gate text):
-   combined wz_med beats the checkpoint-scope comparator (seed0
-   +0.110/-0.170, seed1 +0.086/-0.142) on BOTH signs, pure-turn/
-   straight-walk regression <=10% vs control, no new terminations.
-   If it fails the same sign-asymmetric way as every prior teacher-
-   lever (uniform omega_boost, yaw_arm_scale, combined-tick BC-
-   anchor-skip), the geometry/teacher-lever axis closes for good and
-   the honest next move is a gait-STRUCTURE change (per-leg period/
-   tripod-grouping during combined ticks, not yet tried) or an
+2. **Steering branch — TOP ITEM, 1/4 arm reports FAIL, awaiting 3
+   siblings (selomegaboost4p0, -4p0-s1, -3p0-s1) to close the axis.**
+   dose3.0/seed0 already breaches BOTH pre-registered branches (pure-
+   turn regression >10% both signs AND combined-tick fails to beat
+   control on the positive sign) — see Update above. If the other 3
+   arms fail the same sign-asymmetric way (matching every prior
+   teacher-lever: uniform omega_boost, yaw_arm_scale, combined-tick
+   BC-anchor-skip), the geometry/teacher-lever axis closes for good
+   and the honest next move is a gait-STRUCTURE change (per-leg
+   period/tripod-grouping during combined ticks, not yet tried) or an
    escalated DONE-gate turn-authority renegotiation. Do not re-open
    architecture-split (Triple/yaw_critic.py) — done.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa}):**
@@ -69,14 +59,17 @@ STATUS_journal_2026-09-04aa_trim.md`.
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa}. Current state =
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb}. Current state =
 > newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~07:0x)
+## Fleet capacity note (updated 09-04 ~07:2x)
 
-4 GPU pods (train-1/2/3/4) now running the selective-omega-boost
-canary grid (2 doses x 2 seeds, ~2M steps each, ~25-40 min ETA). 7
-pods free. Every OTHER track remains non-launchable by design
+All 4 selective-omega-boost canary grid runs (train-1/2/3/4) have
+finished/reported to W&B; pods free again (11/12 free per
+capacity.py — one pending). No launchable next arm this cycle: the
+axis's own decision rule needs the other 3 siblings' verdicts before
+a new lever can be designed (a gait-structure-change candidate isn't
+built yet). Every OTHER track remains non-launchable by design
 (`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
 `todaypolicy` DELIVERED).
 

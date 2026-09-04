@@ -111,14 +111,28 @@ WORSE (21.2%/18.5% vs dose-0.3's 12.0%/19.8%) — doubling the dose
 spent more pure-turn budget for near-zero combined-tick return, a
 non-monotonic/diminishing-returns confirmation of the same shared-
 representation root cause, not a new failure mode. **Dose axis: 3/4
-FAIL** (only `combdose0p6-s1` open, retrying as `...-s1-r2` after its
-first launch attempt never trained — INTENT/training, another cycle's
-scope). Do NOT launch the next escalation lever yet — if `-s1-r2`
-also FAILs the whole `bc_anchor_walk_combined_dose` axis closes 4/4
-alongside the geometry-lever axis, and the next lever must act on
-something neither family reaches (phase-schedule the weight WITHIN a
-stride, or split policy capacity so pure-turn gets a protected
-sub-path).
+FAIL** (only `combdose0p6-s1` open). Its FIRST launch attempt never
+trained (0 global_step for 1200s); the `-r2` retry (identical spec,
+same pod `hexapod-mjx-train-1`) ALSO failed to train the same way
+(vec-env up, warm-start loaded, then silent crash to W&B `crashed`
+within ~25 min, no PPO iteration) — second death on the same pod.
+Investigation (09-04 ~01:4x): `hexapod-mjx-train-1`'s node `g129004`
+read `/proc/loadavg` 66-85 and sibling node `g142d86` read 140+ (heavy
+ALL-TENANT contention on some nodes right now) vs `g131eec` at 8-10 —
+read as node-load starvation during `host_workers=24` env-vec spawn,
+not a spec/checkpoint defect (no other `train-1` run today failed this
+way). Corrective per the second-death infra-escalation rule: relaunched
+as `...-s1-r3` explicitly pinned to `hexapod-mjx-train-2` (node
+`g131eec`, low load) via `respec --now --pod`; VERIFIED RUNNING 09-04
+~01:5x. Full note: `rl_move/orchestrator/OPERATOR_QUESTIONS.md`
+2026-09-04 ~01:4x entry. Do NOT launch the next escalation lever yet
+— once `-r3` reads, if it also FAILs the whole
+`bc_anchor_walk_combined_dose` axis closes 4/4 alongside the
+geometry-lever axis, and the next lever must act on something neither
+family reaches (phase-schedule the weight WITHIN a stride, or split
+policy capacity so pure-turn gets a protected sub-path). If `-r3`
+instead fails to TRAIN again on an uncontended pod, that rules out
+node-load and reopens this as a real code/checkpoint dig-in.
 
 ## Next (updated 09-04 ~01:0x)
 
@@ -141,17 +155,21 @@ sub-path).
    `combdose0p3-s1` both blow the pure-turn cap while winning
    combined-tick; `combdose0p6` seed0 blows pure-turn WORSE for a
    near-zero combined-tick gain, non-monotonic). **1 cell open**
-   (`combdose0p6-s1`, retrying as `...-s1-r2`, in flight on another
-   cycle's scope). NEXT: once `-s1-r2` reads, if it also FAILs the
-   BC-anchor-DOSE axis is exhausted 4/4 alongside the geometry-lever
-   axis and the next lever must touch something the dose/skip/scale
-   family cannot reach (candidates: phase-schedule the weight WITHIN a
-   stride instead of per-tick-class, or redirect effort to
-   standwalk's other remaining gap rather than a fourth variant of
-   "weaken the combined-tick anchor"). Do not pre-build that next lever
-   until the 4th cell is read — a single non-monotonic cell
-   (`combdose0p6`) already warns against assuming the trend
-   extrapolates.
+   (`combdose0p6-s1`): first attempt AND its `-r2` retry both failed
+   to train (2x on the same pod `hexapod-mjx-train-1`) — read as
+   node-load infra (node `g129004`/`g142d86` load1 66-140+ vs
+   uncontended `g131eec` at 8-10, see OPERATOR_QUESTIONS.md 09-04
+   ~01:4x), not a spec defect. Relaunched as `...-s1-r3` pinned to the
+   uncontended `hexapod-mjx-train-2`; VERIFIED RUNNING 09-04 ~01:5x.
+   NEXT: once `-r3` reads, if it also FAILs the BC-anchor-DOSE axis is
+   exhausted 4/4 alongside the geometry-lever axis and the next lever
+   must touch something the dose/skip/scale family cannot reach
+   (candidates: phase-schedule the weight WITHIN a stride instead of
+   per-tick-class, or redirect effort to standwalk's other remaining
+   gap rather than a fourth variant of "weaken the combined-tick
+   anchor"). Do not pre-build that next lever until the 4th cell is
+   read — a single non-monotonic cell (`combdose0p6`) already warns
+   against assuming the trend extrapolates.
 3. **Closed (archives 09-02{,b..h}, 09-03{a..u}):** yaw-arm-scale
    candidate (i)-v2 dose x seed grid (4/4 FAIL, 09-04); update-size/
    reward/exploration/anchor/turn-skip/yaw-credit/diet/duration/
@@ -172,15 +190,18 @@ sub-path).
 > 09-03{a..i,n,o,p,q,r,s,t,u}. Current state = newest Update at the TOP;
 > don't act on archived Next.
 
-## Fleet capacity note (09-04 ~00:1x)
+## Fleet capacity note (updated 09-04 ~01:5x)
 
-4 of 11 GPU slots spent on the item-2 dose-canary batch
-(`combdose{0p3,0p6}{,-s1}`, train-4/5/11/1); 7 free. Every OTHER track
-is non-launchable by design (`joystick`/`amp`/`cpg` DONE or
-maintenance-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
-`standwalk`'s only Next item now has a launched, gated canary in
-flight — next cycle's job is to read it, not launch more speculative
-arms ahead of that read.
+3/4 dose-canary cells now read (all FAIL-MECHANISM); the 4th
+(`combdose0p6-s1`) died to train twice on the same pod
+(`hexapod-mjx-train-1`, node-load infra, see banner) and is now
+in flight a 3rd time as `-r3` on `hexapod-mjx-train-2` — 1 of 11 GPU
+slots spent, 10 free. Every OTHER track is non-launchable by design
+(`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
+`todaypolicy` DELIVERED). `standwalk`'s only Next item now has a
+launched, gated canary in flight — next cycle's job is to read it, not
+launch more speculative arms ahead of that read (the 09-04 ~00:1x note
+above still holds; only the pod/attempt count changed).
 
 ## Goal (operator, 08-24 evening)
 

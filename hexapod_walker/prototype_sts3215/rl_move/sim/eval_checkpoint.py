@@ -638,6 +638,18 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     }
     if info0.get("reset_start_jitter"):
         ep["reset_start_jitter"] = info0["reset_start_jitter"]
+    # Per-episode DR draw (standwalk STATUS Next#1, 09-04): sim_env's
+    # reset info already computes EpisodeRandomization.summary() every
+    # episode (`info0["randomization"]`) but no consumer persisted it
+    # into the eval report, so no dig-in could correlate WHICH sampled
+    # friction/mass/gain/etc axis correlates with a fired termination
+    # (e.g. hold_min_load at the mlcontprice dose ceiling). Purely
+    # additive: None when DR is off (dr_scale=0 -> randomizer is None
+    # -> info0["randomization"] is already None), a small dict of the
+    # already-rounded summary fields otherwise. No existing consumer
+    # reads this key, so every prior report.json shape is unaffected.
+    if info0.get("randomization") is not None:
+        ep["randomization"] = info0["randomization"]
     # Composed-session fields (08-27, eval_mixed_session instrument):
     # written ONLY when this episode actually ran a goal.mode_seq /
     # goal.mode_seq_stance sequence (sim_env._reset_begin clears

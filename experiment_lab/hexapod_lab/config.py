@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 import shlex
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,13 @@ class Settings:
     auto_worker: bool
     max_duration_seconds: int
     max_artifact_bytes: int = 2 * 1024 * 1024 * 1024
+    tag_audit_command: tuple = ()
+    tag_layout_path: Optional[Path] = None
+    tag_pose_template_path: Optional[Path] = None
+    tag_floor_map_path: Optional[Path] = None
+    tag_part_map_path: Optional[Path] = None
+    max_tag_photo_bytes: int = 8 * 1024 * 1024
+    max_tag_photos: int = 36
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -38,4 +46,20 @@ class Settings:
             max_artifact_bytes=int(os.getenv(
                 "HEXAPOD_MAX_ARTIFACT_BYTES", str(2 * 1024 * 1024 * 1024)
             )),
+            tag_audit_command=tuple(shlex.split(os.getenv(
+                "HEXAPOD_TAG_AUDIT_COMMAND", ""
+            ))),
+            tag_layout_path=_optional_path("HEXAPOD_TAG_LAYOUT"),
+            tag_pose_template_path=_optional_path("HEXAPOD_TAG_POSE_TEMPLATE"),
+            tag_floor_map_path=_optional_path("HEXAPOD_TAG_FLOOR_MAP"),
+            tag_part_map_path=_optional_path("HEXAPOD_TAG_PART_MAP"),
+            max_tag_photo_bytes=int(os.getenv(
+                "HEXAPOD_MAX_TAG_PHOTO_BYTES", str(8 * 1024 * 1024)
+            )),
+            max_tag_photos=int(os.getenv("HEXAPOD_MAX_TAG_PHOTOS", "36")),
         )
+
+
+def _optional_path(name: str) -> Optional[Path]:
+    value = os.getenv(name, "").strip()
+    return Path(value).expanduser().resolve() if value else None

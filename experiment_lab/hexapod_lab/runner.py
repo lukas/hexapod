@@ -7,7 +7,7 @@ import random
 import subprocess
 import threading
 import time
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from .config import Settings
 from .db import Store
@@ -16,9 +16,12 @@ from .db import Store
 class ExperimentRunner:
     """Single-consumer worker: only one experiment may command the robot at once."""
 
-    def __init__(self, store: Store, settings: Settings):
+    def __init__(
+        self, store: Store, settings: Settings, layout_history: Optional[Any] = None
+    ):
         self.store = store
         self.settings = settings
+        self.layout_history = layout_history
         self.stop_event = threading.Event()
         self.wake_event = threading.Event()
         self.thread: Optional[threading.Thread] = None
@@ -50,9 +53,27 @@ class ExperimentRunner:
     def _execute(self, experiment: Dict):
         run_dir = self.settings.data_dir / "experiments" / experiment["id"]
         run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / "experiment.json").write_text(json.dumps(experiment, indent=2) + "\n")
         camera = None
         try:
+            if self.layout_history is not None:
+                # Provenance must exist before camera capture begins. Analysis
+                # of this run can then never silently use today's config.
+                self.layout_history.pin_experiment(
+                    experiment["id"],
+                    recorded_at=datetime.now(timezone.utc).isoformat(),
+                    pin_basis="recording_start",
+                )
+                self.layout_history.materialize_experiment(
+                    run_dir, experiment["id"]
+                )
+            recorded = dict(experiment)
+            if self.layout_history is not None:
+                recorded["tag_layout_revision"] = (
+                    self.layout_history.experiment_revision(experiment["id"])
+                )
+            (run_dir / "experiment.json").write_text(
+                json.dumps(recorded, indent=2) + "\n"
+            )
             camera = self._start_camera(run_dir)
             if self.settings.driver == "simulated":
                 result = self._simulate(experiment, run_dir)
@@ -194,4 +215,17 @@ class ExperimentRunner:
             if path.is_file() and path.name != "manifest.json":
                 digest = hashlib.sha256(path.read_bytes()).hexdigest()
                 entries.append({"name": path.name, "bytes": path.stat().st_size, "sha256": digest})
-        (run_dir / "manifest.json").write_text(json.dumps({"artifacts": entries}, indent=2) + "\n")
+        manifest = {"schema_version": 2, "artifacts": entries}
+        context_path = run_dir / "vision-context.json"
+        if context_path.is_file():
+            try:
+                manifest["vision_context"] = json.loads(
+                    context_path.read_text(encoding="utf-8")
+                )
+            except (OSError, json.JSONDecodeError) as exc:
+                raise RuntimeError(
+                    "vision-context.json is unreadable; refusing an ambiguous manifest"
+                ) from exc
+        (run_dir / "manifest.json").write_text(
+            json.dumps(manifest, indent=2) + "\n"
+        )

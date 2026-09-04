@@ -272961,7 +272961,7 @@
       "goal.mode_seq_max_segments=8"
     ],
     "created": "2026-09-04T08:08:14+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -273007,7 +273007,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-04T08:57:45"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: stress-diet canary (seed0) fails its own gate hard: eval_cmd_stress 72 seq episodes -> 33/72 terminations (hold_low_height 31, hold_min_load 2 -- hold_low_height is a NEW failure class not seen in the seed1 twin or any mlcontprice sibling), session_complete_frac 0.542 (matched control cont: 13/72 terms, 0.819 complete -- stress diet made seed0 WORSE, not better), sacrificed_legs_seen [3,4,5], gait_valid_frac 0.986. Opposite of seed1 (-transtress-s1, clean 0/72 PASS on the identical bundle) -- confirms the seed-dependent fork already flagged 09-04 10:0x. Reward was healthy/rising (not a premature kill; W&B state=finished, ep_rew_mean 44.3) so this is a genuine mechanism-level FAIL, not undertraining: the stress-diet lever helps one seed and hurts the other on hold-mode robustness, so it is not a safe universal default. Ledger was stuck RUNNING after a mid-run pod relaunch (train-4->train-6); this closes it retroactively from the already-computed stress_verdict.json, no new compute spent. Next: don't promote transtress-diet alone; the seed1 acquisition line (transtress-s1-acq8m and its mlcontprice2/8 mechanism-health children) is the one carrying forward, and any future stress-diet arm needs an n>=2-seed read before calling it a class win, not n=1."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-transtress-s1",

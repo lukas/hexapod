@@ -295,9 +295,18 @@ def test_drive_timing_trip_applies_to_policy_ticks_only():
         "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 20,
         timing, 0.025, rl_policy.DRIVE_TIMING_MAX_CONSECUTIVE_LATE
     )
-    assert "missed the 100 Hz deadline" in rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+    assert rl_policy._drive_timing_trip_reason(  # noqa: SLF001
         "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 20,
         timing, rl_policy.DRIVE_TIMING_HARD_LAG_S + 0.001, 1
+    ) is None
+    assert "hard misses" in rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 21,
+        timing, rl_policy.DRIVE_TIMING_HARD_LAG_S + 0.001,
+        rl_policy.DRIVE_TIMING_HARD_LAG_CONSECUTIVE,
+    )
+    assert "missed the 100 Hz deadline" in rl_policy._drive_timing_trip_reason(  # noqa: SLF001
+        "walk", None, rl_policy.DRIVE_TIMING_STARTUP_GRACE_TICKS + 22,
+        timing, rl_policy.DRIVE_TIMING_CRITICAL_LAG_S + 0.001, 1,
     )
 
 

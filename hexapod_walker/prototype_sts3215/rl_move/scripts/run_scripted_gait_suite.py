@@ -249,6 +249,8 @@ def _request(
 
 
 class RawRecorder:
+    OUTPUT_FPS = 30.0
+
     def __init__(self, output: Path, timestamps: Path, camera_index: int) -> None:
         self.output = output
         self.timestamps = timestamps
@@ -297,7 +299,7 @@ class RawRecorder:
         capture = StableAVFoundationYuvCapture(
             self.camera_index,
             preferred_sizes=((1920, 1440), (1920, 1080), (1280, 720)),
-            fps=30.0,
+            fps=self.OUTPUT_FPS,
             processing_width=1920,
             frame_timeout_s=6.0,
         )
@@ -311,7 +313,7 @@ class RawRecorder:
             for codec in ("avc1", "mp4v"):
                 candidate = cv2.VideoWriter(
                     str(self.output), cv2.VideoWriter_fourcc(*codec),
-                    30.0, (width, height)
+                    self.OUTPUT_FPS, (width, height)
                 )
                 if candidate.isOpened():
                     writer = candidate
@@ -321,11 +323,16 @@ class RawRecorder:
                 raise RuntimeError("could not open an H.264/mp4v video writer")
             csv_file = self.timestamps.open("w", newline="")
             rows = csv.writer(csv_file)
-            rows.writerow(["frame", "elapsed_s", "unix_s", "width", "height"])
+            rows.writerow([
+                "frame", "elapsed_s", "unix_s", "capture_unix_s",
+                "width", "height",
+            ])
             self.started_monotonic = time.monotonic()
+            started_unix = time.time()
+            next_output_monotonic = self.started_monotonic
             with self.latest_lock:
                 self.latest_frame = frame
-                self.latest_frame_unix_s = time.time()
+                self.latest_frame_unix_s = started_unix
             self.ready.set()
             while not self.stop_event.is_set():
                 now = time.monotonic()
@@ -333,16 +340,31 @@ class RawRecorder:
                 with self.latest_lock:
                     self.latest_frame = frame
                     self.latest_frame_unix_s = now_unix
-                writer.write(frame)
-                rows.writerow([
-                    self.frames,
-                    round(now - self.started_monotonic, 6),
-                    round(now_unix, 6),
-                    width,
-                    height,
-                ])
-                self.frames += 1
-                if self.frames % 30 == 0:
+                # AVFoundation can return frames at the sensor's native rate
+                # even after a lower requested FPS is supplied (this camera
+                # returned ~120 fps).  Writing every capture into a 30 fps
+                # container made experiment videos play about four times too
+                # slowly.  Resample against the monotonic clock: drop excess
+                # captures and repeat the newest frame only when a capture
+                # stall leaves one or more 30 Hz presentation slots due.
+                due, next_output_monotonic = _due_video_frame_times(
+                    next_output_monotonic, now, self.OUTPUT_FPS,
+                )
+                for frame_monotonic in due:
+                    frame_unix = started_unix + (
+                        frame_monotonic - self.started_monotonic
+                    )
+                    writer.write(frame)
+                    rows.writerow([
+                        self.frames,
+                        round(frame_monotonic - self.started_monotonic, 6),
+                        round(frame_unix, 6),
+                        round(now_unix, 6),
+                        width,
+                        height,
+                    ])
+                    self.frames += 1
+                if due and self.frames % int(self.OUTPUT_FPS) == 0:
                     csv_file.flush()
                 ok, frame = capture.read()
                 if not ok or frame is None:
@@ -358,6 +380,30 @@ class RawRecorder:
             if csv_file is not None:
                 csv_file.close()
             capture.release()
+
+
+def _due_video_frame_times(
+    next_output_monotonic: float,
+    now_monotonic: float,
+    fps: float,
+) -> tuple[list[float], float]:
+    """Return fixed-rate presentation times due at ``now_monotonic``.
+
+    Camera capture rate is not a reliable indication of the requested rate on
+    AVFoundation.  Keeping this scheduling arithmetic separate also makes the
+    wall-clock/video-duration contract easy to regression test without a
+    camera.
+    """
+    if fps <= 0.0:
+        raise ValueError("fps must be positive")
+    interval = 1.0 / fps
+    due: list[float] = []
+    # StableAVFoundationYuvCapture has a six-second read timeout, so this is
+    # bounded to roughly 180 catch-up frames in the worst legitimate case.
+    while next_output_monotonic <= now_monotonic:
+        due.append(next_output_monotonic)
+        next_output_monotonic += interval
+    return due, next_output_monotonic
 
 
 class Suite:

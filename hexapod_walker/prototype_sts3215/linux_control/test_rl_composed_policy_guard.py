@@ -18,6 +18,12 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from api.rl import RlApi
+from rl_policy import (
+    PolicyTiming,
+    _drive_timing_trip_reason,
+    _tail_tilt_summary,
+    _timing_trip_reason,
+)
 
 
 class FakeRlApi(RlApi):
@@ -96,6 +102,77 @@ def test_policy_picker_rejects_unversioned_coordinates():
         out = api.rl_policy_select(file=path.name)
         assert out["ok"] is False
         assert "invalid v2 policy" in out["error"]
+
+
+def test_walk_timing_tolerates_isolated_startup_jitter():
+    assert _timing_trip_reason(
+        "walk", tick=0, hz=100.0, late_s=0.007,
+        consecutive_late=1,
+    ) is None
+    assert _timing_trip_reason(
+        "walk", tick=2, hz=100.0, late_s=0.049,
+        consecutive_late=3,
+    ) is None
+
+
+def test_walk_timing_still_trips_persistent_or_hard_stalls():
+    persistent = _timing_trip_reason(
+        "walk", tick=5, hz=100.0, late_s=0.007,
+        consecutive_late=3,
+    )
+    assert persistent is not None
+    assert "3 consecutive" in persistent
+
+    hard = _timing_trip_reason(
+        "walk", tick=5, hz=100.0, late_s=0.051,
+        consecutive_late=1,
+    )
+    assert hard is not None
+    assert "tick 5" in hard
+
+
+def test_drive_timing_tolerates_one_hard_transport_bubble():
+    timing = PolicyTiming(100.0, 0.01, 100.0, True, 100.0)
+    assert _drive_timing_trip_reason(
+        "walk", object(), tick=22, timing=timing, late_s=0.054,
+        consecutive_late=1,
+    ) is None
+
+
+def test_drive_timing_trips_repeated_hard_or_critical_stall():
+    timing = PolicyTiming(100.0, 0.01, 100.0, True, 100.0)
+    repeated = _drive_timing_trip_reason(
+        "walk", object(), tick=23, timing=timing, late_s=0.051,
+        consecutive_late=2,
+    )
+    assert repeated is not None
+    assert "2 consecutive hard misses" in repeated
+
+    critical = _drive_timing_trip_reason(
+        "walk", object(), tick=24, timing=timing, late_s=0.201,
+        consecutive_late=1,
+    )
+    assert critical is not None
+    assert "tick 24" in critical
+
+
+def test_tail_fall_classifier_clears_recovered_imu_excursion():
+    summary = _tail_tilt_summary([
+        4.0, 7.0, 55.8, 56.1, 55.7, 10.0, 1.2, 0.4, 0.3,
+    ])
+    assert summary["tail_tilt_max_deg"] == 56.1
+    assert summary["tail_tilt_high_samples"] == 3
+    assert summary["tail_tilt_recovered"] is True
+    assert summary["tail_fell"] is False
+
+
+def test_tail_fall_classifier_keeps_persistent_or_late_excursion():
+    persistent = _tail_tilt_summary([2.0, 38.0, 51.0, 52.0, 50.0])
+    assert persistent["tail_tilt_recovered"] is False
+    assert persistent["tail_fell"] is True
+
+    late = _tail_tilt_summary([2.0, 48.0])
+    assert late["tail_fell"] is True
 
 
 def _main() -> int:

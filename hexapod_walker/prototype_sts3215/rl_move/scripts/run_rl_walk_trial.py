@@ -1,0 +1,700 @@
+#!/usr/bin/env python3
+"""Record short hardware walks for a deployed RL policy.
+
+The timed legs use ``/api/rl/walk``. The optional course uses the persistent
+drive API with 5 Hz heartbeats and translation only; it never sends yaw. A
+normal trial starts from verified logical zero, runs the known STEP transition
+to the simulator walk-ready pose, records each policy episode, then performs a
+planned STEP lower and limps. Robot-side policy guards remain authoritative.
+"""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+import cv2
+
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from rl_move.scripts.run_scripted_gait_suite import RawRecorder, _request
+
+
+DIRECTIONS = {
+    "forward": (1.0, 0.0),
+    "backward": (-1.0, 0.0),
+    "left": (0.0, 1.0),
+    "right": (0.0, -1.0),
+}
+COURSE = ("forward", "left", "backward", "right")
+
+
+class Trial:
+    def __init__(self, args: argparse.Namespace, output_dir: Path) -> None:
+        self.args = args
+        self.base = args.robot_url.rstrip("/")
+        self.output_dir = output_dir
+        self.started = time.monotonic()
+        self.phase = "preflight"
+        self.motion_started = False
+        self.completed = False
+        self.results: list[dict[str, Any]] = []
+        self.recorder = RawRecorder(
+            output_dir / "camera_raw.mp4",
+            output_dir / "camera_timestamps.csv",
+            args.camera_index,
+        )
+        self.events_file = (output_dir / "events.csv").open("w", newline="")
+        self.events = csv.writer(self.events_file)
+        self.events.writerow(["unix_s", "elapsed_s", "phase", "event", "detail"])
+        self.telemetry_file = (output_dir / "telemetry.csv").open("w", newline="")
+        self.telemetry = csv.writer(self.telemetry_file)
+        self.telemetry.writerow([
+            "unix_s", "elapsed_s", "phase", "live", "roll_deg",
+            "pitch_deg", "gyro_xyz_dps", "max_current_a", "bus_current_a",
+            "max_temp_c", "min_voltage_v", "degrees", "currents_a",
+            "temperatures_c", "voltages_v",
+        ])
+
+    def close(self) -> None:
+        self.events_file.close()
+        self.telemetry_file.close()
+
+    def event(self, name: str, detail: Any = "") -> None:
+        elapsed = time.monotonic() - self.started
+        clean = detail if isinstance(detail, str) else json.dumps(detail, sort_keys=True)
+        self.events.writerow([
+            round(time.time(), 6), round(elapsed, 3), self.phase, name, clean,
+        ])
+        self.events_file.flush()
+        print(f"[{elapsed:7.2f}s] {self.phase} {name}: {clean}", flush=True)
+
+    def request(self, path: str, body: dict[str, Any] | None = None) -> Any:
+        return _request(
+            self.base, path, json_body=body,
+            timeout=8.0 if body is not None else 5.0,
+        )
+
+    def snapshot(self, label: str) -> Path:
+        frame, frame_unix_s = self.recorder.snapshot()
+        path = self.output_dir / f"camera_{label}.jpg"
+        if not cv2.imwrite(str(path), frame):
+            raise RuntimeError(f"could not write {path}")
+        self.event("camera_snapshot", {
+            "label": label, "path": path.name, "frame_unix_s": frame_unix_s,
+        })
+        return path
+
+    def sample(self) -> dict[str, Any]:
+        self.recorder.assert_live()
+        feedback = self.request("/api/feedback")
+        if not isinstance(feedback, dict) or not feedback.get("ok"):
+            raise RuntimeError(f"bad feedback: {feedback}")
+        joints = feedback.get("joints") or []
+        records = [item for item in joints if isinstance(item, dict)]
+        live = int(feedback.get("live", len(records)) or 0)
+        currents = [
+            None if not isinstance(item, dict) else item.get("cur_a")
+            for item in joints
+        ]
+        temperatures = [
+            None if not isinstance(item, dict) else item.get("temp_c")
+            for item in joints
+        ]
+        voltages = [
+            None if not isinstance(item, dict) else item.get("volt")
+            for item in joints
+        ]
+        degrees = [
+            None if not isinstance(item, dict) else item.get("deg")
+            for item in joints
+        ]
+        current_values = [abs(float(x)) for x in currents if x is not None]
+        temperature_values = [float(x) for x in temperatures if x is not None]
+        voltage_values = [float(x) for x in voltages if x is not None]
+        metrics = {
+            "live": live,
+            "roll_deg": float(feedback.get("roll_deg", 0.0) or 0.0),
+            "pitch_deg": float(feedback.get("pitch_deg", 0.0) or 0.0),
+            "max_current_a": max(current_values or [0.0]),
+            "bus_current_a": sum(current_values),
+            "max_temp_c": max(temperature_values or [0.0]),
+            "min_voltage_v": min(voltage_values or [99.0]),
+        }
+        self.telemetry.writerow([
+            round(time.time(), 6), round(time.monotonic() - self.started, 3),
+            self.phase, live, metrics["roll_deg"], metrics["pitch_deg"],
+            json.dumps(feedback.get("gyro_dps") or []),
+            round(metrics["max_current_a"], 4),
+            round(metrics["bus_current_a"], 4),
+            round(metrics["max_temp_c"], 1),
+            round(metrics["min_voltage_v"], 2),
+            json.dumps(degrees), json.dumps(currents),
+            json.dumps(temperatures), json.dumps(voltages),
+        ])
+        self.telemetry_file.flush()
+        return metrics
+
+    def three_fresh_health_samples(self, *, require_armed: bool) -> list[dict[str, Any]]:
+        samples: list[dict[str, Any]] = []
+        timestamps: set[Any] = set()
+        deadline = time.monotonic() + 8.0
+        while len(samples) < 3 and time.monotonic() < deadline:
+            robot = self.request("/api/robot")
+            if not isinstance(robot, dict):
+                time.sleep(0.15)
+                continue
+            servo = robot.get("servo") or {}
+            stamp = servo.get("ts")
+            if stamp in timestamps:
+                time.sleep(0.12)
+                continue
+            timestamps.add(stamp)
+            sample = {
+                "ts": stamp,
+                "live": int(servo.get("live", 0) or 0),
+                "missing": servo.get("missing") or [],
+                "max_temp_c": float(servo.get("max_temp_c", 0.0) or 0.0),
+                "tripped": servo.get("tripped") or [],
+                "armed": bool(robot.get("armed")),
+                "activity": robot.get("activity"),
+            }
+            samples.append(sample)
+            time.sleep(0.12)
+        if len(samples) < 3:
+            raise RuntimeError(f"could not obtain three fresh health samples: {samples}")
+        # One dropped feedback read is expected bus telemetry noise.  Match
+        # the robot-side emergency rule: a missing ID is actionable only
+        # after three consecutive fresh samples.  Confirmed servo trips,
+        # heat, and unexpected torque-off remain immediate failures.
+        missing_samples = [
+            sample for sample in samples
+            if sample["live"] != 18 or sample["missing"]
+        ]
+        missing_confirmed = len(missing_samples) == len(samples)
+        hot_samples = [
+            sample for sample in samples
+            if sample["max_temp_c"] >= self.args.temp_trip_c
+        ]
+        hot_confirmed = len(hot_samples) == len(samples)
+        bad = [
+            sample for sample in samples
+            if sample["tripped"]
+            or (require_armed and not sample["armed"])
+        ]
+        if missing_samples and not missing_confirmed:
+            self.event("single_missing_feedback_tolerated", missing_samples)
+        if missing_confirmed:
+            bad.extend(missing_samples)
+        if hot_samples and not hot_confirmed:
+            self.event("isolated_temperature_sample_tolerated", hot_samples)
+        if hot_confirmed:
+            bad.extend(hot_samples)
+        if bad:
+            raise RuntimeError(f"health samples not clear: {samples}")
+        self.event("three_fresh_health_samples", samples)
+        return samples
+
+    def wait_job(self, label: str, timeout_s: float) -> dict[str, Any]:
+        deadline = time.monotonic() + timeout_s
+        saw_running = False
+        last: dict[str, Any] = {}
+        while time.monotonic() < deadline:
+            state = self.request("/api/rl/state")
+            if not isinstance(state, dict):
+                raise RuntimeError(f"invalid RL state: {state}")
+            last = state
+            calibrate = state.get("calibrate") or {}
+            robot = state.get("robot") or {}
+            demo = robot.get("demo") or calibrate.get("demo") or {}
+            running = bool(calibrate.get("running") or demo.get("running"))
+            saw_running = saw_running or running
+            self.sample()
+            result = calibrate.get("result")
+            if not running and (saw_running or result is not None):
+                self.event(f"{label}_terminal", result or calibrate)
+                return result if isinstance(result, dict) else {"ok": False, "error": "no result"}
+            time.sleep(0.35)
+        raise RuntimeError(f"{label} timed out; last state: {last}")
+
+    def pull_policy_logs(self, after_unix_s: float, prefix: str) -> list[str]:
+        listing = self.request("/api/logs")
+        entries = None
+        if isinstance(listing, dict):
+            entries = listing.get("logs") or listing.get("files")
+        if not isinstance(entries, list):
+            self.event("policy_log_list_unavailable", listing)
+            return []
+        selected = [
+            item for item in entries
+            if isinstance(item, dict)
+            and str(item.get("name") or "").startswith(prefix)
+            and float(item.get("mtime_unix", 0.0) or 0.0) >= after_unix_s - 1.0
+        ]
+        pulled = []
+        for item in selected:
+            name = str(item["name"])
+            url = f"{self.base}/api/logs/{urllib.parse.quote(name)}"
+            with urllib.request.urlopen(url, timeout=15.0) as response:
+                payload = response.read()
+            destination = self.output_dir / f"robot_{name}"
+            destination.write_bytes(payload)
+            pulled.append(destination.name)
+        self.event("policy_logs_pulled", pulled)
+        return pulled
+
+    def validate_walk_policy(self) -> dict[str, Any]:
+        """Fail closed on the deploy contract before moving to stand."""
+        policy = self.request("/api/rl/policy")
+        walk = policy.get("walk") if isinstance(policy, dict) else None
+        if not isinstance(walk, dict):
+            raise RuntimeError(f"walk policy metadata unavailable: {policy}")
+        problems: list[str] = []
+        if walk.get("joint_frame") != FRAME_ROBOT_ABS:
+            problems.append(
+                f"joint_frame={walk.get('joint_frame')!r}, expected "
+                f"{FRAME_ROBOT_ABS!r}"
+            )
+        if walk.get("joint_contract") != JOINT_CONTRACT:
+            problems.append(
+                f"joint_contract={walk.get('joint_contract')!r}, expected "
+                f"{JOINT_CONTRACT!r}"
+            )
+        if walk.get("obs_dim") not in (72, 74, 93):
+            problems.append(f"unsupported walk obs_dim={walk.get('obs_dim')!r}")
+        try:
+            training_hz = float(walk["training_hz"])
+        except (KeyError, TypeError, ValueError):
+            problems.append("training_hz is missing or invalid")
+        else:
+            if abs(training_hz - 100.0) > 1e-6:
+                problems.append(f"training_hz={training_hz}, expected 100")
+        try:
+            speed_min = float(walk["walk_speed_min_m_s"])
+            speed_max = float(walk["walk_speed_max_m_s"])
+        except (KeyError, TypeError, ValueError):
+            problems.append("trained walk speed band is missing or invalid")
+        else:
+            if not speed_min <= self.args.speed_m_s <= speed_max:
+                problems.append(
+                    f"requested {self.args.speed_m_s} m/s is outside trained "
+                    f"band [{speed_min}, {speed_max}]"
+                )
+        if walk.get("obs_dim") in (74, 93) and not walk.get("phase_hz"):
+            problems.append("phase-clock policy has no phase_hz")
+        self.event("walk_policy_contract", {"walk": walk, "problems": problems})
+        if problems:
+            raise RuntimeError("walk policy contract refused: " + "; ".join(problems))
+        return walk
+
+    def stand_walk_ready(self) -> None:
+        self.phase = "stand_walk_ready"
+        self.validate_walk_policy()
+        pose = self.request("/api/pose")
+        degrees = pose.get("degrees") if isinstance(pose, dict) else None
+        if not isinstance(degrees, list) or len(degrees) != 18:
+            raise RuntimeError(f"pose unavailable: {pose}")
+        max_abs_deg = max(
+            abs(float(value)) for value in degrees if value is not None
+        )
+        if max_abs_deg > 6.0:
+            if self.args.resume_walk_ready:
+                preflight = self.request("/api/rl/preflight?mode=walk")
+                self.event("resume_walk_ready_preflight", preflight)
+                if not isinstance(preflight, dict) or not preflight.get("ok"):
+                    raise RuntimeError(
+                        "non-zero resume pose is not verified walk-ready: "
+                        f"{preflight}"
+                    )
+            elif self.args.acquire_current:
+                self.event(
+                    "safe_start_acquisition_requested",
+                    {"max_abs_joint_deg": round(max_abs_deg, 2)},
+                )
+            else:
+                raise RuntimeError(
+                    f"start is not verified logical zero: {degrees}"
+                )
+        self.three_fresh_health_samples(
+            require_armed=self.args.keep_current_walk_ready
+        )
+        self.snapshot(
+            ("resume_walk_ready" if self.args.resume_walk_ready
+             else "current_preflight" if max_abs_deg > 6.0
+             else "zero_preflight")
+        )
+        self.motion_started = True
+        if self.args.keep_current_walk_ready:
+            if not self.args.resume_walk_ready:
+                raise RuntimeError(
+                    "--keep-current-walk-ready requires --resume-walk-ready"
+                )
+            self.event("stand_reused", "armed, verified walk-ready pose")
+        else:
+            if self.args.tuck_recovery:
+                reply = self.request("/api/standup", {
+                    "mode": "tuck", "direction": "up", "speed": 1.0,
+                    "torque": 700, "force": True,
+                })
+                self.event("tuck_recovery_start", reply)
+                if not isinstance(reply, dict) or not reply.get("ok"):
+                    raise RuntimeError(f"tuck recovery refused: {reply}")
+                result = self.wait_job("tuck_recovery", 90.0)
+                if not result.get("ok"):
+                    raise RuntimeError(f"tuck recovery failed: {result}")
+                self.snapshot("after_tuck_recovery")
+            reply = self.request("/api/rl/stand", {})
+            self.event("stand_start", reply)
+            if not isinstance(reply, dict) or not reply.get("ok"):
+                raise RuntimeError(f"stand refused: {reply}")
+            result = self.wait_job("stand", 45.0)
+            if not result.get("ok"):
+                # The stand endpoint applies a strict <=5 deg *start-pose*
+                # check before running the learned stance policy.  A guarded
+                # tuck recovery can finish a fraction outside that diagnostic
+                # threshold while still satisfying the deployment walk
+                # preflight's independently defined, hardware-tested envelope.
+                # Accept only that exact non-motion refusal, and only after a
+                # fresh preflight says the present pose is walk-ready.  Every
+                # motion/current/thermal/fault failure still stops here.
+                error = str(result.get("error") or "")
+                verification_only = (
+                    "walk-ready start failed verification" in error
+                )
+                post = (self.request("/api/rl/preflight?mode=walk")
+                        if verification_only else None)
+                if (verification_only and isinstance(post, dict)
+                        and post.get("ok")):
+                    self.event("stand_start_verification_accepted", {
+                        "stand_result": result,
+                        "walk_preflight": post,
+                    })
+                else:
+                    raise RuntimeError(f"stand failed: {result}")
+        preflight = self.request("/api/rl/preflight?mode=walk")
+        self.event("walk_preflight", preflight)
+        if not isinstance(preflight, dict) or not preflight.get("ok"):
+            raise RuntimeError(f"walk-ready preflight failed: {preflight}")
+        self.three_fresh_health_samples(require_armed=True)
+        self.snapshot("walk_ready")
+
+    def timed_leg(self, name: str) -> None:
+        unit_x, unit_y = DIRECTIONS[name]
+        vx = unit_x * self.args.speed_m_s
+        vy = unit_y * self.args.speed_m_s
+        self.phase = f"walk_{name}"
+        self.event("walk_request", {
+            "vx_m_s": vx, "vy_m_s": vy,
+            "duration_s": self.args.duration_s, "yaw_command": 0.0,
+        })
+        started_unix_s = time.time()
+        reply = self.request("/api/rl/walk", {
+            "vx": vx, "vy": vy, "duration_s": self.args.duration_s,
+            "rot60": True,
+        })
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            raise RuntimeError(f"walk {name} refused: {reply}")
+        result = self.wait_job(name, self.args.duration_s + 20.0)
+        logs = self.pull_policy_logs(started_unix_s, "rl_walk_")
+        entry = {
+            "phase": name, "request": {"vx": vx, "vy": vy},
+            "result": result, "robot_logs": logs,
+        }
+        self.results.append(entry)
+        self.snapshot(f"after_{name}")
+        if not result.get("ok"):
+            raise RuntimeError(f"walk {name} failed: {result}")
+        self.three_fresh_health_samples(require_armed=True)
+
+    def drive_leg(self, name: str) -> None:
+        """Run one cardinal leg through the 100 Hz/50 Hz live-drive path."""
+        unit_x, unit_y = DIRECTIONS[name]
+        vx = unit_x * self.args.speed_m_s
+        vy = unit_y * self.args.speed_m_s
+        self.phase = f"drive_{name}"
+        started_unix_s = time.time()
+        reply = self.request("/api/rl/drive/start", {
+            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
+        })
+        self.event("drive_start", reply)
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            raise RuntimeError(f"drive start refused: {reply}")
+        samples = 0
+        stop: Any = None
+        try:
+            deadline = time.monotonic() + self.args.duration_s
+            self.event("walk_request", {
+                "vx_m_s": vx, "vy_m_s": vy,
+                "duration_s": self.args.duration_s,
+                "yaw_command": 0.0, "transport": "drive",
+            })
+            while time.monotonic() < deadline:
+                response = self.request("/api/rl/drive/cmd", {
+                    "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                })
+                if not isinstance(response, dict) or not response.get("ok"):
+                    raise RuntimeError(f"drive command refused: {response}")
+                self.sample()
+                samples += 1
+                time.sleep(0.05)
+        finally:
+            stop = self.request("/api/rl/drive/stop", {})
+            self.event("drive_stop", stop)
+        result = self.wait_job(name, 25.0)
+        logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+        self.results.append({
+            "phase": name,
+            "transport": "drive_100hz_policy_50hz_bus",
+            "request": {"vx": vx, "vy": vy},
+            "command_samples": samples,
+            "stop": stop,
+            "result": result,
+            "robot_logs": logs,
+        })
+        self.snapshot(f"after_{name}")
+        if not result.get("ok"):
+            raise RuntimeError(f"drive {name} failed: {result}")
+        self.three_fresh_health_samples(require_armed=True)
+
+    def direction_course(self) -> None:
+        self.phase = "direction_course"
+        started_unix_s = time.time()
+        reply = self.request("/api/rl/drive/start", {
+            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
+        })
+        self.event("course_start", reply)
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            raise RuntimeError(f"drive start refused: {reply}")
+        segment_results = []
+        try:
+            for name in COURSE:
+                unit_x, unit_y = DIRECTIONS[name]
+                vx = unit_x * self.args.speed_m_s
+                vy = unit_y * self.args.speed_m_s
+                self.event("course_segment", {
+                    "name": name, "vx_m_s": vx, "vy_m_s": vy,
+                    "seconds": self.args.course_segment_s, "wz": 0.0,
+                })
+                deadline = time.monotonic() + self.args.course_segment_s
+                metrics: list[dict[str, Any]] = []
+                while time.monotonic() < deadline:
+                    response = self.request("/api/rl/drive/cmd", {
+                        "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                    })
+                    if not isinstance(response, dict) or not response.get("ok"):
+                        raise RuntimeError(f"drive command refused: {response}")
+                    metrics.append(self.sample())
+                    time.sleep(0.05)
+                segment_results.append({"name": name, "samples": len(metrics)})
+        finally:
+            stop = self.request("/api/rl/drive/stop", {})
+            self.event("course_stop", stop)
+        result = self.wait_job("course", 20.0)
+        logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+        self.results.append({
+            "phase": "course", "segments": segment_results, "result": result,
+            "robot_logs": logs,
+        })
+        self.snapshot("after_course")
+        if not result.get("ok"):
+            raise RuntimeError(f"direction course failed: {result}")
+        self.three_fresh_health_samples(require_armed=True)
+
+    def planned_lower(self) -> None:
+        self.phase = "planned_lower"
+        lower_preflight = self.request("/api/rl/preflight?mode=lower")
+        self.event("lower_preflight", lower_preflight)
+        if (not isinstance(lower_preflight, dict)
+                or not lower_preflight.get("ok")):
+            # A drive stop hands off to the learned hold policy, whose quiet
+            # pose can be a few tenths outside the STEP lower's walk-ready
+            # envelope.  Re-settle through the established STEP stand route
+            # before lowering instead of forcing lower from an arbitrary gait
+            # phase.
+            self.event("lower_walk_ready_resettle_requested", lower_preflight)
+            stand_reply = self.request("/api/rl/stand", {})
+            self.event("lower_resettle_start", stand_reply)
+            if (not isinstance(stand_reply, dict)
+                    or not stand_reply.get("ok")):
+                raise RuntimeError(
+                    f"lower re-settle stand refused: {stand_reply}"
+                )
+            stand_result = self.wait_job("lower_resettle", 45.0)
+            if not stand_result.get("ok"):
+                error = str(stand_result.get("error") or "")
+                verification_only = (
+                    "walk-ready start failed verification" in error
+                )
+                post = (self.request("/api/rl/preflight?mode=lower")
+                        if verification_only else None)
+                if (verification_only and isinstance(post, dict)
+                        and post.get("ok")):
+                    self.event("lower_resettle_verification_accepted", {
+                        "stand_result": stand_result,
+                        "lower_preflight": post,
+                    })
+                else:
+                    raise RuntimeError(
+                        f"lower re-settle stand failed: {stand_result}"
+                    )
+            lower_preflight = self.request("/api/rl/preflight?mode=lower")
+            self.event("lower_preflight_after_resettle", lower_preflight)
+            if (not isinstance(lower_preflight, dict)
+                    or not lower_preflight.get("ok")):
+                raise RuntimeError(
+                    f"lower preflight still failed after re-settle: "
+                    f"{lower_preflight}"
+                )
+        reply = self.request("/api/rl/lower", {})
+        self.event("lower_start", reply)
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            raise RuntimeError(f"lower refused: {reply}")
+        result = self.wait_job("lower", 45.0)
+        if not result.get("ok"):
+            raise RuntimeError(f"lower failed: {result}")
+        limp = _request(self.base, "/cmd", text_body="X", timeout=5.0)
+        self.event("planned_limp", limp)
+        self.motion_started = False
+        self.completed = True
+
+    def write_summary(self, *, error: str | None = None) -> None:
+        policy = self.request("/api/rl/policy")
+        summary = {
+            "ok": error is None and self.completed,
+            "error": error,
+            "policy": policy,
+            "requested_phases": self.args.phases,
+            "speed_m_s": self.args.speed_m_s,
+            "duration_s": self.args.duration_s,
+            "course_segment_s": self.args.course_segment_s,
+            "yaw_commands": False,
+            "results": self.results,
+            "artifacts": {
+                "video": "camera_raw.mp4",
+                "camera_timestamps": "camera_timestamps.csv",
+                "telemetry": "telemetry.csv",
+                "events": "events.csv",
+            },
+        }
+        (self.output_dir / "summary.json").write_text(
+            json.dumps(summary, indent=2) + "\n"
+        )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--robot-url", default="http://192.168.4.39:8080")
+    parser.add_argument("--camera-index", type=int, default=1)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--phases", nargs="+", choices=(*DIRECTIONS, "course"),
+        default=["forward"],
+    )
+    parser.add_argument("--speed-m-s", type=float, default=0.08)
+    parser.add_argument("--duration-s", type=float, default=3.0)
+    parser.add_argument("--course-segment-s", type=float, default=2.0)
+    parser.add_argument("--temp-trip-c", type=float, default=55.0)
+    parser.add_argument(
+        "--walk-transport", choices=("timed", "drive"), default="timed",
+        help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
+              "loop with its established 50 Hz bus-write cadence"),
+    )
+    parser.add_argument(
+        "--resume-walk-ready", action="store_true",
+        help=("allow a non-zero starting pose only when the robot's "
+              "read-only walk preflight confirms it is already near the "
+              "sim walk-ready stance; the normal STEP stand route still "
+              "re-arms and re-settles it before policy motion"),
+    )
+    parser.add_argument(
+        "--acquire-current", action="store_true",
+        help=("allow the robot's guarded start-acquisition routine to "
+              "recover a visually checked non-zero pose before STEP stand; "
+              "walk motion remains gated by post-acquisition preflight"),
+    )
+    parser.add_argument(
+        "--tuck-recovery", action="store_true",
+        help=("from an operator/camera-verified belly-down untrapped pose, "
+              "run the guarded tuck stand with force-start before the "
+              "normal walk-ready settle; use when grounded safe-zero is "
+              "blocked by carpet friction"),
+    )
+    parser.add_argument(
+        "--keep-current-walk-ready", action="store_true",
+        help=("reuse an already armed pose after read-only walk preflight and "
+              "three fresh health samples; avoids an unnecessary stand "
+              "transition during a recoverable retry"),
+    )
+    args = parser.parse_args()
+    if not 0.0 < args.speed_m_s <= 0.08:
+        parser.error("--speed-m-s must be in (0, 0.08]")
+    if not 3.0 <= args.duration_s <= 20.0:
+        parser.error("--duration-s must be in [3, 20]")
+    if not 1.0 <= args.course_segment_s <= 5.0:
+        parser.error("--course-segment-s must be in [1, 5]")
+
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    output_dir = args.output_dir / f"rl_walk_trial_{stamp}"
+    output_dir.mkdir(parents=True, exist_ok=False)
+    (output_dir / "config.json").write_text(
+        json.dumps({**vars(args), "output_dir": str(output_dir)}, default=str, indent=2)
+        + "\n"
+    )
+    print(f"OUTPUT_DIR={output_dir}", flush=True)
+    trial = Trial(args, output_dir)
+    error: str | None = None
+    try:
+        trial.recorder.start()
+        trial.event("recorder_ready")
+        trial.stand_walk_ready()
+        for phase in args.phases:
+            if phase == "course":
+                trial.direction_course()
+            elif args.walk_transport == "drive":
+                trial.drive_leg(phase)
+            else:
+                trial.timed_leg(phase)
+        trial.planned_lower()
+        trial.event("trial_complete")
+        return 0
+    except Exception as issue:
+        error = str(issue)
+        trial.event("trial_error", error)
+        if trial.motion_started:
+            try:
+                stopped = trial.request("/api/rl/stop", {})
+                trial.event("failure_pause", stopped)
+            except Exception as stop_error:
+                trial.event("failure_pause_error", str(stop_error))
+        try:
+            trial.snapshot("failure")
+        except Exception as camera_error:
+            trial.event("failure_camera_error", str(camera_error))
+        try:
+            trial.three_fresh_health_samples(require_armed=False)
+        except Exception as health_error:
+            trial.event("failure_health_error", str(health_error))
+        return 1
+    finally:
+        trial.recorder.stop()
+        trial.event("recorder_stopped", {
+            "frames": trial.recorder.frames, "error": trial.recorder.error,
+        })
+        try:
+            trial.write_summary(error=error)
+        finally:
+            trial.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

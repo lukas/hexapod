@@ -43,6 +43,10 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
         sys.path.insert(0, str(_p))
 
 from rl_move.robot_state import DEG2RAD  # noqa: E402
+from hexapod_core.joint_frame import (  # noqa: E402
+    FRAME_ROBOT_ABS,
+    JOINT_CONTRACT,
+)
 from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
 from rl_move.sim.probe_walk_income import (  # noqa: E402
     STACKS, WALK_PLANT, make_env,
@@ -357,7 +361,7 @@ def main() -> None:
             opt.zero_grad()
             loss.backward()
             opt.step()
-            tot += float(loss)
+            tot += float(loss.detach())
             nb += 1
         if epoch % 10 == 0 or epoch == args.epochs - 1:
             print(f"epoch {epoch:3d}  mse {tot / max(nb, 1):.6f}")
@@ -415,7 +419,7 @@ def main() -> None:
                 vopt.zero_grad()
                 loss.backward()
                 vopt.step()
-                tot += float(loss)
+                tot += float(loss.detach())
                 nb += 1
             if epoch % 50 == 0 or epoch == args.vf_epochs - 1:
                 print(f"vf epoch {epoch:3d}  mse {tot / max(nb, 1):.3f}")
@@ -431,6 +435,12 @@ def main() -> None:
 
     out = ROOT / args.out
     out.parent.mkdir(parents=True, exist_ok=True)
+    # This is a freshly collected and trained checkpoint under the current
+    # robot-absolute tibia convention.  Persist the same fail-closed contract
+    # stamp as the PPO trainers so export/deployment can distinguish it from
+    # genuinely pre-migration artifacts (which must never be relabelled).
+    model.joint_frame = FRAME_ROBOT_ABS
+    model.joint_contract = JOINT_CONTRACT
     model.save(str(out))
     print(f"saved {out}")
     env.close()

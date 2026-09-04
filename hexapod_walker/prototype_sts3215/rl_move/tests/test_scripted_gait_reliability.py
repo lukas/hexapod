@@ -82,3 +82,35 @@ def test_reliability_summary_rejects_partial_runs_and_temperature_glitches(
     # Each phase has one sample in this compact fixture, so no joint value is
     # locally confirmed.  The raw peak is still retained for diagnosis.
     assert safety["confirmed_peak_temperature_c"] is None
+
+
+def test_reliability_summary_accepts_event_complete_v2_and_gait9_baseline(
+        tmp_path):
+    run = _make_run(tmp_path, "scripted_gait_suite_event", 10.0, 20.0)
+    config = {"gaits": [9, 14], "speed_mm_s": 30.0}
+    (run / "config.json").write_text(json.dumps(config))
+    (run / "manifest.json").unlink()
+    (run / "apriltag_motion.json").rename(run / "apriltag_motion_v2.json")
+    motion = {
+        "phases": {
+            f"gait_{gait}_{direction}": {
+                "commanded_axis_speed_mm_s": speed,
+            }
+            for gait, speed in ((9, 10.0), (14, 15.0))
+            for direction in ("forward", "backward")
+        }
+    }
+    (run / "apriltag_motion_v2.json").write_text(json.dumps(motion))
+    with (run / "events.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["event"])
+        writer.writeheader()
+        writer.writerow({"event": "suite_complete"})
+
+    report = build_report([run], baseline_gait=9)
+    assert report["baseline_gait"] == 9
+    paired = next(
+        item for item in report["paired_vs_baseline"]
+        if item["gait"] == 14 and item["direction"] == "bidirectional_mean"
+    )
+    assert paired["speed_ratio_vs_baseline"]["median"] == 1.5
+    assert all(trial["run_status"] == "complete" for trial in report["trials"])

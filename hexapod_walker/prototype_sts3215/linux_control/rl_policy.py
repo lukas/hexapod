@@ -121,11 +121,15 @@ TIMING_LATE_GRACE_MIN_S = 0.002
 TIMING_LATE_GRACE_FRAC = 0.10
 TIMING_HARD_LAG_FRAC = 0.50
 TIMING_MAX_CONSECUTIVE_LATE = 3
+TIMING_WALK_STARTUP_GRACE_TICKS = 3
+TIMING_WALK_HARD_LAG_S = 0.05
 DRIVE_TIMING_STARTUP_GRACE_TICKS = 3
 DRIVE_ASYNC_SNAPSHOT_HZ = 10.0
 DRIVE_ASYNC_STATE_MAX_AGE_S = 0.25
 DRIVE_BUS_WRITE_MAX_HZ = 50.0
 DRIVE_TIMING_HARD_LAG_S = 0.05
+DRIVE_TIMING_CRITICAL_LAG_S = 0.20
+DRIVE_TIMING_HARD_LAG_CONSECUTIVE = 2
 DRIVE_TIMING_MAX_CONSECUTIVE_LATE = 12
 
 _TIMING_KEYS = (
@@ -270,10 +274,17 @@ def _timing_late_grace(dt: float) -> float:
 def _timing_trip_reason(mode: str, tick: int, hz: float, late_s: float,
                         consecutive_late: int) -> str | None:
     dt = 1.0 / hz
+    # The first MCU stream write can pay cache/transport setup costs that are
+    # not representative of the steady 100 Hz loop.  Count that jitter in the
+    # timing report, but do not turn one startup bubble into a torque cut.
+    if mode == "walk" and tick < TIMING_WALK_STARTUP_GRACE_TICKS:
+        return None
     grace = _timing_late_grace(dt)
     if late_s <= grace:
         return None
-    if late_s >= dt * TIMING_HARD_LAG_FRAC:
+    hard_lag_s = (TIMING_WALK_HARD_LAG_S if mode == "walk"
+                  else dt * TIMING_HARD_LAG_FRAC)
+    if late_s >= hard_lag_s:
         return (f"{mode} timing overrun: tick {tick} missed the "
                 f"{hz:g} Hz deadline by {late_s * 1000.0:.1f} ms")
     if consecutive_late >= TIMING_MAX_CONSECUTIVE_LATE:
@@ -904,6 +915,9 @@ DRIVE_START_DRIFT_TOL_DEG = 8.0  # refuse instead of latching a sagged pose
 # Stand/lower keep the config's 10 deg trip — the stance champion
 # (stance_dr10) trained with it, and its episodes should sit at +-1 deg.
 WALK_MAX_TILT_DEG = 25.0
+TAIL_FALL_TILT_DEG = 35.0
+TAIL_FALL_RECOVERY_DEG = 25.0
+TAIL_FALL_RECOVERY_SAMPLES = 3
 
 # Chirality selection (turn= on walk moves). The naked champion drifts
 # LEFT (+wz, probe_mirror_turn 08-11); the mirrored policy drifts right
@@ -1074,10 +1088,15 @@ def _drive_timing_trip_reason(active: str, hold_policy, tick: int,
         return None
     if late_s <= _timing_late_grace(timing.policy_dt):
         return None
-    if late_s >= DRIVE_TIMING_HARD_LAG_S:
+    if late_s >= DRIVE_TIMING_CRITICAL_LAG_S:
         return (f"drive timing overrun: tick {tick} missed the "
                 f"{timing.policy_hz:g} Hz deadline by "
                 f"{late_s * 1000.0:.1f} ms")
+    if (late_s >= DRIVE_TIMING_HARD_LAG_S
+            and consecutive_late >= DRIVE_TIMING_HARD_LAG_CONSECUTIVE):
+        return (f"drive timing overrun: {consecutive_late} consecutive "
+                f"hard misses of the {timing.policy_hz:g} Hz deadline "
+                f"(latest {late_s * 1000.0:.1f} ms late)")
     if consecutive_late >= DRIVE_TIMING_MAX_CONSECUTIVE_LATE:
         return (f"drive timing overrun: {consecutive_late} consecutive "
                 f"ticks missed the {timing.policy_hz:g} Hz deadline")
@@ -1272,6 +1291,41 @@ def _json_safe(value):
     if isinstance(value, (list, tuple)):
         return [_json_safe(v) for v in value]
     return value
+
+
+def _tail_tilt_summary(samples_deg) -> dict:
+    """Classify a post-motion tilt excursion without trusting one peak.
+
+    A real tip remains down.  The Uno IMU can instead report a large filtered
+    jump for several samples and then snap back while the body never moved.
+    Keep the raw peak for diagnosis, but clear the fall label only after three
+    consecutive samples return inside the active walk safety envelope.  A
+    late or persistent excursion remains a fall, including a one-sample spike
+    at the end of the observation window.
+    """
+    values = [abs(float(value)) for value in samples_deg]
+    peak = max(values, default=0.0)
+    high_indices = [
+        index for index, value in enumerate(values)
+        if value > TAIL_FALL_TILT_DEG
+    ]
+    recovered = False
+    if high_indices:
+        after_last_high = values[high_indices[-1] + 1:]
+        recovered = (
+            len(after_last_high) >= TAIL_FALL_RECOVERY_SAMPLES
+            and all(
+                value <= TAIL_FALL_RECOVERY_DEG
+                for value in after_last_high[-TAIL_FALL_RECOVERY_SAMPLES:]
+            )
+        )
+    return {
+        "tail_tilt_max_deg": round(peak, 1),
+        "tail_tilt_end_deg": round(values[-1], 1) if values else None,
+        "tail_tilt_high_samples": len(high_indices),
+        "tail_tilt_recovered": recovered,
+        "tail_fell": bool(high_indices and not recovered),
+    }
 
 
 def _state_debug(state, *, q_cmd_rad=None, target_robot=None) -> dict:
@@ -2405,9 +2459,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                              else chirality == "mirror"),
                   runner_timing=runner_timing)
         if timing_error:
-            limp()
-            result.update(ok=False, error=timing_error, limped=True,
-                          ticks=i, timing=timing_stats.summary())
+            # Timing is a controller-health fault, not evidence of a physical
+            # tip, jam, or hot motor.  Preserve the last safe commanded pose
+            # so an isolated scheduler miss cannot collapse a standing robot.
+            # Physical safety trips above still limp immediately.
+            result.update(ok=False, error=timing_error, held_pose=True,
+                          limped=False, ticks=i,
+                          timing=timing_stats.summary())
             on_progress({
                 "level": "error", "error": timing_error,
                 "msg": timing_error,
@@ -2517,7 +2575,7 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     # learned-stand handoff intentionally skips this tail so joystick
     # control can take over immediately.
     TAIL_S = 0.0 if result.get("early_handoff") and mode == "stand" else 3.0
-    tail_tilt_max = 0.0
+    tail_tilt_samples: list[float] = []
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)
         try:
@@ -2527,12 +2585,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             break
         if state is None or not state.bus_ok:
             break
-        tail_tilt_max = max(
-            tail_tilt_max,
+        tail_tilt_samples.append(max(
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
-            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG))
         elog.tick(t_end + (k + 1) * 0.1, state, None, None, None,
                   0.0, 0.0, max_cur, phase="tail")
+
+    tail_tilt = _tail_tilt_summary(tail_tilt_samples)
 
     result.update(
         max_current_a=round(max_cur, 2), overruns=overruns,
@@ -2566,11 +2625,12 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             (state.imu_pitch - tilt_ref0[1]) * RAD2DEG, 1)
         if state is not None else None,
         tail_s=TAIL_S,
-        tail_tilt_max_deg=round(tail_tilt_max, 1),
-        # >35° relative during run or tail ≈ on its side/nose: the
-        # 25° walk trip would have fired first in-run, so this is a
-        # post-episode fall detector.
-        fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
+        **tail_tilt,
+        # >35° relative during the commanded run is already beyond the
+        # 25° walk trip.  Tail-only excursions count as a fall unless the
+        # IMU demonstrably returns inside 25° for three samples.
+        fell=bool(tilt_rel_max > TAIL_FALL_TILT_DEG
+                  or tail_tilt["tail_fell"]),
     )
     debug.attach(result)
     result["log"] = elog.close(result)
@@ -3615,9 +3675,11 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         }
         cmd.publish(snap)
         if timing_error:
-            limp()
-            result.update(ok=False, error=timing_error, limped=True,
-                          ticks=i, timing=timing_stats.summary())
+            held = hold_current_pose_after_stream_loss(last_q_robot_cmd)
+            result.update(
+                ok=False, error=timing_error,
+                held_pose=held, limped=False, ticks=i,
+                timing=timing_stats.summary())
             err_snap = {"level": "error", "error": timing_error,
                         "msg": timing_error, **snap}
             cmd.publish(err_snap)
@@ -3641,28 +3703,35 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         i += 1
         t = i * timing.policy_dt
 
-    stop_async_sampler()
-
     # Same post-episode observation tail as run_policy_move: keep
     # reading (never commanding) so a fall during the end-of-session
-    # hold is in the trace.
+    # hold is in the trace.  When live drive used the background snapshot
+    # estimator, keep reading that same estimator through the tail.  Switching
+    # back to the idle foreground estimator here used to inject a large stale
+    # complementary-filter discontinuity (one upright course appeared to jump
+    # from -3 to -56 deg exactly when its tail began).
     TAIL_S = 3.0
-    tail_tilt_max = 0.0
+    tail_tilt_samples: list[float] = []
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)
         try:
-            state_robot = est.update()
+            if async_sampler is not None:
+                state_robot, _age_s, _stats = async_sampler.latest()
+            else:
+                state_robot = est.update()
             state = _state_for_policy_frame(state_robot, joint_frame)
         except Exception:
             break
         if state is None or not state.bus_ok:
             break
-        tail_tilt_max = max(
-            tail_tilt_max,
+        tail_tilt_samples.append(max(
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
-            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
+            abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG))
         elog.tick(t + (k + 1) * 0.1, state, None, None, None,
                   0.0, 0.0, max_cur, phase="tail")
+
+    stop_async_sampler()
+    tail_tilt = _tail_tilt_summary(tail_tilt_samples)
 
     result.update(
         duration_s=round(t, 1),
@@ -3694,8 +3763,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                       round(tilt_ref0[1] * RAD2DEG, 2)],
         tilt_rel_max_deg=round(tilt_rel_max, 1),
         tail_s=TAIL_S,
-        tail_tilt_max_deg=round(tail_tilt_max, 1),
-        fell=bool(max(tail_tilt_max, tilt_rel_max) > 35.0),
+        **tail_tilt,
+        fell=bool(tilt_rel_max > TAIL_FALL_TILT_DEG
+                  or tail_tilt["tail_fell"]),
     )
     debug.attach(result)
     result["log"] = elog.close(result)

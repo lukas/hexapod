@@ -271464,7 +271464,7 @@
       "train.bc_anchor_teacher_selective_omega_boost=4.0"
     ],
     "created": "2026-09-04T06:50:34+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -271518,7 +271518,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-04T07:07:25"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (selective-omega-boost dose4.0/seed0, 2/4 of the grid). Evidence: probe_turn_authority.py replayed with the full 84-key non-train cfg-set (logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_selomegaboost4p0_combined_09-04.json) vs the matched cap29-stdwalklo-hi seed0/seed1 controls (pure-turn +0.223/-0.250, +0.226/-0.247; combined-tick vx=0.08 +0.110/-0.170, +0.086/-0.142). This checkpoint: pure-turn +0.212/-0.194 (seed0) and +0.219/-0.200 (seed1) -> negative-sign regression 22.4%/19.0%, BOTH seeds breaching the pre-registered 10% cap (positive sign fine at 4.9%/3.1%). Combined-tick actually clears the OTHER bar this time (+0.120/-0.171 seed0, +0.114/-0.163 seed1, beating control on both signs, seed0-negative only barely/~flat) -- but the pure-turn cap breach alone is FAIL per the pre-registered gate text regardless of the combined-tick result. Why: same sign-asymmetric pure-turn erosion every prior teacher-lever candidate on this axis has shown (uniform omega_boost, yaw_arm_scale, combined-tick BC-anchor-skip, and the dose3.0 sibling of this same grid) -- raising the selective-omega-boost dose from 3.0 to 4.0 fixed the combined-tick positive-sign shortfall that killed dose3.0 but did not fix (in fact worsened slightly) the pure-turn erosion, confirming the erosion is orthogonal to dose and intrinsic to the mechanism, not a dosing problem. Training reward is healthy (rollout/ep_rew_mean: rises to ~89 by mid-run, the well-documented cap29-family Q3 collapse to -258, then a clean monotonic recovery to 243.9 at the final step) -- 08-21 ruling: this is the mechanism failing on an aligned reward with adequate budget, not a starved run needing more steps. 2nd of 4 grid arms to close (selomegaboost3p0 FAIL already recorded); selomegaboost4p0-s1 and selomegaboost3p0-s1 still needed to close the axis for good."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-selomegaboost4p0",
@@ -272048,7 +272049,7 @@
       "train.bc_anchor_teacher_selective_omega_boost=3.0"
     ],
     "created": "2026-09-04T06:52:05+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -272102,7 +272103,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-04T07:12:33"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (train.bc_anchor_teacher_selective_omega_boost=3.0, seed1, 3rd of the 4-arm grid). Evidence: probe_turn_authority.py --vx-cmds, full 84-key non-train cfg-set replayed on this checkpoint (logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_selomegaboost3p0_s1_combined_09-04.json, run fresh this cycle on the run's own pod train-3, probe-seeds 0/1 avg) vs the matched cap29-stdwalklo-hi-s1 (seed1) control (probe_turn_authority_cap29_stdwalklo_hi_s1_combined_09-03_fullcfg.json): pure-turn (vx=0) wz_med +0.203/-0.213 vs control +0.226/-0.247 -- positive 9.9% (just under the 10% cap) but NEGATIVE 14.0% breaches the pre-registered cap. Combined-tick (vx=0.08) wz_med +0.095/-0.143 vs control +0.087/-0.142 -- beats control on BOTH signs this time (+9.2%/+0.9%), clearing that bar, but the pure-turn cap breach alone is FAIL per the pre-registered gate text regardless. Training reward genuinely healthy: rises to ~98 by mid-run, the same well-documented cap29-family Q3 collapse to -252, then a clean monotonic recovery peaking at 230 and ending at 172 at the final logged step (quarters 23.8/55.5/-194.2/120.7) -- 08-21 ruling: mechanism failing on an aligned reward with adequate budget, not a starved run. Same sign-asymmetric pure-turn erosion (negative sign hit harder) as every prior teacher-lever candidate on this axis (uniform omega_boost, yaw_arm_scale, yawboost, and both other grid members: dose3.0/seed0 FAIL, dose4.0/seed0 FAIL). 3rd of 4 grid arms to close; selomegaboost4p0-s1 (another concurrent cycle's run) still needed to close the axis for good -- if it fails the same way (near-certain given 3/3 so far), stop iterating teacher-side foot-target/angle levers entirely; next move per every prior verdict's own text is a gait-structure change (turn-dedicated tripod phase offset) or a DONE-gate turn-authority renegotiation."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-selomegaboost4p0-s1",
@@ -272414,6 +272416,6 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-04T07:12:33"
+    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-04T07:38:13"
   }
 ]

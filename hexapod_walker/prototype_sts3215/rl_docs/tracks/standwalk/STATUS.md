@@ -1,77 +1,75 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~07:2x (**selomegaboost dose3.0/seed0 arm reports:
-CANARY FAIL - MECHANISM, 1st of the 4-arm grid to close, same
-sign-asymmetric-pure-turn-erosion pattern as every prior teacher-lever
-candidate despite this one's clean zero-training validation.**)
+Update, 2026-09-04 ~07:3x (**selomegaboost dose4.0/seed0 arm ALSO
+reports CANARY FAIL - MECHANISM, 2nd of the 4-arm grid to close.
+Raising the dose fixed the OTHER bar (combined-tick) but not the
+pure-turn erosion — confirms the erosion is dose-independent.**)
 
-`probe_turn_authority.py` on the finished `cw-standwalk-stage2-
-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-
-selomegaboost3p0` checkpoint (full 84-key non-train cfg-set replayed,
-2 probe seeds averaged) vs the matched `cap29-stdwalklo-hi` seed0
-control: pure-turn wz_med +0.166/-0.215 vs control +0.223/-0.250 (25.5%/
-14.0% regression, BOTH signs breach the pre-registered 10% cap);
-combined-tick (vx=0.08) wz_med +0.084/-0.181 vs control +0.110/-0.170
-— positive sign is WORSE, failing the "beats control on both signs"
-bar outright regardless of the negative-sign gain. Training reward
-genuinely healthy (rising monotonically to 290 at the final step, no
-flat tail) so this is the mechanism failing, not a starved run. Same
-failure signature as every predecessor on this axis (uniform
-omega_boost, yaw_arm_scale, combined-dose ablations, yawboost) —
-RL fine-tuning erodes pure-turn even when the teacher-side lever is
-bit-exact-by-construction on pure-turn ticks. 3 sibling arms
-(selomegaboost4p0, -4p0-s1, -3p0-s1) still finishing/awaiting their
-own triage — full axis-close verdict needs all 4; see Next item 2.
+`probe_turn_authority.py` on the finished `...-selomegaboost4p0`
+checkpoint (full 84-key non-train cfg-set replayed on the run's own
+pod, 2 probe seeds) vs the matched `cap29-stdwalklo-hi` seed0/seed1
+controls: pure-turn wz_med +0.212/-0.194 (s0), +0.219/-0.200 (s1) vs
+controls +0.223/-0.250, +0.226/-0.247 — negative-sign regression
+22.4%/19.0%, BOTH seeds breaching the 10% cap (positive sign fine,
+4.9%/3.1%). Combined-tick (vx=0.08) +0.120/-0.171 (s0), +0.114/-0.163
+(s1) DOES beat control both signs this time (s0-negative barely) —
+dose 4.0 fixed dose3.0's positive-sign shortfall — but the pure-turn
+cap breach alone is FAIL per the pre-registered gate regardless.
+Training reward healthy (Q3 collapse to -258, clean recovery to 243.9
+final) — 08-21 ruling: mechanism failing on an aligned reward with
+adequate budget, not a starved run. Same sign-asymmetric erosion as
+every prior lever, now shown dose-independent (3.0 and 4.0 both fail
+the same way). 2 sibling arms (-4p0-s1, -3p0-s1) still awaiting triage
+(another cycle's territory) — full axis-close needs all 4, see Next
+item 2. Probe JSON: `logs/ckpt_eval/probe_turn_authority_
+cap29_stdwalklohi_selomegaboost4p0_combined_09-04.json`.
 
-Prior banner (candidate build + all-4-launched note) moved to
-`archive/standwalk_STATUS_journal_2026-09-04bb_trim.md`.
+Prior banner (dose3.0 FAIL) moved to `archive/standwalk_STATUS_
+journal_2026-09-04cc_trim.md`.
 
-## Next (updated 09-04 ~07:2x)
+## Next (updated 09-04 ~07:3x)
 
 1. **Rise-stall branch: CLOSED 09-03 ~19:1x.** See archive
    `standwalk_STATUS_journal_2026-09-03o_trim.md`. No reward code
    changed; a future fix should price sustained near-ceiling current
    directly (`over2A_s`-style), not a stall-vs-partial-height framing.
-2. **Steering branch — TOP ITEM, 1/4 arm reports FAIL, awaiting 3
-   siblings (selomegaboost4p0, -4p0-s1, -3p0-s1) to close the axis.**
-   dose3.0/seed0 already breaches BOTH pre-registered branches (pure-
-   turn regression >10% both signs AND combined-tick fails to beat
-   control on the positive sign) — see Update above. If the other 3
-   arms fail the same sign-asymmetric way (matching every prior
-   teacher-lever: uniform omega_boost, yaw_arm_scale, combined-tick
-   BC-anchor-skip), the geometry/teacher-lever axis closes for good
-   and the honest next move is a gait-STRUCTURE change (per-leg
-   period/tripod-grouping during combined ticks, not yet tried) or an
-   escalated DONE-gate turn-authority renegotiation. Do not re-open
-   architecture-split (Triple/yaw_critic.py) — done.
-3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa}):**
+2. **Steering branch — TOP ITEM, 2/4 arms FAIL (dose3.0/seed0,
+   dose4.0/seed0), awaiting 2 siblings (-4p0-s1, -3p0-s1) to close the
+   axis.** Both breach the pure-turn regression cap on the negative
+   sign regardless of dose (3.0: both signs breach; 4.0: only negative
+   breaches) — see Update. If the 2 remaining seed-1 arms fail the
+   same way (matching every prior teacher-lever), the geometry/
+   teacher-lever axis closes for good and the honest next move is a
+   gait-STRUCTURE change (per-leg period/tripod-grouping on combined
+   ticks, untried) or a DONE-gate turn-authority renegotiation. Do not
+   re-open architecture-split (Triple/yaw_critic.py) — done.
+3. **Closed (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa,cc}):**
    architecture-split; yaw-arm-scale dose x seed grid (4/4 FAIL);
-   candidate (iii) `combined_yaw_amplify_scale` (REFUTED
-   zero-training); "detangle" idea (REFUTED zero-training, unwired);
-   update-size/reward/exploration/anchor/turn-skip/yaw-credit/diet/
-   duration/switch-jump/frame-blend/current-confound/combined-tick-
-   anchor-skip/omega-boost (both directions)/combined-yaw-boost
-   sweeps; cap29 acquisition (PARTIAL); log_std anneal dose grid (`hi`
-   PASS, `mild` FAIL); item 0 sto/det convergence-at-scale (PASS);
-   resamplematch diet-match-rate hypothesis; rise over_current
-   dig-in; rise-stall faithful replay; steering/rise-stall semantics-
-   bank twins (both PASS); candidate (i) IK-feasibility groundwork.
+   `combined_yaw_amplify_scale` + "detangle" idea (both REFUTED
+   zero-training); update-size/reward/exploration/anchor/turn-skip/
+   yaw-credit/diet/duration/switch-jump/frame-blend/current-confound/
+   combined-tick-anchor-skip/omega-boost/combined-yaw-boost sweeps;
+   cap29 acquisition (PARTIAL); log_std anneal dose grid (`hi` PASS,
+   `mild` FAIL); sto/det convergence-at-scale (PASS); resamplematch
+   diet-match-rate hypothesis; rise over_current dig-in/faithful
+   replay; steering/rise-stall semantics-bank twins (both PASS);
+   IK-feasibility groundwork.
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
-> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb}. Current state =
-> newest Update at the TOP; don't act on archived Next.
+> 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc}. Current
+> state = newest Update at the TOP; don't act on archived Next.
 
-## Fleet capacity note (updated 09-04 ~07:2x)
+## Fleet capacity note (updated 09-04 ~07:3x)
 
 All 4 selective-omega-boost canary grid runs (train-1/2/3/4) have
 finished/reported to W&B; pods free again (11/12 free per
-capacity.py — one pending). No launchable next arm this cycle: the
-axis's own decision rule needs the other 3 siblings' verdicts before
-a new lever can be designed (a gait-structure-change candidate isn't
-built yet). Every OTHER track remains non-launchable by design
-(`joystick`/`amp`/`cpg` DONE or maintenance-only; `walkcurr` RETIRED;
-`todaypolicy` DELIVERED).
+capacity.py). No launchable next arm this cycle: the axis's own
+decision rule needs the other 2 siblings' verdicts (concurrent
+cycle's territory) before a new lever can be designed (a
+gait-structure-change candidate isn't built yet). Every OTHER track
+remains non-launchable by design (`joystick`/`amp`/`cpg` DONE or
+maintenance-only; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
 
 ## Goal (operator, 08-24 evening)
 

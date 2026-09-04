@@ -14,28 +14,31 @@ Binding: frozen parents stay the best steering checkpoints on both
 seeds; NO lever acquisition. Manifest: `logs/ckpt_eval/
 rescore_turn_authority_09-04/manifest_n4.json`.
 
-Also this cycle: **Next#1 tooling landed** — `run_episode` persists
-the per-episode DR draw (`ep["randomization"]`, additive/bit-exact-off
-when DR is off) + new `audit_dr_hold_correlate.py` (fired-vs-clean
-median + standardized-mean-diff per DR field, ranked). Tests green;
-snapshotted `exp/standwalk-dr-draw-logging-09-04`. Smoke-test vs the
-k=8 checkpoint launched on its own pod (train-5) — correlation read
-is new Next item 1.
+Also this cycle: **Next#1 tooling landed + first read INCONCLUSIVE at
+n=3.** `run_episode` persists the per-episode DR draw
+(`ep["randomization"]`, additive/bit-exact-off when off) + new
+`audit_dr_hold_correlate.py` (fired-vs-clean median/std-mean-diff per
+field). Tests green; snapshotted `exp/standwalk-dr-draw-logging-09-04`.
+Matched-72 own-DR pass on the k=8 checkpoint (train-5): only 3/36
+fire `hold_min_load` (matches known 8.3%), spread across 3 different
+buckets/start_kinds — not one mode. No DR field cleanly separates at
+n=3 (top hit `zero_bias_max_deg` d=-1.05, not trustworthy). Launched
+`--n 20` (~10x fires expected) on train-5, `..._cmdstress_n20/` — new
+Next item 1.
 
 Prior updates (09-04 ~13:2x..~16:3x) archived verbatim in `archive/
 standwalk_STATUS_journal_2026-09-04{hh,jj,kk}_trim.md`.
 
 ## Next (updated 09-04 ~17:0x)
 
-1. **DR-draw / hold_min_load correlation (tooling landed this cycle) —
-   read the smoke-test output.** Once `logs/ckpt_eval/
-   ..._acq8m_mlcontprice8_cmdstress/{dr0,owndr}/report.json` carry the
-   new `randomization` field (pre-existing report predates it, moved
-   to `..._prerandfield_bak/` so resume didn't skip the rerun), run
-   `audit_dr_hold_correlate logs/.../owndr/report.json --reason
-   hold_min_load`, read `ranked_fields`/`std_mean_diff`. n is small
-   (~3 fired of 72) — a single-axis read is a LEAD, not a closed
-   finding; `low_n_warning` gates trust.
+1. **DR-draw / hold_min_load correlation — n=3 INCONCLUSIVE (see
+   Update), n=20 IN FLIGHT on train-5.** On finish run
+   `audit_dr_hold_correlate logs/ckpt_eval/..._mlcontprice8_
+   cmdstress_n20/owndr/report.json --reason hold_min_load`, read
+   `ranked_fields`. n=3 fires already spread across mode/start_kind,
+   not one bucket — if n=20 still shows no dominant axis, say plainly
+   the lead is genuine own-DR variance, not a missing DR field (k=8
+   may be near-irreducible without a further reward change).
 2. **Steering branch — CLOSED both seeds (see Update).** No further
    lever acquisition; frozen parents (`cap29-stdwalklo-hi{,-s1}`)
    remain the reference steering checkpoints. Rise-stall stays CLOSED

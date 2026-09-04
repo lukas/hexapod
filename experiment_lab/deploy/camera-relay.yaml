@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: camera-relay-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: shared-vast
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: camera-relay-sshd
+data:
+  sshd_config: |
+    Port 2222
+    ListenAddress 0.0.0.0
+    HostKey /etc/ssh/ssh_host_ed25519_key
+    AuthorizedKeysFile .ssh/authorized_keys
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    PermitEmptyPasswords no
+    PubkeyAuthentication yes
+    AllowTcpForwarding remote
+    AllowStreamLocalForwarding no
+    GatewayPorts no
+    PermitListen 127.0.0.1:8766 127.0.0.1:8767
+    PermitTTY no
+    X11Forwarding no
+    AllowAgentForwarding no
+    ClientAliveInterval 30
+    ClientAliveCountMax 3
+    LoginGraceTime 30
+    MaxAuthTries 3
+    LogLevel VERBOSE
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: camera-relay
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: camera-relay
+  template:
+    metadata:
+      labels:
+        app: camera-relay
+    spec:
+      containers:
+        - name: ssh-tunnel
+          image: alpine:3.22
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              apk add --no-cache openssh-server
+              adduser -D -h /home/tunnel -s /bin/ash tunnel
+              passwd -d tunnel
+              install -d -m 0700 -o tunnel -g tunnel /home/tunnel/.ssh
+              install -m 0600 -o tunnel -g tunnel /run/camera-ssh/authorized_keys /home/tunnel/.ssh/authorized_keys
+              install -m 0600 /run/camera-ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key
+              install -m 0644 /run/camera-ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ed25519_key.pub
+              install -d -m 0755 /run/sshd
+              exec /usr/sbin/sshd -D -e -f /etc/camera-ssh/sshd_config
+          ports:
+            - name: ssh
+              containerPort: 2222
+          readinessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 250m
+              memory: 96Mi
+          volumeMounts:
+            - name: ssh-secrets
+              mountPath: /run/camera-ssh
+              readOnly: true
+            - name: ssh-config
+              mountPath: /etc/camera-ssh/sshd_config
+              subPath: sshd_config
+              readOnly: true
+        - name: caddy
+          image: caddy:2-alpine
+          imagePullPolicy: IfNotPresent
+          args: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          volumeMounts:
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: ssh-secrets
+          secret:
+            secretName: camera-relay-ssh
+            defaultMode: 0400
+        - name: ssh-config
+          configMap:
+            name: camera-relay-sshd
+        - name: caddy-config
+          secret:
+            secretName: camera-relay-caddy
+        - name: data
+          persistentVolumeClaim:
+            claimName: camera-relay-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camera-relay
+  annotations:
+    service.beta.kubernetes.io/coreweave-load-balancer-type: public
+    service.beta.kubernetes.io/external-hostname: camera
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: camera-relay
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+    - name: ssh-tunnel
+      port: 2222
+      targetPort: ssh
+---
+# A second stable DNS name sharing the relay pod. Its Caddy site proxies the
+# lab hostname to loopback:8767; application-level auth protects HTTP and MCP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hexapod-lab-relay
+  annotations:
+    service.beta.kubernetes.io/coreweave-load-balancer-type: public
+    service.beta.kubernetes.io/external-hostname: robot-lab
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  selector:
+    app: camera-relay
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https

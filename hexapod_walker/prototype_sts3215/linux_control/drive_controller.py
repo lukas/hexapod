@@ -372,7 +372,8 @@ class DriveController:
                    10: "noslip FLUID-FAST tripod",
                    11: "noslip FLUID-HYBRID tripod",
                    12: "noslip FLUID-PUSH tripod",
-                   13: "noslip FLUID-PULSE tripod"}
+                   13: "noslip FLUID-PULSE tripod",
+                   14: "noslip FLUID-MID tripod"}
 
     def _gait_desc(self) -> str:
         if self._gait_id == 0:
@@ -394,6 +395,8 @@ class DriveController:
             return "noslip FLUID-PUSH tripod (3.20s/18mm/alpha=.70)"
         if self._gait_id == 13:
             return "noslip FLUID-PULSE tripod (3.20s/18mm/alpha=.75)"
+        if self._gait_id == 14:
+            return "noslip FLUID-MID tripod (2.65s/16mm/continuous)"
         if self._gait_id == 6 and self._cpg_loaded is not None:
             return f"SE2 CPG ({self._cpg_loaded['name']})"
         return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
@@ -517,6 +520,8 @@ class DriveController:
             self.gait = NoSlipGait.fluid_push()
         elif gait_id == 13:
             self.gait = NoSlipGait.fluid_pulse()
+        elif gait_id == 14:
+            self.gait = NoSlipGait.fluid_mid()
         elif gait_id == 1:
             self.gait = NoSlipGait.gait1(alpha=self._noslip_alpha)
         else:

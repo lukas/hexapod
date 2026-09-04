@@ -163,6 +163,12 @@ class NoSlipGait:
     # (31.9 deg/s versus FLUID's 30.2) while raising stride frequency 21%.
     FLUID_FAST_KW = dict(period=2.4, lift=0.014, shift_frac=0.02,
                          swing_frac=0.475, alpha=1.0)
+    # Acceptance candidate (2026-09-03): interpolate the FLUID and
+    # FLUID_FAST cadence/lift while preserving FLUID's continuous timing.
+    # This is deliberately a named preset so hardware traces cannot confuse
+    # it with a runtime lift override on either incumbent gait.
+    FLUID_MID_KW = dict(period=2.65, lift=0.016, shift_frac=0.02,
+                        swing_frac=0.475, alpha=1.0)
     # Hybrid intended to retain the useful planted-body impulse of the fast
     # alpha=.75 baseline without its long pauses: 80 ms-equivalent phase
     # fractions become 256 ms shift / 1280 ms swing / 64 ms dwell per side.
@@ -252,6 +258,8 @@ class NoSlipGait:
         self.vy = vy
         self.omega = omega
         self.leg_angles = [(i + 0.5) * math.pi / 3.0 for i in range(6)]
+        self.workspace_fallbacks = 0
+        self.joint_limit_clips = 0
         self.sync_plant_stance()
 
         # Dead-reckoned body pose in the gait's world frame.
@@ -289,6 +297,11 @@ class NoSlipGait:
     def fluid_fast(cls, **kw) -> "NoSlipGait":
         """Higher-cadence fluid preset with reduced vertical travel."""
         return cls(**{**cls.FLUID_FAST_KW, **kw})
+
+    @classmethod
+    def fluid_mid(cls, **kw) -> "NoSlipGait":
+        """Intermediate continuous preset between FLUID and FLUID_FAST."""
+        return cls(**{**cls.FLUID_MID_KW, **kw})
 
     @classmethod
     def fluid_hybrid(cls, **kw) -> "NoSlipGait":
@@ -374,6 +387,8 @@ class NoSlipGait:
         self._phase_idx = 0
         self._phase_time = 0.0
         self._nshift = 0
+        self.workspace_fallbacks = 0
+        self.joint_limit_clips = 0
         self._reset_anchors()
         self._start_phase()
 
@@ -544,16 +559,23 @@ class NoSlipGait:
         # foot = R(yaw) @ (r, HIP_Y); solve r and yaw exactly.
         d2 = x_yaw * x_yaw + y_yaw * y_yaw
         if d2 <= HIP_Y * HIP_Y + 1e-9:
+            self.workspace_fallbacks += 1
             return self._last_q[i]
         r = math.sqrt(d2 - HIP_Y * HIP_Y)
         yaw = math.atan2(y_yaw, x_yaw) - math.atan2(HIP_Y, r)
         ik = _leg_ik((r, 0.0, fz))
         if ik is None:
+            self.workspace_fallbacks += 1
             return self._last_q[i]
         hip, knee = ik
+        raw = (yaw, hip, knee)
         q = (_clip(yaw, -YAW_LIM, YAW_LIM),
              _clip(hip, HIP_LIM[0], HIP_LIM[1]),
              _clip(knee, KNEE_LIM[0], KNEE_LIM[1]))
+        self.joint_limit_clips += sum(
+            abs(before - after) > 1e-12
+            for before, after in zip(raw, q)
+        )
         self._last_q[i] = q
         return q
 

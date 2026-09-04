@@ -274763,7 +274763,7 @@
       "reward.k_hold_min_load_short=2.0"
     ],
     "created": "2026-09-04T12:07:19+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -274809,7 +274809,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-04T13:04:58"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (k=2.0 low-dose twin): eval_cmd_stress (seed 93000, --strict) FAILS its own gate: mech_term_reasons hold_min_load 19/216 seq eps (dr0 14/108=13.0%, owndr 5/108=4.6%), session_complete_frac 0.912 (<0.95 bar), gait_valid_frac 0.995 with sacrificed_legs_seen=[0,2,3,5] (gate wants 1.0/empty), direction_err_med 47.9deg vs acq8m's 43.1deg (+11.1%, breaches the 10% cap); progress_ratio/slip/smoothness all within cap. DATA-QUALITY NOTE: this eval used n=54/mode/pass (216 total) vs its k=8.0 twin mlcontprice8's matched n=18/mode/pass (72 total) -- a 3x sample mismatch from the launching cycle's invocation, not a matched canary pair. Read as RATES instead: mlcontprice2(k=2.0) dr0+owndr combined fire rate 8.8% is statistically indistinguishable from the UNFIXED acq8m baseline's own 8.3% (6/72) -- k=2.0 buys ~zero net protection -- while mlcontprice8 (k=8.0, matched n=18) roughly HALVES it to 4.2% and fully cleans DR-0 (0/36) + gait-validity. Per-pass split is non-monotonic in raw dr0 rate (baseline 5.6% -> k2 13.0% -> k8 0%) which is noisy at n=36 per baseline/k8 but the larger-n k2 read is not; treat the k2 dr0 spike as low-dose noise, not evidence the mechanism hurts, since k2 also uniquely fails on direction_err/gait_valid/session_complete that k8 does not. CONCLUSION: dose-response is real and monotonic in net effect (0 -> no help, 8 -> clear partial fix); k=2.0 is below the mechanism's effective threshold. NEXT: bracket further with a higher-dose twin (k=16.0) matched at n=18/mode/pass, continuing from the same acq8m checkpoint on the identical stress diet -- launching this cycle."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-transtress-s1-acq8m-mlcontprice8",

@@ -46,6 +46,12 @@ def test_survey_config_is_bounded_and_deduplicated():
     })
     assert no_retry["soft_recovery"] is False
 
+    gait14 = GaitSurveyManager._validated_config({
+        "acknowledge_motion": True,
+        "gaits": [14, 9],
+    })
+    assert gait14["gaits"] == [14, 9]
+
 
 def test_survey_preflight_requires_robot_and_direct_vision(tmp_path):
     manager = GaitSurveyManager(

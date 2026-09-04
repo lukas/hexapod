@@ -202,12 +202,14 @@ class DriveController:
                 pass
 
     # -- bus helpers ---------------------------------------------------------
-    def _live_ids(self, *, force: bool = False) -> set[int]:
+    def _live_ids(self, *, force: bool = False,
+                  allow_stale: bool = False) -> set[int]:
         if not self.bus:
             return set()
         now = time.monotonic()
         if (not force and self._live_ids_cache
-                and now - self._live_ids_t < LIVE_SCAN_PERIOD_S):
+                and (allow_stale
+                     or now - self._live_ids_t < LIVE_SCAN_PERIOD_S)):
             return self._live_ids_cache
         try:
             self._live_ids_cache = {sid for sid in self.bus.scan(range(2, 20))}
@@ -298,7 +300,11 @@ class DriveController:
             return
         speed = normalize_speed(speed)
         acc = normalize_acc(acc)
-        live = self._live_ids()
+        # Never put a potentially 2.5 s SCAN transaction in the 100 Hz walk
+        # loop. Walk start has already verified/populated the cache, while
+        # the independent feedback guard continues to enforce missing-ID
+        # safety during the run.
+        live = self._live_ids(allow_stale=self.mode == "walk")
         for joint, deg in enumerate(degrees):
             sid = joint_to_servo_id(joint)
             if live and sid not in live:
@@ -610,6 +616,21 @@ class DriveController:
                 self._hold_here()
             return "hold"
 
+        if cmd == "GAITSTOP":
+            if not self.armed:
+                return "need ARM"
+            if self.mode != "walk":
+                return "not walking"
+            # Keep the gait loop alive while its current swing finishes and
+            # both groups repin at the neutral planted stance. J 0 follows
+            # only after this bounded phase-aware settle interval.
+            self.gait.stop()
+            self._vx = self._vy = self._omega = 0.0
+            period = max(0.4, float(getattr(self.gait, "period", 3.2)))
+            settle_s = 1.5 * period + 0.5
+            self.status = f"settling gait to neutral ({settle_s:.2f}s)"
+            return f"gaitstop_s={settle_s:.3f}"
+
         if cmd == "J" and len(parts) >= 4:
             if not self.armed:
                 return "need ARM"
@@ -637,7 +658,11 @@ class DriveController:
                 self.gait.stop()
                 self._vx = self._vy = self._omega = 0.0
                 if was_walking:
-                    self._hold_here()
+                    # Do not seed a stop from the MCU's asynchronous position
+                    # cache. Under a dense gait stream that cache can lag by
+                    # an entire swing and command a planted leg toward an old
+                    # pose. Reissue the last command the servos already had.
+                    self._write_pose(list(self._last_pose), speed=250, acc=30)
                 self.mode = "idle"
                 self.status = (
                     f"walk stopped[{self._gait_desc()}] quiet hold"

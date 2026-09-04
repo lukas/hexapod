@@ -2,12 +2,13 @@
 
 ## Disposition
 
-**L5 is not cleared as repaired for whole-body motion.** The supported air
+**L5 is not demonstrated repaired; the measured residual was explicitly
+accepted by the operator for this campaign on 2026-09-03.** The supported air
 control improved, but the planted ladder reproduced the previously abnormal
 L5 hip/knee hysteresis. The robot returned limp at zero with all 18 servos
-present and no visible support or geometry change. Whole-body testing remains
-paused until the operator either services L5 or explicitly accepts the
-remaining measured behavior for this campaign.
+present and no visible support or geometry change. That acceptance cleared the
+campaign's process gate for guarded whole-body gait and walk-only policy tests;
+it does not erase or reclassify the hardware finding.
 
 ## Runs
 
@@ -86,9 +87,10 @@ The primitive-collision model still showed 264–269 mm of scrub, reinforcing
 the known contact/body-dynamics reality gap rather than invalidating the
 joint-rate/workspace screen.
 
-Gait 14 is implemented and tested locally but is not deployed: the documented
-deployment helper is blocked because the local SSH agent has no robot identity.
-No alternate deployment path was used.
+Gait 14 was subsequently deployed with the documented helper after installing
+a dedicated robot SSH identity. The first clean hardware pilot and two complete
+paired repeats were recorded; the final repeat and policy walk remain in
+progress at the time of this acceptance-note update.
 
 ## Evidence directories
 

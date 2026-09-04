@@ -96,7 +96,7 @@ latest_run:
 
 acceptance_retest:
   date: 2026-09-03
-  disposition: not_cleared_as_repaired
+  disposition: residual_accepted_by_operator
   report: ACCEPTANCE_2026-09-03.md
   air_loop_deg:
     l5_hip: 0.830
@@ -111,9 +111,9 @@ acceptance_retest:
     confirmed_max_temperature_c: 33
     final_live_servos: 18
     final_state: limp_at_zero
-  blocks:
-    - "Whole-body gait/policy motion pending service or explicit operator acceptance of the residual L5 hysteresis."
-    - "Gait 14 deployment pending a robot SSH identity in ssh-agent."
+  blocks: []
+  operator_acceptance: "Operator explicitly accepted the residual L5 behavior for this campaign on 2026-09-03."
+  whole_body_status: "Authorized and in progress; this acceptance is not a claim that L5 was repaired."
 
 conclusion: >-
   L5 is measurably loose without ground load: the air-control loop averaged
@@ -145,3 +145,5 @@ history:
     event: "Repeated the complete five-protocol battery on L4 and L5 using only the two Arducam USB cameras: 11,680/11,680 ticks, no trips, 4 catch-up overruns after one feedback stall, 0.130 A peak, 23,266/23,266 camera frames with AprilTags, and final limp."
   - date: 2026-09-03
     event: "Ran the short supported L5 air plus planted acceptance ladder: 2,520/2,520 ticks, no trip, 0.0845 A peak, final 18/18 limp at zero. Air improved to 0.830/0.181 deg hip/knee, but planted hysteresis remained 0.776-1.271/0.688-1.085 deg; L5 was not cleared as repaired for whole-body motion."
+  - date: 2026-09-03
+    event: "Operator explicitly accepted the measured residual L5 hysteresis for this campaign and authorized whole-body gait/policy tests; robot SSH identity was installed and gait 14 deployed."

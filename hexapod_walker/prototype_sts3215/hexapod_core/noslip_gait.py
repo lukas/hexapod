@@ -494,7 +494,14 @@ class NoSlipGait:
             for i in tripod:
                 tx, ty = self._neutral_world(i)
                 ax, ay = self.anchors[i]
-                self._swing[i] = (ax, ay, tx, ty)
+                # With zero commanded twist, lift only while an offset anchor
+                # still needs to return to neutral. Once both groups have
+                # repinned, SETTLE becomes a motionless planted hold instead
+                # of stepping in place forever.
+                needs_repin = math.hypot(tx - ax, ty - ay) > 1e-6
+                moving = abs(dx) + abs(dy) + abs(dyaw) > 1e-9
+                if moving or needs_repin:
+                    self._swing[i] = (ax, ay, tx, ty)
             self.px, self.py, self.pyaw = saved
 
     def _end_phase(self) -> None:

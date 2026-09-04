@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from .auth import Principal, TokenAuth
 from .config import Settings
 from .db import Store
+from .mobile import action_openapi, fetch_rl_doc_path, fetch_rl_document
 from .runner import ExperimentRunner
 
 
@@ -149,6 +150,34 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def artifact(experiment_id: str, filename: str, _: Principal = Depends(viewer)):
         path = artifact_path(experiment_id, filename)
         return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0])
+
+    @app.get("/api/mobile/openapi.json", include_in_schema=False)
+    def mobile_openapi():
+        return action_openapi(settings.public_base_url)
+
+    @app.get("/api/mobile/overview")
+    def mobile_overview(_: Principal = Depends(viewer)):
+        return {
+            "rl_brief_markdown": fetch_rl_document("brief"),
+            "robot_lab_experiments": [enrich(item) for item in store.list()[:25]],
+            "read_only": True,
+        }
+
+    @app.get("/api/mobile/rl/{document}")
+    def mobile_rl_document(document: str, _: Principal = Depends(viewer)):
+        return {"document": document, "markdown": fetch_rl_document(document)}
+
+    @app.get("/api/mobile/rl/doc/{path:path}")
+    def mobile_rl_detailed_document(path: str, _: Principal = Depends(viewer)):
+        return {"path": path, "markdown": fetch_rl_doc_path(path)}
+
+    @app.get("/api/mobile/experiments")
+    def mobile_experiments(_: Principal = Depends(viewer)):
+        return [enrich(item) for item in store.list()]
+
+    @app.get("/api/mobile/experiments/{experiment_id}")
+    def mobile_experiment(experiment_id: str, _: Principal = Depends(viewer)):
+        return enrich(require_experiment(experiment_id))
 
     @app.put("/api/experiments/{experiment_id}/artifacts/{filename}", status_code=201)
     async def upload_artifact(

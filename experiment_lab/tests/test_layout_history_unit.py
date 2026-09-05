@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from hexapod_lab.db import Store
+from hexapod_lab.db import LEGACY_PRE_RUN_PIN_BASIS, Store
 from hexapod_lab.layout_history import (
     LayoutHistoryConflict,
     TagLayoutHistory,
@@ -121,6 +121,266 @@ def _result(store, experiment_id, created_at):
                 created_at,
             ),
         )
+
+
+def _activate_revision_clone(store, source_revision_id, revision_id, effective_from):
+    with store.connect() as connection:
+        source = connection.execute(
+            "SELECT * FROM tag_layout_revisions WHERE id=?", (source_revision_id,)
+        ).fetchone()
+        values = dict(source)
+        values.update(
+            id=revision_id,
+            observed_at=effective_from,
+            created_at=effective_from,
+            created_by="test",
+            source_kind="test_clone",
+            source_experiment_id=None,
+            parent_revision_id=source_revision_id,
+        )
+        columns = [name for name in values if name != "sequence"]
+        connection.execute(
+            f"INSERT INTO tag_layout_revisions({','.join(columns)}) "
+            f"VALUES({','.join('?' for _ in columns)})",
+            tuple(values[name] for name in columns),
+        )
+        connection.execute(
+            "INSERT INTO tag_layout_activations("
+            "revision_id,effective_from,activated_at,activated_by,note,"
+            "idempotency_key,request_sha256) VALUES(?,?,?,?,?,?,?)",
+            (
+                revision_id,
+                effective_from,
+                effective_from,
+                "test",
+                "test boundary",
+                f"activate-{revision_id}",
+                revision_id[-1] * 64,
+            ),
+        )
+
+
+def _legacy_external_plan(
+    store,
+    revision_id,
+    *,
+    duration_seconds=3,
+    pin_basis=LEGACY_PRE_RUN_PIN_BASIS,
+):
+    spec = {
+        "name": "Legacy external plan",
+        "description": "guarded",
+        "duration_seconds": duration_seconds,
+        "parameters": {"speed": 0.08},
+        "execution_mode": "external_guarded",
+    }
+    item = store.create(
+        spec,
+        "operator",
+        tag_layout_revision_id=revision_id,
+        tag_layout_recorded_at="2026-01-15T12:00:00+00:00",
+        tag_layout_pin_basis=pin_basis,
+    )
+    return spec, item
+
+
+def test_legacy_external_pin_rebind_changes_only_recording_time(tmp_path):
+    history, store, *_ = _history(tmp_path)
+    history.initialize()
+    revision_id = history.current()["id"]
+    spec, item = _legacy_external_plan(store, revision_id)
+    with store.connect() as connection:
+        original_revision = dict(connection.execute(
+            "SELECT * FROM tag_layout_revisions WHERE id=?", (revision_id,)
+        ).fetchone())
+        original_pin = dict(connection.execute(
+            "SELECT * FROM experiment_tag_layouts WHERE experiment_id=?", (item["id"],)
+        ).fetchone())
+    # Reopening an old database atomically replaces its historical
+    # all-updates-forbidden trigger with the narrow legacy exception.
+    with store.connect() as connection:
+        connection.executescript("""
+            BEGIN IMMEDIATE;
+            DROP TRIGGER experiment_tag_layouts_no_update;
+            CREATE TRIGGER experiment_tag_layouts_no_update
+              BEFORE UPDATE ON experiment_tag_layouts BEGIN
+                SELECT RAISE(ABORT, 'experiment layout pins are immutable');
+              END;
+            COMMIT;
+        """)
+    store = Store(store.path)
+
+    recorded_at = "2026-01-16T12:00:00+00:00"
+    completed = store.import_result(
+        spec,
+        "operator",
+        "succeeded",
+        experiment_id=item["id"],
+        tag_layout_revision_id=revision_id,
+        tag_layout_recorded_at=recorded_at,
+        tag_layout_pin_basis="recorded_at",
+        completion_sha256="result-receipt",
+    )
+
+    assert completed["status"] == "succeeded"
+    assert completed["started_at"] == recorded_at
+    with store.connect() as connection:
+        rebound_pin = dict(connection.execute(
+            "SELECT * FROM experiment_tag_layouts WHERE experiment_id=?", (item["id"],)
+        ).fetchone())
+        assert dict(connection.execute(
+            "SELECT * FROM tag_layout_revisions WHERE id=?", (revision_id,)
+        ).fetchone()) == original_revision
+        with pytest.raises(sqlite3.IntegrityError, match="immutable"):
+            connection.execute(
+                "UPDATE experiment_tag_layouts SET recorded_at=? WHERE experiment_id=?",
+                ("2026-01-17T12:00:00+00:00", item["id"]),
+            )
+    assert rebound_pin == {
+        **original_pin,
+        "recorded_at": recorded_at,
+    }
+    assert any(
+        event["kind"] == "tag_layout_recording_time_rebound"
+        for event in store.events(item["id"])
+    )
+
+
+def test_nonlegacy_external_pin_recording_time_remains_immutable(tmp_path):
+    history, store, *_ = _history(tmp_path)
+    history.initialize()
+    revision_id = history.current()["id"]
+    spec, item = _legacy_external_plan(
+        store, revision_id, pin_basis="recording_start"
+    )
+
+    with pytest.raises(ValueError, match="different immutable tag layout pin"):
+        store.import_result(
+            spec,
+            "operator",
+            "succeeded",
+            experiment_id=item["id"],
+            tag_layout_revision_id=revision_id,
+            tag_layout_recorded_at="2026-01-16T12:00:00+00:00",
+            tag_layout_pin_basis="recorded_at",
+            completion_sha256="must-not-complete",
+        )
+
+    assert store.get(item["id"])["status"] == "waiting_for_operator"
+
+
+def test_equal_legacy_recording_time_still_validates_revision_interval(tmp_path):
+    history, store, *_ = _history(tmp_path)
+    history.initialize()
+    baseline_id = history.current()["id"]
+    spec, safe_item = _legacy_external_plan(store, baseline_id)
+    recorded_at = "2026-01-15T12:00:00+00:00"
+
+    completed = store.import_result(
+        spec,
+        "operator",
+        "succeeded",
+        experiment_id=safe_item["id"],
+        tag_layout_revision_id=baseline_id,
+        tag_layout_recorded_at=recorded_at,
+        tag_layout_pin_basis="recorded_at",
+        completion_sha256="equal-time-safe",
+    )
+    assert completed["status"] == "succeeded"
+    assert all(
+        event["kind"] != "tag_layout_recording_time_rebound"
+        for event in store.events(safe_item["id"])
+    )
+
+    spec, crossing_item = _legacy_external_plan(store, baseline_id)
+    _activate_revision_clone(
+        store,
+        baseline_id,
+        "equal-time-boundary",
+        "2026-01-15T12:00:01+00:00",
+    )
+    with pytest.raises(
+        ValueError, match="crosses a known tag layout revision boundary"
+    ):
+        store.import_result(
+            spec,
+            "operator",
+            "succeeded",
+            experiment_id=crossing_item["id"],
+            tag_layout_revision_id=baseline_id,
+            tag_layout_recorded_at=recorded_at,
+            tag_layout_pin_basis="recorded_at",
+            completion_sha256="equal-time-crossing",
+        )
+    assert store.get(crossing_item["id"])["status"] == "waiting_for_operator"
+
+
+def test_legacy_context_refresh_refuses_malformed_existing_evidence(tmp_path):
+    history, store, *_ = _history(tmp_path)
+    history.initialize()
+    revision_id = history.current()["id"]
+    spec, item = _legacy_external_plan(store, revision_id)
+    run_dir = tmp_path / "data" / "experiments" / item["id"]
+    history.materialize_experiment(run_dir, item["id"])
+    store.import_result(
+        spec,
+        "operator",
+        "succeeded",
+        experiment_id=item["id"],
+        tag_layout_revision_id=revision_id,
+        tag_layout_recorded_at="2026-01-16T12:00:00+00:00",
+        tag_layout_pin_basis="recorded_at",
+        completion_sha256="malformed-context",
+    )
+    context_path = run_dir / "vision-context.json"
+    context_path.write_text("[]\n", encoding="utf-8")
+
+    with pytest.raises(LayoutHistoryConflict, match="Refusing to replace"):
+        history.materialize_experiment(run_dir, item["id"])
+    assert context_path.read_text(encoding="utf-8") == "[]\n"
+
+
+@pytest.mark.parametrize("failure", ["different_revision", "crosses_boundary"])
+def test_legacy_external_pin_rebind_rejects_ambiguous_history(tmp_path, failure):
+    history, store, *_ = _history(tmp_path)
+    history.initialize()
+    baseline_id = history.current()["id"]
+    spec, item = _legacy_external_plan(store, baseline_id)
+    boundary = "2026-01-16T12:00:01+00:00"
+    _activate_revision_clone(store, baseline_id, "later-revision", boundary)
+    requested_revision_id = (
+        "later-revision" if failure == "different_revision" else baseline_id
+    )
+    recorded_at = (
+        "2026-01-16T12:00:02+00:00"
+        if failure == "different_revision"
+        else "2026-01-16T12:00:00+00:00"
+    )
+
+    with pytest.raises(ValueError, match=(
+        "different tag layout revision"
+        if failure == "different_revision"
+        else "crosses a known tag layout revision boundary"
+    )):
+        store.import_result(
+            spec,
+            "operator",
+            "succeeded",
+            experiment_id=item["id"],
+            tag_layout_revision_id=requested_revision_id,
+            tag_layout_recorded_at=recorded_at,
+            tag_layout_pin_basis="recorded_at",
+            completion_sha256=failure,
+        )
+
+    assert store.get(item["id"])["status"] == "waiting_for_operator"
+    pin = history.experiment_revision(item["id"])
+    assert pin["id"] == baseline_id
+    assert pin["recorded_at"] == "2026-01-15T12:00:00+00:00"
+    assert all(
+        event["kind"] != "external_result_registered"
+        for event in store.events(item["id"])
+    )
 
 
 def test_bootstrap_resolution_and_exact_experiment_snapshots(tmp_path):

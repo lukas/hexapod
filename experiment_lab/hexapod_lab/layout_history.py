@@ -20,7 +20,7 @@ import sqlite3
 import tempfile
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union
 
-from .db import Store
+from .db import LEGACY_PRE_RUN_PIN_BASIS, Store
 
 
 SNAPSHOT_FILES = {
@@ -180,6 +180,91 @@ def _write_once(path: Path, text: str) -> bool:
                     f"Refusing to replace differing evidence: {path.name}"
                 )
             return False
+        return True
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _refresh_legacy_recording_context(path: Path, text: str) -> bool:
+    """Atomically refresh only the time-derived fields of a legacy context."""
+
+    if not path.exists():
+        return _write_once(path, text)
+    requested_bytes = text.encode("utf-8")
+    if path.is_file() and path.read_bytes() == requested_bytes:
+        return False
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+        expected = json.loads(text)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LayoutHistoryConflict(
+            f"Refusing to replace differing evidence: {path.name}"
+        ) from exc
+    if not isinstance(current, Mapping) or not isinstance(expected, Mapping):
+        raise LayoutHistoryConflict(
+            f"Refusing to replace differing evidence: {path.name}"
+        )
+
+    current_revision = current.get("tag_layout_revision")
+    expected_revision = expected.get("tag_layout_revision")
+    if not isinstance(current_revision, dict) or not isinstance(
+        expected_revision, dict
+    ):
+        raise LayoutHistoryConflict(
+            f"Refusing to replace differing evidence: {path.name}"
+        )
+    # Preserve what was known when the legacy pin was first materialized. A
+    # later activation must not rewrite old evidence just because it reveals a
+    # previously unknown effective-to boundary.
+    expected_revision["effective_to_known_at_pin"] = current_revision.get(
+        "effective_to_known_at_pin"
+    )
+    expected_bytes = _pretty_json_text(expected).encode("utf-8")
+    if path.read_bytes() == expected_bytes:
+        return False
+
+    def invariant(value: Mapping[str, Any]) -> Tuple[Dict[str, Any], float]:
+        document = copy.deepcopy(dict(value))
+        if document.get("pin_basis") != LEGACY_PRE_RUN_PIN_BASIS:
+            raise LayoutHistoryConflict(
+                f"Refusing to replace differing evidence: {path.name}"
+            )
+        document.pop("recorded_at", None)
+        interval = document.pop("recording_interval", None)
+        if not isinstance(interval, Mapping) or "duration_seconds" not in interval:
+            raise LayoutHistoryConflict(
+                f"Refusing to replace differing evidence: {path.name}"
+            )
+        if not isinstance(document.get("tag_layout_revision"), dict):
+            raise LayoutHistoryConflict(
+                f"Refusing to replace differing evidence: {path.name}"
+            )
+        try:
+            duration = float(interval["duration_seconds"])
+        except (TypeError, ValueError) as exc:
+            raise LayoutHistoryConflict(
+                f"Refusing to replace differing evidence: {path.name}"
+            ) from exc
+        return document, duration
+
+    current_identity, current_duration = invariant(current)
+    expected_identity, expected_duration = invariant(expected)
+    if current_identity != expected_identity or current_duration != expected_duration:
+        raise LayoutHistoryConflict(
+            f"Refusing to replace differing evidence: {path.name}"
+        )
+
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(expected_bytes)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, path)
         return True
     finally:
         temporary.unlink(missing_ok=True)
@@ -888,7 +973,7 @@ class TagLayoutHistory:
                 "AND v.kind='imported') AS is_imported "
                 "FROM experiments e LEFT JOIN experiment_tag_layouts p "
                 "ON p.experiment_id=e.id WHERE p.experiment_id IS NULL "
-                "AND e.status<>'queued' "
+                "AND e.status NOT IN ('queued','waiting_for_operator') "
                 "ORDER BY e.created_at,e.id"
             ).fetchall()
             for experiment in rows:
@@ -924,7 +1009,7 @@ class TagLayoutHistory:
                         (
                             "legacy_backfill_camera_timestamp"
                             if artifact_time
-                            else "legacy_backfill_by_recorded_time"
+                            else LEGACY_PRE_RUN_PIN_BASIS
                         ),
                     ),
                 )
@@ -963,12 +1048,20 @@ class TagLayoutHistory:
         for pin in pins:
             experiment_id = pin["experiment_id"]
             run_dir = self.data_dir / "experiments" / experiment_id
+            context_path = run_dir / CONTEXT_FILE
+            previous_context = (
+                context_path.read_bytes() if context_path.is_file() else None
+            )
             missing = any(
                 not (run_dir / filename).is_file()
                 for filename in (*SNAPSHOT_FILES.values(), CONTEXT_FILE)
             )
             self.materialize_experiment(run_dir, experiment_id)
-            if missing:
+            context_changed = bool(
+                previous_context is not None
+                and context_path.read_bytes() != previous_context
+            )
+            if missing or context_changed:
                 newly_pinned.add(experiment_id)
         return sorted(newly_pinned)
 
@@ -1174,6 +1267,14 @@ class TagLayoutHistory:
                 (experiment_id,),
             ).fetchone()
             duration_seconds = float(experiment["duration_seconds"]) if experiment else 0.0
+            refresh_legacy_recording_context = bool(
+                pin["pin_basis"] == LEGACY_PRE_RUN_PIN_BASIS
+                and connection.execute(
+                    "SELECT 1 FROM events WHERE experiment_id=? "
+                    "AND kind='tag_layout_recording_time_rebound' LIMIT 1",
+                    (experiment_id,),
+                ).fetchone()
+            )
 
         recording_start = _parse_time(pin["recorded_at"])
         recording_end = recording_start + timedelta(seconds=duration_seconds)
@@ -1222,7 +1323,13 @@ class TagLayoutHistory:
                 for name in SNAPSHOT_FILES
             },
         }
-        _write_once(run_dir / CONTEXT_FILE, _pretty_json_text(context))
+        context_text = _pretty_json_text(context)
+        if refresh_legacy_recording_context:
+            context_path = run_dir / CONTEXT_FILE
+            _refresh_legacy_recording_context(context_path, context_text)
+            context = json.loads(context_path.read_text(encoding="utf-8"))
+        else:
+            _write_once(run_dir / CONTEXT_FILE, context_text)
         return context
 
     def record_candidate(

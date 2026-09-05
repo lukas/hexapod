@@ -6,7 +6,7 @@ import json
 import mimetypes
 import os
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Mapping, Optional
 from urllib.parse import urlsplit
 import uuid
 
@@ -16,6 +16,18 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from .auth import Principal, TokenAuth
+from .calibrations import (
+    CALIBRATION_DETAIL_OPENAPI,
+    CALIBRATION_LIST_OPENAPI,
+    CALIBRATION_REQUEST_OPENAPI,
+    CalibrationArchive,
+    CalibrationConflict,
+    CalibrationError,
+    CalibrationIntegrityError,
+    CalibrationNotFound,
+    CalibrationTooLarge,
+    MAX_CALIBRATION_BYTES,
+)
 from .config import Settings
 from .db import Store
 from .layout_history import (
@@ -78,6 +90,10 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         part_map_path=settings.tag_part_map_path,
     )
     backfilled = layout_history.initialize()
+    calibrations = CalibrationArchive(
+        store,
+        layout_provider=layout_history.resolve,
+    )
     enabled_history = layout_history if layout_history.available else None
     runner = ExperimentRunner(store, settings, enabled_history)
     scan_layout = (
@@ -122,6 +138,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     app.state.store, app.state.runner, app.state.auth = store, runner, auth
     app.state.tag_scans = tag_scans
     app.state.layout_history = layout_history
+    app.state.calibrations = calibrations
 
     def require_same_origin_action(
         request: Request, *, header: str, label: str
@@ -169,6 +186,17 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(500, str(error)) from error
         if isinstance(error, LayoutHistoryConflict):
             raise HTTPException(409, str(error)) from error
+        raise HTTPException(422, str(error)) from error
+
+    def raise_calibration_error(error: CalibrationError) -> None:
+        if isinstance(error, CalibrationNotFound):
+            raise HTTPException(404, str(error)) from error
+        if isinstance(error, CalibrationTooLarge):
+            raise HTTPException(413, str(error)) from error
+        if isinstance(error, CalibrationConflict):
+            raise HTTPException(409, str(error)) from error
+        if isinstance(error, CalibrationIntegrityError):
+            raise HTTPException(500, str(error)) from error
         raise HTTPException(422, str(error)) from error
 
     def require_experiment(experiment_id: str):
@@ -363,6 +391,75 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     @app.post("/api/results", status_code=201)
     def import_result(spec: CompletedResultIn, principal: Principal = Depends(operator)):
         return register_result(spec, principal)
+
+    @app.get("/api/calibrations", openapi_extra=CALIBRATION_LIST_OPENAPI)
+    def list_calibrations(
+        limit: int = Query(default=100, ge=1, le=100),
+        _: Principal = Depends(viewer),
+    ):
+        try:
+            return calibrations.list(limit)
+        except CalibrationError as error:
+            raise_calibration_error(error)
+
+    @app.get(
+        "/api/calibrations/{calibration_id}",
+        openapi_extra=CALIBRATION_DETAIL_OPENAPI,
+    )
+    def get_calibration(
+        calibration_id: str,
+        _: Principal = Depends(viewer),
+    ):
+        try:
+            return calibrations.get(calibration_id)
+        except CalibrationError as error:
+            raise_calibration_error(error)
+
+    @app.post(
+        "/api/calibrations",
+        status_code=201,
+        openapi_extra=CALIBRATION_REQUEST_OPENAPI,
+    )
+    @app.post(
+        "/api/calibrations/import",
+        status_code=201,
+        openapi_extra=CALIBRATION_REQUEST_OPENAPI,
+    )
+    async def import_calibration(
+        request: Request,
+        principal: Principal = Depends(operator),
+    ):
+        media_type = request.headers.get("content-type", "").partition(";")[0]
+        if media_type.strip().casefold() != "application/json":
+            raise HTTPException(415, "Calibration request must use application/json")
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                announced_size = int(content_length)
+            except ValueError as exc:
+                raise HTTPException(400, "Invalid Content-Length") from exc
+            if announced_size < 0:
+                raise HTTPException(400, "Invalid Content-Length")
+            if announced_size > MAX_CALIBRATION_BYTES:
+                raise HTTPException(413, "Calibration request exceeds the 2 MiB limit")
+        chunks = []
+        received = 0
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > MAX_CALIBRATION_BYTES:
+                raise HTTPException(
+                    413, "Calibration request exceeds the 2 MiB limit"
+                )
+            chunks.append(chunk)
+        body = b"".join(chunks)
+        try:
+            return calibrations.import_bytes(
+                body,
+                created_by=principal.name,
+                idempotency_key=request.headers.get("idempotency-key"),
+            )
+        except CalibrationError as error:
+            raise_calibration_error(error)
 
     @app.get("/api/experiments/{experiment_id}")
     def get_experiment(experiment_id: str, _: Principal = Depends(viewer)):
@@ -667,7 +764,26 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
 
     @app.post("/mcp")
     async def mcp(request: Request, principal: Principal = Depends(viewer)):
-        message = await request.json()
+        try:
+            message = await request.json()
+        except (UnicodeDecodeError, ValueError):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32700, "message": "Parse error"},
+                },
+            )
+        if not isinstance(message, Mapping):
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {"code": -32600, "message": "Invalid Request"},
+                },
+            )
         rpc_id, method = message.get("id"), message.get("method")
         if method == "initialize":
             return {"jsonrpc": "2.0", "id": rpc_id, "result": {"protocolVersion": "2025-03-26",
@@ -682,9 +798,11 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if method == "tools/call":
             params = message.get("params", {})
             try:
+                if not isinstance(params, Mapping):
+                    raise ValueError("Tool params must be an object")
                 result = call_mcp_tool(params.get("name", ""), params.get("arguments", {}), principal,
                                        store, runner, settings, enrich, artifact_path,
-                                       register_result, layout_history)
+                                       register_result, layout_history, calibrations)
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
             except (ValueError, HTTPException) as exc:
                 detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
@@ -825,6 +943,36 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         body = f"<a href='/'>← Queue</a><h1>{escape(item['name'])}</h1><span class='status {item['status']}'>{item['status']}</span>{video_html}{revision_html}{review_html}<h2>Summary</h2><pre>{summary}</pre><h2>Artifacts</h2><ul>{artifacts}</ul>"
         return page(item["name"], body)
 
+    default_openapi = app.openapi
+
+    def documented_openapi():
+        schema = default_openapi()
+        security_schemes = schema.setdefault("components", {}).setdefault(
+            "securitySchemes", {}
+        )
+        security_schemes.update({
+            "BearerAuth": {"type": "http", "scheme": "bearer"},
+            "BasicAuth": {"type": "http", "scheme": "basic"},
+        })
+        calibration_operations = (
+            ("/api/calibrations", "get"),
+            ("/api/calibrations", "post"),
+            ("/api/calibrations/import", "post"),
+            ("/api/calibrations/{calibration_id}", "get"),
+        )
+        for path, method in calibration_operations:
+            operation = schema["paths"][path][method]
+            operation["parameters"] = [
+                parameter
+                for parameter in operation.get("parameters", [])
+                if not (
+                    parameter.get("in") == "header"
+                    and parameter.get("name", "").casefold() == "authorization"
+                )
+            ]
+        return schema
+
+    app.openapi = documented_openapi
     return app
 
 
@@ -858,13 +1006,23 @@ def mcp_tools():
              "experiment_id": {"type": "string"},
              "at": {"type": "string", "format": "date-time"}
          }, "minProperties": 1, "maxProperties": 1}},
+        {"name": "list_calibrations", "description": "List immutable calibration records, newest first.",
+         "inputSchema": {"type": "object", "properties": {
+             "limit": {"type": "integer", "minimum": 1, "maximum": 100}
+         }}},
+        {"name": "get_calibration", "description": "Read one immutable calibration report and its optional archived pose config.",
+         "inputSchema": {"type": "object", "properties": {
+             "calibration_id": {"type": "string"}
+         }, "required": ["calibration_id"]}},
     ]
 
 
 def call_mcp_tool(
     name, args, principal, store, runner, settings, enrich, artifact_path,
-    register_result, layout_history,
+    register_result, layout_history, calibrations,
 ):
+    if not isinstance(args, Mapping):
+        raise ValueError("Tool arguments must be an object")
     if name == "list_experiments":
         limit = min(max(int(args.get("limit", 25)), 1), 100)
         data = [enrich(i) for i in store.list(limit)]
@@ -943,6 +1101,26 @@ def call_mcp_tool(
                     raise ValueError("No verified layout exists at that time")
                 data = layout_history.get_revision(resolved["id"])
         except LayoutHistoryError as exc:
+            raise ValueError(str(exc)) from exc
+    elif name == "list_calibrations":
+        try:
+            limit = int(args.get("limit", 25))
+            data = calibrations.list(
+                min(max(limit, 1), 100)
+            )
+        except (TypeError, ValueError, CalibrationError) as exc:
+            raise ValueError(str(exc)) from exc
+    elif name == "get_calibration":
+        calibration_id = args.get("calibration_id")
+        if (
+            not isinstance(calibration_id, str)
+            or not calibration_id.strip()
+            or len(calibration_id) > 200
+        ):
+            raise ValueError("calibration_id must be a non-empty string")
+        try:
+            data = calibrations.get(calibration_id)
+        except CalibrationError as exc:
             raise ValueError(str(exc)) from exc
     else:
         raise ValueError("Unknown tool")

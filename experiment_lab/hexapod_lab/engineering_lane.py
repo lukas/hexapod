@@ -655,10 +655,11 @@ class EngineeringJobStore:
 
     def reconcile(self, max_attempts: int = 3) -> int:
         now = utcnow()
-        inserted = 0
+        changed = 0
         with self.store.connect() as con:
             con.execute("BEGIN IMMEDIATE")
             self._retire_terminal_queue_handoffs(con, now)
+            changed += self._retire_pass_clear_analysis_jobs(con, now)
             rows = con.execute(
                 "SELECT job.id AS analysis_id,job.result_json,job.finished_at,"
                 "experiment.id AS experiment_id,experiment.name,"
@@ -677,6 +678,11 @@ class EngineeringJobStore:
                     parameters = json.loads(row["parameters_json"])
                 except (TypeError, json.JSONDecodeError):
                     continue
+                if self._analysis_is_pass_clear(analysis):
+                    # A passing, clear analysis has already queued any accepted
+                    # experiment recommendations. Do not spend another full
+                    # engineering-model turn merely to restate that result.
+                    continue
                 source_context = {
                     "trigger_kind": "experiment_analysis",
                     "experiment": {
@@ -690,7 +696,7 @@ class EngineeringJobStore:
                     "analysis": analysis,
                 }
                 job_id = uuid.uuid4().hex
-                changed = con.execute(
+                inserted = con.execute(
                     "INSERT OR IGNORE INTO codex_engineering_jobs("
                     "id,dedupe_key,source_analysis_job_id,experiment_id,mission,"
                     "source_context_json,source_context_sha256,status,max_attempts,"
@@ -703,9 +709,98 @@ class EngineeringJobStore:
                         max(1, int(max_attempts)), now, now, now,
                     ),
                 ).rowcount
-                inserted += changed
+                changed += inserted
             con.execute("COMMIT")
-        return inserted
+        return changed
+
+    @staticmethod
+    def _analysis_is_pass_clear(analysis: Any) -> bool:
+        return (
+            isinstance(analysis, dict)
+            and analysis.get("verdict") == "pass"
+            and analysis.get("safety_disposition") == "clear"
+        )
+
+    @classmethod
+    def _retire_pass_clear_analysis_jobs(cls, con, now: str) -> int:
+        """Finish obsolete pass/clear follow-through without invoking Codex."""
+        rows = con.execute(
+            "SELECT * FROM codex_engineering_jobs WHERE status IN "
+            "('queued','retry') AND "
+            "json_extract(source_context_json,'$.trigger_kind')="
+            "'experiment_analysis' ORDER BY created_at,id"
+        ).fetchall()
+        retired = 0
+        for row in rows:
+            try:
+                source = json.loads(row["source_context_json"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not cls._analysis_is_pass_clear(source.get("analysis")):
+                continue
+            previous_result = (
+                json.loads(row["result_json"]) if row["result_json"] else None
+            )
+            result = {
+                "schema_version": 1,
+                "engineering_job_id": row["id"],
+                "source_analysis_job_id": row["source_analysis_job_id"],
+                "experiment_id": row["experiment_id"],
+                # No model prompt ran. Bind this deterministic no-op to the
+                # immutable source context, matching stale-handoff retirement.
+                "project_context_sha256": row["source_context_sha256"],
+                "outcome": "no_change",
+                "mission_alignment": (
+                    "Avoid an unnecessary engineering run after a passing, "
+                    "clear analysis; accepted experiment follow-ups already "
+                    "carry any requested next work."
+                ),
+                "summary": (
+                    "Robot Lab retired this queued analysis follow-through "
+                    "without invoking Codex because its source analysis passed "
+                    "with a clear safety disposition."
+                ),
+                "changed_files": [],
+                "commands_run": [],
+                "artifacts": [],
+                "rl_orchestrator_requests": [],
+                "buildviz_summary": "",
+                "next_steps": [],
+                "operator_actions": [],
+                "safety_checks": [
+                    "No command, deployment, network access, or physical motion "
+                    "was performed while retiring the redundant follow-through."
+                ],
+                "physical_motion_started": False,
+                "robot_contacted": False,
+                "network_used": False,
+            }
+            if previous_result is not None:
+                result["previous_receipt"] = previous_result
+            updated = con.execute(
+                "UPDATE codex_engineering_jobs SET status='succeeded',"
+                "finished_at=?,updated_at=?,lease_owner=NULL,lease_token=NULL,"
+                "lease_expires_at=NULL,result_json=?,error=NULL WHERE id=? "
+                "AND status IN ('queued','retry') AND "
+                "json_extract(source_context_json,'$.trigger_kind')="
+                "'experiment_analysis'",
+                (now, now, _canonical(result), row["id"]),
+            ).rowcount
+            if updated != 1:
+                continue
+            con.execute(
+                "INSERT INTO events(experiment_id,timestamp,kind,message) "
+                "VALUES(?,?,?,?)",
+                (
+                    row["experiment_id"],
+                    now,
+                    "engineering_analysis_retired",
+                    "Retired redundant engineering follow-through because the "
+                    "source analysis passed with a clear safety disposition",
+                ),
+            )
+            retired += 1
+        return retired
 
     @staticmethod
     def _retire_terminal_queue_handoffs(con, now: str) -> int:

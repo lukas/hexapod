@@ -117,7 +117,7 @@ class _Clock:
         self.now += seconds
 
 
-def _drive_trial(monkeypatch, live_times: list[float | None]):
+def _drive_trial(monkeypatch, live_samples: list[float | None | dict]):
     trial = walk_trial.Trial.__new__(walk_trial.Trial)
     trial.args = SimpleNamespace(
         speed_m_s=0.08,
@@ -133,7 +133,7 @@ def _drive_trial(monkeypatch, live_times: list[float | None]):
     trial.three_fresh_health_samples = lambda **_kwargs: []
 
     clock = _Clock()
-    command_times = iter(live_times)
+    command_samples = iter(live_samples)
     calls: list[str] = []
 
     def request(path, _body=None):
@@ -144,8 +144,15 @@ def _drive_trial(monkeypatch, live_times: list[float | None]):
             return {"ok": True}
         if path == "/api/rl/drive/cmd":
             clock.now += 0.7
-            t_s = next(command_times)
-            return {"ok": True, "live": {"t_s": t_s}}
+            sample = next(command_samples)
+            if not isinstance(sample, dict):
+                sample = {
+                    "t_s": sample,
+                    "model": "walk",
+                    "learned_policy_active": True,
+                    "walk_has_engaged": True,
+                }
+            return {"ok": True, "live": sample}
         raise AssertionError(path)
 
     trial.request = request
@@ -157,24 +164,66 @@ def _drive_trial(monkeypatch, live_times: list[float | None]):
 def test_drive_leg_waits_for_requested_active_time(monkeypatch):
     trial, calls = _drive_trial(
         monkeypatch,
-        [None, 0.0, 0.9, 1.9, 2.9, 3.0],
+        [None, 0.0, 0.9, 1.9, 2.9, 3.0, 3.1],
     )
 
     trial.drive_leg("forward")
 
     assert calls.count("/api/rl/drive/cmd") == 6
     assert calls[-1] == "/api/rl/drive/stop"
-    assert trial.results[0]["command_active_s"] == pytest.approx(3.0)
+    assert trial.results[0]["actual_engaged_duration_s"] == pytest.approx(3.0)
+
+
+def test_drive_leg_excludes_arming_time_from_engaged_duration(monkeypatch):
+    arming = {
+        "t_s": 2.0,
+        "model": "arming",
+        "learned_policy_active": False,
+        "walk_has_engaged": False,
+    }
+    engaged = [
+        {
+            "t_s": t_s,
+            "model": "walk",
+            "learned_policy_active": True,
+            "walk_has_engaged": True,
+        }
+        for t_s in (2.1, 3.1, 4.1, 5.1)
+    ]
+    trial, calls = _drive_trial(monkeypatch, [arming, *engaged])
+
+    trial.drive_leg("forward")
+
+    assert calls.count("/api/rl/drive/cmd") == 5
+    assert trial.results[0]["last_live_t_s"] == pytest.approx(5.1)
+    assert trial.results[0]["actual_engaged_duration_s"] == pytest.approx(3.0)
 
 
 def test_drive_leg_stops_and_fails_after_bounded_startup_allowance(monkeypatch):
     trial, calls = _drive_trial(monkeypatch, [1.0] * 20)
 
-    with pytest.raises(RuntimeError, match="did not reach 3.0s active"):
+    with pytest.raises(RuntimeError, match="3.0s of learned-walk engagement"):
         trial.drive_leg("forward")
 
     assert calls[-1] == "/api/rl/drive/stop"
     assert calls.count("/api/rl/drive/stop") == 1
+
+
+def test_summary_exposes_actual_engaged_duration(tmp_path):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.output_dir = tmp_path
+    trial.completed = True
+    trial.results = [{"actual_engaged_duration_s": 3.05}]
+    trial.args = SimpleNamespace(
+        phases=["forward"], speed_m_s=0.08, duration_s=3.0,
+        course_segment_s=2.0, joystick_response=False,
+    )
+    trial.request = lambda _path: {"ok": True, "walk": _walk_meta(74)}
+
+    trial.write_summary()
+
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["actual_engaged_duration_s"] == pytest.approx(3.05)
 
 
 def test_direction_course_uses_active_time_delta_for_each_segment(monkeypatch):

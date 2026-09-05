@@ -2,6 +2,68 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~12:1x DIG-IN TRIGGER on `sde-s0-c4` (40M own-checkpoint
+  continuation, found FINISHED+unverdicted, not on any concurrent
+  cycle's owned list): W&B (`6e15jpmw`) looks like a clean PASS on
+  scalars alone — reward quarters 53.0/306.5/1004.2/1614.1 (strongly
+  monotonic, no plateau), full 40M steps completed. BUT hand-pulled
+  frame strips from the in-flight gate eval
+  (`logs/ckpt_eval/cw_walkscratch_easy0905_sde_s0_c4_gate/`, on
+  train-8) show a possible gait-quality red flag the scalars can't
+  see: the on-screen `feet` telemetry reads the IDENTICAL 4-on/2-off
+  contact pattern at four widely-spaced samples across one det
+  episode (t=0.01s all six planted at reset, then t=4.45s/8.89s/
+  20.00s all read the same pattern with only ONE leg visibly
+  extended/swinging and the other five tucked near-identical to each
+  other pose-to-pose) despite `v` reading 0.055-0.117 m/s (near/above
+  the 0.06 ref) and full `t=20.00s` survival (no fall). A true
+  alternating tripod gait sampled 4-5s apart should rarely land on
+  the identical support pattern every single time; this looks more
+  like a MOSTLY-FROZEN pose creeping forward (possible paddle/skate
+  or micro-oscillation exploit) than six-leg cycling — gate text
+  requires "six-leg lift/place on video, no belly drag", which this
+  may not clear even though every scalar milestone (`v_along_cmd`
+  positive, `ep_len` full, reward rising) reads PASS-shaped. This is
+  exactly a gate-vs-video disagreement trigger — **DIG-IN, not
+  verdicted**. `sde-s3-c1b` (also found FINISHED+unverdicted, same
+  pod-free discovery) shares the identical wandb fingerprint (reward
+  quarters 248.5/1008.5/1512.6/1989.4, monotonic, full 40M) — its own
+  gate eval was also already running in-flight (train-9) at cycle
+  end, not yet visually spot-checked; read it alongside `sde-s0-c4`
+  once both `report.json`s land (per-leg `duty_cycle`/`gait_valid`
+  will settle this definitively, no more guessing from sparse frame
+  samples). If the pattern replicates: the `sde` family's "ACQ
+  CONTINUE not FAIL" read may need a THIRD bucket — high reward/full
+  survival but NOT a six-leg gait (a new exploit class, name it and
+  bank it before funding further sde budget). Both gate evals were
+  left running (train-8, train-9), do not re-launch.
+- 09-05 ~12:0x `headset-base-c1` formally CANARY PASS (closes the
+  11:4x early read above): finite losses, reward_walk quarters
+  38.3/81.5/108.7/140.7 monotonic, `env/v_along_cmd_m_s` rises
+  0.115->holds 0.131 (heading gradient genuinely live, not marching
+  in place), `rollout/ep_len_mean` climbs 107.8->487.9 (near the
+  500-tick truncation — almost no falls by the end). Video (frame
+  strips pulled mid-eval, `walk_det_1`/`walk_det_4`) shows clean
+  six-leg cycling with visible net forward translation on two
+  different heading trials. Gate/spot-check eval left running on
+  train-1 (12-ep det+sto panel, video-every=1 is slow) — read
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_c1_gate/
+  report.json` when it lands; do not re-launch. By verdict time a
+  concurrent cycle had ALREADY launched the 40M acquisition follow-up
+  `headset-base-acq1` (train-1) and its halfgrav sibling
+  `headset-halfgrav-acq1` (train-0) off the strength of the same
+  wandb fingerprint on both canaries — consistent with this PASS,
+  left running, not touched. `headset-halfgrav-c2` (the halfgrav
+  canary) also finished with the identical monotonic-reward
+  fingerprint (quarters 25.9/53.5/64.0/98.8) but is being formally
+  verdicted by whichever cycle owns its acq1 launch — not duplicated
+  here. Tooling note: `ops.sh podeval <run> <sfx>`'s second arg is a
+  SUFFIX ON THE OUTPUT DIR, not a "--check" dry-run flag — passing
+  `--check` launches a genuine duplicate eval process against a
+  `_gate--check` dir instead of a no-op status check. Caught and
+  killed this cycle (train-1 pids); there is no dry-run/check mode,
+  use `ops.sh procs <pod>` to see if an eval is already alive instead.
+
 Operator order 09-05 ("Make sure the orchestrator dedicates the
 available hardware for this — it's not really using the hardware"):
 teacher-free easy-sim walking is now the PRIMARY GPU campaign. The
@@ -315,6 +377,51 @@ backlog; idle slots next to this unmet priority are the failure state.
   funding the remcost fix cell above rather than more bare sdehalfgrav
   seeds. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_{base_s0_c1,
   base_s1_c1,halfgrav_s0_c1,sde_s0_c1,sde_s3,sdehalfgrav_s3}_gate/`.
+- 09-05 ~12:1x REMCOST FIX CONFIRMED, NEW PATHOLOGY FOUND —
+  `sdehalfgrav-remcost-s1` gate eval: ACQ CONTINUE, not PASS/FAIL. The
+  `term_cost_per_remaining_s=100`/`term_cost_max=450` survival-duration
+  fix worked on its target failure mode — 0/12 det falls (walk/det +
+  walk_startjitter/det), fwd med 2.17-2.60m/20s (0.11-0.13 m/s, clears
+  the >=0.03 m/s bar), `ep_len_mean` climbed 110->1088 ticks with no
+  plateau (escapes the pre-fix 65-84-tick fingerprint cleanly). BUT a
+  NEW pathology blocks six-leg-validity: legs [1,4] show
+  `duty_cycle=0.0`/`swing_count~2` in EVERY one of the 12 det episodes
+  — a fully idle prop-leg pair, not minor underuse — so `gait_valid`
+  False 12/12 (walking on 4 legs, 2 held rigid). Also fragile: BOTH
+  stochastic scenarios fall 6/6 via tilt_roll/tilt_pitch with
+  near-zero forward (0.14-0.65m) — no margin against action noise.
+  Sibling `sdehalfgrav-remcost-s0` (concurrent cycle, unverdicted at
+  time of writing) shows the IDENTICAL fingerprint (legs [1,4]
+  sacrificed det, [0,2] sacrificed sto, 0/12 gait_valid, 6/6 sto
+  falls, even better fwd 3.3-4.0m) — this is a reproducible RECIPE
+  fingerprint, not seed noise, and recurs even in the ORIGINAL
+  pre-fix FAIL seeds (sdehalfgrav-s0/s1 sacrificed legs [0,5]) — the
+  2-idle-leg pattern looks structural to this action-box/0.5g
+  combination, independent of the survival-cost fix. Per 08-21: not
+  park-recapture, not flat — fix confirmed, but the cell needs a
+  per-leg-utilization lever (not just more seeds at this recipe)
+  before it can clear six-leg-validity. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_remcost_s{0,1}_gate/`.
+- 09-05 ~12:0x HEADING RUNG: BOTH 2M CANARIES PASS, 40M ACQUISITION
+  LAUNCHED — `headset-base-c1` (1g) and `headset-halfgrav-c2` (0.5g)
+  both finished healthy: `ep_rew_mean` climbed monotonically every
+  quarter (38->82->109->141 and 26->54->64->99), `ep_len_mean` rose
+  108->488 (near the 2000-tick full-episode length, no early
+  collapse) for both, `env/v_along_cmd_m_s` held positive +0.11-0.15
+  m/s throughout (real heading-command tracking, not marching in
+  place) — CANARY PASS, mechanism-health scope, on W&B evidence (gate
+  eval with video still running at verdict time, contention from
+  concurrent standwalk mixed-session evals sharing the fleet). Per the
+  campaign's own canary->acquisition follow-up, launched both 40M
+  continuations: `headset-base-acq1` (train-1) + `headset-halfgrav-acq1`
+  (train-0), both `--init-from-source` warm-started from their own 2M
+  checkpoint, VERIFIED RUNNING. Also found 2 more own-checkpoint
+  continuations finished-but-unverdicted this cycle with striking
+  results: `sde-s0-c4` (ep_rew_mean 1780.9, quarters 53->307->1004->1614)
+  and `sde-s3-c1b` (ep_rew_mean 2197.98, quarters 249->1009->1513->1989,
+  `ep_len_mean` maxed at 2000/2000 — full-episode survival) — both
+  climbing hard with no plateau, gate evals in flight, left for the
+  next triage pass (contention-slowed, not stuck).
 
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 

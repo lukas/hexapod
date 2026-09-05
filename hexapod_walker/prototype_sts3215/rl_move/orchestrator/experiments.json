@@ -291147,7 +291147,7 @@
       "reward.term_cost_max=450.0"
     ],
     "created": "2026-09-05T10:52:26+00:00",
-    "status": "RUNNING",
+    "status": "CONTINUE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -291193,7 +291193,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkscratch-easy0905-sdehalfgrav-remcost-s1 since 2026-09-05T11:45:44"
+    "triage": "done",
+    "verdict": "ACQ CONTINUE, not PASS/FAIL: the term_cost_per_remaining_s=100/term_cost_max=450 survival-duration fix worked on its target failure mode -- 0/12 det falls (walk/det + walk_startjitter/det), forward_dist_m med 2.17-2.60m/20s (0.11-0.13 m/s, clears the >=0.03 m/s bar), ep_len_mean climbed 110->1088 ticks across training with no plateau (escapes the pre-fix 65-84-tick fingerprint cleanly). BUT a new pathology blocks the six-leg-validity bar: legs [1,4] show duty_cycle=0.0/swing_count~2 in EVERY one of the 12 det episodes (walk/det AND walk_startjitter/det) -- not minor underuse, a fully idle prop-leg pair -- so gait_valid=False 12/12; it is walking on 4 legs with 2 held rigid, not six-leg cycling ('a walk without all six feet cycling is not walking'). Also fragile: BOTH stochastic scenarios (walk/sto, walk_startjitter/sto) fall 6/6 via tilt_roll/tilt_pitch with near-zero forward distance (0.14-0.65m) -- the deterministic policy has no margin against action noise. Sibling cw-walkscratch-easy0905-sdehalfgrav-remcost-s0 (concurrent cycle, unverdicted) shows the IDENTICAL fingerprint (legs [1,4] sacrificed det, [0,2] sacrificed sto, 0/12 gait_valid, 6/6 sto falls) with even better fwd (3.3-4.0m) -- this is a reproducible recipe fingerprint, not seed noise. Per 08-21: not park-recapture, not flat -- the fix is confirmed on survival duration but the cell needs another lever (per-leg utilization pricing, e.g. a small k_park_duty-style per-leg-swing floor) before it can pass six-leg-validity; do not fund more bare remcost seeds at this recipe, the 2-seed fingerprint is already n=2 confirmed. DIG-IN candidate for whoever decides the cell's next move (extend with a leg-utilization term vs redesign)."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s0-c2",
@@ -293942,7 +293943,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-base-acq1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_base_acq1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-headset-base-c1: Plain English: the 2M heading canary (headset-base-c1) already proved the heading-tracking gradient is live under the SAME reward the fixed-forward base family trained under (no new keys) -- this gives it the full 40M acquisition budget to see if it actually learns to walk toward the commanded heading set (straight/+45/-45deg) as cleanly as base-s2/s4/s0-c1/s1-c1 walked straight. Warm-started from headset-base-c1'\"'\"'s own 2M checkpoint (own-track, not a teacher/BC/motion-prior).' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_base_c1.zip > /tmp/train_cw-walkscratch-easy0905-headset-base-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-base-acq1.log",
     "wandb_id": "ri9rlmho",
-    "verified": "2026-09-05T11:56:53+00:00"
+    "verified": "2026-09-05T11:56:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T12:01:58+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1138,
+        "fps": 23301.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-acq1",
@@ -294134,6 +294147,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-acq1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_acq1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-c2: Plain English: the 2M heading canary (headset-halfgrav-c2) already proved the heading-tracking gradient is live under the SAME reward the fixed-forward halfgrav family trained under (no new keys) -- this gives it the full 40M acquisition budget to learn walking toward the commanded heading set (straight/+45/-45deg) as cleanly as halfgrav-s1/s2/s3/s0-c1 walked straight at 0.5g. Matching sibling to headset-base-acq1 (1g). Warm-started from headset-halfgrav-c2'\"'\"'s own 2M checkpoint (own-track, not a teacher/BC/motion-prior).' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_c2.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-acq1.log",
     "wandb_id": "veqsr4jm",
-    "verified": "2026-09-05T12:00:12+00:00"
+    "verified": "2026-09-05T12:00:12+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T12:05:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3524,
+        "fps": 23301.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

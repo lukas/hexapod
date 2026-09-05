@@ -19,16 +19,20 @@ def experiment():
             "foot_path": {"x_mm": [180, 187.5, 195], "y_mm": 60},
             "final_state": "limp",
             "supported_chassis": True,
-            "guarded_supervision": {
-                "camera_required": True,
-                "expected_live_motors": 18,
-                "healthy_motor_samples": 3,
-                "remote_abort_required": True,
-            },
+            "camera_required": True,
+            "expected_live_motors": 18,
+            "healthy_motor_samples": 3,
+            "remote_abort_required": True,
             "camera": {
                 "minimum_target_tag_coverage_fraction": 0.9,
                 "required_target_tags": {"L2": [18, 25], "L5": [48, 64]},
             },
+            "stop_conditions": [
+                "Any configured current, temperature, voltage, or communication safety trip",
+                "hard or sustained current",
+                "A cable enters a leg sweep volume",
+                "Camera or state timestamps stop advancing or lose synchronization",
+            ],
         },
     }
 
@@ -47,6 +51,17 @@ def test_current_runner_fails_closed_on_unbound_guards():
     assert report["checks"]["telemetry_guard_binding"]["passed"] is False
     assert report["checks"]["remote_abort_binding"]["passed"] is True
     assert report["checks"]["final_limp_binding"]["passed"] is True
+    assert report["trusted_deterministic_executor_name"] is None
+    assert report["runtime_compatibility_result"]["passed"] is True
+    assert len(report["command_sequence_digest"]) == 64
+    assert report["final_state_limp_assertion"]["passed"] is True
+    assert [item["executor_bound"] for item in report["stop_condition_mapping"]] == [
+        False,
+        True,
+        False,
+        False,
+    ]
+    assert report["stop_condition_mapping"][0]["coverage"] == "partial"
     assert report["protocols"]["L2"]["moving_joints"] == [7, 8]
     assert report["protocols"]["L5"]["moving_joints"] == [16, 17]
 
@@ -66,3 +81,20 @@ def test_parameter_mismatch_is_reported_without_executor_admission():
     assert report["qualified"] is False
     assert report["checks"]["parameter_schema"]["passed"] is False
     assert "hz" in report["checks"]["parameter_schema"]["detail"]
+
+
+def test_legacy_nested_supervision_shape_remains_accepted():
+    proposed = experiment()
+    proposed["parameters"]["guarded_supervision"] = {
+        key: proposed["parameters"].pop(key)
+        for key in (
+            "camera_required",
+            "expected_live_motors",
+            "healthy_motor_samples",
+            "remote_abort_required",
+        )
+    }
+
+    report = qualify(proposed, PROTO_DIR)
+
+    assert report["checks"]["parameter_schema"]["passed"] is True

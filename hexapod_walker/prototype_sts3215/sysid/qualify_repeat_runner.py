@@ -65,6 +65,63 @@ def _source_text(project_root: Path, relative: str) -> str:
     return (project_root / relative).read_text(encoding="utf-8")
 
 
+def _sequence_digest(order: list[str], protocols: dict[str, Any]) -> str:
+    """Identify the exact ordered protocol sequence without serializing ticks."""
+
+    sequence = [
+        {
+            "leg": leg,
+            "protocol_hash": protocols[leg]["protocol_hash"],
+            "ticks": protocols[leg]["ticks"],
+            "hz": protocols[leg]["hz"],
+        }
+        for leg in order
+    ]
+    encoded = json.dumps(sequence, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _stop_condition_mapping(parameters: dict[str, Any]) -> list[dict[str, Any]]:
+    """Describe which proposed stops are executor-bound, conservatively."""
+
+    mappings = []
+    for condition in parameters.get("stop_conditions", []):
+        lowered = str(condition).lower()
+        has_bound_cause = any(token in lowered for token in (
+            "current", "temperature", "hot motor", "communication", "servo loss",
+        ))
+        has_unbound_cause = any(token in lowered for token in (
+            "voltage", "tip", "brownout", "jam", "force", "stale",
+        ))
+        if has_bound_cause and has_unbound_cause:
+            binding = "partially covered; condition also contains unbound stop causes"
+            bound = False
+            coverage = "partial"
+        elif any(token in lowered for token in ("current", "temperature", "hot motor")):
+            binding = "linux_control.sysid_runner safety trip"
+            bound = True
+            coverage = "full"
+        elif any(token in lowered for token in ("communication", "servo loss")):
+            binding = "linux_control.sysid_runner missing-feedback debounce"
+            bound = True
+            coverage = "full"
+        elif "stale" in lowered or "timestamp" in lowered or "camera" in lowered:
+            binding = "not bound to the executor"
+            bound = False
+            coverage = "none"
+        else:
+            binding = "external observer/abort only; not automatically detected"
+            bound = False
+            coverage = "none"
+        mappings.append({
+            "condition": condition,
+            "executor_bound": bound,
+            "coverage": coverage,
+            "binding": binding,
+        })
+    return mappings
+
+
 def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
     """Return a deterministic compatibility report for the saved proposal."""
 
@@ -73,7 +130,10 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         key for key, expected in EXPECTED.items()
         if parameters.get(key) != expected
     ]
-    supervision = parameters.get("guarded_supervision") or {}
+    # Older saved plans grouped these fields under guarded_supervision; current
+    # Robot Lab plans store them directly in parameters.  Accept both shapes so
+    # qualification evaluates the saved plan rather than a schema translation.
+    supervision = parameters.get("guarded_supervision") or parameters
     camera = parameters.get("camera") or {}
     schema_ok = (
         not mismatches
@@ -224,6 +284,8 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         ),
     }
     qualified = all(item["passed"] for item in checks.values())
+    order = parameters.get("order") if isinstance(parameters.get("order"), list) else []
+    stop_mapping = _stop_condition_mapping(parameters)
     return {
         "schema_version": 1,
         "task": "runner_compatibility_validation",
@@ -232,9 +294,16 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         "robot_motion": False,
         "simulation_only": True,
         "candidate_executor": "linux_control.sysid_runner.run_sysid_protocol",
+        "trusted_deterministic_executor_name": (
+            "linux_control.sysid_runner.run_sysid_protocol" if qualified else None
+        ),
         "required_executor_class": "trusted_deterministic",
         "qualified": qualified,
         "executor_class": "trusted_deterministic" if qualified else None,
+        "runtime_compatibility_result": checks["runtime_compatibility"],
+        "command_sequence_digest": _sequence_digest(order, protocols),
+        "final_state_limp_assertion": checks["final_limp_binding"],
+        "stop_condition_mapping": stop_mapping,
         "checks": checks,
         "protocols": protocols,
         "source_sha256": source_hashes,

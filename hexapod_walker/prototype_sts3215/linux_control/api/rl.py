@@ -6,61 +6,18 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 from .common import *  # noqa: F401,F403
-from async_bus_guard import (
-    AsyncSamplerCleanupError, bus_quarantine_status, recover_bus_quarantine,
-)
+from async_bus_guard import AsyncSamplerCleanupError
 
 
 class RlApi:
-    def _rl_bus_quarantine(self) -> dict | None:
-        """Expose the fault and reap only readers that have already exited."""
-        bus = getattr(self.drive, "bus", None)
-        worker = getattr(self, "_demo_thread", None)
-        # Do not race the worker's finally block or release its bus-hot count
-        # while it is still publishing the cleanup failure.
-        status = (bus_quarantine_status(bus)
-                  if worker is not None and worker.is_alive()
-                  else recover_bus_quarantine(bus))
-        if status["bus_quarantined"]:
-            return {"ok": False, "active": False, **status}
-        with self._lock:
-            released = getattr(self, "_rl_quarantine_hot_held", False)
-            self._rl_quarantine_hot_held = False
-        if released:
-            self._bus_hot_end()
-            with self.drive._lock:
-                self.drive.mode = "idle"
-                self.drive.armed = False
-                self.drive.status = "reader joined; operator preflight required"
-            self._set_activity("bus_recovered", self.drive.status)
-        return None
-
-    def _rl_mark_quarantine(self, error, mode: str) -> None:
-        """No bus traffic: physical torque is unknown after failed cleanup."""
-        status = bus_quarantine_status(self.drive.bus)
-        self._rl_quarantine_hot_held = True
-        with self.drive._lock:
-            self.drive.armed = False
-            self.drive.mode = "demo"
-            self.drive.status = "bus unavailable: async reader has not joined"
-        with self._lock:
-            self._cal_result = {
-                "ok": False, "mode": mode, "error": str(error),
-                "cleanup_failed": True, "limped": False,
-                "held_pose": False, "torque_state": "unverified", **status,
-            }
-            self._demo_status = self.drive.status
-        self._set_activity("bus_fault", self.drive.status)
-
     # -- RL / agent HTTP surface (prefer this over SSH) ---------------------
     def rl_state(self) -> dict:
         """Pose + plant + activity in one JSON blob for agents / UI."""
-        blocked = self._rl_bus_quarantine()
-        if blocked:
-            return {**blocked, "service": "hexapod-web", "drive": blocked}
+        bus_state = self.bus_access_state(recover=True)
         return {
-            "ok": True,
+            "ok": not bus_state.get("bus_quarantined", False),
             "service": "hexapod-web",
+            **bus_state,
             "pose": self.pose(),
             "plant": self.plant_state(),
             "imu": self.imu_state(),
@@ -85,6 +42,9 @@ class RlApi:
                     "capture_plant — do not auto-stand."
                 ),
             }
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         return self.run_calibrate(mode="geometry", clearance_mm=clearance_mm)
 
     def rl_capture_plant(self) -> dict:
@@ -97,6 +57,9 @@ class RlApi:
         d = self.drive
         if d.dry_run or not d.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         samples: list[list[float]] = []
         for _ in range(6):
             row: list[float] = []
@@ -153,6 +116,9 @@ class RlApi:
             return {"ok": False, "error": f"motor_dynamics missing: {e}"}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(reason="→ dynamics", timeout=5.0):
                 return {"ok": False, "error": "previous job still running"}
@@ -183,12 +149,6 @@ class RlApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
 
             def _on_progress(p: dict) -> None:
                 with self._lock:
@@ -196,7 +156,17 @@ class RlApi:
                     self._demo_status = str(p.get("msg") or "dynamics")
 
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                # run_motor_dynamics owns the safety ordering: discover and
+                # read the present pose, apply the soft torque limit, then
+                # enable only the live IDs.  Never pre-enable full torque here.
                 self._bus_hot_begin()
+                with d._lock:
+                    # The runner enables torque internally; mirror that owner
+                    # intent without performing a wrapper-level bus write.
+                    d.armed = True
                 result = run_motor_dynamics(
                     d.bus,
                     amp_deg=amp_deg,
@@ -232,14 +202,44 @@ class RlApi:
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
-                # Probe limp's the bus; keep drive disarmed.
+                torque_state = "unverified"
+                torque_error = None
+                try:
+                    d._torque_all(False)
+                    torque_state = "off"
+                except Exception as e:
+                    torque_error = str(e)
+                with self._lock:
+                    result = dict(self._cal_result or {
+                        "ok": False, "mode": "dynamics",
+                        "error": "dynamics worker ended without a result",
+                    })
+                    result.update({
+                        "limped": torque_state == "off",
+                        "torque_state": torque_state,
+                    })
+                    if torque_error is not None:
+                        result["ok"] = False
+                        prior = str(result.get("error") or "").strip()
+                        result["error"] = (
+                            f"{prior}; " if prior else "") + (
+                            "torque disable unverified: " + torque_error)
+                        self._demo_status = (
+                            "error: torque disable unverified: " + torque_error)
+                    self._cal_result = result
                 with d._lock:
                     d.armed = False
+                    d.status = (
+                        "dynamics complete; disarmed (limp)"
+                        if torque_state == "off" else
+                        "dynamics stopped; torque unverified")
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
-                self._set_activity("limp", st or "dynamics done")
+                self._set_activity(
+                    "limp" if torque_state == "off" else "error",
+                    st or "dynamics done")
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -260,6 +260,9 @@ class RlApi:
             return {"ok": False, "error": f"sysid modules missing: {e}"}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         if not isinstance(protocol, dict):
             return {"ok": False, "error": "protocol must be a JSON object"}
         errs = validate(protocol)
@@ -288,12 +291,6 @@ class RlApi:
 
         def _worker():
             d = self.drive
-            with d._lock:
-                d.mode = "demo"
-                d.gait.stop()
-                if not d.armed:
-                    d._torque_all(True)
-                    d.armed = True
 
             def _on_progress(p: dict) -> None:
                 with self._lock:
@@ -301,7 +298,17 @@ class RlApi:
                     self._demo_status = str(p.get("msg") or "sysid")
 
             try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                # The runner applies its soft limit before enabling live IDs
+                # and holds the encoder-derived present pose.  A wrapper-level
+                # full-torque enable would violate that ordering.
                 self._bus_hot_begin()
+                with d._lock:
+                    # The runner enables torque internally; mirror that owner
+                    # intent without performing a wrapper-level bus write.
+                    d.armed = True
                 result = run_sysid_protocol(
                     d.bus,
                     protocol,
@@ -332,14 +339,44 @@ class RlApi:
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
-                # Runner limps the bus; keep drive disarmed.
+                torque_state = "unverified"
+                torque_error = None
+                try:
+                    d._torque_all(False)
+                    torque_state = "off"
+                except Exception as e:
+                    torque_error = str(e)
+                with self._lock:
+                    result = dict(self._cal_result or {
+                        "ok": False, "mode": "sysid",
+                        "error": "sysid worker ended without a result",
+                    })
+                    result.update({
+                        "limped": torque_state == "off",
+                        "torque_state": torque_state,
+                    })
+                    if torque_error is not None:
+                        result["ok"] = False
+                        prior = str(result.get("error") or "").strip()
+                        result["error"] = (
+                            f"{prior}; " if prior else "") + (
+                            "torque disable unverified: " + torque_error)
+                        self._demo_status = (
+                            "error: torque disable unverified: " + torque_error)
+                    self._cal_result = result
                 with d._lock:
                     d.armed = False
+                    d.status = (
+                        "sysid complete; disarmed (limp)"
+                        if torque_state == "off" else
+                        "sysid stopped; torque unverified")
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
-                self._set_activity("limp", st or "sysid done")
+                self._set_activity(
+                    "limp" if torque_state == "off" else "error",
+                    st or "sysid done")
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -351,12 +388,15 @@ class RlApi:
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         try:
             from rl_policy import preflight
         except ImportError as e:
             return {"ok": False, "error": f"rl_policy missing: {e}"}
-        if self.drive.dry_run or not self.drive.bus:
-            return {"ok": False, "error": "no bus"}
         ok, reason, details = preflight(self.drive.bus, mode)
         out = {"ok": ok, "mode": mode, **details}
         if not ok:
@@ -377,6 +417,9 @@ class RlApi:
         d = self.drive
         if d.dry_run or not d.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         bus = d.bus
         try:
             fb = bus.read_all_feedback()
@@ -437,6 +480,9 @@ class RlApi:
     def rl_timing_probe(self, *, samples: int = 200,
                         read_samples: int = 8) -> dict:
         """No-motion timing probe for the selected drive walk policy."""
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         if self._demo_thread and self._demo_thread.is_alive():
             return {"ok": False, "error": "stop the running job first"}
         try:
@@ -761,13 +807,8 @@ class RlApi:
 
     def rl_drive_state(self) -> dict:
         """Session snapshot for the UI (no bus traffic)."""
-        blocked = self._rl_bus_quarantine()
-        if blocked:
-            return {**blocked, "status": self.drive.status,
-                    "result": self._cal_result}
         active = self._drive_active()
-        out: dict = {"ok": True, "active": active,
-                     **bus_quarantine_status(self.drive.bus)}
+        out: dict = {"ok": True, "active": active}
         cmd = self._drive_cmd
         if cmd is not None:
             out["live"] = cmd.live
@@ -811,8 +852,10 @@ class RlApi:
         rl_drive_cmd. It must not surprise-glide to another stance before
         keys are pressed. THE OPERATOR MUST BE WATCHING.
         """
-        blocked = self._rl_bus_quarantine()
-        if blocked:
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
             return blocked
         try:
             from rl_policy import (DriveCommand, preflight, run_drive_session,
@@ -824,8 +867,6 @@ class RlApi:
                 velocity_filter_alpha)
         except ValueError as e:
             return {"ok": False, "error": str(e)}
-        if self.drive.dry_run or not self.drive.bus:
-            return {"ok": False, "error": "no bus"}
         with self.drive._lock:
             armed = bool(self.drive.armed)
         if not armed:
@@ -926,43 +967,64 @@ class RlApi:
                     else:
                         self._demo_status = (
                             f"RL drive: {result.get('error')}")
-            except Exception as e:
-                if (isinstance(e, AsyncSamplerCleanupError)
-                        or bus_quarantine_status(d.bus)["bus_quarantined"]):
-                    self._rl_mark_quarantine(e, "drive")
-                    return
+            except AsyncSamplerCleanupError as e:
                 if gen != self._demo_gen:
                     return
+                with self._lock:
+                    self._cal_result = {
+                        "ok": False,
+                        "error": str(e),
+                        "mode": "drive",
+                        "bus_quarantined": True,
+                        "bus_available": False,
+                        "torque_state": "unverified",
+                    }
+                    self._demo_status = f"bus quarantined: {e}"
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                torque_state = "unverified"
                 try:
-                    d.bus.enable_all_torque(False)
+                    d._torque_all(False)
+                    torque_state = "off"
                 except Exception:
                     pass
                 with self._lock:
-                    self._cal_result = {"ok": False, "error": str(e),
-                                        "mode": "drive"}
+                    self._cal_result = {
+                        "ok": False, "error": str(e), "mode": "drive",
+                        "limped": torque_state == "off",
+                        "torque_state": torque_state,
+                    }
                     self._demo_status = f"error: {e}"
             finally:
-                if bus_quarantine_status(d.bus)["bus_quarantined"]:
-                    # Retain bus-hot ownership; passive status polling can
-                    # release it only after joining the actual reader.
-                    return
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 res = self._cal_result or {}
                 limped = bool(res.get("limped"))
+                quarantined = bool(res.get("bus_quarantined"))
+                torque_unverified = res.get("torque_state") == "unverified"
                 with d._lock:
-                    d.armed = not limped
-                    if limped:
+                    if quarantined or torque_unverified:
+                        d.armed = False
+                        d.status = (
+                            "rl drive bus quarantined; torque unverified"
+                            if quarantined else
+                            "rl drive error; torque unverified")
+                    else:
+                        d.armed = not limped
+                    if not quarantined and not torque_unverified and limped:
                         d.status = "rl drive disarmed after trip"
-                    elif d.mode == "demo":
+                    elif (not quarantined and not torque_unverified
+                          and d.mode == "demo"):
                         d.status = "rl drive holding"
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
-                self._set_activity("limp" if limped else "holding",
-                                   st or "drive session done")
+                activity = ("error" if quarantined or torque_unverified else
+                            "limp" if limped else "holding")
+                self._set_activity(activity, st or "drive session done")
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -980,6 +1042,9 @@ class RlApi:
         """
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         if self._demo_thread and self._demo_thread.is_alive():
             if self._drive_active():
                 if not self._preempt_demo_thread(
@@ -1082,12 +1147,13 @@ class RlApi:
         turn, "hold" = heading hold; None = the unchanged naked path.
         The OPERATOR MUST BE WATCHING — this is the explicit order.
         """
-        blocked = self._rl_bus_quarantine()
-        if blocked:
-            return blocked
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
+        if self.drive.bus is not None:
+            blocked = self._bus_admission_error()
+            if blocked is not None:
+                return blocked
         if mode == "stand" and not learned:
             return self._rl_walk_ready_stand()
         if mode == "lower" and not learned:
@@ -1251,37 +1317,59 @@ class RlApi:
                     else:
                         self._demo_status = (
                             f"{label}: {result.get('error')}")
-            except Exception as e:
-                if (isinstance(e, AsyncSamplerCleanupError)
-                        or bus_quarantine_status(d.bus)["bus_quarantined"]):
-                    self._rl_mark_quarantine(e, mode)
-                    return
+            except AsyncSamplerCleanupError as e:
                 if gen != self._demo_gen:
                     return
+                with self._lock:
+                    self._cal_result = {
+                        "ok": False,
+                        "error": str(e),
+                        "mode": mode,
+                        "bus_quarantined": True,
+                        "bus_available": False,
+                        "torque_state": "unverified",
+                    }
+                    self._demo_status = f"bus quarantined: {e}"
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                torque_state = "unverified"
                 try:
-                    d.bus.enable_all_torque(False)
+                    d._torque_all(False)
+                    torque_state = "off"
                 except Exception:
                     pass
                 with self._lock:
-                    self._cal_result = {"ok": False, "error": str(e),
-                                        "mode": mode}
+                    self._cal_result = {
+                        "ok": False, "error": str(e), "mode": mode,
+                        "limped": torque_state == "off",
+                        "torque_state": torque_state,
+                    }
                     self._demo_status = f"error: {e}"
             finally:
-                if bus_quarantine_status(d.bus)["bus_quarantined"]:
-                    return
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 res = self._cal_result or {}
                 limped = bool(res.get("limped"))
+                quarantined = bool(res.get("bus_quarantined"))
+                torque_unverified = res.get("torque_state") == "unverified"
                 with d._lock:
-                    d.armed = not limped
+                    if quarantined or torque_unverified:
+                        d.armed = False
+                        d.status = (
+                            "rl policy bus quarantined; torque unverified"
+                            if quarantined else
+                            "rl policy error; torque unverified")
+                    else:
+                        d.armed = not limped
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
-                self._set_activity("limp" if limped else "holding",
-                                   st or f"{label} done")
+                activity = ("error" if quarantined or torque_unverified else
+                            "limp" if limped else "holding")
+                self._set_activity(activity, st or f"{label} done")
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -1308,6 +1396,9 @@ class RlApi:
             return {"ok": False, "error": str(e)}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(reason="→ set_stance", timeout=5.0):
                 return {"ok": False, "error": "previous job still running"}

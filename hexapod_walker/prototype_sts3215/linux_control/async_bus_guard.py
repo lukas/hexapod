@@ -41,7 +41,11 @@ def bus_quarantine_status(bus) -> dict:
 
 
 def require_bus_available(bus) -> None:
-    status = bus_quarantine_status(bus)
+    # Admission is also the recovery point.  A reader that merely timed out
+    # during join may have exited since then; reaping an already-dead thread is
+    # nonblocking and does not touch the serial bus.  Live readers stay
+    # quarantined.
+    status = recover_bus_quarantine(bus)
     if status["bus_quarantined"]:
         raise AsyncSamplerCleanupError(status["error"])
 
@@ -70,11 +74,11 @@ def recover_bus_quarantine(bus) -> dict:
                    if entry is not None and entry["bus"] is bus else [])
     for sampler, _detail in readers:
         thread = getattr(sampler, "_thread", None)
-        if thread is not None and thread.is_alive():
+        # A missing handle is not proof that the quarantined reader stopped.
+        # Only a retained Thread whose is_alive() is false is safe to reap.
+        if thread is None or thread.is_alive():
             continue
-        # The worker-local registry is independent; thread death alone never
-        # changes this process-wide quarantine without an explicit join.
-        if thread is not None:
-            thread.join(timeout=0)
+        # clear_bus_quarantine performs the nonblocking join after rechecking
+        # liveness; thread death alone never changes quarantine state.
         clear_bus_quarantine(bus, sampler)
     return bus_quarantine_status(bus)

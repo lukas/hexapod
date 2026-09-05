@@ -272,19 +272,20 @@ class DemosApi:
             if self._demo_thread and self._demo_thread.is_alive():
                 self._demo_status = "estopped"
 
-        def _limp() -> None:
+        def _limp() -> tuple[bool, str | None]:
             try:
                 self.drive.handle("X")
-            except Exception:
-                pass
+                return True, None
+            except Exception as e:
+                return False, str(e)
 
-        _limp()
+        limped, limp_error = _limp()
         t = self._demo_thread
         joined = True
         if t is not None and t.is_alive():
             t.join(timeout=3.0)
             joined = not t.is_alive()
-            _limp()
+            limped, limp_error = _limp()
             if not joined:
                 # Worker outlived the join window — keep a watcher that
                 # limps once more the moment it finally dies, so a late
@@ -293,18 +294,37 @@ class DemosApi:
                     th.join()
                     _limp()
                 threading.Thread(target=_watch, daemon=True).start()
+        # A live worker can still write after the last acknowledged disable;
+        # do not advertise a stable limp until bus ownership is released.
+        if not joined:
+            limped = False
+            limp_error = "motion worker still exiting"
+        torque_state = "off" if limped else "unverified"
+        with self.drive._lock:
+            self.drive.armed = False
+            if not limped:
+                self.drive.status = (
+                    "disarm requested; torque unverified"
+                    + (f": {limp_error}" if limp_error else ""))
         try:
             from event_log import emit
             emit("cmd", "EMERGENCY STOP (estop)", src="bench",
-                 data={"worker_exited": joined})
+                 data={"worker_exited": joined, "limped": limped,
+                       "torque_state": torque_state,
+                       **({"error": limp_error} if limp_error else {})})
         except Exception:
             pass
-        self._set_activity(
-            "limp",
-            "EMERGENCY STOP" if joined else
-            "EMERGENCY STOP — worker still exiting (bus limp; a watcher "
-            "re-limps the instant it dies)")
-        return {"ok": True, "worker_exited": joined,
+        if limped:
+            self._set_activity("limp", "EMERGENCY STOP — torque off confirmed")
+        else:
+            self._set_activity(
+                "error",
+                "EMERGENCY STOP — torque state unverified"
+                + (f": {limp_error}" if limp_error else ""))
+        return {"ok": limped, "limped": limped,
+                "torque_state": torque_state,
+                **({"error": limp_error} if limp_error else {}),
+                "worker_exited": joined,
                 "demo": self.demo_state(), "robot": self.robot_state()}
 
     def run_demo(self, name: str, *, speed: float = 1.0,

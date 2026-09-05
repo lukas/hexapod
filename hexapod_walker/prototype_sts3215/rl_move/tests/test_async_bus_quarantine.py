@@ -12,6 +12,7 @@ from async_bus_guard import (AsyncSamplerCleanupError, quarantine_bus,
     bus_quarantine_status, clear_bus_quarantine, recover_bus_quarantine,
     require_bus_available)
 from api.rl import RlApi
+from api.core import CoreApi
 from mcu_feetech_bus import McuFeetechBus
 from rl_policy import validate_velocity_filter_alpha
 
@@ -78,7 +79,7 @@ def test_quarantine_blocks_every_serial_transaction_boundary(operation):
         clear_bus_quarantine(bus, reader)
 
 
-class Api(RlApi):
+class Api(RlApi, CoreApi):
     def __init__(self, bus):
         self.drive = SimpleNamespace(bus=bus, dry_run=False, armed=True,
             _lock=threading.RLock(), mode="idle", status="ready")
@@ -138,7 +139,7 @@ def test_drive_api_forwards_velocity_alpha_to_worker(monkeypatch, alpha):
 
 
 @pytest.mark.parametrize("mode", ["drive", "stand"])
-def test_api_cleanup_failure_never_torques_or_advertises_idle(monkeypatch, mode):
+def test_api_cleanup_failure_never_torques_or_advertises_bus_available(monkeypatch, mode):
     torque = []
     bus = SimpleNamespace(enable_all_torque=lambda value: torque.append(value))
     api = Api(bus)
@@ -161,21 +162,21 @@ def test_api_cleanup_failure_never_torques_or_advertises_idle(monkeypatch, mode)
         api._demo_thread.join(timeout=1)
         assert not api._demo_thread.is_alive()
         assert torque == []
-        assert api.drive.mode == "demo"
+        assert api.drive.mode == "idle"
         assert not api.drive.armed
-        assert api._bus_hot == 1
-        assert api.activity == "bus_fault"
+        assert api._bus_hot == 0
+        assert api.activity == "error"
         assert api._cal_result["torque_state"] == "unverified"
         assert api.rl_drive_start()["bus_quarantined"]
         # Also blocks scripted stand/lower before their early dispatch.
         assert api.rl_policy_move(mode="lower")["bus_quarantined"]
-        assert api.rl_drive_state()["bus_available"] is False
+        assert api.bus_status()["bus_available"] is False
         reader._thread.alive = False
-        api.rl_drive_state()
+        api.bus_access_state()
         assert api._bus_hot == 0
         assert api.drive.mode == "idle"
         assert not api.drive.armed
-        assert api.activity == "bus_recovered"
+        assert api.activity == "error"
         assert torque == []
     finally:
         reader._thread.alive = False
@@ -207,13 +208,14 @@ def test_quarantine_rechecked_after_waiting_for_serial_lock(method, args):
         clear_bus_quarantine(bus, reader)
 
 
-def test_status_does_not_recover_until_worker_finalization_finishes(quarantined):
+def test_central_admission_joins_dead_reader_without_rearming_active_worker(quarantined):
     bus, reader = quarantined
     api = Api(bus)
     api._demo_thread = ReaderThread()
     reader._thread.alive = False
-    assert api.rl_drive_state()["bus_quarantined"]
+    assert api.bus_status()["bus_quarantined"]
     assert reader._thread.joins == 0
-    api._demo_thread.alive = False
-    api.rl_drive_state()
+    assert not api.bus_access_state()["bus_quarantined"]
     assert reader._thread.joins >= 1
+    assert not api.drive.armed
+    assert api._demo_thread.is_alive()

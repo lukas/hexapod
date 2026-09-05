@@ -42,7 +42,6 @@ class FakeRlApi(RlApi):
             armed=armed,
             _lock=threading.RLock(),
         )
-        self._lock = threading.RLock()
         self._demo_thread = None
 
     def _roles(self) -> dict:
@@ -51,6 +50,11 @@ class FakeRlApi(RlApi):
     def _role_weights(self, role: str) -> Path | None:
         if self._roles_data.get(role) and self._roles_data.get(role) != "walk":
             return Path("/tmp/fake_explicit_policy.json")
+        return None
+
+    def _bus_admission_error(self) -> dict | None:
+        # Production BenchAPI supplies this through CoreApi.  These tests use
+        # the RL mixin alone and exercise refusals before any bus transaction.
         return None
 
 

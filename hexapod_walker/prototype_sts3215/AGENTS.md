@@ -54,9 +54,19 @@ instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 
 ## Robot safety
 
-No physical robot motion unless the user explicitly asks for it in the
-current turn. Local checks, deploys, and service restarts are okay when
-requested; motion endpoints are not.
+The user grants standing authority for bounded physical experiments,
+necessary deployment (including relevant firmware), and routine recovery within
+an active robot task without repeated authorization questions. Work in the
+known test area with live observations and an available abort path. This does
+not authorize unrelated work or motion in an unknown, unobserved environment.
+Use HTTP for robot control and the documented deployment/service helpers for
+necessary updates. Do not change unrelated firmware or CAD as a side effect.
+
+Establish correct logical zeros, live servo feedback, and basic joint control
+before loaded motion; once established, proceed within the active task without
+an additional operator-request gate. This standing authority supersedes older
+per-turn permission wording in project runbooks; their technical checks and
+emergency responses still apply.
 
 For any anomaly during an authorized run, follow
 [`EMERGENCY_HANDLING.md`](EMERGENCY_HANDLING.md). In particular, a single
@@ -66,3 +76,9 @@ camera, recorder, or framework failures stop active motion neutrally and hold
 the current stable pose; they do not trigger a posture transition. When the
 camera and three fresh telemetry samples are normal, retry the complete failed
 step up to twice before ending it.
+
+An actual tip, brownout, hot motor, jam, surprise force, or hard/sustained
+current event requires a stop and physical inspection/correction before retry.
+The root instructions' supported single-joint grounded-current retry exception
+still applies. Report any concrete hands-on recovery needed; ordinary deployment,
+telemetry recovery, and bounded repeats do not need another permission question.

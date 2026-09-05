@@ -2833,13 +2833,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                         "preflight": details})
 
     def limp():
-        try:
-            bus.enable_all_torque(False)
-        except Exception:
-            try:
-                drive._torque_all(False)
-            except Exception:
-                pass
+        _confirmed_limp(drive)
 
     # --- arm: torque on, hold the PRESENT pose (never yank) ---
     with drive._lock:
@@ -3698,6 +3692,14 @@ def benchmark_drive_hot_path(drive, *, walk_weights: Path | None = None,
     }
 
 
+def _confirmed_limp(drive) -> None:
+    """Disable torque or raise; callers may only report limp on return."""
+    try:
+        drive.bus.enable_all_torque(False)
+    except Exception:
+        drive._torque_all(False)
+
+
 def validate_velocity_filter_alpha(value: float | None) -> float | None:
     """Validate the optional per-drive estimator override before any motion."""
     if value is None:
@@ -3915,13 +3917,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                     "preflight": details})
 
     def limp():
-        try:
-            bus.enable_all_torque(False)
-        except Exception:
-            try:
-                drive._torque_all(False)
-            except Exception:
-                pass
+        _confirmed_limp(drive)
 
     def hold_current_pose_after_stream_loss(
             fallback_robot: np.ndarray) -> bool:

@@ -16,7 +16,7 @@
 # Individual files shipped into linux_control/.
 LC_FILES=(
   drive_controller.py cpg_controller_loader.py
-  mcu_feetech_bus.py bench_api.py web_drive.py xbox_drive.py
+  mcu_feetech_bus.py async_bus_guard.py bench_api.py web_drive.py xbox_drive.py
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py
   status_display.py deploy_status_display.py servo_watch.py

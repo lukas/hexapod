@@ -302,6 +302,47 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   Evidence: `ops.sh review cw-walkscratch-easy0905-sde-dgfresh-s0`,
   `cw-walkscratch-easy0905-sde-idleterm-{s0,s1}` verdicts, W&B
   `8h25tu4l`.
+  UPDATE 09-05 ~16:5x: 3 of the 4 entrenched-checkpoint `dgatefix` arms
+  (`sde-s2-c2-dgatefix`, `sdehalfgrav-remcost-{s0,s1}-dgatefix` —
+  `--init-from` verified pointing at each seed's real 40M LEGPARK
+  checkpoint, not the provenance-bug-affected early ancestor) landed
+  and all 3 are **CANARY FAIL - MECHANISM**, but with a THIRD distinct
+  fingerprint, different from both prior closed patterns
+  (saturating-factor-despite-sacrifice, and full-freeze): the factor
+  genuinely DECLINES across training on all 3 (bare-sde 1.0->0.64,
+  remcost-s0 1.0->0.72, remcost-s1 1.0->0.66 — real, ungamed
+  penalizing pressure, not saturation) and there is no full-freeze —
+  all 3 keep real forward speed (0.09-0.26 m/s) and net displacement
+  (1.5-4.6m/20s). The mechanism is applying honest pressure to an
+  already-entrenched exploiter; it just isn't enough to escape within
+  2M. The two recipes diverge on reward direction though: bare-sde
+  (`sde-s2-c2-dgatefix`) has ep_rew_mean quarters RISING throughout
+  (94->224->332->406, the 08-21 rising-reward/bad-eval pattern — a
+  genuine continue-candidate), while both remcost seeds have
+  ep_rew_mean quarters WORSENING (-344->-495, -322->-582 — the
+  exploiter absorbing more penalty for the same frozen 2-leg-park
+  behavior without any escape appearing). All 3 stay at harness
+  walk/det `gait_valid` 0/6 with the SAME 1-2 legs stuck at 0.00-0.01
+  duty the whole clip (leg 1 alone for bare-sde; legs 1+4 for both
+  remcost seeds — same leg pair both remcost seeds, suggesting a
+  structural rather than random exploit). **Read together with the
+  concurrent cycle's still-unverdicted `sde-s1-c2-dgatefix` (DIG-IN
+  flagged, factor also declining 1.0->0.54, harness pending at time of
+  writing) this makes 3/4 (soon 4/4) of the entrenched-checkpoint
+  batch FAIL the 2M funding bar** — but unlike the from-scratch
+  `dgfresh`/bare-`walk_duty_gate` closures, none of these show the
+  mechanism being gamed; they show it working exactly as designed but
+  arriving too late against a checkpoint that already spent 40M steps
+  entrenching the sacrifice. This argues the next lever for the
+  entrenched-checkpoint case specifically is a LONGER continuation of
+  the most promising arm (`sde-s2-c2-dgatefix`, rising reward, no
+  worsening) rather than a new mechanism — do not relaunch bare
+  `walk_duty_gate` variants on these exact checkpoints without either
+  (a) a longer budget on the one rising-reward seed, or (b) waiting
+  for `sde-s1-c2-dgatefix`'s own harness read to complete the n=4
+  picture. Evidence: `ops.sh review cw-walkscratch-easy0905-{sde-s2-
+  c2-dgatefix,sdehalfgrav-remcost-s0-dgatefix,sdehalfgrav-remcost-s1-
+  dgatefix}`, W&B `jw13d0rn`/`mmbhvbzs`/`m9sj7qzp`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:5x this cycle (assigned `sde-s2-c2-dgatefix`/
+  `sdehalfgrav-remcost-{s0,s1}-dgatefix`, 3 of the 4-arm
+  entrenched-checkpoint `walk_duty_gate` batch — `sde-s1-c2-dgatefix`
+  is a concurrent cycle's, left untouched): **3 verdicts, all CANARY
+  FAIL - MECHANISM**, but a THIRD distinct fingerprint from the two
+  already-closed patterns (saturating-factor and full-freeze):
+  `env/walk_duty_gate_factor` genuinely DECLINES across training on
+  all 3 (bare-sde 1.0->0.64, remcost-s0 1.0->0.72, remcost-s1
+  1.0->0.66 — real ungamed pressure, not saturation) and none
+  full-freeze — all 3 keep real speed (0.09-0.26 m/s) and net
+  displacement (1.5-4.6m/20s). Harness walk/det `gait_valid` stays
+  0/6 on all 3, same 1-2 legs stuck at 0.00-0.01 duty the whole clip
+  (leg 1 for bare-sde; legs 1+4 both remcost seeds — same pair both
+  seeds). The two recipes diverge on reward direction: bare-sde
+  (`sde-s2-c2-dgatefix`) has `ep_rew_mean` quarters RISING throughout
+  (94->224->332->406, the 08-21 rising-reward/bad-eval continue
+  pattern), while both remcost seeds WORSEN (-344->-495, -322->-582 —
+  absorbing more penalty for the same frozen park without escaping).
+  Read: the mechanism works as designed against an entrenched
+  exploiter, it just hasn't had enough budget yet on the one
+  promising seed — the next lever for THIS specific question is a
+  longer continuation of `sde-s2-c2-dgatefix` (not a new price/
+  termination mechanism), once `sde-s1-c2-dgatefix`'s own harness read
+  completes the n=4 picture. CURRENT_TRUTHS.md updated (~16:5x entry).
+  Capacity: re-checked `launch_run.py status` — only
+  `headset-{base,halfgrav}-fullhead-c1` hold live GPU trainers (both
+  another cycle's, mid-training, left alone) plus `sde-dgidle-{s0,s1}`
+  (also another cycle's, mid-training) — everything else free,
+  backlog empty. Did not launch a longer `sde-s2-c2-dgatefix`
+  continuation this cycle: that arm's own promising signal is only
+  1/3 same-batch data points and the sibling entrenched-checkpoint
+  read (`sde-s1-c2-dgatefix`) is still mid-DIG-IN on a concurrent
+  cycle — spending a 40M continuation before all 4 arms of THIS batch
+  are read together would be premature and duplicative of that
+  cycle's own next move once it lands. No other non-duplicative
+  walkcurr/track work identified (fullheading canaries + dgidle pair
+  already own their pods; other tracks closed/maintenance-only per
+  prior entries). Evidence: `ops.sh review cw-walkscratch-easy0905-
+  {sde-s2-c2-dgatefix,sdehalfgrav-remcost-s0-dgatefix,sdehalfgrav-
+  remcost-s1-dgatefix}`, W&B `jw13d0rn`/`mmbhvbzs`/`m9sj7qzp`.
+
 - 09-05 ~16:5x this cycle (assigned `sde-dgfresh-s0b`/
   `sdehalfgrav-dgfresh-s0`, the from-scratch `walk_duty_gate`
   disambiguation pair): **3 verdicts, all CANARY FAIL - MECHANISM

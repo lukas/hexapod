@@ -1518,6 +1518,11 @@ class CodexOrchestrator:
             # runner compatibility, and every motion interlock. Permanently
             # discarding the plan here starved the robot lane and conflated a
             # historical disposition with current robot state.
+            if experiment.get("status") == "cancelled":
+                for proposal in normalized["recommended_experiments"]:
+                    proposal["rejection_reason"] = (
+                        "source experiment was cancelled by the operator"
+                    )
             normalized = self.store.checkpoint_codex_job_result(
                 job["id"],
                 self.owner,

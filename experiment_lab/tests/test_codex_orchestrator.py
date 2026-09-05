@@ -812,6 +812,60 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
     assert len([job for job in store.list_codex_jobs() if job["kind"] == "advance"]) == 1
 
 
+def test_cancelled_analysis_cannot_recreate_the_cancelled_plan(tmp_path):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = store.create(
+        {
+            "name": "obsolete physical plan",
+            "duration_seconds": 1,
+            "execution_mode": "external_guarded",
+            "parameters": {"robot_motion": True},
+        },
+        "test",
+    )
+    source = store.cancel(source["id"])
+    run_dir = settings.data_dir / "experiments" / source["id"]
+    run_dir.mkdir(parents=True)
+    (run_dir / "experiment.json").write_text(json.dumps(source) + "\n")
+    (run_dir / "summary.md").write_text("# Cancelled\n\nSuperseded by the operator.\n")
+    digest = ExperimentRunner._write_manifest(run_dir)
+    store.seal_evidence(source["id"], digest)
+    source = store.get(source["id"])
+    recommendation = {
+        "recommendation_key": "retry-obsolete-plan",
+        "name": "Retry obsolete physical plan",
+        "description": "Recreate the plan the operator cancelled.",
+        "duration_seconds": 1,
+        "parameters": {"robot_motion": True},
+        "execution_mode": "external_guarded",
+        "rationale": "The cancelled plan produced no measurement.",
+        "dependencies": [],
+        "stop_conditions": ["unexpected force"],
+    }
+
+    orchestrator = CodexOrchestrator(
+        store,
+        settings,
+        invoker=lambda role, _job, _request: analysis_result(
+            source, followups=[recommendation]
+        ),
+    )
+    assert orchestrator.process_one("analysis") is True
+
+    job = next(
+        job
+        for job in store.codex_jobs_for_experiment(source["id"])
+        if job["kind"] == "analysis"
+    )
+    assert job["status"] == "succeeded"
+    assert [item for item in store.list() if item["id"] != source["id"]] == []
+    assert job["result"]["followup_receipts"]["accepted"] == []
+    assert job["result"]["followup_receipts"]["rejected"][0][
+        "disposition_reason"
+    ] == "source experiment was cancelled by the operator"
+
+
 @pytest.mark.parametrize("disposition", ["needs_inspection", "stop"])
 @pytest.mark.parametrize(
     "driver, requested_mode, simulation_only",

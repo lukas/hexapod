@@ -285,9 +285,71 @@ def _circular_block_bootstrap(
     }
 
 
+def _phase_stratified_difference(
+    rows: Sequence[dict[str, Any]], value: Callable[[dict[str, Any]], float],
+    labels: Sequence[bool], *, phase_bins: int,
+) -> float | None:
+    """Return a row-weighted within-phase-bin outlier/background contrast."""
+    contrasts: list[tuple[int, float]] = []
+    for bin_index in range(phase_bins):
+        selected = [
+            (value(row), labels[index])
+            for index, row in enumerate(rows)
+            if int(row["phase_cycle"] * phase_bins) % phase_bins == bin_index
+        ]
+        out = [sample for sample, is_outlier in selected if is_outlier]
+        bg = [sample for sample, is_outlier in selected if not is_outlier]
+        if out and bg:
+            contrasts.append((len(selected), statistics.fmean(out) - statistics.fmean(bg)))
+    if not contrasts:
+        return None
+    return sum(weight * contrast for weight, contrast in contrasts) / sum(
+        weight for weight, _ in contrasts
+    )
+
+
+def _circular_phase_shift_null(
+    rows: Sequence[dict[str, Any]], value: Callable[[dict[str, Any]], float],
+    *, phase_bins: int, resamples: int, seed: int,
+) -> dict[str, Any]:
+    """Shift the complete outlier mask, preserving its contiguous time blocks.
+
+    The test statistic compares outlier and background rows within gait-phase
+    bins before pooling the contrasts.  Circularly shifting the complete mask
+    leaves the two recorded outlier-run shapes and their spacing intact while
+    placing that structure at null time/phase locations.
+    """
+    rng, count = random.Random(seed), len(rows)
+    labels = [bool(row["outlier"]) for row in rows]
+    observed = _phase_stratified_difference(rows, value, labels, phase_bins=phase_bins)
+    if observed is None:
+        raise AnalysisError("observed phase-stratified contrast is undefined")
+    estimates = []
+    for _ in range(resamples):
+        shift = rng.randrange(1, count)
+        shifted = [labels[(index - shift) % count] for index in range(count)]
+        estimate = _phase_stratified_difference(
+            rows, value, shifted, phase_bins=phase_bins
+        )
+        if estimate is not None:
+            estimates.append(estimate)
+    if not estimates:
+        raise AnalysisError("phase-stratified null produced no valid resamples")
+    extreme = sum(abs(estimate) >= abs(observed) for estimate in estimates)
+    return {
+        "observed_phase_stratified_outlier_minus_background_deg": observed,
+        "null_95pct_interval_deg": [
+            _percentile(estimates, 0.025), _percentile(estimates, 0.975)
+        ],
+        "two_sided_randomization_p": (extreme + 1) / (len(estimates) + 1),
+        "valid_resamples": len(estimates),
+    }
+
+
 def analyze(
     source_dir: Path, *, expected_manifest_sha256: str, active_phase: str = "walk",
     bootstrap_resamples: int = 10_000, bootstrap_seed: int = BOOTSTRAP_SEED,
+    block_lengths_rows: Sequence[int] | None = None, phase_bins: int = 8,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     verified = _verified_inputs(source_dir, expected_manifest_sha256)
     contract = _debug_contract(source_dir)
@@ -309,26 +371,48 @@ def analyze(
     if below:
         raise AnalysisError(f"specified outlier ticks below preserved threshold: {below}")
     clusters = _cluster_rows(rows)
-    block_length = round(100.0 / (2.0 * contract["phase_hz"]))
+    inferred_block_length = round(100.0 / (2.0 * contract["phase_hz"]))
+    block_lengths = list(block_lengths_rows or (inferred_block_length,))
+    if not block_lengths or any(length <= 0 for length in block_lengths):
+        raise AnalysisError("block lengths must be positive")
+    if phase_bins <= 1:
+        raise AnalysisError("phase_bins must be greater than one")
     targets: list[tuple[str, Callable[[dict[str, Any]], float]]] = [
         ("global", lambda row: row["global_error_deg"])
     ]
     for joint_type in JOINT_TYPES:
         joints = [j for j in range(JOINTS) if JOINT_TYPES[j % 3] == joint_type]
         targets.append((joint_type, lambda row, js=joints: statistics.fmean(row["errors_deg"][j] for j in js)))
-    bootstrap = {
-        "schema": "hexapod.gait_phase_joint_block_bootstrap.v1",
-        "seed": bootstrap_seed,
-        "resamples": bootstrap_resamples,
-        "method": "circular moving-block bootstrap of paired time rows",
-        "block_length_rows": block_length,
-        "block_basis": "one 1.333333 Hz tripod half-cycle at 100 Hz",
-        "comparisons": {
+    block_comparisons = {
+        str(block_length): {
             name: _circular_block_bootstrap(
                 rows, value, block_length=block_length,
                 resamples=bootstrap_resamples, seed=bootstrap_seed + index,
             )
             for index, (name, value) in enumerate(targets)
+        }
+        for block_length in block_lengths
+    }
+    null_comparisons = {
+        name: _circular_phase_shift_null(
+            rows, value, phase_bins=phase_bins, resamples=bootstrap_resamples,
+            seed=bootstrap_seed + 100 + index,
+        )
+        for index, (name, value) in enumerate(targets)
+    }
+    bootstrap = {
+        "schema": "hexapod.gait_phase_joint_bootstrap_reconciliation.v2",
+        "seed": bootstrap_seed,
+        "resamples": bootstrap_resamples,
+        "method": "circular moving-block bootstrap of paired time rows",
+        "block_lengths_rows": block_lengths,
+        "block_basis": "one 1.333333 Hz tripod half-cycle at 100 Hz",
+        "block_comparisons": block_comparisons,
+        "phase_stratified_null": {
+            "model": "circular_phase_shift_preserving_time_blocks",
+            "phase_bins": phase_bins,
+            "statistic": "row-weighted mean of within-phase-bin outlier-minus-background contrasts",
+            "comparisons": null_comparisons,
         },
         "limitations": [
             "Only two short outlier runs are present, so intervals quantify this trace rather than population causality.",
@@ -377,12 +461,16 @@ def main() -> None:
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--bootstrap-resamples", type=int, default=10_000)
     parser.add_argument("--bootstrap-seed", type=int, default=BOOTSTRAP_SEED)
+    parser.add_argument("--block-length-rows", type=int, action="append")
+    parser.add_argument("--phase-bins", type=int, default=8)
     args = parser.parse_args()
     write_outputs(*analyze(
         args.source_dir,
         expected_manifest_sha256=args.expected_manifest_sha256,
         bootstrap_resamples=args.bootstrap_resamples,
         bootstrap_seed=args.bootstrap_seed,
+        block_lengths_rows=args.block_length_rows,
+        phase_bins=args.phase_bins,
     ), args.out_dir)
 
 

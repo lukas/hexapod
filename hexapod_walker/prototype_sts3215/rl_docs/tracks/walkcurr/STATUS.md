@@ -2,6 +2,51 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~18:2x this cycle (assigned `headset-halfgrav-medhead-c1`,
+  `sde-s2-c2-dgatefix-cont40m`): 2 verdicts + 1 refill. (1)
+  `headset-halfgrav-medhead-c1` **CANARY PASS** — sibling of the base
+  (1g) medhead-c1 canary a concurrent cycle already passed. The DR-0
+  harness (synced this cycle) shows gait_valid TRUE on all 24/24
+  episodes across walk/walk_sto/walk_startjitter_det/sto, zero
+  sacrificed legs, zero terminations, forward_dist_m 2.6-3.4m/20s
+  every episode, slip_per_m median 2.4-3.7 (near the 2.9 teacher
+  band), frame strip confirms genuine six-leg cycling. The naive
+  W&B read (`ep_rew_mean` falling -24.6->-85.3->-138.8->-164.5) looked
+  like a violation of the gate's "must rise or hold" text, but
+  per-tick reward is flat while `ep_len_mean` climbs on the identical
+  fixed warm-up ramp the base sibling's PASS already characterized —
+  same shape, not a collapse. Launched the 40M acquisition
+  continuation `headset-halfgrav-medhead-acq1` (warm-started from this
+  checkpoint, VERIFIED RUNNING train-2), mirroring
+  `headset-base-medhead-acq1`'s template. (2)
+  `sde-s2-c2-dgatefix-cont40m` **ACQ FAIL** — the entrenched-checkpoint
+  `walk_duty_gate` continuation (the one live exception kept running
+  as a sunk-cost read per the 17:2x/17:3x closure notes below) does
+  NOT rescue the gSDE leg-park exploit over a full 40M budget: harness
+  gait_valid 1/24 overall, leg 1 (sometimes +4) chronically sacrificed,
+  walk/det IDENTICAL across all 6 episodes (dead-leg drag,
+  frame-strip-confirmed). `env/walk_duty_gate_factor` genuinely
+  declined 1.0->0.62 through the first ~2M (the signal that licensed
+  this continuation) but then MONOTONICALLY RE-SATURATED to 0.85-0.94
+  by 40M despite the persisting sacrifice — the exact disqualifying
+  condition the gate named at launch — while `ep_rew_mean` climbed
+  hugely (90->2100+) on the other five legs' work and `env/walk_speed`
+  stayed flat ~0.13-0.14 m/s throughout (no genuine acceleration once
+  re-saturated). **This closes the last live gSDE exception — the
+  gSDE sub-lineage (bare-sde + sdehalfgrav-remcost, every repair
+  mechanism, fresh-init or entrenched-checkpoint) is now CLOSED
+  end-to-end.** No further gSDE arm of any kind should be funded.
+  Capacity re-checked before exiting: 8-9/11 GPU pods free, no other
+  non-duplicative walkcurr arm identified this cycle beyond the one
+  acquisition launch above (the concurrent cycle owns the
+  `dgate2-c1`/`irr-dgate2-c1` strong-floor retry and `base-medhead-acq1`
+  lines already in flight). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-{headset-halfgrav-medhead-c1,sde-s2-c2-
+  dgatefix-cont40m}`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  halfgrav_medhead_c1_gate/report.json`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_sde_s2_c2_dgatefix_cont40m_gate/report.json`,
+  W&B `uxuboegj`/`66wc8jin`.
+
 - 09-05 ~17:3x this cycle (assigned `headset-{base,halfgrav}-
   fullhead-c1`, `sde-dgidle-s1`): 3 verdicts + 1 correction pass + 1
   refill. (1) `sde-dgidle-s1` **CANARY FAIL - MECHANISM** — corroborates

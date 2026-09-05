@@ -94,5 +94,11 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dgate_c1_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_base_s0c1_dgate_c1_gate",
   "added": "2026-09-05T15:50:12"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dgate2_c1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_s0c1_dgate2_c1_gate",
+  "added": "2026-09-05T18:20:36"
  }
 ]

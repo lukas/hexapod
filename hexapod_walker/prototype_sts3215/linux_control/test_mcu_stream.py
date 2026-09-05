@@ -11,6 +11,7 @@ import struct
 import sys
 import threading
 from pathlib import Path
+from unittest.mock import patch
 
 _HERE = Path(__file__).resolve().parent
 for _p in (_HERE, _HERE.parent / "motor_setup"):
@@ -143,6 +144,80 @@ def _mk_bus(reply: bytes) -> McuFeetechBus:
     bus.has_stream = True
     bus.streaming = True
     return bus
+
+
+def _timed_bus(reply: bytes, clock: list[float]) -> McuFeetechBus:
+    class TimedSerial(FakeSerial):
+        def reset_input_buffer(self):
+            clock[0] += 0.003
+
+        def write(self, data):
+            clock[0] += 0.007
+            super().write(data)
+
+        def flush(self):
+            clock[0] += 0.053
+
+        def read(self, n=1):
+            clock[0] += 0.011
+            return super().read(n)
+
+    class TimedLock:
+        def __enter__(self):
+            clock[0] += 0.021
+
+        def __exit__(self, *_args):
+            pass
+
+    bus = _mk_bus(reply)
+    bus._ser = TimedSerial(reply)
+    bus._lock = TimedLock()
+    return bus
+
+
+def test_snapshot_trace_separates_lock_write_flush_and_reply():
+    clock = [10.0]
+    payload = _fw_snapshot_payload(7, 3, 2, (0, 0, 16384, 0, 0, 0, 0),
+                                   [(2 + j, 1, 2048, 0) for j in range(18)])
+    bus = _timed_bus(_fw_snapshot_frame(payload, 18), clock)
+    with patch("mcu_feetech_bus.time.monotonic", lambda: clock[0]):
+        snap = bus.read_snapshot()
+
+    assert snap is not None and snap["seq"] == 7
+    assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
+    trace, = bus.debug_events()
+    assert trace["ok"] is True
+    assert trace["lock_wait_ms"] == 21.0
+    assert trace["reset_input_ms"] == 3.0
+    assert trace["serial_write_ms"] == 7.0
+    assert trace["serial_flush_ms"] == 53.0
+    assert trace["write_flush_ms"] == 63.0
+    assert trace["first_byte_wait_ms"] == 11.0
+
+
+def test_sync_write_trace_preserves_ack_and_retry():
+    clock = [10.0]
+    bus = _timed_bus(b"ERR\nOK\n", clock)
+    items = [(2, 2048, 400, 20)]
+    bus._pending = list(items)
+    with patch("mcu_feetech_bus.time.monotonic", lambda: clock[0]):
+        bus._flush_sync()
+
+    assert bytes(bus._ser.tx) == encode_sync_frame(ord("W"), items) * 2
+    first, second = bus.debug_events()
+    assert first["ok"] is False and first["reason"] == "ack_rejected"
+    assert first["attempt"] == 1 and first["reply"] == "ERR"
+    assert second["ok"] is True and "reason" not in second
+    assert second["attempt"] == 2 and second["reply"] == "OK"
+    for trace in (first, second):
+        assert trace["cmd"] == "W" and trace["want"] == "OK"
+        assert trace["lock_wait_ms"] == 21.0
+        assert trace["reset_input_ms"] == 3.0
+        assert trace["serial_write_ms"] == 7.0
+        assert trace["serial_flush_ms"] == 53.0
+        assert trace["write_flush_ms"] == 63.0
+    assert first["ack_wait_ms"] == 44.0
+    assert second["ack_wait_ms"] == 33.0
 
 
 class SnapshotSink:

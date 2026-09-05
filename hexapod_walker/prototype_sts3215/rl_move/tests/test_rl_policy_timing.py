@@ -305,12 +305,10 @@ def test_drive_command_engages_walk_on_translation_or_yaw():
     assert rl_policy._drive_command_is_moving(  # noqa: SLF001
         0.001, 0.0, 0.0
     )
-    assert rl_policy._drive_command_is_moving(  # noqa: SLF001
-        0.0, 0.0, 0.01, walk_obs=93
-    )
-    assert rl_policy._drive_command_is_moving(  # noqa: SLF001
-        0.0, 0.0, 0.01, walk_obs=75
-    )
+    for obs_dim in (75, 81, 93):
+        assert rl_policy._drive_command_is_moving(  # noqa: SLF001
+            0.0, 0.0, 0.01, walk_obs=obs_dim
+        )
     assert not rl_policy._drive_command_is_moving(  # noqa: SLF001
         0.0, 0.0, 0.01, walk_obs=72
     )

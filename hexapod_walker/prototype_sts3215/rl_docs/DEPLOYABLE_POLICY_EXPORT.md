@@ -121,8 +121,42 @@ uv run python -m rl_move.np_policy push /tmp/<policy-name>.json \
 Upload is storage only. Selecting roles, starting a session, standing, and
 walking are separate operator actions. A unified obs-81 controller must use
 one shared loaded model object for its walk and hold/mode roles so recurrent
-state stays continuous. Robot Lab experiments remain `external_guarded` until
-an operator explicitly starts them.
+state stays continuous. The hardware runner recognizes both the same path and
+the byte-identical live-slot copy made by the policy picker, then reuses one
+actor object. It refuses an obs-81 drive session if walk and hold resolve to
+different payloads.
+
+The complete no-motion setup is:
+
+```sh
+ROBOT_URL=http://hexapod.local:8080
+POLICY_FILE=<policy-name>.json
+
+# Store the artifact (same as the `np_policy push` command above).
+curl -sS -X POST "$ROBOT_URL/api/rl/policies?name=<policy-name>" \
+  -H 'Content-Type: application/json' --data-binary @/tmp/$POLICY_FILE
+
+# Make policy metadata and the fixed-duration Walk action resolve to it.
+curl -sS -X POST "$ROBOT_URL/api/rl/policy_select" \
+  -H 'Content-Type: application/json' -d "{\"file\":\"$POLICY_FILE\"}"
+
+# For persistent obs-81 joystick drive, both roles must name this artifact.
+curl -sS -X POST "$ROBOT_URL/api/rl/roles" \
+  -H 'Content-Type: application/json' \
+  -d "{\"role\":\"walk\",\"file\":\"$POLICY_FILE\"}"
+curl -sS -X POST "$ROBOT_URL/api/rl/roles" \
+  -H 'Content-Type: application/json' \
+  -d "{\"role\":\"hold\",\"file\":\"$POLICY_FILE\"}"
+
+# Read-only confirmation; none of the commands above move the robot.
+curl -sS "$ROBOT_URL/api/rl/policy"
+curl -sS "$ROBOT_URL/api/rl/roles"
+```
+
+Do not turn those setup calls into a walk request. Robot Lab experiments
+remain `external_guarded` until an operator explicitly starts them. The
+current obs-81 hardware surface emits `walk` and `hold` mode slots only;
+learned rise/lower and other transition modes remain separately gated work.
 
 ## Verified examples (2026-09-05)
 

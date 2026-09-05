@@ -61,12 +61,20 @@ def test_obs75_requires_explicit_phase_and_yaw_contract():
     errs, _ = validate_np_policy(obj)
     assert any("phase_hz" in error for error in errs)
     assert any("walk_yaw_cmd" in error for error in errs)
+    assert any("walk_phase_run_on_yaw" in error for error in errs)
 
     obj["meta"].update(phase_hz=1.333333, walk_yaw_cmd=True,
                        walk_phase_run_on_yaw=True)
     errs, info = validate_np_policy(obj)
     assert errs == []
     assert info["obs_dim"] == 75
+
+
+def test_malformed_scalar_matrices_are_validation_errors_not_exceptions():
+    obj = _policy()
+    obj["b1"] = 0.0
+    errs, _ = validate_np_policy(obj)
+    assert any("b1 must be rank 1" in error for error in errs)
 
 
 def _packed_module(module) -> dict:

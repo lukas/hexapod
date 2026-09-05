@@ -32,33 +32,31 @@ backlog; idle slots next to this unmet priority are the failure state.
 - Judged by the 08-21 ruling: learning-but-not-yet-walking at 40M =
   continue/realign, not auto-fail; hard 2x2 family comparisons (sde
   vs Gaussian, 1g vs 0.5g) decide which families get deeper budget.
+- 09-05 ~09:5x FIRST 40M RETURN — `sdehalfgrav-s0` (sde x halfgrav
+  cell) ACQ FAIL: fast 2-leg lurch straight into tilt_pitch, gait_valid
+  0/24 across every eval scenario, fwd 0.07-0.26m (bar: 20s sustained).
+  `env/walk_speed`/`v_along_cmd` and `rollout/ep_len_mean` (flat
+  67-77 ticks) plateau from ~13M on; the late scalar ep_rew creep is a
+  per-tick reward-per-burst hack, not survival learning. Root-cause
+  hypothesis: freeprog EMA reward pays more per tick than the one-time
+  -24 term_penalty costs, so "sprint then fall" out-earns walking —
+  reward misaligned with the eval, not a dead lineage (08-21). Do NOT
+  generalize to the still-training single-lever siblings until each
+  reports its own ep_len/gait_valid fingerprint; if several share this
+  plateau, the fix is pricing survival duration directly (raise
+  term_penalty and/or a small per-tick alive bonus) before funding
+  another sde+halfgrav arm. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_s0_gate/`.
 
-## REOPENED (BOUNDED) 2026-09-05 — operator easy-sim teacher-free pilot (scale ceiling superseded above)
+## Easy-sim pilot recipe (superseded for scale by the campaign above)
 
-Operator focus note 09-05 authorizes ONE bounded pilot cohort on easy
-simulation physics (explicit departure from hardware realism, isolated
-to this cohort): `cw-walkscratch-easy0905-{base-s0,base-s1,sde-s0,
-halfgrav-s0}`. Full recipe, what-is-new table, literature basis,
-pre-launch proof (test_walkscratch_easy_pilot.py 13/13 on the
-committed 4.81 kg mesh twin), canary/acquisition gates, and boundaries:
-`rl_docs/tracks/walkcurr/EASY_PILOT_20260905.md`.
-
-- Now: 4x 2M canary arms launched 09-05 (this cycle).
-- Next (pre-registered): each HEALTHY canary continues from ITS
-  OWN checkpoint (originally +18M; raised to up to +40M/run by the
-  09-05 full-fleet operator order, within the 40M per-run guardrail).
-  No walking at 2M is
-  NOT a canary failure — stop only for nonfinite training, ineffective
-  actions, implementation failure, or a proven exploit. Do NOT retire
-  the question off these small pilots alone.
-- Acquisition milestone (own-physics, NOT the old DONE): 20 s held-out
-  fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det
-  episodes, six-leg lift/place on video, no belly drag; report sto.
-- halfgrav is evaluated at its own gravity first; full-gravity is a
-  later diagnostic, never an automatic promotion.
-- Boundaries: no teacher/BC/phase/motion prior (rule (a) holds), no
-  hardware claims from easy physics, defaults untouched (new keys
-  goal.walk_cmd_hold_s/walk_cmd_ramp_s default-preserving).
+Recipe/proof/gates for the original 4-arm bounded pilot (base-s0,
+base-s1, sde-s0, halfgrav-s0) that the full-fleet wave grew from,
+including the `test_walkscratch_easy_pilot.py` 13/13 preflight and
+full boundaries (no teacher/BC/phase/motion prior, no hardware claims,
+defaults untouched): `rl_docs/tracks/walkcurr/EASY_PILOT_20260905.md`.
+halfgrav arms are read at their own gravity first; full-gravity is a
+later diagnostic, never an automatic promotion.
 
 ## RETIRED for real-physics prior-free discovery (2026-08-31 ~06:4x — honest DONE-negative scope finding)
 

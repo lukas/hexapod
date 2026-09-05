@@ -1,9 +1,9 @@
 [
   {
-    "run": "cw-walkscratch-easy0905-sdehalfgrav-s3",
+    "run": "cw-walkscratch-easy0905-sdehalfgrav-s2",
     "steps": 40000000,
     "parent": "cw-walkscratch-easy0905-sde-s0",
-    "hypothesis": "Plain English: seed 3 of the sde+halfgrav factorial cell, seed-MATCHED to sde-s3/halfgrav-s3 so every family has n>=4 seeds for the 2x2 comparison. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 3.",
+    "hypothesis": "Plain English: seed 2 of the sde+halfgrav factorial cell, seed-MATCHED to base-s2/sde-s2/halfgrav-s2 so the 2x2 family grid has paired draws at seed 2. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 2.",
     "gate": "Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.",
     "trainer": "ppo",
     "phase": "acquisition",
@@ -51,9 +51,9 @@
       "--sde-sample-freq",
       "20",
       "--seed",
-      "3",
+      "2",
       "--out-name",
-      "ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_s3",
+      "ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_s2",
       "--cfg-set",
       "env.model_source=mesh_mjx",
       "--cfg-set",
@@ -153,7 +153,8 @@
       "--cfg-set",
       "ease.gravity_scale=0.5"
     ],
-    "attempts": 0,
-    "added": "2026-09-05T09:42:30+00:00"
+    "attempts": 2,
+    "added": "2026-09-05T09:42:29+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-7 already runs cw-walkscratch-easy0905-sdehalfgrav-s3 \u2014 GPU pods host exactly one run; pick a free GPU pod.\n"
   }
 ]

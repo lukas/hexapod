@@ -128,3 +128,16 @@ def test_duration_timeout_compatibility_can_pass():
     assert "312s ordered sequence fits" in (
         report["duration_timeout_compatibility_result"]["detail"]
     )
+
+
+def test_missing_timeout_still_reports_required_bounded_duration():
+    proposed = experiment()
+    proposed["parameters"].pop("timeout_seconds")
+
+    report = qualify(proposed, PROTO_DIR)
+
+    assert report["bounded_duration_seconds"] == 312
+    assert report["duration_timeout_compatibility_result"]["passed"] is False
+    assert "requires an explicit timeout_seconds >= 312" in (
+        report["duration_timeout_compatibility_result"]["detail"]
+    )

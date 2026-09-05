@@ -58,6 +58,36 @@ def test_hardware_resource_class_precedes_offline_priority(tmp_path):
     assert store.next_external_experiment()["id"] == offline["id"]
 
 
+def test_motionless_live_health_gate_precedes_offline_replay(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    offline = store.create({
+        "name": "urgent offline replay",
+        "duration_seconds": 1,
+        "execution_mode": "external_guarded",
+        "parameters": {
+            "simulation_only": True,
+            "robot_motion": False,
+            "queue_priority": 999,
+        },
+    }, "operator")
+    live_health = store.create({
+        "name": "motionless live health gate",
+        "duration_seconds": 30,
+        "execution_mode": "external_guarded",
+        "parameters": {
+            "simulation_only": False,
+            "robot_motion": False,
+            "live_camera_required": True,
+            "required_live_motor_count": 18,
+            "queue_priority": -999,
+        },
+    }, "operator")
+
+    assert store.next_external_experiment()["id"] == live_health["id"]
+    store.finish(live_health["id"], "succeeded")
+    assert store.next_external_experiment()["id"] == offline["id"]
+
+
 def test_conflicting_motion_flags_stay_in_hardware_resource_class(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
     conflicting = store.create({

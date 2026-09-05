@@ -77,10 +77,87 @@ GLIDE_RATE_DEG_S = 12.0        # slow start-pose glide (air)
 GLIDE_TIMEOUT_S = 45.0
 GLIDE_SETTLE_S = 1.0
 GLIDE_TOL_DEG = 3.0            # post-glide worst-joint verification
+DEFAULT_MIN_VOLTAGE_V = 10.8
+DEFAULT_MAX_VOLTAGE_V = 13.0
+DEFAULT_MAX_STATE_AGE_MS = 1500.0
 
 
 def _fmt(v, nd=3):
     return "" if v is None else f"{float(v):.{nd}f}"
+
+
+def _telemetry_admission(
+    bus,
+    *,
+    expected_live_motors: int,
+    healthy_motor_samples: int,
+    max_state_age_ms: float,
+    voltage_bounds_v: tuple[float, float],
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[bool, str, dict]:
+    """Require consecutive fresh full-bus samples before torque enable.
+
+    ``read_all_feedback`` is a synchronous MCU transaction, so each completed
+    call is a new sample.  Its elapsed call time bounds the age of the oldest
+    data in that response.  Keeping the generated completion timestamps and
+    requiring them to advance makes that freshness contract explicit and easy
+    to fault-inject in offline tests.
+    """
+
+    min_voltage_v, max_voltage_v = voltage_bounds_v
+    if (healthy_motor_samples < 1 or expected_live_motors < 1
+            or max_state_age_ms <= 0.0 or min_voltage_v > max_voltage_v):
+        return False, "invalid telemetry admission requirements", {}
+    expected_joints = set(range(expected_live_motors))
+    completed_at: list[float] = []
+    observed_voltages: list[float] = []
+    for sample_index in range(healthy_motor_samples):
+        started = clock()
+        try:
+            feedback = bus.read_all_feedback()
+        except Exception as error:
+            return False, f"telemetry sample {sample_index + 1} failed: {error}", {}
+        completed = clock()
+        state_age_ms = max(0.0, completed - started) * 1000.0
+        if not isinstance(feedback, dict) or set(feedback) != expected_joints:
+            count = len(feedback) if isinstance(feedback, dict) else 0
+            return False, (
+                f"telemetry sample {sample_index + 1} incomplete: "
+                f"{count}/{expected_live_motors} servos"
+            ), {}
+        if state_age_ms > max_state_age_ms:
+            return False, (
+                f"telemetry sample {sample_index + 1} stale: "
+                f"{state_age_ms:.1f} ms > {max_state_age_ms:.1f} ms"
+            ), {}
+        if completed_at and completed <= completed_at[-1]:
+            return False, "telemetry sample timestamps did not advance", {}
+        voltages = []
+        for joint, record in feedback.items():
+            try:
+                voltage = float(record["volt"])
+            except (KeyError, TypeError, ValueError):
+                return False, f"telemetry sample missing voltage for joint {joint}", {}
+            if not min_voltage_v <= voltage <= max_voltage_v:
+                return False, (
+                    f"telemetry voltage out of bounds for joint {joint}: "
+                    f"{voltage:.2f} V not in "
+                    f"[{min_voltage_v:.2f}, {max_voltage_v:.2f}] V"
+                ), {}
+            voltages.append(voltage)
+        observed_voltages.extend(voltages)
+        completed_at.append(completed)
+        if sample_index + 1 < healthy_motor_samples:
+            sleep(0.05)
+    return True, "ok", {
+        "samples": len(completed_at),
+        "servos_per_sample": expected_live_motors,
+        "min_voltage_v": min(observed_voltages),
+        "max_voltage_v": max(observed_voltages),
+        "max_state_age_ms": max_state_age_ms,
+        "sample_timestamps": completed_at,
+    }
 
 
 def run_sysid_protocol(
@@ -91,6 +168,11 @@ def run_sysid_protocol(
     abort_check: Callable[[], bool] | None = None,
     on_progress: Callable[[dict], None] | None = None,
     log_dir: Path | None = None,
+    expected_live_motors: int = N_JOINTS,
+    healthy_motor_samples: int = 3,
+    max_state_age_ms: float = DEFAULT_MAX_STATE_AGE_MS,
+    voltage_bounds_v: tuple[float, float] = (
+        DEFAULT_MIN_VOLTAGE_V, DEFAULT_MAX_VOLTAGE_V),
 ) -> dict:
     """Execute a sysid protocol. Returns a result/summary dict."""
     abort_check = abort_check or (lambda: False)
@@ -147,6 +229,17 @@ def run_sysid_protocol(
                 "error": f"protocol needs dead joints {missing} "
                          f"(live: {live_joints})"}
 
+    telemetry_ok, telemetry_error, telemetry_admission = _telemetry_admission(
+        bus,
+        expected_live_motors=expected_live_motors,
+        healthy_motor_samples=healthy_motor_samples,
+        max_state_age_ms=max_state_age_ms,
+        voltage_bounds_v=voltage_bounds_v,
+    )
+    if not telemetry_ok:
+        return {"ok": False, "mode": "sysid",
+                "error": "telemetry admission failed: " + telemetry_error}
+
     log_dir = Path(log_dir) if log_dir else LOG_DIR
     log_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -183,7 +276,9 @@ def run_sysid_protocol(
     glide_target = start_pose(protocol)
 
     _progress(f"sysid '{name}' ({phash}): {len(ticks)} ticks @ {hz:g} Hz, "
-              f"soft torque {soft_torque}")
+              f"soft torque {soft_torque}; telemetry admission "
+              f"{telemetry_admission['samples']}x"
+              f"{telemetry_admission['servos_per_sample']} passed")
     _set_torque_limit(bus, live_ids, soft_torque)
     _enable_torque(bus, live_ids)
 

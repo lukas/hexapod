@@ -49,7 +49,7 @@ def test_current_runner_fails_closed_on_unbound_guards():
     assert report["checks"]["executor_availability"]["passed"] is True
     assert report["checks"]["runtime_compatibility"]["passed"] is True
     assert report["checks"]["camera_guard_binding"]["passed"] is False
-    assert report["checks"]["telemetry_guard_binding"]["passed"] is False
+    assert report["checks"]["telemetry_guard_binding"]["passed"] is True
     assert report["checks"]["remote_abort_binding"]["passed"] is True
     assert report["checks"]["final_limp_binding"]["passed"] is True
     assert report["trusted_deterministic_executor_name"] is None
@@ -115,7 +115,7 @@ def test_robot_lab_top_level_tag_guard_shape_is_accepted():
     assert report["checks"]["parameter_schema"]["passed"] is True
     assert report["qualified"] is False
     assert report["checks"]["camera_guard_binding"]["passed"] is False
-    assert report["checks"]["telemetry_guard_binding"]["passed"] is False
+    assert report["checks"]["telemetry_guard_binding"]["passed"] is True
 
 
 def test_duration_timeout_compatibility_can_pass():

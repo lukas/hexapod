@@ -2,6 +2,71 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~23:4x this cycle (assigned `headset-base-medhead-placementjit-c1` +
+  `headset-base-s0c1-placementjit-fresh`, the remaining 2 arms of the
+  3-arm placement-jitter batch): 2 verdicts, 2-arm new-theory refill.
+  (1) `medhead-placementjit-c1` (retrofit onto `medhead_acq1`)
+  **CANARY FAIL - MECHANISM**: harness gait_valid 5/24 at 2M (walk/det
+  0/6, walk/sto 4/6, walk_startjitter/det 0/6, walk_startjitter/sto
+  1/6) vs parent's own landed 40M report 10/24 — every mode
+  flat-to-worse, same legs [1]/[4] sacrificed, 0 falls (clean
+  mechanism failure, not behavioral impossibility). (2)
+  `s0c1-placementjit-fresh` (from-scratch bake-in on the same
+  lightly-trained 2M `s0c1` checkpoint) **CANARY FAIL - MECHANISM**:
+  corrected this run's own gate-text premise (per the sibling
+  `irr-placementjit-c1` verdict's flag) and compared against the REAL
+  undosed s0c1 twin (`s0c1_gate/report.json`: 17/24, walk/det+sto
+  12/12 clean, 0 sacrificed legs) — this run COLLAPSES to 12/24, with
+  walk/det dropping 6/6->1/6 and a NEW second leg (leg 1, alongside
+  leg 4) starting to get sacrificed; walk_startjitter/det stays at the
+  identical 0/6 floor (zero repair on the exact mode targeted). 0
+  falls/terms, reward rose monotonically (16.7->126) — not behavioral
+  impossibility, a genuine regression. **With all 3 arms of this batch
+  now FAIL (2 retrofit + 1 from-scratch), placement-jitter is CLOSED
+  end-to-end as the 8th failed base(1g) leg-favoritism repair lever**
+  (after `walk_gait_gate`, `walk_duty_gate` x9, `walk_swing_gate` x4).
+  **Refill (genuinely new theory, not a 9th reward/state-price
+  variant):** with reward-price AND state-distribution fixes both
+  closed 8/8 on base(1g), AND the gSDE-exploration-scheme alternative
+  already closed end-to-end (bare-sde + sdehalfgrav-remcost, every
+  repair engaged-or-inert) — every mechanism tried so far shares one
+  property: it trains a lineage FROM SCRATCH under 1g, and even the
+  earliest undosed base(1g) 2M checkpoints already carry the leg-4
+  sacrifice fingerprint (s0c1's own PASS canary: walk_startjitter/det
+  6/6 sacrifice leg[4]) — no base(1g) lineage has EVER had a
+  leg-healthy starting point to test a repair FROM. This suggests a
+  genuinely untested causal question: does the pathology come from 1g
+  dynamics themselves (torque/current/contact limits), or is it just
+  that nothing has tried starting 1g training from an ALREADY leg-healthy
+  gait? Halfgrav has one: `headset-halfgrav-medhead-acq1` (ACQ PASS,
+  40M, gait_valid 22/24, walk/det 6/6, 0/24 falls, slip at/under the
+  2.9 band in 3/4 modes) has never seen 1g gravity. Launched a matched
+  2-arm cross-gravity-transfer batch, both warm-started from that
+  exact champion via `--init-from-source`, using the already-built
+  `ease.gravity_scale` + `sched.*` engine (no new code — `sched.key=
+  ease.gravity_scale` was already proven to ramp correctly in the old
+  `cw-gait-ease1` run): `headset-crossgrav-medhead-abrupt-c1`
+  (`ease.gravity_scale=1.0` from tick 0, abrupt jump, train-2) and
+  `headset-crossgrav-medhead-ramp-c1` (`sched.key=ease.gravity_scale`,
+  v0=0.5->v1=1.0 linearly over the first 1M of this 2M continuation,
+  train-0). Both VERIFIED RUNNING. 2M discovery-scope; gate (both
+  arms, full text in the ledger): PASS/INFORMATIVE-POSITIVE if
+  gait_valid stays majority (>=4/6) in walk/det with no chronic
+  single-leg sacrifice — direct evidence 1g walking is reachable via
+  cross-gravity transfer from an already-good gait, licensing a longer
+  ramp/40M continuation and a real alternative to "reallocate
+  everything to halfgrav." FAIL/INFORMATIVE-NEGATIVE if either or both
+  collapse to the identical leg[1,4] chronic-sacrifice fingerprint —
+  read together (abrupt vs ramp) to separate "gravity-transition
+  shock" from "1g dynamics force it regardless," closing cross-gravity
+  transfer and hardening the reallocate-to-halfgrav conclusion with
+  direct causal evidence either way. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-{medhead,s0c1}-placementjit-*`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_medhead_acq1_
+  gate/report.json`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  base_s0c1_gate/report.json`, `rl_move/sim/sim_env.py:364-420` (sched
+  engine), RL_LOG.
+
 - 09-05 ~23:3x this cycle (assigned `headset-base-irr-placementjit-c1`):
   **CANARY FAIL - MECHANISM.** Start-pose jitter
   (`dr.placement_noise_deg=3.0`+`dr.bad_start_prob=0.25`, engaged in

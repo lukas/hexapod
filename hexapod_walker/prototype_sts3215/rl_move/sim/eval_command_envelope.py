@@ -15,6 +15,10 @@ stepped joystick command scripts, once per arm with IDENTICAL seeds:
                         one authority scalar; path curvature kept).
   - ``env_yawpri``    : CommandEnvelope, mode='yaw_priority' (only
                         translation demand is shed; yaw passes intact).
+  - ``env_timeslice_d{30,50,70}`` : CommandEnvelope, mode='time_slice'
+                        (alternates FULL-amplitude pure-turn/pure-walk
+                        bursts within a combined period; turn_duty
+                        0.3/0.5/0.7 of the 1.6 s period spent turning).
 
 HONESTY CONTRACT: requested and applied commands are recorded
 SEPARATELY every tick (traces/*.npz keeps both full histories) and all
@@ -102,7 +106,12 @@ SCENARIOS: dict[str, tuple[float, list[tuple[float, float, float, float]]]] = {
                        (6.0, 0.0, 0.0, -0.25)]),
 }
 
-ARMS = ("baseline", "env_shared", "env_yawpri")
+ARMS = ("baseline", "env_shared", "env_yawpri",
+       "env_timeslice_d30", "env_timeslice_d50", "env_timeslice_d70")
+# turn_duty for each env_timeslice_* arm (fraction of the 1.6 s period
+# spent in the yaw-only burst; see command_envelope.py mode='time_slice').
+_TIMESLICE_DUTY = {"env_timeslice_d30": 0.3, "env_timeslice_d50": 0.5,
+                   "env_timeslice_d70": 0.7}
 
 
 def command_at(segments: list[tuple[float, float, float, float]],
@@ -120,6 +129,10 @@ def command_at(segments: list[tuple[float, float, float, float]],
 def _envelope_for_arm(arm: str) -> CommandEnvelope | None:
     if arm == "baseline":
         return None
+    if arm in _TIMESLICE_DUTY:
+        return CommandEnvelope(EnvelopeConfig(
+            enabled=True, mode="time_slice",
+            turn_duty=_TIMESLICE_DUTY[arm]))
     mode = {"env_shared": "shared", "env_yawpri": "yaw_priority"}[arm]
     return CommandEnvelope(EnvelopeConfig(enabled=True, mode=mode))
 

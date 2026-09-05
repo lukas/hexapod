@@ -34,6 +34,8 @@ def test_sensitivity_enumerates_pairings_bootstraps_and_bounds_quantization(
 
     assert first == second
     assert first["eligible_pairings"]["count"] == 4
+    assert first["leave_one_cycle_out"]["count"] == 4
+    assert len(first["leave_one_cycle_out"]["all"]) == 4
     assert np.allclose(first["eligible_pairings"]["hip_ratio_range"], [1.6, 2.5])
     assert first["conclusion"] == {
         "hip_ratio_materially_above_one": True,
@@ -45,6 +47,15 @@ def test_sensitivity_enumerates_pairings_bootstraps_and_bounds_quantization(
         ][0]
         > 1.0
     )
+    offsets = first["dwell_window_offset_sensitivity"]
+    assert offsets["offset_range_samples"] == [-5, 5]
+    assert [row["offset_samples"] for row in offsets["all"]] == list(range(-5, 6))
+    baseline = next(row for row in offsets["all"] if row["offset_samples"] == 0)
+    assert np.isclose(
+        baseline["hip_loop_l5_over_l2"],
+        first["cycle_block_bootstrap"]["hip_loop_l5_over_l2"]["estimate"],
+    )
+    assert isinstance(offsets["hip_ratio_above_one_at_every_offset"], bool)
 
 
 def test_ordering_comparison_reports_required_intervals_and_overrun_sensitivity(

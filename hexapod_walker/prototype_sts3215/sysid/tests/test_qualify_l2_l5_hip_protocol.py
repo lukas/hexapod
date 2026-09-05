@@ -1,5 +1,7 @@
+import json
+
 from sysid import PROTO_DIR
-from sysid.qualify_l2_l5_hip_protocol import NAME, offsets, qualify
+from sysid.qualify_l2_l5_hip_protocol import NAME, main, offsets, qualify
 
 
 def test_exact_protocol_is_runner_compatible_and_qualified():
@@ -8,6 +10,16 @@ def test_exact_protocol_is_runner_compatible_and_qualified():
     assert protocol["name"] == NAME
     assert report["qualified"] is True
     assert report["runner_compatibility"]["passed"] is True
+    assert report["runner_acceptance_unchanged"]["passed"] is True
+    assert report["runner_acceptance_unchanged"]["accepted_tick_count"] == 900
+    assert report["deterministic_replay_result"] == {
+        "passed": True,
+        "replay_count": 2,
+        "tick_count_each": 900,
+        "materialized_ticks_sha256": report["deterministic_replay_result"][
+            "materialized_ticks_sha256"
+        ],
+    }
     assert report["timing_validation"] == {
         "passed": True,
         "sample_rate_hz": 10.0,
@@ -40,3 +52,24 @@ def test_cycle_timing_and_amplitudes_are_exact():
         assert cycle[139] == -2.0
         assert cycle[140:160] == [-2.0] * 20
         assert cycle[199] == 0.0
+
+
+def test_cli_records_current_provenance_and_verifies_saved_bytes(tmp_path):
+    assert main([
+        "--out-dir", str(tmp_path),
+        "--engineering-job-id", "engineering-current",
+        "--source-analysis-job-id", "analysis-current",
+        "--source-experiment-id", "experiment-current",
+    ]) == 0
+
+    report = json.loads(
+        (tmp_path / f"{NAME}.qualification.json").read_text(encoding="utf-8")
+    )
+    assert report["engineering_job_id"] == "engineering-current"
+    assert report["source_analysis_job_id"] == "analysis-current"
+    assert report["source_experiment_id"] == "experiment-current"
+    assert report["runner_acceptance_unchanged"]["saved_bytes_unchanged"] is True
+    assert (
+        report["runner_acceptance_unchanged"]["saved_stream_sha256"]
+        == report["full_stream_sha256"]
+    )

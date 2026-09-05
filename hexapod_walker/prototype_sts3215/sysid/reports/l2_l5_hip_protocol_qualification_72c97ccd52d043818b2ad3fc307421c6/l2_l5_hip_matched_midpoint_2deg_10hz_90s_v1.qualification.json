@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "engineering_job_id": "0176c2cd377c452299cb1ed61b918ea9",
+  "source_analysis_job_id": "a5806103348d42e4937956132f4d4988",
+  "source_experiment_id": "72c97ccd52d043818b2ad3fc307421c6",
+  "qualified": true,
+  "protocol_name": "l2_l5_hip_matched_midpoint_2deg_10hz_90s_v1",
+  "protocol_version": 1,
+  "protocol_hash": "6f3671086e17",
+  "canonical_protocol_sha256": "6f3671086e17f59f99e4d1490adb70bf5b7c8bb5b885a088a910b006f7b40c2f",
+  "canonical_command_stream_sha256": "471db4e4a74594e2d22a98e6d779116f136f57000b8c92c9b160ee388ccada42",
+  "full_stream_sha256": "471db4e4a74594e2d22a98e6d779116f136f57000b8c92c9b160ee388ccada42",
+  "trusted_deterministic_executor": "linux_control.sysid_runner.run_sysid_protocol",
+  "trusted_executor_source_sha256": "47e31c28a0fdb40a24bbd1af78c6338d38d02d53b70aa3fe4bd16a9869b68677",
+  "runner_compatibility": {
+    "passed": true,
+    "validation_errors": [],
+    "relative_to_measured_segment_pose": true,
+    "force_guard_required": true
+  },
+  "runner_acceptance_unchanged": {
+    "passed": true,
+    "input_protocol_sha256": "6f3671086e17f59f99e4d1490adb70bf5b7c8bb5b885a088a910b006f7b40c2f",
+    "accepted_tick_count": 900,
+    "accepted_sample_rate_hz": 10.0,
+    "saved_protocol_sha256": "6f3671086e17f59f99e4d1490adb70bf5b7c8bb5b885a088a910b006f7b40c2f",
+    "saved_stream_sha256": "471db4e4a74594e2d22a98e6d779116f136f57000b8c92c9b160ee388ccada42",
+    "saved_bytes_unchanged": true
+  },
+  "deterministic_replay_result": {
+    "passed": true,
+    "replay_count": 2,
+    "tick_count_each": 900,
+    "materialized_ticks_sha256": "b3b2eedc652cabb3fe661bbc93365d42bc4991a8fc67fbb6e83fbd81807e0f2a"
+  },
+  "timing_validation": {
+    "passed": true,
+    "sample_rate_hz": 10.0,
+    "sample_count": 900,
+    "duration_seconds": 90.0,
+    "pre_baseline_seconds": 5,
+    "post_baseline_seconds": 5,
+    "cycles": 4
+  },
+  "joint_limit_validation": {
+    "passed": true,
+    "active_joints": {
+      "L2_hip": 7,
+      "L5_hip": 16
+    },
+    "minimum_offset_deg": -2.0,
+    "maximum_offset_deg": 2.0,
+    "maximum_slew_deg_per_s": 0.5
+  },
+  "robot_contacted": false,
+  "robot_motion": false,
+  "inspection_clearance_granted": false,
+  "artifacts": {
+    "protocol": "l2_l5_hip_matched_midpoint_2deg_10hz_90s_v1.json",
+    "command_stream": "l2_l5_hip_matched_midpoint_2deg_10hz_90s_v1.command_stream.json"
+  }
+}

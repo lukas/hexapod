@@ -2,6 +2,36 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:1x this cycle: REFILL completing the corrected
+  entrenched-checkpoint `walk_duty_gate` batch. With `sde-s1-c2-dgatefix`
+  already RUNNING (built earlier this cycle, see the same-cycle entry
+  further below) and 6+ GPU pods genuinely free (`launch_run.py
+  status`, backlog empty), hand-built (via `backlog add`, bypassing
+  `respec` entirely to sidestep the checkpoint-provenance gotcha) the
+  remaining 3 arms that make this an n=2 bare-sde + n=2 remcost batch
+  instead of n=1: `sde-s2-c2-dgatefix` (`--init-from` explicit
+  `sde_s2_c2.zip`, the real 40M LEGPARK exploiter, companion to
+  `sde-s1-c2-dgatefix`), `sdehalfgrav-remcost-{s0,s1}-dgatefix`
+  (`--init-from` explicit `sdehalfgrav_remcost_{s0,s1}.zip`, each
+  seed's own real 40M ACQ-CONTINUE LEGPARK checkpoint — the remcost
+  `-dg1` siblings never touched these, they were fully from-scratch
+  per the checkpoint-provenance finding above). All 3 stripped
+  `--use-sde`/`--sde-sample-freq` and blanked `--activation-fn` per the
+  documented gSDE+`--init-from` SystemExit gotcha (remcost sources are
+  from-scratch gSDE launches). All 3 VERIFIED RUNNING
+  (train-0/train-1/train-3). This is the real "does walk_duty_gate
+  cure an ALREADY-entrenched LEGPARK-SKATE policy" test for every
+  recipe in the campaign, at n=2 each (bare-sde, remcost) rather than
+  the n=1 `sde-s1-c2-dgatefix` alone — read all 4 entrenched-checkpoint
+  arms together before judging the mechanism's fate on converged
+  exploiters (the already-launched from-scratch `dgfresh` pair is a
+  separate, complementary question). Capacity at cycle end:
+  train-2/4/5/7/8/9/10/11 free, backlog empty — no further
+  non-duplicative arm identified (every open walkcurr question now has
+  evidence in flight: 4 entrenched-checkpoint dgatefix arms, 3
+  from-scratch dgfresh arms, this cycle's own 3 verdicts already
+  recorded above).
+
 - 09-05 ~16:0x this cycle: 2 verdicts closing the irr-timing rung's
   last two pending reads (both found already-landed on their own
   pods, orphaned-eval gotcha, evidence not yet read by anyone).

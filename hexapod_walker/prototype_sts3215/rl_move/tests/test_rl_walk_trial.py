@@ -263,6 +263,44 @@ def test_late_independent_stop_is_not_accepted_as_board_duration_cap(monkeypatch
                    for name, _ in events)
 
 
+@pytest.mark.parametrize("active_wall_time_s", [3.1001, 3.369])
+def test_drive_rejects_controller_active_window_overrun(
+        monkeypatch, active_wall_time_s):
+    trial, _clock, _requests, events = _drive_trial(monkeypatch, _drive_live)
+    trial.wait_job = lambda *args: {
+        "ok": True,
+        "ended": "active walk cap 3s reached",
+        "active_duration_limit_s": 3.0,
+        "active_wall_time_s": active_wall_time_s,
+    }
+
+    with pytest.raises(RuntimeError, match=r"\[3, 3.1\] seconds"):
+        trial.drive_leg("forward")
+
+    assert str(active_wall_time_s) in trial.results[0]["trial_error"]
+    mismatches = [detail for name, detail in events
+                  if name == "drive_server_duration_limit_mismatch"]
+    assert mismatches[0]["accepted_active_duration_range_s"] == [3.0, 3.1]
+    assert not any(name == "drive_server_duration_limit_observed"
+                   for name, _ in events)
+
+
+def test_drive_accepts_controller_active_window_at_upper_bound(monkeypatch):
+    trial, _clock, _requests, events = _drive_trial(monkeypatch, _drive_live)
+    trial.wait_job = lambda *args: {
+        "ok": True,
+        "ended": "active walk cap 3s reached",
+        "active_duration_limit_s": 3.0,
+        "active_wall_time_s": 3.1,
+    }
+
+    trial.drive_leg("forward")
+
+    assert trial.results[0]["trial_error"] is None
+    assert any(name == "drive_server_duration_limit_observed"
+               for name, _ in events)
+
+
 def test_each_drive_session_gets_a_distinct_command_owner():
     trial = walk_trial.Trial.__new__(walk_trial.Trial)
     trial.args = SimpleNamespace(velocity_filter_alpha=None)

@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:5x this cycle (assigned `sde-dgfresh-s0b`/
+  `sdehalfgrav-dgfresh-s0`, the from-scratch `walk_duty_gate`
+  disambiguation pair): **3 verdicts, all CANARY FAIL - MECHANISM
+  (FULL FREEZE)**, closing the disambiguation for good. Found the
+  assigned pair's name-collision twin (`sde-dgfresh-s0`, a real
+  separate W&B run, `8h25tu4l`) also finished and read it too (3/3,
+  not 2/2). All three: `reward.walk_duty_gate=1.0` from step 0, NO
+  remcost pricing, NO inherited checkpoint — det walk fwd med
+  0.02-0.07m/20s, IDENTICAL to 2 decimals across all 6 det episodes
+  (video: static splayed-leg pose, no leg mid-swing at any sampled
+  tick, `walk_det_0..5.png`), `env/walk_duty_gate_factor` saturated
+  0.92-1.0 the entire 2M run, `ep_rew_mean` quarters strictly
+  WORSENING (not the 08-21 rising-reward-bad-eval case, so no
+  continue). **Closes `walk_duty_gate` alone as a from-scratch repair
+  lever**: the freeze is intrinsic to the mechanism (a duty floor
+  alone is trivially satisfied by 6-leg stasis, cheaper than any real
+  gait) — not an artifact of remcost pricing or of warm-starting from
+  an entrenched exploiter, both confounds now independently ruled
+  out. CURRENT_TRUTHS.md updated (~16:3x entry). Do not fund another
+  bare `walk_duty_gate` arm (fresh or entrenched) until a joint
+  duty-floor + `reward.k_walk_idle_charge` travel-floor design+bank
+  pass lands — the in-flight entrenched `dgatefix` batch (see the
+  16:4x+ entries below) is a separate confound (cure vs. prevent) and
+  should still be read on its own.
+  **Capacity fill (11 free pods, backlog empty):** identified one
+  genuinely non-duplicative, non-blocked next rung — the walkcurr
+  ladder's own "full fixed headings" step (after "small heading set",
+  before "irregular direction changes"), on the two ALREADY-WORKING
+  non-gSDE families (base 1g / halfgrav 0.5g), untouched by the
+  duty_gate question. Built + bank-proved `EASY_HEADING_WIDE` (full
+  8-way compass incl. reversals, same `k_walk_freeprog` mechanism, no
+  new reward keys) in `test_walkscratch_easy_pilot.py`: 5 new
+  `test_easy_heading_wide_*` tests, 32/32 green
+  (`walkcurr-fullheading-bank-0905` snapshot, pushed). Launched 2M
+  mechanism-health canaries warm-started from each family's own
+  heading champion: `headset-base-fullhead-c1` (from
+  `headset-base-acq1`, train-2) + `headset-halfgrav-fullhead-c1`
+  (from `headset-halfgrav-acq1`, train-5), both VERIFIED RUNNING.
+  Evidence: `ops.sh review cw-walkscratch-easy0905-{sde-dgfresh-s0,
+  sde-dgfresh-s0b,sdehalfgrav-dgfresh-s0}`, W&B `8h25tu4l`/`vwnbmgq2`/
+  `c3kd1elp`.
+
 - 09-05 ~16:4x this cycle (own spawn, assigned only
   `sde-dgfresh-s0`): independently confirmed the concurrent cycle's
   **CANARY FAIL — FULL FREEZE** verdict already landed on it (det walk

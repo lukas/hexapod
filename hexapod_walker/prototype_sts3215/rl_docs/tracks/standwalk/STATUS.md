@@ -1,74 +1,92 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-05 ~02:4x: **Infra recovery — DONE-gate eval RELAUNCHED
-on train-9.** train-6 (running the 09-04 ~18:1x DONE-gate flat-only
-read) was found OOMKilled (host-level, exit 137, container 96Gi limit
-hit ~22:48Z 09-04 — the eval's own `--shards 8`, 8 concurrent
-`eval_checkpoint` subprocesses each with `--video` against the mesh/
-100Hz model, plus this pod's usual accumulated stale-process load, is
-the likely cause; matches the recurring "idle pod accumulates memory"
-pattern from train-0/4/10 incidents). `pending_evals.json`'s entry had
-already silently expired (8h TTL) with no verdict ever landing — the
-read was fully lost, not just delayed. Recovery: deleted+recreated
-train-6 from the manifest (now Pending on host CPU, normal, will
-schedule when capacity frees — do NOT force it); pushed the
-`mlcontprice8` checkpoint + synced code to train-9 (clean pod, no
-stale processes, confirmed via `ps`) and relaunched the identical
-`donegatecmd` flat=1 command with **`--jobs 4`** added (caps concurrent
-shard subprocesses at 4 instead of 8, same `--shards 8` statistical
-layout/seed streams) to keep memory headroom — confirmed at ~40GB/96GB
-cgroup usage with 4 shard workers running, well clear of the limit.
-Re-registered via `evalpending` (train-9). Still the track's first read
-of this lineage against the real gate, not the stress diet.
+Update, 2026-09-05 ~04:0x: **mlcontprice8 literal DONE-gate read is IN
+— FALL (item 1 CLOSED). Reward/architecture lever search for steering
+is now EXHAUSTED (~20 arms); a new probe REFUTES the "cap is
+miscalibrated" theory.** `session_verdict.json` (n=32, dr0+ownDR,
+non-strict, train-9): zero falls, gait_valid 1.0, height_err 3.2mm —
+clean. vs the standing best band (`cap29-stdwalklohi-acq1{,-s1}`:
+dir_err 43.6-44.56deg/slip 2.819-2.939, n=128): dir_err_med 42.26deg
+edges better but slip_per_m_med 3.696 is a clear regression (+26-31%,
+breaches the 2.9 cap by far more than the baseline's borderline miss)
+— the transtress/hold-load-price branch cost walk quality without
+buying enough steering. Standing best stays `cap29-stdwalklohi-acq1
+{,-s1}`, itself still short of gate. Combined with the already-closed
+dose-bracket/DR-draw/steering-FAIL-wall/arch-swap/BC-anchor-turn-skip
+axes (item 4), the reward+architecture lever space for steering/slip
+is now **exhaustively searched** (~20 arms: yawarm/yawboost/omegaboost
+/selomegaboost/combdose/combskip dose sweeps x2 seeds, log_std anneal
+grid, sto/det convergence, resamplematch, `TripleGruActorCriticPolicy`
+turn-core swap + `noyawcredit` control, DR-draw n=20 — all FAIL/
+CLOSED; frozen `cap29-stdwalklo-hi{,-s1}` stays the reference). Also
+this cycle: extended `probe_dir_floor.py` with an opt-in periodic
+heading-resample mode (`--resample-s/-jitter/--heading-max-deg/
+--blend-s`, default OFF=bit-exact; tests 3/3 green) to test whether
+the 40deg `dir_err_cap` was calibrated against an easier static-
+heading floor than the session's real 3s-resample/full-circle-heading
+dynamic — **REFUTED**: teacher tick `dir_err_med` stays 8.6-9.2deg (2
+seeds, 20 flips/60s) even under realistic resampling — the cap is
+real/achievable, the ~42-44deg plateau is a genuine unclosed policy
+gap. Evidence: `logs/ckpt_eval/..._mlcontprice8_donegate_flatonly/
+session_verdict.json`; `/tmp/dirfloor_resample{,_s1}.json`. **No GPU
+relaunch this cycle** — every known lever on this recipe is closed
+(item 1); next step is a different mechanism CLASS (Stage 2's
+pre-declared KL-to-teacher/multi-teacher), needing design+bank work.
 
-Prior updates (09-04 ~13:2x..~18:1x) archived verbatim in `archive/
-standwalk_STATUS_journal_2026-09-04{hh,jj,kk,ll}_trim.md`.
+Prior updates (09-04 ~13:2x..09-05 ~02:4x) archived verbatim in
+`archive/standwalk_STATUS_journal_2026-09-0{4hh,4jj,4kk,4ll,5a}_trim.md`.
 
-## Next (updated 09-05 ~02:4x)
+## Next (updated 09-05 ~04:0x)
 
-1. **Literal DONE-gate flat-only read on mlcontprice8 — IN FLIGHT on
-   train-9** (relaunched after train-6 OOMKilled lost the first
-   attempt; see Update). `evalpending` entry
-   `..._mlcontprice8_donegate_flatonly` auto-kicks a cycle on
-   `session_verdict.json`. Read zero-falls first, then
-   dir_err_med/slip_per_m_med vs the existing best flat-only band
-   (44-45deg / 2.8-2.9, `cap29-stdwalklohi-acq1{,-s1}`, PARTIAL —
-   steering gap). First time this stress-hardened lineage is read
-   against the real gate, not the stress diet; pass = new best DONE
-   candidate, fall = stress-diet training regressed base walk quality.
-2. **DR-draw correlation — CLOSED (see Update).** No dominant DR field
-   at n=20; own-DR variance stands, k=8 is the standing ceiling dose.
-3. **Steering branch — CLOSED both seeds** (09-04 ~17:0x). No further
-   lever acquisition; frozen parents (`cap29-stdwalklo-hi{,-s1}`)
-   remain the reference steering checkpoints. Rise-stall stays CLOSED.
+1. **Design + build a teacher-distillation mechanism that is NOT
+   reward-coefficient dosing on the current recipe** (Stage 2's own
+   pre-declared alternative: KL-to-teacher action-distribution match,
+   or phase-scheduled multi-teacher). The dose-lever axis is closed
+   and the cap-miscalibration theory is refuted (see Update) — the
+   ~42-44deg vs teacher's ~9deg gap is real and needs a structurally
+   different lever. Scope it, bank-prove any reward-semantics touch,
+   THEN launch — the track's only remaining open lever.
+2. **DR-draw correlation — CLOSED.** No dominant DR field at n=20;
+   k=8 is the standing ceiling dose (now also known to cost slip on
+   the literal gate — do not re-promote mlcontprice8 or raise dose).
+3. **Steering branch — CLOSED, both seeds, all axes** (09-04 ~17:0x
+   sweep + this cycle's architecture-swap/turn-skip/cap-recalibration
+   closures). No further lever acquisition; frozen parents
+   (`cap29-stdwalklo-hi{,-s1}`) remain the reference. Rise-stall
+   stays CLOSED.
 4. **Closed** (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa,cc,dd,jj,
-   kk,ll}): architecture-split; lever/dose/seed sweeps; cap29
+   kk,ll}, 09-05a): architecture-split; lever/dose/seed sweeps incl.
+   `TripleGruActorCriticPolicy` turn-core swap + `noyawcredit`
+   control; `bc_anchor_walk_turn_skip` (`combskip`) ablation; cap29
    acquisition (PARTIAL); log_std anneal grid; sto/det convergence;
    resamplematch; rise over_current dig-in; semantics-bank twins;
    IK-feasibility groundwork; mlcontprice2/8/16 dose bracket (k=8
-   ceiling); steering FAIL-wall dig-in; DR-draw correlation (n=20).
+   ceiling, now known to cost slip); steering FAIL-wall dig-in;
+   DR-draw correlation (n=20); mlcontprice8 literal DONE-gate read
+   (FALL); dir_err_cap miscalibration theory (REFUTED).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii,jj,
-> kk,ll}. Current state = newest Update at the TOP; don't act on
-> archived Next.
+> kk,ll}, 09-05a. Current state = newest Update at the TOP; don't act
+> on archived Next.
 
-## Fleet capacity note (updated 09-05 ~02:4x)
+## Fleet capacity note (updated 09-05 ~04:0x)
 
-10/12 GPU slots free (train-9 running the literal DONE-gate eval,
-eval-only, `--jobs 4`). train-6 OOMKilled (see Update) — recreated,
-Pending on host CPU, will schedule + need `bootstrap_train_pod.sh
-hexapod-mjx-train-6` once Running (do not force). train-4 previously
-recovered the same way, now Running. Pods 1/2/3/5/8/10/11 still run
-stale mixedsession/eval_checkpoint jobs from already-verdicted runs —
-harmless CPU load, not launch-blocking, but a slow-accumulating OOM
-risk on long-lived pods (3rd such incident after train-0, train-4/10)
-— a standing cleanup lever if this recurs: `ops.sh procs <pod>` +
-kill stale multiprocessing-fork children before a memory-heavy
-`--shards`+`--video` job, or route such jobs to the freshest pod.
-Every OTHER track non-launchable by design (`joystick`/`amp`/`cpg`
-DONE/maintenance; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
+11/12 GPU slots free (train-6 was Pending on host CPU as of the last
+Update — reconfirm before assuming). **No launch this cycle**: every
+pre-registered arm and STATUS Next item resolved to CLOSED this cycle
+(see Update) — the one surviving Next item is a design+build task
+(new mechanism class), not a ready-to-queue arm; inventing an
+under-designed reward tweak would be arm #21 of an already-refuted
+class. Pods 1/2/3/5/8/10/11 may carry stale mixedsession/
+eval_checkpoint jobs from verdicted runs — harmless CPU load, not
+launch-blocking, but a slow-accumulating OOM risk on long-lived pods
+(3rd+ incident) — cleanup lever: `ops.sh procs <pod>` + kill stale
+multiprocessing-fork children before a memory-heavy `--shards`+
+`--video` job. Every OTHER track non-launchable by design (`joystick`/
+`amp`/`cpg` DONE/maintenance; `walkcurr` RETIRED; `todaypolicy`
+DELIVERED).
 
 ## Goal (operator, 08-24 evening)
 

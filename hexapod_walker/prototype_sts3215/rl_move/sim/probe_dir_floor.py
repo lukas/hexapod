@@ -20,10 +20,34 @@ commanded ticks:
     k_walk_course_disp mechanism's own quantity, default 1.5 s);
   - whole-rollout net path direction error + mean speed + fall flag.
 
+09-05 follow-up (standwalk, closing the mlcontprice8 literal-DONE-gate
+FALL): every prior floor read (13.5 deg mean) used a FIXED heading for
+the whole rollout -- the real DONE-gate session redraws (speed,
+heading) every `goal.walk_cmd_resample_s` (~3 s, jittered) and blends
+to it over `walk_cmd_blend_s` (~1 s), per `walk_task._sample_mode_seq`.
+A policy plateauing at 42-45 deg tick dir_err regardless of ~20 tested
+reward/architecture levers could mean the 40 deg cap was calibrated
+against an easier (never-reorients) floor than the task actually
+demands. `--resample-s`/`--resample-jitter`/`--heading-max-deg`/
+`--blend-s` (all default 0/off = IDENTICAL prior behavior, bit-exact)
+add the SAME periodic heading redraw to the teacher's own commanded
+(vx, vy), still open-loop TripodGait, no policy involved -- isolates
+how much of the achieved dir_err floor is just "honest transient lag
+after every command flip" vs a policy competence gap. Known
+simplification (documented, not modeled): stop segments
+(`walk_stop_frac`) and turn-in-place segments (`walk_turn_in_place_
+frac`) are not reproduced, only cruise-with-periodic-heading-change.
+
 Read-only diagnostic: no shared behavior changes, no cfg keys.
 Usage (controller-ok, single env, ~1-2 min per rollout):
   uv run python -m rl_move.sim.probe_dir_floor \
       --model-source mesh --hz 100 --vx 0.08 --seconds 60
+  # heading-resample floor (matches the DONE-gate session's own
+  # command dynamic instead of a single fixed heading):
+  uv run python -m rl_move.sim.probe_dir_floor \
+      --model-source mesh --hz 100 --vx 0.08 --seconds 60 \
+      --resample-s 3.0 --resample-jitter 0.2 --heading-max-deg 180 \
+      --blend-s 1.0
 """
 from __future__ import annotations
 
@@ -54,6 +78,21 @@ def main() -> None:
     ap.add_argument("--vx", type=float, default=0.08)
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--resample-s", type=float, default=0.0,
+                    help="periodic heading redraw interval, seconds "
+                         "(0 = off, legacy fixed-heading floor, "
+                         "bit-exact prior behavior)")
+    ap.add_argument("--resample-jitter", type=float, default=0.2,
+                    help="each segment length ~ U[rs*(1-j), rs*(1+j)], "
+                         "matching goal.walk_cmd_resample_jitter")
+    ap.add_argument("--heading-max-deg", type=float, default=180.0,
+                    help="new heading drawn ~ U[-max, max] degrees "
+                         "every resample (matches goal.walk_heading_"
+                         "max_rad=pi on the standwalk cap29 lineage)")
+    ap.add_argument("--blend-s", type=float, default=1.0,
+                    help="linear ramp duration from the old commanded "
+                         "(vx,vy) to the new one, matching goal.walk_"
+                         "cmd_blend_s")
     ap.add_argument("--window-s", type=float, default=1.5)
     ap.add_argument("--min-speed", type=float, default=0.005,
                     help="dir-err validity threshold m/s (5e-3 = the "
@@ -112,6 +151,29 @@ def main() -> None:
     win_ticks = max(int(round(args.window_s / dt)), 1)
     hist: deque = deque(maxlen=win_ticks + 1)
 
+    # Heading-resample state (off by default: cmd_vx/cmd_vy stay pinned
+    # to args.vx/0.0 for the whole rollout, identical to the legacy
+    # fixed-heading floor). A SEPARATE rng stream (seed offset) so the
+    # legacy fixed-heading call sites' rng usage (none, currently) can
+    # never be perturbed by turning this on. The transition itself
+    # reuses TripodGait's OWN internal tau=0.15s command low-pass
+    # (`_smoothed_command`, unconditional, same path a live velocity
+    # change always takes) instead of a second hand-rolled blend --
+    # `--blend-s` is accepted for CLI/doc symmetry with `goal.walk_
+    # cmd_blend_s` but only used to log intent, not to double-smooth.
+    resample_rng = np.random.default_rng(args.seed + 1000)
+    heading_max_rad = math.radians(args.heading_max_deg)
+    cmd_vx, cmd_vy = args.vx, 0.0
+
+    def _draw_next_resample_t(t_now: float) -> float:
+        j = args.resample_jitter
+        span = args.resample_s * (1.0 + resample_rng.uniform(-j, j))
+        return t_now + max(span, 1e-3)
+
+    next_resample_t = (_draw_next_resample_t(0.0)
+                        if args.resample_s > 0.0 else float("inf"))
+    n_resamples = 0
+
     tick_errs, win_errs, speeds = [], [], []
     all_xy, all_cmd = [], []       # full tick streams for the envelope
     n_cmd, n_valid = 0, 0
@@ -125,6 +187,13 @@ def main() -> None:
     slip_m = 0.0
     for step in range(n):
         t = step * dt
+        if t >= next_resample_t:
+            heading = resample_rng.uniform(-heading_max_rad, heading_max_rad)
+            cmd_vx = args.vx * math.cos(heading)
+            cmd_vy = args.vx * math.sin(heading)
+            gait.set_velocity(vx=cmd_vx, vy=cmd_vy, omega=0.0)
+            n_resamples += 1
+            next_resample_t = _draw_next_resample_t(t)
         act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         _obs, _r, term, trunc, _info = env.step(act)
         for f in range(6):
@@ -140,7 +209,7 @@ def main() -> None:
         v = env._body_vel_xy()
         n_cmd += 1
         err = walk_direction_error_deg(
-            float(v[0]), float(v[1]), args.vx, 0.0,
+            float(v[0]), float(v[1]), cmd_vx, cmd_vy,
             min_speed_m_s=args.min_speed)
         if err is not None:
             n_valid += 1
@@ -148,18 +217,23 @@ def main() -> None:
         speeds.append(float(np.hypot(*v)))
         bxy = env.data.xpos[env._chassis_bid, :2]
         all_xy.append((float(bxy[0]), float(bxy[1])))
-        all_cmd.append((args.vx, 0.0))
+        all_cmd.append((cmd_vx, cmd_vy))
         hist.append((float(bxy[0]), float(bxy[1])))
         if len(hist) == hist.maxlen:
             dx = hist[-1][0] - hist[0][0]
             dy = hist[-1][1] - hist[0][1]
             d = math.hypot(dx, dy)
             if d / args.window_s >= 0.02:  # mechanism's own min speed
-                # World +x == commanded direction at start; matches the
-                # k_walk_course_disp dot-product convention for the
-                # heading_max_rad=0 forward-only command family.
-                win_errs.append(math.degrees(math.acos(
-                    max(-1.0, min(1.0, dx / d)))))
+                # Project net window displacement onto the CURRENT
+                # commanded direction (world +x only coincides with
+                # the command when resampling is off, the legacy
+                # heading_max_rad=0 forward-only case).
+                cmd_ang = math.atan2(cmd_vy, cmd_vx)
+                disp_ang = math.atan2(dy, dx)
+                da = abs(disp_ang - cmd_ang)
+                if da > math.pi:
+                    da = 2 * math.pi - da
+                win_errs.append(math.degrees(da))
         if term:
             fell = True
             break
@@ -173,6 +247,11 @@ def main() -> None:
     out = {
         "model_source": args.model_source, "hz": args.hz,
         "max_delta_q_deg": max_dq, "vx_cmd": args.vx,
+        "resample_s": args.resample_s,
+        "resample_jitter": args.resample_jitter,
+        "heading_max_deg": args.heading_max_deg,
+        "blend_s_requested": args.blend_s,
+        "n_resamples": n_resamples,
         "seconds": args.seconds, "seed": args.seed, "fell": fell,
         "ticks": n_cmd, "dir_valid_frac": round(n_valid / max(n_cmd, 1), 4),
         "tick_dir_err_mean_deg": round(float(np.mean(tick_errs)), 2)

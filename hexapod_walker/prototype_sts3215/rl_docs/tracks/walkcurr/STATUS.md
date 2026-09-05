@@ -2,6 +2,22 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~12:2x REFILL — heading-canary n=3 batch: with 8-9 GPU pods
+  genuinely idle after the sde/remcost cohort finished (their
+  relaunch is a concurrent cycle's job, left untouched) and no other
+  pre-registered grid item open, launched 4 more heading canaries
+  (same bank-proven `EASY_HEADING` recipe/boundaries as `headset-
+  base-c1`/`headset-halfgrav-c2`, 2M each, `--activation-fn` blanked
+  per the `--init-from` gotcha): `headset-base-s0c1` (from
+  `base-s0-c1`, train-3), `headset-base-s1c1` (from `base-s1-c1`,
+  train-5), `headset-halfgrav-s1` (from `halfgrav-s1`, train-10),
+  `headset-halfgrav-s3` (from `halfgrav-s3`, train-9) — brings both
+  families' heading-canary seed count to n=3 once these read, instead
+  of resting on n=1 each while the first pair's 40M acquisitions
+  (`headset-base-acq1`, `headset-halfgrav-acq1`) run. All 4 confirmed
+  genuinely training via `ops.sh procs` (not just ledger RUNNING).
+  Left train-2/4/7/8/11 untouched (attributable to the concurrent
+  cycle's own 4 in-flight continuations + my 2 DIG-IN'd runs).
 - 09-05 ~12:1x DIG-IN TRIGGER on `sde-s0-c4` (40M own-checkpoint
   continuation, found FINISHED+unverdicted, not on any concurrent
   cycle's owned list): W&B (`6e15jpmw`) looks like a clean PASS on

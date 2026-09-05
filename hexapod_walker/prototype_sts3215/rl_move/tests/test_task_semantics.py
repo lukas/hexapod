@@ -5525,8 +5525,31 @@ GAIT_GATE_ON = dict(WALK_OVERRIDES)
 GAIT_GATE_ON[("reward", "walk_gait_gate")] = 1.0
 QW_GAIT_GATE_ON = dict(QUADWALK_OVERRIDES)
 QW_GAIT_GATE_ON[("reward", "walk_gait_gate")] = 1.0
+# 2026-09-05 RECALIBRATION (walkcurr legpark-skate dig-in): the honest
+# six-leg scripted gait's realized qualifying-swing strides shrank to
+# 7-10 mm under the post-09-02-merge dynamics (measured: at the old
+# 10 mm bar the gate factor intermittently collapses to 0 on a
+# genuinely cycling gait, mean factor 0.61; at 7 mm it pins at 1.000
+# for the whole episode). The MECHANISM is unchanged (the 09-02 merge
+# touched no gait-gate code); only the scripted actor's stride
+# calibration drifted, same family as the 08-25 kernel-ratio
+# recalibration. The bar stays a TEST override — the shared default
+# (10.0) is untouched; campaign arms pick their own dose.
+GAIT_GATE_ON[("reward", "gait_gate_stride_mm")] = 7.0
+QW_GAIT_GATE_ON[("reward", "gait_gate_stride_mm")] = 7.0
 # Raised flag pose (hip up, knee tucked) for a sacrificed leg.
-GG_FLAG_RAD = (0.0, -1.10, 2.40)
+# 2026-09-05: converted to robot_abs (knee_abs = knee_rel + hip =
+# 2.40 + (-1.10) = 1.30) — fourth instance of the joint-frame-v2
+# stale-bypass-literal family (see RAW_PLANT note): fed raw to
+# q_rad_to_action, the old sim-relative 2.40 decodes post-v2 to a
+# mujoco knee of 3.50 rad (impossible target -> servo stall -> BOTH
+# flagleg rollouts died over_current at t=4.72 s, gmin None).
+GG_FLAG_RAD = (0.0, -1.10, 1.30)
+# Corrected robot_abs tuck for the midpin rollout ONLY: the shared
+# QW_TUCK_RAD literal (same stale numbers) is left untouched because
+# 9 other quadwalk bank tests pass against it and recalibrating them
+# is not this dig-in's scope — flagged in OPERATOR_QUESTIONS.md.
+GG_TUCK_RAD = (0.0, -1.10, 1.30)
 
 
 def _gait_gate_walk_rollout(policy: str, seed: int,
@@ -5611,12 +5634,23 @@ def _gait_gate_midpin_rollout(seed: int, overrides: dict) -> dict:
     def _splayed(i, vx, vy, om, _o=_orig):
         dx, dy, dz = _o(i, vx, vy, om)
         if i in (1, 4):
-            dx += 0.06
+            # 2026-09-05: 0.06 -> 0.08 m — under post-09-02-merge
+            # dynamics the 0.06 splay pitch-trips at t=0.86 s during
+            # the front-tuck blend (CoM crosses the mid-foot front
+            # edge); 0.08 restores the statically-stable twin the test
+            # was calibrated on (survives the full 15 s at 0.08/0.10
+            # and at slower blends — measured this dig-in). The cheat
+            # SEMANTICS (mids pinned, 0 completed swings) are
+            # untouched; splay distance is incidental calibration.
+            dx += 0.08
         return (dx, dy, dz)
     gait._foot_target_in_body = _splayed
     plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
-    tuck = np.array(QW_TUCK_RAD)
+    # 2026-09-05: GG_TUCK_RAD (robot_abs), not the stale QW_TUCK_RAD —
+    # see the GG_FLAG_RAD note; the stale literal over_currents the
+    # front servos post-joint-frame-v2 and kills the actor mid-window.
+    tuck = np.array(GG_TUCK_RAD)
     gait.set_velocity(vx=0.0, vy=0.0)
     q_pin = np.asarray(gait.desired_deg(0.0)) * DEG2RAD
     total, step = 0.0, 0

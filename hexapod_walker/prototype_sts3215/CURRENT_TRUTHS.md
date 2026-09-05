@@ -65,6 +65,30 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
 ## Known Tooling Gotchas
 - Recurrent checkpoints must use `rl_move.sim.gru_policy.RecurrentPredictor`;
   raw per-tick `model.predict(obs)` resets hidden state.
+- `eval_checkpoint.py`'s `--stochastic` pass never resampled a gSDE
+  checkpoint's exploration matrix between episodes (SB3's
+  `model.predict()` only samples fresh gSDE noise via
+  `collect_rollouts` during TRAINING, never inside `predict()` itself)
+  -- so every "sto" episode of a gSDE checkpoint reused ONE frozen
+  noise draw for the whole eval process. In any goal mode with no
+  per-episode init randomization (plain fixed-forward `walk`, not
+  `walk_startjitter`), that made every sto episode bit-identical to
+  the others (confirmed 09-05: `sde-s3-c1b`'s `walk_sto_{0..5}.mp4`
+  shared one MD5; `walk_startjitter_sto_*`, which DOES randomize the
+  start pose, varied normally). This silently turned every gSDE "sto"
+  panel across the whole `sde`/`sdehalfgrav`/`sdehalfgrav-remcost`
+  09-05 easy-sim cohort into an n=1 noise-draw report dressed up as
+  n=6 -- re-read any "6/6 sto fail" claim for those families as "one
+  noise draw failed," not "robust failure across draws." Fixed
+  09-05 (`_maybe_reset_gsde_noise` in `eval_checkpoint.py`, called at
+  the top of every `run_episode`): resamples once per episode for any
+  `use_sde=True` model (direct or through a wrapper's inner `.model`,
+  e.g. `Rot60Policy`); bit-exact no-op for the non-gSDE default.
+  4 new tests, `test_eval_checkpoint_gsde_reset_noise.py`. Any
+  PRE-FIX gSDE sto read (every sde/sdehalfgrav gate before this
+  commit) should be treated as informationally thin on stochastic
+  robustness specifically -- their det-pass gait_valid/sacrificed-leg
+  findings are unaffected (deterministic mode never uses gSDE noise).
 - Some post-08-24 100 Hz evals before the `pod_eval.py` fixes may have
   wrong timeout/slew-contract evidence; re-run suspicious gates.
 - Train pods have non-uniform `/dev/shm`; route obs-heavy launches to

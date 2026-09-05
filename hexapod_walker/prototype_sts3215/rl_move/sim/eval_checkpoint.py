@@ -369,6 +369,51 @@ def _smoothness_fields(cmd_hist: list, env) -> dict:
     }
 
 
+def _maybe_reset_gsde_noise(model, *, _depth: int = 0) -> None:
+    """Resample the gSDE exploration matrix once per episode (2026-09-05,
+    walkcurr sde-s3-c1b triage): SB3's ``model.predict()`` NEVER calls
+    ``policy.reset_noise()`` on its own -- that only happens inside
+    ``OnPolicyAlgorithm.collect_rollouts`` during TRAINING. A loaded
+    gSDE checkpoint's exploration matrix is therefore frozen at
+    whatever it was when the model object was constructed, for the
+    entire eval process. Under any goal mode with no per-episode init
+    randomization (e.g. plain fixed-forward "walk", `--stochastic`'s
+    "sto" pass included), that makes every "stochastic" episode
+    literally bit-identical to every other one -- confirmed by hand:
+    `cw-walkscratch-easy0905-sde-s3-c1b`'s `walk_sto_{0..5}.mp4` all
+    share one MD5 (a fixed exploration matrix + an identical obs
+    stream reproduces the same latent-SDE noise draw every episode),
+    while `walk_startjitter_sto_*` (which DOES randomize the start
+    pose) varies normally -- proving the env/policy aren't otherwise
+    deterministic, only the frozen noise matrix is. This silently
+    made every gSDE "sto" panel campaign-wide (sde/sdehalfgrav/
+    sdehalfgrav-remcost families) an n=1 noise-draw report dressed up
+    as an n=6 sample, in any mode without its own init randomization.
+    Additive fix: resample the matrix at the START of every episode
+    (before any obs are seen) so each of the 6 sto trials gets an
+    independent gSDE noise draw, same as training's own periodic
+    `reset_noise` cadence. Bit-exact no-op for every non-gSDE
+    checkpoint (`use_sde=False` is the overwhelming majority + the
+    default): the whole body is a guarded no-op unless the model (or,
+    recursing through wrappers like `Rot60Policy`, its inner model)
+    reports `use_sde=True`. GRU checkpoints (`RecurrentPredictor`) are
+    already gSDE-incompatible by construction (`gru_policy.py`), so
+    `getattr(model, "use_sde", False)` is simply False for them -- no
+    special-casing needed.
+    """
+    if _depth > 4:
+        return  # defensive: never spin on a malformed wrapper chain
+    if getattr(model, "use_sde", False):
+        policy = getattr(model, "policy", None)
+        reset_noise = getattr(policy, "reset_noise", None)
+        if callable(reset_noise):
+            reset_noise(1)
+        return
+    inner = getattr(model, "model", None)  # e.g. Rot60Policy.model
+    if inner is not None and inner is not model:
+        _maybe_reset_gsde_noise(inner, _depth=_depth + 1)
+
+
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False,
@@ -400,6 +445,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     obs, info0 = env.reset()
     if hasattr(model, "reset"):
         model.reset()   # rot60 sector state is per-episode
+    _maybe_reset_gsde_noise(model)
     mode = info0.get("goal_mode", "?")
     kind = _start_kind(env._goal_traj) if env._goal_traj else "plant"
     # RSI spawns (goal.rise_rsi_frac > 0 rides in from the run's own

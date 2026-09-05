@@ -83,6 +83,14 @@ MJX refuses it until that backend can reproduce its timing contract.
 - Controller commit: `96b54760f`. Replay and cadence evidence: `f68e1181a`.
   These are on `codex/smooth-walking-delivery`; the shared working checkout's
   unrelated edits have been preserved.
+- The later upstream time-slicing experiment was merged; all **17** updated
+  envelope tests passed with the corrected slip-history behavior retained.
+
+Follow-up operator note `fb_20260905T075426_969b3d` and cycle
+`20260905T080130_operator-kick` hand the frozen actor and checked-in evidence to
+the orchestrator for a matched noise-sensitivity screen and corrected
+stop/restart slip measurement. The cycle was observed reading the delivery
+branch. This work is CPU-only; the physical filter settings are unchanged.
 
 ## Orchestrator experiment
 

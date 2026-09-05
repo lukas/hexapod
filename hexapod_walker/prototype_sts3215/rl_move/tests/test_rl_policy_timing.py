@@ -328,37 +328,6 @@ def test_drive_walk_engages_on_first_real_command():
     assert rl_policy.DRIVE_WALK_ENGAGE_S == pytest.approx(0.0)
 
 
-def test_drive_zero_dwell_keeps_walk_through_brief_neutral_input():
-    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
-        "walk", False, None, 9.63
-    )
-    assert keep is True
-    assert zero_since == pytest.approx(9.63)
-
-    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
-        "walk", False, zero_since, 9.63 + rl_policy.DRIVE_HOLD_SWITCH_S - 0.01
-    )
-    assert keep is True
-
-    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
-        "walk", False, zero_since, 9.63 + rl_policy.DRIVE_HOLD_SWITCH_S
-    )
-    assert keep is False
-    assert zero_since == pytest.approx(9.63)
-
-    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
-        "walk", True, zero_since, 12.0
-    )
-    assert keep is False
-    assert zero_since is None
-
-    keep, zero_since = rl_policy._drive_zero_dwell(  # noqa: SLF001
-        "hold", False, 9.63, 10.0
-    )
-    assert keep is False
-    assert zero_since is None
-
-
 def test_drive_timing_trip_applies_to_policy_ticks_only():
     timing = SimpleNamespace(policy_hz=100.0, policy_dt=0.01)
 

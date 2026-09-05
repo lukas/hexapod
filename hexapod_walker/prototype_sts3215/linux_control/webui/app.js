@@ -2982,8 +2982,6 @@ function drvPaint(d){
   else if(live.height_ref_mm) bits.push(`h ${live.height_ref_mm} mm`);
   if(live.height_live === false && drvGamepad.du)
     bits.push('D-pad height needs a stance model in the “hold” role');
-  if(live.walk_zero_dwell_s)
-    bits.push(`hold in ${live.walk_zero_dwell_s}s`);
   if(live.roll_deg!=null)
     bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);

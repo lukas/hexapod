@@ -1786,8 +1786,6 @@ class ChiralitySelector:
 DRIVE_CMD_TIMEOUT_S = 0.6    # heartbeats at ~5 Hz; 3 misses = stop
 DRIVE_IDLE_END_S = 120.0     # no heartbeat at all -> end session (hold)
 DRIVE_MAX_SESSION_S = 300.0  # hard cap per session (decel + hold)
-DRIVE_HOLD_SWITCH_S = 1.5    # zero-cmd dwell before flipping to the
-                             # hold model (quick taps stay on walk)
 DRIVE_WALK_ENGAGE_S = 0.0    # first real held direction engages gait now
 DRIVE_WALK_ACTION_RAMP_S = 1.5  # blend first learned targets from stance
 DRIVE_STREAM_STALE_TICKS = 10  # tolerate ~100 ms snapshot gaps at 100 Hz
@@ -1844,17 +1842,6 @@ def _drive_command_is_moving(vx_target: float, vy_target: float,
     # policies ignore wz, so yaw-only at zero translation must stay in hold.
     return (supports_yaw_command(walk_obs)
             and abs(wz_target) > DRIVE_YAW_EPS_RAD_S)
-
-
-def _drive_zero_dwell(active: str, moving_requested: bool,
-                      zero_since: float | None,
-                      t: float) -> tuple[bool, float | None]:
-    """Keep a just-walking robot inside the gait through brief neutral input."""
-    if moving_requested or active != "walk":
-        return False, None
-    if zero_since is None:
-        zero_since = t
-    return (t - zero_since) < DRIVE_HOLD_SWITCH_S, zero_since
 
 
 def _drive_uses_learned_policy(active: str, hold_policy) -> bool:
@@ -4247,7 +4234,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     walk_has_engaged = False
     walk_cmd_since: float | None = None
     walk_active_since: float | None = None
-    zero_since: float | None = None  # first tick of neutral input while walking
     stopping = None             # reason string once winding down
     overruns = 0
     max_cur = 0.0
@@ -4526,10 +4512,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             result.update(ticks=i, ended=stopping)
             break
 
-        zero_dwell_active, zero_since = _drive_zero_dwell(
-            active, moving_requested, zero_since, t)
         if moving:
-            zero_since = None
             if active != "walk":
                 prev_active = active
                 active = "walk"
@@ -4553,21 +4536,13 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                 vy_r += max(-dv_max, min(dv_max, vy_t - vy_r))
                 vx_r, vy_r = _drive_clamp_translation(
                     vx_r, vy_r, walk_speed_min, walk_speed_max)
-        elif zero_dwell_active:
-            # Do not run walk obs at true zero and do not instant-handoff
-            # to static joint hold from an arbitrary gait phase. Brief
-            # neutral joystick/browser samples coast on the last trained
-            # nonzero gait ref; sustained neutral still falls through to
-            # the explicit hold handoff below.
-            if math.hypot(vx_r, vy_r) <= DRIVE_MOVE_EPS_MPS:
-                vx_r, vy_r = walk_speed_min, 0.0
         elif active == "walk":
+            # A neutral command releases the gait on this control tick.
             prev_active = active
             vx_r = vy_r = 0.0
             active = "hold"
             model_switched = True
             walk_active_since = None
-            zero_since = None
             reanchor()
             last_hold_refresh_t = -DRIVE_HOLD_REFRESH_S
             debug.event("drive_model_switch", tick=i, t_s=t,
@@ -4575,7 +4550,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                         publish=False, flush=False)
         else:
             vx_r = vy_r = 0.0
-            zero_since = None
 
         # Height ref: 0 while walking (trained contract), ramp back to 0
         # when a move command wants the gait, else integrate held D-pad.
@@ -4711,7 +4685,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                     walk_has_engaged = False
                     walk_active_since = None
                     walk_cmd_since = None
-                    zero_since = None
                     vx_r = vy_r = 0.0
                     stop_async_sampler()
                 continue
@@ -4905,9 +4878,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             "learned_policy_active": uses_policy,
             "walk_has_engaged": walk_has_engaged,
             "walk_arming": bool(moving_requested and not moving),
-            "walk_zero_dwell_s": round(
-                max(0.0, DRIVE_HOLD_SWITCH_S - (t - zero_since)), 2)
-            if zero_dwell_active and zero_since is not None else 0.0,
             "roll_deg": round((state.imu_roll - tilt_ref0[0]) * RAD2DEG,
                               1),
             "pitch_deg": round((state.imu_pitch - tilt_ref0[1])

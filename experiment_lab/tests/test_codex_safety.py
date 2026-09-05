@@ -156,6 +156,30 @@ def test_adaptive_physical_admission_requires_exact_verified_runner_and_bounds(t
         false_non_motion, 1
     )
 
+    static_identity_preflight = {
+        "robot_motion": False,
+        "required_policy": "Candidate A",
+        "required_policy_sha256": "a" * 64,
+        "policy_sha256": "a" * 64,
+        "required_direct_body_tag_id": 0,
+        "minimum_direct_floor_tags": 2,
+        "expected_live_motors": 18,
+        "remote_abort_required": True,
+    }
+    hard_rejection, readiness_reason = orchestrator._physical_followup_review(
+        static_identity_preflight, 15
+    )
+    assert hard_rejection == ""
+    assert "trusted deterministic executor" in readiness_reason
+
+    hidden_command = dict(
+        static_identity_preflight,
+        required_evidence={"command": ["robot", "--select-policy"]},
+    )
+    assert "may not carry" in orchestrator._physical_followup_rejection(
+        hidden_command, 15
+    )
+
 
 def test_manifest_verification_rejects_files_added_after_sealing(tmp_path):
     run_dir = tmp_path / "evidence"

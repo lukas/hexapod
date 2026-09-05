@@ -2,6 +2,41 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:4x this cycle: `headset-halfgrav-irr-c1` **CANARY PASS**
+  — the irregular-direction-change-timing canary on the 0.5g heading
+  family, mirroring the base-family `irr-c1`/`-c2` pair on the other
+  physics cell. Evidence (`wandb_history.csv`, 2.1M steps): `env/
+  walk_speed` alive across all 4 quarters (0.175/0.183/0.186/0.183
+  m/s, not decaying), `rollout/ep_rew_mean` rising monotonically
+  (36.2/65.6/99.0/129.2), `rollout/ep_len_mean` tripling (108->488,
+  fewer early falls), `env/wrong_way` low (2.0-3.0%) throughout — its
+  own harness gate eval was still genuinely computing on train-2 at
+  verdict time (registered `evalpending` + backgrounded `pollreap`,
+  non-blocking; gate text explicitly allows a canary verdict off the
+  reward/speed trend alone). Funded the 40M acquisition follow-up
+  `headset-halfgrav-irr-acq1` (own-checkpoint `--init-from-source` off
+  `headset-halfgrav-s1acq`, VERIFIED RUNNING on train-2) to test
+  whether jittered-timing six-leg walking actually matures at the
+  real gate rather than just surviving. Also found+registered
+  `sdehalfgrav-remcost-{s0,s1}-gg2` (the gait-gate-repair
+  generalization test onto the remcost recipe) both FINISHED (40.37M,
+  reward quarters strongly rising/not flat: s0
+  -539.9/-240.3/361.1/991.9, s1 -694.5/-530.0/-39.7/538.0) with their
+  own harness gate evals genuinely still computing remotely (train-10/
+  train-11) — registered `evalpending` + backgrounded `pollreap` for
+  both rather than blocking; per 08-21 the still-rising reward means
+  these are NOT a flat-reward auto-fail regardless of what the gate
+  read shows, but the actual gait_valid verdict needs the harness
+  report, not yet landed. Left unverdicted this cycle; read `logs/
+  ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_remcost_s{0,1}_gg2_
+  gate/report.json` once they land. Capacity at cycle end: only
+  train-5/train-7 genuinely idle (no eval, no trainer) — every other
+  next-rung question (base/halfgrav heading n=3, both irr-timing
+  cells' n=2 canaries, sde bare-family gait-gate closure at n=4,
+  remcost gait-gate generalization) already has evidence in flight
+  elsewhere; backlog.json empty; no non-duplicative arm launched on
+  the 2 free pods rather than invent filler.
+
 - 09-05 ~14:3x this cycle: `headset-halfgrav-s1acq` **ACQ PASS** —
   cleanest heading-acquisition read of the whole campaign: 24/24
   `gait_valid`, ZERO sacrificed legs in every one of the 4 scenarios

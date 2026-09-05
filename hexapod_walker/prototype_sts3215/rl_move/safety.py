@@ -104,6 +104,9 @@ class SafetyLayer:
         self._over_temp_trip_ticks = 3
         self._over_temp_ticks = 0
         self.max_load = float(cfg_get(cfg, "safety", "max_load_pct", default=90))
+        self._incomplete_feedback_trip_ticks = 3
+        self._incomplete_feedback_ticks = 0
+        self._last_feedback_sample_seq: int | None = None
         self._last_safe = np.zeros(N_JOINTS, dtype=float)
         self._tilt_ref = (0.0, 0.0)
         self._estop = False
@@ -112,6 +115,9 @@ class SafetyLayer:
     def set_nominal(self, q_rad: np.ndarray) -> None:
         self._last_safe = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
         self._over_current_ticks = 0
+        self._over_temp_ticks = 0
+        self._incomplete_feedback_ticks = 0
+        self._last_feedback_sample_seq = None
         self._entry_ticks = 0
         # Re-read the entry-slew params on every engage/reset so the
         # in-run cfg scheduler (sched.key=safety.entry_slew_start_deg /
@@ -156,6 +162,117 @@ class SafetyLayer:
         if not np.all(np.isfinite(a)):
             return None, "action_nan_inf"
         return np.clip(a, -1.0, 1.0), ""
+
+    def check_servo_health(self, state: RobotState) -> SafetyStatus | None:
+        """Evaluate health, consuming each physical feedback frame once.
+
+        Partial frames keep their valid joint values safety-relevant while
+        their missing IDs are debounced independently.  ``feedback_sample_seq``
+        persists across position-only state updates, so a direct runner cannot
+        skip a partial frame merely because its final inner substep did not
+        itself perform the feedback transaction.
+        """
+        timing = dict(state.timing or {})
+        raw_seq = timing.get("feedback_sample_seq")
+        fresh_sample = False
+        if raw_seq is not None:
+            try:
+                seq = int(raw_seq)
+            except (TypeError, ValueError):
+                seq = None
+            if seq is not None and seq != self._last_feedback_sample_seq:
+                fresh_sample = True
+                self._last_feedback_sample_seq = seq
+        elif (timing.get("feedback_sample_fresh")
+              or timing.get("full_feedback_attempted")
+              or timing.get("full_feedback")):
+            # Backward-compatible states without acquisition identity are
+            # assumed to represent one new caller-supplied sample.
+            fresh_sample = True
+
+        has_validity = ("feedback_valid_ids" in timing
+                        or "full_feedback_ids" in timing)
+        raw_ids = timing.get(
+            "feedback_valid_ids", timing.get("full_feedback_ids", ()))
+        valid_ids: list[int] = []
+        try:
+            valid_ids = sorted({
+                int(j) for j in raw_ids if 0 <= int(j) < N_JOINTS})
+        except (TypeError, ValueError):
+            valid_ids = []
+        if not has_validity:
+            valid_ids = list(range(N_JOINTS))
+        declared_complete = bool(timing.get(
+            "feedback_complete", timing.get("full_feedback_complete",
+                                                timing.get("full_feedback"))))
+        complete = bool(
+            declared_complete
+            and (not has_validity
+                 or valid_ids == list(range(N_JOINTS))))
+
+        def selected(name: str) -> tuple[np.ndarray | None, list[int]]:
+            value = getattr(state, name, None)
+            if value is None or not valid_ids:
+                return None, []
+            try:
+                arr = np.asarray(value, dtype=float).reshape(N_JOINTS)
+            except (TypeError, ValueError):
+                return None, []
+            ids = [j for j in valid_ids if math.isfinite(float(arr[j]))]
+            return arr, ids
+
+        temp, temp_ids = selected("servo_temperature")
+        if fresh_sample and temp is not None and temp_ids:
+            j = max(temp_ids, key=lambda idx: float(temp[idx]))
+            if float(temp[j]) > self.max_temp:
+                self._over_temp_ticks += 1
+            elif complete:
+                self._over_temp_ticks = 0
+            if self._over_temp_ticks >= self._over_temp_trip_ticks:
+                return SafetyStatus(
+                    ok=False, terminate=True, reason="over_temp",
+                    detail=f"{_joint_name(j)} {float(temp[j]):.1f}C",
+                    held=True)
+
+        current, current_ids = selected("servo_current")
+        if current is not None and current_ids:
+            cur = np.abs(current)
+            j = max(current_ids, key=lambda idx: float(cur[idx]))
+            if float(cur[j]) > self.max_current:
+                self._over_current_ticks += 1
+                if self._over_current_ticks >= self._over_current_trip_ticks:
+                    return SafetyStatus(
+                        ok=False, terminate=True, reason="over_current",
+                        detail=f"{_joint_name(j)} {float(cur[j]):.2f}A",
+                        held=True)
+            elif complete:
+                self._over_current_ticks = 0
+
+        load, load_ids = selected("servo_load")
+        if load is not None and load_ids:
+            j = max(load_ids, key=lambda idx: float(load[idx]))
+            if float(load[j]) > self.max_load:
+                return SafetyStatus(
+                    ok=False, terminate=True, reason="over_load",
+                    detail=f"{_joint_name(j)} {float(load[j]):.0f}%",
+                    held=True)
+
+        if fresh_sample:
+            if complete:
+                self._incomplete_feedback_ticks = 0
+            else:
+                self._incomplete_feedback_ticks += 1
+                if (self._incomplete_feedback_ticks
+                        >= self._incomplete_feedback_trip_ticks):
+                    missing = [j for j in range(N_JOINTS)
+                               if j not in valid_ids]
+                    return SafetyStatus(
+                        ok=False, terminate=True,
+                        reason="incomplete_feedback",
+                        detail=(f"{len(valid_ids)}/{N_JOINTS} valid; "
+                                f"missing {missing}"),
+                        held=True)
+        return None
 
     def filter(self, proposed_q: np.ndarray, state: RobotState,
                *, ik_ok: bool = True, ik_reason: str = "",
@@ -212,50 +329,10 @@ class SafetyLayer:
             status.held = True
             return self._last_safe.copy(), status
 
-        # Servo health (when FB present). Temperatures refresh at
-        # full_feedback_hz (10) while control runs at 25 Hz, so a cached
-        # value persists ~2.5 control ticks — one corrupted bus byte
-        # therefore produced exactly the 3 "consecutive" ticks the old
-        # tick-based debounce required (phantom over_temp at t=1.2 s,
-        # 08-09 hardware session 2). Count FRESH feedback reads instead:
-        # stale ticks neither confirm nor clear.
-        if state.servo_temperature is not None:
-            fresh = bool((state.timing or {}).get("full_feedback"))
-            if fresh:
-                if float(np.max(state.servo_temperature)) > self.max_temp:
-                    self._over_temp_ticks += 1
-                else:
-                    self._over_temp_ticks = 0
-            if self._over_temp_ticks >= self._over_temp_trip_ticks:
-                status.ok = False
-                status.terminate = True
-                status.reason = "over_temp"
-                status.held = True
-                return self._last_safe.copy(), status
-        if state.servo_current is not None:
-            cur = np.abs(state.servo_current)
-            if float(np.max(cur)) > self.max_current:
-                self._over_current_ticks += 1
-                if self._over_current_ticks >= self._over_current_trip_ticks:
-                    j = int(np.argmax(cur))
-                    status.ok = False
-                    status.terminate = True
-                    status.reason = "over_current"
-                    status.detail = f"{_joint_name(j)} {float(cur[j]):.2f}A"
-                    status.held = True
-                    return self._last_safe.copy(), status
-            else:
-                self._over_current_ticks = 0
-        if state.servo_load is not None:
-            if float(np.max(state.servo_load)) > self.max_load:
-                j = int(np.argmax(state.servo_load))
-                status.ok = False
-                status.terminate = True
-                status.reason = "over_load"
-                status.detail = (f"{_joint_name(j)} "
-                                 f"{float(state.servo_load[j]):.0f}%")
-                status.held = True
-                return self._last_safe.copy(), status
+        health_status = self.check_servo_health(state)
+        if health_status is not None:
+            health_status.clipped_action = action
+            return self._last_safe.copy(), health_status
 
         q = np.asarray(proposed_q, dtype=float).reshape(N_JOINTS).copy()
         if not np.all(np.isfinite(q)):

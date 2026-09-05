@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -107,10 +107,97 @@ class RobotStateEstimator:
         self._current = np.zeros(N_JOINTS, dtype=float)
         self._temp = np.zeros(N_JOINTS, dtype=float)
         self._have_fb = False
+        self._fb_sample_seq = 0
+        self._last_fb_valid_ids: list[int] = []
+        self._last_fb_complete = False
         self._imu_stale_s = float(
             cfg_get(cfg, "safety", "imu_stale_ms", default=100)) / 1000.0
         self.last_timing = AcquisitionTiming()
         self._t_prev_state: float | None = None
+
+    def _acquire_feedback(self) -> tuple[float, list[int], bool]:
+        """Read one health frame, retaining every valid per-joint value."""
+        t_c = time.monotonic()
+        try:
+            fb = self.bus.read_all_feedback()
+        except Exception:
+            fb = {}
+        elapsed = time.monotonic() - t_c
+        validated: dict[int, tuple[float, float, float]] = {}
+        if isinstance(fb, dict):
+            for j, rec in fb.items():
+                try:
+                    jj = int(j)
+                    load = float(rec["load_pct"])
+                    current = float(rec["current_a"])
+                    temp = float(rec["temp_c"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                values = (load, current, temp)
+                if (0 <= jj < N_JOINTS
+                        and all(math.isfinite(value) for value in values)):
+                    validated[jj] = values
+
+        valid_ids = sorted(validated)
+        complete = valid_ids == list(range(N_JOINTS))
+        # Rate-limit the next attempt even when this one is incomplete. A
+        # missing ID must be observed on separate physical acquisitions, not
+        # retried four times inside one direct runner tick.
+        # Anchor the cadence after the transaction completes.  A slow or
+        # timed-out aggregate read must not make the very next state update
+        # immediately issue another aggregate transaction.
+        self._last_fb_t = time.monotonic()
+        self._fb_sample_seq += 1
+        self._last_fb_valid_ids = valid_ids
+        self._last_fb_complete = complete
+        if validated:
+            self._have_fb = True
+            for jj, (load, current, temp) in validated.items():
+                self._load[jj] = load
+                self._current[jj] = current
+                self._temp[jj] = temp
+        return elapsed, valid_ids, complete
+
+    def _feedback_timing(self, *, attempted: bool,
+                         valid_ids: list[int] | None = None,
+                         complete: bool | None = None) -> dict:
+        current_ids = list(valid_ids or []) if attempted else []
+        current_complete = bool(complete) if attempted else False
+        return {
+            # Historical keys describe this state-building call.
+            "full_feedback": current_complete,
+            "full_feedback_attempted": attempted,
+            "full_feedback_complete": current_complete,
+            "full_feedback_count": len(current_ids),
+            "full_feedback_ids": current_ids,
+            # Persistent acquisition identity lets a slower direct runner
+            # consume a partial frame even if a later position-only substep
+            # produced the RobotState it receives.
+            "feedback_sample_seq": (self._fb_sample_seq
+                                    if self._fb_sample_seq else None),
+            "feedback_sample_fresh": attempted,
+            "feedback_complete": self._last_fb_complete,
+            "feedback_valid_count": len(self._last_fb_valid_ids),
+            "feedback_valid_ids": list(self._last_fb_valid_ids),
+            "feedback_missing_ids": [
+                j for j in range(N_JOINTS)
+                if j not in self._last_fb_valid_ids],
+        }
+
+    def update_feedback(self, state: RobotState) -> RobotState:
+        """Attach one health acquisition without re-running q/IMU filters."""
+        t_fb, valid_ids, complete = self._acquire_feedback()
+        timing = dict(state.timing or {})
+        timing["t_fb"] = t_fb
+        timing.update(self._feedback_timing(
+            attempted=True, valid_ids=valid_ids, complete=complete))
+        return replace(
+            state,
+            servo_load=self._load.copy() if self._have_fb else None,
+            servo_current=self._current.copy() if self._have_fb else None,
+            servo_temperature=self._temp.copy() if self._have_fb else None,
+            timing=timing,
+        )
 
     def set_commanded(self, q_rad: np.ndarray | list[float]) -> None:
         self._cmd = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
@@ -162,25 +249,13 @@ class RobotStateEstimator:
 
         # --- opportunistic full feedback ---
         did_fb = False
+        fb_attempted = False
+        fb_valid_ids: list[int] = []
         if want_full_feedback is None:
             want_full_feedback = (t_now - self._last_fb_t) >= self._fb_period
         if want_full_feedback:
-            t_c = time.monotonic()
-            try:
-                fb = self.bus.read_all_feedback()
-            except Exception:
-                fb = {}
-            timing.t_fb = time.monotonic() - t_c
-            if isinstance(fb, dict) and fb:
-                did_fb = True
-                self._last_fb_t = t_now
-                self._have_fb = True
-                for j, rec in fb.items():
-                    jj = int(j)
-                    if 0 <= jj < N_JOINTS:
-                        self._load[jj] = float(rec.get("load_pct") or 0.0)
-                        self._current[jj] = float(rec.get("current_a") or 0.0)
-                        self._temp[jj] = float(rec.get("temp_c") or 0.0)
+            fb_attempted = True
+            timing.t_fb, fb_valid_ids, did_fb = self._acquire_feedback()
         timing.did_full_feedback = did_fb
 
         dt = 0.0 if self._t_prev_state is None else (t_now - self._t_prev_state)
@@ -192,9 +267,11 @@ class RobotStateEstimator:
             "t_imu": timing.t_imu,
             "t_fb": timing.t_fb,
             "t_total": timing.t_total,
-            "full_feedback": did_fb,
             "source": source,
         }
+        timing_dict.update(self._feedback_timing(
+            attempted=fb_attempted, valid_ids=fb_valid_ids,
+            complete=did_fb))
         if snapshot_meta:
             timing_dict.update(snapshot_meta)
 
@@ -219,7 +296,8 @@ class RobotStateEstimator:
 
     def update_from_snapshot(
             self, snap: dict, *,
-            want_full_feedback: bool | None = None) -> RobotState | None:
+            want_full_feedback: bool | None = None,
+            source: str = "step_all") -> RobotState | None:
         """Build state from an already-acquired MCU snapshot.
 
         ``McuFeetechBus.step_all()`` writes 18 goals and returns the same
@@ -241,7 +319,7 @@ class RobotStateEstimator:
         }
         return self._state_from_sample(
             pos_deg, snap.get("imu"), t0=time.monotonic(), timing=timing,
-            want_full_feedback=want_full_feedback, source="step_all",
+            want_full_feedback=want_full_feedback, source=source,
             snapshot_meta=meta)
 
     def update(self, *, want_full_feedback: bool | None = None) -> RobotState:

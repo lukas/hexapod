@@ -32,6 +32,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
+from async_bus_guard import require_bus_available
 
 from feetech_bus import (  # noqa: E402
     ADDR_PRESENT_CURRENT,
@@ -606,8 +607,10 @@ class McuFeetechBus:
         return line.decode("ascii", errors="replace").strip()
 
     def _transact(self, cmd: str, *, timeout: float = 0.8) -> str | None:
+        require_bus_available(self)
         t0 = time.monotonic()
         with self._lock:
+            require_bus_available(self)
             self._ser.reset_input_buffer()
             self._ser.write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
@@ -629,10 +632,12 @@ class McuFeetechBus:
 
     def _transact_try(self, cmd: str, *, timeout: float = 0.8) -> str | None:
         """Best-effort transaction: return immediately if the MCU link is busy."""
+        require_bus_available(self)
         if not self._lock.acquire(blocking=False):
             return None
         t0 = time.monotonic()
         try:
+            require_bus_available(self)
             self._ser.reset_input_buffer()
             self._ser.write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
@@ -776,6 +781,7 @@ class McuFeetechBus:
         ``payload`` is ``head_len`` fixed bytes + n × ``rec_size`` records
         (checksum verified, framing stripped).
         """
+        require_bus_available(self)
         cmd = chr(frame[2]) if len(frame) > 2 and 32 <= frame[2] <= 126 else frame[2]
         trace: dict = {
             "cmd": cmd,
@@ -792,6 +798,7 @@ class McuFeetechBus:
             return result
 
         with self._lock:
+            require_bus_available(self)
             t_locked = time.monotonic()
             trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
             t0 = time.monotonic()
@@ -1059,6 +1066,7 @@ class McuFeetechBus:
 
     def write_all(self, degrees, speed: int = 1500, acc: int = 30, *,
                   allow_max_speed: bool = False) -> None:
+        require_bus_available(self)
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         for joint, deg in enumerate(degrees):
@@ -1157,6 +1165,7 @@ class McuFeetechBus:
     def _flush_sync(self) -> None:
         items = list(self._pending)
         self._pending.clear()
+        require_bus_available(self)
         if not items:
             return
         # When recording is due, replace this W write with the already-tested
@@ -1183,6 +1192,7 @@ class McuFeetechBus:
         frame = encode_sync_frame(ord("W"), items)
         for attempt in range(2):
             with self._lock:
+                require_bus_available(self)
                 self._ser.reset_input_buffer()
                 self._ser.write(frame)
                 self._ser.flush()

@@ -673,6 +673,8 @@ class Trial:
             raise RuntimeError(f"drive start refused: {reply}")
         samples = 0
         last_live_t_s: float | None = None
+        previous_engaged_t_s: float | None = None
+        actual_engaged_duration_s = 0.0
         stop: Any = None
         try:
             deadline = (
@@ -699,15 +701,22 @@ class Trial:
                     candidate_t_s = math.nan
                 if math.isfinite(candidate_t_s):
                     last_live_t_s = candidate_t_s
+                    engaged = bool(
+                        live.get("model") == "walk"
+                        and live.get("learned_policy_active")
+                        and live.get("walk_has_engaged")
+                    )
+                    if engaged and previous_engaged_t_s is not None:
+                        actual_engaged_duration_s += max(
+                            0.0, candidate_t_s - previous_engaged_t_s,
+                        )
+                    previous_engaged_t_s = candidate_t_s if engaged else None
                 # The robot records every control tick already.  Keep this
                 # heartbeat lightweight instead of competing for the UART
                 # with a redundant /api/feedback transaction during motion.
                 self.recorder.assert_live()
                 samples += 1
-                if (
-                    last_live_t_s is not None
-                    and last_live_t_s >= self.args.duration_s
-                ):
+                if actual_engaged_duration_s + 1e-9 >= self.args.duration_s:
                     reached_active_duration = True
                     break
                 time.sleep(0.05)
@@ -719,9 +728,10 @@ class Trial:
                 )
                 raise RuntimeError(
                     f"drive {name} did not reach {self.args.duration_s:.1f}s "
-                    f"active within "
+                    f"of learned-walk engagement within "
                     f"{self.args.duration_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
-                    f"wall time (last live.t_s={shown_t_s})"
+                    f"wall time (engaged={actual_engaged_duration_s:.3f}s, "
+                    f"last live.t_s={shown_t_s})"
                 )
         finally:
             stop = self.request("/api/rl/drive/stop", {})
@@ -733,7 +743,8 @@ class Trial:
             "transport": "drive_100hz_policy_50hz_bus",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
-            "command_active_s": last_live_t_s,
+            "actual_engaged_duration_s": actual_engaged_duration_s,
+            "last_live_t_s": last_live_t_s,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
@@ -1013,6 +1024,11 @@ class Trial:
         except Exception as issue:
             policy = None
             policy_error = str(issue)
+        engaged_durations = [
+            float(result["actual_engaged_duration_s"])
+            for result in self.results
+            if result.get("actual_engaged_duration_s") is not None
+        ]
         summary = {
             "ok": error is None and self.completed,
             "error": error,
@@ -1021,6 +1037,9 @@ class Trial:
             "requested_phases": self.args.phases,
             "speed_m_s": self.args.speed_m_s,
             "duration_s": self.args.duration_s,
+            "actual_engaged_duration_s": (
+                sum(engaged_durations) if engaged_durations else None
+            ),
             "course_segment_s": self.args.course_segment_s,
             "yaw_commands": False,
             "joystick_response": self.args.joystick_response,

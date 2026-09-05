@@ -690,6 +690,44 @@ def test_queue_kick_bypasses_unresolved_dependent_advance_without_duplicates(
     ) == 1
 
 
+def test_analysis_waits_for_same_experiment_engineering_archive(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    plan = store.create(
+        {
+            "name": "physical handoff still recording",
+            "duration_seconds": 1,
+            "parameters": {"robot_motion": True},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    trigger = store.enqueue_advance(
+        "physical-handoff", "bootstrap", experiment_id=plan["id"]
+    )
+    engineering = EngineeringJobStore(store)
+    handoff = engineering.ensure_queue_handoff(trigger, plan)
+    running = engineering.claim(
+        "hardware-worker", lease_seconds=60, lane=ENGINEERING_LANE_HARDWARE
+    )
+    assert running and running["id"] == handoff["id"]
+
+    store.finish(plan["id"], "succeeded")
+    store.seal_evidence(plan["id"], "a" * 64)
+    assert store.claim_codex_job(
+        "analysis", "analysis-worker", lease_seconds=60
+    ) is None
+
+    with store.connect() as connection:
+        connection.execute(
+            "UPDATE codex_engineering_jobs SET status='succeeded' WHERE id=?",
+            (handoff["id"],),
+        )
+    analysis = store.claim_codex_job(
+        "analysis", "analysis-worker", lease_seconds=60
+    )
+    assert analysis and analysis["experiment_id"] == plan["id"]
+
+
 def test_non_motion_engineering_progress_continues_same_job_with_receipt_and_budget(tmp_path):
     workspace = tmp_path / "project"
     workspace.mkdir()

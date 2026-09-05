@@ -88,6 +88,7 @@ class RobotStatusService:
         """Reuse the hub's validated physical target without routing through sim."""
         if self.robot_url != _DEFAULT_ROBOT_URL:
             return self.robot_url
+
         parsed_vision = urlsplit(self.vision_url)
         hub_url = urlunsplit((parsed_vision.scheme, parsed_vision.netloc, "/api/hub", "", ""))
         try:
@@ -118,6 +119,10 @@ class RobotStatusService:
             # Invalid metadata may contain credentials in its raw URL. Do not
             # log parsing exceptions, which can reproduce the original text.
             return self.robot_url
+
+    def resolved_robot_url(self) -> str:
+        """Return the validated physical status URL for other passive readers."""
+        return self._resolve_robot_url()
 
     def _fetch_robot(self):
         try:

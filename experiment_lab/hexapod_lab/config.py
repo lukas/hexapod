@@ -5,6 +5,9 @@ import shlex
 from typing import Optional
 
 
+DEFAULT_ROBOT_TELEMETRY_URL = "http://127.0.0.1:8898/api/telemetry"
+
+
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path
@@ -32,6 +35,7 @@ class Settings:
     max_tag_photos: int = 36
     robot_status_url: str = "http://hexapod.local:8080/api/robot"
     robot_vision_url: str = "http://127.0.0.1:8898/api/vision/state"
+    robot_telemetry_url: str = DEFAULT_ROBOT_TELEMETRY_URL
     codex_automation: bool = False
     codex_bin: Path = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
     codex_workdir: Path = Path(".")
@@ -106,6 +110,10 @@ class Settings:
             )),
             robot_status_url=os.getenv("HEXAPOD_ROBOT_STATUS_URL", "http://hexapod.local:8080/api/robot"),
             robot_vision_url=os.getenv("HEXAPOD_ROBOT_VISION_URL", "http://127.0.0.1:8898/api/vision/state"),
+            robot_telemetry_url=os.getenv(
+                "HEXAPOD_ROBOT_TELEMETRY_URL",
+                DEFAULT_ROBOT_TELEMETRY_URL,
+            ),
             max_tag_photos=int(os.getenv("HEXAPOD_MAX_TAG_PHOTOS", "36")),
             codex_automation=_env_bool("HEXAPOD_CODEX_AUTOMATION", False),
             codex_bin=Path(os.getenv(

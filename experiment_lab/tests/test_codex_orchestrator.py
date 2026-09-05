@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import signal
 import subprocess
 import sys
@@ -47,6 +48,199 @@ def configured(tmp_path, **overrides):
     )
     values.update(overrides)
     return Settings(**values)
+
+
+def test_hardware_capture_resolves_the_hubs_validated_physical_target(
+    tmp_path, monkeypatch
+):
+    class FakeRobotStatus:
+        def __init__(self, robot_url, vision_url):
+            assert robot_url == "http://hexapod.local:8080/api/robot"
+            assert vision_url == "http://127.0.0.1:8898/api/vision/state"
+
+        def resolved_robot_url(self):
+            return "http://192.168.4.39:8080/api/robot"
+
+    monkeypatch.setattr(codex_module, "RobotStatusService", FakeRobotStatus)
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+
+    assert (
+        orchestrator._robot_telemetry_url()
+        == "http://192.168.4.39:8080/api/telemetry"
+    )
+
+
+def test_explicit_hardware_capture_endpoint_is_not_re_resolved(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        codex_module,
+        "RobotStatusService",
+        lambda *_: pytest.fail("explicit telemetry URL should be used directly"),
+    )
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(
+            tmp_path,
+            robot_telemetry_url="http://10.0.0.9:8080/api/telemetry",
+        ),
+        invoker=lambda *_: {},
+    )
+
+    assert (
+        orchestrator._robot_telemetry_url()
+        == "http://10.0.0.9:8080/api/telemetry"
+    )
+
+
+def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    settings = configured(
+        tmp_path,
+        codex_engineering_workdir=workspace,
+        codex_transcript_max_capture_bytes=128 * 1024,
+    )
+    orchestrator = CodexOrchestrator(Store(tmp_path / "lab.sqlite3"), settings)
+    monkeypatch.setattr(
+        orchestrator,
+        "_robot_telemetry_url",
+        lambda: "http://robot.test:8080/api/telemetry",
+    )
+    events = []
+
+    class FakeCapture:
+        def __init__(self, _url, run_dir, **identity):
+            self.run_dir = run_dir
+            self.identity = identity
+            events.append("capture-created")
+
+        def begin(self):
+            state = json.loads((self.run_dir / "process.json").read_text())
+            assert "finished_at" not in state
+            events.append("begin")
+            return {"complete": False}
+
+        def finish(self):
+            state = json.loads((self.run_dir / "process.json").read_text())
+            if "finish" not in events:
+                assert "finished_at" not in state
+            events.append("finish")
+            return {"complete": True}
+
+    class FakeProcess:
+        next_pid = 900_000
+
+        def __init__(self, command, **_kwargs):
+            type(self).next_pid += 1
+            self.pid = type(self).next_pid
+            self.returncode = 0
+            self.output = Path(command[command.index("-o") + 1])
+            events.append("popen")
+
+        def communicate(self, _payload, timeout):
+            assert timeout > 0
+            self.output.write_text("{}\n")
+            events.append("communicate")
+            return None, None
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(codex_module, "RobotCommunicationCapture", FakeCapture)
+    monkeypatch.setattr(subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(
+        codex_module, "_terminate_deadline_wrapper", lambda *_a, **_k: True
+    )
+    hardware_job = {
+        "id": "hardware-job",
+        "attempts": 1,
+        "experiment_id": "experiment-hardware",
+    }
+
+    assert orchestrator._invoke(
+        "engineering",
+        hardware_job,
+        "hardware prompt",
+        {"type": "object"},
+        engineering_workdir=workspace,
+        engineering_lane=codex_module.ENGINEERING_LANE_HARDWARE,
+    ) == {}
+    assert events[:4] == [
+        "capture-created", "begin", "popen", "communicate",
+    ]
+    assert events.count("finish") >= 1
+
+    events.clear()
+    offline_job = {
+        "id": "offline-job",
+        "attempts": 1,
+        "experiment_id": "experiment-offline",
+    }
+    assert orchestrator._invoke(
+        "engineering",
+        offline_job,
+        "offline prompt",
+        {"type": "object"},
+        engineering_workdir=workspace,
+        engineering_lane=codex_module.ENGINEERING_LANE_OFFLINE,
+    ) == {}
+    assert events == ["popen", "communicate"]
+
+
+def test_popen_failure_closes_hardware_capture_before_finishing_intent(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path, codex_engineering_workdir=workspace),
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "_robot_telemetry_url",
+        lambda: "http://robot.test:8080/api/telemetry",
+    )
+    run_dir = tmp_path / "codex-runs" / "launch-failure" / "attempt-1"
+    finished = []
+
+    class FakeCapture:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def begin(self):
+            return {"complete": False}
+
+        def finish(self):
+            state = json.loads((run_dir / "process.json").read_text())
+            assert "finished_at" not in state
+            finished.append(True)
+            raise OSError("capture receipt unavailable")
+
+    monkeypatch.setattr(codex_module, "RobotCommunicationCapture", FakeCapture)
+    monkeypatch.setattr(
+        subprocess,
+        "Popen",
+        lambda *_a, **_k: (_ for _ in ()).throw(OSError("launch failed")),
+    )
+    with pytest.raises(OSError, match="launch failed"):
+        orchestrator._invoke(
+            "engineering",
+            {"id": "launch-failure", "attempts": 1, "experiment_id": "exp"},
+            "hardware prompt",
+            {"type": "object"},
+            engineering_workdir=workspace,
+            engineering_lane=codex_module.ENGINEERING_LANE_HARDWARE,
+        )
+
+    assert finished == [True]
+    state = json.loads((run_dir / "process.json").read_text())
+    assert state["launch_failed"] is True
+    assert state["finished_at"]
 
 
 def test_missing_offline_checkout_never_restores_shared_engineering_lane(
@@ -632,6 +826,92 @@ def test_startup_recovers_adopted_codex_group_after_wrapper_sigkill(tmp_path):
                 os.kill(child_pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
+
+
+def test_startup_closes_saved_hardware_capture_before_finishing_state(
+    tmp_path, monkeypatch
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    orchestrator = CodexOrchestrator(store, settings, invoker=lambda *_: {})
+    run_dir = tmp_path / "codex-runs" / "engineering-job" / "attempt-2"
+    run_dir.mkdir(parents=True)
+    state_path = run_dir / "process.json"
+    state = {
+        "schema_version": 1,
+        "job_id": "engineering-job",
+        "role": "engineering",
+        "attempt": 2,
+        "experiment_id": "experiment-1",
+        "pid": 1_073_741_823,
+        "pgid": 1_073_741_823,
+        "marker": uuid.uuid4().hex,
+        "started_at": "2026-09-05T00:00:00+00:00",
+    }
+    state_path.write_text(json.dumps(state))
+    (run_dir / codex_module.STATUS_NAME).write_text("{}\n")
+    calls = []
+
+    class FakeCapture:
+        def finish(self):
+            # Recovery must leave the process intent unfinished until this
+            # range has been closed (or explicitly terminalized).
+            current = json.loads(state_path.read_text())
+            assert "finished_at" not in current
+            calls.append("finish")
+            return {"complete": True}
+
+    def resume(path, **expected):
+        assert path == run_dir
+        assert expected == {
+            "expected_experiment_id": "experiment-1",
+            "expected_job_id": "engineering-job",
+            "expected_attempt": 2,
+        }
+        calls.append("resume")
+        return FakeCapture()
+
+    monkeypatch.setattr(
+        codex_module.RobotCommunicationCapture,
+        "resume",
+        staticmethod(resume),
+    )
+
+    assert orchestrator._recover_orphaned_processes() == 1
+    assert calls == ["resume", "finish"]
+    recovered = json.loads(state_path.read_text())
+    assert recovered["finished_at"] == recovered["recovered_at"]
+
+
+def test_malformed_communication_manifest_never_gets_a_db_receipt(tmp_path):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    experiment = store.create(
+        {"name": "malformed communication receipt", "duration_seconds": 1},
+        "test",
+    )
+    store.finish(experiment["id"], "succeeded")
+    job = next(
+        item for item in store.codex_jobs_for_experiment(experiment["id"])
+        if item["kind"] == "analysis"
+    )
+    with store.connect() as connection:
+        connection.execute(
+            "UPDATE codex_jobs SET attempts=1 WHERE id=?", (job["id"],)
+        )
+    job = {**job, "attempts": 1}
+    run_dir = tmp_path / "codex-runs" / job["id"] / "attempt-1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "prompt.md").write_text("Analyze the retained evidence.\n")
+    (run_dir / ".events.raw.jsonl").write_text("")
+    (run_dir / ".stderr.raw.log").write_text("")
+    (run_dir / codex_module.ROBOT_COMMUNICATION_MANIFEST).write_text("{}\n")
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=lambda *_: {})
+    orchestrator._finalize_transcript(run_dir, job, "analysis")
+
+    assert store.codex_transcript_attempt(job["id"], 1) is not None
+    assert store.codex_communication_attempt(job["id"], 1) is None
 
 
 def test_terminal_transition_writes_two_jobs_and_seal_releases_them(tmp_path):

@@ -28,6 +28,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 HERE = Path(__file__).resolve().parent
 # HERE for sibling modules; the bundle/prototype root for the
@@ -545,8 +546,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/telemetry":
             # Pure in-memory status; never touches the servo bus.
-            self._json(200, BENCH.telemetry_state() if BENCH
-                       else {"ok": False, "error": "no bench"})
+            marker_id = (parse_qs(
+                urlsplit(self.path).query, keep_blank_values=True
+            ).get("marker_id") or [None])[0]
+            marker_id = marker_id or None
+            if BENCH:
+                result = (BENCH.telemetry_state()
+                          if marker_id is None else
+                          BENCH.telemetry_state(marker_id=marker_id))
+            else:
+                result = {"ok": False, "error": "no bench"}
+            self._json(200, result, cache=NO_STORE)
         elif path == "/api/errors":
             try:
                 from event_log import errors_path, recent

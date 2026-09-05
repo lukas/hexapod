@@ -182,10 +182,14 @@ Files rotate at 64 MiB without deleting earlier parts. The status response's
 `run_rl_walk_trial.py` marks the run boundaries and copies the relevant parts
 into its evidence directory after recovery, including failed runs. It records
 capture loss/error counters in `summary.json` and leaves the shared recorder
-running for the next test. A marker is acknowledged as saved only when
-`flushed_marker` matches the returned `marker_id`. `HEXAPOD_TELEMETRY_AUTO=0`
-explicitly disables automatic startup; dry-run services do not open a hardware
-recording.
+running for the next test. Poll
+`GET /api/telemetry?marker_id=<marker_id>` until `marker_ack` is non-null; the
+acknowledgement is published only after flush plus `fsync`, and identifies the
+exact `path` and `seq`, the writer count at that marker, and enqueue-/writer-bound
+capture-loss counters. A bounded per-session map keeps earlier acknowledgements
+queryable when concurrent clients write later markers; `flushed_marker` remains
+only a latest-marker compatibility field. `HEXAPOD_TELEMETRY_AUTO=0` explicitly
+disables automatic startup; dry-run services do not open a hardware recording.
 
 ## RL episode logging (2026-08-09, on-robot, automatic)
 

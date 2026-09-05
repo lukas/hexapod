@@ -2,6 +2,62 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:0x this cycle: 3 verdicts + 2 refill launches closing out
+  the first `walk_duty_gate` mechanism-health canary wave. Verdicts:
+  `sde-s2-dg1`, `sdehalfgrav-remcost-{s0,s1}-dg1` all **CANARY FAIL**
+  — good news first: `env/walk_duty_gate_factor` behaved exactly as
+  designed on all 3 (declined 0.69-0.92, i.e. penalizing real low
+  duty, NOT saturating/gamed like the closed `walk_gait_gate`), and
+  det-mode `gait_valid`/`sac` genuinely cleared (no chronically-parked
+  leg on any of the 3) — the SPECIFIC one-leg-park exploit these
+  checkpoints were warm-started off of IS broken. But within the 2M
+  retrain budget the policy substituted a DIFFERENT non-walking
+  failure per recipe rather than real six-leg locomotion: bare
+  `sde-s2-dg1` spins/destabilizes (det episode ends yawed ~174deg from
+  start, current 0.30A->1.40A, falls 5/6 sto); both
+  `sdehalfgrav-remcost-{s0,s1}-dg1` go FULL FREEZE (v 0.001-0.037 m/s,
+  net displacement 0.00-0.01m over the whole 20s det episode, slip
+  20-75x band from leg micro-vibration with zero net travel) — a leg
+  that never lifts trivially clears the duty floor (duty~1.0), cheaper
+  than a real gait's necessarily-lower swinging-leg duty, so full
+  stasis is an even EASIER dodge than the one it replaced. The remcost
+  pair also matches that recipe's OWN launch hypothesis, which named
+  "retreat to the ~0-income park basin" as its predicted failure mode
+  if term_cost pricing over-corrects toward fall-aversion; reward for
+  both tracks the un-gated parent's own trajectory at matched absolute
+  steps almost exactly (not a new collapse, remcost is already this
+  negative). **This closes the "instant full-dose (1.0) walk_duty_gate
+  warm-start off an already-converged 40M exploiter" repair recipe on
+  all 3 arms read** — do NOT fund a 40M acquisition off any of these 3
+  checkpoints, and do not relaunch that exact recipe. It does NOT yet
+  prove `walk_duty_gate` itself is unsound — an abrupt income shock to
+  a converged exploiter and a from-scratch test are different
+  questions. Refill: launched the disambiguating from-scratch pair
+  (`cw-walkscratch-easy0905-sde-dgfresh-s0`,
+  `-sdehalfgrav-dgfresh-s0`, 2M canaries, `reward.walk_duty_gate=1.0`
+  from step 0, otherwise identical to `sde-s0`/`sdehalfgrav-s0`, no
+  remcost pricing, no warm-start) on free capacity (11/11 GPU pods
+  were idle at cycle start — VERIFIED RUNNING both, train-1/train-0;
+  a same-drain-pass pod-claim race produced one harmless extra
+  same-config replicate, `sde-dgfresh-s0b` on train-2, left running
+  rather than risk a botched kill mid-training). **Next: read those
+  two from-scratch verdicts before trying any further
+  `walk_duty_gate` variant** — if fresh init ALSO freezes/spins, the
+  mechanism needs pairing with `reward.k_walk_idle_charge` (already
+  implemented, anti-idle income floor, 0 in every arm so far) before
+  further spend; if it produces even partial real forward progress,
+  the fix is a gradual dose ramp for warm-starts rather than instant
+  full-strength. `sde-s1-dg1` and `headset-base-s0c1-dgate-c1` (the
+  remaining 2 of the original 5-canary batch) were left unread this
+  cycle — `cw-walkscratch-easy0905-sde-s1-c2-dgatefix` was found
+  RUNNING on train-4 at cycle end (not launched by this cycle),
+  presumably a concurrent cycle's own repair attempt on the same
+  `sde-s1-dg1` finding; read its notes before assuming this entry is
+  the last word on that arm. CURRENT_TRUTHS.md updated. Evidence:
+  `ops.sh review cw-walkscratch-easy0905-sde-s2-dg1` /
+  `cw-walkscratch-easy0905-sdehalfgrav-remcost-s{0,1}-dg1`, W&B notes
+  on the three verdicted runs.
+
 - 09-05 ~15:4x this cycle: 4 verdicts, 2 refill-registrations, no new
   launch. (1) `headset-halfgrav-irr-c2` **CANARY PASS** — cleanest
   irr-timing canary of the whole campaign: 24/24 gait_valid across

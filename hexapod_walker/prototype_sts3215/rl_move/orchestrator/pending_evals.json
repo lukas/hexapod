@@ -1,1 +1,20 @@
-[]
+[
+ {
+  "pod": "hexapod-mjx-train-11",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_base_s2_gate/report.json",
+  "label": "cw_walkscratch_easy0905_base_s2_gate",
+  "added": "2026-09-05T10:20:44"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_base_s4_gate/report.json",
+  "label": "cw_walkscratch_easy0905_base_s4_gate",
+  "added": "2026-09-05T10:20:44"
+ },
+ {
+  "pod": "hexapod-mjx-train-5",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_halfgrav_s3_gate/report.json",
+  "label": "cw_walkscratch_easy0905_halfgrav_s3_gate",
+  "added": "2026-09-05T10:20:44"
+ }
+]

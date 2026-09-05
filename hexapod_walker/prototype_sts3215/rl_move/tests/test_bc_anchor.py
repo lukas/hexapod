@@ -1089,6 +1089,148 @@ def test_walk_combined_dose_one_omits_weight_key_like_default():
             break
 
 
+# --- Phase-scheduled multi-teacher (09-05, standwalk item-1
+# escalation): every static combined-tick reweight/rescale lever above
+# (combined_skip, combined_dose, and every geometry rescale tried
+# earlier — yaw_arm_scale/omega_boost/selective_omega_boost) is closed
+# 4/4-per-cell. This emits a SECOND ("aggressive") teacher target on
+# combined ticks — the same TripodGait queried at the same phase with
+# vx/vy zeroed, i.e. the undegraded pure-turn geometry — alongside the
+# legacy degraded target, so bc_anchor.py's trainer can blend toward it
+# on a TRAINING-PROGRESS schedule (untried: every prior arm used one
+# static dose for the whole run).
+
+def test_multiteacher_default_off_no_alt_key():
+    """Unset train.bc_anchor_multiteacher_blend: even a combined tick
+    must carry NO bc_target_alt key -- legacy bit-exact, no alt gait
+    query performed at all."""
+    env = _make_walk_env(56, {("train", "bc_anchor_coef"): 1.0,
+                              ("goal", "walk_yaw_cmd"): 1.0})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined tick
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        assert "bc_target_alt" not in info
+        if term or trunc:
+            break
+
+
+def test_multiteacher_emits_alt_target_on_combined_ticks_only():
+    """train.bc_anchor_multiteacher_blend=0.5: a combined tick's info
+    carries a bc_target_alt that DIFFERS from bc_target (the
+    undegraded pure-turn geometry is not the degraded combined
+    geometry); a pure-turn tick and a straight-walk tick carry NO
+    bc_target_alt key at all, mirroring combined_dose's own tick
+    classification exactly."""
+    env = _make_walk_env(57, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_multiteacher_blend"): 0.5})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    saw_alt = False
+    for _ in range(5):
+        _o, _r, term, trunc, info = env.step(hold)
+        assert "bc_target" in info
+        if "bc_target_alt" in info:
+            saw_alt = True
+            assert not np.allclose(info["bc_target_alt"],
+                                   info["bc_target"])
+        if term or trunc:
+            break
+    assert saw_alt, "combined tick never carried an alt target"
+
+    env2 = _make_walk_env(58, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_multiteacher_blend"): 0.5})
+    env2.reset()
+    _pin_walk_cmd_wz(env2, 0.0, 0.0, 0.3)   # pure turn
+    hold2 = q_rad_to_action(env2.data.qpos[env2._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env2.step(hold2)
+        assert "bc_target" in info
+        assert "bc_target_alt" not in info
+        if term or trunc:
+            break
+
+    env3 = _make_walk_env(59, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_multiteacher_blend"): 0.5})
+    env3.reset()
+    _pin_walk_cmd_wz(env3, 0.055, 0.0, 0.0)   # straight walk
+    hold3 = q_rad_to_action(env3.data.qpos[env3._qadr])
+    for _ in range(5):
+        _o, _r, term, trunc, info = env3.step(hold3)
+        assert "bc_target" in info
+        assert "bc_target_alt" not in info
+        if term or trunc:
+            break
+
+
+def test_multiteacher_alt_target_matches_pure_turn_geometry():
+    """The emitted bc_target_alt on a combined tick must equal an
+    INDEPENDENT TripodGait instance queried at the identical phase
+    with vx/vy=0 -- pins the exact geometry, not just 'differs'."""
+    from hexapod_core.tripod_gait import TripodGait
+    env = _make_walk_env(60, {
+        ("train", "bc_anchor_coef"): 1.0,
+        ("goal", "walk_yaw_cmd"): 1.0,
+        ("train", "bc_anchor_multiteacher_blend"): 0.5})
+    env.reset()
+    _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)   # combined
+    hold = q_rad_to_action(env.data.qpos[env._qadr])
+    ref = TripodGait(vx=0.0)
+    ref.sync_plant_stance(20.0, 100.0)
+    ref.reset_phase()
+    for _ in range(6):
+        _o, _r, term, trunc, info = env.step(hold)
+        if "bc_target_alt" in info:
+            ref.set_velocity(vx=0.0, vy=0.0, omega=0.3)
+            t_bc = env._step_i * env.dt
+            q_ref = np.asarray(ref.desired_deg(t_bc)) * DEG2RAD
+            expect = q_rad_to_action(q_ref).astype(np.float32)
+            assert np.allclose(info["bc_target_alt"], expect,
+                               atol=1e-5)
+            return
+        if term or trunc:
+            break
+    pytest.fail("never observed a combined tick with an alt target")
+
+
+def test_multiteacher_does_not_perturb_the_legacy_target_sequence():
+    """Querying the alt-teacher gait mid-tick (set_velocity(0,0,..)
+    then restoring) must leave the PRIMARY bc_target sequence
+    byte-identical to the mechanism-off run -- the restore step is
+    load-bearing, not cosmetic."""
+    def run(blend):
+        extra = {("train", "bc_anchor_coef"): 1.0,
+                 ("goal", "walk_yaw_cmd"): 1.0}
+        if blend:
+            extra[("train", "bc_anchor_multiteacher_blend")] = 0.5
+        env = _make_walk_env(61, extra)
+        env.reset()
+        _pin_walk_cmd_wz(env, 0.055, 0.0, 0.3)
+        hold = q_rad_to_action(env.data.qpos[env._qadr])
+        out = []
+        for _ in range(8):
+            _o, _r, term, trunc, info = env.step(hold)
+            out.append(info["bc_target"].copy())
+            if term or trunc:
+                break
+        return out
+
+    off = run(False)
+    on = run(True)
+    assert len(off) == len(on)
+    for a, b in zip(off, on):
+        assert np.allclose(a, b, atol=1e-6)
+
+
 # --- Combined-tick teacher omega boost (09-03, standwalk branch-(a)
 # follow-up to the combined-turn-probe finding): a zero-training
 # sweep of the teacher's own foot-target formula
@@ -3160,3 +3302,154 @@ def test_combined_dose_downweights_pull_without_full_skip():
         f"the low dose (mse {finals[0.2]:.4f}) did not converge better "
         f"than the full-skip twin (mse {finals[0.0]:.4f}) -- the dose "
         f"is not a real graded middle between skip and full weight")
+
+
+# --- Trainer-side phase-scheduled multi-teacher blend (09-05,
+# standwalk item-1 escalation) — pins the LOSS-time blend math in
+# BCAnchorPPO.train(), independent of the env's emission (tested
+# above in test_multiteacher_*).
+
+def _push_mode_block_alt(model, rng, n, tgt_value, alt_value, mode, mt):
+    obs = rng.uniform(-1, 1, (n, 12)).astype(np.float32)
+    tgt = np.full((n, 18), tgt_value, dtype=np.float32)
+    alt = np.full((n, 18), alt_value, dtype=np.float32)
+    for o, t, a in zip(obs, tgt, alt):
+        model._bc_push(o, t, mode=mode, act_alt=a, mt=mt)
+    return obs, tgt, alt
+
+
+def test_multiteacher_default_off_matches_legacy_update():
+    """bc_mt_blend left at its 0.0 default must reproduce the
+    pre-09-05 update bit-for-bit, even when rows are pushed WITH an
+    act_alt (e.g. a warm-started run resumed with the knob still off)
+    -- the blend term must be structurally absent, not just
+    numerically zero."""
+    import torch
+    models = []
+    for push_alt in (False, True):
+        m = _tiny_model(coef=2.0)
+        m.learn(total_timesteps=32)
+        rng = np.random.default_rng(20)
+        if push_alt:
+            _push_mode_block_alt(m, rng, 40, 0.3, 0.9, mode=3, mt=1.0)
+        else:
+            _push_mode_block(m, rng, 40, 0.3, mode=3)
+        m.train()
+        models.append(m)
+    for p1, p2 in zip(models[0].policy.parameters(),
+                       models[1].policy.parameters()):
+        assert torch.equal(p1, p2), (
+            "bc_mt_blend=0.0 (default) must be bit-exact regardless of "
+            "whether act_alt/mt columns happen to be populated")
+
+
+def test_multiteacher_schedule_frac_validated_by_attach():
+    """attach_bc_anchor must fail loud on an out-of-range schedule_frac
+    whenever the blend itself is actually on (never a silent no-op
+    knob)."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=1.0,
+            cfg={"train": {"bc_anchor_walk_coef": 1.0,
+                           "bc_anchor_multiteacher_blend": 0.5,
+                           "bc_anchor_multiteacher_schedule_frac": 0.0}},
+            task="joint_walk")
+
+
+def test_multiteacher_blend_zero_progress_stays_at_legacy_target():
+    """At the very start of training (_current_progress_remaining==1.0,
+    i.e. progress==0.0) blend_now must be exactly 0 regardless of
+    bc_mt_blend -- the schedule ramps FROM the safe legacy target, it
+    never starts already blended."""
+    m = _tiny_model(coef=2.0)
+    m.bc_mt_blend = 1.0
+    m.bc_mt_schedule_frac = 1.0
+    m.learn(total_timesteps=32)
+    m._current_progress_remaining = 1.0     # progress == 0.0
+    rng = np.random.default_rng(21)
+    obs, tgt, alt = _push_mode_block_alt(
+        m, rng, 40, 0.3, 0.9, mode=3, mt=1.0)
+    before = _mse(m, obs, tgt)      # distance to the LEGACY target
+    m.train()
+    logged = m.logger.name_to_value.get("train/bc_anchor_mt_blend")
+    assert logged == pytest.approx(0.0)
+    # one update at blend_now==0 must move strictly toward tgt, same
+    # direction/scale as the mechanism being fully off.
+    after = _mse(m, obs, tgt)
+    assert after < before
+
+
+def test_multiteacher_blend_full_progress_pulls_toward_alt_target():
+    """At the end of training (_current_progress_remaining==0.0, i.e.
+    progress==1.0, schedule_frac==1.0 default) blend_now must equal
+    bc_mt_blend exactly, and repeated updates must land the policy
+    CLOSER to the alt target than to the legacy target for the
+    blended rows -- the mechanism's whole point."""
+    m = _tiny_model(coef=2.0)
+    m.bc_mt_blend = 1.0                    # full blend at end of ramp
+    m.bc_mt_schedule_frac = 1.0
+    m.learn(total_timesteps=32)
+    m._current_progress_remaining = 0.0    # progress == 1.0
+    rng = np.random.default_rng(22)
+    obs, tgt, alt = _push_mode_block_alt(
+        m, rng, 60, -0.4, 0.4, mode=3, mt=1.0)
+    for _ in range(20):
+        m.train()
+    logged = m.logger.name_to_value.get("train/bc_anchor_mt_blend")
+    assert logged == pytest.approx(1.0)
+    mse_to_alt = _mse(m, obs, alt)
+    mse_to_tgt = _mse(m, obs, tgt)
+    assert mse_to_alt < mse_to_tgt, (
+        f"blend_now==1.0 (full alt) should converge toward act_alt "
+        f"(mse {mse_to_alt:.4f}) tighter than the legacy target "
+        f"(mse {mse_to_tgt:.4f})")
+
+
+def test_multiteacher_mt_flag_gates_blend_per_row():
+    """A row pushed with mt=0.0 (no alt target this tick, the
+    legacy/non-combined majority) must train toward its OWN act target
+    only, even when bc_mt_blend>0 and an unrelated mt=1.0 group shares
+    the same minibatch pool -- the per-row flag, not the global knob,
+    decides which rows blend."""
+    m = _tiny_model(coef=2.0)
+    m.bc_mt_blend = 1.0
+    m.bc_mt_schedule_frac = 1.0
+    m.learn(total_timesteps=32)
+    m._current_progress_remaining = 0.0    # full ramp
+    rng = np.random.default_rng(23)
+    # mt=1 group: legacy -0.4, alt +0.4 (should drift toward +0.4).
+    _push_mode_block_alt(m, rng, 60, -0.4, 0.4, mode=3, mt=1.0)
+    # mt=0 group: legacy +0.7, alt (unused) -0.7 -- must NOT drift
+    # toward -0.7 despite sharing the ring/minibatches.
+    obs0, tgt0, alt0 = _push_mode_block_alt(
+        m, rng, 60, 0.7, -0.7, mode=3, mt=0.0)
+    for _ in range(20):
+        m.train()
+    mse_to_legacy = _mse(m, obs0, tgt0)
+    mse_to_alt = _mse(m, obs0, alt0)
+    assert mse_to_legacy < mse_to_alt, (
+        "mt=0.0 rows drifted toward the (unused) alt target instead "
+        "of staying anchored to their own legacy target")
+
+
+def test_push_backfills_multiteacher_columns_on_legacy_warm_start():
+    """A checkpoint trained before the multiteacher columns existed
+    (or trained with bc_mt_blend=0) pickles _bc_obs/_bc_act without
+    _bc_act_alt/_bc_mt; resuming it with bc_mt_blend newly turned ON
+    must backfill both columns on the first push (mirrors
+    test_push_backfills_mode_on_legacy_warm_start's mode-tag case),
+    never AttributeError, never a stray nonzero mt flag on old rows."""
+    model = _tiny_model(coef=1.0)
+    model._bc_push(np.zeros(12, dtype=np.float32),
+                   np.zeros(18, dtype=np.float32))
+    assert not hasattr(model, "_bc_act_alt")   # mechanism was off
+    model.bc_mt_blend = 1.0                    # resume turns it on
+    model._bc_push(np.zeros(12, dtype=np.float32),
+                   np.full(18, 0.3, dtype=np.float32),
+                   act_alt=np.full(18, 0.9, dtype=np.float32), mt=1.0)
+    assert model._bc_act_alt.shape == model._bc_obs.shape[:1] + (18,)
+    assert model._bc_mt.shape[0] == model._bc_obs.shape[0]
+    assert model._bc_mt[model._bc_i - 1] == 1.0
+    assert np.allclose(model._bc_act_alt[model._bc_i - 1], 0.9)

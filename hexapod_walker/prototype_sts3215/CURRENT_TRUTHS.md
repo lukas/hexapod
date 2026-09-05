@@ -531,13 +531,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   (1g) family's leg-1/4 favoritism hardens into an outright gait
   failure under ANY added axis beyond flat/small-heading, while the
   halfgrav(0.5g) sibling family has cleared the irr-timing axis
-  cleanly (its own medhead-acq1 read is pending). Working hypothesis:
-  the pathology is gravity-linked (heavier per-step load at 1g makes
-  the marginal leg's cost asymmetry harder to overcome), not
-  heading-set-specific — flagged for the next design pass rather
-  than another same-recipe 40M continuation on this lineage.
-  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
-  medhead_acq1_gate/report.json`, W&B `8dtoak13`.
+  cleanly (its own medhead-acq1 read landed later this same cycle,
+  see below). Working hypothesis: the pathology is gravity-linked
+  (heavier per-step load at 1g makes the marginal leg's cost
+  asymmetry harder to overcome), not heading-set-specific — flagged
+  for the next design pass rather than another same-recipe 40M
+  continuation on this lineage. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_medhead_acq1_gate/
+  report.json`, W&B `8dtoak13`.
+
+  UPDATE 09-05 ~19:2x — `headset-halfgrav-medhead-acq1` (the 0.5g
+  sibling of the FAIL above, same rung/budget) landed **ACQ PASS**:
+  `gait_valid` 22/24 (walk/det 6/6, walk/sto 6/6, walk_startjitter/sto
+  6/6, walk_startjitter/det 4/6 — meets the majority bar exactly; the
+  2 flagged episodes carry leg-4 duty 0.08-0.09, borderline-not-
+  chronic, unlike the base sibling's 0.02-0.07-every-episode near-zero
+  pattern), 0/24 falls, slip_per_m med 2.10-2.87 (at/under the 2.9
+  band in 3/4 scenarios). This is the FIRST acquisition-scale PASS of
+  the medhead rung on either gravity cell, confirming (2nd axis after
+  irr-timing) that the gravity-linked-robustness-gap hypothesis holds:
+  halfgrav clears every added generalization axis this campaign has
+  tried, base does not. A root-cause-driven follow-up on the base
+  cell (keep exploration noise alive longer alongside `walk_duty_gate`
+  — `--log-std-final` -2.0->-1.2, otherwise identical to the just-
+  closed `s0c1-dgfresh`) was launched same cycle:
+  `headset-base-s0c1-dgnoise-c1` (2M canary, `train-1`, VERIFIED
+  RUNNING). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_halfgrav_medhead_acq1_gate/report.json`, W&B `dejrlkhv`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

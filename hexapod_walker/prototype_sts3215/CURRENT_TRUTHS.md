@@ -586,6 +586,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   s0c1_dgnoise_c1_gate/report.json` vs `..._dgfresh_gate/`,
   `..._s0c1_gate/`, W&B `6b1c6hy4`.
 
+  UPDATE 09-05 ~20:2x — `headset-base-s0c1-noiseonly-c1` (the noise-
+  alone isolating control, no `walk_duty_gate`) landed **CANARY FAIL
+  - MECHANISM, completing the full 2x2 {duty_gate on/off} x {noise
+  low/high} grid.** Leg-4 duty on `walk_startjitter/det`
+  [0.06,0.05,0.04,0.02,0.05,0.02] (med ~0.045) is statistically
+  IDENTICAL to the undosed `s0c1` baseline (med ~0.045) AND to
+  `dgnoise-c1` (duty_gate+noise, med ~0.05); `gait_valid` 0/6, leg
+  [4] sacrificed every episode; `policy_std` reads back 0.254,
+  matching `dgnoise-c1`'s own readback exactly (the dose landed
+  identically in both — this is a genuine null, not underdosing). No
+  regression: walk/det, walk/sto, walk_startjitter/sto all 6/6,
+  0/24 falls. Full grid: s0c1 (off/low) ~0.045, dgfresh (on/low)
+  ~0.06, dgnoise-c1 (on/high) ~0.05, noiseonly-c1 (off/high) ~0.045
+  — **noise alone reproduces the undosed baseline exactly (zero
+  effect on its own)**, and duty_gate's own small solo bump does not
+  survive combination with noise. `walk_duty_gate` and plain
+  exploration-noise scheduling are now BOTH fully refuted, every
+  combination, on the base/non-gSDE family (matching the already-
+  closed gSDE family) — no further duty_gate-class or noise-schedule-
+  class arm anywhere in the headset-base family; a genuinely new
+  per-leg-utilization mechanism (hard minimum-duty/minimum-swing-count
+  price, not a training-time completion score gameable by noise or a
+  rare token swing) needs its own design+bank pass before further
+  spend on this axis. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1_gate/
+  report.json`, W&B `xyz4gzvh`.
+
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,
   `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish

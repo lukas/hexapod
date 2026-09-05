@@ -105,6 +105,18 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   that prior closure.
 
 ## Known Tooling Gotchas
+- A run's gate podeval can go silently ORPHANED (09-05,
+  `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish
+  while `eval_checkpoint` is still computing on the run's own pod; if
+  a DIFFERENT concurrent cycle's drain then reuses that same pod for
+  its NEXT training launch, the harness keeps computing fine (spare
+  CPU, no conflict with the new GPU trainer) but the local supervisor
+  that was meant to poll+copy it back is gone, so `logs/ckpt_eval/
+  ..._gate/` never appears though nothing crashed. `ops.sh podeval
+  <run>` correctly reports the pass `already RUNNING` and won't
+  duplicate it, but that alone does not re-attach a poller — follow
+  with `ops.sh pollreap <run> [interval_s] [max_min]` (backgrounded)
+  to wait for the remote pass and sync it back.
 - Recurrent checkpoints must use `rl_move.sim.gru_policy.RecurrentPredictor`;
   raw per-tick `model.predict(obs)` resets hidden state.
 - `eval_checkpoint.py`'s `--stochastic` pass never resampled a gSDE

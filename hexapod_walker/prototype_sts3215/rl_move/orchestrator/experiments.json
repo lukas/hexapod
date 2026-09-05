@@ -306072,7 +306072,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-medhead-c1-cw-walks since 2026-09-05T18:11:09"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-medhead-c1",
@@ -306228,7 +306229,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_base_acq1.zip"
     ],
     "created": "2026-09-05T17:25:17+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -306275,7 +306276,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T17:40:15"
+    "triage": "done",
+    "verdict": "Result: mechanism-health canary PASSES on the base(1g) 5-way medium-heading set (0,+-45,+-90deg). Evidence: env/v_along_cmd_m_s clears a real positive value through the back half (0.065->0.077->0.081->0.079 m/s) -- NOT the ~0.01m/s noise floor the failed 8-way jump (fullhead-c1) showed; walk_direction_err_deg sits at 55-60deg (worse than the small 3-way set but far from fullhead's ~86deg near-random); the one mid-run harness eval (step 1.0M) shows survived_frac=1.0 across ALL SIX behavior modes incl walk and walk_startjitter, dir_valid_frac~0.999, real forward speed 0.16-0.17m/s; W&B video auto-captions read 'walk:ok x4' at both the 4k-step and final checkpoints; ep_len_mean climbed smoothly 108->488 ticks (no early collapse). ep_rew_mean itself falls -17.7->-72.3->-110.6->-112.2 (naive reading of 'must rise or hold' looks violated) but this is NOT the fullhead-style collapse: per-tick components (env/reward_walk, env/reward_walk_freeprog_pen, env/reward_action_delta) are FLAT across the whole run while ep_len_mean is on the same fixed warm-up ramp fullhead also showed (identical 108/229/362/488 curve on both) -- a stable per-tick policy naturally posts a growing negative episode sum as episodes get longer on a fixed schedule. Contrast with fullhead-c1's actual collapse: reward -122->-296->-482->-556 (ACCELERATING, last-step delta -74), v_along pinned 0.009-0.013 (true noise floor), dir_err ~86deg (untracked). Here the decline sharply decelerates (last-step delta only -1.6, ~46x smaller) and nearly flattens. Why: distinguishes a stabilizing per-tick-flat dip under a lengthening-episode schedule from genuine behavioral collapse -- the gate's actual concern (does the mechanism still function, not does it already look polished) is satisfied. What's next: per the gate, licenses a 40M acquisition continuation on this medium 5-way set (respec'd this cycle as headset-base-medhead-acq1, mirroring the base-acq1 acquisition template); do NOT re-attempt the bare full 8-way jump until this rung's own acquisition read lands. Sibling headset-halfgrav-medhead-c1 also finished (W&B uxuboegj, reward quarters -24.6/-85.3/-138.8/-164.5, same shape) but is left for its own cycle -- not in this cycle's finished-run list."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-medhead-c1",
@@ -306479,7 +306481,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-medhead-c1-cw-walks since 2026-09-05T18:11:09"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-dgate2-c1",
@@ -306674,7 +306677,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-base-s0c1-dgate2-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 0 --out-name ppo_goal_cw_walkscratch_easy0905_headset_base_s0c1_dgate2_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-headset-base-s0c1-acq1: The FAILED s0c1-acq1 checkpoint walks fast with zero falls but chronically parks leg 4 at duty 0.03-0.07 (marginal underuse, NOT gSDE-style near-zero LEGPARK-SKATE, now closed for good). The prior repair attempt (headset-base-s0c1-dgate-c1, walk_duty_gate=0.9/floor=0.15) was CANARY FAIL - MECHANISM (INERT-DOSE): PPO'\"'\"'s own training-time rollout noise already satisfies the lenient 0.15 floor even for a leg whose deterministic policy sits at 0.04-0.07, so almost no repair gradient reached eval-time behavior. This canary retries the SAME repair at a stronger, bank-proven dose (floor 0.15->0.35, ~2.3x; full gate strength g=1.0) that the new test_duty_gate_strong_floor_* bank (walkcurr-dutygate-strongfloor-bank-0905, 39/39 green) proves still leaves a healthy six-leg tripod'\"'\"'s income untouched (leg-4 duty ~0.52 >> 0.35) while measurably increasing the price on a token-touchdown twin at the same ~0.05 duty magnitude as the real fingerprint (return drops from -432 to -536 on the identical trajectory, floor=0.15 vs 0.35).' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_base_s0c1_acq1.zip --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.35 > /tmp/train_cw-walkscratch-easy0905-headset-base-s0c1-dgate2-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-base-s0c1-dgate2-c1.log",
     "wandb_id": "j41igzz5",
-    "verified": "2026-09-05T17:36:55+00:00"
+    "verified": "2026-09-05T17:36:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T17:42:54+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T17:50:33"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-irr-dgate2-c1",
@@ -306871,7 +306887,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-base-irr-dgate2-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_base_irr_dgate2_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-headset-base-irr-acq1: headset-base-irr-acq1 ACQ FAIL (misaligned): walk/det gait_valid only 3/6 with a marginal leg (duty 0.04-0.07, real infrequent swings not near-zero LEGPARK-SKATE) plus uniformly elevated slip_per_m 3.86-4.76 -- the SAME family-wide marginal-underuse class as headset-base-s0c1-acq1, now specifically under the irr-timing (jittered heading-resample) composition, and this campaign'\"'\"'s own STATUS note pre-registered walk_duty_gate as the repair candidate for this exact cell once the mechanism'\"'\"'s fresh/entrenched reads resolved. They have resolved: bare walk_duty_gate at floor=0.15/dose=0.9 was CANARY FAIL - MECHANISM (INERT-DOSE) on the sibling s0c1 lineage (PPO'\"'\"'s own rollout noise already satisfies the lenient floor). This canary applies the stronger, bank-proven floor=0.35/dose=1.0 (walkcurr-dutygate-strongfloor-bank-0905, 39/39 green, proven to leave a healthy tripod'\"'\"'s income untouched while pricing a ~0.05-duty twin measurably harder) to the irr-timing lineage'\"'\"'s own FAILED 40M checkpoint.' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_base_irr_acq1.zip --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.35 > /tmp/train_cw-walkscratch-easy0905-headset-base-irr-dgate2-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-base-irr-dgate2-c1.log",
     "wandb_id": "9r38bzqi",
-    "verified": "2026-09-05T17:40:17+00:00"
+    "verified": "2026-09-05T17:40:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T17:45:43+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T17:55:43"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-irr-dgate2-c1",

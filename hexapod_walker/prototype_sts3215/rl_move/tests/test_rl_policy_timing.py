@@ -1290,6 +1290,9 @@ def test_drive_joint_hold_trips_current_at_fresh_feedback_cadence(monkeypatch):
         def act(self, _obs):
             return np.zeros(rl_policy.N_JOINTS, dtype=float)
 
+        def reset(self):
+            pass
+
     def hot_state(seq):
         return _state(
             timestamp=time.monotonic(), health=True, current=4.0,

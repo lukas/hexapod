@@ -35,8 +35,9 @@ CASES = (
     "write_due",
     "skip_write",
 )
+TICK_PERIOD_NS = 10_000_000
 EVENT_FIELDS = (
-    "case", "tick", "monotonic_time_ns", "event", "target_kind",
+    "event_sequence", "case", "tick", "monotonic_time_ns", "event", "target_kind",
     "snapshot_age_ms", "interlock_state",
 )
 
@@ -67,6 +68,7 @@ class Recorder:
             target_kind: str = "none", snapshot_age_ms: float | None = None,
             interlock_state: str = "clear", **extra: Any) -> None:
         self.rows.append({
+            "event_sequence": len(self.rows) + 1,
             "case": case,
             "tick": tick,
             "monotonic_time_ns": self.clock.monotonic_ns(),
@@ -204,17 +206,18 @@ def _run_stale_case(case: str, recorder: Recorder, *, write_target: bool,
 
         def latest(self):
             self.calls += 1
-            recorder.clock.advance_ms(1.0)
+            recorder.clock.advance_ms(TICK_PERIOD_NS / 1_000_000)
+            current_age_ms = age_ms + self.calls * TICK_PERIOD_NS / 1_000_000
             state = _robot_state(bus_ok=(case != "snapshot_bus_not_ok"))
             recorder.add(
                 case, "snapshot_checked", tick=self.calls,
                 target_kind="learned" if write_target else "skip_write",
-                snapshot_age_ms=age_ms,
+                snapshot_age_ms=current_age_ms,
                 interlock_state=("stale_pending" if self.calls <= 10
                                  else "stopped"),
                 bus_ok=state.bus_ok,
             )
-            return state, age_ms / 1000.0, {"samples": self.calls}
+            return state, current_age_ms / 1000.0, {"samples": self.calls}
 
     bus = Bus()
     sampler = Sampler()
@@ -233,7 +236,8 @@ def _run_stale_case(case: str, recorder: Recorder, *, write_target: bool,
     recorder.add(
         case, "interlock_stop", tick=stale_ticks,
         target_kind="learned" if write_target else "skip_write",
-        snapshot_age_ms=age_ms, interlock_state="stopped", error=error,
+        snapshot_age_ms=age_ms + sampler.calls * TICK_PERIOD_NS / 1_000_000,
+        interlock_state="stopped", error=error,
     )
     return {
         "error": error,
@@ -293,6 +297,34 @@ def run(out_dir: Path) -> dict[str, Any]:
              for item in (sampler_delay, write_due, skip_write))),
         ("all_required_event_fields_present",
          all(set(EVENT_FIELDS) <= set(row) for row in recorder.rows)),
+        ("event_sequence_is_strict_and_complete",
+         [row["event_sequence"] for row in recorder.rows]
+         == list(range(1, len(recorder.rows) + 1))),
+        ("stale_tick_delta_is_10_ms",
+         all(
+             all(
+                 later["monotonic_time_ns"] - earlier["monotonic_time_ns"]
+                 == TICK_PERIOD_NS
+                 for earlier, later in zip(rows, rows[1:])
+             )
+             for case in ("sampler_thread_delay", "write_due", "skip_write")
+             for rows in [[
+                 row for row in recorder.rows
+                 if row["case"] == case and row["event"] == "snapshot_checked"
+             ]]
+         )),
+        ("snapshot_age_advances_with_monotonic_clock",
+         all(
+             all(
+                 later["snapshot_age_ms"] - earlier["snapshot_age_ms"] == 10.0
+                 for earlier, later in zip(rows, rows[1:])
+             )
+             for case in ("sampler_thread_delay", "write_due", "skip_write")
+             for rows in [[
+                 row for row in recorder.rows
+                 if row["case"] == case and row["event"] == "snapshot_checked"
+             ]]
+         )),
         ("no_robot_io", True),
     ]
 
@@ -311,6 +343,8 @@ def run(out_dir: Path) -> dict[str, Any]:
         "case_count": len(CASES),
         "event_count": len(recorder.rows),
         "interlock_tick": 11,
+        "control_hz": 100,
+        "tick_period_ns": TICK_PERIOD_NS,
         "robot_contacted": False,
         "robot_motion": False,
     }

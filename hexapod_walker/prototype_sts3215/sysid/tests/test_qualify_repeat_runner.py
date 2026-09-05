@@ -15,6 +15,7 @@ def experiment():
             "profile": "air",
             "cycles_per_leg": 6,
             "seconds_per_leg": 156,
+            "timeout_seconds": 60,
             "hz": 10,
             "foot_path": {"x_mm": [180, 187.5, 195], "y_mm": 60},
             "final_state": "limp",
@@ -53,6 +54,10 @@ def test_current_runner_fails_closed_on_unbound_guards():
     assert report["checks"]["final_limp_binding"]["passed"] is True
     assert report["trusted_deterministic_executor_name"] is None
     assert report["runtime_compatibility_result"]["passed"] is True
+    assert report["duration_timeout_compatibility_result"]["passed"] is False
+    assert "312s ordered sequence" in (
+        report["duration_timeout_compatibility_result"]["detail"]
+    )
     assert len(report["command_sequence_digest"]) == 64
     assert report["final_state_limp_assertion"]["passed"] is True
     assert [item["executor_bound"] for item in report["stop_condition_mapping"]] == [
@@ -111,3 +116,15 @@ def test_robot_lab_top_level_tag_guard_shape_is_accepted():
     assert report["qualified"] is False
     assert report["checks"]["camera_guard_binding"]["passed"] is False
     assert report["checks"]["telemetry_guard_binding"]["passed"] is False
+
+
+def test_duration_timeout_compatibility_can_pass():
+    proposed = experiment()
+    proposed["parameters"]["timeout_seconds"] = 312
+
+    report = qualify(proposed, PROTO_DIR)
+
+    assert report["duration_timeout_compatibility_result"]["passed"] is True
+    assert "312s ordered sequence fits" in (
+        report["duration_timeout_compatibility_result"]["detail"]
+    )

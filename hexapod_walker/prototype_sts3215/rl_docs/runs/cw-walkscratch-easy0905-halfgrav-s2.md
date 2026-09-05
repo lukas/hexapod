@@ -2,19 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-09-05T09:01:10+00:00
+**created**: 2026-09-05T09:28:52+00:00
 
-**pod**: hexapod-mjx-train-9
+**pod**: hexapod-mjx-train-0
 
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-halfgrav-s0
 
-**hypothesis**: Plain English: independent seed 2 of the validated half-gravity easy family, at acquisition budget (mechanism evidence inherited from halfgrav-s0's 2M CANARY PASS; operator 09-05 matched-seed directive). From-scratch 40M, identical to halfgrav-s0 except --seed 2; seed MATCHED to base-s2 for a paired base-vs-halfgravity comparison at 1g vs 0.5g. Question: does halving gravity systematically accelerate/enable teacher-free stepping across matched seeds?
+**wandb_id**: eced4myi
 
-**gate**: Acquisition milestone at OWN physics (halfgrav arms at their own 0.5g): 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, all six legs repeatedly lift/place on video, no belly drag; report sto. Mechanism-health evidence inherited from the family's 2M CANARY PASS 09-05 — spot-check at ~2M in W&B, do not re-canary. Not met with v_along/reward still rising = continue/realign per 08-21 ruling; FAIL only on flat v_along+reward at this budget or park recapture.
+**hypothesis**: Plain English: independent seed 2 of the half-gravity family, seed-MATCHED to base-s2 for the paired 1g-vs-0.5g comparison. From-scratch 40M, identical to halfgrav-s0 except --seed 2.
 
-**refused_reason**: hexapod-mjx-train-9 code marker 72fec1b5129da81c47a83093e10d53189e651e69-dirty != local HEAD 86bbd612ca353396f91d068918c9dedc99033acb and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-9 (and snapshot/commit before that if the tree is dirty).
+**gate**: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.
 

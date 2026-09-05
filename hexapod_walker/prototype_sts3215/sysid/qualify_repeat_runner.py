@@ -231,17 +231,12 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             "camera_guard_failed",
         )
     )
-    # Current preflight performs one feedback read.  The on-robot runner
-    # debounces missing IDs and current/temperature trips, but no interface
-    # binds three fresh pre-motion samples, voltage bounds, or state age.
-    telemetry_guard_ok = all(
-        token in run_hw
-        for token in (
-            "healthy_motor_samples",
-            "expected_live_motors",
-            "max_state_age_ms",
-        )
-    ) and "voltage_trip" in runner
+    telemetry_guard_ok = (
+        {"healthy_motor_samples", "expected_live_motors", "max_state_age_ms",
+         "voltage_bounds_v"}.issubset(runner_args)
+        and "_telemetry_admission(" in runner
+        and "telemetry admission failed" in runner
+    )
 
     checks = {
         "parameter_schema": _check(
@@ -269,7 +264,7 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         "telemetry_guard_binding": _check(
             telemetry_guard_ok,
             ["sysid/run_hw.py", "linux_control/sysid_runner.py"],
-            "Preflight reads feedback once; three fresh 18/18 samples, voltage bounds, and state age are not executor-bound."
+            "Three fresh 18/18 samples, voltage bounds, and state age are not executor-bound."
             if not telemetry_guard_ok else "Fresh motor, voltage, and state-age guards are executor-bound.",
         ),
         "remote_abort_binding": _check(

@@ -32,7 +32,21 @@ backlog; idle slots next to this unmet priority are the failure state.
 - Judged by the 08-21 ruling: learning-but-not-yet-walking at 40M =
   continue/realign, not auto-fail; hard 2x2 family comparisons (sde
   vs Gaussian, 1g vs 0.5g) decide which families get deeper budget.
-- 09-05 ~09:5x FIRST 40M RETURN — `sdehalfgrav-s0` (sde x halfgrav
+- 09-05 ~10:2x FIRST 40M PASSES — `base-s2` + `base-s4` (plain
+  base family, full 1g, no gSDE) both ACQ PASS: fwd_dist_m median
+  3.2-4.8m/20s (0.16-0.24 m/s net, >>0.03 bar) across all 4 eval
+  scenarios (walk/sto x startjitter), 0/24 falls each (roll_class
+  leaning/recovered only), no sacrificed leg (min per-leg duty_cycle
+  0.07-0.48), video-confirmed six-leg cycling with real net
+  translation. Caveat: slip/prog 2.6-3.4 (elevated, ~teacher-band
+  ceiling) and realized speed 3-5x the 0.06 m/s freeprog reference —
+  paddle/skate quality, not gate-blocking (gate silent on slip at this
+  rung). First confirmation the easy-sim diet CAN clear its own
+  acquisition bar from scratch. `sde-s2` separately read ACQ CONTINUE
+  (still climbing, own-checkpoint continuation `sde-s2-c1` launched
+  this cycle). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_base_s{2,4}_gate/`.
+- 09-05 ~09:5x FIRST 40M FAIL — `sdehalfgrav-s0` (sde x halfgrav
   cell) ACQ FAIL: fast 2-leg lurch straight into tilt_pitch, gait_valid
   0/24 across every eval scenario, fwd 0.07-0.26m (bar: 20s sustained).
   `env/walk_speed`/`v_along_cmd` and `rollout/ep_len_mean` (flat
@@ -47,6 +61,24 @@ backlog; idle slots next to this unmet priority are the failure state.
   term_penalty and/or a small per-tick alive bonus) before funding
   another sde+halfgrav arm. Evidence:
   `logs/ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_s0_gate/`.
+- 09-05 ~10:3x SECOND SEED CONFIRMS — `sdehalfgrav-s1` ACQ FAIL,
+  same fingerprint as s0: `ep_len_mean` rose 112->186 (by 4M) then
+  COLLAPSED to a 65-84-tick plateau the entire back half (20M:83.6,
+  30M:71.9, 36M:65.2, 40M:68.0) while `ep_rew_mean` crept -222->-5.6
+  and `v_along_cmd` rose to +0.19 m/s — the same reward-per-burst
+  hack, not survival learning. gait_valid 0/24, every episode TERM
+  tilt_pitch, 2 legs sacrificed every time ([0,5]), fwd 0.13-0.29m.
+  **2/4 sde+halfgrav seeds now share the flat-ep_len fingerprint** —
+  per the plan above this is the trigger to design the survival-
+  duration pricing fix before funding more of this cell (s2/s3 still
+  training, left alone). `reward.alive` already exists as a per-tick
+  knob in `env.py` (default 0.0) but was historically zeroed because a
+  flat alive bonus on the tracking-kernel reward caused a "freeze and
+  collect" stand exploit — dosing it (or raising `term_penalty`) for
+  the freeprog walk reward needs its own `test_task_semantics.py`
+  bank proof before launch, so this is flagged as a DIG-IN design
+  item rather than hand-launched. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_s1_gate/`.
 
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 

@@ -32,6 +32,19 @@ backlog; idle slots next to this unmet priority are the failure state.
 - Judged by the 08-21 ruling: learning-but-not-yet-walking at 40M =
   continue/realign, not auto-fail; hard 2x2 family comparisons (sde
   vs Gaussian, 1g vs 0.5g) decide which families get deeper budget.
+- 09-05 ~10:3x TOOLING GOTCHA found+fixed: `sde-s1-c1`/`sde-s2-c1`
+  continuations both died in ~2s (wandb `exit_code 0`/`runtime 0`,
+  looks clean unless you check for zero steps) — root cause
+  `train_ppo_mjx.py`'s own `SystemExit` guard on `--activation-fn`/
+  `--use-sde` + a plain `--init-from` (PPO.load already restores the
+  checkpoint's own activation/gSDE; `respec --init-from-source` wrongly
+  clones those flags for a gSDE-family source). Fixed by respec'ing
+  from the matching-seed non-gSDE sibling with `--activation-fn=`
+  (blank) + `--init-from=<sde ckpt>` only, mirroring the already-
+  working base-s0-c1/base-s1-c1/halfgrav-s0-c1 pattern. Relaunched as
+  `sde-s1-c2` (train-4) + `sde-s2-c2` (train-11), both confirmed past
+  the crash point and genuinely training. Recorded in
+  `CURRENT_TRUTHS.md` Known Tooling Gotchas.
 - 09-05 ~10:2x FIRST 40M PASSES — `base-s2` + `base-s4` (plain
   base family, full 1g, no gSDE) both ACQ PASS: fwd_dist_m median
   3.2-4.8m/20s (0.16-0.24 m/s net, >>0.03 bar) across all 4 eval

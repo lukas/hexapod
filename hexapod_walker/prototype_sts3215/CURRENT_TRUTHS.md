@@ -73,6 +73,17 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   by `--init-from`/respec; fleet backfilled via
   `rl_move.sim.stamp_legacy_checkpoint` (bit-exact) — re-run on any
   `joint_frame=None` ckpt, don't relax the check.
+- `--activation-fn`/`--use-sde` + a plain `--init-from` warm start is a
+  hard `SystemExit` in `train_ppo_mjx.py` (PPO.load already restores
+  the checkpoint's own activation/gSDE; the CLI flags only apply to
+  from-scratch/transplant builds). Dies in ~2s, `wandb` reports
+  `exit_code 0`/`runtime 0` — looks like a clean tiny run, not a crash,
+  unless you check for zero logged steps. `respec --init-from-source`
+  clones the WHOLE source arg vector including these flags — do not
+  use it to continue a gSDE-family checkpoint. Fix: respec from a
+  non-gSDE sibling (matching seed) with `--arg='--activation-fn='`
+  (blank) + `--arg='--init-from=<ckpt>'` only (09-05, easy0905
+  sde-s1-c1/sde-s2-c1 both hit this; sde-s1-c2/sde-s2-c2 fixed).
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

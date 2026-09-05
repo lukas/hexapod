@@ -112,7 +112,8 @@ def test_followup_accepts_schema_encoded_parameters_json(tmp_path):
         "stop_conditions": [],
     })
     assert normalized["spec"]["parameters"]["simulation_only"] is True
-    assert normalized["spec"]["execution_mode"] == "builtin"
+    assert normalized["spec"]["execution_mode"] == "external_guarded"
+    assert normalized["spec"]["parameters"]["robot_motion"] is False
 
 
 def test_analysis_accepts_only_its_own_generated_video_contact_sheet(tmp_path):
@@ -700,8 +701,8 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
     children = [item for item in store.list() if item["id"] != source["id"]]
     assert len(children) == 1
     child = children[0]
-    assert child["execution_mode"] == "builtin"
-    assert child["status"] == "queued"
+    assert child["execution_mode"] == "external_guarded"
+    assert child["status"] == "waiting_for_operator"
     assert child["parameters"]["_automation"]["parent_experiment_id"] == source["id"]
 
     receipts = store.apply_analysis_followups(
@@ -714,6 +715,106 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
     assert receipts["accepted"][0]["child_experiment_id"] == child["id"]
     assert len([item for item in store.list() if item["id"] != source["id"]]) == 1
     assert len([job for job in store.list_codex_jobs() if job["kind"] == "advance"]) == 1
+
+
+@pytest.mark.parametrize("disposition", ["needs_inspection", "stop"])
+@pytest.mark.parametrize(
+    "driver, requested_mode, simulation_only, accepted",
+    [
+        ("simulated", "builtin", True, True),
+        ("simulated", "builtin", 1, False),
+        ("simulated", "builtin", "true", False),
+        ("simulated", "builtin", False, False),
+        ("simulated", "external_guarded", True, True),
+        ("command", "builtin", True, True),
+    ],
+)
+def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
+    tmp_path, disposition, driver, requested_mode, simulation_only, accepted
+):
+    settings = configured(tmp_path, driver=driver)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings)
+    recommendation = {
+        "recommendation_key": "bounded-check",
+        "name": "Bounded follow-up",
+        "description": "Separate a recorded anomaly from a repeatable effect.",
+        "duration_seconds": 1,
+        "parameters": json.dumps({"simulation_only": simulation_only}),
+        "execution_mode": requested_mode,
+        "rationale": "Reduce uncertainty without assuming current robot health.",
+        "dependencies": [],
+        "stop_conditions": ["unexpected force"],
+    }
+
+    def invoke(role, _job, _request):
+        assert role == "analysis"
+        result = analysis_result(source, followups=[recommendation])
+        result["safety_disposition"] = disposition
+        return result
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    job = next(job for job in store.codex_jobs_for_experiment(source["id"])
+               if job["kind"] == "analysis")
+    assert job["status"] == "succeeded"
+    assert store.codex_queue_control()["paused"] is (disposition == "stop")
+    receipts = job["result"]["followup_receipts"]
+    children = [item for item in store.list() if item["id"] != source["id"]]
+    if accepted:
+        assert len(receipts["accepted"]) == len(children) == 1
+        assert receipts["rejected"] == []
+        child = children[0]
+        assert child["execution_mode"] == "external_guarded"
+        assert child["parameters"]["simulation_only"] is True
+        assert child["parameters"]["robot_motion"] is False
+        assert child["status"] == "waiting_for_operator"
+        assert store.claim_next() is None
+        assert store.next_external_experiment()["id"] == child["id"]
+    else:
+        assert receipts["accepted"] == children == []
+        assert len(receipts["rejected"]) == 1
+        assert receipts["rejected"][0]["disposition_reason"] == (
+            "source analysis did not clear safety: " + disposition
+        )
+
+
+@pytest.mark.parametrize(
+    "parameters, disposition, paused",
+    [
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": False, "robot_motion": True},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "stop",
+            True,
+        ),
+    ],
+)
+def test_analysis_pause_policy_only_stops_queue_for_stop(
+    tmp_path, parameters, disposition, paused
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings, parameters=parameters)
+
+    def invoke(role, _job, _request):
+        assert role == "analysis"
+        result = analysis_result(source)
+        result["safety_disposition"] = disposition
+        return result
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    assert store.codex_queue_control()["paused"] is paused
 
 
 def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(
@@ -774,95 +875,67 @@ def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(
     assert "forbidden" in receipts["rejected"][0]["disposition_reason"]
 
 
-def test_simulated_adaptive_pipeline_drains_experiments_and_codex_jobs(tmp_path):
-    settings = configured(tmp_path)
-    store = Store(tmp_path / "lab.sqlite3")
-    root = complete_with_evidence(
-        store,
-        settings,
-        name="root simulation",
-        parameters={"simulation_only": True},
-    )
-    recommendation = {
-        "recommendation_key": "bounded-simulation-repeat",
-        "name": "Bounded simulation repeat",
-        "description": "Repeat the simulated measurement once.",
-        "duration_seconds": 0.01,
-        "parameters": {
-            "simulation_only": True,
-            "robot_motion": False,
-        },
-        "execution_mode": "builtin",
-        "rationale": "A second simulated sample checks repeatability.",
-        "dependencies": [],
-        "stop_conditions": ["unexpected result"],
-    }
-    invocations = []
+def test_adaptive_offline_work_executes_real_command_and_seals_output(tmp_path, monkeypatch):
+    from test_engineering_lane import engineering_receipt
 
-    def invoke(role, job, _request):
-        invocations.append((role, job["id"], job.get("experiment_id")))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    settings = configured(tmp_path, codex_engineering=True,
+                          codex_engineering_workdir=workspace)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings)
+    proposal = {
+        "recommendation_key": "offline-replay", "name": "Offline replay",
+        "description": "Run the fixture command and retain its actual output.",
+        "duration_seconds": 1, "parameters": {"simulation_only": True},
+        "execution_mode": "builtin", "rationale": "Reproduce a recorded fault.",
+        "dependencies": [], "stop_conditions": [],
+    }
+    monkeypatch.setattr(codex_module, "build_project_context", lambda *_: {"sha256": "a" * 64})
+    monkeypatch.setattr(codex_module, "workspace_snapshot", lambda *_: {"head": "b" * 40})
+    calls = []
+
+    def invoke(role, job, request):
+        calls.append(role)
         if role == "analysis":
-            experiment = store.get(job["experiment_id"])
-            followups = [recommendation] if experiment["id"] == root["id"] else []
-            return analysis_result(experiment, followups=followups)
-        assert store.next_external_experiment() is None
-        return {
-            "schema_version": 1,
-            "trigger_job_id": job["id"],
-            "selected_experiment_id": None,
-            "action": "queue_empty",
-            "summary": "No external guarded experiment is waiting.",
-            "blocker": "",
-            "safety_disposition": "clear",
-            "motion_started": False,
-            "retryable": False,
-            "retry_after_seconds": 0,
-        }
+            result = analysis_result(source, followups=[proposal])
+            result["safety_disposition"] = "needs_inspection"
+            return result
+        assert role == "engineering"
+        assert 'simulation_only' in request["prompt"]
+        assert 'Do not contact, move, or deploy to the robot' in request["prompt"]
+        item = store.get(job["experiment_id"])
+        directory = settings.data_dir / "experiments" / item["id"]
+        directory.mkdir(parents=True)
+        # A real command produces the retained output; the demo runner is never claimed.
+        command = ["/bin/sh", "-c", "printf 'injected_delay_ms=50\\n' > replay.txt"]
+        subprocess.run(command, cwd=directory, check=True)
+        (directory / "experiment.json").write_text(json.dumps(item))
+        (directory / "summary.md").write_text("Offline fixture completed.")
+        store.finish(item["id"], "succeeded")
+        store.seal_evidence(item["id"], ExperimentRunner._write_manifest(directory))
+        receipt = engineering_receipt(job, "a" * 64)
+        receipt["commands_run"] = [{"command": "fixture replay", "purpose": "Offline regression",
+                                     "outcome": "passed", "summary": "Wrote replay.txt"}]
+        receipt["artifacts"] = ["replay.txt"]
+        return receipt
 
     orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
-
-    # The paired advance cannot overtake its root analysis.
-    assert orchestrator.process_one("advance") is False
-    assert orchestrator.process_one("analysis") is True
-    children = [item for item in store.list() if item["id"] != root["id"]]
-    assert len(children) == 1
-    child = children[0]
-    assert child["status"] == "queued"
-    assert child["execution_mode"] == "builtin"
-
-    # The root's separate advisory run completes without creating a redundant
-    # follow-up-specific advance job, while the built-in simulation runner
-    # executes and seals the accepted child.
-    assert orchestrator.process_one("advance") is True
-    runner = ExperimentRunner(store, settings)
-    claimed = store.claim_next()
-    assert claimed and claimed["id"] == child["id"]
-    runner._execute(claimed)
-    child = store.get(child["id"])
-    assert child["status"] == "succeeded"
-    assert child["evidence_sealed_at"]
-
-    # The child's advance also waits for its own analysis, then both durable
-    # lanes and the experiment queue reach a terminal empty state.
-    assert orchestrator.process_one("advance") is False
-    assert orchestrator.process_one("analysis") is True
-    assert orchestrator.process_one("advance") is True
-    assert orchestrator.process_one("analysis") is False
-    assert orchestrator.process_one("advance") is False
-
-    experiments = list(store.list())
-    assert {item["status"] for item in experiments} == {"succeeded"}
-    assert not any(store.queue_counts().values())
-    jobs = store.list_codex_jobs(20)
-    assert len(jobs) == 4
-    assert {job["status"] for job in jobs} == {"succeeded"}
-    assert [role for role, _job_id, _experiment_id in invocations] == [
-        "analysis",
-        "advance",
-        "analysis",
-        "advance",
-    ]
-    assert len({job_id for _role, job_id, _experiment_id in invocations}) == 4
+    assert orchestrator.process_one("analysis")
+    child = next(item for item in store.list() if item["id"] != source["id"])
+    assert child["execution_mode"] == "external_guarded"
+    assert store.claim_next() is None
+    assert orchestrator.process_one("advance")
+    assert orchestrator.process_one("engineering")
+    finished = store.get(child["id"])
+    assert finished["status"] == "succeeded"
+    assert finished["evidence_sealed_at"]
+    output = settings.data_dir / "experiments" / child["id"] / "replay.txt"
+    assert output.read_text().strip() == "injected_delay_ms=50"
+    assert calls == ["analysis", "engineering"]
+    engineering = next(job for job in orchestrator.engineering.list_jobs()
+                       if job["experiment_id"] == child["id"])
+    assert engineering["result"]["commands_run"][0]["outcome"] == "passed"
 
 
 def test_analysis_retry_reuses_checkpoint_instead_of_invoking_analyzer_twice(

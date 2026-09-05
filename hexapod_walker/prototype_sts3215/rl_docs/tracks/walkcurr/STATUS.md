@@ -2,6 +2,51 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~22:5x this cycle (assigned `headset-halfgrav-medhead2-swinggate-fix`,
+  the halfgrav-family arm of the `walk_swing_gate` batch): one
+  verdict, 3-arm refill. **CANARY FAIL - MECHANISM (engaged, no
+  repair)**: retrofit onto the FAILED `headset-halfgrav-medhead2-
+  acq1-cont40m` checkpoint (own ACQ FAIL: walk_startjitter/det
+  plateaued 2/6 through 80M). `env/walk_swing_gate_factor` sampled
+  0.93-1.0 (genuinely engaged, not saturated-inert like the base
+  family's fresh/fix arms) but `gait_valid` counts land IDENTICAL to
+  the undosed parent on all 4 modes (walk/det 5/6, walk/sto 6/6,
+  walk_startjitter/det 2/6, walk_startjitter/sto 4/6) — every failing
+  episode's flagged-leg duty stays 0.03-0.09, still under the 0.10
+  bar. Read together with the base-family n=4 batch this same cycle
+  (fresh/fix INERT, medhead-fix/irr-fix engaged-no-repair): **all 5
+  independently-tested `walk_swing_gate` arms across BOTH gravity
+  families now FAIL — the mechanism is CLOSED end-to-end** (7th
+  independently-designed per-leg-utilization lever to fail overall,
+  1st confirmation on halfgrav specifically). **Refill:** per the
+  campaign's own conclusion (next lever must be structural: curriculum-
+  widen from a leg-healthy champion, or reallocate spend to the
+  healthy halfgrav lineage — base(1g) stays closed pending a
+  genuinely new theory, and a concurrent cycle is already running that
+  theory as `*-placementjit-*`), reallocated this cycle's free
+  capacity to the halfgrav lineage's own validated widen-curriculum
+  recipe (`widen2`, bank/canary-proved 2/2 seeds this same day: gait
+  stays valid, reversal-heading tracking measurably tightens vs a cold
+  jump). The track's actual DONE-gate panel needs heading breadth AND
+  irregular direction-change timing TOGETHER, not one axis at a time,
+  and no arm has combined them yet. Launched a 3-arm batch composing
+  the two independently-validated halfgrav rungs (heading-widen
+  `widen2`, ACQ-PASS `irr` timing-jitter) in both orders, same
+  bank-proved cfg toggles, no new reward keys: `headset-halfgrav-
+  irrwiden-c1` (jitter-first: widen2's heading-set change applied ON
+  TOP of the ACQ-PASS `irr-acq1` timing-jitter champion, train-0),
+  `headset-halfgrav-widenirr-c1` (widen-first: `walk_cmd_resample_
+  jitter=0.5` applied ON TOP of the CANARY-PASS `widen2-c1` fullhead
+  champion, train-4), `headset-halfgrav-widenirr-c2b` (matched 2nd
+  seed of the widen-first order, from `widen2-c2b`, train-5). All 3
+  VERIFIED RUNNING. 2M mechanism-health canaries; PASS/INFORMATIVE
+  criteria and FAIL criteria are per-arm in the ledger gate text.
+  Evidence: `ops.sh review cw-walkscratch-easy0905-headset-halfgrav-
+  medhead2-swinggate-fix`, `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_halfgrav_medhead2_swinggate_fix_gate/report.json`,
+  `logs/experiments/cw-walkscratch-easy0905-headset-halfgrav-medhead2-
+  swinggate-fix/wandb_history.csv`, RL_LOG.
+
 - 09-05 ~22:5x this cycle (assigned `headset-base-irr-swinggate-fix` +
   `headset-base-medhead-swinggate-fix`): both had ALREADY been
   verdicted **CANARY FAIL - MECHANISM** by a concurrent cycle before

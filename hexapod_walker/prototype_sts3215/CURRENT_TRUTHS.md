@@ -877,6 +877,27 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_{s0c1,medhead,
   irr}_swinggate_fix_gate/report.json` vs each one's own `_acq1_gate`
   twin, W&B `3f8el794`/`2vlzxnoh`/`2j266hc8`/`4rnm653m`.
+  UPDATE 09-05 ~22:5x: the halfgrav-family confirmation also landed
+  and also FAILS. `headset-halfgrav-medhead2-swinggate-fix` (retrofit
+  onto the FAILED `headset-halfgrav-medhead2-acq1-cont40m` checkpoint,
+  own ACQ FAIL plateaued at `walk_startjitter/det` 2/6 through 80M):
+  **CANARY FAIL — MECHANISM (engaged, no repair)** — `env/walk_swing_
+  gate_factor` sampled 0.93-1.0 (genuinely live, not saturated-inert)
+  but `gait_valid` lands IDENTICAL to the undosed parent on all 4
+  modes (walk/det 5/6, walk/sto 6/6, walk_startjitter/det 2/6,
+  walk_startjitter/sto 4/6); every failing episode's flagged-leg duty
+  stays 0.03-0.09, still under the 0.10 pass bar. **`reward.
+  walk_swing_gate` is now CLOSED end-to-end across BOTH gravity
+  families, 5/5 arms FAIL** — do not fund it on any further checkpoint/
+  family. Refill reallocated to the halfgrav lineage's own validated
+  `widen2` heading-widen curriculum, composed with the already
+  ACQ-PASS `irr` timing-jitter rung in both orders (`headset-halfgrav-
+  irrwiden-c1`, `headset-halfgrav-widenirr-{c1,c2b}`, 3 arms VERIFIED
+  RUNNING) — see `rl_docs/tracks/walkcurr/STATUS.md` 09-05 ~22:5x for
+  the full hypothesis. Evidence: `ops.sh review cw-walkscratch-
+  easy0905-headset-halfgrav-medhead2-swinggate-fix`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_medhead2_swinggate_fix_
+  gate/report.json`, W&B `jkh3xzb5`.
 - **STRUCTURAL DIAGNOSTIC (09-05 ~22:3x, new this cycle, not yet acted
   on): the base(1g)-family chronically-sacrificed leg is NEVER random
   — across every mechanism/checkpoint logged above (`walk_duty_gate`

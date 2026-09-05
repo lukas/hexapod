@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import shutil
 import signal
@@ -44,6 +45,79 @@ from .engineering_lane import (
 )
 from .execution_progress import ExecutionProgressStore
 from .runner import ExperimentRunner
+
+
+def _codex_runner_identity(runner_path: Path) -> Dict[str, Any]:
+    """Capture enough local provenance to byte-identify a Codex invocation.
+
+    This record is written before the runner starts, so even an early process
+    exit retains the executable hash and its containing app bundle version.
+    Version probing is deliberately best-effort: the SHA-256 is authoritative
+    and does not depend on successfully executing the runner.
+    """
+    configured = runner_path.expanduser()
+    identity: Dict[str, Any] = {
+        "runner_path": str(configured),
+        "runner_resolved_path": None,
+        "runner_version": None,
+        "runner_sha256": None,
+        "runner_bytes": None,
+        "bundle_version": None,
+        "capture_source": "prelaunch_local_binary",
+    }
+    errors: List[str] = []
+    try:
+        resolved = configured.resolve(strict=True)
+        identity["runner_resolved_path"] = str(resolved)
+        digest = hashlib.sha256()
+        size = 0
+        with resolved.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        identity["runner_sha256"] = digest.hexdigest()
+        identity["runner_bytes"] = size
+
+        for parent in (resolved, *resolved.parents):
+            if parent.suffix != ".app":
+                continue
+            info_path = parent / "Contents" / "Info.plist"
+            try:
+                with info_path.open("rb") as source:
+                    info = plistlib.load(source)
+                identity["bundle_version"] = {
+                    "path": str(parent),
+                    "short_version": info.get("CFBundleShortVersionString"),
+                    "build_version": info.get("CFBundleVersion"),
+                }
+            except (OSError, plistlib.InvalidFileException) as exc:
+                errors.append(f"bundle metadata: {type(exc).__name__}")
+            break
+
+        try:
+            version = subprocess.run(
+                [str(resolved), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=_safe_environment(),
+            )
+            version_text = (version.stdout or version.stderr).strip()
+            if version.returncode == 0 and version_text:
+                identity["runner_version"] = version_text[:500]
+            else:
+                errors.append(f"version probe returned {version.returncode}")
+        # Provenance capture must never prevent the already-guarded launch;
+        # unusual process adapters and test doubles may raise outside the
+        # standard subprocess exception hierarchy.
+        except Exception as exc:
+            errors.append(f"version probe: {type(exc).__name__}")
+    except OSError as exc:
+        errors.append(f"binary capture: {type(exc).__name__}")
+    if errors:
+        identity["capture_errors"] = errors
+    return identity
 
 
 ANALYSIS_SCHEMA: Dict[str, Any] = {
@@ -1997,6 +2071,7 @@ class CodexOrchestrator:
         _atomic_json(schema_path, schema)
         output_tmp = run_dir / "final.tmp.json"
         output_path = run_dir / "final.json"
+        runner_identity = _codex_runner_identity(self.settings.codex_bin)
         metadata = {
             "job_id": job["id"],
             "kind": role,
@@ -2006,6 +2081,7 @@ class CodexOrchestrator:
             "reasoning_effort": self.settings.codex_reasoning_effort,
             "experiment_id": job.get("experiment_id"),
             "evidence_manifest_sha256": job.get("evidence_manifest_sha256"),
+            "runner_identity": runner_identity,
         }
         _atomic_json(run_dir / "metadata.json", metadata)
         if role == "engineering":
@@ -2110,6 +2186,7 @@ class CodexOrchestrator:
             "intent_created_unix": launch_started_unix,
             "deadline_seconds": timeout,
             "assigned_experiment_id": assigned_experiment_id,
+            "runner_identity": runner_identity,
         }
         # Persist intent before Popen. The independent wrapper atomically
         # adopts this same marker before it can launch Codex, closing the

@@ -17,6 +17,7 @@ if str(HERE) not in sys.path:
 from vision_server import (  # noqa: E402
     VisionRuntime,
     assess_visual_calibration_readiness,
+    build_current_pose_config,
     build_visual_calibration_report,
     updated_visual_bias_config,
 )
@@ -31,6 +32,30 @@ CONFIG_PATH = (
     / "configs"
     / "apriltag_pose_config_20260831.json"
 )
+
+
+def test_current_floor_map_overlays_retired_tracker_anchors(tmp_path):
+    base = tmp_path / "base.json"
+    floor = tmp_path / "floor.json"
+    base.write_text(
+        '{"tag_family":"tag36h11","marker_size_m":0.027,'
+        '"floor_tags":{"12":{}}}'
+    )
+    floor.write_text(
+        '{"family":"tag36h11","units":"millimeters",'
+        '"tag_black_square_size":27.2,"tags":['
+        '{"id":104,"center":[0,0,0],"yaw_degrees":-89.8},'
+        '{"id":102,"center":[304.8,0,0],"yaw_degrees":-90.4}]}'
+    )
+
+    config = build_current_pose_config(base, floor)
+
+    assert set(config["floor_tags"]) == {"102", "104"}
+    assert config["floor_tags"]["102"]["world_from_tag"] == {
+        "translation_m": [0.3048, 0.0, 0.0],
+        "euler_xyz_deg": [0.0, 0.0, -90.4],
+    }
+    assert config["marker_size_m"] == pytest.approx(0.0272)
 
 
 class _ClosedCapture:

@@ -2,6 +2,57 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~18:3x this cycle (assigned `headset-base-s0c1-dgate2-c1`):
+  **CANARY FAIL - MECHANISM (INERT-DOSE, reconfirmed at 2.3x dose)**.
+  Plain English: doubling the duty-floor price from 0.15 to 0.35 to
+  try to unstick a chronically-parked leg-4 (duty 0.03-0.07 on an
+  otherwise-healthy base-family heading walker) still leaves that leg
+  exactly as parked as before. Parent-matched comparison against
+  `headset-base-s0c1-acq1`'s own gate report (identical eval
+  conditions): walk/det `gait_valid` 0/6 both, leg[4] sacrificed all 6
+  episodes both, duty 0.04-0.06 (child) vs 0.03-0.07 (parent) --
+  statistically indistinguishable; walk_startjitter/det is WORSE on
+  the child (duty 0.01-0.03, swing_count down to 7-28/20s). Video
+  (`walk_det_*_sheet.png`, `walk_startjitter_det_2_sheet.png`) shows
+  the identical single-leg hitched/tucked pose every sampled frame,
+  both checkpoints. `env/walk_duty_gate_factor` DID genuinely decline
+  in training (1.0->0.56, real pricing, not saturated like the
+  original 0.15 dose) and `ep_rew_mean` rose every quarter
+  (27->62->114->124) -- the same "factor declining + reward rising"
+  shape the concurrent cycle's `sde-s2-c2-dgatefix-cont40m` continued
+  to 40M on (see that verdict, this cycle, same file/CURRENT_TRUTHS)
+  -- but that continuation's own outcome (factor MONOTONICALLY
+  RE-SATURATED by 40M, sacrifice unchanged) already shows this exact
+  shape does NOT reliably predict eventual repair. Given a true
+  parent-matched null result (not partial progress) plus that live
+  counter-precedent, this closes "raise `duty_gate_floor` magnitude
+  alone" for the marginal-underuse class too (now 2/2 doses inert).
+  Root cause: `policy_std` is already at its end-of-schedule floor
+  (0.135 rad) at 2M, yet sto-mode leg-4 duty (0.16-0.23) still
+  diverges sharply from det-mode duty (0.04-0.06) -- the training-time
+  factor is priced against noisy rollout actions and gets satisfied by
+  noise-driven duty upticks that never have to move the policy MEAN.
+  A real fix needs a mechanism the mean itself must satisfy (harder
+  floor + an explicit per-leg exploration anneal, not just a bigger
+  version of the same windowed-average floor) -- a NEW mechanism+bank
+  design question for a future cycle, not a relaunch of this lever.
+  CURRENT_TRUTHS.md updated (~18:3x entry). No new arm launched: the
+  only non-duplicative next step (a harder anti-noise-dodge
+  mechanism) isn't bank-tested yet, and every other open walkcurr
+  thread (medhead x2 acq continuations, `headset-base-irr-dgate2-c1`
+  sibling still genuinely computing remotely on train-4 -- registered
+  via `ops.sh evalpending add`) is already in flight on this or a
+  concurrent cycle. Capacity re-checked: `launch_run.py status`/
+  `capacity.py` show 9 GPU pods free, backlog empty, but no
+  pre-registered, non-duplicative, bank-cleared item exists to fill
+  them beyond what's already running -- matches this file's own
+  repeated precedent (14:3x/14:4x/14:6x/15:3x entries) for leaving
+  idle pods rather than inventing filler. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_{s0c1_dgate2_c1,s0c1_acq1}_gate/
+  report.json`, `logs/experiments/cw-walkscratch-easy0905-headset-
+  base-s0c1-dgate2-c1/wandb_history.csv`, W&B `j41igzz5`.
+
+
 - 09-05 ~18:2x this cycle (assigned `headset-halfgrav-medhead-c1`,
   `sde-s2-c2-dgatefix-cont40m`): 2 verdicts + 1 refill. (1)
   `headset-halfgrav-medhead-c1` **CANARY PASS** — sibling of the base
@@ -45,7 +96,22 @@
   dgatefix-cont40m}`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
   halfgrav_medhead_c1_gate/report.json`, `logs/ckpt_eval/
   cw_walkscratch_easy0905_sde_s2_c2_dgatefix_cont40m_gate/report.json`,
-  W&B `uxuboegj`/`66wc8jin`.
+  W&B `uxuboegj`/`66wc8jin`. **Refill (capacity fill, same cycle)**:
+  with 9/11 GPU pods free after the two verdicts and only one active
+  seed each on the medhead rung, launched second-seed medhead canaries
+  from DIFFERENT already-existing heading champions (never tried on
+  this rung) to build the same n>=2 seed-robustness confirmation every
+  other rung in this campaign got before being called closed:
+  `headset-base-medhead2-c1` (warm-started from `headset-base-acq1`,
+  the original base champion; medhead-c1 used `s1c1-acq1`) VERIFIED
+  RUNNING train-0, and `headset-halfgrav-medhead2-c1` (warm-started
+  from `headset-halfgrav-s3acq`; medhead-c1 used `halfgrav-acq1`)
+  VERIFIED RUNNING train-3. Also noted, not claimed: 2 other canaries
+  from an earlier cycle's strong-floor dutygate retry
+  (`headset-base-{s0c1,irr}-dgate2-c1`) finished training on
+  train-3/train-4 during this cycle but were not in this cycle's
+  assigned-runs list — left for the mechanical per-run cycle spawn to
+  triage, not duplicated here.
 
 - 09-05 ~17:3x this cycle (assigned `headset-{base,halfgrav}-
   fullhead-c1`, `sde-dgidle-s1`): 3 verdicts + 1 correction pass + 1

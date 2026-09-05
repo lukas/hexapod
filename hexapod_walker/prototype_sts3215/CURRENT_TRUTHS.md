@@ -433,6 +433,64 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   cw-walkscratch-easy0905-{sde-s2-c2-dgatefix-cont40m,headset-halfgrav-
   medhead-c1}`, W&B `66wc8jin`/`uxuboegj`.
 
+  UPDATE 09-05 ~18:3x: `headset-base-s0c1-dgate2-c1` (the STRONGER
+  `duty_gate_floor` dose, 0.15->0.35, retrying the DIFFERENT
+  non-gSDE "marginal underuse" class -- one leg chronically at duty
+  0.03-0.07 on an otherwise-healthy base-family heading walker, not
+  the closed gSDE LEGPARK-SKATE pathology) landed: **CANARY FAIL -
+  MECHANISM (INERT-DOSE, reconfirmed at 2.3x the prior dose)**. Direct
+  parent-matched comparison (`headset-base-s0c1-acq1`'s own gate
+  report vs this child, identical eval conditions): walk/det
+  `gait_valid` 0/6 both, leg[4] sacrificed in ALL 6 episodes both,
+  duty 0.04-0.06 (child) vs 0.03-0.07 (parent) -- statistically
+  indistinguishable; walk_startjitter/det is if anything WORSE on the
+  child (duty 0.01-0.03, swing_count down to 7-28/20s vs the parent's
+  own baseline range). Video (`walk_det_*_sheet.png`,
+  `walk_startjitter_det_2_sheet.png`) shows the identical single-leg
+  hitched/tucked pose every sampled frame on both. This despite
+  `env/walk_duty_gate_factor` genuinely declining in training
+  (1.0->0.56, NOT saturated/gamed -- real pricing pressure, unlike the
+  original 0.15-floor dose which stayed pinned 0.9-1.0 the whole run)
+  and `ep_rew_mean` rising every quarter (27->62->114->124) -- i.e.
+  the 08-21 "rising reward" signal IS present here, same shape as the
+  gSDE `dgatefix` batch that earned a 40M continuation two entries
+  above. **Read together with that continuation's own outcome
+  (`sde-s2-c2-dgatefix-cont40m`, immediately above in this same file):
+  factor decline + rising reward at a canary checkpoint did NOT
+  predict eventual repair there either -- the factor MONOTONICALLY
+  RE-SATURATED by 40M with the sacrifice unchanged.** Given (a) this
+  child shows literally zero measurable delta from its own parent on
+  every det-mode metric (a true null result, not partial progress),
+  and (b) the one precedent for granting "more budget" on this exact
+  factor-declining/reward-rising shape already played out negatively
+  at full budget, this closes "raise `duty_gate_floor` magnitude
+  alone" as a repair lever for the marginal-underuse class too (now
+  2/2 doses inert: 0.15 never applied real pressure, 0.35 applies real
+  training-time pressure but zero transfers to the deterministic
+  policy). Root-cause read: `policy_std` is already at its
+  end-of-schedule floor (0.135 rad, matching `--log-std-final=-2.0`)
+  at 2M, yet stochastic-mode leg-4 duty (0.16-0.23) still diverges
+  sharply from deterministic-mode duty (0.04-0.06) -- the training-time
+  factor is computed on noisy rollout actions and is satisfied by
+  noise-driven duty upticks that never need to move the policy MEAN,
+  because the mean's alternative use of that leg apparently costs more
+  elsewhere (speed/energy) than accepting the residual penalty. A real
+  fix needs to price something the mean itself must satisfy (e.g. a
+  much harder floor combined with an explicit per-leg exploration
+  anneal so late-training noise stops masking the mean's own duty),
+  not a bigger version of the same windowed-average floor -- this is a
+  NEW mechanism+bank design question, not a relaunch of this lever. No
+  new arm launched off this finding this cycle (sibling
+  `headset-base-irr-dgate2-c1`, the irr-timing/1g composition retry of
+  the identical dose, was still genuinely computing remotely on
+  train-4 at this cycle's end -- registered via `ops.sh evalpending
+  add`; read it before drawing the n=2 picture, though this entry's
+  own parent-matched null result is already conclusive for the
+  base/heading-only cell on its own). Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_{s0c1_dgate2_c1,s0c1_acq1}_gate/
+  report.json`, `logs/experiments/cw-walkscratch-easy0905-headset-
+  base-s0c1-dgate2-c1/wandb_history.csv`, W&B `j41igzz5`.
+
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,
   `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish

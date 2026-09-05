@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T18:25:58+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-medhead-c1
+
+**wandb_id**: n0ostk9i
 
 **hypothesis**: Seed-robustness check for the medium 5-way heading rung (0,+-45,+-90deg) on the base(1g) family: medhead-c1 (warm-started from headset-base-s1c1-acq1) already CANARY PASSED (harness-confirmed six-leg gait, v_along clears the noise floor). This launches the SAME 2M canary recipe from a DIFFERENT already-existing base heading champion (headset-base-acq1, the original seed, never yet tried on this rung) to confirm the medhead-widen step generalizes across seeds before the campaign calls the rung closed, mirroring the n>=2 seed-confirmation pattern already used for every other rung in this campaign (irr-timing, fullhead, small-heading).
 

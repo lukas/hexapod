@@ -1263,3 +1263,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-05 10:27 walkcurr easy0905 base-s4 ACQ PASS: clean 40M walk (fwd 0.19-0.24 m/s, 0/24 falls, six legs active) with a slip caveat -- first full-budget PASS in the campaign 
 - 09-05 10:27 walkcurr easy0905 base-s2 ACQ PASS: 2nd clean 40M seed PASS (fwd 0.16-0.19 m/s, 0/24 falls), same slip caveat as base-s4 
 - 09-05 10:30 walkcurr easy0905 sdehalfgrav-s1 40M ACQ FAIL -- corroborates s0 (2/4 sde+halfgrav seeds share flat-ep_len/2-leg-lurch fingerprint), reward-pricing fix now a real next design item 
+- 09-05 10:36 walkcurr easy0905 halfgrav-s3 ACQ PASS: 3rd family (0.5g) clears 40M acquisition (fwd 0.11-0.17 m/s, 0/24 falls), owncfg pending/informational 

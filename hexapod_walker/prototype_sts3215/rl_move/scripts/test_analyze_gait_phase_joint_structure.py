@@ -54,8 +54,22 @@ def test_analysis_is_deterministic_and_structured(tmp_path):
     assert phase["command"]["unique_vx_ref_mps"] == [0.08]
     assert sum(item["outlier_rows"] for item in phase["phase_bins"]) == 16
     assert len([row for row in clusters if row["group"] == "joint"]) == 18
-    assert bootstrap["block_length_rows"] == 38
-    assert bootstrap["comparisons"]["global"]["observed_outlier_minus_background_deg"] > 0
+    assert bootstrap["block_lengths_rows"] == [38]
+    assert bootstrap["block_comparisons"]["38"]["global"]["observed_outlier_minus_background_deg"] > 0
+    assert bootstrap["phase_stratified_null"]["phase_bins"] == 8
+    assert bootstrap["phase_stratified_null"]["comparisons"]["global"]["valid_resamples"] > 0
+
+
+def test_explicit_block_length_reconciliation(tmp_path):
+    manifest = _fixture(tmp_path)
+    _, _, bootstrap = analyze(
+        tmp_path, expected_manifest_sha256=manifest, bootstrap_resamples=100,
+        block_lengths_rows=(37, 38), phase_bins=8,
+    )
+    assert bootstrap["block_lengths_rows"] == [37, 38]
+    assert set(bootstrap["block_comparisons"]) == {"37", "38"}
+    for comparison in bootstrap["block_comparisons"].values():
+        assert set(comparison) == {"global", "coxa", "femur", "tibia"}
 
 
 def test_manifest_mismatch_fails_closed(tmp_path):

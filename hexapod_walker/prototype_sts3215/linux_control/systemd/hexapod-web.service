@@ -30,6 +30,9 @@ Environment=HEXAPOD_LOG_PORT=9377
 Environment=HEXAPOD_LOG_BEACON_PORT=9378
 Environment=HEXAPOD_LOG_MCU=cmds
 # No ExecStartPre sleep: the bus claim settles and retries HELLO itself.
+# '+' runs only this helper as root; '-' keeps startup available if unsupported.
+# The web process remains arduino. No bus access or governor daemon is needed.
+ExecStartPre=-+/bin/sh /home/arduino/hexapod_sts/linux_control/systemd/cpu_performance.sh
 ExecStart=/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/linux_control/web_drive.py --port mcu --http-port 8080 --https-port 8443
 Restart=always
 RestartSec=2

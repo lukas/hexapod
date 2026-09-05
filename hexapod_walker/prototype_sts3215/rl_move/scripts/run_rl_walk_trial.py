@@ -248,6 +248,9 @@ class Trial:
         self.motion_started = False
         self.completed = False
         self.results: list[dict[str, Any]] = []
+        self.communication_capture: dict[str, Any] = {
+            "artifacts": [], "errors": [], "markers": {},
+        }
         if args.vision_frame_url:
             self.recorder = HttpFrameRecorder(
                 output_dir / "camera_raw.mp4",
@@ -292,6 +295,84 @@ class Trial:
             self.base, path, json_body=body,
             timeout=8.0 if body is not None else 5.0,
         )
+
+    def communication_mark(self, label: str) -> dict[str, Any]:
+        """Annotate the existing passive recorder without touching the bus."""
+        try:
+            reply = self.request("/api/telemetry", {
+                "action": "mark", "label": label,
+                "data": {"trial": self.output_dir.name, "phase": self.phase},
+            })
+            if not isinstance(reply, dict) or not reply.get("ok"):
+                raise RuntimeError(f"marker refused: {reply}")
+            self.communication_capture["markers"][label] = reply
+            return reply
+        except Exception as error:
+            self.communication_capture["errors"].append(f"{label}: {error}")
+            return {}
+
+    def start_communication_capture(self) -> None:
+        """Reuse the service recording, including setup and later recovery."""
+        try:
+            state = self.request("/api/telemetry")
+            self.communication_capture["start"] = state
+            if not isinstance(state, dict) or not state.get("communication_capture"):
+                raise RuntimeError("robot runtime does not capture raw communication")
+            if not state.get("active"):
+                state = self.request("/api/telemetry", {
+                    "action": "start", "label": self.output_dir.name,
+                })
+                self.communication_capture["start"] = state
+            if not isinstance(state, dict) or not state.get("active"):
+                raise RuntimeError(f"recording unavailable: {state}")
+            self.communication_mark("run_begin")
+        except Exception as error:
+            self.communication_capture["errors"].append(str(error))
+        self.event("communication_capture_started", self.communication_capture)
+
+    def collect_communication_capture(self) -> None:
+        """Copy evidence after motion; leave service-wide recording active."""
+        marker = self.communication_mark("run_end")
+        try:
+            state = self.request("/api/telemetry")
+            marker_id = marker.get("marker_id")
+            deadline = time.monotonic() + 2.0
+            while (marker_id is not None
+                   and state.get("flushed_marker") != marker_id
+                   and time.monotonic() < deadline):
+                time.sleep(0.05)
+                state = self.request("/api/telemetry")
+            self.communication_capture["end"] = state
+            self.communication_capture["end_marker_flushed"] = bool(
+                marker_id is not None
+                and state.get("flushed_marker") == marker_id)
+            if not self.communication_capture["end_marker_flushed"]:
+                self.communication_capture["errors"].append(
+                    "end marker was not confirmed flushed; capture may be incomplete")
+            # Keep the part active at run start and any parts created during
+            # the run, preserving the shared service session.
+            start = self.communication_capture.get("start") or {}
+            paths = [start["path"]] if start.get("path") else []
+            earlier_parts = set(start.get("paths") or []) - set(paths)
+            paths.extend(path for path in state.get("paths", [])
+                         if path not in earlier_parts)
+            if state.get("path"):
+                paths.append(state["path"])
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            for name in dict.fromkeys(Path(path).name for path in paths):
+                try:
+                    url = f"{self.base}/api/logs/{urllib.parse.quote(name)}"
+                    with opener.open(url, timeout=15.0) as response:
+                        destination = self.output_dir / f"robot_{name}"
+                        with destination.open("wb") as output:
+                            while chunk := response.read(1024 * 1024):
+                                output.write(chunk)
+                    self.communication_capture["artifacts"].append(destination.name)
+                except Exception as error:
+                    self.communication_capture["errors"].append(f"{name}: {error}")
+        except Exception as error:
+            self.communication_capture["errors"].append(f"collect: {error}")
+        self.event("communication_capture_collected", self.communication_capture)
 
     def snapshot(self, label: str) -> Path:
         frame, frame_unix_s = self.recorder.snapshot()
@@ -1025,11 +1106,14 @@ class Trial:
             "yaw_commands": False,
             "joystick_response": self.args.joystick_response,
             "results": self.results,
+            "communication_capture": getattr(self, "communication_capture", {}),
             "artifacts": {
                 "video": "camera_raw.mp4",
                 "camera_timestamps": "camera_timestamps.csv",
                 "telemetry": "telemetry.csv",
                 "events": "events.csv",
+                "communication": getattr(self, "communication_capture", {}).get(
+                    "artifacts", []),
             },
         }
         (self.output_dir / "summary.json").write_text(
@@ -1122,9 +1206,12 @@ def main() -> int:
     trial = Trial(args, output_dir)
     error: str | None = None
     try:
+        trial.start_communication_capture()
         trial.recorder.start()
         trial.event("recorder_ready")
+        trial.communication_mark("setup_begin")
         trial.stand_walk_ready()
+        trial.communication_mark("setup_complete")
         if args.joystick_response:
             trial.joystick_response()
         else:
@@ -1135,6 +1222,7 @@ def main() -> int:
                     trial.drive_leg(phase)
                 else:
                     trial.timed_leg(phase)
+        trial.communication_mark("planned_lower_begin")
         trial.planned_lower()
         trial.event("trial_complete")
         return 0
@@ -1157,6 +1245,7 @@ def main() -> int:
                 trial.event("failure_pause", stopped)
             except Exception as stop_error:
                 trial.event("failure_pause_error", str(stop_error))
+        trial.communication_mark("recovery_begin")
         try:
             trial.snapshot("failure")
         except Exception as camera_error:
@@ -1186,6 +1275,7 @@ def main() -> int:
         trial.event("recorder_stopped", {
             "frames": trial.recorder.frames, "error": trial.recorder.error,
         })
+        trial.collect_communication_capture()
         try:
             trial.write_summary(error=error)
         finally:

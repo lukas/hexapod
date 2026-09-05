@@ -147,6 +147,22 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   cw_walkscratch_easy0905_sdehalfgrav_remcost_s{0,1}_gg2_gate/
   report.json`, `wandb_history.csv` for both runs, W&B notes
   `wrc80ii4`/`dq6gfe29`.
+  UPDATE 09-05 ~15:4x: the remaining two bare-sde gg seeds
+  (`sde-s0-c4gg`, `sde-s3-c1bgg`) landed and FAIL the same way --
+  `gait_valid` 0/24 and 0/24 primary det (1/24 overall for c1bgg),
+  legs [1]/[1,4] chronically parked, `env/walk_gait_gate_factor`
+  saturated 0.81-1.0 (c1bgg) / 0.97-1.0 (c4gg) despite the sacrifice.
+  **The `walk_gait_gate`+`k_step_event` repair is now CLOSED 6/6,
+  fully confirmed across every bare-sde/sdehalfgrav-remcost seed
+  tried -- do not relaunch it anywhere in this family.** The only
+  surviving repair candidate is the newer `reward.walk_duty_gate`
+  mechanism (per-leg trailing-duty income gate, built 09-05 ~15:1x,
+  bank-proved in `test_walkscratch_easy_pilot.py`); its first 5
+  canaries (`headset-base-s0c1-dgate-c1`, `sde-{s1,s2}-dg1`,
+  `sdehalfgrav-remcost-{s0,s1}-dg1`) are mid-gate-eval as of this
+  update -- read those before trying any further gait-gate variant.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_sde_{s0_c4,
+  s3_c1b}gg_gate/report.json`, W&B `q2kox1j4`/`bzf8msie`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,
@@ -242,6 +258,37 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   fully explicit vector, bypassing clone-and-patch entirely). Always
   confirm post-launch with `ops.sh procs <pod>` that the live cmdline
   has `--init-from` and no `--use-sde`, not just the ledger fields.
+- **`respec --from <src>` without `--init-from-source` silently inherits
+  the SOURCE's own `--init-from` value verbatim, not the source's own
+  trained OUTPUT checkpoint** (09-05, confirmed on the `walk_duty_gate`
+  4-arm mechanism-health batch): cloning `sde-s1-c2`'s arg vector for
+  `sde-s1-dg1` carried over c2's own `--init-from
+  .../ppo_goal_cw_walkscratch_easy0905_sde_s1.zip` (c2's PARENT, the
+  original pre-LEGPARK 2M canary) unchanged — nothing in a plain clone
+  points at c2's own output (`sde_s1_c2.zip`). `sde-s1-dg1` therefore
+  trained duty_gate from an early undifferentiated checkpoint, not a
+  cure of the entrenched LEGPARK-SKATE policy its own hypothesis/parent
+  field claimed to test. Confirmed on the sibling `sde-s2-dg1` too
+  (init-from = `sde_s2.zip`, its grandparent). **Strictly worse** when
+  the source itself carries NO `--init-from` at all (e.g. a from-scratch
+  gSDE launch like `sdehalfgrav-remcost-{s0,s1}`): the clone then has NO
+  `--init-from` either, so `sdehalfgrav-remcost-{s0,s1}-dg1` are running
+  FULLY FRESH-FROM-SCRATCH, not continuing the LEGPARK checkpoint — an
+  exact recurrence of the earlier-documented "silently queues a
+  fresh-scratch clone" gotcha (see the `respec` flag-removal entry
+  above), this time via the plain-clone path instead of the
+  `--init-from-source` path. **Always verify a respec'd continuation's
+  ACTUAL `--init-from` in the ledger `command`/`extra_args` (or live
+  `ps`), never assume the note text or `parent` field describes the
+  real checkpoint** — either use `--init-from-source` (rewrites
+  `--init-from` to the source's own output) or, if the source's own
+  vector needs editing anyway (gSDE/non-default-activation sources),
+  hand-build the arg vector via `backlog add` with an explicit
+  `--init-from <src's own output>.zip`. Read any already-launched
+  `*-dg1` result with this in mind before trusting its "does duty_gate
+  cure an entrenched checkpoint" framing — `sde-s1-dg1`'s own PASS is
+  real evidence duty_gate escapes LEGPARK from an early checkpoint, but
+  is NOT yet evidence it cures an already-entrenched skate policy.
 - `launch_run.py respec` defaults `--steps` to the SOURCE run's own
   step count, not the intended budget. Respec'ing a 40M continuation
   `--from` a 2M-CANARY-scale sibling (e.g. `base-s0`, the original

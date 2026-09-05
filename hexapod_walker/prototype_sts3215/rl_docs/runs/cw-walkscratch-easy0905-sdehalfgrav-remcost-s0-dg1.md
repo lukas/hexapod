@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T15:07:50+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-sdehalfgrav-remcost-s0
+
+**wandb_id**: 698t5lme
 
 **hypothesis**: Plain English: sdehalfgrav-remcost-s0 also learned LEGPARK-SKATE (1/4 legs chronically parked) and the recency-based walk_gait_gate repair FAILED here too (4/4 closed, gate factor saturated at ceiling). This is the new duty-FRACTION gate (reward.walk_duty_gate=1.0, bank-verified 5/5 green this cycle) ported onto the remcost recipe's different term-cost pricing -- tests whether the mechanism generalizes off bare-sde. Single lever, cheap 2M canary before any 40M spend.
 

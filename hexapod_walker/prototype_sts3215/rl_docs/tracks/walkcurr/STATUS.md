@@ -2,6 +2,114 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~15:4x this cycle: 4 verdicts, 2 refill-registrations, no new
+  launch. (1) `headset-halfgrav-irr-c2` **CANARY PASS** — cleanest
+  irr-timing canary of the whole campaign: 24/24 gait_valid across
+  ALL four scenarios (walk/sto/startjitter x det/sto), 0 falls, zero
+  sacrificed legs anywhere, slip med 2.16-2.96. (2) `sde-s0-c4gg` and
+  (3) `sde-s3-c1bgg` both **ACQ FAIL (misaligned)** — same
+  gait_valid-0/24 + saturated `walk_gait_gate_factor` (0.81-1.0)
+  fingerprint as every prior gg arm. **This CLOSES the
+  `walk_gait_gate`+`k_step_event` repair lever at 6/6, fully
+  confirmed** (bare sde x2 c3gg, sdehalfgrav-remcost x2 gg2, bare sde
+  x2 c4gg/c1bgg) — CURRENT_TRUTHS.md updated; do not relaunch this
+  lever anywhere in the family. Only the newer `reward.walk_duty_gate`
+  mechanism remains open (5 canaries mid-gate-eval, see below).
+  (4) my own assigned run `headset-halfgrav-irr-c3` finished training
+  (reward quarters 32.6/74.2/73.0/126.5, healthy) but its own gate
+  eval is still genuinely computing remotely on train-1 (~26min in,
+  matches sibling timing) — registered `evalpending`, do not
+  re-launch, read `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  halfgrav_irr_c3_gate/report.json` next cycle. Also found+registered
+  two more orphaned-pod evals (the exact 09-05 gotcha: pod moves on to
+  the NEXT eval before the local supervisor re-polls) that weren't in
+  `pending_evals.json`: `headset-halfgrav-irr-acq1` (train-2) and
+  `headset-base-irr-acq1` (train-3) — both 40M trainings FINISHED with
+  strongly rising reward (quarters up to 918/1297), their own 24-ep
+  gate panels now genuinely computing; these are the two irr-timing
+  rung's real acquisition reads for both gravity cells, registered
+  `evalpending` for both. Capacity check: only train-0/train-4/
+  train-11 genuinely idle (`ps aux` on every pod, not just ledger) —
+  8 of 11 reachable pods mid CPU-only gate-eval (this run's own c3,
+  both irr-acq1, and all 5 walk_duty_gate canaries). Every open
+  walkcurr question (does duty_gate escape LEGPARK-SKATE; do both
+  irr-acq1 cells pass their real gate; does c3 confirm the halfgrav
+  irr-canary set at 3/3) already has evidence in flight — left the 3
+  free pods idle rather than invent a premature heading-set-widening
+  or a 2nd irr-acquisition seed before any of those land (same
+  precedent as the 14:3x/14:4x/14:6x/15:3x entries below). No launch,
+  no code this cycle.
+
+- 09-05 ~15:3x this cycle (assigned `headset-halfgrav-irr-c2`): its
+  harness gate eval was still genuinely computing remotely on
+  train-4 at triage time (~27min in when checked, `video-every=1`
+  panels commonly run 30-45min per sibling evidence this cycle —
+  NOT stalled: confirmed via `ps`/`nvidia-smi`, process alive,
+  0% GPU util as expected for a CPU-only eval_checkpoint pass).
+  Registered `ops.sh evalpending add hexapod-mjx-train-4
+  .../cw_walkscratch_easy0905_headset_halfgrav_irr_c2_gate/
+  report.json` rather than blocking; next cycle (or the watcher's
+  auto-spawn on file-appear) reads the verdict, do not re-launch.
+  Refill check: cross-checked `launch_run.py status` against live
+  `ps`/`nvidia-smi` on every reachable pod (status's train_ppo-only
+  grep undercounts busy — 9 of 11 reachable pods are mid CPU-only
+  gate-eval for this wave's other just-finished canaries:
+  `base_irr_c2`(train-0), `halfgrav_irr_c3`(train-1),
+  `sde_s1_dg1`(train-2), `sdehalfgrav_remcost_s1_dg1`(train-8),
+  `sdehalfgrav_remcost_s0_dg1`(train-9), `sde_s2_dg1`(train-10),
+  `headset_base_s0c1_dgate_c1`(train-5), plus this run(train-4) —
+  GPU idle on all of them but CPU near-saturated (~700-800% of an
+  eval_checkpoint pass each), leaving effectively ONE pod
+  (`train-11`) with genuine CPU+GPU headroom for a new launch.
+  Checked every open walkcurr thread against that one slot: irr-timing
+  rung (both gravity cells, n=2/3 canaries + both acq1 continuations)
+  already funded/running; the `walk_duty_gate` repair mechanism's
+  full pre-registered 4-arm batch (line ~5 below) already launched
+  and is the exact set of 4 gate evals listed above; the direct
+  `s0c1-acq1`-lineage repair check (`s0c1-dgate-c1`) already running
+  too — every pre-registered "Next" in this file is already in
+  flight with no verdict landed yet to justify a NEW (non-duplicative)
+  arm off a single free pod. Left `train-11` idle rather than invent
+  filler, matching this file's own repeated precedent (14:3x/14:4x/
+  14:6x entries) for the same situation. No launch, no verdict, no
+  code this cycle — pure hold until the incoming verdict wave lands.
+
+- 09-05 ~15:2x this cycle, FILLS the pre-registered "next" slot from
+  the ~15:1x entry below one step early: with the sde gait-gate n=4
+  cohort already CLOSED (CURRENT_TRUTHS, 4/4 FAIL, confirmed this
+  cycle) and 8 GPU pods genuinely idle (`launch_run.py status`/
+  `capacity.py` cross-checked), launched the FULL 4-arm
+  `reward.walk_duty_gate=1.0` canary batch on every closed-lever
+  recipe in one go rather than the single base-family arm alone:
+  `sde-s1-dg1` (from `sde-s1-c2`), `sde-s2-dg1` (from `sde-s2-c2`),
+  `sdehalfgrav-remcost-s0-dg1` (from `sdehalfgrav-remcost-s0`),
+  `sdehalfgrav-remcost-s1-dg1` (from `sdehalfgrav-remcost-s1`) — all
+  2M, `k_step_event`/`walk_gait_gate` left at 0 to isolate the new
+  lever alone, all VERIFIED RUNNING (train-7/10/9/8) after one
+  REFUSED/requeue race with the sibling `base-s0c1-dgate-c1` launch
+  (mechanical, resolved by `drain`). **Correction to the ~15:1x
+  entry's own caution:** plain `respec --init-from` did NOT hit the
+  `--use-sde`+`--init-from` SystemExit gotcha on any of the 4 arms —
+  all four parents' own commands already carry `--activation-fn ''`
+  (empty string, falsy) from the earlier sde-c1 crash-forensics fix,
+  so the guard never fires; `sde-s1-dg1`'s pod log confirms a clean
+  2.1M-step run (checkpoint saved, `ep_rew_mean` 20.1, no traceback).
+  The MANUAL `backlog add` workaround is only needed for a parent
+  whose own command still passes a truthy `--activation-fn` (i.e. an
+  original from-scratch sde launch, not one of these c2-generation
+  continuations) — re-check per-parent before assuming the workaround
+  is required. Gate (all 4, pre-registered): watch
+  `env/walk_duty_gate_factor` in each run's `wandb_history.csv` for a
+  real climb toward 1.0 (healthy) vs staying pinned near ceiling
+  despite low duty (the exact `walk_gait_gate` failure signature) —
+  next cycle to touch any of these four reads that column first, then
+  the harness gate's own `duty_cycle`/`gait_valid` once the prestage
+  evals land. PASS on a given arm funds a 40M acquisition follow-up;
+  FAIL (factor saturates or reward/speed collapses) closes
+  `walk_duty_gate` on that recipe. This cycle's own assigned run
+  (`headset-base-irr-c2`) triage is separate, below/pending its own
+  gate sync — not blocking this refill.
+
 - 09-05 ~15:1x MECHANISM BUILT + REPAIR CANARY LAUNCHED:
   `reward.walk_duty_gate` — per-leg contact-DUTY income gate
   (transport income x [(1-g) + g * MIN over support legs of

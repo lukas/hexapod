@@ -98,3 +98,16 @@ def test_legacy_nested_supervision_shape_remains_accepted():
     report = qualify(proposed, PROTO_DIR)
 
     assert report["checks"]["parameter_schema"]["passed"] is True
+
+
+def test_robot_lab_top_level_tag_guard_shape_is_accepted():
+    proposed = experiment()
+    camera = proposed["parameters"].pop("camera")
+    proposed["parameters"].update(camera)
+
+    report = qualify(proposed, PROTO_DIR)
+
+    assert report["checks"]["parameter_schema"]["passed"] is True
+    assert report["qualified"] is False
+    assert report["checks"]["camera_guard_binding"]["passed"] is False
+    assert report["checks"]["telemetry_guard_binding"]["passed"] is False

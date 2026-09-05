@@ -134,7 +134,7 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
     # Robot Lab plans store them directly in parameters.  Accept both shapes so
     # qualification evaluates the saved plan rather than a schema translation.
     supervision = parameters.get("guarded_supervision") or parameters
-    camera = parameters.get("camera") or {}
+    camera = parameters.get("camera") or parameters
     schema_ok = (
         not mismatches
         and supervision.get("camera_required") is True

@@ -2,6 +2,78 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:5x DIG-IN closure: `headset-base-s0c1-acq1` **ACQ FAIL
+  (MISALIGNED)** — the 3rd base-family 40M heading seed walks fast
+  with 0/24 falls but chronically parks leg 4 (duty 0.03-0.07,
+  29-71 airborne paddle-swings/20s, never load-bearing) in ALL 12
+  det episodes; gait_valid 9/24 vs the siblings' 18/24. The caveat
+  HARDENED with budget: parent canary had walk/det 6/6 valid with
+  leg-4 duty 0.10-0.15 (marginal), and wandb_history shows
+  ep_rew_mean 342->724 while `env/walk_speed` sat flat at 0.161 for
+  the whole 40M — reward paid while the marginal leg slid under the
+  0.10 sacrifice bar. THREE campaign-level consequences:
+  (1) **base heading family CLOSES at 2/3 ACQ PASS** — champions are
+  `headset-base-acq1` / `headset-base-s1c1-acq1`, never `s0c1-acq1`;
+  campaign-best overall remains `headset-halfgrav-s1acq` (24/24).
+  (2) **LEGPARK is NOT gSDE-specific**: 1/3 plain-Gaussian base
+  seeds hardens into the paddle variant at 40M. Any future diet
+  repair (hard per-leg min-duty price, non-gameable — the
+  completion-window `walk_gait_gate` is closed 2/2 as gameable)
+  benefits every cell, not just sde revival. Marginal per-leg duty
+  (<0.15 in walk/det) at canary time is now an early-warning flag
+  worth recording in canary verdicts.
+  (3) **Explicit gait_valid-majority bar adopted for all acquisition
+  gates** (assume-and-go, recorded in OPERATOR_QUESTIONS.md
+  q_20260905T1455Z): ACQ PASS requires gait_valid >=4/6 in the
+  primary un-perturbed walk/det mode AND >=13/24 overall; a
+  persistently sacrificed leg in walk/det disqualifies regardless of
+  speed/falls (formalizes the guardrails `gait_validity_gate` that
+  every prior PASS already happened to satisfy — no prior verdict
+  flips). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  base_s0c1_acq1_gate/report.json`, W&B `6n31rtzj`.
+
+- 09-05 ~14:5x this cycle, concrete NEXT for the closed `walk_gait_gate`
+  lever (see the 14:4x entry below and CURRENT_TRUTHS.md — 4/4 FAIL,
+  bare sde x2 + sdehalfgrav+remcost x2): scoped, NOT built this cycle
+  (would need careful `mjx_vec_env.py` snapshot integration, out of
+  budget for a triage cycle) — a duty-FRACTION gate, not a recency-
+  since-last-swing gate. `walk_task.py`'s per-tick contact loop
+  (~line 4900) already computes a real touch-sensor `contacts[f]`
+  bool every commanded tick (gated behind existing `k_swing/k_step/
+  g_gait`-type keys being nonzero — add the new key to that gate
+  list). Add a per-leg EMA `self._duty_ema[f] += (dt/tau) * (float(
+  contacts[f]) - self._duty_ema[f])`, tau ~4-6s (long enough to
+  average a full stride, short enough to react within an episode),
+  init to 1.0 (grace, matches `walk_gait_gate`'s start-of-episode
+  convention). New key `reward.walk_duty_gate` (0..1, default 0 =
+  off) multiplies transport income by MIN over support legs of a
+  smooth ramp `clip((duty_ema - floor_lo)/(floor_hi - floor_lo), 0,
+  1)` — floor_lo/floor_hi ~0.08/0.15 (straddling the harness's own
+  `gait_valid` duty>0.10 bar). Why this escapes the closed lever's
+  rare-token-dodge: `walk_gait_gate` scores RECENCY of the last
+  qualifying touchdown (a single brief contact every ~2-4s re-arms it
+  to 1.0 for a whole window), but `duty_ema` integrates TIME FRACTION
+  — the measured LEGPARK-SKATE fingerprint (duty 0.0-0.03 all four
+  gg-repair FAILs) stays far below even a lenient 0.08 floor no
+  matter how the rare touches are timed, while genuine six-leg gaits
+  (duty 0.13-0.48 every PASS this campaign) clear it with margin.
+  MUST add `_duty_ema` to `SimHexapodJointWalkEnv.MJX_SNAPSHOT_EXTRA`
+  (the GPU vec-env pooled-reset attribute list, currently ~line 408)
+  and reset it at all 4 existing `_gait_last_step = [0] * 6` sites —
+  missing either is a silent GPU-only correctness bug, not a crash.
+  SPECIFICATION-phase prerequisite before ANY launch: a
+  `test_task_semantics.py` bank twin reproducing the rare-token-dodge
+  itself (a scripted leg held aloft except one qualifying touchdown
+  every ~3s, modeled on the existing `flagleg`/`midpin` twins ~line
+  5555-5680) proving (a) the OLD `walk_gait_gate` fails to collapse
+  its income (documents the exact loophole formally) and (b) the NEW
+  `walk_duty_gate` does collapse it while leaving the honest `gait`
+  twin's income within a few percent — same structure as the
+  `WALKCURR_PF_IDLE_TERM` bank (~line 8748). Not a pre-registered
+  backlog item (no bank exists yet) — the next cycle with room to do
+  this carefully should build bank-first, verify green, snapshot,
+  THEN queue a 2M canary.
+
 - 09-05 ~14:4x this cycle: `sdehalfgrav-remcost-{s0,s1}-gg2` both
   **ACQ FAIL (misaligned)** — the `walk_gait_gate`+`k_step_event`
   structural repair does NOT generalize off bare sde onto the

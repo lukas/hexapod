@@ -4851,3 +4851,23 @@ describes the twin as ~3.5 kg and should be corrected either way.
 - proposed answer being executed: fix-on-demand (whichever track next
   needs k_swing_bonus / fullcircle / QW_TUCK_RAD mechanisms repairs
   its tests first, same as this cycle did for the gait gate).
+
+## q_20260905T1455Z — OPEN (assume-and-go, executed)
+- cycle: walkcurr-s0c1acq1-legpark-digin-09-05
+- operator order: none (gate-definition judgment call)
+- question: The walkcurr easy0905 acquisition gate text ("six-leg
+  lift/place on video") had no explicit numeric bar, so a seed with
+  0/24 falls + fast forward motion but a chronically parked leg in
+  every deterministic episode (headset-base-s0c1-acq1: leg-4 duty
+  0.03-0.07, gait_valid 9/24) was formally ambiguous against sibling
+  PASSes at 18/24. Should acquisition PASS require an explicit
+  gait_valid majority?
+- answer adopted: YES — ACQ PASS requires gait_valid >=4/6 in the
+  primary un-perturbed walk/det mode AND >=13/24 overall; a
+  persistently sacrificed leg in walk/det disqualifies regardless of
+  speed/falls. This only formalizes guardrails' binding
+  gait_validity_gate ("a walking checkpoint is INVALID if any leg is
+  persistently sacrificed, regardless of velocity error"); every
+  prior PASS this campaign already satisfies it (18-24/24, det modes
+  clean or startjitter-only caveats), so no retroactive verdict
+  flips. s0c1-acq1 verdicted ACQ FAIL under this bar.

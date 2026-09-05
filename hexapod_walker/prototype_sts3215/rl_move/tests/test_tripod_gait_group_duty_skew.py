@@ -166,3 +166,66 @@ def test_skew_sign_is_symmetric_for_opposite_turn_direction():
 
     assert heavy_pos is not None and heavy_neg is not None
     assert heavy_pos != heavy_neg
+
+
+def test_leg_swing_state_matches_foot_target_dz_at_zero_skew():
+    """``leg_swing_state`` (standwalk item 2(i) probe hook, 09-05) must
+    agree with the pre-existing swing signal (dz>0 during swing, dz==0
+    during stance) at skew=0 across a dense phase sweep -- the two
+    must never disagree since they read the SAME legacy phi<pi
+    boundary."""
+    g = _make(0.0)
+    g.set_velocity(vx=0.08, omega=0.25)
+    g._elapsed = 10.0  # past ramp so dz is unambiguous
+    for t_ms in range(0, 1600, 7):
+        t = t_ms / 1000.0
+        deg_before = g.desired_deg(t)  # advances phase + records dz via IK
+        swing = g.leg_swing_state()
+        for i in range(6):
+            dx, dy, dz = g._foot_target_in_body(i, g._vx_smooth, g._vy_smooth,
+                                                 g._om_smooth)
+            if dz > 1e-9:
+                assert swing[i], f"leg {i} t={t} dz={dz} but swing_state=False"
+        del deg_before
+
+
+def test_leg_swing_state_exactly_three_legs_swinging_at_any_skew():
+    """Same 3-up/3-down invariant as
+    ``test_exactly_one_group_swinging_at_every_instant``, but exercised
+    through the public ``leg_swing_state`` API a probe would actually
+    call (rather than re-deriving theta/width inline)."""
+    for skew in (0.0, 0.15, 0.3, 0.44):
+        for wz_cmd, vx_cmd in ((0.25, 0.08), (-0.25, 0.08),
+                                (0.25, -0.08), (-0.25, -0.08)):
+            g = _make(skew)
+            g.set_velocity(vx=vx_cmd, omega=wz_cmd)
+            g._elapsed = 10.0
+            for t_ms in range(0, 1500, 11):
+                t = t_ms / 1000.0
+                g.desired_deg(t)
+                swing = g.leg_swing_state()
+                assert sum(swing) == 3, (skew, wz_cmd, vx_cmd, t, swing)
+                # tripod partition: legs 0,2,4 vs 1,3,5 -- each group
+                # must be internally uniform (a group swings/stances
+                # together, never split within itself).
+                assert swing[0] == swing[2] == swing[4]
+                assert swing[1] == swing[3] == swing[5]
+                assert swing[0] != swing[1]
+
+
+def test_leg_swing_state_is_read_only():
+    """Calling ``leg_swing_state`` repeatedly must not perturb the
+    gait's own state (phase/smoothed velocities) -- it is queried by
+    a probe, potentially multiple times per tick, and must never
+    change what the NEXT ``desired_deg`` call returns."""
+    g = _make(0.3)
+    g.set_velocity(vx=0.08, omega=0.25)
+    g.desired_deg(0.4)
+    ref = g.desired_deg(0.41)
+    g2 = _make(0.3)
+    g2.set_velocity(vx=0.08, omega=0.25)
+    g2.desired_deg(0.4)
+    for _ in range(5):
+        g2.leg_swing_state()
+    dosed = g2.desired_deg(0.41)
+    assert ref == dosed

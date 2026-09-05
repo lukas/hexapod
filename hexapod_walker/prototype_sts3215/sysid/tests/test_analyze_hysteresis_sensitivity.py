@@ -2,7 +2,10 @@ from pathlib import Path
 
 import numpy as np
 
-from sysid.analyze_hysteresis_sensitivity import analyze_sensitivity
+from sysid.analyze_hysteresis_sensitivity import (
+    analyze_ordering_comparison,
+    analyze_sensitivity,
+)
 from sysid.tests.test_analyze_hysteresis import _synthetic_trace
 
 
@@ -42,3 +45,43 @@ def test_sensitivity_enumerates_pairings_bootstraps_and_bounds_quantization(
         ][0]
         > 1.0
     )
+
+
+def test_ordering_comparison_reports_required_intervals_and_overrun_sensitivity(
+    tmp_path: Path,
+) -> None:
+    l2 = _synthetic_trace(
+        tmp_path,
+        leg=2,
+        profile="air",
+        amplitudes=[15.0],
+        loops=[[(0.4, 0.2), (0.5, 0.2)]],
+        dwell_samples=10,
+    )
+    l5 = _synthetic_trace(
+        tmp_path,
+        leg=5,
+        profile="air",
+        amplitudes=[15.0],
+        loops=[[(0.8, 0.2), (1.0, 0.2)]],
+        dwell_samples=10,
+    )
+    first = analyze_ordering_comparison(
+        {"forward": (l2, l5), "reverse": (l2, l5)},
+        bootstrap_samples=1000,
+        random_seed=7,
+    )
+    second = analyze_ordering_comparison(
+        {"forward": (l2, l5), "reverse": (l2, l5)},
+        bootstrap_samples=1000,
+        random_seed=7,
+    )
+
+    assert first == second
+    assert first["window_count"] == 4
+    assert len(first["per_window_influence"]) == 4
+    assert first["hip_ratio_confidence_interval"]["estimate"] == 2.0
+    assert first["hip_difference_confidence_interval_deg"]["estimate"] == 0.45
+    assert first["knee_ratio_confidence_interval"]["estimate"] == 1.0
+    assert first["exclude_windows_adjacent_to_overruns"]["excluded_windows"] == []
+    assert first["conclusion"]["hip_ratio_ci_materially_above_one"] is True

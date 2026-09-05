@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~19:1x this cycle (assigned `headset-{base,halfgrav}-medhead2-c1`;
+  both still genuinely computing remotely at cycle start (video-every=1,
+  ~26min in of an expected 1.5-2h single-mode pass) -- backgrounded
+  `pollreap` for both, not yet reaped by the time of this entry, so no
+  verdict on them yet this cycle). With 11/11 reachable GPU pods FREE
+  and backlog empty, used the wait to pick up 4 OTHER runs sitting
+  finished-but-uncollected with nobody actively working them (no live
+  trainers anywhere per direct `ps`/`launch_run.py status`, not ledger):
+  (1) `sde-s1-c2-dgatefix`'s harness gate had already been silently
+  reaped by an earlier cycle's `pollreap` (report.json existed, unread)
+  -- verdicted **CANARY FAIL - MECHANISM**, completing the n=4
+  entrenched-checkpoint `walk_duty_gate` batch (see full verdict text
+  via `ops.sh review`): legs [1,4] sacrificed 0/6 gait_valid despite
+  `env/walk_duty_gate_factor` genuinely declining 1.0->0.54 + reward
+  rising -- the same shape sibling `sde-s2-c2-dgatefix` showed before
+  ITS OWN 40M continuation (`sde-s2-c2-dgatefix-cont40m`, already FAIL)
+  re-saturated with the sacrifice unchanged, so no duplicate
+  continuation was funded here. **This closes the entrenched-checkpoint
+  walk_duty_gate batch at n=4/4 CANARY FAIL** (bare-sde x2 seeds,
+  remcost x2 seeds) -- retrofitting duty_gate onto an already-converged
+  LEGPARK exploiter never repairs it regardless of whether the
+  training-time factor saturates or genuinely declines, or whether
+  reward rises or falls. Combined with the from-scratch `dgfresh`
+  freeze-closure and the strong-floor `dgate2` inert-dose/
+  engaged-no-repair closure on the non-gSDE family, **"price the
+  parked leg with walk_duty_gate" is now closed end-to-end** across
+  every checkpoint-provenance case (fresh, entrenched) on both the
+  gSDE and non-gSDE families. No further duty_gate-class arm should be
+  funded until a genuinely new mechanism (harder floor + explicit
+  per-leg exploration anneal, or a structural init change) is designed
+  and bank-proven. (2)-(4) `headset-base-medhead-acq1`,
+  `headset-halfgrav-medhead-acq1`, `headset-base-s0c1-dgfresh` were all
+  found in the SAME orphaned-supervisor state as this cycle's own
+  assigned pair (W&B `state=finished`, harness `eval_checkpoint` still
+  genuinely running on their pods 20min+ in) -- registered all 3 via
+  `ops.sh evalpending add` and backgrounded a `pollreap` each so a
+  future reader doesn't have to rediscover this; NOT verdicted this
+  cycle (no report yet). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-sde-s1-c2-dgatefix`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s1_c2_dgatefix_gate/report.json`,
+  W&B `8x8i8jt6`.
+
 - 09-05 ~18:3x this cycle (assigned `headset-base-irr-dgate2-c1`; its
   eval was found still genuinely computing remotely, video-every=1 on
   all 4 modes -- backgrounded `pollreap`, reaped the real report):

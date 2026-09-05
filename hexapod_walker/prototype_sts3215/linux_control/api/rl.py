@@ -500,16 +500,19 @@ class RlApi:
     # atomically copies it over the live rl_policy_weights.json /
     # rl_walk_weights.json. No restart needed — run_policy_move loads
     # weights fresh at every episode start. Slot is inferred from the
-    # obs dim (68 = stance stand/lower, 72/74/93 = walk).
+    # obs dim (68 = stance stand/lower; deployed walk widths share one slot).
     POLICIES_DIR = lc_dir() / "policies"
     # Uploaded policies (rl_move/np_policy.py, POST /api/rl/policies)
     # live OUTSIDE the deploy tree so code pushes never wipe them —
     # same convention as ~/.hexapod_dances. On a name clash the upload
     # wins (robot-local state beats the repo).
     UPLOAD_POLICIES_DIR = Path.home() / ".hexapod_policies"
-    # obs 74 = walk + phase clock; obs 93 = AMP walk with phase,
-    # yaw-rate command, and all-healthy fault-health tail. Same walk slot.
-    _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk", 93: "walk"}
+    # 74 adds phase, 75 phase+yaw, 81 a unified mode-gated dual GRU, and
+    # 93 yaw plus fault health. All use the same walk artifact slot.
+    _SLOT_OBS = {
+        68: "stance", 72: "walk", 74: "walk", 75: "walk",
+        81: "walk", 93: "walk",
+    }
     def _find_policy_file(self, file: str) -> Path | None:
         """Resolve a picker file name to a path (uploads shadow repo)."""
         name = Path(str(file)).name          # forbid path traversal
@@ -564,6 +567,7 @@ class RlApi:
                     "name": meta.get("name") or f.stem,
                     "slot": slot,
                     "obs_dim": meta.get("obs_dim"),
+                    "architecture": meta.get("architecture", "mlp"),
                     "source": (meta.get("source") or "").rsplit("/", 1)[-1],
                     "notes": meta.get("notes", ""),
                     "uploaded": uploaded,
@@ -601,7 +605,7 @@ class RlApi:
         if slot is None:
             return {"ok": False,
                     "error": (f"obs_dim {meta.get('obs_dim')} fits no slot "
-                              f"(68 = stance, 72/74/93 = walk)")}
+                              "(68 = stance; 72/74/75/81/93 = walk)")}
         dst = self._policy_slot_targets()[slot]
         tmp = dst.with_name(dst.name + ".tmp")
         tmp.write_text(payload)
@@ -630,7 +634,8 @@ class RlApi:
     # drive, because hardware stop tests showed it can sink/fall after a
     # walking phase.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
-    _ROLE_OBS = {"walk": (72, 74, 93), "hold": (68, 72, 74, 93),
+    _ROLE_OBS = {"walk": (72, 74, 75, 81, 93),
+                 "hold": (68, 72, 74, 75, 81, 93),
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:

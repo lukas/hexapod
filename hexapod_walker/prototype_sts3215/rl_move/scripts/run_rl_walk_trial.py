@@ -30,6 +30,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from rl_move.deployed_policy import WALK_OBS_DIMS, WALK_PHASE_OBS_DIMS
+from rl_move.np_policy import ARCH_DUAL_GRU, MODE_ONEHOT_ORDER
 from rl_move.scripts.run_scripted_gait_suite import RawRecorder, _request
 
 
@@ -420,7 +422,8 @@ class Trial:
                 f"joint_contract={walk.get('joint_contract')!r}, expected "
                 f"{JOINT_CONTRACT!r}"
             )
-        if walk.get("obs_dim") not in (72, 74, 75, 93):
+        obs_dim = walk.get("obs_dim")
+        if obs_dim not in WALK_OBS_DIMS:
             problems.append(f"unsupported walk obs_dim={walk.get('obs_dim')!r}")
         try:
             training_hz = float(walk["training_hz"])
@@ -440,8 +443,26 @@ class Trial:
                     f"requested {self.args.speed_m_s} m/s is outside trained "
                     f"band [{speed_min}, {speed_max}]"
                 )
-        if walk.get("obs_dim") in (74, 75, 93) and not walk.get("phase_hz"):
-            problems.append("phase-clock policy has no phase_hz")
+        if obs_dim in WALK_PHASE_OBS_DIMS:
+            try:
+                phase_hz = float(walk["phase_hz"])
+            except (KeyError, TypeError, ValueError):
+                problems.append("phase-clock policy has no valid phase_hz")
+            else:
+                if not math.isfinite(phase_hz) or phase_hz <= 0.0:
+                    problems.append("phase-clock policy phase_hz is not positive")
+        if obs_dim in (75, 81):
+            if walk.get("walk_yaw_cmd") is not True:
+                problems.append(f"obs-{obs_dim} policy has no yaw-command stamp")
+            if not isinstance(walk.get("walk_phase_run_on_yaw"), bool):
+                problems.append(
+                    f"obs-{obs_dim} policy has no explicit yaw-clock stamp")
+        if obs_dim == 81:
+            if walk.get("architecture") != ARCH_DUAL_GRU:
+                problems.append("obs-81 policy is not a dual_gru export")
+            if list(walk.get("mode_onehot_order") or []) != list(
+                    MODE_ONEHOT_ORDER):
+                problems.append("obs-81 policy has the wrong mode-onehot order")
         self.event("walk_policy_contract", {"walk": walk, "problems": problems})
         if problems:
             raise RuntimeError("walk policy contract refused: " + "; ".join(problems))

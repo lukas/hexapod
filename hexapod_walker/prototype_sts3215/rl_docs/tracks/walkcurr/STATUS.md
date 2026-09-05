@@ -12,6 +12,47 @@ physics/no DR/no amps gate — all still bind). Keep every ready GPU
 slot supplied with pre-registered easy-campaign work + a stocked
 backlog; idle slots next to this unmet priority are the failure state.
 
+- 09-05 ~11:5x DIG-IN TRIGGER FOUND (not verdicted, escalating):
+  `sde-s1-c2` + `sde-s2-c2` (both 40M own-checkpoint continuations)
+  gate evals landed with a NEW class-level fingerprint, identical on
+  both independent seeds: 0/24 falls (real progress — the -c1-scale
+  parents fell every det trial) BUT `gait_valid`=False in ALL 24
+  episodes on BOTH, every episode with 1-3 permanently
+  `sacrificed_legs` (harness definition, `eval_checkpoint.py`:
+  duty<0.10 parked-airborne or duty>0.95-with-zero-swings dragged-
+  anchor) — s1-c2 sacrifices leg [4] (sto scenarios) or [1,4] (det),
+  s2-c2 sacrifices [1] or [3,4] or [1,3,4], `slip_per_m` 3.46-6.49
+  (both seeds), well above the 2.9 teacher band and above the clean
+  `base`/`halfgrav` families' own 2.6-3.4. Cross-checked
+  `wandb_history.csv` for both: `rollout/ep_len_mean` climbs to
+  ~1950-2000 (near-full-episode survival) and `rollout/ep_rew_mean`
+  climbs monotonically to +2003/+2023 with NO plateau (the
+  08-21-ruling "still learning" shape) — but `env/walk_speed` and
+  `env/v_along_cmd_m_s` are MONOTONICALLY DECLINING through the same
+  back half on BOTH seeds (walk_speed 0.22-0.24 -> 0.13-0.15,
+  v_along_cmd 0.16 -> 0.11-0.13) even as reward keeps rising. Reading
+  this together: the policy is trading locomotion speed/six-leg gait
+  quality for survival duration (permanently favoring a stable subset
+  of legs, i.e. a degraded tripod-ish stance, over a full six-leg
+  gait) — reward keeps climbing because per-tick survival income
+  outweighs the freeprog speed term, not because the walk is
+  improving. This is exactly the reward<->eval fork the 08-21 ruling
+  asks a cycle to root-cause before a verdict: is more budget likely
+  to recover six-leg use (genuine "still learning"), or is this a
+  stable local optimum the reward needs to price against (a
+  `k_walk_freeprog`-vs-survival-income rebalance, or a direct
+  sacrificed-leg/gait_valid price, analogous to the `remcost`
+  term_cost fix already validated for the sdehalfgrav cell)? Video
+  frame strips (`walk_det_0.png` both runs) are consistent with but
+  not conclusive proof of a parked leg at this camera angle/
+  resolution — the quantitative harness fields (`gait_valid`,
+  `sacrificed_legs`, per-leg `duty_cycle`/`swing_count`) are the real
+  evidence. NOT verdicted (left for the dig-in escalation this
+  triggers); do not close or continue-fund the `sde` cell off a
+  single-seed read until this is root-caused. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s{1,2}_c2_gate/
+  report.json`, `logs/experiments/cw-walkscratch-easy0905-sde-s{1,2}-
+  c2/wandb_history.csv`.
 - 09-05 ~11:0x: triaged 3 finished own-checkpoint continuations +
   1 found-unverdicted run. `sde-s0-c1` ACQ CONTINUE (already verdicted
   by a concurrent cycle before I reached it — same still-climbing

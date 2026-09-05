@@ -84,6 +84,13 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   non-gSDE sibling (matching seed) with `--arg='--activation-fn='`
   (blank) + `--arg='--init-from=<ckpt>'` only (09-05, easy0905
   sde-s1-c1/sde-s2-c1 both hit this; sde-s1-c2/sde-s2-c2 fixed).
+  **The "non-gSDE sibling" MUST itself never carry a bare `--use-sde`
+  flag** — respec'ing from another gSDE arm (e.g. `sde-s1` to continue
+  `sde-s0`) and blanking only `--activation-fn` leaves `--use-sde`
+  in the cloned vector and re-triggers the SAME SystemExit (recurred
+  09-05: `sde-s0-c2` respec'd from `sde-s1`, died in <1s). Always
+  respec from the matching-seed `base-*` arm, never from any `sde-*`
+  or `sdehalfgrav-*` arm, when building a gSDE-checkpoint continuation.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

@@ -1271,3 +1271,9 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-05 10:51 walkcurr easy0905 sde-s0-c1 ACQ CONTINUE (recovering ep_len + rising reward, matches sde-s1/s2/s3 fingerprint) 
 - 09-05 10:52 walkcurr easy0905 sde-s3 ACQ CONTINUE (4th sde seed, same dip-then-recover fingerprint) 
 - 09-05 10:52 walkcurr easy0905 base-s0-c1 ACQ PASS (4th base-family confirm) 
+- 09-05 10:54 walkcurr easy0905 sde-s1-c1 FAILED (0-step SystemExit launch-mechanics bug, already fixed+superseded by sde-s1-c2 which is training) 
+- 09-05 10:54 walkcurr easy0905 sde-s2-c1 FAILED (0-step SystemExit launch-mechanics bug, already fixed+superseded by sde-s2-c2 which is training) 
+- 09-05 10:55 walkcurr easy0905 halfgrav-s2 40M ACQ PASS: first clean 40M pass in the 2x2 grid, 0/24 falls all panels, gait_valid 6/6, fwd v 0.19-0.21 m/s med (bar 0.03), slip 1.7-2.3 -- half-gravity discovery signal 
+- 09-05 11:2x walkcurr DIG-IN resolved (sdehalfgrav sprint-then-fall, 2/4 seeds): survival-duration pricing fix designed + bank-proven — new sprint_fall twin reproduces the exploit at flat 24 (+64.7 vs park +0.2), term_cost_per_remaining_s=100 + term_cost_max=450 prices it to -385.3, survivors bit-exact, pilot suite 17/17 (snapshot 7beb31ff); reward.alive rejected (re-prices the park basin positive = freeze-and-collect class); fix arms sdehalfgrav-remcost-s0/s1 (fresh 40M, seeds 10/11) VERIFIED RUNNING on train-2/train-7 — 80M cycle cap consumed
+- 09-05 10:56 walkcurr easy0905 sde-s0-c2 FAILED (recurrence of the SystemExit bug via wrong respec source -- a gSDE sibling still carrying bare --use-sde; corrected as sde-s0-c3) 
+- 09-05 10:56 CORRECTION: halfgrav-s2 is the 4th 40M ACQ PASS (not 1st) -- base-s2/s4 + halfgrav-s3 landed first in a concurrent cycle; halfgrav now 2/2 clean seeds matching base's 2/2 

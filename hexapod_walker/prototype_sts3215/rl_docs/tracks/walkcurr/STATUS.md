@@ -2,6 +2,79 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:1x DIG-IN TRIGGER (this cycle) — `headset-base-s0c1-acq1`
+  finished (40.37M steps, reward quarters 342.6/623.2/696.5/720.2,
+  plateauing not still-climbing) but its gate eval never made it to
+  the controller: the prestage `pullckpt` synced fine, but the actual
+  `eval_checkpoint` pass was still computing on train-3 when a
+  DIFFERENT concurrent cycle's drain reused that SAME pod for the
+  NEXT training job (`headset-base-irr-c1`) at 14:02 — harmless to
+  both processes (pod has spare CPU, `ps aux` confirmed the harness
+  kept computing fine under the new trainer at 860% CPU), but the
+  local supervisor that was meant to copy results back got orphaned,
+  so `logs/ckpt_eval/..._gate/` sat missing with no artifact dir and
+  no active local process. **New tooling gotcha, banked in
+  CURRENT_TRUTHS.md**: a pod's outstanding gate podeval can go
+  silently orphaned when its own pod is drained into a new training
+  launch mid-eval; `ops.sh podeval <run>` correctly detects the
+  remote pass is `already RUNNING` and refuses to duplicate it, but
+  nothing then re-polls for completion — use `ops.sh pollreap <run>`
+  (backgrounded) to reattach. Recovered it this cycle (pollreap synced
+  all 24 episodes + videos, ~30 min after finding it stuck). Per-leg
+  read: 0/24 falls, speed 0.137-0.191 m/s every episode (clears the
+  bar), BUT leg 4 duty 0.03-0.09 (swings 29-71/20s vs 190-260 for the
+  other five) in **ALL 6 plain `walk/det` AND all 6
+  `walk_startjitter/det` episodes** (`gait_valid` 0/6 + 0/6), plus 3/6
+  `walk_startjitter/sto`; only plain `walk/sto` is clean (6/6).
+  Net: 9/24 gait_valid, 15/24 flagged. **This is a materially worse
+  read than the family's own established precedent**:
+  `headset-base-acq1` (same recipe class, PASSED) had the identical
+  single-leg-favoritism fingerprint confined ENTIRELY to
+  `walk_startjitter/det` (0/6 there, but a CLEAN 6/6 on plain
+  `walk/det` — `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_acq1_gate/report.json`).
+  Here the same pathology has generalized from the perturbed-start
+  edge case into the PRIMARY un-perturbed walk scenario — exactly the
+  "watch whether it clears with budget or hardens" question the
+  09-05 ~13:0x canary verdict flagged for this specific seed, now
+  answered: it HARDENED, not cleared. Not falls, not full
+  LEGPARK-SKATE (leg 4 still swings dozens of times/episode, duty
+  isn't pinned at 0), but a real one-leg-underutilized pattern that
+  fails this gate's own "six-leg lift/place on video" clause on the
+  primary mode. Video: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_acq1_gate/walk_det_0.mp4`
+  (+ `_sheet.png`). Leaving UNVERDICTED per model-tiering (metrics
+  anomalous vs a named same-family precedent beyond eval noise) —
+  **DIG-IN: cw-walkscratch-easy0905-headset-base-s0c1-acq1** — decides
+  whether this seed should be excluded from base-family champion
+  selection and whether the campaign's acquisition gate needs an
+  explicit gait_valid-majority bar, not just net-forward-speed +
+  no-falls.
+
+- 09-05 ~14:2x this cycle: `headset-base-s1c1-acq1` **ACQ PASS** —
+  a THIRD base-family heading-set seed, and unlike the concurrent
+  cycle's `s0c1-acq1` finding just above, this one reproduces
+  `headset-base-acq1`'s CLEAN fingerprint exactly: 0/24 falls, speed
+  0.14-0.172 m/s every episode, `gait_valid` 18/24 with the 6 false
+  episodes ALL confined to `walk_startjitter/det` (leg1/4 duty drops
+  but `swing_count` stays 39-160/20s, micro-stepping not
+  LEGPARK-SKATE), plain `walk/det` and `walk/sto` both clean 6/6,
+  slip med 3.98 (same 3.0-4.8 band as every prior base-family PASS).
+  SKILLS.md row added. **Family read after all three heading-set
+  seeds**: `acq1` clean, `s1c1` clean, `s0c1` hardened-worse (leg 4
+  sacrificed in plain walk too, not just startjitter) — 2/3 clean,
+  1/3 a genuine regression on THIS specific seed, not a family-wide
+  fingerprint shift. Champion pick should use `acq1` or `s1c1`, not
+  `s0c1`, until/unless the open DIG-IN above says otherwise. This
+  cycle's own prestage gate eval was still genuinely computing at
+  spawn (registered via `ops.sh evalpending add` rather than
+  re-polling — worth reusing next time a fresh spawn hits a
+  still-running eval instead of exiting empty). Capacity at cycle
+  end: 9/12 pods genuinely ps-busy with in-flight campaign evals
+  (both heading families' n=3 confirmations, the two new irr-timing
+  canaries, the sde gait-gate n=4 cohort) — only train-4/train-7
+  idle, no new arm launched since every next-rung candidate needs one
+  of those in-flight reads first (launching now would be a
+  same-recipe dribble ahead of evidence, not a batch).
+
 - 09-05 ~13:3x this cycle: `headset-halfgrav-s1`/`-s3` (heading canary,
   n=3 seed check for the 0.5g family) both **CANARY PASS**. `s1` is
   the cleanest read of the whole heading-canary cohort so far (24/24

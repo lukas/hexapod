@@ -11,6 +11,8 @@ from hexapod_lab.db import Store
 from hexapod_lab.engineering_lane import (
     DEPLOYMENT_SOURCE_GUARD,
     DisabledRLDispatcher,
+    ENGINEERING_LANE_HARDWARE,
+    ENGINEERING_LANE_OFFLINE,
     EngineeringJobStore,
     EngineeringLaneError,
     PROJECT_CONTEXT_FILES,
@@ -93,6 +95,115 @@ def engineering_receipt(job, project_context_sha256):
         "robot_contacted": False,
         "network_used": False,
     }
+
+
+def test_hardware_and_offline_jobs_claim_independently(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    _, analysis = succeeded_analysis(store, verdict="inconclusive")
+    engineering = EngineeringJobStore(store)
+    assert engineering.reconcile() == 1
+
+    offline = engineering.claim(
+        "offline-worker", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE
+    )
+    assert offline is not None
+    assert offline["source_analysis_job_id"] == analysis["id"]
+    assert offline["lane"] == ENGINEERING_LANE_OFFLINE
+
+    guarded = store.create(
+        {
+            "name": "bounded physical gait",
+            "duration_seconds": 3,
+            "parameters": {"robot_motion": True, "queue_priority": -999},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    advance = store.enqueue_advance(
+        "hardware-arrived-later", "test", experiment_id=guarded["id"]
+    )
+    handoff = engineering.ensure_queue_handoff(advance, guarded)
+
+    hardware = engineering.claim(
+        "hardware-worker", lease_seconds=60, lane=ENGINEERING_LANE_HARDWARE
+    )
+    assert hardware is not None
+    assert hardware["id"] == handoff["id"]
+    assert hardware["lane"] == ENGINEERING_LANE_HARDWARE
+    assert hardware["lease_owner"] == "hardware-worker"
+    assert offline["lease_owner"] == "offline-worker"
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"robot_motion": False},
+        {"simulation_only": True},
+        {"robot_motion": False, "simulation_only": True},
+    ],
+)
+def test_explicit_offline_handoff_never_reaches_hardware_lane(
+    tmp_path, parameters
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    guarded = store.create(
+        {
+            "name": "offline replay",
+            "duration_seconds": 1,
+            "parameters": parameters,
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    advance = store.enqueue_advance(
+        "offline-handoff", "test", experiment_id=guarded["id"]
+    )
+    engineering = EngineeringJobStore(store)
+    handoff = engineering.ensure_queue_handoff(advance, guarded)
+
+    assert engineering.claim(
+        "hardware-worker", lease_seconds=60, lane=ENGINEERING_LANE_HARDWARE
+    ) is None
+    offline = engineering.claim(
+        "offline-worker", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE
+    )
+    assert offline["id"] == handoff["id"]
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {},
+        {"robot_motion": 0},
+        {"simulation_only": 1},
+        {"robot_motion": True, "simulation_only": True},
+        {"robot_motion": 1, "simulation_only": True},
+    ],
+)
+def test_legacy_ambiguous_handoff_stays_on_hardware_lane(tmp_path, parameters):
+    store = Store(tmp_path / "lab.sqlite3")
+    guarded = store.create(
+        {
+            "name": "legacy guarded plan",
+            "duration_seconds": 1,
+            "parameters": parameters,
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    advance = store.enqueue_advance(
+        "legacy-handoff", "test", experiment_id=guarded["id"]
+    )
+    engineering = EngineeringJobStore(store)
+    handoff = engineering.ensure_queue_handoff(advance, guarded)
+
+    assert engineering.claim(
+        "offline-worker", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE
+    ) is None
+    hardware = engineering.claim(
+        "hardware-worker", lease_seconds=60, lane=ENGINEERING_LANE_HARDWARE
+    )
+    assert hardware["id"] == handoff["id"]
 
 
 def test_succeeded_analysis_reconciles_once_and_rl_outbox_is_validated(tmp_path):

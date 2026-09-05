@@ -300,24 +300,28 @@ network/search tool, shell, project rules, plugins, or other tools. Its structur
 result can append a plain-language learning and propose up to three bounded
 follow-ups. Robot Lab validates those recommendations, deduplicates exact specs,
 and caps recursion at four generations and twenty accepted descendants per root.
-Adaptive follow-ups become `external_guarded` saved plans for the engineering
-worker. Explicit `simulation_only: true` work runs actual offline commands there;
-it never contacts or deploys to the robot. The built-in simulated driver emits
-demo telemetry and is not an executor for requested replay or MuJoCo work.
-Physical inspection findings do not reject these offline follow-ups.
+Adaptive follow-ups become `external_guarded` saved plans. Robot Lab classifies
+their immutable source context into two independent engineering resources: the
+hardware worker drains robot-capable queue handoffs, while the offline/code
+worker uses a separate checkout for analysis, replay, simulation, and code work.
+Explicit `simulation_only: true` work never contacts or deploys to the robot.
+The built-in simulated driver emits demo telemetry and is not an executor for
+requested replay or MuJoCo work. Physical inspection findings do not reject
+these offline follow-ups.
 
 The small advance lane remains a token-free advisory/reconciliation lane. When
 engineering is enabled, it records a non-pausing handoff of the oldest saved plan
-to the full-access engineering runner instead of manufacturing a manual blocker.
+to the dedicated hardware runner instead of manufacturing a manual blocker.
 If engineering is deliberately disabled, it remains read-only and explains that
 deployment choice. The blocker monitor texts only on real `blocked` or `dead`
 receipts.
 
-Any non-clear analysis latches the whole advancement queue before another plan
-can move. The engineering runner may inspect the live camera, three fresh motor
-samples, and evidence, then resume the queue itself with an audited reason when
-they establish a normal state. A human can use the same dashboard control when
-hands-on correction was actually necessary. The REST equivalent is
+Only a physical analysis with `safety_disposition: stop` latches the whole
+advancement queue. `needs_inspection` parks the scoped plan, and simulation-only
+analysis cannot stop the hardware lane. The hardware runner may inspect the live
+camera, three fresh motor samples, and evidence, then resume the queue itself
+with an audited reason when they establish a normal state. A human can use the
+same dashboard control when hands-on correction was actually necessary. The REST equivalent is
 `POST /api/codex-queue/resume` with `X-Hexapod-Lab: 1`, a nonblank reason, and
 `robot_inspected: true`; MCP exposes `get_robot_status`, `get_queue_controls`,
 `resume_codex_queue`, `resume_runner_safety`, and `report_execution_progress`.
@@ -341,8 +345,9 @@ hands-on correction was actually necessary. The REST equivalent is
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_CAPTURE_BYTES` | `67108864` | Kernel per-file ceiling and archived event-stream byte limit |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_EVENT_LINES` | `100000` | Maximum archived JSON events before an explicit truncation marker |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_HUMAN_BYTES` | `2097152` | Maximum rendered Markdown transcript size |
-| `HEXAPOD_CODEX_ENGINEERING` | `false` | Enable the serialized project engineering lane |
-| `HEXAPOD_CODEX_ENGINEERING_WORKDIR` | empty | Real git checkout used by engineering attempts |
+| `HEXAPOD_CODEX_ENGINEERING` | `false` | Enable project engineering workers |
+| `HEXAPOD_CODEX_ENGINEERING_WORKDIR` | empty | Real git checkout reserved for hardware queue handoffs |
+| `HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR` | empty | Separate checkout for parallel offline analysis/code work; without it, hardware stays dedicated and offline jobs remain queued |
 | `HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS` | `7200` | Engineering attempt timeout |
 | `HEXAPOD_CODEX_ENGINEERING_CONTEXT_MAX_BYTES` | `262144` | Maximum checked-in mission/workflow context injected per attempt |
 | `HEXAPOD_CODEX_ENGINEERING_MAX_PATCH_BYTES` | `16777216` | Maximum durable binary patch receipt |
@@ -350,10 +355,11 @@ hands-on correction was actually necessary. The REST equivalent is
 
 The production supervisor has its own LaunchAgent and wrapper under `deploy/`
 and `scripts/`. The analysis and fallback advance roles remain token-free and receive an
-allowlisted environment. The engineering role works in the real configured
-checkout with full project file access, network/search, normal Codex config and
-rules, Robot Lab/RL MCP servers, BuildViz, deployment helpers, and documented
-robot HTTP control. The wrapper reads only the Robot Lab and RL-orchestrator
+allowlisted environment. With both engineering workdirs configured, the
+hardware role exclusively claims robot-capable queue handoffs and the offline
+role claims analysis and explicit non-motion work concurrently in a different
+checkout. Both retain normal project/network tooling; only the hardware role
+may deploy or issue robot motion/control commands. The wrapper reads only the Robot Lab and RL-orchestrator
 tokens from Keychain; Codex can use them for MCP authentication but filters them
 out of model-generated shell environments. The deployed checkout must be
 accessible to the background LaunchAgent.

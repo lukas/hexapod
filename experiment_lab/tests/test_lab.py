@@ -34,6 +34,26 @@ def test_auth_queue_and_artifact(tmp_path):
                           headers={"Authorization": "Bearer secret"}).status_code in {400, 404}
 
 
+def test_queue_rejects_conflicting_motion_flags(tmp_path):
+    app = create_app(settings(tmp_path))
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/experiments",
+            headers={"Authorization": "Bearer secret"},
+            json={
+                "name": "conflicting plan",
+                "duration_seconds": 0.1,
+                "execution_mode": "external_guarded",
+                "parameters": {
+                    "simulation_only": True,
+                    "robot_motion": True,
+                },
+            },
+        )
+    assert response.status_code == 422
+    assert "simulation_only and robot_motion cannot both be true" in response.text
+
+
 def test_worker_completes_and_mcp_reads(tmp_path):
     app = create_app(settings(tmp_path, worker=True))
     auth = {"Authorization": "Bearer secret"}

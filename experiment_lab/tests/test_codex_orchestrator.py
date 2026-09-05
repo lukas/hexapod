@@ -48,6 +48,62 @@ def configured(tmp_path, **overrides):
     return Settings(**values)
 
 
+def test_missing_offline_checkout_never_restores_shared_engineering_lane(
+    tmp_path, monkeypatch
+):
+    settings = configured(
+        tmp_path,
+        codex_engineering=True,
+        codex_engineering_workdir=tmp_path,
+        codex_offline_engineering_workdir=None,
+    )
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), settings, invoker=lambda *_: {}
+    )
+    started = []
+
+    class FakeThread:
+        def __init__(self, *, target, args=(), name, daemon):
+            self.name = name
+
+        def is_alive(self):
+            return False
+
+        def start(self):
+            started.append(self.name)
+
+    monkeypatch.setattr(codex_module, "build_project_context", lambda *_: {})
+    monkeypatch.setattr(codex_module.threading, "Thread", FakeThread)
+
+    orchestrator.start()
+
+    assert "codex-engineering-hardware" in started
+    assert "codex-engineering" not in started
+    assert "codex-engineering-offline" not in started
+
+
+def test_hardware_worker_never_dispatches_offline_rl_outbox(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    dispatches = []
+    monkeypatch.setattr(orchestrator.engineering, "claim", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        orchestrator.engineering,
+        "dispatch_one",
+        lambda *_args, **_kwargs: dispatches.append(True) or True,
+    )
+
+    assert orchestrator.process_one("engineering-hardware") is False
+    assert dispatches == []
+    assert orchestrator.process_one("engineering-offline") is True
+    assert dispatches == [True]
+
+
 def complete_with_evidence(store, settings, *, name="completed", parameters=None):
     item = store.create(
         {
@@ -794,6 +850,16 @@ def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
         ),
         (
             {"simulation_only": True, "robot_motion": False},
+            "stop",
+            False,
+        ),
+        (
+            {"simulation_only": False, "robot_motion": True},
+            "stop",
+            True,
+        ),
+        (
+            {"simulation_only": True, "robot_motion": True},
             "stop",
             True,
         ),

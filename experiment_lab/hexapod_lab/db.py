@@ -1386,7 +1386,14 @@ class Store:
                 "job.depends_on_job_id IS NOT NULL "
                 "AND dependency.kind='analysis' "
                 "AND job.trigger_kind='experiment_terminal' "
-                "AND control.source_job_id=job.depends_on_job_id)) "
+                "AND control.source_job_id=job.depends_on_job_id) OR EXISTS ("
+                "SELECT 1 FROM experiments AS target "
+                "WHERE target.id=job.experiment_id "
+                "AND target.status='waiting_for_operator' "
+                "AND target.execution_mode='external_guarded' "
+                "AND (json_type(target.parameters_json,'$.robot_motion')='false' "
+                "OR (json_type(target.parameters_json,'$.robot_motion') IS NULL "
+                "AND json_type(target.parameters_json,'$.simulation_only')='true')))) "
                 "ORDER BY job.created_at,job.id LIMIT 1",
                 (kind, now, kind),
             ).fetchone()
@@ -1746,7 +1753,9 @@ class Store:
             ).fetchone()
         return row is not None
 
-    def next_external_experiment(self) -> Optional[Dict[str, Any]]:
+    def next_external_experiment(
+        self, *, experiment_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """Select the next runnable saved plan without discarding blocked work."""
         with self.connect() as con:
             engineering_jobs_exist = con.execute(
@@ -1794,14 +1803,25 @@ class Store:
                   )
                 )
                 """
+            exact_filter = ""
+            arguments: tuple = (WAITING_FOR_OPERATOR,)
+            if experiment_id is not None:
+                exact_filter = "AND experiments.id=? "
+                arguments = (WAITING_FOR_OPERATOR, experiment_id)
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "
-                + blocked_filter +
-                "ORDER BY CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
+                + exact_filter
+                + blocked_filter
+                + "ORDER BY CASE WHEN "
+                "json_type(parameters_json,'$.robot_motion')='false' OR "
+                "(json_type(parameters_json,'$.robot_motion') IS NULL AND "
+                "json_type(parameters_json,'$.simulation_only')='true') "
+                "THEN 1 ELSE 0 END,"
+                "CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
                 "THEN json_extract(parameters_json,'$.queue_priority') ELSE 0 END DESC,"
                 "created_at,id LIMIT 1",
-                (WAITING_FOR_OPERATOR,),
+                arguments,
             ).fetchone()
         return self.row(row) if row else None
 

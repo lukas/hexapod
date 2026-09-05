@@ -1,6 +1,49 @@
 # todaypolicy / hardware_delivery — measured controller delivery
 
-Last updated: 2026-09-05 ~08:0x UTC. Reopened per operator MCP note
+Last updated: 2026-09-05 ~09:1x UTC. **Next#3 (time-sliced demand)
+BUILT, TESTED, REFUTED — zero PPO, real mesh/100 Hz physics.** Added
+`CommandEnvelope.mode='time_slice'` (default-off, new dataclass fields
+`slice_period_s`/`turn_duty`, `EnvelopeOutput.in_turn_slice` telemetry;
+16/16 `test_command_envelope.py` green, 4 new tests) implementing
+exactly the item-3 idea: alternate FULL-amplitude pure-turn/
+pure-translation bursts within a combined-demand period instead of
+continuously scaling both axes. Wired into `eval_command_envelope.py`
+as 3 dose arms (`env_timeslice_d{30,50,70}`, turn_duty 0.3/0.5/0.7 of
+a 1.6 s period) and ran the full 10-scenario x 2-seed paired suite
+(`logs/ckpt_eval/command_envelope_timeslice_09-05/summary.json`).
+Result on the target `combo_ccw`/`combo_cw` regime (seed0, seed1
+identical — deterministic scripted teacher):
+
+| arm | progress_ratio | yaw_ratio | course_err_final (deg) | slip_per_ach_m |
+|---|---|---|---|---|
+| baseline | 0.372 | 0.240 | -108.9 | 1.24 |
+| env_shared | 0.239 | 0.246 | -108 | — |
+| env_yawpri | 0.166 | 0.423 | -83 | — |
+| env_timeslice_d30 | 0.317 | 0.135 | -124.0 | 1.50 |
+| env_timeslice_d50 | 0.227 | 0.255 | -106.7 | 1.76 |
+| env_timeslice_d70 | 0.128 | 0.372 | -90.0 | 2.15 |
+
+d30 is DOMINATED by plain `baseline` (worse on both axes — its 0.48 s
+burst is shorter than the envelope's own 0.5 s worst-case rate-limit
+ramp, so it never reaches the sub-command amplitude before switching
+back). d70 is DOMINATED by `env_yawpri` (worse progress AND worse yaw
+AND ~2x the slip). d50 ties `env_shared` on both axes (no win, and is
+itself no better than baseline on course_err). No duty tested beats
+the existing continuous-authority arms on the Pareto front. This
+matches the a-priori argument recorded in `command_envelope.py`'s
+docstring: the measured vx-authority -> yaw_ratio relationship
+(1.0->0.24, 0.35->0.42, 0->0.54) is CONCAVE, so time-averaging two
+extremes can only land on or below the chord under that curve —
+continuous scaling is provably at least as good as any fixed-duty
+time-slice. **Ruling: time-slicing does not reopen the yaw-authority
+question; `env_yawpri` stays the best real candidate at its named
+-55% progress cost.** Mode kept (tested, opt-in, never wired into
+anything default) so nobody re-derives this from scratch; do not
+re-attempt without a genuinely different per-burst mechanism (e.g.
+scenario-tuned burst durations, not a fixed duty fraction) — no such
+mechanism is queued.
+
+Previous update (09-05 ~08:0x), reopened per operator MCP note
 `fb_20260905T071610_749846` (Codex, implementing Lukas's request):
 smooth hardware walking via measured-controller work. Division of
 labor per that note:
@@ -26,85 +69,36 @@ feedback), and (c) can never fake success by throttling — requested
 and applied are preserved separately and every score is vs the
 original request.
 
-## DONE 09-05: mechanism built + tested + paired CPU suite run
+## DONE 09-05: mechanism built + tested + paired CPU suite run (condensed; full detail in git history of this file)
 
 **New files (default-off, no shared-code edits at all):**
-- `rl_move/sim/command_envelope.py` — `CommandEnvelope` governor.
-  `EnvelopeConfig.enabled=False` default; disabled step is an identity
-  passthrough (bit-exact legacy). Two governed modes: `shared` (one
-  authority scalar on all axes, preserves curvature) and
-  `yaw_priority` (sheds translation demand only; yaw passes intact).
-  Rate limits 0.16 m/s² / 0.50 rad/s² (contract speeds from zero in
-  ~0.5 s); feedback law: authority in [0.35, 1], shrinks
-  4.0/s·(sat−0.30) when measured clip-saturation exceeds 0.30
-  (between the measured pure-command ~0.245 and combined ~0.419
-  bands, `joint_tracking_cap29_scripted_09-03.json`), recovers 0.5/s.
-  Governs COMBINED (translation AND yaw) demand only; pure commands
-  always run full authority. `safety.max_delta_q_deg`, motor limits,
-  rates/frames: untouched.
-- `rl_move/sim/eval_command_envelope.py` — paired scripted-gait
-  evaluator on the live mesh/100 Hz env (same `make_env`/`WALK_PLANT`
-  as `probe_turn_authority`, `env.model_source=mesh control.hz=100`).
-  10 scenarios × identical seeds × 3 arms
-  (baseline/env_shared/env_yawpri): fwd/rev/lat, turn ccw/cw,
-  combined vx=0.08 & wz=±0.25, stop/restart, fwd→rev reversal, yaw
-  reversal. Artifacts keep requested vs applied traces separately
-  (`traces/*.npz`) and score vs REQUESTED only.
-- `rl_move/tests/test_command_envelope.py` — 12 tests (identity when
-  disabled incl. under absurd feedback; per-tick continuity bounds on
-  steps/stops/reversals; throttle+floor+recovery; combined-only
-  gating; yaw-priority sheds translation only; scoring is vs
-  requested — a perfectly-tracked throttled command still scores the
-  miss; parking scores 0 progress). All pass.
+`rl_move/sim/command_envelope.py` (`CommandEnvelope` governor, modes
+`shared`/`yaw_priority`/`time_slice`, `EnvelopeConfig.enabled=False`
+default = bit-exact identity passthrough), `rl_move/sim/
+eval_command_envelope.py` (paired scripted-gait evaluator on the live
+mesh/100 Hz env, 10 scenarios x seeds x arms, scores vs REQUESTED
+only, traces kept separately), `rl_move/tests/test_command_envelope.py`
+(16 tests green). Result artifacts:
+`logs/ckpt_eval/command_envelope_v1_09-05/` (first 3 arms, 60
+rollouts) and `..._timeslice_09-05/` (time_slice doses, 80 rollouts).
+Zero falls across all 140 rollouts; `support_lt3_frac=0.0` everywhere.
 
-**Result artifacts:** `logs/ckpt_eval/command_envelope_v1_09-05/`
-(summary.json + 60 trace npz). Zero falls in all 60 rollouts;
-support_lt3_frac = 0.0 everywhere; contact_mean ~3.3.
-
-### Honest read (paired, vs baseline, seed-deterministic)
-
-NOTE: with `randomize=False`/DR-0 and the goal traj overwritten by
-the script, rollouts are fully deterministic — seeds 0/1 are
-identical, so this is n=1 per cell by construction (fine for a
-scripted mechanism screen; DR/stochastic replication is a next step
-if the candidate goes anywhere).
-
-**Combined ticks (vx=0.08, wz=±0.25) — the target regime:**
-
-| metric | baseline | env_shared | env_yawpri |
-|---|---|---|---|
-| yaw_ratio (achieved/requested) | 0.24 | 0.25 | **0.42** |
-| wz achieved med (rad/s) | 0.070 | 0.080 | **0.168** |
-| course_err_final (deg, 10 s) | ~109 | ~108 | **~83** |
-| progress_ratio (vs requested vx) | 0.372 | 0.239 | 0.166 |
-| vx authority applied | 1.0 | 0.48 | 0.35 (floor) |
-| slip_per_cmd_m | 0.42 | 0.41 | 0.40 |
-| sat_frac_mean | 0.416 | 0.302 | 0.382 |
-
-- **`env_shared` REFUTED**: hits its saturation target (0.30) but
-  yaw tracking does not improve (0.24→0.25) while progress drops 36%.
-  Cross-confirms the standwalk finding that UNIFORM demand scaling
-  trades achieved motion 1:1 against clip relief — no free win.
-- **`env_yawpri` is a real candidate WITH A NAMED COST**: shedding
-  only translation demand (to the 0.35 floor) recovers 2.4× the real
-  yaw rate on combined ticks, both signs symmetric, 26° better
-  10-s course — at −55% forward progress vs the request. This is the
-  first lever in the whole 09-03..09-05 combined-tick family that
-  moves REAL wz at all (every gait-reshaping lever was refuted); it
-  works because it changes the demanded translation itself, i.e. the
-  vx cross-term that amplifies 3 legs past the slew clip.
+**Combined ticks (vx=0.08, wz=±0.25) — the target regime — headline
+numbers (progress_ratio / yaw_ratio / course_err_final_deg):**
+baseline 0.372/0.24/-109, `env_shared` 0.239/0.25/-108 (REFUTED —
+hits its own sat target but yaw doesn't improve, -36% progress for
+nothing), `env_yawpri` 0.166/0.42/-83 (best real candidate, -55%
+progress cost), `env_timeslice_d{30,50,70}` — see the Update at top
+(all 3 doses dominated-by-or-tied-with the above, REFUTED).
 
 **Pure/transition scenarios (baseline fidelity):** envelope arms are
 never governed here (combined-only gate); only the rate-limit ramp
-differs. Costs are small and mechanical: fwd/rev/lat progress_ratio
-−0.9..−1.2 pp (ramp-in); stop_restart −2.3 pp; fwd→rev reversal
-−5.3 pp (1 s traverse through zero instead of an instant flip);
-yaw-reversal course_err 1.9°→8.8° (the 0.5 s wz traverse ≈7° of yaw).
-In exchange, applied-command discontinuities go from 0.08 m/s /
-0.25 rad/s instantaneous steps to bounded 0.0016 / 0.005 per tick —
-the property the hardware transport (97 overruns/192 ticks, stale-qd
-feedback) is expected to care about; that hypothesis is testable only
-in Codex's matched transport replay, not here.
+differs — small mechanical costs (fwd/rev/lat progress_ratio
+−0.9..−1.2 pp; stop_restart −2.3 pp; fwd→rev reversal −5.3 pp;
+yaw-reversal course_err 1.9°→8.8°). In exchange, applied-command
+discontinuities go from instantaneous 0.08 m/s / 0.25 rad/s steps to
+bounded 0.0016 / 0.005 per tick — untested-here hardware-transport
+hypothesis, Codex's matched replay owns that read.
 
 ### Ruling for the bundle
 
@@ -125,11 +119,14 @@ more than speed-made-good; `env_shared` should not be used.
    (progress↔yaw Pareto), and DR-on stochastic replication (n≥3),
    ONLY if the transport replay shows the mechanism matters on the
    deployed loop.
-3. Specific next mechanism if yaw authority itself remains the
-   blocker: schedule combined demand in TIME (alternate short
-   pure-turn/pure-walk bursts within the request envelope) — the
-   measured pure-turn yaw_ratio 0.54 vs combined 0.24 gap says
-   time-slicing beats simultaneous demand at fixed slew budget.
+3. **CLOSED 09-05 (see Update above): time-sliced demand built,
+   tested at 3 duty doses, REFUTED** — dominated by or tied with the
+   existing continuous-authority arms at every dose, matching the
+   concave vx-authority->yaw_ratio curve. Do not re-attempt a
+   fixed-duty time-slice mechanism; `env_yawpri` remains the best real
+   yaw-authority candidate. No further agent-doable next step on this
+   sub-axis; a genuinely different per-burst mechanism (scenario-tuned
+   burst durations) is not queued.
 
 ## Boundaries
 

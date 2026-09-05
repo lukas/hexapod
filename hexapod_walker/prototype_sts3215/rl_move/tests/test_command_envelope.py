@@ -126,6 +126,69 @@ def test_yaw_priority_sheds_translation_only():
     assert outs[-1].applied[2] == pytest.approx(0.25, abs=1e-9)
 
 
+def test_time_slice_alternates_pure_bursts_when_combined():
+    cfg = EnvelopeConfig(enabled=True, mode="time_slice",
+                         slice_period_s=1.0, turn_duty=0.5)
+    env = CommandEnvelope(cfg)
+    req = (0.08, 0.0, 0.25)
+    outs = _run(env, [req] * 400)  # 4 s combined demand, no saturation
+    # authority is pinned at 1.0 in this mode (no continuous throttle)
+    assert all(o.authority == 1.0 for o in outs)
+    turn_ticks = [o for o in outs if o.in_turn_slice]
+    walk_ticks = [o for o in outs if not o.in_turn_slice]
+    assert turn_ticks and walk_ticks
+    # deep into a converged turn slice: wz present, vx/vy suppressed
+    deep_turn = [o for o in turn_ticks if o.applied[2] > 0.24 and
+                abs(o.applied[0]) < 0.01][-1]
+    assert deep_turn.applied[0] == pytest.approx(0.0, abs=1e-9)
+    assert deep_turn.applied[2] == pytest.approx(0.25, abs=1e-3)
+    # deep into a converged walk slice: vx present, wz suppressed
+    deep_walk = [o for o in walk_ticks if o.applied[0] > 0.07][-1]
+    assert deep_walk.applied[2] == pytest.approx(0.0, abs=1e-9)
+    assert deep_walk.applied[0] == pytest.approx(0.08, abs=1e-3)
+    # applied is still rate-limited every tick, even across a switch
+    prev = (0.0, 0.0, 0.0)
+    for o in outs:
+        for i in range(3):
+            rate = (cfg.vx_rate, cfg.vy_rate, cfg.wz_rate)[i]
+            assert abs(o.applied[i] - prev[i]) <= rate * DT + 1e-9
+        prev = o.applied
+
+
+def test_time_slice_pure_commands_are_never_sliced():
+    cfg = EnvelopeConfig(enabled=True, mode="time_slice")
+    env = CommandEnvelope(cfg)
+    outs = _run(env, [(0.08, 0.0, 0.0)] * 300)
+    assert all(not o.in_turn_slice and o.governing is False for o in outs)
+    assert outs[-1].applied[0] == pytest.approx(0.08, abs=1e-9)
+    outs = _run(env, [(0.0, 0.0, 0.25)] * 300)
+    assert all(not o.in_turn_slice and o.governing is False for o in outs)
+    assert outs[-1].applied[2] == pytest.approx(0.25, abs=1e-9)
+
+
+def test_time_slice_phase_resets_on_dropout():
+    cfg = EnvelopeConfig(enabled=True, mode="time_slice",
+                         slice_period_s=1.0, turn_duty=0.5)
+    env = CommandEnvelope(cfg)
+    combined = (0.08, 0.0, 0.25)
+    _run(env, [combined] * 60)          # 0.6 s into the turn slice
+    assert env._slice_t == pytest.approx(0.6, abs=1e-6)
+    _run(env, [(0.0, 0.0, 0.0)] * 10)   # demand drops to pure-zero
+    assert env._slice_t == pytest.approx(0.0, abs=1e-9)
+    # re-entering combined demand restarts at the top of a turn slice
+    out = env.step(DT, combined, None)
+    assert out.in_turn_slice is True
+
+
+def test_time_slice_turn_duty_shapes_burst_lengths():
+    cfg = EnvelopeConfig(enabled=True, mode="time_slice",
+                         slice_period_s=1.0, turn_duty=0.8)
+    env = CommandEnvelope(cfg)
+    outs = _run(env, [(0.08, 0.0, 0.25)] * 100)  # exactly one period
+    turn_frac = sum(1 for o in outs if o.in_turn_slice) / len(outs)
+    assert turn_frac == pytest.approx(0.8, abs=0.02)
+
+
 def test_requested_always_preserved_verbatim():
     env = CommandEnvelope(EnvelopeConfig(enabled=True))
     req = (0.08, -0.03, 0.25)

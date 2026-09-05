@@ -36,7 +36,7 @@ class Settings:
     codex_bin: Path = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
     codex_workdir: Path = Path(".")
     codex_model: str = "gpt-5.6-sol"
-    codex_reasoning_effort: str = "high"
+    codex_reasoning_effort: str = "medium"
     codex_analysis_timeout_seconds: int = 2700
     codex_advance_timeout_seconds: int = 5400
     codex_poll_seconds: float = 2.0
@@ -116,7 +116,7 @@ class Settings:
             )).expanduser().resolve(),
             codex_model=os.getenv("HEXAPOD_CODEX_MODEL", "gpt-5.6-sol"),
             codex_reasoning_effort=os.getenv(
-                "HEXAPOD_CODEX_REASONING_EFFORT", "high"
+                "HEXAPOD_CODEX_REASONING_EFFORT", "medium"
             ),
             codex_analysis_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS", "2700"

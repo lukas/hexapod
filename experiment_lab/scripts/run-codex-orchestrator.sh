@@ -32,7 +32,7 @@ exec /usr/bin/env -i \
   HEXAPOD_LAB_TOKEN="$LAB_TOKEN" \
   HEXAPOD_ORCHESTRATOR_TOKEN="$ORCHESTRATOR_TOKEN" \
   HEXAPOD_CODEX_MODEL="gpt-5.6-sol" \
-  HEXAPOD_CODEX_REASONING_EFFORT="high" \
+  HEXAPOD_CODEX_REASONING_EFFORT="medium" \
   HEXAPOD_CODEX_EVIDENCE_SETTLE_SECONDS="60" \
   HEXAPOD_CODEX_EVIDENCE_DEADLINE_SECONDS="1800" \
   "/Users/lukas/Library/Application Support/Hexapod Lab/venv/bin/hexapod-codex-orchestrator"

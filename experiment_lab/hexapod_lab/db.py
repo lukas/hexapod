@@ -1381,10 +1381,6 @@ class Store:
                 "AND job.not_before<=? "
                 "AND (job.depends_on_job_id IS NULL "
                 "OR dependency.status IN ('succeeded','blocked','dead')) "
-                "AND (?<>'advance' OR NOT EXISTS ("
-                "SELECT 1 FROM codex_jobs AS analysis "
-                "WHERE analysis.kind='analysis' AND analysis.status IN ("
-                "'awaiting_evidence','queued','running','retry'))) "
                 "AND (?<>'advance' OR control.action IS NULL "
                 "OR control.action<>'pause' OR ("
                 "job.depends_on_job_id IS NOT NULL "
@@ -1392,7 +1388,7 @@ class Store:
                 "AND job.trigger_kind='experiment_terminal' "
                 "AND control.source_job_id=job.depends_on_job_id)) "
                 "ORDER BY job.created_at,job.id LIMIT 1",
-                (kind, now, kind, kind),
+                (kind, now, kind),
             ).fetchone()
             if not row:
                 con.execute("COMMIT")
@@ -1751,12 +1747,60 @@ class Store:
         return row is not None
 
     def next_external_experiment(self) -> Optional[Dict[str, Any]]:
-        """Return the oldest saved physical plan; the agent still checks readiness."""
+        """Select the next runnable saved plan without discarding blocked work."""
         with self.connect() as con:
+            engineering_jobs_exist = con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='codex_engineering_jobs'"
+            ).fetchone()
+            blocked_filter = ""
+            if engineering_jobs_exist is not None:
+                # A blocked handoff stays attached to its exact experiment and
+                # retains its attempt budget, but it must not monopolize the
+                # rest of the queue. A newer audited queue resume makes that
+                # same handoff selectable again so ensure_queue_handoff() can
+                # atomically return it to retry.
+                blocked_filter = """
+                AND NOT EXISTS (
+                  SELECT 1 FROM codex_engineering_jobs AS engineering
+                  WHERE engineering.experiment_id=experiments.id
+                  AND json_extract(engineering.source_context_json,'$.trigger_kind')=
+                      'queue_handoff'
+                  AND engineering.status IN ('blocked','dead')
+                  AND NOT (
+                    engineering.status='blocked'
+                    AND engineering.attempts<engineering.max_attempts
+                    AND EXISTS (
+                      SELECT 1 FROM codex_queue_controls AS control
+                      JOIN codex_jobs AS control_source
+                        ON control_source.id=control.source_job_id
+                      WHERE control.sequence=(
+                        SELECT MAX(sequence) FROM codex_queue_controls
+                      )
+                      AND control.action='resume'
+                      AND control_source.experiment_id=experiments.id
+                      AND control.created_at>engineering.finished_at
+                      AND control.sequence>MAX(
+                        COALESCE(CASE WHEN json_valid(engineering.result_json)
+                          THEN json_extract(
+                            engineering.result_json,'$.blocked_control_sequence'
+                          ) END,0),
+                        COALESCE(CASE WHEN json_valid(engineering.result_json)
+                          THEN json_extract(
+                            engineering.result_json,'$.queue_resume_receipt.sequence'
+                          ) END,0)
+                      )
+                    )
+                  )
+                )
+                """
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "
-                "ORDER BY created_at,id LIMIT 1",
+                + blocked_filter +
+                "ORDER BY CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
+                "THEN json_extract(parameters_json,'$.queue_priority') ELSE 0 END DESC,"
+                "created_at,id LIMIT 1",
                 (WAITING_FOR_OPERATOR,),
             ).fetchone()
         return self.row(row) if row else None

@@ -116,16 +116,26 @@ def test_retry_records_whether_invocation_might_have_moved(tmp_path, completion_
     assert finished["result"]["continuation"]["completion_only"] is completion_only
 
 
-@pytest.mark.parametrize("simulation_only", [False, True])
-def test_expired_unreceipted_attempt_has_conservative_physical_continuation(tmp_path, simulation_only):
+@pytest.mark.parametrize(
+    "parameters, completion_only",
+    [
+        ({"simulation_only": False, "robot_motion": False}, False),
+        ({"simulation_only": False, "robot_motion": True}, True),
+        ({"simulation_only": False}, True),
+    ],
+)
+def test_expired_unreceipted_attempt_uses_declared_robot_motion(
+    tmp_path, parameters, completion_only
+):
     store, engineering, _plan_value, _advance, job = _setup(
-        tmp_path, parameters={"simulation_only": simulation_only})
+        tmp_path, parameters=parameters
+    )
     assert engineering.expire_lease(job["id"], "Child exited without a receipt")
     assert engineering.recover_expired() == 1
     claimed = engineering.claim("owner", 60)
     assert claimed["attempts"] == 2
-    assert bool(claimed.get("continuation", {}).get("completion_only")) is not simulation_only
-    if not simulation_only:
+    assert bool(claimed.get("continuation", {}).get("completion_only")) is completion_only
+    if completion_only:
         assert engineering.list_jobs()[0]["result"]["continuation"]["completion_only"] is True
 
 

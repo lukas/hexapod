@@ -147,6 +147,30 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `headset-halfgrav-c1` died this way 09-05 (elu, no gSDE at all).
   Always blank `--activation-fn=` on every `--init-from`/
   `--init-from-source` continuation, gSDE or not.
+- **`respec` has NO flag-removal primitive** (09-05,
+  `sdehalfgrav-remcost-{s0,s1}-gg`): `--arg` can only set/add a flag's
+  VALUE or append a missing bare flag — it cannot strip a bare flag
+  (e.g. `--use-sde`) the SOURCE run already carries. Two failure modes
+  found back-to-back building a gait-gate continuation of the
+  `sdehalfgrav-remcost` arms (source carries `--use-sde --activation-fn
+  elu`, itself correct since remcost was a from-scratch launch, no
+  `--init-from`): (1) plain `respec --from <src>` with no
+  `--init-from-source` at all silently queues a FRESH-SCRATCH clone —
+  no crash, no error, `wandb` looks like a completely normal run
+  (caught here only via `ops.sh procs` showing no `--init-from` in the
+  live cmdline); (2) adding `--init-from-source` reproduces the
+  documented SystemExit gotcha above, because `--use-sde`/`elu` ride
+  along uneditable. **Fix**: when the SOURCE itself is a from-scratch
+  gSDE/non-default-activation launch (not itself a clean `--init-from`
+  continuation), don't use `respec` for the follow-up at all — pull
+  the source's own `extra_args` from the ledger, hand-strip `--use-sde`
+  (+ its paired `--sde-sample-freq <n>`) and blank `--activation-fn`
+  in a plain Python list, append the new `--cfg-set`s + a fresh
+  `--init-from <ckpt>.zip`, then submit via
+  `launch_run.py backlog add ... -- <that arg list>` (which accepts a
+  fully explicit vector, bypassing clone-and-patch entirely). Always
+  confirm post-launch with `ops.sh procs <pod>` that the live cmdline
+  has `--init-from` and no `--use-sde`, not just the ledger fields.
 - `launch_run.py respec` defaults `--steps` to the SOURCE run's own
   step count, not the intended budget. Respec'ing a 40M continuation
   `--from` a 2M-CANARY-scale sibling (e.g. `base-s0`, the original

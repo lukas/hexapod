@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T13:18:33+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-sdehalfgrav-remcost-s0
+
+**wandb_id**: wrc80ii4
 
 **hypothesis**: Plain English: sdehalfgrav-remcost-s0 fixed the survival-duration exploit (falls 800->190, ep_len->1033) but still shows the LEGPARK-SKATE fingerprint (legs 1,4 permanently parked, gait_valid 0/6 every det+sto episode, contact-sheet confirms two retracted legs) -- this continuation keeps its 40M of survival+speed skill via a genuine --init-from own-checkpoint warm start (hand-built arg vector, not launch_run.py respec, to strip --use-sde/blank --activation-fn and dodge the documented SystemExit gotcha) and multiplies transport income by the MIN over support legs of a recently-completed-real-swing score (reward.walk_gait_gate=1.0, gait_gate_stride_mm=5, k_step_event=1.0 -- the same bank-proven structural fix already funded on the bare-sde recipe as sde-s1-c3gg/sde-s2-c3gg), so parked legs zero income until all six cycle. Tests whether the gait-gate repair generalizes across the sde+halfgrav+remcost recipe family, not just bare sde. (-gg name suffix retried as -gg2: original -gg names collided with an earlier self-corrected mis-launch already registered in W&B, append-only names REFUSED the retry.)
 

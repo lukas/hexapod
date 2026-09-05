@@ -201,3 +201,45 @@ def test_pair_deltas_matches_scenario_seed():
     assert len(d) == 1
     assert d[0]["arm"] == "env_shared"
     assert d[0]["progress_ratio"]["delta"] == pytest.approx(-0.1)
+
+
+def test_restart_slip_does_not_charge_displacement_from_zero_command_stop(monkeypatch):
+    """Exercise the rollout accumulator, not a duplicate scoring formula."""
+    from types import SimpleNamespace
+    import rl_move.sim.eval_command_envelope as evaluator
+
+    class FakeEnv:
+        dt = 1.0
+        def __init__(self):
+            self._goal_traj = SimpleNamespace(vx=np.zeros(5), vy=np.zeros(5), wz=np.zeros(5))
+            self.safety = SimpleNamespace(max_dq=.1)
+            self._state = SimpleNamespace(joint_position=np.zeros(18))
+            self._cmd = np.zeros(18)
+            self._touch_adr = list(range(6))
+            self._pad_bids = list(range(6))
+            self._chassis_bid = 0
+            self.data = SimpleNamespace(xquat=np.array([[1., 0., 0., 0.]]),
+                                        sensordata=np.array([1., 0., 0., 0., 0., 0.]),
+                                        xpos=np.zeros((6, 3)))
+            self.steps = 0
+        def reset(self):
+            return None, {}
+        def step(self, action):
+            # The foot travels 200 m during two unscored zero-command steps.
+            # Only the final two 1 m commanded intervals count as walk slip.
+            self.data.xpos[0, 0] = [0., 100., 200., 201., 202.][self.steps]
+            self.steps += 1
+            return None, 0., False, self.steps == 5, {"goal_mode": "walk"}
+        def _body_vel_xy(self):
+            return np.zeros(2)
+        def _body_wz(self):
+            return 0.
+        def close(self):
+            pass
+
+    monkeypatch.setattr(evaluator, "make_env", lambda *args: FakeEnv())
+    monkeypatch.setitem(evaluator.SCENARIOS, "stop-slip-regression", (5., [
+        (0., .08, 0., 0.), (1., 0., 0., 0.), (3., .08, 0., 0.)]))
+    result = evaluator.run_scenario(name="stop-slip-regression", seed=0, arm="baseline")
+    assert result["slip_m"] == pytest.approx(2.)
+    assert result["slip_metric_version"] == evaluator.SLIP_METRIC_VERSION

@@ -283,6 +283,46 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             "The executor calls limp after success, abort, or a retained fault stop.",
         ),
     }
+    seconds_per_leg = parameters.get("seconds_per_leg")
+    timeout_seconds = parameters.get("timeout_seconds")
+    planned_legs = parameters.get("order", parameters.get("legs", []))
+    duration_values_ok = (
+        isinstance(seconds_per_leg, (int, float))
+        and not isinstance(seconds_per_leg, bool)
+        and seconds_per_leg > 0
+        and isinstance(timeout_seconds, (int, float))
+        and not isinstance(timeout_seconds, bool)
+        and timeout_seconds > 0
+        and isinstance(planned_legs, list)
+        and bool(planned_legs)
+    )
+    planned_duration = (
+        float(seconds_per_leg) * len(planned_legs) if duration_values_ok else None
+    )
+    timeout_ok = bool(
+        duration_values_ok
+        and timeout_seconds >= seconds_per_leg
+        and timeout_seconds >= planned_duration
+    )
+    duration_timeout_result = _check(
+        timeout_ok,
+        ["input experiment parameters"],
+        (
+            f"The {planned_duration:g}s ordered sequence fits within the "
+            f"{float(timeout_seconds):g}s timeout."
+            if timeout_ok else
+            (
+                f"The {float(timeout_seconds):g}s timeout expires before one "
+                f"{float(seconds_per_leg):g}s leg and before the "
+                f"{planned_duration:g}s ordered sequence; execution must not "
+                "be admitted until the timeout contract is corrected."
+                if duration_values_ok else
+                "Positive seconds_per_leg, timeout_seconds, and a non-empty leg "
+                "order are required to audit duration compatibility."
+            )
+        ),
+    )
+    checks["duration_timeout_compatibility"] = duration_timeout_result
     qualified = all(item["passed"] for item in checks.values())
     order = parameters.get("order") if isinstance(parameters.get("order"), list) else []
     stop_mapping = _stop_condition_mapping(parameters)
@@ -301,6 +341,7 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         "qualified": qualified,
         "executor_class": "trusted_deterministic" if qualified else None,
         "runtime_compatibility_result": checks["runtime_compatibility"],
+        "duration_timeout_compatibility_result": duration_timeout_result,
         "command_sequence_digest": _sequence_digest(order, protocols),
         "final_state_limp_assertion": checks["final_limp_binding"],
         "stop_condition_mapping": stop_mapping,

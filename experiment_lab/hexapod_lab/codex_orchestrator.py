@@ -341,6 +341,15 @@ def _is_action_parameter_key(value: str) -> bool:
     return bool(set(canonical.split("_")) & _ACTION_PARAMETER_KEY_PARTS)
 
 
+def _is_declarative_parameter_key(value: str) -> bool:
+    """Return whether a key describes a gate rather than an action surface."""
+    canonical = _canonical_parameter_key(value)
+    return (
+        canonical.startswith(("required_", "expected_", "minimum_", "maximum_"))
+        or canonical.endswith(("_required", "_sha256", "_digest", "_hash"))
+    )
+
+
 def _meaningful_parameter_value(value: Any) -> bool:
     if value is None or value is False:
         return False
@@ -394,6 +403,7 @@ def _contains_action_parameter(value: Any) -> bool:
         for raw_key, item in value.items():
             if (
                 _is_action_parameter_key(str(raw_key))
+                and not _is_declarative_parameter_key(str(raw_key))
                 and _meaningful_parameter_value(item)
             ):
                 return True

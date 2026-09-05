@@ -848,6 +848,123 @@ def test_easy_heading_dying_is_the_floor(easy_heading_returns):
 
 
 # ---------------------------------------------------------------------
+# FULL FIXED HEADINGS (goal.walk_heading_set widened to the full 8-way
+# compass — 09-05, walkcurr ladder's next rung after the small
+# {0,+45,-45} set closed clean on both base(1g)/halfgrav(0.5g), 09-05
+# ~12:0x/~13:2x. This is the "full fixed headings" step named in the
+# track's own DONE gate (walk-only fixed forward -> small heading set
+# -> full fixed headings -> irregular direction changes -> DR/push
+# hardening) and is licensed by the operator's staged-heading-
+# curriculum ruling itself (fb_20260822T032514: small set FIRST, never
+# jump straight there from forward-only) now that the small-set step
+# has passed — this is the pre-registered SECOND step, not a jump.
+# Still fixed/discrete headings held for walk_cmd_resample_s each (not
+# the separate irregular-TIMING rung, which randomizes the resample
+# interval itself, not the set). No new reward keys: identical
+# mechanism to EASY_HEADING (k_walk_freeprog's along/cross
+# decomposition), just a wider goal.walk_heading_set — this bank
+# re-measures the same ranking invariants (track > standing >
+# wrong-heading > death) hold at the wider set, including the two
+# reversal directions (+-135, 180) the 3-way set never sampled.
+# ---------------------------------------------------------------------
+EASY_HEADING_WIDE = dict(EASY_HEADING)
+EASY_HEADING_WIDE.update({
+    ("goal", "walk_heading_set"): [
+        0.0, math.pi / 4.0, -math.pi / 4.0,
+        math.pi / 2.0, -math.pi / 2.0,
+        3.0 * math.pi / 4.0, -3.0 * math.pi / 4.0,
+        math.pi,
+    ],
+})
+
+
+@pytest.fixture(scope="module")
+def easy_heading_wide_returns() -> dict[str, float]:
+    plan = ("track", "fixedhead", "wronghead", "park", "stall", "topple")
+    out = {}
+    for name in plan:
+        runs = [_heading_rollout(name, s, overrides=EASY_HEADING_WIDE)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_easy_heading_wide_command_covers_reversal():
+    """Wiring check: the widened set must actually sample a
+    near-reversal heading (|angle| > 100 deg) at least once across
+    seeds — proves the 8-way set resolves, not silently clipped back
+    to the 3-way range."""
+    saw_reversal = False
+    for seed in SEEDS:
+        env = _make_env(seed, EASY_HEADING_WIDE,
+                        episode_seconds=HEADING_EPISODE_S)
+        env.reset()
+        traj = env._goal_traj
+        for vx, vy in zip(traj.vx, traj.vy):
+            if math.hypot(vx, vy) > 1e-6 and abs(math.atan2(vy, vx)) > (
+                    100.0 * math.pi / 180.0):
+                saw_reversal = True
+                break
+        env.close()
+        if saw_reversal:
+            break
+    assert saw_reversal, (
+        "widened heading set never sampled a near-reversal heading "
+        "across any seed — walk_heading_set not wired to the wider list")
+
+
+def test_easy_heading_wide_track_beats_fixed_after_resample(
+        easy_heading_wide_returns):
+    """Same 'directions actually followed' bar as the 3-way bank, now
+    under the full 8-way set including reversals."""
+    assert (easy_heading_wide_returns["track"]
+            > easy_heading_wide_returns["fixedhead"] + 15.0), (
+        f"stale-heading twin competitive with live tracking under the "
+        f"wide set: {easy_heading_wide_returns}")
+    assert easy_heading_wide_returns["track_dx"] > 0.5, (
+        f"tracking twin did not actually travel under the wide set: "
+        f"{easy_heading_wide_returns}")
+
+
+def test_easy_heading_wide_track_beats_standing(easy_heading_wide_returns):
+    for still in ("park", "stall"):
+        assert (easy_heading_wide_returns["track"]
+                > easy_heading_wide_returns[still] + 25.0), (
+            f"standing '{still}' competitive with wide-set heading-"
+            f"tracking: {easy_heading_wide_returns}")
+
+
+def test_easy_heading_wide_standing_beats_wrong_heading(
+        easy_heading_wide_returns):
+    floor = min(easy_heading_wide_returns["park"],
+                easy_heading_wide_returns["stall"])
+    assert floor > easy_heading_wide_returns["wronghead"] + 15.0, (
+        f"wronghead out-earns (or ties) standing still under the wide "
+        f"set: {easy_heading_wide_returns} — live heading direction is "
+        f"not priced")
+
+
+def test_easy_heading_wide_dying_is_the_floor(easy_heading_wide_returns):
+    ov = dict(EASY_HEADING_WIDE)
+    ov[("safety", "max_roll_deg")] = 20.0
+    ov[("safety", "max_pitch_deg")] = 20.0
+    runs = [_heading_rollout("topple", s, overrides=ov) for s in SEEDS]
+    tot = float(np.mean([r[0] for r in runs]))
+    steps = float(np.mean([r[2] for r in runs]))
+    assert steps < 400, (
+        f"topple twin did not terminate under the 20 deg probe "
+        f"envelope (wide set): steps={steps}")
+    floor = min(easy_heading_wide_returns["park"],
+                easy_heading_wide_returns["stall"])
+    assert tot < floor - 15.0, (
+        f"dying (topple@20deg={tot:.1f}) is not priced below standing "
+        f"still under the wide set ({floor:.1f}): "
+        f"{easy_heading_wide_returns}")
+
+
+# ---------------------------------------------------------------------
 # WALK DUTY GATE (reward.walk_duty_gate — 09-05 dig-in
 # headset-base-s0c1-acq1): LEGPARK is family-wide, not gSDE-specific —
 # 1/3 plain-Gaussian heading seeds hardened a marginal leg into a

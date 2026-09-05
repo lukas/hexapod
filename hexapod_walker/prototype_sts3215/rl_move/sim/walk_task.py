@@ -1902,8 +1902,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 f"unknown goal.walk_cmd_mode={cmd_mode!r}; expected "
                 f"legacy, stress_mix, or one of {WALK_CMD_SCHEDULES}")
         vx_t, vy_t = speed * math.cos(ang), speed * math.sin(ang)
-        hold_n = max(1, int(round(1.0 / self.dt)))
-        ramp_n = max(1, int(round(1.0 / self.dt)))
+        # Opening-command shape (2026-09-05 operator walkscratch pilot):
+        # the legacy hardcoded 1 s zero-hold + 1 s ramp lets the K_WALK
+        # Gaussian kernel pay ~K_WALK/tick for STANDING STILL during the
+        # opening stop (freeprog only replaces the kernel when
+        # s_ref > 1e-3), a ~200-reward windfall at 100 Hz that every
+        # from-scratch walkcurr arm banked before earning its first
+        # movement income. goal.walk_cmd_hold_s / goal.walk_cmd_ramp_s
+        # make both durations configurable; 0 means the full command is
+        # active from tick 0 (no stop segment, no kernel windfall, the
+        # freeprog/kernel income prices motion immediately). Default
+        # -1.0 = the legacy max(1, round(1/dt)) shape, bit-exact for
+        # every existing lineage (no rng is drawn either way).
+        _hold_s = float(cfg_get(self.cfg, "goal", "walk_cmd_hold_s",
+                                default=-1.0))
+        _ramp_s = float(cfg_get(self.cfg, "goal", "walk_cmd_ramp_s",
+                                default=-1.0))
+        hold_n = (max(0, int(round(_hold_s / self.dt))) if _hold_s >= 0.0
+                  else max(1, int(round(1.0 / self.dt))))
+        ramp_n = (max(0, int(round(_ramp_s / self.dt))) if _ramp_s >= 0.0
+                  else max(1, int(round(1.0 / self.dt))))
         vx = np.full(n, vx_t)
         vy = np.full(n, vy_t)
         vx[:hold_n] = 0.0

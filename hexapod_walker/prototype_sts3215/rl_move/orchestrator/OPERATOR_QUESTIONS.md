@@ -4796,3 +4796,17 @@ family claims need clause replication (tool: `rescore_turn_authority band`, test
 seed1 lever reopening was comparator noise — FAIL wall on "levers improve combined turn authority" stays
 closed; real replicated finding is levers partially PROTECT cb_neg against continuation erosion
 (9/10 above band, p~4e-6) and frozen parents keep the best pure-turn (0.223-0.226 vs all continuations).
+
+## 2026-09-05 — delivery-branch replay model provenance (fb_20260905T075426_969b3d follow-up)
+The `codex/smooth-walking-delivery` replay evidence ran on a 4.80573 kg
+full-mesh model (xml sha `7efb8e8a…`) generated in the Mac checkout
+(`/Users/lukas/Documents/ChatGPT/hexapod project`). This repo's current
+source builds a 3.490 kg mesh (audited as-built total is 3.50 kg); 19/34
+referenced meshes differ byte-wise (all core links/servos/chassis). Which
+CAD state produced the 4.8 kg model — uncommitted Mac-side CAD work
+(real added hardware?) or a stale/divergent checkout? Assumed-and-went:
+verification treated the transport/filter findings as model-robust (they
+reproduced on the 3.490 kg build) and made no deployment recommendation.
+Related low-priority decision: a fresh mesh build rewrites the TRACKED
+`hexapod_mesh_mjx.xml` twin (09-04 leg-geometry/boot CAD update not in the
+committed twin); left unchanged to avoid moving training defaults.

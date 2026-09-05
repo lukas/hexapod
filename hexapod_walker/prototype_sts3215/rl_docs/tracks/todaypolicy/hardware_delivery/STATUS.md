@@ -1,6 +1,32 @@
 # todaypolicy / hardware_delivery — measured controller delivery
 
-Last updated: 2026-09-05 ~09:1x UTC. **Next#3 (time-sliced demand)
+Last updated: 2026-09-05 ~11:0x UTC.
+
+## DONE 09-05: delivery-branch verification (op `fb_20260905T075426_969b3d`)
+
+Full report: `rl_docs/WALKING_DELIVERY_VERIFY_20260905.md` on branch
+`codex/smooth-walking-delivery-verify-20260905` (commit `908e735c`, on top
+of the published `codex/smooth-walking-delivery` tip `c3f3ddb4`); isolated
+worktree, CPU only, zero PPO, no robot, policy kept 100 Hz. Highlights:
+actor+model hashes internally consistent across all branch artifacts
+(actor bytes only exist operator-side; motor model matches this repo
+bit-exactly); **model mismatch flagged** — the replay's 4.806 kg full mesh
+is not regenerable here (fresh build 3.490 kg, 19/34 meshes differ);
+faster-filter forward recovery REPRODUCED with a different frozen actor
+(sideways wants real cadence, matching the branch doc; forward filter-lag
+share is actor-dependent); NEW matched noise screen (opt-in
+`--sensor-noise-json`, 3 tests) shows fast filters keep their gain at 1×
+DR-floor sensor noise and lose it at 2×; corrected
+stop/restart slip (v2 metric, exact published model): baseline
+1.384→1.314, envelope 1.559→1.365 — the envelope's apparent +12.6 %
+stop/restart slip penalty was mostly metric artifact (real +3.9 %).
+Branch default path verified bit-exact vs main (no code regression; a 4e-4
+drift was the 09-04 CAD-driven mesh regen). Next measurable step is
+Codex-owned: extract the measured sensor-noise floor from recorded
+hardware traces, then re-run the matched screen at that level — that
+number decides the fast-filter candidate. Also queued for a deliberate
+later decision: the tracked `hexapod_mesh_mjx.xml` twin no longer matches
+a fresh current-CAD build (not changed this cycle). **Next#3 (time-sliced demand)
 BUILT, TESTED, REFUTED — zero PPO, real mesh/100 Hz physics.** Added
 `CommandEnvelope.mode='time_slice'` (default-off, new dataclass fields
 `slice_period_s`/`turn_duty`, `EnvelopeOutput.in_turn_slice` telemetry;

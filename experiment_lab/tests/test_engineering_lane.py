@@ -343,6 +343,27 @@ def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_le
     assert "installed-file verification" in normalized_prompt
 
 
+def test_offline_prompt_excludes_hardware_execution_instructions():
+    prompt = engineering_prompt(
+        {
+            "id": "offline-job",
+            "source_analysis_job_id": "analysis-job",
+            "experiment_id": "experiment",
+            "lane": ENGINEERING_LANE_OFFLINE,
+            "source_context": {"trigger_kind": "experiment_analysis"},
+        },
+        {"sha256": "a" * 64},
+        {"status": "clean"},
+    )
+
+    assert "independent OFFLINE/CODE lane" in prompt
+    assert "Inspect the live robot and queue first" not in prompt
+    assert "Deploy that committed source" not in prompt
+    assert "`hexapod.local:8080` documented HTTP endpoints" not in prompt
+    assert "do not clear robot/queue latches" in prompt
+    assert "Never turn it into physical execution" in prompt
+
+
 def test_engineering_result_narrowly_normalizes_the_job_bound_legacy_digest(
     tmp_path,
 ):
@@ -527,6 +548,23 @@ def test_project_context_carries_fail_closed_deployment_source_guard(tmp_path):
     assert "currently installed on the robot" in guard_text
     assert "Never roll the robot back" in guard_text
     assert "installed-file verification" in guard_text
+
+    offline_context = build_project_context(
+        workspace,
+        max_bytes=1_000_000,
+        lane=ENGINEERING_LANE_OFFLINE,
+    )
+    assert context["capability_boundary"][
+        "physical_robot_via_documented_guarded_paths"
+    ] is True
+    assert offline_context["capability_boundary"][
+        "physical_robot_via_documented_guarded_paths"
+    ] is False
+    assert offline_context["capability_boundary"]["robot_deployment"] is False
+    assert offline_context["capability_boundary"][
+        "robot_lab_result_registration"
+    ] is True
+    assert offline_context["sha256"] != context["sha256"]
 
 
 def test_project_context_accepts_git_pointer_checkout(tmp_path):
@@ -988,6 +1026,8 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
     monkeypatch.setattr(codex_module, "_terminate_deadline_wrapper", lambda *_a, **_k: True)
     monkeypatch.setenv("HEXAPOD_LAB_TOKEN", "mcp-only-lab-token")
     monkeypatch.setenv("HEXAPOD_ORCHESTRATOR_TOKEN", "mcp-only-rl-token")
+    monkeypatch.setenv("SSH_AUTH_SOCK", "/tmp/hardware-agent.sock")
+    monkeypatch.setenv("KUBECONFIG", "/tmp/hardware-kubeconfig")
     settings = configured(tmp_path, workspace, codex_bin=Path("/opt/codex"))
     orchestrator = CodexOrchestrator(Store(tmp_path / "lab.sqlite3"), settings)
     monkeypatch.setattr(orchestrator, "_finalize_transcript", lambda *_a, **_k: None)
@@ -1024,7 +1064,31 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
     # them from every model-generated shell process.
     assert captured["env"]["HEXAPOD_LAB_TOKEN"] == "mcp-only-lab-token"
     assert captured["env"]["HEXAPOD_ORCHESTRATOR_TOKEN"] == "mcp-only-rl-token"
+    assert captured["env"]["SSH_AUTH_SOCK"] == "/tmp/hardware-agent.sock"
+    assert captured["env"]["KUBECONFIG"] == "/tmp/hardware-kubeconfig"
+    assert captured["env"]["HEXAPOD_ENGINEERING_LANE"] == "hardware"
     process_state = json.loads(
         (settings.data_dir / "codex-runs" / "engineering-job" / "attempt-1" / "process.json").read_text()
     )
     assert process_state["deadline_seconds"] == 123
+
+    captured.clear()
+    offline = orchestrator._invoke(
+        "engineering",
+        {"id": "offline-job", "attempts": 1, "experiment_id": "experiment"},
+        "Run the offline replay in parallel.",
+        {"type": "object"},
+        engineering_workdir=workspace,
+        engineering_lane=ENGINEERING_LANE_OFFLINE,
+    )
+
+    assert offline == {"ok": True}
+    offline_command = captured["command"]
+    assert offline_command[offline_command.index("--sandbox") + 1] == "workspace-write"
+    assert "sandbox_workspace_write.network_access=true" in offline_command
+    assert "--search" in offline_command
+    assert captured["env"]["HEXAPOD_ENGINEERING_LANE"] == "offline"
+    assert "SSH_AUTH_SOCK" not in captured["env"]
+    assert "KUBECONFIG" not in captured["env"]
+    assert captured["env"]["HEXAPOD_LAB_TOKEN"] == "mcp-only-lab-token"
+    assert captured["env"]["HEXAPOD_ORCHESTRATOR_TOKEN"] == "mcp-only-rl-token"

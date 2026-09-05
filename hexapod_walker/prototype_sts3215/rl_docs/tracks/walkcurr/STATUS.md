@@ -2,6 +2,35 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:5x this cycle: two verdicts + one refill closing two open
+  campaign threads. (1) `headset-halfgrav-s3acq` **ACQ PASS** — closes
+  the halfgrav heading-family n=3 confirmation set (acq1/s1acq/s3acq
+  all PASS): 0/24 falls, gait_valid 22/24 (walk/det 6/6, walk/sto 6/6,
+  walk_startjitter/sto 6/6, walk_startjitter/det 4/6 with leg[1]
+  duty 0.10-0.15 but swing_count still 82-164/20s — active
+  micro-underuse, not LEGPARK-SKATE), fwd med 2.32-2.80m/20s, slip med
+  1.83-2.72 (tight, near-campaign-best). This is a genuine improvement
+  over the seed's own 2M canary (which had flagged leg-1 sacrifice in
+  BOTH det panels, 3/6 and 1/6) — clears the sibling entry's own
+  `>=4/6 primary walk/det` + `>=13/24 overall` bar comfortably. SKILLS.md
+  updated. (2) `headset-base-irr-c1` **CANARY PASS** — mechanism-health
+  confirmed (walk_speed alive 0.155-0.170 all 4 quarters, ep_rew_mean
+  monotonic 42->191, ep_len_mean 108->488) AND the prestage tooling
+  had already run the full 24-ep gate panel at 2M: 0/24 falls,
+  gait_valid 21/24 (only the established base-family walk_startjitter/
+  det leg1/4 favoritism, 3/6). Both gate evals had gone ORPHANED
+  (the known 09-05 tooling gotcha — pullckpt synced but eval_checkpoint
+  was still computing remotely with no local poller left); reattached
+  via `ops.sh pollreap` for both, ~30min. Refill: launched
+  `headset-base-irr-acq1` (40M, own-checkpoint warm start from
+  `headset-base-irr-c1`'s own 2M checkpoint via `respec
+  --init-from-source`), VERIFIED RUNNING on train-3 — mirrors the
+  halfgrav sibling's `headset-halfgrav-irr-acq1` (already running via a
+  concurrent cycle) so both gravity cells now have the irr-timing rung
+  funded at full budget. Evidence: `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_{halfgrav_s3acq,base_irr_c1}_gate/report.json`, W&B
+  `uwewt762`/`0zs57vwc`.
+
 - 09-05 ~14:5x DIG-IN closure: `headset-base-s0c1-acq1` **ACQ FAIL
   (MISALIGNED)** — the 3rd base-family 40M heading seed walks fast
   with 0/24 falls but chronically parks leg 4 (duty 0.03-0.07,

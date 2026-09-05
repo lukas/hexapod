@@ -845,3 +845,171 @@ def test_easy_heading_dying_is_the_floor(easy_heading_returns):
     assert tot < floor - 15.0, (
         f"dying (topple@20deg={tot:.1f}) is not priced below standing "
         f"still ({floor:.1f}): {easy_heading_returns}")
+
+
+# ---------------------------------------------------------------------
+# WALK DUTY GATE (reward.walk_duty_gate — 09-05 dig-in
+# headset-base-s0c1-acq1): LEGPARK is family-wide, not gSDE-specific —
+# 1/3 plain-Gaussian heading seeds hardened a marginal leg into a
+# chronic duty-0.03-0.07 paddle over 40M while reward rose and speed
+# stayed flat. Both prior levers failed with one right half each:
+# walk_gait_gate = right structure (income collapse), gameable score
+# (a rare token swing resets its completion window — sde-c3gg 2/2);
+# k_park = right signal (contact duty, the harness's own sacrifice
+# bar), wrong structure (a flat charge transport income outbids —
+# idleterm pair). walk_duty_gate combines the proven halves: transport
+# income is multiplied by (1-g) + g * MIN over support legs of
+# clip(trailing-3s contact duty / 0.15, 0, 1). This bank proves, with
+# scripted twins on the exact pilot diet: (a) default off = bit-exact;
+# (b) a healthy six-leg tripod is not priced; (c) a five-leg gait
+# (leg-4 aloft, the s0c1-acq1 exploit twin) has its income collapsed
+# below the six-leg gait; (d) a token touchdown every couple of
+# seconds — the exact dodge that gamed walk_gait_gate — does NOT
+# restore the income.
+# ---------------------------------------------------------------------
+
+DUTY_GATE_G = 0.9
+EASY_DUTY = dict(EASY_BASE)
+EASY_DUTY.update({
+    ("reward", "walk_duty_gate"): DUTY_GATE_G,
+    ("reward", "duty_gate_window_s"): 3.0,
+    ("reward", "duty_gate_floor"): 0.15,
+})
+# leg 4 = the exact leg the s0c1-acq1 exploit parked
+PARK_LEG = 4
+
+
+def _legpark_rollout(policy: str, seed: int, *, overrides: dict,
+                     touch_every_s: float = 2.0,
+                     touch_len_s: float = 0.2,
+                     lift_deg: float = 45.0,
+                     ) -> tuple[float, float, int, float]:
+    """(return, net forward m, steps, measured leg-4 duty) for the
+    five-leg exploit twins: the honest tripod gait with PARK_LEG's
+    hip/knee held folded up ("legpark"), optionally dropped back to
+    the plant pose for touch_len_s every touch_every_s
+    ("tokentouch" — the walk_gait_gate dodge)."""
+    from hexapod_core.tripod_gait import TripodGait
+    from rl_move.sim.probe_walk_income import WALK_PLANT
+
+    env = _make_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_leg = np.array([0.0, *WALK_PLANT]) * DEG2RAD
+
+    x0 = float(env.data.xpos[env._chassis_bid, 0])
+    total, step, on4 = 0.0, 0, 0
+    n = len(traj.vx)
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        touching = (policy == "tokentouch"
+                    and (t % touch_every_s) < touch_len_s)
+        if policy in ("legpark", "tokentouch") and not touching:
+            # hold PARK_LEG aloft: fold hip+knee up off the plant
+            q[3 * PARK_LEG + 0] = plant_leg[0]
+            q[3 * PARK_LEG + 1] = plant_leg[1] - lift_deg * DEG2RAD
+            q[3 * PARK_LEG + 2] = plant_leg[2] - lift_deg * DEG2RAD
+        elif touching:
+            q[3 * PARK_LEG + 0] = plant_leg[0]
+            q[3 * PARK_LEG + 1] = plant_leg[1]
+            q[3 * PARK_LEG + 2] = plant_leg[2]
+        obs, r, done, trunc, info = env.step(_q_to_action(env, q))
+        total += r
+        on4 += 1 if env._foot_on[PARK_LEG] else 0
+        step += 1
+        if done or trunc:
+            break
+    dx = float(env.data.xpos[env._chassis_bid, 0]) - x0
+    return total, dx, step, on4 / max(step, 1)
+
+
+@pytest.fixture(scope="module")
+def duty_gate_returns() -> dict[str, tuple]:
+    out = {}
+    for name, pol, ov in (
+            ("gait_base", "gait", EASY_BASE),
+            ("gait_gated", "gait", EASY_DUTY),
+            ("legpark_base", "legpark", EASY_BASE),
+            ("legpark_gated", "legpark", EASY_DUTY),
+            ("tokentouch_gated", "tokentouch", EASY_DUTY)):
+        runs = [_legpark_rollout(pol, s, overrides=ov) for s in SEEDS]
+        out[name] = (
+            float(np.mean([r[0] for r in runs])),   # return
+            float(np.mean([r[1] for r in runs])),   # dx
+            float(np.mean([r[2] for r in runs])),   # steps
+            float(np.mean([r[3] for r in runs])),   # leg-4 duty
+        )
+    return out
+
+
+def test_duty_gate_default_off_bit_exact():
+    """walk_duty_gate absent and explicitly 0.0 produce the identical
+    trajectory income — the key defaults OFF and touches nothing."""
+    ov = dict(EASY_BASE)
+    ov[("reward", "walk_duty_gate")] = 0.0
+    a = _easy_rollout("gait", 0, overrides=EASY_BASE)
+    b = _easy_rollout("gait", 0, overrides=ov)
+    assert a == b, f"walk_duty_gate=0.0 is not bit-exact: {a} vs {b}"
+
+
+def test_duty_gate_twins_are_honest(duty_gate_returns):
+    """Premise checks so the pricing assertions below mean something:
+    the five-leg twin actually keeps leg 4 off the ground (below the
+    harness's 0.10 sacrifice bar), stays up, and still travels under
+    the ungated diet (it IS the observed profitable exploit); the
+    six-leg twin keeps leg 4 honestly loaded."""
+    for name in ("legpark_base", "legpark_gated", "tokentouch_gated"):
+        tot, dx, steps, duty4 = duty_gate_returns[name]
+        assert duty4 < 0.10, (
+            f"{name} twin leg-4 duty {duty4:.3f} not below the 0.10 "
+            f"sacrifice bar: {duty_gate_returns}")
+        assert steps >= 900, (
+            f"{name} twin fell (steps={steps}); not a valid exploit "
+            f"twin: {duty_gate_returns}")
+    assert duty_gate_returns["legpark_base"][1] > 0.25, (
+        "five-leg twin no longer travels ungated — exploit premise "
+        f"broken: {duty_gate_returns}")
+    assert duty_gate_returns["gait_gated"][3] > 0.20, (
+        "six-leg twin's leg-4 duty unexpectedly low: "
+        f"{duty_gate_returns}")
+
+
+def test_duty_gate_healthy_six_leg_gait_unpriced(duty_gate_returns):
+    """A healthy tripod (all duties well above the 0.15 floor) must
+    keep essentially all its income under the gate."""
+    base = duty_gate_returns["gait_base"][0]
+    gated = duty_gate_returns["gait_gated"][0]
+    assert gated >= 0.90 * base, (
+        f"duty gate taxed the honest six-leg gait: {gated:.1f} vs "
+        f"{base:.1f}: {duty_gate_returns}")
+
+
+def test_duty_gate_collapses_legpark_income(duty_gate_returns):
+    """The s0c1-acq1 exploit twin must lose the bulk of its transport
+    income under the gate and rank strictly below six-leg walking."""
+    ungated = duty_gate_returns["legpark_base"][0]
+    gated = duty_gate_returns["legpark_gated"][0]
+    six = duty_gate_returns["gait_gated"][0]
+    assert gated < 0.45 * ungated, (
+        f"gate did not collapse legpark income: {gated:.1f} vs "
+        f"ungated {ungated:.1f}: {duty_gate_returns}")
+    assert gated < 0.60 * six, (
+        f"five-leg income not decisively below six-leg income under "
+        f"the gate: {gated:.1f} vs {six:.1f}: {duty_gate_returns}")
+
+
+def test_duty_gate_token_touch_cannot_dodge(duty_gate_returns):
+    """A brief touchdown every couple of seconds reset walk_gait_gate's
+    completion window (the sde-c3gg 2/2 dodge). A 0.2 s touch every
+    2 s is ~0.10 duty — at/below the harness bar — so the duty gate
+    must keep the income collapsed."""
+    token = duty_gate_returns["tokentouch_gated"][0]
+    six = duty_gate_returns["gait_gated"][0]
+    assert token < 0.60 * six, (
+        f"token touchdowns dodged the duty gate: {token:.1f} vs "
+        f"six-leg {six:.1f}: {duty_gate_returns}")

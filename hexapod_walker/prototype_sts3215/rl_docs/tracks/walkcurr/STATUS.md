@@ -2,6 +2,102 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~19:2x this cycle (assigned `headset-base-medhead-acq1`,
+  `headset-base-s0c1-dgfresh`, `headset-halfgrav-medhead-acq1`; all 3
+  found genuinely still computing remotely at cycle spawn — a
+  concurrent cycle had already registered `evalpending`+`pollreap` for
+  all 3 one cycle earlier, so waited them out rather than duplicating
+  the registration): 2 verdicts, 1 (`halfgrav-medhead-acq1`) still
+  computing at cycle end. (1) `headset-base-s0c1-dgfresh` **CANARY
+  FAIL - MECHANISM** — the last untried `walk_duty_gate` provenance
+  variant (strong floor=0.35 baked in from a lightly-trained 2M
+  checkpoint, before the leg-4 habit could entrench, vs retrofitting
+  onto the 40M-entrenched `s0c1-acq1`). `env/walk_duty_gate_factor`
+  genuinely declined 1.0->0.63 (real pricing) but harness leg-4 duty
+  in `walk_startjitter/det` stayed statistically unchanged vs the
+  undosed twin (0.02-0.07 vs 0.02-0.05), same leg sacrificed 6/6
+  both, gait_valid 0/6 both; walk/det+sto stayed clean (12/12, 0
+  falls) so nothing else broke, the price just never moved the mean.
+  **This CLOSES `walk_duty_gate` end-to-end** (every dose x every
+  checkpoint-provenance case) on BOTH the gSDE and base/non-gSDE
+  families — no further duty_gate-class arm on any lineage; the
+  marginal-leg pathology needs a genuinely new mechanism (explicit
+  per-leg swing-count/utilization reward, bank-proven fresh) before
+  further spend. (2) `headset-base-medhead-acq1` **ACQ FAIL** — the
+  5-way medium-heading 40M continuation clears speed (fwd
+  1.9-2.6m/20s) and falls (0/24 terms) cleanly, reward still climbing
+  every quarter (-279->398), but `gait_valid` only 10/24 overall
+  (det-mode majority sacrifices leg 1 or 4: walk/det 1/6,
+  walk_startjitter/det 1/6) — under the majority bar this campaign
+  adopted at the `s0c1-acq1` FAIL. `direction_err_mean_deg` is
+  uniformly poor (22-60deg, 0/24 success) even on the original
+  {0,+-45} subset `fullhead-c1`'s canary tracked cleanly. THIRD
+  confirmation (after `s0c1-acq1`, `irr-acq1`) that the base(1g)
+  family's leg-1/4 favoritism hardens into outright gait failure
+  under ANY added axis beyond flat/small-heading. **Note the sibling
+  `headset-base-medhead2-c1` canary (below, concurrent cycle) reads
+  much cleaner (18/24 gait_valid) on the SAME rung from a DIFFERENT
+  champion/seed at 2M** — read together this looks like seed/lineage
+  variance in how hard the leg-1/4 habit has entrenched by the time
+  the medhead rung starts, not a rung-wide dead end; the
+  already-launched `headset-base-medhead2-acq1` 40M continuation is
+  the live test of whether a cleaner-starting seed holds up at full
+  budget. No new arm launched this cycle: every non-duplicative next
+  step (per-leg-utilization mechanism design, the halfgrav-medhead-
+  acq1 read, the medhead2-acq1 continuations) is already in flight;
+  capacity re-checked (`capacity.py` read 10/11 free, but
+  `train-1/2/4` were each genuinely running one of these 3 gate evals
+  despite reading FREE — confirmed real blind spot: the launcher's
+  live check only detects TRAINING processes, not standalone
+  `eval_checkpoint` passes — left those 3 alone to avoid GPU
+  contention with an eval already close to done, found no other
+  pre-registered non-duplicative item to fill the true-idle pods
+  beyond what's already running). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-{s0c1-dgfresh,medhead-acq1}`,
+  CURRENT_TRUTHS.md 09-05 ~19:2x, W&B `8q0axo9n`/`8dtoak13`.
+
+- 09-05 ~19:2x this cycle (own assigned pair, verdicted after their
+  `pollreap` reaped): `headset-base-medhead2-c1` and
+  `headset-halfgrav-medhead2-c1` both **CANARY PASS** — the medium
+  5-way heading rung's second-seed confirmation. Base: `env/
+  v_along_cmd_m_s` 0.065-0.075 m/s (well clear of the ~0.01 noise
+  floor), harness 18/24 gait_valid (walk/det 6/6, walk/sto 6/6,
+  walk_startjitter/sto 5/6, walk_startjitter/det 1/6 with legs 1/4
+  flagged only in SOME episodes, not chronically), frame strip
+  confirms genuine six-leg cycling. Halfgrav: cleaner still —
+  v_along 0.077-0.091 m/s, harness 24/24 gait_valid across ALL FOUR
+  modes, zero sacrificed legs anywhere, slip 2.5-3.9 (near the 2.9
+  teacher band). Both warm-started from a DIFFERENT champion than
+  their respective first-seed `medhead-c1` (base: `headset-base-acq1`
+  vs `s1c1-acq1`; halfgrav: `headset-halfgrav-s3acq` vs `halfgrav-
+  acq1`) — the medium-heading rung is now confirmed n=2 seeds on both
+  families, not champion-specific. Per each gate's own PASS clause,
+  launched the 40M acquisition continuations `headset-base-medhead2-
+  acq1` (train-0) and `headset-halfgrav-medhead2-acq1` (train-3),
+  mirroring the first-seed `medhead-acq1` template exactly (`respec
+  --init-from-source --phase acquisition`), both VERIFIED RUNNING.
+  **Capacity fill (while the assigned pair's pollreap was pending,
+  11/11 reachable GPU pods free, backlog empty):** found 4 OTHER runs
+  sitting finished-but-uncollected (W&B `state=finished`, harness
+  `eval_checkpoint` genuinely still computing remotely 20min+ in, no
+  live trainer anywhere per direct `ps`, not the stale ledger) with
+  nobody actively working them this cycle. `sde-s1-c2-dgatefix`'s
+  report had already been silently reaped by an earlier cycle's
+  `pollreap` (unread) — verdicted **CANARY FAIL - MECHANISM**, closing
+  the entrenched-checkpoint `walk_duty_gate` batch at n=4/4 FAIL (see
+  the dedicated entry above/below for full evidence): legs [1,4] stay
+  sacrificed 0/6 gait_valid despite the factor genuinely declining
+  1.0->0.54 and reward rising — the same shape sibling `sde-s2-c2-
+  dgatefix`'s OWN 40M continuation already showed re-saturates with no
+  repair, so no duplicate continuation was funded. The other 3
+  (`headset-base-medhead-acq1`, `headset-halfgrav-medhead-acq1`,
+  `headset-base-s0c1-dgfresh`) were registered via `ops.sh evalpending
+  add` + a backgrounded `pollreap` each (not yet reaped by cycle end —
+  left for the next reader, not re-triggered). Evidence: `ops.sh
+  review cw-walkscratch-easy0905-headset-{base,halfgrav}-medhead2-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_{base,halfgrav}_
+  medhead2_c1_gate/report.json`, W&B `n0ostk9i`/`1w4vf6xd`.
+
 - 09-05 ~19:1x this cycle (assigned `headset-{base,halfgrav}-medhead2-c1`;
   both still genuinely computing remotely at cycle start (video-every=1,
   ~26min in of an expected 1.5-2h single-mode pass) -- backgrounded

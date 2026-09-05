@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T19:15:54+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-medhead2-c1
+
+**wandb_id**: 47j1zemx
 
 **hypothesis**: Second-seed medium-heading (5-way, 0/+-45/+-90deg) acquisition on the base(1g) family: headset-base-medhead2-c1's own 2M canary already CANARY PASSED (v_along clears noise floor, 18/24 harness gait_valid, no chronic single-leg sacrifice), warm-started from a DIFFERENT base champion (headset-base-acq1) than the first-seed acq1 continuation (which used medhead-c1, warm-started from s1c1-acq1). This gives it the full 40M budget to confirm the medium-heading rung acquires cleanly from a second independent seed, mirroring headset-base-medhead-acq1's template exactly.
 

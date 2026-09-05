@@ -491,6 +491,54 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   report.json`, `logs/experiments/cw-walkscratch-easy0905-headset-
   base-s0c1-dgate2-c1/wandb_history.csv`, W&B `j41igzz5`.
 
+  UPDATE 09-05 ~19:2x — **`walk_duty_gate` is now CLOSED end-to-end
+  on the base/non-gSDE family too, matching gSDE's earlier closure.**
+  The one untried provenance variant, baking the strong floor
+  (`duty_gate_floor=0.35`, `walk_duty_gate=1.0`) in from a LIGHTLY
+  TRAINED 2M checkpoint (`headset-base-s0c1-dgfresh`, warm-started
+  from `base_s0_c1.zip` before the leg-4 habit could fully entrench,
+  as opposed to retrofitting onto the 40M-entrenched `s0c1-acq1`
+  checkpoint) landed CANARY FAIL - MECHANISM: `env/walk_duty_gate_
+  factor` genuinely declined 1.0->0.63 (real pricing) but harness
+  leg-4 duty in `walk_startjitter/det` stayed statistically
+  unchanged vs the undosed twin's own report (0.02-0.07 vs
+  0.02-0.05), same leg sacrificed 6/6 both. Combined with the
+  entrenched-checkpoint retrofit closure (2/2 FAIL at this same
+  dose) and the from-scratch-full-freeze closure (3/3 FAIL, a
+  different pathology), **every checkpoint-provenance case (fresh,
+  early, entrenched) x every dose (0.15, 0.35) of `walk_duty_gate`
+  is now FAIL on this family** — do not fund any further
+  `walk_duty_gate`-class arm on ANY lineage; the marginal
+  leg-favoritism pathology needs a genuinely new mechanism (explicit
+  per-leg swing-count/utilization reward, bank-proven fresh, or a
+  structural exploration-anneal change) before further spend.
+  Evidence: `ops.sh review cw-walkscratch-easy0905-headset-base-
+  s0c1-dgfresh`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  base_s0c1_dgfresh_gate/report.json` vs `..._headset_base_s0c1_
+  gate/report.json`, W&B `8q0axo9n`.
+
+  UPDATE 09-05 ~19:2x — the medium-heading-set (5-way) 40M
+  acquisition run on the base(1g) family, `headset-base-medhead-
+  acq1`, is ACQ FAIL: clears speed (fwd 1.9-2.6m/20s, ~0.09-0.13
+  m/s) and falls (0/24 terminations) cleanly, reward still climbing
+  every quarter (-279->398), but `gait_valid` is only 10/24 overall
+  (det-mode majority sacrifices leg 1 or 4: walk/det 1/6,
+  walk_startjitter/det 1/6) — well under the majority bar this
+  campaign adopted. `direction_err_mean_deg` is also uniformly poor
+  (22-60deg, 0/24 "success") even on the original {0,+-45} subset
+  the earlier `fullhead-c1` canary tracked cleanly. This is the
+  THIRD confirmation (after `s0c1-acq1`, `irr-acq1`) that the base
+  (1g) family's leg-1/4 favoritism hardens into an outright gait
+  failure under ANY added axis beyond flat/small-heading, while the
+  halfgrav(0.5g) sibling family has cleared the irr-timing axis
+  cleanly (its own medhead-acq1 read is pending). Working hypothesis:
+  the pathology is gravity-linked (heavier per-step load at 1g makes
+  the marginal leg's cost asymmetry harder to overcome), not
+  heading-set-specific — flagged for the next design pass rather
+  than another same-recipe 40M continuation on this lineage.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
+  medhead_acq1_gate/report.json`, W&B `8dtoak13`.
+
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,
   `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish

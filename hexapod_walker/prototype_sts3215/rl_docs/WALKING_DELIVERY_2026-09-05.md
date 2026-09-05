@@ -5,6 +5,48 @@ The immediate milestone is a measured, repeatable physical canary using the
 already tested walking checkpoint. Smooth room-scale walking is not yet a
 demonstrated result.
 
+## Follow-through on the remaining issues
+
+These are parallel engineering tasks, not prerequisites piled onto a walk.
+
+| Issue | Concrete decision or change | Remaining physical work |
+|---|---|---|
+| Delayed joint feedback | Keep 100 Hz; expose velocity alpha through the existing drive API and trial CLI so A/B runs need no config edits or restarts. `.8` improved both simulated directions versus `.3`. | Run the same walk with each value; retain it only if physical behavior improves. |
+| Attitude estimator | Keep `.98`. Changing only attitude to `.9039208` improved forward progress `.294 → .319` but worsened sideways `.297 → .280`; sideways slip also worsened. | Cross-check actual rocking against video when interpreting runs; no attitude change is needed to try velocity filtering. |
+| Inner-loop transport | Fix the firmware path that starves full-state acquisition during frequent S requests; preserve command priority and existing health reads. Current CPU inference is already fast enough. | Target-board build and firmware deployment remain separate from the first filter comparison. Then measure 20 Hz sensing before claiming a faster operating rate. |
+| Gait baseline and transfer fit | Keep the existing policy and gait 9 as references; retain measured differences between the full-mesh diagnostic and legacy physical assembly. | Use successive walking runs to compare progress/rocking and fit loaded/contact response. Do not label the CAD model an exact physical twin. |
+| Steering and policy runtime | Integrated the completed obs-75 MLP / obs-81 dual-GRU exporter and hardware runtime, preserving the filter override and shared recurrent state. Reject the tested command-scaling/time-slicing approaches as broad walking upgrades. | The no-yaw canary still cannot demonstrate turning. The new runtime enables testing existing candidates; it does not establish their physical steering or Uno Q inference timing. |
+| Further RL | The active orchestrator is handling its existing work; no duplicate training or new gait search was launched here. Velocity/attitude isolation gives a specific transfer target. | Compare the resulting useful candidates against the physical baseline, without waiting for every model uncertainty to disappear. |
+| Next robot | Prefer compact, serviceable load paths, individual servo power feeds, and independently driven servo buses. | Build one improved leg before copying it six times; no present evidence justifies replacing every servo. |
+
+The attitude-only report is
+`logs/ckpt_eval/deployed_transport_noyaw_v2_20260905_attitude_only/report.json`.
+Design details and primary sources are in the
+[mechanical lessons](../docs/NEXT_ROBOT_MECHANICAL_LESSONS_2026-09-05.md) and
+[wiring lessons](../docs/NEXT_ROBOT_WIRING_LESSONS_2026-09-05.md).
+
+The merged controller/runtime/CLI changes passed **159 focused tests**. The
+firmware scheduler passed **11 tests** that compile its actual production loop
+with mocked IO; removing the fix reproduces full-health starvation at 50/100 Hz
+snapshot requests. This is not a target-board build or a bus timing measurement.
+The physical robot was checked over HTTP: idle/limp, 18/18 servos, IMU healthy.
+No deployment, firmware flash, or motion occurred in this continuation.
+
+Commits: per-trial alpha `464b43d31`; firmware scheduling `d57ead668`;
+runtime/exporter integration `70536488d` and `3a9556f40` (from the separate
+policy task). These additions do not require a fresh source-hash match to the
+old queued manifest; record the actual version used for the experiment.
+
+The cloud verification finished in cycle `20260905T080130_operator-kick`.
+It used a **different actor and regenerated 3.490 kg model**, so its noise
+screen is supporting mechanism evidence rather than an exact replication of
+the frozen canary. Its combined faster filters retained a forward advantage
+at the chosen 1× simulated noise and lost it at 2×. Those are assumed noise
+levels, not measured hardware noise; they do not decide the physical A/B result.
+The old instruction to wait for a measured-noise report is superseded by
+Lukas's direction to run concrete experiments. Full cloud details remain in
+[the verification branch](https://github.com/lukas/hexapod/blob/codex/smooth-walking-delivery-verify-20260905/hexapod_walker/prototype_sts3215/rl_docs/WALKING_DELIVERY_VERIFY_20260905.md).
+
 ## Delivered infrastructure
 
 - Robot Lab understands `external_guarded` jobs. They wait for an operator;

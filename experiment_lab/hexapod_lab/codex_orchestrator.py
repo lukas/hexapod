@@ -20,10 +20,16 @@ import sys
 import threading
 import time
 from typing import Any, Callable, Dict, Iterable, List, Optional
+from urllib.parse import urlsplit, urlunsplit
 import uuid
 
-from .config import Settings
-from .codex_transcripts import finalize_codex_transcript
+from .config import DEFAULT_ROBOT_TELEMETRY_URL, Settings
+from .communication_capture import RobotCommunicationCapture, STATUS_NAME
+from .codex_transcripts import (
+    ROBOT_COMMUNICATION_MANIFEST,
+    finalize_codex_transcript,
+    verify_robot_communication_manifest,
+)
 from .db import Store, TERMINAL
 from .engineering_lane import (
     DisabledRLDispatcher,
@@ -44,6 +50,7 @@ from .engineering_lane import (
 )
 from .execution_progress import ExecutionProgressStore
 from .runner import ExperimentRunner
+from .robot_status import RobotStatusService
 
 
 ANALYSIS_SCHEMA: Dict[str, Any] = {
@@ -667,6 +674,64 @@ class CodexOrchestrator:
         self.process_lock = threading.Lock()
         self.processes: Dict[int, subprocess.Popen] = {}
 
+    def _robot_telemetry_url(self) -> str:
+        configured = self.settings.robot_telemetry_url
+        if configured != DEFAULT_ROBOT_TELEMETRY_URL:
+            return configured
+        status_url = RobotStatusService(
+            self.settings.robot_status_url,
+            self.settings.robot_vision_url,
+        ).resolved_robot_url()
+        parsed = urlsplit(status_url)
+        return urlunsplit((
+            parsed.scheme, parsed.netloc, "/api/telemetry", "", "",
+        ))
+
+    @staticmethod
+    def _finish_robot_communication(
+        capture: Optional[RobotCommunicationCapture],
+    ) -> None:
+        if capture is None:
+            return
+        try:
+            capture.finish()
+        except Exception as exc:
+            # Communication evidence must never mask the process cleanup and
+            # lease fence that determine whether robot-capable code still runs.
+            print(
+                "Could not finish robot communication capture: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+    def _finish_saved_robot_communication(
+        self,
+        run_dir: Path,
+        state: Dict[str, Any],
+    ) -> None:
+        if (
+            state.get("role") != "engineering"
+            or not (run_dir / STATUS_NAME).is_file()
+            or (run_dir / ROBOT_COMMUNICATION_MANIFEST).exists()
+            or (run_dir / ROBOT_COMMUNICATION_MANIFEST).is_symlink()
+        ):
+            return
+        try:
+            capture = RobotCommunicationCapture.resume(
+                run_dir,
+                expected_experiment_id=state.get("experiment_id"),
+                expected_job_id=state.get("job_id"),
+                expected_attempt=state.get("attempt"),
+            )
+        except Exception as exc:
+            print(
+                "Could not resume robot communication capture: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+            return
+        self._finish_robot_communication(capture)
+
     def start(self) -> None:
         if any(thread.is_alive() for thread in self.threads):
             return
@@ -877,6 +942,10 @@ class CodexOrchestrator:
                 self.engineering.expire_lease(job_id, reason)
             else:
                 self.store.expire_codex_job_lease(job_id, reason)
+            # The action-capable process has now been proven absent. Close
+            # its marker range before committing the finished process state;
+            # a crash here leaves an unfinished state that startup retries.
+            self._finish_saved_robot_communication(state_path.parent, state)
             recovered_at = datetime.now(timezone.utc).isoformat()
             state["recovered_at"] = recovered_at
             state["finished_at"] = recovered_at
@@ -2007,6 +2076,7 @@ class CodexOrchestrator:
             "evidence_manifest_sha256": job.get("evidence_manifest_sha256"),
         }
         _atomic_json(run_dir / "metadata.json", metadata)
+        communication_capture: Optional[RobotCommunicationCapture] = None
         if role == "engineering":
             workdir = (
                 engineering_workdir
@@ -2101,6 +2171,7 @@ class CodexOrchestrator:
             "intent_created_unix": launch_started_unix,
             "deadline_seconds": timeout,
             "assigned_experiment_id": assigned_experiment_id,
+            "experiment_id": job.get("experiment_id"),
         }
         # Persist intent before Popen. The independent wrapper atomically
         # adopts this same marker before it can launch Codex, closing the
@@ -2124,6 +2195,22 @@ class CodexOrchestrator:
         revocation_error = ""
         cleanup_failed = False
         with events_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
+            if role == "engineering" and engineering_lane == ENGINEERING_LANE_HARDWARE:
+                try:
+                    communication_capture = RobotCommunicationCapture(
+                        self._robot_telemetry_url(),
+                        run_dir,
+                        experiment_id=job.get("experiment_id"),
+                        job_id=job["id"],
+                        attempt=int(job["attempts"]),
+                    )
+                    communication_capture.begin()
+                except Exception as exc:
+                    print(
+                        "Could not begin robot communication capture: "
+                        f"{type(exc).__name__}: {exc}",
+                        flush=True,
+                    )
             try:
                 process = subprocess.Popen(
                     wrapped_command,
@@ -2134,6 +2221,8 @@ class CodexOrchestrator:
                     start_new_session=True,
                 )
             except Exception:
+                if communication_capture is not None:
+                    self._finish_robot_communication(communication_capture)
                 process_state["finished_at"] = datetime.now(timezone.utc).isoformat()
                 process_state["launch_failed"] = True
                 _atomic_json(process_state_path, process_state)
@@ -2198,6 +2287,8 @@ class CodexOrchestrator:
                     )
                 process_state["returncode"] = process.poll()
                 process_state["assignment_revoked"] = bool(revocation_error)
+                if communication_capture is not None and terminated:
+                    self._finish_robot_communication(communication_capture)
                 marker_error: Optional[Exception] = None
                 try:
                     _atomic_json(process_state_path, process_state)
@@ -2228,6 +2319,8 @@ class CodexOrchestrator:
             "returncode": process.returncode,
         })
         _atomic_json(run_dir / "metadata.json", metadata)
+        if communication_capture is not None:
+            self._finish_robot_communication(communication_capture)
         self._finalize_transcript(run_dir, job, role)
         if revocation_error:
             raise CodexRunError(revocation_error)
@@ -2278,6 +2371,28 @@ class CodexOrchestrator:
             self.store.register_codex_transcript_attempt(
                 job["id"], int(job["attempts"]), manifest_sha256, kind=role
             )
+            communication_manifest = run_dir / ROBOT_COMMUNICATION_MANIFEST
+            if (
+                communication_manifest.is_file()
+                and not communication_manifest.is_symlink()
+            ):
+                communication_sha256 = hashlib.sha256(
+                    communication_manifest.read_bytes()
+                ).hexdigest()
+                verify_robot_communication_manifest(
+                    run_dir,
+                    expected_job_id=job["id"],
+                    expected_experiment_id=job.get("experiment_id"),
+                    expected_kind=role,
+                    expected_attempt=int(job["attempts"]),
+                    expected_manifest_sha256=communication_sha256,
+                )
+                self.store.register_codex_communication_attempt(
+                    job["id"],
+                    int(job["attempts"]),
+                    communication_sha256,
+                    kind=role,
+                )
         except Exception as exc:
             # Never repeat a completed nondeterministic model invocation just
             # because its derived transcript view could not be generated. The
@@ -2322,6 +2437,7 @@ class CodexOrchestrator:
                 continue
             manifest_path = state_path.parent / "transcript.manifest.json"
             existed = manifest_path.is_file()
+            self._finish_saved_robot_communication(state_path.parent, state)
             self._finalize_transcript(
                 state_path.parent,
                 {**job, "attempts": attempt},

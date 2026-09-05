@@ -22,7 +22,7 @@ import statistics
 import threading
 import time
 import uuid
-from collections import deque
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -31,6 +31,7 @@ from typing import Callable
 HERE = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = HERE.parent / "rl_move" / "contact_predictor_model.json"
 HIGH_RATE_KINDS = frozenset({"positions", "snapshot", "step", "sync_write"})
+DEFAULT_MARKER_ACK_LIMIT = 1024
 
 
 def _env_int(name: str, default: int) -> int:
@@ -260,6 +261,7 @@ class TelemetryRecorder:
     def __init__(self, log_directory: Path | None = None, *,
                  queue_max: int | None = None,
                  segment_bytes: int = 64 * 1024 * 1024,
+                 marker_ack_limit: int = DEFAULT_MARKER_ACK_LIMIT,
                  model_path: Path = DEFAULT_MODEL_PATH):
         if log_directory is None:
             from event_log import log_dir
@@ -268,8 +270,14 @@ class TelemetryRecorder:
         self.segment_bytes = max(1024, int(segment_bytes))
         self.queue_max = max(128, int(queue_max or _env_int(
             "HEXAPOD_TELEMETRY_QUEUE", 4096)))
+        self.marker_ack_limit = max(1, int(marker_ack_limit))
         self.model_path = Path(model_path)
         self._lock = threading.Lock()
+        # ``offer`` can be called from the bus and HTTP worker threads at the
+        # same time.  Serializing its small, nonblocking critical section makes
+        # a marker's sequence and enqueue-side loss counters one exact boundary.
+        self._offer_lock = threading.Lock()
+        self._marker_lock = threading.Lock()
         self._active = False
         self._bus = None
         self._queue: queue.Queue | None = None
@@ -278,6 +286,7 @@ class TelemetryRecorder:
         self._path: Path | None = None
         self._paths: list[Path] = []
         self._flushed_marker: str | None = None
+        self._marker_acks: OrderedDict[str, dict] = OrderedDict()
         self._started_unix_ns: int | None = None
         self._started_mono_ns: int | None = None
         self._max_hz = 0.0
@@ -324,7 +333,9 @@ class TelemetryRecorder:
             self._path = self.log_directory / (
                 f"telemetry_{stamp}_{_clean_label(label)}.jsonl")
             self._paths = [self._path]
-            self._flushed_marker = None
+            with self._marker_lock:
+                self._flushed_marker = None
+                self._marker_acks.clear()
             self._queue = queue.Queue(maxsize=self.queue_max)
             self._stop = threading.Event()
             self._started_unix_ns = time.time_ns()
@@ -345,7 +356,8 @@ class TelemetryRecorder:
             self._latest_contact = None
             self._observer = RollingContactObserver(self.model_path)
             self._bus = bus
-            self._active = True
+            with self._offer_lock:
+                self._active = True
             self._thread = threading.Thread(
                 target=self._writer,
                 name="telemetry-recorder",
@@ -361,52 +373,74 @@ class TelemetryRecorder:
         out["ok"] = True
         return out
 
+    def _enqueue(self, kind: str, payload: dict) -> int | None:
+        """Enqueue one item and return its sequence, without ever waiting."""
+        with self._offer_lock:
+            if not self._active:
+                return None
+            mono_ns = time.monotonic_ns()
+            kind = str(kind)
+            if kind in HIGH_RATE_KINDS:
+                previous = self._last_high_rate_ns
+                if (previous and mono_ns + self._rate_slack_ns
+                        < previous + self._minimum_period_ns):
+                    self._rate_limited += 1
+                    return None
+                self._last_high_rate_ns = mono_ns
+            q = self._queue
+            if q is None:
+                return None
+            self._sequence += 1
+            seq = self._sequence
+            # These two counters are owned by enqueueing threads.  The writer
+            # receives the immutable snapshot in FIFO order with the marker.
+            enqueue_checkpoint = None
+            if kind == "marker":
+                enqueue_checkpoint = {
+                    "queue_dropped": self._queue_dropped,
+                    "communication_dropped": self._communication_dropped,
+                }
+            item = (seq, time.time_ns(), mono_ns, kind, payload,
+                    enqueue_checkpoint)
+            try:
+                q.put_nowait(item)
+                self._offered += 1
+                return seq
+            except queue.Full:
+                self._queue_dropped += 1
+                if kind.startswith("serial_"):
+                    self._communication_dropped += 1
+                return None
+
     def offer(self, kind: str, payload: dict) -> bool:
         """Timing-sensitive hook: bounded enqueue only; never waits."""
-        if not self._active:
-            return False
-        mono_ns = time.monotonic_ns()
-        kind = str(kind)
-        if kind in HIGH_RATE_KINDS:
-            previous = self._last_high_rate_ns
-            if (previous and mono_ns + self._rate_slack_ns
-                    < previous + self._minimum_period_ns):
-                self._rate_limited += 1
-                return False
-            self._last_high_rate_ns = mono_ns
-        q = self._queue
-        if q is None:
-            return False
-        self._sequence += 1
-        item = (self._sequence, time.time_ns(), mono_ns, kind, payload)
-        try:
-            q.put_nowait(item)
-            self._offered += 1
-            return True
-        except queue.Full:
-            self._queue_dropped += 1
-            if kind.startswith("serial_"):
-                self._communication_dropped += 1
-            return False
+        return self._enqueue(kind, payload) is not None
 
     def __call__(self, kind: str, payload: dict) -> bool:
         return self.offer(kind, payload)
 
     def mark(self, label: str, data: dict | None = None) -> dict:
-        if not self._active:
-            return {"ok": False, "error": "telemetry recorder is not active"}
         marker_id = uuid.uuid4().hex
-        accepted = self.offer("marker", {
+        seq = self._enqueue("marker", {
             "label": str(label)[:120], "data": data or {},
             "marker_id": marker_id,
         })
-        return {"ok": accepted, "label": str(label)[:120],
-                "marker_id": marker_id, **self.status()}
+        if seq is None:
+            if not self._active:
+                return {"ok": False,
+                        "error": "telemetry recorder is not active"}
+            return {"ok": False, "error": "telemetry recorder queue is full",
+                    "label": str(label)[:120], "marker_id": marker_id,
+                    **self.status(marker_id=marker_id)}
+        return {"ok": True, "label": str(label)[:120],
+                "marker_id": marker_id, "accepted_sequence": seq,
+                **self.status(marker_id=marker_id)}
 
     def stop(self, *, timeout: float = 2.0) -> dict:
         with self._lock:
-            was_active = self._active
-            self._active = False
+            with self._offer_lock:
+                was_active = self._active
+                self._active = False
             bus = self._bus
             self._bus = None
             setter = self._bus_setter(bus)
@@ -426,15 +460,37 @@ class TelemetryRecorder:
         })
         return out
 
-    def status(self) -> dict:
+    @staticmethod
+    def _copy_marker_ack(ack: dict | None) -> dict | None:
+        if ack is None:
+            return None
+        copied = dict(ack)
+        copied["paths"] = list(ack["paths"])
+        copied["capture_checkpoint"] = dict(ack["capture_checkpoint"])
+        return copied
+
+    def status(self, marker_id: str | None = None) -> dict:
         q = self._queue
         path = self._path
+        with self._offer_lock:
+            enqueue_state = {
+                "active": self._active,
+                "offered": self._offered,
+                "rate_limited": self._rate_limited,
+                "queue_dropped": self._queue_dropped,
+                "communication_dropped": self._communication_dropped,
+            }
+        with self._marker_lock:
+            flushed_marker = self._flushed_marker
+            marker_ack = self._copy_marker_ack(
+                self._marker_acks.get(str(marker_id))
+                if marker_id is not None else None)
         try:
             size = path.stat().st_size if path is not None and path.exists() else 0
         except OSError:
             size = 0
         return {
-            "active": self._active,
+            "active": enqueue_state["active"],
             "passive": True,
             "adds_bus_reads": False,
             "piggyback_snapshots": False,
@@ -445,16 +501,17 @@ class TelemetryRecorder:
             "gait_gating": False,
             "path": str(path) if path is not None else None,
             "paths": [str(part) for part in self._paths],
-            "flushed_marker": self._flushed_marker,
+            "flushed_marker": flushed_marker,
+            "marker_ack": marker_ack,
             "bytes": size,
             "max_hz": self._max_hz,
             "queue": q.qsize() if q is not None else 0,
             "queue_max": self.queue_max,
-            "offered": self._offered,
+            "offered": enqueue_state["offered"],
             "written": self._written,
-            "rate_limited": self._rate_limited,
-            "queue_dropped": self._queue_dropped,
-            "communication_dropped": self._communication_dropped,
+            "rate_limited": enqueue_state["rate_limited"],
+            "queue_dropped": enqueue_state["queue_dropped"],
+            "communication_dropped": enqueue_state["communication_dropped"],
             "uncaptured_bytes": self._uncaptured_bytes,
             "capture_errors": self._capture_errors,
             "write_error": self._write_error,
@@ -492,9 +549,11 @@ class TelemetryRecorder:
             stream.write(header)
             part_bytes = len(header)
             last_flush = time.monotonic()
+            current_path = path
             while not self._stop.is_set() or not q.empty():
                 try:
-                    seq, unix_ns, mono_ns, kind, payload = q.get(timeout=0.1)
+                    (seq, unix_ns, mono_ns, kind, payload,
+                     enqueue_checkpoint) = q.get(timeout=0.1)
                 except queue.Empty:
                     continue
                 record = {
@@ -526,6 +585,7 @@ class TelemetryRecorder:
                     stream = part.open("x", encoding="utf-8", buffering=256 * 1024)
                     self._paths.append(part)
                     self._path = part
+                    current_path = part
                     stream.write(header)
                     part_bytes = len(header)
                 stream.write(line)
@@ -534,9 +594,37 @@ class TelemetryRecorder:
                 q.task_done()
                 if kind == "marker" or time.monotonic() - last_flush >= 1.0:
                     stream.flush()
+                    if kind == "marker":
+                        # Publish an acknowledgement only after the marker is
+                        # durable in its exact part, not merely copied into the
+                        # process or kernel buffers.
+                        os.fsync(stream.fileno())
                     last_flush = time.monotonic()
                     if kind == "marker":
-                        self._flushed_marker = payload.get("marker_id")
+                        marker_id = payload.get("marker_id")
+                        if isinstance(marker_id, str) and marker_id:
+                            checkpoint = {
+                                **(enqueue_checkpoint or {}),
+                                "uncaptured_bytes": self._uncaptured_bytes,
+                                "capture_errors": self._capture_errors,
+                            }
+                            paths = [str(part) for part in self._paths]
+                            ack = {
+                                "marker_id": marker_id,
+                                "path": str(current_path),
+                                "paths": paths,
+                                "part": len(paths) - 1,
+                                "seq": int(seq),
+                                "written": self._written,
+                                "capture_checkpoint": checkpoint,
+                            }
+                            with self._marker_lock:
+                                self._marker_acks[marker_id] = ack
+                                self._marker_acks.move_to_end(marker_id)
+                                while (len(self._marker_acks)
+                                       > self.marker_ack_limit):
+                                    self._marker_acks.popitem(last=False)
+                                self._flushed_marker = marker_id
             stream.write(json.dumps({
                 "schema_version": 2, "record_type": "session_end",
                 "ts": _utc_iso(), "written": self._written,
@@ -549,7 +637,8 @@ class TelemetryRecorder:
             stream.flush()
         except Exception as exc:
             self._write_error = f"{type(exc).__name__}: {exc}"
-            self._active = False
+            with self._offer_lock:
+                self._active = False
             setter = self._bus_setter(self._bus)
             if setter is not None:
                 try:

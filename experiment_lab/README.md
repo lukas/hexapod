@@ -105,6 +105,16 @@ If direct access fails, the service can use the hub's existing passive
 robot. It never changes the hub target. Simulator responses are rejected even
 if the target changes during a request.
 
+Hardware engineering attempts also bracket the robot's already-running passive
+host/MCU recorder. By default the supervisor asks the `:8898` hub for its
+validated physical target, then talks directly to that robot's `:8080`
+`/api/telemetry` endpoint; override the endpoint with
+`HEXAPOD_ROBOT_TELEMETRY_URL`. The supervisor waits for exact flushed begin/end
+marker acknowledgements and archives only the marker-bounded JSONL rows. This
+adds no bus reads and no motion. Its status records marker-bound counter deltas
+and marks the capture incomplete if bytes/events were dropped, the writer
+failed, or the service session changed during the attempt.
+
 Normal motor health requires three distinct, recent physical-robot samples.
 Missing, simulated, stale, or unreachable readings never count as healthy.
 The tilt/IMU signal is reported separately and is required only for motions
@@ -233,6 +243,13 @@ links for every attempt, including failed retries, and the experiment page shows
 the same links. The Markdown transcript is viewer-readable. The fuller JSONL
 event stream requires an operator, admin, or automation credential. Both use
 `private, no-store` responses.
+
+Each hardware engineering attempt adds `robot-communication.json` and, when
+capture completed, `robot-communication.jsonl` to a separately integrity-checked
+companion archive. The experiment page links both beside the LLM transcript.
+The detailed status (which can contain local recorder paths) and raw robot
+communication are operator-only. MCP clients can read these files with
+`read_codex_run_file`, which returns a bounded head/tail view for large streams.
 
 Tool-enabled engineering attempts use a narrower viewer transcript: it includes
 the model's user-visible messages but omits the input project context, reasoning,

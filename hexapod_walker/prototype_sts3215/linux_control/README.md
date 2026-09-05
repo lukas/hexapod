@@ -131,6 +131,9 @@ curl -s -X POST http://hexapod.local:8080/api/telemetry \
 # Status is in-memory only; it causes no bus traffic.
 curl -s http://hexapod.local:8080/api/telemetry
 
+# After POSTing a marker, poll its exact flush acknowledgement by marker_id.
+curl -s 'http://hexapod.local:8080/api/telemetry?marker_id=<marker_id>'
+
 curl -s -X POST http://hexapod.local:8080/api/telemetry \
   -H 'Content-Type: application/json' -d '{"action":"stop"}'
 ```
@@ -142,6 +145,12 @@ encoder position/speed, full current/load/voltage/temperature feedback, IMU,
 or power summary as applicable. Tests that only write commands produce
 command-only records; the recorder deliberately does not insert a feedback
 read behind their backs.
+
+Each durably flushed (`fsync`) marker has a bounded, per-session `marker_ack`
+entry containing its exact rotated-file `path`, `paths` snapshot, sequence and
+writer count, plus the marker-bound queue/communication/capture loss checkpoint.
+Querying by ID keeps concurrent marker clients from mistaking a later
+`flushed_marker` for their own acknowledgement.
 
 This timing isolation is structural: the bus callback only attempts a bounded
 in-memory enqueue. JSON encoding, the five-reading contact filter, and file

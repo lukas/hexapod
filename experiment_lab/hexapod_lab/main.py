@@ -36,6 +36,7 @@ from .codex_transcripts import (
     CodexTranscriptIntegrityError,
     CodexTranscriptNotFound,
 )
+from .communication_capture import STATUS_NAME, TRANSCRIPT_NAME
 from .db import Store
 from .execution_progress import ExecutionProgressIn, ExecutionProgressStore, execution_summary
 from .layout_history import (
@@ -813,12 +814,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     ):
         require_experiment(experiment_id)
         if (
-            filename == "events.jsonl"
+            filename in {"events.jsonl", STATUS_NAME, TRANSCRIPT_NAME}
             and principal.role not in {"automation", "operator", "admin"}
         ):
             raise HTTPException(
                 403,
-                "Operator access is required for the full Codex event stream",
+                "Operator access is required for detailed Codex run records",
             )
         try:
             path = codex_transcripts.resolve(
@@ -828,11 +829,12 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(404, str(error)) from error
         except CodexTranscriptIntegrityError as error:
             raise HTTPException(409, str(error)) from error
-        media_type = (
-            "text/markdown; charset=utf-8"
-            if filename == "transcript.md"
-            else "application/x-ndjson"
-        )
+        media_type = {
+            "transcript.md": "text/markdown; charset=utf-8",
+            "events.jsonl": "application/x-ndjson",
+            STATUS_NAME: "application/json",
+            TRANSCRIPT_NAME: "application/x-ndjson",
+        }.get(filename, "application/octet-stream")
         return FileResponse(
             path,
             media_type=media_type,
@@ -1245,7 +1247,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                     raise ValueError("Tool params must be an object")
                 result = call_mcp_tool(params.get("name", ""), params.get("arguments", {}), principal,
                                        store, runner, robot_status, execution_progress,
-                                       settings, enrich, artifact_path,
+                                       settings, enrich, artifact_path, codex_transcripts,
                                        register_result, seal_experiment_evidence,
                                        layout_history, calibrations)
                 return {"jsonrpc": "2.0", "id": rpc_id, "result": result}
@@ -1497,6 +1499,14 @@ def mcp_tools():
         {"name": "read_artifact", "description": "Read a text artifact, or a small binary artifact as base64.",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}, "filename": {"type": "string"}},
           "required": ["experiment_id", "filename"]}},
+        {"name": "read_codex_run_file", "description": "Read an integrity-checked LLM transcript, redacted event stream, robot communication status, or marker-bounded raw robot communication associated with one experiment. Large files are returned as a bounded head/tail view.",
+         "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
+             "experiment_id": {"type": "string"},
+             "job_id": {"type": "string"},
+             "attempt": {"type": "integer", "minimum": 1},
+             "filename": {"type": "string", "enum": ["transcript.md", "events.jsonl", STATUS_NAME, TRANSCRIPT_NAME]},
+             "max_bytes": {"type": "integer", "minimum": 4096, "maximum": 1048576, "default": 262144}
+         }, "required": ["experiment_id", "job_id", "attempt", "filename"]}},
         {"name": "list_tag_layout_revisions", "description": "List immutable AprilTag layout revisions and their effective intervals.",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
         {"name": "get_tag_layout", "description": "Read the exact AprilTag layout by revision, experiment pin, or historical timestamp.",
@@ -1516,9 +1526,85 @@ def mcp_tools():
     ]
 
 
+def _bounded_codex_text(path: Path, limit: int) -> Dict[str, Any]:
+    """Read a bounded file view without fabricating or splitting JSONL rows."""
+    size = path.stat().st_size
+    if size <= limit:
+        return {
+            "name": path.name,
+            "size": size,
+            "view": "full",
+            "encoding": "utf-8",
+            "data": path.read_bytes().decode("utf-8", errors="replace"),
+        }
+
+    if path.suffix != ".jsonl":
+        with path.open("rb") as handle:
+            head = handle.read(limit // 2)
+            handle.seek(size - (limit - len(head)))
+            tail = handle.read(limit - len(head))
+        return {
+            "name": path.name,
+            "size": size,
+            "view": "head_tail",
+            "encoding": "utf-8",
+            # Ignoring only an edge-fragment avoids rendering a replacement
+            # character for a codepoint split by the byte boundary.
+            "head": head.decode("utf-8", errors="ignore"),
+            "tail": tail.decode("utf-8", errors="ignore"),
+            "omitted_bytes": size - len(head) - len(tail),
+        }
+
+    def complete_head(budget: int) -> bytes:
+        chunks: List[bytes] = []
+        used = 0
+        with path.open("rb") as handle:
+            while used < budget:
+                line = handle.readline(budget - used + 1)
+                if not line or len(line) > budget - used:
+                    break
+                chunks.append(line)
+                used += len(line)
+        return b"".join(chunks)
+
+    def complete_tail(budget: int) -> bytes:
+        if budget <= 0:
+            return b""
+        start = max(0, size - budget)
+        with path.open("rb") as handle:
+            if start:
+                handle.seek(start - 1)
+                payload = handle.read(budget + 1)
+                if payload[:1] == b"\n":
+                    payload = payload[1:]
+                else:
+                    newline = payload.find(b"\n")
+                    payload = payload[newline + 1:] if newline >= 0 else b""
+            else:
+                payload = handle.read(budget)
+        return payload
+
+    head = complete_head(limit // 2)
+    tail = complete_tail(limit - len(head))
+    if not head or not tail:
+        # Spend unused space on the beginning rather than returning no record
+        # merely because one valid row is larger than half the total budget.
+        head = complete_head(limit - len(tail))
+        tail = complete_tail(limit - len(head))
+    return {
+        "name": path.name,
+        "size": size,
+        "view": "head_tail",
+        "encoding": "utf-8",
+        "head": head.decode("utf-8", errors="strict"),
+        "tail": tail.decode("utf-8", errors="strict"),
+        "omitted_bytes": size - len(head) - len(tail),
+    }
+
+
 def call_mcp_tool(
     name, args, principal, store, runner, robot_status, execution_progress,
-    settings, enrich, artifact_path,
+    settings, enrich, artifact_path, codex_transcripts,
     register_result, seal_experiment_evidence, layout_history, calibrations,
 ):
     if not isinstance(args, Mapping):
@@ -1633,6 +1719,54 @@ def call_mcp_tool(
             data = {"name": path.name, "encoding": "utf-8", "data": path.read_text(errors="replace")}
         else:
             data = {"name": path.name, "encoding": "base64", "data": base64.b64encode(path.read_bytes()).decode()}
+    elif name == "read_codex_run_file":
+        allowed_arguments = {
+            "experiment_id", "job_id", "attempt", "filename", "max_bytes",
+        }
+        if set(args) - allowed_arguments:
+            raise ValueError("Unexpected read_codex_run_file argument")
+        for required in ("experiment_id", "job_id", "attempt", "filename"):
+            if required not in args:
+                raise ValueError(f"Missing required argument: {required}")
+        experiment_id = args["experiment_id"]
+        job_id = args["job_id"]
+        attempt = args["attempt"]
+        filename = args["filename"]
+        limit = args.get("max_bytes", 262_144)
+        if not isinstance(experiment_id, str) or not experiment_id:
+            raise ValueError("experiment_id must be a non-empty string")
+        if not isinstance(job_id, str) or not job_id:
+            raise ValueError("job_id must be a non-empty string")
+        if not isinstance(attempt, int) or isinstance(attempt, bool) or attempt < 1:
+            raise ValueError("attempt must be an integer of at least one")
+        if filename not in {
+            "transcript.md", "events.jsonl", STATUS_NAME, TRANSCRIPT_NAME,
+        }:
+            raise ValueError("filename is not an allowed Codex run file")
+        if (
+            not isinstance(limit, int)
+            or isinstance(limit, bool)
+            or not 4096 <= limit <= 1_048_576
+        ):
+            raise ValueError("max_bytes must be an integer from 4096 to 1048576")
+        if (
+            filename in {"events.jsonl", STATUS_NAME, TRANSCRIPT_NAME}
+            and principal.role not in {"automation", "operator", "admin"}
+        ):
+            raise ValueError("Operator role required")
+        try:
+            path = codex_transcripts.resolve(
+                experiment_id,
+                job_id,
+                attempt,
+                filename,
+            )
+        except (
+            TypeError, ValueError, CodexTranscriptNotFound,
+            CodexTranscriptIntegrityError,
+        ) as exc:
+            raise ValueError(str(exc)) from exc
+        data = _bounded_codex_text(path, limit)
     elif name == "list_tag_layout_revisions":
         data = (
             layout_history.list_revisions(
@@ -1737,12 +1871,25 @@ def automation_section(item):
         for transcript in job.get("transcript_attempts") or []:
             attempt = int(transcript.get("attempt") or 0)
             if transcript.get("available"):
-                attempts.append(
+                links = (
                     f"attempt {attempt}: "
                     f"<a href='{escape(str(transcript['transcript_url']))}'>transcript</a> · "
                     f"<a href='{escape(str(transcript['events_url']))}'>JSON events</a> "
                     "(operator)"
                 )
+                if transcript.get("communication_status_url"):
+                    links += (
+                        " · <a href='"
+                        f"{escape(str(transcript['communication_status_url']))}"
+                        "'>robot communication status</a>"
+                    )
+                if transcript.get("communication_url"):
+                    links += (
+                        " · <a href='"
+                        f"{escape(str(transcript['communication_url']))}"
+                        "'>raw robot communication</a> (operator)"
+                    )
+                attempts.append(links)
             elif transcript.get("state") == "integrity_error":
                 attempts.append(f"attempt {attempt}: transcript integrity check failed")
             else:

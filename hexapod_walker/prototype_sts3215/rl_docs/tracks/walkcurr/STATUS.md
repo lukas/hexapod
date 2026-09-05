@@ -423,6 +423,35 @@ backlog; idle slots next to this unmet priority are the failure state.
   climbing hard with no plateau, gate evals in flight, left for the
   next triage pass (contention-slowed, not stuck).
 
+- 09-05 ~12:1x CROSS-FAMILY SYNTHESIS (connects two independent findings
+  this hour) — the 2-leg-sacrifice/`gait_valid=False`-despite-rising-
+  reward pathology is NOT specific to `sdehalfgrav`: a concurrent
+  cycle's `sde-s1-c2`/`sde-s2-c2` (plain `sde`, full 1g, no
+  survival-cost fix) independently show the SAME shape — 0/24 falls
+  but `gait_valid` False every episode, 1-3 sacrificed legs,
+  elevated slip (3.46-6.49, above the whole grid's 2.6-3.4 band),
+  `ep_rew_mean` climbing to +2000s while `env/walk_speed`/
+  `v_along_cmd` DECLINE through the back half. My `sdehalfgrav-
+  remcost-s0/s1` fix arms show the mirror pattern (2 legs at
+  duty_cycle=0.0, `gait_valid` False 12/12, reward climbing to
+  -1230..+huge depending on sign convention) despite the pricing fix
+  working on its OWN target (episode length). Common thread: every
+  affected arm uses **gSDE** (`sde`, `sdehalfgrav`); the plain `base`/
+  `halfgrav` families (Gaussian, no gSDE) are the ONLY cells that
+  closed clean with real six-leg `gait_valid=True` gaits. Working
+  hypothesis for the next design pass: gSDE's per-episode-correlated
+  action noise may make a fixed 4-leg stable stance cheaper to hold
+  through stochastic bursts than a genuine 6-leg swing cycle, so PPO
+  converges on "ride out the episode on 4 planted legs" once reward
+  correlates with survival duration (true both for the plain
+  freeprog reward AND the remcost fix). Do not fund more bare
+  gSDE-family seeds at this recipe; the next lever is either (a) a
+  per-leg-utilization/swing-count reward term, bank-proven before
+  launch, or (b) an A/B of gSDE vs Gaussian holding everything else
+  fixed to confirm gSDE is the causal variable (not just correlated
+  with these particular seeds). Flagged for a dedicated design pass,
+  not a same-recipe relaunch.
+
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 
 Recipe/proof/gates for the original 4-arm bounded pilot (base-s0,

@@ -1,10 +1,11 @@
 # Walking transport and next-robot wiring — 2026-09-05
 
-The current CPU is fast enough for the deployed policy. Improve fresh feedback
-and command scheduling first; keep the existing 1 Mbps servo baud. For the next
-robot, split communication into independently driven buses and distribute power
-to individual servo pigtails. These are recommendations from code and saved
-measurements, not claims that a new harness or firmware has been tested.
+The existing CPU and single 1 Mbps servo bus have demonstrated the transport
+speed needed for 100 Hz commands. Restore and measure the proven combined
+command/snapshot path first. New buses, motors, or wiring are not established
+requirements for fixing today's timing regression. For the next robot, prioritize
+serviceable wiring and correctly rated power distribution; extra buses are an
+optional architectural choice, not the current walking fix.
 
 ## What exists and what was measured
 
@@ -13,6 +14,23 @@ D0/D1 and FE-URT adapter → one half-duplex 1 Mbps TTL bus, servo IDs 2–19.
 Power already has six leg branches; within each leg the feed enters the hip and
 tees to yaw/knee. Logic has a separate battery tap and shares ground. Sources:
 `firmware/WIRING.md:27`, `:594`; `linux_control/mcu_feetech_bus.py:55`.
+
+**Historical hardware timing:** the August 19 combined `step_all` (`S`) bench
+completed **647/647 transactions at 162 Hz**, about 6 ms each. That report also
+notes occasional 800 ms timeouts (~0.2%). After the August 26 cached-snapshot
+fix, a read-only `S` test completed **3,000/3,000 requests at 100 Hz**, without
+bus errors: **5.8 ms mean, 6.1 ms p99, 6.7 ms maximum**, with position/IMU ages
+around 6 ms or less. These demonstrate transport capacity; they are not proof
+of sustained smooth walking or independent fresh current/temperature samples
+on every tick. Sources: [August 19 run log](../rl_move/RUNLOG.md),
+[August 26 timing report](../rl_docs/BUS_AND_TIMING_DEBUG_2026-08-26.md);
+commits `4f22bac48`, `bb49b5d90`, `d84a04e95`.
+
+On August 30, `f59125f88` changed drive mode from combined `S` transactions to
+separate writes and a 10 Hz snapshot thread; `08891671f` then capped writes at
+50 Hz. The firmware's earlier host-byte pumping and cached-`S` fixes remain
+present. This history points first to the changed controller/transport path,
+not to an inherent servo speed or baud limit.
 
 Saved run `rl_move/hardware_traces/rl_walk_trial_20260904_232355/robot_rl_drive_20260905_062416_summary.json:251`
 used 100 Hz policy, 50 Hz writes and 10 Hz asynchronous snapshots. Policy inference
@@ -47,7 +65,9 @@ The parallel rows are elapsed wire time only if buses run concurrently. One
 blocking loop visiting three UARTs sequentially does not achieve that speedup.
 On today's single bus, 100 goal writes + 90 fast scans + 10 full scans per second
 occupy about **37.8%** of nominal wire bandwidth. Thus a scheduled 100 Hz outer
-joint loop is plausible without changing baud; it remains unproven end to end.
+joint loop fits the nominal bandwidth, consistent with the historical combined
+transaction measurements. This arithmetic excludes software waits and retries;
+it does not certify the current controller's deadlines or loaded motor response.
 
 On the separate host link, a combined S command is 113 bytes out + 133 back:
 **2.67 ms** wire time at 921,600, **21.35 ms** at the supported legacy 115,200
@@ -57,55 +77,54 @@ baud when interpreting runs. Byte layouts: `mcu_feetech_bus.py:65`, `:72`, `:900
 
 Feetech specifies **1 Mbps maximum** for C018: increasing the servo baud beyond
 that is unsupported. Its rated torque is 10 kg·cm, versus 30 kg·cm stall torque;
-stall current is 2.7 A per motor. More bus bandwidth cannot fix a motor operating
-near its load limit. [Feetech C018 specifications](https://www.feetechrc.com/525603.html).
+stall current is 2.7 A per motor. These are actuator ratings, not evidence that
+today's motor torque or speed limits cause the observed timing failures.
+[Feetech C018 specifications](https://www.feetechrc.com/525603.html).
 
 ## Smallest useful experiments now
 
-1. Keep the same policy/gait and 100 Hz policy / 50 Hz writes while testing the
-   estimator coefficients. Then compare **10 vs 20 Hz snapshots**, separately
-   from the filter change. The existing asynchronous reader supports this;
-   observe write jitter and actual state age as well as motion quality.
+1. Compare the existing combined `S` path with the separate write/snapshot path
+   using the same transport and measured latency percentiles. Restore one
+   command/snapshot transaction per tick when it reproduces the fast behavior;
+   retain current fault handling and fresh health checks. If direct `S` also
+   stalls, locate that shared transport delay before changing controller rates.
 2. Use existing transaction timings and MCU DBG counters to locate time spent
    waiting for a bus lock, first reply byte, payload, or a parked command. The
    current 5 ms serial read timeout is a maximum wait, not an automatic 5 ms tax
    on every read; lowering it without evidence may only add wakeups.
-3. The next firmware performance change should schedule fast scans around goal
-   writes and guarantee a 10 Hz full-state pass. The current free-running scan
-   parks incoming commands until acquisition finishes (`feetech_bridge.ino:1008`,
-   `:1560`, `:1627`). A 15-byte health scan can take longer than a fast scan;
-   failed slots also trigger direct reads. This is a concrete source of command
-   latency to measure, not proof that every observed overrun has that cause.
+3. Once command timing is restored, compare estimator coefficients with the
+   same policy, command, and transport cadence. Measure actual state ages and
+   motion quality; avoid mixing a filter change with a different polling scheme.
 
-Do not simply set snapshots to 50/100 Hz on the currently deployed firmware: the
-`HOST_S_CONTROL_IDLE_MS = 30` early return suppresses background full-state
+Preserve full-health acquisition while restoring fast `S` traffic. In the older
+firmware, the `HOST_S_CONTROL_IDLE_MS = 30` early return suppresses background full-state
 acquisition while S requests keep arriving faster than 30 ms
-(`feetech_bridge.ino:150`, `:1622`). At 20 Hz there is still an idle window.
-Increasing snapshot cadence needs to preserve health acquisition, rather than
-repeatedly returning an old full-feedback cache. The delivery branch now changes
+(`feetech_bridge.ino:150`, pre-fix loop). Commit `d57ead668` changes
 the pending snapshot refresh to run a due full-state pass instead of a fast pass,
-and lets due health acquisition bypass the quiet-window return. This scheduling
-fix is not flashed or measured on the robot. It does not add a physical acquisition
+and lets due health acquisition bypass the quiet-window return. This is a
+specific health-scheduling correction, not evidence that the old fast command
+path lacked bandwidth. It does not add a physical acquisition
 timestamp/sequence to F replies; successive host polls are still not independent
 proof of successive physical health acquisitions. The present fast four-byte
 position/speed read and slow fifteen-byte health read are already the right
-payload separation. A future compact host reply can carry IMU/position plus
-new health data in one transaction; do not remove current/temperature reads to
-claim a higher loop rate.
+payload separation. Keep current/temperature monitoring when restoring the
+existing combined path; a new protocol is not the first remedy.
 
 ## Next-robot harness
 
-- **Default: three separate TTL buses, six servos each.** Give every bus its own
-  UART and half-duplex interface. Six buses, one per leg, further reduce latency
-  and isolate a broken connector if the selected controller exposes enough
-  UARTs. Verify actual pin availability; the Uno Q MCU's peripheral count does
-  not establish how many UARTs are accessible on its connectors. Keep Linux for
-  policy/vision and make the MCU responsible for timed bus transactions.
+- **Optional: independently driven buses for fault isolation and extra margin.**
+  Three buses of six servos, or one per leg, reduce per-bus wire time only when
+  the controller actually serves them concurrently. They add interfaces,
+  connectors, and scheduling work. The existing single bus has already met
+  100 Hz transport timing; retain it unless measurements or a new requirement
+  justify the added hardware. Verify exposed UART pins before selecting a split.
 - **Six power branches, each distributing directly to its three servos.** Keep
   the existing separate logic tap and shared reference. Use a branch splice or
   board before the three pigtails so a hip socket does not carry all three
   motors. Three stalled C018s draw 8.1 A; the existing claim that one whole leg
-  is always below a 3 A connector rating is not valid in that condition.
+  is always below a 3 A connector rating is not valid in that condition. This
+  sum of stall ratings is a sizing case, not a measured walking branch current
+  or a demonstrated cause of today's UART delay.
   Molex specifies 3.0 A with AWG22 and 2.5 A with AWG24 for the cited Mini-SPOX
   family; exact clone terminals/crimps may differ.
   [Molex specification, section 4.2](https://www.molex.com/content/dam/molex/molex-dot-com/products/automated/en-us/productspecificationpdf/526/5264/52641001-PS-000.pdf).
@@ -120,6 +139,5 @@ claim a higher loop rate.
   qualification of sustained walking. A larger fuse is not a cure for voltage
   drop or an overloaded pigtail.
 
-This investigation did not change the physical robot, its transport rates, or
-service settings. The accompanying firmware scheduling patch and per-session
-velocity-filter API are code changes prepared for later deployment.
+These harness recommendations concern serviceability and electrical margin.
+They do not establish a need to rebuild the robot before restoring smooth walks.

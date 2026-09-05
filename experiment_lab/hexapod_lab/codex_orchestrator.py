@@ -860,9 +860,13 @@ class CodexOrchestrator:
         existing = self.store.list_codex_jobs(500)
         if any(
             job["kind"] == "advance"
-            and job["status"] in {
-                "awaiting_evidence", "queued", "running", "retry"
-            }
+            and (
+                job["status"] == "running"
+                or (
+                    job["status"] in {"queued", "retry"}
+                    and job.get("depends_on_job_id") is None
+                )
+            )
             for job in existing
         ):
             return None

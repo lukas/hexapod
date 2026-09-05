@@ -468,6 +468,79 @@ def test_queue_handoff_reuses_active_job_for_same_experiment(tmp_path):
     assert len(engineering.list_jobs()) == 1
 
 
+def test_queue_kick_bypasses_unresolved_dependent_advance_without_duplicates(
+    tmp_path,
+):
+    workspace = tmp_path / "project"
+    workspace.mkdir()
+    store = Store(tmp_path / "lab.sqlite3")
+    guarded = store.create(
+        {
+            "name": "pre-existing guarded plan",
+            "duration_seconds": 1,
+            "parameters": {},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    submission = store.claim_codex_job(
+        "advance", "earlier-advance-worker", lease_seconds=60
+    )
+    store.finish_codex_job(
+        submission["id"],
+        "earlier-advance-worker",
+        "succeeded",
+        lease_token=submission["lease_token"],
+    )
+
+    completed = store.create(
+        {"name": "new terminal result", "duration_seconds": 1}, "test"
+    )
+    store.finish(completed["id"], "succeeded")
+    store.seal_evidence(completed["id"], "a" * 64)
+    analysis = store.claim_codex_job(
+        "analysis", "analysis-worker", lease_seconds=60
+    )
+    dependent = next(
+        job
+        for job in store.codex_jobs_for_experiment(completed["id"])
+        if job["kind"] == "advance"
+    )
+    assert analysis["status"] == "running"
+    assert dependent["status"] == "queued"
+
+    orchestrator = CodexOrchestrator(
+        store,
+        configured(tmp_path, workspace),
+        invoker=lambda *_args, **_kwargs: {},
+    )
+    kick = orchestrator.ensure_queue_kick()
+    assert kick is not None
+    assert kick["depends_on_job_id"] is None
+    assert kick["experiment_id"] == guarded["id"]
+    assert orchestrator.ensure_queue_kick() is None
+
+    assert orchestrator.process_one("advance") is True
+    handoffs = [
+        job
+        for job in orchestrator.engineering.list_jobs()
+        if job["experiment_id"] == guarded["id"]
+        and job["source_context"]["trigger_kind"] == "queue_handoff"
+    ]
+    assert len(handoffs) == 1
+    assert handoffs[0]["status"] == "queued"
+    assert store.get_codex_job(analysis["id"])["status"] == "running"
+    assert store.get_codex_job(dependent["id"])["status"] == "queued"
+    assert orchestrator.ensure_queue_kick() is None
+    assert len(
+        [
+            job
+            for job in store.list_codex_jobs()
+            if job["trigger_kind"] == "queue_reconcile"
+        ]
+    ) == 1
+
+
 def test_non_motion_engineering_progress_continues_same_job_with_receipt_and_budget(tmp_path):
     workspace = tmp_path / "project"
     workspace.mkdir()

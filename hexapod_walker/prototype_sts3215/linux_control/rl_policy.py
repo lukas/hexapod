@@ -650,7 +650,8 @@ def _stream_target(bus, est: RobotStateEstimator,
                    write_speed: int, write_acc: int,
                    abort_check, last_good_state=None,
                    stale_ticks: int = 0,
-                   max_stale_ticks: int = 0
+                   max_stale_ticks: int = 0,
+                   max_state_age_s: float | None = None
                    ) -> tuple[object | None, float, int, str, int, int, dict]:
     """Write interpolated servo targets up to q_to_robot.
 
@@ -688,6 +689,22 @@ def _stream_target(bus, est: RobotStateEstimator,
             return (
                 state_robot, t_next, overruns, "aborted", stale_ticks,
                 stale_samples, stream_timing())
+        if max_state_age_s is not None:
+            # Persistent drive retains its freshness cap before the next
+            # target, now using the previous combined-S result directly.
+            prior_timing = dict(getattr(last_good_state, "timing", {}) or {})
+            try:
+                prior_age = (time.monotonic() - last_good_state.timestamp
+                             + max(float(prior_timing["pos_age_ms"]),
+                                   float(prior_timing["imu_age_ms"])) / 1000.0)
+            except (AttributeError, KeyError, TypeError, ValueError):
+                prior_age = math.inf
+            if (not math.isfinite(prior_age) or prior_age > max_state_age_s
+                    or not getattr(last_good_state, "bus_ok", False)
+                    or not getattr(last_good_state, "imu_ok", False)):
+                return (last_good_state, t_next, overruns,
+                        "feedback stale during stream", stale_ticks + 1,
+                        stale_samples + 1, stream_timing())
         alpha = sub / steps
         q_cmd = q_to if sub == steps else q_from + (q_to - q_from) * alpha
         est.set_commanded(q_cmd)
@@ -715,6 +732,56 @@ def _stream_target(bus, est: RobotStateEstimator,
                 diag["transport_error"] = repr(e)
                 snap = None
             write_s += time.monotonic() - op_t
+            if snap is not None and max_state_age_s is not None:
+                # A missing position slot must not zero-fill the velocity
+                # filter or advance another learned target. Hold this target
+                # and retry read-only snapshots; three fresh misses confirm
+                # a missing servo. Invalid/stale metadata is a separate stop.
+                previous_seq = prior_timing.get("snapshot_seq")
+                persistently_missing = set(range(N_JOINTS))
+                for position_attempt in range(3):
+                    try:
+                        seq = int(snap["seq"]) & 0xFFFF
+                        ages = [float(snap[key]) for key in
+                                ("pos_age_ms", "imu_age_ms")]
+                        valid = (_u16_seq_advanced(seq, int(previous_seq))
+                                 and all(math.isfinite(age) and
+                                         0.0 <= age <= max_state_age_s * 1000.0
+                                         for age in ages))
+                    except (KeyError, TypeError, ValueError):
+                        valid = False
+                    if not valid:
+                        diag["snapshot_freshness_rejected"] = True
+                        snap = None
+                        break
+                    previous_seq = seq
+                    positions = snap.get("pos_deg") or {}
+                    missing = [j for j in range(N_JOINTS) if j not in positions]
+                    if not missing:
+                        break
+                    persistently_missing.intersection_update(missing)
+                    diag["position_missing_ids"] = missing
+                    diag["position_missing_samples"] = position_attempt + 1
+                    if position_attempt == 2:
+                        if persistently_missing:
+                            return (last_good_state, t_next, overruns,
+                                    "persistent missing servo positions: "
+                                    f"{sorted(persistently_missing)}",
+                                    stale_ticks + 3, stale_samples + 3,
+                                    stream_timing())
+                        # Different isolated slot misses do not identify a
+                        # persistently missing servo. End the bounded retry
+                        # as a recoverable transport stop, retaining torque.
+                        snap = None
+                        break
+                    time.sleep(inner_dt)
+                    op_t = time.monotonic()
+                    try:
+                        snap = bus.read_snapshot()
+                    except Exception as e:
+                        diag["position_retry_error"] = repr(e)
+                        snap = None
+                    read_s += time.monotonic() - op_t
             if snap is not None:
                 diag["snapshot_seq"] = snap.get("seq")
                 diag["pos_age_ms"] = snap.get("pos_age_ms")
@@ -784,7 +851,8 @@ def _stream_target(bus, est: RobotStateEstimator,
             if good_timing.get("imu_age_ms") is not None:
                 diag["last_good_imu_age_ms"] = good_timing.get("imu_age_ms")
         last_diag = diag
-        if state_robot is None or not state_robot.bus_ok:
+        if (state_robot is None or not state_robot.bus_ok
+                or (max_state_age_s is not None and not state_robot.imu_ok)):
             stale_ticks += 1
             stale_samples += 1
             diag["stale_ticks_after"] = stale_ticks
@@ -3873,7 +3941,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     write_speed, write_acc = _policy_bus_profile(walk_policy, cfg)
     inner_steps, inner_hz, inner_dt = _inner_stream_plan(
         walk_policy, cfg, timing.policy_hz)
-    drive_write = _drive_write_plan(walk_policy, cfg, timing.policy_hz)
     debug = _RunDebug("drive", {
         "velocity_filter_alpha": actual_velocity_alpha,
         "walk_policy_path": str(wpath),
@@ -3891,9 +3958,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             "adapted": timing.adapted,
             "inner_hz": inner_hz,
             "inner_steps": inner_steps,
-            "drive_write_hz": drive_write.write_hz,
-            "drive_write_requested_hz": drive_write.requested_hz,
-            "drive_write_every_ticks": drive_write.write_every_ticks,
+            "drive_write_hz": inner_hz,
+            "drive_write_requested_hz": inner_hz,
+            "drive_write_every_ticks": 1,
         },
         "write_speed": write_speed,
         "write_acc": write_acc,
@@ -3930,14 +3997,14 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                 start_pose=details.get("start_pose"),
                 target_deg=start_target_deg.tolist())
 
-    async_probe = _probe_async_transport(bus)
-    details["async_transport_probe"] = async_probe
-    debug.event("async_transport_prearm", **async_probe)
-    if not async_probe["async_capable"]:
+    stream_probe = _probe_async_transport(bus)
+    details["stream_transport_probe"] = stream_probe
+    debug.event("stream_transport_prearm", **stream_probe)
+    if not stream_probe["async_capable"]:
         return _finish_debug(
             debug, {"ok": False,
-                    "error": ("async transport unavailable before arm: "
-                              + str(async_probe.get("error") or
+                    "error": ("snapshot transport unavailable before arm: "
+                              + str(stream_probe.get("error") or
                                     "freshness proof failed")),
                     "held_pose": True, "limped": False,
                     "preflight": details})
@@ -4013,7 +4080,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     safety = SafetyLayer(cfg)
     max_dq_deg, max_dq_explicit = _apply_policy_safety_timing(
         safety, walk_policy, cfg, timing)
-    direct_over_current_trip_ticks = safety._over_current_trip_ticks  # noqa: SLF001
     safety.max_roll = math.radians(WALK_MAX_TILT_DEG)
     safety.max_pitch = math.radians(WALK_MAX_TILT_DEG)
 
@@ -4111,9 +4177,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     stale_stream_bursts = 0
     first_stale_at_s: float | None = None
     last_stale_at_s: float | None = None
-    async_sampler: _AsyncSnapshotSampler | None = None
-    async_sampler_last_stats: dict | None = None
-    async_start_wait_s = 0.0
     waiting_for_command_logged = False
     first_drive_command_logged = False
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
@@ -4143,8 +4206,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                          round(tilt_ref0[1] * RAD2DEG, 2)],
         "tilt_trip_deg": WALK_MAX_TILT_DEG,
         "drive_snapshot": {
-            "mode": "async",
-            "hz": DRIVE_ASYNC_SNAPSHOT_HZ,
+            "mode": "step_all",
+            "hz": inner_hz,
             "max_age_s": DRIVE_ASYNC_STATE_MAX_AGE_S,
         },
         "debug_log": debug.name,
@@ -4200,63 +4263,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     if hold_policy is not None and hold_policy is not walk_policy:
         hold_policy.reset()
     t_next = time.monotonic()
-
-    def ensure_async_sampler() -> tuple[
-            _AsyncSnapshotSampler | None, object | None, str, bool]:
-        nonlocal async_sampler, async_sampler_last_stats
-        nonlocal async_start_wait_s, t_next
-        state_ready = None
-        ready_err = ""
-        started = False
-        if async_sampler is None:
-            started = True
-            ready_t0 = time.monotonic()
-            feedback_hz = _apply_async_safety_feedback_timing(
-                safety, cfg, DRIVE_ASYNC_SNAPSHOT_HZ)
-            async_sampler = _AsyncSnapshotSampler(
-                bus, cfg, initial_state=state_robot,
-                hz=DRIVE_ASYNC_SNAPSHOT_HZ,
-                max_age_s=DRIVE_ASYNC_STATE_MAX_AGE_S)
-            async_sampler.set_commanded(last_q_robot_cmd)
-            async_sampler.start()
-            state_ready, ready_details, ready_err = (
-                _await_async_sampler_ready(
-                    async_sampler, abort_check, health_safety=safety))
-            async_start_wait_s += time.monotonic() - ready_t0
-            # The motionless readiness probation is not a missed policy
-            # deadline.  Start the command clock only after it completes.
-            t_next = time.monotonic()
-            debug.event("drive_async_snapshot_start", publish=False,
-                        ok=not bool(ready_err), error=ready_err or None,
-                        hz=DRIVE_ASYNC_SNAPSHOT_HZ,
-                        feedback_hz=feedback_hz,
-                        max_age_ms=async_sampler.max_age_s * 1000.0,
-                        details=ready_details,
-                        state=_state_debug(state_ready))
-            if ready_err:
-                async_sampler_last_stats = async_sampler.stats()
-                # Confirm the reader released the UART before returning the
-                # exact readiness error to the drive loop.
-                async_sampler.stop()
-                debug.event("drive_async_snapshot_stop", publish=False,
-                            stats=async_sampler_last_stats,
-                            reason="readiness_failed")
-                async_sampler = None
-                safety._over_current_trip_ticks = (  # noqa: SLF001
-                    direct_over_current_trip_ticks)
-        return async_sampler, state_ready, ready_err, started
-
-    def stop_async_sampler() -> None:
-        nonlocal async_sampler, async_sampler_last_stats
-        if async_sampler is None:
-            return
-        async_sampler_last_stats = async_sampler.stats()
-        async_sampler.stop()
-        debug.event("drive_async_snapshot_stop", publish=False,
-                    stats=async_sampler_last_stats)
-        async_sampler = None
-        safety._over_current_trip_ticks = (  # noqa: SLF001
-            direct_over_current_trip_ticks)
 
     def reanchor():
         """Observation re-anchor on mode switch (never reset recurrent state)."""
@@ -4320,8 +4326,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         t = i * timing.policy_dt
         tick_t0 = time.monotonic()
         stage_t = tick_t0
-        async_start_wait_s = 0.0
-        model_switched = False
         write_due = False
         vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
         if stop_req and stopping is None:
@@ -4378,7 +4382,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             if active != "walk":
                 prev_active = active
                 active = "walk"
-                model_switched = True
                 walk_active_since = t
                 walk_has_engaged = True
                 reanchor()
@@ -4410,7 +4413,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             prev_active = active
             vx_r = vy_r = 0.0
             active = "hold"
-            model_switched = True
             walk_active_since = None
             zero_since = None
             reanchor()
@@ -4498,7 +4500,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             stage_t = time.monotonic()
             q_prop = last_q_policy_cmd.copy()
         q_safe, status = safety.filter(
-            q_prop, _state_for_async_safety(state), action=action)
+            q_prop, state, action=action)
         q_robot_cmd = q_safe.copy()
         safety_s = time.monotonic() - stage_t
         if status.terminate:
@@ -4516,69 +4518,18 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             break
         prev_stale_ticks = stale_stream_ticks
         if uses_policy:
-            sampler, ready_state, ready_err, sampler_started = (
-                ensure_async_sampler())
-            if ready_err:
-                state_robot = ready_state or last_good_stream_state
-                extra_overruns = 0
-                stale_added = 0
-                stream_err = ready_err
-                stream_timing = {
-                    "stream_s": async_start_wait_s,
-                    "write_s": 0.0,
-                    "read_s": 0.0,
-                    "lag_s": 0.0,
-                }
-            elif sampler_started:
-                # Probation can take several command-heartbeat intervals.
-                # Adopt its fresh state, then re-read the mailbox and restart
-                # this same policy tick; never send the pre-probation action.
-                state_robot = ready_state
-                last_good_stream_state = ready_state
-                state = _state_for_policy_frame(ready_state, joint_frame)
-                safety.set_nominal(last_q_robot_cmd)
-                phase = 0.0
-                cmd_after = cmd.get()
-                debug.event(
-                    "drive_command_after_async_ready", publish=False,
-                    vx_cmd=cmd_after[0], vy_cmd=cmd_after[1],
-                    wz_cmd=cmd_after[2], dh_cmd=cmd_after[3],
-                    heartbeat_age_s=round(float(cmd_after[4]), 3),
-                    stop=bool(cmd_after[5]))
-                after_vx, after_vy = _drive_clamp_translation(
-                    float(cmd_after[0]), float(cmd_after[1]),
-                    walk_speed_min, walk_speed_max)
-                after_moving = _drive_command_is_moving(
-                    after_vx, after_vy, float(cmd_after[2]), int(walk_obs))
-                if (cmd_after[5] or cmd_after[4] > DRIVE_CMD_TIMEOUT_S
-                        or not after_moving):
-                    active = "hold"
-                    walk_has_engaged = False
-                    walk_active_since = None
-                    walk_cmd_since = None
-                    zero_since = None
-                    vx_r = vy_r = 0.0
-                    stop_async_sampler()
-                continue
-            else:
-                write_due = (model_switched or i == 0
-                             or i % drive_write.write_every_ticks == 0)
-                stream_steps = inner_steps if write_due else 1
-                stream_dt = inner_dt if write_due else timing.policy_dt
-                (state_robot, t_next, extra_overruns, stream_err,
-                 stale_stream_ticks, stale_added, stream_timing) = (
-                    _stream_target_async(
-                    bus, sampler, last_q_robot_cmd, q_robot_cmd,
-                    t_next=t_next, inner_steps=stream_steps,
-                    inner_dt=stream_dt,
-                    write_speed=write_speed, write_acc=write_acc,
-                    abort_check=abort_check,
-                    last_good_state=last_good_stream_state,
-                    stale_ticks=stale_stream_ticks,
-                    max_stale_ticks=DRIVE_STREAM_STALE_TICKS,
-                    write_target=write_due))
+            write_due = True
+            (state_robot, t_next, extra_overruns, stream_err,
+             stale_stream_ticks, stale_added, stream_timing) = _stream_target(
+                bus, est, last_q_robot_cmd, q_robot_cmd,
+                t_next=t_next, inner_steps=inner_steps, inner_dt=inner_dt,
+                write_speed=write_speed, write_acc=write_acc,
+                abort_check=abort_check,
+                last_good_state=last_good_stream_state,
+                stale_ticks=stale_stream_ticks,
+                max_stale_ticks=0,
+                max_state_age_s=DRIVE_ASYNC_STATE_MAX_AGE_S)
         else:
-            stop_async_sampler()
             est.set_commanded(q_robot_cmd)
             stream_err = ""
             hold_write_s = 0.0
@@ -4647,25 +4598,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                         stale_samples=stale_stream_samples,
                         state=_state_debug(state_robot,
                                            q_cmd_rad=q_robot_cmd))
-            # Any synchronous recovery below must have exclusive UART
-            # ownership. This is also prompt cleanup for abort/readiness
-            # failures; stop_async_sampler() is deliberately fail-closed.
-            stop_async_sampler()
             if stream_err == "aborted":
                 result.update(ok=False, error="aborted",
                               held_pose=True, ticks=i)
-            elif isinstance(stream_err, AsyncReadinessFailure):
-                # Readiness happens before the first learned write and its
-                # sampler is already stopped. Confirmed physical health trips
-                # limp; transport/freshness incapability leaves the verified
-                # pose held and preserves the precise failure.
-                if _async_readiness_requires_limp(stream_err):
-                    limp()
-                    result.update(ok=False, error=stream_err,
-                                  held_pose=False, limped=True, ticks=i)
-                else:
-                    result.update(ok=False, error=stream_err,
-                                  held_pose=True, limped=False, ticks=i)
             elif (stream_err == "feedback lost during hold"
                   and not uses_policy):
                 result.update(ok=False, error=stream_err,
@@ -4698,7 +4633,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             abs(state.imu_roll - tilt_ref0[0]) * RAD2DEG,
             abs(state.imu_pitch - tilt_ref0[1]) * RAD2DEG)
         service_s = max(
-            0.0, time.monotonic() - tick_t0 - async_start_wait_s)
+            0.0, time.monotonic() - tick_t0)
         lag_s = float(stream_timing.get("lag_s") or 0.0)
         late_s = max(lag_s, service_s - timing.policy_dt)
         if late_s > _timing_late_grace(timing.policy_dt):
@@ -4762,7 +4697,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             "stale_stream_samples": stale_stream_samples,
             "rot60_k": canon.k if canon is not None else None,
             "stopping": stopping, "overruns": overruns,
-            "drive_write_hz": round(drive_write.write_hz, 3),
+            "drive_write_hz": round(inner_hz, 3),
             "drive_write_due": bool(write_due),
             "timing_ms": {
                 "service": round(service_s * 1000.0, 3),
@@ -4772,9 +4707,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         }
         cmd.publish(snap)
         if timing_error:
-            # Confirm exclusive bus ownership before the synchronous hold
-            # recovery. A failed join propagates and blocks later bus use.
-            stop_async_sampler()
             held = hold_current_pose_after_stream_loss(last_q_robot_cmd)
             result.update(
                 ok=False, error=timing_error,
@@ -4803,24 +4735,13 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         i += 1
         t = i * timing.policy_dt
 
-    # Same post-episode observation tail as run_policy_move: keep
-    # reading (never commanding) so a fall during the end-of-session
-    # hold is in the trace.  When live drive used the background snapshot
-    # estimator, keep reading that same estimator through the tail.  Switching
-    # back to the idle foreground estimator here used to inject a large stale
-    # complementary-filter discontinuity (one upright course appeared to jump
-    # from -3 to -56 deg exactly when its tail began).
+    # Keep the same estimator through the read-only observation tail.
     TAIL_S = 3.0
     tail_tilt_samples: list[float] = []
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)
         try:
-            if async_sampler is not None:
-                state_robot, _stats = _latest_async_tail_state(async_sampler)
-                if state_robot is None:
-                    break
-            else:
-                state_robot = est.update()
+            state_robot = est.update()
             state = _state_for_policy_frame(state_robot, joint_frame)
         except Exception:
             break
@@ -4832,7 +4753,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         elog.tick(t + (k + 1) * 0.1, state, None, None, None,
                   0.0, 0.0, max_cur, phase="tail")
 
-    stop_async_sampler()
     tail_tilt = _tail_tilt_summary(tail_tilt_samples)
 
     result.update(
@@ -4842,9 +4762,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         runner_config_hz=timing.runner_config_hz,
         policy_rate_adapted=timing.adapted,
         inner_hz=inner_hz, inner_steps=inner_steps,
-        drive_write_hz=drive_write.write_hz,
-        drive_write_requested_hz=drive_write.requested_hz,
-        drive_write_every_ticks=drive_write.write_every_ticks,
+        drive_write_hz=inner_hz,
+        drive_write_requested_hz=inner_hz,
+        drive_write_every_ticks=1,
         walk_command_received=first_drive_command_logged,
         walk_has_engaged=walk_has_engaged,
         max_delta_q_deg=round(max_dq_deg, 4),
@@ -4858,8 +4778,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                                  if first_stale_at_s is not None else None),
         last_stale_stream_at_s=(round(last_stale_at_s, 3)
                                 if last_stale_at_s is not None else None),
-        max_stale_stream_ticks=DRIVE_STREAM_STALE_TICKS,
-        async_snapshot=async_sampler_last_stats,
+        max_stale_stream_ticks=0,
+        transport="step_all",
         timing=timing_stats.summary(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),
                       round(tilt_ref0[1] * RAD2DEG, 2)],

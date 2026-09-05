@@ -78,8 +78,12 @@ def _request(
     request = urllib.request.Request(
         base.rstrip("/") + path, data=data, headers=headers, method=method,
     )
+    # This endpoint is always the robot's direct LAN address.  Inherited
+    # HTTP(S)_PROXY settings can otherwise route RFC1918 traffic off-host and
+    # produce a misleading "No route to host" before motion.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with opener.open(request, timeout=timeout) as response:
             raw = response.read()
             content_type = response.headers.get("Content-Type", "")
     except urllib.error.HTTPError as error:
@@ -451,7 +455,10 @@ class Trial:
         for item in selected:
             name = str(item["name"])
             url = f"{self.base}/api/logs/{urllib.parse.quote(name)}"
-            with urllib.request.urlopen(url, timeout=15.0) as response:
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({})
+            )
+            with opener.open(url, timeout=15.0) as response:
                 payload = response.read()
             destination = self.output_dir / f"robot_{name}"
             destination.write_bytes(payload)

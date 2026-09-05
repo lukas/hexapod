@@ -1,51 +1,44 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-05 ~04:0x: **mlcontprice8 literal DONE-gate read is IN
-— FALL (item 1 CLOSED). Reward/architecture lever search for steering
-is now EXHAUSTED (~20 arms); a new probe REFUTES the "cap is
-miscalibrated" theory.** `session_verdict.json` (n=32, dr0+ownDR,
-non-strict, train-9): zero falls, gait_valid 1.0, height_err 3.2mm —
-clean. vs the standing best band (`cap29-stdwalklohi-acq1{,-s1}`:
-dir_err 43.6-44.56deg/slip 2.819-2.939, n=128): dir_err_med 42.26deg
-edges better but slip_per_m_med 3.696 is a clear regression (+26-31%,
-breaches the 2.9 cap by far more than the baseline's borderline miss)
-— the transtress/hold-load-price branch cost walk quality without
-buying enough steering. Standing best stays `cap29-stdwalklohi-acq1
-{,-s1}`, itself still short of gate. Combined with the already-closed
-dose-bracket/DR-draw/steering-FAIL-wall/arch-swap/BC-anchor-turn-skip
-axes (item 4), the reward+architecture lever space for steering/slip
-is now **exhaustively searched** (~20 arms: yawarm/yawboost/omegaboost
-/selomegaboost/combdose/combskip dose sweeps x2 seeds, log_std anneal
-grid, sto/det convergence, resamplematch, `TripleGruActorCriticPolicy`
-turn-core swap + `noyawcredit` control, DR-draw n=20 — all FAIL/
-CLOSED; frozen `cap29-stdwalklo-hi{,-s1}` stays the reference). Also
-this cycle: extended `probe_dir_floor.py` with an opt-in periodic
-heading-resample mode (`--resample-s/-jitter/--heading-max-deg/
---blend-s`, default OFF=bit-exact; tests 3/3 green) to test whether
-the 40deg `dir_err_cap` was calibrated against an easier static-
-heading floor than the session's real 3s-resample/full-circle-heading
-dynamic — **REFUTED**: teacher tick `dir_err_med` stays 8.6-9.2deg (2
-seeds, 20 flips/60s) even under realistic resampling — the cap is
-real/achievable, the ~42-44deg plateau is a genuine unclosed policy
-gap. Evidence: `logs/ckpt_eval/..._mlcontprice8_donegate_flatonly/
-session_verdict.json`; `/tmp/dirfloor_resample{,_s1}.json`. **No GPU
-relaunch this cycle** — every known lever on this recipe is closed
-(item 1); next step is a different mechanism CLASS (Stage 2's
-pre-declared KL-to-teacher/multi-teacher), needing design+bank work.
+Update, 2026-09-05 ~04:5x: **item-1 mechanism BUILT + LAUNCHED:
+phase-scheduled multi-teacher, the track's only surviving open lever.**
+Every static combined-tick reweight/rescale (combined_skip,
+combined_dose, yaw_arm_scale, omega_boost, selective_omega_boost —
+the ~20-arm grid closed 09-04/09-05) held ONE fixed target/weight for
+the WHOLE run; none varied the target over TRAINING PROGRESS. New
+mechanism (`train.bc_anchor_multiteacher_blend`+`_schedule_frac`,
+default 0.0/1.0 = legacy bit-exact off): sim_env runs a SEPARATE
+persistent scripted-gait clock alongside the walk BC-anchor teacher,
+same wall-clock ticks but forward speed always zeroed (the undegraded
+pure-turn geometry a combined tick would command if turn-only) — a
+first same-object double-query attempt was REFUTED by its own
+regression test (TripodGait's EMA smoothing returns a stale dt=0 on a
+same-tick 2nd call) before landing on the separate-object design.
+`bc_anchor.py` blends the two targets at LOSS TIME (only it knows
+`_current_progress_remaining`) ramping 0 -> the knob's value over the
+first `bc_anchor_multiteacher_schedule_frac` of progress. 137/137
+`rl_move/tests/test_bc_anchor.py` green (10 new). Snapshotted
+(`exp/...multiteach-b05`). Launched as a pre-registered 4-arm canary
+grid (blend {0.5,1.0} x seed {0,1}, schedule_frac=0.5 mirroring this
+recipe's own `--log-std-anneal-frac 0.5`, 2M steps, same
+probe_turn_authority gate the whole lever family uses) —
+`...-cap29-stdwalklohi-multiteach-b{05,10}{,-s1}`, all 4 VERIFIED
+RUNNING (train-2/3/5/+1). Next cycle: triage vs the same comparator
+every prior lever in this family used (see `rl_docs/runs/...
+-selomegaboost4p0-s1.md` for the exact numbers).
 
-Prior updates (09-04 ~13:2x..09-05 ~02:4x) archived verbatim in
-`archive/standwalk_STATUS_journal_2026-09-0{4hh,4jj,4kk,4ll,5a}_trim.md`.
+Prior updates (09-04 ~13:2x..09-05 ~04:0x) archived verbatim in
+`archive/standwalk_STATUS_journal_2026-09-0{4hh,4jj,4kk,4ll,5a,5b}_
+trim.md`.
 
-## Next (updated 09-05 ~04:0x)
+## Next (updated 09-05 ~04:5x)
 
-1. **Design + build a teacher-distillation mechanism that is NOT
-   reward-coefficient dosing on the current recipe** (Stage 2's own
-   pre-declared alternative: KL-to-teacher action-distribution match,
-   or phase-scheduled multi-teacher). The dose-lever axis is closed
-   and the cap-miscalibration theory is refuted (see Update) — the
-   ~42-44deg vs teacher's ~9deg gap is real and needs a structurally
-   different lever. Scope it, bank-prove any reward-semantics touch,
-   THEN launch — the track's only remaining open lever.
+1. **Triage the phase-scheduled multi-teacher canary grid** (4 arms,
+   see Update). A 4/4 FAIL (same sign-asymmetric pure-turn regression
+   as every prior static lever) closes the reward/supervision-side
+   lever space for good, leaving only a gait-structure change
+   (turn-dedicated tripod phase offset) or a DONE-gate renegotiation.
+   A PASS/INFORMATIVE cell reopens acquisition follow-up.
 2. **DR-draw correlation — CLOSED.** No dominant DR field at n=20;
    k=8 is the standing ceiling dose (now also known to cost slip on
    the literal gate — do not re-promote mlcontprice8 or raise dose).
@@ -54,39 +47,29 @@ Prior updates (09-04 ~13:2x..09-05 ~02:4x) archived verbatim in
    closures). No further lever acquisition; frozen parents
    (`cap29-stdwalklo-hi{,-s1}`) remain the reference. Rise-stall
    stays CLOSED.
-4. **Closed** (archives 09-02{,b..h}, 09-03{a..u}, 09-04{aa,cc,dd,jj,
-   kk,ll}, 09-05a): architecture-split; lever/dose/seed sweeps incl.
-   `TripleGruActorCriticPolicy` turn-core swap + `noyawcredit`
-   control; `bc_anchor_walk_turn_skip` (`combskip`) ablation; cap29
-   acquisition (PARTIAL); log_std anneal grid; sto/det convergence;
-   resamplematch; rise over_current dig-in; semantics-bank twins;
-   IK-feasibility groundwork; mlcontprice2/8/16 dose bracket (k=8
-   ceiling, now known to cost slip); steering FAIL-wall dig-in;
-   DR-draw correlation (n=20); mlcontprice8 literal DONE-gate read
-   (FALL); dir_err_cap miscalibration theory (REFUTED).
+4. **Closed** (archives 09-02{,b..h}..09-05a): architecture-split;
+   lever/dose/seed sweeps incl. `TripleGruActorCriticPolicy` turn-core
+   swap; `combskip`/dose-bracket ablations; cap29 acquisition
+   (PARTIAL); log_std anneal grid; sto/det convergence; resamplematch;
+   rise over_current dig-in; semantics-bank twins; IK-feasibility;
+   mlcontprice2/8/16 (k=8 ceiling, costs slip); steering FAIL-wall
+   dig-in; DR-draw n=20; mlcontprice8 literal DONE-gate (FALL);
+   dir_err_cap miscalibration (REFUTED).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii,jj,
-> kk,ll}, 09-05a. Current state = newest Update at the TOP; don't act
-> on archived Next.
+> kk,ll}, 09-05{a,b}. Current state = newest Update at the TOP; don't
+> act on archived Next.
 
-## Fleet capacity note (updated 09-05 ~04:0x)
+## Fleet capacity note (updated 09-05 ~04:5x)
 
-11/12 GPU slots free (train-6 was Pending on host CPU as of the last
-Update — reconfirm before assuming). **No launch this cycle**: every
-pre-registered arm and STATUS Next item resolved to CLOSED this cycle
-(see Update) — the one surviving Next item is a design+build task
-(new mechanism class), not a ready-to-queue arm; inventing an
-under-designed reward tweak would be arm #21 of an already-refuted
-class. Pods 1/2/3/5/8/10/11 may carry stale mixedsession/
-eval_checkpoint jobs from verdicted runs — harmless CPU load, not
-launch-blocking, but a slow-accumulating OOM risk on long-lived pods
-(3rd+ incident) — cleanup lever: `ops.sh procs <pod>` + kill stale
-multiprocessing-fork children before a memory-heavy `--shards`+
-`--video` job. Every OTHER track non-launchable by design (`joystick`/
-`amp`/`cpg` DONE/maintenance; `walkcurr` RETIRED; `todaypolicy`
-DELIVERED).
+4 GPU slots now BUSY with the multiteacher canary grid (train-2/3/5/
++1), 7ish free. Stale mixedsession/eval_checkpoint jobs may still
+linger on other pods — harmless CPU, not launch-blocking; cleanup
+lever: `ops.sh procs <pod>`. Every OTHER track non-launchable by
+design (`joystick`/`amp`/`cpg` DONE/maintenance; `walkcurr` RETIRED;
+`todaypolicy` DELIVERED).
 
 ## Goal (operator, 08-24 evening)
 

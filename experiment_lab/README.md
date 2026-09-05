@@ -256,10 +256,20 @@ counts as supervision when it establishes a normal pose/state. The runner clears
 stale routine/framework latches and retries a complete bounded step up to twice;
 it reports an operator action only when observations are unavailable or show a
 persistent condition that actually needs hands-on correction.
-The injected project mission and checked-in safety rules require deterministic
-preflight/interlocks, bounded motion, stop conditions, and evidence for physical
-actions. Every attempt retains the transcript, structured receipt, before/after
-git status, and a binary workspace patch. Registered-track RL `kick`/`feedback`
+The worker may commit and push its own tested fixes, preserving unrelated work.
+An unfinished guarded plan continues as the same engineering job with its prior
+receipt and remaining attempt budget. Once motion has begun, any continuation
+finishes result registration and evidence sealing without replaying the motion.
+A handoff succeeds only when its exact experiment is terminal and sealed;
+reported blockers and exhausted attempts retain their actual status.
+Operators can set an integer `parameters.queue_priority` (default `0`) when
+queueing an urgent plan. Higher values run first, retaining creation order for
+ties; this never interrupts an active job or cancels older plans.
+Routine runs reuse prior validation for unchanged code and policies. Physical
+actions retain bounded motion, current health checks, and actual fault stops.
+Every attempt retains the transcript, structured receipt, before/after commit,
+branch/upstream and git status, and a binary patch from the starting commit
+through the resulting tree, including committed fixes. Registered-track RL `kick`/`feedback`
 requests can also be written to a durable validated outbox; its dispatcher is
 disabled unless the host explicitly installs a trusted bridge.
 
@@ -288,9 +298,11 @@ network/search tool, shell, project rules, plugins, or other tools. Its structur
 result can append a plain-language learning and propose up to three bounded
 follow-ups. Robot Lab validates those recommendations, deduplicates exact specs,
 and caps recursion at four generations and twenty accepted descendants per root.
-A `builtin` follow-up is accepted only when explicitly marked
-`simulation_only`; the physical command driver independently refuses that flag.
-Real-world and ambiguous recommendations become `external_guarded` saved plans.
+Adaptive follow-ups become `external_guarded` saved plans for the engineering
+worker. Explicit `simulation_only: true` work runs actual offline commands there;
+it never contacts or deploys to the robot. The built-in simulated driver emits
+demo telemetry and is not an executor for requested replay or MuJoCo work.
+Physical inspection findings do not reject these offline follow-ups.
 
 The small advance lane remains a token-free advisory/reconciliation lane. When
 engineering is enabled, it records a non-pausing handoff of the oldest saved plan

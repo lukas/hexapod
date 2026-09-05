@@ -2,10 +2,52 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import sys
 
 import pytest
 
 from rl_move.scripts import run_rl_walk_trial as walk_trial
+
+
+@pytest.mark.parametrize("alpha", ["nan", "inf", "-0.1", "1.1"])
+def test_bad_velocity_alpha_refused_before_trial_setup(tmp_path, monkeypatch, alpha):
+    monkeypatch.setattr(sys, "argv", ["trial", "--output-dir", str(tmp_path),
+        "--walk-transport", "drive", "--velocity-filter-alpha", alpha])
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_velocity_alpha_cannot_silently_apply_to_timed_walk(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["trial", "--output-dir", str(tmp_path),
+        "--velocity-filter-alpha", "0.8"])
+    with pytest.raises(SystemExit) as error:
+        walk_trial.main()
+    assert error.value.code == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("alpha", [None, 0.0, 0.8, 1.0])
+@pytest.mark.parametrize("course", [False, True])
+def test_trial_drive_start_forwards_optional_filter(alpha, course):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.args = SimpleNamespace(speed_m_s=0.08, velocity_filter_alpha=alpha)
+    requests = []
+    trial.request = lambda path, body: requests.append((path, body)) or {"ok": False}
+    trial.event = lambda *a: None
+    with pytest.raises(RuntimeError, match="drive start refused"):
+        if course:
+            trial.direction_course()
+        else:
+            trial.drive_leg("forward")
+    assert len(requests) == 1
+    path, body = requests[0]
+    assert path == "/api/rl/drive/start"
+    if alpha is None:
+        assert "velocity_filter_alpha" not in body
+    else:
+        assert body["velocity_filter_alpha"] == alpha
 
 
 def _robot_sample(stamp: float, *, live: int = 18,

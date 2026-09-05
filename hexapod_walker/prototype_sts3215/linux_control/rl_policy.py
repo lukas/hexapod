@@ -3682,11 +3682,35 @@ def benchmark_drive_hot_path(drive, *, walk_weights: Path | None = None,
     }
 
 
+def validate_velocity_filter_alpha(value: float | None) -> float | None:
+    """Validate the optional per-drive estimator override before any motion."""
+    if value is None:
+        return None
+    try:
+        alpha = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(
+            "velocity_filter_alpha must be finite and in [0, 1]") from None
+    if not math.isfinite(alpha) or not 0.0 <= alpha <= 1.0:
+        raise ValueError("velocity_filter_alpha must be finite and in [0, 1]")
+    return alpha
+
+
+def _drive_filter_config(cfg: dict, alpha: float | None) -> dict:
+    """Keep an override local to this session, including nested filter config."""
+    alpha = validate_velocity_filter_alpha(alpha)
+    if alpha is None:
+        return cfg
+    return {**cfg, "velocity_filter": {
+        **cfg.get("velocity_filter", {}), "alpha": alpha}}
+
+
 def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                             abort_check=None, rot60: bool = True,
                             walk_weights: Path | None = None,
                             hold_weights: Path | None = None,
-                            allow_step_stand_start: bool = False) -> dict:
+                            allow_step_stand_start: bool = False,
+                            velocity_filter_alpha: float | None = None) -> dict:
     """Blocking persistent drive session (MuJoCo-viewer-style driving).
 
     Same conventions as run_policy_move mode="walk" — plant-stance
@@ -3716,13 +3740,22 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     heartbeat silence > DRIVE_IDLE_END_S (browser gone -> hold),
     session cap DRIVE_MAX_SESSION_S (hold), or safety trip (limp).
     """
+    try:
+        velocity_filter_alpha = validate_velocity_filter_alpha(
+            velocity_filter_alpha)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
     on_progress = on_progress or (lambda p: None)
     abort_check = abort_check or (lambda: False)
     bus = drive.bus
     if bus is None or drive.dry_run:
         return {"ok": False, "error": "no bus"}
 
-    cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
+    cfg = _drive_filter_config(
+        load_config(str(_HERE.parent / "rl_move" / "config.yaml")),
+        velocity_filter_alpha)
+    actual_velocity_alpha = float(cfg_get(
+        cfg, "velocity_filter", "alpha", default=0.3))
     wpath = walk_weights or WALK_WEIGHTS_PATH
     walk_policy = NumpyPolicy(wpath)
     walk_obs = walk_policy.meta.get("obs_dim")
@@ -3785,6 +3818,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         walk_policy, cfg, timing.policy_hz)
     drive_write = _drive_write_plan(walk_policy, cfg, timing.policy_hz)
     debug = _RunDebug("drive", {
+        "velocity_filter_alpha": actual_velocity_alpha,
         "walk_policy_path": str(wpath),
         "walk_policy_name": walk_policy.meta.get("name"),
         "walk_obs_dim": walk_obs,
@@ -4015,6 +4049,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     consecutive_late = 0
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": "drive",
+                    "velocity_filter_alpha": actual_velocity_alpha,
                     "training_hz": timing.policy_hz,
                     "policy_joint_frame": joint_frame,
                     "policy_joint_contract": JOINT_CONTRACT}
@@ -4031,6 +4066,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     waiting_for_command_logged = False
     first_drive_command_logged = False
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
+        "velocity_filter_alpha": actual_velocity_alpha,
         "mode": "drive", "hz": timing.policy_hz,
         "policy_hz": timing.policy_hz,
         "training_hz": timing.policy_hz,
@@ -4787,7 +4823,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                       abort_check=None, rot60: bool = True,
                       walk_weights: Path | None = None,
                       hold_weights: Path | None = None,
-                      allow_step_stand_start: bool = False) -> dict:
+                      allow_step_stand_start: bool = False,
+                      velocity_filter_alpha: float | None = None) -> dict:
     """Exception-safe public wrapper for a persistent drive session."""
     require_bus_available(getattr(drive, "bus", None))
     try:
@@ -4795,6 +4832,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             drive, cmd, on_progress=on_progress,
             abort_check=abort_check, rot60=rot60,
             walk_weights=walk_weights, hold_weights=hold_weights,
-            allow_step_stand_start=allow_step_stand_start)
+            allow_step_stand_start=allow_step_stand_start,
+            velocity_filter_alpha=velocity_filter_alpha)
     finally:
         _stop_active_async_samplers()

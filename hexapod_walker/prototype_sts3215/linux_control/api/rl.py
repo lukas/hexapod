@@ -796,7 +796,8 @@ class RlApi:
         return self.rl_drive_state()
 
     def rl_drive_start(self, *, vx: float = 0.0, vy: float = 0.0,
-                       wz: float = 0.0, dh: float = 0.0) -> dict:
+                       wz: float = 0.0, dh: float = 0.0,
+                       velocity_filter_alpha: float | None = None) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
         Motion-free start contract: read-only preflight accepts the
@@ -809,9 +810,15 @@ class RlApi:
         if blocked:
             return blocked
         try:
-            from rl_policy import DriveCommand, preflight, run_drive_session
+            from rl_policy import (DriveCommand, preflight, run_drive_session,
+                                   validate_velocity_filter_alpha)
         except ImportError as e:
             return {"ok": False, "error": f"rl_policy missing: {e}"}
+        try:
+            velocity_filter_alpha = validate_velocity_filter_alpha(
+                velocity_filter_alpha)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
         with self.drive._lock:
@@ -899,7 +906,8 @@ class RlApi:
                 result = run_drive_session(
                     d, cmd, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
-                    walk_weights=walk_w, hold_weights=hold_w)
+                    walk_weights=walk_w, hold_weights=hold_w,
+                    velocity_filter_alpha=velocity_filter_alpha)
                 if gen != self._demo_gen:
                     return
                 with self._lock:

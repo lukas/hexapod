@@ -23,9 +23,9 @@ backlog; idle slots next to this unmet priority are the failure state.
   continuations (base-s0/base-s1/sde-s0/halfgrav-s0 -c1; strip
   --activation-fn/--use-sde on plain --init-from, PPO.load preserves
   ELU/gSDE) + 7 fresh 40M seeds completing the 2x2 family grid
-  (base-s2/s3, halfgrav-s1/s2 matched seeds, sde-s1/s2,
-  sde-halfgrav-s0) + backlog spares (sde-halfgrav-s1, base-s4,
-  halfgrav-s3) so the drain refills freed slots.
+  (base-s2/s4, halfgrav-s2/s3, sde-s1/s2, sdehalfgrav-s0/s1) +
+  6 backlog spares (halfgrav-s1, sde-s0-c1, base-s3, sde-s3,
+  sdehalfgrav-s2/s3; meta 09-05 restock) so the drain refills slots.
 - Acquisition milestone (own physics, unchanged): 20 s held-out
   fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det
   episodes, six-leg lift/place on video, no belly drag; report sto.

@@ -305281,7 +305281,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T16:59:09"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-dgidle-s1",
@@ -305483,7 +305484,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T16:59:09"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-dgidle-s0",

@@ -79,9 +79,10 @@ def engineering_job_lane(source_context: Any) -> str:
     """Classify a durable job from its immutable source context.
 
     Only a queue handoff that may move the robot belongs on the scarce
-    hardware lane.  Analysis follow-through and explicitly non-motion or
-    simulation-only handoffs run on the independent offline/code lane.
-    Missing motion metadata stays conservative and is treated as hardware.
+    hardware lane. Analysis follow-through and handoffs explicitly marked as
+    both simulation-only and non-motion run on the independent offline/code
+    lane. Missing or partial metadata stays conservative and is treated as
+    hardware because a motionless plan may still inspect the physical robot.
     """
     if not isinstance(source_context, dict):
         return ENGINEERING_LANE_OFFLINE
@@ -97,12 +98,13 @@ def engineering_job_lane(source_context: Any) -> str:
 def experiment_parameters_are_offline(parameters: Any) -> bool:
     if not isinstance(parameters, dict):
         return False
-    # Explicitly disabling motion is offline. A simulation-only marker is also
-    # offline only when no motion flag was supplied; malformed or conflicting
-    # metadata stays on the conservative hardware lane.
-    return parameters.get("robot_motion") is False or (
-        "robot_motion" not in parameters
-        and parameters.get("simulation_only") is True
+    # Offline replay must say both that it is simulated and that it cannot move
+    # the robot. A motionless *physical* check may still require live camera or
+    # servo telemetry, so robot_motion=False alone belongs on the hardware lane.
+    # Missing or conflicting metadata likewise stays conservative.
+    return (
+        parameters.get("simulation_only") is True
+        and parameters.get("robot_motion") is False
     )
 
 
@@ -1152,11 +1154,9 @@ class EngineeringJobStore:
             "(json_extract(source_context_json,'$.trigger_kind')="
             "'queue_handoff' AND NOT ("
             "COALESCE(json_type(source_context_json,"
-            "'$.experiment.parameters.robot_motion')='false',0) OR "
-            "(json_type(source_context_json,"
-            "'$.experiment.parameters.robot_motion') IS NULL AND "
+            "'$.experiment.parameters.simulation_only')='true',0) AND "
             "COALESCE(json_type(source_context_json,"
-            "'$.experiment.parameters.simulation_only')='true',0))))"
+            "'$.experiment.parameters.robot_motion')='false',0)))"
         )
         lane_filter = ""
         if lane == ENGINEERING_LANE_HARDWARE:

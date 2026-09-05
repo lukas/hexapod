@@ -370,6 +370,41 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   working base/halfgrav (Gaussian) curriculum ladder. Evidence:
   `logs/ckpt_eval/cw_walkscratch_easy0905_sde_dgidle_s0_gate/
   report.json`, RL_LOG 09-05 17:2x, W&B `4ubnoqq3`.
+  UPDATE 09-05 ~17:3x: `sde-dgidle-s1` (seed 1) independently confirms
+  the SAME fingerprint — harness det walk fwd=0.10m/20s (IDENTICAL
+  across all 6 episodes, deterministic), stride_m_mean 0.001m, duty
+  0.72-0.97 on all six legs (high-frequency vibration not stride,
+  matching `sde-dgidle-s0`'s own read) — the gSDE sub-lineage closure
+  above is now n=2/2 on this exact price combo, not n=1. **Separately,
+  the two non-gSDE `headset-{base,halfgrav}-fullhead-c1` full-8-way
+  heading canaries (Gaussian families, NOT part of the gSDE closure)
+  landed with a verdict CORRECTION worth recording**: the harness
+  shows `gait_valid` 22/24 and 24/24 respectively (six legs cycling,
+  forward_dist_m 2.3-3.4m/20s in EVERY episode, zero det falls) — a
+  real, stable six-leg gait, not a collapse, contrary to what the
+  training-rollout W&B averages alone suggested (`env/v_along_cmd_m_s`
+  ~0.01 the whole run). The actual failure is course-tracking:
+  `success` 0/24 both arms (walkcurr's own bar needs vel_err_mean
+  <=0.03) because `direction_err_mean_deg` swings 28-161deg
+  episode-to-episode as the 8-way command resamples — episodes near
+  the original {0,+-45} training set track well (direrr 28-48deg,
+  POSITIVE return, progress_ratio 1.3-2.4) while episodes drawing
+  quarter-turn/reversal headings degrade hard (direrr 86-161deg,
+  return down to -6416, negative progress_ratio). This is
+  distance-graded generalization, not a binary break, and reconciles
+  the W&B-only read (batch-averaged across all 8 headings including
+  the badly-tracked ones). Both verdicts were corrected in place
+  (FORCE=1) after this landed. Built + bank-proved the missing
+  intermediate rung: `EASY_HEADING_MED` (5-way: 0,+-45,+-90, NO
+  reversal beyond a quarter turn) in `test_walkscratch_easy_pilot.py`,
+  5 new tests, 37/37 green (`walkcurr-headingmed-bank-0905` snapshot,
+  pushed). Launched 2M canaries warm-started from each family's own
+  small-set heading champion: `headset-base-medhead-c1` (train-1),
+  `headset-halfgrav-medhead-c1` (train-2), both VERIFIED RUNNING —
+  read those before attempting the full 8-way jump again on either
+  family. Evidence: `ops.sh review cw-walkscratch-easy0905-sde-dgidle-
+  s1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_{base,halfgrav}
+  _fullhead_c1_gate/report.json`, W&B `q3vgzdlu`/`a0zu90u6`/`xiajh8ja`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

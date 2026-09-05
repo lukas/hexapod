@@ -43,6 +43,8 @@ DIRECTIONS = {
     "right": (0.0, -1.0),
 }
 COURSE = ("forward", "left", "backward", "right")
+# Saved guarded canaries allow at most 100 ms beyond the requested wall clock.
+DRIVE_ACTIVE_OVERRUN_TOLERANCE_S = 0.1
 
 
 class HttpFrameRecorder:
@@ -774,9 +776,15 @@ class Trial:
             and duration_limit_matches
             and math.isfinite(active_wall_time_s)
             and active_wall_time_s >= self.args.duration_s
+            and active_wall_time_s <= (
+                self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S)
         )
         duration_detail = {
             **(server_cap_candidate or {}),
+            "accepted_active_duration_range_s": [
+                self.args.duration_s,
+                self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S,
+            ],
             "result": result,
         }
         if duration_evidence_matches and result.get("ended") == expected_cap_end:
@@ -786,7 +794,10 @@ class Trial:
         else:
             error = RuntimeError(
                 "drive ended without matching controller-side active-duration "
-                f"evidence: {result}")
+                "evidence inside the accepted wall-clock range "
+                f"[{self.args.duration_s:g}, "
+                f"{self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S:g}] "
+                f"seconds: {result}")
             self.event("drive_server_duration_limit_mismatch", duration_detail)
             if loop_error is None:
                 loop_error = error

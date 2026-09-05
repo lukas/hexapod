@@ -2,6 +2,50 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~20:2x this cycle (assigned `headset-base-s0c1-noiseonly-c1`,
+  the last cell of the walk_duty_gate x noise 2x2 grid; found still
+  computing at cycle spawn, waited it out via `waitlog`/direct pod
+  check rather than duplicating registration): **CANARY FAIL -
+  MECHANISM — completes and CLOSES the full grid.** This is the
+  isolating control (noise alone, `--log-std-final -1.2`, NO
+  `walk_duty_gate`) that the `dgnoise-c1` cycle (immediately above)
+  flagged as the missing cell. Result: leg-4 duty on the gated mode
+  `walk_startjitter/det` is `[0.06,0.05,0.04,0.02,0.05,0.02]`
+  (med ~0.045) — STATISTICALLY IDENTICAL to the undosed `s0c1`
+  baseline (`[0.04,0.05,0.05,0.02,0.05,0.02]`, med ~0.045) and to
+  `dgnoise-c1` (duty_gate+noise, med ~0.05); `gait_valid` 0/6, leg
+  `[4]` sacrificed every episode, `policy_std` reads back 0.254
+  (identical to `dgnoise-c1`'s own readback, confirming the dose
+  landed the same in both arms — this is a real null, not an
+  underdose). No regression: `walk/det` 6/6, `walk/sto` 6/6,
+  `walk_startjitter/sto` 6/6, 0/24 falls across all four modes. Full
+  2x2 now reads: s0c1 (gate off/noise low) med~0.045, `dgfresh` (gate
+  on/noise low) med~0.06, `dgnoise-c1` (gate on/noise high) med~0.05,
+  `noiseonly-c1` (gate off/noise high) med~0.045 — noise ALONE
+  reproduces the undosed baseline exactly (zero effect on its own),
+  and `duty_gate`'s own small solo bump (dgfresh's ~0.06) does not
+  survive combination with noise. **This closes BOTH walk_duty_gate
+  and plain exploration-noise scheduling as repair levers for the
+  leg-4/marginal-leg-favoritism pathology on the base/non-gSDE
+  family, matching the gSDE family's identical closure** — no further
+  duty_gate-class or noise-schedule-class arm anywhere in the
+  headset-base family; the per-leg-utilization pricing design
+  question is fully open again pending a genuinely new mechanism (a
+  hard minimum-duty/minimum-swing-count price that can't be satisfied
+  by a rare token swing or by noise-around-the-mean, not a
+  training-time completion score). **Refill this cycle:** none of
+  this exact class (no cheap variant remains untried per the
+  synthesis above); GPU capacity check found train-0/train-3 genuinely
+  busy running the `medhead2-acq1` pair's own evals (concurrent
+  cycle), train-4 freshly freed by this eval landing, and no other
+  non-duplicative bank-cleared walkcurr item queued this cycle beyond
+  what's already in flight (`medhead2-acq1` pair, `halfgrav-medhead-
+  acq1`'s n=2 seed, `irr-acq1`'s base repair) — all already launched.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
+  s0c1_noiseonly_c1_gate/report.json` vs `..._s0c1_gate/`,
+  `..._dgfresh_gate/`, `..._dgnoise_c1_gate/` (same keys), W&B
+  `xyz4gzvh`.
+
 - 09-05 ~20:2x this cycle (assigned `headset-base-s0c1-dgnoise-c1`;
   found genuinely still computing remotely at cycle spawn like every
   recent sibling — registered `evalpending` for it plus 3 other

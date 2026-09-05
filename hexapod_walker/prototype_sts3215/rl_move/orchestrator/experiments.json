@@ -308475,7 +308475,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T19:59:12"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-medhead2-acq1-cw-walksc since 2026-09-05T20:24:53"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1",
@@ -308680,7 +308680,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T19:59:12"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-medhead2-acq1-cw-walksc since 2026-09-05T20:24:53"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-dgnoise-c1",
@@ -309051,7 +309051,7 @@
       "reward.duty_gate_floor=0.0"
     ],
     "created": "2026-09-05T19:32:05+00:00",
-    "status": "RUNNING",
+    "status": "fail",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -309097,6 +309097,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1 since 2026-09-05T20:14:37"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (closes the isolating-control cell of the walk_duty_gate x noise 2x2 grid: 'does exploration noise alone move leg-4 duty, with NO duty_gate pricing at all'). This canary is the plain-noise-only twin of the undosed s0c1 baseline: identical seed=0/--init-from base_s0_c1.zip, --log-std-final raised -2.0->-1.2 (same dose as dgnoise-c1) but reward.walk_duty_gate left at 0.0 (no pricing whatsoever). Evidence: on the pre-registered gated mode walk_startjitter/det, leg-4 duty [0.06,0.05,0.04,0.02,0.05,0.02] (med ~0.045) is STATISTICALLY IDENTICAL to the undosed s0c1 twin [0.04,0.05,0.05,0.02,0.05,0.02] (med ~0.045) and to dgnoise-c1 (duty_gate+noise) [0.06,0.05,0.05,0.02,0.06,0.02] (med ~0.05) -- gait_valid 0/6 all three, leg [4] sacrificed every episode, frame strip shows the same planted/dragging leg-4 pose. policy_std reads back 0.254, identical to dgnoise-c1's own readback, confirming the noise dose landed identically in both arms -- the flat duty is not an underdose artifact. No regression elsewhere: walk/det 6/6 gait_valid, walk/sto 6/6, walk_startjitter/sto 6/6, 0/24 falls across all four modes. This COMPLETES the full 2x2 {duty_gate on/off} x {noise low/high} grid: s0c1 (off/low) med~0.045, dgfresh (on/low) med~0.06, dgnoise-c1 (on/high) med~0.05, noiseonly-c1 (off/high) med~0.045 -- noise alone reproduces the UNDOSED baseline exactly (no effect whatsoever on its own), and duty_gate's own small on-its-own bump (dgfresh's ~0.06 vs baseline's ~0.045) does not survive combination with noise (dgnoise-c1 falls back to ~0.05). Root cause (matches dgnoise-c1's own chain): extra exploration noise keeps the training-time reward factor mobile but never touches the eval-time DETERMINISTIC policy mean, which is what actually walks the gate. FINAL SYNTHESIS: every cheap companion lever to walk_duty_gate (bake-in-early via dgfresh, revive-noise via dgnoise-c1, noise-alone via this run) is now closed on the base/non-gSDE family, matching the already-closed gSDE family -- walk_duty_gate and plain exploration-noise scheduling are BOTH fully refuted as fixes for the leg-4/marginal-leg-favoritism pathology on this rung, across every combination tried. No further duty_gate-class or noise-schedule-class arm should be funded anywhere in the headset-base family. Next: the marginal-leg-favoritism question needs a genuinely new per-leg-utilization mechanism (a hard minimum-duty/minimum-swing-count price that cannot be satisfied by a rare token swing or by noise around the mean, not a training-time completion score) with its own design+bank pass before further spend -- no cheap variant remains untried."
   }
 ]

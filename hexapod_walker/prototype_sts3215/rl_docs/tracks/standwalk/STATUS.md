@@ -109,11 +109,11 @@ is the session harness (flat=1 is the literal gate shape).
 
 ## Landmines
 
-- Sim only — hardware stand/plant transfer stays operator-owned.
+- Sim-only evidence here; hardware stand/plant transfer goes through Robot
+  Lab's serialized guarded runner.
 - No stage-2 arm may warm-start from a primitive checkpoint.
 - The joystick track owns generic mesh walking; this track owns
   rise/lower + the unification. Coordinate via STATUS, don't duplicate.
 - `_mixedsession` (REPEATING rise<->walk<->lower) is a stress test,
   NOT the DONE-gate instrument (that's `eval_done_gate_session`,
   `ops.sh donegatecmd`, flat=1).
-

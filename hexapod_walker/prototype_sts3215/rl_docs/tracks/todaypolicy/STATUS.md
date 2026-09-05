@@ -20,8 +20,8 @@ teacher-ceiling), cur_max 2.64 A / cur_p95 1.886 A, video strip clean
 Durable copies + GO/NO-GO + browser/controller selector path:
 `rl_docs/tracks/todaypolicy/bundle_mlpsf_tuck_v1/` (GO_NOGO.md,
 summary/composition/transfer_manifest.json, drive.mp4). Verdict: **GO**
-for MuJoCo/controller handoff; hardware steps remain operator-owned
-(read-only preflight first, per transfer_manifest blockers). Remaining
+for MuJoCo/controller handoff; hardware steps run through the serialized
+guarded agent (read-only preflight first, per transfer_manifest blockers). Remaining
 optional upgrade (not a blocker): swap walk role to a walkteach-acq12m
 lineage export if its UX beats MLP-singleframe on the identical
 12 s-hold suite.
@@ -118,8 +118,8 @@ This track is DONE for the day when a named bundle has:
   checked into a durable path or summarized in docs;
 - exported controller-ready policy JSONs for every learned role;
 - browser/controller selector path documented or built;
-- GO/NO-GO note for hardware handoff, with physical robot work still
-  operator-owned.
+- GO/NO-GO note for hardware handoff, with remote physical robot work owned by
+  the guarded runner and hands-on correction remaining operator-owned.
 
 Minimum demo bars for a TODAY pass:
 
@@ -155,8 +155,8 @@ Minimum demo bars for a TODAY pass:
 
 ## Boundaries
 
-- No physical robot motion from this track unless the operator asks in
-  the current turn.
+- Bounded physical motion from this track uses standing campaign authority,
+  live camera, three fresh healthy samples, and a remote abort path.
 - This track may build glue, exports, manifests, docs, browser UI, and
   short missing-submodel runs.
 - The single-policy goal stays in `standwalk`; todaypolicy is allowed to

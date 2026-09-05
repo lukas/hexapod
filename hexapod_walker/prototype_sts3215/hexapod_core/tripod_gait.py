@@ -514,6 +514,64 @@ class TripodGait:
         dy = prog * v_y_at * t_eff / 2.0 * ramp_amp * self.stride_scale
         return dx, dy, dz
 
+    def leg_swing_state(self) -> list[bool]:
+        """Per-leg swing (True) / stance (False) flag for the CURRENT
+        phase -- standwalk Next item 2(i) (09-05): built so
+        ``probe_joint_tracking.py`` can split its clip-saturation
+        accounting by swing vs stance without duplicating the dx/dy/dz
+        foot-target math, to test the "does narrowing a group's stance
+        window pay back what widening its swing window saved"
+        root-cause question the ``combined_group_duty_skew`` gait-
+        STRUCTURE candidate raised. Must be called AFTER
+        ``desired_deg(t)``/``_advance(t)`` for this tick (so
+        ``self._phase``/``self._*_smooth`` already reflect it) --
+        read-only, mirrors the EXACT theta/width boundary logic
+        ``_foot_target_in_body`` uses (including the re-timed
+        ``combined_group_duty_skew`` path) so the two can never
+        disagree; costs nothing extra when unused (callers who never
+        invoke this pay zero overhead, same "additive, no shared-path
+        change" pattern as every other probe hook in this file)."""
+        vx, vy, omega = self._vx_smooth, self._vy_smooth, self._om_smooth
+        _combined = abs(vx) > 1e-6 and abs(omega) > 1e-6
+        if _combined and self.combined_group_duty_skew != 0.0:
+            heavy = self._classify_group_heavy(vx, vy, omega)
+        else:
+            heavy = None
+        out: list[bool] = []
+        for i in range(6):
+            tripod = 0 if i % 2 == 0 else 1
+            if heavy is None:
+                phi = (self._phase + self._phase_offset
+                       + tripod * math.pi) % (2 * math.pi)
+                out.append(phi < math.pi)
+            else:
+                theta = (self._phase + self._phase_offset) % (2 * math.pi)
+                width0 = math.pi * (1.0 + (self.combined_group_duty_skew
+                                           if heavy == 0 else
+                                           -self.combined_group_duty_skew))
+                width0 = _clip(width0, 0.05 * math.pi, 1.95 * math.pi)
+                group0_swinging = theta < width0
+                leg_is_group0 = (tripod == 0)
+                out.append(group0_swinging == leg_is_group0)
+        return out
+
+    def heavy_group(self) -> int | None:
+        """Public wrapper around ``_classify_group_heavy`` for the
+        CURRENT smoothed command (same call-after-``desired_deg``
+        contract as ``leg_swing_state``) -- standwalk Next item 2(i)
+        follow-up (09-05): the amplified/light per-leg classification
+        exists for any combined (vx!=0, omega!=0) command REGARDLESS
+        of whether ``combined_group_duty_skew`` is nonzero (the skew
+        knob only ACTS on it); a probe needs this to attribute a leg's
+        swing/stance clip stats to its structural group even at the
+        skew=0.0 baseline, to see how a nonzero dose shifts each of
+        the four (group x swing/stance) buckets rather than just the
+        two (swing/stance) buckets pooled across both groups (which
+        can hide a per-group effect if the two groups move in opposite
+        directions -- see ``leg_swing_state`` docstring)."""
+        return self._classify_group_heavy(
+            self._vx_smooth, self._vy_smooth, self._om_smooth)
+
     def _yaw_frame_xy(self, dx_b: float, dy_b: float, a: float) -> tuple[float, float]:
         """Project a body-frame foot offset ``(dx_b, dy_b)`` for the leg
         planted at angle ``a`` into that leg's own yaw-servo frame

@@ -4406,7 +4406,15 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-parkstart-mjx --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_kgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --out-name ppo_goal_cw_walk_parkstart_mjx --notes Park-basin reset diversity, GPU-MJX relaunch of cw-walk-parkstart (the CPU original was killed mid-run in the 2026-08-09 stack switch-over; no training verdict was taken). 25 percent of walk episodes start IN a jittered tripod park. Cycle 24 showed pricing cannot break the park (kgate cut its income ~1000/ep, same-seed park persisted), so this arm makes park states common at reset instead. One variable vs the kgate segment: goal.walk_park_start_frac=0.25, kernel prog-gate kept at 1.0. Parent ppo_goal_cw_walk_kgate.zip md5 b703f7b0, lowest lineage std 1.342. Gate: standard 15s DR0 12/12 clauses plus park-exit eval at frac=1.0 needing 10/12 fwd 0.30m with gait_valid, plus retention 5s det slip/m at most 1.8. Trainer stack: train_ppo_mjx (Warp, 4096 envs) - behavioral equivalence validated in MJX_PORT.md A/B and run mjx-dr-canary-check2. Snapshot f1461f9. --n-envs 4096 --impl warp --host-workers 24 > /tmp/train_cw-walk-parkstart-mjx.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-parkstart-mjx.log",
-    "track": "hw"
+    "track": "hw",
+    "checkups": [
+      {
+        "time": "2026-09-05T06:27:30+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
   },
   {
     "run": "cw-walk-parkstart-mjx",
@@ -8329,7 +8337,15 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-fwdband-r1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.0 --out-name ppo_goal_cw_walk_fwdband_r1 --n-envs 4096 --impl warp --host-workers 24 --notes 'RETRY of cw-walk-fwdband (r1 launch died at INTENT when its cycle was killed; 0 steps, infra fault). The robot is only ever graded on walking straight ahead (operator ruling 4), yet 40% of practice commands point sideways/backward. 100% forward scope off champion 35234ddc: if focused practice matters, det prog_ratio moves into 0.75-1.25 (champ 1.43 overspeed) without slip worsening; if nothing moves beyond noise, command mix is not a lever. A/B partner: cw-steer-fdiag (pi/4). Parent: rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip. Gate: own-cfg DR1.0 harness 15s 6+6 fwd: det prog_ratio median 0.75-1.25 (champ 1.43), det slip_per_m <=1.11 (not worse beyond noise), gait_valid 12/12, 0 term; DR0 det fwd >=0.55 6/6; frames watched det+sto' > /tmp/train_cw-walk-fwdband-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-fwdband-r1.log",
-    "track": "hw"
+    "track": "hw",
+    "checkups": [
+      {
+        "time": "2026-09-05T06:27:31+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
   },
   {
     "run": "cw-walk-longdist-s1",
@@ -8857,7 +8873,15 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walk-endur60 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip --no-dr --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 60 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --out-name ppo_goal_cw_walk_endur60 --notes 'OPERATOR WISHLIST: long-distance endurance. 60 s episodes (4x champion horizon), narrow band. If-true: det median fwd distance >=2.4 m @ 60 s with gait_valid and no late-episode degradation; if-false: gait decays over time (fatigue-like drift in policy state or accumulating pose error). Parent: cw-walk-anchorgate. Gate: DR0 det+sto 6/6: median fwd distance >=2.4 m @ 60 s, zero terminations, gait_valid' > /tmp/train_cw-walk-endur60.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walk-endur60.log",
-    "track": "hw"
+    "track": "hw",
+    "checkups": [
+      {
+        "time": "2026-09-05T06:27:33+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
   },
   {
     "run": "cw-walk-lowgait",
@@ -9933,6 +9957,12 @@
         "problems": [
           "fps 2913 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
+      },
+      {
+        "time": "2026-09-05T06:27:32+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
       }
     ],
     "checkup_resolution": "SUSPECT fps=2913 was a startup-window transient: instantaneous fps 7.3k at 4.6M/20M steps (12:5x), above the 5000 solo floor and climbing (cumulative avg 4.3k->4.6k). Node g142d86 hosts 4 trainers by design. No starvation, no rebalance.",

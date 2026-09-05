@@ -137,6 +137,12 @@ static int16_t imuCache[7];           // ax ay az gx gy gz temp (raw)
 static bool imuCacheValid = false;
 static unsigned long imuStampMs = 0;
 static unsigned long imuRetryMs = 0;
+// One short I2C miss must not turn into the one-second absent-sensor
+// recovery path.  Retry on the next acquisition pass and only declare the
+// MPU unavailable after a small consecutive streak.  The Linux controller
+// still independently rejects attitude data older than 150 ms.
+static const uint8_t STREAM_IMU_READ_FAIL_LIMIT = 3;
+static uint8_t streamImuReadFailStreak = 0;
 static uint16_t fbLoad[MAX_N];        // magnitude, tenths of %
 static uint8_t fbVolt[MAX_N];         // deci-volts
 static uint8_t fbTemp[MAX_N];
@@ -204,6 +210,7 @@ static uint32_t dbgSyncWriteFailures = 0;
 static uint32_t dbgStreamFastPasses = 0;
 static uint32_t dbgStreamFullPasses = 0;
 static uint32_t dbgStreamImuPasses = 0;
+static uint32_t dbgStreamImuReadFailures = 0;
 static uint32_t dbgStreamPosSlotFails = 0;
 static uint32_t dbgStreamFbSlotFails = 0;
 static uint32_t dbgHostSnapshotRequests = 0;
@@ -247,6 +254,7 @@ static void dbgResetCounters() {
   dbgStreamFastPasses = 0;
   dbgStreamFullPasses = 0;
   dbgStreamImuPasses = 0;
+  dbgStreamImuReadFailures = 0;
   dbgStreamPosSlotFails = 0;
   dbgStreamFbSlotFails = 0;
   dbgHostSnapshotRequests = 0;
@@ -302,6 +310,7 @@ static void cmdDbg(bool reset) {
   dbgPrintKV(F("stream_fast_passes"), dbgStreamFastPasses);
   dbgPrintKV(F("stream_full_passes"), dbgStreamFullPasses);
   dbgPrintKV(F("stream_imu_passes"), dbgStreamImuPasses);
+  dbgPrintKV(F("stream_imu_read_failures"), dbgStreamImuReadFailures);
   dbgPrintKV(F("stream_pos_slot_fails"), dbgStreamPosSlotFails);
   dbgPrintKV(F("stream_fb_slot_fails"), dbgStreamFbSlotFails);
   dbgPrintKV(F("host_snapshot_requests"), dbgHostSnapshotRequests);
@@ -1129,12 +1138,22 @@ static void streamImuPassInner() {
     if (now - imuRetryMs < 1000) return;  // don't hammer a dead sensor
     imuRetryMs = now;
     if (mpuEnsureReady() == 0) return;
+    streamImuReadFailStreak = 0;
   }
   uint8_t raw[14];
   if (!mpuReadRegs(MPU_REG_ACCEL_XOUT_H, raw, 14)) {
-    mpuReady = false;
+    dbgStreamImuReadFailures++;
+    streamImuReadFailStreak++;
+    if (streamImuReadFailStreak >= STREAM_IMU_READ_FAIL_LIMIT) {
+      // Preserve the existing slow backoff for a genuinely absent sensor,
+      // but do not enter it for an isolated NACK/short read.
+      mpuReady = false;
+      imuRetryMs = millis();
+      streamImuReadFailStreak = 0;
+    }
     return;
   }
+  streamImuReadFailStreak = 0;
   imuCache[0] = be16(raw + 0);
   imuCache[1] = be16(raw + 2);
   imuCache[2] = be16(raw + 4);

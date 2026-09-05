@@ -294774,7 +294774,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T12:31:55"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s1",
@@ -294977,6 +294978,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T12:31:54"
   }
 ]

@@ -285123,7 +285123,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T09:47:23"
+    "triage": "in-cycle cw-walkscratch-easy0905-base-s2-cw-walkscratch-easy0905-base since 2026-09-05T10:13:09"
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-s0",
@@ -285701,7 +285701,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T09:47:24"
+    "triage": "in-cycle cw-walkscratch-easy0905-base-s2-cw-walkscratch-easy0905-base since 2026-09-05T10:13:09"
   },
   {
     "run": "cw-walkscratch-easy0905-halfgrav-s3",
@@ -285899,7 +285899,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T09:47:25"
+    "triage": "in-cycle cw-walkscratch-easy0905-base-s2-cw-walkscratch-easy0905-base since 2026-09-05T10:13:09"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s2",
@@ -286052,7 +286052,7 @@
       "respec of cw-walkscratch-easy0905-sde-s0: Plain English: independent seed 2 of the gSDE exploration family \u2014 the healthiest early-signal variant of the cohort (sde-s0 had best v_along at 2M) \u2014 at acquisition budget (mechanism evidence inherited from sde-s0's 2M CANARY PASS; operator 09-05: replicate healthy exploration variants). From-scratch 40M, identical to sde-s0 (--use-sde, resample 20 ticks; legal here because fresh build) except --seed 2. Question: is temporally-correlated gSDE exploration a robust advantage over per-tick Gaussian across seeds?"
     ],
     "created": "2026-09-05T09:06:47+00:00",
-    "status": "RUNNING",
+    "status": "ACQ CONTINUE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -286098,7 +286098,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T09:57:43"
+    "triage": "done",
+    "verdict": "Not yet walking at 40M but per 08-21 ruling this is continue, not fail. Video/report: lurch-and-faceplant, TERM tilt_pitch in 6/6 det episodes; walk/det shows gait_valid 6/6 but fwd only 0.08m (marching in place, not net progress) -- a paddle/quiver pattern, not a real gait; walk_startjitter/det is worse (gait_valid 0/6). But rollout/ep_len_mean is NOT flat: it troughed to ~45-65 ticks around 15-25M (the phase where a fast-then-fall strategy first out-earned surviving) then climbed to 214 ticks at the final logged step (102->109->116->169->194->214, still rising into the last point), and rollout/ep_rew_mean tracks it (-2.1->8.2->28.6->23.8->30.1->26.6 -- noisy near the top but an order of magnitude above the trough, not a plateau at the sdehalfgrav-s0 level of ~4-5). env/v_along_cmd_m_s plateaued around 0.15-0.17 mid-training and holds, i.e. speed skill retained while survival duration is still being learned. Different fingerprint from sdehalfgrav-s0's genuine flat-everything plateau -- continuing from checkpoint per the ruling."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1",
@@ -286251,7 +286252,7 @@
       "respec of cw-walkscratch-easy0905-sde-s0: Plain English: independent seed 1 of the gSDE exploration family \u2014 the healthiest early-signal variant of the cohort (sde-s0 had best v_along at 2M) \u2014 at acquisition budget (mechanism evidence inherited from sde-s0's 2M CANARY PASS; operator 09-05: replicate healthy exploration variants). From-scratch 40M, identical to sde-s0 (--use-sde, resample 20 ticks; legal here because fresh build) except --seed 1. Question: is temporally-correlated gSDE exploration a robust advantage over per-tick Gaussian across seeds?"
     ],
     "created": "2026-09-05T09:08:03+00:00",
-    "status": "RUNNING",
+    "status": "ACQ CONTINUE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -286296,7 +286297,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Not yet walking at 40M but per 08-21 ruling this is continue, not fail -- unlike sdehalfgrav-s0's flat-ep_len fingerprint. Video/report: lurch-and-faceplant on legs 1+2 area, gait_valid 0/6 in walk/det, TERM tilt_pitch in 6/6 det episodes, fwd 0.62m det (bar: 20s sustained fixed-forward). But rollout/ep_len_mean is NOT flat -- it fell to a trough (~50-60 ticks around 15-25M, the phase where the forward-speed reward was first discovered and paid for a fast-then-fall strategy) then climbed steadily through the rest of training to 231 ticks at the very last logged step (111->124->152->169->177->231 over the last ~15% of budget), and rollout/ep_rew_mean is still rising in lockstep (2.8->6.5->15.4->25.9->23.4->38.7, highest value at the final step, no plateau). env/v_along_cmd_m_s did plateau around 0.15-0.17 mid-training and holds there (not decaying), i.e. it kept the forward-speed skill while learning to survive longer with it -- the opposite of sdehalfgrav-s0's genuine flat-everything plateau. Continuing from checkpoint per the ruling."
   },
   {
     "run": "cw-walkscratch-easy0905-base-s1-c1",
@@ -286494,7 +286497,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T10:07:58"
   },
   {
     "run": "cw-walkscratch-easy0905-halfgrav-s0-c1",
@@ -286694,7 +286698,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T10:07:59"
   },
   {
     "run": "cw-walkscratch-easy0905-base-s0-c1",
@@ -286892,7 +286897,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T10:13:07"
   },
   {
     "run": "cw-walkscratch-easy0905-halfgrav-s1",
@@ -287788,7 +287794,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T10:13:07"
   },
   {
     "run": "cw-walkscratch-easy0905-base-s3",
@@ -288366,7 +288373,27 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s0-c1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 0 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s0_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-base-s0: Plain English: the gSDE canary had the strongest early forward signal of the cohort; this continues it from its own checkpoint at acquisition budget. Own-checkpoint 40M continuation of sde-s0. Built by respec from the base-s0 vector because plain --init-from REJECTS retained --use-sde/--activation-fn (fb_20260905T080341_ef45b6): PPO.load preserves the checkpoint'\"'\"'s own gSDE mode (sde_sample_freq=20) and ELU; the vector is otherwise identical to sde-s0'\"'\"'s.' --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s0.zip > /tmp/train_cw-walkscratch-easy0905-sde-s0-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sde-s0-c1.log",
     "wandb_id": "of5ll200",
-    "verified": "2026-09-05T09:52:25+00:00"
+    "verified": "2026-09-05T09:52:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T09:58:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1390,
+        "cpu_centisec_deltas": [
+          12813,
+          15064
+        ],
+        "gpu_util_samples": [
+          2,
+          0,
+          35
+        ],
+        "note": "global_step flat in 45s window but run shows work: cpu_busy=True gpu_busy=True log_grew_late=True \u2014 trainer cadence/W&B summary lag, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-s2",
@@ -288727,7 +288754,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s3 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn elu --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --use-sde --sde-sample-freq 20 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s3 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'Plain English: independent seed 3 of the gSDE exploration family, completing n=4 fresh seeds to match base/halfgrav for the sde-vs-Gaussian family comparison (matched-seed directive 09-05). From-scratch 40M, identical to sde-s2 except --seed 3. Parent: cw-walkscratch-easy0905-sde-s0. Gate: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.' > /tmp/train_cw-walkscratch-easy0905-sde-s3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sde-s3.log",
     "wandb_id": "2cz2qe5m",
-    "verified": "2026-09-05T09:54:09+00:00"
+    "verified": "2026-09-05T09:54:09+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T10:01:37+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1224,
+        "fps": 23301.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s0-c1",
@@ -289082,7 +289121,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sdehalfgrav-s3 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn elu --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --use-sde --sde-sample-freq 20 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_s3 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'Plain English: seed 3 of the sde+halfgrav factorial cell, seed-MATCHED to sde-s3/halfgrav-s3 so every family has n>=4 seeds for the 2x2 comparison. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 3. Parent: cw-walkscratch-easy0905-sde-s0. Gate: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.' > /tmp/train_cw-walkscratch-easy0905-sdehalfgrav-s3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sdehalfgrav-s3.log",
     "wandb_id": "1h3dcec8",
-    "verified": "2026-09-05T09:59:44+00:00"
+    "verified": "2026-09-05T09:59:44+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T10:05:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1074,
+        "fps": 23301.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-s2",
@@ -289251,5 +289302,205 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Family 2M CANARY PASS 09-05 (sde-s0 healthy, best v_along of cohort; halfgrav-s0 healthy at 0.5g); operator 09-05 full-fleet order: keep the backlog stocked with pre-registered easy-campaign work.",
     "refused_reason": "hexapod-mjx-train-7 already runs cw-walkscratch-easy0905-sdehalfgrav-s3 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-walkscratch-easy0905-sdehalfgrav-s2",
+    "pod": "hexapod-mjx-train-8",
+    "steps": 40000000,
+    "smoke": false,
+    "hypothesis": "Plain English: seed 2 of the sde+halfgrav factorial cell, seed-MATCHED to base-s2/sde-s2/halfgrav-s2 so the 2x2 family grid has paired draws at seed 2. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 2.",
+    "gate": "Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.",
+    "parent": "cw-walkscratch-easy0905-sde-s0",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "20",
+      "--n-steps",
+      "128",
+      "--batch-size",
+      "131072",
+      "--gamma",
+      "0.995",
+      "--gae-lambda",
+      "0.97",
+      "--net-arch",
+      "256,256,128",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--log-std-final",
+      "-2.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--use-sde",
+      "--sde-sample-freq",
+      "20",
+      "--seed",
+      "2",
+      "--out-name",
+      "ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_s2",
+      "--cfg-set",
+      "env.model_source=mesh_mjx",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "goal.walk_cmd_hold_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_ramp_s=0.0",
+      "--cfg-set",
+      "goal.joint_action_bias_hip_deg=40.0",
+      "--cfg-set",
+      "goal.joint_action_bias_knee_deg=35.0",
+      "--cfg-set",
+      "goal.joint_action_box_yaw_deg=15.0",
+      "--cfg-set",
+      "goal.joint_action_box_hip_deg=20.0",
+      "--cfg-set",
+      "goal.joint_action_box_knee_deg=25.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=2.0",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.06",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.1",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--cfg-set",
+      "reward.safety_termination_penalty=24",
+      "--cfg-set",
+      "reward.k_track=0.0",
+      "--cfg-set",
+      "reward.k_roll=0.0",
+      "--cfg-set",
+      "reward.k_pitch=0.0",
+      "--cfg-set",
+      "reward.k_height=0.0",
+      "--cfg-set",
+      "reward.k_gyro=0.0",
+      "--cfg-set",
+      "reward.k_action=0.0",
+      "--cfg-set",
+      "reward.k_action_delta=0.01",
+      "--cfg-set",
+      "reward.k_current=0.0",
+      "--cfg-set",
+      "reward.k_walk_heading=0.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "bus.write_speed=4096",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "bus.write_acc=1000",
+      "--cfg-set",
+      "safety.max_delta_q_deg=3.6",
+      "--cfg-set",
+      "safety.max_current_a=100",
+      "--cfg-set",
+      "safety.max_roll_deg=30",
+      "--cfg-set",
+      "safety.max_pitch_deg=30",
+      "--cfg-set",
+      "struct_comp.enabled=0",
+      "--cfg-set",
+      "dr.latency_scale=0,0",
+      "--cfg-set",
+      "dr.deadband_scale=0,0",
+      "--cfg-set",
+      "dr.torque_scale=3,3",
+      "--cfg-set",
+      "dr.encoder_noise_deg=0",
+      "--cfg-set",
+      "dr.tilt_noise_deg=0",
+      "--cfg-set",
+      "dr.gyro_noise_deg_s=0",
+      "--cfg-set",
+      "ease.gravity_scale=0.5",
+      "--notes",
+      "Plain English: seed 2 of the sde+halfgrav factorial cell, seed-MATCHED to base-s2/sde-s2/halfgrav-s2 so the 2x2 family grid has paired draws at seed 2. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 2. Parent: cw-walkscratch-easy0905-sde-s0. Gate: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture."
+    ],
+    "created": "2026-09-05T10:02:39+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)",
+      "running_experiments_before": 10,
+      "code_sha_local": "ee1b987af69b7a370ea7cbce8b61f6b1d0286ec0",
+      "code_sha_pod": "ee1b987af69b7a370ea7cbce8b61f6b1d0286ec0",
+      "wandb_env_on_pod": true,
+      "pid": "684836",
+      "log_growth_bytes": [
+        5635,
+        5635
+      ],
+      "wandb_id": "70t2xsk0",
+      "trainer_pid": "684836",
+      "global_step_window": [
+        0,
+        524288
+      ],
+      "fps_estimate": 8738.1
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "Family 2M CANARY PASS 09-05 (sde-s0 healthy, best v_along of cohort; halfgrav-s0 healthy at 0.5g); operator 09-05 full-fleet order: keep the backlog stocked with pre-registered easy-campaign work.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sdehalfgrav-s2 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn elu --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --use-sde --sde-sample-freq 20 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_s2 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'Plain English: seed 2 of the sde+halfgrav factorial cell, seed-MATCHED to base-s2/sde-s2/halfgrav-s2 so the 2x2 family grid has paired draws at seed 2. From-scratch 40M, identical to sdehalfgrav-s1 except --seed 2. Parent: cw-walkscratch-easy0905-sde-s0. Gate: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family 2M CANARY PASS; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.' > /tmp/train_cw-walkscratch-easy0905-sdehalfgrav-s2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkscratch-easy0905-sdehalfgrav-s2.log",
+    "wandb_id": "70t2xsk0",
+    "verified": "2026-09-05T10:06:07+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T10:11:20+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2181,
+        "fps": 23301.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

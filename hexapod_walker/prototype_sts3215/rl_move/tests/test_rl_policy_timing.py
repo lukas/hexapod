@@ -184,9 +184,14 @@ class _FakeStepBus(_FakeBus):
         }
 
 
-@pytest.mark.parametrize("persistent_missing", [False, True])
+@pytest.mark.parametrize(("persistent_missing", "stale_duplicates"), [
+    (False, 0),
+    (True, 0),
+    (False, 2),
+    (False, 3),
+])
 def test_persistent_drive_uses_combined_snapshot_every_policy_tick(
-        monkeypatch, persistent_missing):
+        monkeypatch, persistent_missing, stale_duplicates):
     clock = [10.0]
     monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(rl_policy.time, "sleep",
@@ -196,10 +201,17 @@ def test_persistent_drive_uses_combined_snapshot_every_policy_tick(
         def __init__(self):
             super().__init__()
             self.steps = 0
+            self.frozen_seq = None
 
         def step_all(self, _degrees, **_kwargs):
             self.steps += 1
-            return self.read_snapshot()
+            previous_seq = self.last_seq
+            snap = self.read_snapshot()
+            if self.steps <= stale_duplicates:
+                if self.frozen_seq is None:
+                    self.frozen_seq = previous_seq
+                snap["seq"] = self.frozen_seq
+            return snap
 
         def read_snapshot(self):
             snap = super().read_snapshot()
@@ -258,6 +270,17 @@ def test_persistent_drive_uses_combined_snapshot_every_policy_tick(
         assert torque_calls[-1] is False
         assert bus.steps == 1
         return
+    if stale_duplicates == 3:
+        assert result["error"] == (
+            "feedback stale during stream; held current pose")
+        assert result["held_pose"] is True
+        assert result["limped"] is False
+        assert result["stale_stream_samples"] == 3
+        assert result["stale_stream_ticks"] == 3
+        assert result["max_stale_stream_ticks_seen"] == 3
+        assert result["max_stale_stream_ticks"] == 2
+        assert bus.steps == 3
+        return
     assert result["error"] == "aborted"
     assert result["transport"] == "step_all"
     assert result["velocity_filter_alpha"] == 0.8
@@ -268,6 +291,12 @@ def test_persistent_drive_uses_combined_snapshot_every_policy_tick(
     assert len(active) == bus.steps == 5
     assert np.diff([t for t, _ in active]) == pytest.approx([0.01] * 4)
     assert all(kw["bus_write_due"] for _, kw in active)
+    assert result["max_stale_stream_ticks"] == 2
+    if stale_duplicates == 2:
+        assert result["stale_stream_samples"] == 2
+        assert result["stale_stream_ticks"] == 0
+        assert result["stale_stream_bursts"] == 1
+        assert result["max_stale_stream_ticks_seen"] == 2
 
 
 @pytest.mark.parametrize("bad_snapshot", [

@@ -1745,6 +1745,7 @@ DRIVE_HOLD_SWITCH_S = 1.5    # zero-cmd dwell before flipping to the
 DRIVE_WALK_ENGAGE_S = 0.0    # first real held direction engages gait now
 DRIVE_WALK_ACTION_RAMP_S = 1.5  # blend first learned targets from stance
 DRIVE_STREAM_STALE_TICKS = 10  # tolerate ~100 ms snapshot gaps at 100 Hz
+PERSISTENT_DRIVE_STREAM_STALE_TICKS = 2  # third consecutive miss stops/holds
 DRIVE_MOVE_EPS_MPS = 1e-4
 DRIVE_YAW_EPS_RAD_S = 1e-4
 
@@ -4573,7 +4574,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                 abort_check=abort_check,
                 last_good_state=last_good_stream_state,
                 stale_ticks=stale_stream_ticks,
-                max_stale_ticks=0,
+                max_stale_ticks=PERSISTENT_DRIVE_STREAM_STALE_TICKS,
                 max_state_age_s=DRIVE_ASYNC_STATE_MAX_AGE_S)
         else:
             est.set_commanded(q_robot_cmd)
@@ -4829,7 +4830,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                                  if first_stale_at_s is not None else None),
         last_stale_stream_at_s=(round(last_stale_at_s, 3)
                                 if last_stale_at_s is not None else None),
-        max_stale_stream_ticks=0,
+        max_stale_stream_ticks=PERSISTENT_DRIVE_STREAM_STALE_TICKS,
         transport="step_all",
         timing=timing_stats.summary(),
         tilt_ref_deg=[round(tilt_ref0[0] * RAD2DEG, 2),

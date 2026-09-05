@@ -1,10 +1,12 @@
 import json
+import threading
 import time
 
 from fastapi.testclient import TestClient
 
 from hexapod_lab.config import Settings
 from hexapod_lab.main import create_app
+from hexapod_lab.db import Store
 
 
 def settings(tmp_path, worker=False):
@@ -54,6 +56,225 @@ def test_worker_completes_and_mcp_reads(tmp_path):
         payload = rpc.json()["result"]["structuredContent"]
         assert payload["encoding"] == "utf-8"
         assert "Smoke test" in payload["data"]
+
+
+def test_external_guarded_job_waits_for_operator_and_can_be_cancelled(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        waiting = client.post(
+            "/api/experiments",
+            headers=operator,
+            json={
+                "name": "Guarded leg comparison",
+                "duration_seconds": 0.1,
+                "execution_mode": "external_guarded",
+            },
+        )
+        assert waiting.status_code == 202
+        item = waiting.json()
+        assert item["status"] == "waiting_for_operator"
+        assert item["execution_mode"] == "external_guarded"
+
+        # Even with the built-in worker enabled, this lane is never claimed.
+        time.sleep(0.25)
+        current = client.get(
+            f"/api/experiments/{item['id']}", headers=operator
+        ).json()
+        assert current["status"] == "waiting_for_operator"
+        assert all(event["kind"] != "started" for event in current["events"])
+
+        cancelled = client.post(
+            f"/api/experiments/{item['id']}/cancel", headers=operator
+        )
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "cancelled"
+
+
+def test_worker_never_claims_external_mode_even_with_queued_status(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    external = store.create({"name": "External", "duration_seconds": .1,
+                             "execution_mode": "external_guarded"}, "operator")
+    # Defensive invariant for a legacy/manual state repair: mode itself
+    # excludes physical work, even if status has accidentally been queued.
+    with store.connect() as con:
+        con.execute("UPDATE experiments SET status='queued' WHERE id=?", (external["id"],))
+    builtin = store.create({"name": "Builtin", "duration_seconds": .1}, "operator")
+    assert store.claim_next()["id"] == builtin["id"]
+    assert store.claim_next() is None
+    assert store.get(external["id"])["status"] == "queued"
+
+
+def test_cancel_and_external_completion_are_serialized(tmp_path, monkeypatch):
+    import hexapod_lab.db as db_module
+    store = Store(tmp_path / "lab.sqlite3")
+    spec = {"name": "Concurrent external", "duration_seconds": .1,
+            "execution_mode": "external_guarded"}
+    item = store.create(spec, "operator")
+    selected = threading.Event()
+    release = threading.Event()
+    completion_done = threading.Event()
+    real_clock = db_module.utcnow
+    failures = []
+
+    def pause_after_cancel_select():
+        if threading.current_thread().name == "cancel-test":
+            selected.set()
+            assert release.wait(5)
+        return real_clock()
+
+    def complete():
+        try:
+            store.import_result(spec, "operator", "succeeded",
+                                experiment_id=item["id"], completion_sha256="receipt")
+        except ValueError as error:
+            failures.append(str(error))
+        finally:
+            completion_done.set()
+
+    monkeypatch.setattr(db_module, "utcnow", pause_after_cancel_select)
+    cancelling = threading.Thread(name="cancel-test", target=lambda: store.cancel(item["id"]))
+    completing = threading.Thread(target=complete)
+    cancelling.start()
+    assert selected.wait(5)
+    completing.start()
+    try:
+        # Completion must wait for the cancellation transaction, not create
+        # a successful receipt that an older unconditional UPDATE overwrites.
+        assert not completion_done.wait(.1)
+    finally:
+        release.set()
+        cancelling.join(5)
+        completing.join(5)
+    assert not cancelling.is_alive() and not completing.is_alive()
+    assert failures == ["experiment already has a different terminal result"]
+    final = store.get(item["id"])
+    assert final["status"] == "cancelled"
+    assert final["completion_sha256"] is None
+
+
+def test_cancellation_preserves_a_completed_receipt(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    spec = {"name": "Completed external", "duration_seconds": .1,
+            "execution_mode": "external_guarded"}
+    item = store.create(spec, "operator")
+    store.import_result(spec, "operator", "succeeded", experiment_id=item["id"],
+                        completion_sha256="receipt")
+    assert store.cancel(item["id"])["status"] == "succeeded"
+    assert store.import_result(spec, "operator", "succeeded", experiment_id=item["id"],
+                               completion_sha256="receipt")["status"] == "succeeded"
+
+
+def test_external_guarded_completion_is_strict_and_idempotent(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    plan = {
+        "name": "Independent L5 test",
+        "description": "Supported single-leg comparison",
+        "duration_seconds": 0.2,
+        "parameters": {"leg": 5, "runner": "sysid.run_hw"},
+        "execution_mode": "external_guarded",
+    }
+    result = {
+        "name": plan["name"],
+        "description": plan["description"],
+        "duration_seconds": plan["duration_seconds"],
+        "parameters": plan["parameters"],
+        "status": "succeeded",
+        "summary_markdown": "# L5 result\n\nNo safety trip.\n",
+    }
+    with TestClient(app) as client:
+        experiment_id = client.post(
+            "/api/experiments", headers=operator, json=plan
+        ).json()["id"]
+        endpoint = f"/api/experiments/{experiment_id}/result"
+
+        completed = client.post(endpoint, headers=operator, json=result)
+        assert completed.status_code == 200, completed.text
+        item = completed.json()
+        assert item["id"] == experiment_id
+        assert item["status"] == "succeeded"
+        assert item["execution_mode"] == "external_guarded"
+        assert any(
+            event["kind"] == "external_result_registered"
+            for event in item["events"]
+        )
+        assert {
+            artifact["name"] for artifact in item["artifacts"]
+        } >= {"experiment.json", "summary.md", "manifest.json"}
+
+        retry = client.post(endpoint, headers=operator, json=result)
+        assert retry.status_code == 200
+        assert retry.json()["id"] == experiment_id
+
+        changed_summary = {**result, "summary_markdown": "# Different evidence\n"}
+        assert client.post(
+            endpoint, headers=operator, json=changed_summary
+        ).status_code == 409
+
+
+def test_external_completion_rejects_spec_mismatch_and_builtin_queue(tmp_path):
+    app = create_app(settings(tmp_path))
+    operator = {"Authorization": "Bearer secret"}
+    base = {"name": "L2 test", "duration_seconds": 0.1, "parameters": {"leg": 2}}
+    result = {**base, "summary_markdown": "# Result\n"}
+    with TestClient(app) as client:
+        waiting_id = client.post(
+            "/api/experiments",
+            headers=operator,
+            json={**base, "execution_mode": "external_guarded"},
+        ).json()["id"]
+        mismatch = client.post(
+            f"/api/experiments/{waiting_id}/result",
+            headers=operator,
+            json={**result, "parameters": {"leg": 5}},
+        )
+        assert mismatch.status_code == 409
+        assert client.get(
+            f"/api/experiments/{waiting_id}", headers=operator
+        ).json()["status"] == "waiting_for_operator"
+
+        builtin_id = client.post(
+            "/api/experiments", headers=operator, json=base
+        ).json()["id"]
+        rejected = client.post(
+            f"/api/experiments/{builtin_id}/result",
+            headers=operator,
+            json=result,
+        )
+        assert rejected.status_code == 409
+
+        missing = client.post(
+            "/api/experiments/does-not-exist/result",
+            headers=operator,
+            json=result,
+        )
+        assert missing.status_code == 404
+
+
+def test_external_queue_and_completion_are_available_over_mcp(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        queued = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "queue_experiment", "arguments": {
+                "name": "MCP guarded job", "duration_seconds": 0.1,
+                "parameters": {"leg": 0}, "execution_mode": "external_guarded",
+            }},
+        }).json()["result"]["structuredContent"]
+        assert queued["status"] == "waiting_for_operator"
+
+        completed = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 4, "method": "tools/call",
+            "params": {"name": "complete_external_experiment", "arguments": {
+                "experiment_id": queued["id"], "name": "MCP guarded job",
+                "duration_seconds": 0.1, "parameters": {"leg": 0},
+                "summary_markdown": "# MCP result\n",
+            }},
+        }).json()["result"]["structuredContent"]
+        assert completed["id"] == queued["id"]
+        assert completed["status"] == "succeeded"
 
 
 def test_duration_limit_and_basic_site_login(tmp_path):

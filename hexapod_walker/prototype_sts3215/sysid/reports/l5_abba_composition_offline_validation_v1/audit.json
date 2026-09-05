@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "admitted": false,
+  "source_protocol_hash": "ed75f4217497",
+  "reversed_protocol_hash_claim": "375aa65c10ed",
+  "source_rows": 1560,
+  "requested_rows": 2080,
+  "direction_order": [
+    "normal",
+    "reversed",
+    "reversed",
+    "normal",
+    "normal",
+    "reversed",
+    "reversed",
+    "normal"
+  ],
+  "materialized_trajectory_hash": null,
+  "semantic_cycle_boundaries": [
+    {
+      "cycle_index": 0,
+      "command_rows": [
+        59,
+        300
+      ],
+      "outbound_midpoint_rows": [
+        150,
+        180
+      ],
+      "inbound_midpoint_rows": [
+        230,
+        260
+      ],
+      "dwell_samples_per_side": 30
+    },
+    {
+      "cycle_index": 1,
+      "command_rows": [
+        269,
+        460
+      ],
+      "outbound_midpoint_rows": [
+        310,
+        340
+      ],
+      "inbound_midpoint_rows": [
+        390,
+        420
+      ],
+      "dwell_samples_per_side": 30
+    },
+    {
+      "cycle_index": 2,
+      "command_rows": [
+        429,
+        620
+      ],
+      "outbound_midpoint_rows": [
+        470,
+        500
+      ],
+      "inbound_midpoint_rows": [
+        550,
+        580
+      ],
+      "dwell_samples_per_side": 30
+    },
+    {
+      "cycle_index": 3,
+      "command_rows": [
+        839,
+        1080
+      ],
+      "outbound_midpoint_rows": [
+        930,
+        960
+      ],
+      "inbound_midpoint_rows": [
+        1010,
+        1040
+      ],
+      "dwell_samples_per_side": 30
+    },
+    {
+      "cycle_index": 4,
+      "command_rows": [
+        1049,
+        1240
+      ],
+      "outbound_midpoint_rows": [
+        1090,
+        1120
+      ],
+      "inbound_midpoint_rows": [
+        1170,
+        1200
+      ],
+      "dwell_samples_per_side": 30
+    },
+    {
+      "cycle_index": 5,
+      "command_rows": [
+        1209,
+        1400
+      ],
+      "outbound_midpoint_rows": [
+        1250,
+        1280
+      ],
+      "inbound_midpoint_rows": [
+        1330,
+        1360
+      ],
+      "dwell_samples_per_side": 30
+    }
+  ],
+  "cycle_boundary_overlaps": [
+    {
+      "left_cycle": 0,
+      "right_cycle": 1,
+      "shared_rows": [
+        269,
+        300
+      ]
+    },
+    {
+      "left_cycle": 1,
+      "right_cycle": 2,
+      "shared_rows": [
+        429,
+        460
+      ]
+    },
+    {
+      "left_cycle": 3,
+      "right_cycle": 4,
+      "shared_rows": [
+        1049,
+        1080
+      ]
+    },
+    {
+      "left_cycle": 4,
+      "right_cycle": 5,
+      "shared_rows": [
+        1209,
+        1240
+      ]
+    }
+  ],
+  "adjacent_step_report": {
+    "source_max_deg": 0.7928725,
+    "equal_slice_candidate_max_deg": 2.139284,
+    "explicit_candidate_max_deg": null,
+    "allowed_max_deg": 0.793,
+    "passed": false
+  },
+  "dwell_equivalence_report": {
+    "detected_cycle_count": 6,
+    "samples_per_side": [
+      30
+    ],
+    "preservable_by_unambiguous_composition": false
+  },
+  "deterministic_replay_report": {
+    "execution": "offline_no_io_admission_audit",
+    "robot_contacted": false,
+    "robot_motion": false,
+    "candidate_command_stream_sha256": "f660a27a750063676a0e20629b98b4c3c53f0334dd17eed2f994ed23844b97c9",
+    "passed": false,
+    "reasons": [
+      "source lacks explicit non-overlapping semantic_cycles row boundaries",
+      "analyzer-equivalent cycle windows overlap at shared base dwells",
+      "equal-row slicing exceeds the adjacent-step limit"
+    ]
+  }
+}

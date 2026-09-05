@@ -9,7 +9,7 @@ for _path in (_HERE, _HERE.parent / "motor_setup"):
     if str(_path) not in sys.path:
         sys.path.insert(0, str(_path))
 
-from sysid_runner import _telemetry_admission
+from sysid_runner import _telemetry_admission, run_sysid_protocol
 
 
 def _sample(*, count: int = 18, voltage: float = 12.0) -> dict[int, dict]:
@@ -88,3 +88,24 @@ def test_telemetry_admission_rejects_voltage_out_of_bounds():
 
     assert ok is False
     assert "voltage out of bounds" in error
+
+
+def test_relative_multi_joint_trajectory_retains_force_guard():
+    row = [0.0] * 18
+    result = run_sysid_protocol(
+        None,
+        {
+            "sysid_protocol": 1,
+            "name": "guard_test",
+            "hz": 10,
+            "segments": [{
+                "kind": "rel_traj",
+                "t_s": [0.0],
+                "active": [7, 16],
+                "q_deg": [row],
+            }],
+        },
+    )
+
+    assert result["ok"] is False
+    assert "require force=true" in result["error"]

@@ -188,7 +188,9 @@ def main(argv: list[str] | None = None) -> int:
     if errs:
         raise SystemExit("invalid protocol: " + "; ".join(errs))
     secs = duration_s(doc)
-    has_traj = any(s.get("kind") == "traj" for s in doc["segments"])
+    has_traj = any(
+        s.get("kind") in ("traj", "rel_traj") for s in doc["segments"]
+    )
     print(f"protocol '{doc['name']}' hash {protocol_hash(doc)}: "
           f"{len(doc['segments'])} segments, {secs:.0f} s @ "
           f"{doc.get('hz', 25)} Hz"

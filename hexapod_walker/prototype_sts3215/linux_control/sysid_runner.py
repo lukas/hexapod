@@ -180,7 +180,7 @@ def run_sysid_protocol(
     if errs:
         return {"ok": False, "mode": "sysid",
                 "error": "invalid protocol: " + "; ".join(errs)}
-    has_traj = any(s.get("kind") == "traj"
+    has_traj = any(s.get("kind") in ("traj", "rel_traj")
                    for s in protocol.get("segments", []))
     if has_traj and not force:
         return {"ok": False, "mode": "sysid",

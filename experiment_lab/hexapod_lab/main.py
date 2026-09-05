@@ -296,6 +296,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         recorded_at = pinned_recorded_at
         revision_id = pinned_revision_id
         resolved_basis = pin_basis
+        completion_time = datetime.now(timezone.utc)
         if layout_history.available:
             if pinned_recorded_at is None and spec.recorded_at is None:
                 raise HTTPException(
@@ -307,13 +308,22 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             if (
                 spec.recorded_at
                 and spec.recorded_at.astimezone(timezone.utc)
-                > datetime.now(timezone.utc)
+                > completion_time
             ):
                 raise HTTPException(422, "recorded_at cannot be in the future")
             if recorded_at is None:
                 recorded_at = (
                     spec.recorded_at.astimezone(timezone.utc).isoformat()
-                    if spec.recorded_at else datetime.now(timezone.utc).isoformat()
+                    if spec.recorded_at else completion_time.isoformat()
+                )
+            recording_start = datetime.fromisoformat(recorded_at)
+            if (
+                recording_start + timedelta(seconds=spec.duration_seconds)
+                > completion_time
+            ):
+                raise HTTPException(
+                    422,
+                    "recorded_at plus duration_seconds cannot extend into the future",
                 )
             if revision_id is None and spec.tag_layout_revision_id:
                 try:

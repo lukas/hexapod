@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import sqlite3
@@ -10,6 +10,7 @@ import uuid
 TERMINAL = {"succeeded", "failed", "cancelled"}
 EXECUTION_MODES = {"builtin", "external_guarded"}
 WAITING_FOR_OPERATOR = "waiting_for_operator"
+LEGACY_PRE_RUN_PIN_BASIS = "legacy_backfill_by_recorded_time"
 
 
 def utcnow() -> str:
@@ -197,6 +198,61 @@ class Store:
                 con.execute(
                     "ALTER TABLE experiments ADD COLUMN completion_sha256 TEXT"
                 )
+            # Experiment pins remain immutable except for one migration artifact:
+            # an external-guarded plan may have been backfilled at queue time before
+            # its real recording timestamp existed.  The completion transaction
+            # below revalidates the resolved revision and interval before issuing
+            # this narrowly shaped UPDATE; keep the same constraints in the trigger
+            # so an ad-hoc SQL write cannot bypass them.
+            con.executescript(f"""
+                BEGIN IMMEDIATE;
+                DROP TRIGGER IF EXISTS experiment_tag_layouts_no_update;
+                CREATE TRIGGER experiment_tag_layouts_no_update
+                  BEFORE UPDATE ON experiment_tag_layouts
+                  WHEN NOT (
+                    OLD.experiment_id = NEW.experiment_id
+                    AND OLD.revision_id = NEW.revision_id
+                    AND OLD.pinned_at = NEW.pinned_at
+                    AND OLD.pin_basis = NEW.pin_basis
+                    AND OLD.pin_basis = '{LEGACY_PRE_RUN_PIN_BASIS}'
+                    AND OLD.recorded_at <> NEW.recorded_at
+                    AND julianday(NEW.recorded_at) IS NOT NULL
+                    AND EXISTS (
+                      SELECT 1 FROM experiments e
+                      WHERE e.id = OLD.experiment_id
+                        AND e.status = '{WAITING_FOR_OPERATOR}'
+                        AND e.execution_mode = 'external_guarded'
+                    )
+                    AND OLD.revision_id = (
+                      SELECT a.revision_id
+                      FROM tag_layout_activations a
+                      WHERE julianday(a.effective_from) <= julianday(NEW.recorded_at)
+                      ORDER BY julianday(a.effective_from) DESC
+                      LIMIT 1
+                    )
+                    AND NOT EXISTS (
+                      SELECT 1
+                      FROM tag_layout_activations a
+                      JOIN experiments e ON e.id = OLD.experiment_id
+                      WHERE julianday(a.effective_from) > julianday(NEW.recorded_at)
+                        AND julianday(a.effective_from) < (
+                          julianday(NEW.recorded_at)
+                          + (e.duration_seconds / 86400.0)
+                        )
+                    )
+                    AND (
+                      julianday(NEW.recorded_at)
+                      + (
+                        SELECT e.duration_seconds / 86400.0
+                        FROM experiments e
+                        WHERE e.id = OLD.experiment_id
+                      )
+                    ) <= julianday('now')
+                  ) BEGIN
+                    SELECT RAISE(ABORT, 'experiment layout pins are immutable');
+                  END;
+                COMMIT;
+            """)
             # Rows registered through the external-result API predate the
             # explicit execution-mode column. Preserve that provenance during
             # migration instead of mislabeling them as built-in worker runs.
@@ -208,6 +264,96 @@ class Store:
                 ")"
             )
             con.execute("PRAGMA optimize")
+
+    @staticmethod
+    def _recording_time(value: str) -> datetime:
+        raw = value[:-1] + "+00:00" if value.endswith("Z") else value
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("tag layout recorded_at must be an RFC 3339 timestamp") from exc
+        if parsed.tzinfo is None:
+            raise ValueError("tag layout recorded_at must include a timezone")
+        return parsed.astimezone(timezone.utc)
+
+    def _rebind_legacy_pre_run_pin(
+        self,
+        con: sqlite3.Connection,
+        *,
+        experiment: sqlite3.Row,
+        pin: sqlite3.Row,
+        requested_revision_id: str,
+        requested_recorded_at: Optional[str],
+        completed_at: str,
+    ) -> Optional[str]:
+        """Validate and update only a legacy queue-time recording timestamp.
+
+        The caller owns an IMMEDIATE transaction. Resolving the timestamp and
+        transitioning the experiment therefore observe the same activation
+        history and commit atomically.
+        """
+
+        if pin["pin_basis"] != LEGACY_PRE_RUN_PIN_BASIS:
+            raise ValueError("existing result has a different immutable tag layout pin")
+        if pin["revision_id"] != requested_revision_id:
+            raise ValueError(
+                "truthful recording time resolves to a different tag layout revision"
+            )
+        if not requested_recorded_at:
+            raise ValueError("tag layout recorded_at is required for a legacy pin rebind")
+
+        start = self._recording_time(requested_recorded_at)
+        end = start + timedelta(seconds=float(experiment["duration_seconds"]))
+        if end > self._recording_time(completed_at):
+            raise ValueError("truthful recording interval extends into the future")
+        activation_rows = con.execute(
+            "SELECT revision_id,effective_from FROM tag_layout_activations "
+        ).fetchall()
+        activations = sorted(
+            (
+                (self._recording_time(row["effective_from"]), row["revision_id"])
+                for row in activation_rows
+            ),
+            key=lambda item: item[0],
+        )
+        resolved_revision_id = None
+        boundaries = []
+        for effective, revision_id in activations:
+            if effective <= start:
+                resolved_revision_id = revision_id
+            elif effective < end:
+                boundaries.append(effective)
+
+        if resolved_revision_id != pin["revision_id"]:
+            raise ValueError(
+                "truthful recording time resolves to a different tag layout revision"
+            )
+        if boundaries:
+            raise ValueError(
+                "truthful recording interval crosses a known tag layout revision boundary"
+            )
+
+        previous_recorded_at = pin["recorded_at"]
+        if previous_recorded_at == requested_recorded_at:
+            return None
+        try:
+            updated = con.execute(
+                "UPDATE experiment_tag_layouts SET recorded_at=? "
+                "WHERE experiment_id=? AND revision_id=? AND recorded_at=? "
+                "AND pin_basis=?",
+                (
+                    requested_recorded_at,
+                    experiment["id"],
+                    pin["revision_id"],
+                    previous_recorded_at,
+                    LEGACY_PRE_RUN_PIN_BASIS,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("legacy tag layout recording-time rebind was rejected") from exc
+        if updated.rowcount != 1:
+            raise ValueError("tag layout pin changed during completion")
+        return previous_recorded_at
 
     @staticmethod
     def row(row: sqlite3.Row) -> Dict[str, Any]:
@@ -326,6 +472,7 @@ class Store:
                         raise ValueError(
                             "completed result does not match the queued experiment spec"
                         )
+                    rebound_from = None
                     if tag_layout_revision_id:
                         existing_pin = con.execute(
                             "SELECT revision_id,recorded_at,pin_basis "
@@ -337,11 +484,25 @@ class Store:
                             tag_layout_recorded_at or now,
                             tag_layout_pin_basis,
                         )
-                        if existing_pin and tuple(existing_pin) != requested_pin:
-                            con.execute("ROLLBACK")
-                            raise ValueError(
-                                "existing result has a different immutable tag layout pin"
-                            )
+                        if existing_pin:
+                            if existing_pin["pin_basis"] == LEGACY_PRE_RUN_PIN_BASIS:
+                                try:
+                                    rebound_from = self._rebind_legacy_pre_run_pin(
+                                        con,
+                                        experiment=existing,
+                                        pin=existing_pin,
+                                        requested_revision_id=tag_layout_revision_id,
+                                        requested_recorded_at=tag_layout_recorded_at,
+                                        completed_at=now,
+                                    )
+                                except ValueError:
+                                    con.execute("ROLLBACK")
+                                    raise
+                            elif tuple(existing_pin) != requested_pin:
+                                con.execute("ROLLBACK")
+                                raise ValueError(
+                                    "existing result has a different immutable tag layout pin"
+                                )
                         if not existing_pin:
                             con.execute(
                                 "INSERT INTO experiment_tag_layouts("
@@ -377,6 +538,19 @@ class Store:
                             "Completed result registered from an external guarded runner",
                         ),
                     )
+                    if rebound_from is not None:
+                        con.execute(
+                            "INSERT INTO events(experiment_id,timestamp,kind,message) "
+                            "VALUES(?,?,?,?)",
+                            (
+                                result_id,
+                                now,
+                                "tag_layout_recording_time_rebound",
+                                "Rebound legacy queue-time AprilTag pin recording start "
+                                f"from {rebound_from} to {tag_layout_recorded_at}; "
+                                f"revision {tag_layout_revision_id} is unchanged",
+                            ),
+                        )
                     con.execute("COMMIT")
                     return self.get(result_id)
             con.execute(

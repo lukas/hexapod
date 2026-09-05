@@ -3,6 +3,31 @@
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
 - 09-05 ~16:4x this cycle (own spawn, assigned only
+  `sde-dgfresh-s0`): independently confirmed the concurrent cycle's
+  **CANARY FAIL — FULL FREEZE** verdict already landed on it (det walk
+  fwd 0.06m/20s all 6 eps, duty 0.75-0.96 but stride_m_mean 0.001m/
+  swing_count up to 302 in 20s — a vibration-not-stride pathology, not
+  literal stillness). Bare `walk_duty_gate` from-scratch is now CLOSED
+  3/3 (`sde-dgfresh-{s0,s0b}`, `sdehalfgrav-dgfresh-s0`). **New
+  finding (CURRENT_TRUTHS updated)**: the "Next: pair with
+  `k_walk_idle_charge`" every one of those FAILs named is NOT untested
+  ground — `sde-idleterm-{s0,s1}` already ran `k_park_duty`+
+  `k_walk_idle_charge`+a hard qvel-based `safety.walk_idle_terminate_s`
+  on this exact recipe and ALSO froze (the qvel-terminate got
+  jitter-dodged by servo micro-vibration, no coherent stepping — the
+  same vibration signature). Three independent price/termination
+  mechanisms now share this one fate on the sde/easy0905 recipe.
+  Launched one more canary pair anyway (`sde-dgidle-{s0,s1}`,
+  `walk_duty_gate`+`k_walk_idle_charge` together, dropping the
+  dodgeable qvel-terminate since idle-charge's own along-speed EMA
+  prices BODY displacement not joint motion) since the specific
+  combination is genuinely new, but flagged in-run: a 4th FAIL closes
+  "price-shaping alone escapes this basin" for this recipe and the
+  next lever must be structural (BC/CPG-seeded init, higher
+  exploration/entropy schedule, moving-state curriculum start), not a
+  5th price variant. Full evidence: CURRENT_TRUTHS.md 09-05 ~16:4x.
+
+- 09-05 ~16:4x this cycle (own spawn, assigned only
   `sde-s1-c2-dgatefix` — its 3 siblings `sde-s2-c2-dgatefix`/
   `sdehalfgrav-remcost-{s0,s1}-dgatefix` are NOT this cycle's, left
   untouched): W&B finished (2M, `ep_rew_mean` 94.3->234.2->337.9->

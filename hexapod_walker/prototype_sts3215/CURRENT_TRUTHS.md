@@ -229,6 +229,79 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `cw-walkscratch-easy0905-sdehalfgrav-remcost-s{0,1}-dg1`, W&B notes
   on the three verdicted runs (re-verdicted with FORCE=1 after the
   provenance correction).
+  UPDATE 09-05 ~16:3x: the disambiguating fresh pair (+1 name-collision
+  duplicate) all landed: `sde-dgfresh-s0`/`-s0b` (2 independent W&B
+  runs, same recipe) and `sdehalfgrav-dgfresh-s0`, all **CANARY FAIL -
+  MECHANISM (FULL FREEZE)**. `reward.walk_duty_gate=1.0` from step 0,
+  NO remcost pricing, NO inherited checkpoint (fresh init) still
+  converges to the identical fingerprint as the remcost dg1 pair: det
+  walk fwd med 0.02-0.07m/20s, IDENTICAL to 2 decimals across all 6 det
+  episodes (video-confirmed static splayed-leg pose, no leg mid-swing
+  at any sampled tick), `env/walk_duty_gate_factor` saturated 0.92-1.0
+  for the ENTIRE 2M run on all 3, `ep_rew_mean` quarters strictly
+  worsening (not the 08-21 rising-reward-bad-eval case). **This closes
+  the ambiguity for good: the freeze is intrinsic to `walk_duty_gate`
+  itself** (a trailing-duty floor is trivially satisfied by keeping
+  ALL SIX legs near-planted with zero net motion — cheaper than any
+  real gait, which necessarily drops a swinging leg's duty below
+  ceiling) — not an artifact of remcost's term_cost pricing, nor of
+  warm-starting from an already-entrenched exploiter; both confounds
+  are now independently ruled out. **`walk_duty_gate` alone is CLOSED
+  as a from-scratch repair lever for the sde/sdehalfgrav leg-sacrifice
+  pathology.** The sole remaining path is pairing it with
+  `reward.k_walk_idle_charge` (the anti-park travel floor, already
+  implemented, 0 in every arm to date) — this is a genuinely NEW
+  design+bank pass (a joint duty-floor + travel-floor mechanism), not
+  a relaunch of either lever alone; do not fund another bare
+  `walk_duty_gate` arm (fresh OR entrenched-checkpoint) until that
+  pass lands. The concurrent entrenched-checkpoint `dgatefix` batch
+  (`sde-{s1,s2}-c2-dgatefix`, `sdehalfgrav-remcost-{s0,s1}-dgatefix`)
+  is a separate confound (does duty_gate cure an ALREADY-entrenched
+  exploiter) and should still be read on its own once it lands.
+  Evidence: `ops.sh review cw-walkscratch-easy0905-{sde-dgfresh-s0,
+  sde-dgfresh-s0b,sdehalfgrav-dgfresh-s0}`, W&B `8h25tu4l`/`vwnbmgq2`/
+  `c3kd1elp`.
+  UPDATE 09-05 ~16:4x: the from-scratch disambiguating pair landed —
+  `sde-dgfresh-s0`/`-s0b` (accidental duplicate, same fingerprint) and
+  `sdehalfgrav-dgfresh-s0` all **CANARY FAIL — FULL FREEZE**, 3/3 (a
+  concurrent cycle's verdicts; independently corroborated here for
+  `sde-dgfresh-s0`: det fwd 0.06m/20s across all 6 episodes, per-leg
+  duty 0.75-0.96 but `stride_m_mean=0.001`/swing_count up to 302 in 20s
+  — a high-frequency near-zero-amplitude leg vibration that satisfies
+  the duty floor without producing a real step, not literal stillness).
+  **Bare `walk_duty_gate` from scratch is now CLOSED**: the mechanism
+  correctly prevents the one-leg-park exploit but a six-legs-all-
+  planted (or all-vibrating) stance is a strictly cheaper way to clear
+  a trailing-DUTY floor than any real gait, confirming the design note
+  above. **CROSS-REFERENCE CORRECTION to the "Next: pair with
+  k_walk_idle_charge" note every one of these three FAILs carried**:
+  that pairing is NOT untested terrain — `cw-walkscratch-easy0905-sde-
+  idleterm-{s0,s1}` (09-05 ~14:xx, FAIL) already ran `k_park_duty=4.0`
+  + `k_walk_idle_charge=2.0` (`walk_idle_speed_m_s=0.025`, `tau_s=1.0`)
+  + a HARD `safety.walk_idle_terminate_s=3.0` qvel-based cutoff on this
+  exact sde/easy0905 base recipe, and STILL converged to the same
+  static splayed-leg pose (on-screen speed 0.001-0.032 m/s): the
+  qvel-based terminate got jitter-dodged (mean|qvel|>=2deg/s satisfied
+  by servo micro-vibration with no coherent stepping — the SAME
+  vibration-not-stride signature as the bare-duty-gate freeze above)
+  and the soft idle-charge was simply paid down as an accepted ongoing
+  cost, never escaped, within 2M. **Three independently-designed
+  price/termination mechanisms now share one fate on this recipe**
+  (`walk_gait_gate`+`k_step_event`; `k_park_duty`+`k_walk_idle_charge`+
+  qvel-terminate; bare `walk_duty_gate`) — reward-shaping alone has not
+  evicted the sde/easy0905 static-quiver absorbing basin within a 2M
+  budget in 6 attempts. A `walk_duty_gate`+`k_walk_idle_charge` combo
+  (dropping the dodgeable qvel-terminate, since idle-charge's own
+  along-speed EMA prices BODY displacement not joint motion — a
+  harder-to-fake signal) is a genuinely new combination and worth one
+  more canary pair, but treat a 4th FAIL as closing "price-shaping
+  alone" for this recipe and escalate to a structural intervention
+  (BC/CPG-seeded init, a higher entropy/exploration schedule, or a
+  moving-state curriculum start) rather than a 5th price variant.
+  Launched: `cw-walkscratch-easy0905-sde-dgidle-{s0,s1}` (2M canaries).
+  Evidence: `ops.sh review cw-walkscratch-easy0905-sde-dgfresh-s0`,
+  `cw-walkscratch-easy0905-sde-idleterm-{s0,s1}` verdicts, W&B
+  `8h25tu4l`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

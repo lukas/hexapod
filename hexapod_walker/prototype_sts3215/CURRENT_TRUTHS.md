@@ -559,6 +559,44 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   RUNNING). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
   headset_halfgrav_medhead_acq1_gate/report.json`, W&B `dejrlkhv`.
 
+  UPDATE 09-05 ~20:4x — `headset-base-medhead2-acq1` (the base
+  family's SECOND independent seed at the medhead rung, warm-started
+  from a different champion than the FAIL above) is ALSO **ACQ FAIL**:
+  8/24 gait_valid total (walk/det 0/6 leg 1 or 4 sacrificed every
+  episode, walk/sto 6/6, walk_startjitter/det 0/6, walk_startjitter/
+  sto 2/6), well under the majority bar; frame strip confirms one leg
+  held rigid the whole clip. Reward is still climbing (quarters -238,
+  -79,133,366) but per this same family's own established precedent
+  (this is now the FOURTH base-family seed/champion — `s0c1-acq1`,
+  `irr-acq1`, `medhead-acq1`, now `medhead2-acq1` — to entrench the
+  identical leg-1/4 pathology at 40M budget) rising reward is not
+  treated as license to continue; the base(1g)+medhead rung reads
+  structurally closed pending a genuinely new per-leg-utilization
+  mechanism (duty_gate/noise levers already closed separately, see
+  above). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  base_medhead2_acq1_gate/report.json`, W&B `47j1zemx`.
+
+  UPDATE 09-05 ~20:4x — `headset-halfgrav-medhead2-acq1` (the
+  halfgrav family's 2nd medhead seed, sibling of the PASS above) reads
+  **CONTINUE, not FAIL/PASS**: walk/det clears the gate's own >=4/6
+  bar (4/6) but walk_startjitter/det only hits 2/6 (16/24 total).
+  Unlike the base family's hard 0.0-0.02 chronic park, the flagged
+  legs' duty_cycle in the failing episodes is borderline (0.06-0.11,
+  matching the FIRST seed's own accepted-as-PASS 0.08-0.09 range) and
+  which leg gets flagged varies episode-to-episode rather than one
+  leg parked every time; `ep_rew_mean` is genuinely still climbing
+  (quarters -401,-419,-183,+30, net upward in the last ~10M steps)
+  with `env/v_along_cmd_m_s` stable/not collapsing — matching this
+  gate's own explicit CONTINUE clause. Launched a same-recipe 40M
+  continuation from this exact checkpoint,
+  `headset-halfgrav-medhead2-acq1-cont40m` (`--init-from-source`,
+  VERIFIED RUNNING `train-0`) to let the marginal gait resolve before
+  re-judging the halfgrav medhead rung's 2nd-seed status; do not fund
+  a further continuation past this one on reward-climbing alone if it
+  reads marginal again. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate/
+  report.json`, W&B `xa9a26bm`.
+
   UPDATE 09-05 ~20:2x — that noise-revival follow-up,
   `headset-base-s0c1-dgnoise-c1`, landed **CANARY FAIL - MECHANISM**,
   closing the "keep exploration noise alive longer" companion lever

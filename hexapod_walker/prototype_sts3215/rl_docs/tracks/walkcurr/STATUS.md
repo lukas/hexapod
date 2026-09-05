@@ -2,6 +2,52 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~20:4x this cycle (assigned `headset-{base,halfgrav}-medhead2-acq1`;
+  both found genuinely still computing remotely at cycle spawn —
+  prestage had pulled checkpoint+wandb but not the gate eval; waited
+  them out via parallel `waitlog` rather than duplicating, both
+  synced within ~4min): two verdicts. (1) `headset-base-medhead2-acq1`
+  **ACQ FAIL** — 8/24 gait_valid (walk/det 0/6 leg 1/4 sacrificed
+  every episode, sto 6/6, walk_startjitter/det 0/6, sto 2/6), frame
+  strip confirms one leg rigid the whole clip, 0/24 falls, reward
+  still climbing (quarters -238,-79,133,366). This is the FOURTH
+  independent base(1g) seed/champion (after `s0c1-acq1`, `irr-acq1`,
+  `medhead-acq1`) to entrench the identical leg-1/4 habit at 40M
+  budget — per this family's own established precedent, rising
+  reward is not treated as a continue-license here; the base+medhead
+  rung reads structurally closed pending a genuinely new per-leg-
+  utilization mechanism. (2) `headset-halfgrav-medhead2-acq1` reads
+  **CONTINUE, not FAIL/PASS**: walk/det clears the gate's own >=4/6
+  bar (4/6) but walk_startjitter/det only 2/6 (16/24 total) — misses
+  PASS on its own explicit per-mode text. Unlike the base family's
+  hard 0.0-0.02 chronic park, the flagged legs' duty_cycle in the
+  failing episodes is borderline (0.06-0.11, matching the FIRST
+  seed's own accepted-as-PASS 0.08-0.09 range) and which leg gets
+  flagged varies episode-to-episode (2,1,[1,4],[1,4]) rather than one
+  leg parked every time; `ep_rew_mean` genuinely still climbing
+  (quarters -401,-419,-183,+30, net upward the last ~10M steps, not
+  plateaued) with `env/v_along_cmd_m_s` stable/not collapsing —
+  matching this gate's own explicit CONTINUE clause instead of the
+  base family's flat-entrenched shape. **Refill:** launched a
+  same-recipe 40M continuation from this exact checkpoint,
+  `headset-halfgrav-medhead2-acq1-cont40m` (`--init-from-source`,
+  `--now`, VERIFIED RUNNING `train-0` after the launch call itself
+  hit the tool's 2min timeout mid-verify — same recurring quirk noted
+  by prior cycles, checkup/ledger confirmed healthy after, no
+  double-launch), gated to close the halfgrav medhead rung's 2nd-seed
+  status one way or the other; explicitly do not fund a further
+  continuation past this one on reward-climbing alone if it reads
+  marginal again. Did not duplicate the concurrent cycle's own
+  `headset-halfgrav-fullhead-widen2-{c1,c2}` canaries (found already
+  launched/finishing on train-2/train-3 at cycle start, left for
+  their own owner — no eval artifact yet). No other non-duplicative
+  bank-cleared walkcurr item identified with 9/11 pods free and
+  backlog empty; other tracks re-confirmed DONE/blocked per every
+  concurrent cycle today. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_{base,halfgrav}_medhead2_acq1_gate/
+  report.json`, `walk_det_1_sheet.png` (base), W&B
+  `47j1zemx`/`xa9a26bm`; CURRENT_TRUTHS.md 09-05 ~20:4x.
+
 - 09-05 ~20:2x this cycle (assigned `headset-base-s0c1-noiseonly-c1`,
   the last cell of the walk_duty_gate x noise 2x2 grid; found still
   computing at cycle spawn, waited it out via `waitlog`/direct pod

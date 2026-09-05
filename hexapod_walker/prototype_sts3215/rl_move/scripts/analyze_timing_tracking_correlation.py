@@ -14,8 +14,9 @@ import json
 import math
 import random
 import statistics
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 
 class AnalysisError(ValueError):
@@ -63,14 +64,30 @@ def _pearson(xs: Sequence[float], ys: Sequence[float]) -> float | None:
     return numerator / denominator if denominator else None
 
 
-def _bootstrap_ci(
-    xs: Sequence[float], ys: Sequence[float], resamples: int, seed: int
+def _moving_block_bootstrap_ci(
+    xs: Sequence[float],
+    ys: Sequence[float],
+    resamples: int,
+    seed: int,
+    block_rows: int,
 ) -> list[float | None]:
+    """Bootstrap paired correlations while preserving local time dependence."""
+
+    if len(xs) != len(ys) or not xs:
+        raise AnalysisError("moving-block bootstrap requires nonempty paired values")
+    if resamples <= 0:
+        raise AnalysisError("bootstrap_resamples must be positive")
+    if not 1 <= block_rows <= len(xs):
+        raise AnalysisError("bootstrap_block_rows must be between 1 and row count")
     rng = random.Random(seed)
     count = len(xs)
     correlations: list[float] = []
     for _ in range(resamples):
-        indices = [rng.randrange(count) for _ in range(count)]
+        indices: list[int] = []
+        while len(indices) < count:
+            start = rng.randrange(count)
+            indices.extend((start + offset) % count for offset in range(block_rows))
+        indices = indices[:count]
         value = _pearson([xs[i] for i in indices], [ys[i] for i in indices])
         if value is not None:
             correlations.append(value)
@@ -178,20 +195,27 @@ def analyze(
     active_phase: str = "walk",
     event_windows_ms: Sequence[int] = (-100, -50, 0, 50, 100),
     bootstrap_resamples: int = 10_000,
+    bootstrap_block_rows: int | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     verified = _verified_inputs(source_dir, expected_manifest_sha256)
     rows = _read_rows(source_dir, active_phase)
     recovery_ticks = _recovery_ticks(source_dir)
     overrun_ticks = [row["tick"] for row in rows if row["lag_ms"] > 0]
     global_error = [row["global_abs_tracking_error_deg"] for row in rows]
+    if bootstrap_block_rows is None:
+        bootstrap_block_rows = max(2, round(math.sqrt(len(rows))))
 
     correlations: dict[str, Any] = {}
     for signal_index, signal in enumerate(("tick_interval_ms", "lag_ms", "imu_age_ms")):
         xs = [row[signal] for row in rows]
         correlations[signal] = {
             "pearson_r": _pearson(xs, global_error),
-            "bootstrap_95pct_ci": _bootstrap_ci(
-                xs, global_error, bootstrap_resamples, BOOTSTRAP_SEED + signal_index
+            "bootstrap_95pct_ci": _moving_block_bootstrap_ci(
+                xs,
+                global_error,
+                bootstrap_resamples,
+                BOOTSTRAP_SEED + signal_index,
+                bootstrap_block_rows,
             ),
             "per_joint_pearson_r": [
                 _pearson(xs, [row["per_joint_abs_tracking_error_deg"][joint] for row in rows])
@@ -235,12 +259,15 @@ def analyze(
             "per_joint_abs_tracking_error_deg": "abs(qN_deg - cmdN_deg) on each active row",
             "cadence_overrun_event": "active row with recorded lag_ms > 0, preserving the parent audit definition",
             "imu_stale_recovery_event": "walk stream_feedback_recovered event tick from the debug JSONL",
-            "correlation": "Pearson correlation across active rows; paired row bootstrap percentile CI",
+            "correlation": "Pearson correlation across active rows; paired circular moving-block bootstrap percentile CI",
             "outlier": "global absolute tracking error at or above the active-row 95th percentile",
         },
         "correlation_with_bootstrap_95pct_ci": {
             "resamples": bootstrap_resamples,
             "seed": BOOTSTRAP_SEED,
+            "method": "paired circular moving-block bootstrap",
+            "block_rows": bootstrap_block_rows,
+            "block_length_rule": "round(sqrt(active rows)), minimum 2, unless explicitly provided",
             "percentile_method": "linear interpolation (R type 7)",
             "signals_vs_global_abs_tracking_error_deg": correlations,
         },
@@ -255,7 +282,7 @@ def analyze(
         },
         "limitations": [
             "This single 3.1 s scheduled walk trace is observational and cannot establish causation.",
-            "Adjacent 100 Hz rows and overlapping event windows are autocorrelated; the row bootstrap does not correct for that dependence.",
+            "The circular moving-block bootstrap preserves local row dependence, but its intervals remain sensitive to block length in this short trace.",
             "Only two IMU stale recoveries occurred, so their event-aligned means are descriptive rather than inferential.",
         ],
     }
@@ -280,11 +307,13 @@ def main() -> None:
     parser.add_argument("--expected-manifest-sha256", required=True)
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument("--bootstrap-resamples", type=int, default=10_000)
+    parser.add_argument("--bootstrap-block-rows", type=int)
     args = parser.parse_args()
     result, outliers = analyze(
         args.source_dir,
         expected_manifest_sha256=args.expected_manifest_sha256,
         bootstrap_resamples=args.bootstrap_resamples,
+        bootstrap_block_rows=args.bootstrap_block_rows,
     )
     write_outputs(result, outliers, args.out_dir)
 

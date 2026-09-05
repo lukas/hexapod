@@ -2,6 +2,23 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~13:1x `headset-base-acq1` **ACQ PASS** — first family member to
+  clear the FULL 40M heading-generalization acquisition rung (3-heading
+  set 0/+45/-45deg, resampled every 6s, no new reward keys). Gate
+  (`logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_acq1_gate/
+  report.json`, 24 eps): 0/24 falls, speed 0.147-0.20 m/s every ep,
+  gait_valid true 18/24 — the 6/24 false episodes are ALL
+  `walk_startjitter/det`, with leg1/4 duty dropping to 0.04-0.14 but
+  swing_count still 39-121/20s (micro-stepping, not LEGPARK-SKATE's
+  near-zero-touch pattern), same fingerprint already CANARY-PASSed on
+  `headset-base-s0c1`/`s1c1`. Same slip (3.0-4.8/m)+small-stride
+  (12-21mm) caveats as every base-family PASS this campaign; heading
+  tracking loose (course_err 20-94deg) but this rung's gate only asks
+  for net forward motion per heading, not tight tracking. SKILLS.md
+  updated. Next: let `s0c1-acq1`/`s1c1-acq1` land for n=3 confirmation,
+  then pick a base-family heading champion once halfgrav's `acq1` also
+  reports.
+
 - 09-05 ~13:0x `headset-base-s0c1`/`headset-base-s1c1` CANARY PASS
   (3rd + 4th base-family heading-canary seeds, same recipe as
   `headset-base-c1`), gate evals synced same cycle: 0/24

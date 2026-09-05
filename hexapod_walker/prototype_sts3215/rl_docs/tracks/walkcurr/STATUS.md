@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~20:2x this cycle (assigned `headset-base-s0c1-dgnoise-c1`;
+  found genuinely still computing remotely at cycle spawn like every
+  recent sibling — registered `evalpending` for it plus 3 other
+  in-flight orphans (`noiseonly-c1`, `headset-{base,halfgrav}-
+  medhead2-acq1`) and confirmed via direct `ps`/capacity check that
+  the 7 nominally-free pods were genuinely idle, no non-duplicative
+  bank-cleared item to launch there (same conclusion as the ~19:2x
+  cycle, nothing new landed in between); `dgnoise-c1`'s own eval then
+  landed mid-cycle and was triaged): **CANARY FAIL - MECHANISM** —
+  closes the "keep exploration noise alive longer" companion lever to
+  `walk_duty_gate` on the base/non-gSDE family. On the pre-registered
+  gated mode `walk_startjitter/det`, leg-4 duty is statistically
+  IDENTICAL across all three variants: undosed `s0c1` twin
+  [0.04,0.05,0.05,0.02,0.05,0.02], `dgfresh` (duty_gate, low noise)
+  [0.07,0.06,0.06,0.04,0.06,0.02], `dgnoise-c1` (duty_gate + high
+  noise, `policy_std` read back 0.254 confirming the dose landed)
+  [0.06,0.05,0.05,0.02,0.06,0.02] — `gait_valid` 0/6 all three, same
+  leg sacrificed every episode, frame strip shows the identical
+  planted/dragging leg. No regression either: `walk/det` 6/6 valid,
+  `walk/sto` 6/6, `walk_startjitter/sto` 6/6, 0/24 falls. Interesting
+  aside (not gate-deciding): plain `walk/det`/`walk/sto` (fixed start,
+  no jitter) already ran 6/6 clean on ALL THREE variants including the
+  undosed twin — this leg-4 pathology is specifically a start-pose-
+  jitter-triggered habit, not a universal sacrifice, on this family.
+  Root cause: extra exploration noise keeps the training-time
+  `walk_duty_gate_factor` mobile (as `dgfresh` already showed) but
+  never reaches the eval-time DETERMINISTIC policy mean, which is what
+  actually walks the gate — noise around the mean isn't the same as
+  moving the mean. Combined with `dgfresh`'s prior closure, BOTH named
+  cheap companion levers (bake-in-early, revive-noise) are now closed
+  for `walk_duty_gate` on this family, matching the gSDE family's
+  identical fate. **Refill:** none — the isolating control
+  `noiseonly-c1` (noise alone, no duty_gate) was already in flight
+  from the prior cycle and needs to land before the "does noise
+  contribute ANYTHING" question is fully closed; no new launch until
+  it (and the `medhead2-acq1` pair) land — same reasoning the ~19:2x
+  cycle recorded, unchanged since. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_s0c1_dgnoise_c1_gate/
+  report.json` vs `..._dgfresh_gate/`, `..._s0c1_gate/` (same keys),
+  W&B `6b1c6hy4`.
+
 - 09-05 ~19:2x this cycle (assigned `headset-base-medhead-acq1`,
   `headset-base-s0c1-dgfresh`, `headset-halfgrav-medhead-acq1`; all 3
   found genuinely still computing remotely at cycle spawn — a

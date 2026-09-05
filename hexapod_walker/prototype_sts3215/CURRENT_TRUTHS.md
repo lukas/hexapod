@@ -559,6 +559,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   RUNNING). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
   headset_halfgrav_medhead_acq1_gate/report.json`, W&B `dejrlkhv`.
 
+  UPDATE 09-05 ~20:2x — that noise-revival follow-up,
+  `headset-base-s0c1-dgnoise-c1`, landed **CANARY FAIL - MECHANISM**,
+  closing the "keep exploration noise alive longer" companion lever
+  too. On the pre-registered gated mode `walk_startjitter/det`, leg-4
+  duty is statistically IDENTICAL across the undosed twin
+  [0.04,0.05,0.05,0.02,0.05,0.02], `dgfresh` (duty_gate, low noise)
+  [0.07,0.06,0.06,0.04,0.06,0.02], and `dgnoise-c1` (duty_gate + high
+  noise, `policy_std` read back 0.254 confirming the dose landed)
+  [0.06,0.05,0.05,0.02,0.06,0.02] — `gait_valid` 0/6 all three, same
+  leg sacrificed every episode, frame strip shows the identical
+  planted/dragging leg. No regression: `walk/det`/`walk/sto`/
+  `walk_startjitter/sto` all stayed 6/6 valid, 0/24 falls. Root cause:
+  reviving exploration noise keeps the training-time factor mobile
+  (as `dgfresh` already showed) but never reaches the eval-time
+  DETERMINISTIC policy mean, which is what actually walks the gate —
+  noise around the mean isn't the same as moving the mean. **Both
+  named cheap companion levers (bake-in-early, revive-noise) for
+  `walk_duty_gate` are now closed on the base/non-gSDE family too,
+  matching gSDE's identical fate — no further duty_gate-class or
+  noise-schedule-class arm on this marginal-leg-favoritism question.**
+  The isolating control `headset-base-s0c1-noiseonly-c1` (noise
+  alone, no duty_gate) was still computing at this update; read it
+  before concluding noise contributes nothing at all on its own.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
+  s0c1_dgnoise_c1_gate/report.json` vs `..._dgfresh_gate/`,
+  `..._s0c1_gate/`, W&B `6b1c6hy4`.
+
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,
   `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish

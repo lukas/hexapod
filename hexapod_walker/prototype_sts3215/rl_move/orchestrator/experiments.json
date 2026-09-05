@@ -308474,7 +308474,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T19:59:12"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1",
@@ -308678,7 +308679,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T19:59:12"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-dgnoise-c1",
@@ -308840,7 +308842,7 @@
       "reward.duty_gate_floor=0.35"
     ],
     "created": "2026-09-05T19:25:35+00:00",
-    "status": "RUNNING",
+    "status": "fail",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -308885,7 +308887,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (closes the 'keep exploration noise alive longer' companion lever to walk_duty_gate). This canary tested whether reviving exploration noise (--log-std-final -2.0 -> -1.2, residual stddev 0.135->0.301 rad) would let the duty_gate's training-time pricing actually move the policy MEAN instead of just being satisfied by noisy rollout duty upticks (the root cause the parent dgfresh CANARY FAIL diagnosed). Evidence: on the pre-registered gated mode walk_startjitter/det, leg-4 duty is statistically IDENTICAL across all three variants -- undosed s0c1 twin [0.04,0.05,0.05,0.02,0.05,0.02], dgfresh (duty_gate, low noise) [0.07,0.06,0.06,0.04,0.06,0.02], dgnoise-c1 (duty_gate + high noise) [0.06,0.05,0.05,0.02,0.06,0.02] -- gait_valid stays 0/6 all three, same leg [4] sacrificed every episode, frame strip shows the identical planted/dragging leg-4 pose. No regression elsewhere (walk/det 6/6 valid, walk/sto 6/6 valid, walk_startjitter/sto 6/6 valid, 0/24 falls, policy_std read back at 0.254 confirming the noise dose did take effect) and no improvement either -- extra exploration noise alone does not unstick an already-4x0M-entrenched marginal-leg habit even with duty_gate pricing active throughout. Per its own pre-registered gate this is the FAIL branch exactly. Root cause chain: reviving noise keeps the training-time factor genuinely mobile (as dgfresh already showed) but the eval-time DETERMINISTIC policy mean is what actually walks on hardware/gate, and that mean never learns to spend the leg differently under start-pose jitter regardless of how much noise sits around it. This closes BOTH named cheap companion levers (bake-in-early and revive-noise) for walk_duty_gate on the base/non-gSDE family, matching the gSDE family's identical closure -- no further duty_gate-class or noise-schedule-class arm should be funded on this marginal-leg-favoritism question. Next: wait for the isolating control noiseonly-c1 (noise alone, no duty_gate) to confirm noise contributes nothing on its own either, then design+bank-prove a genuinely new per-leg-utilization mechanism (hard minimum-duty/swing-count price, not a training-time factor that can be satisfied without moving the mean) before further spend on this axis."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1",
@@ -309080,6 +309084,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -1.2 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 0 --out-name ppo_goal_cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-headset-base-s0c1-dgfresh: Isolation control for headset-base-s0c1-dgnoise-c1 (this cycle, still training): that arm changes TWO things vs the plain undosed s0c1 2M canary at once if read naively (walk_duty_gate ON + a much higher --log-std-final). This arm isolates the noise variable alone: identical seed=0/--init-from base_s0_c1.zip as every sibling in this family, --log-std-final raised -2.0->-1.2 (same as dgnoise-c1) but NO walk_duty_gate (reward.walk_duty_gate left at its default 0.0, matching the plain undosed s0c1 canary otherwise). If leg-4 duty in walk_startjitter/det climbs on ITS OWN (no pricing needed), raising exploration noise alone is the fix and duty_gate was never necessary; if leg-4 stays parked exactly like the undosed twin, duty_gate (or some other explicit price) is a necessary ingredient and dgnoise-c1'\"'\"'s result (if it improves) is a genuine interaction effect, not a noise-alone artifact.' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_s0_c1.zip --cfg-set reward.walk_duty_gate=0.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.0 > /tmp/train_cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1.log",
     "wandb_id": "xyz4gzvh",
-    "verified": "2026-09-05T19:34:55+00:00"
+    "verified": "2026-09-05T19:34:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T19:40:25+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 338,
+        "fps": 22209.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-s0c1-noiseonly-c1 since 2026-09-05T20:14:37"
   }
 ]

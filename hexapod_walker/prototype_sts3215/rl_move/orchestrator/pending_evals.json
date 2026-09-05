@@ -118,5 +118,29 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dgfresh_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_base_s0c1_dgfresh_gate",
   "added": "2026-09-05T19:16:21"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dgnoise_c1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_s0c1_dgnoise_c1_gate",
+  "added": "2026-09-05T20:11:58"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1_gate",
+  "added": "2026-09-05T20:12:08"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_medhead2_acq1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_medhead2_acq1_gate",
+  "added": "2026-09-05T20:15:56"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate",
+  "added": "2026-09-05T20:15:56"
  }
 ]

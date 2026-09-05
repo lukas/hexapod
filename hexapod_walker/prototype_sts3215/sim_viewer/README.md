@@ -51,6 +51,12 @@ drive/policy-picker commands into the local sim session. Sim-only
 controls live under `/api/sim/*` and are shown only against this
 backend: reset stand, reset belly, fall, recover, and push.
 
+MuJoCo command cues are shared by the native viewer, browser frames,
+interactive players, and policy-test videos: green points along the planar
+joystick command, amber curves clockwise/counterclockwise for commanded yaw,
+and blue points vertically during rise/lower commands. These are render-only
+geometries and never participate in physics.
+
 The browser JPEG preview is off in native-viewer mode. For headless
 debugging, run `uv run python -m rl_move.sim.web_server` without `--viewer`,
 or pass `--browser-frames on` if you intentionally want both surfaces.

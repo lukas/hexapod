@@ -30,6 +30,7 @@ from linux_control.cpg_controller_loader import (  # noqa: E402
 )
 
 from .joint_task import action_to_q_rad, q_rad_to_action
+from .command_indicator import draw_env_command_indicator
 from hexapod_core.joint_frame import (
     FRAME_ROBOT_ABS,
     JOINT_CONTRACT,
@@ -1402,6 +1403,9 @@ class SimWebSession:
                 t0 = time.monotonic()
                 with self.lock:
                     self._tick_locked()
+                    draw_env_command_indicator(
+                        self.env, viewer.user_scn,
+                        mode=self.mode, clear=True)
                     self._update_viewer_hud_locked(viewer, mujoco, web_url)
                     now = time.monotonic()
                     if (self.cfg.web_frames

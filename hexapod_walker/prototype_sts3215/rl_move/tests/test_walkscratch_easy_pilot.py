@@ -646,3 +646,202 @@ def test_easy_remcost_sizing_dominates_burst_ceiling():
         assert charge > ceiling, (
             f"death at {t:.1f}s underpriced: charge {charge:.0f} <= "
             f"income ceiling {ceiling:.0f}")
+
+
+# ---------------------------------------------------------------------
+# WALKSCRATCH_EASY heading-generalization bank (rung 2, 09-05)
+# ---------------------------------------------------------------------
+# STATUS.md names heading generalization as the campaign's next open
+# gap once base/halfgrav close their fixed-forward rung (both did,
+# 09-05), and explicitly requires a ranking bank proof BEFORE any
+# heading-diet launch. Design follows the operator's OWN pre-existing
+# staged-heading-curriculum ruling (fb_20260822T032514, walk_task.py
+# _sample_walk comment): forward-only first, then a SMALL DISCRETE
+# heading SET, never full +-180 from tick zero — so this rung uses
+# goal.walk_heading_set = {0, +45, -45} deg, NOT a continuous/full
+# range. goal.walk_cmd_resample_s=6 draws a fresh heading from that
+# set every 6s inside the pilot's 20s episode (>=2 resamples per
+# rollout), blended over the legacy 1s ramp; goal.walk_stop_frac=0 so
+# this rung isolates heading-tracking from the (separately-covered)
+# stop/hold behavior.
+#
+# The reward mechanism needs NO new keys: k_walk_freeprog's existing
+# along/cross decomposition (walk_task.walk_freeprog_score) already
+# projects onto whatever (vx_ref, vy_ref) is live THIS tick, so a
+# policy that keeps re-aiming at the resampled heading is paid the
+# same way the fixed-forward rung already validated; a policy that
+# holds its ORIGINAL heading after a resample starts eating the same
+# cross-track charge the existing WALKCURR_PF bank already prices
+# 90-deg-off travel with (test_walkcurr_pf_stationary_beats_wrong_way:
+# sideways must not beat park). This bank re-measures that same
+# invariant under LIVE resampling instead of a single fixed offset.
+EASY_HEADING = dict(EASY_BASE)
+EASY_HEADING.update({
+    ("goal", "walk_heading_set"): [0.0, math.pi / 4.0, -math.pi / 4.0],
+    ("goal", "walk_cmd_resample_s"): 6.0,
+    ("goal", "walk_stop_frac"): 0.0,
+})
+HEADING_EPISODE_S = 20.0  # matches the launched campaign's episode length
+
+
+def _heading_rollout(policy: str, seed: int, *,
+                     overrides: dict | None = None
+                     ) -> tuple[float, float, int]:
+    """(return, net planar travel m, along-command dist m, steps) for a
+    scripted behavior twin under the heading-generalization diet.
+    Unlike ``_easy_rollout`` the command (vx_ref, vy_ref) genuinely
+    varies tick-to-tick, so twins here read BOTH components every
+    step:
+      - 'track': re-aims at the CURRENT commanded (vx_ref, vy_ref)
+        every tick — perfect heading tracking.
+      - 'fixedhead': aims at tick-0's command forever, ignoring every
+        later resample — correct only until the first resample.
+      - 'wronghead': aims at the exact NEGATIVE of the current
+        command every tick — always 180 deg off, live.
+      - 'park' / 'stall' / 'topple': same poses as the fixed-forward
+        bank (direction-agnostic)."""
+    from hexapod_core.tripod_gait import TripodGait
+    from rl_move.sim.probe_walk_income import WALK_PLANT
+
+    env = _make_env(seed, overrides if overrides is not None else
+                    EASY_HEADING, episode_seconds=HEADING_EPISODE_S)
+    env.reset()
+    traj = env._goal_traj
+
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    topple_rad = plant_rad.copy()
+    for leg in (0, 1):
+        topple_rad[3 * leg + 1] -= 80.0 * DEG2RAD
+        topple_rad[3 * leg + 2] -= 80.0 * DEG2RAD
+
+    vx0, vy0 = float(traj.vx[0]), float(traj.vy[0])
+    x0 = float(env.data.xpos[env._chassis_bid, 0])
+    y0 = float(env.data.xpos[env._chassis_bid, 1])
+    total, step = 0.0, 0
+    n = len(traj.vx)
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        cvx, cvy = float(traj.vx[i]), float(traj.vy[i])
+        if policy == "track":
+            gait.set_velocity(vx=cvx, vy=cvy)
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        elif policy == "fixedhead":
+            gait.set_velocity(vx=vx0, vy=vy0)
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        elif policy == "wronghead":
+            gait.set_velocity(vx=-cvx, vy=-cvy)
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        elif policy == "stall":
+            gait.set_velocity(vx=0.0, vy=0.0)
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        elif policy == "topple":
+            q = topple_rad
+        else:                       # park
+            q = plant_rad
+        obs, r, done, trunc, info = env.step(_q_to_action(env, q))
+        total += r
+        step += 1
+        if done or trunc:
+            break
+    dx = float(env.data.xpos[env._chassis_bid, 0]) - x0
+    dy = float(env.data.xpos[env._chassis_bid, 1]) - y0
+    return total, math.hypot(dx, dy), step
+
+
+@pytest.fixture(scope="module")
+def easy_heading_returns() -> dict[str, float]:
+    plan = ("track", "fixedhead", "wronghead", "park", "stall", "topple")
+    out = {}
+    for name in plan:
+        runs = [_heading_rollout(name, s, overrides=EASY_HEADING)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_easy_heading_command_actually_varies():
+    """Wiring check: under EASY_HEADING the commanded (vx_ref, vy_ref)
+    must take on at least 2 distinct headings across one 20s episode
+    (proves walk_heading_set + walk_cmd_resample_s actually resolve
+    together, not silently ignored / stuck at the tick-0 draw)."""
+    env = _make_env(0, EASY_HEADING, episode_seconds=HEADING_EPISODE_S)
+    env.reset()
+    traj = env._goal_traj
+    angs = sorted({round(math.atan2(vy, vx), 2)
+                   for vx, vy in zip(traj.vx, traj.vy)
+                   if math.hypot(vx, vy) > 1e-6})
+    assert len(angs) >= 2, (
+        f"heading command never changed across the episode: {angs} "
+        "— walk_heading_set/walk_cmd_resample_s not wired as expected")
+
+
+def test_easy_heading_track_beats_fixed_after_resample(easy_heading_returns):
+    """Re-aiming at the live command must decisively out-earn holding
+    the stale tick-0 heading through later resamples — the exact
+    'directions actually followed' bar the track's DONE gate names."""
+    assert (easy_heading_returns["track"]
+            > easy_heading_returns["fixedhead"] + 15.0), (
+        f"stale-heading twin is competitive with live tracking: "
+        f"{easy_heading_returns}")
+    assert easy_heading_returns["track_dx"] > 0.5, (
+        f"tracking twin did not actually travel: {easy_heading_returns}")
+
+
+def test_easy_heading_track_beats_standing(easy_heading_returns):
+    """Correct heading-tracking must out-earn both refusal (park) and
+    marching in place (stall) by a wide margin."""
+    for still in ("park", "stall"):
+        assert (easy_heading_returns["track"]
+                > easy_heading_returns[still] + 25.0), (
+            f"standing '{still}' competitive with heading-tracking: "
+            f"{easy_heading_returns}")
+
+
+def test_easy_heading_standing_beats_wrong_heading(easy_heading_returns):
+    """Live wrong-heading travel (always 180 deg off the CURRENT
+    command, never just a stale offset) must not out-earn — or even
+    tie — standing still, mirroring the existing WALKCURR_PF invariant
+    that wrong-way travel must lose to park/stall."""
+    floor = min(easy_heading_returns["park"], easy_heading_returns["stall"])
+    assert floor > easy_heading_returns["wronghead"] + 15.0, (
+        f"wronghead out-earns (or ties) standing still: "
+        f"{easy_heading_returns} — live heading direction is not priced")
+
+
+def test_easy_heading_dying_is_the_floor(easy_heading_returns):
+    """Falling must sit below every walking/standing/wrong-heading
+    behavior. Per the already-measured 09-05 finding
+    (test_easy_dying_is_priced_below_park): the static topple fold
+    never exceeds ~26.5 deg tilt on the committed 4.81 kg twin, so it
+    SURVIVES (never terminates) at the pilot's real 30 deg envelope —
+    reproduced here under EASY_HEADING too (steps == full episode) —
+    and this bank instead proves the trip+penalty pathway under the
+    same test-scoped 20 deg probe envelope the fixed-forward bank
+    uses."""
+    assert easy_heading_returns["topple_steps"] >= 1900, (
+        "expected the static fold to survive the 30 deg pilot "
+        f"envelope under EASY_HEADING too: {easy_heading_returns}")
+    ov = dict(EASY_HEADING)
+    ov[("safety", "max_roll_deg")] = 20.0
+    ov[("safety", "max_pitch_deg")] = 20.0
+    runs = [_heading_rollout("topple", s, overrides=ov) for s in SEEDS]
+    tot = float(np.mean([r[0] for r in runs]))
+    steps = float(np.mean([r[2] for r in runs]))
+    assert steps < 400, (
+        f"topple twin did not terminate under the 20 deg probe "
+        f"envelope: steps={steps}")
+    # Sustained wrong-heading/fixed-stale-heading marathons are not in
+    # the floor set (same caveat as the fixed-forward bank's
+    # test_easy_dying_is_priced_below_park): at k_freeprog=2 a full
+    # 20 s of live 180-deg-off travel is self-punishing (~-4000) far
+    # below any plausible escape-by-death payoff — park/stall are the
+    # only realistic competitors death needs to beat.
+    floor = min(easy_heading_returns["park"], easy_heading_returns["stall"])
+    assert tot < floor - 15.0, (
+        f"dying (topple@20deg={tot:.1f}) is not priced below standing "
+        f"still ({floor:.1f}): {easy_heading_returns}")

@@ -294361,7 +294361,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T12:26:47"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1",
@@ -294569,7 +294570,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T12:26:46"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s3",

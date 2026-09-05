@@ -468,6 +468,65 @@ backlog; idle slots next to this unmet priority are the failure state.
   with these particular seeds). Flagged for a dedicated design pass,
   not a same-recipe relaunch.
 
+- 09-05 ~12:2x `headset-halfgrav-c2` gate eval SYNCED, corroborating the
+  earlier CANARY PASS (was pending at verdict time): 24/24 walk +
+  walk_startjitter det+sto episodes gait_valid=True, 0 sacrificed legs,
+  0 terminations, fwd_dist_m med 3.32-3.58m/20s (0.17-0.18 m/s),
+  slip_per_m med 2.22-2.41 — inside/near the teacher's <=2.9 band,
+  the TIGHTEST of the whole heading rung so far. Already
+  acquisition-grade at 2M steps, a strong leading signal for the
+  in-flight `headset-halfgrav-acq1` 40M follow-up. Re-verdicted
+  PASS with FORCE=1 to attach the corroborating numbers.
+- 09-05 ~12:2x FOURTH gSDE-FAMILY INSTANCE + A REAL TOOLING BUG FOUND —
+  `sde-s3-c1b` (40M own-checkpoint continuation, huge reward climb
+  2198 ep_rew_mean, full 2000-tick ep_len, no plateau) gate eval:
+  0/24 gait_valid, EVERY episode sacrifices legs [1,3] (one sto
+  episode: just [1]), slip_per_m 3.79-5.38 (worse than the sde-s1-c2/
+  sde-s2-c2 pair's 3.46-6.49 range but the SAME class), fwd only
+  0.9-1.6m/20s (~0.05-0.08 m/s, barely clears the 0.03 m/s freeprog
+  bar), 0 terminations. This is a 4th independent seed sharing the
+  identical gSDE frozen-leg-subset fingerprint already flagged for
+  `sde-s1-c2`/`sde-s2-c2` (11:5x entry) and the `sdehalfgrav-remcost`
+  pair (12:1x entry) — reinforcing the cross-family synthesis
+  (gSDE, not halfgrav/remcost specifically, is the common thread).
+  **NOT independently re-escalated** (the design question — a
+  per-leg-utilization pricing lever, or a clean gSDE-vs-Gaussian A/B —
+  is already being root-caused by a concurrent deep-model dig-in
+  cycle on the sde-s1-c2/sde-s2-c2 pair); flagged DIG-IN anyway per
+  the standing-prompt rule that every triggering run gets its own
+  flag, left UNVERDICTED so the watcher can fold it into that same
+  design pass rather than pre-empting it with an inconsistent verdict.
+  **Bonus finding while investigating**: `walk/det` AND `walk/sto`
+  each read numerically IDENTICAL across all 6 episodes (same prog/
+  slip/fwd to 2 decimals) — expected for `det` (fixed-forward walk has
+  no per-episode init randomization, matches every other clean arm's
+  own det pattern, e.g. `base-s2`) but NOT expected for `sto`, which
+  should sample fresh action noise every episode. Root-caused: SB3's
+  `model.predict()` never calls `policy.reset_noise()` — that only
+  happens inside `OnPolicyAlgorithm.collect_rollouts` during TRAINING
+  — so a loaded gSDE checkpoint's exploration matrix is frozen for
+  the whole eval process; under any mode without its own init
+  randomization (confirmed: `walk_startjitter_sto_*`, which DOES
+  randomize the start pose, varied normally / had different MD5s),
+  every "stochastic" episode replays the identical noise draw
+  end-to-end (all six `walk_sto_*.mp4` shared one MD5, confirmed by
+  hand). This silently made every gSDE "sto" panel campaign-wide
+  (`sde`/`sdehalfgrav`/`sdehalfgrav-remcost`, every gate read cited
+  above) an n=1 noise-draw report dressed up as n=6 — read their
+  "6/6 sto fail" claims as "one noise draw failed," not "robust
+  failure across draws" (their det-pass `gait_valid`/sacrificed-leg
+  reads are UNAFFECTED — deterministic mode never touches gSDE
+  noise). Fixed same cycle: `_maybe_reset_gsde_noise()` in
+  `eval_checkpoint.py`, called at the top of every `run_episode`,
+  resamples once per episode for any `use_sde=True` model (direct or
+  through an inner-`.model` wrapper like `Rot60Policy`); bit-exact
+  no-op for the non-gSDE default. 4 new tests
+  (`test_eval_checkpoint_gsde_reset_noise.py`, all green), snapshotted
+  + pushed (`b4259414`). `sde-s3-c1b`'s report above is PRE-FIX (the
+  remote eval had already started before the fix landed) — any FUTURE
+  gSDE gate re-read will get genuine per-episode noise variation.
+  CURRENT_TRUTHS.md gotcha entry added.
+
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 
 Recipe/proof/gates for the original 4-arm bounded pilot (base-s0,

@@ -2,6 +2,42 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:3x this cycle: `headset-halfgrav-s1acq` **ACQ PASS** —
+  cleanest heading-acquisition read of the whole campaign: 24/24
+  `gait_valid`, ZERO sacrificed legs in every one of the 4 scenarios
+  (incl. `walk_startjitter/det`, the one scenario where every other
+  seed in both heading families shows leg1/4 favoritism), 0/24
+  falls, `slip_per_m` med 2.28-2.48 (tightest of the campaign, every
+  prior PASS ran 2.4-5.2), fwd 0.15-0.17 m/s, no belly drag. 2nd of
+  the halfgrav family's n=3 acq1 seeds (`halfgrav-acq1` PASS,
+  `s1acq` PASS, `s3acq` still evaluating on another pod). SKILLS.md
+  updated. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_halfgrav_s1acq_gate/report.json`, W&B `yqm9c7e8`. Capacity
+  check this cycle: 8/11 reachable GPU pods were running on-pod
+  evals (CPU-only, GPU idle) for other in-flight arms — `train-4`/
+  `train-5`/`train-7` were the only genuinely idle pods (no process
+  at all). Used one to launch a base-heading-family confirmation
+  seed (`headset-base-irr-c2`, below); left the other two idle
+  rather than invent filler, since every other next-rung question
+  (does `walk_cmd_resample_jitter` survive a 2nd seed, does the
+  sde `walk_gait_gate` repair replicate at n=4, does `halfgrav-s3acq`
+  close the family) is already funded and mid-eval elsewhere.
+
+- 09-05 ~14:4x this cycle: launched `headset-base-irr-c2`, a second
+  independent seed of the already-running `headset-base-irr-c1`
+  irregular-direction-change-timing canary (`goal.walk_cmd_resample_
+  jitter=0.5` on top of the acq1 recipe), warm-started from the
+  OTHER already-PASSed base seed's own 40M checkpoint
+  (`headset_base_s1c1_acq1.zip`, not the same source as `-c1` which
+  used the flagship `headset_base_acq1.zip`) — a genuine cross-seed
+  read of whether the irr mechanism generalizes, not a duplicate.
+  Cheap (2M canary, ~2min GPU time): batching this now rather than
+  waiting for `-c1`'s own not-yet-landed verdict follows the 08-22
+  batching guidance for a seed-count question this inexpensive.
+  VERIFIED RUNNING on a genuinely idle pod. If `-c1` fails outright
+  before `-c2` finishes, read both together — a seed-specific fluke
+  vs. a class failure is itself useful information.
+
 - 09-05 ~14:3x this cycle: `sde-s1-c3gg`/`sde-s2-c3gg` both **ACQ
   FAIL (misaligned)** — the structural `walk_gait_gate`+`k_step_event`
   repair does NOT escape LEGPARK-SKATE, closing this lever 2/2. It

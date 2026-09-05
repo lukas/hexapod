@@ -298529,7 +298529,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:09:32"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-irr-c1-cw-walkscrat since 2026-09-05T14:35:16"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s3acq",
@@ -298902,7 +298902,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:09:31"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-irr-c1-cw-walkscrat since 2026-09-05T14:35:16"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s3acq",
@@ -299388,7 +299388,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_s1.zip"
     ],
     "created": "2026-09-05T13:19:52+00:00",
-    "status": "RUNNING",
+    "status": "ACQ PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -299435,7 +299435,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-s1acq-cw-walkscratc since 2026-09-05T14:30:07"
+    "triage": "done",
+    "verdict": "Result: cleanest heading-acquisition read of the whole campaign -- 24/24 gait_valid across all 4 scenarios (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto), ZERO sacrificed legs in every single episode (sac=[] all 24), 0/24 falls/terminations. Evidence: gate report (logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_s1acq_gate/report.json), 40.37M steps, ep_rew_mean 543.7 (quarters 262.6/489.7/516.1/545.3, still gently rising not yet plateaued). Speed clears the >=0.03 m/s bar comfortably every episode (fwd_dist_m med 3.09-3.46m/20s = 0.15-0.17 m/s), slip_per_m med 2.28-2.48 across all 4 scenarios (inside the 2.9 teacher band with margin, better than every sibling base/halfgrav PASS this campaign which ran 3.0-5.2). height_err_end_mm ~10mm (no belly drag). Video (walk_det_0_sheet.png, walk_startjitter_det_0_sheet.png) confirms real six-leg lift/place cycling even under perturbed-start det, the ONE scenario where every sibling in this family (base-acq1, base-s0c1/s1c1-acq1, halfgrav-acq1) showed leg1/4 favoritism -- this seed clears it cleanly. Why: own-checkpoint 40M acquisition continuation off headset-halfgrav-s1's already-clean 2M canary (24/24 gait_valid at 2M too), same recipe as sibling headset-halfgrav-acq1/headset-base-acq1, no new mechanism. Next: this is the 2nd of 3 planned halfgrav-family acq1 seeds (halfgrav-acq1 PASS, s1acq PASS, s3acq still evaluating) -- once s3acq lands, halfgrav reaches the same n=3 confirmation base already has, and a family champion can be picked for the next rung (irregular-timing hardening, already canary-testing as headset-halfgrav-irr-c1)."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s3acq",
@@ -300441,7 +300442,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:09:32"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-irr-c1-cw-walkscrat since 2026-09-05T14:35:16"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-irr-c1",

@@ -305032,7 +305032,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_base_acq1.zip"
     ],
     "created": "2026-09-05T16:39:16+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -305078,7 +305078,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:54:00"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: full 8-way heading set (incl. reversals) does NOT generalize on the base(1g) family within a 2M canary. Evidence: 4-checkpoint W&B training-rollout trend under the SAME wide walk_heading_set/cmd_resample_s=6.0 the harness gate re-evaluates: env/v_along_cmd_m_s pinned near-zero the whole run (0.011->0.011->0.013->0.009 m/s, never departs the noise floor vs the 0.06 m/s target), env/walk_direction_err_deg stays ~86deg (near-perpendicular to command) and wrong_way~43-46% of steps throughout, while ep_rew_mean falls monotonically and hard (-122->-296->-482->-556, each quarter worse) driven by the walk_freeprog penalty (score~-0.7, pen~-2.2..-2.5) accumulating over episodes that get LONGER not shorter (ep_len_mean 108->488) -- i.e. it stopped falling as often but never learned to move toward ANY of the new headings, so the per-step progress penalty racks up over the longer episodes. This is the pre-registered canary FAIL condition verbatim (ep_rew_mean does not rise/hold; v_along collapses to/stays near-zero) -- not the 08-21 rising-reward/bad-eval continue case, reward is genuinely worsening throughout. Session composite eval corroborates instability (fwd/left/right all FELL over_current/tilt_pitch in the stitched stand->walk->sit probe). Harness DR-0/own-DR walk-mode gate was found still genuinely computing on its own pod (orphaned-supervisor sync gotcha) -- backgrounded pollreap started for video/gait_valid corroboration, but the training-rollout signal alone is unambiguous and matches the ledger's own pre-registered W&B rubric. Per this arm's own hypothesis: FAIL means reversal/wide headings need their own pricing or curriculum-widen step (e.g. gradually expanding heading set rather than jumping 3-way->8-way in one hop) before further spend on this exact 8-way jump."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-c1",
@@ -305236,7 +305237,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_acq1.zip"
     ],
     "created": "2026-09-05T16:40:32+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -305282,7 +305283,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:59:09"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: same fate as the sibling base(1g) arm -- full 8-way heading set does NOT generalize on the halfgrav(0.5g) family either within a 2M canary. Evidence: 4-checkpoint W&B training-rollout trend under the same wide walk_heading_set/cmd_resample_s=6.0: env/v_along_cmd_m_s pinned near-zero throughout (0.009->0.012->0.013->0.010 m/s vs 0.06 m/s target), ep_rew_mean falls monotonically and hard (-125->-300->-528->-587, each quarter worse), reward_walk_freeprog_pen ~-2.5..-2.8 the whole run. This is the pre-registered canary FAIL condition (ep_rew_mean does not rise/hold) -- reward genuinely worsening, not the 08-21 rising-reward continue case. Session composite eval corroborates instability (fwd/left/right all FELL tilt_pitch/over_current). Harness gate found still genuinely computing on its own pod (orphaned-supervisor sync gotcha); backgrounded pollreap started for corroboration, but same W&B rubric applies and is unambiguous. Closes the fullheading rung 2/2 (both non-gSDE families) for the bare k_walk_freeprog mechanism jumping directly to the full 8-way set -- next step is a curriculum-widen (intermediate heading subsets) or explicit reversal pricing, not a repeat of this exact jump on either family."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-dgidle-s1",
@@ -305441,7 +305443,7 @@
       "reward.walk_idle_tau_s=1.0"
     ],
     "created": "2026-09-05T16:45:46+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 26,
@@ -305485,7 +305487,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:59:09"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: walk_duty_gate + k_walk_idle_charge paired (dropping the dodgeable qvel-terminate) does NOT escape the sde/easy0905 static-quiver/non-progress basin within 2M, seed 1. Evidence from W&B training-rollout trend (4 checkpoints): env/walk_duty_gate_factor saturates high throughout (1.0 -> 1.0 -> 0.97 -> 0.95, near-ceiling the whole run -- no forced sacrifice, but also no real gait signature), env/v_along_cmd_m_s stays flat/near-zero the entire run (-0.005 -> 0.009 -> 0.015 -> 0.019 m/s, never departs noise floor vs 0.06 target) while env/v_cross_abs_m_s and env/walk_speed both climb (0.168->0.181 m/s cross, 0.265->0.286 m/s raw speed) and env/walk_direction_err_deg stays ~86-91deg (near-perpendicular to the fixed forward command) -- the policy is moving MORE over time but not toward the command, a spin/drift-in-place pattern matching the same fingerprint already seen on the sibling sde-s2-dg1 arm (CURRENT_TRUTHS 09-05 ~16:0x, 'yawed ~174deg from start... a spin/destabilize pattern, not directed travel'). ep_rew_mean falls monotonically and hard (-245->-361->-482->-552) -- genuinely worsening, not the 08-21 rising-reward continue case. Session composite eval shows the fwd/left/right probe collapsing height (dz up to -74mm) with net v=0.000 (no FELL flag, a crouch-and-stall rather than a fall). Harness DR-0 walk-mode gate (which would give forward_dist_m/stride_m_mean, the arm's own literal pass/fail metric) was found still genuinely computing on its own pod (orphaned-supervisor sync gotcha); backgrounded pollreap started so the harness numbers land for the record, but the W&B rollout signal (flat v_along, growing off-axis speed, monotonically worsening reward) already matches the pre-registered freeze/non-progress FAIL fingerprint closely enough to call now. Per this arm's own hypothesis text: this is the (3rd/4th, depending on count basis) independently-designed price/termination mechanism to fail on this exact recipe after walk_gait_gate+k_step_event and k_park_duty+k_walk_idle_charge+qvel-terminate and bare walk_duty_gate -- CLOSES 'reward-shaping alone escapes the sde/easy0905 frozen/non-progress basin' for this recipe. Next lever must be STRUCTURAL (BC/CPG-seeded init, higher entropy/exploration schedule, or a moving-state curriculum start), not a further price/termination variant -- do not fund another bare price-shaping arm on this recipe. Sibling sde-dgidle-s0 (seed 0) is still RUNNING under a different cycle's ownership; read it before finalizing the structural-escalation design, but do not wait on it to start that design work."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-dgidle-s0",
@@ -305687,7 +305690,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-dgidle-s0 since 2026-09-05T17:19:46"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s2-c2-dgatefix-cont40m",
@@ -306047,6 +306051,26 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s2-c2-dgatefix-cont40m --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s2_c2_dgatefix_cont40m --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-sde-s2-c2-dgatefix: Plain English: on this one seed, walk_duty_gate=1.0 applied to sde-s2-c2'\"'\"'s entrenched 40M leg-1-park exploiter is applying real, ungamed pressure (env/walk_duty_gate_factor genuinely declined 1.0->0.64 over 2M, never saturating at ceiling) while ep_rew_mean kept climbing the whole canary (94->224->332->406) -- unlike its remcost dgatefix siblings, whose reward got WORSE under the identical mechanism. Per the 08-21 ruling (rising reward + bad eval = continue, not a reflex fail), this tests whether a full acquisition-scale budget lets that pressure actually walk leg 1 back out of its 0.01-duty park and clear gait_valid, instead of closing the lever off a single under-budgeted 2M canary.' --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s2_c2_dgatefix.zip --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.15 --cfg-set reward.walk_gait_gate=0.0 > /tmp/train_cw-walkscratch-easy0905-sde-s2-c2-dgatefix-cont40m.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sde-s2-c2-dgatefix-cont40m.log",
     "wandb_id": "66wc8jin",
-    "verified": "2026-09-05T17:03:11+00:00"
+    "verified": "2026-09-05T17:03:11+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T17:08:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2449,
+        "cpu_centisec_deltas": [
+          53303,
+          52627
+        ],
+        "gpu_util_samples": [
+          9,
+          0,
+          3
+        ],
+        "note": "global_step flat in 45s window but run shows work: cpu_busy=True gpu_busy=False log_grew_late=True \u2014 trainer cadence/W&B summary lag, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

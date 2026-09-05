@@ -457,10 +457,11 @@ class Store:
             con.execute("COMMIT")
         return self.get(row["id"])
 
-    def finish(self, experiment_id: str, status: str, error: Optional[str] = None) -> None:
+    def finish(self, experiment_id: str, status: str, error: Optional[str] = None,
+               *, finished_at: Optional[str] = None) -> None:
         if status not in TERMINAL:
             raise ValueError("invalid terminal status")
-        now = utcnow()
+        now = finished_at or utcnow()
         with self.connect() as con:
             con.execute("UPDATE experiments SET status=?,finished_at=?,error=? WHERE id=?", (status, now, error, experiment_id))
             con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",

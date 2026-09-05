@@ -59,6 +59,31 @@ def test_changed_or_duplicate_identity_refused_before_any_post():
     assert all(m == "GET" for m, _, _ in calls)
 
 
+def test_full_listing_cannot_prove_an_older_plan_is_absent():
+    records = [{"id": str(i), "parameters": {"plan_id": f"unrelated-{i}"}}
+               for i in range(100)]
+    request, calls = client(records)
+    with pytest.raises(GuardedQueueError, match="older identities may be hidden"):
+        queue_plan({"queue_payloads": [payload()]}, request)
+    assert all(method == "GET" for method, _, _ in calls)
+
+
+def test_matching_plan_can_be_reused_on_a_full_listing():
+    records = [{"id": str(i), "parameters": {"plan_id": f"unrelated-{i}"}}
+               for i in range(99)]
+    records.append({**payload(), "id": "existing", "status": "waiting_for_operator"})
+    request, calls = client(records)
+    assert queue_plan({"queue_payloads": [payload()]}, request)[0]["reused"] is True
+    assert all(method == "GET" for method, _, _ in calls)
+
+
+def test_nonobject_plan_refused_without_network():
+    request, calls = client()
+    with pytest.raises(GuardedQueueError, match="JSON object"):
+        queue_plan([], request)
+    assert calls == []
+
+
 @pytest.mark.parametrize("change", [
     {"execution_mode": "builtin"}, {"duration_seconds": float("nan")},
     {"duration_seconds": True}, {"parameters": {"robot_id": "hexapod-1"}},

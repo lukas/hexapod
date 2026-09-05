@@ -2,6 +2,29 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~13:0x `headset-base-s0c1`/`headset-base-s1c1` CANARY PASS
+  (3rd + 4th base-family heading-canary seeds, same recipe as
+  `headset-base-c1`), gate evals synced same cycle: 0/24
+  falls/terminations each; plain `walk` det+sto 12/12 `gait_valid`
+  both seeds (0 sacrificed legs), fwd_dist 1.95-3.82m/20s (0.10-0.19
+  m/s), slip_per_m 2.8-5.2 (near/above the 2.9 band — paddle-quality
+  at 2M, not gate-blocking for a canary). One narrow shared weak
+  spot: `walk_startjitter/det` sacrifices leg [4] (s0c1, 6/6) or
+  [1]/[1,4] (s1c1, 5/6) — a single/dual-leg favoritism specific to
+  the perturbed-start deterministic scenario only; `walk_startjitter/
+  sto` mostly or fully recovers (5/6, 6/6). NOT the gSDE
+  LEGPARK-SKATE fingerprint (plain Gaussian family, no `--use-sde`,
+  no near-zero-stride paddling, no reward-vs-speed divergence) — 19/24
+  episodes real six-leg locomotion on BOTH seeds at just 2M steps,
+  the base family's heading generalization now stands at n=4 (c1 +
+  s0c1 + s1c1, all PASS; halfgrav at n=3 with s1/s3 canaries still
+  computing). Launched both 40M own-checkpoint acquisition
+  continuations mirroring `headset-base-acq1`: `headset-base-s0c1-
+  acq1` (train-3) + `headset-base-s1c1-acq1` (train-5), both VERIFIED
+  RUNNING — watch whether the startjitter/det leg-favoritism clears
+  with budget or hardens into a real pathology. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s{0c1,1c1}_gate/
+  report.json`, W&B notes on `tm703vax`/`xors486s`.
 - 09-05 ~12:4x DIG-IN CLOSED (independent cycle) — `sde-s0-c4` FAIL,
   confirms **LEGPARK-SKATE** as a 4th seed (this run) alongside
   `sde-s1-c2`/`sde-s2-c2`/`sde-s3-c1b` above: gate harness (24/24

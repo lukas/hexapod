@@ -297256,7 +297256,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T13:48:59"
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-remcost-s1-gg",

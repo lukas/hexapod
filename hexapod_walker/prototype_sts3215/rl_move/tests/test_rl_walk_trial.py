@@ -33,6 +33,55 @@ def _trial_with(samples, monkeypatch):
     return trial
 
 
+def _policy_trial(walk: dict):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.args = SimpleNamespace(speed_m_s=0.08)
+    trial.request = lambda _path: {"ok": True, "walk": walk}
+    trial.event = lambda *_args, **_kwargs: None
+    return trial
+
+
+def _walk_meta(obs_dim: int) -> dict:
+    return {
+        "obs_dim": obs_dim,
+        "joint_frame": "robot_abs",
+        "joint_contract": "robot_abs_tibia_v2",
+        "training_hz": 100.0,
+        "walk_speed_min_m_s": 0.08,
+        "walk_speed_max_m_s": 0.08,
+        "phase_hz": 1.333333,
+        "walk_yaw_cmd": True,
+        "walk_phase_run_on_yaw": True,
+    }
+
+
+def test_trial_accepts_phase_yaw_mlp_contract():
+    assert _policy_trial(_walk_meta(75)).validate_walk_policy()["obs_dim"] == 75
+
+
+def test_trial_accepts_frozen_dual_gru_contract():
+    walk = _walk_meta(81)
+    walk.update(
+        architecture="dual_gru",
+        mode_onehot_order=["hold", "rise", "lower", "walk", "turn", "quad"],
+    )
+    assert _policy_trial(walk).validate_walk_policy()["obs_dim"] == 81
+
+
+def test_trial_rejects_obs81_without_recurrent_architecture():
+    walk = _walk_meta(81)
+    walk.update(architecture="mlp", mode_onehot_order=[])
+    with pytest.raises(RuntimeError, match="dual_gru|mode-onehot"):
+        _policy_trial(walk).validate_walk_policy()
+
+
+def test_trial_rejects_phase_yaw_policy_without_explicit_clock_contract():
+    walk = _walk_meta(75)
+    del walk["walk_phase_run_on_yaw"]
+    with pytest.raises(RuntimeError, match="yaw-clock"):
+        _policy_trial(walk).validate_walk_policy()
+
+
 def test_one_missing_scan_remains_telemetry_noise(monkeypatch):
     trial = _trial_with([
         _robot_sample(1.0, live=17, missing=[3]),

@@ -7,10 +7,11 @@ created only when the operator selects a validated v2 artifact. Walk files may b
 obs 74 = obs 72 + [sin, cos] of a phase clock the runner keeps
 (advances at meta["phase_hz"] while velocity is commanded, frozen at
 zero command — the sim's goal.walk_phase_obs=1 contract; the
-cw-arch-noslipphase1 no-slip line). Phase policies run naked: no
-rot-60 / mirror (they train all headings, no wedge). AMP walk files use
-obs 93 = obs 74 + yaw-rate command + 18 fault-health entries; hardware
-currently feeds an all-healthy fault vector.
+cw-arch-noslipphase1 no-slip line). Obs 75 adds yaw-rate command; obs 81
+adds the frozen six-mode one-hot and runs the persistent dual-GRU actor.
+Phase policies run naked: no rot-60 / mirror (they train all headings,
+no wedge). AMP walk files use obs 93 = obs 74 + yaw-rate command + 18
+fault-health entries; hardware currently feeds an all-healthy vector.
 
 - policy loop runs at the selected policy's declared meta["training_hz"];
   obs = build_obs(q, qd, tilt-rel-to-start, gyro, prev_action(18), goal(9))
@@ -39,6 +40,7 @@ explicit order.
 from __future__ import annotations
 
 import csv
+import filecmp
 import json
 import math
 import sys
@@ -57,7 +59,13 @@ for _p in (_HERE.parent, _HERE):
         sys.path.insert(0, str(_p))
 
 from rl_move.config import cfg_get, load_config            # noqa: E402
+from rl_move.deployed_policy import (                      # noqa: E402
+    WALK_OBS_DIMS, WALK_PHASE_OBS_DIMS, WALK_VEL_SCALE,
+    WALK_YAW_SCALE, phase_clock_runs, supports_yaw_command,
+    walk_observation_tail,
+)
 from rl_move.env import TaskGoal, build_obs                # noqa: E402
+from rl_move.np_policy import load_np_policy               # noqa: E402
 from hexapod_core.joint_frame import (                     # noqa: E402
     FRAME_ROBOT_ABS, JOINT_CONTRACT, require_robot_abs_joint_frame,
 )
@@ -1537,7 +1545,7 @@ PREFLIGHT_MAX_TILT_DEG = 12.0
 STAND_START_TOL_DEG = 30.0   # near flat belly pose (logical zero-ish)
 LOWER_START_TOL_DEG = 25.0   # near the sim-default walk-ready stance
 
-# Walk mode (exported obs 72/74/93 policies). The current repo default is
+# Walk mode (exported obs 72/74/75/81/93 policies). The current repo default is
 # the full-mesh all-heading MLP walk policy; the old dep-vref obs-72
 # deployment-contract policy remains selectable as a conservative fallback.
 # Still an operator-supervised experiment, tightly bounded:
@@ -1549,12 +1557,8 @@ LOWER_START_TOL_DEG = 25.0   # near the sim-default walk-ready stance
 # - the 4 base walk obs dims are [vx_ref, vy_ref, vx_meas, vy_meas]/0.15,
 #   with meas := ref exactly as in training (contract-exact);
 # - obs-72 legacy policies get full-circle headings via the rot-60
-#   exact-equivariance canonicalizer; obs-74/93 policies train all headings
+#   exact-equivariance canonicalizer; newer policies train all headings
 #   directly and run naked.
-WALK_VEL_SCALE = 0.15
-WALK_YAW_SCALE = 0.5         # sim walk_task.WZ_SCALE
-WALK_OBS_DIMS = (72, 74, 93)
-WALK_PHASE_OBS_DIMS = (74, 93)
 WALK_SPEED_MIN = 0.05        # fallback for legacy dep-vref policy exports
 WALK_SPEED_MAX = 0.06        # fallback trained command band for old exports
 WALK_HOLD_S = 1.0
@@ -1694,9 +1698,10 @@ def _drive_command_is_moving(vx_target: float, vy_target: float,
     """Whether the live drive session should engage the walk policy."""
     if math.hypot(vx_target, vy_target) > DRIVE_MOVE_EPS_MPS:
         return True
-    # Only AMP/yaw-command policies understand yaw-only drive. Legacy obs-72
+    # Only yaw-command policies understand yaw-only drive. Legacy obs-72/74
     # policies ignore wz, so yaw-only at zero translation must stay in hold.
-    return walk_obs == 93 and abs(wz_target) > DRIVE_YAW_EPS_RAD_S
+    return (supports_yaw_command(walk_obs)
+            and abs(wz_target) > DRIVE_YAW_EPS_RAD_S)
 
 
 def _drive_zero_dwell(active: str, moving_requested: bool,
@@ -1824,20 +1829,37 @@ _HALF_RAD = np.array([
 
 
 class NumpyPolicy:
-    """Deterministic SB3 MlpPolicy actor: tanh MLP + linear head."""
+    """Validated dependency-light MLP or persistent dual-GRU actor."""
 
     def __init__(self, path: Path = WEIGHTS_PATH):
-        d = json.loads(Path(path).read_text())
-        self.meta = d["meta"]
+        self._model = load_np_policy(path)
+        self.meta = self._model.meta
         require_robot_abs_joint_frame(self.meta, source=str(path))
-        self.W1 = np.array(d["W1"]); self.b1 = np.array(d["b1"])
-        self.W2 = np.array(d["W2"]); self.b2 = np.array(d["b2"])
-        self.Wo = np.array(d["Wout"]); self.bo = np.array(d["bout"])
+        self.recurrent = self._model.recurrent
 
     def act(self, obs: np.ndarray) -> np.ndarray:
-        h = np.tanh(self.W1 @ obs + self.b1)
-        h = np.tanh(self.W2 @ h + self.b2)
-        return np.clip(self.Wo @ h + self.bo, -1.0, 1.0)
+        return self._model.act(obs)
+
+    def reset(self) -> None:
+        """Reset recurrent state at an actual episode boundary."""
+        self._model.reset()
+
+
+def _load_drive_hold_policy(walk_path: Path, walk_policy: NumpyPolicy,
+                            hold_path: Path | None) -> NumpyPolicy | None:
+    """Load a hold actor, sharing recurrent state for one selected file."""
+    if hold_path is None:
+        return None
+    walk_path = Path(walk_path)
+    hold_path = Path(hold_path)
+    same_path = hold_path.resolve() == walk_path.resolve()
+    try:
+        same_payload = filecmp.cmp(walk_path, hold_path, shallow=False)
+    except OSError:
+        same_payload = False
+    if same_path or same_payload:
+        return walk_policy
+    return NumpyPolicy(hold_path)
 
 
 class _Rot60ModelShim:
@@ -1919,26 +1941,18 @@ def _walk_vel_ref(t: float, total_s: float,
 
 
 def _walk_obs_tail(walk_obs: int, vx_r: float, vy_r: float, phase: float,
-                   wz_r: float = 0.0) -> np.ndarray:
+                   wz_r: float = 0.0, *, mode: str = "walk") -> np.ndarray:
     """The deploy-side tail for sim walk observations."""
-    tail = [vx_r / WALK_VEL_SCALE, vy_r / WALK_VEL_SCALE,
-            vx_r / WALK_VEL_SCALE, vy_r / WALK_VEL_SCALE]
-    if walk_obs in WALK_PHASE_OBS_DIMS:
-        tail.extend([math.sin(phase), math.cos(phase)])
-    if walk_obs == 93:
-        tail.append(wz_r / WALK_YAW_SCALE)
-        tail.extend([1.0] * N_JOINTS)
-    return np.asarray(tail, dtype=np.float32)
+    return walk_observation_tail(
+        walk_obs, vx_r, vy_r, phase, wz_r, mode=mode)
 
 
 def _walk_phase_runs(walk_obs: int, vx_r: float, vy_r: float,
                      wz_r: float = 0.0, *, phase_run_on_yaw: bool = False
                      ) -> bool:
-    if walk_obs not in WALK_PHASE_OBS_DIMS:
-        return False
-    if math.hypot(vx_r, vy_r) > 1e-3:
-        return True
-    return phase_run_on_yaw and abs(wz_r) > 1e-3
+    return phase_clock_runs(
+        walk_obs, vx_r, vy_r, wz_r,
+        phase_run_on_yaw=phase_run_on_yaw)
 
 
 def _json_safe(value):
@@ -2680,9 +2694,8 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
         if walk_obs not in WALK_OBS_DIMS:
             return {"ok": False,
                     "error": (f"{Path(wpath).name} is not a walk policy "
-                              f"(obs {walk_obs} not 72/74/93)")}
-        # obs 74 = walk + phase clock (cw-arch-noslipphase1 no-slip
-        # line): the runner appends [sin, cos] of a clock that advances
+                              f"(obs {walk_obs} not in {WALK_OBS_DIMS})")}
+        # Phase lineages append [sin, cos] of a clock that advances
         # at meta["phase_hz"] while a velocity is commanded — the exact
         # contract of the sim's goal.walk_phase_obs=1. That line trains
         # ALL headings (no wedge) and has no rot-60/mirror machinery,
@@ -2698,20 +2711,23 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                                   "no phase_hz in meta — re-export with "
                                   "--extra-meta phase_hz=<trained hz>")}
             phase_hz = float(policy.meta["phase_hz"])
-            if turn is not None and walk_obs != 93:
+            if turn is not None and not supports_yaw_command(walk_obs):
                 return {"ok": False,
                         "error": ("turn= is not supported for phase-"
-                                  "clock (obs 74) walk policies")}
+                                  f"clock obs-{walk_obs} walk policies "
+                                  "without a yaw command")}
         walk_speed_min, walk_speed_max = _policy_walk_speed_band(policy)
         vx, vy = _drive_clamp_translation(
             vx, vy, walk_speed_min, walk_speed_max)
         total_s = min(max(float(duration_s), 3.0), WALK_MAX_TOTAL_S)
         if rot60 and walk_obs == 72:
             canon = make_walk_canonicalizer(policy, cfg)
-        if turn is not None and walk_obs == 93 and turn == "hold":
+        if (turn is not None and supports_yaw_command(walk_obs)
+                and turn == "hold"):
             return {"ok": False,
-                    "error": "turn=hold is not supported for obs-93 yet"}
-        if turn is not None and walk_obs != 93:
+                    "error": (f"turn=hold is not supported for obs-"
+                              f"{walk_obs} yet")}
+        if turn is not None and not supports_yaw_command(walk_obs):
             mirror = make_walk_mirror(policy, cfg, rot60=rot60)
             if mirror is None:
                 return {"ok": False,
@@ -3074,7 +3090,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
     }, debug=debug)
     t_next = time.monotonic()
 
-    phase = 0.0        # walk phase clock (obs-74/93 policies only)
+    phase = 0.0        # walk phase clock (phase-observation policies only)
     phase_run_on_yaw = bool(float(policy.meta.get("walk_phase_run_on_yaw",
                                                   0.0)))
     for i in range(n_ticks):
@@ -3091,7 +3107,7 @@ def _run_policy_move_impl(drive, mode: str, *, on_progress=None,
                             height_ref=0.0, unload_leg=None)
             vx_r, vy_r = _walk_vel_ref(t, total_s, vx, vy)
             wz_r = 0.0
-            if walk_obs == 93 and turn in ("left", "right"):
+            if supports_yaw_command(walk_obs) and turn in ("left", "right"):
                 turn_sign = 1.0 if turn == "left" else -1.0
                 wz_r = turn_sign * float(policy.meta.get(
                     "walk_yaw_max_rad_s", WALK_YAW_SCALE))
@@ -3702,11 +3718,12 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     does NOT call the walk policy at zero refs: deployed walk champions
     can produce saturated gait actions at neutral joystick because zero
     speed was outside their useful hardware contract. A separate hold
-    policy (obs 68 stance at height_ref 0, or another obs-72/74/93 file
+    policy (obs 68 stance at height_ref 0, or another supported walk file
     trained to stand still at zero refs) can take over instead. Every
     model switch re-anchors the episode frame (q_nom := present pose,
-    prev_action := 0) — the same episode re-anchor the sim viewer's
-    play.py does on policy handoff.
+    prev_action := 0) — the same observation re-anchor the sim viewer's
+    play.py does on policy handoff. When walk and hold resolve to the same
+    recurrent artifact, the actor object and hidden state remain continuous.
 
     Height: heartbeats may carry ``dh`` in [-1, 1] (gamepad D-pad).
     Only an obs-68 stance hold policy tracks the resulting height ref,
@@ -3729,9 +3746,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     if walk_obs not in WALK_OBS_DIMS:
         return {"ok": False,
                 "error": (f"{Path(wpath).name} is not a walk policy "
-                          f"(obs {walk_obs} not 72/74/93)")}
-    # obs 74 = phase-clock walk (see run_policy_move): all-heading
-    # training, no rot-60/mirror, phase_hz required in export meta.
+                          f"(obs {walk_obs} not in {WALK_OBS_DIMS})")}
+    # Phase-clock policies train all headings and require phase_hz in export
+    # metadata. Only legacy obs-72 gets rot-60/mirror wrapping.
     phase_hz = 0.0
     if walk_obs in WALK_PHASE_OBS_DIMS:
         if "phase_hz" not in walk_policy.meta:
@@ -3744,16 +3761,28 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     hold_policy = None
     hold_obs = None
     if hold_weights is not None:
-        hold_policy = NumpyPolicy(hold_weights)
+        # A unified recurrent policy must be one persistent actor across mode
+        # changes. Selecting the same artifact for both roles therefore
+        # reuses the object instead of silently creating two hidden states.
+        # Exact payload comparison also recognizes the live-slot copy made by
+        # the policy picker as the same artifact as its uploaded source file.
+        hold_policy = _load_drive_hold_policy(
+            Path(wpath), walk_policy, Path(hold_weights))
         hold_obs = hold_policy.meta.get("obs_dim")
         if hold_obs not in (68, *WALK_OBS_DIMS):
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} fits no hold "
-                              f"role (obs {hold_obs}, need 68/72/74/93)")}
+                              f"role (obs {hold_obs}, need 68 or "
+                              f"{WALK_OBS_DIMS})")}
         if hold_obs in WALK_PHASE_OBS_DIMS and "phase_hz" not in hold_policy.meta:
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} is "
                               f"obs-{hold_obs} but has no phase_hz in meta")}
+    if walk_obs == 81 and hold_policy is not walk_policy:
+        return {"ok": False,
+                "error": ("obs-81 recurrent drive requires the same policy "
+                          "assigned to both walk and hold roles so its hidden "
+                          "state remains continuous")}
     try:
         joint_frame = policy_joint_frame(walk_policy, cfg)
         hold_joint_frame = (policy_joint_frame(hold_policy, cfg)
@@ -3994,7 +4023,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     # can track it; everyone else keeps the trained height_ref = 0.
     height_can_track = hold_policy is not None and hold_obs == 68
     height_ref = 0.0
-    phase = 0.0     # walk phase clock (obs-74/93 policies only); like the
+    phase = 0.0     # phase-observation policies only; like the
                     # sim it starts at 0 and freezes at zero command
     phase_run_on_yaw = bool(float(walk_policy.meta.get(
         "walk_phase_run_on_yaw", 0.0)))
@@ -4081,8 +4110,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             if hold_policy is not None:
                 if hold_obs in WALK_OBS_DIMS:
                     hold_tail = _walk_obs_tail(int(hold_obs),
-                                               walk_speed_min, 0.0,
-                                               phase, 0.0)
+                                               0.0, 0.0, phase, 0.0,
+                                               mode="hold")
                     warm_hold_obs = np.concatenate(
                         [warm_base, hold_tail]).astype(np.float32)
                 else:
@@ -4107,6 +4136,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             debug.event("drive_hot_path_warmup_failed", error=repr(e))
 
     warm_drive_hot_path()
+    # Warmup must not become part of a recurrent episode. Reset each unique
+    # actor once; a shared walk/hold model deliberately stays one object.
+    walk_policy.reset()
+    if hold_policy is not None and hold_policy is not walk_policy:
+        hold_policy.reset()
     t_next = time.monotonic()
 
     def ensure_async_sampler() -> tuple[
@@ -4167,7 +4201,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             direct_over_current_trip_ticks)
 
     def reanchor():
-        """Episode re-anchor on model switch (q frame + prev_action)."""
+        """Observation re-anchor on mode switch (never reset recurrent state)."""
         nonlocal q_nom, prev_action, last_q_robot_cmd, last_q_policy_cmd
         q_nom = state.joint_position.copy()
         safety.set_nominal(q_nom)
@@ -4359,7 +4393,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             if need_obs in WALK_OBS_DIMS:
                 obs = np.concatenate(
                     [base_obs, _walk_obs_tail(need_obs, vx_r, vy_r,
-                                              phase, wz_r)]
+                                              phase, wz_r,
+                                              mode=active)]
                 ).astype(np.float32)
             else:   # 68-obs stance hold at height_ref 0
                 obs = base_obs
@@ -4375,9 +4410,9 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                                   else (hold_policy.act(obs), None))
             else:
                 raw_act = hold_policy.act(obs)
-            # Phase clock advance (obs-74/93 policies): after obs, gated on a
-            # live command ref. obs-93 AMP policies may also advance on yaw.
-            if _walk_phase_runs(walk_obs, vx_r, vy_r, wz_r,
+            # Phase clock advance: after obs, gated on the active policy's
+            # live translation/yaw contract.
+            if _walk_phase_runs(need_obs, vx_r, vy_r, wz_r,
                                 phase_run_on_yaw=phase_run_on_yaw):
                 phase = (phase + 2.0 * math.pi * phase_hz
                          * timing.policy_dt) \

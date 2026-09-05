@@ -13,6 +13,7 @@ from async_bus_guard import (AsyncSamplerCleanupError, quarantine_bus,
     require_bus_available)
 from api.rl import RlApi
 from mcu_feetech_bus import McuFeetechBus
+from rl_policy import validate_velocity_filter_alpha
 
 
 class ReaderThread:
@@ -105,6 +106,37 @@ class Api(RlApi):
         return {}
 
 
+@pytest.mark.parametrize("alpha", [float("nan"), float("inf"), -0.1, 1.1, "invalid"])
+def test_drive_api_rejects_invalid_filter_before_preflight(monkeypatch, alpha):
+    import rl_policy
+    monkeypatch.setattr(rl_policy, "preflight",
+                        lambda *a, **k: pytest.fail("preflight called"))
+    api = Api(object())
+    result = api.rl_drive_start(velocity_filter_alpha=alpha)
+    assert not result["ok"]
+    assert "velocity_filter_alpha" in result["error"]
+    assert api._demo_thread is None
+
+
+@pytest.mark.parametrize("alpha", [None, 0.0, 0.8, 1.0])
+def test_drive_api_forwards_velocity_alpha_to_worker(monkeypatch, alpha):
+    import rl_policy
+    calls = []
+    monkeypatch.setattr(rl_policy, "preflight", lambda *a, **k: (True, "", {}))
+    def run(*args, **kwargs):
+        calls.append(kwargs)
+        return {"ok": True, "velocity_filter_alpha": kwargs["velocity_filter_alpha"]}
+    monkeypatch.setattr(rl_policy, "run_drive_session", run)
+    api = Api(object())
+    result = api.rl_drive_start(velocity_filter_alpha=alpha)
+    assert result["ok"]
+    api._demo_thread.join(timeout=1)
+    assert not api._demo_thread.is_alive()
+    assert len(calls) == 1
+    assert calls[0]["velocity_filter_alpha"] == alpha
+    assert api._cal_result["velocity_filter_alpha"] == alpha
+
+
 @pytest.mark.parametrize("mode", ["drive", "stand"])
 def test_api_cleanup_failure_never_torques_or_advertises_idle(monkeypatch, mode):
     torque = []
@@ -119,7 +151,8 @@ def test_api_cleanup_failure_never_torques_or_advertises_idle(monkeypatch, mode)
         raise AsyncSamplerCleanupError("reader did not join")
     monkeypatch.setitem(sys.modules, "rl_policy", SimpleNamespace(
         DriveCommand=Command, preflight=lambda *a, **k: (True, "", {}),
-        run_drive_session=run, run_policy_move=run))
+        run_drive_session=run, run_policy_move=run,
+        validate_velocity_filter_alpha=validate_velocity_filter_alpha))
     try:
         if mode == "drive":
             api.rl_drive_start()

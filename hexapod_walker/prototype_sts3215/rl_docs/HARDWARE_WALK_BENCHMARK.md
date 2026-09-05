@@ -107,8 +107,13 @@ review. This fixed-speed no-yaw policy cannot demonstrate steering or
 variable-speed competence.
 
 The next useful comparison keeps the policy, gait, speed, and 100/50/10 Hz rates
-fixed and changes only `velocity_filter.alpha` from `0.3` to `0.8` in
-`rl_move/config.yaml`. Each new drive session reloads that file. Compare the same
+fixed and changes only `velocity_filter.alpha` from `0.3` to `0.8`.
+The existing runner now accepts `--walk-transport drive --velocity-filter-alpha 0.8`;
+use `0.3` for its baseline. The robot drive API accepts `velocity_filter_alpha`
+on `/api/rl/drive/start`. The override lasts only for that session and the actual
+value is recorded in the episode result; omission preserves `rl_move/config.yaml`.
+This needs the updated controller installed once, then no config edits or service
+restarts between comparisons. Compare the same
 direction, floor and starting posture; keep the change if repeated physical
 walks improve. This experiment does not depend on another gait comparison or a
 six-leg characterization campaign. Both remain separate questions.

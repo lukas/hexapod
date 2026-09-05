@@ -20,6 +20,35 @@ def _policy(meta):
     return SimpleNamespace(meta=dict(meta))
 
 
+@pytest.mark.parametrize("alpha", [float("nan"), float("inf"), -0.01, 1.01, "bad", []])
+def test_drive_velocity_alpha_rejected_before_bus_access(alpha):
+    # None drive would fail immediately if the runner reached its bus access.
+    result = rl_policy.run_drive_session(None, None, velocity_filter_alpha=alpha)
+    assert result["ok"] is False
+    assert "velocity_filter_alpha" in result["error"]
+
+
+@pytest.mark.parametrize("alpha", [None, 0.0, 0.8, 1.0])
+def test_drive_velocity_alpha_is_local_and_reaches_real_estimator(alpha):
+    cfg = {"velocity_filter": {"alpha": 0.3, "max_jump_rad": 0.5}}
+    local_cfg = rl_policy._drive_filter_config(cfg, alpha)
+    est = RobotStateEstimator(None, local_cfg)
+    est._qd_filter.update(np.zeros(18), 1.0)
+    velocity = est._qd_filter.update(np.full(18, 0.1), 1.1)
+    expected = 0.3 if alpha is None else alpha
+    assert np.allclose(velocity, expected)
+    assert cfg["velocity_filter"] == {"alpha": 0.3, "max_jump_rad": 0.5}
+    assert local_cfg["velocity_filter"]["max_jump_rad"] == 0.5
+
+
+def test_drive_velocity_alpha_wrapper_forwards_override(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rl_policy, "_run_drive_session_impl",
+                        lambda *a, **kw: calls.append(kw) or {"ok": True})
+    assert rl_policy.run_drive_session(None, None, velocity_filter_alpha=0.8)["ok"]
+    assert calls[0]["velocity_filter_alpha"] == 0.8
+
+
 def _state(*, bus_ok=True, timestamp=0.0, health=False, timing=None,
            load=12.0, current=0.4, temperature=31.0):
     z = np.zeros(rl_policy.N_JOINTS, dtype=float)

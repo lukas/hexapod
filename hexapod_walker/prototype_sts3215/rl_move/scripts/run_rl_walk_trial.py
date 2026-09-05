@@ -575,6 +575,13 @@ class Trial:
             raise RuntimeError(f"walk {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
 
+    def drive_start_payload(self) -> dict[str, Any]:
+        payload = {"vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0}
+        alpha = getattr(self.args, "velocity_filter_alpha", None)
+        if alpha is not None:
+            payload["velocity_filter_alpha"] = alpha
+        return payload
+
     def drive_leg(self, name: str) -> None:
         """Run one cardinal leg through the 100 Hz/50 Hz live-drive path."""
         unit_x, unit_y = DIRECTIONS[name]
@@ -582,9 +589,7 @@ class Trial:
         vy = unit_y * self.args.speed_m_s
         self.phase = f"drive_{name}"
         started_unix_s = time.time()
-        reply = self.request("/api/rl/drive/start", {
-            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
-        })
+        reply = self.request("/api/rl/drive/start", self.drive_start_payload())
         self.event("drive_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
@@ -628,9 +633,7 @@ class Trial:
     def direction_course(self) -> None:
         self.phase = "direction_course"
         started_unix_s = time.time()
-        reply = self.request("/api/rl/drive/start", {
-            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
-        })
+        reply = self.request("/api/rl/drive/start", self.drive_start_payload())
         self.event("course_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
@@ -779,6 +782,10 @@ def main() -> int:
     parser.add_argument("--course-segment-s", type=float, default=2.0)
     parser.add_argument("--temp-trip-c", type=float, default=55.0)
     parser.add_argument(
+        "--velocity-filter-alpha", type=float, default=None,
+        help="per-session joint-velocity filter alpha in [0, 1]; drive path only",
+    )
+    parser.add_argument(
         "--walk-transport", choices=("timed", "drive"), default="timed",
         help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
               "loop with its established 50 Hz bus-write cadence"),
@@ -810,6 +817,12 @@ def main() -> int:
               "transition during a recoverable retry"),
     )
     args = parser.parse_args()
+    if args.velocity_filter_alpha is not None:
+        if (not math.isfinite(args.velocity_filter_alpha)
+                or not 0.0 <= args.velocity_filter_alpha <= 1.0):
+            parser.error("--velocity-filter-alpha must be finite and in [0, 1]")
+        if args.walk_transport != "drive":
+            parser.error("--velocity-filter-alpha requires --walk-transport drive")
     if not 0.0 < args.speed_m_s <= 0.08:
         parser.error("--speed-m-s must be in (0, 0.08]")
     if not 3.0 <= args.duration_s <= 20.0:

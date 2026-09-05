@@ -91,6 +91,11 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   09-05: `sde-s0-c2` respec'd from `sde-s1`, died in <1s). Always
   respec from the matching-seed `base-*` arm, never from any `sde-*`
   or `sdehalfgrav-*` arm, when building a gSDE-checkpoint continuation.
+  **Scope is bigger than gSDE**: ANY non-blank `--activation-fn` (incl.
+  plain `elu`) on top of a plain `--init-from` trips the SAME guard —
+  `headset-halfgrav-c1` died this way 09-05 (elu, no gSDE at all).
+  Always blank `--activation-fn=` on every `--init-from`/
+  `--init-from-source` continuation, gSDE or not.
 - `launch_run.py respec` defaults `--steps` to the SOURCE run's own
   step count, not the intended budget. Respec'ing a 40M continuation
   `--from` a 2M-CANARY-scale sibling (e.g. `base-s0`, the original

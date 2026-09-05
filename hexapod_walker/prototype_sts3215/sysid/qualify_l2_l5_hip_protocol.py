@@ -83,7 +83,13 @@ def build_protocol() -> dict[str, Any]:
     }
 
 
-def qualify(project_root: Path = PROTO_DIR) -> tuple[dict[str, Any], dict[str, Any]]:
+def qualify(
+    project_root: Path = PROTO_DIR,
+    *,
+    engineering_job_id: str = ENGINEERING_JOB_ID,
+    source_analysis_job_id: str = SOURCE_ANALYSIS_JOB_ID,
+    source_experiment_id: str = SOURCE_EXPERIMENT_ID,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     protocol = build_protocol()
     errors = validate(protocol)
     materialized = materialize(protocol) if not errors else {"ticks": [], "hz": HZ}
@@ -105,9 +111,9 @@ def qualify(project_root: Path = PROTO_DIR) -> tuple[dict[str, Any], dict[str, A
     source = project_root / "linux_control" / "sysid_runner.py"
     report = {
         "schema_version": 1,
-        "engineering_job_id": ENGINEERING_JOB_ID,
-        "source_analysis_job_id": SOURCE_ANALYSIS_JOB_ID,
-        "source_experiment_id": SOURCE_EXPERIMENT_ID,
+        "engineering_job_id": engineering_job_id,
+        "source_analysis_job_id": source_analysis_job_id,
+        "source_experiment_id": source_experiment_id,
         "qualified": bool(
             not errors
             and len(ticks) == 900
@@ -123,6 +129,7 @@ def qualify(project_root: Path = PROTO_DIR) -> tuple[dict[str, Any], dict[str, A
         "protocol_hash": protocol_hash(protocol),
         "canonical_protocol_sha256": _sha256_bytes(_canonical_json(protocol)),
         "canonical_command_stream_sha256": _sha256_bytes(_canonical_json(stream)),
+        "full_stream_sha256": _sha256_bytes(_canonical_json(stream)),
         "trusted_deterministic_executor": "linux_control.sysid_runner.run_sysid_protocol",
         "trusted_executor_source_sha256": _sha256_bytes(source.read_bytes()),
         "runner_compatibility": {
@@ -130,6 +137,20 @@ def qualify(project_root: Path = PROTO_DIR) -> tuple[dict[str, Any], dict[str, A
             "validation_errors": errors,
             "relative_to_measured_segment_pose": True,
             "force_guard_required": True,
+        },
+        "runner_acceptance_unchanged": {
+            "passed": not errors and len(ticks) == 900,
+            "input_protocol_sha256": _sha256_bytes(_canonical_json(protocol)),
+            "accepted_tick_count": len(ticks),
+            "accepted_sample_rate_hz": materialized["hz"],
+        },
+        "deterministic_replay_result": {
+            "passed": not errors and materialize(protocol) == materialized,
+            "replay_count": 2,
+            "tick_count_each": len(ticks),
+            "materialized_ticks_sha256": _sha256_bytes(
+                _canonical_json(materialized)
+            ),
         },
         "timing_validation": {
             "passed": len(ticks) == 900 and materialized["hz"] == HZ,
@@ -157,8 +178,15 @@ def qualify(project_root: Path = PROTO_DIR) -> tuple[dict[str, Any], dict[str, A
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out-dir", type=Path, required=True)
+    parser.add_argument("--engineering-job-id", default=ENGINEERING_JOB_ID)
+    parser.add_argument("--source-analysis-job-id", default=SOURCE_ANALYSIS_JOB_ID)
+    parser.add_argument("--source-experiment-id", default=SOURCE_EXPERIMENT_ID)
     args = parser.parse_args(argv)
-    protocol, report = qualify()
+    protocol, report = qualify(
+        engineering_job_id=args.engineering_job_id,
+        source_analysis_job_id=args.source_analysis_job_id,
+        source_experiment_id=args.source_experiment_id,
+    )
     args.out_dir.mkdir(parents=True, exist_ok=True)
     protocol_path = args.out_dir / f"{NAME}.json"
     stream_path = args.out_dir / f"{NAME}.command_stream.json"
@@ -167,6 +195,23 @@ def main(argv: list[str] | None = None) -> int:
     # the hardware lane can verify the file unchanged with an ordinary SHA-256.
     protocol_path.write_bytes(_canonical_json(protocol))
     stream_path.write_bytes(_canonical_json(report.pop("command_stream")))
+    protocol_file_sha256 = _sha256_bytes(protocol_path.read_bytes())
+    stream_file_sha256 = _sha256_bytes(stream_path.read_bytes())
+    unchanged = (
+        protocol_file_sha256 == report["canonical_protocol_sha256"]
+        and stream_file_sha256 == report["full_stream_sha256"]
+    )
+    report["runner_acceptance_unchanged"].update({
+        "passed": report["runner_acceptance_unchanged"]["passed"] and unchanged,
+        "saved_protocol_sha256": protocol_file_sha256,
+        "saved_stream_sha256": stream_file_sha256,
+        "saved_bytes_unchanged": unchanged,
+    })
+    report["qualified"] = (
+        report["qualified"]
+        and report["runner_acceptance_unchanged"]["passed"]
+        and report["deterministic_replay_result"]["passed"]
+    )
     report["artifacts"] = {
         "protocol": protocol_path.name,
         "command_stream": stream_path.name,

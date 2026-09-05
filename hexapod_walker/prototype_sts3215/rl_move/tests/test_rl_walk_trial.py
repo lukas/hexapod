@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import csv
+import io
 import json
 
 import pytest
@@ -278,3 +279,148 @@ def test_failure_summary_survives_unreachable_policy_endpoint(tmp_path):
     assert summary["error"] == "preflight failed"
     assert summary["policy"] is None
     assert summary["policy_read_error"] == "network unavailable"
+
+
+def _communication_trial(tmp_path):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.output_dir = tmp_path
+    trial.base = "http://fake-robot"
+    trial.phase = "preflight"
+    trial.communication_capture = {"artifacts": [], "errors": [], "markers": {}}
+    trial.event = lambda *_args, **_kwargs: None
+    return trial
+
+
+def test_communication_capture_reuses_session_and_collects_run_rotation_parts(
+        tmp_path, monkeypatch):
+    trial = _communication_trial(tmp_path)
+    calls = []
+    start = {
+        "ok": True, "active": True, "already_active": True,
+        "communication_capture": True,
+        "path": "/logs/current.jsonl",
+        "paths": ["/logs/earlier.jsonl", "/logs/current.jsonl"],
+    }
+    end = {
+        **start, "path": "/logs/next.jsonl",
+        "paths": [*start["paths"], "/logs/next.jsonl"],
+        "flushed_marker": "end-1", "queue_dropped": 3, "write_error": None,
+    }
+    statuses = iter([start, {**end, "flushed_marker": None}, end])
+
+    def request(path, body=None):
+        calls.append((path, body))
+        assert path == "/api/telemetry"
+        if body is None:
+            return next(statuses)
+        if body["action"] == "start":
+            return start
+        assert body["action"] == "mark"
+        return {"ok": True, "marker_id": "end-1"}
+
+    trial.request = request
+    opened = []
+    payload = b'{"record_type":"bus_tx","bytes_hex":"53"}\n'
+
+    def open_log(url, timeout):
+        opened.append(url)
+        return io.BytesIO(payload)
+
+    monkeypatch.setattr(walk_trial.urllib.request, "build_opener", lambda *_: (
+        SimpleNamespace(open=open_log)))
+    monkeypatch.setattr(walk_trial.time, "sleep", lambda _: None)
+
+    trial.start_communication_capture()
+    trial.collect_communication_capture()
+
+    assert opened == [
+        "http://fake-robot/api/logs/current.jsonl",
+        "http://fake-robot/api/logs/next.jsonl",
+    ]
+    capture = trial.communication_capture
+    assert capture["artifacts"] == ["robot_current.jsonl", "robot_next.jsonl"]
+    assert all((tmp_path / name).read_bytes() == payload
+               for name in capture["artifacts"])
+    assert capture["end_marker_flushed"] is True
+    assert capture["end"]["queue_dropped"] == 3
+    assert capture["errors"] == []
+    assert all(body is None or body["action"] != "stop" for _, body in calls)
+    assert all(body is None or body["action"] != "start" for _, body in calls)
+
+
+def test_old_recorder_is_not_enabled_by_communication_capture(tmp_path):
+    trial = _communication_trial(tmp_path)
+    calls = []
+
+    def request(path, body=None):
+        calls.append((path, body))
+        return {"ok": True, "active": False, "piggyback_snapshots": True}
+
+    trial.request = request
+
+    trial.start_communication_capture()
+
+    assert calls == [("/api/telemetry", None)]
+    assert "does not capture raw communication" in trial.communication_capture["errors"][0]
+
+
+def test_communication_failure_is_reported_without_failing_trial(tmp_path):
+    trial = _communication_trial(tmp_path)
+    trial.request = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        RuntimeError("recorder unavailable"))
+
+    trial.start_communication_capture()
+    trial.communication_mark("recovery_begin")
+    trial.collect_communication_capture()
+
+    assert trial.communication_capture["artifacts"] == []
+    assert "recorder unavailable" in str(trial.communication_capture["errors"])
+
+
+def test_communication_capture_reports_unflushed_tail_and_keeps_partial_evidence(
+        tmp_path, monkeypatch):
+    trial = _communication_trial(tmp_path)
+    trial.communication_capture["start"] = {"path": "/logs/current.jsonl"}
+    state = {
+        "ok": True, "active": False, "path": "/logs/current.jsonl",
+        "paths": ["/logs/current.jsonl"], "flushed_marker": None,
+        "queue_dropped": 7, "write_error": "disk full",
+    }
+    trial.request = lambda _path, body=None: (
+        {"ok": True, "marker_id": "never-flushed"} if body else state)
+    clock = _Clock()
+    monkeypatch.setattr(walk_trial.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(walk_trial.time, "sleep", clock.sleep)
+    monkeypatch.setattr(walk_trial.urllib.request, "build_opener", lambda *_: (
+        SimpleNamespace(open=lambda *_args, **_kwargs: io.BytesIO(b"partial\n"))))
+
+    trial.collect_communication_capture()
+
+    capture = trial.communication_capture
+    assert clock.now <= 102.1
+    assert capture["end_marker_flushed"] is False
+    assert "may be incomplete" in capture["errors"][0]
+    assert capture["end"]["write_error"] == "disk full"
+    assert capture["artifacts"] == ["robot_current.jsonl"]
+
+
+def test_communication_capture_files_and_loss_status_appear_in_summary(tmp_path):
+    trial = _communication_trial(tmp_path)
+    trial.completed = True
+    trial.results = []
+    trial.args = SimpleNamespace(
+        phases=["forward"], speed_m_s=0.08, duration_s=3.0,
+        course_segment_s=2.0, joystick_response=False,
+    )
+    trial.request = lambda *_args, **_kwargs: {"ok": True}
+    trial.communication_capture.update({
+        "artifacts": ["robot_bus.jsonl"],
+        "end": {"queue_dropped": 2, "write_error": None},
+    })
+
+    trial.write_summary()
+
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["ok"] is True
+    assert summary["artifacts"]["communication"] == ["robot_bus.jsonl"]
+    assert summary["communication_capture"]["end"]["queue_dropped"] == 2

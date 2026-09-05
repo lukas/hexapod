@@ -1,9 +1,9 @@
 """Bounded robot telemetry recording with contact observation.
 
 The recorder never runs an independent servo-bus poller. ``McuFeetechBus``
-offers it data that a command/test already produced; ordinary sync writes can
-periodically use the firmware's combined write+snapshot reply, which is still
-one transaction. The timing-sensitive callback only does a bounded
+offers it data that a command/test already produced, including raw serial
+bytes before parsing. Recording never changes commands or requests snapshots.
+The timing-sensitive callback only does a bounded
 ``put_nowait``. JSON encoding, contact scoring, and disk I/O all happen on a
 background thread. When that thread cannot keep up, samples are counted and
 dropped instead of delaying motion.
@@ -21,6 +21,7 @@ import re
 import statistics
 import threading
 import time
+import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -258,8 +259,13 @@ class TelemetryRecorder:
 
     def __init__(self, log_directory: Path | None = None, *,
                  queue_max: int | None = None,
+                 segment_bytes: int = 64 * 1024 * 1024,
                  model_path: Path = DEFAULT_MODEL_PATH):
-        self.log_directory = Path(log_directory or HERE / "logs")
+        if log_directory is None:
+            from event_log import log_dir
+            log_directory = log_dir()
+        self.log_directory = Path(log_directory)
+        self.segment_bytes = max(1024, int(segment_bytes))
         self.queue_max = max(128, int(queue_max or _env_int(
             "HEXAPOD_TELEMETRY_QUEUE", 4096)))
         self.model_path = Path(model_path)
@@ -270,6 +276,8 @@ class TelemetryRecorder:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._path: Path | None = None
+        self._paths: list[Path] = []
+        self._flushed_marker: str | None = None
         self._started_unix_ns: int | None = None
         self._started_mono_ns: int | None = None
         self._max_hz = 0.0
@@ -281,6 +289,9 @@ class TelemetryRecorder:
         self._written = 0
         self._rate_limited = 0
         self._queue_dropped = 0
+        self._communication_dropped = 0
+        self._uncaptured_bytes = 0
+        self._capture_errors = 0
         self._write_error: str | None = None
         self._latest_contact: dict | None = None
         self._observer: RollingContactObserver | None = None
@@ -312,6 +323,8 @@ class TelemetryRecorder:
             self.log_directory.mkdir(parents=True, exist_ok=True)
             self._path = self.log_directory / (
                 f"telemetry_{stamp}_{_clean_label(label)}.jsonl")
+            self._paths = [self._path]
+            self._flushed_marker = None
             self._queue = queue.Queue(maxsize=self.queue_max)
             self._stop = threading.Event()
             self._started_unix_ns = time.time_ns()
@@ -325,6 +338,9 @@ class TelemetryRecorder:
             self._written = 0
             self._rate_limited = 0
             self._queue_dropped = 0
+            self._communication_dropped = 0
+            self._uncaptured_bytes = 0
+            self._capture_errors = 0
             self._write_error = None
             self._latest_contact = None
             self._observer = RollingContactObserver(self.model_path)
@@ -369,31 +385,23 @@ class TelemetryRecorder:
             return True
         except queue.Full:
             self._queue_dropped += 1
+            if kind.startswith("serial_"):
+                self._communication_dropped += 1
             return False
 
     def __call__(self, kind: str, payload: dict) -> bool:
         return self.offer(kind, payload)
 
-    def wants_snapshot(self) -> bool:
-        """Whether a sync write should use the existing combined S reply.
-
-        This reserves no timestamp and does no I/O. The subsequent ``step``
-        offer performs the authoritative rate-limit check.
-        """
-        if not self._active:
-            return False
-        previous = self._last_high_rate_ns
-        return (not previous or
-                time.monotonic_ns() + self._rate_slack_ns
-                >= previous + self._minimum_period_ns)
-
     def mark(self, label: str, data: dict | None = None) -> dict:
         if not self._active:
             return {"ok": False, "error": "telemetry recorder is not active"}
+        marker_id = uuid.uuid4().hex
         accepted = self.offer("marker", {
             "label": str(label)[:120], "data": data or {},
+            "marker_id": marker_id,
         })
-        return {"ok": accepted, "label": str(label)[:120], **self.status()}
+        return {"ok": accepted, "label": str(label)[:120],
+                "marker_id": marker_id, **self.status()}
 
     def stop(self, *, timeout: float = 2.0) -> dict:
         with self._lock:
@@ -429,10 +437,15 @@ class TelemetryRecorder:
             "active": self._active,
             "passive": True,
             "adds_bus_reads": False,
-            "piggyback_snapshots": True,
+            "piggyback_snapshots": False,
+            "communication_capture": True,
+            "communication_scope": "host_mcu_serial",
+            "communication_rate_limited": False,
             "observer_only": True,
             "gait_gating": False,
             "path": str(path) if path is not None else None,
+            "paths": [str(part) for part in self._paths],
+            "flushed_marker": self._flushed_marker,
             "bytes": size,
             "max_hz": self._max_hz,
             "queue": q.qsize() if q is not None else 0,
@@ -441,6 +454,9 @@ class TelemetryRecorder:
             "written": self._written,
             "rate_limited": self._rate_limited,
             "queue_dropped": self._queue_dropped,
+            "communication_dropped": self._communication_dropped,
+            "uncaptured_bytes": self._uncaptured_bytes,
+            "capture_errors": self._capture_errors,
             "write_error": self._write_error,
             "writer_alive": bool(
                 self._thread is not None and self._thread.is_alive()),
@@ -456,60 +472,81 @@ class TelemetryRecorder:
         observer = self._observer
         if q is None or path is None or observer is None:
             return
+        stream = None
         try:
-            with path.open("x", encoding="utf-8", buffering=256 * 1024) as stream:
-                metadata = {
-                    "schema_version": 1,
-                    "record_type": "session",
-                    "ts": _utc_iso(self._started_unix_ns),
-                    "time_unix_ns": self._started_unix_ns,
-                    "mono_ns": self._started_mono_ns,
-                    "passive": True,
-                    "adds_bus_reads": False,
-                    "piggyback_snapshots": True,
-                    "max_hz": self._max_hz,
-                    "queue_max": self.queue_max,
-                    "contact_observer": observer.info(),
+            metadata = {
+                "schema_version": 2, "record_type": "session",
+                "ts": _utc_iso(self._started_unix_ns),
+                "time_unix_ns": self._started_unix_ns,
+                "mono_ns": self._started_mono_ns,
+                "passive": True, "adds_bus_reads": False,
+                "piggyback_snapshots": False,
+                "communication_capture": True,
+                "communication_scope": "host_mcu_serial",
+                "communication_rate_limited": False,
+                "max_hz": self._max_hz, "queue_max": self.queue_max,
+                "contact_observer": observer.info(),
+            }
+            header = json.dumps(metadata, separators=(",", ":")) + "\n"
+            stream = path.open("x", encoding="utf-8", buffering=256 * 1024)
+            stream.write(header)
+            part_bytes = len(header)
+            last_flush = time.monotonic()
+            while not self._stop.is_set() or not q.empty():
+                try:
+                    seq, unix_ns, mono_ns, kind, payload = q.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+                record = {
+                    "schema_version": 2, "record_type": str(kind),
+                    "seq": int(seq), "ts": _utc_iso(int(unix_ns)),
+                    "time_unix_ns": int(unix_ns),
+                    "mono_s": round(int(mono_ns) / 1_000_000_000, 9),
+                    **payload,
                 }
-                stream.write(json.dumps(metadata, separators=(",", ":")) + "\n")
-                last_flush = time.monotonic()
-                while not self._stop.is_set() or not q.empty():
-                    try:
-                        seq, unix_ns, mono_ns, kind, payload = q.get(timeout=0.1)
-                    except queue.Empty:
-                        continue
-                    record = {
-                        "schema_version": 1,
-                        "record_type": str(kind),
-                        "seq": int(seq),
-                        "ts": _utc_iso(int(unix_ns)),
-                        "time_unix_ns": int(unix_ns),
-                        "mono_s": round(int(mono_ns) / 1_000_000_000, 9),
-                        **payload,
-                    }
+                if kind.startswith("serial_"):
+                    # All encoding is off the bus thread; wire events bypass
+                    # the decoded-sample rate limit and preserve every byte.
+                    data = record.pop("data", b"")
+                    record["data_hex"] = data.hex()
+                    record["byte_count"] = len(data)
+                    self._uncaptured_bytes += int(
+                        record.get("uncaptured_bytes", 0))
+                    self._capture_errors += int(kind == "serial_capture_error")
+                else:
                     contact = observer.update(payload, int(mono_ns) / 1_000_000_000)
                     if contact is not None:
                         record["contact"] = contact
                         self._latest_contact = contact
-                    stream.write(json.dumps(
-                        record, default=str, separators=(",", ":")) + "\n")
-                    self._written += 1
-                    q.task_done()
-                    if time.monotonic() - last_flush >= 1.0:
-                        # Users asked to retain the logs. A periodic userspace
-                        # flush limits loss on service failure without fsyncing
-                        # or touching the control thread.
-                        stream.flush()
-                        last_flush = time.monotonic()
-                stream.write(json.dumps({
-                    "schema_version": 1,
-                    "record_type": "session_end",
-                    "ts": _utc_iso(),
-                    "written": self._written,
-                    "rate_limited": self._rate_limited,
-                    "queue_dropped": self._queue_dropped,
-                }, separators=(",", ":")) + "\n")
-                stream.flush()
+                line = json.dumps(record, default=str, separators=(",", ":")) + "\n"
+                if part_bytes >= self.segment_bytes:
+                    stream.close()
+                    part = path.with_name(
+                        f"{path.stem}.part{len(self._paths):04d}.jsonl")
+                    stream = part.open("x", encoding="utf-8", buffering=256 * 1024)
+                    self._paths.append(part)
+                    self._path = part
+                    stream.write(header)
+                    part_bytes = len(header)
+                stream.write(line)
+                part_bytes += len(line)
+                self._written += 1
+                q.task_done()
+                if kind == "marker" or time.monotonic() - last_flush >= 1.0:
+                    stream.flush()
+                    last_flush = time.monotonic()
+                    if kind == "marker":
+                        self._flushed_marker = payload.get("marker_id")
+            stream.write(json.dumps({
+                "schema_version": 2, "record_type": "session_end",
+                "ts": _utc_iso(), "written": self._written,
+                "rate_limited": self._rate_limited,
+                "queue_dropped": self._queue_dropped,
+                "communication_dropped": self._communication_dropped,
+                "uncaptured_bytes": self._uncaptured_bytes,
+                "capture_errors": self._capture_errors,
+            }, separators=(",", ":")) + "\n")
+            stream.flush()
         except Exception as exc:
             self._write_error = f"{type(exc).__name__}: {exc}"
             self._active = False
@@ -523,6 +560,9 @@ class TelemetryRecorder:
                 "path": str(path), "error": self._write_error,
                 "queue": q.qsize(), "queue_dropped": self._queue_dropped,
             })
+        finally:
+            if stream is not None:
+                stream.close()
 
     @staticmethod
     def _emit_event(message: str, *, data: dict,

@@ -42,19 +42,42 @@
   the medhead rung starts, not a rung-wide dead end; the
   already-launched `headset-base-medhead2-acq1` 40M continuation is
   the live test of whether a cleaner-starting seed holds up at full
-  budget. No new arm launched this cycle: every non-duplicative next
-  step (per-leg-utilization mechanism design, the halfgrav-medhead-
-  acq1 read, the medhead2-acq1 continuations) is already in flight;
-  capacity re-checked (`capacity.py` read 10/11 free, but
-  `train-1/2/4` were each genuinely running one of these 3 gate evals
-  despite reading FREE — confirmed real blind spot: the launcher's
-  live check only detects TRAINING processes, not standalone
-  `eval_checkpoint` passes — left those 3 alone to avoid GPU
-  contention with an eval already close to done, found no other
-  pre-registered non-duplicative item to fill the true-idle pods
-  beyond what's already running). Evidence: `ops.sh review
-  cw-walkscratch-easy0905-headset-base-{s0c1-dgfresh,medhead-acq1}`,
-  CURRENT_TRUTHS.md 09-05 ~19:2x, W&B `8q0axo9n`/`8dtoak13`.
+  budget. (3) `headset-halfgrav-medhead-acq1` landed later in the
+  cycle (was still genuinely computing at the time of (1)/(2)):
+  **ACQ PASS** — `gait_valid` 22/24 (`walk/det` 6/6, `walk/sto` 6/6,
+  `walk_startjitter/sto` 6/6, `walk_startjitter/det` 4/6 meeting the
+  majority bar exactly; the 2 flagged episodes carry leg-4 duty
+  0.08-0.09, borderline-not-chronic, vs the base sibling's
+  0.02-0.07-every-episode pattern), 0/24 falls, `slip_per_m` med
+  2.10/2.87/2.34/2.52 (at/under the 2.9 band in 3/4 scenarios),
+  forward 0.09-0.16 m/s. This is the FIRST acquisition-scale PASS of
+  the medhead rung on either gravity cell, and it lands on the SAME
+  rung/budget the base sibling just failed — the split tracks gravity,
+  not seed quality (2nd axis after irr-timing where halfgrav clears
+  and base doesn't). `rl_docs/SKILLS.md` updated with a dedicated row.
+  **Refill (same cycle, root-cause-driven):** the `s0c1-dgfresh`
+  closure's own root-cause read — `policy_std` already sits at its
+  schedule floor (0.135 rad, `--log-std-final=-2.0`) by 2M, so
+  `walk_duty_gate`'s training-time pricing gets satisfied by
+  noise-driven duty upticks during rollout collection that never have
+  to move the policy MEAN — suggested an untried, single-variable
+  companion lever: keep exploration noise alive much longer
+  (`--log-std-final` -2.0 -> -1.2, residual stddev 0.135->0.301 rad)
+  on the IDENTICAL `dgfresh` recipe otherwise. Launched
+  `headset-base-s0c1-dgnoise-c1` (respec of `s0c1-dgfresh`, only the
+  one `--log-std-final` change), VERIFIED RUNNING `train-1` (a
+  `--now` launch call itself hit the tool's 2min timeout mid-verify,
+  but `checkup`+ledger confirmed HEALTHY/RUNNING afterward — no
+  double-launch). Capacity re-checked before this launch:
+  `train-1`/`train-4` were genuinely idle (confirmed via direct `ps`,
+  not just `capacity.py`'s live check, which still cannot see
+  standalone eval processes — `train-2` was correctly avoided, still
+  running this cycle's own halfgrav eval at the time). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-base-
+  {s0c1-dgfresh,medhead-acq1}`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_medhead_acq1_gate/
+  report.json`, CURRENT_TRUTHS.md 09-05 ~19:2x, W&B
+  `8q0axo9n`/`8dtoak13`/`dejrlkhv`.
 
 - 09-05 ~19:2x this cycle (own assigned pair, verdicted after their
   `pollreap` reaped): `headset-base-medhead2-c1` and

@@ -2,6 +2,37 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~21:5x this cycle (assigned `headset-halfgrav-medhead2-acq1-cont40m`,
+  the 40M continuation launched last cycle off the halfgrav medhead2
+  seed's borderline CONTINUE read): one verdict, no new launch. **ACQ
+  FAIL** vs the continuation's own pre-registered gate: `walk/det`
+  improved 4/6->5/6 gait_valid (0 falls, slip med 2.25) but
+  `walk_startjitter/det` stayed flat at 2/6 through the full extra 40M
+  (80M total) — flagged legs sit at borderline duty 0.05-0.08 (not the
+  base family's hard 0.0-0.02 park) and which leg gets flagged still
+  varies episode-to-episode, so this reads as a plateau on the
+  start-jitter perturbation specifically, not a regression or new
+  entrenchment. `ep_rew_mean` is still rising but decelerating
+  (+184,+103,+101 per quarter) — exactly the reward-climbing-alone
+  shape this gate's own text preemptively barred ("do not fund a 3rd
+  continuation past this one on reward-climbing alone"), so closed
+  now per its own stopping rule rather than extended further. **Net:**
+  the halfgrav+medhead2 rung is n=2-seed MIXED, not confirmed — seed1
+  (`headset-halfgrav-medhead-acq1`) PASSED cleanly at 40M; seed2 (this
+  lineage) needed a continuation and still fails specifically on
+  start-jitter robustness after 80M. This looks like a narrower,
+  perturbation-specific open question (initial-joint-offset
+  robustness) rather than the base family's chronic per-leg-
+  utilization pathology, so it does not reopen that closed mechanism
+  question; it's a candidate for a future targeted start-jitter-
+  robustness pass, not an immediate repair spend. Left the cycle's
+  free capacity to the concurrent cycle already running the
+  `swinggate` retrofit batch (still training, not re-triaged here) and
+  the `widen2-c1/c2` thread (explicitly another cycle's this round).
+  Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_cont40m_gate/report.json`.
+
 - 09-05 ~21:4x this cycle (assigned `headset-halfgrav-fullhead-widen2-{c1,c2}`;
   both found genuinely still computing remotely at cycle spawn —
   prestage had pulled the checkpoint but the gate eval was an orphaned

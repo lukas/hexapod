@@ -758,7 +758,7 @@ def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
     job = next(job for job in store.codex_jobs_for_experiment(source["id"])
                if job["kind"] == "analysis")
     assert job["status"] == "succeeded"
-    assert store.codex_queue_control()["paused"] is True
+    assert store.codex_queue_control()["paused"] is (disposition == "stop")
     receipts = job["result"]["followup_receipts"]
     children = [item for item in store.list() if item["id"] != source["id"]]
     if accepted:
@@ -777,6 +777,44 @@ def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
         assert receipts["rejected"][0]["disposition_reason"] == (
             "source analysis did not clear safety: " + disposition
         )
+
+
+@pytest.mark.parametrize(
+    "parameters, disposition, paused",
+    [
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": False, "robot_motion": True},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "stop",
+            True,
+        ),
+    ],
+)
+def test_analysis_pause_policy_only_stops_queue_for_stop(
+    tmp_path, parameters, disposition, paused
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings, parameters=parameters)
+
+    def invoke(role, _job, _request):
+        assert role == "analysis"
+        result = analysis_result(source)
+        result["safety_disposition"] = disposition
+        return result
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    assert store.codex_queue_control()["paused"] is paused
 
 
 def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(

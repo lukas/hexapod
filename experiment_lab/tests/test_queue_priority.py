@@ -80,6 +80,29 @@ def test_blocked_handoff_yields_to_next_plan_then_resumes_same_job(tmp_path):
         "parameters": {},
     }, "operator")
     assert store.next_external_experiment()["id"] == second["id"]
+
+    # A later pause/resume for another experiment is not permission to retry
+    # this blocked handoff, even though it is the latest global queue control.
+    unrelated_source = store.enqueue_advance(
+        "unrelated-inspection", "test", experiment_id=second["id"]
+    )
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_jobs SET status='succeeded',finished_at=updated_at "
+            "WHERE id=?",
+            (unrelated_source["id"],),
+        )
+    store.pause_codex_queue(
+        unrelated_source["id"],
+        "Independent plan needs inspection",
+        created_by="test",
+    )
+    unrelated_resume = store.resume_codex_queue(
+        "Independent plan was inspected", created_by="test"
+    )
+    assert unrelated_resume["resumed"] is True
+    assert store.next_external_experiment()["id"] == second["id"]
+
     assert orchestrator.process_one("advance") is True
     second_advance = next(
         job for job in store.codex_jobs_for_experiment(second["id"])

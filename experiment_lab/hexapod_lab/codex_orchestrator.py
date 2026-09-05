@@ -1429,11 +1429,12 @@ class CodexOrchestrator:
             normalized = dict(checkpoint)
         else:
             raise CodexRunError("Analysis result checkpoint is invalid")
-        if normalized["safety_disposition"] != "clear":
+        disposition = normalized["safety_disposition"]
+        if disposition == "stop":
             self.store.pause_codex_queue(
                 job["id"],
                 "Evidence analysis requires safety inspection: "
-                + normalized["safety_disposition"],
+                + disposition,
             )
         self.store.record_learnings(
             experiment_id,

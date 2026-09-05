@@ -2,6 +2,46 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~22:2x this cycle (assigned `headset-base-s0c1-swinggate-fresh`,
+  the fresh-provenance arm of the 4-arm `walk_swing_gate` canary
+  batch): one verdict, no new launch (all pods free but the batch's
+  own sibling reads are pending, and no new hypothesis is ready
+  without them). **CANARY FAIL — MECHANISM (INERT DOSE)**: harness
+  result is statistically indistinguishable from the undosed
+  `dgfresh` twin it was baked in on top of — `walk/det` 6/6,
+  `walk/sto` 6/6 gait_valid (both match the twin exactly),
+  `walk_startjitter/sto` 5/6 with the identical episode (idx4) failing
+  in both, and `walk_startjitter/det` (the canary's own named test
+  mode) stays 0/6 in both with leg4 duty 0.03-0.06 here vs 0.02-0.07
+  in `dgfresh` — chronically <=0.10 in all 6/6 episodes, matching the
+  fingerprint every prior mechanism (`walk_gait_gate`, `walk_duty_gate`,
+  noise revival) already left on this checkpoint/mode. Confirmed the
+  gate's own pre-registered "gamed-completion-score" clause too:
+  `env/walk_swing_gate_factor` logged saturated at 1.0 at every
+  sampled point across the whole 2M run despite leg4's chronic
+  near-zero duty the entire time (leg4 completes enough swing-like
+  liftoffs per 4s window — 26-55 in 20s — to clear the trailing-count
+  floor without ever contributing real stance/transport). 0 falls
+  anywhere (24/24 episodes); reward grows on the same trajectory shape
+  as the undosed twin, so this is a clean inert dose, not a training
+  pathology. **Closes the fresh-provenance half of the swing_gate
+  test**: pricing the mechanism in before the leg-4 habit entrenches
+  does not cure it when the checkpoint (2M) already exhibits the
+  chronic pattern. The entrenched-checkpoint retrofit triplet
+  (`swinggate-fix`, `medhead-swinggate-fix`, `irr-swinggate-fix`) all
+  finished training this cycle too (W&B state=finished) but are
+  assigned to sibling cycles — did not re-triage them here to avoid a
+  double-verdict race; if all three also FAIL, `walk_swing_gate`
+  closes as a 7th independently-designed per-leg-utilization mechanism
+  on the base(1g) family (after `walk_gait_gate`+`k_step_event` 6/6
+  FAIL, `walk_duty_gate` 9/9 FAIL across every provenance x dose), and
+  the next lever must be structural, not another reward-shaping
+  variant — **do not fund further bare `walk_swing_gate` arms of any
+  provenance until the retrofit triplet's reads land**. Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-base-s0c1-swinggate-
+  fresh`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_
+  swinggate_fresh_gate/report.json`, W&B `3f8el794`, CURRENT_TRUTHS.md.
+
 - 09-05 ~21:5x this cycle (assigned `headset-halfgrav-medhead2-acq1-cont40m`,
   the 40M continuation launched last cycle off the halfgrav medhead2
   seed's borderline CONTINUE read): one verdict, no new launch. **ACQ

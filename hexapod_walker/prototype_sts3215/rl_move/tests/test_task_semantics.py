@@ -5785,6 +5785,188 @@ def test_walk_gait_gate_collapses_quadwalk_midpin_income():
 
 
 # --------------------------------------------------------------------------
+# reward.walk_swing_gate (09-05, walkcurr easy0905 legpark-skate
+# dig-in follow-up): the SIXTH structural repair attempt for the
+# marginal/chronic leg-sacrifice pathology, after `walk_gait_gate` +
+# `k_step_event` closed 6/6 FAIL (a rare token swing every several
+# seconds resets its RECENCY score without a real gait forming) and
+# `walk_duty_gate` closed 9/9 FAIL (a fully planted OR high-frequency
+# in-place-vibrating stance clears a trailing contact-DUTY floor more
+# cheaply than any real gait, since a planted foot's duty is simply
+# 1.0). This gate keeps `walk_gait_gate`'s stride-filtered swing
+# definition (a chattering/vibrating "swing" that never displaces the
+# foot >= gait_gate_stride_mm never counts, closing the duty_gate
+# freeze/vibrate exploit) but replaces its recency-decay score with a
+# trailing-window COUNT (>= swing_gate_min_count qualifying swings
+# required inside ONE swing_gate_window_s, not "was there one
+# anywhere in window+fade seconds") — a leg stepping once every
+# several seconds cannot clear a >=2-per-window count bar the way it
+# cleared a >=1-per-(window+fade) recency floor. MIN over support
+# legs, per every gate in this file. Default 0 = off, bit-exact.
+# See CURRENT_TRUTHS.md 09-05 ~19:2x-~20:2x for the closure trail this
+# repairs.
+
+SWING_GATE_ON = dict(WALK_OVERRIDES)
+SWING_GATE_ON[("reward", "walk_swing_gate")] = 1.0
+SWING_GATE_ON[("reward", "gait_gate_stride_mm")] = 7.0  # see GAIT_GATE_ON note
+
+
+def _swing_gate_walk_rollout(policy: str, seed: int,
+                             overrides: dict) -> dict:
+    """Walk-mode rollout for the swing-gate bank. Policies:
+    'gait' = the honest six-leg scripted tripod (same actor
+    `_gait_gate_walk_rollout` uses); 'flagleg' = the same gait with
+    mid leg 1 blended to a raised, permanently-parked flag pose (the
+    walk_gait_gate bank's own sacrifice twin — zero completed swings
+    ever, the trivial case both this gate and walk_gait_gate must
+    collapse); 'frozen' = ALL SIX legs held dead still at the plant
+    pose for the whole episode (duty 1.0 on every leg, zero completed
+    swings anywhere) — the scripted twin of the walk_duty_gate
+    freeze/vibrate exploit this gate exists to close, which
+    walk_gait_gate's own bank never had to cover (walk_duty_gate did
+    not exist yet)."""
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * np.linspace(
+        0.0, 1.0, ramp_n)
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
+    flag = np.array(GG_FLAG_RAD)
+    gait.reset_phase()
+    total, step = 0.0, 0
+    kernel = prog = 0.0
+    smin_tail: list[float] = []
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
+        if policy == "frozen":
+            q = plant_rad.copy()
+        else:
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+            if policy == "flagleg":
+                a = min(t / 1.5, 1.0)
+                q[3:6] = (1 - a) * plant_rad[3:6] + a * flag
+        _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        total += float(r)
+        kernel += float(info.get("reward_walk", 0.0))
+        prog += float(info.get("reward_walk_prog", 0.0))
+        if "walk_swing_gate_min" in info and t > 6.0:
+            smin_tail.append(float(info["walk_swing_gate_min"]))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "terminated": bool(term), "kernel": kernel,
+            "prog": prog,
+            "smin": (float(np.median(smin_tail)) if smin_tail else None)}
+
+
+def test_walk_swing_gate_default_off_bit_exact():
+    """walk_swing_gate=0.0 (explicit) must equal the key absent — no
+    reward-path or rng change on the default path."""
+    woff = dict(WALK_OVERRIDES)
+    woff[("reward", "walk_swing_gate")] = 0.0
+    c = _swing_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)["return"]
+    d = _swing_gate_walk_rollout("gait", SEEDS[0], woff)["return"]
+    assert c == d, (
+        f"walk_swing_gate=0 changed the walk reward path ({c} vs {d})")
+
+
+def test_walk_swing_gate_keeps_honest_gait_income():
+    """The honest six-leg scripted gait completes qualifying swings on
+    every support leg well inside the trailing window, so the count
+    bar clears easily: factor pinned near 1, return within a few
+    percent of gate-off."""
+    off = _swing_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    on = _swing_gate_walk_rollout("gait", SEEDS[0], SWING_GATE_ON)
+    assert on["smin"] is not None and on["smin"] >= 0.99, (
+        f"honest gait scored walk_swing_gate_min {on['smin']} — the "
+        "gate is mis-scoring a genuinely cycling gait")
+    assert not on["terminated"]
+    drop = off["return"] - on["return"]
+    assert drop < 0.05 * abs(off["return"]) + 20.0, (
+        f"gate cost the honest gait {drop:.1f} of {off['return']:.1f} "
+        "— it must be ~free for the intended behavior")
+
+
+def test_walk_swing_gate_collapses_flag_leg_income():
+    """One permanently-parked leg (zero completed swings ever) must
+    collapse velocity income to the floor, matching walk_gait_gate's
+    own trivial case."""
+    off = _swing_gate_walk_rollout("flagleg", SEEDS[0], WALK_OVERRIDES)
+    on = _swing_gate_walk_rollout("flagleg", SEEDS[0], SWING_GATE_ON)
+    assert on["smin"] is not None and on["smin"] <= 0.01, (
+        f"flag-leg gait still scores walk_swing_gate_min {on['smin']} "
+        "— the sacrificed leg is not collapsing the min")
+    hit = off["return"] - on["return"]
+    assert hit > 80.0, (
+        f"gate charged the flag-leg cheat only {hit:.1f} over the "
+        "episode — no structural bite")
+    assert on["prog"] < 0.0, (
+        f"flag-leg progress income {on['prog']:.1f} stayed non-negative "
+        "under the gate — transport income not meaningfully collapsed")
+    assert on["kernel"] < 0.65 * off["kernel"], (
+        f"flag-leg kernel income {on['kernel']:.1f} vs {off['kernel']:.1f} "
+        "gate-off — transport income not collapsed")
+
+
+def test_walk_swing_gate_collapses_frozen_stance_income():
+    """THE closing test this gate exists for: a fully frozen stance
+    (all six legs held dead still at the plant pose — duty 1.0 on
+    every leg, exactly walk_duty_gate's freeze/vibrate exploit
+    fingerprint) must score walk_swing_gate_min 0, unlike
+    walk_duty_gate: a duty FLOOR (fraction of time in contact) is
+    trivially satisfied by NEVER LIFTING (duty=1.0 clears any floor
+    <1.0) — duty_gate cannot tell "healthy moderate duty" from "never
+    swings at all" apart, which is exactly why it closed FAIL 9/9. A
+    swing-COUNT floor cannot be gamed the same way: a leg that never
+    lifts completes zero qualifying swings by construction, so the
+    MIN collapses regardless of contact duty.
+
+    NOTE this scripted actor's baseline kernel income is ALREADY at
+    its own floor (r_walk decays to ~0.0 for true zero velocity well
+    before the gate's window even fills, measured directly) — a
+    perfectly static commanded pose has nothing left for any gate to
+    additionally charge, so this test does not (and should not) claim
+    a large income "hit" the way the flag-leg test does. The real
+    trained exploiter this repairs (headset-base/sde LEGPARK-SKATE,
+    CURRENT_TRUTHS 09-05) earns its small nonzero income from body/
+    contact JITTER around a near-static pose, not a literal zero — the
+    gate's structural guarantee (freeze = 0 qualifying swings = gated
+    factor 0, full stop) is what matters and is asserted directly via
+    smin, not inferred from a return delta this idealized actor cannot
+    exhibit."""
+    off = _swing_gate_walk_rollout("frozen", SEEDS[0], WALK_OVERRIDES)
+    on = _swing_gate_walk_rollout("frozen", SEEDS[0], SWING_GATE_ON)
+    assert not off["terminated"] and not on["terminated"], (
+        "frozen actor tipped — it must survive for the gate window to "
+        "be exercised")
+    assert on["smin"] is not None and on["smin"] <= 0.01, (
+        f"frozen stance still scores walk_swing_gate_min {on['smin']} "
+        "— the freeze/vibrate exploit is NOT closed")
+    # No-regression: the gate must never PAY the frozen actor more
+    # than gate-off (factors only ever shrink income, never grow it).
+    assert on["kernel"] <= off["kernel"] + 1e-6, (
+        f"gate increased frozen kernel income {off['kernel']:.2f} -> "
+        f"{on['kernel']:.2f} — a gate must never boost income")
+    assert on["prog"] <= off["prog"] + 1e-6, (
+        f"gate increased frozen progress income {off['prog']:.2f} -> "
+        f"{on['prog']:.2f} — a gate must never boost income")
+
+
+# --------------------------------------------------------------------------
 # FULLCIRCLE bank — the cw-mt-c2-fullcircle1 stack (operator directive
 # fb_20260815T114414, 08-15): translation-only full-circle commands
 # (heading uniform [-pi, pi], speed 0.03-0.06, NO stop segments,

@@ -309258,7 +309258,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead_acq1.zip"
     ],
     "created": "2026-09-05T20:26:33+00:00",
-    "status": "RUNNING",
+    "status": "CANARY_PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -309304,7 +309304,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T20:45:22"
+    "triage": "done",
+    "verdict": "CANARY PASS (mechanism-health, curriculum-shape signal POSITIVE). Widening from the mature 40M medhead-acq1 champion (not a cold 3-way jump) keeps the gait genuinely intact -- gait_valid 21/24 (majority every mode: 4/6,6/6,5/6,6/6), ZERO falls/terminations across all 24 episodes -- AND measurably tightens course-tracking at the two new reversal headings vs the fullhead-c1 cold-jump baseline (same halfgrav family, n=24 each): direction_err_mean_deg median 88.5->75.5 (range 29-144 -> 25-136), course_err_1s_med_deg median 94.9->57.9 (-39%), and most strikingly slip_per_m median 51.4->7.6 (6.8x lower, now near the 2.9 teacher band on the majority of episodes). Frame strips (walk_det_3, highest-slip episode) show genuine six-leg cycling through varied body poses, not a frozen/dragging gait. This supports the pre-registered curriculum-shape hypothesis: widening FROM an already-quarter-turn-capable champion is a better recipe than a cold full-8-way jump from the 3-way champion. NOT yet a design conclusion alone -- read together with widen2-c2 (this cycle): that arm shows no such improvement, but a provenance check found it warm-started from a 2M CANARY checkpoint (headset_halfgrav_medhead2_c1) rather than medhead2's own 40M champion (medhead2_acq1), so it is NOT a matched-budget second seed and cannot yet refute this result as a seed lottery. Launching a matched-budget corrected second-seed arm this cycle from medhead2_acq1 (40M) to give a clean apples-to-apples read."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2",
@@ -309462,7 +309463,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_c1.zip"
     ],
     "created": "2026-09-05T20:30:14+00:00",
-    "status": "RUNNING",
+    "status": "CANARY_PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -309508,7 +309509,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T20:45:23"
+    "triage": "done",
+    "verdict": "CANARY PASS on the pre-registered mechanism bar only (gait_valid stays majority 23/24: 6/6,6/6,5/6,6/6, ZERO falls -- widening did not reintroduce leg sacrifice), but the course-tracking half of this canary is INCONCLUSIVE and CONFOUNDED -- do not read it as refuting widen2-c1's positive signal. direction_err_mean_deg median 89.5 (vs fullhead-c1 cold-jump baseline 88.5, essentially flat) and course_err_1s_med_deg median 87.9 (vs baseline 94.9, marginal) show no clear improvement, and slip_per_m WORSENS sharply (median 124.4 vs baseline 51.4, vs widen2-c1's own 7.6 -- a 16x gap between the two nominal 'seeds' of the identical recipe). Root cause found on a provenance check of the ledger's own extra_args (not just the notes text, per the respec-provenance gotcha in CURRENT_TRUTHS): this arm's --init-from is ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_c1.zip -- medhead2's 2M CANARY checkpoint -- not medhead2_acq1 (medhead2's own 40M ACQ-continuation champion, matching what widen2-c1 used for seed 1: medhead_acq1, also 40M). This is a checkpoint-MATURITY confound (2M vs 40M training budget on the base skill being widened), not a clean matched second seed of the widen2 recipe -- the worse course-tracking/slip may reflect widening from a less-settled base policy, not the widen2 recipe failing to generalize to a second seed. Refill: launched a corrected matched-budget arm (widen2-c2b) from medhead2_acq1.zip (40M) this cycle for a true apples-to-apples second-seed read before drawing any curriculum-shape conclusion from this pair."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m",
@@ -309700,6 +309702,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_cont40m --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1: headset-halfgrav-medhead2-acq1 (5-way medium-heading, halfgrav 0.5g, 2nd seed) read CONTINUE not FAIL/PASS at 40M: walk_startjitter/det only 2/6 gait_valid (below the >=4/6 bar) but the flagged legs'\"'\"' duty_cycle is borderline (0.06-0.11, matching the first-seed champion'\"'\"'s own accepted-as-PASS 0.08-0.09 range, not the base family'\"'\"'s chronic 0.0-0.02 hard park), which leg gets flagged varies across episodes rather than one leg every time, and ep_rew_mean is still genuinely climbing (quarters -401,-419,-183,+30, noisy but net upward in the last 10M) with v_along_cmd stable/not collapsing. Same checkpoint, same recipe, another 40M (80M total) to let the marginal gait resolve one way or the other before re-judging the halfgrav medhead rung'\"'\"'s 2nd-seed status.' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m.log",
     "wandb_id": "cj3fxcgy",
-    "verified": "2026-09-05T20:45:23+00:00"
+    "verified": "2026-09-05T20:45:23+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T20:50:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2158,
+        "fps": 34952.5,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T21:21:19"
   }
 ]

@@ -394,7 +394,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_foot_prev_force",
                           "_foot_tan_slip_m", "_duty_hist",
-                          "_dgate_hist", "_phase",
+                          "_dgate_hist", "_swing_gate_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
@@ -476,6 +476,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # _duty_hist so the two mechanisms cannot perturb each
         # other's windows. Rides MJX_SNAPSHOT_EXTRA.
         self._dgate_hist: list = []
+        # Per-leg qualifying-swing-event history (09-05,
+        # reward.walk_swing_gate): trailing window of six booleans per
+        # commanded tick (True = this leg COMPLETED a real swing this
+        # tick, same stride-filtered definition walk_gait_gate uses),
+        # kept SEPARATE from _dgate_hist/_duty_hist so the three
+        # mechanisms cannot perturb each other's windows.
+        self._swing_gate_hist: list = []
         # Anchored-stance income gate bookkeeping (cycle 30): per-foot
         # world XY at touchdown ("anchor point") and its own prev-contact
         # state, kept SEPARATE from the step-event vars above so the two
@@ -1136,6 +1143,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
         self._dgate_hist = []
+        self._swing_gate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -3056,6 +3064,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
         self._dgate_hist = []
+        self._swing_gate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -3972,6 +3981,69 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_cmd_track *= dg_factor
                 info["walk_duty_min"] = d_score
                 info["walk_duty_gate_factor"] = dg_factor
+            # Per-leg swing-RATE income gate (09-05, closing two prior
+            # anti-park exploits together after both were confirmed
+            # gameable end-to-end, 6/6 and 9/9 FAIL respectively --
+            # see CURRENT_TRUTHS.md 09-05 ~13:1x..~19:2x): score = MIN
+            # over commanded support legs of clip(count of qualifying
+            # real swings completed in the trailing
+            # swing_gate_window_s of COMMANDED ticks / swing_gate_
+            # min_count, 0, 1). A qualifying swing uses the IDENTICAL
+            # stride-filtered definition walk_gait_gate already uses
+            # (liftoff -> >=2 ticks airborne -> touchdown with XY
+            # stride >= gait_gate_stride_mm) -- a high-frequency
+            # contact-chatter "swing" that never displaces the foot
+            # never counts, which is what closes walk_duty_gate's
+            # freeze/vibrate exploit (a planted or vibrating leg racks
+            # up contact-DUTY trivially but completes zero qualifying
+            # SWINGS). Requiring a MINIMUM COUNT within the window
+            # (not a recency-decay score that only asks "how long
+            # since the last one") is what closes walk_gait_gate's
+            # rare-token-dodge exploit (that gate's own g_score reads
+            # 1.0 off a single swing anywhere in window+fade seconds;
+            # this gate needs >=swing_gate_min_count of them inside
+            # ONE window, so a leg stepping once every several seconds
+            # cannot clear a >=2/window bar the way it cleared a
+            # >=1/(window+fade) recency floor). MIN, not mean, per the
+            # same lesson every prior anti-sacrifice gate in this file
+            # learned: a fractional discount is simply paid, so any
+            # one support leg failing the bar collapses transport
+            # income to the (1-g) floor. Episode-start grace: scores
+            # 1.0 until the window is full (mirrors walk_duty_gate/
+            # walk_gait_gate). Penalties are never shrunk. Default 0 =
+            # off, no state, no info keys, legacy bit-exact. cfg:
+            # reward.walk_swing_gate in [0,1],
+            # reward.swing_gate_window_s (4.0),
+            # reward.swing_gate_min_count (2.0) -- reuses
+            # reward.gait_gate_stride_mm for the qualifying-swing
+            # stride filter (same physical definition, one knob).
+            g_swing = float(cfg_get(self.cfg, "reward",
+                                    "walk_swing_gate", default=0.0))
+            if g_swing > 0.0 and s_ref > 1e-3:
+                n_swin = max(1, int(round(float(cfg_get(
+                    self.cfg, "reward", "swing_gate_window_s",
+                    default=4.0)) / self.dt)))
+                sw_min_count = max(1.0, float(cfg_get(
+                    self.cfg, "reward", "swing_gate_min_count",
+                    default=2.0)))
+                sw_score = 1.0
+                if len(self._swing_gate_hist) >= n_swin:
+                    counts = np.sum(self._swing_gate_hist, axis=0)
+                    for f in range(6):
+                        if f in lift:
+                            continue
+                        sw_score = min(
+                            sw_score,
+                            min(float(counts[f]) / sw_min_count, 1.0))
+                swg_factor = (1.0 - g_swing) + g_swing * sw_score
+                r_walk *= swg_factor
+                support_gate *= swg_factor
+                if r_prog > 0.0:
+                    r_prog *= swg_factor
+                if r_cmd_track > 0.0:
+                    r_cmd_track *= swg_factor
+                info["walk_swing_gate_min"] = sw_score
+                info["walk_swing_gate_factor"] = swg_factor
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
                 + r_free_pen
             if r_free_pen != 0.0:
@@ -4968,7 +5040,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
-                    or g_gait > 0.0 or g_duty > 0.0 or k_tslip > 0.0
+                    or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
+                    or k_tslip > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
@@ -4981,6 +5054,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_drag = 0.0
                 r_ds = 0.0
                 r_tslip = 0.0
+                swing_gate_flags = [False] * 6
                 contacts = [False] * 6
                 contact_forces = [0.0] * 6
                 meaningful_contacts = 0
@@ -5032,6 +5106,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 and stride >= gait_stride_m \
                                 and f not in lift:
                             self._gait_last_step[f] = self._gait_cmd_tick
+                        # walk_swing_gate bookkeeping: same qualifying
+                        # definition as walk_gait_gate immediately
+                        # above, recorded as a per-tick event flag
+                        # (not a "last tick" pointer) so the gate
+                        # above can COUNT occurrences in its own
+                        # trailing window instead of only checking
+                        # recency.
+                        if g_swing > 0.0 and air >= 2 \
+                                and stride >= gait_stride_m \
+                                and f not in lift:
+                            swing_gate_flags[f] = True
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
@@ -5172,6 +5257,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         default=3.0)) / self.dt)))
                     if len(self._dgate_hist) > n_dwin:
                         self._dgate_hist = self._dgate_hist[-n_dwin:]
+                if g_swing > 0.0:
+                    # walk_swing_gate bookkeeping (09-05): trailing
+                    # qualifying-swing-event window, own state so
+                    # neither k_park's nor walk_duty_gate's window
+                    # config can perturb this gate.
+                    self._swing_gate_hist.append(
+                        [1.0 if s else 0.0 for s in swing_gate_flags])
+                    n_swin = max(1, int(round(float(cfg_get(
+                        self.cfg, "reward", "swing_gate_window_s",
+                        default=4.0)) / self.dt)))
+                    if len(self._swing_gate_hist) > n_swin:
+                        self._swing_gate_hist = (
+                            self._swing_gate_hist[-n_swin:])
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

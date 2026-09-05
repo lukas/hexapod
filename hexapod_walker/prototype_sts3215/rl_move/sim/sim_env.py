@@ -2404,6 +2404,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # Default 1.0 (on) preserves every existing config bit-exact;
         # only an explicit bc_anchor_walk=0 disables this block.
         self._walk_bc_gait = None
+        self._walk_bc_gait_alt = None
         self._walk_bc_t = 0.0
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"
@@ -2412,6 +2413,20 @@ class SimHexapodBalanceEnv(_GymBase):
                 and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
                                   default=1.0)) > 0.0):
             self._walk_bc_gait = self._make_walk_bc_gait()
+            if float(cfg_get(
+                    self.cfg, "train", "bc_anchor_multiteacher_blend",
+                    default=0.0)) > 0.0:
+                # PHASE-SCHEDULED MULTI-TEACHER (09-05): a SEPARATE
+                # persistent gait object, queried once per combined
+                # tick (never twice on the same tick against the
+                # primary ``_walk_bc_gait``) so its own EMA velocity
+                # smoothing (TripodGait._smoothed_command, tau=0.15)
+                # tracks a stable vx=0 setpoint over time instead of
+                # inheriting a stale dt=0 double-query artifact — see
+                # test_multiteacher_alt_target_matches_pure_turn_
+                # geometry's own regression history for why a same-
+                # object double-query was refuted first.
+                self._walk_bc_gait_alt = self._make_walk_bc_gait()
         # First ramp tick of a rise schedule (hold window ends here) —
         # the alignment anchor for the rise-reference tracking term:
         # references are recorded ramp-relative so episodes with
@@ -3073,6 +3088,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # for SNAP_ATTRS/pool compatibility.
         self._seq_pose_anchor = None
         self._walk_bc_gait = None
+        self._walk_bc_gait_alt = None
         self._walk_bc_t = 0.0
         if (mode == "walk"
                 and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
@@ -3080,6 +3096,10 @@ class SimHexapodBalanceEnv(_GymBase):
                 and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
                                   default=1.0)) > 0.0):
             self._walk_bc_gait = self._make_walk_bc_gait()
+            if float(cfg_get(
+                    self.cfg, "train", "bc_anchor_multiteacher_blend",
+                    default=0.0)) > 0.0:
+                self._walk_bc_gait_alt = self._make_walk_bc_gait()
 
     def _minload_min_force_now(self, floor_n: float) -> float:
         """Worst (min-over-feet) touch force right now, the quantity the
@@ -4882,6 +4902,12 @@ class SimHexapodBalanceEnv(_GymBase):
                     _bc_wz * _bc_omega_boost
                     if (_bc_combined_early and _bc_omega_boost != 1.0)
                     else _bc_wz)
+                # PHASE-SCHEDULED MULTI-TEACHER read-once (see the
+                # emission site below, near bc_anchor_walk_combined_
+                # dose, for the full derivation). Default 0.0 = off.
+                _mt_blend_final = float(cfg_get(
+                    self.cfg, "train", "bc_anchor_multiteacher_blend",
+                    default=0.0))
                 if _bc_cmd:
                     from .joint_task import q_rad_to_action
                     _g = self._walk_bc_gait
@@ -5088,6 +5114,62 @@ class SimHexapodBalanceEnv(_GymBase):
                             default=1.0))
                         if _bc_combined and _combined_dose != 1.0:
                             info["bc_walk_weight"] = _combined_dose
+                        # PHASE-SCHEDULED MULTI-TEACHER (09-05,
+                        # standwalk item-1 escalation: the dose/skip
+                        # family above (this knob + combined_skip +
+                        # every geometry lever: yawarm/omegaboost/
+                        # selomegaboost) is CLOSED 4/4-per-cell —
+                        # every static reweight/rescale of the SAME
+                        # single degraded-combined target either
+                        # leaves the cap alone (no win) or blows the
+                        # pure-turn regression cap once RL fine-tunes
+                        # against it, because ALL of those levers hold
+                        # ONE fixed target/weight for the entire
+                        # training run. This is a structurally
+                        # different class: instead of reweighting the
+                        # single scripted-combined target, emit a
+                        # SECOND ("aggressive") teacher target — a
+                        # SEPARATE persistent TripodGait, driven by
+                        # the same wall-clock tick stream but with
+                        # vx/vy always zeroed, i.e. the UNDEGRADED
+                        # pure-turn geometry TripodGait would command
+                        # if this tick were turn-only (own object, own
+                        # EMA smoothing state — never a second query
+                        # on ``_g`` itself; see its allocation site's
+                        # comment) — and blend the two at LOSS TIME
+                        # (bc_anchor.py's train(), which alone knows
+                        # ``self._current_progress_remaining``) on a
+                        # schedule that ramps from the safe degraded
+                        # target (blend=0, early training, matches
+                        # every already-converged sibling) toward the
+                        # aggressive target (blend->
+                        # bc_anchor_multiteacher_blend, late training)
+                        # over the first
+                        # bc_anchor_multiteacher_schedule_frac of the
+                        # run. Untried axis: every prior arm used a
+                        # STATIC dose for the whole run; none varied
+                        # the target/weight over TRAINING PROGRESS.
+                        # Default 0.0 = legacy (no alt target emitted,
+                        # no ring column touched) — bit-exact off, see
+                        # bc_anchor.py's attach_bc_anchor/
+                        # _bc_init_buffer and test_bc_anchor.py
+                        # test_multiteacher_*.
+                        _g_alt = getattr(self, "_walk_bc_gait_alt", None)
+                        if (_bc_combined and _mt_blend_final > 0.0
+                                and _g_alt is not None):
+                            # Separate persistent object (see its
+                            # allocation site) — NOT a second query on
+                            # ``_g`` itself, which would hand the EMA
+                            # smoother a dt=0 same-tick call and
+                            # silently return the stale (still-
+                            # combined) smoothed velocity instead of a
+                            # genuine pure-turn trajectory.
+                            _g_alt.set_velocity(vx=0.0, vy=0.0,
+                                               omega=_bc_wz_teacher)
+                            _q_bc_alt = np.asarray(
+                                _g_alt.desired_deg(_t_bc)) * DEG2RAD
+                            info["bc_target_alt"] = q_rad_to_action(
+                                _q_bc_alt).astype(np.float32)
         if self._state.servo_current is not None:
             info["mean_current_a"] = float(
                 np.mean(np.abs(self._state.servo_current)))

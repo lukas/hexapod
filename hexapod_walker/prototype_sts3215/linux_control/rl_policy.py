@@ -195,14 +195,14 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
                             write_speed: int, write_acc: int,
                             policy_dt: float, debug,
                             max_tilt_deg: float) -> bool:
-    """Write the last known-safe target before any foreground resample.
+    """Write the last successfully sent safe target before any resample.
 
     The async reader has already been stopped by the caller, so foreground
     sampling owns the half-duplex bus. Sampling first is still unsafe here:
     the sealed joystick trace showed an 87 ms interval before the first hold
     write while the chassis attitude changed sharply. Preserve the exact
-    previously commanded target immediately, then sample only for diagnostics;
-    never re-anchor the hold to an unvalidated post-loss pose.
+    target that the bus previously accepted immediately, then sample only to
+    confirm the hold envelope; never re-anchor to a post-loss pose.
     """
     fallback = np.asarray(fallback_robot, dtype=float).reshape(-1)
     if fallback.shape != (N_JOINTS,) or not np.all(np.isfinite(fallback)):
@@ -213,16 +213,12 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
         fallback_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
     )
     try:
-        _set_weight_bearing_torque(bus)
-        drive._torque_all(True)
-        drive.armed = True
-    except Exception:
-        pass
-
-    try:
-        est.set_commanded(fallback)
+        # A drive stream reaches this path with torque already enabled.  Do
+        # not put per-servo torque transactions ahead of the time-critical
+        # fallback write: they delayed the historical hold by tens of ms.
         bus.write_all((fallback * RAD2DEG).tolist(), speed=write_speed,
                       acc=write_acc)
+        est.set_commanded(fallback)
         with drive._lock:
             drive.status = "rl drive holding after stream loss"
         debug.event(
@@ -240,12 +236,14 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
         debug.event("hold_after_stream_loss_write_failed")
         return False
 
+    hold_confirmed = False
     for _ in range(5):
         try:
             sampled = est.update(want_full_feedback=True)
         except Exception:
             sampled = None
-        if sampled is not None and sampled.bus_ok:
+        if (sampled is not None and sampled.bus_ok
+                and getattr(sampled, "imu_ok", False)):
             pose = np.asarray(sampled.joint_position, dtype=float).reshape(-1)
             finite_pose = (pose.shape == (N_JOINTS,)
                            and bool(np.all(np.isfinite(pose))))
@@ -259,8 +257,17 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
                 tilt_within_envelope=tilt_deg <= float(max_tilt_deg),
                 reanchored=False,
             )
+            hold_confirmed = bool(
+                finite_pose and tilt_deg <= float(max_tilt_deg))
             break
         time.sleep(min(0.05, float(policy_dt)))
+    if not hold_confirmed:
+        debug.event(
+            "hold_after_stream_loss_unconfirmed",
+            pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+            reanchored=False,
+        )
+        return False
     debug.event(
         "hold_after_stream_loss_ok",
         pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
@@ -1585,7 +1592,8 @@ def _stream_target_async(bus, sampler: _AsyncSnapshotSampler,
                          abort_check, last_good_state=None,
                          stale_ticks: int = 0,
                          max_stale_ticks: int = 0,
-                         write_target: bool = True
+                         write_target: bool = True,
+                         on_write_success=None,
                          ) -> tuple[object | None, float, int, str,
                                     int, int, dict]:
     """Advance one async policy tick without commanding past stale state.
@@ -1715,6 +1723,8 @@ def _stream_target_async(bus, sampler: _AsyncSnapshotSampler,
                     f"stream write failed: {e}", stale_ticks,
                     stale_samples, stream_timing())
             write_s += time.monotonic() - op_t
+            if on_write_success is not None:
+                on_write_success(q_cmd.copy())
 
         t_next += inner_dt
         lag = time.monotonic() - t_next
@@ -4217,7 +4227,12 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
     last_q_robot_cmd = q_nom_robot.copy()
+    last_written_q_robot_cmd = q_nom_robot.copy()
     last_q_policy_cmd = q_nom.copy()
+
+    def record_successful_stream_write(q_written: np.ndarray) -> None:
+        nonlocal last_written_q_robot_cmd
+        last_written_q_robot_cmd = np.asarray(q_written, dtype=float).copy()
     est.reset_episode_filters()
     warmup_good = 0
     warmup_stale = 0
@@ -4742,7 +4757,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                     last_good_state=last_good_stream_state,
                     stale_ticks=stale_stream_ticks,
                     max_stale_ticks=DRIVE_STREAM_STALE_TICKS,
-                    write_target=write_due))
+                    write_target=write_due,
+                    on_write_success=record_successful_stream_write))
         else:
             stop_async_sampler()
             est.set_commanded(q_robot_cmd)
@@ -4753,6 +4769,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                     op_t = time.monotonic()
                     bus.write_all((q_robot_cmd * RAD2DEG).tolist(),
                                   speed=write_speed, acc=write_acc)
+                    record_successful_stream_write(q_robot_cmd)
                     hold_write_s += time.monotonic() - op_t
                     last_hold_refresh_t = t
                     write_due = True
@@ -4838,7 +4855,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                               held_pose=True, ticks=i)
             elif (stream_err == "feedback stale during stream"
                   and active == "walk"):
-                held = hold_current_pose_after_stream_loss(last_q_robot_cmd)
+                held = hold_current_pose_after_stream_loss(
+                    last_written_q_robot_cmd)
                 result.update(
                     ok=False,
                     error=(stream_err + ("; held current pose" if held
@@ -4938,7 +4956,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             # Confirm exclusive bus ownership before the synchronous hold
             # recovery. A failed join propagates and blocks later bus use.
             stop_async_sampler()
-            held = hold_current_pose_after_stream_loss(last_q_robot_cmd)
+            held = hold_current_pose_after_stream_loss(
+                last_written_q_robot_cmd)
             result.update(
                 ok=False, error=timing_error,
                 held_pose=held, limped=False, ticks=i,

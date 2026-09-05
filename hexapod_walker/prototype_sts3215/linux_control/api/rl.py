@@ -812,6 +812,7 @@ class RlApi:
         cmd = self._drive_cmd
         if cmd is not None:
             out["live"] = cmd.live
+            out["command_owner"] = getattr(cmd, "command_owner", None)
         with self._lock:
             if active:
                 out["status"] = self._demo_status
@@ -820,7 +821,8 @@ class RlApi:
         return out
 
     def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0,
-                     wz: float = 0.0, dh: float = 0.0) -> dict:
+                     wz: float = 0.0, dh: float = 0.0,
+                     command_owner: str | None = None) -> dict:
         """Heartbeat from the browser: body-frame (vx, vy) m/s and yaw
         rate wz rad/s while keys are held, plus dh in [-1, 1] (D-pad
         body-height nudge; tracked only while HOLDING with an obs-68
@@ -829,11 +831,16 @@ class RlApi:
         server-side, so this must keep streaming."""
         if not self._drive_active():
             return {"ok": False, "error": "no drive session", "active": False}
-        self._drive_cmd.set(float(vx), float(vy), float(wz), float(dh))
+        cmd = self._drive_cmd
+        owner = getattr(cmd, "command_owner", None)
+        if owner is not None and command_owner != owner:
+            return {"ok": False, "error": "drive session belongs to another command owner",
+                    "active": True, "command_owner_mismatch": True}
+        cmd.set(float(vx), float(vy), float(wz), float(dh))
         with self._lock:
             status = self._demo_status
         return {"ok": True, "active": True, "status": status,
-                "live": self._drive_cmd.live}
+                "live": cmd.live, "command_owner": owner}
 
     def rl_drive_stop(self) -> dict:
         """Graceful end: refs ramp to zero, robot HOLDS the pose."""
@@ -843,7 +850,8 @@ class RlApi:
 
     def rl_drive_start(self, *, vx: float = 0.0, vy: float = 0.0,
                        wz: float = 0.0, dh: float = 0.0,
-                       velocity_filter_alpha: float | None = None) -> dict:
+                       velocity_filter_alpha: float | None = None,
+                       command_owner: str | None = None) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
         Motion-free start contract: read-only preflight accepts the
@@ -852,6 +860,10 @@ class RlApi:
         rl_drive_cmd. It must not surprise-glide to another stance before
         keys are pressed. THE OPERATOR MUST BE WATCHING.
         """
+        if command_owner is not None and (
+                not isinstance(command_owner, str)
+                or not command_owner.strip() or len(command_owner) > 128):
+            return {"ok": False, "error": "command_owner must be a nonempty string of at most 128 characters"}
         if self.drive.dry_run or not self.drive.bus:
             return {"ok": False, "error": "no bus"}
         blocked = self._bus_admission_error()
@@ -875,6 +887,10 @@ class RlApi:
                               "Walk Ready first")}
         if self._demo_thread and self._demo_thread.is_alive():
             if self._drive_active():
+                if command_owner != getattr(self._drive_cmd, "command_owner", None):
+                    return {"ok": False,
+                            "error": "drive session belongs to another command owner",
+                            "active": True, "command_owner_mismatch": True}
                 return {"ok": True, "already": True,
                         **self.rl_drive_state()}
             return {"ok": False, "error": "stop the running job first"}
@@ -927,6 +943,7 @@ class RlApi:
         gen = self._demo_gen
         self._demo_abort.clear()
         cmd = DriveCommand()
+        cmd.command_owner = command_owner
         cmd.set(float(vx), float(vy), float(wz), float(dh))
         self._drive_cmd = cmd
         with self._lock:
@@ -934,7 +951,8 @@ class RlApi:
             self._demo_status = "drive session starting"
             self._demo_params = {
                 "walk": walk_w.name if walk_w else "slot",
-                "hold": hold_w.name if hold_w else "joint_hold"}
+                "hold": hold_w.name if hold_w else "joint_hold",
+                "command_owner": command_owner}
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", "RL drive")
@@ -1030,7 +1048,8 @@ class RlApi:
         self._demo_thread.start()
         return {"ok": True, "mode": "drive",
                 "walk": walk_w.name if walk_w else "live slot",
-                "hold": hold_w.name if hold_w else "joint_hold"}
+                "hold": hold_w.name if hold_w else "joint_hold",
+                "command_owner": command_owner}
 
     def _rl_walk_ready_stand(self) -> dict:
         """RL-tab Stand Up: STEP stand, then visible sim walk-start settle.

@@ -144,3 +144,168 @@ def test_three_missing_scans_raise_confirmed_health_trip(monkeypatch):
 
     with pytest.raises(walk_trial.ConfirmedHealthTrip, match="not clear"):
         trial.three_fresh_health_samples(require_armed=True)
+
+
+class _TrialClock:
+    now = 0.0
+    def monotonic(self):
+        return self.now
+    def time(self):
+        return 1000.0 + self.now
+    def sleep(self, duration):
+        self.now += duration
+
+
+def _drive_trial(monkeypatch, response_at):
+    clock = _TrialClock()
+    monkeypatch.setattr(walk_trial.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(walk_trial.time, "time", clock.time)
+    monkeypatch.setattr(walk_trial.time, "sleep", clock.sleep)
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.args = SimpleNamespace(speed_m_s=0.08, duration_s=3.0,
+                                 velocity_filter_alpha=0.3)
+    requests, events = [], []
+    def request(path, body):
+        requests.append((path, dict(body), clock.now))
+        if path == "/api/rl/drive/cmd":
+            return response_at(clock.now)
+        return {"ok": True}
+    trial.request = request
+    trial.event = lambda name, detail="": events.append((name, detail))
+    trial.recorder = SimpleNamespace(assert_live=lambda: None)
+    trial.sample = lambda: None
+    trial.wait_job = lambda *args: {"ok": True}
+    trial.pull_policy_logs = lambda *args: []
+    trial.snapshot = lambda *args: None
+    trial.three_fresh_health_samples = lambda **kwargs: []
+    trial.results = []
+    return trial, clock, requests, events
+
+
+def _drive_live(t, *, arming=False, vx=0.08, stopping=None):
+    return {"ok": True, "active": True, "live": {
+        "t_s": round(t, 1), "model": "arming" if arming else "walk",
+        "walk_has_engaged": True, "walk_arming": arming,
+        "learned_policy_active": True, "stopping": stopping,
+        "vx_cmd": vx, "vy_cmd": 0.0, "wz_cmd": 0.0,
+    }}
+
+
+def test_drive_duration_starts_after_confirmed_walk_and_excludes_initialization(monkeypatch):
+    trial, clock, requests, events = _drive_trial(
+        monkeypatch, lambda t: _drive_live(t, arming=t < 2.7))
+    trial.drive_leg("forward")
+    result = trial.results[0]
+    assert 2.7 <= result["startup_duration_s"] <= 2.81
+    assert 3.0 <= result["confirmed_active_window_s"] <= 3.051
+    assert result["command_duration_s"] >= 5.7
+    assert result["activation_unix_s"] == pytest.approx(
+        1000.0 + result["activation_monotonic_s"])
+    assert any(name == "drive_walk_activated" for name, _ in events)
+    owner = requests[0][1]["command_owner"]
+    assert len(owner) == 32
+    commands = [body for path, body, _ in requests if path.endswith("/cmd")]
+    assert commands and all(body["command_owner"] == owner for body in commands)
+    assert all(body["vx"] == 0.08 and body["wz"] == 0.0 for body in commands)
+    assert requests[-1][0].endswith("/stop")
+    assert "command_owner" not in requests[-1][1]
+
+
+def test_each_drive_session_gets_a_distinct_command_owner():
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.args = SimpleNamespace(velocity_filter_alpha=None)
+    a = trial.drive_start_payload()
+    b = trial.drive_start_payload()
+    assert a["command_owner"] != b["command_owner"]
+    assert trial._drive_command_owner == b["command_owner"]
+
+
+@pytest.mark.parametrize("failure", ["inactive", "stopping", "countercommand", "stalled"])
+def test_drive_stops_early_when_live_control_ends_or_changes(monkeypatch, failure):
+    def response(t):
+        if t < 0.3:
+            return _drive_live(t)
+        if failure == "inactive":
+            return {"ok": True, "active": False}
+        if failure == "stopping":
+            return _drive_live(t, stopping="heartbeat_timeout")
+        if failure == "countercommand":
+            return _drive_live(t, vx=0.0)
+        return _drive_live(0.3)
+    trial, clock, requests, events = _drive_trial(monkeypatch, response)
+    with pytest.raises(RuntimeError, match="ended|stopped|changed|advancing"):
+        trial.drive_leg("forward")
+    assert clock.now < 1.1
+    assert requests[-1][0].endswith("/stop")
+    assert any(name == "drive_duration" for name, _ in events)
+    assert trial.results[0]["trial_error"]
+
+
+def test_drive_startup_has_a_separate_bound_and_stops(monkeypatch):
+    trial, clock, requests, events = _drive_trial(
+        monkeypatch, lambda t: _drive_live(t, arming=True))
+    with pytest.raises(RuntimeError, match="engage within 8 seconds"):
+        trial.drive_leg("forward")
+    assert 8.0 <= clock.now <= 8.051
+    assert requests[-1][0].endswith("/stop")
+    duration = next(detail for name, detail in events if name == "drive_duration")
+    assert duration["activation_unix_s"] is None
+    assert duration["confirmed_active_window_s"] == 0.0
+
+
+def test_drive_camera_must_remain_live_before_another_command(monkeypatch):
+    trial, clock, requests, events = _drive_trial(monkeypatch, _drive_live)
+    checks = 0
+    def assert_live():
+        nonlocal checks
+        checks += 1
+        if checks > 1:
+            raise RuntimeError("camera became stale")
+    trial.recorder.assert_live = assert_live
+    with pytest.raises(RuntimeError, match="camera became stale"):
+        trial.drive_leg("forward")
+    assert len([r for r in requests if r[0].endswith("/cmd")]) == 1
+    assert requests[-1][0].endswith("/stop")
+
+
+
+def test_early_terminal_result_and_logs_preserved_before_original_error(monkeypatch):
+    trial, clock, requests, events = _drive_trial(
+        monkeypatch, lambda t: {"ok": False, "active": False, "error": "owner refused"})
+    request = trial.request
+    def terminal_request(path, body):
+        reply = request(path, body)
+        if path.endswith("/stop"):
+            return {"ok": True, "active": False,
+                    "result": {"ok": False, "error": "controller fault", "log": "rl_drive_x.csv"}}
+        return reply
+    trial.request = terminal_request
+    def no_wait(*args):
+        pytest.fail("terminal stop receipt should avoid another wait")
+    trial.wait_job = no_wait
+    trial.pull_policy_logs = lambda *args: ["robot_rl_drive_x.csv"]
+    with pytest.raises(RuntimeError, match="owner refused"):
+        trial.drive_leg("forward")
+    assert trial.results[0]["result"]["error"] == "controller fault"
+    assert trial.results[0]["robot_logs"] == ["robot_rl_drive_x.csv"]
+    assert "owner refused" in trial.results[0]["trial_error"]
+
+
+def test_original_drive_error_survives_missing_stop_terminal_and_logs(monkeypatch):
+    trial, clock, requests, events = _drive_trial(
+        monkeypatch, lambda t: {"ok": False, "active": False, "error": "original refusal"})
+    request = trial.request
+    def disconnected_stop(path, body):
+        if path.endswith("/stop"):
+            raise RuntimeError("stop unavailable")
+        return request(path, body)
+    def fail(*args):
+        raise RuntimeError("artifacts unavailable")
+    trial.request = disconnected_stop
+    trial.wait_job = fail
+    trial.pull_policy_logs = fail
+    with pytest.raises(RuntimeError, match="original refusal"):
+        trial.drive_leg("forward")
+    assert "original refusal" in trial.results[0]["trial_error"]
+    assert trial.results[0]["robot_logs"] == []
+    assert trial.results[0]["result"]["ok"] is False

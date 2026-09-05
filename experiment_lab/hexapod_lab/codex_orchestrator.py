@@ -27,11 +27,16 @@ from .codex_transcripts import finalize_codex_transcript
 from .db import Store, TERMINAL
 from .engineering_lane import (
     DisabledRLDispatcher,
+    ENGINEERING_LANE_ANY,
+    ENGINEERING_LANE_HARDWARE,
+    ENGINEERING_LANE_OFFLINE,
     ENGINEERING_SCHEMA,
     EngineeringJobStore,
     EngineeringLaneError,
     build_project_context,
     engineering_environment,
+    engineering_job_lane,
+    experiment_parameters_are_offline,
     engineering_prompt,
     validate_engineering_result,
     workspace_snapshot,
@@ -701,8 +706,9 @@ class CodexOrchestrator:
             ),
         ]
         if self.settings.codex_engineering:
-            workspace = self.settings.codex_engineering_workdir
-            if workspace is None:
+            hardware_workspace = self.settings.codex_engineering_workdir
+            offline_workspace = self.settings.codex_offline_engineering_workdir
+            if hardware_workspace is None:
                 print(
                     "Codex engineering is enabled without a workspace; jobs remain queued",
                     flush=True,
@@ -710,7 +716,8 @@ class CodexOrchestrator:
             else:
                 try:
                     build_project_context(
-                        workspace, self.settings.codex_engineering_context_max_bytes
+                        hardware_workspace,
+                        self.settings.codex_engineering_context_max_bytes,
                     )
                 except Exception as exc:
                     print(
@@ -719,12 +726,48 @@ class CodexOrchestrator:
                         flush=True,
                     )
                 else:
+                    # The primary checkout always serves only hardware-capable
+                    # jobs. A missing optional offline checkout must reduce
+                    # offline throughput, never let offline work occupy the
+                    # scarce robot worker again.
                     self.threads.append(threading.Thread(
                         target=self._worker_loop,
-                        args=("engineering",),
-                        name="codex-engineering",
+                        args=("engineering-hardware",),
+                        name="codex-engineering-hardware",
                         daemon=True,
                     ))
+                    if offline_workspace is not None:
+                        if (
+                            offline_workspace.resolve()
+                            == hardware_workspace.resolve()
+                        ):
+                            print(
+                                "Codex offline engineering workspace must differ "
+                                "from the hardware workspace; offline jobs remain queued",
+                                flush=True,
+                            )
+                        else:
+                            try:
+                                build_project_context(
+                                    offline_workspace,
+                                    self.settings.codex_engineering_context_max_bytes,
+                                )
+                            except Exception as exc:
+                                print(
+                                    "Codex offline engineering workspace preflight "
+                                    "failed; offline jobs remain queued: "
+                                    f"{type(exc).__name__}: {exc}",
+                                    flush=True,
+                                )
+                            else:
+                                self.threads.append(
+                                    threading.Thread(
+                                        target=self._worker_loop,
+                                        args=("engineering-offline",),
+                                        name="codex-engineering-offline",
+                                        daemon=True,
+                                    )
+                                )
         for thread in self.threads:
             thread.start()
 
@@ -1067,8 +1110,13 @@ class CodexOrchestrator:
                 self.stop_event.wait(max(0.2, self.settings.codex_poll_seconds))
 
     def process_one(self, kind: str) -> bool:
-        if kind == "engineering":
-            return self._process_one_engineering()
+        engineering_lanes = {
+            "engineering": ENGINEERING_LANE_ANY,
+            "engineering-hardware": ENGINEERING_LANE_HARDWARE,
+            "engineering-offline": ENGINEERING_LANE_OFFLINE,
+        }
+        if kind in engineering_lanes:
+            return self._process_one_engineering(engineering_lanes[kind])
         timeout = (
             self.settings.codex_analysis_timeout_seconds
             if kind == "analysis" else self.settings.codex_advance_timeout_seconds
@@ -1129,10 +1177,18 @@ class CodexOrchestrator:
                 )
         return True
 
-    def _process_one_engineering(self) -> bool:
+    def _process_one_engineering(
+        self, lane: str = ENGINEERING_LANE_ANY
+    ) -> bool:
         timeout = self.settings.codex_engineering_timeout_seconds
-        job = self.engineering.claim(self.owner, max(60, timeout + 300))
+        job = self.engineering.claim(
+            self.owner,
+            max(60, timeout + 300),
+            lane=lane,
+        )
         if job is None:
+            if lane == ENGINEERING_LANE_HARDWARE:
+                return False
             return self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
         try:
             self._process_engineering(job)
@@ -1151,13 +1207,22 @@ class CodexOrchestrator:
         return True
 
     def _process_engineering(self, job: Dict[str, Any]) -> None:
-        workspace = self.settings.codex_engineering_workdir
+        lane = job.get("lane") or engineering_job_lane(
+            job.get("source_context")
+        )
+        workspace = (
+            self.settings.codex_offline_engineering_workdir
+            if lane == ENGINEERING_LANE_OFFLINE
+            and self.settings.codex_offline_engineering_workdir is not None
+            else self.settings.codex_engineering_workdir
+        )
         if workspace is None:
             raise EngineeringLaneError("engineering workspace is not configured")
         recovered = self._recover_completed_engineering_attempt(job)
         if recovered is not None:
             self._finish_engineering(job, recovered)
-            self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
+            if lane == ENGINEERING_LANE_OFFLINE:
+                self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
             return
         project_context = build_project_context(
             workspace, self.settings.codex_engineering_context_max_bytes
@@ -1174,13 +1239,15 @@ class CodexOrchestrator:
         patch_receipt: Optional[Dict[str, Any]] = None
         try:
             source = job.get("source_context") or {}
-            parameters = (source.get("experiment") or {}).get("parameters") or {}
             job["_engineering_actions_started"] = (
-                source.get("trigger_kind") == "queue_handoff"
-                and parameters.get("simulation_only") is not True
+                engineering_job_lane(source) == ENGINEERING_LANE_HARDWARE
             )
             result = self._invoke(
-                "engineering", job, prompt, ENGINEERING_SCHEMA
+                "engineering",
+                job,
+                prompt,
+                ENGINEERING_SCHEMA,
+                engineering_workdir=workspace,
             )
         finally:
             after = workspace_snapshot(workspace)
@@ -1205,7 +1272,8 @@ class CodexOrchestrator:
             "patch": patch_receipt,
         }
         self._finish_engineering(job, normalized)
-        self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
+        if lane == ENGINEERING_LANE_OFFLINE:
+            self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
 
     def _finish_engineering(self, job: Dict[str, Any], result: Dict[str, Any]) -> None:
         finished = self.engineering.finish(job, self.owner, result)
@@ -1444,7 +1512,10 @@ class CodexOrchestrator:
         else:
             raise CodexRunError("Analysis result checkpoint is invalid")
         disposition = normalized["safety_disposition"]
-        if disposition == "stop":
+        parameters = experiment.get("parameters") or {}
+        if disposition == "stop" and not experiment_parameters_are_offline(
+            parameters
+        ):
             self.store.pause_codex_queue(
                 job["id"],
                 "Evidence analysis requires safety inspection: "
@@ -1646,7 +1717,14 @@ class CodexOrchestrator:
 
     def _process_advance(self, job: Dict[str, Any]) -> None:
         job["_physical_capability_granted"] = False
-        target = self.store.next_external_experiment()
+        # Submission jobs hand their own runnable plan to the appropriate
+        # resource worker. This lets offline and hardware handoffs coexist;
+        # neither repeatedly selects the other while it is already active.
+        target = self.store.next_external_experiment(
+            experiment_id=job.get("experiment_id")
+        )
+        if target is None:
+            target = self.store.next_external_experiment()
         job["_target_experiment_id"] = target["id"] if target else None
         dependency = (
             self.store.get_codex_job(job["depends_on_job_id"])
@@ -1862,6 +1940,7 @@ class CodexOrchestrator:
         evidence_dir: Optional[Path] = None,
         allow_advance_actions: bool = False,
         assigned_experiment_id: Optional[str] = None,
+        engineering_workdir: Optional[Path] = None,
     ) -> Dict[str, Any]:
         if allow_advance_actions:
             raise CodexRunError(
@@ -1903,7 +1982,11 @@ class CodexOrchestrator:
         }
         _atomic_json(run_dir / "metadata.json", metadata)
         if role == "engineering":
-            workdir = self.settings.codex_engineering_workdir
+            workdir = (
+                engineering_workdir
+                if engineering_workdir is not None
+                else self.settings.codex_engineering_workdir
+            )
             if workdir is None:
                 raise CodexRunError("engineering workspace is not configured")
             workdir = workdir.resolve()
@@ -2341,7 +2424,7 @@ Manifest:
 Evidence bundle:
 {json.dumps(evidence_bundle, indent=2, sort_keys=True)}
 
-Return the required JSON object. `what_we_learned` should be concise plain language. Set safety_disposition to stop for an observed physical hazard and needs_inspection when evidence cannot clear a plausible hazard. Recommend zero to {self.settings.codex_max_followups_per_analysis} bounded experiments only when they materially reduce uncertainty. Each recommendation needs a stable recommendation_key, hypothesis/rationale, exact duration/parameters, dependencies, and stop conditions. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for follow-ups, including offline work executed by the engineering worker. Mark offline replay/simulation with `simulation_only: true` and `robot_motion: false`; the built-in simulated driver only generates demo telemetry. Fresh live camera plus three advancing healthy 18/18 samples and a remote abort path counts as supervision for a later guarded run. Never make mere human presence, repeated operator authorization, or standing at the abort path a prerequisite; reserve hands-on requirements for a concrete physical condition that camera, telemetry, service recovery, and documented remote controls cannot diagnose or resolve. Never recommend weakening safety, bypassing a prerequisite, unbounded motion, an automatic retry while a physical hazard remains, or learned stand/rise/lower motion.
+Return the required JSON object. `what_we_learned` should be concise plain language. Set safety_disposition to stop for an observed physical hazard and needs_inspection when evidence cannot clear a plausible hazard. Recommend zero to {self.settings.codex_max_followups_per_analysis} bounded experiments only when they materially reduce uncertainty. The robot is the scarce resource: when a short, safe real-robot follow-up can answer a useful open question with the existing runner, put that experiment first and do not spend every recommendation slot on offline work. Offline replay, analysis, simulation, and code work run in parallel and must not delay a runnable hardware plan. Missing AprilTag metric coverage should make calibrated displacement unmeasured, not block a functional video-and-telemetry test whose question does not require that metric. Each recommendation needs a stable recommendation_key, hypothesis/rationale, exact duration/parameters, dependencies, and stop conditions. In the response schema, each recommendation's `parameters` field is a JSON-encoded string; encode one JSON object there, with no prose outside that object. Use external_guarded for follow-ups, including offline work executed by the engineering worker. Mark offline replay/simulation with `simulation_only: true` and `robot_motion: false`; the built-in simulated driver only generates demo telemetry. Fresh live camera plus three advancing healthy 18/18 samples and a remote abort path counts as supervision for a later guarded run. Never make mere human presence, repeated operator authorization, or standing at the abort path a prerequisite; reserve hands-on requirements for a concrete physical condition that camera, telemetry, service recovery, and documented remote controls cannot diagnose or resolve. Never recommend weakening safety, bypassing a prerequisite, unbounded motion, an automatic retry while a physical hazard remains, or learned stand/rise/lower motion.
 """
 
     @staticmethod

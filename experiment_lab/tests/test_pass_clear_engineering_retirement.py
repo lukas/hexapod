@@ -17,9 +17,15 @@ def _canonical(value):
     )
 
 
-def _finished_analysis(store, *, verdict="pass", safety_disposition="clear"):
+def _finished_analysis(
+    store, *, verdict="pass", safety_disposition="clear", parameters=None
+):
     experiment = store.create(
-        {"name": "measured gait", "duration_seconds": 1, "parameters": {}},
+        {
+            "name": "measured gait",
+            "duration_seconds": 1,
+            "parameters": parameters or {},
+        },
         "test",
     )
     store.finish(experiment["id"], "succeeded")
@@ -73,6 +79,38 @@ def test_pass_clear_analysis_does_not_create_engineering_work(tmp_path):
     assert engineering.reconcile() == 0
     assert engineering.list_jobs() == []
     assert engineering.claim("engineer", lease_seconds=60) is None
+
+
+def test_pass_needs_inspection_offline_analysis_does_not_create_engineering_work(
+    tmp_path,
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    _finished_analysis(
+        store,
+        verdict="pass",
+        safety_disposition="needs_inspection",
+        parameters={"simulation_only": True, "robot_motion": False},
+    )
+    engineering = EngineeringJobStore(store)
+
+    assert engineering.reconcile() == 0
+    assert engineering.list_jobs() == []
+
+
+def test_pass_needs_inspection_live_no_motion_keeps_engineering_work(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    _experiment, analysis = _finished_analysis(
+        store,
+        verdict="pass",
+        safety_disposition="needs_inspection",
+        parameters={"robot_motion": False},
+    )
+    engineering = EngineeringJobStore(store)
+
+    assert engineering.reconcile() == 1
+    job = engineering.claim("engineer", lease_seconds=60)
+    assert job is not None
+    assert job["source_analysis_job_id"] == analysis["id"]
 
 
 @pytest.mark.parametrize(

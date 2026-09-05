@@ -13,7 +13,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from .auth import Principal, TokenAuth
@@ -67,6 +67,20 @@ class ExperimentSpec(BaseModel):
     description: str = Field(default="", max_length=4000)
     duration_seconds: float = Field(gt=0)
     parameters: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("parameters")
+    @classmethod
+    def reject_conflicting_motion_flags(
+        cls, parameters: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if (
+            parameters.get("simulation_only") is True
+            and parameters.get("robot_motion") is True
+        ):
+            raise ValueError(
+                "simulation_only and robot_motion cannot both be true"
+            )
+        return parameters
 
 
 class ExperimentIn(ExperimentSpec):

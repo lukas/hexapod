@@ -28,7 +28,8 @@ exec /usr/bin/env -i \
   HEXAPOD_CODEX_BIN="/Applications/ChatGPT.app/Contents/Resources/codex" \
   HEXAPOD_CODEX_WORKDIR="/Users/lukas/Library/Application Support/Hexapod Lab/codex-workspace" \
   HEXAPOD_CODEX_ENGINEERING="true" \
-  HEXAPOD_CODEX_ENGINEERING_WORKDIR="/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v1" \
+  HEXAPOD_CODEX_ENGINEERING_WORKDIR="/Users/lukas/Library/Application Support/Hexapod Lab/engineering-checkout-v3" \
+  HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR="/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1" \
   HEXAPOD_LAB_TOKEN="$LAB_TOKEN" \
   HEXAPOD_ORCHESTRATOR_TOKEN="$ORCHESTRATOR_TOKEN" \
   HEXAPOD_CODEX_MODEL="gpt-5.6-sol" \

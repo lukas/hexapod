@@ -52,6 +52,7 @@ class Settings:
     codex_transcript_max_human_bytes: int = 2 * 1024 * 1024
     codex_engineering: bool = False
     codex_engineering_workdir: Optional[Path] = None
+    codex_offline_engineering_workdir: Optional[Path] = None
     codex_engineering_timeout_seconds: int = 7200
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
@@ -159,6 +160,9 @@ class Settings:
             codex_engineering=_env_bool("HEXAPOD_CODEX_ENGINEERING", False),
             codex_engineering_workdir=_optional_path(
                 "HEXAPOD_CODEX_ENGINEERING_WORKDIR"
+            ),
+            codex_offline_engineering_workdir=_optional_path(
+                "HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR"
             ),
             codex_engineering_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "7200"

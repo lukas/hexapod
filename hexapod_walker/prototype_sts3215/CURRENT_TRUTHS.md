@@ -844,20 +844,39 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   **Closes the fresh-provenance half of the swing_gate test**:
   pricing the mechanism in before the habit entrenches does not cure
   it when the checkpoint (2M) already exhibits the chronic pattern.
-  The entrenched-checkpoint retrofit triplet (`swinggate-fix`,
-  `medhead-swinggate-fix`, `irr-swinggate-fix`) is still pending a
-  sibling cycle's read — if all three also FAIL, `walk_swing_gate`
-  closes as a 7th independently-designed per-leg-utilization
-  mechanism (after `walk_gait_gate`+`k_step_event` 6/6 FAIL,
-  `walk_duty_gate` 9/9 FAIL across every provenance x dose) on the
-  base(1g) family, and the next lever must be structural (curriculum-
-  widen from a leg-healthy champion, or a genuinely different
-  exploration/init scheme), not another reward-shaping variant. Do
-  not fund further bare `walk_swing_gate` arms of any provenance until
-  the retrofit triplet lands. Evidence: `ops.sh review
-  cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fresh`,
-  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_
-  swinggate_fresh_gate/report.json`, W&B `3f8el794`.
+  UPDATE 09-05 ~22:2x-22:3x: all 3 entrenched-checkpoint retrofits
+  landed too, same cycle. `swinggate-fix` (on `s0c1_acq1`) **CANARY
+  FAIL — MECHANISM (INERT DOSE)**: harness virtually IDENTICAL to the
+  undosed `s0c1_acq1` twin on all 4 modes (walk/det 0/6 both,
+  walk/sto 6/6 both, walk_startjitter/det 0/6 both, walk_startjitter/
+  sto 3/6 both) — an even cleaner null than `swinggate-fresh` since
+  this compares directly against its own true parent. `medhead-
+  swinggate-fix` (on `medhead_acq1`) **CANARY FAIL — MECHANISM
+  (engaged, no repair)**: 11/24 gait_valid vs the undosed twin's own
+  10/24 — noise-level, same leg1/4 alternating sacrifice pattern,
+  neither det mode majority-clears. `irr-swinggate-fix` (on
+  `irr_acq1`) **CANARY FAIL — MECHANISM (engaged, no repair)**: 17/24
+  vs the undosed twin's own 18/24 — noise-level, same pattern.
+  **`reward.walk_swing_gate` is now CLOSED end-to-end as a per-leg-
+  utilization repair lever for the base(1g) family, 4/4 arms FAIL
+  (2 cleanly inert, 2 noise-level marginal, zero majority-clearing
+  repair anywhere) — the 7th independently-designed mechanism to fail
+  after `walk_gait_gate`+`k_step_event` (6/6 FAIL) and `walk_duty_gate`
+  (9/9 FAIL across every provenance x dose).** Do not fund ANY further
+  reward-price mechanism for base(1g)-family leg favoritism without a
+  genuinely new causal theory (not another gate/floor/count variant on
+  the same "price the missing behavior" idea — that idea class is now
+  exhausted at n=7 designs x every provenance). The next lever must be
+  structural: curriculum-widen from a leg-healthy champion (the way
+  halfgrav's `widen2` thread is doing, since halfgrav does NOT show
+  this pathology), a different exploration/init scheme, or accepting
+  the base(1g) family's per-leg pathology as closed and reallocating
+  spend to the healthy halfgrav lineage. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-{s0c1,irr}-swinggate-fix`,
+  `cw-walkscratch-easy0905-headset-base-medhead-swinggate-fix`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_{s0c1,medhead,
+  irr}_swinggate_fix_gate/report.json` vs each one's own `_acq1_gate`
+  twin, W&B `3f8el794`/`2vlzxnoh`/`2j266hc8`/`4rnm653m`.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

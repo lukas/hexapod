@@ -2,6 +2,40 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~22:3x this cycle (assigned `headset-base-s0c1-swinggate-fix` +
+  `headset-halfgrav-fullhead-widen2-c2b`): one verdict, two 40M
+  launches. `swinggate-fix` (entrenched-checkpoint retrofit of
+  `walk_swing_gate` onto the FAILED `s0c1_acq1` leg-4-park checkpoint)
+  had ALREADY been verdicted **CANARY FAIL - MECHANISM (INERT DOSE)**
+  by a concurrent cycle before this cycle's gate eval even synced
+  (harness result virtually identical to the undosed twin on all 4
+  modes) — re-confirmed, not re-triaged, matches the same-cycle
+  `swinggate-fresh` inert-dose fingerprint above. `widen2-c2b` (the
+  corrected matched-budget 2nd seed of the widen-from-medhead
+  curriculum test, warm-started from `medhead2_acq1.zip`) **CANARY
+  PASS**: gait_valid 16/24, 0 falls/terms in all 4 modes,
+  `walk/det` direrr/courserr/slip medians (62.0/63.6/4.94) land close
+  to `widen2-c1`'s own numbers (59.4/45.4/5.02), NOT the confounded
+  `widen2-c2`'s (74.9/129.6/12.1) — confirms 2/2 matched-budget seeds
+  now show the widen-from-medhead recipe measurably beats a cold
+  full-set jump, closing the champion-specific-luck alternative.
+  **Refill**: with 6+ GPU pods genuinely idle (verified via direct
+  `ps`, not just launcher status) and this being the first
+  recipe-level-confirmed non-blocked halfgrav thread, launched matched
+  40M acquisition continuations off BOTH widen2 seeds:
+  `headset-halfgrav-fullhead-widen2-c1-acq1` (train-7, from
+  `widen2-c1`) and `-widen2-c2b-acq1` (train-8, from `widen2-c2b`),
+  both VERIFIED RUNNING — tests whether the reversal-heading
+  tightening holds at full budget on 2 independent seeds before
+  calling the widen curriculum shape acquisition-validated for this
+  ladder. Left the base-family swing_gate retrofit reads
+  (`medhead-swinggate-fix`, `irr-swinggate-fix`,
+  `halfgrav-medhead2-swinggate-fix`) alone — still genuinely computing
+  remotely at cycle end, not assigned this cycle. Evidence: `ops.sh
+  review cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_fullhead_
+  widen2_c2b_gate/report.json`, W&B `nnebz1nz`, SKILLS.md.
+
 - 09-05 ~22:2x this cycle (assigned `headset-base-s0c1-swinggate-fresh`,
   the fresh-provenance arm of the 4-arm `walk_swing_gate` canary
   batch): one verdict, no new launch (all pods free but the batch's

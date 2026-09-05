@@ -244,11 +244,21 @@ def _simulate_case(
     backoff_entries = 0
     stop_reason = None
     stop_tick = None
+    stop_guard = None
+    stop_guard_limit = None
+    stop_guard_value = None
+    terminal_late_ms = 0.0
+    terminal_deadline_miss_streak = 0
+    terminal_attitude_age_ms = 0.0
 
     for tick in range(total_ticks):
         if imu_age_ms >= cfg.attitude_freshness_ms:
             stop_reason = "attitude_freshness"
             stop_tick = tick
+            stop_guard = "attitude_freshness_ms"
+            stop_guard_limit = cfg.attitude_freshness_ms
+            stop_guard_value = imu_age_ms
+            terminal_attitude_age_ms = imu_age_ms
             break
 
         failing = fault_start_tick <= tick < (
@@ -295,12 +305,28 @@ def _simulate_case(
         else:
             consecutive_late = 0
         max_late_streak = max(max_late_streak, consecutive_late)
-        if (
-            late_ms >= cfg.critical_lag_ms
-            or (late_ms >= cfg.hard_lag_ms and consecutive_late >= 2)
-            or consecutive_late >= cfg.max_consecutive_late
-        ):
+        terminal_late_ms = late_ms
+        terminal_deadline_miss_streak = consecutive_late
+        terminal_attitude_age_ms = imu_age_ms
+        if late_ms >= cfg.critical_lag_ms:
+            stop_reason = "critical_lag"
+            stop_guard = "critical_lag_ms"
+            stop_guard_limit = cfg.critical_lag_ms
+            stop_guard_value = late_ms
+            stop_tick = tick
+            break
+        if late_ms >= cfg.hard_lag_ms and consecutive_late >= 2:
+            stop_reason = "hard_lag_streak"
+            stop_guard = "hard_lag_ms"
+            stop_guard_limit = cfg.hard_lag_ms
+            stop_guard_value = late_ms
+            stop_tick = tick
+            break
+        if consecutive_late >= cfg.max_consecutive_late:
             stop_reason = "deadline_miss_streak"
+            stop_guard = "deadline_miss_streak_limit"
+            stop_guard_limit = cfg.max_consecutive_late
+            stop_guard_value = consecutive_late
             stop_tick = tick
             break
         now_ms += elapsed_ms
@@ -312,14 +338,118 @@ def _simulate_case(
         "completed": stop_reason is None,
         "stop_reason": stop_reason,
         "stop_tick": stop_tick,
+        "stop_guard": stop_guard,
+        "stop_guard_limit": stop_guard_limit,
+        "stop_guard_value": (
+            round(stop_guard_value, 3)
+            if isinstance(stop_guard_value, float) else stop_guard_value
+        ),
         "stop_time_s": round(now_ms / 1000.0, 6),
         "deadline_miss_streak_max": max_late_streak,
         "attitude_age_max_ms": round(max_attitude_age_ms, 3),
+        "terminal_late_ms": round(terminal_late_ms, 3),
+        "terminal_deadline_miss_streak": terminal_deadline_miss_streak,
+        "terminal_attitude_age_ms": round(terminal_attitude_age_ms, 3),
         "scheduler_backoff_entries": backoff_entries,
         "scheduler_backoff_state": (
             "active" if backoff_until_ms is not None
             and now_ms < backoff_until_ms else "inactive"
         ),
+    }
+
+
+def assert_case_invariants(case: dict, cfg: ReplayConfig) -> None:
+    """Reject a case whose reported stop fields disagree with its guard.
+
+    These checks deliberately validate the serialized values rather than only
+    the internal branch that produced them.  They therefore protect the report
+    contract against label/summary regressions like a two-tick hard-lag stop
+    being reported as the 12-tick deadline-streak guard.
+    """
+    reason = case["stop_reason"]
+    completed = case["completed"]
+    stop_tick = case["stop_tick"]
+    guard = case["stop_guard"]
+    limit = case["stop_guard_limit"]
+    value = case["stop_guard_value"]
+    max_streak = case["deadline_miss_streak_max"]
+    max_age = case["attitude_age_max_ms"]
+    terminal_streak = case["terminal_deadline_miss_streak"]
+    terminal_age = case["terminal_attitude_age_ms"]
+    terminal_late = case["terminal_late_ms"]
+
+    if completed != (reason is None):
+        raise ValueError("completed flag disagrees with stop_reason")
+    stop_fields = (stop_tick, guard, limit, value)
+    if reason is None and any(item is not None for item in stop_fields):
+        raise ValueError("completed case reports terminal stop fields")
+    if reason is not None and any(item is None for item in stop_fields):
+        raise ValueError("stopped case is missing terminal stop fields")
+    if stop_tick is not None and not (
+        0 <= stop_tick < round(cfg.duration_s * cfg.control_hz)
+    ):
+        raise ValueError("stop_tick is outside the configured replay horizon")
+    if max_streak < terminal_streak:
+        raise ValueError("maximum deadline streak is below terminal streak")
+    if max_age + 1e-9 < terminal_age:
+        raise ValueError("maximum attitude age is below terminal attitude age")
+
+    expected = {
+        "attitude_freshness": (
+            "attitude_freshness_ms", cfg.attitude_freshness_ms,
+            terminal_age >= cfg.attitude_freshness_ms,
+            abs(float(value or 0.0) - terminal_age) <= 0.001,
+        ),
+        "critical_lag": (
+            "critical_lag_ms", cfg.critical_lag_ms,
+            terminal_late >= cfg.critical_lag_ms,
+            abs(float(value or 0.0) - terminal_late) <= 0.001,
+        ),
+        "hard_lag_streak": (
+            "hard_lag_ms", cfg.hard_lag_ms,
+            terminal_late >= cfg.hard_lag_ms and terminal_streak >= 2,
+            abs(float(value or 0.0) - terminal_late) <= 0.001,
+        ),
+        "deadline_miss_streak": (
+            "deadline_miss_streak_limit", cfg.max_consecutive_late,
+            terminal_streak >= cfg.max_consecutive_late,
+            value == terminal_streak,
+        ),
+    }
+    if reason is None:
+        return
+    if reason not in expected:
+        raise ValueError(f"unknown stop_reason: {reason}")
+    expected_guard, expected_limit, threshold_met, value_matches = expected[
+        reason
+    ]
+    if guard != expected_guard:
+        raise ValueError(f"{reason} reports inconsistent guard {guard}")
+    if limit != expected_limit:
+        raise ValueError(f"{reason} reports inconsistent guard limit {limit}")
+    if not threshold_met:
+        raise ValueError(f"{reason} did not meet its reported guard")
+    if not value_matches:
+        raise ValueError(f"{reason} reports an inconsistent guard value")
+
+
+def audit_matrix_invariants(cases: list[dict], cfg: ReplayConfig) -> dict:
+    failures = []
+    for index, case in enumerate(cases):
+        try:
+            assert_case_invariants(case, cfg)
+        except (KeyError, TypeError, ValueError) as exc:
+            failures.append({"case_index": index, "error": str(exc)})
+    return {
+        "required": True,
+        "passed": not failures,
+        "cases_checked": len(cases),
+        "fields_checked": [
+            "stop_reason", "stop_guard", "stop_guard_limit",
+            "stop_guard_value", "deadline_miss_streak_max",
+            "attitude_age_max_ms", "stop_tick",
+        ],
+        "failures": failures,
     }
 
 
@@ -357,17 +487,26 @@ def run_matrix(
                     canonical[0].encode()
                 ).hexdigest()
                 cases.append(case)
+    invariant_audit = audit_matrix_invariants(cases, cfg)
+    if not invariant_audit["passed"]:
+        raise RuntimeError(
+            "fault-matrix invariant audit failed: "
+            + json.dumps(invariant_audit["failures"], sort_keys=True)
+        )
     return {
         "cases": cases,
         "all_repetitions_deterministic": all(
             case["deterministic"] for case in cases
         ),
+        "invariant_audit": invariant_audit,
     }
 
 
 def build_report(
     *, trace_path: Path, debug_path: Path, cfg: ReplayConfig,
     attempt_revision: str, candidate_revision: str,
+    replay_tool_revision: str = "unknown",
+    invariant_audit_revision: str = "unknown",
     imu_delays_ms: Iterable[float] = (0, 5, 10, 25, 50),
     failure_counts: Iterable[int] = (0, 1, 2, 3),
 ) -> dict:
@@ -386,7 +525,7 @@ def build_report(
     if not matrix["all_repetitions_deterministic"]:
         raise RuntimeError("identical replay repetitions were nondeterministic")
     return {
-        "schema": "hexapod.timing_imu_replay.v1",
+        "schema": "hexapod.timing_imu_replay.v2",
         "simulation_only": True,
         "sources": {
             "trace": str(trace_path),
@@ -397,6 +536,8 @@ def build_report(
             ).hexdigest(),
             "attempt_revision": attempt_revision,
             "candidate_revision": candidate_revision,
+            "replay_tool_revision": replay_tool_revision,
+            "invariant_audit_revision": invariant_audit_revision,
         },
         "guards": {
             "attitude_freshness_ms": cfg.attitude_freshness_ms,
@@ -450,6 +591,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--failure-counts", default="0,1,2,3")
     parser.add_argument("--attempt-revision", default="6e7d5ff")
     parser.add_argument("--candidate-revision", required=True)
+    parser.add_argument("--replay-tool-revision", required=True)
+    parser.add_argument("--invariant-audit-revision", required=True)
     args = parser.parse_args(argv)
     if not (0 < args.duration_s <= 120):
         parser.error("--duration-s must be in (0, 120]")
@@ -468,6 +611,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg=cfg,
         attempt_revision=args.attempt_revision,
         candidate_revision=args.candidate_revision,
+        replay_tool_revision=args.replay_tool_revision,
+        invariant_audit_revision=args.invariant_audit_revision,
         imu_delays_ms=_csv_numbers(args.imu_delay_ms, float),
         failure_counts=_csv_numbers(args.failure_counts, int),
     )

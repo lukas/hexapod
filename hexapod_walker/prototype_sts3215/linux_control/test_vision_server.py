@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 from pathlib import Path
 import sys
 import time
@@ -19,6 +21,7 @@ from vision_server import (  # noqa: E402
     assess_visual_calibration_readiness,
     build_current_pose_config,
     build_visual_calibration_report,
+    materialize_default_config,
     updated_visual_bias_config,
 )
 from avfoundation_capture import AVFoundationYuvCapture  # noqa: E402
@@ -56,6 +59,71 @@ def test_current_floor_map_overlays_retired_tracker_anchors(tmp_path):
         "euler_xyz_deg": [0.0, 0.0, -90.4],
     }
     assert config["marker_size_m"] == pytest.approx(0.0272)
+
+
+def test_materialized_active_layout_keeps_newer_live_bias_across_restart(
+        tmp_path):
+    revision = tmp_path / "revision-7"
+    revision.mkdir()
+    pose = revision / "apriltag-pose-config.snapshot.json"
+    floor = revision / "floor-tag-map.snapshot.json"
+    manifest = revision / "bundle.json"
+    target = tmp_path / "state" / "live.json"
+    pose.write_text(json.dumps({
+        "tag_family": "tag36h11",
+        "marker_size_m": 0.027,
+        "floor_tags": {"12": {}},
+        "robot_pose": {
+            "tags": {"1": {"frame_from_tag": {
+                "euler_xyz_deg": [0.0, 0.0, 90.0],
+            }}},
+            "visual_joint_bias_deg": {"L0_yaw": 1.0},
+        },
+        "visual_calibration": {"applied_unix": 10.0},
+    }))
+    floor.write_text(json.dumps({
+        "family": "tag36h11",
+        "units": "millimeters",
+        "tag_black_square_size": 27.2,
+        "tags": [
+            {"id": 104, "center": [0, 0, 0], "yaw_degrees": -89.8},
+            {"id": 102, "center": [304.8, 0, 0], "yaw_degrees": -90.4},
+        ],
+    }))
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps({
+        "revision_id": "revision-7",
+        "pose_config_sha256": digest(pose),
+        "floor_map_sha256": digest(floor),
+    }))
+    target.parent.mkdir()
+    target.write_text(json.dumps({
+        "robot_pose": {
+            "tags": {"1": {"frame_from_tag": {
+                "euler_xyz_deg": [0.0, 0.0, -90.0],
+            }}},
+            "visual_joint_bias_deg": {"L0_yaw": 3.0},
+        },
+        "visual_calibration": {"applied_unix": 20.0, "kind": "test"},
+    }))
+
+    first = materialize_default_config(
+        target_path=target, active_bundle_path=revision)
+    first_bytes = first.read_bytes()
+    config = json.loads(first_bytes)
+
+    assert config["robot_pose"]["tags"]["1"]["frame_from_tag"][
+        "euler_xyz_deg"] == [0.0, 0.0, 90.0]
+    assert config["robot_pose"]["visual_joint_bias_deg"] == {"L0_yaw": 3.0}
+    assert config["visual_calibration"]["applied_unix"] == 20.0
+    assert config["runtime_layout_source"] == {
+        "kind": "robot_lab_active_bundle",
+        "revision_id": "revision-7",
+        "pose_config_sha256": digest(pose),
+        "floor_map_sha256": digest(floor),
+    }
+    assert materialize_default_config(
+        target_path=target, active_bundle_path=revision).read_bytes() == first_bytes
 
 
 class _ClosedCapture:

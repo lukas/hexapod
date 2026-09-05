@@ -74,6 +74,31 @@
   one new non-duplicative arm this cycle funded instead. Evidence:
   `logs/ckpt_eval/cw_walkscratch_easy0905_sde_dgidle_s0_gate/
   report.json`, W&B `4ubnoqq3`.
+  **Refill (same cycle):** with the gSDE lineage closed and 8+ GPU
+  pods free, built + bank-proved a STRONGER dose of `walk_duty_gate`
+  (`duty_gate_floor` 0.15 -> 0.35, `g`=1.0; `test_duty_gate_strong_
+  floor_*`, 2 new tests, 39/39 file green,
+  `walkcurr-dutygate-strongfloor-bank-0905`) targeting the DIFFERENT,
+  still-open "marginal underuse" class on the non-gSDE base family
+  (one leg chronically at duty 0.03-0.07 with real infrequent swings,
+  NOT the closed gSDE near-zero-touch LEGPARK-SKATE) -- the prior 0.9/
+  0.15 dose (`headset-base-s0c1-dgate-c1`) was CANARY FAIL - MECHANISM
+  (INERT-DOSE): PPO's training-time rollout noise already satisfied
+  the lenient 0.15 floor even for a leg whose deterministic policy
+  sits at 0.04-0.07, so almost no repair gradient reached eval-time
+  behavior. The new floor keeps a healthy tripod's income untouched
+  (leg-4 duty ~0.52 >> 0.35, measured directly) while pricing a
+  ~0.05-duty scripted twin measurably harder (-432 -> -536 on the
+  identical trajectory) -- a real, not saturated, difference. Launched
+  both marginal-underuse FAILs this class has produced so far:
+  `headset-base-s0c1-dgate2-c1` (from `s0c1-acq1`'s own checkpoint,
+  train-3) and `headset-base-irr-dgate2-c1` (from `irr-acq1`'s own
+  checkpoint, the irr-timing/1g composition, train-4), both VERIFIED
+  RUNNING (2M canaries, ~2-5 min wall clock at this fps). Gate: real
+  movement of `env/walk_duty_min` off the pinned-1.0 plateau + det-mode
+  leg duty climbing measurably above the 0.04-0.07 baseline; FAIL if
+  still pinned (repeats INERT-DOSE) or a different leg parks/falls
+  appear. Snapshot `walkcurr-dutygate-strongfloor-bank-0905`.
 
 - 09-05 ~16:5x this cycle (assigned `sde-s2-c2-dgatefix`/
   `sdehalfgrav-remcost-{s0,s1}-dgatefix`, 3 of the 4-arm

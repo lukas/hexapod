@@ -343,6 +343,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   picture. Evidence: `ops.sh review cw-walkscratch-easy0905-{sde-s2-
   c2-dgatefix,sdehalfgrav-remcost-s0-dgatefix,sdehalfgrav-remcost-s1-
   dgatefix}`, W&B `jw13d0rn`/`mmbhvbzs`/`m9sj7qzp`.
+  UPDATE 09-05 ~17:2x: both `walk_duty_gate`+`k_walk_idle_charge`
+  fresh-from-scratch canaries landed — `sde-dgidle-{s0,s1}` 2/2
+  **CANARY FAIL — FULL FREEZE/VIBRATION** (s0: det fwd med 0.047m/20s,
+  stride_m_mean 0.001m, duty 0.78-0.98 on all six legs via
+  high-frequency in-place vibration not stride, slip_per_m 95.97 —
+  33x the 2.9 band; sto/startjitter modes fall more, not less, 5-6/6
+  terminations). **This closes reward-shaping-alone repair for the
+  bare-sde/easy0905 LEGPARK-SKATE pathology for good: 6 independently
+  designed price/termination mechanisms now FAIL (walk_gait_gate+
+  k_step_event 6/6, k_park_duty+k_walk_idle_charge+qvel-terminate 2/2,
+  bare walk_duty_gate fresh 3/3, walk_duty_gate on entrenched
+  checkpoints 4/4 below funding bar, walk_duty_gate+k_walk_idle_charge
+  fresh 2/2).** No further gSDE price/termination variant should be
+  funded. Per this campaign's OWN launch hypothesis (`sde-s0`'s notes,
+  verbatim: "ONLY change vs base-s0 is --use-sde"), the controlled A/B
+  this closure needs was already run at launch time: the identical
+  bare recipe passes ACQ cleanly on the non-gSDE base/halfgrav
+  families (4+/4, six-leg video-confirmed) and fails on every gSDE
+  seed tried (7+). **gSDE is the confirmed causal ingredient — CLOSE
+  the gSDE sub-lineage entirely** (no further from-scratch or repair
+  spend); the one live exception is `sde-s2-c2-dgatefix-cont40m`
+  (entrenched-checkpoint, genuinely rising reward, 08-21-justified,
+  already funded/running) — let it finish as a sunk-cost read, fund no
+  NEW gSDE arms after it. Remaining walkcurr GPU budget belongs to the
+  working base/halfgrav (Gaussian) curriculum ladder. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sde_dgidle_s0_gate/
+  report.json`, RL_LOG 09-05 17:2x, W&B `4ubnoqq3`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

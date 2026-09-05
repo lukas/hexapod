@@ -2,6 +2,46 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~17:2x this cycle (assigned `sde-dgidle-s0`; sibling
+  `sde-dgidle-s1` is a concurrent cycle's, already independently
+  verdicted FAIL): **CANARY FAIL - MECHANISM (FULL FREEZE/VIBRATION)**,
+  2/2 with the sibling. `walk_duty_gate=1.0`+`k_walk_idle_charge=2.0`
+  together, from scratch, still converges to the disqualified freeze
+  fingerprint: det fwd med 0.047m/20s, stride_m_mean 0.001m, duty
+  0.78-0.98 on ALL SIX legs (vibration, not stride — swing_count up to
+  266/20s), slip_per_m 95.97 (33x the 2.9 band); sto/startjitter modes
+  fall MORE not less (5-6/6 terminations tilt_roll/tilt_pitch) —
+  fragile, not just static. Video (`walk_det_0.png`,
+  `walk_startjitter_det_0.png`) shows the identical splayed-leg pose
+  every sampled frame. **This closes reward-shaping-alone repair for
+  the bare-sde/easy0905 LEGPARK-SKATE pathology FOR GOOD**: 6
+  independently-designed price/termination mechanisms now FAIL
+  (`walk_gait_gate`+`k_step_event` 6/6, `k_park_duty`+
+  `k_walk_idle_charge`+qvel-terminate 2/2, bare `walk_duty_gate` fresh
+  3/3, `walk_duty_gate` on entrenched checkpoints 4/4 below funding
+  bar, `walk_duty_gate`+`k_walk_idle_charge` fresh 2/2). **Recommend
+  CLOSING the gSDE sub-lineage entirely** — the campaign's own launch
+  hypothesis for `sde-s0` already states the controlled A/B verbatim
+  ("ONLY change vs base-s0 is --use-sde"); the identical bare recipe
+  passes ACQ cleanly on the non-gSDE base/halfgrav families (4+/4,
+  six-leg video-confirmed) and fails on every gSDE seed tried (7+) —
+  gSDE is the confirmed causal ingredient, not remcost pricing, not
+  warm-start entrenchment, not the duty-gate/idle-charge combo. No
+  further gSDE price/termination variant should be funded from here.
+  The one live exception: `sde-s2-c2-dgatefix-cont40m` (entrenched-
+  checkpoint, genuinely rising reward, 08-21-justified, already
+  running) — let it finish as a sunk-cost read; fund no NEW gSDE arms
+  after it. Remaining walkcurr GPU budget belongs to the working
+  base/halfgrav (Gaussian) curriculum ladder (fullhead-widen in
+  flight on a concurrent cycle; irr-timing 1g still open — see below).
+  CURRENT_TRUTHS.md updated (~17:2x entry). Capacity re-checked:
+  `launch_run.py status` shows 10/11 GPU pods free, backlog empty —
+  did not launch a fresh gSDE arm (just closed) nor duplicate the
+  concurrent cycle's fullhead-med work; see refill note below for the
+  one new non-duplicative arm this cycle funded instead. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sde_dgidle_s0_gate/
+  report.json`, W&B `4ubnoqq3`.
+
 - 09-05 ~16:5x this cycle (assigned `sde-s2-c2-dgatefix`/
   `sdehalfgrav-remcost-{s0,s1}-dgatefix`, 3 of the 4-arm
   entrenched-checkpoint `walk_duty_gate` batch — `sde-s1-c2-dgatefix`

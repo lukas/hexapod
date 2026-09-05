@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T17:25:17+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-acq1
+
+**wandb_id**: qxewuqw2
 
 **hypothesis**: Plain English: does the base(1g) small-3-way-heading champion generalize to a 5-way set that adds only the two quarter-turns (+-90deg) it never saw, WITHOUT the reversal directions (+-135/180) that the full 8-way jump (headset-base-fullhead-c1) just CANARY FAILED on (v_along pinned ~0.01m/s, direction_err~86deg, reward -122->-556 monotonically worsening)? Per the operator's own staged-heading-curriculum ruling (never jump straight to a wide/full range) this is the missing intermediate rung, not a repeat of the failed jump. bank: 5 new test_easy_heading_med_* tests in test_walkscratch_easy_pilot.py, 37/37 green.
 

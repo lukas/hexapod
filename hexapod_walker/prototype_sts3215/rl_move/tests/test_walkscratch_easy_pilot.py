@@ -1274,3 +1274,77 @@ def test_duty_gate_token_touch_cannot_dodge(duty_gate_returns):
     assert duty_gate_returns["tokentouch_gated"][0] < six - 500.0, (
         f"token twin not decisively below six-leg income: "
         f"{duty_gate_returns}")
+
+
+# ---------------------------------------------------------------------
+# STRONGER-DOSE WALK DUTY GATE (duty_gate_floor 0.15 -> 0.35 — 09-05
+# ~17:3x, `headset-base-s0c1-dgate-c1` INERT-DOSE finding): the
+# family-wide MARGINAL-UNDERUSE class (a base/halfgrav heading seed
+# hardening one leg to chronic duty 0.03-0.07 while the other five
+# walk normally — NOT the gSDE near-zero-touch LEGPARK-SKATE, which is
+# now closed as a reward-shaping target entirely, see CURRENT_TRUTHS
+# 09-05 ~17:2x) got ZERO measurable repair from `walk_duty_gate=0.9`/
+# `duty_gate_floor=0.15`: PPO's own training-time rollout noise already
+# keeps the trailing duty above 0.15 even for a leg whose DETERMINISTIC
+# policy converges to 0.04-0.07, so almost no gradient reaches the
+# eval-time behavior. This bank proves a stronger floor (0.35, ~2.3x)
+# at full dose (g=1.0) still leaves a healthy six-leg tripod's income
+# untouched (leg-4 duty ~0.52, comfortably above 0.35) while measurably
+# increasing the price on a token-touchdown-style marginal-duty twin
+# (~0.05 duty, the same magnitude as the real marginal-underuse
+# fingerprint) relative to the inert 0.15 floor — a real, not
+# saturated, difference between the two floors on the identical
+# trajectory.
+# ---------------------------------------------------------------------
+
+EASY_DUTY_STRONG = dict(EASY_BASE)
+EASY_DUTY_STRONG.update({
+    ("reward", "walk_duty_gate"): 1.0,
+    ("reward", "duty_gate_window_s"): 3.0,
+    ("reward", "duty_gate_floor"): 0.35,
+})
+
+
+@pytest.fixture(scope="module")
+def duty_gate_strong_returns() -> dict[str, tuple]:
+    out = {}
+    for name, pol, ov in (
+            ("gait_gated_strong", "gait", EASY_DUTY_STRONG),
+            ("legpark_gated_strong", "legpark", EASY_DUTY_STRONG),
+            ("tokentouch_gated_strong", "tokentouch", EASY_DUTY_STRONG)):
+        runs = [_legpark_rollout(pol, s, overrides=ov) for s in SEEDS]
+        out[name] = (
+            float(np.mean([r[0] for r in runs])),
+            float(np.mean([r[1] for r in runs])),
+            float(np.mean([r[2] for r in runs])),
+            float(np.mean([r[3] for r in runs])),
+        )
+    return out
+
+
+def test_duty_gate_strong_floor_healthy_gait_still_unpriced(
+        duty_gate_strong_returns, duty_gate_returns):
+    """Raising the floor 0.15 -> 0.35 must not touch the honest
+    six-leg tripod's income (leg-4 duty ~0.52 stays far above 0.35)."""
+    base = duty_gate_returns["gait_base"][0]
+    gated = duty_gate_strong_returns["gait_gated_strong"][0]
+    assert gated >= 0.90 * base, (
+        f"stronger floor taxed the honest six-leg gait: {gated:.1f} "
+        f"vs {base:.1f}: {duty_gate_strong_returns}")
+
+
+def test_duty_gate_strong_floor_prices_marginal_underuse_harder(
+        duty_gate_strong_returns, duty_gate_returns):
+    """The marginal-underuse twin (~0.05 duty, the real chronic-
+    underuse fingerprint's magnitude, NOT the near-zero LEGPARK-SKATE
+    case) must be priced measurably MORE at floor=0.35 than at the
+    inert floor=0.15 on the identical trajectory -- otherwise the
+    stronger dose is just as inert as the one already found INERT on
+    `headset-base-s0c1-dgate-c1`."""
+    weak_015 = duty_gate_returns["tokentouch_gated"][0]
+    weak_035 = duty_gate_strong_returns["tokentouch_gated_strong"][0]
+    assert weak_035 < weak_015 - 50.0, (
+        f"floor=0.35 did not price the marginal-underuse twin harder "
+        f"than the inert floor=0.15 ({weak_035:.1f} vs {weak_015:.1f}) "
+        f"-- would repeat the INERT-DOSE finding: "
+        f"{duty_gate_strong_returns}")

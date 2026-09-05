@@ -4,7 +4,11 @@ import json
 
 import pytest
 
-from rl_move.scripts.analyze_timing_tracking_correlation import AnalysisError, analyze
+from rl_move.scripts.analyze_timing_tracking_correlation import (
+    AnalysisError,
+    _moving_block_bootstrap_ci,
+    analyze,
+)
 
 
 def _fixture(tmp_path):
@@ -43,6 +47,8 @@ def test_analysis_is_deterministic_and_event_aligned(tmp_path):
     assert first["event_aligned_statistics"]["cadence_overrun"]["event_ticks"] == [3]
     assert first["event_aligned_statistics"]["imu_stale_recovery"]["event_ticks"] == [3]
     assert first["correlation_with_bootstrap_95pct_ci"]["signals_vs_global_abs_tracking_error_deg"]["imu_age_ms"]["pearson_r"] > 0.8
+    assert first["correlation_with_bootstrap_95pct_ci"]["method"] == "paired circular moving-block bootstrap"
+    assert first["correlation_with_bootstrap_95pct_ci"]["block_rows"] == 2
     assert outliers[0]["tick"] == 3
 
 
@@ -50,3 +56,8 @@ def test_manifest_mismatch_stops_before_analysis(tmp_path):
     _fixture(tmp_path)
     with pytest.raises(AnalysisError, match="manifest SHA-256 mismatch"):
         analyze(tmp_path, expected_manifest_sha256="0" * 64, bootstrap_resamples=10)
+
+
+def test_moving_block_bootstrap_validates_block_length():
+    with pytest.raises(AnalysisError, match="bootstrap_block_rows"):
+        _moving_block_bootstrap_ci([1.0, 2.0], [2.0, 1.0], 10, 7, 3)

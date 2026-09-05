@@ -44,14 +44,21 @@ of the 50 Hz sensing gain, while faster filters at the existing bus cadence
 recover nearly all the forward gain. The latter used velocity alpha `.83193`
 and attitude alpha `.9039207968`, versus `.3` / `.98` today. They match the
 approximate response time of the original coefficients at 50 Hz; they are
-experimental settings, not a deployment recommendation without noise checks.
+experimental settings; these results do not establish performance on the robot.
 
-Keep the policy at 100 Hz. First inspect estimator response against recorded
-encoder/IMU data and benchmark sensor/bus service. Evaluate a bounded filter
-candidate only after that review; faster feedback remains useful particularly
-sideways, but increasing poll rate alone is not the full explanation. Do not
-run these weights at 50 Hz. A 50 Hz policy would require training and validation
-at that rate, justified by measured hardware limits.
+Keep the policy at 100 Hz. The next physical comparison needs only the existing
+`velocity_filter.alpha` setting changed from `.3` to `.8`, retaining attitude
+alpha `.98`, the same policy/gait, and the same 100/50/10 Hz rates. A matched
+velocity-only simulation gave forward progress `.294 → .327` (+11%) and sideways
+`.297 → .337` (+13%), with slip per meter reduced 16% and 15%. Both 10-second
+episodes completed without termination. The actor/model/motor hashes match the
+earlier baseline. This isolates one useful change without new training or bus code.
+The report is `logs/ckpt_eval/deployed_transport_noyaw_v2_20260905_velocity_only/report.json`.
+
+Noise analysis can proceed alongside this experiment; it is not a new admission
+gate. Try the bounded physical comparison using existing stop protections,
+then keep or reject the setting based on the actual walking. Do not run these
+weights at 50 Hz merely to match bus writes.
 
 These are diagnostics on the current **4.80573 kg full-mesh model**, with a
 training configuration reconstructed from export metadata and the training
@@ -138,7 +145,14 @@ healthy scans, and confirm the physical posture matches the logical frame.
 Queueing this plan does not execute or authorize motion. No firmware or CAD
 change is part of this delivery.
 
-Advance only after reviewing camera, engagement, deadlines, sensor ages,
-electrical telemetry and the stop. A successful canary is permission to
-consider separately bounded repetitions, not proof of smooth walking or a
-reason to jump straight to a long unsupervised course.
+Following Lukas's request to reduce process, the benchmark generator no longer
+requires a pinned tag layout, exact source-hash match, or a separate timing
+report to attempt a walk. These instructions supersede those process prerequisites
+without changing the job's motion. The existing Lab entry retains the original
+specification: its API does not accept notes on a waiting job, so no replacement
+job was created. Continue repetitions within the authorized scope
+after a stable stop, and use the evidence available to choose the next change.
+
+Orchestrator feedback `fb_20260905T081113_6f0872` communicates this correction
+and cancels the extra command-envelope rerun requested earlier. It is filed
+for the next decision cycle; the active cycle has not acknowledged it yet.

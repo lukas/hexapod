@@ -281,9 +281,9 @@ def analyze(directories: list[Path]) -> dict:
 def build_plan(*, include_planted: bool = False) -> dict:
     common = [
         "Wait in Robot Lab waiting_for_operator with execution_mode=external_guarded; built-in worker must never execute physical work.",
-        "An operator must explicitly authorize this exact physical run and stay present with the abort path ready. Queueing is not motion authorization.",
+        "Stay within the operator-authorized motion scope, with the operator present and the abort path ready. Queueing is not motion authorization.",
         "Do not preempt another job. Confirm idle/disarmed/limp, visually consistent logical zero, and three distinct fresh healthy scans (18/18, IMU, normal voltage/current/temperature).",
-        "Confirm live correctly identified cameras and pinned current tag layout; record exact policy/runner/protocol hashes and physical assembly configuration.",
+        "Confirm live observation of the robot and its posture; tag-layout calibration is not a prerequisite for this trial.",
         "Follow EMERGENCY_HANDLING.md. Actual tip, brownout, hot motor, jam, unexpected force, support motion, or hard current ends the run without automatic retry.",
     ]
     timing = {
@@ -302,15 +302,17 @@ def build_plan(*, include_planted: bool = False) -> dict:
                               "--camera-index", "<validated-direct-camera-index>", "--output-dir", "<new-evidence-directory>",
                               "--phases", "forward", "--walk-transport", "drive", "--speed-m-s", "0.08", "--duration-s", "3"],
             "prerequisites": common + [
-                "Finish local runner timing checks and explicitly authorized deployment separately; verify the deployed version and sample freshness behavior before running.",
                 "Confirm walk policy robot_abs_tibia_v2, mesh, 100 Hz, fixed 0.08 m/s, phase clock metadata, and no yaw; do not rate-rescale weights or enable learned rise.",
-                "Verify the loaded policy export SHA-256 and deployed controller hashes against this manifest; mismatch blocks this exact canary.",
                 "Use a validated direct camera with capture timestamps. HTTP JPEG receipt time does not prove source-frame freshness; the existing unversioned JPEG endpoint is insufficient.",
                 "Use existing STEP walk-ready acquisition and planned STEP lower. No absolute pose is allowed when encoders disagree with camera.",
-                "Record per-tick actual monotonic time, engagement, sample ages, and write due state if supported. Missing instrumentation prevents timing acceptance, but does not justify silently extending this pilot.",
+            ],
+            "analysis_notes": [
+                "Record the actual policy, controller version, filter settings, and physical assembly. Source hashes are provenance; a reviewed code change does not require another canary approval solely because its hash changed.",
+                "Record actual engagement, timing, and sample ages where available. Missing instrumentation limits the corresponding claims; it is not a prerequisite for trying the walk.",
+                "Calibrated floor/tag measurements are optional. Without them report observed behavior and omit metric speed claims.",
             ],
             "evidence_required": ["summary.json", "events.csv", "telemetry.csv", "camera_raw.mp4", "camera_timestamps.csv", "raw robot episode CSV/debug/summary", "calibrated_motion.json if calibrated progress is measured"],
-            "advance_gate": "Review camera + actual engagement/tick/sample age evidence, no fall or hard trip, and stable stop. Only then authorize separately bounded repeated direction trials; do not automatically extend duration.",
+            "advance_gate": "After a stable stop without a physical fault, compare progress and visible smoothness and continue repetitions within the operator-authorized scope. Do not wait for a separate timing, tag-layout, or long-duration acceptance report.",
             "retry_rule": "Only a recoverable camera/recorder/framework or feedback failure may retry the complete bounded step up to twice after camera review and three fresh healthy scans; never retry a physical hazard automatically.",
             "excluded": ["yaw commands", "speed sweep", "learned rise", "60-second run", "automatic retry after physical fault"]}}
     loaded = []

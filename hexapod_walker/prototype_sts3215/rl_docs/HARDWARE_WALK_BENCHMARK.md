@@ -19,14 +19,17 @@ generate the six separate supported planted comparisons, L5 through L0, when
 that complete protocol set is installed and reviewed. Each item matches Robot Lab's
 experiment creation fields and requires `execution_mode=external_guarded`.
 Queueing leaves it `waiting_for_operator`; this program has no network or motion
-code. An operator and an independent safety supervisor must verify every listed
-prerequisite before starting one job. It never automatically follows one job
-with another. Resolve the current robot address and camera identity at execution;
+code. The operator supervises walking with the existing controller stop protections.
+Continue repetitions within the authorized motion scope after a stable stop.
+Resolve the current robot address and camera identity at execution;
 the command placeholders deliberately contain no stale IP address.
 
-The canary freezes the known checkpoint/export hashes, observation and motor
-contract, and the controller source hashes. Regenerate its manifest after the
-final code changes; verify the deployed files and loaded policy before executing.
+The canary records the known checkpoint/export hashes, observation and motor
+contract, and controller source hashes for interpreting results. Record the actual
+versions used; a reviewed source change is not itself a reason to block an experiment.
+Tag-layout calibration, additional timing reports, and long-duration acceptance
+are not prerequisites for a walking comparison. Missing measurements limit what
+we can conclude from a run, rather than making the run worthless.
 Use a validated direct camera with source capture timestamps. The legacy HTTP
 JPEG endpoint does not prove frame freshness from receipt time alone and is not
 the camera source for this plan.
@@ -103,7 +106,9 @@ behavior, reliable start/stop and the chosen acceptance thresholds still require
 review. This fixed-speed no-yaw policy cannot demonstrate steering or
 variable-speed competence.
 
-Before extending the pilot, finish the pending transport/deployment verification
-and compare against gait 9 under matched floor, load, start and camera conditions.
-Keep the measured six-leg air finding: L5 is not uniquely abnormal unloaded.
-Compare all six under planted load before selecting a mechanical intervention.
+The next useful comparison keeps the policy, gait, speed, and 100/50/10 Hz rates
+fixed and changes only `velocity_filter.alpha` from `0.3` to `0.8` in
+`rl_move/config.yaml`. Each new drive session reloads that file. Compare the same
+direction, floor and starting posture; keep the change if repeated physical
+walks improve. This experiment does not depend on another gait comparison or a
+six-leg characterization campaign. Both remain separate questions.

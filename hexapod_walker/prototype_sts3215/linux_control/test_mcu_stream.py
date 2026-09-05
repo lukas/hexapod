@@ -216,14 +216,15 @@ def test_step_all_offers_passive_command_and_snapshot():
     command = [float(j) for j in range(N_JOINTS)]
     assert bus.step_all(command, speed=400, acc=20) is not None
 
-    assert len(offered) == 1
-    kind, payload = offered[0]
+    kind, payload = next(row for row in offered if row[0] == "step")
     assert kind == "step"
     assert payload["command_deg"] == command
     assert len(payload["position_deg"]) == N_JOINTS
     assert len(payload["speed_deg_s"]) == N_JOINTS
     assert payload["snapshot_seq"] == 9
     assert payload["imu"]["az_g"] == 1.0
+    assert b"".join(p["data"] for k, p in offered if k == "serial_rx") == reply
+    assert b"".join(p["data"] for k, p in offered if k == "serial_tx") == bytes(bus._ser.tx)
 
 
 def test_step_all_marks_dead_servo():
@@ -232,10 +233,17 @@ def test_step_all_marks_dead_servo():
     reply = _fw_snapshot_frame(
         _fw_snapshot_payload(1, 2, 3, imu_raw, servos), 18)
     bus = _mk_bus(reply)
+    sink = SnapshotSink()
+    bus.set_telemetry_sink(sink)
     snap = bus.step_all([0.0] * N_JOINTS)
     assert snap is not None
     assert 5 not in snap["pos_deg"]          # dead servo omitted
     assert len(snap["pos_deg"]) == 17
+    payload = next(p for k, p in sink.offered if k == "step")
+    assert payload["missing_servo_ids"] == [7]
+    assert payload["servo_reports"][5] == {
+        "id": 7, "ok": False, "pos_counts": 2000, "spd_counts_s": 0,
+    }
 
 
 def test_step_all_bad_checksum_returns_none():
@@ -245,7 +253,12 @@ def test_step_all_bad_checksum_returns_none():
         _fw_snapshot_payload(1, 2, 3, imu_raw, servos), 18))
     frame[-1] ^= 0xFF                        # corrupt checksum
     bus = _mk_bus(bytes(frame))
+    sink = SnapshotSink()
+    bus.set_telemetry_sink(sink)
     assert bus.step_all([0.0] * N_JOINTS) is None
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_rx") == bytes(frame)
+    result = next(p for k, p in sink.offered if k == "serial_result")
+    assert not result["ok"] and result["reason"] == "checksum_mismatch"
 
 
 def test_snapshot_imu_invalid_age():
@@ -299,12 +312,8 @@ def test_flush_sync_uses_wp_fallback_when_sync_failure_persists():
     assert b"WP 2 2048 2239 200\n" in tx
 
 
-def test_flush_sync_piggybacks_due_snapshot_without_extra_transaction():
-    imu_raw = (0, 0, 16384, 0, 0, 0, 0)
-    servos = [(2 + j, 1, 2048 + j, 20) for j in range(18)]
-    reply = _fw_snapshot_frame(
-        _fw_snapshot_payload(12, 2, 1, imu_raw, servos), 18)
-    bus = _mk_bus(reply)
+def test_recording_preserves_sync_write_bytes_and_does_not_request_snapshot():
+    bus = _mk_bus(b"OK\r\n")
     sink = SnapshotSink()
     bus.set_telemetry_sink(sink)
     item = (2, 2048, 400, 20)
@@ -313,12 +322,45 @@ def test_flush_sync_piggybacks_due_snapshot_without_extra_transaction():
     bus._flush_sync()
 
     tx = bytes(bus._ser.tx)
-    assert tx == encode_sync_frame(ord("S"), [item])
-    assert len(sink.offered) == 1
-    kind, payload = sink.offered[0]
-    assert kind == "step"
-    assert payload["transport"] == "combined_write_snapshot"
-    assert payload["snapshot_seq"] == 12
+    assert tx == encode_sync_frame(ord("W"), [item])
+    assert not any(k == "step" for k, _ in sink.offered)
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_rx") == b"OK\r\n"
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_tx") == tx
+
+
+def test_partial_reply_bytes_survive_payload_timeout():
+    partial = b"\xa5\x5as\x01\x12\x34"
+    bus = _mk_bus(partial)
+    sink = SnapshotSink()
+    bus.set_telemetry_sink(sink)
+    assert bus._bin_txn(encode_sync_frame(ord("S"), []), ord("s"),
+                        SNAP_REC_LEN, SNAP_HEAD_LEN, timeout=0.003) is None
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_rx") == partial
+    assert next(p for k, p in sink.offered if k == "serial_result")["reason"] == "payload_timeout"
+
+
+def test_discarded_input_and_ascii_reply_are_retained():
+    class BufferedSerial(FakeSerial):
+        @property
+        def in_waiting(self):
+            return len(self._rx)
+
+        def write(self, data):
+            super().write(data)
+            self._rx.extend(b"OK 18\r\n")
+
+        def reset_input_buffer(self):
+            self._rx.clear()
+
+    bus = _mk_bus(b"")
+    bus._ser = BufferedSerial(b"leftover\x00\xff")
+    sink = SnapshotSink()
+    bus.set_telemetry_sink(sink)
+    assert bus._transact("SCAN") == "OK 18"
+    reset = next(p for k, p in sink.offered if k == "serial_input_reset")
+    assert reset["data"] == b"leftover\x00\xff" and reset["uncaptured_bytes"] == 0
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_tx") == b"SCAN\n"
+    assert b"".join(p["data"] for k, p in sink.offered if k == "serial_rx") == b"OK 18\r\n"
 
 
 def test_flush_sync_chunks_ascii_fallback_after_full_sw_fails():

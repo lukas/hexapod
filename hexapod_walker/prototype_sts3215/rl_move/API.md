@@ -161,6 +161,32 @@ or several consecutive meaningful misses, is reported as a timing fault
 and the runner stops commanding motion.
 Every session logs `rl_drive_*.csv` like any episode.
 
+## Full-test communication recording
+
+The physical robot web service automatically starts the existing passive
+recorder before serving tests. It records all host-to-MCU serial writes and
+received bytes throughout setup, motion, stopping and recovery, including
+successful runs. It preserves partial replies, malformed packets, rejected
+per-servo reports and input-buffer discards before decoding. Raw bytes are
+stored as `data_hex` with monotonic and wall-clock timestamps; binary result
+records include timeout/checksum/framing outcomes. This is the host/MCU link,
+not a wire-level capture of the separate MCU/servo UART.
+
+Recording never substitutes a different command or polls the bus. The existing
+background writer encodes and saves raw events without the decoded telemetry's
+rate limit. Its bounded queue reports dropped communication events and capture
+errors through `GET /api/telemetry`; disk failures are reported there too.
+Files rotate at 64 MiB without deleting earlier parts. The status response's
+`paths` lists them, and `GET /api/logs/<filename>` downloads each part.
+
+`run_rl_walk_trial.py` marks the run boundaries and copies the relevant parts
+into its evidence directory after recovery, including failed runs. It records
+capture loss/error counters in `summary.json` and leaves the shared recorder
+running for the next test. A marker is acknowledged as saved only when
+`flushed_marker` matches the returned `marker_id`. `HEXAPOD_TELEMETRY_AUTO=0`
+explicitly disables automatic startup; dry-run services do not open a hardware
+recording.
+
 ## RL episode logging (2026-08-09, on-robot, automatic)
 
 Every stand / lower / walk run writes a full local trace under

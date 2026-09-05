@@ -1324,12 +1324,16 @@ def _main_after_bus(args) -> None:
     global LINK, BENCH, HTTPS_PORT
     BENCH = BenchAPI(DRIVE)
     DRIVE.bench = BENCH
-    LINK = Link(DRIVE)
     telemetry_auto = os.environ.get(
-        "HEXAPOD_TELEMETRY_AUTO", "").strip().lower()
-    if telemetry_auto in ("1", "true", "yes", "on"):
-        result = BENCH.telemetry_start(label="auto")
-        print(f"[web] passive telemetry auto-start: {result}")
+        "HEXAPOD_TELEMETRY_AUTO", "1").strip().lower()
+    if not args.dry_run and telemetry_auto in ("1", "true", "yes", "on"):
+        try:
+            result = BENCH.telemetry_start(label="auto")
+            print(f"[web] passive telemetry auto-start: {result}")
+        except Exception as error:
+            # Logging failure is visible but must not disable robot controls.
+            print(f"[web] passive telemetry unavailable: {error}")
+    LINK = Link(DRIVE)
     if not args.dry_run:
         # The ST7789 shares the MCU serial path with motion/test commands.
         # Keep it opt-in so cosmetic screen repaints cannot delay robot work.

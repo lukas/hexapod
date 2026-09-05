@@ -43,6 +43,13 @@ Segment kinds (all command values in logical degrees):
       {"kind": "traj", "t_s": [...], "q_deg": [[18 floats], ...],
        "start_tol_deg": 12.0, "label": "..."}
 
+- ``rel_traj`` — RELATIVE multi-joint stream, anchored to the measured pose
+  at segment admission.  This is the safe representation for synchronized
+  comparisons which must not assume an absolute logical-zero pose::
+
+      {"kind": "rel_traj", "t_s": [...],
+       "active": [7, 16], "q_deg": [[18 floats], ...], "label": "..."}
+
 ``materialize(protocol)`` expands the segments into a flat list of
 ticks. Each tick is a dict::
 
@@ -128,7 +135,7 @@ def validate(protocol: dict) -> list[str]:
                 if f > 0 and abs(amp) * 2.0 * math.pi * f > 720.0:
                     errs.append(f"seg {i}: peak sine velocity "
                                 f"{abs(amp) * 2 * math.pi * f:.0f} deg/s > 720")
-        elif kind == "traj":
+        elif kind in ("traj", "rel_traj"):
             t = s.get("t_s")
             q = s.get("q_deg")
             if (not isinstance(t, list) or not isinstance(q, list)
@@ -139,13 +146,43 @@ def validate(protocol: dict) -> list[str]:
                 errs.append(f"seg {i}: traj {len(t)} ticks > {MAX_TRAJ_TICKS}")
             if any(len(row) != N_JOINTS for row in q):
                 errs.append(f"seg {i}: traj rows must be {N_JOINTS} wide")
-            else:
+            elif kind == "traj":
                 for j in range(N_JOINTS):
                     lo, hi = AXIS_LIMITS_DEG[axis_of(j)]
                     vals = [row[j] for row in q]
                     if min(vals) < lo - 0.5 or max(vals) > hi + 0.5:
                         errs.append(f"seg {i}: traj joint {j} exceeds "
                                     f"axis limits [{lo}, {hi}]")
+            else:
+                active = s.get("active")
+                active_valid = (
+                    isinstance(active, list)
+                    and bool(active)
+                    and all(
+                        isinstance(j, int) and 0 <= j < N_JOINTS
+                        for j in active
+                    )
+                    and len(set(active)) == len(active)
+                )
+                if not active_valid:
+                    errs.append(f"seg {i}: rel_traj active must be unique joints")
+                else:
+                    if any(
+                        abs(float(row[j])) > MAX_REL_AMP_DEG
+                        for row in q for j in active
+                    ):
+                        errs.append(
+                            f"seg {i}: rel_traj active offset exceeds "
+                            f"±{MAX_REL_AMP_DEG} deg"
+                        )
+                    inactive = set(range(N_JOINTS)) - set(active)
+                    if any(
+                        abs(float(row[j])) > 1e-9
+                        for row in q for j in inactive
+                    ):
+                        errs.append(
+                            f"seg {i}: rel_traj has nonzero inactive joint"
+                        )
         else:
             errs.append(f"seg {i}: unknown kind {kind!r}")
     return errs
@@ -180,10 +217,13 @@ def materialize(protocol: dict) -> dict:
     for i, s in enumerate(protocol["segments"]):
         labels.append(_seg_label(s, i))
         kind = s["kind"]
-        if kind == "traj":
+        if kind in ("traj", "rel_traj"):
+            mode = "abs" if kind == "traj" else "rel"
+            active = (list(range(N_JOINTS)) if kind == "traj"
+                      else list(s["active"]))
             for row in s["q_deg"]:
-                ticks.append({"seg": i, "phase": "move", "mode": "abs",
-                              "active": list(range(N_JOINTS)),
+                ticks.append({"seg": i, "phase": "move", "mode": mode,
+                              "active": active,
                               "cmd": [float(v) for v in row]})
             continue
         j = int(s["joint"])

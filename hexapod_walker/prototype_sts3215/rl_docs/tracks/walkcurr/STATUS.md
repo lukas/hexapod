@@ -2,6 +2,56 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~23:5x this cycle (assigned `headset-halfgrav-widenirr-{c1,c2b}`,
+  the widen-FIRST mirror order of the widen+irr composition): 2
+  verdicts, split 1/2 (matches the concurrent cycle's own widen2-acq1
+  split, same underlying seed pair). `widenirr-c1` (irr timing-jitter
+  added on top of the `widen2-c1` champion) **CANARY PASS**:
+  gait_valid 23/24 (walk/det 5/6, walk/sto 6/6, walk_startjitter/det
+  6/6, walk_startjitter/sto 6/6) BEATS its own parent `widen2-c1`'s
+  clean 21/24, 0 falls in all 24 episodes both runs, mean
+  `wrong_course_frac_1s` rises only modestly under the added jitter
+  (0.285->0.367, not a blowup) — a clean pass, not borderline.
+  `widenirr-c2b` (same jitter added on top of `widen2-c2b`) **CANARY
+  FAIL - MECHANISM**: raw gait_valid total ties the parent (16/24
+  both) but the composition redistributes WHICH mode fails —
+  `walk/det` drops 4/6->3/6 with a NEW leg-sacrifice pattern (parent's
+  failures were pure leg-1-led [1]/[1,3]; child's are [4],[1],[2,4] —
+  leg 2 newly implicated), tripping the gate's own explicit written
+  FAIL trigger ("new leg sacrifice vs baseline") even though the
+  aggregate total looks flat. Consistent with (not a new finding
+  independent of) the SAME seed's pure `widen2-c2b-acq1` lineage
+  independently ACQ-FAILing this same cycle with chronic leg-1
+  entrenchment (14/24, leg-1 duty 0.01-0.21 in all 24 episodes) —
+  seed 2 of this heading-widen lineage is simply weaker/leg-1-prone,
+  and timing jitter doesn't repair it, just redistributes the
+  failures. Read together with the concurrent cycle's `irrwiden-c1`
+  (jitter-FIRST order, CANARY PASS, the cleanest read of either
+  order): **the widen+irr composition benefit is real but
+  SEED-SPECIFIC so far** (2 of the 3 tested composition arms pass
+  cleanly — both built on the healthy `widen2-c1`/`irr_acq1`
+  champions — the one arm built on the weak `widen2-c2b` seed fails,
+  regardless of jitter order). **Refill:** promoted `widenirr-c1` to
+  a full 40M ACQ continuation (`headset-halfgrav-widenirr-c1-acq1`,
+  `--init-from-source` off its own 2M checkpoint, mirrors the
+  `widen2-c1-acq1`/`irrwiden-c1-acq1` template) to test whether the
+  widen-first composition edge holds at full budget, same as the
+  concurrent cycle already did for jitter-first. Did NOT fund further
+  budget on `widenirr-c2b` (known-bad seed per its own parent's ACQ
+  FAIL this cycle) — per that same verdict's own conclusion, a 3rd
+  seed of the widen2 rung (not a jitter retrofit onto seed 2) is the
+  right tie-breaker if one is needed later. Operational note: this
+  ACQ launch briefly ran as an accidental duplicate (my own `respec
+  --now` on train-3 landed ~2min after the watcher's own continuous
+  drain independently placed the same backlog item on train-7); caught
+  it via `launch_run.py status`, killed the train-3 copy
+  (<1M steps, no signal lost), left train-7's copy as the sole ACQ
+  arm — logged as `widenirr-c1-acq1b` `KILLED - DUPLICATE` in the
+  ledger for the record. Evidence: `ops.sh review cw-walkscratch-
+  easy0905-headset-halfgrav-widenirr-{c1,c2b}`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_widenirr_{c1,c2b}_gate/
+  report.json`, W&B `uia75k9z`/`lldm22oo`, RL_LOG.
+
 - 09-05 ~23:4x this cycle (assigned `headset-halfgrav-fullhead-widen2-{c1,c2b}-acq1` +
   `headset-halfgrav-irrwiden-c1`): three verdicts, splitting the widen2
   acquisition-scale question by SEED rather than confirming it cleanly.

@@ -2,6 +2,39 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~17:3x this cycle (assigned `headset-{base,halfgrav}-
+  fullhead-c1`, `sde-dgidle-s1`): 3 verdicts + 1 correction pass + 1
+  refill. (1) `sde-dgidle-s1` **CANARY FAIL - MECHANISM** — corroborates
+  the concurrent `sde-dgidle-s0` FAIL below with an independent harness
+  read (det fwd 0.10m/20s IDENTICAL across all 6 episodes, stride
+  0.001m, duty 0.72-0.97 all six legs — same vibration-not-stride
+  freeze), gSDE sub-lineage closure now n=2/2 on this price combo.
+  (2)+(3) `headset-{base,halfgrav}-fullhead-c1` (full 8-way heading
+  jump, both non-gSDE families): both `gate` evals were found
+  genuinely still computing on their own pods (orphaned-supervisor
+  sync gotcha) after an initial W&B-only FAIL verdict; backgrounded
+  `pollreap`/direct reap synced the real harness data, which forced a
+  **verdict CORRECTION (FORCE=1)**: both are real, stable six-leg
+  gaits (`gait_valid` 22/24 and 24/24, forward_dist_m 2.3-3.4m/20s
+  every episode, zero det falls) — NOT the collapse the training-
+  rollout W&B averages implied. The actual failure is course-tracking
+  (`success` 0/24 both — `direction_err_mean_deg` swings 28-161deg
+  episode-to-episode, tracking well near the original {0,+-45} set,
+  degrading hard toward quarter-turn/reversal headings). Net verdict
+  stays CANARY FAIL - MECHANISM on both (walkcurr's own success bar is
+  unmet), but characterized correctly now: a distance-graded
+  heading-generalization gap, not instability. **Refill**: built +
+  bank-proved the missing intermediate rung `EASY_HEADING_MED` (5-way:
+  0,+-45,+-90, no reversal) in `test_walkscratch_easy_pilot.py` (5 new
+  tests, 37/37 green, `walkcurr-headingmed-bank-0905` snapshot,
+  pushed); launched 2M canaries warm-started from each family's own
+  small-set champion: `headset-base-medhead-c1` (train-1),
+  `headset-halfgrav-medhead-c1` (train-2), both VERIFIED RUNNING — do
+  not re-attempt the bare 8-way jump on either family until these
+  land. Evidence: `ops.sh review cw-walkscratch-easy0905-{sde-dgidle-
+  s1,headset-base-fullhead-c1,headset-halfgrav-fullhead-c1}`,
+  CURRENT_TRUTHS.md 09-05 ~17:3x, W&B `q3vgzdlu`/`a0zu90u6`/`xiajh8ja`.
+
 - 09-05 ~17:2x this cycle (assigned `sde-dgidle-s0`; sibling
   `sde-dgidle-s1` is a concurrent cycle's, already independently
   verdicted FAIL): **CANARY FAIL - MECHANISM (FULL FREEZE/VIBRATION)**,

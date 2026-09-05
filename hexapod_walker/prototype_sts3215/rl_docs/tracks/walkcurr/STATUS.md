@@ -2,6 +2,53 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:4x this cycle (own spawn, assigned only
+  `sde-s1-c2-dgatefix` — its 3 siblings `sde-s2-c2-dgatefix`/
+  `sdehalfgrav-remcost-{s0,s1}-dgatefix` are NOT this cycle's, left
+  untouched): W&B finished (2M, `ep_rew_mean` 94.3->234.2->337.9->
+  409.9, climbing) but the harness gate eval was silently orphaned —
+  `logs/ckpt_eval/..._gate*` missing on the controller, yet
+  `eval_checkpoint` genuinely still running on its own pod
+  (train-4, PID 61366, started 16:12, ~28min in when checked;
+  `--video-every 1` panels run 1.5-2h, per the documented
+  prestage-timeout-vs-genuinely-still-running gotcha). Started a
+  single backgrounded `pollreap` (not a second podeval) so the next
+  reader gets the synced report/video without re-discovering this.
+  **Preliminary W&B-only signal, NOT yet a verdict** (no harness
+  gait_valid/per-leg duty or video available this cycle): across the
+  4 logged checkpoints (524k/1.05M/1.57M/2.1M steps),
+  `env/walk_duty_gate_factor` (== `walk_duty_min`, this arm has one
+  binding leg) goes 1.0 -> 1.0 -> 0.718 -> 0.539 — DECLINING, the
+  opposite of the gate's hypothesized "climb toward 1.0" cure
+  direction, while `env/reward_walk` also declines across the same 4
+  points (1.13 -> 1.26 -> 0.92 -> 0.69) even as the multi-goal
+  `ep_rew_mean` keeps climbing (walk is one of 5 goals — hold/lean/
+  track/unload/rise — in this fine-tune's mix, so a rising blended
+  reward can coexist with walk-specific decay). This is the same
+  entrenched-checkpoint question `sde-s1-dg1` (from the early
+  undifferentiated ancestor) already found CANARY PASS on and this
+  arm's own hypothesis was written to test on the REAL 40M exploiter
+  — the declining-not-saturating factor pattern is anomalous enough
+  (and this result forks the whole entrenched-checkpoint repair
+  question, see the 4-arm read note above) to want the harness
+  per-leg duty numbers + video before calling it either way per the
+  08-21 ruling (declining factor could mean genuine partial repair
+  with a harder residual leg, OR the multi-goal mix let the policy
+  route reward-seeking away from walk entirely while nominally
+  keeping duty_gate satisfied at the sampled/noisy level PPO explores
+  at — either needs the actual gait_valid/duty_cycle readout, not
+  scalar curves, to distinguish). **DIG-IN flagged for next spawn**
+  once `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s1_c2_dgatefix_gate/
+  report.json` lands (pollreap running, up to 2h) — do not re-run
+  podeval/pollreap for this run, and do not launch further
+  entrenched-checkpoint dgatefix arms until all 4 are read together.
+  Capacity re-confirmed by direct `ps aux` (not ledger, which is
+  stale): only train-2/train-5 hold live trainers
+  (`headset-{base,halfgrav}-fullhead-c1`), everything else free,
+  backlog empty — no non-duplicative walkcurr arm identified this
+  cycle either (same conclusion as the ~16:1x entry below, now
+  re-verified after the dgatefix batch's own training finished).
+
 - 09-05 ~16:1x this cycle: REFILL completing the corrected
   entrenched-checkpoint `walk_duty_gate` batch. With `sde-s1-c2-dgatefix`
   already RUNNING (built earlier this cycle, see the same-cycle entry

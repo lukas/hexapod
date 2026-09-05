@@ -1,0 +1,583 @@
+{
+  "schema": "hexapod.sealed_walk_audit.v1",
+  "experiment_id": "9c7ee551789f42fb93589e367ea15fad",
+  "manifest_sha256": "1b3a4212308b9dadee38c1d1a034e28c0e26011664938d08550abf2d59e300b6",
+  "manifest_verified": true,
+  "artifact_count": 29,
+  "camera_telemetry_alignment": {
+    "clock": "unix_s",
+    "all_phase_windows_overlap_camera": true,
+    "precision": "camera frame bounds around coarse telemetry phase labels"
+  },
+  "pilots": [
+    {
+      "pilot": "forward",
+      "summary_ok": false,
+      "summary_error": "health samples not clear: [{'ts': 1788501384.5162735, 'live': 17, 'missing': [5], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}, {'ts': 1788501389.5502315, 'live': 18, 'missing': [], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}, {'ts': 1788501392.5636706, 'live': 18, 'missing': [], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}]",
+      "requested_phases": [
+        "forward"
+      ],
+      "result": {
+        "phase": "forward",
+        "request": {
+          "vx": 0.08,
+          "vy": 0.0
+        },
+        "segments": null,
+        "runner_ok": true,
+        "runner_duration_s": 2.0,
+        "ticks": 202,
+        "overruns": 96,
+        "overrun_rate": 0.4752475247524752,
+        "recorded_fell": false,
+        "recorded_max_current_a": 0.55,
+        "recorded_tilt_rel_max_deg": 2.9,
+        "recorded_tail_tilt_max_deg": 23.0
+      },
+      "policy_tilt_limit_deg": 25.0,
+      "timing": {
+        "runner_duration_s": 2.0,
+        "telemetry_drive_label_sample_span_s": 6.495410919189453,
+        "difference_s": 4.495410919189453,
+        "interpretation": "Telemetry phase labels are coarse recorder/orchestration windows; they do not establish policy engagement boundaries. Unix timestamps do align each coarse phase to camera frames."
+      },
+      "telemetry_samples": 93,
+      "camera_timestamp_samples": 7139,
+      "camera_covers_all_telemetry": true,
+      "phase_windows": [
+        {
+          "phase": "stand_walk_ready",
+          "samples": 65,
+          "unix_start": 1788501345.703609,
+          "unix_end": 1788501376.971291,
+          "sample_span_s": 31.26768207550049,
+          "camera_overlap": true,
+          "camera_first_frame": 731,
+          "camera_last_frame": 4501,
+          "min_live_servos": 17,
+          "max_servo_current_a": 0.721,
+          "max_bus_current_a": 1.207,
+          "min_voltage_v": 11.0,
+          "max_temperature_c": 61.0,
+          "roll_deg_range": [
+            -12.63,
+            3.92
+          ],
+          "pitch_deg_range": [
+            -13.82,
+            6.22
+          ]
+        },
+        {
+          "phase": "drive_forward",
+          "samples": 28,
+          "unix_start": 1788501382.11062,
+          "unix_end": 1788501388.606031,
+          "sample_span_s": 6.495410919189453,
+          "camera_overlap": true,
+          "camera_first_frame": 5122,
+          "camera_last_frame": 5905,
+          "min_live_servos": 17,
+          "max_servo_current_a": 0.546,
+          "max_bus_current_a": 0.967,
+          "min_voltage_v": 11.0,
+          "max_temperature_c": 57.0,
+          "roll_deg_range": [
+            -6.7,
+            13.76
+          ],
+          "pitch_deg_range": [
+            -6.01,
+            13.81
+          ]
+        }
+      ],
+      "metric_displacement": {
+        "available": false,
+        "reason": "No manifest artifact supplies a validated metric chassis pose trajectory bound to these phase clocks; video pixels and command velocity are not achieved displacement."
+      }
+    },
+    {
+      "pilot": "backward",
+      "summary_ok": true,
+      "summary_error": null,
+      "requested_phases": [
+        "backward"
+      ],
+      "result": {
+        "phase": "backward",
+        "request": {
+          "vx": -0.08,
+          "vy": 0.0
+        },
+        "segments": null,
+        "runner_ok": true,
+        "runner_duration_s": 2.2,
+        "ticks": 216,
+        "overruns": 98,
+        "overrun_rate": 0.4537037037037037,
+        "recorded_fell": false,
+        "recorded_max_current_a": 0.92,
+        "recorded_tilt_rel_max_deg": 1.9,
+        "recorded_tail_tilt_max_deg": 11.7
+      },
+      "policy_tilt_limit_deg": 25.0,
+      "timing": {
+        "runner_duration_s": 2.2,
+        "telemetry_drive_label_sample_span_s": 6.788731098175049,
+        "difference_s": 4.588731098175049,
+        "interpretation": "Telemetry phase labels are coarse recorder/orchestration windows; they do not establish policy engagement boundaries. Unix timestamps do align each coarse phase to camera frames."
+      },
+      "telemetry_samples": 79,
+      "camera_timestamp_samples": 5091,
+      "camera_covers_all_telemetry": true,
+      "phase_windows": [
+        {
+          "phase": "stand_walk_ready",
+          "samples": 42,
+          "unix_start": 1788501546.692754,
+          "unix_end": 1788501567.912213,
+          "sample_span_s": 21.219459056854248,
+          "camera_overlap": true,
+          "camera_first_frame": 765,
+          "camera_last_frame": 2769,
+          "min_live_servos": 18,
+          "max_servo_current_a": 1.04,
+          "max_bus_current_a": 1.589,
+          "min_voltage_v": 10.9,
+          "max_temperature_c": 51.0,
+          "roll_deg_range": [
+            -4.11,
+            16.82
+          ],
+          "pitch_deg_range": [
+            2.41,
+            20.97
+          ]
+        },
+        {
+          "phase": "drive_backward",
+          "samples": 25,
+          "unix_start": 1788501573.056784,
+          "unix_end": 1788501579.845515,
+          "sample_span_s": 6.788731098175049,
+          "camera_overlap": true,
+          "camera_first_frame": 3270,
+          "camera_last_frame": 3920,
+          "min_live_servos": 18,
+          "max_servo_current_a": 0.923,
+          "max_bus_current_a": 1.486,
+          "min_voltage_v": 10.9,
+          "max_temperature_c": 45.0,
+          "roll_deg_range": [
+            -7.46,
+            5.6
+          ],
+          "pitch_deg_range": [
+            -9.58,
+            12.75
+          ]
+        },
+        {
+          "phase": "planned_lower",
+          "samples": 12,
+          "unix_start": 1788501587.022636,
+          "unix_end": 1788501592.591647,
+          "sample_span_s": 5.569010972976685,
+          "camera_overlap": true,
+          "camera_first_frame": 4549,
+          "camera_last_frame": 5084,
+          "min_live_servos": 18,
+          "max_servo_current_a": 2.724,
+          "max_bus_current_a": 5.536,
+          "min_voltage_v": 10.0,
+          "max_temperature_c": 43.0,
+          "roll_deg_range": [
+            -1.27,
+            6.11
+          ],
+          "pitch_deg_range": [
+            -3.64,
+            6.74
+          ]
+        }
+      ],
+      "metric_displacement": {
+        "available": false,
+        "reason": "No manifest artifact supplies a validated metric chassis pose trajectory bound to these phase clocks; video pixels and command velocity are not achieved displacement."
+      }
+    },
+    {
+      "pilot": "left",
+      "summary_ok": true,
+      "summary_error": null,
+      "requested_phases": [
+        "left"
+      ],
+      "result": {
+        "phase": "left",
+        "request": {
+          "vx": 0.0,
+          "vy": 0.08
+        },
+        "segments": null,
+        "runner_ok": true,
+        "runner_duration_s": 1.9,
+        "ticks": 191,
+        "overruns": 93,
+        "overrun_rate": 0.4869109947643979,
+        "recorded_fell": false,
+        "recorded_max_current_a": 0.58,
+        "recorded_tilt_rel_max_deg": 5.4,
+        "recorded_tail_tilt_max_deg": 9.6
+      },
+      "policy_tilt_limit_deg": 25.0,
+      "timing": {
+        "runner_duration_s": 1.9,
+        "telemetry_drive_label_sample_span_s": 6.770689010620117,
+        "difference_s": 4.870689010620117,
+        "interpretation": "Telemetry phase labels are coarse recorder/orchestration windows; they do not establish policy engagement boundaries. Unix timestamps do align each coarse phase to camera frames."
+      },
+      "telemetry_samples": 37,
+      "camera_timestamp_samples": 3512,
+      "camera_covers_all_telemetry": true,
+      "phase_windows": [
+        {
+          "phase": "drive_left",
+          "samples": 24,
+          "unix_start": 1788501970.378605,
+          "unix_end": 1788501977.149294,
+          "sample_span_s": 6.770689010620117,
+          "camera_overlap": true,
+          "camera_first_frame": 1494,
+          "camera_last_frame": 2310,
+          "min_live_servos": 18,
+          "max_servo_current_a": 0.579,
+          "max_bus_current_a": 0.961,
+          "min_voltage_v": 11.0,
+          "max_temperature_c": 55.0,
+          "roll_deg_range": [
+            -8.98,
+            10.66
+          ],
+          "pitch_deg_range": [
+            -1.71,
+            9.9
+          ]
+        },
+        {
+          "phase": "planned_lower",
+          "samples": 13,
+          "unix_start": 1788501981.292088,
+          "unix_end": 1788501987.062553,
+          "sample_span_s": 5.770464897155762,
+          "camera_overlap": true,
+          "camera_first_frame": 2810,
+          "camera_last_frame": 3506,
+          "min_live_servos": 18,
+          "max_servo_current_a": 2.827,
+          "max_bus_current_a": 5.673,
+          "min_voltage_v": 10.1,
+          "max_temperature_c": 44.0,
+          "roll_deg_range": [
+            -4.17,
+            2.39
+          ],
+          "pitch_deg_range": [
+            3.44,
+            6.74
+          ]
+        }
+      ],
+      "metric_displacement": {
+        "available": false,
+        "reason": "No manifest artifact supplies a validated metric chassis pose trajectory bound to these phase clocks; video pixels and command velocity are not achieved displacement."
+      }
+    },
+    {
+      "pilot": "right",
+      "summary_ok": true,
+      "summary_error": null,
+      "requested_phases": [
+        "right"
+      ],
+      "result": {
+        "phase": "right",
+        "request": {
+          "vx": 0.0,
+          "vy": -0.08
+        },
+        "segments": null,
+        "runner_ok": true,
+        "runner_duration_s": 1.9,
+        "ticks": 193,
+        "overruns": 30,
+        "overrun_rate": 0.15544041450777202,
+        "recorded_fell": false,
+        "recorded_max_current_a": 0.14,
+        "recorded_tilt_rel_max_deg": 6.4,
+        "recorded_tail_tilt_max_deg": 26.5
+      },
+      "policy_tilt_limit_deg": 25.0,
+      "timing": {
+        "runner_duration_s": 1.9,
+        "telemetry_drive_label_sample_span_s": 6.506913900375366,
+        "difference_s": 4.606913900375366,
+        "interpretation": "Telemetry phase labels are coarse recorder/orchestration windows; they do not establish policy engagement boundaries. Unix timestamps do align each coarse phase to camera frames."
+      },
+      "telemetry_samples": 61,
+      "camera_timestamp_samples": 4706,
+      "camera_covers_all_telemetry": true,
+      "phase_windows": [
+        {
+          "phase": "stand_walk_ready",
+          "samples": 16,
+          "unix_start": 1788502016.451129,
+          "unix_end": 1788502023.967224,
+          "sample_span_s": 7.516094923019409,
+          "camera_overlap": true,
+          "camera_first_frame": 708,
+          "camera_last_frame": 1613,
+          "min_live_servos": 18,
+          "max_servo_current_a": 1.651,
+          "max_bus_current_a": 3.899,
+          "min_voltage_v": 10.4,
+          "max_temperature_c": 63.0,
+          "roll_deg_range": [
+            -7.3,
+            7.29
+          ],
+          "pitch_deg_range": [
+            -1.5,
+            6.59
+          ]
+        },
+        {
+          "phase": "drive_right",
+          "samples": 28,
+          "unix_start": 1788502030.594772,
+          "unix_end": 1788502037.101686,
+          "sample_span_s": 6.506913900375366,
+          "camera_overlap": true,
+          "camera_first_frame": 2414,
+          "camera_last_frame": 3198,
+          "min_live_servos": 17,
+          "max_servo_current_a": 0.208,
+          "max_bus_current_a": 0.639,
+          "min_voltage_v": 11.1,
+          "max_temperature_c": 55.0,
+          "roll_deg_range": [
+            -7.88,
+            7.81
+          ],
+          "pitch_deg_range": [
+            1.02,
+            13.05
+          ]
+        },
+        {
+          "phase": "planned_lower",
+          "samples": 17,
+          "unix_start": 1788502041.584331,
+          "unix_end": 1788502049.536996,
+          "sample_span_s": 7.952664852142334,
+          "camera_overlap": true,
+          "camera_first_frame": 3739,
+          "camera_last_frame": 4697,
+          "min_live_servos": 18,
+          "max_servo_current_a": 1.352,
+          "max_bus_current_a": 2.661,
+          "min_voltage_v": 10.7,
+          "max_temperature_c": 62.0,
+          "roll_deg_range": [
+            -4.36,
+            1.04
+          ],
+          "pitch_deg_range": [
+            -1.32,
+            6.8
+          ]
+        }
+      ],
+      "metric_displacement": {
+        "available": false,
+        "reason": "No manifest artifact supplies a validated metric chassis pose trajectory bound to these phase clocks; video pixels and command velocity are not achieved displacement."
+      }
+    },
+    {
+      "pilot": "course",
+      "summary_ok": true,
+      "summary_error": null,
+      "requested_phases": [
+        "course"
+      ],
+      "result": {
+        "phase": "course",
+        "request": null,
+        "segments": [
+          {
+            "name": "forward",
+            "samples": 13
+          },
+          {
+            "name": "left",
+            "samples": 13
+          },
+          {
+            "name": "backward",
+            "samples": 12
+          },
+          {
+            "name": "right",
+            "samples": 11
+          }
+        ],
+        "runner_ok": true,
+        "runner_duration_s": 6.0,
+        "ticks": 601,
+        "overruns": 277,
+        "overrun_rate": 0.46089850249584025,
+        "recorded_fell": true,
+        "recorded_max_current_a": 0.14,
+        "recorded_tilt_rel_max_deg": 15.5,
+        "recorded_tail_tilt_max_deg": 55.5
+      },
+      "policy_tilt_limit_deg": 25.0,
+      "timing": {
+        "runner_duration_s": 6.0,
+        "telemetry_drive_label_sample_span_s": 12.273549795150757,
+        "difference_s": 6.273549795150757,
+        "interpretation": "Telemetry phase labels are coarse recorder/orchestration windows; they do not establish policy engagement boundaries. Unix timestamps do align each coarse phase to camera frames."
+      },
+      "telemetry_samples": 95,
+      "camera_timestamp_samples": 6260,
+      "camera_covers_all_telemetry": true,
+      "phase_windows": [
+        {
+          "phase": "stand_walk_ready",
+          "samples": 18,
+          "unix_start": 1788502082.728481,
+          "unix_end": 1788502091.084107,
+          "sample_span_s": 8.355625867843628,
+          "camera_overlap": true,
+          "camera_first_frame": 783,
+          "camera_last_frame": 1789,
+          "min_live_servos": 17,
+          "max_servo_current_a": 0.994,
+          "max_bus_current_a": 1.569,
+          "min_voltage_v": 10.8,
+          "max_temperature_c": 46.0,
+          "roll_deg_range": [
+            -6.39,
+            5.06
+          ],
+          "pitch_deg_range": [
+            -5.05,
+            7.26
+          ]
+        },
+        {
+          "phase": "direction_course",
+          "samples": 57,
+          "unix_start": 1788502099.105523,
+          "unix_end": 1788502111.379073,
+          "sample_span_s": 12.273549795150757,
+          "camera_overlap": true,
+          "camera_first_frame": 2758,
+          "camera_last_frame": 4237,
+          "min_live_servos": 17,
+          "max_servo_current_a": 0.663,
+          "max_bus_current_a": 1.062,
+          "min_voltage_v": 10.9,
+          "max_temperature_c": 51.0,
+          "roll_deg_range": [
+            -7.18,
+            5.9
+          ],
+          "pitch_deg_range": [
+            0.05,
+            20.4
+          ]
+        },
+        {
+          "phase": "planned_lower",
+          "samples": 20,
+          "unix_start": 1788502118.125854,
+          "unix_end": 1788502128.077538,
+          "sample_span_s": 9.95168399810791,
+          "camera_overlap": true,
+          "camera_first_frame": 5052,
+          "camera_last_frame": 6251,
+          "min_live_servos": 16,
+          "max_servo_current_a": 2.749,
+          "max_bus_current_a": 5.625,
+          "min_voltage_v": 10.1,
+          "max_temperature_c": 46.0,
+          "roll_deg_range": [
+            -2.03,
+            6.88
+          ],
+          "pitch_deg_range": [
+            1.78,
+            10.16
+          ]
+        }
+      ],
+      "metric_displacement": {
+        "available": false,
+        "reason": "No manifest artifact supplies a validated metric chassis pose trajectory bound to these phase clocks; video pixels and command velocity are not achieved displacement."
+      }
+    }
+  ],
+  "safety_and_integrity_flags": [
+    {
+      "pilot": "forward",
+      "kind": "overall_runner_failure",
+      "detail": "health samples not clear: [{'ts': 1788501384.5162735, 'live': 17, 'missing': [5], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}, {'ts': 1788501389.5502315, 'live': 18, 'missing': [], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}, {'ts': 1788501392.5636706, 'live': 18, 'missing': [], 'max_temp_c': 42.0, 'tripped': [], 'armed': True, 'activity': 'holding'}]"
+    },
+    {
+      "pilot": "forward",
+      "kind": "incomplete_servo_scan_present",
+      "detail": "At least one telemetry sample has fewer than 18 live servos; the audit does not infer persistence from nonadjacent samples."
+    },
+    {
+      "pilot": "right",
+      "kind": "reported_tail_tilt_exceeds_policy_limit",
+      "detail": "Saved tail tilt 26.5 deg exceeds the policy's 25 deg roll/pitch limit."
+    },
+    {
+      "pilot": "right",
+      "kind": "incomplete_servo_scan_present",
+      "detail": "At least one telemetry sample has fewer than 18 live servos; the audit does not infer persistence from nonadjacent samples."
+    },
+    {
+      "pilot": "course",
+      "kind": "recorded_fall",
+      "detail": "The saved runner result records fell=true."
+    },
+    {
+      "pilot": "course",
+      "kind": "reported_tail_tilt_exceeds_policy_limit",
+      "detail": "Saved tail tilt 55.5 deg exceeds the policy's 25 deg roll/pitch limit."
+    },
+    {
+      "pilot": "course",
+      "kind": "incomplete_servo_scan_present",
+      "detail": "At least one telemetry sample has fewer than 18 live servos; the audit does not infer persistence from nonadjacent samples."
+    }
+  ],
+  "acceptance": {
+    "runner_completion_is_locomotion_acceptance": false,
+    "all_pilot_summaries_ok": false,
+    "recorded_falls": 1,
+    "metric_direction_or_displacement_available": false,
+    "decision": "not_accepted",
+    "reason": "One pilot failed overall health clearance, the course records a fall, and the sealed bundle lacks phase-bound metric chassis trajectories."
+  },
+  "limits": [
+    "This audit is read-only and makes no claim about current robot state.",
+    "Phase labels are not learned-policy engagement events.",
+    "Sparse video review cannot replace a calibrated pose trajectory or prove no transient fall.",
+    "Electrical and thermal extrema are reported without inventing absent hardware acceptance limits."
+  ]
+}

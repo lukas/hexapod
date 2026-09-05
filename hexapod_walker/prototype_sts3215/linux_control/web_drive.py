@@ -239,6 +239,51 @@ STATIC_FILES = {
                 "no-store, max-age=0, must-revalidate"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
 }
+NO_STORE = "no-store, max-age=0, must-revalidate"
+BUS_REQUIRED_GET = frozenset({
+    "/api/rl/preflight",
+    "/api/rl/timing",
+    "/api/status",
+    "/api/pose",
+    "/api/calibration/report",
+    "/api/rl/state",
+    "/api/rl",
+    "/api/feedback",
+    "/api/pinned_tip",
+})
+BUS_REQUIRED_POST = frozenset({
+    "/api/tft/ready",
+    "/api/tft/recover",
+    "/api/tft/selftest",
+    "/api/wiggle",
+    "/api/pose",
+    "/api/demo",
+    "/api/demo/speed",
+    "/api/zero",
+    "/api/set_zero",
+    "/api/touchdown_zero/straight",
+    "/api/safe_zero",
+    "/api/untrap",
+    "/api/calibrate",
+    "/api/rl/find_plant",
+    "/api/rl/capture_plant",
+    "/api/rl/stand",
+    "/api/rl/lower",
+    "/api/rl/walk",
+    "/api/rl/set_stance",
+    "/api/rl/drive/start",
+    "/api/rl/drive/cmd",
+    "/api/standup",
+    "/api/sysid/run",
+    "/api/rl/probe_dynamics",
+    "/cal",
+    "/cal_tuck",
+})
+BUS_FREE_MEASURE_POST = frozenset({
+    "/api/measure/annotate",
+    "/api/measure/discard",
+    "/api/measure/note",
+})
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -264,7 +309,57 @@ class Handler(BaseHTTPRequestHandler):
         except OSError:
             pass
 
-    def _json(self, code, obj):
+    def _request_requires_bus(self) -> bool:
+        path = self.path.split("?", 1)[0]
+        if self.command == "GET":
+            if path == "/api/robot":
+                query = self.path.split("?", 1)[1] if "?" in self.path else ""
+                return "zero=1" in query or "zero=true" in query
+            return path in BUS_REQUIRED_GET
+        if self.command == "POST":
+            if path.startswith("/api/measure/"):
+                return path not in BUS_FREE_MEASURE_POST
+            return path in BUS_REQUIRED_POST
+        return False
+
+    @staticmethod
+    def _bus_quarantine_state(*, recover: bool) -> dict | None:
+        if BENCH is None:
+            return None
+        probe = getattr(BENCH, "bus_access_state", None)
+        if not callable(probe):
+            return None
+        return probe(recover=recover)
+
+    def _reject_quarantined_bus(self) -> bool:
+        state = self._bus_quarantine_state(recover=True)
+        if not state or not state.get("bus_quarantined"):
+            return False
+        self._json(503, {"ok": False, "code": "bus_quarantined", **state})
+        return True
+
+    def _json(self, code, obj, *, map_quarantine=True, cache=None):
+        quarantine = None
+        if (map_quarantine and isinstance(obj, dict)
+                and obj.get("bus_quarantined") is True):
+            if self._request_requires_bus():
+                quarantine = obj
+            else:
+                # Pure status remains readable during quarantine, but must be
+                # visibly degraded and must never be cached.
+                obj = {**obj, "degraded": True,
+                       "code": "bus_quarantined"}
+                cache = NO_STORE
+        elif map_quarantine and self._request_requires_bus():
+            state = self._bus_quarantine_state(recover=False)
+            if state and state.get("bus_quarantined"):
+                quarantine = {"ok": False, **state}
+        if quarantine is not None:
+            obj = {**quarantine, "ok": False, "code": "bus_quarantined"}
+            code = 503
+            cache = NO_STORE
+        elif code >= 400 and cache is None:
+            cache = NO_STORE
         # Any error response the website shows also lands in the event
         # log + logs/errors.jsonl (refusals, ok:false, 4xx/5xx).
         try:
@@ -280,7 +375,7 @@ class Handler(BaseHTTPRequestHandler):
                                error=err, peer=self._peer())
         except Exception:
             pass
-        self._send(code, json.dumps(obj), "application/json")
+        self._send(code, json.dumps(obj), "application/json", cache=cache)
 
     def _peer(self) -> str:
         try:
@@ -295,6 +390,8 @@ class Handler(BaseHTTPRequestHandler):
             emit_http("GET", self.path, peer=self._peer())
         except Exception:
             pass
+        if self._request_requires_bus() and self._reject_quarantined_bus():
+            return
         if path in PAGE_PATHS:
             index = WEBUI_DIR / "index.html"
             try:
@@ -321,6 +418,12 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/ping":
             # Lightweight heartbeat — no bus traffic.
             self._json(200, {"ok": True, "service": "hexapod-web"})
+        elif path == "/api/bus/status":
+            # Ownership status only: never reads or writes the serial bus and
+            # intentionally remains HTTP 200 while quarantine is active.
+            result = (BENCH.bus_status() if BENCH else
+                      {"ok": False, "error": "no bench"})
+            self._json(200, result, map_quarantine=False, cache=NO_STORE)
         elif path == "/api/rl/preflight":
             mode = "stand"
             qs = self.path.split("?", 1)
@@ -570,8 +673,31 @@ class Handler(BaseHTTPRequestHandler):
                           peer=self._peer())
             except Exception:
                 pass
+        if (path != "/cmd" and self._request_requires_bus()
+                and self._reject_quarantined_bus()):
+            return
         if path == "/cmd":
             line = body.strip()
+            bus_state = self._bus_quarantine_state(recover=True) or {}
+            if bus_state.get("bus_quarantined"):
+                # Command syntax is open-ended and several apparently
+                # read-only commands still reach DriveController/bus helpers.
+                # Fail closed for the whole legacy command surface.  X keeps
+                # its useful in-memory worker abort, but must not attempt a
+                # torque transaction while an async reader may own the bus.
+                if (line.upper() in ("X", "DISARM", "RELAX")
+                        and BENCH is not None):
+                    try:
+                        BENCH.stop_demo()
+                    except Exception:
+                        pass
+                    BENCH._mark_bus_unverified_disarmed(
+                        "bus quarantined; torque state unverified")
+                self._send(
+                    503,
+                    "bus quarantined; torque state unverified",
+                    cache=NO_STORE)
+                return
             if line.upper() == "SETTLE":
                 self._send(
                     409,
@@ -583,8 +709,21 @@ class Handler(BaseHTTPRequestHandler):
             # still-running demo re-enables torque on its next write and
             # keeps going (observed with the dance, 2026-08-18).
             if line.upper() in ("X", "DISARM", "RELAX") and BENCH is not None:
-                BENCH.estop()
-                self._send(200, "limp")
+                result = BENCH.estop()
+                bus_state = self._bus_quarantine_state(recover=False) or {}
+                if bus_state.get("bus_quarantined"):
+                    self._send(
+                        503,
+                        "bus quarantined; torque state unverified",
+                        cache=NO_STORE)
+                elif (result.get("limped") is True
+                        and result.get("torque_state") == "off"):
+                    self._send(200, "limp")
+                else:
+                    self._send(
+                        503,
+                        "stop requested; torque state unverified",
+                        cache=NO_STORE)
             else:
                 if BENCH is not None and line.upper().startswith("J"):
                     robot = BENCH.robot_state()
@@ -596,7 +735,22 @@ class Handler(BaseHTTPRequestHandler):
                         self._send(409, f"refused J: robot busy with {busy}")
                         return
                 ok, msg = LINK.send(line)
-                self._send(200 if ok else 409, msg if ok else msg or "failed")
+                bus_state = self._bus_quarantine_state(recover=False) or {}
+                if bus_state.get("bus_quarantined"):
+                    self._send(
+                        503,
+                        "bus quarantined; torque state unverified",
+                        cache=NO_STORE)
+                else:
+                    self._send(
+                        200 if ok else 409, msg if ok else msg or "failed")
+        elif path == "/api/bus/recover":
+            # Nonblocking thread reap only.  It never transacts on the bus and
+            # never re-arms the robot.
+            result = (BENCH.bus_recover() if BENCH else
+                      {"ok": False, "error": "no bench"})
+            self._json(200 if result.get("ok") else 409, result,
+                       map_quarantine=False, cache=NO_STORE)
         elif path == "/api/tft/ready":
             self._json(200, BENCH.tft_ready() if BENCH
                        else {"ok": False, "error": "no bench"})

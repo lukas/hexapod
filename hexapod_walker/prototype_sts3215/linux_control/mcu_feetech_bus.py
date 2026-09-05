@@ -33,6 +33,7 @@ import threading
 import time
 from pathlib import Path
 
+from async_bus_guard import require_bus_available
 from feetech_bus import (  # noqa: E402
     ADDR_PRESENT_CURRENT,
     ADDR_PRESENT_LOAD,
@@ -608,6 +609,7 @@ class McuFeetechBus:
     def _transact(self, cmd: str, *, timeout: float = 0.8) -> str | None:
         t0 = time.monotonic()
         with self._lock:
+            require_bus_available(self)
             self._ser.reset_input_buffer()
             self._ser.write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
@@ -633,6 +635,7 @@ class McuFeetechBus:
             return None
         t0 = time.monotonic()
         try:
+            require_bus_available(self)
             self._ser.reset_input_buffer()
             self._ser.write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
@@ -700,10 +703,20 @@ class McuFeetechBus:
         return [s for s in found if s in id_range]
 
     def torque(self, sid: int, on: bool) -> None:
-        self._transact(f"T {int(sid)} {1 if on else 0}", timeout=0.4)
+        cmd = f"T {int(sid)} {1 if on else 0}"
+        line = self._transact(cmd, timeout=0.4)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def enable_all_torque(self, on: bool = True) -> None:
-        self._transact(f"TA {1 if on else 0}", timeout=1.0)
+        cmd = f"TA {1 if on else 0}"
+        line = self._transact(cmd, timeout=1.0)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def set_id(self, old_id: int, new_id: int) -> None:
         self.pkt.unLockEprom(old_id)
@@ -794,6 +807,7 @@ class McuFeetechBus:
         with self._lock:
             t_locked = time.monotonic()
             trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
+            require_bus_available(self)
             t0 = time.monotonic()
             self._ser.reset_input_buffer()
             self._ser.write(frame)
@@ -1183,6 +1197,7 @@ class McuFeetechBus:
         frame = encode_sync_frame(ord("W"), items)
         for attempt in range(2):
             with self._lock:
+                require_bus_available(self)
                 self._ser.reset_input_buffer()
                 self._ser.write(frame)
                 self._ser.flush()

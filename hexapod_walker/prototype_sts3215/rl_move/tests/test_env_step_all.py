@@ -108,3 +108,18 @@ def test_command_and_update_falls_back_when_step_all_has_no_snapshot():
     assert bus.writes == 1
     assert est.updates == 1
     assert est.snapshots == []
+
+
+def test_hardware_env_current_dwell_uses_feedback_cadence():
+    env = HexapodBalanceEnv(
+        object(),
+        cfg={
+            "control": {"hz": 100},
+            "sensing": {"full_feedback_hz": 10},
+            "safety": {"over_current_trip_s": 2.0},
+            "bus": {"enable_motion": False},
+        },
+        log=False,
+    )
+
+    assert env.safety._over_current_trip_ticks == 20  # noqa: SLF001

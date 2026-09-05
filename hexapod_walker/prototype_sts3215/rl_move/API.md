@@ -51,7 +51,7 @@ the process rules below are what remain).
 | GET | `/api/rl/roles` | Role registry: which `policies/` file serves walk / hold / stand / lower |
 | POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = built-in joint hold for hold) |
 | GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
-| POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; operator watching) |
+| POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; live camera and guarded runner supervising) |
 | POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0,"wz":0,"dh":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold). `dh` ∈ [-1,1] = D-pad body-height nudge: ref integrates at 10 mm/s, clamped −45..+30 mm, tracked only while HOLDING with an obs-68 stance model in the `hold` role; a move command ramps the height back to 0 before the gait engages |
 | POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
@@ -88,12 +88,13 @@ stationary—never an automatic sit or safe-zero. Heat requires three
 consecutive over-threshold samples from the same joint. After a thermal limp,
 the raw camera and telemetry logs remain open until three complete samples are
 below the warm threshold (or the five-minute cooldown timeout). A later
-safe-zero requires explicit operator authorization. Tilt also requires three
+safe-zero requires a normal live camera view and three recovered healthy
+samples; hands-on correction is needed only if those remain inconclusive. Tilt also requires three
 valid consecutive samples; an instantaneous near-180-degree Euler jump that
 contradicts the gyro is logged and excluded from the trip vote rather than
 being mistaken for a physical tip.
 
-The survey keeps the initial operator-approved chassis image position as its
+The survey keeps the initial guarded-preflight chassis image position as its
 centering anchor and resolves duplicate floor-tag IDs by global reprojection
 fit. A completed run contains raw/annotated video, camera timestamps,
 hardware telemetry/events, AprilTag poses, `apriltag_motion.json`, a matched
@@ -214,4 +215,5 @@ uv run python -m rl_move.remote state
 curl -X POST --data 'X' http://hexapod.local:8080/cmd
 ```
 
-SSH only for deploy/restart when the operator asks — never for routine motion.
+SSH is only for necessary deploy/restart work within the active task — never
+for routine motion, which stays on the HTTP control path.

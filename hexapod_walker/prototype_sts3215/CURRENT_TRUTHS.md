@@ -163,60 +163,72 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   update -- read those before trying any further gait-gate variant.
   Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_sde_{s0_c4,
   s3_c1b}gg_gate/report.json`, W&B `q2kox1j4`/`bzf8msie`.
-  UPDATE 09-05 ~16:0x: 3 of those 5 `walk_duty_gate` first-canary
-  verdicts landed (`sde-s2-dg1`, `sdehalfgrav-remcost-{s0,s1}-dg1`,
-  all warm-started full-strength dose 1.0 off already-CONVERGED 40M
-  exploiter checkpoints) — all 3 **CANARY FAIL**, but importantly the
-  gate factor itself behaved correctly this time (declined
-  0.69-0.92, i.e. penalizing not saturating/gamed) and det-mode
-  `gait_valid`/`sac` genuinely cleared (no chronically-parked leg) on
-  all three — the SPECIFIC one-leg-park exploit IS broken. What
-  replaced it within the 2M retrain budget was a DIFFERENT
-  non-walking failure, split by recipe: bare sde (`sde-s2-dg1`)
-  substituted a spin/destabilize pattern (det episode ends having
-  yawed ~174deg from start, current 0.30A->1.40A, falls 5/6 in sto);
-  both `sdehalfgrav-remcost-{s0,s1}-dg1` substituted a FULL FREEZE
-  (v 0.001-0.037 m/s, net displacement 0.00-0.01m over the whole 20s
-  det episode, huge slip 20-75x the ~2.9 band from leg
-  micro-vibration with no net travel) — a leg that never lifts keeps
-  duty near 1.0, comfortably clearing the 0.15 floor even cheaper than
-  a real gait (which necessarily drops a swinging leg's duty below
+  UPDATE 09-05 ~16:0x, CORRECTED ~16:2x (provenance): 3 of those 5
+  `walk_duty_gate` first-canary verdicts landed (`sde-s2-dg1`,
+  `sdehalfgrav-remcost-{s0,s1}-dg1`) — all 3 **CANARY FAIL**, but per
+  the respec-clone provenance gotcha directly above, NONE of them
+  actually warm-started off a mature converged exploiter as first
+  written: `sde-s2-dg1`'s real `--init-from` is `sde_s2.zip`, the
+  ORIGINAL 2M canary that TERMINATES tilt_pitch (falls) in every
+  single eval episode, not the 40M `sde_s2_c2.zip` exploiter; both
+  `sdehalfgrav-remcost-{s0,s1}-dg1` carried NO `--init-from` at all —
+  fully FROM SCRATCH with `reward.walk_duty_gate=1.0` from step 0.
+  Re-reading with the correct ancestry: the gate factor itself
+  behaved correctly (declined 0.69-0.92, i.e. penalizing, not
+  saturating/gamed) and det-mode `gait_valid`/`sac` genuinely cleared
+  (no chronically-parked leg) on all three — the specific one-leg-park
+  exploit is prevented from forming at all. What emerged instead
+  within the 2M budget was a DIFFERENT non-walking failure, split by
+  recipe: `sde-s2-dg1` (from the falls-every-episode 2M ancestor)
+  made real progress — stopped falling in det — but ends each episode
+  having yawed ~174deg from start with current 0.30A->1.40A (a
+  spin/destabilize pattern, not directed travel), falls 5/6 in sto;
+  both `sdehalfgrav-remcost-{s0,s1}-dg1` (from scratch, remcost's
+  term_cost pricing + duty_gate together) go to a FULL FREEZE (v
+  0.001-0.037 m/s, net displacement 0.00-0.01m over the whole 20s det
+  episode, slip 20-75x the ~2.9 band from leg micro-vibration with no
+  net travel, falls 6/6 in sto) — a leg that never lifts keeps duty
+  near 1.0, comfortably clearing the 0.15 floor even cheaper than a
+  real gait (which necessarily drops a swinging leg's duty below
   ceiling), so full stasis is a strictly EASIER way to satisfy
-  `walk_duty_gate` than walking is. The remcost pair also matches
-  that recipe's own launch hypothesis, which explicitly predicted
-  "retreat to the ~0-income park basin" as its failure mode if
-  term_cost pricing over-corrects toward fall-aversion — reward for
-  both dg1 arms tracks the UN-gated parent's own trajectory at
-  matched absolute env steps almost exactly (not a NEW collapse from
-  duty_gate; remcost is already this negative). **Diagnosis: this
-  closes the "instant full-dose (1.0) walk_duty_gate warm-start off a
-  mature converged exploiter checkpoint" repair recipe on all 3
-  arms tried (bare sde x1, sdehalfgrav+remcost x2)** — do not relaunch
-  that exact recipe (full-dose + warm-start-off-a-mature-exploiter);
-  it is NOT yet proof the `walk_duty_gate` mechanism itself is
-  unsound, since an abrupt income shock to an already-converged
-  policy and a from-scratch test of the same lever are different
-  questions. Launched the disambiguating pair this cycle (from
-  scratch, no entrenched exploiter, no remcost pricing):
-  `cw-walkscratch-easy0905-sde-dgfresh-s0` /
-  `-sdehalfgrav-dgfresh-s0` (2M canaries, `reward.walk_duty_gate=1.0`
-  from step 0, otherwise identical to `sde-s0`/`sdehalfgrav-s0`) —
-  read those before trying any further `walk_duty_gate` warm-start
-  variant. If fresh init ALSO freezes/spins, the mechanism needs an
-  explicit anti-idle complement (`reward.k_walk_idle_charge`, already
-  implemented, 0 in every arm so far) paired with the duty floor
-  before further spend, per this file's own note above that soft
-  anti-park prices alone leave the degenerate stance as PPO's
-  cheapest optimum. `sde-s1-dg1` / `headset-base-s0c1-dgate-c1` (the
-  remaining 2 of the original 5-canary batch) were not read this
-  cycle — a concurrent cycle appears to own `sde-s1-dg1` (a sibling
-  `cw-walkscratch-easy0905-sde-s1-c2-dgatefix` launch was found
-  RUNNING on train-4 at cycle end, presumably that cycle's own repair
-  attempt on this same finding — read its notes before assuming this
-  entry is the last word). Evidence: `ops.sh review
-  cw-walkscratch-easy0905-sde-s2-dg1` /
+  `walk_duty_gate` than walking is, AND this matches the remcost
+  recipe's own launch hypothesis, which explicitly predicted "retreat
+  to the ~0-income park basin" as its failure mode if term_cost
+  pricing over-corrects toward fall-aversion — now confirmed directly
+  from scratch, no warm-start confound needed. Reward for the remcost
+  pair tracks their UN-gated from-scratch parents' own trajectories at
+  matched absolute env steps almost exactly (not a new collapse from
+  duty_gate; remcost is already this negative on its own).
+  **Diagnosis: closes "walk_duty_gate=1.0 on the early
+  falls-every-episode sde_s2 2M checkpoint" (n=1) and "walk_duty_gate
+  =1.0 + remcost term_cost pricing, from scratch" (n=2) as repair
+  recipes** — do not relaunch either exact combination; still NOT
+  proof the `walk_duty_gate` mechanism itself is unsound absent
+  remcost's fall-aversion pricing, since remcost's own term_cost is a
+  plausible independent contributor to the freeze. Launched the
+  disambiguating pair this cycle (from scratch, NO remcost pricing,
+  NO inherited checkpoint at all): `cw-walkscratch-easy0905-sde-
+  dgfresh-s0` / `-sdehalfgrav-dgfresh-s0` (2M canaries, `reward.
+  walk_duty_gate=1.0` from step 0, otherwise identical to `sde-s0`/
+  `sdehalfgrav-s0`) — read those before trying any further
+  `walk_duty_gate` variant. If fresh init (no remcost) ALSO
+  freezes/spins, the mechanism needs an explicit anti-idle complement
+  (`reward.k_walk_idle_charge`, already implemented, 0 in every arm so
+  far) paired with the duty floor before further spend, per this
+  file's own note above that soft anti-park prices alone leave the
+  degenerate stance as PPO's cheapest optimum. `sde-s1-dg1` /
+  `headset-base-s0c1-dgate-c1` (the remaining 2 of the original
+  5-canary batch) were not read this cycle — a concurrent cycle
+  appears to own `sde-s1-dg1` (a sibling `cw-walkscratch-easy0905-sde-
+  s1-c2-dgatefix` launch was found RUNNING on train-4 at cycle end,
+  presumably that cycle's own repair attempt on this same finding —
+  read its notes before assuming this entry is the last word; W&B logs
+  show it already verdicted `sde-s1-dg1` itself as CANARY PASS
+  scope-corrected, escapes LEGPARK in det with all-leg duty>=0.22).
+  Evidence: `ops.sh review cw-walkscratch-easy0905-sde-s2-dg1` /
   `cw-walkscratch-easy0905-sdehalfgrav-remcost-s{0,1}-dg1`, W&B notes
-  on the three verdicted runs.
+  on the three verdicted runs (re-verdicted with FORCE=1 after the
+  provenance correction).
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

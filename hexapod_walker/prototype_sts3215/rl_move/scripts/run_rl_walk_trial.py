@@ -1000,11 +1000,17 @@ class Trial:
         self.completed = True
 
     def write_summary(self, *, error: str | None = None) -> None:
-        policy = self.request("/api/rl/policy")
+        policy_error: str | None = None
+        try:
+            policy = self.request("/api/rl/policy")
+        except Exception as issue:
+            policy = None
+            policy_error = str(issue)
         summary = {
             "ok": error is None and self.completed,
             "error": error,
             "policy": policy,
+            "policy_read_error": policy_error,
             "requested_phases": self.args.phases,
             "speed_m_s": self.args.speed_m_s,
             "duration_s": self.args.duration_s,

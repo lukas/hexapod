@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 import csv
+import json
 
 import pytest
 
@@ -256,3 +257,24 @@ def test_joystick_response_keeps_one_session_and_records_neutral_hold(
     with (tmp_path / "joystick_commands.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
     assert {row["model"] for row in rows} == {"walk", "hold"}
+
+
+def test_failure_summary_survives_unreachable_policy_endpoint(tmp_path):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.output_dir = tmp_path
+    trial.completed = False
+    trial.args = SimpleNamespace(
+        phases=["forward"], speed_m_s=0.08, duration_s=3.0,
+        course_segment_s=2.0, joystick_response=False,
+    )
+    trial.results = []
+    trial.request = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        RuntimeError("network unavailable")
+    )
+
+    trial.write_summary(error="preflight failed")
+
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["error"] == "preflight failed"
+    assert summary["policy"] is None
+    assert summary["policy_read_error"] == "network unavailable"

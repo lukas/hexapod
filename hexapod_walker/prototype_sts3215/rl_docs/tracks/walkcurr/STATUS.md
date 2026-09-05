@@ -2,6 +2,31 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:6x this cycle, capacity sweep after the verdicts below:
+  found `headset-base-irr-c2` (declared "still training" at cycle
+  start) had ALSO finished (reward quarters 42.0/88.3/150.5/198.5,
+  matching -c1's fingerprint) with its gate eval already genuinely
+  computing remotely on train-0 (not mine to have started, prestage or
+  a concurrent cycle beat me to it) — registered via `ops.sh
+  evalpending add` + a backgrounded `ops.sh pollreap` rather than
+  blocking or duplicating; read `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_base_irr_c2_gate/report.json` next cycle, do not
+  re-launch. Separately, with 7-8 GPU pods genuinely idle (`ps aux`
+  confirmed, not just ledger-free) and the operator's full-fleet order
+  live, launched the halfgrav irr-timing rung's 3rd independent
+  cross-checkpoint canary, `headset-halfgrav-irr-c3` (2M, warm-started
+  from this cycle's own `headset-halfgrav-s3acq` ACQ PASS champion —
+  the halfgrav family's third and last clean champion, completing the
+  n=3 confirmation pattern already used for irr-c1/-c2 off
+  acq1/s1acq), VERIFIED RUNNING on train-1. Left the remaining
+  ~6 idle pods untouched: every other open walkcurr question either
+  depends on an in-flight sibling's still-computing read (both irr
+  acq1 arms, base-irr-c2's gate, the sde gait-gate n=4 cohort owned by
+  concurrent cycles) or requires a genuinely new mechanism/bank pass
+  (sde per-leg-utilization pricing design, closed per CURRENT_TRUTHS;
+  heading-set widening, premature before the irr rung itself closes
+  for both gravity cells) — not safe filler for a triage cycle.
+
 - 09-05 ~14:5x this cycle: two verdicts + one refill closing two open
   campaign threads. (1) `headset-halfgrav-s3acq` **ACQ PASS** — closes
   the halfgrav heading-family n=3 confirmation set (acq1/s1acq/s3acq

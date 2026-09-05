@@ -58,5 +58,11 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_irr_c1_gate/report.json",
   "label": "cw-walkscratch-easy0905-headset-halfgrav-irr-c1_gate",
   "added": "2026-09-05T14:36:21"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_irr_c2_gate/report.json",
+  "label": "base_irr_c2_gate",
+  "added": "2026-09-05T15:00:09"
  }
 ]

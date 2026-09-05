@@ -405,6 +405,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   family. Evidence: `ops.sh review cw-walkscratch-easy0905-sde-dgidle-
   s1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_{base,halfgrav}
   _fullhead_c1_gate/report.json`, W&B `q3vgzdlu`/`a0zu90u6`/`xiajh8ja`.
+  UPDATE 09-05 ~18:2x: `sde-s2-c2-dgatefix-cont40m` (the one live
+  gSDE exception kept running as a sunk-cost read per the ~17:2x
+  note above) landed at the full 40M budget — **ACQ FAIL**, gait_valid
+  1/24, leg 1 (sometimes +4) chronically sacrificed, walk/det episodes
+  IDENTICAL across all 6 draws (dead-leg drag, frame-strip-confirmed).
+  Crucially, `env/walk_duty_gate_factor` genuinely declined 1.0->0.62
+  through the first ~2M (the signal that licensed this continuation)
+  but then MONOTONICALLY RE-SATURATED to 0.85-0.94 by 40M despite the
+  persisting sacrifice — exactly the disqualifying condition the
+  gate named at launch — while `ep_rew_mean` climbed hugely
+  (90->2100+) on the other five legs' work and `env/walk_speed` stayed
+  flat ~0.13-0.14 m/s throughout. **This closes the last live gSDE
+  exception: the gSDE sub-lineage (bare-sde + sdehalfgrav-remcost,
+  every repair mechanism tried, fresh-init or entrenched-checkpoint)
+  is now CLOSED end-to-end. Fund NO further gSDE arm of any kind.**
+  Separately, `headset-halfgrav-medhead-c1` (the halfgrav sibling of
+  the base-family medhead canary) landed and independently confirms
+  the base sibling's PASS shape: DR-0 harness `gait_valid` TRUE 24/24,
+  zero sacrificed legs, zero terminations, slip_per_m med 2.4-3.7 (near
+  the 2.9 band) — a genuine CANARY PASS despite `ep_rew_mean` falling
+  -24.6->-164.5 (explained by a flat per-tick reward x the same fixed
+  ep_len ramp the base sibling's PASS already characterized, not a
+  collapse). 40M acquisition continuation `headset-halfgrav-medhead-
+  acq1` launched (VERIFIED RUNNING train-2), mirroring
+  `headset-base-medhead-acq1`. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-{sde-s2-c2-dgatefix-cont40m,headset-halfgrav-
+  medhead-c1}`, W&B `66wc8jin`/`uxuboegj`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

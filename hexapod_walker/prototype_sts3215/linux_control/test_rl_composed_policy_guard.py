@@ -59,24 +59,32 @@ class FakeRlApi(RlApi):
         return None
 
 
-def test_policy_info_reports_hashes_of_exact_deployed_bytes(
-        tmp_path, monkeypatch):
-    stance = tmp_path / "stance.json"
-    walk = tmp_path / "walk.json"
-    stance.write_bytes(b'{"meta":{"name":"stance"}}\n')
-    walk.write_bytes(b'{"meta":{"name":"Candidate A"}}\n')
-    monkeypatch.setitem(sys.modules, "rl_policy", types.SimpleNamespace(
-        WEIGHTS_PATH=stance,
-        WALK_WEIGHTS_PATH=walk,
-    ))
+def test_policy_info_reports_hashes_of_exact_deployed_bytes():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        stance = root / "stance.json"
+        walk = root / "walk.json"
+        stance.write_bytes(b'{"meta":{"name":"stance"}}\n')
+        walk.write_bytes(b'{"meta":{"name":"Candidate A"}}\n')
+        previous = sys.modules.get("rl_policy")
+        sys.modules["rl_policy"] = types.SimpleNamespace(
+            WEIGHTS_PATH=stance,
+            WALK_WEIGHTS_PATH=walk,
+        )
+        try:
+            out = FakeRlApi().rl_policy_info()
+        finally:
+            if previous is None:
+                sys.modules.pop("rl_policy", None)
+            else:
+                sys.modules["rl_policy"] = previous
 
-    out = FakeRlApi().rl_policy_info()
-
-    assert out["ok"] is True
-    assert out["policy_sha256"] == hashlib.sha256(stance.read_bytes()).hexdigest()
-    assert out["walk"]["name"] == "Candidate A"
-    assert out["walk"]["policy_sha256"] == hashlib.sha256(
-        walk.read_bytes()).hexdigest()
+        assert out["ok"] is True
+        assert out["policy_sha256"] == hashlib.sha256(
+            stance.read_bytes()).hexdigest()
+        assert out["walk"]["name"] == "Candidate A"
+        assert out["walk"]["policy_sha256"] == hashlib.sha256(
+            walk.read_bytes()).hexdigest()
 
 def test_default_composed_policy_refuses_learned_rise():
     out = FakeRlApi().rl_policy_move(mode="stand", learned=True)

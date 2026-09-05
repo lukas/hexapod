@@ -34,17 +34,39 @@
   hard minimum-duty/minimum-swing-count price that can't be satisfied
   by a rare token swing or by noise-around-the-mean, not a
   training-time completion score). **Refill this cycle:** none of
-  this exact class (no cheap variant remains untried per the
-  synthesis above); GPU capacity check found train-0/train-3 genuinely
-  busy running the `medhead2-acq1` pair's own evals (concurrent
-  cycle), train-4 freshly freed by this eval landing, and no other
-  non-duplicative bank-cleared walkcurr item queued this cycle beyond
-  what's already in flight (`medhead2-acq1` pair, `halfgrav-medhead-
-  acq1`'s n=2 seed, `irr-acq1`'s base repair) — all already launched.
-  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
+  the duty_gate/noise class (no cheap variant remains untried per the
+  synthesis above) — but with 9 GPU pods genuinely free (confirmed via
+  direct `ps` on every pod, not just `capacity.py`: train-0/train-3
+  were busy running the `medhead2-acq1` pair's own evals at the time,
+  freed up by the time of this launch) and no in-flight duplicate,
+  picked up a DIFFERENT open thread instead: the heading-widening
+  question left dangling since `headset-{base,halfgrav}-fullhead-c1`
+  (full 8-way jump straight from the 3-way champion) FAILED
+  course-tracking at the wide/reversal headings while `medhead` (the
+  5-way intermediate rung built in response) has since ACQ PASSed
+  cleanly on halfgrav — nobody had yet tried widening FROM the
+  medhead champion instead of jumping cold from the 3-way one.
+  Launched a 2-seed 2M canary pair, both VERIFIED RUNNING: `headset-
+  halfgrav-fullhead-widen2-c1` (`--init-from-source` from the 40M
+  `headset-halfgrav-medhead-acq1` champion, train-2) and `-widen2-c2`
+  (from the second-seed `headset-halfgrav-medhead2-c1` champion,
+  train-3), both adding ONLY the two untrained reversal headings
+  (+-135, 180) to the already-passing 5-way set — same
+  `k_walk_freeprog` mechanism, no new reward keys, reusing the
+  already bank-proved `EASY_HEADING_WIDE` (re-ran green, 5/5). Base
+  family excluded from this widen attempt (its own medhead rung is
+  itself ACQ FAIL on leg-favoritism, so widening from a failing
+  champion would confound two open questions). Gate: gait_valid stays
+  majority-valid with 0 falls, AND direction_err/course_err at the new
+  reversal headings comes in tighter than `fullhead-c1`'s own
+  per-episode spread (28-161deg) — informative either way (recipe-
+  level curriculum finding vs. a fundamental reversal-heading
+  observation/policy limit needing its own design pass). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_
   s0c1_noiseonly_c1_gate/report.json` vs `..._s0c1_gate/`,
   `..._dgfresh_gate/`, `..._dgnoise_c1_gate/` (same keys), W&B
-  `xyz4gzvh`.
+  `xyz4gzvh`; new launches W&B notes on `cw-walkscratch-easy0905-
+  headset-halfgrav-fullhead-widen2-{c1,c2}`.
 
 - 09-05 ~20:2x this cycle (assigned `headset-base-s0c1-dgnoise-c1`;
   found genuinely still computing remotely at cycle spawn like every

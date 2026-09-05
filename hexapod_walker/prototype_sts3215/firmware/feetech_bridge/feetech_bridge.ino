@@ -1611,7 +1611,16 @@ void loop() {
   if (streaming && hostSRefreshPending
       && (long)(now - hostSRefreshAtMs) >= 0) {
     hostSRefreshPending = false;
-    refreshSnapshotNow();
+    // Frequent S requests otherwise keep taking this branch and the
+    // 30 ms quiet branch below, starving current/load/voltage/temperature
+    // acquisition indefinitely. A full pass also refreshes positions and
+    // speed, so use it instead of the fast pass when health is due.
+    if (now - fbStampMs >= FB_PERIOD_MS) {
+      streamFullPass();
+    } else {
+      streamFastPass();
+    }
+    streamImuPass();
     dbgHostSnapshotAsyncRefreshes++;
     if (parkedKind != 0) {
       execParked();
@@ -1620,7 +1629,8 @@ void loop() {
     return;
   }
   if (streaming && hostSLastMs != 0
-      && (long)(now - hostSLastMs) < HOST_S_CONTROL_IDLE_MS) {
+      && (long)(now - hostSLastMs) < HOST_S_CONTROL_IDLE_MS
+      && now - fbStampMs < FB_PERIOD_MS) {
     return;
   }
   if (streaming) {

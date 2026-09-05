@@ -822,11 +822,42 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   count bar the way it cleared a >=1-per-(window+fade) recency floor,
   closing the gait_gate exploit by construction. MIN over support
   legs, same as every prior anti-sacrifice gate in this file. First
-  canary batch launched same cycle (not yet verdicted): fresh-provenance
+  canary batch launched same cycle: fresh-provenance
   `headset-base-s0c1-swinggate-fresh` + three entrenched-checkpoint
   retrofits (`swinggate-fix` on `s0c1_acq1`, `medhead-swinggate-fix`
-  on `medhead_acq1`, `irr-swinggate-fix` on `irr_acq1`) — read these
-  before funding further swing_gate variants.
+  on `medhead_acq1`, `irr-swinggate-fix` on `irr_acq1`).
+  UPDATE 09-05 ~22:2x: `swinggate-fresh` (the fresh-provenance arm)
+  landed **CANARY FAIL — MECHANISM (INERT DOSE)**: harness result is
+  statistically indistinguishable from the undosed `dgfresh` twin —
+  `walk/det` 6/6, `walk/sto` 6/6 (both match exactly), `walk_startjitter/
+  sto` 5/6 with the SAME episode (idx4) failing in both, and
+  `walk_startjitter/det` (the canary's own named test mode) stays 0/6
+  in both with leg4 duty 0.03-0.06 here vs 0.02-0.07 in `dgfresh` —
+  chronically <=0.10 in all 6/6 episodes, the identical fingerprint
+  every prior mechanism left. `env/walk_swing_gate_factor` logged
+  saturated at 1.0 at every sampled point across the whole 2M run
+  despite leg4's chronic near-zero duty the entire time — the gate's
+  own pre-registered "gamed-completion-score" clause: leg4 still
+  completes enough swing-like liftoffs per 4s window (swing_count
+  26-55/20s) to clear the trailing-count floor without ever
+  contributing real stance/transport, so the price never engages.
+  **Closes the fresh-provenance half of the swing_gate test**:
+  pricing the mechanism in before the habit entrenches does not cure
+  it when the checkpoint (2M) already exhibits the chronic pattern.
+  The entrenched-checkpoint retrofit triplet (`swinggate-fix`,
+  `medhead-swinggate-fix`, `irr-swinggate-fix`) is still pending a
+  sibling cycle's read — if all three also FAIL, `walk_swing_gate`
+  closes as a 7th independently-designed per-leg-utilization
+  mechanism (after `walk_gait_gate`+`k_step_event` 6/6 FAIL,
+  `walk_duty_gate` 9/9 FAIL across every provenance x dose) on the
+  base(1g) family, and the next lever must be structural (curriculum-
+  widen from a leg-healthy champion, or a genuinely different
+  exploration/init scheme), not another reward-shaping variant. Do
+  not fund further bare `walk_swing_gate` arms of any provenance until
+  the retrofit triplet lands. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fresh`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_
+  swinggate_fresh_gate/report.json`, W&B `3f8el794`.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

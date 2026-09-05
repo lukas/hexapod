@@ -12,6 +12,7 @@ It defaults to a simulated robot so the complete workflow can be tested without 
 - One evidence directory per experiment containing the submitted spec, JSONL telemetry, logs, MP4 video when configured, and a Markdown summary
 - REST artifact streaming and MCP artifact discovery/reading
 - Registration of externally completed guarded runs plus streamed artifact upload
+- Immutable calibration-report archive with optional exact pose-config snapshots
 - A phone-first AprilTag walk-around that saves raw/annotated views and an advisory orientation proposal
 - Immutable, effective-dated AprilTag history with exact replay snapshots for every recording
 - A single-consumer worker so two experiments never command the robot concurrently
@@ -51,7 +52,7 @@ both MCP and the website.
 
 ## MCP connection
 
-The Streamable HTTP JSON-RPC endpoint is `http://127.0.0.1:8767/mcp` with an `Authorization: Bearer <token>` header. It exposes `list_experiments`, `get_experiment`, `queue_experiment`, `cancel_experiment`, `register_result`, `read_artifact`, `list_tag_layout_revisions`, and `get_tag_layout`.
+The Streamable HTTP JSON-RPC endpoint is `http://127.0.0.1:8767/mcp` with an `Authorization: Bearer <token>` header. It exposes `list_experiments`, `get_experiment`, `queue_experiment`, `cancel_experiment`, `register_result`, `read_artifact`, `list_tag_layout_revisions`, `get_tag_layout`, `list_calibrations`, and `get_calibration`.
 
 Text and small binary artifacts can be returned directly; artifacts larger than 1 MiB are discovered through MCP and streamed through their authenticated REST URL. Video stays out of model context and is watched on the result page or streamed from the API.
 
@@ -153,6 +154,32 @@ install -m 0644 \
   hexapod_walker/prototype_sts3215/hexapod-tracker/configs/hexapod_tag_map.json \
   "/Users/lukas/Library/Application Support/Hexapod Lab/tag-scan-config/"
 ```
+
+## Calibration archive
+
+Vision tools publish completed calibration evidence with operator credentials to
+`POST /api/calibrations` or its compatibility alias
+`POST /api/calibrations/import`. The request may be a raw tracker report or an
+envelope containing `report`, optional `pose_config`, optional timezone-aware
+`observed_at`/`recorded_at`, and optional `robot_id`. `GET /api/calibrations`
+lists immutable records newest-first and `GET /api/calibrations/<id>` returns the
+exact canonical report and optional pose configuration.
+
+For compatibility, envelopes may use `calibration` for `report`, and `config`
+or `configuration` for `pose_config`; additional envelope fields are retained as
+source metadata. A flat raw report may also carry a top-level `pose_config`
+sidecar. Credential-like source metadata is rejected rather than archived.
+
+Importing is archival only: Robot Lab never applies the report, activates a tag
+layout, changes a live configuration, sends a motor command, or changes a servo
+zero. Records always report `status: archived`, `current: false`, and
+`replay_ready: false`; `replay_status` explains whether pose evidence or a
+historical tag layout was unavailable, or whether both were archived but not
+activated. A resolved layout snapshot includes the revision identity and all
+four configuration hashes. Archiving does not establish the pose config's role,
+pin it to an experiment, execute replay, or make it eligible for automatic
+selection. Publishers may send an `Idempotency-Key` header; exact retries return
+the original record and reuse with different content is rejected.
 
 ## Blocker text alerts
 

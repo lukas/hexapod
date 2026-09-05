@@ -91,6 +91,31 @@ class Store:
             );
             CREATE INDEX IF NOT EXISTS idx_experiment_tag_layouts_revision
               ON experiment_tag_layouts(revision_id);
+            CREATE TABLE IF NOT EXISTS calibrations (
+              sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+              id TEXT NOT NULL UNIQUE,
+              request_sha256 TEXT NOT NULL UNIQUE,
+              report_sha256 TEXT NOT NULL,
+              report_json TEXT NOT NULL,
+              pose_config_sha256 TEXT,
+              pose_config_json TEXT,
+              observed_at TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              robot_id TEXT,
+              kind TEXT NOT NULL,
+              schema_version INTEGER NOT NULL,
+              replay_ready INTEGER NOT NULL,
+              tag_layout_revision_json TEXT,
+              source_metadata_json TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE TABLE IF NOT EXISTS calibration_import_keys (
+              idempotency_key TEXT PRIMARY KEY,
+              calibration_id TEXT NOT NULL,
+              request_sha256 TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              FOREIGN KEY(calibration_id) REFERENCES calibrations(id)
+            );
             CREATE TRIGGER IF NOT EXISTS tag_layout_revisions_no_update
               BEFORE UPDATE ON tag_layout_revisions BEGIN
                 SELECT RAISE(ABORT, 'tag layout revisions are immutable');
@@ -115,6 +140,22 @@ class Store:
               BEFORE DELETE ON experiment_tag_layouts BEGIN
                 SELECT RAISE(ABORT, 'experiment layout pins are immutable');
               END;
+            CREATE TRIGGER IF NOT EXISTS calibrations_no_update
+              BEFORE UPDATE ON calibrations BEGIN
+                SELECT RAISE(ABORT, 'calibrations are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS calibrations_no_delete
+              BEFORE DELETE ON calibrations BEGIN
+                SELECT RAISE(ABORT, 'calibrations are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS calibration_import_keys_no_update
+              BEFORE UPDATE ON calibration_import_keys BEGIN
+                SELECT RAISE(ABORT, 'calibration import keys are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS calibration_import_keys_no_delete
+              BEFORE DELETE ON calibration_import_keys BEGIN
+                SELECT RAISE(ABORT, 'calibration import keys are immutable');
+              END;
             """)
             # These columns were added while the history feature was still in
             # development. Keep startup safe for a database created by an
@@ -131,6 +172,14 @@ class Store:
             ):
                 if name not in columns:
                     con.execute(f"ALTER TABLE tag_layout_revisions ADD COLUMN {name} TEXT")
+            calibration_columns = {
+                row["name"] for row in con.execute("PRAGMA table_info(calibrations)")
+            }
+            if "source_metadata_json" not in calibration_columns:
+                con.execute(
+                    "ALTER TABLE calibrations ADD COLUMN "
+                    "source_metadata_json TEXT NOT NULL DEFAULT '{}'"
+                )
             con.execute("PRAGMA optimize")
 
     @staticmethod

@@ -25,9 +25,20 @@ backlog; idle slots next to this unmet priority are the failure state.
   `--activation-fn`, and died in <1s the same way — the "non-gSDE
   sibling" rule needs the respec SOURCE itself to never carry
   `--use-sde`, not just the CLI flags on this launch. FAILED it,
-  strengthened the `CURRENT_TRUTHS.md` gotcha wording, relaunched
-  correctly as `sde-s0-c3` (respec from `base-s0`) — VERIFIED RUNNING
-  on train-8. Also found `sdehalfgrav-s2` FINISHED but unverdicted
+  strengthened the `CURRENT_TRUTHS.md` gotcha wording, relaunched as
+  `sde-s0-c3` (respec from `base-s0`) — VERIFIED RUNNING on train-8,
+  BUT `base-s0` is itself the 2M-CANARY config (not `base-s0-c1`'s 40M
+  acquisition config) and I forgot an explicit `--steps` override, so
+  it silently trained only 2M steps (FINISHED_BEFORE_CHECKUP, no
+  crash, just the wrong budget). A concurrent cycle caught this via
+  checkup and relaunched correctly as `sde-s0-c4` (respec from
+  `base-s1`'s 40M config + explicit `--steps 40000000` belt-and-
+  braces, `--init-from` sde-s0-c3's checkpoint so the extra 2M isn't
+  wasted) — confirmed VERIFIED RUNNING on train-8 with `--steps
+  40000000` in the live process args. Lesson: always pass an explicit
+  `--steps` on any respec whose source might be a canary-scale config,
+  never rely on "default: same as source." Also found `sdehalfgrav-s2`
+  FINISHED but unverdicted
   (gate eval already synced, nobody had triaged it): 4th sde+halfgrav
   seed, same flat-`ep_len` fingerprint as s0/s1/s3 (rose to 239 by 8M,
   collapsed to a 64-83-tick plateau the whole back half, TERM

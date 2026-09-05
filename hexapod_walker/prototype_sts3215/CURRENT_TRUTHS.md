@@ -91,6 +91,16 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   09-05: `sde-s0-c2` respec'd from `sde-s1`, died in <1s). Always
   respec from the matching-seed `base-*` arm, never from any `sde-*`
   or `sdehalfgrav-*` arm, when building a gSDE-checkpoint continuation.
+- `launch_run.py respec` defaults `--steps` to the SOURCE run's own
+  step count, not the intended budget. Respec'ing a 40M continuation
+  `--from` a 2M-CANARY-scale sibling (e.g. `base-s0`, the original
+  canary, instead of `base-s0-c1`, its 40M acquisition continuation)
+  silently trains only 2M steps — no crash, no error, just the wrong
+  budget (09-05: `sde-s0-c3` did this, caught by checkup after it
+  finished at 2M; fixed as `sde-s0-c4` with an explicit `--steps
+  40000000`). Always pass `--steps` explicitly on a respec whose
+  source lineage might include a canary-scale entry; never rely on
+  "default: same as source."
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

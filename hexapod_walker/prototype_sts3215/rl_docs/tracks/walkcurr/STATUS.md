@@ -2,6 +2,54 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~22:5x this cycle (assigned `headset-base-irr-swinggate-fix` +
+  `headset-base-medhead-swinggate-fix`): both had ALREADY been
+  verdicted **CANARY FAIL - MECHANISM** by a concurrent cycle before
+  this cycle's own (independently-run) analysis finished — re-derived
+  the same result from scratch (per-episode duty/swing_count for both
+  arms statistically indistinguishable from their own undosed
+  `irr_acq1`/`medhead_acq1` twins, `env/walk_swing_gate_factor` pinned
+  at 1.0 the whole 2M run in both, frame strips show a genuine
+  six-leg gait already present in the PARENT — not a fix, an inert
+  retrofit), confirming rather than duplicating; no re-verdict
+  written. **Refill (3-arm batch, non-duplicative, new mechanism):**
+  with the reward-price family now closed 7/7 (`walk_gait_gate`,
+  `walk_duty_gate` x9, `walk_swing_gate` x4) and the campaign's own
+  conclusion calling for "a different exploration/init scheme," code
+  archaeology (`rl_move/sim/domain_rand.py`,
+  `rl_move/sim/sim_env.py:600-630`) found the whole easy0905 family
+  trains at `--dr-scale 0.0` with NO `dr.placement_noise_deg`/
+  `bad_start_*` override — every training episode starts from the
+  IDENTICAL nominal pose, so the policy has never seen a perturbed
+  start joint configuration, while `eval_checkpoint.py`'s
+  `walk_startjitter` mode (the ONE mode where this family's
+  pathology concentrates — plain `walk/det` on the narrow irr set
+  runs 6/6 clean per its own PASS notes) tests exactly that gap. This
+  is a genuinely different, ALREADY-BUILT-AND-VALIDATED mechanism
+  (not a reward shape, so no new bank-test gap): `dr.placement_noise_deg`
+  was proven on the joystick track months ago
+  (`cw-walk-placementnoise6-r3`, PASS) and the absolute-override path
+  (`setattr` in `sim_env.py`, bypasses `dr_scale` scaling) means it
+  works even at `--dr-scale 0.0`. Dose (jitter 3deg, 25% chance one
+  8-16deg-off joint) matches `eval_checkpoint.py`'s own
+  `walk_startjitter` CLI defaults exactly, closing the train/eval gap
+  directly instead of guessing. Launched 3 arms, matching the
+  campaign's own fresh-vs-retrofit split methodology, ALL VERIFIED
+  RUNNING/HEALTHY: `headset-base-irr-placementjit-c1` (retrofit onto
+  `irr_acq1`, train-3), `headset-base-medhead-placementjit-c1`
+  (retrofit onto `medhead_acq1`, train-1), `headset-base-s0c1-
+  placementjit-fresh` (bake-in from the same lightly-trained 2M
+  `s0c1` seed `dgfresh`/`swinggate-fresh` used, train-2). Gate (all
+  3): repair-signal if `walk_startjitter/det`'s flagged legs (1,4)
+  majority-clear the harness `gait_valid` duty>0.10 bar with 0 new
+  falls and plain `walk/det` stays at/above its own undosed twin's
+  baseline; FAIL if the same legs stay majority-parked regardless of
+  the new training-time state exposure. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-{irr,medhead}-swinggate-fix`
+  (re-derived confirmation), W&B run pages on the 3 new launches,
+  `rl_move/sim/domain_rand.py`, `rl_move/sim/sim_env.py:600-630`,
+  `rl_move/sim/eval_checkpoint.py:1264-1275`.
+
 - 09-05 ~22:3x this cycle (assigned `headset-base-s0c1-swinggate-fresh`):
   after verdicting the assigned run (below), picked up the remaining 2
   still-outstanding `walk_swing_gate` retrofit arms too

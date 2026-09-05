@@ -6,6 +6,7 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 from .common import *  # noqa: F401,F403
+from async_bus_guard import bus_quarantine_status, recover_bus_quarantine
 
 
 class CoreApi:
@@ -181,6 +182,81 @@ class CoreApi:
     def _bus_hot_end(self) -> None:
         with self._lock:
             self._bus_hot = max(0, int(self._bus_hot) - 1)
+
+    def bus_access_state(self, *, recover: bool = True) -> dict:
+        """Return bus ownership state without transacting on the bus.
+
+        Recovery is deliberately limited to joining retained async readers
+        that have already exited.  A live or unprovable reader remains
+        quarantined, so this method is safe for status endpoints.
+        """
+        bus = getattr(self.drive, "bus", None)
+        if bus is None:
+            return {"bus_quarantined": False, "bus_available": False}
+        before = bus_quarantine_status(bus)
+        if not recover:
+            return before
+        after = recover_bus_quarantine(bus)
+        if before.get("bus_quarantined") and not after.get("bus_quarantined"):
+            self._mark_bus_unverified_disarmed(
+                "async reader exited; bus recovered, explicit re-arm required")
+        return after
+
+    def _mark_bus_unverified_disarmed(self, detail: str) -> None:
+        """Update logical state only; never transact on the physical bus."""
+        d = self.drive
+        with d._lock:
+            d.armed = False
+            d.status = detail
+        self._set_activity("error", detail)
+
+    def bus_status(self) -> dict:
+        """No-I/O quarantine status for ``GET /api/bus/status``."""
+        state = self.bus_access_state(recover=False)
+        with self.drive._lock:
+            armed = bool(self.drive.armed)
+        if state.get("bus_quarantined"):
+            armed = False
+        return {
+            "ok": True,
+            **state,
+            "armed": armed,
+            **({"code": "bus_quarantined"}
+               if state.get("bus_quarantined") else {}),
+        }
+
+    def bus_recover(self) -> dict:
+        """Reap proven-dead readers without bus I/O; never re-arm torque."""
+        before = self.bus_access_state(recover=False)
+        if not before.get("bus_quarantined"):
+            return {
+                "ok": False,
+                "code": "bus_not_quarantined",
+                "error": "bus is not quarantined",
+                **before,
+            }
+        after = self.bus_access_state(recover=True)
+        if after.get("bus_quarantined"):
+            self._mark_bus_unverified_disarmed(
+                "bus quarantine remains active; torque state unverified")
+            return {"ok": False, "code": "bus_quarantined", **after,
+                    "armed": False}
+        # bus_access_state already marked the drive logically disarmed.  The
+        # physical torque state remains unknown until an explicit later arm.
+        return {
+            "ok": True,
+            "recovered": True,
+            **after,
+            "armed": False,
+            "torque_state": "unverified",
+        }
+
+    def _bus_admission_error(self) -> dict | None:
+        """Fail closed before a new API transaction on a quarantined bus."""
+        state = self.bus_access_state(recover=True)
+        if not state.get("bus_quarantined"):
+            return None
+        return {"ok": False, **state}
 
     def _calibration_tft_pct(self, progress: dict) -> int:
         idx, total = progress.get("index"), progress.get("total")
@@ -406,6 +482,7 @@ class CoreApi:
         with self._lock:
             activity = self._activity
             detail = self._activity_detail
+        bus_state = self.bus_access_state(recover=True)
         # Derive a clearer activity if the worker hasn't set one yet.
         if demo["running"] and activity not in ("demo", "zeroing", "stopping"):
             activity = "demo"
@@ -416,6 +493,10 @@ class CoreApi:
                 detail = demo["status"]
         if not armed and activity in ("idle", "armed"):
             activity = "limp"
+        if bus_state.get("bus_quarantined"):
+            armed = False
+            activity = "error"
+            detail = str(bus_state.get("error") or "serial bus quarantined")
 
         out = {
             "activity": activity,
@@ -429,6 +510,7 @@ class CoreApi:
             "air_demos_need_zero": True,
             "zero_tol_deg": ZERO_TOL_DEG,
             "telemetry": self._telemetry_recorder.status(),
+            **bus_state,
         }
         if self._servo_watch is not None:
             out["servo"] = self._servo_watch.state()
@@ -444,6 +526,10 @@ class CoreApi:
         if not d.bus:
             return {"at_zero": False, "max_err_deg": None, "live": 0,
                     "tol_deg": tol_deg, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return {"at_zero": False, "max_err_deg": None, "live": 0,
+                    "tol_deg": tol_deg, **blocked}
         # Avoid fighting an active demo thread on the serial bus.
         if self._demo_thread and self._demo_thread.is_alive():
             return {"at_zero": False, "max_err_deg": None, "live": 0,
@@ -484,6 +570,14 @@ class CoreApi:
             drive_status = d.status
         motors = []
         live: list[int] = []
+        blocked = self._bus_admission_error() if bus is not None else None
+        if blocked is not None:
+            return {
+                "port": port, "dry_run": dry, "armed": False, "mode": mode,
+                "status": drive_status, "live_ids": [], "motors": [],
+                "demo": self.demo_state(), "robot": self.robot_state(),
+                **blocked,
+            }
         if bus is not None and not (self._demo_thread and self._demo_thread.is_alive()):
             try:
                 from urt2_bench import read_servo_health
@@ -571,6 +665,13 @@ class CoreApi:
                 "live": 0, "ts": time.time(), "geom": geom,
                 "demo": demo,
             }
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return {
+                "degrees": [None] * N_JOINTS, "live": 0,
+                "ts": time.time(), "geom": geom, "demo": demo,
+                "armed": False, "mode": mode, **blocked,
+            }
         degrees: list[float | None] = [None] * N_JOINTS
         live = 0
         try:
@@ -606,6 +707,13 @@ class CoreApi:
         glide, one result.  It uses the bench/demo stop path first so API
         commands do not fight an existing streamed routine.
         """
+        if self.drive.dry_run:
+            return {"ok": True, "dry_run": True}
+        if not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        blocked = self._bus_admission_error()
+        if blocked is not None:
+            return blocked
         try:
             from inplace_demos import (
                 CurrentPeakTracker, _enable_torque, _limp_all,
@@ -614,10 +722,6 @@ class CoreApi:
             from drive_controller import MAX_SAFE_DELTA_DEG
         except ImportError as e:
             return {"ok": False, "error": str(e)}
-        if self.drive.dry_run:
-            return {"ok": True, "dry_run": True}
-        if not self.drive.bus:
-            return {"ok": False, "error": "no bus"}
         if not isinstance(q_deg, (list, tuple)) or len(q_deg) != N_JOINTS:
             return {"ok": False,
                     "error": f"q_deg must be a list of {N_JOINTS} numbers"}

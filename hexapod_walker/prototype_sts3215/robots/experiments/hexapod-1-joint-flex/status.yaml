@@ -5,7 +5,7 @@ experiment:
   robot_id: hexapod-1
   state: hardware_characterization_complete
   created: 2026-09-02
-  updated: 2026-09-03
+  updated: 2026-09-04
   objective: "Localize increasing compliance among the servo/output, horn/screw interface, printed yoke, and femur without accessing the hidden horn."
 
 reported_observations:
@@ -21,9 +21,11 @@ reported_observations:
     observation: "No visible crack or changed fasteners was found before the powered tests."
   - evidence: measured
     observation: "L5 has large unloaded hip/knee hysteresis; L4 is tight unloaded but develops knee-dominant planted compliance near 2 mm radial command."
+  - evidence: measured
+    observation: "In a contemporaneous supported air screen of all six legs, L5 was not the unloaded outlier: L1 had the largest hip loop and L0 had the largest knee loop."
 
 safety_scope:
-  robot_motion_commands_allowed: "only with explicit operator authorization for the current run"
+  robot_motion_commands_allowed: "bounded serialized runs under standing authority with live camera, three fresh healthy samples, and remote abort"
   operator_applied_static_load_only: false
   robot_must_be_rigidly_supported: true
   servo_state_required: "Power off, or electronics powered with all tested joints confirmed limp/torque-disabled."
@@ -94,6 +96,35 @@ latest_run:
     camera_1: "14,942/14,942 frames contained at least one AprilTag"
     macbook_camera_2: "not used"
 
+all_leg_air_screen:
+  date: 2026-09-04
+  campaign_id: hexapod-1-all-leg-air-screen-20260904
+  robot_lab_result_id: 0ab3781b4f3b42daa0d8d71de5d1575c
+  dataset: sysid/datasets/all_leg_air_screen_20260904_180207
+  result: L5_not_unloaded_outlier
+  matched_loop_deg:
+    L0: {hip: 0.674, knee: 0.474}
+    L1: {hip: 0.761, knee: 0.181}
+    L2: {hip: 0.264, knee: 0.382}
+    L3: {hip: 0.674, knee: 0.177}
+    L4: {hip: 0.147, knee: 0.088}
+    L5: {hip: 0.615, knee: 0.350}
+  safety:
+    completed_ticks: 4680
+    planned_ticks: 4680
+    overruns: 0
+    trips: 0
+    largest_run_peak_current_a: 0.039
+    largest_observed_temperature_c: 33
+    lowest_observed_voltage_v: 11.2
+    final_live_servos: 18
+    final_state: limp_idle_disarmed
+  camera:
+    synchronized_frames: 2722
+    capture_errors: 0
+    note: "Useful direct target-tag coverage for L0/L2/L3/L4/L5; L1 target coverage was intermittent but the full robot remained in the overhead frame."
+  scope: "Unloaded comparison only; it does not supersede the prior planted-load observation."
+
 acceptance_retest:
   date: 2026-09-03
   disposition: residual_accepted_by_operator
@@ -116,17 +147,17 @@ acceptance_retest:
   whole_body_status: "Authorized and in progress; this acceptance is not a claim that L5 was repaired."
 
 conclusion: >-
-  L5 is measurably loose without ground load: the air-control loop averaged
-  1.143 deg at the hip and 0.352 deg at the knee in the 2026-09-03 repeat,
-  versus 0.059 deg and 0.088 deg on L4. In the repeated larger planted ladder,
-  L5 measured 0.645-1.259 deg hip and 0.586-1.113 deg knee, versus only
-  0.088-0.147 deg hip and 0.088-0.351 deg knee on L4. Neither leg drifted more
-  than two encoder counts during the 90-second loaded holds or 120-second
-  recovery. This independently repeats the L5 servo/output/geartrain deadband
-  plus additional planted hysteresis diagnosis, with no meaningful creep at
-  the tested load. Absolute stiffness and localization inside the
-  fastener/yoke/link stack remain unavailable because force and
-  component-local markers were absent.
+  L5 remains measurably looser than L4, but the 2026-09-04 matched all-leg air
+  screen shows that it is not uniquely abnormal without ground load. L5
+  measured 0.615/0.350 deg hip/knee, while L1 had the largest hip loop at
+  0.761 deg and L0 had the largest knee loop at 0.474 deg. The earlier planted
+  result still showed substantially more L5 compliance than L4 and was not
+  retested across all six legs here. Therefore the current evidence supports
+  ordinary cross-leg unloaded backlash plus a still-open possibility of
+  load-dependent L5 behavior; it does not support calling L5 the unloaded
+  outlier. Absolute stiffness and localization inside the fastener/yoke/link
+  stack remain unavailable because force and component-local markers were
+  absent.
 
 history:
   - date: 2026-09-02
@@ -147,3 +178,5 @@ history:
     event: "Ran the short supported L5 air plus planted acceptance ladder: 2,520/2,520 ticks, no trip, 0.0845 A peak, final 18/18 limp at zero. Air improved to 0.830/0.181 deg hip/knee, but planted hysteresis remained 0.776-1.271/0.688-1.085 deg; L5 was not cleared as repaired for whole-body motion."
   - date: 2026-09-03
     event: "Operator explicitly accepted the measured residual L5 hysteresis for this campaign and authorized whole-body gait/policy tests; robot SSH identity was installed and gait 14 deployed."
+  - date: 2026-09-04
+    event: "Completed a supported target-only air screen on L0-L5: 4,680/4,680 ticks, zero trips/overruns, 0.039 A largest per-run peak, synchronized USB-camera evidence, final 18/18 limp. L5 was not the unloaded outlier."

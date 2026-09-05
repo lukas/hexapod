@@ -2,12 +2,12 @@
 
 SAFETY: this tool moves the robot. It refuses without ``--go``, and the
 default posture for every standard protocol is *robot on a stand, feet
-off the ground, operator watching*. No hand-posing is needed: the
+off the ground, live camera and guarded runner watching*. No hand-posing is needed: the
 on-robot runner glides the legs to the protocol's start pose by itself
 (slow, trip-protected, pose-verified) before the experiment starts.
 Preflight is read-only; ``Ctrl-C`` (or ``--abort``) sends
 ``/api/rl/stop``, and the runner limps on any trip. Never run this
-unless the operator asked for this exact experiment.
+outside an active campaign with standing guarded authority.
 
 Flow: read-only preflight (pose + IMU sanity) -> POST /api/sysid/run
 (protocol JSON in the body — nothing to deploy per-experiment) -> poll

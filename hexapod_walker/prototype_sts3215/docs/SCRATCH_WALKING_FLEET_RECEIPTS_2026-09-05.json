@@ -1,0 +1,423 @@
+{
+  "observed_utc": "2026-09-05T09:31:45Z",
+  "cycle": "20260905T084400_operator-kick",
+  "ready_slots": 11,
+  "verified_running": 11,
+  "per_run_steps": 40000000,
+  "allocated_steps": 440000000,
+  "queued": [
+    "cw-walkscratch-easy0905-halfgrav-s1",
+    "cw-walkscratch-easy0905-sde-s0-c1",
+    "cw-walkscratch-easy0905-base-s3"
+  ],
+  "queued_steps_each": 40000000,
+  "unavailable_slot": {
+    "pod": "hexapod-mjx-train-6",
+    "reason": "Pinned to g142d86; insufficient CPU reservations. Other schedulable node fails selector; two nodes cordoned."
+  },
+  "gpu_sample": {
+    "pod": "hexapod-mjx-train-9",
+    "sm_utilization_percent": [
+      9,
+      15,
+      8,
+      3,
+      8
+    ],
+    "scope": "Five one-second samples during active training; not fleetwide utilization or full GPU saturation."
+  },
+  "cpu_reservations": {
+    "g129004": {
+      "requested_millicores": 126765,
+      "allocatable_millicores": 127960,
+      "allocated_gpus": 5,
+      "total_gpus": 8
+    },
+    "g142d86": {
+      "requested_millicores": 126435,
+      "allocatable_millicores": 127960,
+      "allocated_gpus": 4,
+      "total_gpus": 8
+    }
+  },
+  "followup_feedback": "fb_20260905T092735_de1d6c",
+  "runs": [
+    {
+      "run": "cw-walkscratch-easy0905-base-s2",
+      "pod": "hexapod-mjx-train-11",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:04:12+00:00",
+      "wandb_id": "fo3air1p",
+      "parent": "cw-walkscratch-easy0905-base-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-a384d26d-b4f2-0e4c-b522-645acbc2b872)",
+        "running_experiments_before": 0,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "2002023",
+        "log_growth_bytes": [
+          5915,
+          6993
+        ],
+        "wandb_id": "fo3air1p",
+        "trainer_pid": "2002023",
+        "global_step_window": [
+          1048576,
+          2097152
+        ],
+        "fps_estimate": 34952.5
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-sdehalfgrav-s0",
+      "pod": "hexapod-mjx-train-2",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:05:29+00:00",
+      "wandb_id": "t9z4rzy2",
+      "parent": "cw-walkscratch-easy0905-sde-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 28,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+        "running_experiments_before": 1,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "2925419",
+        "log_growth_bytes": [
+          5636,
+          5636
+        ],
+        "wandb_id": "t9z4rzy2",
+        "trainer_pid": "2925419",
+        "global_step_window": [
+          0,
+          524288
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-base-s4",
+      "pod": "hexapod-mjx-train-3",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:07:04+00:00",
+      "wandb_id": "mepfuf2d",
+      "parent": "cw-walkscratch-easy0905-base-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 28,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+        "running_experiments_before": 2,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "2230067",
+        "log_growth_bytes": [
+          5947,
+          7971
+        ],
+        "wandb_id": "mepfuf2d",
+        "trainer_pid": "2230067",
+        "global_step_window": [
+          1572864,
+          2097152
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-halfgrav-s3",
+      "pod": "hexapod-mjx-train-5",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:08:21+00:00",
+      "wandb_id": "sf4nnokt",
+      "parent": "cw-walkscratch-easy0905-halfgrav-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-df802228-4aad-6a1a-fc20-a818f6961215)",
+        "running_experiments_before": 3,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "699780",
+        "log_growth_bytes": [
+          5920,
+          7970
+        ],
+        "wandb_id": "sf4nnokt",
+        "trainer_pid": "699780",
+        "global_step_window": [
+          1572864,
+          2097152
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-sde-s2",
+      "pod": "hexapod-mjx-train-7",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:09:37+00:00",
+      "wandb_id": "4ijfyvi7",
+      "parent": "cw-walkscratch-easy0905-sde-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+        "running_experiments_before": 4,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "2487715",
+        "log_growth_bytes": [
+          5628,
+          5968
+        ],
+        "wandb_id": "4ijfyvi7",
+        "trainer_pid": "2487715",
+        "global_step_window": [
+          524288,
+          1048576
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-sde-s1",
+      "pod": "hexapod-mjx-train-8",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:10:54+00:00",
+      "wandb_id": "ne2pwden",
+      "parent": "cw-walkscratch-easy0905-sde-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-ac821317-c75c-9d4b-94db-69607eac7849)",
+        "running_experiments_before": 5,
+        "code_sha_local": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "code_sha_pod": "86bbd612ca353396f91d068918c9dedc99033acb",
+        "wandb_env_on_pod": true,
+        "pid": "670942",
+        "log_growth_bytes": [
+          5627,
+          5967
+        ],
+        "wandb_id": "ne2pwden",
+        "trainer_pid": "670942",
+        "global_step_window": [
+          524288,
+          1048576
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-base-s1-c1",
+      "pod": "hexapod-mjx-train-10",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:20:35+00:00",
+      "wandb_id": "if3jt8v8",
+      "parent": "cw-walkscratch-easy0905-base-s1",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+        "running_experiments_before": 6,
+        "code_sha_local": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "code_sha_pod": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "init_from_on_pod": true,
+        "wandb_env_on_pod": true,
+        "pid": "474140",
+        "log_growth_bytes": [
+          6013,
+          6353
+        ],
+        "wandb_id": "if3jt8v8",
+        "trainer_pid": "474140",
+        "global_step_window": [
+          524288,
+          1048576
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-halfgrav-s0-c1",
+      "pod": "hexapod-mjx-train-1",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:21:54+00:00",
+      "wandb_id": "wkxt570w",
+      "parent": "cw-walkscratch-easy0905-halfgrav-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 28,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-8a09e5e2-ac38-1131-dd00-a0cd1c3165ec)",
+        "running_experiments_before": 7,
+        "code_sha_local": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "code_sha_pod": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "init_from_on_pod": true,
+        "wandb_env_on_pod": true,
+        "pid": "1960723",
+        "log_growth_bytes": [
+          6127,
+          6467
+        ],
+        "wandb_id": "wkxt570w",
+        "trainer_pid": "1960723",
+        "global_step_window": [
+          524288,
+          1048576
+        ],
+        "fps_estimate": 17476.3
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-base-s0-c1",
+      "pod": "hexapod-mjx-train-9",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:23:10+00:00",
+      "wandb_id": "xjm7cd59",
+      "parent": "cw-walkscratch-easy0905-base-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-12d45224-745e-3c94-0817-b7685322bad4)",
+        "running_experiments_before": 8,
+        "code_sha_local": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "code_sha_pod": "bd7a758def5e108d78392a8e2f2c3e57646add7d",
+        "init_from_on_pod": true,
+        "wandb_env_on_pod": true,
+        "pid": "3264749",
+        "log_growth_bytes": [
+          6013,
+          6353
+        ],
+        "wandb_id": "xjm7cd59",
+        "trainer_pid": "3264749",
+        "global_step_window": [
+          0,
+          1048576
+        ],
+        "fps_estimate": 34952.5
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-sdehalfgrav-s1",
+      "pod": "hexapod-mjx-train-4",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:31:00+00:00",
+      "wandb_id": "i6po3x2j",
+      "parent": "cw-walkscratch-easy0905-sde-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 26,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+        "running_experiments_before": 9,
+        "code_sha_local": "896ea490cc9a863288022779a29026dc19cd9a84",
+        "code_sha_pod": "896ea490cc9a863288022779a29026dc19cd9a84",
+        "wandb_env_on_pod": true,
+        "pid": "7659",
+        "log_growth_bytes": [
+          5789,
+          5789
+        ],
+        "wandb_id": "i6po3x2j",
+        "trainer_pid": "7659",
+        "global_step_window": [
+          0,
+          524288
+        ],
+        "fps_estimate": 8738.1
+      }
+    },
+    {
+      "run": "cw-walkscratch-easy0905-halfgrav-s2",
+      "pod": "hexapod-mjx-train-0",
+      "steps": 40000000,
+      "status": "RUNNING",
+      "verified": "2026-09-05T09:31:45+00:00",
+      "wandb_id": "eced4myi",
+      "parent": "cw-walkscratch-easy0905-halfgrav-s0",
+      "phase": "acquisition",
+      "checks": {
+        "control_hz_defaulted": "explicit",
+        "model_source_lineage": "mesh-matched",
+        "cpu_limit": 28,
+        "existing_trainers": [],
+        "uv_python": "/usr/local/bin/python",
+        "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+        "running_experiments_before": 10,
+        "code_sha_local": "896ea490cc9a863288022779a29026dc19cd9a84",
+        "code_sha_pod": "896ea490cc9a863288022779a29026dc19cd9a84",
+        "wandb_env_on_pod": true,
+        "pid": "11858",
+        "log_growth_bytes": [
+          5704,
+          6044
+        ],
+        "wandb_id": "eced4myi",
+        "trainer_pid": "11858",
+        "global_step_window": [
+          524288,
+          1048576
+        ],
+        "fps_estimate": 17476.3
+      }
+    }
+  ]
+}

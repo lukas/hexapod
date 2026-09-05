@@ -24,6 +24,8 @@ sysid/
   run_hw.py      HTTP client: run a protocol on the robot, pull the
                  trace                             -> datasets/<run>/
   trace.py       sysid CSV schema load/write
+  analyze_hysteresis.py
+                 matched-dwell radial-shear loop metrics
   replay.py      suspended MuJoCo replay (trace or protocol)
   metrics.py     step / sine / latency-distribution / jitter metrics
   fit.py         per-axis actuator fit + holdout    -> sim_model_*.json
@@ -36,13 +38,13 @@ Robot side (deployed with `linux_control/`): `sysid_protocol.py`
 `sysid_runner.py` (25 Hz streaming executor, safety trips, CSV with
 `t_send`/`t_recv` per tick), exposed as `POST /api/sysid/run`.
 **The endpoint exists once `linux_control/` is redeployed to the
-robot** — nothing here touches the robot until the operator runs
-`run_hw.py --go`.
+robot** — nothing here touches the robot until the guarded runner invokes
+`run_hw.py --go` under the active campaign authority.
 
 ## Safety (non-negotiable, same rules as everywhere)
 
 - Standard protocols assume: **robot on a stand, feet OFF the ground,
-  operator watching.** That's ALL the operator does — the runner
+  with live camera and a guarded runner watching.** The runner
   positions the legs itself: a slow (12 °/s), eased, trip-protected
   glide to the protocol's `home_deg` (bench zero for the standard
   batteries) or a champion trajectory's first row, verified to 3°
@@ -72,7 +74,7 @@ uv run python -m sysid.protocols build
 uv run python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
     --servo-params loaded --plot
 
-# Phase 1+2 — bench session (operator; robot suspended):
+# Phase 1+2 — guarded bench session (robot suspended):
 uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
 uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json --go
 # Phase 6 — every servo, reduced battery:
@@ -82,6 +84,9 @@ uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json --
 # DISTRIBUTIONS from the per-tick t_send/t_recv and step onsets)
 uv run python -m sysid.report --csv sysid/datasets/<run>/*.csv \
     --servo-params air loaded
+
+# Accepted radial-shear metric (leg/profile inferred from the dataset)
+uv run python -m sysid.analyze_hysteresis sysid/datasets/<run>/*.csv
 
 # Phase 3 — fit actuator/timing params (holdout: ±10° steps, 0.5 Hz)
 uv run python -m sysid.fit --csv sysid/datasets/<run>/*.csv \

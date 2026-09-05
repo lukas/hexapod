@@ -40,6 +40,7 @@ DIRECTIONS = {
     "right": (0.0, -1.0),
 }
 COURSE = ("forward", "left", "backward", "right")
+DRIVE_STARTUP_ALLOWANCE_S = 3.0
 
 
 class HttpFrameRecorder:
@@ -419,7 +420,7 @@ class Trial:
                 f"joint_contract={walk.get('joint_contract')!r}, expected "
                 f"{JOINT_CONTRACT!r}"
             )
-        if walk.get("obs_dim") not in (72, 74, 93):
+        if walk.get("obs_dim") not in (72, 74, 75, 93):
             problems.append(f"unsupported walk obs_dim={walk.get('obs_dim')!r}")
         try:
             training_hz = float(walk["training_hz"])
@@ -439,7 +440,7 @@ class Trial:
                     f"requested {self.args.speed_m_s} m/s is outside trained "
                     f"band [{speed_min}, {speed_max}]"
                 )
-        if walk.get("obs_dim") in (74, 93) and not walk.get("phase_hz"):
+        if walk.get("obs_dim") in (74, 75, 93) and not walk.get("phase_hz"):
             problems.append("phase-clock policy has no phase_hz")
         self.event("walk_policy_contract", {"walk": walk, "problems": problems})
         if problems:
@@ -502,7 +503,13 @@ class Trial:
                 if not result.get("ok"):
                     raise RuntimeError(f"tuck recovery failed: {result}")
                 self.snapshot("after_tuck_recovery")
-            reply = self.request("/api/rl/stand", {})
+            stand_body: dict[str, Any] = {}
+            if self.args.learned_rise:
+                stand_body = {
+                    "learned": True,
+                    "tilt_trip_deg": self.args.learned_rise_tilt_trip_deg,
+                }
+            reply = self.request("/api/rl/stand", stand_body)
             self.event("stand_start", reply)
             if not isinstance(reply, dict) or not reply.get("ok"):
                 raise RuntimeError(f"stand refused: {reply}")
@@ -530,6 +537,10 @@ class Trial:
                     })
                 else:
                     raise RuntimeError(f"stand failed: {result}")
+            if self.args.learned_rise and result.get("stood") is not True:
+                raise RuntimeError(
+                    f"learned rise did not finish standing: {result}"
+                )
         preflight = self.request("/api/rl/preflight?mode=walk")
         self.event("walk_preflight", preflight)
         if not isinstance(preflight, dict) or not preflight.get("ok"):
@@ -579,23 +590,57 @@ class Trial:
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
         samples = 0
+        last_live_t_s: float | None = None
         stop: Any = None
         try:
-            deadline = time.monotonic() + self.args.duration_s
+            deadline = (
+                time.monotonic()
+                + self.args.duration_s
+                + DRIVE_STARTUP_ALLOWANCE_S
+            )
             self.event("walk_request", {
                 "vx_m_s": vx, "vy_m_s": vy,
                 "duration_s": self.args.duration_s,
                 "yaw_command": 0.0, "transport": "drive",
             })
+            reached_active_duration = False
             while time.monotonic() < deadline:
                 response = self.request("/api/rl/drive/cmd", {
                     "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
                 })
                 if not isinstance(response, dict) or not response.get("ok"):
                     raise RuntimeError(f"drive command refused: {response}")
-                self.sample()
+                live = response.get("live") or {}
+                try:
+                    candidate_t_s = float(live.get("t_s"))
+                except (TypeError, ValueError):
+                    candidate_t_s = math.nan
+                if math.isfinite(candidate_t_s):
+                    last_live_t_s = candidate_t_s
+                # The robot records every control tick already.  Keep this
+                # heartbeat lightweight instead of competing for the UART
+                # with a redundant /api/feedback transaction during motion.
+                self.recorder.assert_live()
                 samples += 1
+                if (
+                    last_live_t_s is not None
+                    and last_live_t_s >= self.args.duration_s
+                ):
+                    reached_active_duration = True
+                    break
                 time.sleep(0.05)
+            if not reached_active_duration:
+                shown_t_s = (
+                    "unavailable"
+                    if last_live_t_s is None
+                    else f"{last_live_t_s:.3f}s"
+                )
+                raise RuntimeError(
+                    f"drive {name} did not reach {self.args.duration_s:.1f}s "
+                    f"active within "
+                    f"{self.args.duration_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
+                    f"wall time (last live.t_s={shown_t_s})"
+                )
         finally:
             stop = self.request("/api/rl/drive/stop", {})
             self.event("drive_stop", stop)
@@ -606,6 +651,7 @@ class Trial:
             "transport": "drive_100hz_policy_50hz_bus",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
+            "command_active_s": last_live_t_s,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
@@ -634,17 +680,56 @@ class Trial:
                     "name": name, "vx_m_s": vx, "vy_m_s": vy,
                     "seconds": self.args.course_segment_s, "wz": 0.0,
                 })
-                deadline = time.monotonic() + self.args.course_segment_s
+                deadline = (
+                    time.monotonic()
+                    + self.args.course_segment_s
+                    + DRIVE_STARTUP_ALLOWANCE_S
+                )
                 metrics: list[dict[str, Any]] = []
+                segment_start_t_s: float | None = None
+                segment_end_t_s: float | None = None
+                reached_active_duration = False
                 while time.monotonic() < deadline:
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")
-                    metrics.append(self.sample())
+                    self.recorder.assert_live()
+                    live = response.get("live") or {}
+                    metrics.append(live)
+                    try:
+                        candidate_t_s = float(live.get("t_s"))
+                    except (TypeError, ValueError):
+                        candidate_t_s = math.nan
+                    if math.isfinite(candidate_t_s):
+                        if segment_start_t_s is None:
+                            segment_start_t_s = candidate_t_s
+                        segment_end_t_s = candidate_t_s
+                        if (
+                            segment_end_t_s - segment_start_t_s
+                            >= self.args.course_segment_s
+                        ):
+                            reached_active_duration = True
+                            break
                     time.sleep(0.05)
-                segment_results.append({"name": name, "samples": len(metrics)})
+                if not reached_active_duration:
+                    active_s = (
+                        None
+                        if segment_start_t_s is None or segment_end_t_s is None
+                        else segment_end_t_s - segment_start_t_s
+                    )
+                    raise RuntimeError(
+                        f"course segment {name} did not reach "
+                        f"{self.args.course_segment_s:.1f}s active within "
+                        f"{self.args.course_segment_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
+                        f"wall time (active={active_s!r})"
+                    )
+                segment_results.append({
+                    "name": name,
+                    "samples": len(metrics),
+                    "active_s": segment_end_t_s - segment_start_t_s,
+                })
         finally:
             stop = self.request("/api/rl/drive/stop", {})
             self.event("course_stop", stop)
@@ -750,6 +835,15 @@ def main() -> int:
               "header instead of opening AVFoundation directly; streams "
               "without capture timestamps are refused before motion"),
     )
+    parser.add_argument(
+        "--learned-rise", action="store_true",
+        help=("opt in to the explicit stand-role RL rise instead of the "
+              "known STEP rise; requires a runnable stand role"),
+    )
+    parser.add_argument(
+        "--learned-rise-tilt-trip-deg", type=float, default=8.0,
+        help="roll/pitch trip for --learned-rise (robot clamps to 5..30 deg)",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--phases", nargs="+", choices=(*DIRECTIONS, "course"),
@@ -797,6 +891,8 @@ def main() -> int:
         parser.error("--duration-s must be in [3, 20]")
     if not 1.0 <= args.course_segment_s <= 5.0:
         parser.error("--course-segment-s must be in [1, 5]")
+    if not 5.0 <= args.learned_rise_tilt_trip_deg <= 30.0:
+        parser.error("--learned-rise-tilt-trip-deg must be in [5, 30]")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir / f"rl_walk_trial_{stamp}"

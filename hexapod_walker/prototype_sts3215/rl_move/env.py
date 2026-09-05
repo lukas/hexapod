@@ -276,6 +276,8 @@ class HexapodBalanceEnv:
         self.estimator = RobotStateEstimator(bus, self.cfg)
         self.ik = FixedFootBodyIK()
         self.safety = SafetyLayer(self.cfg)
+        self.safety.set_health_sample_hz(float(cfg_get(
+            self.cfg, "sensing", "full_feedback_hz", default=10)))
         self._q_nom = _standing_q_rad()
         self._prev_action = np.zeros(self.ACT_DIM, dtype=float)
         self._tilt_ref0 = (0.0, 0.0)

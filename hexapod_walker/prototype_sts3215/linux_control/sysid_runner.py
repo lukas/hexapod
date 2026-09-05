@@ -103,7 +103,7 @@ def run_sysid_protocol(
     if has_traj and not force:
         return {"ok": False, "mode": "sysid",
                 "error": "traj (whole-body) segments require force=true "
-                         "and an operator watching"}
+                         "and live camera/guarded-runner supervision"}
 
     try:
         from inplace_demos import (

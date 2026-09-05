@@ -1,0 +1,151 @@
+{
+  "control": {
+    "hz": 100.0,
+    "inner_hz": 100,
+    "drive_write_hz": 50
+  },
+  "episode": {
+    "seconds": 5,
+    "settle_seconds": 2.5,
+    "preflight_max_tilt_deg": 12.0,
+    "hold_current_pose": true,
+    "allow_stand_blend": false,
+    "require_captured_plant": true,
+    "max_plant_delta_deg": 15.0
+  },
+  "actions": {
+    "max_roll_deg": 5.0,
+    "max_pitch_deg": 5.0,
+    "max_height_mm": 80.0,
+    "max_x_mm": 40.0,
+    "max_y_mm": 40.0
+  },
+  "goal": {
+    "p_hold": 0.1,
+    "p_lean": 0.15,
+    "p_track": 0.15,
+    "p_unload": 0.2,
+    "p_rise": 0.35,
+    "p_raise": 0.15,
+    "raise_height_mm": [
+      10.0,
+      30.0
+    ],
+    "max_ref_deg": 4.0,
+    "track_period_s": [
+      2.5,
+      8.0
+    ],
+    "ramp_s": 0.75,
+    "rise_height_mm": [
+      30.0,
+      70.0
+    ],
+    "rise_hold_s": 5.0,
+    "rise_ramp_s": 4.0,
+    "walk_pure": 1,
+    "walk_obs_body_vel": 2,
+    "walk_phase_obs": 1,
+    "walk_phase_hz": 1.333333,
+    "walk_speed_min_m_s": 0.08,
+    "walk_speed_max_m_s": 0.08,
+    "walk_cmd_resample_s": 0
+  },
+  "safety": {
+    "max_roll_deg": 25,
+    "max_pitch_deg": 25,
+    "max_delta_q_deg": 0.375,
+    "entry_slew_ramp_s": 0.0,
+    "entry_slew_start_deg": 0.25,
+    "imu_stale_ms": 100,
+    "enable_soft_torque_limit": false,
+    "soft_torque_limit": 600,
+    "max_temp_c": 65.0,
+    "max_current_a": 2.5,
+    "over_current_trip_s": 2.0,
+    "max_load_pct": 90.0,
+    "limp_on_terminate": true
+  },
+  "reward": {
+    "alive": 0.0,
+    "k_track": 1.0,
+    "track_sigma_deg": 1.5,
+    "height_sigma_mm": 20.0,
+    "unload_sigma_n": 1.0,
+    "unload_sigma_a": 0.15,
+    "unload_tilt_sigma_deg": 4.0,
+    "k_rise_progress": 100.0,
+    "k_rise_milestone": 2.0,
+    "k_curl_progress": 120.0,
+    "curl_milestone_mm": [
+      40.0,
+      15.0
+    ],
+    "rise_hold_curl_sigma_mm": 20.0,
+    "k_rise_finish": 1.0,
+    "rise_finish_sigma_mm": 8.0,
+    "k_roll": 10.0,
+    "k_pitch": 10.0,
+    "k_height": 100.0,
+    "k_gyro": 0.05,
+    "k_action": 0.005,
+    "k_action_delta": 0.01,
+    "k_current": 0.005,
+    "k_unload": 0.2,
+    "safety_termination_penalty": 10.0
+  },
+  "velocity_filter": {
+    "alpha": 0.3,
+    "max_jump_rad": 0.5
+  },
+  "sensing": {
+    "full_feedback_hz": 10
+  },
+  "struct_comp": {
+    "enabled": 1,
+    "k_yaw_nm_rad": 300.0,
+    "k_hip_nm_rad": 180.0,
+    "k_knee_nm_rad": 120.0,
+    "dr_scale_lo": 0.5,
+    "dr_scale_hi": 2.0
+  },
+  "plant": {
+    "hip_deg": null,
+    "knee_deg": null
+  },
+  "obs": {
+    "q_scale": 1.0,
+    "qd_scale": 2.0,
+    "tilt_scale": 0.2,
+    "gyro_scale": 1.0,
+    "height_scale_m": 0.05
+  },
+  "reset": {
+    "start_jitter_deg": 0.0,
+    "start_bad_prob": 0.0,
+    "start_bad_max_joints": 1,
+    "start_bad_deg_min": 8.0,
+    "start_bad_deg_max": 16.0
+  },
+  "pd": {
+    "kp_roll": 1.5,
+    "kd_roll": 0.15,
+    "kp_pitch": 1.5,
+    "kd_pitch": 0.15
+  },
+  "bus": {
+    "port": null,
+    "enable_motion": false,
+    "write_speed": 400,
+    "write_acc": 20,
+    "hold_speed": 250,
+    "stand_speed": 200
+  },
+  "logging": {
+    "dir": "logs/rl_move",
+    "format": "csv"
+  },
+  "env": {
+    "model_source": "mesh"
+  }
+}

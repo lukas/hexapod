@@ -162,3 +162,55 @@ def test_mjx_refuses_transport_before_building_any_model():
             raise AssertionError("should refuse transport before constructing")
     with pytest.raises(ValueError, match="CPU-only"):
         make_shim_class(NeverBuild)(None, cfg={"transport": {"enabled": True}})
+
+
+def test_noise_injector_zero_scales_are_identity_and_matched_across_arms():
+    from rl_move.sim.eval_deployed_transport import NoisySensorTransport
+    plain = DeployedTransport({}, 100)
+    zeroed = NoisySensorTransport(
+        DeployedTransport({}, 100),
+        {"encoder_noise_deg": 0, "gyro_noise_deg_s": 0, "tilt_noise_deg": 0})
+    for i in range(25):
+        a = plain.acquire(raw(i / 100))
+        b = zeroed.acquire(raw(i / 100))
+        np.testing.assert_array_equal(a.joint_position, b.joint_position)
+        np.testing.assert_array_equal(a.joint_velocity, b.joint_velocity)
+        assert a.imu_roll == b.imu_roll and a.imu_pitch == b.imu_pitch
+    # Matched draws: two arms with DIFFERENT filter alphas see the exact
+    # same injected raw perturbation sequence for the same seed.
+    seen = []
+    for alpha in (.3, .83193):
+        noisy = NoisySensorTransport(
+            DeployedTransport({"velocity_alpha": alpha}, 100), {"seed": 7})
+        seq = [noisy.acquire(raw(i / 100)).joint_position.copy()
+               for i in range(20) if True]
+        # Snapshot at i=0 and i=10 consumes the injected raw frame directly.
+        seen.append((seq[0], seq[10]))
+    np.testing.assert_array_equal(seen[0][0], seen[1][0])
+    np.testing.assert_array_equal(seen[0][1], seen[1][1])
+    # And the perturbation is real (nonzero) at the default scales.
+    assert not np.array_equal(seen[0][0], raw(0).joint_position)
+
+
+def test_noise_injector_rejects_unknown_and_negative_keys():
+    from rl_move.sim.eval_deployed_transport import NoisySensorTransport
+    with pytest.raises(ValueError):
+        NoisySensorTransport(DeployedTransport({}, 100), {"bogus": 1})
+    with pytest.raises(ValueError):
+        NoisySensorTransport(DeployedTransport({}, 100),
+                             {"encoder_noise_deg": -.1})
+
+
+def test_noise_injector_summary_and_reset_reproducibility():
+    from rl_move.sim.eval_deployed_transport import NoisySensorTransport
+    noisy = NoisySensorTransport(DeployedTransport({}, 100), {"seed": 3})
+    first = [noisy.acquire(raw(i / 100)).joint_position.copy()
+             for i in range(11)]
+    noisy.reset()
+    second = [noisy.acquire(raw(i / 100)).joint_position.copy()
+              for i in range(11)]
+    for a, b in zip(first, second):
+        np.testing.assert_array_equal(a, b)
+    s = noisy.summary()
+    assert s["sensor_noise"]["encoder_noise_deg"] == pytest.approx(.09)
+    assert s["enabled"] is True

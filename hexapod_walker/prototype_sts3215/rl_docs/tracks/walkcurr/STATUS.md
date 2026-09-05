@@ -68,6 +68,27 @@ backlog; idle slots next to this unmet priority are the failure state.
   tooling-gotcha entry above for the `-c1` crash+fix). Evidence:
   `logs/ckpt_eval/cw_walkscratch_easy0905_base_s{2,4}_gate/`,
   `cw_walkscratch_easy0905_sde_s{1,2}_gate/`.
+- 09-05 ~10:4x HALFGRAV FAMILY CONFIRMS 2/2 — `halfgrav-s3` (10:2x,
+  by a concurrent cycle, missing from this file until now) and
+  `halfgrav-s2` (this cycle) both ACQ PASS at 0.5g, matching the
+  `base` family's 2/2 (s2/s4). `halfgrav-s3`: fwd_dist_m median
+  2.18-3.44m/20s (0.11-0.17 m/s net), 0/24 terms (roll_class
+  `leaning` only), min per-leg duty_cycle 0.09-0.13, slip/prog
+  1.9-3.2. `halfgrav-s2`: fwd_dist_m median 3.3-3.6m/20s (0.19-0.21
+  m/s net, the fastest of the whole grid so far), 0/24 terms across
+  BOTH walk and the start-jitter (perturbed-init) panel, gait_valid
+  6/6 and all six legs' duty_cycle 0.13-0.33 (swing_count 100+ each,
+  none stuck) every episode, height_err_end_mm 5.5-21.9 (no belly
+  drag), slip_per_m 1.7-2.3 — inside the joystick teacher's <=2.9
+  band, tighter than the base family's own 2.6-3.4. Soft note:
+  `roll_peak_deg` reaches 18-28 under start-jitter+stochastic (once
+  27.9, near the 30 trip bar) though nothing tripped — a stability
+  margin worth watching, not a fail. **Net: both `base` and
+  `halfgrav` families are now 2/2 clean at 40M from scratch; `sde` is
+  ACQ CONTINUE (both seeds); `sdehalfgrav` is 2/2 ACQ FAIL** (below) —
+  gravity doesn't look like the deciding lever so far, gSDE looks
+  like the harder one. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_halfgrav_s{2,3}_gate/report.json`.
 - 09-05 ~09:5x FIRST 40M FAIL — `sdehalfgrav-s0` (sde x halfgrav
   cell) ACQ FAIL: fast 2-leg lurch straight into tilt_pitch, gait_valid
   0/24 across every eval scenario, fwd 0.07-0.26m (bar: 20s sustained).

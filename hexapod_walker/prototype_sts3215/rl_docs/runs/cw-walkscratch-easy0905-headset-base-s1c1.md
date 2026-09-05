@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T12:09:04+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-c1
+
+**wandb_id**: xors486s
 
 **hypothesis**: Plain English: n=3 seed check (third base-family champion, base-s1-c1) for the heading canary, same design as headset-base-s0c1 (see that run for full rationale) -- reusing idle GPU capacity per the operator's full-fleet-utilization order rather than leaving it idle mid-campaign.
 

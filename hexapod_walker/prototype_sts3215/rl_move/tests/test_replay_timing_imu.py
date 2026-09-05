@@ -1,11 +1,15 @@
 import csv
 import json
+from copy import deepcopy
+
+import pytest
 
 from rl_move.sim.replay_timing_imu import (
     ATTEMPT_PROFILE,
     CURRENT_PROFILE,
     ReplayConfig,
     analyze_recorded_trace,
+    assert_case_invariants,
     build_report,
     run_matrix,
 )
@@ -75,6 +79,60 @@ def test_fault_matrix_is_repeatable_and_keeps_freshness_fail_closed():
         "attitude_freshness"
     )
     assert all(case["repetitions"] == 10 for case in matrix["cases"])
+    assert matrix["invariant_audit"] == {
+        "required": True,
+        "passed": True,
+        "cases_checked": 8,
+        "fields_checked": [
+            "stop_reason", "stop_guard", "stop_guard_limit",
+            "stop_guard_value", "deadline_miss_streak_max",
+            "attitude_age_max_ms", "stop_tick",
+        ],
+        "failures": [],
+    }
+
+
+def test_hard_lag_stop_is_not_mislabeled_as_twelve_tick_streak():
+    cfg = ReplayConfig(duration_s=2.0, repetitions=1)
+    recorded = {
+        "baseline_service_ms": 8.9,
+        "derived_coupled_refresh_cost_ms": 4.6,
+    }
+    matrix = run_matrix(
+        recorded, cfg, imu_delays_ms=[50], failure_counts=[2]
+    )
+    attempt = next(
+        case for case in matrix["cases"]
+        if case["profile"] == ATTEMPT_PROFILE
+    )
+    assert attempt["stop_reason"] == "hard_lag_streak"
+    assert attempt["stop_guard"] == "hard_lag_ms"
+    assert attempt["stop_guard_limit"] == 50.0
+    assert attempt["deadline_miss_streak_max"] == 2
+
+
+def test_case_invariants_reject_inconsistent_reported_values():
+    cfg = ReplayConfig(duration_s=2.0, repetitions=1)
+    recorded = {
+        "baseline_service_ms": 8.9,
+        "derived_coupled_refresh_cost_ms": 4.6,
+    }
+    case = run_matrix(
+        recorded, cfg, imu_delays_ms=[0], failure_counts=[3]
+    )["cases"][0]
+    mutations = {
+        "stop_reason": "hard_lag_streak",
+        "stop_guard_limit": 11,
+        "stop_guard_value": 11,
+        "deadline_miss_streak_max": 11,
+        "attitude_age_max_ms": 0.0,
+        "stop_tick": round(cfg.duration_s * cfg.control_hz),
+    }
+    for field, bad_value in mutations.items():
+        inconsistent = deepcopy(case)
+        inconsistent[field] = bad_value
+        with pytest.raises(ValueError):
+            assert_case_invariants(inconsistent, cfg)
 
 
 def test_build_report_hashes_inputs_and_preserves_guards(tmp_path):
@@ -95,6 +153,8 @@ def test_build_report_hashes_inputs_and_preserves_guards(tmp_path):
         cfg=ReplayConfig(duration_s=2.0, repetitions=2),
         attempt_revision="old",
         candidate_revision="new",
+        replay_tool_revision="base",
+        invariant_audit_revision="audit",
         imu_delays_ms=[0],
         failure_counts=[3],
     )
@@ -106,4 +166,6 @@ def test_build_report_hashes_inputs_and_preserves_guards(tmp_path):
         "changed": False,
     }
     assert len(report["sources"]["trace_sha256"]) == 64
+    assert report["sources"]["replay_tool_revision"] == "base"
+    assert report["sources"]["invariant_audit_revision"] == "audit"
     assert len(report["fault_matrix"]["cases"]) == 2

@@ -77,7 +77,23 @@
   {s0c1-dgfresh,medhead-acq1}`, `logs/ckpt_eval/
   cw_walkscratch_easy0905_headset_halfgrav_medhead_acq1_gate/
   report.json`, CURRENT_TRUTHS.md 09-05 ~19:2x, W&B
-  `8q0axo9n`/`8dtoak13`/`dejrlkhv`.
+  `8q0axo9n`/`8dtoak13`/`dejrlkhv`. **Second refill (completes the 2x2
+  design grid, same cycle):** `dgnoise-c1` alone confounds two
+  variables vs the plain undosed `s0c1` canary (duty_gate ON + higher
+  noise at once) — launched the isolating control
+  `headset-base-s0c1-noiseonly-c1` (identical `--log-std-final=-1.2`
+  but `reward.walk_duty_gate=0.0`, i.e. more exploration noise with NO
+  pricing at all), VERIFIED RUNNING `train-4`. Together with the
+  already-landed `s0c1` (low-noise/no-gate) and `s0c1-dgfresh`
+  (low-noise/gate-on) results, this completes the full 2x2
+  {duty_gate on/off} x {noise low/high} grid for the marginal-leg-
+  favoritism repair question — no further arm needed until both land.
+  7/11 GPU pods still free at cycle end; no other non-duplicative,
+  bank-cleared walkcurr item identified (every other open thread —
+  medhead2-acq1 seed confirmations, halfgrav-medhead-acq1's own n=2
+  seed, the `irr-acq1` base repair — is already in flight on a
+  concurrent cycle or genuinely blocked on one of these two canaries'
+  results first).
 
 - 09-05 ~19:2x this cycle (own assigned pair, verdicted after their
   `pollreap` reaped): `headset-base-medhead2-c1` and

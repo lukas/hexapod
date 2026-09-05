@@ -4825,3 +4825,29 @@ pilot bank against the committed twin (what the pods actually load).
 If the 3.49 kg regen was deliberate (e.g. a Codex intake step), restore
 from the backup and say which twin is canonical; CURRENT_TRUTHS still
 describes the twin as ~3.5 kg and should be corrected either way.
+
+## q_20260905T1240Z — OPEN
+- cycle: walkcurr-legpark-skate-digin-09-05
+- operator order: none (assume-and-go record, semantics-bank health)
+- question: The 09-02 merge (66c4af30) left FOUR pre-existing red
+  spots in the shared walk semantics bank beyond the gait-gate trio I
+  repaired this cycle: (1) `QW_TUCK_RAD` is still the stale
+  sim-relative joint-frame-v2 bypass literal (same family as
+  RAW_PLANT/GG_FLAG_RAD; 9 quadwalk tests currently PASS against it,
+  so I left it untouched rather than recalibrate them mid-dig-in — but
+  those tests' actors may be silently over_current-ing and passing on
+  return-ordering alone); (2) `test_slipwalk_swing_bonus_boosts_real_
+  travel_substantially`, (3) `test_slipwalk_swing_bonus_does_not_
+  reward_marching_or_shuffling`, (4) `test_fullcircle_directions_
+  priced_comparably` — all three verified already failing at the 09-04
+  snapshot (fdaa8c4b), i.e. merge-drift, not caused by this cycle's
+  edits. Decision taken: repaired only the gait-gate trio (my launch
+  depended on it), flagged the rest here for a dedicated bank-repair
+  cycle. Also recorded: post-merge the honest scripted tripod's
+  realized qualifying strides shrank ~25% (10+ mm -> 7-10 mm at
+  vx=0.05 on the primitive model) — worth a root-cause pass on the
+  merge's sim_env.py servo/contact changes if any scripted-teacher
+  consumer starts underperforming.
+- proposed answer being executed: fix-on-demand (whichever track next
+  needs k_swing_bonus / fullcircle / QW_TUCK_RAD mechanisms repairs
+  its tests first, same as this cycle did for the gait gate).

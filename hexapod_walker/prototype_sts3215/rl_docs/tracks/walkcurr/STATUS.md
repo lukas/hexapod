@@ -2,6 +2,64 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~12:3x DIG-IN RESOLVED + VERDICTED: `sde-s1-c2`/`sde-s2-c2`
+  both **ACQ FAIL (misaligned)** — new exploit class named
+  **LEGPARK-SKATE**, now banked in both verdicts: 0/24 falls and the
+  det speed bar clears (0.047/0.078 m/s), but 1-3 legs permanently
+  sacrificed (s1 duty [0.96,0.04,0.87,0.95,0.00,0.97], leg 4 = ONE
+  swing in 20 s), stride 6 mm, slip 3.5-6.5/m, and the smoking gun:
+  per-tick `reward_walk` RISES 0.77->1.25 while `walk_speed` falls
+  0.22->0.14 (speed decays toward the 0.06 freeprog cap because speed
+  above cap pays nothing and NOTHING in the easy0905 minimal diet
+  prices a parked leg — `k_step_event`/`k_park_duty`/`k_walk_idle_
+  charge`/`k_loadslip_excess` are all 0 in the actual launch vector,
+  unlike the recipe-file doses). 08-21 MISALIGNED branch, not
+  continue-blind. Repair = the STRUCTURAL `reward.walk_gait_gate`
+  (08-13; quadwalk5 proved additive k_park_duty reprices are simply
+  paid) — its 3 semantics-bank tests had been RED since the 09-02
+  merge (66c4af30): `GG_FLAG_RAD`/midpin tuck were stale
+  joint-frame-v2 sim-relative bypass literals (decoded post-v2 to
+  impossible knee targets -> over_current at t=4.7 s / tilt_pitch at
+  0.86 s), and the honest scripted gait's qualifying strides drifted
+  to 7-10 mm vs the 10 mm bar (at 7 mm the factor pins 1.000 all
+  episode; mechanism code untouched by the merge — pure calibration).
+  Fixed all three (robot_abs literals, test-local stride bar 7 mm,
+  midpin splay 0.06->0.08), 4/4 green; collateral-checked — the
+  remaining `slipwalk_swing_bonus` x2 + `fullcircle_directions` reds
+  PRE-DATE these edits (verified failing at the 09-04 snapshot),
+  flagged in OPERATOR_QUESTIONS.md with the untouched shared
+  `QW_TUCK_RAD` stale literal. Repair arms launched:
+  `sde-s1-c3gg`/`sde-s2-c3gg` — own-checkpoint continuations with
+  `walk_gait_gate=1.0` + `gait_gate_stride_mm=5` (parked legs hold
+  the MIN at 0 regardless of bar; 5 mm lets current ~6 mm active-leg
+  swings qualify so income returns the moment ALL SIX cycle) +
+  `k_step_event=1.0` (per-leg completed-swing credit = the recovery
+  gradient for the parked legs). Family score at the acquisition
+  rung: Gaussian 8/8 valid-gait PASS, sde 0/4 — if c3gg also fails,
+  close the sde cell and let Gaussian carry the campaign.
+
+- 09-05 ~12:3x `sde-s3-c1b` DIG-IN FINALIZED -> **ACQ FAIL** (closes
+  the 12:2x flag; dedicated dig-in cycle). Per-leg harness data is
+  conclusive: all 24 episodes duty [~0.96, 0.00, 0.98, 0.00, ~0.6,
+  ~0.94] — legs 1/3 parked airborne (1-4 swings/20s), legs 0/2/5
+  dragged anchors, leg 4 micro-paddling ~11 Hz (215-249 swings/20s);
+  contact sheets visually confirm the tucked right-side legs +
+  near-identical pose creep. W&B: `env/walk_speed` monotone DECLINES
+  0.238->0.132 (v_along_cmd 0.169->0.112) while ep_rew climbs to 2198
+  and ep_len saturates 1996/2000 — reward buying survival income, so
+  the 08-21 continuation clause does NOT apply (task metric moving
+  away from the gate). FAILED rather than CONTINUE because the matched
+  Gaussian control `base-s3` (same recipe/seed minus gSDE) is a clean
+  six-leg ACQ PASS: gSDE is the isolated causal variable (now 4 sde +
+  2 sdehalfgrav-remcost frozen-leg seeds vs 8 clean Gaussian seeds).
+  **The bare-gSDE sde cell is CLOSED at this recipe** — no further
+  seeds/continuations; any gSDE revival (per-leg-utilization pricing,
+  bank-proven first) belongs to the still-open `sde-s1-c2`/`sde-s2-c2`
+  design pass, which this verdict feeds but does not pre-empt
+  (s1-c2/s2-c2/s0-c4 left unverdicted for that cycle). Caveat noted in
+  the verdict: this gate read is PRE gsde-reset-noise fix (b4259414),
+  so its sto panel is one frozen noise draw; det reads + verdict
+  unaffected.
 - 09-05 ~12:2x REFILL — heading-canary n=3 batch: with 8-9 GPU pods
   genuinely idle after the sde/remcost cohort finished (their
   relaunch is a concurrent cycle's job, left untouched) and no other

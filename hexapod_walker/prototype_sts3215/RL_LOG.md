@@ -1295,3 +1295,6 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-05 12:09 walkcurr easy0905 headset-halfgrav-c2: CANARY PASS (mechanism-health, wandb evidence) -> 40M acquisition headset-halfgrav-acq1 launched. 
 - 09-05 12:15 09-05 12:2x walkcurr: REFILL -- launched 4 more heading canaries (headset-base-s0c1/s1c1, headset-halfgrav-s1/s3, 2M each) to bring both heading-canary families to n=3, using GPU capacity idled by the finished sde/remcost cohort (concurrent cycle's own relaunch, left untouched). 
 - 09-05 12:26 [walkcurr] headset-halfgrav-c2 gate eval synced: 24/24 gait_valid, 0 terms, slip 2.2-2.4 -- corroborates the CANARY PASS, strong signal for headset-halfgrav-acq1 
+- 09-05 12:35 sde-s1-c2 ACQ FAIL: LEGPARK-SKATE exploit named (0 falls, 1-2 parked legs, reward up while speed down = misaligned diet); gait-gate bank repaired, c3gg repair arm queued 
+- 09-05 12:35 walkcurr easy0905 sde-s3-c1b ACQ FAIL: 4th gSDE frozen-leg seed (legs [1,3] parked, walk_speed declining while reward climbs to 2198) — gSDE causal vs matched Gaussian base-s3 PASS; sde cell closed at this recipe, fix rides the s1-c2/s2-c2 design pass 
+- 09-05 12:35 sde-s2-c2 ACQ FAIL: LEGPARK-SKATE confirmed on 2nd independent seed; repair pair c3gg launching with structural gait gate 

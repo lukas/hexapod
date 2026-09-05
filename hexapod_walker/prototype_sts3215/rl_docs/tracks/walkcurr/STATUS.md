@@ -2,6 +2,55 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~13:3x this cycle: `headset-halfgrav-s1`/`-s3` (heading canary,
+  n=3 seed check for the 0.5g family) both **CANARY PASS**. `s1` is
+  the cleanest read of the whole heading-canary cohort so far (24/24
+  gait_valid, 0 falls, slip 1.8-3.0 med 2.1-2.4 vs the 2.9 band, fwd
+  3.2-4.0m/20s across all 3 headings, all six legs balanced duty
+  0.14-0.35). `s3` clears the bar with a caveat (0/24 det falls, slip
+  1.9-2.6, but leg 1 intermittently sacrificed in det-mode only —
+  gait_valid 3/6 and 1/6 on the two det panels, clean 5/6 on both sto
+  panels; not the LEGPARK-SKATE full-shuffle pattern, flagged for the
+  acq follow-up to watch). Both n=3 for the halfgrav-family heading-
+  canary cohort (c2/s1/s3) now complete. Funded both 40M acquisitions,
+  `headset-halfgrav-s1acq` (train-0) + `headset-halfgrav-s3acq`
+  (train-1), `--init-from-source` from their own 2M checkpoints,
+  matching the c2->acq1 pattern (see the acq1 PASS row below) — both
+  VERIFIED RUNNING (ps-confirmed genuine trainer processes, not just
+  ledger state). Independently found+chased `sde-s1-c3gg`/`sde-s2-c3gg`
+  (both finished 40M, reward quarters 1436/2477/2616/2687 and
+  1410/2465/2563/2630, both monotonic — the run that decides whether
+  the structural `walk_gait_gate` repair actually escapes LEGPARK-SKATE
+  or the sde cell closes for good) sitting with NO gate eval running
+  (their pods had gone idle) — kicked off `ops.sh podeval` for both by
+  hand so the data is ready for the next pass; still mid-run at cycle
+  end (video-every=1, 24-episode panel, ~13/24 videos rendered after
+  20+ min) — do NOT re-launch, read `logs/ckpt_eval/cw_walkscratch_
+  easy0905_sde_s{1,2}_c3gg_gate/report.json` once it lands (this is
+  THE decision point named in the 12:3x entry below). Two tooling
+  snags hit and fixed this cycle, both worth banking: (1) a stale
+  `/workspace/hexapod/.git/index.lock` (leftover from an unrelated
+  `git add -A` that died with a SIGBUS mid-snapshot) blocked
+  `snapshot.sh` with "Unable to create index.lock" — no live git
+  process was holding it (`ps aux` checked), safe to remove by hand;
+  retried snapshot+push succeeded clean. (2) `s3acq`'s own respec
+  launch raced ITSELF: `launch_run.py` genuinely `kexec`'d the trainer
+  (confirmed alive via `ps aux`, W&B run `uwewt762` genuinely
+  `state=running`) but its own post-launch verification then
+  re-checked pod occupancy, saw the process it had just started, and
+  wrote a false `REFUSED: hexapod-mjx-train-1 already runs
+  cw-walkscratch-easy0905-headset-halfgrav-s3acq` — the ledger said
+  REFUSED while the GPU was genuinely training a real, undropped run.
+  Repaired by hand via `launch_run.py update` (status/wandb_id/pod/
+  pid); `launch_run.py checkup` afterward confirms HEALTHY. Any cycle
+  seeing "REFUSED: already runs <run-you-just-launched>" immediately
+  after a `--now` respec should check `ps aux`/W&B before assuming the
+  launch failed — it may have succeeded and only the verification race
+  lied. (Separately: my own read of `sde-idleterm-{s0,s1}` reached the
+  same "detector gamed by qvel jitter, don't fund a continuation" call
+  the concurrent cycle's CANARY FAIL verdict below already recorded —
+  cross-confirms it, not duplicated here.)
+
 - 09-05 ~13:2x this cycle: `headset-halfgrav-acq1` **ACQ PASS** — first
   FULLY clean (24/24 `gait_valid`, zero sacrificed legs anywhere) 3-
   heading 40M acquisition in the campaign, 0/24 falls, median fwd

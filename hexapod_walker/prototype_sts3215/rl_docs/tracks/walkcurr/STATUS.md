@@ -143,23 +143,27 @@ backlog; idle slots next to this unmet priority are the failure state.
   gravity doesn't look like the deciding lever so far, gSDE looks
   like the harder one. Evidence: `logs/ckpt_eval/
   cw_walkscratch_easy0905_halfgrav_s{2,3}_gate/report.json`.
-- 09-05 ~10:5x NEXT RUNG NAMED (not yet started — flagging so it
-  isn't re-derived or duplicated by a concurrent cycle): with `base`
-  AND `halfgrav` both 2/2 clean at fixed-forward, the acquisition
-  milestone (this file's own bar) is answered for those two cells —
-  the campaign's remaining gap to the actual walkcurr DONE gate is
-  HEADING generalization (`goal.walk_heading_max_rad`/
-  `walk_cmd_resample_s` currently pinned to 0 for every launched
-  arm this campaign; the mechanism/keys already exist and are used
-  elsewhere in the repo, nothing new to build in `env.py`). Per
-  RESEARCH_RULES this needs its own `test_task_semantics.py`-style
-  ranking bank (heading-tracking income beats off-heading travel,
-  standing, and wrong-heading travel) BEFORE any heading-diet launch
-  — unstarted; do not launch a heading arm without it. Do NOT spend
-  more from-scratch seeds/budget on the fixed-forward rung once the
-  in-flight grid (`sde`/`sdehalfgrav` continuations + remcost repair)
-  finishes reporting — diminishing returns, the two winning cells are
-  already proven with n=2.
+- 09-05 ~11:2x HEADING BANK BUILT + FIRST CANARIES LAUNCHED (closes
+  the "unstarted" item below): `test_walkscratch_easy_pilot.py` now
+  has an `EASY_HEADING` section (`_heading_rollout`, 5 new tests,
+  22/22 total green) proving the ranking RESEARCH_RULES requires
+  (heading-tracking > off-heading/standing > wrong-heading > death)
+  under a SMALL DISCRETE heading set (`{0, +45, -45} deg`, resampled
+  every 6s in the 20s episode) — following the operator's own staged-
+  heading-curriculum ruling (fb_20260822T032514: small set first,
+  never full range). **No new reward keys**: `k_walk_freeprog`'s
+  existing along/cross decomposition already prices live heading
+  tracking correctly once `goal.walk_heading_set`/`walk_cmd_resample_s`
+  are turned on — same mechanism the fixed-forward rung already
+  trained under. 2M mechanism-health canaries launched warm-started
+  from each winning family's champion: `headset-base-c1` (from
+  `base-s2`, train-1) + `headset-halfgrav-c1` (from `halfgrav-s2`,
+  concurrently launched, train-0) — mirrors the campaign's own
+  canary-then-acquisition pattern; 40M acquisition budget is a
+  separate follow-up decision after both read healthy. Snapshot
+  `2098e983`. Do NOT spend more from-scratch seeds/budget on the
+  fixed-forward rung — diminishing returns, both winning cells already
+  proven (base 5/5, halfgrav 3/3).
 - 09-05 ~09:5x FIRST 40M FAIL — `sdehalfgrav-s0` (sde x halfgrav
   cell) ACQ FAIL: fast 2-leg lurch straight into tilt_pitch, gait_valid
   0/24 across every eval scenario, fwd 0.07-0.26m (bar: 20s sustained).

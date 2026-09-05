@@ -103,6 +103,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   were CLOSED (made the fall rate worse, at every dose/architecture
   tried) — do not relaunch either lever here without accounting for
   that prior closure.
+  UPDATE 09-05 ~14:3x: the `walk_gait_gate`+`k_step_event` structural
+  repair (`sde-s1-c3gg`/`sde-s2-c3gg`) is now CLOSED too — 2/2 seeds
+  ACQ FAIL (misaligned). It DOES partially work (multi-leg sacrifice
+  narrows to exactly one chronically-parked leg per seed, duty 0.0,
+  ~3 swings/20s) but harness `gait_valid` is still 1/24 and 0/24. Root
+  cause read directly from `wandb_history.csv`: `env/walk_gait_gate_
+  factor` sits at 0.98-0.99 for the ENTIRE back half of training even
+  though the harness's stricter duty>0.10 bar flags the same leg as
+  sacrificed the whole time — the reward-side gate's "recently
+  completed swing" scoring window is satisfied by a rare token swing
+  every several seconds and never drives the MIN-over-legs factor down
+  the way a true duty-cycle price would. This is the SAME
+  rare-token-dodge shape already seen on the qvel-idle-terminate
+  lever, just via a different threshold. Both named bare-sde repair
+  levers (idle-terminate, gait-gate) are now closed 2/2 each — per the
+  09-05 ~13:1x note above, no cheap repair variant remains untried;
+  any further sde revival needs a genuinely new per-leg-utilization
+  mechanism (e.g. a hard minimum-duty/minimum-swing-count price, not a
+  completion-score the policy can satisfy with one swing per many
+  seconds) with its own design+bank pass. `sdehalfgrav-remcost-{s0,s1}
+  -gg2` (same lever ported onto the remcost recipe) were left running,
+  not preemptively killed — read their own report.json before assuming
+  the same fate; the remcost recipe already prices term_cost
+  differently and may not share the exact failure mode. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s{1,2}_c3gg_gate/
+  report.json`, `logs/experiments/cw-walkscratch-easy0905-sde-s{1,2}-
+  c3gg/wandb_history.csv`, W&B notes on `zr5lg756`/`vb2m7gr2`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

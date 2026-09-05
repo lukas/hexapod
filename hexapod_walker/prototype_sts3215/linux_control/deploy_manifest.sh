@@ -42,7 +42,7 @@ MOTOR_FILES=(
 RLMOVE_FILES=(
   __init__.py env.py robot_state.py attitude.py safety.py
   config.py config.yaml body_ik.py control_loop.py logger.py
-  np_policy.py contact_predictor_model.json
+  np_policy.py deployed_policy.py contact_predictor_model.json
 )
 
 # rl_move/sim numpy-only helpers (rot-60 canonicalizer + sagittal mirror).

@@ -1,7 +1,20 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-08-30 ~17:4x. This is the delivery track, not the
+Last updated: 2026-09-05 ~08:0x. This is the delivery track, not the
 single-policy research track.
+
+## REOPENED 09-05: measured hardware-controller delivery sub-track
+
+Operator MCP note `fb_20260905T071610_749846` reopened this track for
+smooth-hardware-walking delivery work (local Codex owns transport
+replay + linux_control timing; the orchestrator owns the opt-in
+command-envelope candidate). See
+`rl_docs/tracks/todaypolicy/hardware_delivery/STATUS.md` for the
+built+tested `CommandEnvelope` governor and the 09-05 paired CPU
+suite verdict (shared-mode throttling refuted; yaw-priority is a real
+turn-fidelity candidate at a named −55% progress cost; bundle
+`todaypolicy-mlpsf-tuck-v1` retained as primary). The 08-30 DONE
+banner below still stands for the sim/controller bundle itself.
 
 ## DONE (2026-08-30): `todaypolicy-mlpsf-tuck-v1` PACKAGED, ALL TODAY BARS PASS
 

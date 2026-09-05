@@ -41,7 +41,7 @@ def configured(tmp_path, workspace, **overrides):
     return Settings(**values)
 
 
-def succeeded_analysis(store):
+def succeeded_analysis(store, *, verdict="pass", safety_disposition="clear"):
     experiment = store.create(
         {"name": "measured gait", "duration_seconds": 1, "parameters": {}},
         "test",
@@ -54,8 +54,8 @@ def succeeded_analysis(store):
         "schema_version": 1,
         "experiment_id": experiment["id"],
         "evidence_manifest_sha256": "a" * 64,
-        "verdict": "pass",
-        "safety_disposition": "clear",
+        "verdict": verdict,
+        "safety_disposition": safety_disposition,
         "what_we_learned": "The gait was repeatable.",
         "sources": ["summary.md"],
         "findings": ["Stable in the measured window."],
@@ -97,7 +97,7 @@ def engineering_receipt(job, project_context_sha256):
 
 def test_succeeded_analysis_reconciles_once_and_rl_outbox_is_validated(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    experiment, analysis = succeeded_analysis(store)
+    experiment, analysis = succeeded_analysis(store, verdict="inconclusive")
     engineering = EngineeringJobStore(store)
 
     assert engineering.reconcile(max_attempts=2) == 1
@@ -193,7 +193,7 @@ def test_advance_hands_guarded_plan_to_full_access_engineering_without_pause(tmp
 
 def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_legacy_gates(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    experiment, _analysis = succeeded_analysis(store)
+    experiment, _analysis = succeeded_analysis(store, verdict="inconclusive")
     engineering = EngineeringJobStore(store)
     assert engineering.reconcile() == 1
     advance = next(job for job in store.list_codex_jobs() if job["kind"] == "advance")

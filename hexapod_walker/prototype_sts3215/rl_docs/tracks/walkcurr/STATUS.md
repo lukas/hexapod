@@ -2,6 +2,53 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~23:3x this cycle (assigned `headset-base-irr-placementjit-c1`):
+  **CANARY FAIL - MECHANISM.** Start-pose jitter
+  (`dr.placement_noise_deg=3.0`+`dr.bad_start_prob=0.25`, engaged in
+  training per its own launch args) does NOT repair the base(1g)
+  leg-1/4 favoritism and actually REGRESSES vs its own already-FAILED
+  parent: harness gait_valid tally 13/24 (walk/det 2/6, walk/sto 5/6,
+  walk_startjitter/det 1/6, walk_startjitter/sto 5/6) vs parent
+  `headset-base-irr-acq1`'s own 18/24 (3/6, 6/6, 3/6, 6/6) — every
+  mode flat-to-worse, and `walk_startjitter/det` (the exact mode this
+  mechanism targeted) drops from 3/6 to 1/6. Same legs [1]/[4]
+  flagged in both; video confirms the same single-flag-leg-dragging
+  pose as every closed reward-price mechanism in this family. **This
+  is the 8th independently-tested repair lever to FAIL on base(1g)
+  leg-favoritism** (after `walk_gait_gate` 6/6, `walk_duty_gate` 9/9,
+  `walk_swing_gate` 5/5, now `placement_noise`/`bad_start` jitter
+  1/1 — sibling arms `medhead-placementjit-c1`/`s0c1-placementjit-
+  fresh` are a concurrent cycle's, watch for the same fate).
+  **CORRECTION on record**: the launch gate text for this whole
+  3-arm batch asserted "irr_acq1's own clean 6/6" as the walk/det
+  baseline — that premise was factually wrong; `headset-base-irr-
+  acq1`'s own 40M read is itself **ACQ FAIL** (walk/det 3/6, 18/24
+  total, see the 09-05 ~16:0x entry below). The correct comparison
+  (18/24 parent vs 13/24 child) still yields a clean FAIL, so this
+  verdict is unaffected, but the concurrent cycle reading the 2
+  sibling placementjit arms needs the same corrected baseline before
+  judging them — do not accept a "clean 6/6" premise for any
+  base(1g) irr-lineage arm going forward. **Refill:** per the
+  campaign's own repeated conclusion (next lever must be structural,
+  not another reward/state-price mechanism, absent a genuinely new
+  causal theory) and since the halfgrav structural-widen batch
+  (widen2-c1/c2b-acq1, widenirr-c1/c2b, irrwiden-c1 — 5 arms) was
+  already fully saturated with in-flight capacity at cycle start, did
+  not fund a 9th base(1g) reward-price variant. Instead, applied this
+  campaign's own already-established n>=2 seed-confirmation
+  discipline (used for medhead/medhead2 and widen2/widen2b) to the
+  halfgrav irr-timing ACQ rung, which has 3 healthy 2M canaries
+  (irr-c1/c2/c3, all CANARY PASS) but only ONE (`irr-c1`) was ever
+  continued to a full 40M acquisition (`irr_acq1`, ACQ PASS). Launched
+  `headset-halfgrav-irr2-acq1` (respec of `irr-c2`, seed 3, own
+  40M budget, same bank-proved recipe, no new mechanism) to give the
+  irr-timing rung its own n=2 confirmation before any composition arm
+  (widenirr/irrwiden) draws a recipe-level conclusion off a single
+  seed. Evidence: `ops.sh review cw-walkscratch-easy0905-headset-
+  base-irr-placementjit-c1`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_base_irr_{placementjit_c1,acq1}_gate/report.json`,
+  W&B `dctducci`.
+
 - 09-05 ~22:5x this cycle (assigned `headset-halfgrav-medhead2-swinggate-fix`,
   the halfgrav-family arm of the `walk_swing_gate` batch): one
   verdict, 3-arm refill. **CANARY FAIL - MECHANISM (engaged, no

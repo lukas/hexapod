@@ -190,6 +190,84 @@ def _confirmed_limp(drive) -> None:
     except Exception:
         drive._torque_all(False)
 
+
+def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
+                            write_speed: int, write_acc: int,
+                            policy_dt: float, debug,
+                            max_tilt_deg: float) -> bool:
+    """Write the last known-safe target before any foreground resample.
+
+    The async reader has already been stopped by the caller, so foreground
+    sampling owns the half-duplex bus. Sampling first is still unsafe here:
+    the sealed joystick trace showed an 87 ms interval before the first hold
+    write while the chassis attitude changed sharply. Preserve the exact
+    previously commanded target immediately, then sample only for diagnostics;
+    never re-anchor the hold to an unvalidated post-loss pose.
+    """
+    fallback = np.asarray(fallback_robot, dtype=float).reshape(-1)
+    if fallback.shape != (N_JOINTS,) or not np.all(np.isfinite(fallback)):
+        debug.event("hold_after_stream_loss_invalid_fallback")
+        return False
+    debug.event(
+        "hold_after_stream_loss_begin",
+        fallback_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+    )
+    try:
+        _set_weight_bearing_torque(bus)
+        drive._torque_all(True)
+        drive.armed = True
+    except Exception:
+        pass
+
+    try:
+        est.set_commanded(fallback)
+        bus.write_all((fallback * RAD2DEG).tolist(), speed=write_speed,
+                      acc=write_acc)
+        with drive._lock:
+            drive.status = "rl drive holding after stream loss"
+        debug.event(
+            "hold_after_stream_loss_fallback_written",
+            pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+        )
+    except Exception:
+        # If the half-duplex bus is still recovering, keep torque enabled and
+        # leave the actuator's already-latched last target intact.
+        try:
+            _set_weight_bearing_torque(bus)
+            drive._torque_all(True)
+        except Exception:
+            pass
+        debug.event("hold_after_stream_loss_write_failed")
+        return False
+
+    for _ in range(5):
+        try:
+            sampled = est.update(want_full_feedback=True)
+        except Exception:
+            sampled = None
+        if sampled is not None and sampled.bus_ok:
+            pose = np.asarray(sampled.joint_position, dtype=float).reshape(-1)
+            finite_pose = (pose.shape == (N_JOINTS,)
+                           and bool(np.all(np.isfinite(pose))))
+            tilt_deg = max(abs(float(sampled.imu_roll)) * RAD2DEG,
+                           abs(float(sampled.imu_pitch)) * RAD2DEG)
+            debug.event(
+                "hold_after_stream_loss_sampled",
+                state=_state_debug(sampled),
+                pose_valid=finite_pose,
+                tilt_deg=round(tilt_deg, 3),
+                tilt_within_envelope=tilt_deg <= float(max_tilt_deg),
+                reanchored=False,
+            )
+            break
+        time.sleep(min(0.05, float(policy_dt)))
+    debug.event(
+        "hold_after_stream_loss_ok",
+        pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+        reanchored=False,
+    )
+    return True
+
 # Interactive learned-stand runs should release to joystick control once the
 # trained height ramp has produced a calm upright pose. Full-profile holds are
 # still available by disabling stand_handoff or by requesting extra_hold_s.
@@ -4091,52 +4169,12 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     def hold_current_pose_after_stream_loss(
             fallback_robot: np.ndarray) -> bool:
         """Keep a weight-bearing walk from turning one bus miss into a drop."""
-        debug.event("hold_after_stream_loss_begin",
-                    fallback_deg=[round(float(x) * RAD2DEG, 2)
-                                  for x in fallback_robot])
-        try:
-            _set_weight_bearing_torque(bus)
-            drive._torque_all(True)
-            drive.armed = True
-        except Exception:
-            pass
-
-        pose = None
-        for _ in range(5):
-            try:
-                sampled = est.update(want_full_feedback=True)
-            except Exception:
-                sampled = None
-            if sampled is not None and sampled.bus_ok:
-                pose = sampled.joint_position.copy()
-                debug.event("hold_after_stream_loss_sampled",
-                            state=_state_debug(sampled))
-                break
-            time.sleep(min(0.05, timing.policy_dt))
-        if pose is None:
-            pose = np.asarray(fallback_robot, dtype=float).copy()
-
-        try:
-            est.set_commanded(pose)
-            bus.write_all((pose * RAD2DEG).tolist(), speed=write_speed,
-                          acc=write_acc)
-            with drive._lock:
-                drive.status = "rl drive holding after stream loss"
-            debug.event("hold_after_stream_loss_ok",
-                        pose_deg=[round(float(x) * RAD2DEG, 2)
-                                  for x in pose])
-            return True
-        except Exception:
-            # If the half-duplex bus is still recovering, the least bad
-            # weight-bearing choice is to leave torque enabled instead of
-            # limping the whole body onto the floor.
-            try:
-                _set_weight_bearing_torque(bus)
-                drive._torque_all(True)
-            except Exception:
-                pass
-            debug.event("hold_after_stream_loss_write_failed")
-            return False
+        return _hold_after_stream_loss(
+            bus, drive, est, fallback_robot,
+            write_speed=write_speed, write_acc=write_acc,
+            policy_dt=timing.policy_dt, debug=debug,
+            max_tilt_deg=WALK_MAX_TILT_DEG,
+        )
 
     with drive._lock:
         drive.mode = "demo"

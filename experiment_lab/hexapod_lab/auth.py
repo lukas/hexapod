@@ -4,10 +4,10 @@ import hashlib
 import hmac
 from typing import Dict
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 
 
-ROLE_LEVEL = {"viewer": 1, "operator": 2, "admin": 3}
+ROLE_LEVEL = {"viewer": 1, "automation": 2, "operator": 2, "admin": 3}
 
 
 @dataclass(frozen=True)
@@ -25,7 +25,9 @@ class TokenAuth:
             except ValueError as exc:
                 raise ValueError("HEXAPOD_API_KEYS entries must be role:name:token") from exc
             if role not in ROLE_LEVEL or not token:
-                raise ValueError("API key role must be viewer, operator, or admin")
+                raise ValueError(
+                    "API key role must be viewer, automation, operator, or admin"
+                )
             digest = hashlib.sha256(token.encode()).hexdigest()
             self._tokens[digest] = Principal(name=name, role=role)
 
@@ -53,8 +55,13 @@ class TokenAuth:
         raise HTTPException(401, "Invalid credentials", headers={"WWW-Authenticate": 'Basic realm="Hexapod Lab"'})
 
     def dependency(self, minimum_role: str):
-        def verify(authorization: str = Header(default="")) -> Principal:
-            principal = self.authenticate(authorization)
+        def verify(request: Request, authorization: str = Header(default="")) -> Principal:
+            principal = getattr(request.state, "browser_principal", None) or self.authenticate(authorization)
+            if (
+                principal.role == "automation"
+                and minimum_role not in {"viewer", "automation"}
+            ):
+                raise HTTPException(403, "Automation credential is not allowed for this operation")
             if ROLE_LEVEL[principal.role] < ROLE_LEVEL[minimum_role]:
                 raise HTTPException(403, "Insufficient role")
             return principal

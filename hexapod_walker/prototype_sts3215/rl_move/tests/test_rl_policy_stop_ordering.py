@@ -125,7 +125,8 @@ def test_fallback_hold_write_precedes_foreground_resample(monkeypatch):
         run.bus.commands[0][0], run.fallback * rl_policy.RAD2DEG,
     )
     assert len(run.bus.commands) == 1
-    assert run.drive.armed is True
+    assert "weight_bearing_torque" not in run.order[:run.order.index("write")]
+    assert "torque:True" not in run.order[:run.order.index("write")]
 
 
 def test_snapshot_bus_not_ok_is_skipped_after_fallback_write(monkeypatch):
@@ -143,7 +144,7 @@ def test_snapshot_bus_not_ok_is_skipped_after_fallback_write(monkeypatch):
 def test_fresh_tilted_pose_is_diagnostic_only(monkeypatch):
     run = _run(monkeypatch, [_state(roll_deg=29.0)])
 
-    assert run.held is True
+    assert run.held is False
     assert len(run.bus.commands) == 1
     np.testing.assert_allclose(
         run.bus.commands[0][0], run.fallback * rl_policy.RAD2DEG,
@@ -152,6 +153,18 @@ def test_fresh_tilted_pose_is_diagnostic_only(monkeypatch):
                    if name == "hold_after_stream_loss_sampled")
     assert sampled["tilt_within_envelope"] is False
     assert sampled["reanchored"] is False
+    assert any(name == "hold_after_stream_loss_unconfirmed"
+               for name, _fields in run.debug.events)
+
+
+def test_missing_fresh_diagnostic_sample_does_not_report_hold(monkeypatch):
+    run = _run(monkeypatch, [None] * 5)
+
+    assert run.held is False
+    assert len(run.bus.commands) == 1
+    assert run.order.index("write") < run.order.index("sample")
+    assert any(name == "hold_after_stream_loss_unconfirmed"
+               for name, _fields in run.debug.events)
 
 
 def test_write_failure_does_not_resample_or_limp(monkeypatch):
@@ -160,7 +173,8 @@ def test_write_failure_does_not_resample_or_limp(monkeypatch):
     assert run.held is False
     assert "sample" not in run.order
     assert "torque:False" not in run.order
-    assert run.order.count("weight_bearing_torque") == 2
+    assert run.order.count("weight_bearing_torque") == 1
+    assert run.order.index("write") < run.order.index("weight_bearing_torque")
     assert ("hold_after_stream_loss_write_failed", {}) in run.debug.events
 
 
@@ -198,3 +212,30 @@ def test_interlock_triggers_at_eleven_consecutive_stale_ticks():
     assert stale_samples == 11
     assert sampler.calls == 11
     assert bus.commands == []
+
+
+def test_success_callback_tracks_only_targets_written_to_bus():
+    class _FreshSampler:
+        max_age_s = 0.15
+        motion_ready = True
+
+        def latest(self):
+            return _robot_state(), 0.02, {"samples": 1}
+
+        def set_commanded(self, _command):
+            pass
+
+    bus = _Bus([])
+    written = []
+    target = np.ones(rl_policy.N_JOINTS) * 0.1
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus, _FreshSampler(), np.zeros(rl_policy.N_JOINTS), target,
+        t_next=0.0, inner_steps=1, inner_dt=0.0,
+        write_speed=800, write_acc=40, abort_check=lambda: False,
+        last_good_state=_robot_state(), on_write_success=written.append,
+    )
+
+    assert out[3] == ""
+    assert len(written) == 1
+    np.testing.assert_allclose(written[0], target)
+    np.testing.assert_allclose(bus.commands[0][0], target * rl_policy.RAD2DEG)

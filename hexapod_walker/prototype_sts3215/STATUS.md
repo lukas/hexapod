@@ -1,6 +1,6 @@
 # STATUS - campaign dashboard
 
-Last updated: 2026-09-04 ~18:1x. Operator-facing dashboard, not a
+Last updated: 2026-09-05 ~05:4x. Operator-facing dashboard, not a
 history file. `CURRENT_TRUTHS.md` wins on conflict. Run-level evidence
 lives in `rl_docs/runs/`, `RL_LOG.md`, and W&B.
 
@@ -18,12 +18,13 @@ The campaign has six registered tracks in
 3. `cpg` - GATE GREEN (08-23): parameterized CPG controller passes its
    contextual walking/turning/stopping gate; maintenance/adoption
    comparisons only.
-4. `walkcurr` - RETIRED (08-31): honest DONE-negative scope finding.
-   Both final literature-wave seeds (`litrep-box-s0/-s1`, 150M each)
-   plus every prior non-BC mechanism/architecture class land the same
-   static-stand basin. Prior-free discovery alone does not escape it
-   at this budget; walking is carried by `joystick`/`standwalk`'s
-   BC-anchored lineages instead. No further agent-initiated arms.
+4. `walkcurr` - REOPENED BOUNDED 09-05 (operator focus note): real-
+   physics discovery stays RETIRED (08-31, static-stand basin, see
+   `rl_docs/tracks/walkcurr/STATUS.md`); a bounded EASY-SIM-ONLY
+   teacher-free campaign is now the fleet's primary GPU allocation
+   (11 seeds training a 2x2 base/sde/halfgrav/sdehalfgrav family at
+   40M). First 40M return (`sdehalfgrav-s0`) ACQ FAIL: fast 2-leg
+   lurch/facepolant, reward-misalignment hypothesis under review.
 5. `standwalk` - OPEN: continue the hard single-policy goal, one
    mesh/100 Hz policy for sit -> rise -> joystick walk -> lower.
 6. `todaypolicy` - NEW (08-30): delivery track for a working
@@ -54,31 +55,33 @@ Exported walk artifact:
 - `cw-walkteach-scripted-allhead-acq12m{,-s1}` FINISHED 08-30: 2/2
   ACQUISITION PASS incl. the formal joystick gate, but authority is
   teacher-ceiling-bound.
-- `standwalk`: literal DONE-gate flat-only session on `mlcontprice8`
-  IN FLIGHT on train-6 (evalpending-registered) — see Track Snapshot.
+- `standwalk`: phase-scheduled multi-teacher canary grid (4 arms,
+  `...-multiteach-b{05,10}{,-s1}`) — seed0 half (b05/b10) FAILed
+  (matches ~20-arm pattern); seed1 half IN FLIGHT on another cycle —
+  see Track Snapshot.
 
 ## Track Snapshot
 
-- `todaypolicy`: DONE for 08-30 (bundle packaged, GO). Optional: swap
-  walk role if a walkteach-lineage export beats MLP-singleframe on the
-  identical UX suite; learned-vs-scripted tuck A/B.
-- `standwalk`: transition-stress mechanism sub-effort (operator
-  directive fb_20260904T074505) CLOSED at its k=8 ceiling: 3-point dose
-  bracket (k=2 FAIL/below threshold, k=8 FAIL-MECHANISM but real
-  dose-responsive partial fix halving fires + cleaning DR-0/gait-
-  validity, k=16 FAIL/worse) + a per-episode DR-draw correlate at n=20
-  found no dominant randomized field (top `latency_scale` d=0.517,
-  moderate not conclusive) — residual own-DR fires are genuine
-  simulator variance, not a missing DR field. Steering/turn-authority
-  axis also CLOSED both seeds: the "9/10 lever FAIL" figure was
-  comparator noise (zero-lever controls fail the same frozen-parent
-  comparator); re-scored with a matched-continuation comparator, only
-  1/10 lever cells wins both signs on both seeds — frozen parents
-  (`cap29-stdwalklo-hi{,-s1}`) remain the reference steering
-  checkpoints, no lever acquisition. Refill: literal DONE-gate
-  flat-only session (`eval_done_gate_session`) launched on the k=8
-  checkpoint (train-6) — never read against the real gate before, only
-  the stress diet. Details: `rl_docs/tracks/standwalk/STATUS.md`.
+- `todaypolicy`: DONE for 08-30 (bundle packaged, GO); bundle unchanged
+  primary. `hardware_delivery` sub-track REOPENED 09-05 (op note
+  fb_20260905T071610_749846): built+tested opt-in `CommandEnvelope`
+  command governor (shared/yaw_priority/time_slice modes) on a paired
+  CPU scripted suite. `env_yawpri` is the real yaw-authority candidate
+  (-55% progress cost); `shared` and all 3 `time_slice` duty doses are
+  REFUTED (dominated/tied). See
+  `rl_docs/tracks/todaypolicy/hardware_delivery/STATUS.md`.
+- `standwalk`: reward/architecture lever search for steering is
+  EXHAUSTED (~22 arms now, all FAIL/CLOSED incl. the literal DONE-gate
+  read on mlcontprice8); frozen `cap29-stdwalklo-hi{,-s1}` remains the
+  reference. The last surviving lever, a phase-scheduled multi-teacher
+  BC-anchor mechanism, FAILed both seed0 doses (blend 0.5 and 1.0) on
+  the family's own probe_turn_authority gate — pure-turn regressed
+  21-48% past the 10% cap, combined-tick didn't beat the comparator on
+  both signs. Seed1 pair still training (another cycle). If it
+  matches, the axis closes for good; next moves are a genuine gait-
+  structure change (not another magnitude rescale) or a DONE-gate
+  turn-authority renegotiation — both deferred to a dedicated design
+  pass, not rushed. Details: `rl_docs/tracks/standwalk/STATUS.md`.
 - `walkcurr`: RETIRED 08-31, DONE-negative scope finding (see above).
 - `joystick`, `amp`, `cpg`: green/maintenance unless the operator
   explicitly reopens them.

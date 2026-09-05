@@ -168,7 +168,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             scripted_omega_boost: float = 1.0,
             scripted_yaw_arm_scale: float = 1.0,
             scripted_yaw_amplify_scale: float = 1.0,
-            scripted_selective_omega_boost: float = 1.0) -> dict:
+            scripted_selective_omega_boost: float = 1.0,
+            scripted_group_duty_skew: float = 0.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
@@ -218,6 +219,16 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     mechanism: it boosts the TRUE foot target via omega, not just the
     yaw-angle atan2 denominator, so hip/knee move too). Default 1.0
     is bit-exact.
+
+    ``scripted_group_duty_skew`` (09-05, standwalk Next item 2
+    gait-STRUCTURE candidate, ``--policy scripted`` only): forwarded
+    straight to ``TripodGait(combined_group_duty_skew=...)`` -- unlike
+    every candidate above (all reshape a commanded MAGNITUDE within a
+    fixed time window), this re-times the existing two-tripod-group
+    alternation so the amplified-heavy group's swing window widens
+    (see ``TripodGait.__init__``/``_foot_target_in_body`` docstrings
+    for the derivation and the safe-by-construction argument). Default
+    0.0 is bit-exact.
     """
     mode_onehot = False
     env = make_env(env_cls_kwargs["cfg_set"], seed, episode_seconds,
@@ -253,7 +264,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             vx=0.0,
             combined_yaw_arm_scale=scripted_yaw_arm_scale,
             combined_yaw_amplify_scale=scripted_yaw_amplify_scale,
-            combined_selective_omega_boost=scripted_selective_omega_boost)
+            combined_selective_omega_boost=scripted_selective_omega_boost,
+            combined_group_duty_skew=scripted_group_duty_skew)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
     step = 0
@@ -373,6 +385,12 @@ def main() -> int:
                          "candidate) on combined ticks only, ONLY the "
                          "legs the vx cross term attenuates; default "
                          "1.0 is bit-exact")
+    ap.add_argument("--scripted-group-duty-skew", type=float, default=0.0,
+                    help="--policy scripted only: TripodGait's "
+                         "combined_group_duty_skew (standwalk Next "
+                         "item 2, gait-STRUCTURE/duration candidate) "
+                         "on combined ticks only; default 0.0 is "
+                         "bit-exact")
     args = ap.parse_args()
 
     if args.policy == "checkpoint" and args.checkpoint is None:
@@ -403,7 +421,9 @@ def main() -> int:
                               scripted_yaw_amplify_scale=(
                                   args.scripted_yaw_amplify_scale),
                               scripted_selective_omega_boost=(
-                                  args.scripted_selective_omega_boost))
+                                  args.scripted_selective_omega_boost),
+                              scripted_group_duty_skew=(
+                                  args.scripted_group_duty_skew))
                 results.append(res)
 
     summary = summarize(results, frozen_margin=args.frozen_margin)

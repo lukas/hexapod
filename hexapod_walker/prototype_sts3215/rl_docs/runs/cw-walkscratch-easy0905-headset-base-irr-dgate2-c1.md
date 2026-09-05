@@ -1,0 +1,22 @@
+# cw-walkscratch-easy0905-headset-base-irr-dgate2-c1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: CANARY FAIL - MECHANISM
+
+**created**: 2026-09-05T17:37:28+00:00
+
+**pod**: hexapod-mjx-train-4
+
+**steps**: 2000000
+
+**parent**: cw-walkscratch-easy0905-headset-base-irr-acq1
+
+**wandb_id**: 9r38bzqi
+
+**hypothesis**: headset-base-irr-acq1 ACQ FAIL (misaligned): walk/det gait_valid only 3/6 with a marginal leg (duty 0.04-0.07, real infrequent swings not near-zero LEGPARK-SKATE) plus uniformly elevated slip_per_m 3.86-4.76 -- the SAME family-wide marginal-underuse class as headset-base-s0c1-acq1, now specifically under the irr-timing (jittered heading-resample) composition, and this campaign's own STATUS note pre-registered walk_duty_gate as the repair candidate for this exact cell once the mechanism's fresh/entrenched reads resolved. They have resolved: bare walk_duty_gate at floor=0.15/dose=0.9 was CANARY FAIL - MECHANISM (INERT-DOSE) on the sibling s0c1 lineage (PPO's own rollout noise already satisfies the lenient floor). This canary applies the stronger, bank-proven floor=0.35/dose=1.0 (walkcurr-dutygate-strongfloor-bank-0905, 39/39 green, proven to leave a healthy tripod's income untouched while pricing a ~0.05-duty twin measurably harder) to the irr-timing lineage's own FAILED 40M checkpoint.
+
+**gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY (2M): env/walk_duty_min/env/walk_duty_gate_factor must show real movement (not pinned 1.0 the whole run); harness det-mode leg duty should climb measurably above the 0.04-0.07 baseline; slip_per_m should trend down from the 3.86-4.76 baseline, not up; no new falls. FAIL if duty/slip stay pinned at baseline (inert) or a different leg parks or falls appear. PASS licenses a 40M continuation to re-test the irr-timing/1g rung.
+
+**verdict**: CANARY FAIL - MECHANISM: the stronger walk_duty_gate dose (floor=0.35, g=1.0) does NOT repair the irr-timing/1g marginal-underuse checkpoint over this 2M canary -- and it is NOT the prior INERT-DOSE failure mode. Evidence: env/walk_duty_gate_factor genuinely fell 1.0->0.63->0.44 over training (real engagement, not pinned), so this is a different pathology than the sibling s0c1 0.15-floor INERT-DOSE FAIL. But the harness DET-mode behavior this canary exists to move did not improve and in two spots got measurably worse: per-episode duty_cycle vectors are almost bit-identical to the parent irr-acq1 checkpoint (e.g. leg4 duty 0.07/0.06/0.14/0.11 parent vs 0.06/0.06/0.13/0.09 child across matched seeds -- flat-to-down, never 'climbing measurably above the 0.04-0.07 baseline' as the gate requires), and gait_valid COUNT DROPPED: walk/det 3/6->2/6 and walk_startjitter/sto 6/6->4/6, with two previously-clean episodes newly flipping to sacrificed (leg4 dropping 0.12->0.09, leg1 dropping 0.10->0.08) -- the marginal leg parking MORE, not less. slip_per_m stayed flat/noise-level (parent med ~4.2-4.4, child ~4.1-4.3 walk/det; no clear downward trend). 0 falls/terminations both runs (terms=0 all 4 modes, matches parent). Why: 2M steps of a genuinely-engaged price against an already-40M-entrenched checkpoint reproduces the same shape the concurrent sde-s2-c2-dgatefix-cont40m closure just documented at larger scale (early decline in the training-time factor from stochastic-rollout duty dips, without the deterministic policy's systematic marginal-leg pattern actually shifting) -- entrenched-checkpoint continuations pay the price's training-time cost without buying the eval-time repair. Per the gate's own explicit FAIL trigger ('duty/slip stay pinned at baseline... or a different leg parks') this reads FAIL: duty stayed pinned/regressed and a marginal leg parked in 2 additional episodes. No 40M continuation licensed for the irr-timing/1g cell via this lever. Next: the strong-floor walk_duty_gate lever is now 1/1 on entrenched-checkpoint marginal-underuse repair attempts and should not be retried from an entrenched checkpoint again without a fresh angle (e.g. dosing from a fresh/early checkpoint on this exact irr-timing/1g composition instead of a 40M-converged one) -- read the sibling s0c1-dgate2-c1 (concurrent-cycle-owned, same dose/class, non-irr) before funding a next arm to see whether this is dose-general or entrenched-checkpoint-specific.
+

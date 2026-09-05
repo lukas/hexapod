@@ -4796,3 +4796,78 @@ family claims need clause replication (tool: `rescore_turn_authority band`, test
 seed1 lever reopening was comparator noise — FAIL wall on "levers improve combined turn authority" stays
 closed; real replicated finding is levers partially PROTECT cb_neg against continuation erosion
 (9/10 above band, p~4e-6) and frozen parents keep the best pure-turn (0.223-0.226 vs all continuations).
+
+## 2026-09-05 — delivery-branch replay model provenance (fb_20260905T075426_969b3d follow-up)
+The `codex/smooth-walking-delivery` replay evidence ran on a 4.80573 kg
+full-mesh model (xml sha `7efb8e8a…`) generated in the Mac checkout
+(`/Users/lukas/Documents/ChatGPT/hexapod project`). This repo's current
+source builds a 3.490 kg mesh (audited as-built total is 3.50 kg); 19/34
+referenced meshes differ byte-wise (all core links/servos/chassis). Which
+CAD state produced the 4.8 kg model — uncommitted Mac-side CAD work
+(real added hardware?) or a stale/divergent checkout? Assumed-and-went:
+verification treated the transport/filter findings as model-robust (they
+reproduced on the 3.490 kg build) and made no deployment recommendation.
+Related low-priority decision: a fresh mesh build rewrites the TRACKED
+`hexapod_mesh_mjx.xml` twin (09-04 leg-geometry/boot CAD update not in the
+committed twin); left unchanged to avoid moving training defaults.
+
+## q_20260905T0930Z — foreign uncommitted mesh-twin regen on the controller checkout (FYI + assumption)
+While preparing the operator-ordered walkscratch easy pilot (focus note
+09-05) I found `mesh_mujoco/hexapod_mesh_mjx.xml` + 4 preview PNGs
+MODIFIED but uncommitted in the canonical controller checkout: a
+regenerated ~3.49 kg twin overwriting your committed as-built 4.8057 kg
+twin (your commit a55173ab, 09-03). Neither my cycle nor any snapshot
+made them; `snapshot.sh` (`git add -A`) would have silently REVERTED
+your model update at my next snapshot. ASSUMED-AND-WENT: backed the
+dirty files up to `/workspace/local_backup_20260905_meshtwin/` on the
+controller pod, restored the committed 4.81 kg files, and validated the
+pilot bank against the committed twin (what the pods actually load).
+If the 3.49 kg regen was deliberate (e.g. a Codex intake step), restore
+from the backup and say which twin is canonical; CURRENT_TRUTHS still
+describes the twin as ~3.5 kg and should be corrected either way.
+
+## q_20260905T1240Z — OPEN
+- cycle: walkcurr-legpark-skate-digin-09-05
+- operator order: none (assume-and-go record, semantics-bank health)
+- question: The 09-02 merge (66c4af30) left FOUR pre-existing red
+  spots in the shared walk semantics bank beyond the gait-gate trio I
+  repaired this cycle: (1) `QW_TUCK_RAD` is still the stale
+  sim-relative joint-frame-v2 bypass literal (same family as
+  RAW_PLANT/GG_FLAG_RAD; 9 quadwalk tests currently PASS against it,
+  so I left it untouched rather than recalibrate them mid-dig-in — but
+  those tests' actors may be silently over_current-ing and passing on
+  return-ordering alone); (2) `test_slipwalk_swing_bonus_boosts_real_
+  travel_substantially`, (3) `test_slipwalk_swing_bonus_does_not_
+  reward_marching_or_shuffling`, (4) `test_fullcircle_directions_
+  priced_comparably` — all three verified already failing at the 09-04
+  snapshot (fdaa8c4b), i.e. merge-drift, not caused by this cycle's
+  edits. Decision taken: repaired only the gait-gate trio (my launch
+  depended on it), flagged the rest here for a dedicated bank-repair
+  cycle. Also recorded: post-merge the honest scripted tripod's
+  realized qualifying strides shrank ~25% (10+ mm -> 7-10 mm at
+  vx=0.05 on the primitive model) — worth a root-cause pass on the
+  merge's sim_env.py servo/contact changes if any scripted-teacher
+  consumer starts underperforming.
+- proposed answer being executed: fix-on-demand (whichever track next
+  needs k_swing_bonus / fullcircle / QW_TUCK_RAD mechanisms repairs
+  its tests first, same as this cycle did for the gait gate).
+
+## q_20260905T1455Z — OPEN (assume-and-go, executed)
+- cycle: walkcurr-s0c1acq1-legpark-digin-09-05
+- operator order: none (gate-definition judgment call)
+- question: The walkcurr easy0905 acquisition gate text ("six-leg
+  lift/place on video") had no explicit numeric bar, so a seed with
+  0/24 falls + fast forward motion but a chronically parked leg in
+  every deterministic episode (headset-base-s0c1-acq1: leg-4 duty
+  0.03-0.07, gait_valid 9/24) was formally ambiguous against sibling
+  PASSes at 18/24. Should acquisition PASS require an explicit
+  gait_valid majority?
+- answer adopted: YES — ACQ PASS requires gait_valid >=4/6 in the
+  primary un-perturbed walk/det mode AND >=13/24 overall; a
+  persistently sacrificed leg in walk/det disqualifies regardless of
+  speed/falls. This only formalizes guardrails' binding
+  gait_validity_gate ("a walking checkpoint is INVALID if any leg is
+  persistently sacrificed, regardless of velocity error"); every
+  prior PASS this campaign already satisfies it (18-24/24, det modes
+  clean or startjitter-only caveats), so no retroactive verdict
+  flips. s0c1-acq1 verdicted ACQ FAIL under this bar.

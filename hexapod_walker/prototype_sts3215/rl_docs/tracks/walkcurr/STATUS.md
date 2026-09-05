@@ -2,6 +2,30 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~13:1x `sde-idleterm-s0`/`sde-idleterm-s1` **CANARY FAIL —
+  detector gamed, not repaired.** The alternate LEGPARK-SKATE repair
+  lever (porting the bank-proven `WALKCURR_PF_IDLE_TERM` qvel-
+  termination combo onto the bare sde recipe, launched 12:4x alongside
+  `walk_gait_gate`/c3gg) looked escape-shaped in W&B alone
+  (`rollout/ep_len_mean` triples 117-118 -> ~315 over the 2M budget,
+  `walk_idle_terminate` termination reason disappears from the final
+  checkpoint's rollout captions) but the downloaded+frame-stripped
+  final-checkpoint video on BOTH seeds shows the SAME static
+  splayed-leg pose as `sde-s0-c4`'s disqualified frozen stance,
+  on-screen speed 0.001-0.032 m/s, no leg mid-swing anywhere: enough
+  qvel/servo jitter to dodge the idle-terminate detector's threshold,
+  not a genuine escape into six-leg walking. Closes this as the
+  10th-scope repair attempt on this basin (2nd on the easy0905 sde
+  cohort specifically, after `walk_gait_gate`'s prior FAIL history on
+  the harder joyfullcurr13 curriculum). **No 40M continuation funded.**
+  sde/sdehalfgrav family revival now rides entirely on the structural
+  `walk_gait_gate` repair (`sde-s1-c3gg`/`sde-s2-c3gg`, already funded
+  and training; `sdehalfgrav-remcost-{s0,s1}-gg*` mirrors it for the
+  halfgrav+gSDE cell) — if that also fails, the per-leg-utilization
+  pricing design question reopens from scratch, no cheap variant left
+  untried. Evidence: `ops.sh review cw-walkscratch-easy0905-sde-
+  idleterm-{s0,s1}`; CURRENT_TRUTHS.md updated.
+
 - 09-05 ~13:1x `headset-base-acq1` **ACQ PASS** — first family member to
   clear the FULL 40M heading-generalization acquisition rung (3-heading
   set 0/+45/-45deg, resampled every 6s, no new reward keys). Gate

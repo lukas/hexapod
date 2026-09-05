@@ -52,6 +52,7 @@ from .servo_model import (  # noqa: E402
     position_actuator_ids, resolve_model_source,
 )
 from .struct_compliance import StructCompliance  # noqa: E402
+from .command_indicator import draw_env_command_indicator  # noqa: E402
 
 G0 = 9.80665
 N_OBS = 47
@@ -5125,6 +5126,11 @@ class SimHexapodBalanceEnv(_GymBase):
             self._cam.azimuth = 130.0
         self._cam.lookat[:] = self.data.xpos[self._chassis_bid]
         self._renderer.update_scene(self.data, camera=self._cam)
+        # Decorative command cues are added after mjv_updateScene (which
+        # rebuilds the scene each frame), so they appear in policy videos,
+        # OpenCV players, and the web app's browser frames without touching
+        # physics.
+        draw_env_command_indicator(self, self._renderer.scene)
         return self._renderer.render()
 
     def close(self):

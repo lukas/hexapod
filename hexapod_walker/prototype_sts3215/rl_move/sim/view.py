@@ -158,6 +158,7 @@ def _run_policy(args) -> None:
     torch.set_num_threads(1)
     from rl_move.sim.goal_task import SimHexapodGoalEnv
     from rl_move.sim.joint_task import SimHexapodJointGoalEnv
+    from rl_move.sim.command_indicator import draw_env_command_indicator
 
     interactive = args.mode == "interactive"
     base_cls = (SimHexapodJointGoalEnv if args.task == "joint_goal"
@@ -331,12 +332,14 @@ def _run_policy(args) -> None:
                 else:
                     hud_status[0] = f"reset at {start} pose - goals cleared"
                 print(hud_status[0])
+                draw_env_command_indicator(env, viewer.user_scn, clear=True)
                 viewer.sync()
                 t_next = time.monotonic()
                 continue
             action, _ = model.predict(obs, deterministic=True)
             obs, r, term, trunc, inf = env.step(action)
             ret += float(r)
+            draw_env_command_indicator(env, viewer.user_scn, clear=True)
             viewer.sync()
             if term or trunc:
                 end = (f"TERMINATED: {inf.get('termination_reason')}"
@@ -358,6 +361,7 @@ def _run_policy(args) -> None:
                 else:
                     print("auto-reset — goals kept")
                     show()
+                draw_env_command_indicator(env, viewer.user_scn, clear=True)
                 viewer.sync()
                 t_next = time.monotonic()
             t_next += env.dt

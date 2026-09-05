@@ -52,6 +52,43 @@ The script is `sim_viewer/hexapod_web_8898.sh`. It resolves the current
 robot IP for the `:8080` target unless `HEXAPOD_HOST` is set. Use this
 instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 
+## MuJoCo robot simulation
+
+When asked to run or show the STS3215 robot in MuJoCo, start with
+[`sim_viewer/README.md`](sim_viewer/README.md). From this directory, the
+canonical foreground MuJoCo + real web UI entrypoint is:
+
+```sh
+sim_viewer/sim_web.sh
+```
+
+It opens the native MuJoCo viewer and serves the controller at
+`https://localhost:8443/rl` (with `http://localhost:8898/rl` as the HTTP
+fallback). On macOS it deliberately launches through `uv run mjpython`.
+For the one-window interactive policy/gamepad player, use
+`sim_viewer/sim_play.sh`.
+
+When asked to show a recent walking checkpoint being driven around, use the
+orchestrator wrapper rather than reconstructing the run configuration by hand:
+
+```sh
+bash rl_move/orchestrator/ops.sh drivevideo <run-name> \
+  --script human_turn --seconds 29 --policy-mode deterministic
+```
+
+`drivevideo` resolves or pulls the checkpoint, carries forward the run's own
+configuration stack, verifies the full-mesh model, and writes `drive.mp4` plus
+its rollout metadata under `logs/manual_drive/` by default.
+
+Every command-bearing MuJoCo render path automatically draws render-only
+command cues from `rl_move/sim/command_indicator.py`: green for planar
+joystick direction, amber for clockwise/counterclockwise yaw, and blue for
+rise/lower. The off-screen/browser integration is in `sim/sim_env.py`; the
+native web viewer and direct policy viewer integrations are in
+`sim/web_session.py` and `sim/view.py`. The decorations never enter MuJoCo
+physics. These commands are simulation-only and require no robot control or
+SSH access.
+
 ## Robot safety
 
 No physical robot motion unless the user explicitly asks for it in the

@@ -202,3 +202,14 @@ rl_move.sim.web_server`; it is not the Uno Q's `hexapod-web.service`
 (`:8080`). The launcher is
 `hexapod_walker/prototype_sts3215/sim_viewer/hexapod_web_8898.sh`.
 It resolves the robot's current IP unless `HEXAPOD_HOST` is set.
+
+### MuJoCo robot simulation and policy videos
+
+For the native MuJoCo viewer, interactive policy playback, or a video of a
+recent walking policy, read
+`hexapod_walker/prototype_sts3215/AGENTS.md` (section "MuJoCo robot
+simulation") and `hexapod_walker/prototype_sts3215/sim_viewer/README.md`.
+The canonical foreground MuJoCo + web UI command is
+`hexapod_walker/prototype_sts3215/sim_viewer/sim_web.sh`; use the documented
+`rl_move/orchestrator/ops.sh drivevideo` wrapper for checkpoint videos so the
+run's actual configuration and full-mesh model are preserved.

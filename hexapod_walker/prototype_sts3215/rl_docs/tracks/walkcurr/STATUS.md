@@ -2,6 +2,63 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~16:0x this cycle: 2 verdicts closing the irr-timing rung's
+  last two pending reads (both found already-landed on their own
+  pods, orphaned-eval gotcha, evidence not yet read by anyone).
+  (1) `headset-halfgrav-irr-c3` **CANARY PASS** — 23/24 gait_valid
+  (only one marginal walk_startjitter/det leg-1 flag), 0/24 falls,
+  slip med 2.18-2.27, six-leg video-clean (`walk_det_0.png`). This
+  closes the halfgrav irr-timing n=3 canary confirmation set (irr-c1/
+  c2/c3 all PASS). (2) `headset-base-irr-acq1` **ACQ FAIL
+  (misaligned)** — this is the real 40M acquisition read for the
+  irr-timing rung on the 1g cell (warm-started from `headset-base-
+  irr-c1`'s own 2M checkpoint, itself off the `headset-base-acq1`
+  champion). walk/det (the PRIMARY un-perturbed mode) gait_valid only
+  3/6 — FAILS the adopted `>=4/6 primary` bar from the s0c1-acq1
+  ruling — legs [4]/[1] flagged in 3 different det episodes, duty as
+  low as 0.04-0.07 (below the 0.10 sacrifice bar) though swing_count
+  37-84/20s (real infrequent swings, the "active marginal underuse"
+  class already seen on `s3acq`/`s0c1-acq1`, NOT sde-style near-zero-
+  touch LEGPARK-SKATE — video confirms legs actively cycling, not
+  frozen). walk_startjitter/det also 3/6 (one flagged leg duty as low
+  as 0.01). Overall 18/24 clears the secondary bar alone but the
+  adopted rule is an AND. Separately, `slip_per_m` runs 3.86-4.76
+  across ALL 24 episodes (including gait_valid ones) — uniformly
+  worse than every base/halfgrav sibling this campaign (typically
+  2.2-3.0, inside the 2.9 band); this run clears none of them. 0/24
+  falls, reward quarters 503.7/969.4/1118.5/1296.7 still climbing
+  (+16% Q3->Q4) — per 08-21 this is NOT an auto-continue: the pattern
+  (canary-level marginal duty hardening rather than healing with more
+  budget) is the SAME class already closed on `s0c1-acq1`, and this is
+  the second independent lineage showing it, now specifically under
+  the irr-timing (jittered heading-resample) composition. **New
+  finding: the irr-timing rung's real ACQ gate is NOT clean on the 1g
+  cell off this lineage**, even though the identical plain-freeprog
+  recipe passes cleanly WITHOUT irr-timing (`base-acq1`/`s1c1-acq1`)
+  and the SAME irr-timing composition passes cleanly on the 0.5g cell
+  (`headset-halfgrav-irr-acq1`, concurrent-cycle-owned — read its own
+  report before assuming this generalizes across gravity cells).
+  Consequence: once the in-flight `walk_duty_gate` mechanism-health
+  reads resolve favorably, that lever is the pre-registered repair
+  candidate to try on THIS irr-timing/1g composition too (a new cell
+  for it, not yet tested) rather than relaunching a plain-recipe seed
+  here — do not re-attempt this exact lineage without that mechanism.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  {halfgrav_irr_c3,base_irr_acq1}_gate/report.json`, W&B
+  `0vpok57r`/`hqxngd1e`. Capacity check this cycle: 7 of 11 reachable
+  GPU pods genuinely idle (`ps aux` confirmed on every pod, not just
+  ledger) and `backlog.json` empty, but every open walkcurr question
+  is already funded/in-flight (the from-scratch `walk_duty_gate`
+  disambiguation batch, its `dgatefix` entrenched-checkpoint
+  companion, both irr-acq1 reads now landed/verdicted, the
+  `headset-base-s0c1-dgate-c1` repair canary) or genuinely blocked on
+  those same in-flight reads landing first — no other registered
+  track has launchable GPU work either (`joystick`/`amp`/`cpg` DONE/
+  maintenance-only, `standwalk`'s gait-structure axis fully CLOSED
+  with no next lever queued per its own STATUS, `todaypolicy`
+  DELIVERED). Left the free pods idle rather than invent filler; no
+  new launch this cycle.
+
 - 09-05 ~16:0x this cycle (own spawn, reads the remaining 2 of the
   5-canary `walk_duty_gate` batch the entry below left unread, plus one
   new acquisition): (1) `sde-s1-dg1` **CANARY PASS (scope-corrected)**:

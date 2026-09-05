@@ -262,6 +262,8 @@ receipt and remaining attempt budget. Once motion has begun, any continuation
 finishes result registration and evidence sealing without replaying the motion.
 A handoff succeeds only when its exact experiment is terminal and sealed;
 reported blockers and exhausted attempts retain their actual status.
+An unresolved blocked handoff stays saved but yields queue priority to the next
+runnable plan; a later audited resume reactivates that same job and budget.
 Operators can set an integer `parameters.queue_priority` (default `0`) when
 queueing an urgent plan. Higher values run first, retaining creation order for
 ties; this never interrupts an active job or cancels older plans.
@@ -326,7 +328,7 @@ hands-on correction was actually necessary. The REST equivalent is
 | `HEXAPOD_CODEX_BIN` | ChatGPT app bundled CLI | Exact `codex` executable |
 | `HEXAPOD_CODEX_WORKDIR` | current directory | Reviewed snapshot used only for deterministic proposal/hash validation |
 | `HEXAPOD_CODEX_MODEL` | `gpt-5.6-sol` | Model for both lanes |
-| `HEXAPOD_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for both lanes |
+| `HEXAPOD_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for all Codex lanes |
 | `HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS` | `2700` | Analyzer timeout |
 | `HEXAPOD_CODEX_ADVANCE_TIMEOUT_SECONDS` | `5400` | Advancer timeout |
 | `HEXAPOD_CODEX_EVIDENCE_SETTLE_SECONDS` | `60` | Legacy external-upload quiet period |

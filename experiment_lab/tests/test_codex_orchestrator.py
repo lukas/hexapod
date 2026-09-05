@@ -814,18 +814,18 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
 
 @pytest.mark.parametrize("disposition", ["needs_inspection", "stop"])
 @pytest.mark.parametrize(
-    "driver, requested_mode, simulation_only, accepted",
+    "driver, requested_mode, simulation_only",
     [
-        ("simulated", "builtin", True, True),
-        ("simulated", "builtin", 1, False),
-        ("simulated", "builtin", "true", False),
-        ("simulated", "builtin", False, False),
-        ("simulated", "external_guarded", True, True),
-        ("command", "builtin", True, True),
+        ("simulated", "builtin", True),
+        ("simulated", "builtin", 1),
+        ("simulated", "builtin", "true"),
+        ("simulated", "builtin", False),
+        ("simulated", "external_guarded", True),
+        ("command", "builtin", True),
     ],
 )
-def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
-    tmp_path, disposition, driver, requested_mode, simulation_only, accepted
+def test_uncleared_analysis_preserves_valid_hardware_and_offline_followups(
+    tmp_path, disposition, driver, requested_mode, simulation_only
 ):
     settings = configured(tmp_path, driver=driver)
     store = Store(tmp_path / "lab.sqlite3")
@@ -856,22 +856,19 @@ def test_uncleared_analysis_routes_explicit_offline_work_to_engineering(
     assert store.codex_queue_control()["paused"] is (disposition == "stop")
     receipts = job["result"]["followup_receipts"]
     children = [item for item in store.list() if item["id"] != source["id"]]
-    if accepted:
-        assert len(receipts["accepted"]) == len(children) == 1
-        assert receipts["rejected"] == []
-        child = children[0]
-        assert child["execution_mode"] == "external_guarded"
+    assert len(receipts["accepted"]) == len(children) == 1
+    assert receipts["rejected"] == []
+    child = children[0]
+    assert child["execution_mode"] == "external_guarded"
+    if simulation_only is True:
         assert child["parameters"]["simulation_only"] is True
         assert child["parameters"]["robot_motion"] is False
-        assert child["status"] == "waiting_for_operator"
-        assert store.claim_next() is None
-        assert store.next_external_experiment()["id"] == child["id"]
     else:
-        assert receipts["accepted"] == children == []
-        assert len(receipts["rejected"]) == 1
-        assert receipts["rejected"][0]["disposition_reason"] == (
-            "source analysis did not clear safety: " + disposition
-        )
+        assert child["parameters"]["simulation_only"] == simulation_only
+        assert child["parameters"].get("robot_motion") is not False
+    assert child["status"] == "waiting_for_operator"
+    assert store.claim_next() is None
+    assert store.next_external_experiment()["id"] == child["id"]
 
 
 @pytest.mark.parametrize(

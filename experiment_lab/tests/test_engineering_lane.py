@@ -225,11 +225,11 @@ def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_le
     assert "register and seal a terminal failed result" in normalized_prompt
     assert handoff["source_context_sha256"] not in prompt
     assert '"project_context_sha256": "' + ("a" * 64) + '"' in prompt
-    assert "shared workspace, not as deployment" in normalized_prompt
-    assert "latest sealed successful physical-hardware provenance" in normalized_prompt
+    assert "reuse completed export, simulation, and source validation" in normalized_prompt
+    assert "Recheck only what a changed policy" in normalized_prompt
     assert "clean dedicated worktree" in normalized_prompt
-    assert "documented validated integration branch" in normalized_prompt
-    assert "staged and remote deploy-manifest hashes must agree" in normalized_prompt
+    assert "validated integration branch" in normalized_prompt
+    assert "installed-file verification" in normalized_prompt
 
 
 def test_engineering_result_narrowly_normalizes_the_job_bound_legacy_digest(
@@ -261,8 +261,8 @@ def test_engineering_result_narrowly_normalizes_the_job_bound_legacy_digest(
         validate_engineering_result(wrong_job, job, expected)
 
 
-def test_retry_recovers_a_completed_prior_engineering_attempt_without_reinvoking(
-    tmp_path,
+def test_recovered_receipt_then_intentional_continuation_invokes_new_work_and_seals(
+    tmp_path, monkeypatch,
 ):
     workspace = tmp_path / "project"
     workspace.mkdir()
@@ -355,12 +355,49 @@ def test_retry_recovers_a_completed_prior_engineering_attempt_without_reinvoking
         item for item in orchestrator.engineering.list_jobs()
         if item["id"] == queued["id"]
     )
-    assert recovered["status"] == "succeeded"
+    assert recovered["status"] == "retry"
     assert recovered["attempts"] == 2
     assert recovered["result"]["project_context_sha256"] == expected_context
     assert recovered["result"]["recovered_completed_attempt"] == 1
     assert recovered["result"]["observed_workspace"]["after"] == {"head": "after"}
+    assert recovered["result"]["continuation"]["attempts_used"] == 2
     assert not (attempt_dir.parent / "attempt-2").exists()
+    assert orchestrator.progress.latest()["state"] == "preparing"
+
+    # The valid completed attempt-1 files still exist. An intentionally
+    # continued job must perform new work instead of replaying them again and
+    # exhausting its last attempt without completing the saved experiment.
+    invocations = []
+    def continue_work(role, next_job, request):
+        invocations.append(next_job["id"])
+        assert role == "engineering"
+        assert next_job["attempts"] == 3
+        assert next_job["result"] == recovered["result"]
+        assert '"recovered_completed_attempt": 1' in request["prompt"]
+        assert '"attempts_remaining": 1' in request["prompt"]
+        store.finish(guarded["id"], "succeeded")
+        store.seal_evidence(guarded["id"], "c" * 64)
+        completed = engineering_receipt(next_job, expected_context)
+        completed["summary"] = "Completed the exact experiment and sealed its evidence."
+        return completed
+
+    monkeypatch.setattr(codex_module, "build_project_context",
+                        lambda *_: {"sha256": expected_context})
+    monkeypatch.setattr(codex_module, "workspace_snapshot",
+                        lambda *_: {"head": "after", "status": "", "changed_files": []})
+    orchestrator.invoker = continue_work
+    _make_continuation_due(store, recovered)
+    assert orchestrator.process_one("engineering") is True
+    assert invocations == [queued["id"]]
+    finished = orchestrator.engineering.list_jobs()[0]
+    assert finished["status"] == "succeeded"
+    assert finished["attempts"] == 3
+    assert finished["result"]["previous_receipt"] == recovered["result"]
+    assert "Completed the exact experiment" in finished["result"]["summary"]
+    progress = orchestrator.progress.latest()
+    assert progress["state"] == "idle"
+    assert progress["experiment_id"] == guarded["id"]
+    assert "complete and sealed" in progress["summary"]
 
 
 def test_project_context_carries_fail_closed_deployment_source_guard(tmp_path):
@@ -376,11 +413,9 @@ def test_project_context_carries_fail_closed_deployment_source_guard(tmp_path):
     assert context["deployment_source_guard"] == DEPLOYMENT_SOURCE_GUARD
     guard_text = json.dumps(context["deployment_source_guard"])
     assert "Never deploy uncommitted or untracked controller sources" in guard_text
-    assert "latest sealed successful physical-hardware provenance" in guard_text
     assert "currently installed on the robot" in guard_text
-    assert "linux_control/deploy_manifest.sh" in guard_text
-    assert "newer than or differs" in guard_text
-    assert "missing, incomplete, or mismatched" in guard_text
+    assert "Never roll the robot back" in guard_text
+    assert "installed-file verification" in guard_text
 
 
 def test_project_context_accepts_git_pointer_checkout(tmp_path):
@@ -433,7 +468,7 @@ def test_queue_handoff_reuses_active_job_for_same_experiment(tmp_path):
     assert len(engineering.list_jobs()) == 1
 
 
-def test_non_motion_engineering_progress_gets_one_serialized_continuation(tmp_path):
+def test_non_motion_engineering_progress_continues_same_job_with_receipt_and_budget(tmp_path):
     workspace = tmp_path / "project"
     workspace.mkdir()
     store = Store(tmp_path / "lab.sqlite3")
@@ -455,32 +490,39 @@ def test_non_motion_engineering_progress_gets_one_serialized_continuation(tmp_pa
     assert orchestrator.process_one("advance") is True
     first = orchestrator.engineering.claim("engineer", lease_seconds=60)
     assert first is not None
-    orchestrator.engineering.finish(
+    receipt = {
+        "outcome": "changed",
+        "summary": "Controller fix tested and committed; deployment remains.",
+        "physical_motion_started": False,
+        "operator_actions": [],
+        "rl_orchestrator_requests": [],
+    }
+    finished = orchestrator.engineering.finish(
         first,
         "engineer",
-        {
-            "outcome": "changed",
-            "physical_motion_started": False,
-            "operator_actions": [],
-            "rl_orchestrator_requests": [],
-        },
+        receipt,
     )
-
-    continuation = orchestrator.ensure_queue_kick()
-    assert continuation is not None
-    assert continuation["experiment_id"] == guarded["id"]
-    assert continuation["trigger_kind"] == "queue_reconcile"
-    # The deterministic marker makes concurrent/periodic reconciliation
-    # idempotent while this continuation is waiting.
+    assert finished["status"] == "retry"
+    assert finished["finished_at"] is None
+    assert finished["result"]["summary"] == receipt["summary"]
+    assert finished["result"]["continuation"]["attempts_remaining"] == 2
+    assert finished["result"]["continuation"]["completion_only"] is False
+    assert orchestrator.engineering.claim("engineer", 60) is None
     assert orchestrator.ensure_queue_kick() is None
-    assert orchestrator.process_one("advance") is True
-    jobs = [
-        item for item in orchestrator.engineering.list_jobs()
-        if item["experiment_id"] == guarded["id"]
-    ]
-    assert len(jobs) == 2
-    assert jobs[-1]["status"] == "queued"
-    assert orchestrator.ensure_queue_kick() is None
+    with store.connect() as con:
+        con.execute("UPDATE codex_engineering_jobs SET not_before=? WHERE id=?",
+                    ("2000-01-01T00:00:00+00:00", first["id"]))
+    second = orchestrator.engineering.claim("engineer", 60)
+    assert second["id"] == first["id"]
+    assert second["attempts"] == 2
+    assert second["result"] == finished["result"]
+    prompt = engineering_prompt(second, {"sha256": "a" * 64}, {})
+    assert receipt["summary"] in prompt
+    assert '"attempts": 2' in prompt
+    assert "not a new physical-run" in prompt
+    assert "Commit and push focused fixes you authored" in prompt
+    assert "Do not reset git, force-push" in prompt
+    assert len(orchestrator.engineering.list_jobs()) == 1
 
 
 @pytest.mark.parametrize(
@@ -492,7 +534,7 @@ def test_non_motion_engineering_progress_gets_one_serialized_continuation(tmp_pa
         ("changed", False, ["Remove a physical obstruction."]),
     ],
 )
-def test_queue_reconcile_never_retries_a_blocker_operator_action_or_motion(
+def test_queue_reconcile_never_creates_a_new_job_to_reset_motion_or_blocker_budget(
     tmp_path, outcome, physical_motion_started, operator_actions
 ):
     workspace = tmp_path / "project"
@@ -526,6 +568,11 @@ def test_queue_reconcile_never_retries_a_blocker_operator_action_or_motion(
     )
 
     assert orchestrator.ensure_queue_kick() is None
+    finished = orchestrator.engineering.list_jobs()[0]
+    assert finished["status"] == ("blocked" if outcome == "blocked" or operator_actions else "retry")
+    assert finished["result"]["operator_actions"] == operator_actions
+    if physical_motion_started:
+        assert finished["result"]["continuation"]["completion_only"] is True
 
 
 @pytest.mark.parametrize("handoff_state", ["queued", "retry"])
@@ -557,6 +604,7 @@ def test_reconcile_retires_terminal_queue_handoff_without_rerun(
         "succeeded",
         experiment_id=guarded["id"],
     )
+    store.seal_evidence(guarded["id"], "b" * 64)
 
     assert engineering.reconcile() == 0
     retired = next(
@@ -595,8 +643,137 @@ def test_claim_defensively_skips_terminal_queue_handoff_before_reconcile(tmp_pat
         "cancelled",
         experiment_id=guarded["id"],
     )
+    store.seal_evidence(guarded["id"], "b" * 64)
 
     assert engineering.claim("engineer", lease_seconds=60) is None
+
+
+def _claimed_guarded_job(tmp_path, *, max_attempts=3):
+    store = Store(tmp_path / "lab.sqlite3")
+    plan = store.create({"name": "bounded walk", "duration_seconds": 1,
+                         "parameters": {}, "execution_mode": "external_guarded"}, "test")
+    advance = next(j for j in store.list_codex_jobs() if j["kind"] == "advance")
+    engineering = EngineeringJobStore(store)
+    engineering.ensure_queue_handoff(advance, plan, max_attempts=max_attempts)
+    return store, plan, engineering, engineering.claim("engineer", 60)
+
+
+def _make_continuation_due(store, job):
+    with store.connect() as con:
+        con.execute("UPDATE codex_engineering_jobs SET not_before=? WHERE id=?",
+                    ("2000-01-01T00:00:00+00:00", job["id"]))
+
+
+@pytest.mark.parametrize("terminal_status", ["succeeded", "failed", "cancelled"])
+def test_queue_handoff_success_requires_exact_terminal_sealed_experiment(tmp_path, terminal_status):
+    store, plan, engineering, job = _claimed_guarded_job(tmp_path)
+    receipt = engineering_receipt(job, "a" * 64)
+    store.finish(plan["id"], terminal_status)
+    unsealed = engineering.finish(job, "engineer", receipt)
+    assert unsealed["status"] == "retry"
+    assert unsealed["result"]["continuation"]["completion_only"] is True
+    assert engineering.reconcile() == 0
+    assert engineering.list_jobs()[0]["status"] == "retry"
+    _make_continuation_due(store, job)
+    continuation = engineering.claim("engineer", 60)
+    assert continuation["id"] == job["id"]
+    assert continuation["continuation"]["completion_only"] is True
+    assert continuation["continuation"]["experiment_status"] == terminal_status
+    store.seal_evidence(plan["id"], "b" * 64)
+    completed = engineering.finish(continuation, "engineer", receipt)
+    assert completed["status"] == "succeeded"
+    assert completed["result"]["previous_receipt"] == unsealed["result"]
+
+
+@pytest.mark.parametrize("outcome,operator_actions,status", [
+    ("changed", [], "dead"),
+    ("no_change", [], "dead"),
+    ("blocked", [], "blocked"),
+    ("changed", ["Clear the observed physical obstruction."], "blocked"),
+])
+def test_unfinished_handoff_exhaustion_and_hazards_cannot_get_a_fresh_budget(
+    tmp_path, outcome, operator_actions, status
+):
+    store, plan, engineering, job = _claimed_guarded_job(tmp_path, max_attempts=1)
+    receipt = engineering_receipt(job, "a" * 64)
+    receipt.update(outcome=outcome, operator_actions=operator_actions)
+    completed = engineering.finish(job, "engineer", receipt)
+    assert completed["status"] == status
+    assert completed["finished_at"]
+    assert completed["result"]["operator_actions"] == operator_actions
+    assert completed["result"]["continuation"]["attempts_remaining"] == 0
+    assert engineering.claim("engineer", 60) is None
+    another_advance = store.enqueue_advance("new-trigger", "test", experiment_id=plan["id"])
+    reused = engineering.ensure_queue_handoff(another_advance, plan)
+    assert reused["id"] == job["id"]
+    assert reused["status"] == status
+    assert reused["attempts"] == reused["max_attempts"] == 1
+    assert len(engineering.list_jobs()) == 1
+
+
+def test_physical_attempt_receipt_survives_evidence_only_continuations(tmp_path):
+    store, plan, engineering, job = _claimed_guarded_job(tmp_path)
+    receipt = engineering_receipt(job, "a" * 64)
+    receipt.update(physical_motion_started=True, robot_contacted=True,
+                   summary="Bounded motion stopped; result upload remains.")
+    first = engineering.finish(job, "engineer", receipt)
+    assert first["result"]["continuation"]["completion_only"] is True
+    _make_continuation_due(store, job)
+    second = engineering.claim("engineer", 60)
+    next_receipt = engineering_receipt(second, "a" * 64)
+    next_receipt.update(physical_motion_started=False, summary="Evidence uploaded; sealing remains.")
+    continued = engineering.finish(second, "engineer", next_receipt)
+    assert continued["result"]["continuation"]["physical_motion_started"] is True
+    assert continued["result"]["continuation"]["completion_only"] is True
+    assert continued["result"]["previous_receipt"] == first["result"]
+    store.finish(plan["id"], "failed")
+    store.seal_evidence(plan["id"], "c" * 64)
+    engineering.reconcile()
+    retired = engineering.list_jobs()[0]
+    assert retired["status"] == "succeeded"
+    assert retired["result"]["previous_receipt"] == continued["result"]
+    assert engineering.claim("engineer", 60) is None
+
+
+@pytest.mark.parametrize("invalid", ["owner", "expired", "reclaimed"])
+def test_finish_cannot_overwrite_a_lost_engineering_lease(tmp_path, invalid):
+    store, _plan, engineering, job = _claimed_guarded_job(tmp_path)
+    receipt = engineering_receipt(job, "a" * 64)
+    owner = "engineer"
+    if invalid == "owner":
+        owner = "other"
+    elif invalid == "expired":
+        with store.connect() as con:
+            con.execute("UPDATE codex_engineering_jobs SET lease_expires_at=? WHERE id=?",
+                        ("2000-01-01T00:00:00+00:00", job["id"]))
+    else:
+        engineering.finish(job, owner, receipt)
+        _make_continuation_due(store, job)
+        replacement = engineering.claim(owner, 60)
+        assert replacement["lease_token"] != job["lease_token"]
+    before = engineering.list_jobs()[0]
+    with pytest.raises(EngineeringLaneError, match="lease is no longer owned"):
+        engineering.finish(job, owner, receipt)
+    assert engineering.list_jobs()[0] == before
+    assert engineering.list_rl_requests() == []
+
+
+@pytest.mark.parametrize("outcome,expected_status", [("blocked", "blocked"), ("no_change", "dead")])
+def test_blocked_or_exhausted_engineering_publishes_progress_with_empty_next_steps(
+    tmp_path, outcome, expected_status
+):
+    store, plan, _engineering, job = _claimed_guarded_job(tmp_path, max_attempts=1)
+    orchestrator = CodexOrchestrator(store, configured(tmp_path, tmp_path))
+    orchestrator.owner = "engineer"
+    receipt = engineering_receipt(job, "a" * 64)
+    receipt.update(outcome=outcome, next_steps=[], operator_actions=[])
+    orchestrator._finish_engineering(job, receipt)
+    assert orchestrator.engineering.list_jobs()[0]["status"] == expected_status
+    progress = orchestrator.progress.latest()
+    assert progress is not None
+    assert progress["state"] == "blocked"
+    assert progress["experiment_id"] == plan["id"]
+    assert progress["next_action"].strip()
 
 
 def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(

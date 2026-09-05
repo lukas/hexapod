@@ -1751,12 +1751,14 @@ class Store:
         return row is not None
 
     def next_external_experiment(self) -> Optional[Dict[str, Any]]:
-        """Return the oldest saved physical plan; the agent still checks readiness."""
+        """Select a saved plan by operator priority, then oldest creation time."""
         with self.connect() as con:
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "
-                "ORDER BY created_at,id LIMIT 1",
+                "ORDER BY CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
+                "THEN json_extract(parameters_json,'$.queue_priority') ELSE 0 END DESC,"
+                "created_at,id LIMIT 1",
                 (WAITING_FOR_OPERATOR,),
             ).fetchone()
         return self.row(row) if row else None

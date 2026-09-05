@@ -48,12 +48,215 @@ def test_worker_completes_and_mcp_reads(tmp_path):
         assert current["status"] == "succeeded"
         names = {artifact["name"] for artifact in current["artifacts"]}
         assert {"experiment.json", "telemetry.jsonl", "summary.md"} <= names
+        recorded = client.get(
+            f"/api/experiments/{item['id']}/artifacts/experiment.json",
+            headers=auth,
+        ).json()
+        assert recorded["status"] == "succeeded"
+        assert recorded["started_at"] == current["started_at"]
+        assert recorded["finished_at"] == current["finished_at"]
         rpc = client.post("/mcp", headers=auth, json={"jsonrpc": "2.0", "id": 1,
                           "method": "tools/call", "params": {"name": "read_artifact",
                           "arguments": {"experiment_id": item["id"], "filename": "summary.md"}}})
         payload = rpc.json()["result"]["structuredContent"]
         assert payload["encoding"] == "utf-8"
         assert "Smoke test" in payload["data"]
+
+
+def test_external_guarded_job_waits_for_operator_and_can_be_cancelled(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        waiting = client.post(
+            "/api/experiments",
+            headers=operator,
+            json={
+                "name": "Guarded leg comparison",
+                "duration_seconds": 0.1,
+                "execution_mode": "external_guarded",
+            },
+        )
+        assert waiting.status_code == 202
+        item = waiting.json()
+        assert item["status"] == "waiting_for_operator"
+        assert item["execution_mode"] == "external_guarded"
+
+        # Even with the built-in worker enabled, this lane is never claimed.
+        time.sleep(0.25)
+        current = client.get(
+            f"/api/experiments/{item['id']}", headers=operator
+        ).json()
+        assert current["status"] == "waiting_for_operator"
+        assert all(event["kind"] != "started" for event in current["events"])
+
+        cancelled = client.post(
+            f"/api/experiments/{item['id']}/cancel", headers=operator
+        )
+        assert cancelled.status_code == 200
+        assert cancelled.json()["status"] == "cancelled"
+
+
+def test_external_guarded_completion_is_strict_and_idempotent(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    plan = {
+        "name": "Independent L5 test",
+        "description": "Supported single-leg comparison",
+        "duration_seconds": 0.2,
+        "parameters": {"leg": 5, "runner": "sysid.run_hw"},
+        "execution_mode": "external_guarded",
+    }
+    result = {
+        "name": plan["name"],
+        "description": plan["description"],
+        "duration_seconds": plan["duration_seconds"],
+        "parameters": plan["parameters"],
+        "status": "succeeded",
+        "summary_markdown": "# L5 result\n\nNo safety trip.\n",
+    }
+    with TestClient(app) as client:
+        experiment_id = client.post(
+            "/api/experiments", headers=operator, json=plan
+        ).json()["id"]
+        endpoint = f"/api/experiments/{experiment_id}/result"
+
+        completed = client.post(endpoint, headers=operator, json=result)
+        assert completed.status_code == 200, completed.text
+        item = completed.json()
+        assert item["id"] == experiment_id
+        assert item["status"] == "succeeded"
+        assert item["execution_mode"] == "external_guarded"
+        assert any(
+            event["kind"] == "external_result_registered"
+            for event in item["events"]
+        )
+        assert {
+            artifact["name"] for artifact in item["artifacts"]
+        } >= {"experiment.json", "summary.md", "manifest.json"}
+
+        retry = client.post(endpoint, headers=operator, json=result)
+        assert retry.status_code == 200
+        assert retry.json()["id"] == experiment_id
+
+        changed_summary = {**result, "summary_markdown": "# Different evidence\n"}
+        assert client.post(
+            endpoint, headers=operator, json=changed_summary
+        ).status_code == 409
+
+
+def test_external_completion_rejects_spec_mismatch_and_builtin_queue(tmp_path):
+    app = create_app(settings(tmp_path))
+    operator = {"Authorization": "Bearer secret"}
+    base = {"name": "L2 test", "duration_seconds": 0.1, "parameters": {"leg": 2}}
+    result = {**base, "summary_markdown": "# Result\n"}
+    with TestClient(app) as client:
+        waiting_id = client.post(
+            "/api/experiments",
+            headers=operator,
+            json={**base, "execution_mode": "external_guarded"},
+        ).json()["id"]
+        mismatch = client.post(
+            f"/api/experiments/{waiting_id}/result",
+            headers=operator,
+            json={**result, "parameters": {"leg": 5}},
+        )
+        assert mismatch.status_code == 409
+        assert client.get(
+            f"/api/experiments/{waiting_id}", headers=operator
+        ).json()["status"] == "waiting_for_operator"
+
+        builtin_id = client.post(
+            "/api/experiments", headers=operator, json=base
+        ).json()["id"]
+        rejected = client.post(
+            f"/api/experiments/{builtin_id}/result",
+            headers=operator,
+            json=result,
+        )
+        assert rejected.status_code == 409
+
+        missing = client.post(
+            "/api/experiments/does-not-exist/result",
+            headers=operator,
+            json=result,
+        )
+        assert missing.status_code == 404
+
+
+def test_external_queue_and_completion_are_available_over_mcp(tmp_path):
+    app = create_app(settings(tmp_path, worker=True))
+    operator = {"Authorization": "Bearer secret"}
+    with TestClient(app) as client:
+        queued = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
+            "params": {"name": "queue_experiment", "arguments": {
+                "name": "MCP guarded job", "duration_seconds": 0.1,
+                "parameters": {"leg": 0}, "execution_mode": "external_guarded",
+            }},
+        }).json()["result"]["structuredContent"]
+        assert queued["status"] == "waiting_for_operator"
+
+        completed = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 4, "method": "tools/call",
+            "params": {"name": "complete_external_experiment", "arguments": {
+                "experiment_id": queued["id"], "name": "MCP guarded job",
+                "duration_seconds": 0.1, "parameters": {"leg": 0},
+                "summary_markdown": "# MCP result\n",
+            }},
+        }).json()["result"]["structuredContent"]
+        assert completed["id"] == queued["id"]
+        assert completed["status"] == "succeeded"
+
+
+def test_guarded_runner_status_and_progress_tools_are_available_over_mcp(tmp_path, monkeypatch):
+    app = create_app(settings(tmp_path))
+    operator = {"Authorization": "Bearer secret"}
+    viewer = {"Authorization": "Bearer read-only"}
+    observed = {
+        "health": {"state": "healthy", "fresh": True},
+        "robot": {"busy": False},
+        "camera": {"fresh": True},
+        "readiness": {"state": "guarded_ready", "guarded_runner_ready": True},
+        "queue": {"waiting": 0, "software_blocked": 0},
+    }
+    monkeypatch.setattr(
+        app.state.robot_status,
+        "snapshot",
+        lambda _experiments=(): dict(observed),
+    )
+    with TestClient(app) as client:
+        listed = client.post("/mcp", headers=viewer, json={
+            "jsonrpc": "2.0", "id": 10, "method": "tools/list", "params": {},
+        }).json()["result"]["tools"]
+        names = {tool["name"] for tool in listed}
+        assert {
+            "get_robot_status", "get_queue_controls", "resume_codex_queue",
+            "resume_runner_safety", "report_execution_progress",
+        } <= names
+
+        status = client.post("/mcp", headers=viewer, json={
+            "jsonrpc": "2.0", "id": 11, "method": "tools/call",
+            "params": {"name": "get_robot_status", "arguments": {}},
+        }).json()["result"]["structuredContent"]
+        assert status["readiness"]["guarded_runner_ready"] is True
+
+        denied = client.post("/mcp", headers=viewer, json={
+            "jsonrpc": "2.0", "id": 12, "method": "tools/call",
+            "params": {"name": "report_execution_progress", "arguments": {
+                "state": "preparing", "summary": "Checking the oldest plan",
+                "next_action": "Inspect camera and telemetry",
+            }},
+        }).json()["result"]
+        assert denied["isError"] is True
+
+        reported = client.post("/mcp", headers=operator, json={
+            "jsonrpc": "2.0", "id": 13, "method": "tools/call",
+            "params": {"name": "report_execution_progress", "arguments": {
+                "state": "preparing", "summary": "Checking the oldest plan",
+                "next_action": "Inspect camera and telemetry",
+            }},
+        }).json()["result"]["structuredContent"]
+        assert reported["updated_by"] == "alice"
 
 
 def test_duration_limit_and_basic_site_login(tmp_path):

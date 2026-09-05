@@ -1,10 +1,14 @@
 #!/bin/sh
 set -eu
+umask 077
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:/Users/lukas/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 LAB_TOKEN="$(/usr/bin/security find-generic-password -a operator -s 'Hexapod Lab API' -w)"
 ASSISTANTS_TOKEN="$(/usr/bin/security find-generic-password -a assistants -s 'Hexapod Lab API' -w)"
 MOBILE_TOKEN="$(/usr/bin/security find-generic-password -a viewer -s 'Hexapod Research Mobile' -w)"
 export HEXAPOD_API_KEYS="operator:operator:${LAB_TOKEN},operator:assistants:${ASSISTANTS_TOKEN},viewer:iphone:${MOBILE_TOKEN}"
+unset LAB_TOKEN ASSISTANTS_TOKEN MOBILE_TOKEN
 export HEXAPOD_DATA_DIR="/Users/lukas/Library/Application Support/Hexapod Lab/data"
 export HEXAPOD_BIND="127.0.0.1"
 export HEXAPOD_PORT="8767"

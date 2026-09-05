@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import time
 
@@ -243,14 +244,19 @@ def test_phone_scan_is_a_narrow_viewer_write_and_saves_review(monkeypatch, tmp_p
         manifest_path = (
             tmp_path / "data" / "experiments" / scan["id"] / "manifest.json"
         )
+        original_manifest = manifest_path.read_bytes()
         manifest_path.unlink()
         repeated = client.post(
             f"/api/tag-scans/{scan['id']}/finish", headers=viewer
         )
-        assert repeated.status_code == 200
-        assert repeated.json()["experiment"]["id"] == body["experiment"]["id"]
-        assert manifest_path.is_file()
+        assert repeated.status_code == 409
+        assert "manifest is missing" in repeated.json()["detail"]
+        assert not manifest_path.is_file()
         assert len(client.get("/api/experiments", headers=viewer).json()) == 1
+        # Model an explicit byte-for-byte evidence repair before continuing
+        # the historical-layout assertions below. Finishing again may not
+        # silently manufacture a replacement for a sealed manifest.
+        manifest_path.write_bytes(original_manifest)
 
         viewer_page = client.get(
             f"/experiments/{scan['id']}", auth=("phone", "read-only")
@@ -409,13 +415,187 @@ def test_runner_pins_vision_context_before_capture(tmp_path):
             item = client.get(
                 f"/api/experiments/{experiment_id}", headers=operator
             ).json()
-            if item["status"] in {"succeeded", "failed"}:
+            if (
+                item["status"] in {"succeeded", "failed"}
+                and item.get("evidence_sealed_at")
+            ):
                 break
             time.sleep(0.02)
         assert item["status"] == "succeeded"
+        assert item["evidence_sealed_at"]
         assert item["tag_layout_revision"]["pin_basis"] == "recording_start"
         run_dir = tmp_path / "data" / "experiments" / experiment_id
         context = json.loads((run_dir / "vision-context.json").read_text())
         assert context["experiment_id"] == experiment_id
         assert (run_dir / "apriltag-layout.snapshot.json").is_file()
         assert json.loads((run_dir / "manifest.json").read_text())["schema_version"] == 2
+
+
+def test_external_result_refreshes_legacy_pre_run_vision_context(tmp_path):
+    configured = _configured(tmp_path)
+    operator = {"Authorization": "Bearer secret"}
+    plan = {
+        "name": "Timestamped guarded walk",
+        "description": "three second canary",
+        "duration_seconds": 0.2,
+        "parameters": {"vx_m_s": 0.08},
+        "execution_mode": "external_guarded",
+    }
+    initial_app = create_app(configured)
+    with TestClient(initial_app) as client:
+        queued = client.post("/api/experiments", headers=operator, json=plan)
+        assert queued.status_code == 202
+        experiment_id = queued.json()["id"]
+        queued_at = queued.json()["created_at"]
+
+    # Reproduce an already-existing pre-fix row. New waiting plans are no
+    # longer backfilled at queue time.
+    initial_app.state.layout_history.pin_experiment(
+        experiment_id,
+        queued_at,
+        pin_basis="legacy_backfill_by_recorded_time",
+    )
+
+    # Restart materializes the historical context just as the deployed service
+    # did before the completion fix existed.
+    app = create_app(configured)
+    with TestClient(app) as client:
+        before = client.get(
+            f"/api/experiments/{experiment_id}", headers=operator
+        ).json()
+        before_pin = before["tag_layout_revision"]
+        assert before_pin["pin_basis"] == "legacy_backfill_by_recorded_time"
+        run_dir = configured.data_dir / "experiments" / experiment_id
+        context_path = run_dir / "vision-context.json"
+        old_context = json.loads(context_path.read_text())
+        snapshots = {
+            name: (run_dir / name).read_bytes()
+            for name in (
+                "apriltag-layout.snapshot.json",
+                "apriltag-pose-config.snapshot.json",
+                "floor-tag-map.snapshot.json",
+                "hexapod-tag-map.snapshot.json",
+            )
+        }
+
+        recorded_at = (
+            datetime.now(timezone.utc) - timedelta(seconds=1)
+        ).isoformat()
+        result = {
+            "name": plan["name"],
+            "description": plan["description"],
+            "duration_seconds": plan["duration_seconds"],
+            "parameters": plan["parameters"],
+            "status": "succeeded",
+            "summary_markdown": "# Timestamped guarded walk\n",
+            "recorded_at": recorded_at,
+        }
+        completed = client.post(
+            f"/api/experiments/{experiment_id}/result",
+            headers=operator,
+            json=result,
+        )
+        assert completed.status_code == 200, completed.text
+        after = completed.json()
+        after_pin = after["tag_layout_revision"]
+        assert after_pin["id"] == before_pin["id"]
+        assert after_pin["pinned_at"] == before_pin["pinned_at"]
+        assert after_pin["pin_basis"] == before_pin["pin_basis"]
+        assert after_pin["recorded_at"] == recorded_at
+        assert after["started_at"] == recorded_at
+        assert any(
+            event["kind"] == "tag_layout_recording_time_rebound"
+            for event in after["events"]
+        )
+
+        refreshed_context = json.loads(context_path.read_text())
+        assert old_context["recorded_at"] == before_pin["recorded_at"]
+        assert refreshed_context["recorded_at"] == recorded_at
+        assert refreshed_context["recording_interval"]["start"] == recorded_at
+        assert refreshed_context["tag_layout_revision"]["id"] == before_pin["id"]
+        assert {
+            name: (run_dir / name).read_bytes() for name in snapshots
+        } == snapshots
+        assert json.loads(
+            (run_dir / "manifest.json").read_text()
+        )["vision_context"] == refreshed_context
+
+        # An exact completion retry also repairs the sidecar if a prior process
+        # committed the database transaction but exited before materialization.
+        context_path.write_text(json.dumps(old_context, indent=2) + "\n")
+        retry = client.post(
+            f"/api/experiments/{experiment_id}/result",
+            headers=operator,
+            json=result,
+        )
+        assert retry.status_code == 200, retry.text
+        assert json.loads(context_path.read_text())["recorded_at"] == recorded_at
+
+        context_path.write_text(json.dumps(old_context, indent=2) + "\n")
+
+    # Startup can finish the same repair if the process committed the database
+    # transaction and exited before replacing the context sidecar.
+    restarted = create_app(configured)
+    with TestClient(restarted):
+        assert json.loads(context_path.read_text())["recorded_at"] == recorded_at
+        assert json.loads(
+            (run_dir / "manifest.json").read_text()
+        )["vision_context"]["recorded_at"] == recorded_at
+
+
+def test_restart_does_not_backfill_new_waiting_external_plan(tmp_path):
+    configured = _configured(tmp_path)
+    operator = {"Authorization": "Bearer secret"}
+    plan = {
+        "name": "Fresh guarded walk",
+        "duration_seconds": 1.5,
+        "execution_mode": "external_guarded",
+    }
+    with TestClient(create_app(configured)) as client:
+        queued = client.post("/api/experiments", headers=operator, json=plan)
+        assert queued.status_code == 202
+        experiment_id = queued.json()["id"]
+
+    with TestClient(create_app(configured)) as client:
+        waiting = client.get(
+            f"/api/experiments/{experiment_id}", headers=operator
+        ).json()
+        assert waiting["status"] == "waiting_for_operator"
+        assert waiting["tag_layout_revision"] is None
+
+        future_interval = client.post(
+            f"/api/experiments/{experiment_id}/result",
+            headers=operator,
+            json={
+                "name": plan["name"],
+                "duration_seconds": plan["duration_seconds"],
+                "summary_markdown": "# Incomplete interval\n",
+                "recorded_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+        assert future_interval.status_code == 422
+        assert client.get(
+            f"/api/experiments/{experiment_id}", headers=operator
+        ).json()["tag_layout_revision"] is None
+
+        recorded_at = (
+            datetime.now(timezone.utc) - timedelta(seconds=2)
+        ).isoformat()
+        completed = client.post(
+            f"/api/experiments/{experiment_id}/result",
+            headers=operator,
+            json={
+                "name": plan["name"],
+                "duration_seconds": plan["duration_seconds"],
+                "summary_markdown": "# Fresh guarded walk\n",
+                "recorded_at": recorded_at,
+            },
+        )
+        assert completed.status_code == 200, completed.text
+        pin = completed.json()["tag_layout_revision"]
+        assert pin["recorded_at"] == recorded_at
+        assert pin["pin_basis"] == "recorded_at"
+        assert all(
+            event["kind"] != "tag_layout_recording_time_rebound"
+            for event in completed.json()["events"]
+        )

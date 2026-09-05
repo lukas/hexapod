@@ -78,10 +78,25 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   pf_fwd lineage: soft anti-park prices ALONE leave the degenerate
   stance as PPO's cheapest optimum; the validated fix pairs
   `k_park_duty`/`k_walk_idle_charge`/`k_loadslip_excess` WITH a
-  qvel-based `safety.walk_idle_terminate_s` termination. Do not fund
-  more bare-sde 40M budget without this fix (or an equivalent);
-  `cw-walkscratch-easy0905-sde-idleterm-{s0,s1}` (09-05, 2M canaries)
-  is the first probe. Separately: `reward.walk_gait_gate` and
+  qvel-based `safety.walk_idle_terminate_s` termination. UPDATE 09-05
+  ~13:1x: that qvel-idle-terminate port was tried
+  (`cw-walkscratch-easy0905-sde-idleterm-{s0,s1}`, 2M canaries) and
+  CLOSED — CANARY FAIL, detector-gamed not repaired: W&B scalars look
+  escape-shaped (the `walk_idle_terminate` termination reason
+  disappears from the final checkpoint's rollout captions,
+  `ep_len_mean` triples) but the downloaded final-checkpoint video on
+  both seeds shows the SAME static splayed-leg frozen pose as
+  `sde-s0-c4` (on-screen speed 0.001-0.032 m/s, no leg mid-swing) —
+  enough qvel/servo jitter dodges the specific threshold without the
+  underlying pathology resolving into six-leg walking. Do not relaunch
+  this qvel-idle-terminate variant on the sde family; the family's
+  sole active repair candidate is now the structural
+  `reward.walk_gait_gate` (`sde-s1-c3gg`/`sde-s2-c3gg`, already
+  funded/training; `sdehalfgrav-remcost-*-gg*` mirrors it for the
+  halfgrav+gSDE cell) — if that also fails, no cheap repair variant
+  remains untried and a genuinely new per-leg-utilization pricing
+  mechanism needs its own design+bank pass before further sde spend.
+  Separately: `reward.walk_gait_gate` and
   `reward.k_walk_move_current` were tried against a related
   leg-sacrifice/rigid-tripod-lock exploit on the joystick track's
   harder full-DR `joyfullcurr13` curriculum (RL_LOG 08-25) and BOTH

@@ -54,9 +54,25 @@ instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 
 ## Robot safety
 
-No physical robot motion unless the user explicitly asks for it in the
-current turn. Local checks, deploys, and service restarts are okay when
-requested; motion endpoints are not.
+The user grants standing authority for bounded physical experiments,
+necessary deployment (including relevant firmware), and routine recovery within
+an active robot task without repeated authorization questions. Work in the
+known test area with live observations and an available abort path. This does
+not authorize unrelated work or motion in an unknown, unobserved environment.
+Use HTTP for robot control and the documented deployment/service helpers for
+necessary updates. Do not change unrelated firmware or CAD as a side effect.
+
+A live camera view plus three distinct fresh healthy telemetry samples counts
+as supervision and inspection for routine motion and recovery when it establishes
+normal pose and state. Request hands-on help only when those observations are
+unavailable or inconclusive, or when they show a persistent condition that
+actually requires physical correction.
+
+Establish correct logical zeros, live servo feedback, and basic joint control
+before loaded motion; once established, proceed within the active task without
+an additional operator-request gate. This standing authority supersedes older
+per-turn permission wording in project runbooks; their technical checks and
+emergency responses still apply.
 
 For any anomaly during an authorized run, follow
 [`EMERGENCY_HANDLING.md`](EMERGENCY_HANDLING.md). In particular, a single
@@ -66,3 +82,11 @@ camera, recorder, or framework failures stop active motion neutrally and hold
 the current stable pose; they do not trigger a posture transition. When the
 camera and three fresh telemetry samples are normal, retry the complete failed
 step up to twice before ending it.
+
+An actual tip, brownout, hot motor, jam, surprise force, or hard/sustained
+current event requires a stop and fresh inspection before retry. A conclusive
+camera view plus recovered electrical, thermal, pose, and motor telemetry may
+clear the event remotely; request hands-on correction only when the condition
+persists or the evidence remains inconclusive. The root instructions' supported
+single-joint grounded-current retry exception still applies. Ordinary deployment,
+telemetry recovery, and bounded repeats do not need another permission question.

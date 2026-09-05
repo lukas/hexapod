@@ -2,6 +2,53 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~14:3x this cycle: `sde-s1-c3gg`/`sde-s2-c3gg` both **ACQ
+  FAIL (misaligned)** — the structural `walk_gait_gate`+`k_step_event`
+  repair does NOT escape LEGPARK-SKATE, closing this lever 2/2. It
+  partially works: multi-leg sacrifice (2-3 legs on the `-c2` parents)
+  narrows to exactly ONE chronically-parked leg per seed (leg 4 on
+  s1, leg 1 on s2; duty 0.0, ~3 swings/20s, every det/sto/startjitter
+  scenario) — but harness `gait_valid` is still 1/24 (s1) and 0/24
+  (s2), 0 falls, walk_speed stable 0.13-0.17 m/s, reward still
+  climbing gently to ~2600-2700 at the 40M cutoff with no plateau.
+  Root cause, read directly from `wandb_history.csv`: `env/walk_gait_
+  gate_factor` sits at 0.98-0.99 for the ENTIRE back half of training
+  even though the harness's duty>0.10 bar flags the same leg as
+  sacrificed throughout — the reward-side gate's "recently completed
+  swing" scoring window is satisfied by a rare token swing every
+  several seconds and never drives the MIN-over-legs factor down the
+  way a true duty-cycle price would. Same rare-token-dodge shape as
+  the already-closed qvel-idle-terminate lever, different threshold.
+  Contact sheets confirm visually (one leg rigid/extended, minimal net
+  body translation). Per 08-21 this is MISALIGNED, not continue-blind:
+  the mechanism's own internal proxy is ALSO plateaued at its ceiling,
+  so more budget would not move it. **Both named bare-sde repair
+  levers (idle-terminate, gait-gate) are now closed 2/2 each** — no
+  cheap repair variant remains untried; `CURRENT_TRUTHS.md` updated.
+  Any further sde revival needs a genuinely new per-leg-utilization
+  mechanism (hard minimum-duty/swing-count price, not a gameable
+  completion score) with its own design+bank pass before further sde
+  spend. `sdehalfgrav-remcost-{s0,s1}-gg2` (same lever on the remcost
+  recipe, funded by a prior cycle) left running untouched — its own
+  report.json may or may not share this exact failure, read it before
+  assuming the same fate. Evidence: `ops.sh review cw-walkscratch-
+  easy0905-sde-s{1,2}-c3gg`, W&B notes `zr5lg756`/`vb2m7gr2`.
+  Awaiting `sde-s0-c4gg`/`sde-s3-c1bgg` (this cycle's assigned pair,
+  same gait-gate repair applied to the other two originally-failed
+  seeds `sde-s0-c4`/`sde-s3-c1b`) — gate evals still genuinely
+  computing on train-8/train-9 at cycle end (video-every=1, ~9-13min
+  in of an expected ~35-40min full 24-episode panel); registered via
+  `ops.sh evalpending add` (both) + a backgrounded `ops.sh pollreap`
+  (both, max 60min) rather than blocking this cycle — do NOT
+  re-launch, read `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s{0_c4,
+  3_c1b}gg_gate/report.json` once they land. If both replicate this
+  same 1-leg-parked/gate-factor-plateau fingerprint (expected, same
+  mechanism/family), the bare-sde cell can be formally CLOSED at 4/4
+  gait-gate-repair FAIL; if either clears (gait_valid majority true,
+  no chronically-parked leg), that would be the first genuine escape
+  and reopens the mechanism as viable after all — read carefully, do
+  not assume from this cycle's 2/2.
+
 - 09-05 ~14:1x DIG-IN TRIGGER (this cycle) — `headset-base-s0c1-acq1`
   finished (40.37M steps, reward quarters 342.6/623.2/696.5/720.2,
   plateauing not still-climbing) but its gate eval never made it to

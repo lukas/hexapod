@@ -296427,7 +296427,7 @@
       "reward.gait_gate_stride_mm=5.0"
     ],
     "created": "2026-09-05T12:39:40+00:00",
-    "status": "FINISHED",
+    "status": "ACQ FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -296480,7 +296480,8 @@
         "log_tail": "db:       canary/lower_a 0\nwandb:       canary/lower_b 0\nwandb: canary/rise_bridge_a 1\nwandb: canary/rise_bridge_b 1\nwandb: canary/rise_crouch_a 1\nwandb: canary/rise_crouch_b 1\nwandb:   canary/rise_flat_a 1\nwandb:   canary/rise_flat_b 0\nwandb:                 +126 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkscratch-easy0905-sde-s2-c3gg at: https://wandb.ai/l2k2/hexapod-balance/runs/vb2m7gr2\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 6 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260905_124005-vb2m7gr2/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-09-05T13:28:29"
+    "triage": "done",
+    "verdict": "FAIL (misaligned) - second independent seed of the walk_gait_gate+k_step_event structural repair, same failure class as sde-s1-c3gg. Harness: 0/24 gait_valid across all 4 scenarios (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto all 0/6); leg 1 chronically parked (duty 0.0, swing_count 3/20s) every episode. 0/24 falls, walk_speed stable ~0.066-0.14 m/s, ep_len saturates near 2000, ep_rew_mean still climbing to ~2600 at 40M cutoff, no plateau. Same root cause as sde-s1-c3gg (cross-confirmed): env/walk_gait_gate_factor reads ~0.98-0.99 for the whole back half of training despite the harness's duty>0.10 bar flagging leg 1 as sacrificed the entire time - the gate's rare-completed-swing scoring window is satisfied by a token swing every several seconds and never drives the MIN-over-legs factor down the way a true duty-cycle price would. Contact sheet (logs/ckpt_eval/cw_walkscratch_easy0905_sde_s2_c3gg_gate/contact_sheet.png) shows the same rigid-single-leg-extended pose with minimal net body translation. Per 08-21 MISALIGNED, not continue-blind: the mechanism's own internal proxy is ALSO plateaued at its ceiling, so more budget would not move it. Closes the walk_gait_gate repair path for the bare-sde cell at this recipe (2/2 seeds FAIL, matching the earlier sde-idleterm 2/2 FAIL on the alternate repair lever) - per CURRENT_TRUTHS, no cheap repair variant remains untried; a genuinely new per-leg-utilization pricing mechanism (stricter minimum-duty/swing-count term instead of a gameable completion score) needs its own design+bank pass before further sde spend. Awaiting sde-s0-c4gg/sde-s3-c1bgg (still mid-eval) to confirm this is family-wide before closing the cell in CURRENT_TRUTHS.md."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c3gg",
@@ -296636,7 +296637,7 @@
       "reward.gait_gate_stride_mm=5.0"
     ],
     "created": "2026-09-05T12:40:56+00:00",
-    "status": "FINISHED",
+    "status": "ACQ FAIL",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -296689,7 +296690,8 @@
         "log_tail": "db:       canary/lower_a 0\nwandb:       canary/lower_b 0\nwandb: canary/rise_bridge_a 1\nwandb: canary/rise_bridge_b 1\nwandb: canary/rise_crouch_a 1\nwandb: canary/rise_crouch_b 1\nwandb:   canary/rise_flat_a 1\nwandb:   canary/rise_flat_b 0\nwandb:                 +126 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkscratch-easy0905-sde-s1-c3gg at: https://wandb.ai/l2k2/hexapod-balance/runs/zr5lg756\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 6 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260905_124122-zr5lg756/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-09-05T13:28:29"
+    "triage": "done",
+    "verdict": "FAIL (misaligned) - the structural walk_gait_gate+k_step_event repair does NOT escape LEGPARK-SKATE. Harness: 1/24 gait_valid (walk/det 0/6, walk/sto 0/6, walk_startjitter/det 0/6, walk_startjitter/sto 1/6), leg 4 chronically parked (duty 0.0, swing_count 3/20s) in every walk/walk_startjitter det scenario; leg 1 (the OTHER sde-s1-c2 sacrificed leg) is now active (duty 0.34-0.96) so the repair did wake ONE of the two originally-parked legs, not both. 0/24 falls, walk_speed stable 0.13-0.17 m/s (not declining like the pre-repair parent), ep_len saturates 2000/2000, ep_rew_mean still climbing gently to 2688 at 40M cutoff (quarters 1436/2477/2616/2687-ish, no plateau). Root cause of the repair's failure, read directly from wandb_history.csv: env/walk_gait_gate_factor sits at 0.98-0.99 for the ENTIRE second half of training even though the harness confirms leg 4 at duty 0.0 - the reward-side gate's 'recently completed swing' scoring window accepts leg 4's rare 3-swings-per-20s as enough to keep the MIN-over-legs factor near 1, so it never actually zeros income the way the harness's stricter duty>0.10 bar requires. This is a threshold/window mismatch, not a still-training case: reward and harness diverge with reward's own internal proxy (the gate factor) ALSO plateaued high, not rising toward the true fix. Contact sheet (logs/ckpt_eval/cw_walkscratch_easy0905_sde_s1_c3gg_gate/contact_sheet.png) shows one leg held rigid/extended while the body barely translates - visually consistent. Per 08-21 this is the MISALIGNED branch: the gate mechanism itself needs a stricter minimum-swing-count/duty term, not just a completed-swing score, before it can be trusted to price a rare-token dodge. Cross-confirmed by an independent seed (sde-s2-c3gg, verdicted separately, same failure signature)."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-acq1",
@@ -299433,7 +299435,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:04:24"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-s1acq-cw-walkscratc since 2026-09-05T14:30:07"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-s3acq",
@@ -300030,7 +300032,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:19:50"
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-s0-c4gg-cw-walkscratch-easy0905- since 2026-09-05T14:24:58"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s3-c1bgg",
@@ -300233,7 +300235,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T14:19:50"
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-s0-c4gg-cw-walkscratch-easy0905- since 2026-09-05T14:24:58"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-irr-c1",

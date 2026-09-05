@@ -1,34 +1,37 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-04 ~18:1x: **Next#1 CLOSED at n=20 — genuine own-DR
-variance, no dominant DR field.** Pulled the in-flight `--n 20`
-cmdstress read (train-5, 240 seq eps: 14 `hold_min_load` fires) and
-re-ran `audit_dr_hold_correlate` on dr0+owndr. Top field `latency_scale`
-d=0.517 (fired median 1.073 vs clean 1.0) — real but not dominant
-(every other field d<=0.39); fire timing/start_kind still spread
-across buckets. The k=8 mechanism's residual ~4-6% own-DR fire rate is
-genuine DR variance, not a missing field or code defect — matches the
-pre-registered fallback; no further dose/field lever on this axis.
-Manifest `/tmp/dr_correlate_n20.json`, reports in `logs/ckpt_eval/
-..._mlcontprice8_cmdstress_n20/{dr0,owndr}/`.
+Update, 2026-09-05 ~02:4x: **Infra recovery — DONE-gate eval RELAUNCHED
+on train-9.** train-6 (running the 09-04 ~18:1x DONE-gate flat-only
+read) was found OOMKilled (host-level, exit 137, container 96Gi limit
+hit ~22:48Z 09-04 — the eval's own `--shards 8`, 8 concurrent
+`eval_checkpoint` subprocesses each with `--video` against the mesh/
+100Hz model, plus this pod's usual accumulated stale-process load, is
+the likely cause; matches the recurring "idle pod accumulates memory"
+pattern from train-0/4/10 incidents). `pending_evals.json`'s entry had
+already silently expired (8h TTL) with no verdict ever landing — the
+read was fully lost, not just delayed. Recovery: deleted+recreated
+train-6 from the manifest (now Pending on host CPU, normal, will
+schedule when capacity frees — do NOT force it); pushed the
+`mlcontprice8` checkpoint + synced code to train-9 (clean pod, no
+stale processes, confirmed via `ps`) and relaunched the identical
+`donegatecmd` flat=1 command with **`--jobs 4`** added (caps concurrent
+shard subprocesses at 4 instead of 8, same `--shards 8` statistical
+layout/seed streams) to keep memory headroom — confirmed at ~40GB/96GB
+cgroup usage with 4 shard workers running, well clear of the limit.
+Re-registered via `evalpending` (train-9). Still the track's first read
+of this lineage against the real gate, not the stress diet.
 
-Both Next items now CLOSED — the transition-stress mechanism sub-effort
-is done at its k=8 ceiling. Refill: launched the track's actual
-literal DONE-gate read (`eval_done_gate_session`, flat=1, n=8x8
-shards) on mlcontprice8 (best fall-safety in the lineage) on train-6
-(pushckpt+snapshot --sync done, code confirmed fresh) — never run on
-this lineage before; eval-only. Registered via `evalpending` — new
-Next item 1.
-
-Prior updates (09-04 ~13:2x..~17:2x) archived verbatim in `archive/
+Prior updates (09-04 ~13:2x..~18:1x) archived verbatim in `archive/
 standwalk_STATUS_journal_2026-09-04{hh,jj,kk,ll}_trim.md`.
 
-## Next (updated 09-04 ~18:1x)
+## Next (updated 09-05 ~02:4x)
 
 1. **Literal DONE-gate flat-only read on mlcontprice8 — IN FLIGHT on
-   train-6.** `evalpending` entry `..._mlcontprice8_donegate_flatonly`
-   auto-kicks a cycle on `session_verdict.json`. Read zero-falls first,
-   then dir_err_med/slip_per_m_med vs the existing best flat-only band
+   train-9** (relaunched after train-6 OOMKilled lost the first
+   attempt; see Update). `evalpending` entry
+   `..._mlcontprice8_donegate_flatonly` auto-kicks a cycle on
+   `session_verdict.json`. Read zero-falls first, then
+   dir_err_med/slip_per_m_med vs the existing best flat-only band
    (44-45deg / 2.8-2.9, `cap29-stdwalklohi-acq1{,-s1}`, PARTIAL —
    steering gap). First time this stress-hardened lineage is read
    against the real gate, not the stress diet; pass = new best DONE
@@ -51,13 +54,19 @@ standwalk_STATUS_journal_2026-09-04{hh,jj,kk,ll}_trim.md`.
 > kk,ll}. Current state = newest Update at the TOP; don't act on
 > archived Next.
 
-## Fleet capacity note (updated 09-04 ~18:1x)
+## Fleet capacity note (updated 09-05 ~02:4x)
 
-10/12 GPU slots free (train-6 running the literal DONE-gate eval,
-eval-only). train-4 still Pending (OOMKilled 08:06, recreated 4Gi-dshm
-spec) — `bootstrap_train_pod.sh hexapod-mjx-train-4` once Running.
-Pods 1/2/3/5/8/10 still run stale mixedsession/eval_checkpoint jobs
-from already-verdicted runs — harmless CPU load, not launch-blocking.
+10/12 GPU slots free (train-9 running the literal DONE-gate eval,
+eval-only, `--jobs 4`). train-6 OOMKilled (see Update) — recreated,
+Pending on host CPU, will schedule + need `bootstrap_train_pod.sh
+hexapod-mjx-train-6` once Running (do not force). train-4 previously
+recovered the same way, now Running. Pods 1/2/3/5/8/10/11 still run
+stale mixedsession/eval_checkpoint jobs from already-verdicted runs —
+harmless CPU load, not launch-blocking, but a slow-accumulating OOM
+risk on long-lived pods (3rd such incident after train-0, train-4/10)
+— a standing cleanup lever if this recurs: `ops.sh procs <pod>` +
+kill stale multiprocessing-fork children before a memory-heavy
+`--shards`+`--video` job, or route such jobs to the freshest pod.
 Every OTHER track non-launchable by design (`joystick`/`amp`/`cpg`
 DONE/maintenance; `walkcurr` RETIRED; `todaypolicy` DELIVERED).
 

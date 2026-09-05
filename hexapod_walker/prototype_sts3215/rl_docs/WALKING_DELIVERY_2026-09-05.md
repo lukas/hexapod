@@ -35,18 +35,30 @@ per cell. Domain randomization was off.
 | 100 / 50 / 50 | .368 | 3.012 | .359 | 2.854 |
 | 100 / 100 / 10 | .339 | 3.515 | .309 | 3.383 |
 | 100 / 100 / 100 | .414 | 2.357 | .369 | 2.629 |
+| 100 / 50 / 50, original 10 Hz filter bandwidth | .296 | 4.089 | .280 | 4.083 |
+| 100 / 50 / 10, faster filters | .366 | 3.112 | .327 | 3.352 |
 
-All cells completed without termination. Faster feedback is more promising
-than merely increasing writes. Keep the policy at 100 Hz while measuring and
-improving sensor/bus service; do not run these weights at 50 Hz. A 50 Hz policy
-would require training and validation at that rate.
+All cells completed without termination. The follow-up isolates a substantial
+**filter-response mismatch**: keeping the slow filter bandwidth removes most
+of the 50 Hz sensing gain, while faster filters at the existing bus cadence
+recover nearly all the forward gain. The latter used velocity alpha `.83193`
+and attitude alpha `.9039207968`, versus `.3` / `.98` today. They match the
+approximate response time of the original coefficients at 50 Hz; they are
+experimental settings, not a deployment recommendation without noise checks.
+
+Keep the policy at 100 Hz. First inspect estimator response against recorded
+encoder/IMU data and benchmark sensor/bus service. Evaluate a bounded filter
+candidate only after that review; faster feedback remains useful particularly
+sideways, but increasing poll rate alone is not the full explanation. Do not
+run these weights at 50 Hz. A 50 Hz policy would require training and validation
+at that rate, justified by measured hardware limits.
 
 These are diagnostics on the current **4.80573 kg full-mesh model**, with a
 training configuration reconstructed from export metadata and the training
 log. They are not a reconstruction of the original 3.49 kg training twin or a
-hardware speed prediction. Faster feedback also changes the response of the
-per-sample velocity/attitude filters; freshness and filter bandwidth have not
-yet been isolated. Simulated current remains an uncalibrated proxy. The replay
+hardware speed prediction. The filter-isolation follow-ups cover only two
+directions and do not establish behavior with real sensor noise. Simulated
+current remains an uncalibrated proxy. The replay
 does not reproduce readiness, controller transitions or the live 150 ms
 freshness stop for custom long-gap traces.
 

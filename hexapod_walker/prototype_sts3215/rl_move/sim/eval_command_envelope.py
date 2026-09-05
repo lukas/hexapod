@@ -82,6 +82,7 @@ DEFAULT_CFG_SET = ["env.model_source=mesh", "control.hz=100"]
 # as build_motion_library.py so slip/m stays comparable to the
 # teacher's measured 1.4-2.9 band.
 TURN_RADIUS_APPROX_M = 0.115
+SLIP_METRIC_VERSION = "commanded_intervals_v2_stop_history_advanced"
 
 # Each scenario: (duration_s, [(t_start, vx, vy, wz), ...]); segments
 # hold until the next boundary. All start with a 1 s zero settle.
@@ -214,8 +215,11 @@ def run_scenario(*, name: str, seed: int, arm: str,
             if s_cmd > 1e-3:
                 if prev_on[f] and prev_xy[f] is not None:
                     slip_m += float(np.linalg.norm(xy_world - prev_xy[f]))
-                prev_xy[f] = xy_world.copy()
-                prev_on[f] = on
+            # Advance history even while requested velocity is zero. Holding
+            # it through a stop falsely charges all unscored stop displacement
+            # to the first commanded restart interval.
+            prev_xy[f] = xy_world.copy()
+            prev_on[f] = on
         if s_cmd > 1e-3:
             cmd_prog_m += s_cmd * env.dt
 
@@ -280,6 +284,7 @@ def score_traces(traces: dict, *, dt: float,
 
     achieved = {"vx": body_v[:, 0], "vy": body_v[:, 1], "wz": wz}
     out: dict = {"fell": bool(fell), "n_ticks": int(T),
+                 "slip_metric_version": SLIP_METRIC_VERSION,
                  "n_score_ticks": int(score.sum()),
                  "n_steady_ticks": int(steady.sum())}
     for i, ax in enumerate(("vx", "vy", "wz")):

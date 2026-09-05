@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "write_hz": 50.0,
+  "snapshot_hz": 10.0,
+  "velocity_alpha": 0.3,
+  "attitude_alpha": 0.98
+}

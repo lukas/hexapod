@@ -2,6 +2,45 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~22:3x this cycle (assigned `headset-base-s0c1-swinggate-fresh`):
+  after verdicting the assigned run (below), picked up the remaining 2
+  still-outstanding `walk_swing_gate` retrofit arms too
+  (`medhead-swinggate-fix`, `irr-swinggate-fix` — both had finished
+  training with idle GPU capacity and no concurrent cycle had claimed
+  them by the time their gate evals synced; `swinggate-fix` itself was
+  already verdicted by a concurrent cycle sharing this same batch, see
+  its entry below), completing the whole 4-arm batch this cycle.
+  `medhead-swinggate-fix` (on `medhead_acq1`) **CANARY FAIL —
+  MECHANISM (engaged, no repair)**: 11/24 gait_valid vs the undosed
+  twin's own 10/24 — noise-level, same leg1/4 alternating sacrifice
+  pattern, neither det mode majority-clears. `irr-swinggate-fix` (on
+  `irr_acq1`) **CANARY FAIL — MECHANISM (engaged, no repair)**: 17/24
+  vs the undosed twin's own 18/24 — noise-level, same pattern. **All 4
+  arms of the batch (fresh + 3 retrofits) now FAIL — `reward.
+  walk_swing_gate` is CLOSED end-to-end as a per-leg-utilization
+  repair lever for the base(1g) family: 2 cleanly INERT (fresh,
+  s0c1-fix — harness numbers essentially unchanged vs their own
+  undosed twins) and 2 noise-level marginal with zero majority-
+  clearing repair (medhead-fix, irr-fix). This is the 7th
+  independently-designed mechanism to fail** (after `walk_gait_gate`+
+  `k_step_event` 6/6 FAIL, `walk_duty_gate` 9/9 FAIL across every
+  provenance x dose). **Do not fund any further reward-price mechanism
+  for base(1g)-family leg favoritism without a genuinely new causal
+  theory** — the next lever must be structural: curriculum-widen from
+  a leg-healthy champion (the way halfgrav's `widen2` thread already
+  validates, since halfgrav does not show this pathology), a
+  different exploration/init scheme, or explicitly reallocating
+  base(1g)-family GPU spend to the healthy halfgrav lineage and
+  treating this as a closed, documented negative result. Did not
+  re-triage `headset-halfgrav-medhead2-swinggate-fix` (a different,
+  halfgrav-family arm testing the same mechanism on a milder
+  borderline-duty case, not part of the base-family batch — still
+  genuinely computing remotely at cycle end) or the `widen2-c1-acq1`/
+  `widen2-c2b-acq1` continuations (another cycle's thread) — left for
+  the next reader. Evidence: `ops.sh review cw-walkscratch-easy0905-
+  headset-base-{s0c1,irr}-swinggate-fix`, `...-headset-base-medhead-
+  swinggate-fix`, CURRENT_TRUTHS.md.
+
 - 09-05 ~22:3x this cycle (assigned `headset-base-s0c1-swinggate-fix` +
   `headset-halfgrav-fullhead-widen2-c2b`): one verdict, two 40M
   launches. `swinggate-fix` (entrenched-checkpoint retrofit of

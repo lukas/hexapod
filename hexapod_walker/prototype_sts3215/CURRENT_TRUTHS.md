@@ -877,6 +877,35 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_{s0c1,medhead,
   irr}_swinggate_fix_gate/report.json` vs each one's own `_acq1_gate`
   twin, W&B `3f8el794`/`2vlzxnoh`/`2j266hc8`/`4rnm653m`.
+- **STRUCTURAL DIAGNOSTIC (09-05 ~22:3x, new this cycle, not yet acted
+  on): the base(1g)-family chronically-sacrificed leg is NEVER random
+  — across every mechanism/checkpoint logged above (`walk_duty_gate`
+  remcost seeds: legs [1,4]; `dgatefix`/`dgate2` bare-sde: leg 1;
+  `swinggate-fresh`/`swinggate-fix` (s0c1 lineage): leg 4 only;
+  `medhead-swinggate-fix`/`irr-swinggate-fix`: legs 1 and 4
+  alternating) the flagged leg(s) are ALWAYS L1 and/or L4 — checked
+  the mesh model's own leg-mount coordinates
+  (`mesh_mujoco/hexapod_mesh.xml`, `L*_yaw` body `pos`): L0=(0.087,
+  0.05), L1=(0,0.10), L2=(-0.087,0.05), L3=(-0.087,-0.05),
+  L4=(0,-0.10), L5=(0.087,-0.05) — a regular hexagon, and L1/L4 are
+  the ONE diametrically-opposite pair with NO close fore/aft
+  neighbor (L0/L5 are the front pair, L2/L3 the rear pair, L1/L4 the
+  sole left/right MIDDLE pair). A hexapod is statically stable on any
+  4+ legs forming a valid support polygon, so a front-pair+rear-pair
+  (4-leg) gait that idles exactly the two structurally-redundant
+  middle legs is a genuinely cheaper stable gait under 1g's higher
+  torque cost — not a random exploit, and not something any of the 7
+  MIN-over-all-6-legs anti-sacrifice reward mechanisms tried so far
+  could distinguish from a real leg outage, since they all price
+  every leg identically regardless of hexagon role. This reframes the
+  next design pass concretely: a role-aware mechanism (weight the
+  middle-pair's contribution differently, or reward a genuine
+  6-leg tripod/alternating-tripod PATTERN rather than any-4-legs
+  motion) is a plausible new causal theory, distinct from "price
+  harder" (already exhausted at n=7). Not yet built or tested — flag
+  for the next design cycle, do not launch a bare cfg tweak on this
+  theory without a bank pass proving the new mechanism actually
+  distinguishes a real tripod gait from a stable 4-leg one first.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

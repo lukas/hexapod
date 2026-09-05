@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: BUGGED
 
 **created**: 2026-09-05T10:57:49+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: Own-checkpoint 40M continuation of sde-s0-c1 (ACQ CONTINUE this cycle: ep_len_mean recovered from a mid-training trough of ~50 ticks to climb 159->203->239 in the last three logged points with no plateau, ep_rew_mean climbed -1.3->18.5->17.1 over the same window, v_along_cmd held steady ~0.15-0.17 m/s throughout -- same still-learning fingerprint sde-s1/sde-s2 already earned a continuation for. CORRECTED relaunch of the sde-s0-c2 attempt, which died in <1s because it was wrongly respec'd from cw-walkscratch-easy0905-sde-s1 (a gSDE sibling still carrying a bare --use-sde) and only blanked --activation-fn; this respec is from base-s0 (never carries --use-sde) with blank --activation-fn + --init-from only, mirroring the working sde-s1-c2/sde-s2-c2 pattern.
 
 **gate**: Acquisition milestone at own easy physics: 20s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Per 08-21 ruling: FAIL only if v_along_cmd/reward_walk go flat or ep_len re-collapses without recovery; continue further if still climbing at cutoff.
+
+**verdict**: Launch-mechanics bug (not an eval verdict): respec was built --from cw-walkscratch-easy0905-base-s0, which is the 2M-CANARY-scale config (not base-s0-c1s 40M acquisition config), so --steps silently defaulted to 2000000 instead of the intended 40M own-checkpoint continuation. Confirmed in ledger command: "--steps 2000000". Ran to completion at 2M (FINISHED_BEFORE_CHECKUP, no crash) but this is far short of the intended acquisition budget -- not a real read on whether sde-s0s dip-then-recover trend continues. Relaunching correctly as sde-s0-c4 with an explicit --steps 40000000.
 

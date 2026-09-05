@@ -192,6 +192,31 @@ backlog; idle slots next to this unmet priority are the failure state.
   cell recipe + the two keys). If they walk: the cell's failure was
   pricing, extend the fix cell; if they park-pin at ~0 income with
   full ep_len: exploration (gSDE x 0.5g), stop funding the cell.
+- 09-05 ~10:5x BASE + HALFGRAV FAMILIES FULLY CLOSED — 4/4 base-family
+  arms now ACQ PASS (`base-s2`,`base-s4` earlier + `base-s0-c1`,
+  `base-s1-c1` this cycle: 0/24 falls each, fwd 2.1-4.8m/20s, no
+  permanently sacrificed leg, video-confirmed six-leg cycling) and
+  halfgrav 2/2 continuations ACQ PASS (`halfgrav-s3` + `halfgrav-s0-c1`:
+  0/24 falls, fwd 2.5-3.5m/20s; `halfgrav-s0-c1`'s pure-det block alone
+  shows a repeatable leg-1 underuse — duty 0.09 vs 0.3+ siblings — that
+  vanishes under sto/jitter, flagged as a 0.5g gait-quality item, not
+  gate-blocking). **No further budget on either cell** — both answer
+  their own acquisition milestone; remaining budget goes to sde/
+  sdehalfgrav. sde family: 4/4 seeds (s0-c1,s1,s2,s3) now read ACQ
+  CONTINUE, not FAIL — every one falls every det trial but shares a
+  "dip-then-recover" `ep_len_mean` + monotonically-rising (ending
+  POSITIVE) `ep_rew_mean` fingerprint, distinct from sdehalfgrav's
+  flat-plateau FAIL signature; all 4 now have (or are getting) their
+  own 40M own-checkpoint continuation (`sde-s0-c3`, `sde-s1-c2`,
+  `sde-s2-c2`, `sde-s3-c1b` — several `-c1` attempts on this lineage
+  died from the same `--use-sde`+`--init-from` gotcha via a bad respec
+  SOURCE, not just a leftover flag; always respec sde continuations
+  from a non-gSDE sibling like `base-sN`). sdehalfgrav: 3rd from-scratch
+  seed (`sdehalfgrav-s3`) independently confirms the flat-`ep_len`-
+  plateau FAIL fingerprint (62-74 ticks steady 23M-40M) — reinforces
+  funding the remcost fix cell above rather than more bare sdehalfgrav
+  seeds. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_{base_s0_c1,
+  base_s1_c1,halfgrav_s0_c1,sde_s0_c1,sde_s3,sdehalfgrav_s3}_gate/`.
 
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 

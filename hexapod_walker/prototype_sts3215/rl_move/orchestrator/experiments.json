@@ -291678,7 +291678,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s0_c1.zip"
     ],
     "created": "2026-09-05T10:57:49+00:00",
-    "status": "RUNNING",
+    "status": "BUGGED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -291723,9 +291723,16 @@
         "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-09-05T11:10:32+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "andb:       canary/lower_a 0\nwandb:       canary/lower_b 0\nwandb: canary/rise_bridge_a 0\nwandb: canary/rise_bridge_b 0\nwandb: canary/rise_crouch_a 0\nwandb: canary/rise_crouch_b 0\nwandb:   canary/rise_flat_a 0\nwandb:   canary/rise_flat_b 0\nwandb:                 +123 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkscratch-easy0905-sde-s0-c3 at: https://wandb.ai/l2k2/hexapod-balance/runs/9a28pgku\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260905_105816-9a28pgku/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-09-05T11:09:48"
+    "triage": "done",
+    "verdict": "Launch-mechanics bug (not an eval verdict): respec was built --from cw-walkscratch-easy0905-base-s0, which is the 2M-CANARY-scale config (not base-s0-c1s 40M acquisition config), so --steps silently defaulted to 2000000 instead of the intended 40M own-checkpoint continuation. Confirmed in ledger command: \"--steps 2000000\". Ran to completion at 2M (FINISHED_BEFORE_CHECKUP, no crash) but this is far short of the intended acquisition budget -- not a real read on whether sde-s0s dip-then-recover trend continues. Relaunching correctly as sde-s0-c4 with an explicit --steps 40000000."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s3-c1",

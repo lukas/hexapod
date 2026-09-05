@@ -31,6 +31,32 @@ measured joint-slew feasibility fed back from the executed loop:
      showed vx's cross term is what amplifies 3 legs past the clip on
      combined ticks, so shedding translation demand is the axis-
      targeted way to buy yaw feasibility back).
+  4. **Time-sliced demand (``mode='time_slice'``, 09-05 follow-up,
+     hardware_delivery STATUS Next#3) — BUILT, TESTED, REFUTED.**
+     Instead of continuously scaling both axes down together, alternate
+     FULL-amplitude pure-turn and pure-translation bursts within a
+     combined-demand period (each burst is, by construction, the
+     un-degraded single-axis command). Measured on the same
+     scripted-gait suite at 3 turn-duty doses
+     (`logs/ckpt_eval/command_envelope_timeslice_09-05/summary.json`,
+     `combo_ccw`/`combo_cw`, seed 0/1 identical): turn_duty=0.3 is
+     DOMINATED by plain ``baseline`` (worse progress_ratio 0.32 vs
+     0.37 AND worse yaw_ratio 0.14 vs 0.24 — the 0.48 s burst at that
+     duty is shorter than the envelope's own 0.5 s worst-case
+     rate-limit ramp, so it never even reaches the sub-command
+     amplitude); turn_duty=0.7 is DOMINATED by ``yaw_priority`` (worse
+     progress_ratio 0.13 vs 0.17 AND worse yaw_ratio 0.37 vs 0.42,
+     plus ~2x the per-achieved-meter slip); turn_duty=0.5 ties
+     ``shared`` on both axes (no win). Matches the a-priori argument:
+     the measured vx-authority -> yaw_ratio curve (1.0->0.24,
+     0.35->0.42, 0->0.54) is CONCAVE, so any point obtained by time-
+     averaging two extremes sits on or below the chord under that
+     curve — continuous authority scaling is provably at least as
+     good. Kept as a tested, opt-in mode (never wired into anything
+     default) so the negative result is reproducible; do not re-derive
+     this from scratch or re-attempt without a genuinely different
+     per-burst mechanism (e.g. per-burst durations tuned individually
+     per scenario, not a fixed duty fraction).
 
 HONESTY CONTRACT (from the same operator note): requested and applied
 commands are separate, both are preserved by the caller, and all
@@ -88,12 +114,24 @@ class EnvelopeConfig:
     authority_floor: float = 0.35  # never throttle demand below this
     # 'shared': scale vx/vy/wz together (preserves curvature).
     # 'yaw_priority': scale only translation; yaw demand passes intact.
+    # 'time_slice': alternate FULL-amplitude pure-turn and pure-walk
+    # bursts within a combined-demand period instead of continuously
+    # scaling both axes down together (see module docstring item 4).
     mode: str = "shared"
     # Governor acts only when translation AND yaw are simultaneously
     # requested (the measured-infeasible regime); pure commands always
     # run at full authority. Rate limiting applies regardless.
     combined_only: bool = True
     eps_cmd: float = 1e-6
+    # time_slice tunables (ignored by shared/yaw_priority). Period is
+    # split turn_duty/1-turn_duty between a yaw-only burst (vx=vy=0,
+    # full wz) and a translation-only burst (full vx/vy, wz=0). Default
+    # period (1.6 s) gives each half >= 0.3 s of full-amplitude dwell
+    # after the envelope's own 0.5 s worst-case rate-limit ramp
+    # (0.08 m/s @ 0.16 m/s^2 / 0.25 rad/s @ 0.50 rad/s^2) so a burst
+    # actually reaches the sub-command amplitude before switching back.
+    slice_period_s: float = 1.6
+    turn_duty: float = 0.5
 
 
 @dataclass
@@ -105,6 +143,8 @@ class EnvelopeOutput:
     target: tuple[float, float, float]
     authority: float
     governing: bool  # feedback law active this tick (combined demand)
+    in_turn_slice: bool = False  # time_slice telemetry only; always
+                                 # False in shared/yaw_priority modes.
 
 
 class CommandEnvelope:
@@ -115,6 +155,7 @@ class CommandEnvelope:
     def reset(self) -> None:
         self._applied = [0.0, 0.0, 0.0]
         self._authority = 1.0
+        self._slice_t = 0.0
 
     @property
     def authority(self) -> float:
@@ -143,18 +184,43 @@ class CommandEnvelope:
         translation = math.hypot(vx_r, vy_r)
         combined = translation > c.eps_cmd and abs(wz_r) > c.eps_cmd
         governing = combined or not c.combined_only
-        sat = float(measured_sat_frac) if measured_sat_frac is not None else 0.0
-        if governing and sat > c.sat_target:
-            self._authority -= c.gain_down * (sat - c.sat_target) * dt
-        else:
-            self._authority += c.gain_up * (1.0 - self._authority) * dt
-        self._authority = _clip(self._authority, c.authority_floor, 1.0)
 
-        g = self._authority if governing else 1.0
-        if c.mode == "yaw_priority":
-            target = (vx_r * g, vy_r * g, wz_r)
-        else:  # shared
-            target = (vx_r * g, vy_r * g, wz_r * g)
+        in_turn_slice = False
+        if c.mode == "time_slice":
+            # Bypasses the continuous authority feedback by design: each
+            # burst already restricts demand to a single axis (a "pure"
+            # sub-command), which the measured data shows runs near full
+            # authority on its own (module docstring item 4) — no
+            # additional scaling is layered on top. The phase clock only
+            # advances while governing so entering/leaving a combined
+            # period always resumes at the start of a turn-burst.
+            if governing:
+                self._slice_t = (self._slice_t + dt) % max(c.slice_period_s, 1e-9)
+            else:
+                self._slice_t = 0.0
+            turn_window = c.turn_duty * c.slice_period_s
+            in_turn_slice = governing and (self._slice_t < turn_window)
+            self._authority = 1.0
+            if governing:
+                target = ((0.0, 0.0, wz_r) if in_turn_slice
+                          else (vx_r, vy_r, 0.0))
+            else:
+                target = (vx_r, vy_r, wz_r)
+            g = 1.0
+        else:
+            sat = (float(measured_sat_frac) if measured_sat_frac is not None
+                   else 0.0)
+            if governing and sat > c.sat_target:
+                self._authority -= c.gain_down * (sat - c.sat_target) * dt
+            else:
+                self._authority += c.gain_up * (1.0 - self._authority) * dt
+            self._authority = _clip(self._authority, c.authority_floor, 1.0)
+
+            g = self._authority if governing else 1.0
+            if c.mode == "yaw_priority":
+                target = (vx_r * g, vy_r * g, wz_r)
+            else:  # shared
+                target = (vx_r * g, vy_r * g, wz_r * g)
 
         rates = (c.vx_rate, c.vy_rate, c.wz_rate)
         applied = []
@@ -166,4 +232,5 @@ class CommandEnvelope:
         return EnvelopeOutput(requested=(vx_r, vy_r, wz_r),
                               applied=tuple(applied),
                               target=target,
-                              authority=g, governing=governing)
+                              authority=g, governing=governing,
+                              in_turn_slice=in_turn_slice)

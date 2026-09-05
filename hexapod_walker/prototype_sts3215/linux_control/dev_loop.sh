@@ -80,6 +80,7 @@ files = [
     "linux_control/drive_controller.py",
     "linux_control/cpg_controller_loader.py",
     "linux_control/mcu_feetech_bus.py",
+    "linux_control/async_bus_guard.py",
     "linux_control/event_log.py",
     "linux_control/telemetry_recorder.py",
     "linux_control/status_display.py",

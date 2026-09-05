@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 from pathlib import Path
 import sys
+import threading
+import time
+import csv
 
 import numpy as np
 import pytest
@@ -10,17 +13,18 @@ if str(_ROOT / "linux_control") not in sys.path:
     sys.path.insert(0, str(_ROOT / "linux_control"))
 
 import rl_policy  # noqa: E402
-from rl_move.robot_state import RobotState  # noqa: E402
+from rl_move.robot_state import RobotState, RobotStateEstimator  # noqa: E402
 
 
 def _policy(meta):
     return SimpleNamespace(meta=dict(meta))
 
 
-def _state(*, bus_ok=True):
+def _state(*, bus_ok=True, timestamp=0.0, health=False, timing=None,
+           load=12.0, current=0.4, temperature=31.0):
     z = np.zeros(rl_policy.N_JOINTS, dtype=float)
     return RobotState(
-        timestamp=0.0,
+        timestamp=float(timestamp),
         joint_position=z.copy(),
         joint_velocity=z.copy(),
         imu_roll=0.0,
@@ -29,10 +33,34 @@ def _state(*, bus_ok=True):
         imu_gyro=np.zeros(3, dtype=float),
         imu_accel=np.zeros(3, dtype=float),
         commanded_position=z.copy(),
+        servo_load=(np.full(rl_policy.N_JOINTS, float(load))
+                    if health else None),
+        servo_current=(np.full(rl_policy.N_JOINTS, float(current))
+                       if health else None),
+        servo_temperature=(np.full(rl_policy.N_JOINTS, float(temperature))
+                           if health else None),
         bus_ok=bus_ok,
         imu_ok=True,
-        timing={"source": "fake_state"},
+        timing=(dict(timing) if timing is not None else
+                {"source": "fake_state"}),
     )
+
+
+def _complete_health_timing(*, source="fake_async", **extra):
+    timing = {
+        "source": source,
+        "full_feedback": True,
+        "full_feedback_complete": True,
+        "full_feedback_count": rl_policy.N_JOINTS,
+        "full_feedback_ids": list(range(rl_policy.N_JOINTS)),
+        "feedback_sample_fresh": True,
+        "feedback_complete": True,
+        "feedback_valid_count": rl_policy.N_JOINTS,
+        "feedback_valid_ids": list(range(rl_policy.N_JOINTS)),
+        "feedback_missing_ids": [],
+    }
+    timing.update(extra)
+    return timing
 
 
 class _FakeBus:
@@ -41,6 +69,44 @@ class _FakeBus:
 
     def write_all(self, _deg, *, speed, acc):
         self.writes += 1
+
+
+def _snapshot(seq, *, gx_dps=0.0, pos_age_ms=1.0, imu_age_ms=1.0):
+    return {
+        "seq": seq,
+        "pos_age_ms": pos_age_ms,
+        "imu_age_ms": imu_age_ms,
+        "pos_deg": {j: 0.0 for j in range(rl_policy.N_JOINTS)},
+        "speed_deg_s": {j: 0.0 for j in range(rl_policy.N_JOINTS)},
+        "imu": {
+            "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
+            "gx_dps": gx_dps, "gy_dps": 0.0, "gz_dps": 0.0,
+        },
+    }
+
+
+class _AsyncHealthBus(_FakeBus):
+    has_stream = True
+
+    def __init__(self, seqs=None, *, current=0.4):
+        super().__init__()
+        self.seqs = list(seqs or range(1, 1000))
+        self.last_seq = 0
+        self.current = current
+        self.feedback_reads = 0
+
+    def read_snapshot(self):
+        if self.seqs:
+            self.last_seq = self.seqs.pop(0)
+        return _snapshot(self.last_seq)
+
+    def read_all_feedback(self):
+        self.feedback_reads += 1
+        return {
+            j: {"load_pct": 12.0, "current_a": self.current,
+                "temp_c": 31.0}
+            for j in range(rl_policy.N_JOINTS)
+        }
 
 
 class _FakeStepBus(_FakeBus):
@@ -312,7 +378,779 @@ def test_drive_timing_trip_applies_to_policy_ticks_only():
 
 def test_async_snapshot_sampler_is_lower_rate_than_policy_loop():
     assert rl_policy.DRIVE_ASYNC_SNAPSHOT_HZ == pytest.approx(10.0)
-    assert rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S == pytest.approx(0.25)
+    assert rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S == pytest.approx(0.15)
+
+
+def test_async_transport_probe_reports_sequence_and_source_ages():
+    probe = rl_policy._probe_async_transport(  # noqa: SLF001
+        _AsyncHealthBus(seqs=[0xFFFF, 0, 1]), samples=3,
+        sample_gap_s=0.0)
+
+    assert probe["source"] == "read_snapshot"
+    assert probe["seq_first"] == 0xFFFF
+    assert probe["seq_last"] == 1
+    assert probe["seq_advance_count"] == 2
+    assert probe["max_pos_age_ms"] == pytest.approx(1.0)
+    assert probe["max_imu_age_ms"] == pytest.approx(1.0)
+    assert probe["async_capable"] is True
+
+
+def test_async_transport_probe_rejects_unsupported_before_motion():
+    bus = _FakeBus()
+
+    probe = rl_policy._probe_async_transport(  # noqa: SLF001
+        bus, sample_gap_s=0.0)
+
+    assert probe["async_capable"] is False
+    assert probe["source"] == "unsupported"
+    assert "unavailable" in probe["error"]
+    assert bus.writes == 0
+
+
+def test_only_high_rate_stance_moves_use_async_transport():
+    assert rl_policy._policy_move_uses_async("stand", 100.0)  # noqa: SLF001
+    assert rl_policy._policy_move_uses_async("lower", 100.0)  # noqa: SLF001
+    assert not rl_policy._policy_move_uses_async("stand", 50.0)  # noqa: SLF001
+    assert not rl_policy._policy_move_uses_async("lower", 25.0)  # noqa: SLF001
+    assert not rl_policy._policy_move_uses_async("walk", 100.0)  # noqa: SLF001
+
+
+def test_async_sampler_caps_age_and_delivers_health_freshness_once():
+    bus = _AsyncHealthBus()
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        bus, {},
+        initial_state=_state(timestamp=time.monotonic(), health=True),
+        hz=200.0, max_age_s=9.0)
+    assert sampler.max_age_s == pytest.approx(
+        rl_policy.DRIVE_ASYNC_STATE_MAX_AGE_S)
+    sampler.start()
+    deadline = time.monotonic() + 0.5
+    while sampler.stats()["samples"] < 1 and time.monotonic() < deadline:
+        time.sleep(0.001)
+    sampler.stop()
+
+    first, age_first, _ = sampler.latest()
+    second, age_second, _ = sampler.latest()
+
+    assert bus.feedback_reads == sampler.stats()["good_samples"]
+    assert bus.feedback_reads >= 1
+    assert age_first is not None and age_first <= sampler.max_age_s
+    assert age_second is not None and age_second <= sampler.max_age_s
+    assert first.timing["async_sample_seq"] > 0
+    assert first.timing["async_sample_fresh"] is True
+    assert first.timing["async_health_fresh"] is True
+    assert first.timing["full_feedback"] is True
+    assert second.timing["async_sample_seq"] == first.timing["async_sample_seq"]
+    assert second.timing["async_sample_fresh"] is False
+    assert second.timing["async_health_fresh"] is False
+    assert second.timing["full_feedback"] is False
+    # Cached values remain available for diagnostics/logging...
+    assert second.servo_current is not None
+    assert second.servo_temperature is not None
+    assert rl_policy._state_for_async_safety(first).servo_current is not None  # noqa: SLF001
+    # ...but cannot advance a safety debounce twice.
+    safety_state = rl_policy._state_for_async_safety(second)  # noqa: SLF001
+    assert safety_state.servo_load is None
+    assert safety_state.servo_current is None
+    assert safety_state.servo_temperature is None
+
+
+def test_async_ready_requires_advancing_samples_and_fresh_health():
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        _AsyncHealthBus(), {}, hz=200.0, max_age_s=0.1)
+    sampler.start()
+    state, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.5)
+    sampler.stop()
+
+    assert err == ""
+    assert state is not None
+    assert details["good_sequences"] >= 3
+    assert details["fresh_health"] is True
+    assert details["sampler"]["motion_ready"] is True
+
+
+def test_async_sampler_requires_advancing_wrap_aware_mcu_sequence_and_age():
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        _FakeBus(), {}, hz=10.0, max_age_s=0.15)
+
+    def stream_state(seq, *, pos_age_ms=1.0, imu_age_ms=1.0):
+        return _state(
+            timestamp=time.monotonic(),
+            timing={
+                "source": "read_snapshot",
+                "snapshot_seq": seq,
+                "pos_age_ms": pos_age_ms,
+                "imu_age_ms": imu_age_ms,
+            },
+        )
+
+    assert sampler._physical_state_error_locked(  # noqa: SLF001
+        stream_state(0xFFFF)) == ""
+    assert sampler._physical_state_error_locked(  # noqa: SLF001
+        stream_state(0)) == ""
+    assert "did not advance" in sampler._physical_state_error_locked(  # noqa: SLF001
+        stream_state(0))
+    assert "did not advance" in sampler._physical_state_error_locked(  # noqa: SLF001
+        stream_state(0xFFFF))
+    assert "exceeds" in sampler._physical_state_error_locked(  # noqa: SLF001
+        stream_state(1, pos_age_ms=151.0))
+    assert "missing/invalid imu_age_ms" in (  # noqa: SLF001
+        sampler._physical_state_error_locked(
+            _state(timing={
+                "source": "read_snapshot",
+                "snapshot_seq": 1,
+                "pos_age_ms": 1.0,
+            })))
+    # ASCII legacy IMUR has no sensor sequence/age; a host request alone
+    # cannot prove that its physical cache advanced.
+    assert "no physical freshness proof" in (  # noqa: SLF001
+        sampler._physical_state_error_locked(
+            _state(timing={"source": "legacy_read"})))
+    # Simulation/fake estimators may still use host-side acquisitions.
+    assert sampler._physical_state_error_locked(  # noqa: SLF001
+        _state(timing={"source": "fake_async"})) == ""
+
+
+def test_async_sampler_first_background_stream_sample_must_advance_preflight():
+    initial = _state(
+        timestamp=time.monotonic(),
+        timing={
+            "source": "read_snapshot",
+            "snapshot_seq": 7,
+            "pos_age_ms": 1.0,
+            "imu_age_ms": 1.0,
+        },
+    )
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        _FakeBus(), {}, initial_state=initial)
+
+    assert "did not advance" in sampler._physical_state_error_locked(  # noqa: SLF001
+        initial)
+
+
+def test_frozen_mcu_sequence_never_completes_async_readiness():
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        _AsyncHealthBus(seqs=[23]), {}, hz=100.0, max_age_s=0.15)
+    sampler.start()
+    _state_out, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.08)
+    stats = sampler.stats()
+    sampler.stop()
+
+    assert "snapshot_seq did not advance" in err
+    assert details["consecutive_healthy"] < 3
+    assert stats["physical_rejects"] >= 1
+    assert stats["good_samples"] == 1
+    assert sampler.motion_ready is False
+
+
+def test_frozen_gyro_snapshot_is_rejected_before_stateful_recovery_update(
+        monkeypatch):
+    class _SequenceBus(_FakeBus):
+        has_stream = True
+
+        def __init__(self):
+            super().__init__()
+            self.snaps = [
+                _snapshot(1, gx_dps=100.0),
+                _snapshot(1, gx_dps=100.0),
+                _snapshot(2, gx_dps=0.0),
+            ]
+
+        def read_snapshot(self):
+            return self.snaps.pop(0) if self.snaps else _snapshot(2)
+
+    updates = []
+
+    class _RecordingEstimator:
+        def __init__(self, _bus, _cfg):
+            pass
+
+        def set_commanded(self, _q):
+            pass
+
+        def update_from_snapshot(self, snap, *, want_full_feedback, source):
+            updates.append((snap["seq"], snap["imu"]["gx_dps"]))
+            return _state(
+                timestamp=time.monotonic(),
+                timing={
+                    "source": source,
+                    "snapshot_seq": snap["seq"],
+                    "pos_age_ms": snap["pos_age_ms"],
+                    "imu_age_ms": snap["imu_age_ms"],
+                })
+
+        def update_feedback(self, state):
+            return _state(
+                timestamp=state.timestamp, health=True,
+                timing={**state.timing, **_complete_health_timing(
+                    source=state.timing["source"])})
+
+    monkeypatch.setattr(
+        rl_policy, "RobotStateEstimator", _RecordingEstimator)
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        _SequenceBus(), {}, hz=200.0)
+    sampler.start()
+    deadline = time.monotonic() + 0.5
+    while sampler.stats()["samples"] < 3 and time.monotonic() < deadline:
+        time.sleep(0.001)
+    sampler.stop()
+
+    # The repeated nonzero-gyro snapshot never reaches the estimator; only
+    # the first physical sample and the advancing recovery mutate its state.
+    assert updates == [(1, 100.0), (2, 0.0)]
+
+
+def test_partial_feedback_is_not_published_as_complete_servo_health():
+    def frame(ids, *, current_base):
+        return {
+            j: {
+                "load_pct": 10.0 + j,
+                "current_a": current_base + j / 100.0,
+                "temp_c": 30.0 + j,
+            }
+            for j in ids
+        }
+
+    class _FeedbackBus:
+        def __init__(self):
+            self.frames = [
+                frame(range(17), current_base=0.1),
+                frame(range(18), current_base=0.2),
+                frame(range(17), current_base=9.0),
+            ]
+
+        def read_all_positions(self):
+            return {j: 0.0 for j in range(rl_policy.N_JOINTS)}
+
+        def read_imu(self, *, apply_calib=True):
+            return {
+                "ax_g": 0.0, "ay_g": 0.0, "az_g": 1.0,
+                "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+            }
+
+        def read_all_feedback(self):
+            return self.frames.pop(0)
+
+    estimator = RobotStateEstimator(_FeedbackBus(), {})
+
+    partial_first = estimator.update(want_full_feedback=True)
+    assert partial_first.servo_current is not None
+    assert partial_first.servo_current[16] == pytest.approx(0.26)
+    assert partial_first.timing["full_feedback_attempted"] is True
+    assert partial_first.timing["full_feedback_complete"] is False
+    assert partial_first.timing["full_feedback_count"] == 17
+    assert partial_first.timing["full_feedback_ids"] == list(range(17))
+
+    complete = estimator.update(want_full_feedback=True)
+    assert complete.timing["full_feedback_complete"] is True
+    assert complete.timing["full_feedback_count"] == 18
+    assert complete.timing["full_feedback_ids"] == list(range(18))
+    complete_current = complete.servo_current.copy()
+
+    partial_after_cache = estimator.update(want_full_feedback=True)
+    assert partial_after_cache.timing["full_feedback"] is False
+    assert partial_after_cache.timing["full_feedback_complete"] is False
+    assert partial_after_cache.timing["full_feedback_count"] == 17
+    # Valid partial values update immediately, while missing ID 17 retains
+    # the prior complete value and remains explicitly invalid this frame.
+    assert partial_after_cache.servo_current[:17] == pytest.approx(
+        [9.0 + j / 100.0 for j in range(17)])
+    assert partial_after_cache.servo_current[17] == pytest.approx(
+        complete_current[17])
+    assert partial_after_cache.timing["feedback_valid_ids"] == list(range(17))
+    assert partial_after_cache.timing["feedback_missing_ids"] == [17]
+
+    # A later position-only inner substep retains the physical acquisition
+    # identity, so the direct runner cannot skip this partial high current.
+    after_position_substep = estimator.update(want_full_feedback=False)
+    assert (after_position_substep.timing["feedback_sample_seq"]
+            == partial_after_cache.timing["feedback_sample_seq"])
+    safety = rl_policy.SafetyLayer({})
+    safety._over_current_trip_ticks = 1  # noqa: SLF001
+    safety.set_nominal(np.zeros(rl_policy.N_JOINTS))
+    _q, status = safety.filter(
+        np.zeros(rl_policy.N_JOINTS), after_position_substep)
+    assert status.terminate is True
+    assert status.reason == "over_current"
+    assert "L5 hip" in status.detail
+
+
+def test_direct_safety_stops_after_three_distinct_incomplete_frames():
+    safety = rl_policy.SafetyLayer({})
+    safety.set_nominal(np.zeros(rl_policy.N_JOINTS))
+    valid_ids = list(range(17))
+    statuses = []
+    for seq in (1, 2, 3):
+        state = _state(
+            timestamp=time.monotonic(), health=True,
+            timing={
+                "feedback_sample_seq": seq,
+                "feedback_sample_fresh": True,
+                "feedback_complete": False,
+                "feedback_valid_count": 17,
+                "feedback_valid_ids": valid_ids,
+                "feedback_missing_ids": [17],
+                "full_feedback": False,
+                "full_feedback_attempted": True,
+                "full_feedback_complete": False,
+                "full_feedback_count": 17,
+                "full_feedback_ids": valid_ids,
+            })
+        _q, status = safety.filter(
+            np.zeros(rl_policy.N_JOINTS), state)
+        statuses.append(status)
+
+    assert statuses[0].terminate is False
+    assert statuses[1].terminate is False
+    assert statuses[2].terminate is True
+    assert statuses[2].reason == "incomplete_feedback"
+    assert "17/18 valid" in statuses[2].detail
+
+
+def test_safety_rejects_false_complete_flag_without_all_valid_ids():
+    safety = rl_policy.SafetyLayer({})
+    safety.set_nominal(np.zeros(rl_policy.N_JOINTS))
+    valid_ids = list(range(17))
+    status = None
+    for seq in (1, 2, 3):
+        state = _state(
+            timestamp=time.monotonic(), health=True,
+            timing={
+                "feedback_sample_seq": seq,
+                "feedback_sample_fresh": True,
+                # A contradictory producer must fail closed: explicit IDs
+                # are the authority, not a stale/corrupt completeness bit.
+                "feedback_complete": True,
+                "feedback_valid_count": 17,
+                "feedback_valid_ids": valid_ids,
+                "feedback_missing_ids": [17],
+            })
+        _q, status = safety.filter(
+            np.zeros(rl_policy.N_JOINTS), state)
+
+    assert status is not None
+    assert status.terminate is True
+    assert status.reason == "incomplete_feedback"
+
+
+class _ReadinessSequenceSampler:
+    def __init__(self, samples):
+        self.cfg = {}
+        self.interval_s = 0.001
+        self.max_age_s = 0.15
+        self.samples = list(samples)
+        self.calls = 0
+        self.motion_ready = False
+
+    def latest(self):
+        idx = min(self.calls, len(self.samples) - 1)
+        self.calls += 1
+        value = self.samples[idx]
+        health_kwargs = (dict(value) if isinstance(value, dict)
+                         else {"current": value})
+        timing_overrides = health_kwargs.pop("timing", {})
+        timing = _complete_health_timing(
+            async_sample_seq=self.calls,
+            async_sample_fresh=True,
+            async_health_fresh=True,
+            async_health_ok=True,
+            async_feedback_fresh=True,
+            feedback_sample_seq=self.calls,
+        )
+        timing.update(timing_overrides)
+        state = _state(
+            timestamp=time.monotonic(), health=True,
+            timing=timing,
+            **health_kwargs,
+        )
+        return state, 0.001, self.stats()
+
+    def stats(self):
+        return {"errors": 0, "motion_ready": self.motion_ready}
+
+    def mark_motion_ready(self):
+        self.motion_ready = True
+
+
+@pytest.mark.parametrize(("health_kwargs", "reason"), [
+    ({"temperature": 66.0}, "over_temp"),
+    ({"current": 2.6}, "over_current"),
+    ({"load": 91.0}, "over_load"),
+])
+def test_async_health_gate_checks_each_safety_limit(health_kwargs, reason):
+    state = _state(
+        timestamp=time.monotonic(), health=True,
+        timing=_complete_health_timing(
+            async_sample_seq=1,
+            async_sample_fresh=True,
+            async_health_fresh=True,
+            async_health_ok=True,
+        ),
+        **health_kwargs,
+    )
+
+    assert rl_policy._async_health_safety_error(  # noqa: SLF001
+        rl_policy.SafetyLayer({}), state).startswith(reason)
+
+
+def test_async_ready_resets_probation_on_unsafe_health_sample():
+    sampler = _ReadinessSequenceSampler([0.4, 4.0, 0.4, 0.4, 0.4])
+    safety = rl_policy.SafetyLayer({})
+
+    _state_out, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.1,
+        health_safety=safety)
+
+    assert err == ""
+    assert sampler.calls == 5
+    assert details["consecutive_healthy"] == 3
+    assert sampler.motion_ready is True
+
+
+def test_async_ready_returns_exact_health_failure_and_stays_not_ready():
+    sampler = _ReadinessSequenceSampler([4.0])
+    safety = rl_policy.SafetyLayer({})
+    safety._over_current_trip_ticks = 3  # noqa: SLF001
+
+    _state_out, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.05,
+        health_safety=safety)
+
+    assert isinstance(err, rl_policy.AsyncReadinessFailure)
+    assert err.startswith("async physical health trip: over_current")
+    assert err.confirmed_physical is True
+    assert rl_policy._async_readiness_requires_limp(err) is True  # noqa: SLF001
+    assert sampler.calls == 3
+    assert details["consecutive_healthy"] == 0
+    assert sampler.motion_ready is False
+
+
+def test_async_ready_detects_confirmed_current_in_partial_frames():
+    valid_ids = list(range(17))
+    partial_timing = {
+        "full_feedback": False,
+        "full_feedback_complete": False,
+        "full_feedback_count": 17,
+        "full_feedback_ids": valid_ids,
+        "feedback_complete": False,
+        "feedback_valid_count": 17,
+        "feedback_valid_ids": valid_ids,
+        "feedback_missing_ids": [17],
+        "async_health_ok": False,
+    }
+    sampler = _ReadinessSequenceSampler([
+        {"current": 4.0, "timing": partial_timing},
+    ])
+    safety = rl_policy.SafetyLayer({})
+    safety._over_current_trip_ticks = 3  # noqa: SLF001
+
+    _state_out, details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.05,
+        health_safety=safety)
+
+    assert isinstance(err, rl_policy.AsyncReadinessFailure)
+    assert err.confirmed_physical is True
+    assert err.reason == "over_current"
+    assert sampler.calls == 3
+    assert details["consecutive_healthy"] == 0
+
+
+@pytest.mark.parametrize(("samples", "expected_calls", "reason"), [
+    ([{"temperature": 66.0}] * 3, 3, "over_temp"),
+    ([{"load": 91.0}], 1, "over_load"),
+])
+def test_async_ready_uses_safety_debounce_for_physical_trip(
+        samples, expected_calls, reason):
+    sampler = _ReadinessSequenceSampler(samples)
+    safety = rl_policy.SafetyLayer({})
+
+    _state_out, _details, err = rl_policy._await_async_sampler_ready(  # noqa: SLF001
+        sampler, lambda: False, min_good_samples=3, timeout_s=0.05,
+        health_safety=safety)
+
+    assert isinstance(err, rl_policy.AsyncReadinessFailure)
+    assert err.confirmed_physical is True
+    assert err.reason == reason
+    assert sampler.calls == expected_calls
+
+
+def test_async_readiness_limp_on_three_fresh_missing_servo_frames():
+    ids = list(range(17))
+    sampler = _ReadinessSequenceSampler([{
+        "current": 0.4,
+        "timing": {
+            "full_feedback": False, "full_feedback_complete": False,
+            "full_feedback_count": 17, "full_feedback_ids": ids,
+            "feedback_complete": False, "feedback_valid_ids": ids,
+            "async_health_ok": False,
+        },
+    }])
+    _state_out, _details, err = rl_policy._await_async_sampler_ready(
+        sampler, lambda: False, timeout_s=0.1)
+    assert sampler.calls == 3
+    assert err.reason == "incomplete_feedback"
+    assert rl_policy._async_readiness_requires_limp(err)
+    assert not sampler.motion_ready
+
+
+def test_default_readiness_timeout_allows_real_current_confirmation(monkeypatch):
+    now = [0.0]
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(rl_policy.time, "sleep", lambda _s: None)
+
+    class _TenHzSampler(_ReadinessSequenceSampler):
+        def latest(self):
+            now[0] += self.interval_s
+            return super().latest()
+
+    sampler = _TenHzSampler([4.0])
+    sampler.interval_s = 0.1
+    safety = rl_policy.SafetyLayer({"safety": {"over_current_trip_s": 2.0}})
+    rl_policy._apply_async_safety_feedback_timing(safety, safety.cfg, 10.0)
+    _state_out, _details, err = rl_policy._await_async_sampler_ready(
+        sampler, lambda: False, health_safety=safety)
+    assert err.reason == "over_current"
+    assert err.confirmed_physical
+    assert sampler.calls == 20
+    assert now[0] == pytest.approx(2.0)
+
+
+def test_episode_log_records_actual_time_activity_and_sensor_age(tmp_path, monkeypatch):
+    now = [10.0]
+    monkeypatch.setattr(rl_policy, "_HERE", tmp_path)
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: now[0])
+    monkeypatch.setitem(sys.modules, "event_log", SimpleNamespace(emit=lambda *a, **k: None))
+    log = rl_policy._EpisodeLog("drive", {})
+    state = _state(timestamp=10.01, timing={
+        "snapshot_seq": 42, "pos_age_ms": 4.0, "imu_age_ms": 7.0,
+    })
+    now[0] = 10.08
+    log.tick(0.01, state, None, None, None, 0.08, 0.0, 0.4,
+             phase="walk", walk_engaged=True, learned_policy_active=True,
+             bus_write_due=True)
+    now[0] = 10.18
+    log.tick(0.02, state, None, None, None, 0.0, 0.0, 0.4, phase="tail")
+    log.close({"ok": True})
+    with log.csv_path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert list(rows[0])[:2] == ["t_s", "phase"]
+    assert float(rows[0]["mono_s"]) == pytest.approx(10.08)
+    assert float(rows[0]["wall_elapsed_s"]) == pytest.approx(0.08)
+    assert rows[0]["walk_engaged"] == rows[0]["learned_policy_active"] == "1"
+    assert rows[0]["bus_write_due"] == "1"
+    assert float(rows[0]["position_age_ms"]) == pytest.approx(74.0)
+    assert float(rows[0]["imu_age_ms"]) == pytest.approx(77.0)
+    assert float(rows[0]["state_age_ms"]) == pytest.approx(77.0)
+    assert rows[0]["snapshot_seq"] == "42"
+    assert rows[1]["walk_engaged"] == rows[1]["learned_policy_active"] == "0"
+    assert rows[1]["bus_write_due"] == "0"
+
+
+@pytest.mark.parametrize("capture", [None, "nan", "97.0", "101.0"])
+def test_http_camera_requires_fresh_source_capture_time(tmp_path, monkeypatch, capture):
+    from rl_move.scripts import run_rl_walk_trial as trial
+
+    class _Response:
+        headers = {} if capture is None else {"X-Capture-Unix-S": capture}
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return None
+        def read(self):
+            return b"unused because timestamp is rejected first"
+
+    monkeypatch.setattr(trial.time, "time", lambda: 100.0)
+    monkeypatch.setattr(trial.urllib.request, "urlopen", lambda *a, **k: _Response())
+    recorder = trial.HttpFrameRecorder(tmp_path / "out.mp4", tmp_path / "ts.csv", "http://fake/frame.jpg")
+    with pytest.raises(RuntimeError, match="capture timestamp|lacks X-Capture"):
+        recorder._read_frame()
+
+
+def test_http_camera_preserves_capture_time_instead_of_receipt(tmp_path, monkeypatch):
+    from rl_move.scripts import run_rl_walk_trial as trial
+
+    class _Response:
+        headers = {"X-Capture-Unix-S": "99.5"}
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return None
+        def read(self):
+            return b"jpeg"
+
+    monkeypatch.setattr(trial.time, "time", lambda: 100.0)
+    monkeypatch.setattr(trial.urllib.request, "urlopen", lambda *a, **k: _Response())
+    frame = np.zeros((2, 2, 3), dtype=np.uint8)
+    monkeypatch.setattr(trial.cv2, "imdecode", lambda *a: frame)
+    recorder = trial.HttpFrameRecorder(tmp_path / "out.mp4", tmp_path / "ts.csv", "http://fake/frame.jpg")
+    _, captured = recorder._read_frame()
+    assert captured == 99.5
+
+
+def test_async_freshness_failure_is_typed_but_does_not_require_limp():
+    err = rl_policy.AsyncReadinessFailure(
+        "async feedback not ready: legacy freshness unavailable",
+        kind="freshness", reason="feedback_not_ready",
+        detail="legacy freshness unavailable")
+
+    assert err.confirmed_physical is False
+    assert rl_policy._async_readiness_requires_limp(err) is False  # noqa: SLF001
+
+
+def test_async_sampler_failed_stop_keeps_registry_and_blocks_motion_write(monkeypatch):
+    class _StuckThread:
+        def __init__(self):
+            self.alive = True
+            self.join_timeout = None
+
+        def is_alive(self):
+            return self.alive
+
+        def join(self, timeout=None):
+            assert timeout is not None
+            self.join_timeout = timeout
+
+    bus = _FakeBus()
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        bus, {}, initial_state=_state(timestamp=time.monotonic()))
+    stuck = _StuckThread()
+    sampler._thread = stuck  # noqa: SLF001
+    sampler.mark_motion_ready()
+    rl_policy._register_async_sampler(sampler)  # noqa: SLF001
+
+    with pytest.raises(RuntimeError, match="failed to stop"):
+        sampler.stop()
+
+    assert sampler._thread is stuck  # noqa: SLF001
+    assert stuck.join_timeout >= 2.5
+    assert sampler in rl_policy._ASYNC_SAMPLER_GUARD.active  # noqa: SLF001
+    assert sampler.motion_ready is False
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus, sampler,
+        np.zeros(rl_policy.N_JOINTS), np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=time.monotonic(), inner_steps=1, inner_dt=0.0,
+        write_speed=100, write_acc=20, abort_check=lambda: False)
+    assert out[3] == "feedback stale during stream"
+    assert bus.writes == 0
+
+    # A new API worker has a different thread-local sampler registry. The
+    # physical bus quarantine must still reject it before preflight/arming.
+    reached_impl = []
+    monkeypatch.setattr(rl_policy, "_run_policy_move_impl",
+                        lambda *a, **k: reached_impl.append(True))
+    monkeypatch.setattr(rl_policy, "_run_drive_session_impl",
+                        lambda *a, **k: reached_impl.append(True))
+    failures = []
+
+    def new_worker():
+        for runner, args in ((rl_policy.run_policy_move, ("stand",)),
+                             (rl_policy.run_drive_session, (None,))):
+            try:
+                runner(SimpleNamespace(bus=bus), *args)
+            except rl_policy.AsyncSamplerCleanupError as error:
+                failures.append(str(error))
+
+    worker = threading.Thread(target=new_worker)
+    worker.start()
+    worker.join(timeout=0.5)
+    assert not worker.is_alive()
+    assert len(failures) == 2
+    assert reached_impl == []
+
+    stuck.alive = False
+    sampler.stop()
+    rl_policy.require_bus_available(bus)
+    assert sampler not in rl_policy._ASYNC_SAMPLER_GUARD.active  # noqa: SLF001
+
+
+def test_async_stop_cancels_between_snapshot_and_full_feedback():
+    class _BlockingSnapshotBus(_AsyncHealthBus):
+        def __init__(self):
+            super().__init__()
+            self.entered = threading.Event()
+            self.release = threading.Event()
+
+        def read_snapshot(self):
+            self.entered.set()
+            assert self.release.wait(timeout=1.0)
+            return _snapshot(1)
+
+    bus = _BlockingSnapshotBus()
+    sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
+        bus, {}, hz=10.0)
+    sampler.start()
+    assert bus.entered.wait(timeout=0.5)
+    release = threading.Timer(0.02, bus.release.set)
+    release.start()
+    sampler.stop()
+    release.join()
+
+    assert bus.feedback_reads == 0
+    assert sampler.stats()["thread_alive"] is False
+
+
+def test_async_stream_refuses_first_write_until_background_ready():
+    class _NotReadySampler(_FakeSampler):
+        motion_ready = False
+
+    bus = _FakeBus()
+    sampler = _NotReadySampler([_state()], age_s=0.01)
+
+    out = rl_policy._stream_target_async(  # noqa: SLF001
+        bus, sampler,
+        np.zeros(rl_policy.N_JOINTS),
+        np.ones(rl_policy.N_JOINTS) * 0.1,
+        t_next=time.monotonic(), inner_steps=1, inner_dt=0.0,
+        write_speed=100, write_acc=20,
+        abort_check=lambda: False,
+        last_good_state=_state(), stale_ticks=0, max_stale_ticks=3)
+
+    _state_out, _next, _overruns, err, _stale, _samples, _timing = out
+    assert err == "feedback stale during stream"
+    assert bus.writes == 0
+
+
+@pytest.mark.parametrize("public_name, impl_name, args", [
+    ("run_policy_move", "_run_policy_move_impl", (None, "stand")),
+    ("run_drive_session", "_run_drive_session_impl", (None, None)),
+])
+def test_public_runner_stops_async_sampler_on_exception(
+        monkeypatch, public_name, impl_name, args):
+    stopped = []
+
+    class _GuardedSampler:
+        def stop(self):
+            stopped.append(True)
+            rl_policy._unregister_async_sampler(self)  # noqa: SLF001
+
+    sampler = _GuardedSampler()
+
+    def _boom(*_args, **_kwargs):
+        rl_policy._register_async_sampler(sampler)  # noqa: SLF001
+        raise RuntimeError("synthetic runner failure")
+
+    monkeypatch.setattr(rl_policy, impl_name, _boom)
+    with pytest.raises(RuntimeError, match="synthetic runner failure"):
+        getattr(rl_policy, public_name)(*args)
+
+    assert stopped == [True]
+
+
+def test_async_health_debounce_uses_feedback_rate():
+    cfg = {
+        "control": {"hz": 100},
+        "sensing": {"full_feedback_hz": 10},
+        "safety": {"over_current_trip_s": 2.0},
+    }
+    safety = rl_policy.SafetyLayer(cfg)
+
+    feedback_hz = rl_policy._apply_async_safety_feedback_timing(  # noqa: SLF001
+        safety, cfg, snapshot_hz=10.0)
+
+    assert feedback_hz == pytest.approx(10.0)
+    assert safety._over_current_trip_ticks == 20  # noqa: SLF001
 
 
 def test_drive_write_plan_decimates_100hz_policy_to_50hz_bus():
@@ -523,8 +1361,24 @@ def test_async_stream_target_marks_old_snapshot_stale():
     assert rl_policy._stream_state_is_stale(state)  # noqa: SLF001
     assert stale_ticks == 4
     assert stale_samples == 1
-    assert bus.writes == 1
+    # Age is checked before command dispatch: no extra learned target after
+    # the hard freshness cap.
+    assert bus.writes == 0
     assert bus.steps == 0
+
+
+def test_async_tail_rejects_state_past_sampler_age_cap():
+    state = _state(timestamp=time.monotonic())
+    stale_sampler = _FakeSampler([state], age_s=0.151, max_age_s=0.15)
+    fresh_sampler = _FakeSampler([state], age_s=0.149, max_age_s=0.15)
+
+    stale_state, _ = rl_policy._latest_async_tail_state(  # noqa: SLF001
+        stale_sampler)
+    fresh_state, _ = rl_policy._latest_async_tail_state(  # noqa: SLF001
+        fresh_sampler)
+
+    assert stale_state is None
+    assert fresh_state is state
 
 
 def test_async_stream_target_can_skip_bus_write_on_decimated_tick():

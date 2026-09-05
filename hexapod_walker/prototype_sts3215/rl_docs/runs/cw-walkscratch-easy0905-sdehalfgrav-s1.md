@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAILED
 
-**created**: 2026-09-05T08:58:14+00:00
+**created**: 2026-09-05T09:03:55+00:00
 
-**pod**: hexapod-mjx-train-5
+**pod**: hexapod-mjx-train-1
 
 **steps**: 40000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Acquisition milestone at OWN physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Mechanism evidence inherited from the family's 2M CANARY PASS 09-05; spot-check ~2M in W&B. Not met with signals rising = continue/realign per 08-21; FAIL only on flat v_along+reward at budget or park recapture.
 
-**refused_reason**: hexapod-mjx-train-5 code marker 72fec1b5129da81c47a83093e10d53189e651e69-dirty != local HEAD 72fec1b5129da81c47a83093e10d53189e651e69 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-5 (and snapshot/commit before that if the tree is dirty).
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 

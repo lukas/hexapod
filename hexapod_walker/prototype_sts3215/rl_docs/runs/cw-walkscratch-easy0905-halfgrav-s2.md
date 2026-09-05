@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-05T08:57:44+00:00
+**created**: 2026-09-05T09:01:10+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-9
 
 **steps**: 40000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Acquisition milestone at OWN physics (halfgrav arms at their own 0.5g): 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, all six legs repeatedly lift/place on video, no belly drag; report sto. Mechanism-health evidence inherited from the family's 2M CANARY PASS 09-05 — spot-check at ~2M in W&B, do not re-canary. Not met with v_along/reward still rising = continue/realign per 08-21 ruling; FAIL only on flat v_along+reward at this budget or park recapture.
 
-**refused_reason**: hexapod-mjx-train-3 code marker 72fec1b5129da81c47a83093e10d53189e651e69-dirty != local HEAD 72fec1b5129da81c47a83093e10d53189e651e69 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-9 code marker 72fec1b5129da81c47a83093e10d53189e651e69-dirty != local HEAD 86bbd612ca353396f91d068918c9dedc99033acb and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-9 (and snapshot/commit before that if the tree is dirty).
 

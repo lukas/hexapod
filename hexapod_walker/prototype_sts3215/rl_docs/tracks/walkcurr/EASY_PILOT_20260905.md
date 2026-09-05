@@ -67,7 +67,19 @@ twin (mesh_mjx, 4.8057 kg — operator commit a55173ab 09-03; the old
   test-scoped 20 deg envelope (topple terminates, priced 24 below
   park). This is an exploration choice, deliberate.
 
-## Cohort + budget (bounded; no expansion into an unbounded sweep)
+## SCALE CEILING SUPERSEDED (operator order, 09-05 ~08:4x)
+
+The "bounded 4 lineages / 80M total / no expansion" budget language in
+this file is SUPERSEDED by the operator's 09-05 full-fleet order
+("dedicate the available hardware for this"): teacher-free easy-sim
+walking is the primary GPU campaign; fill every ready slot with
+pre-registered arms of the validated families and keep the backlog
+stocked, 40M per-run guardrail and all teacher-free/physics boundaries
+unchanged. All four 2M canaries CANARY PASSed 09-05 (verdicts in the
+ledger). Continuations run to +40M (not +18M). Everything below
+remains the recipe/evidence record.
+
+## Cohort + budget (bounded; no expansion into an unbounded sweep) — SUPERSEDED for scale, see above
 
 4 arms x 2M canary now; healthy canaries get +18M acquisition FROM
 THEIR OWN CHECKPOINT ONLY (pre-registered continuation, normal

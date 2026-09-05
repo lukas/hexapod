@@ -1,6 +1,39 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
-## REOPENED (BOUNDED) 2026-09-05 — operator easy-sim teacher-free pilot
+## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
+
+Operator order 09-05 ("Make sure the orchestrator dedicates the
+available hardware for this — it's not really using the hardware"):
+teacher-free easy-sim walking is now the PRIMARY GPU campaign. The
+earlier bounded four-lineage/80M pilot-only paragraphs below and in
+`EASY_PILOT_20260905.md` are SUPERSEDED for scale (boundaries — no
+teacher/BC/AMP/CPG/phase/motion prior, no robot access, easy fixed
+physics/no DR/no amps gate — all still bind). Keep every ready GPU
+slot supplied with pre-registered easy-campaign work + a stocked
+backlog; idle slots next to this unmet priority are the failure state.
+
+- 09-05 ~08:5x: all four 2M canaries CANARY PASSed (mechanism-health
+  scope): finite losses, real motion (walk_speed 0.11–0.28 m/s), motor
+  contract 360 deg/s verified in-log, reward bank-consistent, ep_rew
+  decline shown to be an ep_len artifact (100→486 ticks) with per-tick
+  reward improving and v_along_cmd rising through zero (+0.008 to
+  +0.017 m/s). gSDE note: realized action amplitude >> Gaussian at the
+  same annealed log_std (action_delta charge 10x base, some falls).
+- Now: full-fleet allocation — 4 own-checkpoint 40M acquisition
+  continuations (base-s0/base-s1/sde-s0/halfgrav-s0 -c1; strip
+  --activation-fn/--use-sde on plain --init-from, PPO.load preserves
+  ELU/gSDE) + 7 fresh 40M seeds completing the 2x2 family grid
+  (base-s2/s3, halfgrav-s1/s2 matched seeds, sde-s1/s2,
+  sde-halfgrav-s0) + backlog spares (sde-halfgrav-s1, base-s4,
+  halfgrav-s3) so the drain refills freed slots.
+- Acquisition milestone (own physics, unchanged): 20 s held-out
+  fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det
+  episodes, six-leg lift/place on video, no belly drag; report sto.
+- Judged by the 08-21 ruling: learning-but-not-yet-walking at 40M =
+  continue/realign, not auto-fail; hard 2x2 family comparisons (sde
+  vs Gaussian, 1g vs 0.5g) decide which families get deeper budget.
+
+## REOPENED (BOUNDED) 2026-09-05 — operator easy-sim teacher-free pilot (scale ceiling superseded above)
 
 Operator focus note 09-05 authorizes ONE bounded pilot cohort on easy
 simulation physics (explicit departure from hardware realism, isolated
@@ -11,13 +44,13 @@ committed 4.81 kg mesh twin), canary/acquisition gates, and boundaries:
 `rl_docs/tracks/walkcurr/EASY_PILOT_20260905.md`.
 
 - Now: 4x 2M canary arms launched 09-05 (this cycle).
-- Next (pre-registered): each HEALTHY canary continues +18M from ITS
-  OWN checkpoint (respec --from <arm> --arg='--init-from=<own ckpt>',
-  same cfg; 80M initial total across 4 lineages). No walking at 2M is
+- Next (pre-registered): each HEALTHY canary continues from ITS
+  OWN checkpoint (originally +18M; raised to up to +40M/run by the
+  09-05 full-fleet operator order, within the 40M per-run guardrail).
+  No walking at 2M is
   NOT a canary failure — stop only for nonfinite training, ineffective
-  actions, implementation failure, or a proven exploit. Do NOT expand
-  into another unbounded sweep; do NOT retire the question off these
-  small pilots alone.
+  actions, implementation failure, or a proven exploit. Do NOT retire
+  the question off these small pilots alone.
 - Acquisition milestone (own-physics, NOT the old DONE): 20 s held-out
   fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det
   episodes, six-leg lift/place on video, no belly drag; report sto.

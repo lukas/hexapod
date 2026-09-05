@@ -138,6 +138,21 @@ def test_drive_api_forwards_velocity_alpha_to_worker(monkeypatch, alpha):
     assert api._cal_result["velocity_filter_alpha"] == alpha
 
 
+def test_drive_api_forwards_active_duration_to_worker(monkeypatch):
+    import rl_policy
+    calls = []
+    monkeypatch.setattr(rl_policy, "preflight", lambda *a, **k: (True, "", {}))
+    def run(*args, **kwargs):
+        calls.append(kwargs)
+        return {"ok": True, "active_duration_s": kwargs["active_duration_s"]}
+    monkeypatch.setattr(rl_policy, "run_drive_session", run)
+    api = Api(object())
+    result = api.rl_drive_start(active_duration_s=3.0)
+    assert result["ok"]
+    api._demo_thread.join(timeout=1)
+    assert calls[0]["active_duration_s"] == 3.0
+
+
 @pytest.mark.parametrize("mode", ["drive", "stand"])
 def test_api_cleanup_failure_never_torques_or_advertises_bus_available(monkeypatch, mode):
     torque = []
@@ -153,6 +168,7 @@ def test_api_cleanup_failure_never_torques_or_advertises_bus_available(monkeypat
     monkeypatch.setitem(sys.modules, "rl_policy", SimpleNamespace(
         DriveCommand=Command, preflight=lambda *a, **k: (True, "", {}),
         run_drive_session=run, run_policy_move=run,
+        validate_drive_active_duration=lambda value: value,
         validate_velocity_filter_alpha=validate_velocity_filter_alpha))
     try:
         if mode == "drive":

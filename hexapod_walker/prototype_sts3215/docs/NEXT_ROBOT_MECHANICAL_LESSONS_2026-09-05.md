@@ -4,7 +4,16 @@ Build the next robot around compact, serviceable legs with a well-supported yaw
 axis and durable knee/yoke connections. Keep the current robot walking while
 developing that leg. The evidence supports improving load transfer and access;
 it does not establish that a complete metal robot, larger servos, or an overhead
-leg workspace will produce smoother walking.
+leg workspace will produce smoother walking. The build choices below address
+documented damage, assembly access, and load-path preferences; they are not
+prerequisites for restoring the current robot's walking performance.
+
+The existing motors and single bus already demonstrated combined command and
+snapshot transactions at 162 Hz on August 19, and a later read-only 100 Hz test
+had 6.1 ms p99 latency across 3,000 successful requests. That is transport
+evidence, not a loaded motor speed/torque test. Today's timing failures do not
+justify replacing servos or redesigning legs before restoring and measuring the
+known fast control path. [Timing evidence and wiring implications](NEXT_ROBOT_WIRING_LESSONS_2026-09-05.md)
 
 ## What the hardware actually established
 
@@ -148,6 +157,8 @@ torque. Those numbers are not measured robot mass or a measured load case.
 They explain why a lighter, more compact leg can help before changing motors;
 the final sizing must use the actual actuator variant, mass, stance geometry,
 and duty cycle.
+This sizing illustration does not establish that the present robot is
+underpowered or that different motors would fix its command timing.
 
 Do not bulk-replace servos based on the old L4/L5 comparison, thicken the whole
 chassis from an uncalibrated sim current trace, or replace the carbon tubes

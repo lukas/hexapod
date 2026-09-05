@@ -1,74 +1,154 @@
 # Smooth walking delivery — 2026-09-05
 
-This implements the [walking review](../docs/WALKING_REVIEW_2026-09-05.md).
-The immediate milestone is a measured, repeatable physical canary using the
-already tested walking checkpoint. Smooth room-scale walking is not yet a
-demonstrated result.
+The corrected controller completed a short forward walk and normal lower using
+the existing 100 Hz policy and velocity alpha `.3`. The 100 Hz bus capacity was
+real: our asynchronous machinery and extra polling added costs, and CPU frequency
+scaling during serial waits stretched host work further. Restoring combined S,
+keeping the CPU at performance speed and removing duplicate polling recovered
+this canary. Sustained smooth walking and perfect deadline delivery remain unproven.
+The 50 Hz writes / 10 Hz sensing used in our first diagnostics were a chosen
+asynchronous architecture, not an established hardware limit. There is no
+evidence that the existing 100 Hz policy needs retraining at 50 Hz.
+See the [project review](../docs/WALKING_REVIEW_2026-09-05.md).
 
-## Follow-through on the remaining issues
+## Current physical outcome
 
-These are parallel engineering tasks, not prerequisites piled onto a walk.
+Controller `7e8c02540` is deployed, including combined-S restoration `278e7ae3e`,
+telemetry cleanup `b79154044`, a performance-governor service setup and removal
+of the trial runner's duplicate feedback polling. After four failed attempts,
+the second restored alpha-`.3` trial completed a **3.124-second confirmed active
+command window** at requested velocity 0.08 m/s, stopped normally and lowered
+to limp. Alpha `.8` has **not run on hardware**; its old 10 Hz filtering hypothesis
+does not automatically apply to restored 100 Hz observations. Four ordinary
+STEP lowers completed successfully in total.
 
-| Issue | Concrete decision or change | Remaining physical work |
-|---|---|---|
-| Delayed joint feedback | Keep 100 Hz; expose velocity alpha through the existing drive API and trial CLI so A/B runs need no config edits or restarts. `.8` improved both simulated directions versus `.3`. | Run the same walk with each value; retain it only if physical behavior improves. |
-| Attitude estimator | Keep `.98`. Changing only attitude to `.9039208` improved forward progress `.294 → .319` but worsened sideways `.297 → .280`; sideways slip also worsened. | Cross-check actual rocking against video when interpreting runs; no attitude change is needed to try velocity filtering. |
-| Inner-loop transport | Fix the firmware path that starves full-state acquisition during frequent S requests; preserve command priority and existing health reads. Current CPU inference is already fast enough. | Target-board build and firmware deployment remain separate from the first filter comparison. Then measure 20 Hz sensing before claiming a faster operating rate. |
-| Gait baseline and transfer fit | Keep the existing policy and gait 9 as references; retain measured differences between the full-mesh diagnostic and legacy physical assembly. | Use successive walking runs to compare progress/rocking and fit loaded/contact response. Do not label the CAD model an exact physical twin. |
-| Steering and policy runtime | Integrated the completed obs-75 MLP / obs-81 dual-GRU exporter and hardware runtime, preserving the filter override and shared recurrent state. Reject the tested command-scaling/time-slicing approaches as broad walking upgrades. | The no-yaw canary still cannot demonstrate turning. The new runtime enables testing existing candidates; it does not establish their physical steering or Uno Q inference timing. |
-| Further RL | The active orchestrator is handling its existing work; no duplicate training or new gait search was launched here. Velocity/attitude isolation gives a specific transfer target. | Compare the resulting useful candidates against the physical baseline, without waiting for every model uncertainty to disappear. |
-| Next robot | Prefer compact, serviceable load paths, individual servo power feeds, and independently driven servo buses. | Build one improved leg before copying it six times; no present evidence justifies replacing every servo. |
+The successful controller episode reports 292 ticks, zero stale samples, no
+error or fall, 0.51 A peak sampled current and 6.7° maximum relative tilt. Mean
+service time fell from 14.346 to **9.822 ms**, but 52 overruns and a 69.958 ms
+maximum remain. This is a successful bounded canary, not proof that every
+100 Hz deadline was met: 291 CSV intervals average 10.915 ms, or **91.62 Hz**
+observed cadence (median 10.058 ms, p95 14.548 ms, maximum 71.209 ms). Joint
+command-to-encoder tracking RMS was **4.80°**, maximum 11.14°. The engaged CSV
+rows span 3.176154 seconds; their logger-entry boundaries differ from the
+runner's 3.124-second confirmed command window. Requested velocity is not
+measured travel speed, and no calibrated displacement result is available.
 
-The attitude-only report is
-`logs/ckpt_eval/deployed_transport_noyaw_v2_20260905_attitude_only/report.json`.
-Design details and primary sources are in the
-[mechanical lessons](../docs/NEXT_ROBOT_MECHANICAL_LESSONS_2026-09-05.md) and
-[wiring lessons](../docs/NEXT_ROBOT_WIRING_LESSONS_2026-09-05.md).
+This run used the unchanged 74-observation `hardware-walk-noyaw-v2-canary`
+actor, exported-weight SHA-256
+`58a9bbf7862dba467aeeba534225ffb450d69b4f3302fe22637cda955fee8d6d`, with
+`robot_abs_tibia_v2`, 400/20 motor settings and 0.375° maximum command delta per
+policy tick. It is the baseline, **not Candidate A** from the separate Robot Lab
+queue. That queue retains its remaining candidates and serialized robot ownership.
 
-The merged controller/runtime/CLI changes passed **159 focused tests**. The
-firmware scheduler passed **11 tests** that compile its actual production loop
-with mocked IO; removing the fix reproduces full-health starvation at 50/100 Hz
-snapshot requests. This is not a target-board build or a bus timing measurement.
-The physical robot was checked over HTTP: idle/limp, 18/18 servos, IMU healthy.
-No deployment, firmware flash, or motion occurred in this continuation.
+| Attempt / recovery | Observed result |
+|---|---|
+| `rl_walk_trial_20260905_073851` | Drive stopped after 33 ticks on stale feedback; health age 162 ms, five good sampler samples, zero sampler errors. Open-browser zero heartbeats also restarted readiness. |
+| `alpha03-retry1/rl_walk_trial_20260905_074002` | Arm refresh failed: joint 10 error was 10° against an 8° limit. The later inactive-session command refusal was a symptom. |
+| `rl_walk_trial_20260905_074557` | Ownership fix removed competing commands, but drive still stopped after 15 ticks; peak write call 137 ms and a 17/18 feedback frame. Runner reported that live progress stopped advancing. |
+| STEP lowers `20260905_074157` and `20260905_074708` | Both completed normally and ended limp. |
+| `combined100/rl_walk_trial_20260905_081140`, controller `278e7ae3e` | Combined S delivered fresh feedback, but 12 consecutive 100 Hz deadlines were missed. The controller held the pose; 18/18 servos remained healthy and no fall was recorded. |
+| STEP lower `20260905_081247` | Completed normally after the restored trial and ended limp; peak sampled current 2.84 A. |
+| `combined100/rl_walk_trial_20260905_093126`, controller `7e8c02540` | Completed the forward command window, stopped normally, then completed STEP lower and limped. Lower peak sampled current 0.59 A; final joint error 1.1°. |
 
-Commits: per-trial alpha `464b43d31`; firmware scheduling `d57ead668`;
-runtime/exporter integration `70536488d` and `3a9556f40` (from the separate
-policy task). These additions do not require a fresh source-hash match to the
-old queued manifest; record the actual version used for the experiment.
+The first, failed restored trial logged 12 engaged rows spanning **188.556 ms** of wall time
+(mean interval 17.141 ms). The summary's `duration_s=0.1` is policy time, not
+measured wall duration. Mean service was 14.346 ms: combined S 8.382 ms,
+observation 0.791 ms, inference 0.946 ms and safety 1.369 ms. Two F refreshes
+cost 5.416/6.038 ms inside estimator conversion, outside the reported read/write
+stage timers. Inter-row time also exceeded reported service by roughly 3 ms;
+CSV formatting and live publication occur outside that timer, but their exact
+shares have not been isolated. This is a complete-loop overhead problem despite
+the fast isolated bus test. There were zero stale samples and only 0.1° maximum
+relative tilt. No displacement estimate is available from this short attempt.
 
-The cloud verification finished in cycle `20260905T080130_operator-kick`.
-It used a **different actor and regenerated 3.490 kg model**, so its noise
-screen is supporting mechanism evidence rather than an exact replication of
-the frozen canary. Its combined faster filters retained a forward advantage
-at the chosen 1× simulated noise and lost it at 2×. Those are assumed noise
-levels, not measured hardware noise; they do not decide the physical A/B result.
-The old instruction to wait for a measured-noise report is superseded by
-Lukas's direction to run concrete experiments. Full cloud details remain in
-[the verification branch](https://github.com/lukas/hexapod/blob/codex/smooth-walking-delivery-verify-20260905/hexapod_walker/prototype_sts3215/rl_docs/WALKING_DELIVERY_VERIFY_20260905.md).
+Local trial evidence is under `/tmp/hexapod-filter-hardware/`. Firmware scheduling
+fix `d57ead668` compiled for `arduino:zephyr:unoq` (21,988 bytes program, 7,056
+bytes globals) and was successfully flashed. The deployment log is
+`/tmp/hexapod-flash-health-scheduling.log`.
 
-## Delivered infrastructure
+The 30-second, 100 Hz bench held torque off and sent the same pose throughout:
 
-- Robot Lab understands `external_guarded` jobs. They wait for an operator;
-  the automatic worker cannot claim them. External completion retains the
-  queued identity and verifies the submitted specification.
-- The guarded queue client checks the server capability before submitting,
-  verifies every receipt, and reuses matching plan IDs. A truncated listing
-  cannot silently authorize a duplicate. Submission must be serialized;
-  cross-client atomic deduplication is not implemented.
-- The benchmark records actual walking engagement and sensor/write timing.
-  Historical traces without these fields retain unknowns. Separate short
-  runs cannot be combined into a claimed continuous 60-second trial.
-- Controller changes preserve the trained policy clock while coalescing bus
-  writes, reject stale feedback and unverified HTTP capture timestamps, and
-  quarantine the serial bus if a background reader cannot be joined. The
-  physical controller has not been deployed by this task.
+| Transaction | Successful replies | Mean / p99 / maximum latency | Replies with all 18 positions | Elapsed |
+|---|---:|---:|---:|---:|
+| Before fix: read-only `S n=0` | 3,000/3,000 | 4.065 / 4.369 / 6.541 ms | 2,768 | 29.994 s |
+| Before fix: targets + snapshot `S n=18` | 3,000/3,000 | 5.940 / 6.275 / 39.322 ms | 2,994 | 30.026 s |
+| After fix: targets + snapshot `S n=18` | 3,000/3,000 | 6.019 / 8.822 / 19.748 ms | 2,998 | 30.035 s |
 
-## Fixed-policy cadence comparison
+Neither bench recorded new firmware errors, desynchronization or checksum
+failures. Before the fix, full-health acquisition almost stopped: zero new full
+passes during read-only S and one during combined S. After the fix it advanced
+**282 times in 30 seconds (about 9.4 Hz)**; maximum position/IMU ages were
+6/12 ms. This confirms the scheduling fix on hardware while preserving 100 Hz
+combined-S capacity. Occasional incomplete frames and deadline misses remain;
+these torque-off results do not establish loaded walking timing. The earlier
+39 ms outlier included 29.9 ms waiting for the host lock, with no firmware error;
+it is not evidence of a physical servo problem.
 
-The frozen hardware actor was evaluated at 100 Hz throughout, with different
-write/acquisition cadences. Same seed, forward and sideways commands, 10 seconds
-per cell. Domain randomization was off.
+Before/after records are `/tmp/hexapod-combined-s-before-health-fix.json` and
+`/tmp/hexapod-combined-s-bench.json`. The loaded trial above shows why bus
+capacity and complete-loop timing must be distinguished.
+
+## Transport history and the delivery regression
+
+- `912534a5c` (August 24) introduced combined `step_all`: one `S n=18`
+  transaction sends targets and returns position/speed/IMU.
+- `bb49b5d90` (August 26) changed firmware snapshots to cached replies. Its
+  documented no-motion 100 Hz bench passed 3,000/3,000 transactions: 5.8 ms
+  mean, 6.1 ms p99, 6.7 ms maximum, sensor ages around 6 ms or less.
+  [The timing notes](BUS_AND_TIMING_DEBUG_2026-08-26.md) recommend combined S
+  for high-rate control. That bench did not establish loaded walking performance.
+- `f59125f88` (August 30) replaced persistent drive's combined-S path with
+  separate writes and a 10 Hz background reader. `08891671f` then capped its
+  writes at 50 Hz. The preceding combined-S reference is `fa690dec0`.
+- **Our `96b54760f` added contention and new refusal conditions:** every
+  background S now waits for a separate F health transaction before publishing;
+  allowed age fell from 250 to 150 ms; startup requires three samples; motion
+  initially depended on the age of the last complete health scan. That last
+  check could stop on one incomplete scan before the intended debounce.
+  `6fb29374d` corrected that health handling and prevented other browser/CLI
+  clients from overwriting an owned drive command. Additional F contention
+  remained. `863118a8d` adds UART write/flush/ACK timing to locate that cost.
+
+The timed `/api/rl/walk` path retained direct combined S; only
+high-rate stand/lower policy moves were newly switched to async in `96b54760f`.
+Reverting that commit alone would not restore persistent drive's earlier
+architecture. Restoration `278e7ae3e` returns persistent drive to combined S,
+retaining the current frame, motor limits, command ownership and normal stop
+behavior. Missing S feedback holds the target and retries; stopping requires
+three consecutive misses for the same joint. The correction removes 80 net
+controller lines. Its 169 regression checks and 11 affected checks passed.
+Its first loaded failure led to the CPU and polling corrections below.
+
+## CPU governor and unnecessary polling
+
+The on-device CPU-only profiles reproduce controller stages with synthetic
+state and a 6 ms sleep representing UART blocking. They do not access the bus
+or measure physical walking. With `schedutil`, all four cores share one clock
+policy; it fell from 2.016 GHz to 614.4 MHz during paced work. Continuous warm
+work averaged 2.763 ms, but cold 100 Hz work averaged 5.468 ms and intermittent
+work 6.607 ms. Warming the policy once did not prevent subsequent downclocking.
+
+With the `performance` governor, the clock stayed at 2.016 GHz. The matched cold
+100 Hz case averaged **2.778 ms**, and intermittent work **2.704 ms**. Other
+profile cases retained scheduling variation, so these figures are not a promise
+that every complete loop finishes under 10 ms. Records are
+`/tmp/hexapod-loop-cpu-cadence-schedutil.json` and
+`/tmp/hexapod-loop-cpu-cadence-performance.json`.
+
+`7e8c02540` sets the performance governor when the controller service starts and
+removes the runner's extra F/IMUR polling during active drive. Command replies
+already contain live controller state; camera recording, controller CSV and
+controller safety feedback remain. `b79154044` reduces repeated scalar rounding
+and diagnostic serialization in the per-tick log path. These changes preserve
+the 100 Hz trained policy and address measured implementation costs. The next
+loaded canary completed, as recorded above; longer repeatability is still open.
+
+## Earlier fixed-policy cadence simulation
+
+These results describe the earlier asynchronous architecture. They are neither
+a hardware rate limit nor validation of a physical filter change. The same
+frozen hardware actor ran at 100 Hz in all cells: seed 0, forward and sideways,
+10 seconds each, no domain randomization.
 
 | Policy / write / feedback Hz | Forward progress ratio | Forward slip/m | Sideways progress ratio | Sideways slip/m |
 |---|---:|---:|---:|---:|
@@ -80,121 +160,94 @@ per cell. Domain randomization was off.
 | 100 / 50 / 50, original 10 Hz filter bandwidth | .296 | 4.089 | .280 | 4.083 |
 | 100 / 50 / 10, faster filters | .366 | 3.112 | .327 | 3.352 |
 
-All cells completed without termination. The follow-up isolates a substantial
-**filter-response mismatch**: keeping the slow filter bandwidth removes most
-of the 50 Hz sensing gain, while faster filters at the existing bus cadence
-recover nearly all the forward gain. The latter used velocity alpha `.83193`
-and attitude alpha `.9039207968`, versus `.3` / `.98` today. They match the
-approximate response time of the original coefficients at 50 Hz; they are
-experimental settings; these results do not establish performance on the robot.
+All completed without termination. Within this simulator, maintaining the slow
+filter bandwidth removed most of the faster-sensing gain. The faster-filter
+cell used velocity alpha `.83193` and attitude alpha `.9039207968`, versus the
+modeled `.3` / `.98`. This isolates a simulated filter-response effect.
 
-Keep the policy at 100 Hz. The next physical comparison needs only the existing
-`velocity_filter.alpha` setting changed from `.3` to `.8`, retaining attitude
-alpha `.98`, the same policy/gait, and the same 100/50/10 Hz rates. A matched
-velocity-only simulation gave forward progress `.294 → .327` (+11%) and sideways
-`.297 → .337` (+13%), with slip per meter reduced 16% and 15%. Both 10-second
-episodes completed without termination. The actor/model/motor hashes match the
-earlier baseline. This isolates one useful change without new training or bus code.
-The report is `logs/ckpt_eval/deployed_transport_noyaw_v2_20260905_velocity_only/report.json`.
+A separate velocity-only `.8` / `.98` cell at 100/50/10 gave forward progress
+`.294 → .327` (+11%) and sideways `.297 → .337` (+13%), with slip reduced 16%
+and 15%. Changing attitude alone to `.9039208` improved forward `.294 → .319`
+but worsened sideways `.297 → .280` and sideways slip. These remain hypotheses:
+the physical baseline failed before `.8` could be tried. Do not carry the
+10 Hz filter adjustment into a restored 100 Hz observation path automatically.
 
-Noise analysis can proceed alongside this experiment; it is not a new admission
-gate. Try the bounded physical comparison using existing stop protections,
-then keep or reject the setting based on the actual walking. Do not run these
-weights at 50 Hz merely to match bus writes.
+Reports, resolved configs and actor/model/motor hashes remain under
+`logs/ckpt_eval/deployed_transport_noyaw_v2_20260905*`, including
+`_velocity_only/report.json` and `_attitude_only/report.json`. These used a
+**4.80573 kg full-mesh model** and a training configuration reconstructed from
+export metadata and logs. They do not reproduce the original 3.49 kg training
+twin or this unit's legacy physical assembly exactly. The replay omits readiness,
+controller transitions and the live age cutoff for long-gap traces. Simulated
+current is an uncalibrated proxy. Replay remains default-off; no MJX claim is made.
 
-These are diagnostics on the current **4.80573 kg full-mesh model**, with a
-training configuration reconstructed from export metadata and the training
-log. They are not a reconstruction of the original 3.49 kg training twin or a
-hardware speed prediction. The filter-isolation follow-ups cover only two
-directions and do not establish behavior with real sensor noise. Simulated
-current remains an uncalibrated proxy. The replay
-does not reproduce readiness, controller transitions or the live 150 ms
-freshness stop for custom long-gap traces.
+Cloud verification cycle `20260905T080130_operator-kick` used a different actor
+and regenerated **3.490 kg model**. Its assumed-noise screen retained a forward
+advantage at 1× noise and lost it at 2×; neither noise level was measured on
+hardware. This is supporting mechanism evidence, not a replication or an
+additional prerequisite. Details are on the
+[verification branch](https://github.com/lukas/hexapod/blob/codex/smooth-walking-delivery-verify-20260905/hexapod_walker/prototype_sts3215/rl_docs/WALKING_DELIVERY_VERIFY_20260905.md).
 
-Reports, complete configs and model/motor hashes are preserved under
-`logs/ckpt_eval/deployed_transport_noyaw_v2_20260905*`. The feature is default-off;
-MJX refuses it until that backend can reproduce its timing contract.
+## Other useful work retained
 
-## Validation and code state
+- Per-trial velocity alpha API/CLI (`464b43d31`) and command ownership permit
+  controlled comparisons without persistent configuration changes. Observing
+  an external drive in the browser no longer starts zero-command heartbeats.
+- The obs-75 MLP / obs-81 dual-GRU exporter/runtime is integrated
+  (`70536488d`, `3a9556f40`). This enables existing candidates to run; it does
+  not demonstrate physical steering or their Uno Q inference timing.
+- The firmware scheduler fix (`d57ead668`) prevents frequent S requests from
+  indefinitely starving full-health acquisition. Eleven host tests compile
+  its actual loop; the target-board build, flash and subsequent bus test passed.
+- Initial controller/runtime/CLI checks passed 159 focused tests. Later
+  ownership/guard/UI checks passed 29. These establish tested code behavior,
+  not physical walking performance. The simulator's existing drag-threshold
+  failure reproduced unchanged before the replay patch.
+- Robot Lab can retain the existing guarded job identity and receive actual
+  outcomes and evidence. Historical short traces without measured engagement
+  retain unknown durations; command speed is never integrated into displacement.
 
-- Controller/API/bus, benchmark, replay and envelope regressions: **132 passed,
-  two expected skips** for untracked hardware traces and optional planted
-  protocols. The tracker source was supplied on `PYTHONPATH` for import only;
-  the isolated checkout does not initialize that submodule.
-- Robot Lab: **69 passed**. The tested package is installed in the local Lab
-  runtime; live health and source hash verified after restart while idle.
-- `make robot-check`: **42 syntax checks and 12 composed-policy guards passed**,
-  plus JavaScript and whitespace checks. Its path quoting now works for a
-  workspace directory containing spaces.
-- A broader simulator check encountered the existing
-  `test_drag_charges_loaded_translation` threshold failure; the replay author
-  reproduced the identical value on prepatch `sim_env.py`.
-- Controller commit: `96b54760f`. Replay and cadence evidence: `f68e1181a`.
-  These are on `codex/smooth-walking-delivery`; the shared working checkout's
-  unrelated edits have been preserved.
-- The later upstream time-slicing experiment was merged; all **17** updated
-  envelope tests passed with the corrected slip-history behavior retained.
+The loaded-contact/body-fit work remains useful once control is repeatable.
+Keep gait 9 and the hardware-tested no-yaw canary as references. Design findings
+are in the [mechanical lessons](../docs/NEXT_ROBOT_MECHANICAL_LESSONS_2026-09-05.md)
+and [wiring lessons](../docs/NEXT_ROBOT_WIRING_LESSONS_2026-09-05.md).
+No broad PPO search or new gait family was launched by this delivery.
 
-Follow-up operator note `fb_20260905T075426_969b3d` and cycle
-`20260905T080130_operator-kick` hand the frozen actor and checked-in evidence to
-the orchestrator for a matched noise-sensitivity screen and corrected
-stop/restart slip measurement. The cycle was observed reading the delivery
-branch. This work is CPU-only; the physical filter settings are unchanged.
+## Steering experiment outcome
 
-## Orchestrator experiment
+Cycle `20260905T071621_operator-kick` tested ten scripted command scenarios,
+two identical deterministic seeds and three arms. These are not 60 independent
+robustness trials. For combined translation/yaw:
 
-Durable request `fb_20260905T071610_749846` produced cycle
-`20260905T071621_operator-kick`, commits `02fc8507` and `817aa770`.
-The cycle ran a scripted-gait command-envelope comparison: 10 command
-scenarios, two seeds, three arms. Because domain randomization was disabled,
-the seed repetitions were identical: this is one deterministic observation
-per condition, not 60 independent robustness trials.
-
-| Combined translation and yaw | Original controller | Scale all axes | Prioritize yaw |
+| Metric | Original | Scale all axes | Prioritize yaw |
 |---|---:|---:|---:|
-| Forward progress / requested distance | 0.372 | 0.239 | 0.166 |
-| Yaw course / requested yaw | 0.24 | 0.25 | 0.42 |
-| Median achieved yaw rate, rad/s | 0.070 | 0.080 | 0.168 |
+| Progress / requested distance | .372 | .239 | .166 |
+| Yaw course / requested yaw | .24 | .25 | .42 |
+| Median achieved yaw, rad/s | .070 | .080 | .168 |
 
-Scaling all axes is rejected: it loses progress without meaningfully
-improving turning. Prioritizing yaw has a substantial speed cost and remains
-an opt-in research candidate. Neither is promoted to the robot. No PPO run
-was launched by this request.
+Scaling all axes loses progress without useful steering improvement. Prioritizing
+yaw pays a substantial speed cost; neither was promoted. The evaluator's
+stop/restart slip history was subsequently corrected to
+`commanded_intervals_v2_stop_history_advanced`; original slip values require
+care, while the progress/yaw conclusion is unchanged. No PPO was launched.
 
-Review subsequently found that the evaluator carried foot-position history
-through zero-command pauses. Restart could then charge paused displacement
-as commanded slip. The corrected evaluator advances history every tick and
-stamps `slip_metric_version=commanded_intervals_v2_stop_history_advanced`.
-Original cloud artifacts remain unchanged. Their slip values require a rerun;
-the progress/yaw conclusions above do not depend on that calculation.
+## Continue from the actual outcome
 
-## Next physical milestone
+Robot Lab job
+[`bf30596891a0481b9e812abbf5af9cf3`](https://robot-lab.cwd1f0-new-cluster.coreweave.app/experiments/bf30596891a0481b9e812abbf5af9cf3)
+was cancelled because its legacy pinned specification could not accept the
+actual revised execution. It retains the historical [plan](tracks/todaypolicy/hardware_delivery/timing_canary_plan.json)
+and [receipt](tracks/todaypolicy/hardware_delivery/timing_canary_receipt.json).
+The [failed baseline result](https://robot-lab.cwd1f0-new-cluster.coreweave.app/experiments/b2aaf3b5acff4cd9bfd02309a15f4e90) records the first three failed
+baseline attempts and two successful lowers; **50 artifacts were uploaded and
+verified**. The [successful restored canary](https://robot-lab.cwd1f0-new-cluster.coreweave.app/experiments/311f9fa2e240401281e9b30bc319f436)
+is registered separately with the actual controller, actor and measured timing.
+The first combined-S failure, third lower, bus benches and CPU profiles are
+retained locally for the evidence upload. The old job's hashes and single-run
+description do not describe the revised deployments or outcomes.
 
-Robot Lab job [`bf30596891a0481b9e812abbf5af9cf3`](https://robot-lab.cwd1f0-new-cluster.coreweave.app/experiments/bf30596891a0481b9e812abbf5af9cf3)
-is **waiting for an operator**. Its [exact plan](tracks/todaypolicy/hardware_delivery/timing_canary_plan.json)
-and [receipt](tracks/todaypolicy/hardware_delivery/timing_canary_receipt.json)
-are checked in. No physical execution has occurred.
-
-The [benchmark protocol](HARDWARE_WALK_BENCHMARK.md) prepares a single
-3-second forward command window, fixed 0.08 m/s, no yaw, using
-`hardware-walk-noyaw-v2-canary`. Arming occupies part of that window, so
-actual learned-policy engagement must be measured separately.
-
-The operator must authorize and supervise the existing STEP acquisition,
-bounded forward trial, stop, and planned lower. First deploy and verify the
-reviewed controller version, check live source timestamps and three fresh
-healthy scans, and confirm the physical posture matches the logical frame.
-Queueing this plan does not execute or authorize motion. No firmware or CAD
-change is part of this delivery.
-
-Following Lukas's request to reduce process, the benchmark generator no longer
-requires a pinned tag layout, exact source-hash match, or a separate timing
-report to attempt a walk. These instructions supersede those process prerequisites
-without changing the job's motion. The existing Lab entry retains the original
-specification: its API does not accept notes on a waiting job, so no replacement
-job was created. Continue repetitions within the authorized scope
-after a stable stop, and use the evidence available to choose the next change.
-
-Orchestrator feedback `fb_20260905T081113_6f0872` communicates this correction
-and cancels the extra command-envelope rerun requested earlier. It is filed
-for the next decision cycle; the active cycle has not acknowledged it yet.
+Lukas authorized bounded experiments and relevant deployment during the active
+task. Continue the concrete transport correction and observed tests; no new
+permission, source-hash, tag-layout or reporting prerequisite is needed.
+Keep the same no-yaw canary and its 100 Hz policy clock. Measure actual
+engagement and behavior instead of treating requested duration as time walked.

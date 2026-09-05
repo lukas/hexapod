@@ -386,6 +386,19 @@ def _easy_rollout(policy: str, seed: int, *, gait_scale: float = 1.0,
             q = bellysit_rad
         elif policy == "topple":
             q = topple_rad
+        elif policy == "sprint_fall":
+            # The cw-walkscratch-easy0905-sdehalfgrav-{s0,s1} 40M
+            # exploit twin (09-05 dig-in): ballistic forward lurch at
+            # ~3x the command (observed v_along 0.19-0.29 m/s, income
+            # capped at 2/tick) for ~0.7 s, then pitch over and
+            # tilt-terminate — banking the burst income while paying
+            # only the flat death price.
+            if t < 0.7:
+                gait.set_velocity(vx=float(traj.vx[i]) * gait_scale,
+                                  vy=0.0)
+                q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+            else:
+                q = topple_rad
         else:                       # park
             q = plant_rad
         obs, r, done, trunc, info = env.step(_q_to_action(env, q))
@@ -513,3 +526,123 @@ def test_easy_box_gait_still_travels_and_out_earns_park():
     assert g_tot > p_tot + 25.0, (
         f"in-box gait does not out-earn park: gait={g_tot:.1f} "
         f"park={p_tot:.1f}")
+
+
+# ---------------------------------------------------------------------
+# SURVIVAL-DURATION pricing fix (09-05 dig-in: sdehalfgrav-{s0,s1}
+# sprint-then-fall exploit — flat 24 death price is an order of
+# magnitude below a capped-income burst's take)
+# ---------------------------------------------------------------------
+# Root-cause chain: the sde x halfgrav cell (2/4 seeds by 40M) learned
+# a ~0.7 s ballistic lurch (v_along 0.19-0.29 m/s, freeprog income
+# capped at 2/tick) into a tilt_pitch death: ep_len collapsed to a
+# 65-84-tick plateau while per-episode reward climbed -222 -> -5.6 —
+# the one-time -24 charge never outweighs the burst income, so death
+# is a paid reset button.  Fix: reward.term_cost_per_remaining_s
+# (08-15 mechanism, "a drag-then-fall cannot bank income a survivor
+# would have kept earning") prices EARLY death in proportion to the
+# survival time forfeited, with reward.term_cost_max bounding the
+# terminal charge for critic sanity (08-17).  reward.alive is REJECTED
+# for this diet: a per-tick alive bonus re-prices the park/statue
+# basin (15+ walkcurr run classes converged there) from ~0 to strongly
+# positive — the documented "freeze and collect" class.  Both keys are
+# default-off and bit-exact for behaviors that survive to truncation.
+#
+# Sizing (training episodes 5 s / 500 ticks @ 100 Hz): death at t
+# costs 24 + min(100*(5-t), 450).  Observed burst deaths (0.65-0.85 s)
+# are charged ~444-464 vs a burst-take ceiling of 2/tick * ~85 = 170
+# (>2.5x margin); the charge decays toward the flat 24 near
+# truncation, so a stumble while genuinely walking out stays cheap.
+EASY_REMCOST = {
+    ("reward", "term_cost_per_remaining_s"): 100.0,
+    ("reward", "term_cost_max"): 450.0,
+}
+# The 4.81 kg twin's static folds max out ~26.5 deg, so scripted twins
+# can only terminate under a test-scoped 20 deg envelope (same pattern
+# as test_easy_dying_is_priced_below_park; the learned exploit trips
+# the pilot's 30 deg envelope DYNAMICALLY, which scripted poses cannot
+# reproduce).  Pricing comparisons are envelope-consistent: every
+# behavior in a test runs under the same envelope.
+PROBE20 = {
+    ("safety", "max_roll_deg"): 20.0,
+    ("safety", "max_pitch_deg"): 20.0,
+}
+
+
+@pytest.fixture(scope="module")
+def remcost_returns() -> dict[str, float]:
+    base = {**EASY_BASE, **PROBE20}
+    fix = {**base, **EASY_REMCOST}
+    out: dict[str, float] = {}
+    for diet, ov in (("base", base), ("fix", fix)):
+        for pol, scale in (("sprint_fall", 3.0), ("park", 1.0)):
+            runs = [_easy_rollout(pol, s, gait_scale=scale, overrides=ov)
+                    for s in SEEDS]
+            out[f"{pol}@{diet}"] = float(np.mean([r[0] for r in runs]))
+            out[f"{pol}@{diet}_steps"] = float(
+                np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_easy_sprintfall_exploit_reproduced_at_flat24(remcost_returns):
+    """Under the launched pilot diet (flat 24 death price) the scripted
+    sprint-then-fall twin must OUT-EARN park — reproducing in-bank the
+    exploit both sdehalfgrav 40M seeds learned.  If this fails, the
+    bank does not model the observed behavior and the fix tests below
+    prove nothing."""
+    assert remcost_returns["sprint_fall@base_steps"] < 400, (
+        "sprint_fall twin did not terminate under the 20 deg probe "
+        f"envelope: {remcost_returns}")
+    assert (remcost_returns["sprint_fall@base"]
+            > remcost_returns["park@base"] + 15.0), (
+        f"exploit not reproduced (sprint_fall should out-earn park "
+        f"under flat 24): {remcost_returns}")
+
+
+def test_easy_remcost_prices_sprintfall_below_park(remcost_returns):
+    """With the survival-duration charge on, dying after a paid burst
+    must fall DECISIVELY below just standing there — the exploit's
+    income can never cover the forfeited-survival price."""
+    assert remcost_returns["sprint_fall@fix_steps"] < 400, (
+        f"fix changed the twin's termination: {remcost_returns}")
+    assert (remcost_returns["sprint_fall@fix"]
+            < remcost_returns["park@fix"] - 50.0), (
+        f"survival-duration charge does not price out the burst: "
+        f"{remcost_returns}")
+    # park itself is untouched by the fix (survives to truncation)
+    assert (abs(remcost_returns["park@fix"]
+                - remcost_returns["park@base"]) < 1e-6), (
+        f"fix keys changed a surviving behavior's return: "
+        f"{remcost_returns}")
+
+
+def test_easy_remcost_bit_exact_for_survivors():
+    """At the pilot's own 30 deg envelope (where the campaign trains),
+    the fix keys are bit-exact for behaviors that survive to
+    truncation: gait and park earn IDENTICAL returns with and without
+    the keys."""
+    fix = {**EASY_BASE, **EASY_REMCOST}
+    for pol in ("gait", "park"):
+        t0, dx0, s0 = _easy_rollout(pol, 0, overrides=EASY_BASE)
+        t1, dx1, s1 = _easy_rollout(pol, 0, overrides=fix)
+        assert s0 == s1 and abs(t0 - t1) < 1e-9, (
+            f"remcost keys not bit-exact for surviving '{pol}': "
+            f"{t0} vs {t1} ({s0} vs {s1} steps)")
+
+
+def test_easy_remcost_sizing_dominates_burst_ceiling():
+    """Arithmetic guard on the chosen dose, against the THEORETICAL
+    income ceiling (2/tick at cap), not just the measured twin: for
+    every burst length in the plausible ballistic class (<=1.5 s — by
+    ~1.8 s of sustained capped income the 'burst' is real locomotion
+    whose gradient must not be nuked), the death charge under 5 s
+    training episodes exceeds the burst's maximum possible take."""
+    k_rem = EASY_REMCOST[("reward", "term_cost_per_remaining_s")]
+    cap = EASY_REMCOST[("reward", "term_cost_max")]
+    flat = EASY_BASE[("reward", "safety_termination_penalty")]
+    for t in np.arange(0.1, 1.51, 0.1):
+        charge = flat + min(k_rem * (5.0 - t), cap)
+        ceiling = 2.0 * 100.0 * t
+        assert charge > ceiling, (
+            f"death at {t:.1f}s underpriced: charge {charge:.0f} <= "
+            f"income ceiling {ceiling:.0f}")

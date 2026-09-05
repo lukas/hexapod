@@ -101,6 +101,27 @@ backlog; idle slots next to this unmet priority are the failure state.
   bank proof before launch, so this is flagged as a DIG-IN design
   item rather than hand-launched. Evidence:
   `logs/ckpt_eval/cw_walkscratch_easy0905_sdehalfgrav_s1_gate/`.
+- 09-05 DIG-IN RESOLVED — survival-duration pricing fix designed +
+  bank-proven (`test_walkscratch_easy_pilot.py`, 17/17 incl. 4 new):
+  the chosen lever is `reward.term_cost_per_remaining_s=100` +
+  `term_cost_max=450` (08-15 early-fall horizon cost, default-off,
+  MJX-parity via the shim envs, bit-exact for survivors) — death at
+  the observed 0.65-0.85 s burst point now costs ~444-464 vs a
+  2/tick-capped burst-take ceiling of ~170, decaying to the flat 24
+  near truncation so late stumbles while genuinely walking stay
+  cheap. `reward.alive` REJECTED: a per-tick bonus re-prices the
+  park/statue basin (15+ walkcurr classes died there) from ~0 to
+  strongly positive — the documented freeze-and-collect exploit
+  class; a raised FLAT penalty rejected as second choice (charges a
+  tick-490 stumble like a tick-70 suicide; 08-17 critic-EV lesson).
+  Bank evidence: new scripted `sprint_fall` twin (3x lurch 0.7 s ->
+  fold -> tilt death) REPRODUCES the exploit under the launched diet
+  (+64.7 vs park +0.2) and is priced out under the fix (-385.3 <<
+  park), park/gait returns bit-identical with the keys on. Fix arms:
+  `cw-walkscratch-easy0905-sdehalfgrav-remcost-s0/s1` (fresh 40M,
+  cell recipe + the two keys). If they walk: the cell's failure was
+  pricing, extend the fix cell; if they park-pin at ~0 income with
+  full ep_len: exploration (gSDE x 0.5g), stop funding the cell.
 
 ## Easy-sim pilot recipe (superseded for scale by the campaign above)
 

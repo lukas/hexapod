@@ -2,6 +2,54 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~18:3x this cycle (assigned `headset-base-irr-dgate2-c1`; its
+  eval was found still genuinely computing remotely, video-every=1 on
+  all 4 modes -- backgrounded `pollreap`, reaped the real report):
+  **CANARY FAIL - MECHANISM**, a DIFFERENT signature than the sibling
+  `s0c1-dgate2-c1` FAIL below (read together). Plain English: the
+  same stronger duty-floor price (0.35 vs the old inert 0.15) DID
+  genuinely engage this time (`env/walk_duty_gate_factor` fell
+  1.0->0.63->0.44, real training-time pricing, not pinned) but still
+  did not repair the irr-timing/1g marginal-underuse checkpoint, and
+  two previously-clean episodes got WORSE: per-episode duty vectors
+  are near-bit-identical to the parent `irr-acq1` checkpoint (leg-4
+  duty 0.07/0.06/0.14/0.11 parent vs 0.06/0.06/0.13/0.09 child --
+  flat-to-down, never climbing), and `gait_valid` dropped (walk/det
+  3/6->2/6, `walk_startjitter/sto` 6/6->4/6) as the SAME marginal leg
+  (4, then 1) newly parked in 2 additional episodes it had cleared
+  before. slip_per_m stayed flat/noise-level, 0 falls both runs. Why:
+  a genuinely-engaged price against an already-40M-entrenched
+  checkpoint pays 2M steps of training-time cost without buying
+  eval-time repair -- the SAME entrenched-checkpoint shape the
+  concurrent `sde-s2-c2-dgatefix-cont40m` closure documented at 40M
+  scale (factor moves, sacrifice persists/re-saturates), now seen at
+  2M on this family too. Combined with the sibling below: strong-floor
+  `walk_duty_gate` retrofit onto an ENTRENCHED checkpoint is now 2/2
+  FAIL for the marginal-underuse class (one INERT-DOSE, one
+  engaged-no-repair) -- both closed, do not retry this exact retrofit
+  again. **Refill (same cycle, non-duplicative): the from-scratch vs
+  entrenched-checkpoint split that closed the (separate, now-closed)
+  gSDE lineage's `walk_duty_gate` question was never actually run on
+  this still-open base/halfgrav family** -- launched
+  `headset-base-s0c1-dgfresh` (respec of the ALREADY-LANDED undosed
+  `headset-base-s0c1` 2M canary, identical seed=0/`--init-from`
+  checkpoint, ONLY addition: the same bank-proven duty_gate cfg baked
+  in from step 0 instead of retrofit after 40M), VERIFIED RUNNING
+  train-4. Gate: PASS if `walk_startjitter/det` leg-4 duty measurably
+  exceeds the undosed twin's own landed report (6/6 sacrifice leg[4])
+  with det/sto still >=10/12 valid and no new falls; FAIL closes
+  duty_gate-from-scratch too (2nd family after gSDE) and forces a
+  genuinely new mechanism (harder floor + explicit per-leg exploration
+  anneal) before further duty_gate spend. Capacity re-checked: 6-7/11
+  GPU pods free before this launch: `sweep-friction` non-GPU,
+  `train-6` unreachable, `train-1/2/0/3` running the concurrent
+  cycles' medhead/medhead2 heading-generalization ladder (the
+  campaign's other, likely higher-value, open axis -- left alone, not
+  duplicated). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-base-irr-dgate2-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_irr_dgate2_c1_gate/report.json`
+  vs `..._headset_base_irr_acq1_gate/report.json`, W&B `9r38bzqi`.
+
 - 09-05 ~18:3x this cycle (assigned `headset-base-s0c1-dgate2-c1`):
   **CANARY FAIL - MECHANISM (INERT-DOSE, reconfirmed at 2.3x dose)**.
   Plain English: doubling the duty-floor price from 0.15 to 0.35 to

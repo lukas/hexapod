@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T18:28:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-medhead-c1
+
+**wandb_id**: 1w4vf6xd
 
 **hypothesis**: Seed-robustness check for the medium 5-way heading rung (0,+-45,+-90deg) on the halfgrav(0.5g) family: medhead-c1 (warm-started from headset-halfgrav-acq1) already CANARY PASSED (harness-confirmed 24/24 gait_valid, 0 sac legs, 0 falls). This launches the SAME 2M canary recipe from a DIFFERENT already-existing halfgrav heading champion (headset-halfgrav-s3acq, a different seed, never yet tried on this rung) to confirm the medhead-widen step generalizes across seeds before the campaign calls the rung closed, mirroring the n>=2/3 seed-confirmation pattern already used for every other rung in this campaign.
 

@@ -307835,7 +307835,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_s3acq.zip"
     ],
     "created": "2026-09-05T18:28:06+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -307847,13 +307847,27 @@
       "code_sha_local": "ce096b541a9a0e048f86a72c8fe8c155709320bc",
       "code_sha_pod": "ce096b541a9a0e048f86a72c8fe8c155709320bc",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2341509",
+      "log_growth_bytes": [
+        6161,
+        7600
+      ],
+      "wandb_id": "1w4vf6xd",
+      "trainer_pid": "2341509",
+      "global_step_window": [
+        524288,
+        1572864
+      ],
+      "fps_estimate": 34952.5
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "canary",
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-medhead2-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-medhead-c1: Seed-robustness check for the medium 5-way heading rung (0,+-45,+-90deg) on the halfgrav(0.5g) family: medhead-c1 (warm-started from headset-halfgrav-acq1) already CANARY PASSED (harness-confirmed 24/24 gait_valid, 0 sac legs, 0 falls). This launches the SAME 2M canary recipe from a DIFFERENT already-existing halfgrav heading champion (headset-halfgrav-s3acq, a different seed, never yet tried on this rung) to confirm the medhead-widen step generalizes across seeds before the campaign calls the rung closed, mirroring the n>=2/3 seed-confirmation pattern already used for every other rung in this campaign.' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_s3acq.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-c1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-c1.log"
+    "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-c1.log",
+    "wandb_id": "1w4vf6xd",
+    "verified": "2026-09-05T18:30:56+00:00"
   }
 ]

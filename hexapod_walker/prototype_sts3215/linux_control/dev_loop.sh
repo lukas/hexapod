@@ -81,6 +81,7 @@ files = [
     "linux_control/cpg_controller_loader.py",
     "linux_control/mcu_feetech_bus.py",
     "linux_control/async_bus_guard.py",
+    "linux_control/rl_policy.py",
     "linux_control/event_log.py",
     "linux_control/telemetry_recorder.py",
     "linux_control/status_display.py",
@@ -103,6 +104,8 @@ files = [
     "linux_control/sysid_runner.py",
     "hexapod_core/walk_ready_transition.py",
     "linux_control/rl_walk_start.py",
+    "rl_move/np_policy.py",
+    "rl_move/deployed_policy.py",
     "motor_setup/inplace_demos.py",
     "motor_setup/motion_telemetry.py",
     "hexapod_core/dance_script.py",
@@ -393,6 +396,9 @@ hex_remote_compile() {
       linux_control/drive_controller.py \
       linux_control/cpg_controller_loader.py \
       linux_control/telemetry_recorder.py \
+      linux_control/rl_policy.py \
+      rl_move/np_policy.py \
+      rl_move/deployed_policy.py \
       hexapod_core/walk_ready_transition.py \
       linux_control/rl_walk_start.py \
       motor_setup/inplace_demos.py \

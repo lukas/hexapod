@@ -118,8 +118,12 @@ def _phase_meta_errors(meta: dict, obs: int, errs: list[str]) -> None:
     else:
         if not math.isfinite(phase_hz) or phase_hz <= 0.0:
             errs.append("meta.phase_hz must be finite and > 0")
-    if obs in (75, 81) and not bool(meta.get("walk_yaw_cmd")):
-        errs.append(f"obs {obs} requires meta.walk_yaw_cmd=true")
+    if obs in (75, 81):
+        if meta.get("walk_yaw_cmd") is not True:
+            errs.append(f"obs {obs} requires meta.walk_yaw_cmd=true")
+        if not isinstance(meta.get("walk_phase_run_on_yaw"), bool):
+            errs.append(
+                f"obs {obs} requires boolean meta.walk_phase_run_on_yaw")
 
 
 def _validate_head(head, *, name: str, input_dim: int,
@@ -141,6 +145,16 @@ def _validate_head(head, *, name: str, input_dim: int,
     W1, b1 = arrays["W1"], arrays["b1"]
     W2, b2 = arrays["W2"], arrays["b2"]
     Wo, bo = arrays["Wout"], arrays["bout"]
+    ranks = {"W1": (W1, 2), "b1": (b1, 1),
+             "W2": (W2, 2), "b2": (b2, 1),
+             "Wout": (Wo, 2), "bout": (bo, 1)}
+    for key, (value, rank) in ranks.items():
+        if value.ndim != rank:
+            errs.append(f"{name}.{key} must be rank {rank}, got {value.shape}")
+        if not np.all(np.isfinite(value)):
+            errs.append(f"{name}.{key} contains non-finite values")
+    if errs:
+        return errs, []
     chain = [
         ("W1", W1, (b1.shape[0], input_dim)),
         ("b1", b1, (W1.shape[0],)),
@@ -152,8 +166,6 @@ def _validate_head(head, *, name: str, input_dim: int,
     for key, value, want in chain:
         if value.shape != want:
             errs.append(f"{name}.{key} shape {value.shape} != {want}")
-        if not np.all(np.isfinite(value)):
-            errs.append(f"{name}.{key} contains non-finite values")
     return errs, [W1, b1, W2, b2, Wo, bo]
 
 
@@ -309,6 +321,16 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
         bo = np.asarray(obj["bout"], dtype=np.float64)
     except (TypeError, ValueError) as e:
         return ([f"matrices are not numeric arrays: {e}"], info)
+    ranks = {"W1": (W1, 2), "b1": (b1, 1),
+             "W2": (W2, 2), "b2": (b2, 1),
+             "Wout": (Wo, 2), "bout": (bo, 1)}
+    for name, (matrix, rank) in ranks.items():
+        if matrix.ndim != rank:
+            errs.append(f"{name} must be rank {rank}, got {matrix.shape}")
+        if not np.all(np.isfinite(matrix)):
+            errs.append(f"{name} contains non-finite values")
+    if errs:
+        return errs, info
     chain = [("W1", W1, (b1.shape[0], obs)), ("b1", b1, (W1.shape[0],)),
              ("W2", W2, (b2.shape[0], W1.shape[0])),
              ("b2", b2, (W2.shape[0],)),
@@ -316,10 +338,6 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
     for name, m, want in chain:
         if m.shape != want:
             errs.append(f"{name} shape {m.shape} != {want}")
-    for name, m, _ in chain:
-        if not np.all(np.isfinite(m)):
-            errs.append(f"{name} contains non-finite values")
-            break
     if errs:
         return (errs, info)
     # Smoke forward pass — an uploaded brain must at least not explode.

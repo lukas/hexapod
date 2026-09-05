@@ -4283,7 +4283,7 @@ async function rlLoadPicker(){
         for(const [role, label, roleSlot] of RL_ROLE_CHIPS){
           if(roleSlot && roleSlot !== slot) continue;
           if(role === 'hold'){
-            const dims = rlAllowedObs.hold || [68, 72, 74, 93];
+            const dims = rlAllowedObs.hold || [68, 72, 74, 75, 81, 93];
             if(!dims.includes(p.obs_dim)) continue;
             // Scripted gaits can't serve the RL hold role.
             if((p.file || '').startsWith('scripted:')) continue;

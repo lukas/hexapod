@@ -5,6 +5,8 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 """
 from __future__ import annotations
 
+import hashlib
+
 from .common import *  # noqa: F401,F403
 from async_bus_guard import AsyncSamplerCleanupError
 
@@ -462,15 +464,23 @@ class RlApi:
         return out
 
     def rl_policy_info(self) -> dict:
-        """Metadata of the deployed policy weights (no bus traffic)."""
+        """Metadata and exact hashes of deployed policy weights (no bus traffic)."""
         try:
             from rl_policy import WEIGHTS_PATH, WALK_WEIGHTS_PATH
-            meta = json.loads(Path(WEIGHTS_PATH).read_text())["meta"]
-            out = {"ok": True, **meta}
+            weights_payload = Path(WEIGHTS_PATH).read_bytes()
+            meta = json.loads(weights_payload)["meta"]
+            out = {
+                "ok": True,
+                **meta,
+                "policy_sha256": hashlib.sha256(weights_payload).hexdigest(),
+            }
             try:
-                walk = json.loads(
-                    Path(WALK_WEIGHTS_PATH).read_text())["meta"]
-                out["walk"] = walk
+                walk_payload = Path(WALK_WEIGHTS_PATH).read_bytes()
+                walk = json.loads(walk_payload)["meta"]
+                out["walk"] = {
+                    **walk,
+                    "policy_sha256": hashlib.sha256(walk_payload).hexdigest(),
+                }
             except Exception as e:
                 out["walk"] = {"error": str(e)}
             return out

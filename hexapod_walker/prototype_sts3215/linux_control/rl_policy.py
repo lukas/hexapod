@@ -3812,6 +3812,34 @@ def validate_velocity_filter_alpha(value: float | None) -> float | None:
     return alpha
 
 
+def validate_drive_active_duration(value: float | None) -> float | None:
+    """Validate an optional controller-local learned-walk deadline.
+
+    Interactive drive sessions leave this unset. Guarded trials set it so a
+    delayed host heartbeat/response cannot extend the active policy window.
+    """
+    if value is None:
+        return None
+    try:
+        duration = float(value)
+    except (TypeError, ValueError, OverflowError):
+        raise ValueError(
+            "active_duration_s must be finite and in [0.05, 20]") from None
+    if not math.isfinite(duration) or not 0.05 <= duration <= 20.0:
+        raise ValueError("active_duration_s must be finite and in [0.05, 20]")
+    return duration
+
+
+def _drive_active_duration_reason(limit_s: float | None,
+                                  started_s: float | None,
+                                  now_s: float) -> str | None:
+    if limit_s is None or started_s is None:
+        return None
+    if now_s - started_s < limit_s:
+        return None
+    return f"active walk cap {limit_s:g}s reached"
+
+
 def _drive_filter_config(cfg: dict, alpha: float | None) -> dict:
     """Keep an override local to this session, including nested filter config."""
     alpha = validate_velocity_filter_alpha(alpha)
@@ -3826,7 +3854,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                             walk_weights: Path | None = None,
                             hold_weights: Path | None = None,
                             allow_step_stand_start: bool = False,
-                            velocity_filter_alpha: float | None = None) -> dict:
+                            velocity_filter_alpha: float | None = None,
+                            active_duration_s: float | None = None) -> dict:
     """Blocking persistent drive session (MuJoCo-viewer-style driving).
 
     Same conventions as run_policy_move mode="walk" — plant-stance
@@ -3860,6 +3889,10 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     try:
         velocity_filter_alpha = validate_velocity_filter_alpha(
             velocity_filter_alpha)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    try:
+        active_duration_s = validate_drive_active_duration(active_duration_s)
     except ValueError as e:
         return {"ok": False, "error": str(e)}
     on_progress = on_progress or (lambda p: None)
@@ -3947,6 +3980,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         walk_policy, cfg, timing.policy_hz)
     debug = _RunDebug("drive", {
         "velocity_filter_alpha": actual_velocity_alpha,
+        "active_duration_s": active_duration_s,
         "walk_policy_path": str(wpath),
         "walk_policy_name": walk_policy.meta.get("name"),
         "walk_obs_dim": walk_obs,
@@ -4158,6 +4192,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     walk_has_engaged = False
     walk_cmd_since: float | None = None
     walk_active_since: float | None = None
+    walk_active_monotonic_s: float | None = None
     zero_since: float | None = None  # first tick of neutral input while walking
     stopping = None             # reason string once winding down
     overruns = 0
@@ -4171,6 +4206,7 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     progress_every = max(1, int(round(timing.policy_hz / 5.0)))
     result: dict = {"ok": True, "mode": "drive",
                     "velocity_filter_alpha": actual_velocity_alpha,
+                    "active_duration_limit_s": active_duration_s,
                     "training_hz": timing.policy_hz,
                     "policy_joint_frame": joint_frame,
                     "policy_joint_contract": JOINT_CONTRACT}
@@ -4334,6 +4370,10 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         vx_t, vy_t, wz_t, dh_t, hb_age, stop_req = cmd.get()
         if stop_req and stopping is None:
             stopping = "stopped"
+        duration_reason = _drive_active_duration_reason(
+            active_duration_s, walk_active_monotonic_s, tick_t0)
+        if duration_reason is not None and stopping is None:
+            stopping = duration_reason
         if hb_age > DRIVE_IDLE_END_S and stopping is None:
             stopping = "no command from browser — session ended"
         if t > DRIVE_MAX_SESSION_S and stopping is None:
@@ -4387,6 +4427,8 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                 prev_active = active
                 active = "walk"
                 walk_active_since = t
+                if walk_active_monotonic_s is None:
+                    walk_active_monotonic_s = time.monotonic()
                 walk_has_engaged = True
                 reanchor()
                 debug.event("drive_model_switch", tick=i, t_s=t,
@@ -4739,6 +4781,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         i += 1
         t = i * timing.policy_dt
 
+    active_stopped_monotonic_s = time.monotonic()
+    result["active_wall_time_s"] = (
+        max(0.0, active_stopped_monotonic_s - walk_active_monotonic_s)
+        if walk_active_monotonic_s is not None else 0.0)
+
     # Keep the same estimator through the read-only observation tail.
     TAIL_S = 3.0
     tail_tilt_samples: list[float] = []
@@ -4805,7 +4852,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                       walk_weights: Path | None = None,
                       hold_weights: Path | None = None,
                       allow_step_stand_start: bool = False,
-                      velocity_filter_alpha: float | None = None) -> dict:
+                      velocity_filter_alpha: float | None = None,
+                      active_duration_s: float | None = None) -> dict:
     """Exception-safe public wrapper for a persistent drive session."""
     require_bus_available(getattr(drive, "bus", None))
     try:
@@ -4814,6 +4862,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             abort_check=abort_check, rot60=rot60,
             walk_weights=walk_weights, hold_weights=hold_weights,
             allow_step_stand_start=allow_step_stand_start,
-            velocity_filter_alpha=velocity_filter_alpha)
+            velocity_filter_alpha=velocity_filter_alpha,
+            active_duration_s=active_duration_s)
     finally:
         _stop_active_async_samplers()

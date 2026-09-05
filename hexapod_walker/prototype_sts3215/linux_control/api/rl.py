@@ -851,6 +851,7 @@ class RlApi:
     def rl_drive_start(self, *, vx: float = 0.0, vy: float = 0.0,
                        wz: float = 0.0, dh: float = 0.0,
                        velocity_filter_alpha: float | None = None,
+                       active_duration_s: float | None = None,
                        command_owner: str | None = None) -> dict:
         """Start a persistent RL drive session (async, demo slot).
 
@@ -871,12 +872,15 @@ class RlApi:
             return blocked
         try:
             from rl_policy import (DriveCommand, preflight, run_drive_session,
+                                   validate_drive_active_duration,
                                    validate_velocity_filter_alpha)
         except ImportError as e:
             return {"ok": False, "error": f"rl_policy missing: {e}"}
         try:
             velocity_filter_alpha = validate_velocity_filter_alpha(
                 velocity_filter_alpha)
+            active_duration_s = validate_drive_active_duration(
+                active_duration_s)
         except ValueError as e:
             return {"ok": False, "error": str(e)}
         with self.drive._lock:
@@ -952,7 +956,8 @@ class RlApi:
             self._demo_params = {
                 "walk": walk_w.name if walk_w else "slot",
                 "hold": hold_w.name if hold_w else "joint_hold",
-                "command_owner": command_owner}
+                "command_owner": command_owner,
+                "active_duration_s": active_duration_s}
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", "RL drive")
@@ -971,7 +976,8 @@ class RlApi:
                     d, cmd, on_progress=_on_progress,
                     abort_check=self._demo_abort.is_set,
                     walk_weights=walk_w, hold_weights=hold_w,
-                    velocity_filter_alpha=velocity_filter_alpha)
+                    velocity_filter_alpha=velocity_filter_alpha,
+                    active_duration_s=active_duration_s)
                 if gen != self._demo_gen:
                     return
                 with self._lock:

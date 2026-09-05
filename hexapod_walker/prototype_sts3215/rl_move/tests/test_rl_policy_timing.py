@@ -49,6 +49,28 @@ def test_drive_velocity_alpha_wrapper_forwards_override(monkeypatch):
     assert calls[0]["velocity_filter_alpha"] == 0.8
 
 
+@pytest.mark.parametrize("duration", [float("nan"), float("inf"), 0.0, 20.01, "bad", []])
+def test_drive_active_duration_rejected_before_bus_access(duration):
+    result = rl_policy.run_drive_session(None, None, active_duration_s=duration)
+    assert result["ok"] is False
+    assert "active_duration_s" in result["error"]
+
+
+def test_drive_active_duration_wrapper_forwards_limit(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rl_policy, "_run_drive_session_impl",
+                        lambda *a, **kw: calls.append(kw) or {"ok": True})
+    assert rl_policy.run_drive_session(
+        None, None, active_duration_s=3.0)["ok"]
+    assert calls[0]["active_duration_s"] == 3.0
+
+
+def test_drive_active_duration_reason_uses_wall_clock():
+    assert rl_policy._drive_active_duration_reason(3.0, 10.0, 12.999) is None
+    assert rl_policy._drive_active_duration_reason(3.0, 10.0, 13.0) == (
+        "active walk cap 3s reached")
+
+
 def _state(*, bus_ok=True, timestamp=0.0, health=False, timing=None,
            load=12.0, current=0.4, temperature=31.0):
     z = np.zeros(rl_policy.N_JOINTS, dtype=float)

@@ -1106,6 +1106,7 @@ class Handler(BaseHTTPRequestHandler):
                     wz=float(data.get("wz", 0.0)),
                     dh=float(data.get("dh", 0.0)),
                     velocity_filter_alpha=data.get("velocity_filter_alpha"),
+                    active_duration_s=data.get("active_duration_s"),
                     command_owner=data.get("command_owner")))
         elif path == "/api/rl/drive/cmd":
             # High-rate heartbeat (~5 Hz while driving): body-frame

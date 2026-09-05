@@ -32,7 +32,8 @@ def test_velocity_alpha_cannot_silently_apply_to_timed_walk(tmp_path, monkeypatc
 @pytest.mark.parametrize("course", [False, True])
 def test_trial_drive_start_forwards_optional_filter(alpha, course):
     trial = walk_trial.Trial.__new__(walk_trial.Trial)
-    trial.args = SimpleNamespace(speed_m_s=0.08, velocity_filter_alpha=alpha)
+    trial.args = SimpleNamespace(speed_m_s=0.08, duration_s=3.0,
+                                 velocity_filter_alpha=alpha)
     requests = []
     trial.request = lambda path, body: requests.append((path, body)) or {"ok": False}
     trial.event = lambda *a: None
@@ -44,6 +45,10 @@ def test_trial_drive_start_forwards_optional_filter(alpha, course):
     assert len(requests) == 1
     path, body = requests[0]
     assert path == "/api/rl/drive/start"
+    if course:
+        assert "active_duration_s" not in body
+    else:
+        assert body["active_duration_s"] == 3.0
     if alpha is None:
         assert "velocity_filter_alpha" not in body
     else:
@@ -174,7 +179,12 @@ def _drive_trial(monkeypatch, response_at):
     trial.event = lambda name, detail="": events.append((name, detail))
     trial.recorder = SimpleNamespace(assert_live=lambda: None)
     trial.sample = lambda: None
-    trial.wait_job = lambda *args: {"ok": True}
+    trial.wait_job = lambda *args: {
+        "ok": True,
+        "ended": "stopped",
+        "active_duration_limit_s": trial.args.duration_s,
+        "active_wall_time_s": trial.args.duration_s,
+    }
     trial.pull_policy_logs = lambda *args: []
     trial.snapshot = lambda *args: None
     trial.three_fresh_health_samples = lambda **kwargs: []
@@ -209,6 +219,48 @@ def test_drive_duration_starts_after_confirmed_walk_and_excludes_initialization(
     assert all(body["vx"] == 0.08 and body["wz"] == 0.0 for body in commands)
     assert requests[-1][0].endswith("/stop")
     assert "command_owner" not in requests[-1][1]
+
+
+def test_board_duration_completion_is_not_misclassified_as_transport_loss(monkeypatch):
+    def response(t):
+        if t < 2.9:
+            return _drive_live(t)
+        return {"ok": False, "active": False, "error": "no drive session"}
+
+    trial, clock, requests, events = _drive_trial(monkeypatch, response)
+    trial.wait_job = lambda *args: {
+        "ok": True,
+        "ended": "active walk cap 3s reached",
+        "active_duration_limit_s": 3.0,
+        "active_wall_time_s": 3.0,
+    }
+    trial.drive_leg("forward")
+
+    assert trial.results[0]["trial_error"] is None
+    assert any(name == "drive_server_duration_limit_observed"
+               for name, _ in events)
+
+
+def test_late_independent_stop_is_not_accepted_as_board_duration_cap(monkeypatch):
+    # The controller keeps its three-second read-only tail inside the worker,
+    # so /drive/cmd can still report active after learned motion has stopped.
+    # The terminal wall time must prove the full requested window happened.
+    trial, clock, requests, events = _drive_trial(monkeypatch, _drive_live)
+    trial.wait_job = lambda *args: {
+        "ok": True,
+        "ended": "stopped",
+        "active_duration_limit_s": 3.0,
+        "active_wall_time_s": 2.9,
+    }
+
+    with pytest.raises(RuntimeError, match="active-duration evidence"):
+        trial.drive_leg("forward")
+
+    assert "active-duration evidence" in trial.results[0]["trial_error"]
+    assert any(name == "drive_server_duration_limit_mismatch"
+               for name, _ in events)
+    assert not any(name == "drive_server_duration_limit_observed"
+                   for name, _ in events)
 
 
 def test_each_drive_session_gets_a_distinct_command_owner():

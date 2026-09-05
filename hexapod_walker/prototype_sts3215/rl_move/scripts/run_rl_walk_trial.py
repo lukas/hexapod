@@ -597,10 +597,15 @@ class Trial:
             raise RuntimeError(f"walk {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
 
-    def drive_start_payload(self) -> dict[str, Any]:
+    def drive_start_payload(
+            self, *, active_duration_s: float | None = None) -> dict[str, Any]:
         self._drive_command_owner = uuid.uuid4().hex
         payload = {"vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
                    "command_owner": self._drive_command_owner}
+        if active_duration_s is not None:
+            # Enforced by the board from first learned-walk engagement;
+            # host polling remains supervision/evidence.
+            payload["active_duration_s"] = active_duration_s
         alpha = getattr(self.args, "velocity_filter_alpha", None)
         if alpha is not None:
             payload["velocity_filter_alpha"] = alpha
@@ -614,7 +619,10 @@ class Trial:
         self.phase = f"drive_{name}"
         started_unix_s = time.time()
         started_monotonic_s = time.monotonic()
-        reply = self.request("/api/rl/drive/start", self.drive_start_payload())
+        reply = self.request(
+            "/api/rl/drive/start",
+            self.drive_start_payload(active_duration_s=self.args.duration_s),
+        )
         self.event("drive_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
@@ -627,6 +635,7 @@ class Trial:
         last_live_advanced_s: float | None = None
         duration_details: dict[str, Any] = {}
         loop_error: Exception | None = None
+        server_cap_candidate: dict[str, Any] | None = None
         try:
             startup_deadline = command_started_s + 8.0
             self.event("walk_request", {
@@ -646,6 +655,20 @@ class Trial:
                     "command_owner": self._drive_command_owner,
                 })
                 now = time.monotonic()
+                elapsed_active_s = (now - activation_s
+                                    if activation_s is not None else None)
+                server_cap_complete = (
+                    activation_s is not None
+                    and response.get("active") is False
+                    and elapsed_active_s is not None
+                    and elapsed_active_s >= self.args.duration_s - 0.25
+                ) if isinstance(response, dict) else False
+                if server_cap_complete:
+                    server_cap_candidate = {
+                        "host_elapsed_active_s": elapsed_active_s,
+                        "response": response,
+                    }
+                    break
                 if (not isinstance(response, dict) or not response.get("ok")
                         or response.get("active") is not True):
                     raise RuntimeError(f"drive command refused or session ended: {response}")
@@ -732,6 +755,39 @@ class Trial:
         except Exception as error:
             self.event("drive_terminal_error", str(error))
             result = {"ok": False, "error": f"terminal result unavailable: {error}"}
+            if loop_error is None:
+                loop_error = error
+        expected_cap_end = (
+            f"active walk cap {self.args.duration_s:g}s reached")
+        try:
+            duration_limit_matches = math.isclose(
+                float(result.get("active_duration_limit_s")),
+                float(self.args.duration_s), rel_tol=0.0, abs_tol=1e-9)
+            active_wall_time_s = float(result.get("active_wall_time_s"))
+        except (AttributeError, TypeError, ValueError):
+            duration_limit_matches = False
+            active_wall_time_s = float("nan")
+        duration_evidence_matches = (
+            isinstance(result, dict)
+            and result.get("ok") is True
+            and result.get("ended") in (expected_cap_end, "stopped")
+            and duration_limit_matches
+            and math.isfinite(active_wall_time_s)
+            and active_wall_time_s >= self.args.duration_s
+        )
+        duration_detail = {
+            **(server_cap_candidate or {}),
+            "result": result,
+        }
+        if duration_evidence_matches and result.get("ended") == expected_cap_end:
+            self.event("drive_server_duration_limit_observed", duration_detail)
+        elif duration_evidence_matches:
+            self.event("drive_host_duration_stop_confirmed", duration_detail)
+        else:
+            error = RuntimeError(
+                "drive ended without matching controller-side active-duration "
+                f"evidence: {result}")
+            self.event("drive_server_duration_limit_mismatch", duration_detail)
             if loop_error is None:
                 loop_error = error
         try:

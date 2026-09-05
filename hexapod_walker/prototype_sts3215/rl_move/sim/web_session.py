@@ -139,7 +139,6 @@ def _ms_stats(values: list[float]) -> dict[str, Any]:
 
 
 _DRIVE_HEARTBEAT_STALE_S = 0.6
-_DRIVE_HOLD_SWITCH_S = 1.5
 _DRIVE_MOVE_EPS_MPS = 1e-4
 _DRIVE_YAW_EPS_RAD_S = 1e-4
 
@@ -179,10 +178,6 @@ class SimWebSession:
         self.sitting = False
         self.drive_active = False
         self.last_drive_cmd_at = 0.0
-        self.drive_zero_since: float | None = None
-        self.drive_last_vx = 0.0
-        self.drive_last_vy = 0.0
-        self.drive_last_wz = 0.0
         self.timed_walk_until: float | None = None
         self.job_kind: str | None = None
         self.job_result: dict[str, Any] = {"ok": True, "ended": "idle"}
@@ -624,57 +619,9 @@ class SimWebSession:
         except Exception:
             return 0.0, 0.0
 
-    def _clear_drive_dwell(self) -> None:
-        self.drive_zero_since = None
-        self.drive_last_vx = 0.0
-        self.drive_last_vy = 0.0
-        self.drive_last_wz = 0.0
-
     def _drive_cmd_moving(self, vx: float, vy: float, wz: float) -> bool:
         return (float(np.hypot(vx, vy)) > _DRIVE_MOVE_EPS_MPS
                 or abs(wz) > _DRIVE_YAW_EPS_RAD_S)
-
-    def _drive_remember_refs(self) -> None:
-        if self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd):
-            self.drive_last_vx = float(self.traj.vx)
-            self.drive_last_vy = float(self.traj.vy)
-            self.drive_last_wz = float(self.om_cmd)
-
-    def _drive_zero_dwell_remaining(self,
-                                    now: float | None = None) -> float:
-        if self.drive_zero_since is None or not self.drive_active:
-            return 0.0
-        if now is None:
-            now = time.monotonic()
-        return max(0.0, _DRIVE_HOLD_SWITCH_S
-                   - (float(now) - self.drive_zero_since))
-
-    def _drive_neutral_dwell_locked(self, now: float) -> bool:
-        was_walking = (
-            self.mode == "walk"
-            or self._drive_cmd_moving(self.traj.vx, self.traj.vy, self.om_cmd)
-        )
-        if not was_walking:
-            self.drive_zero_since = None
-            return False
-        if self.drive_zero_since is None:
-            self.drive_zero_since = now
-        if self._drive_zero_dwell_remaining(now) <= 0.0:
-            return False
-        if not self._drive_cmd_moving(
-                self.traj.vx, self.traj.vy, self.om_cmd):
-            vx = self.drive_last_vx
-            vy = self.drive_last_vy
-            wz = self.drive_last_wz
-            if not self._drive_cmd_moving(vx, vy, wz):
-                vx, _vmax = self._drive_band()
-                vy = 0.0
-                wz = 0.0
-            self.traj.vx = float(vx)
-            self.traj.vy = float(vy)
-            self._set_drive_wz(float(wz))
-        self.msg = "drive coasting before hold"
-        return True
 
     def _published_height_ref(self) -> float:
         pub = getattr(self.traj, "_pub", self.traj.goal)
@@ -688,7 +635,6 @@ class SimWebSession:
         self.downed = False
         self.sitting = False
         self.drive_active = False
-        self._clear_drive_dwell()
         self.timed_walk_until = None
         self.gait = None
         self.gait_t = 0.0
@@ -854,7 +800,6 @@ class SimWebSession:
         self.traj.start_at = "plant"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
-        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -866,7 +811,6 @@ class SimWebSession:
         self.traj.start_at = "zero"
         self.traj.goal = TaskGoal()
         self.traj.vx = self.traj.vy = 0.0
-        self._clear_drive_dwell()
         self.traj.reset_published()
         self._reset_memories(hard=False)
         self.obs, _ = self.env.reset()
@@ -924,7 +868,6 @@ class SimWebSession:
         self.traj.goal = TaskGoal()
         self.traj.goal.height_ref = float(prof["target_m"])
         self.traj.vx = self.traj.vy = 0.0
-        self._clear_drive_dwell()
         self.traj.mode = "rise"
         self.traj.reset_published()
         self._reset_memories(hard=False)
@@ -952,7 +895,6 @@ class SimWebSession:
         self.auto = None
         self.traj.vx = self.traj.vy = 0.0
         self.om_cmd = 0.0
-        self._clear_drive_dwell()
         if self.traj.start_at in ("zero", "belly"):
             self.auto = ["fold", 0, int(6.0 / self.env.dt), self._chassis_z()]
             self.msg = "LOWER: settling to the ground"
@@ -1089,7 +1031,6 @@ class SimWebSession:
         cr, sr = math.cos(roll / 2), math.sin(roll / 2)
         cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
         self.traj.vx = self.traj.vy = 0.0
-        self._clear_drive_dwell()
         self.env.data.qpos[2] = 0.20
         self.env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
         lo, hi = self.env.model.jnt_range[1:, 0], self.env.model.jnt_range[1:, 1]
@@ -1197,12 +1138,10 @@ class SimWebSession:
         self._apply_servo_regime()
         now = time.monotonic()
         if self.drive_active and now - self.last_drive_cmd_at > _DRIVE_HEARTBEAT_STALE_S:
-            if not self._drive_neutral_dwell_locked(now):
-                self.traj.vx = self.traj.vy = 0.0
-                self._set_drive_wz(0.0)
+            self.traj.vx = self.traj.vy = 0.0
+            self._set_drive_wz(0.0)
         if self.timed_walk_until is not None and self.sim_t >= self.timed_walk_until:
             self.traj.vx = self.traj.vy = 0.0
-            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._finish_job("timed walk complete")
 
@@ -1222,11 +1161,6 @@ class SimWebSession:
                      ("lower", "fold", "fell")
                      else "walk" if walking else "hold")
         self.traj.mode = "hold" if self.mode == "demo" else self.mode
-        if self.mode == "walk":
-            self._drive_remember_refs()
-        elif not self._drive_cmd_moving(self.traj.vx, self.traj.vy,
-                                        self.om_cmd):
-            self.drive_zero_since = None
 
         action = None
         if self.push_ticks > 0:
@@ -1361,7 +1295,6 @@ class SimWebSession:
                 self.drive_active = False
                 self.timed_walk_until = None
                 self.traj.vx = self.traj.vy = 0.0
-                self._clear_drive_dwell()
                 reason = info.get("termination_reason") or "episode end"
                 self._finish_job(f"{reason}; DOWN", ok=False)
         self.sim_t += self.env.dt
@@ -1601,7 +1534,6 @@ class SimWebSession:
             "height_ref_mm": round(self._published_height_ref()
                                    * 1000.0, 1),
             "height_live": True,
-            "walk_zero_dwell_s": round(self._drive_zero_dwell_remaining(), 2),
             "t_s": round(self.sim_t, 1),
             "chassis_xyz_m": chassis_xyz,
             "joint_deg": joint_deg,
@@ -1796,7 +1728,6 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
-            self._clear_drive_dwell()
             self.armed = True
             self.sitting = False
             self.pose_hold_q = None
@@ -1937,7 +1868,6 @@ class SimWebSession:
         self.auto = None
         self.gait = None
         self.om_cmd = 0.0
-        self._clear_drive_dwell()
         self.armed = True
         self.msg = f"{name} running"
         self._open_log(f"demo_{name}")
@@ -2028,7 +1958,6 @@ class SimWebSession:
                 self.auto = None
                 self.gait = None
                 self.om_cmd = 0.0
-                self._clear_drive_dwell()
             self._set_demo_safety(True)
             base_deg = mujoco_rel_rad_to_robot_abs_deg(self.q_plant)
             gait = QUAD_DEMO_GAITS[name]
@@ -2064,7 +1993,6 @@ class SimWebSession:
             self.auto = None
             self.gait = None
             self.om_cmd = 0.0
-            self._clear_drive_dwell()
             self.armed = True
             self.msg = f"{name} running"
             self._open_log(f"demo_{name}")
@@ -2090,7 +2018,6 @@ class SimWebSession:
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
-            self._clear_drive_dwell()
             self.mode = "hold"
             self.traj.mode = "hold"
             self.msg = "demo stopped - holding"
@@ -2662,7 +2589,6 @@ class SimWebSession:
             else:
                 self._record_command(f"/api/rl/{mode}")
             self.drive_active = False
-            self._clear_drive_dwell()
             self.timed_walk_until = None
             self._open_log(mode)
             self.job_kind = mode
@@ -2702,7 +2628,6 @@ class SimWebSession:
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
-            self._clear_drive_dwell()
             self.auto = None
             self._finish_job("stopped - holding")
             return {"ok": True, "status": self.msg, "live": self._live()}
@@ -2721,7 +2646,6 @@ class SimWebSession:
             self.last_drive_cmd_at = time.monotonic()
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
-            self._clear_drive_dwell()
             seed_vx = float(vx)
             seed_vy = float(vy)
             seed_wz = max(-0.5, min(0.5, float(wz)))
@@ -2768,7 +2692,6 @@ class SimWebSession:
             goal = self.traj.goal
             moving = self._drive_cmd_moving(vx, vy, wz)
             if moving and abs(goal.height_ref) > self._DRIVE_HEIGHT_EPS_M:
-                self.drive_zero_since = None
                 # Walk champions trained at height_ref 0: ramp a nudged
                 # body back to the walk anchor height first; the gait
                 # engages on a later heartbeat once the ref is ~0.
@@ -2783,18 +2706,14 @@ class SimWebSession:
                 self.msg = "returning to walk height"
             elif moving:
                 if self._engage_walk():
-                    self.drive_zero_since = None
                     _, vmax = self._drive_band()
                     mag = float(np.hypot(vx, vy))
                     scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
                     self.traj.vx = float(vx * scale)
                     self.traj.vy = float(vy * scale)
                     self._set_drive_wz(wz)
-                    self._drive_remember_refs()
                     if self.msg == "returning to walk height":
                         self.msg = "drive session active"
-            elif self._drive_neutral_dwell_locked(now):
-                pass
             else:
                 self.traj.vx = self.traj.vy = 0.0
                 self._set_drive_wz(0.0)
@@ -2809,8 +2728,6 @@ class SimWebSession:
                             goal.height_ref
                             + dh * self._DRIVE_HEIGHT_RATE_MPS * hb_dt))
                     self.traj._pub.height_ref = goal.height_ref
-                if self.mode != "walk":
-                    self.drive_zero_since = None
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "live": self._live()}
 
@@ -2820,7 +2737,6 @@ class SimWebSession:
             self.drive_active = False
             self.traj.vx = self.traj.vy = 0.0
             self.om_cmd = 0.0
-            self._clear_drive_dwell()
             self._close_log()
             self.job_result = {"ok": True, "ended": "drive stopped",
                                "sim_t_s": round(self.sim_t, 2),
@@ -2922,7 +2838,6 @@ class SimWebSession:
                 self.armed = False
                 self.quad_reared = False
                 self.rl_stop()
-                self._clear_drive_dwell()
                 self.msg = "sim stopped"
             elif head == "SETTLE":
                 self.armed = False
@@ -2930,7 +2845,6 @@ class SimWebSession:
             elif head == "HOLD":
                 self.traj.vx = self.traj.vy = 0.0
                 self._set_drive_wz(0.0)
-                self._clear_drive_dwell()
                 self.msg = "holding"
             elif head == "GAIT" and len(parts) >= 2:
                 try:
@@ -2985,7 +2899,6 @@ class SimWebSession:
                     self.traj.vx = vx
                     self.traj.vy = vy
                     self.om_cmd = om
-                    self._drive_remember_refs()
                     self.msg = "J command routed to sim"
             return {"ok": True, "status": self.msg}
 
@@ -3025,7 +2938,6 @@ class SimWebSession:
             self.traj.start_at = "plant"
             self.traj.goal = TaskGoal()
             self.traj.vx = self.traj.vy = 0.0
-            self._clear_drive_dwell()
             self.traj.mode = "hold"
             self.traj.reset_published()
             self._reset_memories(hard=True)

@@ -12,7 +12,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -20,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 import cv2
+import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +42,139 @@ DIRECTIONS = {
 COURSE = ("forward", "left", "backward", "right")
 
 
+class HttpFrameRecorder:
+    """Record the already-running local Vision JPEG stream.
+
+    This is the fallback for app/uv processes that cannot import PyObjC's
+    native AVFoundation bindings. It intentionally has the same small
+    interface as ``RawRecorder`` so motion still fails closed on a stale or
+    unavailable camera.
+    """
+
+    OUTPUT_FPS = 10.0
+    MAX_CAPTURE_AGE_S = 2.0
+
+    def __init__(self, output: Path, timestamps: Path, frame_url: str) -> None:
+        self.output = output
+        self.timestamps = timestamps
+        self.frame_url = frame_url
+        self.stop_event = threading.Event()
+        self.ready = threading.Event()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.error: str | None = None
+        self.frames = 0
+        self.latest_lock = threading.Lock()
+        self.latest_frame: Any | None = None
+        self.latest_frame_unix_s: float | None = None
+
+    def start(self) -> None:
+        self.thread.start()
+        if not self.ready.wait(10.0):
+            raise RuntimeError("HTTP camera recorder did not become ready")
+        if self.error:
+            raise RuntimeError(self.error)
+
+    def stop(self) -> None:
+        self.stop_event.set()
+        self.thread.join(timeout=8.0)
+
+    def snapshot(self) -> tuple[Any, float]:
+        with self.latest_lock:
+            if self.latest_frame is None or self.latest_frame_unix_s is None:
+                raise RuntimeError("camera has not produced a frame")
+            return self.latest_frame.copy(), self.latest_frame_unix_s
+
+    def assert_live(self, max_age_s: float = 2.0) -> None:
+        if self.error:
+            raise RuntimeError(f"recorder failed: {self.error}")
+        with self.latest_lock:
+            latest_unix_s = self.latest_frame_unix_s
+        if latest_unix_s is None:
+            raise RuntimeError("recorder has not produced its first frame")
+        age_s = time.time() - latest_unix_s
+        if age_s > max_age_s:
+            raise RuntimeError(f"recorder frame is stale by {age_s:.2f} s")
+
+    def _read_frame(self) -> tuple[Any, float]:
+        with urllib.request.urlopen(self.frame_url, timeout=3.0) as response:
+            payload = response.read()
+            raw_capture_time = response.headers.get("X-Capture-Unix-S")
+        try:
+            capture_unix_s = float(raw_capture_time)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "HTTP camera lacks X-Capture-Unix-S; receipt time cannot "
+                "prove the camera is live") from exc
+        age_s = time.time() - capture_unix_s
+        if (not math.isfinite(capture_unix_s)
+                or not -0.25 <= age_s <= self.MAX_CAPTURE_AGE_S):
+            raise RuntimeError("HTTP camera capture timestamp is stale or invalid")
+        frame = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            raise RuntimeError("Vision frame endpoint returned an invalid JPEG")
+        return frame, capture_unix_s
+
+    def _run(self) -> None:
+        writer: cv2.VideoWriter | None = None
+        csv_file = None
+        try:
+            frame, frame_unix_s = self._read_frame()
+            height, width = frame.shape[:2]
+            for codec in ("avc1", "mp4v"):
+                candidate = cv2.VideoWriter(
+                    str(self.output), cv2.VideoWriter_fourcc(*codec),
+                    self.OUTPUT_FPS, (width, height),
+                )
+                if candidate.isOpened():
+                    writer = candidate
+                    break
+                candidate.release()
+            if writer is None:
+                raise RuntimeError("could not open an H.264/mp4v video writer")
+            csv_file = self.timestamps.open("w", newline="")
+            rows = csv.writer(csv_file)
+            rows.writerow([
+                "frame", "elapsed_s", "unix_s", "capture_unix_s",
+                "width", "height",
+            ])
+            started_monotonic = time.monotonic()
+            with self.latest_lock:
+                self.latest_frame = frame
+                self.latest_frame_unix_s = frame_unix_s
+            self.ready.set()
+            next_frame = started_monotonic
+            while not self.stop_event.is_set():
+                now = time.monotonic()
+                if now < next_frame:
+                    self.stop_event.wait(next_frame - now)
+                    continue
+                frame, frame_unix_s = self._read_frame()
+                with self.latest_lock:
+                    self.latest_frame = frame
+                    self.latest_frame_unix_s = frame_unix_s
+                writer.write(frame)
+                rows.writerow([
+                    self.frames,
+                    round(time.monotonic() - started_monotonic, 6),
+                    round(time.time(), 6),
+                    round(frame_unix_s, 6),
+                    width,
+                    height,
+                ])
+                self.frames += 1
+                if self.frames % int(self.OUTPUT_FPS) == 0:
+                    csv_file.flush()
+                next_frame += 1.0 / self.OUTPUT_FPS
+        except Exception as error:
+            self.error = str(error)
+            self.ready.set()
+        finally:
+            if writer is not None:
+                writer.release()
+            if csv_file is not None:
+                csv_file.close()
+
+
 class ConfirmedHealthTrip(RuntimeError):
     """Three fresh scans confirmed a hard health fault."""
 
@@ -53,11 +189,18 @@ class Trial:
         self.motion_started = False
         self.completed = False
         self.results: list[dict[str, Any]] = []
-        self.recorder = RawRecorder(
-            output_dir / "camera_raw.mp4",
-            output_dir / "camera_timestamps.csv",
-            args.camera_index,
-        )
+        if args.vision_frame_url:
+            self.recorder = HttpFrameRecorder(
+                output_dir / "camera_raw.mp4",
+                output_dir / "camera_timestamps.csv",
+                args.vision_frame_url,
+            )
+        else:
+            self.recorder = RawRecorder(
+                output_dir / "camera_raw.mp4",
+                output_dir / "camera_timestamps.csv",
+                args.camera_index,
+            )
         self.events_file = (output_dir / "events.csv").open("w", newline="")
         self.events = csv.writer(self.events_file)
         self.events.writerow(["unix_s", "elapsed_s", "phase", "event", "detail"])
@@ -601,6 +744,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--robot-url", default="http://192.168.4.39:8080")
     parser.add_argument("--camera-index", type=int, default=1)
+    parser.add_argument(
+        "--vision-frame-url",
+        help=("record a JPEG stream with a trustworthy X-Capture-Unix-S "
+              "header instead of opening AVFoundation directly; streams "
+              "without capture timestamps are refused before motion"),
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--phases", nargs="+", choices=(*DIRECTIONS, "course"),

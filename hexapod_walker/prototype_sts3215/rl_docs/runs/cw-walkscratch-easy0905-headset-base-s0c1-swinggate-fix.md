@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T21:34:31+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-s0c1-dgate2-c1
+
+**wandb_id**: 2vlzxnoh
 
 **hypothesis**: Entrenched-checkpoint retrofit twin of swinggate-fresh: does the new reward.walk_swing_gate mechanism (MIN-over-legs trailing-window COUNT of qualifying real swings, bank-proved this cycle 4/4 green) cure the leg-4 marginal-underuse habit AFTER it has already entrenched over a full 40M acquisition (headset-base-s0c1-acq1), the same way walk_duty_gate's entrenched-checkpoint retrofit (dgate2-c1/dgatefix batch) was tried and found genuinely-pricing-but-too-late on this family? Warm-starts from the same headset_base_s0c1_acq1.zip 40M champion dgate2-c1 used.
 

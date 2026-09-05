@@ -2,7 +2,55 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
-- 09-05 ~20:4x this cycle (assigned `headset-{base,halfgrav}-medhead2-acq1`;
+- 09-05 ~21:4x this cycle (assigned `headset-halfgrav-fullhead-widen2-{c1,c2}`;
+  both found genuinely still computing remotely at cycle spawn —
+  prestage had pulled the checkpoint but the gate eval was an orphaned
+  poller (known gotcha); backgrounded `pollreap` for both rather than
+  duplicating, synced ~25min in): two verdicts + one new mechanism
+  built + 5 new launches. (1) `widen2-c1` **CANARY PASS**: widening
+  the 8-way heading set FROM the mature 40M `medhead-acq1` champion
+  keeps the gait intact (gait_valid 21/24, 0 falls) AND measurably
+  tightens reversal-heading tracking vs the cold-jump `fullhead-c1`
+  baseline (direrr med 88.5->75.5, courserr med 94.9->57.9, slip med
+  51.4->7.6 — 6.8x lower). (2) `widen2-c2` **CANARY PASS (mechanism
+  bar only, course-tracking CONFOUNDED)**: gait stays valid (23/24, 0
+  falls) but courserr/slip show no improvement (slip med 124.4, 16x
+  worse than c1) — provenance check on the ledger's own `extra_args`
+  found this arm actually warm-started from `medhead2_c1.zip` (the
+  2nd seed's 2M CANARY) not `medhead2_acq1.zip` (its own 40M champion,
+  the true match for c1's provenance) — a checkpoint-maturity confound,
+  not a clean 2nd seed. Launched a corrected matched-budget
+  `widen2-c2b` (from `medhead2_acq1.zip`, seed 4) to give a real
+  apples-to-apples read before concluding recipe-level vs
+  champion-specific. **Separately**, with 10 GPU pods free, built and
+  bank-proved (`test_walk_swing_gate_*`, 4/4 green, default-off
+  bit-exact) `reward.walk_swing_gate` — a 6th structural repair
+  attempt for the base(1g)-family chronic leg-favoritism pathology,
+  after `walk_gait_gate`+`k_step_event` (6/6 FAIL, rare-token-swing
+  dodge) and `walk_duty_gate` (every provenance x dose FAIL, satisfied
+  by a planted/vibrating stance) both closed end-to-end this same
+  day. The new gate prices a MIN-over-legs trailing-window COUNT of
+  qualifying real swings (same stride-filtered swing definition
+  `walk_gait_gate` used, but a hard per-window count floor instead of
+  a recency-decay score) — closes the duty_gate freeze/vibrate exploit
+  by construction (zero qualifying swings, however high the contact
+  duty) and the gait_gate rare-token-dodge by construction (one swing
+  per several seconds can't clear a >=2-per-4s-window count bar the
+  way it cleared a >=1-per-4s recency floor). Launched a 4-arm batch:
+  `headset-base-s0c1-swinggate-fresh` (bakes the price in from the
+  same lightly-trained 2M checkpoint `dgfresh` used), and three
+  entrenched-checkpoint retrofits — `swinggate-fix` (on `s0c1_acq1`),
+  `medhead-swinggate-fix` (on `medhead_acq1`), `irr-swinggate-fix` (on
+  `irr_acq1`) — to read both "does pricing before the habit entrenches
+  work" and "does it cure an already-entrenched exploiter" across 3
+  independent checkpoints in one batch. All 5 arms (4 swing_gate +
+  widen2-c2b) VERIFIED RUNNING. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-{c1,c2}`,
+  `rl_move/sim/walk_task.py` (`walk_swing_gate` block),
+  `rl_move/tests/test_task_semantics.py`
+  (`test_walk_swing_gate_*`), CURRENT_TRUTHS.md, SKILLS.md.
+
+- 09-05 ~20:4x (assigned `headset-{base,halfgrav}-medhead2-acq1`;
   both found genuinely still computing remotely at cycle spawn —
   prestage had pulled checkpoint+wandb but not the gate eval; waited
   them out via parallel `waitlog` rather than duplicating, both

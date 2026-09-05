@@ -786,6 +786,47 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   40000000`). Always pass `--steps` explicitly on a respec whose
   source lineage might include a canary-scale entry; never rely on
   "default: same as source."
+- Same class again (09-05, `fullhead-widen2-c2`): a "2nd seed" of a
+  curriculum arm can silently warm-start from the WRONG sibling's
+  checkpoint if the launching cycle names the wrong `--init-from` in
+  a hand-built `backlog add` vector — the notes text said "the 2nd-seed
+  medhead2 champion" but the actual `--init-from` pointed at
+  `medhead2_c1.zip` (a 2M CANARY) instead of `medhead2_acq1.zip` (the
+  matching 40M champion `widen2-c1` used). Always diff the ACTUAL
+  `--init-from` value in the ledger `command`/`extra_args` against
+  what a sibling arm used before reading a "2nd seed" result as a
+  clean recipe replication — a checkpoint-maturity confound produces
+  a real-looking but uninterpretable divergence (here: 16x worse slip)
+  that has nothing to do with the recipe being tested.
+
+## Walkcurr Reward Mechanisms (per-leg utilization)
+- `reward.walk_swing_gate` (09-05, built + bank-proved this cycle,
+  `test_walk_swing_gate_*` in `test_task_semantics.py`, 4/4 green,
+  default 0 = off/bit-exact): the 6th structural repair attempt for
+  the base(1g)-family chronic leg-favoritism pathology, after
+  `walk_gait_gate`+`k_step_event` (CLOSED 6/6 FAIL — a rare token
+  swing every several seconds keeps a recency-decay score near 1.0
+  without a real gait forming) and `walk_duty_gate` (CLOSED
+  9/9 FAIL across every provenance x dose — a fully planted OR
+  high-frequency in-place-vibrating stance clears a trailing
+  contact-DUTY floor more cheaply than any real gait, since a planted
+  foot's duty is trivially 1.0) both closed end-to-end earlier the
+  same day. `walk_swing_gate` keeps `walk_gait_gate`'s stride-filtered
+  qualifying-swing definition (liftoff -> >=2 ticks airborne ->
+  touchdown with XY stride >= `gait_gate_stride_mm`, so a chattering/
+  vibrating non-displacing "swing" never counts — closes the
+  duty_gate exploit by construction) but replaces the recency-decay
+  score with a trailing-window COUNT (`swing_gate_min_count`,
+  default 2, within `swing_gate_window_s`, default 4.0) — a leg
+  stepping once every several seconds cannot clear a >=2-per-window
+  count bar the way it cleared a >=1-per-(window+fade) recency floor,
+  closing the gait_gate exploit by construction. MIN over support
+  legs, same as every prior anti-sacrifice gate in this file. First
+  canary batch launched same cycle (not yet verdicted): fresh-provenance
+  `headset-base-s0c1-swinggate-fresh` + three entrenched-checkpoint
+  retrofits (`swinggate-fix` on `s0c1_acq1`, `medhead-swinggate-fix`
+  on `medhead_acq1`, `irr-swinggate-fix` on `irr_acq1`) — read these
+  before funding further swing_gate variants.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

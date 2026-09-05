@@ -137,12 +137,17 @@ static int16_t imuCache[7];           // ax ay az gx gy gz temp (raw)
 static bool imuCacheValid = false;
 static unsigned long imuStampMs = 0;
 static unsigned long imuRetryMs = 0;
-// One short I2C miss must not turn into the one-second absent-sensor
-// recovery path.  Retry on the next acquisition pass and only declare the
-// MPU unavailable after a small consecutive streak.  The Linux controller
-// still independently rejects attitude data older than 150 ms.
-static const uint8_t STREAM_IMU_READ_FAIL_LIMIT = 3;
+// A short cluster of I2C misses must not turn into the one-second
+// absent-sensor recovery path. Keep using the already-initialized MPU and
+// retry from the asynchronous acquisition slot until failures have persisted
+// for a meaningful interval. The Linux controller still independently
+// rejects attitude data older than 150 ms.
+// 80 ms leaves margin beneath the host's 150 ms freshness stop even when the
+// last good sample was already 12 ms old and a failing Wire transaction takes
+// roughly the 50 ms worst case observed on hardware.
+static const unsigned long STREAM_IMU_RUNTIME_FAIL_GRACE_MS = 80;
 static uint8_t streamImuReadFailStreak = 0;
+static unsigned long streamImuFirstFailMs = 0;
 static uint16_t fbLoad[MAX_N];        // magnitude, tenths of %
 static uint8_t fbVolt[MAX_N];         // deci-volts
 static uint8_t fbTemp[MAX_N];
@@ -216,6 +221,9 @@ static uint32_t dbgStreamFbSlotFails = 0;
 static uint32_t dbgHostSnapshotRequests = 0;
 static uint32_t dbgHostSnapshotCacheHits = 0;
 static uint32_t dbgHostSnapshotSyncRefreshes = 0;
+static uint32_t dbgHostSnapshotSyncPosRefreshes = 0;
+static uint32_t dbgHostSnapshotSyncImuRefreshes = 0;
+static uint32_t dbgHostSnapshotStaleCacheReplies = 0;
 static uint32_t dbgHostSnapshotAsyncRefreshes = 0;
 static uint32_t dbgMaxFastPassUs = 0;
 static uint32_t dbgMaxFullPassUs = 0;
@@ -260,6 +268,9 @@ static void dbgResetCounters() {
   dbgHostSnapshotRequests = 0;
   dbgHostSnapshotCacheHits = 0;
   dbgHostSnapshotSyncRefreshes = 0;
+  dbgHostSnapshotSyncPosRefreshes = 0;
+  dbgHostSnapshotSyncImuRefreshes = 0;
+  dbgHostSnapshotStaleCacheReplies = 0;
   dbgHostSnapshotAsyncRefreshes = 0;
   dbgMaxFastPassUs = 0;
   dbgMaxFullPassUs = 0;
@@ -316,6 +327,12 @@ static void cmdDbg(bool reset) {
   dbgPrintKV(F("host_snapshot_requests"), dbgHostSnapshotRequests);
   dbgPrintKV(F("host_snapshot_cache_hits"), dbgHostSnapshotCacheHits);
   dbgPrintKV(F("host_snapshot_sync_refreshes"), dbgHostSnapshotSyncRefreshes);
+  dbgPrintKV(F("host_snapshot_sync_pos_refreshes"),
+             dbgHostSnapshotSyncPosRefreshes);
+  dbgPrintKV(F("host_snapshot_sync_imu_refreshes"),
+             dbgHostSnapshotSyncImuRefreshes);
+  dbgPrintKV(F("host_snapshot_stale_cache_replies"),
+             dbgHostSnapshotStaleCacheReplies);
   dbgPrintKV(F("host_snapshot_async_refreshes"), dbgHostSnapshotAsyncRefreshes);
   dbgPrintKV(F("max_fast_pass_us"), dbgMaxFastPassUs);
   dbgPrintKV(F("max_full_pass_us"), dbgMaxFullPassUs);
@@ -1139,21 +1156,28 @@ static void streamImuPassInner() {
     imuRetryMs = now;
     if (mpuEnsureReady() == 0) return;
     streamImuReadFailStreak = 0;
+    streamImuFirstFailMs = 0;
   }
   uint8_t raw[14];
+  unsigned long attemptStartMs = millis();
   if (!mpuReadRegs(MPU_REG_ACCEL_XOUT_H, raw, 14)) {
     dbgStreamImuReadFailures++;
-    streamImuReadFailStreak++;
-    if (streamImuReadFailStreak >= STREAM_IMU_READ_FAIL_LIMIT) {
-      // Preserve the existing slow backoff for a genuinely absent sensor,
-      // but do not enter it for an isolated NACK/short read.
+    unsigned long now = millis();
+    if (streamImuReadFailStreak == 0) streamImuFirstFailMs = attemptStartMs;
+    if (streamImuReadFailStreak < 0xFF) streamImuReadFailStreak++;
+    if (now - streamImuFirstFailMs >= STREAM_IMU_RUNTIME_FAIL_GRACE_MS) {
+      // Preserve the slow backoff and 50 ms wake path for a genuinely absent
+      // sensor, but never enter it merely because the host and async slots
+      // happened to issue three rapid reads in one control interval.
       mpuReady = false;
-      imuRetryMs = millis();
+      imuRetryMs = now;
       streamImuReadFailStreak = 0;
+      streamImuFirstFailMs = 0;
     }
     return;
   }
   streamImuReadFailStreak = 0;
+  streamImuFirstFailMs = 0;
   imuCache[0] = be16(raw + 0);
   imuCache[1] = be16(raw + 2);
   imuCache[2] = be16(raw + 4);
@@ -1170,13 +1194,6 @@ static void refreshSnapshotNow() {
   streamImuPass();
 }
 
-static bool snapshotCacheFreshEnough() {
-  if (!streaming || posStampMs == 0 || !imuCacheValid) return false;
-  unsigned long now = millis();
-  return (now - posStampMs <= HOST_S_MAX_CACHE_AGE_MS)
-      && (now - imuStampMs <= HOST_S_MAX_CACHE_AGE_MS);
-}
-
 static void scheduleHostSnapshotRefresh() {
   unsigned long now = millis();
   hostSLastMs = now;
@@ -1186,11 +1203,34 @@ static void scheduleHostSnapshotRefresh() {
 
 static void prepareSnapshotForHost() {
   dbgHostSnapshotRequests++;
-  if (snapshotCacheFreshEnough()) {
-    dbgHostSnapshotCacheHits++;
-  } else {
+  if (!streaming) {
     dbgHostSnapshotSyncRefreshes++;
+    dbgHostSnapshotSyncPosRefreshes++;
+    dbgHostSnapshotSyncImuRefreshes++;
     refreshSnapshotNow();
+  } else {
+    unsigned long now = millis();
+    bool posFresh = posStampMs != 0
+        && now - posStampMs <= HOST_S_MAX_CACHE_AGE_MS;
+    bool imuFresh = imuCacheValid
+        && now - imuStampMs <= HOST_S_MAX_CACHE_AGE_MS;
+    bool refreshedPosition = false;
+    // Position freshness is independent: only a missing/stale position cache
+    // may force the host path to touch the 18-servo bus.
+    if (!posFresh) {
+      dbgHostSnapshotSyncRefreshes++;
+      dbgHostSnapshotSyncPosRefreshes++;
+      streamFastPass();
+      refreshedPosition = true;
+    }
+    // IMU acquisition is always deferred to the normal asynchronous slot.
+    // Return the truthful cached age (or 0xFFFF when no sample exists) so
+    // Linux's independent 150 ms fail-closed guard remains authoritative.
+    if (!imuFresh) {
+      dbgHostSnapshotStaleCacheReplies++;
+    } else if (!refreshedPosition) {
+      dbgHostSnapshotCacheHits++;
+    }
   }
   if (streaming) scheduleHostSnapshotRefresh();
 }

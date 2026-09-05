@@ -42,6 +42,7 @@ class FakeRlApi(RlApi):
             armed=armed,
             _lock=threading.RLock(),
         )
+        self._lock = threading.RLock()
         self._demo_thread = None
 
     def _roles(self) -> dict:

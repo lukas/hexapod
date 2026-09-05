@@ -6,12 +6,58 @@ mixed into ``bench_api.BenchAPI``. Route/JSON shapes are unchanged.
 from __future__ import annotations
 
 from .common import *  # noqa: F401,F403
+from async_bus_guard import (
+    AsyncSamplerCleanupError, bus_quarantine_status, recover_bus_quarantine,
+)
 
 
 class RlApi:
+    def _rl_bus_quarantine(self) -> dict | None:
+        """Expose the fault and reap only readers that have already exited."""
+        bus = getattr(self.drive, "bus", None)
+        worker = getattr(self, "_demo_thread", None)
+        # Do not race the worker's finally block or release its bus-hot count
+        # while it is still publishing the cleanup failure.
+        status = (bus_quarantine_status(bus)
+                  if worker is not None and worker.is_alive()
+                  else recover_bus_quarantine(bus))
+        if status["bus_quarantined"]:
+            return {"ok": False, "active": False, **status}
+        with self._lock:
+            released = getattr(self, "_rl_quarantine_hot_held", False)
+            self._rl_quarantine_hot_held = False
+        if released:
+            self._bus_hot_end()
+            with self.drive._lock:
+                self.drive.mode = "idle"
+                self.drive.armed = False
+                self.drive.status = "reader joined; operator preflight required"
+            self._set_activity("bus_recovered", self.drive.status)
+        return None
+
+    def _rl_mark_quarantine(self, error, mode: str) -> None:
+        """No bus traffic: physical torque is unknown after failed cleanup."""
+        status = bus_quarantine_status(self.drive.bus)
+        self._rl_quarantine_hot_held = True
+        with self.drive._lock:
+            self.drive.armed = False
+            self.drive.mode = "demo"
+            self.drive.status = "bus unavailable: async reader has not joined"
+        with self._lock:
+            self._cal_result = {
+                "ok": False, "mode": mode, "error": str(error),
+                "cleanup_failed": True, "limped": False,
+                "held_pose": False, "torque_state": "unverified", **status,
+            }
+            self._demo_status = self.drive.status
+        self._set_activity("bus_fault", self.drive.status)
+
     # -- RL / agent HTTP surface (prefer this over SSH) ---------------------
     def rl_state(self) -> dict:
         """Pose + plant + activity in one JSON blob for agents / UI."""
+        blocked = self._rl_bus_quarantine()
+        if blocked:
+            return {**blocked, "service": "hexapod-web", "drive": blocked}
         return {
             "ok": True,
             "service": "hexapod-web",
@@ -710,8 +756,13 @@ class RlApi:
 
     def rl_drive_state(self) -> dict:
         """Session snapshot for the UI (no bus traffic)."""
+        blocked = self._rl_bus_quarantine()
+        if blocked:
+            return {**blocked, "status": self.drive.status,
+                    "result": self._cal_result}
         active = self._drive_active()
-        out: dict = {"ok": True, "active": active}
+        out: dict = {"ok": True, "active": active,
+                     **bus_quarantine_status(self.drive.bus)}
         cmd = self._drive_cmd
         if cmd is not None:
             out["live"] = cmd.live
@@ -754,6 +805,9 @@ class RlApi:
         rl_drive_cmd. It must not surprise-glide to another stance before
         keys are pressed. THE OPERATOR MUST BE WATCHING.
         """
+        blocked = self._rl_bus_quarantine()
+        if blocked:
+            return blocked
         try:
             from rl_policy import DriveCommand, preflight, run_drive_session
         except ImportError as e:
@@ -860,6 +914,10 @@ class RlApi:
                         self._demo_status = (
                             f"RL drive: {result.get('error')}")
             except Exception as e:
+                if (isinstance(e, AsyncSamplerCleanupError)
+                        or bus_quarantine_status(d.bus)["bus_quarantined"]):
+                    self._rl_mark_quarantine(e, "drive")
+                    return
                 if gen != self._demo_gen:
                     return
                 try:
@@ -871,6 +929,10 @@ class RlApi:
                                         "mode": "drive"}
                     self._demo_status = f"error: {e}"
             finally:
+                if bus_quarantine_status(d.bus)["bus_quarantined"]:
+                    # Retain bus-hot ownership; passive status polling can
+                    # release it only after joining the actual reader.
+                    return
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
@@ -1007,6 +1069,9 @@ class RlApi:
         turn, "hold" = heading hold; None = the unchanged naked path.
         The OPERATOR MUST BE WATCHING — this is the explicit order.
         """
+        blocked = self._rl_bus_quarantine()
+        if blocked:
+            return blocked
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
@@ -1174,6 +1239,10 @@ class RlApi:
                         self._demo_status = (
                             f"{label}: {result.get('error')}")
             except Exception as e:
+                if (isinstance(e, AsyncSamplerCleanupError)
+                        or bus_quarantine_status(d.bus)["bus_quarantined"]):
+                    self._rl_mark_quarantine(e, mode)
+                    return
                 if gen != self._demo_gen:
                     return
                 try:
@@ -1185,6 +1254,8 @@ class RlApi:
                                         "mode": mode}
                     self._demo_status = f"error: {e}"
             finally:
+                if bus_quarantine_status(d.bus)["bus_quarantined"]:
+                    return
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return

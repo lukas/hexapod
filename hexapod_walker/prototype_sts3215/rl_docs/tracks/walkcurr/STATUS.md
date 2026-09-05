@@ -2,6 +2,36 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~15:1x MECHANISM BUILT + REPAIR CANARY LAUNCHED:
+  `reward.walk_duty_gate` — per-leg contact-DUTY income gate
+  (transport income x [(1-g) + g * MIN over support legs of
+  clip(trailing-3s contact duty / 0.15, 0, 1)]). Motivated by the
+  s0c1-acq1 dig-in below: it combines the two proven-right halves of
+  the failed levers (walk_gait_gate's income-collapse STRUCTURE +
+  k_park's duty SIGNAL — the harness's own sacrifice bar) and is
+  un-dodgeable by the token-swing trick that gamed the completion
+  window (one contact tick moves a 3 s window mean ~1/300). Default
+  0 = bit-exact off; state (`_dgate_hist`) rides MJX_SNAPSHOT_EXTRA.
+  Bank-proved in `test_walkscratch_easy_pilot.py` (5 new tests,
+  27/27 file, +17/17 adjacent semantics spot-check): default-off
+  bit-exact; healthy six-leg tripod keeps 100% income (measured
+  factor 1.0 throughout); the leg-4-aloft exploit twin loses ~430/ep
+  on an IDENTICAL trajectory; a 0.2s-touch-every-2s token twin stays
+  collapsed (restores <50% of removed income — the exact dodge that
+  restored ~100% under walk_gait_gate). Snapshot
+  `exp/walk-duty-gate-mechanism-0905`. Launched
+  `headset-base-s0c1-dgate-c1` (2M canary, VERIFIED RUNNING
+  train-5): warm-start of the FAILED s0c1-acq1 checkpoint itself
+  with the gate on — the direct does-the-leg-come-back-down read.
+  **Next (pre-registered, launch when the sde gg n=4 verdicts land):
+  the same walk_duty_gate repair on a gSDE LEGPARK checkpoint**
+  (pick the strongest surviving sde parent then; use the gg2-style
+  MANUAL arg-vector build via `backlog add`, NOT respec — the
+  `--use-sde`/`--activation-fn`+`--init-from` respec SystemExit
+  gotcha; cfg add `reward.walk_duty_gate=0.9`). If the base-family
+  canary shows the leg recovering, this mechanism also becomes the
+  candidate hardening dose for future acq recipes.
+
 - 09-05 ~14:6x this cycle, capacity sweep after the verdicts below:
   found `headset-base-irr-c2` (declared "still training" at cycle
   start) had ALSO finished (reward quarters 42.0/88.3/150.5/198.5,

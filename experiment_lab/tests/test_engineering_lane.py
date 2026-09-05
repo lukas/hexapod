@@ -1084,8 +1084,8 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
 
     assert offline == {"ok": True}
     offline_command = captured["command"]
-    assert offline_command[offline_command.index("--sandbox") + 1] == "workspace-write"
-    assert "sandbox_workspace_write.network_access=true" in offline_command
+    assert offline_command[offline_command.index("--sandbox") + 1] == "danger-full-access"
+    assert "sandbox_workspace_write.network_access=true" not in offline_command
     assert "--search" in offline_command
     assert captured["env"]["HEXAPOD_ENGINEERING_LANE"] == "offline"
     assert "SSH_AUTH_SOCK" not in captured["env"]

@@ -2017,13 +2017,9 @@ class CodexOrchestrator:
             if workdir is None:
                 raise CodexRunError("engineering workspace is not configured")
             workdir = workdir.resolve()
-            offline_engineering = (
-                engineering_lane == ENGINEERING_LANE_OFFLINE
-            )
             command = [
                 str(self.settings.codex_bin),
-                "--ask-for-approval", "never", "--sandbox",
-                "workspace-write" if offline_engineering else "danger-full-access",
+                "--ask-for-approval", "never", "--sandbox", "danger-full-access",
                 "--search",
                 "exec", "--ephemeral", "--strict-config", "--json", "--color", "never",
                 "-C", str(workdir), "-m", self.settings.codex_model,
@@ -2038,10 +2034,6 @@ class CodexOrchestrator:
                     '"HEXAPOD_LAB_TOKEN","HEXAPOD_ORCHESTRATOR_TOKEN"]'
                 ),
             ]
-            if offline_engineering:
-                command.extend([
-                    "-c", "sandbox_workspace_write.network_access=true",
-                ])
         else:
             # Evidence/review lanes use an empty directory with all local
             # tools disabled; repository files and AGENTS.md are not ambient.

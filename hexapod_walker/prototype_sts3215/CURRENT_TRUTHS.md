@@ -61,6 +61,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
 - Bad eval with both reward and eval improving may justify continuation.
 - Known exploit on video is a metric/tooling bug to repair, not a
   lineage kill by itself.
+- walkcurr easy0905 bare recipe (freeprog income only,
+  k_park_duty/k_walk_idle_charge/k_loadslip_excess all 0) + gSDE
+  (`--use-sde`) reliably converges to a SACRIFICED-LEG QUADRUPED
+  SHUFFLE at full gravity: 1-2 legs chronically airborne (duty
+  0.00-0.23, single-digit ground touches per 20s episode) while the
+  remaining legs take ~7mm micro-strides — clears the raw
+  >=0.03 m/s floor and racks up near-full-episode reward (0 falls)
+  while `gait_valid`-style checks fail and slip/m runs ~1.7-1.8x the
+  2.9 teacher band. Confirmed on 3/3 full-gravity sde seeds
+  (sde-s0-c4, sde-s1-c2, sde-s2-c2, 09-05) — gSDE-specific: the
+  non-gSDE base/halfgrav families train cleanly under the identical
+  bare recipe (4/4 ACQ PASS, six-leg video-confirmed). This is the
+  SAME behavioral class the `WALKCURR_PF_IDLE_TERM` bank
+  (`test_task_semantics.py`, 08-24) already diagnosed on the older
+  pf_fwd lineage: soft anti-park prices ALONE leave the degenerate
+  stance as PPO's cheapest optimum; the validated fix pairs
+  `k_park_duty`/`k_walk_idle_charge`/`k_loadslip_excess` WITH a
+  qvel-based `safety.walk_idle_terminate_s` termination. Do not fund
+  more bare-sde 40M budget without this fix (or an equivalent);
+  `cw-walkscratch-easy0905-sde-idleterm-{s0,s1}` (09-05, 2M canaries)
+  is the first probe. Separately: `reward.walk_gait_gate` and
+  `reward.k_walk_move_current` were tried against a related
+  leg-sacrifice/rigid-tripod-lock exploit on the joystick track's
+  harder full-DR `joyfullcurr13` curriculum (RL_LOG 08-25) and BOTH
+  were CLOSED (made the fall rate worse, at every dose/architecture
+  tried) — do not relaunch either lever here without accounting for
+  that prior closure.
 
 ## Known Tooling Gotchas
 - Recurrent checkpoints must use `rl_move.sim.gru_policy.RecurrentPredictor`;

@@ -290543,7 +290543,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s1.zip"
     ],
     "created": "2026-09-05T10:37:22+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -290555,7 +290555,19 @@
       "code_sha_local": "23163a9ce315edd4e52f36ece1a5822abf6ba35c",
       "code_sha_pod": "23163a9ce315edd4e52f36ece1a5822abf6ba35c",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "24929",
+      "log_growth_bytes": [
+        6097,
+        6221
+      ],
+      "wandb_id": "iuxu4b7m",
+      "trainer_pid": "24929",
+      "global_step_window": [
+        4096,
+        524288
+      ],
+      "fps_estimate": 8669.9
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -290563,7 +290575,9 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-walkscratch-easy0905-sde-s1 ACQ CONTINUE verdict (this cycle). sde-s1-c1 crash forensics this cycle: pod log shows the --activation-fn+--init-from SystemExit guard firing immediately (0 training steps, wandb run finished in <1s).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s1-c2 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 1 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s1_c2 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-base-s1: Plain English: sde-s1 was ruled ACQ CONTINUE, not FAIL, at its 40M cutoff (ep_len_mean still rising 111->231 ticks, reward rising 2.8->38.7 with no plateau, v_along_cmd holding ~0.15-0.17 m/s) -- give it the same own-checkpoint 40M continuation budget sde-s0 got. CORRECTED relaunch of sde-s1-c1 (crashed in <1s, confirmed via pod log /tmp/train_cw-walkscratch-easy0905-sde-s1-c1.log: '\"'\"'--activation-fn only applies to from-scratch/transplant builds; a plain --init-from warm start keeps the checkpoint'\"'\"'s own activation'\"'\"' -- base-s1'\"'\"'s vector carries --activation-fn elu (non-blank, unlike base-s0'\"'\"'s blank), and train_ppo_mjx.py'\"'\"'s guard raises SystemExit whenever --activation-fn is truthy alongside a plain --init-from since PPO.load already restores the checkpoint'\"'\"'s saved activation/gSDE state). This respec blanks --activation-fn explicitly and only adds --init-from, mirroring the working base-s0-c1/halfgrav-s0-c1 pattern.' --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s1.zip > /tmp/train_cw-walkscratch-easy0905-sde-s1-c2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkscratch-easy0905-sde-s1-c2.log"
+    "log": "/tmp/train_cw-walkscratch-easy0905-sde-s1-c2.log",
+    "wandb_id": "iuxu4b7m",
+    "verified": "2026-09-05T10:40:42+00:00"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c2",

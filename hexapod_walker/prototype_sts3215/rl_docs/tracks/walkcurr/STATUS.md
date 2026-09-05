@@ -55,10 +55,19 @@ backlog; idle slots next to this unmet priority are the failure state.
   ceiling) and realized speed 3-5x the 0.06 m/s freeprog reference —
   paddle/skate quality, not gate-blocking (gate silent on slip at this
   rung). First confirmation the easy-sim diet CAN clear its own
-  acquisition bar from scratch. `sde-s2` separately read ACQ CONTINUE
-  (still climbing, own-checkpoint continuation `sde-s2-c1` launched
-  this cycle). Evidence:
-  `logs/ckpt_eval/cw_walkscratch_easy0905_base_s{2,4}_gate/`.
+  acquisition bar from scratch. `sde-s1`+`sde-s2` both separately read
+  ACQ CONTINUE (not FAIL): both fail every det trial on falls (TERM
+  tilt_pitch 6/6), `sde-s2`'s `walk/det` shows gait_valid 6/6 but only
+  0.08m net (marching-in-place, not progress) — but unlike
+  `sdehalfgrav-s0`'s genuine flat plateau, both `rollout/ep_len_mean`
+  (111->231 ticks / 102->214 ticks) and `rollout/ep_rew_mean`
+  (2.8->38.7 / -2.1->30.1) are still climbing with no plateau at the
+  40M cutoff, and `env/v_along_cmd_m_s` holds ~0.15-0.17 m/s (speed
+  skill retained while survival duration is still being learned);
+  own-checkpoint continuations `sde-s1-c2`/`sde-s2-c2` running (see
+  tooling-gotcha entry above for the `-c1` crash+fix). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_base_s{2,4}_gate/`,
+  `cw_walkscratch_easy0905_sde_s{1,2}_gate/`.
 - 09-05 ~09:5x FIRST 40M FAIL — `sdehalfgrav-s0` (sde x halfgrav
   cell) ACQ FAIL: fast 2-leg lurch straight into tilt_pitch, gait_valid
   0/24 across every eval scenario, fwd 0.07-0.26m (bar: 20s sustained).

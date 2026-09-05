@@ -1042,7 +1042,7 @@ class EngineeringJobStore:
                                 int((saved.get("continuation") or {}).get("attempts_used") or 0))
             if (row["status"] == "retry" and row["attempts"] > known_attempt
                     and source.get("trigger_kind") == "queue_handoff"
-                    and (source.get("experiment", {}).get("parameters") or {}).get("simulation_only") is not True):
+                    and (source.get("experiment", {}).get("parameters") or {}).get("robot_motion") is not False):
                 saved["continuation"] = {
                     **(saved.get("continuation") or {}),
                     "completion_only": True, "attempts_used": row["attempts"],

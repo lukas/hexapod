@@ -4810,3 +4810,18 @@ reproduced on the 3.490 kg build) and made no deployment recommendation.
 Related low-priority decision: a fresh mesh build rewrites the TRACKED
 `hexapod_mesh_mjx.xml` twin (09-04 leg-geometry/boot CAD update not in the
 committed twin); left unchanged to avoid moving training defaults.
+
+## q_20260905T0930Z — foreign uncommitted mesh-twin regen on the controller checkout (FYI + assumption)
+While preparing the operator-ordered walkscratch easy pilot (focus note
+09-05) I found `mesh_mujoco/hexapod_mesh_mjx.xml` + 4 preview PNGs
+MODIFIED but uncommitted in the canonical controller checkout: a
+regenerated ~3.49 kg twin overwriting your committed as-built 4.8057 kg
+twin (your commit a55173ab, 09-03). Neither my cycle nor any snapshot
+made them; `snapshot.sh` (`git add -A`) would have silently REVERTED
+your model update at my next snapshot. ASSUMED-AND-WENT: backed the
+dirty files up to `/workspace/local_backup_20260905_meshtwin/` on the
+controller pod, restored the committed 4.81 kg files, and validated the
+pilot bank against the committed twin (what the pods actually load).
+If the 3.49 kg regen was deliberate (e.g. a Codex intake step), restore
+from the backup and say which twin is canonical; CURRENT_TRUTHS still
+describes the twin as ~3.5 kg and should be corrected either way.

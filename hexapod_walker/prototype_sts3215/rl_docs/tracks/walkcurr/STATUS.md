@@ -1,6 +1,33 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
-## RETIRED (2026-08-31 ~06:4x — honest DONE-negative scope finding)
+## REOPENED (BOUNDED) 2026-09-05 — operator easy-sim teacher-free pilot
+
+Operator focus note 09-05 authorizes ONE bounded pilot cohort on easy
+simulation physics (explicit departure from hardware realism, isolated
+to this cohort): `cw-walkscratch-easy0905-{base-s0,base-s1,sde-s0,
+halfgrav-s0}`. Full recipe, what-is-new table, literature basis,
+pre-launch proof (test_walkscratch_easy_pilot.py 13/13 on the
+committed 4.81 kg mesh twin), canary/acquisition gates, and boundaries:
+`rl_docs/tracks/walkcurr/EASY_PILOT_20260905.md`.
+
+- Now: 4x 2M canary arms launched 09-05 (this cycle).
+- Next (pre-registered): each HEALTHY canary continues +18M from ITS
+  OWN checkpoint (respec --from <arm> --arg='--init-from=<own ckpt>',
+  same cfg; 80M initial total across 4 lineages). No walking at 2M is
+  NOT a canary failure — stop only for nonfinite training, ineffective
+  actions, implementation failure, or a proven exploit. Do NOT expand
+  into another unbounded sweep; do NOT retire the question off these
+  small pilots alone.
+- Acquisition milestone (own-physics, NOT the old DONE): 20 s held-out
+  fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det
+  episodes, six-leg lift/place on video, no belly drag; report sto.
+- halfgrav is evaluated at its own gravity first; full-gravity is a
+  later diagnostic, never an automatic promotion.
+- Boundaries: no teacher/BC/phase/motion prior (rule (a) holds), no
+  hardware claims from easy physics, defaults untouched (new keys
+  goal.walk_cmd_hold_s/walk_cmd_ramp_s default-preserving).
+
+## RETIRED for real-physics prior-free discovery (2026-08-31 ~06:4x — honest DONE-negative scope finding)
 
 Both pre-committed final-wave seeds now read park-stand/no-gait at
 150M: `cw-walkcurr-litrep-box-s0` (FAIL, 08-31 ~02:5x) and
@@ -71,5 +98,6 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## WAITING-ON
 
-- None. Track closed 08-31. Any reopening is an explicit new operator
-  registration, not agent-initiated.
+- None. Real-physics line stays closed (08-31); the ONLY live work is
+  the bounded 09-05 easy-sim pilot cohort above (operator focus note
+  09-05 = the explicit operator reopening this file required).

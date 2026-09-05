@@ -1511,19 +1511,13 @@ class CodexOrchestrator:
                 )
             finally:
                 self._remove_evidence_snapshot(evidence_snapshot)
-            if normalized["safety_disposition"] != "clear":
-                for proposal in normalized["recommended_experiments"]:
-                    spec = proposal["spec"]
-                    if (
-                        spec["execution_mode"] == "external_guarded"
-                        and spec["parameters"].get("simulation_only") is True
-                        and spec["parameters"].get("robot_motion") is False
-                    ):
-                        continue
-                    proposal["rejection_reason"] = (
-                        "source analysis did not clear safety: "
-                        + normalized["safety_disposition"]
-                    )
+            # Keep intrinsically valid physical follow-ups even when this
+            # sealed analysis requests inspection. A physical `stop` still
+            # pauses advancement below; after live inspection/resume, the
+            # dedicated hardware worker rechecks current camera, telemetry,
+            # runner compatibility, and every motion interlock. Permanently
+            # discarding the plan here starved the robot lane and conflated a
+            # historical disposition with current robot state.
             normalized = self.store.checkpoint_codex_job_result(
                 job["id"],
                 self.owner,

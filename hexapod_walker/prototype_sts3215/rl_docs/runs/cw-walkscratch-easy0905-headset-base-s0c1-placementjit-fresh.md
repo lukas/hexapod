@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T22:48:46+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-base-s0c1
+
+**wandb_id**: h53uw7zb
 
 **hypothesis**: Plain English: FROM-SCRATCH bake-in twin of the placementjit hypothesis (see irr-placementjit-c1 for the full code citation/theory) -- mirrors the campaign's own established fresh-vs-retrofit split (dgfresh/swinggate-fresh both baked their mechanism in from this exact lightly-trained 2M s0c1 checkpoint rather than retrofitting a 40M-entrenched one). Both prior reward-price mechanisms failed IDENTICALLY whether baked-in-early or retrofitted-late, which argued the pathology is not a late-training reward-optimization artifact. If placement-jitter (a state-distribution fix, not a reward price) ALSO fails from-scratch the same way, that is evidence the leg-favoritism habit forms very early regardless of when any fix is applied; if it succeeds specifically from-scratch (unlike the retrofit arms), that would show the fix needs to shape exploration from the start rather than retrofit an entrenched policy -- either outcome is informative and arm 3/3 completes a clean fresh-vs-retrofit x new-mechanism read.
 

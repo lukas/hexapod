@@ -131,11 +131,19 @@ regenerate via `make -C hexapod_walker/prototype_ak40 view-buildviz`).
 from the `weird_objects` repo, e.g. `robot-cat`). List them live
 with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
 
-## Out of scope for agents (unless the user explicitly asks)
+## Scope of robot work
 
-- Do not touch the physical robot, SSH into it, or flash firmware.
-- Do not modify firmware `.ino` files or CAD geometry as a side effect of an
-  unrelated task.
+The user grants standing authority to carry out bounded robot experiments,
+necessary deployment (including relevant firmware), and routine recovery within
+an active robot task without asking for authorization again each turn. Favor
+execution and measured progress over repeated confirmation. Work in the known
+test area with live observations and an available abort path; this does not
+extend to unrelated tasks or an unknown, unobserved environment.
+
+Do not modify firmware `.ino` files or CAD geometry as a side effect of an
+unrelated task. This standing authority supersedes older per-turn permission
+wording in project runbooks; their technical checks and emergency responses
+still apply.
 
 ## Hexapod STS3215 (`prototype_sts3215`) — hardware
 
@@ -146,9 +154,11 @@ with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
 resurface it as an open issue); the process lessons are what remain.
 Hard rules:
 
-1. **No motion** unless the user explicitly asks in the current turn.
-2. **HTTP over SSH** for control (`:8080` `/api/*`, `/cmd`). SSH = deploy
-   only when asked.
+1. **Use bounded, observed motion within the active robot task.** Continue
+   experiments, necessary deployment, and routine recovery under the standing
+   authority above; do not request another per-turn motion approval.
+2. **HTTP over SSH** for control (`:8080` `/api/*`, `/cmd`). Use SSH for
+   necessary deployment and service recovery within the active task.
    For robot-control/web edits, use the documented fast loop:
    `make -C hexapod_walker/prototype_sts3215 robot-check`,
    `robot-unit-check`, `robot-status`, and `robot-deploy`
@@ -158,18 +168,21 @@ Hard rules:
    `HEXAPOD_HOST`/`HEXAPOD_SSH` instead of hard-coding it.
 3. **Set-zero-here before absolute poses.** If encoders disagree with the
    photo, remap zero — do not command software 0°/stand/plant.
-4. **Basic controls first — not standing.** Dead IDs, zeros, single-joint
-   air moves, predict↔encoder. Do not push stand/plant/balance until those
-   are solid and the operator asks.
-5. **No unsupervised stand-up / plant blends.** Hip0+knee80 is stilts, not
-   a low plant.
+4. **Establish basic controls before loaded motion.** Check live IDs, zeros,
+   single-joint air moves, and predict↔encoder agreement. Once these are solid,
+   proceed with stand/plant/balance as needed for the active task.
+5. **Observe stand-up / plant blends live.** Use a verified starting pose and
+   bounded transition in the known test area with an available abort path.
+   Hip0+knee80 is stilts, not a low plant.
 6. **Stop after tip, brownout, hot motor, or persistent missing servo ID.** A
    single missing feedback sample is telemetry noise: retry and require three
    consecutive fresh misses before limping. After a recoverable signal or
    framework stop, inspect the camera and require three fresh healthy samples,
    then retry the complete failed step up to twice. Do not retry an actual tip,
    visibly bad posture, blend failure, brownout, hot motor, jam, surprise
-   force, or hard/sustained current event without operator direction.
+   force, or hard/sustained current event until the physical cause has been
+   inspected and corrected. If hands-on inspection is needed, report that
+   concrete need; another routine permission question does not resolve a fault.
 
 7. **Grounded diagnostic retry rule.** For supported, single-joint grounded
    calibration/sysid tests, isolated bad current samples do not end the run:

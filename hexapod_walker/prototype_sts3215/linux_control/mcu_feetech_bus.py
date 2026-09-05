@@ -705,10 +705,20 @@ class McuFeetechBus:
         return [s for s in found if s in id_range]
 
     def torque(self, sid: int, on: bool) -> None:
-        self._transact(f"T {int(sid)} {1 if on else 0}", timeout=0.4)
+        cmd = f"T {int(sid)} {1 if on else 0}"
+        line = self._transact(cmd, timeout=0.4)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def enable_all_torque(self, on: bool = True) -> None:
-        self._transact(f"TA {1 if on else 0}", timeout=1.0)
+        cmd = f"TA {1 if on else 0}"
+        line = self._transact(cmd, timeout=1.0)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def set_id(self, old_id: int, new_id: int) -> None:
         self.pkt.unLockEprom(old_id)

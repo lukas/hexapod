@@ -1269,3 +1269,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-05 10:47 walkcurr easy0905 halfgrav-s0-c1 ACQ PASS (2nd halfgrav-family confirm; flags leg-1 underuse in pure-det mode only) 
 - 09-05 10:51 walkcurr easy0905 sdehalfgrav-s3 ACQ FAIL (3rd seed confirms reward-misalignment fingerprint, 3/4 sde+halfgrav seeds now share it) 
 - 09-05 10:51 walkcurr easy0905 sde-s0-c1 ACQ CONTINUE (recovering ep_len + rising reward, matches sde-s1/s2/s3 fingerprint) 
+- 09-05 10:52 walkcurr easy0905 sde-s3 ACQ CONTINUE (4th sde seed, same dip-then-recover fingerprint) 
+- 09-05 10:52 walkcurr easy0905 base-s0-c1 ACQ PASS (4th base-family confirm) 

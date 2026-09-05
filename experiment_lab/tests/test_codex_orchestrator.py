@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import plistlib
 from datetime import datetime, timedelta, timezone
 import signal
 import subprocess
@@ -19,6 +20,7 @@ from hexapod_lab.codex_orchestrator import (
     CodexOrchestrator,
     CodexRunError,
     _codex_no_tool_arguments,
+    _codex_runner_identity,
     _redact_for_model,
     _redact_text,
     _safe_environment,
@@ -28,6 +30,57 @@ from hexapod_lab.config import Settings
 from hexapod_lab.db import Store
 from hexapod_lab.main import create_app
 from hexapod_lab.runner import ExperimentRunner
+
+
+def test_codex_runner_identity_captures_hash_version_and_app_bundle(
+    tmp_path, monkeypatch
+):
+    app = tmp_path / "ChatGPT.app"
+    runner = app / "Contents" / "Resources" / "codex"
+    runner.parent.mkdir(parents=True)
+    runner.write_bytes(b"exact runner bytes")
+    info_path = app / "Contents" / "Info.plist"
+    with info_path.open("wb") as target:
+        plistlib.dump(
+            {
+                "CFBundleShortVersionString": "26.901.1",
+                "CFBundleVersion": "7001",
+            },
+            target,
+        )
+
+    class VersionResult:
+        returncode = 0
+        stdout = "codex-cli 0.153.0\n"
+        stderr = ""
+
+    monkeypatch.setattr(
+        codex_module.subprocess, "run", lambda *_a, **_k: VersionResult()
+    )
+
+    identity = _codex_runner_identity(runner)
+
+    assert identity["runner_path"] == str(runner)
+    assert identity["runner_resolved_path"] == str(runner.resolve())
+    assert identity["runner_sha256"] == hashlib.sha256(
+        b"exact runner bytes"
+    ).hexdigest()
+    assert identity["runner_bytes"] == len(b"exact runner bytes")
+    assert identity["runner_version"] == "codex-cli 0.153.0"
+    assert identity["bundle_version"] == {
+        "path": str(app),
+        "short_version": "26.901.1",
+        "build_version": "7001",
+    }
+    assert identity["capture_source"] == "prelaunch_local_binary"
+
+
+def test_codex_runner_identity_retains_explicit_capture_failure(tmp_path):
+    identity = _codex_runner_identity(tmp_path / "missing-codex")
+
+    assert identity["runner_sha256"] is None
+    assert identity["runner_version"] is None
+    assert identity["capture_errors"] == ["binary capture: FileNotFoundError"]
 
 
 def configured(tmp_path, **overrides):

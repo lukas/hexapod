@@ -1071,6 +1071,14 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
         (settings.data_dir / "codex-runs" / "engineering-job" / "attempt-1" / "process.json").read_text()
     )
     assert process_state["deadline_seconds"] == 123
+    assert process_state["runner_identity"]["runner_path"] == "/opt/codex"
+    assert process_state["runner_identity"]["capture_errors"] == [
+        "binary capture: FileNotFoundError"
+    ]
+    metadata = json.loads(
+        (settings.data_dir / "codex-runs" / "engineering-job" / "attempt-1" / "metadata.json").read_text()
+    )
+    assert metadata["runner_identity"] == process_state["runner_identity"]
 
     captured.clear()
     offline = orchestrator._invoke(

@@ -1381,10 +1381,6 @@ class Store:
                 "AND job.not_before<=? "
                 "AND (job.depends_on_job_id IS NULL "
                 "OR dependency.status IN ('succeeded','blocked','dead')) "
-                "AND (?<>'advance' OR NOT EXISTS ("
-                "SELECT 1 FROM codex_jobs AS analysis "
-                "WHERE analysis.kind='analysis' AND analysis.status IN ("
-                "'awaiting_evidence','queued','running','retry'))) "
                 "AND (?<>'advance' OR control.action IS NULL "
                 "OR control.action<>'pause' OR ("
                 "job.depends_on_job_id IS NOT NULL "
@@ -1392,7 +1388,7 @@ class Store:
                 "AND job.trigger_kind='experiment_terminal' "
                 "AND control.source_job_id=job.depends_on_job_id)) "
                 "ORDER BY job.created_at,job.id LIMIT 1",
-                (kind, now, kind, kind),
+                (kind, now, kind),
             ).fetchone()
             if not row:
                 con.execute("COMMIT")
@@ -1776,10 +1772,13 @@ class Store:
                     AND engineering.attempts<engineering.max_attempts
                     AND EXISTS (
                       SELECT 1 FROM codex_queue_controls AS control
+                      JOIN codex_jobs AS control_source
+                        ON control_source.id=control.source_job_id
                       WHERE control.sequence=(
                         SELECT MAX(sequence) FROM codex_queue_controls
                       )
                       AND control.action='resume'
+                      AND control_source.experiment_id=experiments.id
                       AND control.created_at>engineering.finished_at
                       AND control.sequence>MAX(
                         COALESCE(CASE WHEN json_valid(engineering.result_json)

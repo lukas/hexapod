@@ -303418,7 +303418,7 @@
       "from-scratch mechanism-isolation twin of the warm-started remcost-{s0,s1}-dg1 mechanism-health canaries: identical to cw-walkscratch-easy0905-sdehalfgrav-s0 except reward.walk_duty_gate=1.0 from step 0 (fresh init, no remcost term_cost pricing, no entrenched exploiter)."
     ],
     "created": "2026-09-05T15:53:26+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -303462,7 +303462,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:07:43"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: FULL FREEZE at 0.5g, mirrors the 1g bare-sde dgfresh pair exactly -- disambiguates that the freeze is intrinsic to walk_duty_gate=1.0 from scratch, not caused by remcost pricing, warm-starting, or full gravity specifically. Evidence: det walk fwd med 0.07m/20s, identical to 2 decimals across all 6 episodes (video walk_det_0..5.png: static splayed-leg pose, no swinging leg at any sampled tick), slip_per_m 90.1 (near-zero-displacement artifact), env/walk_duty_gate_factor 0.92-1.0 for the entire 2M run, ep_rew_mean quarters -248/-335/-383/-363 (worsening then flat-negative, not rising -- not the 08-21 ambiguous case). sto/startjitter modes: 0/6 and 0/6 gait_valid, every episode falls or drifts with 2-4 legs sacrificed -- fragile, not a hidden success. Why: same as sde-dgfresh-s0b -- a trailing-duty floor alone is trivially satisfied by 6-leg stasis with zero net motion. Next: no further bare walk_duty_gate arm on this or the sde cell without pairing reward.k_walk_idle_charge (anti-park travel floor, implemented, 0 in every arm to date); CURRENT_TRUTHS.md updated with the 3/3 disambiguation."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-dgfresh-s0",
@@ -303617,7 +303618,7 @@
       "from-scratch mechanism-isolation twin of the warm-started sde-{s1,s2}-dg1 mechanism-health canaries: identical to cw-walkscratch-easy0905-sde-s0 except reward.walk_duty_gate=1.0 from step 0 (fresh init, no entrenched exploiter to destabilize)."
     ],
     "created": "2026-09-05T15:54:41+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -303661,7 +303662,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:07:43"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: same FULL FREEZE as sibling seed sde-dgfresh-s0b (this run is a real independent training run, W&B 8h25tu4l, produced by a name-collision that also queued s0b -- both trained separately, both landed the same fingerprint). Evidence: det walk fwd med 0.06m/20s, identical across all 6 episodes (static pose, no leg mid-swing), slip_per_m 107.7 (near-zero-displacement artifact), env/walk_duty_gate_factor never leaves the 0.9-1.0 band, ep_rew_mean quarters -248/-362/-518/-524 getting worse not rising. sto mode shows some real gSDE-noise-driven displacement (fwd up to 1.48m, 4/6 gait_valid) but det -- the harness's primary un-perturbed criterion -- is the reliable read and it is frozen. See sde-dgfresh-s0b's verdict for the full mechanism analysis (duty floor alone is trivially satisfied by 6-leg stasis, cheaper than any real gait); this run is corroborating evidence, not an independent hypothesis. Next: same as s0b -- pair walk_duty_gate with reward.k_walk_idle_charge before further spend."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c2-dgatefix",
@@ -303990,7 +303992,7 @@
       "from-scratch mechanism-isolation twin of the warm-started sde-{s1,s2}-dg1 mechanism-health canaries: identical to cw-walkscratch-easy0905-sde-s0 except reward.walk_duty_gate=1.0 from step 0 (fresh init, no entrenched exploiter to destabilize). Renamed -s0b after -s0 collided with a stale W&B run stub from a same-drain-pass pod-claim race with the sdehalfgrav-dgfresh-s0 sibling."
     ],
     "created": "2026-09-05T15:55:57+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "cpu_limit": 28,
@@ -304034,7 +304036,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T16:07:43"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: FULL FREEZE, disambiguates walk_duty_gate=1.0 from-scratch with NO remcost pricing and NO inherited checkpoint (fresh init). Evidence: det walk fwd med 0.02m/20s, identical to 2 decimals across all 6 det episodes (a static pose, not noise) and confirmed on video (walk_det_0..5.png frame strips: unchanging splayed-leg stance, no leg mid-swing at any of 10 sampled ticks); slip_per_m 64.5 is a near-zero-displacement artifact, not skate. env/walk_duty_gate_factor sits 0.92-1.0 for the ENTIRE 2M run (never declines the way real gait duty-variance would drive it); ep_rew_mean quarters -240/-388/-481/-549, getting WORSE not flat/rising, so this is not the 08-21 rising-reward-bad-eval ambiguous case. Why: a trailing-duty floor alone (proven in test_walkscratch_easy_pilot.py to collapse a ONE-leg-airborne exploit) is trivially satisfiable by keeping ALL SIX legs near-planted with zero net motion -- cheaper than any real gait, which necessarily drops a swinging leg's duty below ceiling. This closes the ambiguity left by the remcost/warm-started dg1 reads: the freeze is intrinsic to walk_duty_gate itself, not an artifact of remcost's term_cost pricing or of warm-starting from an already-entrenched exploiter (both confounds ruled out here). Corroborated 3/3: twin cw-walkscratch-easy0905-sde-dgfresh-s0 (separate W&B run 8h25tu4l, same recipe, name-collision duplicate) shows the identical fingerprint (det fwd 0.06m, duty_gate_factor saturated, reward worsening -248/-362/-518/-524), and cw-walkscratch-easy0905-sdehalfgrav-dgfresh-s0 shows the same shape at 0.5g (det fwd 0.07m, duty_gate_factor 0.92-1.0, reward -248/-335/-383/-363). Next: no further bare walk_duty_gate arm without pairing it with reward.k_walk_idle_charge (the anti-park travel floor, already implemented, 0 in every arm so far) -- CURRENT_TRUTHS.md updated; the concurrent-cycle entrenched-checkpoint 'dgatefix' batch is a separate confound (does duty_gate cure an ALREADY-entrenched exploiter) and should be read on its own before any new mechanism spend."
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c2-dgatefix",
@@ -304433,7 +304436,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s2-c2-dgatefix --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s2_c2_dgatefix --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'Corrected entrenched-checkpoint continuation of cw-walkscratch-easy0905-sde-s2-c2'\"'\"'s OWN 40M LEGPARK-SKATE checkpoint (sde_s2_c2.zip), companion to sde-s1-c2-dgatefix -- fixes the same respec checkpoint-provenance bug (sde-s2-dg1'\"'\"'s real --init-from was sde_s2.zip, the falling pre-LEGPARK ancestor, not the entrenched exploiter). n=2 for the real '\"'\"'does walk_duty_gate cure an ALREADY-entrenched skate policy'\"'\"' question on bare-sde.' --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s2_c2.zip --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.15 --cfg-set reward.walk_gait_gate=0.0 > /tmp/train_cw-walkscratch-easy0905-sde-s2-c2-dgatefix.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sde-s2-c2-dgatefix.log",
     "wandb_id": "jw13d0rn",
-    "verified": "2026-09-05T16:09:28+00:00"
+    "verified": "2026-09-05T16:09:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T16:14:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 341,
+        "fps": 22209.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T16:23:09"
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-remcost-s0-dgatefix",
@@ -304632,7 +304648,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sdehalfgrav-remcost-s0-dgatefix --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 10 --out-name ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_remcost_s0_dgatefix --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'Corrected entrenched-checkpoint continuation of cw-walkscratch-easy0905-sdehalfgrav-remcost-s0'\"'\"'s OWN 40M LEGPARK-SKATE checkpoint (sdehalfgrav_remcost_s0.zip itself) -- fixes the respec bug found in sdehalfgrav-remcost-s0-dg1, whose live launch command carried NO --init-from at all (fully from-scratch, not a continuation of anything). This is the real '\"'\"'does walk_duty_gate cure an entrenched remcost-recipe LEGPARK checkpoint'\"'\"' test.' --cfg-set ease.gravity_scale=0.5 --cfg-set reward.term_cost_per_remaining_s=100.0 --cfg-set reward.term_cost_max=450.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_remcost_s0.zip --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.15 --cfg-set reward.walk_gait_gate=0.0 > /tmp/train_cw-walkscratch-easy0905-sdehalfgrav-remcost-s0-dgatefix.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sdehalfgrav-remcost-s0-dgatefix.log",
     "wandb_id": "mmbhvbzs",
-    "verified": "2026-09-05T16:10:45+00:00"
+    "verified": "2026-09-05T16:10:45+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T16:16:19+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T16:23:08"
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-remcost-s1-dgatefix",
@@ -304831,6 +304860,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sdehalfgrav-remcost-s1-dgatefix --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 11 --out-name ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_remcost_s1_dgatefix --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'Corrected entrenched-checkpoint continuation of cw-walkscratch-easy0905-sdehalfgrav-remcost-s1'\"'\"'s OWN 40M LEGPARK-SKATE checkpoint (sdehalfgrav_remcost_s1.zip itself) -- fixes the respec bug found in sdehalfgrav-remcost-s1-dg1, whose live launch command carried NO --init-from at all (fully from-scratch, not a continuation of anything). This is the real '\"'\"'does walk_duty_gate cure an entrenched remcost-recipe LEGPARK checkpoint'\"'\"' test.' --cfg-set ease.gravity_scale=0.5 --cfg-set reward.term_cost_per_remaining_s=100.0 --cfg-set reward.term_cost_max=450.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sdehalfgrav_remcost_s1.zip --cfg-set reward.walk_duty_gate=1.0 --cfg-set reward.duty_gate_window_s=3.0 --cfg-set reward.duty_gate_floor=0.15 --cfg-set reward.walk_gait_gate=0.0 > /tmp/train_cw-walkscratch-easy0905-sdehalfgrav-remcost-s1-dgatefix.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-sdehalfgrav-remcost-s1-dgatefix.log",
     "wandb_id": "m9sj7qzp",
-    "verified": "2026-09-05T16:12:02+00:00"
+    "verified": "2026-09-05T16:12:02+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T16:18:09+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T16:23:08"
   }
 ]

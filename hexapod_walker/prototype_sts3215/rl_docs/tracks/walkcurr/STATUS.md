@@ -2,6 +2,41 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~12:4x DIG-IN CLOSED (independent cycle) — `sde-s0-c4` FAIL,
+  confirms **LEGPARK-SKATE** as a 4th seed (this run) alongside
+  `sde-s1-c2`/`sde-s2-c2`/`sde-s3-c1b` above: gate harness (24/24
+  episodes, det+sto+startjitter) shows leg 4 duty 0.00-0.03 (3-9
+  ground touches/20s, every scenario) + leg 1 duty 0.01-0.23
+  (sacrificed in det), remaining 4 legs duty 0.6-0.97 but
+  `stride_m_mean`=0.007 (7mm micro-quiver), 0/24 falls, slip/m
+  4.8-5.2 (vs the 2.9 band). Same class, independently reproduced.
+  Full verdict: `ops.sh review cw-walkscratch-easy0905-sde-s0-c4` /
+  W&B notes on run `6e15jpmw`. **SECOND, ALTERNATE repair lever
+  launched in parallel to this cycle's `walk_gait_gate` repair**
+  (worth funding both — cheap, and a real A/B on which structural
+  fix actually escapes the basin): `cw-walkscratch-easy0905-sde-
+  idleterm-{s0,s1}` (2M canaries, fresh-from-scratch, train-2/3,
+  VERIFIED RUNNING) ports the track's own already-bank-proven
+  `WALKCURR_PF_IDLE_TERM` combo (`k_park_duty=4.0`,
+  `k_walk_idle_charge=2.0`, `k_loadslip_excess=4.5` +gate/ok/max/
+  floor, `safety.walk_idle_terminate_s=3.0` grace=3.0 qvel<2deg/s,
+  dedicated `walk_idle_terminate_penalty=150`) onto the bare sde
+  recipe instead of `walk_gait_gate`. Flagging one risk for whoever
+  reads `sde-s1-c3gg`/`sde-s2-c3gg` next: `reward.walk_gait_gate`
+  (+ its usual pairing `k_walk_move_current`) was tried against a
+  related leg-sacrifice/rigid-tripod-lock exploit on the joystick
+  track's harder full-DR `joyfullcurr13` curriculum and was CLOSED
+  there — made the fall rate WORSE at every dose/architecture tried
+  (RL_LOG 08-25: "a policy can satisfy a rolling swing-completion
+  window with rare token swings while spending most ticks in the
+  same rigid lock"). Not a reason to abandon c3gg (this easy0905
+  context is materially simpler: single fixed low speed, DR-scale
+  0.0, no joystick curriculum, and the just-recalibrated bank now
+  passes at gait_gate_stride_mm=5) — just read its gait_valid/
+  sacrificed-leg numbers with that precedent in mind rather than
+  assuming a clean escape. `CURRENT_TRUTHS.md` updated with the
+  class-level fact + this caution.
+
 - 09-05 ~12:3x DIG-IN RESOLVED + VERDICTED: `sde-s1-c2`/`sde-s2-c2`
   both **ACQ FAIL (misaligned)** — new exploit class named
   **LEGPARK-SKATE**, now banked in both verdicts: 0/24 falls and the

@@ -143,6 +143,37 @@ backlog; idle slots next to this unmet priority are the failure state.
   gravity doesn't look like the deciding lever so far, gSDE looks
   like the harder one. Evidence: `logs/ckpt_eval/
   cw_walkscratch_easy0905_halfgrav_s{2,3}_gate/report.json`.
+- 09-05 ~11:4x EARLY READS on 4 open cells, gate evals still computing
+  (not verdicts — training curves only, recorded so no cycle re-derives
+  them; `ops.sh podeval` confirmed each already had a real
+  `eval_checkpoint` process alive on its own pod, so none were
+  duplicated): (1) `sdehalfgrav-remcost-s0` (the term-cost survival-
+  pricing fix cell) — `rollout/ep_len_mean` clearly ESCAPES the
+  65-84-tick flat plateau that failed the bare recipe: 116 (2.5M) ->
+  202 (10M) -> 324 (25M) -> 712 (35M) -> 1033 (40M, still climbing, no
+  re-plateau), `terminations/tilt_pitch` falling in the back half
+  (764->741->308), `env/walk_speed` steady ~0.24-0.28 (NOT the ~0
+  park-recapture pattern), `env/v_along_cmd_m_s` rising 0.010->0.10.
+  `rollout/ep_rew_mean` is deeply negative and getting MORE negative
+  (-649->-1025) — expected, not contradictory: longer episodes rack up
+  more ticks of the (pre-existing, unchanged) freeprog cross-track
+  penalty and the fix's own per-death term_cost is large by design;
+  per the gate's own text this reads as escaping the plateau with real
+  motion, not park-recapture — leans PASS-shaped but withholds the
+  formal verdict for the gate eval's gait_valid/falls numbers.
+  `remcost-s1` gate eval also in flight, not yet inspected. (2)
+  `sde-s1-c2` (40M own-checkpoint continuation) — `rollout/ep_rew_mean`
+  climbs cleanly 188 (Q1) -> 884 -> 1460 -> 1861, ending 2023 at 40M,
+  no plateau; `sde-s2-c2` gate eval also in flight, not yet inspected.
+  (3) `headset-base-c1` (the heading-generalization canary) FINISHED
+  clean: `ep_rew_mean` climbs 38->82->109->141 across the 2M budget,
+  monotonic, no plateau — matches the canary's own PASS criterion
+  ("reward_walk trending up"); its gate/spot-check eval had not been
+  started by anyone (unlike the other 3) so this cycle launched it
+  (`ops.sh podeval`), still computing at cycle end. All 5 pods
+  (train-1/2/4/7/11) left with their real eval processes running
+  in-flight for the next cycle/watcher sync to read — do not
+  re-launch, poll `logs/ckpt_eval/*_gate/report.json`.
 - 09-05 ~11:2x HEADING BANK BUILT + FIRST CANARIES LAUNCHED (closes
   the "unstarted" item below): `test_walkscratch_easy_pilot.py` now
   has an `EASY_HEADING` section (`_heading_rollout`, 5 new tests,

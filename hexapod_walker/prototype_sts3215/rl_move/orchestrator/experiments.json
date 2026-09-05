@@ -290418,7 +290418,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T11:20:03"
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-s1-c2-cw-walkscratch-easy0905-sd since 2026-09-05T11:45:44"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c2",
@@ -290617,7 +290617,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T11:25:11"
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-s1-c2-cw-walkscratch-easy0905-sd since 2026-09-05T11:45:43"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s1-c2",
@@ -290988,7 +290988,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T11:35:27"
+    "triage": "in-cycle cw-walkscratch-easy0905-sde-s1-c2-cw-walkscratch-easy0905-sd since 2026-09-05T11:45:44"
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-remcost-s1",
@@ -291192,7 +291192,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-sdehalfgrav-remcost-s1 since 2026-09-05T11:45:44"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s0-c2",
@@ -293198,7 +293199,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-05T11:45:43"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-c1",
@@ -293368,7 +293370,12 @@
       "code_sha_local": "b84a26aad1f5846baa63603d82a04dad0c108bcb",
       "code_sha_pod": "b84a26aad1f5846baa63603d82a04dad0c108bcb",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "30377",
+      "log_growth_bytes": [
+        2214,
+        2214
+      ]
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -293376,8 +293383,7 @@
     "assessment_scope": "mechanism_health",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn elu --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-halfgrav-s2: Plain English: does the clean fixed-forward 0.5g walking skill halfgrav-s2 already learned keep walking (now toward a small set of commanded headings: straight, +45deg, -45deg, resampled every 6s within the 20s episode) instead of just marching straight, using the SAME reward it already trained under (no new keys -- k_walk_freeprog'\"'\"'s existing along/cross decomposition already prices live heading-tracking correctly, bank-proven this cycle in test_walkscratch_easy_pilot.py'\"'\"'s EASY_HEADING section, 22/22 green). Matching sibling to the concurrently-launched cw-walkscratch-easy0905-headset-base-c1 (1g): STATUS.md'\"'\"'s own next-rung note says base+halfgrav answer the fixed-forward milestone identically and gravity '\"'\"'doesn'\"'\"'t look like the deciding lever'\"'\"' for THAT rung -- this checks whether that holds for heading generalization too, warm-started from halfgrav-s2 (own-track checkpoint, not a teacher/BC/motion-prior, same boundary as every other -c1 continuation this campaign).' --cfg-set goal.walk_stop_frac=0.0 --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_halfgrav_s2.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-c1.log",
-    "triage": "done",
-    "verdict": "CANARY FAIL - INFRASTRUCTURE: died in ~2s, 0 steps logged (wandb w6xs0zav exit_code 0/runtime 0 looked clean, no behavioral evidence either way). Root cause: the launching cycle's respec kept --activation-fn elu on top of a plain --init-from, tripping train_ppo_mjx.py's own SystemExit guard (PPO.load already restores the checkpoint's saved ELU; the guard exists because reasserting activation on a warm start is unsupported) -- the exact CURRENT_TRUTHS.md Known Tooling Gotchas bug, this time on a plain-elu family arm rather than a gSDE one (broadens the documented scope). Relaunched correctly as headset-halfgrav-c2 (blank --activation-fn, plain --init-from) on train-0. Superseded by headset-halfgrav-c2, not a lineage kill."
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-c2",
@@ -293568,6 +293574,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-c2 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_c2 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-halfgrav-s2: Plain English: does the clean fixed-forward 0.5g walking skill halfgrav-s2 already learned keep walking toward a small set of commanded headings (straight/+45/-45deg, resampled every 6s in the 20s episode) instead of just marching straight, under the SAME reward it already trained under (bank-proven this cycle, test_walkscratch_easy_pilot.py EASY_HEADING, 22/22 green). Re-launch of headset-halfgrav-c1 (w6xs0zav), which died in ~2s with the documented SystemExit ('\"'\"'--activation-fn only applies to from-scratch/transplant builds; a plain --init-from warm start keeps the checkpoint'\"'\"'s own activation'\"'\"') because the concurrent cycle that launched it forgot to blank --activation-fn on a plain --init-from continuation (CURRENT_TRUTHS.md Known Tooling Gotchas) -- fixed here. Matching sibling to headset-base-c1 (1g, train-1, confirmed running past 2M steps).' --cfg-set goal.walk_heading_set=0,0.7853981633974483,-0.7853981633974483 --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_halfgrav_s2.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-c2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-c2.log",
     "wandb_id": "r82tqlzx",
-    "verified": "2026-09-05T11:37:30+00:00"
+    "verified": "2026-09-05T11:37:30+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T11:43:06+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

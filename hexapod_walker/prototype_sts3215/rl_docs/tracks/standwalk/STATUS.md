@@ -1,75 +1,87 @@
 # standwalk — mesh-model stance retrain, then distill into walking
 
-Update, 2026-09-05 ~04:5x: **item-1 mechanism BUILT + LAUNCHED:
-phase-scheduled multi-teacher, the track's only surviving open lever.**
-Every static combined-tick reweight/rescale (combined_skip,
-combined_dose, yaw_arm_scale, omega_boost, selective_omega_boost —
-the ~20-arm grid closed 09-04/09-05) held ONE fixed target/weight for
-the WHOLE run; none varied the target over TRAINING PROGRESS. New
-mechanism (`train.bc_anchor_multiteacher_blend`+`_schedule_frac`,
-default 0.0/1.0 = legacy bit-exact off): sim_env runs a SEPARATE
-persistent scripted-gait clock alongside the walk BC-anchor teacher,
-same wall-clock ticks but forward speed always zeroed (the undegraded
-pure-turn geometry a combined tick would command if turn-only) — a
-first same-object double-query attempt was REFUTED by its own
-regression test (TripodGait's EMA smoothing returns a stale dt=0 on a
-same-tick 2nd call) before landing on the separate-object design.
-`bc_anchor.py` blends the two targets at LOSS TIME (only it knows
-`_current_progress_remaining`) ramping 0 -> the knob's value over the
-first `bc_anchor_multiteacher_schedule_frac` of progress. 137/137
-`rl_move/tests/test_bc_anchor.py` green (10 new). Snapshotted
-(`exp/...multiteach-b05`). Launched as a pre-registered 4-arm canary
-grid (blend {0.5,1.0} x seed {0,1}, schedule_frac=0.5 mirroring this
-recipe's own `--log-std-anneal-frac 0.5`, 2M steps, same
-probe_turn_authority gate the whole lever family uses) —
-`...-cap29-stdwalklohi-multiteach-b{05,10}{,-s1}`, all 4 VERIFIED
-RUNNING (train-2/3/5/+1). Next cycle: triage vs the same comparator
-every prior lever in this family used (see `rl_docs/runs/...
--selomegaboost4p0-s1.md` for the exact numbers).
+Update, 2026-09-05 ~05:4x: **phase-scheduled multi-teacher canary,
+SEED0 HALF (2/4 arms) IN — both FAIL, matching the ~20-arm pattern.**
+`multiteach-b05` (blend=0.5) and `-b10` (blend=1.0), both seed0, read
+via `probe_turn_authority.py` (full 84-key cfg replayed, wz-cmds
+0.25/-0.25 x vx-cmds 0/0.08, seeds 0+1, on-pod): b05 pure-turn wz_med
++0.176/-0.167 vs the seed0 control's +0.223/-0.250 (-21%/-33%,
+past the gate's 10% cap); b10 pure-turn +0.117/-0.153 (-48%/-39%,
+worse at full dose than half dose). Combined-tick (vx=0.08): b05
++0.095/-0.116 vs control +0.110/-0.170 (fails to beat on either
+sign); b10 +0.084/-0.191 (beats on neg only, still fails the
+both-signs PASS clause). No falls in either probe. **Phasing the
+aggressive pure-turn target in late does NOT protect the safe
+demo's own pure-turn magnitude — if anything higher blend dose makes
+it worse**, refuting this run's own hypothesis at both tested doses.
+`multiteach-b05-s1`/`-b10-s1` (seed1 half) still training on another
+cycle's watch — not yet folded into a joint verdict; the seed0 read
+alone already matches the pre-registered 4/4-closes-it pattern from
+every prior static-dose arm (~20 total). Full JSON:
+`logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_multiteach_
+b{05,10}_combined_09-05.json`.
 
-Prior updates (09-04 ~13:2x..09-05 ~04:0x) archived verbatim in
-`archive/standwalk_STATUS_journal_2026-09-0{4hh,4jj,4kk,4ll,5a,5b}_
+Prior updates (09-04 ~13:2x..09-05 ~04:5x) archived verbatim in
+`archive/standwalk_STATUS_journal_2026-09-0{4hh,4jj,4kk,4ll,5a,5b,5c}_
 trim.md`.
 
-## Next (updated 09-05 ~04:5x)
+## Next (updated 09-05 ~05:4x)
 
-1. **Triage the phase-scheduled multi-teacher canary grid** (4 arms,
-   see Update). A 4/4 FAIL (same sign-asymmetric pure-turn regression
-   as every prior static lever) closes the reward/supervision-side
-   lever space for good, leaving only a gait-structure change
-   (turn-dedicated tripod phase offset) or a DONE-gate renegotiation.
-   A PASS/INFORMATIVE cell reopens acquisition follow-up.
-2. **DR-draw correlation — CLOSED.** No dominant DR field at n=20;
+1. **Close the phase-scheduled multi-teacher canary joint verdict**
+   once `-b05-s1`/`-b10-s1` (seed1) report (owned by a concurrent
+   cycle at time of this write). Given both seed0 arms already FAIL
+   decisively (past the 10% cap by 2-5x on pure-turn, and fail the
+   both-signs beat-comparator clause on combined-tick), a matching
+   seed1 result closes the WHOLE reward/supervision-side lever family
+   (now ~22 arms) for good. Do not re-attempt a static-or-scheduled
+   reweight/rescale of the combined-tick BC-anchor target after that
+   — the axis is exhausted.
+2. **If/when item 1 closes 4/4 (or 3/4+1 pending-consistent): the two
+   remaining moves are (a) a genuine gait-STRUCTURE change (e.g.
+   turn-dependent per-leg stance/swing duty skew, not another
+   velocity-magnitude/atan2-denominator rescale — every rescale/boost/
+   amplify/detangle variant of "change the commanded magnitude" is
+   now refuted) or (b) renegotiate the DONE gate's turn-authority bar
+   given the scripted teacher's OWN combined-tick ceiling (33% pure-
+   turn retention, `probe_turn_authority` 09-03 finding) may make the
+   current bar structurally unreachable via BC-anchored RL at all.
+   (a) needs a dedicated design pass (duty-cycle/support-polygon
+   changes are riskier than an amplitude rescale and deserve their own
+   cycle, not a rushed same-cycle bolt-on) — do not half-build it.
+2b. **DR-draw correlation — CLOSED.** No dominant DR field at n=20;
    k=8 is the standing ceiling dose (now also known to cost slip on
    the literal gate — do not re-promote mlcontprice8 or raise dose).
 3. **Steering branch — CLOSED, both seeds, all axes** (09-04 ~17:0x
-   sweep + this cycle's architecture-swap/turn-skip/cap-recalibration
-   closures). No further lever acquisition; frozen parents
+   sweep + architecture-swap/turn-skip/cap-recalibration closures).
+   No further lever acquisition; frozen parents
    (`cap29-stdwalklo-hi{,-s1}`) remain the reference. Rise-stall
    stays CLOSED.
-4. **Closed** (archives 09-02{,b..h}..09-05a): architecture-split;
+4. **Closed** (archives 09-02{,b..h}..09-05c): architecture-split;
    lever/dose/seed sweeps incl. `TripleGruActorCriticPolicy` turn-core
    swap; `combskip`/dose-bracket ablations; cap29 acquisition
    (PARTIAL); log_std anneal grid; sto/det convergence; resamplematch;
    rise over_current dig-in; semantics-bank twins; IK-feasibility;
    mlcontprice2/8/16 (k=8 ceiling, costs slip); steering FAIL-wall
    dig-in; DR-draw n=20; mlcontprice8 literal DONE-gate (FALL);
-   dir_err_cap miscalibration (REFUTED).
+   dir_err_cap miscalibration (REFUTED); multiteacher blend
+   {0.5,1.0}-seed0 (this update, FAIL both).
 
 > Journal archives (VERBATIM, oldest->newest, `archive/standwalk_
 > STATUS_journal_<date>_trim.md`): 2026-08-30, 09-01, 09-02{,b..h},
 > 09-03{a..i,n,o,p,q,r,s,t,u}, 09-04{v,w,x,y,z,aa,bb,cc,dd,gg,hh,ii,jj,
-> kk,ll}, 09-05{a,b}. Current state = newest Update at the TOP; don't
-> act on archived Next.
+> kk,ll}, 09-05{a,b,c}. Current state = newest Update at the TOP;
+> don't act on archived Next.
 
-## Fleet capacity note (updated 09-05 ~04:5x)
+## Fleet capacity note (updated 09-05 ~05:4x)
 
-4 GPU slots now BUSY with the multiteacher canary grid (train-2/3/5/
-+1), 7ish free. Stale mixedsession/eval_checkpoint jobs may still
-linger on other pods — harmless CPU, not launch-blocking; cleanup
-lever: `ops.sh procs <pod>`. Every OTHER track non-launchable by
-design (`joystick`/`amp`/`cpg` DONE/maintenance; `walkcurr` RETIRED;
-`todaypolicy` DELIVERED).
+2 GPU slots still BUSY with the seed1 half of the multiteacher canary
+(owned by a concurrent cycle), ~9-10 free. Every OTHER track
+non-launchable by design (`joystick`/`amp`/`cpg` DONE/maintenance;
+`walkcurr` RETIRED; `todaypolicy` DELIVERED). No new standwalk GPU
+launch this update — item 1 needs the seed1 read first (avoid
+duplicating/pre-empting the concurrent cycle's runs), and item 2's
+gait-structure candidate is explicitly deferred to its own dedicated
+design pass rather than a rushed same-cycle build.
 
 ## Goal (operator, 08-24 evening)
 

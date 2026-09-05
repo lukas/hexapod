@@ -46,6 +46,7 @@ from rl_move.robot_state import (  # noqa: E402
 from rl_move.safety import SafetyLayer, action_to_body_offset  # noqa: E402
 
 from .domain_rand import DomainRandomizer, EpisodeRandomization  # noqa: E402
+from .deployed_transport import DeployedTransport  # noqa: E402
 from .servo_model import (  # noqa: E402
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
@@ -442,6 +443,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._hist_buf: list | None = None
 
         self.dt = 1.0 / float(cfg_get(self.cfg, "control", "hz", default=25))
+        self._deployed_transport = DeployedTransport.from_cfg(
+            self.cfg, 1.0 / self.dt)
         ep_s = (episode_seconds if episode_seconds is not None
                 else float(cfg_get(self.cfg, "episode", "seconds", default=5)))
         self.episode_steps = int(round(ep_s / self.dt))
@@ -639,6 +642,13 @@ class SimHexapodBalanceEnv(_GymBase):
 
         self.ik = FixedFootBodyIK()
         self.safety = SafetyLayer(self.cfg)
+        if self._deployed_transport is not None:
+            # Async hardware current dwell consumes physical frames, not
+            # all repeated policy reads of a cached health value.
+            trip_s = float(cfg_get(self.cfg, "safety",
+                                   "over_current_trip_s", default=.8))
+            self.safety._over_current_trip_ticks = max(
+                1, int(round(trip_s * self._deployed_transport.snapshot.hz)))
         # Subclasses with a different action space (e.g. raw joint targets)
         # override n_act and _act_to_q; everything else is shared.
         self.n_act = N_ACT
@@ -834,7 +844,11 @@ class SimHexapodBalanceEnv(_GymBase):
         # the full lever-arm spikes of an off-center IMU (±20° for one
         # tick) — real firmware filters those out, so the sim must too.
         alpha = 0.98
-        if self._att_rp is None:
+        if self._deployed_transport is not None:
+            # The acquired-frame hardware filter below owns integration.
+            # Never integrate held observations once per policy tick.
+            roll, pitch = roll_acc, pitch_acc
+        elif self._att_rp is None:
             self._att_rp = np.array([roll_acc, pitch_acc])
         else:
             self._att_rp = np.array([
@@ -842,7 +856,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 + (1.0 - alpha) * roll_acc,
                 alpha * (self._att_rp[1] + gyro[1] * self.dt)
                 + (1.0 - alpha) * pitch_acc])
-        roll, pitch = float(self._att_rp[0]), float(self._att_rp[1])
+        if self._deployed_transport is None:
+            roll, pitch = float(self._att_rp[0]), float(self._att_rp[1])
 
         # Servo current ≈ |net actuator torque| × A/N·m. Feeds the effort
         # reward penalty AND the SafetyLayer over-current trip (2.5 A), so
@@ -864,7 +879,7 @@ class SimHexapodBalanceEnv(_GymBase):
         servo_current = self._cur_filt.copy()
 
         del mujoco
-        return RobotState(
+        state = RobotState(
             timestamp=self.data.time,
             joint_position=q,
             joint_velocity=qd,
@@ -879,6 +894,10 @@ class SimHexapodBalanceEnv(_GymBase):
             imu_ok=True,
             dt=self.dt,
         )
+        if self._deployed_transport is not None:
+            state = self._deployed_transport.acquire(
+                state, accel_tilt=(roll_acc, pitch_acc))
+        return state
 
     # ------------------------------------------------------------------
     # physics
@@ -2203,6 +2222,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._gyro_accum[:] = 0.0
         self._gyro_n = 0
         self._att_rp = None
+        if self._deployed_transport is not None:
+            self._deployed_transport.reset()
         # Height anchor: goal height refs (rise) are relative to wherever
         # the body actually settled, same convention as the tilt refs.
         self._z0 = float(self.data.xpos[self._chassis_bid, 2])
@@ -2701,8 +2722,10 @@ class SimHexapodBalanceEnv(_GymBase):
             # SafetyLayer minted under an older ramp value — re-assert
             # the live slew clamp every tick (see apply_profile_ramp_frac).
             self.safety.max_dq = self._profile_ramp_dq_rad
+        safety_state = (self._state if self._deployed_transport is None else
+                        self._deployed_transport.safety_state(self._state))
         q_safe, status = self.safety.filter(
-            q_prop, self._state, ik_ok=q_ok, ik_reason=q_reason,
+            q_prop, safety_state, ik_ok=q_ok, ik_reason=q_reason,
             action=clipped)
         # Structural stop-hold override (goal.walk_stop_freeze_s,
         # default 0.0 = off, bit-exact identity) -- see
@@ -2717,7 +2740,9 @@ class SimHexapodBalanceEnv(_GymBase):
             # keep chasing the previous goal for one tick.
             dropped = (self._ep_rand is not None
                        and self.rng.random() < self._ep_rand.cmd_drop_prob)
-            if not dropped:
+            write_due = (self._deployed_transport is None
+                         or self._deployed_transport.write.due(self.data.time))
+            if not dropped and write_due:
                 # Zero-drift FRAME mode (dr.zero_drift_cmd_frame=1): a
                 # drifted set_zero shifts reads AND commands together on
                 # hardware — logical target C drives physical C - bias
@@ -2768,6 +2793,8 @@ class SimHexapodBalanceEnv(_GymBase):
         # the follow-up pairing, so at most one near-duplicate
         # transition per (rare) rejected action reaches the
         # discriminator replay.
+        if self._deployed_transport is not None:
+            result[4]["transport"] = self._deployed_transport.summary()
         amp_on = getattr(self, "_amp_style_on", None)
         if amp_on is None:
             amp_on = float(cfg_get(self.cfg, "goal", "amp_style_obs",

@@ -130,6 +130,23 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_sde_s{1,2}_c3gg_gate/
   report.json`, `logs/experiments/cw-walkscratch-easy0905-sde-s{1,2}-
   c3gg/wandb_history.csv`, W&B notes on `zr5lg756`/`vb2m7gr2`.
+  UPDATE 09-05 ~14:4x: those two `sdehalfgrav-remcost-{s0,s1}-gg2`
+  arms landed and it does NOT get a pass on remcost's different term
+  pricing — both ACQ FAIL (misaligned), the SAME fingerprint (legs
+  1/4 chronically parked, duty 0.0-0.03 nearly every episode,
+  `gait_valid` 2/24 both seeds, `env/walk_gait_gate_factor` SATURATED
+  at 0.985-1.0 for essentially the whole 40M run rather than a real
+  ~0->1 climb). Video (`walk_det_0.png` contact sheets, both runs)
+  shows the identical splayed-rigid-leg drag as the bare-sde FAILs.
+  The `walk_gait_gate`+`k_step_event` lever is now CLOSED 4/4 across
+  every recipe tried (bare sde x2, sdehalfgrav+remcost x2) — do not
+  relaunch it anywhere in the sde/sdehalfgrav family; the per-leg-
+  utilization pricing design question is fully open again pending a
+  genuinely new mechanism (hard minimum-duty/swing-count price, not a
+  gameable completion score). Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_sdehalfgrav_remcost_s{0,1}_gg2_gate/
+  report.json`, `wandb_history.csv` for both runs, W&B notes
+  `wrc80ii4`/`dq6gfe29`.
 
 ## Known Tooling Gotchas
 - A run's gate podeval can go silently ORPHANED (09-05,

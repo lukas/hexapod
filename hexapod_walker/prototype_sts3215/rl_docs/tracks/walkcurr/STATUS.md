@@ -2,7 +2,39 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
-- 09-05 ~14:4x this cycle: `headset-halfgrav-irr-c1` **CANARY PASS**
+- 09-05 ~14:4x this cycle: `sdehalfgrav-remcost-{s0,s1}-gg2` both
+  **ACQ FAIL (misaligned)** — the `walk_gait_gate`+`k_step_event`
+  structural repair does NOT generalize off bare sde onto the
+  sdehalfgrav+remcost recipe, closing the lever at 4/4 across every
+  recipe tried. Evidence (`logs/ckpt_eval/cw_walkscratch_easy0905_
+  sdehalfgrav_remcost_s{0,1}_gg2_gate/report.json`, 40.37M steps each):
+  0/24 falls both seeds, but `gait_valid` only 2/24 both seeds (legs
+  1/4 chronically parked, `duty_cycle` 0.0-0.03 in nearly every
+  episode vs 0.77-0.89 for the four active legs). Video (`walk_det_0.
+  png` contact sheets) shows the SAME splayed-rigid-leg drag already
+  seen on the bare-sde FAILs. Root cause identical too:
+  `env/walk_gait_gate_factor` (`wandb_history.csv`) sits SATURATED at
+  0.985-1.0 for essentially the entire 40M run on both seeds — never
+  a real ~0->1 climb, already at ceiling from early training despite
+  the harness flagging near-total leg sacrifice the whole time.
+  Reward quarters strongly rising both seeds (s0
+  -539.9/-240.3/361.1/991.9, s1 -694.5/-530.0/-39.7/538.0) is NOT
+  evidence of real progress per 08-21: the mechanism's own internal
+  proxy is already saturated, so more budget cannot move a factor
+  reading 1.0. **The `walk_gait_gate`+`k_step_event` repair is now
+  CLOSED 4/4 (bare sde x2 `sde-s1-c3gg`/`sde-s2-c3gg`, sdehalfgrav+
+  remcost x2 this entry) — do not relaunch it anywhere in the sde/
+  sdehalfgrav family.** CURRENT_TRUTHS.md updated. Both `idle-
+  terminate` and `gait-gate` repair levers are now closed on every
+  recipe tried; any further LEGPARK-SKATE repair on this family needs
+  a genuinely new per-leg-utilization pricing mechanism (hard
+  minimum-duty/swing-count price, not a gameable completion score),
+  its own design+bank pass before further spend. `sde-s0-c4gg`/
+  `sde-s3-c1bgg` (2 more bare-sde gait-gate seeds, concurrent-cycle-
+  owned) still in flight at cycle end — if either FAILs the same way
+  that's 6/6 confirmation and fully forecloses the lever; if either
+  clears, that reopens it and this closure needs revisiting. Also
+  this cycle: `headset-halfgrav-irr-c1` **CANARY PASS**
   — the irregular-direction-change-timing canary on the 0.5g heading
   family, mirroring the base-family `irr-c1`/`-c2` pair on the other
   physics cell. Evidence (`wandb_history.csv`, 2.1M steps): `env/

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T23:48:05+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c1
+
+**wandb_id**: gmz0a4i2
 
 **hypothesis**: Plain English: irrwiden-c1's 2M canary showed that composing the widen2 heading-widen step (5-way medhead -> full 8-way compass incl reversals) ON TOP OF the mature irr-timing-jitter champion (jitter-first order) keeps the gait cleanly valid (23/24, 0 falls, only one transient leg flag) -- the cleanest read of the whole widen2 family, beating both widen2-c1's (21/24) and widen2-c2b's (16/24) own 2M canaries. This is the acquisition-scale (40M) confirmation: does this composite champion (heading breadth + timing irregularity together) hold up at full budget the way widen2-c1-acq1 did (ACQ PASS, 21/24, 0 falls, slip improved vs canary), or does it entrench a chronic leg sacrifice at 40M the way the matched-seed sibling widen2-c2b-acq1 did (ACQ FAIL, gait_valid dropped 16/24->14/24, leg-1 chronic park)? This produces the first acquisition-scale test of the ACTUAL composite DONE-gate shape (heading set + irregular direction-change timing together), not one axis at a time.
 

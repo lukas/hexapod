@@ -927,6 +927,27 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   for the next design cycle, do not launch a bare cfg tweak on this
   theory without a bank pass proving the new mechanism actually
   distinguishes a real tripod gait from a stable 4-leg one first.
+- UPDATE 09-05 ~23:4x: the leg-1/4 chronic-sacrifice fingerprint above
+  (previously base(1g)-family only) has now appeared on a HALFGRAV
+  (0.5g) seed too: `headset-halfgrav-fullhead-widen2-c2b-acq1` (40M
+  acquisition continuation of the widen-from-medhead heading recipe)
+  regresses from its own 2M canary's 16/24 gait_valid to 14/24, with
+  leg-1 duty 0.01-0.21 (med ~0.11) in ALL 24 episodes, formally
+  flagged sacrificed in 10/24 (one episode collapses to 4 legs
+  [0,1,3,4] simultaneously). The matched sibling seed
+  `widen2-c1-acq1` (same recipe, different parent lineage) ACQ PASSES
+  cleanly (21/24, no chronic pattern) — the differentiator found so
+  far is PARENT QUALITY, not gravity: `widen2-c2b`'s parent
+  (`medhead2_acq1`) was itself only ACQ CONTINUE/borderline, while
+  `widen2-c1`'s parent (`medhead_acq1`) was a clean ACQ PASS. Revises
+  the gravity-linked-robustness-gap hypothesis (halfgrav is LESS
+  PRONE to this fingerprint, not immune) and adds a new candidate
+  causal thread (marginal-quality parents propagate/amplify their own
+  marginal per-leg habits through further curriculum stages) worth
+  testing directly before spending on a repair mechanism. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_fullhead_
+  widen2_c2b_acq1_gate/report.json` vs `..._widen2_c1_acq1_gate/`,
+  RL_LOG 09-05 23:4x.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

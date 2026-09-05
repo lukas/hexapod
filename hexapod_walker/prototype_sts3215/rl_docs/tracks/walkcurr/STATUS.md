@@ -2,6 +2,56 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~23:4x this cycle (assigned `headset-halfgrav-fullhead-widen2-{c1,c2b}-acq1` +
+  `headset-halfgrav-irrwiden-c1`): three verdicts, splitting the widen2
+  acquisition-scale question by SEED rather than confirming it cleanly.
+  `widen2-c1-acq1` **ACQ PASS**: gait_valid 21/24 across all 4 modes, 0
+  falls, no chronic leg sacrifice (only 3/24 episodes flag a transient
+  leg, never the same leg twice), `walk/det` slip_per_m median IMPROVES
+  vs its own 2M canary (3.93 vs 5.02) — the widen-from-medhead recipe
+  survives a full 40M budget on this seed. `widen2-c2b-acq1` **ACQ
+  FAIL**: gait_valid regresses from its own 2M canary (16/24) to 14/24
+  at 40M, with leg-1 duty low (0.01-0.21, med ~0.11) in ALL 24
+  episodes and formally flagged sacrificed in 10/24 (one episode
+  collapses to FOUR sacrificed legs [0,1,3,4] simultaneously); video
+  (`walk_det_4`, `walk_startjitter_det_2`) shows skating/rotating in
+  place rather than translating in the worst episodes, matching the
+  numeric slip blowup (up to 128/m in sto mode). Root-cause note: the
+  `medhead2_acq1` parent this seed built from was itself only ACQ
+  CONTINUE (borderline, not a clean PASS like `widen2-c1`'s
+  `medhead_acq1` parent) — parent-champion quality appears to
+  propagate through the curriculum rather than this being pure
+  seed-noise. **This is the FIRST appearance of the base(1g)-family
+  chronic leg-1/4 entrenchment fingerprint on a halfgrav(0.5g)
+  seed** — the gravity-linked-robustness-gap hypothesis needs
+  qualifying (halfgrav is less prone, not immune). Net: the widen2
+  rung reads 1 PASS / 1 FAIL at acquisition scale, not yet a validated
+  recipe — a tie-breaking 3rd seed from a cleanly-PASSed parent is the
+  natural next step, not a repair-mechanism spend (per-leg-utilization
+  reward levers are already closed 7-9/9 on the base family; do not
+  relaunch any of them here off a single new instance).
+  `headset-halfgrav-irrwiden-c1` (jitter-first composition: widen2's
+  heading-set change on top of the ACQ-PASS irr-timing-jitter
+  champion) **CANARY PASS** — the CLEANEST widen2-family read yet:
+  gait_valid 23/24, 0 falls, only ONE episode flags a transient
+  [2,4] leg pair, beating both widen2-c1's (21/24) and widen2-c2b's
+  (16/24) own 2M canaries. Validates that heading-breadth and
+  timing-irregularity compose cleanly in the jitter-first order.
+  **Refill:** launched the matched 40M acquisition continuation,
+  `headset-halfgrav-irrwiden-c1-acq1` (respec `--init-from-source`,
+  mirroring the widen2-c1-acq1 template) — tests whether this
+  composite champion (heading breadth + timing irregularity together,
+  the actual DONE-gate panel shape) holds at full budget given the
+  seed-dependent widen2-acq1 split just found. Left untouched (other
+  cycles' remit): `widenirr-c1`/`widenirr-c2b` (widen-first mirror
+  order, a concurrent cycle's own claim per ledger `triage` field) and
+  the `*-placementjit-*`/`headset-crossgrav-*` arms concurrent cycles
+  own. Evidence: `ops.sh review cw-walkscratch-easy0905-headset-
+  halfgrav-fullhead-widen2-{c1,c2b}-acq1`, `cw-walkscratch-easy0905-
+  headset-halfgrav-irrwiden-c1`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_halfgrav_{fullhead_widen2_c1_acq1,fullhead_widen2_
+  c2b_acq1,irrwiden_c1}_gate/report.json`, RL_LOG.
+
 - 09-05 ~23:4x this cycle (assigned `headset-base-medhead-placementjit-c1` +
   `headset-base-s0c1-placementjit-fresh`, the remaining 2 arms of the
   3-arm placement-jitter batch): 2 verdicts, 2-arm new-theory refill.

@@ -18,3 +18,5 @@
 
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 
+**refused_reason**: launch-mechanics bug: --activation-fn elu passed alongside a plain --init-from -- train_ppo_mjx.py:3250 raises SystemExit('--activation-fn only applies to from-scratch/transplant builds...') on ANY plain warm-start when activation-fn is truthy (PPO.load already restores the checkpoint's own activation). Died in ~2s (wandb exit_code 0, runtime 0). Same root cause independently diagnosed + fixed this cycle for sde-s2-c1/c2 (see that entry); relaunching as sde-s1-c2 with --activation-fn= (blank) to match the working base-s0-c1/base-s1-c1/halfgrav-s0-c1 pattern.
+

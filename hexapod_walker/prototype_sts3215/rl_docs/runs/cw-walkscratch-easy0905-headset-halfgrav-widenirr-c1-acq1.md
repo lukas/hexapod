@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-05T23:49:23+00:00
+**created**: 2026-09-05T23:51:44+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-5
 
 **steps**: 40000000
 
@@ -16,5 +16,5 @@
 
 **gate**: ACQ PASS if gait_valid stays majority-valid (>=18/24) with 0 chronic single-leg entrenchment (no leg parked in >50% of episodes) and course/heading tracking (courserr, wrong_course_frac_1s) is flat-or-better vs this run's own 2M canary read and vs the plain widen2-c1-acq1 sibling; ACQ FAIL if gait_valid collapses into minority or a leg chronically parks, matching the widen2-c2b-acq1 entrenchment fingerprint.
 
-**refused_reason**: hexapod-mjx-train-1 already runs cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c1-acq1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
 

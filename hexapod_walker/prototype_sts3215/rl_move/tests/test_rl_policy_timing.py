@@ -1222,6 +1222,40 @@ def test_episode_log_records_actual_time_activity_and_sensor_age(tmp_path, monke
     assert rows[1]["bus_write_due"] == "0"
 
 
+def test_episode_log_keeps_array_columns_precision_and_tail_blanks(tmp_path, monkeypatch):
+    monkeypatch.setattr(rl_policy, "_HERE", tmp_path)
+    monkeypatch.setitem(sys.modules, "event_log", SimpleNamespace(emit=lambda *a, **k: None))
+    log = rl_policy._EpisodeLog("drive", {}, obs_dim=74)
+    state = _state(timestamp=time.monotonic(), health=True)
+    state.joint_position = np.linspace(-0.234567, 0.345678, 18)
+    action = np.linspace(-0.876543, 0.987654, 18, dtype=np.float32)
+    command = state.joint_position + 0.021345
+    obs = np.linspace(-3.456789, 2.345678, 74, dtype=np.float32)
+    # Multiple rows exercise the unchanged periodic flush as well as ordering.
+    for tick in range(26):
+        log.tick(tick * 0.01, state, action, command, None, 0.08, 0.0,
+                 0.4, obs=obs, walk_engaged=True)
+    state.servo_current = None
+    log.tick(0.26, state, None, None, None, 0.0, 0.0, 0.0, phase="tail")
+    log.close({"ok": True})
+    with log.csv_path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 27
+    assert all(None not in row and None not in row.values() for row in rows)
+    first = rows[0]
+    for j in range(18):
+        assert float(first[f"q{j}_deg"]) == round(float(state.joint_position[j]) * rl_policy.RAD2DEG, 2)
+        assert float(first[f"cmd{j}_deg"]) == round(float(command[j]) * rl_policy.RAD2DEG, 2)
+        assert float(first[f"act{j}"]) == round(float(action[j]), 4)
+        assert float(first[f"cur{j}_a"]) == 0.4
+        assert rows[-1][f"cmd{j}_deg"] == rows[-1][f"act{j}"] == rows[-1][f"cur{j}_a"] == ""
+    for j in range(74):
+        assert float(first[f"obs{j}"]) == round(float(obs[j]), 4)
+        assert rows[-1][f"obs{j}"] == ""
+    assert rows[25]["t_s"] == "0.25"
+    assert rows[-1]["phase"] == "tail"
+
+
 @pytest.mark.parametrize("capture", [None, "nan", "97.0", "101.0"])
 def test_http_camera_requires_fresh_source_capture_time(tmp_path, monkeypatch, capture):
     from rl_move.scripts import run_rl_walk_trial as trial

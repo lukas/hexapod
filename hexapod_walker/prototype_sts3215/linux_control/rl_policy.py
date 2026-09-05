@@ -869,7 +869,9 @@ def _stream_target(bus, est: RobotStateEstimator,
                     "feedback stale during stream", stale_ticks,
                     stale_samples, stream_timing())
         if getattr(state_robot, "timing", None) is not None:
-            state_robot.timing["stream_diag"] = _json_safe(last_diag or diag)
+            # The diagnostic is already made from JSON-native scalars. Leave
+            # serialization to the debug writer instead of walking it each tick.
+            state_robot.timing["stream_diag"] = last_diag or diag
         last_good_state = state_robot
         stale_ticks = 0
     return (state_robot, t_next, overruns, "", stale_ticks, stale_samples,
@@ -2323,7 +2325,7 @@ class _EpisodeLog:
         state_age_ms = round(max(
             [host_age_ms] + [age for age in (pos_age_ms, imu_age_ms)
                              if age != ""]), 3)
-        obs_cols = ([round(float(o), 4) for o in obs]
+        obs_cols = (np.round(np.asarray(obs, dtype=float), 4).tolist()
                     if obs is not None else [""] * self.obs_dim)
         if q_cmd_rad is not None:
             q_err = np.abs(np.asarray(state.joint_position, dtype=float)
@@ -2348,10 +2350,12 @@ class _EpisodeLog:
             + [round(goal.height_ref * 1000, 1) if goal is not None
                else "",
                round(vx_r, 4), round(vy_r, 4), round(max_cur, 3)]
-            + [round(float(q) * RAD2DEG, 2) for q in state.joint_position]
-            + ([round(float(q) * RAD2DEG, 2) for q in q_cmd_rad]
+            + np.round(np.asarray(state.joint_position, dtype=float)
+                       * RAD2DEG, 2).tolist()
+            + (np.round(np.asarray(q_cmd_rad, dtype=float)
+                        * RAD2DEG, 2).tolist()
                if q_cmd_rad is not None else [""] * N_JOINTS)
-            + ([round(float(a), 4) for a in action]
+            + (np.round(np.asarray(action, dtype=float), 4).tolist()
                if action is not None else [""] * N_JOINTS)
             + ["" if c is None else round(float(c), 3) for c in cur]
             + obs_cols

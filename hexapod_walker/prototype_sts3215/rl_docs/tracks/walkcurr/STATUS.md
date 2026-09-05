@@ -129,6 +129,17 @@ backlog; idle slots next to this unmet priority are the failure state.
   margin worth watching, not a fail. **Net: both `base` and
   `halfgrav` families are now 2/2 clean at 40M from scratch; `sde` is
   ACQ CONTINUE (both seeds); `sdehalfgrav` is 2/2 ACQ FAIL** (below) —
+  (09-05 ~11:1x update: `halfgrav-s1`, the backlog-spare seed, ALSO
+  ACQ PASSed — same fingerprint, 0/24 terms, gait_valid 6/6, fwd
+  2.82-4.24m/20s, slip/m 1.53-2.15 — closing the cell at 3/3. Its
+  post-training gate eval was orphaned by a prestage race: the ledger's
+  recorded pod (`train-11`) got reassigned to `sde-s2-c2` before the
+  eval finished, so it hung silently ~34min. Fixed by `launch_run.py
+  update --set pod=<free-pod>` + re-running `ops.sh podeval` on the
+  idle pod — kill any stale duplicate `pod_eval.py` process for the
+  run first, the log path is shared by run name. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_halfgrav_s1_gate/report.json`,
+  `rl_docs/SKILLS.md`.) —
   gravity doesn't look like the deciding lever so far, gSDE looks
   like the harder one. Evidence: `logs/ckpt_eval/
   cw_walkscratch_easy0905_halfgrav_s{2,3}_gate/report.json`.

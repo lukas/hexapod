@@ -287954,7 +287954,7 @@
       "respec of cw-walkscratch-easy0905-base-s0: Plain English: independent seed 3 of the validated easy-physics base family at acquisition budget (mechanism evidence inherited from the base 2M CANARY PASSes; operator 09-05: identical-except-seed skips re-paying 2M startup). From-scratch 40M, identical to base-s0 except --seed 3. Question: seed-robustness of teacher-free stepping on easy physics."
     ],
     "created": "2026-09-05T09:46:48+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -288000,7 +288000,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-walkscratch-easy0905-base-s3-cw-walkscratch-easy0905-sde- since 2026-09-05T10:59:29"
+    "triage": "done",
+    "verdict": "ACQ PASS (5th base-family seed/continuation). Evidence: logs/ckpt_eval/cw_walkscratch_easy0905_base_s3_gate/report.json \u2014 0/24 falls across all 4 scenarios, fwd_dist_m median 4.22-4.96m/20s (0.21-0.25 m/s net, the fastest median-forward reading in the base family so far, >>0.03 bar). gait_valid full 6/6 in walk/sto and 5/6 in walk_startjitter/sto; the two PURE-deterministic blocks (walk/det, walk_startjitter/det) each show a repeatable sacrificed-leg pattern (leg 1 alone / legs [1,4]) that fully resolves once stochastic sampling or start-jitter is present \u2014 same class of pure-det-only leg-underuse caveat as halfgrav-s0-c1 this cycle, not a permanent drag. Video (walk_sto_0.png) confirms real forward translation with all six legs cycling, no belly drag. Why: 5th independent base-family PASS (joins s0-c1,s1-c1,s2,s4) \u2014 the base recipe question is now extremely well-answered. Next: no further RL budget on the base cell; walkcurr easy0905 budget should concentrate on sde continuations (now 4 running: s0-c4,s1-c2,s2-c2,s3-c1b) and the sdehalfgrav-remcost repair pair."
   },
   {
     "run": "cw-walkscratch-easy0905-halfgrav-s1",
@@ -291885,7 +291886,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s3.zip"
     ],
     "created": "2026-09-05T11:00:10+00:00",
-    "status": "FAILED",
+    "status": "KILLED_SUPERSEDED",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -291915,7 +291916,8 @@
     "log": "/tmp/train_cw-walkscratch-easy0905-sde-s3-c1.log",
     "wandb_id": "fno2zx90",
     "failed_reason": "W&B global_step not advancing (4096 -> 0) after 210s (n_steps=128, cpu-time flat for 2 polls)",
-    "triage": "awaiting since 2026-09-05T11:09:47"
+    "triage": "done",
+    "verdict": "INFRA_FAIL, not a training/reward result: launcher's stall guard killed this 210s after launch (W&B global_step frozen at 4096, host-side fps~91) because hexapod-mjx-train-5 was CPU-contended with another job at launch time (auto-placement collision, per the same cycle's own retry note in walkcurr STATUS.md). Only 4096 steps logged -- no eval report, no video, nothing to score. A same-name retry on train-9 was correctly REFUSED (W&B names are append-only); the lineage was relaunched clean under the distinct name cw-walkscratch-easy0905-sde-s3-c1b on a confirmed-idle pod (train-9) and is VERIFIED RUNNING past the crash point (still training this cycle, left alone). No further action on this entry -- sde-s3-c1b carries the hypothesis forward."
   },
   {
     "run": "cw-walkscratch-easy0905-sdehalfgrav-remcost-s1",
@@ -292779,7 +292781,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s0_c1.zip"
     ],
     "created": "2026-09-05T11:11:32+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -292791,7 +292793,19 @@
       "code_sha_local": "2e103485efcfb409fa8edeac31b47415630e39cd",
       "code_sha_pod": "2e103485efcfb409fa8edeac31b47415630e39cd",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "710655",
+      "log_growth_bytes": [
+        6103,
+        6227
+      ],
+      "wandb_id": "6e15jpmw",
+      "trainer_pid": "710655",
+      "global_step_window": [
+        4096,
+        524288
+      ],
+      "fps_estimate": 17339.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -292799,7 +292813,9 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-walkscratch-easy0905-sde-s0-c1 ACQ CONTINUE verdict + sde-s0-c3 BUGGED (2M-only, steps-inheritance mistake) diagnosis, both this cycle. Comparable precedent: sde-s1-c2/sde-s2-c2/sde-s3-c1b confirmed training at full 40M budget.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-sde-s0-c4 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 0 --out-name ppo_goal_cw_walkscratch_easy0905_sde_s0_c4 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-base-s1: Own-checkpoint 40M continuation of sde-s0-c1 (ACQ CONTINUE: ep_len_mean recovered from a mid-training trough to 239 by 40M, ep_rew_mean ended positive +17.1, v_along_cmd ~0.15-0.17 m/s -- same still-learning fingerprint sde-s1/s2/s3 already earned continuations for). CORRECTED relaunch of sde-s0-c3, which silently trained only 2M steps because it was respec'\"'\"'d --from base-s0 (that run'\"'\"'s own config is the 2M-canary scale, steps defaulted from it) instead of a 40M-scale sibling -- this respec is --from base-s1 (a 40M full-acquisition config) WITH an explicit --steps 40000000 override so the budget cannot silently inherit wrong.' --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_sde_s0_c1.zip > /tmp/train_cw-walkscratch-easy0905-sde-s0-c4.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkscratch-easy0905-sde-s0-c4.log"
+    "log": "/tmp/train_cw-walkscratch-easy0905-sde-s0-c4.log",
+    "wandb_id": "6e15jpmw",
+    "verified": "2026-09-05T11:14:24+00:00"
   },
   {
     "run": "cw-walkscratch-easy0905-sde-s0-c4",

@@ -272362,7 +272362,7 @@
       "train.bc_anchor_teacher_selective_omega_boost=4.0"
     ],
     "created": "2026-09-04T06:55:10+00:00",
-    "status": "RUNNING",
+    "status": "CANARY FAIL - MECHANISM",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -272416,7 +272416,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-grad since 2026-09-04T07:38:13"
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM (train.bc_anchor_teacher_selective_omega_boost=4.0, seed1, 4th/last of the 4-arm grid). Evidence: probe_turn_authority.py --vx-cmds, full 84-key non-train cfg-set replayed on this checkpoint (logs/ckpt_eval/probe_turn_authority_cap29_stdwalklohi_selomegaboost4p0_s1_combined_09-04.json, probe-seeds 0/1 avg) vs the matched cap29-stdwalklo-hi-s1 (seed1) control (+0.226/-0.247 pure-turn, +0.086/-0.142 combined, per this run's own pre-registered gate text): pure-turn (vx=0) wz_med +0.214/-0.211 -- positive 5.4% (within cap) but NEGATIVE 14.6% breaches the pre-registered 10% regression cap. Combined-tick (vx=0.08) wz_med +0.092/-0.142 vs control +0.086/-0.142 -- nominally beats/ties control on both signs (+7.0%/+0.2%), but the pure-turn cap breach alone is FAIL per the pre-registered gate regardless of the combined-tick result. Training reward genuinely healthy (quarters 23.5/66.0/-197.9/126.0, the same well-documented cap29-family Q3 collapse then clean recovery) -- 08-21 ruling: mechanism failing on an aligned reward with adequate budget, not a starved run. Same sign-asymmetric (negative-sign-hit-harder) pure-turn erosion as all 3 prior grid members (dose3.0 seed0/seed1 FAIL, dose4.0 seed0 REFUSED/never ran) and every earlier teacher-lever candidate (uniform omega_boost, yaw_arm_scale, yawboost). 4th/last grid arm: CLOSES the selective-omega-boost axis for good, consistent with STATUS.md's already-recorded axis-closed finding (only 1/10 lever cells won both signs on both seeds across the full grid) -- frozen parents (cap29-stdwalklo-hi{,-s1}) remain the reference steering checkpoints, no lever acquisition. Next: no further teacher-side foot-target/angle lever arms on this axis; a gait-structure change (turn-dedicated tripod phase offset) or a DONE-gate turn-authority renegotiation is the only path left, both already logged as open follow-ups elsewhere on the standwalk track."
   },
   {
     "run": "cw-standwalk-stage2-dualbc6-turncap-mirroraug-yawcredit-gradclip0p15-cap29-stdwalklohi-transtress",

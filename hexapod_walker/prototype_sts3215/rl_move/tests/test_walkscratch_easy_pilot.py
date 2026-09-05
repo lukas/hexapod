@@ -965,6 +965,125 @@ def test_easy_heading_wide_dying_is_the_floor(easy_heading_wide_returns):
 
 
 # ---------------------------------------------------------------------
+# MEDIUM FIXED HEADINGS (goal.walk_heading_set widened to a 5-way set —
+# 0,+-45,+-90 — NO reversal beyond a quarter turn. 09-05, built after
+# EASY_HEADING_WIDE's full 8-way jump (incl +-135/180 reversals)
+# CANARY FAILED on BOTH base(1g)/halfgrav(0.5g) 2M canaries
+# (headset-{base,halfgrav}-fullhead-c1: v_along_cmd_m_s pinned near
+# 0.01 m/s the whole run vs the 0.06 target, walk_direction_err_deg
+# ~86deg the whole run, ep_rew_mean falling monotonically and hard on
+# both — see CURRENT_TRUTHS/STATUS 09-05 ~17:2x). Per this arm's own
+# pre-registered gate text ("FAIL means reversal headings need their
+# own pricing/curriculum step before further spend") and the
+# operator's staged-heading-curriculum ruling itself
+# (fb_20260822T032514: never jump straight to a wide/full range), this
+# is the missing INTERMEDIATE rung between the proven 3-way set and
+# the failed 8-way jump: it adds only the two quarter-turns (+-90) the
+# 3-way set never sampled, still withholding every reversal direction
+# (+-135, 180) the 8-way jump failed on. No new reward keys — same
+# k_walk_freeprog mechanism, same ranking invariants re-measured here
+# at the wider (but not full) set.
+# ---------------------------------------------------------------------
+EASY_HEADING_MED = dict(EASY_HEADING)
+EASY_HEADING_MED.update({
+    ("goal", "walk_heading_set"): [
+        0.0, math.pi / 4.0, -math.pi / 4.0,
+        math.pi / 2.0, -math.pi / 2.0,
+    ],
+})
+
+
+@pytest.fixture(scope="module")
+def easy_heading_med_returns() -> dict[str, float]:
+    plan = ("track", "fixedhead", "wronghead", "park", "stall", "topple")
+    out = {}
+    for name in plan:
+        runs = [_heading_rollout(name, s, overrides=EASY_HEADING_MED)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_easy_heading_med_command_covers_quarter_turn():
+    """Wiring check: the medium set must actually sample a +-90 deg
+    heading (the 3-way set's own upper bound was +-45) at least once
+    across seeds, while never sampling a reversal (|angle| > 100 deg)
+    — proves the 5-way set resolves to exactly the intended range, not
+    silently clipped back to the 3-way set nor accidentally as wide as
+    the failed 8-way set."""
+    saw_quarter = False
+    for seed in SEEDS:
+        env = _make_env(seed, EASY_HEADING_MED,
+                        episode_seconds=HEADING_EPISODE_S)
+        env.reset()
+        traj = env._goal_traj
+        for vx, vy in zip(traj.vx, traj.vy):
+            if math.hypot(vx, vy) > 1e-6:
+                ang = abs(math.atan2(vy, vx))
+                assert ang < (100.0 * math.pi / 180.0), (
+                    f"medium set sampled a reversal-range heading "
+                    f"{math.degrees(ang):.0f}deg — walk_heading_set "
+                    "leaked past the intended 5-way range")
+                if ang > (80.0 * math.pi / 180.0):
+                    saw_quarter = True
+        env.close()
+    assert saw_quarter, (
+        "medium heading set never sampled a +-90deg quarter-turn "
+        "across any seed — walk_heading_set not wired to the 5-way list")
+
+
+def test_easy_heading_med_track_beats_fixed_after_resample(
+        easy_heading_med_returns):
+    """Same 'directions actually followed' bar as the 3-way/8-way
+    banks, now under the intermediate 5-way set."""
+    assert (easy_heading_med_returns["track"]
+            > easy_heading_med_returns["fixedhead"] + 15.0), (
+        f"stale-heading twin competitive with live tracking under the "
+        f"medium set: {easy_heading_med_returns}")
+    assert easy_heading_med_returns["track_dx"] > 0.5, (
+        f"tracking twin did not actually travel under the medium set: "
+        f"{easy_heading_med_returns}")
+
+
+def test_easy_heading_med_track_beats_standing(easy_heading_med_returns):
+    for still in ("park", "stall"):
+        assert (easy_heading_med_returns["track"]
+                > easy_heading_med_returns[still] + 25.0), (
+            f"standing '{still}' competitive with medium-set heading-"
+            f"tracking: {easy_heading_med_returns}")
+
+
+def test_easy_heading_med_standing_beats_wrong_heading(
+        easy_heading_med_returns):
+    floor = min(easy_heading_med_returns["park"],
+                easy_heading_med_returns["stall"])
+    assert floor > easy_heading_med_returns["wronghead"] + 15.0, (
+        f"wronghead out-earns (or ties) standing still under the "
+        f"medium set: {easy_heading_med_returns} — live heading "
+        f"direction is not priced")
+
+
+def test_easy_heading_med_dying_is_the_floor(easy_heading_med_returns):
+    ov = dict(EASY_HEADING_MED)
+    ov[("safety", "max_roll_deg")] = 20.0
+    ov[("safety", "max_pitch_deg")] = 20.0
+    runs = [_heading_rollout("topple", s, overrides=ov) for s in SEEDS]
+    tot = float(np.mean([r[0] for r in runs]))
+    steps = float(np.mean([r[2] for r in runs]))
+    assert steps < 400, (
+        f"topple twin did not terminate under the 20 deg probe "
+        f"envelope (medium set): steps={steps}")
+    floor = min(easy_heading_med_returns["park"],
+                easy_heading_med_returns["stall"])
+    assert tot < floor - 15.0, (
+        f"dying (topple@20deg={tot:.1f}) is not priced below standing "
+        f"still under the medium set ({floor:.1f}): "
+        f"{easy_heading_med_returns}")
+
+
+# ---------------------------------------------------------------------
 # WALK DUTY GATE (reward.walk_duty_gate — 09-05 dig-in
 # headset-base-s0c1-acq1): LEGPARK is family-wide, not gSDE-specific —
 # 1/3 plain-Gaussian heading seeds hardened a marginal leg into a

@@ -2,7 +2,7 @@
 """Record short hardware walks for a deployed RL policy.
 
 The timed legs use ``/api/rl/walk``. The optional course uses the persistent
-drive API with 5 Hz heartbeats and translation only; it never sends yaw. A
+drive API with translation-only heartbeats; it never sends yaw. A
 normal trial starts from verified logical zero, runs the known STEP transition
 to the simulator walk-ready pose, records each policy episode, then performs a
 planned STEP lower and limps. Robot-side policy guards remain authoritative.
@@ -607,7 +607,7 @@ class Trial:
         return payload
 
     def drive_leg(self, name: str) -> None:
-        """Run one cardinal leg through the 100 Hz/50 Hz live-drive path."""
+        """Run one cardinal leg through the 100 Hz combined-snapshot drive path."""
         unit_x, unit_y = DIRECTIONS[name]
         vx = unit_x * self.args.speed_m_s
         vy = unit_y * self.args.speed_m_s
@@ -655,6 +655,8 @@ class Trial:
                         and now - last_live_advanced_s > 0.6):
                     raise RuntimeError("drive live progress stopped advancing")
                 live = response.get("live") or {}
+                if isinstance(response.get("live"), dict):
+                    self.event("drive_live", response["live"])
                 if live.get("stopping"):
                     raise RuntimeError(f"controller stopped during drive: {live}")
                 try:
@@ -694,7 +696,6 @@ class Trial:
                 elif (last_live_advanced_s is None
                       or now - last_live_advanced_s > 0.6):
                     raise RuntimeError("drive live progress stopped advancing")
-                self.sample()
                 samples += 1
                 time.sleep(0.05)
         except Exception as error:
@@ -742,7 +743,7 @@ class Trial:
                 loop_error = error
         self.results.append({
             "phase": name,
-            "transport": "drive_100hz_policy_50hz_bus",
+            "transport": "drive_100hz_combined_snapshot",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
             **duration_details,
@@ -780,17 +781,20 @@ class Trial:
                     "seconds": self.args.course_segment_s, "wz": 0.0,
                 })
                 deadline = time.monotonic() + self.args.course_segment_s
-                metrics: list[dict[str, Any]] = []
+                command_samples = 0
                 while time.monotonic() < deadline:
+                    self.recorder.assert_live()
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
                         "command_owner": self._drive_command_owner,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")
-                    metrics.append(self.sample())
+                    if isinstance(response.get("live"), dict):
+                        self.event("drive_live", response["live"])
+                    command_samples += 1
                     time.sleep(0.05)
-                segment_results.append({"name": name, "samples": len(metrics)})
+                segment_results.append({"name": name, "command_samples": command_samples})
         finally:
             stop = self.request("/api/rl/drive/stop", {})
             self.event("course_stop", stop)
@@ -921,7 +925,7 @@ def main() -> int:
     parser.add_argument(
         "--walk-transport", choices=("timed", "drive"), default="timed",
         help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
-              "loop with its established 50 Hz bus-write cadence"),
+              "loop with a combined motor-command/snapshot transaction each tick"),
     )
     parser.add_argument(
         "--resume-walk-ready", action="store_true",

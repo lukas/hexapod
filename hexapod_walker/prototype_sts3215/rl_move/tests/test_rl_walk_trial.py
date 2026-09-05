@@ -268,6 +268,53 @@ def test_drive_camera_must_remain_live_before_another_command(monkeypatch):
     assert requests[-1][0].endswith("/stop")
 
 
+@pytest.mark.parametrize("course", [False, True])
+def test_active_drive_reuses_command_live_without_extra_feedback(monkeypatch, course):
+    trial, clock, requests, events = _drive_trial(monkeypatch, _drive_live)
+    trial.args.course_segment_s = 0.1
+    trial.args.duration_s = 0.1
+    camera_checks, health_checks = [], []
+    trial.recorder.assert_live = lambda: camera_checks.append(clock.now)
+    trial.three_fresh_health_samples = lambda **kw: health_checks.append(kw)
+    def no_feedback():
+        pytest.fail("active drive must not add a separate feedback transaction")
+    trial.sample = no_feedback
+
+    if course:
+        trial.direction_course()
+    else:
+        trial.drive_leg("forward")
+
+    commands = [row for row in requests if row[0].endswith("/cmd")]
+    live_events = [detail for name, detail in events if name == "drive_live"]
+    assert len(camera_checks) == len(commands) == len(live_events)
+    assert live_events == [_drive_live(stamp)["live"] for _, _, stamp in commands]
+    assert health_checks == [{"require_armed": True}]
+    assert all(path != "/api/feedback" for path, _, _ in requests)
+    if course:
+        assert sum(segment["command_samples"]
+                   for segment in trial.results[0]["segments"]) == len(commands)
+    else:
+        assert trial.results[0]["command_samples"] == len(commands)
+        assert trial.results[0]["transport"] == "drive_100hz_combined_snapshot"
+
+
+def test_course_camera_must_remain_live_before_another_command(monkeypatch):
+    trial, clock, requests, events = _drive_trial(monkeypatch, _drive_live)
+    trial.args.course_segment_s = 0.1
+    checks = 0
+    def assert_live():
+        nonlocal checks
+        checks += 1
+        if checks > 1:
+            raise RuntimeError("camera became stale")
+    trial.recorder.assert_live = assert_live
+    with pytest.raises(RuntimeError, match="camera became stale"):
+        trial.direction_course()
+    assert len([r for r in requests if r[0].endswith("/cmd")]) == 1
+    assert requests[-1][0].endswith("/stop")
+
+
 
 def test_early_terminal_result_and_logs_preserved_before_original_error(monkeypatch):
     trial, clock, requests, events = _drive_trial(

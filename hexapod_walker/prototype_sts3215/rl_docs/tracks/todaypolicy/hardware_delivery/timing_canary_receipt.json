@@ -1,0 +1,11 @@
+{
+  "receipts": [
+    {
+      "id": "bf30596891a0481b9e812abbf5af9cf3",
+      "name": "Walking recovery v1: bounded forward timing canary",
+      "plan_id": "walking-recovery-v1-timing-forward",
+      "status": "waiting_for_operator",
+      "reused": false
+    }
+  ]
+}

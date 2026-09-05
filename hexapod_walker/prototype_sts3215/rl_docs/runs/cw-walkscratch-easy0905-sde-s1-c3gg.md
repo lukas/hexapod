@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-05T12:40:56+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-sde-s1-c2
+
+**wandb_id**: zr5lg756
 
 **hypothesis**: Plain English: sde-s1-c2 learned to survive by parking 1-2 legs and skating the rest (LEGPARK-SKATE, ACQ FAIL misaligned) — this continuation keeps its 40M of survival skill but multiplies ALL transport income by the MIN over support legs of a recently-completed-real-swing score (reward.walk_gait_gate=1.0, the structural 08-13 close of the leg-sacrifice loophole that additive k_park_duty pricing cannot close), so the parked legs zero the income until all six cycle; gait_gate_stride_mm=5 lets the current ~6mm active-leg swings qualify (the MIN is held at 0 by the PARKED legs regardless of bar, so this only speeds income recovery once all six move), and k_step_event=1.0 pays each completed forward swing per-leg = the direct gradient for waking legs 1/4. Semantics-bank gait-gate trio repaired and 4/4 green this cycle (snapshot exp/walkcurr-legpark-skate-digin-gaitgate-bank-repair) before this launch.
 

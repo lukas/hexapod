@@ -15,6 +15,7 @@ import pytest
 from hexapod_lab import deadline_exec
 import hexapod_lab.codex_orchestrator as codex_module
 from hexapod_lab.codex_orchestrator import (
+    CodexCleanupError,
     CodexOrchestrator,
     CodexRunError,
     _codex_no_tool_arguments,
@@ -102,6 +103,44 @@ def test_hardware_worker_never_dispatches_offline_rl_outbox(
     assert dispatches == []
     assert orchestrator.process_one("engineering-offline") is True
     assert dispatches == [True]
+
+
+def test_offline_cleanup_failure_quarantines_only_offline_worker(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    offline_job = {
+        "id": "offline-job",
+        "attempts": 1,
+        "max_attempts": 2,
+        "source_context": {"trigger_kind": "experiment_analysis"},
+    }
+    monkeypatch.setattr(
+        orchestrator.engineering,
+        "claim",
+        lambda *_args, **kwargs: (
+            offline_job
+            if kwargs.get("lane") == codex_module.ENGINEERING_LANE_OFFLINE
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "_process_engineering",
+        lambda _job: (_ for _ in ()).throw(
+            CodexCleanupError("offline child could not be reaped")
+        ),
+    )
+
+    assert orchestrator.process_one("engineering-offline") is True
+    assert orchestrator.offline_stop_event.is_set()
+    assert not orchestrator.stop_event.is_set()
+    assert not orchestrator.fatal_cleanup_event.is_set()
+    assert orchestrator.process_one("engineering-hardware") is False
 
 
 def complete_with_evidence(store, settings, *, name="completed", parameters=None):

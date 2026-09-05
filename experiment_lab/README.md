@@ -358,8 +358,10 @@ and `scripts/`. The analysis and fallback advance roles remain token-free and re
 allowlisted environment. With both engineering workdirs configured, the
 hardware role exclusively claims robot-capable queue handoffs and the offline
 role claims analysis and explicit non-motion work concurrently in a different
-checkout. Both retain normal project/network tooling; only the hardware role
-may deploy or issue robot motion/control commands. The wrapper reads only the Robot Lab and RL-orchestrator
+checkout. Both retain normal project/network tooling. The offline role uses a
+network-enabled workspace-write sandbox and does not inherit SSH-agent or
+Kubeconfig deployment channels; only the hardware role may deploy or issue
+robot motion/control commands. The wrapper reads only the Robot Lab and RL-orchestrator
 tokens from Keychain; Codex can use them for MCP authentication but filters them
 out of model-generated shell environments. The deployed checkout must be
 accessible to the background LaunchAgent.

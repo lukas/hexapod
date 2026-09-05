@@ -659,6 +659,7 @@ class CodexOrchestrator:
         self.rl_dispatcher = rl_dispatcher or DisabledRLDispatcher()
         self.engineering = EngineeringJobStore(store)
         self.stop_event = threading.Event()
+        self.offline_stop_event = threading.Event()
         self.fatal_cleanup_event = threading.Event()
         self.owner = f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
         self.threads: List[threading.Thread] = []
@@ -670,6 +671,7 @@ class CodexOrchestrator:
         if any(thread.is_alive() for thread in self.threads):
             return
         self.stop_event.clear()
+        self.offline_stop_event.clear()
         self.fatal_cleanup_event.clear()
         self._recover_orphaned_processes()
         self._cleanup_all_evidence_snapshots()
@@ -751,6 +753,7 @@ class CodexOrchestrator:
                                 build_project_context(
                                     offline_workspace,
                                     self.settings.codex_engineering_context_max_bytes,
+                                    ENGINEERING_LANE_OFFLINE,
                                 )
                             except Exception as exc:
                                 print(
@@ -773,6 +776,7 @@ class CodexOrchestrator:
 
     def stop(self) -> None:
         self.stop_event.set()
+        self.offline_stop_event.set()
         with self.process_lock:
             processes = list(self.processes.values())
         for process in processes:
@@ -1100,7 +1104,15 @@ class CodexOrchestrator:
         )
 
     def _worker_loop(self, kind: str) -> None:
-        while not self.stop_event.is_set():
+        lane_stop = (
+            self.offline_stop_event
+            if kind == "engineering-offline"
+            else None
+        )
+        while (
+            not self.stop_event.is_set()
+            and (lane_stop is None or not lane_stop.is_set())
+        ):
             worked = False
             try:
                 worked = self.process_one(kind)
@@ -1193,12 +1205,23 @@ class CodexOrchestrator:
         try:
             self._process_engineering(job)
         except CodexCleanupError as exc:
-            self.fatal_cleanup_event.set()
-            self.stop_event.set()
-            print(
-                f"Fatal Codex engineering cleanup fence for {job['id']}: {exc}",
-                flush=True,
-            )
+            if lane == ENGINEERING_LANE_OFFLINE:
+                # Quarantine the optional offline worker and retain its running
+                # lease for startup recovery. A broken offline subprocess must
+                # not stop or reap the independent hardware worker.
+                self.offline_stop_event.set()
+                print(
+                    "Codex offline engineering worker quarantined after cleanup "
+                    f"failure for {job['id']}: {exc}",
+                    flush=True,
+                )
+            else:
+                self.fatal_cleanup_event.set()
+                self.stop_event.set()
+                print(
+                    f"Fatal Codex engineering cleanup fence for {job['id']}: {exc}",
+                    flush=True,
+                )
         except Exception as exc:
             self.engineering.retry(
                 job, self.owner, f"{type(exc).__name__}: {exc}",
@@ -1225,7 +1248,9 @@ class CodexOrchestrator:
                 self.engineering.dispatch_one(self.owner, self.rl_dispatcher)
             return
         project_context = build_project_context(
-            workspace, self.settings.codex_engineering_context_max_bytes
+            workspace,
+            self.settings.codex_engineering_context_max_bytes,
+            lane,
         )
         before = workspace_snapshot(workspace)
         job_for_model = _redact_for_model(job)
@@ -1248,6 +1273,7 @@ class CodexOrchestrator:
                 prompt,
                 ENGINEERING_SCHEMA,
                 engineering_workdir=workspace,
+                engineering_lane=lane,
             )
         finally:
             after = workspace_snapshot(workspace)
@@ -1941,6 +1967,7 @@ class CodexOrchestrator:
         allow_advance_actions: bool = False,
         assigned_experiment_id: Optional[str] = None,
         engineering_workdir: Optional[Path] = None,
+        engineering_lane: str = ENGINEERING_LANE_HARDWARE,
     ) -> Dict[str, Any]:
         if allow_advance_actions:
             raise CodexRunError(
@@ -1990,9 +2017,13 @@ class CodexOrchestrator:
             if workdir is None:
                 raise CodexRunError("engineering workspace is not configured")
             workdir = workdir.resolve()
+            offline_engineering = (
+                engineering_lane == ENGINEERING_LANE_OFFLINE
+            )
             command = [
                 str(self.settings.codex_bin),
-                "--ask-for-approval", "never", "--sandbox", "danger-full-access",
+                "--ask-for-approval", "never", "--sandbox",
+                "workspace-write" if offline_engineering else "danger-full-access",
                 "--search",
                 "exec", "--ephemeral", "--strict-config", "--json", "--color", "never",
                 "-C", str(workdir), "-m", self.settings.codex_model,
@@ -2007,6 +2038,10 @@ class CodexOrchestrator:
                     '"HEXAPOD_LAB_TOKEN","HEXAPOD_ORCHESTRATOR_TOKEN"]'
                 ),
             ]
+            if offline_engineering:
+                command.extend([
+                    "-c", "sandbox_workspace_write.network_access=true",
+                ])
         else:
             # Evidence/review lanes use an empty directory with all local
             # tools disabled; repository files and AGENTS.md are not ambient.
@@ -2058,7 +2093,7 @@ class CodexOrchestrator:
         events_path = run_dir / ".events.raw.jsonl"
         stderr_path = run_dir / ".stderr.raw.log"
         child_environment = (
-            engineering_environment(workdir)
+            engineering_environment(workdir, engineering_lane)
             if role == "engineering"
             else _safe_environment()
         )

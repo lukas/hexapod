@@ -1,6 +1,7 @@
 import base64
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+import hashlib
 from html import escape
 import json
 import mimetypes
@@ -50,14 +51,18 @@ from .tag_scan import (
 from .tag_scan_page import tag_scan_page
 
 
-class ExperimentIn(BaseModel):
+class ExperimentSpec(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=4000)
     duration_seconds: float = Field(gt=0)
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
 
-class CompletedResultIn(ExperimentIn):
+class ExperimentIn(ExperimentSpec):
+    execution_mode: Literal["builtin", "external_guarded"] = "builtin"
+
+
+class CompletedResultIn(ExperimentSpec):
     status: Literal["succeeded", "failed", "cancelled"] = "succeeded"
     error: str = Field(default="", max_length=4000)
     summary_markdown: str = Field(min_length=1, max_length=262_144)
@@ -281,6 +286,13 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         pinned_recorded_at: Optional[str] = None,
         pin_basis: Optional[str] = None,
     ):
+        completion_sha256 = hashlib.sha256(
+            json.dumps(
+                spec.model_dump(mode="json"),
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
         recorded_at = pinned_recorded_at
         revision_id = pinned_revision_id
         resolved_basis = pin_basis
@@ -340,19 +352,23 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                             "This recording spans an AprilTag layout change; "
                             "split it into separately pinned evidence segments",
                         )
-        item = store.import_result(
-            spec.model_dump(exclude={
-                "status", "error", "summary_markdown", "recorded_at",
-                "tag_layout_revision_id",
-            }),
-            principal.name,
-            spec.status,
-            spec.error or None,
-            experiment_id=experiment_id,
-            tag_layout_revision_id=revision_id,
-            tag_layout_recorded_at=recorded_at,
-            tag_layout_pin_basis=resolved_basis or "unavailable",
-        )
+        try:
+            item = store.import_result(
+                spec.model_dump(exclude={
+                    "status", "error", "summary_markdown", "recorded_at",
+                    "tag_layout_revision_id",
+                }),
+                principal.name,
+                spec.status,
+                spec.error or None,
+                experiment_id=experiment_id,
+                tag_layout_revision_id=revision_id,
+                tag_layout_recorded_at=recorded_at,
+                tag_layout_pin_basis=resolved_basis or "unavailable",
+                completion_sha256=completion_sha256,
+            )
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
         run_dir = settings.data_dir / "experiments" / item["id"]
         run_dir.mkdir(parents=True, exist_ok=experiment_id is not None)
         if layout_history.available:
@@ -385,12 +401,23 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         if spec.duration_seconds > settings.max_duration_seconds:
             raise HTTPException(422, f"duration_seconds exceeds limit of {settings.max_duration_seconds}")
         item = store.create(spec.model_dump(), principal.name)
-        runner.wake()
+        if spec.execution_mode == "builtin":
+            runner.wake()
         return enrich(item)
 
     @app.post("/api/results", status_code=201)
     def import_result(spec: CompletedResultIn, principal: Principal = Depends(operator)):
         return register_result(spec, principal)
+
+    @app.post("/api/experiments/{experiment_id}/result")
+    def complete_external_experiment(
+        experiment_id: str,
+        spec: CompletedResultIn,
+        principal: Principal = Depends(operator),
+    ):
+        """Attach a guarded runner's terminal result to its waiting queue record."""
+        require_experiment(experiment_id)
+        return register_result(spec, principal, experiment_id=experiment_id)
 
     @app.get("/api/calibrations", openapi_extra=CALIBRATION_LIST_OPENAPI)
     def list_calibrations(
@@ -940,7 +967,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 f"<p>Status: <strong>{escape(state)}</strong> · changed tags: {chips}</p>"
                 f"{diffs}{controls}</section>"
             )
-        body = f"<a href='/'>← Queue</a><h1>{escape(item['name'])}</h1><span class='status {item['status']}'>{item['status']}</span>{video_html}{revision_html}{review_html}<h2>Summary</h2><pre>{summary}</pre><h2>Artifacts</h2><ul>{artifacts}</ul>"
+        status_label = escape(item["status"].replace("_", " "))
+        body = f"<a href='/'>← Queue</a><h1>{escape(item['name'])}</h1><span class='status {item['status']}'>{status_label}</span>{video_html}{revision_html}{review_html}<h2>Summary</h2><pre>{summary}</pre><h2>Artifacts</h2><ul>{artifacts}</ul>"
         return page(item["name"], body)
 
     default_openapi = app.openapi
@@ -982,11 +1010,12 @@ def mcp_tools():
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
         {"name": "get_experiment", "description": "Get one experiment, events, and artifact links.",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}}, "required": ["experiment_id"]}},
-        {"name": "queue_experiment", "description": "Queue a bounded robot experiment (operator role required).",
+        {"name": "queue_experiment", "description": "Queue a bounded experiment. Use execution_mode=external_guarded for physical hardware work that must wait for an operator and an independent safety-guarded runner; the built-in worker will never claim it (operator role required).",
          "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "description": {"type": "string"},
-          "duration_seconds": {"type": "number", "exclusiveMinimum": 0}, "parameters": {"type": "object"}},
+          "duration_seconds": {"type": "number", "exclusiveMinimum": 0}, "parameters": {"type": "object"},
+          "execution_mode": {"type": "string", "enum": ["builtin", "external_guarded"], "default": "builtin"}},
           "required": ["name", "duration_seconds"]}},
-        {"name": "cancel_experiment", "description": "Cancel a queued or running experiment (operator role required).",
+        {"name": "cancel_experiment", "description": "Cancel a queued, waiting-for-operator, or running experiment (operator role required).",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}}, "required": ["experiment_id"]}},
         {"name": "register_result", "description": "Register a completed run from an external guarded robot runner; upload large artifacts through the returned authenticated HTTP API URLs (operator role required).",
          "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "description": {"type": "string"},
@@ -995,6 +1024,15 @@ def mcp_tools():
           "summary_markdown": {"type": "string"},
           "recorded_at": {"type": "string", "format": "date-time", "description": "Original evidence capture time; include its timezone."},
           "tag_layout_revision_id": {"type": "string", "description": "Optional explicit active revision for ambiguous historical evidence."}}, "required": ["name", "duration_seconds", "summary_markdown", "recorded_at"]}},
+        {"name": "complete_external_experiment", "description": "Attach a terminal result from an independent safety-guarded runner to an existing waiting-for-operator experiment, preserving its exact ID. Exact retries are idempotent; mismatched specs or results are rejected (operator role required).",
+         "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"},
+          "name": {"type": "string"}, "description": {"type": "string"},
+          "duration_seconds": {"type": "number", "exclusiveMinimum": 0}, "parameters": {"type": "object"},
+          "status": {"type": "string", "enum": ["succeeded", "failed", "cancelled"]}, "error": {"type": "string"},
+          "summary_markdown": {"type": "string"},
+          "recorded_at": {"type": "string", "format": "date-time", "description": "Original evidence capture time; include its timezone."},
+          "tag_layout_revision_id": {"type": "string", "description": "Optional explicit active revision for ambiguous historical evidence."}},
+          "required": ["experiment_id", "name", "duration_seconds", "summary_markdown", "recorded_at"]}},
         {"name": "read_artifact", "description": "Read a text artifact, or a small binary artifact as base64.",
          "inputSchema": {"type": "object", "properties": {"experiment_id": {"type": "string"}, "filename": {"type": "string"}},
           "required": ["experiment_id", "filename"]}},
@@ -1037,7 +1075,9 @@ def call_mcp_tool(
         spec = ExperimentIn(**args)
         if spec.duration_seconds > settings.max_duration_seconds:
             raise ValueError("Experiment duration exceeds configured maximum")
-        data = enrich(store.create(spec.model_dump(), principal.name)); runner.wake()
+        data = enrich(store.create(spec.model_dump(), principal.name))
+        if spec.execution_mode == "builtin":
+            runner.wake()
     elif name == "cancel_experiment":
         if principal.role == "viewer":
             raise ValueError("Operator role required")
@@ -1049,6 +1089,16 @@ def call_mcp_tool(
         if principal.role == "viewer":
             raise ValueError("Operator role required")
         data = register_result(CompletedResultIn(**args), principal)
+    elif name == "complete_external_experiment":
+        if principal.role == "viewer":
+            raise ValueError("Operator role required")
+        completion_args = dict(args)
+        experiment_id = completion_args.pop("experiment_id")
+        if not store.get(experiment_id):
+            raise ValueError("Experiment not found")
+        data = register_result(
+            CompletedResultIn(**completion_args), principal, experiment_id=experiment_id
+        )
     elif name == "read_artifact":
         path = artifact_path(args["experiment_id"], args["filename"])
         if path.stat().st_size > 1024 * 1024:
@@ -1128,12 +1178,13 @@ def call_mcp_tool(
 
 
 def experiment_card(item):
-    return f"<article><div><span class='status {item['status']}'>{item['status']}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2><p>{escape(item['description'])}</p></div><small>{escape(item['created_at'])} · {item['duration_seconds']}s</small></article>"
+    status_label = escape(item["status"].replace("_", " "))
+    return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2><p>{escape(item['description'])}</p></div><small>{escape(item['created_at'])} · {item['duration_seconds']}s</small></article>"
 
 
 def page(title, body):
     return """<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>%s</title><style>
-    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(2rem,7vw,4.8rem);letter-spacing:-.06em;line-height:.95;margin:.5em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:end;justify-content:space-between;gap:2rem;margin-bottom:3rem}.tool-links{display:grid;gap:.6rem}.tool-link{display:flex;align-items:center;justify-content:space-between;gap:.8rem;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:.75rem 1rem;background:var(--panel);white-space:nowrap}.tool-link span{font-size:1.4rem}a{color:var(--lime)}article{display:flex;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
+    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(2rem,7vw,4.8rem);letter-spacing:-.06em;line-height:.95;margin:.5em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:end;justify-content:space-between;gap:2rem;margin-bottom:3rem}.tool-links{display:grid;gap:.6rem}.tool-link{display:flex;align-items:center;justify-content:space-between;gap:.8rem;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:.75rem 1rem;background:var(--panel);white-space:nowrap}.tool-link span{font-size:1.4rem}a{color:var(--lime)}article{display:flex;align-items:start;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}.waiting_for_operator{color:#e6a8ff;border-color:#70477f}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
     </style></head><body>%s</body></html>""" % (escape(title), body)
 
 

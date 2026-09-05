@@ -211,9 +211,44 @@ robot, kick the orchestrator, or submit feedback. Import:
 
 ## Operations
 
+### Externally guarded hardware queue
+
+Ordinary `POST /api/experiments` requests default to `execution_mode=builtin`
+and enter the built-in worker's `queued` lane. Physical hardware plans should
+instead set `execution_mode` to `external_guarded`. They remain visibly
+`waiting_for_operator` and are never claimed by the built-in worker. An
+operator can cancel them with the normal cancellation endpoint.
+
+After an independent safety-guarded runner finishes, attach its
+`CompletedResultIn` payload with
+`POST /api/experiments/{experiment_id}/result`. The queued name, description,
+duration, and parameters must match exactly. The transition preserves the
+experiment ID; exact retries are idempotent, while a changed payload or an
+attempt to complete a built-in/terminal record is rejected. The MCP equivalents
+are `queue_experiment` with `execution_mode=external_guarded` and
+`complete_external_experiment`.
+
 - Run only one worker against a SQLite file. Read/API replicas must set `HEXAPOD_AUTO_WORKER=false`.
 - Back up `lab.sqlite3` and `experiments/` together.
 - A crash can leave a run marked `running`; the service does not guess whether moving hardware is safe to resume. Inspect the robot before reconciliation.
 - Videos may contain people or private spaces. Apply suitable access and retention rules.
 
 Run tests with `uv run --extra dev pytest`.
+
+### Submit a reviewed guarded plan
+
+The walking benchmark generator writes a JSON document with `queue_payloads`.
+Validate it locally, then submit it with the configured bearer credential:
+
+```sh
+uv run python -m hexapod_lab.guarded_queue /path/to/plan.json
+uv run python -m hexapod_lab.guarded_queue /path/to/plan.json --submit --receipts /path/to/receipts.json
+```
+
+The client reads `HEXAPOD_LAB_TOKEN`; it never stores the credential. It refuses
+servers whose OpenAPI schema does not advertise `external_guarded`, verifies new
+jobs enter `waiting_for_operator`, reuses matching plan IDs, and rejects changed
+specifications under an existing ID. This client does not execute robot commands.
+After an interrupted submission, inspect the receipts and rerun the identical
+plan; do not rename IDs merely to bypass a mismatch. Serialize submissions from
+different clients: plan-ID deduplication is client-side, not a server transaction.

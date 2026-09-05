@@ -8,6 +8,8 @@ import uuid
 
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
+EXECUTION_MODES = {"builtin", "external_guarded"}
+WAITING_FOR_OPERATOR = "waiting_for_operator"
 
 
 def utcnow() -> str:
@@ -38,7 +40,10 @@ class Store:
               id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL,
               duration_seconds REAL NOT NULL, parameters_json TEXT NOT NULL,
               status TEXT NOT NULL, submitted_by TEXT NOT NULL, created_at TEXT NOT NULL,
-              started_at TEXT, finished_at TEXT, error TEXT, cancel_requested INTEGER NOT NULL DEFAULT 0
+              started_at TEXT, finished_at TEXT, error TEXT,
+              cancel_requested INTEGER NOT NULL DEFAULT 0,
+              execution_mode TEXT NOT NULL DEFAULT 'builtin',
+              completion_sha256 TEXT
             );
             CREATE INDEX IF NOT EXISTS experiments_queue ON experiments(status, created_at);
             CREATE TABLE IF NOT EXISTS events (
@@ -180,6 +185,28 @@ class Store:
                     "ALTER TABLE calibrations ADD COLUMN "
                     "source_metadata_json TEXT NOT NULL DEFAULT '{}'"
                 )
+            experiment_columns = {
+                row["name"] for row in con.execute("PRAGMA table_info(experiments)")
+            }
+            if "execution_mode" not in experiment_columns:
+                con.execute(
+                    "ALTER TABLE experiments ADD COLUMN "
+                    "execution_mode TEXT NOT NULL DEFAULT 'builtin'"
+                )
+            if "completion_sha256" not in experiment_columns:
+                con.execute(
+                    "ALTER TABLE experiments ADD COLUMN completion_sha256 TEXT"
+                )
+            # Rows registered through the external-result API predate the
+            # explicit execution-mode column. Preserve that provenance during
+            # migration instead of mislabeling them as built-in worker runs.
+            con.execute(
+                "UPDATE experiments SET execution_mode='external_guarded' "
+                "WHERE execution_mode='builtin' AND EXISTS ("
+                "SELECT 1 FROM events WHERE events.experiment_id=experiments.id "
+                "AND events.kind IN ('imported','external_result_registered')"
+                ")"
+            )
             con.execute("PRAGMA optimize")
 
     @staticmethod
@@ -200,15 +227,34 @@ class Store:
     ) -> Dict[str, Any]:
         experiment_id = uuid.uuid4().hex
         now = utcnow()
+        execution_mode = spec.get("execution_mode", "builtin")
+        if execution_mode not in EXECUTION_MODES:
+            raise ValueError("invalid execution mode")
+        status = (
+            WAITING_FOR_OPERATOR
+            if execution_mode == "external_guarded"
+            else "queued"
+        )
         with self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
             con.execute(
-                "INSERT INTO experiments(id,name,description,duration_seconds,parameters_json,status,submitted_by,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                "INSERT INTO experiments(id,name,description,duration_seconds,"
+                "parameters_json,status,submitted_by,created_at,execution_mode) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
                 (experiment_id, spec["name"], spec.get("description", ""), spec["duration_seconds"],
-                 json.dumps(spec.get("parameters", {}), sort_keys=True), "queued", submitted_by, now),
+                 json.dumps(spec.get("parameters", {}), sort_keys=True), status,
+                 submitted_by, now, execution_mode),
             )
-            con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
-                        (experiment_id, now, "submitted", "Experiment added to queue"))
+            message = (
+                "External guarded experiment is waiting for an operator"
+                if execution_mode == "external_guarded"
+                else "Experiment added to queue"
+            )
+            con.execute(
+                "INSERT INTO events(experiment_id,timestamp,kind,message) "
+                "VALUES(?,?,?,?)",
+                (experiment_id, now, "submitted", message),
+            )
             if tag_layout_revision_id:
                 con.execute(
                     "INSERT INTO experiment_tag_layouts("
@@ -235,6 +281,7 @@ class Store:
         tag_layout_revision_id: Optional[str] = None,
         tag_layout_recorded_at: Optional[str] = None,
         tag_layout_pin_basis: str = "active_at_registration",
+        completion_sha256: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Register evidence produced by an external guarded runner."""
         if status not in TERMINAL:
@@ -248,6 +295,37 @@ class Store:
                     "SELECT * FROM experiments WHERE id=?", (result_id,)
                 ).fetchone()
                 if existing:
+                    existing_item = self.row(existing)
+                    if existing["status"] in TERMINAL:
+                        if (
+                            completion_sha256
+                            and existing["completion_sha256"] == completion_sha256
+                        ):
+                            con.execute("COMMIT")
+                            return existing_item
+                        con.execute("ROLLBACK")
+                        raise ValueError(
+                            "experiment already has a different terminal result"
+                        )
+                    if not (
+                        existing["status"] == WAITING_FOR_OPERATOR
+                        and existing["execution_mode"] == "external_guarded"
+                    ):
+                        con.execute("ROLLBACK")
+                        raise ValueError(
+                            "only a waiting external-guarded experiment can be completed"
+                        )
+                    requested_parameters = spec.get("parameters", {})
+                    if (
+                        existing["name"] != spec["name"]
+                        or existing["description"] != spec.get("description", "")
+                        or existing["duration_seconds"] != spec["duration_seconds"]
+                        or existing_item["parameters"] != requested_parameters
+                    ):
+                        con.execute("ROLLBACK")
+                        raise ValueError(
+                            "completed result does not match the queued experiment spec"
+                        )
                     if tag_layout_revision_id:
                         existing_pin = con.execute(
                             "SELECT revision_id,recorded_at,pin_basis "
@@ -271,12 +349,41 @@ class Store:
                                 ") VALUES(?,?,?,?,?)",
                                 (result_id, *requested_pin[:2], now, requested_pin[2]),
                             )
+                    started_at = tag_layout_recorded_at or now
+                    updated = con.execute(
+                        "UPDATE experiments SET status=?,started_at=?,finished_at=?,"
+                        "error=?,completion_sha256=? WHERE id=? AND status=? "
+                        "AND execution_mode='external_guarded'",
+                        (
+                            status,
+                            started_at,
+                            now,
+                            error,
+                            completion_sha256,
+                            result_id,
+                            WAITING_FOR_OPERATOR,
+                        ),
+                    )
+                    if updated.rowcount != 1:
+                        con.execute("ROLLBACK")
+                        raise ValueError("experiment state changed during completion")
+                    con.execute(
+                        "INSERT INTO events(experiment_id,timestamp,kind,message) "
+                        "VALUES(?,?,?,?)",
+                        (
+                            result_id,
+                            now,
+                            "external_result_registered",
+                            "Completed result registered from an external guarded runner",
+                        ),
+                    )
                     con.execute("COMMIT")
-                    return self.row(existing)
+                    return self.get(result_id)
             con.execute(
                 "INSERT INTO experiments(id,name,description,duration_seconds,"
                 "parameters_json,status,submitted_by,created_at,started_at,"
-                "finished_at,error) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                "finished_at,error,execution_mode,completion_sha256) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     result_id,
                     spec["name"],
@@ -289,6 +396,8 @@ class Store:
                     tag_layout_recorded_at or now,
                     now,
                     error,
+                    "external_guarded",
+                    completion_sha256,
                 ),
             )
             con.execute(
@@ -330,12 +439,19 @@ class Store:
     def claim_next(self) -> Optional[Dict[str, Any]]:
         with self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
-            row = con.execute("SELECT id FROM experiments WHERE status='queued' ORDER BY created_at LIMIT 1").fetchone()
+            row = con.execute(
+                "SELECT id FROM experiments WHERE status='queued' "
+                "AND execution_mode='builtin' ORDER BY created_at LIMIT 1"
+            ).fetchone()
             if not row:
                 con.execute("COMMIT")
                 return None
             now = utcnow()
-            con.execute("UPDATE experiments SET status='running',started_at=? WHERE id=? AND status='queued'", (now, row["id"]))
+            con.execute(
+                "UPDATE experiments SET status='running',started_at=? "
+                "WHERE id=? AND status='queued' AND execution_mode='builtin'",
+                (now, row["id"]),
+            )
             con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
                         (row["id"], now, "started", "Worker claimed experiment"))
             con.execute("COMMIT")
@@ -352,16 +468,26 @@ class Store:
 
     def cancel(self, experiment_id: str) -> Optional[Dict[str, Any]]:
         with self.connect() as con:
+            # Serialize with claim/completion. Without this transaction a
+            # completion can land between the SELECT and cancellation UPDATE,
+            # overwriting a successful immutable result with "cancelled".
+            con.execute("BEGIN IMMEDIATE")
             row = con.execute("SELECT status FROM experiments WHERE id=?", (experiment_id,)).fetchone()
             if not row:
+                con.execute("COMMIT")
                 return None
             now = utcnow()
-            if row["status"] == "queued":
-                con.execute("UPDATE experiments SET status='cancelled',cancel_requested=1,finished_at=? WHERE id=?", (now, experiment_id))
+            if row["status"] in {"queued", WAITING_FOR_OPERATOR}:
+                con.execute(
+                    "UPDATE experiments SET status='cancelled',cancel_requested=1,finished_at=? "
+                    "WHERE id=? AND status IN ('queued','waiting_for_operator')",
+                    (now, experiment_id),
+                )
             elif row["status"] == "running":
-                con.execute("UPDATE experiments SET cancel_requested=1 WHERE id=?", (experiment_id,))
+                con.execute("UPDATE experiments SET cancel_requested=1 WHERE id=? AND status='running'", (experiment_id,))
             con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
                         (experiment_id, now, "cancel_requested", "Cancellation requested"))
+            con.execute("COMMIT")
         return self.get(experiment_id)
 
     def events(self, experiment_id: str):

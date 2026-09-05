@@ -872,6 +872,7 @@ class _AsyncSnapshotSampler:
         self._delivered_seq: int | None = None
         self._last_mcu_snapshot_seq: int | None = None
         self._health_timestamp: float | None = None
+        self._feedback_timestamp: float | None = None
         self._motion_ready = False
         self._stop_failed = False
         if initial_state is not None:
@@ -900,6 +901,7 @@ class _AsyncSnapshotSampler:
                 if self._source_full_feedback_complete(tagged_initial):
                     self._health_timestamp = float(
                         getattr(tagged_initial, "timestamp", time.monotonic()))
+                    self._feedback_timestamp = self._health_timestamp
         self._cmd = (np.asarray(getattr(initial_state, "commanded_position",
                                         np.zeros(N_JOINTS)), dtype=float)
                      .reshape(N_JOINTS).copy())
@@ -994,9 +996,17 @@ class _AsyncSnapshotSampler:
             age_s = host_age_s + mcu_age_s
             health_age_s = (None if self._health_timestamp is None else
                             max(0.0, now - self._health_timestamp))
+            feedback_age_s = (None if self._feedback_timestamp is None else
+                              max(0.0, now - self._feedback_timestamp))
+            # A fresh incomplete scan must reach SafetyLayer's existing
+            # three-distinct-scan missing-ID debounce. Timing the last
+            # *complete* scan instead stops after just one miss at 10 Hz.
+            # Still require an established complete baseline and a recent
+            # acquisition; held data or a stalled reader cannot extend it.
             health_ok = (self._has_servo_health(state)
                          and health_age_s is not None
-                         and health_age_s <= self.max_age_s)
+                         and feedback_age_s is not None
+                         and feedback_age_s <= self.max_age_s)
             timing.update({
                 "async_sample_fresh": sample_fresh,
                 "async_health_fresh": health_fresh,
@@ -1005,6 +1015,9 @@ class _AsyncSnapshotSampler:
                 "async_health_age_ms": (
                     round(health_age_s * 1000.0, 3)
                     if health_age_s is not None else None),
+                "async_feedback_age_ms": (
+                    round(feedback_age_s * 1000.0, 3)
+                    if feedback_age_s is not None else None),
                 "async_host_age_ms": round(host_age_s * 1000.0, 3),
                 "async_mcu_age_ms": round(mcu_age_s * 1000.0, 3),
                 # SafetyLayer uses this exact key for its fresh-temperature
@@ -1053,6 +1066,9 @@ class _AsyncSnapshotSampler:
     def _stats_locked(self, now: float) -> dict:
         health_age_s = (None if self._health_timestamp is None else
                         max(0.0, now - self._health_timestamp))
+        feedback_age_s = (None if self._feedback_timestamp is None else
+                          max(0.0, now - self._feedback_timestamp))
+        timing = dict(getattr(self._latest_good, "timing", {}) or {})
         return {
             "snapshot_hz": round(1.0 / self.interval_s, 3),
             "max_age_ms": round(self.max_age_s * 1000.0, 1),
@@ -1066,6 +1082,10 @@ class _AsyncSnapshotSampler:
                 self._thread is not None and self._thread.is_alive()),
             "health_age_ms": (round(health_age_s * 1000.0, 3)
                               if health_age_s is not None else None),
+            "feedback_age_ms": (round(feedback_age_s * 1000.0, 3)
+                                if feedback_age_s is not None else None),
+            "feedback_valid_count": timing.get("feedback_valid_count"),
+            "feedback_missing_ids": timing.get("feedback_missing_ids"),
             "errors": int(self.errors),
             "physical_rejects": int(self.physical_rejects),
             "last_error": self.last_error or None,
@@ -1196,6 +1216,11 @@ class _AsyncSnapshotSampler:
                     if getattr(state, "bus_ok", False):
                         self._latest_good = tagged
                         self.good_samples += 1
+                        if timing.get("feedback_sample_fresh",
+                                      timing.get("full_feedback_attempted")):
+                            self._feedback_timestamp = float(
+                                getattr(tagged, "timestamp",
+                                        time.monotonic()))
                         if (source_full_feedback
                                 and self._has_servo_health(tagged)):
                             self._health_timestamp = float(
@@ -1452,6 +1477,7 @@ def _stream_target_async(bus, sampler: _AsyncSnapshotSampler,
         "async_health_fresh": sample_timing.get("async_health_fresh"),
         "async_health_ok": sample_timing.get("async_health_ok"),
         "async_health_age_ms": sample_timing.get("async_health_age_ms"),
+        "async_feedback_age_ms": sample_timing.get("async_feedback_age_ms"),
         "motion_ready": motion_ready,
     }
     if not sample_usable:

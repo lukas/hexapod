@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -597,7 +598,9 @@ class Trial:
         self.three_fresh_health_samples(require_armed=True)
 
     def drive_start_payload(self) -> dict[str, Any]:
-        payload = {"vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0}
+        self._drive_command_owner = uuid.uuid4().hex
+        payload = {"vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
+                   "command_owner": self._drive_command_owner}
         alpha = getattr(self.args, "velocity_filter_alpha", None)
         if alpha is not None:
             payload["velocity_filter_alpha"] = alpha
@@ -610,43 +613,151 @@ class Trial:
         vy = unit_y * self.args.speed_m_s
         self.phase = f"drive_{name}"
         started_unix_s = time.time()
+        started_monotonic_s = time.monotonic()
         reply = self.request("/api/rl/drive/start", self.drive_start_payload())
         self.event("drive_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
         samples = 0
         stop: Any = None
+        command_started_s = time.monotonic()
+        activation_s: float | None = None
+        activation_unix_s: float | None = None
+        last_live_t: float | None = None
+        last_live_advanced_s: float | None = None
+        duration_details: dict[str, Any] = {}
+        loop_error: Exception | None = None
         try:
-            deadline = time.monotonic() + self.args.duration_s
+            startup_deadline = command_started_s + 8.0
             self.event("walk_request", {
                 "vx_m_s": vx, "vy_m_s": vy,
                 "duration_s": self.args.duration_s,
                 "yaw_command": 0.0, "transport": "drive",
+                "duration_basis": "confirmed_active_walk_wall_time",
+                "startup_timeout_s": 8.0,
             })
-            while time.monotonic() < deadline:
+            while (activation_s is None
+                   or time.monotonic() - activation_s < self.args.duration_s):
+                self.recorder.assert_live()
+                if activation_s is None and time.monotonic() >= startup_deadline:
+                    raise RuntimeError("drive did not engage within 8 seconds")
                 response = self.request("/api/rl/drive/cmd", {
                     "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                    "command_owner": self._drive_command_owner,
                 })
-                if not isinstance(response, dict) or not response.get("ok"):
-                    raise RuntimeError(f"drive command refused: {response}")
+                now = time.monotonic()
+                if (not isinstance(response, dict) or not response.get("ok")
+                        or response.get("active") is not True):
+                    raise RuntimeError(f"drive command refused or session ended: {response}")
+                if activation_s is None and now >= startup_deadline:
+                    raise RuntimeError("drive did not engage within 8 seconds")
+                if (activation_s is not None and last_live_advanced_s is not None
+                        and now - last_live_advanced_s > 0.6):
+                    raise RuntimeError("drive live progress stopped advancing")
+                live = response.get("live") or {}
+                if live.get("stopping"):
+                    raise RuntimeError(f"controller stopped during drive: {live}")
+                try:
+                    live_t = float(live.get("t_s"))
+                except (TypeError, ValueError):
+                    live_t = float("nan")
+                advanced = (math.isfinite(live_t)
+                            and (last_live_t is None or live_t > last_live_t))
+                if advanced:
+                    last_live_t = live_t
+                    last_live_advanced_s = now
+                # live.t_s is a rounded policy clock, used only as a progress
+                # marker. The duration itself uses this host's monotonic clock.
+                engaged = (live.get("model") == "walk"
+                           and live.get("walk_has_engaged") is True
+                           and live.get("learned_policy_active") is True
+                           and live.get("walk_arming") is False)
+                try:
+                    command_matches = all(
+                        abs(float(live[key]) - expected) <= 0.00051
+                        for key, expected in (("vx_cmd", vx), ("vy_cmd", vy),
+                                              ("wz_cmd", 0.0)))
+                except (KeyError, TypeError, ValueError):
+                    command_matches = False
+                if activation_s is None:
+                    if advanced and engaged and command_matches:
+                        activation_s = now
+                        activation_unix_s = time.time()
+                        self.event("drive_walk_activated", {
+                            "activation_unix_s": activation_unix_s,
+                            "activation_monotonic_s": activation_s,
+                            "startup_duration_s": now - started_monotonic_s,
+                            "live": live,
+                        })
+                elif not engaged or not command_matches:
+                    raise RuntimeError(f"drive activation or command changed: {live}")
+                elif (last_live_advanced_s is None
+                      or now - last_live_advanced_s > 0.6):
+                    raise RuntimeError("drive live progress stopped advancing")
                 self.sample()
                 samples += 1
                 time.sleep(0.05)
+        except Exception as error:
+            loop_error = error
+            self.event("drive_command_error", str(error))
         finally:
-            stop = self.request("/api/rl/drive/stop", {})
-            self.event("drive_stop", stop)
-        result = self.wait_job(name, 25.0)
-        logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+            stop_requested_s = time.monotonic()
+            duration_details = {
+                "requested_active_duration_s": self.args.duration_s,
+                "activation_unix_s": activation_unix_s,
+                "activation_monotonic_s": activation_s,
+                "startup_duration_s": (activation_s - started_monotonic_s
+                                       if activation_s is not None else None),
+                "command_duration_s": stop_requested_s - command_started_s,
+                "confirmed_active_window_s": (stop_requested_s - activation_s
+                                              if activation_s is not None else 0.0),
+                "duration_basis": "host_wall_time_since_confirmed_walk",
+            }
+            self.event("drive_duration", duration_details)
+            try:
+                stop = self.request("/api/rl/drive/stop", {})
+                self.event("drive_stop", stop)
+            except Exception as error:
+                self.event("drive_stop_error", str(error))
+                if loop_error is None:
+                    loop_error = error
+        try:
+            terminal_result = stop.get("result") if isinstance(stop, dict) else None
+            if (isinstance(terminal_result, dict)
+                    and not stop.get("active")):
+                result = terminal_result
+            else:
+                result = self.wait_job(name, 25.0)
+        except Exception as error:
+            self.event("drive_terminal_error", str(error))
+            result = {"ok": False, "error": f"terminal result unavailable: {error}"}
+            if loop_error is None:
+                loop_error = error
+        try:
+            logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+        except Exception as error:
+            self.event("drive_log_pull_error", str(error))
+            logs = []
+            if loop_error is None:
+                loop_error = error
         self.results.append({
             "phase": name,
             "transport": "drive_100hz_policy_50hz_bus",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
+            **duration_details,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
+            "trial_error": str(loop_error) if loop_error is not None else None,
         })
-        self.snapshot(f"after_{name}")
+        try:
+            self.snapshot(f"after_{name}")
+        except Exception:
+            if loop_error is None:
+                raise
+        if loop_error is not None:
+            raise loop_error
         if not result.get("ok"):
             raise RuntimeError(f"drive {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
@@ -673,6 +784,7 @@ class Trial:
                 while time.monotonic() < deadline:
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                        "command_owner": self._drive_command_owner,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")

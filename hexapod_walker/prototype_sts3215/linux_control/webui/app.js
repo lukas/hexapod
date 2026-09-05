@@ -2715,9 +2715,7 @@ async function rlEnsureNoDriveSession(actionLabel, stopFirst=false){
       drvUnlockMoveControlsOnly();
       return true;
     }
-    drvActive = true;
-    drvLockRlControls(true);
-    drvPaint(d);
+    drvObserveSession(d);
   }catch(e){}
   if(!active) return true;
   if(stopFirst) return await drvStopAndWaitForInactive(actionLabel);
@@ -2825,6 +2823,7 @@ $('rlstop').onclick = async ()=>{
 // older than 0.6 s as "keys released". So: keydown = walk, keyup = coast
 // briefly, then hand off to the configured Hold policy.
 let drvActive = false, drvHb = null, drvStartPromise = null;
+let drvCommandOwner = null, drvOwnsSession = false;
 const drvKeys = new Set();
 let drvPad = null;   // on-screen pad vector [dx, dy] while held
 let drvPadDownAt = 0;
@@ -2869,7 +2868,24 @@ function drvSetPanelState(allowed, label, state='ready'){
   }
 }
 function drvCanUseInput(){
-  return drvInputAllowed || drvActive || drvStartPromise;
+  return drvActive ? drvOwnsSession : (drvInputAllowed || drvStartPromise);
+}
+function drvObserveSession(d){
+  drvActive = !!d.active;
+  drvOwnsSession = !!(drvCommandOwner && d.command_owner === drvCommandOwner);
+  drvLockRlControls(drvActive);
+  if(drvActive && !drvOwnsSession){
+    drvClearHeartbeat();
+    drvResetLocalInput();
+    drvGamepadNeedsNeutral = true;
+    drvSetPanelState(false, 'Observing external drive', 'blocked');
+    // Keep End session usable inside the fieldset. Input handlers still
+    // refuse direction/height commands because drvOwnsSession is false.
+    $('rldrivepanel').disabled = false;
+    $('rldrivestart').textContent = 'External drive active';
+    $('rldriveend').disabled = false;
+  }
+  drvPaint(d);
 }
 function drvLockRlControls(active){
   rlDriveControlsLocked = !!active;
@@ -2989,25 +3005,35 @@ function drvPaint(d){
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
   if(live.rot60_k) bits.push(`sec ${live.rot60_k>0?'+':''}${live.rot60_k}`);
   if(live.t_s!=null) bits.push(`${live.t_s}s`);
-  const label = waiting
+  const label = !drvOwnsSession
+    ? '<b>OBSERVING</b> — external drive session · '
+    : waiting
     ? '<b style="color:#f3cc4d">WAITING</b> — move a stick or hold arrows/WASD · '
     : '<b style="color:#5fd08a">DRIVING</b> — hold arrows/WASD · ';
   $('rldrivestatus').innerHTML =
     label + (bits.length ? bits.join(' · ') : (d && d.status) || 'starting…');
 }
 async function drvSend(){
-  if(!drvActive) return;
+  if(!drvActive || !drvOwnsSession) return;
   const [vx, vy, wz, dh] = drvVec();
   try{
     const r = await fetch('/api/rl/drive/cmd', {method:'POST',
-      body: JSON.stringify({vx, vy, wz, dh})});
+      body: JSON.stringify({vx, vy, wz, dh, command_owner:drvCommandOwner})});
     const d = await r.json();
+    if(d.command_owner_mismatch){
+      drvOwnsSession = false;
+      drvClearHeartbeat();
+      await refreshRlRuntimeState();
+      return;
+    }
     if(!d.active){ drvEnded(); return; }
     drvPaint(d);
   }catch(e){ /* link blip — watchdog on the robot handles it */ }
 }
 async function drvEnded(){
   drvActive = false;
+  drvOwnsSession = false;
+  drvCommandOwner = null;
   drvGamepadNeedsNeutral = true;
   drvClearHeartbeat();
   drvResetLocalInput();
@@ -3022,10 +3048,13 @@ async function drvEnded(){
   }catch(e){ $('rldrivestatus').textContent = 'Session ended.'; }
 }
 async function drvStartSession(source='button'){
-  if(drvActive) return true;
+  if(drvActive) return drvOwnsSession;
   if(drvStartPromise) return await drvStartPromise;
   if(!drvCanUseInput()) return false;
   drvActive = false;
+  drvOwnsSession = false;
+  drvCommandOwner = globalThis.crypto?.randomUUID?.()
+    || `browser-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   drvClearHeartbeat();
   drvStartPromise = (async ()=>{
     // Recover from stale browser state after a service restart/deploy.
@@ -3045,7 +3074,7 @@ async function drvStartSession(source='button'){
     try{
       const r = await fetch('/api/rl/drive/start', {
         method:'POST', cache:'no-store',
-        body: JSON.stringify({vx, vy, wz, dh})});
+        body: JSON.stringify({vx, vy, wz, dh, command_owner:drvCommandOwner})});
       const d = await r.json();
       if(!d.ok){
         if(source === 'gamepad') drvGamepadNeedsNeutral = true;
@@ -3056,6 +3085,7 @@ async function drvStartSession(source='button'){
         return false;
       }
       drvActive = true;
+      drvOwnsSession = true;
       if(drvHb) clearInterval(drvHb);
       drvHb = setInterval(drvSend, 200);
       drvSend();  // immediate heartbeat using current key/pad input
@@ -3118,6 +3148,7 @@ $('rldriveend').onclick = async ()=>{
 drvBlockStart('Checking', 'Checking whether drive is allowed...');
 
 async function refreshRlRuntimeState(){
+  if(drvStartPromise) return true;
   let rlMoveRunning = false;
   try{
     const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
@@ -3138,11 +3169,10 @@ async function refreshRlRuntimeState(){
 
   try{
     const d = await (await fetch('/api/rl/drive', {cache:'no-store'})).json();
+    if(drvStartPromise) return true;
     if(d.active){
-      drvActive = true;
-      drvLockRlControls(true);
-      if(!drvHb) drvHb = setInterval(drvSend, 200);
-      drvPaint(d);
+      drvObserveSession(d);
+      if(drvOwnsSession && !drvHb) drvHb = setInterval(drvSend, 200);
       return true;
     }
   }catch(e){
@@ -3150,6 +3180,8 @@ async function refreshRlRuntimeState(){
   }
 
   drvActive = false;
+  drvOwnsSession = false;
+  drvCommandOwner = null;
   drvStartPromise = null;
   drvClearHeartbeat();
   drvResetLocalInput();

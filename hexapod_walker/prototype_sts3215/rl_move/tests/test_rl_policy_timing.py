@@ -500,6 +500,93 @@ def test_async_ready_requires_advancing_samples_and_fresh_health():
     assert details["sampler"]["motion_ready"] is True
 
 
+@pytest.mark.parametrize("valid_count", [0, 17])
+def test_async_sampler_partial_health_reaches_three_fresh_scan_debounce(
+        monkeypatch, valid_count):
+    # Reproduce the real 10 Hz failure: a new partial health frame, fresh
+    # position/IMU, but the previous complete health frame is >150 ms old.
+    clock = {"now": 10.0}
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock["now"])
+
+    class PartialHealthBus(_AsyncHealthBus):
+        def read_all_feedback(self):
+            records = super().read_all_feedback()
+            if self.feedback_reads == 1:
+                return records
+            return {j: records[j] for j in range(valid_count)}
+
+    bus = PartialHealthBus()
+    sampler = rl_policy._AsyncSnapshotSampler(bus, {}, hz=10.0)
+    safety = rl_policy.SafetyLayer({})
+    safety.set_nominal(np.zeros(rl_policy.N_JOINTS))
+    frames, statuses = [], []
+
+    class FourAcquisitions:
+        def is_set(self):
+            return len(frames) >= 4
+
+        def wait(self, seconds):
+            clock["now"] += seconds
+            frame, age, stats = sampler.latest()
+            frames.append((frame, age, stats))
+            statuses.append(safety.check_servo_health(
+                rl_policy._state_for_async_safety(frame)))
+            # Repeated 100 Hz policy reads of the same 10 Hz frame do not
+            # count as additional missing samples or repeat current checks.
+            if len(frames) < 4:
+                held, _, _ = sampler.latest()
+                assert held.timing["async_feedback_fresh"] is False
+                assert safety.check_servo_health(
+                    rl_policy._state_for_async_safety(held)) is None
+            return self.is_set()
+
+    sampler._stop = FourAcquisitions()
+    sampler._run(0.0)
+
+    assert bus.feedback_reads == 4
+    for frame, age, stats in frames:
+        assert age < sampler.max_age_s
+        assert frame.timing["async_health_ok"] is True
+        assert frame.timing["async_feedback_fresh"] is True
+        assert stats["feedback_age_ms"] == pytest.approx(100.0)
+    assert frames[1][2]["health_age_ms"] == pytest.approx(200.0)
+    assert frames[1][2]["feedback_valid_count"] == valid_count
+    assert frames[1][2]["feedback_missing_ids"] == list(range(valid_count, 18))
+    assert statuses[:3] == [None, None, None]
+    assert statuses[3].terminate is True
+    assert statuses[3].reason == "incomplete_feedback"
+
+
+def test_async_sampler_recent_positions_do_not_refresh_health_acquisition(
+        monkeypatch):
+    clock = {"now": 10.0}
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock["now"])
+    bus = _FakeBus()
+    sampler = rl_policy._AsyncSnapshotSampler(
+        bus, {}, initial_state=_state(
+            timestamp=10.0, health=True, timing=_complete_health_timing()))
+    sampler.mark_motion_ready()
+    clock["now"] = 10.16
+    # A producer publishing new position/IMU without acquiring health must
+    # not extend the health clock using its newer state timestamp.
+    sampler._latest_good = _state(timestamp=10.15, health=True, timing={
+        "async_sample_seq": 1,
+        "feedback_sample_fresh": False,
+        "full_feedback_attempted": False,
+    })
+    state, age, stats = sampler.latest()
+    assert age == pytest.approx(0.01)
+    assert stats["feedback_age_ms"] == pytest.approx(160.0)
+    assert state.timing["async_health_ok"] is False
+    result = rl_policy._stream_target_async(
+        bus, sampler, np.zeros(18), np.zeros(18),
+        t_next=clock["now"], inner_steps=1, inner_dt=0.01,
+        write_speed=0, write_acc=0, abort_check=lambda: False,
+        last_good_state=state)
+    assert "stale" in result[3]
+    assert bus.writes == 0
+
+
 def test_async_sampler_requires_advancing_wrap_aware_mcu_sequence_and_age():
     sampler = rl_policy._AsyncSnapshotSampler(  # noqa: SLF001
         _FakeBus(), {}, hz=10.0, max_age_s=0.15)

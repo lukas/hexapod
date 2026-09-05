@@ -54,6 +54,9 @@ class ExperimentRunner:
         run_dir = self.settings.data_dir / "experiments" / experiment["id"]
         run_dir.mkdir(parents=True, exist_ok=True)
         camera = None
+        status = "failed"
+        error = None
+        result = {}
         try:
             if self.layout_history is not None:
                 # Provenance must exist before camera capture begins. Analysis
@@ -83,20 +86,42 @@ class ExperimentRunner:
                 raise RuntimeError("HEXAPOD_DRIVER must be simulated or command")
             current = self.store.get(experiment["id"])
             status = "cancelled" if current and current["cancel_requested"] else "succeeded"
-            self.store.finish(experiment["id"], status)
-            self._write_summary(experiment, run_dir, status, result)
         except Exception as exc:
-            message = f"{type(exc).__name__}: {exc}"
-            self.store.finish(experiment["id"], "failed", message)
-            self._write_summary(experiment, run_dir, "failed", {"error": message})
+            error = f"{type(exc).__name__}: {exc}"
+            result = {"error": error}
+            status = "failed"
         finally:
             if camera is not None:
-                camera.terminate()
                 try:
-                    camera.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    camera.kill()
+                    camera.terminate()
+                    try:
+                        camera.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        camera.kill()
+                        camera.wait(timeout=5)
+                except Exception as exc:
+                    error = f"camera finalization failed: {type(exc).__name__}: {exc}"
+                    status, result = "failed", {"error": error}
+        # Publish terminal status only after the producer is closed and the
+        # summary/manifest exist. Readers poll status as an evidence-ready
+        # signal; publishing it earlier raced those artifact writes.
+        finished_at = datetime.now(timezone.utc).isoformat()
+        try:
+            self._write_summary(experiment, run_dir, status, result,
+                                finished_at=finished_at)
             self._write_manifest(run_dir)
+        except Exception as exc:
+            error = f"artifact finalization failed: {type(exc).__name__}: {exc}"
+            status = "failed"
+            # Best effort preserves a readable failure if only the first
+            # serialization failed. Persistent filesystem errors remain in DB.
+            try:
+                self._write_summary(experiment, run_dir, status, {"error": error},
+                                    finished_at=finished_at)
+                self._write_manifest(run_dir)
+            except Exception:
+                pass
+        self.store.finish(experiment["id"], status, error, finished_at=finished_at)
 
     def _start_camera(self, run_dir: Path):
         if not self.settings.camera_input:
@@ -164,7 +189,8 @@ class ExperimentRunner:
             raise RuntimeError(f"robot command exited {process.returncode}")
         return {"telemetry_samples": len(stdout.splitlines()), "driver": "command"}
 
-    def _write_summary(self, experiment: Dict, run_dir: Path, status: str, result: Dict):
+    def _write_summary(self, experiment: Dict, run_dir: Path, status: str, result: Dict,
+                       *, finished_at: Optional[str] = None):
         artifacts = sorted(path.name for path in run_dir.iterdir() if path.is_file())
         stats = self._telemetry_stats(run_dir / "telemetry.jsonl")
         current = self.store.get(experiment["id"]) or experiment
@@ -172,7 +198,7 @@ class ExperimentRunner:
                  f"- Outcome: **{status}**", f"- Requested duration: {experiment['duration_seconds']} seconds",
                  f"- Driver: {result.get('driver', self.settings.driver)}",
                  f"- Started: {current.get('started_at') or 'not recorded'}",
-                 f"- Finished: {current.get('finished_at') or 'not recorded'}",
+                 f"- Finished: {finished_at or current.get('finished_at') or 'not recorded'}",
                  f"- Telemetry samples: {stats.get('samples', result.get('telemetry_samples', 0))}", "",
                  "## Intent", "", experiment.get("description") or "No description supplied.", "",
                  "## Parameters", "", "```json", json.dumps(experiment.get("parameters", {}), indent=2), "```", "",

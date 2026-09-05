@@ -27,9 +27,15 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 FIELDS = ("name", "description", "duration_seconds", "parameters", "execution_mode")
+# The current Lab GET /api/experiments returns at most Store.list()'s newest
+# 100 records, without a cursor. A full page cannot establish that an older
+# matching plan is absent, so do not silently create a duplicate.
+EXPERIMENT_LIST_LIMIT = 100
 
 
 def validate_payloads(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(plan, dict):
+        raise GuardedQueueError("Plan must be a JSON object")
     payloads = plan.get("queue_payloads")
     if not isinstance(payloads, list) or not payloads:
         raise GuardedQueueError("Plan needs a nonempty queue_payloads list")
@@ -72,6 +78,7 @@ def queue_plan(plan: dict[str, Any], request: Callable[..., Any]) -> list[dict[s
     existing = request("GET", "/api/experiments")
     if not isinstance(existing, list):
         raise GuardedQueueError("Server experiment listing is invalid; no jobs submitted")
+    listing_may_be_truncated = len(existing) >= EXPERIMENT_LIST_LIMIT
     matches = {}
     # Check all existing identities before any mutation, including stale plans.
     for payload in payloads:
@@ -83,6 +90,12 @@ def queue_plan(plan: dict[str, Any], request: Callable[..., Any]) -> list[dict[s
             raise GuardedQueueError(f"Existing plan {plan_id!r} conflicts; no jobs submitted")
         if found:
             matches[plan_id] = found[0]
+        elif listing_may_be_truncated:
+            raise GuardedQueueError(
+                f"Plan {plan_id!r} was not found in the newest {EXPERIMENT_LIST_LIMIT} "
+                "experiments; older identities may be hidden. Inspect full history "
+                "or add server-side plan lookup before submitting; no jobs submitted"
+            )
     receipts = []
     for payload in payloads:
         plan_id = payload["parameters"]["plan_id"]

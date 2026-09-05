@@ -58,6 +58,51 @@ def test_worker_completes_and_mcp_reads(tmp_path):
         assert "Smoke test" in payload["data"]
 
 
+def test_worker_terminal_status_waits_for_closed_camera_and_manifest(tmp_path, monkeypatch):
+    from hexapod_lab.runner import ExperimentRunner
+    store = Store(tmp_path / "lab.sqlite3")
+    item = store.create({"name": "Artifact ordering", "duration_seconds": .01}, "operator")
+    experiment = store.claim_next()
+    runner = ExperimentRunner(store, settings(tmp_path))
+    manifest_started, release = threading.Event(), threading.Event()
+
+    class Camera:
+        closed = False
+        def terminate(self):
+            pass
+        def wait(self, timeout):
+            self.closed = True
+    camera = Camera()
+    monkeypatch.setattr(runner, "_start_camera", lambda path: camera)
+    monkeypatch.setattr(runner, "_simulate", lambda *args: {"telemetry_samples": 0})
+    write_manifest = runner._write_manifest
+
+    def paused_manifest(path):
+        assert camera.closed
+        assert (path / "summary.md").is_file()
+        assert store.get(item["id"])["status"] == "running"
+        manifest_started.set()
+        assert release.wait(5)
+        write_manifest(path)
+
+    monkeypatch.setattr(runner, "_write_manifest", paused_manifest)
+    worker = threading.Thread(target=lambda: runner._execute(experiment))
+    worker.start()
+    try:
+        assert manifest_started.wait(5)
+        assert store.get(item["id"])["status"] == "running"
+        assert not (tmp_path / "experiments" / item["id"] / "manifest.json").exists()
+    finally:
+        release.set()
+        worker.join(5)
+    assert not worker.is_alive()
+    final = store.get(item["id"])
+    assert final["status"] == "succeeded"
+    run_dir = tmp_path / "experiments" / item["id"]
+    assert (run_dir / "manifest.json").is_file()
+    assert f"- Finished: {final['finished_at']}" in (run_dir / "summary.md").read_text()
+
+
 def test_external_guarded_job_waits_for_operator_and_can_be_cancelled(tmp_path):
     app = create_app(settings(tmp_path, worker=True))
     operator = {"Authorization": "Bearer secret"}

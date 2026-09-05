@@ -2,6 +2,31 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-05 ~13:2x this cycle: `headset-halfgrav-acq1` **ACQ PASS** — first
+  FULLY clean (24/24 `gait_valid`, zero sacrificed legs anywhere) 3-
+  heading 40M acquisition in the campaign, 0/24 falls, median fwd
+  speed 0.147-0.164 m/s, slip 2.4-2.6/m. Heading PRECISION caveat
+  (moderate/noisy `course_err`, worse under sto) flagged as a next-
+  rung hardening item, not disqualifying — see SKILLS.md row. Also
+  verdicted 3 unclaimed-finished runs found idle-next-to-real-work:
+  `sdehalfgrav-remcost-s0` ACQ CONTINUE (survival fix confirmed,
+  LEGPARK-SKATE fingerprint matches `remcost-s1`) and `sde-idleterm-
+  {s0,s1}` both CANARY FAIL - MECHANISM (idle-terminate detector gamed
+  via qvel jitter, downloaded final-checkpoint video shows the SAME
+  frozen splayed pose as `sde-s0-c4`, no real six-leg motion — do not
+  fund a 40M continuation of this lever). REFILL: generalized the
+  bank-proven `walk_gait_gate`+`k_step_event` repair (already funded
+  on bare-sde as `sde-{s1,s2}-c3gg`) onto the `sdehalfgrav-remcost`
+  recipe as own-checkpoint continuations `sdehalfgrav-remcost-{s0,s1}-
+  gg2` (VERIFIED RUNNING, train-10/train-11) — tests whether the gait-
+  gate fix generalizes beyond bare sde. Hit a NEW tooling gotcha doing
+  this (`respec` cannot strip a bare flag like `--use-sde` from a
+  from-scratch gSDE source, so two earlier attempts — `remcost-s0-gg`/
+  `remcost-s1-gg`(-rr1) — silently trained fresh-scratch instead of
+  continuing; caught via `ops.sh procs`, killed before meaningful
+  spend, fixed via a hand-built arg vector through `backlog add ... --
+  <args>` instead of `respec`). Gotcha banked in `CURRENT_TRUTHS.md`.
+
 - 09-05 ~13:1x `sde-idleterm-s0`/`sde-idleterm-s1` **CANARY FAIL —
   detector gamed, not repaired.** The alternate LEGPARK-SKATE repair
   lever (porting the bank-proven `WALKCURR_PF_IDLE_TERM` qvel-

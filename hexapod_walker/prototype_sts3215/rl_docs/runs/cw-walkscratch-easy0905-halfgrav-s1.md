@@ -6,7 +6,7 @@
 
 **created**: 2026-09-05T09:48:06+00:00
 
-**pod**: hexapod-mjx-train-11
+**pod**: hexapod-mjx-train-0
 
 **steps**: 40000000
 

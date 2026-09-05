@@ -12,6 +12,38 @@ physics/no DR/no amps gate — all still bind). Keep every ready GPU
 slot supplied with pre-registered easy-campaign work + a stocked
 backlog; idle slots next to this unmet priority are the failure state.
 
+- 09-05 ~11:0x: triaged 3 finished own-checkpoint continuations +
+  1 found-unverdicted run. `sde-s0-c1` ACQ CONTINUE (already verdicted
+  by a concurrent cycle before I reached it — same still-climbing
+  ep_len/reward fingerprint as sde-s1/s2, no new note needed).
+  `sde-s1-c1`/`sde-s2-c1` FAILED (0-step SystemExit crashes, already
+  diagnosed+superseded by sde-s1-c2/sde-s2-c2 per the 10:4x cycle —
+  closed out their formal `verdict` field, which had been missing).
+  Found+fixed a RECURRENCE of the SystemExit bug: a concurrent cycle's
+  `sde-s0-c2` respec'd from `sde-s1` (a gSDE sibling still carrying
+  bare `--use-sde`) instead of a `base-*` sibling, blanked only
+  `--activation-fn`, and died in <1s the same way — the "non-gSDE
+  sibling" rule needs the respec SOURCE itself to never carry
+  `--use-sde`, not just the CLI flags on this launch. FAILED it,
+  strengthened the `CURRENT_TRUTHS.md` gotcha wording, relaunched
+  correctly as `sde-s0-c3` (respec from `base-s0`) — VERIFIED RUNNING
+  on train-8. Also found `sdehalfgrav-s2` FINISHED but unverdicted
+  (gate eval already synced, nobody had triaged it): 4th sde+halfgrav
+  seed, same flat-`ep_len` fingerprint as s0/s1/s3 (rose to 239 by 8M,
+  collapsed to a 64-83-tick plateau the whole back half, TERM
+  tilt_pitch 24/24, video confirms fast lurch-to-belly) — ACQ FAIL,
+  now 4/4 original-recipe seeds share this fingerprint, fully
+  confirming the reward-misalignment diagnosis; the cell's fate rides
+  entirely on the already-running `remcost-s0`/`remcost-s1` fix pair.
+  Separately found `sde-s3-c1` KILLED 30s after launch (auto-placed on
+  a CPU-contended pod by another cycle) then REFUSED on retry (W&B
+  names are append-only) — relaunched clean as `sde-s3-c1b` on a
+  confirmed-idle pod, VERIFIED RUNNING on train-9. At the 80M/2-launch
+  normal per-cycle cap after these two relaunches (both corrected
+  retries of already-designed continuations, not fresh discretionary
+  arms); 5 pods still free for the next cycle (`base-s3`/`halfgrav-s1`
+  also just finished but their gate evals aren't synced yet — left for
+  whoever's watching next). CURRENT_TRUTHS.md updated.
 - 09-05 ~08:5x: all four 2M canaries CANARY PASSed (mechanism-health
   scope): finite losses, real motion (walk_speed 0.11–0.28 m/s), motor
   contract 360 deg/s verified in-log, reward bank-consistent, ep_rew

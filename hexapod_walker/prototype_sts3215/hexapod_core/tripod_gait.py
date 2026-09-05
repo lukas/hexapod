@@ -122,6 +122,7 @@ class TripodGait:
         combined_yaw_arm_scale: float = 1.0,
         combined_yaw_amplify_scale: float = 1.0,
         combined_selective_omega_boost: float = 1.0,
+        combined_group_duty_skew: float = 0.0,
     ):
         self.period = period
         self.lift = lift
@@ -254,6 +255,53 @@ class TripodGait:
         # (skips the extra _foot_target_in_body call entirely).
         self.combined_selective_omega_boost = float(
             combined_selective_omega_boost)
+        # standwalk Next item 2, gait-STRUCTURE candidate (09-05, the
+        # first lever in this file that changes DURATION rather than
+        # MAGNITUDE — every candidate above changes how far/what angle
+        # a leg is commanded within a FIXED swing/stance half-period;
+        # all were refuted because, for a fixed time window, a
+        # constant-velocity sweep already has the minimum possible peak
+        # per-tick rate for a given excursion, so shrinking the
+        # commanded magnitude to dodge the `safety.max_delta_q_deg`
+        # slew clip trades 1:1 against achieved rotation (see the
+        # combined_yaw_arm_scale / combined_yaw_amplify_scale /
+        # combined_selective_omega_boost docstrings above for the
+        # measured evidence). This knob instead re-times the EXISTING
+        # two-tripod-group alternation itself: on a combined tick
+        # (vx!=0 and omega!=0), `_classify_group_heavy` finds which
+        # tripod-parity group (0={0,2,4} or 1={1,3,5}) contains MORE
+        # "amplified" legs (the standwalk 09-04 per-leg classification:
+        # true combined tangential magnitude > pure-omega-only
+        # magnitude for that leg — proven prog/phase-INDEPENDENT, a
+        # static function of leg angle + command sign only, verified
+        # empirically across a full phase sweep + all 4 vx/omega sign
+        # combos). That group's SWING window widens from the legacy
+        # 50% of the cycle to `0.5 + combined_group_duty_skew` (the
+        # OTHER group's swing narrows to `0.5 - combined_group_duty_
+        # skew`, since the two groups' windows must still exactly
+        # partition the cycle) — giving the amplified-heavy group's
+        # legs MORE TIME to sweep the SAME true excursion (lower peak
+        # rate) without touching any commanded angle/foot-target
+        # magnitude at all. SAFE BY CONSTRUCTION regardless of dose:
+        # unlike a per-leg duty change, this only ever re-splits ONE
+        # shared boundary point on the phase circle between the two
+        # EXISTING alternating tripod groups, so exactly one group is
+        # always swinging and the other always stancing (the same
+        # 3-up/3-down support invariant the legacy 50/50 split already
+        # guarantees) at ANY skew in (-0.5, 0.5) -- no per-leg
+        # asymmetric support-polygon risk, no new stability check
+        # needed. UNTESTED AT THE PHYSICS LEVEL (09-05): narrowing the
+        # OTHER group's swing (and, symmetrically, the heavy group's
+        # OWN stance window) could raise ITS peak rate instead --
+        # whether the net effect actually relieves combined-tick clip
+        # saturation is an open empirical question for
+        # `probe_turn_authority.py`/a dedicated clip-rate probe, not
+        # assumed here. Default 0.0 = legacy identity (falls through
+        # the ORIGINAL phi<pi/2*pi boundary code path unchanged, so
+        # this knob costs nothing and is bit-exact off by construction
+        # -- no new floating-point path when unused).
+        self.combined_group_duty_skew = _clip(
+            float(combined_group_duty_skew), -0.45, 0.45)
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -363,19 +411,101 @@ class TripodGait:
         self._om_smooth += a * (self.omega - self._om_smooth)
         return self._vx_smooth, self._vy_smooth, self._om_smooth
 
+    def _classify_group_heavy(self, vx, vy, omega):
+        """Which tripod-parity group (0 or 1) has MORE "amplified" legs
+        on a combined tick, or ``None`` if not combined / tied. A leg is
+        "amplified" if the true combined tangential magnitude in its own
+        yaw-servo frame exceeds that same leg's pure-omega-only (vx=0)
+        magnitude — the identical per-leg test ``combined_selective_
+        omega_boost``/``combined_yaw_amplify_scale`` use inline, factored
+        out here because ``combined_group_duty_skew`` needs it ONCE per
+        tick (not per leg) and, critically, needs it evaluated at a
+        FIXED reference progress point rather than the live per-leg
+        ``prog`` — verified empirically (09-05 design pass) that the
+        classification is ``prog``-independent (the ratio |y_yaw|/
+        |y_turn| cancels the shared ``prog`` scale factor for any
+        nonzero ``prog``), so any nonzero reference value gives the
+        same, correct, phase-independent answer. Pure math, no gait
+        state mutation — safe to call speculatively even when the knob
+        is off (only called when it is not, see below)."""
+        if abs(vx) <= 1e-9 or abs(omega) <= 1e-9:
+            return None
+        t_eff = max(self.period * self.period_scale, 0.05)
+        prog_ref = 0.5
+        counts = [0, 0]
+        for i, a in enumerate(self.leg_angles):
+            sa, ca = math.sin(a), math.cos(a)
+            v_x_at = vx - omega * self._foot_radius_eff * sa
+            v_y_at = vy + omega * self._foot_radius_eff * ca
+            v_x_turn = -omega * self._foot_radius_eff * sa
+            v_y_turn = omega * self._foot_radius_eff * ca
+            dx_b = prog_ref * v_x_at * t_eff / 2.0 * self.stride_scale
+            dy_b = prog_ref * v_y_at * t_eff / 2.0 * self.stride_scale
+            dx_t = prog_ref * v_x_turn * t_eff / 2.0 * self.stride_scale
+            dy_t = prog_ref * v_y_turn * t_eff / 2.0 * self.stride_scale
+            _, y_yaw = self._yaw_frame_xy(dx_b, dy_b, a)
+            _, y_turn = self._yaw_frame_xy(dx_t, dy_t, a)
+            if abs(y_yaw) > abs(y_turn) + 1e-12:
+                counts[i % 2] += 1
+        if counts[0] == counts[1]:
+            return None
+        return 0 if counts[0] > counts[1] else 1
+
     def _foot_target_in_body(self, i: int, vx, vy, omega):
         t_eff = max(self.period * self.period_scale, 0.05)
         ramp_amp = min(self._elapsed / self.ramp, 1.0)
         tripod = 0 if i % 2 == 0 else 1
-        phi = (self._phase + self._phase_offset + tripod * math.pi) % (2 * math.pi)
-        if phi < math.pi:
-            s = phi / math.pi
-            prog = -0.5 + s
-            dz = self.lift * self.lift_scale[i] * ramp_amp * math.sin(math.pi * s)
+        _combined = abs(vx) > 1e-6 and abs(omega) > 1e-6
+        if _combined and self.combined_group_duty_skew != 0.0:
+            heavy = self._classify_group_heavy(vx, vy, omega)
         else:
-            s = (phi - math.pi) / math.pi
-            prog = 0.5 - s
-            dz = 0.0
+            heavy = None
+        if heavy is None:
+            # Legacy path, BIT-EXACT: identical code/float ops to the
+            # pre-09-05 file whenever the knob is off, not a combined
+            # tick, or the amplified-leg split is tied 3/3 (no group is
+            # "heavier" to favor).
+            phi = (self._phase + self._phase_offset
+                   + tripod * math.pi) % (2 * math.pi)
+            if phi < math.pi:
+                s = phi / math.pi
+                prog = -0.5 + s
+                dz = self.lift * self.lift_scale[i] * ramp_amp * math.sin(math.pi * s)
+            else:
+                s = (phi - math.pi) / math.pi
+                prog = 0.5 - s
+                dz = 0.0
+        else:
+            # Re-timed path: ONE shared boundary on the phase circle
+            # splits it into the "group-0-swings" arc and the
+            # "group-1-swings" arc, still an exact partition (always
+            # exactly one group swinging) but with unequal widths —
+            # see the __init__ docstring for the derivation. Theta is
+            # the SAME quantity the legacy path calls ``phi`` for
+            # tripod=0 (phase+phase_offset, no tripod term), so at
+            # skew=0 (heavy would be None and this branch is unreached
+            # anyway) the two paths agree exactly.
+            theta = (self._phase + self._phase_offset) % (2 * math.pi)
+            width0 = math.pi * (1.0 + (self.combined_group_duty_skew
+                                       if heavy == 0 else
+                                       -self.combined_group_duty_skew))
+            width0 = _clip(width0, 0.05 * math.pi, 1.95 * math.pi)
+            width1 = 2 * math.pi - width0
+            group0_swinging = theta < width0
+            leg_is_group0 = (tripod == 0)
+            leg_swinging = (group0_swinging == leg_is_group0)
+            if leg_swinging:
+                own_width = width0 if leg_is_group0 else width1
+                local = theta if leg_is_group0 else (theta - width0)
+                s = local / own_width
+                prog = -0.5 + s
+                dz = self.lift * self.lift_scale[i] * ramp_amp * math.sin(math.pi * s)
+            else:
+                own_width = width1 if leg_is_group0 else width0
+                local = (theta - width0) if leg_is_group0 else theta
+                s = local / own_width
+                prog = 0.5 - s
+                dz = 0.0
         a_i = self.leg_angles[i]
         sa, ca = math.sin(a_i), math.cos(a_i)
         v_x_at = vx - omega * self._foot_radius_eff * sa
@@ -383,6 +513,64 @@ class TripodGait:
         dx = prog * v_x_at * t_eff / 2.0 * ramp_amp * self.stride_scale
         dy = prog * v_y_at * t_eff / 2.0 * ramp_amp * self.stride_scale
         return dx, dy, dz
+
+    def leg_swing_state(self) -> list[bool]:
+        """Per-leg swing (True) / stance (False) flag for the CURRENT
+        phase -- standwalk Next item 2(i) (09-05): built so
+        ``probe_joint_tracking.py`` can split its clip-saturation
+        accounting by swing vs stance without duplicating the dx/dy/dz
+        foot-target math, to test the "does narrowing a group's stance
+        window pay back what widening its swing window saved"
+        root-cause question the ``combined_group_duty_skew`` gait-
+        STRUCTURE candidate raised. Must be called AFTER
+        ``desired_deg(t)``/``_advance(t)`` for this tick (so
+        ``self._phase``/``self._*_smooth`` already reflect it) --
+        read-only, mirrors the EXACT theta/width boundary logic
+        ``_foot_target_in_body`` uses (including the re-timed
+        ``combined_group_duty_skew`` path) so the two can never
+        disagree; costs nothing extra when unused (callers who never
+        invoke this pay zero overhead, same "additive, no shared-path
+        change" pattern as every other probe hook in this file)."""
+        vx, vy, omega = self._vx_smooth, self._vy_smooth, self._om_smooth
+        _combined = abs(vx) > 1e-6 and abs(omega) > 1e-6
+        if _combined and self.combined_group_duty_skew != 0.0:
+            heavy = self._classify_group_heavy(vx, vy, omega)
+        else:
+            heavy = None
+        out: list[bool] = []
+        for i in range(6):
+            tripod = 0 if i % 2 == 0 else 1
+            if heavy is None:
+                phi = (self._phase + self._phase_offset
+                       + tripod * math.pi) % (2 * math.pi)
+                out.append(phi < math.pi)
+            else:
+                theta = (self._phase + self._phase_offset) % (2 * math.pi)
+                width0 = math.pi * (1.0 + (self.combined_group_duty_skew
+                                           if heavy == 0 else
+                                           -self.combined_group_duty_skew))
+                width0 = _clip(width0, 0.05 * math.pi, 1.95 * math.pi)
+                group0_swinging = theta < width0
+                leg_is_group0 = (tripod == 0)
+                out.append(group0_swinging == leg_is_group0)
+        return out
+
+    def heavy_group(self) -> int | None:
+        """Public wrapper around ``_classify_group_heavy`` for the
+        CURRENT smoothed command (same call-after-``desired_deg``
+        contract as ``leg_swing_state``) -- standwalk Next item 2(i)
+        follow-up (09-05): the amplified/light per-leg classification
+        exists for any combined (vx!=0, omega!=0) command REGARDLESS
+        of whether ``combined_group_duty_skew`` is nonzero (the skew
+        knob only ACTS on it); a probe needs this to attribute a leg's
+        swing/stance clip stats to its structural group even at the
+        skew=0.0 baseline, to see how a nonzero dose shifts each of
+        the four (group x swing/stance) buckets rather than just the
+        two (swing/stance) buckets pooled across both groups (which
+        can hide a per-group effect if the two groups move in opposite
+        directions -- see ``leg_swing_state`` docstring)."""
+        return self._classify_group_heavy(
+            self._vx_smooth, self._vy_smooth, self._om_smooth)
 
     def _yaw_frame_xy(self, dx_b: float, dy_b: float, a: float) -> tuple[float, float]:
         """Project a body-frame foot offset ``(dx_b, dy_b)`` for the leg

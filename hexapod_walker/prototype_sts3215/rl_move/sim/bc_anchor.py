@@ -451,6 +451,58 @@ Knobs (set via attach_bc_anchor / cfg):
                                weight would apply to). See
                                test_bc_anchor.py test_walk_combined_
                                dose_*.
+  train.bc_anchor_multiteacher_blend  (env+trainer, default 0.0 =
+                               off, bit-exact) — PHASE-SCHEDULED
+                               MULTI-TEACHER (09-05, standwalk item-1
+                               escalation). Every combined-tick lever
+                               above (combined_skip, combined_dose,
+                               and every geometry-side rescale —
+                               yaw_arm_scale/omega_boost/selective_
+                               omega_boost) is closed 4/4-per-cell: a
+                               STATIC reweight/rescale of the single
+                               scripted-combined target either leaves
+                               the wz gate unmoved or, once strong
+                               enough to move it, blows the pure-turn
+                               regression cap under RL fine-tuning —
+                               every one of those ~20 arms held ONE
+                               fixed dose for the WHOLE run. This
+                               knob is a different axis: at each
+                               combined tick sim_env also queries the
+                               SAME TripodGait instance with vx/vy
+                               zeroed (the undegraded pure-turn
+                               geometry it would command if this tick
+                               were turn-only) and emits it as
+                               ``info["bc_target_alt"]`` alongside the
+                               legacy degraded ``bc_target``. At loss
+                               time (this module, the only place that
+                               knows ``self._current_progress_
+                               remaining``) the two targets are
+                               blended per anchored row:
+                               ``target = act + mt*blend_now*(act_alt
+                               - act)``, where ``blend_now`` ramps
+                               linearly from 0 (safe, matches every
+                               already-converged sibling) to this
+                               knob's value over the first
+                               ``bc_anchor_multiteacher_schedule_frac``
+                               of training (progress-based, NOT a
+                               static per-run constant — the untried
+                               ingredient). Default 0.0 means
+                               ``blend_now`` is always 0: no alt
+                               target is even emitted (``_mt_blend_
+                               final`` gates the sim_env computation
+                               too), no ring column allocated,
+                               byte-identical to every pre-09-05
+                               checkpoint's update. See
+                               test_bc_anchor.py test_multiteacher_*.
+  train.bc_anchor_multiteacher_schedule_frac  (trainer, default 1.0
+                               = ramp over the FULL run) fraction of
+                               total training progress over which
+                               ``blend_now`` anneals 0 ->
+                               bc_anchor_multiteacher_blend; values
+                               <1.0 reach the final blend earlier and
+                               hold it for the remainder. Inert
+                               (never read) whenever
+                               bc_anchor_multiteacher_blend<=0.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -590,7 +642,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             # refill the ring within one rollout.
             return super()._excluded_save_params() + [
                 "_bc_obs", "_bc_act", "_bc_mode", "_bc_wwt", "_bc_h",
-                "_bc_n", "_bc_i"]
+                "_bc_n", "_bc_i", "_bc_act_alt", "_bc_mt"]
 
         def _bc_init_buffer(self, obs_dim: int) -> None:
             cap = int(getattr(self, "bc_buffer_cap", 131072))
@@ -602,12 +654,24 @@ def make_bc_anchor_ppo_class(base_cls=None):
             # not just walk — a combined-tick push is the only caller
             # that ever writes a value != 1.0.
             self._bc_wwt = np.ones(cap, dtype=np.float32)
+            # PHASE-SCHEDULED MULTI-TEACHER (09-05): the alt-target
+            # column + its per-row eligibility flag only exist when
+            # the mechanism is enabled — a legacy/off run never pays
+            # the extra ~9MB (cap x N_ACT float32), matching
+            # bc_walk_coef's -1-sentinel discipline (a structurally
+            # different code path, not a value that happens to be
+            # inert).
+            if float(getattr(self, "bc_mt_blend", 0.0)) > 0.0:
+                self._bc_act_alt = np.zeros((cap, N_ACT), dtype=np.float32)
+                self._bc_mt = np.zeros(cap, dtype=np.float32)
             self._bc_n = 0          # valid rows
             self._bc_i = 0          # write cursor
 
         def _bc_push(self, obs: np.ndarray, act: np.ndarray,
                      mode: int = 0, h: np.ndarray | None = None,
-                     wwt: float = 1.0) -> None:
+                     wwt: float = 1.0,
+                     act_alt: np.ndarray | None = None,
+                     mt: float = 0.0) -> None:
             if not hasattr(self, "_bc_obs"):
                 self._bc_init_buffer(int(np.asarray(obs).shape[-1]))
             if not hasattr(self, "_bc_mode"):
@@ -625,6 +689,15 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 self._bc_wwt = np.ones(self._bc_obs.shape[0],
                                        dtype=np.float32)
             cap = self._bc_obs.shape[0]
+            if (float(getattr(self, "bc_mt_blend", 0.0)) > 0.0
+                    and not hasattr(self, "_bc_act_alt")):
+                # Same warm-start backfill, for checkpoints trained
+                # before the multiteacher alt-target column existed
+                # (or resumed with the knob newly turned on): fill
+                # with zeros/all-ineligible (mt=0), never a stray
+                # target that would silently blend into old rows.
+                self._bc_act_alt = np.zeros((cap, N_ACT), dtype=np.float32)
+                self._bc_mt = np.zeros(cap, dtype=np.float32)
             if h is not None and not hasattr(self, "_bc_h"):
                 # Recurrent anchor: the pair's supervision point is the
                 # policy AT THE VISITED HIDDEN STATE, so the rollout's
@@ -634,6 +707,9 @@ def make_bc_anchor_ppo_class(base_cls=None):
             self._bc_act[self._bc_i] = act
             self._bc_mode[self._bc_i] = mode
             self._bc_wwt[self._bc_i] = wwt
+            if act_alt is not None and hasattr(self, "_bc_act_alt"):
+                self._bc_act_alt[self._bc_i] = act_alt
+                self._bc_mt[self._bc_i] = mt
             if h is not None:
                 self._bc_h[self._bc_i] = h
             self._bc_i = (self._bc_i + 1) % cap
@@ -962,6 +1038,34 @@ def make_bc_anchor_ppo_class(base_cls=None):
                 idx = self._bc_sample_idx(rng, n, bs)
                 th_obs = torch.as_tensor(self._bc_obs[idx], device=dev)
                 th_act = torch.as_tensor(self._bc_act[idx], device=dev)
+                mt_blend_final = float(getattr(self, "bc_mt_blend", 0.0))
+                if mt_blend_final > 0.0 and hasattr(self, "_bc_act_alt"):
+                    # PHASE-SCHEDULED MULTI-TEACHER (09-05): blend_now
+                    # ramps 0 -> mt_blend_final linearly over the
+                    # first bc_mt_schedule_frac of TRAINING PROGRESS
+                    # (not a static per-run dose — see bc_anchor_
+                    # multiteacher_blend's docstring for why every
+                    # prior combined-tick lever, all static, closed
+                    # 4/4). ``_current_progress_remaining`` is a
+                    # standard SB3 model attribute (1.0 at the start
+                    # of training, 0.0 at the end); only this module
+                    # (the trainer) can read it, hence the blend
+                    # lives here rather than in sim_env.
+                    sched_frac = float(getattr(
+                        self, "bc_mt_schedule_frac", 1.0))
+                    progress = 1.0 - float(getattr(
+                        self, "_current_progress_remaining", 1.0))
+                    blend_now = min(progress / max(sched_frac, 1e-9),
+                                     1.0) * mt_blend_final
+                    if blend_now > 0.0:
+                        th_act_alt = torch.as_tensor(
+                            self._bc_act_alt[idx], device=dev)
+                        th_mt = torch.as_tensor(
+                            self._bc_mt[idx], device=dev).unsqueeze(-1)
+                        th_act = th_act + th_mt * blend_now * (
+                            th_act_alt - th_act)
+                    self.logger.record(
+                        "train/bc_anchor_mt_blend", blend_now)
                 th_h = (torch.as_tensor(self._bc_h[idx], device=dev)
                         if recurrent else None)
                 mean = self._bc_policy_mean(th_obs, th_h)
@@ -1127,9 +1231,12 @@ def make_bc_collect_callback():
                 t = info.get("bc_target")
                 if t is None or (dones is not None and dones[i]):
                     continue
+                t_alt = info.get("bc_target_alt")
                 push(new_obs[i], t, int(info.get("bc_mode", 0)),
                      h=None if h_np is None else h_np[i],
-                     wwt=float(info.get("bc_walk_weight", 1.0)))
+                     wwt=float(info.get("bc_walk_weight", 1.0)),
+                     act_alt=t_alt,
+                     mt=1.0 if t_alt is not None else 0.0)
             return True
 
     return BCAnchorCollectCallback()
@@ -1208,3 +1315,14 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
             "per-mode split would silently never fire on the walk side")
     model.bc_walk_combined_dose = float(cfg_get(
         cfg, "train", "bc_anchor_walk_combined_dose", default=1.0))
+    model.bc_mt_blend = float(cfg_get(
+        cfg, "train", "bc_anchor_multiteacher_blend", default=0.0))
+    model.bc_mt_schedule_frac = float(cfg_get(
+        cfg, "train", "bc_anchor_multiteacher_schedule_frac",
+        default=1.0))
+    if model.bc_mt_blend > 0.0 and not (
+            0.0 < model.bc_mt_schedule_frac <= 1.0):
+        raise SystemExit(
+            "train.bc_anchor_multiteacher_schedule_frac must be in "
+            "(0, 1] when bc_anchor_multiteacher_blend>0, got "
+            f"{model.bc_mt_schedule_frac}")

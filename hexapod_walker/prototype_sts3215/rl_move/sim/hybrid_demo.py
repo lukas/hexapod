@@ -875,9 +875,7 @@ def main() -> int:
 
     from rl_move.config import load_config
     from rl_move.env import TaskGoal
-    from hexapod_core.joint_frame import require_checkpoint_joint_contract
     from .eval_checkpoint import _save_video, model_identity
-    from .gru_policy import load_checkpoint_auto, wrap_recurrent_predictor
     from .play_core import _PlayEnv
     from .servo_model import SimServoParams, motor_contract
     from .train_ppo_sim import _parse_cfg_set
@@ -923,15 +921,16 @@ def main() -> int:
             "python mesh_mujoco/build_mesh_model.py --no-render` from the "
             "prototype dir, or pass --allow-mesh-fallback explicitly")
 
-    require_checkpoint_joint_contract(checkpoint)
-    model = load_checkpoint_auto(checkpoint, device="cpu")
+    # The composition contract accepts either an SB3 checkpoint or the exact
+    # portable JSON consumed by the board.  Keep the closed-loop demo on that
+    # shared loader so a hardware candidate is tested after serialization,
+    # rather than silently falling back to its pre-export torch checkpoint.
+    model = _load_any_policy(checkpoint)
     if model.observation_space.shape != env.observation_space.shape:
         raise SystemExit(
             f"obs mismatch: policy {model.observation_space.shape} vs env "
             f"{env.observation_space.shape}; pass the run's cfg stack via "
             "--cfg-set or use ops.sh hybriddemo <run>")
-    model = wrap_recurrent_predictor(model)
-
     traj = env.traj
     traj.start_at = "plant"
     traj.goal = TaskGoal()

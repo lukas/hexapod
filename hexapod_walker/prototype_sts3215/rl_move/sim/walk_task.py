@@ -393,7 +393,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # its pooled reset-state snapshots (see mjx_vec_env.py).
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_foot_prev_force",
-                          "_foot_tan_slip_m", "_duty_hist", "_phase",
+                          "_foot_tan_slip_m", "_duty_hist",
+                          "_dgate_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
@@ -469,6 +470,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_prev_force = [0.0] * 6
         self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist: list = []
+        # Per-leg contact-duty income gate history (09-05,
+        # reward.walk_duty_gate): trailing window of six contact
+        # booleans per commanded tick, SEPARATE from k_park's
+        # _duty_hist so the two mechanisms cannot perturb each
+        # other's windows. Rides MJX_SNAPSHOT_EXTRA.
+        self._dgate_hist: list = []
         # Anchored-stance income gate bookkeeping (cycle 30): per-foot
         # world XY at touchdown ("anchor point") and its own prev-contact
         # state, kept SEPARATE from the step-event vars above so the two
@@ -1128,6 +1135,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_prev_force = [0.0] * 6
         self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
+        self._dgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -3047,6 +3055,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_prev_force = [0.0] * 6
         self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
+        self._dgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -3905,6 +3914,64 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 self._gait_gate_qfactor = gt_factor
                 info["walk_gait_min"] = g_score
                 info["walk_gait_gate_factor"] = gt_factor
+            # Per-leg contact-DUTY income gate (09-05 dig-in
+            # headset-base-s0c1-acq1: LEGPARK confirmed family-wide,
+            # not gSDE-specific — 1/3 plain-Gaussian heading seeds
+            # hardened a marginal leg into a chronic duty-0.03-0.07
+            # paddle over 40M while reward rose and speed stayed
+            # flat). The two prior anti-park levers each had one
+            # right half: walk_gait_gate collapses income (right
+            # STRUCTURE — charges are simply outbid, quadwalk3/5 +
+            # the idleterm/k_park FAIL pair) but scores a completion
+            # window that a rare token swing resets (gamed 2/2,
+            # sde-s1/s2-c3gg, gate_factor pinned 0.98-0.99 while the
+            # harness flagged a duty-0.0 leg); k_park prices duty
+            # (right SIGNAL, the harness's own sacrifice metric) but
+            # as a flat charge. This gate combines the proven
+            # halves: score = MIN over support legs of
+            # clip(trailing-window contact duty / duty_gate_floor,
+            # 0, 1); healthy tripod duty ~0.4-0.6 scores 1.0, the
+            # harness bar is 0.10, floor 0.15 adds margin. A token
+            # touch cannot dodge it (one contact tick moves a 3 s
+            # window mean ~1/300); a parked or paddling leg drags
+            # ALL transport income to the (1-g) floor within
+            # ~duty_gate_window_s. MIN not mean (fractional
+            # discounts are simply paid). Gates only once the window
+            # is full (episode-start grace, mirrors k_park); history
+            # appends in the contact block below, so previous-tick
+            # state prices this tick (same one-tick lag as
+            # walk_gait_gate). Penalties are never shrunk. Default
+            # 0 = off: no state, no info keys, legacy bit-exact.
+            # cfg: reward.walk_duty_gate in [0,1],
+            # reward.duty_gate_window_s (3.0),
+            # reward.duty_gate_floor (0.15).
+            g_duty = float(cfg_get(self.cfg, "reward",
+                                   "walk_duty_gate", default=0.0))
+            if g_duty > 0.0 and s_ref > 1e-3:
+                n_dwin = max(1, int(round(float(cfg_get(
+                    self.cfg, "reward", "duty_gate_window_s",
+                    default=3.0)) / self.dt)))
+                d_score = 1.0
+                if len(self._dgate_hist) >= n_dwin:
+                    d_floor = float(cfg_get(self.cfg, "reward",
+                                            "duty_gate_floor",
+                                            default=0.15))
+                    duty = np.mean(self._dgate_hist, axis=0)
+                    for f in range(6):
+                        if f in lift:
+                            continue
+                        d_score = min(
+                            d_score,
+                            min(float(duty[f]) / d_floor, 1.0))
+                dg_factor = (1.0 - g_duty) + g_duty * d_score
+                r_walk *= dg_factor
+                support_gate *= dg_factor
+                if r_prog > 0.0:
+                    r_prog *= dg_factor
+                if r_cmd_track > 0.0:
+                    r_cmd_track *= dg_factor
+                info["walk_duty_min"] = d_score
+                info["walk_duty_gate_factor"] = dg_factor
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
                 + r_free_pen
             if r_free_pen != 0.0:
@@ -4901,7 +4968,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
-                    or g_gait > 0.0 or k_tslip > 0.0
+                    or g_gait > 0.0 or g_duty > 0.0 or k_tslip > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
@@ -5094,6 +5161,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if k_ds > 0.0:
                     reward += r_ds
                     info["reward_drag_stance"] = r_ds
+                if g_duty > 0.0:
+                    # walk_duty_gate bookkeeping (09-05): trailing
+                    # contact-duty window, own state so k_park's
+                    # window config cannot perturb the gate.
+                    self._dgate_hist.append(
+                        [1.0 if c else 0.0 for c in contacts])
+                    n_dwin = max(1, int(round(float(cfg_get(
+                        self.cfg, "reward", "duty_gate_window_s",
+                        default=3.0)) / self.dt)))
+                    if len(self._dgate_hist) > n_dwin:
+                        self._dgate_hist = self._dgate_hist[-n_dwin:]
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

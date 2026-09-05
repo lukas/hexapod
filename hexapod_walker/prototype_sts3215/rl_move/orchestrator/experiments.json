@@ -309930,7 +309930,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T21:46:58"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fresh since 2026-09-05T22:12:41"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix",
@@ -310144,7 +310144,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T21:52:06"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix-cw-w since 2026-09-05T22:17:49"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b",
@@ -310348,7 +310348,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-05T21:52:07"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix-cw-w since 2026-09-05T22:17:50"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-base-medhead-swinggate-fix",
@@ -310963,6 +310963,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-medhead2-swinggate-fix --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_swinggate_fix --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-medhead2-acq1-cont40m: This cycle'\"'\"'s own verdict on headset-halfgrav-medhead2-acq1-cont40m found ACQ FAIL specifically on walk_startjitter/det (stuck 2/6 gait_valid through 80M) with borderline-low duty (0.05-0.08) on legs that vary episode-to-episode -- a milder version of the same per-leg-utilization underuse the base(1g) family'\"'\"'s swing_gate batch is targeting, just not yet hard-parked. Does reward.walk_swing_gate (bank-proved 4/4 green this cycle, already retrofitting 3 base-family entrenched checkpoints in parallel) also lift the flagged legs'\"'\"' duty above the gait_valid bar on this halfgrav/medhead2 lineage'\"'\"'s exact FAILED checkpoint, without breaking its already-clean walk/det (5/6) or introducing falls?' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_cont40m.zip --cfg-set reward.walk_swing_gate=1.0 --cfg-set reward.swing_gate_window_s=4.0 --cfg-set reward.swing_gate_min_count=2.0 > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-swinggate-fix.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-medhead2-swinggate-fix.log",
     "wandb_id": "jkh3xzb5",
-    "verified": "2026-09-05T22:00:43+00:00"
+    "verified": "2026-09-05T22:00:43+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-05T22:05:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 338,
+        "fps": 22209.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-05T22:12:40"
   }
 ]

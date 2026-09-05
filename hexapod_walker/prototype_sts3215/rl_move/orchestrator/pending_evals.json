@@ -142,5 +142,17 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate",
   "added": "2026-09-05T20:15:56"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/tmp/eval_cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix.log",
+  "label": "cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix",
+  "added": "2026-09-05T22:19:57"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/tmp/eval_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b.log",
+  "label": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b",
+  "added": "2026-09-05T22:19:57"
  }
 ]

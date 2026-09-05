@@ -46,6 +46,91 @@ def _overrun_rows(path: Path) -> list[int]:
         ]
 
 
+def _encoder_rows(path: Path, *, leg: str) -> list[tuple[float, float]]:
+    joint_offset = int(leg[1:]) * 3
+    with path.open(newline="", encoding="utf-8") as stream:
+        return [
+            (
+                float(row[f"q{joint_offset + 1}_deg"]),
+                float(row[f"q{joint_offset + 2}_deg"]),
+            )
+            for row in csv.DictReader(stream)
+        ]
+
+
+def _dwell_offset_sensitivity(
+    paths: dict[str, Path],
+    cycles: dict[str, list[dict[str, Any]]],
+    *,
+    minimum_offset: int = -5,
+    maximum_offset: int = 5,
+) -> dict[str, Any]:
+    """Shift both matched dwell slices while preserving their sample count."""
+    encoder_rows = {leg: _encoder_rows(path, leg=leg) for leg, path in paths.items()}
+    offsets = []
+    for offset in range(minimum_offset, maximum_offset + 1):
+        means: dict[str, dict[str, float]] = {}
+        per_cycle: dict[str, list[dict[str, float]]] = {}
+        for leg in ("L2", "L5"):
+            values = []
+            for cycle in cycles[leg]:
+                outbound_start, outbound_stop = cycle["outbound_rows"]
+                inbound_start, inbound_stop = cycle["inbound_rows"]
+                outbound = encoder_rows[leg][
+                    outbound_start + offset : outbound_stop + offset
+                ]
+                inbound = encoder_rows[leg][
+                    inbound_start + offset : inbound_stop + offset
+                ]
+                if len(outbound) != len(inbound) or not outbound:
+                    raise ValueError(
+                        f"{leg}: offset {offset} leaves an incomplete dwell"
+                    )
+                values.append(
+                    {
+                        "hip_loop_deg": abs(
+                            float(np.mean([row[0] for row in outbound]))
+                            - float(np.mean([row[0] for row in inbound]))
+                        ),
+                        "knee_loop_deg": abs(
+                            float(np.mean([row[1] for row in outbound]))
+                            - float(np.mean([row[1] for row in inbound]))
+                        ),
+                    }
+                )
+            per_cycle[leg] = values
+            means[leg] = {
+                joint: float(np.mean([row[f"{joint}_loop_deg"] for row in values]))
+                for joint in ("hip", "knee")
+            }
+        offsets.append(
+            {
+                "offset_samples": offset,
+                "mean_loops_deg": means,
+                "hip_loop_l5_over_l2": means["L5"]["hip"] / means["L2"]["hip"],
+                "knee_loop_difference_l5_minus_l2_deg": (
+                    means["L5"]["knee"] - means["L2"]["knee"]
+                ),
+                "per_cycle": per_cycle,
+            }
+        )
+    hip_ratios = [row["hip_loop_l5_over_l2"] for row in offsets]
+    knee_differences = [row["knee_loop_difference_l5_minus_l2_deg"] for row in offsets]
+    return {
+        "offset_range_samples": [minimum_offset, maximum_offset],
+        "window_samples_preserved": True,
+        "interpretation": (
+            "Both outbound and inbound accepted dwell slices are shifted by the "
+            "same integer offset without changing their length. Negative and "
+            "positive extremes intentionally admit up to five neighboring samples."
+        ),
+        "all": offsets,
+        "hip_ratio_range": [min(hip_ratios), max(hip_ratios)],
+        "knee_difference_deg_range": [min(knee_differences), max(knee_differences)],
+        "hip_ratio_above_one_at_every_offset": min(hip_ratios) > 1.0,
+    }
+
+
 def _window_has_adjacent_overrun(cycle: dict[str, Any], rows: list[int]) -> bool:
     """Test overruns in the complete base-mid-peak-mid-base window."""
     dwell = int(cycle["dwell_samples_per_side"])
@@ -81,8 +166,7 @@ def _bootstrap_metrics(
     values = {name: np.empty(samples) for name in names}
     for draw in range(samples):
         selected = [
-            windows[index]
-            for index in rng.integers(0, len(windows), len(windows))
+            windows[index] for index in rng.integers(0, len(windows), len(windows))
         ]
         for name, value in _metric_estimates(selected).items():
             values[name][draw] = value
@@ -121,9 +205,7 @@ def analyze_ordering_comparison(
             raise ValueError(f"{label}: L2/L5 eligible window counts differ")
         l5_overruns = _overrun_rows(l5_path)
         order_windows = []
-        for index, (l2_cycle, l5_cycle) in enumerate(
-            zip(cycles["L2"], cycles["L5"])
-        ):
+        for index, (l2_cycle, l5_cycle) in enumerate(zip(cycles["L2"], cycles["L5"])):
             row = {
                 "ordering": label,
                 "window_index": index,
@@ -154,21 +236,21 @@ def analyze_ordering_comparison(
             "metrics": _metric_estimates(order_windows),
         }
 
-    bootstrap = _bootstrap_metrics(
-        windows, samples=bootstrap_samples, seed=random_seed
-    )
+    bootstrap = _bootstrap_metrics(windows, samples=bootstrap_samples, seed=random_seed)
     baseline = _metric_estimates(windows)
     leave_one_out = []
     for omitted, window in enumerate(windows):
         estimates = _metric_estimates(windows[:omitted] + windows[omitted + 1 :])
-        leave_one_out.append({
-            "ordering": window["ordering"],
-            "window_index": window["window_index"],
-            "estimates": estimates,
-            "influence_from_full_estimate": {
-                name: estimates[name] - baseline[name] for name in estimates
-            },
-        })
+        leave_one_out.append(
+            {
+                "ordering": window["ordering"],
+                "window_index": window["window_index"],
+                "estimates": estimates,
+                "influence_from_full_estimate": {
+                    name: estimates[name] - baseline[name] for name in estimates
+                },
+            }
+        )
     timing_clean = [row for row in windows if not row["l5_overrun_adjacent"]]
     timing_excluded = [
         {"ordering": row["ordering"], "window_index": row["window_index"]}
@@ -205,8 +287,7 @@ def analyze_ordering_comparison(
         },
         "conclusion": {
             "hip_ratio_ci_materially_above_one": (
-                bootstrap["hip_ratio"]["confidence_interval_95_percentile"][0]
-                > 1.0
+                bootstrap["hip_ratio"]["confidence_interval_95_percentile"][0] > 1.0
             ),
             "hip_ratio_remains_above_one_without_overrun_adjacent_windows": (
                 timing_metrics["hip_ratio"] > 1.0
@@ -282,6 +363,33 @@ def analyze_sensitivity(
         "confidence_interval_95_percentile": _percentile_interval(boot_knee_difference),
     }
 
+    leave_one_out = []
+    for omitted_leg in ("L2", "L5"):
+        for omitted_cycle in range(len(cycles[omitted_leg])):
+            retained = {
+                leg: {
+                    joint: (
+                        np.delete(values, omitted_cycle)
+                        if leg == omitted_leg
+                        else values
+                    )
+                    for joint, values in joints.items()
+                }
+                for leg, joints in arrays.items()
+            }
+            leave_one_out.append(
+                {
+                    "omitted_leg": omitted_leg,
+                    "omitted_cycle_index": omitted_cycle,
+                    "hip_loop_l5_over_l2": float(
+                        retained["L5"]["hip"].mean() / retained["L2"]["hip"].mean()
+                    ),
+                    "knee_loop_difference_l5_minus_l2_deg": float(
+                        retained["L5"]["knee"].mean() - retained["L2"]["knee"].mean()
+                    ),
+                }
+            )
+
     # Each loop is the absolute difference of two plateau means. Treat each
     # plateau's unknown encoder rounding offset as bounded by half a count.
     # Therefore one loop can move by at most one count. The resulting bounds
@@ -311,6 +419,8 @@ def analyze_sensitivity(
             mean_loops["L5"]["knee"] - mean_loops["L2"]["knee"] + 2 * q,
         ],
     }
+
+    dwell_offsets = _dwell_offset_sensitivity({"L2": l2_path, "L5": l5_path}, cycles)
 
     pairing_ratios = np.asarray([row["hip_loop_l5_over_l2"] for row in pairings])
     pairing_knee = np.asarray(
@@ -347,7 +457,24 @@ def analyze_sensitivity(
             ],
             "all": pairings,
         },
+        "leave_one_cycle_out": {
+            "count": len(leave_one_out),
+            "all": leave_one_out,
+            "hip_ratio_range": [
+                min(row["hip_loop_l5_over_l2"] for row in leave_one_out),
+                max(row["hip_loop_l5_over_l2"] for row in leave_one_out),
+            ],
+            "knee_difference_deg_range": [
+                min(
+                    row["knee_loop_difference_l5_minus_l2_deg"] for row in leave_one_out
+                ),
+                max(
+                    row["knee_loop_difference_l5_minus_l2_deg"] for row in leave_one_out
+                ),
+            ],
+        },
         "cycle_block_bootstrap": bootstrap,
+        "dwell_window_offset_sensitivity": dwell_offsets,
         "encoder_quantization_sensitivity": quantization,
         "conclusion": {
             "hip_ratio_materially_above_one": bool(

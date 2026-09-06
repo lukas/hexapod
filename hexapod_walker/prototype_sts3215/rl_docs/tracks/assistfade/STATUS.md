@@ -49,6 +49,71 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~17:0x this cycle (triaged `-s1-explore2`, the bigger-
+  exploration-magnitude escalation the ~16:3x entry below launched):
+  **FAIL - COLLAPSE.** Held-out det+sto 4-mode gate regressed hard vs
+  its `-lsd2` parent: `gait_valid` fell to 4/6, 5/6, 3/6, 2/6 across
+  the 4 modes (was 6/6 clean on every mode for `-lsd2`), 21/24
+  episodes now terminate mid-clip via `over_current` with
+  `roll_class=fell` (video-consistent real falls; `-lsd2` had 0/24
+  terminations), and `slip_per_m` degraded to 3.9-6.5 (vs 2.4-3.6 on
+  `-lsd2`) — exactly the pre-registered FAIL-COLLAPSE branch. The
+  original target pathology is ALSO unrepaired on top of the
+  collapse: `speed_mean_m_s` still clusters 0.033-0.048 m/s regardless
+  of `cmd_dist_m` spanning 0.044-0.53m across episodes (a >10x range)
+  — doubling the exploration boost (`--warm-log-std-override=-1.3`,
+  std~0.27 vs `-lsd2`'s -2.0/std~0.135) bought zero speed-tracking
+  gain while destabilizing balance recovery into falls. Sibling
+  `s0-explore2` independently corroborates the same direction (its own
+  training-time canary auto-stopped at 4.37M citing "protected
+  skill(s) ['hold'] failed 3 consecutive probes"); `s0`'s held-out
+  gate report was still mid-eval on train-0 at the time of this
+  writing (not ready this cycle) — read it before treating this as a
+  fully-confirmed 2/2. **This closes exploration MAGNITUDE as a repair
+  lever for the speed-band-ignoring pathology, 3/3**: zero-boost
+  (`-v2`), std~0.135 (`-lsd2`, confirmed real log_std movement via
+  `wandb_history.csv`), and std~0.27 (`-explore2` here) all fail to
+  produce speed covariance, and the largest boost actively
+  destabilizes gait. **Refill (same cycle): moved to the pre-
+  registered structural/capability lever instead of a fourth log-std
+  value** — launched `cw-assistfade-rung2-anchorfade-{s0,s1}-
+  freshband` (2 arms, 12M budget each, phase=acquisition, evidence =
+  the 2-seed-confirmed `-reseed8m-gatefix` ignition mechanism). These
+  are a FULL REDO of the rung-2 ignition itself (bc_anchor_coef=3.0,
+  anneal_gate=1, assay_reseed=1 fix, byte-identical to the working
+  recipe) from TRUE random actor weights (no `--init-from` at all) with
+  the widened 0.04-0.08 m/s speed band baked in from step 0, instead of
+  warm-starting hardening on top of a checkpoint that already spent
+  8-10M steps habituating a single fixed 0.06 m/s cadence before ever
+  seeing a varying command. Both VERIFIED RUNNING (train-1, train-0).
+  Gate: standard ignition PASS (anneal latches, post-anneal held-out
+  gait_valid/0 falls/progress_ratio>=0.35) AND per-episode speed
+  covaries with `cmd_dist_m` — FAIL-HABITUATION-NOT-THE-CAUSE if gait
+  is clean but speed still ignores the band (closes the ignition-order
+  hypothesis, escalates to an explicit stride-amplitude reward term
+  next); FAIL-MECHANISM/FAIL-COLLAPSE if the wider band itself breaks
+  ignition. Evidence: `logs/ckpt_eval/
+  cw_assistfade_rung2_harden_speedband_s1_explore2_gate/report.json`,
+  W&B `6ipzl1ia`, RL_LOG 09-06 17:02.
+  **NOTE (same cycle, post-launch coordination check):** a CONCURRENT
+  cycle independently reached the identical conclusion off its own
+  `s0-explore2` read and already launched
+  `cw-assistfade-rung2-anchorfade-{s0,s1}-ignitewiden` (train-4/
+  train-7) — NOT a pure duplicate of `-freshband`: `-ignitewiden` keeps
+  `--init-from` pointing at each seed's original 2M canary checkpoint
+  (widens the band starting from 2M steps of prior habituation, an
+  8M budget, single-lever change vs `-reseed8m-gatefix`), while
+  `-freshband` drops `--init-from` entirely (TRUE random actor, 0
+  steps of habituation, 12M budget). Read BOTH as a habituation-DOSE
+  comparison (0 vs 2M vs the closed 8-10M cases), not four redundant
+  seeds of one question — `-ignitewiden` is the cleaner single-lever
+  test and should be read first; `-freshband` is the more expensive
+  confirmatory extreme. Future cycles: check `capacity.py`/`ops.sh
+  entry` for in-flight sibling arms before backlog-adding a new
+  structural test — the near-duplicate name tripwire only catches
+  numeric-suffix twins, not differently-worded escalations of the same
+  idea.
+
 - **09-06 ~16:3x this cycle (triaged the `-lsd2` pair the ~15:4x entry
   below launched; both FAIL - IGNORES-BAND again, but this time
   root-caused with real probe evidence instead of another guess):**

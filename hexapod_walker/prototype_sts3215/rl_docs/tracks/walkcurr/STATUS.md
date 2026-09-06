@@ -2,6 +2,54 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:1x-06:3x this cycle (assigned `medhead-dr-cmddrop1x-c1`, `medhead-dr-imubias1x-c1`,
+  `medhead-dr-velscale1x-c1`): **all 3 assigned evals still genuinely computing on their pods
+  when this cycle spawned (started ~05:43, `--video-every 1` over the full 24-episode 4-panel
+  harness on pods also carrying a live training tenant — slow, not stuck); backgrounded
+  `ops.sh pollreap` for each (180s interval, 60min cap) so results land without a supervisor
+  babysitting them, left UNVERDICTED for the next cycle/watcher to read once
+  `report.json` lands. Do not re-triage these 3 as a fresh "no report yet" — the pollreap is
+  live. **Infra unblock + refill:** found `medhead-dr-groundtilt1x-c1` and
+  `medhead-dr-imupos1x-c1` both REFUSED repeatedly with a `-dirty` code-marker mismatch on
+  every pod tried, even though the local tree was actually clean by the sync script's own
+  dirty-check definition — re-ran `snapshot.sh --sync` on the 4 then-free pods
+  (train-1/3/4/7) to refresh their stale markers to current HEAD; the background drain
+  immediately placed both queued arms (train-0, train-1) plus a concurrent cycle's
+  `medhead-irrwiden-c1-acq1` (train-3) once the pods were clean again — this looks like the
+  same root cause a concurrent cycle independently found and fixed in `snapshot.sh` this same
+  window (`pending_evals.json` missing from the dirty-check EXC list); either way, re-syncing
+  unstuck 2 queued arms with zero risk. **New composite arm — the campaign's culmination
+  test:** every guardrails-named + domain_rand.py DR axis now has (or had, at cycle-launch
+  time) at least one clean single-axis PASS on the campaign's cleanest champion
+  (`medhead-abrupt-c1-acq1-cont40m`, 80M, 24/24, 0 falls) — but 2-axis compositions (irr+widen,
+  either order) have repeatedly regressed at ACQ scale even when both ingredients were
+  individually clean. Launched `medhead-dr-allaxis1x-c1` (`--now`, train-7, VERIFIED RUNNING,
+  finished its 2M budget in ~4min at ~9-11k env-steps/s): ALL ~30 nominal-dose DR axis values
+  restored simultaneously (mass/geometry/friction/compliance/gains/latency/deadband/velcap/
+  cmddrop/startpose/zerobias/encoder-tilt-gyro-noise/gyro-bias/imu-bias-mount-position/
+  action-noise/ground-tilt/fault/ext-push/kick/push), `dr.torque_scale` deliberately left at
+  the fixed idealized-crutch 3,3 (unchanged from every sibling single-axis arm — torque-crutch
+  removal is its own separate active dose-response study). **CAVEAT for whoever triages this
+  run's gate**: a concurrent cycle's `medhead-dr-kick1x-c1` CANARY closed **FAIL** in this same
+  window (1 genuine `tilt_roll` fall, confirmed on video — the first fall anywhere in the
+  entire single-axis sweep) — `dr.walk_kick_prob=0.3` is baked into this composite, so
+  `allaxis1x-c1` is now KNOWN to include one already-unsafe ingredient, not just clean ones.
+  Read a FAIL here as "at least consistent with the known-bad kick axis," not fresh evidence
+  that clean-axis composition itself is fragile; a methodologically clean version of this
+  question needs a repeat with `walk_kick_prob` fixed at whatever dose the concurrently-
+  running `medhead-dr-kickhalf1x-c1` bisection clears (or dropped to 0) once that lands.
+  ep_rew_mean at 2M finish was 13.9 — notably lower than typical sibling single-axis-restore
+  finishes (~100-250) but this is a 2M canary against a MUCH harder combined objective, not
+  necessarily itself alarming; read the gate's `gait_valid`/fall census, not this scalar,
+  per the video-and-metrics-outrank-reward-alone rule. Killed one true duplicate
+  (`medhead-dr-allaxis1x-c1-rr1` on train-9): the backlog-queued copy of the same respec
+  landed via the background drain seconds after the `--now` direct launch had already claimed
+  the name, and the drain's own dedup-rename-on-collision logic (see `launch_run.py`
+  `requeue`) spun up a second, fully redundant trainer on `-rr1` rather than dropping it —
+  `killrun` + `status=KILLED_DUPLICATE`, zero further spend. Evidence: `kubectl exec
+  hexapod-mjx-train-{9,11,5}` process listings for the 3 assigned evals; `launch_run.py
+  status` pod table; W&B run for `allaxis1x-c1` (train-7); RL_LOG 09-06 06:1x-06:3x.
+
 - 09-06 ~06:1x-06:2x this cycle (assigned `medhead-dr-push1x-c1`, `widenirrc3-abrupt-c1-acq1`):
   **2/2 PASS — the DONE ladder's own "push" axis clears at nominal dose, and the 2nd 8-way
   heading-set ACQ seed holds clean but surfaces a reward/eval misalignment.** (1)

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:47:24+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-mass1x-c1
+
+**wandb_id**: rllle5x4
 
 **hypothesis**: Plain English: does the real hardware's mass-manufacturing tolerance (0.85-1.20x global mass_scale + 0.10 per-leg jitter) stay a clean walk with real training, not just a 2M canary glance? mass1x-c1's own 2M canary was 23/24 (one non-chronic leg-4 flag) on the campaign's cleanest champion -- unlike the PERFECT-canary axes, this is a near-clean-but-imperfect canary, a second useful data point (after torquefade2x-c1-acq1) on whether canary cleanliness predicts ACQ-scale durability for bare DR-realism axes the way it does for irr/widen composition axes.
 

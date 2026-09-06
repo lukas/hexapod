@@ -84,13 +84,26 @@ def _sequence_digest(order: list[str], protocols: dict[str, Any]) -> str:
 
 
 def _stop_condition_mapping(
-    parameters: dict[str, Any], *, camera_guard_bound: bool = False
+    parameters: dict[str, Any], *, camera_guard_bound: bool = False,
+    runtime_state_guard_bound: bool = False,
 ) -> list[dict[str, Any]]:
     """Describe which proposed stops are executor-bound, conservatively."""
 
     mappings = []
     for condition in parameters.get("stop_conditions", []):
         lowered = str(condition).lower()
+        if (runtime_state_guard_bound and "state stream" in lowered
+                and any(token in lowered for token in ("stale", "nonadvancing"))):
+            mappings.append({
+                "condition": condition,
+                "executor_bound": True,
+                "coverage": "full",
+                "binding": (
+                    "linux_control.sysid_runner continuous runtime state-age "
+                    "and advancing-timestamp trip"
+                ),
+            })
+            continue
         has_bound_cause = any(token in lowered for token in (
             "current", "temperature", "hot motor", "communication", "servo loss",
         ))
@@ -281,6 +294,12 @@ def qualify(
         and "_telemetry_admission(" in runner
         and "telemetry admission failed" in runner
     )
+    runtime_state_guard_ok = (
+        "runtime_state_clock" in runner_args
+        and "_read_runtime_pose()" in runner
+        and "runtime state stream stale" in runner
+        and "runtime state timestamp did not advance" in runner
+    )
 
     checks = {
         "parameter_schema": _check(
@@ -310,10 +329,13 @@ def qualify(
             ),
         ),
         "telemetry_guard_binding": _check(
-            telemetry_guard_ok,
+            telemetry_guard_ok and runtime_state_guard_ok,
             ["sysid/run_hw.py", "linux_control/sysid_runner.py"],
-            "Three fresh 18/18 samples, voltage bounds, and state age are not executor-bound."
-            if not telemetry_guard_ok else "Fresh motor, voltage, and state-age guards are executor-bound.",
+            "Admission and continuous runtime state-stream guards are not both executor-bound."
+            if not (telemetry_guard_ok and runtime_state_guard_ok) else (
+                "Three fresh 18/18 admission samples plus continuous runtime "
+                "state age and timestamp advancement are executor-bound."
+            ),
         ),
         "remote_abort_binding": _check(
             remote_abort_ok,
@@ -391,7 +413,10 @@ def qualify(
     order = (sealed_parameters.get("order")
              if isinstance(sealed_parameters.get("order"), list) else [])
     stop_mapping = _stop_condition_mapping(
-        sealed_parameters, camera_guard_bound=camera_guard_ok)
+        sealed_parameters,
+        camera_guard_bound=camera_guard_ok,
+        runtime_state_guard_bound=runtime_state_guard_ok,
+    )
 
     required_ids = frozenset(
         tag for values in camera.get("required_target_tags", {}).values()
@@ -423,6 +448,28 @@ def qualify(
             and "test_telemetry_admission_rejects_stale_sample" in telemetry_tests,
             "guard_result": "telemetry admission rejects state age over bound",
             "abort_bound": True,
+        },
+        "nonadvancing_state_timestamp_during_glide": {
+            "passed": runtime_state_guard_ok and (
+                "test_nonadvancing_state_timestamp_during_glide_"
+                "aborts_before_further_motion" in telemetry_tests
+            ),
+            "guard_result": (
+                "continuous runtime guard stops the glide before another "
+                "command and final limp is reached"
+            ),
+            "abort_bound": runtime_state_guard_ok,
+        },
+        "nonadvancing_state_timestamp_during_trajectory": {
+            "passed": runtime_state_guard_ok and (
+                "test_nonadvancing_state_timestamp_during_trajectory_"
+                "aborts_before_further_motion" in telemetry_tests
+            ),
+            "guard_result": (
+                "continuous runtime guard stops the trajectory before another "
+                "command and final limp is reached"
+            ),
+            "abort_bound": runtime_state_guard_ok,
         },
         "incomplete_servo_sample": {
             "passed": telemetry_guard_ok

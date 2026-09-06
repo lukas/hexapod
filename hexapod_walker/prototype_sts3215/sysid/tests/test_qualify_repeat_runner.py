@@ -182,5 +182,7 @@ def test_requalification_uses_sealed_input_and_exact_protocol_hashes():
         "stale_camera_timestamp", "tag_coverage_below_0.9",
         "stale_state_timestamp", "incomplete_servo_sample",
         "out_of_bounds_voltage", "remote_abort",
+        "nonadvancing_state_timestamp_during_glide",
+        "nonadvancing_state_timestamp_during_trajectory",
     }
     assert all(item["passed"] for item in report["fault_injections"].values())

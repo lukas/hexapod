@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from sysid.analyze_hysteresis_sensitivity import (
+    analyze_l5_reversal,
     analyze_ordering_comparison,
     analyze_sensitivity,
 )
@@ -96,3 +97,45 @@ def test_ordering_comparison_reports_required_intervals_and_overrun_sensitivity(
     assert first["knee_ratio_confidence_interval"]["estimate"] == 1.0
     assert first["exclude_windows_adjacent_to_overruns"]["excluded_windows"] == []
     assert first["conclusion"]["hip_ratio_ci_materially_above_one"] is True
+
+
+def test_l5_reversal_reports_cycles_uncertainty_trends_and_endpoint_sensitivity(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "parent").mkdir()
+    (tmp_path / "reversed").mkdir()
+    parent = _synthetic_trace(
+        tmp_path / "parent",
+        leg=5,
+        profile="air",
+        amplitudes=[15.0],
+        loops=[[(0.8, 0.2), (1.0, 0.3)]],
+        dwell_samples=10,
+    )
+    reversed_trace = _synthetic_trace(
+        tmp_path / "reversed",
+        leg=5,
+        profile="air",
+        amplitudes=[15.0],
+        loops=[[(0.7, 0.2), (0.9, 0.3)]],
+        dwell_samples=10,
+    )
+
+    first = analyze_l5_reversal(
+        parent, reversed_trace, bootstrap_samples=1000, random_seed=7
+    )
+    second = analyze_l5_reversal(
+        parent, reversed_trace, bootstrap_samples=1000, random_seed=7
+    )
+
+    assert first == second
+    assert first["cycle_count_per_run"] == 2
+    assert len(first["per_cycle"]["parent"]) == 2
+    assert np.isclose(first["uncertainty"]["hip"]["reversed_minus_parent_deg"], -0.1)
+    assert set(first["cycle_order_trends"]) == {"parent", "reversed"}
+    variants = first["endpoint_exclusion_sensitivity"]["variants"]
+    assert set(variants) == {
+        "include_arrival_endpoint",
+        "accepted_exclude_arrival_endpoint",
+        "exclude_first_two_rows",
+    }

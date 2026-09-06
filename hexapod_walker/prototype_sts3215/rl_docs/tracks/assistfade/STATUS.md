@@ -49,6 +49,25 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~03:3x rung-1 first read (s1) + refill (keep-GPUs-training
+  cycle, fb_20260906T031718_f01aa6):** `-s1` VERDICTED **CANARY PASS
+  (mechanism health)** — task-only PPO from BC init did NOT destroy
+  the gait at 2M: gait_valid 24/24 (all 4 modes), 0 falls/terms,
+  sac=[] everywhere, six-leg cycling + level body on video
+  (`logs/ckpt_eval/cw_assistfade_rung1_bcinit_taskonly_s1_gate/`).
+  Shortfall is pure speed: det prog med 0.22 vs the 0.35 ignition bar
+  (0.12 m/10 s at 0.06 m/s cmd); slip 8-12/m recorded. Per 08-21 +
+  the gate's own "don't judge acquisition at 2M" scope this is
+  continue-not-retreat. LAUNCHED: `-s1-cont8m` (+8M from own ckpt,
+  acquisition phase, ignition bar judged at 10M total) and `-s2`
+  (fresh-seed 2M canary — s0's training reward collapsed in Q4
+  (96->23) while s1's stayed healthy; s2 disambiguates seed-vs-recipe
+  before more acquisition spend). `-s0`'s gate eval was still running
+  on train-4 (watcher prestage; a concurrent triage cycle owns its
+  pollreap) — the JOINT rung-1 ignition read stays OPEN pending s0.
+  No rung-2 launch until the joint read lands (doc: run only the
+  first unproven rung); rung-2 anchor-fade still owes the full
+  intermediate-state semantics bank before any launch.
 - **Rung 1 canary pair LAUNCHED 2026-09-06:**
   `cw-assistfade-rung1-bcinit-taskonly-s0` / `-s1` (2M each, canary
   phase). Recipe = `cw-walkteach-scripted-allhead-canary-r1` byte-

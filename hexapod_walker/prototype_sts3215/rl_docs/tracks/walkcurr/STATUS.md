@@ -2,6 +2,44 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~03:3x this cycle (assigned `headset-crossgrav-medhead-ramp-irrfwd-c1`,
+  `headset-crossgrav-medhead-ramp-widenfwd-c1`, `headset-crossgrav-widen2c2b-
+  abrupt-c1-acq1`): 3 verdicts, 2-arm refill. Tooling note: all 3 prestaged
+  gate evals were still genuinely computing remotely when the cycle spawned
+  (video-every=1 24-episode panels); confirmed via `kubectl exec ps aux` on
+  each pod (not orphaned), backgrounded `ops.sh pollreap` loops, then copied
+  each `report.json` off its pod directly as it landed. **(1)/(2) both ramp-
+  transition forward-extension canaries PASS**, completing the abrupt-vs-ramp
+  symmetry question on BOTH tested axes: `medhead-ramp-irrfwd-c1` aggregate
+  `gait_valid` 22/24 (`walk/det` 4/6 with 2 transient non-chronic flags, other
+  3 modes clean 6/6), 0 falls, slip 3.07-5.37; `medhead-ramp-widenfwd-c1`
+  aggregate 21/24 (max 2/6 per leg anywhere, never chronic), 0 falls, several
+  slip outliers (55-208) confirmed via frame strip as the already-documented
+  reversal-heading spin-in-place artifact, not a new defect. **(3)
+  `widen2c2b-abrupt-c1-acq1` CLOSES THE FORK its own 2M canary left open:
+  ACQ FAIL — budget does NOT repair an unhealthy-source champion.** Aggregate
+  `gait_valid` 14/24, numerically IDENTICAL to the 2M canary's own 14/24, same
+  leg-1 chronic fingerprint concentrated in `walk_startjitter/{det,sto}`
+  (2/6 each, leg-1 in 4/6 and 3/6 episodes respectively). 0 falls; training
+  reward net-rising in the back half (not flat) but per CURRENT_TRUTHS this
+  reward-misalignment class is already closed after 9 repair mechanisms with
+  a STRUCTURAL fix required, so rising-reward-with-bad-eval here confirms
+  continued entrenchment rather than triggering an 08-21 keep-going read.
+  Video confirms genuine body translation even in flagged episodes (a
+  favoritism issue, not a freeze/paddle) — consistent with every other
+  reading of this fingerprint campaign-wide. **Closes the "does more ACQ
+  budget substitute for source health" question cleanly: it does not.**
+  **Refill (2 arms):** matched 40M ACQ continuations for both PASSing ramp
+  siblings, `headset-crossgrav-medhead-ramp-widenfwd-c1-acq1` and
+  `headset-crossgrav-medhead-ramp-irrfwd-c1-acq1` (respec off their abrupt
+  siblings' own acq1 templates with an explicit `--arg='--init-from=...'`
+  override per the campaign's own respec gotcha), both launched via the
+  drain (train-11/train-9), INTENT verified queued. No further widen2c2b-
+  lineage arms — that thread is closed. SKILLS.md updated (3 new rows).
+  Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+  {medhead-ramp-irrfwd-c1,medhead-ramp-widenfwd-c1,widen2c2b-abrupt-c1-acq1}`,
+  matching `logs/ckpt_eval/...gate/report.json` files, RL_LOG.
+
 - 09-06 ~03:0x this cycle (assigned `headset-crossgrav-medhead-widenfwd-c1`,
   `headset-crossgrav-medhead-irrfwd-c1`): 2 verdicts, both **CANARY PASS -
   INFORMATIVE-POSITIVE**, 2-arm refill. These are the two discovery canaries

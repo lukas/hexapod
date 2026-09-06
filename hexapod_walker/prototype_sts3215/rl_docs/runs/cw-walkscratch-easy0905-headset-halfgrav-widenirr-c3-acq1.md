@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:30:15+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3
+
+**wandb_id**: 9o5dtbpz
 
 **hypothesis**: Does widenirr's 3rd tie-breaking seed (23/24 gv 2M canary, own 0.5g, only a course-tracking caveat not a gait-validity one) hold up at full 40M acquisition budget the same way sibling widenirr-c1-acq1 did (ACQ PASS, 22/24)?
 

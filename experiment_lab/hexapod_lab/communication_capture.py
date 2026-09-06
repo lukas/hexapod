@@ -18,6 +18,7 @@ import uuid
 STATUS_NAME = "robot-communication.json"
 TRANSCRIPT_NAME = "robot-communication.jsonl"
 _BEGIN_RETRY_DELAYS_SECONDS = (0.05, 0.1)
+_LOG_DOWNLOAD_TIMEOUT_SECONDS = 120.0
 
 
 class CommunicationCaptureError(RuntimeError):
@@ -71,6 +72,7 @@ class RobotCommunicationCapture:
         job_id: str,
         attempt: int,
         timeout_seconds: float = 10.0,
+        download_timeout_seconds: float = _LOG_DOWNLOAD_TIMEOUT_SECONDS,
         max_bytes: int = 512 * 1024 * 1024,
         opener: Callable[..., Any] = urlopen,
     ):
@@ -80,6 +82,10 @@ class RobotCommunicationCapture:
         self.job_id = job_id
         self.attempt = int(attempt)
         self.timeout_seconds = max(0.1, float(timeout_seconds))
+        self.download_timeout_seconds = max(
+            self.timeout_seconds,
+            float(download_timeout_seconds),
+        )
         self.max_bytes = max(1024, int(max_bytes))
         self.opener = opener
         self.started_at: Optional[str] = None
@@ -516,7 +522,15 @@ class RobotCommunicationCapture:
             "",
         ))
         request = Request(url, method="GET")
-        with self.opener(request, timeout=self.timeout_seconds) as response:
+        # Marker and status requests should fail fast, but a recorder part can
+        # legitimately be tens or hundreds of megabytes.  Give that transfer
+        # its own inactivity timeout so a healthy large capture is not lost
+        # merely because the proxy needs more than the marker timeout to begin
+        # or continue the response.
+        with self.opener(
+            request,
+            timeout=self.download_timeout_seconds,
+        ) as response:
             for line in response:
                 yield bytes(line)
 

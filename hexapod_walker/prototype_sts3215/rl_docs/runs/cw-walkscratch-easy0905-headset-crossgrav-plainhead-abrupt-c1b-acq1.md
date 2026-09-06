@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T03:20:25+00:00
+**created**: 2026-09-06T03:22:03+00:00
 
 **pod**: hexapod-mjx-train-1
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS if gait_valid stays >= its own 2M canary (23/24) or degrades only mildly with no NEW chronically-sacrificed leg across the 40M run, 0 falls, slip/m flat-or-better. FAIL/MECHANISM if gait_valid collapses well below the canary (matching the already-seen ACQ-scale entrenchment regression pattern, e.g. irracq1-abrupt-c1-acq1's 23/24->14/24 drop) despite rising reward.
 
-**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+**refused_reason**: hexapod-mjx-train-1 already runs cw-robotwalk-turns-20260906 — GPU pods host exactly one run; pick a free GPU pod.
 

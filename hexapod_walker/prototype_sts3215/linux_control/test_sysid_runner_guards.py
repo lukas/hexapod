@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import types
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -109,3 +110,44 @@ def test_relative_multi_joint_trajectory_retains_force_guard():
 
     assert result["ok"] is False
     assert "require force=true" in result["error"]
+
+
+def test_remote_abort_reaches_final_limp(monkeypatch, tmp_path):
+    import sysid_runner
+
+    calls = []
+    fake_demos = types.SimpleNamespace(
+        _enable_torque=lambda bus, ids: calls.append("enable"),
+        _live_robot_ids=lambda bus: {
+            sysid_runner.joint_to_servo_id(joint) for joint in range(18)
+        },
+        _limp_all=lambda bus, ids: calls.append("limp"),
+        _set_torque_limit=lambda bus, ids, value: calls.append(("limit", value)),
+        _write_pose=lambda *args, **kwargs: calls.append("hold"),
+    )
+    monkeypatch.setitem(sys.modules, "inplace_demos", fake_demos)
+    monkeypatch.setattr(sysid_runner, "validate", lambda protocol: [])
+    monkeypatch.setattr(sysid_runner, "start_pose", lambda protocol: None)
+    monkeypatch.setattr(
+        sysid_runner,
+        "materialize",
+        lambda protocol: {
+            "hz": 10.0,
+            "ticks": [{"active": [0], "cmd": [0.0] * 18,
+                       "mode": "rel", "seg": 0, "phase": "test"}],
+            "seg_labels": ["test"],
+        },
+    )
+    bus = _Bus([_sample(), _sample(), _sample()])
+    bus.read_all_positions = lambda: {joint: 0.0 for joint in range(18)}
+
+    result = run_sysid_protocol(
+        bus,
+        {"name": "abort_guard", "segments": [{"kind": "step"}]},
+        abort_check=lambda: True,
+        log_dir=tmp_path,
+    )
+
+    assert result["ok"] is False
+    assert result["aborted"] is True
+    assert "limp" in calls

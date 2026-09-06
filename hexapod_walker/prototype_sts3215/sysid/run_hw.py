@@ -28,12 +28,14 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from typing import Callable
 
 from . import DATASET_DIR, PROTO_DIR  # noqa: F401
 from sysid_protocol import (  # noqa: E402
     duration_s, protocol_hash, validate,
 )
 from rl_move.remote import HexapodClient  # noqa: E402
+from .camera_guard import CameraGuard  # noqa: E402
 
 
 def _capture_vision_sidecar(
@@ -45,6 +47,8 @@ def _capture_vision_sidecar(
     save_frames: bool,
     frame_url: str | None,
     summary: dict,
+    guard: CameraGuard | None = None,
+    on_guard_failure: Callable[[str], None] | None = None,
 ) -> None:
     """Record unique vision frames plus the worker's synchronized IMU sample."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -59,12 +63,24 @@ def _capture_vision_sidecar(
     last_sequence = None
     captured = 0
     errors = 0
+    last_guard_ok_at = started
     with jsonl_path.open("w", encoding="utf-8", buffering=1) as stream:
         while not stop.is_set():
             iteration = time.monotonic()
             try:
                 with urllib.request.urlopen(state_url, timeout=2.0) as response:
                     state = json.loads(response.read().decode("utf-8"))
+                if guard is not None:
+                    guard_ok, guard_error = guard.observe(
+                        state, now_unix=time.time()
+                    )
+                    if not guard_ok:
+                        summary["camera_guard_failed"] = guard_error
+                        if on_guard_failure is not None:
+                            on_guard_failure(guard_error)
+                        stop.set()
+                        break
+                    last_guard_ok_at = time.monotonic()
                 sequence = (state.get("performance") or {}).get(
                     "frame_sequence"
                 )
@@ -102,6 +118,17 @@ def _capture_vision_sidecar(
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 errors += 1
                 summary["last_error"] = str(error)
+                if (guard is not None
+                        and time.monotonic() - last_guard_ok_at
+                        > guard.max_state_age_s):
+                    _, guard_error = guard.reject(
+                        "camera stream stale after repeated read failures"
+                    )
+                    summary["camera_guard_failed"] = guard_error
+                    if on_guard_failure is not None:
+                        on_guard_failure(guard_error)
+                    stop.set()
+                    break
             remaining = 1.0 / hz - (time.monotonic() - iteration)
             if remaining > 0.0:
                 stop.wait(remaining)
@@ -112,6 +139,12 @@ def _capture_vision_sidecar(
         "images_saved": bool(save_frames),
         "state_url": state_url,
         "frame_url": resolved_frame_url if save_frames else None,
+        "camera_guard_failed": (
+            guard.failure if guard is not None else None
+        ),
+        "camera_guard_samples": (
+            guard.accepted_samples if guard is not None else None
+        ),
     })
 
 
@@ -174,6 +207,13 @@ def main(argv: list[str] | None = None) -> int:
               "http://127.0.0.1:8766/snapshot/1.jpg"),
     )
     ap.add_argument("--vision-hz", type=float, default=10.0)
+    ap.add_argument(
+        "--required-target-tag", type=int, action="append", default=[],
+        help="required AprilTag ID; repeat for every sealed target tag",
+    )
+    ap.add_argument("--minimum-target-tag-coverage-fraction", type=float,
+                    default=0.9)
+    ap.add_argument("--camera-max-state-age-s", type=float, default=1.5)
     args = ap.parse_args(argv)
 
     client = HexapodClient(args.url)
@@ -204,6 +244,17 @@ def main(argv: list[str] | None = None) -> int:
 
     if not 0.5 <= args.vision_hz <= 30.0:
         raise SystemExit("--vision-hz must be between 0.5 and 30")
+    if args.required_target_tag and not args.capture_vision:
+        raise SystemExit("required target tags need --capture-vision")
+    if args.capture_vision and not args.required_target_tag:
+        raise SystemExit(
+            "guarded vision capture needs every --required-target-tag from "
+            "the sealed configuration"
+        )
+    if not 0.0 < args.minimum_target_tag_coverage_fraction <= 1.0:
+        raise SystemExit("minimum target tag coverage must be in (0, 1]")
+    if args.camera_max_state_age_s <= 0.0:
+        raise SystemExit("camera max state age must be positive")
 
     # Read-only preflight: bus + IMU answering, robot idle.
     fb = client.feedback()
@@ -218,7 +269,21 @@ def main(argv: list[str] | None = None) -> int:
     vision_stop = threading.Event()
     vision_summary: dict = {}
     vision_thread = None
+    camera_guard = None
     if args.capture_vision:
+        camera_guard = CameraGuard(
+            required_tag_ids=frozenset(args.required_target_tag),
+            minimum_coverage=args.minimum_target_tag_coverage_fraction,
+            max_state_age_s=args.camera_max_state_age_s,
+        )
+
+        def _camera_abort(error: str) -> None:
+            vision_summary["abort_reason"] = error
+            try:
+                client.stop()
+            except Exception as abort_error:
+                vision_summary["abort_error"] = str(abort_error)
+
         vision_thread = threading.Thread(
             target=_capture_vision_sidecar,
             args=(args.vision_url, out_dir, vision_stop),
@@ -227,11 +292,24 @@ def main(argv: list[str] | None = None) -> int:
                 "save_frames": bool(args.capture_frames),
                 "frame_url": args.vision_frame_url,
                 "summary": vision_summary,
+                "guard": camera_guard,
+                "on_guard_failure": _camera_abort,
             },
             name="sysid-vision-capture",
             daemon=True,
         )
         vision_thread.start()
+        if not camera_guard.ready.wait(timeout=args.camera_max_state_age_s * 3):
+            vision_stop.set()
+            vision_thread.join(timeout=4.0)
+            raise SystemExit(
+                "camera admission failed before motion: "
+                f"{camera_guard.failure or 'two advancing samples not received'}"
+            )
+        if camera_guard.failure:
+            raise SystemExit(
+                f"camera admission failed before motion: {camera_guard.failure}"
+            )
 
     t_start = time.time()
     kick = client._req("POST", "/api/sysid/run",

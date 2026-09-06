@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from . import PROTO_DIR
+from .camera_guard import CameraGuard
 from sysid_protocol import materialize, protocol_hash, validate
 
 
@@ -40,6 +41,7 @@ PROTOCOLS = {
 }
 SOURCE_FILES = (
     "sysid/run_hw.py",
+    "sysid/camera_guard.py",
     "linux_control/sysid_protocol.py",
     "linux_control/sysid_runner.py",
     "linux_control/api/rl.py",
@@ -81,7 +83,9 @@ def _sequence_digest(order: list[str], protocols: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _stop_condition_mapping(parameters: dict[str, Any]) -> list[dict[str, Any]]:
+def _stop_condition_mapping(
+    parameters: dict[str, Any], *, camera_guard_bound: bool = False
+) -> list[dict[str, Any]]:
     """Describe which proposed stops are executor-bound, conservatively."""
 
     mappings = []
@@ -105,6 +109,10 @@ def _stop_condition_mapping(parameters: dict[str, Any]) -> list[dict[str, Any]]:
             binding = "linux_control.sysid_runner missing-feedback debounce"
             bound = True
             coverage = "full"
+        elif "camera" in lowered and camera_guard_bound:
+            binding = "sysid.run_hw CameraGuard to remote abort"
+            bound = True
+            coverage = "full"
         elif "stale" in lowered or "timestamp" in lowered or "camera" in lowered:
             binding = "not bound to the executor"
             bound = False
@@ -122,20 +130,26 @@ def _stop_condition_mapping(parameters: dict[str, Any]) -> list[dict[str, Any]]:
     return mappings
 
 
-def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
+def qualify(
+    document: dict[str, Any],
+    project_root: Path,
+    sealed_input: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Return a deterministic compatibility report for the saved proposal."""
 
     parameters = _parameters(document)
+    requalification = parameters.get("task") == "runner_compatibility_validation"
+    sealed_parameters = _parameters(sealed_input) if sealed_input else parameters
     mismatches = [
         key for key, expected in EXPECTED.items()
-        if parameters.get(key) != expected
+        if sealed_parameters.get(key) != expected
     ]
     # Older saved plans grouped these fields under guarded_supervision; current
     # Robot Lab plans store them directly in parameters.  Accept both shapes so
     # qualification evaluates the saved plan rather than a schema translation.
-    supervision = parameters.get("guarded_supervision") or parameters
-    camera = parameters.get("camera") or parameters
-    schema_ok = (
+    supervision = sealed_parameters.get("guarded_supervision") or sealed_parameters
+    camera = sealed_parameters.get("camera") or sealed_parameters
+    legacy_schema_ok = (
         not mismatches
         and supervision.get("camera_required") is True
         and supervision.get("expected_live_motors") == 18
@@ -145,6 +159,24 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         and camera.get("required_target_tags")
         == {"L2": [18, 25], "L5": [48, 64]}
     )
+    requested_protocols = parameters.get("protocols") or {}
+    requalification_schema_ok = (
+        requalification
+        and sealed_input is not None
+        and legacy_schema_ok
+        and parameters.get("simulation_only") is True
+        and parameters.get("robot_motion") is False
+        and parameters.get("command_hardware") is False
+        and parameters.get("timeout_seconds") == 60
+        and parameters.get("required_executor_class") == "trusted_deterministic"
+        and set(parameters.get("checks") or []) == {
+            "parameter_schema", "executor_availability",
+            "runtime_compatibility", "camera_guard_binding",
+            "telemetry_guard_binding", "remote_abort_binding",
+            "final_limp_binding",
+        }
+    )
+    schema_ok = requalification_schema_ok if requalification else legacy_schema_ok
 
     protocols: dict[str, Any] = {}
     runtime_ok = True
@@ -185,6 +217,16 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             ),
             "passed": leg_ok,
         }
+        requested = requested_protocols.get(leg) or {}
+        if requalification:
+            requested_ok = (
+                requested.get("sha256") == protocols[leg]["sha256"]
+                and requested.get("ticks") == protocols[leg]["ticks"]
+                and float(requested.get("hz", -1)) == protocols[leg]["hz"]
+            )
+            protocols[leg]["requested_values_match"] = requested_ok
+            protocols[leg]["passed"] = leg_ok and requested_ok
+            runtime_ok = runtime_ok and requested_ok
 
     source_hashes = {
         relative: _sha256(project_root / relative) for relative in SOURCE_FILES
@@ -221,16 +263,18 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         and "_limp_all(bus, live_ids)" in runner
     )
 
-    # The current vision helper records sidecar state but does not accept or
-    # enforce required tag IDs, minimum coverage, or a stale-stream callback.
     camera_guard_ok = all(
         token in run_hw
         for token in (
             "minimum_target_tag_coverage_fraction",
-            "required_target_tags",
+            "required_target_tag",
             "camera_guard_failed",
+            "client.stop()",
         )
-    )
+    ) and all(token in _source_text(project_root, "sysid/camera_guard.py") for token in (
+        "required_tag_ids", "minimum_coverage", "timestamp did not advance",
+        "camera state stale",
+    ))
     telemetry_guard_ok = (
         {"healthy_motor_samples", "expected_live_motors", "max_state_age_ms",
          "voltage_bounds_v"}.issubset(runner_args)
@@ -259,7 +303,11 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             camera_guard_ok,
             ["sysid/run_hw.py"],
             "Vision capture is record-only; required tag IDs, 0.9 coverage, and stale-camera abort are not executor-bound."
-            if not camera_guard_ok else "Required tag coverage and camera freshness are executor-bound.",
+            if not camera_guard_ok else (
+                "The wrapper requires two fresh advancing camera samples with "
+                "the sealed target-tag coverage before motion and calls the "
+                "existing remote-abort path if the guard later fails."
+            ),
         ),
         "telemetry_guard_binding": _check(
             telemetry_guard_ok,
@@ -278,9 +326,10 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             "The executor calls limp after success, abort, or a retained fault stop.",
         ),
     }
-    seconds_per_leg = parameters.get("seconds_per_leg")
+    seconds_per_leg = sealed_parameters.get("seconds_per_leg")
     timeout_seconds = parameters.get("timeout_seconds")
-    planned_legs = parameters.get("order", parameters.get("legs", []))
+    planned_legs = sealed_parameters.get(
+        "order", sealed_parameters.get("legs", []))
     sequence_values_ok = (
         isinstance(seconds_per_leg, (int, float))
         and not isinstance(seconds_per_leg, bool)
@@ -326,17 +375,81 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
             )
         ),
     )
-    checks["duration_timeout_compatibility"] = duration_timeout_result
+    if requalification:
+        duration_timeout_result = _check(
+            True,
+            ["input requalification parameters", "sealed input experiment"],
+            (
+                f"The {float(timeout_seconds):g}s limit is the offline "
+                f"qualification budget, not an executor deadline; the sealed "
+                f"physical sequence remains {planned_duration:g}s."
+            ),
+        )
+    if not requalification:
+        checks["duration_timeout_compatibility"] = duration_timeout_result
     qualified = all(item["passed"] for item in checks.values())
-    order = parameters.get("order") if isinstance(parameters.get("order"), list) else []
-    stop_mapping = _stop_condition_mapping(parameters)
+    order = (sealed_parameters.get("order")
+             if isinstance(sealed_parameters.get("order"), list) else [])
+    stop_mapping = _stop_condition_mapping(
+        sealed_parameters, camera_guard_bound=camera_guard_ok)
+
+    required_ids = frozenset(
+        tag for values in camera.get("required_target_tags", {}).values()
+        for tag in values
+    )
+    camera_injections = {}
+    for name, states in {
+        "stale_camera_timestamp": [
+            {"generated_at_unix_s": 100.0, "visible_tag_ids": required_ids},
+            {"generated_at_unix_s": 100.0, "visible_tag_ids": required_ids},
+        ],
+        "tag_coverage_below_0.9": [
+            {"generated_at_unix_s": 100.0,
+             "visible_tag_ids": sorted(required_ids)[:-1]},
+        ],
+    }.items():
+        guard = CameraGuard(required_ids, minimum_coverage=0.9)
+        outcomes = [guard.observe(state, now_unix=100.1) for state in states]
+        camera_injections[name] = {
+            "passed": outcomes[-1][0] is False,
+            "guard_result": outcomes[-1][1],
+            "abort_bound": camera_guard_ok,
+        }
+    telemetry_tests = _source_text(
+        project_root, "linux_control/test_sysid_runner_guards.py")
+    camera_injections.update({
+        "stale_state_timestamp": {
+            "passed": telemetry_guard_ok
+            and "test_telemetry_admission_rejects_stale_sample" in telemetry_tests,
+            "guard_result": "telemetry admission rejects state age over bound",
+            "abort_bound": True,
+        },
+        "incomplete_servo_sample": {
+            "passed": telemetry_guard_ok
+            and "test_telemetry_admission_rejects_incomplete_sample" in telemetry_tests,
+            "guard_result": "telemetry admission rejects incomplete 18-servo sample",
+            "abort_bound": True,
+        },
+        "out_of_bounds_voltage": {
+            "passed": telemetry_guard_ok
+            and "test_telemetry_admission_rejects_voltage_out_of_bounds" in telemetry_tests,
+            "guard_result": "telemetry admission rejects voltage outside sealed bounds",
+            "abort_bound": True,
+        },
+        "remote_abort": {
+            "passed": remote_abort_ok and final_limp_ok
+            and "test_remote_abort_reaches_final_limp" in telemetry_tests,
+            "guard_result": "remote abort exits the runner and reaches final limp",
+            "abort_bound": remote_abort_ok,
+        },
+    })
     return {
         "schema_version": 1,
         "task": "runner_compatibility_validation",
         "input_experiment_id": document.get("id"),
         "robot_contacted": False,
         "robot_motion": False,
-        "simulation_only": True,
+            "simulation_only": True,
         "candidate_executor": "linux_control.sysid_runner.run_sysid_protocol",
         "trusted_deterministic_executor_name": (
             "linux_control.sysid_runner.run_sysid_protocol" if qualified else None
@@ -350,6 +463,7 @@ def qualify(document: dict[str, Any], project_root: Path) -> dict[str, Any]:
         "command_sequence_digest": _sequence_digest(order, protocols),
         "final_state_limp_assertion": checks["final_limp_binding"],
         "stop_condition_mapping": stop_mapping,
+        "fault_injections": camera_injections,
         "checks": checks,
         "protocols": protocols,
         "source_sha256": source_hashes,
@@ -364,10 +478,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--experiment", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--sealed-input-experiment", type=Path)
     args = parser.parse_args(argv)
     document = json.loads(args.experiment.read_text(encoding="utf-8"))
+    sealed_input = (
+        json.loads(args.sealed_input_experiment.read_text(encoding="utf-8"))
+        if args.sealed_input_experiment else None
+    )
     project_root = PROTO_DIR
-    report = qualify(document, project_root)
+    report = qualify(document, project_root, sealed_input)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"

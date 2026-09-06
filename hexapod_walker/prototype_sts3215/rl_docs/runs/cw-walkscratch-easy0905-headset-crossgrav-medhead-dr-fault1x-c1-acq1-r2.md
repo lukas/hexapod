@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:43:32+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-fault1x-c1
+
+**wandb_id**: j5s145wt
 
 **hypothesis**: Plain English: does the moderate per-episode actuator FAULT probability (fault_prob=0.3, weakened/frozen/disabled-joint mix) stay a clean walk with a REAL 40M training budget, not just a 2M canary glance? Re-run of fault1x-c1-acq1, which landed with an accidental 2M-step budget (the --steps-not-overridden respec bug, RL_LOG 09-06 07:3x/08:2x) -- this -r2 explicitly pins --steps 40000000 to give the axis its intended first ACQ-scale confirmation.
 

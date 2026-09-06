@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T21:15:35+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-robotwalk-stride-20260906-anchorsoft1x
+
+**wandb_id**: 0e866co5
 
 **hypothesis**: Plain English: the softer anchor dose (bc_anchor_coef=1.0) cleared its 2M-step mechanism-health canary clean (0 falls, no duty-lock, gait_valid 24/24) with a real if modest progress gain over Candidate B in 3/4 held-out modes (+9 to +22%, one mode flat). This continues the SAME lineage (warm from the canary's own 2M checkpoint, not restarting from Candidate B) to the full 8M ACQ budget the campaign always intended, to see whether the gain compounds with more training or plateaus at the canary's level. Prediction-if-true: det h000 prog_m rises further above the 0.31-0.33 Candidate B band (toward the original 0.40 stretch target) while gait/slip/fall gates stay clean. Prediction-if-false: progress plateaus near the canary's ~0.34-0.35 reading with reward still rising (closes the anchor-dose axis at this coef, matching FAIL-NO-GAIN at full budget) or the gait degrades under more steps (destabilizes late, a different failure mode than arm A's early collapse).
 

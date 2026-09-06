@@ -1,8 +1,68 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~20:3x (refill: launched a 2-arm anchor-dose
-bracket testing the `cw-robotwalk-stride-20260906` FAIL's own named
-repair -- softer bc_anchor_coef, not another zero-coef repeat).
+Last updated: 2026-09-06 ~21:1x (anchorsoft1x/2x canary gates both
+CANARY PASS -- softer anchor dose does NOT reproduce arm A's collapse
+and shows a real, consistent progress gain over Candidate B in 3/4
+modes; both advanced to the full 8M ACQ budget, VERIFIED RUNNING).
+
+## 09-06 ~21:1x — anchorsoft1x/2x CANARY PASS (both dose points); advanced to 8M ACQ
+
+Registered on-pod eval results for both arms of the anchor-dose
+bracket (launched ~20:3x below) landed this cycle. Read together, not
+independently (matched bracket per the gate's own instruction):
+
+- **`cw-robotwalk-stride-20260906-anchorsoft1x`** (bc_anchor_coef=1.0):
+  fresh own-pod gate (n=24, DR-0, det+sto x walk/walk_startjitter) —
+  0 falls, 0 sacrificed legs, gait_valid 24/24, no duty-lock
+  fingerprint (`duty_cycle` ~0.56-0.62 per leg every episode, nothing
+  pinned <0.08 or >0.92 — the exact fingerprint that destroyed arm A
+  at coef=0.0 is absent), slip/m 2.07-2.32 (under the 2.9 cap).
+  Progress vs Candidate B's own same-4-mode baseline (walk/det 0.314,
+  walk/sto 0.180, walk_startjitter/det 0.234, walk_startjitter/sto
+  0.296 m/12s, recomputed fresh from `cw_walkteach_scripted_allhead_
+  acq12m_gate/report.json`): this arm reads 0.343(+9%), 0.220(+22%),
+  0.224(-4%), 0.326(+10%) — a consistent same-direction uptick in 3/4
+  modes, not a noise-level wiggle (compare the ~4-8% wiggles called
+  "noise" elsewhere on this board — these are larger AND
+  one-directional). **CANARY PASS.**
+- **`cw-robotwalk-stride-20260906-anchorsoft2x`** (bc_anchor_coef=1.5):
+  same fingerprint, essentially indistinguishable from its coef=1.0
+  sibling — 0 falls, gait_valid 24/24, no duty-lock, slip/m 2.09-2.37,
+  progress 0.354(+13%), 0.202(+12%), 0.232(-1%), 0.342(+16%).
+  **CANARY PASS.**
+
+The 1.0-vs-1.5 dose difference does not resolve at canary scale (both
+land in the same ballpark, within measurement noise of each other) —
+not surprising for a 2M-step read. Per the gate's own pre-registered
+resolution (PASS-worth-an-8M-ACQ), **launched both lineages to the
+full 8M ACQ budget**, each warmed from its OWN 2M canary checkpoint
+(not restarting from Candidate B): `cw-robotwalk-stride-20260906-
+anchorsoft1x-acq8m` (VERIFIED RUNNING train-7, W&B `xswk9620`'s
+successor) and `-anchorsoft2x-acq8m` (VERIFIED RUNNING train-1, W&B
+`jymcz68k` — ledger briefly showed a stale `INTENT`/duplicate-name
+`REFUSED` pair from the launcher's own two-phase write racing this
+command's background execution; the actual trainer process and W&B
+`state=running` with steps climbing off the warm-start confirm it is
+genuinely alive, not a phantom). Gate (acquisition, both arms,
+matched pair): PASS needs 0 falls, gait_valid>=22/24, slip/m<=2.9, and
+det h000 prog_m measurably above (not another ~5% wiggle) each arm's
+own canary reading (0.343 / 0.354) and above Candidate B's 0.31-0.33
+band. FAIL-PLATEAU if progress sits flat at the canary's own level
+with more budget (closes the anchor-dose axis at full budget, next
+lever is the hypothesis's own named alternative — faster motion
+source / cadence-CPG harvest). FAIL-LATE-COLLAPSE if duty-lock/falls/
+slip degrade with more steps despite the clean canary (implicates the
+log-std final anneal target or extended over-optimization of the
+loadslip/sway gates at longer budget, not anchor dose itself). No code
+changed (cfg-only respec of an already-proven mechanism family,
+`test_task_semantics.py -k "anchor or footslip"` re-confirmed 6/6
+green this cycle). `CYCLE_WORKED` touched (2 verdicts + 2 launches).
+
+Evidence: `ops.sh entry cw-robotwalk-stride-20260906-anchorsoft{1x,
+2x}`, `logs/ckpt_eval/cw_robotwalk_stride_20260906_anchorsoft{1x,2x}
+_gate/report.json`, `logs/ckpt_eval/cw_walkteach_scripted_allhead_
+acq12m_gate/report.json` (Candidate B baseline recomputed fresh
+per-mode), W&B `xswk9620`/`0q2s6rbo` (canaries), RL_LOG 09-06 ~21:1x.
 
 ## 09-06 ~20:3x — refill (no completion assigned; capacity found 10 free GPU slots, backlog empty): launched the stride arm's own named repair, a 2-point anchor-dose bracket
 

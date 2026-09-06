@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T21:17:02+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-robotwalk-stride-20260906-anchorsoft2x
+
+**wandb_id**: jymcz68k
 
 **hypothesis**: Plain English: the softer anchor dose (bc_anchor_coef=1.5, half of Candidate B's 3.0) cleared its 2M-step mechanism-health canary clean (0 falls, no duty-lock, gait_valid 24/24) with a real if modest progress gain over Candidate B in 3/4 held-out modes (+12 to +16%, one mode flat), reading essentially identically to its anchorsoft1x (coef=1.0) sibling at canary scale. This continues the SAME lineage (warm from the canary's own 2M checkpoint, not restarting from Candidate B) to the full 8M ACQ budget, launched together with the anchorsoft1x-acq8m sibling as a matched dose pair to see whether the two doses resolve differently at full budget or stay indistinguishable. Prediction-if-true: det h000 prog_m rises further above the 0.31-0.33 Candidate B band, and/or separates from the anchorsoft1x-acq8m sibling's full-budget reading (revealing a real dose-response). Prediction-if-false: progress plateaus near the canary's ~0.35-0.41 reading with reward still rising (FAIL-PLATEAU, closing the anchor-dose axis at this coef) or the gait degrades late (FAIL-LATE-COLLAPSE) despite the clean canary.
 

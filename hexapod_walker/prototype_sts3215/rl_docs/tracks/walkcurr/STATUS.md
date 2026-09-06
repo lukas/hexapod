@@ -2,6 +2,46 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~05:4x this cycle (assigned `widen2c3-abrupt-c2`, `widenirrc1-abrupt-c1-acq1-cont40m`,
+  `medhead-widenfwd-c2-deferartifacts`): **3 verdicts (1 FAIL confirming a closed
+  question, 1 PASS/HOLDS, 1 infra-PASS science-caveat closed) + 3-arm ACQ refill.**
+  (1) `widen2c3-abrupt-c2` (the pre-registered seed-2 twin discriminating seed noise
+  from source fragility on `widen2c3-abrupt-c1`'s own FAIL): **CANARY FAIL - MECHANISM,
+  n=2/2**. Reproduces the identical `walk_startjitter/det` leg[1,4] chronic-sacrifice
+  fingerprint (3/6 gait_valid, `sac=[1]`/`[1,4]`/`[4]` across the 3 invalid episodes) —
+  closes the seed-noise question negatively: this is a real attractor of the widen2-c3
+  source, not noise. No further crossgrav spend on widen2-c3; the widen2-crossgrav
+  story stands on c1's lineage only. (2) `widenirrc1-abrupt-c1-acq1-cont40m` (2nd +40M
+  endurance helping, 80M cumulative): **PASS/HOLDS**, a PERFECT 24/24 gait_valid
+  (zero flagged episodes in any of the 4 modes), 0 falls, slip_per_m tightly banded
+  3.3-5.4, reward still rising (432/860/987/1092) — the cleanest endurance read in the
+  campaign, a 3rd source (after s1acq, medhead) confirmed to tolerate a 2nd helping.
+  (3) `medhead-widenfwd-c2-deferartifacts`: already PASS-verdicted last cycle for its
+  primary infra deliverable (the `--defer-final-artifacts` GPU-handoff mechanism); this
+  cycle's prestaged harness read landed the science half that was left advisory —
+  aggregate `gait_valid` 23/24, IDENTICAL to seed-1's own 23/24, confirming seed-2 of
+  medhead-widenfwd is mechanism-healthy. Verdict text updated (FORCE=1) to close the
+  advisory caveat; no SKILLS row (infra is the deliverable, science is corroborating).
+  **Refill (3 ACQ continuations, all on free GPU pods — 5-6 idle mid-cycle):**
+  (a) `medhead-widenfwd-c2-acq1` (matched 40M ACQ for the now-confirmed 2nd widenfwd
+  seed, `--init-from-source` off its own 2M checkpoint, train-5, VERIFIED RUNNING) —
+  first attempt mis-respec'd without `--init-from-source` and would have silently
+  restarted from the grandparent base champion instead of continuing the seed-2
+  lineage; caught before drain via the backlog re-check, removed the bad backlog
+  entry, relaunched correctly. (b) `medhead-widenirr-c1-acq1` (matched 40M ACQ for the
+  widen-then-irr composite, already CANARY PASS 22/24 and never given its own ACQ
+  continuation despite the SKILLS.md note flagging it "eligible", train-8, VERIFIED
+  RUNNING). (c) `medhead-irrwiden-c1-acq1` (matched 40M ACQ for the irr-then-widen
+  sibling composite, its own CANARY PASS 23/24, also never given an ACQ continuation
+  despite the same "eligible" flag) — 2 pod-busy races (train-3, train-9 both taken by
+  a concurrent cycle's DR-hardening arms between check and launch) before landing on
+  train-10; see run log for final pod. SKILLS.md updated (2 new rows: widen2c3-abrupt-c2
+  FAIL, widenirrc1-abrupt-c1-acq1-cont40m PASS). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-widen2c3-abrupt-c2`, `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_medhead_widenfwd_c2_deferartifacts_gate/
+  report.json`, W&B `g8285ntc`/`1us3k6k1`/`o81ovjq7`, RL_LOG 09-06 05:41-05:5x.
+
 - 09-06 ~05:3x this cycle (assigned `s3acq-widenfwd-c1`, `s3acq-irrfwd-c1`): **2/2
   CANARY FAIL — forward-composing onto an already-compromised source
   re-surfaces its chronic leg-1 weakness immediately at 2M, it does

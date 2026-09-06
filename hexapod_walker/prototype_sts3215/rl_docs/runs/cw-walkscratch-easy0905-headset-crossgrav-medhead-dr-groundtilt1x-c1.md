@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T05:53:27+00:00
+**created**: 2026-09-06T05:57:32+00:00
 
-**pod**: hexapod-mjx-train-8
+**pod**: hexapod-mjx-train-10
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/INFORMATIVE-POSITIVE if aggregate gait_valid stays majority (>=18/24) across the full 4-panel harness with no NEW chronic single-leg sacrifice and 0 falls -- shows the gait does not depend on the perfectly-level-floor idealization. FAIL/INFORMATIVE-NEGATIVE if it collapses (gait_valid <12/24, a new chronic leg, or falls appear) -- shows floor-slope realism is a binding constraint the DR-rung must budget real training time against.
 
-**refused_reason**: hexapod-mjx-train-8 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-10 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-fault1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
 

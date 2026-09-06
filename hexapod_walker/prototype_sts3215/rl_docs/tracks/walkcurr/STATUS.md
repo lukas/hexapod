@@ -15,6 +15,77 @@ the 3x crutch; (4) once composite+no-crutch holds: the acquisition-milestone pan
 contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
 Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
 
+- 09-06 ~09:2x-09:5x this cycle (assigned `actionnoise1x-c1-acq1`, `contactstiff1x-c1-acq1`,
+  `deadband1x-c1-acq1`): **all 3 ACQ PASS/HOLDS (3 more single-axis confirmations, closing that
+  information source per this same banner's own STOP directive), plus 1 bonus orphan verdict and
+  4 new frontier-items-1/2 launches.** All 3 assigned axes hold at 40M in the same pattern class as
+  their own 2M canaries (22-23/24, 0 falls, exactly one non-chronic flag each, slip flat) — see
+  RL_LOG 09:32/09:57 and `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  {actionnoise1x,contactstiff1x,deadband1x}_c1_acq1_gate/report.json`. Bonus: found+verdicted
+  `faultworst1x-c1` (guaranteed worst-case single-leg-disable canary, orphan — finished with no
+  verdict), CANARY PASS/INFORMATIVE-POSITIVE: harness reads gait_valid 0/24 but this is a harness-
+  vs-injected-fault alignment artifact, not a pathology — the one flagged sacrificed leg matches
+  the injected fault's own disabled leg in ALL 24/24 episodes, 0 falls. **Refill toward items (1)
+  and (2):** with 4-8 GPU slots free for most of the cycle (concurrent cycles' own drains lagged
+  finishes), launched 4 new arms (within the 4-launch/cycle cap, ~6M of the 80M GPU-step cap) that
+  are NOT more of the already-STOPped per-axis grid: (a) `kick0225x-c1` — the exact dose bisection
+  between kickhalf's clean 0.15 and kick1x's falling 0.3, to pin the safe-dose ceiling tighter than
+  a 2x gap; (b) `kickhalf-notorquecrutch-c1` — a sharper 2-axis interaction probe (kick-safe dose +
+  FULL torque-crutch removal together, isolated from the other ~28 already-composable axes) that
+  gives an early read on item (3) while `torquefade1x-c1-acq1`'s own single-axis ACQ gate is still
+  genuinely computing; (c) `allaxis-nokick-c1` — a clean control for item (1): same ~30-axis
+  composite as the FAILED `allaxis1x-c1` but with kick fully OFF (0.0, not even kickhalf's 0.15),
+  to confirm kick was the SOLE broken ingredient rather than some other pairwise interaction. All 4
+  are 2M canaries, VERIFIED RUNNING or already finished-training (fast canary) at cycle end,
+  unverdicted — next reader should read their gate reports directly, no need to relaunch. Evidence:
+  RL_LOG 09-06 09:3x-09:5x, `launch_run.py status`, SKILLS.md (3 new entries this cycle).
+
+- 09-06 ~10:0x this cycle (refill-only, no completions assigned; canonical capacity found 6 free
+  slots + empty backlog, other cycles owned the composite/torque-crutch bisections still computing
+  their gate evals -- `allaxiskickhalf1x-c1-r2` and `torquefade1x-c1-acq1` both genuinely still
+  running their CPU-finalizer eval jobs, left untouched). Per this doc's own QUEUE AIM (per-axis
+  DR-restore confirmations are closed), used the 08:50 refill-candidate logline's named list of
+  clean ACQ PASS sources still lacking a cont40m endurance continuation. Launched 2 (exactly the
+  80M/cycle cap): `headset-halfgrav-irrwiden-c2-acq1-cont40m` (train-1, the jitter-first widen+irr
+  composite's weaker-course-obedience 2nd seed) and `headset-halfgrav-medhead-acq1-cont40m`
+  (train-0, the foundational 0.5g medium-heading-set source several downstream widen/irr composites
+  build on) -- both VERIFIED RUNNING (the medhead one needed a manual `update --set status=RUNNING`
+  after a shell timeout raced the launcher's own verification step; the trainer process itself was
+  confirmed live via `kubectl exec ps` first). Queued (not launched, cap already spent) the other 2
+  named candidates to `backlog.json` for the next drain: `headset-base-s1c1-acq1-cont40m`,
+  `headset-halfgrav-fullhead-widen2-c3-acq1-cont40m`. Evidence: `launch_run.py status`/
+  `experiments.json`, RL_LOG 09-06 10:0x.
+
+- 09-06 ~10:0x this cycle (assigned `zerobiasframe1x-c1-acq1-r2`, `s1acq-irrfwd-c1-acq1-cont40m`,
+  `s1acq-widenfwd-c1-acq1-cont40m`): **2 cont40m PASS/HOLDS + 1 cont40m FAIL/ENTRENCHES --
+  first counter-example to the campaign's endurance-margin rule.** (1) `medhead-dr-
+  zerobiasframe1x-c1-acq1-r2` **ACQ PASS**: 22/24 gait_valid (6/6/5/5), 0 falls/24, 2 non-chronic
+  singleton flags -- 5th single-axis DR-restore ACQ confirmation, and the corrected re-run of a
+  respec that silently inherited its source canary's 2M step count (the same `--steps`-not-
+  overridden bug already found on gains1x/geom1x/fault1x/extpush1x -- always check `extra_args`
+  for an explicit `--steps N` after any respec). (2) `s1acq-widenfwd-c1-acq1-cont40m` **HARDENING
+  PASS/HOLDS**: 20/24 vs parent's 21/24, chronic sac pattern reproduces exactly + 1 new non-chronic
+  singleton, slip IMPROVED -- 5th cont40m endurance confirmation, on the noisiest composition
+  tested. (3) `s1acq-irrfwd-c1-acq1-cont40m` **FAIL/ENTRENCHES**: the chronic leg[2,4] pair,
+  confined to walk/det at the 40M parent, SPREADS into walk/sto (previously perfectly clean, every
+  leg duty 0.14-0.58) at 80M -- leg[4] duty collapses to 0.06 in a new sto episode, exactly the
+  pre-registered spread trigger this run's own gate was designed to catch. Aggregate gait_valid
+  19/24 vs parent's 20/24 (close in raw count; the qualitative mode-spread is the disqualifying
+  signal). 0 falls (not a safety failure). Reward climbed every quarter throughout (651->1156->
+  1261->1399) -- the walkcurr binding triage rule's MISALIGNED case, not a continue-for-budget
+  case: do not fund a further cont80m of this exact composition. **First cont40m in the endurance-
+  margin series to break the "clean-at-40M predicts cont40m holds" pattern** (5 prior cont40m reads
+  all PASSed/HELD: widen2c1-irrfwd exact-hold, widenirr-c3 narrow dip, medhead-irrfwd improves,
+  widenfwd near-hold, halfgrav-widenirr-c3 mild-degrade). Updated rule: read cont40m holds by
+  per-leg duty trace mode-by-mode, not just the aggregate gait_valid count. **Tooling note:** all
+  three gate evals had finished remotely with nobody watching (their pods concurrently claimed for
+  new training launches by other cycles in the same window) -- reaped via `pod_eval.py <run>`
+  copy-back-only rather than relaunching; check `remote_report_exists`-style reaping before
+  assuming a missing local artifact means the eval never ran. SKILLS.md updated (3 entries).
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_{medhead_dr_
+  zerobiasframe1x_c1_acq1_r2,s1acq_widenfwd_c1_acq1_cont40m,s1acq_irrfwd_c1_acq1_cont40m}_gate/
+  report.json`, W&B `8dv3hru5`/`o4p4pjkr`/`8w82uq33`, RL_LOG 09-06 10:06/10:07.
+
 - 09-06 ~09:2x this cycle (assigned `zerobias1x-c1-acq1`; found+verdicted `allaxis1x-c1`): **1 ACQ
   PASS (4th clean single-axis confirmation), 1 CANARY FAIL closing the QUEUE AIM's item (1).**
   (1) `medhead-dr-zerobias1x-c1-acq1` **ACQ PASS**: 23/24 gait_valid (6/6/6/5 across the 4 panels),

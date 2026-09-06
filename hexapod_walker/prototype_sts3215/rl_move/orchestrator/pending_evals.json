@@ -172,11 +172,5 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s0_explore2_gate/report.json",
   "label": "assistfade_rung2_harden_speedband_s0_explore2_gate",
   "added": "2026-09-06T16:47:53"
- },
- {
-  "pod": "hexapod-mjx-train-1",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s1_explore2_gate/report.json",
-  "label": "assistfade_rung2_harden_speedband_s1_explore2_gate",
-  "added": "2026-09-06T16:47:53"
  }
 ]

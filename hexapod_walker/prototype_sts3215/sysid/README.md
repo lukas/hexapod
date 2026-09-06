@@ -43,8 +43,12 @@ robot** — nothing here touches the robot until the guarded runner invokes
 
 ## Safety (non-negotiable, same rules as everywhere)
 
-- Standard protocols assume: **robot on a stand, feet OFF the ground,
-  with live camera and a guarded runner watching.** The runner
+- The older `*_air_*` protocols assume: **robot suspended, feet OFF the
+  ground, with live camera and a guarded runner watching.** The reviewed
+  `l2_belly_rest_*` and `l5_belly_rest_*` protocols are the low-effort
+  exception: leave the chassis resting normally on its belly and only clear
+  the named moving leg's swept area. They do not require a chassis stand or
+  every stationary foot to be airborne. The runner
   positions the legs itself: a slow (12 °/s), eased, trip-protected
   glide to the protocol's `home_deg` (bench zero for the standard
   batteries) or a champion trajectory's first row, verified to 3°
@@ -76,7 +80,15 @@ uv run python -m sysid.protocols build
 uv run python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
     --servo-params loaded --plot
 
-# Phase 1+2 — guarded bench session (robot suspended):
+# Low-effort L2/L5 repeatability check (normal belly rest; no stand):
+uv run python -m sysid.run_hw \
+  --protocol sysid/protocols/l2_belly_rest_radial_shear_hysteresis_repeat6_v1.json \
+  --capture-vision --go --force
+uv run python -m sysid.run_hw \
+  --protocol sysid/protocols/l5_belly_rest_radial_shear_hysteresis_repeat6_v1.json \
+  --capture-vision --go --force
+
+# Phase 1+2 — older guarded bench battery (robot suspended):
 uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json \
   --capture-vision --go
 uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json \

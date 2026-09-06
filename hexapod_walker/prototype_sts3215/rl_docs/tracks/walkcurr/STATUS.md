@@ -54,6 +54,26 @@
   headset-crossgrav-medhead-{abrupt,ramp}-c1`, `logs/ckpt_eval/
   cw_walkscratch_easy0905_headset_crossgrav_medhead_{abrupt,ramp}_c1_
   gate/report.json`, W&B `qzcfku3j`/`zv97tks6`, SKILLS.md, RL_LOG.
+  **Second refill, same cycle (generality check, using the huge idle
+  fleet — 9/12 GPU slots free with an empty backlog at cycle start):**
+  the medhead champion is only ONE halfgrav recipe; launched 2 more 2M
+  cross-gravity-transfer discovery arms from OTHER, materially
+  different leg-healthy halfgrav ACQ-PASS champions, abrupt-only (the
+  ramp-vs-abrupt axis already read identically this cycle, so no need
+  to spend 2 arms per champion): `headset-crossgrav-widen2c1-abrupt-c1`
+  (from `headset-halfgrav-fullhead-widen2-c1-acq1`, the full 8-way-
+  compass-incl-reversals champion, train-3) and `headset-crossgrav-
+  irracq1-abrupt-c1` (from `headset-halfgrav-irr-acq1`, the command-
+  timing-irregularity champion, train-4). Both VERIFIED RUNNING. Gate
+  (both): PASS/INFORMATIVE-POSITIVE if `gait_valid` stays majority in
+  `walk/det` with no chronic single-leg sacrifice — extends
+  cross-gravity-transfer past the single medhead recipe, testing
+  whether it's a general property of "any leg-healthy halfgrav
+  champion" or specific to the plain fixed-5-heading recipe.
+  FAIL/INFORMATIVE-NEGATIVE narrows the finding to the medhead recipe
+  only. Evidence: same as above plus `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_halfgrav_{fullhead_widen2_c1_acq1,irr_acq1}_gate/
+  report.json` for the source-champion baselines.
 
 - 09-05 ~23:5x [prior cycle] (assigned `headset-halfgrav-widenirr-{c1,c2b}`,
   the widen-FIRST mirror order of the widen+irr composition): 2

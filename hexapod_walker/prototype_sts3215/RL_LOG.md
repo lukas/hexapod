@@ -1503,3 +1503,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 06:07 gyronoise1x CANARY PASS: perfect 24/24 axis restore, no cost 
 - 09-06 06:12 09-06 encnoise1x DR-restore CANARY PASS: gait_valid 24/24, 0 falls, 0 sacrificed legs; slip 3.4-5.6 (consistent with sibling DR-restore canaries). 
 - 09-06 06:12 medhead-dr-push1x-c1 DR-restore CANARY PASS: 20/24 gv (down from champion's 24/24 clean, still majority), 0 falls, scattered non-chronic sac pattern -- push-recovery is free at nominal dose 
+- 09-06 06:21 mass1x CANARY PASS: 23/24, one non-chronic flag, no cost 
+- 09-06 06:22 kick1x CANARY FAIL: 1 fall (tilt_roll), first axis to break the champion, needs a real hardening rung 

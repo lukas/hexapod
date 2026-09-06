@@ -2,6 +2,46 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:2x this cycle (assigned `medhead-dr-gyronoise1x-c1`, `medhead-dr-kick1x-c1`,
+  `medhead-dr-mass1x-c1`): **2 more clean DR-restore PASS + the FIRST FALL anywhere in the
+  whole DR-restoration sweep.** (1) `medhead-dr-gyronoise1x-c1` CANARY PASS: nominal (1x,
+  0.5deg/s) gyro-noise restore costs nothing, a PERFECT 24/24, 0 falls, reward rising every
+  quarter. (2) `medhead-dr-mass1x-c1` CANARY PASS: nominal (0.85-1.20x mass_scale +
+  leg_mass_jitter_pct=0.10) restore costs almost nothing, 23/24 with one non-chronic leg-4
+  flag, 0 falls. Both join the growing clean-axis-restore list. (3) `medhead-dr-kick1x-c1`
+  **CANARY FAIL - INFORMATIVE-NEGATIVE**: restoring the mid-walk roll-kick perturbation
+  (dr.walk_kick_prob=0.3, previously OFF all campaign) stays majority (20/24, no new chronic
+  leg — sacrifice pattern scattered across legs 0/2/4) but ONE episode (`walk_startjitter/
+  sto/4`) genuinely terminates via `tilt_roll` — confirmed on video (frame strip shows
+  progressive body roll ending fully tipped, not an instant start-jitter stumble). This is
+  the FIRST fall anywhere in the sweep (every prior axis — latency/deadband/noise/tiltnoise/
+  encnoise/gyronoise/torquefade/mass/push — held 0 falls). Per the gate's own pre-registered
+  text, any fall is a FAIL trigger regardless of aggregate majority. No same-recipe retry;
+  next step is a dedicated kick-HARDENING continuation (train WITH the kick active), not
+  another bare eval-only canary. **Tooling fix this cycle**: found and fixed a real
+  snapshot.sh bug — `pending_evals.json` (watcher/ops.sh runtime queue state, same category
+  as `experiments.json`/`backlog.json`) was NOT in the dirty-check exclude list, so any
+  controller-side edit to it stamped a `-dirty` code marker on the next `--sync`, which
+  `launch_run.py`'s code-version gate then refuses on every future launch attempt until a
+  clean re-sync. Root-caused via `medhead-dr-groundtilt1x-c1`, PARKED to
+  `backlog_failed.json` after 3 REFUSED attempts with exactly this `-dirty` marker mismatch.
+  Fixed (added `pending_evals.json` to snapshot.sh's `EXC` array), snapshotted
+  (`186787b1`), un-parked `groundtilt1x-c1` and it launched clean on the next drain.
+  **Refill:** 4 new arms landed this cycle across the reopened capacity (6 canaries had
+  finished their 2M budgets since the prompt was written): `medhead-dr-gyrobias1x-c1`
+  (dr.gyro_bias_deg_s=0.5, gyro RATE bias — distinct from both the already-tested gyro
+  NOISE axis and the attitude imu_bias_deg axis) VERIFIED RUNNING train-2;
+  `medhead-dr-zerobiasframe1x-c1` (dr.zero_drift_cmd_frame=1 alongside the in-flight
+  zerobias1x sibling's own joint_zero_bias_deg=1.0 — tests whether the SAME nominal
+  zero-point error also corrupts the commanded frame, not just the sensor readback, a
+  harder/more realistic coupling never before exercised) VERIFIED RUNNING train-4;
+  `medhead-dr-groundtilt1x-c1` (floor-slope via tilted gravity, the un-parked arm above) now
+  RUNNING train-0; `medhead-dr-imupos1x-c1` (IMU mount-position lever-arm error) already
+  RUNNING train-1 (landed via a concurrent cycle's drain in the same window). SKILLS.md
+  updated (2 new rows: one PASS pair, one FAIL). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-{gyronoise1x,kick1x,mass1x}-c1`, W&B
+  `oey1wf38`/`ngh1u2od`/`uw36u2tb`, RL_LOG 09-06 06:2x.
+
 - 09-06 ~06:0x this cycle (assigned `irrwidenc2-abrupt-c1-acq1`, `medhead-dr-deadband1x-c1`,
   `medhead-dr-latency1x-c1`): **2 DR-restore PASS, 1 ACQ FAIL — 3rd/4th single-axis DR cells
   close clean, 2nd irr+widen composition regresses at scale.** (1) `medhead-dr-latency1x-c1`

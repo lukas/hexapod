@@ -2,6 +2,53 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~01:0x this cycle (assigned `headset-halfgrav-fullhead-widen2-c3`,
+  `headset-halfgrav-irr2-acq1`, `headset-halfgrav-irrwiden-c1-acq1`): 3
+  verdicts, all PASS, 2-arm refill. `widen2-c3` (3rd tie-breaking widen2
+  seed, off the SAME clean `medhead_acq1` parent as `widen2-c1`)
+  **CANARY PASS**: gait_valid 20/24, 0 falls, majority-valid every mode
+  — confirms parent-champion quality (not seed noise) drives the
+  widen2-acq1 1-PASS/1-FAIL split (the weak-parented `widen2-c2b` had
+  FAILED). `irr2-acq1` (2nd seed of the halfgrav irr-timing-jitter
+  rung, respec of `irr-c2`/seed3, off a different base lineage
+  `s1acq`) **ACQ PASS**: gait_valid 19/24 (both primary modes exactly
+  at the >=4/6 bar), 0 falls, slip tightly banded 2.1-2.9 every
+  episode — closes the irr-timing rung's n=2 seed confirmation (2/2
+  PASS), matching sibling `irr-acq1`'s own numbers closely.
+  `irrwiden-c1-acq1` (the widen+irr composite — heading breadth AND
+  irregular timing together, the ACTUAL DONE-gate panel shape — at
+  full 40M budget) **ACQ PASS**: gait_valid 22/24, 0 falls, only 2/24
+  episodes flag any sacrificed leg (scattered, not chronic),
+  course_err/slip at the reversal headings flat-or-better vs this
+  run's own 2M canary read per the gate's own explicit comparison —
+  the composite recipe HOLDS at acquisition scale on its first
+  tested seed. **Flagged for the record, not a fail signal**: this
+  run's `ep_rew_mean` is deeply negative (~-1500 to -2000, plateaued)
+  — root-caused via `wandb_history.csv` to the always-on, ungated
+  `reward_walk_freeprog_pen` cross-track/backward charge sitting near
+  its -2.0 ceiling most of the run, because the composite's reversal-
+  heading commands are intrinsically hard to track cleanly; the SAME
+  negative/declining reward shape was already present at this run's
+  own 2M canary (-608 at 2M end), so 40M continues the same
+  trajectory rather than introducing a new degradation — textbook
+  08-21-ruling reward/eval divergence (continue through it, not stop
+  on it), not a new pathology. **Refill:** promoted `widen2-c3` to a
+  40M ACQ continuation (`headset-halfgrav-fullhead-widen2-c3-acq1`,
+  `--init-from-source`, mirrors the `widen2-c1-acq1` template) to
+  test the 3rd seed at acquisition scale. Launched
+  `headset-halfgrav-irrwiden-c2` (respec off `irr2-acq1`'s own
+  ACQ-PASS checkpoint, applying the SAME widen2 heading-set + jitter
+  composite as `irrwiden-c1`, 2M canary) to give the widen+irr
+  composite its own n=2 seed confirmation before calling it a
+  validated recipe rather than a single lucky seed. Both VERIFIED
+  RUNNING (train-3, train-8). SKILLS.md updated (4 new rows).
+  Evidence: `ops.sh review cw-walkscratch-easy0905-headset-halfgrav-
+  {fullhead-widen2-c3,irr2-acq1,irrwiden-c1-acq1}`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_{fullhead_widen2_c3,
+  irr2_acq1,irrwiden_c1_acq1}_gate/report.json`,
+  `logs/experiments/cw-walkscratch-easy0905-headset-halfgrav-
+  irrwiden-c1-acq1/wandb_history.csv`, RL_LOG.
+
 - 09-06 ~00:4x this cycle (assigned `headset-crossgrav-medhead-{abrupt,ramp}-c1`):
   2 verdicts, both **CANARY PASS - INFORMATIVE**, plus 2 matched 40M
   acquisition-continuation launches. **This is the first direct

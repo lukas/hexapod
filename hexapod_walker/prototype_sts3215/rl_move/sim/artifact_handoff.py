@@ -14,14 +14,29 @@ Layout (per run, under `rl_move/sim/policies/artifact_handoff/<run>/`):
     manifest.json     immutable once written (a rewrite renames the old
                       one to manifest.<epoch>.json first): run identity,
                       final checkpoint path+md5, W&B ids, resolved argv,
-                      and the outstanding job list. Provenance record.
+                      and the outstanding job list. Provenance record
+                      incl. the runtime code/config fingerprint below.
     args.pkl          pickled resolved argparse Namespace — the exact
                       object the training-time eval/video worker used,
                       so the finalizer rebuilds byte-identical envs.
+                      Its sha256 is frozen in the manifest provenance
+                      and VERIFIED by the finalizer before unpickling.
+    fingerprint.json  full per-file sha256 map of the runtime code/
+                      config/XML surface the eval worker executes
+                      (`runtime_fingerprint`); the aggregate hash is
+                      frozen into manifest provenance and re-verified
+                      by the finalizer before any job runs — a code/
+                      config change between handoff and (re)start is
+                      REFUSED, not silently executed with new code.
     state.json        MUTABLE, atomically replaced: registry phase
                       (`training` -> `artifacts_pending` -> `evaluated`
-                      / `failed`) + per-job status/attempts. This is the
-                      "training / artifacts_pending / evaluated" split a
+                      / `failed`) + per-job status/attempts. Job status
+                      `logged_pending_flush` means the result was
+                      wandb.log'ed but run.finish() has NOT yet returned
+                      — such jobs are NOT published (wandb.log is async)
+                      and are REPLAYED on finalizer restart. Only the
+                      post-finish confirmation flips them to `done` and
+                      the phase to `evaluated`. This is the split a
                       verdict must consult — never the training_complete
                       marker alone.
     snapshots/        per-job frozen checkpoint zips (unique immutable
@@ -57,6 +72,7 @@ HANDOFF_ROOT = POLICY_DIR / "artifact_handoff"
 MANIFEST_NAME = "manifest.json"
 STATE_NAME = "state.json"
 ARGS_PICKLE_NAME = "args.pkl"
+FINGERPRINT_NAME = "fingerprint.json"
 FINALIZED_NAME = "finalized.json"
 SNAPSHOT_DIR_NAME = "snapshots"
 FINALIZER_LOG_NAME = "finalizer.log"
@@ -70,6 +86,10 @@ PHASE_FAILED = "failed"
 
 JOB_PENDING = "pending"
 JOB_IN_FLIGHT = "in_flight"
+# Result was wandb.log'ed but run.finish() has not returned: wandb.log is
+# async, so the row is NOT durably published yet. Replayed on restart;
+# flipped to JOB_DONE only by the post-finish confirmation.
+JOB_LOGGED_PENDING_FLUSH = "logged_pending_flush"
 JOB_DONE = "done"
 JOB_FAILED = "failed"
 
@@ -177,10 +197,102 @@ def init_training_state(run_name: str, root: Path | None = None) -> Path:
     return d
 
 
+def _iter_fingerprint_files(repo_root: Path):
+    """The runtime surface the finalizer's eval worker actually executes:
+    every ``rl_move`` Python file (worker code, env, reward, servo model —
+    excluding the mutable ``sim/policies`` artifact tree, ``wandb`` run
+    dirs and ``__pycache__``), the repo-root builder modules
+    (``mujoco_prototype.py`` + the CAD modules it imports), the checked-in
+    model XMLs under ``mesh_mujoco/`` and ``rl_move/config.yaml``.
+    Deliberately hashes FILE BYTES, not git metadata: a dirty tree, an
+    unpushed edit or a pod re-sync all change the fingerprint even when
+    the commit hash does not."""
+    skip = {"__pycache__", "wandb", "policies"}
+    pkg = repo_root / "rl_move"
+    for p in sorted(pkg.rglob("*.py")):
+        if not skip & set(p.relative_to(repo_root).parts):
+            yield p
+    yield from sorted(repo_root.glob("*.py"))
+    cfg = pkg / "config.yaml"
+    if cfg.exists():
+        yield cfg
+    mesh = repo_root / "mesh_mujoco"
+    if mesh.is_dir():
+        for p in sorted(list(mesh.rglob("*.xml")) + list(mesh.rglob("*.py"))):
+            rel = p.relative_to(repo_root).parts
+            if "assets" not in rel and "previews" not in rel:
+                yield p
+
+
+def runtime_fingerprint(repo_root: Path | None = None) -> dict:
+    """Complete per-file sha256 fingerprint of the code/config/XML the
+    eval worker runs (see `_iter_fingerprint_files`), plus an aggregate
+    hash over the sorted (relpath, sha256) pairs. The aggregate goes into
+    the manifest provenance; the full map goes to fingerprint.json so a
+    mismatch can name the changed files."""
+    root = repo_root or Path(__file__).resolve().parents[2]
+    files: dict[str, str] = {}
+    for p in _iter_fingerprint_files(root):
+        files[str(p.relative_to(root))] = hashlib.sha256(
+            p.read_bytes()).hexdigest()
+    agg = hashlib.sha256("\n".join(
+        f"{k} {v}" for k, v in sorted(files.items())).encode()).hexdigest()
+    return {"schema": 1, "fingerprint_sha256": agg,
+            "n_files": len(files), "files": files}
+
+
+def verify_runtime_fingerprint(handoff_dir: Path, manifest: dict,
+                               repo_root: Path | None = None
+                               ) -> tuple[bool, str]:
+    """Finalizer-side gate (09-06 root review item 2): the finalizer
+    imports the LIVE worker module and unpickles args.pkl — commit/dirty
+    metadata alone does NOT freeze what it will execute. Recompute the
+    runtime fingerprint and compare byte-hashes against the manifest;
+    also verify args.pkl against its recorded sha256 BEFORE anyone
+    unpickles it. Returns (ok, message). A manifest written before
+    fingerprinting existed (no `code_fingerprint_sha256`) passes with an
+    explicit 'code identity NOT verified' warning — absence is not
+    mismatch, but it must never be reported as verified."""
+    prov = manifest.get("provenance") or {}
+    want_args = prov.get("args_pkl_sha256")
+    if want_args:
+        ap = handoff_dir / ARGS_PICKLE_NAME
+        have_args = (hashlib.sha256(ap.read_bytes()).hexdigest()
+                     if ap.exists() else None)
+        if have_args != want_args:
+            return False, (
+                f"args.pkl sha256 mismatch: manifest {want_args[:16]}…, "
+                f"on-disk {str(have_args)[:16]}… — the pickled trainer "
+                "args changed after handoff; refusing to run jobs with "
+                "different args than the training-time worker used")
+    want = prov.get("code_fingerprint_sha256")
+    if not want:
+        return True, ("manifest has no code fingerprint (pre-schema-3 "
+                      "handoff) — code identity NOT verified; only "
+                      "args.pkl/commit metadata checked")
+    now = runtime_fingerprint(repo_root)
+    if now["fingerprint_sha256"] == want:
+        return True, (f"runtime fingerprint verified "
+                      f"({now['n_files']} files, "
+                      f"{want[:16]}…)")
+    recorded = read_json(handoff_dir / FINGERPRINT_NAME) or {}
+    old_files = recorded.get("files", {})
+    changed = sorted(
+        k for k in set(old_files) | set(now["files"])
+        if old_files.get(k) != now["files"].get(k))
+    listing = ", ".join(changed[:12]) + (
+        f" … +{len(changed) - 12} more" if len(changed) > 12 else "")
+    return False, (
+        "RUNTIME FINGERPRINT MISMATCH: code/config/XML changed between "
+        f"handoff and finalizer start ({len(changed)} file(s): {listing}"
+        ") — refusing to execute/publish jobs with code the manifest did "
+        "not record")
+
+
 def _git_provenance() -> dict:
-    """Best-effort code/config/XML freeze: the repo commit pins every
-    checked-in source (env code, reward code, the generated-model XML
-    inputs); ``git_dirty`` flags when the working tree diverged from it.
+    """Best-effort git context for humans (commit + dirty flag). NOT the
+    freeze — actual code identity is `runtime_fingerprint` (byte hashes),
+    which the finalizer verifies before running anything.
     Never fails the handoff — errors are recorded, not raised."""
     out: dict = {}
     repo = Path(__file__).resolve().parents[2]
@@ -203,7 +315,8 @@ def write_manifest(handoff_dir: Path, *, run_name: str, task: str,
                    checkpoint_md5: str | None, steps: int,
                    jobs: list[dict], args_namespace,
                    resolved_argv: list[str] | None = None,
-                   extra_provenance: dict | None = None) -> Path:
+                   extra_provenance: dict | None = None,
+                   fingerprint_root: Path | None = None) -> Path:
     """Write the immutable job manifest + pickled args at handoff time,
     then flip the registry phase to `artifacts_pending`.
 
@@ -213,8 +326,11 @@ def write_manifest(handoff_dir: Path, *, run_name: str, task: str,
     handoff means a concurrent writer — refusing beats silently mixing
     two sessions' jobs. Every job row is frozen with the md5 of its
     snapshot zip (the finalizer verifies before running), and a
-    `provenance` block pins the code/config: git commit + dirty flag,
-    sha256 of the pickled args, the resolved argv."""
+    `provenance` block pins the code/config: the RUNTIME FINGERPRINT
+    (aggregate byte-hash of the worker's code/config/XML surface; full
+    per-file map in fingerprint.json), sha256 of the pickled args, the
+    resolved argv, plus advisory git commit + dirty flag. The finalizer
+    verifies fingerprint + args hash before executing any job."""
     handoff_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = handoff_dir / MANIFEST_NAME
     if manifest_path.exists():
@@ -231,13 +347,17 @@ def write_manifest(handoff_dir: Path, *, run_name: str, task: str,
             p = Path(j["snapshot_path"])
             j["snapshot_md5"] = (hashlib.md5(p.read_bytes()).hexdigest()
                                  if p.exists() else None)
+    fingerprint = runtime_fingerprint(fingerprint_root)
+    atomic_write_json(handoff_dir / FINGERPRINT_NAME, fingerprint)
     provenance = {
         **_git_provenance(),
         "args_pkl_sha256": hashlib.sha256(args_pkl).hexdigest(),
+        "code_fingerprint_sha256": fingerprint["fingerprint_sha256"],
+        "code_fingerprint_n_files": fingerprint["n_files"],
         **(extra_provenance or {}),
     }
     payload = {
-        "schema": 2,
+        "schema": 3,
         "run_name": run_name,
         "task": task,
         "steps": int(steps),

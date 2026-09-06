@@ -58,6 +58,201 @@ def _encoder_rows(path: Path, *, leg: str) -> list[tuple[float, float]]:
         ]
 
 
+def _cycle_loops_with_endpoint_skip(
+    path: Path, cycles: list[dict[str, Any]], *, leg: str, endpoint_skip: int
+) -> list[dict[str, float]]:
+    """Recompute cycle loops after skipping N rows at each dwell arrival."""
+    if endpoint_skip < 0:
+        raise ValueError("endpoint_skip must be nonnegative")
+    rows = _encoder_rows(path, leg=leg)
+    values = []
+    for cycle in cycles:
+        # Stored slices already skip the arrival row once.
+        outbound_start, outbound_stop = cycle["outbound_rows"]
+        inbound_start, inbound_stop = cycle["inbound_rows"]
+        outbound_start += endpoint_skip - 1
+        inbound_start += endpoint_skip - 1
+        outbound = rows[outbound_start:outbound_stop]
+        inbound = rows[inbound_start:inbound_stop]
+        if not outbound or len(outbound) != len(inbound):
+            raise ValueError("endpoint selection leaves unequal or empty dwells")
+        values.append(
+            {
+                "hip_loop_deg": abs(
+                    float(np.mean([row[0] for row in outbound]))
+                    - float(np.mean([row[0] for row in inbound]))
+                ),
+                "knee_loop_deg": abs(
+                    float(np.mean([row[1] for row in outbound]))
+                    - float(np.mean([row[1] for row in inbound]))
+                ),
+            }
+        )
+    return values
+
+
+def _linear_trend(values: np.ndarray) -> dict[str, Any]:
+    """Return an OLS cycle-order slope and a small-sample 95% interval."""
+    x = np.arange(len(values), dtype=float)
+    slope, intercept = np.polyfit(x, values, 1)
+    fitted = intercept + slope * x
+    if len(values) <= 2:
+        interval = [None, None]
+    else:
+        residual_variance = float(np.sum((values - fitted) ** 2) / (len(values) - 2))
+        standard_error = np.sqrt(residual_variance / float(np.sum((x - x.mean()) ** 2)))
+        critical = 2.7764451051977987 if len(values) == 6 else 1.959963984540054
+        interval = [
+            float(slope - critical * standard_error),
+            float(slope + critical * standard_error),
+        ]
+    return {
+        "slope_deg_per_cycle": float(slope),
+        "confidence_interval_95_ols": interval,
+        "intercept_deg": float(intercept),
+    }
+
+
+def analyze_l5_reversal(
+    parent_path: Path | str,
+    reversed_path: Path | str,
+    *,
+    bootstrap_samples: int = 10_000,
+    random_seed: int = 54_072,
+) -> dict[str, Any]:
+    """Compare L5 cycle loops before and after temporal-order reversal."""
+    if bootstrap_samples < 1:
+        raise ValueError("bootstrap_samples must be positive")
+    paths = {"parent": Path(parent_path), "reversed": Path(reversed_path)}
+    analyzed = {
+        label: analyze_hysteresis(path, leg="L5") for label, path in paths.items()
+    }
+    if any(item["method"] != METHOD for item in analyzed.values()):
+        raise ValueError("hysteresis analyzer method mismatch")
+    cycles = {label: _cycles(item) for label, item in analyzed.items()}
+    if len(cycles["parent"]) != len(cycles["reversed"]):
+        raise ValueError("parent and reversed traces need equal eligible cycle counts")
+
+    endpoint_variants: dict[str, Any] = {}
+    variant_values: dict[str, dict[str, list[dict[str, float]]]] = {}
+    for label, skip in (
+        ("include_arrival_endpoint", 0),
+        ("accepted_exclude_arrival_endpoint", 1),
+        ("exclude_first_two_rows", 2),
+    ):
+        values = {
+            run: _cycle_loops_with_endpoint_skip(
+                paths[run], cycles[run], leg="L5", endpoint_skip=skip
+            )
+            for run in paths
+        }
+        variant_values[label] = values
+        endpoint_variants[label] = {
+            run: {
+                joint: float(np.mean([row[f"{joint}_loop_deg"] for row in values[run]]))
+                for joint in ("hip", "knee")
+            }
+            for run in paths
+        }
+        endpoint_variants[label]["reversed_minus_parent_deg"] = {
+            joint: endpoint_variants[label]["reversed"][joint]
+            - endpoint_variants[label]["parent"][joint]
+            for joint in ("hip", "knee")
+        }
+
+    accepted = variant_values["accepted_exclude_arrival_endpoint"]
+    arrays = {
+        run: {
+            joint: np.asarray([row[f"{joint}_loop_deg"] for row in accepted[run]])
+            for joint in ("hip", "knee")
+        }
+        for run in paths
+    }
+    rng = np.random.default_rng(random_seed)
+    n = len(cycles["parent"])
+    independent_indices = {
+        run: rng.integers(0, n, size=(bootstrap_samples, n)) for run in paths
+    }
+    paired_indices = rng.integers(0, n, size=(bootstrap_samples, n))
+    uncertainty: dict[str, Any] = {}
+    for joint in ("hip", "knee"):
+        parent_draws = arrays["parent"][joint][independent_indices["parent"]].mean(
+            axis=1
+        )
+        reversed_draws = arrays["reversed"][joint][
+            independent_indices["reversed"]
+        ].mean(axis=1)
+        independent_delta = reversed_draws - parent_draws
+        paired_delta = (
+            arrays["reversed"][joint][paired_indices]
+            - arrays["parent"][joint][paired_indices]
+        ).mean(axis=1)
+        uncertainty[joint] = {
+            "parent_mean_deg": float(arrays["parent"][joint].mean()),
+            "parent_mean_ci_95_percentile": _percentile_interval(parent_draws),
+            "reversed_mean_deg": float(arrays["reversed"][joint].mean()),
+            "reversed_mean_ci_95_percentile": _percentile_interval(reversed_draws),
+            "reversed_minus_parent_deg": float(
+                arrays["reversed"][joint].mean() - arrays["parent"][joint].mean()
+            ),
+            "independent_cycle_block_ci_95_percentile": _percentile_interval(
+                independent_delta
+            ),
+            "matched_cycle_index_ci_95_percentile": _percentile_interval(paired_delta),
+        }
+
+    return {
+        "schema": "hexapod.sysid.l5_reversal_uncertainty.v1",
+        "method": METHOD,
+        "bootstrap": {
+            "samples": bootstrap_samples,
+            "random_seed": random_seed,
+            "confidence_level": 0.95,
+            "primary_unit": "cycle",
+        },
+        "inputs": {
+            label: {"filename": path.name, "sha256": _sha256(path)}
+            for label, path in paths.items()
+        },
+        "cycle_count_per_run": n,
+        "per_cycle": {
+            run: [
+                {"cycle_index": index, **row} for index, row in enumerate(accepted[run])
+            ]
+            for run in paths
+        },
+        "uncertainty": uncertainty,
+        "cycle_order_trends": {
+            run: {joint: _linear_trend(arrays[run][joint]) for joint in ("hip", "knee")}
+            for run in paths
+        },
+        "endpoint_exclusion_sensitivity": {
+            "interpretation": "Compare retaining the arrival endpoint, the accepted one-row exclusion, and excluding two arrival rows while retaining each remaining dwell.",
+            "variants": endpoint_variants,
+            "hip_delta_range_deg": [
+                min(
+                    row["reversed_minus_parent_deg"]["hip"]
+                    for row in endpoint_variants.values()
+                ),
+                max(
+                    row["reversed_minus_parent_deg"]["hip"]
+                    for row in endpoint_variants.values()
+                ),
+            ],
+            "knee_delta_range_deg": [
+                min(
+                    row["reversed_minus_parent_deg"]["knee"]
+                    for row in endpoint_variants.values()
+                ),
+                max(
+                    row["reversed_minus_parent_deg"]["knee"]
+                    for row in endpoint_variants.values()
+                ),
+            ],
+        },
+    }
+
+
 def _dwell_offset_sensitivity(
     paths: dict[str, Path],
     cycles: dict[str, list[dict[str, Any]]],
@@ -500,11 +695,25 @@ def main() -> None:
         metavar=("LABEL", "L2", "L5"),
         help="compare one or more named L2/L5 trace orderings",
     )
+    parser.add_argument(
+        "--l5-reversal",
+        nargs=2,
+        metavar=("PARENT_L5", "REVERSED_L5"),
+        help="compare matched L5 cycles before and after temporal reversal",
+    )
     parser.add_argument("--bootstrap-samples", type=int, default=10_000)
     parser.add_argument("--random-seed", type=int, default=83_869)
     parser.add_argument("--out", type=Path)
     args = parser.parse_args()
-    if args.ordering:
+    if args.l5_reversal:
+        if args.ordering or args.l2_trace or args.l5_trace:
+            parser.error("--l5-reversal cannot be combined with other traces")
+        result = analyze_l5_reversal(
+            *args.l5_reversal,
+            bootstrap_samples=args.bootstrap_samples,
+            random_seed=args.random_seed,
+        )
+    elif args.ordering:
         if args.l2_trace or args.l5_trace:
             parser.error("positional traces cannot be combined with --ordering")
         result = analyze_ordering_comparison(

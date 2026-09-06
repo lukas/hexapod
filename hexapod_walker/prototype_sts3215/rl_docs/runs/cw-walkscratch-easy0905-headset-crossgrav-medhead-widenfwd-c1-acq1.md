@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:06:16+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1
+
+**wandb_id**: thsloov1
 
 **hypothesis**: Plain English: the medhead-widenfwd-c1 2M canary just PASSed (gait_valid 23/24, 0 falls) -- composing the full widen2 8-way heading set natively at 1g on top of the already-crossgrav-transferred medhead champion works at canary scale. Does the same recipe hold at full 40M acquisition budget, matching the campaign's own-checkpoint-continuation pattern already validated for every other crossgrav/widen2 rung?
 

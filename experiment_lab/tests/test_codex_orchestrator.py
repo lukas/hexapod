@@ -50,15 +50,41 @@ def configured(tmp_path, **overrides):
     return Settings(**values)
 
 
-def test_hardware_capture_resolves_the_hubs_validated_physical_target(
+def test_analysis_prompt_keeps_floor_clear_leg_tests_off_a_chassis_stand(tmp_path):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+
+    prompt = orchestrator._analysis_prompt(
+        {"id": "analysis-job"},
+        {
+            "id": "experiment",
+            "name": "Independent leg hysteresis",
+            "evidence_manifest_sha256": "0" * 64,
+        },
+        tmp_path,
+        {"artifacts": []},
+    )
+
+    assert "l2_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
+    assert "l5_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
+    assert "require no chassis stand" in prompt
+    assert "do not turn them back into supported-air plans" in prompt
+
+
+def test_hardware_capture_uses_local_proxy_after_validating_physical_target(
     tmp_path, monkeypatch
 ):
+    resolved = []
+
     class FakeRobotStatus:
         def __init__(self, robot_url, vision_url):
             assert robot_url == "http://hexapod.local:8080/api/robot"
             assert vision_url == "http://127.0.0.1:8898/api/vision/state"
 
         def resolved_robot_url(self):
+            resolved.append(True)
             return "http://192.168.4.39:8080/api/robot"
 
     monkeypatch.setattr(codex_module, "RobotStatusService", FakeRobotStatus)
@@ -69,8 +95,9 @@ def test_hardware_capture_resolves_the_hubs_validated_physical_target(
 
     assert (
         orchestrator._robot_telemetry_url()
-        == "http://192.168.4.39:8080/api/telemetry"
+        == "http://127.0.0.1:8898/api/telemetry"
     )
+    assert resolved == [True]
 
 
 def test_explicit_hardware_capture_endpoint_is_not_re_resolved(tmp_path, monkeypatch):

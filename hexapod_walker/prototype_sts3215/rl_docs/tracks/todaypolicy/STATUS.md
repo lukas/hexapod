@@ -1,9 +1,60 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~21:1x (anchorsoft1x/2x canary gates both
-CANARY PASS -- softer anchor dose does NOT reproduce arm A's collapse
-and shows a real, consistent progress gain over Candidate B in 3/4
-modes; both advanced to the full 8M ACQ budget, VERIFIED RUNNING).
+Last updated: 2026-09-06 ~22:1x (anchorsoft1x/2x-acq8m both FAIL-
+PLATEAU at full 8M budget -- clean gait/mechanism health but no
+measurable progress gain over their own 2M canaries; anchor-dose axis
+CLOSED for the robotwalk-stride-20260906 campaign, next lever is a
+faster motion source/cadence-CPG harvest, not another dose point).
+
+## 09-06 ~22:1x — anchorsoft1x/2x-acq8m BOTH FAIL-PLATEAU (pre-registered branch, matched dose pair 2/2); anchor-dose axis CLOSED
+
+Both full 8M ACQ runs landed this cycle. Read together per the gate's
+own instruction (matched dose pair, not independent seeds):
+
+- **`cw-robotwalk-stride-20260906-anchorsoft1x-acq8m`** (bc_anchor_coef=1.0):
+  mechanism stays perfectly clean at 8M -- gait_valid 24/24, 0
+  falls/terminations, no duty-lock (`duty_cycle` 0.34-0.82, nothing
+  pinned), slip/m med 2.37-2.54 all 4 modes (cap 2.9). Reward rose
+  cleanly the whole budget (quarters 255/846/1424/1817, no plateau in
+  the curve itself) -- but the gate's decisive metric (det h000
+  prog_m) moved only 0.343(2M canary)->0.35(8M) = **+2.0%**, inside
+  the gate's own "~5% wiggle" disqualifier, with per-episode direction
+  mixed (not a real shift). The other 3 modes read FLAT-TO-DOWN vs
+  this arm's own canary (sto -4.5%, startjitter/det -6.2%,
+  startjitter/sto -8.0%) -- the opposite of the canary-stage's clean
+  3/4-up pattern. vs Candidate B's band, this arm is now BELOW
+  Candidate B on startjitter/det (0.21 vs 0.234, -10.3%) -- a real
+  regression on one submode. **FAIL-PLATEAU.**
+- **`cw-robotwalk-stride-20260906-anchorsoft2x-acq8m`** (bc_anchor_coef=1.5):
+  same clean-mechanism fingerprint (gait_valid 24/24, 0 falls,
+  duty_cycle 0.38-0.79, slip/m med 2.24-2.51). Decisive metric:
+  0.354(canary)->0.375(8M) = **+6.1%**, at the edge of the wiggle
+  disqualifier, per-episode direction mixed (2 up/2 down/2 flat).
+  walk/sto genuinely up (+32%) but the two startjitter modes flat-
+  to-down (-3 to -5%) -- a mixed/partial result, not a repeat of the
+  canary's clean pattern at scale. Stays above Candidate B in all 4
+  modes. **FAIL-PLATEAU.**
+
+Both: video (contact sheets, all sampled modes) confirms clean
+continuous six-leg cycling, no drag/flag-leg/paddle-creep -- the gait
+itself is fine, it simply doesn't cover more ground than each arm's
+own 2M canary did. Reward's continued rise is not converting into net
+distance (`env/reward_walk_prog` ~0.18/tick vs `reward_walk` 0.58/tick
+on both arms, growth driven by other channels/polish once the
+distance ceiling for this reward shape is hit) -- exactly the
+hypothesis's own pre-registered FAIL-PLATEAU falsification case, not a
+fresh misalignment needing an audit. **2/2 dose points plateau at
+full budget -- this CLOSES the anchor-dose-magnitude axis for the
+`robotwalk-stride-20260906` campaign.** Per the hypothesis's own named
+alternative, the next lever (if revisited) is a faster motion source /
+cadence-CPG harvest, not a 3rd dose point or a longer continuation of
+either arm. No export (gate not met, no RobotLab handoff triggered).
+
+Evidence: `logs/ckpt_eval/cw_robotwalk_stride_20260906_anchorsoft{1x,
+2x}_acq8m_gate/report.json` vs each arm's own `..._gate/report.json`
+(2M canary) and `cw_walkteach_scripted_allhead_acq12m_gate/
+report.json` (Candidate B), W&B `0e866co5`/`jymcz68k`, RL_LOG 09-06
+22:08/22:09.
 
 ## 09-06 ~21:1x — anchorsoft1x/2x CANARY PASS (both dose points); advanced to 8M ACQ
 

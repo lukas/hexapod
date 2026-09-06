@@ -2,6 +2,49 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:1x-06:3x this cycle (assigned `medhead-dr-encnoise1x-c1`,
+  `medhead-dr-contactstiff1x-c1`, `medhead-dr-friction1x-c1`; the other 3 pre-staged
+  results named for this cycle — `irrwidenc2-abrupt-c1-acq1`, `medhead-dr-deadband1x-c1`,
+  `medhead-dr-latency1x-c1` — were already verdicted by a concurrent cycle before this
+  one read them, matching read confirmed, not re-verdicted): **3/3 CANARY PASS —
+  encoder-noise, contact-stiffness, and friction all clear at nominal dose, extending
+  the axis-restore sweep's unbroken run.** (1) `medhead-dr-encnoise1x-c1`: a PERFECT
+  24/24, `sac=[]` every episode, 0 falls, slip/m 3.4-5.6. (2) `medhead-dr-
+  contactstiff1x-c1`: 23/24 (one non-chronic leg-4 flag in `walk_startjitter/det`),
+  0 falls, slip/m 3.0-5.2. (3) `medhead-dr-friction1x-c1`: a PERFECT 24/24 — friction
+  is arguably the axis most directly tied to this campaign's own tracked slip/m
+  metric, and restoring its full 0.6-1.4x own-DR range costs nothing, no skate/paddle
+  blowout, slip/m 3.2-5.8. All 3 video-confirmed clean six-leg cycling (`walk_det_0`
+  frame strips). These 3 join deadband/latency/tiltnoise/noise/torquefade2x as clean
+  axis-restore PASSes — by this point every guardrails-named realism axis plus every
+  sensor/actuator/behavioral-event axis this sweep has tried has scored at least one
+  clean PASS on this exact champion (`medhead-abrupt-c1-acq1-cont40m`, 80M, 24/24), an
+  unbroken streak with zero exceptions. SKILLS.md updated (2 new rows: encnoise1x own
+  row already present from a concurrent write, contactstiff1x+friction1x new).
+  **Refill (the sweep's culmination + 1 new isolated axis, using the cycle's 4-launch
+  cap):** with the individual single-axis sweep now this deep into a 100%-clean
+  streak, launched `medhead-dr-alldrconf1x-c1` (train-5, VERIFIED RUNNING) — the
+  CONFIRMED-subset combination arm: stacks the 6 axes already individually PASS-
+  verdicted at the time of launch (latency 1x, deadband 1x, torque-fade to 2x,
+  encoder/tilt/gyro sensor noise at nominal, mid-episode push-recovery 0.3) into ONE
+  run, asking whether independently-benign axes compound into a real degradation once
+  several fire in the same episode — a question no individual-axis canary can answer.
+  Found a concurrent cycle had independently converged on the same idea at larger
+  scope the same window (`medhead-dr-allaxis1x-c1`, ALL ~20 axes including the
+  not-yet-individually-confirmed ones) — complementary, not duplicative: mine is the
+  conservative confirmed-only point on the same spectrum. Also queued (backlog, fleet
+  hit 11/11 saturated mid-launch) `medhead-dr-faultworst1x-c1`: forces `fault_prob=1.0`
+  + `fault_mix=(0,0,1)` (guaranteed whole-leg-disable every episode, vs the in-flight
+  `fault1x-c1`'s default mixed/probabilistic dose) to test the campaign's single
+  hardest real-hardware failure mode (a fully dead leg) at guaranteed, not diluted,
+  exposure. Left 5 runs mid-computation on their pods for a future cycle to reap
+  (podeval/pollreap already running, not orphaned): `medhead-dr-{zerobias1x,extpush1x,
+  fault1x,startpose1x}-c1`, `s1acq-irrfwd-c1-acq1` (40M ACQ, W&B state=finished,
+  reward quarters 278.8/581.2/745.9/909.7, gate not yet computed). Evidence: `ops.sh
+  review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-{encnoise1x,
+  contactstiff1x,friction1x}-c1`, matching `report.json` + frame strips, W&B
+  `eiykfiyf`/`4i5jjieu`/`2lblab0c`, RL_LOG 09-06 06:12-06:3x.
+
 - 09-06 ~06:1x-06:3x this cycle (assigned `medhead-dr-cmddrop1x-c1`, `medhead-dr-imubias1x-c1`,
   `medhead-dr-velscale1x-c1`): **all 3 assigned evals still genuinely computing on their pods
   when this cycle spawned (started ~05:43, `--video-every 1` over the full 24-episode 4-panel

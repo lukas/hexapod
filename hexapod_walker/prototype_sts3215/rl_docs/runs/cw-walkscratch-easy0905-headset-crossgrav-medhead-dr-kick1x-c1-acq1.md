@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:26:19+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1
+
+**wandb_id**: g2mlnyd9
 
 **hypothesis**: HARDENING continuation off the FIRST fall in the whole DR-restoration sweep: kick1x-c1's own 2M canary (dr.walk_kick_prob=0.3 active during training, not just eval) already trained with the kick on and still produced one tilt_roll termination at eval time, but its training reward was RISING every quarter (5/62/132/177, canary-scale budget only) -- per the 08-21 run-interpretation ruling (bad eval + rising reward = continue, not stop). Warm-starting from kick1x-c1's own checkpoint and running a real 40M acquisition-scale budget (matching every other axis's ACQ/hardening scale in this campaign) tests whether more training time on the SAME kick dose closes the fall, rather than throwing away the 2M of kick-specific adaptation already banked.
 

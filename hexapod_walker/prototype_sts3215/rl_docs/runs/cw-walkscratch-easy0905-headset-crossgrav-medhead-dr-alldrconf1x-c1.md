@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:27:38+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: 7enlogkd
 
 **hypothesis**: Combine ALL 6 DR axes already individually CONFIRMED CLEAN-PASS on this exact champion (latency_scale 1x, deadband_scale 1x, torque_scale faded 3x->2x, encoder/tilt/gyro sensor noise at nominal 0.09deg/0.3deg/0.5deg/s, walk_push_prob 0.3 mid-episode push-recovery) into ONE run, instead of one-at-a-time isolation. Every individual axis costs nothing zero-shot; does the CONJUNCTION also cost nothing, or do independently-benign axes compound into a real degradation once several fire in the same episode (e.g. a push landing during a latency-delayed, noisy-sensor step)? This is the natural graduation test the DR-rung sweep has been building toward once its constituent single-axis reads came in clean.
 

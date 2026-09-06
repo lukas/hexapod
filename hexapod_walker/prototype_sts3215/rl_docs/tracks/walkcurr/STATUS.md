@@ -2,6 +2,49 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~01:1x this cycle (assigned `headset-halfgrav-widenirr-c1-acq1`):
+  1 verdict, **ACQ PASS**, 1-arm refill. The widen-first widen2+irr
+  composition holds at full 40M budget on seed 1 and BEATS the plain
+  `widen2-c1-acq1` sibling trained on the identical budget: `gait_valid`
+  23/24 (walk/det 5/6 transient sac[2,5], walk/sto 6/6,
+  walk_startjitter/det 6/6, walk_startjitter/sto 6/6) vs the sibling's
+  21/24; 0 falls in all 24 episodes; no chronic single-leg entrenchment
+  (every leg's <0.10-duty count is at most 1/24 episodes). Course
+  tracking IMPROVES vs this run's own 2M canary (`wrong_course_frac_1s`
+  mean 0.367->0.247, `course_err_1s_med_deg` mean 68.6->50.5,
+  `direction_err_mean_deg` mean 69.6->63.0) and reads flat-or-better vs
+  the `widen2-c1-acq1` sibling on every tracked axis (course_err 50.5
+  vs 54.3, direrr 63.0 vs 64.3, wrong_course_frac ties at 0.247, slip
+  ties at ~4.7). Video (`walk_det_0`) shows genuine six-leg cycling,
+  body translating. **Together with the concurrent cycle's
+  `irrwiden-c1-acq1` ACQ PASS this same cycle (jitter-first order),
+  the widen+irr composition edge over plain `widen2` now holds at
+  full acquisition budget in BOTH orders** on the clean-parent seed.
+  **Tooling gotcha found+fixed**: this run's own prestaged gate eval
+  was still computing on its pod when the cycle spawned; meanwhile
+  `ops.sh report`/`review`'s unanchored `*snake*` substring glob
+  silently served the report of a killed accidental-duplicate launch
+  sharing a near-identical name (`...-acq1b`, killed at 4M steps,
+  09-05 23:56 logline) instead of correctly reporting "no report yet"
+  — caught via each checkpoint's own `num_timesteps` (4.19M vs
+  40.37M) before trusting the numbers, then waited for the real gate
+  eval to finish+sync off pod train-7. Fixed both glob sites with a
+  trailing `_` boundary anchor (a run name can never be a bare
+  substring match unless followed by `_<tag>`), smoke-tested against
+  this exact collision, `exp/ops-review-glob-boundary-fix-090601`.
+  **Refill:** `widenirr-c1-acq1` is a 3rd distinct leg-healthy halfgrav
+  champion (after `medhead` and `widen2c1`) never yet tested for
+  cross-gravity-transfer; launched `headset-crossgrav-widenirrc1-
+  abrupt-c1` (2M discovery canary, abrupt jump to `ease.gravity_
+  scale=1.0` from tick 0, same template as the concurrent cycle's
+  `crossgrav-{medhead,widen2c1,widen2c2b,irracq1}-abrupt-c1` arms) to
+  test whether the transfer repair generalizes to this composed
+  recipe too. VERIFIED RUNNING (train-5). SKILLS.md updated (1 new
+  row). Evidence: `ops.sh review cw-walkscratch-easy0905-headset-
+  halfgrav-widenirr-c1-acq1`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_halfgrav_widenirr_c1_acq1_gate/report.json`, W&B
+  `71edsb6v`, RL_LOG.
+
 - 09-06 ~01:0x this cycle (assigned `headset-halfgrav-fullhead-widen2-c3`,
   `headset-halfgrav-irr2-acq1`, `headset-halfgrav-irrwiden-c1-acq1`): 3
   verdicts, all PASS, 2-arm refill. `widen2-c3` (3rd tie-breaking widen2

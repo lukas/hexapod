@@ -74,6 +74,16 @@
   only. Evidence: same as above plus `logs/ckpt_eval/cw_walkscratch_
   easy0905_headset_halfgrav_{fullhead_widen2_c1_acq1,irr_acq1}_gate/
   report.json` for the source-champion baselines.
+  **Third refill, same cycle (negative control):** all 3 PASSing
+  crossgrav arms warm-start from LEG-HEALTHY halfgrav champions —
+  launched a control from a champion that is NOT leg-healthy at its
+  own native 0.5g, `headset-crossgrav-widen2c2b-abrupt-c1` (from
+  `headset-halfgrav-fullhead-widen2-c2b-acq1`, own ACQ FAIL, chronic
+  leg-1 park 14/24 gait_valid at 0.5g), train-1, VERIFIED RUNNING.
+  Expected result CONFIRMS the causal story if the same/worse leg-1
+  entrenchment persists at 1g (leg-health-at-source is necessary, not
+  just correlated); a surprise six-leg repair at 1g would be a much
+  bigger and separately-followed-up finding. 2M discovery budget.
 
 - 09-05 ~23:5x [prior cycle] (assigned `headset-halfgrav-widenirr-{c1,c2b}`,
   the widen-FIRST mirror order of the widen+irr composition): 2

@@ -1377,9 +1377,13 @@ def _main_after_bus(args) -> None:
     finally:
         if BENCH:
             BENCH.stop_status_display()
-            BENCH.telemetry_stop()
-        srv.server_close()
-        DRIVE.close()
+        try:
+            srv.server_close()
+            DRIVE.close()
+        finally:
+            # Retain the final torque/STREAM commands during shutdown too.
+            if BENCH:
+                BENCH.telemetry_stop()
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T09:53:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2-acq1
+
+**wandb_id**: aitfa735
 
 **hypothesis**: Plain English: the jitter-first widen+irr composite's 2nd seed cleared its own 40M ACQ PASS (22/24 gv, 0 falls, seed-specific weaker course-obedience flagged but not gate-blocking); a +40M own-checkpoint cont40m endurance continuation (80M cumulative) tests whether this clean-but-weaker-margin seed holds the same way every other clean ACQ PASS source has held at 80M, matching the campaign's standard cleanliness-margin-predicts-endurance refill pattern.
 

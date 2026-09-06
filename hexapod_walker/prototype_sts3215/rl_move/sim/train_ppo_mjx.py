@@ -5787,7 +5787,17 @@ def main(argv: list[str] | None = None) -> int:
             def _assay(self) -> dict:
                 env = self._env
                 env.flush_reset_pools()
-                env.seed(828282)
+                # Default: one pinned seed, bit-exact with every prior
+                # anneal-gate run. Reseed mode (train.
+                # bc_anchor_anneal_assay_reseed, see bc_anchor.py for
+                # the 09-06 pinned-config-deadlock rationale): a fresh
+                # deterministic seed per round so each assay is an
+                # independent draw, not the same 8 configs forever.
+                if bool(getattr(model, "bc_anneal_assay_reseed", False)):
+                    env.seed(828282 + 10007 * self._round)
+                else:
+                    env.seed(828282)
+                self._round += 1
                 obs = env.reset()
                 n_envs = int(env.num_envs)
                 finished = np.zeros(n_envs, dtype=bool)
@@ -5898,7 +5908,8 @@ def main(argv: list[str] | None = None) -> int:
               f"{model.bc_anneal_assay_episodes} episodes/round, "
               f"anneal {model.bc_anneal_steps:,} steps after first "
               "pass, min_progress="
-              f"{model.bc_anneal_min_progress:.2f}")
+              f"{model.bc_anneal_min_progress:.2f}, assay_reseed="
+              f"{bool(getattr(model, 'bc_anneal_assay_reseed', False))}")
 
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):

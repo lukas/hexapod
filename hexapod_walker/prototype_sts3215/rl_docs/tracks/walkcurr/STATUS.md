@@ -35,6 +35,29 @@
   cw_walkscratch_easy0905_headset_halfgrav_irr2_acq1_cont40m_gate/report.json` vs
   `..._irr2_acq1_gate/report.json`, W&B `pf38aqrx`, RL_LOG 09-06 13:12.
 
+- 09-06 ~13:1x this cycle (assigned `headset-halfgrav-widenirr-c1-acq1-cont40m`, still genuinely
+  computing its own HARDENING gate on train-3 at cycle end -- a video-every=1/24-episode panel
+  started ~12:54, registered via `ops.sh evalpending add` rather than blocked on; next reader
+  verdicts it directly from `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_
+  acq1_cont40m_gate/report.json` once it lands). **Refill: found+verdicted 3 more unverdicted
+  per-axis DR orphans** (`medhead-dr-{cmddrop1x,noise1x,push1x}-c1-acq1`, ledger stuck RUNNING,
+  training+gate both already finished, no live supervisor) -- all 3 **ACQ PASS** in the same shape
+  as every prior single-axis confirmation (cmddrop1x 23/24 gv, noise1x 23/24 gv answering its own
+  "does combined sensor noise compound" question NO, push1x 20/24 gv with flags scattered across
+  3 different modes not one chronic leg), 0 falls/terminations all 3, video frame strips confirm
+  six legs still cycling in every flagged episode. Per QUEUE AIM's own STOP on further per-axis
+  spend, no cont40m follows from any of these 3 -- pure ledger/SKILLS hygiene (+3 SKILLS rows).
+  Re-verified capacity fresh (11/11 GPU pods free, empty backlog) and re-confirmed every other
+  walkcurr frontier item is genuinely blocked on in-flight compute: composite item(4) still
+  DIG-IN-blocked on `allaxis-nokick-c1-acq1`'s 2-falls fork; every clean composition-line ACQ_PASS
+  source's cont40m gap already filled by concurrent cycles this same hour. joystick/amp/cpg/
+  standwalk confirmed closed/stale (re-checked against their own STATUS.md), assistfade blocked on
+  the `cmd_prog_frac` NaN code-level bug (not more training), todaypolicy mid its own DIG-IN
+  handoff. 0 new launches this cycle -- every free GPU pod is legitimately idle-behind-in-flight-
+  eval, not idle-next-to-runnable-work. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  crossgrav_medhead_dr_{cmddrop1x,noise1x,push1x}_c1_acq1_gate/report.json`, W&B `43tw8r40`/
+  `wwuo72of`/`se7v9ygs`, RL_LOG 09-06 13:1x.
+
 - 09-06 ~13:1x this cycle (assigned `medhead-{irrwiden,widenirr}-c1-acq1-cont40m`): **2/2 HARDENING
   PASS, BOTH IMPROVE on their own 40M parent (not just hold) — closes the composition-order
   question for the irr+widen axis pair, and confirms every non-DR composition cont40m endurance

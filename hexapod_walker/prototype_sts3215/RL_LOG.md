@@ -1539,3 +1539,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 07:37 walkcurr: zerobiasframe1x-c1 CANARY PASS (23/24, 0 falls) -- frame-coupled zero-bias axis closes clean, matches sensor-only sibling 
 - 09-06 07:53 walkcurr: medhead-irrwiden-c1-acq1 ACQ PASS (22/24, 0 falls) -- leg-2/5 signature reproduces flat vs its own canary, matches widenirr sibling 
 - 09-06 07:54 walkcurr: medhead-widenirr-c1-acq1 ACQ PASS (22/24, 0 falls) -- identical flag set to its own 2M canary, zero drift 
+- 09-06 08:00 walkcurr: refill -- launched 2 ACQ-durability continuations off previously-canary-only single-axis DR-restore PASSes lacking a 40M read (torquefade1x-c1-acq1 -> train-11, actionnoise1x-c1-acq1 -> train-2, both VERIFIED RUNNING), using the full 80M/cycle GPU-step cap. 9 clean PASS axes remain unfunded (extpush1x, zerobiasframe1x, deadband1x, tiltnoise1x, noise1x -- next cycle's pick).

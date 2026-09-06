@@ -2,6 +2,37 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:0x-08:0x this cycle (assigned `medhead-dr-zerobiasframe1x-c1`, `medhead-irrwiden-c1-acq1`,
+  `medhead-widenirr-c1-acq1`): **3/3 verdicted PASS after a prestage-failure recovery.** All 3
+  runs' prestage evals had FAILED at spawn time (a concurrent cycle's `experiments.json` write-race
+  truncation made `pullckpt` error out and skip evals — no `_gate` artifacts existed despite the
+  prompt's claim they were synced); backgrounded `ops.sh podeval` for all 3 on their own pods and
+  waited out the ~30-45min video-heavy harnesses rather than trusting the stale prestage claim.
+  (1) `medhead-dr-zerobiasframe1x-c1` **CANARY PASS**: the harder frame-COUPLED zero-bias variant
+  (bias applied through the command frame, not just sensor-side) holds 23/24 gait_valid, 0 falls,
+  a single non-chronic leg-0 flag — matches its sensor-only `zerobias1x` sibling's own clean PASS;
+  command-frame coupling is NOT the binding part of this axis. (2) `medhead-irrwiden-c1-acq1` and
+  (3) `medhead-widenirr-c1-acq1` (both composition orders of the irr+widen axis pair) **ACQ PASS**
+  at 40M: 22/24 each, 0 falls, and critically both reproduce their OWN 2M canary's exact leg-2/5
+  flagged-episode set (widenirr: byte-identical; irrwiden: same episodes, duty flat/marginal) with
+  zero spread to new episodes/modes — the cleanest possible confirmation yet that this specific
+  leg-2/5 signature is a stable non-worsening artifact of the recipe, not slow entrenchment.
+  Composition-order-irrelevance for irr+widen is now closed at ACQ scale (both orders durable).
+  SKILLS.md updated (3 new rows). **Refill (2 launches, full 80M/cycle GPU-step cap):** with the
+  single-axis DR-restore sweep's CANARY-PASS list now at 33 axes and only ~13 holding an ACQ
+  (40M) durability confirmation, funded the 2 highest hardware-relevance axes still unfunded:
+  `medhead-dr-torquefade1x-c1-acq1` (train-11, VERIFIED RUNNING — the hardest torque-fade dose
+  point, PERFECT 24/24 canary, closes whether the campaign's whole 3x assist-crutch simplification
+  is safe to drop at ACQ scale too) and `medhead-dr-actionnoise1x-c1-acq1` (train-2, VERIFIED
+  RUNNING — actuator-side action noise, 22/24 canary). Did not fund more: 2x40M already exhausts
+  the 80M/cycle GPU-step cap even though 6 pods sat free at read time. Remaining clean-PASS,
+  ACQ-unfunded axes for the next cycle: extpush1x, zerobiasframe1x (this cycle's own finding),
+  deadband1x, tiltnoise1x, noise1x, cmddrop1x/imubias1x/velscale1x/groundtilt1x/imupos1x/
+  gyrobias1x/startpose1x (still mid-eval at read time, status unconfirmed). Evidence: `ops.sh
+  review cw-walkscratch-easy0905-headset-crossgrav-medhead-{dr-zerobiasframe1x-c1,irrwiden-c1-acq1,
+  widenirr-c1-acq1}`, matching `report.json` + contact sheets, W&B `ryf9ntl5`/`mdxo6qac`/`eipegd5n`,
+  RL_LOG 09-06 07:37-08:00.
+
 - 09-06 ~07:3x this cycle (assigned `medhead-dr-kick1x-c1-acq1`, `plainhead-abrupt-c1b-acq1-cont40m`):
   **both gate harnesses STILL genuinely computing on their pods — no verdict on either, backlog
   refilled with 3 new ACQ arms.** Confirmed via `kubectl exec ps` on both pods: `kick1x-c1-acq1`'s

@@ -31,6 +31,41 @@
   report.json`, frame sheets `walk_det_{3,4}_sheet.png` in the same dir, W&B `9wove9uj`, RL_LOG
   09-06 12:05.
 
+- 09-06 ~12:0x this cycle (refill-only, no completions assigned; canonical capacity found 11 free
+  slots + empty backlog). The two composite-ACQ gate evals that unblock QUEUE AIM item (4)
+  (`allaxis-nokick-c1-acq1`, `allaxiskickhalf-nocrutch1x-c1-acq1`) confirmed still genuinely
+  computing on their own pods (train-2/train-3, `eval_checkpoint` alive ~60-90min CPU time each) --
+  left untouched, not ready. Per this banner's own STOP on further per-axis DR spend, systematically
+  diffed every `-acq1` run against existing `-acq1-cont40m` children and found 4 clean
+  composition-line ACQ_PASS sources still lacking one: `crossgrav-medhead-{irrwiden,widenirr}-c1-acq1`
+  (22/24 gait_valid each -- a matched pair testing whether irr-timing-then-widen vs widen-then-irr
+  composition order changes cont40m endurance) and `halfgrav-irr{,2}-acq1` (19-20/24, 2-seed pair).
+  Also confirmed (via ledger status) the base(1g)-family `-irr`/`-medhead`/`-medhead2`/`-s0c1` acq1
+  runs are ALL already FAIL-verdicted (chronic leg1/4 sacrifice already visible at their own 40M
+  ACQ, matching this file's established base(1g)-duration-effect finding) -- correctly excluded from
+  cont40m refill, not just missed. Launched the cleaner pair as TRUE `--init-from-source`
+  continuations (80M new GPU steps = per-cycle cap, exactly spent):
+  `crossgrav-medhead-irrwiden-c1-acq1-cont40m` (train-0) and
+  `crossgrav-medhead-widenirr-c1-acq1-cont40m` (train-1), both VERIFIED RUNNING via `kubectl exec ps`
+  with the correct 40M checkpoint as `--init-from` (confirmed in the live process argv, not just the
+  ledger). Queued `halfgrav-irr-acq1-cont40m` / `halfgrav-irr2-acq1-cont40m` to `backlog.json` for
+  the next drain (steps cap already spent). **Provenance gotcha found+fixed before it could ship a
+  wrong-ancestor mistake** (the exact class CURRENT_TRUTHS already warns about for `sde-s2-dg1`):
+  both source runs' correctly-named `--out-name` checkpoints existed on their OWN training pods
+  (train-3, train-8) but had never been pulled to the controller's local `rl_move/sim/policies/` --
+  only stale/differently-suffixed files were present there (an `_acq1v3.zip` from an unrelated
+  collision-avoidance rename, no plain `_acq1.zip` at all for the other). A first `--init-from-source`
+  respec attempt correctly REFUSED on the missing local file rather than silently warm-starting from
+  the wrong checkpoint; `ops.sh pullckpt` on both sources before relaunch fixed it cleanly. Also
+  found+fixed a real `ops.sh report` bug while triaging orphan status: it crashed with an unhandled
+  `KeyError` on any run whose newest-2-by-mtime glob match included an off-policy `_session` report
+  (no `episodes` key) OLDER than its own `_gate` report -- silently hiding the actual per-episode
+  table behind a traceback for at least 5 runs this cycle alone. Patched to skip session-shaped
+  reports instead of crashing (snapshotted before the launches that needed it). SKILLS.md not
+  touched (no new PASS/FAIL verdict this cycle, refill-only). Evidence: `launch_run.py status`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_{irrwiden,widenirr}_c1_acq1_gate/
+  report.json`, RL_LOG 09-06 12:07.
+
 - 09-06 ~11:3x this cycle (assigned `headset-base-s1c1-acq1-cont40m` — NOT part of the crossgrav
   DR campaign above, a different sub-line: the older 09-05 base(1g)/halfgrav(0.5g) heading-set
   family): **HARDENING FAIL — closes "champion pick should use s1c1" (09-05 ~14:2x) for good; the

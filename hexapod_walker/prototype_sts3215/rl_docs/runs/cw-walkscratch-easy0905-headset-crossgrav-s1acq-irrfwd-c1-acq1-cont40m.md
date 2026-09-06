@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:16:02+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-s1acq-irrfwd-c1-acq1
+
+**wandb_id**: 8w82uq33
 
 **hypothesis**: This checkpoint's own 40M ACQ read was a borderline PASS-flagged-for-WATCH: gait_valid held majority (20/24) but the sacrifice fingerprint SHIFTED (canary's confined single leg-4 softening widened to a leg[2,4] pair at the same episodes, and leg-4 newly appeared in a previously-clean mode). Does +40M more steps (80M total) resolve this back toward the canary's confined pattern, hold flat, or entrench further toward the campaign's named leg[1,4] chronic-sacrifice failure mode?
 

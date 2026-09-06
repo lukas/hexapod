@@ -2,6 +2,17 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~21:0x this cycle (refill, no completion assigned): footslip-lowdose-{s0,s1}
+  had already FINISHED training (2M, reward quarters rising 225.5/233.5, clean shape
+  vs the earlier k=35 FAIL) but neither eval had been kicked or registered — kicked
+  `ops.sh podeval` for both (confirmed running remotely, train-4/train-0 via
+  `ops.sh procs`) and registered both via `evalpending add` so a future cycle can
+  read them without re-discovering the orphan. Full board re-confirmed: no new
+  completion landed since the ~20:1x/20:3x launches this same hour, so no new
+  GPU arm is licensed this cycle (7 fully-idle pods, no untried pre-registered
+  hypothesis to put on them — inventing one would be filler). Next reader: read
+  both footslip-lowdose report.jsons together (matched dose-scale pair, not
+  independent seeds) once they land.**
 - **09-06 ~20:1x this cycle (assigned runs: both assistfade
   rung3-residualfade completions, already fully verdicted by
   concurrent cycles before this one started — see assistfade's own

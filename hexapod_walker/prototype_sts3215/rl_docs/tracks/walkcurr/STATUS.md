@@ -2,6 +2,71 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~21:4x this cycle (assigned: read both registered on-pod
+  `footslip-c1-lowdose-{s0,s1}` gate reports the ~21:0x entry below
+  kicked). CANARY FAIL - MECHANISM on BOTH seeds — closes the whole
+  per-tick foot-slip-tangent-charge lever for good, both dose points
+  now refuted.** The properly-scaled dose (`k_foot_slip_tangent=3.0`,
+  ~-0.37/tick, matched to the rest of the walk reward's per-tick scale
+  vs the failed k=35 dose's ~5x-dominant -4.2/tick) still does not
+  move its own named target metric: `env/walk_tangent_contact_vel_
+  mean_m_s` sits flat 0.1598/0.1594/0.1622/0.1606 m/s (s0) and
+  0.1594/0.1595/0.1603/0.1608 m/s (s1) across the full 2M run on both
+  seeds — no downward trend at all, let alone the "-10%+" bar the
+  gate's own PASS-partial branch needed. Fresh held-out gate (walk +
+  walk_startjitter, det+sto, n=24, DR-0) reads statistically identical
+  to the champion baseline (~5.065/m) and to the k=35 arm
+  (4.85/4.67/4.65/5.29): s0 slip/m med 5.05/5.11/4.75/5.38, s1
+  5.04/4.97/4.84/5.39 — no measurable improvement on either seed.
+  0 falls/terminations, gait_valid 22/24 both seeds,
+  `walk_contact_meaningful_feet` 2.80-3.06 (matches the champion's
+  normal tripod-alternation band, ruling out FAIL-EXPLOIT/crouch
+  evasion), contact sheet shows normal continuous six-leg cycling on
+  both. This is the gate's own pre-registered FAIL-STILL-STUCK branch,
+  now landed identically on 2 independent seeds: a dose matched to the
+  rest of the reward's own per-tick magnitude still produces ZERO
+  shaping effect, ruling out "wrong dose, right mechanism" for good —
+  the tangent-contact-velocity sensing itself, not its coefficient,
+  cannot find the coordinated multi-leg footfall-timing change needed
+  to cut slip in this budget/exploration regime. **No further dose
+  point on this lever will be launched** (20-100 band refuted
+  09-06 ~19:1x, 3.0 refuted here). Item(4)'s slip gap on the settled
+  `..._allaxiskickhalf_nocrutch1x_c1_acq1_cont40m.zip` champion now has
+  exactly two live options, neither a cheap relaunch: (a) design +
+  semantics-bank a genuinely new CONTACT-INDEPENDENT slip mechanism
+  (e.g. a floor-height-based charge that doesn't route through the
+  same contact-velocity sensing this lever just exhausted) before any
+  further GPU spend on slip-reduction, or (b) accept the ~5/m slip gap
+  as this composite's hardening boundary and keep the cont40m
+  checkpoint as the settled champion as-is. Neither started this cycle
+  (real design scope, not a config respec) — flagged for whoever picks
+  up item(4) next. Evidence: `ops.sh entry cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-
+  cont40m-footslip-c1-lowdose-{s0,s1}`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_
+  acq1_cont40m_footslip_c1_lowdose_{s0,s1}_gate/report.json`,
+  `logs/experiments/cw-walkscratch-easy0905-headset-crossgrav-medhead-
+  dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-footslip-c1-lowdose-
+  {s0,s1}/wandb_history.csv`, W&B `gyq6xv2x`/`kemwujt0`, RL_LOG 09-06
+  21:39/21:40. **Refill:** full board re-checked (`launch_run.py
+  status`) — all 11 reachable GPU pods free, `backlog.json` empty. No
+  genuinely new, non-duplicate, launch-ready arm exists anywhere in
+  walkcurr's own frontier: item(4)'s only remaining lever needs the
+  design pass named above (not started), items (1)/(2) stay DIG-IN-
+  owned (crossgrav crutch-ON composite, halfgrav widen2/irr cont40m
+  consolidation), and every per-axis/composition-cont40m question is
+  already closed per the QUEUE AIM banner. assistfade's own next
+  licensed step is likewise a semantics-bank design task (stride-
+  amplitude/speed-tracking reward term) with 3 habituation-dose evals
+  still in flight, not ready to read. joystick/amp/cpg stay DONE/
+  maintenance-only; standwalk stays blocked on design-thinking.
+  todaypolicy has two just-finished acq8m runs
+  (`cw-robotwalk-stride-20260906-anchorsoft{1x,2x}-acq8m`) with no
+  harness report yet — not this cycle's assigned track/runs, left for
+  their own reader rather than duplicated blind. Did not invent a
+  filler walkcurr launch. CYCLE_WORKED touched (2 real verdicts +
+  doc-sync).**
+
 - **09-06 ~21:0x this cycle (refill, no completion assigned): footslip-lowdose-{s0,s1}
   had already FINISHED training (2M, reward quarters rising 225.5/233.5, clean shape
   vs the earlier k=35 FAIL) but neither eval had been kicked or registered — kicked

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:42:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1-acq1
+
+**wandb_id**: 9j8xh47d
 
 **hypothesis**: Plain English: medhead-widenfwd-c1-acq1 (forward-composing the full 8-way heading set onto the campaign's cleanest crossgrav champion) held ACQ PASS at 40M (21/24, mild non-chronic dip). The campaign's own endurance-panel rule (established across s1acq/s3acq/medhead/widenirrc1, 09-06 ~05:3x) says a 2nd +40M helping should HOLD/IMPROVE any source whose first 40M read was already clean, and WORSEN one that was already chronically entrenching. This is the 4th test of that predictor (5th endurance data point overall) on a clean-at-40M source: does it hold per the rule, extending n from 3 to 4 clean confirmations?
 

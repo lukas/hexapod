@@ -1418,3 +1418,6 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 01:47 walkcurr: crossgrav-irracq1-abrupt-c1 CANARY PASS (gait_valid 23/24, 0 falls) -- 3rd distinct halfgrav recipe (irr-timing) confirms cross-gravity-transfer past medhead/widen2c1; launched matched 40M acq continuation + irr2 seed-2 confirmation canary 
 - 09-06 01:52 walkcurr crossgrav-widen2c2b-abrupt-c1 negative control: LEFT UNVERDICTED (DIG-IN) -- split result, walk/det majority-valid no chronic sac (SURPRISING branch per gate text) but walk_startjitter/det collapses to leg-1 near-chronic (5/6 eps duty<0.10), a genuine fork the gate itself flags as needing follow-up
 - 09-06 01:53 walkcurr: refill - launched crossgrav-s1acq-abrupt-c1 (campaign-best halfgrav champion, gait_valid 24/24, never cross-gravity-tested) + crossgrav-s3acq-abrupt-c1 (2nd n=3-set champion, 22/24), both abrupt 1g from tick 0, heading set matched to their own 3-way training distribution; VERIFIED RUNNING train-2/train-9
+- 09-06 01:59 medhead-abrupt-c1-acq1 ACQ PASS 23/24 gv 0 falls — 1g cross-gravity-transfer confirmed at acquisition scale, first of its kind 
+- 09-06 01:59 widenirrc1-abrupt-c1 CANARY PASS 6/6 walk/det gv, 4th halfgrav recipe confirming crossgrav-transfer 
+- 09-06 02:00 irrwiden-c2 CANARY PASS 22/24 gv 0 falls — 2nd-seed confirms jitter-first widen+irr composite 

@@ -49,6 +49,24 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~15:0x this cycle (refill-only, no completions assigned per
+  the prompt, but both hardening arms finished mid-cycle anyway):**
+  `cw-assistfade-rung2-harden-speedband-{s0,s1}-v2` (the speed-band
+  hardening arms launched at ~14:37 below) BOTH finished training with
+  no gate eval started. Notable from W&B alone (not yet a verdict —
+  gate reads kicked, unread): `-s0-v2` auto-stopped early at 6.74M of
+  the planned 8M (reward quarters 301.6/974.1/1327.3/1354.1 —
+  flattening, consistent with either a canary auto-stop or a natural
+  plateau); `-s1-v2` ran the full 8M but its reward is DECLINING
+  (932.3 -> 862.9 -> 757.4 across its last 3 quarters) — the same
+  shape the rung-1 `-cont8m` budget-collapse runs showed before their
+  gait was found destroyed. Kicked `podeval` for both on their own
+  pods (train-4/train-7), registered via `evalpending`, left
+  unverdicted — next reader should treat s1's declining-reward
+  trend as a live FAIL-COLLAPSE candidate per this arm's own
+  pre-registered gate (see `ops.sh entry`), not assume PASS from the
+  early launch note alone.
+
 - **09-06 ~14:1x this cycle (`-s1-reseed8m-gatefix` verdicted ACQ
   PASS, completing the pair): RUNG 2 (anchor fade from random
   actor-weight init) IS NOW A 2-SEED-CONFIRMED WORKING MECHANISM.**

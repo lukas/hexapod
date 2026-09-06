@@ -133,20 +133,8 @@
  },
  {
   "pod": "hexapod-mjx-train-4",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_headingstress_det/report.json",
-  "label": "walkcurr_item4_headingstress_det",
-  "added": "2026-09-06T14:10:59"
- },
- {
-  "pod": "hexapod-mjx-train-4",
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_headingstress_sto/report.json",
   "label": "walkcurr_item4_headingstress_sto",
-  "added": "2026-09-06T14:10:59"
- },
- {
-  "pod": "hexapod-mjx-train-4",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_speedpressure_det/report.json",
-  "label": "walkcurr_item4_speedpressure_det",
   "added": "2026-09-06T14:10:59"
  },
  {
@@ -154,5 +142,41 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_speedpressure_sto/report.json",
   "label": "walkcurr_item4_speedpressure_sto",
   "added": "2026-09-06T14:10:59"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "logs/ckpt_eval/cw_robotwalk_turns_20260906_arcaware_gate/report.json",
+  "label": "cw_robotwalk_turns_20260906_arcaware_gate",
+  "added": "2026-09-06T14:45:22"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "logs/ckpt_eval/cw_robotwalk_turns_20260906_arcaware_yaw/yaw_verdict.json",
+  "label": "cw_robotwalk_turns_20260906_arcaware_yaw",
+  "added": "2026-09-06T14:51:09"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "logs/ckpt_eval/cw_robotwalk_turns_20260906_arcaware_yaw/cmdsuite_verdict.json",
+  "label": "cw_robotwalk_turns_20260906_arcaware_cmdsuite",
+  "added": "2026-09-06T14:51:09"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "logs/ckpt_eval/cw_robotwalk_turns_20260906_arcaware_joygate_freshcmp/gate_verdict.json",
+  "label": "cw_robotwalk_turns_20260906_arcaware_joygate_freshcmp",
+  "added": "2026-09-06T14:51:09"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s0_v2_gate/report.json",
+  "label": "cw_assistfade_rung2_harden_speedband_s0_v2_gate",
+  "added": "2026-09-06T14:53:06"
+ },
+ {
+  "pod": "hexapod-mjx-train-7",
+  "file": "logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s1_v2_gate/report.json",
+  "label": "cw_assistfade_rung2_harden_speedband_s1_v2_gate",
+  "added": "2026-09-06T14:53:06"
  }
 ]

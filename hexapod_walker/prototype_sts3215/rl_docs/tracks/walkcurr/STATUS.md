@@ -2,6 +2,37 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~14:4x this cycle (item(1) full-composite-realism fork, previously-flagged DIG-IN
+  target, no assigned finish this cycle): **the `allaxis-nokick-c1` seed-reproducibility
+  canaries settle the "seed lottery vs recipe-level fragility" question the ~13:34/~12:30
+  entries left open, and the answer is RECIPE-FRAGILE, not lottery.** `-s1` and `-s2`
+  (2M mechanism-health canaries, same recipe/budget as the seed-0 canary that read a clean
+  0-falls/19-24gv PASS) BOTH verdicted **CANARY FAIL - MECHANISM**: `-s1` gait_valid 19/24
+  (majority clears) but 2 tilt_roll falls (both `walk_startjitter/sto`), scattered
+  sacrificed legs (0x2, 5x2, 1x1); `-s2` gait_valid only 15/24 (below the 18/24 majority
+  bar), 3 tilt_roll falls (one per non-startjitter/det... actually one in walk/det, one in
+  walk/sto, one in walk_startjitter/sto), sacrificed legs now CONCENTRATED on the rear pair
+  (leg4 x4, leg5 x4 episodes) — a chronic weak-leg-pair signature, worse than s1's scattered
+  one. Combined with the companion `-acq1` run (s0's own lineage at 40M: 23/24 gv but 2
+  tilt_roll falls, reward still rising 196->611, sac leg3 once) that the ~12:30 entry found
+  and left unverdicted: **all 3 seeds of this full ~30-axis kick-off composite now show
+  tilt_roll falls somewhere in their own held-out gate** (s0 only at 40M acquisition scale;
+  s1/s2 already at the 2M canary the s0 lineage itself passed clean). This means item(1)'s
+  ~12:2x "kick was the sole broken ingredient" finding does NOT reliably transfer seed-to-
+  seed — kick-removal alone is not a solid closing recipe for full composite realism; a
+  DIFFERENT axis (or a seed x axis interaction) still produces tilt_roll falls on 2/3 fresh
+  seeds. **DIG-IN flagged** (not verdicted here — this is a fork/mechanism-redesign decision,
+  not a mechanical bar check) for `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxis-nokick-c1-acq1`: the next reader should (a) formally close item(1) as NOT achieved
+  by kick-removal-alone (retreat one level: reintroduce a bisection over the remaining ~29
+  axes, prioritizing whichever axis's dose ladder hasn't been isolated yet) rather than
+  treating the acq1 reward-rising trend as license to keep spending on this exact recipe,
+  and (b) check whether the two chronic-leg signatures (s0's leg3, s2's leg4/5 pair) share a
+  root cause (same-side servos, a shared DR axis like `com_offset`/`link_scale` skewing the
+  same direction) before picking the next isolation axis. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_c1_{s1,s2,acq1}_gate/
+  report.json`, RL_LOG 09-06 14:4x.
+
 - 09-06 ~14:1x this cycle (assigned `cw-assistfade-rung2-anchorfade-s0-reseed8m-gatefix`, ACQ
   PASS, see assistfade/STATUS.md — that track's mechanism graduation, not repeated here; this
   bullet is the walkcurr-side refill from the same cycle). **QUEUE AIM item (4)'s own "acquisition-
@@ -765,19 +796,28 @@
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_gains1x_c1_acq1_r2_gate/
   report.json`, `launch_run.py status`, RL_LOG 09-06 10:0x.
 
-**QUEUE AIM (meta 2026-09-06 — refills read this before funding; UPDATED ~11:0x).** The
+**QUEUE AIM (meta 2026-09-06 — refills read this before funding; UPDATED ~14:4x).** The
 single-axis DR-restore question is answered: EVERY `RandRanges` field now has a clean canary
 (`imumount1x-c1`/`legmass1x-c1` closed the last 2, ~11:0x), every funded single-axis ACQ read has
 PASSed, every cont40m has held. STOP funding further per-axis ACQ/cont40m confirmations of
-already-clean axes. The frontier, in order: (1) composite realism — **RESOLVED ~11:0x: the plain
-composite (`allaxis1x-c1`) and the kick-SAFE-dose composite (`allaxiskickhalf1x-c1-r2`) both FAIL
-(5/24, 7/24 falls), but BOTH bisections now PASS: `allaxis-nokick-c1` (kick fully off, crutch ON,
-19/24 gv 0 falls) and `allaxiskickhalf-nocrutch1x-c1` (kick-safe dose, crutch OFF, 21/24 gv 0
-falls, COUNTER to this item's own crutch-load-bearing hypothesis) — kick (at any nonzero dose
-tried) is the sole broken ingredient in EITHER crutch state. Both composite ACQs are now LAUNCHED
-(`allaxis-nokick-c1-acq1` train-2, `allaxiskickhalf-nocrutch1x-c1-acq1` train-3, both VERIFIED
-RUNNING ~11:0x) — do not fund a 3rd composite arm off this exact bisection pair; wait for these
-two ACQ reads.**; (2) the kick-dose ladder — kick1x (0.3) and kick0225x (0.225) both FAIL, kickhalf
+already-clean axes. The frontier, in order: (1) composite realism — **REOPENED ~14:4x for the
+crutch-ON half: `allaxis-nokick-c1` does NOT reproduce seed-to-seed.** Original ~11:0x read: the
+plain composite (`allaxis1x-c1`) and the kick-SAFE-dose composite (`allaxiskickhalf1x-c1-r2`) both
+FAIL (5/24, 7/24 falls), and BOTH bisections looked like a clean PASS on their seed-0 canary —
+`allaxis-nokick-c1` (kick fully off, crutch ON, 19/24 gv 0 falls) and
+`allaxiskickhalf-nocrutch1x-c1` (kick-safe dose, crutch OFF, 21/24 gv 0 falls) — implying kick (at
+any nonzero dose tried) was the sole broken ingredient in EITHER crutch state. The crutch-OFF half
+(`allaxiskickhalf-nocrutch1x-c1`) has since held through ACQ+cont40m and is the settled item(4)
+champion — that half stands. The crutch-ON half does NOT transfer: its `-s1`/`-s2` seed-
+reproducibility canaries (2M, identical recipe/budget to the seed-0 canary that read clean) BOTH
+verdicted **CANARY FAIL - MECHANISM** this cycle (tilt_roll falls, gv down to 15-19/24), and its
+own `-acq1` continuation (s0, 40M) shows 2 tilt_roll falls + a sacrificed leg with reward still
+rising (DIG-IN flagged, not a plain budget-continue call — 2/3 fresh seeds already fail at the
+SAME 2M budget the s0 canary passed clean, so this is seed/recipe fragility, not a duration
+effect alone). 2/3 seeds failing means kick-removal-alone is NOT a solid closing recipe for the
+crutch-ON composite — treat this half as OPEN, next step is a further axis bisection (which axis,
+not yet chosen — awaiting the DIG-IN), and do NOT read the old `allaxis-nokick-c1-acq1` reward
+trend alone as closing item(1) for the crutch-ON case.**; (2) the kick-dose ladder — kick1x (0.3) and kick0225x (0.225) both FAIL, kickhalf
 (0.15) is the confirmed-safe ceiling; kickhalf ACQ (`kickhalf1x-c1-acq1`) still computing, read it
 before any further kick-dose spend; (3) torque-crutch removal at ACQ scale — **CLOSED ~11:0x on
 every tested combination**: solo (`torquefade1x-c1-acq1` ACQ PASS, 09-06 ~10:1x) and composited

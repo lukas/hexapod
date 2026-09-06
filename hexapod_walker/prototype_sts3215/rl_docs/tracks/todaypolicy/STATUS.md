@@ -1,9 +1,47 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~13:4x (arc-aware course-reference FIX built
-+ bank-proved for the DIG-IN handed off at ~13:0x below; relaunched
-`cw-robotwalk-turns-20260906-arcaware`). This is the delivery track,
-not the single-policy research track.
+Last updated: 2026-09-06 ~14:5x (found `cw-robotwalk-turns-20260906-
+arcaware` finished training with none of its pre-registered gate
+reads computed; kicked all 4 on its own pod, unverdicted).
+
+## 09-06 ~14:5x — arcaware finished training, gate reads kicked (no verdict yet)
+
+`cw-robotwalk-turns-20260906-arcaware` (the arc-aware sway fix arm
+from ~13:4x below) finished its 8M steps (`state=finished`,
+`ep_rew_mean` 2539.7, reward quarters 343.8/1120.8/1920.9/2457.9 —
+still rising every quarter) but none of its 4 pre-registered gate
+reads had been started (`--defer-final-artifacts`, no live trainer,
+checkpoint present on-pod only, ledger still `status=FINISHED` with
+no verdict/report). Launched all 4 directly on its own pod
+(`hexapod-mjx-train-0`, idle, checkpoint already local), reusing the
+exact `--cfg-set`/envelope values from this run's own training
+command (own-DR=0.0, speed 0.08 fixed, wz_max 0.3, arc-aware flag on)
+so nothing changes obs width or command distribution versus what was
+trained: (a) standard DR-0 gate (`eval_checkpoint`, matches the
+prestage the watcher would have run) -> `..._arcaware_gate/`; (b) the
+run's own pre-registered `eval_joystick_gate` stress_mix fresh
+comparison (60s episodes, own-DR=0.0, seed-base 90000) -> `
+..._arcaware_joygate_freshcmp/gate_verdict.json` — this is THE
+number that answers the arc-aware hypothesis (`course_err_1s_med`
+vs the parent's 8.55deg reading and the 5.17deg Candidate-B bar); (c)
+`eval_cmd_suite` (12s holds, default 9-command panel, matching the
+parent's own fresh-read params) -> `..._arcaware_yaw/
+cmdsuite_verdict.json`; (d) `eval_yaw` (speed 0.08, wz_max 0.3,
+matching the parent's own envelope) -> `..._arcaware_yaw/
+yaw_verdict.json` — this is the tip-turn wz_err_med regression check
+(bar: no worse than the parent's 0.108/0.100). All 4 confirmed
+running via `ps aux` on-pod (first `eval_yaw`/`eval_joystick_gate`
+attempts silently no-op'd — `/usr/local/bin/python -m rl_move...`
+inside a chained `&&`/`&` bash -c lost the uv venv's module path;
+fixed by giving each its own single `kubectl exec` invocation).
+Registered all 4 via `ops.sh evalpending add` rather than polling
+(joygate's 24x60s episodes alone is ~20-40 min). **Next reader:
+verdict against this run's own pre-registered gate text (in the
+ledger) once these land — do not re-launch, do not re-derive the
+cfg-set list (copy it from the training command in `experiments.json`
+if extending further).** Evidence: `ops.sh entry
+cw-robotwalk-turns-20260906-arcaware`, `rl_move/orchestrator/
+pending_evals.json`.
 
 ## 09-06 ~13:4x — arc-aware sway FIX built, bank-proved, relaunched (closes step (a), executes step (c) of the ~13:0x hand-off)
 

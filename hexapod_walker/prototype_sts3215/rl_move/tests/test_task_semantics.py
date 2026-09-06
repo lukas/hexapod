@@ -1377,6 +1377,133 @@ def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
         "— the anti-slip charge has closed the discovery path.")
 
 
+# --------------------------------------------------------------------------
+# WALKCURR item(4) LOADSLIP CANDIDATE (09-06, walkcurr easy0905
+# heading-stress/speed-pressure diagnostic follow-up): the champion
+# `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+# nocrutch1x-c1-acq1-cont40m` reads 0 falls and six-leg gait_valid
+# 24/24 across BOTH new stress panels (fresh heading-change stress at
+# a 3 s resample, and a widened 0.04-0.12 m/s speed band) — no
+# leg-sacrifice pathology, unlike every walk_gait_gate/walk_swing_gate/
+# duty_gate bank above (those all target chronic single-leg parking).
+# Its sole named gap is SLIP: median 4.3-6.5x the 2.9 teacher-band cap
+# on both panels (RL_LOG 09-06 ~14:5x). The already-built,
+# already-bank-proven `reward.walk_loadslip_gate` +
+# `reward.k_loadslip_excess` mechanism (SLIPWALK_OVERRIDES above uses
+# k_loadslip_excess alone; the WALKTEACH lineage's gate=1/ok=3/max=6/
+# k=10 combo above uses both together) has never been bank-checked
+# against item(4)'s OWN bare recipe — freeprog income ONLY,
+# k_park_duty/k_walk_idle_charge/every other charge pinned at 0 (the
+# CURRENT_TRUTHS-documented easy0905 bare diet) — a materially
+# thinner reward stack than either prior context, so the ranking must
+# be re-proven here rather than assumed to carry over before any
+# continuation spends GPU budget on it.
+WALKCURR_ITEM4_BARE_OVERRIDES = {
+    ("reward", "k_walk_freeprog"): 2.0,
+    ("reward", "walk_freeprog_cap_m_s"): 0.06,
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.1,
+    ("reward", "term_penalty"): 24.0,
+    ("reward", "safety_termination_penalty"): 24.0,
+    ("reward", "k_track"): 0.0,
+    ("reward", "k_roll"): 0.0,
+    ("reward", "k_pitch"): 0.0,
+    ("reward", "k_height"): 0.0,
+    ("reward", "k_gyro"): 0.0,
+    ("reward", "k_action"): 0.0,
+    ("reward", "k_action_delta"): 0.01,
+    ("reward", "k_current"): 0.0,
+    ("reward", "k_walk_heading"): 0.0,
+    ("reward", "k_step_event"): 0.0,
+    ("reward", "k_park_duty"): 0.0,
+    ("reward", "k_walk_idle_charge"): 0.0,
+    ("reward", "k_loadslip_excess"): 0.0,
+    ("goal", "walk_speed_min_m_s"): 0.06,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_heading_max_rad"): 0.0,
+}
+# Candidate dose: loadslip_ok pinned at the teacher-band cap (2.9,
+# rounded to 3.0 matching the WALKTEACH-proven value); loadslip_max
+# widened to 8.0 (vs WALKTEACH's 6.0) because item(4)'s OWN measured
+# ratio already sits at 4.3-6.5 -- a 6.0 ceiling would clip the gate
+# factor to 0 for a large fraction of ticks from step 0, giving PPO no
+# gradient; 8.0 keeps the champion's current behavior inside the
+# sloped region so the shaping signal is informative rather than a
+# flat wall. k_loadslip_excess=10.0 matches the WALKTEACH-proven dose.
+WALKCURR_ITEM4_LOADSLIP_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_ITEM4_LOADSLIP_OVERRIDES.update({
+    ("reward", "walk_loadslip_gate"): 1.0,
+    ("reward", "loadslip_ok"): 3.0,
+    ("reward", "loadslip_max"): 8.0,
+    ("reward", "k_loadslip_excess"): 10.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_item4_bare_returns() -> dict[str, float]:
+    """item(4)'s actual training diet (no loadslip lever), scored
+    over the standard gait/skate/stall/park quartet at the champion's
+    own pinned 0.06 m/s command."""
+    return {p: float(np.mean([_walk_rollout(
+                p, s, vx=0.06,
+                overrides=WALKCURR_ITEM4_BARE_OVERRIDES)
+                for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+
+
+@pytest.fixture(scope="module")
+def walkcurr_item4_loadslip_returns() -> dict[str, float]:
+    """Same quartet, same command, with the candidate loadslip lever
+    armed (WALKCURR_ITEM4_LOADSLIP_OVERRIDES)."""
+    return {p: float(np.mean([_walk_rollout(
+                p, s, vx=0.06,
+                overrides=WALKCURR_ITEM4_LOADSLIP_OVERRIDES)
+                for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+
+
+def test_walkcurr_item4_loadslip_gait_still_beats_stall_and_park(
+        walkcurr_item4_loadslip_returns):
+    """Adding the loadslip lever to item(4)'s bare recipe must not
+    invert the basic discovery ladder: real walking clearly above a
+    march-in-place stall, which stays above a refusal park."""
+    r = walkcurr_item4_loadslip_returns
+    assert r["gait"] > r["stall"] + 50.0, (
+        f"loadslip pricing closes the walk-vs-stall gap: {r}")
+    assert r["stall"] > r["park"], (
+        f"loadslip pricing lets refusal beat stepping: {r}")
+
+
+def test_walkcurr_item4_loadslip_widens_gait_vs_skate_margin(
+        walkcurr_item4_bare_returns, walkcurr_item4_loadslip_returns):
+    """The whole point of the lever: it must charge the zero-lift
+    'skate' twin (slides its whole stride — the scripted proxy for
+    the paddle/drag-slip pathology) far harder than it charges the
+    honest lifting gait, and it must WIDEN (not merely preserve) that
+    margin relative to the bare no-slip-cost recipe — otherwise this
+    is not an anti-slip lever, just a global tax that happens to have
+    a slip-shaped name."""
+    bare, ls = walkcurr_item4_bare_returns, walkcurr_item4_loadslip_returns
+    bare_margin = bare["gait"] - bare["skate"]
+    ls_margin = ls["gait"] - ls["skate"]
+    assert ls_margin > bare_margin + 50.0, (
+        f"loadslip does not widen gait-vs-skate margin: bare={bare} "
+        f"loadslip={ls}")
+    assert ls["gait"] > ls["skate"], (
+        f"skating still rivals honest lifting under loadslip: {ls}")
+
+
+def test_walkcurr_item4_loadslip_gait_income_stays_positive(
+        walkcurr_item4_loadslip_returns):
+    """The honest gait must still net a clearly positive return under
+    the candidate dose — if the charge is so harsh it drives the ONLY
+    proven-good behavior negative, the DOSE (not the mechanism) is
+    broken and needs softening before any GPU spend."""
+    assert walkcurr_item4_loadslip_returns["gait"] > 200.0, (
+        f"candidate loadslip dose drives honest walking too low: "
+        f"{walkcurr_item4_loadslip_returns}")
+
+
 # reward.k_walk_swing on the SLIPWALK/term400 stack (08-22, AMP M2
 # freeprog dig-in continuation): every non-reward lever (term_penalty,
 # std-anneal, stage curriculum, style-weight dose 0.5x-2.0x, RSI-for-

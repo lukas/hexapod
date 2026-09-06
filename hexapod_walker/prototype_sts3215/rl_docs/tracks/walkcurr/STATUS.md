@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~10:5x-11:0x this cycle (assigned `medhead-dr-mass1x-c1-acq1-cont40m`; found+verdicted 1
+  orphan; attempted 1 refill that turned out already in flight): **1/1 assigned run ACQ PASS
+  (HARDENING); 1 found orphan CANARY FAIL closing the kick-dose ladder tighter; 0 net new launches
+  (the intended composite-ACQ refill was already queued+running under a concurrent cycle by the
+  time my respec landed — auto-deduped, no duplicate GPU spend).** (1) `mass1x-c1-acq1-cont40m`
+  **ACQ PASS (HARDENING)**: mass-scale DR axis holds at 80M cumulative -- PERFECT 24/24 gait_valid
+  all 4 panels, 0 falls/terms, sac=[] every episode, slip/m near-band (3.65-4.70 med across
+  panels), reward still climbing every quarter. Joins friction1x/halfgrav-widenirr in the
+  cont40m-endurance-holds column; per QUEUE AIM this is the closing confirmation, no further
+  per-axis endurance spend follows. (2) Found+verdicted `kick0225x-c1` (orphan, training+gate
+  finished, no ledger owner) **CANARY FAIL - MECHANISM**: the kick-prob dose bisection between
+  kickhalf's clean 0.15 and kick1x's falling 0.3 STILL falls at 0.225 (walk/sto/2 terminates
+  tilt_roll, fwd stalls to 0.08m), aggregate gait_valid 21/24. Pins the safe-dose ceiling strictly
+  between 0.15 and 0.225, not just "somewhere below 0.3" -- do not treat 0.225 as usable. (3)
+  Independently derived and attempted to fund the QUEUE-AIM-licensed no-kick composite ACQ
+  (`allaxis-nokick-c1-acq1`, kick=0/torque-crutch=3x, same recipe as the CANARY PASS) via respec --
+  the launcher REFUSED as a W&B duplicate: a concurrent cycle had already queued+launched the
+  IDENTICAL run name/recipe (now genuinely running on train-2, confirmed via `kubectl exec`/
+  `launch_run.py status`, step 4.7M+ at read time). No duplicate spend; convergent reasoning, not
+  wasted work. (4) Attempted a FAIL verdict on `kickhalf1x-c1-acq1` (read the same chronic-leg[5]-
+  across-3-modes duty pattern as a disqualifying consolidation per the gate's own text) but the
+  launcher REFUSED: a concurrent cycle had already recorded **ACQ PASS (with a WATCH)** on the
+  identical evidence, distinguishing "leg5 duty healthy (0.3-0.6) in 20/24 episodes, only dipping
+  to 0.03-0.09 in the 4 flagged ones" from this campaign's OTHER named chronic-entrenchment
+  fingerprint (sustained near-zero duty in EVERY episode) -- a reasoned, evidence-based call I
+  did not overwrite (both readers reviewed the identical duty table; disagreement is within
+  legitimate judgment noise, not a clear misread). Deferred to their verdict; flagged as a WATCH
+  item for the next continuation of this exact lineage regardless of which read is closer to
+  right. SKILLS.md updated (2 new entries: mass1x cont40m PASS, kick0225x FAIL). **Also found**
+  `cw-assistfade-rung2-anchorfade-{s0,s1}` (the campaign's first rung-2 mechanism-health canaries)
+  FINISHED with no eval report yet synced -- kicked `podeval` for both (backgrounded, genuinely
+  running remotely per `ps` at read time), left UNVERDICTED for the next reader (mechanism-health
+  judgment needs the harness read, not just W&B reward curves). **Refill:** confirmed via a full
+  live scan (not just `capacity.py`) that every other QUEUE AIM frontier item is genuinely
+  computing elsewhere this cycle (`allaxiskickhalf-nocrutch1x-c1` gate on train-8,
+  `kickhalf-notorquecrutch-c1`/`imumount1x-c1`/several cont40m gates via live `pod_eval.py`
+  processes on other pods) -- did not force a second composite arm on top of the one already
+  running. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  {mass1x_c1_acq1_cont40m,kick0225x_c1}_gate/report.json`, W&B `61qwjqbf`/`4xcygaqu`,
+  `launch_run.py status`, RL_LOG 09-06 10:54/10:56.
+
 - 09-06 ~10:5x this cycle (assigned `fault1x-c1-acq1`/`gains1x-c1-acq1`/`geom1x-c1-acq1`, all 3
   already SUPERSEDED by a concurrent cycle before this read landed -- confirmed, not re-triaged):
   **0/3 assigned runs needed action; found+verdicted 1 orphan (CANARY PASS, closes the per-axis DR

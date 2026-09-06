@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T11:02:27+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1
+
+**wandb_id**: bidomeob
 
 **hypothesis**: Plain English: does the full ~30-axis realism composite, with kick at its proven-safe half dose (0.15) AND the 3x torque crutch fully removed (the real unassisted servo spec), hold up at real acquisition budget (40M) -- this is QUEUE AIM item (3)'s second composite-ACQ funding step, a DIFFERENT recipe from the parallel allaxis-nokick-c1-acq1 (which keeps the crutch ON and disables kick entirely). Single lever vs the canary: budget 2M->40M, otherwise byte-identical.
 

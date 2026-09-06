@@ -210,3 +210,58 @@ def test_refuses_ambiguous_active_leg(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="could not infer one active leg"):
         analyze_hysteresis(path)
+
+
+def test_protocol_timing_recovers_cycles_hidden_by_csv_rounding(
+    tmp_path: Path,
+) -> None:
+    path = _synthetic_trace(
+        tmp_path,
+        leg=2,
+        profile="air",
+        amplitudes=[15.0],
+        loops=[[(0.4, 0.2), (0.5, 0.3), (0.6, 0.4)]],
+        dwell_samples=6,
+    )
+
+    from sysid.trace import load
+
+    trace = load(path)
+    protocol_path = tmp_path / "protocol.json"
+    protocol_path.write_text(
+        __import__("json").dumps(
+            {"segments": [{"kind": "traj", "q_deg": trace["cmd"].tolist()}]}
+        )
+    )
+
+    # Simulate command CSV quantization around a cycle boundary. The 0.002
+    # degree split is larger than the requested 0.0015 degree matcher while
+    # the exact protocol still carries unambiguous tick-level dwell timing.
+    rounded_cmd = trace["cmd"].copy()
+    rounded_cmd[35:42, 7] += 0.002
+    write(
+        path,
+        t=trace["t"],
+        tick=trace["tick"],
+        seg=trace["seg"],
+        phase=trace["phase"],
+        joint=trace["joint"],
+        t_send=trace["t_send"],
+        t_recv=trace["t_recv"],
+        q=trace["q"],
+        cmd=rounded_cmd,
+        summary=trace["summary"],
+    )
+
+    result = analyze_hysteresis(
+        path,
+        protocol_path=protocol_path,
+        command_match_tolerance_deg=0.0015,
+    )
+
+    assert result["segmentation_source"] == "protocol_trajectory_timing"
+    assert result["cycle_count"] == 3
+    assert [
+        cycle["hip_loop_deg"]
+        for cycle in result["conditions"][0]["cycles"]
+    ] == pytest.approx([0.4, 0.5, 0.6])

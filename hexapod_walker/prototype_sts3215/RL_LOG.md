@@ -1446,3 +1446,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 03:27 walkcurr crossgrav-widen2c3-abrupt-c1 CANARY FAIL-MECHANISM: 2nd widen2 seed collapses into the known leg-1/4 entrenchment fingerprint under startjitter (3/6 gv vs sibling's clean pass) -- widen2-crossgrav n=2 splits 1PASS/1FAIL, seed-sensitive unlike irr-timing/healthy-champion crossgrav axes 
 - 09-06 03:27 walkcurr halfgrav-widenirr-c3 CANARY PASS 23/24 gv, 0 falls -- 3rd tie-breaking seed clean (2/3 widenirr seeds PASS); reward-decline scare resolved by checking vs PASS+FAIL siblings (same shape both), real caveat is course-tracking not gait-validity 
 - 09-06 03:28 walkcurr: medhead-ramp-irrfwd-c1 CANARY PASS 22/24, 0 falls, ramp-transition symmetry confirmed for irr-timing axis 
+- 09-06 03:28 walkcurr: medhead-ramp-widenfwd-c1 CANARY PASS 21/24, 0 falls, ramp symmetry confirmed for widen axis too 
+- 09-06 03:29 walkcurr: widen2c2b-abrupt-c1-acq1 ACQ FAIL, budget does not repair unhealthy-source leg-1 entrenchment (identical 14/24 to 2M canary), fork closed 

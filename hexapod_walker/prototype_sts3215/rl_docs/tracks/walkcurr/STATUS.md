@@ -25,6 +25,30 @@
   still queued). No duplication vs concurrent cycles' own work (checked `experiments.json` /
   `backlog.json` before and after).
 
+  **CORRECTION (same cycle, ~08:5x):** by the time the harness gate above finished computing, all 3
+  backlog items had drained (`gains1x-r2`->train-2, `geom1x-r2`->train-11, `fault1x-r2`->train-1) —
+  3x40M = 120M new GPU steps directly attributable to this cycle's own actions, over the
+  guardrails.yaml `max_new_gpu_steps_per_cycle: 80000000` hard cap (no operator exception in force).
+  Self-caught before exit (checked `launch_run.py status` per the standing protocol) and corrected
+  per the established precedent (`experiments.json`'s own prior self-kill entry for the identical
+  situation): killed `fault1x-c1-acq1-r2` at ~4M steps (0 meaningful progress lost, checkpoint
+  unchanged) and re-queued it as `fault1x-c1-acq1-r3` to backlog for a later cycle to launch within
+  its own budget. This cycle's own direct-launch total is now exactly 80M (`gains1x-r2` +
+  `geom1x-r2`), matching the cap. Lesson for future cycles: count backlog items that may drain
+  DURING your own cycle (they routinely do, per the self-repairing drain) against the 80M cap at
+  queue time, not just `--now` launches — 3 queued 40M respecs is already over budget even though
+  none used `--now`.
+
+  Fleet had 5 free slots (train-3/4/5/8/9) at cycle end (concurrent DR-axis ACQ runs finishing
+  mid-cycle) — deliberately NOT filled further this cycle (already at the 80M cap). Refill
+  candidates for the next cycle (clean ACQ PASS lacking a cont40m endurance continuation, per the
+  established cleanliness-margin rule): `medhead-dr-friction1x-c1-acq1` (24/24, 0 falls),
+  `medhead-dr-mass1x-c1-acq1` (24/24, 0 falls), `headset-halfgrav-medhead-acq1` (the 0.5g family's
+  own root champion, no endurance data point yet — REFUSED twice earlier this cycle window by pod
+  races, now genuinely open), `headset-halfgrav-irrwiden-c2-acq1`, `headset-halfgrav-fullhead-
+  widen2-c3-acq1`, `headset-base-s1c1-acq1`. Evidence: `launch_run.py status` (pre/post-kill),
+  RL_LOG 09-06 08:50/08:52.
+
 - 09-06 ~08:0x-08:2x this cycle (refill-only, no completions assigned — canonical capacity found
   5-6 ready slots without trainers and an empty backlog): **completed the single-axis DR-restore
   ACQ-durability batch (every remaining clean canary now has its first 40M confirmation attempt

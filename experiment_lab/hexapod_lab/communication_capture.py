@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import time
 from typing import Any, Callable, Dict, Iterable, Optional
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 import uuid
@@ -16,6 +17,7 @@ import uuid
 
 STATUS_NAME = "robot-communication.json"
 TRANSCRIPT_NAME = "robot-communication.jsonl"
+_BEGIN_RETRY_DELAYS_SECONDS = (0.05, 0.1)
 
 
 class CommunicationCaptureError(RuntimeError):
@@ -168,11 +170,34 @@ class RobotCommunicationCapture:
 
     def begin(self) -> Dict[str, Any]:
         self.started_at = _utc_now()
-        try:
-            self.begin_status = self._post_marker("robotlab_run_begin")
-            self.begin_marker = self._marker_id(self.begin_status, "begin")
-        except Exception as exc:
-            self.errors.append(f"begin: {type(exc).__name__}: {exc}")
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                self.begin_status = self._post_marker("robotlab_run_begin")
+                self.begin_marker = self._marker_id(self.begin_status, "begin")
+                break
+            except HTTPError as exc:
+                # HTTPError is a URLError subclass, but an HTTP response is
+                # not the transient routing failure this retry is for.
+                self.errors.append(f"begin: {type(exc).__name__}: {exc}")
+                break
+            except URLError as exc:
+                if attempt > len(_BEGIN_RETRY_DELAYS_SECONDS):
+                    self.errors.append(
+                        f"begin: {type(exc).__name__}: {exc} "
+                        f"(after {attempt} attempts)"
+                    )
+                    break
+                # A transport failure can leave the preceding POST's fate
+                # unknown.  The hardware attempt does not start until begin()
+                # returns, markers are append-only, and only the retry whose
+                # exact flushed acknowledgement is returned becomes the
+                # transcript boundary.
+                time.sleep(_BEGIN_RETRY_DELAYS_SECONDS[attempt - 1])
+            except Exception as exc:
+                self.errors.append(f"begin: {type(exc).__name__}: {exc}")
+                break
         self._write_status()
         return self.status()
 

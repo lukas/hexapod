@@ -17,6 +17,7 @@ from hexapod_lab.engineering_lane import (
     EngineeringLaneError,
     PROJECT_CONTEXT_FILES,
     build_project_context,
+    engineering_job_lane,
     engineering_prompt,
     validate_engineering_result,
     validate_rl_request,
@@ -43,9 +44,15 @@ def configured(tmp_path, workspace, **overrides):
     return Settings(**values)
 
 
-def succeeded_analysis(store, *, verdict="pass", safety_disposition="clear"):
+def succeeded_analysis(
+    store, *, verdict="pass", safety_disposition="clear", parameters=None
+):
     experiment = store.create(
-        {"name": "measured gait", "duration_seconds": 1, "parameters": {}},
+        {
+            "name": "measured gait",
+            "duration_seconds": 1,
+            "parameters": {} if parameters is None else parameters,
+        },
         "test",
     )
     store.finish(experiment["id"], "succeeded")
@@ -99,7 +106,9 @@ def engineering_receipt(job, project_context_sha256):
 
 def test_hardware_and_offline_jobs_claim_independently(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    _, analysis = succeeded_analysis(store, verdict="inconclusive")
+    _, analysis = succeeded_analysis(
+        store, verdict="inconclusive", parameters={"robot_motion": False}
+    )
     engineering = EngineeringJobStore(store)
     assert engineering.reconcile() == 1
 
@@ -132,6 +141,52 @@ def test_hardware_and_offline_jobs_claim_independently(tmp_path):
     assert hardware["lane"] == ENGINEERING_LANE_HARDWARE
     assert hardware["lease_owner"] == "hardware-worker"
     assert offline["lease_owner"] == "offline-worker"
+
+
+@pytest.mark.parametrize(
+    ("parameters", "expected_lane"),
+    [
+        ({"robot_motion": False}, ENGINEERING_LANE_OFFLINE),
+        ({"simulation_only": True}, ENGINEERING_LANE_OFFLINE),
+        (
+            {"robot_motion": False, "simulation_only": True},
+            ENGINEERING_LANE_OFFLINE,
+        ),
+        ({"robot_motion": True}, ENGINEERING_LANE_HARDWARE),
+        ({}, ENGINEERING_LANE_HARDWARE),
+        ({"robot_motion": 1}, ENGINEERING_LANE_HARDWARE),
+        ({"simulation_only": 1}, ENGINEERING_LANE_HARDWARE),
+        (
+            {"robot_motion": True, "simulation_only": True},
+            ENGINEERING_LANE_HARDWARE,
+        ),
+    ],
+)
+def test_analysis_followthrough_lane_tracks_source_motion_metadata(
+    tmp_path, parameters, expected_lane
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    _, analysis = succeeded_analysis(
+        store, verdict="inconclusive", parameters=parameters
+    )
+    engineering = EngineeringJobStore(store)
+    assert engineering.reconcile() == 1
+
+    other_lane = (
+        ENGINEERING_LANE_OFFLINE
+        if expected_lane == ENGINEERING_LANE_HARDWARE
+        else ENGINEERING_LANE_HARDWARE
+    )
+    assert engineering.claim("wrong-worker", 60, lane=other_lane) is None
+    claimed = engineering.claim("right-worker", 60, lane=expected_lane)
+    assert claimed is not None
+    assert claimed["source_analysis_job_id"] == analysis["id"]
+    assert claimed["lane"] == expected_lane
+
+
+def test_missing_or_invalid_source_context_stays_on_hardware_lane():
+    assert engineering_job_lane(None) == ENGINEERING_LANE_HARDWARE
+    assert engineering_job_lane({}) == ENGINEERING_LANE_HARDWARE
 
 
 @pytest.mark.parametrize(

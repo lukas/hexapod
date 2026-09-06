@@ -78,15 +78,15 @@ ENGINEERING_LANES = {
 def engineering_job_lane(source_context: Any) -> str:
     """Classify a durable job from its immutable source context.
 
-    Only a queue handoff that may move the robot belongs on the scarce
-    hardware lane.  Analysis follow-through and explicitly non-motion or
-    simulation-only handoffs run on the independent offline/code lane.
-    Missing motion metadata stays conservative and is treated as hardware.
+    A job is offline only when its source experiment explicitly disables
+    motion (or is explicitly simulation-only without a motion flag).  This
+    applies to analysis follow-through as well as queue handoffs: a physical
+    source must not be handed to an offline worker whose contract forbids
+    robot access. Missing, malformed, or conflicting motion metadata stays
+    conservative and is treated as hardware.
     """
     if not isinstance(source_context, dict):
-        return ENGINEERING_LANE_OFFLINE
-    if source_context.get("trigger_kind") != "queue_handoff":
-        return ENGINEERING_LANE_OFFLINE
+        return ENGINEERING_LANE_HARDWARE
     experiment = source_context.get("experiment")
     parameters = experiment.get("parameters") if isinstance(experiment, dict) else None
     if experiment_parameters_are_offline(parameters):
@@ -1149,8 +1149,7 @@ class EngineeringJobStore:
         token = uuid.uuid4().hex
         expires = (now_dt + timedelta(seconds=lease_seconds)).isoformat()
         hardware_predicate = (
-            "(json_extract(source_context_json,'$.trigger_kind')="
-            "'queue_handoff' AND NOT ("
+            "(NOT ("
             "COALESCE(json_type(source_context_json,"
             "'$.experiment.parameters.robot_motion')='false',0) OR "
             "(json_type(source_context_json,"

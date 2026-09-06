@@ -1584,3 +1584,6 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 10:03 walkcurr: gains1x-c1-acq1-r2 PASS -- gains-spread axis holds 24/24 gait_valid, 0 falls at 40M (r2 fixed the r1 2M-step bug) 
 - 09-06 10:06 09-06 zerobiasframe1x-acq1-r2 ACQ PASS: 22/24 gv, 0 falls, 2 non-chronic singleton flags -- 5th single-axis DR-restore ACQ confirmation (corrected-steps re-run). 
 - 09-06 10:07 09-06 s1acq-irrfwd-cont40m FAIL/ENTRENCHES: leg[2,4] chronic pair spreads into walk/sto (was 6/6 clean at parent) -- first cont40m in the campaign to break the clean-at-40M-holds pattern; reward rising but misaligned, do not re-fund. 
+- 09-06 10:11 fault1x-c1-acq1 SUPERSEDED (2M-budget mislabel, real ACQ is -r3 running) 
+- 09-06 10:11 gains1x-c1-acq1 SUPERSEDED (2M-budget mislabel, real ACQ is -r2 running, concurrent cycle's) 
+- 09-06 10:12 geom1x-c1-acq1 SUPERSEDED (2M-budget mislabel, real ACQ is -r2 running) 

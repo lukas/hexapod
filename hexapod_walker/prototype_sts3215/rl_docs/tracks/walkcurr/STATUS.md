@@ -2,6 +2,56 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:5x this cycle (assigned `startpose1x-c1`/`torquefade1x-c1`/`zerobias1x-c1`,
+  all 3 still genuinely computing on their pods when this cycle spawned):
+  **1/3 read (torquefade1x-c1 CANARY PASS, closes the torque-fade dose axis for
+  good), 2/3 backgrounded (still computing); found+fixed a SHARED-INFRA data-loss bug
+  mid-cycle (ledger corruption).** (1) `medhead-dr-torquefade1x-c1` **CANARY PASS**:
+  removing the WHOLE 3x idealized torque-assist crutch (`dr.torque_scale` 3.0->1.0,
+  real unassisted servo forcerange) gives a PERFECT 24/24 gait_valid, 0 falls, sac=[]
+  every episode, video-confirmed clean six-leg cycling -- the hardest point on the
+  dose axis (1x/1.5x/2x/3x all now clean), closing the whole torque-fade question:
+  this champion never needed the assist crutch at any dose. (2) `startpose1x-c1` and
+  `zerobias1x-c1`: both genuinely still computing (video-every=1 over the full
+  24-episode 4-panel harness, sharing pods with live trainers) when read; re-
+  backgrounded `ops.sh pollreap` for both after the first pollreap attempts died
+  mid-ledger-corruption (see below), left unverdicted for the next read.
+  **INFRA INCIDENT + FIX (not launch-blocking, but shared-state-critical): found
+  `experiments.json` truncated/corrupted (`Unterminated string` at exactly the
+  18,874,367-byte mark) mid-cycle, committed to git by a concurrent cycle's
+  snapshot.sh (`git add -A` with no ledger lock and no validity check staged a
+  torn mid-write file) -- lost ~360 historical ledger entries plus this cycle's own
+  in-flight `friction1x-c1-acq1` launch record. Root cause: `save_ledger()` was a
+  plain non-atomic `Path.write_text()` on a 20MB+ file; any reader (including
+  `git add -A`) mid-write saw a partial file. Recovered the full ledger by hand
+  from the last-good git commit (`9ece47f5`, 2466 entries) merged with the
+  in-flight state (adding the missing `friction1x-c1-acq1` entry back), verified
+  valid, wrote it back atomically under the ledger lock -- a concurrent cycle
+  independently found+fixed the same incident in parallel (`bae9debe` commit), so
+  the final committed state is doubly-confirmed correct. **Shipped the durable
+  fix**: `save_ledger()` now writes to a pid-suffixed temp file + `os.replace()`
+  (atomic on POSIX -- no reader ever sees a partial write again); `snapshot.sh`
+  additionally gained a defense-in-depth JSON-validity guard on
+  `experiments.json`/`backlog.json`/`backlog_failed.json`/`pending_evals.json`
+  before `git add -A` (restores the last-committed copy instead of staging
+  anything that fails to parse). 3 new regression tests green
+  (`test_launch_run_ledger_atomic_write.py`), existing launch_run test suites
+  unaffected (33/33 green). Snapshotted (`e28b9985`).
+  **Refill (before the incident, using capacity found free that window):**
+  launched the first-ever ACQ-scale (40M) continuation of an individual
+  single-axis DR-restore canary (as opposed to a composition axis) --
+  `medhead-dr-friction1x-c1-acq1` (train-4, `--init-from-source` warm start off
+  its own PERFECT 2M canary): does a canary-clean SINGLE axis also risk the
+  ACQ-scale entrenchment this campaign's crossgrav/widen/irr COMPOSITION axes
+  have repeatedly shown (roughly half regress at 40M despite a clean 2M read)?
+  No individual DR-restore axis had been extended past its 2M canary before this.
+  A concurrent cycle independently launched the matching `mass1x-c1-acq1` (its
+  own near-clean 23/24 canary) in the same window -- complementary data points on
+  the same open question. Evidence: `ops.sh review cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-dr-torquefade1x-c1`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade1x_c1_gate/
+  report.json`, W&B `1flk48ly`; RL_LOG 09-06 06:5x-07:0x.
+
 - 09-06 ~06:1x-06:3x this cycle (assigned `medhead-dr-encnoise1x-c1`,
   `medhead-dr-contactstiff1x-c1`, `medhead-dr-friction1x-c1`; the other 3 pre-staged
   results named for this cycle — `irrwidenc2-abrupt-c1-acq1`, `medhead-dr-deadband1x-c1`,

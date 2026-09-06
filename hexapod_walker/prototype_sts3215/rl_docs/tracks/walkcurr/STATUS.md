@@ -2,6 +2,25 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~11:1x this cycle (assigned `torquefade15x-c1-acq1-cont40m`): **ACQ PASS (HARDENING) — the
+  1.5x torque-fade axis's OWN 2nd endurance confirmation; 0 net new launches (the licensed follow-up
+  was already in flight under a concurrent cycle).** `torquefade15x-c1-acq1-cont40m` reproduces its
+  40M parent's PERFECT 24/24 gait_valid exactly at 80M cumulative (0 falls/terms, sac=[] every
+  episode, slip/m in-band, reward still rising every quarter 1240->2143->2246->2328) — closes the
+  torque-fade dose axis's endurance question for good: 1x/1.5x/2x are ALL now clean at ACQ+cont40m
+  scale. SKILLS.md updated (1 new row). **Refill:** identified the natural next QUEUE-AIM-item-(2)
+  step — a cont40m of `kickhalf1x-c1-acq1` (ACQ PASS this session with a leg5 WATCH, explicitly
+  flagged in its own verdict as needing exactly this follow-up) — and attempted to launch it via
+  respec; the launcher REFUSED as a duplicate, a concurrent cycle having placed the IDENTICAL respec
+  (same hypothesis reasoning, independently derived) on train-5 moments earlier. No further genuinely
+  new arm existed: both composite ACQs (`allaxis-nokick-c1-acq1`, `allaxiskickhalf-nocrutch1x-c1-
+  acq1`) were already training, and per this banner's own STOP the per-axis DR-restore grid stays
+  closed. Left ~7 free GPU slots (train-0/4/7/8/9/10/11) idle at exit: every QUEUE AIM frontier item
+  (both composite ACQs + the kick-dose cont40m) is now genuinely in-flight elsewhere, not neglected.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade15x_c1_
+  acq1_cont40m_gate/report.json` vs `..._torquefade15x_c1_acq1_gate/report.json`, W&B `xw4dkuk9`,
+  `launch_run.py status`, RL_LOG 09-06 11:15/11:2x.
+
 - 09-06 ~11:0x this cycle (assigned `kickhalf1x-c1-acq1`, `torquefade2x-c1-acq1-cont40m`): **both
   verdicted PASS -- half-dose kick recovery holds at 40M (with a leg5 watch), torque-fade-2x axis
   holds at 80M cumulative -- plus a 2-arm refill exercising the just-unblocked composite frontier.**

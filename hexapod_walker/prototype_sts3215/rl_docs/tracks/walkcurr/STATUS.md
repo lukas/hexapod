@@ -2,6 +2,37 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~11:2x this cycle (assigned `fault1x-c1-acq1-r3`, `kick0225x-c1`, `allaxis-nokick-c1` —
+  the latter 2 already SUPERSEDED by a concurrent cycle before this read landed, confirmed not
+  re-triaged): **1/3 assigned run ACQ PASS (final per-axis DR-restore confirmation); found+verdicted
+  1 more orphan (CANARY PASS, corroborating the composite-no-crutch finding); 1 genuinely new
+  refill launch, 1 refill attempt deduped against a concurrent cycle's identical reasoning.**
+  (1) `fault1x-c1-acq1-r3` **ACQ PASS**: actuator-fault-injection axis (fault_prob=0.3) holds at
+  real 40M (22/24 gait_valid, 0 falls, 2 non-chronic leg[0] flags, reward monotonic 738->1395) --
+  matches its own 2M canary's pattern class; per QUEUE AIM this closes per-axis DR-restore
+  confirmation exhaustively (every RandRanges field now holds at ACQ scale). (2) Found+verdicted
+  `kickhalf-notorquecrutch-c1` (orphan: training+gate finished, ledger stuck at stale INTENT,
+  never verdicted) **CANARY PASS**: the isolated 2-axis kick-safe+no-crutch pairing composes
+  cleanly (22/24 gv, 0 falls, 2 non-chronic flags on DIFFERENT legs) -- independently corroborates
+  `allaxiskickhalf-nocrutch1x-c1`'s own full-composite PASS finding that these two aggressive axes
+  do not destabilize each other or the broader composite. **Refill:** identified the kick-dose-
+  ladder's own owed follow-up -- `kickhalf1x-c1-acq1`'s ACQ PASS carried an explicit leg5 WATCH
+  (scattered-3-legs canary pattern narrowed to one recurring leg at ACQ scale); launched
+  `kickhalf1x-c1-acq1-cont40m` (true continuation via `--init-from-source`, 80M cumulative,
+  train-5, VERIFIED RUNNING) to resolve whether leg5's involvement stays flat/noise or sharpens
+  into genuine chronic entrenchment with more exposure. Also attempted the 2nd composite-ACQ
+  respec (`allaxiskickhalf-nocrutch1x-c1-acq1`) independently -- REFUSED as a W&B duplicate, a
+  concurrent cycle having placed the IDENTICAL respec on train-3 moments earlier (convergent
+  reasoning, no duplicate spend, confirmed genuinely running via `launch_run.py status`).
+  SKILLS.md updated (2 new rows). Left 7 free GPU slots (train-0/4/7/8/9/10/11) idle at exit:
+  cross-checked against a concurrent cycle's own ~11:1x entry (this same file, above) which
+  independently reached the identical conclusion moments earlier -- every QUEUE AIM frontier item
+  (both composite ACQs + the kick-dose cont40m) is now genuinely in-flight, not neglected; no
+  further genuinely new axis/composite/cont40m candidate identified. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{fault1x_c1_acq1_r3,
+  kickhalf_notorquecrutch_c1}_gate/report.json`, W&B `9nx4uk9j`/`cmjrh8w8`, `launch_run.py
+  status`, RL_LOG 09-06 11:00-11:2x.
+
 - 09-06 ~11:1x this cycle (assigned `torquefade15x-c1-acq1-cont40m`): **ACQ PASS (HARDENING) — the
   1.5x torque-fade axis's OWN 2nd endurance confirmation; 0 net new launches (the licensed follow-up
   was already in flight under a concurrent cycle).** `torquefade15x-c1-acq1-cont40m` reproduces its

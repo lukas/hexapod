@@ -652,6 +652,46 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   report.json`, W&B `xyz4gzvh`.
 
 ## Known Tooling Gotchas
+- Any dedicated MJX assay/cert env built AFTER construction (a fresh
+  `MjxVecEnv`/`MjxShardedVecEnv` stood up mid-training by a callback,
+  e.g. `train_ppo_mjx._BcAnchorAnnealGateCb._build()`) does NOT
+  automatically inherit a pure-walk (or any non-default) goal diet —
+  `--goal-mix`/`args.goal_mix` is applied to the MAIN training venv via
+  a POST-CONSTRUCTION `venv.env_method("set_goal_mix", gm)` call
+  (needed because sharded MJX vec env objects live in worker
+  processes); a freshly-built side env never receives that call unless
+  the building code explicitly repeats it. Absent that, the env falls
+  back to `config.yaml`'s default multi-mode mixture (`p_hold`=0.10/
+  `p_lean`=0.15/`p_track`=0.15/`p_unload`=0.20/`p_raise`=0.15/
+  `p_rise`=0.35, plus whichever task-specific `p_walk` default that
+  task class sets in `__init__`, e.g. 0.70 for
+  `SimHexapodJointWalkEnv`) — walk draws end up a MINORITY, not 100%,
+  even when the parent run itself passed `--goal-mix walk=1.0` (that
+  flag is also only PARTIAL/ADDITIVE — `set_goal_mix` just does
+  `setattr(gen, f"p_{mode}", v)` per key given, it never zeroes the
+  rest; only `goal.walk_pure=1` (construction-time, zeroes every
+  `p_<mode>` then sets `p_walk=1.0`) or `eval_checkpoint.py`'s
+  `ALL_MODES` per-mode forcing loop (same zero-then-set pattern)
+  actually guarantee a pure single-mode diet). A non-walk goal draw
+  has no `.vx` trajectory, so any code that reads `_goal_traj.vx`
+  (e.g. walk_task.py's `cmd_dist`/`cmd_prog_m` accumulators) silently
+  no-ops for that whole episode — `cmd_prog_frac` reads `nan`
+  (division guard `cmd_dist > 0.01`), and `aggregate_walk_probe`'s
+  plain-mean (by design — matches `eval_task`'s own nan rules) then
+  poisons the ENTIRE round's aggregate to `nan`, independent of the
+  real fall rate. Found 2026-09-06 via a standalone GPU repro
+  (`MjxShardedVecEnv`, exact rung-2 cfg, zero-action policy: 5-6/8
+  episodes nan before isolating goal mix, 0/8 after) while dig-in-ing
+  the assistfade rung-2 anneal gate's persistent no-latch mystery
+  (`cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m`, both FAIL -
+  TOOLING). Fixed in `_BcAnchorAnnealGateCb._build()` (forces the
+  zero-then-`p_walk=1.0` isolation via `set_goal_mix`); any FUTURE
+  dedicated-assay-env builder in this file (or a new one) must do the
+  same unless it genuinely wants a mixed diet. Evidence: 2 new tests
+  `test_walkcurr_mjx.py::test_default_goal_mix_is_not_pure_walk_
+  without_walk_pure_or_isolation` /
+  `test_full_pure_walk_isolation_guarantees_a_walk_trajectory_every_
+  reset`, snapshot `exp/bc-anchor-anneal-goalmix-fix`.
 - Deferred final artifacts are the LAUNCHER DEFAULT since 09-06 for
   compatible runs (GPU MJX trainer + W&B; never smokes/dynrep/CPU):
   `launch_run.py` injects `--defer-final-artifacts`, the GPU trainer

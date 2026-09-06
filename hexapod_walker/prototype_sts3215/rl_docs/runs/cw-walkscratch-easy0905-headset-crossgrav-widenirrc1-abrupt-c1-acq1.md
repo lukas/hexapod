@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T02:01:34+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1
+
+**wandb_id**: bvnio8ti
 
 **hypothesis**: Plain English: the abrupt-1g crossgrav discovery canary off the widen-first widen2+irr composite champion (widenirr-c1-acq1: full 8-way heading incl. reversals PLUS command-timing jitter) already CANARY PASSed (walk/det 6/6 gait_valid, sac=[] every episode, 0 falls) — this is the acquisition-scale (40M) confirmation of whether that clean six-leg gait holds under a full training budget at 1g, the 4th generality-check champion at full budget after medhead, widen2c1, and irracq1.
 

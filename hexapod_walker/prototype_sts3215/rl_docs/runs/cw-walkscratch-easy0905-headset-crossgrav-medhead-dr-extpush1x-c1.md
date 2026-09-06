@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:53:28+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-tiltnoise1x-c1
+
+**wandb_id**: 7rjjhtyv
 
 **hypothesis**: Restore a moderate (1x, matching the sibling push1x/kick1x dose convention) mid-episode EXTERNAL PUSH probability (ext_push_prob=0.3) -- distinct from the walk-takeoff dr.walk_push_* axis already tested (push1x): this fires a random-direction horizontal force pulse at a random point LATER in the episode, on a policy that is already walking, the AMP-brief-style push-recovery test. Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive being shoved mid-stride without retraining collapse? Isolated single-axis diagnostic, same template as the sibling DR-restoration arms.
 

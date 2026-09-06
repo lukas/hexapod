@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T05:53:26+00:00
+**created**: 2026-09-06T05:56:10+00:00
 
-**pod**: hexapod-mjx-train-8
+**pod**: hexapod-mjx-train-10
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/INFORMATIVE-POSITIVE if aggregate gait_valid stays majority (>=18/24) with no NEW chronic single-leg sacrifice and 0 falls. FAIL/INFORMATIVE-NEGATIVE if it collapses (gait_valid <12/24, a new chronic leg, or falls appear) -- locates the torque-assist dose where hardening-rung training budget is actually needed.
 
-**refused_reason**: hexapod-mjx-train-8 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-10 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-fault1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
 

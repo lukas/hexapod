@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~08:4x-09:0x this cycle (assigned `medhead-dr-push1x-c1-acq1`, `widen2c1-irrfwd-c1-acq1-
+  cont40m`): **1/2 verdicted (HARDENING PASS, exact hold), 1/2 left genuinely computing; plus a
+  bonus 9-run verdict batch on idle unassigned canaries + 4-arm ACQ refill.** (1)
+  `widen2c1-irrfwd-c1-acq1-cont40m` **HARDENING PASS (exact hold)**: gait_valid EXACTLY 21/24 at
+  80M cumulative, reproducing the IDENTICAL 3 flagged episode/leg pairs as its own 40M ACQ parent
+  (walk/det ep3 leg5, walk_startjitter/det ep4 leg1, walk_startjitter/sto ep5 leg1), 0 falls both
+  reads, slip/progress flat-to-improved -- the cleanest possible cont40m outcome, 4th independent
+  confirmation the cleanliness-margin-at-40M rule predicts cont40m endurance (joining ramp-irrfwd
+  exact-hold, widenirrc3-abrupt narrow-dip, medhead-irrfwd improves). Closes this composition
+  line. (2) `medhead-dr-push1x-c1-acq1`: gate harness confirmed genuinely computing on train-9
+  (kubectl exec ps alive, ~30min in of the usual 25-40min video-every=1 window) throughout the
+  cycle -- backgrounded `pollreap`, left UNVERDICTED for the next reader, do not re-poll by hand.
+  **Bonus: found+verdicted 9 idle, unassigned single-axis DR-restore canaries that had finished
+  training + gate-eval with no verdict recorded** (a stale-looking `ops.sh review` "no harness
+  report yet" line masked that their `report.json` files actually already existed and were
+  complete -- the campaign has many of these mid-sweep from a fast-moving multi-cycle wave; check
+  the file directly, don't trust the one-shot summary's absence claim at face value). All 9 PASS,
+  0 falls across 9x24=216 episodes: `cmddrop1x` (24/24 PERFECT), `imubias1x` (24/24 PERFECT),
+  `imupos1x` (23/24, 1 non-chronic flag), `velscale1x` (23/24, 1 non-chronic flag), `groundtilt1x`
+  (24/24 PERFECT, mechanism-health scope), `startpose1x` (22/24, 2 DIFFERENT legs flagged in
+  walk_startjitter/det only -- weakest margin of the batch), `alldrconf1x` (23/24, the 6-axis
+  composite costs real slip margin -- med 5.4-6.1m vs the single-axis 3.4-5.6m band -- but no
+  gait_valid collapse), `kickhalf1x` (21/24, 3 DIFFERENT legs in 3 DIFFERENT modes -- brackets
+  kick1x-c1's full-dose fall: half dose has real zero-shot margin, full dose does not).
+  `gyrobias1x-c1` was already verdicted by a concurrent cycle in the same window (convergent, not
+  duplicated -- REFUSED cleanly on a duplicate-verdict guard). `faultworst1x-c1` had finished
+  training but its gate eval had never even been kicked (no videos, no report) -- started it via
+  `ops.sh podeval` + backgrounded `pollreap`, left unverdicted for next read. SKILLS.md updated (2
+  new entries: the 8-axis canary batch, the widen2c1-irrfwd-cont40m hold). **Refill (respecting
+  the 4-launch/80M-GPU-step cycle cap):** launched 2 ACQ continuations off the cleanest new
+  canaries -- `cmddrop1x-c1-acq1` (train-9, VERIFIED RUNNING) and `imubias1x-c1-acq1` (train-3,
+  VERIFIED RUNNING), both `--steps 40000000` explicit (avoiding the respec-steps footgun). Two
+  more candidate arms (`groundtilt1x-c1-acq1`, `kickhalf1x-c1-acq1`) both self-raced onto the same
+  default pod and got REFUSED as a genuine duplicate-pod collision -- rather than force them
+  `--now` and blow the 80M/cycle step cap (2 landed launches already = 80M, the cap), queued both
+  to `backlog.json` (no `--now`) for the drain to place under a future cycle's own budget
+  allowance. Evidence: `ops.sh review` for both assigned runs, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_{widen2c1_irrfwd_c1_acq1_cont40m,medhead_dr_
+  {cmddrop1x,imubias1x,imupos1x,velscale1x,groundtilt1x,startpose1x,alldrconf1x,kickhalf1x}_c1}_
+  gate/report.json`, `launch_run.py status`/`backlog.json`, RL_LOG 09-06 08:49-09:02.
+
+
 - 09-06 ~08:4x-09:0x this cycle (assigned `medhead-dr-latency1x-c1-acq1`, `medhead-dr-zerobias1x-c1-
   acq1`): **1/2 verdicted (ACQ PASS), 1/2 still genuinely computing; plus 1 recovered orphan verdict,
   1 infra bug fix, and a 3-item refill.** (1) `latency1x-c1-acq1` **ACQ PASS**: PERFECT 24/24

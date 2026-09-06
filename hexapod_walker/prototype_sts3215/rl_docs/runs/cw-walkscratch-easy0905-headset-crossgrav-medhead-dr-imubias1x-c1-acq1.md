@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:58:47+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imubias1x-c1
+
+**wandb_id**: 27huezvy
 
 **hypothesis**: Does the PERFECT single-axis DR-restore canary (medhead-dr-imubias1x-c1: IMU miscalibration bias, 24/24 gait_valid at 2M, 0 falls, sac=[] every episode) hold up at a real 40M ACQ budget on top of the 80M champion, joining friction1x/mass1x/cmddrop1x in the individual-axis durability batch?
 

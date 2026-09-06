@@ -948,6 +948,35 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_fullhead_
   widen2_c2b_acq1_gate/report.json` vs `..._widen2_c1_acq1_gate/`,
   RL_LOG 09-05 23:4x.
+- UPDATE 09-06 ~03:1x: the base(1g) leg-1/4 structural-entrenchment
+  fingerprint above is not confined to native-1g training -- it can
+  also emerge in a CROSS-GRAVITY-TRANSFERRED champion given enough 1g
+  steps, even one that passed a clean 2M canary. `headset-crossgrav-
+  irracq1-abrupt-c1-acq1` (irr-timing recipe, 2M canary 23/24
+  gait_valid, 0 falls) **ACQ FAIL** at 40M: aggregate `gait_valid`
+  drops to 14/24, `walk/det` regresses 6/6->4/6 (2 new formal leg-4
+  flags), `walk_startjitter/det` collapses 5/6->0/6 (one episode's
+  leg-4 swing_count=2/20s vs 91-239 for every other leg) -- despite
+  training reward RISING throughout (quarters 717->1359->1507->1635,
+  the 08-21 rising-reward/bad-eval shape). This is NOT read as
+  "undertrained, continue" per the 08-21 ruling's own escape clause:
+  the reward-misalignment class here (base(1g) middle-leg-pair
+  favoritism) is the SAME one already closed above after 9 repair
+  mechanisms, with the established fix being structural, not more
+  training -- more training is exactly what produced this
+  entrenchment. This is the FIRST regression in the crossgrav ACQ-
+  scale confirmation set (3 prior: medhead-abrupt/ramp, widen2c1, all
+  held clean walk/det 6/6). Open question this raises: is a clean 2M
+  canary sufficient evidence for crossgrav-transfer durability, or
+  does every transferred champion carry a slow-clock risk toward this
+  attractor regardless of source health? Follow-ups in flight:
+  `irr2acq1-abrupt-c1-acq1` (2nd seed, same recipe, seed-vs-recipe
+  discriminator) and `medhead-abrupt-c1-acq1-cont40m` (+40M endurance
+  check on the campaign's cleanest ACQ-PASS champion, tests whether
+  ANY crossgrav champion entrenches given enough budget). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_
+  abrupt_c1_acq1_gate/report.json` vs the 2M canary's own
+  `..._abrupt_c1_gate/`, W&B `4n0z9k3b`, RL_LOG 09-06 03:12.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

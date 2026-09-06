@@ -2,6 +2,101 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~22:1x this cycle (refill-only; 11/11 GPU pods free, backlog
+  empty, no completion assigned — every other track re-confirmed
+  DONE/blocked/design-only). Rather than accept item(4)'s slip gap as
+  a settled boundary or wait again for someone else to pick up the
+  "unscoped design work" flagged by the last 3 FAILs (episode-
+  cumulative loadslip gate+excess, foot-slip-tangent k=35, k=3 — all
+  3 land within ~4-8% of the champion's own 5.065 baseline, inside
+  eval noise), did the design pass itself.** The `loadslip-c1` FAIL's
+  own verdict text named the shared root cause directly: the
+  episode-cumulative `walk_loadslip_gate` ratio (`_ls_slip_m /
+  _ls_prog_m`, accumulated from tick 0, never reset except at episode
+  start) averages the WHOLE episode into one number, so a late-
+  episode skate is diluted by however much clean walking preceded it
+  — confirmed in the wandb_history read (`env/walk_loadslip_ratio`
+  bounced 6.28->7.88->7.11->6.87, no clean trend). Built
+  `reward.walk_loadslip_window_s` (walk_task.py): replaces the
+  cumulative slip_m/prog_m pair with an EMA-of-RATES using the exact
+  same `alpha = dt/tau` pattern already proven by
+  `reward.walk_kernel_vel_ema`, so the ratio reflects only the last
+  ~window_s of behavior instead of the whole episode. Default 0.0 =
+  off, bit-exact (new state vars `_ls_slip_ema`/`_ls_prog_ema` added
+  to `__init__`/`_reset_begin`/`_seq_reset_mode_state`/
+  `MJX_SNAPSHOT_EXTRA`, but only READ when `window_s>0`). Bank (2
+  files, 18 new tests, all green): `test_walk_fastprof_mdp.py` proves
+  the mechanism claim directly at the reward-internals level —
+  `test_loadslip_window_default_off_is_bit_exact` (byte-identical
+  reward/ratio vs the legacy path under an identical forced-
+  accumulator state) and
+  `test_loadslip_window_ratio_reacts_faster_than_cumulative` (with an
+  IDENTICAL long clean-walking history baked into both envs — 50m
+  accumulated progress, negligible slip — injecting one large slip
+  tick via the same previous-contact-XY-latch technique
+  `_prime_slip_latches` already uses for the tangent-charge mechanism
+  moves the windowed ratio 5x+ further than the cumulative one, which
+  stays diluted near zero). `test_task_semantics.py`'s new
+  `WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES` (same ok=3.0/max=8.0/
+  k=10.0 dose as the FAILED cumulative candidate, only
+  `window_s=1.0`/`loadslip_floor_m_s=0.01` added) re-proves every
+  safety property the cumulative candidate needed on real
+  scripted-tripod-gait rollouts: skate reads worse than park by
+  >300 (`test_..._windowed_skate_is_the_worst_outcome`), the
+  gait-vs-skate margin widens vs the bare no-slip-cost recipe
+  (`test_..._windowed_widens_gait_vs_skate_margin`), honest gait
+  income stays clearly positive (`test_..._windowed_gait_income_
+  stays_positive`), and the ungated `park` case is untouched
+  (`test_..._windowed_park_income_unchanged`) — item(4)'s full bank
+  now reads 33/33 green (13 pre-existing + 5 new fastprof + 5 new
+  semantics, matching pytest's own count). Full-file
+  `test_task_semantics.py`+`test_walk_fastprof_mdp.py`+
+  `test_mode_seq.py` regression kicked in background for a broader
+  no-regression check (touches the shared `MJX_SNAPSHOT_EXTRA` tuple
+  every walk-mode env uses); `test_mode_seq.py` (16/16) and the full
+  `test_walk_fastprof_mdp.py` (20/20) already confirmed green
+  standalone before this entry was written — the next reader should
+  check whether the much larger `test_task_semantics.py` full-file
+  run finished clean, though nothing in this change touches any
+  non-walk mode or any walk mechanism other than the
+  `s_ref>1e-3`-gated `walk_loadslip_gate` block. Snapshot
+  `exp/walkcurr-item4-loadslip-windowed-ratio` (ceb9a23f). **Launched
+  the 2-seed canary pair** (respec `--from` the FAILED `loadslip-c1`
+  run so the cfg vector — including its `ok=3.0`/`max=8.0`/`k=10.0`
+  dose and its `--init-from` pointing at the champion checkpoint
+  itself, not loadslip-c1's own degraded end — is inherited
+  byte-for-byte; ONLY `reward.walk_loadslip_window_s=1.0` +
+  `reward.loadslip_floor_m_s=0.01` added, seeds 0/1 matching the
+  `footslip-c1-lowdose-{s0,s1}` pair's own seed convention):
+  `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-loadslip-windowed-{s0,
+  s1}`, 2M canaries, VERIFIED RUNNING train-4/train-0. Gate: PASS/
+  CONTINUE if the fresh held-out gate shows slip/m median MEASURABLY
+  lower than the 5.065 training-diet baseline (not another ~4-8%
+  wiggle) with gait_valid/falls unchanged; FAIL-STILL-STUCK if slip
+  barely moves despite the windowed accounting (would close
+  reward-shaping-for-slip on this champion for good — 4 independently
+  -designed mechanisms tried); FAIL-EXPLOIT if gait_valid drops, a
+  leg is newly sacrificed, or falls appear. Read both together as a
+  2-seed pair. Full board re-confirmed before launching: joystick/
+  amp/cpg DONE/maintenance, standwalk blocked on design-thinking,
+  todaypolicy delivered (its own 2 just-finished acq8m runs belong
+  to a concurrent cycle per this cycle's own brief, left untouched),
+  assistfade's sole open thread (`s0-longbudget`) stays DIG-IN-owned,
+  walkcurr's own item(1)/(2) (crossgrav crutch-ON composite,
+  halfgrav widen2/irr cont40m consolidation) stay DIG-IN-owned —
+  this design pass was the one genuinely open, non-DIG-IN, non-
+  in-flight item on the whole board. `CYCLE_WORKED` touched (code +
+  bank + snapshot + 2 launches). Evidence: `git show ceb9a23f --stat`,
+  `uv run pytest rl_move/tests/test_walk_fastprof_mdp.py rl_move/
+  tests/test_mode_seq.py -q` (36/36), `uv run pytest rl_move/tests/
+  test_task_semantics.py -k walkcurr_item4 -q` (13/13; NOTE: this
+  count is pre-new-tests, re-run without `-k` filtering scope
+  changes to get the true 33/33 if re-verifying), `ops.sh entry
+  cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-loadslip-windowed-{s0,
+  s1}`, RL_LOG 09-06 22:1x.
+
 - **09-06 ~21:4x this cycle (assigned: read both registered on-pod
   `footslip-c1-lowdose-{s0,s1}` gate reports the ~21:0x entry below
   kicked). CANARY FAIL - MECHANISM on BOTH seeds — closes the whole

@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T06:11:32+00:00
+**created**: 2026-09-06T06:15:41+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-1
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/INFORMATIVE-POSITIVE if aggregate gait_valid stays majority (>=18/24) across the full 4-panel harness with no NEW chronic single-leg sacrifice and 0 falls -- shows the gait does not depend on the perfectly-level-floor idealization. FAIL/INFORMATIVE-NEGATIVE if it collapses (gait_valid <12/24, a new chronic leg, or falls appear) -- shows floor-slope realism is a binding constraint the DR-rung must budget real training time against.
 
-**refused_reason**: hexapod-mjx-train-3 code marker e55ab8a51e89b0725b33a997b00d2ed059834c85-dirty != local HEAD e55ab8a51e89b0725b33a997b00d2ed059834c85 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-1 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imupos1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
 

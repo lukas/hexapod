@@ -1,0 +1,424 @@
+{
+  "heartbeat_trigger_utc": "2026-09-06T05:06:30Z",
+  "checked_at_utc": "2026-09-06T05:31:00Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 0,
+    "free_pods": [],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-irrfwd-c1-acq1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-friction1x-c1"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1-acq1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-push1x-c1"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1"
+      ],
+      "hexapod-mjx-train-5": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-velscale1x-c1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-contactstiff1x-c1"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-irrfwd-c1-acq1"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-cmddrop1x-c1"
+      ],
+      "hexapod-mjx-train-10": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1"
+      ],
+      "hexapod-mjx-train-11": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imubias1x-c1"
+      ]
+    }
+  },
+  "samples_at_0507": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-3",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-noise1x-c1",
+        "step": 2097152,
+        "previous_step": 2097152,
+        "metrics": [
+          "|    total_timesteps      | 1572864      |",
+          "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_noise1x_c1.zip (12,283 env-steps/s)",
+          "|    fps                  | 15337       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "[video] logged reel (4,096 steps | walk:ok walk:ok walk:ok walk:ok)",
+          "[periodic-eval] 1,003,520: hold 2.93°, track 3.23°, unload 2.86°, raise 2/2, rise f0/2 b0/2 c0/2, walk err 0.057 m/s, dir 26.3deg, startjit 2/2, tipped 0/2, rolltrap 2/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-5",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-encnoise1x-c1",
+        "step": 2097152,
+        "previous_step": null,
+        "metrics": [
+          "|    total_timesteps      | 1572864      |",
+          "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_encnoise1x_c1.zip (10,522 env-steps/s)",
+          "|    fps                  | 12993       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "|    value_loss           | 92.3        |",
+          "-----------------------------------------"
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-7",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-tiltnoise1x-c1",
+        "step": 2097152,
+        "previous_step": 1048576,
+        "metrics": [
+          "|    total_timesteps      | 1572864    |",
+          "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_tiltnoise1x_c1.zip (11,697 env-steps/s)",
+          "|    fps                  | 14686       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "[video] logged reel (4,096 steps | walk:ok walk:ok walk:ok walk:ok)",
+          "[periodic-eval] 1,003,520: hold 2.54°, track 3.01°, unload 2.70°, raise 2/2, rise f0/2 b0/2 c0/2, walk err 0.060 m/s, dir 24.7deg, startjit 2/2, tipped 0/2, rolltrap 2/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-8",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-irrfwd-c1-acq1",
+        "step": 13107200,
+        "previous_step": 3145728,
+        "metrics": [
+          "|    fps                  | 17349        |",
+          "|    total_timesteps      | 12582912     |",
+          "|    fps                  | 17443        |",
+          "|    total_timesteps      | 13107200     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "|    value_loss           | 374          |",
+          "------------------------------------------"
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-9",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-gyronoise1x-c1",
+        "step": 2097152,
+        "previous_step": null,
+        "metrics": [
+          "|    total_timesteps      | 1572864      |",
+          "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_gyronoise1x_c1.zip (8,742 env-steps/s)",
+          "|    fps                  | 10631       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "|    value_loss           | 96.9        |",
+          "-----------------------------------------"
+        ]
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-10",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1",
+        "step": 15204352,
+        "previous_step": 5242880,
+        "metrics": [
+          "|    fps                  | 18071        |",
+          "|    total_timesteps      | 14680064     |",
+          "|    fps                  | 18145       |",
+          "|    total_timesteps      | 15204352    |"
+        ],
+        "done": false,
+        "error": false,
+        "last": [
+          "|    value_loss           | 1.1e+03     |",
+          "-----------------------------------------"
+        ]
+      }
+    }
+  ],
+  "samples_at_0524": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-0",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-mass1x-c1",
+        "step": 2097152,
+        "metrics": [
+          "|    fps                  | 13854       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "[periodic-eval] 1,003,520: hold 3.28°, track 3.52°, unload 3.28°, raise 1/2, rise f0/2 b0/2 c0/2, walk err 0.074 m/s, dir 27.6deg, startjit 2/2, tipped 0/2, rolltrap 1/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-1",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-friction1x-c1",
+        "step": 2097152,
+        "metrics": [
+          "|    fps                  | 12602        |",
+          "|    total_timesteps      | 2097152      |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "[periodic-eval] 1,003,520: hold 2.80°, track 3.81°, unload 3.34°, raise 2/2, rise f0/2 b0/2 c0/2, walk err 0.069 m/s, dir 28.3deg, startjit 2/2, tipped 0/2, rolltrap 1/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-2",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1-acq1",
+        "step": 11010048,
+        "metrics": [
+          "|    fps                  | 20022       |",
+          "|    total_timesteps      | 11010048    |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "-----------------------------------------"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-3",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-push1x-c1",
+        "step": 2097152,
+        "metrics": [
+          "|    fps                  | 15757       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "[video] logged reel (4,096 steps | walk:ok walk:ok walk:ok walk:ok)"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-4",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1",
+        "step": 2097152,
+        "metrics": [
+          "|    fps                  | 11017       |",
+          "|    total_timesteps      | 2097152     |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "-----------------------------------------"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-5",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-velscale1x-c1",
+        "step": null,
+        "metrics": [],
+        "done": false,
+        "error": false,
+        "last": "Logging to /workspace/prototype_sts3215/rl_move/sim/policies/tb/PPO_43"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-7",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-contactstiff1x-c1",
+        "step": 2097152,
+        "metrics": [
+          "|    fps                  | 13132        |",
+          "|    total_timesteps      | 2097152      |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "------------------------------------------"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-8",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-irrfwd-c1-acq1",
+        "step": 32505856,
+        "metrics": [
+          "|    fps                  | 18841       |",
+          "|    total_timesteps      | 32505856    |"
+        ],
+        "done": false,
+        "error": false,
+        "last": "-----------------------------------------"
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-10",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1",
+        "step": null,
+        "metrics": [],
+        "done": false,
+        "error": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-11",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imubias1x-c1",
+        "step": null,
+        "metrics": [],
+        "done": false,
+        "error": false
+      }
+    }
+  ],
+  "samples_note": "No failures seen in sampled trainer logs. Two null samples in0524 were incomplete tool yields; follow-up train10=34,603,008steps/18,884fps and train11=1,048,576/9,525fps. Latest capacity11occupied includes trainers finishing CPU artifacts, not11optimizing.",
+  "budget_interpretation_correction": {
+    "source_thread": "01a07062-750f-7d83-b7ae-eb6ec1cc0407",
+    "meaning": "Original8M/arm was initial allocation, notuserhardcap. Root initialstopwasmistaken. Bounded scientificcontinuations remainauthorized bykeeptraining.",
+    "automation_corrected": true,
+    "feedback": "fb_20260906T052207_efe25d",
+    "supersedes_cap_interpretation_in": "fb_20260906T045728_fbc71b",
+    "historical_killed_ledger_preserved": true
+  },
+  "turns_recovery": {
+    "run": "cw-robotwalk-turns-20260906-cont8m-resume1",
+    "parent": "cw-robotwalk-turns-20260906-cont8m",
+    "parent_wandb": "7wzm9ybl",
+    "checkpoint": "ppo_goal_cw_robotwalk_turns_20260906_cont8m_budgetstop_20260906T0458Z.zip",
+    "md5": "f591835ca44bf799c894cdf323d9006f",
+    "saved_steps": 4128768,
+    "planned_additional_total": 8000000,
+    "requested_remaining_steps": 3871232,
+    "seed": 0,
+    "policy_optimizer_present": true,
+    "initial_warm_log_std_reopening_removed": true,
+    "anneal": "retained value to-4 over remainder",
+    "contract": "Same fullgravity mesh100Hz, DR0,3072envs, safety0.375deg/tick,25degtilt. Originalabsolutegates restored; no relativePASS relaxation.",
+    "science": "Original24/24 gait/zero falls, matchedslipimprovement and rewardstillrising supportboundedcompletion, notexport.",
+    "launch_method": "Canonical backlogadd thenops.sh drain",
+    "first_drain_pid": 182051,
+    "first_drain_log": "/tmp/drain_052224.log",
+    "first_attempt": "Waitedlive launchlock heldby cmddrop165444, thennormalREFUSED becausetrain9filledbycmddrop; auto-requeued attempt1. No stale lockremoved/duplicate submitted.",
+    "latest": {
+      "backlog": [],
+      "recovery_rows": [
+        {
+          "run": "cw-robotwalk-turns-20260906-cont8m-resume1",
+          "status": "REFUSED",
+          "pod": "hexapod-mjx-train-9",
+          "created": "2026-09-06T05:24:48+00:00",
+          "wandb_id": null,
+          "steps": 3871232
+        }
+      ]
+    },
+    "status": "At05:32 recovery has a second live launcher PID210671, parent209546, targetingtrain1 and waiting on launch.lock. Backlogempty because this drain consumedtheitem; it is owned, notlost. Not yet independently verified training. Followthisexistinglauncher; donotsubmitduplicate.",
+    "coordinator_notified": true
+  },
+  "artifact_reliability": {
+    "completed_cycle": "20260906T045859_operator-kick",
+    "content_commit": "408d9bf9",
+    "docs_commit": "f805fc0a",
+    "reported_tests": 19,
+    "verified_improvements": "kernel flock, unreapedzombie restart test, retainedsnapshotfiles, double-save correction, manifestcollisionhandling",
+    "review_remaining": [
+      "JOB_DONE beforeasyncpublicationfinish makesrestartskipunpublishedjobs despite retainedinputs",
+      "gitmetadata notfrozenruntime; args.pkl recordedhash notchecked; liveworker/code/XML/configcanchange"
+    ],
+    "new_owner": "20260906T052717_operator-kick",
+    "started_confirmed": true,
+    "default_flag": false,
+    "scope": "Two targeted fixes with failure-injectiontests; noGPUcanaryneeded, no competingrefill."
+  },
+  "refill_owners": [
+    "20260906T052003",
+    "20260906T052520"
+  ],
+  "pending_infra": "train6 CPU affinity/scheduling unchanged; noresourcepurchase/provideruncordon",
+  "next_actions": [
+    "Priority: finishsamequeuedturnsrecovery ascapacityfrees; do not treat priorREFUSED aslost orstartduplicate. Confirmexistingqueue/drainownershipthenplaceandverifyactualtrainersteps. ReportactualW&B/run/podto mainthread01a07062-750f-7d83-b7ae-eb6ec1cc0407.",
+    "Do not reinstateinitial8Mpermanentcap; historicalstoprecord staysunchanged. Correctedautomationandfeedbacksupersede earlierinterpretation.",
+    "Followartifactowner20260906T052717_operator-kick withoutduplicatekicks; verifylogged_pending_flush/finish-state andruntimefingerprintchanges beforeclaimingresolved.",
+    "Continueusefulscratchandsteering; occupiedGPUmemorydoesnotproveoptimization. ClassifyCPUartifactretentionseparately.",
+    "RoutineMCPcallsstandingauthorized. User reiterated no permissionrequests; directcurl routeworkedthroughout. No securitysettingsdisabled ortask-levelapprovalsrequested."
+  ]
+}

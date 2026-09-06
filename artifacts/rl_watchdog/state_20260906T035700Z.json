@@ -1,0 +1,193 @@
+{
+  "checked_at_utc": "2026-09-06T04:00:32Z",
+  "automation": "keep-hexapod-rl-gpus-training",
+  "watcher": "UP",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 2,
+    "free_pods": [
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-10"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-5": [
+        "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1"
+      ],
+      "hexapod-mjx-train-11": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-widenfwd-c1-acq1"
+      ]
+    }
+  },
+  "progress_samples": {
+    "first_utc": "2026-09-06T03:58:10Z",
+    "second_utc": "2026-09-06T03:59:17Z",
+    "runs": [
+      {
+        "pod": 0,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1",
+        "before": null,
+        "after": 1048576,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 1,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m",
+        "before": 2097152,
+        "after": 3670016,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 2,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1",
+        "before": 2097152,
+        "after": 2097152,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 5,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1",
+        "before": 40370176,
+        "after": 40370176,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 7,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m",
+        "before": 4718592,
+        "after": 5767168,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 8,
+        "run": "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1",
+        "before": 29360128,
+        "after": 30408704,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 9,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1",
+        "before": 26214400,
+        "after": 27262976,
+        "done": false,
+        "error": false
+      },
+      {
+        "pod": 11,
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-widenfwd-c1-acq1",
+        "before": 27787264,
+        "after": 29360128,
+        "done": false,
+        "error": false
+      }
+    ]
+  },
+  "classifications_at_second_sample": {
+    "advancing_pods": [
+      0,
+      1,
+      7,
+      8,
+      9,
+      11
+    ],
+    "budget_reached_artifact_drain": [
+      2,
+      5
+    ],
+    "later_new_trainer_pod": 3
+  },
+  "backlog": {
+    "last_checked_utc": "2026-09-06T03:57:45Z",
+    "items": 0
+  },
+  "owners": {
+    "research_refill": {
+      "cycle": "20260906T034647_evalready",
+      "status": "advancing",
+      "launched_during_check": "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m",
+      "next_claimed": "cw-walkscratch-easy0905-headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m"
+    },
+    "artifact_handoff": {
+      "cycle": "20260906T040017_operator-kick",
+      "status": "started and reading implementation context",
+      "feedback": "fb_20260906T035950_cd260e",
+      "original_feedback": "fb_20260906T032210_129bed",
+      "complete": false
+    }
+  },
+  "next_actions": [
+    "Check advancing owners before any kick; do not duplicate current refill or artifact implementation.",
+    "Verify s3acq continuation placement and sample latest steps/capacity; two free pods at last census (4,10).",
+    "Track real GPU release implementation and opt-in validation; marker alone is not completion.",
+    "Keep Pending train6 CPU constraint distinct from available slots; do not uncordon provider nodes or evict healthy work.",
+    "Use direct authenticated MCP/curl access; no new approvals were requested during this check."
+  ]
+}

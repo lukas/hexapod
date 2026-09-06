@@ -1,0 +1,272 @@
+{
+  "checked_at_utc": "2026-09-06T04:10:40Z",
+  "capacity_sample_utc": "2026-09-06T04:06:40Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 1,
+    "free_pods": [
+      "hexapod-mjx-train-10"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-5": [
+        "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1"
+      ],
+      "hexapod-mjx-train-11": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-widenfwd-c1-acq1"
+      ]
+    }
+  },
+  "trainer_samples_utc": "2026-09-06T04:07:36Z",
+  "trainer_samples": [
+    {
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1",
+      "step": 2097152,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 1572864      |",
+        "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_widenirr_c1.zip (10,846 env-steps/s)",
+        "|    fps                  | 13311       |",
+        "|    total_timesteps      | 2097152     |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-1",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m",
+      "step": 12582912,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 12058624    |",
+        "[mjx-train] checkpoint @ 12,582,912 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1_acq1_cont40m.zip (15,746 env-steps/s)",
+        "|    fps                  | 16626       |",
+        "|    total_timesteps      | 12582912    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1",
+      "step": 2097152,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 1572864      |",
+        "[mjx-train] checkpoint @ 2,097,152 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_irrwiden_c1.zip (13,614 env-steps/s)",
+        "|    fps                  | 17156        |",
+        "|    total_timesteps      | 2097152      |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-3",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m",
+      "step": 11010048,
+      "done": false,
+      "last_metrics": [
+        "|    fps                  | 21888        |",
+        "|    total_timesteps      | 10485760     |",
+        "|    fps                  | 21951        |",
+        "|    total_timesteps      | 11010048     |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-4",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m",
+      "step": 5242880,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 4718592     |",
+        "[mjx-train] checkpoint @ 5,242,880 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_s3acq_abrupt_c1_acq1_cont40m.zip (15,885 env-steps/s)",
+        "|    fps                  | 17829        |",
+        "|    total_timesteps      | 5242880      |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-5",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1",
+      "step": 40370176,
+      "done": false,
+      "last_metrics": [
+        "|    fps                  | 21328      |",
+        "|    total_timesteps      | 39845888   |",
+        "|    fps                  | 21345        |",
+        "|    total_timesteps      | 40370176     |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-7",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m",
+      "step": 15728640,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 15204352     |",
+        "[mjx-train] checkpoint @ 15,728,640 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widen2c1_abrupt_c1_acq1_cont40m.zip (17,260 env-steps/s)",
+        "|    fps                  | 17995        |",
+        "|    total_timesteps      | 15728640     |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-8",
+      "run": "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1",
+      "step": 39845888,
+      "done": false,
+      "last_metrics": [
+        "|    total_timesteps      | 39321600     |",
+        "[mjx-train] checkpoint @ 39,845,888 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_widenirr_c3_acq1.zip (18,214 env-steps/s)",
+        "|    fps                  | 18481       |",
+        "|    total_timesteps      | 39845888    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-9",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1",
+      "step": 36175872,
+      "done": false,
+      "last_metrics": [
+        "|    fps                  | 18093       |",
+        "|    total_timesteps      | 35651584    |",
+        "|    fps                  | 18099       |",
+        "|    total_timesteps      | 36175872    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-11",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-widenfwd-c1-acq1",
+      "step": 38273024,
+      "done": false,
+      "last_metrics": [
+        "|    fps                  | 18484       |",
+        "|    total_timesteps      | 37748736    |",
+        "|    fps                  | 18494        |",
+        "|    total_timesteps      | 38273024     |"
+      ],
+      "error": false
+    }
+  ],
+  "backlog_count": 0,
+  "gpu_samples": {
+    "at_utc": "2026-09-06T04:08:00Z",
+    "train5": {
+      "utilization_percent": 0,
+      "memory_mib": 45815,
+      "stage": "40M budget reached; artifact drain"
+    },
+    "train10": {
+      "utilization_percent": 0,
+      "memory_mib": 0,
+      "stage": "no trainer"
+    }
+  },
+  "owners": {
+    "previous_refill": {
+      "cycle": "20260906T034647_evalready",
+      "status": "FINISHED success at 04:07:03",
+      "commit": "71115c69",
+      "launches": [
+        "widen2c1-abrupt-c1-acq1-cont40m",
+        "widenirrc1-abrupt-c1-acq1-cont40m",
+        "s1acq-abrupt-c1-acq1-cont40m",
+        "s3acq-abrupt-c1-acq1-cont40m"
+      ]
+    },
+    "current_refill": {
+      "cycle": "20260906T041001_operator-kick",
+      "status": "started; live launcher status and guardrails read",
+      "focus": "refill-maintenance-20260906T0409"
+    },
+    "artifact_handoff": {
+      "cycle": "20260906T040017_operator-kick",
+      "status": "implementation files added; 10 staged tests passed, neighbor suites/CLI smoke running; no GPU release canary evidence yet",
+      "ready_for_promotion": false
+    }
+  },
+  "feedback": [
+    "fb_20260906T040948_8c3fb9",
+    "fb_20260906T041039_cf9136"
+  ],
+  "review_findings": [
+    "Asynchronous W&B publication retired before run.finish: kill/retry can lose results.",
+    "PID lock empty-file race and PermissionError treated as stale can permit duplicate writers.",
+    "Mutable code/XML/servo config and snapshot files lack frozen verified provenance.",
+    "Completion marker hashes checkpoint before a second save.",
+    "Retry can overwrite existing pending manifest/snapshot names."
+  ],
+  "next_actions": [
+    "Track current refill cycle 041001 and artifact cycle 040017; do not kick duplicates while progressing.",
+    "Verify all review findings are fixed or disproved before claiming artifact handoff complete; require actual GPU release, eventual real eval/video results, and interruption recovery.",
+    "The review feedback is read at cycle start, so the already-running artifact owner may not yet have consumed it. Ensure review is reconciled before promotion; inspect latest implementation/canary evidence next visit.",
+    "Watcher has_refill_owner treats any operator-kick as a refill owner; an implementation-only cycle can suppress automatic partial refill. Explicit new refill owner now handles current issue; follow up on narrower ownership metadata as a separate tested watcher repair.",
+    "Recheck budget-complete trainers and ready capacity; 3 of 10 trainer processes were artifact-draining and train8/9/11 were nearing completion.",
+    "Continue using approved direct MCP/curl and kubectl forms; no new approvals were required."
+  ]
+}

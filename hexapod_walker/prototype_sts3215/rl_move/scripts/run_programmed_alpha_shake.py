@@ -27,7 +27,14 @@ CONDITIONS = (
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--robot-url", default="http://192.168.4.39:8080")
-    parser.add_argument("--vision-frame-url", required=True)
+    parser.add_argument(
+        "--vision-frame-url", default="",
+        help="optional HTTP fallback; empty uses native AVFoundation capture",
+    )
+    parser.add_argument(
+        "--camera-index", type=int, default=1,
+        help="native AVFoundation camera index when no HTTP URL is supplied",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--walk-s", type=float, default=8.0)
     parser.add_argument("--stationary-s", type=float, default=3.0)
@@ -42,7 +49,7 @@ def _parser() -> argparse.ArgumentParser:
 def _trial_args(args: argparse.Namespace) -> argparse.Namespace:
     return argparse.Namespace(
         robot_url=args.robot_url, vision_frame_url=args.vision_frame_url,
-        camera_index=1, temp_trip_c=55.0, speed_m_s=0.04,
+        camera_index=args.camera_index, temp_trip_c=55.0, speed_m_s=0.04,
         learned_rise=False, learned_rise_tilt_trip_deg=8.0,
         resume_walk_ready=False, acquire_current=False, tuck_recovery=False,
         keep_current_walk_ready=False,

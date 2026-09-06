@@ -2,6 +2,41 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:4x this cycle (assigned `medhead-abrupt-c1-acq1-cont40m`,
+  `medhead-widenfwd-c1-acq1`, `medhead-irrfwd-c1-acq1`): **3/3 PASS,
+  no refill needed on this thread this cycle.** (1) `medhead-abrupt-
+  c1-acq1-cont40m` **PASS/HOLDS** at a SECOND +40M helping (80M
+  cumulative 1g steps): `gait_valid` 24/24, actually better than its
+  own 40M parent's 23/24 (the parent's one transient leg-4 dip is
+  gone), 0 falls. This directly answers the open question from
+  `irracq1`'s FAIL: crossgrav entrenchment risk is recipe/source-
+  specific, NOT a universal slow clock every transferred champion is
+  on regardless of budget — medhead specifically is durable past 40M.
+  (2) `medhead-widenfwd-c1-acq1` **ACQ PASS**, 21/24 (mild dip from
+  its own 23/24 canary but no chronic same-leg pattern — 3 flagged
+  episodes each name a different leg), slip/progress mostly IMPROVED
+  vs canary. (3) `medhead-irrfwd-c1-acq1` **ACQ PASS**, 21/24, flat
+  (not entrenching) vs its own 22/24 canary — the same leg-2/5
+  softening reproduces at the identical episode indices rather than
+  worsening, a third distinct behavioral class alongside "holds clean"
+  (medhead-abrupt) and "entrenches" (irracq1/irr2acq1/s3acq). All 3
+  videos/contact sheets confirm real six-leg cycling. Read together:
+  medhead is now confirmed as the campaign's most robust lineage
+  across 5 independent 40M+ reads (abrupt, abrupt-cont40m, widenfwd,
+  irrfwd, and the earlier abrupt-c1-acq1 parent) with zero
+  entrenchment across any of them — a useful counterpoint anchor for
+  whatever the eventual role-aware structural repair mechanism gets
+  validated against. No new refill launched off this specific finding
+  (the natural next composite, medhead-widenirr, is already
+  in-flight per a concurrent cycle's `medhead-irrwiden-c1`); checked
+  free GPU capacity (3 slots: train-1/2/8) and confirmed no
+  under-served track needs it this cycle — see refill note below.
+  SKILLS.md updated (3 new rows). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-medhead-{abrupt-c1-acq1-
+  cont40m,widenfwd-c1-acq1,irrfwd-c1-acq1}`, matching
+  `logs/ckpt_eval/.../report.json` + contact sheets, W&B
+  `kfpu6ku1`/`thsloov1`/`naxsaxqj`, RL_LOG 09-06 04:38-04:39.
+
 - 09-06 ~04:3x this cycle (operator refill-maintenance kick, no assigned
   runs; focus note refill-maintenance-20260906T0409): **1-arm walkcurr
   refill + 1 assistfade continuation (`s2-cont8m`, see that track's

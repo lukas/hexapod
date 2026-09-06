@@ -52,19 +52,38 @@ from .artifact_handoff import (  # noqa: E402
 )
 
 
+def _pid_is_live_finalizer(pid: int) -> bool:
+    """True only for a RUNNING artifact_finalizer process. os.kill(pid,0)
+    alone is wrong on the train pods: pid 1 there does not reap orphans,
+    so a SIGKILLed finalizer lingers as a zombie that os.kill still
+    'sees' (observed on the 09-06 canary — a stale lock refused to be
+    stolen). A zombie has an empty /proc/<pid>/cmdline."""
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    try:
+        cmdline = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return True  # no /proc (non-Linux): fall back to os.kill's answer
+    return b"artifact_finalizer" in cmdline
+
+
 def _acquire_lock(handoff_dir: Path) -> bool:
-    """One finalizer per run. O_EXCL pidfile; a dead owner is stolen."""
+    """One finalizer per run. O_EXCL pidfile; a dead/zombie owner is
+    stolen."""
     pid_path = handoff_dir / FINALIZER_PID_NAME
     if pid_path.exists():
         try:
             old = int(pid_path.read_text().strip())
-            os.kill(old, 0)  # raises if not running
+        except ValueError:
+            old = -1
+        if old > 0 and _pid_is_live_finalizer(old):
             print(f"[finalizer] another instance (pid {old}) is live; "
                   "exiting")
             return False
-        except (ValueError, ProcessLookupError, PermissionError):
-            print("[finalizer] stealing stale lock")
-            pid_path.unlink(missing_ok=True)
+        print("[finalizer] stealing stale lock")
+        pid_path.unlink(missing_ok=True)
     fd = os.open(pid_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     with os.fdopen(fd, "w") as fh:
         fh.write(str(os.getpid()))

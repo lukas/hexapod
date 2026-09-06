@@ -115,18 +115,34 @@ changes/stops, yaw, then DR/pushes).
   rung 2 with SLOWER anchor fade, or rung 3 (tighter residual bounds)
   — explicitly NOT a reward-dose/architecture retry.
 
-## Rung-1 seed panel state (09-06 ~04:2x)
+## Rung-1 seed panel state (09-06 ~04:4x)
 - `s0` CANARY FAIL - MECHANISM (gait destroyed, 0/24 gv) — verdicted 03:40.
-- `s1` CANARY PASS mechanism (24/24 gv, 0 falls, det prog 0.22 < 0.35 bar)
-  → `s1-cont8m` in flight (ignition read at 10M total).
-- `s2` CANARY PASS mechanism this cycle (23/24 gv, 0 falls, six legs
+- `s1` CANARY PASS mechanism at 2M (24/24 gv, 0 falls, det prog 0.22 <
+  0.35 bar) but its `-s1-cont8m` (+8M, 10M total) ignition read is
+  **FAIL — gait destroyed by budget**: aggregate gait_valid 0/24 (all
+  4 modes), EVERY episode now terminates over_current (24/24, vs 0/24
+  at 2M), chronic 2-leg sacrifice (leg 4 airborne duty 0.02-0.08, leg
+  5 permanently planted duty 0.98-1.0, every episode), video confirms
+  near-static body + one leg dragging rigidly. Reward net-DECLINED
+  (quarters 30.9/-234.1/-124.5/2.0, trough -300 around 3-4M) with
+  terminations/over_current rising in lockstep (22-60 early ->
+  85-147 late) — not the 08-21 rising-reward continuation case.
+  Verdicted 04:38, W&B `nvpkarrc`.
+- `s2` CANARY PASS mechanism at 2M (23/24 gv, 0 falls, six legs
   cycling on det strip, det prog med 0.23 < 0.35 bar; one
   startjitter/sto over_current term reported-not-gated per the 09-04
-  uncalibrated-current ruling) → `s2-cont8m` LAUNCHED (VERIFIED
-  RUNNING train-8) as the n=2 continuation arm. Joint rung-1 read:
-  2/3 seeds mechanism-healthy-but-slow; s0's destruction is
-  seed-level, not recipe-level. Ignition itself still unmet at 2M on
-  every seed — the continuation pair decides budget-vs-ceiling.
+  uncalibrated-current ruling) → `s2-cont8m` RUNNING (train-8), the
+  deciding data point.
+- **Updated joint read: 2/3 seeds now show gait destruction (s0
+  immediately at 2M, s1 after +8M budget) — trending toward a
+  RECIPE-level ceiling/entrenchment, not seed noise, matching the
+  same budget-driven leg-sacrifice attractor CURRENT_TRUTHS already
+  logs across unrelated crossgrav/sde lineages this week.** Per the
+  doc's own rule, do not launch a 4th same-recipe seed while
+  `s2-cont8m` is still deciding; if `s2-cont8m` also destroys its
+  gait, rung 1 is CLOSED (recipe-unstable, >=2/3 destroy) and the
+  next cycle fires the doc's retreat (rung 2 slower anchor fade, or
+  rung 3 tighter residuals) without further same-recipe spend.
 
 ## Next
 1. Triage the rung-1 pair on the ignition gate (video first).

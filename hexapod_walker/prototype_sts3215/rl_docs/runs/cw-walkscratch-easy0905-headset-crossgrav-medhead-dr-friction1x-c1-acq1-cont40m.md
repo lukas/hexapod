@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T09:00:28+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-friction1x-c1-acq1
+
+**wandb_id**: uia0zijo
 
 **hypothesis**: Plain English: does the friction-restore axis (dr.friction_scale 0.6-1.4) hold up over a SECOND 40M block (80M cumulative), the same endurance question already asked of the crossgrav/halfgrav cont40m siblings? Source is clean at 40M (24/24 gait_valid, 0 falls, sac=[] every episode, monotonic reward).
 

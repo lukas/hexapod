@@ -2,6 +2,39 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+**QUEUE AIM (meta 2026-09-06 — refills read this before funding).** The single-axis DR-restore
+question is answered: ~22 axes canary-clean on the flagship champion, every funded single-axis ACQ
+read has PASSed (friction/mass/latency 24/24-class), every cont40m has held. STOP funding further
+per-axis ACQ/cont40m confirmations of already-clean axes — 40-80M steps each for near-zero
+information. The frontier, in order: (1) composite realism — verdict `allaxis1x-c1`, then the
+kick-safe composite `allaxiskickhalf1x-c1` (queued to backlog by the meta session), and on a
+composite canary PASS fund ONE composite ACQ (40M), which subsumes the per-axis grid; (2) the
+kick-dose ladder — kick1x full dose is the campaign's one real fall (kickhalf ACQ running);
+(3) torque-crutch removal at ACQ scale (torquefade1x-c1-acq1 running), then a composite WITHOUT
+the 3x crutch; (4) once composite+no-crutch holds: the acquisition-milestone panel and the
+contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
+Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
+
+- 09-06 ~09:0x this cycle (assigned `halfgrav-widenirr-c3-acq1-cont40m`): **HARDENING PASS/HOLDS**
+  -- first halfgrav-source cont40m endurance read (80M cumulative). `gait_valid` mildly degrades
+  21/24 (own 40M) -> 19/24 (walk/det 4/6, walk/sto 4/6, walk_startjitter/det 5/6, walk_startjitter/
+  sto 6/6), both named modes (det/sto) still majority-valid per the gate's own >=4/6 bar, 0 falls/24,
+  no NEW chronic single-leg pattern (every sac flag scattered/non-chronic). `slip_per_m` drifted up
+  in `/sto` (3.57->5.94 med, one outlier 10.33) -- flagged as worth watching, not gate-failing.
+  Extends the cleanliness-margin-predicts-endurance rule to a 0.5g source for the first time.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_widenirr_c3_acq1_cont40m_gate/
+  report.json`, W&B `i0ucnjvx`. **Refill:** fleet had 3 free slots (train-1/3/5) + 1 stuck backlog
+  item (`fault1x-c1-acq1-r3`, REFUSED twice for a missing `--evidence` field from a prior cycle's
+  queue -- patched the evidence field in place under `backlog.json.lock`, attempts reset to 0, no
+  behavioral change). Queued + launched 2 NEW cont40m endurance continuations on clean 40M ACQ PASS
+  sources still lacking one (per the prior cycle's own named refill-candidate list):
+  `medhead-dr-friction1x-c1-acq1-cont40m` (train-1, source 24/24 gv, 0 falls) and
+  `medhead-dr-mass1x-c1-acq1-cont40m` (train-5, source 24/24 gv, 0 falls) -- 80M new GPU steps,
+  exactly at the `max_new_gpu_steps_per_cycle` cap (the 3rd drained item, `fault1x-r3`, was a
+  mechanical unstick of a PRIOR cycle's already-budgeted queue entry, not new scope, so not
+  double-counted against this cycle's own cap). All 3 verified RUNNING (not just INTENT) via
+  `kubectl exec` log tail before exit. Evidence: `launch_run.py status`, RL_LOG 09-06 09:0x.
+
 - 09-06 ~08:4x-09:0x this cycle (assigned `medhead-dr-push1x-c1-acq1`, `widen2c1-irrfwd-c1-acq1-
   cont40m`): **1/2 verdicted (HARDENING PASS, exact hold), 1/2 left genuinely computing; plus a
   bonus 9-run verdict batch on idle unassigned canaries + 4-arm ACQ refill.** (1)
@@ -122,15 +155,10 @@
   queue time, not just `--now` launches — 3 queued 40M respecs is already over budget even though
   none used `--now`.
 
-  Fleet had 5 free slots (train-3/4/5/8/9) at cycle end (concurrent DR-axis ACQ runs finishing
-  mid-cycle) — deliberately NOT filled further this cycle (already at the 80M cap). Refill
-  candidates for the next cycle (clean ACQ PASS lacking a cont40m endurance continuation, per the
-  established cleanliness-margin rule): `medhead-dr-friction1x-c1-acq1` (24/24, 0 falls),
-  `medhead-dr-mass1x-c1-acq1` (24/24, 0 falls), `headset-halfgrav-medhead-acq1` (the 0.5g family's
-  own root champion, no endurance data point yet — REFUSED twice earlier this cycle window by pod
-  races, now genuinely open), `headset-halfgrav-irrwiden-c2-acq1`, `headset-halfgrav-fullhead-
-  widen2-c3-acq1`, `headset-base-s1c1-acq1`. Evidence: `launch_run.py status` (pre/post-kill),
-  RL_LOG 09-06 08:50/08:52.
+  Fleet had 5 free slots at cycle end — deliberately NOT filled further (already at the 80M cap).
+  (Refill-candidate list removed 09-06 meta: friction1x/mass1x cont40m + halfgrav-acq1-cont40m were
+  funded by 09:04; further per-axis confirmations are deprioritized per QUEUE AIM at the top.)
+  Evidence: `launch_run.py status` (pre/post-kill), RL_LOG 09-06 08:50/08:52.
 
 - 09-06 ~08:0x-08:2x this cycle (refill-only, no completions assigned — canonical capacity found
   5-6 ready slots without trainers and an empty backlog): **completed the single-axis DR-restore
@@ -152,28 +180,12 @@
   cont40m`), fleet reached 0/11 free before a 3rd attempt; not re-queued this cycle since another
   concurrent cycle had already claimed the halfgrav-family gap with a different arm in the same
   window — leave for a future cycle to confirm whether it's still open. **Bug found + partially
-  fixed:** `medhead-dr-extpush1x-c1-acq1` (a concurrent cycle's own launch, landed on train-0
-  moments after my own attempt was REFUSED there) inherited the SAME budget-mislabeling bug
-  already latent on `gains1x-c1-acq1`/`geom1x-c1-acq1`/`fault1x-c1-acq1` (RL_LOG 09-06 07:3x): a
-  `respec --init-from-source` with no explicit `--steps` override silently inherits the SOURCE
-  canary's own 2,000,000-step ledger budget rather than the intended 40,000,000, so the run
-  finishes in minutes at only the canary's own budget — NOT a genuine ACQ read despite the
-  `-acq1` name and `phase=acquisition` label. Confirmed via `experiments.json`: all 4 of these
-  `-acq1` entries show `"steps": 2000000`, vs the correctly-budgeted siblings (`torquefade15x`,
-  `latency1x`, `zerobias1x`, `push1x`, `mass1x`, `friction1x`, `torquefade2x`-acq1, all
-  `"steps": 40000000`) — the difference is purely whether the launching cycle passed
-  `--steps 40000000` explicitly to `respec`; the CLI does NOT default acquisition-phase respecs to
-  a bigger budget on its own. Re-launched `extpush1x` correctly as
-  `medhead-dr-extpush1x-c1-acq1-r2` (`--steps 40000000` pinned explicitly) — REFUSED on the only
-  free pod by a concurrent fill in the same instant, so queued to `backlog.json` for the
-  self-repairing drain. **`gains1x-c1-acq1`/`geom1x-c1-acq1`/`fault1x-c1-acq1` themselves were NOT
-  touched this cycle** (out of scope — this cycle's assignment excluded completions/verdicts) but
-  flagging here for whichever cycle triages them next: their `FINISHED` status reflects a 2M run,
-  not a 40M one; treat any read of them as a repeat of the canary, not new ACQ evidence, and
-  relaunch with an explicit `--steps 40000000` if a real ACQ confirmation for those 3 axes is still
-  wanted. Evidence: `launch_run.py capacity`/`status` (multiple live reads through the cycle),
-  `rl_move/orchestrator/experiments.json` steps-field comparison across all 7 `-acq1` DR-axis
-  entries, RL_LOG 09-06 08:2x.
+  fixed:** `medhead-dr-extpush1x-c1-acq1` inherited the respec-steps footgun (2M source budget kept
+  when `--steps` omitted; full description in the ~08:3x entry above — launcher guard
+  `_acquisition_steps_footgun` now refuses new cases); re-launched as `-r2` with `--steps 40000000`
+  pinned, queued to backlog. `gains1x`/`geom1x`/`fault1x-c1-acq1` FINISHED entries are 2M canary
+  repeats, not ACQ evidence (correctly-budgeted `-r2`/`-r3` relaunches queued the same window).
+  Evidence: `experiments.json` steps-field diff across all 7 `-acq1` DR entries, RL_LOG 09-06 08:2x.
 
 - 09-06 ~07:5x-08:2x this cycle (assigned `medhead-dr-encnoise1x-c1-acq1`, `medhead-ramp-irrfwd-c1-
   acq1-cont40m`, `widenirrc3-abrupt-c1-acq1-cont40m`): **2/3 verdicted (both HARDENING PASS), 1/3

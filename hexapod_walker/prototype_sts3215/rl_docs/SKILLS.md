@@ -1127,6 +1127,12 @@ promotion never deletes a skill checkpoint (append-only).
 |---|---|---|---|
 | **+40M more steps (80M cumulative) on the torque-fade-2x axis (dr.torque_scale 3.0->2.0) essentially reproduces its own PERFECT 40M parent: gait_valid 23/24 (6/6 det, 6/6 sto, 5/6 startjitter/det, 6/6 startjitter/sto) vs parent's 24/24, 0 falls/terms in all 24 episodes, one non-chronic singleton flag (leg5, walk_startjitter/det ep1 only). Reward still rising every quarter (1132->1965->2068->2156).** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade2x_c1_acq1_cont40m.zip`, HARDENING PASS/HOLDS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade2x_c1_acq1_cont40m_gate/report.json` (23/24, 0 terms) vs `..._torquefade2x_c1_acq1_gate/report.json` (24/24, 40M parent), W&B `dpdvz0ev`. | Own (fixed, no-DR) easy-sim physics, crossgrav-medhead champion, 80M cumulative. Another clean-source cont40m confirmation, joining medhead-abrupt-cont40m/friction/mass. |
 
+### walkcurr torquefade15x-c1-acq1-cont40m: torque-fade-1.5x axis durable at 80M cumulative (09-06)
+
+| Finding | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **+40M more steps (80M cumulative) on the torque-fade-1.5x axis (dr.torque_scale 3.0->1.5, the harder no-crutch dose) reproduces its own PERFECT 40M parent exactly: gait_valid 24/24 across all 4 panels, 0 falls/terms in all 24 episodes, sac=[] every episode -- no new chronic single-leg pattern. Slip/m stays in-band and close to the parent (walk/det 4.21 vs 4.23, walk/sto 5.04 vs 5.25; startjitter panels a modest rise to 5.83/6.19 from 5.06/5.69, not disqualifying). Reward still rising every quarter (1240->2143->2246->2328).** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade15x_c1_acq1_cont40m.zip`, HARDENING PASS/HOLDS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade15x_c1_acq1_cont40m_gate/report.json` (24/24, 0 terms) vs `..._torquefade15x_c1_acq1_gate/report.json` (24/24, 40M parent), W&B `xw4dkuk9`. | Own (fixed, no-DR) easy-sim physics, crossgrav-medhead champion, 80M cumulative. Closes the torque-fade dose axis's endurance question for good: 1x/1.5x/2x all now clean at ACQ+cont40m scale; per QUEUE AIM no further per-axis cont40m spend follows. |
+
 ### walkcurr medhead-dr-imumount1x-c1: last untested DR axis closes the per-axis field sweep (09-06)
 
 | Finding | Checkpoint | Evidence | Envelope / limits |

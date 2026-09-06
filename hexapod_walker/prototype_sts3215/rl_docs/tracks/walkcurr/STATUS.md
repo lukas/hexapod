@@ -2,6 +2,42 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~11:0x this cycle (refill-only, no completions assigned; canonical
+  capacity found 9 free slots + empty backlog): **found+verdicted 2 more
+  orphans (both CANARY PASS), closing QUEUE AIM items (1) and (3) for real,
+  and launched BOTH licensed composite-ACQ continuations.** (1)
+  `allaxis-nokick-c1` (kick fully OFF, crutch ON) had just been CANARY
+  PASS'd by a concurrent cycle moments before this read (19/24 gv, 0 falls)
+  -- confirms kick was the sole broken composite ingredient; no re-verdict
+  needed, read directly. (2) Found+verdicted `allaxiskickhalf-nocrutch1x-c1`
+  (kick-safe half dose + crutch fully removed) **CANARY PASS**: 21/24 gv, 0
+  falls/24, no chronic single-leg sacrifice (3 flagged episodes hit 3
+  different legs) -- COUNTER to the gate's own stated FAIL hypothesis ("the
+  crutch is load-bearing for composite tolerance"): de-crutching does NOT
+  destabilize the composite, it just runs much slippier (7-17/m vs 3-6/m
+  crutch-ON). This closes QUEUE AIM item (3)'s remaining half. (3)
+  Found+verdicted `imumount1x-c1` **CANARY PASS** (24/24 gv, 0 falls) -- the
+  last untested `RandRanges` field per the 09-06 ~10:1x field sweep;
+  per-axis DR-restore is now genuinely exhaustive with zero remaining
+  untested field. **Refill: launched BOTH composite ACQ continuations the
+  two canary PASSes above license** (per QUEUE AIM's own "on a composite
+  canary PASS fund ONE composite ACQ" rule, applied once per distinct recipe
+  since these are two independent questions, not duplicates):
+  `allaxis-nokick-c1-acq1` (train-2, kick-fully-off/crutch-ON, VERIFIED
+  RUNNING) and `allaxiskickhalf-nocrutch1x-c1-acq1` (train-3,
+  kick-safe/crutch-OFF, VERIFIED RUNNING) -- 80M new GPU steps total (cycle
+  cap), 2 launches (within the 4/cycle cap). SKILLS.md updated (2 new
+  entries). Left the remaining free slots idle at read time: the kick-dose
+  ladder ACQ (`kickhalf1x-c1-acq1`) and the `assistfade` rung-2 anchor-fade
+  canary pair (`cw-assistfade-rung2-anchorfade-s0/-s1`, a concurrent cycle's
+  own launch, already found in-flight when this cycle checked) were the
+  only other live frontier items; no further genuinely new axis/composite/
+  cont40m candidate was identified this cycle beyond the two funded above.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+  medhead_dr_{allaxis_nokick_c1,allaxiskickhalf_nocrutch1x_c1,
+  imumount1x_c1}_gate/report.json`, W&B `1eh4y2ou`/`i5bvlxvc`/`nz5fs9oo`,
+  `launch_run.py status`, RL_LOG 09-06 11:0x.
+
 - 09-06 ~10:5x-11:0x this cycle (assigned `medhead-dr-mass1x-c1-acq1-cont40m`; found+verdicted 1
   orphan; attempted 1 refill that turned out already in flight): **1/1 assigned run ACQ PASS
   (HARDENING); 1 found orphan CANARY FAIL closing the kick-dose ladder tighter; 0 net new launches
@@ -200,20 +236,27 @@
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_gains1x_c1_acq1_r2_gate/
   report.json`, `launch_run.py status`, RL_LOG 09-06 10:0x.
 
-**QUEUE AIM (meta 2026-09-06 — refills read this before funding).** The single-axis DR-restore
-question is answered: ~22 axes canary-clean on the flagship champion, every funded single-axis ACQ
-read has PASSed (friction/mass/latency 24/24-class), every cont40m has held. STOP funding further
-per-axis ACQ/cont40m confirmations of already-clean axes — 40-80M steps each for near-zero
-information. The frontier, in order: (1) composite realism — verdict `allaxis1x-c1` (FAIL), then
-the kick-safe composite `allaxiskickhalf1x-c1-r2` (**FAIL, verdicted 09-06 ~10:3x: kick-safe still
-falls 7/24, kick dose was never the sole broken ingredient at either dose — this item does NOT
-reach a composite-ACQ-funding PASS on either tried recipe; the live bisections
-`allaxiskickhalf-nocrutch1x-c1`/`allaxis-nokick-c1` are the next read, not a fresh composite
-attempt**); (2) the kick-dose ladder — kick1x full dose is the campaign's one real fall (kickhalf
-ACQ gate computing); (3) torque-crutch removal at ACQ scale (torquefade1x-c1-acq1 ACQ PASS,
-CLOSED 09-06 ~10:1x), then a composite WITHOUT the 3x crutch (`allaxiskickhalf-nocrutch1x-c1`,
-computing); (4) once composite+no-crutch holds: the acquisition-milestone panel and the
-contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
+**QUEUE AIM (meta 2026-09-06 — refills read this before funding; UPDATED ~11:0x).** The
+single-axis DR-restore question is answered: EVERY `RandRanges` field now has a clean canary
+(`imumount1x-c1`/`legmass1x-c1` closed the last 2, ~11:0x), every funded single-axis ACQ read has
+PASSed, every cont40m has held. STOP funding further per-axis ACQ/cont40m confirmations of
+already-clean axes. The frontier, in order: (1) composite realism — **RESOLVED ~11:0x: the plain
+composite (`allaxis1x-c1`) and the kick-SAFE-dose composite (`allaxiskickhalf1x-c1-r2`) both FAIL
+(5/24, 7/24 falls), but BOTH bisections now PASS: `allaxis-nokick-c1` (kick fully off, crutch ON,
+19/24 gv 0 falls) and `allaxiskickhalf-nocrutch1x-c1` (kick-safe dose, crutch OFF, 21/24 gv 0
+falls, COUNTER to this item's own crutch-load-bearing hypothesis) — kick (at any nonzero dose
+tried) is the sole broken ingredient in EITHER crutch state. Both composite ACQs are now LAUNCHED
+(`allaxis-nokick-c1-acq1` train-2, `allaxiskickhalf-nocrutch1x-c1-acq1` train-3, both VERIFIED
+RUNNING ~11:0x) — do not fund a 3rd composite arm off this exact bisection pair; wait for these
+two ACQ reads.**; (2) the kick-dose ladder — kick1x (0.3) and kick0225x (0.225) both FAIL, kickhalf
+(0.15) is the confirmed-safe ceiling; kickhalf ACQ (`kickhalf1x-c1-acq1`) still computing, read it
+before any further kick-dose spend; (3) torque-crutch removal at ACQ scale — **CLOSED ~11:0x on
+every tested combination**: solo (`torquefade1x-c1-acq1` ACQ PASS, 09-06 ~10:1x) and composited
+with kick-safe (`allaxiskickhalf-nocrutch1x-c1` CANARY PASS, ~11:0x, its own ACQ now running) —
+the crutch is NOT load-bearing for composite tolerance, only for slip magnitude; (4) once the two
+composite ACQs above land: the acquisition-milestone panel and the contextual DONE-gate rungs
+(heading changes, slip pressure) on the full-realism champion — the next genuinely open item once
+either/both composite ACQs PASS.
 Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
 
 - 09-06 ~10:2x this cycle (refill-only, no completions assigned; canonical capacity found 5 free

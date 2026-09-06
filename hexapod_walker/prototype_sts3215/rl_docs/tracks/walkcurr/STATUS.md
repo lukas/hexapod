@@ -2,6 +2,29 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:0x-07:1x this cycle (assigned `medhead-dr-gyrobias1x-c1`, `medhead-dr-imupos1x-c1`,
+  `medhead-dr-torquefade15x-c1`): **1/3 read (torquefade15x-c1 CANARY PASS, closes the torque-fade
+  dose axis at every point tested), 2/3 still genuinely computing on their pods.** (1) `medhead-dr-
+  torquefade15x-c1` **CANARY PASS**: the halfway torque-assist dose (`dr.torque_scale` 3.0->1.5,
+  midpoint between the already-clean 1x and 2x points) gives a PERFECT 24/24 gait_valid, 0 falls,
+  `sac=[]` every one of 24 episodes, slip/m 3.8-6.2, video-confirmed (`walk_det_0.png`) clean six-leg
+  tripod cycling with no drag/skate/flag leg. Closes the torque-fade dose axis for good: 1x/1.5x/2x/
+  3x(idealized default) are ALL now clean -- this champion never needed the assist crutch at any
+  dose. (2) `medhead-dr-gyrobias1x-c1` and `medhead-dr-imupos1x-c1`: both confirmed STILL genuinely
+  computing (video-every=1 over the full 24-episode 4-panel harness on pods also hosting a live
+  trainer, running 26-30min at read time — `kubectl exec ps` shows the eval_checkpoint process
+  alive, one already rendering its final video via ffmpeg) — backgrounded `ops.sh pollreap` for
+  both (180s interval, 60min cap), left UNVERDICTED for the next reader; do not re-launch or
+  re-poll by hand. SKILLS.md updated (1 new row: torquefade15x-c1 PASS). **Refill:** fleet was
+  fully saturated (0/11 reachable slots free, train-6 stuck Pending on a CoreWeave scheduling
+  issue) at read time, so queued (not launched) `medhead-dr-torquefade15x-c1-acq1` to
+  `backlog.json` (`respec --init-from-source`, no `--now`) — the first ACQ-scale durability check
+  of the torque-fade axis's specific midpoint dose, joining the sibling torquefade2x/friction1x/
+  mass1x/encnoise1x individual-axis ACQ batch already in flight; drain will place once a slot
+  frees. Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  torquefade15x-c1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  torquefade15x_c1_gate/report.json`, W&B `vw3jf1ci`, RL_LOG 09-06 07:09.
+
 - 09-06 ~07:0x-07:1x this cycle (assigned `widen2c1-irrfwd-c1-acq1`): **ACQ PASS — a websocket-masked gate eval recovered, and the 3rd base-champion composition arm holds/improves at 40M.** The 2M canary (21/24, 1 fall, notably the family's first fall and its slowest/noisiest source) holds gait_valid EXACTLY at 21/24 at 40M and improves on every other axis: 0 falls (was 1, the prior fall resolved into a non-fatal flag at a different episode), slip/m median down in all 4 modes, progress_ratio median up in all 4 modes, and the 2 surviving non-chronic leg flags reproduce at the IDENTICAL episode+leg as the canary (no new/spreading pathology). Video-confirmed clean six-leg cycling in a clean episode and both flagged ones. **Infra note:** the gate eval had actually finished on-pod at 06:35 but the sync raced a websocket disconnect (`SYNCED rc=1`), which would have looked like a missing/failed eval — pulled by hand via `kubectl cp` rather than re-running (same transient this campaign has repeatedly self-diagnosed on `s1acq-{irrfwd,widenfwd}` and others). SKILLS.md updated (1 new row). **Refill:** fleet was fully saturated (0/11 free slots) at read time, so queued (not launched) the standing cleanliness-margin cont40m continuation to `backlog.json` (`respec --init-from-source`, no `--now`) for the drain to place once a slot frees — this arm had no endurance read yet, matching the medhead/widenirr/s1acq precedent. Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-widen2c1-irrfwd-c1-acq1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_widen2c1_irrfwd_c1_acq1_gate/report.json` vs the parent's own `..._irrfwd_c1_gate/report.json`, W&B `qiuquuie`, RL_LOG 09-06 07:1x.
 
 - 09-06 ~07:0x this cycle (assigned: reap the pre-registered pending eval for

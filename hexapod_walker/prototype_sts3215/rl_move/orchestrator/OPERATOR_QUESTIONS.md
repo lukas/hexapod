@@ -5102,3 +5102,35 @@ None` / `args.defer_final_artifacts` branches; non-deferred trainer
 path saves/behaves identically. Next live use of the flag (any future
 opt-in canary) exercises the new scheme end-to-end; no new training
 canary was launched per the focus note's preference.
+
+## q_20260906T0340Z — ADOPTION COMPLETE 09-06 ~07:0x (operator focus note fb_20260906T064159_b11605)
+Live verification landed (cw-walkscratch-easy0905-medhead-widenfwd-c2-
+acq1 / inb67bzx: 40,370,176 steps, GPU 0MiB at handoff, GPU reused by
+a 2M run while the CPU finalizer ran, 390-file fingerprint verified,
+finalized.json 3 done/0 failed after confirmed run.finish, ckpt md5
+b4887dd2c7cacb1428e45770f727b8dc), so the "future cycle may flip it
+on" item above is now executed as canonical launcher policy:
+- `launch_run.py` `_with_defer_final_artifacts` injects
+  `--defer-final-artifacts` into every compatible launch (GPU MJX
+  trainer, W&B enabled). Smokes (WANDB_MODE=disabled), dynrep and CPU
+  paths are bit-exact untouched.
+- Rollback/opt-out: fleet-wide `gpu.defer_final_artifacts: false` in
+  guardrails.yaml (key ships true; missing key = ON); per-run
+  launcher sentinel `--no-defer-final-artifacts` (stripped on every
+  path, trainer never sees it — usable from respec --arg and backlog
+  extra_args).
+- Provenance: the decision is recorded per-launch in the ledger at
+  checks.defer_final_artifacts (injected/explicit/opt-out/off-smoke/
+  off-guardrails/not-applicable) and the injected flag appears in the
+  entry's extra_args + command.
+- Tests: rl_move/tests/test_launch_run_defer_final_artifacts.py (11)
+  + 78 launcher/defer regression tests green.
+- Remaining limits: (a) verdicts on deferred runs still wait for
+  phase=evaluated (`ops.sh handoff <run>`) or the watcher's
+  independent prestage evals — unchanged; (b) recover-pop /
+  population launches go through the same trainer tail and inherit
+  the flag; if a future population run shows a handoff interaction,
+  opt out per-run with the sentinel and report here; (c) crash/replay
+  remains covered by the 28 offline tests, not a live forced
+  interruption (operator: do not force-interrupt science runs for
+  this).

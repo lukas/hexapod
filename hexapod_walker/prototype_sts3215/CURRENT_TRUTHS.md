@@ -652,6 +652,18 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   report.json`, W&B `xyz4gzvh`.
 
 ## Known Tooling Gotchas
+- Deferred final artifacts are the LAUNCHER DEFAULT since 09-06 for
+  compatible runs (GPU MJX trainer + W&B; never smokes/dynrep/CPU):
+  `launch_run.py` injects `--defer-final-artifacts`, the GPU trainer
+  exits minutes early and a detached CPU finalizer delivers eval/video
+  to the same W&B run (live-verified end-to-end on
+  `medhead-widenfwd-c2-acq1`/inb67bzx, 3/3 artifacts, GPU reused
+  mid-finalize). Consequences: a deferred run's trainer process
+  disappearing does NOT mean artifacts are done — verdict on registry
+  phase=evaluated (`ops.sh handoff <run>`) or the watcher's prestage
+  evals. Ledger provenance: `checks.defer_final_artifacts`. Rollback:
+  `gpu.defer_final_artifacts: false` in guardrails.yaml; per-run
+  opt-out sentinel `--no-defer-final-artifacts` (launcher strips it).
 - A run's gate podeval can go silently ORPHANED (09-05,
   `headset-base-s0c1-acq1`): the prestage `pullckpt` step can finish
   while `eval_checkpoint` is still computing on the run's own pod; if

@@ -95,6 +95,28 @@ gate_verdict.json`, `logs/ckpt_eval/cw_robotwalk_turns_20260906_yaw/`,
 `logs/ckpt_eval/cw_walkteach_scripted_allhead_acq12m_yaw_freshcmp/`,
 W&B `ms5xltim`.
 
+**09-06 ~06:5x verdict: `cw-robotwalk-turns-20260906-cont8m-resume1` ACQ FAIL -
+MISALIGNMENT (closes the deferred final assessment).** Recovery run
+completed the SAME planned +8M (16M cumulative). Walk retention
+perfect: DR-0 gate gait_valid 24/24 all 4 modes, 0 falls, 0
+sacrificed legs. Fresh matched eval_cmd_suite/eval_yaw/joygate on
+identical cells to the 8M read: tip-turn wz_err_med improved modestly
+(0.108/0.100 -> 0.078/0.085, still misses the absolute <0.076 bar);
+yaw aggregate turn_wz_err_med ~flat (0.1489->0.1454); arc-max
+tracking unchanged. **The decisive number went the WRONG way**:
+joygate stress_mix `course_err_1s_med` 8.55deg (8M) -> 10.2deg (16M)
+— worse than both the absolute 5.17deg bar AND this run's own prior
+baseline, while reward kept rising every quarter (154.6->1232.8, no
+plateau). Per this run's own pre-registered fallback ("flat-or-worse
+on course_err with reward still rising = misalignment, audit the yaw
+reward terms next"): textbook 08-21 misalignment, not a budget
+ceiling. No 3rd same-recipe continuation funded. Next: audit
+`k_walk_course_income`/window/deadband/sigma reward terms for why
+they don't price course-holding the way `course_err_1s_med` measures
+it, before any further turn-income dose. No export (gate not met).
+Evidence: `logs/ckpt_eval/cw_robotwalk_turns_20260906_cont8m_resume1_
+{gate,yaw,joygate_freshcmp}/`, W&B `2p93pife`, RL_LOG 09-06 06:56.
+
 Baseline = Candidate B `cw-walkteach-scripted-allhead-acq12m`
 (controller-side training zip sha256 `30ed068e4356d5f42caba2a427f2845a
 230d7289a06467684731ec94a1f6f250`; operator-deployed actor sha256

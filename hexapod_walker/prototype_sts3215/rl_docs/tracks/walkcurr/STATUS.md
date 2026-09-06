@@ -2,6 +2,53 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~01:3x this cycle (assigned `headset-crossgrav-widen2c1-abrupt-c1`):
+  1 verdict, **CANARY PASS - INFORMATIVE-POSITIVE**, 1-arm refill.
+  This 2M discovery canary's own prestage gate eval was still
+  computing when the watcher's 25-min timeout admitted the cycle
+  (the "holding triage" list is a fallback timeout, not proof the
+  eval finished — `ops.sh waitlog` on the run's own eval log caught
+  the real completion ~2 min into the cycle); found+read the real
+  gate report before verdicting rather than trusting the timeout.
+  Result: warm-starting the leg-healthy 0.5g `headset-halfgrav-
+  fullhead-widen2-c1-acq1` champion (full 8-way heading incl.
+  reversals — materially different from the plain fixed-5-heading
+  `medhead` recipe already PASSED twice) and jumping it abruptly to
+  full 1g gravity keeps the six-leg gait: `gait_valid` 19/24
+  (`walk/det` 5/6, `walk/sto` 6/6, `walk_startjitter/det` 3/6,
+  `walk_startjitter/sto` 5/6 — mild leg-4 softening only under added
+  start-pose jitter, never zero-touch), 0 falls/terminations in all
+  24 episodes, closely matching `crossgrav-medhead-abrupt-c1`'s own
+  20/24 read at the identical budget/template. Video (contact sheet,
+  `walk_startjitter_sto_4.mp4`) shows genuine six-leg cycling, body
+  translating. A few reversal-heavy episodes spike slip/m (up to
+  207/m) — the already-documented low-net-progress-denominator
+  blowup on this widen2/reversal-heading family, not a new
+  pathology. This is the 2nd champion (after medhead abrupt+ramp) to
+  independently confirm cross-gravity-transfer generalizes — the
+  other 3 pre-registered generality-check arms (`irracq1-abrupt-c1`,
+  `widenirrc1-abrupt-c1`, `irrwidenc1-abrupt-c1`) and the negative
+  control (`widen2c2b-abrupt-c1`) are owned by concurrent cycles
+  (each already spawned/spawning per `orchestrator.log`); do not
+  re-launch any of them. **Refill:** per the gate's own PASS branch
+  and the medhead template, launched a matched 40M ACQ continuation,
+  `headset-crossgrav-widen2c1-abrupt-c1-acq1` (own-checkpoint,
+  `--evidence` citing this canary + the concurrently-running
+  `medhead-abrupt-c1-acq1` as the comparable full-budget precedent —
+  respec's acquisition-phase gate REFUSED without it first try, a
+  worth-noting gotcha for any acquisition respec: `--evidence` is
+  mandatory even when cloning an already-precedented template).
+  VERIFIED RUNNING (train-7). Attempted a 2nd refill (crossgrav
+  canary off the widen-first `widenirr-c1-acq1` composite champion,
+  believing it untested) — REFUSED by the launcher, name collision:
+  it was already launched as `headset-crossgrav-widenirrc1-abrupt-c1`
+  by an earlier cycle (01:1x note below); no duplicate spend lost,
+  logged here so the next cycle doesn't re-attempt the same mistaken
+  gap-check. SKILLS.md updated (1 new row). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+  widen2c1_abrupt_c1_gate/report.json`, W&B `uj013rxq`, RL_LOG.
+
 - 09-06 ~01:1x this cycle (assigned `headset-halfgrav-widenirr-c1-acq1`):
   1 verdict, **ACQ PASS**, 1-arm refill. The widen-first widen2+irr
   composition holds at full 40M budget on seed 1 and BEATS the plain

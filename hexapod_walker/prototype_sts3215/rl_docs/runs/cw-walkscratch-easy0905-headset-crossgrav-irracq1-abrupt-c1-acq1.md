@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T01:41:03+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1
+
+**wandb_id**: 4n0z9k3b
 
 **hypothesis**: Plain English: this cycle's crossgrav-irracq1 discovery canary already showed the halfgrav-irr-acq1 champion (irregular command-timing-jitter recipe) survives an abrupt jump to full 1g without the base(1g)-family chronic leg-1/4 sacrifice fingerprint (gait_valid 23/24, 0 falls). Does that hold at full 40M acquisition budget, matching the medhead/widen2 crossgrav acquisitions that already passed? Own-checkpoint continuation, ease.gravity_scale stays at 1.0 (already set by the source run).
 

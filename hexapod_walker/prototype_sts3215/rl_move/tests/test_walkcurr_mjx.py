@@ -130,6 +130,63 @@ def test_walk_pure_satisfies_walkcurr_admission():
     env.close()
 
 
+def test_default_goal_mix_is_not_pure_walk_without_walk_pure_or_isolation():
+    # Regression guard for the 2026-09-06 assistfade rung-2 dig-in
+    # (`cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m`): a plain
+    # SimHexapodJointWalkEnv built with NO goal.walk_pure and NO
+    # post-construction set_goal_mix call (exactly what
+    # train_ppo_mjx._BcAnchorAnnealGateCb._build() did before the fix)
+    # draws episodes from config.yaml's default multi-mode mixture
+    # (p_hold/p_lean/p_track/p_unload/p_raise/p_rise all nonzero
+    # PLUS this task's own p_walk=0.70 default), NOT a pure walk diet —
+    # some reset draws have no `.vx` trajectory at all. If this test
+    # ever starts failing (every draw becomes "walk"), the underlying
+    # config/task defaults changed and the _build() isolation fix
+    # below may no longer be load-bearing; re-check before removing it.
+    env = _env()
+    non_walk_draws = 0
+    for seed in range(30):
+        env.reset(seed=seed)
+        if getattr(env._goal_traj, "vx", None) is None:
+            non_walk_draws += 1
+    env.close()
+    assert non_walk_draws > 0, (
+        "expected the untouched default goal mix to draw at least one "
+        "non-walk episode across 30 resets (p_walk ~ 0.70/1.80 ~ 39%); "
+        "got 0 -- either the defaults changed or reset() stopped "
+        "sampling _goal_traj the same way")
+
+
+def test_full_pure_walk_isolation_guarantees_a_walk_trajectory_every_reset():
+    # The actual fix (train_ppo_mjx._BcAnchorAnnealGateCb._build(),
+    # 2026-09-06): zero EVERY p_<mode> the goal generator exposes, then
+    # force p_walk=1.0, via the VecEnv-safe `set_goal_mix` hook (the
+    # SAME isolation eval_checkpoint.py's per-mode forcing loop and
+    # goal.walk_pure both already use) -- reproduced here directly on
+    # the generator since this is a single in-process CPU env, not a
+    # sharded VecEnv. Root cause of the bug this guards: the
+    # ignition-gate assay's `cmd_prog_frac` reads `nan` whenever
+    # `_goal_traj` has no `.vx` (a non-walk draw), and
+    # `aggregate_walk_probe`'s plain-mean poisons the WHOLE round to
+    # nan from a single such episode (see
+    # test_aggregate_nan_rules_match_eval_task above) -- so the
+    # ignition gate could never latch even with 0 falls until every
+    # assay episode is guaranteed a walk trajectory.
+    from rl_move.sim.eval_checkpoint import ALL_MODES
+    env = _env()
+    gen = env._goal_gen
+    for m in ALL_MODES:
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    gen.p_walk = 1.0
+    for seed in range(30):
+        env.reset(seed=seed)
+        assert getattr(env._goal_traj, "vx", None) is not None, (
+            f"seed {seed}: pure-walk isolation still drew a non-walk "
+            f"goal (mode={getattr(env._goal_traj, 'mode', None)!r})")
+    env.close()
+
+
 # -- 3. in-env walk probe ---------------------------------------------
 
 

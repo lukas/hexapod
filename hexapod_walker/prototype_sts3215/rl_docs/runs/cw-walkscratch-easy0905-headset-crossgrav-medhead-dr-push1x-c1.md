@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:15:40+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: zuuyfqmt
 
 **hypothesis**: Turn on the project's mid-walk external base-torque push perturbation, currently OFF (dr.walk_push_prob=0.0, i.e. zero push events in every episode all campaign despite the walkcurr goal ladder explicitly naming 'DR/push hardening' as the rung after direction changes). Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive a real chance (30%/episode, nominal dose 2.0-3.0 N*m peak base torque pulse over 0.8-1.5s) of a mid-walk shove without retraining collapse? Isolated single-axis diagnostic, same template as the sibling latency/deadband/torque/noise/mass/friction DR-restoration arms; the actual 'push' half of the ladder's named next rung.
 

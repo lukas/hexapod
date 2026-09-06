@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T05:17:00+00:00
+**created**: 2026-09-06T05:19:28+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-4
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/INFORMATIVE-POSITIVE if aggregate gait_valid stays majority (>=18/24) across the full 4-panel harness with no NEW chronic single-leg sacrifice and 0 falls -- shows the gait tolerates per-servo gain heterogeneity. FAIL/INFORMATIVE-NEGATIVE if it collapses (gait_valid <12/24, a new chronic leg, or falls appear) -- shows uniform-gain idealization is load-bearing and the DR-rung must budget real training time against per-servo gain spread.
 
-**refused_reason**: hexapod-mjx-train-3 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-push1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-4 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
 

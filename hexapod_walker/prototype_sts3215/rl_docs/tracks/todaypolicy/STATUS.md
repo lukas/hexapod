@@ -3,6 +3,65 @@
 Last updated: 2026-09-05 ~08:0x. This is the delivery track, not the
 single-policy research track.
 
+## CAMPAIGN robotwalk-smooth-20260906 (operator order fb_20260906T030030_28f422, 09-06) — LAUNCHED
+
+Lukas's explicit request (via Codex MCP note attached to RUN
+cw-walkteach-scripted-allhead-acq12m): two bounded PPO arms to improve
+the real hexapod's shuffling/rocking (stride) and joystick turn
+response, then automatic RobotLab physical trials of promising
+completed checkpoints by the LOCAL Codex watchdog (cloud never
+operates the robot or enqueues Lab jobs). This note reopens
+todaypolicy delivery for exactly these two arms and supersedes the
+older no-new-PPO-until-transport-replay note for them.
+
+**Campaign marker: `robotwalk-smooth-20260906`. Exact run names (for
+the local completion handoff):**
+
+- `cw-robotwalk-stride-20260906` — 8M, warm from Candidate B, sole
+  change `train.bc_anchor_coef=0.0` (+ log-std reopened −3.0→−4.0):
+  tests the record's #1 teacher-ceiling suspect (walk BC coef=1). Gate:
+  det h000 prog_m ≥0.40 m/12s (Candidate B baseline 0.3248), zero
+  falls, slip/m ≤2.9, no heading below 0.29, 6/6 legs. VERIFIED
+  RUNNING 09-06 on hexapod-mjx-train-7.
+- `cw-robotwalk-turns-20260906` — 8M, warm from Candidate B, yaw
+  exposure (`walk_yaw_zero_frac` 1.0→0.5, `turn_in_place_frac` 0.30)
+  + bank-proven raw turn-income stack (k_walk_yaw et al.;
+  `walk_kernel_yaw_ema` OFF — bank re-run 09-06 on mesh: raw kernel
+  clause green, EMA drift clause fails on mesh) +
+  `bc_anchor_walk_turn_skip=1` (anchor kept on straight/combined
+  ticks). Gate: tip both signs wz_err_med <0.076, combined-cell
+  improvement vs Candidate B, straight prog_m ≥0.29, joygate
+  course_err_1s_med ≤5.17°, standing-still smoothness = FAIL.
+  VERIFIED RUNNING 09-06 on hexapod-mjx-train-1.
+
+Baseline = Candidate B `cw-walkteach-scripted-allhead-acq12m`
+(controller-side training zip sha256 `30ed068e4356d5f42caba2a427f2845a
+230d7289a06467684731ec94a1f6f250`; operator-deployed actor sha256
+`a813c4a692081978359042f825aaf5c4b43b58f91ffcd6db365a80d6827f4167` —
+that actor artifact exists operator-side only, per the 09-05 delivery
+verify). Hardware truth: RobotLab experiment
+`6ac6754d4c604e7399bf1f84173ce950` (reverse+release+both arcs, 5.5°
+active tilt, no fall); the earlier 98.4° post-stop "fall"
+(`989e41d37d3d489598b7b3f0d4e83dab`) is DISPROVED (stale-feedback
+failure, raw MCU IMU + video) — retain the stale-feedback lesson, not
+a physical-fall inference. Do NOT weaken the 0.375 deg/tick cap or
+safety limits; do not promote easy/half-gravity results to hardware.
+
+**Completion contract (for whichever cycle triages each arm):**
+compare to Candidate B on the SAME short forward/reverse/release/
+left+right arc script (100 Hz policy; 50 Hz-writes-compatible state/
+filter behavior where supported); if the arm improves its measured
+behavior with no unstable/dragged-leg motion in the sim evidence,
+export the controller-compatible artifact with the existing exporter
+and persist exact run/checkpoint/export SHA, policy/config path,
+eval/video locations, and a concise decision in the run ledger/story —
+the local RobotLab watchdog discovers those terminal artifacts and
+enqueues each candidate ONCE, serially. A failing arm records why and
+does not ship. No review/qualification descendants; do not turn 2M
+intermediate reads into new experiment families; no same-recipe seed
+clones. Stand/lower remain the scripted STEP; learned hold keeps its
+existing role.
+
 ## REOPENED 09-05: measured hardware-controller delivery sub-track
 
 Operator MCP note `fb_20260905T071610_749846` reopened this track for

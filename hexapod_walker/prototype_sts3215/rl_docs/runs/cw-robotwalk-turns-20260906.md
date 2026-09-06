@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:20:44+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-walkteach-scripted-allhead-acq12m
+
+**wandb_id**: ms5xltim
 
 **hypothesis**: Plain English: the deployed walker has never practiced turning while walking -- every training command held yaw at zero -- so teach the SAME robot brain to follow both-sign turn and combined walk-plus-turn commands, reverses, stops and restarts, and pay it directly for accurate yaw tracking so joystick turns stop feeling sluggish. Operator campaign robotwalk-smooth-20260906 (fb_20260906T030030_28f422, arm B turns). Warm from Candidate B cw-walkteach-scripted-allhead-acq12m (local zip sha256 30ed068e4356d5f42caba2a427f2845a230d7289a06467684731ec94a1f6f250; operator-deployed actor sha256 a813c4a692081978359042f825aaf5c4b43b58f91ffcd6db365a80d6827f4167; hardware arcs/reverse/release proven, sim turning median course error ~22.6deg). The ONE recorded command-distribution/anchor recipe: yaw commands actually sampled (walk_yaw_zero_frac 1.0->0.5, wz uniform to +-0.3 rad/s, turn_in_place_frac 0.30, existing 6s resamples + 0.15 stop_frac give changing commands and restarts) + the bank-proven raw OMNI turn income stack (k_walk_yaw=1, walk_yaw_kernel_gate, walk_kernel_yaw_gate, k_yaw_prog with overshoot decay, k_yaw_still=50, walk_yaw_hold_prog_gate; walk_kernel_yaw_ema deliberately OFF -- bank re-run TODAY on mesh: raw kernel already orders accurate tracking above wrong-rate rotation, the EMA variant fails the mesh drift clause) + BC anchor KEPT on straight and combined ticks (retains walking skill and the teacher's real combined-turn reference) but skipped on pure-turn ticks (train.bc_anchor_walk_turn_skip=1, the recorded 08-31 untried lever; the refuted standwalk axis was combined-tick reweighting on the dualbc student, a different parent with a dead wz channel -- Candidate B's wz channel measurably works, tip wz_err_med 0.076-0.106). Log-std reopened -3.0 -> -4.0 over the 8M. Prediction-if-true: pure-turn and combined wz_err_med improve vs Candidate B's own cmdsuite and joygate course_err improves under changing commands, while straight-heading completion stays in the 0.31-0.33 m/12s band with zero falls. Prediction-if-false: yaw income destabilizes or slows the walk (straight prog_m below 0.29, slip above 2.9, falls) or wz tracking does not move -- exposure+income insufficient on this parent; record it, do not ship. Strongest alternative: policy games yaw income by rotating while stalling translation -- priced by walk_yaw_hold_prog_gate and the kernel gates, and the gate's prog clauses make standing-still smoothness a FAIL.
 

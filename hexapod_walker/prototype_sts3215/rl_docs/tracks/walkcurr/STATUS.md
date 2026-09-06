@@ -2,6 +2,106 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~23:3x this cycle (triaged the two `loadslip-windowed-{s0,s1}`
+  canaries the ~22:1x entry launched and the ~22:4x entry registered
+  for eval — VERDICTED both CANARY FAIL - MECHANISM (FAIL-STILL-STUCK),
+  matching the gate's own pre-registered branch exactly.** Pooled
+  median slip/m across all 24 held-out episodes: s0 4.83, s1 5.05, both
+  statistically indistinguishable from the champion's own 5.065
+  baseline (well inside the 3.8-12.1 episode spread this gate itself
+  names as noise) — no measurable reduction on either seed. No
+  regression either: gait_valid 22/24 both, the SAME leg (2) flagged
+  in the SAME 2 episodes (`walk/sto` ep4, `walk_startjitter/det` ep1)
+  with the same duty-cycle fingerprint as the champion's own baseline
+  — this is baseline noise reproducing exactly, not a new sacrifice.
+  0/24 falls both. Contact sheet (`walk_det_0.png`) shows normal
+  continuous six-leg tripod-alternation, no crouch/belly-flop evasion.
+  **This closes reward-shaping-for-slip on this champion 4/4**:
+  episode-cumulative loadslip gate+excess, foot-slip-tangent k=35,
+  k=3 lowdose, and now windowed-EMA loadslip all land within ~0-8% of
+  the 5.065 baseline — four independently-designed per-tick contact-
+  conditioned mechanisms, zero net effect on held-out slip.
+  **New evidence this cycle worth recording for whoever designs the
+  next attempt**: decomposed the windowed run's own per-episode
+  `randomization` fields against `slip_per_m` (not done by any prior
+  entry) — episodes with ZERO active kick/push disturbance
+  (`walk_kick_dur_s=0`, `walk_push_dur_s=0`) still cluster at
+  **4.2-5.7/m**, already ~1.5-2x the 2.9 teacher band, with disturbed
+  episodes only pushing a few outliers higher (7.6-8.4) and the
+  pre-existing leg-2 partial-sacrifice episodes the worst (10.9-12.5).
+  **The slip gap is NOT primarily a kick/push-recovery artifact — it
+  is present in steady, undisturbed walking under this composite's
+  full DR realism.** That reframes why 4 independent contact-velocity
+  charges all failed identically: there is no rare "bad event" for a
+  per-tick charge to suppress, the elevated slip is baked into the
+  gait's steady-state footfall under this DR band, which a marginal
+  per-tick price on top of an already-converged 80M-step gait has not
+  been able to shift in a 2M budget on any dose/accounting tried.
+  **Recommendation, not yet executed (real scoping work, flagging for
+  the next design pass rather than a same-cycle attempt):** the next
+  informative move is probably not a 5th contact-based reward channel
+  but a DR-realism ablation — re-measure the SAME champion checkpoint
+  (or a fresh short retrain) at a NARROWER DR band closer to what the
+  joystick track's own 2.9-slip teacher was measured under, to test
+  whether this composite's specific `friction_scale`/`contact_stiff_
+  scale`/`kp_scale` ranges (not kicks) are the real driver of the
+  steady-state gap. Until that lands, item(4)'s practical status is:
+  **champion (`..._cont40m.zip`) holds 0 falls / clean six-leg gait /
+  correct direction, but fails the formal contextual DONE-gate on slip
+  magnitude alone — treat this as the settled hardening boundary for
+  the reward-shaping approach, not a still-open training rung.** No
+  GPU arm launched off this finding this cycle (the DR-ablation idea
+  needs its own scoping — which axis, what band, matched-control
+  design — before it is launch-ready; inventing an under-scoped
+  version would be filler). Evidence: `ops.sh review cw-walkscratch-
+  easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-
+  acq1-cont40m-loadslip-windowed-{s0,s1}`, `logs/ckpt_eval/..._
+  loadslip_windowed_{s0,s1}_gate/report.json` (per-episode
+  `randomization` fields), W&B `ys1vms28`/`eglh8e51`, RL_LOG 09-06 23:27.
+  Full board re-checked: 11/11 reachable GPU pods free, backlog empty;
+  item(1) stays DIG-IN-owned (crutch-ON axis bisection not yet
+  chosen), assistfade's `s0-longbudget` stays DIG-IN-owned (fork-
+  deciding partial-improvement read); joystick/amp/cpg DONE/
+  maintenance-only, standwalk blocked on design-thinking, todaypolicy
+  delivered (anchor-dose axis closed 09-06, doc-synced by a prior
+  commit). No genuinely new, non-duplicate, launch-ready GPU arm
+  exists on any track this cycle — did not invent a filler launch.
+  `CYCLE_WORKED` touched (2 real verdicts + this doc-sync).**
+
+- **09-06 ~22:4x this cycle (refill, no completion assigned): the two
+  `loadslip-windowed-{s0,s1}` canaries launched by the ~22:1x entry
+  below had already FINISHED training (2M steps is fast on GPU — both
+  done within ~5 min of launch, `ep_rew_mean` quarters s0
+  `[-117.6,-134.6,-128.3,-125.2]`, s1 `[-115.1,-136.0,-150.6,-138.7]`,
+  the deferred-artifacts finalizer confirmed `phase: evaluated` for
+  the training-side periodic eval/video jobs) but neither had its
+  held-out gate eval kicked or registered — `capacity.py`/
+  `launch_run.py status` showed all 11 reachable GPU pods free with
+  zero live trainers, which is what surfaced the gap.** Kicked
+  `ops.sh podeval` for both (backgrounded; confirmed running remotely
+  via `ops.sh procs` — `eval_checkpoint` processes live on train-4/
+  train-0) and registered both via `evalpending add` (labels matched
+  to the actual run names this time, not the earlier `...`-elided
+  placeholder some prior entries used) so the watcher auto-spawns the
+  next reader instead of leaving them to rot uncollected, same
+  pattern as the 09-06 ~21:0x footslip-lowdose bookkeeping. Full board
+  re-confirmed fresh: joystick/amp/cpg DONE/maintenance-only,
+  standwalk blocked on design-thinking, todaypolicy's anchor-dose axis
+  just closed (next lever is an unscoped faster-motion-source/
+  cadence-CPG harvest, not a relaunchable arm), assistfade's sole open
+  thread (`s0-longbudget`) and walkcurr's own item(1) crutch-ON
+  composite reopen both stay DIG-IN-owned (axis bisection not yet
+  chosen) — no genuinely new, non-duplicate GPU arm exists on any
+  track this cycle. Did not invent a filler launch; did not
+  re-verdict anything (the loadslip-windowed pair's gate reports do
+  not exist yet). `CYCLE_WORKED` touched (real bookkeeping: 2 podeval
+  kicks + 2 evalpending registrations, prevents the pair sitting
+  finished-but-uncollected). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-loadslip-windowed-{s0,
+  s1}`, `ops.sh handoff` (both `phase: evaluated`), `ops.sh procs
+  hexapod-mjx-train-{4,0}`, `rl_move/orchestrator/pending_evals.json`.**
+
 - **09-06 ~22:1x this cycle (refill-only; 11/11 GPU pods free, backlog
   empty, no completion assigned — every other track re-confirmed
   DONE/blocked/design-only). Rather than accept item(4)'s slip gap as

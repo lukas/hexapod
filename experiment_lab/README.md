@@ -255,8 +255,10 @@ Tool-enabled engineering attempts use a narrower viewer transcript: it includes
 the model's user-visible messages but omits the input project context, reasoning,
 and tool events. Those remain available in the operator-only redacted JSONL.
 The deadline wrapper enforces a kernel file-size ceiling even if the supervisor
-dies; transcript rendering also has byte and line ceilings and records an
-explicit `capture.truncated` event when a ceiling is reached.
+dies. Engineering workers use the larger of the evidence snapshot budget and
+transcript capture limit for this inherited ceiling, allowing recordings above
+the transcript limit. Archived transcripts retain their separate byte and line
+ceilings and record an explicit `capture.truncated` event when one is reached.
 
 These files intentionally remain under `data/codex-runs`, not the experiment's
 artifact directory. A later LLM analysis is provenance about already-sealed
@@ -354,12 +356,12 @@ same dashboard control when hands-on correction was actually necessary. The REST
 | `HEXAPOD_CODEX_ADVANCE_TIMEOUT_SECONDS` | `5400` | Advancer timeout |
 | `HEXAPOD_CODEX_EVIDENCE_SETTLE_SECONDS` | `60` | Legacy external-upload quiet period |
 | `HEXAPOD_CODEX_EVIDENCE_DEADLINE_SECONDS` | `1800` | Fail-closed deadline for incomplete terminal evidence |
-| `HEXAPOD_CODEX_MAX_EVIDENCE_SNAPSHOT_BYTES` | `536870912` | Maximum sealed evidence copied into one analysis snapshot |
+| `HEXAPOD_CODEX_MAX_EVIDENCE_SNAPSHOT_BYTES` | `536870912` | Maximum sealed evidence copied into one analysis snapshot; engineering per-file ceiling, at least the transcript capture limit |
 | `HEXAPOD_CODEX_MAX_ATTEMPTS` | `5` | Retry ceiling for recoverable jobs |
 | `HEXAPOD_CODEX_MAX_FOLLOWUPS_PER_ANALYSIS` | `3` | Adaptive proposals accepted from one analysis |
 | `HEXAPOD_CODEX_MAX_FOLLOWUP_DEPTH` | `4` | Maximum adaptive lineage depth |
 | `HEXAPOD_CODEX_MAX_FOLLOWUPS_PER_ROOT` | `20` | Maximum accepted descendants per root |
-| `HEXAPOD_CODEX_TRANSCRIPT_MAX_CAPTURE_BYTES` | `67108864` | Kernel per-file ceiling and archived event-stream byte limit |
+| `HEXAPOD_CODEX_TRANSCRIPT_MAX_CAPTURE_BYTES` | `67108864` | Archived event-stream byte limit; kernel per-file ceiling for analysis and advance workers |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_EVENT_LINES` | `100000` | Maximum archived JSON events before an explicit truncation marker |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_HUMAN_BYTES` | `2097152` | Maximum rendered Markdown transcript size |
 | `HEXAPOD_CODEX_ENGINEERING` | `false` | Enable project engineering workers |

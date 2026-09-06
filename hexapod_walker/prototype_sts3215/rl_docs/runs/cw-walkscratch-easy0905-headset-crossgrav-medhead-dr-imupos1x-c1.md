@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:14:21+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: y9ztkten
 
 **hypothesis**: Restore nominal (1x) IMU-MOUNT-POSITION spread (imu_pos_xy_m/imu_pos_z_m: the physical IMU could be bolted anywhere from the chassis deck to a raised platform; an off-center IMU feels lever-arm accelerations whenever the body rotates, corrupting the accel-derived tilt specifically while leaning -- distinct from the already-tested imu_bias_deg/imu_mount_deg ROTATION-error axis in imubias1x-c1) -- the easy0905 recipe has trained with the IMU pinned at the exact modeled origin every episode (dr-scale=0.0 collapses this to 0 when not explicitly overridden). Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive its own nominal own-DR IMU-position spread (+-70mm xy, -20/+100mm z) without retraining collapse? Isolated single-axis diagnostic, same template as the sibling latency/deadband/torque/noise/mass/friction/gain/geometry/zerobias/fault/imubias DR-restoration arms.
 

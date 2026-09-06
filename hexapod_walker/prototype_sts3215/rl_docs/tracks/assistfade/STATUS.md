@@ -49,6 +49,35 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~14:1x this cycle (`-s1-reseed8m-gatefix` verdicted ACQ
+  PASS, completing the pair): RUNG 2 (anchor fade from random
+  actor-weight init) IS NOW A 2-SEED-CONFIRMED WORKING MECHANISM.**
+  Both `cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m-gatefix`
+  (the goal-mix-isolation-fix reruns from the ~13:2x entry below) PASS
+  their identical pre-registered gate: `bc_anchor_anneal/gate_pass`
+  latches at global_step ~1.03M on BOTH seeds (2nd in-training check),
+  `train/bc_coef` ramps 3.0->0.0 by ~5.06M and holds at 0 through the
+  rest of the 8M budget on both, and the post-anneal held-out det+sto
+  gate eval (anchor at 0) clears gait_valid 24/24, 0 falls/
+  terminations, sac=[] (no permanently planted leg) on ALL 4 modes for
+  BOTH seeds — progress_ratio med 0.41-0.49 (s0) / 0.31-0.46 (s1)
+  against the 0.35 ignition bar. Video (contact sheets + det frame
+  strips, both seeds) shows continuous six-leg alternating-support
+  cycling and clear forward translation. slip_per_m runs 2.83-3.82
+  (s0) / 3.02-5.07 (s1) — above the mature 2.9 joystick band on both,
+  expected/accepted at ignition per this doc's own rule, watch item
+  for hardening (s1 runs softer). **Next**: graduate rung 2 to
+  hardening — harden ONE dimension at a time per this doc's own
+  ladder (speed band -> fixed headings -> command changes/stops ->
+  yaw -> DR/pushes), starting from either seed's 8M checkpoint
+  (`ppo_goal_cw_assistfade_rung2_anchorfade_{s0,s1}_reseed8m_gatefix.zip`).
+  SKILLS.md updated (1 row, both seeds). Evidence:
+  `logs/ckpt_eval/cw_assistfade_rung2_anchorfade_{s0,s1}_
+  reseed8m_gatefix_gate/report.json`, `logs/experiments/
+  cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m-gatefix/
+  wandb_history.csv` (`bc_anchor_anneal/*`), W&B `m1wc03cy`/
+  `11imredg`, RL_LOG 09-06 14:0x/14:12.
+
 - **09-06 ~13:2x this cycle: ROOT CAUSE FOUND AND FIXED — the anneal
   gate's "one level deeper" NaN mystery (~12:2x entry below) was a
   real code bug in the ignition-gate ASSAY, not a policy or

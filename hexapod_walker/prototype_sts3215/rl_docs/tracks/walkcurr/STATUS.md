@@ -38,6 +38,44 @@
   `ops.sh entry cw-assistfade-rung2-anchorfade-s1-reseed8m-gatefix`, on-pod `ps aux` capture,
   `rl_move/orchestrator/pending_evals.json`.
 
+- 09-06 ~14:2x this cycle (pure refill/tool cycle — canonical capacity 11 free slots, empty
+  backlog, no completions assigned; the concurrent cycle above already launched item(4)'s real
+  fresh-simulation heading-stress/speed-pressure diagnostic on the champion's own pod at 14:10:59,
+  not yet landed — left untouched, not duplicated). **Built a zero-GPU, FREE complementary read of
+  item(4)'s "contextual DONE-gate rungs (heading changes, slip pressure)" question by reusing the
+  champion's ALREADY-COLLECTED acquisition-milestone panel** (`..._allaxiskickhalf_nocrutch1x_c1_
+  acq1_cont40m_gate/report.json`, the same 24-episode walk+walk_startjitter det+sto panel the
+  ~13:34 HARDENING PASS was judged on) against the joystick track's own formal DONE-gate
+  arithmetic (`eval_joystick_gate.aggregate_gate`) instead of the looser acquisition `gait_valid`
+  majority bar. That function only ever looked at `episodes["walk/*"]` (joystick's own gate script
+  never needed the other 3 modes); generalized it with a new `modes` tuple param (default
+  `("walk",)`, bit-exact for every existing caller/test — 19/19 green unchanged) and a new
+  `main()` `--from-report PATH --modes walk,walk_startjitter` path that judges an EXISTING
+  report.json with zero fresh simulation (no subprocess, no GPU/CPU eval spend) — 3 new tests
+  (`test_modes_*`), full file 16->19 green. Applied to the champion: **FAILS the formal contextual
+  gate**, `checks={zero_falls:True, slip_ok:False, dir_ok:True, gait_valid_all:False}` — 0/24
+  falls (clean) and direction actually within the teacher's own tick-sway floor+margin (med
+  31.16deg <= 40deg allow) BUT slip/m median 5.065 is ~1.75x the 2.9 teacher-band cap (worst
+  episode 13.29), and 2/24 episodes (the same `walk/sto` ep4 + `walk_startjitter/det` ep1 leg2
+  flags the ~13:34 entry already named) trip `gait_valid=False`. Under the CURRENT_TRUTHS-binding
+  windowed course metric (`--dir-err-metric windowed_1s`) `dir_ok` ALSO flips to FAIL (course_err
+  med 14.49deg vs allow 12.0deg) — a third, narrower miss. This is exactly item(4)'s own named gap
+  ("slip pressure") confirmed on the TRAINING-diet panel alone, before the concurrent cycle's
+  widened-speed stress panel even lands — a leading indicator, not a substitute for that read (the
+  in-flight panel tests a HARDER command distribution and will very plausibly show worse slip, not
+  better). Does NOT change the champion's own already-settled acquisition-milestone HARDENING PASS
+  verdict (different, looser bar, unaffected) — this is new information on a stricter bar the
+  acquisition milestone was never trying to clear. Next concrete step once BOTH diagnostic reads
+  are in: item(4)'s own next TRAINING rung should target slip reduction specifically (the gait-
+  validity/direction axes are close-to-clean; slip is the dominant, ~2x-over-band gap) — but per
+  this file's own closed-lever history (`walk_duty_gate`/`walk_gait_gate`/noise-schedule all
+  CLOSED for the DIFFERENT leg-sacrifice pathology), a slip-reduction lever is a NEW mechanism
+  question needing its own bank pass, not a relaunch of any already-closed per-leg-utilization
+  lever. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_contextualgate/gate_verdict.json`,
+  `rl_move/sim/eval_joystick_gate.py` (modes generalization),
+  `rl_move/tests/test_eval_joystick_gate.py` (4 new tests), RL_LOG 09-06 14:2x.
+
 - 09-06 ~13:4x this cycle (assigned `allaxiskickhalf-nocrutch1x-c1-acq1-cont40m_gate`, already
   verdicted HARDENING PASS by a concurrent cycle before this cycle read it — confirmed via ledger/
   SKILLS.md/RL_LOG, not re-verdicted): found+cleared **5 more unverdicted-but-finished walkcurr

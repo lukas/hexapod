@@ -202,3 +202,42 @@ def test_dir_err_metric_windowed_with_no_course_keys_fails_closed():
     assert r["course_err_med_deg"] is None
     assert r["checks"]["dir_ok"] is False
     assert r["pass"] is False
+
+
+# -- modes generalization (added 2026-09-06 for walkcurr STATUS item(4)
+# reuse: the easy-sim acquisition panel reports a 4-key episodes dict,
+# ("walk"/"walk_startjitter") x ("det"/"sto"), not just "walk". --
+
+def test_modes_default_still_walk_only_bit_exact():
+    good = [_ep(slip=1.8, dir_err=30.0) for _ in range(12)]
+    report = _report(good, good)
+    report["episodes"]["walk_startjitter/det"] = [
+        _ep(terminated=True, slip=99.0, dir_err=99.0, gait_valid=False)]
+    r = aggregate_gate({"dr0": report})
+    assert r["n_total"] == 24
+    assert r["pass"] is True
+
+
+def test_modes_can_include_walk_startjitter():
+    good = [_ep(slip=1.8, dir_err=30.0) for _ in range(6)]
+    bad = [_ep(terminated=True, slip=99.0, dir_err=99.0, gait_valid=False)
+           for _ in range(6)]
+    report = _report(good, good)
+    report["episodes"]["walk_startjitter/det"] = bad
+    report["episodes"]["walk_startjitter/sto"] = good
+    r = aggregate_gate({"dr0": report}, modes=("walk", "walk_startjitter"))
+    assert r["n_total"] == 24
+    assert r["falls_total"] == 6
+    assert r["pass"] is False
+
+
+def test_modes_prefix_match_is_exact_not_substring():
+    # "walk" must not accidentally also match a "walk_startjitter" key
+    # via substring/startswith -- only an exact split("/")[0] match.
+    good = [_ep(slip=1.8, dir_err=30.0) for _ in range(6)]
+    report = _report(good, good)
+    report["episodes"]["walk_startjitter/det"] = [
+        _ep(terminated=True, slip=99.0, dir_err=99.0, gait_valid=False)]
+    r = aggregate_gate({"dr0": report}, modes=("walk",))
+    assert r["n_total"] == 12
+    assert r["pass"] is True

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T04:13:07+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1
+
+**wandb_id**: o81ovjq7
 
 **hypothesis**: Two questions in one bounded run. INFRA (primary, operator fb_20260906T035950_cd260e): with the new --defer-final-artifacts handoff, the GPU-owning trainer process exits within ~1 min of optimization finishing (GPU memory actually freed, verified by process census on the pod) while a detached CPU-only finalizer completes and logs the outstanding eval/video jobs to the same W&B run (registry phase training->artifacts_pending->evaluated, ops.sh handoff). Prediction-if-true: trainer process gone + ~0GB GPU used while finalizer.log shows jobs completing; final video + evals present in W&B; state.json phase=evaluated. Prediction-if-false: trainer still resident after budget (ordering bug), or missing/duplicate W&B artifacts (handoff bug). Strongest alternative: wandb resume rejected after run.finish -> finalizer logs nothing (visible in finalizer.log). SCIENCE (secondary): seed-2 replication of the medhead-widenfwd 1g forward-composition discovery canary (seed-1 PASSed 23/24 gv, 0 falls) -- mechanism-health read only.
 

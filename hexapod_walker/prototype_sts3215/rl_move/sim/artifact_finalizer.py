@@ -32,6 +32,12 @@ import os
 # MUST precede any torch/jax import chain (train_ppo_sim pulls in SB3).
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
+# Never attach to a (dead) parent trainer's wandb-core service: scrub
+# service-discovery vars so wandb.init spawns a fresh service here.
+# (Belt and braces with spawn_finalizer's env scrub — also covers manual
+# re-invocations from a shell that exported them.)
+for _k in [k for k in os.environ if "WANDB" in k and "SERVICE" in k.upper()]:
+    os.environ.pop(_k)
 
 import argparse  # noqa: E402
 import json  # noqa: E402

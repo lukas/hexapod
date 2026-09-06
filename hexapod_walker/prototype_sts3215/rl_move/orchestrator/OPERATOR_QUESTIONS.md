@@ -4945,3 +4945,50 @@ describes the twin as ~3.5 kg and should be corrected either way.
   `--defer-final-artifacts` flag + its call site right after
   `model.learn()`), `rl_move/tests/test_defer_final_artifacts.py`,
   snapshot tag (this cycle).
+
+## q_20260906T0340Z — UPDATE 09-06 ~04:1x (gpu-artifact-handoff-20260906 cycle): items 2-5 LANDED
+- owner: this cycle (operator focus note + fb_20260906T035950_cd260e
+  assigned sole ownership of the remaining implementation).
+- what landed (snapshot tag exp/gpu-artifact-handoff-20260906,
+  790a81d3), all gated on `--defer-final-artifacts`, default OFF and
+  bit-exact when unset (verified: 10/10 defer tests + 61/61
+  sde/transplant/gru regression suites green):
+  - ORDERING FIX (the note's explicit warning was CORRECT): the old
+    `VideoCallback._on_training_end` called `bg.wait()` INSIDE
+    `model.learn()` — the item-1 marker written after learn() returned
+    was already behind the full blocking eval/video drain. In deferred
+    mode `_on_training_end` now snapshots the final-reel job durably
+    and returns immediately (train_ppo_sim.py).
+  - item 2 (durable manifest): `rl_move/sim/artifact_handoff.py` —
+    immutable `manifest.json` (rewrites rename the old aside; jobs +
+    checkpoint md5 + W&B ids + resolved argv), per-job immutable
+    snapshot zips under `policies/artifact_handoff/<run>/snapshots/`
+    (the bg child no longer unlinks snapshots in deferred mode),
+    pickled resolved args for byte-identical env rebuild.
+  - item 3 (early GPU exit): `_BgEval.handoff()` drains what already
+    finished, kills the worker WITHOUT waiting, returns outstanding
+    jobs; trainer sequence is marker -> ckpt artifact publish ->
+    `run.finish()` -> write manifest -> spawn detached finalizer ->
+    exit. The process exit (not the marker) frees the ~46GB.
+  - item 4 (CPU finalizer): `rl_move/sim/artifact_finalizer.py` —
+    forces `CUDA_VISIBLE_DEVICES=""` before any torch/jax import,
+    single-instance pid lock (stale locks stolen), re-runs jobs with
+    the SAME `_bg_eval_child` worker, bounded retry (default 2) +
+    per-job timeout with worker respawn, resumes the SAME W&B run
+    (`resume="allow"` — single writer: trainer finished first), atomic
+    per-job state writes -> kill-anywhere resume (at-least-once
+    delivery, job granularity; the only dup window is between a
+    wandb.log and its state write = at most one extra history row).
+  - item 5 (registry split): `state.json` phase `training` ->
+    `artifacts_pending` -> `evaluated`/`failed` + per-job
+    status/attempts; `ops.sh handoff <run>` reads it from the run's
+    pod. RULE: a verdict on a deferred run needs phase=evaluated (or
+    the watcher's own independent gate evals), never the marker alone.
+- canary: cw-walkscratch-easy0905-medhead-widenfwd-c2-deferartifacts
+  (2M, seed 21, respec of the PASSed medhead-widenfwd-c1 canary with
+  --defer-final-artifacts) — gates: trainer process gone + GPU freed
+  while finalizer completes jobs; forced finalizer kill + rerun
+  resumes cleanly; secondary seed-2 mechanism-health read.
+- remaining after the canary: none code-wise; if the canary exposes a
+  wandb-resume or spawn-env defect, fix belongs to the run's triage
+  cycle (evidence = finalizer.log + state.json on the pod).

@@ -169,6 +169,13 @@ def spawn_finalizer(handoff_dir: Path) -> int:
     env = dict(os.environ)
     env["CUDA_VISIBLE_DEVICES"] = ""
     env.setdefault("JAX_PLATFORMS", "cpu")
+    # The trainer's live W&B session exports service-discovery vars
+    # (WANDB_SERVICE / WANDB__SERVICE_TOKEN ...). Inheriting them makes
+    # the finalizer attach to the trainer's wandb-core service, which
+    # dies with the trainer -> HandleAbandonedError (observed on the
+    # 09-06 canary). The finalizer must always start its OWN service.
+    for k in [k for k in env if "WANDB" in k and "SERVICE" in k.upper()]:
+        env.pop(k)
     log_path = handoff_dir / FINALIZER_LOG_NAME
     with log_path.open("ab") as fh:
         proc = subprocess.Popen(

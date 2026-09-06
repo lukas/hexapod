@@ -313204,7 +313204,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3- since 2026-09-06T00:31:42"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1",
@@ -313362,7 +313363,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead_acq1.zip"
     ],
     "created": "2026-09-05T23:42:57+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS - INFORMATIVE (cross-gravity transfer confirmed)",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -313408,7 +313409,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-06T00:00:44"
+    "triage": "done",
+    "verdict": "Abrupt jump to full 1g (ease.gravity_scale=1.0 from tick 0) on the leg-healthy halfgrav-medhead-acq1 champion (never saw 1g before) does NOT reproduce the base(1g)-family chronic leg-1/4 sacrifice fingerprint that has closed 8 reward-price/state mechanisms + gSDE end-to-end. Harness gait_valid 20/24: walk/det 6/6 CLEAN (sac=[] every episode, duty spread 0.18-0.76 across all 6 legs), walk/sto 6/6 clean, walk_startjitter/det 3/6 + walk_startjitter/sto 5/6 with only a MILD leg-4 softening under added start-pose jitter (duty 0.06-0.14, 47-117 real swings/20s -- nothing like the base family's near-zero-touch entrenchment). 0 falls/terminations in all 24 episodes. Video (walk_det_0, walk_startjitter_det_2 frame strips) confirms genuine six-leg cycling with the body translating, not frozen/dragging. Directly evidences that the base(1g) leg-favoritism pathology is NOT a forced consequence of 1g dynamics for an already leg-healthy policy -- it reopens 1g walking as reachable via cross-gravity curriculum transfer, an alternative to reward-price repair (closed 8/8) or straight reallocation to halfgrav. Per the gate's own pre-registered text this licenses a 40M acquisition continuation; launched cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1 same cycle."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1",
@@ -313578,7 +313580,7 @@
       "sched.n_envs=4096"
     ],
     "created": "2026-09-05T23:46:20+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS - INFORMATIVE (cross-gravity transfer confirmed)",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -313624,7 +313626,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-06T00:00:44"
+    "triage": "done",
+    "verdict": "Gradual gravity ramp (0.5g->1.0g linearly over first 1M of this 2M continuation, ease.gravity_scale via sched.key engine) on the same leg-healthy halfgrav-medhead-acq1 champion also does NOT reproduce the base(1g) chronic leg-1/4 fingerprint. Harness gait_valid 21/24 (marginally better than the abrupt sibling's 20/24): walk/det 6/6 CLEAN (sac=[] every episode), walk/sto 6/6 clean, walk_startjitter/det 3/6 (same mild leg-4 softening, duty 0.07-0.15, 47-117 real swings/20s -- not chronic), walk_startjitter/sto 6/6 clean (abrupt sibling was 5/6 here). 0 falls/terminations in all 24 episodes. Video (walk_det_0 frame strip) confirms genuine six-leg cycling, body translating upright. Read together with the abrupt arm: BOTH transition speeds hold the six-leg gait at full 1g -- since neither collapsed, this cannot separate 'gravity-transition shock' from '1g dynamics force it regardless' (that would need a FAIL), but it jointly and cleanly refutes the 1g-dynamics-forces-it-regardless branch for an already leg-healthy policy, confirming cross-gravity transfer as a real, transition-speed-insensitive repair path for the base(1g) family. Per the gate's own pre-registered text this licenses a 40M acquisition continuation; launched cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1 same cycle (gravity fixed flat at 1.0 for the continuation, sched disabled since the ramp already completed)."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c1-acq1",
@@ -314171,7 +314174,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3- since 2026-09-06T00:31:43"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c1-acq1",
@@ -314924,7 +314928,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-06T00:31:38"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3",
@@ -315115,6 +315120,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 7 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_fullhead_widen2_c3 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c1: Plain English: the widen-from-medhead heading-widen recipe (5-way -> full 8-way compass, added on top of the clean medhead_acq1 champion) already split 1 PASS / 1 FAIL at full 40M acquisition scale between its first two seeds (widen2-c1 ACQ PASS 21/24; widen2-c2b ACQ FAIL 14/24, but that seed'\"'\"'s OWN medhead2_acq1 parent was itself only ACQ CONTINUE, not a clean PASS -- so the split may be parent-quality-driven, not seed-noise). This is the tie-breaking 3rd seed BOTH concurrent cycles'\"'\"' own STATUS notes flagged as the natural next step: a fresh seed off the SAME clean medhead_acq1 parent widen2-c1 used (not off the weaker medhead2_acq1 lineage), so a canary PASS/FAIL here cleanly separates '\"'\"'parent quality determines outcome'\"'\"' (this new seed should PASS, matching its clean-parent sibling widen2-c1) from '\"'\"'seed noise alone'\"'\"' (a coinflip regardless of parent).' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_medhead_acq1.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3.log",
     "wandb_id": "f3h84106",
-    "verified": "2026-09-06T00:01:24+00:00"
+    "verified": "2026-09-06T00:01:24+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-06T00:07:17+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3- since 2026-09-06T00:31:42"
   }
 ]

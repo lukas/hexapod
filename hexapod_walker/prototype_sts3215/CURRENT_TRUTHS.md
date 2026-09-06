@@ -977,6 +977,27 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_
   abrupt_c1_acq1_gate/report.json` vs the 2M canary's own
   `..._abrupt_c1_gate/`, W&B `4n0z9k3b`, RL_LOG 09-06 03:12.
+  UPDATE 09-06 ~04:1x, seed-vs-recipe question now CLOSED (RECIPE-
+  LEVEL): the flagged follow-up `irr2acq1-abrupt-c1-acq1` (2nd
+  independent seed, same irr-timing-first-crossgrav-abrupt recipe,
+  own clean 2M canary 22/24) landed **ACQ FAIL** too — 40M aggregate
+  `gait_valid` 17/24, leg 4 the sole flagged leg in every low episode
+  (duty 0.0-0.10, swing_count as low as 1-63 vs 100-200+ for healthy
+  legs), nearly the identical fingerprint to the 1st seed's own
+  leg-4 pattern (14/24, duty 0.0-0.16). 0 falls in all 24 episodes;
+  reward again rose every quarter (656.7->1207.2->1387.2->1532.2).
+  **2/2 seeds now regress at ACQ scale from clean 2M canaries on this
+  exact recipe — this is a RECIPE-level attractor, not seed noise. Do
+  not fund a 3rd seed of the irr-timing-first-crossgrav-abrupt recipe
+  at ACQ scale without a structural per-leg-utilization fix first**
+  (the same open design gap already named for the sde family: a hard
+  minimum-duty/minimum-swing-count price, not more budget or another
+  reward dose). The companion endurance check
+  (`medhead-abrupt-c1-acq1-cont40m`, testing whether ANY crossgrav
+  champion entrenches given enough budget) is a separate open read —
+  do not assume its outcome from this one. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_acq1_
+  gate/report.json`, W&B `zsxkfxzz`, RL_LOG 09-06 04:09.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

@@ -20,6 +20,15 @@ For all local project Python commands, use `uv` instead of bare
 
 ## RL orchestrator status URLs
 
+Routine RL status, reports, metrics, logs, and existing video downloads are
+standing-authorized reads; do not ask Lukas for task-level approval or wait
+for a reply before reading them. Prefer authenticated RL MCP tools
+(`eval_report`, `run_metrics`, `get_run_videos`, etc.) over shell/kubectl
+artifact downloads, which can trigger separate sandbox network approvals.
+Use the MCP tool's direct video links for playback/download. Do not interpret
+this read authorization as permission to change unrelated security settings
+or bypass an enforced sandbox restriction.
+
 When the user asks for the agent/orchestrator/progress dashboard, start here:
 
 - Public human dashboard:

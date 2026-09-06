@@ -29,6 +29,14 @@ Use the MCP tool's direct video links for playback/download. Do not interpret
 this read authorization as permission to change unrelated security settings
 or bypass an enforced sandbox restriction.
 
+If native RL MCP tools are absent from the current session, use the documented
+authenticated JSON-RPC fallback in
+`hexapod_walker/prototype_sts3215/rl_move/orchestrator/README.md`:
+prepare the private curl configuration locally, then invoke `curl -f -sS`
+directly with `--config` and `--data` (use `-o` for files). This exact route
+was verified without a new prompt. Pass this access method to delegated agents
+too; do not send routine report reads through ad hoc kubectl downloads.
+
 When the user asks for the agent/orchestrator/progress dashboard, start here:
 
 - Public human dashboard:

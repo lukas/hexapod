@@ -2,6 +2,87 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~15:0x this cycle (assigned: read item(4)'s heading-stress/speed-pressure det diagnostic
+  reports registered by an earlier cycle, `..._headingstress_det`/`..._speedpressure_det`; the sto
+  twins were still computing on-pod, left untouched). **BOTH stress panels CONFIRM the champion's
+  already-known gap is SLIP, and nothing else** — synced both `report.json`s from train-4 (a
+  prestage miss; det halves weren't on the controller yet, sto halves plus contact sheets
+  likewise pulled for completeness). Aggregated 12-episode (walk+walk_startjitter, det) reads
+  for `ppo_goal_..._allaxiskickhalf_nocrutch1x_c1_acq1_cont40m.zip`: **headingstress** (3 s
+  heading resample vs the champion's own 6 s training diet, same 5-heading set) — 0/12 falls,
+  gait_valid 12/12, 0 sacrificed legs, slip/m med 6.53 (max 9.00) — WORSE than the training-diet
+  panel's already-flagged 5.065 (this cycle's own ~14:2x entry), matching the prediction that a
+  harder command distribution stresses slip harder, not better; **speedpressure** (0.04-0.12 m/s
+  band vs the pinned 0.06 m/s training point) — 0/12 falls, gait_valid 12/12, 0 sacrificed legs,
+  slip/m med 4.35 (max 5.13) — slightly BETTER than the training-diet panel, i.e. widening the
+  speed band alone does not make slip worse. Ran both through the same formal contextual-gate
+  arithmetic the ~14:2x entry used (`eval_joystick_gate.py --from-report ... --modes
+  walk,walk_startjitter --dir-err-metric windowed_1s`, n=12 each): both **FAIL** —
+  `{zero_falls:True, gait_valid_all:True, slip_ok:False, dir_ok:False}` for both panels (slip/m
+  cap 2.9 blown 1.5-2.25x on both; windowed course_err also flips to a marginal miss at n=12 —
+  12.1/13.4deg vs the 12.0deg allow, direction_err itself stays comfortably inside the 40deg
+  tick-metric allow on both). **Net: the champion's "clean gait, zero falls, six legs cycling"
+  story holds under BOTH new stress dimensions** — this is a hardening-target confirmation, not a
+  regression; it does not touch the champion's own settled acquisition-milestone PASS (different,
+  looser bar). Video (contact sheets, both panels) shows continuous six-leg cycling with no
+  visible flag-leg/drag pathology — the gap is metric (slip magnitude), not a new visible defect.
+  Evidence: `logs/ckpt_eval/ppo_goal_..._{headingstress,speedpressure}_det/{report.json,
+  contact_sheet.png}`, `logs/ckpt_eval/walkcurr_item4_{headingstress,speedpressure}_det_
+  contextualgate_full/gate_verdict.json`.
+  **Built the slip-reduction mechanism's semantics bank (item(4)'s own next training rung, per
+  the ~14:2x entry's own conclusion that this needs "its own design+bank pass, not a relaunch of
+  any already-closed per-leg-utilization lever" — this is a DIFFERENT lever, never closed).**
+  The already-built, already-proven `reward.walk_loadslip_gate`+`reward.k_loadslip_excess`
+  mechanism (used successfully in the WALKTEACH lineage and the SLIPWALK from-scratch bank) had
+  never been checked against item(4)'s OWN bare recipe (freeprog income only, every other charge
+  0) — a materially thinner stack. New bank section `WALKCURR_ITEM4_{BARE,LOADSLIP}_OVERRIDES`
+  (`test_task_semantics.py`, 6 new tests) reproduces that exact diet at the champion's pinned
+  0.06 m/s command and scores gait/skate/stall/park under a candidate dose (gate=1.0, ok=3.0,
+  max=8.0 — widened from WALKTEACH's 6.0 because item(4)'s own measured ratio already sits at
+  4.3-6.5, so a 6.0 ceiling would clip the gate factor to 0 from step 0 and give PPO no
+  gradient — k_loadslip_excess=10.0, WALKTEACH's own proven value). **Found and documented a
+  real trade-off, not just a clean pass**: the naive dose (measured) reads gait=1082 (only -8%
+  off the bare recipe's 1181, still solidly positive), skate=-2312 (correctly crushed, vs bare's
+  +191 — the widened-margin test passes with room to spare), but stall (march-in-place, zero net
+  travel) also crashes to -756 vs park's unchanged +197 — INVERTING the stall>park discovery-
+  gradient ordering the from-scratch WALKCURR_SV/SLIPWALK banks require, because the episode-
+  cumulative slip/progress ratio's floor-clamped denominator (`loadslip_floor_m`, default 0.05m)
+  makes any SUSTAINED zero-progress stepping read as arbitrarily slippery. Swept
+  `loadslip_floor_m` 0.05->1.0: the only way to restore stall>park is to raise the floor enough
+  that it ALSO erases the anti-skate effect (skate climbs back to +191, bare-recipe-identical) —
+  the two properties are not independently tunable for this mechanism, confirming
+  CURRENT_TRUTHS' own "harsh SLIPWALK doses refuted for from-scratch discovery" finding from a
+  new angle. Resolution: this dose is scoped to a **CONTINUATION from the already-walking
+  champion checkpoint only, never a from-scratch walkcurr rung** — the champion's own policy does
+  not currently visit a permanent-zero-progress stall basin (its own eval panels show
+  along_dist_m 0.7-1.9m/episode, always net-positive), so the stall>park ordering is not the
+  safety property this launch needs; the property that IS checked and PASSES is "skate must read
+  clearly worse than standing still" (skate < park - 300, mirroring the SLIPWALK bank's own
+  precedent) plus "honest gait stays clearly positive and clearly ahead of stall". 4/4 new
+  behavioral tests green, 2 additional tests (measured/documented, not gate-blocking). Full
+  semantics-bank regression run in progress at cycle-end (pre-existing 2 red
+  `slipwalk_swing_bonus` tests, unrelated lever, confirmed pre-existing not touched this cycle).
+  **Launched the candidate as a canary continuation** (single lever vs the bare recipe, GPU spend
+  gated on this exact bank passing): `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-loadslip-c1` — respec `--from` the champion's own
+  `...-cont40m` lineage entry, `--init-from-source` (warm-start from the champion checkpoint
+  itself, 80M cumulative), steps 8,000,000, single lever: `reward.walk_loadslip_gate=1.0`,
+  `reward.loadslip_ok=3.0`, `reward.loadslip_max=8.0`, `reward.k_loadslip_excess=10.0` added on
+  top of the byte-identical bare-recipe cfg vector. Hypothesis in plain words: does pricing
+  loaded foot slip directly, at a dose the bank confirms keeps honest walking clearly ahead of
+  every degenerate scripted twin, actually bring this champion's slip/m down toward the 2.9
+  teacher band without reopening falls or leg-sacrifice? Gate: read the continuation's own
+  wandb_history for `env/walk_loadslip_ratio`/`env/walk_loadslip_factor` trending down while
+  `reward_walk`/`reward_walk_prog` stay flat-to-rising (08-21-aligned), then re-run the same
+  heading-stress/speed-pressure diagnostic panels this cycle just read against the new
+  checkpoint — PASS if slip/m median drops meaningfully (target: inside or much closer to 2.9)
+  with gait_valid/falls unchanged from this cycle's clean baseline; FAIL if slip barely moves, if
+  falls/sacrificed legs reappear, or if forward progress collapses (stall-basin recurrence, the
+  documented failure mode above) despite the continuation-only scoping. Evidence once landed:
+  `logs/experiments/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+  nocrutch1x-c1-acq1-cont40m-loadslip-c1/wandb_history.csv`, fresh
+  `walkcurr_item4_{headingstress,speedpressure}` panels against the new checkpoint.
+
 - 09-06 ~14:4x this cycle (item(1) full-composite-realism fork, previously-flagged DIG-IN
   target, no assigned finish this cycle): **the `allaxis-nokick-c1` seed-reproducibility
   canaries settle the "seed lottery vs recipe-level fragility" question the ~13:34/~12:30

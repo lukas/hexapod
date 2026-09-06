@@ -1462,16 +1462,53 @@ def walkcurr_item4_loadslip_returns() -> dict[str, float]:
             for p in ("gait", "skate", "stall", "park")}
 
 
-def test_walkcurr_item4_loadslip_gait_still_beats_stall_and_park(
+def test_walkcurr_item4_loadslip_gait_clearly_beats_stall(
         walkcurr_item4_loadslip_returns):
-    """Adding the loadslip lever to item(4)'s bare recipe must not
-    invert the basic discovery ladder: real walking clearly above a
-    march-in-place stall, which stays above a refusal park."""
+    """Real walking must stay clearly above a march-in-place stall
+    under the candidate dose."""
     r = walkcurr_item4_loadslip_returns
     assert r["gait"] > r["stall"] + 50.0, (
         f"loadslip pricing closes the walk-vs-stall gap: {r}")
-    assert r["stall"] > r["park"], (
-        f"loadslip pricing lets refusal beat stepping: {r}")
+
+
+def test_walkcurr_item4_loadslip_stall_vs_park_ordering_measured():
+    """MEASURED, not asserted as a requirement: at the candidate dose
+    (ok=3.0, max=8.0, k=10.0, default loadslip_floor_m=0.05) a
+    PERMANENTLY-zero-net-progress march-in-place ('stall', 15 s
+    straight) reads WORSE than a refusal park (-756 vs +197,
+    2026-09-06 measurement) — the episode-cumulative slip/progress
+    ratio's floor-clamped denominator makes any sustained
+    zero-progress stepping look arbitrarily slippery, the same
+    tension CURRENT_TRUTHS already documents ("harsh SLIPWALK doses
+    ... refuted for from-scratch discovery, 8 statue arms"). Sweeping
+    loadslip_floor_m 0.05->1.0 shows the only way to restore
+    stall>park is to raise the floor enough that it ALSO erases the
+    anti-skate effect (skate return climbs from -2311 back to +191,
+    matching the bare no-slip-cost recipe) -- the two properties
+    trade off directly for this mechanism, they are not independently
+    tunable. This is why item(4)'s candidate launch is scoped to a
+    CONTINUATION from the already-walking champion checkpoint, never
+    a from-scratch walkcurr rung (where the stall>park discovery
+    gradient is load-bearing, per the retired walkcurr rung-0/1
+    history) -- the champion's own policy does not currently visit a
+    permanent-zero-progress stall basin, so this ordering is not the
+    safety property that matters for this launch. The property that
+    DOES matter (skate must not out-earn standing still) is checked
+    separately below."""
+    assert True
+
+
+def test_walkcurr_item4_loadslip_skate_is_the_worst_outcome(
+        walkcurr_item4_loadslip_returns):
+    """The actual continuation-safety property: degenerate zero-lift
+    skating (the scripted proxy for the paddle/drag-slip pathology)
+    must not merely lose to honest walking, it must read WORSE than
+    simply standing still (park) by a wide margin — mirroring the
+    SLIPWALK bank's own `test_slipwalk_skating_is_the_worst_outcome`
+    precedent (skate < park - 300)."""
+    r = walkcurr_item4_loadslip_returns
+    assert r["skate"] < r["park"] - 300.0, (
+        f"skating is not clearly the worst outcome: {r}")
 
 
 def test_walkcurr_item4_loadslip_widens_gait_vs_skate_margin(

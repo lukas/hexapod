@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T04:47:36+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: 07qw8xz0
 
 **hypothesis**: Restore nominal (1x, non-randomized) actuator deadband -- the easy0905 recipe has run with deadband_scale=0 (ZERO dead-zone, fully idealized instant-exact command execution) throughout the whole crossgrav campaign. Same durability question as the sibling latency arm (medhead-dr-latency1x-c1), isolated to this single axis, off the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls).
 

@@ -786,7 +786,9 @@ class EngineeringJobStore:
                 "SELECT job.id AS analysis_id,job.result_json,job.finished_at,"
                 "experiment.id AS experiment_id,experiment.name,"
                 "experiment.description,experiment.parameters_json,"
-                "experiment.execution_mode FROM codex_jobs AS job "
+                "experiment.execution_mode,experiment.status AS experiment_status,"
+                "experiment.cancel_requested,experiment.started_at AS experiment_started_at "
+                "FROM codex_jobs AS job "
                 "JOIN experiments AS experiment ON experiment.id=job.experiment_id "
                 "WHERE job.kind='analysis' AND job.status='succeeded' "
                 "AND job.result_json IS NOT NULL AND NOT EXISTS ("
@@ -800,7 +802,10 @@ class EngineeringJobStore:
                     parameters = json.loads(row["parameters_json"])
                 except (TypeError, json.JSONDecodeError):
                     continue
-                if self._analysis_needs_no_engineering(analysis, parameters):
+                experiment_state = self._analysis_experiment_state(con, row)
+                if self._analysis_needs_no_engineering(
+                    analysis, parameters, experiment_state
+                ):
                     # Offline work belongs to its assigned worker. Clear
                     # results need a next measurement, not another reviewer.
                     continue
@@ -811,6 +816,7 @@ class EngineeringJobStore:
                         "description": row["description"],
                         "parameters": parameters,
                         "execution_mode": row["execution_mode"],
+                        **experiment_state,
                     },
                     "analysis_job_id": row["analysis_id"],
                     "analysis_finished_at": row["finished_at"],
@@ -835,10 +841,48 @@ class EngineeringJobStore:
         return changed
 
     @staticmethod
+    def _analysis_experiment_state(con, row) -> Dict[str, Any]:
+        state = {
+            "status": row["experiment_status"],
+            "cancel_requested": bool(row["cancel_requested"]),
+            "started_at": row["experiment_started_at"],
+            "motion_pending_or_recorded": False,
+        }
+        if state["status"] == "cancelled":
+            # External plans can remain waiting until result registration.
+            # A missing experiment start time must not erase an active handoff
+            # or motion recorded in an earlier/nested continuation receipt.
+            state["motion_pending_or_recorded"] = bool(con.execute(
+                "SELECT EXISTS(SELECT 1 FROM codex_engineering_jobs AS prior "
+                "WHERE prior.experiment_id=? AND ("
+                "(json_extract(prior.source_context_json,'$.trigger_kind')="
+                "'queue_handoff' AND (prior.status='running' OR "
+                "(prior.attempts>0 AND prior.result_json IS NULL))) OR "
+                "EXISTS(SELECT 1 FROM json_tree(prior.result_json) "
+                "WHERE key='physical_motion_started' AND type='true')))",
+                (row["experiment_id"],),
+            ).fetchone()[0])
+        return state
+
+    @staticmethod
     def _analysis_needs_no_engineering(
-        analysis: Any, parameters: Any = None
+        analysis: Any, parameters: Any = None, experiment: Any = None
     ) -> bool:
         if experiment_parameters_are_offline(parameters):
+            return True
+        # An operator-cancelled plan that never started has no physical result
+        # to repair. Its analyst may correctly label the absent measurement
+        # "invalid"; that is not a request to revive the cancelled experiment.
+        # Preserve started runs and any concrete unresolved safety disposition.
+        if (
+            isinstance(experiment, dict)
+            and experiment.get("status") == "cancelled"
+            and experiment.get("cancel_requested") is True
+            and experiment.get("started_at") is None
+            and experiment.get("motion_pending_or_recorded") is False
+            and isinstance(analysis, dict)
+            and analysis.get("safety_disposition") == "clear"
+        ):
             return True
         return (
             isinstance(analysis, dict)
@@ -847,13 +891,21 @@ class EngineeringJobStore:
         )
 
     @classmethod
-    def _retire_redundant_analysis_jobs(cls, con, now: str) -> int:
+    def _retire_redundant_analysis_jobs(
+        cls, con, now: str, *, experiment_id: Optional[str] = None
+    ) -> int:
         """Finish redundant analysis follow-through without invoking Codex."""
         rows = con.execute(
-            "SELECT * FROM codex_engineering_jobs WHERE status IN "
+            "SELECT engineering.*,experiment.status AS experiment_status,"
+            "experiment.cancel_requested,experiment.started_at AS experiment_started_at "
+            "FROM codex_engineering_jobs AS engineering "
+            "JOIN experiments AS experiment ON experiment.id=engineering.experiment_id "
+            "WHERE engineering.status IN "
             "('queued','retry') AND "
-            "json_extract(source_context_json,'$.trigger_kind')="
-            "'experiment_analysis' ORDER BY created_at,id"
+            "json_extract(engineering.source_context_json,'$.trigger_kind')="
+            "'experiment_analysis' AND (? IS NULL OR engineering.experiment_id=?) "
+            "ORDER BY engineering.created_at,engineering.id",
+            (experiment_id, experiment_id),
         ).fetchall()
         retired = 0
         for row in rows:
@@ -867,7 +919,8 @@ class EngineeringJobStore:
                 else None
             )
             if not cls._analysis_needs_no_engineering(
-                source.get("analysis"), parameters
+                source.get("analysis"), parameters,
+                cls._analysis_experiment_state(con, row),
             ):
                 continue
             previous_result = (
@@ -890,7 +943,8 @@ class EngineeringJobStore:
                 "summary": (
                     "Robot Lab retired this queued analysis follow-through "
                     "without invoking Codex because the source is completed "
-                    "offline work or a clear pass/inconclusive result."
+                    "offline work, a clear pass/inconclusive result, or a "
+                    "plan cancelled before starting with no unresolved safety issue."
                 ),
                 "changed_files": [],
                 "commands_run": [],
@@ -1168,6 +1222,7 @@ class EngineeringJobStore:
             lane_filter = "AND NOT " + hardware_predicate + " "
         with self.store.connect() as con:
             con.execute("BEGIN IMMEDIATE")
+            self._retire_redundant_analysis_jobs(con, now)
             row = con.execute(
                 "SELECT * FROM codex_engineering_jobs WHERE status IN "
                 "('queued','retry') AND attempts<max_attempts AND not_before<=? "

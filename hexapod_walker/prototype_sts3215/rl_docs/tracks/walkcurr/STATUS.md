@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~10:3x this cycle (assigned `geom1x-c1-acq1-r2`; found+verdicted 2 orphans, no new launch):
+  **1 assigned ACQ PASS + 2 found orphans (1 ACQ PASS, 1 CANARY FAIL closing QUEUE AIM item (1) for
+  good), 0 new launches -- every frontier item is either closed or already genuinely computing on
+  another pod.** (1) `medhead-dr-geom1x-c1-acq1-r2` **ACQ PASS**: the corrected (real 40M, not the
+  r1 2M-step-bug budget) print/assembly GEOMETRY-spread axis holds durable at ACQ scale -- 22/24
+  gait_valid, 0 falls/24, 2 non-chronic singleton flags, slip in-band, contact sheet clean six-leg
+  cycling. (2) Found+verdicted `groundtilt1x-c1-acq1` (orphan: training+gate finished, ledger stuck
+  at stale RUNNING, never verdicted) **ACQ PASS**: 22/24 gait_valid, 0 falls, floor-slope axis
+  durable at 40M -- both close per-axis DR-restore confirmations, already-STOPped information per
+  this banner's own QUEUE AIM (no further per-axis spend follows from either). (3) Found+verdicted
+  `allaxiskickhalf1x-c1-r2` (orphan, the kick-safe ~30-axis composite retry after a stale-pod-code
+  REFUSED first attempt) **CANARY FAIL - MECHANISM**: capping kick to its proven-safe half dose does
+  NOT rescue the full composite -- 7/24 episodes terminate tilt_roll (worst in the startjitter/
+  perturbed-start modes), same shape as the plain all-axis composite's prior FAIL. **This closes
+  QUEUE AIM item (1)'s second half decisively: kick dose was never the sole broken ingredient for
+  the full composite at either dose (full-kick FAIL, half-kick FAIL); axes still interact when ~30
+  are stacked.** Two further bisections were already in flight at read time (confirmed via direct
+  `kubectl exec ps`, not just `capacity.py`) and left running/unverdicted for the next reader:
+  `allaxiskickhalf-nocrutch1x-c1` (kick-safe + torque de-crutched, on train-8) and `allaxis-nokick-c1`
+  (kick fully OFF, all other ~28 axes at full dose, on train-2) -- backgrounded `pollreap` for both.
+  Per this doc's own QUEUE AIM text ("on a composite canary PASS fund ONE composite ACQ"), do NOT
+  fund a composite ACQ off any exact recipe tried so far; read the two in-flight bisections first.
+  **Refill: 0 new launches despite 6 free GPU slots (train-1/5/8/9/10/11 confirmed via
+  `capacity.py` + direct pod `ps`).** Checked every registered track, not just walkcurr: per-axis
+  DR-restore is closed (this cycle's own 2 PASSes are further already-STOPped confirmations, not
+  new information); the composite/kick-dose/torque-crutch frontier items are ALL genuinely
+  computing on other pods right now (`kickhalf1x-c1-acq1` gate on train-7, `kick0225x-c1` gate on
+  train-4, plus the 2 bisections above) -- launching anything on that exact frontier now would
+  duplicate an already-in-flight read or combine unresolved variables before either half's result
+  lands. `joystick`/`cpg`/`standwalk`/`todaypolicy` STATUS docs are all stale/closed (no fresh dated
+  Next item since 08-2x/08-30, or explicitly DONE/CLOSED) -- the only other track with live 09-06
+  activity is `assistfade`, whose own Next item (rung-2 intermediate-state semantics bank) was found
+  ALREADY mid-write by a concurrent process (an uncommitted `test_task_semantics.py` diff observed
+  changing in real time between two reads this cycle, 257->281 diff lines with no local edit from
+  this session) -- left untouched to avoid a collision on the same shared file. Genuinely nothing
+  launchable without duplicating in-flight compute or another live session's WIP; not idle-next-to-
+  runnable-work, blocked-on-in-flight-elsewhere is a real reason. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{geom1x_c1_acq1_r2,groundtilt1x_c1_acq1,
+  allaxiskickhalf1x_c1_r2}_gate/report.json`, W&B `442acsdz`/`z6vush6h`/`mfwj180i`, `launch_run.py
+  status`, RL_LOG 09-06 10:28-10:31.
+
 - 09-06 ~10:1x this cycle (assigned `cmddrop1x-c1-acq1`; found+closed 5 idle orphans): **assigned
   run left genuinely computing (0/1 verdicted this cycle), but closes QUEUE AIM frontier item (3)
   (torque-crutch removal) via a found orphan, plus 4 mislabeled-budget ledger closures.** (1)
@@ -78,12 +119,15 @@
 question is answered: ~22 axes canary-clean on the flagship champion, every funded single-axis ACQ
 read has PASSed (friction/mass/latency 24/24-class), every cont40m has held. STOP funding further
 per-axis ACQ/cont40m confirmations of already-clean axes — 40-80M steps each for near-zero
-information. The frontier, in order: (1) composite realism — verdict `allaxis1x-c1`, then the
-kick-safe composite `allaxiskickhalf1x-c1` (queued to backlog by the meta session), and on a
-composite canary PASS fund ONE composite ACQ (40M), which subsumes the per-axis grid; (2) the
-kick-dose ladder — kick1x full dose is the campaign's one real fall (kickhalf ACQ running);
-(3) torque-crutch removal at ACQ scale (torquefade1x-c1-acq1 running), then a composite WITHOUT
-the 3x crutch; (4) once composite+no-crutch holds: the acquisition-milestone panel and the
+information. The frontier, in order: (1) composite realism — verdict `allaxis1x-c1` (FAIL), then
+the kick-safe composite `allaxiskickhalf1x-c1-r2` (**FAIL, verdicted 09-06 ~10:3x: kick-safe still
+falls 7/24, kick dose was never the sole broken ingredient at either dose — this item does NOT
+reach a composite-ACQ-funding PASS on either tried recipe; the live bisections
+`allaxiskickhalf-nocrutch1x-c1`/`allaxis-nokick-c1` are the next read, not a fresh composite
+attempt**); (2) the kick-dose ladder — kick1x full dose is the campaign's one real fall (kickhalf
+ACQ gate computing); (3) torque-crutch removal at ACQ scale (torquefade1x-c1-acq1 ACQ PASS,
+CLOSED 09-06 ~10:1x), then a composite WITHOUT the 3x crutch (`allaxiskickhalf-nocrutch1x-c1`,
+computing); (4) once composite+no-crutch holds: the acquisition-milestone panel and the
 contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
 Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
 

@@ -161,9 +161,46 @@ ongoing BC/AMP/imitation) is CLOSED on mesh/100Hz: do not fund a 4th
 same-recipe seed or any same-recipe budget continuation.**
 
 ## Next
+0. **SEMANTICS BANK GREEN 2026-09-06 ~10:2x (no training spend, code +
+   tests only — this closes the last precondition item 1 below still
+   listed as owed).** `test_task_semantics.py`'s
+   `test_assistfade_rung2_*` (5 tests, `assistfade_rung2_returns`
+   fixture) now pin the doc's seven named landmarks (`weight_shift`,
+   `one_lift`, `one_placement`, `one_transition`, `two_steps_fall`,
+   `static_stand`, `clean_gait`) under the UNCHANGED rung-1 reward
+   stack (`ASSISTFADE_RUNG1_OVERRIDES` — rung 2 only changes the
+   TRAINING side, `bc_anchor.py`'s own docstring: "the reward stack is
+   UNTOUCHED"). All 5 green: no permanent-refusal landmark
+   (`static_stand`) rivals any attempt; no fall-after-progress
+   landmark (`two_steps_fall`) rivals a safe partial attempt or beats
+   holding still; `clean_gait` remains the clear global optimum above
+   every partial landmark. Two calibration findings worth reusing if
+   this bank is ever revisited: (a) a naive first construction froze
+   each partial landmark's pose and held it for the REMAINING ~13s of
+   a 15s episode — that measures "stuck", not "progress", and scored
+   WORSE than `static_stand` for every partial landmark (independently
+   re-discovered twice this cycle, once by this session, once by a
+   concurrent session that landed the fix — see file history); (b) the
+   four partial landmarks cluster in a narrow band and do NOT form a
+   strict internal staircase (`one_lift` can beat `one_placement`) —
+   asserted as a band, not a fine ordering, per the bank's own
+   evidence-over-assumption convention. **Rung-2 canary launch is now
+   precondition-clear** (mechanism below + bank both green) but NOT
+   YET LAUNCHED by any session as of this note — the next reader can
+   launch it directly: 2 seeds, mesh/100Hz, `goal.walk_speed_*=0.06`
+   fixed-forward (rung-1's exact command diet), RANDOM actor-weight
+   init (no `--init-from-source`, unlike rung 1's BC-clone init — this
+   is rung 2's whole point), `train.bc_anchor_coef` set to a genuinely
+   STRONG initial value (rung 1's BC-clone init never needed a
+   nonzero anchor; rung 2 has no precedent run to copy a dose from —
+   pick something clearly dominant early, e.g. on the order of the
+   rise-task anchor doses in `bc_anchor.py`, and say so in the launch
+   notes since it is a fresh assume-and-go), `train.bc_anchor_anneal_
+   gate=1` (+ `_steps/_check_every/_assay_episodes/_min_progress`, all
+   built 09-06 ~09:3x), 2M-step canary budget (this is a genuinely new
+   mechanism combination — canary first, never straight to ACQ).
 1. **MECHANISM BUILT 2026-09-06 ~09:3x (no training spend, code +
-   tests only — the semantics bank is still owed, see below, so no
-   launch yet).** Rung 2's "anneal the anchor smoothly to zero only
+   tests only).** Rung 2's "anneal the anchor smoothly to zero only
    after deterministic walking passes" needed a genuinely new
    mechanism (a gate-triggered anneal, not a fixed coefficient or a
    plain step-count schedule — a step-count-only anneal would repeat

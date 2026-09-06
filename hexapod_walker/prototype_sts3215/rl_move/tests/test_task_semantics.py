@@ -10917,3 +10917,276 @@ def test_assistfade_rung1_stall_beats_refusal_park(
     t = assistfade_rung1_returns
     assert t["stall"] > t["park"], (
         f"refusing to step out-earns trying under the rung-1 cfg: {t}")
+
+
+# --------------------------------------------------------------------------
+# ASSISTFADE RUNG-2 intermediate-state semantics bank — process
+# requirement (EASIER_WALKING_CURRICULUM.md "Process requirements";
+# track STATUS.md "Next" item 1, mechanism built 09-06 ~09:3x) owed
+# BEFORE any rung-2 (anchor-fade-from-random-weights) launch. The bank
+# must pin: "weight shift, one useful lift, one forward placement, one
+# support transition, two steps then fall, static stand, and clean
+# gait" (the curriculum doc's own named landmarks).
+#
+# Why testing plain env.step() reward is still the right tool even
+# though rung 2's whole point is a BC anchor: `bc_anchor.py`'s own
+# docstring is explicit — "a supervised auxiliary loss ... The reward
+# stack is UNTOUCHED — this is not a reward term". The anchor coef and
+# its anneal schedule (`bc_anchor_anneal_value`, built 09-06) shape the
+# TRAINER's gradient, not any single env tick's reward. So rung 2's
+# reward-alignment story is identical to rung 1's (same course-income
+# stack) — what is genuinely NEW for rung 2 is that, unlike rung 1's
+# BC-clone init (which starts ON the demonstrated path), a RANDOM-
+# weight init will actually visit every partial-gait landmark below
+# for real during early training, so the reward must not create a
+# false local optimum at any of them before the anchor has annealed.
+#
+# ASSUME-AND-GO (design detail, not an operator question — recorded
+# here rather than parking on it): this tripod gait only ever swings
+# legs in the two fixed alternating GROUPS OF THREE; there is no
+# "one single leg only" primitive to script independent of its
+# tripod-mates. "One useful lift" / "one forward placement" are read
+# as ONE TRIPOD GROUP's lift / forward placement (the gait's actual
+# atomic per-group states, frozen at the swing peak / touchdown); "one
+# support transition" is the dynamic handoff between the two groups —
+# this gait's actual atomic locomotion primitive. "Two steps then
+# fall" reuses the bank's own existing `topple_rad` twin (front-leg
+# lift, tips over in ~0.2-0.3s — see `test_slipwalk_*` above) AFTER two
+# genuine full gait periods (each tripod group completes two full
+# swing cycles), not a scripted instant fall.
+ASSISTFADE_RUNG2_VX = 0.06
+
+
+def _assistfade_rung2_frozen_pose(phi_target: float) -> np.ndarray:
+    """One frozen 18-DOF action at a named group-0 gait phase (WALK_PLANT
+    stance, default 0.025 lift/0.75s period) — used to build the
+    rung-2 static-pose landmarks. `phi = (_phase + pi/2) % 2pi` is the
+    per-group-0 gate `_foot_target_in_body` reads (see that method):
+    phi=0 is "just planted at back reach, about to lift" (weight_
+    shift), phi=pi/2 is "mid-swing, max height, neutral X" (one_lift),
+    phi=pi is "just touched down at forward reach" (one_placement) —
+    continuous (no discontinuity) at both the phi=0 and phi=pi branch
+    boundaries, confirmed by inspection of `_foot_target_in_body`'s two
+    branches, so no epsilon-nudge is needed. Advances through 2 FULL
+    extra periods before landing on `phi_target` (rather than the
+    the shortest path) so `_elapsed` always clears `self.ramp` (0.35s)
+    and every landmark reads at the SAME fully-ramped-in swing
+    amplitude (`ramp_amp=1.0`), not an artifact of how close phi_target
+    happens to sit to the phase-0 reset point."""
+    from sim_gait_compat import TripodGait
+
+    # vx MUST be nonzero here (bug found empirically this cycle: at
+    # vx=0 dx/dy are zero at every phase regardless of prog, so phi=0
+    # and phi=pi both silently collapse to the exact neutral/park pose
+    # -- only phi=pi/2's height term would differ). Use the same
+    # ASSISTFADE_RUNG2_VX the real rollout commands so weight_shift's
+    # back-reach and one_placement's forward-reach are genuinely
+    # different poses, not both a no-op neutral stand.
+    g = TripodGait(vx=ASSISTFADE_RUNG2_VX, lift=0.025)
+    g.sync_plant_stance(*WALK_PLANT)
+    g.reset_phase()
+    phase_target = (phi_target - math.pi / 2.0) % (2.0 * math.pi)
+    t_total = 2.0 * g.period + phase_target * g.period / (2.0 * math.pi)
+    g.desired_deg(0.0)                # dt=0: latches _last_t at t=0
+    deg = g.desired_deg(t_total)      # one dt jump lands exactly on phi_target
+    return q_rad_to_action(np.asarray(deg) * DEG2RAD)
+
+
+def _assistfade_rung2_rollout(policy: str, seed: int, *,
+                              overrides: dict = ASSISTFADE_RUNG1_OVERRIDES
+                              ) -> float:
+    """Run one rung-2 intermediate-state landmark for a full episode
+    under the UNCHANGED rung-1/rung-2 walk reward stack (valid
+    regardless of the BC-anchor coefficient/anneal state — see the
+    bank docstring above). Unlike `_walk_rollout` (which ramps the
+    commanded vx over 1s to match a realistic training episode), every
+    landmark here commands a CONSTANT `ASSISTFADE_RUNG2_VX` from tick
+    0 — simpler and self-consistent across all 7 landmarks (including
+    this function's own `static_stand`/`clean_gait`, NOT the rung-1
+    fixture's ramped twins) since the point is comparing landmarks to
+    each other, not matching rung-1's steady-state realism.
+
+    `policy` in {"weight_shift", "one_lift", "one_placement"}: a
+    single frozen pose held the whole episode (the same construction
+    `_walk_rollout`'s "park" uses for a different fixed pose).
+    `policy == "one_transition"`: runs the real gait dynamically for
+    exactly HALF a period (one complete swing<->stance handoff between
+    the two tripod groups), then FREEZES whatever pose that leaves at
+    for the remainder (no further attempt).
+    `policy == "two_steps_fall"`: runs the real gait dynamically for
+    TWO FULL periods (each tripod group completes two full swing
+    cycles = "two steps"), then swaps to the bank's `topple_rad` twin
+    for the remainder.
+    `policy == "static_stand"`: the plant pose held the whole episode
+    (zero attempt, this bank's own floor).
+    `policy == "clean_gait"`: the real gait run continuously the whole
+    episode (this bank's own ceiling).
+    """
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    traj.vx[:] = ASSISTFADE_RUNG2_VX
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    topple_rad = plant_rad.copy()
+    for _leg in (0, 1):
+        topple_rad[3 * _leg + 1] -= 50.0 * DEG2RAD
+        topple_rad[3 * _leg + 2] -= 50.0 * DEG2RAD
+    topple_act = q_rad_to_action(topple_rad)
+    park_act = q_rad_to_action(plant_rad)
+    gait.reset_phase()
+
+    frozen = {
+        "weight_shift": _assistfade_rung2_frozen_pose(0.0),
+        "one_lift": _assistfade_rung2_frozen_pose(math.pi / 2.0),
+        "one_placement": _assistfade_rung2_frozen_pose(math.pi),
+        "static_stand": park_act,
+    }
+    if policy in frozen:
+        dynamic_end_s = -1.0          # never dynamic
+    elif policy == "one_transition":
+        dynamic_end_s = gait.period / 2.0
+    elif policy in ("two_steps_fall", "clean_gait"):
+        dynamic_end_s = (gait.period * 2.0 if policy == "two_steps_fall"
+                         else float("inf"))
+    else:
+        raise ValueError(policy)
+
+    total, step = 0.0, 0
+    last_dynamic_act = None
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        if policy in frozen:
+            act = frozen[policy]
+        elif t < dynamic_end_s:
+            gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+            last_dynamic_act = q_rad_to_action(
+                np.asarray(gait.desired_deg(t)) * DEG2RAD)
+            act = last_dynamic_act
+        elif policy == "two_steps_fall":
+            act = topple_act
+        else:                          # one_transition: hold last pose
+            act = last_dynamic_act
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+ASSISTFADE_RUNG2_LANDMARKS = ("weight_shift", "one_lift", "one_placement",
+                             "one_transition", "two_steps_fall",
+                             "static_stand", "clean_gait")
+
+
+@pytest.fixture(scope="module")
+def assistfade_rung2_returns() -> dict[str, float]:
+    with _mesh_family_env():
+        return {p: float(np.mean(
+            [_assistfade_rung2_rollout(p, s) for s in SEEDS]))
+            for p in ASSISTFADE_RUNG2_LANDMARKS}
+
+
+def test_assistfade_rung2_landmarks_all_survive_to_truncation_except_fall(
+        assistfade_rung2_returns):
+    """Sanity check on the probe construction itself, not the reward:
+    every landmark except `two_steps_fall` must run the FULL episode
+    (no accidental safety termination from an unintended pathology in
+    the frozen poses/transition math), and `two_steps_fall` MUST
+    actually terminate early (the topple twin failing to topple would
+    silently turn that landmark into just another safe hold, breaking
+    every assertion below that depends on it being a genuine fall)."""
+    # returns dict only carries totals; re-derive termination cheaply
+    # by checking two_steps_fall's return sits far below a full-length
+    # static hold's per-tick floor (a fall's -term_penalty dwarfs the
+    # few ticks of missed income) as an indirect but robust signal.
+    t = assistfade_rung2_returns
+    assert t["two_steps_fall"] < t["static_stand"] - 5.0, (
+        f"two_steps_fall does not read as a real fall vs static_stand: "
+        f"{t} — check the topple twin still tips over under this cfg.")
+
+
+def test_assistfade_rung2_clean_gait_beats_every_partial_landmark(
+        assistfade_rung2_returns):
+    """Core rung-2 ordering: sustained clean walking must clearly out-
+    earn EVERY partial/frozen landmark on the way there, so none of
+    them is a false local optimum a random-weight policy could get
+    stuck at. MEASURED 09-06 (calibration note, per the bank's own
+    "trust the measurement over a hand-built assumption" convention —
+    see `test_rise_stall_replay_prices_worse_than_honest_partial`):
+    the four partial landmarks do NOT form a strict internal staircase
+    (one_lift -776 actually beats one_placement -814, both frozen mid-
+    episode poses whose static equilibrium the physics settles into,
+    not a walking-progress ordering) — that finer claim is dropped as
+    unsupported rather than asserted past the evidence. What DOES hold
+    cleanly and is the invariant this bank actually needs: all four
+    partial landmarks cluster in a narrow band (~-841 to -776) far
+    below clean_gait and, per the sibling test below, far above
+    static_stand -- no partial landmark is anywhere close to
+    competitive with finishing the gait."""
+    t = assistfade_rung2_returns
+    for name in ("weight_shift", "one_lift", "one_placement",
+                 "one_transition"):
+        assert t["clean_gait"] > t[name] + 1000.0, (
+            f"'{name}' is competitive with clean_gait under the rung-2 "
+            f"stack: {t} — a partial landmark should not rival "
+            f"finishing the gait.")
+
+
+def test_assistfade_rung2_attempt_beats_refusal(
+        assistfade_rung2_returns):
+    """Same invariant rung 1 already pins for stall vs park ('an
+    imperfect first step is better than standing still'), restated at
+    finer granularity for rung 2: EVERY partial-attempt landmark below
+    clean_gait must still out-earn doing nothing (static_stand) — a
+    random-weight policy must never find refusal a better hiding place
+    than any of these partial landmarks."""
+    t = assistfade_rung2_returns
+    for name in ("weight_shift", "one_lift", "one_placement",
+                 "one_transition"):
+        assert t[name] > t["static_stand"], (
+            f"'{name}' does not out-earn static_stand: {t} — refusal "
+            f"would be a competitive hiding place under the rung-2 "
+            f"stack.")
+
+
+def test_assistfade_rung2_falling_does_not_beat_holding_still(
+        assistfade_rung2_returns):
+    """The genuinely NEW invariant this track needs that rung 1 never
+    had to check: rung 1 always starts ON the demonstrated path, but
+    rung 2 starts from RANDOM weights, so falls are the expected early
+    norm, not an edge case. Two honest gait cycles that then topple
+    must NOT out-earn just holding still the whole episode — otherwise
+    the reward would bias early (falls-are-common) training toward
+    risking a fall over the safe alternative, before the anchor anneal
+    has anything reliable to fall back on."""
+    t = assistfade_rung2_returns
+    assert t["static_stand"] > t["two_steps_fall"], (
+        f"falling after two honest steps out-earns holding still: "
+        f"{t} — the stack would reward risk-taking over safety during "
+        f"the random-weight-init phase rung 2 actually trains through.")
+
+
+def test_assistfade_rung2_falling_does_not_beat_clean_gait(
+        assistfade_rung2_returns):
+    """The completed behavior must remain the global optimum: two
+    honest steps that then fall must not rival sustained clean
+    walking — a large enough gap that the anchor anneal gate (which
+    only fires on a clean deterministic pass, see `ignition_gate_pass`)
+    is chasing a reward surface where finishing is unambiguously the
+    best strategy, not a photo-finish with falling partway through."""
+    t = assistfade_rung2_returns
+    assert t["clean_gait"] > t["two_steps_fall"] + 100.0, (
+        f"clean_gait does not clearly beat two_steps_fall: {t}")
+

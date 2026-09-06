@@ -1421,3 +1421,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 01:59 medhead-abrupt-c1-acq1 ACQ PASS 23/24 gv 0 falls — 1g cross-gravity-transfer confirmed at acquisition scale, first of its kind 
 - 09-06 01:59 widenirrc1-abrupt-c1 CANARY PASS 6/6 walk/det gv, 4th halfgrav recipe confirming crossgrav-transfer 
 - 09-06 02:00 irrwiden-c2 CANARY PASS 22/24 gv 0 falls — 2nd-seed confirms jitter-first widen+irr composite 
+- 09-06 02:03 [walkcurr] cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1 -> ACQ_PASS: 21/24 gv, 0 falls, matches own 2M canary structure exactly at 40M (18/18 clean modes + known mild leg-4-under-jitter softening) -- 2nd of 2 ACQ PASS, fully validates cross-gravity-transfer regardless of ramp speed 

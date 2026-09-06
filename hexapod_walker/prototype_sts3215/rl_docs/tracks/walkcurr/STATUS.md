@@ -2,6 +2,35 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~11:3x this cycle (assigned `headset-base-s1c1-acq1-cont40m` — NOT part of the crossgrav
+  DR campaign above, a different sub-line: the older 09-05 base(1g)/halfgrav(0.5g) heading-set
+  family): **HARDENING FAIL — closes "champion pick should use s1c1" (09-05 ~14:2x) for good; the
+  base(1g) family's leg1/4 favoritism is a training-DURATION effect, not a seed-specific
+  anomaly.** Parent (`s1c1-acq1`, 40M) had `gait_valid` 18/24 with the leg1/4 sacrifice confined
+  ENTIRELY to `walk_startjitter/det` (0/6) — plain `walk/det`/`walk/sto` both clean 6/6, the
+  established "clean seed" fingerprint that made it (along with plain `acq1`) the recommended
+  champion over `s0c1` (which had already hardened at 40M). This cont40m (+40M, 80M cumulative)
+  drops to 15/24: the SAME leg (mostly 4, occasionally 1) now ALSO chronic in the previously
+  PERFECT `walk/det` (3/6, duty 0.02-0.05 / swing_count 19-49 vs healthy legs' 0.4-0.8 / 150-250 —
+  genuine near-park) and `walk_startjitter/sto` (3/6, was 6/6); `walk_startjitter/det` itself
+  partially improved (0/6->3/6) but that's redistribution, not net gain. `ep_rew_mean` still rises
+  every quarter (559->1047->1232->1406) but this run's own pre-registered HARDENING gate exists
+  precisely to test whether good behavior HOLDS under more budget, and its "chronic leg entrenches"
+  FAIL clause is squarely met regardless of reward or aggregate majority. **s0c1 hardened at 40M,
+  s1c1 hardens by 80M — every base(1g)-family seed given enough budget converges on the same
+  leg1/4 sacrifice; this is now a family-wide duration effect, not a per-seed roll.** Neither
+  40M base-family checkpoint should be treated as a stable champion past its own acquisition
+  budget; downweight the base(1g) family generally in favor of the already-more-robust
+  halfgrav(0.5g) sibling (independently confirmed clean through irr-timing/medhead/widen axes in
+  this same file). No new repair mechanism warranted — this corroborates an extensively
+  pre-established, already-closed pathology (6 reward-shaping repair levers closed 09-05 on the
+  crossgrav-medhead sub-line above), not a new open question. `headset-base-acq1-cont40m` (the
+  base family's 3rd and last cont40m candidate, still training) should be read next to see if it
+  shares this fate — if so, retire ALL base(1g) 40M+ checkpoints from champion contention and
+  standardize on halfgrav for any downstream base-gravity walking use. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_s1c1_acq1_cont40m_gate/report.json` vs
+  `..._headset_base_s1c1_acq1_gate/report.json`, W&B `skhxpa64`, RL_LOG 09-06 11:33.
+
 - 09-06 ~11:2x this cycle (assigned `fault1x-c1-acq1-r3`, `kick0225x-c1`, `allaxis-nokick-c1` —
   the latter 2 already SUPERSEDED by a concurrent cycle before this read landed, confirmed not
   re-triaged): **1/3 assigned run ACQ PASS (final per-axis DR-restore confirmation); found+verdicted

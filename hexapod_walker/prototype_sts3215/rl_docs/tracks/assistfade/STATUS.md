@@ -49,6 +49,30 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~11:2x this cycle (refill-only, no completions assigned; found+verdicted the rung-2
+  anchorfade canary pair a concurrent cycle had launched and left unread):** **both seeds CANARY
+  PASS, and BEAT the ignition bar already at 2M under the still-strong anchor** — held-out gate
+  eval 24/24 episodes gait_valid=true, 0 terminations, 0 sacrificed legs, six-leg cycling
+  (duty 0.35-0.62, swing_count uniform 12/12), progress_ratio 0.35-0.52 across all 4 modes (bar
+  0.35), slip/m 2.4-3.3 (near/at the 2.9 teacher band) — clearly better than rung-1's own BC-init
+  canary comparison point (progress med 0.22) despite starting from RANDOM weights. The in-training
+  anneal-gate assay (n=8 eps every 500k steps) never latched `ignition_gate_pass` in this 2M window
+  (`bc_anchor_anneal/gate_pass`=0 every check, `gate_early_term_rate`=0.25 vs 0/24 in the larger
+  held-out eval — small-n assay noise, not a real fall pattern) so `bc_anchor_coef` never annealed
+  off 3.0 — exactly the CANARY gate's own "not yet annealed is fine at this budget" criterion.
+  SKILLS.md updated (1 new entry, both seeds). **Refill:** launched `-cont8m` for both seeds
+  (+8M each, 10M cumulative, `--init-from-source`, ACQ phase) — gives the periodic assay ~16 more
+  checks to latch the gate and drive the anchor through its 4M-step anneal, then the real read is
+  deterministic held-out behavior WITH the anchor at/near zero (the doc's actual downstream gate,
+  not the still-strong-anchor mechanism-health check this cycle closed). VERIFIED RUNNING
+  `-s0-cont8m` train-8, `-s1-cont8m` train-9. Housekeeping: an early respec attempt for `-s1-cont8m`
+  timed out client-side and was mistakenly retried, producing a duplicate `-s1-cont8m-rr1` on
+  train-2 running the identical recipe — caught via a live `kubectl exec ps` cross-check, killed
+  immediately (`ops.sh killrun`), ledger marked KILLED with the duplicate explained; no information
+  lost, `-s1-cont8m` (train-9) is the surviving run. Evidence: `logs/ckpt_eval/
+  cw_assistfade_rung2_anchorfade_{s0,s1}_gate/report.json`, W&B `fd7gmi2z`/`70k66xu7`,
+  `logs/experiments/cw-assistfade-rung2-anchorfade-{s0,s1}/wandb_history.csv`, `launch_run.py
+  status`, RL_LOG 09-06 11:2x.
 - **09-06 ~03:3x rung-1 first read (s1) + refill (keep-GPUs-training
   cycle, fb_20260906T031718_f01aa6):** `-s1` VERDICTED **CANARY PASS
   (mechanism health)** — task-only PPO from BC init did NOT destroy

@@ -1496,3 +1496,10 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 05:48 walkcurr: medhead-dr-noise1x-c1 PASS/INFORMATIVE-POSITIVE (23/24, 1 non-chronic flag, 0 falls) -- nominal sensor-noise realism costs nothing on the campaign's cleanest champion 
 - 09-06 05:48 walkcurr: medhead-dr-torquefade2x-c1 PASS/INFORMATIVE-POSITIVE (24/24 PERFECT, 0 falls) -- fading the 3x torque-assist crutch to 2x costs nothing, licenses a harder torque-fade dose probe 
 - 09-06 06:00 tiltnoise1x DR-restore CANARY PASS: gait_valid 24/24, 0 falls, 0 sacrificed legs; slip 3.4-4.9 (above 2.9 band, consistent w/ sweep). Refilled 3 novel single-axis DR canaries (zerobias1x/joint_zero_bias_deg, extpush1x/mid-episode push, fault1x/actuator fault) to fill 3 free GPU slots, completing near-full coverage of domain_rand.py's axis list. 
+- 09-06 06:00 09-06 05:5x walkcurr DR-hardening battery: medhead-dr-latency1x-c1 PASS 24/24 clean, 0 falls -- latency realism free for the champion 
+- 09-06 06:01 09-06 05:5x walkcurr DR-hardening battery: medhead-dr-deadband1x-c1 PASS 23/24, 0 falls, 1 non-chronic flag -- deadband realism free for the champion 
+- 09-06 06:01 09-06 06:0x walkcurr: irrwidenc2-abrupt-c1-acq1 ACQ FAIL (18/24, down from 22/24 canary, walk/det 3/6 below majority, mixed leg0/leg4 sacrifice, non-rising reward) -- 2nd irr+widen ACQ-scale regression, confirms composition durability is seed/combo-specific not just source-health-specific 
+- 09-06 06:03 walkcurr: 3-arm ACQ refill (medhead-widenfwd-c2-acq1, medhead-widenirr-c1-acq1 launched; medhead-irrwiden-c1-acq1 self-killed within 1min after noticing 3x40M exceeded the 80M/cycle GPU-step cap, re-queued to backlog under its own gate/hypothesis). 
+- 09-06 06:07 gyronoise1x CANARY PASS: perfect 24/24 axis restore, no cost 
+- 09-06 06:12 09-06 encnoise1x DR-restore CANARY PASS: gait_valid 24/24, 0 falls, 0 sacrificed legs; slip 3.4-5.6 (consistent with sibling DR-restore canaries). 
+- 09-06 06:12 medhead-dr-push1x-c1 DR-restore CANARY PASS: 20/24 gv (down from champion's 24/24 clean, still majority), 0 falls, scattered non-chronic sac pattern -- push-recovery is free at nominal dose 

@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T05:53:25+00:00
+**created**: 2026-09-06T06:11:50+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-4
 
 **steps**: 40000000
 
@@ -16,5 +16,5 @@
 
 **gate**: ACQ PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) with no NEW chronic single-leg pattern; ACQ FAIL - MECHANISM/ENTRENCHES if a leg[1,4]-style or leg-2/5-worsening chronic sacrifice emerges.
 
-**refused_reason**: hexapod-mjx-train-3 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-4 code marker e55ab8a51e89b0725b33a997b00d2ed059834c85-dirty != local HEAD e55ab8a51e89b0725b33a997b00d2ed059834c85 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-4 (and snapshot/commit before that if the tree is dirty).
 

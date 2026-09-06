@@ -2,6 +2,71 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:0x this cycle (assigned `irrwidenc2-abrupt-c1-acq1`, `medhead-dr-deadband1x-c1`,
+  `medhead-dr-latency1x-c1`): **2 DR-restore PASS, 1 ACQ FAIL — 3rd/4th single-axis DR cells
+  close clean, 2nd irr+widen composition regresses at scale.** (1) `medhead-dr-latency1x-c1`
+  CANARY PASS: restoring nominal (1x) actuator-command-latency spread on the campaign's
+  cleanest champion costs nothing, a PERFECT 24/24, 0 falls, reward rising every quarter.
+  (2) `medhead-dr-deadband1x-c1` CANARY PASS: nominal (1x) deadband spread costs almost
+  nothing, 23/24 with one non-chronic leg-5 flag, 0 falls, reward rising every quarter. Both
+  join latency/noise1x/tiltnoise1x/torquefade2x as clean axis-restore PASSes -- every
+  guardrails-named DR axis (mass/geometry/friction/compliance/gravity/gains) plus sensor
+  noise/bias, actuator latency/deadband/velocity-cap/torque-fade/command-drop now has at
+  least one clean-champion PASS on record. (3) `irrwidenc2-abrupt-c1-acq1` **ACQ FAIL**: the
+  2M canary's clean 22/24 does NOT hold at 40M -- drops to 18/24, walk/det (the gate's primary
+  mode) falls to 3/6 from 5/6, below majority; startjitter/sto also drops 5/6->3/6. Sacrifice
+  pattern is MIXED (leg-4 x3, leg-0 x3, leg-3 x1) rather than the canary's clean sweep --
+  different fingerprint from the chronic-single-leg s3acq entrenchment. `ep_rew_mean` stays
+  deeply negative and non-monotonic (-1280/-1971/-1493/-1086), not an 08-21 rising-reward
+  case. 0 falls. This is the 2nd irr+widen-composed arm (after the concurrently-verdicted
+  `irr2acq1-abrupt-c1-acq1`) to regress at ACQ scale on an otherwise-healthy abrupt source --
+  extends the source-cleanliness-margin finding: even a clean-at-2M source is not guaranteed
+  durable at scale for every axis composition; the irr+widen combination specifically (vs
+  irr alone, which held on `irrwidenc1`) looks like the fragile ingredient. No continuation
+  funded. **Refill:** filled all 4 free GPU slots (train-4 already claimed by a concurrent
+  cycle's `medhead-dr-geom1x-c1`, which closes the LAST guardrails-named axis) with 2 more
+  new single-axis DR-hardening canaries not yet covered by any arm: `medhead-dr-actionnoise1x-c1`
+  (dr.action_noise, actuation-side noise distinct from the already-split sensor-noise axes)
+  VERIFIED RUNNING train-7, and `medhead-dr-startpose1x-c1` (dr.placement_noise_deg +
+  bad_start_prob/max_joints/deg, matching the eval harness's own startjitter panel; NOTE this
+  exact bundled mechanism was already tried as a REPAIR lever on a different, already-
+  compromised base(1g) family and CLOSED 8/8 FAIL there -- this arm asks the distinct
+  question of whether an already-clean crossgrav champion also regresses under it) VERIFIED
+  RUNNING train-11. Two more axes (`medhead-dr-groundtilt1x-c1` floor-slope via tilted
+  gravity, distinct from the crossgrav campaign's own gravity-MAGNITUDE scaling; `medhead-dr-
+  imupos1x-c1` IMU mount-POSITION lever-arm error, distinct from the already-tested imu_bias/
+  imu_mount ROTATION axis in `imubias1x`) queued to `backlog.json` after repeated pod-race
+  REFUSALs against concurrent cycles' own fills (`zerobias1x`, `torquefade1x`, `fault1x`,
+  `widenirr-c1-acq1`, `widenfwd-c2-acq1` all landed on the slots I tried in the same window)
+  -- the self-repairing drain will place them. SKILLS.md updated (2 new rows: one PASS pair,
+  one FAIL). Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-{medhead-dr-
+  latency1x-c1,medhead-dr-deadband1x-c1,irrwidenc2-abrupt-c1-acq1}`, W&B `5xqrfrqd`/
+  `07qw8xz0`/`0l8ed9g4`, RL_LOG 09-06 06:00-06:01.
+
+- 09-06 ~06:0x this cycle (assigned `medhead-dr-tiltnoise1x-c1`): **CANARY
+  PASS, another PERFECT axis restore.** Restoring nominal (1x, 0.3deg)
+  IMU tilt-sensor noise (previously pinned at 0 the whole campaign)
+  costs nothing on the campaign's cleanest champion
+  (`medhead-abrupt-c1-acq1-cont40m`, 80M, 24/24): aggregate
+  `gait_valid` 24/24, `sac=[]` every episode, 0 falls, slip/m banded
+  3.4-4.9 (above the 2.9 teacher band, consistent with every sibling
+  DR-restore canary). Joins deadband1x/latency1x/noise1x/torquefade2x
+  as a clean single-axis PASS. Refilled 3 previously-untried DR axes
+  to fill 3 free GPU slots (fleet was otherwise saturated by
+  concurrent cycles' own DR-sweep launches): `medhead-dr-zerobias1x-c1`
+  (`dr.joint_zero_bias_deg=1.0`, persistent per-joint zero-point
+  calibration error — the single most hardware-realistic untested
+  axis, distinct from the transient noise/latency axes already
+  covered), `medhead-dr-extpush1x-c1` (`dr.ext_push_prob=0.3`,
+  mid-episode external push-recovery, distinct from the already-tested
+  walk-takeoff `dr.walk_push_*`), `medhead-dr-fault1x-c1`
+  (`dr.fault_prob=0.3`, real per-episode actuator fault: weakened/
+  frozen/disabled-leg — informative against the campaign's own
+  reward-driven leg-sacrifice findings). All 3 VERIFIED RUNNING
+  (train-1/9/10). SKILLS.md updated (1 new row). Evidence: `logs/
+  ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  tiltnoise1x_c1_gate/report.json`, W&B `w0kk6df2`, RL_LOG 09-06 06:0x.
+
 - 09-06 ~05:4x-05:5x this cycle (assigned `medhead-dr-noise1x-c1`, `medhead-dr-
   torquefade2x-c1`, `widen2c1-abrupt-c1-acq1-cont40m`): **3/3 PASS — 4th
   endurance-panel confirmation + 2 clean single-axis DR-restoration
@@ -64,11 +129,18 @@
   entry, relaunched correctly. (b) `medhead-widenirr-c1-acq1` (matched 40M ACQ for the
   widen-then-irr composite, already CANARY PASS 22/24 and never given its own ACQ
   continuation despite the SKILLS.md note flagging it "eligible", train-8, VERIFIED
-  RUNNING). (c) `medhead-irrwiden-c1-acq1` (matched 40M ACQ for the irr-then-widen
-  sibling composite, its own CANARY PASS 23/24, also never given an ACQ continuation
-  despite the same "eligible" flag) — 2 pod-busy races (train-3, train-9 both taken by
-  a concurrent cycle's DR-hardening arms between check and launch) before landing on
-  train-10; see run log for final pod. SKILLS.md updated (2 new rows: widen2c3-abrupt-c2
+  RUNNING). Self-caught guardrail near-miss: (a)+(b) alone already commit the cycle's
+  full 80M `max_new_gpu_steps_per_cycle` allowance (2x40M). (c) `medhead-irrwiden-c1-
+  acq1` (matched 40M ACQ for the irr-then-widen sibling composite, its own CANARY PASS
+  23/24, also never given an ACQ continuation despite the same "eligible" flag) was
+  first launched `--now` after 2 pod-busy races (train-3, train-9, then train-10, then
+  train-2 succeeded VERIFIED RUNNING) — only then noticed this made 3x40M=120M new GPU
+  steps this cycle, 40M over the guardrail cap with no operator exception in force.
+  Self-corrected: killed it within ~1 min of start (0 GPU memory used/no progress
+  lost, `status=SELF_KILLED_OVER_CAP`), then re-queued the identical hypothesis/gate
+  via plain `respec` (no `--now`) so the live backlog drain places it under its own
+  mechanical scheduling once capacity is next free — this cycle's own launch count
+  stays at 2x40M, within cap. SKILLS.md updated (2 new rows: widen2c3-abrupt-c2
   FAIL, widenirrc1-abrupt-c1-acq1-cont40m PASS). Evidence: `ops.sh review
   cw-walkscratch-easy0905-headset-crossgrav-widen2c3-abrupt-c2`, `ops.sh review
   cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m`,

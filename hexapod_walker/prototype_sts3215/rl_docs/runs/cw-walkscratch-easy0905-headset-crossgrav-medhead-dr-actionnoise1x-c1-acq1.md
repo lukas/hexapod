@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:01:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-actionnoise1x-c1
+
+**wandb_id**: lut6o6wk
 
 **hypothesis**: Does the campaign's clean actuator-side action-noise DR-restore canary (nominal dose, 22/24 gait_valid at 2M, 0 falls, only a single non-chronic leg-5 flag) hold up at a real acquisition-scale (40M) training budget, the same canary-vs-ACQ durability question already answered YES for friction1x/mass1x/gains1x-family single axes?
 

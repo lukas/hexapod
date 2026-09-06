@@ -144,15 +144,42 @@ changes/stops, yaw, then DR/pushes).
   next cycle fires the doc's retreat (rung 2 slower anchor fade, or
   rung 3 tighter residuals) without further same-recipe spend.
 
+## RUNG 1 CLOSED (09-06 ~05:0x) — 3/3 seeds fail at scale, retreat fires
+`s2-cont8m` landed: gait_valid 6/6 all 4 modes (no leg sacrifice) but
+progress_ratio NEGATIVE in all 24 episodes (-0.10 to -0.16),
+direction_err_mean_deg 99-119° (spin/wrong-way, not a tracking miss),
+slip_per_m 20-24 (7-8x the 2.9 band), video confirms a body that spins
+in place while the heading arrow rotates through multiple directions.
+Reward quarters 98.7/44.1/-4.8/-275.2 — clean decline, not the 08-21
+rising-reward case. **Final rung-1 tally: 3/3 seeds fail at 8-10M
+scale, each via a DIFFERENT fingerprint** (s0: immediate gait
+destruction at 2M; s1-cont8m: chronic 2-leg sacrifice + 100%
+over_current at 10M; s2-cont8m: clean six-leg gait but wrong-direction
+spin + massive slip at 10M). This clears the doc's own >=2/3-destroy
+retreat threshold decisively. **Rung 1 (BC init + task-only PPO, no
+ongoing BC/AMP/imitation) is CLOSED on mesh/100Hz: do not fund a 4th
+same-recipe seed or any same-recipe budget continuation.**
+
 ## Next
-1. Triage the rung-1 pair on the ignition gate (video first).
-2. On pass: hardening rung (speed band 0.04-0.08) + rung-2 anchor-fade
-   design (random init, `bc_anchor_coef` annealed to zero only after
-   det walking passes) — rung 2 is a NEW mechanism (anchor schedule)
-   and OWES the full intermediate-state semantics bank (weight shift,
-   one useful lift, one forward placement, one support transition,
-   two steps then fall, static stand, clean gait) BEFORE launch.
-3. On fail: retreat per the doc (slower fade / tighter residuals).
+1. Design rung 2 (anchor fade FROM RANDOM WEIGHTS, `bc_anchor_coef`
+   annealed to zero only after det walking passes — NOT rung 1's
+   persistent-anchor-then-drop-to-zero shape, which is what just
+   failed 3/3). This is a NEW mechanism (an annealing schedule, not a
+   fixed coefficient) and OWES the full intermediate-state semantics
+   bank (weight shift, one useful lift, one forward placement, one
+   support transition, two steps then fall, static stand, clean gait)
+   BEFORE any launch — build/prove it as its own cycle's work, not a
+   reason to sit idle.
+2. Alternative if rung 2's design proves harder to bank than expected:
+   rung 3 (bounded residuals around the scripted tripod with a fading
+   reference) is the doc's other named retreat target and may have a
+   simpler semantics story (residual bounds shrink on a schedule
+   rather than an anchor coefficient annealing) — worth a quick
+   comparative design pass before committing to one.
+3. Do NOT re-attempt rung 1 with a reward-dose or architecture tweak
+   (doc-binding) — the failure modes (leg-sacrifice, wrong-direction
+   spin) are both budget-driven entrenchment away from a healthy 2M
+   canary, not an undertrained or misconfigured start.
 
 ## WAITING-ON
 - (none) — simulation only; never touch the physical robot.

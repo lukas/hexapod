@@ -5887,7 +5887,13 @@ def main(argv: list[str] | None = None) -> int:
                       "eval/video job(s) outstanding at handoff")
             else:
                 bg.shutdown()
-    model.save(out_path)
+    if not args.defer_final_artifacts:
+        model.save(out_path)
+    # Deferred mode saved out_path BEFORE writing the training_complete
+    # marker (which records the file's md5); re-saving here would change
+    # the bytes (zip timestamps) and silently invalidate the marker's and
+    # manifest's checksums — the "marker double-save inconsistency" of
+    # fb_20260906T044800_a59c3e.
     if amp_wrap is not None:
         disc_path = out_path.with_suffix(".amp_disc.pt")
         amp_wrap.save(disc_path)
@@ -5929,6 +5935,19 @@ def main(argv: list[str] | None = None) -> int:
         import hashlib as _hashlib
         from .artifact_handoff import (
             handoff_dir_for, spawn_finalizer, write_manifest)
+        if bg is not None:
+            # run.finish() above made the training-time publications
+            # durable — only NOW retire the snapshots of jobs that were
+            # already delivered during training (undelivered ones stay
+            # for the finalizer; fb_20260906T044800 async-publication
+            # risk).
+            _delivered = bg.pop_delivered()
+            for _p in _delivered:
+                Path(_p).unlink(missing_ok=True)
+            if _delivered:
+                print(f"[defer-final-artifacts] retired "
+                      f"{len(_delivered)} training-time-delivered "
+                      "snapshot(s) after durable W&B finish")
         _hd = handoff_dir_for(args.run_name or out_name)
         write_manifest(
             _hd, run_name=(args.run_name or out_name), task=args.task,

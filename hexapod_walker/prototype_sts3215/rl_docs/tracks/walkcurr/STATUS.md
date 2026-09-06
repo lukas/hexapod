@@ -2,6 +2,45 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~05:0x this cycle (assigned `medhead-ramp-widenfwd-c1-acq1`,
+  `medhead-widenirr-c1`, `plainhead-abrupt-c1b-acq1`): **2 PASS, 1 FAIL
+  (mild) — new medhead-ramp-vs-abrupt durability split found.**
+  (1) `medhead-widenirr-c1` **CANARY PASS** (22/24 gv, 0 falls): the
+  widen-then-irr composition order also clears cleanly, matching its
+  irr-then-widen sibling (`medhead-irrwiden-c1`) — composition order
+  confirmed irrelevant for this axis pair regardless of direction.
+  Leg-5 flagged 2/24, matching the pre-existing leg-2/5 signature
+  already on its irrfwd parent, not new. (2) `plainhead-abrupt-c1b-
+  acq1` **ACQ PASS**: the simplest never-composited crossgrav champion
+  holds an EXACT 23/24 match to its own 2M canary at full 40M budget —
+  2nd champion (after medhead-abrupt) confirmed durable with zero
+  entrenchment. (3) `medhead-ramp-widenfwd-c1-acq1` **ACQ FAIL -
+  MECHANISM (mild)**: aggregate 18/24 (down from 21/24 canary),
+  `walk_startjitter/det` leg-4 crosses its own pre-registered "max
+  2/6 per leg" anti-regression clause (1/6->3/6). This is the FIRST
+  medhead-LINEAGE instance of the widely-documented cross-recipe
+  startjitter leg[1,4] entrenchment — but critically, via the **ramp**
+  gravity-transfer variant, not the **abrupt** variant that stays 5/5
+  clean across every 40M+ read in this campaign. Severity is mild:
+  leg-4's own duty magnitude barely changed (0.06-0.24 at 40M vs
+  0.08-0.22 at 2M, same marginal band, just crossing the flag
+  threshold 2 more times) and frame strips confirm the leg still
+  visibly participates in a genuine six-leg gait, unlike the severe
+  precedent cases (s3acq/irracq1's near-zero duty). **New open
+  question**: does the ramp-transfer method itself carry elevated
+  entrenchment risk vs abrupt, independent of the composed axis? The
+  ramp family's other 2M canaries were mixed already (`medhead-ramp-
+  irrfwd-c1`/`medhead-ramp-widenfwd-c1` PASS, `irrwidenc1-ramp-c1`
+  FAIL-INFORMATIVE) — this is the first ACQ-SCALE ramp read, and it
+  regresses. Not enough evidence yet to indict ramp-vs-abrupt as a
+  causal axis (n=1 ACQ read); flag for whoever reads `medhead-ramp-
+  irrfwd-c1-acq1` (in flight) next — same recipe family, opposite
+  axis, will help discriminate. SKILLS.md updated (3 new rows).
+  Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+  {medhead-ramp-widenfwd-c1-acq1,medhead-widenirr-c1,plainhead-abrupt-
+  c1b-acq1}`, matching `report.json`/contact sheets, W&B
+  `x1nue97w`/`b3l8tia5`/`2ngv7lap`, RL_LOG 09-06 04:58-05:04.
+
 - 09-06 ~04:5x this cycle (assigned `medhead-irrwiden-c1`,
   `widenirrc3-abrupt-c1`): **2/2 CANARY PASS, 2-arm ACQ-continuation
   refill.** (1) `widenirrc3-abrupt-c1` CANARY PASS: 23/24 gait_valid,
@@ -64,6 +103,40 @@
   cont40m,widenfwd-c1-acq1,irrfwd-c1-acq1}`, matching
   `logs/ckpt_eval/.../report.json` + contact sheets, W&B
   `kfpu6ku1`/`thsloov1`/`naxsaxqj`, RL_LOG 09-06 04:38-04:39.
+
+  **Refill this cycle (04:5x): opened the DR-rung.** Free capacity
+  spiked to 9+ idle GPU pods mid-cycle as the concurrent crossgrav
+  ACQ/cont40m wave wound down together. Rather than dribble more
+  crossgrav-transfer seeds, used it to finally execute the "DR-rung
+  design item" this file has been flagging as unaddressed since
+  ~04:3x: launched 4 single-lever 2M discovery canaries, each
+  respec'd off `medhead-abrupt-c1-acq1-cont40m` (the campaign's
+  single most-tested, most-durable champion, 5-for-5 across every
+  40M+ read), `--phase hardening`:
+  - `medhead-dr-latency1x-c1` (train-4): `dr.latency_scale` 0->1
+    (restore nominal, non-randomized actuator latency; the whole
+    easy0905 campaign has trained with ZERO actuator delay).
+  - `medhead-dr-deadband1x-c1` (train-1): `dr.deadband_scale` 0->1
+    (restore nominal actuator deadband; campaign has trained with
+    ZERO dead-zone, exact-instant command execution).
+  - `medhead-dr-torquefade2x-c1` (train-2): `dr.torque_scale` 3->2
+    (fade the fixed 3x torque/battery assist crutch by a third —
+    the single lever explicitly named as the key open decision).
+  - `medhead-dr-noise1x-c1` (train-3): `dr.encoder_noise_deg`/
+    `dr.tilt_noise_deg`/`dr.gyro_noise_deg_s` 0->0.09/0.3/0.5 (the
+    project's own standard "own-DR" nominal sensor-noise defaults
+    from `domain_rand.py`, currently pinned at 0 all campaign).
+  Each isolates exactly one previously-idealized/cheated axis
+  (single-variable-at-a-time discipline) so a collapse localizes
+  cleanly to its own realism gap rather than confounding several at
+  once. Gate (same shape all 4): PASS/INFORMATIVE-POSITIVE if
+  aggregate `gait_valid` stays majority (>=18/24) with no NEW chronic
+  single-leg sacrifice and 0 falls (the champion tolerates that
+  realism axis with zero retraining); FAIL/INFORMATIVE-NEGATIVE if it
+  collapses (tells us that axis needs its own real training-budget
+  hardening rung, and which one binds first). VERIFIED RUNNING all 4
+  (`launch_run.py status`). Read these before choosing which axis(es)
+  earn the next real (non-canary) hardening-rung training budget.
 
 - 09-06 ~04:3x this cycle (operator refill-maintenance kick, no assigned
   runs; focus note refill-maintenance-20260906T0409): **1-arm walkcurr

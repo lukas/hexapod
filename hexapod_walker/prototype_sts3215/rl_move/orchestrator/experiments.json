@@ -279840,27 +279840,5 @@
     ],
     "triage": "done",
     "verdict": "CANARY PASS (mechanism-health scope only, no skill claim). gSDE arm learning with a distinct exploration signature, all gates green: finite losses (value_loss 2370->1788), motor contract 360 deg/s, reward bank-consistent. REALIZED ACTION AMPLITUDE >> base at the same annealed log_std (per fb_20260905T080341_ef45b6 item 3, recorded): entropy_loss -40 vs base -7.5, action_delta charge 10x base (-0.113 vs -0.010/tick), walk_speed 0.28 vs 0.11 m/s, some dynamic falls (reward_termination -0.05/tick vs 0). Still healthy: ep_len rising 117->282, v_along_cmd +0.017 m/s at 2M = best of cohort, freeprog charge stable. Continuation MUST NOT pass --use-sde/--activation-fn (plain --init-from rejects both; PPO.load preserves gSDE+ELU from checkpoint). Next: own-checkpoint 40M acquisition continuation."
-  },
-  {
-    "run": "cw-walkscratch-easy0905-halfgrav-s0-c1",
-    "pod": "hexapod-mjx-train-2",
-    "steps": 40000000,
-    "smoke": false,
-    "hypothesis": "Plain English: the half-gravity canary was healthy; this gives it the acquisition budget from its own checkpoint to test whether stepping emerges earlier when the robot weighs half as much. Own-checkpoint 40M continuation of halfgrav-s0 (operator 09-05 full-fleet order), zero recipe changes (ease.gravity_scale=0.5 retained in cfg); --activation-fn stripped per plain --init-from restriction. Evaluated at ITS OWN 0.5g; full-gravity is a later diagnostic, never automatic promotion.",
-    "gate": "Acquisition milestone at OWN 0.5g physics: 20 s held-out fixed-forward, >=0.03 m/s median net forward, 0 falls in 12 det episodes, six-leg lift/place on video, no belly drag; report sto. Not met with signals still rising = continue/realign per 08-21 ruling; FAIL only on flat v_along+reward at budget or park recapture.",
-    "parent": "cw-walkscratch-easy0905-halfgrav-s0",
-    "track": "walkcurr",
-    "extra_args": [
-      "--task",
-      "joint_walk",
-      "--episode-seconds",
-      "20",
-      "--n-steps",
-      "128",
-      "--batch-size",
-      "131072",
-      "--gamma",
-      "0.995",
-      "--gae-lambda",
-      "0.97",
-      "
+  }
+]

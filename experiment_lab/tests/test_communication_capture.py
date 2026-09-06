@@ -1,6 +1,8 @@
 import io
 import json
+from urllib.error import HTTPError, URLError
 
+import hexapod_lab.communication_capture as communication_capture
 from hexapod_lab.communication_capture import (
     RobotCommunicationCapture,
     STATUS_NAME,
@@ -458,6 +460,127 @@ def test_unavailable_recorder_is_recorded_without_blocking_attempt(tmp_path):
     assert result["errors"] == ["begin: OSError: offline"]
     assert result["transcript"] is None
     assert (tmp_path / "attempt-1" / STATUS_NAME).is_file()
+
+
+def test_begin_retries_transient_url_error_with_exact_marker_request(
+    tmp_path, monkeypatch,
+):
+    replies = iter([
+        URLError(OSError(65, "No route to host")),
+        FakeResponse(recorder("begin-after-route")),
+    ])
+    requested = []
+    delays = []
+
+    def open_fake(request, **kwargs):
+        requested.append((request, kwargs))
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    monkeypatch.setattr(communication_capture.time, "sleep", delays.append)
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-route",
+        job_id="job-route",
+        attempt=2,
+        opener=open_fake,
+    )
+
+    result = capture.begin()
+
+    assert result["begin_marker"] == "begin-after-route"
+    assert result["errors"] == []
+    assert delays == [0.05]
+    assert len(requested) == 2
+    assert [request.get_method() for request, _ in requested] == ["POST", "POST"]
+    assert [request.full_url for request, _ in requested] == [
+        "http://robot.test:8080/api/telemetry",
+        "http://robot.test:8080/api/telemetry",
+    ]
+    assert requested[0][0].data == requested[1][0].data
+    assert json.loads(requested[0][0].data) == {
+        "action": "mark",
+        "label": "robotlab_run_begin",
+        "data": {
+            "experiment_id": "experiment-route",
+            "job_id": "job-route",
+            "attempt": 2,
+        },
+    }
+    assert [kwargs for _, kwargs in requested] == [
+        {"timeout": 10.0},
+        {"timeout": 10.0},
+    ]
+
+
+def test_begin_records_one_aggregate_error_after_url_retries_are_exhausted(
+    tmp_path, monkeypatch,
+):
+    failures = iter([
+        URLError("first route failure"),
+        URLError("second route failure"),
+        URLError("final route failure"),
+    ])
+    requests = []
+    delays = []
+
+    def unavailable(request, **_kwargs):
+        requests.append(request)
+        raise next(failures)
+
+    monkeypatch.setattr(communication_capture.time, "sleep", delays.append)
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-route-exhausted",
+        job_id="job-route-exhausted",
+        attempt=1,
+        opener=unavailable,
+    )
+
+    result = capture.begin()
+
+    assert len(requests) == 3
+    assert delays == [0.05, 0.1]
+    assert result["begin_marker"] is None
+    assert result["errors"] == [
+        "begin: URLError: <urlopen error final route failure> "
+        "(after 3 attempts)"
+    ]
+    assert "first route failure" not in result["errors"][0]
+    assert "second route failure" not in result["errors"][0]
+
+
+def test_begin_does_not_retry_http_error(
+    tmp_path, monkeypatch,
+):
+    requests = []
+    delays = []
+
+    def rejected(request, **_kwargs):
+        requests.append(request)
+        raise HTTPError(request.full_url, 409, "Conflict", None, None)
+
+    monkeypatch.setattr(communication_capture.time, "sleep", delays.append)
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-rejected",
+        job_id="job-rejected",
+        attempt=1,
+        opener=rejected,
+    )
+
+    result = capture.begin()
+
+    assert len(requests) == 1
+    assert delays == []
+    assert result["errors"] == [
+        "begin: HTTPError: HTTP Error 409: Conflict"
+    ]
 
 
 def test_resume_rejects_identity_mismatch_before_contacting_robot(tmp_path):

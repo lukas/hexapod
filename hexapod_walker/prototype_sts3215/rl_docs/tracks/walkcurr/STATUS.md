@@ -2,6 +2,27 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:1x-07:3x this cycle (assigned `medhead-widenfwd-c2-acq1`): **ACQ PASS — the 2nd
+  independent seed of the medhead-widenfwd composition holds at 40M, reproducing seed-1's own
+  precedent.** The run's own gate eval was still genuinely computing when this cycle spawned
+  (started 06:41, sharing GPU-MJX with a newly-placed sibling trainer) — waited it out rather than
+  treat the empty log as a prestage failure (process alive, high CPU, per protocol). Result:
+  aggregate gait_valid 21/24 (vs the same seed's own 23/24 2M canary), 0 falls/terminations across
+  all 24 episodes, no chronic single-leg pattern — the identical `walk/det` ep4 leg0 flag reproduces
+  from the canary and only 2 new non-chronic (never-repeating) flags appear (`walk/sto` ep2 leg5,
+  `walk_startjitter/sto` ep5 leg0). Slip/m improved in the noisiest mode (walk/sto med 8.58 vs
+  12.84). Contact sheet + both newly-flagged episodes' frame strips confirm clean six-leg tripod
+  cycling, no drag/skate/paddle-creep/collapse. Matches the established composition-family
+  precedent (`widen2c1-irrfwd-c1-acq1`, `s1acq-widenfwd-c1-acq1`): source cleanliness, not seed
+  luck, predicts 40M durability. SKILLS.md updated (1 new row). **Refill:** fleet fully saturated
+  (0/11 reachable slots free at read time) so queued (not launched) the standing cont40m endurance
+  continuation for this specific seed to `backlog.json` (`respec --init-from-source`, no `--now`),
+  matching the precedent already funded for sibling seed-1 (`medhead-widenfwd-c1-acq1-cont40m`,
+  already running) and the other cont40m arms. Evidence: `ops.sh review
+  cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_medhead_widenfwd_c2_acq1_gate/report.json` vs the parent's own
+  `..._c2_deferartifacts_gate/report.json`, W&B `inb67bzx`, RL_LOG 09-06 07:32.
+
 - 09-06 ~07:2x this cycle (assigned `medhead-dr-alldrconf1x-c1`, `medhead-dr-kickhalf1x-c1`): **both
   STILL genuinely computing on their pods — no verdict on either this cycle, but drained the backlog
   as capacity freed and caught 3 more mid-cycle finishers.** (1) Both assigned runs' W&B shows

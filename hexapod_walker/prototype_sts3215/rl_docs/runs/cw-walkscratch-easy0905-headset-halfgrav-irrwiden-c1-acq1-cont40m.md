@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T11:06:23+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c1-acq1
+
+**wandb_id**: frsx3dv5
 
 **hypothesis**: Plain English: does the halfgrav widen+irr composite champion (jitter-first order, the actual DONE-gate panel shape) keep its clean 40M ACQ-PASS state (22/24 gait_valid, 0 falls, only 2/24 scattered non-chronic flags) after +40M more steps (80M cumulative), matching this campaign's cleanliness-margin-predicts-endurance rule (clean 40M sources hold; already-entrenching ones worsen)?
 

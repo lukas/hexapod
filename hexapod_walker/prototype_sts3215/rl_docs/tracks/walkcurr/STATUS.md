@@ -2,6 +2,34 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~11:0x this cycle (assigned `kickhalf1x-c1-acq1`, `torquefade2x-c1-acq1-cont40m`): **both
+  verdicted PASS -- half-dose kick recovery holds at 40M (with a leg5 watch), torque-fade-2x axis
+  holds at 80M cumulative -- plus a 2-arm refill exercising the just-unblocked composite frontier.**
+  (1) `kickhalf1x-c1-acq1` **ACQ PASS/HOLDS**: 20/24 gait_valid (5/6 det, 5/6 sto, 6/6
+  startjitter/det, 4/6 startjitter/sto), 0 falls, matching the 2M canary's own 21/24. WATCH: the
+  canary's 3-different-legs scatter narrowed to a single leg (index 5) recurring in 4/24 episodes,
+  but that leg's actual duty is healthy (0.3-0.6) in the other 20/24 and only dips to 0.03-0.09 in
+  the flagged ones -- occasional near-threshold noise, not a sustained chronic pattern; flag for
+  the next continuation of this exact lineage. (2) `torquefade2x-c1-acq1-cont40m` **HARDENING
+  PASS/HOLDS**: 23/24 vs the parent's PERFECT 24/24, 0 falls, one non-chronic singleton (leg5,
+  startjitter/det ep1 only) -- another clean-source endurance confirmation. SKILLS.md updated (2
+  new rows). **Refill (80M/cycle cap, exactly spent):** a concurrent cycle's own `allaxiskickhalf-
+  nocrutch1x-c1` CANARY PASS (21/24, 0 falls -- de-crutched actuator does NOT destabilize the full
+  composite) landed just before this cycle read, licensing the composite frontier's 2nd ACQ arm
+  (the 1st, `allaxis-nokick-c1-acq1`, keeps the torque crutch ON and disables kick; this recipe
+  keeps kick at its proven-safe half-dose AND removes the crutch -- a genuinely different cell, not
+  a duplicate). Launched `allaxiskickhalf-nocrutch1x-c1-acq1` (train-3, 40M, VERIFIED RUNNING via
+  `kubectl exec ps`) -- closes QUEUE AIM item (3)'s composite-no-crutch half for real once it lands.
+  Also found+launched a genuinely lacking composition-line cont40m (NOT a per-axis confirmation, so
+  not covered by QUEUE AIM's own STOP): `halfgrav-irrwiden-c1-acq1` (the widen+irr jitter-first
+  composite, ACQ PASS 22/24, 0 falls, only 2/24 scattered non-chronic flags -- a clean source per
+  the campaign's own cleanliness-margin-predicts-endurance rule) had no cont40m read yet -- launched
+  `halfgrav-irrwiden-c1-acq1-cont40m` (train-1, 40M, VERIFIED RUNNING). Both together = 80M new GPU
+  steps, exactly the per-cycle cap; left the remaining ~7 free slots (train-0/4/5/7/8/9/10/11) idle
+  since the step budget, not launch count, is now spent. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{kickhalf1x_c1_acq1,torquefade2x_c1_acq1_
+  cont40m}_gate/report.json`, W&B `x4yqywuc`/`dpdvz0ev`, `launch_run.py status`, RL_LOG 09-06 11:0x.
+
 - 09-06 ~11:0x this cycle (refill-only, no completions assigned; canonical
   capacity found 9 free slots + empty backlog): **found+verdicted 2 more
   orphans (both CANARY PASS), closing QUEUE AIM items (1) and (3) for real,

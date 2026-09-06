@@ -1,9 +1,75 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~17:3x (closed the deferred course_income
-semantics recalibration debt this track's own ~16:1x entry named as
-the precondition for a 3rd turn-income attempt -- but found it does
-NOT explain the arcaware regression; the real bug is still open).
+Last updated: 2026-09-06 ~20:3x (refill: launched a 2-arm anchor-dose
+bracket testing the `cw-robotwalk-stride-20260906` FAIL's own named
+repair -- softer bc_anchor_coef, not another zero-coef repeat).
+
+## 09-06 ~20:3x — refill (no completion assigned; capacity found 10 free GPU slots, backlog empty): launched the stride arm's own named repair, a 2-point anchor-dose bracket
+
+Full board re-checked fresh (all 7 STATUS docs): walkcurr's live axes
+are the in-flight `footslip-c1-lowdose-{s0,s1}` dose-scale probe
+(another cycle's assignment, left alone) and item(1) crutch-ON
+(DIG-IN owned, awaiting a deep-model bisection-axis pick); assistfade's
+rung-3 grid is 3/4 closed with the sole open thread
+(`s0-longbudget`) a pre-existing DIG-IN also not mine to resolve;
+joystick/amp/cpg confirmed DONE/maintenance-only; standwalk confirmed
+blocked pending fresh design thinking (item 3's own text: "no
+agent-doable next step identified... beyond flagging the axis needs
+fresh thinking"). That left todaypolicy's own `robotwalk-smooth-20260906`
+campaign as the one track with a concrete, not-yet-attempted,
+already-licensed next step: arm A (`cw-robotwalk-stride-20260906`,
+`train.bc_anchor_coef` 3.0->0.0) ACQ FAILed at 04:1x with a rigid
+TRIPOD LOCK (legs 1/3/5 permanently planted at duty=1.0, near-zero
+travel, 4/24 falls) -- but that FAIL's own verdict text explicitly
+names the untried repair: **"a SOFTER anchor-reduction (partial coef,
+not exactly 0)... not a repeat of this exact ablation."** No cycle had
+launched that repair yet (checked `experiments.json` + RL_LOG for any
+"stride" follow-up -- none).
+
+**Launched the dose bracket** (respec of `cw-robotwalk-stride-20260906`,
+warm from the SAME Candidate B checkpoint as arm A -- never from arm
+A's own destroyed end, since `--from` clones its already-baked
+`--init-from` without adding `--init-from-source`): single lever
+`train.bc_anchor_coef` at two points bracketing the 0.0-3.0 span,
+everything else (log-std reopen/anneal, mesh/100Hz, 0.08 m/s fixed
+command, safety limits) byte-identical to the failed arm, 2M-step
+CANARY phase (mechanism-health only -- do not spend the full 8M ACQ
+budget on a second dose point until at least one reads clean):
+
+- `cw-robotwalk-stride-20260906-anchorsoft1x` (coef=1.0, 1/3 of
+  Candidate B's full 3.0) -- VERIFIED RUNNING hexapod-mjx-train-7
+  (W&B `xswk9620`), finished its 2M budget within-cycle. Reward
+  quarters `[81.0, 149.4, 277.7, 480.7]` -- clean monotonic RISE, a
+  qualitatively different shape from arm A's rise-then-collapse
+  (`[168.7, 398.9, 381.7, 171.0]`, ending at -135). Encouraging but
+  NOT a verdict -- no harness gate report yet, own-pod eval kicked
+  (`ops.sh podeval`, backgrounded) + registered via `evalpending`.
+- `cw-robotwalk-stride-20260906-anchorsoft2x` (coef=1.5, half of
+  Candidate B's full 3.0) -- VERIFIED RUNNING hexapod-mjx-train-1
+  (W&B `0q2s6rbo`), also finished within-cycle. Reward quarters
+  `[80.6, 144.1, 268.1, 465.3]` -- same clean-rise shape as its
+  sibling. Same status: eval kicked + registered, unverdicted.
+
+Gate (canary, both arms, pre-registered): PASS-worth-an-8M-ACQ needs
+no chronic duty-lock fingerprint + 0 falls + slip/m<=2.9 + det h000
+prog_m at/above Candidate B's 0.31-0.33 m/12s band on a fresh own-pod
+cmdsuite/joygate read (not yet landed for either). FAIL-STILL-COLLAPSES
+(same tripod-lock/fall pattern even with the anchor partially restored)
+would point at the log-std reopening as an unindicted confound, not
+anchor dose. FAIL-NO-GAIN on BOTH (clean/safe gait but progress still
+flat at Candidate B's exact band) closes the anchor-dose axis for
+stride entirely and hands the lever to the hypothesis's own named
+alternative -- a faster motion source / cadence-CPG harvest -- not a
+3rd dose point. Next reader: read both `report.json`s together, do not
+verdict one without the other (they're a matched bracket, not
+independent seeds). No code changed this cycle (cfg-only respec of an
+already-proven mechanism family -- bc_anchor_coef dose, not a new
+mechanism -- so no new semantics-bank precondition applies).
+`CYCLE_WORKED` touched (2 launches landed).
+
+Evidence: `ops.sh entry cw-robotwalk-stride-20260906`, `ops.sh review
+cw-robotwalk-stride-20260906-anchorsoft{1x,2x}`, W&B `xswk9620`/
+`0q2s6rbo`, RL_LOG 09-06 20:3x.
 
 ## 09-06 ~17:3x — course_income_semantics recalibration CLOSED; does NOT explain the arcaware regression (research note, no operator action needed)
 

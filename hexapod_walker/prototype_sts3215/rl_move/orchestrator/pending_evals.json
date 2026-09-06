@@ -166,5 +166,17 @@
   "file": "logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s1_v2_gate/report.json",
   "label": "cw_assistfade_rung2_harden_speedband_s1_v2_gate",
   "added": "2026-09-06T14:53:06"
+ },
+ {
+  "pod": "hexapod-mjx-train-7",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_robotwalk_stride_20260906_anchorsoft1x_gate/report.json",
+  "label": "cw_robotwalk_stride_20260906_anchorsoft1x_gate",
+  "added": "2026-09-06T20:40:42"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_robotwalk_stride_20260906_anchorsoft2x_gate/report.json",
+  "label": "cw_robotwalk_stride_20260906_anchorsoft2x_gate",
+  "added": "2026-09-06T20:40:42"
  }
 ]

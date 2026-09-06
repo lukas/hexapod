@@ -2,6 +2,67 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~16:1x this cycle (assigned: read the on-pod `..._loadslip_c1_gate` eval; leave
+  `cw-assistfade-rung2-harden-speedband-{s0,s1}-lsd2` alone). **VERDICTED `...-loadslip-c1`
+  CANARY FAIL - MECHANISM** — the fresh own-pod gate re-eval (walk+walk_startjitter, det+sto,
+  n=24, DR-0, same `eval_joystick_gate.aggregate_gate --dir-err-metric windowed_1s` arithmetic as
+  the ~14:2x training-diet baseline) reads slip/m median 4.86 pooled (det-only 4.801, sto-only
+  5.027) vs the 5.065 baseline — a ~4% move, inside this metric's own 3.8-12.1 episode spread,
+  i.e. the gate's own named "slip barely moves" FAIL branch (not falls/sacrifice/stall — those
+  all read unchanged/clean, 0/24 falls, gait_valid 22/24 same two episodes as baseline,
+  along_dist_m 0.66-2.64 no stall-basin). Matches the already-logged wandb_history read (noisy
+  `env/walk_loadslip_ratio`, no clean downtrend) — both signals agree. Closes THIS dose/lever
+  for this lineage per the gate's own text, which named the fix: "a windowed rather than
+  episode-cumulative slip ratio". **Built + bank-checked that fix same cycle, no GPU spend until
+  green**: `reward.k_foot_slip_tangent` (existing 08-23 StageA mechanism — a PER-TICK,
+  contact-conditioned charge on foot XY velocity while the same foot has meaningful ground
+  contact on consecutive ticks, deadbanded/capped, structurally immune to the episode-cumulative
+  ratio's floor-clamped-denominator defect) had only ever been bank-checked at a tiny dose
+  (k=0.02) against a different, ~100x-smaller-scale synthetic bank, and only ever TRAINED once,
+  in combination with LOOSENED safety on a from-scratch recipe
+  (`cw-walkcurr-pf-fwd6-stagea-slip1`, RL_LOG 08-24: FAILED via a belly-flop/crouch exploit that
+  evades the charge by losing ground contact — a real, documented risk for this mechanism family,
+  now flagged as the specific thing to check in the new canary's own gate). Re-measured fresh
+  against item(4)'s OWN bare recipe (new `WALKCURR_ITEM4_FOOTSLIP_OVERRIDES` bank section, 6 new
+  tests, `test_task_semantics.py`): swept k=20-100, picked k=35.0 (contact_n=2.0,
+  deadband=0.015 m/s, cap=0.25 m/s — the StageA-proven shape params, only the gain retuned for
+  item(4)'s scale) as the smallest dose giving a comfortable (not marginal) skate-crushed-below-
+  park-300 margin while keeping honest gait at ~75% of its bare income (measured under the
+  CALIBRATED primitive-family model conftest.py pins for this bank, not the mesh default — an
+  early ad hoc probe outside pytest used the wrong family and gave misleading numbers, caught by
+  a failing sanity test and redone correctly): bare gait=1005.7/skate=202.0/park=202.0 -> k=35
+  gait=759.6 (-24.5%, clearly positive)/skate=-390.7 (park-300=-98.0, margin -292.7)/stall=34.4.
+  Per the loadslip bank's own precedent, stall>park is NOT required (continuation-only scoping —
+  this champion's own eval panels never visit a permanent-zero-progress stall basin). Dropped one
+  overly-strict draft test (skate magnitude vs the FAILED loadslip lever's own skate number) once
+  it correctly caught that the two mechanisms are not comparable in magnitude (bounded per-tick
+  charge vs an unbounded episode-cumulative one) — replaced with a same-family cross-check
+  (skate clearly worse than BOTH gait and stall, not just park). All 6 new tests green, full-file
+  regression run (pre-existing 2 red `slipwalk_swing_bonus` tests only, unrelated lever,
+  confirmed pre-existing). Launching the candidate as a canary continuation FROM THE SAME clean
+  champion checkpoint (never from the failed loadslip-c1 checkpoint):
+  `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-footslip-c1`
+  — respec `--from` the loadslip-c1 run (clones its full bare-recipe arg vector, INCLUDING its
+  already-baked `--init-from <cont40m champion checkpoint>.zip`, without re-adding
+  `--init-from-source` so it warm-starts from the clean champion, not from loadslip-c1's own
+  degraded end), single-lever swap: `reward.walk_loadslip_gate=0.0` +
+  `reward.k_loadslip_excess=0.0` (turn the failed mechanism fully off) +
+  `reward.k_foot_slip_tangent=35.0` + `reward.foot_slip_contact_n=2.0` +
+  `reward.foot_slip_deadband_m_s=0.015` + `reward.foot_slip_max_m_s=0.25` +
+  `goal.walk_contact_diagnostics=1.0` (W&B visibility only), 2M-step canary budget. Gate:
+  mechanism-health only — PASS needs a fresh gate re-eval reading slip/m MEASURABLY lower than
+  the 5.065 baseline (a real move toward 2.9, not another ~4% wiggle) AND 0 falls/gait_valid
+  all-clear/no new leg-sacrifice AND no sign of the known stagea-slip1 exploit (check
+  `env/walk_contact_meaningful_feet`, height, pitch/roll stay in the champion's normal band, not
+  drifting toward a crouch/reduced-contact posture that evades the charge instead of fixing the
+  gait). FAIL if slip barely moves again, if falls/sacrifice/stall-basin reappear, OR if the
+  policy evades the charge via reduced ground contact — that specific failure needs a different
+  anti-exploit design (e.g. a contact-INDEPENDENT floor-height charge) before a third attempt,
+  not just another dose tweak. Evidence once landed:
+  `logs/experiments/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+  nocrutch1x-c1-acq1-cont40m-footslip-c1/wandb_history.csv`, fresh
+  `walkcurr_item4_footslip` gate panel.
+
 - 09-06 ~15:0x this cycle (assigned: read item(4)'s heading-stress/speed-pressure det diagnostic
   reports registered by an earlier cycle, `..._headingstress_det`/`..._speedpressure_det`; the sto
   twins were still computing on-pod, left untouched). **BOTH stress panels CONFIRM the champion's

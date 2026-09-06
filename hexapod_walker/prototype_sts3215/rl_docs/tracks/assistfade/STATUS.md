@@ -49,6 +49,46 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~15:4x this cycle (refill cycle; verdicted the
+  `-speedband-{s0,s1}-v2` pair the ~15:0x entry below flagged as live
+  FAIL candidates, root-caused, and relaunched the repair pair):**
+  Both **FAIL - IGNORES-BAND**: gait stays clean (gait_valid 6/6 every
+  one of 4 modes, 0 falls/terminations, all 24 episodes both seeds)
+  but achieved `speed_mean_m_s` does NOT track the per-episode
+  commanded speed — s0 clusters 0.037-0.039 m/s, s1 reads a LITERAL
+  constant 0.038 m/s in every single `walk/det` episode, regardless of
+  `cmd_dist_m`/10s spanning 0.035-0.066 m/s (~2x range) both seeds;
+  `walk/sto` also misses `progress_ratio>=0.35` (s0 med 0.29, s1 med
+  0.30) because achieved speed can't reach the band's upper half. s1's
+  reward is genuinely declining (932.3->862.9->757.4), a real
+  regression, not the 08-21 rising-reward pattern; s0's is flat/
+  plateaued (1327.3->1354.1), not a continue candidate either.
+  **Root cause (not the doc's own guessed "needs a speed-tracking
+  reward term"):** the progress reward already normalizes by `s_ref`
+  (`r_prog=k_prog*min(along/s_ref,1.25)`, so matching command IS
+  priced) but both continuations inherited the gatefix source's
+  already-fully-annealed `log_std` (~-3.0, std 0.05) and re-applied
+  `--log-std-final -3.0 --log-std-anneal-frac 1.0` on top of that —
+  **zero exploration boost for the entire 8M budget**, so the policy
+  never searched for a genuinely different cadence per command; it
+  just replayed its single habitual gait. This matches the documented
+  `--warm-log-std-override` precedent (~200 prior uses fleet-wide)
+  for exactly this "warm-started fine-tune whose std barely moves"
+  shape. **Relaunched the repair pair** (respec from each `-v2` run,
+  unchanged everything else): `cw-assistfade-rung2-harden-speedband-
+  {s0,s1}-lsd2` — adds `--warm-log-std-override=-2.0` (std~0.135 at
+  launch, annealing back to the same -3.0 target over the same 8M
+  steps: real exploration early, converged/deterministic by the end).
+  Both VERIFIED RUNNING (train-4/train-7). Gate: same 4-mode held-out
+  panel, PASS needs achieved speed to visibly covary with per-episode
+  `cmd_dist_m` (not cluster within ~0.005 m/s across a >=0.02 m/s
+  commanded spread) with gait/falls unchanged; FAIL-STILL-IGNORES if
+  speed stays flat despite the exploration boost -> escalate to an
+  explicit speed-tracking reward term (a new mechanism) next, since
+  that would rule out the schedule explanation. Evidence: `logs/
+  ckpt_eval/cw_assistfade_rung2_harden_speedband_{s0,s1}_v2_gate/
+  report.json`, W&B `dydwknke`/`227unt2g`, RL_LOG 09-06 15:45.
+
 - **09-06 ~15:0x this cycle (refill-only, no completions assigned per
   the prompt, but both hardening arms finished mid-cycle anyway):**
   `cw-assistfade-rung2-harden-speedband-{s0,s1}-v2` (the speed-band

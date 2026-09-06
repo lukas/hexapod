@@ -1,8 +1,45 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~14:5x (found `cw-robotwalk-turns-20260906-
-arcaware` finished training with none of its pre-registered gate
-reads computed; kicked all 4 on its own pod, unverdicted).
+Last updated: 2026-09-06 ~16:1x (`cw-robotwalk-turns-20260906-
+arcaware` verdicted FAIL - MISALIGNMENT: the arc-aware sway fix does
+NOT close the course-tracking gap; it got worse a 2nd time).
+
+## 09-06 ~16:1x — arcaware VERDICTED: FAIL - MISALIGNMENT (2nd confirmation, sway-chord fix ruled out as sole cause)
+
+The ~14:5x gate reads (below) had all landed on-pod (train-0) but were
+unsynced/unverdicted at cycle start; pulled all 4 artifact dirs to the
+controller and read them against this run's own pre-registered gate
+text. **Decisive number: `course_err_1s_med` got WORSE again** — 8.55°
+(parent, pre-arc-aware) -> 11.93° with the arc-aware fix ON, actually
+past the prior misaligned continuation's own 10.2° (`-cont8m-resume1`,
+already-verdicted FAIL-MISALIGNMENT without the fix). Reward is still
+rising every quarter (343.8/1120.8/1920.9/2457.9, no plateau) with no
+exploit signature (0 falls, 0 sacrificed legs, gait_valid 24/24 on the
+DR-0 gate) — this is the run's own literally pre-registered
+FAIL/misaligned branch ("would mean the sway-chord artifact was not
+the (or not the only) cause and the deadband/sigma dose itself needs
+the deferred plant recalibration first"), now confirmed a SECOND time
+on an independent fix attempt. Other clauses: (a) walk retention PASS
+(24/24 gait_valid all 4 modes, 0 falls); (c) tip wz_err_med ~flat
+(0.082/0.080/0.121/0.116, median ~0.099 vs parent's 0.108/0.100); (d)
+straight-fwd cmd_suite prog_m 0.234-0.247 m/12s, misses the 0.29 bar
+(slip/m 2.73-2.89, at/under the 2.9 cap). `eval_yaw`'s own absolute
+gate also independently reads FAIL (turn_wz_err_med 0.155 > 0.1).
+Contact-sheet video confirms clean six-leg gait (no drag/paddle, 0
+falls) but the on-screen COM trace visibly curls into a loop instead
+of holding a course — a course-tracking defect, not a gait pathology,
+matching the metric. **Conclusion: the arc-aware chord-projection fix
+is not the (or not the only) bug.** Do not attempt a third
+same-recipe continuation or another reward-shape tweak on this exact
+lever — the next move is the already-deferred `k_walk_course_income`
+window/deadband/sigma dose audit + plant-geometry recalibration
+(`OPERATOR_QUESTIONS.md` 2026-09-02 entry) before another turn-income
+attempt on this lineage. Retained value: this lineage still proves
+the turn-income mechanism does not destabilize walking (clean gait,
+zero falls throughout 3 generations of this experiment) — useful
+evidence, just not yet a calibrated turn-tracking result. No export.
+Evidence: `logs/ckpt_eval/cw_robotwalk_turns_20260906_arcaware_
+{gate,joygate_freshcmp,yaw}/*`, RL_LOG 09-06 16:12, W&B `nr57brps`.
 
 ## 09-06 ~14:5x — arcaware finished training, gate reads kicked (no verdict yet)
 

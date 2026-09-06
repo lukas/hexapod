@@ -1541,6 +1541,132 @@ def test_walkcurr_item4_loadslip_gait_income_stays_positive(
         f"{walkcurr_item4_loadslip_returns}")
 
 
+# --------------------------------------------------------------------------
+# WALKCURR item(4) FOOT-SLIP-TANGENT CANDIDATE (09-06, follow-up to the
+# LOADSLIP canary FAIL immediately above: `...-loadslip-c1` read slip/m
+# 4.86 vs the 5.065 training-diet baseline -- barely moved, the gate's
+# own "slip barely moves" FAIL branch, RL_LOG 09-06 ~15:5x). The
+# episode-cumulative `walk_loadslip_gate` ratio has a floor-clamped
+# denominator (`loadslip_floor_m`) that makes it a LAGGING, noisy
+# signal (confirmed: `env/walk_loadslip_ratio` bounced 6.28->7.88->
+# 7.11->6.87 across the failed canary's 4 quarters, no clean trend) --
+# exactly the failure mode the loadslip canary's own gate text
+# predicted needing "a windowed rather than episode-cumulative slip
+# ratio" to fix. `reward.k_foot_slip_tangent` (built 08-23, StageA
+# probe) is that alternative: a PER-TICK, contact-conditioned charge
+# on foot tangential (XY) velocity while the same foot has meaningful
+# ground reaction force on consecutive ticks -- averaged across
+# contacted feet, deadbanded, capped -- so it prices slip at the
+# instant it happens instead of an episode-long ratio. It was
+# previously only bank-checked at a small dose (k=0.02) against the
+# WALKCURR_PF small-scale synthetic bank
+# (WALKCURR_PF_STAGEA_SLIP_OVERRIDES above) and only ever TRAINED once
+# in combination with LOOSENED safety on a from-scratch recipe
+# (`cw-walkcurr-pf-fwd6-stagea-slip1`, RL_LOG 08-24: FAILED via a
+# belly-flop/crouch exploit that evades the charge by losing ground
+# contact entirely, not a slip-pricing defect). Neither result
+# transfers to item(4)'s own bare recipe (100x-larger reward scale,
+# STANDARD safety limits, a continuation from an ALREADY-WALKING
+# champion rather than a from-scratch policy hunting for any way to
+# stop moving) -- re-measured here at doses that actually move the
+# needle at this scale (0.02-0.4 read as noise-floor at item(4)'s
+# income scale; measured under the CALIBRATED primitive-family model
+# `test_task_semantics.py` pins via conftest.py -- an earlier ad hoc
+# probe outside pytest picked up the mesh-family default instead and
+# gave misleadingly large numbers, caught by a failing sanity test and
+# redone here): bare gait=1005.7/skate=202.0 (skate ~= park under the
+# bare no-slip-cost recipe)/park=202.0. Swept k=20..100; picked k=35.0
+# as the smallest dose in the sweep giving a COMFORTABLE (not
+# marginal) skate-below-park-300 margin while keeping the honest gait
+# at ~75% of its bare income: k=35 gait=759.6 (-24.5%, still clearly
+# positive)/skate=-390.7 (park-300=-98.0, margin -292.7)/stall=34.4.
+# Per the loadslip bank's own precedent,
+# stall>park is NOT required here either (continuation-only scoping:
+# this champion's own eval panels never visit a permanent-zero-
+# progress stall basin, so that ordering is not the safety property
+# this launch needs -- only "skate reads clearly worse than standing
+# still" is, mirroring SLIPWALK's `test_slipwalk_skating_is_the_worst_
+# outcome` precedent). `foot_slip_contact_n`/`foot_slip_deadband_m_s`/
+# `foot_slip_max_m_s` stay at their StageA-proven defaults (2.0/0.015/
+# 0.25) -- only the gain `k_foot_slip_tangent` is retuned for this
+# recipe's scale. `goal.walk_contact_diagnostics=1` is included purely
+# for W&B visibility (env/walk_tangent_contact_vel_mean_m_s etc.) and
+# is a no-op on the reward itself (k_foot_slip_tangent>0 alone gates
+# the charge, per walk_task.py's own `if k_tslip > 0.0 or contact_diag`
+# guards).
+WALKCURR_ITEM4_FOOTSLIP_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_ITEM4_FOOTSLIP_OVERRIDES.update({
+    ("reward", "k_foot_slip_tangent"): 35.0,
+    ("reward", "foot_slip_contact_n"): 2.0,
+    ("reward", "foot_slip_deadband_m_s"): 0.015,
+    ("reward", "foot_slip_max_m_s"): 0.25,
+    ("goal", "walk_contact_diagnostics"): 1.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_item4_footslip_returns() -> dict[str, float]:
+    """Same quartet, same command, with the candidate foot-slip-
+    tangent lever armed (WALKCURR_ITEM4_FOOTSLIP_OVERRIDES) instead of
+    the FAILED episode-cumulative loadslip lever."""
+    return {p: float(np.mean([_walk_rollout(
+                p, s, vx=0.06,
+                overrides=WALKCURR_ITEM4_FOOTSLIP_OVERRIDES)
+                for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+
+
+def test_walkcurr_item4_footslip_skate_is_the_worst_outcome(
+        walkcurr_item4_footslip_returns):
+    """The continuation-safety property (SLIPWALK/loadslip precedent):
+    degenerate zero-lift skating must read WORSE than simply standing
+    still (park) by a wide margin."""
+    r = walkcurr_item4_footslip_returns
+    assert r["skate"] < r["park"] - 300.0, (
+        f"skating is not clearly the worst outcome: {r}")
+
+
+def test_walkcurr_item4_footslip_widens_gait_vs_skate_margin(
+        walkcurr_item4_bare_returns, walkcurr_item4_footslip_returns):
+    """The whole point of the lever: it must charge zero-lift skating
+    far harder than honest lifting, and WIDEN (not merely preserve)
+    that margin relative to the bare no-slip-cost recipe."""
+    bare, fs = walkcurr_item4_bare_returns, walkcurr_item4_footslip_returns
+    bare_margin = bare["gait"] - bare["skate"]
+    fs_margin = fs["gait"] - fs["skate"]
+    assert fs_margin > bare_margin + 50.0, (
+        f"foot-slip-tangent does not widen gait-vs-skate margin: "
+        f"bare={bare} footslip={fs}")
+    assert fs["gait"] > fs["skate"], (
+        f"skating still rivals honest lifting under foot-slip-tangent: "
+        f"{fs}")
+
+
+def test_walkcurr_item4_footslip_gait_income_stays_positive(
+        walkcurr_item4_footslip_returns):
+    """The honest gait must still net a clearly positive return under
+    the candidate dose."""
+    assert walkcurr_item4_footslip_returns["gait"] > 200.0, (
+        f"candidate foot-slip-tangent dose drives honest walking too "
+        f"low: {walkcurr_item4_footslip_returns}")
+
+
+def test_walkcurr_item4_footslip_skate_clearly_worse_than_gait_and_stall(
+        walkcurr_item4_footslip_returns):
+    """Cross-check note (NOT a magnitude match to the FAILED loadslip
+    lever above -- a bounded per-tick charge with a deadband/cap
+    cannot and should not reach an unbounded episode-cumulative
+    ratio's scale; that comparison was tried and dropped as a flawed
+    invariant, see file history). The property that DOES have to hold
+    regardless of mechanism family: skate reads clearly worse than
+    EVERY other scripted twin, not just park."""
+    r = walkcurr_item4_footslip_returns
+    assert r["skate"] < r["stall"] - 200.0, (
+        f"skating does not clearly lose to a stepping stall: {r}")
+    assert r["skate"] < r["gait"] - 800.0, (
+        f"skating is not clearly worse than honest gait: {r}")
+
+
 # reward.k_walk_swing on the SLIPWALK/term400 stack (08-22, AMP M2
 # freeprog dig-in continuation): every non-reward lever (term_penalty,
 # std-anneal, stage curriculum, style-weight dose 0.5x-2.0x, RSI-for-
@@ -11353,4 +11479,144 @@ def test_assistfade_rung2_falling_does_not_beat_clean_gait(
     t = assistfade_rung2_returns
     assert t["clean_gait"] > t["two_steps_fall"] + 100.0, (
         f"clean_gait does not clearly beat two_steps_fall: {t}")
+
+
+# --------------------------------------------------------------------------
+# ASSISTFADE harden-speedband: reward.walk_kernel_sigma_v_m_s (09-06,
+# escalation named by the `-lsd2` pair's own pre-registered gate:
+# "FAIL-STILL-IGNORES ... escalate to an explicit speed-tracking reward
+# term next"). New cfg-gated kernel width for the walk-mode Gaussian
+# velocity kernel (module SIGMA_V=0.05 m/s is comparable in magnitude
+# to the ENTIRE 0.04-0.08 m/s band the `-lsd2` pair was hardening,
+# which was the naive hypothesis for why achieved speed stayed flat).
+#
+# CALIBRATION FINDING (evidence over assumption, same convention as the
+# rung-2 landmark bank above): a standalone rollout probe comparing a
+# COMMAND-MATCHED gait against a habitual FIXED-SPEED gait (the exact
+# fingerprint both `-lsd2` seeds showed on video/harness — cadence/
+# stride locked near ~0.045 m/s regardless of command) shows the
+# matched-vs-mismatched return GAP stays flat at ~20-24% across every
+# sigma from the 0.05 default down to 0.01 (narrower sigma does NOT
+# widen the gap, and pushes it slightly DOWN at the narrowest end
+# tried) — the kernel width is not the bottleneck. The already-active
+# `walk_kernel_prog_gate` (clip(along/s_ref,0,1) discount) and linear
+# `k_walk_prog` term were already supplying the dominant, sizeable
+# (~20-24% return) real incentive to track command speed BEFORE this
+# cfg key existed. This closes "kernel too wide/flat" as the mechanism
+# for the `-lsd2` FAIL — the reward was not silently rewarding the
+# static-cadence habit; PPO had a real, already-large gradient toward
+# fixing it and did not use it within the `-lsd2` budget. The knob is
+# kept (real, tested, default-off, bit-exact, genuinely narrows the
+# kernel when asked) because it may still matter paired with a future
+# structural fix, but do NOT relaunch a bare narrow-sigma canary as if
+# it alone repairs this pathology — this bank's whole point is
+# recording that it does not, so a later cycle does not re-spend GPU
+# rediscovering it. See STATUS.md "Now" for the full root-cause
+# writeup and the budget/exploration continuation launched instead.
+HARDEN_SPEEDBAND_OVERRIDES = dict(ASSISTFADE_RUNG1_OVERRIDES)
+HARDEN_SPEEDBAND_OVERRIDES[("goal", "walk_speed_min_m_s")] = 0.04
+HARDEN_SPEEDBAND_OVERRIDES[("goal", "walk_speed_max_m_s")] = 0.08
+
+
+def _harden_speedband_habitual_rollout(seed: int, command_vx: float,
+                                       habitual_vx: float,
+                                       overrides: dict) -> float:
+    """Scripted twin of the observed `-lsd2` pathology: the tripod
+    gait ramps up with the command but never exceeds a fixed habitual
+    pace, exactly like a policy that learned one cadence/stride and
+    never varies it. Reuses `_walk_rollout`'s own hold/ramp/plant
+    conventions (WALK_PLANT stance) so it is directly comparable to a
+    genuinely command-matched `_walk_rollout("gait", ...)` return."""
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = command_vx
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = command_vx * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        cmd_i = float(traj.vx[i])
+        g = min(cmd_i, habitual_vx) if cmd_i > 0 else 0.0
+        gait.set_velocity(vx=g, vy=0.0)
+        act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+def test_harden_speedband_sigma_v_key_absent_is_bit_exact_legacy():
+    """Default-off contract (guardrails: new cfg keys default OFF,
+    bit-exact when off). Explicitly setting
+    `reward.walk_kernel_sigma_v_m_s=0.0` must reproduce the SAME
+    return as leaving the key out entirely — both take the module
+    SIGMA_V fallback branch."""
+    without_key = dict(ASSISTFADE_RUNG1_OVERRIDES)
+    with_zero = dict(ASSISTFADE_RUNG1_OVERRIDES)
+    with_zero[("reward", "walk_kernel_sigma_v_m_s")] = 0.0
+    for seed in SEEDS:
+        r_absent = _walk_rollout("gait", seed, vx=0.06,
+                                 overrides=without_key)
+        r_zero = _walk_rollout("gait", seed, vx=0.06, overrides=with_zero)
+        assert r_absent == r_zero, (
+            f"seed {seed}: sigma_v_m_s=0.0 diverges from the key being "
+            f"absent ({r_zero} vs {r_absent}) — the default-off "
+            f"fallback is not bit-exact.")
+
+
+def test_harden_speedband_sigma_v_narrowing_does_not_widen_command_gap():
+    """CALIBRATION (not a pass/fail gate on a launch — a documented
+    negative result per this section's header): confirms the
+    kernel-width hypothesis is NOT the fix, so no future cycle
+    relaunches a bare narrow-sigma canary expecting it to be. Compares
+    the command-matched-vs-habitual-mismatch return gap at the
+    default-off width against a clearly narrower one (0.02 m/s, less
+    than half the harden-speedband command range's own half-width);
+    both must show a REAL gap (the existing kernel_prog_gate/k_prog
+    terms already discriminate command tracking), and narrowing must
+    NOT shrink that gap by more than a small tolerance (proving it
+    also does not make things meaningfully worse, matching the probe's
+    own measured ~20-24% flat gap across every width tried 09-06)."""
+    hab_vx = 0.045  # observed real cruise speed, both -lsd2 seeds
+    default_ov = dict(HARDEN_SPEEDBAND_OVERRIDES)
+    narrow_ov = dict(HARDEN_SPEEDBAND_OVERRIDES)
+    narrow_ov[("reward", "walk_kernel_sigma_v_m_s")] = 0.02
+
+    def gap(overrides):
+        matched = float(np.mean(
+            [_walk_rollout("gait", s, vx=0.08, overrides=overrides)
+             for s in SEEDS]))
+        mismatched = float(np.mean(
+            [_harden_speedband_habitual_rollout(s, 0.08, hab_vx, overrides)
+             for s in SEEDS]))
+        return matched, mismatched, (matched - mismatched) / abs(matched)
+
+    m_def, mm_def, gap_def = gap(default_ov)
+    m_nar, mm_nar, gap_nar = gap(narrow_ov)
+    assert gap_def > 0.10, (
+        f"default-width kernel shows no real command-tracking gap: "
+        f"matched={m_def} mismatched={mm_def} gap={gap_def} — the "
+        f"'-lsd2' FAIL would then genuinely be a missing-gradient "
+        f"problem and this calibration note is stale.")
+    assert gap_nar >= gap_def - 0.10, (
+        f"narrowing sigma to 0.02 collapses the command-tracking gap "
+        f"well below the default-width reading (default {gap_def}, "
+        f"narrow {gap_nar}) — narrowing would make this pathology "
+        f"WORSE, not better; do not deploy this width.")
 

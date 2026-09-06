@@ -3257,7 +3257,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     self._walk_kernel_vema[0] - goal.vx_ref,
                     self._walk_kernel_vema[1] - goal.vy_ref))
                 info["walk_kernel_vel_ema_err"] = err
-            r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
+            # Configurable kernel width (assistfade rung-2 harden-
+            # speedband escalation, 09-06 ~16:xx; cfg
+            # reward.walk_kernel_sigma_v_m_s, default 0.0 = OFF, falls
+            # back to the module SIGMA_V constant, bit-exact legacy).
+            # Root cause of "-lsd2"'s FAIL-STILL-IGNORES (speed flat
+            # across a 0.04-0.08 m/s commanded band even with a real
+            # exploration boost, see RL_LOG/STATUS 09-06): SIGMA_V=0.05
+            # is comparable in magnitude to the ENTIRE commanded-speed
+            # spread being hardened (0.04 m/s peak-to-peak), so the
+            # Gaussian kernel is nearly flat across the whole band
+            # (exp(-(0.02/0.05)^2/2)=0.92 at the band's half-width) —
+            # a genuine reward-shape defect for narrow-band speed
+            # hardening, not a missing mechanism or an exploration
+            # problem (the -lsd2 pair already proved real log_std
+            # movement changed nothing). A narrower sigma (order the
+            # half-band width itself, ~0.02 m/s okay per the bank
+            # test below) restores a real gradient between "matches
+            # this episode's command" and "matches some other episode's
+            # command" without inventing a new reward term. Legacy
+            # fixed-speed / wide-band recipes are unaffected (default
+            # 0.0 keeps SIGMA_V exactly).
+            sigma_v = float(cfg_get(self.cfg, "reward",
+                                    "walk_kernel_sigma_v_m_s",
+                                    default=0.0))
+            if sigma_v <= 0.0:
+                sigma_v = SIGMA_V
+            info["walk_kernel_sigma_v_m_s"] = sigma_v
+            r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * sigma_v ** 2))
             # Linear progress: fraction of the commanded speed achieved
             # along the commanded direction. Negative when moving against
             # the command, capped so overspeeding isn't a strategy.

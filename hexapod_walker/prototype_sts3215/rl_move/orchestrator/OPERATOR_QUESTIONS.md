@@ -5328,3 +5328,71 @@ semantics.py` diff + 2 new tests (green), `rl_move/sim/walk_task.py`
 `walk_sway_arc_aware` block, `rl_docs/tracks/todaypolicy/STATUS.md`
 09-06 ~13:4x entry, ledger entry for `cw-robotwalk-turns-20260906-
 arcaware`.
+
+## 2026-09-06 ~17:3x — CLOSED the 2026-09-02 course_income_semantics recalibration debt; also found it does NOT explain the robotwalk-turns-arcaware training regression (research note, no operator action needed)
+
+**Closes the ~09-02 ~23:1x entry's own follow-up item (a)** ("retune
+the 4 course_income margin constants against the now-correct
+physics") for `test_course_income_semantics.py`'s 2 remaining
+failures (the other 2 of the original 4 were already closed by a
+concurrent cycle — `test_course_disp_semantics.py`/
+`test_course_disp_window_semantics.py` both read 38/38 green this
+cycle, no code change needed there).
+
+**`test_wz_arc_moderate_turn_earns_near_full_income`** (ratio 0.85,
+angle_f mean 0.9): fresh measurement (this cycle, unmodified HEAD)
+reads ratio=0.7946, angle_f mean=0.8530 — root-caused, not just
+re-measured. Unlike the sway term's fixed pre-09-06 defect (one
+GLOBAL chord vs an arcing path), `angle_factor`'s `err_deg` already
+compares two WINDOW-MATCHED chords (actual net displacement vs the
+command's own integrated net displacement over the identical
+window) — a zero-lag tracker gets `err_deg=0` at ANY curvature, so
+this is not the same artifact and the arc-aware sway fix correctly
+left it alone. The residual gap is a genuine gait-phase tracking LAG
+at this cell's aggressive 60 deg/s reference sweep rate (2*pi/6s;
+~45 deg of reference rotation within a single 0.75 s income window).
+**Decisive follow-up check (this cycle): swept the sweep period
+20/10/6/3 s (18/36/60/120 deg/s) — at 18 deg/s, matching production
+`goal.walk_yaw_max_rad_s=0.30 rad/s`, income ratio is 0.982 and
+angle_f mean is 0.9996 (near-perfect); only degrades below the old
+bar once the synthetic rate is pushed to 60+ deg/s, 3-4x faster than
+any real joystick command.** Conclusion: the mechanism is well-
+calibrated at every rate the training stack actually commands; the
+"moderate" test cell was simply calibrated (08-29) against numbers
+that shifted after the 09-02 physics fixes, not a live defect.
+Retuned the test's own bars down to 0.75/0.80 (comfortable margin
+below the fresh 0.7946/0.8530 measurement, matching this file's own
+tight-turn margin convention) with the measurement + reasoning
+recorded in the test's docstring.
+
+**`test_overdrive_clean_completion_legitimately_wins`** (required
+`r_over > r_obey` on TOTAL reward): fresh measurement shows the
+course-income COMPONENT still legitimately favors overdrive (523.35
+vs obey's 498.59, mechanism intact) but TOTAL reward is now lower
+(1919.6 vs 2002.7) because `reward_task`/`reward_pitch`/`reward_roll`
+(`rl_move/env.py`'s base tilt-tracking kernel) now correctly prices
+the GENUINE extra body tilt a 4x-driven gait induces under the
+corrected plant geometry (reward_pitch -3.92 vs obey's -0.72) — a
+real stability cost that did not exist under the pre-09-02 physics,
+not a mechanism artifact, and a DESIRABLE property (overdriving past
+the command is no longer free money once tilt is priced correctly).
+Retargeted the test to check the invariant that is still true and
+still meaningful (income component ordering + a wide margin over
+refusal), rather than force the now-stale total-reward inequality.
+
+**Net effect for todaypolicy**: this closes the STATED precondition
+in `rl_docs/tracks/todaypolicy/STATUS.md`'s ~16:1x entry ("the
+already-deferred k_walk_course_income window/deadband/sigma dose
+audit + plant-geometry recalibration") — but the decisive
+20 deg/s-vs-60 deg/s sweep above also shows this audit does **NOT**
+explain the robotwalk-turns-arcaware run's actual regression
+(`course_err_1s_med` 8.55->11.93 deg at production yaw rates, where
+this mechanism reads clean/near-perfect). **The real bug for that
+lineage is still open** — the next toucher should look elsewhere
+(candidate: the eval-side `windowed_1s` course_err metric itself, a
+training-time exploration/PPO-convergence issue, or something in the
+per-episode command generator at production rates, none of which
+this audit touches) before attempting a 3rd same-mechanism training
+arm. Evidence: `rl_move/tests/test_course_income_semantics.py` diff
+(14/14 green), the period-sweep probe above (this note), `rl_docs/
+tracks/todaypolicy/STATUS.md`.

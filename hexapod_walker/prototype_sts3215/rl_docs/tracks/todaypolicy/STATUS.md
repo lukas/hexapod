@@ -1,8 +1,38 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~16:1x (`cw-robotwalk-turns-20260906-
-arcaware` verdicted FAIL - MISALIGNMENT: the arc-aware sway fix does
-NOT close the course-tracking gap; it got worse a 2nd time).
+Last updated: 2026-09-06 ~17:3x (closed the deferred course_income
+semantics recalibration debt this track's own ~16:1x entry named as
+the precondition for a 3rd turn-income attempt -- but found it does
+NOT explain the arcaware regression; the real bug is still open).
+
+## 09-06 ~17:3x — course_income_semantics recalibration CLOSED; does NOT explain the arcaware regression (research note, no operator action needed)
+
+The ~16:1x entry below named "the already-deferred
+`k_walk_course_income` window/deadband/sigma dose audit + plant-
+geometry recalibration (`OPERATOR_QUESTIONS.md` 2026-09-02 entry)"
+as the precondition before another turn-income training attempt.
+Did that audit this cycle: `test_course_income_semantics.py`'s 2
+stale failures (arc-moderate ratio/angle_f, overdrive total-reward)
+root-caused and closed (14/14 green) -- both were genuine 08-29-vs-
+09-02-physics calibration drift, not mechanism bugs (full writeup:
+`OPERATOR_QUESTIONS.md` 2026-09-06 ~17:3x). **Decisive extra check:**
+swept the test's synthetic turn rate 18/36/60/120 deg/s -- at 18
+deg/s (matching production's real `goal.walk_yaw_max_rad_s=0.30
+rad/s` envelope) the mechanism reads income ratio 0.982, angle_f
+mean 0.9996 (near-perfect); it only degrades at 60+ deg/s, 3-4x
+faster than any real joystick command ever asks for. **This means
+the recalibration precondition is now satisfied, but it does NOT
+explain `-arcaware`'s regression** (`course_err_1s_med` 8.55->11.93
+deg at production rates, where this mechanism is already clean) --
+the real bug for that lineage is still open. Do NOT launch a 3rd
+same-mechanism turn-income training arm assuming this audit fixed
+the underlying issue; the next toucher should look elsewhere first
+(candidates: the eval-side `windowed_1s` course_err metric itself, a
+training-time PPO-convergence issue at the operating point, or the
+per-episode command generator at production rates -- none of which
+this audit touches). Evidence: `rl_move/tests/
+test_course_income_semantics.py` diff, `OPERATOR_QUESTIONS.md`
+2026-09-06 ~17:3x.
 
 ## 09-06 ~16:1x — arcaware VERDICTED: FAIL - MISALIGNMENT (2nd confirmation, sway-chord fix ruled out as sole cause)
 

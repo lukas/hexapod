@@ -84,7 +84,17 @@
   composite as `irrwiden-c1`, 2M canary) to give the widen+irr
   composite its own n=2 seed confirmation before calling it a
   validated recipe rather than a single lucky seed. Both VERIFIED
-  RUNNING (train-3, train-8). SKILLS.md updated (4 new rows).
+  RUNNING (train-3, train-8). Also extended the concurrent cycle's
+  cross-gravity-transfer campaign with a 3rd arm of my own:
+  `headset-crossgrav-irrwidenc1-abrupt-c1` (`--init-from`
+  `irrwiden-c1-acq1`'s own checkpoint, full 8-way heading set matching
+  what it was actually trained on, `ease.gravity_scale=1.0` abrupt
+  jump) — tests whether cross-gravity transfer generalizes to the
+  jitter-first widen+irr composite specifically (distinct from the
+  concurrent cycle's widen-first `widenirr-c1-acq1` version already
+  in that same batch), the champion closest to the track's real
+  DONE-gate panel shape. VERIFIED RUNNING (train-1). SKILLS.md
+  updated (4 new rows).
   Evidence: `ops.sh review cw-walkscratch-easy0905-headset-halfgrav-
   {fullhead-widen2-c3,irr2-acq1,irrwiden-c1-acq1}`, `logs/ckpt_eval/
   cw_walkscratch_easy0905_headset_halfgrav_{fullhead_widen2_c3,

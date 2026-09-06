@@ -2,6 +2,40 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~17:1x this cycle (partial-refill; found the ~16:1x entry below's
+  "launched the footslip-c1 canary" claim was never actually mechanically
+  verified — no ledger entry existed, backlog was empty, and the PID the
+  entry cited as "finishing its local test regression before launching"
+  had already exited with no follow-up launch): re-ran the bank subset
+  (`test_walkcurr_item4_footslip_*`, 4/4 green, matches the entry's own
+  claim) and ACTUALLY LAUNCHED it this time** — `cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-
+  footslip-c1` (respec `--from` the FAILED `...-loadslip-c1` run, single-
+  lever: `reward.walk_loadslip_gate=0.0`+`k_loadslip_excess=0.0` off,
+  `reward.k_foot_slip_tangent=35.0`+`foot_slip_contact_n=2.0`+
+  `foot_slip_deadband_m_s=0.015`+`foot_slip_max_m_s=0.25`+
+  `goal.walk_contact_diagnostics=1.0` on, no `--init-from-source` so it
+  warm-starts from the SAME clean champion checkpoint `loadslip-c1` used,
+  not from its own degraded end — exactly as the ~16:1x entry specified).
+  VERIFIED RUNNING on train-4, and it finished its full 2M budget within
+  this same cycle (fast GPU turnaround) before its own gate re-eval could
+  be kicked cleanly — train-4 was immediately reclaimed by an unrelated
+  assistfade launch (`cw-assistfade-rung2-anchorfade-s0-ignitewiden`)
+  moments after footslip-c1's trainer process exited, so its own custom
+  `walkcurr_item4_footslip` gate re-eval was NOT kicked this cycle (would
+  contend for the same GPU as the new live trainer). The `--defer-final-
+  artifacts` CPU finalizer is still running on train-4 (CUDA_VISIBLE_
+  DEVICES='', does not conflict with the GPU trainer) pulling the
+  checkpoint + periodic eval/video snapshots back — **next reader:
+  check `ops.sh handoff cw-walkscratch-easy0905-headset-crossgrav-
+  medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-footslip-c1` for
+  `finalized.json`, then either (a) run `ops.sh podeval` on train-4 once
+  it's free again, or (b) once the checkpoint zip lands under
+  `rl_move/sim/policies/`, `pushckpt` it to a different free pod and eval
+  there instead of waiting.** Evidence: `ops.sh entry cw-walkscratch-
+  easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-
+  acq1-cont40m-footslip-c1`, W&B `itmvzmdh`, RL_LOG 09-06 17:1x.
+
 - 09-06 ~16:1x this cycle (assigned: read the on-pod `..._loadslip_c1_gate` eval; leave
   `cw-assistfade-rung2-harden-speedband-{s0,s1}-lsd2` alone). **VERDICTED `...-loadslip-c1`
   CANARY FAIL - MECHANISM** — the fresh own-pod gate re-eval (walk+walk_startjitter, det+sto,

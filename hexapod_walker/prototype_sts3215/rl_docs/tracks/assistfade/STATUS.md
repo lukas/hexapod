@@ -49,6 +49,38 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~17:1x this cycle (partial-refill; independently verdicted
+  `s0-explore2` before noticing a concurrent cycle had already handled
+  `s1-explore2`/`freshband` above): `s0-explore2` also FAIL - COLLAPSE,
+  WORSE than its sibling.** Held-out gate: `gait_valid` 0/6 on EVERY
+  mode (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto),
+  `sac=[0,1]` (two chronically sacrificed legs) in 23/24 episodes,
+  slip/m med 11.8-14.5, prog/fwd collapsed to 0.04-0.19 — video
+  (`walk_det_0_sheet.png`) confirms a near-static splayed-leg pose
+  across all 6 sampled frames. Consistent with this run's own
+  mid-training canary auto-stop at 4.37M ("protected skill(s) ['hold']
+  failed 3 consecutive probes") being a real, correct signal, not
+  noise. Confirms 2/2 `-explore2` seeds collapse at this boost —
+  exploration MAGNITUDE closed 3/3 stands. **Also this cycle (before
+  spotting the concurrent `-freshband`/`-ignitewiden` coordination
+  above), independently designed and launched the SAME structural
+  next-step idea**: `cw-assistfade-rung2-anchorfade-{s0,s1}-
+  ignitewiden` (respec from each seed's own `-reseed8m-gatefix`,
+  keeping its baked `--init-from` pointing at the ORIGINAL 2M canary
+  checkpoint — i.e. 2M steps of prior single-speed habituation, not
+  0 — same anchor-fade anneal mechanism, `goal.walk_speed_min_m_s`/
+  `max_m_s` widened 0.06/0.06 -> 0.04-0.08 from step 0 of the FULL 8M
+  ignition anneal instead of a late hardening retrofit, phase=
+  acquisition since the canary cap is 2M and the anchor anneal needs
+  ~5M to fully ramp). Both VERIFIED RUNNING (train-4, train-7) BEFORE
+  either cycle noticed the other's overlapping work; not a pure
+  duplicate of `-freshband` per the coordination note above (0M vs 2M
+  vs the closed 8-10M habituation doses — read as a 3-point dose
+  comparison, `-ignitewiden` first since it isolates ignition-order
+  from init-randomness). Evidence: `logs/ckpt_eval/
+  cw_assistfade_rung2_harden_speedband_s0_explore2_gate/{report.json,
+  walk_det_0_sheet.png}`, W&B `m9vvxa5y`, RL_LOG 09-06 17:04.
+
 - **09-06 ~17:0x this cycle (triaged `-s1-explore2`, the bigger-
   exploration-magnitude escalation the ~16:3x entry below launched):
   **FAIL - COLLAPSE.** Held-out det+sto 4-mode gate regressed hard vs

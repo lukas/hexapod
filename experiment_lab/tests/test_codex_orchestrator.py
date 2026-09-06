@@ -1598,6 +1598,47 @@ def test_analysis_retry_reuses_checkpoint_instead_of_invoking_analyzer_twice(
     assert learning_count == 1
 
 
+@pytest.mark.parametrize("engineering_enabled", [False, True])
+def test_empty_queue_finishes_without_model_or_robot_admission(
+    tmp_path, monkeypatch, engineering_enabled
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    job = store.enqueue_advance("empty-queue-check", "operator_resume")
+    calls = []
+
+    def unexpected_call(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("an empty queue must not invoke a model or robot admission")
+
+    orchestrator = CodexOrchestrator(
+        store, configured(tmp_path, codex_engineering=engineering_enabled),
+        invoker=unexpected_call,
+    )
+    monkeypatch.setattr(orchestrator, "_execution_admission_rejection", unexpected_call)
+    monkeypatch.setattr(orchestrator.engineering, "ensure_queue_handoff", unexpected_call)
+
+    assert orchestrator.process_one("advance") is True
+
+    finished = store.get_codex_job(job["id"])
+    assert calls == []
+    assert finished["status"] == "succeeded"
+    assert finished["result"] == {
+        "schema_version": 1,
+        "trigger_job_id": job["id"],
+        "selected_experiment_id": None,
+        "action": "queue_empty",
+        "summary": "No external guarded experiment is waiting.",
+        "blocker": "",
+        "safety_disposition": "clear",
+        "motion_started": False,
+        "retryable": False,
+        "retry_after_seconds": 0,
+    }
+    assert not store.codex_queue_control()["paused"]
+    assert orchestrator.process_one("advance") is False
+    assert not (tmp_path / "codex-runs").exists()
+
+
 def test_empty_queue_advance_receipt_requires_read_only_semantics(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
     job = store.enqueue_advance("empty-queue-check", "operator_resume")

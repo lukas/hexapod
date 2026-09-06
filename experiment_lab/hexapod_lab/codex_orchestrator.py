@@ -1825,6 +1825,30 @@ class CodexOrchestrator:
         if target is None:
             target = self.store.next_external_experiment()
         job["_target_experiment_id"] = target["id"] if target else None
+        if target is None:
+            # The store has already answered this question. Preserve the
+            # validated receipt without spending a model call on no work.
+            receipt = self._validate_advance({
+                "schema_version": 1,
+                "trigger_job_id": job["id"],
+                "selected_experiment_id": None,
+                "action": "queue_empty",
+                "summary": "No external guarded experiment is waiting.",
+                "blocker": "",
+                "safety_disposition": "clear",
+                "motion_started": False,
+                "retryable": False,
+                "retry_after_seconds": 0,
+            }, job, None)
+            self._finish_job(job, "succeeded", result=receipt)
+            self._report_progress(
+                "idle",
+                "The guarded experiment queue is empty",
+                receipt["summary"],
+                "Queue another bounded plan when there is a new question to test.",
+                None,
+            )
+            return
         dependency = (
             self.store.get_codex_job(job["depends_on_job_id"])
             if job.get("depends_on_job_id") else None
@@ -1896,8 +1920,6 @@ class CodexOrchestrator:
                 and dependency["result"].get("safety_disposition") == "clear"
             )
         ) and not admission_error
-        # An empty-queue confirmation never needs credentials, workspace
-        # writes, network access, or a physical-lane lease.
         # This fallback is used only when the action-capable engineering worker
         # is disabled. Keep it read-only without turning that deployment choice
         # into the behavior of the live full-access installation.
@@ -1935,16 +1957,6 @@ class CodexOrchestrator:
             assigned_experiment_id=target["id"] if target else None,
         )
         normalized = self._validate_advance(result, job, target)
-        if target is None:
-            self._finish_job(job, "succeeded", result=normalized)
-            self._report_progress(
-                "idle",
-                "The guarded experiment queue is empty",
-                normalized["summary"],
-                "Queue another bounded plan when there is a new question to test.",
-                None,
-            )
-            return
         if actions_allowed:
             raise CodexRunError(
                 "General Codex action capability must remain disabled"

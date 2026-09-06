@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T19:36:26+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 6000000
 
 **parent**: cw-assistfade-rung3-residualfade-s0
+
+**wandb_id**: 1nt19pgb
 
 **hypothesis**: Rung-3's 2/2 CANARY FAIL-MECHANISM (both the original pair AND the std-anneal-frac retry, 2/2 seeds each) shows a schedule collision: the residual-blend anneal completes at 1.4M/2M steps and leaves only a 0.6M-step settling window before eval, and the std-anneal-frac=3.0 single-lever fix REFUTED (worse or equal on both seeds, RL_LOG 09-06 19:2x-19:3x). Per the pre-registered fallback (do not repeat std-anneal-frac), this is the OTHER named lever: a longer total step budget with EVERY other lever (blend schedule sched.t1_steps=1.4M, log-std-anneal-frac reverted to the original default 1.0/-3.0, reward stack, random-weight init) byte-identical to the originally-failed parent -- steps 2M->6M (3x) gives a 4.6M-step settling window post-blend instead of 0.6M, AND (since log-std-anneal-frac=1.0 anneals relative to --steps) slows the std anneal's absolute-time rate 3x so std stays much higher through the blend fade-out too, attacking the same schedule-collision root cause via budget rather than the already-refuted frac lever. Seed 0 of the pair.
 

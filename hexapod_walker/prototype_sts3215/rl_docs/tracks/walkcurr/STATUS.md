@@ -2,6 +2,25 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:2x this cycle (assigned `medhead-dr-alldrconf1x-c1`, `medhead-dr-kickhalf1x-c1`): **both
+  STILL genuinely computing on their pods — no verdict, no launch, no-op cycle.** Both W&B runs show
+  `state=finished` (2.1M steps) and their checkpoints are already pulled, but the gate harness
+  (`eval_checkpoint`, 24-episode 4-panel, `--video-every 1`) is still mid-run on each: `alldrconf1x-c1`
+  on `train-5` (612% CPU, started 06:46, sharing the pod with the newly-placed `torquefade2x-c1-acq1`
+  trainer), `kickhalf1x-c1` on `train-11` (727% CPU, started 06:46, sharing with
+  `halfgrav-widenirr-c3-acq1-cont40m`) — confirmed alive via `kubectl exec ps`, matching this
+  campaign's repeated video-every=1-on-a-busy-pod pattern. The only artifacts present so far are the
+  informational SESSION-gate logs (both FAIL, as expected/uninformative for a walk-only checkpoint
+  composed with a stand policy — not the real gate, ignored per the interpretation rules). Backgrounded
+  `ops.sh pollreap` for both (180s/60min), left UNVERDICTED for the next reader — do not re-launch or
+  re-poll by hand. **Refill: none — fleet 0/12 free** (`train-6` CoreWeave-Pending on node scheduling,
+  all 11 reachable pods busy on in-flight ACQ/cont40m continuations; `backlog.json` already holds 4
+  queued arms — `latency1x-c1-acq1`, `zerobias1x-c1-acq1`, `torquefade15x-c1-acq1`,
+  `widen2c1-irrfwd-c1-acq1-cont40m` — for the self-repairing drain to place once a slot frees). No
+  code/launch/triage landed this cycle. Evidence: `kubectl exec hexapod-mjx-train-5/-11 -- ps aux`,
+  `/tmp/eval_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-{alldrconf1x,kickhalf1x}-c1.log`
+  (both 0 bytes, still writing), `launch_run.py status`.
+
 - 09-06 ~07:0x-07:1x this cycle (assigned `medhead-dr-gyrobias1x-c1`, `medhead-dr-imupos1x-c1`,
   `medhead-dr-torquefade15x-c1`): **1/3 read (torquefade15x-c1 CANARY PASS, closes the torque-fade
   dose axis at every point tested), 2/3 still genuinely computing on their pods.** (1) `medhead-dr-

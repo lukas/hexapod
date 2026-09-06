@@ -24,7 +24,7 @@ Safety (same posture as motor_dynamics.py — air battery rules):
   trips — wrong-zero-frame / bad-protocol protection.
 - Trips: per-joint current, temperature, tracking error blow-up
   (unexpected force / wrong logical zero -> limp + descriptive error),
-  missing servo reads.
+  missing servo reads, and stale or nonadvancing runtime state samples.
 
 Output: ``logs/sysid_<name>_<stamp>.csv`` + ``..._summary.json`` with
 the full protocol embedded (raw data is never overwritten).
@@ -173,6 +173,7 @@ def run_sysid_protocol(
     max_state_age_ms: float = DEFAULT_MAX_STATE_AGE_MS,
     voltage_bounds_v: tuple[float, float] = (
         DEFAULT_MIN_VOLTAGE_V, DEFAULT_MAX_VOLTAGE_V),
+    runtime_state_clock: Callable[[], float] = time.monotonic,
 ) -> dict:
     """Execute a sysid protocol. Returns a result/summary dict."""
     abort_check = abort_check or (lambda: False)
@@ -251,6 +252,34 @@ def run_sysid_protocol(
         if not isinstance(pos, dict):
             pos = {}
         return pos, [j for j in live_joints if j not in pos]
+
+    runtime_state_completed_at: float | None = None
+
+    def _read_runtime_pose() -> tuple[dict[int, float], list[int], str | None]:
+        """Read one runtime state sample and enforce age/advancement.
+
+        The synchronous bus transaction is the sysid executor's state stream.
+        Its completion timestamp must advance and the transaction must finish
+        inside the same state-age bound used at admission.  This check is made
+        before the first streamed target and after every later target, so a
+        stalled stream cannot permit another command tick.
+        """
+
+        nonlocal runtime_state_completed_at
+        started = runtime_state_clock()
+        pose, missing = _read_pose()
+        completed = runtime_state_clock()
+        age_ms = max(0.0, completed - started) * 1000.0
+        if age_ms > max_state_age_ms:
+            return pose, missing, (
+                f"runtime state stream stale: {age_ms:.1f} ms > "
+                f"{max_state_age_ms:.1f} ms"
+            )
+        if (runtime_state_completed_at is not None
+                and completed <= runtime_state_completed_at):
+            return pose, missing, "runtime state timestamp did not advance"
+        runtime_state_completed_at = completed
+        return pose, missing, None
 
     def _read_pose_debounced(
             attempts: int = MAX_MISSED_READS) -> tuple[dict[int, float], list[int]]:
@@ -422,6 +451,19 @@ def run_sysid_protocol(
                               float(rec.get("volt") or 0.0), temp)
             return fb_row
 
+        # Establish the runtime stream before issuing the first streamed
+        # target.  Admission alone does not prove that state will continue to
+        # advance after torque enable.
+        runtime_pose, runtime_missing, runtime_error = _read_runtime_pose()
+        if runtime_error:
+            tripped_error = runtime_error
+        elif runtime_missing:
+            tripped_error = (
+                f"runtime state stream incomplete: joints {runtime_missing}"
+            )
+        else:
+            last_pose.update(runtime_pose)
+
         # -- automatic start-pose glide (no operator hand-posing) --------
         if glide_target is not None and tripped_error is None:
             start = [pose0.get(j, 0.0) for j in range(N_JOINTS)]
@@ -457,8 +499,11 @@ def run_sysid_protocol(
                     except Exception as e:
                         tripped_error = f"bus write failed (glide): {e}"
                         break
-                    pose, _miss = _read_pose()
+                    pose, _miss, runtime_error = _read_runtime_pose()
                     t_recv = time.monotonic() - t0
+                    if runtime_error:
+                        tripped_error = runtime_error
+                        break
                     last_pose.update(pose)
                     fb_row = _trip_feedback(list(range(N_JOINTS)))
                     if tripped_error:
@@ -513,7 +558,10 @@ def run_sysid_protocol(
             # -- segment bookkeeping / home capture -----------------------
             if tick["seg"] != cur_seg:
                 cur_seg = tick["seg"]
-                pose, miss = _read_pose_debounced()
+                pose, miss, runtime_error = _read_runtime_pose()
+                if runtime_error:
+                    tripped_error = runtime_error
+                    break
                 if miss:
                     tripped_error = (f"seg {cur_seg}: joints {miss} not "
                                      f"answering at segment start")
@@ -564,8 +612,11 @@ def run_sysid_protocol(
             except Exception as e:
                 tripped_error = f"bus write failed: {e}"
                 break
-            pose, miss = _read_pose()
+            pose, miss, runtime_error = _read_runtime_pose()
             t_recv = time.monotonic() - t0
+            if runtime_error:
+                tripped_error = runtime_error
+                break
             for j in live_joints:
                 if j in miss:
                     missed[j] += 1

@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~10:5x this cycle (assigned `fault1x-c1-acq1`/`gains1x-c1-acq1`/`geom1x-c1-acq1`, all 3
+  already SUPERSEDED by a concurrent cycle before this read landed -- confirmed, not re-triaged):
+  **0/3 assigned runs needed action; found+verdicted 1 orphan (CANARY PASS, closes the per-axis DR
+  sweep exhaustively); repaired a live cross-cycle collision on the assistfade rung-2 semantics bank
+  (test file, not mine to keep after a concurrent session finished its own fix); launched the
+  assistfade rung-2 anchor-fade canary (2 seeds) once that bank went green; found+verdicted 1 more
+  orphan (CANARY PASS, decisively closes the composite kick-isolation question).** (1) `medhead-dr-
+  legmass1x-c1` **CANARY PASS**: PERFECT 24/24 gait_valid, 0 falls, sac=[] every episode -- per-leg
+  mass-asymmetry realism is free; this was one of the 2 final untested RandRanges fields (the other,
+  `imumount1x-c1`, was already computing elsewhere) -- the per-axis DR-restore sweep is now fully
+  exhaustive. (2) Independently attempted to build the assistfade track's owed intermediate-state
+  semantics bank (STATUS.md Next item 1) via direct empirical probing of `SimHexapodJointWalkEnv` +
+  `TripodGait` (found: freezing a partial pose for the REMAINING ~13s of a 15s episode scores WORSE
+  than doing nothing at all -- measures "stuck", not "progress"; a SHORT bounded-prefix + mean-
+  reward-per-tick construction is the fix; a `dr.torque_scale`-realistic -50deg topple dose never
+  crosses `safety.max_roll_deg=25` and must be -90deg to genuinely fall) -- appended this to
+  `test_task_semantics.py`, then discovered mid-edit that a CONCURRENT session was independently
+  building/fixing the SAME bank in the SAME file in real time (the file grew twice under this
+  session with no local edit between reads) and had reached the SAME two findings. Removed this
+  session's duplicate rather than fight the collision; the concurrent session's own fix landed and
+  all 5 `test_assistfade_rung2_*` tests now pass. Updated `assistfade/STATUS.md` to record the bank
+  as green and specify the exact rung-2 launch cfg (random init, `train.bc_anchor_coef=3.0` --
+  the campaign's own most-common "strong" dose, not a fresh guess -- + `train.bc_anchor_anneal_
+  gate=1`, every anneal sub-knob at its coded default). (3) **Launched the rung-2 canary itself**
+  (`cw-assistfade-rung2-anchorfade-{s0,s1}`, 2 seeds per the curriculum doc's own gate, 2M each,
+  `backlog add` + drain, both VERIFIED RUNNING train-1/train-9) -- the first real exercise of the
+  09-06-built anneal-gate training mechanism, now precondition-clear (mechanism + bank both green).
+  (4) Found+verdicted orphan `medhead-dr-allaxis-nokick-c1` **CANARY PASS/INFORMATIVE-POSITIVE**:
+  with kick fully OFF (0.0, not even `allaxiskickhalf1x-c1-r2`'s half dose, which itself still fell
+  7/24), the SAME ~30-axis composite that failed at both full kick (`allaxis1x-c1`, 5/24 tilt_roll)
+  and half kick (7/24 tilt_roll) reads 0 falls/24, gait_valid 19/24, contact sheet clean six-leg
+  cycling -- decisively closes the kick-isolation question: kick (any nonzero dose tried) was the
+  SOLE broken ingredient, not a diffuse many-axis interaction. Licenses a composite ACQ (40M) on
+  this exact no-kick recipe; kick-recovery hardening stays its own isolated dose-ladder line
+  (`kick0225x-c1`/`kickhalf1x-c1-acq1`, both still genuinely computing, left untouched). SKILLS.md
+  updated (2 entries). Did not fund a composite ACQ this cycle (a fresh finding, not yet cross-
+  checked against `allaxiskickhalf-nocrutch1x-c1`'s own still-computing read, which shares the same
+  ~28-axis base and could change the recipe again). Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{legmass1x_c1,allaxis_nokick_c1}_gate/
+  report.json`, W&B `f9nrfyok`/`1eh4y2ou`, `rl_docs/tracks/assistfade/STATUS.md`, RL_LOG 09-06
+  10:2x-10:5x.
+
 - 09-06 ~10:3x this cycle (assigned `geom1x-c1-acq1-r2`; found+verdicted 2 orphans, no new launch):
   **1 assigned ACQ PASS + 2 found orphans (1 ACQ PASS, 1 CANARY FAIL closing QUEUE AIM item (1) for
   good), 0 new launches -- every frontier item is either closed or already genuinely computing on

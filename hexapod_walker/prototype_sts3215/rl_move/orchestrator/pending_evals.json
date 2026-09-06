@@ -190,5 +190,11 @@
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_c1_acq1_gate/report.json",
   "label": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1",
   "added": "2026-09-06T01:56:32"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_gate",
+  "added": "2026-09-06T02:26:13"
  }
 ]

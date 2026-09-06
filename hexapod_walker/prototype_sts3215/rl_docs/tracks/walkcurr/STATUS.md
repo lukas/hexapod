@@ -37,6 +37,57 @@
   report.json`, ledger entries for both `plainhead-abrupt-c1` (KILLED)
   and `plainhead-abrupt-c1b` (RUNNING).
 
+- 09-06 ~02:2x this cycle (assigned `headset-halfgrav-fullhead-widen2-c3-acq1`):
+  1 verdict, **ACQ PASS**, 2-arm refill. The 40M own-checkpoint
+  continuation of the 3rd tie-breaking widen2 seed reproduces its own
+  2M canary's exact structure at full acquisition budget:
+  `gait_valid` 20/24 (`walk/det` 4/6, `walk/sto` 6/6,
+  `walk_startjitter/det` 6/6, `walk_startjitter/sto` 4/6) —
+  identical 20/24 total to the 2M canary read, 0 falls/terminations
+  in all 24 episodes. Sacrificed-leg flags are transient only (legs
+  0/3/4 flagged in 3/24 episodes total; `duty_cycle` for legs 0/3
+  spans 0.03-0.52 across all 24 episodes — nowhere near the
+  `widen2-c2b-acq1` entrenchment fingerprint of leg-1 duty 0.01-0.21
+  in ALL 24 episodes). `slip_per_m` reads flat-or-better vs the
+  gate's own comparison (walk/det spread narrows to 2.49-6.68 from
+  the canary's 2.3-11.5; median rises slightly 2.77->3.69, within
+  noise). Frame strips (`walk_det_4`, the `[0,3]`-flagged episode;
+  `walk_sto_3`, a 121/m slip outlier) confirm genuine six-leg cycling
+  with body translation in the former and the already-documented
+  reversal-heading spin-in-place low-progress-denominator pathology
+  (not a new defect) in the latter. **This closes the widen2
+  parent-quality-vs-seed-noise question the 1-PASS/1-FAIL
+  `widen2-c1-acq1`/`widen2-c2b-acq1` split left open: 3/3 widen2
+  seeds off clean `medhead_acq1` parents now PASS at acquisition
+  scale; the sole FAIL traces to an already-weak `medhead2_acq1`
+  parent.** Tooling gotcha found+handled: this run's own gate eval
+  was still computing remotely (video-every=1, ~30min wall clock)
+  when the cycle spawned, and the prestaged artifact dir on disk
+  (missing the `_acq1` suffix) actually held the PARENT's 2M canary
+  read, not this run's — caught by checking the report's own
+  `checkpoint` field before trusting it, then used `ops.sh podeval`
+  (found already running remotely, not a duplicate) + `ops.sh
+  pollreap` backgrounded to reap the real result without blocking the
+  rest of the cycle. **Refill (2 arms):** (1) `headset-halfgrav-
+  widenirr-c3` (respec off `widenirr-c1`, swapping the base checkpoint
+  to `widen2-c3`'s own 2M zip) — the widen-first widen+irr composite's
+  own FAIL verdict on its 2nd seed (`widenirr-c2b`, built on the weak
+  `widen2-c2b`) explicitly named "a 3rd seed of the widen2 rung" as
+  the right tie-breaker; widen2-c3 (clean-parent, just-PASSed) is that
+  seed. VERIFIED RUNNING (train-11, finished within ~2min given
+  ~20k fps on a 2M canary — leaving unverdicted for mechanical
+  per-run triage). (2) `headset-crossgrav-widen2c3-abrupt-c1` (respec
+  off `widen2c1-abrupt-c1`, swapping the base checkpoint to
+  `widen2-c3-acq1`) — the widen2 recipe's own crossgrav-transfer has
+  only been tested on 1 seed so far (`widen2c1-abrupt-c1` CANARY PASS
+  19/24); this gives it the same n=2-seed discipline already applied
+  to the irr-timing axis (`irr-acq1`/`irr2-acq1`, 2/2 PASS). VERIFIED
+  RUNNING (train-0). SKILLS.md updated (1 new row). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-halfgrav-fullhead-
+  widen2-c3-acq1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  halfgrav_fullhead_widen2_c3_acq1_gate/report.json`, W&B `2dtnh6ju`,
+  RL_LOG.
+
 - 09-06 ~02:1x this cycle (assigned `headset-crossgrav-medhead-abrupt-c1-acq1`,
   `headset-crossgrav-widenirrc1-abrupt-c1`, `headset-halfgrav-irrwiden-c2`): 3
   verdicts, all PASS. **`medhead-abrupt-c1-acq1` ACQ PASS is the headline

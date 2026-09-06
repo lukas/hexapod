@@ -1,5 +1,71 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-06 ~17:4x — s0-freshband CLOSES habituation hypothesis; NEW evidence-backed lead (course_income/excess_sway near-cancellation), DIG-IN handoff
+
+`cw-assistfade-rung2-anchorfade-s0-freshband` (TRUE random init, 0
+habituation, widened 0.04-0.08 m/s band from step 0 — the structural
+test after exploration-magnitude was closed 3/3) landed **FAIL -
+HABITUATION-NOT-THE-CAUSE**: `bc_anchor_anneal/gate_pass` latches
+clean at 1.52M, coef ramps 3->1.89(@3M)->0(@6M), holds 0 through
+12M; post-anneal held-out gate is clean (gait_valid 6/6 every one of
+4 modes, 0 falls/terms, sac=[] every episode) — but per-episode
+`speed_mean_m_s` clusters 0.047-0.054 m/s across the ENTIRE
+0.035-0.066 m/s commanded spread in both walk/det and walk/sto (e.g.
+cmd=0.035->speed=0.051, cmd=0.066->speed=0.049 — no visible
+covariance). This is the 3rd distinct root-cause hypothesis closed
+for the same "ignores the commanded speed band" fingerprint
+(exploration-magnitude closed 3/3 at -v2/-lsd2/-explore2; kernel-
+width/sigma closed via standalone rollout probe; now init-habituation
+closed via freshband). Sibling `-s1-freshband` and the `-ignitewiden`
+pair are still computing on their own pods (train-0/4/7) — read them
+before generalizing further, but do not fund a 4th same-mechanism
+speed-band arm on this recipe.
+
+**New lead found this cycle (no GPU spend, wandb_history.csv
+decomposition of the SAME freshband run, not a fresh probe — flag as
+a starting point for the next DIG-IN, not a confirmed root cause):**
+at the end of training (last ~15 logged points, steps 11.9-12.0M),
+`env/reward_walk_course_income` averages **+0.87** while
+`env/reward_walk_excess_sway` averages **-0.81 to -0.86** — the sway
+charge nearly FULLY CANCELS the course-income term (net ~+0.01 to
++0.06 out of a possible +0.87), even though this recipe is PURE
+FIXED-FORWARD (`walk_heading_max_rad=0`, no turning at all) and the
+logged mean `env/walk_sway_rms_mm` (~4.0-4.6mm) sits BELOW the
+`walk_sway_allow_mm=5.0` allowance — meaning the mean itself should
+mostly not trigger the excess charge, so the sustained ~-0.85 average
+implies the per-tick/per-window sway distribution frequently exceeds
+the 5mm allowance by enough to matter, not evenly, which this
+aggregated wandb scalar cannot resolve (needs per-tick/per-episode
+trace, not training-averaged means). Also:
+`env/walk_course_income_speed_f` (achieved-along/commanded-distance
+ratio, clipped [0,1]) averages **~0.55** — exactly consistent with a
+policy converging to one roughly-CONSTANT absolute speed (~0.05 m/s)
+regardless of command (0.55 ~= mean of clip(0.05/cmd,0,1) over
+[0.035,0.066]), i.e. the course-income mechanism's speed_factor is
+seeing and could in principle price this exact pathology, but its net
+contribution to total reward is almost entirely offset by the sway
+term before it can shape behavior. This is the SAME general "sway
+charge overwhelms course/forward income" family the todaypolicy
+track's 09-06 ~13:0x arc-vs-chord audit found for TIGHT TURNS
+(`reward_walk_excess_sway`=-1177 vs `reward_walk_course_income`=+165,
+a 7x mismatch) — but manifesting here on a STRAIGHT command where the
+arc-vs-chord confound does not apply, so it is likely a DIFFERENT
+defect in the same mechanism family (the sway allowance/window
+calibration itself, not the chord-vs-arc geometry). **Not yet
+root-caused to a specific code defect or fixed — needs a per-tick
+trajectory probe (log every tick's `walk_sway_rms_mm`/
+`reward_walk_excess_sway` for one held-out rollout, histogram the
+firing distribution) before any reward patch, per the standing
+root-cause-before-patch rule.**
+`DIG-IN: assistfade rung2 harden-speedband / walk_task.py excess-sway
+vs course-income pricing — near-total cancellation on straight-line
+commands, root cause not yet isolated.`
+Evidence: `logs/ckpt_eval/cw_assistfade_rung2_anchorfade_s0_freshband_
+gate/report.json`, `logs/experiments/cw-assistfade-rung2-anchorfade-
+s0-freshband/wandb_history.csv` (`env/reward_walk_course_income`,
+`env/reward_walk_excess_sway`, `env/walk_course_income_speed_f`,
+`env/walk_sway_rms_mm` columns), W&B `x8h2ftwk`, RL_LOG 09-06 17:40.
+
 Registered: 2026-09-06 (operator directive 2026-09-03/09-05,
 `rl_docs/EASIER_WALKING_CURRICULUM.md`, merged as PR #1 / eb736371).
 Scope: real mesh/100 Hz physics. "From scratch" = random network
@@ -49,6 +115,8 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~17:4x this cycle (bookkeeping close-out, verdict already landed by a concurrent cycle):** confirmed and closed out `s0-freshband`'s held-out gate: **FAIL - HABITUATION-NOT-THE-CAUSE**, ledger/W&B/RL_LOG already carried the verdict (`ops.sh verdict` ran before this cycle started) -- independently re-pulled the raw `report.json` off train-1 and hand-checked all 4 modes myself before trusting it: `speed_mean_m_s` clusters 0.035-0.054 m/s in EVERY mode (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto) while `cmd_dist_m` ranges 0.352-0.669 over the 10 s episodes (i.e. the commanded speed swings the full 0.04-0.08 m/s band) -- zero covariance, exact same fingerprint as `-v2`/`-lsd2`/`-explore2`. Gait itself is clean: `gait_valid` True and `sacrificed_legs=[]` in all 24 episodes, zero falls/terminations. This is the TRUE-random-init (0 habituation) arm, so it rules out the last "stuck in the BC clone's fixed-cadence habit" explanation. **Sibling status (do not duplicate):** all 3 remaining habituation-dose arms (`s1-freshband` train-0, `s0-ignitewiden` train-4, `s1-ignitewiden` train-7) finished GPU training too (fleet now shows 11/11 reachable GPU pods free, no trainers) and their held-out gate evals are ALREADY RUNNING on their own pods (`eval_checkpoint` processes live-verified via `kubectl exec ps aux` at ~17:4x) -- not ready this cycle, leave for the next reader per the doc's own sequencing rule (assistfade licenses no 2nd-generation arm until all 4 land). Per the pre-registered gate text, the licensed next step once all 4 confirm is design work, NOT another log-std/init/band tweak: bank an explicit stride-amplitude/speed-tracking reward term (semantics-bank first, per RESEARCH_RULES) since the reward stack currently has no per-step lever pricing achieved speed against the commanded value beyond the saturating course-income kernel. Did not launch anything this cycle (no license yet, and a separate concurrent cycle already owns general capacity-fill for the idle GPU pods) -- not idle-next-to-runnable-work, this track's own next licensed step is gated on 3 in-flight evals.
+
 - **09-06 ~17:2x this cycle (housekeeping: committed the prior cycle's uncommitted verdict/refill state -- s0-explore2 FAIL-COLLAPSE + s1-explore2 FAIL-COLLAPSE verdicts and the freshband/ignitewiden habituation-dose refill were already fully written but sitting uncommitted; snapshotted+pushed, no content changed).** Checkup-confirmed all 4 in-flight habituation-dose arms HEALTHY (`{s0,s1}-freshband`, `{s0,s1}-ignitewiden`). `s0-freshband` (the TRUE-random-init, 0-habituation extreme) finished training mid-cycle: full 12M budget, ignition anneal gate passed at 1.52M (`bc_anchor_anneal/gate_pass`), `bc_anchor_anneal/coef` ramped 3->0 by ~9M, `rollout/ep_rew_mean` climbed every quarter (9.5/226.7/590.3/1056.5) with only a small late dip (941.1 at the very last logged point) -- reward trend looks healthy, no collapse signature. Kicked the held-out ignition+speed-covariance gate on its own pod (train-1, `podeval`), registered via `evalpending`, left unverdicted for the next reader (do not poll/sleep on it). `s1-freshband` (~9M/12M), `s0-ignitewiden` (~5M/8M), `s1-ignitewiden` (~6.7M/8M) all still genuinely training. Re-checked capacity: 7 free GPU slots, empty backlog; walkcurr's own QUEUE AIM frontier is blocked on in-flight composite/kick-dose gate reads and a DIG-IN-owned axis bisection (items 1-2), item(4)'s slip fix (`footslip-c1`) just finished but is explicitly another cycle's to read; assistfade's own hardening ladder is sequential-by-doc (one habituation-dose question in flight, no second arm licensed until these land); joystick/amp/cpg closed/DONE, standwalk/todaypolicy blocked on design-thinking/delivered. Genuinely idle for NEW launches this cycle, not idle-next-to-runnable-work.
 
 - **09-06 ~17:1x this cycle (partial-refill; independently verdicted

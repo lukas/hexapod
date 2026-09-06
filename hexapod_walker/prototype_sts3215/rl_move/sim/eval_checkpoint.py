@@ -422,12 +422,22 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     """``course_trace``: an open, writable file handle (CSV, no
     header) -- when given, every commanded walk tick appends
     ``step,vx,vy,bx,by,vx_ref,vy_ref,walk_course_cos,
-    walk_course_disp_speed_m_s,walk_course_disp_cos`` (blank fields
-    where the corresponding info key is absent, e.g. the disp keys
-    when ``reward.k_walk_course_disp`` is 0). Diagnostic-only, no
-    effect on the returned ep dict/reward -- built for the
-    k_walk_course fix-lever (b) DIG-IN (2026-08-29) to compare the
-    EMA vs windowed-displacement course mechanisms against a REAL
+    walk_course_disp_speed_m_s,walk_course_disp_cos,
+    walk_sway_rms_mm,reward_walk_excess_sway,
+    walk_course_income_speed_f,reward_walk_course_income`` (blank
+    fields where the corresponding info key is absent, e.g. the disp
+    keys when ``reward.k_walk_course_disp`` is 0, or the last 4 keys
+    when ``reward.k_walk_course_income``/``k_walk_excess_sway`` are
+    0). The 4 trailing fields were added 2026-09-06 (assistfade
+    rung2 course_income/excess_sway near-cancellation DIG-IN, see
+    `rl_docs/tracks/assistfade/STATUS.md` 09-06 ~17:4x) to trace the
+    windowed course-income/excess-sway reward pair per-tick instead
+    of only as training-averaged wandb scalars -- purely additive
+    columns, existing readers that index the first 10 fields are
+    unaffected. Diagnostic-only, no effect on the returned ep dict/
+    reward -- built for the k_walk_course fix-lever (b) DIG-IN
+    (2026-08-29) to compare the EMA vs windowed-displacement course
+    mechanisms against a REAL
     checkpoint's own tick stream instead of a scripted proxy; reusable
     for any future course/direction diagnostic on a live checkpoint.
 
@@ -504,13 +514,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             bxy = env.data.xpos[env._chassis_bid, :2]
             v = env._body_vel_xy()
             course_trace.write(
-                "%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s,%s,%s\n" % (
+                "%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s,%s,%s,%s,%s,%s,%s\n" % (
                     env._step_i, float(v[0]), float(v[1]),
                     float(bxy[0]), float(bxy[1]),
                     float(g.vx_ref), float(g.vy_ref),
                     info.get("walk_course_cos", ""),
                     info.get("walk_course_disp_speed_m_s", ""),
-                    info.get("walk_course_disp_cos", "")))
+                    info.get("walk_course_disp_cos", ""),
+                    info.get("walk_sway_rms_mm", ""),
+                    info.get("reward_walk_excess_sway", ""),
+                    info.get("walk_course_income_speed_f", ""),
+                    info.get("reward_walk_course_income", "")))
 
         st = env._state
         if st.servo_current is not None:

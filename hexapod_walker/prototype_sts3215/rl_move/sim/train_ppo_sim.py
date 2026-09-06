@@ -1533,6 +1533,7 @@ class _BgEval:
         # pre-change behavior.
         self._defer_dir = defer_dir
         self._deferred_pending: dict[str, dict] = {}
+        self._deferred_delivered: list[str] = []
         self._deferred_seq = 0
         if defer_dir is not None:
             (defer_dir / "snapshots").mkdir(parents=True, exist_ok=True)
@@ -1560,9 +1561,15 @@ class _BgEval:
             ckpt = Path(tempfile.gettempdir()) / f"bgeval_{kind}_{step}.zip"
         model.save(ckpt)  # few MB; <1 s
         if self._defer_dir is not None:
+            # Freeze the snapshot's identity at save time: the finalizer
+            # verifies this md5 before running the job, so a corrupt or
+            # foreign zip can never publish wrong-model artifacts.
+            import hashlib
             self._deferred_pending[str(ckpt)] = {
                 "job_id": job_id, "kind": kind,
-                "snapshot_path": str(ckpt), "step": int(step), "tag": tag}
+                "snapshot_path": str(ckpt), "step": int(step), "tag": tag,
+                "snapshot_md5": hashlib.md5(
+                    Path(ckpt).read_bytes()).hexdigest()}
         self._busy[kind] += 1
         self._jobs.put((kind, str(ckpt), step, tag))
 
@@ -1605,10 +1612,15 @@ class _BgEval:
                 except OSError:
                     pass
             if "error" not in out and self._defer_dir is not None:
-                # Job delivered — retire its bookkeeping + durable
-                # snapshot (the child skips its own unlink in this mode).
-                self._deferred_pending.pop(out.get("ckpt", ""), None)
-                Path(out.get("ckpt", "")).unlink(missing_ok=True)
+                # Job delivered to the LIVE W&B session — retire its
+                # bookkeeping but RETAIN the snapshot: wandb.log is
+                # async, so the input stays replayable until the trainer
+                # has called run.finish() (it then retires the paths in
+                # pop_delivered(); fb_20260906T044800 async-publication
+                # risk). The child skips its own unlink in this mode.
+                ck = out.get("ckpt", "")
+                if self._deferred_pending.pop(ck, None) is not None:
+                    self._deferred_delivered.append(ck)
 
     def pop_canaries(self) -> list[dict]:
         """Hand any drained canary probe results to the stop callback."""
@@ -1655,6 +1667,13 @@ class _BgEval:
             self._proc.join(timeout=5)
         self.drain()  # results that landed between first drain and kill
         return list(self._deferred_pending.values())
+
+    def pop_delivered(self) -> list[str]:
+        """Snapshot paths of jobs already delivered to the live W&B
+        session (deferred mode). The trainer retires these AFTER
+        run.finish() — the point where their publication is durable."""
+        out, self._deferred_delivered = self._deferred_delivered, []
+        return out
 
 
 def _make_periodic_eval_callback(bg: "_BgEval", every: int = 200_000):

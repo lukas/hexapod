@@ -2,6 +2,29 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~08:3x-08:4x this cycle (assigned `medhead-irrfwd-c1-acq1-cont40m`): **HARDENING PASS
+  (improves), verdicted after the harness gate genuinely finished computing (no prestage artifact —
+  found+backgrounded via `podeval`/`pollreap`, confirmed a live remote `eval_checkpoint` process, not
+  orphaned; waited it out this cycle rather than leaving a 3rd unverdicted line).** Aggregate
+  `gait_valid` 22/24 at 80M cumulative (walk/det 4/6, walk/sto 6/6, walk_startjitter/det 6/6,
+  walk_startjitter/sto 6/6) — UP from the parent 40M read's own 21/24 (walk_startjitter/sto was 5/6
+  there). 0 falls/terminations across all 24 episodes both reads. The walk/det leg flag is the SAME
+  confined single-mode signature (leg 5, episodes 1+5) as the parent, actually narrowed (ep1 dropped
+  from `sac=[2,5]` to `sac=[5]`); the parent's one flagged walk_startjitter/sto episode is now clean.
+  Frame strips confirm clean six-leg body translation on the flagged episode (softened not parked
+  duty). This composition now has 2 independent clean reads (40M + 80M), joining `ramp-irrfwd-cont40m`
+  in the cleanliness-margin-at-40M precedent set. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_irrfwd_c1_acq1_cont40m_gate/report.json`, W&B
+  `flkoqbnm`. **Refill:** fleet was 0/11 free the entire cycle (no direct launch possible); found+fixed
+  the same respec-steps-inheritance footgun a concurrent cycle's guard (`_acquisition_steps_footgun`)
+  now catches for NEW cases, but confirmed 3 EARLIER casualties from before that guard landed
+  (`gains1x`/`geom1x`/`fault1x-c1-acq1`, all silently finished at the source canary's 2M budget
+  instead of a real 40M ACQ read) still had no correctly-budgeted relaunch — queued all 3 to backlog
+  with explicit `--steps 40000000` + `--init-from-source` off their original `-c1` canaries
+  (`gains1x-c1-acq1-r2` already drained to train-2 INTENT by cycle end; `geom1x`/`fault1x-c1-acq1-r2`
+  still queued). No duplication vs concurrent cycles' own work (checked `experiments.json` /
+  `backlog.json` before and after).
+
 - 09-06 ~08:0x-08:2x this cycle (refill-only, no completions assigned — canonical capacity found
   5-6 ready slots without trainers and an empty backlog): **completed the single-axis DR-restore
   ACQ-durability batch (every remaining clean canary now has its first 40M confirmation attempt
@@ -96,31 +119,40 @@
   strips, `kubectl cp` checkpoint recovery + `launch_run.py update --create` ledger backfill for
   encnoise1x-c1-acq1, `launch_run.py status`/`capacity.py`, RL_LOG 09-06 08:11-08:2x.
 
-- 09-06 ~08:1x-08:2x this cycle (assigned `medhead-dr-friction1x-c1-acq1`, `medhead-dr-mass1x-
-  c1-acq1`): **both 40M ACQ gate harnesses STILL genuinely computing on their pods — no verdict on
-  either.** Both finished training healthy (`friction1x-c1-acq1` ep_rew_mean 1248, quarters
-  562->1035->1136->1219, monotonic no plateau; `mass1x-c1-acq1` similar shape) but `kubectl exec ps`
-  on train-4/train-7 shows the gate eval processes alive since 07:37 (~40min elapsed at read time,
-  724%/649% CPU, RNl state) — only the informational `_session` artifact exists, no `_gate/
-  report.json` yet. This campaign's video-every=1 24-episode 4-panel harness typically takes
-  25-40min; backgrounded `ops.sh pollreap` for both (180s interval/60min cap), left UNVERDICTED for
-  the next reader per protocol — do not re-launch or re-poll by hand. **Infra:** found and removed
-  one stale duplicate backlog entry, `medhead-dr-tiltnoise1x-c1-acq1-rr1` (an evidence-less retry
-  spec left over from a transient launch race; the real `tiltnoise1x-c1-acq1` had already launched
-  successfully under its own non-`-rr1` name and was RUNNING on train-5) — would have burned 3
-  REFUSED drain attempts before auto-parking for nothing; removed directly from `backlog.json`
-  (the tool's own near-duplicate warning names this as the sanctioned fix path). **Refill (2
-  launches, capacity-capped):** 3 free slots (train-0/3/10) at read time; funded the 2 highest-
-  priority clean-canary-but-ACQ-unfunded axes named by the prior cycle's own tally:
-  `medhead-dr-extpush1x-c1-acq1` (mid-stride external-push realism; its own attempt earlier this
-  campaign had been REFUSED only for a pod collision, not a real problem — relaunched clean onto
-  train-0, VERIFIED RUNNING) and `medhead-dr-zerobiasframe1x-c1-acq1` (the harder command-frame-
-  coupled zero-bias variant that CANARY-PASSED this same cycle window; first ACQ attempt, train-10
-  after a train-3 pod-collision REFUSED, VERIFIED RUNNING). 2x40M hits the 80M/cycle GPU-step cap;
-  left the 1 remaining free slot (train-10 was the last free, now taken) for concurrent cycles.
-  Evidence: `kubectl exec hexapod-mjx-train-{4,7} -- ps aux`, `logs/experiments/{friction1x,mass1x}
-  -c1-acq1/wandb_summary.json`, `rl_move/orchestrator/backlog.json` (post-cleanup: empty),
-  `launch_run.py status`, RL_LOG 09-06 08:2x.
+- 09-06 ~08:1x-08:3x this cycle (assigned `medhead-dr-friction1x-c1-acq1`, `medhead-dr-mass1x-
+  c1-acq1`): **both ACQ PASS at 40M, confirming the first 2 individual-axis DR-restore canaries
+  durable at full budget.** Gate harnesses were still genuinely computing on their pods at read
+  time (kubectl exec confirmed alive, train-4/train-7, ~40min elapsed of the usual 25-40min
+  window) — backgrounded `ops.sh pollreap` for both rather than force a premature call; both
+  finished cleanly within the hour. `friction1x-c1-acq1`: 24/24 gait_valid all 4 modes, sac=[]
+  EVERY episode, 0 falls, slip/m med 3.44-4.26 — reproduces its own 2M canary's PERFECT 24/24
+  exactly. `mass1x-c1-acq1`: 24/24 gait_valid, sac=[] every episode, 0 falls, slip/m med
+  3.56-4.70 — IMPROVES on its own canary's single non-chronic leg-4 flag (23/24) to a clean sweep.
+  Both reward curves monotonic with no plateau. Contact sheets + `walk_det_0.png` frame strips
+  both video-confirmed clean six-leg tripod cycling, no drag/skate/paddle-creep. SKILLS.md updated
+  (1 new row, both arms). **A real tooling bug found+fixed while queuing the refill:** my own
+  respec launches this cycle for `extpush1x-c1-acq1` and `zerobiasframe1x-c1-acq1` (see below)
+  BOTH silently landed at the SOURCE canary's 2M step budget instead of a real 40M ACQ read —
+  `respec` inherits `--steps` from the `--from` entry when `--steps` isn't given, and neither
+  launch passed it explicitly (matching a bug a concurrent cycle had independently found on
+  gains1x/geom1x/fault1x-c1-acq1 the same window). Root-caused and fixed forward in
+  `launch_run.py`: new `_acquisition_steps_footgun()` REFUSES a `--init-from-source` respec whose
+  target name reads as an acquisition continuation (`-acqN` suffix) off a non-acquisition-named
+  source when no explicit `--steps` is given and the inherited step count is canary-scale
+  (<10M) — forces the caller to state the real budget. 7 new unit tests green (pure-function,
+  no ledger/subprocess I/O), verified live via a real `--dry-run`-style CLI smoke test (fires
+  correctly, zero side effects), snapshotted+pushed (`ae26f6b0`). Relaunched both mislabeled
+  arms correctly as `extpush1x-c1-acq1-r2` (train-10, a concurrent cycle's own fix) and
+  `zerobiasframe1x-c1-acq1-r2` (train-7, mine, `--steps 40000000` explicit, VERIFIED RUNNING) —
+  both now genuine 40M reads, gate results pending. **Infra:** also found and removed one stale
+  duplicate backlog entry, `medhead-dr-tiltnoise1x-c1-acq1-rr1` (an evidence-less retry spec left
+  over from a transient launch race; the real `tiltnoise1x-c1-acq1` had already launched
+  successfully under its own non-`-rr1` name) — would have burned 3 REFUSED drain attempts before
+  auto-parking for nothing; removed directly from `backlog.json` per the tool's own near-duplicate
+  warning. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  {friction1x,mass1x}_c1_acq1_gate/report.json`, contact sheets, W&B `ub3dxkyb`/`rllle5x4`,
+  `rl_move/tests/test_launch_run_acquisition_steps_footgun.py`, `launch_run.py status`, RL_LOG
+  09-06 08:2x-08:3x.
 
 - 09-06 ~08:0x-08:2x this cycle (assigned `medhead-dr-torquefade2x-c1-acq1`,
   `medhead-widenfwd-c1-acq1-cont40m`): **both left UNVERDICTED — gate harnesses genuinely

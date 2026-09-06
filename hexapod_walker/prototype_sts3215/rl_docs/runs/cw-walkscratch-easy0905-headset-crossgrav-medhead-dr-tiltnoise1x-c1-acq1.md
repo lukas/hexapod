@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:03:51+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-tiltnoise1x-c1
+
+**wandb_id**: 7ejprgld
 
 **hypothesis**: Plain English: does the nominal (0.3deg) IMU tilt-sensor noise axis stay a clean walk with a real 40M training budget, not just a 2M canary glance? tiltnoise1x-c1's own 2M canary was a PERFECT 24/24 (0 falls, sac=[] every episode) -- this is its first ACQ-scale confirmation, joining the sibling latency1x/torquefade/mass/friction/gains/geom/fault/extpush/actionnoise/contactstiff/deadband individual-axis durability batch.
 

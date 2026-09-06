@@ -2,6 +2,60 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~03:3x this cycle (assigned `headset-crossgrav-plainhead-abrupt-c1b`,
+  `headset-crossgrav-widen2c3-abrupt-c1`, `headset-halfgrav-widenirr-c3`):
+  3 verdicts, 2 PASS + 1 FAIL, 4-arm refill. Gate evals for all 3 were
+  still genuinely computing remotely when the cycle spawned (video-
+  every=1); confirmed via `kubectl exec ps aux` (not orphaned),
+  backgrounded 3 `ops.sh pollreap` loops, then read each `report.json`
+  as it landed. (1) `plainhead-abrupt-c1b` (the simplest, never-
+  composited 3-way champion's own abrupt-transfer test): CANARY PASS,
+  `gait_valid` 23/24, 0 falls, clean rising reward, video confirms
+  genuine six-leg cycling with body translation — closes the sweep's
+  missing simplest-case baseline. (2) `widen2c3-abrupt-c1` (2nd
+  independent widen2 seed's crossgrav transfer): CANARY FAIL -
+  MECHANISM — collapses into the already-known leg-1/4 chronic-
+  sacrifice entrenchment fingerprint under the startjitter panel
+  (`walk_startjitter/det` 3/6, legs 1+4 recurring), slip/m up to 202 in
+  several stochastic episodes, video (`walk_startjitter_det_3`) shows
+  near-static floor despite visible leg cycling. Splits widen2-crossgrav
+  1 PASS (c1) / 1 FAIL (c3) — unlike irr-timing crossgrav (2/2 PASS) or
+  the healthy-champion crossgrav set (6/6 PASS), widen2's abrupt-
+  transfer robustness does NOT fully generalize past its first seed;
+  checked reward trend against PASSing sibling widen2c1 (same decline
+  shape, milder magnitude) before concluding the FAIL rests on the
+  behavioral eval, not reward. No further widen2-crossgrav arms
+  planned. (3) `halfgrav-widenirr-c3` (native 0.5g, the widenirr
+  composite's 3rd tie-breaking seed after c1 PASS / c2b FAIL): CANARY
+  PASS, `gait_valid` 23/24, 0 falls — the lone sac flag ([2,4,5] in
+  1/24 episodes) is transient, not chronic. Reward showed an alarming
+  monotonic decline (-84.5->-520.6) that was checked against BOTH the
+  PASSing (widenirr-c1: -98.5->-568.4) and FAILing (widenirr-c2b:
+  -120.6->-548.9) siblings and found the SAME shape in all three —
+  ruled non-diagnostic (this composite's `walk_freeprog` shortfall
+  pricing under 8-way-heading+jitter resampling is inherently negative
+  for every seed regardless of outcome). Real caveat: several
+  stochastic/heading episodes show poor course obedience
+  (`wrong_direction_frac` up to 0.54, `course_err` up to 85deg) with
+  correspondingly inflated slip — a course-tracking-quality gap
+  matching the earlier `halfgrav-irrwiden-c2-acq1` precedent, not a
+  gait-validity failure. **Refill (3 arms):** (1)
+  `headset-crossgrav-plainhead-abrupt-c1b-acq1` — matched 40M ACQ
+  continuation (train-5, VERIFIED RUNNING). (2)
+  `headset-halfgrav-widenirr-c3-acq1` — matched 40M ACQ continuation,
+  explicitly tracking course-tracking metrics at scale as a named gate
+  criterion (train-8, VERIFIED RUNNING). (3)
+  `headset-crossgrav-widenirrc3-abrupt-c1` — n=2-seed check for the
+  widenirr-crossgrav axis specifically (does the SAME seed-sensitivity
+  risk found on widen2-crossgrav also apply to widenirr-crossgrav,
+  whose 1st seed already PASSed?), abruptly transferring this cycle's
+  clean `widenirr-c3` canary to full 1g (train-10, VERIFIED RUNNING).
+  SKILLS.md updated (3 new rows, one section). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-{crossgrav-plainhead-abrupt-c1b,
+  crossgrav-widen2c3-abrupt-c1,halfgrav-widenirr-c3}`, matching
+  `logs/ckpt_eval/...gate/report.json` files, W&B
+  `59h70mm0`/`jlal69m5`/`mhn5rvg4`, RL_LOG.
+
 - 09-06 ~03:3x this cycle (assigned `headset-crossgrav-medhead-ramp-irrfwd-c1`,
   `headset-crossgrav-medhead-ramp-widenfwd-c1`, `headset-crossgrav-widen2c2b-
   abrupt-c1-acq1`): 3 verdicts, 2-arm refill. Tooling note: all 3 prestaged

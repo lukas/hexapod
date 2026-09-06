@@ -2,6 +2,33 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~03:5x this cycle (assigned `medhead-ramp-widenfwd-c1` /
+  `widen2c2b-abrupt-c1-acq1`, both already verdicted+committed by a
+  concurrent cycle before this one read them — no re-triage, no
+  duplicate spend): found 3 crossgrav 40M ACQ runs that had finished
+  training on their pods but had NOT been picked up (checkpoint synced,
+  no gate dir yet) — `irr2acq1-abrupt-c1-acq1` (train-1),
+  `medhead-widenfwd-c1-acq1` (train-2), `medhead-irrfwd-c1-acq1`
+  (train-3) — confirmed each via `kubectl exec ps aux` (gate evals
+  already genuinely running, prestaged by the watcher or a concurrent
+  cycle, not orphaned) and backgrounded `pollreap` loops for all 3 so
+  their `report.json`s land without anyone blocking on them; left
+  unverdicted for whichever cycle sees them finish first. **Refill (2
+  new discovery canaries):** the campaign's own stated next layer —
+  composing the widen (8-way heading) and irr (command-timing jitter)
+  axes TOGETHER, natively at 1g, on top of the already-ACQ-PASSed
+  `medhead-{widenfwd,irrfwd}-c1-acq1` champions — was flagged as ready
+  once both single-axis siblings passed ACQ (they have) but was left
+  unlaunched pending exactly that. Queued both composition orders,
+  mirroring the halfgrav family's own irrwiden/widenirr pair-testing
+  discipline: `medhead-widenirr-c1` (from `medhead-widenfwd-c1-acq1`,
+  add `walk_cmd_resample_jitter=0.5`) and `medhead-irrwiden-c1` (from
+  `medhead-irrfwd-c1-acq1`, add the 8-way `walk_heading_set`), both 2M
+  discovery canaries via `respec` (backlog, no `--now`); the live
+  `watch_loop` drain placed both within minutes (train-0, train-2).
+  Snapshotted (`5e81ed9e`). Evidence: `rl_move/orchestrator/
+  experiments.json` entries for the two new runs; RL_LOG 09-06 ~03:5x.
+
 - 09-06 ~03:3x this cycle (assigned `headset-crossgrav-plainhead-abrupt-c1b`,
   `headset-crossgrav-widen2c3-abrupt-c1`, `headset-halfgrav-widenirr-c3`):
   3 verdicts, 2 PASS + 1 FAIL, 4-arm refill. Gate evals for all 3 were

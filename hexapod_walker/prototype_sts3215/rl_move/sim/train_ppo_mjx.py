@@ -5753,6 +5753,7 @@ def main(argv: list[str] | None = None) -> int:
                 super().__init__()
                 self._next = int(model.bc_anneal_check_every)
                 self._env = None
+                self._round = 0  # assay rounds run so far (reseed mode)
 
             def _build(self):
                 import copy as _copy

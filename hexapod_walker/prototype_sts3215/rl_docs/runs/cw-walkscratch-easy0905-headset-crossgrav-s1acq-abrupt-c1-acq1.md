@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T02:38:22+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1
+
+**wandb_id**: 80g9tb6m
 
 **hypothesis**: Plain English: does the cleanest crossgrav-transfer canary yet (headset-halfgrav-s1acq abruptly jumped to 1g, gait_valid PERFECT 24/24, sac=[] every episode) hold at full 40M acquisition budget the same way every other healthy-source crossgrav canary has (5/5 PASS so far: medhead x2, widen2c1, irracq1, irr2acq1)? This is the campaign's best-ever source champion, so a clean ACQ PASS would be the strongest single confirmation of cross-gravity-transfer as a general base(1g) repair.
 

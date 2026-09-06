@@ -10807,3 +10807,113 @@ def test_rise_stall_replay_prices_worse_than_honest_partial(
         f"this uses the actual checkpoint's own actions, so this "
         f"result should be trusted over the hand-built one if they "
         f"ever disagree.")
+
+
+# --------------------------------------------------------------------------
+# ASSISTFADE RUNG-1 bank — assistance-removal curriculum, rung 1
+# (rl_docs/EASIER_WALKING_CURRICULUM.md, operator directive 09-03/09-05;
+# track rl_docs/tracks/assistfade/STATUS.md). Rung 1 = BC-clone init,
+# then TASK-ONLY PPO on a fixed slow forward command, mesh/100Hz, DR-0,
+# with every ongoing-assistance term removed: all train.bc_anchor_* = 0
+# and reward.walk_anchor_gate = 0. That removal is the one reward-side
+# delta vs the bank-proven walkteach course-income stack (the canary-r1
+# launch cfg, verbatim otherwise), so this bank pins the ordering that
+# rung 1's PPO optimum must still be honest walking WITHOUT the anchor
+# gate propping it up: on the EXACT launch cfg, the hardware-proven
+# scripted tripod out-earns a march-in-place stall, and a stall (at
+# least trying) out-earns a refusal park. No new reward keys are
+# introduced by rung 1, so no new-mechanism bank is owed — this is the
+# curriculum doc's "matched intermediate-state ordering" check for the
+# unchanged stack. The FULL intermediate-state bank (weight shift, one
+# useful lift, one forward placement, one support transition, two steps
+# then fall, static stand, clean gait) is owed BEFORE rung 2's anchor-
+# fade schedule (a genuinely new mechanism) ever launches; see the
+# track STATUS "Next" list.
+ASSISTFADE_RUNG1_OVERRIDES = {
+    # env/control contract of the launch (model family forced via
+    # _mesh_family_env below — the env var outranks cfg).
+    ("control", "hz"): 100,
+    ("safety", "max_delta_q_deg"): 0.375,
+    ("safety", "max_roll_deg"): 25,
+    ("safety", "max_pitch_deg"): 25,
+    # rung-1 command diet: fixed slow forward, walk-only, no stops,
+    # no park starts, resample a no-op (30s > 10s episodes).
+    ("goal", "walk_speed_min_m_s"): 0.06,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_heading_max_rad"): 0.0,
+    ("goal", "walk_stop_frac"): 0.0,
+    ("goal", "walk_cmd_resample_s"): 30.0,
+    ("goal", "walk_cmd_resample_jitter"): 0.0,
+    ("goal", "walk_park_start_frac"): 0.0,
+    ("goal", "walk_obs_body_vel"): 2,
+    ("goal", "walk_phase_obs"): 1,
+    ("goal", "walk_phase_hz"): 1.333333,
+    ("goal", "walk_yaw_cmd"): 1,
+    ("goal", "walk_phase_run_on_yaw"): 1,
+    ("goal", "walk_yaw_zero_frac"): 1.0,
+    # walkteach course-income reward stack, verbatim from the
+    # canary-r1 launch, with the ONE rung-1 delta: anchor gate OFF.
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("reward", "walk_anchor_gate"): 0.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 30.0,
+    ("reward", "walk_loadslip_gate"): 1.0,
+    ("reward", "loadslip_ok"): 3.0,
+    ("reward", "loadslip_max"): 6.0,
+    ("reward", "k_loadslip_excess"): 10.0,
+    ("reward", "k_walk_idle_charge"): 20.0,
+    ("reward", "walk_idle_speed_m_s"): 0.02,
+    ("reward", "k_park_duty"): 2.0,
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_walk_course_income"): 2.0,
+    ("reward", "walk_course_income_window_s"): 0.75,
+    ("reward", "walk_course_income_deadband_deg"): 6.0,
+    ("reward", "walk_course_income_sigma_deg"): 20.0,
+    ("reward", "k_walk_excess_sway"): 2.0,
+    ("reward", "walk_sway_window_s"): 0.75,
+    ("reward", "walk_sway_allow_mm"): 5.0,
+    ("reward", "k_walk_course_disp"): 0.15,
+    ("reward", "walk_course_disp_window_s"): 1.5,
+    ("reward", "walk_course_disp_min_speed_m_s"): 0.02,
+    ("reward", "k_walk_course_disp_overspeed"): 4.0,
+    ("reward", "walk_course_disp_overspeed_tol"): 0.05,
+    ("reward", "walk_course_disp_overspeed_along"): 1.0,
+    ("reward", "walk_course_disp_overspeed_ref_floor_m_s"): 0.06,
+}
+
+
+@pytest.fixture(scope="module")
+def assistfade_rung1_returns() -> dict[str, float]:
+    with _mesh_family_env():
+        return {p: float(np.mean(
+            [_walk_rollout(p, s, vx=0.06,
+                           overrides=ASSISTFADE_RUNG1_OVERRIDES)
+             for s in SEEDS]))
+            for p in ("gait", "stall", "park")}
+
+
+def test_assistfade_rung1_gait_beats_stall_without_anchor_gate(
+        assistfade_rung1_returns):
+    """Rung 1's whole premise: with the BC anchor and its reward gate
+    removed, honest walking must STILL be the stack's paid optimum on
+    the exact launch cfg (mesh/100Hz, fixed 0.06 m/s forward). If the
+    scripted tripod no longer clearly out-earns a march-in-place
+    stall here, the anchor gate was load-bearing for the pricing and
+    rung 1 is misaligned before it trains a single step."""
+    t = assistfade_rung1_returns
+    assert t["gait"] > 1.3 * t["stall"] and t["gait"] > t["stall"] + 100.0, (
+        f"anchor-free rung-1 stack prices stall near the walking gait: "
+        f"{t} — the anchor gate was doing the pricing work; fix the "
+        f"stack before launching rung 1.")
+
+
+def test_assistfade_rung1_stall_beats_refusal_park(
+        assistfade_rung1_returns):
+    """Curriculum doc: 'an imperfect first step is better than
+    standing still'. A stepping stall must out-earn a refusal park
+    under the anchor-free rung-1 cfg (park-duty/idle-charge pricing
+    must survive the anchor removal)."""
+    t = assistfade_rung1_returns
+    assert t["stall"] > t["park"], (
+        f"refusing to step out-earns trying under the rung-1 cfg: {t}")

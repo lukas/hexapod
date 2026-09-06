@@ -2,6 +2,52 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~02:4x this cycle (assigned `headset-crossgrav-s1acq-abrupt-c1`,
+  `headset-crossgrav-s3acq-abrupt-c1`): 2 verdicts, both **CANARY PASS**,
+  2-arm refill. These were the last 2 untested champions in the
+  healthy-source crossgrav sweep (the campaign's best and 2nd-best
+  3-way (0,+-45deg) halfgrav champions, `s1acq` gait_valid 24/24 and
+  `s3acq` 22/24 at native 0.5g, jumped abruptly to full 1g from tick
+  0). **`s1acq-abrupt-c1` is the CLEANEST crossgrav result of the
+  entire sweep**: `gait_valid` PERFECT 24/24 (6/6 in all four of
+  walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto),
+  `sac=[]` in literally every one of the 24 episodes — no other
+  champion tested so far (medhead/widen2c1/irracq1/irr2acq1/
+  widenirrc1/irrwidenc1) reached a fully clean 24/24. 0 falls,
+  slip_per_m 2.6-4.4 (medians 3.1-4.0), forward 2.9-4.2m/20s. Video
+  (`walk_det_0`) confirms genuine six-leg cycling with clear body
+  translation. `s3acq-abrupt-c1` lands at `gait_valid` 21/24 — walk/det
+  (primary mode) 6/6 clean, walk/sto 6/6 clean, walk_startjitter/sto
+  6/6 clean; walk_startjitter/det softens to 3/6 with leg-1 flagged
+  in 3/6 episodes (duty 0.07-0.10) but NOT chronic (the other 3
+  startjitter/det episodes show the same leg healthy at 0.14-0.24) —
+  the identical mild jitter-sensitivity shape already logged on every
+  other healthy-source sibling, not a new pathology. 0 falls, slip
+  2.8-4.3. **This makes the healthy-source crossgrav sweep 6/6 PASS
+  with zero surprises** (medhead x2 transition speeds, widen2c1,
+  irracq1, irr2acq1, s1acq, s3acq — 8 total canary/acq confirmations
+  across 6 distinct champions), fully saturating the "does cross-
+  gravity-transfer generalize past one lucky source" question; only
+  the widen2c2b negative control (unhealthy source) and the
+  irrwidenc1 composite-order informative-negative remain outliers,
+  both already explained. **Refill (2 arms):** matched 40M ACQ
+  continuations for both, `headset-crossgrav-s1acq-abrupt-c1-acq1`
+  (train-0) and `headset-crossgrav-s3acq-abrupt-c1-acq1` (train-9),
+  both VERIFIED RUNNING. Did not launch further NEW crossgrav
+  discovery arms this cycle: every healthy champion built so far now
+  has a crossgrav test in flight or landed, and the natural next
+  layer (widen2/irr composites built natively at 1g on TOP of a
+  crossgrav-transferred champion) is already being tested by a
+  concurrent cycle off the `medhead` lineage
+  (`crossgrav-medhead-{ramp-,}widenfwd-c1`, `crossgrav-medhead-{ramp-,}irrfwd-c1`)
+  — repeating that exact axis on `s1acq`/`s3acq` before their own
+  acq1 continuations land would compound two untested variables at
+  once. SKILLS.md updated (2 new rows). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-{s1acq,s3acq}-abrupt-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_{s1acq,
+  s3acq}_abrupt_c1_gate/report.json`, W&B `slm87dgu`/`yodax2qa`,
+  RL_LOG.
+
 - 09-06 ~02:3x this cycle (assigned `headset-crossgrav-irr2acq1-abrupt-c1`):
   1 verdict, **CANARY PASS - INFORMATIVE-POSITIVE**, 3-arm refill. The
   irr-timing-jitter crossgrav recipe's 2ND independent seed (warm-started

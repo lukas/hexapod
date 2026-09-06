@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:11:41+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1-acq1
+
+**wandb_id**: o4p4pjkr
 
 **hypothesis**: Plain English: does the campaign's cleanest source (s1acq, native 0.5g gait_valid 24/24) still hold its widenfwd (8-way heading) composition after a SECOND 40M helping (80M cumulative), matching the endurance-margin rule already confirmed on medhead/s1acq-abrupt/s3acq-abrupt (cleanliness AT the first 40M read, not total budget, predicts whether more training helps or hurts)? s1acq-widenfwd-c1-acq1's own first 40M ACQ read was a clean 21/24 (0 falls, only a lateral non-worsening leg-shift vs its 22/24 2M canary) -- exactly the 'already clean at 40M' profile the rule predicts should HOLD, not entrench, at 80M.
 

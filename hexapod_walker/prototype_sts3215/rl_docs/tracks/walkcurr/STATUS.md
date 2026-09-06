@@ -2,6 +2,57 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:5x-08:2x this cycle (assigned `medhead-dr-encnoise1x-c1-acq1`, `medhead-ramp-irrfwd-c1-
+  acq1-cont40m`, `widenirrc3-abrupt-c1-acq1-cont40m`): **2/3 verdicted (both HARDENING PASS), 1/3
+  still genuinely computing after an infra recovery; plus 1 extra unassigned-idle verdict and a
+  4-launch refill batch.** (1) **Infra incident (self-repaired):** `medhead-dr-encnoise1x-c1-acq1`
+  had NO ledger entry at all despite its W&B run showing `state=finished` (40M steps) -- the same
+  non-atomic-`experiments.json`-write-race class the 06:59-07:03 incident already documented had
+  silently dropped this run's own entry sometime after launch. Found its checkpoint still present
+  on its original training pod (`hexapod-mjx-train-8`, both the interim and `_best` zips), pulled it
+  by hand via `kubectl cp` (md5/size-verified: 4469270 bytes, exact match), and reconstructed the
+  full ledger entry (pod/wandb_id/hypothesis/gate/extra_args/command) via `launch_run.py update
+  --create --set` from the cached W&B config -- this is the SANCTIONED repair path (never hand-edit
+  `experiments.json`), unblocking the standard prestage/pullckpt/podeval machinery for this run
+  going forward. Kicked its gate eval via `podeval` (still genuinely computing on train-8 at cycle
+  end, backgrounded `pollreap`). (2) `medhead-ramp-irrfwd-c1-acq1-cont40m` **HARDENING PASS**: holds
+  gait_valid EXACTLY at 22/24 through +40M more steps (80M total) -- the identical single
+  non-chronic leg-5-in-walk/det-only pattern reproduces (duty 0.06/0.08 vs the parent's 0.04/0.05),
+  0 falls, no spread to other modes. Closes the ramp-transfer endurance question. (3)
+  `widenirrc3-abrupt-c1-acq1-cont40m` **HARDENING PASS by substance** despite a narrow numeric miss
+  against its own literal gate text (21/24 vs "stays at/above 23/24"): all 3 flagged episodes are
+  the SAME already-borderline legs/episodes from the established 40M read (duty 0.12->0.07,
+  0.13->0.08, one already at 0.01->0.01) dipping a few points below the duty floor -- 3 DIFFERENT
+  legs across 3 DIFFERENT modes, each a single non-repeating episode, not the gate's own named
+  "repeating chronic leg emerges/hardens" fail shape. 0 falls, video-confirmed clean six-leg
+  cycling. Read together as useful calibration: a small aggregate-count miss driven by pre-existing
+  marginal legs is noise, not entrenchment. (4) **Bonus verdict** (found idle, unassigned, no eval
+  running, direct walkcurr-track value): `medhead-dr-kick1x-c1-acq1` **ACQ FAIL (informative-
+  negative)**, exactly matching its own pre-registered gate text -- still 1 fall (tilt_roll,
+  video-confirmed roll-over) at 40M on the 8-18deg mid-stride kick-perturbation dose; kick recovery
+  at this magnitude is a real binding constraint, not a training-budget problem (kickhalf1x-c1's
+  lower-dose read, already in flight, is the next data point). SKILLS.md updated (2 new rows: the
+  cont40m pair, the kick1x-acq1 finding folded into its own DR-restore narrative). **Refill:** found
+  6 clean single-axis DR-restore PASS canaries with NO acq1 launch attempt yet at all
+  (contactstiff1x/deadband1x/gyronoise1x/noise1x/tiltnoise1x/torquefade1x-c1) -- torquefade1x got
+  claimed by a concurrent cycle in the same window; launched the other 5 as ACQ continuations
+  (`respec --init-from-source`), 4 landed VERIFIED RUNNING within the 4/cycle cap
+  (contactstiff1x/deadband1x/gyronoise1x/noise1x-c1-acq1, 2 pod-race REFUSED retries absorbed
+  cleanly), the 5th (tiltnoise1x-c1-acq1) queued to backlog and was drained by a concurrent cycle
+  within the same cycle window. Also queued (backlog, no capacity left under the cap)
+  `s1acq-irrfwd-c1-acq1-cont40m` -- a targeted entrenchment-trajectory test for that line's own
+  WATCH-flagged leg[2,4] pattern (its 40M ACQ PASS was borderline: pattern widened from a single
+  leg to a pair and spread to one new mode; this continuation asks whether +40M more steps
+  resolves, holds, or entrenches it further). This closes the single-axis DR-restore ACQ-launch
+  sweep -- essentially every PASS canary in the family now has an ACQ (40M) continuation in flight
+  or done; the open work shifts to (a) reading back the ~15 ACQ continuations now in flight and (b)
+  the composition-arm cont40m endurance batch (several PASS composition arms, e.g.
+  medhead-ramp-c1-acq1, still lack a cont40m read). Evidence: `ops.sh review` for all 4 verdicted
+  runs, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_{medhead_ramp_irrfwd_c1_acq1_
+  cont40m,widenirrc3_abrupt_c1_acq1_cont40m,medhead_dr_kick1x_c1_acq1}_gate/report.json`, frame
+  strips, `kubectl cp` checkpoint recovery + `launch_run.py update --create` ledger backfill for
+  encnoise1x-c1-acq1, `launch_run.py status`/`capacity.py`, RL_LOG 09-06 08:11-08:2x.
+
 - 09-06 ~07:0x-08:0x this cycle (assigned `medhead-dr-zerobiasframe1x-c1`, `medhead-irrwiden-c1-acq1`,
   `medhead-widenirr-c1-acq1`): **3/3 verdicted PASS after a prestage-failure recovery.** All 3
   runs' prestage evals had FAILED at spawn time (a concurrent cycle's `experiments.json` write-race

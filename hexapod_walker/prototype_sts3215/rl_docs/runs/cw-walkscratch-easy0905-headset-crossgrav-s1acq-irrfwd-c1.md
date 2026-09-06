@@ -2,19 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-09-06T04:23:03+00:00
+**created**: 2026-09-06T04:21:43+00:00
 
-**pod**: hexapod-mjx-train-10
+**pod**: hexapod-mjx-train-5
 
 **steps**: 2000000
 
-**parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-irrfwd-c1
+**parent**: cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1
 
-**hypothesis**: Plain English: medhead-irrfwd-c1 already showed a cross-gravity-transferred champion can have command-timing irregularity (irr jitter) composed onto it natively at 1g without a 0.5g detour. Does the SAME compose-after-transfer property hold on the campaign's CLEANEST crossgrav champion (s1acq-abrupt-c1-acq1, just ACQ PASSed 23/24, the healthiest source tested yet)? Mirrors s1acq-widenfwd-c1 on the other composable axis.
+**wandb_id**: o3bapgqi
 
-**gate**: PASS/INFORMATIVE-POSITIVE if gait_valid stays majority (>=4/6) in walk/det with no chronic (same leg flagged in most/all episodes of a mode) single-leg sacrifice. FAIL/INFORMATIVE-NEGATIVE if it collapses to the leg[1,4] chronic-sacrifice fingerprint or a new chronic pattern. Either outcome is informative at 2M.
+**hypothesis**: Plain English: every widen2/irr heading+jitter composite tested so far was built in 0.5g FIRST then abruptly transferred to 1g (or, for medhead, composed forward on a merely-ACQ-PASS plain champion). s1acq-abrupt-c1-acq1 is the CLEANEST crossgrav champion in the entire sweep (gait_valid PERFECT 24/24 at 40M, sac=[] in every episode) but has never been composed with irregular command-timing jitter. Can the SAME irr composite be added FORWARD, directly at 1g, on top of the cleanest available foundation?
 
-**refused_reason**: a process for cw-walkscratch-easy0905-headset-crossgrav-s1acq-irrfwd-c1 already exists on hexapod-mjx-train-5
+**gate**: CANARY PASS - INFORMATIVE-POSITIVE if gait_valid stays majority-or-better (>=18/24) with no chronic single-leg sacrifice; matches the medhead-irrfwd-c1 precedent (22/24) if the cross-gravity repair is a durable foundation independent of source champion. FAIL/INFORMATIVE-NEGATIVE if it collapses toward chronic single-leg sacrifice.
 

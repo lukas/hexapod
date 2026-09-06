@@ -998,6 +998,51 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   do not assume its outcome from this one. Evidence: `logs/ckpt_eval/
   cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_acq1_
   gate/report.json`, W&B `zsxkfxzz`, RL_LOG 09-06 04:09.
+  UPDATE 09-06 ~04:1x: the ACQ-scale entrenchment risk is NOT confined
+  to the irr-timing-first-crossgrav recipe named above -- a totally
+  different lineage (the `s3acq-abrupt-c1` family, built from an
+  independent 3-way-heading champion, no irr/widen composition at
+  all) shows the SAME regression. `s3acq-abrupt-c1-acq1` **ACQ FAIL**:
+  walk/det and walk/sto (primary modes) stay clean 6/6+6/6, but
+  `walk_startjitter/det` collapses to 2/6 (leg-1 flagged `sac=[1]` in
+  4/6 episodes) and `walk_startjitter/sto` to 3/6 (leg-1 in 3/6).
+  Leg-1 duty across ALL 6 `walk_startjitter/det` episodes:
+  0.03/0.20/0.04/0.04/0.14/0.05 -- chronically low in 4/6, and WORSE
+  than this run's own 2M canary (leg-1 duty there: 0.07-0.24, median
+  ~0.15-0.19, only 3/6 flagged) -- i.e. the same leg got MORE parked
+  with more 1g training, matching the "leg-1 in 4/6 and 3/6 episodes"
+  numerical fingerprint already closed as ACQ FAIL for the unhealthy-
+  source `widen2c2b-abrupt-c1-acq1`, but this time on a source that
+  WAS healthy (22/24 clean 2M canary, no prior chronic pattern). 0
+  falls; reward net-rising (quarters -400.8,-433.1,-129.3,125.0) but
+  per the already-closed structural-repair precedent this does not
+  override the FAIL. Meanwhile `s1acq-abrupt-c1-acq1` (the campaign's
+  SINGLE CLEANEST source, native 0.5g gait_valid 24/24, 2M canary
+  PERFECT 24/24) held ACQ PASS at 23/24 with only one transient
+  (non-chronic) leg-4 dip -- so source cleanliness is NOT a reliable
+  predictor either: `s3acq` (2nd-cleanest, 22/24 canary) entrenched
+  while `s1acq` (cleanest, 24/24 canary) did not, and separately BOTH
+  seeds of the irr-timing-first recipe entrenched regardless of their
+  own clean canaries. **Updated read: ACQ-scale startjitter-panel
+  leg[1,4] entrenchment is a recurring risk across MULTIPLE
+  independent recipes/lineages (not one recipe's quirk), hits roughly
+  half of tested healthy-source champions (now 3 FAIL: irracq1,
+  irr2acq1, s3acq; vs 4 PASS: medhead-abrupt, medhead-ramp, widen2c1,
+  s1acq), and is NOT reliably predicted by 2M-canary cleanliness
+  alone.** Primary-mode behavior (walk/det, walk/sto -- what most
+  gates actually score) stays clean even in the FAIL cases; the
+  entrenchment is specifically a startjitter-panel (post-perturbation-
+  recovery) phenomenon so far in every observed instance. This
+  confirms and generalizes the 09-05 ~22:3x structural diagnostic
+  (leg 1/4 are the hexagon's sole redundant middle pair) as a
+  cross-recipe attractor, not a per-recipe accident -- raises the
+  priority of the flagged-but-unbuilt role-aware repair mechanism
+  (weight the middle-pair's contribution differently, or price a real
+  alternating-tripod pattern rather than any-4-legs stability) named
+  there; still not built or bank-proven as of this update. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_s{1,3}acq_
+  abrupt_c1_acq1_gate/report.json` vs each run's own `..._abrupt_c1_
+  gate/` 2M canary, W&B `80g9tb6m`/`lp972djl`, RL_LOG 09-06 04:16.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

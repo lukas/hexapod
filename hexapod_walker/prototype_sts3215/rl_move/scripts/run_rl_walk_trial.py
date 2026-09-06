@@ -1102,8 +1102,36 @@ class Trial:
         except Exception as issue:
             policy = None
             policy_error = str(issue)
+        execution_ok = error is None and self.completed
         summary = {
-            "ok": error is None and self.completed,
+            # Compatibility field for existing Robot Lab importers.  This is
+            # runner completion, not a claim that commanded chassis motion was
+            # achieved.  The explicit records below prevent a clean transport
+            # run from being mistaken for locomotion acceptance.
+            "ok": execution_ok,
+            "execution": {
+                "ok": execution_ok,
+                "scope": "guarded_runner",
+                "meaning": (
+                    "ok is true only when the bounded runner completed its "
+                    "requested control and safety sequence without a retained "
+                    "runner error."
+                ),
+            },
+            "locomotion_assessment": {
+                "status": (
+                    "requires_evidence_review" if execution_ok
+                    else "not_assessed_after_runner_error"
+                ),
+                "success": None,
+                "metric_displacement_available": False,
+                "reason": (
+                    "Runner completion verifies command delivery and safety "
+                    "handling only. Review synchronized video or a calibrated "
+                    "phase-bound chassis trajectory to decide whether the "
+                    "requested translation or turn was achieved."
+                ),
+            },
             "error": error,
             "policy": policy,
             "policy_read_error": policy_error,

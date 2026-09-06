@@ -328,6 +328,18 @@ def test_failure_summary_survives_unreachable_policy_endpoint(tmp_path):
 
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["error"] == "preflight failed"
+    assert summary["execution"] == {
+        "ok": False,
+        "scope": "guarded_runner",
+        "meaning": (
+            "ok is true only when the bounded runner completed its requested "
+            "control and safety sequence without a retained runner error."
+        ),
+    }
+    assert summary["locomotion_assessment"]["status"] == (
+        "not_assessed_after_runner_error"
+    )
+    assert summary["locomotion_assessment"]["success"] is None
     assert summary["policy"] is None
     assert summary["policy_read_error"] == "network unavailable"
 
@@ -473,5 +485,18 @@ def test_communication_capture_files_and_loss_status_appear_in_summary(tmp_path)
 
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["ok"] is True
+    assert summary["execution"]["ok"] is True
+    assert summary["execution"]["scope"] == "guarded_runner"
+    assert summary["locomotion_assessment"] == {
+        "status": "requires_evidence_review",
+        "success": None,
+        "metric_displacement_available": False,
+        "reason": (
+            "Runner completion verifies command delivery and safety handling "
+            "only. Review synchronized video or a calibrated phase-bound "
+            "chassis trajectory to decide whether the requested translation "
+            "or turn was achieved."
+        ),
+    }
     assert summary["artifacts"]["communication"] == ["robot_bus.jsonl"]
     assert summary["communication_capture"]["end"]["queue_dropped"] == 2

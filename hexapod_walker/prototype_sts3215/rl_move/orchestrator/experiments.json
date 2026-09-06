@@ -316894,7 +316894,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3-acq1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 7 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_fullhead_widen2_c3_acq1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3: Plain English: widen2-c3'\"'\"'s 2M canary just PASSed (20/24 gait_valid, 0 falls, matches widen2-c1'\"'\"'s own clean canary numbers), confirming this 3rd tie-breaking seed off the SAME clean medhead_acq1 parent as widen2-c1 (ACQ PASS) behaves like a healthy seed rather than the weak medhead2_acq1-parented widen2-c2b (ACQ FAIL). This continuation tests whether that health holds at the full 40M acquisition budget, matching the widen2-c1-acq1/irrwiden-c1-acq1 template -- does the widen2 recipe now read 2 PASS / 1 FAIL (parent-quality-driven, closeable) or does a 3rd seed regress at acq scale too (would reopen the seed-noise explanation)?' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_fullhead_widen2_c3.zip > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c3-acq1.log",
     "wandb_id": "2dtnh6ju",
-    "verified": "2026-09-06T01:05:18+00:00"
+    "verified": "2026-09-06T01:05:18+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-06T01:11:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2250,
+        "fps": 210716.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2",
@@ -317421,7 +317433,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_acq1.zip"
     ],
     "created": "2026-09-06T01:08:17+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -317433,13 +317445,27 @@
       "code_sha_local": "bd0cc92213e6b759465f7ae4ae6a98473cbb3a8a",
       "code_sha_pod": "bd0cc92213e6b759465f7ae4ae6a98473cbb3a8a",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "825584",
+      "log_growth_bytes": [
+        6185,
+        6525
+      ],
+      "wandb_id": "zigln3k9",
+      "trainer_pid": "825584",
+      "global_step_window": [
+        524288,
+        1048576
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=1.0 --notes 'respec of cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1: Plain English: this cycle'\"'\"'s own widenirr-c1-acq1 ACQ PASS (widen+irr composition, 23/24 gait_valid, beats the plain widen2-c1-acq1 sibling) makes it a 3rd distinct leg-healthy halfgrav champion (after medhead and widen2c1) never yet tested under an abrupt jump to full 1g gravity. Does the cross-gravity-transfer repair (already 2/2 PASS on materially different halfgrav recipes) generalize to this composed widen+irr recipe too, or is transfer itself recipe-sensitive?' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_acq1.zip > /tmp/train_cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1.log"
+    "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1.log",
+    "wandb_id": "zigln3k9",
+    "verified": "2026-09-06T01:11:08+00:00"
   }
 ]

@@ -2,6 +2,32 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:2x this cycle, using freed fleet capacity (5 GPU slots opened
+  up mid-cycle as concurrent cycles' own runs finished; confirmed via
+  repeated `launch_run.py status` re-checks right before each launch):
+  completed the medhead-precedent forward-extension grid on the sweep's
+  TWO cleanest crossgrav champions. Launched 4 arms: `headset-crossgrav-
+  {s1acq,s3acq}-{widenfwd,irrfwd}-c1` (2M discovery canaries, respec'd
+  off `medhead-{widenfwd,irrfwd}-c1`'s own templates with an explicit
+  `--arg='--init-from=...'` override per the campaign's own documented
+  gotcha — `--parent` alone does not repoint the checkpoint). All 4
+  VERIFIED RUNNING with the correct source checkpoint confirmed via
+  `ops.sh review` (train-2/5/10/11). **Race-condition note (mechanical,
+  no compute wasted):** a concurrent cycle's own entry above (04:2x,
+  same timestamp bucket) independently proposed and logged
+  `s1acq-widenfwd-c1`/`s1acq-irrfwd-c1` as its own refill — re-checking
+  both runs' actual ledger `gate` text confirms MY launch is the one
+  that is genuinely running on train-2/train-5 (steps progressing,
+  W&B ids `3psjr4s8`/`o3bapgqi`), i.e. the launcher's one-run-per-name
+  dedup correctly kept exactly one submission live; no duplicate spend,
+  just two cycles reasoning to the identical next arm independently.
+  `s3acq-widenfwd-c1`/`s3acq-irrfwd-c1` (train-10/train-11) are the
+  genuinely new 2nd-champion half of the grid. This completes n=2
+  champions (s1acq 24/24, s3acq 21/24) x n=2 axes (widen2 heading,
+  irr timing) for the forward-compose-on-a-clean-crossgrav-source
+  question, matching medhead's own already-PASSed precedent on a 3rd/
+  4th base champion.
+
 - 09-06 ~04:2x this cycle (assigned `headset-crossgrav-s1acq-abrupt-c1-acq1`,
   `headset-crossgrav-s3acq-abrupt-c1-acq1`, `headset-crossgrav-widen2c1-
   irrfwd-c1`): 3 verdicts (2 ACQ, 1 canary), 2-arm refill. All 3 gate evals

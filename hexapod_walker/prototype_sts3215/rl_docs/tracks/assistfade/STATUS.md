@@ -115,6 +115,19 @@ changes/stops, yaw, then DR/pushes).
   rung 2 with SLOWER anchor fade, or rung 3 (tighter residual bounds)
   — explicitly NOT a reward-dose/architecture retry.
 
+## Rung-1 seed panel state (09-06 ~04:2x)
+- `s0` CANARY FAIL - MECHANISM (gait destroyed, 0/24 gv) — verdicted 03:40.
+- `s1` CANARY PASS mechanism (24/24 gv, 0 falls, det prog 0.22 < 0.35 bar)
+  → `s1-cont8m` in flight (ignition read at 10M total).
+- `s2` CANARY PASS mechanism this cycle (23/24 gv, 0 falls, six legs
+  cycling on det strip, det prog med 0.23 < 0.35 bar; one
+  startjitter/sto over_current term reported-not-gated per the 09-04
+  uncalibrated-current ruling) → `s2-cont8m` LAUNCHED (VERIFIED
+  RUNNING train-8) as the n=2 continuation arm. Joint rung-1 read:
+  2/3 seeds mechanism-healthy-but-slow; s0's destruction is
+  seed-level, not recipe-level. Ignition itself still unmet at 2M on
+  every seed — the continuation pair decides budget-vs-ceiling.
+
 ## Next
 1. Triage the rung-1 pair on the ignition gate (video first).
 2. On pass: hardening rung (speed band 0.04-0.08) + rung-2 anchor-fade

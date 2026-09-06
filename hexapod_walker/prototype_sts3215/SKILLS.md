@@ -1,4 +1,10 @@
 
+### walkcurr easy0905 headset crossgrav medhead-ramp-irrfwd-c1-acq1: 4th 1g-forward-extension arm durable at 40M (09-06)
+
+| Skill | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **The irr-timing axis composed forward at full 1g on the RAMP-transition medhead variant (not just the abrupt one) holds an EXACT match to its own 2M canary's gait_valid structure at full 40M ACQ** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_irrfwd_c1_acq1.zip` (own-checkpoint 40M continuation), ACQ PASS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_irrfwd_c1_acq1_gate/report.json` (24 episodes, full 1g): aggregate `gait_valid` 22/24, IDENTICAL to its own 2M canary's 22/24 (walk/det 4/6, walk/sto+walk_startjitter det/sto all 6/6, both budgets). Sac flags: leg-5 in walk/det ep1+ep5 at both 2M and 40M — the SAME non-chronic softening signature, not new or worsening. `slip_per_m` flat (canary 3.1-5.4 vs acq1 3.3-4.9). 0 falls/24 both. Frame strip (`walk_det_0`) shows clean six-leg cycling with body translation. | Own (fixed, no-DR) easy-sim physics, full 1g, 40M ACQ. 4th of 4 1g-forward-extension arms (medhead-widenfwd/irrfwd abrupt + ramp-widenfwd/irrfwd) now durable — ramp-vs-abrupt transition speed does not affect durability on this axis pair. |
+
 ### walkcurr easy0905 headset halfgrav widenirr-c3-acq1: 3rd tie-breaking seed durable at 40M, closes widenirr 2/3 (09-06)
 
 | Skill | Checkpoint | Evidence | Envelope / limits |

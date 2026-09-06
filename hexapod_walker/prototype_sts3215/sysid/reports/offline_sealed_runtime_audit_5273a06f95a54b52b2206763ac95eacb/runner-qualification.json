@@ -1,0 +1,271 @@
+{
+  "bounded_duration_seconds": 312.0,
+  "candidate_executor": "linux_control.sysid_runner.run_sysid_protocol",
+  "checks": {
+    "camera_guard_binding": {
+      "detail": "The wrapper requires two fresh advancing camera samples with the sealed target-tag coverage before motion and calls the existing remote-abort path if the guard later fails.",
+      "evidence": [
+        "sysid/run_hw.py"
+      ],
+      "passed": true
+    },
+    "duration_timeout_compatibility": {
+      "detail": "The 312s ordered sequence fits within the 312s top-level duration_seconds.",
+      "evidence": [
+        "input experiment parameters"
+      ],
+      "passed": true
+    },
+    "executor_availability": {
+      "detail": "run_sysid_protocol exposes deterministic protocol, force, abort, and progress interfaces.",
+      "evidence": [
+        "linux_control/sysid_runner.py"
+      ],
+      "passed": true
+    },
+    "final_limp_binding": {
+      "detail": "The executor calls limp after success, abort, or a retained fault stop.",
+      "evidence": [
+        "linux_control/sysid_runner.py"
+      ],
+      "passed": true
+    },
+    "parameter_schema": {
+      "detail": "Exact L2/L5 order, path, timing, supervision, tag, and limp fields match.",
+      "evidence": [
+        "input experiment parameters"
+      ],
+      "passed": true
+    },
+    "remote_abort_binding": {
+      "detail": "The stop endpoint sets the runner abort event, which is polled during glide and trajectory execution.",
+      "evidence": [
+        "sysid/run_hw.py",
+        "linux_control/api/rl.py",
+        "linux_control/sysid_runner.py"
+      ],
+      "passed": true
+    },
+    "runtime_compatibility": {
+      "detail": "Both protocols validate as 1,560-tick, 10 Hz, leg-local trajectories ending at home.",
+      "evidence": [
+        "sysid/protocols/l2_air_radial_shear_hysteresis_repeat6_v1.json",
+        "sysid/protocols/l5_air_radial_shear_hysteresis_repeat6_v1.json"
+      ],
+      "passed": true
+    },
+    "telemetry_guard_binding": {
+      "detail": "Three fresh 18/18 admission samples plus continuous runtime state age and timestamp advancement are executor-bound.",
+      "evidence": [
+        "sysid/run_hw.py",
+        "linux_control/sysid_runner.py"
+      ],
+      "passed": true
+    }
+  },
+  "command_sequence_digest": "a65670c16307fab24f138b3955cba8f4dd8a59052350a41006fd76a1676834e0",
+  "disposition": "compatible",
+  "duration_timeout_compatibility_result": {
+    "detail": "The 312s ordered sequence fits within the 312s top-level duration_seconds.",
+    "evidence": [
+      "input experiment parameters"
+    ],
+    "passed": true
+  },
+  "executor_class": "trusted_deterministic",
+  "fault_injections": {
+    "incomplete_servo_sample": {
+      "abort_bound": true,
+      "guard_result": "telemetry admission rejects incomplete 18-servo sample",
+      "passed": true
+    },
+    "nonadvancing_state_timestamp_during_glide": {
+      "abort_bound": true,
+      "guard_result": "continuous runtime guard stops the glide before another command and final limp is reached",
+      "passed": true
+    },
+    "nonadvancing_state_timestamp_during_trajectory": {
+      "abort_bound": true,
+      "guard_result": "continuous runtime guard stops the trajectory before another command and final limp is reached",
+      "passed": true
+    },
+    "out_of_bounds_voltage": {
+      "abort_bound": true,
+      "guard_result": "telemetry admission rejects voltage outside sealed bounds",
+      "passed": true
+    },
+    "remote_abort": {
+      "abort_bound": true,
+      "guard_result": "remote abort exits the runner and reaches final limp",
+      "passed": true
+    },
+    "stale_camera_timestamp": {
+      "abort_bound": true,
+      "guard_result": "camera timestamp did not advance",
+      "passed": true
+    },
+    "stale_state_timestamp": {
+      "abort_bound": true,
+      "guard_result": "telemetry admission rejects state age over bound",
+      "passed": true
+    },
+    "tag_coverage_below_0.9": {
+      "abort_bound": true,
+      "guard_result": "camera required-tag coverage 0.750 below 0.900",
+      "passed": true
+    }
+  },
+  "final_state_limp_assertion": {
+    "detail": "The executor calls limp after success, abort, or a retained fault stop.",
+    "evidence": [
+      "linux_control/sysid_runner.py"
+    ],
+    "passed": true
+  },
+  "input_experiment_id": "d7bf410fe0f3440a890076c72f98fa0a",
+  "protocols": {
+    "L2": {
+      "ends_at_home": true,
+      "hz": 10.0,
+      "moving_joints": [
+        7,
+        8
+      ],
+      "passed": true,
+      "path": "sysid/protocols/l2_air_radial_shear_hysteresis_repeat6_v1.json",
+      "protocol_hash": "158a00b11ff3",
+      "requested_values_match": true,
+      "sha256": "c837cdec25d49a254ea7c288f30f68782155afb48e2f9fe6eac853b9fc0ab634",
+      "ticks": 1560
+    },
+    "L5": {
+      "ends_at_home": true,
+      "hz": 10.0,
+      "moving_joints": [
+        16,
+        17
+      ],
+      "passed": true,
+      "path": "sysid/protocols/l5_air_radial_shear_hysteresis_repeat6_v1.json",
+      "protocol_hash": "b21e50f558a4",
+      "requested_values_match": true,
+      "sha256": "2343e7e471e4fbf3a33cbc0518c5d70cc82b7cf885440937b9e7cd4161a0cd6e",
+      "ticks": 1560
+    }
+  },
+  "qualified": true,
+  "required_executor_class": "trusted_deterministic",
+  "robot_contacted": false,
+  "robot_motion": false,
+  "runtime_compatibility_result": {
+    "detail": "Both protocols validate as 1,560-tick, 10 Hz, leg-local trajectories ending at home.",
+    "evidence": [
+      "sysid/protocols/l2_air_radial_shear_hysteresis_repeat6_v1.json",
+      "sysid/protocols/l5_air_radial_shear_hysteresis_repeat6_v1.json"
+    ],
+    "passed": true
+  },
+  "schema_version": 1,
+  "simulation_only": true,
+  "source_sha256": {
+    "linux_control/api/rl.py": "fd1cf8da2cd3decd8879f50c1e651e7b53525d152d08840358b67f7317b6b594",
+    "linux_control/sysid_protocol.py": "5996658cc53fd9be8996cf217f9163a4d7ee843feeb76ab6409a28a592508e25",
+    "linux_control/sysid_runner.py": "30a96ad8584ef597020cb9c76e3382e75a1b440c90b02c38f930f17a379bd277",
+    "sysid/camera_guard.py": "d5a45825c773cbb7c0c28c8d6211e0cf0ffe653e1b6f693479546579c473af0c",
+    "sysid/run_hw.py": "2110dfeb009d5e0fc1a782a1d25710dfb1c80157786dbaf5e372e954162329a5"
+  },
+  "stop_condition_mapping": [
+    {
+      "binding": "partially covered; condition also contains unbound stop causes",
+      "condition": "Any configured current, temperature, voltage, communication, or state-age trip.",
+      "coverage": "partial",
+      "executor_bound": false
+    },
+    {
+      "binding": "sysid.run_hw CameraGuard to remote abort",
+      "condition": "Any missing servo or stale/nonadvancing camera or telemetry timestamp.",
+      "coverage": "full",
+      "executor_bound": true
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "Required target-tag coverage falls below 0.9 during the applicable measurement window.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "Any foot contacts the floor or another object.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "Support shifts or the chassis becomes unstable.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "A cable enters either moving leg\u2019s sweep volume.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "Unexpected binding, impact, abnormal noise, smoke, odor, tip, brownout, jam, or unexpected force.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "Remote abort becomes unavailable or final limp cannot be assured.",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "tip",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "brownout",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "linux_control.sysid_runner safety trip",
+      "condition": "hot motor",
+      "coverage": "full",
+      "executor_bound": true
+    },
+    {
+      "binding": "external observer/abort only; not automatically detected",
+      "condition": "jam or unexpected force",
+      "coverage": "none",
+      "executor_bound": false
+    },
+    {
+      "binding": "linux_control.sysid_runner safety trip",
+      "condition": "hard or sustained current",
+      "coverage": "full",
+      "executor_bound": true
+    },
+    {
+      "binding": "linux_control.sysid_runner missing-feedback debounce",
+      "condition": "persistent servo loss",
+      "coverage": "full",
+      "executor_bound": true
+    },
+    {
+      "binding": "linux_control.sysid_runner continuous runtime state-age and advancing-timestamp trip",
+      "condition": "stale or nonadvancing state stream",
+      "coverage": "full",
+      "executor_bound": true
+    }
+  ],
+  "task": "runner_compatibility_validation",
+  "trusted_deterministic_executor_name": "linux_control.sysid_runner.run_sysid_protocol"
+}

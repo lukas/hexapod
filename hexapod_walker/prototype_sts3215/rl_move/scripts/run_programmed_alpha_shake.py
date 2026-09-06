@@ -31,6 +31,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--walk-s", type=float, default=8.0)
     parser.add_argument("--stationary-s", type=float, default=3.0)
+    parser.add_argument(
+        "--resume-walk-ready", action="store_true",
+        help="reuse a camera-verified armed walk-ready pose after three fresh samples",
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
@@ -133,6 +137,16 @@ def _stand(trial: Trial) -> None:
     trial.snapshot("walk_ready")
 
 
+def _verified_walk_ready(trial: Trial) -> None:
+    preflight = trial.request("/api/rl/preflight?mode=walk")
+    trial.event("resume_walk_ready_preflight", preflight)
+    if not isinstance(preflight, dict) or not preflight.get("ok"):
+        raise RuntimeError(f"resume pose is not walk-ready: {preflight}")
+    trial.three_fresh_health_samples(require_armed=True)
+    trial.snapshot("walk_ready_resumed")
+    trial.motion_started = True
+
+
 def _run_condition(trial: Trial, guard: Guard, condition: dict,
                    walk_s: float, stationary_s: float) -> None:
     name, alpha, vx = str(condition["name"]), float(condition["alpha"]), float(condition["vx_mm_s"])
@@ -229,8 +243,11 @@ def main() -> int:
             raise RuntimeError(f"communication capture unavailable: {trial.communication_capture}")
         trial.recorder.start()
         trial.event("recorder_ready", {"fps": trial.recorder.OUTPUT_FPS})
-        _verified_zero(trial)
-        _stand(trial)
+        if args.resume_walk_ready:
+            _verified_walk_ready(trial)
+        else:
+            _verified_zero(trial)
+            _stand(trial)
         for condition in CONDITIONS:
             _run_condition(trial, guard, condition, args.walk_s, args.stationary_s)
         trial.communication_mark("planned_lower_begin")

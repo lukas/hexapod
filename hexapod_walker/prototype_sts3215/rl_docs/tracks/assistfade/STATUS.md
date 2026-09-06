@@ -78,6 +78,35 @@ changes/stops, yaw, then DR/pushes).
   wandb_history.csv` (`bc_anchor_anneal/*`), W&B `m1wc03cy`/
   `11imredg`, RL_LOG 09-06 14:0x/14:12.
 
+  **Refill (same cycle): launched the ladder's first hardening arm,
+  speed band, both seeds — `cw-assistfade-rung2-harden-speedband-
+  {s0,s1}-v2`** (respec from each seed's own 8M gatefix checkpoint,
+  `--init-from-source`, 8M budget, DR-0, BC anchor EXPLICITLY off
+  `train.bc_anchor_coef=0.0`/`bc_anchor_anneal_gate=0` — it already
+  fully annealed and its demonstrations were recorded at the old
+  single 0.06 m/s speed, so leaving it on would re-run the anneal and
+  confound the speed-band question; widened `goal.walk_speed_min_m_s`/
+  `max_m_s` from the fixed 0.06 point to a uniform 0.04-0.08 m/s
+  per-episode band, still inside the previously-validated pinned-speed
+  panel range). **Note (self-correction, same cycle):** the first
+  `respec --now` attempt for both seeds (no `-v2` suffix) silently
+  carried over the source run's un-zeroed `train.bc_anchor_coef=3.0`/
+  `anneal_gate=1` — caught within ~2 min via a ledger cfg audit before
+  any real training time was lost, killed both trainer PIDs, ledger
+  entries marked KILLED with the mistake documented, and relaunched
+  clean as `-v2` with the anchor cfg keys explicitly zeroed (verified
+  both re-launches' extra_args before moving on). Both `-v2` arms
+  VERIFIED RUNNING (train-4 `dydwknke`, train-7 `227unt2g`) with
+  growing `global_step` confirmed post-launch. Gate: standard held-out
+  det+sto (4 modes) clears gait_valid majority/0 falls/progress_ratio
+  >=0.35 at the widened band AND per-episode achieved speed
+  (`cmd_dist_m`/10s vs `speed_mean_m_s`) tracks the per-episode
+  commanded value rather than clustering near the old 0.06 pace;
+  FAIL-COLLAPSE retreats to a narrower band, FAIL-IGNORES-BAND flags
+  a missing speed-tracking reward term. Next reader: triage these once
+  finished (`ops.sh review cw-assistfade-rung2-harden-speedband-{s0,
+  s1}-v2`).
+
 - **09-06 ~13:2x this cycle: ROOT CAUSE FOUND AND FIXED — the anneal
   gate's "one level deeper" NaN mystery (~12:2x entry below) was a
   real code bug in the ignition-gate ASSAY, not a policy or

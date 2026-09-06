@@ -2,6 +2,30 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:3x this cycle (assigned `medhead-dr-kick1x-c1-acq1`, `plainhead-abrupt-c1b-acq1-cont40m`):
+  **both gate harnesses STILL genuinely computing on their pods — no verdict on either, backlog
+  refilled with 3 new ACQ arms.** Confirmed via `kubectl exec ps` on both pods: `kick1x-c1-acq1`'s
+  gate on `train-10` (pid 602157, 706% CPU, started 07:25, sharing the pod with the live
+  `zerobias1x-c1-acq1` trainer) and `plainhead-abrupt-c1b-acq1-cont40m`'s gate on `train-2` (pid
+  3306053, 779% CPU, started 07:25, sharing with `latency1x-c1-acq1`) — both only ~7 wall-clock
+  minutes into what this campaign's video-every=1 24-episode 4-panel harness typically takes
+  25-40min to finish; only the `_session` (informational, HARD FAIL expected/uninformative)
+  artifacts exist yet, no `_gate/report.json`. Backgrounded `ops.sh pollreap` for both (180s/60min
+  cap), left UNVERDICTED for the next reader — do not re-launch or re-poll by hand. **Capacity:**
+  fleet fully saturated (0/12 free; `train-6` still CoreWeave-Pending on the same node-scheduling
+  issue prior cycles noted) and `backlog.json` was EMPTY at read (the prior cycle's queued
+  `torquefade15x-c1-acq1` had already been drained onto `train-0` by the self-repairing drain
+  before this cycle started) — no launch possible this cycle. **Refill (queued, not launched, no
+  capacity):** checked which single-axis DR-restore canaries still lack their first 40M ACQ
+  confirmation (encnoise1x/friction1x/latency1x/mass1x/push1x/torquefade2x/torquefade15x/
+  zerobias1x/kick1x/actionnoise1x/extpush1x already have one in flight or done) and found 3 clean
+  PASS canaries with none yet: `gains1x-c1` (23/24, 0 falls), `geom1x-c1` (21/24, 0 falls — the
+  last guardrails-named axis), `fault1x-c1` (22/24, 0 falls, real actuator faults). Queued all 3 as
+  `-acq1` warm-start continuations (`respec --init-from-source`, no `--now`) to `backlog.json` for
+  the self-repairing drain to place once slots free. Evidence: `kubectl exec hexapod-mjx-train-
+  {10,2} -- ps aux`, `launch_run.py status`/`capacity.py` (0/12 free both reads),
+  `rl_move/orchestrator/backlog.json`, RL_LOG 09-06 07:3x.
+
 - 09-06 ~07:1x-07:3x this cycle (assigned `medhead-widenfwd-c2-acq1`): **ACQ PASS — the 2nd
   independent seed of the medhead-widenfwd composition holds at 40M, reproducing seed-1's own
   precedent.** The run's own gate eval was still genuinely computing when this cycle spawned

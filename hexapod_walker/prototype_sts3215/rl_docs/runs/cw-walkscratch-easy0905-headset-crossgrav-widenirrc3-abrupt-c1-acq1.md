@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T04:47:09+00:00
+**created**: 2026-09-06T04:49:32+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-3
 
 **steps**: 40000000
 

@@ -64,6 +64,37 @@ do not assume its outcome from this one (different lever, same
 parent). Evidence: `logs/ckpt_eval/cw_robotwalk_stride_20260906_gate/
 report.json`, W&B `catovl0h`.
 
+**09-06 ~04:4x verdict: `cw-robotwalk-turns-20260906` ACQ CONTINUE —
+gate not yet met but mechanism healthy, reward still rising.**
+Unlike its sibling stride arm, this one did NOT break the walk:
+prestaged DR-0 gate gait_valid 6/6 all 4 modes, ZERO falls/terms, no
+sacrificed legs. Ran the run's own literal extra clauses fresh this
+cycle (not in the standard prestage): `eval_joystick_gate` stress_mix
+PASSES its own internal checks (0 falls, gait_valid_frac 1.0, slip_med
+2.094, dir_err_med 28.7° <=40 allow) but **course_err_1s_med=8.55° is
+WORSE than the gate's cited Candidate-B bar (5.17°) — criterion (c)
+FAILS outright.** Matched fresh `eval_cmd_suite`/`eval_yaw` runs on
+THIS checkpoint AND a freshly re-evaluated Candidate B on identical
+cells (Candidate B's own historical verdict numbers turned out to be
+unreproducible today — see `OPERATOR_QUESTIONS.md`
+q_20260906T0448Z, resolved assume-and-go: fresh same-day numbers are
+the real comparator) show: tip-left/tip-right wz_err_med 0.108/0.100
+here vs 0.124/0.155 fresh-Candidate-B — a modest edge, not a clear
+win, neither clears the literal <0.076 bar; but cmd_suite slip/m
+1.49-1.94 here vs 2.70-3.74 fresh-Candidate-B across every
+translating cell — walking quality genuinely improved, roughly half
+the slip. Reward is still climbing every quarter (337.3->1135.9->
+1916.5->2417.5, +501 in the last quarter, no plateau) with no
+exploit signature — the 08-21 "keep going" case, not a stop-and-
+realign one. Queued `cw-robotwalk-turns-20260906-cont8m` (+8M,
+init-from-source, backlog) to see whether more budget closes the
+course_err/tip-wz_err gap. No export yet — gate not met. Evidence:
+`logs/ckpt_eval/cw_robotwalk_turns_20260906_gate/report.json`,
+`logs/ckpt_eval/cw_robotwalk_turns_20260906_joygate_freshcmp/
+gate_verdict.json`, `logs/ckpt_eval/cw_robotwalk_turns_20260906_yaw/`,
+`logs/ckpt_eval/cw_walkteach_scripted_allhead_acq12m_yaw_freshcmp/`,
+W&B `ms5xltim`.
+
 Baseline = Candidate B `cw-walkteach-scripted-allhead-acq12m`
 (controller-side training zip sha256 `30ed068e4356d5f42caba2a427f2845a
 230d7289a06467684731ec94a1f6f250`; operator-deployed actor sha256

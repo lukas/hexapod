@@ -5019,3 +5019,37 @@ describes the twin as ~3.5 kg and should be corrected either way.
   cycle may flip `--defer-final-artifacts` on for long ACQ arms
   (where the 6-10 min GPU retention bites) citing this canary as
   evidence. Flag remains default-OFF everywhere until then.
+
+## q_20260906T0448Z — robotwalk-smooth-20260906 gate cites STALE Candidate-B numbers; resolved by assume-and-go (fresh re-read is the comparator)
+`cw-robotwalk-turns-20260906`'s pre-registered gate cites Candidate B
+(`cw-walkteach-scripted-allhead-acq12m`)'s HISTORICAL verdict numbers
+(tip_ccw/tip_cw wz_err 0.076/0.106, joygate course_err_1s_med 5.17deg,
+cmdsuite slip/m 1.28-1.98) as the literal bars to beat, while also
+saying "Candidate B evaluated fresh on the identical cells" in the
+same sentence. This cycle re-ran eval_yaw + eval_cmd_suite on
+Candidate B TODAY with the exact same script/params/seed used for the
+turns candidate and got MEASURABLY WORSE numbers than its own
+historical verdict (tip-left/tip-right wz_err 0.124/0.155 fresh vs
+0.076/0.106 recorded; cmd_suite slip/m 2.70-3.74 fresh vs 1.28-1.98
+recorded) — the discrepancy is large enough that it is not just n=2
+noise on the turn axis alone; suspect either a code/config drift since
+Candidate B's original gate run (03-09) or a difference in how the
+original verdict's numbers were produced (unclear which script/params
+generated the recorded 5.17deg/0.076/1.28-1.98 figures — no exact
+command was preserved in the ledger note, only the resulting numbers).
+Assumed answer (recorded, not asking, moving on): treat the run's OWN
+literal gate clause "Candidate B evaluated fresh on the identical
+cells" as authoritative over any stale historical number when they
+conflict — a same-day fresh re-run under matched conditions is the
+correct comparator, and cw-robotwalk-turns-20260906's verdict this
+cycle used the fresh numbers for the (a)/(a)-adjacent comparison while
+still applying the LITERAL joygate course_err_1s_med<=5.17 bar for
+criterion (c) (that one is an unambiguous FAIL either way: 8.55 vs
+either 5.17 historical or a course_err figure the fresh joygate run
+also reports directly, no comparator needed). If a future cycle
+re-verifies Candidate B's gate and finds an actual regression (code
+change silently degrading it), that's a separate, more urgent finding
+— flag it, don't just re-baseline silently.
+Evidence: logs/ckpt_eval/cw_robotwalk_turns_20260906_yaw/,
+logs/ckpt_eval/cw_walkteach_scripted_allhead_acq12m_yaw_freshcmp/,
+RL_LOG 09-06 04:48.

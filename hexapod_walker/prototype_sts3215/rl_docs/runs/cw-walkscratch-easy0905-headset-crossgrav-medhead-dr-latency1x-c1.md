@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T04:44:50+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: 5xqrfrqd
 
 **hypothesis**: Restore nominal (1x, non-randomized) actuator latency -- the easy0905 recipe has run with latency_scale=0 (ZERO actuator delay, fully idealized) throughout the whole crossgrav campaign. Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive its own nominal nonzero actuator latency without retraining collapse?
 

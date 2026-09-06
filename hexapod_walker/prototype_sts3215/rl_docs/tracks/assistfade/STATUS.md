@@ -1,5 +1,123 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-06 ~18:1x — DIG-IN RESOLVED: sway-vs-income root-caused with real per-tick evidence; ALL 4 rung-2 habituation-dose arms now closed; RECOMMENDATION = retreat to rung 3, not a stride-amplitude reward patch
+
+**Closes the "course_income/excess_sway near-cancellation" DIG-IN flagged
+09-06 ~17:4x/~17:5x** (wandb-scalar-only lead on `s0-freshband`) with a
+real per-tick trace, not another training-average proxy. Built the
+tool this needed: `eval_checkpoint.py --course-trace` now also logs
+`walk_sway_rms_mm`, `reward_walk_excess_sway`,
+`walk_course_income_speed_f`, `reward_walk_course_income` per commanded
+tick (4 new trailing CSV columns, purely additive — existing readers
+indexing the first 10 fields are unaffected; `test_course_disp_
+semantics.py` still 16/16 green). Snapshot `55d038f4` (exp/course-
+trace-sway-income-columns).
+
+Ran a genuine 30s deterministic straight-line rollout of the final
+`s0-freshband` checkpoint on-pod (train-1, `env.model_source=mesh`,
+same reward cfg the run trained under) and decomposed every tick:
+- `walk_sway_rms_mm` (0.75s windowed RMS lateral deviation): **median
+  6.76mm, up to 13.6mm**, valid on 1706/3000 ticks (rest fail the
+  60deg course-cap gate, mostly early settling). 68% of those valid
+  ticks (1157/1706) EXCEED `walk_sway_allow_mm=5.0` and get charged,
+  averaging **-1.30/tick when charged** (max -3.45, cap is -6.0).
+- `reward_walk_course_income` averages **+0.317/tick when active**
+  (94% of ticks). Mean-over-ALL-3000-ticks: income +0.299 vs sway
+  -0.502 — sway OUTWEIGHS income by ~68% on this rollout (not a
+  near-perfect cancellation as the wandb-scalar read suggested; that
+  read's denominator convention differs, but the qualitative
+  conclusion — sway dominates — holds either way).
+- **Calibration control, same tool, same tick-by-tick method**: ran
+  the IDENTICAL probe against `cw-walkteach-scripted-allhead-acq12m`
+  (rung 0's PASSING, teacher-band-slip champion, which keeps its BC
+  anchor's `bc_anchor_walk_coef`/`phase_lock` PERMANENTLY — never
+  anneals to 0). Its `walk_sway_rms_mm`: **median 1.75mm, max 5.04mm**
+  — almost NEVER crosses the 5mm allowance (2/2798 valid ticks
+  charged, -0.015 mean, negligible), and its income averages
+  **+0.555/tick when active** (75% higher than freshband's).
+
+**Root cause, evidence-backed, not hypothesis**: `walk_sway_allow_mm=
+5.0` is correctly calibrated against a genuinely clean six-leg gait
+(the always-anchored champion sits comfortably under it) — this is
+NOT a miscalibrated/buggy allowance to raise. The rung-2 lineage
+(temporary anchor, FULLY zeroed after ignition, per rung 2's own
+definition) produces a measurably swayier gait post-anneal (~3.8x the
+champion's median RMS) even though the harness's `gait_valid`/
+`sacrificed_legs` checks call it clean — six-leg participation and
+low sway are different axes, and rung 2 is failing the second one.
+Because the sway charge scales with actual lateral wobble and NOT
+with the commanded speed, and because pushing achieved speed higher
+without a stabilizing ongoing reference would (all else equal)
+increase tripod sway further, the reward-optimal policy self-limits
+to whatever pace keeps sway near its current (already-elevated)
+level — REGARDLESS of the commanded value. This is the same
+mechanism across all 4 grid cells: the two `-freshband`/`-ignitewiden`
+FAIL-STILL-IGNORES arms hold a stable-but-swayey pace; the collapsed
+`-s1-freshband` arm shows what happens when this same instability
+compounds past the point of stable stance. **This reframes the whole
+4-arm result: the reward is ALIGNED (correctly pricing real
+instability), not misaligned — the mechanism gap is rung 2's own
+premise (zero ongoing imitation of any kind post-ignition) producing
+a gait that cannot match the always-anchored champion's cleanliness,
+not a missing stride-amplitude/speed-tracking price.**
+
+**Recommendation (assume-and-go, per this track's own retreat rule
+— "retreat one rung on a clear ALIGNED failure"): do NOT build the
+previously-proposed stride-amplitude/speed-tracking reward term next.**
+Adding a lever that pays MORE for going faster without also fixing
+gait cleanliness would likely just trade the current
+flat-but-stable-and-clean failure for a faster, swayier, more
+fall-prone one (the `-s1-freshband` collapse is a preview of that
+direction). Per the doc's own ladder, the licensed next step is
+**rung 3 (bounded residuals around the scripted tripod with a fading
+reference)** — a persistent-but-shrinking structural anchor is exactly
+the mechanism the champion's own PASS depends on (permanent
+phase-lock), so rung 3's fading-residual-bounds design is the natural
+next rung to test, not a same-rung reward patch. This is a genuinely
+new mechanism (bounded residual action space around the teacher, not
+a bc_anchor coefficient) — needs its own design + `test_task_
+semantics.py` bank before any launch, per RESEARCH_RULES; not started
+this cycle (time budget), flagged as the concrete next-session
+build item below.
+
+Evidence: `/tmp/sway_income_trace_freshband.csv` /
+`/tmp/sway_income_trace_acq12m.csv` (both regenerable via `uv run
+python -m rl_move.sim.eval_checkpoint <ckpt> --course-trace <path>
+--episode-seconds 30 --no-video --no-wandb --no-start-jitter-panel
+--modes walk --per-mode 1 --dr-scale 0.0` + the run's own `ops.sh
+evalcmd` cfg-set with `goal.walk_heading_max_rad=0`/
+`walk_cmd_resample_s=30`/`walk_park_start_frac=0` for a clean
+straight-line read), `logs/experiments/cw-assistfade-rung2-
+anchorfade-s0-freshband/wandb_history.csv`, code change
+`rl_move/sim/eval_checkpoint.py` (`run_episode`'s `course_trace`
+docstring + write call), RL_LOG 09-06 18:1x.
+
+**Updated next-step priority (supersedes the 09-06 ~17:4x
+stride-amplitude proposal; the canonical `## Next` list further down
+this file is historical rung-1->rung-2 transition record and is not
+touched):**
+0. **Design + bank rung 3** (bounded residual action space around the
+   scripted TripodGait teacher, residual bounds shrinking on a
+   schedule, "fading reference" per the curriculum doc) — reuse the
+   rung-2 semantics-bank construction pattern
+   (`ASSISTFADE_RUNG1_OVERRIDES`/`assistfade_rung1_returns`,
+   `test_assistfade_rung2_*`) for the seven named landmarks under
+   rung 3's own reward/action-space shape. This is a genuinely new
+   mechanism (residual-bounded action space, not an anchor
+   coefficient) and needs its own build, not a copy-paste of the
+   rung-2 anneal gate.
+1. Do NOT fund a 5th same-rung speed-band arm, and do not build the
+   stride-amplitude/speed-tracking reward term proposed by the prior
+   cycle's less-precise lead — superseded by the root-cause finding
+   above (reward is aligned; the gap is gait cleanliness without an
+   ongoing reference, which a new price on speed alone would not fix).
+2. If rung 3's design proves slower than expected, a cheaper
+   diagnostic worth running first: repeat the champion-vs-freshband
+   `--course-trace` comparison at a HIGHER commanded speed band to
+   confirm the sway-scales-with-speed hypothesis directly (right now
+   both probes ran at their own recipe's native/near-native pace, not
+   a controlled sweep) — informational, no training spend.
+
 ## 09-06 ~17:4x — s0-freshband CLOSES habituation hypothesis; NEW evidence-backed lead (course_income/excess_sway near-cancellation), DIG-IN handoff
 
 `cw-assistfade-rung2-anchorfade-s0-freshband` (TRUE random init, 0

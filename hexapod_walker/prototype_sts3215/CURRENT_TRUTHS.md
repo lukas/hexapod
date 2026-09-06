@@ -1068,6 +1068,34 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   cw_walkscratch_easy0905_headset_crossgrav_medhead_{abrupt_c1_acq1_
   cont40m,widenfwd_c1_acq1,irrfwd_c1_acq1}_gate/report.json`, W&B
   `kfpu6ku1`/`thsloov1`/`naxsaxqj`, RL_LOG 09-06 04:38-04:39.
+  UPDATE 09-06 ~05:3x: the endurance panel's 2nd data point (`s1acq-
+  abrupt-c1-acq1-cont40m` and `s3acq-abrupt-c1-acq1-cont40m`, both a
+  2nd +40M helping = 80M cumulative) sharpens the "endurance is
+  recipe/source-specific, not universal" reading into a REFINED,
+  more useful predictor: **cleanliness margin at the FIRST 40M read,
+  not total budget, determines whether a 2nd 40M helping helps or
+  hurts.** `s1acq-abrupt-c1-acq1-cont40m` (source: the cleanest
+  40M read in the whole campaign, 23/24, only one non-chronic
+  transient dip) reproduces its own 40M read EXACTLY at 80M (23/24,
+  same single transient leg-4 dip, same episode slot, reward still
+  rising) -- PASS/HOLDS, matching medhead's own cont40m precedent.
+  `s3acq-abrupt-c1-acq1-cont40m` (source: a 40M read that was ALREADY
+  entrenching, 21/24 with a chronic leg-1 startjitter softening)
+  WORSENS at 80M -- aggregate drops to 16/24, `walk_startjitter/det`
+  collapsing further to 1/6, leg-1 duty chronically <=0.27 across
+  every episode in BOTH startjitter panels (not just one). **This
+  closes the "does endurance ever repair an already-entrenching
+  champion" question negatively**: 2 independent healthy-at-2M
+  sources that diverged at 40M (one clean, one chronic) diverge
+  FURTHER at 80M in the same direction, not toward each other. The
+  practical rule going forward: fund cont40m endurance helpings only
+  on sources whose first 40M read is already clean (no chronic
+  single-leg pattern); a 40M read that already shows one should be
+  treated as informative-negative and routed to the still-unbuilt
+  structural per-leg-utilization repair, not more of the same
+  training. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  crossgrav_s{1,3}acq_abrupt_c1_acq1_cont40m_gate/report.json`, W&B
+  `7i7dzujt`/`z1e7r91v`, RL_LOG 09-06 05:21/05:31.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

@@ -2,6 +2,36 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:3x this cycle (operator refill-maintenance kick, no assigned
+  runs; focus note refill-maintenance-20260906T0409): **1-arm walkcurr
+  refill + 1 assistfade continuation (`s2-cont8m`, see that track's
+  STATUS); finished-but-eval-blocked runs left unverdicted on purpose.**
+  Launched `headset-crossgrav-widen2c3-abrupt-c2` (VERIFIED RUNNING
+  train-9, 2M canary, `--allow-twin` seed-2 repeat of
+  `widen2c3-abrupt-c1`'s CANARY FAIL from the same
+  `halfgrav_fullhead_widen2_c3_acq1` checkpoint): the pre-registered
+  seed-noise discriminator for the widen2 crossgrav 1-PASS/1-FAIL split,
+  mirroring exactly how `irrwidenc2-abrupt-c1` refuted
+  composition-order-as-causal for `irrwidenc1`'s FAIL (09-06 04:09).
+  Fixed a launcher self-repair sync failure on train-10 first (tar
+  "File exists" on 2 stale `rl_docs/runs` copies; removed pod-side,
+  relaunch clean). **Eval-blocked, NOT verdicted, left for whichever
+  cycle sees their reports land** (gate evals confirmed genuinely
+  computing on their pods, not orphaned): `medhead-widenfwd-c1-acq1` +
+  `medhead-irrwiden-c1` (both train-2 CPU), `medhead-irrfwd-c1-acq1`
+  (train-3), `medhead-abrupt-c1-acq1-cont40m` (endurance-panel anchor),
+  `widenirrc3-abrupt-c1`, and todaypolicy's `cw-robotwalk-turns-20260906`
+  (train-1). Deliberately did NOT launch a DR/push-hardening arm despite
+  it being the ladder's next registered rung: read the trainer —
+  `--dr-scale` only scales the `dr.*` cfg RANGES, and the easy0905
+  recipe pins them degenerate (`dr.torque_scale=3,3` fixed assist,
+  latency/deadband/noise 0), so a one-flag DR arm would randomize
+  nothing meaningful. **DR-rung design item (pre-registered for a design
+  cycle): choose hardening axes + doses as explicit `dr.*` range
+  widenings (incl. deciding whether the 3x torque assist itself fades),
+  semantics/bank pass as needed, THEN launch.** Evidence: launcher
+  output (VERIFIED RUNNING), ledger entries, RL_LOG.
+
 - 09-06 ~04:2x this cycle, using freed fleet capacity (5 GPU slots opened
   up mid-cycle as concurrent cycles' own runs finished; confirmed via
   repeated `launch_run.py status` re-checks right before each launch):

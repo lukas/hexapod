@@ -2,6 +2,32 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~05:3x this cycle (assigned `s3acq-widenfwd-c1`, `s3acq-irrfwd-c1`): **2/2
+  CANARY FAIL — forward-composing onto an already-compromised source
+  re-surfaces its chronic leg-1 weakness immediately at 2M, it does
+  not dilute or heal it.** Both arms compose an axis (widen2 heading
+  set / irr timing-jitter) onto `s3acq-abrupt-c1-acq1`, the source
+  already known to entrench (ACQ FAIL at 40M, WORSE at its own 80M
+  cont40m). (1) `s3acq-widenfwd-c1`: 14/24 gait_valid (bar >=18/24),
+  ALL 10 invalid episodes across all 4 modes name leg-1 as the sole
+  sacrificed leg — a total, clean reproduction of the source's own
+  fingerprint; several cells show extreme skating (slip/m 24-208);
+  reward NET-DECLINING every quarter (-80.7/-214/-254/-606, a
+  genuine FAIL by both reward and eval, not misalignment). (2)
+  `s3acq-irrfwd-c1`: 17/24, misses the bar by one episode, leg-1 in
+  4/24 + leg-2 in 2/24 (softer/more mixed than widenfwd but still
+  leg-1-leaning); reward mildly rising but not read as an 08-21
+  continue case given the source's own 2x-FAILed history. 0 falls in
+  both. Contrasts sharply with the SAME two axes composed onto
+  healthy sources (medhead, s1acq, widen2c1), which all held clean —
+  confirms source health, not recipe or budget, is the causal
+  predictor for forward-composition durability too, extending the
+  already-established native-1g-durability finding. No continuation
+  funded on either arm. SKILLS.md updated (2 new rows). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_s3acq_
+  {widenfwd,irrfwd}_c1_gate/report.json`, W&B `zvxecftd`/`aaoxg15b`,
+  RL_LOG 09-06 05:34.
+
 - 09-06 ~05:3x this cycle (assigned `s1acq-abrupt-c1-acq1-cont40m`, `s1acq-irrfwd-c1`,
   `s3acq-abrupt-c1-acq1-cont40m`): **3 verdicts (2 PASS, 1 ACQ FAIL) — the endurance
   panel's 2nd data point diverges sharply from the 1st, isolating cleanliness margin

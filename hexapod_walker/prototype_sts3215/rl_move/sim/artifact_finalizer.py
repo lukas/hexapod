@@ -17,18 +17,36 @@ Guarantees:
   SIGKILL/zombie included; no steal races) ensures at most one
   finalizer instance per run. A live LEGACY (pre-flock) holder of the
   advisory finalizer.pid is respected — the new code backs off.
+- Publication is confirmed, not assumed (09-06 root review item 1):
+  wandb.log is ASYNC, so a job is marked `logged_pending_flush` after
+  its log call and flipped to `done` ONLY by the post-run.finish()
+  confirmation (`confirm_published`). A crash between log and finish,
+  or a finish() that raises, leaves the jobs unconfirmed: the registry
+  phase stays `artifacts_pending` (never `evaluated`), finalized.json
+  is NOT written, and a restarted finalizer REPLAYS those jobs from
+  their retained snapshot inputs. Semantics are therefore
+  AT-LEAST-ONCE with job granularity: every replay of an unconfirmed
+  job may duplicate its W&B history rows — duplicates are accepted by
+  design; never claim exactly-once from W&B row counts, and never
+  treat retained files alone as publication.
 - Idempotent resume: per-job status/attempts live in state.json
   (atomic replace). A killed finalizer restarted later skips `done`
-  jobs and retries `pending`/`in_flight`/`failed` ones up to
-  --max-attempts. Delivery to W&B is at-least-once with job
-  granularity: a kill in the tiny window between a wandb.log and its
-  state write can duplicate ONE history row on resume — never a
-  contradictory or missing artifact. Do NOT claim exactly-once from
-  W&B row counts.
+  (confirmed) jobs and retries `pending`/`in_flight`/`failed`/
+  `logged_pending_flush` ones up to --max-attempts (attempts reset for
+  logged_pending_flush replays — the job itself already proved
+  executable; the failure was publication confirmation).
 - Replayable inputs survive crashes: per-job snapshot zips are
   md5-verified against the manifest before running and retired ONLY
-  after run.finish() has durably published (a kill at any earlier
-  point leaves them on disk for replay).
+  after run.finish() returned AND the jobs were confirmed (a kill at
+  any earlier point leaves them on disk for replay).
+- Frozen provenance is enforced, not just recorded (09-06 root review
+  item 2): before any job executes, the manifest's runtime code
+  fingerprint (byte-hashes of the worker's code/config/XML surface)
+  and the args.pkl sha256 are re-verified against the live tree
+  (`artifact_handoff.verify_runtime_fingerprint`). A mismatch REFUSES
+  execution/publication (exit 4) unless the operator passes
+  --allow-fingerprint-mismatch. Pre-fingerprint manifests run with an
+  explicit 'code identity NOT verified' warning.
 - Bounded: each job gets --max-attempts tries and a hard per-job
   timeout; a hung worker is killed and respawned; exhausted jobs are
   recorded `failed` in state.json + finalized.json rather than looping.
@@ -56,9 +74,10 @@ from pathlib import Path  # noqa: E402
 
 from .artifact_handoff import (  # noqa: E402
     ARGS_PICKLE_NAME, FINALIZED_NAME, FINALIZER_PID_NAME, JOB_DONE,
-    JOB_FAILED, JOB_IN_FLIGHT, MANIFEST_NAME, PHASE_EVALUATED,
-    PHASE_FAILED, acquire_finalizer_lock, atomic_write_json, read_json,
-    read_state, update_state,
+    JOB_FAILED, JOB_IN_FLIGHT, JOB_LOGGED_PENDING_FLUSH, MANIFEST_NAME,
+    PHASE_EVALUATED, PHASE_FAILED, acquire_finalizer_lock,
+    atomic_write_json, read_json, read_state, update_state,
+    verify_runtime_fingerprint,
 )
 
 
@@ -163,25 +182,34 @@ def finalize(handoff_dir: Path, *, run_job, log_result,
     `run_job(job) -> out dict` executes one eval/video job;
     `log_result(job, out)` publishes it (W&B). State is written
     atomically around every attempt so a kill at any point resumes
-    without losing which jobs were already delivered. Delivery is
-    AT-LEAST-ONCE with job granularity — a kill between a log_result
-    and its state write re-delivers that one job on resume; never
-    claim exactly-once from W&B row counts.
+    without losing progress. After a successful log_result the job is
+    marked `logged_pending_flush` — NOT `done`: wandb.log is async, so
+    the row is durable only after run.finish() returns. The caller must
+    invoke `confirm_published` after a SUCCESSFUL finish to flip logged
+    jobs to `done`, set the registry phase and write finalized.json.
+    finalize() itself never reports `evaluated`.
 
-    Replayable inputs are RETAINED here: snapshot zips of delivered
-    jobs are NOT deleted (wandb.log is async — the data is durable only
-    after run.finish() returns). They are listed in
-    summary["delivered_snapshots"] for the caller to retire AFTER a
-    successful finish (fb_20260906T044800_a59c3e async-publication
-    risk). Each job's snapshot is md5-verified against the manifest
-    before running — a corrupt/foreign snapshot fails the job
-    immediately instead of publishing wrong-model artifacts."""
+    Resume semantics: `done` (confirmed) jobs are skipped;
+    `logged_pending_flush` jobs from a crashed/unflushed session are
+    REPLAYED from their retained inputs (attempts reset — execution
+    already proved out; the failure was publication). Delivery is
+    AT-LEAST-ONCE with job granularity: any replay may duplicate that
+    job's W&B rows; never claim exactly-once from W&B row counts.
+
+    Replayable inputs are RETAINED here: snapshot zips of logged jobs
+    are NOT deleted. They are listed in summary["delivered_snapshots"]
+    for the caller to retire AFTER a successful finish + confirmation
+    (fb_20260906T044800_a59c3e async-publication risk). Each job's
+    snapshot is md5-verified against the manifest before running — a
+    corrupt/foreign snapshot fails the job immediately instead of
+    publishing wrong-model artifacts."""
     manifest = read_json(handoff_dir / MANIFEST_NAME)
     if manifest is None:
         raise FileNotFoundError(f"no {MANIFEST_NAME} in {handoff_dir}")
     state = read_state(handoff_dir) or {"jobs": {}}
     summary = {"done": 0, "skipped_done": 0, "failed": 0, "errors": {},
-               "delivered_snapshots": []}
+               "delivered_snapshots": [], "logged_job_ids": [],
+               "replayed_unconfirmed": 0}
     for job in manifest.get("jobs", []):
         jid = job["job_id"]
         row = dict(state.get("jobs", {}).get(
@@ -189,6 +217,16 @@ def finalize(handoff_dir: Path, *, run_job, log_result,
         if row.get("status") == JOB_DONE:
             summary["skipped_done"] += 1
             continue
+        if row.get("status") == JOB_LOGGED_PENDING_FLUSH:
+            # Logged in a prior session whose run.finish() never
+            # confirmed: the wandb.log may or may not have flushed.
+            # Replay from retained inputs (at-least-once — a duplicate
+            # W&B row is possible and accepted); reset the attempt
+            # budget since execution itself already succeeded once.
+            print(f"[finalizer] job {jid} was logged but never "
+                  "flush-confirmed — replaying from retained inputs")
+            row["attempts"] = 0
+            summary["replayed_unconfirmed"] += 1
         snap = Path(job["snapshot_path"])
         want_md5 = job.get("snapshot_md5")
         if want_md5:
@@ -212,9 +250,12 @@ def finalize(handoff_dir: Path, *, run_job, log_result,
             out = run_job(job)
             if out is not None and "error" not in out:
                 log_result(job, out)
-                row["status"] = JOB_DONE
+                # NOT done yet: wandb.log is async. Confirmed to `done`
+                # only after run.finish() returns (confirm_published).
+                row["status"] = JOB_LOGGED_PENDING_FLUSH
                 update_state(handoff_dir, jobs={jid: dict(row)})
                 summary["delivered_snapshots"].append(str(snap))
+                summary["logged_job_ids"].append(jid)
                 summary["done"] += 1
                 break
             err = (out or {}).get("error", "no result")
@@ -227,15 +268,85 @@ def finalize(handoff_dir: Path, *, run_job, log_result,
             update_state(handoff_dir, jobs={jid: dict(row)})
             summary["failed"] += 1
             summary["errors"][jid] = row.get("last_error", "unknown")
+    # Phase/finalized.json deliberately NOT written here: publication is
+    # unconfirmed until run.finish() returns. confirm_published() does it.
+    update_state(handoff_dir,
+                 note=f"finalizer: {summary['done']} logged (awaiting "
+                      f"flush confirmation), {summary['skipped_done']} "
+                      f"already done, {summary['failed']} failed")
+    return summary
+
+
+def confirm_published(handoff_dir: Path, summary: dict) -> dict:
+    """Publication confirmation — call ONLY after run.finish() returned
+    (or when the run has no W&B id, i.e. nothing to flush): flips this
+    session's logged_pending_flush jobs to `done`, sets the registry
+    phase (`evaluated` iff no job failed execution) and writes
+    finalized.json. Until this runs, nothing may report `evaluated`."""
+    state = read_state(handoff_dir) or {"jobs": {}}
+    rows = {}
+    for jid in summary.get("logged_job_ids", []):
+        row = dict(state.get("jobs", {}).get(jid, {}))
+        row["status"] = JOB_DONE
+        rows[jid] = row
     phase = PHASE_EVALUATED if summary["failed"] == 0 else PHASE_FAILED
-    update_state(handoff_dir, phase=phase,
-                 note=f"finalizer: {summary['done']} done, "
-                      f"{summary['skipped_done']} already done, "
-                      f"{summary['failed']} failed")
+    update_state(handoff_dir, phase=phase, jobs=rows,
+                 note=f"finalizer: {summary['done']} done (publication "
+                      f"flush confirmed), {summary['skipped_done']} "
+                      f"already done, {summary['failed']} failed")
     summary["phase"] = phase
     atomic_write_json(handoff_dir / FINALIZED_NAME,
                       {**summary, "finished_at": time.time()})
     return summary
+
+
+def run_session(handoff_dir: Path, *, run_job, log_result, finish,
+                retire_paths=(), shutdown=lambda: None,
+                max_attempts: int = 2) -> int:
+    """One finalizer session end-to-end (post-lock, post-fingerprint):
+    execute/log outstanding jobs, flush W&B via `finish`, then CONFIRM
+    publication and retire replayable inputs. Factored out of main() so
+    the crash-between-log-and-finish and finish-raising fault injections
+    are directly testable.
+
+    Exit codes: 0 all jobs confirmed; 2 some jobs failed execution
+    (still confirmed + finalized); 3 finish() raised — publication
+    UNCONFIRMED, nothing retired, phase stays artifacts_pending, logged
+    jobs replay on the next start."""
+    finish_error = None
+    try:
+        summary = finalize(handoff_dir, run_job=run_job,
+                           log_result=log_result,
+                           max_attempts=max_attempts)
+    finally:
+        shutdown()
+        # Always try to flush — even when finalize raised, rows already
+        # wandb.log'ed should get their chance to publish. Confirmation
+        # below still only happens when BOTH finalize and finish
+        # succeeded.
+        try:
+            finish()
+        except Exception as ex:  # noqa: BLE001 — recorded, never masks
+            finish_error = ex
+    if finish_error is not None:
+        msg = (f"run.finish() FAILED: {finish_error!r} — publication "
+               "UNCONFIRMED; logged_pending_flush jobs will be replayed "
+               "from retained inputs on the next finalizer start")
+        print(f"[finalizer] {msg}")
+        update_state(handoff_dir, note=f"finalizer: {msg}")
+        return 3
+    confirm_published(handoff_dir, summary)
+    # Only now is publication durable: retire the replayable inputs of
+    # confirmed jobs (snapshots + rendered mp4s). A crash before this
+    # point leaves them on disk for replay — at-least-once, never lost.
+    retired = 0
+    for p in list(summary.get("delivered_snapshots", [])) + list(retire_paths):
+        Path(p).unlink(missing_ok=True)
+        retired += 1
+    print(f"[finalizer] retired {retired} replayable input file(s) "
+          "after durable W&B finish + confirmation")
+    print(f"[finalizer] {json.dumps(summary)}")
+    return 0 if summary["failed"] == 0 else 2
 
 
 def _make_wandb_logger(manifest: dict):
@@ -279,6 +390,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--handoff-dir", type=Path, required=True)
     ap.add_argument("--max-attempts", type=int, default=2)
     ap.add_argument("--job-timeout-s", type=float, default=1800.0)
+    ap.add_argument("--fingerprint-root", type=Path, default=None,
+                    help="repo root for the runtime fingerprint check "
+                         "(default: this checkout; tests/ops only)")
+    ap.add_argument("--allow-fingerprint-mismatch", action="store_true",
+                    help="operator override: run jobs despite a runtime "
+                         "code/args fingerprint mismatch (logged loudly; "
+                         "results carry unrecorded-code provenance)")
     args = ap.parse_args(argv)
     d: Path = args.handoff_dir
     lock_fd = _acquire_lock(d)
@@ -295,30 +413,32 @@ def main(argv: list[str] | None = None) -> int:
               f"CUDA_VISIBLE_DEVICES='{os.environ['CUDA_VISIBLE_DEVICES']}'"
               f", provenance commit={prov.get('git_commit', '?')[:12]} "
               f"dirty={prov.get('git_dirty', '?')}")
+        # Provenance ENFORCEMENT (09-06 root review item 2): this process
+        # imports the LIVE worker and unpickles args.pkl — refuse both if
+        # the recorded runtime fingerprint no longer matches the tree.
+        fp_ok, fp_msg = verify_runtime_fingerprint(
+            d, manifest, repo_root=args.fingerprint_root)
+        print(f"[finalizer] provenance check: {fp_msg}")
+        if not fp_ok:
+            if args.allow_fingerprint_mismatch:
+                print("[finalizer] --allow-fingerprint-mismatch set: "
+                      "PROCEEDING WITH UNRECORDED CODE (operator "
+                      "override)")
+            else:
+                update_state(d, note=f"finalizer REFUSED: {fp_msg}")
+                print("[finalizer] refusing to execute/publish jobs "
+                      "(rerun with --allow-fingerprint-mismatch to "
+                      "override after review)")
+                return 4
         with (d / ARGS_PICKLE_NAME).open("rb") as fh:
             train_args = pickle.load(fh)
         runner = _WorkerRunner(manifest["task"], train_args,
                                args.job_timeout_s)
         log_result, finish, retire_paths = _make_wandb_logger(manifest)
-        try:
-            summary = finalize(d, run_job=runner.run,
-                               log_result=log_result,
-                               max_attempts=args.max_attempts)
-        finally:
-            runner.shutdown()
-            finish()
-        # Publication is durable only now that run.finish() returned:
-        # retire the replayable inputs of DELIVERED jobs (snapshots +
-        # rendered mp4s). A crash before this point leaves them on disk
-        # for replay — at-least-once, never lost.
-        retired = 0
-        for p in list(summary.get("delivered_snapshots", [])) + retire_paths:
-            Path(p).unlink(missing_ok=True)
-            retired += 1
-        print(f"[finalizer] retired {retired} replayable input file(s) "
-              "after durable W&B finish")
-        print(f"[finalizer] {json.dumps(summary)}")
-        return 0 if summary["failed"] == 0 else 2
+        return run_session(
+            d, run_job=runner.run, log_result=log_result, finish=finish,
+            retire_paths=retire_paths, shutdown=runner.shutdown,
+            max_attempts=args.max_attempts)
     finally:
         # The advisory pid file is cleaned up; the LOCK FILE is never
         # unlinked (permanent inode — the kernel releases the flock when

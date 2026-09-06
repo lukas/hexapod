@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:32:34+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 3871232
 
 **parent**: cw-robotwalk-turns-20260906-cont8m
+
+**wandb_id**: 2p93pife
 
 **hypothesis**: Recovery of the SAME seed0 bounded +8M turns continuation after root mistakenly treated the initial8M allocation as a permanent cap. Main walking task clarified standing authorization. Retain killed source record7wzm9ybl; resume validatedmd5 f591835ca44bf799c894cdf323d9006f at4,128,768 of8,000,000 continuationsteps for remaining3,871,232 requestedsteps (PPOrollout rounding may add atmost one rollout). Same fullgravity mesh100Hz recipe, policy+optimizer retained; omit initial warm-log-std reopening and anneal from retainedvalue to-4 over remaininginterval. Original8M24/24 gait, zero falls, matchedslip gain and risingreward337->1136->1917->2418 justify completion; this is not anotherseed or new8M budget. If yaw/courseplateau, auditreward alignment rather than identical extensions.
 

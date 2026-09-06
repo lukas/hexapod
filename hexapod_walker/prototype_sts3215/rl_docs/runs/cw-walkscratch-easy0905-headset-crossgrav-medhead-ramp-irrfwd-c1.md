@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T02:35:46+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1
+
+**wandb_id**: m5sxljmr
 
 **hypothesis**: Plain English: same logic as the widenfwd sibling, but for command-timing jitter instead of heading breadth: medhead-irrfwd-c1 (abrupt transition) is already testing native-1g jitter extension; this gives the ramp-transition champion the same test.
 

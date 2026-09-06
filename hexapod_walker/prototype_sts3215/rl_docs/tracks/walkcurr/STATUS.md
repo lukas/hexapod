@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~02:3x this cycle (assigned `headset-crossgrav-irr2acq1-abrupt-c1`):
+  1 verdict, **CANARY PASS - INFORMATIVE-POSITIVE**, 3-arm refill. The
+  irr-timing-jitter crossgrav recipe's 2ND independent seed (warm-started
+  from `headset-halfgrav-irr2-acq1`, a distinct 40M champion, 19/24
+  native 0.5g) survives an abrupt 0.5g->1.0g jump just as cleanly as the
+  first seed did: aggregate `gait_valid` 22/24 (`walk/det` 6/6 clean
+  `sac=[]`, `walk/sto` 6/6 clean, `walk_startjitter/det` 4/6 with only 2
+  ISOLATED single-episode leg flags — `sac=[4]` then `sac=[1]`, never the
+  same leg twice, not chronic — `walk_startjitter/sto` 6/6 clean), 0
+  falls/terminations in all 24 episodes, `slip_per_m` tightly banded
+  3.34-4.71. Video (`walk_det_0` 10-frame strip) shows genuine six-leg
+  alternating-contact cycling with clear body translation. This closes
+  the n=2-seed question for the irr-timing axis (matching the n=2/3
+  discipline already applied elsewhere in this campaign) — per-seed luck
+  is ruled out as the explanation for irr-timing transfer success.
+  Tooling note: the prestaged gate eval was still genuinely computing
+  remotely (video-every=1, ~32min wall clock) when the cycle spawned —
+  confirmed via `kubectl exec ps aux` (not orphaned), registered with
+  `ops.sh evalpending add`, used `ops.sh podwaitlog` to poll for
+  completion instead of sleep-looping, then `kubectl cp` to sync the
+  full artifact dir before reading `report.json` directly. **Refill (3
+  arms, using free fleet capacity — 8/12 idle with an empty backlog at
+  decision time, many concurrent cycles' own arms having drained into
+  eval-only in the same window):** (1) `headset-crossgrav-irr2acq1-
+  abrupt-c1-acq1` — matched 40M ACQ continuation, same template as the
+  sibling `irracq1-abrupt-c1-acq1` (train-1, VERIFIED RUNNING via direct
+  pod inspection). (2)/(3) `headset-crossgrav-medhead-ramp-widenfwd-c1`
+  and `headset-crossgrav-medhead-ramp-irrfwd-c1` (train-2, train-3,
+  VERIFIED RUNNING via direct pod inspection) — the abrupt-transition
+  medhead champion already has native-1g forward-extension canaries
+  in flight this window (`medhead-widenfwd-c1`, `medhead-irrfwd-c1`,
+  widen2/irr added directly at 1g without a 0.5g detour); the
+  gradual-ramp sibling (`medhead-ramp-c1-acq1`, ACQ PASS 21/24) never
+  got the same test, so this completes the abrupt-vs-ramp symmetry one
+  rung further — PASS on both would show the ramp recipe's gentler
+  transition generalizes to further curriculum extension just as well
+  as the abrupt one; FAIL on either would narrow forward-extension to
+  the abrupt recipe specifically. SKILLS.md updated (1 new row). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-irr2acq1-
+  abrupt-c1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+  irr2acq1_abrupt_c1_gate/report.json`, W&B `2vlneqky`, RL_LOG.
+
 - 09-06 ~02:1x this cycle, using idle fleet capacity (4+ free GPU slots,
   empty backlog): launched a crossgrav test off `headset-halfgrav-acq1`
   — the plain 3-way (0,+-45deg) heading champion that every medhead/

@@ -59,6 +59,29 @@ Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL b
   actionable step (fund ONE composite ACQ, or compose no-crutch + composite) is genuinely blocked
   on those in-flight reads, not on idle capacity.
 
+- 09-06 ~09:3x this cycle (assigned `medhead-dr-{tiltnoise1x,torquefade1x,zerobiasframe1x}-c1-acq1`): **0/3
+  verdicted (all 3 genuinely still computing their gate harness on-pod, confirmed via `ps`/`podeval` — not
+  orphaned, just long video-every=1 panels), plus a 2-run bonus orphan recovery + matched refill.** All 3
+  assigned runs finished training (W&B state=finished, ~40.37M steps, pods already reassigned) but their
+  ACQ-scale gate harness was still mid-eval (started 08:45-08:55, ~35-40min in at read time) — `ops.sh
+  podeval` on each confirmed a live `eval_checkpoint` process on the run's own pod, not a stale/orphaned
+  launch; backgrounded one `pollreap` per run (300s/180min) and left all 3 unverdicted for the next reader.
+  **Bonus: found+verdicted 2 more idle unassigned orphans in the same torque-crutch-removal dose ladder**
+  my own `torquefade1x-c1-acq1` belongs to — `torquefade2x-c1-acq1` and `torquefade15x-c1-acq1` had both
+  actually finished (W&B finished, complete `report.json`+videos) but sat stuck at ledger status=RUNNING
+  with their pods long since reassigned. Both **ACQ PASS**: PERFECT 24/24 gait_valid, sac=[] every episode,
+  0 terms, clean six-leg video, reward rising every quarter (874->1709 / 937->1912) — closes 2/3 of the
+  torque-crutch dose ladder at ACQ scale (2x and 1.5x hold; the least-faded 1x dose is my own pending run).
+  SKILLS.md updated. **Refill:** launched the standard cleanliness-margin cont40m endurance continuation on
+  both fresh clean sources — `torquefade2x-c1-acq1-cont40m` (train-3) and `torquefade15x-c1-acq1-cont40m`
+  (train-10), both VERIFIED RUNNING, 80M new GPU steps = exactly the per-cycle cap. Noted but NOT touched
+  (out of scope/budget): 5 more GPU slots (train-2/4/8/9/11) freed up mid-cycle as other unrelated runs
+  finished (`groundtilt1x-c1-acq1`, `cmddrop1x-c1-acq1`, `imubias1x-c1-acq1`, `headset-halfgrav-acq1-
+  cont40m`) — none of these were this cycle's assignment and the step/launch cap was already spent; leaving
+  them for the next triage/refill cycle. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  crossgrav_medhead_dr_torquefade{2x,15x}_c1_acq1_gate/report.json`, W&B `n838t060`/`n8j96qsz`, RL_LOG
+  09-06 09:3x.
+
 - 09-06 ~09:0x this cycle (assigned `halfgrav-widenirr-c3-acq1-cont40m`): **HARDENING PASS/HOLDS**
   -- first halfgrav-source cont40m endurance read (80M cumulative). `gait_valid` mildly degrades
   21/24 (own 40M) -> 19/24 (walk/det 4/6, walk/sto 4/6, walk_startjitter/det 5/6, walk_startjitter/

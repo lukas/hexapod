@@ -5725,6 +5725,180 @@ def main(argv: list[str] | None = None) -> int:
                     f"{args.walkcurr_precert_min_prog:.2f}) — fix the "
                     "transplant/obs mapping first rather than training "
                     "over it (fb_20260818T102844_116d4c item 6)")
+
+    if bool(getattr(model, "bc_anneal_gate", False)):
+        # assistfade rung 2 (rl_docs/EASIER_WALKING_CURRICULUM.md,
+        # rl_docs/tracks/assistfade/STATUS.md "Next" item 1): "anneal
+        # the anchor smoothly to zero only after deterministic walking
+        # passes." Independent of --walk-curriculum (no bucket table,
+        # no promotion/rollback — rung 2's own launch cfg is a single
+        # fixed forward command, not a curriculum ladder); reuses the
+        # SAME dedicated-MJX-cert-env construction and walk_probe
+        # aggregation the walk-curriculum cert loop above already
+        # relies on, gated by walkcurr_cert.ignition_gate_pass (a
+        # deliberately looser subset of WALKCURR_GATE — just the
+        # doc's own named ignition criteria, not the mature joystick-
+        # band slip/roll/cross-track bars). All scheduling math lives
+        # in the pure, standalone-unit-tested
+        # bc_anchor.bc_anchor_anneal_value; this callback only runs the
+        # assay and calls it.
+        from .bc_anchor import bc_anchor_anneal_value
+        from .walkcurr_cert import (IGNITION_GATE, aggregate_walk_probe,
+                                    failed_probe_row, ignition_gate_pass)
+
+        class _BcAnchorAnnealGateCb(BaseCallback):
+            """See the module-level comment just above this class."""
+
+            def __init__(self):
+                super().__init__()
+                self._next = int(model.bc_anneal_check_every)
+                self._env = None
+
+            def _build(self):
+                import copy as _copy
+                ek = _copy.deepcopy(env_kw)
+                cfg_d = ek.get("cfg")
+                if cfg_d is None:
+                    raise RuntimeError(
+                        "bc_anchor_anneal_gate env kwargs carry no cfg "
+                        "(env_kw missing 'cfg')")
+                cfg_d.setdefault("goal", {})["walk_probe"] = 1.0
+                cert_kw = dict(vec_kw)
+                cert_kw.update(env_kwargs=ek, seed=args.seed + 828282,
+                               pool_per_env=1, desync_episodes=False)
+                n_cert = int(model.bc_anneal_assay_episodes)
+                if args.host_workers > 0:
+                    from .mjx_sharded_vec_env import MjxShardedVecEnv
+                    env = MjxShardedVecEnv(
+                        env_cls, n_cert,
+                        host_workers=min(n_cert,
+                                         max(1, args.host_workers)),
+                        **cert_kw)
+                else:
+                    from .mjx_vec_env import MjxVecEnv
+                    env = MjxVecEnv(env_cls, n_cert, **cert_kw)
+                print("[bc-anchor-anneal] deterministic MJX ignition "
+                      f"assay ready: {n_cert} episodes, "
+                      f"{impl or 'jax(default)'} backend, in-env walk "
+                      "probe ON")
+                return env
+
+            def _assay(self) -> dict:
+                env = self._env
+                env.flush_reset_pools()
+                env.seed(828282)
+                obs = env.reset()
+                n_envs = int(env.num_envs)
+                finished = np.zeros(n_envs, dtype=bool)
+                rows: list = [None] * n_envs
+                ep_start = np.ones(n_envs, dtype=bool)
+                state = None
+                horizon = int(env.get_attr("episode_steps",
+                                           indices=0)[0]) + 2
+                ticks = 0
+                while not bool(np.all(finished)):
+                    actions, state = self.model.predict(
+                        obs, state=state, episode_start=ep_start,
+                        deterministic=True)
+                    obs, _r, dones, infos = env.step(actions)
+                    ticks += 1
+                    ep_start = np.asarray(dones, dtype=bool)
+                    for i in np.flatnonzero(np.asarray(dones)
+                                            & ~finished):
+                        info = infos[int(i)]
+                        wp = info.get("walk_probe")
+                        rows[i] = (dict(wp) if wp is not None
+                                   else failed_probe_row())
+                        finished[i] = True
+                    if ticks > horizon:
+                        missing = np.flatnonzero(~finished).tolist()
+                        raise RuntimeError(
+                            "bc_anchor_anneal_gate assay exceeded the "
+                            f"episode horizon for envs {missing}")
+                return aggregate_walk_probe(rows)
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_start(self) -> None:
+                coef = bc_anchor_anneal_value(
+                    model.bc_anneal_init_coef, model.bc_anneal_pass_step,
+                    self.num_timesteps, model.bc_anneal_steps)
+                model.bc_coef = coef
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               "bc_anchor_anneal/coef": coef,
+                               "bc_anchor_anneal/passed":
+                                   float(model.bc_anneal_pass_step
+                                         is not None)})
+
+            def _on_rollout_end(self) -> None:
+                if model.bc_anneal_pass_step is not None:
+                    return  # latched at first pass; never re-armed
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps
+                               // model.bc_anneal_check_every) + 1
+                              ) * model.bc_anneal_check_every
+                if self._env is None:
+                    self._env = self._build()
+                t0 = time.time()
+                m = self._assay()
+                gate = dict(IGNITION_GATE)
+                gate["cmd_prog_frac_min"] = float(
+                    model.bc_anneal_min_progress)
+                passed, checks = ignition_gate_pass(m, gate)
+                fails = [k for k, ok in checks.items() if not ok]
+
+                def _f(v):
+                    v = float(v) if v is not None else float("nan")
+                    return v
+                print(f"[bc-anchor-anneal] gate check @ "
+                      f"{self.num_timesteps:,}: "
+                      f"{'PASS' if passed else 'FAIL ' + ','.join(fails)}"
+                      f" prog={_f(m.get('cmd_prog_frac')):.3f}"
+                      f" falls={_f(m.get('early_term_rate')):.2f}"
+                      f" contact_sw={_f(m.get('contact_sw_per_s')):.2f}"
+                      f" foot_sw_min={_f(m.get('foot_sw_min_per_s')):.2f}"
+                      f" ({time.time() - t0:.1f}s)")
+                if run is not None:
+                    import wandb
+                    payload = {"global_step": self.num_timesteps,
+                               "bc_anchor_anneal/gate_pass":
+                                   float(passed)}
+                    for k in ("cmd_prog_frac", "early_term_rate",
+                             "contact_sw_per_s", "foot_sw_min_per_s"):
+                        if m.get(k) is not None and float(m[k]) == float(m[k]):
+                            payload[f"bc_anchor_anneal/gate_{k}"] = (
+                                float(m[k]))
+                    wandb.log(payload)
+                if passed:
+                    model.bc_anneal_pass_step = int(self.num_timesteps)
+                    print(f"[bc-anchor-anneal] ignition gate PASSED @ "
+                          f"{self.num_timesteps:,} — annealing bc_coef "
+                          f"{model.bc_anneal_init_coef:.3f} -> 0 over "
+                          f"{model.bc_anneal_steps:,} steps from here")
+                    if run is not None:
+                        run.summary["bc_anchor_anneal_pass_step"] = (
+                            int(self.num_timesteps))
+
+            def close(self):
+                if self._env is not None:
+                    self._env.close()
+                    self._env = None
+
+            def _on_training_end(self) -> None:
+                self.close()
+
+        callbacks.append(_BcAnchorAnnealGateCb())
+        print("[bc-anchor-anneal] armed: ignition-gate check every "
+              f"{model.bc_anneal_check_every:,} steps, "
+              f"{model.bc_anneal_assay_episodes} episodes/round, "
+              f"anneal {model.bc_anneal_steps:,} steps after first "
+              "pass, min_progress="
+              f"{model.bc_anneal_min_progress:.2f}")
+
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T09:37:30+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kickhalf1x-c1
+
+**wandb_id**: 4xcygaqu
 
 **hypothesis**: Kick-dose ladder bisection: kick1x-c1 (walk_kick_prob=0.3, nominal) FELL (1 real tilt_roll fall); kickhalf1x-c1 (0.15, half dose) PASSED clean (21/24 gv, 0 falls). This arm tests the exact midpoint dose (0.225, same 8-18deg peak roll / 0.5-1.2s duration kick shape, same medhead_abrupt_c1_acq1 champion, same 2M canary scale) to bracket where the champion's zero-shot kick-recovery margin actually breaks, instead of leaving a 2x dose gap unexplored.
 

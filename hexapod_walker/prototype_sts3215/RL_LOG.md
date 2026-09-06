@@ -1574,3 +1574,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 09:32 actionnoise1x-c1-acq1 ACQ PASS/HOLDS exact-hold 22/24, matches 2M canary leg-5 pattern identically, 0 falls 
 - 09-06 09:33 torquefade2x-c1-acq1 ACQ PASS (orphan recovery) -- 24/24 gv, 0 falls/terms, torque-crutch-removal 2x dose holds at 40M. 
 - 09-06 09:33 torquefade15x-c1-acq1 ACQ PASS (orphan recovery) -- 24/24 gv, 0 falls/terms, 1.5x torque-fade dose holds at 40M. 
+- 09-06 09:41 09-06 widenfwd-cont40m PASS/HOLDS: 20/24 gv (parent 21/24), sac pattern reproduces exactly + 1 new non-chronic flag, 0 falls, slip improved -- 5th cont40m endurance confirmation, noisiest composition tested. 
+- 09-06 09:45 refill: torquefade2x/15x-c1-acq1-cont40m launched (VERIFIED RUNNING train-3/train-10, 80M new GPU steps) on the 2 fresh clean torquefade orphan-recovery PASSes; tiltnoise1x/torquefade1x/zerobiasframe1x-c1-acq1 (this cycle's assignment) all left unverdicted, genuinely still computing on-pod gate harness, pollreap backgrounded x3

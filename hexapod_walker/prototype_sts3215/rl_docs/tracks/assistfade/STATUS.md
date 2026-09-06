@@ -161,15 +161,77 @@ ongoing BC/AMP/imitation) is CLOSED on mesh/100Hz: do not fund a 4th
 same-recipe seed or any same-recipe budget continuation.**
 
 ## Next
-1. Design rung 2 (anchor fade FROM RANDOM WEIGHTS, `bc_anchor_coef`
-   annealed to zero only after det walking passes — NOT rung 1's
-   persistent-anchor-then-drop-to-zero shape, which is what just
-   failed 3/3). This is a NEW mechanism (an annealing schedule, not a
-   fixed coefficient) and OWES the full intermediate-state semantics
-   bank (weight shift, one useful lift, one forward placement, one
-   support transition, two steps then fall, static stand, clean gait)
-   BEFORE any launch — build/prove it as its own cycle's work, not a
-   reason to sit idle.
+1. **MECHANISM BUILT 2026-09-06 ~09:3x (no training spend, code +
+   tests only — the semantics bank is still owed, see below, so no
+   launch yet).** Rung 2's "anneal the anchor smoothly to zero only
+   after deterministic walking passes" needed a genuinely new
+   mechanism (a gate-triggered anneal, not a fixed coefficient or a
+   plain step-count schedule — a step-count-only anneal would repeat
+   rung 1's exact failure of dropping the anchor before the RL side
+   has anything to fall back on). Built, default-OFF, bit-exact when
+   off:
+   - `walkcurr_cert.IGNITION_GATE` / `ignition_gate_pass()`: a pure
+     function pinning the curriculum doc's own named ignition
+     criteria (no falls, six-leg participation via
+     `contact_sw_per_s`/`foot_sw_min_per_s`, `cmd_prog_frac>=0.35`) —
+     deliberately LOOSER than `WALKCURR_GATE`/`walkcurr_bucket_pass`
+     (slip/roll/cross-track/direction are recorded, not gated, at
+     ignition per the doc). 4 new unit tests
+     (`test_walk_curriculum.py`), including one that explicitly checks
+     ignition passes a sloppy-but-walking row `WALKCURR_GATE` would
+     reject.
+   - `bc_anchor.bc_anchor_anneal_value()`: a pure scheduler — holds
+     the coefficient at its initial ("strong") value until a
+     `pass_step` is latched (None = never yet, matching "initially"),
+     then linearly ramps to 0 over `train.bc_anchor_anneal_steps`,
+     then holds at 0. 4 new unit tests (holds pre-pass at any step
+     magnitude, linear ramp arithmetic, holds at 0 post-ramp,
+     monotonic non-increasing).
+   - `attach_bc_anchor()` now reads
+     `train.bc_anchor_anneal_gate/_steps/_check_every/
+     _assay_episodes/_min_progress` (all inert unless
+     `bc_anchor_anneal_gate>0`, which itself requires
+     `bc_anchor_coef>0` — fails closed if there is nothing to anneal).
+     3 new unit tests (default-off wiring, positive-coef requirement,
+     cfg knobs round-trip).
+   - `train_ppo_mjx.py`: a new `_BcAnchorAnnealGateCb`
+     (gated on `model.bc_anneal_gate`, independent of
+     `--walk-curriculum` — rung 2's launch cfg is a single fixed
+     forward command, not a bucket ladder) that periodically builds a
+     dedicated deterministic MJX assay env (same construction pattern
+     as the walk-curriculum cert loop's own `_MjxWalkCurrCert._build`/
+     `_assay`, `goal.walk_probe=1.0`, no bucket forcing), runs
+     `train.bc_anchor_anneal_assay_episodes` det episodes, aggregates
+     via the existing `aggregate_walk_probe`, and on the FIRST round
+     that clears `ignition_gate_pass` latches that step and starts
+     overwriting live `model.bc_coef` via `bc_anchor_anneal_value`
+     every rollout start. Latching is permanent (a later regressed
+     assay never re-arms the anchor). Import-checked
+     (`python -c "import rl_move.sim.train_ppo_mjx"`), no dry-run
+     harness exists to exercise the callback itself without spending
+     GPU steps — that first real exercise is the eventual rung-2
+     canary launch below, not this cycle.
+   - Tests: `uv run pytest rl_move/tests/test_bc_anchor.py
+     rl_move/tests/test_walk_curriculum.py rl_move/tests/
+     test_walkcurr_mjx.py` — 191+19 = 210 passed, 0 failed (14 new
+     tests added by this change).
+   - Snapshot: see RL_LOG for the commit/tag.
+   **Still owed before ANY rung-2 launch** (per the doc's own process
+   requirement, unchanged by the mechanism build above): the full
+   intermediate-state semantics bank (weight shift, one useful lift,
+   one forward placement, one support transition, two steps then
+   fall, static stand, clean gait) — an ordering check (à la
+   `ASSISTFADE_RUNG1_OVERRIDES`/`assistfade_rung1_returns`) that the
+   rung-2 reward stack scores those seven synthetic
+   trajectories/action-sequences in the intended order under
+   `attach_bc_anchor`'s strong-then-annealing regime. This is the
+   next concrete piece of work (design the 7 synthetic states, reuse
+   the rise/hold bank's synthetic-pose-generation helpers where
+   possible since weight-shift/lift/placement look like posture-probe
+   variants; support-transition/two-steps-then-fall/clean-gait need a
+   rollout-based score like `ASSISTFADE_RUNG1`'s `_walk_rollout`) —
+   NOT a design question needing an operator answer, a build task for
+   whichever cycle picks this up next.
 2. Alternative if rung 2's design proves harder to bank than expected:
    rung 3 (bounded residuals around the scripted tripod with a fading
    reference) is the doc's other named retreat target and may have a

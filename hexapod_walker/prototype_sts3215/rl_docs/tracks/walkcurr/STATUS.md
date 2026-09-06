@@ -2,6 +2,89 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~05:3x this cycle (assigned `s1acq-abrupt-c1-acq1-cont40m`, `s1acq-irrfwd-c1`,
+  `s3acq-abrupt-c1-acq1-cont40m`): **3 verdicts (2 PASS, 1 ACQ FAIL) — the endurance
+  panel's 2nd data point diverges sharply from the 1st, isolating cleanliness margin
+  (not budget) as the real predictor; 1-arm ACQ-continuation refill.**
+  (1) `s1acq-abrupt-c1-acq1-cont40m` **PASS/HOLDS**: 2nd +40M helping (80M cumulative)
+  on the campaign's overall cleanest source reproduces its own 40M read EXACTLY
+  (23/24, same single transient leg-4 startjitter/det dip, 0 falls, reward still
+  rising). (2) `s1acq-irrfwd-c1` **CANARY PASS**: the irr-jitter axis forward-composed
+  onto s1acq transfers cleanly at 2M (22/24, leg-4 softening confined to walk/det
+  only, not chronic across modes) -- a 3rd base champion confirming compose-after-
+  transfer for this axis. Launched matched 40M ACQ continuation `s1acq-irrfwd-c1-
+  acq1` (train-0, VERIFIED RUNNING). (3) `s3acq-abrupt-c1-acq1-cont40m` **ACQ FAIL -
+  MECHANISM/ENTRENCHES**: the SAME 2nd +40M helping on the 2nd-cleanest source
+  (already showing a chronic leg-1 startjitter softening at its own first 40M read,
+  21/24) makes it WORSE, not better -- 80M aggregate drops to 16/24, `walk_startjitter/
+  det` collapsing to 1/6 with leg-1 duty chronically <=0.27 across every one of the 6
+  episodes in BOTH startjitter panels. **This is the key new finding**: endurance/
+  more-budget is not a universal lever -- it holds flat-to-improving on sources
+  already clean at 40M (s1acq, medhead) but actively deepens the entrenchment on a
+  source that was already trending that way (s3acq). Cleanliness margin above the
+  entrenchment threshold predicts the endurance outcome, not total steps trained.
+  Practical implication: no further cont40m endurance spend on any source whose 40M
+  read already shows a chronic single-leg pattern -- that budget belongs to a
+  structural per-leg-utilization repair instead (open design gap, unchanged).
+  Refill: fleet was fully saturated (11/11 reachable GPU pods busy, mostly the
+  ongoing single-lever DR-restoration sweep -- friction/kick/mass/push/contactstiff/
+  imubias/latency/deadband/torquefade/noise/velscale/cmddrop axes, 12+ arms now,
+  run concurrently by sibling cycles) for most of this cycle; when train-0 freed up
+  mid-cycle, launched `s1acq-irrfwd-c1-acq1` immediately. Also found the `medhead-
+  dr-gains1x-c1` arm (kp/kv per-servo gain-spread axis) had been REFUSED twice by
+  concurrent cycles racing the same free pod (not an error) -- queued it to
+  `backlog.json` so the self-repairing drain places it on the next free slot instead
+  of a 3rd manual race. SKILLS.md updated (3 new rows: 2 for the PASS/CANARY-PASS
+  pair, 1 dedicated row for the cleanliness-margin ACQ FAIL finding). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-{s1acq-abrupt-c1-acq1-
+  cont40m,s1acq-irrfwd-c1,s3acq-abrupt-c1-acq1-cont40m}`, matching `report.json`
+  files + frame strips, W&B `7i7dzujt`/`o3bapgqi`/`z1e7r91v`, RL_LOG 09-06 05:21-05:31.
+
+- 09-06 ~05:3x this cycle (assigned `medhead-ramp-irrfwd-c1-acq1`,
+  `headset-halfgrav-widenirr-c3-acq1`; `assistfade-rung1-bcinit-
+  taskonly-s2-cont8m` already verdicted by a concurrent cycle before
+  this one read it, matching read confirmed): **2/2 ACQ PASS,
+  discriminates the ramp-entrenchment open question, + a 9-arm DR-
+  hardening refill batch.** (1) `medhead-ramp-irrfwd-c1-acq1` ACQ
+  PASS: gait_valid 22/24, EXACT match to its own 2M canary's 22/24
+  structure (same non-chronic leg-5 flag pattern, unchanged), 0
+  falls, flat slip. This is the discriminating read the prior cycle
+  flagged: `medhead-ramp-widenfwd-c1-acq1` regressed mildly (18/24,
+  new leg-4 flag) while this sibling (same ramp-transfer method,
+  opposite composed axis) holds perfectly clean — REFUTES "ramp-
+  transfer itself carries elevated entrenchment risk" as a general
+  claim; the widenfwd regression reads as axis-specific or an n=1
+  seed blip, not a ramp-vs-abrupt structural effect. (2) `headset-
+  halfgrav-widenirr-c3-acq1` ACQ PASS: gait_valid 21/24 (mild degrade
+  from the 2M canary's 23/24, gate's own tolerance), 0 falls, no new
+  chronic leg, and course-tracking metrics (wrong_direction_frac,
+  course_err) the gate flagged for scrutiny actually IMPROVED vs
+  canary. Closes the widenirr halfgrav tie-break 2/3 seeds durable
+  (c1 PASS, c2b FAIL, c3 now PASS). SKILLS.md updated (2 new rows).
+  **Refill:** with 5+ GPU slots freed by a wave of 2M DR-probe
+  canaries finishing, launched a batch of previously-untested single-
+  axis DR-hardening probes off the campaign's most durable champion
+  (`medhead-abrupt-c1-acq1-cont40m`, 80M, 24/24 clean), matching the
+  established latency/deadband/torque/noise/mass template: this
+  cycle placed `medhead-dr-{velscale1x,contactstiff1x,cmddrop1x,
+  imubias1x}-c1` (vel_scale, contact_stiff_scale, cmd_drop_prob_max,
+  imu_bias_deg+imu_mount_deg — the last a BIAS/offset axis, distinct
+  from the already-tested NOISE/variance axes); a `gains1x` and a
+  `geom1x` attempt both got mechanically REFUSED as duplicates of
+  concurrent cycles' `gain1x-c1`/(geom1x placed on an already-taken
+  pod) — no wasted spend, confirms independent convergence on the
+  same next-lever list. Combined with concurrent cycles' own
+  `mass1x`/`friction1x`/`gain1x`/`push1x`/`kick1x` arms, this single-
+  axis DR battery now covers every explicitly-idealized realism axis
+  named in `guardrails.yaml` (mass/geometry/friction/compliance/
+  gravity/gains) plus sensor noise, sensor bias, actuator velocity
+  cap, and command-drop — read all of their reports next cycle before
+  deciding which axes need a real hardening-rung training budget.
+  Fleet fully saturated on exit (11/11 reachable pods busy). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-
+  ramp-irrfwd-c1-acq1 cw-walkscratch-easy0905-headset-halfgrav-
+  widenirr-c3-acq1`, `launch_run.py status`, RL_LOG 09-06 05:06/05:30.
+
 - 09-06 ~05:0x this cycle (assigned `medhead-ramp-widenfwd-c1-acq1`,
   `medhead-widenirr-c1`, `plainhead-abrupt-c1b-acq1`): **2 PASS, 1 FAIL
   (mild) — new medhead-ramp-vs-abrupt durability split found.**

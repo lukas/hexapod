@@ -1,0 +1,248 @@
+{
+  "analysis_method": "matched_midpoint_dwells_excluding_arrival_endpoint_v1",
+  "schema": "hexapod.sysid.per_window_provenance.v1",
+  "verified_inputs": [
+    {
+      "actual_sha256": "3e7a97a27711a0ac12cba3b061bd13ecb56bd7bc34a3145047882550ff3ad5c7",
+      "expected_sha256": "3e7a97a27711a0ac12cba3b061bd13ecb56bd7bc34a3145047882550ff3ad5c7",
+      "leg": "L2",
+      "matches": true,
+      "ordering": "forward",
+      "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1/hexapod_walker/prototype_sts3215/sysid/datasets/experiment_5cfb3c1c93414aa88e091190a9355642/forward/l2_trace.csv"
+    },
+    {
+      "actual_sha256": "2280577bcb940bb76c5c2c890b0938035d420334d51095eb400543b0ebb4d02d",
+      "expected_sha256": "2280577bcb940bb76c5c2c890b0938035d420334d51095eb400543b0ebb4d02d",
+      "leg": "L5",
+      "matches": true,
+      "ordering": "forward",
+      "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1/hexapod_walker/prototype_sts3215/sysid/datasets/experiment_5cfb3c1c93414aa88e091190a9355642/forward/l5_trace.csv"
+    },
+    {
+      "actual_sha256": "05a7b795367b66daeef4af17f0d6ec35f6136ce3f488b2dd2e492887ecf2ab82",
+      "expected_sha256": "05a7b795367b66daeef4af17f0d6ec35f6136ce3f488b2dd2e492887ecf2ab82",
+      "leg": "L2",
+      "matches": true,
+      "ordering": "reverse",
+      "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1/hexapod_walker/prototype_sts3215/sysid/datasets/experiment_5cfb3c1c93414aa88e091190a9355642/reverse/l2_trace.csv"
+    },
+    {
+      "actual_sha256": "7f17b864dcc8ae7f651f9bc2a16631f577f4565ea26bbc8ea8466440a400a91d",
+      "expected_sha256": "7f17b864dcc8ae7f651f9bc2a16631f577f4565ea26bbc8ea8466440a400a91d",
+      "leg": "L5",
+      "matches": true,
+      "ordering": "reverse",
+      "path": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1/hexapod_walker/prototype_sts3215/sysid/datasets/experiment_5cfb3c1c93414aa88e091190a9355642/reverse/l5_trace.csv"
+    }
+  ],
+  "windows": [
+    {
+      "L2": {
+        "hip": 0.4038,
+        "knee": 0.439
+      },
+      "L5": {
+        "hip": 0.884867,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        390,
+        420
+      ],
+      "l5_outbound_rows": [
+        310,
+        340
+      ],
+      "l5_overrun_adjacent": true,
+      "metrics": {
+        "hip_difference_deg": 0.48106699999999997,
+        "hip_ratio": 2.1913496780584447,
+        "knee_ratio": 1.0
+      },
+      "ordering": "forward",
+      "window_index": 0
+    },
+    {
+      "L2": {
+        "hip": 0.351,
+        "knee": 0.441933
+      },
+      "L5": {
+        "hip": 0.884867,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        550,
+        580
+      ],
+      "l5_outbound_rows": [
+        470,
+        500
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.533867,
+        "hip_ratio": 2.520988603988604,
+        "knee_ratio": 0.9933632473700764
+      },
+      "ordering": "forward",
+      "window_index": 1
+    },
+    {
+      "L2": {
+        "hip": 0.4918,
+        "knee": 0.439
+      },
+      "L5": {
+        "hip": 0.884867,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        1170,
+        1200
+      ],
+      "l5_outbound_rows": [
+        1090,
+        1120
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.39306699999999994,
+        "hip_ratio": 1.7992415616104105,
+        "knee_ratio": 1.0
+      },
+      "ordering": "forward",
+      "window_index": 2
+    },
+    {
+      "L2": {
+        "hip": 0.439,
+        "knee": 0.439
+      },
+      "L5": {
+        "hip": 0.881933,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        1330,
+        1360
+      ],
+      "l5_outbound_rows": [
+        1250,
+        1280
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.44293299999999997,
+        "hip_ratio": 2.0089589977220954,
+        "knee_ratio": 1.0
+      },
+      "ordering": "forward",
+      "window_index": 3
+    },
+    {
+      "L2": {
+        "hip": 0.433133,
+        "knee": 0.441933
+      },
+      "L5": {
+        "hip": 0.876067,
+        "knee": 0.527
+      },
+      "l5_inbound_rows": [
+        390,
+        420
+      ],
+      "l5_outbound_rows": [
+        310,
+        340
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.44293400000000005,
+        "hip_ratio": 2.0226281534771076,
+        "knee_ratio": 1.1924884541321874
+      },
+      "ordering": "reverse",
+      "window_index": 0
+    },
+    {
+      "L2": {
+        "hip": 0.439,
+        "knee": 0.441933
+      },
+      "L5": {
+        "hip": 0.873133,
+        "knee": 0.471267
+      },
+      "l5_inbound_rows": [
+        550,
+        580
+      ],
+      "l5_outbound_rows": [
+        470,
+        500
+      ],
+      "l5_overrun_adjacent": true,
+      "metrics": {
+        "hip_difference_deg": 0.43413300000000005,
+        "hip_ratio": 1.9889134396355355,
+        "knee_ratio": 1.0663765774449971
+      },
+      "ordering": "reverse",
+      "window_index": 1
+    },
+    {
+      "L2": {
+        "hip": 0.339267,
+        "knee": 0.515267
+      },
+      "L5": {
+        "hip": 0.796867,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        1170,
+        1200
+      ],
+      "l5_outbound_rows": [
+        1090,
+        1120
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.4576,
+        "hip_ratio": 2.3487901859007803,
+        "knee_ratio": 0.8519854754913472
+      },
+      "ordering": "reverse",
+      "window_index": 2
+    },
+    {
+      "L2": {
+        "hip": 0.521133,
+        "knee": 0.527
+      },
+      "L5": {
+        "hip": 0.881933,
+        "knee": 0.439
+      },
+      "l5_inbound_rows": [
+        1330,
+        1360
+      ],
+      "l5_outbound_rows": [
+        1250,
+        1280
+      ],
+      "l5_overrun_adjacent": false,
+      "metrics": {
+        "hip_difference_deg": 0.3608,
+        "hip_ratio": 1.6923376566058954,
+        "knee_ratio": 0.8330170777988615
+      },
+      "ordering": "reverse",
+      "window_index": 3
+    }
+  ]
+}

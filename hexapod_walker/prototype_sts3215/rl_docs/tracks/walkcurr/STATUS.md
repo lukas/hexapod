@@ -2,6 +2,34 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~07:0x this cycle (assigned: reap the pre-registered pending eval for
+  `medhead-dr-extpush1x-c1`, left genuinely computing by the prior cycle):
+  **CANARY PASS — closes the 2nd of the 2 extra (beyond guardrails.yaml's
+  named mass/geometry/friction/compliance/gravity/gains list) DR axes.**
+  Restoring nominal (0.3/episode) mid-STRIDE external push (a random-
+  direction horizontal shove fired later in the episode on a policy already
+  walking — distinct from the walk-takeoff `dr.walk_push_*` axis already
+  closed as `push1x`) on the campaign's most durable champion
+  (`medhead-abrupt-c1-acq1-cont40m`, 80M steps) holds majority: 22/24
+  gait_valid, 0 falls/terminations across all 24 episodes, the only 2
+  flagged episodes are single-episode non-repeating legs (leg5, leg0) — not
+  the campaign's recurring chronic leg[1,4] fingerprint. Both extra axes
+  (`actionnoise1x`, `extpush1x`) now PASS, joining the complete guardrails-
+  named axis sweep — every DR-realism axis this campaign registered has at
+  least one clean single-axis restore on the flagship champion. SKILLS.md
+  updated (1 new row). **Refill: none — fleet is 0/12 FREE this cycle**
+  (`launch_run.py status` / `capacity.py`: all 11 reachable pods BUSY on
+  in-flight ACQ/cont40m continuations from the prior 2 cycles'
+  cleanliness-margin batch + DR-axis-ACQ batch; `hexapod-mjx-train-6` is
+  CoreWeave-Pending on node scheduling, not assignable). Next open item once
+  capacity frees: `extpush1x` (like the other single-axis DR canaries) has
+  no ACQ (40M) durability read yet — candidate for the next DR-restore-axis
+  ACQ-continuation batch, alongside any DR axis still missing one. Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  extpush1x-c1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+  medhead_dr_extpush1x_c1_gate/report.json`, W&B `7rjjhtyv`, RL_LOG 09-06
+  07:07.
+
 - 09-06 ~06:3x-07:0x this cycle (assigned `medhead-dr-fault1x-c1`, `medhead-dr-gains1x-c1`,
   `medhead-dr-geom1x-c1`): **3/3 CANARY PASS — the LAST 3 single-axis DR-restore cells close
   clean, completing the axis sweep.** (1) `medhead-dr-gains1x-c1` (per-servo +-20%kp/+-25%kv

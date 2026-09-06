@@ -1492,3 +1492,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 05:41 walkcurr: widen2c3-abrupt-c2 CANARY FAIL confirms n=2/2 fragility (leg[1,4] startjitter fingerprint reproduces) -- closes widen2-c3 crossgrav lineage, seed noise ruled out. 
 - 09-06 05:41 walkcurr: widenirrc1-abrupt-c1-acq1-cont40m PASS/HOLDS -- 80M cumulative, 24/24 gait_valid (perfect), 0 falls, reward still rising -- 3rd source confirmed clean under a 2nd endurance helping. 
 - 09-06 05:41 walkcurr/infra: medhead-widenfwd-c2-deferartifacts science caveat CLOSED -- 23/24 gait_valid confirmed matching seed-1; ACQ continuation launched. 
+- 09-06 05:46 walkcurr: widen2c1-abrupt-c1-acq1-cont40m PASS/HOLDS (80M, 19/24 vs parent 20/24, same leg-1/[1,4]-pair pattern, 0 falls) -- 3rd endurance-panel PASS confirming cleanliness-margin-at-40M predicts cont40m outcome 

@@ -4778,10 +4778,67 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             pts = list(whist)[-1 - n_sway:]
                             x0_s, y0_s = pts[0][0], pts[0][1]
                             acc = 0.0
-                            for px, py, *_rest in pts:
-                                perp = ((px - x0_s) * uy_s
-                                        - (py - y0_s) * ux_s)
-                                acc += perp * perp
+                            arc_aware = float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_sway_arc_aware", default=0.0)) == 1.0
+                            if arc_aware:
+                                # Arc-aware sway (2026-09-06 fix,
+                                # OPERATOR_QUESTIONS 09-06 ~13:0x
+                                # audit): the legacy branch below
+                                # projects every sample against ONE
+                                # global chord direction (window
+                                # start->end of the COMMAND). That is
+                                # correct for a straight/near-straight
+                                # command but over-charges a
+                                # genuinely CURVING one -- an arc bows
+                                # away from its own chord even when
+                                # perfectly tracked (measured: the
+                                # tight-turn semantics-bank case
+                                # decomposed to
+                                # reward_walk_course_income=+165 vs
+                                # reward_walk_excess_sway=-1177 purely
+                                # from this artifact). Fix: build a
+                                # "shadow" reference path that starts
+                                # at the body's OWN window-start
+                                # position (x0_s, y0_s) and replays
+                                # the SAME per-tick reference
+                                # displacement the command integral
+                                # already accumulates (pts[i][2:4], the
+                                # whist cum columns) -- i.e. it curves
+                                # exactly like the command -- and
+                                # project each sample's deviation from
+                                # that shadow point onto the LOCAL
+                                # per-tick tangent (not the one global
+                                # chord direction), so an along-track
+                                # completion lag (already priced by
+                                # k_walk_course_income's speed_factor)
+                                # never leaks into this lateral-only
+                                # charge. Bit-exact-off: default 0.0
+                                # reproduces the legacy chord math
+                                # exactly (same branch below, unused
+                                # when arc_aware is False).
+                                cum0x, cum0y = pts[0][2], pts[0][3]
+                                ux_i, uy_i = ux_s, uy_s
+                                for idx in range(1, len(pts)):
+                                    px, py = pts[idx][0], pts[idx][1]
+                                    cx, cy = pts[idx][2], pts[idx][3]
+                                    pcx = pts[idx - 1][2]
+                                    pcy = pts[idx - 1][3]
+                                    dtx, dty = cx - pcx, cy - pcy
+                                    dlen = math.hypot(dtx, dty)
+                                    if dlen > 1e-9:
+                                        ux_i, uy_i = (dtx / dlen,
+                                                      dty / dlen)
+                                    rx = x0_s + (cx - cum0x)
+                                    ry = y0_s + (cy - cum0y)
+                                    ddx, ddy = px - rx, py - ry
+                                    perp = ddx * uy_i - ddy * ux_i
+                                    acc += perp * perp
+                            else:
+                                for px, py, *_rest in pts:
+                                    perp = ((px - x0_s) * uy_s
+                                            - (py - y0_s) * ux_s)
+                                    acc += perp * perp
                             rms_m = math.sqrt(acc / len(pts))
                             allow_m = max(float(cfg_get(
                                 self.cfg, "reward",

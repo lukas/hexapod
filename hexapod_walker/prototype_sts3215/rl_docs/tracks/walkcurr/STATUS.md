@@ -2,6 +2,79 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~13:1x this cycle (assigned `headset-halfgrav-irr2-acq1-cont40m`; gate eval was still
+  genuinely computing at spawn, polled it to completion on its own pod rather than launching a
+  duplicate or verdicting blind): **ACQ FAIL (HARDENING FAIL) — a 4th corroboration of the
+  reward-rises/one-leg-entrenches cont40m duration effect, this time on the halfgrav irr-timing
+  (2nd seed) composite.** The parent's own 40M ACQ PASS already carried a mild, non-chronic leg4
+  flag (5/24 episodes, scattered mostly in det modes); at 80M cumulative it consolidates: gait_valid
+  drops materially 19/24 -> 16/24, entirely via `walk_startjitter/sto` collapsing 5/6 -> 2/6, and
+  leg4 is now the flagged leg in 7 of 8 sacrificed episodes (duty_cycle[4] 0.01-0.10 in every
+  flagged episode vs 0.10-0.27 elsewhere) -- a genuine consolidation onto the SAME leg, not new
+  noise. 0 falls/terminations in all 24 episodes either side, slip/m stays in-band, reward keeps
+  rising every quarter (569.5/1055.8/1186.3/1291.7). This run's own pre-registered gate text names
+  exactly this shape ("a leg consolidates into a chronic sacrifice across most episodes") as FAIL
+  regardless of reward trend, and the campaign has now seen the identical fingerprint on 3 prior
+  siblings this cycle-window (`headset-base-acq1-cont40m`, `headset-base-s1c1-acq1-cont40m`,
+  `headset-halfgrav-medhead-acq1-cont40m`) -- read directly as a corroboration, no dig-in needed
+  (unlike the genuinely NEW-leg widen2-c3 fork earlier this window). Video (`walk_det_0/3`,
+  `walk_startjitter_sto_0/1/2`) confirms clean overall forward translation, no static/frozen pose,
+  no tipping -- the pathology is leg-specific, not whole-body. Champion for this lineage stays the
+  40M `headset-halfgrav-irr2-acq1` checkpoint (19/24, leg4 only a minor scattered flag), not this
+  continuation. SKILLS.md updated (1 new row). **No refill this cycle**: re-verified every QUEUE
+  AIM frontier item is unchanged from the ~11:45/~12:2x reads (item 4 still blocked on the
+  `allaxis-nokick-c1-acq1` DIG-IN, already flagged for the deep-model queue; per-axis DR-restore
+  stays STOPped; every clean composition-line ACQ_PASS source already has a cont40m in flight or
+  verdicted, confirmed by re-diffing the full ledger) -- launching a fresh arm here would be
+  slot-filling, not gap-closing. capacity.py read 11 free GPU slots + empty backlog at cycle end;
+  left idle deliberately (guardrail's "raw slot-filling with peripheral runs" is explicitly
+  forbidden, and every other track's STATUS confirms DONE/closed/already-dig-in-flagged, matching
+  a concurrent cycle's own ~11:45 finding an hour earlier). Read the c1-seed sibling
+  `headset-halfgrav-irr-acq1-cont40m` next once its own gate syncs, for a 2-seed generalization
+  check on whether this is composition-wide or this-seed-specific. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_halfgrav_irr2_acq1_cont40m_gate/report.json` vs
+  `..._irr2_acq1_gate/report.json`, W&B `pf38aqrx`, RL_LOG 09-06 13:12.
+
+- 09-06 ~13:1x this cycle (assigned `medhead-{irrwiden,widenirr}-c1-acq1-cont40m`): **2/2 HARDENING
+  PASS, BOTH IMPROVE on their own 40M parent (not just hold) — closes the composition-order
+  question for the irr+widen axis pair, and confirms every non-DR composition cont40m endurance
+  read is now exhausted (systematic ledger diff, see refill below).** Both cont40m reads (80M
+  cumulative) land at 24/24 gait_valid across all 4 panels, 0 falls/terminations in all 24
+  episodes EACH, sac=[] on every episode — each parent's own 2 flagged leg5 episodes (walk/det
+  ep3, walk/sto ep5) are now clean, and slip/m ranges tighten materially (irrwiden max 17.07->8.02,
+  widenirr max 8.86->5.59). Reward still rising every quarter both arms. Video-confirmed upright
+  six-leg cycling through heading changes on both (`walk_sto_0`/`walk_det_2` contact sheets). Both
+  gate evals took the FULL video-every=1 8-heading-panel budget (~35min wall clock, ~170min CPU
+  each, matching the pollreap precedent for this panel size) — genuinely computing the whole
+  triage window, confirmed via `kubectl exec ps`, not orphaned. SKILLS.md updated (1 new 2-row
+  entry). **Refill:** systematically diffed every walkcurr `-acq1` PASS against its `-acq1-cont40m`
+  sibling across the full `experiments.json` ledger (not just this campaign's own running prose)
+  and found ZERO non-DR composition ACQ_PASS sources still lacking a cont40m endurance read — the
+  composition-cont40m question this campaign has been running since ~09:0x is now provably
+  exhaustive, not just "no known remainder." The only remaining genuinely open item per QUEUE AIM
+  is item (4) (acquisition-milestone panel + contextual DONE-gate rungs on the full-realism
+  champion), which is NOT yet launch-ready this cycle: its designated champion
+  (`allaxiskickhalf-nocrutch1x-c1-acq1`, the crutch-OFF/kick-safe composite) has a cont40m read
+  still in flight elsewhere, and its crutch-ON sibling `allaxis-nokick-c1-acq1` (2 falls/24 at 40M
+  ACQ despite a clean 19/24 2M canary) sits DIG-IN flagged/unverdicted — the champion pick itself
+  is still unsettled. Instead launched a genuinely new, non-duplicate, well-motivated question this
+  unsettled state opens: **seed-reproducibility of the crutch-ON/kick-off composite's 2-fall
+  finding.** `allaxis-nokick-c1` (seed 2) CANARY PASSED cleanly at 2M (19/24, 0 falls) but its own
+  40M continuation fell 2/24 against the pre-registered 0-falls bar — is that seed-specific noise
+  or does the recipe itself carry per-seed fragility? Launched 2 fresh-seed 2M canaries of the
+  IDENTICAL recipe/init-from checkpoint (`allaxis-nokick-c1-s1` seed 3, `allaxis-nokick-c1-s2` seed
+  4 — n=3 total with the existing seed-2, per the operator's 08-22 seed-pass-rate batching
+  guidance), both VERIFIED RUNNING (train-2, sequential GPU slots — the first's `--defer-final-
+  artifacts` GPU process exits within ~3min of a 2M canary, immediately freeing the pod for the
+  second; both confirmed genuinely alive via their own CPU finalizer/eval processes, no collision).
+  This does not preempt or duplicate the concurrent dig-in's root-cause analysis of the existing
+  seed-2 run — it is an independent, cheap (4M steps total) reproducibility check that will inform
+  whether item (4)'s champion should be the crutch-ON or crutch-OFF composite once all 3 seeds'
+  ACQ-scale behavior is known. 2/4 launches, 4M/80M step budget used this cycle. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_{irrwiden,widenirr}_c1_acq1_
+  cont40m_gate/report.json` vs each parent's own `..._c1_acq1_gate/report.json`, W&B
+  `olwjwk51`/`ooz1h2dq`, `launch_run.py status`, RL_LOG 09-06 13:11-13:2x.
+
 - 09-06 ~12:2x this cycle (assigned `headset-base-acq1-cont40m`, `headset-crossgrav-medhead-
   ramp-c1-acq1-cont40m`, `headset-halfgrav-medhead-acq1-cont40m`): **3/3 verdicted — 1 HARDENING
   PASS (perfect), 2 HARDENING FAIL (1 confirms the closed base-family duration effect, 1 a mild

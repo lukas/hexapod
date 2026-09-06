@@ -5778,38 +5778,55 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     from .mjx_vec_env import MjxVecEnv
                     env = MjxVecEnv(env_cls, n_cert, **cert_kw)
-                # Goal-mix fix (2026-09-06, assistfade rung-2 NaN
-                # cmd_prog_frac dig-in): the main training venv's goal
-                # mix is set via a POST-CONSTRUCTION env_method call
-                # (see the `--goal-mix` handling a few hundred lines up
-                # in this same function — "needed because the sharded
-                # MJX vec env's env objects live in worker processes,
-                # where in-process attribute pokes can't reach", per
-                # goal_task.set_goal_mix's own docstring) — this assay
-                # env is built fresh here and NEVER received that call,
-                # so every assay episode silently drew from the env
-                # class's __init__ DEFAULT goal-type mixture (~70%
-                # walk / ~30% hold/lean/track/... per
-                # SimHexapodJointWalkEnv.__init__) instead of the
-                # run's actual --goal-mix (walk=1.0 on every rung-2
-                # recipe to date). Non-walk draws have no `.vx`
-                # trajectory, so `cmd_dist`/`cmd_prog_m` never
-                # accumulate and `cmd_prog_frac` reads nan for that
-                # episode — poisoning the round's plain-mean aggregate
-                # to nan REGARDLESS of falls (reproduced standalone,
-                # zero-action policy, 6/8 episodes nan with
-                # early_term_rate=0.0 before this fix; matches every
+                # PURE-WALK isolation fix (2026-09-06, assistfade
+                # rung-2 NaN cmd_prog_frac dig-in). This assay env is
+                # built fresh here and its goal generator was NEVER
+                # touched post-construction, so every assay episode
+                # silently drew from config.yaml's default goal-type
+                # mixture (goal.p_hold=0.10/p_lean=0.15/p_track=0.15/
+                # p_unload=0.20/p_raise=0.15/p_rise=0.35, PLUS this
+                # walk task's own p_walk=0.70 default — walk was only
+                # ~39% of draws, not the run's intended walk-only
+                # diet). Non-walk draws have no `.vx` trajectory, so
+                # `cmd_dist`/`cmd_prog_m` never accumulate and
+                # `cmd_prog_frac` reads nan for that episode —
+                # poisoning the round's plain-mean aggregate to nan
+                # REGARDLESS of falls (reproduced standalone,
+                # zero-action policy, 5-6/8 episodes nan with
+                # early_term_rate=0.0; matches every
                 # `[bc-anchor-anneal] gate check` log line across both
-                # `-reseed8m` seeds). Fix: force the SAME goal mix the
-                # run itself trains on, exactly mirroring the main
-                # venv's own post-construction set_goal_mix call above.
-                gm = _parse_goal_mix(args.goal_mix)
-                if gm and hasattr(env_cls, "set_goal_mix"):
-                    env.env_method("set_goal_mix", gm)
+                # `-reseed8m` seeds). NOTE: this run's own
+                # `--goal-mix walk=1.0` does NOT fix it either — that
+                # is a PARTIAL/ADDITIVE post-construction override
+                # (`set_goal_mix` only does `setattr(gen, "p_walk", v)`
+                # per mode given, never zeroing the rest), confirmed by
+                # a second standalone repro (still 5/8 nan after
+                # `set_goal_mix({"walk": 1.0})` alone) — only
+                # `goal.walk_pure=1`-style FULL isolation (zero every
+                # p_<mode>, then p_walk=1.0) actually guarantees a pure
+                # walk draw; this exact isolation loop is what
+                # eval_checkpoint.py's own per-mode forcing already
+                # does for the DR-0 gate (`for m in ALL_MODES: setattr
+                # (gen, f"p_{m}", 1.0 if m == mode else 0.0)`), and
+                # what `goal.walk_pure=1` does at construction time —
+                # neither applies here since the assay is built well
+                # after construction with no cfg override and no
+                # forcing call. This ignition gate is BY DESIGN always
+                # a pure-walk assay (rl_docs/tracks/assistfade/
+                # STATUS.md: "run only the first unproven rung"'s own
+                # ignition gate targets walking specifically), so
+                # forcing p_walk=1.0 unconditionally (independent of
+                # whatever the training run's own goal-mix dilution
+                # is) is the correct isolation, not a config knob.
+                from .eval_checkpoint import ALL_MODES as _ALL_GOAL_MODES
+                pure_walk_mix = {m: 0.0 for m in _ALL_GOAL_MODES}
+                pure_walk_mix["walk"] = 1.0
+                if hasattr(env_cls, "set_goal_mix"):
+                    env.env_method("set_goal_mix", pure_walk_mix)
                 print("[bc-anchor-anneal] deterministic MJX ignition "
                       f"assay ready: {n_cert} episodes, "
                       f"{impl or 'jax(default)'} backend, in-env walk "
-                      f"probe ON, goal_mix={gm or '(env default)'}")
+                      "probe ON, goal isolated to pure walk")
                 return env
 
             def _assay(self) -> dict:

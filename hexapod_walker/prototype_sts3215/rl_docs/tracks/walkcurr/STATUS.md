@@ -2,6 +2,78 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~10:1x this cycle (assigned `cmddrop1x-c1-acq1`; found+closed 5 idle orphans): **assigned
+  run left genuinely computing (0/1 verdicted this cycle), but closes QUEUE AIM frontier item (3)
+  (torque-crutch removal) via a found orphan, plus 4 mislabeled-budget ledger closures.** (1)
+  `cmddrop1x-c1-acq1`: gate harness confirmed genuinely computing on train-9 (`ps` live, ~20min in
+  of the usual 25-40min window at read time) -- backgrounded `pollreap`, left UNVERDICTED for the
+  next reader. (2) **Found+verdicted `torquefade1x-c1-acq1` (idle, unassigned, no ledger owner):
+  ACQ PASS** -- the campaign's hardest torque-crutch-removal dose (`dr.torque_scale=1.0`, the REAL
+  unassisted servo torque spec, zero assist margin) holds PERFECTLY at full 40M scale: 24/24
+  gait_valid all 4 panels, sac=[] every episode, 0 falls/terms. slip/m runs higher than the
+  crutched 1.5x/2x siblings (4.6-6.75 vs 3.x-5.x) with correspondingly shorter forward_dist, but
+  gait validity/stability are untouched. Frame strip confirms clean six-leg cycling. **Closes
+  QUEUE AIM item (3)** and satisfies the no-crutch half of item (4)'s precondition -- the composite
+  half (`allaxiskickhalf1x-c1-r2`) is still computing its own gate (confirmed live via `ps`,
+  backgrounded `pollreap`, ETA within the hour per the usual harness window). SKILLS.md updated.
+  (3) **Closed 4 mislabeled-budget duplicate orphans** (`extpush1x`/`fault1x`/`gains1x`/
+  `geom1x-c1-acq1`, all FINISHED, unverdicted): each silently landed at its source canary's 2M step
+  budget instead of a real 40M ACQ read (the same respec-steps-inheritance footgun documented
+  earlier this campaign) -- verdicted SUPERSEDED, pointing to each axis's already-PASSed plain `-c1`
+  canary for the equivalent information and its correctly-budgeted `-r2`/`-r3` relaunch (already
+  running/verdicted elsewhere) for the real ACQ read. Prevents 4 dangling FINISHED/unverdicted
+  ledger entries from masquerading as open work. (4) **Kicked one genuinely-idle orphan gate**
+  (`kick0225x-c1`, the dose bisection between kickhalf's clean 0.15 and kick1x's falling 0.3 --
+  finished training with NO eval ever started) via `podeval` on its own pod (train-4, alongside its
+  existing unrelated trainer+eval load -- GPU 0% util confirmed, CPU-only addition); backgrounded
+  `pollreap`. Also backgrounded `pollreap` for 2 more orphans found already genuinely computing
+  remotely with no local supervisor (`allaxiskickhalf1x-c1` non-r2, `imumount1x-c1`, `legmass1x-c1`
+  -- the last 2 are new DR axes, confirmed via a full `domain_rand.py` `RandRanges` field sweep to
+  be the LAST 2 fields with zero prior canary; every other field now has at least one PASS).
+  **Refill:** capacity.py showed 5 FREE slots (train-3/5/8/9/11) + empty backlog throughout, but
+  did NOT force a new launch: per-axis DR-restore funding is explicitly STOPped by this doc's own
+  QUEUE AIM (confirmed exhaustive -- no genuinely new axis remains per the field sweep above), and
+  every other frontier item (composite bisection, kick-dose ladder, the kick-safe+no-crutch
+  interaction probe `kickhalf-notorquecrutch-c1`) already has an arm genuinely in flight on another
+  pod (verified via direct `kubectl exec ps`+`nvidia-smi`, not just `capacity.py`'s trainer-only
+  view) -- launching another arm now would either duplicate an in-flight read or combine two
+  still-unresolved variables (composite x no-crutch) before either half's result is known. Nothing
+  new to fund without waiting on those genuinely-computing reads; not idle-with-empty-queue by
+  choice, blocked-on-in-flight-compute is a real reason, not a filler excuse. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_torquefade1x_c1_acq1_gate/
+  report.json`, W&B `11p0scan`, `launch_run.py status`/`capacity.py`, RL_LOG 09-06 10:1x-10:2x.
+
+- 09-06 ~10:0x this cycle (assigned `gains1x-c1-acq1-r2`, `groundtilt1x-c1-acq1`): **1/2 verdicted
+  (ACQ PASS, 9th/final single-axis DR-restore confirmation), 1/2 left genuinely computing (orphaned
+  gate harness, pollreap backgrounded); plus a 2-arm cont40m refill.** (1) `gains1x-c1-acq1-r2`
+  **ACQ PASS**: PERFECT 24/24 gait_valid across all 4 modes, 0 falls/terms, contact sheet clean
+  six-leg stance/gait, reward still rising every quarter (562->1181) -- confirms the corrected
+  (real 40M, not the r1 2M-step-bug budget) gains-spread axis is durable at ACQ scale, matching its
+  own 2M canary (23/24). Per this doc's own QUEUE AIM, this closes per-axis DR-restore confirmation
+  as an information source (9/9 funded axes now hold; every RandRanges field is covered by an
+  existing single-axis or bundle canary -- confirmed by cross-checking `domain_rand.py`'s full field
+  list against every launched `medhead-dr-*` arm name, no genuinely new axis remains). (2)
+  `groundtilt1x-c1-acq1`: training finished (40.37M steps) but its gate harness was found STILL
+  genuinely computing remotely on train-2 (`ps` confirmed a live `eval_checkpoint` process, no local
+  supervisor left since the pod was reassigned to a new training launch mid-eval) -- backgrounded
+  `pollreap`, left UNVERDICTED for the next reader. SKILLS.md updated (1 new entry). **Refill:**
+  per the QUEUE AIM's own STOP on further per-axis spend, and with the composite-realism/kick-dose/
+  torque-crutch frontier items all genuinely still in flight on other pods (no local report.json for
+  `allaxiskickhalf1x-c1-r2`, `kick0225x-c1`, `allaxis-nokick-c1`, `kickhalf-notorquecrutch-c1` at
+  read time -- not actionable), used the 5 free GPU slots for the next tier down: cont40m endurance
+  continuations on clean 40M ACQ PASS composition sources still lacking one, picking 2 that are
+  NOT superseded by a later seed/variant and span DIFFERENT gravity families (avoiding piling onto
+  the same already-well-tested halfgrav-widen/irr cluster): `headset-base-acq1-cont40m` (train-7,
+  the 1g base family's flagship heading-generalization champion's FIRST cont40m -- every prior
+  cont40m read has been a crossgrav/halfgrav source) and `headset-crossgrav-medhead-ramp-c1-acq1-
+  cont40m` (train-3, the gradual-ramp gravity-transfer root's FIRST cont40m -- its ABRUPT sibling
+  already confirmed clean at 80M, and ramp's own irrfwd/widenfwd children already got cont40m, but
+  the plain ramp root itself had not). Both VERIFIED RUNNING via `kubectl exec ps` (the ramp launch's
+  own foreground verification step raced my 120s tool timeout; confirmed live via direct `ps` then
+  corrected the ledger status by hand). 80M new GPU steps = the per-cycle cap. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_gains1x_c1_acq1_r2_gate/
+  report.json`, `launch_run.py status`, RL_LOG 09-06 10:0x.
+
 **QUEUE AIM (meta 2026-09-06 — refills read this before funding).** The single-axis DR-restore
 question is answered: ~22 axes canary-clean on the flagship champion, every funded single-axis ACQ
 read has PASSed (friction/mass/latency 24/24-class), every cont40m has held. STOP funding further

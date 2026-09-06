@@ -306,6 +306,42 @@ def test_missing_offline_checkout_never_restores_shared_engineering_lane(
     assert "codex-engineering-offline" not in started
 
 
+def test_start_does_not_block_workers_on_historical_transcript_backfill(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    backfills = []
+    started = []
+
+    class FakeThread:
+        def __init__(self, *, target, args=(), name, daemon):
+            self.name = name
+
+        def is_alive(self):
+            return False
+
+        def start(self):
+            started.append(self.name)
+
+    monkeypatch.setattr(
+        orchestrator,
+        "_finalize_all_transcripts",
+        lambda: backfills.append(True),
+    )
+    monkeypatch.setattr(codex_module.threading, "Thread", FakeThread)
+
+    orchestrator.start()
+
+    assert backfills == []
+    assert "codex-analysis-1" in started
+    assert "codex-advance" in started
+    assert "codex-reconcile" in started
+
+
 def test_hardware_worker_never_dispatches_offline_rl_outbox(
     tmp_path, monkeypatch
 ):

@@ -744,7 +744,10 @@ class CodexOrchestrator:
         self._cleanup_all_evidence_snapshots()
         self.store.recover_expired_codex_jobs()
         self.engineering.recover_expired()
-        self._finalize_all_transcripts()
+        # Historical transcript repair can involve remote log retrieval.  It
+        # belongs to the reconcile lane below, not the startup critical path:
+        # the scarce hardware worker must be able to claim the next physical
+        # experiment even while old archives are being backfilled.
         self.reconcile_evidence()
         if self.settings.codex_engineering:
             self.engineering.reconcile(self.settings.codex_engineering_max_attempts)

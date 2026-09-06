@@ -2,6 +2,39 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~05:4x-05:5x this cycle (assigned `medhead-dr-noise1x-c1`, `medhead-dr-
+  torquefade2x-c1`, `widen2c1-abrupt-c1-acq1-cont40m`): **3/3 PASS — 4th
+  endurance-panel confirmation + 2 clean single-axis DR-restoration
+  canaries, one PERFECT.** (1) `widen2c1-abrupt-c1-acq1-cont40m`
+  PASS/HOLDS: 2nd +40M helping (80M cumulative) reproduces its own 40M
+  read within noise (19/24 vs 20/24; both gated primary modes 6/6, 0
+  falls, reward still rising) — the pre-existing [1,4]-pair pattern
+  consolidates onto leg-1 alone in det plus one new isolated non-chronic
+  leg-5 sto miss, not a spread to an unrelated leg. 4th endurance-panel
+  source (after s1acq, medhead, widenirrc1) confirming the
+  cleanliness-margin-at-40M rule. (2) `medhead-dr-noise1x-c1` CANARY
+  PASS: 23/24, restoring nominal own-DR sensor noise (encoder/tilt/gyro)
+  on the 80M/24-24 champion costs almost nothing (1 non-chronic flag).
+  (3) `medhead-dr-torquefade2x-c1` CANARY PASS: a PERFECT 24/24 —
+  fading the fixed 3x torque/battery-assist crutch to 2x (the single
+  lever the DR-rung design note flagged as "the key open decision")
+  costs NOTHING. **Refill:** licensed a torque-fade dose-response probe
+  off the PERFECT result — launched `medhead-dr-torquefade1x-c1`
+  (train-3, VERIFIED RUNNING, `dr.torque_scale`->1.0, assist removed
+  entirely) and queued `medhead-dr-torquefade15x-c1` (`dr.torque_scale`
+  ->1.5) to `backlog.json` after 3 consecutive REFUSED races against
+  concurrent cycles' own DR-sweep expansion (fault1x/extpush1x/
+  startpose1x/zerobias1x/actionnoise1x all landed mid-cycle — fleet hit
+  11/11 saturated). Also relaunched `medhead-dr-geom1x-c1` (train-4,
+  VERIFIED RUNNING) — a prior REFUSED attempt's spec, unchanged, now on
+  a free pod — closing the last guardrails-named DR axis (mass/
+  geometry/friction/compliance/gravity/gains) with a live canary.
+  SKILLS.md updated (3 new rows). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-{widen2c1-abrupt-c1-acq1-
+  cont40m,medhead-dr-noise1x-c1,medhead-dr-torquefade2x-c1}`, matching
+  `report.json`/contact sheets, W&B `pvdwyhuv`/`zky69ilf`/`ky7yokg0`,
+  RL_LOG 09-06 05:46-05:48.
+
 - 09-06 ~05:4x this cycle (assigned `widen2c3-abrupt-c2`, `widenirrc1-abrupt-c1-acq1-cont40m`,
   `medhead-widenfwd-c2-deferartifacts`): **3 verdicts (1 FAIL confirming a closed
   question, 1 PASS/HOLDS, 1 infra-PASS science-caveat closed) + 3-arm ACQ refill.**

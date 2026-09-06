@@ -166,5 +166,17 @@
   "file": "logs/ckpt_eval/cw_assistfade_rung2_harden_speedband_s1_v2_gate/report.json",
   "label": "cw_assistfade_rung2_harden_speedband_s1_v2_gate",
   "added": "2026-09-06T14:53:06"
+ },
+ {
+  "pod": "hexapod-mjx-train-0",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_assistfade_rung3_residualfade_s0_stdslow_gate/report.json",
+  "label": "cw-assistfade-rung3-residualfade-s0-stdslow_gate",
+  "added": "2026-09-06T19:18:40"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_assistfade_rung3_residualfade_s1_stdslow_gate/report.json",
+  "label": "cw-assistfade-rung3-residualfade-s1-stdslow_gate",
+  "added": "2026-09-06T19:18:41"
  }
 ]

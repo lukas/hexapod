@@ -5458,3 +5458,20 @@ this audit touches) before attempting a 3rd same-mechanism training
 arm. Evidence: `rl_move/tests/test_course_income_semantics.py` diff
 (14/14 green), the period-sweep probe above (this note), `rl_docs/
 tracks/todaypolicy/STATUS.md`.
+
+## 2026-09-06 ~19:1x — assistfade rung 3 canary FAIL retry: schedule-decoupling fix, single lever (assume-and-go)
+Both rung-3 residual-fade canaries (`cw-assistfade-rung3-residualfade-{s0,s1}`) FAILED ignition
+2/2 via an identical root cause: `--log-std-anneal-frac=1.0` anneals log_std to its floor over the
+SAME 2M-step clock as the residual-blend anneal (`goal.walk_residual_blend` 0.05->1.0 over the
+first 1.4M steps), so exploration noise is squeezed to std~0.05 exactly as the policy loses
+reference authority, with zero recovery through the 0.6M-step settling window (per-tick
+`wandb_history.csv` evidence, both seeds identical). No operator ruling exists on how to schedule
+two independent in-training anneals against each other, so: assumed the best-reasoned single-lever
+retry is to widen `--log-std-anneal-frac` (here to 3.0, i.e. denom=6M steps vs the run's 2M, so std
+only gets ~1/3 of the way to its floor by budget end) rather than touching the blend schedule
+itself (already the mechanism under test) or the total budget (would confound with more data as
+well as more time). If `-stdslow` also fails the same way, the next assumed retreat is a
+later/slower blend `t1_steps` (extending the handover) or a longer total budget with unchanged
+relative fractions — not a second log-std-frac guess. Recorded here per the "assume-and-go, log it,
+keep moving" rule; encode as a durable finding if a 3rd rung-3 schedule iteration confirms which
+lever actually matters. See `rl_docs/tracks/assistfade/STATUS.md` 09-06 ~19:3x for full evidence.

@@ -2,6 +2,75 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~19:1x this cycle (orphan pickup — not this cycle's assigned
+  runs, an assistfade rung3-residualfade canary pair; picked this up
+  because the assigned pair was already fully triaged+refilled by a
+  concurrent cycle before this one started, so it wasn't
+  slot-filling): verdicted the item(4) `footslip-c1` gate the ~17:1x
+  entry below launched, which finished training+its own held-out gate
+  with no reader since.** **CANARY FAIL - MECHANISM**: the per-tick
+  `reward.k_foot_slip_tangent=35` charge does not move its own named
+  target metric — `env/walk_tangent_contact_vel_mean_m_s` sits flat at
+  0.159-0.161 m/s across the full 2M run (never trends toward the
+  0.015 m/s deadband), `env/walk_loadslip_ratio` WORSENS (6.28->7.0-
+  8.0), `env/height_err_mm` worsens (31->36mm), and
+  `rollout/ep_rew_mean` falls every quarter (-429/-781/-1241/-1657) —
+  **caveat checked after the ledger verdict was already written**:
+  `rollout/ep_len_mean` also climbs 110->475 over the same window
+  (fewer early over_current/tilt terminations), so PER-STEP reward
+  actually mildly IMPROVES (~-3.9/step Q1 -> ~-3.5/step Q4) — the
+  totals decline because episodes run ~4x longer while still paying
+  the same roughly-flat per-tick tangent charge, not because per-tick
+  behavior worsens. Read this as an ep_len confound, not a genuine
+  08-21-style collapse — the FAIL call rests on the gate's own
+  primary criterion (target metric never moves, held-out slip barely
+  moves), not the reward-trend framing. Fresh own-pod held-out gate (walk +
+  walk_startjitter, det+sto, n=24, DR-0): 0 falls, gait_valid 22/24
+  (same ballpark as the champion's own 22/24 baseline), slip/m med
+  4.85/4.67/4.65/5.29 across the 4 modes vs the 5.065 baseline — three
+  modes wiggle down only ~4-8%, one mode is WORSE — none clear the
+  gate's own "measurably lower, not another ~4% wiggle" bar. Contact
+  sheet shows continuous six-leg cycling, no belly-flop/crouch exploit
+  (`walk_contact_meaningful_feet` only mildly declines 3.06->2.80,
+  consistent with normal tripod alternation, not evasion) — this is
+  the pre-registered FAIL-STILL-STUCK branch, not FAIL-EXPLOIT. **This
+  closes reward-shaping-via-per-tick-tangent-charge for item(4)'s
+  slip-magnitude gap at this composite scale.** Per the gate's own
+  named resolution path the next step is EITHER a genuinely new
+  contact-independent structural mechanism (own design + semantics-
+  bank pass, not started this cycle — no cheap relaunch substitutes
+  for it, and the puzzling "charge active, target metric completely
+  flat" shape deserves a real design pass rather than another dose
+  tweak) OR accepting the champion's slip gap as this rung's hardening
+  boundary (the champion still clears 0 falls / clean six-leg gait /
+  passes every other contextual-gate dimension per the ~15:0x entry
+  below — only slip magnitude misses the joystick-band bar). Flagging
+  here rather than attempting a same-cycle redesign: not a trigger
+  for the DIG-IN model-tiering path (no gate/video disagreement, no
+  anomaly vs a named baseline, no fork decision pending — the gate's
+  own pre-written FAIL branch already resolves the read), just a
+  genuinely open design task for whichever cycle picks it up next.
+  Full board re-checked fresh this cycle: assistfade's own two
+  assigned runs (rung3-residualfade s0/s1) were ALREADY verdicted
+  CANARY FAIL - MECHANISM (schedule-collision root cause) and their
+  stdslow retries already launched (s0-stdslow finished training,
+  s1-stdslow still running on train-1) by a concurrent cycle before
+  this one started — confirmed via ledger/RL_LOG/`launch_run.py
+  status`, no duplicate work; joystick/amp/cpg closed/DONE, standwalk
+  blocked on design-thinking, todaypolicy has its own open non-
+  walkcurr bug already flagged for a different toucher. 10 of 11
+  reachable GPU pods free with an empty backlog at cycle end — left
+  idle deliberately: the one genuinely open lever (the contact-
+  independent slip-charge design) is real unscoped design work, not a
+  relaunchable arm, and every other track's frontier is DONE, blocked
+  on in-flight compute (s1-stdslow), or blocked on its own named
+  design gap. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_
+  cont40m_footslip_c1_gate/report.json`, `logs/experiments/cw-
+  walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+  nocrutch1x-c1-acq1-cont40m-footslip-c1/wandb_history.csv`, W&B
+  `itmvzmdh`, RL_LOG 09-06 19:14.
+
 - **09-06 ~17:1x this cycle (partial-refill; found the ~16:1x entry below's
   "launched the footslip-c1 canary" claim was never actually mechanically
   verified — no ledger entry existed, backlog was empty, and the PID the

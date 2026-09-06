@@ -2052,6 +2052,14 @@ class CodexOrchestrator:
         transcript_limit = max(
             64 * 1024, int(self.settings.codex_transcript_max_capture_bytes)
         )
+        # RLIMIT_FSIZE is inherited by every tool subprocess, including video
+        # recorders. Engineering artifacts need the evidence budget, while
+        # transcript finalization keeps its independent, smaller archive cap.
+        file_limit = (
+            max(transcript_limit, int(self.settings.codex_max_evidence_snapshot_bytes))
+            if role == "engineering"
+            else transcript_limit
+        )
         if prompt_bytes > transcript_limit:
             raise CodexRunError(
                 "Codex input prompt exceeds the configured transcript byte limit"
@@ -2193,7 +2201,7 @@ class CodexOrchestrator:
             "--timeout-seconds",
             str(timeout),
             "--max-file-bytes",
-            str(transcript_limit),
+            str(file_limit),
             "--",
             *command,
         ]

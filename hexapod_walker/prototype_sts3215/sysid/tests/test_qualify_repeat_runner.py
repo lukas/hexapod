@@ -38,7 +38,7 @@ def experiment():
     }
 
 
-def test_current_runner_fails_closed_on_unbound_guards():
+def test_legacy_plan_still_fails_closed_on_short_execution_timeout():
     report = qualify(experiment(), PROTO_DIR)
 
     assert report["qualified"] is False
@@ -48,7 +48,7 @@ def test_current_runner_fails_closed_on_unbound_guards():
     assert report["checks"]["parameter_schema"]["passed"] is True
     assert report["checks"]["executor_availability"]["passed"] is True
     assert report["checks"]["runtime_compatibility"]["passed"] is True
-    assert report["checks"]["camera_guard_binding"]["passed"] is False
+    assert report["checks"]["camera_guard_binding"]["passed"] is True
     assert report["checks"]["telemetry_guard_binding"]["passed"] is True
     assert report["checks"]["remote_abort_binding"]["passed"] is True
     assert report["checks"]["final_limp_binding"]["passed"] is True
@@ -64,7 +64,7 @@ def test_current_runner_fails_closed_on_unbound_guards():
         False,
         True,
         False,
-        False,
+        True,
     ]
     assert report["stop_condition_mapping"][0]["coverage"] == "partial"
     assert report["protocols"]["L2"]["moving_joints"] == [7, 8]
@@ -114,7 +114,7 @@ def test_robot_lab_top_level_tag_guard_shape_is_accepted():
 
     assert report["checks"]["parameter_schema"]["passed"] is True
     assert report["qualified"] is False
-    assert report["checks"]["camera_guard_binding"]["passed"] is False
+    assert report["checks"]["camera_guard_binding"]["passed"] is True
     assert report["checks"]["telemetry_guard_binding"]["passed"] is True
 
 
@@ -141,3 +141,46 @@ def test_missing_timeout_still_reports_required_bounded_duration():
     assert "requires an explicit timeout_seconds >= 312" in (
         report["duration_timeout_compatibility_result"]["detail"]
     )
+
+
+def test_requalification_uses_sealed_input_and_exact_protocol_hashes():
+    proposed = {
+        "id": "requalification",
+        "parameters": {
+            "task": "runner_compatibility_validation",
+            "simulation_only": True,
+            "robot_motion": False,
+            "command_hardware": False,
+            "timeout_seconds": 60,
+            "required_executor_class": "trusted_deterministic",
+            "checks": [
+                "parameter_schema", "executor_availability",
+                "runtime_compatibility", "camera_guard_binding",
+                "telemetry_guard_binding", "remote_abort_binding",
+                "final_limp_binding",
+            ],
+            "protocols": {
+                "L2": {"sha256": "c837cdec25d49a254ea7c288f30f68782155afb48e2f9fe6eac853b9fc0ab634", "ticks": 1560, "hz": 10.0},
+                "L5": {"sha256": "2343e7e471e4fbf3a33cbc0518c5d70cc82b7cf885440937b9e7cd4161a0cd6e", "ticks": 1560, "hz": 10.0},
+            },
+        },
+    }
+    sealed = experiment()
+    sealed["parameters"].pop("timeout_seconds")
+
+    report = qualify(proposed, PROTO_DIR, sealed)
+
+    assert report["qualified"] is True
+    assert report["executor_class"] == "trusted_deterministic"
+    assert report["duration_timeout_compatibility_result"]["passed"] is True
+    assert set(report["checks"]) == set(proposed["parameters"]["checks"])
+    assert all(item["passed"] for item in report["checks"].values())
+    assert report["protocols"]["L2"]["requested_values_match"] is True
+    assert report["fault_injections"]["stale_camera_timestamp"]["passed"] is True
+    assert report["fault_injections"]["tag_coverage_below_0.9"]["passed"] is True
+    assert set(report["fault_injections"]) == {
+        "stale_camera_timestamp", "tag_coverage_below_0.9",
+        "stale_state_timestamp", "incomplete_servo_sample",
+        "out_of_bounds_voltage", "remote_abort",
+    }
+    assert all(item["passed"] for item in report["fault_injections"].values())

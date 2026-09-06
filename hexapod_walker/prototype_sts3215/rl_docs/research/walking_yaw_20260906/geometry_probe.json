@@ -1,0 +1,212 @@
+[
+  {
+    "path": "hexapod_walker/prototype_sts3215/mesh_mujoco/hexapod_mesh_mjx.xml",
+    "xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+    "mujoco_version": "3.12.0",
+    "mass_kg": 4.8057300000000005,
+    "foot_chain": {
+      "femur_body_pos": [
+        0.0125,
+        -0.02565,
+        0.0384
+      ],
+      "tibia_body_pos": [
+        0.09,
+        0.0,
+        0.0
+      ],
+      "pad_body_pos": [
+        0.142,
+        0.02415,
+        0.0
+      ],
+      "site_pos": [
+        0.0035,
+        0.0,
+        0.0
+      ]
+    },
+    "derived": {
+      "coxa_m": 0.0125,
+      "femur_m": 0.09,
+      "tibia_to_site_m": 0.1455,
+      "net_tangent_m": -0.0014999999999999979,
+      "hip_rise_m": 0.0384
+    },
+    "regimes": [
+      {
+        "vx": 0.0,
+        "wz": 0.25,
+        "raw_same_neutral_error_max_mm": 0.22032395263103424,
+        "raw_xy_error_max_mm": 0.2193256717152194,
+        "raw_xy_per_leg_max_mm": [
+          0.21932560089652597,
+          0.21932563630588137,
+          0.2193256717152194,
+          0.21932560089652597,
+          0.21932563630589424,
+          0.21932567171518927
+        ],
+        "raw_error_velocity_max_mm_s": 3.151838052891722,
+        "legacy_se2_ik_same_displacement_error_max_mm": 2.665174292475004,
+        "exact_model_ik_error_max_mm": 1.5838319836915704e-13
+      },
+      {
+        "vx": 0.08,
+        "wz": 0.25,
+        "raw_same_neutral_error_max_mm": 0.7322137650736757,
+        "raw_xy_error_max_mm": 0.7293103175162782,
+        "raw_xy_per_leg_max_mm": [
+          0.3580653394856727,
+          0.2064341757795041,
+          0.3763095660033285,
+          0.7293103175162782,
+          0.6050299006056735,
+          0.2540983623845677
+        ],
+        "raw_error_velocity_max_mm_s": 5.658825551110719,
+        "legacy_se2_ik_same_displacement_error_max_mm": 7.75496794622194,
+        "exact_model_ik_error_max_mm": 1.6098617061892388e-13
+      },
+      {
+        "vx": 0.0,
+        "wz": -0.25,
+        "raw_same_neutral_error_max_mm": 0.2203239526310385,
+        "raw_xy_error_max_mm": 0.2193256717152194,
+        "raw_xy_per_leg_max_mm": [
+          0.21932560089652597,
+          0.21932563630585203,
+          0.2193256717152194,
+          0.2193256008964781,
+          0.2193256363058945,
+          0.21932567171515915
+        ],
+        "raw_error_velocity_max_mm_s": 3.151838052881946,
+        "legacy_se2_ik_same_displacement_error_max_mm": 2.665174292475004,
+        "exact_model_ik_error_max_mm": 1.6519313610414076e-13
+      },
+      {
+        "vx": 0.08,
+        "wz": -0.25,
+        "raw_same_neutral_error_max_mm": 0.7322137650736774,
+        "raw_xy_error_max_mm": 0.7293103175162782,
+        "raw_xy_per_leg_max_mm": [
+          0.7293103175162782,
+          0.6050299006056001,
+          0.254098362384576,
+          0.35806533948567626,
+          0.20643417577953302,
+          0.37630956600328025
+        ],
+        "raw_error_velocity_max_mm_s": 5.658825551117592,
+        "legacy_se2_ik_same_displacement_error_max_mm": 7.754967946221937,
+        "exact_model_ik_error_max_mm": 1.5095334037680655e-13
+      }
+    ]
+  },
+  {
+    "path": "hexapod_walker/prototype_sts3215/mesh_mujoco/hexapod_mesh.xml",
+    "xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+    "mujoco_version": "3.12.0",
+    "mass_kg": 4.8057300000000005,
+    "foot_chain": {
+      "femur_body_pos": [
+        0.0125,
+        -0.02565,
+        0.0384
+      ],
+      "tibia_body_pos": [
+        0.09,
+        0.0,
+        0.0
+      ],
+      "pad_body_pos": [
+        0.142,
+        0.02415,
+        0.0
+      ],
+      "site_pos": [
+        0.0035,
+        0.0,
+        0.0
+      ]
+    },
+    "derived": {
+      "coxa_m": 0.0125,
+      "femur_m": 0.09,
+      "tibia_to_site_m": 0.1455,
+      "net_tangent_m": -0.0014999999999999979,
+      "hip_rise_m": 0.0384
+    },
+    "regimes": [
+      {
+        "vx": 0.0,
+        "wz": 0.25,
+        "raw_same_neutral_error_max_mm": 0.22032395263103424,
+        "raw_xy_error_max_mm": 0.2193256717152194,
+        "raw_xy_per_leg_max_mm": [
+          0.21932560089652597,
+          0.21932563630588137,
+          0.2193256717152194,
+          0.21932560089652597,
+          0.21932563630589424,
+          0.21932567171518927
+        ],
+        "raw_error_velocity_max_mm_s": 3.151838052891722,
+        "legacy_se2_ik_same_displacement_error_max_mm": 2.665174292475004,
+        "exact_model_ik_error_max_mm": 1.5838319836915704e-13
+      },
+      {
+        "vx": 0.08,
+        "wz": 0.25,
+        "raw_same_neutral_error_max_mm": 0.7322137650736757,
+        "raw_xy_error_max_mm": 0.7293103175162782,
+        "raw_xy_per_leg_max_mm": [
+          0.3580653394856727,
+          0.2064341757795041,
+          0.3763095660033285,
+          0.7293103175162782,
+          0.6050299006056735,
+          0.2540983623845677
+        ],
+        "raw_error_velocity_max_mm_s": 5.658825551110719,
+        "legacy_se2_ik_same_displacement_error_max_mm": 7.75496794622194,
+        "exact_model_ik_error_max_mm": 1.6098617061892388e-13
+      },
+      {
+        "vx": 0.0,
+        "wz": -0.25,
+        "raw_same_neutral_error_max_mm": 0.2203239526310385,
+        "raw_xy_error_max_mm": 0.2193256717152194,
+        "raw_xy_per_leg_max_mm": [
+          0.21932560089652597,
+          0.21932563630585203,
+          0.2193256717152194,
+          0.2193256008964781,
+          0.2193256363058945,
+          0.21932567171515915
+        ],
+        "raw_error_velocity_max_mm_s": 3.151838052881946,
+        "legacy_se2_ik_same_displacement_error_max_mm": 2.665174292475004,
+        "exact_model_ik_error_max_mm": 1.6519313610414076e-13
+      },
+      {
+        "vx": 0.08,
+        "wz": -0.25,
+        "raw_same_neutral_error_max_mm": 0.7322137650736774,
+        "raw_xy_error_max_mm": 0.7293103175162782,
+        "raw_xy_per_leg_max_mm": [
+          0.7293103175162782,
+          0.6050299006056001,
+          0.254098362384576,
+          0.35806533948567626,
+          0.20643417577953302,
+          0.37630956600328025
+        ],
+        "raw_error_velocity_max_mm_s": 5.658825551117592,
+        "legacy_se2_ik_same_displacement_error_max_mm": 7.754967946221937,
+        "exact_model_ik_error_max_mm": 1.5095334037680655e-13
+      }
+    ]
+  }
+]

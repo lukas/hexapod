@@ -1043,6 +1043,31 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_s{1,3}acq_
   abrupt_c1_acq1_gate/report.json` vs each run's own `..._abrupt_c1_
   gate/` 2M canary, W&B `80g9tb6m`/`lp972djl`, RL_LOG 09-06 04:16.
+  UPDATE 09-06 ~04:4x: the medhead endurance question raised at ~04:1x
+  is now answered -- `medhead-abrupt-c1-acq1-cont40m` (2nd +40M
+  helping, 80M cumulative 1g steps on the campaign's cleanest lineage)
+  **PASSES/HOLDS**: `gait_valid` 24/24, actually BETTER than its own
+  40M parent's 23/24 (the parent's one transient leg-4 dip is gone), 0
+  falls, slip/progress flat-to-better on every panel. **Crossgrav
+  entrenchment risk is confirmed recipe/source-specific, not a
+  universal slow clock every transferred champion is on regardless of
+  budget** -- medhead specifically tolerates DOUBLE the budget that
+  entrenched `irracq1`/`irr2acq1`/`s3acq` with no degradation at all.
+  Its two forward-composed siblings independently corroborate:
+  `medhead-widenfwd-c1-acq1` ACQ PASS (21/24, mild non-chronic dip,
+  slip/progress mostly improved vs 2M canary) and `medhead-irrfwd-
+  c1-acq1` ACQ PASS (21/24, FLAT vs its own 22/24 canary -- same
+  leg-2/5 marginal softening at the same episode indices, not
+  worsening). medhead is now 5-for-5 across every 40M+ read attempted
+  on it (abrupt, abrupt-cont40m, widenfwd, irrfwd, plus the original
+  abrupt-c1-acq1) with zero entrenchment in any of them -- the
+  campaign's benchmark "this recipe just works" lineage, useful as a
+  counterpoint anchor once the flagged role-aware structural repair
+  mechanism (09-05 ~22:3x note above) gets built and needs a
+  known-clean control to validate against. Evidence: `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_{abrupt_c1_acq1_
+  cont40m,widenfwd_c1_acq1,irrfwd_c1_acq1}_gate/report.json`, W&B
+  `kfpu6ku1`/`thsloov1`/`naxsaxqj`, RL_LOG 09-06 04:38-04:39.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

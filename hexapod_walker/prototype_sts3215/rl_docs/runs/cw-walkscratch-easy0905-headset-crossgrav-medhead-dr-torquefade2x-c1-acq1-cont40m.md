@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T09:35:35+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade2x-c1-acq1
+
+**wandb_id**: dpdvz0ev
 
 **hypothesis**: Plain English: does the 2x torque-fade axis (dr.torque_scale=2,2, half the idealized 3x crutch) hold up over a SECOND 40M block (80M cumulative), the same endurance question already asked of friction1x/mass1x/widen2c1-irrfwd/widenirr-c3. Source is clean at 40M (24/24 gait_valid, 0 falls, sac=[] every episode, reward rising every quarter 874->1551->1637->1709).
 

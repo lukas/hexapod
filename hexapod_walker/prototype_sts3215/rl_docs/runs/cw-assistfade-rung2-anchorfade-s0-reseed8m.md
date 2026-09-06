@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T12:06:23+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 8000000
 
 **parent**: cw-assistfade-rung2-anchorfade-s0
+
+**wandb_id**: jekexee3
 
 **hypothesis**: The anchor-fade mechanism was deadlocked only by its own pinned assay, not by the policy: with a fresh assay seed each round (train.bc_anchor_anneal_assay_reseed=1, built after the cont8m root-cause) the 2M parent checkpoint -- which already passes the held-out ignition bar (det prog 0.36-0.52, 24/24 gait_valid, 0 falls) -- should latch the ignition gate within a few 500k-step rounds, anneal bc_coef 3->0 over 4M steps, and keep walking without the anchor. Same config/budget as cont8m otherwise; inits from the parent 2M checkpoint, NOT the degraded cont8m end (det prog fell to 0.30 under the stuck anchor).
 

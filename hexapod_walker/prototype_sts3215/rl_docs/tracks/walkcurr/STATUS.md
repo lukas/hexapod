@@ -2,6 +2,25 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~12:1x same cycle (orphan reap + hygiene, after the widen2-c3 dig-in below): **(1)
+  `headset-halfgrav-acq1-cont40m` HARDENING PASS — the foundational plain-halfgrav source holds
+  PERFECTLY at 80M** (gate had synced at 10:37 and sat unverdicted ~1.5h with a stale-RUNNING
+  ledger row — reaped per the kickhalf-notorquecrutch orphan precedent): 24/24 gait_valid, 0
+  falls, sac=[] every episode, per-leg duty min 0.13 / means 0.17-0.29 (no sub-threshold lazy
+  leg), slip med 2.2-2.5 (inside the <=2.9 teacher band — best slip of any cont40m to date), fwd
+  med ~3.1m, reward monotonic 257->478->509->534, video-confirmed clean six-leg cycling. Cleanest
+  hold in the endurance series (now 6 PASS / 2 FAIL) and the strongest single support for the
+  refined rule stated in the widen2-c3 FAIL below: both FAILs (s1acq-irrfwd, widen2-c3) had a
+  prior WATCH/known attractor; every no-prior-signal source has held. Plain halfgrav-acq1@80M
+  joins medhead/widenirr/irrwiden as a top halfgrav champion candidate. SKILLS.md updated (1 row).
+  **(2)** `medhead-dr-zerobiasframe1x-c1-acq1` closed SUPERSEDED (the 2M steps-bug respec; `-r2`
+  is the verdicted arm of record) — pure ledger hygiene, it was cluttering the triage table as
+  finished-unverdicted. **(3)** Drained the backlog (`halfgrav-irr-acq1-cont40m`, the queued
+  endurance arm whose parent DOES carry scattered leg4 flags — now a direct prospective test of
+  the refined fragility-signal rule: it predicts this one is at elevated FAIL risk). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_acq1_cont40m_gate/report.json`, W&B
+  `gd3g8ygn`/`s638szr8`, RL_LOG 09-06 12:10-12:11.
+
 - 09-06 ~12:0x this cycle (dig-in escalation on `headset-halfgrav-fullhead-widen2-c3-acq1-cont40m`,
   flagged-not-verdicted by a prior triage cycle): **HARDENING FAIL — the halfgrav family's FIRST
   cont40m break; the "halfgrav is clean" claim is hereby NARROWED to source-conditional, not

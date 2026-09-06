@@ -15,6 +15,50 @@ the 3x crutch; (4) once composite+no-crutch holds: the acquisition-milestone pan
 contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
 Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
 
+- 09-06 ~09:2x this cycle (assigned `zerobias1x-c1-acq1`; found+verdicted `allaxis1x-c1`): **1 ACQ
+  PASS (4th clean single-axis confirmation), 1 CANARY FAIL closing the QUEUE AIM's item (1).**
+  (1) `medhead-dr-zerobias1x-c1-acq1` **ACQ PASS**: 23/24 gait_valid (6/6/6/5 across the 4 panels),
+  0 falls/24, sac=[] in 23/24 (one non-chronic walk_startjitter/sto leg[0] flag), matching the 2M
+  canary's own PERFECT 24/24 -- joint-zero-calibration-bias realism is durable at 40M scale, not
+  just canary-clean. 4th individual-axis DR-restore ACQ confirmation (after friction1x/mass1x/
+  latency1x). (2) `medhead-dr-allaxis1x-c1` (the campaign's ~20-axis-at-once culmination canary,
+  found unverdicted/idle) **CANARY FAIL - MECHANISM**: 5/24 episodes terminate `tilt_roll` --
+  spread across all 4 panels, not confined to one mode -- despite `gait_valid` nominally staying
+  majority (23/24) and slip/m only moderately worse than single-axis siblings. `roll_peak_deg`
+  runs 16-33 across the set and the terminated episodes' own frame strips (`walk_det_3.png`) show
+  the body visibly tipping through the back half of the episode before the safety cutoff. This
+  directly confirms the gate's own pre-registered hypothesis: realism axes that are each
+  individually harmless in isolation compound/interact when stacked -- the SAME class of
+  composition regression already seen once at the pairwise scale (irr+widen). Closes QUEUE AIM
+  item (1)'s first half; do NOT fund an ACQ continuation of this exact all-axis-at-once composite.
+  The kick-safe bisection (`allaxiskickhalf1x-c1`, capping the one known-bad ingredient at its
+  proven-safe half dose) was already queued+launched by a concurrent/meta session before this
+  read landed -- read that before any further composite-realism launch. **Tooling incident (self-
+  correcting, no data lost beyond the immediate write):** mid-cycle, after fixing a shell-quoting
+  artifact (an unescaped backtick in a verdict string executed as a command substitution, emptying
+  one run-name reference) with a raw `json.load`/`json.dump` hand-edit of `experiments.json`, the
+  resulting reformatting diff looked alarmingly large and was reverted with `git checkout --
+  experiments.json` -- which, since concurrent cycles write this ledger continuously and it carries
+  real uncommitted state between snapshot commits, wiped the file back to the last snapshot
+  (~6 min stale), losing this cycle's own two just-written verdicts (nothing else, confirmed by
+  diffing the restored file against the last commit -- no evidence any *other* concurrent cycle's
+  write fell in that window). Both verdicts were immediately re-applied via the sanctioned
+  `launch_run.py update --set status=... --set verdict=...` path (never hand-edit
+  `experiments.json` again, not even to fix a typo -- always route through `update --set`).
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{zerobias1x_c1_
+  acq1,allaxis1x_c1}_gate/report.json`, W&B `r7b1feao`/`25i0uyfk`, RL_LOG 09-06 09:20/09:23.
+  **Refill:** checked all 11 reachable pods directly via `kubectl exec ps` (not just
+  `capacity.py`'s free-slot list, which only tracks `train_ppo_mjx` processes and misses live
+  `eval_checkpoint` load) -- every pod is genuinely busy, either training
+  (`allaxiskickhalf1x-c1-r2` just landed on train-8, `torquefade2x/torquefade15x-c1-acq1` on
+  train-5/train-0, the rest of the still-training list) or mid-gate-eval (`torquefade1x-c1-acq1`
+  on train-11, `zerobiasframe1x-c1-acq1`/`extpush1x-c1-acq1-r2` on train-10). No genuinely free
+  GPU capacity this cycle; backlog confirmed empty (`launch_run.py drain` -> "backlog empty"). Did
+  NOT force a launch onto a busy pod. The QUEUE AIM's remaining frontier items (kick-safe
+  composite bisection, no-crutch ACQ read) are already in flight from prior cycles; the next
+  actionable step (fund ONE composite ACQ, or compose no-crutch + composite) is genuinely blocked
+  on those in-flight reads, not on idle capacity.
+
 - 09-06 ~09:0x this cycle (assigned `halfgrav-widenirr-c3-acq1-cont40m`): **HARDENING PASS/HOLDS**
   -- first halfgrav-source cont40m endurance read (80M cumulative). `gait_valid` mildly degrades
   21/24 (own 40M) -> 19/24 (walk/det 4/6, walk/sto 4/6, walk_startjitter/det 5/6, walk_startjitter/

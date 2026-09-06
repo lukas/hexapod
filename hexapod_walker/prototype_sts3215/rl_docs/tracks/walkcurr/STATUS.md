@@ -2,6 +2,63 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:0x this cycle (assigned all 15 of: `headset-base-s0c1-{dgnoise,
+  noiseonly}-c1`, `headset-{base,halfgrav}-medhead2-acq1`,
+  `headset-crossgrav-irracq1-abrupt-c1` (+its own `-acq1`),
+  `headset-crossgrav-medhead-abrupt-c1-acq1`, `headset-crossgrav-
+  {widenirrc1,irrwidenc1}-abrupt-c1` (+ `irrwidenc1-ramp-c1`),
+  `headset-halfgrav-irrwiden-c2`, `headset-crossgrav-medhead-ramp-c1-acq1`,
+  `headset-crossgrav-irr2acq1-abrupt-c1`, `headset-crossgrav-medhead-
+  {widenfwd,irrfwd}-c1`): **zero re-triage needed — cross-checked every one
+  against the ledger `status` field and found ALL 15 already fully
+  verdicted (PASS/FAIL/ACQ_PASS/ACQ_FAIL/CANARY_FAIL), SKILLS-updated, and
+  STATUS-narrated by concurrent cycles between 09-05 ~19:2x and 09-06 ~03:3x
+  (this file's own entries above/below, matching the exact run names)
+  before this cycle even spawned.** The one apparent loose end
+  (`headset-halfgrav-medhead2-acq1`, ledger status `CONTINUE`) also already
+  had its full lifecycle closed: its `-cont40m` extension ACQ FAILed at
+  09-05 ~21:5x (RL_LOG "21:54 ... ACQ FAIL: walk/det improved 4/6->5/6 but
+  walk_startjitter/det plateaued at 2/6 through 80M total... halfgrav
+  medhead2 seed n=2 reads MIXED"). No duplicate verdicts recorded.
+  **Capacity check found 4 GPU pods genuinely idle (train-0/1/2/7,
+  confirmed via direct `kubectl exec ps aux`, no `train_ppo_mjx` process on
+  any) with an empty backlog** — freed as `cw-assistfade-rung1-bcinit-
+  taskonly-s1-cont8m` (assistfade track) and 3 campaign runs finished
+  mid-cycle on those exact pods. **Refill (4 arms, one dimension —
+  endurance/entrenchment-risk-with-budget — across the 4 untested-for-
+  entrenchment healthy crossgrav ACQ-PASS champions):** the 09-06 ~03:1x
+  finding (`irracq1-abrupt-c1-acq1` ACQ FAIL via late leg[1,4] entrenchment
+  despite a clean 2M canary and rising reward) only had ONE endurance
+  cont40m check in flight so far (`medhead-abrupt-c1-acq1-cont40m`,
+  launched by a concurrent cycle, still running). This refill completes a
+  5-recipe endurance panel spanning the full cleanliness range of
+  ACQ-PASSed crossgrav champions: (1)
+  `headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m` (heading-widen
+  composite, 20/24), (2)
+  `headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m` (widen-then-irr
+  composite, the cleanest ACQ result at 22/24 with zero slip outliers), (3)
+  `headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m` (the campaign's OVERALL
+  cleanest crossgrav result, PERFECT 24/24, `sac=[]` every episode — the
+  strongest single test case), (4)
+  `headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m` (2nd-best halfgrav
+  source, 21/24). All 4 launched via `respec --init-from-source --steps
+  40000000 --phase hardening`; the launcher's own `--now` verification wait
+  timed out under my tool's 2-minute CLI limit on 2 of the 4
+  (`s1acq`/`s3acq` — the processes were confirmed genuinely alive and
+  training via direct `checkup` HEALTHY reads: fps 23301.7/11650.8, code
+  SHA matched, GPU busy), so their ledger `status` was corrected
+  INTENT->RUNNING via `update --set` using that same mechanical evidence
+  rather than left stale; `wandb_id` backfilled from each pod's own log
+  (`7i7dzujt`/`z1e7r91v`). If all 5 endurance checks (this 4 + the
+  concurrent medhead one) hold clean, that closes the "does more budget
+  ever repair/preserve a healthy champion" reading cleanly
+  negative-for-concern (crossgrav-transfer durability is real, not
+  provisional); any FAIL narrows to whether cleanliness/margin above the
+  entrenchment threshold predicts durability. Evidence: `rl_move/
+  orchestrator/experiments.json` ledger entries for all 15 assigned runs
+  (status + verdict text already populated), direct `kubectl exec ps aux`
+  on train-0/1/2/7, RL_LOG.
+
 - 09-06 ~03:5x this cycle (assigned `medhead-ramp-widenfwd-c1` /
   `widen2c2b-abrupt-c1-acq1`, both already verdicted+committed by a
   concurrent cycle before this one read them — no re-triage, no

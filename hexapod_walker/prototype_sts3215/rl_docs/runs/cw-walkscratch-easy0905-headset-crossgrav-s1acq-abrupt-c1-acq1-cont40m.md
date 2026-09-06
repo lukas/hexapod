@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:57:56+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1
+
+**wandb_id**: 7i7dzujt
 
 **hypothesis**: Plain English: same endurance question as the medhead/widen2c1/widenirrc1 cont40m siblings, run on the CAMPAIGN'S OVERALL CLEANEST crossgrav result (s1acq-abrupt-c1-acq1: PERFECT 24/24 gait_valid, sac=[] in literally every one of 24 episodes, 0 falls). If even this perfect champion entrenches given another 40M 1g steps, that clinches the universal-slow-clock reading regardless of source cleanliness; if it alone survives, cleanliness/margin above the entrenchment threshold is what matters, not recipe.
 

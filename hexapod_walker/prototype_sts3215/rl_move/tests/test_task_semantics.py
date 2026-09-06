@@ -11482,6 +11482,153 @@ def test_assistfade_rung2_falling_does_not_beat_clean_gait(
 
 
 # --------------------------------------------------------------------------
+# ASSISTFADE RUNG-3 bank — residual fade (EASIER_WALKING_CURRICULUM.md
+# item 3 / assistfade STATUS.md 09-06 ~18:1x recommendation: the rung-2
+# sway-vs-income DIG-IN closed ALIGNED, not misaligned, so the
+# licensed next step is rung 3's own new mechanism, not a same-rung
+# reward patch). This is an ENV-SIDE ACTION-SPACE mechanism (`goal.
+# walk_residual_gate` / `goal.walk_residual_blend`, `sim_env.py
+# _step_begin`), NOT a reward term — so unlike every other bank in
+# this file, it needs its own semantics proving the ACTION BLEND
+# itself behaves as designed, not a reward-income ordering. Reuses the
+# existing `_walk_rollout` "gait"/"stall"/"park" raw-policy helpers
+# (built for the bare-reward bank far above) as the RAW policy actions
+# fed into the new mechanism, rather than a new rollout harness.
+#
+# Mechanism (see `_step_begin`'s own docstring for the full
+# derivation): every WALK tick,
+#     applied = ref + blend * (raw_policy_action - ref)
+# where `ref` is the SAME command-conditioned scripted-TripodGait
+# target the WALK BC-anchor loss already uses (`self._walk_bc_gait`),
+# and `blend` is `goal.walk_residual_blend` in [0, 1]. blend=0 =>
+# applied IS the reference (raw policy has ZERO authority — even an
+# adversarial/refusing raw action still walks); blend=1 => applied IS
+# the raw policy action exactly (the reference algebraically cancels
+# out — mathematically identical to the gate being off). One tied
+# scalar covers BOTH halves of the curriculum doc's rung-3 description
+# ("increase residual authority" = the growing `blend*(raw-ref)` term;
+# "reduce reference amplitude" = the shrinking `(1-blend)` weight left
+# on `ref`) — an explicit assume-and-go simplification recorded in
+# OPERATOR_QUESTIONS.md rather than building two independently-
+# scheduled knobs. Meant to be driven by the existing generic
+# `sched.*` in-run engine (`sched.key=goal.walk_residual_blend`, low
+# v0 -> v1=1.0) so no new trainer-side ramp callback was needed.
+RUNG3_OVERRIDES_LOWBLEND = dict(ASSISTFADE_RUNG1_OVERRIDES)
+RUNG3_OVERRIDES_LOWBLEND[("goal", "walk_residual_gate")] = 1.0
+RUNG3_OVERRIDES_LOWBLEND[("goal", "walk_residual_blend")] = 0.05
+
+RUNG3_OVERRIDES_MIDBLEND = dict(ASSISTFADE_RUNG1_OVERRIDES)
+RUNG3_OVERRIDES_MIDBLEND[("goal", "walk_residual_gate")] = 1.0
+RUNG3_OVERRIDES_MIDBLEND[("goal", "walk_residual_blend")] = 0.5
+
+RUNG3_OVERRIDES_FULLBLEND = dict(ASSISTFADE_RUNG1_OVERRIDES)
+RUNG3_OVERRIDES_FULLBLEND[("goal", "walk_residual_gate")] = 1.0
+RUNG3_OVERRIDES_FULLBLEND[("goal", "walk_residual_blend")] = 1.0
+
+
+def test_assistfade_rung3_gate_default_off_is_bit_exact():
+    """The new cfg keys must default to the legacy no-op values (gate
+    off, blend=1.0 i.e. 'all raw policy' even in the hypothetical case
+    the gate were mistakenly left on) — every rung-1/rung-2 test above
+    already exercises the unmodified ASSISTFADE_RUNG1_OVERRIDES stack
+    as its own implicit control; this pins the literal defaults."""
+    from rl_move.config import cfg_get, load_config
+    cfg = load_config()
+    assert float(cfg_get(cfg, "goal", "walk_residual_gate",
+                         default=0.0)) == 0.0
+    assert float(cfg_get(cfg, "goal", "walk_residual_blend",
+                         default=1.0)) == 1.0
+
+
+def test_assistfade_rung3_full_blend_matches_gate_off():
+    """blend=1.0 must be numerically equivalent to the gate being off
+    entirely -- at blend=1.0 `_step_begin` skips the reference-blend
+    block outright (`if _res_blend < 1.0`), so this should be a tight
+    match, not just directionally similar. Checked on both a good
+    ("gait") and a bad ("park") raw policy so a mechanism bug that only
+    shows up on one code path (e.g. only under a non-trivial ref) is
+    not missed."""
+    with _mesh_family_env():
+        for policy in ("gait", "park"):
+            off = float(np.mean(
+                [_walk_rollout(policy, s,
+                               overrides=ASSISTFADE_RUNG1_OVERRIDES)
+                 for s in SEEDS]))
+            on = float(np.mean(
+                [_walk_rollout(policy, s,
+                               overrides=RUNG3_OVERRIDES_FULLBLEND)
+                 for s in SEEDS]))
+            assert on == pytest.approx(off, abs=0.5), (
+                f"'{policy}': blend=1.0 diverges from gate-off: on={on} "
+                f"off={off} -- the residual mechanism is not a clean "
+                f"pass-through at full authority.")
+
+
+def test_assistfade_rung3_low_blend_rescues_a_refusing_policy():
+    """The core structural claim of rung 3: at LOW blend, even a raw
+    policy that always refuses to step ('park' -- the worst-case
+    random-weight-init habit rung 1/2's own bank above prices against)
+    must still produce real walking income, because the reference
+    dominates the applied action regardless of what the policy
+    outputs. This is what makes rung 3 solve the ignition problem
+    STRUCTURALLY rather than through reward shaping alone -- an
+    untrained actor cannot get stuck refusing to move."""
+    with _mesh_family_env():
+        gait_ref = float(np.mean(
+            [_walk_rollout("gait", s, overrides=ASSISTFADE_RUNG1_OVERRIDES)
+             for s in SEEDS]))
+        park_off = float(np.mean(
+            [_walk_rollout("park", s, overrides=ASSISTFADE_RUNG1_OVERRIDES)
+             for s in SEEDS]))
+        park_lowblend = float(np.mean(
+            [_walk_rollout("park", s, overrides=RUNG3_OVERRIDES_LOWBLEND)
+             for s in SEEDS]))
+    assert park_lowblend > park_off + 0.7 * (gait_ref - park_off), (
+        f"low-blend residual gate does not rescue a refusing raw "
+        f"policy: park_off={park_off} park_lowblend={park_lowblend} "
+        f"gait_ref={gait_ref} -- the reference is not dominating the "
+        f"applied action at blend=0.05.")
+
+
+def test_assistfade_rung3_blend_monotonically_hands_over_authority():
+    """A refusing raw policy's income should get monotonically WORSE
+    as blend rises (more of its own bad behavior reaches the
+    actuators) -- the tied ref_scale/residual-authority formula must
+    trade off in the right direction across the whole [0, 1] range,
+    not just at the two endpoints the tests above pin."""
+    vals = {}
+    with _mesh_family_env():
+        for name, ov in (("low", RUNG3_OVERRIDES_LOWBLEND),
+                         ("mid", RUNG3_OVERRIDES_MIDBLEND),
+                         ("full", RUNG3_OVERRIDES_FULLBLEND)):
+            vals[name] = float(np.mean(
+                [_walk_rollout("park", s, overrides=ov) for s in SEEDS]))
+    assert vals["low"] > vals["mid"] > vals["full"] + 1.0, (
+        f"park income is not monotonically decreasing as blend rises: "
+        f"{vals}")
+
+
+def test_assistfade_rung3_low_blend_does_not_regress_a_good_policy():
+    """Symmetric check to the rescue test above: low blend must not
+    HURT an already-good raw policy either (the reference and the
+    genuine gait should closely agree in commanded direction/cadence,
+    so blending toward the reference should not meaningfully cost a
+    policy that is already walking correctly)."""
+    with _mesh_family_env():
+        gait_off = float(np.mean(
+            [_walk_rollout("gait", s, overrides=ASSISTFADE_RUNG1_OVERRIDES)
+             for s in SEEDS]))
+        gait_lowblend = float(np.mean(
+            [_walk_rollout("gait", s, overrides=RUNG3_OVERRIDES_LOWBLEND)
+             for s in SEEDS]))
+    assert gait_lowblend > 0.6 * gait_off, (
+        f"low blend badly regresses an already-correct raw policy: "
+        f"gait_off={gait_off} gait_lowblend={gait_lowblend} -- check "
+        f"the reference gait construction (stance/knee convention) "
+        f"against the bank's own teacher.")
+
+
+# --------------------------------------------------------------------------
 # ASSISTFADE harden-speedband: reward.walk_kernel_sigma_v_m_s (09-06,
 # escalation named by the `-lsd2` pair's own pre-registered gate:
 # "FAIL-STILL-IGNORES ... escalate to an explicit speed-tracking reward

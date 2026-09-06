@@ -1,5 +1,120 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-06 ~19:xx — RUNG 3 BUILT + BANKED + LAUNCHED (residual fade), per the ~18:1x recommendation below
+
+**Acted on the ~18:1x recommendation directly below** (retreat to
+rung 3 rather than a rung-2 reward patch). Rung 3
+(`EASIER_WALKING_CURRICULUM.md` item 3, "actor controls bounded
+residuals around the scripted tripod reference; progressively
+increase residual authority while reducing reference amplitude") is a
+genuinely new ACTION-SPACE mechanism, not a reward term, so it needed
+its own build + bank before any launch (RESEARCH_RULES).
+
+**Design (assume-and-go, `OPERATOR_QUESTIONS.md` 2026-09-06 ~19:xx):**
+the doc names two quantities (residual authority, reference
+amplitude); built ONE tied scalar instead of two independently
+scheduled knobs:
+
+    applied_action = ref + blend * (raw_policy_action - ref)
+
+`ref` is the same command-conditioned scripted-TripodGait target the
+WALK BC-anchor loss already uses (`self._walk_bc_gait`); `blend` is
+the new `goal.walk_residual_blend` in [0, 1] (`goal.walk_residual_
+gate` arms the mechanism, default 0 = bit-exact off). blend=0 =>
+applied IS the reference (residual authority zero — even an
+adversarial/refusing raw policy still walks); blend=1 => applied IS
+the raw policy action exactly (reference amplitude zero,
+mathematically identical to the gate being off). This is exactly an
+additive bounded residual (`ref + blend*(raw-ref)` = reference plus a
+residual capped at `blend` times the raw/ref gap), matching the doc's
+"bounded residual" language with one knob. Meant to be driven by the
+EXISTING generic in-run `sched.*` scheduler (`sched.key=goal.
+walk_residual_blend`) — no new trainer callback needed.
+
+**Implementation**: `rl_move/sim/sim_env.py` — `_walk_bc_gait`
+construction (both the fresh-reset and mode-switch sites) now also
+fires when `goal.walk_residual_gate>0` (previously gated only on
+`train.bc_anchor_coef>0`), and a new block at the top of
+`_step_begin` (before the safety filter, right after the existing
+sched-clock write so an annealed blend value is picked up the same
+tick it's written) computes `ref` from that gait object and applies
+the blend formula above. Only active on WALK ticks with a live
+teacher; never touches rise/hold/lower/getup. Both new cfg keys
+default to the legacy no-op (gate off / blend=1.0), so every existing
+run/test is bit-exact unaffected — confirmed by re-running
+`test_bc_anchor.py` (137/137 green, unchanged) since that suite shares
+the touched `_walk_bc_gait` construction code path.
+
+**Bank**: `test_task_semantics.py` `test_assistfade_rung3_*` (5 new
+tests, reusing the existing `_walk_rollout`/`ASSISTFADE_RUNG1_
+OVERRIDES` harness rather than a new one — this bank checks the
+ACTION BLEND itself, not a reward-income ordering). All 5 green.
+Measured values (mesh family, rung-1 base stack, 5-seed mean):
+
+| raw policy | gate off | blend=0.05 | blend=0.5 | blend=1.0 |
+|---|---|---|---|---|
+| "gait" (honest teacher) | 3720.2 | 4417.3 | 4180.9 | 3720.2 |
+| "park" (refusal) | -300.7 | 4395.0 | 3400.0 | -300.7 |
+
+blend=1.0 reproduces gate-off EXACTLY on both policies (pure pass-
+through confirmed, not just close); at blend=0.05 the refusing "park"
+raw policy is fully rescued to walking-level income (actually
+slightly ABOVE the bank's own "gait" teacher, since the internal
+`_walk_bc_gait` reference uses the corrected knee=100 robot_abs
+stance convention vs the bank's older knee=80 `WALK_PLANT`, a
+pre-existing convention difference, not a bug in this mechanism); mid
+values interpolate monotonically between the two endpoints for the
+refusing policy, confirming authority hands over in the right
+direction across the whole range.
+
+**Launched** (canary phase, mirrors rung 2's own first-canary recipe:
+2M steps, mesh/100Hz, episode-seconds 10, fixed-forward 0.06 m/s,
+n-envs 3072, seed 0/1, RANDOM actor-weight init — no `--init-from`):
+`cw-assistfade-rung3-residualfade-s0` / `-s1`. Schedule: `sched.key=
+goal.walk_residual_blend`, v0=0.05 -> v1=1.0 linearly over the first
+1.4M of the 2M-step budget (leaving a 0.6M-step settling window at
+full unassisted authority before the run ends, so the final
+checkpoint has actually trained under zero assistance, not just been
+evaluated under it for the first time). **Gate-reading note for the
+next reader (important, do not skip)**: unlike a reward-income read,
+this run's OWN saved cfg carries `goal.walk_residual_gate=1` +
+`sched.key=goal.walk_residual_blend` baked in — the held-out gate
+eval MUST override `goal.walk_residual_gate=0` (or at minimum drop
+`sched.key`/`walk_residual_blend` from the eval's `--cfg-set` list
+entirely) so the checkpoint is judged on its OWN unassisted policy
+output, not with the teacher still steering at eval-time tick~0
+(`sim_env.py`'s own scheduler docstring: eval-harness envs sit at
+tick~0 and read ~v0 for any scheduled key unless the eval invocation
+overrides it). `eval_checkpoint.py` loads `load_config()` defaults +
+explicit `--cfg-set`, so simply NOT copying `goal.walk_residual_*`/
+`sched.*` into the eval's cfg-set list is sufficient — do not copy
+them by habit from the training command.
+
+Gate (ignition, per curriculum doc, det+sto held-out, DR-0): sustained
+forward translation for the full episode, repeated alternating
+support transitions, all six legs participating (no permanently
+planted/unloaded leg), zero falls/safety terminations, progress_ratio
+>= 0.35. Slip/current recorded, not held to the joystick band yet.
+Prediction-if-true: the mechanism's structural walking-regardless-of-
+policy property (proven in the bank above) means ignition should be
+easier to clear than rung 2's own random-weight canary (which had to
+rely on a strong but ungrounded anchor LOSS coefficient); the settling
+window should mean the ignition gate is being judged on a policy that
+has genuinely practiced at full authority, not just inherited a good
+pose. Prediction-if-false: if the policy learns to "lean on" the
+reference during the assisted window and collapses once blend nears
+1.0 within the settling window (visible as reward/behavior degrading
+in the last ~0.5M steps of training), that argues t1_steps needs to
+be later (a longer/gentler handover) rather than the mechanism being
+wrong — check `env/reward_walk_*` trend across the anneal in
+`wandb_history.csv` before concluding either way.
+
+Evidence: `rl_move/sim/sim_env.py`, `rl_move/tests/
+test_task_semantics.py` (`test_assistfade_rung3_*`), `OPERATOR_
+QUESTIONS.md` 2026-09-06 ~19:xx, snapshot (this cycle, tag TBD by
+`snapshot.sh`), `ops.sh entry cw-assistfade-rung3-residualfade-s{0,1}`
+once running.
+
 ## 09-06 ~18:1x — DIG-IN RESOLVED: sway-vs-income root-caused with real per-tick evidence; ALL 4 rung-2 habituation-dose arms now closed; RECOMMENDATION = retreat to rung 3, not a stride-amplitude reward patch
 
 **Closes the "course_income/excess_sway near-cancellation" DIG-IN flagged

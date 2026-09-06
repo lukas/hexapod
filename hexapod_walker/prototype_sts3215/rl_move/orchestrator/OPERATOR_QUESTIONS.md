@@ -5329,6 +5329,68 @@ semantics.py` diff + 2 new tests (green), `rl_move/sim/walk_task.py`
 09-06 ~13:4x entry, ledger entry for `cw-robotwalk-turns-20260906-
 arcaware`.
 
+## 2026-09-06 ~19:xx — assistfade rung 3 ("residual fade") built as a single tied blend scalar instead of two independently-scheduled knobs (assume-and-go, executed)
+
+`EASIER_WALKING_CURRICULUM.md` item 3 describes rung 3 as: "actor
+controls bounded residuals around the scripted tripod reference;
+progressively increase residual authority while reducing reference
+amplitude." That is two quantities (a residual-authority bound and a
+reference-amplitude scale). Rather than build two independently
+scheduled cfg knobs (which the existing generic single-key `sched.*`
+in-run scheduler cannot drive at once without extending it), this
+cycle assumed the two are meant to move in lockstep and implemented
+ONE tied scalar `goal.walk_residual_blend` in [0, 1]:
+
+    applied_action = ref + blend * (raw_policy_action - ref)
+
+blend=0 => applied IS the reference (residual authority zero, full
+reference amplitude); blend=1 => applied IS the raw policy action
+exactly (reference amplitude zero, full residual authority) — this is
+mathematically an ADDITIVE bounded residual (`ref + blend*(raw-ref)`
+is exactly "reference plus a residual capped at `blend` times the
+raw/ref gap"), matching the doc's own "bounded residual" language,
+just parameterized by one knob instead of two. Implemented env-side
+in `sim_env.py::_step_begin` (gated `goal.walk_residual_gate`, default
+0 = bit-exact off), reusing the existing command-conditioned
+`_walk_bc_gait` TripodGait teacher (the same one the WALK BC-anchor
+loss already uses) as `ref`, and meant to be driven by the existing
+generic `sched.*` per-tick scheduler (`sched.key=goal.
+walk_residual_blend`, low v0 -> v1=1.0) rather than a new trainer
+callback.
+
+**Assumed answer (acting on it): tying the two knobs into one is an
+acceptable simplification of the curriculum doc's design**, not a
+deviation from its intent — both curriculum-doc properties hold by
+construction (residual authority strictly increases with blend;
+reference amplitude `(1-blend)` strictly decreases), and the bank
+(`test_assistfade_rung3_*`, `test_task_semantics.py`) measures the
+tied formula actually delivers the intended behavior at both
+endpoints and in between (blend=1.0 numerically matches the gate
+being off exactly on both a good and a bad raw policy; a refusing
+raw policy is fully rescued into real walking income at blend=0.05,
+regressed back to its own bad income at blend=1.0, monotonically
+in between). If a future cycle finds the tied formula insufficient
+(e.g. wants the reference to persist even at full residual authority,
+or wants residual authority to grow faster/slower than reference
+amplitude shrinks), the two can be split into independent `ref_scale`
+and `res_bound` cfg keys and TWO `sched.*` instances (the generic
+scheduler would need extending to support more than one key at once,
+or a second small per-mechanism scheduler mirroring the existing
+`_XxxRampCb` trainer-callback pattern already used for `walk_charge_
+ramp`/`drag_allow_ramp`/etc.) — flagged here rather than built
+speculatively (RESEARCH_RULES: build what the current question needs).
+
+Evidence: `rl_move/sim/sim_env.py` (`_step_begin`, `_walk_bc_gait`
+construction gates), `rl_move/tests/test_task_semantics.py`
+(`test_assistfade_rung3_*`, 5 new tests), measured values this cycle
+(mesh family, `ASSISTFADE_RUNG1_OVERRIDES` base stack): gait
+off=3720.2/full=3720.2 (exact match), park off=-300.7/full=-300.7
+(exact match), park low(blend=0.05)=4395.0/mid(0.5)=3400.0 (correctly
+between the two endpoints and, at low blend, clearly rescued above
+even the honest scripted-gait's own income). No GPU training spend
+yet — see `rl_docs/tracks/assistfade/STATUS.md` for the launched
+canary pair.
+
 ## 2026-09-06 ~17:3x — CLOSED the 2026-09-02 course_income_semantics recalibration debt; also found it does NOT explain the robotwalk-turns-arcaware training regression (research note, no operator action needed)
 
 **Closes the ~09-02 ~23:1x entry's own follow-up item (a)** ("retune

@@ -2409,10 +2409,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self._walk_bc_t = 0.0
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"
-                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
-                                  default=0.0)) > 0.0
-                and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
-                                  default=1.0)) > 0.0):
+                and ((float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                    default=0.0)) > 0.0
+                      and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
+                                       default=1.0)) > 0.0)
+                     # assistfade rung-3 residual fade (see _step_begin):
+                     # needs the SAME command-conditioned teacher gait
+                     # even with no BC loss at all (bc_anchor_coef=0).
+                     or float(cfg_get(self.cfg, "goal",
+                                      "walk_residual_gate",
+                                      default=0.0)) > 0.0)):
             self._walk_bc_gait = self._make_walk_bc_gait()
             if float(cfg_get(
                     self.cfg, "train", "bc_anchor_multiteacher_blend",
@@ -2646,6 +2652,59 @@ class SimHexapodBalanceEnv(_GymBase):
             for k in self._sched_path[:-1]:
                 node = node.setdefault(k, {})
             node[self._sched_path[-1]] = v
+        # Rung-3 assistance-removal ("residual fade", EASIER_WALKING_
+        # CURRICULUM.md item 3 / assistfade track): goal.walk_residual_
+        # gate>0 (default 0, bit-exact off) blends the raw policy
+        # action with the SAME command-conditioned scripted TripodGait
+        # reference the WALK BC-anchor target uses (self._walk_bc_gait,
+        # constructed whenever this gate OR bc_anchor_coef is on — see
+        # __init__/_reset_begin), via one tied scalar `goal.walk_
+        # residual_blend` in [0, 1]:
+        #     applied = ref + blend * (raw_action - ref)
+        # blend=0 => applied IS the reference: the raw policy has ZERO
+        # authority, so an untrained/adversarial actor still produces
+        # the reference gait (solves rung 3's ignition problem
+        # structurally, not via reward shaping). blend=1 => applied IS
+        # the raw policy action exactly (the reference cancels out —
+        # mathematically identical to this gate being off). This one
+        # scalar satisfies both halves of the curriculum doc's rung-3
+        # description ("increase residual authority" = the growing
+        # blend*(raw-ref) term; "reduce reference amplitude" = the
+        # shrinking (1-blend) weight left on ref) — an explicit
+        # assume-and-go simplification (OPERATOR_QUESTIONS.md) instead
+        # of two independently-scheduled knobs. `blend` is meant to be
+        # driven by the existing generic sched.* engine above
+        # (sched.key="goal.walk_residual_blend", v0 small -> v1=1.0)
+        # so no new trainer-side ramp callback is needed. Only active
+        # on WALK ticks with a live command-conditioned teacher — never
+        # touches rise/hold/lower/getup. Bank: test_assistfade_rung3_*
+        # (test_task_semantics.py).
+        if (float(cfg_get(self.cfg, "goal", "walk_residual_gate",
+                          default=0.0)) > 0.0
+                and getattr(self, "_walk_bc_gait", None) is not None
+                and getattr(self, "n_act", 0) == N_JOINTS):
+            _res_blend = float(np.clip(cfg_get(
+                self.cfg, "goal", "walk_residual_blend", default=1.0),
+                0.0, 1.0))
+            if _res_blend < 1.0:
+                _res_goal = self._current_goal()
+                if _res_goal is not None:
+                    from .joint_task import q_rad_to_action
+                    _res_g = self._walk_bc_gait
+                    _res_g.set_velocity(
+                        vx=float(_res_goal.vx_ref),
+                        vy=float(_res_goal.vy_ref),
+                        omega=float(getattr(_res_goal, "wz_ref", 0.0)
+                                    or 0.0))
+                    _res_ref = q_rad_to_action(
+                        np.asarray(_res_g.desired_deg(
+                            self._step_i * self.dt)) * DEG2RAD
+                        ).astype(np.float32)
+                    action = np.clip(
+                        _res_ref + _res_blend
+                        * (np.asarray(action, dtype=np.float32)
+                           - _res_ref),
+                        -1.0, 1.0)
         assert self._state is not None and self._profile is not None
         clipped, bad = self.safety.validate_action(action, n_act=self.n_act)
         pen = float(cfg_get(self.cfg, "reward",
@@ -3092,10 +3151,14 @@ class SimHexapodBalanceEnv(_GymBase):
         self._walk_bc_gait_alt = None
         self._walk_bc_t = 0.0
         if (mode == "walk"
-                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
-                                  default=0.0)) > 0.0
-                and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
-                                  default=1.0)) > 0.0):
+                and ((float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                    default=0.0)) > 0.0
+                      and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
+                                       default=1.0)) > 0.0)
+                     # assistfade rung-3 residual fade — see _step_begin.
+                     or float(cfg_get(self.cfg, "goal",
+                                      "walk_residual_gate",
+                                      default=0.0)) > 0.0)):
             self._walk_bc_gait = self._make_walk_bc_gait()
             if float(cfg_get(
                     self.cfg, "train", "bc_anchor_multiteacher_blend",

@@ -2,6 +2,37 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:1x-06:2x this cycle (assigned `medhead-dr-push1x-c1`, `widenirrc3-abrupt-c1-acq1`):
+  **2/2 PASS — the DONE ladder's own "push" axis clears at nominal dose, and the 2nd 8-way
+  heading-set ACQ seed holds clean but surfaces a reward/eval misalignment.** (1)
+  `medhead-dr-push1x-c1` CANARY PASS: restoring nominal (30%/episode) mid-walk base-torque
+  push on the champion costs a modest but majority-clearing amount (20/24, down from 24/24
+  push-off, scattered non-chronic sac across legs 0/2/4/5), 0 falls, reward rising every
+  quarter -- push-recovery is close to free, joining every other DR-restore axis. (2)
+  `widenirrc3-abrupt-c1-acq1` **ACQ PASS**: its own 2M canary's 23/24 clean gait_valid holds
+  EXACTLY at 40M (single non-chronic dip, different legs than the recurring leg[1,4]
+  fingerprint), 0 falls, tight track_err (4-6.6deg) in every episode -- but `ep_rew_mean` is
+  deeply negative and bimodal (-1082/-1559/-1414/-1154 quarters, per-episode returns swing
+  +1380 to -3406 with near-identical forward progress and healthy duty). Root cause: this is
+  the first ACQ-scale run of the widened 8-direction heading set (incl. backward/diagonals),
+  and the freeprog reward kernel evidently penalizes some heading directions heavily even
+  with accurate tracking -- a reward/eval misalignment (08-21 category), NOT a behavioral
+  failure. **Next:** the wide/backward heading-set reward gap needs a semantics-bank fix
+  (freeprog kernel should credit progress along the COMMANDED heading, not penalize
+  backward/diagonal commands) before further training is priced on this reward; not yet
+  built. This eval also needed a manual `kubectl cp` recovery after a transient websocket
+  drop mid-podeval (remote process kept running server-side; report.json was already
+  complete on the pod, just unsynced) -- no infra fix needed, self-healing via the run's own
+  completed remote artifact. **Refill:** found 2 prior single-axis DR canaries
+  (`medhead-dr-groundtilt1x-c1`, `medhead-dr-imupos1x-c1`) still PARKED/REFUSED from
+  repeated pod-race losses in earlier cycles; both relaunched and landed VERIFIED RUNNING
+  (train-0, train-1) alongside 2 concurrent cycles' own new axes (`gyrobias1x-c1`,
+  `zerobiasframe1x-c1`) and the pre-registered culmination arm `medhead-dr-allaxis1x-c1`
+  (all previously-PASSED axes composed simultaneously) that a concurrent cycle had queued
+  to the backlog -- drained it onto a free pod. SKILLS.md updated (2 new rows). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-{medhead-dr-push1x-c1,
+  widenirrc3-abrupt-c1-acq1}`, W&B `zuuyfqmt`/`6s59dh5w`, RL_LOG 09-06 06:12-06:26.
+
 - 09-06 ~06:2x this cycle (assigned `medhead-dr-gyronoise1x-c1`, `medhead-dr-kick1x-c1`,
   `medhead-dr-mass1x-c1`): **2 more clean DR-restore PASS + the FIRST FALL anywhere in the
   whole DR-restoration sweep.** (1) `medhead-dr-gyronoise1x-c1` CANARY PASS: nominal (1x,

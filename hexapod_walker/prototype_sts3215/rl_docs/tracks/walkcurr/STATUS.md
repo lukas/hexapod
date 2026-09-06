@@ -2,6 +2,41 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~02:1x this cycle, using idle fleet capacity (4+ free GPU slots,
+  empty backlog): launched a crossgrav test off `headset-halfgrav-acq1`
+  — the plain 3-way (0,+-45deg) heading champion that every medhead/
+  widen2/irr/composite descendant in this campaign builds from, and
+  the CLEANEST champion on record (`gait_valid` 24/24, 6/6 every mode,
+  never a sacrificed leg) — but never itself tested for cross-gravity-
+  transfer. Given this same cycle's own `irrwidenc1-abrupt-c1` finding
+  (transfer degradation CAN happen even from a clean 0.5g parent), this
+  fills the sweep's missing simplest-case baseline. **Tooling gotcha
+  (caught before losing signal, not after)**: the first launch attempt,
+  `...-plainhead-abrupt-c1`, respec'd `--from
+  headset-crossgrav-medhead-abrupt-c1` with `--parent headset-halfgrav-
+  acq1` — `--parent` only sets ledger lineage bookkeeping, it does NOT
+  repoint `--init-from`; the cloned `extra_args` silently kept the
+  TEMPLATE run's own `--init-from` (`..._headset_halfgrav_medhead_
+  acq1.zip`), so the launched process was actually warm-starting from
+  the ALREADY-TESTED medhead champion, not the intended untested
+  `halfgrav_acq1` champion. Caught via `kubectl exec ... ps aux` on the
+  literal launched command line before assuming success (per standing
+  practice), killed it within ~2 minutes of wall clock (0 real GPU
+  signal lost), logged `KILLED_LAUNCH_BUG` in the ledger, and
+  relaunched as `...-plainhead-abrupt-c1b` with an explicit
+  `--arg='--init-from=rl_move/sim/policies/ppo_goal_cw_walkscratch_
+  easy0905_headset_halfgrav_acq1.zip'` override — verified via the same
+  `ps aux` check that the correct checkpoint path is now in the actual
+  running command. **Gotcha for next respec, campaign-wide: `--parent`
+  is bookkeeping-only; always pass an explicit `--arg='--init-from=...'`
+  whenever the intended source checkpoint differs from the cloned
+  template's own.** VERIFIED RUNNING (train-1) — full ledger `verified`
+  timestamp pending as of this write, checked via direct pod
+  inspection instead of waiting on it. 2M discovery budget. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_acq1_gate/
+  report.json`, ledger entries for both `plainhead-abrupt-c1` (KILLED)
+  and `plainhead-abrupt-c1b` (RUNNING).
+
 - 09-06 ~02:1x this cycle (assigned `headset-crossgrav-medhead-abrupt-c1-acq1`,
   `headset-crossgrav-widenirrc1-abrupt-c1`, `headset-halfgrav-irrwiden-c2`): 3
   verdicts, all PASS. **`medhead-abrupt-c1-acq1` ACQ PASS is the headline

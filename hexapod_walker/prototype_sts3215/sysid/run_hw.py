@@ -1,10 +1,12 @@
 """Run a sysid protocol on the hexapod over HTTP and pull the trace.
 
-SAFETY: this tool moves the robot. It refuses without ``--go``, and the
-default posture for every standard protocol is *robot on a stand, feet
-off the ground, live camera and guarded runner watching*. No hand-posing is needed: the
-on-robot runner glides the legs to the protocol's start pose by itself
-(slow, trip-protected, pose-verified) before the experiment starts.
+SAFETY: this tool moves the robot. It refuses without ``--go`` and requires
+an advancing camera stream.  Use the physical setup documented by the exact
+protocol: the reviewed ``*_belly_rest_*`` protocols run with the chassis
+resting normally on its belly and the moving foot clear of the floor; the
+older ``*_air_*`` batteries require the robot suspended with every foot off
+the ground. No hand-posing is needed: the on-robot runner glides the legs to
+the protocol's start pose by itself (slow, trip-protected, pose-verified).
 Preflight is read-only; ``Ctrl-C`` (or ``--abort``) sends
 ``/api/rl/stop``, and the runner limps on any trip. Never run this
 outside an active campaign with standing guarded authority.
@@ -293,8 +295,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"posture: {doc.get('description', '(none)')}")
 
     if not args.go:
-        print("\nDRY RUN (no motion). Re-run with --go when the robot is "
-              "on the stand, feet off the ground, and you are watching.")
+        print("\nDRY RUN (no motion). Re-run with --go in the exact physical "
+              "setup documented by this protocol and with its camera stream "
+              "available. Belly-rest protocols do not require a stand.")
         return 0
 
     if not args.capture_vision:

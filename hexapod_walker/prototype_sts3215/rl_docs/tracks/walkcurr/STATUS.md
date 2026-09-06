@@ -83,6 +83,65 @@
   nocrutch1x-c1-acq1-cont40m-loadslip-c1/wandb_history.csv`, fresh
   `walkcurr_item4_{headingstress,speedpressure}` panels against the new checkpoint.
 
+- 09-06 ~15:1x this cycle (assigned: read the sto twins of the ~15:0x det diagnostic panels —
+  `..._headingstress_sto`/`..._speedpressure_sto` — which were still computing on-pod at that
+  reading). **STO CONFIRMS DET: same slip-only gap, plus one new minor finding — isolated
+  single-episode near-parked-leg blips under stochastic action noise that det never shows.**
+  Synced both `report.json`s + contact sheets from train-4 (same prestage-miss pattern as the det
+  pair). Each `_sto` report actually bundles all 4 panels (`walk/det`, `walk/sto`,
+  `walk_startjitter/det`, `walk_startjitter/sto`, n=6 each) — det halves are byte-identical to the
+  ~15:0x reading (same checkpoint, same command draws); filtered to the STO-ONLY halves (n=12,
+  `walk/sto`+`walk_startjitter/sto`) for a fair sto-vs-det comparison, same
+  `eval_joystick_gate.aggregate_gate` arithmetic (`--dir-err-metric windowed_1s`). **headingstress
+  sto**: 0/12 falls, gait_valid 11/12 (1 episode `walk/sto#5` flags leg 0, duty 0.01 — near-zero
+  but not the chronic multi-episode pattern the sde-family pathology needs), slip/m med 5.731 (vs
+  det's 6.527 same panel — sto slightly better, still 2x the 2.9 cap); **speedpressure sto**: 0/12
+  falls, gait_valid 11/12 (1 episode `walk_startjitter/sto#3` flags leg 0, duty 0.06), slip/m med
+  4.393 (vs det's 4.35 — flat). Formal gate on both: **FAIL** (`slip_ok:False`, `dir_ok:False`,
+  `gait_valid_all:False` — the sto-only n=12 read is the first of this campaign's panels to catch
+  a gait_valid miss on this exact champion, det never has). Read this correctly, not as a new
+  pathology: both flagged episodes are SINGLE, DIFFERENT-mode, low-duty-not-zero-duty, no
+  sibling episode in either panel repeats the flag — this is a stochastic-noise-induced brief
+  single-leg near-freeze, not the sde-family's chronic multi-episode structural leg-sacrifice
+  (CURRENT_TRUTHS' sde entries: duty pinned at exactly 0.0, every episode, same leg). Contact
+  sheets (both panels, all 10 sampled frames) show continuous six-leg cycling matching command
+  direction, no visible drag/skate/paddle-creep. **Net verdict unchanged from ~15:0x: the
+  champion's sole confirmed gap across BOTH det and sto, BOTH stress dimensions, is slip
+  magnitude** — the sto pass adds a minor calibration note (sto-mode gates should read n=12
+  sto-only, not det+sto pooled, to catch this class of rare blip) rather than a new failure axis.
+  No verdict change to the champion's own settled acquisition-milestone PASS. **The
+  `...-loadslip-c1` mechanism canary (this cycle's own assignment said "still training, leave
+  alone") FINISHED mid-cycle** (mechanical ledger checkup flipped it to FINISHED at its own 2M
+  budget while I was reading the sto panels above — not something I killed or preempted).
+  `wandbdump`'d its history (not yet auto-prestaged) and read the mechanism-health trend the
+  gate itself asks for: `env/walk_loadslip_ratio` is NOISY, not a clean downtrend (6.28 -> 7.88
+  -> 7.11 -> 6.87 across the 4 logged quarters — ends within noise of where it started, not
+  measurably lower); `env/walk_loadslip_factor` similarly bounces (0.42 -> 0.21 -> 0.27 -> 0.29);
+  `rollout/ep_rew_mean` DECLINES (-52.7/-51.6/-74.3/-132.6) but the walk-specific reward term
+  itself stays flat-to-slightly-rising (`env/reward_walk` 0.278/0.203/0.270/0.292) and — the
+  actually-decisive check per the gate's own FAIL clause — forward progress is NOT collapsing
+  (`env/walk_speed` 0.108->0.120->0.119->0.119 m/s, `env/v_along_cmd_m_s` tracks it, no
+  stall-basin recurrence). Net: ambiguous mechanism-health signal (no clean PASS trend, no
+  collapse either) — exactly the case the gate's own text says needs the fresh gate re-eval to
+  decide, not the wandb trend alone. Kicked that re-eval (`ops.sh podeval`, matched training-diet
+  cfg, on its own pod train-4 where the checkpoint already sits) — VERIFIED running remotely
+  (nohup, detached, confirmed via `ps aux` after my own local wrapper timed out — the remote job
+  is independent of that), registered via `evalpending` as
+  `..._loadslip_c1_gate`, left UNVERDICTED for the next reader (should compare its slip/m median
+  directly against this cycle's own 5.065 training-diet baseline per the gate's stated bar).
+  Refill: re-checked capacity (11/11 reachable GPU slots free, backlog empty) and every other
+  track's frontier (joystick/amp/cpg DONE, standwalk closed pending fresh design thinking,
+  todaypolicy delivered/Next closed, assistfade's own speedband hardening gate reads still
+  genuinely mid-compute on a concurrent cycle's pods per `pending_evals.json`) — walkcurr's own
+  remaining frontier (item(1) crutch-ON composite reproducibility) is already DIG-IN-flagged
+  for the deep-model cycle, and item(4)'s only open thread is now this loadslip-c1 gate read.
+  Nothing new to launch this cycle without duplicating claimed work; genuinely idle GPU capacity,
+  not idle-next-to-runnable-work. Evidence: `logs/ckpt_eval/ppo_goal_..._{headingstress,
+  speedpressure}_sto/{report.json,contact_sheet.png}`, `logs/experiments/cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-loadslip-c1/
+  wandb_history.csv`, `logs/ckpt_eval/walkcurr_item4_
+  {headingstress,speedpressure}_sto_contextualgate_full/gate_verdict.json`.
+
 - 09-06 ~14:4x this cycle (item(1) full-composite-realism fork, previously-flagged DIG-IN
   target, no assigned finish this cycle): **the `allaxis-nokick-c1` seed-reproducibility
   canaries settle the "seed lottery vs recipe-level fragility" question the ~13:34/~12:30

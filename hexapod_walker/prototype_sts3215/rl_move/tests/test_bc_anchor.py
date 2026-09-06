@@ -3505,6 +3505,30 @@ def test_attach_bc_anchor_wires_anneal_gate_defaults_off():
     assert model.bc_coef == 2.5
 
 
+def test_attach_bc_anchor_anneal_assay_reseed_defaults_off():
+    """train.bc_anchor_anneal_assay_reseed absent: reseed mode is OFF,
+    bit-exact with every pre-existing anneal-gate run (single pinned
+    assay seed 828282)."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=3.0,
+        cfg={"train": {"bc_anchor_anneal_gate": 1.0}},
+        task="joint_walk")
+    assert model.bc_anneal_assay_reseed is False
+
+
+def test_attach_bc_anchor_anneal_assay_reseed_reads_cfg():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=3.0,
+        cfg={"train": {"bc_anchor_anneal_gate": 1.0,
+                       "bc_anchor_anneal_assay_reseed": 1.0}},
+        task="joint_walk")
+    assert model.bc_anneal_assay_reseed is True
+
+
 def test_attach_bc_anchor_anneal_gate_requires_a_positive_coef():
     from rl_move.sim.bc_anchor import attach_bc_anchor
     model = _tiny_model()

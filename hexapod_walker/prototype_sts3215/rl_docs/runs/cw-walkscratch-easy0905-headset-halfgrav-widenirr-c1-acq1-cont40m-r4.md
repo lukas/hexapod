@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: SELF_KILLED_OVER_CAP
 
 **created**: 2026-09-06T12:10:17+00:00
 

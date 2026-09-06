@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~12:2x this cycle (assigned `headset-base-acq1-cont40m`, `headset-crossgrav-medhead-
+  ramp-c1-acq1-cont40m`, `headset-halfgrav-medhead-acq1-cont40m`): **3/3 verdicted — 1 HARDENING
+  PASS (perfect), 2 HARDENING FAIL (1 confirms the closed base-family duration effect, 1 a mild
+  new stochastic-mode fall) — plus a 2-arm refill of the cleanest still-unconfirmed halfgrav
+  composition sources.** (1) `headset-base-acq1-cont40m` **HARDENING FAIL**: the base(1g)
+  family's flagship own-first cont40m drops 18/24->14/24 — the chronic leg1/4 sacrifice, previously
+  confined to `walk_startjitter/det`, now ALSO invades the previously-perfect `walk/det` (6/6->3/6)
+  and `walk_startjitter/sto` degrades (6/6->4/6); reward still rises every quarter but the gate's
+  own chronic-leg-entrenchment clause is squarely met. Together with `headset-base-s1c1-acq1-
+  cont40m`'s identical fate this same cycle-window, this closes the base(1g) 40M+ HARDENING
+  question 3/3 (matching `s0c1` hardening solo) — downweight base(1g) 40M+ checkpoints from
+  champion contention in favor of the halfgrav sibling. (2) `headset-crossgrav-medhead-ramp-c1-
+  acq1-cont40m` **HARDENING PASS**: PERFECT 24/24 across all 4 panels at 80M cumulative, 0
+  falls/terms, sac=[] every episode — the gradual-ramp gravity-transfer root's first cont40m read,
+  cleanest possible result. (3) `headset-halfgrav-medhead-acq1-cont40m` **HARDENING FAIL (mild)**:
+  22/24->21/24, still majority and no new chronic leg, but `walk/sto/0` TERMINATES tilt_roll (a
+  genuine fall, roll_peak 31.9deg, 0 falls->1 fall) and `walk_startjitter/sto` regresses 6/6->4/6 —
+  trips the gate's own explicit "0 falls" / "not worse than 40M" bright lines even though the
+  aggregate stays healthy; treat the 40M `acq1` checkpoint, not this cont40m, as champion for this
+  line. SKILLS.md updated (1 new PASS row). **Refill:** cross-checked every `-acq1` checkpoint
+  against its `-acq1-cont40m` sibling and found 4 clean composition-line ACQ_PASS sources still
+  lacking a cont40m endurance read (per-axis DR arms correctly excluded per QUEUE AIM's own STOP):
+  `crossgrav-medhead-{irrwiden,widenirr}-c1-acq1` and `halfgrav-{irr,irr2}-acq1` — all 4 were
+  independently claimed and launched by a concurrent cycle moments before my own launch landed
+  (confirmed via `launch_run.py status`, no duplicate). Two more genuinely uncovered clean halfgrav
+  composition sources remained: `headset-halfgrav-widenirr-c1-acq1` (ACQ PASS 23/24, beats the
+  plain widen2 sibling) and `headset-halfgrav-fullhead-widen2-c1-acq1` (ACQ PASS 21/24, sibling
+  c2b already FAILED cont40m, c3 is mid-cont40m elsewhere) — launched both as true
+  `--init-from-source` continuations (`...-cont40m`, train-3/train-5, both VERIFIED RUNNING, 80M
+  new GPU steps = per-cycle cap). **Launch-tooling gotcha hit + fixed in-place**: `--init-from-
+  source` is a `launch_run.py respec` META-flag, not a forwarded training arg — passing it via
+  `--arg='--init-from-source'` ships it straight to `train_ppo_mjx.py`, which rejects it as
+  unrecognized (2 wasted attempts before catching this); a `self-repair` tar-sync race
+  ("file changed as we read it", transient under concurrent-cycle repo contention) and a pod-
+  collision (default free-pod picker raced a concurrent cycle onto the same pod) cost 2 more
+  retries — no GPU spend was wasted since none of the failed attempts reached a live remote
+  process; the correct final form passes `--init-from-source` as a bare respec flag with an
+  explicit `--pod`. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_{base_acq1,
+  crossgrav_medhead_ramp_c1_acq1,halfgrav_medhead_acq1}_cont40m_gate/report.json` vs each parent's
+  own `_gate/report.json`, W&B `kevdolja`/`jeigs5gn`/`frmzojxo`, `launch_run.py status`, RL_LOG
+  09-06 11:4x-12:2x.
+
 - 09-06 ~12:1x same cycle (orphan reap + hygiene, after the widen2-c3 dig-in below): **(1)
   `headset-halfgrav-acq1-cont40m` HARDENING PASS — the foundational plain-halfgrav source holds
   PERFECTLY at 80M** (gate had synced at 10:37 and sat unverdicted ~1.5h with a stale-RUNNING

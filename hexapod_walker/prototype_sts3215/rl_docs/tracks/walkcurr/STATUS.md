@@ -2,6 +2,65 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~03:1x this cycle (assigned `headset-crossgrav-irracq1-abrupt-c1-acq1`,
+  `headset-crossgrav-irrwidenc1-ramp-c1`): 2 verdicts, 1-arm refill (a 2nd
+  intended arm was found already launched by a concurrent cycle).
+  **`irracq1-abrupt-c1-acq1` ACQ FAIL - MECHANISM, the FIRST regression
+  in the crossgrav ACQ-scale confirmation set.** This champion's own
+  2M canary was clean (23/24 gait_valid, 0 falls) and training reward
+  rose throughout 40M (quarters 717->1359->1507->1635 -- the 08-21
+  rising-reward/bad-eval shape) but the leg[1,4] chronic-entrenchment
+  fingerprint the gate itself pre-registered as the FAIL branch
+  emerged anyway: aggregate `gait_valid` 14/24, `walk/det` regresses
+  6/6->4/6 (2 NEW formal leg-4 flags vs zero at canary), `walk_
+  startjitter/det` collapses 5/6->0/6 (one episode's leg-4 swing_count
+  =2/20s vs 91-239 every other leg -- near-frozen, not noise). 0
+  falls/terminations in all 24 episodes; video confirms genuine body
+  translation even in flagged episodes (a favoritism issue, not a
+  freeze/paddle). Per CURRENT_TRUTHS this reward-misalignment class
+  (base(1g) middle-leg-pair favoritism) is ALREADY CLOSED after 9
+  repair mechanisms with the established fix being STRUCTURAL, not
+  more training -- so this is read as a genuine FAIL, not an 08-21
+  "keep going" case (more training is what caused it). The 3 prior
+  ACQ-scale crossgrav siblings (medhead-abrupt/ramp, widen2c1) all
+  held clean walk/det 6/6 with only partial startjitter softening
+  (never a full 0/6 collapse) -- meaning a clean 2M canary does NOT
+  guarantee ACQ-scale durability, at least for this recipe/seed. This
+  reframes the campaign's "does cross-gravity-transfer generalize"
+  story: transfer clearly holds at CANARY scale (8+ confirmations) but
+  ACQ-scale durability is now an open question again. **`irrwidenc1-
+  ramp-c1` CANARY FAIL - INFORMATIVE-NEGATIVE**, closes gravity-ramp
+  as a repair lever for the jitter-first widen+irr composite: the
+  gradual ramp reproduces the abrupt sibling's own failure almost
+  exactly (aggregate `gait_valid` 19/24, `walk/det` 3/6 minority with
+  `sac=[4],[4],[3]`, `walk_startjitter/det` 4/6 with `sac=[1],[1]` --
+  matching the abrupt run's own 3/6 and 4/6 read at the SAME leg
+  pattern), 0 falls in all 24 episodes. Transition speed is now ruled
+  out as the causal variable for this composite (unlike medhead, where
+  both transition speeds PASSED equally cleanly); the causal question
+  narrows to composition order / reversal-heading commands. A few
+  episodes show slip_per_m 10-200x band from the already-documented
+  reversal-heading low-progress-denominator artifact (video-confirmed
+  balanced six-leg duty in the flagged episode), not a new defect.
+  **Refill:** intended to launch the natural n=2-seed check for the
+  composite (`crossgrav-irrwidenc2-abrupt-c1`, off the independently-
+  seeded healthy ACQ-PASS `headset-halfgrav-irrwiden-c2-acq1`
+  champion) but found a concurrent cycle had already launched exactly
+  this arm (REFUSED by the launcher, train-10, VERIFIED RUNNING) --
+  no duplicate spend. Instead launched `medhead-abrupt-c1-acq1-
+  cont40m` (+40M endurance continuation of the campaign's cleanest
+  ACQ-PASS champion, train-4, VERIFIED RUNNING) to test whether the
+  SAME late-entrenchment risk the irracq1 finding exposed applies to
+  ANY crossgrav champion given enough budget, or is recipe/seed-
+  specific -- read together with `irr2acq1-abrupt-c1-acq1` (2nd seed,
+  same recipe, in flight under another cycle) once both land, this
+  gives the seed-vs-recipe-vs-universal discriminator the finding
+  needs. CURRENT_TRUTHS updated (09-06 ~03:1x entry). Evidence: `ops.sh
+  review cw-walkscratch-easy0905-headset-crossgrav-{irracq1-abrupt-c1-
+  acq1,irrwidenc1-ramp-c1}`, `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_crossgrav_{irracq1_abrupt_c1_acq1,irrwidenc1_ramp_c1}_gate/
+  report.json`, W&B `4n0z9k3b`/`mkjeg5et`, RL_LOG.
+
 - 09-06 ~03:0x this cycle (assigned `headset-crossgrav-widen2c1-abrupt-c1-acq1`,
   `headset-crossgrav-widenirrc1-abrupt-c1-acq1`, `headset-halfgrav-irrwiden-c2-acq1`):
   3 verdicts, all **ACQ PASS**, 2-arm refill. Tooling note: all 3 gate

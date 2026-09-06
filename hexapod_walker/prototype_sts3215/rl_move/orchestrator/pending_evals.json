@@ -154,5 +154,11 @@
   "file": "/tmp/eval_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b.log",
   "label": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b",
   "added": "2026-09-05T22:19:57"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_abrupt_c1_gate/report.json",
+  "label": "cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1",
+  "added": "2026-09-06T01:37:07"
  }
 ]

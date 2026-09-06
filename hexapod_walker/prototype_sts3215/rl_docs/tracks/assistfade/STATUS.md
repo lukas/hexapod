@@ -89,11 +89,22 @@ changes/stops, yaw, then DR/pushes).
   override=-1.3` — std~0.27 at launch, roughly double `-lsd2`'s -2.0/
   std~0.135 — the one remaining untested single-axis lever: bigger
   exploration MAGNITUDE, not a reward-shape change). Both VERIFIED
-  RUNNING (train-0/train-1). If this ALSO reads flat, exploration
-  magnitude is closed too (3/3: zero-boost, -2.0, -1.3) and the next
-  cycle should escalate to a structural fix (a fresh non-phase-locked
-  init, or a genuinely new explicit stride-amplitude reward term)
-  rather than another log-std value. Evidence: `logs/ckpt_eval/
+  RUNNING (train-0/train-1). **Both finished training within this same
+  cycle** (fast: n-envs=3072 on an idle GPU, ~5-7 min wall time) —
+  `-s1-explore2` ran the full 8M budget clean (`canary/hold_a/b=1` at
+  the end); `-s0-explore2` AUTO-STOPPED early at 4.37M via its own
+  canary regression guard (`protected skill(s) ['hold'] failed 3
+  consecutive probes`) — the bigger std~0.27 noise may be destabilizing
+  the `hold` skill even though the target axis is walk speed-tracking,
+  a live FAIL-COLLAPSE candidate per this pair's own pre-registered
+  gate text, worth a close read once the held-out gate lands (kicked
+  `podeval` for both on their own pods this cycle, registered via
+  `evalpending`, left unverdicted for the next reader — do not
+  poll/sleep on it). If this ALSO reads flat on speed-covariance,
+  exploration magnitude is closed too (3/3: zero-boost, -2.0, -1.3)
+  and the next cycle should escalate to a structural fix (a fresh
+  non-phase-locked init, or a genuinely new explicit stride-amplitude
+  reward term) rather than another log-std value. Evidence: `logs/ckpt_eval/
   cw_assistfade_rung2_harden_speedband_s{0,1}_lsd2_gate/report.json`,
   `logs/experiments/cw-assistfade-rung2-harden-speedband-s{0,1}-lsd2/
   wandb_history.csv` (`log_std_anneal/all/value`), `rl_move/tests/

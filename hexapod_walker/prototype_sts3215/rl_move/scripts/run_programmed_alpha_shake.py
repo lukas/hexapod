@@ -257,6 +257,7 @@ def main() -> int:
     trial.stop_requested = False
     guard = Guard(trial)
     error: str | None = None
+    exit_code = 0
 
     def request_stop(_signum: int, _frame: object) -> None:
         trial.stop_requested = True
@@ -280,7 +281,6 @@ def main() -> int:
         trial.communication_mark("planned_lower_begin")
         trial.planned_lower()
         trial.event("experiment_complete")
-        return 0
     except ConfirmedHealthTrip as issue:
         error = str(issue)
         trial.event("EMERGENCY_STOP", error)
@@ -288,20 +288,26 @@ def main() -> int:
             _command(trial, "X")
         except Exception as limp_error:
             trial.event("emergency_stop_error", str(limp_error))
-        return 2
+        exit_code = 2
     except Exception as issue:
         error = str(issue)
         trial.event("experiment_error", error)
         if trial.motion_started:
             _pause_in_place(trial, guard, error)
-        return 1
+        exit_code = 1
     finally:
         try:
             trial.snapshot("final")
         except Exception as camera_error:
             trial.event("final_camera_error", str(camera_error))
-        trial.recorder.stop()
+        try:
+            trial.recorder.stop()
+        except Exception as recorder_error:
+            trial.recorder.error = trial.recorder.error or str(recorder_error)
         trial.event("recorder_stopped", {"frames": trial.recorder.frames, "error": trial.recorder.error})
+        if trial.recorder.error:
+            error = error or f"camera recording failed: {trial.recorder.error}"
+            exit_code = exit_code or 1
         trial.collect_communication_capture()
         (output_dir / "run_summary.json").write_text(json.dumps({
             "ok": error is None and trial.completed, "error": error,
@@ -312,6 +318,7 @@ def main() -> int:
             "config": config,
         }, indent=2) + "\n")
         trial.close()
+    return exit_code
 
 
 if __name__ == "__main__":

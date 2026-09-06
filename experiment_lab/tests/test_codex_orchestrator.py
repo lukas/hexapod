@@ -272,6 +272,71 @@ def test_popen_failure_closes_hardware_capture_before_finishing_intent(
     assert state["finished_at"]
 
 
+def test_engineering_child_artifact_can_exceed_bounded_transcript_archive(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    transcript_limit = 64 * 1024
+    artifact_limit = 256 * 1024
+    artifact_bytes = 128 * 1024
+    fake_codex = tmp_path / "fake-codex"
+    fake_codex.write_text(
+        f"#!{sys.executable}\n"
+        "import json, pathlib, resource, subprocess, sys\n"
+        "workspace = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
+        "artifact = workspace / 'camera.bin'\n"
+        "subprocess.run([sys.executable, '-c', "
+        f"'import pathlib, sys; pathlib.Path(sys.argv[1]).write_bytes(bytes({artifact_bytes}))', "
+        "str(artifact)], check=True)\n"
+        "event = json.dumps({'type': 'item.completed', 'item': "
+        "{'id': 'probe', 'type': 'agent_message', 'text': 'x' * 1024}}) + '\\n'\n"
+        "sys.stdout.write(event * 128)\n"
+        "sys.stderr.write('diagnostic\\n' * 9000)\n"
+        "result = {'artifact_bytes': artifact.stat().st_size, "
+        "'file_limit': resource.getrlimit(resource.RLIMIT_FSIZE)[0]}\n"
+        "pathlib.Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps(result))\n"
+    )
+    fake_codex.chmod(0o700)
+    settings = configured(
+        tmp_path,
+        codex_bin=fake_codex,
+        codex_engineering_workdir=workspace,
+        codex_engineering_timeout_seconds=10,
+        codex_transcript_max_capture_bytes=transcript_limit,
+        codex_max_evidence_snapshot_bytes=artifact_limit,
+        codex_transcript_max_human_bytes=16 * 1024,
+    )
+    store = Store(tmp_path / "lab.sqlite3")
+    receipts = []
+    monkeypatch.setattr(
+        store, "register_codex_transcript_attempt",
+        lambda *args, **kwargs: receipts.append((args, kwargs)),
+    )
+    orchestrator = CodexOrchestrator(store, settings)
+    result = orchestrator._invoke(
+        "engineering",
+        {"id": "artifact-limit-job", "attempts": 1},
+        "Record the experiment.",
+        {"type": "object"},
+        engineering_lane=codex_module.ENGINEERING_LANE_OFFLINE,
+    )
+
+    assert result == {"artifact_bytes": artifact_bytes, "file_limit": artifact_limit}
+    assert (workspace / "camera.bin").stat().st_size > transcript_limit
+    run_dir = tmp_path / "codex-runs" / "artifact-limit-job" / "attempt-1"
+    assert not (run_dir / ".events.raw.jsonl").exists()
+    assert not (run_dir / ".stderr.raw.log").exists()
+    assert (run_dir / "events.jsonl").stat().st_size <= transcript_limit
+    # Text archives append a small explicit truncation notice to the cap.
+    assert (run_dir / "stderr.log").stat().st_size <= transcript_limit + 128
+    assert "TRANSCRIPT CAPTURE TRUNCATED" in (run_dir / "stderr.log").read_text()
+    assert (run_dir / "transcript.md").stat().st_size <= 16 * 1024
+    events = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    assert events[-1]["type"] == "capture.truncated"
+    assert receipts
+
+
 def test_missing_offline_checkout_never_restores_shared_engineering_lane(
     tmp_path, monkeypatch
 ):

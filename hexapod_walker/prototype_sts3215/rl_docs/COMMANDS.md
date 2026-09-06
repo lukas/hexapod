@@ -521,7 +521,8 @@ unchanged: public-repo data only, no spend, no pod names. Tools:
 `campaign_status`, `get_plan`, `log_tail`,
 `list_runs` (ledger with status/track/substring filters), `get_run`
 (entry + story), `run_metrics` (cached W&B summary/history),
-`eval_report` (gate report.json), `list_docs` / `read_doc`,
+`eval_report` (gate report.json), `get_run_videos` (existing eval
+recordings as MCP resource links), `list_docs` / `read_doc`,
 `search_docs`, plus a write path: `submit_feedback` /
 `list_feedback` — keyed clients file notes into
 `/workspace/llm_feedback/` on the controller (size-capped, per-IP
@@ -535,6 +536,18 @@ an operator-tier kick (deep model, trusted focus note). It runs
 inside `statusweb`, so deploy = the same kill+restart runbook above.
 Dev standalone: `uv run python rl_move/orchestrator/mcp_server.py` (port
 8091).
+
+**Viewing/downloading evaluation video:** use `get_run_videos(run)` first.
+It is a read-only MCP tool returning up to six clips (limit 1–24), each
+with a direct `/media/` playback/download URL valid for one hour. These
+links authorize only the named video; they do not expose the MCP key,
+set a dashboard cookie, or unlock reports/control endpoints. HEAD and
+Range requests support normal browser playback and seeking. Call the
+tool again for fresh links after expiry. This avoids shell/kubectl
+downloads and their separate sandbox approvals. Original recordings may
+play slower than simulation time; read the telemetry clock before making
+endurance claims. Clients must reconnect to discover a newly deployed
+tool. The server advertises `get_run_videos` with `readOnlyHint=true`.
 
 The server also serves a plain-markdown mirror so external LLMs
 (ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is

@@ -132,12 +132,6 @@
   "added": "2026-09-05T22:19:57"
  },
  {
-  "pod": "hexapod-mjx-train-3",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_acq1_cont40m_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_acq1_cont40m_gate",
-  "added": "2026-09-06T13:06:54"
- },
- {
   "pod": "hexapod-mjx-train-4",
   "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_gate",

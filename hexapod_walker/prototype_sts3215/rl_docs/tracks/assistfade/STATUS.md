@@ -49,6 +49,58 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~13:2x this cycle: ROOT CAUSE FOUND AND FIXED — the anneal
+  gate's "one level deeper" NaN mystery (~12:2x entry below) was a
+  real code bug in the ignition-gate ASSAY, not a policy or
+  distribution problem.** `train_ppo_mjx._BcAnchorAnnealGateCb._build()`
+  constructs a dedicated MJX assay env but never isolates its goal
+  generator to pure walk — unlike the main training venv (which gets
+  a post-construction `set_goal_mix(args.goal_mix)` call) and unlike
+  `goal.walk_pure` (construction-time isolation) — so every assay
+  episode silently drew from `config.yaml`'s default multi-mode
+  mixture (`p_hold`=0.10/`p_lean`=0.15/`p_track`=0.15/`p_unload`=0.20/
+  `p_raise`=0.15/`p_rise`=0.35 PLUS this task's own `p_walk`=0.70
+  default — walk was only ~39% of draws, not the recipe's intended
+  100%). A non-walk draw has no `.vx` trajectory, so `cmd_dist`/
+  `cmd_prog_m` never accumulate and `cmd_prog_frac` reads `nan` for
+  that episode — `aggregate_walk_probe`'s plain-mean (BY DESIGN,
+  matches `eval_task`'s own nan rules, see
+  `test_aggregate_nan_rules_match_eval_task`) then poisons the WHOLE
+  round to `nan` from a single such draw, regardless of the real fall
+  rate — explaining why several rounds read `early_term_rate=0.00`
+  with `prog=nan` (a healthy round, structurally unmeasurable).
+  Root-caused via a standalone GPU repro (`MjxShardedVecEnv`, the
+  exact rung-2 cfg, a trivial zero-action policy): 5-6/8 episodes nan
+  with the bug, 0/8 nan after the fix, across 3 reseeded rounds.
+  **This is NOT a policy failure**: both `-reseed8m` held-out gate
+  reads (verdicted this cycle, FAIL - TOOLING) already show 0 falls,
+  24/24 gait_valid, six-leg cycling at-or-near the 0.35 ignition bar
+  UNDER THE STILL-STUCK ANCHOR (s1: progress_ratio 0.35-0.40 on all 4
+  modes, clean pass on the gate's own clause (b); s0: 0.32-0.44,
+  borderline on 2/4 modes) — the anneal never got a chance to fire,
+  not because the policy couldn't earn it. Fixed: `_build()` now
+  forces a full pure-walk isolation (zero every `p_<mode>`, then
+  `p_walk=1.0`, via the VecEnv-safe `set_goal_mix` hook — the same
+  isolation `eval_checkpoint.py`'s `ALL_MODES` per-mode forcing loop
+  and `goal.walk_pure` already use). 2 new regression tests
+  (`test_walkcurr_mjx.py`:
+  `test_default_goal_mix_is_not_pure_walk_without_walk_pure_or_isolation`,
+  `test_full_pure_walk_isolation_guarantees_a_walk_trajectory_every_reset`),
+  137+21 existing tests green, snapshot `exp/bc-anchor-anneal-goalmix-fix`
+  (landed via a concurrent cycle's snapshot sweep into commit
+  `c4b54263`, confirmed pushed). **Relaunched both seeds from the SAME
+  2M parent checkpoints with the fix in place**:
+  `cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m-gatefix` (8M,
+  `--allow-twin` since the config is byte-identical to the reseed8m
+  pair — only the trainer code differs — VERIFIED RUNNING train-4/
+  train-7). Expect the gate to latch within the first few 500k-step
+  checks now that the assay actually measures pure-walk episodes;
+  read those before attempting any further anneal-gate variant.
+  Evidence: `/tmp/repro_cmd_dist.py` (standalone GPU repro, not
+  committed — recreate from this note if needed), `ops.sh review
+  cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m`, W&B `jekexee3`/
+  `qsqewbb5`, RL_LOG 09-06 13:2x-13:3x.
+
 - **09-06 ~12:2x this cycle (both `-reseed8m` seeds found ALREADY FINISHED, ahead of
   schedule -- ckpt pulled + gate eval kicked for both, backgrounded; NOT yet verdicted,
   but the training-log evidence alone already answers the reseed fix's own question and

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:03:10+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2-acq1
+
+**wandb_id**: mijsf6td
 
 **hypothesis**: Plain English: the irr-first (jitter-then-widen) composite order previously FAILED cross-gravity transfer on its seed c1 (irrwidenc1-abrupt-c1, CANARY FAIL, walk/det collapsed 5/6->3/6) while the opposite widen-first order (widenirrc1) passed cleanly -- attributed to composition order. This run tests whether that's really an order effect or seed noise: irrwiden-c2 (2nd independent seed of the SAME irr-first order, just ACQ PASSed this cycle at its own 0.5g with gait_valid 22/24 matching its own canary) gets the identical abrupt 1g jump. If c2 ALSO fails, order is confirmed as the causal variable; if c2 passes, c1's failure was seed-specific and the order hypothesis is refuted.
 

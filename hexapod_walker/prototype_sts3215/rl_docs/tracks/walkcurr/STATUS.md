@@ -2,7 +2,50 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
-- 09-06 ~02:4x this cycle (assigned `headset-crossgrav-s1acq-abrupt-c1`,
+- 09-06 ~03:0x this cycle (assigned `headset-crossgrav-widen2c1-abrupt-c1-acq1`,
+  `headset-crossgrav-widenirrc1-abrupt-c1-acq1`, `headset-halfgrav-irrwiden-c2-acq1`):
+  3 verdicts, all **ACQ PASS**, 2-arm refill. Tooling note: all 3 gate
+  evals were still genuinely computing remotely when the cycle spawned
+  (prestage sync had timed out on video-every=1 panels); confirmed via
+  `kubectl exec ps aux` on each pod (not orphaned), backgrounded 3
+  `ops.sh pollreap` loops, then read each `report.json` directly off
+  the pod as it landed instead of waiting serially. (1) `widen2c1-
+  abrupt-c1-acq1`: `gait_valid` 20/24 matches/improves its own 2M
+  canary (19/24), 0 falls/24, slip/m actually IMPROVES at 40M (worst
+  outlier 207.7->17.75) — 7th confirmed healthy-source crossgrav
+  champion at acquisition scale. (2) `widenirrc1-abrupt-c1-acq1`: the
+  CLEANEST acquisition result of the 3 — `gait_valid` 22/24 (up from
+  21/24 canary), 0 falls, `progress_ratio` medians 1.38-1.67 and
+  `slip_per_m` tightly banded 3.99-5.69 with ZERO outlier episodes
+  across all 4 modes (widen-first composite order tracks commands
+  cleanly). (3) `halfgrav-irrwiden-c2-acq1` (own 0.5g, not crossgrav):
+  `gait_valid` 22/24 exact match to its own 2M canary, 0 falls — BUT a
+  real seed-level course-tracking gap vs its sibling `irrwiden-c1-
+  acq1`: `walk/sto` median `slip_per_m` 67.9 here vs 9.1 on c1 (3/6 sto
+  episodes wrong-course vs 1/6), confirmed present already at the 2M
+  canary stage (not a 40M regression) via direct comparison + frame
+  strips (`walk_det_0` clean cycling, `walk_sto_3` shows legs cycling
+  normally while the robot ignores the resampled command arrow).
+  Flags composition-order (irr-first vs widen-first) as a possible
+  course-tracking-quality differentiator, not just a gait-validity one.
+  **Refill (2 arms):** (1) `headset-crossgrav-widen2c1-irrfwd-c1` —
+  compose-after-transfer test (add the irr timing-jitter axis natively
+  at 1g ON TOP of the just-PASSED `widen2c1-abrupt-c1-acq1` champion,
+  mirroring the medhead-lineage `medhead-irrfwd-c1` arm on a 2nd, harder
+  full-8-way-heading base champion), train-8, VERIFIED RUNNING. (2)
+  `headset-crossgrav-irrwidenc2-abrupt-c1` — disambiguates whether the
+  irr-first composite order's earlier crossgrav FAIL (`irrwidenc1-
+  abrupt-c1`, walk/det collapsed 5/6->3/6) was a real order effect or
+  seed noise, by abruptly transferring this cycle's just-PASSED
+  `irrwiden-c2-acq1` champion (2nd independent seed of the SAME irr-
+  first order) to full 1g; PASS refutes order-as-causal (seed noise),
+  FAIL confirms it, train-10, VERIFIED RUNNING. SKILLS.md updated (3
+  new rows). Evidence: `ops.sh review cw-walkscratch-easy0905-headset-
+  {crossgrav-widen2c1-abrupt-c1-acq1,crossgrav-widenirrc1-abrupt-c1-
+  acq1,halfgrav-irrwiden-c2-acq1}`, matching `logs/ckpt_eval/...gate/
+  report.json` files, RL_LOG.
+
+- 09-06 ~02:4x prior cycle (assigned `headset-crossgrav-s1acq-abrupt-c1`,
   `headset-crossgrav-s3acq-abrupt-c1`): 2 verdicts, both **CANARY PASS**,
   2-arm refill. These were the last 2 untested champions in the
   healthy-source crossgrav sweep (the campaign's best and 2nd-best

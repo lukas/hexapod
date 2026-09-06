@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~08:4x-09:0x this cycle (assigned `medhead-dr-latency1x-c1-acq1`, `medhead-dr-zerobias1x-c1-
+  acq1`): **1/2 verdicted (ACQ PASS), 1/2 still genuinely computing; plus 1 recovered orphan verdict,
+  1 infra bug fix, and a 3-item refill.** (1) `latency1x-c1-acq1` **ACQ PASS**: PERFECT 24/24
+  gait_valid all 4 modes, sac=[] every episode, 0 terms, matching/tightening its own 2M canary
+  (slip/m 3.0-4.6, reward monotonic 432->1048 quarters). 3rd individual-axis DR-restore ACQ
+  confirmation (after friction1x/mass1x-c1-acq1). (2) `zerobias1x-c1-acq1` gate confirmed STILL
+  genuinely computing on train-10 (live `eval_checkpoint` process, ~50min elapsed of an unusually
+  long window, sharing the pod's CPU with a second live eval for `zerobiasframe1x-c1-acq1-r2`) —
+  backgrounded `pollreap` + registered `evalpending`, left unverdicted for the next reader.
+  (3) **Recovered a 3rd instance of the non-atomic-`experiments.json`-write-race orphan class**:
+  `medhead-dr-gyrobias1x-c1` (queued+launched by an earlier cycle) had actually finished healthy at
+  2M steps (W&B `kbypfyyp`, PERFECT 24/24 gait_valid, sac=[] every episode, 0 falls) but its ledger
+  entry was stuck at `INTENT` with no `wandb_id`/pod, making every backlog-drain attempt on it
+  silently report "already exists in W&B — dropping (duplicate)" instead of running it. Fixed via
+  `launch_run.py update --set` (same recovery pattern as `encnoise1x-c1-acq1`), then verdicted
+  **CANARY PASS** — closes the gyro-RATE-bias DR axis. Gotcha noted in SKILLS.md: a drain refusing
+  a queued item as "already exists" with no `wandb_id` on the ledger entry is worth a direct W&B
+  check before assuming it's a true duplicate. (4) Fixed a genuine tooling bug found mid-cycle: a
+  backlog item (`medhead-dr-fault1x-c1-acq1-r2`) queued by a prior cycle had an empty `--evidence`
+  field, tripping the new `_acquisition_steps_footgun`-adjacent evidence guard on every drain
+  attempt (`REFUSED: acquisition runs require --evidence`) — patched the backlog entry's evidence
+  in place (citing its own healthy canary + sibling ACQ precedents) and drained it clean.
+  **Refill:** used the 5 freed GPU slots (previous DR-restore ACQ batch finishing) to launch/queue:
+  `headset-halfgrav-acq1-cont40m` (the 0.5g family's own untouched 40M root champion's FIRST
+  endurance continuation, previously REFUSED twice by pod-race per the 08:2x entry below — landed
+  this time), and 2 new single-axis DR-restore canaries closing out the last untested fields in
+  `domain_rand.py`'s `RandRanges` besides what's already covered: `legmass1x-c1` (per-leg mass
+  jitter, distinct from the whole-body `mass_scale` already clean) and `imumount1x-c1` (IMU mount
+  ROTATION calibration error, distinct from the `imu_pos_xy/z` translation already clean in
+  `imupos1x`) — both landed and finished their 2M budget within minutes (fast canary), report not
+  yet synced at cycle end. **Note on a mechanical multi-cycle interaction**: my own `fault1x-c1-
+  acq1-r2` launch (drained from the bug-fixed backlog item above) was independently killed
+  mid-flight (~4M/40M steps) by a CONCURRENT cycle that (from its own vantage, having itself
+  launched `gains1x-r2`+`geom1x-r2`) believed a 3rd 40M ACQ launch in the same window exceeded the
+  shared `max_new_gpu_steps_per_cycle` cap, and re-queued it as `fault1x-c1-acq1-r3` — left that
+  requeue alone (did not re-drain) since I had already used my own cycle's launch count/step budget
+  on the 4 items above; a future cycle should pick up `-r3` within its own fresh cap. Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_latency1x_c1_acq1_gate/
+  report.json`, `..._gyrobias1x_c1_gate/report.json`, W&B `np2kt3bf`/`kbypfyyp`, RL_LOG 09-06 08:5x-
+  09:0x.
+
 - 09-06 ~08:3x-08:4x this cycle (assigned `medhead-irrfwd-c1-acq1-cont40m`): **HARDENING PASS
   (improves), verdicted after the harness gate genuinely finished computing (no prestage artifact —
   found+backgrounded via `podeval`/`pollreap`, confirmed a live remote `eval_checkpoint` process, not

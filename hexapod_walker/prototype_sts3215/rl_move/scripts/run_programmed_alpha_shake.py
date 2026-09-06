@@ -22,6 +22,7 @@ CONDITIONS = (
     {"name": "high_alpha_40", "alpha": 1.0, "vx_mm_s": 40.0},
     {"name": "low_alpha_40", "alpha": 0.25, "vx_mm_s": 40.0},
 )
+CONDITIONS_BY_NAME = {condition["name"]: condition for condition in CONDITIONS}
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -39,11 +40,26 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--walk-s", type=float, default=8.0)
     parser.add_argument("--stationary-s", type=float, default=3.0)
     parser.add_argument(
+        "--condition", action="append", choices=tuple(CONDITIONS_BY_NAME),
+        help=(
+            "fixed comparison cell to run; repeat to select an ordered subset "
+            "(default: all four proven cells)"
+        ),
+    )
+    parser.add_argument(
         "--resume-walk-ready", action="store_true",
         help="reuse a camera-verified armed walk-ready pose after three fresh samples",
     )
     parser.add_argument("--dry-run", action="store_true")
     return parser
+
+
+def _selected_conditions(names: list[str] | None) -> tuple[dict, ...]:
+    if not names:
+        return CONDITIONS
+    if len(names) != len(set(names)):
+        raise ValueError("duplicate --condition values are not allowed")
+    return tuple(CONDITIONS_BY_NAME[name] for name in names)
 
 
 def _trial_args(args: argparse.Namespace) -> argparse.Namespace:
@@ -214,6 +230,10 @@ def main() -> int:
         raise SystemExit("--walk-s must be in [3, 8]")
     if not 0.0 <= args.stationary_s <= 5.0:
         raise SystemExit("--stationary-s must be in [0, 5]")
+    try:
+        conditions = _selected_conditions(args.condition)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     fixed = {
         "gait": "NoSlipGait.gait1", "period_s": 3.2, "lift_mm": 28,
         "control_hz": 100, "servo_speed_counts_s": 2000,
@@ -221,7 +241,7 @@ def main() -> int:
     }
     config = {
         "schema": "hexapod.programmed_alpha_shaking.v1",
-        "conditions": CONDITIONS, "walk_s": args.walk_s,
+        "conditions": conditions, "walk_s": args.walk_s,
         "stationary_before_s": args.stationary_s,
         "stationary_after_s": args.stationary_s, "fixed": fixed,
     }
@@ -255,7 +275,7 @@ def main() -> int:
         else:
             _verified_zero(trial)
             _stand(trial)
-        for condition in CONDITIONS:
+        for condition in conditions:
             _run_condition(trial, guard, condition, args.walk_s, args.stationary_s)
         trial.communication_mark("planned_lower_begin")
         trial.planned_lower()

@@ -1,7 +1,9 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-05 ~08:0x. This is the delivery track, not the
-single-policy research track.
+Last updated: 2026-09-06 ~13:0x (course-income/sway reward audit for
+`robotwalk-turns-20260906` — root cause found, DIG-IN handed off, see
+below). This is the delivery track, not the single-policy research
+track.
 
 ## CAMPAIGN robotwalk-smooth-20260906 (operator order fb_20260906T030030_28f422, 09-06) — LAUNCHED
 
@@ -116,6 +118,55 @@ they don't price course-holding the way `course_err_1s_med` measures
 it, before any further turn-income dose. No export (gate not met).
 Evidence: `logs/ckpt_eval/cw_robotwalk_turns_20260906_cont8m_resume1_
 {gate,yaw,joygate_freshcmp}/`, W&B `2p93pife`, RL_LOG 09-06 06:56.
+
+**09-06 ~13:0x — audit DONE (zero training spend), root cause found:
+NOT a quick sigma/deadband dose, hand off DIG-IN.** Did the "audit
+`k_walk_course_income`/deadband/sigma" ask above. (1) At the LIVE
+recipe's own values (deadband=6, sigma=20deg), `angle_f` is 1.0000 at
+the gate's own 5.17deg bar (inside the deadband — zero gradient at
+the pass/fail line) and still 0.9782 at the run's own worse 10.2deg
+reading vs 0.9919 at the better 8.55deg one — a **1.4% reward
+difference between "passes" and "fails" the eval**, against a reward
+whose quarters were rising ~+1000 each: the mechanism cannot express
+what the eval gates on. (2) The obvious fix (tighten sigma) is
+refuted by the mechanism's OWN already-banked arc invariant
+(`test_wz_arc_moderate_turn_earns_near_full_income`): tightening
+sigma 20->10->6 drops a legitimate 6s-period turn's income share
+0.795x->0.518x->0.256x of straight-line income — the SAME knob that
+would fix (1) actively breaks affordable turning. (3) Found
+`test_course_income_semantics.py` is CURRENTLY 3/12 RED on
+unmodified HEAD — the same 3 arc/overdrive margin tests
+`OPERATOR_QUESTIONS.md` 2026-09-02 ~23:1x/~23:5x already flagged and
+deferred as "genuine recalibration, not a bug," still unfixed. Ran
+the deferred old-vs-new-plant recalibration check: 2/3
+(`moderate_arc`, `overdrive`) DO flip PASS under the pre-09-02-fix
+plant, confirming those two really are geometry-recalibration debt;
+but the THIRD (`tight_arc`, turn radius 0.038m) fails under BOTH
+plants and decomposes to `reward_walk_course_income`=+165 vs
+`reward_walk_excess_sway`=**-1177** — the sway CHARGE alone
+outweighs income 7x because it measures deviation from a STRAIGHT
+CHORD while the command is a genuine tight circle; this one was
+mis-filed as "recalibration," it is a real arc-vs-chord confound in
+the course reference, unrelated to the plant-literal cascade.
+**Conclusion: both the deadband/sigma dose AND the sway allowance
+need an arc-aware course reference (compare to the integrated CURVED
+command path implied by `wz_ref`, not its chord) before any further
+turn-income dose — a mechanism change, not a retune.** Did not touch
+`walk_task.py`/`reward.py` or bump any test threshold (would either
+mask the tight-arc defect or lock in a not-yet-remeasured geometry
+number); did not launch a 3rd `robotwalk-turns` arm (would reproduce
+the same misalignment on the unrepaired mechanism). Full derivation +
+numbers: `OPERATOR_QUESTIONS.md` 2026-09-06 ~13:0x. **Next (concrete,
+for whoever next touches this): (a) design + bank-test the arc-aware
+course reference; (b) re-measure `moderate_arc`/`overdrive` margins
+against it; (c) THEN relaunch from `cw-robotwalk-turns-20260906`
+(the 8M checkpoint, not the misaligned `-cont8m-resume1`).**
+`DIG-IN: test_course_income_semantics.py / todaypolicy robotwalk-turns
+reward audit — arc-vs-chord course reference confound.` No GPU spend
+this entry (walkcurr's own frontier independently confirmed exhausted
+this cycle — every clean composition-line ACQ_PASS source already has
+a cont40m read in flight or verdicted; standwalk unchanged since
+09-05; nothing else registered-track-launchable this cycle).
 
 Baseline = Candidate B `cw-walkteach-scripted-allhead-acq12m`
 (controller-side training zip sha256 `30ed068e4356d5f42caba2a427f2845a

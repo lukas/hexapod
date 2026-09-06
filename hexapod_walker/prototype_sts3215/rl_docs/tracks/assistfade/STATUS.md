@@ -49,6 +49,82 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~12:2x this cycle (both `-reseed8m` seeds found ALREADY FINISHED, ahead of
+  schedule -- ckpt pulled + gate eval kicked for both, backgrounded; NOT yet verdicted,
+  but the training-log evidence alone already answers the reseed fix's own question and
+  is worth recording now): the reseed fix (`train.bc_anchor_anneal_assay_reseed=1`)
+  WORKS AS DESIGNED but does NOT unblock the anneal -- ROOT CAUSE IS ONE LEVEL DEEPER
+  than the ~12:0x entry diagnosed.** Confirmed via `grep '[bc-anchor-anneal]'` on both
+  pods' raw training logs (s0: 11 checks to auto-stop at 5.5M; s1: 15 checks, ran the
+  full 8M): `early_term_rate` (the "falls" figure) now genuinely VARIES round to round
+  (0.00/0.12/0.25/0.38, both seeds) instead of being pinned at 0.125 forever -- the
+  reseed IS drawing independent configs, exactly as designed. **But `cmd_prog_frac`
+  (the progress clause) reads NaN on EVERY SINGLE round of BOTH seeds, 26/26 combined
+  checks, INCLUDING every round where `early_term_rate=0.00` (s0 @3.0M; s1 @3.0M/5.5M/
+  7.0M/7.5M) -- i.e. progress is NaN even when literally zero probe episodes fell.**
+  This rules out the ~12:0x diagnosis's implicit assumption (that NaN was purely a
+  downstream symptom of `failed_probe_row()` on a fallen episode) -- read the actual
+  code path: `walk_task.py`'s `cmd_prog_frac` is `nan` whenever `w["cmd_dist"] <= 0.01`
+  (episode's own commanded-distance accumulator), a DIFFERENT and independent condition
+  from the `early_term`/fall flag; `aggregate_walk_probe` (`walkcurr_cert.py`) then
+  plain-means `cmd_prog_frac` across all 8 rows (not in `_NAN_OK`, unlike
+  `cross_track_frac`/`wrong_way`/`stop_speed_*` which ARE nanmean'd) -- so a SINGLE
+  episode with near-zero commanded distance poisons the whole round's aggregate to NaN
+  even though the other 7 episodes walked fine. Rung 2's launch cfg is fixed-forward
+  0.06 m/s with no stops/no park-starts, so it is not yet understood WHY any episode
+  would end with `cmd_dist<=0.01` absent a fall -- next reader should instrument/log a
+  single assay round's raw per-episode `cmd_dist` values (not just the aggregate) to
+  find which episode index is empty and why (candidates: the assay's `goal.walk_probe=1.0`
+  override interacting with `episode-seconds=10` in a way that truncates the command
+  window before any distance accrues, or a race between `env.seed()` and `flush_reset_
+  pools()` leaving one sub-env's goal trajectory unset for its first episode). **One
+  candidate already RULED OUT this cycle**: a bounded CPU repro
+  (`SimHexapodJointWalkEnv`, identical cfg incl. `walk_yaw_cmd=1`/`walk_phase_run_on_yaw=1`/
+  `walk_yaw_zero_frac=1.0`, 16 seeds, random small-action policy, full 1000-tick/10s
+  episodes) NEVER produced a NaN `cmd_prog_frac` — every trunc episode (full horizon)
+  and every early term (random-policy falls, all at tick 261) read a finite value,
+  including on falls. So the goal-trajectory construction itself is not the defect in
+  isolation; the NaN is specific to either (a) the ACTUAL trained/bc-anchored
+  deterministic policy's action pattern (possible occasional NaN/degenerate action under
+  strong `bc_anchor_coef=3` + tiny `std=0.05`), or (b) something MJX/`MjxShardedVecEnv`-
+  pool-specific that the CPU single-env repro cannot reach (`env.flush_reset_pools()`/
+  sharded pool reuse has no CPU-env equivalent tested here). Next step needs either the
+  real checkpoint run through the CPU env (feasible, no GPU needed — load the `.zip`
+  policy and call `.predict(deterministic=True)` instead of random actions) or an
+  instrumented GPU-side print of the MJX assay's raw per-env `cmd_dist`/`term` array
+  before aggregation. Reproduction script left at (not committed, recreate if useful):
+  a `SimHexapodJointWalkEnv` loop over seeds with the rung-2 cfg dict, printing
+  `info["walk_probe"]["cmd_prog_frac"]` and `env._goal_traj.vx` per episode. **Second
+  repro attempt (same cycle): loaded the ACTUAL `-s0-reseed8m` checkpoint
+  (`PPO.load(..., device="cpu")`) and ran it deterministically in the same CPU env
+  across 16 seeds — ALL 16 gave the IDENTICAL result (`cmd_prog_frac=0.2458`, 0 falls,
+  full 1000-tick episodes), because with `dr_scale=0`/`randomize=False`/fixed speed+zero
+  yaw the CPU episode has no seed-sensitive randomness left to vary at all.** No NaN, no
+  variation. This rules out the checkpoint's weights/deterministic-action-pattern being
+  inherently degenerate (a healthy, reproducible walk comes out every time in the CPU
+  physics) and narrows the remaining candidate space to the MJX/warp GPU path itself —
+  most likely `MjxShardedVecEnv`'s pool/shard reset mechanics (the CPU single-env test
+  has no equivalent to reproduce), or a genuine MJX-vs-CPU-MuJoCo physics divergence
+  under this exact policy that only manifests on the GPU backend. Next reproduction step
+  needs either an MJX-backed (not CPU mujoco) single-shard construction with the same
+  checkpoint, or GPU-side instrumentation of the live assay's raw per-env row dump. **Do not
+  relaunch another anneal-gate arm on unmodified code — this is now proven code-level
+  (26/26 checks across 2 independent seeds), not a training/seed variance question**;
+  the ignition gate CANNOT latch until either (a) `cmd_prog_frac` moves to `_NAN_OK`
+  (nanmean, matching the sibling command-conditional keys) if a legitimately
+  unmeasurable-but-not-failed episode is expected, or (b) the root NaN source itself is
+  fixed once found. Both `-reseed8m` runs otherwise behaved exactly like healthy rung-2
+  training throughout (reward/canary telemetry unremarkable; `canary/hold_a/b=1`
+  throughout both) -- this is purely an anneal-gate bookkeeping defect, not a policy
+  regression. DIG-IN flagged for whichever cycle reads the held-out gate evals (kicked
+  this cycle, backgrounded, ~1.5-2h): `-s0-reseed8m` AUTO-STOPPED again at 5.5M (walk_fwd
+  3-consecutive-fail, same canary mechanism as `-cont8m`, but earlier — 5.5M vs the
+  parent's ~7.9M); `-s1-reseed8m` ran the full 8M with no auto-stop. Evidence:
+  `kubectl exec hexapod-mjx-train-{4,7} -- grep '\[bc-anchor-anneal\]'
+  /tmp/train_cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m.log`, `rl_move/sim/
+  walk_task.py` cmd_prog_frac definition, `rl_move/sim/walkcurr_cert.py`
+  `aggregate_walk_probe`/`_NAN_OK`, W&B `jekexee3`/`qsqewbb5`.
+
 - **09-06 ~12:0x (DIG-IN cycle, `-s0-cont8m` VERDICTED: ACQ FAIL - INFORMATIVE, assay
   deadlock root-caused; fix built + both seeds relaunched):** the held-out mesh gate eval
   landed and does NOT show collapse — gait_valid 24/24, 0 falls/terms, no sacrificed leg,

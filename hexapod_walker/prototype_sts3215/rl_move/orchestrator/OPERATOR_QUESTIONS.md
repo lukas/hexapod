@@ -5134,3 +5134,152 @@ on" item above is now executed as canonical launcher policy:
   remains covered by the 28 offline tests, not a live forced
   interruption (operator: do not force-interrupt science runs for
   this).
+
+## 2026-09-06 ~13:0x — todaypolicy audit follow-up: WHY course_err_1s_med got worse while reward rose on `cw-robotwalk-turns-20260906-cont8m-resume1` — root cause found (chord-referenced course-income/excess-sway pricing is not arc-aware); NOT a quick sigma/deadband fix; ties into the ALREADY-OPEN `test_course_income_semantics.py` 3-test regression (09-02 ~23:1x/~23:5x, still red)
+
+**Context:** refill cycle, canonical capacity found 7 (later 10) free
+GPU slots + empty backlog. `walkcurr`'s QUEUE AIM frontier was
+confirmed genuinely exhausted this cycle (per-axis DR-restore closed;
+every clean composition-line ACQ_PASS source now has a cont40m read
+in flight or verdicted — systematic diff of every `-acq1` vs its
+`-acq1-cont40m` child in `experiments.json` found zero uncovered
+clean sources; item(4)'s two composite-realism arms are the only
+open thread, one DIG-IN-flagged, one's cont40m mid-training) —
+launching another walkcurr arm now would duplicate in-flight compute.
+`standwalk` confirmed unchanged since 09-05 ~06:3x (fully closed
+pending a fresh mechanism design, not a launchable Next item).
+`todaypolicy`'s `robotwalk-smooth-20260906` campaign's own last entry
+(09-06 06:56) explicitly asked: "audit `k_walk_course_income`/window/
+deadband/sigma reward terms for why they don't price course-holding
+the way `course_err_1s_med` measures it, before any further turn-
+income dose." Did that audit instead of leaving 10 free GPU slots
+idle next to a named, concrete Next item.
+
+**Finding 1 (quantified, code-only, zero training spend): the
+course-income angle-factor is nearly flat across the ENTIRE band the
+gate cares about.** `reward.walk_course_income_deadband_deg=6`,
+`walk_course_income_sigma_deg=20` (the live `cw-robotwalk-turns-
+20260906*` recipe's own values). `angle_f = exp(-0.5*((err-6)/20)^2)`
+for `err>6` else 1. Evaluated directly (no rollout needed, just the
+formula in `walk_task.py`):
+  err=5.17 (the Candidate-B gate bar itself)   -> angle_f = 1.0000 (inside deadband — ZERO gradient at the exact pass/fail line)
+  err=8.55 (this run's own 8M joygate reading)  -> angle_f = 0.9919
+  err=10.2 (the SAME run's 16M reading, WORSE)  -> angle_f = 0.9782
+  relative reward delta between the passing (8.55) and failing (10.2)
+  reading: **1.4%**, against `k_walk_course_income=2.0` inside a
+  reward whose quarters were rising by ~+1000/quarter. The mechanism
+  cannot express the difference the eval is gating on — a policy that
+  drifts from 5.17 to 10.2 loses next to nothing on this term, so
+  other rising components can and did swamp it.
+
+**Finding 2 (empirical, `rl_move/tests/test_course_income_semantics.py`
+imported directly + probed, zero training spend): the obvious fix
+(tighten sigma) is refuted by the SAME mechanism's own already-banked
+arc invariant, and — separately — that invariant is currently RED on
+HEAD.** Ran `pytest rl_move/tests/test_course_income_semantics.py`
+cold: **3/12 FAIL** on unmodified HEAD (not caused by anything this
+entry touched): `test_wz_arc_moderate_turn_earns_near_full_income`,
+`test_wz_arc_tight_turn_gracefully_discounted_not_exploited`,
+`test_overdrive_clean_completion_legitimately_wins`. These are the
+SAME 3 tests the 09-02 ~23:1x/~23:5x entries already found red after
+the joint-frame-v2 plant-literal fix and explicitly deferred as
+"genuine recalibration, not a mechanism bug... left untouched this
+entry too" — still unfixed 4 days later, still red today. I did the
+recalibration check that was deferred (temporarily monkeypatched
+`probe_walk_income.WALK_PLANT` back to the pre-fix `(20,80)` and
+re-ran the identical rollouts, zero other change):
+
+  metric                                  new plant (20,100)   old plant (20,80)   bar
+  moderate-arc income / straight income        0.795              0.926            >0.85
+  moderate-arc mean angle_f                    0.853              0.927            >=0.9
+  tight-arc total reward − park total reward   +49.3              +160.2           >500
+  overdrive total − obey(straight) total       -83.1              +25.6            >0
+
+Two of three (`moderate_arc`, `overdrive`) DO flip PASS under the old
+plant — confirms those two really are the already-diagnosed geometry-
+recalibration debt, safe to re-tune once someone re-measures the
+correct post-fix bars (SPECIFICATION work, not attempted here — not
+this entry's question). **The THIRD (`tight_arc` margin) fails under
+BOTH plants (49.3 and 160.2, neither clears 500)** — this one is NOT
+explained by the plant-literal cascade and was mis-filed under the
+same "genuine recalibration" label without anyone actually re-running
+it old-vs-new. Decomposed its reward: `reward_walk_course_income`
+=+164.9, `reward_walk_excess_sway`=**-1176.7** — the excess-sway
+CHARGE alone outweighs the income by 7x. Root cause: `k_walk_excess_
+sway`'s reference is "the commanded-course line through the window
+start" — a STRAIGHT CHORD — while `ARC_TIGHT`'s command is a genuine
+period-3s/radius-0.038m circle; a physically honest quarter-circle
+arc traced within one 0.75s sway window necessarily has real lateral
+deviation from its own chord (measured `walk_sway_rms_mm`=9.5, ~2x
+the 5mm teacher-sway allowance) that has NOTHING to do with sloppy
+tracking — it is the geometry of turning tightly. The mechanism
+charges genuine tight-turn execution as if it were undisciplined
+sway, with no arc-aware reference to forgive it.
+
+**Why this blocks a quick fix, and why I did NOT patch reward.py or
+bump any threshold this entry:** Finding 1 says the fix needs a
+STEEPER angle_factor near the deadband edge (more sensitive to real
+tracking error). But the arc-invariant probe above shows sigma is
+ALSO the only knob currently keeping legitimate turning affordable at
+all — tightening it emphatically makes things worse, not better:
+
+  sigma   moderate-arc mean angle_f   moderate-arc income/straight
+  20 (live)      0.853                      0.795
+  10             0.562                      0.518
+  6              0.287                      0.256
+
+The SAME scalar (`walk_course_income_sigma_deg`) has to simultaneously
+(a) punish a straight-walking policy that drifts to 10 deg of error
+and (b) forgive a genuinely-turning policy whose windowed chord error
+is comparably large FOR PHYSICAL REASONS, not tracking sloppiness. A
+single Gaussian on straight-chord angle error cannot do both — this
+is a structural/arc-vs-chord confound in the reward's course
+reference, not a dose to retune. The correct fix likely needs the
+angle/sway reference to be the LOCALLY EXPECTED arc for the active
+`wz_ref` at that tick (e.g. compare against the integrated command's
+own curved path, not its endpoint chord) rather than a straight line
+— a real mechanism change, needs its own design + `test_course_
+income_semantics.py` extension (a case that separates "genuine arc
+geometry" from "tracking error" before any dose changes), i.e.
+exactly the `test_task_semantics.py`-bank-first precondition this
+project's own guardrails already require before any reward-mechanism
+launch. Per the DIG-IN protocol ("about to change reward/env code"),
+this is handed off rather than patched blind.
+
+**What I did NOT do:** did not touch `walk_task.py` or `reward.py`;
+did not change any test threshold (all 3 failures left exactly as
+found — bumping them now would either mask the real tight-arc/sway
+defect or lock in a not-yet-remeasured plant-geometry number); did
+not launch any todaypolicy GPU arm (a 3rd `robotwalk-turns` dose on
+the unrepaired mechanism would just reproduce the same misalignment
+per the 08-21 ruling's own "fix the reward first" branch). No code
+changed this entry — nothing to snapshot for training purposes; the
+STATUS.md update below + this note are the entry's product.
+
+**Handoff for the next (deep-model) toucher:**
+1. Design an arc-aware course reference for `k_walk_course_income` /
+   `k_walk_excess_sway` (compare net displacement to the INTEGRATED
+   curved command path implied by `wz_ref` over the window, not its
+   straight chord) — or, if that is judged too invasive short-term, at
+   minimum decouple the sway-charge's arc allowance from a fixed 5mm
+   straight-line assumption so genuine small-radius turning isn't
+   charged 7x its own income.
+2. Re-measure and correctly re-tune the `moderate_arc`/`overdrive`
+   margins against the CURRENT (post-09-02, WALK_PLANT=(20,100))
+   geometry once (1) lands — do not bump them in isolation first, the
+   tight-arc numbers above show the current formula is not yet right.
+3. Only then relaunch a `robotwalk-turns` continuation (or a fresh
+   dose) from the `cw-robotwalk-turns-20260906` (8M, the last non-
+   regressed checkpoint) — NOT from the misaligned `-cont8m-resume1`
+   checkpoint.
+4. `DIG-IN: test_course_income_semantics.py / todaypolicy robotwalk-
+   turns reward audit — arc-vs-chord course reference confound,
+   evidence above, needs a real mechanism change before any further
+   turn-income dose.`
+
+Evidence: this file's own math above (reproducible from `walk_task.py`
+lines ~4700-4750, no fixture needed); `rl_move/tests/test_course_
+income_semantics.py` (`pytest -q`, 3/12 red on HEAD, reproducible);
+`rl_docs/tracks/todaypolicy/STATUS.md` 09-06 06:56 entry (the audit
+ask); `OPERATOR_QUESTIONS.md` 2026-09-02 ~23:1x/~23:5x entries (the
+prior, still-open "3 remaining arc/overdrive margin tests" deferral).

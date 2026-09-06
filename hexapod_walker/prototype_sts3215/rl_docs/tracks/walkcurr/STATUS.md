@@ -44,6 +44,25 @@
   own `_gate/report.json`, W&B `kevdolja`/`jeigs5gn`/`frmzojxo`, `launch_run.py status`, RL_LOG
   09-06 11:4x-12:2x.
 
+- 09-06 ~12:2x this cycle (found orphans: both QUEUE AIM item(4) composite ACQs had
+  finished-and-been-drained-over on train-2/train-3 with no verdict left behind):
+  **allaxiskickhalf-nocrutch1x-c1-acq1 ACQ PASS** (22/24 gv, matching/improving its 21/24
+  canary, 0 falls/terminations, only scattered non-chronic sacrifice, slip elevated as
+  expected without the crutch but not gated) — confirms full realism WITHOUT the torque
+  crutch is durable at acquisition scale; launched its cont40m hardening continuation
+  (train-4). Its crutch-ON sibling **allaxis-nokick-c1-acq1 landed with 2 falls (tilt_roll)**
+  in 24 episodes against its own pre-registered 0-falls bar, despite gait_valid 23/24
+  (beating its 19/24 canary) and reward still rising (196.1/424.6/526.6/611.1 per quarter)
+  — a genuine fork-decider for whether full-realism-with-crutch closes QUEUE AIM item (4)
+  or needs an audit of which axis destabilizes under sustained training; left unverdicted,
+  **DIG-IN flagged** rather than a reflex kill, since the 08-21 ruling's rising-reward
+  clause plus an improved (not degraded) gait_valid count against a clean FAIL read. Item
+  (4)'s full unblock therefore stays PENDING on this one arm's dig-in, not both composites
+  — do not fund the "next genuinely open item" work yet. SKILLS.md +1 row (the PASS).
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+  allaxis{,kickhalf-nocrutch1x}_c1_acq1_gate/report.json`, W&B `fvj0g1kr`/`bidomeob`,
+  RL_LOG 09-06 12:19/12:30.
+
 - 09-06 ~12:1x same cycle (orphan reap + hygiene, after the widen2-c3 dig-in below): **(1)
   `headset-halfgrav-acq1-cont40m` HARDENING PASS — the foundational plain-halfgrav source holds
   PERFECTLY at 80M** (gate had synced at 10:37 and sat unverdicted ~1.5h with a stale-RUNNING

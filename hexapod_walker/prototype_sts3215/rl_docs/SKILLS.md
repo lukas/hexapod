@@ -1163,6 +1163,18 @@ promotion never deletes a skill checkpoint (append-only).
 |---|---|---|---|
 | **+40M more steps (80M cumulative) on the gradual cross-gravity-ramp root reproduces its 40M parent at the cleanest possible level: gait_valid 24/24 across all 4 panels (walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto all 6/6), 0 falls/terms in all 24 episodes, sac=[] on every single episode, slip/m in-band (3.0-4.9), ep_rew_mean still rising every quarter (532->992->1082->1142).** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_c1_acq1_cont40m.zip`, HARDENING PASS/HOLDS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_c1_acq1_cont40m_gate/report.json` (24/24, 0 terms), W&B `jeigs5gn`. | Own (fixed, no-DR) easy-sim physics, gradual-ramp gravity-transfer root, 80M cumulative. Closes the ramp root's own cont40m endurance question with zero regression of any kind (its abrupt sibling and irrfwd/widenfwd children were already clean; this was the last untested member of the ramp family at cont40m scale). Champion-grade source for QUEUE AIM item (4) (contextual DONE-gate rungs) once that item opens.
 
+### walkcurr halfgrav-irrwiden-c1-acq1-cont40m: widen+irr composite holds/improves at 80M cumulative (09-06)
+
+| Finding | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **The widen+irr composite (jitter-first order) IMPROVES on its own 40M parent at 80M cumulative: gait_valid 23/24 vs the parent's 22/24, 0 falls/terminations, only 1/24 sacrificed-leg episode (a subset of the parent's own leg list at the same episode index, one previously-flagged episode now clean). Extreme-slip stochastic outlier episodes (slip up to 117/m) reproduce near-identically at the SAME episode index as the parent, not a new or worsening pattern.** | `ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c1_acq1_cont40m.zip`, HARDENING PASS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c1_acq1_cont40m_gate/report.json` vs parent `..._acq1_gate/report.json`. | Halfgrav(0.5g), widen+irr composite (heading breadth + irregular command timing), 80M cumulative. Deeply negative but stable reward is a known shape of this composite's own pricing, not a regression signal. |
+
+### walkcurr kickhalf1x-c1-acq1-cont40m: the leg5-duty WATCH does NOT entrench with +40M more steps (09-06)
+
+| Finding | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **The half-dose-kick-recovery composite's leg5 low-duty WATCH (flagged at the 40M ACQ PASS, 4/24 episodes) narrows rather than spreads at 80M cumulative: only 2/24 episodes still flag leg5, at comparable-or-improved duty (0.05-0.07 vs the parent's 0.03-0.09), and one previously-flagged episode is now clean. gait_valid 22/24, 0 falls/terminations, reward monotonic.** Confirms half-dose kick recovery is durable past acquisition budget, not just an early-training artifact. | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_kickhalf1x_c1_acq1_cont40m.zip`, HARDENING PASS | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_kickhalf1x_c1_acq1_cont40m_gate/report.json` vs parent `..._acq1_gate/report.json` (per-episode duty). | Crossgrav/medhead composite, kick at the confirmed-safe half-dose, 80M cumulative. Closes QUEUE AIM item (2)'s kick-dose-ladder ACQ read. |
+
 ### walkcurr allaxiskickhalf-nocrutch1x-c1-acq1: full ~30-axis DR composite WITHOUT the torque crutch holds at 40M ACQ scale (09-06)
 
 | Finding | Checkpoint | Evidence | Envelope / limits |

@@ -145,6 +145,12 @@ DRIVE_ASYNC_STATE_MAX_AGE_S = 0.15
 ASYNC_READY_GOOD_SAMPLES = 3
 ASYNC_READY_TIMEOUT_S = 1.0
 DRIVE_BUS_WRITE_MAX_HZ = 50.0
+DRIVE_STREAM_HOLD_CONFIRMATIONS = 3
+DRIVE_STREAM_HOLD_MAX_ATTEMPTS = 5
+# A stopped stream should already be close to the last target accepted by the
+# bus.  Reuse the proven start-refresh drift envelope rather than calling any
+# merely finite post-loss pose a hold.
+DRIVE_STREAM_HOLD_POSE_TOL_DEG = 8.0
 DRIVE_TIMING_HARD_LAG_S = 0.05
 DRIVE_TIMING_CRITICAL_LAG_S = 0.20
 DRIVE_TIMING_HARD_LAG_CONSECUTIVE = 2
@@ -191,10 +197,181 @@ def _confirmed_limp(drive) -> None:
         drive._torque_all(False)
 
 
+def _stream_loss_hold_sample_ok(
+        sampled, fallback_robot: np.ndarray, *,
+        previous_snapshot_seq: int | None,
+        previous_feedback_seq: int | None,
+        previous_timestamp: float | None,
+        tilt_reference: tuple[float, float],
+        max_tilt_deg: float, max_pose_delta_deg: float,
+        max_state_age_s: float, max_current_a: float,
+        max_temp_c: float, max_load_pct: float,
+        ) -> tuple[bool, dict]:
+    """Validate one physically distinct post-loss hold confirmation."""
+    detail: dict = {"ok": False}
+    if sampled is None:
+        detail["reason"] = "no_sample"
+        return False, detail
+    if not getattr(sampled, "bus_ok", False):
+        detail["reason"] = "bus_not_ok"
+        return False, detail
+    if not getattr(sampled, "imu_ok", False):
+        detail["reason"] = "imu_not_ok"
+        return False, detail
+
+    timing = dict(getattr(sampled, "timing", {}) or {})
+    try:
+        timestamp = float(sampled.timestamp)
+    except (AttributeError, TypeError, ValueError):
+        timestamp = math.nan
+    detail["timestamp"] = timestamp if math.isfinite(timestamp) else None
+    if not math.isfinite(timestamp):
+        detail["reason"] = "timestamp_invalid"
+        return False, detail
+
+    try:
+        snapshot_seq = int(timing["snapshot_seq"]) & 0xFFFF
+    except (KeyError, TypeError, ValueError):
+        detail["reason"] = "snapshot_seq_missing"
+        return False, detail
+    detail["snapshot_seq"] = snapshot_seq
+    if previous_timestamp is None or previous_snapshot_seq is None:
+        # Bootstrap both identities from this direct read, but do not count
+        # it: without the pre-loss baselines it cannot prove that the physical
+        # position/IMU cache is new.
+        detail["reason"] = "identity_baseline_missing"
+        return False, detail
+    if timestamp <= previous_timestamp:
+        detail["reason"] = "timestamp_not_advancing"
+        return False, detail
+    if not _u16_seq_advanced(snapshot_seq, previous_snapshot_seq):
+        detail["reason"] = "snapshot_seq_not_advancing"
+        return False, detail
+
+    max_age_ms = float(max_state_age_s) * 1000.0
+    for key in ("pos_age_ms", "imu_age_ms"):
+        try:
+            age_ms = float(timing[key])
+        except (KeyError, TypeError, ValueError):
+            detail["reason"] = f"{key}_missing"
+            return False, detail
+        detail[key] = age_ms
+        if (not math.isfinite(age_ms) or age_ms < 0.0
+                or age_ms > max_age_ms):
+            detail["reason"] = f"{key}_stale"
+            return False, detail
+
+    try:
+        feedback_seq = int(timing["feedback_sample_seq"])
+    except (KeyError, TypeError, ValueError):
+        detail["reason"] = "feedback_seq_missing"
+        return False, detail
+    detail["feedback_sample_seq"] = feedback_seq
+    if (previous_feedback_seq is not None
+            and feedback_seq <= previous_feedback_seq):
+        detail["reason"] = "feedback_seq_not_advancing"
+        return False, detail
+
+    try:
+        full_ids = sorted(int(value) for value in timing["full_feedback_ids"])
+        full_count = int(timing["full_feedback_count"])
+    except (KeyError, TypeError, ValueError):
+        detail["reason"] = "full_feedback_metadata_missing"
+        return False, detail
+    full_feedback_ok = bool(
+        timing.get("feedback_sample_fresh")
+        and timing.get("full_feedback_attempted")
+        and timing.get("full_feedback")
+        and timing.get("full_feedback_complete")
+        and full_count == N_JOINTS
+        and full_ids == list(range(N_JOINTS)))
+    detail["full_feedback_ok"] = full_feedback_ok
+    if not full_feedback_ok:
+        detail["reason"] = "full_feedback_incomplete"
+        return False, detail
+
+    fallback = np.asarray(fallback_robot, dtype=float).reshape(-1)
+    try:
+        pose = np.asarray(sampled.joint_position, dtype=float).reshape(-1)
+    except (AttributeError, TypeError, ValueError):
+        pose = np.array([], dtype=float)
+    if (pose.shape != (N_JOINTS,) or fallback.shape != (N_JOINTS,)
+            or not np.all(np.isfinite(pose))
+            or not np.all(np.isfinite(fallback))):
+        detail["reason"] = "pose_invalid"
+        return False, detail
+    pose_delta_deg, worst_joint = _max_pose_delta_deg(pose, fallback)
+    detail.update({
+        "pose_valid": True,
+        "max_pose_delta_deg": round(pose_delta_deg, 3),
+        "worst_joint": worst_joint,
+        "pose_within_envelope": pose_delta_deg <= max_pose_delta_deg,
+    })
+    if pose_delta_deg > max_pose_delta_deg:
+        detail["reason"] = "pose_not_converged"
+        return False, detail
+
+    try:
+        tilt_ref = np.asarray(tilt_reference, dtype=float).reshape(2)
+        roll = float(sampled.imu_roll)
+        pitch = float(sampled.imu_pitch)
+    except (AttributeError, TypeError, ValueError):
+        detail["reason"] = "tilt_invalid"
+        return False, detail
+    if (not np.all(np.isfinite(tilt_ref))
+            or not math.isfinite(roll) or not math.isfinite(pitch)):
+        detail["reason"] = "tilt_invalid"
+        return False, detail
+    tilt_deg = max(abs(roll - float(tilt_ref[0])) * RAD2DEG,
+                   abs(pitch - float(tilt_ref[1])) * RAD2DEG)
+    detail.update({
+        "tilt_relative_deg": round(tilt_deg, 3),
+        "tilt_within_envelope": tilt_deg <= float(max_tilt_deg),
+    })
+    if tilt_deg > float(max_tilt_deg):
+        detail["reason"] = "relative_tilt_outside_envelope"
+        return False, detail
+
+    health_limits = (
+        ("servo_current", abs, float(max_current_a), "current"),
+        ("servo_temperature", lambda value: value,
+         float(max_temp_c), "temperature"),
+        ("servo_load", lambda value: value,
+         float(max_load_pct), "load"),
+    )
+    for attr, transform, limit, label in health_limits:
+        try:
+            values = np.asarray(getattr(sampled, attr), dtype=float).reshape(
+                N_JOINTS)
+        except (AttributeError, TypeError, ValueError):
+            detail["reason"] = f"{label}_missing"
+            return False, detail
+        if not np.all(np.isfinite(values)):
+            detail["reason"] = f"{label}_invalid"
+            return False, detail
+        peak = float(np.max(transform(values)))
+        detail[f"max_{label}"] = round(peak, 3)
+        if peak > limit:
+            detail["reason"] = f"{label}_outside_envelope"
+            return False, detail
+
+    detail.update(ok=True, reason="ok")
+    return True, detail
+
+
 def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
                             write_speed: int, write_acc: int,
                             policy_dt: float, debug,
-                            max_tilt_deg: float) -> bool:
+                            baseline_state,
+                            tilt_reference: tuple[float, float],
+                            max_tilt_deg: float,
+                            max_pose_delta_deg: float,
+                            max_state_age_s: float,
+                            max_current_a: float,
+                            max_temp_c: float,
+                            max_load_pct: float,
+                            max_attempts: int =
+                            DRIVE_STREAM_HOLD_MAX_ATTEMPTS) -> bool:
     """Write the last successfully sent safe target before any resample.
 
     The async reader has already been stopped by the caller, so foreground
@@ -202,7 +379,9 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
     the sealed joystick trace showed an 87 ms interval before the first hold
     write while the chassis attitude changed sharply. Preserve the exact
     target that the bus previously accepted immediately, then sample only to
-    confirm the hold envelope; never re-anchor to a post-loss pose.
+    confirm the hold envelope with three distinct, advancing, fresh/full
+    healthy samples; never re-anchor to a post-loss pose. The caller must
+    positively acknowledge torque-off if this function cannot confirm.
     """
     fallback = np.asarray(fallback_robot, dtype=float).reshape(-1)
     if fallback.shape != (N_JOINTS,) or not np.all(np.isfinite(fallback)):
@@ -213,67 +392,102 @@ def _hold_after_stream_loss(bus, drive, est, fallback_robot: np.ndarray, *,
         fallback_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
     )
     try:
-        # A drive stream reaches this path with torque already enabled.  Do
-        # not put per-servo torque transactions ahead of the time-critical
-        # fallback write: they delayed the historical hold by tens of ms.
+        # A drive stream reaches this path with torque already enabled. Do not
+        # put torque or read transactions ahead of this time-critical write.
         bus.write_all((fallback * RAD2DEG).tolist(), speed=write_speed,
                       acc=write_acc)
-        est.set_commanded(fallback)
-        with drive._lock:
-            drive.status = "rl drive holding after stream loss"
-        debug.event(
-            "hold_after_stream_loss_fallback_written",
-            pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
-        )
     except Exception:
-        # If the half-duplex bus is still recovering, keep torque enabled and
-        # leave the actuator's already-latched last target intact.
-        try:
-            _set_weight_bearing_torque(bus)
-            drive._torque_all(True)
-        except Exception:
-            pass
         debug.event("hold_after_stream_loss_write_failed")
         return False
+    est.set_commanded(fallback)
+    with drive._lock:
+        drive.status = "rl drive confirming hold after stream loss"
+    debug.event(
+        "hold_after_stream_loss_fallback_written",
+        pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+    )
 
-    hold_confirmed = False
-    for _ in range(5):
+    needed = DRIVE_STREAM_HOLD_CONFIRMATIONS
+    attempts = max(needed, int(max_attempts))
+    confirmed = 0
+    baseline_timing = dict(getattr(baseline_state, "timing", {}) or {})
+    try:
+        previous_snapshot_seq = int(
+            baseline_timing["snapshot_seq"]) & 0xFFFF
+    except (KeyError, TypeError, ValueError):
+        previous_snapshot_seq = None
+    previous_feedback_seq = None
+    try:
+        previous_timestamp = float(baseline_state.timestamp)
+        if not math.isfinite(previous_timestamp):
+            previous_timestamp = None
+    except (AttributeError, TypeError, ValueError):
+        previous_timestamp = None
+    last_detail: dict = {"reason": "no_sample"}
+    for attempt in range(1, attempts + 1):
         try:
             sampled = est.update(want_full_feedback=True)
         except Exception:
             sampled = None
-        if (sampled is not None and sampled.bus_ok
-                and getattr(sampled, "imu_ok", False)):
-            pose = np.asarray(sampled.joint_position, dtype=float).reshape(-1)
-            finite_pose = (pose.shape == (N_JOINTS,)
-                           and bool(np.all(np.isfinite(pose))))
-            tilt_deg = max(abs(float(sampled.imu_roll)) * RAD2DEG,
-                           abs(float(sampled.imu_pitch)) * RAD2DEG)
-            debug.event(
-                "hold_after_stream_loss_sampled",
-                state=_state_debug(sampled),
-                pose_valid=finite_pose,
-                tilt_deg=round(tilt_deg, 3),
-                tilt_within_envelope=tilt_deg <= float(max_tilt_deg),
-                reanchored=False,
-            )
-            hold_confirmed = bool(
-                finite_pose and tilt_deg <= float(max_tilt_deg))
-            break
-        time.sleep(min(0.05, float(policy_dt)))
-    if not hold_confirmed:
+        sample_ok, sample_detail = _stream_loss_hold_sample_ok(
+            sampled, fallback,
+            previous_snapshot_seq=previous_snapshot_seq,
+            previous_feedback_seq=previous_feedback_seq,
+            previous_timestamp=previous_timestamp,
+            tilt_reference=tilt_reference,
+            max_tilt_deg=max_tilt_deg,
+            max_pose_delta_deg=max_pose_delta_deg,
+            max_state_age_s=max_state_age_s,
+            max_current_a=max_current_a,
+            max_temp_c=max_temp_c,
+            max_load_pct=max_load_pct,
+        )
+        last_detail = sample_detail
+        snapshot_seq = sample_detail.get("snapshot_seq")
+        if snapshot_seq is not None and (
+                previous_snapshot_seq is None
+                or _u16_seq_advanced(snapshot_seq, previous_snapshot_seq)):
+            previous_snapshot_seq = int(snapshot_seq)
+        feedback_seq = sample_detail.get("feedback_sample_seq")
+        if feedback_seq is not None and (
+                previous_feedback_seq is None
+                or int(feedback_seq) > previous_feedback_seq):
+            previous_feedback_seq = int(feedback_seq)
+        timestamp = sample_detail.get("timestamp")
+        if timestamp is not None and (
+                previous_timestamp is None
+                or float(timestamp) > previous_timestamp):
+            previous_timestamp = float(timestamp)
+        confirmed = confirmed + 1 if sample_ok else 0
         debug.event(
-            "hold_after_stream_loss_unconfirmed",
-            pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+            "hold_after_stream_loss_sampled",
+            attempt=attempt, confirmation=confirmed,
+            confirmations_required=needed,
+            state=_state_debug(sampled),
+            **sample_detail,
             reanchored=False,
         )
-        return False
+        if confirmed >= needed:
+            with drive._lock:
+                drive.status = "rl drive holding after stream loss"
+            debug.event(
+                "hold_after_stream_loss_ok",
+                pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+                confirmations=confirmed, attempts=attempt,
+                last_confirmation=last_detail,
+                reanchored=False,
+            )
+            return True
+        if attempt < attempts:
+            time.sleep(min(0.05, max(0.0, float(policy_dt))))
     debug.event(
-        "hold_after_stream_loss_ok",
+        "hold_after_stream_loss_unconfirmed",
         pose_deg=[round(float(x) * RAD2DEG, 2) for x in fallback],
+        confirmations=confirmed, attempts=attempts,
+        last_confirmation=last_detail,
         reanchored=False,
     )
-    return True
+    return False
 
 # Interactive learned-stand runs should release to joystick control once the
 # trained height ramp has produced a calm upright pose. Full-profile holds are
@@ -4176,16 +4390,6 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
         # the public wrapper so the API records torque_state=unverified.
         _confirmed_limp(drive)
 
-    def hold_current_pose_after_stream_loss(
-            fallback_robot: np.ndarray) -> bool:
-        """Keep a weight-bearing walk from turning one bus miss into a drop."""
-        return _hold_after_stream_loss(
-            bus, drive, est, fallback_robot,
-            write_speed=write_speed, write_acc=write_acc,
-            policy_dt=timing.policy_dt, debug=debug,
-            max_tilt_deg=WALK_MAX_TILT_DEG,
-        )
-
     with drive._lock:
         drive.mode = "demo"
         try:
@@ -4271,6 +4475,41 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)
     safety.set_tilt_reference(*tilt_ref0)
+
+    def resolve_stream_loss_hold(
+            fallback_robot: np.ndarray) -> tuple[bool, bool]:
+        """Confirm a stationary hold or positively acknowledge torque-off."""
+        try:
+            held = _hold_after_stream_loss(
+                bus, drive, est, fallback_robot,
+                write_speed=write_speed, write_acc=write_acc,
+                policy_dt=timing.policy_dt, debug=debug,
+                baseline_state=last_good_stream_state,
+                tilt_reference=tilt_ref0,
+                max_tilt_deg=WALK_MAX_TILT_DEG,
+                max_pose_delta_deg=DRIVE_STREAM_HOLD_POSE_TOL_DEG,
+                max_state_age_s=DRIVE_ASYNC_STATE_MAX_AGE_S,
+                max_current_a=safety.max_current,
+                max_temp_c=safety.max_temp,
+                max_load_pct=safety.max_load,
+            )
+        except Exception as error:
+            debug.event("hold_after_stream_loss_exception",
+                        error=repr(error))
+            held = False
+        if held:
+            return True, False
+
+        debug.event("hold_after_stream_loss_limp_begin")
+        # Only advertise limp after the transport has acknowledged torque-off.
+        # If both torque-off paths fail, _confirmed_limp raises and the public
+        # runner records the actuator state as unverified instead of lying.
+        limp()
+        with drive._lock:
+            drive.armed = False
+            drive.status = "rl drive limped after unverified stream hold"
+        debug.event("hold_after_stream_loss_limped")
+        return False, True
 
     prev_action = np.zeros(N_JOINTS, dtype=float)
     vx_r = vy_r = 0.0
@@ -4855,13 +5094,14 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
                               held_pose=True, ticks=i)
             elif (stream_err == "feedback stale during stream"
                   and active == "walk"):
-                held = hold_current_pose_after_stream_loss(
+                held, recovery_limped = resolve_stream_loss_hold(
                     last_written_q_robot_cmd)
                 result.update(
                     ok=False,
-                    error=(stream_err + ("; held current pose" if held
-                                         else "; torque left enabled")),
-                    held_pose=held, limped=False, ticks=i)
+                    error=(stream_err + (
+                        "; held last written target" if held
+                        else "; hold unverified; limped")),
+                    held_pose=held, limped=recovery_limped, ticks=i)
             else:
                 limp()
                 result.update(ok=False, error=stream_err,
@@ -4956,11 +5196,11 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
             # Confirm exclusive bus ownership before the synchronous hold
             # recovery. A failed join propagates and blocks later bus use.
             stop_async_sampler()
-            held = hold_current_pose_after_stream_loss(
+            held, recovery_limped = resolve_stream_loss_hold(
                 last_written_q_robot_cmd)
             result.update(
                 ok=False, error=timing_error,
-                held_pose=held, limped=False, ticks=i,
+                held_pose=held, limped=recovery_limped, ticks=i,
                 timing=timing_stats.summary())
             err_snap = {"level": "error", "error": timing_error,
                         "msg": timing_error, **snap}

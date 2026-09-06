@@ -2,11 +2,11 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: INTENT
 
-**created**: 2026-09-06T05:45:53+00:00
+**created**: 2026-09-06T05:46:40+00:00
 
-**pod**: hexapod-mjx-train-4
+**pod**: hexapod-mjx-train-5
 
 **steps**: 40000000
 
@@ -15,6 +15,4 @@
 **hypothesis**: A 2nd independent seed of the medhead-widenfwd 1g forward-composition (already CANARY PASS 23/24, matching seed-1) holds at full 40M ACQ scale, same as seed-1's own ACQ PASS (21/24).
 
 **gate**: ACQ PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) with no NEW chronic single-leg (every-episode) pattern; ACQ FAIL - MECHANISM/ENTRENCHES if a leg[1,4]-style chronic sacrifice emerges.
-
-**refused_reason**: hexapod-mjx-train-4 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-geom1x-c1 — GPU pods host exactly one run; pick a free GPU pod.
 

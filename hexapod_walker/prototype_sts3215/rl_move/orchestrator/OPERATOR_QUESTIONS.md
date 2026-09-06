@@ -4992,3 +4992,30 @@ describes the twin as ~3.5 kg and should be corrected either way.
 - remaining after the canary: none code-wise; if the canary exposes a
   wandb-resume or spawn-env defect, fix belongs to the run's triage
   cycle (evidence = finalizer.log + state.json on the pod).
+
+## q_20260906T0340Z — CLOSED 09-06 ~04:4x: canary validated, all 5 items live
+- canary cw-walkscratch-easy0905-medhead-widenfwd-c2-deferartifacts
+  (2M, train-2) CANARY PASS: GPU 0 MiB from handoff through
+  finalization (trainer exited ~30s after learn() returned); registry
+  training -> artifacts_pending (3 jobs) -> evaluated (3/3, 0 failed);
+  exactly-once W&B delivery (2 video rows + 1 eval row, zero dups)
+  through TWO forced interruptions (crash + SIGKILL mid-job, resumed
+  with done-job skip and single retry). Ledger verdict on the run is
+  the full evidence chain.
+- two defects the canary caught, both fixed + tagged same cycle:
+  inherited WANDB_SERVICE -> HandleAbandonedError (scrubbed at spawn
+  and finalizer startup, exp/gpu-artifact-handoff-wandbservice-fix);
+  zombie lock owner on reaper-less pods -> refused legitimate resume
+  (liveness now checks /proc cmdline,
+  exp/gpu-artifact-handoff-zombielock-fix).
+- operational notes for future owners: (a) manual finalizer reruns
+  need WANDB_API_KEY exported in the kubectl exec shell (trainer-
+  spawned path inherits it); (b) `ops.sh handoff <run>` reads the
+  registry from the run's pod; a deferred run's verdict needs
+  phase=evaluated or the watcher's independent prestage evals, never
+  the marker; (c) watcher prestage needs NO change — its gate evals
+  run from the final checkpoint independently of the bg-job handoff.
+- next owner: adoption is a policy decision, not code — a future
+  cycle may flip `--defer-final-artifacts` on for long ACQ arms
+  (where the 6-10 min GPU retention bites) citing this canary as
+  evidence. Flag remains default-OFF everywhere until then.

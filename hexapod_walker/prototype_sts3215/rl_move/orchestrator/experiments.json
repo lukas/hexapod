@@ -315505,7 +315505,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-06T01:23:02"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1",
@@ -315925,7 +315926,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-09-06T01:28:10"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1",
@@ -316083,7 +316085,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_fullhead_widen2_c1_acq1.zip"
     ],
     "created": "2026-09-06T00:48:22+00:00",
-    "status": "RUNNING",
+    "status": "CANARY PASS - INFORMATIVE-POSITIVE",
     "checks": {
       "control_hz_defaulted": "explicit",
       "model_source_lineage": "mesh-matched",
@@ -316129,7 +316131,8 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-06T01:02:29"
+    "triage": "done",
+    "verdict": "Result: cross-gravity transfer generalizes to a 2nd, materially different leg-healthy halfgrav champion (full 8-way heading incl. reversals, widen2-c1 lineage), not just medhead. Evidence: harness gait_valid 19/24 -- walk/det 5/6 (sac=[] every episode but one, that one flags [0,3] transiently not chronically), walk/sto 6/6 clean, walk_startjitter/det 3/6 and walk_startjitter/sto 5/6 with a mild leg-4 softening under start-pose jitter (duty stays borderline, never zero-touch) -- 0 falls in all 24 episodes, closely matching crossgrav-medhead-abrupt-c1's own 20/24 read at the identical 2M budget and template. Video (contact_sheet.png, walk_startjitter_sto_4.mp4) shows genuine six-leg cycling with the body translating across tiles, not frozen/dragging. A few reversal-heavy episodes show slip/m spikes (up to 207/m) from the known low-net-progress denominator blowup already documented on this widen2/reversal-heading family, not a new pathology. Why: this is the 2nd of 3 generality-check champions to independently PASS the abrupt 1g transfer (medhead abrupt+ramp already PASSED; irracq1-abrupt-c1/widenirrc1-abrupt-c1 pending under concurrent cycles; widen2c2b-abrupt-c1 negative control pending) -- strengthens cross-gravity-transfer as a general base(1g) repair path rather than a medhead-specific fluke. Next: per the gate's own PASS branch and the medhead template, launching a matched 40M ACQ continuation (headset-crossgrav-widen2c1-abrupt-c1-acq1) to test whether the six-leg gait holds/improves at full acquisition budget on this 2nd recipe."
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1",
@@ -316335,7 +316338,7 @@
         "problems": []
       }
     ],
-    "triage": "awaiting since 2026-09-06T01:07:37"
+    "triage": "in-cycle cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1 since 2026-09-06T01:33:21"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c2b-abrupt-c1",
@@ -317276,7 +317279,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 3 --out-name ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c2 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=0.5 --notes 'respec of cw-walkscratch-easy0905-headset-halfgrav-irr2-acq1: Plain English: irrwiden-c1-acq1 (widen2'\"'\"'s full 8-way heading set applied ON TOP of the irr-timing-jitter champion irr-acq1) just ACQ PASSed at 40M -- gait_valid 22/24, 0 falls, course/slip matching its own 2M canary -- confirming the widen+irr composite (the actual DONE-gate panel shape: heading breadth AND irregular timing together) survives full budget on ONE seed. This arm tests the SAME composition recipe (identical heading-set + jitter cfg, no new mechanism) on a DIFFERENT, independently-ACQ-PASSed irr-timing parent (irr2-acq1, seed3, warm-started from a different base lineage s1acq not acq1) to give the composite its own n=2 seed confirmation before calling it a validated recipe rather than a single lucky seed.' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_irr2_acq1.zip --cfg-set goal.walk_cmd_resample_jitter=0.5 > /tmp/train_cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-halfgrav-irrwiden-c2.log",
     "wandb_id": "be9xpiw5",
-    "verified": "2026-09-06T01:09:49+00:00"
+    "verified": "2026-09-06T01:09:49+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-06T01:15:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 22209.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-06T01:23:02"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1",
@@ -317467,7 +317483,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=1.0 --notes 'respec of cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1: Plain English: this cycle'\"'\"'s own widenirr-c1-acq1 ACQ PASS (widen+irr composition, 23/24 gait_valid, beats the plain widen2-c1-acq1 sibling) makes it a 3rd distinct leg-healthy halfgrav champion (after medhead and widen2c1) never yet tested under an abrupt jump to full 1g gravity. Does the cross-gravity-transfer repair (already 2/2 PASS on materially different halfgrav recipes) generalize to this composed widen+irr recipe too, or is transfer itself recipe-sensitive?' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_widenirr_c1_acq1.zip > /tmp/train_cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1.log",
     "wandb_id": "zigln3k9",
-    "verified": "2026-09-06T01:11:08+00:00"
+    "verified": "2026-09-06T01:11:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-06T01:16:52+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-06T01:23:02"
   },
   {
     "run": "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc1-abrupt-c1",
@@ -317658,6 +317687,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-headset-crossgrav-irrwidenc1-abrupt-c1 --steps 2000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --activation-fn '' --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 2 --out-name ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_irrwidenc1_abrupt_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --cfg-set ease.gravity_scale=1.0 --notes 'respec of cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1: Plain English: this cycle'\"'\"'s own irrwiden-c1-acq1 ACQ PASS (widen+irr composition, jitter-first order, gait_valid 22/24, the ACTUAL DONE-gate panel shape -- heading breadth AND irregular timing together) makes it a 4th distinct leg-healthy halfgrav champion (after medhead, widen2c1, and the concurrent cycle'\"'\"'s widen-first widenirr-c1-acq1) never yet tested under an abrupt jump to full 1g gravity. Does the cross-gravity-transfer repair (already 2/2 PASS on materially different halfgrav recipes) generalize to THIS jitter-first composite too -- the champion closest to the track'\"'\"'s real target panel -- or is transfer itself recipe/order-sensitive? Trains at the champion'\"'\"'s own full 8-way heading set (not the narrower 5-way some sibling crossgrav arms inherited from their template) since that'\"'\"'s what the checkpoint was actually trained on.' --cfg-set 'goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]' --cfg-set goal.walk_stop_frac=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c1_acq1.zip > /tmp/train_cw-walkscratch-easy0905-headset-crossgrav-irrwidenc1-abrupt-c1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-irrwidenc1-abrupt-c1.log",
     "wandb_id": "ndd04efq",
-    "verified": "2026-09-06T01:15:16+00:00"
+    "verified": "2026-09-06T01:15:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-09-06T01:20:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "placement": "budget reached; wrap-up window",
+        "note": "rollout budget 2000000 reached (W&B or log total_timesteps) with trainer process alive \u2014 training loop complete, run is in eval-drain/finalize, not stalled",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "awaiting since 2026-09-06T01:28:11"
   }
 ]

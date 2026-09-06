@@ -2,6 +2,65 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:2x this cycle (assigned `headset-crossgrav-s1acq-abrupt-c1-acq1`,
+  `headset-crossgrav-s3acq-abrupt-c1-acq1`, `headset-crossgrav-widen2c1-
+  irrfwd-c1`): 3 verdicts (2 ACQ, 1 canary), 2-arm refill. All 3 gate evals
+  were still genuinely computing remotely when the cycle spawned (video-
+  every=1 24-episode panels); confirmed via `kubectl exec ps aux` on each
+  pod (not orphaned), backgrounded 3 `ops.sh pollreap` loops, read each
+  `report.json` as it landed. **(1) `s1acq-abrupt-c1-acq1` ACQ PASS**:
+  aggregate `gait_valid` 23/24 (walk/det 6/6, walk/sto 6/6, walk_
+  startjitter/det 5/6 one transient leg-4 dip, walk_startjitter/sto 6/6),
+  0 falls -- essentially matches this run's own 2M canary's PERFECT
+  24/24. The campaign's single healthiest source champion holds clean at
+  40M, directly answering the durability-vs-source-health question
+  `irracq1`'s earlier FAIL raised (at least for this source, health
+  predicts durability). **(2) `s3acq-abrupt-c1-acq1` ACQ FAIL -
+  MECHANISM**, a SECOND healthy-source (22/24 canary, no prior chronic
+  pattern) crossgrav champion to entrench at ACQ scale: walk/det+walk/sto
+  stay clean 6/6+6/6, but walk_startjitter/det collapses to 2/6 and
+  walk_startjitter/sto to 3/6, both with leg-1 chronically low (duty
+  0.03-0.20 across ALL 6 startjitter/det episodes, low in 4/6 -- worse
+  than the 2M canary's own milder leg-1 softening, median duty roughly
+  halved 0.15-0.19 -> 0.08). Exact numerical fingerprint match to the
+  already-closed `widen2c2b-abrupt-c1-acq1` FAIL ("leg-1 in 4/6 and 3/6
+  episodes"), but this time on a healthy (not unhealthy) source --
+  together with `irracq1`/`irr2acq1` (both FAILed this cycle+last, a
+  DIFFERENT recipe) this generalizes the startjitter-panel leg[1,4]
+  entrenchment risk across multiple independent lineages, not one
+  recipe's quirk (tally: 4 ACQ PASS vs 3 ACQ FAIL among healthy-source
+  crossgrav champions so far). CURRENT_TRUTHS updated with the full
+  cross-recipe read. **(3) `widen2c1-irrfwd-c1` CANARY PASS -
+  INFORMATIVE-POSITIVE** per its own explicit gate: aggregate `gait_valid`
+  21/24, majority holds in walk/det (5/6) with no chronic same-leg
+  pattern anywhere in the panel (each dip isolated to a single episode)
+  -- confirms compose-after-transfer (composing MORE curriculum natively
+  at 1g onto an already-transferred champion) generalizes to a 2nd,
+  harder base (widen2c1, full 8-way heading incl. reversals), matching
+  medhead-irrfwd/widenfwd's own reads. Caveats: 1 genuine fall (TERM
+  tilt_roll, first in this forward-extension-canary family) and markedly
+  slower/higher-slip than the medhead-based siblings (fwd 0.10-1.32m/20s,
+  slip 4.7-10.4 vs siblings' 2.2-3.3m/3-6) -- consistent with widen2c1's
+  own baseline being the harder/slower recipe, not a new pathology.
+  **Refill (2 arms):** `headset-crossgrav-s1acq-widenfwd-c1` and
+  `headset-crossgrav-s1acq-irrfwd-c1` (train-2/train-5, VERIFIED
+  RUNNING) -- forward-extension discovery canaries mirroring medhead's,
+  testing compose-after-transfer on the campaign's cleanest source (a 3rd
+  base champion). Held off on a widenirr-style composite on s1acq
+  (composing 2 untested axes before either single-axis sibling lands
+  would confound the read, matching this campaign's own discipline) and
+  on any further widen2c2b/irracq1-lineage spend (both closed). Noticed
+  but left untouched (still genuinely computing on their own pods,
+  confirmed via `ps aux`, not orphaned; poll loops backgrounded for a
+  future cycle): `medhead-abrupt-c1-acq1-cont40m` and `widenirrc3-
+  abrupt-c1` (both appeared mid-cycle, not on this cycle's assigned or
+  concurrent-cycle lists) and `plainhead-abrupt-c1b-acq1` (ledger
+  `triage=awaiting` since 04:15, also mid-cycle). SKILLS.md updated (1
+  new row set). Evidence: `ops.sh review cw-walkscratch-easy0905-
+  headset-crossgrav-{s1acq,s3acq}-abrupt-c1-acq1`, `...widen2c1-irrfwd-
+  c1`, matching `logs/ckpt_eval/...gate/report.json` files, W&B
+  `80g9tb6m`/`lp972djl`/`nodmsa82`, RL_LOG.
+
 - 09-06 ~04:1x this cycle (assigned `headset-crossgrav-irr2acq1-abrupt-c1-acq1`,
   `headset-crossgrav-irrwidenc2-abrupt-c1`): 2 verdicts, 1 FAIL + 1 PASS,
   both gate evals were still genuinely computing remotely when the

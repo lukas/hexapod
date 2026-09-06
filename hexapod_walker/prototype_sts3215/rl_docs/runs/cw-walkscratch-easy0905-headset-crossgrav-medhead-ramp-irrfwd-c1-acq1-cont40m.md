@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:57:41+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1
+
+**wandb_id**: yp7q6t8m
 
 **hypothesis**: Plain English: same endurance question as the medhead/widen2c1/widenirrc1 cont40m siblings, run on the ramp-transfer + irr-forward-composed champion (medhead-ramp-irrfwd-c1-acq1: 22/24 gait_valid, EXACT match to its own 2M canary's structure, 0 falls) -- first endurance read on a RAMP-transfer (not abrupt) source, and separately tests whether ramp-transfer itself carries elevated entrenchment risk under a 2nd 40M helping (open question raised by sibling medhead-ramp-widenfwd-c1-acq1 ACQ FAIL).
 

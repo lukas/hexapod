@@ -2,6 +2,60 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~02:1x this cycle (assigned `headset-crossgrav-medhead-abrupt-c1-acq1`,
+  `headset-crossgrav-widenirrc1-abrupt-c1`, `headset-halfgrav-irrwiden-c2`): 3
+  verdicts, all PASS. **`medhead-abrupt-c1-acq1` ACQ PASS is the headline
+  result**: the base(1g) cross-gravity-transfer recipe holds at FULL 40M
+  acquisition scale — `gait_valid` 23/24 (`walk/det` 6/6 clean `sac=[]`,
+  `walk/sto` 6/6 clean, `walk_startjitter/det` 5/6 one isolated `sac=[4]`,
+  `walk_startjitter/sto` 6/6 clean), 0 falls in all 24 episodes, `slip_per_m`
+  3.4-4.5 (matches crossgrav siblings' band). Video (`walk_det_0` 8-frame
+  strip) shows genuine six-leg cycling with clear body translation.
+  Together with the concurrent cycle's `medhead-ramp-c1-acq1` ACQ PASS
+  (also this window, see entry below), this is 2/2 — cross-gravity
+  curriculum transfer is now a FULLY VALIDATED base(1g) repair, opening
+  real new spend beyond "reallocate everything to halfgrav." Tooling
+  gotcha (matches the 01:4x precedent below): all 3 assigned runs'
+  prestaged gate evals were never queued in `pending_evals.json` despite
+  already genuinely computing remotely — caught via `kubectl exec ... ps
+  aux` on each pod (train-2/5/8) before assuming failure, ran `ops.sh
+  podeval` (detected already-running, no duplicate launch), reniced the
+  train-2 eval tree (`ops.sh niceevals`, since a NEW protected trainer —
+  `s1acq-abrupt-c1` — had already been scheduled onto that pod),
+  registered all 3 with `evalpending add`, waited for sync, then triaged
+  normally. `widenirrc1-abrupt-c1` (2M canary, the widen-first widen2+irr
+  composite champion abruptly transferred to 1g): **CANARY PASS -
+  INFORMATIVE-POSITIVE**, `walk/det`+`walk/sto` 6/6 clean each (`sac=[]`),
+  `walk_startjitter/det` softens to 3/6 under jitter only (same mild
+  pattern as every other crossgrav sibling), 0 falls in all 24 — 4th
+  distinct halfgrav recipe to confirm transfer. `halfgrav-irrwiden-c2` (2M
+  mechanism-health canary, 2nd seed of the jitter-first widen+irr
+  composite, respec off `irr2-acq1`): **CANARY PASS**, aggregate
+  `gait_valid` 22/24 (beats the cited `irr2-acq1` baseline of 19/24), 0
+  falls — confirms the composite in BOTH build orders now has n=2 seeds.
+  **Refill:** matched 40M ACQ continuations for both canaries —
+  `headset-crossgrav-widenirrc1-abrupt-c1-acq1` (train-1) and
+  `headset-halfgrav-irrwiden-c2-acq1` (train-3), both VERIFIED RUNNING.
+  **Second refill (using free fleet capacity, 6/12 idle with an empty
+  backlog after the first two launches):** with the base(1g) repair now
+  proven durable at full acquisition scale, launched 2 NEW discovery
+  canaries testing whether the repair supports FORWARD curriculum
+  extension natively in 1g (rather than always composing heading/jitter at
+  0.5g THEN transferring, the pattern every prior arm used) —
+  `headset-crossgrav-medhead-widenfwd-c1` (widen2 full-8-way heading set
+  added directly on top of the 1g `medhead-abrupt-c1-acq1` champion,
+  train-2) and `headset-crossgrav-medhead-irrfwd-c1` (command-timing
+  jitter added directly at 1g, same base champion, train-8). Both VERIFIED
+  RUNNING. PASS licenses building the rest of the DONE-gate contextual
+  panel natively at 1g without another 0.5g detour; FAIL would mean 1g
+  heading/timing generalization still needs the 0.5g-first curriculum.
+  SKILLS.md updated (3 new rows). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-{crossgrav-medhead-abrupt-c1-acq1,
+  crossgrav-widenirrc1-abrupt-c1,halfgrav-irrwiden-c2}`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_{crossgrav_medhead_abrupt_c1_acq1,
+  crossgrav_widenirrc1_abrupt_c1,halfgrav_irrwiden_c2}_gate/report.json`,
+  W&B `ibau23ge`/`zigln3k9`/`be9xpiw5`, RL_LOG.
+
 - 09-06 ~02:0x this cycle (assigned `headset-crossgrav-irrwidenc1-abrupt-c1`,
   `headset-crossgrav-medhead-ramp-c1-acq1`): 2 verdicts, 1-arm refill.
   **`medhead-ramp-c1-acq1` ACQ PASS**: the 40M own-checkpoint

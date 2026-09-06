@@ -2,6 +2,73 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~20:1x this cycle (assigned runs: both assistfade
+  rung3-residualfade completions, already fully verdicted by
+  concurrent cycles before this one started — see assistfade's own
+  STATUS.md; no duplicate work landed there). Refill: NEW evidence on
+  item(4)'s `footslip-c1` FAIL (verdicted ~19:1x below, "not a 3rd
+  dose tweak on this lever") that the closure's own text didn't have —
+  decomposed `wandb_history.csv`'s per-channel `env/reward_walk_*`
+  columns (not just the aggregate reward trend) and found
+  `env/reward_foot_slip_tangent` averages **-4.2 to -4.3/tick** at
+  BOTH sampled eval points (step ~1M and ~2M, flat to 3 sig figs)
+  while the ENTIRE REST of the walk reward (`reward_walk` +0.98,
+  `reward_walk_freeprog_pen` -0.73 to -0.95, `reward_walk_prog` 0.0)
+  sums to only **+0.23/tick net** — the tangent-slip charge outweighs
+  every other reward channel combined by **~5x** at the bank-picked
+  dose (k=35). This is a materially different fact than "swept
+  k=20-100 synthetically, picked 35" (that sweep only ranked
+  gait-vs-skate margin on a tiny synthetic bank, it never checked the
+  dose against the FULL composite's real per-tick scale) and plausibly
+  explains the "large, well-motivated charge, target metric completely
+  flat across the whole run" fingerprint better than "wrong sensing
+  modality": at ~5x the rest of the reward, the charge doesn't shape
+  behavior at the margin, it just dominates/renormalizes the whole
+  return while PPO's on-policy gradient (starting from an already-
+  converged 40M+80M warm start, `log-std-init/final -1.0/-2.0`, fairly
+  low exploration) can't find the coordinated multi-leg footfall-timing
+  change needed to reduce it within 2M steps — a scale/dose-mismatch
+  artifact, not necessarily proof the contact-conditioned MECHANISM
+  itself is unfixable. **Launched one cheap, single-lever probe before
+  committing to the unscoped contact-independent-mechanism redesign**
+  (`respec --from` the failed `footslip-c1` run, ONLY
+  `reward.k_foot_slip_tangent` changed 35.0->3.0 — chosen to land in
+  the same ballpark as the other walk channels, ~-0.4/tick at the
+  champion's own measured slip, everything else byte-identical
+  including the same warm-start champion checkpoint, same contact_n/
+  deadband/cap): `...-footslip-c1-lowdose-{s0,s1}` (seeds 0/1). This is
+  NOT "another dose tweak in the already-swept 20-100 band" (the prior
+  closure's own words) — it's an order-of-magnitude-lower dose
+  motivated by a new total-reward-scale measurement that band never
+  considered. Gate (canary, mechanism-health only): if
+  `env/walk_tangent_contact_vel_mean_m_s` still doesn't move even at a
+  properly-scaled dose, that's real evidence the mechanism (not just
+  this dose) is stuck and the contact-independent floor-height redesign
+  is the right next spend; if it moves even partially, the right real
+  recipe is a DOSE SCHEDULE (small early, ramped up) rather than
+  slamming in a 5x-dominant charge from step 0. No code changed (cfg-
+  value-only respec, mechanism already banked/green,
+  `test_task_semantics.py -k footslip` re-confirmed 4/4 green this
+  cycle). Full board re-checked: assistfade's two assigned runs
+  independently re-confirmed already-verdicted (`s0-latehandover`
+  CANARY FAIL - MECHANISM per RL_LOG 09-06 20:04, `s1-longbudget`
+  CANARY FAIL - MECHANISM per RL_LOG 09-06 20:06); its
+  `s0-longbudget` DIG-IN (fork-deciding partial-improvement read,
+  chronic leg-5 sacrifice on an otherwise-improving budget lever)
+  stays flagged/unverdicted for the deep-model cycle, not attempted
+  here (re-flagging per the model-tiering rule since it is still open
+  ~20 min / many log entries after its original flag with no
+  deep-model read landed yet). joystick/amp/cpg confirmed DONE/
+  maintenance-only, standwalk blocked pending fresh design thinking,
+  todaypolicy's own open arcaware/course_err bug is a separate,
+  non-gate-blocking research thread (track DONE 08-30) — left alone.
+  `CYCLE_WORKED` touched (git-committed a pending verdict + this
+  launch). Evidence: `logs/experiments/cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-
+  cont40m-footslip-c1/wandb_history.csv` (per-channel decomposition),
+  `ops.sh entry cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-footslip-c1-lowdose-{s0,s1}`.
+
 - **09-06 ~19:1x this cycle (orphan pickup — not this cycle's assigned
   runs, an assistfade rung3-residualfade canary pair; picked this up
   because the assigned pair was already fully triaged+refilled by a

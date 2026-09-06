@@ -120,30 +120,6 @@
   "added": "2026-09-05T19:16:21"
  },
  {
-  "pod": "hexapod-mjx-train-1",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dgnoise_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_base_s0c1_dgnoise_c1_gate",
-  "added": "2026-09-05T20:11:58"
- },
- {
-  "pod": "hexapod-mjx-train-4",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_base_s0c1_noiseonly_c1_gate",
-  "added": "2026-09-05T20:12:08"
- },
- {
-  "pod": "hexapod-mjx-train-0",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_medhead2_acq1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_base_medhead2_acq1_gate",
-  "added": "2026-09-05T20:15:56"
- },
- {
-  "pod": "hexapod-mjx-train-3",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_halfgrav_medhead2_acq1_gate",
-  "added": "2026-09-05T20:15:56"
- },
- {
   "pod": "hexapod-mjx-train-3",
   "file": "/tmp/eval_cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix.log",
   "label": "cw-walkscratch-easy0905-headset-base-s0c1-swinggate-fix",
@@ -154,71 +130,5 @@
   "file": "/tmp/eval_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b.log",
   "label": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b",
   "added": "2026-09-05T22:19:57"
- },
- {
-  "pod": "hexapod-mjx-train-4",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_abrupt_c1_gate/report.json",
-  "label": "cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1",
-  "added": "2026-09-06T01:37:07"
- },
- {
-  "pod": "hexapod-mjx-train-2",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_abrupt_c1_acq1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_abrupt_c1_acq1_gate",
-  "added": "2026-09-06T01:52:36"
- },
- {
-  "pod": "hexapod-mjx-train-5",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1_gate",
-  "added": "2026-09-06T01:52:36"
- },
- {
-  "pod": "hexapod-mjx-train-8",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c2_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_halfgrav_irrwiden_c2_gate",
-  "added": "2026-09-06T01:52:36"
- },
- {
-  "pod": "hexapod-mjx-train-1",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irrwidenc1_abrupt_c1_gate/report.json",
-  "label": "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc1-abrupt-c1",
-  "added": "2026-09-06T01:56:32"
- },
- {
-  "pod": "hexapod-mjx-train-0",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_c1_acq1_gate/report.json",
-  "label": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-c1-acq1",
-  "added": "2026-09-06T01:56:32"
- },
- {
-  "pod": "hexapod-mjx-train-3",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_irr2acq1_abrupt_c1_gate",
-  "added": "2026-09-06T02:26:13"
- },
- {
-  "pod": "hexapod-mjx-train-4",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_abrupt_c1_acq1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_irracq1_abrupt_c1_acq1_gate",
-  "added": "2026-09-06T02:55:13"
- },
- {
-  "pod": "hexapod-mjx-train-0",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irrwidenc1_ramp_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_irrwidenc1_ramp_c1_gate",
-  "added": "2026-09-06T02:55:13"
- },
- {
-  "pod": "hexapod-mjx-train-2",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_widenfwd_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_widenfwd_c1_gate",
-  "added": "2026-09-06T02:58:52"
- },
- {
-  "pod": "hexapod-mjx-train-8",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_irrfwd_c1_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_irrfwd_c1_gate",
-  "added": "2026-09-06T02:58:52"
  }
 ]

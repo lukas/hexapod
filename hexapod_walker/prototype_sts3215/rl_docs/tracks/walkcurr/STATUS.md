@@ -2,6 +2,59 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~01:5x this cycle (assigned `headset-crossgrav-widen2c2b-abrupt-c1`,
+  the pre-registered NEGATIVE CONTROL warm-started from an already-
+  leg-1-parked-at-source halfgrav champion, `widen2-c2b-acq1`, ACQ
+  FAIL at native 0.5g): **left UNVERDICTED — result is genuinely
+  split across modes, exactly the "decides a fork" trigger, not a
+  clean triage call.** Full 24-ep gate (had to be reaped mid-cycle;
+  the prestaged eval was still computing on train-1 when the cycle
+  spawned — `ops.sh podeval` confirmed no duplicate needed, waited on
+  it): `walk/det` (the mode the gate's own PASS/FAIL text is written
+  against) is **4/6 gait_valid with `sac=[]` in 4 of 6 episodes**
+  (only 2 episodes transiently flag leg 1, never chronic) — read
+  literally against the pre-registered gate text this is the
+  SURPRISING/COMPLICATES branch ("clears majority with no chronic
+  sacrifice"). But `walk_startjitter/det` collapses to **1/6
+  gait_valid with leg-1 duty <0.10 in 5 of 6 episodes** (`duty_cycle`
+  index 1: 0.08, 0.19, 0.01, 0.05, 0.03, 0.04 — i.e. near-chronic
+  under start-pose perturbation specifically), matching the classic
+  leg-1 entrenchment fingerprint almost exactly once the robustness
+  axis is added. Plain-nominal walk looks repaired; the same
+  checkpoint under jitter reverts to the chronic-sacrifice pattern.
+  This is neither a clean CONFIRMS nor a clean COMPLICATES read, and
+  the pre-registered gate explicitly calls the COMPLICATES branch "a
+  much stronger and more useful claim needing its own follow-up" — so
+  per the model-tiering rule this gets flagged for a deep-dive rather
+  than triage-verdicted off a partial read. Video (`contact_sheet.png`,
+  both `walk_det_0` and `walk_startjitter_det_2` frame strips) shows
+  genuine body translation in both conditions, consistent with the
+  numeric duty data rather than contradicting it. Evidence: `logs/
+  ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_widen2c2b_
+  abrupt_c1_gate/report.json`, W&B `j010yu74`.
+  **Refill (2 new discovery canaries, non-overlapping with concurrent
+  cycles' medhead/widen2c1/widen2c2b/irracq1/irrwiden/widenirr/irr2
+  threads):** the halfgrav heading-family's n=3 confirmation-set
+  champions `headset-halfgrav-s1acq` (campaign-BEST, `gait_valid`
+  24/24) and `headset-halfgrav-s3acq` (22/24, active-not-chronic leg-1
+  micro-underuse) have never been cross-gravity-tested. Launched
+  `headset-crossgrav-s1acq-abrupt-c1` and `headset-crossgrav-s3acq-
+  abrupt-c1` (same abrupt-1g-from-tick-0 template as `medhead-abrupt-
+  c1`, heading set matched to each champion's own 3-way (0,±45°)
+  training distribution rather than reused verbatim from the 5-way
+  `medhead` template). Both VERIFIED RUNNING (train-2, train-9).
+  Testing the campaign's single best champion is the highest-value
+  untested cross-gravity arm remaining. `CYCLE_WORKED` touched (real
+  eval work + 2 new launches); no code changed, no snapshot needed.
+
+DIG-IN: cw-walkscratch-easy0905-headset-crossgrav-widen2c2b-abrupt-c1
+— pre-registered negative-control gate reads SURPRISING (majority
+`walk/det` gait_valid, no chronic sac) on the primary mode but reverts
+to near-chronic leg-1 entrenchment (5/6 episodes, duty<0.10) under
+`walk_startjitter/det` — a split result the gate's own text calls a
+fork ("needs its own follow-up" if surprising); needs per-leg/per-
+episode root-cause read before it can be verdicted either way.
+
 - 09-06 ~01:4x this cycle (assigned `headset-crossgrav-irracq1-abrupt-c1`): 1
   verdict, **CANARY PASS**, 2-arm refill. Warm-starting the leg-healthy
   0.5g `headset-halfgrav-irr-acq1` champion (irregular command-timing-

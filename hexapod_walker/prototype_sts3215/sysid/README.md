@@ -53,9 +53,11 @@ robot** — nothing here touches the robot until the guarded runner invokes
   if `set_zero` is stale/wrong, the glide's tracking/current trips are
   the backstop (they limp and say so), but confirm zero after any
   hand-posing or reassembly.
-- `run_hw.py` is a dry-run unless `--go`. Whole-body `traj` protocols
-  additionally need `--force`; a traj that is discontinuous with the
-  pose mid-protocol trips instead of yanking joints.
+- `run_hw.py` is a dry-run unless `--go`. Physical runs require
+  `--capture-vision`: three distinct frames admit motion, and a stream that
+  stops advancing remotely stops the run. Whole-body `traj` protocols
+  additionally need `--force`; a traj that is discontinuous with the pose
+  mid-protocol trips instead of yanking joints.
 - The runner uses soft torque, per-joint current/temp trips, and a
   tracking-error trip (unexpected force = limp + descriptive error,
   suggesting a `set_zero` re-check). It always limps at the end.
@@ -75,10 +77,13 @@ uv run python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
     --servo-params loaded --plot
 
 # Phase 1+2 — guarded bench session (robot suspended):
-uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
-uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json \
+  --capture-vision --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json \
+  --capture-vision --go
 # Phase 6 — every servo, reduced battery:
-uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json \
+  --capture-vision --go
 
 # First overlay + gap numbers (also covers Phase 2: latency/jitter
 # DISTRIBUTIONS from the per-tick t_send/t_recv and step onsets)
@@ -96,7 +101,7 @@ uv run python -m sysid.fit --csv sysid/datasets/<run>/*.csv \
 # Phase 8 — suspended champion replay (Test A):
 uv run python -m sysid.protocols champion --csv <rl_*.csv or sim eval csv>
 uv run python -m sysid.run_hw --protocol sysid/protocols/champion_*.json \
-    --go --force
+    --capture-vision --go --force
 uv run python -m sysid.report --csv sysid/datasets/champion_*/*.csv \
     --servo-params sim_model_sysid.json
 ```

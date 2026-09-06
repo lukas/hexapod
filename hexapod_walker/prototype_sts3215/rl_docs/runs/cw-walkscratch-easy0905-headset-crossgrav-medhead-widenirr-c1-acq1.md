@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:52:04+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1
+
+**wandb_id**: eipegd5n
 
 **hypothesis**: The widen-then-irr composite (8-way heading + irr-timing jitter, composed on medhead) holds at full 40M ACQ scale, matching its own 2M canary (22/24) and its irr-then-widen sibling's precedent.
 

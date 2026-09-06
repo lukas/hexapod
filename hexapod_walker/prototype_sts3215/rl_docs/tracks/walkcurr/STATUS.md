@@ -87,6 +87,28 @@ the 3x crutch; (4) once composite+no-crutch holds: the acquisition-milestone pan
 contextual DONE-gate rungs (heading changes, slip pressure) on the full-realism champion.
 Per-axis arms stay justified only for a genuinely NEW axis or a composite-FAIL bisection.
 
+- 09-06 ~10:2x this cycle (refill-only, no completions assigned; canonical capacity found 5 free
+  slots + empty backlog, other cycles owned every in-flight frontier gate read). Confirmed via a
+  concurrent cycle's RL_LOG line that per-axis DR-restore funding is now FULLY closed (9th/final
+  axis, `gains1x-c1-acq1-r2` ACQ PASS) -- did NOT re-fund cont40m for the 5 remaining clean
+  single-axis ACQ PASSes still lacking one (`actionnoise1x`/`contactstiff1x`/`latency1x`/
+  `torquefade1x`/`zerobias1x`), per this banner's own STOP directive. Found 2 finished-training
+  frontier canaries with no gate eval started: `kickhalf-notorquecrutch-c1` turned out already
+  running elsewhere (train-0, no dup); `allaxis-nokick-c1` was genuinely orphaned -- kicked via
+  `podeval`, backgrounded, left unverdicted. **Launched 1 new canary** (within the launch cap):
+  `allaxiskickhalf-nocrutch1x-c1` (train-8, VERIFIED RUNNING) -- respec of
+  `allaxiskickhalf1x-c1-r2` (the full ~30-axis kick-safe composite, gate still computing) with
+  `dr.torque_scale` also dropped 3->1 (the real unassisted servo spec, already ACQ-clean
+  standalone via `torquefade1x-c1-acq1`). This is the FULL-composite half of item (3)'s "composite
+  WITHOUT the crutch" step, independent of the isolated 2-axis `kickhalf-notorquecrutch-c1` probe
+  -- tests whether the OTHER ~28 realism axes (mass/friction/stiffness/etc) interact with a
+  de-crutched actuator even though kick+no-crutch alone does not. Left the remaining free slots
+  (train-5/9/10/11) idle: every other frontier item (the composite-with-crutch ACQ, the kick-dose
+  ladder, the contextual DONE-gate rungs) is genuinely blocked on in-flight gate reads already
+  owned by concurrent cycles (`allaxiskickhalf1x-c1-r2`, `kick0225x-c1`, `kickhalf1x-c1-acq1` all
+  mid-harness on their own pods) -- not idle-next-to-runnable-work. Evidence: `launch_run.py
+  status`/`experiments.json`, RL_LOG 09-06 10:24.
+
 - 09-06 ~09:2x-09:5x this cycle (assigned `actionnoise1x-c1-acq1`, `contactstiff1x-c1-acq1`,
   `deadband1x-c1-acq1`): **all 3 ACQ PASS/HOLDS (3 more single-axis confirmations, closing that
   information source per this same banner's own STOP directive), plus 1 bonus orphan verdict and

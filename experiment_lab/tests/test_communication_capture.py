@@ -129,6 +129,41 @@ def test_marker_bounded_capture_is_attached_with_zero_loss(tmp_path):
     assert capture.finish() == result
 
 
+def test_large_log_download_has_a_separate_longer_timeout(tmp_path):
+    begin = recorder("begin-large")
+    end = recorder("end-large")
+    log = b"".join((json.dumps(row) + "\n").encode() for row in [
+        marker("begin-large", "robotlab_run_begin"),
+        marker("end-large", "robotlab_run_end"),
+    ])
+    replies = iter([FakeResponse(begin), FakeResponse(end), FakeResponse(log)])
+    requests = []
+
+    def open_fake(request, **kwargs):
+        requests.append((request.get_method(), kwargs["timeout"]))
+        return next(replies)
+
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-large",
+        job_id="job-large",
+        attempt=1,
+        timeout_seconds=2.5,
+        opener=open_fake,
+    )
+
+    capture.begin()
+    result = capture.finish()
+
+    assert result["complete"] is True
+    assert requests == [
+        ("POST", 2.5),
+        ("POST", 2.5),
+        ("GET", 120.0),
+    ]
+
+
 def test_capture_loss_is_explicit_and_invalidates_completeness(tmp_path):
     begin = recorder("begin-2")
     end = recorder("end-2", dropped=3)

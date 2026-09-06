@@ -2,6 +2,62 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~02:0x this cycle (assigned `headset-crossgrav-irrwidenc1-abrupt-c1`,
+  `headset-crossgrav-medhead-ramp-c1-acq1`): 2 verdicts, 1-arm refill.
+  **`medhead-ramp-c1-acq1` ACQ PASS**: the 40M own-checkpoint
+  continuation of the gradual-ramp 1g transfer canary (gravity pinned
+  flat at 1.0 for the continuation) reproduces its own 2M canary's
+  exact structure at 4x the budget — `gait_valid` 21/24 (`walk/det`
+  6/6 clean, `walk/sto` 6/6 clean, `walk_startjitter/sto` 6/6 clean,
+  `walk_startjitter/det` 3/6 with the SAME mild non-chronic leg-4
+  softening, not a regression), 0 falls/terminations in all 24
+  episodes, `slip_per_m` tightly banded 3.0-4.9. Together with the
+  concurrent cycle's `medhead-abrupt-c1-acq1` ACQ PASS (23/24, logged
+  01:59), **this is 2/2 ACQ PASS — cross-gravity-transfer is now
+  validated at full acquisition scale regardless of transition speed**
+  for the medhead recipe. **`irrwidenc1-abrupt-c1` CANARY FAIL -
+  MECHANISM (informative-negative)** — the FIRST clean negative in the
+  whole cross-gravity-transfer generality sweep. Warm-started the
+  jitter-first widen+irr composite champion (`headset-halfgrav-
+  irrwiden-c1-acq1`, its own clean ACQ PASS 22/24) and jumped it
+  abruptly to 1g: `walk/det` (the gate's own named pass/fail axis)
+  collapses from the parent's majority 5/6 to minority 3/6 (`sac=[4]`
+  x2, `sac=[3]` x1), `walk_startjitter/det` also regresses 6/6->4/6
+  (`sac=[1]` x2); `walk/sto` and `walk_startjitter/sto` hold clean/
+  improve (6/6 both). 0 falls/terminations in all 24 episodes — a
+  gait-quality mechanism failure, not a safety collapse, and no single
+  leg is chronic (each recurs in only 2/6 episodes of its own mode).
+  This result lands squarely in the gate's own pre-registered FAIL
+  branch text (unlike the sibling `widen2c2b` negative-control's
+  genuinely split/surprising read), so no DIG-IN fork needed. Read
+  together with the concurrent cycle's `widenirrc1-abrupt-c1` (the
+  MIRROR composite, widen-first order, off an equally-clean
+  ACQ-PASS parent) landing **CANARY PASS** the same window (RL_LOG
+  01:59: 6/6 `walk/det` gv) — **composition ORDER may be the variable
+  that separates the two composites**, not the two axes together;
+  both source parents (`irrwiden-c1-acq1` 22/24, `widenirr-c1-acq1`
+  23/24) were similarly clean, ruling out the usual parent-quality
+  confound as the obvious explanation. **Refill:** launched the direct
+  ramp-vs-abrupt comparison on the SAME failing composite+parent
+  (`headset-crossgrav-irrwidenc1-ramp-c1`, 2M, `ease.gravity_scale`
+  0.5->1.0 linear ramp over the first 1M steps via the same `sched.key`
+  engine as `medhead-ramp-c1`) to test whether a gentler transition
+  rescues this specific composite the way transition-speed provably
+  did NOT matter for the simpler medhead recipe (both abrupt+ramp
+  PASSed there) — if ramp ALSO fails here, transition shock is ruled
+  out and the causal candidate narrows to the composite's reversal-
+  heading commands or build order itself. VERIFIED (pod tbd once the
+  launch pipeline completes; check ledger). Did not launch a 2nd-seed
+  order-comparison arm this cycle: neither composite has a 2nd mature
+  ACQ-PASS seed ready yet (`irrwiden-c2-acq1`/`widenirr` 2nd seeds are
+  still training or don't exist), so an order-effect n=2 isn't
+  launchable without waiting — flagged as the natural next step once
+  either matures. SKILLS.md updated (1 new row, for the PASS). Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-{irrwidenc1-
+  abrupt-c1,medhead-ramp-c1-acq1}`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_crossgrav_{irrwidenc1_abrupt_c1,medhead_ramp_c1_
+  acq1}_gate/report.json`, W&B `ndd04efq`/`y8jypeph`, RL_LOG.
+
 - 09-06 ~01:5x this cycle (assigned `headset-crossgrav-widen2c2b-abrupt-c1`,
   the pre-registered NEGATIVE CONTROL warm-started from an already-
   leg-1-parked-at-source halfgrav champion, `widen2-c2b-acq1`, ACQ
@@ -47,13 +103,33 @@
   untested cross-gravity arm remaining. `CYCLE_WORKED` touched (real
   eval work + 2 new launches); no code changed, no snapshot needed.
 
-DIG-IN: cw-walkscratch-easy0905-headset-crossgrav-widen2c2b-abrupt-c1
-— pre-registered negative-control gate reads SURPRISING (majority
-`walk/det` gait_valid, no chronic sac) on the primary mode but reverts
-to near-chronic leg-1 entrenchment (5/6 episodes, duty<0.10) under
-`walk_startjitter/det` — a split result the gate's own text calls a
-fork ("needs its own follow-up" if surprising); needs per-leg/per-
-episode root-cause read before it can be verdicted either way.
+- 09-06 ~02:0x dig-in cycle (resolves the DIG-IN above): **VERDICTED
+  `headset-crossgrav-widen2c2b-abrupt-c1` FAIL - INFORMATIVE (negative
+  control CONFIRMS, with nuance).** Root cause: the leg-1-parked
+  attractor inherited from the unhealthy `widen2-c2b-acq1` source was
+  NOT repaired by 2M at 1g — only its nominal-start basin was masked.
+  Discriminating evidence: leg-1 SACRIFICE in 10/24 episodes (walk/det
+  2/6, startjitter/det 5/6 with duty 0.01-0.09 and leg-1 swing counts
+  7-36 vs 100+ on other legs, startjitter/sto 3/6); aggregate
+  gait_valid 14/24 = IDENTICAL to the parent's own 14/24 at native
+  0.5g (redistribution across start conditions, not net repair). All
+  FOUR healthy-source crossgrav siblings at the same 2M budget
+  (medhead/widen2c1/irracq1/widenirrc1) show leg-1 sac **0/24** — the
+  contrast is categorical, so **leg-health-at-source is confirmed
+  necessary for robust cross-gravity transfer at canary budget**.
+  Track lesson (binding for future crossgrav gates): `walk/det` alone
+  is an insufficient entrenchment discriminator — pre-register
+  startjitter panels + per-leg sacrifice counts as the primary metric.
+  Side finding: declining ep_rew_mean (-52→-439) is a widen2-lineage
+  reward-scale trait (PASS sibling widen2c1 shows the same shape),
+  not a per-run anomaly. **Refill (1 arm):** launched
+  `headset-crossgrav-widen2c2b-abrupt-c1-acq1` (40M acquisition
+  continuation, same template as `medhead-abrupt-c1-acq1`, VERIFIED
+  RUNNING train-5) to answer the residual fork the gate text demands:
+  can BUDGET substitute for source health (40M fully repairs → reopens
+  unhealthy champions as crossgrav seeds) or does entrenchment persist
+  at all budgets (closes the story cleanly). Informative either way,
+  pre-registered EXPECTED=persists / SURPRISING=repairs.
 
 - 09-06 ~01:4x this cycle (assigned `headset-crossgrav-irracq1-abrupt-c1`): 1
   verdict, **CANARY PASS**, 2-arm refill. Warm-starting the leg-healthy

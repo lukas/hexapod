@@ -481,8 +481,17 @@ class RobotCommunicationCapture:
         written = 0
         try:
             with temporary.open("xb") as output:
-                for remote_path in parts:
-                    for line in self._log_lines(remote_path):
+                for part_index, remote_path in enumerate(parts):
+                    for line in self._log_lines(
+                        remote_path,
+                        from_marker=(
+                            self.begin_marker if part_index == 0 else None
+                        ),
+                        through_marker=(
+                            self.end_marker
+                            if part_index == len(parts) - 1 else None
+                        ),
+                    ):
                         if not started:
                             if self._line_marker(line) != self.begin_marker:
                                 continue
@@ -509,16 +518,30 @@ class RobotCommunicationCapture:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def _log_lines(self, remote_path: str) -> Iterable[bytes]:
+    def _log_lines(
+        self,
+        remote_path: str,
+        *,
+        from_marker: Optional[str] = None,
+        through_marker: Optional[str] = None,
+    ) -> Iterable[bytes]:
         parsed = urlsplit(self.telemetry_url)
         basename = Path(remote_path).name
         if not basename or Path(basename).name != basename:
             raise _TerminalRangeError("unsafe robot log filename")
+        query = urlencode({
+            name: value
+            for name, value in (
+                ("from_marker", from_marker),
+                ("through_marker", through_marker),
+            )
+            if value is not None
+        })
         url = urlunsplit((
             parsed.scheme,
             parsed.netloc,
             f"/api/logs/{quote(basename, safe='')}",
-            "",
+            query,
             "",
         ))
         request = Request(url, method="GET")
@@ -527,12 +550,22 @@ class RobotCommunicationCapture:
         # its own inactivity timeout so a healthy large capture is not lost
         # merely because the proxy needs more than the marker timeout to begin
         # or continue the response.
-        with self.opener(
-            request,
-            timeout=self.download_timeout_seconds,
-        ) as response:
-            for line in response:
-                yield bytes(line)
+        try:
+            with self.opener(
+                request,
+                timeout=self.download_timeout_seconds,
+            ) as response:
+                for line in response:
+                    yield bytes(line)
+        except HTTPError as exc:
+            if (
+                exc.code == 416
+                and (from_marker is not None or through_marker is not None)
+            ):
+                raise _TerminalRangeError(
+                    "robot log does not contain the acknowledged marker range"
+                ) from exc
+            raise
 
     @staticmethod
     def _line_marker(line: bytes) -> Optional[str]:

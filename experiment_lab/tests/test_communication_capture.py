@@ -124,7 +124,11 @@ def test_marker_bounded_capture_is_attached_with_zero_loss(tmp_path):
     assert requested == [
         ("POST", "http://robot.test:8080/api/telemetry"),
         ("POST", "http://robot.test:8080/api/telemetry"),
-        ("GET", "http://robot.test:8080/api/logs/telemetry_part_001.jsonl"),
+        (
+            "GET",
+            "http://robot.test:8080/api/logs/telemetry_part_001.jsonl"
+            "?from_marker=begin-1&through_marker=end-1",
+        ),
     ]
     assert capture.finish() == result
 
@@ -330,6 +334,7 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
     begin_ack["paths"] = [
         "/robot/logs/part-1.jsonl",
         "/robot/logs/part-2.jsonl",
+        "/robot/logs/part-3.jsonl",
     ]
     begin_ack["marker_ack"] = marker_ack(
         "begin-rotated",
@@ -340,10 +345,11 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
     end["paths"] = [
         "/robot/logs/part-1.jsonl",
         "/robot/logs/part-2.jsonl",
+        "/robot/logs/part-3.jsonl",
     ]
     end["marker_ack"] = marker_ack(
         "end-rotated",
-        path="/robot/logs/part-2.jsonl",
+        path="/robot/logs/part-3.jsonl",
         paths=end["paths"],
     )
     part_1 = [
@@ -353,6 +359,10 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
     ]
     part_2 = [
         {"record_type": "serial_rx", "data_hex": "02"},
+        {"record_type": "serial_tx", "data_hex": "03"},
+    ]
+    part_3 = [
+        {"record_type": "serial_rx", "data_hex": "04"},
         marker("end-rotated", "robotlab_run_end"),
         {"record_type": "serial_rx", "data_hex": "later"},
     ]
@@ -362,7 +372,14 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
     replies = iter([
         FakeResponse(begin), FakeResponse(begin_ack), FakeResponse(end),
         FakeResponse(encode(part_1)), FakeResponse(encode(part_2)),
+        FakeResponse(encode(part_3)),
     ])
+    requested = []
+
+    def open_fake(request, **_kwargs):
+        requested.append((request.get_method(), request.full_url))
+        return next(replies)
+
     run_dir = tmp_path / "attempt-1"
     capture = RobotCommunicationCapture(
         "http://robot.test:8080/api/telemetry",
@@ -370,7 +387,7 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
         experiment_id="experiment-rotated",
         job_id="job-rotated",
         attempt=1,
-        opener=lambda *_args, **_kwargs: next(replies),
+        opener=open_fake,
     )
 
     capture.begin()
@@ -381,7 +398,115 @@ def test_capture_spans_rotated_parts_without_copying_old_or_later_rows(tmp_path)
         json.loads(line)
         for line in (run_dir / TRANSCRIPT_NAME).read_text().splitlines()
     ]
-    assert captured == part_1[1:] + part_2[:2]
+    assert captured == part_1[1:] + part_2 + part_3[:2]
+    assert [url for method, url in requested if method == "GET"
+            and "/api/logs/" in url] == [
+        "http://robot.test:8080/api/logs/part-1.jsonl"
+        "?from_marker=begin-rotated",
+        "http://robot.test:8080/api/logs/part-2.jsonl",
+        "http://robot.test:8080/api/logs/part-3.jsonl"
+        "?through_marker=end-rotated",
+    ]
+
+
+def test_server_range_response_still_obeys_local_byte_cap(tmp_path):
+    begin = recorder("begin-capped")
+    end = recorder("end-capped")
+    oversized = [
+        marker("begin-capped", "robotlab_run_begin"),
+        {"record_type": "serial_rx", "data_hex": "ab" * 700},
+        marker("end-capped", "robotlab_run_end"),
+    ]
+    replies = iter([
+        FakeResponse(begin),
+        FakeResponse(end),
+        FakeResponse(b"".join(
+            (json.dumps(row) + "\n").encode() for row in oversized
+        )),
+    ])
+    run_dir = tmp_path / "attempt-1"
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        run_dir,
+        experiment_id="experiment-capped",
+        job_id="job-capped",
+        attempt=1,
+        max_bytes=1024,
+        opener=lambda *_args, **_kwargs: next(replies),
+    )
+
+    capture.begin()
+    result = capture.finish()
+
+    assert result["capture_state"] == "terminal_incomplete"
+    assert "transcript exceeds limit" in result["errors"][0]
+    assert result["transcript"] is None
+    assert not (run_dir / TRANSCRIPT_NAME).exists()
+
+
+def test_server_missing_marker_range_stays_terminal_incomplete(tmp_path):
+    begin = recorder("begin-missing-range")
+    end = recorder("end-missing-range")
+    missing = HTTPError(
+        "http://robot.test:8080/api/logs/telemetry_part_001.jsonl",
+        416,
+        "Requested Range Not Satisfiable",
+        {},
+        io.BytesIO(b'{"ok":false,"error":"from_marker not found"}'),
+    )
+    replies = iter([FakeResponse(begin), FakeResponse(end), missing])
+
+    def open_fake(*_args, **_kwargs):
+        reply = next(replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-missing-range",
+        job_id="job-missing-range",
+        attempt=1,
+        opener=open_fake,
+    )
+
+    capture.begin()
+    result = capture.finish()
+
+    assert result["capture_state"] == "terminal_incomplete"
+    assert result["errors"] == [
+        "finish: _TerminalRangeError: robot log does not contain the "
+        "acknowledged marker range"
+    ]
+
+
+def test_server_range_response_is_still_verified_by_exact_marker_id(tmp_path):
+    begin = recorder("begin-exact-check")
+    end = recorder("end-exact-check")
+    wrong_range = b"".join((json.dumps(row) + "\n").encode() for row in [
+        marker("different-begin", "robotlab_run_begin"),
+        {"record_type": "serial_rx", "data_hex": "01"},
+        marker("end-exact-check", "robotlab_run_end"),
+    ])
+    replies = iter([
+        FakeResponse(begin), FakeResponse(end), FakeResponse(wrong_range),
+    ])
+    capture = RobotCommunicationCapture(
+        "http://robot.test:8080/api/telemetry",
+        tmp_path / "attempt-1",
+        experiment_id="experiment-exact-check",
+        job_id="job-exact-check",
+        attempt=1,
+        opener=lambda *_args, **_kwargs: next(replies),
+    )
+
+    capture.begin()
+    result = capture.finish()
+
+    assert result["capture_state"] == "terminal_incomplete"
+    assert "begin marker not found" in result["errors"][0]
+    assert result["transcript"] is None
 
 
 def test_recorder_restart_between_markers_is_explicitly_incomplete(tmp_path):

@@ -91,7 +91,8 @@ def test_json_safe_config_stringifies_non_primitives():
 # worker is exercised by the opt-in canary run on a train pod).
 
 from rl_move.sim import artifact_handoff as ah  # noqa: E402
-from rl_move.sim.artifact_finalizer import finalize  # noqa: E402
+from rl_move.sim.artifact_finalizer import (  # noqa: E402
+    confirm_published, finalize, run_session)
 
 
 def _mk_handoff(tmp_path, jobs, run_id="wb123"):
@@ -116,7 +117,12 @@ def _job(tmp_path, jid, kind="eval", step=100, tag=None):
             "snapshot_path": str(tmp_path / "snaps" / f"{jid}.zip")}
 
 
-def test_registry_phases_training_pending_evaluated(tmp_path):
+def test_registry_phases_training_pending_logged_then_evaluated(tmp_path):
+    """Publication-confirmation semantics (09-06 root review item 1):
+    finalize alone leaves jobs `logged_pending_flush` and the phase at
+    `artifacts_pending` — only confirm_published (called after a
+    SUCCESSFUL run.finish()) flips jobs to done and the phase to
+    evaluated."""
     jobs = [_job(tmp_path, "eval_100_periodic_001")]
     d = ah.handoff_dir_for("cw-test-run", root=tmp_path)
     ah.init_training_state("cw-test-run", root=tmp_path)
@@ -129,16 +135,24 @@ def test_registry_phases_training_pending_evaluated(tmp_path):
                               "payload": {"ok": 1}},
         log_result=lambda j, o: logged.append(j["job_id"]))
     st = ah.read_state(d)
-    assert st["phase"] == ah.PHASE_EVALUATED
-    assert st["jobs"]["eval_100_periodic_001"]["status"] == "done"
+    # UNCONFIRMED until finish(): not evaluated, not done, no finalized
+    assert st["phase"] == ah.PHASE_ARTIFACTS_PENDING
+    assert (st["jobs"]["eval_100_periodic_001"]["status"]
+            == ah.JOB_LOGGED_PENDING_FLUSH)
     assert logged == ["eval_100_periodic_001"]
-    assert (d / ah.FINALIZED_NAME).exists()
+    assert not (d / ah.FINALIZED_NAME).exists()
     # Replayable-input retention (fb_20260906T044800): the snapshot is
     # NOT deleted inside finalize (wandb.log is async — durable only
     # after run.finish()); it is listed for the caller to retire after
-    # a successful finish, which main() does.
+    # a successful finish + confirmation.
     assert Path(jobs[0]["snapshot_path"]).exists()
     assert summary["delivered_snapshots"] == [jobs[0]["snapshot_path"]]
+    # Post-finish confirmation flips everything
+    confirm_published(d, summary)
+    st = ah.read_state(d)
+    assert st["phase"] == ah.PHASE_EVALUATED
+    assert st["jobs"]["eval_100_periodic_001"]["status"] == "done"
+    assert (d / ah.FINALIZED_NAME).exists()
 
 
 def test_manifest_reuse_rejected(tmp_path):
@@ -191,6 +205,22 @@ def test_manifest_freezes_snapshot_md5_and_provenance(tmp_path):
         (d / ah.ARGS_PICKLE_NAME).read_bytes()).hexdigest()
     # git provenance is best-effort but present in a git checkout
     assert ("git_commit" in prov) or ("git_error" in prov)
+    # runtime fingerprint (09-06 root review item 2): aggregate hash in
+    # the manifest, full per-file map in fingerprint.json, both consistent
+    assert m["schema"] == 3
+    fp = json.loads((d / ah.FINGERPRINT_NAME).read_text())
+    assert prov["code_fingerprint_sha256"] == fp["fingerprint_sha256"]
+    assert prov["code_fingerprint_n_files"] == fp["n_files"] == len(
+        fp["files"])
+    # the map covers the real runtime surface of this checkout
+    assert any(k.endswith("rl_move/sim/train_ppo_sim.py")
+               for k in fp["files"])
+    assert any("mesh_mujoco" in k and k.endswith(".xml")
+               for k in fp["files"])
+    # mutable artifact trees must NOT be in the fingerprint (they change
+    # during finalization and would self-invalidate)
+    assert not any("policies" in k or "wandb" in k or "__pycache__" in k
+                   for k in fp["files"])
 
 
 def test_finalizer_bounded_retry_then_failed_phase(tmp_path):
@@ -206,10 +236,12 @@ def test_finalizer_bounded_retry_then_failed_phase(tmp_path):
         max_attempts=2)
     assert len(attempts) == 2  # bounded, not infinite
     st = ah.read_state(d)
-    assert st["phase"] == ah.PHASE_FAILED
     assert st["jobs"]["video_200_final_001"]["status"] == "failed"
     assert st["jobs"]["video_200_final_001"]["attempts"] == 2
     assert summary["failed"] == 1
+    # failed phase is set by the post-finish confirmation
+    confirm_published(d, summary)
+    assert ah.read_state(d)["phase"] == ah.PHASE_FAILED
 
 
 def test_finalizer_resume_skips_done_retries_in_flight(tmp_path):
@@ -233,7 +265,10 @@ def test_finalizer_resume_skips_done_retries_in_flight(tmp_path):
     assert ran == ["eval_200_periodic_002"]      # done job untouched
     assert logged == ["eval_200_periodic_002"]   # exactly one delivery
     assert summary["skipped_done"] == 1
-    assert ah.read_state(d)["phase"] == ah.PHASE_EVALUATED
+    confirm_published(d, summary)
+    st = ah.read_state(d)
+    assert st["phase"] == ah.PHASE_EVALUATED
+    assert st["jobs"]["eval_200_periodic_002"]["status"] == "done"
 
 
 def test_snapshot_md5_mismatch_fails_job_without_running(tmp_path):
@@ -253,7 +288,8 @@ def test_snapshot_md5_mismatch_fails_job_without_running(tmp_path):
     st = ah.read_state(d)
     assert st["jobs"]["eval_100_periodic_001"]["status"] == "failed"
     assert "integrity" in st["jobs"]["eval_100_periodic_001"]["last_error"]
-    assert st["phase"] == ah.PHASE_FAILED
+    confirm_published(d, summary)
+    assert ah.read_state(d)["phase"] == ah.PHASE_FAILED
 
 
 def test_crash_between_log_and_state_write_is_at_least_once(tmp_path):
@@ -285,7 +321,241 @@ def test_crash_between_log_and_state_write_is_at_least_once(tmp_path):
         log_result=lambda j, o: logged.append(j["job_id"]))
     assert logged == ["eval_100_periodic_001", "eval_100_periodic_001"]
     assert summary["done"] == 1
+    confirm_published(d, summary)
     assert ah.read_state(d)["phase"] == ah.PHASE_EVALUATED
+
+
+# ---------------------------------------------------------------------------
+# 09-06 root review item 1 (operator focus note 20260906T052705Z):
+# publication must be CONFIRMED by run.finish(), not assumed at wandb.log
+# time. Fault injections: crash exactly between log and finish, and
+# finish() raising.
+
+
+def test_crash_between_log_and_finish_replays_unconfirmed(tmp_path):
+    """THE reviewed bug: old code marked JOB_DONE right after the async
+    wandb.log and skipped it on restart, so a crash before run.finish()
+    silently lost the publication despite retained files. Now: a
+    finalizer that dies after finalize() but BEFORE finish() leaves the
+    job logged_pending_flush / phase artifacts_pending / no
+    finalized.json, and a restarted finalizer REPLAYS it from the
+    retained snapshot (at-least-once: duplicate W&B row accepted)."""
+    jobs = [_job(tmp_path, "eval_100_periodic_001")]
+    d = _mk_handoff(tmp_path, jobs)
+    logged = []
+    finalize(d, run_job=lambda j: {"kind": "eval", "step": 100,
+                                   "payload": {}},
+             log_result=lambda j, o: logged.append(j["job_id"]))
+    # process dies HERE (before finish/confirm): simulated by simply not
+    # calling confirm_published.
+    st = ah.read_state(d)
+    assert (st["jobs"]["eval_100_periodic_001"]["status"]
+            == ah.JOB_LOGGED_PENDING_FLUSH)
+    assert st["phase"] == ah.PHASE_ARTIFACTS_PENDING  # NOT evaluated
+    assert not (d / ah.FINALIZED_NAME).exists()
+    assert Path(jobs[0]["snapshot_path"]).exists()  # retained for replay
+    # restart: unconfirmed job is replayed (not skipped as done)
+    ran = []
+    summary = finalize(
+        d, run_job=lambda j: (ran.append(j["job_id"]) or
+                              {"kind": "eval", "step": 100, "payload": {}}),
+        log_result=lambda j, o: logged.append(j["job_id"]))
+    assert ran == ["eval_100_periodic_001"]
+    assert logged == ["eval_100_periodic_001", "eval_100_periodic_001"]
+    assert summary["replayed_unconfirmed"] == 1
+    confirm_published(d, summary)
+    st = ah.read_state(d)
+    assert st["phase"] == ah.PHASE_EVALUATED
+    assert st["jobs"]["eval_100_periodic_001"]["status"] == "done"
+
+
+def test_finish_raising_leaves_unconfirmed_and_replays(tmp_path):
+    """run.finish() raising = publication NOT durable: run_session must
+    return the finish-failure code, keep the job logged_pending_flush,
+    NOT write finalized.json, NOT retire inputs, NOT report evaluated.
+    A later session with a working finish replays and confirms."""
+    jobs = [_job(tmp_path, "eval_100_periodic_001")]
+    d = _mk_handoff(tmp_path, jobs)
+    logged, shutdowns = [], []
+
+    def _bad_finish():
+        raise RuntimeError("wandb service unreachable")
+
+    rc = run_session(
+        d, run_job=lambda j: {"kind": "eval", "step": 100, "payload": {}},
+        log_result=lambda j, o: logged.append(j["job_id"]),
+        finish=_bad_finish, shutdown=lambda: shutdowns.append(1))
+    assert rc == 3
+    assert shutdowns == [1]  # worker still torn down
+    st = ah.read_state(d)
+    assert (st["jobs"]["eval_100_periodic_001"]["status"]
+            == ah.JOB_LOGGED_PENDING_FLUSH)
+    assert st["phase"] == ah.PHASE_ARTIFACTS_PENDING
+    assert "UNCONFIRMED" in st["note"]
+    assert not (d / ah.FINALIZED_NAME).exists()
+    assert Path(jobs[0]["snapshot_path"]).exists()  # nothing retired
+    # next session: replay + confirm + retire
+    rc = run_session(
+        d, run_job=lambda j: {"kind": "eval", "step": 100, "payload": {}},
+        log_result=lambda j, o: logged.append(j["job_id"]),
+        finish=lambda: None)
+    assert rc == 0
+    assert logged == ["eval_100_periodic_001"] * 2  # at-least-once
+    st = ah.read_state(d)
+    assert st["phase"] == ah.PHASE_EVALUATED
+    assert st["jobs"]["eval_100_periodic_001"]["status"] == "done"
+    assert (d / ah.FINALIZED_NAME).exists()
+    assert not Path(jobs[0]["snapshot_path"]).exists()  # retired now
+
+
+def test_run_session_success_confirms_and_retires(tmp_path):
+    """Happy path through the factored session: finish OK -> confirmed
+    done/evaluated, finalized.json written, snapshots + extra retire
+    paths (rendered mp4s) removed."""
+    jobs = [_job(tmp_path, "video_200_final_001", kind="video", step=200)]
+    d = _mk_handoff(tmp_path, jobs)
+    mp4 = tmp_path / "reel.mp4"
+    mp4.write_bytes(b"mp4")
+    rc = run_session(
+        d, run_job=lambda j: {"kind": "video", "step": 200,
+                              "path": str(mp4)},
+        log_result=lambda j, o: None, finish=lambda: None,
+        retire_paths=[str(mp4)])
+    assert rc == 0
+    st = ah.read_state(d)
+    assert st["phase"] == ah.PHASE_EVALUATED
+    assert st["jobs"]["video_200_final_001"]["status"] == "done"
+    assert not Path(jobs[0]["snapshot_path"]).exists()
+    assert not mp4.exists()
+    assert json.loads((d / ah.FINALIZED_NAME).read_text())["done"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 09-06 root review item 2: provenance must be ENFORCED — the finalizer
+# imports the live worker and unpickles args.pkl, so code/config/XML/args
+# changed between handoff and (re)start must be REFUSED, not silently
+# executed. Fault injections: change code, change XML, change args.pkl.
+
+
+def _mk_fake_repo(tmp_path):
+    root = tmp_path / "fakerepo"
+    (root / "rl_move" / "sim").mkdir(parents=True)
+    (root / "mesh_mujoco").mkdir()
+    (root / "rl_move" / "sim" / "train_ppo_sim.py").write_text(
+        "WORKER = 1\n")
+    (root / "rl_move" / "config.yaml").write_text("safety: {}\n")
+    (root / "mujoco_prototype.py").write_text("XMLGEN = 1\n")
+    (root / "mesh_mujoco" / "hexapod_mesh_mjx.xml").write_text(
+        "<mujoco/>\n")
+    return root
+
+
+def _mk_handoff_fp(tmp_path, repo_root, jobs=()):
+    d = ah.handoff_dir_for("cw-fp-run", root=tmp_path)
+    ah.init_training_state("cw-fp-run", root=tmp_path)
+    ckpt = tmp_path / "final.zip"
+    ckpt.write_bytes(b"ckpt")
+    for j in jobs:
+        Path(j["snapshot_path"]).parent.mkdir(parents=True, exist_ok=True)
+        Path(j["snapshot_path"]).write_bytes(b"snap")
+    ah.write_manifest(
+        d, run_name="cw-fp-run", task="joint_walk", wandb_run_id=None,
+        wandb_entity="e", wandb_project="p", checkpoint_path=ckpt,
+        checkpoint_md5="beef", steps=1000, jobs=list(jobs),
+        args_namespace=argparse.Namespace(seed=1),
+        fingerprint_root=repo_root)
+    return d
+
+
+def test_fingerprint_matches_when_nothing_changed(tmp_path):
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)
+    m = json.loads((d / ah.MANIFEST_NAME).read_text())
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert ok and "verified" in msg
+
+
+def test_fingerprint_refuses_code_change_between_handoff_and_restart(
+        tmp_path):
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)
+    m = json.loads((d / ah.MANIFEST_NAME).read_text())
+    (repo / "rl_move" / "sim" / "train_ppo_sim.py").write_text(
+        "WORKER = 2  # changed reward semantics\n")
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert not ok
+    assert "MISMATCH" in msg
+    assert "train_ppo_sim.py" in msg  # names the changed file
+
+
+def test_fingerprint_refuses_xml_and_config_change(tmp_path):
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)
+    m = json.loads((d / ah.MANIFEST_NAME).read_text())
+    (repo / "mesh_mujoco" / "hexapod_mesh_mjx.xml").write_text(
+        "<mujoco><option gravity='0 0 -1'/></mujoco>\n")
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert not ok and "hexapod_mesh_mjx.xml" in msg
+    # config file added/changed also refuses (set union of both maps)
+    (repo / "mesh_mujoco" / "hexapod_mesh_mjx.xml").write_text("<mujoco/>\n")
+    (repo / "rl_move" / "config.yaml").write_text("safety: {max: 1}\n")
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert not ok and "config.yaml" in msg
+
+
+def test_fingerprint_refuses_args_pkl_change(tmp_path):
+    """args.pkl is verified against its recorded sha256 BEFORE anything
+    unpickles it (finalizer previously loaded it unchecked)."""
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)
+    m = json.loads((d / ah.MANIFEST_NAME).read_text())
+    import pickle
+    (d / ah.ARGS_PICKLE_NAME).write_bytes(
+        pickle.dumps(argparse.Namespace(seed=999, task="other")))
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert not ok and "args.pkl" in msg
+
+
+def test_fingerprint_legacy_manifest_warns_not_verified(tmp_path):
+    """A pre-schema-3 manifest (no fingerprint recorded) is not a
+    mismatch, but must NEVER be reported as verified — documented
+    at-most 'metadata-only' provenance."""
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)
+    m = json.loads((d / ah.MANIFEST_NAME).read_text())
+    del m["provenance"]["code_fingerprint_sha256"]
+    ok, msg = ah.verify_runtime_fingerprint(d, m, repo_root=repo)
+    assert ok
+    assert "NOT verified" in msg
+
+
+def test_finalizer_main_refuses_on_fingerprint_mismatch(tmp_path):
+    """End-to-end wiring: artifact_finalizer.main() must exit 4 and
+    refuse job execution/publication when the tree changed after
+    handoff — and succeed (confirm + evaluated) when it matches."""
+    from rl_move.sim.artifact_finalizer import main as fmain
+
+    repo = _mk_fake_repo(tmp_path)
+    d = _mk_handoff_fp(tmp_path, repo)  # no jobs, no wandb id
+    # untampered: runs through session, confirms, evaluates
+    rc = fmain(["--handoff-dir", str(d), "--fingerprint-root", str(repo)])
+    assert rc == 0
+    assert ah.read_state(d)["phase"] == ah.PHASE_EVALUATED
+    # tamper the code -> a fresh session refuses before executing
+    repo2 = _mk_fake_repo(tmp_path / "second")
+    d2 = _mk_handoff_fp(tmp_path / "second", repo2)
+    (repo2 / "mujoco_prototype.py").write_text("XMLGEN = 999\n")
+    rc = fmain(["--handoff-dir", str(d2),
+                "--fingerprint-root", str(repo2)])
+    assert rc == 4
+    st = ah.read_state(d2)
+    assert st["phase"] == ah.PHASE_ARTIFACTS_PENDING  # never evaluated
+    assert "REFUSED" in st["note"]
+    assert not (d2 / ah.FINALIZED_NAME).exists()
+    # operator override runs anyway (logged loudly)
+    rc = fmain(["--handoff-dir", str(d2), "--fingerprint-root",
+                str(repo2), "--allow-fingerprint-mismatch"])
+    assert rc == 0
 
 
 def test_video_callback_training_end_nonblocking_when_deferred():

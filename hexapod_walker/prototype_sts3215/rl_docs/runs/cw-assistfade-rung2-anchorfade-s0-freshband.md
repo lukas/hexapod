@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T17:04:40+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 12000000
 
 **parent**: cw-assistfade-rung2-anchorfade-s0
+
+**wandb_id**: x8h2ftwk
 
 **hypothesis**: Plain English: does the rung-2 anchor-fade ignition itself, run from TRUE random actor weights with the widened 0.04-0.08 m/s speed band baked in from step 0, escape the achieved-speed-ignoring pathology that all three hardening-stage escalations (-v2 no boost, -lsd2 std~0.135, -explore2 std~0.27, the last one a confirmed FAIL-COLLAPSE with 21/24 falls) failed to fix? Every prior hardening arm warm-started from a checkpoint that had already spent 8-10M steps habituating a SINGLE fixed 0.06 m/s cadence during ignition before ever seeing a varying command -- this arm tests whether that habituation, not the hardening recipe itself, is the structural cause. Byte-identical to the working seed-0 ignition recipe (cw-assistfade-rung2-anchorfade-s0 -> -reseed8m-gatefix, the 2-seed CONFIRMED rung-2 mechanism: bc_anchor_coef=3.0, bc_anchor_anneal_gate=1, bc_anchor_anneal_assay_reseed=1 fix already applied from step 0) except goal.walk_speed_min_m_s/max_m_s=0.04/0.08 (was fixed 0.06/0.06) and NO --init-from (fresh random actor, not warm-started from any checkpoint) with a 12M combined budget (>= the 2M+8M=10M cumulative that passed the fixed-band version, +2M cushion since a harder-to-satisfy widened-band ignition bar may take longer to latch).
 

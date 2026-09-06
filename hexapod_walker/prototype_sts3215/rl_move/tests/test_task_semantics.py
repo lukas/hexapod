@@ -1542,6 +1542,124 @@ def test_walkcurr_item4_loadslip_gait_income_stays_positive(
 
 
 # --------------------------------------------------------------------------
+# WALKCURR item(4) WINDOWED LOADSLIP (09-06, direct follow-up to the
+# `...-loadslip-c1` canary FAIL immediately above and to BOTH tangent-
+# charge doses' FAIL too, RL_LOG 09-06 ~21:39/~21:40: at k_foot_slip_
+# tangent=35 AND =3, env/walk_tangent_contact_vel_mean_m_s sat flat
+# the whole 2M run, and the loadslip-c1 canary's own
+# env/walk_loadslip_ratio bounced 6.28->7.88->7.11->6.87 with no clean
+# downtrend. Both FAILs share a root property this bank targets
+# directly: the episode-CUMULATIVE slip/progress ratio
+# (walk_task.py's walk_loadslip_gate block) averages the WHOLE
+# episode's history into one number, so a late skate is diluted by
+# however much clean walking came before it -- exactly the
+# unresponsive/noisy shape both FAILs showed, and exactly what the
+# loadslip-c1 FAIL verdict named as the next lever ("a windowed
+# rather than episode-cumulative slip ratio", STATUS.md 09-06
+# ~19:1x). `reward.walk_loadslip_window_s` (built same cycle, walk_
+# task.py) replaces the cumulative slip_m/prog_m pair with an
+# EMA-of-RATES (same alpha=dt/tau pattern as the already-proven
+# reward.walk_kernel_vel_ema) so the ratio reflects only the last
+# ~window_s of behavior. test_walk_fastprof_mdp.py bank-proves the
+# core mechanism claim directly (bit-exact when off; the windowed
+# ratio reacts to an injected slip burst ~5x+ faster than a
+# deliberately-diluted cumulative ratio does). This bank re-proves
+# the SAME behavioral safety properties the cumulative candidate
+# above was checked against (skate-worse-than-park, widens the
+# gait-vs-skate margin, gait income stays positive) on item(4)'s own
+# bare recipe with the windowed lever armed instead, using the same
+# ok/max/k dose (3.0/8.0/10.0) -- only the ACCOUNTING changes, not
+# the price. tau=1.0s picked as one commanded-heading-hold-scale
+# window (same order of magnitude as walk_kernel_vel_tau_s=0.1s's
+# own "one gait period" convention, widened because slip/progress
+# accounting is naturally noisier tick-to-tick than a velocity
+# estimate); loadslip_floor_m_s=0.01 (a tenth of the champion's own
+# ~0.06-0.12 m/s commanded/measured speed) is the windowed floor.
+WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES = dict(
+    WALKCURR_ITEM4_LOADSLIP_OVERRIDES)
+WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES.update({
+    ("reward", "walk_loadslip_window_s"): 1.0,
+    ("reward", "loadslip_floor_m_s"): 0.01,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_item4_loadslip_windowed_returns() -> dict[str, float]:
+    """Same quartet, same command, same ok/max/k dose as the FAILED
+    cumulative loadslip candidate, but with reward.walk_loadslip_
+    window_s armed so the ratio is windowed rather than
+    episode-cumulative."""
+    return {p: float(np.mean([_walk_rollout(
+                p, s, vx=0.06,
+                overrides=WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES)
+                for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+
+
+def test_walkcurr_item4_loadslip_windowed_skate_is_the_worst_outcome(
+        walkcurr_item4_loadslip_windowed_returns):
+    """The continuation-safety property (same bar as the cumulative
+    candidate and SLIPWALK before it): degenerate zero-lift skating
+    must read WORSE than simply standing still (park) by a wide
+    margin under the windowed accounting too."""
+    r = walkcurr_item4_loadslip_windowed_returns
+    assert r["skate"] < r["park"] - 300.0, (
+        f"skating is not clearly the worst outcome under the windowed "
+        f"ratio: {r}")
+
+
+def test_walkcurr_item4_loadslip_windowed_widens_gait_vs_skate_margin(
+        walkcurr_item4_bare_returns, walkcurr_item4_loadslip_windowed_returns):
+    """The windowed accounting must still charge skating far harder
+    than honest lifting, and still WIDEN that margin relative to the
+    bare no-slip-cost recipe — switching the accounting must not
+    quietly turn the lever into a no-op."""
+    bare = walkcurr_item4_bare_returns
+    win = walkcurr_item4_loadslip_windowed_returns
+    bare_margin = bare["gait"] - bare["skate"]
+    win_margin = win["gait"] - win["skate"]
+    assert win_margin > bare_margin + 50.0, (
+        f"windowed loadslip does not widen gait-vs-skate margin: "
+        f"bare={bare} windowed={win}")
+    assert win["gait"] > win["skate"], (
+        f"skating still rivals honest lifting under windowed loadslip: "
+        f"{win}")
+
+
+def test_walkcurr_item4_loadslip_windowed_gait_income_stays_positive(
+        walkcurr_item4_loadslip_windowed_returns):
+    """The honest gait must still net a clearly positive return under
+    the windowed accounting at this dose."""
+    assert walkcurr_item4_loadslip_windowed_returns["gait"] > 200.0, (
+        f"windowed loadslip dose drives honest walking too low: "
+        f"{walkcurr_item4_loadslip_windowed_returns}")
+
+
+def test_walkcurr_item4_loadslip_windowed_park_income_unchanged(
+        walkcurr_item4_loadslip_returns, walkcurr_item4_loadslip_windowed_returns):
+    """The one number that MUST be exactly identical between the two
+    accounting modes: `park` never commands a velocity (holds the
+    plant pose), so `s_ref <= 1e-3` the whole rollout and neither the
+    cumulative nor the windowed loadslip block ever executes — this
+    pins that the windowed lever genuinely only changes the ACCOUNTING
+    inside the already-gated `s_ref > 1e-3` block, not something that
+    leaks into the ungated park case. (`gait`/`skate`/`stall` are
+    expected to diverge in magnitude between the two modes — the
+    windowed EMA ratio saturates to a bounded steady-state once slip/
+    progress settle, while the cumulative ratio grows UNBOUNDED over a
+    15s episode of sustained skating, so a much larger cumulative
+    penalty on `skate` specifically is the expected shape of this fix,
+    not a red flag; the qualitative safety properties that DO matter
+    — skate-worse-than-park, gait-vs-skate margin widened, gait income
+    positive — are each their own dedicated test above.)"""
+    ls = walkcurr_item4_loadslip_returns
+    win = walkcurr_item4_loadslip_windowed_returns
+    assert win["park"] == pytest.approx(ls["park"], abs=1e-6), (
+        f"windowed lever changed the ungated park case: "
+        f"cumulative={ls['park']} windowed={win['park']}")
+
+
+# --------------------------------------------------------------------------
 # WALKCURR item(4) FOOT-SLIP-TANGENT CANDIDATE (09-06, follow-up to the
 # LOADSLIP canary FAIL immediately above: `...-loadslip-c1` read slip/m
 # 4.86 vs the 5.065 training-diet baseline -- barely moved, the gate's

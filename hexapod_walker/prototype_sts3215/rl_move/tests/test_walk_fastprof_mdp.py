@@ -492,3 +492,122 @@ def test_loadslip_excess_actually_reduces_return():
         i_on["reward_loadslip_excess"], abs=1e-6)
     env_on.close()
     env_off.close()
+
+
+# ------------------------------------------------------------------ #
+# windowed (EMA) loadslip ratio (reward.walk_loadslip_window_s,
+# 2026-09-06 walkcurr item(4) follow-up to the `loadslip-c1` canary
+# FAIL -- see walk_task.py's own comment at the walk_loadslip_gate
+# block for the full rationale: the episode-cumulative ratio above is
+# diluted by however much clean history precedes the current tick, so
+# a late-episode skate can hide behind an early-episode clean stretch
+# for many ticks before the ratio catches up. Default 0.0 = OFF, must
+# stay bit-exact (no new info keys, same rewards, same
+# walk_loadslip_ratio formula) -- checked first, before the
+# responsiveness claim.
+# ------------------------------------------------------------------ #
+
+def _prime_loadslip_latch(env, offset_m=0.05):
+    """Seed the loadslip previous-contact XY so the NEXT tick's foot
+    movement reads as one large injected slip, without perturbing
+    physics -- mirrors _prime_slip_latches (the tangent-charge
+    mechanism's own latch-priming helper) but for the
+    walk_loadslip_gate/window bookkeeping (_ls_prev_xy/_ls_prev_on)."""
+    current_contacts = 0
+    for f, bid in enumerate(env._pad_bids):
+        adr = env._touch_adr[f]
+        force = (float(env.data.sensordata[adr]) if adr >= 0 else 0.0)
+        on = force > 0.5
+        current_contacts += int(on)
+        xy = env.data.xpos[bid, :2]
+        env._ls_prev_xy[f] = xy - np.array([offset_m, 0.0])
+        env._ls_prev_on[f] = True
+    assert current_contacts > 0, "probe expects at least one planted foot"
+
+
+def test_loadslip_window_default_off_is_bit_exact():
+    """window_s=0.0 (the default) must reproduce the legacy episode-
+    cumulative ratio exactly -- no new info key, same reward, even
+    after the mechanism has been exercised by a forced accumulator
+    state (matches test_loadslip_excess_charges_ratio_above_ok_only's
+    own forced values so this is a real like-for-like comparison, not
+    just an untouched-mechanism check)."""
+    env_a = _walk_env(seed=21, extra={
+        ("reward", "walk_loadslip_gate"): 1.0,
+        ("reward", "loadslip_ok"): 1.2,
+        ("reward", "loadslip_max"): 3.0,
+    })
+    env_b = _walk_env(seed=21, extra={
+        ("reward", "walk_loadslip_gate"): 1.0,
+        ("reward", "loadslip_ok"): 1.2,
+        ("reward", "loadslip_max"): 3.0,
+        ("reward", "walk_loadslip_window_s"): 0.0,
+    })
+    for env in (env_a, env_b):
+        env.reset()
+        _pin_forward(env)
+        _step_info(env)
+        env._ls_slip_m, env._ls_prog_m = 0.30, 0.10
+    ra, ia = _step_info(env_a)
+    rb, ib = _step_info(env_b)
+    assert ra == pytest.approx(rb, abs=0.0)
+    assert ia["walk_loadslip_ratio"] == pytest.approx(
+        ib["walk_loadslip_ratio"], abs=0.0)
+    assert "walk_loadslip_ratio_cumulative" not in ia
+    assert "walk_loadslip_ratio_cumulative" not in ib
+    env_a.close()
+    env_b.close()
+
+
+def test_loadslip_window_ratio_reacts_faster_than_cumulative():
+    """The core claim: with an identical long, perfectly clean
+    walking HISTORY (lots of accumulated progress, negligible
+    accumulated slip) baked into both envs, injecting ONE large slip
+    tick must move the windowed ratio sharply while the episode-
+    cumulative ratio stays diluted near zero -- exactly the
+    unresponsiveness the `loadslip-c1` canary's FAIL verdict
+    diagnosed (env/walk_loadslip_ratio bounced 6.28->7.88->7.11->6.87
+    across 4 quarters, no clean downtrend despite a bank-proven
+    dose)."""
+    env_cum = _walk_env(seed=22, extra={
+        ("reward", "walk_loadslip_gate"): 0.0,
+    })
+    env_win = _walk_env(seed=22, extra={
+        ("reward", "walk_loadslip_gate"): 0.0,
+        ("reward", "walk_loadslip_window_s"): 0.5,
+    })
+    for env in (env_cum, env_win):
+        env.reset()
+        _pin_forward(env)
+        _step_info(env)  # warm one tick (prev-contact latches)
+        # Long clean-walking history: lots of accumulated progress,
+        # negligible accumulated slip.
+        env._ls_slip_m, env._ls_prog_m = 0.05, 50.0
+    # The windowed env's EMA is the windowed analogue of that same
+    # clean-walking history: already settled at the clean-walk rate.
+    env_win._ls_slip_ema, env_win._ls_prog_ema = 0.0, CMD
+
+    for env in (env_cum, env_win):
+        _prime_loadslip_latch(env, offset_m=0.05)
+    _r_cum, i_cum = _step_info(env_cum)
+    _r_win, i_win = _step_info(env_win)
+
+    assert i_cum["walk_loadslip_ratio"] < 0.05, (
+        "control check: the cumulative ratio should still read near-"
+        f"zero, diluted by its 50m clean history: {i_cum}")
+    assert i_win["walk_loadslip_ratio"] > i_cum["walk_loadslip_ratio"] * 5, (
+        "windowed ratio does not react faster than the diluted "
+        f"cumulative ratio: cumulative={i_cum['walk_loadslip_ratio']} "
+        f"windowed={i_win['walk_loadslip_ratio']}")
+    env_cum.close()
+    env_win.close()
+
+
+    # NOTE: a "settles low under real clean walking" sanity check
+    # belongs in test_task_semantics.py's WALKCURR_ITEM4_LOADSLIP_
+    # WINDOWED bank, not here -- this file's `_step_info` drives the
+    # env with a constant ZERO action (isolates the reward-accounting
+    # math from any actual gait), so there is no real walking
+    # behavior here to settle against; a real scripted-tripod-gait
+    # rollout is required for that property and test_task_semantics.py
+    # already has the TripodGait rollout machinery this needs.

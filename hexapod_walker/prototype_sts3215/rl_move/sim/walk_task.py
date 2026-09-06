@@ -399,6 +399,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
+                          "_ls_slip_ema", "_ls_prog_ema",
                           "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_idle_low_s",
                           "_walk_stop_cmd_s",
@@ -513,6 +514,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Windowed (EMA) loaded-slip rate bookkeeping
+        # (reward.walk_loadslip_window_s, default 0 = off, see the
+        # walk_loadslip_gate block in step()). Separate from the
+        # cumulative _ls_slip_m/_ls_prog_m above so the legacy
+        # episode-cumulative ratio stays bit-exact when off.
+        self._ls_slip_ema = 0.0
+        self._ls_prog_ema = 0.0
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -1151,6 +1159,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Windowed (EMA) loaded-slip rate bookkeeping
+        # (reward.walk_loadslip_window_s, default 0 = off, see the
+        # walk_loadslip_gate block in step()). Separate from the
+        # cumulative _ls_slip_m/_ls_prog_m above so the legacy
+        # episode-cumulative ratio stays bit-exact when off.
+        self._ls_slip_ema = 0.0
+        self._ls_prog_ema = 0.0
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -3074,6 +3089,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Windowed (EMA) loaded-slip rate bookkeeping
+        # (reward.walk_loadslip_window_s, default 0 = off, see the
+        # walk_loadslip_gate block in step()). Separate from the
+        # cumulative _ls_slip_m/_ls_prog_m above so the legacy
+        # episode-cumulative ratio stays bit-exact when off.
+        self._ls_slip_ema = 0.0
+        self._ls_prog_ema = 0.0
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -3766,6 +3788,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # not be coupled to the reward MODIFIER). The gate itself
             # still only scales income when walk_loadslip_gate > 0.
             if s_ref > 1e-3:
+                step_slip_m = 0.0
                 for f in range(6):
                     adr = self._touch_adr[f]
                     on = (adr >= 0 and
@@ -3773,8 +3796,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     xy = self.data.xpos[self._pad_bids[f], :2]
                     if self._ls_prev_on[f] \
                             and self._ls_prev_xy[f] is not None:
-                        self._ls_slip_m += float(np.linalg.norm(
+                        d_ls = float(np.linalg.norm(
                             xy - self._ls_prev_xy[f]))
+                        self._ls_slip_m += d_ls
+                        step_slip_m += d_ls
                     self._ls_prev_xy[f] = xy.copy()
                     self._ls_prev_on[f] = on
                 self._ls_prog_m += max(along, 0.0) * self.dt
@@ -3785,12 +3810,56 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                       "loadslip_ok", default=0.75))
                 ls_max = float(cfg_get(self.cfg, "reward",
                                        "loadslip_max", default=1.50))
-                ratio = self._ls_slip_m / max(self._ls_prog_m, floor_m)
+                # Windowed (EMA) loaded-slip ratio (walkcurr item(4)
+                # follow-up, 2026-09-06). The cumulative ratio above
+                # averages slip_m/prog_m over the WHOLE episode, so
+                # late-episode behavior is diluted by every earlier
+                # tick — the item(4) `loadslip-c1` canary showed
+                # exactly this shape (env/walk_loadslip_ratio noisy,
+                # no clean downtrend, at a bank-proven dose) and its
+                # own FAIL verdict named "a windowed rather than
+                # episode-cumulative slip ratio" as the next lever
+                # (rl_docs/tracks/walkcurr/STATUS.md, 09-06 ~19:1x).
+                # cfg: reward.walk_loadslip_window_s (seconds, default
+                # 0.0 = OFF, bit-exact legacy cumulative ratio below
+                # unchanged — step_slip_m/step_prog_m above are
+                # computed either way but only READ when this is on).
+                # When > 0, slip and progress are tracked as
+                # exponential-moving-average RATES with that time
+                # constant (same alpha=dt/tau pattern as
+                # reward.walk_kernel_vel_ema) and the ratio is
+                # recomputed from the CURRENT window only, so a policy
+                # is priced on recent slip, not diluted by an
+                # early-episode transient or a long clean stretch.
+                # reward.loadslip_floor_m_s (default 0.01 m/s) is the
+                # windowed floor — a SEPARATE knob from the
+                # cumulative-mode loadslip_floor_m (meters) since the
+                # EMA operates on rates, not accumulated distance.
+                window_s = float(cfg_get(self.cfg, "reward",
+                                         "walk_loadslip_window_s",
+                                         default=0.0))
+                if window_s > 0.0:
+                    a_ls = self.dt / max(window_s, self.dt)
+                    self._ls_slip_ema += a_ls * (
+                        (step_slip_m / max(self.dt, 1e-9))
+                        - self._ls_slip_ema)
+                    self._ls_prog_ema += a_ls * (
+                        max(along, 0.0) - self._ls_prog_ema)
+                    floor_m_s = float(cfg_get(self.cfg, "reward",
+                                              "loadslip_floor_m_s",
+                                              default=0.01))
+                    ratio = self._ls_slip_ema / max(
+                        self._ls_prog_ema, floor_m_s)
+                else:
+                    ratio = self._ls_slip_m / max(self._ls_prog_m, floor_m)
                 factor = min(max(
                     (ls_max - ratio) / max(ls_max - ls_ok, 1e-6),
                     0.0), 1.0)
                 info["walk_loadslip_ratio"] = ratio
                 info["walk_loadslip_factor"] = factor
+                if window_s > 0.0:
+                    info["walk_loadslip_ratio_cumulative"] = (
+                        self._ls_slip_m / max(self._ls_prog_m, floor_m))
                 if g_ls > 0.0:
                     ls_factor = (1.0 - g_ls) + g_ls * factor
                     r_walk *= ls_factor

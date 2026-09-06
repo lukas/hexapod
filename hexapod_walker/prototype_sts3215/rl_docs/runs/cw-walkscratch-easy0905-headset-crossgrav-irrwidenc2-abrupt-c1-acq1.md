@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T04:15:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-irrwidenc2-abrupt-c1
+
+**wandb_id**: 0l8ed9g4
 
 **hypothesis**: Plain English: this cycle's irrwidenc2-abrupt-c1 discovery canary just PASSED (gait_valid 22/24, 0 falls, two different single-leg flags not chronic), refuting composition-order-as-causal for irrwidenc1's earlier crossgrav FAIL on this 2nd irr-first seed. Does that clean six-leg gait hold up (or improve) at full 40M acquisition budget, matching the campaign's standard canary-PASS-to-ACQ-continuation pattern already run for medhead/widen2c1/widenirrc1?
 

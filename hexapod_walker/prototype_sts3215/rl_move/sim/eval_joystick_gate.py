@@ -55,6 +55,19 @@ Exit 0 = PASS, 1 = FAIL. Prints the per-axis numbers and which axis
 missed. `aggregate_gate()` is a pure function of parsed report.json
 episode lists -- unit-tested without running the simulator
 (test_eval_joystick_gate.py).
+
+`aggregate_gate()`/`_episodes()` also take a `modes` tuple (default
+`("walk",)`, bit-exact for every existing caller) so this SAME
+zero-falls/slip-cap/direction/gait-valid arithmetic can be reused by
+another track's own held-out panel without re-typing it -- e.g.
+`walkcurr`'s easy-sim acquisition-milestone panel reports 4 modes
+(`walk`, `walk_startjitter` x det/sto) per pass. `main()`'s
+`--from-report PATH` (repeatable) + `--modes walk,walk_startjitter`
+loads an ALREADY-COMPUTED report.json (no fresh simulation, no GPU/CPU
+eval spend) and judges it with the identical DONE-gate checks -- used
+2026-09-06 to answer walkcurr STATUS.md QUEUE AIM item(4)'s
+"contextual DONE-gate rungs (heading changes, slip pressure)" question
+against the settled full-realism composite champion for free.
 """
 from __future__ import annotations
 
@@ -144,11 +157,11 @@ def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
     return report
 
 
-def _episodes(report: dict) -> list[dict]:
+def _episodes(report: dict, modes: tuple[str, ...] = ("walk",)) -> list[dict]:
     eps = []
     for key, lst in report.get("episodes", {}).items():
         mode = key.split("/")[0]
-        if mode == "walk":
+        if mode in modes:
             eps.extend(lst)
     return eps
 
@@ -160,6 +173,7 @@ def aggregate_gate(reports: dict[str, dict], *,
                     dir_err_metric: str = "tick",
                     teacher_course_err_deg: float = TEACHER_COURSE_ERR_DEG_DEFAULT,
                     course_err_margin_deg: float = COURSE_ERR_MARGIN_DEG_DEFAULT,
+                    modes: tuple[str, ...] = ("walk",),
                     ) -> dict:
     """Pure aggregation: parsed report.json dicts -> DONE-gate verdict.
 
@@ -177,11 +191,20 @@ def aggregate_gate(reports: dict[str, dict], *,
     TEACHER_COURSE_ERR_DEG_DEFAULT). The tick metric is always still
     computed and reported (as `direction_err_med_deg`) for diagnostic
     continuity regardless of which one gates `pass`.
+
+    `modes` (added 2026-09-06 for walkcurr STATUS item(4) reuse,
+    default `("walk",)` = bit-exact prior behavior/every existing
+    caller and test): which `episodes` key PREFIXES (split on "/") to
+    include. The walkcurr easy-sim acquisition panel reports 4 modes
+    per pass (`walk`, `walk_startjitter`) x (`det`,`sto`) -- passing
+    `modes=("walk","walk_startjitter")` folds all 4 into one contextual
+    verdict instead of silently dropping half the panel the way the
+    joystick-only default would.
     """
     all_eps: list[tuple[str, dict]] = []
     per_pass: dict[str, list[dict]] = {}
     for label, report in reports.items():
-        eps = _episodes(report)
+        eps = _episodes(report, modes=modes)
         per_pass[label] = eps
         all_eps.extend((label, e) for e in eps)
     if not all_eps:
@@ -331,45 +354,83 @@ def main() -> None:
                          "(default off, matches prior behavior; "
                          "turn on for visual triage of a near-gate "
                          "candidate)")
+    ap.add_argument("--from-report", type=Path, action="append", default=[],
+                    help="reuse an EXISTING eval_checkpoint report.json "
+                         "instead of running a fresh simulation pass "
+                         "(added 2026-09-06 so a track's own already-"
+                         "computed held-out panel -- e.g. walkcurr's "
+                         "acquisition-milestone gate report -- can be "
+                         "re-judged against this same DONE-gate "
+                         "arithmetic for free). Repeatable (one label "
+                         "per file, e.g. multiple dr-scale panels); "
+                         "when given, no subprocess/simulation runs at "
+                         "all and --own-dr-scale/--n/--episode-seconds/"
+                         "--seed-base/--extra-cfg-set/--video are "
+                         "ignored.")
+    ap.add_argument("--modes", default="walk",
+                    help="comma-separated episodes-key prefixes to "
+                         "include (default 'walk', bit-exact prior "
+                         "behavior). Pass 'walk,walk_startjitter' to "
+                         "fold a 4-panel acquisition-milestone report "
+                         "(walk + walk_startjitter, det + sto) into "
+                         "one contextual verdict.")
     args = ap.parse_args()
+
+    modes = tuple(m.strip() for m in args.modes.split(",") if m.strip())
 
     out_dir = args.out_dir or (
         _PROTO / "logs" / "ckpt_eval" /
         f"{args.checkpoint.stem}_joystick_gate")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    dr_scales = [0.0]
-    if args.own_dr_scale > 0.0:
-        dr_scales.append(args.own_dr_scale)
-
     reports: dict[str, dict] = {}
-    t0 = time.time()
-    for dr in dr_scales:
-        label = f"dr{dr:g}".replace(".", "p")
-        pass_dir = out_dir / label
-        log_path = out_dir / f"{label}.log"
-        print(f"[eval_joystick_gate] running {label} "
-              f"(n={args.n} x2 det/sto, {args.episode_seconds}s "
-              f"episodes, seed_base={args.seed_base}) ...")
-        report_path = _run_eval_checkpoint(
-            args.checkpoint, task=args.task, dr_scale=dr,
-            seed=args.seed_base, n=args.n,
-            episode_seconds=args.episode_seconds,
-            extra_cfg=args.extra_cfg_set, out_dir=pass_dir,
-            log_path=log_path, video=args.video)
-        reports[label] = json.loads(report_path.read_text())
-        print(f"[eval_joystick_gate] {label} done "
-              f"({time.time() - t0:.0f}s elapsed)")
+    if args.from_report:
+        dr_scales = []
+        for path in args.from_report:
+            report = json.loads(path.read_text())
+            label = path.stem
+            reports[label] = report
+            dr_scales.append(report.get("dr_scale"))
+            print(f"[eval_joystick_gate] loaded existing report "
+                  f"{path} as pass '{label}' "
+                  f"({sum(len(v) for v in report.get('episodes', {}).values())} "
+                  f"episodes across {list(report.get('episodes', {}))})")
+    else:
+        dr_scales = [0.0]
+        if args.own_dr_scale > 0.0:
+            dr_scales.append(args.own_dr_scale)
+
+        t0 = time.time()
+        for dr in dr_scales:
+            label = f"dr{dr:g}".replace(".", "p")
+            pass_dir = out_dir / label
+            log_path = out_dir / f"{label}.log"
+            print(f"[eval_joystick_gate] running {label} "
+                  f"(n={args.n} x2 det/sto, {args.episode_seconds}s "
+                  f"episodes, seed_base={args.seed_base}) ...")
+            report_path = _run_eval_checkpoint(
+                args.checkpoint, task=args.task, dr_scale=dr,
+                seed=args.seed_base, n=args.n,
+                episode_seconds=args.episode_seconds,
+                extra_cfg=args.extra_cfg_set, out_dir=pass_dir,
+                log_path=log_path, video=args.video)
+            reports[label] = json.loads(report_path.read_text())
+            print(f"[eval_joystick_gate] {label} done "
+                  f"({time.time() - t0:.0f}s elapsed)")
 
     verdict = aggregate_gate(reports, slip_cap=args.slip_cap,
                               teacher_dir_err_deg=args.teacher_dir_err_deg,
                               dir_err_margin_deg=args.dir_err_margin_deg,
                               dir_err_metric=args.dir_err_metric,
                               teacher_course_err_deg=args.teacher_course_err_deg,
-                              course_err_margin_deg=args.course_err_margin_deg)
+                              course_err_margin_deg=args.course_err_margin_deg,
+                              modes=modes)
     verdict["checkpoint"] = str(args.checkpoint)
     verdict["dr_scales"] = dr_scales
     verdict["episode_seconds"] = args.episode_seconds
+    verdict["modes"] = list(modes)
+    verdict["source"] = ([str(p) for p in args.from_report] if args.from_report
+                          else "fresh_eval_checkpoint")
     (out_dir / "gate_verdict.json").write_text(json.dumps(verdict, indent=2))
 
     print()

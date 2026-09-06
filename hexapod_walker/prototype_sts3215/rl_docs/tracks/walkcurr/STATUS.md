@@ -2,6 +2,51 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~13:4x this cycle (assigned `allaxiskickhalf-nocrutch1x-c1-acq1-cont40m_gate`, already
+  verdicted HARDENING PASS by a concurrent cycle before this cycle read it — confirmed via ledger/
+  SKILLS.md/RL_LOG, not re-verdicted): found+cleared **5 more unverdicted-but-finished walkcurr
+  cont40m reads** via a fresh ledger diff (all training+gate already complete, no live process,
+  none previously logged): `medhead-widenfwd-c1-acq1-cont40m` **HARDENING PASS** (21/24 flat vs
+  parent, flagged legs relocate between modes not consolidate); `plainhead-abrupt-c1b-acq1-
+  cont40m` **HARDENING PASS** (23/24 flat, single leg4 flag relocated not duplicated);
+  `medhead-dr-friction1x-c1-acq1-cont40m` **HARDENING PASS** (24/24->23/24, one new scattered
+  in-band-slip flag); `halfgrav-fullhead-widen2-c1-acq1-cont40m` **HARDENING PASS/WATCH** (20/24
+  vs parent 21/24, leg1 newly crosses threshold in 3/24 episodes — scattered not chronic, but the
+  first sign of a 3rd weak leg on this composite, flag for any further continuation);
+  `halfgrav-irr-acq1-cont40m` **HARDENING FAIL** (gv 20/24->16/24, leg4 spreads into the
+  previously-clean `walk_startjitter/sto` mode exactly as its own gate text's failure clause
+  names — this is the composite's FIRST seed, and it fails via the IDENTICAL leg4 mechanism as
+  its already-FAILED 2nd seed `irr2-acq1-cont40m`, so the irr-timing+halfgrav composition is now
+  a confirmed 2-seed FAIL at cont40m scale, not seed-specific noise; champion for this recipe
+  stays each seed's own 40M checkpoint). All 5: 0 falls/terminations either side; reward keeps
+  rising on every one including the FAIL (per the 08-21 ruling this is misalignment, not a budget
+  ceiling — the composite's own pre-registered gate text already names the chronic-leg shape as
+  FAIL regardless of reward). SKILLS.md +5 rows. **Also found genuinely orphaned (not
+  claimed/in-flight elsewhere): the item(4) seed-reproducibility canaries
+  `allaxis-nokick-c1-{s1,s2}` finished training ~13:04/13:08 and their CPU finalizers had already
+  exited (zombie/defunct) by ~13:45 with NO gate eval ever started** — kicked `ops.sh podeval`
+  backgrounded for both (VERIFIED their pod_eval processes alive on train-2 at 13:50), left
+  unverdicted for the next reader; this is the 3rd/4th data point (with the existing seed-2 dig-in
+  target) toward resolving whether the crutch-ON/kick-off composite's 2-fall finding is per-seed
+  noise, which is what item(4)'s champion pick is still blocked on. Re-confirmed
+  `allaxis-nokick-c1-acq1` itself (the 2-fall DIG-IN target) is also finished-but-unverdicted
+  (finalizer detached ~11:41) — left it alone per the model-tiering rule (a real DIG-IN trigger:
+  fall-count fork-decider), re-flagging `DIG-IN: cw-walkscratch-easy0905-headset-crossgrav-
+  medhead-dr-allaxis-nokick-c1-acq1` for the next deep-model cycle rather than triaging it myself.
+  Re-verified capacity fresh (11/11 GPU pods reachable, all free of trainers; only the 2 podeval
+  processes + 2 concurrently-running assistfade pod_evals occupy any pod) and every other track's
+  frontier independently (not just cited): joystick/cpg/amp/standwalk closed per their own
+  STATUS.md, assistfade's rung2 canaries + goalmix-fix relaunch already in flight (concurrent
+  cycle, confirmed via `ops.sh entry` RUNNING), todaypolicy's arc-aware relaunch already
+  FINISHED_BEFORE_CHECKUP awaiting its own gate (concurrent cycle's run, left alone per this
+  cycle's explicit no-touch list). No new walkcurr launch this cycle: item(4) (the only open
+  walkcurr frontier item) is now genuinely blocked on the 2 seed-canary gate evals just kicked,
+  not idle-next-to-runnable-work. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  {crossgrav_medhead_widenfwd_c1_acq1,crossgrav_plainhead_abrupt_c1b_acq1,crossgrav_medhead_dr_
+  friction1x_c1_acq1,halfgrav_fullhead_widen2_c1_acq1,halfgrav_irr_acq1}_cont40m_gate/report.json`
+  vs each parent's own `..._acq1_gate/report.json`, W&B `9j8xh47d`/`ffw6vzlu`/`uia0zijo`/
+  `aox3y4ss`/`nildfnf2`, RL_LOG 09-06 13:47-13:48.
+
 - 09-06 ~13:3x this cycle (assigned `headset-halfgrav-widenirr-c1-acq1-cont40m`, prestaged and
   already finished by cycle start): **HARDENING PASS/HOLDS, mild degrade, matches the widenirr-c3
   sibling precedent.** At 80M cumulative gait_valid mildly drops 23/24 -> 21/24 (all 4 panels still

@@ -1,9 +1,87 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~13:0x (course-income/sway reward audit for
-`robotwalk-turns-20260906` — root cause found, DIG-IN handed off, see
-below). This is the delivery track, not the single-policy research
-track.
+Last updated: 2026-09-06 ~13:4x (arc-aware course-reference FIX built
++ bank-proved for the DIG-IN handed off at ~13:0x below; relaunched
+`cw-robotwalk-turns-20260906-arcaware`). This is the delivery track,
+not the single-policy research track.
+
+## 09-06 ~13:4x — arc-aware sway FIX built, bank-proved, relaunched (closes step (a), executes step (c) of the ~13:0x hand-off)
+
+The ~13:0x audit below named 3 concrete next steps: (a) design +
+bank-test an arc-aware course reference; (b) re-measure the separate
+moderate_arc/overdrive margin debts against it; (c) relaunch from
+`cw-robotwalk-turns-20260906` (the clean 8M checkpoint, not the
+misaligned `-cont8m-resume1`). Did (a) and (c) this cycle; (b) is
+explicitly OUT of scope (a different, already-deferred plant-geometry
+recalibration question per OPERATOR_QUESTIONS 2026-09-02 ~23:1x/23:5x
+— conflating it would risk masking that debt or locking in an
+unmeasured number).
+
+**Root cause, restated precisely:** `reward.k_walk_excess_sway`
+projects every sample in its trailing window against ONE global chord
+(the window's own start->end command displacement). That projection
+is exact for a straight/near-straight command but an ARC bows away
+from its own chord even when perfectly tracked — the tight-turn
+semantics-bank cell (`test_wz_arc_tight_turn_gracefully_discounted_
+not_exploited`) decomposes to `reward_walk_course_income=+165` vs
+`reward_walk_excess_sway=-1177`, a 7x mismatch, purely from this
+artifact (course_income is immune: it only compares window start/end
+points, which coincide for a perfectly-tracked path regardless of
+curvature — sway is not, because it compares every INTERMEDIATE
+sample to the same fixed chord).
+
+**Fix (`rl_move/sim/walk_task.py`, new key `reward.walk_sway_arc_aware`,
+default 0.0 = legacy chord math, bit-exact when off):** when armed,
+each sample's deviation is measured against a "shadow" reference path
+that starts at the body's own window-start position and replays the
+SAME per-tick reference displacement the mechanism already
+accumulates (the `_walk_course_win_cum` columns already stored in
+`whist` for `k_walk_course_income` — no new state needed), projected
+onto the LOCAL per-tick tangent (not the one global chord) so an
+along-track completion lag — already priced by `k_walk_course_income`'s
+own speed_factor — never leaks into this lateral-only charge.
+Bit-exact-off verified TWO ways in `test_course_income_semantics.py`
+(not just the trivial straight-command case, where legacy chord and
+local tangent are identical by construction): the existing 8-drive
+base-STACK bank produces byte-identical numbers with the flag on vs
+off (no drive in that stack curves the REFERENCE, only the robot's
+own response to it), and a NEW dedicated test locks the exact
+pre-fix regression numbers on a genuinely curving command
+(`test_arc_aware_default_off_matches_legacy_chord_on_a_curving_cmd`).
+
+**Measured fix (tight-turn cell, same semantics-bank fixture):**
+income unchanged (164.9, confirms the fix is isolated to the sway
+term); sway -1177 -> -198; total episode reward 138.8 -> 1117.2 —
+comfortably clears `test_wz_arc_tight_turn_gracefully_discounted_
+not_exploited`'s own `r_tight > r_park + 500` bar (was failing by
+~450 before the fix). Full bank re-run: 12/14 green (was 9/12 before
+adding 2 new tests) — the 2 remaining reds are `test_wz_arc_moderate_
+turn_earns_near_full_income` and `test_overdrive_clean_completion_
+legitimately_wins`, BOTH pre-existing, both confirmed by the ~13:0x
+audit as the separate plant-geometry recalibration debt, untouched by
+this fix (their income numbers are bit-identical before/after —
+verified this cycle). 2 new tests added, both green.
+
+**Relaunched:** `cw-robotwalk-turns-20260906-arcaware` (respec of the
+clean 8M `cw-robotwalk-turns-20260906` checkpoint, NOT the misaligned
+`-cont8m-resume1` continuation, `+reward.walk_sway_arc_aware=1.0` the
+ONLY change, 8M steps, VERIFIED RUNNING train-0). Pre-registered gate:
+PASS if DR-0 gait_valid/falls hold, joygate `course_err_1s_med`
+improves vs this run's own 8M parent's 8.55deg reading (toward/under
+the 5.17deg Candidate-B bar), tip wz_err_med does not regress vs
+0.108/0.100, straight prog_m stays >=0.29m/12s. FAIL/still-misaligned
+if `course_err_1s_med` is flat-or-worse with reward still rising
+(would mean the chord-vs-arc sway artifact was not the sole cause and
+the deadband/sigma dose needs the deferred plant recalibration
+first). Full hypothesis/gate text in the ledger entry itself
+(`launch_run.py status` / `experiments.json`).
+
+Snapshot: committed as part of a concurrent cycle's own snapshot
+commit (confirmed HEAD==origin/main, `caef1a54`) — no separate push
+needed. Evidence: `rl_move/tests/test_course_income_semantics.py`
+(diff + new tests), `rl_move/sim/walk_task.py` (`walk_sway_arc_aware`
+block), W&B run for `cw-robotwalk-turns-20260906-arcaware` (see
+ledger for id once checked up).
 
 ## CAMPAIGN robotwalk-smooth-20260906 (operator order fb_20260906T030030_28f422, 09-06) — LAUNCHED
 

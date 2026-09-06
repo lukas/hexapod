@@ -2,6 +2,69 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~13:3x this cycle (assigned `headset-halfgrav-widenirr-c1-acq1-cont40m`, prestaged and
+  already finished by cycle start): **HARDENING PASS/HOLDS, mild degrade, matches the widenirr-c3
+  sibling precedent.** At 80M cumulative gait_valid mildly drops 23/24 -> 21/24 (all 4 panels still
+  clear the >=4/6 majority bar: 5/6, 5/6, 5/6, 6/6), 0 falls/terminations across all 24 episodes.
+  The 2 extra flagged episodes are scattered/non-chronic (walk/det ep3 legs[2,5] reproduces the
+  PARENT's own single flagged episode exactly; walk_startjitter/det ep4 leg[1] and walk/sto ep5
+  leg[5] are new one-offs, no mode drops below majority, no leg is out in most episodes of any
+  mode) — the gate's "no NEW chronic single-leg pattern" bright line is not tripped. slip_per_m
+  actually IMPROVED (parent's two /sto blowup outliers 117/112 shrink to a worst of 14.6). Video
+  (contact sheet + `walk_det_3`/`walk_startjitter_det_4` frame strips) shows upright six-leg
+  cycling and clear translation throughout. widenirr-c1 joins widenirr-c3/medhead/irrwiden/
+  plain-halfgrav as a top halfgrav 80M champion candidate; leg5 recurring in 2/3 flagged episodes
+  is a soft watch item only. SKILLS.md updated (1 new row). **Refill: independently re-ran the
+  full composition-cont40m ledger diff this cycle finds** (every walkcurr `*-acq1[...]` source
+  without a `-cont40m` child) and confirms the concurrent ~13:1x cycle's own finding: all 13
+  uncovered sources are already FAIL/REFUSED/KILLED-verdicted (not clean PASSes) — zero genuine
+  gap remains in the composition-cont40m question. Also re-checked every other track's own
+  frontier fresh (not just cited a prior cycle's note): joystick's core DONE gate stays met per
+  08-23, its 100Hz/mesh hardening thread is explicitly deferred to standwalk pending a new
+  mechanism (none built); cpg is DONE/gate-green, no re-fund; amp is DONE (sim scope), waiting
+  only on operator-owned M6 hardware; standwalk's own Next explicitly states no agent-doable next
+  step pending fresh design thinking; assistfade's rung-2 canaries are already in flight (2 seeds,
+  concurrent cycle handling); todaypolicy's course-income audit follow-up (`-arcaware`) is already
+  in flight. `launch_run.py status` read 8 genuinely free GPU pods (train-1/2/3/5/8/9/10/11) at
+  cycle end with an empty backlog — left idle deliberately: every track's frontier is either
+  DONE/closed, blocked on a named DIG-IN/design gap another cycle owns, or already fully occupied
+  by in-flight arms; launching here would be pure slot-filling, which the guardrail forbids. 0 new
+  launches this cycle. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_widenirr_
+  c1_acq1_cont40m_gate/report.json` vs parent `..._c1_acq1_gate/report.json`, W&B `ab1hqszt`,
+  RL_LOG 09-06 13:32.
+
+- 09-06 ~13:3x this cycle (refill cycle; assigned run was `allaxiskickhalf-nocrutch1x-c1-acq1-
+  cont40m`, found still genuinely computing its gate at spawn — registered via `ops.sh evalpending
+  add` and polled to completion on train-4 rather than launched a duplicate or verdicted blind):
+  **HARDENING PASS — settles the QUEUE AIM item(4) composite champion pick.** The kick-safe/
+  no-torque-crutch full-realism composite holds at 80M cumulative almost episode-for-episode:
+  gait_valid 22/24 both before (40M) and after (80M), the SAME two episodes (walk/sto ep4,
+  walk_startjitter/det ep1) carry the only flags both times, the SAME leg (leg2) is the flagged
+  leg both times, and walk_startjitter/det actually narrows from 2 flagged legs ([0,2]) to 1
+  ([2]) — reproduction/mild improvement, not new entrenchment. 0 falls/terminations at either
+  budget. Slip stays elevated (median ~5-5.4/m, up to ~13/m on the two flagged episodes) as
+  expected for a de-crutched actuator, not a regression vs the parent's own similarly elevated
+  slip. Reward rises every quarter (819.2/1485.4/1598.1/1709.3), no plateau. This is now the
+  CLEANEST of the two item(4) composite endurance reads (its crutch-ON sibling
+  `allaxis-nokick-c1-acq1` landed 2 falls/24 against its own 0-falls ACQ bar and sits DIG-IN
+  flagged/unverdicted) — recommend `..._allaxiskickhalf_nocrutch1x_c1_acq1_cont40m.zip` as the
+  settled champion for the full-realism-composite question, pending only the allaxis-nokick
+  dig-in's own resolution (which decides whether the crutch-ON variant is ALSO usable, not
+  whether the crutch-OFF one is). SKILLS.md +1 row. **Per QUEUE AIM this unblocks item(4)'s own
+  next step (acquisition-milestone panel + contextual DONE-gate rungs — heading changes, slip
+  pressure — on this checkpoint)** but building/running that panel is real new scope (not a
+  cheap relaunch) — flagged here for whichever cycle picks it up next rather than started
+  same-cycle alongside the todaypolicy work below. **Also this cycle (zero GPU spend, real code
+  work while the gate above computed): built + bank-proved an "arc-aware" fix for the
+  `reward.k_walk_excess_sway` mechanism** the todaypolicy track's own course-income audit
+  (09-06 ~13:0x, see todaypolicy/STATUS.md) had flagged DIG-IN — this is a shared reward
+  primitive, not walkcurr-specific, but the fix itself required no walkcurr GPU spend and its
+  first real-recipe test (`cw-robotwalk-turns-20260906-arcaware`) is a todaypolicy-track launch;
+  full derivation in that track's own STATUS entry, not duplicated here. Evidence: `logs/
+  ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_
+  acq1_cont40m_gate/report.json` vs `..._acq1_gate/report.json`, W&B `v6wmk0lv`, RL_LOG 09-06
+  13:34.
+
 - 09-06 ~13:1x this cycle (assigned `headset-halfgrav-irr2-acq1-cont40m`; gate eval was still
   genuinely computing at spawn, polled it to completion on its own pod rather than launching a
   duplicate or verdicting blind): **ACQ FAIL (HARDENING FAIL) — a 4th corroboration of the

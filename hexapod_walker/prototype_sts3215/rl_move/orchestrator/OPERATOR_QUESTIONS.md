@@ -5283,3 +5283,48 @@ income_semantics.py` (`pytest -q`, 3/12 red on HEAD, reproducible);
 `rl_docs/tracks/todaypolicy/STATUS.md` 09-06 06:56 entry (the audit
 ask); `OPERATOR_QUESTIONS.md` 2026-09-02 ~23:1x/~23:5x entries (the
 prior, still-open "3 remaining arc/overdrive margin tests" deferral).
+
+## 2026-09-06 ~13:4x — follow-up CLOSES step 1 above: arc-aware course-reference fix built, bank-proved, relaunched (does NOT touch steps 2/moderate_arc-overdrive, deliberately)
+
+Did step 1 named above ("design an arc-aware course reference for
+sway... a genuinely new mechanism, not a retune"). New key
+`reward.walk_sway_arc_aware` (`walk_task.py`, default 0.0 = the exact
+legacy chord math, bit-exact-off — verified two ways in
+`test_course_income_semantics.py`: identical numbers with the flag on
+vs off across the whole 8-drive base bank, where no drive curves the
+reference so chord==local-tangent trivially, AND a new dedicated
+regression test on the genuinely-curving ARC_TIGHT cell). When armed,
+each sample's sway deviation is measured against a shadow reference
+path anchored at the body's own window-start position, replaying the
+same per-tick reference displacement the mechanism already
+accumulates for `k_walk_course_income`, projected onto the LOCAL
+per-tick tangent instead of one global window-chord. Tight-turn cell:
+income unchanged (164.9, confirms the fix is isolated to the sway
+term, as expected since course_income only compares window start/end
+points and was never chord-broken); sway -1177 -> -198; total reward
+138.8 -> 1117.2 — clears `test_wz_arc_tight_turn_gracefully_
+discounted_not_exploited`'s own bar (was failing by ~450). Bank now
+12/14 green (was 9/12); the 2 remaining reds are exactly
+`test_wz_arc_moderate_turn_earns_near_full_income` and
+`test_overdrive_clean_completion_legitimately_wins` — confirmed their
+income numbers are bit-identical before/after this fix, so they are
+genuinely the SEPARATE step-2 recalibration debt named above, not
+newly broken by this change. **Did NOT do step 2** (re-tuning
+deadband/sigma or the moderate_arc/overdrive margins against the
+current plant) — that is a distinct, already-deferred plant-geometry
+question (09-02 ~23:1x/~23:5x) and conflating it here risked masking
+that debt or locking in a number that hasn't been remeasured
+end-to-end. **Did step 3**: relaunched `cw-robotwalk-turns-20260906-
+arcaware` from the clean 8M `cw-robotwalk-turns-20260906` checkpoint
+(not `-cont8m-resume1`), `+reward.walk_sway_arc_aware=1.0` the only
+change, 8M steps, VERIFIED RUNNING train-0; full gate text in the
+ledger. If this run's `course_err_1s_med` is STILL flat-or-worse than
+its parent's 8.55deg with reward still rising, that would mean the
+chord-vs-arc sway artifact was not the sole cause and step 2 (the
+deadband/sigma plant recalibration) becomes necessary before any
+further turn-income dose — read that as the next fork, not a repeat
+of this exact fix. Evidence: `rl_move/tests/test_course_income_
+semantics.py` diff + 2 new tests (green), `rl_move/sim/walk_task.py`
+`walk_sway_arc_aware` block, `rl_docs/tracks/todaypolicy/STATUS.md`
+09-06 ~13:4x entry, ledger entry for `cw-robotwalk-turns-20260906-
+arcaware`.

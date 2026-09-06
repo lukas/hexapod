@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T07:00:54+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1
+
+**wandb_id**: i0ucnjvx
 
 **hypothesis**: Plain English: same endurance question as the crossgrav cont40m siblings, run on the halfgrav (0.5g) widenirr champion (headset-halfgrav-widenirr-c3-acq1: 21/24 gait_valid, mild non-chronic degrade from its own 23/24 2M canary, 0 falls, course-tracking metrics actually IMPROVED vs canary) -- first endurance read on a HALFGRAV source (all prior cont40m arms are crossgrav/1g), tests whether the cleanliness-margin-predicts-endurance rule generalizes across gravity regimes too.
 

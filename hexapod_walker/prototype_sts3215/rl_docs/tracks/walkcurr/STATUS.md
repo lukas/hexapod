@@ -2,6 +2,82 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~06:3x-07:0x this cycle (assigned `medhead-dr-fault1x-c1`, `medhead-dr-gains1x-c1`,
+  `medhead-dr-geom1x-c1`): **3/3 CANARY PASS — the LAST 3 single-axis DR-restore cells close
+  clean, completing the axis sweep.** (1) `medhead-dr-gains1x-c1` (per-servo +-20%kp/+-25%kv
+  spread): 23/24, one non-chronic leg-4 flag, 0 falls. (2) `medhead-dr-geom1x-c1` (+-2% leg
+  length, +-12mm CoM shift): 21/24, scattered non-chronic flags across 3 different legs/modes
+  (no repeat), 0 falls — **closes GEOMETRY, the last of guardrails.yaml's named idealized axes
+  (mass/geometry/friction/compliance/gravity/gains); every one now has a clean single-axis
+  restore on this champion.** (3) `medhead-dr-fault1x-c1` (real per-episode actuator fault,
+  0.3 prob, weakened/frozen/disabled-leg mix): 22/24, 0 falls. Cross-checked per-episode fault
+  metadata against gate flags: one walk_startjitter/det miss is DIRECTLY EXPLAINED by that
+  episode's own injected fault (`frozen:j[15]@1.0`, a genuinely dead joint, not a policy
+  pathology); the other is an unexplained single-episode leg-0 blip, non-chronic, and notably
+  NOT the campaign's recurring leg[1,4] middle-pair fingerprint — real hardware-style faults
+  don't preferentially hit the same structural weak point as the reward-driven sacrifice
+  pathology. All 3 video-confirmed (frame strips, no drag/freeze/collapse). SKILLS.md updated
+  (3 new rows). **Infra incident (self-repaired):** hit the same non-atomic-`experiments.json`
+  write race a concurrent cycle also found this window — a killed launch subprocess (my own
+  120s-timeout retry of a `respec --now`) left the shared ledger truncated at exactly 18874368
+  bytes (mid-object), which had ALREADY been committed+pushed by an intervening `snapshot.sh`
+  run (both mine and others' launches were failing with `JSONDecodeError` on every attempt).
+  Repaired by hand: parsed the file with a bracket-depth walker to find the last complete
+  top-level object, truncated the one torn in-flight entry, re-validated (2103 entries),
+  re-committed (`bae9debe`) — unblocked every launcher on the fleet, not just this cycle's.
+  The concurrent cycle's proper permanent fix (`save_ledger` atomic temp+os.replace +
+  `snapshot.sh` JSON-validity guard, 3 new tests) landed shortly after and is now on `main`;
+  this incident is the reason it was needed. **Refill (3 launches, cleanliness-margin cont40m
+  batch):** with the axis sweep now complete, shifted refill to the campaign's other open
+  question — which clean-at-40M sources haven't had an endurance (+40M) helping yet. Checked
+  5 candidates (all PASS, no chronic pattern) against the `cont40m` name list and launched the
+  3 not already claimed by a concurrent cycle (which independently picked `medhead-widenfwd-c1`
+  and `medhead-irrfwd-c1` the same window — convergent, not duplicated): `plainhead-abrupt-c1b-
+  acq1-cont40m` (train-2, VERIFIED RUNNING — cleanest never-composed source, 23/24), `medhead-
+  ramp-irrfwd-c1-acq1-cont40m` (train-3, VERIFIED RUNNING — first endurance read on a RAMP- not
+  ABRUPT-transfer source, discriminates whether ramp-transfer itself carries elevated risk),
+  `headset-halfgrav-widenirr-c3-acq1-cont40m` (train-11, VERIFIED RUNNING — first endurance read
+  on a HALFGRAV, not crossgrav, source). Fleet fully saturated on exit (11/11 reachable pods
+  busy). Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-{gains1x,
+  geom1x,fault1x}-c1`, matching `report.json` + frame strips, W&B `ktgseik5`/`dn9et0k6`/
+  `vje1nu80`, RL_LOG 09-06 07:00-07:03.
+
+- 09-06 ~06:5x-07:0x this cycle (assigned `medhead-dr-actionnoise1x-c1`, `medhead-dr-extpush1x-c1`;
+  also triaged `cw-robotwalk-turns-20260906-cont8m-resume1`, a todaypolicy-track run, see that
+  track's STATUS): **1/2 CANARY PASS, 1 still genuinely computing.** (1) `medhead-dr-
+  actionnoise1x-c1` CANARY PASS: 22/24, 0 falls, leg-5 flagged 2/6 walk/det episodes only
+  (non-chronic, single mode) — actuation-side action-noise restores clean, matching every
+  sibling axis. (2) `medhead-dr-extpush1x-c1`: its gate eval was STILL genuinely computing on
+  train-9 when this cycle spawned (video-heavy 24-episode harness on a pod also hosting a live
+  training tenant); registered via `evalpending add` (label
+  `cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_extpush1x_c1_gate`) for the next
+  cycle/watcher to reap — do not re-launch or re-poll by hand. **Notable this-cycle finding: none
+  of the 20+ individually-PASSED single-axis DR-restore canaries had ever been given their own
+  ACQ (40M) durability confirmation** — every prior ACQ-scale read was on composition arms
+  (irr/widen) or the campaign's flagship champions, leaving open whether a bare DR-realism axis's
+  2M-canary cleanliness predicts 40M durability the same way. **Refill:** queued+launched 4 ACQ
+  continuations off clean single-axis canaries, picked for hardware/decision relevance:
+  `medhead-dr-torquefade2x-c1-acq1` (train-5, VERIFIED RUNNING — the flagged "key open decision"
+  torque-crutch-to-2x axis, PERFECT 24/24 canary), `medhead-dr-mass1x-c1-acq1` (train-7, VERIFIED
+  RUNNING — mass tolerance, 23/24 canary with one non-chronic flag, a 2nd near-clean data point),
+  `medhead-dr-latency1x-c1-acq1` and `medhead-dr-push1x-c1-acq1` (both REFUSED repeatedly by
+  pod-race against concurrent cycles' own fills — queued to `backlog.json`, self-repairing drain
+  will place them). **Infra near-miss self-caught:** a transient non-atomic `experiments.json`
+  write race (concurrent cycles writing the shared ledger without a rename-swap) truncated the
+  file mid-write during this cycle's `mass1x-c1-acq1` launch, which made the drain believe that
+  launch had crashed and auto-requeued a genuine duplicate (`-rr1`) that landed VERIFIED RUNNING
+  on a 2nd pod — caught via `launch_run.py status`'s live pod scan (which reads real processes,
+  not the stale ledger) showing the ORIGINAL was alive and healthy on train-7; killed the
+  duplicate within ~1min, 0 GPU-hours lost, `status=KILLED_DUPLICATE`. The ledger file self-
+  healed (another write cycle overwrote the truncated tail) with no lasting damage, but
+  `save_ledger`'s plain `write_text` (not atomic write+rename) is a real latent race under this
+  many concurrent cycles — worth a future hardening pass, not urgent tonight. SKILLS.md updated
+  (2 rows: actionnoise1x PASS, the resume1 misalignment finding). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-actionnoise1x-c1`, `launch_run.py status`
+  live scan, W&B `5hdibkd4`, RL_LOG 09-06 06:55-07:0x.
+
+- 09-06 ~06:4x-07:0x this cycle (assigned `cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1v3` [already SELF_KILLED_OVER_CAP-verdicted by its own launching cycle, confirmed not re-triaged], `s1acq-irrfwd-c1-acq1`, `s1acq-widenfwd-c1-acq1`): **2 ACQ PASS verdicts on the campaign's single cleanest source, one clean and one flagged WATCH.** (1) `s1acq-widenfwd-c1-acq1` (8-way heading set) holds its own 2M canary (22/24) at 40M: 21/24, 0 falls, only a lateral non-worsening leg-shift (det/4 keeps the identical leg[0,3] flag at the identical episode; startjitter/sto swaps the canary's single leg[4] flag for leg[0] at 2 episodes) — matches the medhead-widenfwd-c1-acq1/widen2c1-irrfwd-c1-acq1 precedent. (2) `s1acq-irrfwd-c1-acq1` (irr-timing) stays majority (20/24) but its own confined walk/det leg-4 softening WORSENS (single leg->leg[2,4] pair, same 2 episode indices) and newly spreads into walk_startjitter/det (1/6, was 6/6 clean at canary) — below the gate's own chronic/majority FAIL bar (verdicted PASS, video confirms continued six-leg gait, no drag/freeze) but a materially weaker margin than its widenfwd sibling launched the same cycle from the same source. Both gate evals had raced a transient websocket disconnect during copy-back (podeval log showed `SYNCED rc=1`) — confirmed both were still genuinely computing remotely (checkpoint videos present, process alive via `kubectl exec ps`), backgrounded `pollreap` rather than re-triggering, and both landed clean shortly after. SKILLS.md updated (1 new 2-row entry). **Also found and fixed in-flight**: 3 runs from this cycle's own "still training" list finished mid-cycle with idle GPU capacity reopened (`medhead-dr-{allaxis1x,gyrobias1x,zerobiasframe1x}-c1`, wandb state=finished, no gate computed yet) — kicked `ops.sh podeval` for all 3 in the background (still genuinely computing at cycle end, not orphaned — left for the next reader/watcher). **Ledger note**: hit a transient `experiments.json` read race twice this cycle (a concurrent writer's in-progress save was caught mid-flush, once as an outright `JSONDecodeError`, once as an ~800-entry apparent "loss" that resolved on the next read) — both self-resolved within seconds via the launcher's own repair path (`experiments.json.repair_tmp` observed); no data was actually lost, just noted here in case a future cycle sees the same transient and wants context instead of re-diagnosing from scratch. **Refill (both cont40m launches, using the full 80M-step cycle cap):** with both `medhead-widenfwd-c1-acq1` and `medhead-irrfwd-c1-acq1` sitting as clean 40M ACQ PASSes with no cont40m endurance read yet, launched `medhead-widenfwd-c1-acq1-cont40m` (train-1, VERIFIED RUNNING) and `medhead-irrfwd-c1-acq1-cont40m` (train-0, VERIFIED RUNNING after 2 REFUSED pod-race retries against concurrent cycles' own fills) — 2nd/3rd confirmations of the cleanliness-margin-at-40M endurance rule from 2 independent forward-composed sources. Did NOT fund a cont40m for `s1acq-irrfwd-c1-acq1` despite it being a "clean-at-40M" PASS on paper — its WATCH-flagged worsening pattern makes it a weaker cleanliness-margin candidate than its own widenfwd sibling, so left for a confirming re-read first. Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-s1acq-{irrfwd,widenfwd}-c1-acq1`, `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_s1acq_{irrfwd,widenfwd}_c1_acq1_gate/report.json` vs each run's own `..._c1_gate/` 2M canary, W&B `0iafbobq`/`wzh30m53`, RL_LOG 09-06 07:0x.
+
 - 09-06 ~06:5x this cycle (assigned `startpose1x-c1`/`torquefade1x-c1`/`zerobias1x-c1`,
   all 3 still genuinely computing on their pods when this cycle spawned):
   **1/3 read (torquefade1x-c1 CANARY PASS, closes the torque-fade dose axis for

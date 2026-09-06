@@ -1427,6 +1427,73 @@ def _fixup_log_std_final_argv(argv: list[str]) -> list[str]:
     return out
 
 
+def _json_safe_config(ns: argparse.Namespace) -> dict:
+    """`vars(args)` filtered to JSON-serializable values (best-effort
+    `str()` fallback for anything else, e.g. `Path`/`argparse` custom
+    types) — used only for the `--defer-final-artifacts` marker below,
+    NOT the source of truth for a resumed run's cfg (that's still the
+    checkpoint + `--cfg-set` argv the launcher recorded)."""
+    out: dict = {}
+    for k, v in vars(ns).items():
+        if v is None or isinstance(v, (bool, int, float, str)):
+            out[k] = v
+        elif isinstance(v, (list, tuple)):
+            out[k] = [x if isinstance(x, (bool, int, float, str, type(None)))
+                      else str(x) for x in v]
+        else:
+            out[k] = str(v)
+    return out
+
+
+def _write_training_complete_marker(
+    out_path: Path, *, steps: int, run_name: str, task: str,
+    run_id: str | None, resolved_config: dict,
+) -> Path:
+    """Atomically persist `<checkpoint>.training_complete.json` the
+    moment optimization genuinely finishes (`model.learn()` returned),
+    BEFORE the potentially slow background eval/video drain
+    (`bg.shutdown()`) that currently holds the GPU-owning trainer
+    process (and its ~46GB of CUDA memory) alive for minutes doing
+    CPU-only work.
+
+    This is additive INSTRUMENTATION ONLY — item 1 of the
+    `--defer-final-artifacts` plan (fb_20260906T032210_129bed): it
+    does not release the GPU early, does not hand outstanding eval/
+    video jobs to a separate finalizer process, and is not itself a
+    capacity fix (the trainer still calls `bg.shutdown()` and waits,
+    same as always). It exists so a future finalizer has a durable,
+    unambiguous record (actual steps, checkpoint hash, resolved argv,
+    W&B run id) to resume from instead of re-deriving them from a
+    possibly-still-writing directory. See OPERATOR_QUESTIONS.md for
+    the remaining steps (durable job manifest, idempotent CPU
+    finalizer, early GPU-process exit) still owed before this is a
+    real fix.
+
+    Caller must have already saved `out_path` (checkpoint) before
+    calling this, else `checkpoint_md5` is recorded as null.
+    """
+    import hashlib
+
+    marker_path = out_path.parent / f"{out_path.stem}.training_complete.json"
+    md5 = (hashlib.md5(out_path.read_bytes()).hexdigest()
+           if out_path.exists() else None)
+    payload = {
+        "schema": 1,
+        "run_name": run_name,
+        "task": task,
+        "steps": int(steps),
+        "checkpoint_path": str(out_path),
+        "checkpoint_md5": md5,
+        "wandb_run_id": run_id,
+        "written_at": time.time(),
+        "resolved_config": resolved_config,
+    }
+    tmp_path = marker_path.with_name(marker_path.name + ".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2, default=str))
+    tmp_path.replace(marker_path)  # atomic rename on the same filesystem
+    return marker_path
+
+
 def main(argv: list[str] | None = None) -> int:
     if argv is None:
         import sys as _sys
@@ -1542,6 +1609,17 @@ def main(argv: list[str] | None = None) -> int:
                          "composite-health improvement (survival, "
                          "direction error, aligned velocity) and arm "
                          "the joint regression auto-stop")
+    ap.add_argument("--defer-final-artifacts", action="store_true",
+                    help="DEFAULT OFF, additive instrumentation only "
+                         "(fb_20260906T032210_129bed item 1 — not a "
+                         "capacity fix by itself): the instant "
+                         "model.learn() returns, save the checkpoint "
+                         "and write <out>.training_complete.json "
+                         "(steps, checkpoint md5, resolved argv, W&B "
+                         "run id) BEFORE the background eval/video "
+                         "drain that otherwise holds the GPU process "
+                         "idle for minutes. Training/eval/video "
+                         "behavior is unchanged either way.")
     ap.add_argument("--regress-stop-n", type=int, default=3,
                     help="consecutive jointly-regressed assays "
                          "(reward AND survival AND direction) before "
@@ -5770,6 +5848,18 @@ def main(argv: list[str] | None = None) -> int:
     try:
         model.learn(total_timesteps=args.steps, callback=callbacks,
                     progress_bar=False)
+        if args.defer_final_artifacts:
+            model.save(out_path)
+            marker_path = _write_training_complete_marker(
+                out_path, steps=int(model.num_timesteps),
+                run_name=args.run_name, task=args.task,
+                run_id=(run.id if run is not None else None),
+                resolved_config=_json_safe_config(args))
+            print(f"[defer-final-artifacts] optimization complete "
+                  f"({model.num_timesteps:,} steps); marker -> "
+                  f"{marker_path} (GPU process still waits on "
+                  "eval/video below — item 1 only, see "
+                  "OPERATOR_QUESTIONS.md)")
     finally:
         if cert_cb is not None:
             cert_cb.close()

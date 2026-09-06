@@ -68,6 +68,33 @@ changes/stops, yaw, then DR/pushes).
   No rung-2 launch until the joint read lands (doc: run only the
   first unproven rung); rung-2 anchor-fade still owes the full
   intermediate-state semantics bank before any launch.
+- **09-06 ~03:4x JOINT RUNG-1 READ (s0 lands): NOT A PASS.** `-s0`
+  VERDICTED **CANARY FAIL - MECHANISM — gait destroyed on this seed**:
+  aggregate `gait_valid` 0/24 across all 4 modes, a chronic 2-leg
+  (legs 0,1, the front-right/right-middle adjacent pair) sacrifice in
+  nearly every episode (occasionally 3-4 legs), 2 safety terminations
+  (over_current) under `walk_startjitter`, progress_ratio 0.08-0.20
+  (worse than even s1's failing 0.13-0.25 band). Video confirms a
+  near-stationary/quivering body, not s1's slower-but-real six-leg
+  gait. Training reward Q4 collapsed 95.6->22.9 exactly where the
+  gait failure concentrates (vs s1's healthier 167.8->108.6) — the
+  reward-collapse flag that motivated launching `-s2` before this
+  read landed was justified. **Joint rung-1 ignition gate is NOT MET**
+  (requires both seeds; s1 alone read CANARY PASS mechanism-health,
+  s0 reads FAIL gait-destroyed) — per the doc's own rule this is a
+  RETREAT trigger, not a same-recipe retry. However: since `-s2`
+  (fresh-seed 2M canary, seed-vs-recipe discriminator) and `-s1-cont8m`
+  (+8M continuation of the healthy seed) were ALREADY launched before
+  this read landed specifically to test whether s0's failure is a
+  per-seed basin or a recipe-level defect, retreat is deferred one
+  more data point: if `-s2` also shows gait destruction, rung 1 is
+  recipe-unstable (>=2/3 seeds destroy the gait) and the doc's retreat
+  (rung 2 slower anchor fade, or rung 3 tighter residuals) fires next
+  cycle; if `-s2` reads healthy like s1, rung 1 is seed-sensitive but
+  viable and a 3rd/4th seed or `-s1-cont8m`'s ignition-bar read at 10M
+  decides advancement. Evidence: `logs/ckpt_eval/
+  cw_assistfade_rung1_bcinit_taskonly_s0_gate/report.json`, W&B
+  `vf3f9kbw`; RL_LOG 09-06 03:40.
 - **Rung 1 canary pair LAUNCHED 2026-09-06:**
   `cw-assistfade-rung1-bcinit-taskonly-s0` / `-s1` (2M each, canary
   phase). Recipe = `cw-walkteach-scripted-allhead-canary-r1` byte-

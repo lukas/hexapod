@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:32:53+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-irrfwd-c1-acq1
+
+**wandb_id**: 5bktykuw
 
 **hypothesis**: Plain English: the ramp-transition champion's 2M canary just PASSED the same native-1g command-timing-jitter extension test its abrupt sibling passed -- does it hold up at full 40M acquisition scale too, mirroring the abrupt-irrfwd-c1-acq1 companion arm?
 

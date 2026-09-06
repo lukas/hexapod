@@ -1449,3 +1449,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 03:28 walkcurr: medhead-ramp-widenfwd-c1 CANARY PASS 21/24, 0 falls, ramp symmetry confirmed for widen axis too 
 - 09-06 03:29 walkcurr: widen2c2b-abrupt-c1-acq1 ACQ FAIL, budget does not repair unhealthy-source leg-1 entrenchment (identical 14/24 to 2M canary), fork closed 
 - 09-06 03:31 [assistfade] rung-1 s1 canary: CANARY PASS mechanism (24/24 gv, 0 falls, six legs on video) but prog 0.22<0.35 ignition bar -- launched s1-cont8m (+8M, 08-21 continuation) + s2 seed-stability canary; joint read pending s0 eval (fb_20260906T031718_f01aa6 keep-GPUs-training refill cycle) 
+- 09-06 03:40 assistfade: rung1 s0 CANARY FAIL-MECHANISM (gait destroyed, 0/24 gv, 2 terms), joint rung-1 read NOT a pass (s1 alone PASSed mechanism-health) -- s2/s1-cont8m in flight to disambiguate seed vs recipe 

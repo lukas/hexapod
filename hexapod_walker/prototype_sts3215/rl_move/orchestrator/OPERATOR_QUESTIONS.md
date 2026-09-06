@@ -4871,3 +4871,77 @@ describes the twin as ~3.5 kg and should be corrected either way.
   prior PASS this campaign already satisfies it (18-24/24, det modes
   clean or startjitter-only caveats), so no retroactive verdict
   flips. s0c1-acq1 verdicted ACQ FAIL under this bar.
+
+## q_20260906T0340Z — OPEN (assume-and-go, item 1 executed)
+- cycle: cw-assistfade-rung1-bcinit-taskonly-s1 triage cycle, 09-06
+  ~03:4x (MCP feedback fb_20260906T032210_129bed, "Codex, executing
+  Lukas's utilization request")
+- context: root's read-only audit (referenced by the note, not
+  re-verified independently this cycle) found scratch train pods
+  holding ~45.8GB GPU memory at 0% utilization for 6-10 min per run
+  after optimization finishes, while `VideoCallback._on_training_end`
+  + `bg.shutdown()` drain outstanding CPU-side eval/video jobs before
+  the GPU-owning process exits. The note's 5-step
+  `--defer-final-artifacts` plan (durable training_complete.json ->
+  durable job manifest -> CPU finalizer takes over -> idempotent
+  retry/resume -> registry reporting) is a genuine multi-file,
+  multi-cycle capacity project (job registry, a second process
+  reading/writing the same W&B run, atomic handoff semantics) — too
+  large and too risky to land whole against 11 live GPU trainers in
+  one triage cycle.
+- question: what is the responsible scope for "implementation
+  handoff" in a single cycle, given guardrails' "new cfg keys default
+  OFF, bit-exact when off" and "never change shared default behavior"?
+- answer adopted (assume-and-go): land ONLY item 1 (the note's own
+  first numbered step) as pure additive instrumentation, nothing
+  else. Implemented `--defer-final-artifacts` (default `False`,
+  bit-exact no-op when unset) in `train_ppo_mjx.py`: the instant
+  `model.learn()` returns, if the flag is set, save the checkpoint and
+  atomically write `<checkpoint-stem>.training_complete.json`
+  (schema=1: steps, task, checkpoint path + md5, W&B run id, raw
+  resolved argv, write timestamp) via tmp-file + `Path.replace`
+  (atomic same-filesystem rename) — BEFORE the existing
+  `finally: bg.shutdown()` block that does the actual (unchanged)
+  CPU-side eval/video wait. This does NOT release the GPU early, does
+  NOT hand off jobs to a separate finalizer, and is explicitly NOT a
+  capacity fix by itself (matches the note's own "mere
+  optimization_complete instrumentation ... must not be called a
+  capacity fix" caveat) — it only gives a future finalizer a durable,
+  race-free record to resume from. 4 new tests
+  (`test_defer_final_artifacts.py`, all green: `--help` wiring,
+  atomic-write + field contents, missing-checkpoint graceful case,
+  `_json_safe_config` stringification), existing suites unaffected
+  (`test_use_sde_flag.py`, `test_actor_only_transplant.py`,
+  `test_gru_policy.py` re-run green, 57/57 + 4/4 + 4/4). No launch
+  used this flag this cycle (opt-in canary is explicitly the note's
+  OWN next step, not this one) — do not claim GPU-hours saved from
+  this alone.
+- remaining steps NOT done, still owed before this is a real capacity
+  fix (do not re-litigate item 1 or re-derive this list — read it):
+  (2) durable outstanding-job manifest keyed off the
+  `training_complete.json` checkpoint (immutable per-run snapshot
+  path, not a mutable `out_path`/`/tmp` handoff) so a CPU finalizer
+  can enumerate exactly which eval/video jobs are still owed; (3) an
+  actual early-exit path for the GPU-owning process once the handoff
+  is durable (today it still calls `bg.shutdown()` and waits — this
+  is the part that would free the slot); (4) a separate
+  `CUDA_VISIBLE_DEVICES=` finalizer process with idempotent job IDs,
+  bounded retry, and exactly ONE W&B writer at a time (trainer session
+  finished before the finalizer resumes writing to the same run — a
+  second concurrent writer to one W&B run is a known footgun
+  elsewhere in this codebase); (5) `evalpending`-style registry
+  reporting split into training / artifacts_pending / evaluated so a
+  verdict still waits on real eval/video artifacts, never on the
+  marker alone. A small opt-in canary run (one arm with
+  `--defer-final-artifacts`, confirming (a) GPU memory actually frees
+  after step 3 lands, (b) checkpoint hash/steps in the marker match
+  the eventually-produced real artifacts, (c) an interrupted
+  finalizer resumes without duplicate/contradictory W&B records) is
+  the validation gate for whichever future cycle lands steps 2-4;
+  until then this flag is dead code path with no launch depending on
+  it, safe to leave OFF everywhere.
+- evidence: `rl_move/sim/train_ppo_mjx.py`
+  (`_write_training_complete_marker`, `_json_safe_config`, the
+  `--defer-final-artifacts` flag + its call site right after
+  `model.learn()`), `rl_move/tests/test_defer_final_artifacts.py`,
+  snapshot tag (this cycle).

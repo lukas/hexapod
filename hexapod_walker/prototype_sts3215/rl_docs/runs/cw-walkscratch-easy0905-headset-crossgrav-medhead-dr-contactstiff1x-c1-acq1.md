@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T07:58:55+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-contactstiff1x-c1
+
+**wandb_id**: vy3mdsxv
 
 **hypothesis**: Plain English: does the ground-contact-stiffness/compliance-spread axis (dr.contact_stiff_scale 0.7-2.0x, previously pinned identical every episode) stay a clean walk with real training budget, not just a 2M canary glance? contactstiff1x-c1's own 2M canary was 23/24 (one non-chronic leg-4 flag, 0 falls) -- joining the individual-axis ACQ-durability batch alongside friction1x/mass1x/encnoise1x/torquefade-dose/zerobias1x/latency1x/push1x-acq1.
 

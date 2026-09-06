@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T07:56:09+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade1x-c1
+
+**wandb_id**: 11p0scan
 
 **hypothesis**: Does the campaign's hardest torque-fade dose point (dr.torque_scale 1.0, i.e. the REAL unassisted servo torque spec with zero battery/actuator-assist crutch, PERFECT 24/24 gait_valid at its 2M canary) hold up at a real acquisition-scale (40M) training budget, the same canary-vs-ACQ durability question already answered YES for friction1x and mass1x?
 

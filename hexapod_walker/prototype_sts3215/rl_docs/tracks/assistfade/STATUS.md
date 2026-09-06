@@ -49,7 +49,59 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
-- **09-06 ~15:4x this cycle (refill cycle; verdicted the
+- **09-06 ~16:3x this cycle (triaged the `-lsd2` pair the ~15:4x entry
+  below launched; both FAIL - IGNORES-BAND again, but this time
+  root-caused with real probe evidence instead of another guess):**
+  Both seeds: gait/falls/progress stay clean (gait_valid 6/6 all 4
+  modes, 0 falls, prog med 0.49-0.61(s0)/0.46-0.55(s1) >= 0.35 bar),
+  `log_std` genuinely moved this time (confirmed in
+  `wandb_history.csv`: -2.0 at step 0 -> ~-2.98 by 7.8M, a real anneal,
+  unlike the `-v2` pair's zero-movement bug) — yet achieved
+  `speed_mean_m_s` STILL clusters flat (s0 0.037-0.048, s1 0.036-0.043)
+  across the same 0.035-0.067 m/s commanded band. This REFUTES the
+  `-lsd2` launch hypothesis (zero-exploration schedule bug) cleanly:
+  exploration was real, the pathology persisted anyway.
+  **Root-caused further instead of guessing again**: built
+  `reward.walk_kernel_sigma_v_m_s` (new cfg, default-off, bit-exact,
+  2 new bank tests, `test_task_semantics.py`) to test the doc's own
+  guessed next step ("an explicit speed-tracking reward term") —
+  specifically whether the Gaussian kernel's fixed `SIGMA_V=0.05 m/s`
+  width (comparable to the ENTIRE hardened 0.04-0.08 band) was
+  flattening the gradient. A standalone rollout probe (command-matched
+  gait vs a scripted habitual-fixed-speed twin — the exact pathology
+  seen on video/harness) shows the matched-vs-mismatch return gap
+  stays FLAT at ~20-24% across every sigma from 0.05 down to 0.01
+  (narrower does NOT widen it, slightly narrows it at the tightest
+  width) — **this rules out kernel width as the mechanism.** The
+  already-active `walk_kernel_prog_gate`/`k_walk_prog` terms already
+  supply a real, sizeable (~20-24% return) incentive to track command
+  speed; the reward is not silently flat. PPO simply has not converted
+  an already-large real gradient into a stride-length change within
+  8M steps, starting from a checkpoint entrenched by 10M+ prior steps
+  of single-fixed-speed training. Also notes: the `amp` track's
+  `walk_phase_speed_scale` clock-only-coupling lever was independently
+  CLOSED for a related pathology (RL_LOG 08-23: "CLOCK-ONLY COUPLING
+  IS INSUFFICIENT" — faster legs, same body speed, no command
+  correlation, slip doubles) — do not relaunch that lever here
+  unpaired with a stride-amplitude fix. **Refill**: launched
+  `cw-assistfade-rung2-harden-speedband-{s0,s1}-explore2` (respec from
+  each seed's SAME entrenched base checkpoint, `--warm-log-std-
+  override=-1.3` — std~0.27 at launch, roughly double `-lsd2`'s -2.0/
+  std~0.135 — the one remaining untested single-axis lever: bigger
+  exploration MAGNITUDE, not a reward-shape change). Both VERIFIED
+  RUNNING (train-0/train-1). If this ALSO reads flat, exploration
+  magnitude is closed too (3/3: zero-boost, -2.0, -1.3) and the next
+  cycle should escalate to a structural fix (a fresh non-phase-locked
+  init, or a genuinely new explicit stride-amplitude reward term)
+  rather than another log-std value. Evidence: `logs/ckpt_eval/
+  cw_assistfade_rung2_harden_speedband_s{0,1}_lsd2_gate/report.json`,
+  `logs/experiments/cw-assistfade-rung2-harden-speedband-s{0,1}-lsd2/
+  wandb_history.csv` (`log_std_anneal/all/value`), `rl_move/tests/
+  test_task_semantics.py::test_harden_speedband_sigma_v_*`, snapshot
+  `exp/assistfade-speedband-sigma-calibration`, W&B `0yvoegf9`/
+  `1rtyf5jc`, RL_LOG 09-06 16:36-16:37.
+
+- **09-06 ~15:4x (prior cycle; verdicted the
   `-speedband-{s0,s1}-v2` pair the ~15:0x entry below flagged as live
   FAIL candidates, root-caused, and relaunched the repair pair):**
   Both **FAIL - IGNORES-BAND**: gait stays clean (gait_valid 6/6 every

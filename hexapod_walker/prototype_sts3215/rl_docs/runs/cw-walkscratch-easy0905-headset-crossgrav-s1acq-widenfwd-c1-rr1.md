@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T04:23:17+00:00
+**created**: 2026-09-06T04:23:44+00:00
 
-**pod**: hexapod-mjx-train-5
+**pod**: hexapod-mjx-train-11
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/INFORMATIVE-POSITIVE if gait_valid stays majority (>=4/6) in walk/det with no chronic (same leg flagged in most/all episodes of a mode) single-leg sacrifice. FAIL/INFORMATIVE-NEGATIVE if it collapses to the leg[1,4] chronic-sacrifice fingerprint or a new chronic pattern. Either outcome is informative at 2M.
 
-**refused_reason**: hexapod-mjx-train-5 already runs cw-walkscratch-easy0905-headset-crossgrav-s1acq-irrfwd-c1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: config twin of RUNNING cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1 (identical train args+steps; a seed twin would differ in --seed — pass --allow-twin only for a deliberate replica)
 

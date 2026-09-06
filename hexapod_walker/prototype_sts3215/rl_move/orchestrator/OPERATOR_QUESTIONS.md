@@ -5053,3 +5053,52 @@ change silently degrading it), that's a separate, more urgent finding
 Evidence: logs/ckpt_eval/cw_robotwalk_turns_20260906_yaw/,
 logs/ckpt_eval/cw_walkteach_scripted_allhead_acq12m_yaw_freshcmp/,
 RL_LOG 09-06 04:48.
+
+## 2026-09-06 ~05:2x — deferred-artifacts reliability hardening SHIPPED + measured (operator focus note 20260906T045848Z; fb_20260906T044800_a59c3e items)
+No question — implementation report (assume-and-go, all bounded checks
+the focus note listed are done and measured; flag stays DEFAULT OFF).
+What landed (rl_move/sim/artifact_handoff.py, artifact_finalizer.py,
+train_ppo_sim.py `_BgEval`, train_ppo_mjx.py; 19 tests green in
+test_defer_final_artifacts.py, no flakes on re-run):
+1. LOCK: pid-file steal scheme replaced by kernel flock on a
+   PERMANENT inode (`finalizer.lock`, never unlinked, O_CLOEXEC so the
+   mp-spawn worker can't inherit it). finalizer.pid is now advisory
+   only; a LIVE legacy (pre-flock) pid holder is respected — new code
+   backs off, so deploying over a live legacy finalizer is safe.
+   Real-subprocess tests: contention, SIGKILL with UNREAPED ZOMBIE
+   holder, exec'ed-child survival, permanent-inode identity.
+2. FRESH KILL/RESTART TEST (the canary's manual-repair gap): offline
+   replay of the REAL c2-deferartifacts manifest (copied from
+   train-2, W&B id stripped, snapshot paths remapped to /tmp, one
+   FIFO to pin a job in_flight). SIGKILLed the actual finalizer
+   python (verified fd->finalizer.lock) mid-job with its worker left
+   orphaned+blocked; IMMEDIATE restart acquired the lock with ZERO
+   manual repair, honored the killed attempt's budget (attempt 2 of
+   2), timed out the hung job, killed/respawned the worker, bounded-
+   failed the junk jobs, wrote finalized.json, exit 2, lock inode
+   unchanged. Also replayed the untouched schema-1 manifest: exit 0,
+   3 done jobs skipped idempotently (backward compatible).
+3. ASYNC-PUBLICATION / RETIRED-SNAPSHOT RISK: replayable inputs
+   (snapshot zips + rendered mp4s) are now retired ONLY after
+   run.finish() returns, in the finalizer AND in the trainer's live
+   drain (`pop_delivered()` after finish). Crash-boundary test
+   documents at-least-once (one duplicate row possible on a kill in
+   the log->state window) — exactly-once is NOT claimed from row
+   counts anywhere.
+4. PROVENANCE: manifests are schema 2 — per-job snapshot md5 frozen
+   at save time and VERIFIED by the finalizer before running (corrupt/
+   foreign zip fails the job instead of publishing wrong-model
+   artifacts); provenance block pins git commit + dirty flag +
+   sha256(args.pkl) + resolved argv. Dirty trees are flagged, not
+   content-hashed (bounded scope).
+5. COLLISIONS + DOUBLE-SAVE: write_manifest now REFUSES a reused
+   handoff dir (was: silent rename-aside); init_training_state
+   supersedes a stale same-name dir append-only at trainer start. The
+   trailing model.save(out_path) in train_ppo_mjx is guarded under the
+   flag — it was re-saving AFTER the marker/manifest md5s were
+   computed, silently invalidating both (tripwire test added).
+Default-off bit-exactness: every change is inside `defer_dir is not
+None` / `args.defer_final_artifacts` branches; non-deferred trainer
+path saves/behaves identically. Next live use of the flag (any future
+opt-in canary) exercises the new scheme end-to-end; no new training
+canary was launched per the focus note's preference.

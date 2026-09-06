@@ -5778,10 +5778,38 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     from .mjx_vec_env import MjxVecEnv
                     env = MjxVecEnv(env_cls, n_cert, **cert_kw)
+                # Goal-mix fix (2026-09-06, assistfade rung-2 NaN
+                # cmd_prog_frac dig-in): the main training venv's goal
+                # mix is set via a POST-CONSTRUCTION env_method call
+                # (see the `--goal-mix` handling a few hundred lines up
+                # in this same function — "needed because the sharded
+                # MJX vec env's env objects live in worker processes,
+                # where in-process attribute pokes can't reach", per
+                # goal_task.set_goal_mix's own docstring) — this assay
+                # env is built fresh here and NEVER received that call,
+                # so every assay episode silently drew from the env
+                # class's __init__ DEFAULT goal-type mixture (~70%
+                # walk / ~30% hold/lean/track/... per
+                # SimHexapodJointWalkEnv.__init__) instead of the
+                # run's actual --goal-mix (walk=1.0 on every rung-2
+                # recipe to date). Non-walk draws have no `.vx`
+                # trajectory, so `cmd_dist`/`cmd_prog_m` never
+                # accumulate and `cmd_prog_frac` reads nan for that
+                # episode — poisoning the round's plain-mean aggregate
+                # to nan REGARDLESS of falls (reproduced standalone,
+                # zero-action policy, 6/8 episodes nan with
+                # early_term_rate=0.0 before this fix; matches every
+                # `[bc-anchor-anneal] gate check` log line across both
+                # `-reseed8m` seeds). Fix: force the SAME goal mix the
+                # run itself trains on, exactly mirroring the main
+                # venv's own post-construction set_goal_mix call above.
+                gm = _parse_goal_mix(args.goal_mix)
+                if gm and hasattr(env_cls, "set_goal_mix"):
+                    env.env_method("set_goal_mix", gm)
                 print("[bc-anchor-anneal] deterministic MJX ignition "
                       f"assay ready: {n_cert} episodes, "
                       f"{impl or 'jax(default)'} backend, in-env walk "
-                      "probe ON")
+                      f"probe ON, goal_mix={gm or '(env default)'}")
                 return env
 
             def _assay(self) -> dict:

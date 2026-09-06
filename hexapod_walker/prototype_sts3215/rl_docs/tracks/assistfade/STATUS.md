@@ -49,6 +49,41 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~11:5x this cycle (triage of `-s0-cont8m`, DIG-IN flagged, no verdict yet — held-out
+  gate eval still computing on-pod, video-every=1/24-episode panels run 1.5-2h): both rung-2
+  `-cont8m` continuations (`-s0-cont8m` train-8, `-s1-cont8m` train-9, the other a concurrent
+  cycle's to verdict) independently AUTO-STOPPED via the fixed-seed canary regression guard —
+  NOT a triage kill, the run's own `_make_canary_stop_callback` fired mid-training.** Plain
+  English: `walk_fwd` was one of only two "protected" groups (the ones the 2M parent checkpoint
+  passed 2/2 at launch — the other is `hold`); by the time each run reached ~5.7M
+  (`-s0-cont8m`) / ~7.9M (`-s1-cont8m`) of the planned 8M new steps, `walk_fwd_a`/`walk_fwd_b`
+  had failed 3 consecutive periodic probes (every ~1M steps) while `hold` stayed 2/2 throughout
+  — training auto-stopped itself per its own regression guard
+  (`canary/auto_stop=1`, log line `[canary] AUTO-STOP at 5,667,840: protected skill(s)
+  ['walk_fwd'] failed 3 consecutive probes`, W&B `71d7y3v2`/matching for s1). The walk_fwd
+  canary case is essentially the SAME distribution as this recipe's own training task (pinned
+  hold-then-ramp-then-constant 0.06 m/s forward, mesh/100 Hz) — so a deterministic pinned probe
+  regressing on the training task itself, while `ep_rew_mean` kept climbing every quarter
+  (`-s0-cont8m` reward quarters 215.7/681.4/1188.6/1251.2, still rising at the point of
+  auto-stop) is a real reward<->eval divergence signal, not noise: per-check history shows
+  `walk_fwd_{a,b}` pass at the 2M checkpoint, a single early blip fail at 1M-new-steps, ANOTHER
+  pass at 2M-new-steps, then a clean 0/0 fail from 3M-new-steps onward through auto-stop — looks
+  like settling into a genuine regressed basin after ~3M steps, not one noisy sample. This is
+  the THIRD cont8m-budget failure fingerprint in this campaign (rung-1's `-s1-cont8m` gait-
+  destroyed-by-budget and `-s2-cont8m` wrong-direction-spin-by-budget were the first two) —
+  worth asking, once both held-out reads land, whether "continue the SAME fixed-forward-only
+  cont8m recipe past its 2M canary" is itself a structurally unstable move on this track,
+  independent of which rung. DIG-IN reason for `-s0-cont8m`: the pre-registered ledger gate's
+  own FAIL text ("the held-out gait collapses... at this budget") may already be met, but the
+  held-out mesh gate eval (det+sto, per-leg gait metrics, video) was still computing at end of
+  this cycle — verdict on that read, not the canary telemetry alone, per the video/gate-outranks-
+  reward rule. If the gate eval instead shows a CLEAN six-leg gait despite the canary fail, that
+  is a genuine gate-vs-canary disagreement needing its own root-cause (canary's pinned/short
+  hold+ramp probe may not match the harness's 10s constant-command episodes). Evidence so far:
+  `logs/experiments/cw-assistfade-rung2-anchorfade-{s0,s1}-cont8m/wandb_summary.json`
+  (`canary_baseline`/`canary_protected`/`canary/*` keys), `wandb_history.csv` (per-check
+  `canary/walk_fwd_{a,b}` timeline), on-pod
+  `/tmp/train_cw-assistfade-rung2-anchorfade-s0-cont8m.log` (`grep '\[canary\]'`).
 - **09-06 ~11:2x this cycle (refill-only, no completions assigned; found+verdicted the rung-2
   anchorfade canary pair a concurrent cycle had launched and left unread):** **both seeds CANARY
   PASS, and BEAT the ignition bar already at 2M under the still-strong anchor** — held-out gate

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: DEAD
 
 **created**: 2026-09-06T11:47:57+00:00
 

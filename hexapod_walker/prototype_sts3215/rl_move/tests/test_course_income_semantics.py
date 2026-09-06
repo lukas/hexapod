@@ -369,10 +369,44 @@ def test_ordering_every_mover_beats_park(bank):
 ## admit wz/arc commands; stage (c) (training exposure to
 ## sweep_circle/square/etc, e.g. goal.walk_cmd_mode=stress_mix) is
 ## SAFE to fund on the existing course-income/excess-sway stack.
+##
+## CORRECTION (2026-09-06 ~13:0x, `robotwalk-turns-20260906` course-
+## income/sway audit, OPERATOR_QUESTIONS same timestamp): the tight-
+## turn read above ("sway charge grows to -820.8... tracks actual
+## course error") UNDERSTATED the effect and mis-filed it as pure
+## recalibration debt. Direct re-measurement (this file, unmodified
+## HEAD) at the SAME tight-turn cell decomposes to
+## reward_walk_course_income=+165 vs reward_walk_excess_sway=-1177 --
+## the sway charge alone outweighs income 7x. Root cause: the
+## excess-sway term projects every sample in the window against ONE
+## global chord (window start->end of the COMMAND's own net
+## displacement). That is exact for a straight/near-straight command
+## but an arc BOWS AWAY from its own chord even when perfectly
+## tracked -- a genuine mechanism defect, not a plant-geometry
+## recalibration question (unlike the neighboring moderate-arc/
+## overdrive margin debts, confirmed still separate below). Fixed
+## behind a new default-OFF key, `reward.walk_sway_arc_aware`
+## (walk_task.py): projects each sample against a LOCAL per-tick
+## tangent of a "shadow" reference path anchored at the body's own
+## window-start position instead of one global chord -- bit-exact
+## legacy chord math when 0.0 (verified: identical reward on every
+## drive in this file's own base STACK, where the reference heading
+## never curves so local tangent == global chord everywhere; only
+## diverges when the command itself curves). Re-measured tight turn
+## WITH the fix: sway -1177 -> -198, total reward 138.8 -> 1117.2 --
+## clears the ordering this file's own `test_wz_arc_tight_turn_
+## gracefully_discounted_not_exploited` requires. ARC_MODERATE/
+## ARC_TIGHT below now arm the fix (any future turn-capable recipe
+## should too); the moderate-arc/overdrive margin numbers are
+## UNCHANGED by this fix (confirmed: income component untouched) and
+## stay open, separate, already-deferred recalibration questions
+## (OPERATOR_QUESTIONS 2026-09-02 ~23:1x/~23:5x) -- do not conflate a
+## 3rd failure into this fix's scope.
 ARC_MODERATE = dict(STACK)
 ARC_MODERATE[("goal", "walk_cmd_mode")] = "sweep_circle"
 ARC_MODERATE[("goal", "walk_cmd_resample_s")] = 1.0
 ARC_MODERATE[("goal", "walk_cmd_sweep_period_s")] = 6.0
+ARC_MODERATE[("reward", "walk_sway_arc_aware")] = 1.0
 
 ARC_TIGHT = dict(ARC_MODERATE)
 ARC_TIGHT[("goal", "walk_cmd_sweep_period_s")] = 3.0
@@ -448,3 +482,53 @@ def test_overdrive_clean_completion_legitimately_wins(bank):
     assert r_over > r_obey, (r_over, r_obey)
     assert float(np.mean(c_over["walk_course_income_angle_f"])) >= 0.99
     assert c_over.get("reward_walk_excess_sway", 0.0) == 0.0
+
+
+## ---------------------------------------------------------------------
+## ARC-AWARE SWAY FIX (2026-09-06 ~13:0x correction above). New key:
+## reward.walk_sway_arc_aware, default 0.0 (legacy single-chord
+## projection, bit-exact). These tests pin (1) the default-off path is
+## unchanged on both a straight AND a genuinely curving command (the
+## real bit-exact-off guarantee -- a straight-only check can't catch a
+## chord-vs-tangent regression since the two coincide there), and (2)
+## turning it on repairs the tight-arc double-charge without moving
+## the income component at all (isolating the fix to the sway term).
+
+def test_arc_aware_default_off_matches_legacy_chord_on_a_curving_cmd():
+    """Bit-exact-off, checked on the ARC_TIGHT cell specifically (not
+    just a straight command) -- arc_aware=0.0 must reproduce the exact
+    pre-fix chord-projection numbers on a command that actually
+    curves, where a broken default could hide as a straight-line
+    no-op."""
+    legacy = dict(ARC_TIGHT)
+    legacy[("reward", "walk_sway_arc_aware")] = 0.0
+    r0, c0 = _rollout("obey", legacy, seconds=8.0)
+    absent = {k: v for k, v in legacy.items()
+              if k != ("reward", "walk_sway_arc_aware")}
+    r1, c1 = _rollout("obey", absent, seconds=8.0)
+    assert r0 == pytest.approx(r1, abs=1e-9)
+    # Locks in the exact pre-fix regression numbers from the audit.
+    assert c0["reward_walk_excess_sway"] == pytest.approx(-1176.7, abs=1.0)
+    assert r0 == pytest.approx(138.8, abs=1.0)
+
+
+def test_arc_aware_fixes_tight_arc_without_touching_income(arc_bank):
+    """The fix (arc_bank's ARC_TIGHT/ARC_MODERATE already run with
+    walk_sway_arc_aware=1.0) must leave course_income exactly where
+    the legacy mechanism put it -- only the sway term should move --
+    and must clear the ordering the legacy chord math missed by a
+    wide margin (r_tight was 138.8 vs the park+500 bar of 589.5;
+    session's own gate text, and this file's own pre-fix numbers
+    above, name that a genuine mechanism defect, not a real course
+    problem)."""
+    r_tight, c_tight = arc_bank["tight_obey"]
+    legacy_off = dict(ARC_TIGHT)
+    legacy_off[("reward", "walk_sway_arc_aware")] = 0.0
+    r_legacy, c_legacy = _rollout("obey", legacy_off, seconds=8.0)
+    assert c_tight["reward_walk_course_income"] == pytest.approx(
+        c_legacy["reward_walk_course_income"], abs=1e-6)
+    assert c_tight["reward_walk_excess_sway"] \
+        > c_legacy["reward_walk_excess_sway"] + 500.0, (
+        c_tight["reward_walk_excess_sway"],
+        c_legacy["reward_walk_excess_sway"])
+    assert r_tight > r_legacy + 500.0, (r_tight, r_legacy)

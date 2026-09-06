@@ -1456,18 +1456,19 @@ def _write_training_complete_marker(
     process (and its ~46GB of CUDA memory) alive for minutes doing
     CPU-only work.
 
-    This is additive INSTRUMENTATION ONLY — item 1 of the
-    `--defer-final-artifacts` plan (fb_20260906T032210_129bed): it
-    does not release the GPU early, does not hand outstanding eval/
-    video jobs to a separate finalizer process, and is not itself a
-    capacity fix (the trainer still calls `bg.shutdown()` and waits,
-    same as always). It exists so a future finalizer has a durable,
-    unambiguous record (actual steps, checkpoint hash, resolved argv,
-    W&B run id) to resume from instead of re-deriving them from a
-    possibly-still-writing directory. See OPERATOR_QUESTIONS.md for
-    the remaining steps (durable job manifest, idempotent CPU
-    finalizer, early GPU-process exit) still owed before this is a
-    real fix.
+    Item 1 of the `--defer-final-artifacts` plan
+    (fb_20260906T032210_129bed). Since the 09-06 follow-through
+    (fb_20260906T035950_cd260e) the rest of the plan is live too: with
+    the flag set, `VideoCallback._on_training_end` no longer blocks,
+    `bg.handoff()` collects outstanding eval/video jobs instead of
+    draining them, `artifact_handoff.write_manifest` records them
+    immutably (registry phase training -> artifacts_pending ->
+    evaluated in state.json), and a detached CPU-only
+    `artifact_finalizer` completes + logs them to the same W&B run
+    AFTER this GPU-owning process exits. The marker exists so that
+    finalizer (and any auditor) has a durable, unambiguous record
+    (actual steps, checkpoint hash, resolved argv, W&B run id) rather
+    than re-deriving them from a possibly-still-writing directory.
 
     Caller must have already saved `out_path` (checkpoint) before
     calling this, else `checkpoint_md5` is recorded as null.
@@ -1610,16 +1611,21 @@ def main(argv: list[str] | None = None) -> int:
                          "direction error, aligned velocity) and arm "
                          "the joint regression auto-stop")
     ap.add_argument("--defer-final-artifacts", action="store_true",
-                    help="DEFAULT OFF, additive instrumentation only "
-                         "(fb_20260906T032210_129bed item 1 — not a "
-                         "capacity fix by itself): the instant "
-                         "model.learn() returns, save the checkpoint "
-                         "and write <out>.training_complete.json "
-                         "(steps, checkpoint md5, resolved argv, W&B "
-                         "run id) BEFORE the background eval/video "
-                         "drain that otherwise holds the GPU process "
-                         "idle for minutes. Training/eval/video "
-                         "behavior is unchanged either way.")
+                    help="DEFAULT OFF (fb_20260906T032210_129bed + "
+                         "fb_20260906T035950_cd260e): the instant "
+                         "model.learn() returns, save the checkpoint, "
+                         "write <out>.training_complete.json, hand any "
+                         "outstanding background eval/video jobs to an "
+                         "immutable manifest under policies/"
+                         "artifact_handoff/<run>/, spawn a detached "
+                         "CPU-only finalizer (idempotent, bounded "
+                         "retry, single W&B writer) and EXIT — freeing "
+                         "the GPU minutes early while the artifacts "
+                         "complete on CPU. Registry phase in state.json "
+                         "goes training -> artifacts_pending -> "
+                         "evaluated; verdicts wait for 'evaluated' "
+                         "(ops.sh handoff <run>). OFF = bit-exact "
+                         "pre-change behavior.")
     ap.add_argument("--regress-stop-n", type=int, default=3,
                     help="consecutive jointly-regressed assays "
                          "(reward AND survival AND direction) before "
@@ -5746,7 +5752,13 @@ def main(argv: list[str] | None = None) -> int:
                 "canary_protected": canary_protected,
                 "canary_stop_after": args.canary_stop_after,
             }, allow_val_change=True)
-        bg = _BgEval(args.task, args)
+        defer_dir = None
+        if args.defer_final_artifacts:
+            from .artifact_handoff import init_training_state
+            defer_dir = init_training_state(args.run_name or out_name)
+            print(f"[defer-final-artifacts] handoff dir armed: "
+                  f"{defer_dir} (registry phase=training)")
+        bg = _BgEval(args.task, args, defer_dir=defer_dir)
         if args.eval_every > 0:
             callbacks.append(_make_periodic_eval_callback(
                 bg, every=args.eval_every))
@@ -5845,6 +5857,7 @@ def main(argv: list[str] | None = None) -> int:
         print("[update-health] health callback armed "
               f"(best-ckpt={bool(args.best_ckpt)}, "
               f"ev-gate={args.ev_stop_min or 'off'})")
+    deferred_jobs: list[dict] = []
     try:
         model.learn(total_timesteps=args.steps, callback=callbacks,
                     progress_bar=False)
@@ -5857,16 +5870,23 @@ def main(argv: list[str] | None = None) -> int:
                 resolved_config=_json_safe_config(args))
             print(f"[defer-final-artifacts] optimization complete "
                   f"({model.num_timesteps:,} steps); marker -> "
-                  f"{marker_path} (GPU process still waits on "
-                  "eval/video below — item 1 only, see "
-                  "OPERATOR_QUESTIONS.md)")
+                  f"{marker_path}; outstanding eval/video jobs hand "
+                  "off to the CPU finalizer below (GPU exit is early)")
     finally:
         if cert_cb is not None:
             cert_cb.close()
         if walkcurr_cb is not None:
             walkcurr_cb.close()
         if bg is not None:
-            bg.shutdown()
+            if args.defer_final_artifacts:
+                # Item 3 (fb_20260906T035950_cd260e): NO blocking drain —
+                # collect still-outstanding jobs; the CPU finalizer
+                # completes them after this GPU process exits.
+                deferred_jobs = bg.handoff()
+                print(f"[defer-final-artifacts] {len(deferred_jobs)} "
+                      "eval/video job(s) outstanding at handoff")
+            else:
+                bg.shutdown()
     model.save(out_path)
     if amp_wrap is not None:
         disc_path = out_path.with_suffix(".amp_disc.pt")
@@ -5898,6 +5918,35 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as ex:
             print(f"[wandb] artifact publish failed (non-fatal): {ex}")
         run.finish()
+    if args.defer_final_artifacts:
+        # Items 2+3+4 (fb_20260906T035950_cd260e): immutable job
+        # manifest, then a detached CPU-only finalizer. Ordering is
+        # deliberate: run.finish() above already closed this process's
+        # W&B session, so the finalizer is the SINGLE writer when it
+        # resumes the run. This GPU-owning process exits right after —
+        # that exit (not the marker) is what frees the ~46GB of CUDA
+        # memory while eval/video artifacts complete on CPU.
+        import hashlib as _hashlib
+        from .artifact_handoff import (
+            handoff_dir_for, spawn_finalizer, write_manifest)
+        _hd = handoff_dir_for(args.run_name or out_name)
+        write_manifest(
+            _hd, run_name=(args.run_name or out_name), task=args.task,
+            wandb_run_id=(run.id if run is not None else None),
+            wandb_entity=os.environ.get("WANDB_ENTITY",
+                                        WANDB_ENTITY_DEFAULT),
+            wandb_project=os.environ.get("WANDB_PROJECT",
+                                         WANDB_PROJECT_DEFAULT),
+            checkpoint_path=out_path,
+            checkpoint_md5=(_hashlib.md5(out_path.read_bytes()).hexdigest()
+                            if out_path.exists() else None),
+            steps=int(model.num_timesteps), jobs=deferred_jobs,
+            args_namespace=args, resolved_argv=list(argv))
+        pid = spawn_finalizer(_hd)
+        print(f"[defer-final-artifacts] manifest + state "
+              f"(artifacts_pending) written -> {_hd}; CPU finalizer "
+              f"pid {pid} detached (CUDA_VISIBLE_DEVICES=''); GPU "
+              "process exiting now")
     venv.close()
     return 0
 

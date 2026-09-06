@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T10:55:24+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-c1
+
+**wandb_id**: fvj0g1kr
 
 **hypothesis**: Plain English: does the full ~30-axis realism composite, with kick fully disabled (the one axis proven to break it) and the 3x torque crutch still on, hold up at real acquisition budget (40M), not just a 2M canary -- this is QUEUE AIM item (1)'s composite-ACQ funding step, licensed by this exact recipe's own canary PASS (19/24 gv, 0 falls). Single lever vs the canary: budget 2M->40M, otherwise byte-identical (dr.walk_kick_prob=0.0, all other ~28 DR axes at full medhead-dr dose, torque_scale=3.0 crutch on).
 

@@ -2,6 +2,34 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:5x this cycle (assigned `medhead-irrwiden-c1`,
+  `widenirrc3-abrupt-c1`): **2/2 CANARY PASS, 2-arm ACQ-continuation
+  refill.** (1) `widenirrc3-abrupt-c1` CANARY PASS: 23/24 gait_valid,
+  0 falls, closes the widenirr-crossgrav axis at n=2 seeds clean
+  (unlike widen2's 1-PASS/1-FAIL seed split). (2) `medhead-irrwiden-c1`
+  CANARY PASS: 23/24 gait_valid, 0 falls, the opposite composition
+  order (irr-then-widen) on the medhead base — confirms composition
+  order doesn't matter for this axis pair (matches medhead-widenfwd/
+  irrfwd's own individual-axis PASSes). Both flagged episodes name a
+  single non-chronic leg matching a parent's pre-existing signature,
+  not a new pathology; both frame strips confirm genuine six-leg
+  cycling with body translation. Refill: with 8 GPU slots free and
+  empty backlog, launched matched 40M ACQ continuations for both this
+  cycle's own PASS (`widenirrc3-abrupt-c1-acq1`) and an
+  already-verdicted-but-unrefilled sibling PASS from an earlier cycle
+  (`widen2c1-irrfwd-c1-acq1`, off `widen2c1-irrfwd-c1`'s own CANARY
+  PASS-INFORMATIVE) — both queued via `respec --init-from-source`,
+  matching the medhead/widen2c1/s1acq/s3acq ACQ-continuation
+  precedent. Did not launch a 3rd continuation off `medhead-irrwiden-
+  c1` this cycle (its sibling `medhead-widenirr-c1` result and several
+  other ACQ continuations were already in flight/queued from
+  concurrent cycles this wave; leaving that refill for whichever
+  cycle reads `medhead-widenirr-c1` next to decide jointly). SKILLS.md
+  updated (2 new rows). Evidence: `ops.sh review cw-walkscratch-
+  easy0905-headset-crossgrav-{medhead-irrwiden-c1,widenirrc3-abrupt-
+  c1}`, matching `report.json`/contact sheets, W&B `jbpj69ir`/
+  `ou65x19c`, RL_LOG 09-06 04:42/04:46.
+
 - 09-06 ~04:4x this cycle (assigned `medhead-abrupt-c1-acq1-cont40m`,
   `medhead-widenfwd-c1-acq1`, `medhead-irrfwd-c1-acq1`): **3/3 PASS,
   no refill needed on this thread this cycle.** (1) `medhead-abrupt-

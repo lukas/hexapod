@@ -35,15 +35,17 @@ def sha256(path):
 def reviewed_workspace(tmp_path):
     root = tmp_path / "workspace" / "hexapod_walker" / "prototype_sts3215"
     walk = root / "rl_move" / "scripts" / "run_rl_walk_trial.py"
+    health = root / "rl_move" / "scripts" / "run_motionless_health_gate.py"
     sysid = root / "sysid" / "run_hw.py"
     policy = root / "linux_control" / "policies" / "bounded.json"
     protocol = (
         root / "sysid" / "protocols"
         / "l5_ground_radial_shear_amplitude_ladder_v1.json"
     )
-    for path in (walk, sysid, policy, protocol):
+    for path in (walk, health, sysid, policy, protocol):
         path.parent.mkdir(parents=True, exist_ok=True)
     walk.write_text("# bounded walk runner\n", encoding="utf-8")
+    health.write_text("# bounded motionless health runner\n", encoding="utf-8")
     sysid.write_text("# bounded sysid runner\n", encoding="utf-8")
     policy.write_text('{"policy":"bounded"}\n', encoding="utf-8")
     protocol.write_text(
@@ -62,11 +64,11 @@ def reviewed_workspace(tmp_path):
         ),
         encoding="utf-8",
     )
-    return root, walk, sysid, policy, protocol
+    return root, walk, health, sysid, policy, protocol
 
 
 def test_adaptive_physical_admission_requires_exact_verified_runner_and_bounds(tmp_path):
-    root, walk, sysid, policy, protocol = reviewed_workspace(tmp_path)
+    root, walk, health, sysid, policy, protocol = reviewed_workspace(tmp_path)
     orchestrator = CodexOrchestrator(
         Store(tmp_path / "data" / "lab.sqlite3"), configured(tmp_path),
         invoker=lambda *_: {},
@@ -178,6 +180,51 @@ def test_adaptive_physical_admission_requires_exact_verified_runner_and_bounds(t
     )
     assert "may not carry" in orchestrator._physical_followup_rejection(
         hidden_command, 15
+    )
+
+    health_plan = {
+        "current_compatibility": {"ready": True},
+        "runner": "rl_move/scripts/run_motionless_health_gate.py",
+        "runner_sha256": sha256(health),
+        "robot_motion": False,
+        "simulation_only": False,
+        "arm_motors": False,
+        "command_motion": False,
+        "live_camera_required": True,
+        "remote_abort_required": True,
+        "required_live_motor_count": 18,
+        "minimum_advancing_samples": 3,
+        "max_state_age_s": 1.5,
+        "max_camera_age_s": 2.0,
+        "max_temperature_c": 55.0,
+        "min_voltage_v": 10.8,
+        "max_voltage_v": 13.0,
+        "max_joint_current_a": 0.9,
+        "max_bus_current_a": 5.0,
+        "argv_template": [
+            "uv", "run", "python", "-m",
+            "rl_move.scripts.run_motionless_health_gate",
+            "--robot-url", "<resolved-robot-http-url>",
+            "--vision-frame-url", "<validated-live-frame-url>",
+            "--output-dir", "<new-evidence-directory>",
+            "--samples", "3",
+            "--max-state-age-s", "1.5",
+            "--max-camera-age-s", "2.0",
+            "--max-temperature-c", "55.0",
+            "--min-voltage-v", "10.8",
+            "--max-voltage-v", "13.0",
+            "--max-joint-current-a", "0.9",
+            "--max-bus-current-a", "5.0",
+        ],
+    }
+    assert orchestrator._physical_followup_rejection(health_plan, 30) == ""
+    armed_health = dict(health_plan, arm_motors=True)
+    assert "read-only safety contract" in orchestrator._physical_followup_rejection(
+        armed_health, 30
+    )
+    mismatched_bound = dict(health_plan, max_temperature_c=54.0)
+    assert "do not match" in orchestrator._physical_followup_rejection(
+        mismatched_bound, 30
     )
 
 

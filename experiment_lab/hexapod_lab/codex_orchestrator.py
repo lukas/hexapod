@@ -2872,17 +2872,22 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             return rejection, ""
 
         readiness_reasons: List[str] = []
+        runner = parameters.get("runner")
+        motionless_health_runner = (
+            runner == "rl_move/scripts/run_motionless_health_gate.py"
+        )
         if parameters.get("robot_motion") is False:
-            if _contains_action_parameter(parameters):
+            if _contains_action_parameter(parameters) and not motionless_health_runner:
                 return (
                     "non-motion adaptive proposal may not carry executable "
                     "robot instructions",
                     "",
                 )
-            readiness_reasons.append(
-                "non-motion external proposals require a trusted deterministic "
-                "executor; use a simulation-only builtin plan when appropriate"
-            )
+            if not motionless_health_runner:
+                readiness_reasons.append(
+                    "non-motion external proposals require a trusted deterministic "
+                    "executor; use a simulation-only builtin plan when appropriate"
+                )
         compatibility = parameters.get("current_compatibility")
         if not isinstance(compatibility, dict) or compatibility.get("ready") is not True:
             readiness_reasons.append(
@@ -2893,10 +2898,12 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             readiness_reasons.append(
                 "adaptive physical proposal contains unresolved hard blockers"
             )
-        runner = parameters.get("runner")
         runner_paths = {
             "rl_move/scripts/run_rl_walk_trial.py": Path(
                 "rl_move/scripts/run_rl_walk_trial.py"
+            ),
+            "rl_move/scripts/run_motionless_health_gate.py": Path(
+                "rl_move/scripts/run_motionless_health_gate.py"
             ),
             "sysid.run_hw": Path("sysid/run_hw.py"),
         }
@@ -2942,6 +2949,10 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             rejection = self._walk_hard_rejection(
                 parameters, duration_seconds, prototype_root
             )
+        elif runner == "rl_move/scripts/run_motionless_health_gate.py":
+            rejection = self._motionless_health_hard_rejection(
+                parameters, duration_seconds
+            )
         else:
             rejection = self._sysid_hard_rejection(
                 parameters, duration_seconds, prototype_root
@@ -2967,7 +2978,7 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
                 )
                 if rejection:
                     readiness_reasons.append(rejection)
-            else:
+            elif runner == "sysid.run_hw":
                 protocol = parameters["protocol"]
                 protocol_path = (prototype_root / protocol).resolve()
                 rejection = self._verified_file_rejection(
@@ -2982,6 +2993,90 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
                 "the protocol duration, start-pose motion, and active joints"
             )
         return "", "; ".join(dict.fromkeys(readiness_reasons))
+
+    def _motionless_health_hard_rejection(
+        self, parameters: Dict[str, Any], duration_seconds: float
+    ) -> str:
+        """Accept only the exact read-only live-health runner contract."""
+        required = {
+            "robot_motion": False,
+            "simulation_only": False,
+            "arm_motors": False,
+            "command_motion": False,
+            "live_camera_required": True,
+            "remote_abort_required": True,
+            "required_live_motor_count": 18,
+            "minimum_advancing_samples": 3,
+        }
+        if any(parameters.get(key) != value for key, value in required.items()):
+            return "motionless health gate does not preserve its read-only safety contract"
+        if not 1.0 <= duration_seconds <= 30.0:
+            return "motionless health gate duration must be between 1 and 30 seconds"
+        numeric_bounds = {
+            "max_state_age_s": (0.1, 2.0),
+            "max_camera_age_s": (0.1, 2.0),
+            "max_temperature_c": (40.0, 55.0),
+            "min_voltage_v": (10.0, 12.0),
+            "max_voltage_v": (12.0, 14.0),
+            "max_joint_current_a": (0.1, 1.0),
+            "max_bus_current_a": (0.1, 8.0),
+        }
+        values: Dict[str, float] = {}
+        for key, (minimum, maximum) in numeric_bounds.items():
+            value = self._finite_number(parameters.get(key))
+            if value is None or not minimum <= value <= maximum:
+                return f"motionless health gate {key} is missing or outside trusted bounds"
+            values[key] = value
+        if values["min_voltage_v"] >= values["max_voltage_v"]:
+            return "motionless health gate voltage bounds are invalid"
+        argv = parameters.get("argv_template")
+        if not isinstance(argv, list) or not all(isinstance(value, str) for value in argv):
+            return "motionless health gate requires a trusted argv template"
+        prefix = [
+            "uv", "run", "python", "-m",
+            "rl_move.scripts.run_motionless_health_gate",
+        ]
+        if argv[:len(prefix)] != prefix:
+            return "motionless health gate argv template has an untrusted command prefix"
+        tail = argv[len(prefix):]
+        if len(tail) % 2:
+            return "motionless health gate argv template contains a flag without a value"
+        pairs: Dict[str, str] = {}
+        allowed = {
+            "--robot-url", "--vision-frame-url", "--output-dir", "--samples",
+            "--max-state-age-s", "--max-camera-age-s", "--max-temperature-c",
+            "--min-voltage-v", "--max-voltage-v", "--max-joint-current-a",
+            "--max-bus-current-a",
+        }
+        for index in range(0, len(tail), 2):
+            flag, value = tail[index:index + 2]
+            if flag not in allowed or flag in pairs:
+                return "motionless health gate argv template has an unapproved flag"
+            pairs[flag] = value
+        placeholders = {
+            "--robot-url": "<resolved-robot-http-url>",
+            "--vision-frame-url": "<validated-live-frame-url>",
+            "--output-dir": "<new-evidence-directory>",
+            "--samples": "3",
+        }
+        if any(pairs.get(key) != value for key, value in placeholders.items()):
+            return "motionless health gate argv template does not preserve guarded placeholders"
+        for parameter, flag in {
+            "max_state_age_s": "--max-state-age-s",
+            "max_camera_age_s": "--max-camera-age-s",
+            "max_temperature_c": "--max-temperature-c",
+            "min_voltage_v": "--min-voltage-v",
+            "max_voltage_v": "--max-voltage-v",
+            "max_joint_current_a": "--max-joint-current-a",
+            "max_bus_current_a": "--max-bus-current-a",
+        }.items():
+            try:
+                argv_value = float(pairs[flag])
+            except (KeyError, TypeError, ValueError):
+                return "motionless health gate argv template lacks a numeric safety bound"
+            if abs(argv_value - values[parameter]) > 1e-9:
+                return "motionless health gate argv safety bounds do not match the plan"
+        return ""
 
     def _prototype_root(self) -> Optional[Path]:
         candidates = (

@@ -3453,3 +3453,83 @@ def test_push_backfills_multiteacher_columns_on_legacy_warm_start():
     assert model._bc_mt.shape[0] == model._bc_obs.shape[0]
     assert model._bc_mt[model._bc_i - 1] == 1.0
     assert np.allclose(model._bc_act_alt[model._bc_i - 1], 0.9)
+
+
+# -- assistfade rung 2 anneal-after-pass gate (bc_anchor_anneal_value,
+# rl_docs/EASIER_WALKING_CURRICULUM.md / rl_docs/tracks/assistfade/
+# STATUS.md "Next" item 1) -------------------------------------------
+def test_bc_anchor_anneal_value_holds_at_init_before_pass():
+    from rl_move.sim.bc_anchor import bc_anchor_anneal_value
+    # never passed (pass_step=None): coefficient never moves, at any
+    # step, no matter how large — bit-identical to a fixed bc_coef run
+    # for as long as the gate hasn't first passed.
+    assert bc_anchor_anneal_value(3.0, None, 0, 1_000_000) == 3.0
+    assert bc_anchor_anneal_value(3.0, None, 50_000_000, 1_000_000) == 3.0
+
+
+def test_bc_anchor_anneal_value_ramps_linearly_after_pass():
+    from rl_move.sim.bc_anchor import bc_anchor_anneal_value
+    coef0, pass_step, steps = 3.0, 1_000_000, 1_000_000
+    assert bc_anchor_anneal_value(coef0, pass_step, pass_step, steps) == 3.0
+    assert bc_anchor_anneal_value(
+        coef0, pass_step, pass_step + steps // 2, steps) == pytest.approx(1.5)
+    assert bc_anchor_anneal_value(
+        coef0, pass_step, pass_step + steps, steps) == pytest.approx(0.0)
+
+
+def test_bc_anchor_anneal_value_holds_at_zero_after_the_ramp():
+    from rl_move.sim.bc_anchor import bc_anchor_anneal_value
+    v = bc_anchor_anneal_value(3.0, 1_000_000, 999_000_000, 1_000_000)
+    assert v == 0.0
+
+
+def test_bc_anchor_anneal_value_monotonic_non_increasing():
+    from rl_move.sim.bc_anchor import bc_anchor_anneal_value
+    steps = [bc_anchor_anneal_value(2.0, 100, s, 500)
+             for s in range(100, 700, 50)]
+    assert all(a >= b for a, b in zip(steps, steps[1:])), steps
+
+
+def test_attach_bc_anchor_wires_anneal_gate_defaults_off():
+    """train.bc_anchor_anneal_gate absent (the default): the anneal
+    attributes still exist (so the trainer's getattr check never
+    AttributeErrors) but the gate reads False and the init coef equals
+    the plain fixed coefficient — bit-exact with every pre-existing
+    bc_anchor run that never mentions this key."""
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(model, coef=2.5, cfg={}, task="joint_walk")
+    assert model.bc_anneal_gate is False
+    assert model.bc_anneal_init_coef == 2.5
+    assert model.bc_anneal_pass_step is None
+    assert model.bc_coef == 2.5
+
+
+def test_attach_bc_anchor_anneal_gate_requires_a_positive_coef():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=0.0,
+            cfg={"train": {"bc_anchor_anneal_gate": 1.0}},
+            task="joint_walk")
+
+
+def test_attach_bc_anchor_anneal_gate_reads_cfg_knobs():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=4.0,
+        cfg={"train": {"bc_anchor_anneal_gate": 1.0,
+                       "bc_anchor_anneal_steps": 2_000_000,
+                       "bc_anchor_anneal_check_every": 250_000,
+                       "bc_anchor_anneal_assay_episodes": 4,
+                       "bc_anchor_anneal_min_progress": 0.30}},
+        task="joint_walk")
+    assert model.bc_anneal_gate is True
+    assert model.bc_anneal_steps == 2_000_000
+    assert model.bc_anneal_check_every == 250_000
+    assert model.bc_anneal_assay_episodes == 4
+    assert model.bc_anneal_min_progress == 0.30
+    assert model.bc_anneal_init_coef == 4.0
+    assert model.bc_anneal_pass_step is None

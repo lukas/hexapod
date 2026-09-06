@@ -226,3 +226,49 @@ def aggregate_walk_probe(rows: list[dict]) -> dict:
                               if np.all(np.isfinite(arr))
                               else float("nan"))
     return out
+
+
+# --------------------------------------------------------------------------
+# Assistfade rung-2 ignition gate (rl_docs/EASIER_WALKING_CURRICULUM.md,
+# rl_docs/tracks/assistfade/STATUS.md "Next" item 1: "anneal the anchor
+# smoothly to zero only after deterministic walking passes"). This is a
+# DELIBERATELY LOOSER subset of WALKCURR_GATE/walkcurr_bucket_pass above —
+# it checks only the doc's own named ignition criteria (no falls, six-leg
+# participation, forward progress >= 0.35), not the mature joystick-band
+# slip/roll/cross-track bars WALKCURR_GATE enforces for a curriculum
+# bucket promotion. Deliberately reuses the SAME aggregate_walk_probe
+# payload/keys as the walkcurr cert loop (contact_sw_per_s = alternating
+# support transitions; foot_sw_min_per_s = the single WEAKEST foot's own
+# switch rate, i.e. "no permanently planted or unloaded leg"; cmd_prog_frac
+# = commanded-progress fraction, the run's own "progress_ratio") so a
+# training-time assay can gate the anneal with the identical
+# already-tested aggregation code path, not a new metric definition.
+IGNITION_GATE = dict(
+    cmd_prog_frac_min=0.35,
+    contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5,
+)
+
+
+def ignition_gate_pass(m: dict, gate: dict | None = None
+                       ) -> tuple[bool, dict]:
+    """Pure function: does one assay round's aggregated walk_probe
+    (`aggregate_walk_probe` output) clear the assistfade ignition gate?
+    nan metrics FAIL their own check (unmeasurable is not passing),
+    mirroring walkcurr_bucket_pass's own nan discipline. Returns
+    (passed, per-check dict) so a caller can log/print which clause
+    failed, same shape convention as walkcurr_bucket_pass."""
+    if gate is None:
+        gate = IGNITION_GATE
+    def _ok_min(key, lo):
+        v = _nn(m.get(key), float("-inf"))
+        return v >= lo
+    checks = {
+        "no_falls": _nn(m.get("early_term_rate"), 1.0) == 0.0,
+        "six_leg_gait": (_ok_min("contact_sw_per_s",
+                                 gate["contact_sw_per_s_min"])
+                         and _ok_min("foot_sw_min_per_s",
+                                     gate["foot_sw_min_per_s_min"])),
+        "progress": _ok_min("cmd_prog_frac", gate["cmd_prog_frac_min"]),
+    }
+    return all(checks.values()), checks

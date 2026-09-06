@@ -1135,3 +1135,58 @@ def test_cert_gate_reads_stop_metric_override():
     ok, checks = walkcurr_bucket_pass(
         good, {"stop_gate": 0.015, "stop_metric": "stop_speed_pure_m_s"})
     assert ok and checks["stop"]
+
+
+# -- assistfade rung 2 ignition gate (walkcurr_cert.ignition_gate_pass,
+# rl_docs/EASIER_WALKING_CURRICULUM.md / rl_docs/tracks/assistfade/
+# STATUS.md "Next" item 1) -------------------------------------------
+def test_ignition_gate_pass_accepts_a_clean_walk():
+    from rl_move.sim.walkcurr_cert import IGNITION_GATE, ignition_gate_pass
+    good = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+                foot_sw_min_per_s=0.8, cmd_prog_frac=0.5)
+    ok, checks = ignition_gate_pass(good)
+    assert ok and all(checks.values())
+    assert IGNITION_GATE["cmd_prog_frac_min"] == 0.35
+
+
+def test_ignition_gate_pass_is_looser_than_the_full_walkcurr_gate():
+    """The doc is explicit that ignition is NOT the mature joystick
+    gate: a walk that clears ignition's three named criteria but
+    would fail WALKCURR_GATE's slip/roll/cross-track/direction bars
+    must still PASS ignition (those axes are recorded, not gated, at
+    ignition per the curriculum doc)."""
+    from rl_move.sim.walkcurr_cert import ignition_gate_pass
+    sloppy_but_walking = dict(
+        early_term_rate=0.0, contact_sw_per_s=5.0,
+        foot_sw_min_per_s=0.8, cmd_prog_frac=0.4,
+        # these would all fail WALKCURR_GATE outright:
+        wrong_way=1.0, cross_track_frac=0.9, slip_per_m=20.0,
+        peak_roll_deg=25.0, slew_sat=0.99)
+    ok, checks = ignition_gate_pass(sloppy_but_walking)
+    assert ok and all(checks.values())
+
+
+def test_ignition_gate_pass_rejects_falls_sacrifice_and_no_progress():
+    from rl_move.sim.walkcurr_cert import ignition_gate_pass
+    good = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+                foot_sw_min_per_s=0.8, cmd_prog_frac=0.5)
+    for key, bad in (("early_term_rate", 0.2),          # a fall
+                     ("foot_sw_min_per_s", 0.1),         # a parked leg
+                     ("contact_sw_per_s", 1.0),          # no alternation
+                     ("cmd_prog_frac", 0.10),            # below 0.35
+                     ("cmd_prog_frac", float("nan"))):   # unmeasurable
+        m = dict(good, **{key: bad})
+        ok, checks = ignition_gate_pass(m)
+        assert not ok, f"{key}={bad} should fail the ignition gate"
+
+
+def test_ignition_gate_pass_custom_progress_bar():
+    from rl_move.sim.walkcurr_cert import IGNITION_GATE, ignition_gate_pass
+    m = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+             foot_sw_min_per_s=0.8, cmd_prog_frac=0.20)
+    ok, _ = ignition_gate_pass(m)
+    assert not ok  # default bar is 0.35
+    gate = dict(IGNITION_GATE, cmd_prog_frac_min=0.15)
+    ok, _ = ignition_gate_pass(m, gate)
+    assert ok  # a caller-supplied looser bar (train.bc_anchor_anneal_
+    # min_progress) is honored, not hardcoded

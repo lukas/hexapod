@@ -503,6 +503,55 @@ Knobs (set via attach_bc_anchor / cfg):
                                hold it for the remainder. Inert
                                (never read) whenever
                                bc_anchor_multiteacher_blend<=0.
+  train.bc_anchor_anneal_gate (trainer, default 0 = off, bit-exact:
+                               no callback constructed, bc_coef stays
+                               the fixed value attach_bc_anchor set).
+                               assistfade rung 2 (rl_docs/
+                               EASIER_WALKING_CURRICULUM.md, "anneal
+                               the anchor smoothly to zero only after
+                               deterministic walking passes"): a
+                               train_ppo_mjx callback (_BcAnchorAnnealGateCb)
+                               periodically assays the live policy
+                               deterministically on a dedicated MJX
+                               cert env (same construction the
+                               walk-curriculum cert loop uses,
+                               walkcurr_cert.ignition_gate_pass — no
+                               falls, six-leg participation, commanded
+                               progress >= bc_anchor_anneal_min_progress)
+                               and, the FIRST round it passes, latches
+                               that step as the anneal's t=0; from then
+                               on every rollout start it overwrites
+                               live ``model.bc_coef`` via
+                               ``bc_anchor_anneal_value`` (pure
+                               function below), linearly interpolating
+                               the coefficient attach_bc_anchor set
+                               down to 0 over
+                               bc_anchor_anneal_steps. Never fires
+                               (bc_coef stays constant) until the gate
+                               first passes -- an anneal that started
+                               on a schedule alone would repeat rung 1's
+                               failure (anchor dropped before the RL
+                               side has anything to fall back on).
+  train.bc_anchor_anneal_steps  (trainer, default 4_000_000) how many
+                               steps the post-pass anneal takes to
+                               reach 0. Inert when bc_anchor_anneal_gate
+                               is off.
+  train.bc_anchor_anneal_check_every  (trainer, default 500_000) how
+                               often (in training steps) the gate assay
+                               re-checks, mirroring
+                               args.walkcurr_cert_every's cadence.
+                               Inert when bc_anchor_anneal_gate is off.
+  train.bc_anchor_anneal_assay_episodes  (trainer, default 8, matching
+                               the walkcurr cert loop's own n>=8
+                               held-out-episode convention) episodes
+                               per gate-check round. Inert when
+                               bc_anchor_anneal_gate is off.
+  train.bc_anchor_anneal_min_progress  (trainer, default 0.35, the
+                               curriculum doc's own ignition-gate
+                               progress bar) overrides
+                               walkcurr_cert.IGNITION_GATE's
+                               cmd_prog_frac_min for this run. Inert
+                               when bc_anchor_anneal_gate is off.
 
 Logged: train/bc_anchor_loss (post-step mse of the last minibatch),
 train/bc_anchor_fill (ring occupancy, pairs), and per mode present in
@@ -1326,3 +1375,46 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
             "train.bc_anchor_multiteacher_schedule_frac must be in "
             "(0, 1] when bc_anchor_multiteacher_blend>0, got "
             f"{model.bc_mt_schedule_frac}")
+    model.bc_anneal_gate = float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_gate", default=0.0)) > 0.0
+    model.bc_anneal_steps = int(float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_steps", default=4_000_000)))
+    model.bc_anneal_check_every = int(float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_check_every", default=500_000)))
+    model.bc_anneal_assay_episodes = int(float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_assay_episodes", default=8)))
+    model.bc_anneal_min_progress = float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_min_progress", default=0.35))
+    if model.bc_anneal_gate and model.bc_coef <= 0.0:
+        raise SystemExit(
+            "train.bc_anchor_anneal_gate set but train.bc_anchor_coef<=0 "
+            "— there is no anchor coefficient to anneal, this flag "
+            "would silently no-op")
+    # the value attach_bc_anchor set model.bc_coef to is the anneal's
+    # own start value (assistfade rung 2: "strong BC anchor initially")
+    model.bc_anneal_init_coef = float(model.bc_coef)
+    model.bc_anneal_pass_step = None  # latched by the trainer callback
+    # the first gate-check round that passes; None = not yet passed,
+    # anneal value stays bc_anneal_init_coef (see bc_anchor_anneal_value).
+
+
+def bc_anchor_anneal_value(coef_init: float, pass_step: int | None,
+                           step: int, anneal_steps: int) -> float:
+    """Pure scheduler for train.bc_anchor_anneal_gate (assistfade rung
+    2, EASIER_WALKING_CURRICULUM.md: "anneal the anchor smoothly to
+    zero only after deterministic walking passes"). ``pass_step`` is
+    the training step the gate FIRST passed (None = never yet), latched
+    once by the caller and never un-latched — a later regressed assay
+    round must not re-arm the anchor and restart the schedule, or the
+    policy could ping-pong between a still-anchored and a still-
+    annealing regime forever. Before pass_step (or if it never
+    happens), the coefficient stays exactly coef_init — bit-identical
+    to a plain fixed-coefficient bc_anchor run for however long the
+    gate takes to first pass, matching the doc's "initially" framing.
+    From pass_step, linearly ramps coef_init -> 0.0 over anneal_steps
+    training steps, then holds at 0.0 (permanently off, matching rung
+    1's already-proven "no ongoing BC/imitation loss" end state)."""
+    if pass_step is None or step <= pass_step:
+        return float(coef_init)
+    frac = min(1.0, (step - pass_step) / max(1, int(anneal_steps)))
+    return float(coef_init) * (1.0 - frac)

@@ -130,5 +130,29 @@
   "file": "/tmp/eval_cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b.log",
   "label": "cw-walkscratch-easy0905-headset-halfgrav-fullhead-widen2-c2b",
   "added": "2026-09-05T22:19:57"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_headingstress_det/report.json",
+  "label": "walkcurr_item4_headingstress_det",
+  "added": "2026-09-06T14:10:59"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_headingstress_sto/report.json",
+  "label": "walkcurr_item4_headingstress_sto",
+  "added": "2026-09-06T14:10:59"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_speedpressure_det/report.json",
+  "label": "walkcurr_item4_speedpressure_det",
+  "added": "2026-09-06T14:10:59"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_speedpressure_sto/report.json",
+  "label": "walkcurr_item4_speedpressure_sto",
+  "added": "2026-09-06T14:10:59"
  }
 ]

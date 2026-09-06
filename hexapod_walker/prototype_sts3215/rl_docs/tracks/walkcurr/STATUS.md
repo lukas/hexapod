@@ -2,6 +2,42 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~14:1x this cycle (assigned `cw-assistfade-rung2-anchorfade-s0-reseed8m-gatefix`, ACQ
+  PASS, see assistfade/STATUS.md — that track's mechanism graduation, not repeated here; this
+  bullet is the walkcurr-side refill from the same cycle). **QUEUE AIM item (4)'s own "acquisition-
+  milestone panel + contextual DONE-gate rungs (heading changes, slip pressure)" — flagged
+  09-06 ~13:34 as real new scope for whoever picks it up next — is now LAUNCHED, eval-only, zero
+  GPU training spend.** Champion for item (4) is settled per that same ~13:34 entry:
+  `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_
+  acq1_cont40m.zip` (crutch-OFF/kick-safe composite, 22/24 gv holds exactly 40M->80M, 0 falls
+  either budget). Built 2 new diagnostic rungs on top of that checkpoint reusing EXISTING eval
+  machinery (no new code): (a) **heading-change stress** — `goal.walk_cmd_mode=stress_mix`
+  (the joystick-track's own `flip_180`/`sweep_circle`/`square`/`stop_go`/`jitter`/`random_hold`
+  schedule family, `rl_move/sim/walk_task.py:WALK_CMD_SCHEDULES`) at a FASTER 3 s resample than
+  this composite's own 6 s training diet, same 5-heading set; (b) **slip pressure** — commanded
+  speed widened to 0.04-0.12 m/s (above the fixed 0.06 m/s training point), legacy heading
+  schedule unchanged. Both det+stochastic, DR-0, `--episode-seconds 20`, `--per-mode 6`,
+  `--video-every 1`, run via `kubectl exec` directly on the champion's own pod (train-4, CPU,
+  idle — no controller compute per the standing rule). 4 processes VERIFIED running (confirmed
+  live via `ps aux` on-pod ~80s after launch, no traceback). Registered via `ops.sh evalpending
+  add` x4 (`walkcurr_item4_{headingstress,speedpressure}_{det,sto}`) rather than polled —
+  next reader verdicts directly from `logs/ckpt_eval/ppo_goal_..._{headingstress,speedpressure}_
+  {det,sto}/report.json` once synced. This is a DIAGNOSTIC READ, not a gate the champion must
+  pass to keep its current status — a fail here identifies the hardening dimension item(4)'s own
+  next TRAINING rung should target (matches the doc's "harden one dimension at a time: speed
+  band, fixed headings, command changes/stops, yaw" order), not a reason to demote the champion
+  from its own already-settled 22/24 cont40m gate. Also registered `cw-assistfade-rung2-
+  anchorfade-s1-reseed8m-gatefix`'s own gate eval (found mid-computation on train-7, training
+  itself already finished with `bc_anchor_anneal/gate_pass=1`/`coef=0` in the W&B summary,
+  matching the s0 twin) via `evalpending add` rather than polling it — read `assistfade/STATUS.md`
+  for that mechanism-graduation result once it lands (2-seed confirmation is the doc's own
+  process requirement before rung 2 can be called PASSED and hardening funded). 11 free GPU
+  training slots left idle deliberately: no genuinely new TRAINING question was ready to fund
+  this cycle (per-axis DR/composition-cont40m fully exhausted per the ~13:4x/~13:1x entries
+  below; item(4)'s own next training rung depends on reading this diagnostic first). Evidence:
+  `ops.sh entry cw-assistfade-rung2-anchorfade-s1-reseed8m-gatefix`, on-pod `ps aux` capture,
+  `rl_move/orchestrator/pending_evals.json`.
+
 - 09-06 ~13:4x this cycle (assigned `allaxiskickhalf-nocrutch1x-c1-acq1-cont40m_gate`, already
   verdicted HARDENING PASS by a concurrent cycle before this cycle read it — confirmed via ledger/
   SKILLS.md/RL_LOG, not re-verdicted): found+cleared **5 more unverdicted-but-finished walkcurr

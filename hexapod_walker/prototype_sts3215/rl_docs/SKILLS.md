@@ -1091,6 +1091,12 @@ promotion never deletes a skill checkpoint (append-only).
 |---|---|---|---|
 | **The mass-scale DR axis (0.85-1.20x mass_scale) holds durable at endurance scale: 40M ACQ parent + 40M cont40m = 80M cumulative steps, PERFECT 24/24 gait_valid across all 4 panels, 0 falls/terms, sac=[] every episode. slip/m stays near the source's own 3.6-4.7 band (det med 3.69, sto med 4.16, startjitter/det med 3.65, startjitter/sto med 4.70), a few individual sto episodes run slightly hot (5.0-5.4) with no gait-validity cost. Reward still climbing every quarter (582->1082->1185->1271), never plateaued. Joins friction1x and the halfgrav-widenirr family in the cont40m-endurance-holds column.** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_mass1x_c1_acq1_cont40m.zip`, ACQ PASS (HARDENING) | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_mass1x_c1_acq1_cont40m_gate/report.json` (24/24, 0 terms), W&B `61qwjqbf`. | Own (fixed, no-DR) easy-sim physics, crossgrav-medhead champion, 80M cumulative. Per this track's QUEUE AIM, per-axis cont40m confirmation is a closed information source -- no further per-axis endurance spend planned; this axis remains available as a composite ingredient. |
 
+### walkcurr kick0225x-c1: kick-dose bisection pins the safe ceiling strictly between 0.15 and 0.225 (09-06)
+
+| Finding | Checkpoint | Evidence | Envelope / limits |
+|---|---|---|---|
+| **Bisecting the isolated walk_kick_prob dose between kickhalf's clean 0.15 and kick1x's falling 0.3: 0.225 still falls (walk/sto/2 terminates tilt_roll, prog 2.44, fwd stalls to 0.08m, sac=[2]), aggregate gait_valid 21/24 (6/5/4/6) plus 2 non-chronic singleton leg[4] flags confined to walk_startjitter/det. Per the pre-registered 0-falls criterion this is a FAIL -- the safe dose ceiling for this axis is pinned strictly between 0.15 and 0.225, not just "somewhere below 0.3".** | `ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_kick0225x_c1.zip`, CANARY FAIL - MECHANISM | `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_kick0225x_c1_gate/report.json` (21/24, 1 term), W&B `4xcygaqu`. | Own (fixed, no-DR) easy-sim physics, crossgrav-medhead champion, 2M canary. Do not treat 0.225 as a usable kick-hardening dose; 0.15 remains the confirmed-safe ceiling for this axis in isolation. |
+
 ### walkcurr allaxiskickhalf1x-c1-r2: kick-safe full composite STILL falls -- kick dose was not the sole broken ingredient (09-06)
 
 | Finding | Checkpoint | Evidence | Envelope / limits |

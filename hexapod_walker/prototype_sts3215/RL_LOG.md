@@ -1608,3 +1608,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-06 11:00 walkcurr: kickhalf1x-c1-acq1 ACQ PASS/HOLDS w/ leg5 watch (20/24, 0 falls, duty mostly healthy w/ occasional dips) -- half-dose kick recovery durable at 40M 
 - 09-06 11:01 walkcurr: torquefade2x-c1-acq1-cont40m HARDENING PASS/HOLDS (23/24 vs parent's 24/24, 0 falls, 1 non-chronic singleton) -- torque-fade axis durable at 80M 
 - 09-06 11:01 walkcurr: allaxiskickhalf-nocrutch1x-c1 CANARY PASS 21/24 gv 0 falls -- de-crutched actuator does NOT destabilize the full composite (counter to the gate's own FAIL hypothesis), just runs slippier; closes QUEUE AIM item (3)'s composite-no-crutch half, licenses a 2nd composite ACQ 
+- 09-06 11:07 walkcurr refill: launched allaxis-nokick-c1-acq1 (train-2) + allaxiskickhalf-nocrutch1x-c1-acq1 (train-3), the two composite-ACQ continuations licensed by this cycle's 2 canary PASSes -- 80M new GPU steps, both VERIFIED RUNNING 

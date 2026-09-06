@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:08:56+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: uw36u2tb
 
 **hypothesis**: Restore nominal (1x) chassis+leg mass randomization -- the easy0905 recipe has trained with body/leg mass pinned at an exact fixed 1.0x scale (dr-scale=0.0 collapses the RandRanges mass_scale pair(0.85,1.20) to a single fixed point when not explicitly overridden) throughout the whole crossgrav campaign, i.e. every episode sees the EXACT same mass regardless of print/battery/payload spread. Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive its own nominal own-DR mass range (0.85-1.20x body, +-10% per-leg-link jitter) without retraining collapse? Isolated single-axis diagnostic, same template as the sibling latency/deadband/torque/noise DR-restoration arms.
 

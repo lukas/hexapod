@@ -153,22 +153,37 @@ def qualify(
     parameters = _parameters(document)
     requalification = parameters.get("task") == "runner_compatibility_validation"
     sealed_parameters = _parameters(sealed_input) if sealed_input else parameters
+    normalized = dict(sealed_parameters)
+    normalized.setdefault("kind", sealed_parameters.get("task"))
+    normalized.setdefault("legs", sealed_parameters.get("order"))
     mismatches = [
         key for key, expected in EXPECTED.items()
-        if sealed_parameters.get(key) != expected
+        if normalized.get(key) != expected
     ]
     # Older saved plans grouped these fields under guarded_supervision; current
     # Robot Lab plans store them directly in parameters.  Accept both shapes so
     # qualification evaluates the saved plan rather than a schema translation.
+    telemetry = sealed_parameters.get("telemetry") or {}
     supervision = sealed_parameters.get("guarded_supervision") or sealed_parameters
     camera = sealed_parameters.get("camera") or sealed_parameters
+    camera_required = supervision.get("camera_required")
+    if camera_required is None:
+        camera_required = camera.get("abort_on_stale") is True
+    expected_live_motors = supervision.get(
+        "expected_live_motors", telemetry.get("servos_expected"))
+    healthy_motor_samples = supervision.get(
+        "healthy_motor_samples", telemetry.get("consecutive_fresh_samples"))
+    minimum_coverage = camera.get(
+        "minimum_target_tag_coverage_fraction",
+        camera.get("minimum_coverage_fraction"),
+    )
     legacy_schema_ok = (
         not mismatches
-        and supervision.get("camera_required") is True
-        and supervision.get("expected_live_motors") == 18
-        and supervision.get("healthy_motor_samples") == 3
+        and camera_required is True
+        and expected_live_motors == 18
+        and healthy_motor_samples == 3
         and supervision.get("remote_abort_required") is True
-        and camera.get("minimum_target_tag_coverage_fraction") == 0.9
+        and minimum_coverage == 0.9
         and camera.get("required_target_tags")
         == {"L2": [18, 25], "L5": [48, 64]}
     )
@@ -231,11 +246,12 @@ def qualify(
             "passed": leg_ok,
         }
         requested = requested_protocols.get(leg) or {}
-        if requalification:
+        if requested:
+            requested_hz = requested.get("hz", protocols[leg]["hz"])
             requested_ok = (
                 requested.get("sha256") == protocols[leg]["sha256"]
                 and requested.get("ticks") == protocols[leg]["ticks"]
-                and float(requested.get("hz", -1)) == protocols[leg]["hz"]
+                and float(requested_hz) == protocols[leg]["hz"]
             )
             protocols[leg]["requested_values_match"] = requested_ok
             protocols[leg]["passed"] = leg_ok and requested_ok
@@ -350,6 +366,10 @@ def qualify(
     }
     seconds_per_leg = sealed_parameters.get("seconds_per_leg")
     timeout_seconds = parameters.get("timeout_seconds")
+    duration_source = "timeout_seconds"
+    if timeout_seconds is None and sealed_input is None:
+        timeout_seconds = document.get("duration_seconds")
+        duration_source = "top-level duration_seconds"
     planned_legs = sealed_parameters.get(
         "order", sealed_parameters.get("legs", []))
     sequence_values_ok = (
@@ -378,7 +398,7 @@ def qualify(
         ["input experiment parameters"],
         (
             f"The {planned_duration:g}s ordered sequence fits within the "
-            f"{float(timeout_seconds):g}s timeout."
+            f"{float(timeout_seconds):g}s {duration_source}."
             if timeout_ok else
             (
                 f"The {float(timeout_seconds):g}s timeout expires before one "

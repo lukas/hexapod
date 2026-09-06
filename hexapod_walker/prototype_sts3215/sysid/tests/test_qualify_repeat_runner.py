@@ -130,6 +130,42 @@ def test_duration_timeout_compatibility_can_pass():
     )
 
 
+def test_current_robot_lab_schema_qualifies_with_top_level_duration():
+    proposed = experiment()
+    parameters = proposed["parameters"]
+    parameters.pop("timeout_seconds")
+    proposed["duration_seconds"] = 312
+    parameters["task"] = parameters.pop("kind")
+    parameters.pop("legs")
+    parameters["camera"] = {
+        "abort_on_stale": True,
+        "minimum_coverage_fraction": 0.9,
+        "required_target_tags": {"L2": [18, 25], "L5": [48, 64]},
+    }
+    parameters["telemetry"] = {
+        "servos_expected": parameters.pop("expected_live_motors"),
+        "consecutive_fresh_samples": parameters.pop("healthy_motor_samples"),
+    }
+    parameters.pop("camera_required")
+    parameters["protocols"] = {
+        "L2": {
+            "sha256": "c837cdec25d49a254ea7c288f30f68782155afb48e2f9fe6eac853b9fc0ab634",
+            "ticks": 1560,
+        },
+        "L5": {
+            "sha256": "2343e7e471e4fbf3a33cbc0518c5d70cc82b7cf885440937b9e7cd4161a0cd6e",
+            "ticks": 1560,
+        },
+    }
+
+    report = qualify(proposed, PROTO_DIR)
+
+    assert report["qualified"] is True
+    assert report["checks"]["parameter_schema"]["passed"] is True
+    assert report["duration_timeout_compatibility_result"]["passed"] is True
+    assert report["protocols"]["L2"]["requested_values_match"] is True
+
+
 def test_missing_timeout_still_reports_required_bounded_duration():
     proposed = experiment()
     proposed["parameters"].pop("timeout_seconds")

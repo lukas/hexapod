@@ -24,8 +24,10 @@
   (kick fully OFF, all other ~28 axes at full dose, on train-2) -- backgrounded `pollreap` for both.
   Per this doc's own QUEUE AIM text ("on a composite canary PASS fund ONE composite ACQ"), do NOT
   fund a composite ACQ off any exact recipe tried so far; read the two in-flight bisections first.
-  **Refill: 0 new launches despite 6 free GPU slots (train-1/5/8/9/10/11 confirmed via
-  `capacity.py` + direct pod `ps`).** Checked every registered track, not just walkcurr: per-axis
+  **Refill: 0 new launches despite free GPU capacity (6 free slots when first checked, growing to
+  10/11 free by cycle end as 4 more `cont40m` runs finished their GPU trainer phase -- train-0/2/3/4
+  freed up mid-cycle; `train-7` was the only pod still training at cycle end).** Checked every
+  registered track, not just walkcurr: per-axis
   DR-restore is closed (this cycle's own 2 PASSes are further already-STOPped confirmations, not
   new information); the composite/kick-dose/torque-crutch frontier items are ALL genuinely
   computing on other pods right now (`kickhalf1x-c1-acq1` gate on train-7, `kick0225x-c1` gate on

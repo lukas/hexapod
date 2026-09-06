@@ -2,7 +2,60 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
-- 09-05 ~23:5x this cycle (assigned `headset-halfgrav-widenirr-{c1,c2b}`,
+- 09-06 ~00:4x this cycle (assigned `headset-crossgrav-medhead-{abrupt,ramp}-c1`):
+  2 verdicts, both **CANARY PASS - INFORMATIVE**, plus 2 matched 40M
+  acquisition-continuation launches. **This is the first direct
+  evidence that the base(1g)-family chronic leg-1/4 leg-favoritism
+  fingerprint is NOT a forced consequence of 1g dynamics for an
+  already leg-healthy policy** — it reopens 1g walking via
+  cross-gravity curriculum transfer, an alternative to the 8/8-closed
+  reward-price mechanisms and the closed gSDE-exploration variant, and
+  qualifies the standing "reallocate everything to halfgrav"
+  conclusion rather than hardening it further. `abrupt-c1` (full
+  gravity from tick 0, warm-started from the leg-healthy
+  `headset-halfgrav-medhead-acq1` champion which had never seen 1g):
+  harness `gait_valid` 20/24 — `walk/det` 6/6 CLEAN (`sac=[]` every
+  episode, duty spread 0.18-0.76 across all six legs, no chronic
+  <0.10-duty pattern anywhere), `walk/sto` 6/6 clean,
+  `walk_startjitter/det` 3/6 and `walk_startjitter/sto` 5/6 with only
+  a MILD leg-4 softening under added start-pose jitter (duty
+  0.06-0.14, 47-117 real swings/20s — nothing like the base family's
+  near-zero-touch entrenchment, single-digit swings/episode). 0
+  falls/terminations in all 24 episodes; frame strips
+  (`walk_det_0`, `walk_startjitter_det_2`) show genuine six-leg
+  cycling with the body translating, not frozen/dragging. `ramp-c1`
+  (gradual `ease.gravity_scale` 0.5->1.0 over the first 1M of its own
+  2M budget via the already-proven `sched.key` engine, same parent):
+  reads marginally CLEANER — `gait_valid` 21/24 (`walk/det` 6/6 clean,
+  `walk/sto` 6/6 clean, `walk_startjitter/det` 3/6 same mild leg-4
+  pattern, `walk_startjitter/sto` 6/6 clean, beating abrupt's 5/6
+  there), 0 falls. Since BOTH transition speeds hold the six-leg gait,
+  this can't yet separate "gravity-transition shock" from "1g dynamics
+  force it regardless" (that would need a FAIL) — but it jointly and
+  cleanly refutes the "1g dynamics force it regardless" branch for a
+  leg-healthy starting policy. **Refill:** per the gate's own
+  pre-registered PASS branch ("licenses a 40M continuation"), launched
+  matched 40M acquisition continuations off BOTH: `headset-crossgrav-
+  medhead-abrupt-c1-acq1` (own-checkpoint continuation, `ease.gravity_
+  scale=1.0` unchanged, train-2) and `headset-crossgrav-medhead-ramp-
+  c1-acq1` (own-checkpoint continuation, gravity pinned flat at 1.0 —
+  the sched ramp already completed by 1M steps of the 2M canary and
+  the per-process sched tick resets to 0 on resume per the engine's
+  own documented behavior, so re-ramping would be pointless; `sched.
+  key` disabled, train-0). Both VERIFIED RUNNING. Gate (both, full
+  text in the ledger): ACQ PASS if `gait_valid` stays majority (>=4/6)
+  in `walk/det` AND `walk/sto` with no chronic single-leg sacrifice at
+  40M, matching/improving the 2M canary reads, 0 falls, slip/m at/near
+  the 2.9 teacher band — 2/2 ACQ PASS would fully validate
+  cross-gravity-transfer as a base(1g) recipe regardless of transition
+  speed and open a genuinely new spend direction for the base(1g)
+  family beyond "reallocate to halfgrav" or another closed reward-
+  price mechanism. Evidence: `ops.sh review cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-{abrupt,ramp}-c1`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_{abrupt,ramp}_c1_
+  gate/report.json`, W&B `qzcfku3j`/`zv97tks6`, SKILLS.md, RL_LOG.
+
+- 09-05 ~23:5x [prior cycle] (assigned `headset-halfgrav-widenirr-{c1,c2b}`,
   the widen-FIRST mirror order of the widen+irr composition): 2
   verdicts, split 1/2 (matches the concurrent cycle's own widen2-acq1
   split, same underlying seed pair). `widenirr-c1` (irr timing-jitter

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T03:56:14+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1-acq1
+
+**wandb_id**: b3l8tia5
 
 **hypothesis**: Plain English: both single-axis 1g-native crossgrav extensions off the medhead champion already PASSED at full 40M acquisition (medhead-widenfwd-c1-acq1: 8-way heading breadth; medhead-irrfwd-c1-acq1: command-timing jitter) -- does composing them TOGETHER (the widenirr order: start from the mature widen champion, add irr jitter on top) survive as cleanly as either axis alone, mirroring the halfgrav-family widenirr/irrwiden composite work but built natively at 1g this time instead of via cross-gravity transfer?
 

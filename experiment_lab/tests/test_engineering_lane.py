@@ -467,6 +467,8 @@ def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_le
     assert '"project_context_sha256": "' + ("a" * 64) + '"' in prompt
     assert "reuse completed export, simulation, and source validation" in normalized_prompt
     assert "Recheck only what a changed policy" in normalized_prompt
+    assert "distinguish an IMU-derived fall signal" in normalized_prompt
+    assert "do not invent a hands-on mechanical blocker" in normalized_prompt
     assert "clean dedicated worktree" in normalized_prompt
     assert "validated integration branch" in normalized_prompt
     assert "installed-file verification" in normalized_prompt

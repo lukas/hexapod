@@ -522,6 +522,12 @@ def engineering_prompt(
   calibrated displacement or course error. A fresh ordinary camera view plus
   telemetry is enough for bounded functional walk/turn/leg-response tests;
   record unavailable metric fields as unmeasured instead of blocking motion.
+- Retain every high-tilt or fall stop, but distinguish an IMU-derived fall
+  signal from a visually corroborated physical tip. Check synchronized video
+  and robot-tag motion against floor tags when they are available. If they show
+  the chassis stayed upright, diagnose the sensor/controller disagreement and
+  use a current camera plus three fresh healthy samples to clear the robot's
+  present physical state; do not invent a hands-on mechanical blocker.
 - Treat this configured checkout as a shared workspace. Commit and test a
   focused repair based on the currently installed source; preserve later work.
   Deploy that committed source using the existing deployment helper and its

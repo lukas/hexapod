@@ -71,6 +71,8 @@ def test_analysis_prompt_keeps_floor_clear_leg_tests_off_a_chassis_stand(tmp_pat
     assert "l5_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
     assert "require no chassis stand" in prompt
     assert "do not turn them back into supported-air plans" in prompt
+    assert "not automatically proof of a physical fall" in prompt
+    assert "robot tags stayed stationary relative to floor tags" in prompt
 
 
 def test_hardware_capture_uses_local_proxy_after_validating_physical_target(

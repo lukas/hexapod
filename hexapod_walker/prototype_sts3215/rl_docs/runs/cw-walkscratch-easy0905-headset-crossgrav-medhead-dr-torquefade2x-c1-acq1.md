@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T06:46:05+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade2x-c1
+
+**wandb_id**: n838t060
 
 **hypothesis**: Plain English: does removing HALF the torque/battery-assist crutch (3x->2x) stay a clean walk once trained for real, not just at a 2M canary glance? torquefade2x-c1's own 2M canary was a PERFECT 24/24 (0 falls, no sacrificed leg) on the campaign's cleanest champion -- this is its first ACQ-scale (40M) confirmation, the same durability question already asked of every irr/widen composition axis but never yet asked of a bare single-axis DR-realism restore.
 

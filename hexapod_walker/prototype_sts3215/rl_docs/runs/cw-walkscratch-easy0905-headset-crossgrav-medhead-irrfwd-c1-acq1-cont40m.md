@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-06T06:46:04+00:00
+**created**: 2026-09-06T06:48:46+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-7
 
 **steps**: 40000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS/HOLDS if aggregate gait_valid stays >=18/24 at/above the 40M read's own 21/24, no NEW chronic single-leg pattern, 0 falls. WORSENS if gait_valid drops materially (e.g. <16/24) or a chronic leg[1,4]-style pattern spreads to a previously-clean mode — a counter-example to the cleanliness-margin-at-40M rule.
 
-**refused_reason**: hexapod-mjx-train-2 already runs cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1-cont40m — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: hexapod-mjx-train-7 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-mass1x-c1-acq1 — GPU pods host exactly one run; pick a free GPU pod.
 

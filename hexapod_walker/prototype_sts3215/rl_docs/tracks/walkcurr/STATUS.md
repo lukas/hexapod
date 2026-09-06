@@ -2,6 +2,60 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~04:1x this cycle (assigned `headset-crossgrav-irr2acq1-abrupt-c1-acq1`,
+  `headset-crossgrav-irrwidenc2-abrupt-c1`): 2 verdicts, 1 FAIL + 1 PASS,
+  both gate evals were still genuinely computing remotely when the
+  cycle spawned (confirmed via direct `kubectl exec ps aux`, not
+  orphaned; registered `evalpending` + used `ops.sh podwaitlog`
+  backgrounded rather than blocking, then read each `report.json`
+  directly off the pod once it landed). **(1) `irr2acq1-abrupt-c1-acq1`
+  ACQ FAIL - MECHANISM, CLOSES the seed-vs-recipe question the prior
+  cycle's `irracq1-abrupt-c1-acq1` FAIL flagged as open.** This 2nd
+  independent seed of the irr-timing-first crossgrav recipe reproduces
+  the SAME ACQ-scale leg-4 entrenchment regression from a clean 2M
+  canary (this run's own canary was 22/24): 40M aggregate `gait_valid`
+  17/24, leg 4 the sole flagged leg in every low episode (duty
+  0.0-0.10, swing_count as low as 1-63 vs 100-200+ for healthy legs) —
+  nearly identical fingerprint to sibling seed `irracq1-abrupt-c1-acq1`
+  (14/24, leg-4 duty 0.0-0.16). 0 falls in all 24 episodes; slip/m
+  tight 3.2-4.9; video confirms real body translation in flagged
+  episodes (favoritism under load, not a full freeze) but the SAME
+  leg/direction of collapse CURRENT_TRUTHS already closed as
+  reward-shaping-resistant (9 prior repair mechanisms on the sde
+  family). Training reward rose every quarter (656.7->1207.2->
+  1387.2->1532.2) — matches the 08-21 rising-reward shape, but per
+  CURRENT_TRUTHS this exact class is a genuine FAIL (more training
+  causes the regression, doesn't fix it). **2/2 seeds of the
+  irr-first-crossgrav-abrupt recipe now regress at ACQ scale from
+  clean 2M canaries — this is RECIPE-level, not seed noise; no further
+  seed of this exact recipe should be funded at ACQ scale without a
+  structural per-leg-utilization fix** (the same open design gap
+  CURRENT_TRUTHS names for the sde family — a hard minimum-duty/
+  swing-count price, not more budget or another dose). **(2)
+  `irrwidenc2-abrupt-c1` CANARY PASS - INFORMATIVE-POSITIVE, refutes
+  composition-order-as-causal.** This 2nd independent seed of the
+  irr-first composite (built off this cycle's just-PASSed
+  `irrwiden-c2-acq1`) transfers abruptly to full 1g cleanly: aggregate
+  `gait_valid` 22/24 (`walk/det` 5/6, other 3 modes 6/6 or 5/6), 0
+  falls, two DIFFERENT single legs flagged once each (not chronic,
+  unlike `irrwidenc1-abrupt-c1`'s own leg[1,4] chronic FAIL). Video
+  (`walk_det_0`) confirms genuine six-leg cycling with clear
+  translation. **Closes the composition-order question: irr-first
+  crossgrav transfer succeeds on this 2nd seed just as cleanly as
+  widen-first — the 1st seed's FAIL was seed-specific, not an order
+  effect.** No refill this cycle: every free GPU slot (3 at cycle
+  start) was claimed by concurrent cycles within minutes (confirmed
+  via repeated `launch_run.py status` re-checks — train-0/3/10 each
+  went BUSY with a different concurrent cycle's launch before this
+  cycle finished its own triage), and the natural next-layer questions
+  (widen2/irr composites on `s1acq`/`s3acq`, a structural per-leg-
+  utilization mechanism design pass) are either already claimed or
+  need dedicated design work beyond this cycle's remaining scope.
+  SKILLS.md updated (2 new rows). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-{irr2acq1-abrupt-c1-acq1,
+  irrwidenc2-abrupt-c1}`, matching `logs/ckpt_eval/...gate/report.json`
+  files, W&B `zsxkfxzz`/`mijsf6td`, RL_LOG.
+
 - 09-06 ~04:0x this cycle (assigned all 15 of: `headset-base-s0c1-{dgnoise,
   noiseonly}-c1`, `headset-{base,halfgrav}-medhead2-acq1`,
   `headset-crossgrav-irracq1-abrupt-c1` (+its own `-acq1`),

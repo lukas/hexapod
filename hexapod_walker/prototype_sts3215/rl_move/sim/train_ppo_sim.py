@@ -1460,7 +1460,9 @@ def _bg_eval_child(jobs, results, task, args) -> None:
         if job is None:
             return
         kind, ckpt, step, tag = job
-        out = {"kind": kind, "step": step}
+        # `ckpt` doubles as the job identity for the deferred-artifacts
+        # bookkeeping (unique immutable snapshot path per job).
+        out = {"kind": kind, "step": step, "ckpt": ckpt}
         try:
             policy = load_checkpoint_auto(ckpt, device="cpu").policy
             policy.set_training_mode(False)
@@ -1493,7 +1495,12 @@ def _bg_eval_child(jobs, results, task, args) -> None:
         except Exception as e:  # report, never crash the worker
             out["error"] = repr(e)
         finally:
-            Path(ckpt).unlink(missing_ok=True)
+            # Deferred-artifacts mode (--defer-final-artifacts): the
+            # snapshot zips are durable job inputs the CPU finalizer may
+            # still need — the parent/finalizer deletes them once the
+            # job's result is actually delivered. Default path unchanged.
+            if not getattr(args, "defer_final_artifacts", False):
+                Path(ckpt).unlink(missing_ok=True)
         results.put(out)
 
 
@@ -1511,12 +1518,24 @@ class _BgEval:
     drain() logs finished results to W&B from the training process.
     """
 
-    def __init__(self, task: str, args):
+    def __init__(self, task: str, args, defer_dir: "Path | None" = None):
         import multiprocessing as mp
         ctx = mp.get_context("spawn")  # fork is unsafe under wandb threads
         self._jobs = ctx.Queue()
         self._results = ctx.Queue()
         self._busy = {"eval": 0, "video": 0}
+        # Deferred-artifacts mode (--defer-final-artifacts, MJX trainer):
+        # snapshots go to a DURABLE per-run dir instead of /tmp, every
+        # submitted job is tracked until its result is drained, and
+        # handoff() hands still-outstanding jobs to the CPU finalizer
+        # instead of blocking the GPU process on them. defer_dir=None
+        # (the default, and always for this CPU trainer) is bit-exact
+        # pre-change behavior.
+        self._defer_dir = defer_dir
+        self._deferred_pending: dict[str, dict] = {}
+        self._deferred_seq = 0
+        if defer_dir is not None:
+            (defer_dir / "snapshots").mkdir(parents=True, exist_ok=True)
         self._canaries: list[dict] = []  # drained canary probe results
         # Drained eval payloads for consumers beyond W&B (the MJX
         # trainer's health/best-checkpoint callback, 08-17). Bounded
@@ -1532,8 +1551,18 @@ class _BgEval:
     def submit(self, kind: str, model, step: int,
                tag: str | None = None) -> None:
         import tempfile
-        ckpt = Path(tempfile.gettempdir()) / f"bgeval_{kind}_{step}.zip"
+        if self._defer_dir is not None:
+            self._deferred_seq += 1
+            job_id = (f"{kind}_{step}_{tag or 'periodic'}"
+                      f"_{self._deferred_seq:03d}")
+            ckpt = self._defer_dir / "snapshots" / f"{job_id}.zip"
+        else:
+            ckpt = Path(tempfile.gettempdir()) / f"bgeval_{kind}_{step}.zip"
         model.save(ckpt)  # few MB; <1 s
+        if self._defer_dir is not None:
+            self._deferred_pending[str(ckpt)] = {
+                "job_id": job_id, "kind": kind,
+                "snapshot_path": str(ckpt), "step": int(step), "tag": tag}
         self._busy[kind] += 1
         self._jobs.put((kind, str(ckpt), step, tag))
 
@@ -1552,6 +1581,9 @@ class _BgEval:
                 return
             self._busy[out["kind"]] -= 1
             if "error" in out:
+                # Deferred mode: an errored job stays in
+                # _deferred_pending so the CPU finalizer retries it
+                # (bounded) — training-time behavior is unchanged.
                 print(f"[bg-{out['kind']}] skipped ({out['error']})")
             elif out["kind"] == "eval":
                 wandb.log(out["payload"])
@@ -1572,6 +1604,11 @@ class _BgEval:
                     Path(out["path"]).unlink()
                 except OSError:
                     pass
+            if "error" not in out and self._defer_dir is not None:
+                # Job delivered — retire its bookkeeping + durable
+                # snapshot (the child skips its own unlink in this mode).
+                self._deferred_pending.pop(out.get("ckpt", ""), None)
+                Path(out.get("ckpt", "")).unlink(missing_ok=True)
 
     def pop_canaries(self) -> list[dict]:
         """Hand any drained canary probe results to the stop callback."""
@@ -1602,6 +1639,22 @@ class _BgEval:
         self._proc.join(timeout=30)
         if self._proc.is_alive():
             self._proc.terminate()
+
+    def handoff(self) -> list[dict]:
+        """Deferred-artifacts alternative to shutdown(): do NOT wait.
+
+        Drain whatever already finished, kill the worker, and return the
+        still-outstanding job records (durable snapshot zips intact) for
+        the CPU finalizer to complete after this GPU-owning process has
+        exited. Only meaningful when constructed with defer_dir."""
+        self.drain()
+        self._proc.terminate()  # worker may be mid-job; snapshots survive
+        self._proc.join(timeout=10)
+        if self._proc.is_alive():
+            self._proc.kill()
+            self._proc.join(timeout=5)
+        self.drain()  # results that landed between first drain and kill
+        return list(self._deferred_pending.values())
 
 
 def _make_periodic_eval_callback(bg: "_BgEval", every: int = 200_000):
@@ -1655,6 +1708,17 @@ def _make_video_callback(bg: "_BgEval", every: int, args):
             return True
 
         def _on_training_end(self) -> None:
+            if getattr(args, "defer_final_artifacts", False):
+                # Deferred handoff (fb_20260906T035950_cd260e): never
+                # block inside model.learn(). This wait() used to hold
+                # the GPU-owning process on the whole CPU eval/video
+                # backlog BEFORE the training_complete marker could even
+                # be written. Snapshot the final policy as a durable job;
+                # the CPU finalizer renders + logs it after this process
+                # exits.
+                bg.submit("video", self.model, self.num_timesteps,
+                          tag="final")
+                return
             # Final reel must make it out before the W&B run closes.
             bg.wait()
             bg.submit("video", self.model, self.num_timesteps, tag="final")

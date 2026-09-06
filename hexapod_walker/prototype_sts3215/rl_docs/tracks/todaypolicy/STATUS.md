@@ -34,6 +34,36 @@ the local completion handoff):**
   course_err_1s_med ≤5.17°, standing-still smoothness = FAIL.
   VERIFIED RUNNING 09-06 on hexapod-mjx-train-1.
 
+**09-06 ~04:1x verdict: `cw-robotwalk-stride-20260906` ACQ FAIL — anchor-
+ceiling hypothesis REFUTED, and worse.** Turning `train.bc_anchor_coef`
+exactly to 0.0 did not free the policy to cover more distance; it
+destroyed the gait. `gait_valid` 0/24 (every one of 4 modes 0/6): a
+rigid TRIPOD LOCK, not a stride — legs [1,3,5] pinned at `duty_cycle`
+1.0 (never lift) in literally every episode, legs [0,4] near-zero duty
+(0.0-0.06), leg 2 alone partially participating (0.03-0.32).
+`forward_dist_m` collapses to 0.001-0.036 m/20s (target was >=0.40
+m/12s; Candidate B's own baseline is 0.31-0.33 m/12s) — not merely
+short of target, essentially zero net travel. `slip_per_m` 16-30 (vs
+the <=2.9 gate bound). 4/24 episodes show real safety terminations
+(over_current). Video (`walk_det_0`, `walk_det_4`) confirms a static
+quivering body, checkerboard grid does not shift frame-to-frame.
+Training reward matches the collapse rather than diverging (quarters
+168.7->398.9->381.7->171.0, ending negative at -135) — NOT the 08-21
+rising-reward/bad-eval case; this is a genuine FAIL both by reward and
+by eval. Per the gate's own instruction, no further
+`train.bc_anchor_coef=0.0` clone should be launched from this parent;
+if the stride-ceiling question is revisited it needs either a SOFTER
+anchor reduction (partial coef) or the hypothesis's own named
+alternative (a faster motion source/cadence-CPG harvest), not a repeat
+of this exact ablation. No export — gate not met. `cw-robotwalk-
+turns-20260906` (the campaign's 2nd arm, yaw/turn-income) finished
+around the same time but was NOT assigned to this cycle — its gate
+eval was found still computing on `hexapod-mjx-train-1` (shared with
+this arm's own eval) and is left for whichever cycle picks it up next;
+do not assume its outcome from this one (different lever, same
+parent). Evidence: `logs/ckpt_eval/cw_robotwalk_stride_20260906_gate/
+report.json`, W&B `catovl0h`.
+
 Baseline = Candidate B `cw-walkteach-scripted-allhead-acq12m`
 (controller-side training zip sha256 `30ed068e4356d5f42caba2a427f2845a
 230d7289a06467684731ec94a1f6f250`; operator-deployed actor sha256

@@ -2,6 +2,47 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~03:0x this cycle (assigned `headset-crossgrav-medhead-widenfwd-c1`,
+  `headset-crossgrav-medhead-irrfwd-c1`): 2 verdicts, both **CANARY PASS -
+  INFORMATIVE-POSITIVE**, 2-arm refill. These are the two discovery canaries
+  from the 02:17 launch testing whether the now-ACQ-PASSed 1g cross-gravity
+  medhead champion (`medhead-abrupt-c1-acq1`, 23/24) supports FORWARD
+  curriculum extension (composing widen2 heading breadth / irr command-
+  timing jitter natively at 1g) instead of only working when built at
+  0.5g first. **Both PASS**: `widenfwd-c1` aggregate `gait_valid` 23/24
+  (`walk/det` 5/6, one transient `sac=[0,3]` episode; the other three
+  modes clean 6/6), 0 falls, video (`walk_det_0`) shows genuine six-leg
+  cycling across multiple headings; a few `slip_per_m` outliers up to
+  ~203 confirmed via frame strip (`walk_sto_3`) as the already-documented
+  reversal-heading spin-in-place low-progress-denominator artifact, not
+  a new defect. `irrfwd-c1` aggregate `gait_valid` 22/24 (`walk/det` 4/6,
+  two episodes flag `sac=[2,5]` transiently — same legs read healthy
+  0.17-0.61 duty in the other four episodes — the other three modes
+  clean 6/6), 0 falls, and unusually TIGHT/clean `slip_per_m` (3.06-5.63,
+  no reversal outliers). **Together this confirms the 1g cross-gravity
+  repair generalizes as a foundation for forward curriculum extension on
+  BOTH tested axes** (heading breadth and command-timing jitter), not
+  just the single plain-heading recipe it was built on. **Refill (2
+  arms):** matched 40M ACQ continuations for both,
+  `headset-crossgrav-medhead-widenfwd-c1-acq1` (train-2, VERIFIED
+  RUNNING) and `headset-crossgrav-medhead-irrfwd-c1-acq1` (train-3,
+  launching — the launcher's own pod-pick briefly tried a busy pod,
+  REFUSED harmlessly, retried with an explicit free `--pod`). Left the
+  natural next layer (widen2+irr COMPOSITE built natively at 1g on top
+  of medhead, mirroring the halfgrav widenirr/irrwiden composites)
+  unlaunched this cycle: the sibling ramp-transition arms
+  (`medhead-ramp-{widenfwd,irrfwd}-c1`, launched by a concurrent cycle
+  off the same question on the gradual-ramp base) are still RUNNING/
+  in-eval — composing two untested variables (composite ordering +
+  ramp-vs-abrupt transition) before either single-axis ramp sibling
+  lands would confound the read, matching this campaign's own standing
+  discipline against compounding untested variables. SKILLS.md updated
+  (2 new rows). Evidence: `ops.sh review cw-walkscratch-easy0905-
+  headset-crossgrav-medhead-{widenfwd,irrfwd}-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_
+  {widenfwd,irrfwd}_c1_gate/report.json`, W&B `tj1ko3bp`/`xlhp3w8c`,
+  RL_LOG.
+
 - 09-06 ~03:1x this cycle (assigned `headset-crossgrav-irracq1-abrupt-c1-acq1`,
   `headset-crossgrav-irrwidenc1-ramp-c1`): 2 verdicts, 1-arm refill (a 2nd
   intended arm was found already launched by a concurrent cycle).

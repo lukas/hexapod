@@ -1385,6 +1385,20 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
         cfg, "train", "bc_anchor_anneal_assay_episodes", default=8)))
     model.bc_anneal_min_progress = float(cfg_get(
         cfg, "train", "bc_anchor_anneal_min_progress", default=0.35))
+    # Fresh pinned seed per assay round (default OFF = bit-exact with the
+    # original single-seed assay). Found 09-06 on the rung-2 cont8m pair:
+    # with ONE pinned seed (828282, desync off, deterministic policy) the
+    # assay's 8 episodes are the SAME 8 configs every round, so a single
+    # hard init that the anchored policy deterministically fails blocks
+    # the no_falls==0.0 latch FOREVER (s0: 11 rounds, s1: 15 rounds, all
+    # early_term_rate 0.125) even while the registered held-out ignition
+    # gate shows 0/24 terminations — a chicken-and-egg deadlock, because
+    # the strong anchor prevents exactly the adaptation the latch demands.
+    # Reseeding each round makes rounds independent draws from the
+    # training distribution: a genuinely low fall rate latches within a
+    # few rounds, a genuinely high one still (correctly) never latches.
+    model.bc_anneal_assay_reseed = float(cfg_get(
+        cfg, "train", "bc_anchor_anneal_assay_reseed", default=0.0)) > 0.0
     if model.bc_anneal_gate and model.bc_coef <= 0.0:
         raise SystemExit(
             "train.bc_anchor_anneal_gate set but train.bc_anchor_coef<=0 "

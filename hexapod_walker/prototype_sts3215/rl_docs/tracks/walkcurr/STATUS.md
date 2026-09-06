@@ -2,6 +2,48 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~01:4x this cycle (assigned `headset-crossgrav-irracq1-abrupt-c1`): 1
+  verdict, **CANARY PASS**, 2-arm refill. Warm-starting the leg-healthy
+  0.5g `headset-halfgrav-irr-acq1` champion (irregular command-timing-
+  jitter recipe, never previously exposed to 1g) and jumping it
+  abruptly to full 1g gravity from tick 0 keeps the six-leg gait
+  intact: harness `gait_valid` 23/24 — `walk/det` 6/6 CLEAN (`sac=[]`
+  every episode), `walk/sto` 6/6 clean, `walk_startjitter/sto` 6/6
+  clean, `walk_startjitter/det` 5/6 (one isolated `sac=[4]`, not
+  chronic). 0 falls/terminations in all 24 episodes. `slip_per_m`
+  banded 3.2-4.6, comparable to the `medhead`/`widen2c1` crossgrav
+  siblings. Video (`walk_det_0`) shows genuine six-leg cycling with
+  visible forward displacement. **This is the 3rd distinct halfgrav
+  recipe (after `medhead` and `widen2c1`, alongside the concurrent
+  cycle's `widen2c2b`/`widenirrc1`/`irrwidenc1` arms) to confirm
+  cross-gravity-transfer holds for an axis genuinely different from
+  heading breadth** (command-timing irregularity) — strengthens the
+  finding as a general repair path rather than a heading-specific
+  fluke. Tooling gotcha: this run's own prestaged gate eval had not
+  been queued by the watcher (no `pending_evals.json` entry, empty
+  local eval log) even though the pod process was already computing
+  when the cycle spawned — caught via `kubectl exec ... ps aux` on
+  the run's own pod (train-4) before assuming a failure, registered
+  it with `ops.sh evalpending add` instead of re-launching a
+  duplicate, and it finished normally a few minutes later; no code
+  fix needed (this looks like an ordinary prestage race, not a repeat
+  of the glob-boundary bug fixed last cycle). **Refill:** (1) matched
+  40M acquisition continuation off this run's own checkpoint,
+  `headset-crossgrav-irracq1-abrupt-c1-acq1` (`ease.gravity_scale=1.0`
+  unchanged), VERIFIED RUNNING train-4. (2) a 2nd-seed confirmation
+  canary for the SAME irr-timing crossgrav recipe off the independent
+  `headset-halfgrav-irr2-acq1` champion (2M, `headset-crossgrav-
+  irr2acq1-abrupt-c1`), to rule out per-seed luck the same way every
+  other rung in this campaign got its n=2 seed check before being
+  called a validated recipe — VERIFIED RUNNING train-3 (opened up when
+  `halfgrav-fullhead-widen2-c3-acq1` finished training during this
+  cycle; left unverdicted for the mechanical per-run cycle spawn, not
+  duplicated here since it wasn't in this cycle's assigned-runs list).
+  SKILLS.md updated (1 new row). Evidence: `ops.sh review
+  cw-walkscratch-easy0905-headset-crossgrav-irracq1-abrupt-c1`,
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_irracq1_
+  abrupt_c1_gate/report.json`, W&B `lt2nxvek`, RL_LOG.
+
 - 09-06 ~01:3x this cycle (assigned `headset-crossgrav-widen2c1-abrupt-c1`):
   1 verdict, **CANARY PASS - INFORMATIVE-POSITIVE**, 1-arm refill.
   This 2M discovery canary's own prestage gate eval was still

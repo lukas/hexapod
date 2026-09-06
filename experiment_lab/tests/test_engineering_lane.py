@@ -106,17 +106,26 @@ def engineering_receipt(job, project_context_sha256):
 
 def test_hardware_and_offline_jobs_claim_independently(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    _, analysis = succeeded_analysis(
-        store, verdict="inconclusive", parameters={"robot_motion": False}
-    )
     engineering = EngineeringJobStore(store)
-    assert engineering.reconcile() == 1
+    replay = store.create(
+        {
+            "name": "explicit offline replay",
+            "duration_seconds": 1,
+            "parameters": {"robot_motion": False},
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    replay_advance = store.enqueue_advance(
+        "explicit-offline-replay", "test", experiment_id=replay["id"]
+    )
+    replay_handoff = engineering.ensure_queue_handoff(replay_advance, replay)
 
     offline = engineering.claim(
         "offline-worker", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE
     )
     assert offline is not None
-    assert offline["source_analysis_job_id"] == analysis["id"]
+    assert offline["id"] == replay_handoff["id"]
     assert offline["lane"] == ENGINEERING_LANE_OFFLINE
 
     guarded = store.create(
@@ -162,14 +171,18 @@ def test_hardware_and_offline_jobs_claim_independently(tmp_path):
         ),
     ],
 )
-def test_analysis_followthrough_lane_tracks_source_motion_metadata(
+def test_analysis_followthrough_only_reopens_physical_repairs(
     tmp_path, parameters, expected_lane
 ):
     store = Store(tmp_path / "lab.sqlite3")
     _, analysis = succeeded_analysis(
-        store, verdict="inconclusive", parameters=parameters
+        store, verdict="fail", parameters=parameters
     )
     engineering = EngineeringJobStore(store)
+    if expected_lane == ENGINEERING_LANE_OFFLINE:
+        assert engineering.reconcile() == 0
+        assert engineering.list_jobs() == []
+        return
     assert engineering.reconcile() == 1
 
     other_lane = (
@@ -187,6 +200,67 @@ def test_analysis_followthrough_lane_tracks_source_motion_metadata(
 def test_missing_or_invalid_source_context_stays_on_hardware_lane():
     assert engineering_job_lane(None) == ENGINEERING_LANE_HARDWARE
     assert engineering_job_lane({}) == ENGINEERING_LANE_HARDWARE
+
+
+@pytest.mark.parametrize(
+    "parameters, verdict, disposition, needs_repair",
+    [
+        ({"robot_motion": False}, "fail", "stop", False),
+        ({"simulation_only": True}, "inconclusive", "needs_inspection", False),
+        ({"simulation_only": True}, "pass", "clear", False),
+        ({"robot_motion": True}, "pass", "clear", False),
+        ({"robot_motion": True}, "inconclusive", "clear", False),
+        ({"robot_motion": True}, "fail", "clear", True),
+        ({"robot_motion": True}, "inconclusive", "needs_inspection", True),
+        ({"robot_motion": True}, "pass", "stop", True),
+    ],
+)
+def test_analysis_followthrough_keeps_repairs_without_repeated_offline_reviews(
+    tmp_path, parameters, verdict, disposition, needs_repair
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    succeeded_analysis(
+        store, parameters=parameters, verdict=verdict,
+        safety_disposition=disposition,
+    )
+    engineering = EngineeringJobStore(store)
+
+    assert engineering.reconcile() == int(needs_repair)
+    assert engineering.reconcile() == 0
+    assert len(engineering.list_jobs()) == int(needs_repair)
+
+
+@pytest.mark.parametrize("status", ["queued", "retry"])
+def test_existing_offline_analysis_reviews_retire_without_another_worker(
+    tmp_path, monkeypatch, status
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    succeeded_analysis(
+        store, verdict="fail", safety_disposition="needs_inspection",
+        parameters={"simulation_only": True},
+    )
+    engineering = EngineeringJobStore(store)
+    # Seed a review created under the former policy, then reconcile after upgrade.
+    with monkeypatch.context() as previous_policy:
+        previous_policy.setattr(
+            EngineeringJobStore, "_analysis_needs_no_engineering",
+            staticmethod(lambda *_: False),
+        )
+        assert engineering.reconcile() == 1
+    job = engineering.list_jobs()[0]
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_engineering_jobs SET status=? WHERE id=?",
+            (status, job["id"]),
+        )
+
+    assert engineering.reconcile() == 1
+    assert engineering.claim("engineer", 60) is None
+    retired = engineering.list_jobs()[0]
+    assert retired["id"] == job["id"]
+    assert retired["status"] == "succeeded"
+    assert retired["result"]["outcome"] == "no_change"
+    assert retired["result"]["commands_run"] == []
 
 
 @pytest.mark.parametrize(
@@ -263,7 +337,7 @@ def test_legacy_ambiguous_handoff_stays_on_hardware_lane(tmp_path, parameters):
 
 def test_succeeded_analysis_reconciles_once_and_rl_outbox_is_validated(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    experiment, analysis = succeeded_analysis(store, verdict="inconclusive")
+    experiment, analysis = succeeded_analysis(store, verdict="fail")
     engineering = EngineeringJobStore(store)
 
     assert engineering.reconcile(max_attempts=2) == 1
@@ -359,7 +433,7 @@ def test_advance_hands_guarded_plan_to_full_access_engineering_without_pause(tmp
 
 def test_queue_handoff_is_claimed_before_older_analysis_and_prompt_normalizes_legacy_gates(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    experiment, _analysis = succeeded_analysis(store, verdict="inconclusive")
+    experiment, _analysis = succeeded_analysis(store, verdict="fail")
     engineering = EngineeringJobStore(store)
     assert engineering.reconcile() == 1
     advance = next(job for job in store.list_codex_jobs() if job["kind"] == "advance")

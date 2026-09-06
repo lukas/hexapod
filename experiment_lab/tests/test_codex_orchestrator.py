@@ -412,7 +412,7 @@ def test_codex_output_schemas_are_strict_for_every_object():
     assert_strict(codex_module.ADVANCE_SCHEMA)
 
 
-def test_followup_accepts_schema_encoded_parameters_json(tmp_path):
+def test_offline_followup_decodes_parameters_and_records_rejection(tmp_path):
     orchestrator = CodexOrchestrator(
         Store(tmp_path / "lab.sqlite3"), configured(tmp_path), invoker=lambda *_: {}
     )
@@ -430,6 +430,52 @@ def test_followup_accepts_schema_encoded_parameters_json(tmp_path):
     assert normalized["spec"]["parameters"]["simulation_only"] is True
     assert normalized["spec"]["execution_mode"] == "external_guarded"
     assert normalized["spec"]["parameters"]["robot_motion"] is False
+    assert normalized["rejection_reason"]
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"robot_motion": False},
+        {"simulation_only": True},
+        {"simulation_only": True, "robot_motion": False},
+    ],
+)
+def test_analysis_seals_offline_recommendation_receipt_without_creating_child(
+    tmp_path, parameters
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings)
+    recommendation = {
+        "recommendation_key": "repeat-software-review",
+        "name": "Repeat runtime qualification",
+        "description": "Review the recorded software check again.",
+        "duration_seconds": 1,
+        "parameters": json.dumps(parameters),
+        "execution_mode": "external_guarded",
+        "rationale": "Recheck an existing replay result.",
+        "dependencies": [],
+        "stop_conditions": [],
+    }
+    calls = []
+
+    def invoke(role, _job, _request):
+        calls.append(role)
+        return analysis_result(source, followups=[recommendation])
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    job = next(job for job in store.codex_jobs_for_experiment(source["id"])
+               if job["kind"] == "analysis")
+    assert job["status"] == "succeeded"
+    assert calls == ["analysis"]
+    receipts = job["result"]["followup_receipts"]
+    assert receipts["accepted"] == []
+    assert len(receipts["rejected"]) == 1
+    assert receipts["rejected"][0]["child_experiment_id"] is None
+    assert receipts["rejected"][0]["disposition_reason"]
+    assert [item["id"] for item in store.list()] == [source["id"]]
 
 
 def test_analysis_accepts_only_its_own_generated_video_contact_sheet(tmp_path):
@@ -1077,10 +1123,9 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
         "duration_seconds": 2,
         "parameters": {
             "load_kg": 0.1,
-            "simulation_only": True,
-            "robot_motion": False,
+            "robot_motion": True,
         },
-        "execution_mode": "builtin",
+        "execution_mode": "external_guarded",
         "rationale": "This separates load sensitivity from trial noise.",
         "dependencies": ["Use the same fixture."],
         "stop_conditions": ["unexpected force", "hot motor"],
@@ -1185,7 +1230,7 @@ def test_cancelled_analysis_cannot_recreate_the_cancelled_plan(tmp_path):
         ("command", "builtin", True),
     ],
 )
-def test_uncleared_analysis_preserves_valid_hardware_and_offline_followups(
+def test_uncleared_analysis_preserves_hardware_but_rejects_offline_followups(
     tmp_path, disposition, driver, requested_mode, simulation_only
 ):
     settings = configured(tmp_path, driver=driver)
@@ -1217,16 +1262,18 @@ def test_uncleared_analysis_preserves_valid_hardware_and_offline_followups(
     assert store.codex_queue_control()["paused"] is (disposition == "stop")
     receipts = job["result"]["followup_receipts"]
     children = [item for item in store.list() if item["id"] != source["id"]]
+    if simulation_only is True:
+        assert receipts["accepted"] == children == []
+        assert len(receipts["rejected"]) == 1
+        assert receipts["rejected"][0]["disposition_reason"]
+        assert store.next_external_experiment() is None
+        return
     assert len(receipts["accepted"]) == len(children) == 1
     assert receipts["rejected"] == []
     child = children[0]
     assert child["execution_mode"] == "external_guarded"
-    if simulation_only is True:
-        assert child["parameters"]["simulation_only"] is True
-        assert child["parameters"]["robot_motion"] is False
-    else:
-        assert child["parameters"]["simulation_only"] == simulation_only
-        assert child["parameters"].get("robot_motion") is not False
+    assert child["parameters"]["simulation_only"] == simulation_only
+    assert child["parameters"].get("robot_motion") is not False
     assert child["status"] == "waiting_for_operator"
     assert store.claim_next() is None
     assert store.next_external_experiment()["id"] == child["id"]
@@ -1338,7 +1385,7 @@ def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(
     assert "forbidden" in receipts["rejected"][0]["disposition_reason"]
 
 
-def test_adaptive_offline_work_executes_real_command_and_seals_output(tmp_path, monkeypatch):
+def test_explicit_offline_work_executes_real_command_and_seals_output(tmp_path, monkeypatch):
     from test_engineering_lane import engineering_receipt
 
     workspace = tmp_path / "workspace"
@@ -1346,24 +1393,22 @@ def test_adaptive_offline_work_executes_real_command_and_seals_output(tmp_path, 
     settings = configured(tmp_path, codex_engineering=True,
                           codex_engineering_workdir=workspace)
     store = Store(tmp_path / "lab.sqlite3")
-    source = complete_with_evidence(store, settings)
-    proposal = {
-        "recommendation_key": "offline-replay", "name": "Offline replay",
-        "description": "Run the fixture command and retain its actual output.",
-        "duration_seconds": 1, "parameters": {"simulation_only": True},
-        "execution_mode": "builtin", "rationale": "Reproduce a recorded fault.",
-        "dependencies": [], "stop_conditions": [],
-    }
+    target = store.create(
+        {
+            "name": "Explicit offline replay",
+            "description": "Run the fixture command and retain its actual output.",
+            "duration_seconds": 1,
+            "parameters": {"simulation_only": True, "robot_motion": False},
+            "execution_mode": "external_guarded",
+        },
+        "operator",
+    )
     monkeypatch.setattr(codex_module, "build_project_context", lambda *_: {"sha256": "a" * 64})
     monkeypatch.setattr(codex_module, "workspace_snapshot", lambda *_: {"head": "b" * 40})
     calls = []
 
     def invoke(role, job, request):
         calls.append(role)
-        if role == "analysis":
-            result = analysis_result(source, followups=[proposal])
-            result["safety_disposition"] = "needs_inspection"
-            return result
         assert role == "engineering"
         assert 'simulation_only' in request["prompt"]
         assert 'Do not contact, move, or deploy to the robot' in request["prompt"]
@@ -1384,20 +1429,17 @@ def test_adaptive_offline_work_executes_real_command_and_seals_output(tmp_path, 
         return receipt
 
     orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
-    assert orchestrator.process_one("analysis")
-    child = next(item for item in store.list() if item["id"] != source["id"])
-    assert child["execution_mode"] == "external_guarded"
     assert store.claim_next() is None
     assert orchestrator.process_one("advance")
     assert orchestrator.process_one("engineering")
-    finished = store.get(child["id"])
+    finished = store.get(target["id"])
     assert finished["status"] == "succeeded"
     assert finished["evidence_sealed_at"]
-    output = settings.data_dir / "experiments" / child["id"] / "replay.txt"
+    output = settings.data_dir / "experiments" / target["id"] / "replay.txt"
     assert output.read_text().strip() == "injected_delay_ms=50"
-    assert calls == ["analysis", "engineering"]
+    assert calls == ["engineering"]
     engineering = next(job for job in orchestrator.engineering.list_jobs()
-                       if job["experiment_id"] == child["id"])
+                       if job["experiment_id"] == target["id"])
     assert engineering["result"]["commands_run"][0]["outcome"] == "passed"
 
 

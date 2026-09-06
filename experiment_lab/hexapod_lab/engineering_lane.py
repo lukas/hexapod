@@ -461,7 +461,8 @@ def engineering_prompt(
 - Commit and push focused changes authored in this offline checkout after their
   relevant tests pass. Preserve unrelated work and make the next physical step
   mechanically actionable through a Robot Lab handoff instead of running it
-  here."""
+  here. Finish the focused repair and its checks in this job before sealing;
+  do not create a new offline experiment to review or qualify this result."""
         queue_completion = """- An offline queue handoff must not silently strand
   its saved plan. Run the requested replay/test/simulation, register and seal a
   terminal result with its actual evidence, and let its analysis plus the next
@@ -477,7 +478,10 @@ def engineering_prompt(
   normal state, clear stale routine/framework latches with an auditable reason,
   run or retry the bounded step, and register/seal its result. If prerequisite
   engineering is needed first, do that work instead and leave the next attempt
-  mechanically actionable. Do not substitute a permission request for work the
+  mechanically actionable. Keep relevant replays, code fixes, and focused tests
+  inside this assigned job, commit/push the fix, and continue the bounded test.
+  Do not create separate offline review, qualification, or evidence-packaging
+  experiments. Do not substitute a permission request for work the
   agent can perform through files, network, MCP, service recovery, or controls.
 - A fresh camera view plus three distinct advancing healthy 18/18 telemetry
   samples is live supervision. It is enough for routine motion and for recovery
@@ -771,7 +775,7 @@ class EngineeringJobStore:
         with self.store.connect() as con:
             con.execute("BEGIN IMMEDIATE")
             self._retire_terminal_queue_handoffs(con, now)
-            changed += self._retire_pass_clear_analysis_jobs(con, now)
+            changed += self._retire_redundant_analysis_jobs(con, now)
             rows = con.execute(
                 "SELECT job.id AS analysis_id,job.result_json,job.finished_at,"
                 "experiment.id AS experiment_id,experiment.name,"
@@ -791,9 +795,8 @@ class EngineeringJobStore:
                 except (TypeError, json.JSONDecodeError):
                     continue
                 if self._analysis_needs_no_engineering(analysis, parameters):
-                    # A passing analysis that is either clear or explicitly
-                    # offline has already queued any accepted recommendations.
-                    # Do not spend another engineering turn restating it.
+                    # Offline work belongs to its assigned worker. Clear
+                    # results need a next measurement, not another reviewer.
                     continue
                 source_context = {
                     "trigger_kind": "experiment_analysis",
@@ -829,22 +832,17 @@ class EngineeringJobStore:
     def _analysis_needs_no_engineering(
         analysis: Any, parameters: Any = None
     ) -> bool:
+        if experiment_parameters_are_offline(parameters):
+            return True
         return (
             isinstance(analysis, dict)
-            and analysis.get("verdict") == "pass"
-            and (
-                analysis.get("safety_disposition") == "clear"
-                or (
-                    analysis.get("safety_disposition") == "needs_inspection"
-                    and isinstance(parameters, dict)
-                    and parameters.get("simulation_only") is True
-                )
-            )
+            and analysis.get("verdict") in {"pass", "inconclusive"}
+            and analysis.get("safety_disposition") == "clear"
         )
 
     @classmethod
-    def _retire_pass_clear_analysis_jobs(cls, con, now: str) -> int:
-        """Finish obsolete pass/clear follow-through without invoking Codex."""
+    def _retire_redundant_analysis_jobs(cls, con, now: str) -> int:
+        """Finish redundant analysis follow-through without invoking Codex."""
         rows = con.execute(
             "SELECT * FROM codex_engineering_jobs WHERE status IN "
             "('queued','retry') AND "
@@ -880,13 +878,13 @@ class EngineeringJobStore:
                 "outcome": "no_change",
                 "mission_alignment": (
                     "Avoid an unnecessary engineering run after a completed "
-                    "passing analysis; accepted experiment follow-ups already "
-                    "carry any requested next work."
+                    "analysis; the assigned worker owns software checks and "
+                    "accepted physical follow-ups carry the next measurement."
                 ),
                 "summary": (
                     "Robot Lab retired this queued analysis follow-through "
-                    "without invoking Codex because its passing source analysis "
-                    "does not require a code or hardware follow-through."
+                    "without invoking Codex because the source is completed "
+                    "offline work or a clear pass/inconclusive result."
                 ),
                 "changed_files": [],
                 "commands_run": [],
@@ -924,7 +922,7 @@ class EngineeringJobStore:
                     now,
                     "engineering_analysis_retired",
                     "Retired redundant engineering follow-through because the "
-                    "passing source analysis needs no engineering action",
+                    "source analysis needs no separate engineering action",
                 ),
             )
             retired += 1

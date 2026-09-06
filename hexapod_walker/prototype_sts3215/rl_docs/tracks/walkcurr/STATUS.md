@@ -2,6 +2,35 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~12:0x this cycle (dig-in escalation on `headset-halfgrav-fullhead-widen2-c3-acq1-cont40m`,
+  flagged-not-verdicted by a prior triage cycle): **HARDENING FAIL — the halfgrav family's FIRST
+  cont40m break; the "halfgrav is clean" claim is hereby NARROWED to source-conditional, not
+  overturned.** At 80M cumulative a NEW chronic leg1 low-duty pattern appears that was ABSENT at
+  40M (parent leg1 duty never <0.10 in 24 eps; child leg1 at 0.06-0.10 / swing 42-72 in 4 eps
+  across 3 of 4 modes — walk/det/3+4, startjitter/det/2, startjitter/sto/3), violating the run's
+  own pre-registered "0 NEW chronic single-leg pattern" PASS clause; same class as the
+  `s1acq-irrfwd-c1-acq1-cont40m` FAIL precedent (new-mode duty ~0.06 spread). Adjudicated depth:
+  MILDER than the base(1g) park fingerprint (0.02-0.05 / swing 19-49) — leg1 still cycles and its
+  mean duty over all 24 eps is unchanged (0.17), so this is episode-specific sacrifice
+  redistribution, not global weakening; parent's own [0,3] flags reproduce/soften (walk/det/4
+  identical episode), 0 falls, gait_valid 18/24 majority, video-confirmed upright six-leg walking.
+  Corroborating degradation: gait_valid 20/24->18/24 and forward distance DOWN in all 4 modes
+  (walk/det med 1.85->1.26m). Reward dipped then recovered (-1262->-652, rising at end): the 08-21
+  misalignment case, but the 6-lever reward-repair grid for exactly this pathology closed 09-05 —
+  no new repair spend. **Consequences:** (1) widen2-c3's 40M checkpoint stays usable but is NOT
+  stable past its acquisition budget — retire widen2-c3 from champion/continuation contention
+  (consistent with its already-established crossgrav-abrupt attractor, "real attractor of the
+  widen2-c3 source", ~05:4x below); (2) halfgrav endurance cleanliness is SOURCE-conditional:
+  widenirr-c3 cont40m held, medhead/irrwiden lines clean, widen2-c3 breaks — halfgrav remains
+  strictly preferred over base(1g) (which breaks EVERY seed by 80M, see ~11:3x below), champion
+  picks should come from medhead/widenirr/irrwiden sources; (3) updated tally: cont40m endurance
+  series now 5 PASS / 2 FAIL (s1acq-irrfwd, widen2-c3), both FAILs on sources with a prior WATCH
+  or known attractor — cleanliness margin at 40M still predicts holds ONLY when the source has no
+  prior fragility signal. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_halfgrav_
+  fullhead_widen2_c3_acq1_cont40m_gate/report.json` (per-leg duty/swing) vs parent `..._acq1_gate/
+  report.json`, frame sheets `walk_det_{3,4}_sheet.png` in the same dir, W&B `9wove9uj`, RL_LOG
+  09-06 12:05.
+
 - 09-06 ~11:3x this cycle (assigned `headset-base-s1c1-acq1-cont40m` — NOT part of the crossgrav
   DR campaign above, a different sub-line: the older 09-05 base(1g)/halfgrav(0.5g) heading-set
   family): **HARDENING FAIL — closes "champion pick should use s1c1" (09-05 ~14:2x) for good; the

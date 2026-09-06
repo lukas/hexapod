@@ -49,6 +49,33 @@ changes/stops, yaw, then DR/pushes).
   physics — different question, different track; no overlap.
 
 ## Now
+- **09-06 ~12:0x (DIG-IN cycle, `-s0-cont8m` VERDICTED: ACQ FAIL - INFORMATIVE, assay
+  deadlock root-caused; fix built + both seeds relaunched):** the held-out mesh gate eval
+  landed and does NOT show collapse — gait_valid 24/24, 0 falls/terms, no sacrificed leg,
+  six legs cycling on video — so the pre-registered FAIL-MECHANISM text is NOT met. But
+  det prog med fell to 0.30 (parent 2M: 0.36–0.52; bar 0.35) while sto stayed 0.39–0.40
+  with better slip (2.98 vs det 4.48): the deterministic MEAN is what regressed, matching
+  the canary. ROOT CAUSE of the never-latching anneal (both seeds): the in-training assay
+  is PINNED — `env.seed(828282)` before EVERY round, desync off, deterministic policy —
+  so all rounds replay the SAME 8 configs; the persistent `early_term_rate=0.125`
+  (s0: 10/11 rounds; s1: 15/15) is ONE hard init the anchored policy deterministically
+  fails, not small-n noise (the 11:2x entry's "assay noise" read was wrong — parent 2M
+  failed 2/8, later ckpts 1/8: policy-dependent falls). Double lock: that episode injects
+  `failed_probe_row()` → `cmd_prog_frac=NaN` (plain-mean, not `_NAN_OK`) → the progress
+  clause ALSO NaN-fails every round (`gate_cmd_prog_frac` absent from history, both
+  seeds). Chicken-and-egg: the latch demands zero falls on a frozen probe set whose hard
+  init the strong anchor (coef stuck 3.0) prevents the policy from fixing; continued
+  anchored training then degrades pinned det behavior (canary walk_fwd 0/2 from ~3M new
+  steps in s0, ~5M in s1). Per 08-21: misalignment to repair. FIX (snapshot
+  `exp/cw-assistfade-rung2-anchorfade-reseed-fix`): `train.bc_anchor_anneal_assay_reseed`
+  (default OFF, bit-exact; fresh pinned seed per assay round → independent draws; 9 tests
+  green). RELAUNCHED both seeds from the PARENT 2M checkpoints (not the degraded cont8m
+  ends): `cw-assistfade-rung2-anchorfade-{s0,s1}-reseed8m`, reseed=1, 8M, pre-registered
+  gates incl. a FAIL-ASSAY-DISTRIBUTION clause if reseeded rounds still never latch.
+  `-s1-cont8m` left unverdicted for its own triage cycle (evidence identical; cite this
+  entry). Note for the "cont8m past its 2M canary is structurally unstable" question: at
+  rung 2 the instability now has a concrete mechanism (stuck anchor + std anneal squeezing
+  the det mean), distinct from rung-1's gait destruction.
 - **09-06 ~11:5x this cycle (triage of `-s0-cont8m`, DIG-IN flagged, no verdict yet — held-out
   gate eval still computing on-pod, video-every=1/24-episode panels run 1.5-2h): both rung-2
   `-cont8m` continuations (`-s0-cont8m` train-8, `-s1-cont8m` train-9, the other a concurrent

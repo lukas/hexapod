@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T08:52:59+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-abrupt-c1-acq1-cont40m
+
+**wandb_id**: f9nrfyok
 
 **hypothesis**: Plain English: does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M, 24/24 clean, 0 falls) survive a nominal per-leg MASS-jitter asymmetry (dr.leg_mass_jitter_pct=0.10, distinct from the whole-body mass_scale already tested clean in mass1x-c1) with zero retraining? Last untested single-axis realism field in domain_rand.py's RandRanges besides imu_mount_deg (queued alongside this one).
 

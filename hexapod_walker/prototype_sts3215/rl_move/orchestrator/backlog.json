@@ -160,7 +160,8 @@
       "--cfg-set",
       "dr.fault_prob=0.3"
     ],
-    "attempts": 0,
-    "added": "2026-09-06T08:51:55+00:00"
+    "attempts": 2,
+    "added": "2026-09-06T08:51:55+00:00",
+    "last_error": "REFUSED: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.\n"
   }
 ]

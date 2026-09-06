@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: RUNNING
 
-**created**: 2026-09-06T08:08:13+00:00
+**created**: 2026-09-06T08:05:14+00:00
 
 **pod**: hexapod-mjx-train-9
 
@@ -12,9 +12,9 @@
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-deadband1x-c1
 
-**hypothesis**: Plain English: does the nominal (1x) actuator-deadband spread (dr.deadband_scale=0.5,1.8) stay a clean walk with a real 40M training budget, not just a 2M canary glance? deadband1x-c1's own 2M canary was 23/24 (0 falls, one non-chronic leg-5 flag in startjitter/det) -- this is its first ACQ-scale confirmation, joining the sibling latency1x/torquefade/mass/friction/gains/geom/fault/extpush/actionnoise/contactstiff/noise/tiltnoise individual-axis durability batch.
+**wandb_id**: neh736zk
 
-**gate**: PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) at 40M, no NEW chronic single-leg sacrifice, 0 falls. FAIL/ENTRENCHES if it drops (<12/24, a new chronic leg, or a fall) -- would show deadband realism needs real training exposure before being called safe.
+**hypothesis**: Plain English: does the actuator-deadband axis (dr.deadband_scale=1,1, previously collapsed to 0 the whole campaign) stay a clean walk with real training budget, not just a 2M canary glance? deadband1x-c1's own 2M canary was 23/24 (one non-chronic leg-5 flag, 0 falls) -- joining the individual-axis ACQ-durability batch alongside friction1x/mass1x/encnoise1x/torquefade-dose/zerobias1x/latency1x/push1x-acq1.
 
-**refused_reason**: hexapod-mjx-train-9 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-deadband1x-c1-acq1 — GPU pods host exactly one run; pick a free GPU pod.
+**gate**: PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) at 40M with no NEW chronic single-leg sacrifice and 0 falls (a repeat of the same non-chronic leg-5 blip is fine). FAIL/ENTRENCHES if it drops below half (<12/24), a chronic single-leg pattern emerges, or a fall appears.
 

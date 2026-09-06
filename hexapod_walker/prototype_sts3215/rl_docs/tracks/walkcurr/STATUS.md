@@ -2,6 +2,49 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- 09-06 ~08:0x-08:2x this cycle (refill-only, no completions assigned — canonical capacity found
+  5-6 ready slots without trainers and an empty backlog): **completed the single-axis DR-restore
+  ACQ-durability batch (every remaining clean canary now has its first 40M confirmation attempt
+  launched, mine or a concurrent cycle's) + funded 2 more cont40m endurance continuations.**
+  Checked which clean-canary DR axes still had zero ACQ (40M) attempt: `contactstiff1x`,
+  `deadband1x`, `noise1x`, `tiltnoise1x`, `gyronoise1x`, `extpush1x`, `actionnoise1x` (7 axes, all
+  PASS canaries on the flagship `medhead-abrupt-c1-acq1-cont40m` champion). Launched
+  `actionnoise1x-c1-acq1` (train-2) and `deadband1x-c1-acq1` (train-9) directly; `contactstiff1x`,
+  `noise1x`, `tiltnoise1x`, `gyronoise1x` landed the same window via concurrent cycles' own
+  attempts on the identical next-lever list (convergent, not duplicated — confirmed via
+  `launch_run.py status`'s live pod scan before/after each of my own attempts). Also funded 2
+  cont40m endurance continuations on clean-at-40M sources with none yet, per the established
+  cleanliness-margin rule: `s1acq-widenfwd-c1-acq1-cont40m` (train-3, VERIFIED RUNNING — the
+  campaign's cleanest 0.5g source's 8-way-heading composition, 21/24 own 40M read, no chronic
+  pattern) and attempted `headset-halfgrav-acq1-cont40m` (the 0.5g family's own untouched root
+  champion, perfect 24/24 own 40M read, no endurance data point yet) — REFUSED twice by pod-race
+  against concurrent cycles' own fills (`zerobiasframe1x-c1-acq1`, then `s1acq-irrfwd-c1-acq1-
+  cont40m`), fleet reached 0/11 free before a 3rd attempt; not re-queued this cycle since another
+  concurrent cycle had already claimed the halfgrav-family gap with a different arm in the same
+  window — leave for a future cycle to confirm whether it's still open. **Bug found + partially
+  fixed:** `medhead-dr-extpush1x-c1-acq1` (a concurrent cycle's own launch, landed on train-0
+  moments after my own attempt was REFUSED there) inherited the SAME budget-mislabeling bug
+  already latent on `gains1x-c1-acq1`/`geom1x-c1-acq1`/`fault1x-c1-acq1` (RL_LOG 09-06 07:3x): a
+  `respec --init-from-source` with no explicit `--steps` override silently inherits the SOURCE
+  canary's own 2,000,000-step ledger budget rather than the intended 40,000,000, so the run
+  finishes in minutes at only the canary's own budget — NOT a genuine ACQ read despite the
+  `-acq1` name and `phase=acquisition` label. Confirmed via `experiments.json`: all 4 of these
+  `-acq1` entries show `"steps": 2000000`, vs the correctly-budgeted siblings (`torquefade15x`,
+  `latency1x`, `zerobias1x`, `push1x`, `mass1x`, `friction1x`, `torquefade2x`-acq1, all
+  `"steps": 40000000`) — the difference is purely whether the launching cycle passed
+  `--steps 40000000` explicitly to `respec`; the CLI does NOT default acquisition-phase respecs to
+  a bigger budget on its own. Re-launched `extpush1x` correctly as
+  `medhead-dr-extpush1x-c1-acq1-r2` (`--steps 40000000` pinned explicitly) — REFUSED on the only
+  free pod by a concurrent fill in the same instant, so queued to `backlog.json` for the
+  self-repairing drain. **`gains1x-c1-acq1`/`geom1x-c1-acq1`/`fault1x-c1-acq1` themselves were NOT
+  touched this cycle** (out of scope — this cycle's assignment excluded completions/verdicts) but
+  flagging here for whichever cycle triages them next: their `FINISHED` status reflects a 2M run,
+  not a 40M one; treat any read of them as a repeat of the canary, not new ACQ evidence, and
+  relaunch with an explicit `--steps 40000000` if a real ACQ confirmation for those 3 axes is still
+  wanted. Evidence: `launch_run.py capacity`/`status` (multiple live reads through the cycle),
+  `rl_move/orchestrator/experiments.json` steps-field comparison across all 7 `-acq1` DR-axis
+  entries, RL_LOG 09-06 08:2x.
+
 - 09-06 ~07:5x-08:2x this cycle (assigned `medhead-dr-encnoise1x-c1-acq1`, `medhead-ramp-irrfwd-c1-
   acq1-cont40m`, `widenirrc3-abrupt-c1-acq1-cont40m`): **2/3 verdicted (both HARDENING PASS), 1/3
   still genuinely computing after an infra recovery; plus 1 extra unassigned-idle verdict and a
@@ -52,6 +95,57 @@
   cont40m,widenirrc3_abrupt_c1_acq1_cont40m,medhead_dr_kick1x_c1_acq1}_gate/report.json`, frame
   strips, `kubectl cp` checkpoint recovery + `launch_run.py update --create` ledger backfill for
   encnoise1x-c1-acq1, `launch_run.py status`/`capacity.py`, RL_LOG 09-06 08:11-08:2x.
+
+- 09-06 ~08:1x-08:2x this cycle (assigned `medhead-dr-friction1x-c1-acq1`, `medhead-dr-mass1x-
+  c1-acq1`): **both 40M ACQ gate harnesses STILL genuinely computing on their pods — no verdict on
+  either.** Both finished training healthy (`friction1x-c1-acq1` ep_rew_mean 1248, quarters
+  562->1035->1136->1219, monotonic no plateau; `mass1x-c1-acq1` similar shape) but `kubectl exec ps`
+  on train-4/train-7 shows the gate eval processes alive since 07:37 (~40min elapsed at read time,
+  724%/649% CPU, RNl state) — only the informational `_session` artifact exists, no `_gate/
+  report.json` yet. This campaign's video-every=1 24-episode 4-panel harness typically takes
+  25-40min; backgrounded `ops.sh pollreap` for both (180s interval/60min cap), left UNVERDICTED for
+  the next reader per protocol — do not re-launch or re-poll by hand. **Infra:** found and removed
+  one stale duplicate backlog entry, `medhead-dr-tiltnoise1x-c1-acq1-rr1` (an evidence-less retry
+  spec left over from a transient launch race; the real `tiltnoise1x-c1-acq1` had already launched
+  successfully under its own non-`-rr1` name and was RUNNING on train-5) — would have burned 3
+  REFUSED drain attempts before auto-parking for nothing; removed directly from `backlog.json`
+  (the tool's own near-duplicate warning names this as the sanctioned fix path). **Refill (2
+  launches, capacity-capped):** 3 free slots (train-0/3/10) at read time; funded the 2 highest-
+  priority clean-canary-but-ACQ-unfunded axes named by the prior cycle's own tally:
+  `medhead-dr-extpush1x-c1-acq1` (mid-stride external-push realism; its own attempt earlier this
+  campaign had been REFUSED only for a pod collision, not a real problem — relaunched clean onto
+  train-0, VERIFIED RUNNING) and `medhead-dr-zerobiasframe1x-c1-acq1` (the harder command-frame-
+  coupled zero-bias variant that CANARY-PASSED this same cycle window; first ACQ attempt, train-10
+  after a train-3 pod-collision REFUSED, VERIFIED RUNNING). 2x40M hits the 80M/cycle GPU-step cap;
+  left the 1 remaining free slot (train-10 was the last free, now taken) for concurrent cycles.
+  Evidence: `kubectl exec hexapod-mjx-train-{4,7} -- ps aux`, `logs/experiments/{friction1x,mass1x}
+  -c1-acq1/wandb_summary.json`, `rl_move/orchestrator/backlog.json` (post-cleanup: empty),
+  `launch_run.py status`, RL_LOG 09-06 08:2x.
+
+- 09-06 ~08:0x-08:2x this cycle (assigned `medhead-dr-torquefade2x-c1-acq1`,
+  `medhead-widenfwd-c1-acq1-cont40m`): **both left UNVERDICTED — gate harnesses genuinely
+  computing on their own pods, no prestage failure.** The prestage claim's `_gate` dirs did NOT
+  exist for either run at cycle spawn (same write-race-truncation class the campaign has hit
+  before), but `kubectl exec ps` on `train-5`/`train-1` confirmed the 24-episode 4-panel
+  `eval_checkpoint` harness alive on both (started 07:42, ~27min in of the usual 25-40min
+  video-every=1 window, 700%+ CPU) — treated as still-computing per protocol, not a failure to
+  chase. Backgrounded `ops.sh pollreap` for both (180s/60min cap); left for the next reader.
+  **Refill:** re-read live capacity right before acting (per protocol) and found the fleet had
+  already moved out from under the stale prompt snapshot — a concurrent cycle had, in the same
+  minute, funded the exact 2 next-priority axes this cycle also picked
+  (`medhead-dr-extpush1x-c1-acq1` -> train-0, `medhead-dr-zerobiasframe1x-c1-acq1` -> train-10,
+  both VERIFIED RUNNING; my own `respec --now` attempt at zerobiasframe1x-c1-acq1 got a clean
+  REFUSED — duplicate-name race, normal traffic). Instead queued (backlog, no `--now`, since 0
+  slots remained free) the one still-genuinely-unlaunched axis: `medhead-dr-gyrobias1x-c1`
+  (nominal IMU gyro RATE-bias canary, `dr.gyro_bias_deg_s=0.5`) — its only prior ledger entry was
+  a dead `INTENT` on train-2 that lost a capacity race and never actually trained. Caught and
+  fixed a respec bug of my own before it could land: sourcing `--from` the `gyronoise1x-c1`
+  parent (for its checkpoint) also cloned that parent's OWN `dr.gyro_noise_deg_s=0.5` cfg, which
+  would have compounded two DR axes instead of isolating gyro-bias alone; hand-edited the queued
+  backlog item's `extra_args` back to `gyro_noise_deg_s=0` (matching the original correctly-
+  designed-but-never-launched spec) under `backlog.json.lock` before leaving it queued. Evidence:
+  `kubectl exec hexapod-mjx-train-{5,1} -- ps aux`, `launch_run.py status`/`capacity.py` (0/11
+  free on exit), `rl_move/orchestrator/backlog.json`, RL_LOG 09-06 08:1x-08:2x.
 
 - 09-06 ~07:0x-08:0x this cycle (assigned `medhead-dr-zerobiasframe1x-c1`, `medhead-irrwiden-c1-acq1`,
   `medhead-widenirr-c1-acq1`): **3/3 verdicted PASS after a prestage-failure recovery.** All 3

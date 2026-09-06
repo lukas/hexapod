@@ -45,7 +45,8 @@ def configured(tmp_path, workspace, **overrides):
 
 
 def succeeded_analysis(
-    store, *, verdict="pass", safety_disposition="clear", parameters=None
+    store, *, verdict="pass", safety_disposition="clear", parameters=None,
+    experiment_status="succeeded", started_at=None,
 ):
     experiment = store.create(
         {
@@ -55,7 +56,16 @@ def succeeded_analysis(
         },
         "test",
     )
-    store.finish(experiment["id"], "succeeded")
+    if experiment_status == "cancelled":
+        store.cancel(experiment["id"])
+    else:
+        store.finish(experiment["id"], experiment_status)
+    if started_at is not None:
+        with store.connect() as con:
+            con.execute(
+                "UPDATE experiments SET started_at=? WHERE id=?",
+                (started_at, experiment["id"]),
+            )
     store.seal_evidence(experiment["id"], "a" * 64)
     analysis = store.claim_codex_job("analysis", "analyzer", lease_seconds=60)
     assert analysis is not None
@@ -261,6 +271,155 @@ def test_existing_offline_analysis_reviews_retire_without_another_worker(
     assert retired["status"] == "succeeded"
     assert retired["result"]["outcome"] == "no_change"
     assert retired["result"]["commands_run"] == []
+
+
+@pytest.mark.parametrize(
+    "status,started_at,disposition,needs_repair",
+    [
+        ("cancelled", None, "clear", False),
+        ("failed", None, "clear", True),
+        ("cancelled", "2026-09-06T03:00:00+00:00", "clear", True),
+        ("cancelled", None, "stop", True),
+        ("cancelled", None, "needs_inspection", True),
+    ],
+)
+def test_cancelled_unstarted_invalid_analysis_does_not_reopen_hardware_work(
+    tmp_path, status, started_at, disposition, needs_repair
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    succeeded_analysis(
+        store, verdict="invalid", safety_disposition=disposition,
+        parameters={"robot_motion": True}, experiment_status=status,
+        started_at=started_at,
+    )
+    engineering = EngineeringJobStore(store)
+
+    assert engineering.reconcile() == int(needs_repair)
+    assert engineering.reconcile() == 0
+    claimed = engineering.claim("engineer", 60, lane=ENGINEERING_LANE_HARDWARE)
+    assert (claimed is not None) == needs_repair
+
+
+@pytest.mark.parametrize("status", ["queued", "retry"])
+@pytest.mark.parametrize("entrypoint", ["reconcile", "claim"])
+def test_legacy_cancelled_analysis_job_retires_before_another_worker_runs(
+    tmp_path, monkeypatch, status, entrypoint
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    experiment, _ = succeeded_analysis(
+        store, verdict="invalid", parameters={"robot_motion": True},
+        experiment_status="cancelled",
+    )
+    engineering = EngineeringJobStore(store)
+    with monkeypatch.context() as old_policy:
+        old_policy.setattr(
+            EngineeringJobStore, "_analysis_needs_no_engineering",
+            staticmethod(lambda *_: False),
+        )
+        assert engineering.reconcile() == 1
+    job = engineering.list_jobs()[0]
+    # The old prompt snapshot need not contain the new cancellation fields:
+    # retirement must consult the current experiment record.
+    source = job["source_context"]
+    source["experiment"].pop("status", None)
+    source["experiment"].pop("cancel_requested", None)
+    source["experiment"].pop("started_at", None)
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_engineering_jobs SET status=?,source_context_json=? "
+            "WHERE id=?",
+            (status, json.dumps(source), job["id"]),
+        )
+
+    if entrypoint == "reconcile":
+        assert engineering.reconcile() == 1
+    assert engineering.claim("engineer", 60) is None
+    retired = engineering.list_jobs()[0]
+    assert retired["id"] == job["id"]
+    assert retired["status"] == "succeeded"
+    assert retired["attempts"] == 0
+    assert retired["result"]["outcome"] == "no_change"
+    assert retired["result"]["physical_motion_started"] is False
+    assert retired["result"]["commands_run"] == []
+    assert store.get(experiment["id"])["status"] == "cancelled"
+
+
+def test_scoped_cancelled_analysis_retirement_preserves_other_jobs(
+    tmp_path, monkeypatch
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    engineering = EngineeringJobStore(store)
+    first, _ = succeeded_analysis(
+        store, verdict="invalid", parameters={"robot_motion": True},
+        experiment_status="cancelled",
+    )
+    second, _ = succeeded_analysis(
+        store, verdict="invalid", parameters={"robot_motion": True},
+        experiment_status="cancelled",
+    )
+    active, _ = succeeded_analysis(
+        store, verdict="fail", parameters={"robot_motion": True},
+        experiment_status="failed",
+    )
+    with monkeypatch.context() as old_policy:
+        old_policy.setattr(
+            EngineeringJobStore, "_analysis_needs_no_engineering",
+            staticmethod(lambda *_: False),
+        )
+        assert engineering.reconcile() == 3
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_engineering_jobs SET status='running',"
+            "lease_owner='active-worker',lease_token='preserve-token' "
+            "WHERE experiment_id=?", (active["id"],),
+        )
+        con.execute("BEGIN IMMEDIATE")
+        assert engineering._retire_redundant_analysis_jobs(
+            con, "2026-09-06T04:00:00+00:00", experiment_id=first["id"]
+        ) == 1
+        con.execute("COMMIT")
+    jobs = {job["experiment_id"]: job for job in engineering.list_jobs()}
+    assert jobs[first["id"]]["status"] == "succeeded"
+    assert jobs[second["id"]]["status"] == "queued"
+    assert jobs[active["id"]]["status"] == "running"
+    assert jobs[active["id"]]["lease_owner"] == "active-worker"
+    assert jobs[active["id"]]["lease_token"] == "preserve-token"
+
+
+@pytest.mark.parametrize("handoff_state", ["running", "unknown", "motion_receipt"])
+def test_cancelled_external_plan_keeps_recovery_when_motion_may_have_started(
+    tmp_path, handoff_state
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    experiment, _ = succeeded_analysis(
+        store, verdict="invalid", parameters={"robot_motion": True},
+        experiment_status="cancelled",
+    )
+    engineering = EngineeringJobStore(store)
+    advance = store.enqueue_advance(
+        "existing-handoff", "test", experiment_id=experiment["id"]
+    )
+    handoff = engineering.ensure_queue_handoff(advance, experiment)
+    receipt = (
+        {"previous_receipt": {"physical_motion_started": True}}
+        if handoff_state == "motion_receipt" else None
+    )
+    with store.connect() as con:
+        con.execute(
+            "UPDATE codex_engineering_jobs SET status=?,attempts=1,result_json=? "
+            "WHERE id=?",
+            (
+                "running" if handoff_state == "running" else "dead",
+                json.dumps(receipt) if receipt is not None else None,
+                handoff["id"],
+            ),
+        )
+
+    assert engineering.reconcile() == 1
+    repair = next(job for job in engineering.list_jobs()
+                  if job["source_context"]["trigger_kind"] == "experiment_analysis")
+    assert repair["status"] == "queued"
+    assert engineering.claim("recovery-worker", 60)["id"] == repair["id"]
 
 
 @pytest.mark.parametrize(

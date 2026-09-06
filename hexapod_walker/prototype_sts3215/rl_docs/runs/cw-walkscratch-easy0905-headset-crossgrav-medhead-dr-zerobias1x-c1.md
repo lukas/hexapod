@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-06T05:49:21+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-tiltnoise1x-c1
+
+**wandb_id**: looeatv7
 
 **hypothesis**: Restore nominal (1x) per-joint zero-point/calibration bias (joint_zero_bias_deg=1.0deg, a persistent per-joint set_zero offset -- the single most hardware-realistic axis this DR-restoration sweep had not yet touched: every physical servo has SOME zero-point calibration error, unlike the transient noise/latency axes already tested). Does the campaign's most durable champion (medhead-abrupt-c1-acq1-cont40m, 80M steps, 24/24 clean, 0 falls) survive a persistent 1deg/joint offset without retraining collapse? Isolated single-axis diagnostic, same template as the sibling deadband/latency/tiltnoise/encnoise DR-restoration arms.
 

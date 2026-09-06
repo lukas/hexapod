@@ -97,7 +97,7 @@ def test_pass_needs_inspection_offline_analysis_does_not_create_engineering_work
     assert engineering.list_jobs() == []
 
 
-def test_pass_needs_inspection_live_no_motion_keeps_engineering_work(tmp_path):
+def test_completed_no_motion_check_needs_no_second_engineer(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
     _experiment, analysis = _finished_analysis(
         store,
@@ -107,10 +107,8 @@ def test_pass_needs_inspection_live_no_motion_keeps_engineering_work(tmp_path):
     )
     engineering = EngineeringJobStore(store)
 
-    assert engineering.reconcile() == 1
-    job = engineering.claim("engineer", lease_seconds=60)
-    assert job is not None
-    assert job["source_analysis_job_id"] == analysis["id"]
+    assert engineering.reconcile() == 0
+    assert engineering.claim("engineer", lease_seconds=60) is None
 
 
 @pytest.mark.parametrize(
@@ -137,7 +135,7 @@ def test_non_pass_or_non_clear_analysis_keeps_engineering_work(
 @pytest.mark.parametrize("status", ["queued", "retry"])
 def test_reconcile_retires_existing_pass_clear_analysis_work(tmp_path, status):
     store = Store(tmp_path / "lab.sqlite3")
-    experiment, _analysis = _finished_analysis(store, verdict="inconclusive")
+    experiment, _analysis = _finished_analysis(store, verdict="fail")
     engineering = EngineeringJobStore(store)
     assert engineering.reconcile() == 1
     job = engineering.list_jobs()[0]
@@ -180,7 +178,7 @@ def test_reconcile_retires_existing_pass_clear_analysis_work(tmp_path, status):
 
 def test_reconcile_never_retires_running_pass_clear_analysis_work(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
-    _finished_analysis(store, verdict="inconclusive")
+    _finished_analysis(store, verdict="fail")
     engineering = EngineeringJobStore(store)
     assert engineering.reconcile() == 1
     running = engineering.claim("engineer", lease_seconds=60)

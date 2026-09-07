@@ -1,6 +1,33 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~15:4x — yawref-cont8m VERDICTED
+Last updated: 2026-09-07 ~16:2x — cigate8m VERDICTED
+FAIL-QUALIFICATION: the `walk_course_income_yaw_gate` mechanism
+(cont8m's own follow-up) closes per its PRE-REGISTERED FAIL-flag rule
+(arc cells flat-or-worse at 8M with reward rising). Fresh `eval_yaw`/
+`eval_cmd_suite`/`eval_joystick_gate` panel (train-1, exact training
+cfg, no live claimant found): arc-right wz_err_med 0.1162(cont8m)
+-> 0.1149 (still misses <=0.0905, ~1% = noise), arc-left 0.0947
+-> 0.0971 (WORSE, misses its own <=0.0947 bar); tip-left improved
+(0.0885->0.0825) but tip-right worsened (0.0842->0.1003), net no
+tip gain either sign, still far over the 0.076 bar (authority-bound
+per the 15:4x `probe_tip_income.py` finding, unaffected by this
+mechanism as expected since it targets combined cells not tip).
+(ii)/(iii)/(iv) all HOLD/IMPROVE: joygate stress_mix PASS, gv=1.0,
+0 falls, slip 2.295->2.25, `course_yawref_err_1s_med` 4.07->3.42
+(well under the 5.17 bar); cmd_suite stop v_err near-zero. Reward
+rising throughout (quarters 344/1366/2289/2596). **CLOSES the
+course-income-yaw-gate mechanism family on this lineage** — 3
+successive checkpoints (acq8m/cont8m/cigate8m), 3 different reward
+levers (frame fix, course-income-inversion fix), same arc-right/tip
+deficit each time. Root suspect is gait-mechanism AUTHORITY (the
+scripted-teacher-derived gait's own wz ceiling), not reward pricing;
+next move needs an authority-level lever (teacher omega/duty
+structure) or a renegotiated tip/arc bar — no further income-knob
+arms on this lineage. Evidence: `logs/ckpt_eval/cw_robotwalk_turns_
+20260907_yawref_cigate8m_{yaw,joygate_freshcmp}/`, W&B `i2uvpfge`;
+RL_LOG 09-07 16:27.
+
+Previous update 2026-09-07 ~15:4x — yawref-cont8m VERDICTED
 FAIL-QUALIFICATION (partial): tip missed <0.076 a 2nd time
 (pre-registered if-false branch), arc-right regressed +28%; walk
 retention/joygate(course_yawref 4.07)/stop all HOLD. Root-caused via

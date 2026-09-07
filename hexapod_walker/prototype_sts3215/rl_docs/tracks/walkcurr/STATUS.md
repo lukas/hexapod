@@ -1,5 +1,43 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~16:2x (refill cycle; picked up the ~16:1x overspeedq1 2M canary once its gate finished) — CANARY PASS (mechanism live+safe) but the overspeed-financed-slip hypothesis stays UNRESOLVED; launched an 8M acquisition continuation
+
+Triaged `...-cont40m-overspeedq1` (the audit's own falsification canary):
+gv 22/24, 0 new falls, no prog collapse — none of the pre-registered
+FAIL-MECHANISM criteria fire. The new `walk_freeprog_overspeed_charge`
+term is confirmed ACTIVELY FIRING: `env/reward_walk_freeprog_pen` sits
+at -1.3..-1.4/tick, LARGER in magnitude than `reward_walk` income
+itself (0.83-0.98) — and the policy responds by getting MORE stable
+under it (`terminations/tilt_roll` crashed 93->25->11->10 across the
+2M window, `ep_len_mean` nearly quadrupled 111.6->472.9) rather than
+entrenching a new exploit. **The raw `ep_rew_mean` decline (-59.5 ->
+-108.6 across quarters) is an episode-LENGTH artifact of that
+stability improvement, NOT reward misalignment** — per-tick
+`reward_walk` is flat-to-rising throughout. But the primary research
+question stays open: `v_along_cmd_m_s` sat flat at 0.083-0.084 the
+WHOLE 2M window (prog_ratio softened only in 2/4 modes, none reaching
+the <=1.35 "mechanism works" bar) and slip/m stayed flat-to-WORSE in
+every mode (4.93-6.24 vs parent 4.98-5.42, startjitter/sto notably
+worse). Read: 2M steps is too short for an already-deeply-entrenched
+~1.4-2x-overspeed checkpoint to visibly shed speed even under a
+charge that already dominates income. Verdicted CANARY PASS
+(mechanism-health scope, not a hypothesis verdict) and launched an 8M
+acquisition-depth continuation (same recipe, same `k_over=1.0`,
+`hexapod-mjx-train-0`, VERIFIED RUNNING) to give the dominant charge
+enough budget to actually move `v_along_cmd_m_s` before reading slip;
+if still flat at 8M the next lever is a stronger `k_over` dose, not
+more of the same budget. Also picked up the `todaypolicy` track's own
+orphaned `cigate8m` completion (see that track's STATUS) and did
+routine fleet housekeeping (removed a stale `PRUNE_OFF` safety-off
+switch left over from the 15:44 seed-pruner repair with no live
+trainer at risk and no recorded reason — restores the repair's own
+stated end state). Evidence: `logs/ckpt_eval/cw_walkscratch_
+easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_
+acq1_cont40m_overspeedq1_gate/report.json`, `logs/experiments/
+cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+nocrutch1x-c1-acq1-cont40m-overspeedq1/wandb_history.csv`, W&B
+`lanhu3s9`; RL_LOG 09-07 16:28.
+
 ## 2026-09-07 ~16:xx (operator-requested cycle, focus note 20260907T150325Z: own the unowned slip design gap) — contact/slip mechanism AUDIT on the frozen no-crutch champion: measurement is HONEST, knee-frame mismatch and transients are NOT the cause; the champion genuinely skates because overspeed is free. New opt-in mechanism `reward.walk_freeprog_overspeed_charge` built, bank-proven, 2M canary launched
 
 Assignment: audit how loaded-foot slip is measured on

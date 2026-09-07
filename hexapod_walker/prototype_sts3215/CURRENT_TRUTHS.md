@@ -1307,6 +1307,25 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   crossgrav_medhead_dr_allaxis_nokick_crutchoff_s{0,1,2}_widen8{,
   _acq1}_gate/report.json`, `mesh_mujoco/hexapod_mesh.xml` (`L0_yaw`/
   `L5_yaw` body `pos`), `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~09:5x.
+- UPDATE 09-07 ~20:3x: the whole DIRECT-SLIP-PRICING reward class
+  (charge foot slip directly, whether whole-episode, ratio-windowed,
+  overspeed-interaction-corrected, or touchdown/liftoff-phase-
+  targeted) is now CLOSED, 9 arms total, all converging on the same
+  ~5-6/m slip floor on the crutch-off/allaxis mesh/100Hz lineage:
+  4 solo direct-slip doses (CLOSED 09-07 ~17:3x, every one escaped
+  its own charge by speeding up), the `lswin` overspeed-interaction
+  canary (CLOSED 09-07 18:07, escape closed, floor unmoved), and now
+  the touchdown/liftoff transition-window charge (`reward.
+  k_walk_transition_slip`, 4 arms: 2 lineages x buggy/fixed
+  touchdown-accounting, all `CANARY FAIL - MECHANISM`, slip/m flat
+  vs each lineage's own baseline in every one). **Do not fund a 10th
+  reward-pricing design against this exact slip floor.** Every one of
+  these arms' own gate text independently named the same escalation:
+  a STRUCTURAL (non-reward) lever — contact/friction-model fidelity,
+  foot-pad/geometry, or a genuine foot-placement policy change — not
+  another charge/dose/window. Evidence: `rl_docs/tracks/walkcurr/
+  STATUS.md` 09-07 ~20:3x, W&B `x5r1ktgp`/`vmczkhfx`/`si7rindk`/
+  `o8pi2qe6`, RL_LOG 09-07 20:3x.
 
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab

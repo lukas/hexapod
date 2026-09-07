@@ -1,5 +1,67 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~20:3x (refill cycle; 11/11 GPU pods free, backlog empty) — triaged the 4 orphaned transwin-c1 gate reads: CLOSES the transition-window slip-charge mechanism 4/4, and with it the WHOLE direct-slip-pricing reward class
+
+The prior cycle's `...-transwin-c1-fix1` / `...-overspeedq1-cont8m-
+transwin-c1-fix1` gate evals (left ACTIVELY COMPUTING at 20:1x) finished
+and synced; this cycle also found their un-fixed `...-transwin-c1` /
+`...-overspeedq1-cont8m-transwin-c1` twins had FINISHED+evaluated
+unverdicted (no live claimant, `ops.sh review`'s glob mis-anchored onto
+the `-fix1` sibling for the bare names — used explicit report paths
+instead, per the documented prefix-collision gotcha). All 4 read:
+
+- `transwin-c1` (buggy accounting, warm from frozen cont40m): slip/m
+  medians `[walk/det 4.88, walk/sto 5.08, startjitter/det 4.85,
+  startjitter/sto 5.46]`, flat vs the 5.065 training-diet baseline
+  (mixed +/-4-8%). `reward_walk` rose 0.81->1.00; the charge itself
+  grew MORE negative (-4.17->-4.51) — firing harder, slip unmoved.
+  0 falls/24, gait_valid 5-6/6, no crouch/exploit.
+- `transwin-c1-fix1` (accounting bugs fixed: no longer charges
+  airborne-approach as skid; TD/LO windows age every tick). **Launch-
+  note mismatch found and flagged**: its own notes claim a parallel
+  mirror off the same frozen cont40m champion, but its actual
+  `--init-from` is `transwin-c1`'s own checkpoint — it's a 2M
+  CONTINUATION (4M cumulative), not an independent A/B control. Slip
+  vs its true predecessor: `[4.88->5.17, 5.08->5.41, 4.85->4.59,
+  5.46->5.94]` — mixed, no improvement. Charge magnitude shrank as
+  expected from the fix (-4.17..-4.51 -> -3.40..-3.71) but slip did
+  not move: the accounting bugs were NOT masking a real effect.
+- `overspeedq1-cont8m-transwin-c1` (same mechanism on the speed-
+  controlled lineage; that checkpoint's own pre-mechanism baseline
+  `[5.82, 6.24, 5.72, 6.81]`): medians `[5.55, 6.07, 5.97, 6.55]`,
+  flat (all 4 within +/-5%). Same shape, 2nd lineage.
+- `overspeedq1-cont8m-transwin-c1-fix1`: same continuation-not-mirror
+  issue, medians `[6.08, 5.70, 6.01, 6.34]`, flat vs its predecessor
+  and vs the lineage baseline.
+
+All 4 verdicted `CANARY FAIL - MECHANISM` (per each run's own
+pre-registered FAIL-STILL-STUCK branch: 0 falls, gait_valid intact,
+`walk_contact_meaningful_feet` ~2.8-3.1/6 = normal instantaneous
+tripod-stance count in every eval, roll/height normal — reward rising
+throughout is NOT misalignment here, it's the pre-registered "charge
+fires harder, slip doesn't move" shape both this mechanism and the
+prior direct-slip family already named). **This CLOSES the transition-
+window slip-charge mechanism 4/4 (both lineages x both accounting
+states) and, with the already-closed 5-arm direct-slip-pricing family
+(4 solo doses + the `lswin` overspeed-interaction canary), makes 9
+total independently-designed reward-pricing arms that all converge on
+the same ~5-6/m slip floor.** Every one of these arms' own gate text
+independently named the same next step: escalate past reward-shaping
+to a STRUCTURAL (non-reward) lever — contact/friction-model fidelity,
+foot-pad geometry, or a genuine motion-level fix — not a further
+charge/dose/window design. Treat any future "price slip harder/
+smarter" proposal on this exact plant/lineage as pre-refuted; the next
+walkcurr item(4) mover has to change the physical/contact model or the
+gait's own foot-placement policy, not the reward.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_{,overspeedq1_
+cont8m_}transwin_c1{,_fix1}_gate/report.json`, W&B `x5r1ktgp`/
+`vmczkhfx`/`si7rindk`/`o8pi2qe6`, RL_LOG 09-07 20:3x. No new launch
+this cycle (no bank/design exists yet for a structural fix; that is
+unscoped design work for a future cycle, not a rushed reward dose).
+CYCLE_WORKED touched.
+
 ## 2026-09-07 ~20:1x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — launched the heading-bisected NARROWER widen CURRENT_TRUTHS 09-07 ~09:5x explicitly licensed (does not need the still-unbuilt role-aware mechanism)
 
 Both walkcurr transition-window accounting-fix canaries (`...-transwin-c1-fix1`,

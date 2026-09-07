@@ -6,8 +6,238 @@ a real bug (info["walk_wz"] is reward-gated off in this recipe family
 and silently reads 0.0 for every policy including the scripted one;
 the fix reads env._body_wz() directly, which is unconditional)."""
 import numpy as np
+import pytest
+from types import SimpleNamespace
 
-from rl_move.sim.probe_turn_authority import summarize, rollout
+from rl_move.sim.probe_turn_authority import (
+    summarize, rollout, _ContactAudit, _support_point, _material_slip)
+
+
+def _rigid_audit_env(*, gravity="0 0 0", floor=False, floor_first=True):
+    """A free rigid body with six named pads; no policy or robot task logic."""
+    import mujoco
+    floor_xml = '<geom type="box" size="2 2 .01" pos="0 0 -.01" friction="1 .01 .01"/>'
+    pads = ''.join(
+        f'<body name="L{i}_pad" pos="{.15 if i == 1 else 0} 0 0">'
+        f'<geom type="box" size=".05 .04 .02" mass=".1" '
+        f'contype="{1 if floor and i == 0 else 0}" '
+        f'conaffinity="{1 if floor and i == 0 else 0}"/></body>'
+        for i in range(6))
+    m = mujoco.MjModel.from_xml_string(f'''<mujoco>
+      <option timestep=".0005" gravity="{gravity}" integrator="Euler"/>
+      <worldbody>{floor_xml if floor and floor_first else ''}
+        <body name="chassis" pos="0 0 .0199"><freejoint/>
+          <inertial pos="0 0 0" mass="1" diaginertia=".03 .04 .05"/>
+          {pads}
+        </body>
+        {'<body>' + floor_xml + '</body>' if floor and not floor_first else ''}
+      </worldbody></mujoco>''')
+    d = mujoco.MjData(m)
+    mujoco.mj_forward(m, d)
+    return SimpleNamespace(model=m, data=d, _mujoco=mujoco,
+                           _chassis_bid=m.body("chassis").id, dt=.005)
+
+
+def _accept(audit):
+    audit.tick(q_prop=None, q_safe=None, q_act=None)
+
+
+def test_substep_torque_pulse_integral_is_independent_of_control_grouping():
+    """Last-substep sampling misses these pulses; true impulse must not."""
+    summaries = []
+    for group in (1, 5):
+        env = _rigid_audit_env()
+        audit = _ContactAudit(env)
+        for start in range(0, 100, group):
+            audit.begin_interval(phase=0)
+            for i in range(start, start + group):
+                # Final step of each five-step block is zero force.
+                env.data.xfrc_applied[env._chassis_bid, 5] = 2 if i % 5 == 0 else 0
+                audit.mj_step(env.model, env.data)
+            _accept(audit)
+        out = audit.summary()
+        summaries.append(out)
+        assert out["n_substeps"] == 100
+        assert out["n_ticks"] == 100 // group
+        assert out["applied_yaw_imp_Nms"] == pytest.approx(.02, abs=1e-12)
+        assert out["angmom_check"]["delta_lz_Nms"] == pytest.approx(.02, rel=1e-9)
+        assert out["angmom_check"]["valid"]
+        assert out["angmom_check"]["slope"] == pytest.approx(1, rel=1e-9)
+        # A control-rate last-sample estimator reports zero at group=5.
+        if group == 5:
+            assert sum(r["external_tau"] for r in audit.rows[4::5]) == 0
+    assert summaries[0]["angmom_check"] == summaries[1]["angmom_check"]
+
+
+def test_applied_force_at_offset_body_is_shifted_to_whole_robot_com():
+    env = _rigid_audit_env()
+    audit = _ContactAudit(env)
+    b = env.model.body("L1_pad").id
+    audit.begin_interval(phase=0)
+    com = env.data.subtree_com[audit.root].copy()
+    force = np.array([0., 3., 0.])
+    expected = np.cross(env.data.xipos[b] - com, force)[2] * env.model.opt.timestep
+    env.data.xfrc_applied[b, :3] = force
+    audit.mj_step(env.model, env.data)
+    _accept(audit)
+    out = audit.summary()
+    assert out["applied_yaw_imp_Nms"] == pytest.approx(expected, abs=1e-12)
+    assert out["angmom_check"]["delta_lz_Nms"] == pytest.approx(expected, rel=1e-8)
+    assert out["angmom_check"]["valid"]
+
+
+@pytest.mark.parametrize("floor_first", [True, False])
+def test_real_contacts_support_weight_with_either_geom_order(floor_first):
+    env = _rigid_audit_env(gravity="0 0 -9.81", floor=True, floor_first=floor_first)
+    # Settle to support equilibrium before measuring, with the real solver.
+    for _ in range(2000):
+        env._mujoco.mj_step(env.model, env.data)
+    audit = _ContactAudit(env)
+    audit.begin_interval(phase=0)
+    for _ in range(50):
+        audit.mj_step(env.model, env.data)
+    _accept(audit)
+    out = audit.summary()
+    assert out["sign_flipped"] is False
+    assert out["sum_fz_med_N"] == pytest.approx(out["weight_N"], rel=.01)
+    assert out["support_force_sign_valid"]
+    foot_geom = next(g for g, f in audit.geom_foot.items() if f == 0)
+    contact = next(c for c in env.data.contact if foot_geom in (c.geom1, c.geom2))
+    assert (contact.geom2 == foot_geom) == floor_first
+
+
+def test_contact_geometry_and_material_slip_are_permutation_invariant():
+    from itertools import permutations
+    contacts = [(np.array([.1, 0, 0]), 1.),
+                (np.array([-.1, 0, 0]), 2.),
+                (np.array([0, .2, 0]), 3.)]
+    r0 = np.eye(3)
+    theta = .1
+    r1 = np.array([[np.cos(theta), -np.sin(theta), 0],
+                   [np.sin(theta), np.cos(theta), 0], [0, 0, 1]])
+    expected_point = np.array([-.1 / 6, .1, 0])
+    expected_slip = 2 * np.sin(theta / 2) * (.1 * 3 + .2 * 3) / 6
+    for order in permutations(contacts):
+        np.testing.assert_allclose(_support_point(order), expected_point)
+        assert _material_slip(order, np.zeros(3), r0, np.zeros(3), r1) == pytest.approx(expected_slip)
+    # Opposite sliding material points must not cancel into zero slip.
+    opposite = [(np.array([.1, 0, 0]), 1.), (np.array([-.1, 0, 0]), 1.)]
+    assert np.linalg.norm(_support_point(opposite)) == 0
+    assert _material_slip(opposite, np.zeros(3), r0, np.zeros(3), r1) > .009
+
+
+def test_contact_audit_does_not_repair_a_reversed_force_sign():
+    env = _rigid_audit_env(gravity="0 0 -9.81", floor=True)
+    audit = _ContactAudit(env)
+    audit.begin_interval(phase=0)
+    audit.mj_step(env.model, env.data)
+    _accept(audit)
+    assert audit.rows[0]["fz"].sum() > 0
+    audit.rows[0]["fz"] *= -1
+    out = audit.summary()
+    assert out["sum_fz_med_N"] < 0
+    assert not out["support_force_sign_valid"]
+    assert not out["sign_flipped"]
+
+
+def test_momentum_validation_rejects_wrong_scale_even_at_perfect_correlation():
+    env = _rigid_audit_env()
+    audit = _ContactAudit(env)
+    audit.begin_interval(phase=0)
+    for i in range(20):
+        env.data.xfrc_applied[env._chassis_bid, 5] = i % 4
+        audit.mj_step(env.model, env.data)
+    _accept(audit)
+    for row in audit.rows:
+        row["delta_lz"] *= .3
+    out = audit.summary()["angmom_check"]
+    assert out["corr"] == pytest.approx(1)
+    assert out["slope"] == pytest.approx(.3)
+    assert not out["valid"]
+
+
+def test_empty_probe_is_insufficient_data():
+    assert "INSUFFICIENT DATA" in summarize([_res(.25, None)])["verdict"]
+    assert not _ContactAudit(_rigid_audit_env()).summary()["angmom_check"]["valid"]
+
+
+def test_contact_audit_preserves_every_step_of_scripted_rollout(monkeypatch):
+    import rl_move.sim.probe_turn_authority as probe
+    original = probe.make_env
+    traces = []
+    envs = []
+
+    def make_traced(*args, **kwargs):
+        env = original(*args, **kwargs)
+        envs.append(env)
+        trace = []
+        traces.append(trace)
+        step = env.step
+
+        def traced(act):
+            result = step(act)
+            trace.append((env.data.qpos.copy(), env.data.qvel.copy(),
+                          env.data.ctrl.copy(), np.asarray(act).copy(),
+                          result[1:4]))
+            return result
+        env.step = traced
+        return env
+    monkeypatch.setattr(probe, "make_env", make_traced)
+    kwargs = dict(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                  wz_cmd=.25, vx_cmd=.08, seed=0, episode_seconds=3., policy="scripted")
+    baseline = rollout(**kwargs)
+    audited = rollout(contact_audit=True, **kwargs)
+    assert {k: v for k, v in baseline.items() if k != "contact_audit"} == {
+        k: v for k, v in audited.items() if k != "contact_audit"}
+    assert len(traces[0]) == len(traces[1])
+    for a, b in zip(*traces):
+        for av, bv in zip(a, b):
+            np.testing.assert_array_equal(av, bv)
+    out = audited["contact_audit"]
+    assert out["n_ticks"] == audited["n_walk_ticks"]
+    assert out["n_substeps"] == out["n_ticks"] * envs[1]._substeps
+    assert out["duration_s"] == pytest.approx(out["n_ticks"] * envs[1].dt)
+    assert envs[1]._mujoco is envs[0]._mujoco  # proxy restored on close
+
+
+def test_scripted_offsets_change_real_gait_and_audit_uses_its_phase(monkeypatch):
+    import rl_move.sim.probe_turn_authority as probe
+    from hexapod_core.tripod_gait import TripodGait
+    original = TripodGait.desired_deg
+    phase_sequences, commands = [], []
+    resets = []
+    reset = TripodGait.reset_phase
+
+    def record_reset(self, **kwargs):
+        result = reset(self, **kwargs)
+        resets.append(self._phase)
+        return result
+
+    def desired(self, t):
+        result = original(self, t)
+        commands[-1].append(np.asarray(result).copy())
+        phase_sequences[-1].append(self._phase)
+        return result
+    monkeypatch.setattr(TripodGait, "reset_phase", record_reset)
+    monkeypatch.setattr(TripodGait, "desired_deg", desired)
+    accepted_phases = []
+    begin = _ContactAudit.begin_interval
+
+    def record_begin(self, *, phase, record=True):
+        assert phase == phase_sequences[-1][-1]
+        accepted_phases.append(phase)
+        return begin(self, phase=phase, record=record)
+    monkeypatch.setattr(_ContactAudit, "begin_interval", record_begin)
+    for offset in (0, np.pi):
+        phase_sequences.append([])
+        commands.append([])
+        result = probe.rollout(model=None, env_cls_kwargs={"cfg_set": ["goal.walk_yaw_cmd=1"]},
+                               wz_cmd=.25, vx_cmd=.08, seed=0, episode_seconds=3.,
+                               policy="scripted", contact_audit=True, phase_offset=offset)
+        assert result["scripted_start_phase"] == offset
+    assert 0 in resets and np.pi in resets
+    assert accepted_phases
+    assert not np.allclose(commands[0][150], commands[1][150])
 
 
 def _res(wz_cmd, wz_err_med):

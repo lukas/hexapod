@@ -84,6 +84,34 @@ _BOUNDS = {
 }
 
 
+def apply_period_bound_override(
+    bounds: dict, period_min: float | None, period_max: float | None,
+) -> dict:
+    """Return a copy of ``bounds`` with the period range widened/narrowed.
+
+    Both prior robust-gate winners (``robust120-winner-yawtrim``, the
+    contextual-250 winner before it) landed with ``period`` pinned at
+    the tetrapod search's own lower bound (2.0s) -- i.e. the search
+    wants to go faster than it was ever allowed to. Default (both None)
+    is a no-op copy, bit-exact with the unmodified module-level
+    ``_BOUNDS`` (2026-09-07, todaypolicy "faster motion source /
+    cadence-CPG harvest" follow-up, RL_LOG 09-06 22:1x).
+    """
+    out = {gait: dict(fields) for gait, fields in bounds.items()}
+    if period_min is None and period_max is None:
+        return out
+    for gait, fields in out.items():
+        lo, hi = fields["period"]
+        new_lo = lo if period_min is None else float(period_min)
+        new_hi = hi if period_max is None else float(period_max)
+        if new_lo >= new_hi:
+            raise ValueError(
+                f"--period-min/--period-max invalid for gait {gait!r}: "
+                f"{new_lo} >= {new_hi}")
+        fields["period"] = (new_lo, new_hi)
+    return out
+
+
 def command_suite(name: str, speed: float, wz: float) -> list[Command]:
     """Small fixed command panels, from straight to contextual headings."""
     s = float(speed)
@@ -707,8 +735,20 @@ def main(argv: list[str] | None = None) -> int:
                          "re-evaluates these exact params on "
                          "--replay-seeds held-out seed bases")
     ap.add_argument("--replay-seeds", type=int, default=5)
+    ap.add_argument("--period-min", type=float, default=None,
+                    help="override the tetrapod/wave period search lower "
+                         "bound (default: keep the built-in bounds, "
+                         "tetrapod 2.0s / wave 5.0s -- both prior robust-"
+                         "gate winners pinned at that lower bound)")
+    ap.add_argument("--period-max", type=float, default=None,
+                    help="override the tetrapod/wave period search upper "
+                         "bound (default: keep the built-in bounds)")
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args(argv)
+    if args.period_min is not None or args.period_max is not None:
+        global _BOUNDS
+        _BOUNDS = apply_period_bound_override(
+            _BOUNDS, args.period_min, args.period_max)
     if args.reality_seeds < 0:
         ap.error("--reality-seeds must be >= 0")
     if not 0.0 <= args.dr_scale <= 1.0:

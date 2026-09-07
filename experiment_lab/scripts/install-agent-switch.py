@@ -44,11 +44,21 @@ BUILDVIZ_KEY=""
 CLAUDE_API_KEY=""
 if [ "$AGENT_PROVIDER" = "claude" ]; then
   BUILDVIZ_KEY="$(/usr/bin/security find-generic-password -a operator -s 'BuildViz API' -w 2>/dev/null || true)"
-  # Only needed if Claude Code's own OAuth credentials in the login Keychain
-  # are not reachable from a launchd background job.
-  CLAUDE_API_KEY="$(/usr/bin/security find-generic-password -a operator -s 'Hexapod Claude API' -w 2>/dev/null || true)"
+  # A launchd job gets no shell profile and cannot rely on Claude Code's
+  # interactive login, so the API key is supplied explicitly. In precedence
+  # order: an already-exported value (manual runs, `launchctl setenv`), a
+  # dedicated Keychain item for this service, and finally the interactive
+  # shell's own ANTHROPIC_API_KEY so there is one place to rotate it.
+  CLAUDE_API_KEY="${{ANTHROPIC_API_KEY:-}}"
+  if [ -z "$CLAUDE_API_KEY" ]; then
+    CLAUDE_API_KEY="$(/usr/bin/security find-generic-password -a operator -s 'Hexapod Claude API' -w 2>/dev/null || true)"
+  fi
+  if [ -z "$CLAUDE_API_KEY" ]; then
+    # Last resort: read the login shell's export. Runs only when the two
+    # cheaper sources are empty, and never for the codex backend.
+    CLAUDE_API_KEY="$(/bin/zsh -lic 'printf %s "$ANTHROPIC_API_KEY"' 2>/dev/null || true)"
+  fi
 fi
-
 '''
 
 ENV_LINES = '''  HEXAPOD_AGENT_PROVIDER="$AGENT_PROVIDER" \\

@@ -504,10 +504,37 @@ claude -p --tools "" --strict-mcp-config \
   --output-format json 'List every MCP server and whether it connected.'
 ```
 
-Claude Code authenticates from the login Keychain. If a launchd background job
-cannot reach it, add an `ANTHROPIC_API_KEY` to the Keychain as
-`Hexapod Claude API` (account `operator`) and the launcher will pass it
-through.
+### Anthropic credentials
+
+A launchd job gets no shell profile, so an `ANTHROPIC_API_KEY` exported from
+`~/.zshrc` is invisible to the service, and Claude Code's own interactive
+login may resolve to an account the service cannot bill. The launcher
+therefore resolves the key explicitly, in this order:
+
+1. `ANTHROPIC_API_KEY` already in the environment — manual runs, or
+   `launchctl setenv ANTHROPIC_API_KEY <value>` (not persistent across logout).
+2. Keychain item `Hexapod Claude API`, account `operator` — a dedicated
+   service credential that deliberately overrides the shell's.
+3. The login shell's own export, read with `zsh -lic`. This keeps `~/.zshrc`
+   as the single place to rotate the key.
+
+Only the `claude` backend performs any of these lookups, and only the third
+spawns a shell — so a slow or interactive `~/.zshrc` can delay service start.
+Set one of the first two if that matters.
+
+Verify the resolved credential works in the environment the service actually
+uses before switching:
+
+```sh
+/usr/bin/env -i HOME="$HOME" USER="$USER" LOGNAME="$USER" SHELL=/bin/zsh \
+  LANG=en_US.UTF-8 \
+  PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+  ANTHROPIC_API_KEY="$(/bin/zsh -lic 'printf %s "$ANTHROPIC_API_KEY"')" \
+  claude -p --safe-mode --tools "" --output-format json 'Reply with exactly: auth-ok'
+```
+
+`"is_error": false` means the sealed lanes will authenticate. Dropping the
+`ANTHROPIC_API_KEY` line tests the bare Keychain login instead.
 
 
 ## Robot camera gallery

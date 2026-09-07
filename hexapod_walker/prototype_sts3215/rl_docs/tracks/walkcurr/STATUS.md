@@ -2,6 +2,68 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-07 ~03:0x this cycle (refill; 11/11 GPU pods free, backlog
+  empty, no completion assigned). Built the genuinely NEW per-leg-
+  utilization mechanism the base(1g) leg-1/4 chronic-underuse
+  pathology has been flagged as needing since 09-05 ~20:2x (every
+  "price harder" design in that family, n=9 across `walk_duty_gate`
+  and `walk_swing_gate`, closed): `reward.walk_duty_band_gate`
+  (`walk_task.py`, default 0 = off/bit-exact). Root cause read
+  directly from the two closed mechanisms' own CURRENT_TRUTHS entries:
+  `walk_duty_gate` priced a FLOOR only (duty >= floor good), so a
+  fully-planted/vibrating leg at duty=1.0 always clears it trivially —
+  the freeze/vibrate exploit that closed it 9/9; `walk_swing_gate`
+  priced a swing-COUNT floor only, so a leg that toe-taps with
+  frequent real-stride swings but never bears load/propels clears it
+  while running near-zero duty the rest of the time — closed it 5/5.
+  Neither could tell "healthy alternating duty" apart from EITHER
+  extreme because both only ever penalized ONE direction of drift.
+  The new gate scores MIN over support legs of a trapezoid membership
+  in `[duty_band_floor, duty_band_ceil]` (defaults 0.15/0.85, own
+  trailing window `_dbandgate_hist`, independent state from the two
+  closed gates) — a healthy tripod leg (duty ~0.4-0.6) sits deep
+  inside the band and is unpriced regardless of dose; a leg at EITHER
+  tail is charged. Bank: 13 new tests in
+  `test_walkscratch_easy_pilot.py` (formal bit-exact-off proof, reused
+  the `walk_duty_gate` bank's own legpark/tokentouch exploit twins to
+  prove the floor half still closes those, PLUS a new "freeze" twin
+  — all six legs held dead still, duty=1.0 everywhere — that
+  `walk_duty_gate`'s own bank could never construct a test for since a
+  floor-only gate structurally cannot price it; the new gate collapses
+  its internal score to <=0.15 in the tail while the floor-only gate's
+  own score would read near-1.0 on the identical construction), all
+  13/13 green. Found+fixed one real bug while building the bank (the
+  new gate's history-collection block lived inside a shared
+  contact-bookkeeping conditional that only fires when one of the
+  OTHER mechanisms is also enabled — `walk_duty_band_gate` alone never
+  triggered it, silently pinning the gate inert; fixed by adding it to
+  that shared condition; caught by the bank itself, not shipped).
+  Snapshot `exp/walkcurr-duty-band-gate` (`d9d04cf2`). Per this
+  banner's own rule (build+bank BEFORE spend), launched the matched
+  fresh-vs-entrenched provenance pair the family's own precedent
+  (`dgfresh`/`swinggate-fresh` vs `dgatefix`/`swinggate-fix`)
+  established as necessary before any verdict: `cw-walkscratch-
+  easy0905-headset-base-s0c1-dbandgate-fresh` (warm-started from the
+  same lightly-trained `base_s0_c1.zip` `dgfresh` used, VERIFIED
+  RUNNING train-4) and `-dbandgate-fix` (retrofit onto the same
+  40M-entrenched `s0c1_acq1.zip` checkpoint `swinggate-fix`/`dgatefix`
+  both retrofitted onto, VERIFIED RUNNING train-3), both 2M
+  mechanism-health canaries, dose `duty_band_floor=0.35`/
+  `duty_band_ceil=0.85` (the stronger floor already confirmed to
+  apply real training-time pressure rather than being masked by PPO
+  rollout noise, per the `dgate2`/`dgnoise` dose-grid findings).
+  Full board re-confirmed otherwise unchanged: joystick/amp/cpg
+  DONE/maintenance, standwalk blocked on design-thinking, todaypolicy
+  blocked on the in-flight `cpg`-side CPU search (20/60 iterations at
+  last read, best period still >=2.0), assistfade `s0-longbudget` and
+  walkcurr's own item(1) crossgrav-composite fork stay DIG-IN-owned
+  (re-checked via `ops.sh entry`, not touched — model-tiering rule).
+  `CYCLE_WORKED` touched (real mechanism + bank + 2 launches).
+  Evidence: `rl_move/sim/walk_task.py` diff, `rl_move/tests/
+  test_walkscratch_easy_pilot.py` diff (13 new tests), `ops.sh entry
+  cw-walkscratch-easy0905-headset-base-s0c1-dbandgate-{fresh,fix}`,
+  RL_LOG 09-07 03:01.**
+
 - **09-07 ~01:2x this cycle (refill; 11/11 GPU pods free, backlog
   empty, no completion assigned). Fixed a stale-status bug in
   `ops.sh status` that was making every fresh capacity read report 8+

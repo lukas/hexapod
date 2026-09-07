@@ -1,5 +1,85 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~09:2x (refill cycle; 11/11 GPU free, backlog empty, no completion assigned) — built + bank-proved item(1)'s deferred COMMAND SPEED-RANGE WIDENING mechanism (walk_task.py, default off, bit-exact), launched the 3-seed canary set
+
+Every other track/lever was in-flight, closed, or design-blocked (full
+re-read of guardrails/CURRENT_TRUTHS/all 6 STATUS docs + `launch_run.py
+status`): item(1)'s widen8-acq1 (3/3) and irr (3/3) cohorts were all
+still training or mid-finalization, owned by concurrent cycles;
+role-aware per-leg reward is explicitly deferred pending a dedicated
+design pass a prior cycle declined to rush. The ONE genuinely
+unblocked, previously-scoped-but-unbuilt item was the OTHER deferred
+realism axis this STATUS itself names: command SPEED-range widening.
+Root cause (confirmed by reading `walk_task.py`): `walk_freeprog_score`
+prices ALONG-command velocity against a single FIXED
+`reward.walk_freeprog_cap_m_s` scalar (0.06 for the whole crutchoff/
+widen8/irr campaign) — it uses `vx_ref`/`vy_ref` for DIRECTION only,
+discarding MAGNITUDE. Widening `goal.walk_speed_min/max_m_s` alone
+therefore changes nothing: a policy producing the same absolute speed
+regardless of command still saturates the same fixed cap, so command
+magnitude carries zero reward signal. Measured directly (see below):
+at a fixed physical gait (0.06 m/s actual), scoring under a 0.06 m/s
+command vs a 0.12 m/s command differs by <0.2% under the legacy fixed
+cap — command-blind, exactly as diagnosed.
+
+**Built** (`walk_task.py`, default OFF, bit-exact when off):
+`reward.walk_freeprog_cap_dynamic=1` raises the effective freeprog cap
+to `max(walk_freeprog_cap_m_s, s_ref)` where `s_ref` is THIS EPISODE's
+commanded speed magnitude. Commands at/below the fixed floor keep the
+legacy permissive cap (going faster than a slow command stays free,
+preserving the no-speed-band ruling); commands ABOVE it get their own
+per-episode speed as the saturation point, so under-obeying a fast
+command now actually costs income. New `walk_freeprog_cap_used_m_s`
+info key only emitted when the flag is armed.
+
+**Bank** (`rl_move/tests/test_task_semantics.py`, on
+`WALKCURR_ITEM4_BARE_OVERRIDES` — the exact reward diet every
+crutchoff/widen8/irr launch uses, confirmed by diffing against a live
+launch command): 4 new tests, all green (18/18 total in that bank,
+`_slipwalk_rollout` extended with a `cmd_vx` parameter, default
+unchanged so every existing caller is untouched):
+`test_walkcurr_item4_cap_dynamic_default_off_is_bit_exact` (flag on
+but every command sits at the fixed floor -> bit-identical return),
+`test_walkcurr_item4_cap_fixed_is_command_blind` (root-cause repro:
+legacy cap scores a 0.06-actual gait ~equally whether commanded 0.06
+or 0.12), `test_walkcurr_item4_cap_dynamic_prices_command_magnitude`
+(the fix: same physical gait scores clearly worse under the dynamic
+cap when it only half-obeys a doubled command — margin calibrated
+against the bank's own gait-vs-stall gap), `test_walkcurr_item4_cap_
+dynamic_overspeed_still_free` (going 2x a SLOW command still isn't
+punished — the no-speed-band ruling survives). Measured numbers
+(3 seeds, controller probe): legacy fixed-cap command-blindness
+1181.4 (cmd=0.06) vs 1179.4 (cmd=0.12, same physical gait) — a 0.2%
+gap; dynamic cap 1181.4 vs 692.2 — a 41% gap, i.e. command magnitude
+is now clearly reward-visible. **Found, not fixed (out of scope this
+cycle, flagging for whoever revisits that lineage): the OLDER
+`walkcurr_pf_*`/`slipwalk_swing_bonus_*` sub-banks in this same file
+are currently RED on a clean checkout (pre-existing, NOT caused by
+this change — verified via `git stash` before/after) — those test an
+earlier rung-1 reward stack (`WALKCURR_PF_OVERRIDES`) no longer used
+by any in-flight lineage, not the `WALKCURR_ITEM4_BARE` diet this
+mechanism actually targets.**
+
+**Launched** the 3-seed canary set (single axis, matched parent, same
+gate style as the sibling widen8/irr canaries): `crutchoff-{s0,s1,s2}-
+speedwiden` (`respec --init-from-source` off each seed's own ACQ-PASSED
+40M crutch-off checkpoint, `goal.walk_speed_min_m_s=0.03` / `_max_m_s=
+0.12` + `reward.walk_freeprog_cap_dynamic=1`, 2M canary, held-out gate
+resamples the same widened band). Prediction-if-true: 0 or near-0
+falls/24, gait_valid >=18/24, no new chronic single-leg sacrifice.
+Prediction-if-false: falls or a chronic sacrifice at the speed
+extremes, or the newly speed-visible reward destabilizing a gait the
+fixed-cap diet had already converged on. All 3 VERIFIED RUNNING
+(train-2/train-3/train-0), all 3 finished their 2M training within the
+cycle (fast at 2M steps) and are now in CPU-finalizer eval/video —
+unread, left for the next cycle. Snapshot `020e744e`.
+
+Evidence: `rl_move/sim/walk_task.py` (`walk_freeprog_cap_dynamic`),
+`rl_move/tests/test_task_semantics.py::test_walkcurr_item4_cap_*` (4
+new, 18/18 total in `WALKCURR_ITEM4_BARE`/`_LOADSLIP`/`_footslip`
+banks), `/tmp/probe_capdyn2.py` numbers above, ledger entries for
+`crutchoff-{s0,s1,s2}-speedwiden`.
+
 ## 2026-09-07 ~09:0x (resumed cycle: my own prior turn's assigned-run triage was already fully written but got cut off before the launch-verifier finished and before snapshotting) — ledger reconciliation + completes the irr-timing trio 3/3
 
 My assigned run (`crutchoff-s0-widen8`) had already been fully

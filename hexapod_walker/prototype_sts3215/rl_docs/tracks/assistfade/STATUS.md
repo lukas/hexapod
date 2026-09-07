@@ -1,5 +1,97 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~06:4x (this cycle — the implementing cycle the entry directly below refers to) — addressed both real code-review findings on the MJX reverse-handoff wiring; the bit-exact test failure I separately hit looks like pod contention, not a logic bug — flagging, not asserting
+
+I am the concurrent cycle that wrote `MjxVecEnv._walk_reverse_handoff_
+ticks`/`_apply_walk_reverse_handoff` and the `mjx_sharded_vec_env.py`
+`handoff_tick` worker protocol the entry directly below describes
+finding already in-tree (I did not see a doc claim before starting;
+sorry for the near-duplicate scare — no harm done, the reviewing
+cycle's own note confirms it read mine rather than writing a second
+copy). Addressed its two real findings this cycle, in both files:
+
+1. **goal-None guard**: `_apply_walk_reverse_handoff` (in-process) and
+   the worker's `handoff_tick` handler (sharded) now check
+   `env._current_goal() is None` PER ENV before drawing the phase rng
+   or building a gait, matching the CPU env's own early-return exactly
+   (no draw, no advance). Inactive envs get `valid=False` for their row
+   of the batched `st.tick()` command (a real per-env boolean array,
+   not a global skip) so the batch still ticks together but an
+   inactive env's target is never applied — matches the settle stage's
+   own `hold`/`valid=False` semantics one section above. Added
+   `handoff_valid` as a new shm field (sharded only; the in-process
+   twin already has a plain per-env `bool` array, no shm needed).
+   Bit-exact for rung-4's own `walk_pure=1` cfgs (goal is never None
+   there) — this only matters for some future cfg that arms the gate
+   on a non-walk goal mix.
+2. **Pooled-entry profile-reinject mismatch** (the more important
+   find): a handoff-ON reset leaves the DEVICE profile/ctrl slewed onto
+   the teacher's LAST command, but the pool entry's `q_nom` field (used
+   by `inject_env_states` to re-seed BOTH the actuator ctrl and the
+   profile target on every POOLED pop — confirmed by reading
+   `mjx_backend.MjxTickStepper.inject_env_states`, `ctrl.at[...].set(q0)`
+   AND `init_profile_state(q0, ...)`) still held the PRE-handoff static
+   nominal. Since pooled pops are the dominant reset path once training
+   is under way (not the one-time initial reset), every handoff-primed
+   entry would have its actuator snap back to the static pose the
+   instant it got consumed — undoing the entire point of the mechanism
+   for most of training while looking fine on the one "live" reset a
+   manual/bank check would notice. Fixed by threading a SEPARATE
+   `prof_q` value through both entry-creation sites (in-process
+   `_choreography`'s `entries.append`, sharded `_choreography`'s
+   `self._pool_dev[i].append`) and both consumption sites (in-process
+   `_pop_resets`, sharded `_pop_resets`) — `prof_q` equals `q_nom`
+   bit-exact whenever the gate is off or an individual env's own goal
+   was None, and the teacher's final commanded pose (mujoco order)
+   otherwise. `env._q_nom` itself (the "settled quiet stand"
+   reward/bookkeeping reference, read by `_reset_finalize`/reward code)
+   is deliberately LEFT UNTOUCHED — matches the CPU env, which never
+   calls `inject_env_states` at all so this exact mismatch cannot arise
+   there.
+
+**Separately, my own earlier same-cycle bit-exact check
+(`test_sharded_bitwise_matches_inprocess` /
+`test_mode_seq_sharded_bitwise_matches_inprocess`, BEFORE either fix
+above, gate OFF in both configs) FAILED on `hexapod-mjx-train-1`** —
+obs diverged at the very first reset on an index that looks like a
+body-height/orientation feature. Read the gate-OFF code path twice
+over since (`_walk_reverse_handoff_ticks()` returns 0 whenever
+`goal.walk_reverse_handoff_gate` is unset, both the in-process and
+sharded `_choreography()` then skip every new branch and fall through
+to the pre-existing code UNCHANGED) and cannot find a way this specific
+change causes it — **but discovered, only after the run had already
+been going for several minutes, that `hexapod-mjx-train-1` was
+simultaneously running a live 8M-step GPU training job
+(`cw-robotwalk-turns-20260907-yawref-acq8m`, 88% CPU, plus ~15 old
+defunct/zombie processes, load average 25+) that `launch_run.py
+status`/`capacity.py` did NOT report as busy** (both showed it — and
+every other pod, including the one running the crutch-isolation ACQ
+runs — as FREE minutes later, which is simply wrong; ledger-derived
+capacity reporting is stale/unreliable right now, verify with `kubectl
+exec <pod> -- ps aux` before treating ANY pod as free for ad-hoc
+testing, not just for launches). A multiprocessing-heavy bit-exact
+comparison test is exactly the kind of thing CPU starvation can
+plausibly corrupt (worker spawn/pipe races) without it being a real
+code defect. I did not re-run the comparison on a verified-idle pod
+before this entry (did not want to risk a THIRD pod collision this
+cycle) — **treat the bit-exact result as an open flag, not a confirmed
+bug**: re-run `test_mjx_vec_env.py -k bitwise` plus the new
+`test_mjx_reverse_handoff.py` bank on a pod independently confirmed
+idle via `kubectl exec ps` (not just `launch_run.py status`) before
+trusting either a pass or a fail from this point forward, and before
+any rung-4 canary launch. If it fails again on a genuinely idle pod,
+that's a real regression to root-cause before launching; if it passes,
+the contention theory is confirmed and nothing else needs to change.
+Committed via `snapshot.sh assistfade-rung4-mjx-handoff-codereview-fix`
+(code review fixes only, no new launch — the rung-4 canary itself
+still needs the bit-exact re-verification above first, per this
+track's own binding "bank before launch" rule).
+
+Evidence: `rl_move/sim/mjx_vec_env.py`/`mjx_sharded_vec_env.py` diffs
+(this commit), review findings quoted from the entry directly below,
+`kubectl exec hexapod-mjx-train-1 -- ps aux` (live robotwalk-turns job
++ zombie count, this cycle).
+
 ## 09-07 ~06:3x — OWNERSHIP UPDATE: rung-4 MJX reverse-handoff wiring is being IMPLEMENTED by a concurrent cycle; this cycle (operator focus note 20260907T055148Z) YIELDS the implementation and takes only the non-colliding pieces
 
 This cycle was dispatched (operator lane) to own the deferred MJX

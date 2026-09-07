@@ -139,6 +139,7 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         layout["handoff_q"] = s("hoq", (B, N_JOINTS), "float64")
         layout["handoff_speed"] = s("hosp", (B,), "float64")
         layout["handoff_acc"] = s("hoac", (B,), "float64")
+        layout["handoff_valid"] = s("hovl", (B,), "bool")
     return layout
 
 
@@ -404,6 +405,11 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                                                 model=dr_model)
                     env._profile = CommandStub()
                     env._cmd = q_start.copy()
+                    # Reset every call (mirrors MjxVecEnv's own reset):
+                    # an env whose goal is None this episode (or the
+                    # gate itself is off) must read False, never a
+                    # stale True left over from a PRIOR choreography.
+                    env._handoff_active_this_reset = False
                 if seq_mint:
                     seq_partial = [dict() for _ in envs]
                 handoff_gaits = [None] * len(envs) if handoff_n > 0 else None
@@ -452,16 +458,39 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                 for k, env in enumerate(envs):
                     g = lo + k
                     if handoff_gaits[k] is None:
+                        # goal-None guard (code review, 09-07): the CPU
+                        # env early-returns (no rng draw, no teacher
+                        # advance) when _current_goal() is None; matched
+                        # here per-env with a distinct False sentinel
+                        # (checked-once, not re-decided every tick) so
+                        # a goal-less env neither draws phase rng nor
+                        # gets ticked toward a bogus zero-velocity
+                        # "gait" -- inert for rung-4's own
+                        # walk_pure=1 cfgs, matters for any other cfg
+                        # that arms this gate.
                         goal = env._current_goal()
-                        gait = env._make_walk_bc_gait()
-                        gait.set_velocity(
-                            vx=float(getattr(goal, "vx_ref", 0.0) or 0.0),
-                            vy=float(getattr(goal, "vy_ref", 0.0) or 0.0),
-                            omega=float(getattr(goal, "wz_ref", 0.0)
-                                        or 0.0))
-                        gait.reset_phase(
-                            phase=float(env.rng.uniform(0.0, 2 * math.pi)))
-                        handoff_gaits[k] = gait
+                        if goal is None:
+                            handoff_gaits[k] = False
+                        else:
+                            gait = env._make_walk_bc_gait()
+                            gait.set_velocity(
+                                vx=float(getattr(goal, "vx_ref", 0.0)
+                                         or 0.0),
+                                vy=float(getattr(goal, "vy_ref", 0.0)
+                                         or 0.0),
+                                omega=float(getattr(goal, "wz_ref", 0.0)
+                                            or 0.0))
+                            gait.reset_phase(phase=float(
+                                env.rng.uniform(0.0, 2 * math.pi)))
+                            handoff_gaits[k] = gait
+                            env._handoff_active_this_reset = True
+                    if handoff_gaits[k] is False:
+                        shm["handoff_valid"][g] = False
+                        # Never read (valid=False for this row), but
+                        # keep it finite/harmless for the batched tick.
+                        shm["handoff_q"][g] = env._logical_to_mujoco_q(
+                            env._cmd)
+                        continue
                     q_rad = env._clip_to_joint_limits(
                         np.asarray(handoff_gaits[k].desired_deg(t),
                                   dtype=float) * DEG2RAD)
@@ -469,6 +498,7 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     shm["handoff_q"][g] = env._logical_to_mujoco_q(q_rad)
                     shm["handoff_speed"][g] = env.write_speed_deg_s
                     shm["handoff_acc"][g] = env.write_acc_units
+                    shm["handoff_valid"][g] = True
                 conn.send(("ok", None))
 
             elif cmd == "reset_finalize":
@@ -885,9 +915,26 @@ class MjxShardedVecEnv(VecEnv):
                 cmd = st.make_command(
                     self._shm["handoff_q"].copy(),
                     speed_deg_s=self._shm["handoff_speed"].copy(),
-                    acc_units=self._shm["handoff_acc"].copy(), valid=True)
+                    acc_units=self._shm["handoff_acc"].copy(),
+                    valid=self._shm["handoff_valid"].copy())
                 out = st.tick(cmd)
         self._copy_outs(out)
+        # Pool-entry profile-reinject pose (code review, 09-07 — see
+        # MjxVecEnv._choreography's own prof_q comment for the full
+        # explanation): after the LAST handoff tick above,
+        # shm["handoff_q"]/["handoff_valid"] hold each env's final
+        # teacher command / whether it actually ran one (goal-None
+        # envs never flip "handoff_valid" true) -- exactly the value a
+        # pooled reset's inject_env_states() must use for envs whose
+        # handoff ran, instead of the pre-handoff static q_nom, or the
+        # injected ctrl would instantly snap back while qpos/qvel stay
+        # at the moving handoff end-state. Bit-exact q_nom when the
+        # gate is off (handoff_n == 0, loop above never ran) or for any
+        # env whose own goal was None.
+        prof_q = q_nom.copy()
+        if handoff_n > 0:
+            valid_mask = np.asarray(self._shm["handoff_valid"], dtype=bool)
+            prof_q[valid_mask] = self._shm["handoff_q"][valid_mask]
         infos = self._broadcast("reset_finalize", mode)
         for probe_i in range(self._reset_probe_n):
             out = st.tick(hold)
@@ -906,6 +953,7 @@ class MjxShardedVecEnv(VecEnv):
                     qpos=self._shm["o_qpos_all"][i].astype(float),
                     qvel=self._shm["o_qvel_all"][i].astype(float),
                     q_nom=q_nom[i].copy(),
+                    prof_q=prof_q[i].copy(),
                     tp_row={k: self._shm[f"tp_{k}"][i].copy()
                             for k in _TP_KEYS},
                     dr_row=({f: self._shm[f"dr_{f}"][i].copy()
@@ -946,7 +994,13 @@ class MjxShardedVecEnv(VecEnv):
                     dr_fields[f].append(v)
             qpos.append(e["qpos"])
             qvel.append(e["qvel"])
-            q_nom.append(e["q_nom"])
+            # prof_q (not q_nom): see MjxVecEnv._pop_resets' own
+            # comment -- bit-exact q_nom for every entry that never ran
+            # the reverse-handoff, the teacher's last commanded pose
+            # otherwise, so the injected ctrl matches the already-
+            # moving qpos/qvel instead of snapping back to the static
+            # pre-handoff nominal (code review, 09-07).
+            q_nom.append(e.get("prof_q", e["q_nom"]))
         for w, (pc, (lo, hi)) in enumerate(zip(self._conns, self._ranges)):
             local = [i - lo for i in done_idx if lo <= i < hi]
             if local:

@@ -240,13 +240,31 @@ class MjxVecEnv(VecEnv):
         otherwise, so the caller's existing ``outs = device_get(out)``
         pipeline needs no other change."""
         n = self._walk_reverse_handoff_ticks()
+        # Reset the per-env tracking flag every call (used below AND by
+        # the caller's pool-entry profile-reinject fix) -- an env whose
+        # goal is None this episode (or the gate itself is off) must
+        # read False, never a stale True from a previous choreography.
+        for env in self.envs:
+            env._handoff_active_this_reset = False
         if n <= 0:
             return out
         B = self.num_envs
         dt = self.envs[0].dt
-        gaits = []
-        for env in self.envs:
+        gaits: list = []
+        active = np.zeros(B, dtype=bool)
+        for i, env in enumerate(self.envs):
+            # goal-None guard (code review, 09-07): the CPU env early-
+            # returns (NO rng draw, no teacher advance) when
+            # _current_goal() is None -- matched here per-env so an
+            # env without an active walk goal this episode neither
+            # draws phase rng nor gets ticked toward a bogus
+            # zero-velocity "gait" it never asked for. Inert for
+            # rung-4's own walk_pure=1 cfgs (goal is never None there);
+            # matters for any other cfg that arms this gate.
             goal = env._current_goal()
+            if goal is None:
+                gaits.append(None)
+                continue
             gait = env._make_walk_bc_gait()
             gait.set_velocity(vx=float(getattr(goal, "vx_ref", 0.0) or 0.0),
                               vy=float(getattr(goal, "vy_ref", 0.0) or 0.0),
@@ -254,6 +272,10 @@ class MjxVecEnv(VecEnv):
                                           or 0.0))
             gait.reset_phase(phase=float(env.rng.uniform(0.0, 2 * math.pi)))
             gaits.append(gait)
+            active[i] = True
+            env._handoff_active_this_reset = True
+        if not active.any():
+            return out
         speed = np.array([e.write_speed_deg_s for e in self.envs],
                          dtype=np.float32)
         acc = np.array([e.write_acc_units for e in self.envs],
@@ -262,6 +284,12 @@ class MjxVecEnv(VecEnv):
             t = k * dt
             q_batch = np.zeros((B, N_JOINTS), dtype=np.float32)
             for i, env in enumerate(self.envs):
+                if not active[i]:
+                    # Inactive envs get no new target (matches the
+                    # settle's own `hold` semantics) -- their `valid`
+                    # row below is False, so this value is never read.
+                    q_batch[i] = env._logical_to_mujoco_q(env._cmd)
+                    continue
                 q_rad = env._clip_to_joint_limits(
                     np.asarray(gaits[i].desired_deg(t), dtype=float)
                     * DEG2RAD)
@@ -277,7 +305,7 @@ class MjxVecEnv(VecEnv):
             # approximation, and no per-tick per-env python call is
             # needed to reach it.
             cmd = st.make_command(q_batch, speed_deg_s=speed,
-                                  acc_units=acc, valid=True)
+                                  acc_units=acc, valid=active)
             out = st.tick(cmd)
         return out
 
@@ -384,6 +412,30 @@ class MjxVecEnv(VecEnv):
             out = st.tick(hold)
         out = self._apply_walk_reverse_handoff(st, out)
         outs = self._jax.device_get(out)
+        # Pool-entry profile-reinject pose (code review, 09-07): a
+        # handoff-ON reset leaves the DEVICE profile/ctrl slewed onto
+        # the teacher's LAST command, not q_nom -- inject_env_states()
+        # writes this value into BOTH qpos/qvel's paired ctrl AND the
+        # re-initialized profile target, so a POOLED reset (the
+        # dominant reset path once training is under way) must inject
+        # the SAME pose the live state is actually AT, or the injected
+        # ctrl instantly snaps the actuator back to the pre-handoff
+        # static q_nom while qpos/qvel stay at the moving handoff
+        # end-state -- a physically-jarring mismatch that undoes the
+        # whole point of the handoff for every env this ever happens
+        # to. q_nom itself (env._q_nom, the "settled quiet stand"
+        # reward/bookkeeping reference) is intentionally left
+        # untouched -- see _apply_walk_reverse_handoff's own docstring:
+        # only the pool re-inject target changes, matching the C env's
+        # own reset() (which never calls inject_env_states at all, so
+        # this mismatch cannot occur there in the first place).
+        # Bit-exact with plain q_nom when the gate is off or an
+        # individual env's own goal was None (never touched by the
+        # handoff loop below).
+        prof_q = q_nom.copy()
+        for i, env in enumerate(self.envs):
+            if getattr(env, "_handoff_active_this_reset", False):
+                prof_q[i] = env._logical_to_mujoco_q(env._cmd)
 
         finalized = []
         for i, env in enumerate(self.envs):
@@ -415,6 +467,7 @@ class MjxVecEnv(VecEnv):
                 qpos=np.asarray(outs.qpos_all[i], dtype=float),
                 qvel=np.asarray(outs.qvel_all[i], dtype=float),
                 q_nom=q_nom[i].copy(),
+                prof_q=prof_q[i].copy(),
                 obs=obs, info=info,
                 host=snapshot_env(env, self._snap_attrs),
                 tp_row={k: self._tp_host[k][i].copy()
@@ -471,7 +524,15 @@ class MjxVecEnv(VecEnv):
                     dr_fields[k].append(v)
             qpos.append(e["qpos"])
             qvel.append(e["qvel"])
-            q_nom.append(e["q_nom"])
+            # prof_q (not q_nom): the device profile-reinject / ctrl
+            # target for this pop. Equal to q_nom for every entry that
+            # never ran the reverse-handoff (bit-exact); for a
+            # handoff-active entry it is the teacher's LAST commanded
+            # pose so the injected ctrl matches the already-moving
+            # qpos/qvel instead of snapping back to the pre-handoff
+            # static nominal (code review, 09-07 — see where prof_q is
+            # built in _choreography for the full explanation).
+            q_nom.append(e.get("prof_q", e["q_nom"]))
             res.append((e["obs"], e["info"]))
         self.stepper.set_tick_params(self._tp_host, dt_ctrl=self.envs[0].dt)
         if self._model_dr:

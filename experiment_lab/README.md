@@ -492,16 +492,30 @@ environment carries no service token of any kind.
 ### Verifying a switch
 
 Confirm the MCP servers actually authenticate before trusting an engineering
-run, and check `~/Library/Logs/hexapod-codex-orchestrator.log` for
-`Unknown HEXAPOD_AGENT_PROVIDER` or CLI startup errors:
+run. `scripts/check-claude-mcp.sh` loads the same three Keychain bearer values
+the orchestrator passes and reports each server's status from Claude's own
+session-init event, so it never depends on the model describing itself. It
+exits non-zero if any server failed, which makes it usable as a cutover gate:
 
 ```sh
-BUILDVIZ_API_KEY="$(security find-generic-password -a operator -s 'BuildViz API' -w)" \
-HEXAPOD_ORCHESTRATOR_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Orchestrator MCP' -w)" \
-HEXAPOD_LAB_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Lab API' -w)" \
-claude -p --tools "" --strict-mcp-config \
-  --mcp-config "$HOME/Library/Application Support/Hexapod Lab/claude-mcp.json" \
-  --output-format json 'List every MCP server and whether it connected.'
+scripts/check-claude-mcp.sh
+#   ok   rl_orchestrator: connected
+#   FAIL buildviz: failed
+#   ok   robot_lab: connected
+```
+
+A `failed` server is almost always a missing or stale Keychain item; the
+script warns separately for each value it could not read. Also check
+`~/Library/Logs/hexapod-codex-orchestrator.log` for
+`Unknown HEXAPOD_AGENT_PROVIDER` or CLI startup errors.
+
+`BUILDVIZ_API_KEY` has no Keychain item by default. Its canonical source is
+the CoreWeave secret:
+
+```sh
+KUBECONFIG=~/.kube/coreweave.yaml kubectl get secret buildviz-api-key \
+  -o jsonpath='{.data.key}' | base64 -d \
+  | xargs -0 security add-generic-password -U -a operator -s 'BuildViz API' -w
 ```
 
 ### Anthropic credentials

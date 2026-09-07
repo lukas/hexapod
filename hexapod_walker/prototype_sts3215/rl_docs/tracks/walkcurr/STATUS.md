@@ -1,5 +1,60 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~11:1x (refill cycle; 8 free slots at start, backlog empty) — speedwiden canary trio CLOSES 3/3 CANARY PASS, ACQ trio launched; irr-timing canary pair CLOSES 2/2 CANARY FAIL (reproducible new fall); reconciled 3 mislabeled-but-actually-FINISHED widenbis ledger entries
+
+Verdicted the two orphaned item(1) realism-ladder canary cohorts left
+by the ~09:5x-~10:4x cycles (speedwiden, irr-timing), both on the
+crutch-off full-DR composite:
+
+1. **`crutchoff-{s0,s1,s2}-speedwiden` (speed-band widening 0.03-0.12
+   m/s + `walk_freeprog_cap_dynamic`): all 3 CANARY PASS.** Each
+   seed's gait_valid/termination numbers are within noise of that
+   exact seed's own `-acq1` baseline (22/24 vs 21/24, 21/24 vs 21/24,
+   21/24 vs 21/24), sacrifice confined to the same hardest
+   `walk_startjitter/sto` cell every baseline already flags. No new
+   failure mode. Launched all 3 seeds' 40M ACQ continuations
+   (`{s0,s1,s2}-speedwiden-acq1`, VERIFIED RUNNING train-2/3/0) — the
+   open question, per the widen8 precedent (canary PASS 3/3, then ACQ
+   FAIL 3/3 via a heading-dependent front-pair sacrifice), is whether
+   speed-widening also only breaks at acquisition depth.
+2. **`crutchoff-{s1,s2}-irr` (irregular command-resample timing,
+   +-50% jitter on the 6s interval): 2/2 CANARY FAIL - MECHANISM.**
+   Both seeds fall (`tilt_roll`) at the IDENTICAL episode index
+   (`walk/sto` ep4) that each seed's own clean `-acq1` baseline does
+   not fall at — decisive, not noise. `gait_valid` drops (19/24,
+   20/24) with sacrifice spreading into `walk/det`/`walk_startjitter/
+   det`, modes the parent's clean signature never touches. This same
+   axis already composed cleanly at 1g without full DR
+   (`medhead-irrfwd-c1-acq1` PASS) — the regression is specific to
+   the full-DR composite, plausibly a jitter+push/DR interaction.
+   **Closes bare irr-timing on the crutch-off composite; do not
+   relaunch without a mitigation for the jitter+push interaction.**
+   (The trio's 3rd seed, `s0-irr`, was mis-launched at 40M steps
+   instead of a 2M canary by its launching cycle and got mechanically
+   SEED-PRUNED for reward stagnation before a clean canary read was
+   possible — not informative for this verdict.)
+
+**Ledger-hygiene finding (no science, but worth recording):** the
+protected widenbis heading-bisection trio
+(`crutchoff-s0-widenbis{135,-135,180}`, this cycle's off-limits runs)
+all actually FINISHED their full 40M training naturally (W&B
+confirms all 3 at `40,370,176` steps) moments before this cycle's own
+launches landed — the pods went genuinely idle and free capacity was
+correctly claimed, but one entry (`widenbism135`) got mechanically
+mislabeled `KILLED` by the respec tooling instead of `FINISHED`
+(the process was already gone — finished, not killed — when the new
+launch claimed the pod) and the other two were still showing stale
+`RUNNING` status. Reconciled all 3 to `FINISHED` via `launch_run.py
+update --set status=FINISHED` (no hand-edit), confirmed their
+CPU-finalizer gate evals are genuinely computing on-pod (not lost),
+registered all 3 via `evalpending`. Their actual bisection RESULTS
+(does 135/-135/180 alone reproduce widen8's front-pair sacrifice) are
+still unread — leave for the next reader once the reports land.
+
+4 launches this cycle (3 speedwiden-acq1 + 1 assistfade rung1-mesh
+arm, see that track's own STATUS) — at `max_new_launches_per_cycle`.
+7 pods genuinely free at cycle end (train-1/5/7/8/9/10/11). CYCLE_WORKED touched.
+
 ## 2026-09-07 ~10:4x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — launched the widen8 heading-bisection trio named as the "pending cheap bisection" in the ~09:5x/~10:0x closure
 
 Executed option (b) from the widen8 ACQ-trio closure's own remediation

@@ -1,5 +1,50 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~11:1x — rung-4 handoff-schedule family CLOSES 2/2 (no-anneal also fails); launched rung-1-on-mesh, the one gap the ledger audit itself names as UNPROVEN
+
+Triaged `cw-assistfade-rung4-revhandoff-noanneal-s0` (the option-(i)
+retreat canary from the ~10:0x entry below: hold the full 2.0s
+handoff assist for essentially the WHOLE 2M canary instead of
+annealing it away by 90%). **CANARY FAIL - MECHANISM
+(FAIL-STILL-STUCK)**: walk/det prog_ratio med -0.03, walk/sto med
+-0.00, slip/m 27-35 in every mode, reward quarters
+[-0.3,-3.0,-1.4,-1.2] (flat/negative throughout, not the 08-21
+rising-reward case). This is exactly the run's own pre-registered
+false branch — keeping the crutch up longer does NOT help either.
+**Closes the handoff-schedule lever family 2/2 (annealed-early +
+held-full): the blocker is the phase-sv-contact reward diet itself,
+not the anneal timing/duration.** Per this run's own hypothesis, do
+NOT chase a 3rd handoff-schedule variant (e.g. longer per-episode
+teacher seconds) — that is the same closed family.
+
+**Found a real, actionable gap instead: this file's own "Ledger audit"
+section (above) has said since 09-06 that "Rung 1 on MESH/100Hz:
+UNPROVEN as of 2026-09-06" — no exact rung-1 (BC-init from the proven
+scripted-tripod clone, then TASK-ONLY PPO with zero ongoing BC/anchor)
+equivalent has ever been run on the mesh/100Hz family, even though
+rungs 2-4 have all been extensively worked past it.** Per the doc's
+own Goal text ("run only the FIRST UNPROVEN rung"), this is the
+actual next rung to try, not a 4th rung-4 variant or a fresh rung-2/3
+design pass. Launched `cw-assistfade-rung1-mesh-noanchor-s0`
+(track=assistfade; respec of the proven `cw-walkteach-scripted-
+allhead-canary-r1` rung-0 canary — same BC-cloned init + task/reward
+diet — with `train.bc_anchor_coef`/`bc_anchor_walk`/`bc_anchor_walk_
+coef`/`bc_anchor_phase_lock` all forced to 0.0 from step 0, i.e. the
+anchor mechanism is never engaged at all, not even at init). VERIFIED
+RUNNING train-4 (2M canary). Prediction-if-true: PPO retains the BC
+clone's already-working gait under pure task reward (progress_ratio
+clearly above ~0, six legs participating, no falls) — would mean
+rung0's persistent anchor and rung2's anneal-gated anchor are more
+scaffolding than this specific proven init actually needs. Prediction-
+if-false: reverts to the static-stand basin within 2M, matching
+rung2's own early anchor-less failure shape — would show the anchor
+(in some form) is load-bearing even starting from an already-walking
+clone, motivating why every later rung keeps some anchor variant.
+
+Evidence: `ops.sh review cw-assistfade-rung4-revhandoff-noanneal-s0`,
+W&B `yj67mmvq`; ledger entry for `cw-assistfade-rung1-mesh-noanchor-s0`,
+W&B run linked there. RL_LOG 09-07 11:1x.
+
 ## 09-07 ~10:0x — rung-4's FIRST behavioral canary: CANARY FAIL - MECHANISM (handoff engages, does not sustain)
 
 `cw-assistfade-rung4-revhandoff-s0` (launched 07:4x, the mechanism's

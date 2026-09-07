@@ -76,7 +76,8 @@ class _ShmSpec:
 def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
                 ns: int, tag: str,
                 dr_shapes: dict[str, tuple] | None = None,
-                seq: bool = False) -> dict[str, _ShmSpec]:
+                seq: bool = False,
+                handoff: bool = False) -> dict[str, _ShmSpec]:
     def s(key, shape, dtype):
         return _ShmSpec(f"hexmjx-{tag}-{key}", shape, dtype)
     layout = {
@@ -128,6 +129,15 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
                                        "float64")
             layout[f"seq_qpos_{fam}"] = s(f"sp{fam[0]}", (B, nq),
                                           "float64")
+    if handoff:
+        # Rung-4 reverse-curriculum handoff (assistfade track, 09-07,
+        # sharded twin of MjxVecEnv._apply_walk_reverse_handoff):
+        # per-tick worker->parent teacher command row, allocated ONLY
+        # when the cfg enables the feature (mirrors the seq block's own
+        # allocate-on-demand rule).
+        layout["handoff_q"] = s("hoq", (B, N_JOINTS), "float64")
+        layout["handoff_speed"] = s("hosp", (B,), "float64")
+        layout["handoff_acc"] = s("hoac", (B,), "float64")
     return layout
 
 
@@ -306,6 +316,7 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
         outs = shm.outs_view()
         pool: list[list[dict]] = [[] for _ in envs]
         seq_partial: list[dict] | None = None   # mode_seq mint scratch
+        handoff_gaits: list | None = None  # rung-4 reverse-handoff scratch
         early: dict[int, tuple] = {}
         ctxs: dict[int, tuple] = {}
         saved = None
@@ -337,6 +348,27 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                                         for e in envs)
                                  or any(getattr(e, "_seq_frames", None)
                                         is None for e in envs)))
+                # Rung-4 reverse-handoff (sharded twin of
+                # MjxVecEnv._walk_reverse_handoff_ticks): re-read the
+                # ANNEALED duration from this worker's own
+                # schedule-mutated env cfg every reset_begin (never
+                # cached) -- _sched_ticks/_step_begin keep every env in
+                # the synchronous batch on the identical tick count, so
+                # every worker computes the identical value here; the
+                # parent asserts that uniformity rather than trusting it
+                # silently, same convention as seq_mint above.
+                handoff_n = 0
+                if "handoff_q" in layout and envs:
+                    _hcfg = envs[0].cfg
+                    _hgate = float(cfg_get(_hcfg, "goal",
+                                          "walk_reverse_handoff_gate",
+                                          default=0.0))
+                    if _hgate > 0.0:
+                        _hs = float(cfg_get(_hcfg, "goal",
+                                            "walk_reverse_handoff_s",
+                                            default=0.0))
+                        if _hs > 0.0:
+                            handoff_n = int(round(_hs / envs[0].dt))
                 for k, env in enumerate(envs):
                     g = lo + k
                     q_start = env._reset_begin(None)
@@ -373,7 +405,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     env._cmd = q_start.copy()
                 if seq_mint:
                     seq_partial = [dict() for _ in envs]
-                conn.send(("ok", seq_mint))
+                handoff_gaits = [None] * len(envs) if handoff_n > 0 else None
+                conn.send(("ok", (seq_mint, handoff_n)))
 
             elif cmd == "seq_capture":
                 # One segment family's settled probe outputs are in the
@@ -623,11 +656,20 @@ class MjxShardedVecEnv(VecEnv):
                         or float(cfg_get(_seq_cfg, "goal",
                                          "mode_seq_stance",
                                          default=0.0)) > 0.0)
+        # Rung-4 reverse-curriculum handoff: allocate the shm rows only
+        # when the STATIC gate is armed (mirrors _seq_on's own
+        # allocate-on-demand rule) -- the ANNEALED duration itself is
+        # re-read from each worker's own (schedule-mutated) env cfg
+        # every choreography call, never cached here.
+        self._handoff_on = (float(cfg_get(_seq_cfg, "goal",
+                                          "walk_reverse_handoff_gate",
+                                          default=0.0)) > 0.0)
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,
             tag=f"{seed}-{np.random.randint(1 << 30)}",
-            dr_shapes=self._dr_shapes, seq=self._seq_on)
+            dr_shapes=self._dr_shapes, seq=self._seq_on,
+            handoff=self._handoff_on)
         _check_shm_budget(layout, B)
         self._shm = _ShmArrays(layout, create=True)
 

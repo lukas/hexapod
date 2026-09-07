@@ -48,6 +48,7 @@ anyway).
 """
 from __future__ import annotations
 
+import math
 from typing import Any
 
 import numpy as np
@@ -206,6 +207,80 @@ class MjxVecEnv(VecEnv):
         for env, fr in zip(self.envs, frames):
             env._seq_frames = fr
 
+    def _walk_reverse_handoff_ticks(self) -> int:
+        """Rung-4 reverse-curriculum handoff (assistfade track, 09-07):
+        number of REAL teacher-driven physics ticks to run after the
+        ordinary settle and before the episode's references are
+        captured. Default 0 (gate/duration <=0) -- bit-exact no-op,
+        matches ``sim_env._apply_walk_reverse_handoff``'s own gating
+        (same two cfg keys, same <=0 short-circuit)."""
+        cfg = getattr(self.envs[0], "cfg", None) or {}
+        gate = float(cfg_get(cfg, "goal", "walk_reverse_handoff_gate",
+                             default=0.0))
+        if gate <= 0.0:
+            return 0
+        handoff_s = float(cfg_get(cfg, "goal", "walk_reverse_handoff_s",
+                                  default=0.0))
+        if handoff_s <= 0.0:
+            return 0
+        return int(round(handoff_s / self.envs[0].dt))
+
+    def _apply_walk_reverse_handoff(self, st, out):
+        """Batched (in-process) twin of
+        ``sim_env._apply_walk_reverse_handoff``: the SAME teacher
+        machinery (``_make_walk_bc_gait``), the SAME per-episode random
+        start phase, the SAME command path (queue a profile write, then
+        a real physics tick) -- just B envs at once through the shared
+        MJX stepper instead of one env's own ``_advance()``. Called
+        AFTER the ordinary reset settle and BEFORE ``_reset_finalize()``
+        so the episode's start references reflect the post-handoff
+        state, exactly like the CPU env. ``out`` is the settle stage's
+        own last tick output; returns it unchanged when the gate is off
+        (bit-exact no-op) or the handoff's own last tick output
+        otherwise, so the caller's existing ``outs = device_get(out)``
+        pipeline needs no other change."""
+        n = self._walk_reverse_handoff_ticks()
+        if n <= 0:
+            return out
+        B = self.num_envs
+        dt = self.envs[0].dt
+        gaits = []
+        for env in self.envs:
+            goal = env._current_goal()
+            gait = env._make_walk_bc_gait()
+            gait.set_velocity(vx=float(getattr(goal, "vx_ref", 0.0) or 0.0),
+                              vy=float(getattr(goal, "vy_ref", 0.0) or 0.0),
+                              omega=float(getattr(goal, "wz_ref", 0.0)
+                                          or 0.0))
+            gait.reset_phase(phase=float(env.rng.uniform(0.0, 2 * math.pi)))
+            gaits.append(gait)
+        speed = np.array([e.write_speed_deg_s for e in self.envs],
+                         dtype=np.float32)
+        acc = np.array([e.write_acc_units for e in self.envs],
+                       dtype=np.float32)
+        for k in range(n):
+            t = k * dt
+            q_batch = np.zeros((B, N_JOINTS), dtype=np.float32)
+            for i, env in enumerate(self.envs):
+                q_rad = env._clip_to_joint_limits(
+                    np.asarray(gaits[i].desired_deg(t), dtype=float)
+                    * DEG2RAD)
+                env._cmd = q_rad.copy()
+                q_batch[i] = env._logical_to_mujoco_q(q_rad)
+            # dr.walk_push_*/dr.ext_push_* are provably zero for every
+            # handoff tick: both are pure functions of _step_i, frozen
+            # at 0 by _reset_begin until the episode's first REAL step
+            # (_step_i only advances in _step_finish, never in a reset
+            # choreography tick) -- sin(pi*0/dur)==0 / t(=0) < t0 always
+            # holds, so st.tick()'s own push_nm=None/push_fxy=None
+            # zero-default is exactly the right value, not an
+            # approximation, and no per-tick per-env python call is
+            # needed to reach it.
+            cmd = st.make_command(q_batch, speed_deg_s=speed,
+                                  acc_units=acc, valid=True)
+            out = st.tick(cmd)
+        return out
+
     def _choreography(self) -> list[dict]:
         """Run the full synchronized reset for ALL envs. Leaves every
         env + the device batch in fresh-episode state and returns one
@@ -307,6 +382,7 @@ class MjxVecEnv(VecEnv):
             env._cmd = env._mujoco_to_logical_q(q_nom[i])
         for _ in range(int(round(0.3 / dt))):          # stiff, normal feet
             out = st.tick(hold)
+        out = self._apply_walk_reverse_handoff(st, out)
         outs = self._jax.device_get(out)
 
         finalized = []

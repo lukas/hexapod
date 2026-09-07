@@ -586,3 +586,115 @@ def test_arc_aware_fixes_tight_arc_without_touching_income(arc_bank):
         c_tight["reward_walk_excess_sway"],
         c_legacy["reward_walk_excess_sway"])
     assert r_tight > r_legacy + 500.0, (r_tight, r_legacy)
+
+
+## ---------------------------------------------------------------------
+## COMBINED vx+wz FRAME CASE (2026-09-07 combined-frame audit,
+## probe_combined_frame.py; todaypolicy robotwalk-turns misalignment
+## root cause). The sweep_circle arc cases above rotate the LINEAR
+## command in the world frame with the body never yawing -- the exact
+## OPPOSITE of production combined cells (fixed vx_ref + wz_ref != 0,
+## eval_cmd_suite arc-left/right, joygate stress_mix), which this bank
+## had never covered. Measured on the exact
+## cw-robotwalk-turns-20260906 reward stack (probe, 8 s, vx=0.08,
+## wz=+0.25): a wz-IGNORING straight walker out-earned the faithful
+## body-frame arc-follower 2094.5 vs 1959.8 total (course income +597
+## vs +438, sway 0 vs -19.6) because course-income/sway/disp integrate
+## (vx_ref, vy_ref) as a FIXED WORLD CHORD, never rotated by wz_ref,
+## while the velocity kernel is BODY-frame and the policy obs
+## (walk_obs_body_vel=2) has no world compass. The reward optimum on
+## combined ticks was REFUSING to turn -- the concrete mechanism
+## behind joygate course_err_1s_med worsening (8.55 -> 10.2 -> 11.93
+## deg) across 16M + arcaware while reward rose (08-21 misalignment).
+## Fix under test: reward.walk_course_ref_yaw=1 rotates the reference
+## by the integrated commanded yaw, re-anchored at each window's own
+## start body heading (body-frame joystick semantics: vx+wz = arc),
+## paired with walk_sway_arc_aware=1 (the shadow path must curve too)
+## and the MINIMAL yaw-income dose k_yaw_prog 1->2 that covers the
+## honest physics cost of turning (arcing completes less commanded
+## distance; measured gap -42.3 post-fix, dose swing +157).
+
+def _combined(drive: str, extra: dict | None):
+    from rl_move.sim.probe_combined_frame import _rollout as _roll
+    return _roll(drive, extra)
+
+
+COMBINED_FIX = {
+    "reward.walk_course_ref_yaw": 1.0,
+    "reward.walk_sway_arc_aware": 1.0,
+    "reward.k_yaw_prog": 2.0,
+}
+
+
+@pytest.fixture(scope="module")
+def combined_bank() -> dict:
+    return {
+        "arc_base": _combined("arc", None),
+        "arc_flag0": _combined("arc", {"reward.walk_course_ref_yaw": 0.0}),
+        "arc_fix": _combined("arc", dict(COMBINED_FIX)),
+        "noturn_fix": _combined("noturn", dict(COMBINED_FIX)),
+        "crab_fix": _combined("crab", dict(COMBINED_FIX)),
+    }
+
+
+def test_course_ref_yaw_default_off_bit_exact(combined_bank):
+    """walk_course_ref_yaw=0.0 must reproduce the flag-absent reward
+    stream exactly (same scripted drive, deterministic DR-0)."""
+    assert combined_bank["arc_flag0"]["total"] == pytest.approx(
+        combined_bank["arc_base"]["total"], abs=1e-6)
+
+
+def test_combined_aligned_optimum_is_faithful_arc(combined_bank):
+    """With the frame fix + minimal yaw dose, the reward optimum on
+    the combined cell must be the faithful body-frame arc-follower --
+    not turn-refusal (the legacy optimum) and not world-course
+    crabbing. This is the 08-21 'reward optimum == gate behavior'
+    invariant for combined vx+wz commands."""
+    r_arc = combined_bank["arc_fix"]["total"]
+    r_noturn = combined_bank["noturn_fix"]["total"]
+    r_crab = combined_bank["crab_fix"]["total"]
+    assert r_arc > r_noturn + 50.0, (r_arc, r_noturn)
+    assert r_arc > r_crab + 50.0, (r_arc, r_crab)
+
+
+def test_combined_arc_income_not_artificially_discounted(combined_bank):
+    """Under the fix the faithful arc-follower's course income must be
+    undiscounted on angle (the reference now curves with the command)
+    and its sway charge near zero -- the -19.6 sway / 0.897 angle_f
+    artifact the audit measured must be gone."""
+    c = combined_bank["arc_fix"]
+    assert c["means"]["walk_course_income_angle_f"] >= 0.97, c["means"]
+    assert abs(c["sums"].get("reward_walk_excess_sway", 0.0)) < 5.0, (
+        c["sums"])
+
+
+def test_windowed_course_yawref_orders_arc_above_refusal():
+    """EVAL-side twin of the reward fix (windowed_course_stats
+    wz/yaw mode): on synthetic perfect kinematics for the combined
+    cell, the legacy chord metric scores the wz-IGNORER better than
+    the faithful arc (the broken gate ordering: measured 0.90 vs
+    12.33 deg on real rollouts); the yaw-rotated reference must order
+    them the right way around, with the faithful arc near zero."""
+    from rl_move.sim.eval_checkpoint import windowed_course_stats
+    dt, T = 0.01, 800
+    vx, wz = 0.08, 0.25
+    cmd = np.tile([vx, 0.0], (T, 1))
+    wz_h = np.full(T, wz)
+    # faithful arc: body yaw integrates wz, world vel = R(yaw) @ (vx, 0)
+    yaw = np.cumsum(wz_h * dt) - wz * dt
+    arc_xy = np.cumsum(
+        np.stack([vx * np.cos(yaw), vx * np.sin(yaw)], 1) * dt, 0)
+    # refusal: straight world line, yaw frozen
+    no_xy = np.cumsum(np.tile([vx, 0.0], (T, 1)) * dt, 0)
+    no_yaw = np.zeros(T)
+    legacy_arc = float(np.median(windowed_course_stats(
+        arc_xy, cmd, dt, 1.0)["err_deg"]))
+    legacy_no = float(np.median(windowed_course_stats(
+        no_xy, cmd, dt, 1.0)["err_deg"]))
+    fix_arc = float(np.median(windowed_course_stats(
+        arc_xy, cmd, dt, 1.0, wz=wz_h, yaw=yaw)["err_deg"]))
+    fix_no = float(np.median(windowed_course_stats(
+        no_xy, cmd, dt, 1.0, wz=wz_h, yaw=no_yaw)["err_deg"]))
+    assert legacy_no < legacy_arc - 5.0, (legacy_no, legacy_arc)  # broken
+    assert fix_arc < 1.0, fix_arc              # perfect arc reads ~0
+    assert fix_no > fix_arc + 3.0, (fix_no, fix_arc)

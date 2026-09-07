@@ -121,7 +121,7 @@ def test_hardware_and_offline_jobs_claim_independently(tmp_path):
         {
             "name": "explicit offline replay",
             "duration_seconds": 1,
-            "parameters": {"robot_motion": False},
+            "parameters": {"simulation_only": True, "robot_motion": False},
             "execution_mode": "external_guarded",
         },
         "test",
@@ -425,8 +425,6 @@ def test_cancelled_external_plan_keeps_recovery_when_motion_may_have_started(
 @pytest.mark.parametrize(
     "parameters",
     [
-        {"robot_motion": False},
-        {"simulation_only": True},
         {"robot_motion": False, "simulation_only": True},
     ],
 )
@@ -462,6 +460,9 @@ def test_explicit_offline_handoff_never_reaches_hardware_lane(
     "parameters",
     [
         {},
+        {"robot_motion": False},
+        {"simulation_only": True},
+        {"robot_motion": False, "simulation_only": False},
         {"robot_motion": 0},
         {"simulation_only": 1},
         {"robot_motion": True, "simulation_only": True},
@@ -481,6 +482,38 @@ def test_legacy_ambiguous_handoff_stays_on_hardware_lane(tmp_path, parameters):
     )
     advance = store.enqueue_advance(
         "legacy-handoff", "test", experiment_id=guarded["id"]
+    )
+    engineering = EngineeringJobStore(store)
+    handoff = engineering.ensure_queue_handoff(advance, guarded)
+
+    assert engineering.claim(
+        "offline-worker", lease_seconds=60, lane=ENGINEERING_LANE_OFFLINE
+    ) is None
+    hardware = engineering.claim(
+        "hardware-worker", lease_seconds=60, lane=ENGINEERING_LANE_HARDWARE
+    )
+    assert hardware["id"] == handoff["id"]
+
+
+def test_motionless_live_health_gate_uses_hardware_lane(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    guarded = store.create(
+        {
+            "name": "motionless live health gate",
+            "duration_seconds": 30,
+            "parameters": {
+                "simulation_only": False,
+                "robot_motion": False,
+                "live_camera_required": True,
+                "required_live_motor_count": 18,
+                "minimum_advancing_samples": 3,
+            },
+            "execution_mode": "external_guarded",
+        },
+        "test",
+    )
+    advance = store.enqueue_advance(
+        "live-health-handoff", "test", experiment_id=guarded["id"]
     )
     engineering = EngineeringJobStore(store)
     handoff = engineering.ensure_queue_handoff(advance, guarded)
@@ -1399,6 +1432,14 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
         (settings.data_dir / "codex-runs" / "engineering-job" / "attempt-1" / "process.json").read_text()
     )
     assert process_state["deadline_seconds"] == 123
+    assert process_state["runner_identity"]["runner_path"] == "/opt/codex"
+    assert process_state["runner_identity"]["capture_errors"] == [
+        "binary capture: FileNotFoundError"
+    ]
+    metadata = json.loads(
+        (settings.data_dir / "codex-runs" / "engineering-job" / "attempt-1" / "metadata.json").read_text()
+    )
+    assert metadata["runner_identity"] == process_state["runner_identity"]
 
     captured.clear()
     offline = orchestrator._invoke(

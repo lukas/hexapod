@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "compare_orderings": true,
+    "exclude_windows_adjacent_to_overruns": true,
+    "leave_one_window_out": true,
+    "recompute_windows": true,
+    "verify_input_sha256": true
+  },
+  "exact_structure_compared": true,
+  "mismatch_count": 0,
+  "mismatches": [],
+  "numeric_tolerance": 1e-09,
+  "reference": "/Users/lukas/Library/Application Support/Hexapod Lab/engineering-offline-v1/hexapod_walker/prototype_sts3215/sysid/datasets/experiment_5cfb3c1c93414aa88e091190a9355642/bootstrap_overrun_sensitivity.json",
+  "reference_sha256": "503513a3ef6f1e64ff08c16c73fd4cf1b37b5860b5c8f2c82e8cbc79db712c28",
+  "reproduced": true,
+  "schema": "hexapod.sysid.reproducibility_comparison.v1"
+}

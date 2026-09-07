@@ -1506,9 +1506,8 @@ class Store:
                 "WHERE target.id=job.experiment_id "
                 "AND target.status='waiting_for_operator' "
                 "AND target.execution_mode='external_guarded' "
-                "AND (json_type(target.parameters_json,'$.robot_motion')='false' "
-                "OR (json_type(target.parameters_json,'$.robot_motion') IS NULL "
-                "AND json_type(target.parameters_json,'$.simulation_only')='true')))) "
+                "AND json_type(target.parameters_json,'$.simulation_only')='true' "
+                "AND json_type(target.parameters_json,'$.robot_motion')='false')) "
                 "ORDER BY job.created_at,job.id LIMIT 1",
                 (kind, now, kind),
             ).fetchone()
@@ -1929,9 +1928,8 @@ class Store:
                 + exact_filter
                 + blocked_filter
                 + "ORDER BY CASE WHEN "
-                "json_type(parameters_json,'$.robot_motion')='false' OR "
-                "(json_type(parameters_json,'$.robot_motion') IS NULL AND "
-                "json_type(parameters_json,'$.simulation_only')='true') "
+                "json_type(parameters_json,'$.simulation_only')='true' AND "
+                "json_type(parameters_json,'$.robot_motion')='false' "
                 "THEN 1 ELSE 0 END,"
                 "CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
                 "THEN json_extract(parameters_json,'$.queue_priority') ELSE 0 END DESC,"

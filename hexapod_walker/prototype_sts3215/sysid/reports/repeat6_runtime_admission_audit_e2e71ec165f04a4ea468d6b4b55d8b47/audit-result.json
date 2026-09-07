@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "engineering_job_id": "e2e71ec165f04a4ea468d6b4b55d8b47",
+  "experiment_id": "5a6cb2f2e517498f96d98219d6a0126c",
+  "source_analysis_job_id": "dbb3d7fea8d64ba1a0743fbc5ef40d35",
+  "recorded_at": "2026-09-06T01:07:06Z",
+  "execution": "offline_static_and_fault_injection_audit",
+  "simulation_only": true,
+  "robot_contacted": false,
+  "robot_motion": false,
+  "executor": {
+    "name": "linux_control.sysid_runner.run_sysid_protocol",
+    "available": true,
+    "configuration": {
+      "protocol": "required keyword",
+      "force": "supported keyword",
+      "abort_check": "supported keyword",
+      "on_progress": "supported keyword",
+      "healthy_motor_samples": 3,
+      "expected_live_motors": 18,
+      "max_state_age_ms": "executor-bound",
+      "runtime_state_clock": "executor-bound",
+      "final_state": "limp"
+    }
+  },
+  "revision": {
+    "checked_out_commit": "1de94ffb703986f33933613f8084227de858eb0e",
+    "checked_out_tree": "eebc297e2f84d7706cf961519dbccfa560046e1d",
+    "branch": "codex/robotlab-offline-engineering",
+    "installed_robot_commit": null,
+    "installed_revision_verified": false,
+    "detail": "The offline lane has no durable installed-revision record in the supplied experiment or checkout. The six runtime gates pass at the checked-out reviewed source, but this result does not claim that HEAD is the revision installed on the robot."
+  },
+  "protocols": {
+    "L2": {
+      "path": "sysid/protocols/l2_air_radial_shear_hysteresis_repeat6_v1.json",
+      "sha256": "c837cdec25d49a254ea7c288f30f68782155afb48e2f9fe6eac853b9fc0ab634",
+      "expected_sha256": "c837cdec25d49a254ea7c288f30f68782155afb48e2f9fe6eac853b9fc0ab634",
+      "ticks": 1560,
+      "passed": true
+    },
+    "L5": {
+      "path": "sysid/protocols/l5_air_radial_shear_hysteresis_repeat6_v1.json",
+      "sha256": "2343e7e471e4fbf3a33cbc0518c5d70cc82b7cf885440937b9e7cd4161a0cd6e",
+      "expected_sha256": "2343e7e471e4fbf3a33cbc0518c5d70cc82b7cf885440937b9e7cd4161a0cd6e",
+      "ticks": 1560,
+      "passed": true
+    }
+  },
+  "checks": {
+    "executor_available": {
+      "passed": true,
+      "evidence": ["linux_control/sysid_runner.py"]
+    },
+    "protocol_hash_validation": {
+      "passed": true,
+      "evidence": [
+        "sysid/protocols/l2_air_radial_shear_hysteresis_repeat6_v1.json",
+        "sysid/protocols/l5_air_radial_shear_hysteresis_repeat6_v1.json"
+      ]
+    },
+    "continuous_state_stream_abort": {
+      "passed": true,
+      "evidence": [
+        "linux_control/sysid_runner.py",
+        "linux_control/test_sysid_runner_guards.py"
+      ],
+      "detail": "Nonadvancing timestamps abort before another command during both glide and trajectory execution."
+    },
+    "camera_advancing_timestamp_gate": {
+      "passed": true,
+      "evidence": [
+        "sysid/camera_guard.py",
+        "sysid/tests/test_camera_guard.py"
+      ]
+    },
+    "target_tag_coverage_gate": {
+      "passed": true,
+      "evidence": [
+        "sysid/run_hw.py",
+        "sysid/camera_guard.py",
+        "sysid/tests/test_camera_guard.py"
+      ],
+      "detail": "The wrapper binds required tag IDs and the minimum coverage threshold to admission and remote abort."
+    },
+    "final_limp": {
+      "passed": true,
+      "evidence": [
+        "linux_control/sysid_runner.py",
+        "linux_control/test_sysid_runner_guards.py"
+      ],
+      "detail": "Success, remote abort, and retained fault-stop paths converge on final limp."
+    },
+    "installed_revision_identity": {
+      "passed": false,
+      "evidence": ["Robot Lab experiment 5a6cb2f2e517498f96d98219d6a0126c metadata"],
+      "detail": "The cancelled experiment contains no installed robot commit or file-manifest identity. Offline policy forbids contacting the robot to manufacture that provenance."
+    }
+  },
+  "focused_test": {
+    "command": "uv run --with pytest --with numpy python -m pytest sysid/tests/test_qualify_repeat_runner.py sysid/tests/test_camera_guard.py linux_control/test_sysid_runner_guards.py -q",
+    "result": "25 passed in 2.78s",
+    "passed": true
+  },
+  "source_sha256": {
+    "linux_control/api/rl.py": "fd1cf8da2cd3decd8879f50c1e651e7b53525d152d08840358b67f7317b6b594",
+    "linux_control/sysid_runner.py": "30a96ad8584ef597020cb9c76e3382e75a1b440c90b02c38f930f17a379bd277",
+    "sysid/camera_guard.py": "d5a45825c773cbb7c0c28c8d6211e0cf0ffe653e1b6f693479546579c473af0c",
+    "sysid/run_hw.py": "2110dfeb009d5e0fc1a782a1d25710dfb1c80157786dbaf5e372e954162329a5",
+    "sysid/tests/test_camera_guard.py": "24d2e3af0f5b0e2cac7c25f452b16e03cbd0e8441dc231491d2f7c99edfe6b38",
+    "sysid/tests/test_qualify_repeat_runner.py": "d5bda83be6fb1a9db5499d7890f00edc7187c33ae74db5a8b247ac3cfd74592e",
+    "linux_control/test_sysid_runner_guards.py": "604b6925b4e105c5036111e3f7dd94131320ab7897a5b34160268d60cbe88e03"
+  },
+  "required_gates_passed": true,
+  "admission_passed": false,
+  "disposition": "runtime_gates_qualified_at_reviewed_checkout_but_exact_deployed_revision_unverified"
+}

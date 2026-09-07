@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "executor": "sysid.qualify_repeat_runner",
+  "candidate_executor": "linux_control.sysid_runner.run_sysid_protocol",
+  "execution_class": "offline_no_io_static_and_fault_injection_audit",
+  "source_revision": "88fb5fa079c890739557872e2354bc5d1c258127",
+  "source_tree": "bb26c751032f80c59f1c24ebdffa25bb748ae74b",
+  "branch": "codex/robotlab-offline-engineering",
+  "platform": "Darwin arm64 25.6.0; macOS 26.6.2 build 25G83",
+  "uv_version": "0.12.9",
+  "robot_contacted": false,
+  "robot_motion": false,
+  "simulation_only": true
+}

@@ -584,6 +584,7 @@ def test_drive_duration_starts_after_confirmed_walk_and_excludes_initialization(
     assert 2.7 <= result["startup_duration_s"] <= 2.81
     assert 3.0 <= result["confirmed_active_window_s"] <= 3.051
     assert result["command_duration_s"] >= 5.7
+    assert result["actual_engaged_duration_s"] == 3.0
     assert result["activation_unix_s"] == pytest.approx(
         1000.0 + result["activation_monotonic_s"])
     assert any(name == "drive_walk_activated" for name, _ in events)
@@ -821,3 +822,20 @@ def test_original_drive_error_survives_missing_stop_terminal_and_logs(monkeypatc
     assert "original refusal" in trial.results[0]["trial_error"]
     assert trial.results[0]["robot_logs"] == []
     assert trial.results[0]["result"]["ok"] is False
+
+
+def test_summary_exposes_actual_engaged_duration(tmp_path):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.output_dir = tmp_path
+    trial.completed = True
+    trial.results = [{"actual_engaged_duration_s": 3.05}]
+    trial.args = SimpleNamespace(
+        phases=["forward"], speed_m_s=0.08, duration_s=3.0,
+        course_segment_s=2.0, joystick_response=False,
+    )
+    trial.request = lambda _path: {"ok": True, "walk": _walk_meta(74)}
+
+    trial.write_summary()
+
+    summary = json.loads((tmp_path / "summary.json").read_text())
+    assert summary["actual_engaged_duration_s"] == pytest.approx(3.05)

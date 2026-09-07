@@ -75,8 +75,8 @@ def _fk(command: np.ndarray) -> tuple[float, float]:
     )
 
 
-def _near(a: np.ndarray, b: np.ndarray) -> bool:
-    return bool(np.allclose(a, b, atol=COMMAND_MATCH_ATOL_DEG, rtol=0.0))
+def _near(a: np.ndarray, b: np.ndarray, *, atol_deg: float) -> bool:
+    return bool(np.allclose(a, b, atol=atol_deg, rtol=0.0))
 
 
 def _plateaus(command: np.ndarray) -> list[_Plateau]:
@@ -93,7 +93,13 @@ def _plateaus(command: np.ndarray) -> list[_Plateau]:
     return out
 
 
-def _extract_cycles(cmd: np.ndarray, q: np.ndarray, leg: int) -> list[dict]:
+def _extract_cycles(
+    cmd: np.ndarray,
+    q: np.ndarray,
+    leg: int,
+    *,
+    command_match_atol_deg: float = COMMAND_MATCH_ATOL_DEG,
+) -> list[dict]:
     hip_joint, knee_joint = 3 * leg + 1, 3 * leg + 2
     plateaus = _plateaus(cmd[:, [hip_joint, knee_joint]])
     cycles: list[dict] = []
@@ -103,8 +109,18 @@ def _extract_cycles(cmd: np.ndarray, q: np.ndarray, leg: int) -> list[dict]:
     # window spanning two neighboring cycles.
     for index in range(len(plateaus) - 4):
         base, outbound, peak, inbound, returned = plateaus[index:index + 5]
-        if not (_near(base.command, returned.command)
-                and _near(outbound.command, inbound.command)):
+        if not (
+            _near(
+                base.command,
+                returned.command,
+                atol_deg=command_match_atol_deg,
+            )
+            and _near(
+                outbound.command,
+                inbound.command,
+                atol_deg=command_match_atol_deg,
+            )
+        ):
             continue
         base_x, base_y = _fk(base.command)
         midpoint_x, midpoint_y = _fk(outbound.command)
@@ -186,6 +202,8 @@ def analyze_hysteresis(
     *,
     leg: int | str | None = None,
     profile: str = "auto",
+    protocol_path: Path | str | None = None,
+    command_match_tolerance_deg: float = COMMAND_MATCH_ATOL_DEG,
 ) -> dict:
     """Analyze one radial-shear dataset CSV.
 
@@ -202,7 +220,33 @@ def analyze_hysteresis(
         raise ValueError("command stream contains non-finite values")
 
     resolved_leg = _infer_leg(cmd) if leg is None else _parse_leg(leg)
-    cycles = _extract_cycles(cmd, q, resolved_leg)
+    segmentation_cmd = cmd
+    segmentation_source = "recorded_csv_commands"
+    if protocol_path is not None:
+        protocol_payload = json.loads(Path(protocol_path).read_text(encoding="utf-8"))
+        segments = protocol_payload.get("segments")
+        if not isinstance(segments, list) or len(segments) != 1:
+            raise ValueError("protocol must contain exactly one trajectory segment")
+        trajectory = segments[0]
+        if trajectory.get("kind") != "traj" or "q_deg" not in trajectory:
+            raise ValueError("protocol segment must be a traj with q_deg commands")
+        segmentation_cmd = np.asarray(trajectory["q_deg"], dtype=float)
+        if segmentation_cmd.shape != cmd.shape:
+            raise ValueError(
+                "protocol trajectory shape does not match trace commands: "
+                f"{segmentation_cmd.shape} versus {cmd.shape}"
+            )
+        if not np.isfinite(segmentation_cmd).all():
+            raise ValueError("protocol trajectory contains non-finite commands")
+        segmentation_source = "protocol_trajectory_timing"
+    if command_match_tolerance_deg < 0.0:
+        raise ValueError("command match tolerance must be nonnegative")
+    cycles = _extract_cycles(
+        segmentation_cmd,
+        q,
+        resolved_leg,
+        command_match_atol_deg=command_match_tolerance_deg,
+    )
     protocol = trace.get("protocol") or {}
     protocol_name = str(protocol.get("name", ""))
     resolved_profile = _resolve_profile(
@@ -242,6 +286,8 @@ def analyze_hysteresis(
         "hip_joint": 3 * resolved_leg + 1,
         "knee_joint": 3 * resolved_leg + 2,
         "method": "matched_midpoint_dwells_excluding_arrival_endpoint_v1",
+        "segmentation_source": segmentation_source,
+        "command_match_tolerance_deg": command_match_tolerance_deg,
         "cycle_count": len(cycles),
         "conditions": conditions,
     }
@@ -258,9 +304,25 @@ def main() -> None:
         choices=("auto", "air", "planted", "ground"),
         default="auto",
     )
+    parser.add_argument(
+        "--protocol",
+        type=Path,
+        help="optional exact protocol JSON; use its trajectory timing to segment dwells",
+    )
+    parser.add_argument(
+        "--command-match-tolerance-deg",
+        type=float,
+        default=COMMAND_MATCH_ATOL_DEG,
+    )
     args = parser.parse_args()
     try:
-        result = analyze_hysteresis(args.csv, leg=args.leg, profile=args.profile)
+        result = analyze_hysteresis(
+            args.csv,
+            leg=args.leg,
+            profile=args.profile,
+            protocol_path=args.protocol,
+            command_match_tolerance_deg=args.command_match_tolerance_deg,
+        )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))

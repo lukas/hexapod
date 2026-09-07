@@ -1,5 +1,49 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~20:1x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — launched the heading-bisected NARROWER widen CURRENT_TRUTHS 09-07 ~09:5x explicitly licensed (does not need the still-unbuilt role-aware mechanism)
+
+Both walkcurr transition-window accounting-fix canaries (`...-transwin-c1-fix1`,
+`...-overspeedq1-cont8m-transwin-c1-fix1`) are finished training and their
+own-pod DR-0 gate re-evals are ACTIVELY COMPUTING (confirmed live via
+`kubectl exec ps` on train-0/train-1, `walk` mode only, ~35+ CPU-min each)
+— not ready to read this cycle, correctly left untouched (no duplicate
+process started). Every other track re-confirmed unchanged from today's
+exhaustive audits: joystick/amp DONE, cpg exhausted, standwalk closed
+pending fresh design (2 days, unchanged), assistfade closed pending the
+same still-unbuilt heading-conditioned per-leg mechanism, todaypolicy's
+turn-authority diagnostic repair is Codex-owned CPU-only work in progress.
+
+Found one genuinely launch-ready, non-duplicative gap: `widen8`'s own
+closure (09-07 ~09:5x, `CURRENT_TRUTHS.md`) named TWO legal paths
+forward — build the still-unscoped heading-conditioned role-aware
+mechanism, OR launch a **heading-bisected narrower widen** without it.
+The former needs real geometric grounding (checked: leg mount angles
+are a clean 60deg hexagon, 30/90/150/210/270/330deg for legs 0-5; but
+the widen8 finding that showed the redundant pair FLIPS front<->middle
+between forward and rear-ish commands isn't explained by a simple
+"perpendicular to heading" rule, and CURRENT_TRUTHS 09-07 ~04:4x
+already burned one naive rigid-template design — rushing a second
+naive rule risks becoming exploit #5 in the exact pattern the
+09-07 04:4x note warns against). The latter is cheap, single-axis,
+needs no new code/bank, and is directly informative either way, so
+built and launched it instead this cycle:
+
+**`crutchoff-{s0,s1,s2}-widenrear180`** (2M canary, matches widen8's own
+precedent tier/init exactly): single-axis `goal.walk_heading_set` widen
+from the base 5-way set to a 6-way set adding ONLY 180deg (straight-back,
+the single most extreme/pure rear direction) — NOT the full widen8 3-new-
+heading jump. Respec `--from` each seed's own ACQ-passed 40M crutch-off
+checkpoint, `--init-from-source`, single lever. Pre-registered fork:
+PASS (gait_valid majority, 0 falls, no chronic leg-0/5 sacrifice) means a
+single new rear heading does NOT reproduce widen8's fingerprint —
+supports an incremental one-heading-at-a-time widening strategy that
+sidesteps the still-unbuilt mechanism for now; FAIL (same chronic
+front-pair sacrifice) means the pathology is triggered by rear-heading
+CONTENT itself regardless of how gradually it's introduced, making the
+role-aware mechanism mandatory before ANY further heading-set expansion.
+All 3 seeds VERIFIED RUNNING (train-2/3/4; s2 already budget-complete,
+finalizing). Snapshot not needed (no code change, pure respec/cfg).
+
 ## 2026-09-07 ~19:2x (refill cycle; 11/11 GPU pods free, backlog empty, no
 completion assigned) — FIXED both accounting issues from the 19:03 UTC
 review (fb_20260907T185803_c8af66), extracted+unit-tested the touchdown/

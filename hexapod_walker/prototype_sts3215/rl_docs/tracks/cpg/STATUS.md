@@ -1,5 +1,90 @@
 # cpg - Berkeley-style parameter gait search
 
+## 2026-09-07 ~01:5x (this cycle, refill — no GPU launch licensed, feeds todaypolicy's own named "faster motion source / cadence-CPG harvest" next lever)
+
+**Plain English:** the robust-gate CPG winner's `period` (time per
+stride cycle) landed exactly at the search's own lower bound (2.0s,
+i.e. the fastest cadence it was ever allowed to try) in BOTH prior
+searches (contextual-250 and robust120) — a boundary-pinned parameter
+is a live sign the true optimum is faster still, unexplored. Widened
+the search space and ran a first matched-control check before
+committing GPU/wall-clock: **naively halving the period alone (same
+swing_frac/lift_m/cmd_tau the search tuned for period=2.0) makes
+things WORSE, not better** — `progress_frac_mean` 0.925->0.868 and
+`slip_per_m_mean` 0.91->1.98 (more than doubled), 0 falls both
+(matched replay, same seeds/suite/speed, `paper_cpg_search.py
+--replay-json`, `/tmp/replay_period{2,1}.json`). This makes sense once
+named plainly: `period` is stride CADENCE at a fixed COMMANDED
+velocity, not top speed — a shorter period means more, choppier steps
+covering the same commanded distance, which raises slip without
+buying any extra travel unless the other params (swing fraction, foot
+lift, workspace margin) are RE-TUNED for the new cadence. The boundary
+pin is real evidence something better may exist, but "just lower
+period" alone is REFUTED as a one-line fix; it needs the full joint
+search the tool was built for.
+
+**Built** `apply_period_bound_override()` + `--period-min`/
+`--period-max` CLI flags in `paper_cpg_search.py` (both `None` =
+bit-exact no-op, verified via `test_period_bound_override_*` — 3 new
+tests, 7/7 green in `test_paper_cpg_search.py`) so the tetrapod/wave
+period bounds (hard-coded `2.0-12.0s` / `5.0-24.0s`) can be widened
+without touching the search internals. Smoke-tested (`--iterations 4`
+CLI run, `--replay-json` matched-control pair above). Snapshot
+`exp/cpg-period-lowerbound-widen` (`09dd496d`).
+
+**Launched** a real joint-tuned search to test the boundary-pin
+properly (not another naive substitution): `paper-cpg-periodmin1-
+20260907` — same recipe as the `robust120-winner-yawtrim` search
+(contextual suite, `--mu-list 0,1.2,0.8`, speed/wz/slip-weight
+identical), `--period-min 1.0` (lower bound widened 2.0->1.0s),
+warm-started from the current winner AND a period=1.0 twin. Running
+DIRECTLY on the controller pod (`hexapod-sweep-friction`, CPU-only,
+zero GPU/training spend — this is the eval-harness/design-tool lane,
+not an RL launch, no `launch_run.py` involved), PID 2261858 (reparented
+to init, survives this cycle), output
+`logs/paper_cpg_search/paper-cpg-periodmin1-20260907.json`, log
+`/tmp/paper_cpg_periodmin1.log`. **Slower than the 08-23 searches**
+(~30-100s+/iteration observed vs that search's ~27s/iteration average)
+— almost certainly the 08-24 mesh-model switch (this script always
+ran mesh-family scripted rollouts) making the scripted CPU rollout
+itself heavier post-mass-audit; budgeted 60 iterations, first 4 landed
+within this cycle (2 warm/2 random, period 2.0 best so far at -0.172,
+period 1.0 -0.768, matching the replay finding's direction; the two
+`random` draws at period 6.43/18.25 score worse still, as expected for
+slower-than-baseline cadence). **Left running in background, NOT
+polled/slept-on further this cycle** — next reader: read
+`logs/paper_cpg_search/paper-cpg-periodmin1-20260907.json`'s `"best"`
+field directly (`python3 -c "import json; d=json.load(open(...));
+print(d['best'])"`), do not re-launch a duplicate while PID 2261858 (or
+its successor if it died) is still alive (`ps aux | grep
+paper_cpg_search`). If the joint search's best period stays >=2.0
+after 60 iterations, this CLOSES the "faster cadence" hypothesis for
+good (both the naive AND joint-tuned variants refuted) and
+todaypolicy's stride campaign needs a different alternative than
+cadence; if it finds a genuinely better sub-2.0s point, run it through
+`eval_cpg_gate.py --robust --yaw-trim` before any adoption claim (same
+strict gate the current winner passed), and only THEN does harvesting
+a new/faster `cpg_v2` motion-library clip for a BC-anchor GPU arm
+become licensed — no GPU launch yet, this is still the design/probe
+step.
+
+Full board re-confirmed unchanged otherwise: walkcurr item(1)
+(crutch-ON composite) and assistfade `s0-longbudget` both remain
+DIG-IN-owned/unverdicted (re-checked via `ops.sh entry`, no new verdict
+on either — left for the deep-model cycle, not touched here); item(4)
+needs an unscoped new per-leg-utilization/slip mechanism (not this);
+standwalk stays blocked pending fresh design thinking (unchanged since
+09-05 ~06:3x); joystick/amp DONE/maintenance. 11/11 reachable GPU pods
+free, backlog empty — no GPU launch this cycle (the one live design
+thread is this CPU probe, not yet resolved into a licensed GPU arm).
+`CYCLE_WORKED` touched (real code + tests + snapshot + a genuine
+matched-control finding + an in-flight design search).
+
+Evidence: `rl_move/sim/paper_cpg_search.py` (diff), `rl_move/tests/
+test_paper_cpg_search.py` (3 new tests), `/tmp/replay_period{2,1}.json`
++ `.log`, `logs/paper_cpg_search/paper-cpg-periodmin1-20260907.json`
+(in-flight), W&B n/a (CPU-only, no training run), RL_LOG 09-07 01:5x.
+
 Last updated: 2026-08-24 ~01:3x UTC (**THIRD independent adoption
 data point in (pre-registered 8M matched pair that was found stuck
 REFUSED and fixed/launched by an earlier cycle) — same result again,

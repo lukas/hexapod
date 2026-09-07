@@ -1,10 +1,31 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-06 ~22:1x (anchorsoft1x/2x-acq8m both FAIL-
-PLATEAU at full 8M budget -- clean gait/mechanism health but no
-measurable progress gain over their own 2M canaries; anchor-dose axis
-CLOSED for the robotwalk-stride-20260906 campaign, next lever is a
-faster motion source/cadence-CPG harvest, not another dose point).
+Last updated: 2026-09-07 ~01:5x (cross-track note only: the "faster
+motion source / cadence-CPG harvest" lever this doc's own anchor-dose
+closure named is now a probe IN FLIGHT on the `cpg` track, not yet a
+GPU-launchable arm here — see below).
+
+## 09-07 ~01:5x (cross-track note, no launch here) — cadence-CPG harvest lever: probe started on `cpg`, not yet ready for a todaypolicy GPU arm
+
+The 09-06 ~22:1x closure below named the next lever as "a faster
+motion source / cadence-CPG harvest, not another dose point." Picked
+this up from the `cpg` side (that track owns `paper_cpg_search.py` and
+the CPG motion library `cpg_v1.npz`/`cpg_v1_manifest.json` this lever
+would harvest from) rather than duplicating tooling here. Finding so
+far (`rl_docs/tracks/cpg/STATUS.md` 09-07 ~01:5x entry, full detail
+there): the robust-gate CPG winner's `period` param sits pinned at its
+search's own lower bound (2.0s), a real signal a faster cadence might
+exist — but a naive matched-control halving (period 2.0->1.0, same
+other params) makes things WORSE (slip/m 0.91->1.98, no distance
+gain), not better; a proper joint-tuned search (widened bound +
+re-optimized swing_frac/cmd_tau/lift_m) is running now in the
+background on the controller pod, not yet concluded. **No todaypolicy
+GPU launch is licensed from this yet** — only once that search lands
+a genuinely faster point that ALSO clears `eval_cpg_gate.py --robust
+--yaw-trim` does harvesting a new/faster CPG motion clip for a
+BC-anchor arm here become a real option; until then this track's own
+Next list stays closed (delivered, nothing else queued) per the
+entries below. No code/launch in this file this cycle.
 
 ## 09-06 ~22:1x — anchorsoft1x/2x-acq8m BOTH FAIL-PLATEAU (pre-registered branch, matched dose pair 2/2); anchor-dose axis CLOSED
 

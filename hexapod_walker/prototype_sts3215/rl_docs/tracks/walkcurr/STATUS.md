@@ -1,5 +1,62 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~14:5x (triage cycle; assigned run already verdicted by a concurrent cycle — picked up an orphaned zero-spend diagnostic instead) — item(4) DR-band-narrowing gets its 7th, most decisive confirmatory read: the frozen `cont40m` checkpoint itself, re-evaluated with all 3 bands halved simultaneously, reproduces the champion's exact `gait_valid` fingerprint and within-noise slip
+
+This cycle's assigned eval (`cw-assistfade-rung3-residualfade-s1-nostdanneal`'s
+gate) had already been fully triaged, verdicted (CANARY FAIL -
+MECHANISM, closes the std-anneal axis 2/2 seeds), and written up
+(STATUS.md/SKILLS.md/RL_LOG/`tracks.json`) by a concurrent cycle at
+~14:4x-14:5x (see `assistfade/STATUS.md`) — confirmed via `ops.sh
+review` showing "ALREADY VERDICTED (status=FAIL)" and the
+`pending_evals.json` entry already removed. Not re-triaged (would
+duplicate claimed work).
+
+Full-board check instead found one genuinely unread item: the ~13:0x
+entry's own pre-registered "zero-spend confirmatory re-eval of the
+frozen `cont40m` checkpoint (no retrain) at all 3 DR bands halved
+simultaneously" (`..._zerospend_allbandhalf_gate`) had finished on
+train-9 (report.json timestamped 14:10) but was NOT in
+`pending_evals.json` and had no running process left — an orphaned
+diagnostic, not a duplicate of anything in flight. Pulled it
+(`kubectl cp`, no re-run) and compared directly against the frozen
+champion's own `..._cont40m_gate/report.json`:
+
+| mode | champion slip med | zerospend-allbandhalf slip med | champion gait_valid | zerospend gait_valid |
+|---|---|---|---|---|
+| walk/det | 4.98 | 5.10 | 6/6 | 6/6 |
+| walk/sto | 5.17 | 5.15 | 5/6 | 5/6 |
+| walk_startjitter/det | 5.10 | 4.97 | 5/6 | 5/6 |
+| walk_startjitter/sto | 5.42 | 5.60 | 6/6 | 6/6 |
+
+**Identical `gait_valid` pattern (22/24 both), slip within noise on
+every mode (largest delta +0.18/m on startjitter/sto).** This is the
+cleanest possible corroboration of the ~13:0x/~13:4x retrain-based
+finding: since this checkpoint was never retrained under the narrower
+bands (a pure re-eval, zero training-adaptation confound), the result
+rules out even the possibility that the 5/6 retrain-canary
+FAIL-EXONERATED reads were an artifact of 2M fresh adaptation under a
+narrower DR draw. **Item(4)'s DR-band-narrowing question is now
+closed on 7/7 independent reads (6 retrain canaries + this zero-spend
+control), all converging: halving the friction/compliance/gains DR
+band widths around their own centers does not move this composite's
+~4-5/m steady-state slip gap.** No further band-width variants are
+worth running; the next lever (contact/friction model fidelity, foot
+geometry, or accepting the gap as a gait-style floor) still needs its
+own unscoped design pass before any spend. SKILLS.md +1 row.
+
+Refill: capacity re-checked, 11/11 GPU pods free, backlog empty. No
+genuinely new launch-ready arm found — this track's own remaining
+lever is design-blocked (per every prior audit this same day),
+assistfade closed its full ladder this same window (see its own
+STATUS.md), standwalk/joystick/amp/cpg unchanged (closed/maintenance),
+todaypolicy's `yawref-cont8m` stays DIG-IN-owned. **IDLE: nothing
+runnable** — genuinely idle-with-empty-queue (every frontier item
+closed, mid-flight, or unscoped-design-blocked), not
+idle-next-to-runnable-work. `CYCLE_WORKED` touched (1 diagnostic
+finding recorded + SKILLS row, not a pure re-verify no-op).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_zerospend_allbandhalf_gate/report.json` vs `..._cont40m_gate/report.json` (pulled from `hexapod-mjx-train-9`, zero training spend). RL_LOG 09-07 15:0x.
+
 ## 2026-09-07 ~14:0x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — verdicted the `s2-widenbis135` orphan: heading-widen CLOSES 3/3 ACQ PASS; full-board re-audit finds no new non-duplicative launch
 
 `s2-widenbis135`'s gate had landed (13:42, after the ~13:3x entry below

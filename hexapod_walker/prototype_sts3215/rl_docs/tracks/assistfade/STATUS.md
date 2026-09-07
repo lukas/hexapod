@@ -1,21 +1,52 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
-## 09-07 ~06:3x — OWNERSHIP: rung-4 MJX reverse-handoff wiring CLAIMED (operator focus note 20260907T055148Z, this cycle)
+## 09-07 ~06:3x — OWNERSHIP UPDATE: rung-4 MJX reverse-handoff wiring is being IMPLEMENTED by a concurrent cycle; this cycle (operator focus note 20260907T055148Z) YIELDS the implementation and takes only the non-colliding pieces
 
-This cycle owns the explicitly-deferred MJX `_choreography()` wiring for
-`goal.walk_reverse_handoff_gate/_s` (both `mjx_vec_env.py` and
-`mjx_sharded_vec_env.py`), per the operator-lane focus note. Scope:
-per-env teacher command batches via `st.tick(...)` after the settle,
-real momentum/contact preserved, random per-env teacher phase, flag-OFF
-bit-exact, phase/contact rewards untouched; then CPU/MJX parity +
-boundary banks; then ONE bounded rung-4 mechanism-health canary
-(<=2M, existing planned seed, canonical launcher). Throughput answer to
-the ~06:1x cost concern (below): the TRAINING path is
-`MjxShardedVecEnv` (`host_workers: 24` per guardrails), where the
-open-loop teacher plans are precomputed IN THE WORKERS (parallel, one
-round-trip) — measured numbers in the completion entry below, no
-`TripodGait` numerics port required for a first canary. Do not
-duplicate; result entry will land in this file this cycle.
+This cycle was dispatched (operator lane) to own the deferred MJX
+`_choreography()` wiring and briefly claimed it here (~06:0x snapshot
+225ec965) — but a concurrent cycle had ALREADY started implementing the
+exact gap in this same clone minutes earlier without a doc claim:
+`MjxVecEnv._walk_reverse_handoff_ticks/_apply_walk_reverse_handoff`
+(complete, in-tree by the 06:01 snapshot) and a sharded-worker
+`handoff_tick` protocol (mid-edit in the working tree as this entry is
+written). Per the focus note's own rule ("coordinate by following its
+result instead of duplicating"), this cycle REVERTED its parallel
+`sim_env.py` plan-helper refactor untouched-equivalent edit and yields
+the implementation files (`mjx_vec_env.py`, `mjx_sharded_vec_env.py`,
+`sim_env.py`) to the in-flight owner. This cycle takes instead:
+
+1. **Independent MJX bank** in a NEW file
+   (`rl_move/tests/test_mjx_reverse_handoff.py`) — interface-level
+   (gate/`_s` cfg keys), implementation-agnostic: flag-OFF bit-exact
+   equivalence on the batched path, gate-ON moving/asymmetric start
+   (batched twin of the CPU bank's positive control), sharded-vs-
+   in-process bitwise with the gate ON, pooled-reset boundary.
+2. **Code-review findings for the implementing cycle** (from reading
+   its in-tree code, this cycle — please address or explicitly waive
+   before a canary):
+   - **goal-None guard missing**: CPU `_apply_walk_reverse_handoff`
+     early-returns (and draws NO rng) when `_current_goal()` is None;
+     the batched twins call `getattr(goal, "vx_ref", 0.0)` on None and
+     still draw a phase + run a zero-velocity teacher — rng-stream and
+     physics divergence vs the C env for any no-goal episode (inert for
+     walk-pure rung-4 cfgs, but it breaks the documented bit-parity
+     contract for any other gate-armed task).
+   - **pooled-entry profile inject**: pool entries store `q_nom` as the
+     device-profile re-init pose (`inject_env_states`), but a
+     handoff-ON entry's profile ends slewed onto the teacher's LAST
+     command, not `q_nom` — every POOLED reset (the dominant reset
+     during training) yanks the mid-gait pose back toward the static
+     stand for the first tick(s) until the policy's first command
+     lands. Storing the teacher's final commanded pose as the entry's
+     inject pose fixes it (gate-off entries keep `q_nom`, bit-exact).
+   - **worker `handoff_gaits` lifetime**: the lazy per-worker gait
+     cache must be cleared every `reset_begin` or the SECOND
+     choreography reuses stale goals/phases with no fresh rng draw
+     (may already be in the un-diffed part of the edit — verify).
+3. **Bounded rung-4 canary** (<=2M, existing planned seed, canonical
+   launcher) — only once the sharded implementation lands + banks are
+   green, and only after re-checking the ledger so the implementing
+   cycle's own launch is not duplicated.
 
 ## 09-07 ~06:1x (refill; 9/11 GPU pods free, walkcurr's crutch-isolation set is the only live GPU work, its own gate still computing) — scoped the STILL-DEFERRED MJX-vec-env wiring for rung 4's reverse-handoff BEFORE writing it: naive per-env TripodGait looping is too slow for real training throughput, not just "untested"
 
@@ -53,9 +84,23 @@ rung-4 launch) the rarely-used yaw-arm-scale/selective-omega-boost/
 amplify-scale knobs rather than vectorizing their branches too, to keep
 the first version tractable. Did NOT attempt this port this cycle (a
 half-finished vectorization is worse than the current honestly-deferred
-state — no code changed, no launch, no snapshot). No GPU/training spend
-(pure Python microbenchmark on the controller pod). Full board
-re-checked fresh: walkcurr's only live GPU work (the crutchoff-{s1,s2}
+state — no code changed, no launch, no snapshot). **Late-cycle note**:
+a concurrent cycle's uncommitted working-tree edits
+(`mjx_sharded_vec_env.py`, new `test_mjx_reverse_handoff.py`, a
+`assistfade-rung4-mjx-handoff-claim` snapshot commit already landed as
+of this note) show them taking a DIFFERENT, likely-better path than the
+vectorization named above: parallelizing the existing per-env Python
+loop across the sharded stack's already-live `host_workers` CPU worker
+processes (a `handoff_tick` IPC command, one per-tick broadcast) rather
+than rewriting `TripodGait` in batched numpy — this divides the ~50-75s
+single-process estimate above by however many workers run in parallel
+(guardrails default 24/pod), which may be tractable without touching
+the gait math at all. Left entirely untouched (not my run, mid-edit,
+not yet tested/committed) — read THEIR eventual STATUS entry for the
+real verdict on whether this approach clears the throughput bar, not
+this one. No GPU/training spend (pure Python microbenchmark on the
+controller pod). Full board re-checked fresh: walkcurr's only live GPU
+work (the crutchoff-{s1,s2}
 40M ACQ continuations + the crutchoff-s0 2M canary gate) is already
 running/computing (verified via `kubectl exec ps` on train-0/train-2 —
 genuine progress, not stalled), joystick/amp/cpg/todaypolicy stay

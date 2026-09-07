@@ -31,6 +31,7 @@ Split of responsibilities:
 """
 from __future__ import annotations
 
+import math
 import multiprocessing as mp
 import os
 import shutil
@@ -433,6 +434,43 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     env._cmd = shm["q_nom"][lo + k].copy()
                 conn.send(("ok", None))
 
+            elif cmd == "handoff_tick":
+                # Rung-4 reverse-handoff (sharded twin of
+                # MjxVecEnv._apply_walk_reverse_handoff): one open-loop
+                # teacher tick, SAME machinery/command path as the CPU
+                # env (_make_walk_bc_gait, a random start phase drawn
+                # ONCE per env per choreography, then a pure desired_deg
+                # (t) query per tick -- no per-tick gait state mutation
+                # needed). Writes this worker's rows of the batched
+                # command the parent ticks through st.tick(); dr.walk_
+                # push_*/dr.ext_push_* are provably zero here (pure
+                # functions of _step_i, frozen at 0 by _reset_begin until
+                # the episode's first REAL step) so the parent's plain
+                # st.tick(cmd) with no push args is exactly right, not
+                # an approximation -- see mjx_vec_env.py's own comment.
+                t = float(args[0])
+                for k, env in enumerate(envs):
+                    g = lo + k
+                    if handoff_gaits[k] is None:
+                        goal = env._current_goal()
+                        gait = env._make_walk_bc_gait()
+                        gait.set_velocity(
+                            vx=float(getattr(goal, "vx_ref", 0.0) or 0.0),
+                            vy=float(getattr(goal, "vy_ref", 0.0) or 0.0),
+                            omega=float(getattr(goal, "wz_ref", 0.0)
+                                        or 0.0))
+                        gait.reset_phase(
+                            phase=float(env.rng.uniform(0.0, 2 * math.pi)))
+                        handoff_gaits[k] = gait
+                    q_rad = env._clip_to_joint_limits(
+                        np.asarray(handoff_gaits[k].desired_deg(t),
+                                  dtype=float) * DEG2RAD)
+                    env._cmd = q_rad.copy()
+                    shm["handoff_q"][g] = env._logical_to_mujoco_q(q_rad)
+                    shm["handoff_speed"][g] = env.write_speed_deg_s
+                    shm["handoff_acc"][g] = env.write_acc_units
+                conn.send(("ok", None))
+
             elif cmd == "reset_finalize":
                 mode = args[0]
                 infos = []
@@ -767,7 +805,16 @@ class MjxShardedVecEnv(VecEnv):
     def _choreography(self, mode: str) -> list:
         st = self.stepper
         B, dt = self.num_envs, self._dt
-        mint_flags = self._broadcast("reset_begin")
+        reset_begin_replies = self._broadcast("reset_begin")
+        mint_flags = [r[0] for r in reset_begin_replies]
+        handoff_ns = [r[1] for r in reset_begin_replies]
+        if self._handoff_on and len(set(handoff_ns)) != 1:
+            raise RuntimeError(
+                "walk_reverse_handoff: workers disagree on the handoff "
+                f"tick count ({handoff_ns}) — every env's own schedule-"
+                "annealed duration must read identically in a "
+                "synchronous batch; see mjx_sharded_vec_env")
+        handoff_n = handoff_ns[0] if handoff_ns else 0
         if self._model_dr:
             st.set_model_fields(self._dr_dict())   # before settle physics
         # goal.mode_seq canonical-frame mint (08-14): the sharded twin
@@ -823,6 +870,23 @@ class MjxShardedVecEnv(VecEnv):
         self._broadcast("reset_mid")
         for _ in range(int(round(0.3 / dt))):          # stiff, normal feet
             out = st.tick(hold)
+        if handoff_n > 0:
+            # Rung-4 reverse-handoff (sharded twin of MjxVecEnv.
+            # _apply_walk_reverse_handoff): workers precomputed their
+            # per-env teacher/phase state at reset_begin time (nothing
+            # else touches rng in between, so the draw order matches
+            # the in-process reference exactly); each tick is one
+            # broadcast (workers fill shm["handoff_q"/"_speed"/"_acc"])
+            # then one real batched physics tick, run AFTER the
+            # ordinary settle and BEFORE reset_finalize captures the
+            # episode's start references, exactly like the CPU env.
+            for k in range(handoff_n):
+                self._broadcast("handoff_tick", k * dt)
+                cmd = st.make_command(
+                    self._shm["handoff_q"].copy(),
+                    speed_deg_s=self._shm["handoff_speed"].copy(),
+                    acc_units=self._shm["handoff_acc"].copy(), valid=True)
+                out = st.tick(cmd)
         self._copy_outs(out)
         infos = self._broadcast("reset_finalize", mode)
         for probe_i in range(self._reset_probe_n):

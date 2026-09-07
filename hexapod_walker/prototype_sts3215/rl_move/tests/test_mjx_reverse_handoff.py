@@ -64,7 +64,13 @@ B = 2
 BASE = {("goal", "walk_pure"): 1.0,
         ("goal", "walk_speed_min_m_s"): 0.05,
         ("goal", "walk_speed_max_m_s"): 0.05,
-        ("goal", "walk_heading_max_rad"): 0.0}
+        ("goal", "walk_heading_max_rad"): 0.0,
+        # command active from tick 0 (default trajectories hold 1s at
+        # zero then ramp 1s — the handoff teacher takes the TICK-0
+        # command, so without these the teacher steps in place at
+        # vx=0: v~4e-4 m/s vs 0.018 m/s with them, measured 09-07)
+        ("goal", "walk_cmd_hold_s"): 0.0,
+        ("goal", "walk_cmd_ramp_s"): 0.0}
 GATE_ZERO = {("goal", "walk_reverse_handoff_gate"): 0.0,
              ("goal", "walk_reverse_handoff_s"): 2.0}
 GATE_ON = {("goal", "walk_reverse_handoff_gate"): 1.0,

@@ -1,5 +1,39 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~04:1x (refill; 11/11 GPU free, backlog empty) — item(1) dbandgate-{fresh,fix} VERDICTED, reward-price class closed 4/4 (11 arms)
+
+Both `dbandgate` arms flagged unverdicted by the 03:2x/03:4x entries
+below now landed and are verdicted **CANARY FAIL - MECHANISM** (full
+text: `ops.sh review cw-walkscratch-easy0905-headset-base-s0c1-
+dbandgate-{fresh,fix}`). `fresh` is INERT (leg-4 startjitter duty
+median 0.045, same as the undosed twin); `fix` (retrofit onto the
+entrenched checkpoint) is WORSE and spreads the sacrifice into plain
+`walk/det` too (0/6 vs the twin's clean 6/6). Per-episode duty_cycle
+numbers pulled directly from `report.json` (not just `gait_valid`
+flags) confirm both reads unambiguously — see `CURRENT_TRUTHS.md`
+09-07 ~04:1x for the full writeup. **This closes the reward-price
+mechanism CLASS at 4 independently-designed mechanisms x 11 arms**
+(`walk_gait_gate`+`k_step_event`, `walk_duty_gate`, `walk_swing_gate`,
+now `walk_duty_band_gate`) — including one designed specifically to
+price both duty tails at once, closing the "only ever penalizes one
+direction" theory. Reinforces (does not contradict) the 09-05 ~22:3x
+CURRENT_TRUTHS diagnosis: L1/L4 (the mesh hexagon's sole
+diametrically-opposite middle pair) idling is a genuinely CHEAPER
+STABLE 4-leg gait, so no per-leg duty price can out-compete it without
+role-awareness. **Do not fund a 5th reward-price design on this
+pathology.** The only live lever is the still-unbuilt role-aware
+mechanism (weight the middle pair differently, or price a genuine
+alternating-tripod support-polygon pattern) — attempted a scoping pass
+this cycle (log_std IS already per-action-dim, so a per-leg
+exploration floor is architecturally plausible) but judged too large/
+high-blast-radius (touches shared `train_ppo_mjx.py`/`walk_task.py`
+policy internals used by every track) to build+bank-test+launch safely
+in one cycle; left as the named next design task, not started. No new
+GPU launch this cycle (every other track DONE/blocked/DIG-IN-owned;
+`cpg`'s `periodmin1` robust-gate winner comparison still genuinely
+computing on the controller pod, PID 2349039, ~4/5 panels done, left
+unpolled). `CYCLE_WORKED` touched (2 verdicts + doc updates).
+
 ## 2026-09-07 ~03:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — dbandgate-{fresh,fix} orphaned-eval find, no verdict yet
 
 The prior cycle's `walk_duty_band_gate` provenance-matrix pair

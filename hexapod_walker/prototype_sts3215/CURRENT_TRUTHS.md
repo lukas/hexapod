@@ -1148,6 +1148,39 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   training. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
   crossgrav_s{1,3}acq_abrupt_c1_acq1_cont40m_gate/report.json`, W&B
   `7i7dzujt`/`z1e7r91v`, RL_LOG 09-06 05:21/05:31.
+- UPDATE 09-07 ~04:1x: `reward.walk_duty_band_gate` (two-sided
+  trapezoid duty band, priced BOTH tails unlike `walk_duty_gate`'s
+  floor-only or `walk_swing_gate`'s count-only design) closed 2/2 on
+  the base(1g) `s0c1` leg-4 lineage: `dbandgate-fresh` (dosed from
+  step 0) is INERT — `walk_startjitter/det` leg-4 duty median 0.045,
+  statistically identical to the undosed twin's own 0.045, gait_valid
+  0/6 both, plain `walk/det` stays clean 6/6 either way; `dbandgate-fix`
+  (retrofit onto the entrenched `s0c1-acq1` checkpoint) is WORSE — leg-4
+  duty falls to median 0.01 and the sacrifice spreads into plain
+  `walk/det` too (0/6 vs the undosed twin's clean 6/6). No new falls
+  either arm. **This is the 4th independently-designed reward-price
+  mechanism class (after `walk_gait_gate`+`k_step_event` 6/6 FAIL,
+  `walk_duty_gate` 9/9 FAIL, `walk_swing_gate` 5/5 FAIL) to fail on
+  this exact pathology, now 11 arms total — including one (this one)
+  specifically designed to price BOTH duty tails at once, closing the
+  "the gate only ever penalized one direction" theory too.** This is
+  fully consistent with, not a new data point against, the 09-05
+  ~22:3x role-aware diagnosis above: L1/L4 (the mesh hexagon's sole
+  diametrically-opposite middle pair) idling is a genuinely CHEAPER
+  STABLE 4-leg gait, so no per-leg duty price — floor, count, or
+  two-sided band — can out-compete it without knowing which legs form
+  a valid support role, because all of them price every leg
+  identically. **The reward-price mechanism CLASS is now exhausted for
+  this pathology; do not fund a 5th design in it (a 3rd duty threshold,
+  a swing-timing variant, etc.) without first building the role-aware
+  mechanism named in the 09-05 ~22:3x entry** (weight the structural
+  middle pair differently, or price a genuine alternating-tripod
+  support-polygon pattern rather than any-4-legs motion) — still not
+  built as of this update. Evidence: `ops.sh review cw-walkscratch-
+  easy0905-headset-base-s0c1-dbandgate-{fresh,fix}`, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_{fresh,fix}_
+  gate/report.json` vs `..._s0c1_{,acq1_}gate/report.json`, W&B
+  `f3wp5pba`/`ndjo2e2i`, RL_LOG 09-07 04:14.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

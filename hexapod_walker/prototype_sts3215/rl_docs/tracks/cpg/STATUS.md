@@ -1,5 +1,64 @@
 # cpg - Berkeley-style parameter gait search
 
+## 2026-09-07 ~04:2x (this cycle, no GPU launch — CPU-only comparison read) — `cpg-periodmin1-winner` robust-gate PASSES but is WORSE than the incumbent on slip/m in every panel: cadence-CPG-harvest lever CLOSED, no adoption
+
+The previous cycle's `eval_cpg_gate.py --robust --yaw-trim` background
+run (PID 2349039) finished clean (`/tmp/cpggate_periodmin1.log`,
+`logs/cpg_gate/cpg-periodmin1-winner/gate_verdict.json`, overall
+`pass=True`, all 5 panels PASS). Read it side-by-side with the
+incumbent `robust120-winner-yawtrim` baseline it was launched to beat:
+
+| panel | incumbent slip/m | periodmin1 slip/m | incumbent prog | periodmin1 prog |
+|---|---|---|---|---|
+| dr0 | 0.709 | 1.071 (+51%) | 0.897 | 0.904 |
+| dr0_script2 | 0.687 | 1.051 (+53%) | 0.899 | 0.911 |
+| loaded | 0.819 | 1.032 (+26%) | 0.916 | 0.899 (-1.9%) |
+| mu08 | 1.360 | 1.504 (+11%) | 0.814 | 0.894 |
+| mu12 | 0.960 | 1.204 (+25%) | 0.862 | 0.908 |
+
+Both pass every gate check (zero falls, headings/turns/stops all
+clean, `slip_ok` true under the gate's own looser pass/fail cut in
+every panel) — but the periodmin1 winner's slip/m is WORSE than the
+incumbent in ALL 5 panels (+11% to +53%, no panel improves), for only
+a mixed/marginal heading-progress gain (up in 4 panels by 0.7-8.0pp,
+down in 1 — `loaded`, -1.9pp) that does not offset a slip regression
+this consistent. This is exactly the pre-registered "merely matches
+or is worse" branch named at launch: **the cadence-harvest lever is
+CLOSED outright** — the best achievable point for this suite/gait/
+speed combination is still what `robust120-winner-yawtrim` already
+has; no adoption into `cpg_v1.npz`, no A/B needed (the delta is
+unambiguous, not a coin-flip needing a second seed). Combined with
+the same-cycle `paper-cpg-periodmin1-20260907` search result (best
+period re-converges to ~2.1s even with the lower bound widened to
+1.0s), this closes BOTH the "was the period boundary-pinned" question
+AND the "does a faster/re-tuned period actually walk better" question
+on this exact suite — the 2.0-2.1s period is a genuine local optimum,
+not a search-space or robust-gate artifact. Cross-track: this also
+closes `todaypolicy`'s own named "faster motion source / cadence-CPG
+harvest" lever from its 09-06 ~22:1x anchor-dose closure with nothing
+further open on that side (see that track's STATUS for the mirrored
+closure note).
+
+No GPU launch this cycle (CPU-only comparison read, zero training
+spend). Full board re-confirmed unchanged: joystick/amp DONE,
+standwalk blocked on design-thinking, walkcurr's `dbandgate-{fresh,
+fix}` 2M canaries both landed CANARY FAIL - MECHANISM this cycle
+(reward-price family for the base(1g) leg-4 startjitter pathology now
+closed 3 mechanisms x 2 provenances; see walkcurr STATUS), walkcurr's
+own item(1) crossgrav-composite fork and assistfade's `s0-longbudget`
+stay DIG-IN-owned (not touched, model tiering). No genuinely new,
+non-duplicate, launch-ready GPU arm exists on the `cpg` track itself
+(the search space for this suite/gait/speed reads as exhausted —
+period, swing_frac, cmd_tau, lift_m all re-converge to the same
+optimum from two independent search launches). `CYCLE_WORKED` touched
+(real comparison read + 2 closed cross-track levers, but zero launch/
+code this cycle on this track specifically).
+
+Evidence: `logs/cpg_gate/cpg-periodmin1-winner/gate_verdict.json`,
+`logs/cpg_gate/robust120-winner-yawtrim/gate_verdict.json`,
+`/tmp/cpggate_periodmin1.log`, `logs/paper_cpg_search/paper-cpg-
+periodmin1-20260907.json`.
+
 ## 2026-09-07 ~03:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — periodmin1 joint search FINISHED (60/60): boundary-pin hypothesis REFUTED, best period re-converges to ~2.1s even with the bound widened to 1.0s
 
 **Plain English:** the prior cycle asked "was the CPG winner's ~2.0s

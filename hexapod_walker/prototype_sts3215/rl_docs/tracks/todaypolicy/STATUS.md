@@ -1,9 +1,29 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~01:5x (cross-track note only: the "faster
-motion source / cadence-CPG harvest" lever this doc's own anchor-dose
-closure named is now a probe IN FLIGHT on the `cpg` track, not yet a
-GPU-launchable arm here — see below).
+Last updated: 2026-09-07 ~04:2x (cross-track note only: the "faster
+motion source / cadence-CPG harvest" lever is now CLOSED — the `cpg`
+track's joint-tuned re-search PASSES its robust gate but is WORSE on
+slip/m than the incumbent in every panel, no genuinely faster/better
+CPG point exists to harvest — see below). This track's own Next list
+has no further open item.
+
+## 09-07 ~04:2x (cross-track note, no launch here) — cadence-CPG harvest lever CLOSED: `cpg`'s re-tuned winner is worse than the incumbent, nothing to harvest
+
+The 09-07 ~01:5x entry below left this lever open pending `cpg`'s
+background robust-gate comparison of its joint period-search winner
+against the incumbent `robust120-winner-yawtrim`. That comparison
+landed this cycle (full detail: `rl_docs/tracks/cpg/STATUS.md` 09-07
+~04:2x entry): the re-tuned winner PASSES the robust gate but has
+WORSE slip/m than the incumbent in all 5 panels (+11% to +53%) for
+only a mixed heading-progress delta — not a genuine improvement, the
+pre-registered "merely matches or is worse" branch. **No faster/
+better CPG motion clip exists to harvest for a BC-anchor arm here.**
+Combined with the `robotwalk-stride-20260906` anchor-dose axis
+already closed 2/2 (09-06 ~22:1x below), this track's Next list is
+now fully closed on the open-arm side — the delivered bundle
+(`todaypolicy-mlpsf-tuck-v1`, GO per `CURRENT_TRUTHS.md`) stands as
+the answer; no further agent-doable next step remains here pending a
+genuinely new idea. No code/launch this cycle.
 
 ## 09-07 ~01:5x (cross-track note, no launch here) — cadence-CPG harvest lever: probe started on `cpg`, not yet ready for a todaypolicy GPU arm
 

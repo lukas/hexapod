@@ -1,11 +1,58 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~06:1x — robotwalk-turns misalignment ROOT
-CAUSE FOUND (combined vx+wz frame confound, counterexample-proven on
-the exact reward stack); frame fix + minimal yaw dose shipped
-(bank 18/18) and ONE changed arm launched:
-`cw-robotwalk-turns-20260907-yawref-acq8m` (VERIFIED RUNNING
-train-1). See the 06:1x entry below.
+Last updated: 2026-09-07 ~10:1x — `cw-robotwalk-turns-20260907-
+yawref-acq8m` VERDICTED **ACQ CONTINUE: frame-fix hypothesis
+DECISIVELY CONFIRMED** (joygate `course_yawref_err_1s_med` 4.33deg,
+clears the 5.17deg bar). One residual gap (tip-turn-in-place) named,
+8M continuation launched: `cw-robotwalk-turns-20260907-yawref-cont8m`.
+See the 10:1x entry below.
+
+## 09-07 ~10:1x — yawref-acq8m VERDICTED: frame fix WORKS on its target metric; one pre-existing gap stays open; continuation launched
+
+The 06:1x frame fix's first trained arm finished 8M steps and sat
+unverdicted since 07:xx (`track:todaypolicy`, so the watcher's
+joystick-only joygate auto-eval never runs for it — the standard
+prestage only ran the plain walk-retention gate). Ran the run's own
+full pre-registered 4-check panel myself on its own pod
+(`hexapod-mjx-train-1`, checkpoint present, `--defer-final-artifacts`
+hadn't synced it to the controller yet), reusing the exact training
+`--cfg-set` list so obs/command distribution match what was trained:
+`eval_yaw` (speed 0.08, wz_max 0.3), `eval_cmd_suite` (`--seconds
+12`), `eval_joystick_gate` (`--own-dr-scale 0.0`) — the identical
+methodology the 09-06 ~14:5x arcaware precedent used.
+
+**DECISIVE result (criterion d, the metric this whole fix targets):**
+joygate `course_yawref_err_1s_med` = **4.33deg, clears the 5.17deg
+Candidate-B bar** (pass=true, 0/24 falls, gait_valid_frac 1.0, slip/m
+med 2.214). The legacy `course_err_1s_med` keeps "worsening" exactly
+as predicted (12.21, vs 11.93/10.2/8.55 on the arcaware/16M/8M
+ancestors) — because the policy is turning MORE, not less. This is
+the audit's own predicted signature landing cleanly, not a
+coincidence. Combined-cell wz tracking (criterion b) improved across
+the board vs its own immediate arcaware ancestor on identical
+`eval_yaw` cells: arc-left/right (wz=0.15) 0.0901/0.0905 vs
+arcaware's 0.104/0.1131; arc-max (wz=0.3) 0.2216/0.2251 vs arcaware's
+0.2234/0.229. Walk retention (c) and standing-still (e) both intact
+(gait_valid 6/6 all modes, 0 falls, fwd med 0.29m, slip med 2.81;
+`stop` cell v_err_med 0.0008-0.004, genuinely holds still).
+
+**One criterion still misses its literal bar:** tip-turn-in-place (a)
+wz_err_med 0.0935/0.0809, both over the <0.076 absolute bar — but
+essentially FLAT vs the immediate parent `cont8m-resume1`'s own
+0.078/0.085 (mixed, not a regression). Tip has vx=0, so the vx+wz
+frame confound this fix targets never applies there — this is a
+separate, pre-existing, unmoved deficiency, not evidence against the
+fix. Reward still climbing every quarter (333.5/1327.4/2220.2/
+2744.4, no plateau). **Verdict: ACQ CONTINUE** (08-21 ruling — reward
+rising + one open gap = continue, not stop). No export yet (literal
+gate needs (a) too).
+
+**Launched:** `cw-robotwalk-turns-20260907-yawref-cont8m` (init-from-
+source off this checkpoint, +8M, zero cfg changes) — tests whether
+consolidating under the now-correctly-aligned reward also closes the
+tip residual, or whether tip needs its own dedicated lever next.
+Evidence: `logs/ckpt_eval/cw_robotwalk_turns_20260907_yawref_acq8m_
+{yaw,joygate_freshcmp}/`, W&B `3j03b9ro`, RL_LOG 09-07 10:1x.
 
 ## 09-07 ~06:1x — combined-frame audit (operator watchdog focus note): the turns lineage's repeated course_err "worsening" was the reward AND the gate metric PAYING turn-refusal; fix shipped, one changed arm launched
 

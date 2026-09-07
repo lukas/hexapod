@@ -286,5 +286,11 @@
   "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s2_speedwiden_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s2_speedwiden_gate",
   "added": "2026-09-07T09:58:14"
+ },
+ {
+  "pod": "hexapod-mjx-train-2",
+  "file": "logs/ckpt_eval/cw_assistfade_rung4_revhandoff_noanneal_s0_gate/report.json",
+  "label": "cw_assistfade_rung4_revhandoff_noanneal_s0_gate",
+  "added": "2026-09-07T10:14:16"
  }
 ]

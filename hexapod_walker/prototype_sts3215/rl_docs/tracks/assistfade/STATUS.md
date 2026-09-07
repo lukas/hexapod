@@ -1,5 +1,146 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~14:5x (triage; assigned the ~14:3x cycle's registered on-pod eval pair) — `rung3-residualfade-{s0,s1}-nostdanneal` BOTH FAIL: closes the std-anneal axis 2/2 seeds, and with it the LAST untried lever anywhere in rungs 2-4 — TRACK-LEVEL FINDING: only rung 0 (persistent BC anchor) reaches ignition on mesh/100Hz
+
+Read both gate evals the ~14:3x cycle registered (do not re-run).
+**s0**: ignition bar missed on every axis — `walk/det` `gait_valid` 0/6
+(all 6 episodes sacrifice legs [0,3], all 6 `TERM over_current`) despite
+a deceptively high `prog` med 0.57 (a 2-leg-sacrifice
+high-raw-progress shuffle, not a six-leg gait — the same "high
+progress via sacrifice" artifact `CURRENT_TRUTHS.md`'s walkcurr
+easy0905/sde entry already named on a different lineage); `walk/sto`
+gait_valid 3/6; startjitter modes 2/6 each. **s1**: same shape, cleaner
+signal (no progress-via-sacrifice confound) — `walk/det` gait_valid 0/6
+(sac [0,5] every episode, all 6 `TERM over_current`, prog med only
+0.09 — a straight ignition miss); `walk/sto` 1/6; startjitter/det 0/6;
+startjitter/sto 4/6.
+
+**Both replicate the exact pre-registered FAIL shape from
+`wandb_history.csv`** (checked per this run's own reading note, not
+just the eval table): reward rises early then DECLINES through the
+back half in both seeds (s0 quarters `[101.9, 176.8, 158.0, 114.5]`,
+peak ep~200 -> 45 final; s1 `[101.0, 167.5, 134.6, 125.5]`, peak
+ep~200 -> 119 final), in lockstep with `env/walk_loadslip_ratio`
+climbing ~0.2 -> ~5.0 and `terminations/over_current` climbing from 0
+to double digits per eval round in both seeds — the SAME
+drift-into-high-slip-high-current regime the rung1-mesh-noanchor-
+acq12m closure (12:5x below) already named, now confirmed on the
+independent std-anneal axis. Verdicted FAIL both
+(`ops.sh verdict cw-assistfade-rung3-residualfade-{s0,s1}-nostdanneal`).
+
+**Track-level conclusion (per this run's own pre-registered reading
+note and the 12:5x entry's flagged open question, both now closed
+out):** fully disabling the std anneal was the LAST genuinely untried
+rung-3 schedule lever (bare, stdslow 3.0x, latehandover 1.7M,
+longbudget 6M, nostdanneal x2 = 8 arms, 0 clean passes). Combined with
+rung 1 (CLOSED both tiers 09-07), rung 2 (CLOSED, all 4 habituation-
+dose arms converge on zero speed/command covariance), and rung 4
+(CLOSED 2/2, handoff-schedule family — the reverse-curriculum
+mechanism itself works but the phase-sv-contact reward diet it hands
+off into does not sustain), **every registered non-persistent-anchor
+rung (1-4) on mesh/100Hz has now been tried and closed at least once,
+across ~20 total canary arms.** Only rung 0 (persistent BC anchor,
+kept ACTIVE the whole run, never annealed/faded/removed) reaches the
+ignition gate. This is a walkcurr-style honest DONE-NEGATIVE scope
+finding for the "assist eventually goes to zero" question specifically
+— it does NOT retire the track's still-open design lead (a genuinely
+new reward mechanism pricing per-leg utilization/load-slip directly,
+scoped by rung 4's own closure as "the phase-sv-contact diet itself,
+not its handoff schedule") and does NOT touch rung 0's proven
+persistent-anchor recipe, which remains the track's one production-
+usable output (`cw-walkteach-scripted-allhead-acq12m{,-s1}`, already
+the `todaypolicy` walk-role upgrade candidate). Updated the `## Goal`/
+`## Ledger audit` sections below with this closure so the next reader
+does not need to re-derive it from ~20 arms of entry history; updated
+`tracks.json`'s `assistfade.status` and the top-level `STATUS.md` Track
+Snapshot to match. SKILLS.md +1 row.
+
+**Refill this cycle:** re-checked capacity (11/11 GPU pods free,
+backlog empty) and cross-read the concurrent `walkcurr` ~14:0x
+full-board audit (independently reached the identical conclusion —
+"assistfade's ladder is now closed on all 4 rungs ... with only an
+un-scoped 'fresh reward diet' design lead left"). No genuinely new,
+non-duplicative, launch-ready arm exists on any registered track this
+cycle: this track's own next step is unscoped reward-mechanism design
+(not a same-recipe relaunch — doc-binding, RESEARCH_RULES), walkcurr's
+own remaining item(4) lever needs a contact/friction-model design pass
+(its own 13:3x/14:0x closure), standwalk is blocked on fresh design
+thinking, joystick/amp/cpg are DONE/closed, todaypolicy's
+`yawref-cont8m` stays DIG-IN-owned (model tiering, untouched).
+**IDLE: nothing runnable** — genuinely idle-with-empty-queue, not
+idle-next-to-runnable-work. `CYCLE_WORKED` touched (2 verdicts + doc
+closure + SKILLS row, not a pure re-verify no-op).
+
+Evidence: `ops.sh entry cw-assistfade-rung3-residualfade-{s0,s1}-nostdanneal`,
+`logs/ckpt_eval/cw_assistfade_rung3_residualfade_{s0,s1}_nostdanneal_gate/
+report.json`, `logs/experiments/cw-assistfade-rung3-residualfade-
+{s0,s1}-nostdanneal/wandb_history.csv`; W&B `gp7oxefj`/`u2kbwm2o`;
+RL_LOG 09-07 14:4x.
+
+## 09-07 ~14:3x (refill; 11/11 GPU free, backlog empty, no completion assigned) — completed the audit the 12:5x entry flagged; found ONE genuinely untried rung-3 lever (fully disabling the std anneal, not just slowing it) and launched the disambiguating pair
+
+The 12:5x entry below closed rung 1 on mesh and left an explicit
+open task: "before treating this as a track-level DONE-NEGATIVE
+finding ... audit whether any rung-2/3 sub-question is still
+genuinely open." Did that audit. Rung 2's post-ignition
+`harden_speedband` thread is NOT reopenable — its own 18:1x DIG-IN
+found a real, decisive, ALIGNED root cause (sway self-limits pace
+regardless of command) and explicitly recommended against a reward
+patch. Rung 3 (residual-fade) failed 6/6 arms across 3 named
+schedule-collision fallbacks (`stdslow` denom 3.0x, `latehandover`
+t1=1.7M, `longbudget` 6M steps) — but re-reading the 19:3x root-cause
+entry closely, every one of those 3 fallbacks only SLOWED the forced
+`--log-std-final -3.0 --log-std-anneal-frac 1.0` std-decay schedule
+that races the blend-to-1.0 handover; none tried fully DISABLING it
+(dropping `--log-std-final`/`--log-std-anneal-frac` entirely so
+log_std is only PPO's own per-step-learned parameter, with no
+external forced schedule at all). This is a genuinely untried,
+single-lever variant, not a duplicate of stdslow.
+
+Built it as a hand-constructed `backlog add` (not `respec`, since
+there's no clean "unset a flag" primitive — cloning the parent's
+139-token `extra_args` verbatim minus the two log-std flags) rather
+than risk a duplicate-flag ambiguity. Launched
+`cw-assistfade-rung3-residualfade-{s0,s1}-nostdanneal` (2M canaries,
+mesh/100Hz, same blend schedule `t1_steps=1.4M`, same reward stack,
+random-weight init — the ONLY byte-diff vs the original failed
+`rung3-residualfade-{s0,s1}` pair is the absent std-anneal flags).
+Both VERIFIED RUNNING (train-0/train-1) and — thanks to the tiny
+`episode-seconds=10`/2M-step canary recipe at 3072 envs — both had
+ALREADY FINISHED TRAINING within ~2 minutes of launch and moved into
+the standard CPU gate-eval (`eval_checkpoint`, confirmed live via
+`kubectl exec ps`/`nvidia-smi` — 0% GPU util, no phantom job) by the
+time this cycle finished reading capacity. Registered both via
+`ops.sh evalpending add`, left UNVERDICTED for the next reader (do
+not re-run; do not poll).
+
+**Reading note for whoever verdicts these**: PASS-if the ignition bar
+clears AND `wandb_history.csv` reward does NOT decline through the
+last ~0.6M settling-window steps (the exact shape every prior FAIL
+showed) — this reopens rung 3 as a viable ladder rung. FAIL-if the
+same decline/ignition-miss reproduces — this closes the std-anneal
+axis too and, combined with rung 4's own "the phase-sv-contact diet
+itself is the blocker" closure, would leave NO untried repair lever
+across rungs 2-4 and license a track-level DONE-NEGATIVE writeup
+(walkcurr-style: only the persistent rung-0 anchor works, no fade
+mechanism yet escapes it) rather than a 7th schedule variant.
+
+No code changes this cycle (pure launch + audit). Full board
+re-confirmed unchanged otherwise: walkcurr's every named lever needs
+an unscoped contact/friction-model design pass (not a
+same-recipe relaunch, per its own 14:0x closure); standwalk closed
+pending fresh design thinking; joystick/amp/cpg DONE/closed; todaypolicy's
+`yawref-cont8m` stays DIG-IN-owned (untouched, model tiering). 9/11
+GPU pods free at cycle end (2 used by this launch, both already back
+to idle GPU / CPU-eval by the time capacity was re-checked) — this
+launch is the one genuinely new, non-duplicative, launch-ready item
+found this cycle. `CYCLE_WORKED` touched.
+
+Evidence: `ops.sh entry cw-assistfade-rung3-residualfade-{s0,s1}-nostdanneal`,
+`logs/experiments/cw-assistfade-rung3-residualfade-s0-nostdanneal/wandb_summary.json`
+(confirms no `reward.*`/log-std-final key leaked into the resolved
+config), `rl_move/orchestrator/pending_evals.json`.
+
 ## 09-07 ~12:5x — rung1-mesh-noanchor CLOSES at acquisition depth: FAIL - MECHANISM, the anchor IS load-bearing over a full budget even from a BC-walking init
 
 `cw-assistfade-rung1-mesh-noanchor-s0-acq12m` (the 12M continuation
@@ -1017,6 +1158,35 @@ planted/unloaded leg), zero falls/terminations, progress_ratio >=
 0.35. Slip/current recorded, not gated at ignition. After ignition:
 harden ONE dimension at a time (speed band, fixed headings, command
 changes/stops, yaw, then DR/pushes).
+
+## TRACK-LEVEL FINDING (2026-09-07, do not duplicate — read this before launching anything on this track)
+
+**Every registered assist-removal rung (1-4) on mesh/100Hz is CLOSED;
+only rung 0 (persistent BC anchor, never faded) reaches the ignition
+gate.** Rung 1 (BC-init, zero ongoing anchor): CLOSED both tiers (2M
+CANARY PASS both seeds, 12M FAIL-MECHANISM — anchor is load-bearing at
+acquisition depth even from an already-walking init). Rung 2 (anchor
+fade from random weights): CLOSED (4/4 habituation-dose arms converge
+on zero speed/command covariance, root-caused to sway-vs-course-income
+near-cancellation, not a reward-patch target per its own DIG-IN). Rung
+3 (bounded residual with fading reference): CLOSED (8/8 arms across 5
+named schedule levers — bare, stdslow, latehandover, longbudget,
+nostdanneal x2 seeds — 0 clean ignition passes, same
+drift-into-high-slip regime every time). Rung 4 (phase/contact-only via
+a genuine reverse-curriculum handoff): CLOSED 2/2 (the handoff
+mechanism itself verified working end-to-end, but the phase-sv-contact
+reward diet it hands off into does not sustain walking afterward —
+the diet itself, not the handoff schedule, is the named blocker).
+**Do NOT relaunch any of these four rungs' recipes at any dose/seed/
+schedule without a genuinely new, unscoped reward-mechanism design**
+(the concrete lead: price per-leg utilization/load-slip directly
+rather than via a completion-score or anchor-coefficient schedule —
+see rung 3/4's own root-cause reads above for why schedule-only levers
+keep failing the same way). Rung 0's persistent-anchor recipe remains
+PROVEN and production-usable
+(`cw-walkteach-scripted-allhead-acq12m{,-s1}`); this finding does not
+touch it. Full evidence trail: the 09-07 ~14:5x entry above and the
+~12:5x/~11:1x/~10:0x/~07:3x entries below.
 
 ## Ledger audit — what is already proven (2026-09-06, do not duplicate)
 - **Rung 0 (proven endpoint, mesh/100 Hz): PROVEN, do not rerun.**

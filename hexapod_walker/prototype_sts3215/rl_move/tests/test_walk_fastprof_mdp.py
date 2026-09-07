@@ -43,6 +43,12 @@ from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 CMD = 0.05
 NEW_INFO_KEYS = ("reward_walk_overspeed", "walk_overspeed_m_s",
                  "reward_walk_heading", "walk_heading_cos")
+HEIGHT_INFO_KEYS = (
+    "reward_foot_slip_height",
+    "walk_height_quasi_planted_feet",
+    "walk_height_slip_vel_mean_m_s",
+    "walk_height_slip_vel_max_m_s",
+)
 SLIP_INFO_KEYS = (
     "reward_foot_slip_tangent",
     "walk_contact_feet",
@@ -102,6 +108,25 @@ def _prime_slip_latches(env, offset_m=0.02, prev_force=10.0):
         env._foot_prev_force[f] = prev_force
         env._foot_on[f] = True
     assert current_contacts > 0, "probe expects at least one planted foot"
+
+
+def _prime_height_latches(env, offset_m=0.02, thresh_m=0.006):
+    """Seed previous quasi-planted-foot positions for the CONTACT-
+    INDEPENDENT height-gated mechanism (_lsh_prev_xy/_lsh_prev_planted)
+    -- mirrors _prime_slip_latches above but for
+    reward.k_foot_slip_height, which reads kinematic ground clearance
+    against _pad_z_ref and never touches self.data.sensordata/
+    _touch_adr at all."""
+    count = 0
+    for f, bid in enumerate(env._pad_bids):
+        z_ref = env._pad_z_ref[f] if env._pad_z_ref is not None else 0.0
+        clearance = float(env.data.xpos[bid, 2]) - z_ref
+        if clearance < thresh_m:
+            count += 1
+        xy = env.data.xpos[bid, :2]
+        env._lsh_prev_xy[f] = xy - np.array([offset_m, 0.0])
+        env._lsh_prev_planted[f] = True
+    assert count > 0, "probe expects at least one quasi-planted foot"
 
 
 # ------------------------------------------------------------------ #
@@ -201,6 +226,138 @@ def test_foot_slip_tangent_requires_meaningful_current_contact():
     _r, info = _step_info(env)
     assert info["reward_foot_slip_tangent"] == pytest.approx(0.0)
     assert info["walk_contact_meaningful_feet"] == pytest.approx(0.0)
+    env.close()
+
+
+# ------------------------------------------------------------------ #
+# CONTACT-INDEPENDENT foot-slip-height charge (walkcurr item(4),
+# 2026-09-06 follow-up to the CLOSED tangent-contact lever: 4
+# independently-designed doses/accountings of the touch-sensor-gated
+# mechanism above all read within ~0-8% of the champion's 5.065 slip/m
+# baseline, see rl_docs/tracks/walkcurr/STATUS.md 09-06 ~19:1x..~22:4x.
+# reward.k_foot_slip_height (walk_task.py) never reads
+# self.data.sensordata/_touch_adr: a foot is "quasi-planted" purely
+# from kinematic ground clearance against the already-proven _pad_z_ref
+# reference (same primitive the rise/lower posture gates use), with
+# its own independent prev-XY/gate latch (_lsh_prev_xy/
+# _lsh_prev_planted). Default 0.0 = off, bit-exact.
+# ------------------------------------------------------------------ #
+
+def test_foot_slip_height_default_off_is_bit_exact():
+    """k_foot_slip_height=0.0 (the default) must emit none of its new
+    info keys and leave the reward untouched, even with the tangent
+    lever's own knobs exercised on the same tick (proves the new
+    mechanism's insertion point does not perturb the pre-existing
+    tangent-charge code path)."""
+    tangent_extra = {
+        ("reward", "k_foot_slip_tangent"): 0.05,
+        ("reward", "foot_slip_contact_n"): 0.0,
+        ("reward", "foot_slip_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_max_m_s"): 0.25,
+    }
+    off_extra = dict(tangent_extra)
+    off_extra[("reward", "k_foot_slip_height")] = 0.0
+    env_a = _walk_env(seed=9, extra=tangent_extra)
+    env_b = _walk_env(seed=9, extra=off_extra)
+    for env in (env_a, env_b):
+        env.reset()
+        _pin_forward(env)
+        _prime_slip_latches(env)
+    r_a, i_a = _step_info(env_a)
+    r_b, i_b = _step_info(env_b)
+    assert r_a == pytest.approx(r_b, abs=0.0)
+    for k in HEIGHT_INFO_KEYS:
+        assert k not in i_a and k not in i_b
+    env_a.close()
+    env_b.close()
+
+
+def test_foot_slip_height_reduces_return_when_quasi_planted_foot_slides():
+    """Same physics, k on vs off: only the new height-gated charge
+    separates -- mirrors
+    test_foot_slip_tangent_reduces_return_modestly_when_contact_slides
+    but primed via the kinematic latch, not the contact-sensor one."""
+    extra_on = {
+        ("reward", "k_foot_slip_height"): 0.05,
+        ("reward", "foot_slip_height_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_height_max_m_s"): 0.25,
+    }
+    env_on = _walk_env(seed=7, extra=extra_on)
+    env_off = _walk_env(seed=7, extra={
+        ("reward", "k_foot_slip_height"): 0.0,
+        ("reward", "foot_slip_height_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_height_max_m_s"): 0.25,
+    })
+    for env in (env_on, env_off):
+        env.reset()
+        _pin_forward(env)
+        _prime_height_latches(env)
+    r_on, i_on = _step_info(env_on)
+    r_off, _i_off = _step_info(env_off)
+    assert i_on["reward_foot_slip_height"] < 0.0
+    assert i_on["reward_foot_slip_height"] >= -0.05 * 0.25
+    assert r_on - r_off == pytest.approx(
+        i_on["reward_foot_slip_height"], abs=1e-6)
+    env_on.close()
+    env_off.close()
+
+
+def test_foot_slip_height_ignores_real_swing_clearance():
+    """A foot with real kinematic clearance at or above the threshold
+    (an ordinary lifted/swinging foot, not a forced-latch artifact)
+    must never be charged: force fsh_thresh_m deeply negative (no
+    foot's live clearance can ever read below -1m), so every foot's
+    live clearance this tick reads NOT-quasi-planted and the charge
+    must stay exactly zero even with a large injected latch offset."""
+    env = _walk_env(seed=11, extra={
+        ("reward", "k_foot_slip_height"): 0.05,
+        ("reward", "foot_slip_height_thresh_m"): -1.0,
+        ("reward", "foot_slip_height_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_height_max_m_s"): 0.25,
+    })
+    env.reset()
+    _pin_forward(env)
+    for f, bid in enumerate(env._pad_bids):
+        xy = env.data.xpos[bid, :2]
+        env._lsh_prev_xy[f] = xy - np.array([0.05, 0.0])
+        env._lsh_prev_planted[f] = True
+    _r, info = _step_info(env)
+    assert info["reward_foot_slip_height"] == pytest.approx(0.0)
+    assert info["walk_height_quasi_planted_feet"] == pytest.approx(0.0)
+    env.close()
+
+
+def test_foot_slip_height_charges_despite_tangent_contact_n_blind_spot():
+    """Direct proof of independence: the SAME contact-force threshold
+    that makes the tangent lever blind to a real, firmly-planted foot
+    (foot_slip_contact_n=1e9, exactly
+    test_foot_slip_tangent_requires_meaningful_current_contact's own
+    setup just above) never even applies to the height-gated lever --
+    it reads no contact-sensor/force/`meaningful` state whatsoever.
+    Both mechanisms armed on the SAME physics/seed/tick, so this is a
+    like-for-like comparison, not a coincidence of different envs."""
+    env = _walk_env(seed=13, extra={
+        ("reward", "k_foot_slip_tangent"): 0.05,
+        ("reward", "foot_slip_contact_n"): 1e9,
+        ("reward", "foot_slip_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_max_m_s"): 0.25,
+        ("reward", "k_foot_slip_height"): 0.05,
+        ("reward", "foot_slip_height_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_height_max_m_s"): 0.25,
+    })
+    env.reset()
+    _pin_forward(env)
+    _prime_slip_latches(env, prev_force=1e9)
+    _prime_height_latches(env)
+    _r, info = _step_info(env)
+    assert info["reward_foot_slip_tangent"] == pytest.approx(0.0), (
+        "setup check: the tangent lever must be blind here, matching "
+        f"test_foot_slip_tangent_requires_meaningful_current_contact: "
+        f"{info}")
+    assert info["walk_contact_meaningful_feet"] == pytest.approx(0.0)
+    assert info["reward_foot_slip_height"] < 0.0, (
+        f"height-gated charge did not fire despite the SAME physics "
+        f"where the contact-gated lever is structurally blind: {info}")
     env.close()
 
 

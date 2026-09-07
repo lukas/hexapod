@@ -2299,17 +2299,46 @@ class CodexOrchestrator:
                 with self.process_lock:
                     self.processes[process.pid] = process
                     registered = True
-                payload: Optional[bytes] = launch.stdin_payload
+                # A dedicated writer owns stdin. `communicate(input=...)` cannot
+                # be resumed: once its first call times out mid-write, every
+                # later call passes input=None, so the remaining bytes are
+                # never written and the pipe is never closed. Any prompt
+                # larger than the OS pipe buffer (16 KiB on macOS) whose child
+                # does not drain stdin immediately then deadlocks until the
+                # run's deadline. stdout and stderr are regular files, so
+                # waiting without draining them is safe.
+                stdin_failure: List[BaseException] = []
+
+                def _write_stdin() -> None:
+                    try:
+                        if launch.stdin_payload:
+                            process.stdin.write(launch.stdin_payload)
+                            process.stdin.flush()
+                    except BrokenPipeError:
+                        pass
+                    except BaseException as exc:  # noqa: BLE001 - re-raised below
+                        stdin_failure.append(exc)
+                    finally:
+                        try:
+                            process.stdin.close()
+                        except (BrokenPipeError, OSError):
+                            pass
+
+                stdin_writer = threading.Thread(
+                    target=_write_stdin,
+                    name=f"agent-stdin-{job['id']}",
+                    daemon=True,
+                )
+                stdin_writer.start()
                 parent_deadline = time.monotonic() + timeout + 15
                 while True:
                     remaining = parent_deadline - time.monotonic()
                     if remaining <= 0:
                         raise subprocess.TimeoutExpired(wrapped_command, timeout + 15)
                     try:
-                        process.communicate(payload, timeout=min(1.0, remaining))
+                        process.wait(timeout=min(1.0, remaining))
                         break
                     except subprocess.TimeoutExpired:
-                        payload = None
                         if (
                             role == "advance"
                             and allow_advance_actions
@@ -2326,6 +2355,12 @@ class CodexOrchestrator:
                                 process, grace_seconds=5
                             )
                             break
+                stdin_writer.join(timeout=5)
+                if stdin_failure:
+                    raise CodexRunError(
+                        f"{self.provider.label} {role} input could not be sent: "
+                        f"{type(stdin_failure[0]).__name__}"
+                    ) from stdin_failure[0]
             except subprocess.TimeoutExpired as exc:
                 raise CodexRunError(
                     f"Codex {role} deadline wrapper did not exit after {timeout} seconds"

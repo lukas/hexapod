@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-07T07:17:48+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkcurr-phase-sv-contact-s0
+
+**wandb_id**: 0p4y5k91
 
 **hypothesis**: Plain English: if every episode STARTS mid-walk (a real-physics handoff from the scripted tripod teacher, annealing to zero assistance), can the already-refuted phase/contact reward diet finally escape the static-stand basin? Mechanism: goal.walk_reverse_handoff_gate=1 + sched-annealed goal.walk_reverse_handoff_s 2.0->0.0 (t0=0.8M, t1=1.8M, n_envs=4096) on the exact cw-walkcurr-phase-sv-contact-s0 diet -- rung 4 of EASIER_WALKING_CURRICULUM.md, whose own text gates any rung-4 relaunch on exactly this reverse curriculum + matched bank (ASSISTFADE_RUNG4 CPU bank 4/4 green; new MJX bank test_mjx_reverse_handoff 5/5 green incl. sharded-vs-inprocess BITWISE with gate on; legacy MJX suite 24/24 after the sharded knee-frame fix, see assistfade STATUS 09-07 ~07:3x). walk_cmd_hold_s=0/ramp_s=0 arm the tick-0 command so the handoff is a genuine mid-WALK start (measured 0.018 m/s body speed at reset vs 4e-4 step-in-place without). Random init, from-scratch per rung-4 semantics, existing planned seed s0, 2M mechanism-health budget.
 

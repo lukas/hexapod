@@ -1,5 +1,61 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~04:5x (refill; 11/11 GPU free, backlog empty) — item(1)'s `allaxis-nokick-c1-acq1` fork (14h-stalled DIG-IN) VERDICTED ACQ FAIL - PUSH-RECOVERY FRAGILE; launched a single-lever crutch-isolation pair
+
+The `allaxis-nokick-c1-acq1` gate (crutch-ON/kick-fully-off full ~30-axis
+realism composite, 40M ACQ) had sat FINISHED-but-unverdicted since
+09-06 ~12:2x — flagged DIG-IN at ~12:30, further analyzed at ~14:4x
+(which already named the correct next step: "formally close item(1) as
+NOT achieved by kick-removal-alone... retreat one level"), then
+re-flagged as an open fork by 3 more cycles (~01:2x, ~03:2x, ~03:4x,
+~04:2x, ~04:4x) without anyone actually writing the verdict. Read it
+fresh: `gait_valid` improved to 23/24 (vs the 2M canary's 19/24) but
+**2/24 episodes end in a real `tilt_roll` fall** (`roll_class=fell`,
+peak 30.8deg `walk/det` ep1, 34.2deg `walk_startjitter/sto` ep4) —
+watched both frame strips: clean 4-frame walking, a push-perturbation
+marker, then the robot rolling onto its side over the next 1-2 frames.
+Roll runs elevated (14-28deg "leaning") in nearly every OTHER episode
+too — this composite runs close to its stability edge generically, not
+just in the 2 fall episodes. Combined with the already-recorded 14:4x
+finding (fresh seeds `-s1`/`-s2` BOTH fail with the identical tilt_roll
+fingerprint even at their own 2M canary), this is **3/3 seeds showing
+the same push-triggered fall pattern — a recipe-level attractor, not
+seed noise.** **VERDICTED: ACQ FAIL - PUSH-RECOVERY FRAGILE.** This
+formally closes "kick-removal-alone" as sufficient for the full
+composite-with-crutch question; kick was A broken ingredient, not the
+ONLY one.
+
+**Acted on the 14:4x entry's own recommendation** (bisect the remaining
+axes) rather than leaving it as a future task: the one known-clean
+full-realism composite (`allaxiskickhalf-nocrutch1x-c1`, 0 falls at
+both 40M and 80M) differs from the failing recipe on TWO axes at once
+(`dr.torque_scale` 1x vs 3x, AND `dr.walk_kick_prob` 0.15 vs 0.0), so
+crutch-vs-kick was never isolated. Launched
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-{s1,s2}` — single-lever respec of the already-FAILED `-s1`/
+`-s2` 2M canaries (same seeds 3/4, same init-from, kick stays fully OFF
+matching the failing recipe), ONLY `dr.torque_scale` flips 3,3->1,1.
+If clean on the SAME seeds that already fell with crutch ON: the 3x
+torque assist itself is a driver of the push-recovery fragility
+(plausible — higher effective gain overshooting a fast recovery
+response). If it fails the same way: crutch is cleared, isolation
+moves to push magnitude/timing or an untested axis. Both finished
+their 2M budget within-cycle (fast GPU turnaround); gate evals kicked
+on-pod and registered via `evalpending`, left unverdicted for the next
+reader. Full board otherwise re-confirmed unchanged: joystick/amp/cpg
+DONE/closed, standwalk blocked on design-thinking, todaypolicy
+delivered, assistfade's rung 3 also closed this cycle (see its own
+STATUS) with its next step (rung 4) gated on unbuilt prerequisite
+tooling. `CYCLE_WORKED` touched (2 verdicts unblocking multi-cycle
+stalls + 1 justified 2-arm launch).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_c1_acq1_gate/{report.json,
+walk_det_1_sheet.png,walk_startjitter_sto_4_sheet.png}`, W&B `fvj0g1kr`,
+RL_LOG 09-07 04:50; new arms' ledger entries
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-{s1,s2}`, W&B `w4ytxxft`/`a47j88gd`.
+
 ## 2026-09-07 ~04:4x (this cycle, zero-spend scoping diagnostic, no launch) — the obvious "role-aware tripod-template" reward design would likely be a 4th INERT mechanism; do not build it as-is
 
 Before writing any code for the still-unbuilt role-aware mechanism the

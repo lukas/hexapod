@@ -1,6 +1,38 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
-## 09-06 ~20:2x (this cycle) — doc-sync only: all 3 assigned rung3-fallback reports already verdicted by concurrent cycles, no duplicate written
+## 09-07 ~04:3x (refill; 11/11 GPU free, backlog empty) — `s0-longbudget` VERDICTED, closes rung 3's budget/schedule lever family 2/2 (6 arms total): rung 3 is now FULLY CLOSED
+
+The `s0-longbudget` DIG-IN had sat FINISHED-but-unverdicted since
+09-06 ~19:36 (flagged ambiguous/fork-deciding at ~19:6x, re-flagged at
+~20:1x, still open as of the ~20:2x doc-sync — no deep-model cycle
+had actually landed a verdict on it across many subsequent
+cycles). Read it fresh myself (report.json + the `walk_det_0_sheet.png`
+frame strip): `walk/det` `progress_ratio` medians **0.274, BELOW the
+0.35 bar** (the earlier "closer than any prior lever" framing compared
+it only to worse siblings, not to the bar itself), `gait_valid` FALSE
+with leg-5 chronically sacrificed in every episode (identical
+`duty_cycle`/`swing_count` fingerprint across all 6), and EVERY
+`walk/det` episode terminates via `over_current` at `forward_dist_m`
+=0.024 (near-zero net translation) with `roll_class=fell`. The frame
+strip confirms a stall: body stays essentially planted while legs
+shuffle, until the current cutoff on the last sampled frame — the
+"partial improvement" read was real relative to worse siblings but
+does not cross the ignition bar. **Verdicted CANARY FAIL - MECHANISM,
+matching its `s1` twin — rung 3's budget/schedule lever family is now
+closed 2/2 (stdslow 2/2, latehandover 2/2, longbudget 2/2 = 6 arms,
+zero clean passes).** Per the ladder's own retreat rule (rung 1 and
+rung 2 already closed, rung 3 now closed too), the next licensed step
+is rung 4 (phase/contact only), which this doc's own binding rule
+gates on building "a reverse curriculum + matched intermediate-state
+bank" FIRST — not started this cycle (out of scope for a single
+refill pass), named here as the concrete next design/build task for
+whoever picks this track back up. No new launch on this track this
+cycle (the gap is a build task, not a same-cycle-relaunchable arm).
+Evidence: `ops.sh review cw-assistfade-rung3-residualfade-s0-longbudget`,
+`logs/ckpt_eval/cw_assistfade_rung3_residualfade_s0_longbudget_gate/
+{report.json,walk_det_0_sheet.png}`, W&B `1nt19pgb`, RL_LOG 09-07 04:36.
+
+## 09-06 ~20:2x — doc-sync only: all 3 assigned rung3-fallback reports already verdicted by concurrent cycles, no duplicate written
 
 **Assigned this cycle**: `cw-assistfade-rung3-residualfade-s1-latehandover_gate`, `-s0-latehandover_gate` (explicitly another concurrent cycle's, per brief — not touched), `-s1-longbudget_gate` (also explicitly another concurrent cycle's — not touched). Independently re-pulled the ledger entry for the one in-scope run (`ops.sh entry cw-assistfade-rung3-residualfade-s1-latehandover`) fresh: it already carries `status: FAIL`, verdict text word-for-word matching RL_LOG 09-06 20:03 (`CANARY FAIL - MECHANISM`, prog med 0.01-0.06 across modes, essentially unchanged from the un-fixed parent despite rising reward, t1_steps=1.7M lever closed 2/2 seeds) — confirmed against the `report.json` figures named in that verdict, no discrepancy, **no re-verdict written (would duplicate)**. The other two named reports are likewise already landed and verdicted (`-s0-latehandover` FAIL - MECHANISM RL_LOG 20:04, `-s1-longbudget` FAIL - MECHANISM RL_LOG 20:06) — left untouched per the brief's explicit ownership note, spot-confirmed via `ops.sh entry` only to make sure nothing regressed, not re-verdicted.
 

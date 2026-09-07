@@ -1,3 +1,45 @@
+## 2026-09-07 ~23:2x (dig-in cycle) — `s0-widenbis180-legdutyfresh` resolved **FAIL**; `walk_leg_duty_terminate_s` CLOSED 0/8 — termination-as-price is dead for the front-pair sacrifice, next lever is a duty-balance reward TARGET
+
+The dig-in dissolves the ~23:1x "trio-breaker" read. Three findings:
+
+1. **The improvement vs the undosed `s0-widenbis180` baseline is inside
+   eval noise.** gait_valid 20/24 vs 18/24: Fisher exact p=0.72.
+   Sacrifice-episodes 4/24 vs 6/24: p=0.72. Same sacrificed-leg
+   identity both runs (leg-0 in 4 vs 5 eps, leg-5 in 1 vs 1). On n=24
+   panels a 2-episode delta is not a claimable effect; the "beats its
+   lineage baseline" story does not survive the significance check.
+2. **The pathology still forms at 40M, on video.** `walk/det/0` crawls
+   with the front leg held aloft across the entire frame strip;
+   `walk/det/4` sits pinned near-stationary (fwd 0.18 m). Exact leg-0
+   fingerprint the gate's FAIL clause names.
+3. **The dose is pure cost by run end.** `walk_leg_duty_terminate`
+   cuts 8/24 gate episodes early (baseline: 0 terminations) and its
+   in-training firing RISES monotonically (~80/log-interval mid-run ->
+   132-143 at 40.37M) — the policy pays the termination as ambient
+   price rather than learning balanced duty, the same signature as all
+   7 failed siblings. No real falls either run (`roll_class=fell` =
+   term-reason taxonomy artifact, peak rolls 8-17°).
+
+**Mechanism ledger: `safety.walk_leg_duty_terminate_s` is 0/8** (4/4
+`legdutyterm1` retrofit + 3/3 `widen8-acq1-legdutyfresh` + 1/1
+`widenbis180-legdutyfresh`), failing identically on both lineage
+severities. Working read confirmed: termination-as-price is the wrong
+mechanism SHAPE for this pathology — the policy treats the cutoff as a
+tax, never as a constraint to plan around. **Any further
+termination-shaped variant (including the relative-floor add-on
+`walk_leg_duty_terminate_floor_rel_frac` currently in-flight in the
+working tree, mtime 23:0x) needs an explicit hypothesis for why it
+changes the incentive SHAPE rather than the floor arithmetic** — the
+0/8 evidence is about the shape, not the threshold. The scoped next
+structural lever stands: a role-aware / heading-conditioned per-leg
+utilization TARGET (reward shaping toward balanced duty across the
+gait cycle, continuous gradient, no episode cutoff).
+
+Evidence: verdict on the run ledger + W&B notes; Fisher/duty/term
+numbers from both gate `report.json`s; `walk_det_0.png` /
+`walk_det_4.png`; `wandb_history.csv` `terminations/walk_leg_duty_
+terminate` column. RL_LOG 09-07 23:22.
+
 ## 2026-09-07 ~23:1x (triage cycle) — `s0-widenbis180-legdutyfresh` (4th/last legdutyfresh read) UNVERDICTED, DIG-IN flagged: breaks the trio's 3/3-FAIL pattern
 
 The 4th legdutyfresh arm does NOT reproduce the widen8-acq1 trio's

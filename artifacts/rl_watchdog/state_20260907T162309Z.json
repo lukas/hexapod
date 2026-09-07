@@ -1,6 +1,6 @@
 {
   "heartbeat_trigger_utc": "2026-09-07T16:23:09.954Z",
-  "checked_at_utc": "2026-09-07T17:14:00Z",
+  "checked_at_utc": "2026-09-07T18:50:59Z",
   "capacity": {
     "nodes": {
       "g129004": {
@@ -386,15 +386,18 @@
     "No replay of completedpruner/watcherdeploymentrepairs.",
     "Independent review found three contact audit defects; recorded persistent exact-run feedback. Commissioned local isolated diagnostic repair with physics validation, no cloud source collision.",
     "Publishedce15d32c5: correctedunvalidatedturnclaims, markedfreshseedapprovalquestionSUPERSEDED; nooperatorreplyneededfordiagnosticrepair.",
-    "Readmatched8Mscratchgate andparent/2M controls; filedexactmetricsfeedback; assignedunownednextscratchtriage/design to171148 after163413completed."
+    "Readmatched8Mscratchgate andparent/2M controls; filedexactmetricsfeedback; assignedunownednextscratchtriage/design to171148 after163413completed.",
+    "Pushedvalidated22554185branch; consolidationthreadmergedvia6cda85410 tomain, currentcontrollerdbedfdfe9containsit. No needanotheruserpermission.",
+    "Refreshed18:48aftercoordinationgap; readlswingateexactmatched24cells andfollowednewactive183033owner.",
+    "Assignedcorrectedfrozenyawrerunstolocaltraining_history; selectedidletrain1, foundmissingfullSTLassetsandrequiredstrictfullmeshstagingbeforeexecution."
   ],
   "completed_repairs": "Seed-pruner16b739b13deployed,48testscontrollerPASS,PRUNE_OFFremovedandverified16:16previousvisit; no furtherrepairneeded.",
   "next_visit": [
-    "Finishfocusedprobevalidation/reconcileandpublishrepair, deploy and rerunmatchedfrozenyawdiagnostics afterfreshownershipcheck.",
-    "Followadvancingscratchowner171148 throughgateverdict,bank/interactiondiagnosisandboundedusefulrun/stepgrowth; no duplicatekick.",
-    "Do notusepreviouscontactattributionoranchortransmissionclaims untilcorrecteddiagnostic.",
-    "Refreshactualcapacitybeforefinal:11ready/11freeat16:53; scratchgatefinishednow, no latertrainer verified.",
-    "No repeatedpruner/watcherdeploymentrepairs."
+    "Finish training_history correctedfrozenyawreruns withstrict34mesh/100Hz/phase/provenancereport; do notlabelmesh_mjxtwinasfullSTL.",
+    "Followadvancing183033scratchownerthroughnewcanarylaunch/PID/stepgrowth; no duplicatekick orarbitrarynewseed.",
+    "If fullsuiteblockedbyknownpre-existingfailure, separatebaselinefailuresfromnewrewardconcerns withoutredoingcompletedbanks orwastingtrainingcapacity.",
+    "11/11readyGPUsfree18:50; noactualoptimizerclaimuntilnewstepgrowthverified.",
+    "Updatefinalartifactwithrerunfindings/deploySHA andactualcapacity. Existingheartbeatcontinues; no repeatedpruner/watcherdeploymentrepairs."
   ],
   "boundaries": [
     "Existingfleetonly; no purchase/uncordon/eviction/newseed/filler.",
@@ -426,11 +429,11 @@
       "additional_defect": "BC residual comparedactiona_ttoNEXTteacher targett+1; actualphaseπalsoleftinternalteacherclockphase0. Transmissionconclusionunsupported."
     }
   },
-  "capacity_checked_at_utc": "2026-09-07T16:53:28Z",
+  "capacity_checked_at_utc": "2026-09-07T18:50:10Z",
   "authority_repair": {
     "owner": "Codex root/localpruner_safety_audit",
     "base": "ce15d32c5",
-    "state": "Implementation/focusedtests/reconciliation inprogress, notyetpushed",
+    "state": "COMPLETE, integrated GitHub main",
     "reviewer": "current_frontier_audit",
     "mesh_smoke": {
       "model_nmesh": 34,
@@ -453,13 +456,89 @@
       "correlation_min": 0.9999996,
       "artifact": "/tmp/probe_repair_fullmesh_smoke.json"
     },
-    "evidence": "True-substep wrench integration/privateendpointmomentum closesfullmesh; audit-on/off trajectoriesequal. Final focusedtests andBCresidualunavailability/source reconciliationpending."
+    "evidence": "True-substep wrench integration/privateendpointmomentum closesfullmesh; audit-on/off trajectoriesequal. Final focusedtests andBCresidualunavailability/source reconciliationpending.",
+    "commit": "22554185432e1ea896aa6740085052fe30a76274",
+    "merge_commit": "6cda85410",
+    "validated_main": "dbedfdfe9",
+    "tests": "29 PASS in8.15s; independent source review PASS; consolidation additionally29probe and105combined checks PASS perconsolidationthread.",
+    "scope": "Probe/tests only: per-substep impulses, privateendpointmomentum, actualscriptedphases, activeorder-invariantcontacts/slip, rawsigncheck, explicitunavailableBCresidual. No trainingsemantics/thresholdchanges.",
+    "deployment": "training_history owns freshmatchedfrozenreruns. Controllerdbedfdfe9 containsrepair; isolatedcleancontrollerworktreechosen toavoid183033scratchWIP. train1idle butassetsEMPTY: strict runnerrefusesfallback; stagingexactexistinglocalXML+34STLmeshassets read-only before rerun."
   },
   "scratch_owner": {
     "cycle": "20260907T171148",
-    "state": "ACTIVE",
+    "state": "COMPLETED17:27:31",
     "dispatched": "2026-09-07T17:11:48Z",
     "focus": "Own scratch8M gate triage and next useful existing-seed experiment. First check fresh activity/claims; do not duplicate a live completion owner. Gate now synced for cont40m-overspeedq1-cont8m: exact matched audit in fb_20260907T171006_43c9d4. Same22/24gait,0falls; nominaldet progress1.775->1.336 but slip/m4.9805->5.8215; all4cells slip/m12-26%worse, absolutefoot-slip roughlyflat. This was independent8M fromfrozencont40m, not2M+8M; preserve provenance. Verdict against original gates: slowerbodywithoutcleanerfeet, not universalphysicsfloor or automaticbudgetdoubling. Concrete next design question: did overspeed removal change the tradeoff that made prior direct-slip charges ineffective? Audit the prior closed slip levers/configs before reopening anything. Compare reward/behavior components on frozenparent and new8M: active foot-contact slip cost, bodyprogress payoff, contactdwell/footvelocity; verify cost saturation or null gradients mechanically. Only if evidence supports a new interaction, build semantics banks and ONE bounded <=2M same-existing-seed2 canary combining this speed-controlled parent with an already-implemented direct-slip mechanism, solely that delta, using existing slip-only/frozen controls for attribution. Do not repeat an unchanged null or count gait retention as slip success. If interaction falsified beforelaunch, identify next specific supported prior-free mechanism from observed loaded-foot motion, then implement/test a boundedcanary; no unscoped design-blocked exit while useful work is available. No gaitteacher/BC/cyclicprior in scratch. Canonical snapshot/queue/drain, correct checkpointparent, verify trainerPID+stepgrowth. Existingfleetonly; no newseeds/spending/uncordon/filler/relaxedgates/robotwork. Codex owns turn-probe repair and tests; do not touch that source or duplicate yawdiagnostics yet. Record decisions/evidence.",
-    "latest": "17:13:52 readingexactgate,traininghistory,andclosedsliplevers. No duplicate ownerseen; notoptimizingyet."
+    "latest": "Recorded8MscientificFAIL; mechanicalauditshowedpriorratio-chargecanariesescapedviaoverspeeddenominator.4combinedbanktests+12relatedPASS; launchedsingle2Mexistingseed2lswinfromactualspeedcontrolled8Mparent; verifiedPID580094and524288->1572864stepgrowth.341fd06bpublished."
+  },
+  "observation_gap": {
+    "last_pre_gap_utc": "2026-09-07T17:22:56Z",
+    "coordination_call_returned_utc": "2026-09-07T18:46:58Z",
+    "note": "Cross-thread GitHub coordination tool returned after this gap. No claimed root observation of live optimization during the gap; subsequent state refreshed via MCP/capacity."
+  },
+  "scratch_lswin": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-overspeedq1-cont8m-lswin",
+    "created": "2026-09-07T17:23:06+00:00",
+    "wandb_id": "park94cw",
+    "steps": 2000000,
+    "trainer_pid": 580094,
+    "parent": "overspeedq1-cont8m",
+    "seed": 2,
+    "status": "CANARY PASS(mechanismhealth), FAIL-INTERACTION(scientificgate)",
+    "comparison": {
+      "gait_valid": 22,
+      "terminated": 0,
+      "cells": {
+        "walk/det": {
+          "n": 6,
+          "gv": 6,
+          "progress": 1.462,
+          "slip": 5.4719999999999995,
+          "slip_m": 9.5125,
+          "along_m": 1.7149999999999999,
+          "matched": true
+        },
+        "walk/sto": {
+          "n": 6,
+          "gv": 5,
+          "progress": 1.3555000000000001,
+          "slip": 6.013999999999999,
+          "slip_m": 10.196,
+          "along_m": 1.5805,
+          "matched": true
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gv": 5,
+          "progress": 1.4325,
+          "slip": 5.64,
+          "slip_m": 9.8575,
+          "along_m": 1.6825,
+          "matched": true
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gv": 6,
+          "progress": 1.2654999999999998,
+          "slip": 6.4815000000000005,
+          "slip_m": 10.1785,
+          "along_m": 1.5005000000000002,
+          "matched": true
+        }
+      },
+      "model": "mesh_mjx",
+      "variant": "mesh_mjx_twin"
+    },
+    "interpretation": "22/24gait0falls;samefaultcells. walk/detslip5.472>=5.3failureline vs<=4.8supported;absolutefoot-slipstillflat. No universalstylefloorclaim."
+  },
+  "current_scratch_owner": {
+    "cycle": "20260907T183033",
+    "pid": 3716893,
+    "state": "ACTIVE18:50",
+    "latest": "Completedloaded-footmotionstudy andnewrewardbank; preparingnextcanary. Waitingonfulltest_task_semantics.py aftertargetedtestspassed; previousfailuresappearearly. Rootnotduplicatingadvancingowner.",
+    "files_owned": [
+      "rl_move/sim/walk_task.py",
+      "rl_move/tests/test_task_semantics.py"
+    ]
   }
 }

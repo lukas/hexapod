@@ -410,7 +410,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_course_win_hist", "_walk_course_win_cum",
                           "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
-                          "_gait_gate_qfactor", "_wp", "_vel_est")
+                          "_gait_gate_qfactor", "_wp", "_vel_est",
+                          "_trans_td_count", "_trans_lo_buf")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -604,6 +605,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # them 3.3x (learned skaters median 9.8 mm vs scripted gait
         # 2.9 mm, p90 5.7) — charge the stroke, not the jitter.
         self._stance_slip_acc = [0.0] * 6
+        # Touchdown/liftoff TRANSITION-WINDOW slip charge (2026-09-07,
+        # walkcurr phase-binned slip audit follow-up: touchdown+liftoff
+        # ticks carry ~50-60% more per-tick material slip than
+        # mid-stance, see rl_docs/tracks/walkcurr/STATUS.md 09-07
+        # ~18:2x). `_trans_td_count[f]` counts down the remaining
+        # ticks of the touchdown window for leg f (0 = not in window);
+        # `_trans_lo_buf[f]` is a small trailing ring (plain list,
+        # truncated to reward.walk_transition_lo_ticks) of this
+        # stance's most recent per-tick tangential slip velocities,
+        # charged retrospectively at the moment leg f lifts off (the
+        # tail of the buffer IS the liftoff window at that instant).
+        self._trans_td_count = [0] * 6
+        self._trans_lo_buf: list = [[] for _ in range(6)]
         # Drag-stance allowance RAMP (08-22, phasedir9-seed-lottery
         # dig-in / pd8 regime-gap follow-up): the det-calibrated
         # drag_stance_allow_mm cannot separate honest walking from a
@@ -1249,6 +1263,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (reward.walk_kernel_yaw_ema); same lifecycle.
         self._walk_kernel_wz_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
+        self._trans_td_count = [0] * 6
+        self._trans_lo_buf = [[] for _ in range(6)]
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
         self._gait_gate_qfactor = 1.0
@@ -3189,6 +3205,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # (reward.walk_kernel_yaw_ema); same lifecycle.
         self._walk_kernel_wz_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
+        self._trans_td_count = [0] * 6
+        self._trans_lo_buf = [[] for _ in range(6)]
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
         self._gait_gate_qfactor = 1.0
@@ -5553,12 +5571,68 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             fsh_cap = float(cfg_get(
                 self.cfg, "reward", "foot_slip_height_max_m_s",
                 default=0.25))
+            # TRANSITION-WINDOW slip charge (2026-09-07, walkcurr
+            # phase-binned slip audit follow-up:
+            # rl_docs/tracks/walkcurr/STATUS.md 09-07 ~18:2x). Every
+            # direct-slip lever tried so far (k_foot_slip_tangent,
+            # k_foot_slip_height, the episode-level loadslip ratio)
+            # charges the WHOLE loaded duration uniformly and was
+            # CLOSED 5/5 without moving held-out slip/m — the phase-
+            # binned audit shows why: slip concentrates in two SHORT
+            # windows (touchdown impact + pre-liftoff drag), not
+            # uniform mid-stance creep, so a flat-rate charge spends
+            # most of its "budget" pricing ticks that were already
+            # cheap. This charges ONLY those two windows, at
+            # `k_walk_transition_slip` per m/s of excess tangential
+            # velocity over the SAME deadband/cap units as
+            # `k_foot_slip_tangent` (independently configurable so a
+            # combined arm can dose them differently): the touchdown
+            # window is the touchdown tick itself plus the next
+            # `walk_transition_td_ticks - 1` on-ticks (priced live,
+            # per tick, exactly like k_foot_slip_tangent's own
+            # mid-stance charge but starting one tick earlier so the
+            # impact tick itself is covered); the liftoff window is
+            # the LAST `walk_transition_lo_ticks` on-ticks of the
+            # stance bout, priced RETROSPECTIVELY as one lump sample
+            # at the tick the foot actually leaves the ground (using
+            # a small trailing per-leg ring buffer, `_trans_lo_buf`,
+            # of already-observed per-tick tangential velocities — no
+            # lookahead, everything charged already happened). Default
+            # off (`k_walk_transition_slip=0.0`): bit-exact vs no
+            # mechanism at all — the gate condition below and every
+            # write below are guarded by `k_wts > 0.0`. Does not
+            # replace or zero `k_foot_slip_tangent`; if both are armed
+            # together, touchdown/liftoff-window ticks are charged by
+            # both (a combined-dose question for a follow-up arm, not
+            # this one). No interaction with `k_step_event`/
+            # `k_step_partial`: those price ALONG-command stride
+            # length between liftoff and the NEXT touchdown, this
+            # prices tangential (skid) velocity within a fixed tick
+            # window — different quantities, same shared touchdown/
+            # liftoff flags, no double-counted term.
+            k_wts = float(cfg_get(self.cfg, "reward",
+                                  "k_walk_transition_slip", default=0.0))
+            wts_contact_n = float(cfg_get(
+                self.cfg, "reward", "walk_transition_contact_n",
+                default=1.0))
+            wts_deadband = float(cfg_get(
+                self.cfg, "reward", "walk_transition_slip_deadband_m_s",
+                default=0.015))
+            wts_cap = float(cfg_get(
+                self.cfg, "reward", "walk_transition_slip_max_m_s",
+                default=0.25))
+            wts_td_ticks = max(1, int(round(float(cfg_get(
+                self.cfg, "reward", "walk_transition_td_ticks",
+                default=3.0)))))
+            wts_lo_ticks = max(1, int(round(float(cfg_get(
+                self.cfg, "reward", "walk_transition_lo_ticks",
+                default=3.0)))))
             if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
                     or g_dband > 0.0
-                    or k_tslip > 0.0 or k_fsh > 0.0
+                    or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
@@ -5571,6 +5645,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_drag = 0.0
                 r_ds = 0.0
                 r_tslip = 0.0
+                r_wts = 0.0
+                wts_excess = []
+                wts_td_events = 0
+                wts_lo_events = 0
                 swing_gate_flags = [False] * 6
                 contacts = [False] * 6
                 contact_forces = [0.0] * 6
@@ -5596,6 +5674,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     meaningful = on and force >= tslip_contact_n
                     if meaningful:
                         meaningful_contacts += 1
+                    wts_meaningful = (k_wts > 0.0
+                                       and on and force >= wts_contact_n)
                     xy = self.data.xpos[self._pad_bids[f], :2]
                     if k_fsh > 0.0 and f not in lift:
                         # Kinematic gate: ground clearance vs
@@ -5625,10 +5705,47 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # Touchdown: a new stance period earns a fresh
                         # slip allowance (k_drag_stance bookkeeping).
                         self._stance_slip_acc[f] = 0.0
+                        # TRANSITION-WINDOW touchdown charge: the
+                        # impact tick itself, measured the same way as
+                        # the mid-stance tangent charge below
+                        # (foot XY delta vs last tick, which for THIS
+                        # tick is the last airborne sample) but keyed
+                        # off `meaningful` alone (the previous tick
+                        # was in the air, so `prev_meaningful` is
+                        # always False here and would zero out under
+                        # k_foot_slip_tangent's own gating — this is
+                        # deliberately the one tick that mechanism can
+                        # never see). Arms the live window countdown
+                        # so the NEXT `walk_transition_td_ticks - 1`
+                        # mid-stance ticks are also charged below.
+                        if k_wts > 0.0 and f not in lift:
+                            self._trans_lo_buf[f] = []
+                            if wts_meaningful and self._foot_prev_xy[f] \
+                                    is not None:
+                                tv0 = float(np.linalg.norm(
+                                    xy - self._foot_prev_xy[f])) / max(
+                                        self.dt, 1e-9)
+                                ex0 = max(tv0 - wts_deadband, 0.0)
+                                if wts_cap > 0.0:
+                                    ex0 = min(ex0, wts_cap)
+                                wts_excess.append(ex0)
+                                wts_td_events += 1
+                            self._trans_td_count[f] = wts_td_ticks - 1
                     if self._foot_on[f] and not on:
                         liftoff_flags[f] = True
                         self._liftoff_xy[f] = xy.copy()
                         self._liftoff_step[f] = self._step_i
+                        # TRANSITION-WINDOW liftoff charge: retrospective
+                        # lump over the trailing `walk_transition_lo_
+                        # ticks` per-tick excess samples already
+                        # observed during this stance (no lookahead —
+                        # everything in the buffer already happened).
+                        if k_wts > 0.0 and f not in lift \
+                                and self._trans_lo_buf[f]:
+                            wts_excess.append(
+                                float(np.mean(self._trans_lo_buf[f])))
+                            wts_lo_events += 1
+                            self._trans_lo_buf[f] = []
                     elif on and not self._foot_on[f] \
                             and self._liftoff_xy[f] is not None:
                         d = xy - self._liftoff_xy[f]
@@ -5726,6 +5843,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             # that never lifts cannot defer payment).
                             r_ds -= k_ds * (max(acc1 - allow_m, 0.0)
                                             - max(acc0 - allow_m, 0.0))
+                        if wts_meaningful and self._foot_prev_force[f] \
+                                >= wts_contact_n:
+                            tv_w = slip / max(self.dt, 1e-9)
+                            ex_w = max(tv_w - wts_deadband, 0.0)
+                            if wts_cap > 0.0:
+                                ex_w = min(ex_w, wts_cap)
+                            # Live touchdown-window continuation: the
+                            # first `wts_td_ticks - 1` ticks AFTER the
+                            # impact tick (charged above at touchdown
+                            # itself) are priced here as they occur.
+                            if self._trans_td_count[f] > 0:
+                                wts_excess.append(ex_w)
+                                wts_td_events += 1
+                                self._trans_td_count[f] -= 1
+                            # Trailing ring for the retrospective
+                            # liftoff charge (always fed while planted
+                            # so whatever's in the buffer the instant
+                            # this leg lifts off IS its liftoff
+                            # window — a stance shorter than
+                            # `wts_lo_ticks` just uses everything it
+                            # has).
+                            self._trans_lo_buf[f].append(ex_w)
+                            if len(self._trans_lo_buf[f]) > wts_lo_ticks:
+                                self._trans_lo_buf[f] = \
+                                    self._trans_lo_buf[f][-wts_lo_ticks:]
                     if not on and self._liftoff_xy[f] is not None:
                         swinging_flags[f] = True
                         air_times_s[f] = (self._step_i
@@ -5738,6 +5880,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         r_tslip = -k_tslip * float(np.mean(tangent_excess))
                     reward += r_tslip
                     info["reward_foot_slip_tangent"] = r_tslip
+                if k_wts > 0.0:
+                    if wts_excess:
+                        r_wts = -k_wts * float(np.mean(wts_excess))
+                    reward += r_wts
+                    info["reward_walk_transition_slip"] = r_wts
+                    info["walk_transition_td_events"] = float(
+                        wts_td_events)
+                    info["walk_transition_lo_events"] = float(
+                        wts_lo_events)
                 if k_fsh > 0.0:
                     r_fsh = 0.0
                     if fsh_excess:

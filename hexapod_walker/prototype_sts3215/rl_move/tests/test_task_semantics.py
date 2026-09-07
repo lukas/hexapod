@@ -12444,3 +12444,156 @@ def test_walkcurr_ovls_primary_ordering_and_income(
         f"recipe: {at_cap[0]:.1f} vs {park[0]:.1f}")
     assert at_cap[0] > 200.0, (
         f"combined dose drives honest walking too low: {at_cap[0]:.1f}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR TRANSITION-WINDOW slip charge bank (09-07, phase-binned slip
+# audit follow-up; rl_docs/tracks/walkcurr/STATUS.md 09-07 ~18:2x). Every
+# uniform (whole-loaded-duration) direct-slip lever tried on this track
+# (k_foot_slip_tangent, k_foot_slip_height, the episode-level loadslip
+# ratio, and its windowed variant) is CLOSED 5/5 without moving held-out
+# slip/m; a phase-binned audit of the frozen champion AND its speed-
+# controlled descendant (`audit_slip_frame.py --phase-bins`) found why:
+# slip concentrates in two short windows (touchdown impact, pre-liftoff
+# drag) at ~50-60% above the flat mid-stance rate, so a flat-rate charge
+# spends most of its "budget" pricing already-cheap ticks.
+# `reward.k_walk_transition_slip` prices ONLY those two windows
+# (touchdown tick + the next `walk_transition_td_ticks - 1` live ticks,
+# plus the trailing `walk_transition_lo_ticks` retrospective ticks paid
+# at the moment of liftoff, using no lookahead) at the same tangential-
+# velocity-excess-over-deadband/cap unit as the closed
+# `k_foot_slip_tangent` lever. Default 0.0 (bit-exact-off).
+WALKCURR_TRANSITION_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_TRANSITION_OVERRIDES.update({
+    ("reward", "k_walk_transition_slip"): 35.0,
+    ("reward", "walk_transition_slip_deadband_m_s"): 0.015,
+    ("reward", "walk_transition_slip_max_m_s"): 0.25,
+    ("reward", "walk_transition_td_ticks"): 3,
+    ("reward", "walk_transition_lo_ticks"): 3,
+})
+
+
+def test_walkcurr_transition_key_off_is_bit_exact():
+    """key=0.0 must reproduce the bare diet exactly, every behavior —
+    the new mechanism must never leak into cost/state shared with any
+    other lever when disarmed."""
+    zero_ov = dict(WALKCURR_TRANSITION_OVERRIDES)
+    zero_ov[("reward", "k_walk_transition_slip")] = 0.0
+    for pol in ("gait", "skate", "stall", "park"):
+        off = _walk_rollout(pol, SEEDS[0], vx=0.06,
+                            overrides=WALKCURR_ITEM4_BARE_OVERRIDES)
+        on = _walk_rollout(pol, SEEDS[0], vx=0.06, overrides=zero_ov)
+        assert off == on, (
+            f"{pol}: k_walk_transition_slip=0.0 changed the bare "
+            f"return ({off} vs {on})")
+
+
+def test_walkcurr_transition_deadband_gate_is_real():
+    """An impossibly high deadband (10 m/s, never crossed by a real
+    foot) must be bit-exact vs the mechanism fully off — proves the
+    deadband actually gates the charge rather than firing
+    unconditionally."""
+    off = _slipwalk_rollout("gait", SEEDS[0], overrides=SLIPWALK_OVERRIDES)
+    hi = _slipwalk_rollout("gait", SEEDS[0], overrides={
+        **SLIPWALK_OVERRIDES,
+        ("reward", "k_walk_transition_slip"): 5.0,
+        ("reward", "walk_transition_slip_deadband_m_s"): 10.0,
+    })
+    assert off[0] == hi[0], (
+        f"impossible deadband still charged something: "
+        f"{off[0]:.2f} vs {hi[0]:.2f}")
+
+
+def test_walkcurr_transition_fires_on_real_gait_contact():
+    """At deadband 0.0 the charge must actually be nonzero on the
+    scripted gait — the mechanism is not a structural no-op (its
+    touchdown/liftoff events genuinely occur under real MuJoCo contact
+    dynamics, not just on a trained policy's learned exploit)."""
+    on_ov = {**SLIPWALK_OVERRIDES,
+             ("reward", "k_walk_transition_slip"): 5.0,
+             ("reward", "walk_transition_slip_deadband_m_s"): 0.0}
+    off = _slipwalk_rollout("gait", SEEDS[0], overrides=SLIPWALK_OVERRIDES)
+    on = _slipwalk_rollout("gait", SEEDS[0], overrides=on_ov)
+    assert on[0] < off[0] - 5.0, (
+        f"transition charge did not fire on a real scripted gait: "
+        f"off={off[0]:.2f} on={on[0]:.2f}")
+
+
+def test_walkcurr_transition_window_width_is_monotonic():
+    """Widening both windows (1 tick -> 6 ticks) must charge MORE (or
+    equal), never less — a basic sanity check that the window-length
+    cfg keys actually control how many ticks get priced."""
+    narrow = {**SLIPWALK_OVERRIDES,
+              ("reward", "k_walk_transition_slip"): 5.0,
+              ("reward", "walk_transition_slip_deadband_m_s"): 0.0,
+              ("reward", "walk_transition_td_ticks"): 1,
+              ("reward", "walk_transition_lo_ticks"): 1}
+    wide = dict(narrow)
+    wide[("reward", "walk_transition_td_ticks")] = 6
+    wide[("reward", "walk_transition_lo_ticks")] = 6
+    r_narrow = _slipwalk_rollout("gait", SEEDS[0], overrides=narrow)
+    r_wide = _slipwalk_rollout("gait", SEEDS[0], overrides=wide)
+    assert r_wide[0] <= r_narrow[0] + 1e-6, (
+        f"widening the transition windows did not increase the charge: "
+        f"narrow={r_narrow[0]:.2f} wide={r_wide[0]:.2f}")
+
+
+def test_walkcurr_transition_is_more_targeted_than_uniform_pricing():
+    """THE design claim this mechanism exists to test: at the SAME
+    gain/deadband/cap, pricing only the touchdown+liftoff windows must
+    charge LESS total than pricing the entire loaded duration
+    uniformly (`k_foot_slip_tangent`) — confirms the windowed charge
+    really is narrower, not just a renamed copy of the closed uniform
+    lever."""
+    gain, deadband, cap = 35.0, 0.015, 0.25
+    windowed_ov = {**SLIPWALK_OVERRIDES,
+                   ("reward", "k_walk_transition_slip"): gain,
+                   ("reward", "walk_transition_slip_deadband_m_s"):
+                       deadband,
+                   ("reward", "walk_transition_slip_max_m_s"): cap}
+    uniform_ov = {**SLIPWALK_OVERRIDES,
+                  ("reward", "k_foot_slip_tangent"): gain,
+                  ("reward", "foot_slip_deadband_m_s"): deadband,
+                  ("reward", "foot_slip_max_m_s"): cap}
+    off = _slipwalk_rollout("gait", SEEDS[0], overrides=SLIPWALK_OVERRIDES)
+    windowed = _slipwalk_rollout("gait", SEEDS[0], overrides=windowed_ov)
+    uniform = _slipwalk_rollout("gait", SEEDS[0], overrides=uniform_ov)
+    windowed_charge = off[0] - windowed[0]
+    uniform_charge = off[0] - uniform[0]
+    assert windowed_charge < uniform_charge, (
+        f"windowed charge ({windowed_charge:.2f}) is not smaller than "
+        f"the matched-dose uniform charge ({uniform_charge:.2f}) — "
+        "the mechanism is not actually more targeted")
+
+
+def test_walkcurr_transition_preserves_primary_ordering(
+        walkcurr_item4_bare_returns):
+    """Must not make walking itself uncompetitive: an honest gait at
+    the campaign's own 0.06 m/s command still clearly beats stall and
+    park with the mechanism armed at the bank dose."""
+    gait = _walk_rollout("gait", SEEDS[0], vx=0.06,
+                         overrides=WALKCURR_TRANSITION_OVERRIDES)
+    stall = _walk_rollout("stall", SEEDS[0], vx=0.06,
+                          overrides=WALKCURR_TRANSITION_OVERRIDES)
+    park = _walk_rollout("park", SEEDS[0], vx=0.06,
+                         overrides=WALKCURR_TRANSITION_OVERRIDES)
+    gap = (walkcurr_item4_bare_returns["gait"]
+           - walkcurr_item4_bare_returns["stall"])
+    assert gait > stall + 0.3 * gap, (
+        f"gait no longer clearly beats stall: {gait:.1f} vs {stall:.1f}")
+    assert gait > park + 0.3 * gap, (
+        f"gait no longer clearly beats park: {gait:.1f} vs {park:.1f}")
+
+
+def test_walkcurr_transition_skate_is_still_worst():
+    """Degenerate zero-lift skating (loaded feet sliding start to
+    finish) must still read far worse than refusing to move — the new
+    mechanism must not accidentally make the OLD worst-outcome cheaper
+    than park."""
+    skate = _walk_rollout("skate", SEEDS[0], vx=0.06,
+                          overrides=WALKCURR_TRANSITION_OVERRIDES)
+    park = _walk_rollout("park", SEEDS[0], vx=0.06,
+                         overrides=WALKCURR_TRANSITION_OVERRIDES)
+    assert skate < park - 300.0, (
+        f"skating is not clearly the worst outcome: skate={skate:.1f} "
+        f"park={park:.1f}")

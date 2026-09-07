@@ -1,0 +1,53 @@
+{
+  "checked_at": "2026-09-06T06:10:42.874862+00:00",
+  "public_cameras": [
+    {
+      "id": "robot-1",
+      "available": false,
+      "fresh": false,
+      "status": "paused",
+      "error": null,
+      "permission_status": "authorized",
+      "frame_sequence": 1
+    },
+    {
+      "id": "robot-2",
+      "available": false,
+      "fresh": false,
+      "status": "paused",
+      "error": null,
+      "permission_status": "authorized",
+      "frame_sequence": 0
+    },
+    {
+      "id": "robot-3",
+      "available": false,
+      "fresh": false,
+      "status": "paused",
+      "error": null,
+      "permission_status": "authorized",
+      "frame_sequence": 2
+    },
+    {
+      "id": "robot-4",
+      "available": false,
+      "fresh": false,
+      "status": "paused",
+      "error": null,
+      "permission_status": "authorized",
+      "frame_sequence": 2
+    },
+    {
+      "id": "iphone",
+      "available": false,
+      "fresh": false,
+      "status": "unavailable",
+      "error": "Configured camera is unavailable or ambiguous",
+      "permission_status": "authorized",
+      "frame_sequence": 0
+    }
+  ],
+  "configured_min_frame_detail": 20,
+  "robot_armed": false,
+  "robot_busy": false
+}

@@ -1,0 +1,145 @@
+{
+  "heartbeat_trigger_utc": "2026-09-06T04:28:00Z",
+  "checked_at_utc": "2026-09-06T04:49:00Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 9,
+    "free_pods": [
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-2",
+      "hexapod-mjx-train-3",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc2-abrupt-c1-acq1"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-latency1x-c1"
+      ]
+    }
+  },
+  "capacity_progression": [
+    {
+      "at": "04:28Z",
+      "ready": 11,
+      "free": 0
+    },
+    {
+      "at": "04:34Z",
+      "ready": 11,
+      "free": 1
+    },
+    {
+      "at": "04:43Z",
+      "ready": 11,
+      "free": 8
+    },
+    {
+      "at": "04:49Z",
+      "ready": 11,
+      "free": 9
+    }
+  ],
+  "owners": {
+    "refill": "20260906T043058 active, launching bounded medhead DR canaries; latency1x reached actual trainer process on train4 after wrapper timed out",
+    "research": [
+      "20260906T043056 assisted and robotwalk-turns evaluations",
+      "20260906T043612 scratch verdicts and bounded follow-ons"
+    ],
+    "artifact": "20260906T040017 finished 04:46Z"
+  },
+  "artifact_canary": {
+    "run": "cw-walkscratch-easy0905-medhead-widenfwd-c2-deferartifacts",
+    "wandb_id": "o81ovjq7",
+    "gpu_release_and_reuse_verified": true,
+    "finalized": {
+      "done": 2,
+      "skipped_done": 1,
+      "failed": 0,
+      "errors": {},
+      "phase": "evaluated",
+      "finished_at": 1788669577.052614
+    },
+    "manual_recovery": {
+      "at": "04:32:49Z",
+      "cause": "SIGKILL left zombie PID3202827 and orphan CPU worker3202952. Original automatic restart refused zombie lock; root recovered same manifest and existing credentials.",
+      "new_finalizer_pid": 3213546
+    },
+    "fix_commit": "3f65918ec7c1b61eba2c4e89111ed893a29877c7",
+    "automatic_restart_after_fix_independently_retested": false,
+    "observed_publication": "Two video rows plus one evaluation row; no observed duplicates in canary",
+    "broad_adoption_ready": false
+  },
+  "remaining_review": [
+    "async publication durability before retiring snapshot/DONE",
+    "PID file concurrency race; consider permanent-inode kernel flock",
+    "frozen job code/config/XML provenance and per-job hashes",
+    "marker double-save consistency",
+    "reused manifest directory collision handling"
+  ],
+  "feedback": [
+    "fb_20260906T040948_8c3fb9",
+    "fb_20260906T041039_cf9136",
+    "fb_20260906T043337_b841b2"
+  ],
+  "access": {
+    "native_tools_exposed": false,
+    "method": "Documented direct authenticated curl -f -sS --config private-config --data JSON -o file",
+    "live_rpc_succeeded_without_prompt": true,
+    "current_pending_approval_identified": false,
+    "standing_authorization": "Routine MCP reads, reports, metrics, logs and existing videos; keep-training mandate persists"
+  },
+  "next_actions": [
+    "Allow advancing research refill owner to finish its launches; do not duplicate active ownership.",
+    "Recheck free slots and actual trainer steps on next heartbeat; flag any owner that finishes leaving unowned idle capacity.",
+    "Keep artifact defer flag default OFF until bounded reliability review resolved, without asking Lukas to perform engineering adoption decisions.",
+    "Keep Pending train6 CPU scheduling constraint; no capacity purchase/provider uncordon.",
+    "Use documented MCP route and pass it to delegated agents; never infer operator approval from server authentication."
+  ]
+}

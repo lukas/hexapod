@@ -1,0 +1,669 @@
+{
+  "heartbeat_trigger_utc": "2026-09-06T06:33:30Z",
+  "checked_at_utc": "2026-09-06T07:07:16Z",
+  "initial_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 2,
+    "free_pods": [
+      "hexapod-mjx-train-0",
+      "hexapod-mjx-train-1"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-gyrobias1x-c1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-zerobiasframe1x-c1"
+      ],
+      "hexapod-mjx-train-5": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-alldrconf1x-c1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis1x-c1"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-10": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1-acq1"
+      ],
+      "hexapod-mjx-train-11": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kickhalf1x-c1"
+      ]
+    }
+  },
+  "samples_at_063459": [
+    {
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-gyrobias1x-c1",
+      "at": "2026-09-06T06:34:59.335664+00:00",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        10530,
+        11465
+      ],
+      "events": [
+        "[video] logged reel (4,096 steps | walk:ok walk:ok walk:ok walk:ok)",
+        "[periodic-eval] 1,003,520: hold 2.46\u00b0, track 3.48\u00b0, unload 2.62\u00b0, raise 1/2, rise f0/2 b0/2 c0/2, walk err 0.061 m/s, dir 25.4deg, startjit 2/2, tipped 0/2, rolltrap 2/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      ],
+      "gpu": "0 %, 45811 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-3",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1",
+      "at": "2026-09-06T06:34:59.406395+00:00",
+      "steps": [
+        25165824,
+        25690112
+      ],
+      "fps": [
+        20691,
+        20730
+      ],
+      "events": [
+        "[periodic-eval] previous eval still running; skipping this round",
+        "[periodic-eval] previous eval still running; skipping this round"
+      ],
+      "gpu": "8 %, 45815 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-4",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-zerobiasframe1x-c1",
+      "at": "2026-09-06T06:34:59.550206+00:00",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        12635,
+        13662
+      ],
+      "events": [
+        "[video] logged reel (4,096 steps | walk:ok walk:ok walk:ok walk:ok)",
+        "[periodic-eval] 1,003,520: hold 2.90\u00b0, track 3.34\u00b0, unload 2.70\u00b0, raise 2/2, rise f0/2 b0/2 c0/2, walk err 0.057 m/s, dir 26.4deg, startjit 2/2, tipped 0/2, rolltrap 2/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      ],
+      "gpu": "0 %, 45811 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-5",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-alldrconf1x-c1",
+      "at": "2026-09-06T06:34:59.667226+00:00",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        13481,
+        14687
+      ],
+      "events": [
+        "[periodic-eval] previous eval still running; skipping this round",
+        "[video] previous reel still rendering; skipping this round"
+      ],
+      "gpu": "0 %, 45811 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-7",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis1x-c1",
+      "at": "2026-09-06T06:34:59.549711+00:00",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        9857,
+        11301
+      ],
+      "events": [
+        "[video] logged reel (4,096 steps | walk:ok walk:TERM(tilt_roll) walk:ok walk:ok)",
+        "[periodic-eval] 1,003,520: hold 8.43\u00b0, track 7.29\u00b0, unload 7.51\u00b0, raise 1/2, rise f0/2 b0/2 c0/2, walk err 0.065 m/s, dir 43.6deg, startjit 2/2, tipped 0/2, rolltrap 0/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      ],
+      "gpu": "0 %, 45815 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-8",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1",
+      "at": "2026-09-06T06:34:59.676824+00:00",
+      "steps": [
+        39845888,
+        40370176
+      ],
+      "fps": [
+        17285,
+        17292
+      ],
+      "events": [
+        "[periodic-eval] previous eval still running; skipping this round",
+        "[periodic-eval] 31,109,120: hold 2.25\u00b0, track 4.60\u00b0, unload 3.15\u00b0, raise 2/2, rise f0/2 b0/2 c0/2, walk err 0.068 m/s, dir 33.6deg, startjit 2/2, tipped 0/2, rolltrap 1/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1"
+      ],
+      "gpu": "0 %, 45815 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-9",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1-cont40m",
+      "at": "2026-09-06T06:34:59.679798+00:00",
+      "steps": [
+        3145728,
+        3670016
+      ],
+      "fps": [
+        13784,
+        14343
+      ],
+      "events": [
+        "[video] previous reel still rendering; skipping this round",
+        "[periodic-eval] previous eval still running; skipping this round"
+      ],
+      "gpu": "3 %, 45811 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-10",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1-acq1",
+      "at": "2026-09-06T06:34:59.843391+00:00",
+      "steps": [
+        5767168,
+        6291456
+      ],
+      "fps": [
+        14577,
+        14829
+      ],
+      "events": [
+        "[video] previous reel still rendering; skipping this round",
+        "[periodic-eval] previous eval still running; skipping this round"
+      ],
+      "gpu": "8 %, 45815 MiB",
+      "tail": []
+    },
+    {
+      "pod": "hexapod-mjx-train-11",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kickhalf1x-c1",
+      "at": "2026-09-06T06:34:59.826650+00:00",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        10276,
+        11451
+      ],
+      "events": [
+        "[periodic-eval] previous eval still running; skipping this round",
+        "[video] previous reel still rendering; skipping this round"
+      ],
+      "gpu": "0 %, 45811 MiB",
+      "tail": []
+    }
+  ],
+  "sample_interpretation": "At06:34:59 three ongoing40M runs (train3,9,10) were optimizing; six sampled runs had reached budget and retained GPUs during CPU artifact drains. Faultworst was launching on train0; train1 free. Do not confuse occupied memory/RUNNING with optimizing.",
+  "refill": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-faultworst1x-c1",
+    "pod": "hexapod-mjx-train-0",
+    "canonical_launcher_pid": 407139,
+    "latest": {
+      "at": "2026-09-06T06:37:43.356422+00:00",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-faultworst1x-c1",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        12105,
+        13345
+      ],
+      "tail": []
+    },
+    "outcome": "Existing queued arm placed by normal watcher drain and reached2,097,152. No duplicate kick or manual launch."
+  },
+  "artifact": {
+    "run": "cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1",
+    "wandb_id": "inb67bzx",
+    "finalizer_pid": 936105,
+    "latest": {
+      "at": "2026-09-06T06:40:42.645458+00:00",
+      "state": {
+        "schema": 1,
+        "phase": "evaluated",
+        "jobs": {
+          "eval_32112640_periodic_008": {
+            "status": "done",
+            "attempts": 1
+          },
+          "video_40062976_periodic_009": {
+            "status": "done",
+            "attempts": 1
+          },
+          "video_40370176_final_010": {
+            "status": "done",
+            "attempts": 1
+          }
+        },
+        "note": "finalizer: 3 done (publication flush confirmed), 0 already done, 0 failed",
+        "updated_at": 1788676780.1071784
+      },
+      "finalized_exists": true,
+      "finalized": {
+        "done": 3,
+        "skipped_done": 0,
+        "failed": 0,
+        "errors": {},
+        "delivered_snapshots": [
+          "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/eval_32112640_periodic_008.zip",
+          "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40062976_periodic_009.zip",
+          "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40370176_final_010.zip"
+        ],
+        "logged_job_ids": [
+          "eval_32112640_periodic_008",
+          "video_40062976_periodic_009",
+          "video_40370176_final_010"
+        ],
+        "replayed_unconfirmed": 0,
+        "phase": "evaluated",
+        "finished_at": 1788676780.1074624
+      },
+      "cpu": {
+        "936105": {
+          "state": "Z",
+          "seconds": 2.9
+        },
+        "936227": null,
+        "945094": null
+      },
+      "log_tail": "covery_success \u2581\nwandb:      SCORE/track_total_reward \u2581\nwandb:     SCORE/unload_total_reward \u2581\nwandb:                           +52 ...\nwandb: \nwandb: Run summary:\nwandb:        SCORE/hold_total_reward -2.55161\nwandb:   SCORE/hold_total_reward.last -2.38611\nwandb:            SCORE/raise_success 0\nwandb:       SCORE/raise_success.last 1\nwandb:       SCORE/raise_total_reward 1213.7823\nwandb:  SCORE/raise_total_reward.last 1621.95001\nwandb:      SCORE/rise_bridge_success 0\nwandb: SCORE/rise_bridge_success.last 0\nwandb:      SCORE/rise_crouch_success 0\nwandb: SCORE/rise_crouch_success.last 0\nwandb:                           +144 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/inb67bzx\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 0 artifact file(s) and 0 other file(s)\nwandb: Find logs at: ./wandb/run-20260906_062457-inb67bzx/logs\n[finalizer] retired 5 replayable input file(s) after durable W&B finish + confirmation\n[finalizer] {\"done\": 3, \"skipped_done\": 0, \"failed\": 0, \"errors\": {}, \"delivered_snapshots\": [\"/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/eval_32112640_periodic_008.zip\", \"/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40062976_periodic_009.zip\", \"/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40370176_final_010.zip\"], \"logged_job_ids\": [\"eval_32112640_periodic_008\", \"video_40062976_periodic_009\", \"video_40370176_final_010\"], \"replayed_unconfirmed\": 0, \"phase\": \"evaluated\"}\n"
+    },
+    "gpu_reuse": "Confirmed at06:34: GPU memory belonged to new trainer937224 for cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-alldrconf1x-c1. That useful2M run reached2,097,152 by06:34:59 while old CPUfinalizer continued. The old trainer exited and freed0MiB at06:25:43.",
+    "publication": "COMPLETE at06:39:40Z: phase evaluated, finalized.json done3/failed0/replayed_unconfirmed0, all three jobs done after run.finish confirmed W&B sync2media. Replayable inputs retired afterward. Root verified at06:40:42.",
+    "provenance": "Runtime390-file fingerprint verified; codece32cfebf, manifest3, finalcheckpointMD5b4887dd2c7cacb1428e45770f727b8dc.",
+    "next": "Routine adoption verified on an actual queued continuation. Continue monitoring normal finalization and publication through the existing watchdog.",
+    "adoption_feedback": "fb_20260906T064159_b11605",
+    "adoption_cycle": "20260906T065008_operator-kick",
+    "adoption_state": "Completed and published; the default flag is independently confirmed in a legitimate trainer argv at07:07:16, with steps advancing to4,194,304. Existing default/opt-out test evidence is recorded separately."
+  },
+  "turns": {
+    "run": "cw-robotwalk-turns-20260906-cont8m-resume1",
+    "status": "FAIL \u2014 reward/course misalignment in the recorded matched assessment; walking stable, steering not qualified.",
+    "owner_cycle": "20260906T063539",
+    "owner_finished": true,
+    "wandb_id": "2p93pife",
+    "recovered_steps": 3883008,
+    "combined_continuation_steps": 8011776,
+    "gait_valid": 24,
+    "gait_episodes": 24,
+    "falls": 0,
+    "sacrificed_legs": 0,
+    "course_error_degrees": {
+      "baseline_8m": 8.55,
+      "recovered": 10.2,
+      "gate_max": 5.17
+    },
+    "turn_yaw_errors": {
+      "left": 0.078,
+      "right": 0.085,
+      "gate_strict_less_than": 0.076
+    },
+    "generic_stress_mix_pass": true,
+    "assessment": "Generic stress_mix pass does not meet the absolute course or both-sign yaw gates. Reward rose while course error worsened. The recorded verdict calls for a reward alignment audit before another otherwise identical continuation; the original allocation is not a permanent user cap.",
+    "evidence_limit": "Recorded final ledger assessment was reviewed; raw matched report files were not independently recomputed.",
+    "next": "Audit course/yaw reward alignment, then preregister a changed experiment. No new identical continuation or new seed was launched by this check-in."
+  },
+  "cycles": {
+    "completed": [
+      "20260906T060410",
+      "20260906T060412",
+      "20260906T060413",
+      "20260906T060929"
+    ],
+    "active": [
+      "20260906T063539",
+      "20260906T063541",
+      "20260906T063542",
+      "20260906T063544"
+    ],
+    "stale_ui_only": [
+      "20260906T033315"
+    ],
+    "notes": "Watcher reaped completed cycles and automatically started four replacements at06:35:39-44. No repeated kick or watcher restart."
+  },
+  "scientific_notes": "New robustness studies combine individually passed DR axes and test kick dose/endurance. Allaxis has known kick-fall confound; generic canary PASS does not establish target joystick slip/direction performance. Some reported gait passes still have slip above2.9, so not deployment qualification.",
+  "boundaries": "No physical robot work, spending, node uncordon, healthy eviction, duplicate experiments, gate relaxation, new seed, or security-setting changes. Standing MCP/kubectl reads used.",
+  "final_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 1,
+    "free_pods": [
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-faultworst1x-c1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-friction1x-c1-acq1"
+      ],
+      "hexapod-mjx-train-5": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade2x-c1-acq1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-mass1x-c1-acq1"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-encnoise1x-c1-acq1"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-10": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1-acq1"
+      ]
+    }
+  },
+  "latest_trainer_samples_at_065509": [
+    {
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-faultworst1x-c1",
+      "at": "2026-09-06T06:55:08.825883+00:00",
+      "wandb_id": "arb3yxjo",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        12105,
+        13345
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-1",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenfwd-c1-acq1-cont40m",
+      "at": "2026-09-06T06:55:08.906348+00:00",
+      "wandb_id": "9j8xh47d",
+      "steps": [
+        10485760,
+        11010048
+      ],
+      "fps": [
+        15607,
+        15650
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-plainhead-abrupt-c1b-acq1-cont40m",
+      "at": "2026-09-06T06:55:08.822450+00:00",
+      "wandb_id": "ffw6vzlu",
+      "steps": [
+        12058624,
+        12582912
+      ],
+      "fps": [
+        20229,
+        20304
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-3",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1",
+      "at": "2026-09-06T06:55:09.118419+00:00",
+      "wandb_id": "mdxo6qac",
+      "steps": [
+        39845888,
+        40370176
+      ],
+      "fps": [
+        21398,
+        21415
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-4",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-friction1x-c1-acq1",
+      "at": "2026-09-06T06:55:09.174150+00:00",
+      "wandb_id": "ub3dxkyb",
+      "steps": [
+        8388608,
+        8912896
+      ],
+      "fps": [
+        16657,
+        16782
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-5",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-torquefade2x-c1-acq1",
+      "at": "2026-09-06T06:55:08.980974+00:00",
+      "wandb_id": "n838t060",
+      "steps": [
+        5767168,
+        6291456
+      ],
+      "fps": [
+        13943,
+        14171
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-7",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-mass1x-c1-acq1",
+      "at": "2026-09-06T06:55:08.979978+00:00",
+      "wandb_id": "rllle5x4",
+      "steps": [
+        5242880,
+        5767168
+      ],
+      "fps": [
+        15186,
+        15515
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-8",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-encnoise1x-c1-acq1",
+      "at": "2026-09-06T06:55:09.246076+00:00",
+      "wandb_id": "dwznelgb",
+      "steps": [
+        3670016,
+        4194304
+      ],
+      "fps": [
+        14235,
+        14588
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-9",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc3-abrupt-c1-acq1-cont40m",
+      "at": "2026-09-06T06:55:09.247712+00:00",
+      "wandb_id": "vvxksd4m",
+      "steps": [
+        25690112,
+        26214400
+      ],
+      "fps": [
+        17796,
+        17781
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-10",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1-acq1",
+      "at": "2026-09-06T06:55:09.248982+00:00",
+      "wandb_id": "g2mlnyd9",
+      "steps": [
+        27262976,
+        27787264
+      ],
+      "fps": [
+        17138,
+        17148
+      ],
+      "error": false
+    }
+  ],
+  "latest_phase_counts": {
+    "optimizing": 8,
+    "optimizer_complete_artifacts": 2,
+    "free_ready": 1,
+    "pending_unschedulable": 1
+  },
+  "ledger_incident": {
+    "observed_at": "06:50:32Z",
+    "symptom": "MCP orchestrator_activity JSONDecodeError exact char18,874,367 persisted across retry.",
+    "diagnosis": "Actual on-disk18,874,368-byte experiments.json truncation, not MCP read cap; full read invalid, disk/inodes/ulimit healthy. Canonical save_ledger overwrites in place; exact triggering writer/interruption remains unproven.",
+    "last_complete_commit": "9ece47f5",
+    "last_complete_at": "06:49:13Z",
+    "last_complete_bytes": 22615382,
+    "last_complete_entries": 2466,
+    "first_invalid_commit": "c5ec596b",
+    "first_invalid_at": "06:49:18Z",
+    "partial_cloud_repair": "bae9debe at06:53:01 restored valid JSON from2103complete prefix entries plus1newKILLED_DUPLICATE; omits~363recent historical rows and is insufficient.",
+    "recovery_owner": "mcp_activity_parse_0651",
+    "recovery_scope": "Preserve corrupt bytes and full last-valid history, union current records/newer run evidence under canonical lock, atomic replacement and canonical writer fix. Preserve cloud adoption edits elsewhere in launch_run.py; no hard watcher restart or trainer interruption.",
+    "status": "All2466 historical run+created keys restored within2472 main entries, verified against9ece47f54 at07:07. Existing recovery owner is finalizing active-row metadata reconciliation and writer durability."
+  },
+  "checkin_verification": {
+    "at": "2026-09-06T07:07:16Z",
+    "main_examined": "e42dd1a0f",
+    "mcp_activity": "Healthy authenticated response at07:06; watcher UP; prior adoption/review owners finished; four replacement research cycles active.",
+    "capacity": {
+      "ready": 11,
+      "occupied": 11,
+      "free": 0,
+      "pending": 1
+    },
+    "capacity_limit": "Occupied is not synonymous with optimizing. The last all-pod optimizer/log samples remain the separately timestamped06:55 observations.",
+    "deferred_real_launch": {
+      "run": "cw-walkscratch-easy0905-headset-halfgrav-widenirr-c3-acq1-cont40m",
+      "pod": "hexapod-mjx-train-11",
+      "trainer_pid": 2121796,
+      "wandb_id": "i0ucnjvx",
+      "defer_final_artifacts_in_live_argv": true,
+      "latest_step_samples": [
+        3670016,
+        4194304
+      ],
+      "traceback_in_sampled_log": false,
+      "interpretation": "Normal queued40M continuation uses the default deferred-artifact flag and is advancing. No additional validation run was created."
+    },
+    "ledger_history": {
+      "last_complete_commit": "9ece47f54",
+      "last_complete_entries": 2466,
+      "current_main_entries": 2472,
+      "missing_run_created_keys": 0
+    },
+    "ledger_limit": "All prior run+created keys are restored on main. Active-row metadata reconciliation and stronger write durability are still being reviewed by the existing recovery owner."
+  }
+}

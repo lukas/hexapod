@@ -1,0 +1,445 @@
+{
+  "heartbeat_trigger_utc": "2026-09-06T06:05:00Z",
+  "checked_at_utc": "2026-09-06T06:27:00Z",
+  "capacity_observations": [
+    {
+      "at": "06:05",
+      "ready": 11,
+      "occupied": 9,
+      "free": 2,
+      "free_pods": [
+        "hexapod-mjx-train-3",
+        "hexapod-mjx-train-4"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    },
+    {
+      "at": "06:08",
+      "ready": 11,
+      "occupied": 8,
+      "free": 3,
+      "free_pods": [
+        "hexapod-mjx-train-3",
+        "hexapod-mjx-train-4",
+        "hexapod-mjx-train-7"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    },
+    {
+      "at": "06:14",
+      "ready": 11,
+      "occupied": 7,
+      "free": 4,
+      "free_pods": [
+        "hexapod-mjx-train-1",
+        "hexapod-mjx-train-4",
+        "hexapod-mjx-train-7",
+        "hexapod-mjx-train-9"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    },
+    {
+      "at": "06:17",
+      "ready": 11,
+      "occupied": 6,
+      "free": 5,
+      "free_pods": [
+        "hexapod-mjx-train-4",
+        "hexapod-mjx-train-7",
+        "hexapod-mjx-train-9",
+        "hexapod-mjx-train-10",
+        "hexapod-mjx-train-11"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    },
+    {
+      "at": "06:22",
+      "ready": 11,
+      "occupied": 8,
+      "free": 3,
+      "free_pods": [
+        "hexapod-mjx-train-9",
+        "hexapod-mjx-train-10",
+        "hexapod-mjx-train-11"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    },
+    {
+      "at": "06:26",
+      "ready": 11,
+      "occupied": 8,
+      "free": 3,
+      "free_pods": [
+        "hexapod-mjx-train-5",
+        "hexapod-mjx-train-9",
+        "hexapod-mjx-train-10"
+      ],
+      "pending": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ]
+    }
+  ],
+  "live_training_samples_at_062337": [
+    {
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-groundtilt1x-c1",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        12577,
+        13926
+      ],
+      "phase": "optimizer complete; CPU artifact drain"
+    },
+    {
+      "pod": "hexapod-mjx-train-1",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imupos1x-c1",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        10513,
+        11559
+      ],
+      "phase": "optimizer complete; CPU artifact drain"
+    },
+    {
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-gyrobias1x-c1",
+      "steps": [
+        1572864,
+        2097152
+      ],
+      "fps": [
+        10530,
+        11465
+      ],
+      "phase": "optimizer complete; CPU artifact drain"
+    },
+    {
+      "pod": "hexapod-mjx-train-3",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1",
+      "steps": [
+        9961472,
+        10485760
+      ],
+      "fps": [
+        18613,
+        18750
+      ],
+      "phase": "optimizing"
+    },
+    {
+      "pod": "hexapod-mjx-train-4",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-zerobiasframe1x-c1",
+      "steps": [
+        1048576,
+        1572864
+      ],
+      "fps": [
+        10756,
+        12635
+      ],
+      "phase": "optimizing"
+    },
+    {
+      "pod": "hexapod-mjx-train-7",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis1x-c1",
+      "steps": [],
+      "fps": [],
+      "phase": "starting"
+    },
+    {
+      "pod": "hexapod-mjx-train-8",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1",
+      "steps": [
+        30932992,
+        31457280
+      ],
+      "fps": [
+        17326,
+        17338
+      ],
+      "phase": "optimizing"
+    }
+  ],
+  "artifact_run_sample": {
+    "at": "2026-09-06T06:25:43.346588+00:00",
+    "steps": [
+      39845888,
+      40370176
+    ],
+    "trainer_tail": [
+      "wandb: ",
+      "wandb: Run summary:",
+      "wandb:        canary/hold_a 0",
+      "wandb:        canary/hold_b 0",
+      "wandb:       canary/lower_a 0",
+      "wandb:       canary/lower_b 0",
+      "wandb: canary/rise_bridge_a 0",
+      "wandb: canary/rise_bridge_b 0",
+      "wandb: canary/rise_crouch_a 0",
+      "wandb: canary/rise_crouch_b 0",
+      "wandb:   canary/rise_flat_a 0",
+      "wandb:   canary/rise_flat_b 0",
+      "wandb:                 +122 ...",
+      "wandb: ",
+      "wandb: 🚀 View run cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/inb67bzx",
+      "wandb: ⭐️ View project at: https://wandb.ai/l2k2/hexapod-balance",
+      "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+      "wandb: Find logs at: ./wandb/run-20260906_054713-inb67bzx/logs",
+      "[defer-final-artifacts] retired 7 training-time-delivered snapshot(s) after durable W&B finish",
+      "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1; CPU finalizer pid 936105 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+    ],
+    "trainer_pid_exists": false,
+    "state.json": {
+      "schema": 1,
+      "phase": "artifacts_pending",
+      "jobs": {
+        "eval_32112640_periodic_008": {
+          "status": "in_flight",
+          "attempts": 1
+        },
+        "video_40062976_periodic_009": {
+          "status": "pending",
+          "attempts": 0
+        },
+        "video_40370176_final_010": {
+          "status": "pending",
+          "attempts": 0
+        }
+      },
+      "note": "3 eval/video job(s) handed to the CPU finalizer",
+      "updated_at": 1788675897.9964588
+    },
+    "manifest.json": {
+      "schema": 3,
+      "run_name": "cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1",
+      "wandb_run_id": "inb67bzx",
+      "checkpoint_md5": "b4887dd2c7cacb1428e45770f727b8dc",
+      "fingerprint": null,
+      "jobs": [
+        {
+          "job_id": "eval_32112640_periodic_008",
+          "kind": "eval",
+          "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/eval_32112640_periodic_008.zip",
+          "step": 32112640,
+          "tag": null,
+          "snapshot_md5": "bda702ea64560c1513cc558202ba2c5f"
+        },
+        {
+          "job_id": "video_40062976_periodic_009",
+          "kind": "video",
+          "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40062976_periodic_009.zip",
+          "step": 40062976,
+          "tag": null,
+          "snapshot_md5": "7bfdb0bcbbd459468ef2c13c911d913d"
+        },
+        {
+          "job_id": "video_40370176_final_010",
+          "kind": "video",
+          "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1/snapshots/video_40370176_final_010.zip",
+          "step": 40370176,
+          "tag": "final",
+          "snapshot_md5": "b4887dd2c7cacb1428e45770f727b8dc"
+        }
+      ]
+    },
+    "finalizer_tail": "[finalizer] pid 936105 run cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1: 3 job(s), CUDA_VISIBLE_DEVICES='', provenance commit=? dirty=?\n[finalizer] provenance check: runtime fingerprint verified (390 files, f2bc1783a111cdd6…)\nwandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.\nwandb: Currently logged in as: l2k2 to https://api.wandb.ai. Use `wandb login --relogin` to force relogin\nwandb: Tracking run with wandb version 0.28.1\nwandb: Run data is saved locally in /workspace/prototype_sts3215/wandb/run-20260906_062457-inb67bzx\nwandb: Run `wandb offline` to turn off syncing.\nwandb: Resuming run cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1\nwandb: ⭐️ View project at https://wandb.ai/l2k2/hexapod-balance\nwandb: 🚀 View run at https://wandb.ai/l2k2/hexapod-balance/runs/inb67bzx\n",
+    "gpu": "0 %, 0 MiB"
+  },
+  "utilization_caveat": "At 06:07 six completed optimizers held about 45.8 GiB each at NVIDIA 0% utilization during CPU artifact drain. RUNNING labels/memory allocations do not prove optimizing. Ready/occupied capacity above includes starting and artifact-draining processes.",
+  "refill_repair": {
+    "cause": "snapshot.sh --sync excluded runtime ledgers and docs from dirty checks but omitted pending_evals.json. That mutable queue was the sole nonexcluded dirty file; sync stamped e55ab8a5-dirty and launches correctly refused.",
+    "commit": "186787b1fe74e173cea49e6a35c0d3c39366b1fd",
+    "owner": "Cloud cycle 20260906T060412 independently landed the same root-diagnosed one-line fix and pushed at 06:12:58. Root halted duplicate delegated implementation.",
+    "change": "Added only rl_move/orchestrator/pending_evals.json to existing runtime-state exclusions; retained training-code/config provenance gate.",
+    "validation": [
+      "Root bash -n passed on controller snapshot.sh.",
+      "Train-1 and train-3 markers match 186787b1.",
+      "Real formerly refused runs now training/completed optimization: groundtilt1x train-0 2,097,152; imupos1x train-1 2,097,152; irrwiden-c1-acq1 train-3 10,485,760 at 06:23."
+    ],
+    "recovery": "Cloud owner requeued original groundtilt2M spec after three infrastructure refusals. REFUSED ledger history retained. Concurrent duplicate attempt on train-4 was refused because original trainer existed on train-0; no duplicate trainer created.",
+    "no_duplicate_root_actions": "Root did not add another kick, requeue, manually overwrite code markers, or sync busy pods.",
+    "test_limit": "Delegated fixture/syntax command did not execute due sandbox DNS and an aborted escalated retry. No fixture-test pass claimed; root syntax and live rollout verification are the completed checks."
+  },
+  "turns_recovery": {
+    "run": "cw-robotwalk-turns-20260906-cont8m-resume1",
+    "pod": "hexapod-mjx-train-1",
+    "wandb_id": "2p93pife",
+    "wandb_state": "finished",
+    "requested_steps": 3871232,
+    "actual_steps": 3883008,
+    "retained_parent_steps": 4128768,
+    "combined_continuation_steps": 8011776,
+    "rounding_steps": 11776,
+    "checkpoint_md5": "8e3a5652eb68df8adb5bee68a1956c19",
+    "retained_parent_md5": "f591835ca44bf799c894cdf323d9006f",
+    "artifacts": "Both videos and final checkpoint uploaded; original KILLED lineage preserved.",
+    "evaluation": "Root directly verified train-1 eval_checkpoint PID2211500 at06:19, exact recovery checkpoint, stochastic DR0 walk6x20s, output logs/ckpt_eval/cw_robotwalk_turns_20260906_cont8m_resume1_gate. Ledger still RUNNING/awaiting since05:53:33; this is pending triage, not training recovery.",
+    "strict_followup_feedback": "fb_20260906T062214_8dc68c",
+    "gates": "Exact full-gravity mesh100Hz matched Candidate B cells; both yaw signs and wz_err_med<0.076; vx0.08/wz±0.2..0.3; deterministic8headings12s nofalls/positiveprogress/forward≥0.29m/slip≤2.9/no sacrificed legs; stress_mix pass AND per_pass.dr0.course_err_1s_med≤5.17deg; translation/reverse/release/both arc videos. Generic pass bit or old±0.15cmdsuite insufficient.",
+    "ownership": "Current prestage evaluation is live; next decision cycle must explicitly own final matched yaw/course assessment via run-associated feedback. Main walking thread message delivery unknown: send_message_to_thread waited843seconds and was aborted without confirmation. No duplicate notification attempted.",
+    "scope": "No new seed or relaunch of completed recovery. Initial8M allocation is not a permanent user cap; documented scientifically justified continuations remain authorized."
+  },
+  "artifact_handoff": {
+    "code_fix": "ce32cfebf",
+    "offline_tests": 28,
+    "run": "cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1",
+    "pod": "hexapod-mjx-train-5",
+    "wandb_id": "inb67bzx",
+    "budget_steps": 40000000,
+    "code_verification": "Pod marker ee010969d contains ce32cfebf; artifact_handoff.py, artifact_finalizer.py and train_ppo_mjx.py SHA256 match controller. --defer-final-artifacts confirmed on live PID920179.",
+    "directory": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-medhead-widenfwd-c2-acq1",
+    "pending": "GPU release and automatic verified CPU handoff are now proved live for the corrected version. Still verify CPU finalizer completion: logged_pending_flush -> done only after run.finish; finalized.json/evaluated; same-run final eval/videos/checkpoint publication; actual subsequent GPU reuse.",
+    "limits": "Default flag stays OFF; latest post-fix GPU release and CPU startup verified, final publication still pending. At-least-once publication, not exactly-once. Finish-return publication signal; runtime fingerprint excludes interpreter/dependencies. Prior live canary needed manual recovery; latest crash/replay tested offline.",
+    "live_result": "At 06:25:43: optimizer reached40,370,176; trainer PID920179 absent; NVIDIA0%/0MiB. Trainer durably finished W&B and retired7 delivered snapshots. CPU finalizer PID936105 detached automatically with CUDA_VISIBLE_DEVICES empty, verified390-file runtime fingerprint f2bc1783a111cdd6..., resumed SAME W&B inb67bzx. Schema3 manifest/final checkpoint MD5b4887dd2c7cacb1428e45770f727b8dc present; state artifacts_pending with1eval in_flight+2videos pending."
+  },
+  "active_owners": [
+    "20260906T060410",
+    "20260906T060412",
+    "20260906T060413",
+    "20260906T060929"
+  ],
+  "watcher": "UP. Old033315 UI active entry is stale; actual watcher restart already completed03:46:33 and was not repeated.",
+  "further_refill": "Eight of11 ready slots occupied at06:26 (training, starting, or CPU artifact drain); free train5,9,10. Legitimate kickhalf1x launched train11 and kick1x-c1-acq1 is in launch ontrain10. Four research cycles are advancing; avoid new competing kicks. Do not revive killed allaxis rr1. Inspect new capacity/queue and placement next visit.",
+  "boundaries": "No new capacity purchase, provider-node uncordon, healthy job eviction, new seed, robot motion/deployment, or fabricated training.",
+  "current_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 3,
+    "free_pods": [
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-groundtilt1x-c1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-imupos1x-c1"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-gyrobias1x-c1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-irrwiden-c1-acq1"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-zerobiasframe1x-c1"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis1x-c1"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-widenirr-c1-acq1"
+      ],
+      "hexapod-mjx-train-11": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kickhalf1x-c1"
+      ]
+    }
+  },
+  "current_launches": {
+    "at": "2026-09-06T06:26:24.800382+00:00",
+    "backlog": [],
+    "launchers": [
+      {
+        "pid": "374699",
+        "action": "drain",
+        "run": null,
+        "pod": null
+      },
+      {
+        "pid": "374706",
+        "action": "drain",
+        "run": null,
+        "pod": null
+      },
+      {
+        "pid": "375838",
+        "action": "launch",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis1x-c1-rr1",
+        "pod": "hexapod-mjx-train-9"
+      },
+      {
+        "pid": "378912",
+        "action": "drain",
+        "run": null,
+        "pod": null
+      },
+      {
+        "pid": "378917",
+        "action": "drain",
+        "run": null,
+        "pod": null
+      },
+      {
+        "pid": "380132",
+        "action": "launch",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kickhalf1x-c1",
+        "pod": "hexapod-mjx-train-11"
+      },
+      {
+        "pid": "380182",
+        "action": "launch",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-kick1x-c1-acq1",
+        "pod": "hexapod-mjx-train-10"
+      }
+    ]
+  },
+  "duplicate_observation": "At06:26 controller still displayed a launcher for allaxis1x-c1-rr1, but ledger already KILLED_DUPLICATE. Original allaxis1x-c1 W&B25i0uyfk was healthy ontrain7 and reached2,097,152. Owner already handled the duplicate; root did not repeat kill/relaunch.",
+  "access_notes": "Routine direct authenticated MCP calls succeeded, including run feedback. One delegated direct kubectl command had a sandbox DNS failure; escalated retry was aborted and made no changes. Root's direct calls succeeded. No evidence that the command shape caused that failure. Main-thread app delivery was aborted after843s without confirmation; do not assume success or an approval rejection."
+}

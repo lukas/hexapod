@@ -1,0 +1,266 @@
+{
+  "checked_at_utc": "2026-09-06T04:21:45Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 3,
+    "free_pods": [
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc2-abrupt-c1-acq1"
+      ],
+      "hexapod-mjx-train-1": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1"
+      ],
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-4": [
+        "cw-walkscratch-easy0905-headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-7": [
+        "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m"
+      ],
+      "hexapod-mjx-train-8": [
+        "cw-assistfade-rung1-bcinit-taskonly-s2-cont8m"
+      ],
+      "hexapod-mjx-train-9": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1"
+      ]
+    }
+  },
+  "backlog": {
+    "last_checked_utc": "2026-09-06T04:20:40Z",
+    "queued": 0,
+    "drain_processes_seen": [
+      4284,
+      4290
+    ],
+    "new_work_picked_up": [
+      "cw-walkscratch-easy0905-headset-crossgrav-s1acq-widenfwd-c1",
+      "cw-walkscratch-easy0905-headset-crossgrav-s1acq-irrfwd-c1"
+    ]
+  },
+  "trainer_samples_utc": "2026-09-06T04:17:44Z",
+  "trainer_samples": [
+    {
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc2-abrupt-c1-acq1",
+      "step": 524288,
+      "previous_step": null,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "|    fps             | 7486     |",
+        "|    total_timesteps | 524288   |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-1",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widenirrc1-abrupt-c1-acq1-cont40m",
+      "step": 26214400,
+      "previous_step": 12582912,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "[mjx-train] checkpoint @ 26,214,400 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widenirrc1_abrupt_c1_acq1_cont40m.zip (18,580 env-steps/s)",
+        "|    fps                  | 19154       |",
+        "|    total_timesteps      | 26214400    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-medhead-widenfwd-c2-deferartifacts",
+      "step": 2097152,
+      "previous_step": null,
+      "done": true,
+      "gpu_exit_announced": true,
+      "last_metrics": [
+        "|    fps                  | 14284       |",
+        "|    total_timesteps      | 2097152     |",
+        "[mjx-train] done: 2,000,000 steps in 194s (10,299 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_medhead_widenfwd_c2_deferartifacts.zip"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-3",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-s1acq-abrupt-c1-acq1-cont40m",
+      "step": 25165824,
+      "previous_step": 11010048,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "[mjx-train] checkpoint @ 25,165,824 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_s1acq_abrupt_c1_acq1_cont40m.zip (22,180 env-steps/s)",
+        "|    fps                  | 22842        |",
+        "|    total_timesteps      | 25165824     |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-4",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-s3acq-abrupt-c1-acq1-cont40m",
+      "step": 18350080,
+      "previous_step": 5242880,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "|    total_timesteps      | 17825792     |",
+        "|    fps                  | 20552       |",
+        "|    total_timesteps      | 18350080    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-7",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-widen2c1-abrupt-c1-acq1-cont40m",
+      "step": 29360128,
+      "previous_step": 15728640,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "[mjx-train] checkpoint @ 29,360,128 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_widen2c1_abrupt_c1_acq1_cont40m.zip (19,492 env-steps/s)",
+        "|    fps                  | 19985       |",
+        "|    total_timesteps      | 29360128    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-9",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-irrfwd-c1-acq1",
+      "step": 40370176,
+      "previous_step": 36175872,
+      "done": false,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "|    total_timesteps      | 39845888    |",
+        "|    fps                  | 18308       |",
+        "|    total_timesteps      | 40370176    |"
+      ],
+      "error": false
+    },
+    {
+      "pod": "hexapod-mjx-train-11",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-ramp-widenfwd-c1-acq1",
+      "step": 40370176,
+      "previous_step": 38273024,
+      "done": true,
+      "gpu_exit_announced": false,
+      "last_metrics": [
+        "|    fps                  | 18599       |",
+        "|    total_timesteps      | 40370176    |",
+        "[mjx-train] done: 40,000,000 steps in 2692s (14,860 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_ramp_widenfwd_c1_acq1.zip"
+      ],
+      "error": false
+    }
+  ],
+  "new_training": {
+    "scratch": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-irrwidenc2-abrupt-c1-acq1",
+      "pod": 0,
+      "last_steps": 3145728
+    },
+    "assisted": {
+      "run": "cw-assistfade-rung1-bcinit-taskonly-s2-cont8m",
+      "pod": 8,
+      "status": "process and CUDA startup verified; early startup log sampled",
+      "wandb_id": "81m0z7fz"
+    }
+  },
+  "owners": {
+    "refill": "20260906T041001_operator-kick (advancing, launching assistfade s2-cont8m)",
+    "artifact": "20260906T040017_operator-kick (advancing, canary recovery/interruption test)",
+    "research": "20260906T035205 (queued s1acq heading/timing discoveries)"
+  },
+  "artifact_canary": {
+    "run": "cw-walkscratch-easy0905-medhead-widenfwd-c2-deferartifacts",
+    "pod": "hexapod-mjx-train-2",
+    "wandb_id": "o81ovjq7",
+    "gpu_release_verified": true,
+    "gpu_after_exit": {
+      "utilization_percent": 0,
+      "memory_mib": 0
+    },
+    "actual_training_steps": 2097152,
+    "marker_and_manifest_md5": "a87a85d65fc180ccf4c237f0d2d9d168",
+    "first_finalizer_failure": "Inherited WANDB_SERVICE HandleAbandonedError; all 3 jobs remained pending",
+    "fix_commit": "86dda4a6d3bdf1c1da4f42ad184aab1",
+    "recovery": "Owner removed inherited service endpoint, resumed with existing W&B credentials after manual retry lacked API key",
+    "latest_state": {
+      "phase": "artifacts_pending",
+      "video_4096_periodic_001": "in_flight attempts=1",
+      "eval_1003520_periodic_002": "pending attempts=0",
+      "video_2097152_final_003": "pending attempts=0"
+    },
+    "all_artifacts_complete": false,
+    "ready_for_promotion": false
+  },
+  "review": {
+    "feedback": [
+      "fb_20260906T040948_8c3fb9",
+      "fb_20260906T041039_cf9136"
+    ],
+    "status": "Five original review issues still present on controller at04:17; owner may not have consumed feedback filed after its start.",
+    "remaining": [
+      "Async W&B flush versus retiring DONE jobs/snapshots",
+      "PID-file concurrency race",
+      "Frozen verified code/config/XML and per-snapshot provenance",
+      "Double-save after marker (hashes matched this canary; no observed mismatch)",
+      "Retry directory collision/reset of pending inputs"
+    ]
+  },
+  "next_actions": [
+    "Track both advancing owners without duplicate kicks.",
+    "Verify actual artifact completion, restored missing publication after interruption, single-writer lock behavior, and all review findings before broad enablement.",
+    "Canary GPU release is proven but end-to-end finalization not yet proven; do not conflate them.",
+    "Verify two newly-drained discovery runs reach trainer process and advancing steps; recheck free slots as completed runs exit.",
+    "Keep Pending train6 CPU scheduling constraint unchanged; no new capacity purchases or provider uncordons."
+  ]
+}

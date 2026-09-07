@@ -1,0 +1,174 @@
+{
+  "heartbeat_trigger_utc": "2026-09-06T07:16:30.938Z",
+  "checked_at_utc": "2026-09-07T05:43:10Z",
+  "time_gap": {
+    "request_before": "2026-09-06T07:19Z",
+    "resumed_status": "2026-09-07T05:38Z",
+    "reason": "MCP mutation hit sandbox DNS failure; mandated escalated retry remained pending until later approval. Live state refreshed after the observed overnight wall-clock gap. Earlier Sep6 samples are historical, not current capacity."
+  },
+  "historical_sep6_sample": {
+    "at": "2026-09-06T07:17:36Z",
+    "optimizing": 8,
+    "optimizer_complete_artifacts": 2,
+    "free": 1,
+    "notes": "Legacy nondeferred finalizers retained memory on train2/train10. New default was verified on train0/train3/train11. These runs have since completed."
+  },
+  "current_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 9,
+    "free_pods": [
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-3",
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1"
+      ]
+    }
+  },
+  "current_trainer_samples": [
+    {
+      "at": "2026-09-07T05:40:55.657843+00:00",
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1",
+      "processes": [
+        {
+          "pid": 460992,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "2097152",
+        "2621440",
+        "3145728"
+      ],
+      "fps": [
+        "19569",
+        "20342",
+        "21037"
+      ],
+      "wandb_ids": [
+        "qrpb9skj"
+      ],
+      "error": false,
+      "gpu": "12 %, 45811 MiB"
+    },
+    {
+      "at": "2026-09-07T05:40:55.484840+00:00",
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+      "processes": [
+        {
+          "pid": 3516387,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "6815744",
+        "7340032",
+        "7864320"
+      ],
+      "fps": [
+        "21776",
+        "21846",
+        "21982"
+      ],
+      "wandb_ids": [
+        "0aq94iv4"
+      ],
+      "error": false,
+      "gpu": "4 %, 45811 MiB"
+    }
+  ],
+  "queue": {
+    "checked_at": "2026-09-07T05:39Z",
+    "items": [],
+    "launch_hold": false,
+    "pause": false,
+    "wrapup": false
+  },
+  "ownership": {
+    "scratch_and_assistfade": {
+      "cycle": "20260907T050358_partial-refill",
+      "pid": 2441448,
+      "state": "Advancing: both crutchoff s1/s2 ACQ launches verified by05:40; current processes and steps independently confirmed. Same owner is implementing rung4 reverse-curriculum intermediate-state tooling; reported4new and17related tests passed. Do not duplicate that implementation.",
+      "validation_limit": "Latest05:42 log shows broader semantics regression failures after the4new/17related passing tests. Existing owner is investigating; rung4 is not yet validated or launched. Do not interpret earlier focused passes as full readiness."
+    },
+    "yaw": {
+      "cycle": "20260907T053811_operator-kick",
+      "pid": 2480236,
+      "state": "Consumed delayed request; active05:43:10 reading reward/course metrics, BC combined-turn anchoring and existing course-income semantics bank. No new PPO launch yet.",
+      "request": "Audit reward alignment and preregister one justified changed same-seed experiment up to8M, preserving gates and lineage; no identical continuation, new seed, physical trial or new capacity."
+    },
+    "stale_ui_only": [
+      "20260906T033315",
+      "20260906T090639"
+    ]
+  },
+  "frontier": {
+    "scratch": "Current matched crutch-removal canaries PASS; torque3x->1x fixes push fragility. Active ACQs test durability at40M.",
+    "closed_work": "Do not refill exhausted per-axis confirmations, further stride anchor-dose points, or faster-CPG harvest. Current frontier notes say prior composite push failures and full-realism slip gap require changed mechanisms.",
+    "idle_reason": "Nine ready GPUs were free and backlog empty on current read. Two active owners are preparing the next validated assistance-removal/yaw mechanisms; no mechanical launch hold or resource blocker on those nine. No filler or duplicate seed experiments created.",
+    "next": "Verify existing owners finish their bank checks, record justified specs and place next runs; drain any runnable backlog into free slots. Do not re-kick advancing cycles."
+  },
+  "ledger": {
+    "live_mass_repair_commit": "c71a48d9fabd78964f8061c0da451d04c97f9af3",
+    "live_mass_repair": "Completed Sep6: exact original row RUNNING and rllle5x4 from live30.41M-step trainer. Preserved2472entries/all2466last-good identities; diffcheckpassed.",
+    "duplicate_note": "Historical rr1 exact identity created06:53:38 was KILLED_DUPLICATE, later launcher overwroteFAILED and removedverdict. Narrative remains in Git/privatebackup. Attempt to restore note failed DNS and escalated retry was cancelled after127seconds without execution confirmation; no verified metadata change or push resulted. No retry pending.",
+    "earlier_record_correction": "Previous063330 record said recovery owner was finalizing stronger durability/live metadata; agent later reported its fsync patch never executed. Another cloud owner shipped atomic temp+replace. Fullhistory restoration and original live metadata repair are verified; fsync/other-writer audit was not performed."
+  },
+  "repairs_already_complete": "Partial-idle watcher restart verified Sep6 03:46:33; deferred artifacts full3-job publication and GPUreuse verified06:40 and actual default-on launch verified07:07. Do not repeat fixes/restart.",
+  "boundaries": "No robot activity, spending, new capacity, uncordon, eviction, gate relaxation or fabricated workload. No repeated kick to an advancing owner.",
+  "checkin": "Previous user check-in completed atcf86deefcc4643e5328f2e11683549a2347da1e7 on GitHubmain; this heartbeat record is a newer local observation.",
+  "next_visit": "First follow cycles20260907T050358 and20260907T053811, their test outcomes and queued/actual launches. Nine idle ready GPUs need justified work; do not spend on exhausted axes or duplicate active owners. If an owner ends without a needed next step, then request one scoped follow-up and verify execution."
+}

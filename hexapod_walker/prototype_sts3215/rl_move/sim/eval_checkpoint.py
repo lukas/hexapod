@@ -224,7 +224,8 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
                           stride_s: float = 0.1,
                           motion_floor_m_s: float = 0.01,
                           min_cmd_coherence: float = 0.5,
-                          with_sway: bool = False) -> dict:
+                          with_sway: bool = False,
+                          wz=None, yaw=None) -> dict:
     """Rolling-window net-course statistics over one episode.
 
     ``xy``: (T,2) body XY per tick; ``cmd``: (T,2) commanded XY
@@ -249,7 +250,17 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
       zero net travel); ``wrong`` flags course error > 90 deg;
     - ``with_sway``: RMS perpendicular deviation of the path around
       the commanded-course line through the window start (the honest-
-      sway envelope quantity the reward-side excess-sway term prices).
+      sway envelope quantity the reward-side excess-sway term prices);
+    - ``wz``/``yaw`` (2026-09-07 combined-frame audit,
+      probe_combined_frame.py): when BOTH are given (per-tick
+      commanded yaw rate + measured body yaw), the reference is the
+      commanded-yaw-ROTATED integral of the command, re-anchored at
+      each window's own start body heading — the body-frame joystick
+      semantics in which vx+wz commands an ARC.  The legacy fixed
+      world-chord reference scores a wz-IGNORING straight walker
+      0.90 deg and a faithful arc-follower 12.33 deg on the same
+      combined cell (measured); this mode orders them correctly
+      (4.59 vs 7.06 deg).  Leave None for the legacy read.
     """
     xy = np.asarray(xy, dtype=float)
     cmd = np.asarray(cmd, dtype=float)
@@ -263,13 +274,28 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
     s_ref = np.hypot(cmd[:, 0], cmd[:, 1])
     active = s_ref > 1e-3
     cum_act = np.concatenate([[0], np.cumsum(active)])
-    cum_cmd = np.vstack([[0.0, 0.0], np.cumsum(cmd * dt, axis=0)])
+    yaw_ref_mode = wz is not None and yaw is not None
+    if yaw_ref_mode:
+        wz = np.asarray(wz, dtype=float)
+        yaw = np.asarray(yaw, dtype=float)
+        theta = np.concatenate([[0.0], np.cumsum(wz * dt)])
+        ct, st = np.cos(theta[:-1]), np.sin(theta[:-1])
+        rot = np.stack([cmd[:, 0] * ct - cmd[:, 1] * st,
+                        cmd[:, 0] * st + cmd[:, 1] * ct], axis=1)
+        cum_cmd = np.vstack([[0.0, 0.0], np.cumsum(rot * dt, axis=0)])
+    else:
+        cum_cmd = np.vstack([[0.0, 0.0], np.cumsum(cmd * dt, axis=0)])
     cum_abs = np.concatenate([[0.0], np.cumsum(s_ref * dt)])
     for i0 in range(0, len(xy) - n, stride):
         i1 = i0 + n
         if cum_act[i1] - cum_act[i0] != n:
             continue                       # stop tick inside window
         d_cmd = cum_cmd[i1] - cum_cmd[i0]
+        if yaw_ref_mode:
+            off = float(yaw[i0] - theta[i0])
+            c_o, s_o = math.cos(off), math.sin(off)
+            d_cmd = np.array([c_o * d_cmd[0] - s_o * d_cmd[1],
+                              s_o * d_cmd[0] + c_o * d_cmd[1]])
         d_cmd_n = float(np.hypot(*d_cmd))
         cmd_dist = float(cum_abs[i1] - cum_abs[i0])
         if cmd_dist <= 1e-9 or d_cmd_n < min_cmd_coherence * cmd_dist:
@@ -296,28 +322,42 @@ def windowed_course_stats(xy, cmd, dt: float, window_s: float, *,
     return out
 
 
-def _course_window_ep_keys(course_xy, course_cmd, dt: float) -> dict:
-    """ep-dict fields for the windowed course metrics (both windows)."""
+def _course_window_ep_keys(course_xy, course_cmd, dt: float,
+                           course_wz=None, course_yaw=None) -> dict:
+    """ep-dict fields for the windowed course metrics (both windows).
+
+    When per-tick commanded-yaw + body-yaw streams are supplied, a
+    second set of ``course_yawref_*`` keys is emitted from the
+    commanded-yaw-rotated reference (body-frame joystick semantics —
+    see windowed_course_stats).  Additive only: the legacy
+    ``course_*`` keys are byte-identical with or without the streams.
+    """
     keys: dict = {}
-    for wl, wtag in COURSE_WINDOWS:
-        st = windowed_course_stats(course_xy, course_cmd, dt, wl)
-        if st["n_cmd_windows"] == 0:
-            continue
-        keys[f"course_windows_{wtag}"] = st["n_cmd_windows"]
-        keys[f"course_motion_valid_frac_{wtag}"] = round(
-            st["n_motion_valid"] / st["n_cmd_windows"], 3)
-        if st["speed_ratio"]:
-            keys[f"course_speed_ratio_{wtag}_med"] = round(
-                float(np.median(st["speed_ratio"])), 3)
-        if st["err_deg"]:
-            keys[f"course_err_{wtag}_mean_deg"] = round(
-                float(np.mean(st["err_deg"])), 2)
-            keys[f"course_err_{wtag}_med_deg"] = round(
-                float(np.median(st["err_deg"])), 2)
-            keys[f"course_err_{wtag}_p90_deg"] = round(
-                float(np.percentile(st["err_deg"], 90)), 2)
-            keys[f"wrong_course_frac_{wtag}"] = round(
-                float(np.mean(st["wrong"])), 3)
+    variants = [("course", None, None)]
+    if (course_wz is not None and course_yaw is not None
+            and len(course_wz) == len(course_xy)):
+        variants.append(("course_yawref", course_wz, course_yaw))
+    for prefix, v_wz, v_yaw in variants:
+        for wl, wtag in COURSE_WINDOWS:
+            st = windowed_course_stats(course_xy, course_cmd, dt, wl,
+                                       wz=v_wz, yaw=v_yaw)
+            if st["n_cmd_windows"] == 0:
+                continue
+            keys[f"{prefix}_windows_{wtag}"] = st["n_cmd_windows"]
+            keys[f"{prefix}_motion_valid_frac_{wtag}"] = round(
+                st["n_motion_valid"] / st["n_cmd_windows"], 3)
+            if st["speed_ratio"]:
+                keys[f"{prefix}_speed_ratio_{wtag}_med"] = round(
+                    float(np.median(st["speed_ratio"])), 3)
+            if st["err_deg"]:
+                keys[f"{prefix}_err_{wtag}_mean_deg"] = round(
+                    float(np.mean(st["err_deg"])), 2)
+                keys[f"{prefix}_err_{wtag}_med_deg"] = round(
+                    float(np.median(st["err_deg"])), 2)
+                keys[f"{prefix}_err_{wtag}_p90_deg"] = round(
+                    float(np.percentile(st["err_deg"], 90)), 2)
+                keys[f"wrong_{prefix}_frac_{wtag}"] = round(
+                    float(np.mean(st["wrong"])), 3)
     return keys
 
 
@@ -480,6 +520,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     direction_errs, direction_valid, direction_wrong = [], [], []
     getup_s_hist = []        # (T,) supported-stand score S (getup only)
     course_xy, course_cmd = [], []   # per-tick body XY + command (walk)
+    course_wz, course_yaw = [], []   # per-tick wz_ref + body yaw (walk)
     cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
     chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
@@ -597,6 +638,12 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                 course_cmd.append(
                     (float(g.vx_ref), float(g.vy_ref))
                     if g is not None else (0.0, 0.0))
+                course_wz.append(
+                    float(getattr(g, "wz_ref", 0.0))
+                    if g is not None else 0.0)
+                R_cw = env.data.xmat[env._chassis_bid].reshape(3, 3)
+                course_yaw.append(
+                    math.atan2(R_cw[1, 0], R_cw[0, 0]))
             if g is not None:
                 s_ref = math.hypot(g.vx_ref, g.vy_ref)
                 if s_ref > 1e-3:
@@ -772,7 +819,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         # keep parking honest (a parked robot scores ratio ~0 and
         # near-zero motion-valid windows, it cannot pass by hiding
         # from the angle statistic).
-        ep.update(_course_window_ep_keys(course_xy, course_cmd, env.dt))
+        ep.update(_course_window_ep_keys(course_xy, course_cmd, env.dt,
+                                         course_wz, course_yaw))
     # live_modes / walk-run windowing (09-01, same fix as
     # live_mode_hist above): a legacy single-mode episode has
     # live_modes constant at `mode` for the whole array, so

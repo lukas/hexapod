@@ -1794,3 +1794,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-07 12:16 walkcurr: crutchoff-s1-speedwiden-acq1 ACQ PASS (21/24 gv matches parent exactly, slip improved) -- 2nd/3rd speedwiden ACQ seed clean, matches s0 
 - 09-07 12:19 walkcurr: crutchoff-s2-speedwiden-acq1 ACQ PASS (3/3 speedwiden trio closes PASS) -- speed-band widening composes cleanly at ACQ depth, unlike widen8 headings 
 - 09-07 12:22 [assistfade] rung1-mesh-noanchor-s0 CANARY PASS: BC-init+task-only-PPO (no anchor) retains gait at 2M on mesh -- first mesh rung-1 data point; launched s1 (2nd seed) + s0-acq12m (full ignition-depth read) 
+- 09-07 12:28 walkcurr: crutchoff-s1-irrhalf CANARY FAIL - halving jitter amplitude does not fix the jitter+push interaction (same tilt_roll fall reproduces, new sacrifice mode appears) 
+- 09-07 12:29 walkcurr: crutchoff-s2-irrhalf CANARY FAIL -- CLOSES amplitude-halving mitigation 2/2 (same tilt_roll fall reproduces at identical episode index both seeds); jitter+push interaction needs a structural fix, not a dose reduction 

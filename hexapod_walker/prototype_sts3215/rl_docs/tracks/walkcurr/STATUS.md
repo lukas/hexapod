@@ -1,5 +1,63 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~12:3x (triage cycle; assigned s0-speedwiden-acq1, found+cleared 3 more orphans) — speedwiden CLOSES 3/3 ACQ PASS clean; irrhalf amplitude-halving mitigation CLOSES 2/2 FAIL (same tilt_roll fall reproduces at half dose)
+
+Triaged the assigned `crutchoff-s0-speedwiden-acq1` (**ACQ PASS**: gait_valid
+21/24, 0 falls/24, identical mode split to the parent `crutchoff-s0-acq1`
+baseline, sacrifice confined to the parent's own known
+`walk_startjitter/sto` leg0/leg5 cell, slip_per_m LOWER than parent in
+every mode). While checking capacity, found its two siblings
+(`crutchoff-{s1,s2}-speedwiden-acq1`) had ALSO finished training
+(W&B `finished` at 40,370,176 steps) but weren't prestaged/assigned —
+kicked `podeval`+`pollreap` for both, read `s1` myself (**ACQ PASS**,
+identical fingerprint to s0) while a concurrent cycle beat me to `s2`
+(also ACQ PASS). **This CLOSES speedwiden 3/3 ACQ PASS** — unlike
+`widen8` (canary 3/3 PASS then ACQ 3/3 FAIL via a NEW heading-dependent
+sacrifice), the speed-band widening (0.03-0.12 m/s dynamic freeprog
+cap) composes cleanly at full acquisition depth on every seed, with
+slip actually improving over the parent. SKILLS.md +2 rows (s0 entry
+updated in-place once s1/s2 landed).
+
+Also found+cleared the `crutchoff-{s1,s2}-irrhalf` pair (launched
+~11:5x this same day to bisect whether halving the irr-timing jitter
+amplitude, 0.5->0.25, would restore a clean composition after the
+full-amplitude axis CLOSED 2/2 CANARY FAIL): both finished training
+but had no synced gate; `podeval`'d both. **Result: CANARY FAIL 2/2 —
+the mitigation does NOT work.** Both seeds show a real `tilt_roll` fall
+at the IDENTICAL episode index (`walk/sto` ep4) the full-amplitude
+canary also fell at, plus a NEW chronic single-leg sacrifice spreading
+into `walk/det` (both seeds) and, on s2, a 2nd fall in
+`walk_startjitter/sto` ep0 (a mode the clean parent never fails in).
+`gait_valid` totals hold near-flat (21/24 both) but via a worse/
+relocated composition than each seed's clean `-acq1` baseline. Decisive
+(same fall, same episode index, both seeds) — amplitude is not the
+driver. **CLOSES bare irr-timing (both amplitudes tried) on the
+crutch-off full-DR composite 4/4 arms; do not relaunch without a
+structurally different mitigation** (e.g. suppress resample jitter
+during an active push window). SKILLS.md +1 row.
+
+**Refill:** re-read the board (`launch_run.py status`/`capacity.py`:
+10/12 GPU pods free at cycle start). A concurrent cycle was already
+replicating `widenbis135` onto s1 (INTENT, train-2) at the moment I
+checked — I independently reasoned the same 3rd-seed replication onto
+s2 was the next open gap and attempted to launch it too;
+`launch_run.py respec --now` correctly REFUSED (that same concurrent
+cycle had already claimed `s2-widenbis135` on train-1 ~1 min earlier)
+— mechanical dedup working as designed, no duplicate spend. No other
+genuinely unclaimed axis found this cycle (widen8/speedwiden/irr-timing
+realism-ladder items are all now closed or mid-replication by
+concurrent cycles; assistfade's rung1-mesh-noanchor line is also
+concurrently active). `CYCLE_WORKED` touched (4 verdicts + 2 SKILLS
+rows, zero new training spend — all launch attempts this cycle were
+either eval-only `podeval` calls or a REFUSED dedup).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_{s0,s1,s2}_speedwiden_acq1_gate/
+report.json` vs each seed's own `..._acq1_gate/report.json`;
+`..._crutchoff_{s1,s2}_irrhalf_gate/report.json` vs each seed's own
+`..._acq1_gate/report.json`. W&B `wz9biedf`/`6582vtwg`/`jregm6xk`
+(speedwiden), `1v4ou8gd`/`qhmtszqz` (irrhalf).
+
 ## 2026-09-07 ~11:5x (triage cycle; assigned the 3 widenbis gate reports) — widen8 heading bisection RESOLVED: +135deg alone is safe, -135deg and 180deg each independently reproduce the front-pair exploit; launched an irr-timing jitter-amplitude bisection with the freed capacity
 
 Triaged the 3 widenbis ACQ-depth arms this cycle was assigned

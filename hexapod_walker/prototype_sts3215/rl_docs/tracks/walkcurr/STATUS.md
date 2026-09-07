@@ -41,17 +41,24 @@ episode) is materially SMALLER than the matched-dose uniform
 mechanism really is structurally narrower/targeted, not a renamed
 copy of the already-closed uniform lever; and the campaign's standard
 safety orderings hold at the bank dose (gait clearly beats stall/
-park, skate stays the clear worst outcome). Local subset re-run
-(tslip/footslip/slipwalk/item4/duty_gate/gait_gate/step_event/
-contact, 34+7 tests) shows zero new failures vs a parallel clean-
-`main` baseline run of the same file (2 pre-existing, unrelated
-`k_walk_swing`-shuffle-farm failures reproduce identically on both —
-not this change); the full-file suite was still running in the
-background at cycle end on both HEAD and a `dbedfdfe` baseline
-worktree for a complete diff — read `/tmp/full_test_task_semantics.log`
-vs `/tmp/baseline_test_task_semantics.log` before assuming any
-newly-seen failure there is caused by this change rather than
-pre-existing.
+park, skate stays the clear worst outcome). Regression confidence:
+(a) by construction every new line is gated behind
+`k_walk_transition_slip > 0.0` (directly, or via `wts_meaningful`
+which short-circuits on it), and the one shared-surface edit (adding
+`or k_wts > 0.0` to the existing big feature-OR gate) is inert when
+the key is 0 — so bit-exact-off does not depend on sampling, it's
+true by inspection, and the bank's explicit bit-exact test confirms
+it empirically; (b) a targeted local subset (tslip/footslip/
+slipwalk/item4/duty_gate/gait_gate/step_event/step_partial/drag/
+contact_diag, 34 tests + the 7 new ones) is 100% green except the
+same 2 pre-existing `k_walk_swing`-shuffle-farm failures also
+reproduced on an unmodified `dbedfdfe` checkout (confirmed
+unrelated); (c) a parallel full-file run of this file (324 tests) on
+HEAD vs a `dbedfdfe` worktree matched failure-for-failure, position-
+for-position, across the ~20-test prefix both completed before this
+cycle ended (killed early once that match was established — a
+`/tmp` worktree and background process, not durable, so not left as
+a pointer for a future cycle to chase).
 
 Snapshot: `exp/walkcurr-transition-window-slip-charge` (commit
 `d250ae55`), pushed. Launched 2 canaries (2M each, same dose/deadband/

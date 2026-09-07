@@ -12321,3 +12321,126 @@ def test_walkcurr_overspeed_preserves_primary_ordering(
     assert at_cap[0] > park[0] + 0.3 * gap, (
         f"at-cap gait no longer clearly beats park: {at_cap[0]:.1f} "
         f"vs {park[0]:.1f}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR OVERSPEED x WINDOWED-LOADSLIP interaction bank (09-07,
+# scratch8M falsification follow-up; operator focus note 20260907).
+# The overspeedq1-cont8m gate FALSIFIED "slip is overspeed-financed":
+# the charge shed body speed (v_along 0.083->0.074) but slip/m got
+# 12-26% WORSE in all 4 matched cells because absolute foot slip
+# stayed flat while the progress denominator shrank. The mechanical
+# audit of the 4 CLOSED direct-slip arms (loadslip-c1,
+# loadslip-windowed-{s0,s1}, footslip-c1 both doses) found every one
+# responded by SPEEDING UP (env/v_along_cmd_m_s 0.065->0.085-0.087
+# within each 2M window) and the windowed arms halved their charge
+# (-0.80->-0.38, ratio 10.8->6.8) largely through the PROGRESS
+# DENOMINATOR of ratio = slip_rate/prog_rate while held-out slip/m
+# never moved: with overspeed free (income capped, surplus unpriced),
+# "grow the denominator" was the zero-cost descent direction of every
+# ratio-priced slip charge. reward.walk_freeprog_overspeed_charge
+# prices exactly that escape. This bank proves, in the same
+# calibrated low-cap miniature the WALKCURR_OVERSPEED bank uses
+# (cap 0.012 vs the scripted gait's measured ~0.020 at scale 1.0 /
+# ~0.009 at scale 0.5), that (a) windowed loadslip ALONE leaves the
+# overspeed escape open, (b) the COMBINED recipe closes it (optimum
+# at the cap), and (c) the combination preserves every load-bearing
+# safety ordering (skate worst, gait income positive, walk beats
+# stall/park). Required green before the interaction canary
+# (...-overspeedq1-cont8m-lswin) trains, per the walkcurr
+# reward-mechanism launch rule.
+WALKCURR_OVLS_OVERRIDES = dict(WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES)
+WALKCURR_OVLS_OVERRIDES[
+    ("reward", "walk_freeprog_overspeed_charge")] = 1.0
+
+
+def test_walkcurr_ovls_overspeed_key_off_is_inert_on_windowed_diet():
+    """Arming walk_freeprog_overspeed_charge at 0.0 on TOP of the
+    windowed-loadslip diet must be bit-exact vs that diet alone —
+    the two mechanisms must not interact through anything but the
+    reward when one is off."""
+    zero_ov = dict(WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES)
+    zero_ov[("reward", "walk_freeprog_overspeed_charge")] = 0.0
+    for pol, scale in (("gait", 1.0), ("gait", 2.0), ("stall", 1.0)):
+        off = _slipwalk_rollout(
+            pol, SEEDS[0], gait_scale=scale,
+            overrides=WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES,
+            cmd_vx=0.06)
+        on = _slipwalk_rollout(pol, SEEDS[0], gait_scale=scale,
+                               overrides=zero_ov, cmd_vx=0.06)
+        assert off[0] == on[0], (
+            f"{pol}@{scale}: overspeed_charge=0.0 changed the "
+            f"windowed-loadslip return ({off[0]} vs {on[0]})")
+
+
+def test_walkcurr_ovls_denominator_escape_open_then_closed():
+    """THE interaction claim. Control: under windowed loadslip ALONE
+    (low cap 0.012), the 1.7x-cap gait must earn at least as much as
+    the at-cap gait — the training-history escape (speed up, grow the
+    prog denominator, income already capped) reproduced in miniature.
+    Armed: adding the overspeed charge must move the reward optimum
+    to the cap DECISIVELY — the ratio charge's only remaining descent
+    direction is the slip numerator itself."""
+    ls_low = dict(WALKCURR_ITEM4_LOADSLIP_WINDOWED_OVERRIDES)
+    ls_low[("reward", "walk_freeprog_cap_m_s")] = 0.012
+    both_low = dict(ls_low)
+    both_low[("reward", "walk_freeprog_overspeed_charge")] = 1.0
+    ls_slow = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                overrides=ls_low, cmd_vx=0.06)
+    ls_fast = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                overrides=ls_low, cmd_vx=0.06)
+    both_slow = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                  overrides=both_low, cmd_vx=0.06)
+    both_fast = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                  overrides=both_low, cmd_vx=0.06)
+    assert ls_fast[0] >= ls_slow[0] - 0.03 * abs(ls_slow[0]), (
+        f"escape control broke: under windowed loadslip alone the "
+        f"overspeeding gait ({ls_fast[0]:.1f}) no longer matches the "
+        f"at-cap gait ({ls_slow[0]:.1f}) — the interaction premise "
+        "is stale, re-audit before launching")
+    assert both_slow[0] - both_fast[0] > 0.25 * abs(ls_fast[0]), (
+        f"combined recipe does not close the escape: at-cap="
+        f"{both_slow[0]:.1f} overspeed={both_fast[0]:.1f} "
+        f"(loadslip-alone fast={ls_fast[0]:.1f})")
+
+
+def test_walkcurr_ovls_skate_is_still_the_worst_outcome():
+    """Continuation-safety under the COMBINED recipe at the champion's
+    own cap: degenerate zero-lift skating must still read far worse
+    than refusing to move."""
+    skate = _slipwalk_rollout("skate", SEEDS[0],
+                              overrides=WALKCURR_OVLS_OVERRIDES,
+                              cmd_vx=0.06)
+    park = _slipwalk_rollout("park", SEEDS[0],
+                             overrides=WALKCURR_OVLS_OVERRIDES,
+                             cmd_vx=0.06)
+    assert skate[0] < park[0] - 300.0, (
+        f"skating is not clearly the worst outcome under the combined "
+        f"recipe: skate={skate[0]:.1f} park={park[0]:.1f}")
+
+
+def test_walkcurr_ovls_primary_ordering_and_income(
+        walkcurr_item4_bare_returns):
+    """The combination must not make walking itself uncompetitive: an
+    honest at-cap gait still clearly beats stall and park (0.3x the
+    bare diet's own gait-stall gap, same bar as the overspeed bank)
+    and still nets a clearly positive return."""
+    at_cap = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                               overrides=WALKCURR_OVLS_OVERRIDES,
+                               cmd_vx=0.06)
+    stall = _slipwalk_rollout("stall", SEEDS[0],
+                              overrides=WALKCURR_OVLS_OVERRIDES,
+                              cmd_vx=0.06)
+    park = _slipwalk_rollout("park", SEEDS[0],
+                             overrides=WALKCURR_OVLS_OVERRIDES,
+                             cmd_vx=0.06)
+    gap = walkcurr_item4_bare_returns["gait"] - \
+        walkcurr_item4_bare_returns["stall"]
+    assert at_cap[0] > stall[0] + 0.3 * gap, (
+        f"at-cap gait no longer clearly beats stall under the combined "
+        f"recipe: {at_cap[0]:.1f} vs {stall[0]:.1f}")
+    assert at_cap[0] > park[0] + 0.3 * gap, (
+        f"at-cap gait no longer clearly beats park under the combined "
+        f"recipe: {at_cap[0]:.1f} vs {park[0]:.1f}")
+    assert at_cap[0] > 200.0, (
+        f"combined dose drives honest walking too low: {at_cap[0]:.1f}")

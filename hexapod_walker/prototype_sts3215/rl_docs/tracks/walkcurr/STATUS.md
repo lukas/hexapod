@@ -1,5 +1,38 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~10:4x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — launched the widen8 heading-bisection trio named as the "pending cheap bisection" in the ~09:5x/~10:0x closure
+
+Executed option (b) from the widen8 ACQ-trio closure's own remediation
+list: instead of the still-unbuilt role-aware reward mechanism, isolate
+WHICH of the 3 new rear headings (135/-135/180deg) actually drives the
+front-leg-pair[0,5] chronic sacrifice that made widen8-acq1 FAIL 3/3.
+Three single-axis 40M ACQ-depth arms, each adding exactly ONE new
+heading to the already-ACQ-passed 5-way base (0/45/-45/90/-90), same
+s0 checkpoint/seed/recipe widen8 itself warm-started from:
+`crutchoff-s0-widenbis135` (train-2, W&B `wpr5ew7a`),
+`-widenbism135` (train-0, `c3hqpdus`), `-widenbis180` (train-1,
+`rx6wrkz3`) — all VERIFIED RUNNING. Deliberately skipped a redundant
+2M mechanism canary: the already-PASSED widen8 CANARY (the 8-way
+superset) already proved mechanism health for every one of these
+headings in combination, so a strict subset canary would be
+uninformative; going straight to the 40M depth where the entrenchment
+actually appeared is the budget this question needs. Gate per arm:
+PASS (heading exonerated) if 0 falls/24 and gait_valid>=19/24 with no
+new chronic sacrifice vs s0-acq1's own clean 21/24 panel; FAIL
+(heading implicated) if the front-pair[0,5]-style chronic sacrifice
+reappears. If all 3 pass, that would mean the exploit needs >=2 new
+headings together (an interaction effect) and the bisection would need
+a follow-up pairwise wave; if all 3 fail, any rear-ish heading alone
+triggers it (reinforces the heading-DEPENDENT redundant-pair theory
+without narrowing further). Left unread for the next reader/self.
+Separately re-confirmed the rest of the board is fully claimed: the 3
+`speedwiden` canaries + 2 `irr` runs (already kicked off ~09:5x/~10:0x)
+still mid-gate-eval, `cw-assistfade-rung4-revhandoff-noanneal-s0`'s
+gate eval running live on train-2's CPU side (a different concurrent
+cycle, not touched), `cw-robotwalk-turns-20260907-yawref-cont8m`
+(todaypolicy) explicitly marked another cycle's in this cycle's own
+prompt (finished training, left alone) — no duplicate launches made.
+
 ## 2026-09-07 ~09:5x (triage cycle; assigned the 3 widen8-acq1 runs) — item(1) widen8 ACQ trio CLOSES 3/3 ACQ FAIL (identical fingerprint every seed); NEW structural finding: the sacrificed pair is heading-DEPENDENT (front pair for rear headings), not the fixed L1/L4 middle pair already exhausted by 11 reward-price mechanisms; kicked off 3 orphaned speedwiden canary evals found stalled with free capacity
 
 Triaged `crutchoff-{s0,s1,s2}-widen8-acq1` (40M, the ACQ continuations

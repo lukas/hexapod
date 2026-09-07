@@ -1,5 +1,72 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~13:0x (refill cycle; 8 free GPU slots at start, backlog empty, no completion assigned) — scoped + launched the deferred item(4) DR-BAND-NARROWING ablation (6 canaries), the one named-but-unexecuted recommendation from the 09-06 ~23:2x loadslip-windowed closure
+
+Full board re-read first (guardrails, `CURRENT_TRUTHS.md`, `capacity.py`,
+`launch_run.py status`): the crutch-off composite's live frontier
+(`{s1,s2}-widenbis135` replication, `s0-widenbis135-speedwiden`
+interaction) was mid-flight on train-1/2/3, matching this cycle's own
+"still training, leave alone" list — not touched. Housekeeping first
+(zero-spend): found 2 more finished-but-unread runs. (1)
+`cw-robotwalk-turns-20260907-yawref-cont8m` (todaypolicy) had finished
+8M steps with no gate kicked (reward still climbing every quarter:
+313/1350/2362/2964) — kicked `podeval` (long video-heavy harness,
+still computing at cycle end) and registered `evalpending` for the
+next reader. (2) Both `assistfade rung1-mesh-noanchor-{s1,s0-acq12m}`
+had also finished (s0-acq12m's reward went sharply NEGATIVE across
+its 12M run: quarters -62/-368/-685/-503, worth flagging for
+whoever reads that gate — looks like the un-anchored task-only-PPO
+recipe may not hold past canary depth) — a concurrent cycle's own
+`eval_checkpoint` was already live on both pods; did not duplicate.
+
+**Main refill: item(4) (the crossgrav composite's persistent
+steady-state slip gap) has one specific, already-written recommendation
+sitting unexecuted since 09-06 ~23:2x** (`loadslip-windowed` closure:
+"the next informative move is probably... a DR-realism ablation —
+re-measure the SAME champion checkpoint... at a NARROWER DR band...
+to test whether this composite's specific friction_scale/
+contact_stiff_scale/kp_scale ranges (not kicks) are the real driver of
+the steady-state gap"). Four independently-designed per-tick
+contact-slip reward mechanisms are now closed 4/4 (most recently the
+properly-dose-scaled `footslip-c1-lowdose` pair, RL_LOG 09-06 20:15),
+so this DR-band question is the one live, pre-registered-but-unbuilt
+thread on this item, not a re-hash. Scoped it (no prior cycle had
+picked a concrete axis/band) and launched a 3-axis x 2-seed canary
+batch (6 arms), each a single-lever respec of the plain
+`...-nocrutch1x-c1-acq1-cont40m` champion (`--init-from-source`, no
+slip-shaping reward active in any arm, 2M canary budget):
+- `frictionband-half-{s0,s1}`: `dr.friction_scale` 0.6,1.4 -> 0.8,1.2
+  (same center 1.0, half-width halved)
+- `compliance-half-{s0,s1}`: `dr.contact_stiff_scale` 0.7,2.0 ->
+  1.025,1.675 (same center 1.35, half-width halved)
+- `gainsband-half-{s0,s1}`: `dr.kp_scale_pct` 0.20->0.10,
+  `dr.kv_scale_pct` 0.25->0.125 (servo-gain jitter halved)
+
+All 6 VERIFIED launched (2 pod-collision REFUSED races self-resolved
+by retrying on an explicit free pod, no duplicate spend); 5/6 already
+finished their 2M budget within-cycle (fast at 4096 envs) with healthy
+rising reward quarters matching the champion's own shape (no
+collapse) — `compliance-half-s1` still training at cycle end. Kicked
+`podeval` + registered `evalpending` for all 6 (core gate eval was
+already auto-running via the standard finish-prestage on 4/6 checked;
+this cycle's own explicit kicks cover the session-gate pass and act as
+a safety net). **Gate (per arm, canary/diagnostic tier):
+PASS-IMPLICATED** if held-out `slip_per_m` in undisturbed
+(zero-kick/zero-push) episodes drops >=15% median vs the champion's
+own baseline (4.2-5.7/m) with `gait_valid`/falls holding.
+**FAIL-EXONERATED** if slip stays within noise despite the narrower
+band. Noted confound honestly in each hypothesis: this is a retrain
+(2M fresh adaptation), not a pure re-eval of the frozen checkpoint, so
+a PASS-IMPLICATED read should be corroborated by re-evaluating the
+ORIGINAL frozen `cont40m` checkpoint at the same narrowed band
+(zero-spend, `--cfg-set`-only) before funding any further budget.
+Left all 6 unread for the next reader (results not yet landed at
+cycle end). `CYCLE_WORKED` touched (2 podeval kicks/evalpending
+registrations + a genuinely new 6-arm launch batch, no duplicate
+spend, no filler).
+
+Evidence: `ops.sh entry cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-{frictionband-half,compliance-half,gainsband-half}-{s0,s1}`, W&B `hd06097r`/`z1fix9sp`/`6yyhv3vz`/`4wf8a0li` (+2 pending), RL_LOG 09-07 13:0x.
+
 ## 2026-09-07 ~12:3x (triage cycle; assigned s0-speedwiden-acq1, found+cleared 3 more orphans) — speedwiden CLOSES 3/3 ACQ PASS clean; irrhalf amplitude-halving mitigation CLOSES 2/2 FAIL (same tilt_roll fall reproduces at half dose)
 
 Triaged the assigned `crutchoff-s0-speedwiden-acq1` (**ACQ PASS**: gait_valid

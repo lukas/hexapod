@@ -912,10 +912,14 @@ class MjxShardedVecEnv(VecEnv):
             # episode's start references, exactly like the CPU env.
             for k in range(handoff_n):
                 self._broadcast("handoff_tick", k * dt)
+                # [:, None]: (B, 1) so make_command can broadcast to
+                # (B, N_JOINTS) — a flat (B,) raises (same fix as the
+                # in-process twin; see MjxVecEnv._apply_walk_reverse_
+                # handoff's speed/acc comment).
                 cmd = st.make_command(
                     self._shm["handoff_q"].copy(),
-                    speed_deg_s=self._shm["handoff_speed"].copy(),
-                    acc_units=self._shm["handoff_acc"].copy(),
+                    speed_deg_s=self._shm["handoff_speed"].copy()[:, None],
+                    acc_units=self._shm["handoff_acc"].copy()[:, None],
                     valid=self._shm["handoff_valid"].copy())
                 out = st.tick(cmd)
         self._copy_outs(out)

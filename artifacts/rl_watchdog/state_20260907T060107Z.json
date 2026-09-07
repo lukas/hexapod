@@ -1,0 +1,194 @@
+{
+  "heartbeat_trigger_utc": "2026-09-07T06:01:07.542Z",
+  "checked_at_utc": "2026-09-07T06:14:43Z",
+  "initial_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 9,
+    "free_pods": [
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-3",
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1"
+      ]
+    }
+  },
+  "initial_samples": [
+    {
+      "at": "2026-09-07T06:02:42.997637+00:00",
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1",
+      "processes": [
+        {
+          "pid": 460992,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "34603008",
+        "35127296",
+        "35651584"
+      ],
+      "fps": [
+        "24532",
+        "24538",
+        "24537"
+      ],
+      "error": false,
+      "gpu": "4 %, 45815 MiB"
+    },
+    {
+      "at": "2026-09-07T06:02:43.027978+00:00",
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+      "processes": [
+        {
+          "pid": 3516387,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "37224448",
+        "37748736",
+        "38273024"
+      ],
+      "fps": [
+        "22994",
+        "22999",
+        "23000"
+      ],
+      "error": false,
+      "gpu": "9 %, 45815 MiB"
+    }
+  ],
+  "idle_event": {
+    "at": "2026-09-07T06:08:35Z",
+    "ready_free": 11,
+    "queue_empty_last_read": "2026-09-07T06:02:44Z",
+    "reason": "Both40M scratch ACQs completed before next code-validated experiment was ready. No launch hold or infrastructure failure."
+  },
+  "scratch_completion": {
+    "runs": [
+      "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+      "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1"
+    ],
+    "steps_each": 40370176,
+    "pods": [
+      "hexapod-mjx-train-2",
+      "hexapod-mjx-train-0"
+    ],
+    "gpu_release_verified": true,
+    "artifact_phase": "artifacts_pending",
+    "s1_finalizer_pid": 3526191,
+    "s2_finalizer_pid": 467720,
+    "publication": "Each handed3jobs to CPU: eval logged_pending_flush, periodicvideo in_flight, finalvideo pending. finalized.json absent on the respective06:08/06:10reads; do not claim publication complete. GPU0MiB for both."
+  },
+  "yaw": {
+    "run": "cw-robotwalk-turns-20260907-yawref-acq8m",
+    "created": "2026-09-07T06:10:21+00:00",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-1",
+    "trainer_pid": 2488020,
+    "wandb_id": "3j03b9ro",
+    "budget": 8000000,
+    "code_sha": "5e9ccb966bc1592e29af8d32d77057853d08ec27",
+    "defer_final_artifacts": true,
+    "latest": {
+      "at": "2026-09-07T06:14:43.158215+00:00",
+      "checkpoints": [
+        [
+          "1,032,192",
+          "11,152"
+        ],
+        [
+          "2,064,384",
+          "13,884"
+        ],
+        [
+          "3,096,576",
+          "15,215"
+        ]
+      ],
+      "error": false,
+      "tail": [
+        "[video] previous reel still rendering; skipping this round",
+        "[mjx-train] checkpoint @ 2,064,384 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_robotwalk_turns_20260907_yawref_acq8m.zip (13,884 env-steps/s)",
+        "[periodic-eval] previous eval still running; skipping this round",
+        "[mjx-train] checkpoint @ 3,096,576 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_robotwalk_turns_20260907_yawref_acq8m.zip (15,215 env-steps/s)"
+      ]
+    },
+    "mechanism": "Bounded CPU replay identified reward/evaluation command-frame mismatch. Feature-gated yaw-rotated course reference + arc-aware sway + k_yaw_prog2; warm from recovered16M checkpoint, same existing seed.",
+    "validation": "Owner reports18course-bank (including4new),63metric/eval/course,6targetedwalk-semantics,137BC-anchor tests passed. Broad walk test timedout before targeting relevant cases. Root independently verified canonicalRUNNING/code parity, livePID/W&BID and checkpoints1,032,192->2,064,384->3,096,576.",
+    "qualification": "Training only, not a qualified policy. Numeric yaw<0.076,course<=5.17,fall/slip/progress/six-leg limits retained. New course_yawref_err_1s_med explicitly replaces the proven turn-refusal-biased legacy chord key for this experiment, with legacy diagnostics preserved. The gate requires parent and Candidate B to be re-evaluated on identical corrected cells; those comparisons are not yet verified in this record. This is a recorded metric/frame correction; old verdicts remain historical.",
+    "owner_cycle": "20260907T053811"
+  },
+  "ownership_resolution": {
+    "observed_collision": "054326 and055158 both began reverse-handoff implementation; identified06:01-06:02.",
+    "resolution": "055158 recognized concurrent edits06:02:57, inspected shared code, reverted only its own82-line sim_env hunk06:05:12 and changed claim to coordination. No rootkill/restart/mutation used.",
+    "implementation_owner": {
+      "cycle": "20260907T054326",
+      "pid": 2487077,
+      "work": "MjxVecEnv and sharded reset handoff implementation; existing MJX tests ontrain1 usingCPUbackend. TestPID2486176 was actively running at06:06:49 with571.6CPUseconds, not stalled."
+    },
+    "validation_owner": {
+      "cycle": "20260907T055158",
+      "pid": 2504114,
+      "work": "Separate test_mjx_reverse_handoff.py bank; clean5e9code synced toidletrain9 at06:10:41, tests started06:10:57 usinguvwithpytest. At06:13:27 stillrunning; no rung4canary verified."
+    },
+    "completed_prior_owner": "20260907T050358 ended successfully after53min; no repeated kick."
+  },
+  "current_capacity_interpretation": "One verified yaw trainer; the other10readyGPUslots have no verified trainers. Train1andtrain9 also have CPUbackendMJXvalidation work. Queue empty at06:13:40; MJXcanary remains owned but notready.",
+  "next_visit": "Follow existing053811yaw run and055158/054326GPUreset validation owners through results, exact boundedcanary registration and actuallaunch/steps. Track scratch artifact finalizers untilflushconfirmed and finalgates arrive; no duplicatedevals. Drain newlyrunnablequeue; no repeatkick whileownersadvance.",
+  "boundaries": "No robot work, spending, capacitypurchase, nodeuncordon, healthyeviction, unplannedseeds, filler, or securitychanges."
+}

@@ -1,0 +1,253 @@
+{
+  "heartbeat_trigger_utc": "2026-09-07T05:49:37.506Z",
+  "checked_at_utc": "2026-09-07T05:53:16Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 9,
+    "free_pods": [
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-3",
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-0": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1"
+      ],
+      "hexapod-mjx-train-2": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1"
+      ]
+    }
+  },
+  "trainer_samples": [
+    {
+      "at": "2026-09-07T05:50:56.046985+00:00",
+      "pod": "hexapod-mjx-train-0",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1",
+      "processes": [
+        {
+          "pid": 460992,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "16777216",
+        "17301504",
+        "17825792"
+      ],
+      "fps": [
+        "23996",
+        "24012",
+        "24019"
+      ],
+      "wandb_ids": [
+        "qrpb9skj"
+      ],
+      "error": false,
+      "gpu": "9 %, 45815 MiB"
+    },
+    {
+      "at": "2026-09-07T05:50:56.070072+00:00",
+      "pod": "hexapod-mjx-train-2",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+      "processes": [
+        {
+          "pid": 3516387,
+          "defer": true
+        }
+      ],
+      "steps": [
+        "20971520",
+        "21495808",
+        "22020096"
+      ],
+      "fps": [
+        "23008",
+        "22996",
+        "22967"
+      ],
+      "wandb_ids": [
+        "0aq94iv4"
+      ],
+      "error": false,
+      "gpu": "9 %, 45815 MiB"
+    }
+  ],
+  "queue": {
+    "at": "2026-09-07T05:50:56.377277+00:00",
+    "queue": [],
+    "holds": {
+      "LAUNCH_HOLD": false,
+      "PAUSE": false,
+      "WRAPUP": false
+    },
+    "new_runs": [
+      {
+        "run": "cw-walkscratch-easy0905-headset-base-s0c1-dbandgate-fix",
+        "created": "2026-09-07T02:57:31+00:00",
+        "status": "CANARY FAIL - MECHANISM",
+        "wandb_id": "ndjo2e2i",
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-3",
+        "triage": "done"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1",
+        "created": "2026-09-07T04:41:00+00:00",
+        "status": "PASS",
+        "wandb_id": "w4ytxxft",
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-2",
+        "triage": "done"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2",
+        "created": "2026-09-07T04:43:23+00:00",
+        "status": "PASS",
+        "wandb_id": null,
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-0",
+        "triage": "done"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0",
+        "created": "2026-09-07T05:29:44+00:00",
+        "status": "FINISHED",
+        "wandb_id": "wf7nj28x",
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-2",
+        "triage": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+        "created": "2026-09-07T05:33:12+00:00",
+        "status": "REFUSED",
+        "wandb_id": null,
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-2",
+        "triage": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1",
+        "created": "2026-09-07T05:33:14+00:00",
+        "status": "REFUSED",
+        "wandb_id": null,
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-0",
+        "triage": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1",
+        "created": "2026-09-07T05:33:50+00:00",
+        "status": "RUNNING",
+        "wandb_id": "0aq94iv4",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-2",
+        "triage": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-acq1",
+        "created": "2026-09-07T05:37:19+00:00",
+        "status": "RUNNING",
+        "wandb_id": "qrpb9skj",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-0",
+        "triage": null
+      }
+    ]
+  },
+  "advancement_since_prior_visit": {
+    "s1_steps_before": 7864320,
+    "s1_steps_now": 22020096,
+    "s2_steps_before": 3145728,
+    "s2_steps_now": 17825792,
+    "both_healthy": true,
+    "both_defer_final_artifacts": true
+  },
+  "owners": {
+    "scratch_cpu_rung4": {
+      "cycle": "20260907T050358",
+      "pid": 2441448,
+      "status": "Active; both40M scratch ACQs verified, finished s0 canary gate started05:48:31. CPU reverse-handoff reset complete with4new/17related focused tests passing; broader semantics failures still being attributed. Explicitly deferred MJX wiring."
+    },
+    "yaw": {
+      "cycle": "20260907T053811",
+      "pid": 2480236,
+      "status": "Active implementation after bounded CPU combined-frame replay; editing reward code and adding separate corrected eval report keys. No new training launch yet.",
+      "preliminary_probe": "Combined vx0.08,wz0.25,8s: no-turn totalreward2094.5 > arc1959.8; one probe legacy course12.33deg vs yaw-rotated4.59deg. These are probe diagnostics, not policyqualification or a changed gate."
+    },
+    "mjx_reverse_handoff": {
+      "cycle": "20260907T055158",
+      "pid": 2504114,
+      "status": "New trusted kick consumed; owner actively reading CPU and vector/sharded MJX reset paths05:52. Explicitly unowned gap from050358's deferral; avoid duplicate CPU/yaw work.",
+      "scope": "Own ONLY the unowned MJX wiring gap explicitly deferred by active cycle20260907T050358 (read its latest assistfade/STATUS and log first). That owner built CPU rung4 reverse-curriculum/intermediate-state reset and4new tests+17related passes; it explicitly says MJX _choreography wiring in mjx_vec_env.py/mjx_sharded_vec_env.py remains UNIMPLEMENTED and no rung4GPUcanary is ready. Do not duplicate its CPU reset, scratch canary review, or the active yaw owner053811. Complete vector/sharded GPU reset handoff using per-env teacher commands via st.tick after settle, preserving real momentum/contact, random teacher phase and flag-OFF equivalence; keep current phase/contact rewards unchanged. Interface is goal.walk_reverse_handoff_gate and goal.walk_reverse_handoff_s; verify exact current code. Establish ownership in the shared track doc, build focused CPU/MJX parity and boundary banks, and investigate relevant regressions before deployment. Then use canonical launcher/backlog to queue and VERIFY a bounded rung4 mechanism-health canary on an existing planned seed (max2M initial, no new seed/capacity, provenance and explicit experiment gate). Sync only idle pods, preserve healthy scratch runs and all existing qualification/safety limits. Nine ready GPUs are currently free and backlog empty; do not stop after a code-only prerequisite if the tested launch can be completed. If the existing owner has since claimed or completed this exact gap, coordinate by following its result instead of duplicating. No robot work, spending, filler, or repeated old axes.",
+      "launch_verified": false
+    }
+  },
+  "actions": [
+    "Verified live2trainer PIDs,W&B IDs,stepgrowth andNVIDIA snapshots; no errors.",
+    "Read canonical emptyqueue and clearedLAUNCH_HOLD/PAUSE/WRAPUP.",
+    "Assigned only explicitly deferred MJX reverse-handoff gap; verified active cycle and implementation work instead of another generic refill kick."
+  ],
+  "optional_feedback": {
+    "status": "Not delivered: optional paired-metric reminder command returned sandboxDNS failure before execution. No reroute, retry or pending approval; core owner already preserves legacy keys with additive diagnostics. This failed optional note is not required for current launch handoff.",
+    "intent": "Keep paired legacy/corrected comparator reports and unchanged absolute course/yaw gates; verify frame invariance and stop/arc/window edge cases."
+  },
+  "idle": {
+    "ready_free": 9,
+    "queue_empty": true,
+    "mechanical_blocker": false,
+    "reason": "Next scientifically justified experiments require owned GPU implementation/validation and yaw correction. Exhausted per-axis and stride/CPG repeats remain closed; no filler queued.",
+    "follow_up": "Follow055158 through focused bank/parity, idle-only sync, bounded existing-seed<=2M canary and actualprocess/step verification. Follow053811 through bank and one changed same-seed<=8M experiment. Drain new runnablequeue immediately whenpresent; preserve existingowners."
+  },
+  "stale_ui_cycles": [
+    "20260906T033315",
+    "20260906T090639"
+  ],
+  "boundaries": "No physicalrobot, newcapacity, uncordon, healthy eviction, unplannedseed, gate relaxation or securitysettingchange."
+}

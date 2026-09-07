@@ -1,3 +1,113 @@
+## 2026-09-07 ~21:2x (triage+build cycle; assigned `crutchoff-s0-widenrear180`) — verdicted s0 (CLOSES the widenrear180 trio 3/3, matches s1/s2 exactly), then BUILT + bank-proved + launched the role-aware repair candidate itself: a heading-UNIFORM per-leg minimum-duty TERMINATION (`safety.walk_leg_duty_terminate_s`)
+
+**s0 verdict:** `crutchoff-s0-widenrear180` **CANARY FAIL - MECHANISM**,
+byte-for-byte the same per-episode fingerprint as s1/s2 (`walk/det`
+`gait_valid` 3/6, chronic leg-0 sacrifice at episode indices 0/1/5;
+`walk/sto` 5/6 sac[3] ep1; `walk_startjitter/det` clean 6/6;
+`walk_startjitter/sto` 4/6 sac[5]/sac[0] ep2/3; 0 falls/24). Three
+independently-trained seeds landing on the identical fingerprint at
+identical fixed-eval-RNG indices makes this fully decisive: the
+widenbis/widenrear180 trio's own "incremental one-heading-at-a-time"
+escape from the widen8 fork is CLOSED 3/3, not 2/3 as the prior entry
+below had it pending. Also consistent with (and now replicated 3x
+cheaper, at 2M vs 40M) the ~11:5x cycle's single-seed ACQ-depth
+`widenbis180` FAIL on this exact heading.
+
+**Built the mechanism the prior entry judged too large to attempt
+same-cycle.** Re-read the actual blast radius before deferring again:
+the design only touches `sim_env.py`'s per-tick termination checks and
+`walk_task.py`'s per-episode state init/snapshot list (the same files
+`hold_min_load_terminate`/`walk_idle_terminate` already live in) — it
+does NOT touch `train_ppo_mjx.py` or any shared policy-training code,
+so the "touches shared policy internals" blocker in the prior entry
+does not actually apply to this specific design. Went ahead:
+
+**`safety.walk_leg_duty_terminate_s`** (default 0.0 = off, bit-exact):
+a slow EMA (`walk_leg_duty_terminate_tau_s`, default 1.0 s — roughly
+one stride period at this campaign's commanded speeds) of each leg's
+own ground-contact duty (same `force > 0.5` on/off convention used
+throughout `walk_task.py`); if ANY leg's EMA stays below
+`walk_leg_duty_terminate_floor` (default 0.05) for
+`walk_leg_duty_terminate_s` consecutive seconds (past a
+`walk_leg_duty_terminate_grace_s` settle window), the episode ends
+exactly like a fall — denying ALL further reward, which no per-tick
+price can do regardless of dose. Deliberately **heading-UNIFORM**
+(applies identically to all 6 legs, no role/pair table): a termination
+doesn't need to know which pair is structurally redundant for the
+CURRENT command — it just refuses to let any single leg go
+chronically idle for long, whichever pair that turns out to be for
+this heading. This is the per-LEG analogue of the already-validated
+`hold_min_load_terminate`/`walk_idle_terminate` pattern ("absorbing
+states beat prices; must come WITH a termination, never instead of
+one" — op ruling 08-24), now applied to the class of pathology this
+track's 11 exhausted per-tick-price mechanisms (`walk_duty_gate`,
+`walk_swing_gate`, `walk_duty_band_gate`, `walk_gait_gate`+
+`k_step_event`) could never out-compete. The EMA (not an event/count)
+is deliberate: a brief one-or-two-tick "token" touch barely moves it
+(same chatter-smoothing reasoning as `hold_min_load`'s own EMA), so a
+leg must accumulate REAL sustained ground time to clear the floor —
+unlike the event-based `walk_gait_gate`/`walk_swing_gate` designs a
+rare periodic swing could satisfy without ever loading the leg (the
+exact dodge CURRENT_TRUTHS 09-05 ~13:1x/~14:3x measured on the
+sde-family idle-terminate/gait-gate levers). Floor (0.05) sits below
+the passing-checkpoint low-duty band the 09-07 ~04:4x diagnostic
+measured (0.10-0.30 on PASSING episodes) so a genuinely-passing graded
+gait should not be charged — directly honoring that entry's own
+calibration warning ("do NOT ship the naive max-over-binary-template
+score... calibrate against a PASSING checkpoint's own graded duty
+spread").
+
+**Bank: `WALKCURR_LEGDUTY_TERM`, 4/4 new tests green**, reusing the
+existing `_gait_gate_walk_rollout` scripted actors (no new scripted
+policy needed — same honest six-leg gait and the same permanent
+one-leg-raised `flagleg` cheat already validated against
+`walk_gait_gate`/`walk_swing_gate`): bit-exact off; the honest gait
+runs the FULL 15 s episode untouched (return bit-exact vs off — the
+mechanism adds no reward term, only a possible early stop); the
+flag-leg cheat is cut short at <50% of the full episode (well inside
+the dose's own grace+decay+duration arithmetic) and loses return by
+being cut off; the dedicated `walk_leg_duty_terminate_penalty` (150)
+keeps the terminated return well clear of a full anti-suicide
+`term_penalty` reading. Targeted regression check: `gait_gate`/
+`swing_gate`/`idle_term`/`dband` families all still green except the
+one already-known numeric-drift failure
+(`test_walkcurr_idle_term_ranking_holds`, confirmed identical on a
+clean `HEAD` checkout via `git stash`, unrelated to this change).
+Snapshot: see RL_LOG.
+
+**Launched 4 repair canaries** (2M continuations, `--init-from-source`,
+single lever: `safety.walk_leg_duty_terminate_s=4.0`,
+`_grace_s=3.0`, `_floor=0.05`, `_tau_s=1.0`,
+`reward.walk_leg_duty_terminate_penalty=150.0` — everything else
+byte-identical) off the two already-entrenched instances of this exact
+pathology: `crutchoff-{s0,s1,s2}-widen8-acq1` (40M, chronic front-pair
+[0,5] sacrifice) and `crutchoff-s0-widenbis180` (40M, chronic leg-0).
+Pre-registered PASS: the previously-chronic leg's duty recovers to a
+genuinely-used level (>=0.10) in the majority of episodes,
+`gait_valid` improves vs each seed's own pre-mechanism baseline, 0 new
+falls, and the termination stops firing by the end of the 2M (the
+policy actually resolved the pathology, not just cycling resets).
+Pre-registered FAIL: the leg stays chronically parked despite the
+termination (e.g. dodges it with a brief non-load-bearing contact
+tap), terminations stay frequent at the end, or training destabilizes.
+All 4 VERIFIED RUNNING at launch (train-2/0/1/0 — fast 2M canaries,
+likely already finished+syncing by next triage; W&B `kwbx6jtk`/
+`i66lls8h`/(s2)/(widenbis180), do not re-launch if already
+FINISHED next cycle). This is the mechanism's FIRST test on real
+training, not a validated fix yet — read the gate reports before any
+further dose/lineage variant or before treating the role-aware gap as
+closed.
+
+`CYCLE_WORKED` touched (1 verdict closing the trio 3/3 + a new
+mechanism built/bank-proved/snapshotted + 4 repair canaries launched,
+not a re-verify no-op).
+
+Evidence: `rl_move/sim/sim_env.py`/`walk_task.py` (search
+`walk_leg_duty_terminate`), `rl_move/tests/test_task_semantics.py`
+(`WALKCURR_LEGDUTY_TERM`, `test_walk_legduty_terminate_*`, 4/4 green),
+`ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+allaxis-nokick-crutchoff-s0-widenrear180`, W&B `xz2k7jzj`.
+
 ## 2026-09-07 ~21:0x (refill cycle; 11/11 GPU pods free, backlog empty) — verdicted the widenrear180 canary pair (s1,s2): CLOSES the "incremental one-heading-at-a-time" escape from the widen8 fork, 2/2 seeds
 
 `crutchoff-{s1,s2}-widenrear180` (launched ~20:1x: add ONLY the single

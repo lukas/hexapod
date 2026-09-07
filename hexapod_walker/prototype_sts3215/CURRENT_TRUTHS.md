@@ -1349,6 +1349,32 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   dr_allaxis_nokick_crutchoff_s{1,2}_widenrear180_gate/report.json`,
   W&B `j7a0gr9b`/`692tv6qc`, `rl_docs/tracks/walkcurr/STATUS.md`
   09-07 ~21:0x, RL_LOG 09-07 20:50.
+- UPDATE 09-07 ~21:2x: `crutchoff-s0-widenrear180`'s own verdict lands,
+  CLOSING the trio 3/3 (identical fingerprint to s1/s2 above) — and
+  the still-unbuilt heading-conditioned role-aware mechanism named
+  since 09-05 ~22:3x is now BUILT and bank-proved: `safety.walk_leg_
+  duty_terminate_s` (`walk_task.py`/`sim_env.py`), a heading-UNIFORM
+  per-LEG minimum-duty TERMINATION (not another per-tick price) — end
+  the episode like a fall if any leg's own ground-contact EMA stays
+  below a floor (default 0.05, calibrated below the passing-checkpoint
+  low-duty band the 09-07 ~04:4x entry measured) for N seconds. Same
+  validated pattern as `hold_min_load_terminate`/`walk_idle_terminate`
+  ("absorbing states beat prices; must come WITH a termination"), now
+  applied per-leg instead of whole-robot/whole-hold — and deliberately
+  uniform across all 6 legs so it needs no heading-conditioned role
+  table (a termination doesn't need to know WHICH pair is redundant
+  for the current command, only that no single leg may go chronically
+  idle). Bank `WALKCURR_LEGDUTY_TERM` 4/4 green (bit-exact off, honest
+  six-leg gait untouched, the flag-leg one-leg-sacrifice cheat cut
+  short well inside its own dose arithmetic, dedicated penalty stays
+  clear of the anti-suicide term_penalty). **NOT YET VALIDATED as a
+  fix** — 4 repair canaries launched this cycle (continuations off the
+  already-entrenched `widen8-acq1` x3 seeds + `widenbis180` x1, single
+  lever added, `--init-from-source`); read their gate reports before
+  treating this gap as closed or funding a dose/lineage variant.
+  Evidence: `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~21:2x,
+  `rl_move/tests/test_task_semantics.py` (`test_walk_legduty_
+  terminate_*`), W&B `kwbx6jtk` (+3 siblings).
 
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab

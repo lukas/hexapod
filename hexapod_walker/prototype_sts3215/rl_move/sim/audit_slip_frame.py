@@ -35,6 +35,20 @@ this tool answers two questions on a FROZEN checkpoint, zero training:
 
 Diagnostic only: no reward, no cfg-key, no shared-default change.
 Run it on the checkpoint's own pod (ops.sh podeval convention).
+
+3. STANCE-PHASE LOCATION (added 09-07, walkcurr lswin closure follow-up):
+   the direct-slip-reward-pricing family closed 5/5 (flat/ratio/windowed/
+   escape-closed charges all converge on the same ~5-6/m floor) without
+   ever answering WHERE in the stance cycle the loaded drift happens.
+   --phase-bins K bins each stance bout (touchdown=0 .. liftoff=1) into
+   K equal-width phases and reports, per phase, the mean per-tick
+   material slip (mm/tick), mean touch force, and mean concurrent body
+   forward speed, pooled across all loaded ticks of all 6 legs. A flat
+   profile across phases means uniform creep (a genuine kinematic/gait-
+   style mismatch); a spike at phase 0 means impact/touchdown skid; a
+   spike at phase K-1 means toe-drag/late push-off — each points at a
+   different next mechanism (touchdown velocity matching vs a push-off
+   liftoff timing fix) instead of another reward-pricing dose.
 """
 from __future__ import annotations
 
@@ -62,8 +76,61 @@ def _pad_geoms(model, bid: int) -> set[int]:
     return {g for g in range(model.ngeom) if model.geom_bodyid[g] == bid}
 
 
+def _bout_runs(mask: np.ndarray) -> list:
+    """Contiguous runs of True in a 1-D bool array -> [(start, length)]."""
+    runs = []
+    n = len(mask)
+    i = 0
+    while i < n:
+        if not mask[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and mask[j]:
+            j += 1
+        runs.append((i, j - i))
+        i = j
+    return runs
+
+
+def _phase_profile(loaded_by_leg: list, slip_tick_by_leg: list,
+                    force_by_leg: list, body_speed: np.ndarray,
+                    k_bins: int) -> dict:
+    """Bin every loaded tick of every leg by its normalized position
+    within its own stance bout (0=touchdown .. 1=liftoff) into k_bins
+    equal-width phases; pool across legs. Returns per-bin (slip mm/tick,
+    force N, body forward speed m/s) means and the pooled tick count."""
+    slip_sum = np.zeros(k_bins)
+    force_sum = np.zeros(k_bins)
+    speed_sum = np.zeros(k_bins)
+    count = np.zeros(k_bins, dtype=int)
+    for leg in range(6):
+        loaded = loaded_by_leg[leg]
+        slip_t = slip_tick_by_leg[leg]
+        force_t = force_by_leg[leg]
+        for start, length in _bout_runs(loaded):
+            for off in range(length):
+                idx = start + off
+                frac = off / (length - 1) if length > 1 else 0.0
+                b = min(k_bins - 1, int(frac * k_bins))
+                slip_sum[b] += float(slip_t[idx])
+                force_sum[b] += float(force_t[idx])
+                speed_sum[b] += float(body_speed[idx])
+                count[b] += 1
+    with np.errstate(invalid="ignore", divide="ignore"):
+        slip_mean = np.where(count > 0, slip_sum / np.maximum(count, 1), 0.0)
+        force_mean = np.where(count > 0, force_sum / np.maximum(count, 1), 0.0)
+        speed_mean = np.where(count > 0, speed_sum / np.maximum(count, 1), 0.0)
+    return {
+        "slip_mm_per_tick": [round(1000.0 * float(x), 3) for x in slip_mean],
+        "force_n": [round(float(x), 3) for x in force_mean],
+        "body_speed_m_s": [round(float(x), 4) for x in speed_mean],
+        "tick_count": [int(x) for x in count],
+    }
+
+
 def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
-                floor, knee_shift_probe: list) -> dict:
+                floor, knee_shift_probe: list, phase_bins: int = 0) -> dict:
     obs, info0 = env.reset()
     if hasattr(model, "reset"):
         model.reset()
@@ -75,6 +142,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
     T = env._max_steps if hasattr(env, "_max_steps") else 10 ** 6
     contact_hist, force_hist = [], []
     pad_x_hist, pad_R_hist, cpos_hist = [], [], []
+    body_speed_hist = []
     cmd_dist_m, along_dist_m = 0.0, 0.0
     term = trunc = False
     term_reason = ""
@@ -101,13 +169,14 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
                     p = c.pos.copy()
                     cp[f] = p if cp[f] is None else 0.5 * (cp[f] + p)
         cpos_hist.append(cp)
+        vb = env._body_vel_xy()
+        body_speed_hist.append(float(math.hypot(vb[0], vb[1])))
         g = env._current_goal()
         if g is not None:
             s_ref = math.hypot(g.vx_ref, g.vy_ref)
             if s_ref > 1e-3:
-                v = env._body_vel_xy()
                 cmd_dist_m += s_ref * env.dt
-                along_dist_m += ((v[0] * g.vx_ref + v[1] * g.vy_ref)
+                along_dist_m += ((vb[0] * g.vx_ref + vb[1] * g.vy_ref)
                                  / s_ref) * env.dt
         if term:
             term_reason = info.get("termination_reason", "")
@@ -116,6 +185,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
     force = np.asarray(force_hist)                          # (T,6)
     pad_x = np.stack(pad_x_hist)                            # (T,6,3)
     pad_R = np.stack(pad_R_hist)                            # (T,6,3,3)
+    body_speed = np.asarray(body_speed_hist)                # (T,)
     n = len(contact)
     slip_center = np.zeros(6)
     slip_material = np.zeros(6)
@@ -123,6 +193,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
     slip_highF = np.zeros(6)
     untracked = np.zeros(6)   # loaded ticks with no mj contact point
     swings = [0] * 6
+    loaded_by_leg, slip_tick_by_leg, force_tick_by_leg = [], [], []
     for f in range(6):
         cf = contact[:, f]
         d = np.diff(cf.astype(int))
@@ -134,6 +205,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
         slip_lowF[f] = float(dxy[lowF].sum())
         slip_highF[f] = float(
             dxy[loaded & (force[:-1, f] >= CHATTER_N)].sum())
+        slip_material_tick = np.zeros(n - 1)
         for t in range(n - 1):
             if not cf[t]:
                 continue
@@ -144,11 +216,19 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
             x0, x1 = pad_x[t, f], pad_x[t + 1, f]
             R0, R1 = pad_R[t, f], pad_R[t + 1, f]
             p_mat = x1 + R1 @ (R0.T @ (pc - x0))
-            slip_material[f] += float(np.linalg.norm((p_mat - pc)[:2]))
+            slip_material_tick[t] = float(np.linalg.norm((p_mat - pc)[:2]))
+        slip_material[f] = float(slip_material_tick.sum())
+        loaded_by_leg.append(loaded)
+        slip_tick_by_leg.append(slip_material_tick)
+        force_tick_by_leg.append(force[:-1, f])
     duty = contact.mean(axis=0)
     sacrificed = [f for f in range(6)
                   if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
     denom = max(along_dist_m, 0.05)
+    phase_profile = (_phase_profile(loaded_by_leg, slip_tick_by_leg,
+                                    force_tick_by_leg, body_speed[:-1],
+                                    phase_bins)
+                     if phase_bins > 0 else None)
     return {
         "return": round(ret, 2),
         "terminated": bool(term),
@@ -170,6 +250,7 @@ def run_episode(env, model, *, deterministic: bool, pads, pad_geoms,
         "slip_material_per_m": round(float(slip_material.sum()) / denom, 3),
         "slip_center_per_leg": [round(float(x), 4) for x in slip_center],
         "slip_material_per_leg": [round(float(x), 4) for x in slip_material],
+        "phase_profile": phase_profile,
     }
 
 
@@ -184,6 +265,10 @@ def main() -> None:
     ap.add_argument("--cfg-set", action="append", default=None)
     ap.add_argument("--shim", choices=("none", "trainframe"),
                     default="none")
+    ap.add_argument("--phase-bins", type=int, default=0,
+                    help="bin loaded ticks by normalized stance-bout "
+                         "position (0=touchdown..1=liftoff) into this "
+                         "many phases; 0 (default) skips the profile")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
@@ -233,7 +318,8 @@ def main() -> None:
         ep = run_episode(env, model,
                          deterministic=not args.stochastic,
                          pads=pads, pad_geoms=pad_geoms, floor=floor,
-                         knee_shift_probe=knee_shift_probe)
+                         knee_shift_probe=knee_shift_probe,
+                         phase_bins=args.phase_bins)
         eps.append(ep)
         print(f"ep{k}: term={ep['terminated']} gv={ep['gait_valid']} "
               f"along={ep['along_dist_m']:.3f} "
@@ -245,6 +331,40 @@ def main() -> None:
     def med(key):
         vals = [e[key] for e in eps if e.get(key) is not None]
         return round(float(np.median(vals)), 3) if vals else None
+
+    phase_agg = None
+    if args.phase_bins > 0:
+        K = args.phase_bins
+        slip_sum = np.zeros(K)
+        force_sum = np.zeros(K)
+        speed_sum = np.zeros(K)
+        count = np.zeros(K)
+        for e in eps:
+            pp = e.get("phase_profile")
+            if not pp:
+                continue
+            c = np.asarray(pp["tick_count"], dtype=float)
+            slip_sum += np.asarray(pp["slip_mm_per_tick"]) * c
+            force_sum += np.asarray(pp["force_n"]) * c
+            speed_sum += np.asarray(pp["body_speed_m_s"]) * c
+            count += c
+        with np.errstate(invalid="ignore", divide="ignore"):
+            phase_agg = {
+                "slip_mm_per_tick": [round(float(x), 3) for x in
+                                    np.where(count > 0,
+                                             slip_sum / np.maximum(count, 1),
+                                             0.0)],
+                "force_n": [round(float(x), 3) for x in
+                           np.where(count > 0,
+                                    force_sum / np.maximum(count, 1), 0.0)],
+                "body_speed_m_s": [round(float(x), 4) for x in
+                                  np.where(count > 0,
+                                           speed_sum / np.maximum(count, 1),
+                                           0.0)],
+                "tick_count": [int(x) for x in count],
+            }
+        print("phase profile (pooled across episodes, bin0=touchdown "
+              f"binN-1=liftoff): {json.dumps(phase_agg)}")
 
     report = {
         "checkpoint": str(args.checkpoint),
@@ -259,6 +379,8 @@ def main() -> None:
             "slip_lowF_m", "slip_highF_m", "slip_untracked_m")},
         "gait_valid_count": sum(1 for e in eps if e["gait_valid"]),
         "falls": sum(1 for e in eps if e["terminated"]),
+        "phase_bins": args.phase_bins,
+        "phase_profile_agg": phase_agg,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=1))

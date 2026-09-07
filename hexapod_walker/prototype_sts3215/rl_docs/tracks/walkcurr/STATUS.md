@@ -1,3 +1,39 @@
+## 2026-09-07 ~23:1x (triage cycle) — `s0-widenbis180-legdutyfresh` (4th/last legdutyfresh read) UNVERDICTED, DIG-IN flagged: breaks the trio's 3/3-FAIL pattern
+
+The 4th legdutyfresh arm does NOT reproduce the widen8-acq1 trio's
+shape. `gait_valid` 20/24 (det3/sto5/sjdet6/sjsto6) clears the run's
+own 18/24 bar, and beats the UNDOSED `widenbis180` baseline's own
+already-CONFIRMED FAIL (18/24, chronic leg-0 sac in 6/24 eps, ACQ
+FAIL on file) — legdutyfresh's sac count is 4/24 (det eps0,1,4 + sto
+ep1), none in either startjitter mode. Zero real physical falls in
+either run (`roll_class=fell` here is 1:1 with `term_reason=walk_leg_
+duty_terminate` per `eval_checkpoint.py:796`'s taxonomy — ANY safety
+termination is labeled "fell" regardless of actual roll angle, e.g.
+ep0 peak roll only 8°; confirmed by diffing both gate reports'
+`roll_class`/`term_reason`/`roll_peak_deg`). One gate sub-clause
+reads UNMET: `walk_leg_duty_terminate` is still firing ~132/log-
+interval in `wandb_history.csv` at 40.37M steps, the SAME magnitude
+as every FAILED widen8-acq1-legdutyfresh sibling (not "rarely/not-at-
+all" per the gate's PASS clause) — but the gate's own FAIL clause is
+explicit that firing frequency alone is not dispositive, only whether
+the chronic sacrifice still forms, and here it measurably improves
+vs this exact lineage's own baseline rather than worsening or
+holding flat. This contradicts the ~22:5x entry's forecast ("not
+expected to change the trio's verdict") and would make
+`walk_leg_duty_terminate_s` (from-scratch) 1 PASS / 7 FAIL by lineage
+severity (works on the milder widenbis180/+1-heading lineage, fails
+on the more severe widen8/+3-heading lineage) instead of 8/8 dead —
+fork-deciding for whether the mechanism has ANY viable niche or
+should close outright. Left UNVERDICTED (ambiguous gate-vs-metric
+tension); **DIG-IN** rather than a snap call either way — do not fund
+a further termination-mechanism dose/variant, and do not yet write
+off the mechanism class, until this read resolves. Evidence:
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxis_nokick_crutchoff_s0_widenbis180{,_legdutyfresh}_gate/
+report.json`, `logs/experiments/cw-walkscratch-easy0905-headset-
+crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widenbis180-
+legdutyfresh/wandb_history.csv`, RL_LOG 09-07 ~23:1x.
+
 ## 2026-09-07 ~22:5x (triage cycle) — `s1-widen8-acq1-legdutyfresh` FAILS per its own gate; 2/4 legdutyfresh seeds now match the retrofit's front-pair fingerprint
 
 `s1-widen8-acq1-legdutyfresh` (40M, from-scratch dose) reads
@@ -16,23 +52,30 @@ grounds alone. Frame strips show the same mixed picture as every
 prior widen8/widenbis180 arm: some episodes travel cleanly (det
 ep3/5), most sit pinned near-stationary with 1-2 legs held aloft.
 
-`s0-widen8-acq1-legdutyfresh`'s gate artifacts are also already
-synced (12/24 gait_valid, identical legs-0/5 fingerprint) but belong
-to its own assigned triage cycle — noted here as corroborating,
-**not independently verdicted by this entry**. 2/4 legdutyfresh seeds
-now agree: from-scratch dosing of `safety.walk_leg_duty_terminate_s`
-does not repair the chronic front-pair sacrifice any better than the
-retrofit dose did. Pending `s2-widen8-acq1-legdutyfresh` and
-`s0-widenbis180-legdutyfresh`'s reads before closing the mechanism
-family outright, but the working read is: **termination-as-price is
-the wrong mechanism shape.** The remaining unbuilt structural lever is
-a role-aware/heading-conditioned per-leg utilization TARGET (reward
-shaping toward balanced duty across the gait cycle) rather than a
-safety cutoff — scope this as the next design pass once all 4 reads
-land.
+**Update, same cycle:** picked up the two orphaned `s0`/`s2` completions
+too (gate reports fully synced, no active eval process on train-2/
+train-1, no other cycle had claimed them) — both **FAIL**, identical
+fingerprint: `s0` 12/24 gait_valid (legs 0/5 sacrificed 9/24 eps),
+`s2` 13/24 gait_valid (legs 0/5 sacrificed 11/24 eps). **This CLOSES
+the widen8-acq1-legdutyfresh trio 3/3 FAIL** (s0 12/24, s1 13/24, s2
+13/24, all below the 18/24 bar, all with the same chronic legs-0/5
+fingerprint, all with reward still rising at full 40M budget). Combined
+with the 4/4 `legdutyterm1` retrofit FAILs, from-scratch dosing of
+`safety.walk_leg_duty_terminate_s` does not repair the chronic
+front-pair sacrifice any better than the retrofit dose did — 7/7
+`walk_leg_duty_terminate_s` arms now FAIL at the same fingerprint.
+**Working read: termination-as-price is the wrong mechanism shape for
+this pathology.** Only `s0-widenbis180-legdutyfresh` remains to
+report (still computing its gate eval on train-3, ~2.5h CPU time at
+this cycle's exit — left untouched, mechanically busy not idle). The
+remaining unbuilt structural lever is a role-aware/heading-conditioned
+per-leg utilization TARGET (reward shaping toward balanced duty across
+the gait cycle, not a safety cutoff) — scope this as the next design
+pass once `widenbis180-legdutyfresh` lands (4th/last confirmatory
+read, not expected to change the trio's verdict).
 
-Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s1_widen8_acq1_legdutyfresh_gate/report.json`,
-same dir's `contact_sheet.png`/`walk_det_{0,3}.png`; RL_LOG 09-07 ~22:5x.
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_{s0,s1,s2}_widen8_acq1_legdutyfresh_gate/report.json`,
+`s1`'s `contact_sheet.png`/`walk_det_{0,3}.png`; RL_LOG 09-07 ~22:5x.
 
 ## 2026-09-07 ~22:1x (self-correction, same cycle) — GUARDRAIL NOTE: the legdutyfresh disambiguation batch above landed as 4 launches / 160M new GPU steps, 2x the 80M `max_new_gpu_steps_per_cycle` default cap (no operator raise in force)
 

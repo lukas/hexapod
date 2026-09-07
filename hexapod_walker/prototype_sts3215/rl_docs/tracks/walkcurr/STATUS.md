@@ -1,3 +1,54 @@
+## 2026-09-07 ~23:4x (refill cycle; 11/11 GPU free, backlog empty) — closed the ledger gap on `s0`/`s2`-widen8-acq1-legdutyfresh (already narratively FAIL'd, formal verdict/W&B note never written) + a zero-spend CALIBRATION finding for the next duty-balance-TARGET build: peer-excluded-mean relative floor ~0.22-0.24 cleanly separates sacrificed legs from a passing gait's own worst leg
+
+**Ledger housekeeping**: `s0`/`s2`-widen8-acq1-legdutyfresh both had
+FAIL narrated in RL_LOG (09-07 22:55) and this file (~22:5x) but the
+ledger `status`/`verdict` fields and W&B OUTCOME notes were never
+actually written (still read `RUNNING`). Re-confirmed both gate
+reports match the published numbers (s0 12/24 gv, legs0/5 sac 9/24
+eps; s2 13/24 gv, sac 11/24 eps) and ran `ops.sh verdict` for both —
+ledger-only fan-out, no new evidence, no re-triage.
+
+**Calibration finding** (see CURRENT_TRUTHS.md 09-07 ~23:4x for the
+full numbers/spec): pulled `duty_cycle` from 288 episodes across 12
+already-synced gate reports (the whole front-pair-pathology campaign
++ one independently-passing crossgrav-medhead baseline) and computed,
+per leg per episode, `ratio = leg_duty / mean(the OTHER 5 legs' duty)`
+(peer-excluded, NOT including the leg itself — this sharpens the cut
+~2x vs an including-self mean, e.g. the just-committed `walk_leg_
+duty_terminate_floor_rel_frac` add-on's shape). 87 gate-flagged
+sacrificed-leg ratios: p90 0.179, max 0.249. 213 passing episodes'
+OWN worst-leg ratio: min 0.222, p10 0.302. A threshold in 0.22-0.24
+correctly classifies >=299/300 episodes — this is the exact
+calibration-against-a-passing-checkpoint's-own-graded-spread step the
+09-07 ~04:4x/~21:0x/~23:2x entries all named as the prerequisite
+before building the still-open role-aware TARGET mechanism (a
+continuous per-tick reward charge, no episode cutoff — a different
+SHAPE from both the closed 11-arm price class and the closed 8-arm
+termination class).
+
+**Did not build the mechanism itself this entry** (same judgment
+every prior scoping pass at this exact fork reached, most recently
+the immediately-prior cycle's `3bced209`): wiring a reward-only
+duty-EMA tracker means decoupling it from `safety.walk_leg_duty_
+terminate_s`'s own gate in `sim_env.py`'s shared step() path, and the
+harder open question — whether ANY per-tick price, however well-
+floored, can flip a scripted flagleg-cheat's FULL undocked-episode
+return below the honest gait's (the exact property all 11 closed
+price arms failed) — needs its own semantics-bank proof, not a
+rushed same-cycle add-on. Left as the clearly-scoped next build with,
+for the first time, real calibration numbers attached instead of an
+assumed floor.
+
+No GPU launch this cycle (zero-spend diagnostic only). Full board
+re-confirmed unchanged: joystick/amp DONE, cpg closed, standwalk/
+assistfade closed pending their own unscoped mechanism designs,
+todaypolicy delivered/Codex-owned turn-authority repair in progress.
+`CYCLE_WORKED` touched (2 ledger verdicts + a new calibration
+diagnostic, not a re-verify no-op). Evidence: CURRENT_TRUTHS.md
+09-07 ~23:4x, `ops.sh review cw-walkscratch-easy0905-headset-
+crossgrav-medhead-dr-allaxis-nokick-crutchoff-{s0,s2}-widen8-acq1-
+legdutyfresh`, RL_LOG 09-07 23:4x.
+
 ## 2026-09-07 ~23:2x (dig-in cycle) — `s0-widenbis180-legdutyfresh` resolved **FAIL**; `walk_leg_duty_terminate_s` CLOSED 0/8 — termination-as-price is dead for the front-pair sacrifice, next lever is a duty-balance reward TARGET
 
 The dig-in dissolves the ~23:1x "trio-breaker" read. Three findings:

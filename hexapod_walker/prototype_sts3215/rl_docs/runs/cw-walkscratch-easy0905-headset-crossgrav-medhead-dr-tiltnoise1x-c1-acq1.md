@@ -2,19 +2,19 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: REFUSED
 
-**created**: 2026-09-06T08:03:51+00:00
+**created**: 2026-09-06T08:05:13+00:00
 
-**pod**: hexapod-mjx-train-5
+**pod**: hexapod-mjx-train-4
 
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-tiltnoise1x-c1
 
-**wandb_id**: 7ejprgld
+**hypothesis**: Plain English: does the IMU tilt-sensor-noise axis (dr.tilt_noise_deg=0.3, previously pinned at 0 the whole campaign) stay a clean walk with real training budget, not just a 2M canary glance? tiltnoise1x-c1's own 2M canary was a PERFECT 24/24 (sac=[] every episode, 0 falls) -- joining the individual-axis ACQ-durability batch alongside friction1x/mass1x/encnoise1x/torquefade-dose/zerobias1x/latency1x/push1x/gyronoise1x/deadband1x/contactstiff1x-acq1.
 
-**hypothesis**: Plain English: does the nominal (0.3deg) IMU tilt-sensor noise axis stay a clean walk with a real 40M training budget, not just a 2M canary glance? tiltnoise1x-c1's own 2M canary was a PERFECT 24/24 (0 falls, sac=[] every episode) -- this is its first ACQ-scale confirmation, joining the sibling latency1x/torquefade/mass/friction/gains/geom/fault/extpush/actionnoise/contactstiff/deadband individual-axis durability batch.
+**gate**: PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) at 40M with no NEW chronic single-leg sacrifice and 0 falls. FAIL/ENTRENCHES if it drops below half (<12/24), a chronic single-leg pattern emerges, or a fall appears.
 
-**gate**: PASS/HOLDS if aggregate gait_valid stays majority (>=18/24) at 40M, no NEW chronic single-leg sacrifice, 0 falls. FAIL/ENTRENCHES if it drops (<12/24, a new chronic leg, or a fall) -- would show tilt-noise realism needs real training exposure before being called safe.
+**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
 

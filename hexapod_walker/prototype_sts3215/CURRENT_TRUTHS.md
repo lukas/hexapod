@@ -1411,6 +1411,91 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   allaxis-nokick-crutchoff-{s1,s2}-widen8-acq1-legdutyterm1`,
   `...-s0-widenbis180-legdutyterm1`, `rl_docs/tracks/walkcurr/
   STATUS.md` 09-07 ~21:5x, W&B `i66lls8h`/`5r1zed2h`/`dnpmd5tp`.
+  UPDATE 09-07 ~22:5x-23:2x: the from-scratch disambiguator lands
+  8/8 dead: `s0`/`s1`/`s2`-widen8-acq1-legdutyfresh (12/24, 13/24,
+  13/24 `gait_valid`, identical legs-0/5 fingerprint) and
+  `s0`-widenbis180-legdutyfresh (a DIG-IN-resolved FAIL — its
+  apparent 20/24-vs-18/24-baseline improvement is inside eval noise,
+  Fisher exact p=0.72) all FAIL. **`safety.walk_leg_duty_terminate_s`
+  is now CLOSED 0/8** (4 legdutyterm1 retrofits + 4 legdutyfresh
+  from-scratch arms), on top of the 11-arm per-tick-price class —
+  15+ price/termination designs, 0 wins on this pathology. Working
+  read: TERMINATION-AS-PRICE IS THE WRONG MECHANISM SHAPE HERE, not
+  just under-dosed or under-trained — the policy pays a chronic
+  termination as an ambient tax (firing rate keeps RISING through
+  40M, e.g. ~80->132-143/log-interval) rather than ever unlearning
+  the sacrifice. Do not fund a 9th termination-shaped variant without
+  an explicit argument for why it changes the incentive SHAPE, not
+  just the floor arithmetic (this already tripped up the `walk_leg_
+  duty_terminate_floor_rel_frac` add-on below).
+- **CALIBRATION FINDING (2026-09-07 ~23:4x, zero-spend, no code/
+  launch): a PEER-EXCLUDED-MEAN relative duty floor cleanly separates
+  sacrificed legs from a passing gait's naturally-uneven worst leg**
+  — the missing calibration every prior scoping pass (09-07 ~04:4x,
+  ~21:0x, ~23:2x) named as the prerequisite before building the
+  still-open "role-aware/heading-conditioned per-leg utilization
+  TARGET (continuous reward gradient, no termination)" lever. Method:
+  pulled `duty_cycle` (already in every gate `report.json`, per-leg
+  6-vector) from 288 episodes across 12 already-synced reports
+  spanning the whole front-pair-pathology campaign (widen8-acq1 x3
+  seeds pre/post-legdutyfresh, widenbis180 pre/post-legdutyfresh,
+  widenrear180 x3 seeds, plus the independently-PASSING `crossgrav-
+  medhead-abrupt-c1-acq1`). For each leg compute
+  `ratio = leg_duty / mean(the OTHER 5 legs' duty)` (peer-excluded,
+  NOT team-mean-including-self — this matters, see below) per
+  episode: **87 gate-flagged-sacrificed-leg ratios**: min 0.000,
+  p10 0.021, median 0.075, **p90 0.179, max 0.249**. **213
+  `gait_valid==True` (passing) episodes' OWN worst-leg ratio**: min
+  0.222, p10 0.302, median 0.537, max 0.889. The two distributions
+  overlap in only a hair's-breadth band (0.222-0.249, 1 episode on
+  each side of a 0.235 cut out of 300); a threshold anywhere in
+  0.22-0.24 correctly classifies >=299/300 episodes (e.g. `thr=0.20`:
+  0 false-positives, 6/87 sac-escapes; `thr=0.25`: 0/87 escapes,
+  7/213 false-positives — the crossover sits right around 0.22-0.24).
+  Peer-excluded matters: using an ALL-6-legs-including-self mean (the
+  shape the just-built `walk_leg_duty_terminate_floor_rel_frac`
+  add-on implements) is measurably muddier (sac p90 0.205/max 0.284
+  vs pass min 0.255/p10 0.342 — a wider, less clean overlap) because
+  a starved leg still drags its OWN mean down, partially hiding
+  itself; excluding the leg from its own reference average removes
+  that self-dilution and sharpens the cut by roughly 2x. **Actionable
+  spec for the next build** (not yet built, no code changed this
+  entry): a continuous per-tick reward charge
+  `k_walk_legduty_target * sum_over_legs(relu(0.22..0.24 *
+  peer_excluded_mean_duty_ema - own_duty_ema))`, EMA-smoothed (reuse
+  the existing `tau_s`-style smoothing so a single-tick swing dip
+  doesn't fire), summed (not maxed) over legs so it prices the
+  observed multi-leg (front-PAIR) starvation shape, and — critically
+  — computed independent of `safety.walk_leg_duty_terminate_s` (today
+  the EMA state is only tracked inside that termination's own `if
+  walk_ldt_s > 0.0` gate in `sim_env.py`; a reward-only deployment
+  needs the tracking un-gated from the termination toggle). This is
+  a genuinely different SHAPE from the closed reward-price class
+  (11 arms: `walk_duty_gate`/`walk_swing_gate`/`walk_duty_band_gate`/
+  `walk_gait_gate`+`k_step_event`, all fixed-absolute-threshold or
+  event-based) in the same sense the termination mechanism was
+  argued to differ from it — but a NEW price design still needs its
+  own semantics-bank proof that a scripted flagleg-cheat twin's FULL
+  undocked episode return (no termination cutting it short this
+  time) reads LOWER than the honest six-leg gait's, at whatever dose
+  is chosen; that ordering-flip is the exact property all 11 closed
+  price arms failed to achieve against an entrenched habit, and this
+  calibration only fixes the FLOOR PLACEMENT, not the dose/ordering
+  question. Deliberately NOT built this entry — the wiring (decoupling
+  the EMA tracker from the termination gate) touches the same shared
+  `sim_env.py` step()/`walk_task.py` reward path every track's
+  training depends on, and every other scoping pass at this exact
+  fork (09-07 ~04:1x/~04:4x/~21:0x, and the immediately-prior cycle's
+  `3bced209`) reached the same "real design pass, not a rushed same-
+  cycle build" judgment; rushing the wiring change on top of an
+  already-long investigative cycle risks a subtle bug in shared
+  training code for a speculative payoff. Evidence: this entry's own
+  python one-liners over `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_crossgrav_medhead_{abrupt_c1_acq1,dr_allaxis_nokick_
+  crutchoff_s{0,1,2}_{widen8_acq1,widen8_acq1_legdutyfresh,
+  widenbis180,widenbis180_legdutyfresh,widenrear180}}_gate/
+  report.json` (`duty_cycle`/`sacrificed_legs`/`gait_valid` fields);
+  RL_LOG 09-07 23:4x.
 
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab

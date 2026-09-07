@@ -488,7 +488,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est",
-                          "_trans_td_count", "_trans_lo_buf")
+                          "_trans_td_count", "_trans_lo_buf",
+                          "_walk_legduty_ema", "_walk_legduty_low_s")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -637,6 +638,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the EMA clears the floor.
         self._walk_idle_low_s = 0.0
         self._walk_qvel_ema = 0.0
+        # Per-LEG minimum-duty termination (safety.walk_leg_duty_
+        # terminate_s, 2026-09-07): own per-leg EMA of ground-contact
+        # duty (own contact sensor, same on=force>0.5 convention used
+        # throughout this file) + seconds each leg has stayed below the
+        # floor, consecutively. Seeded at 1.0 (not 0.0) because stance
+        # episodes begin at the plant with all six feet loaded (same
+        # "begins loaded" convention as _pad_z_ref) -- a 0.0 seed would
+        # start every leg mid-way toward a false trigger before any
+        # real contact data accumulates. See the walk_leg_duty_
+        # terminate block in sim_env.step() for the mechanism itself
+        # and its full design rationale (widen8/widenbis/widenrear180
+        # role-aware-mechanism gap, CURRENT_TRUTHS 09-05 ~22:3x /
+        # 09-07 ~04:4x).
+        self._walk_legduty_ema = [1.0] * 6
+        self._walk_legduty_low_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1305,6 +1321,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the EMA clears the floor.
         self._walk_idle_low_s = 0.0
         self._walk_qvel_ema = 0.0
+        # Per-LEG minimum-duty termination (safety.walk_leg_duty_
+        # terminate_s, 2026-09-07): own per-leg EMA of ground-contact
+        # duty (own contact sensor, same on=force>0.5 convention used
+        # throughout this file) + seconds each leg has stayed below the
+        # floor, consecutively. Seeded at 1.0 (not 0.0) because stance
+        # episodes begin at the plant with all six feet loaded (same
+        # "begins loaded" convention as _pad_z_ref) -- a 0.0 seed would
+        # start every leg mid-way toward a false trigger before any
+        # real contact data accumulates. See the walk_leg_duty_
+        # terminate block in sim_env.step() for the mechanism itself
+        # and its full design rationale (widen8/widenbis/widenrear180
+        # role-aware-mechanism gap, CURRENT_TRUTHS 09-05 ~22:3x /
+        # 09-07 ~04:4x).
+        self._walk_legduty_ema = [1.0] * 6
+        self._walk_legduty_low_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3247,6 +3278,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the EMA clears the floor.
         self._walk_idle_low_s = 0.0
         self._walk_qvel_ema = 0.0
+        # Per-LEG minimum-duty termination (safety.walk_leg_duty_
+        # terminate_s, 2026-09-07): own per-leg EMA of ground-contact
+        # duty (own contact sensor, same on=force>0.5 convention used
+        # throughout this file) + seconds each leg has stayed below the
+        # floor, consecutively. Seeded at 1.0 (not 0.0) because stance
+        # episodes begin at the plant with all six feet loaded (same
+        # "begins loaded" convention as _pad_z_ref) -- a 0.0 seed would
+        # start every leg mid-way toward a false trigger before any
+        # real contact data accumulates. See the walk_leg_duty_
+        # terminate block in sim_env.step() for the mechanism itself
+        # and its full design rationale (widen8/widenbis/widenrear180
+        # role-aware-mechanism gap, CURRENT_TRUTHS 09-05 ~22:3x /
+        # 09-07 ~04:4x).
+        self._walk_legduty_ema = [1.0] * 6
+        self._walk_legduty_low_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -6260,6 +6306,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     default=-1.0))
                 if _tp_idle >= 0.0:
                     _tp = _tp_idle
+            # reward.walk_leg_duty_terminate_penalty (2026-09-07): same
+            # independent-sizing rationale as walk_idle_terminate_
+            # penalty directly above -- a chronic single-leg-parked
+            # death should rank on the same fine per-tick scale as
+            # every other non-progressing behavior (park/stall/
+            # reverse/sideways/skate), not swamp it with the full
+            # anti-suicide term_penalty lump. Sentinel -1.0 = fall back
+            # to reward.term_penalty, bit-exact unless set.
+            if info.get("termination_reason") == "walk_leg_duty_terminate":
+                _tp_ldt = float(cfg_get(
+                    self.cfg, "reward", "walk_leg_duty_terminate_penalty",
+                    default=-1.0))
+                if _tp_ldt >= 0.0:
+                    _tp = _tp_ldt
             if _tp > 0.0:
                 reward = float(reward) - _tp
         if self.walk_probe_on and self._wp is not None:

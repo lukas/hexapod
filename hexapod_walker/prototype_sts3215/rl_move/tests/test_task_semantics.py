@@ -6221,7 +6221,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
             break
     env.close()
     return {"return": total, "terminated": bool(term), "kernel": kernel,
-            "prog": prog,
+            "prog": prog, "steps": step,
             "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
 
 
@@ -6403,6 +6403,123 @@ def test_walk_gait_gate_collapses_quadwalk_midpin_income():
     assert hit > 300.0, (
         f"gate cost the mid-pin scoot only {hit:.1f} over the episode "
         "— quadwalk5's cheat would still pay")
+
+
+# --------------------------------------------------------------------------
+# safety.walk_leg_duty_terminate_s (2026-09-07, walkcurr widen8/
+# widenbis/widenrear180 role-aware-mechanism gap). Plain English: the
+# widen8/widenbis/widenrear180 canary/ACQ family (09-05..09-07)
+# established that a heading-dependent leg PAIR (L1/L4 for forward
+# commands, L0/L5 for rear-ish commands — the hexagon's one
+# diametrically-opposite pair with no fore/aft neighbor for that
+# heading) is a genuinely CHEAPER STABLE 4-leg gait: 11 independently-
+# designed PER-TICK PRICE mechanisms (walk_gait_gate+k_step_event,
+# walk_duty_gate, walk_swing_gate, walk_duty_band_gate, at multiple
+# doses each — see each one's own bank/closure above) all failed
+# against it, because a price is just amortized against the cheap
+# gait's income for the whole episode. Per the op ruling already
+# validated on hold_min_load_terminate/walk_idle_terminate ("absorbing
+# states beat prices; must come WITH a termination, never instead of
+# one"), this is the per-LEG analogue: a slow EMA of each leg's own
+# ground-contact duty; if ANY leg's EMA stays below
+# safety.walk_leg_duty_terminate_floor for
+# safety.walk_leg_duty_terminate_s consecutive seconds (past a grace
+# window), the episode ends like a fall, denying ALL further reward —
+# something no per-tick price can do regardless of dose. Deliberately
+# UNIFORM across all 6 legs (no heading-conditioned role table): a
+# termination doesn't need to know WHICH pair is redundant for the
+# current heading, it just refuses to let ANY leg go chronically idle
+# for long, whichever pair that turns out to be.
+#
+# Reuses `_gait_gate_walk_rollout`'s existing 'gait'/'flagleg' scripted
+# actors (the same honest-six-leg-cycling twin and the same one-leg-
+# raised-permanently cheat already validated against walk_gait_gate/
+# walk_swing_gate above) — no new scripted policy needed, this
+# mechanism must pass the SAME two actors.
+
+WALK_LEGDUTY_TERM_OVERRIDES = dict(WALK_OVERRIDES)
+WALK_LEGDUTY_TERM_OVERRIDES.update({
+    ("safety", "walk_leg_duty_terminate_s"): 3.0,
+    ("safety", "walk_leg_duty_terminate_grace_s"): 2.0,
+    ("safety", "walk_leg_duty_terminate_floor"): 0.05,
+    ("safety", "walk_leg_duty_terminate_tau_s"): 1.0,
+    ("reward", "walk_leg_duty_terminate_penalty"): 150.0,
+})
+
+
+def test_walk_legduty_terminate_default_off_bit_exact():
+    """safety.walk_leg_duty_terminate_s=0.0 (explicit) must equal the
+    key absent on the honest gait twin — no new state read/behavior
+    change on the default path."""
+    off = dict(WALK_OVERRIDES)
+    off[("safety", "walk_leg_duty_terminate_s")] = 0.0
+    a = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    b = _gait_gate_walk_rollout("gait", SEEDS[0], off)
+    assert a["return"] == b["return"], (
+        f"walk_leg_duty_terminate_s=0 changed the walk reward path "
+        f"({a['return']} vs {b['return']})")
+    assert a["steps"] == b["steps"]
+
+
+def test_walk_legduty_terminate_lets_honest_gait_run_full_episode():
+    """The honest six-leg scripted tripod (every leg cycling, the same
+    actor walk_gait_gate/walk_swing_gate already validated) must NOT
+    trip this termination: it must run the full episode, and — since
+    the mechanism adds no reward term of its own, only a possible
+    early stop — its return must be bit-exact vs the mechanism off."""
+    off = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    on = _gait_gate_walk_rollout("gait", SEEDS[0],
+                                 WALK_LEGDUTY_TERM_OVERRIDES)
+    assert not on["terminated"], (
+        "honest six-leg gait tripped the per-leg duty termination — "
+        "the floor/tau dose is not surgical")
+    assert on["steps"] == off["steps"], (
+        f"honest gait ran a shorter episode once armed: "
+        f"{on['steps']} vs {off['steps']}")
+    assert on["return"] == pytest.approx(off["return"]), (
+        f"honest gait's return changed once armed but did not "
+        f"terminate early — unexpected side effect: "
+        f"on={on['return']} off={off['return']}")
+
+
+def test_walk_legduty_terminate_cuts_the_flag_leg_cheat_short():
+    """One permanently-sacrificed leg (mid leg 1 raised to a flag,
+    never touching the ground again after the ~1.5 s blend) must trip
+    the termination well before the full 15 s episode — denying it the
+    rest of its income, which a per-tick price structurally cannot do.
+    Bound: well under half the full-episode step count, comfortably
+    inside the ~7.5 s the dose's own grace(2s)+decay(~3s)+
+    duration(3s) arithmetic predicts, vs the full ~1500-tick episode."""
+    off = _gait_gate_walk_rollout("flagleg", SEEDS[0], WALK_OVERRIDES)
+    on = _gait_gate_walk_rollout("flagleg", SEEDS[0],
+                                 WALK_LEGDUTY_TERM_OVERRIDES)
+    assert on["terminated"], (
+        "flag-leg (permanent one-leg sacrifice) did not trip the "
+        "per-leg duty termination at all")
+    assert on["steps"] < 0.5 * off["steps"], (
+        f"flag-leg ran {on['steps']} steps under the termination vs "
+        f"{off['steps']} steps off — not cut meaningfully short")
+    hit = off["return"] - on["return"]
+    assert hit > 0.0, (
+        f"terminating early did not cost the flag-leg cheat any "
+        f"return: off={off['return']} on={on['return']}")
+
+
+def test_walk_legduty_terminate_penalty_is_smaller_than_term_penalty():
+    """Same dedicated-penalty-sizing rationale as
+    walk_idle_terminate_penalty: a chronic single-leg-parked death must
+    rank on the same fine per-tick scale as the other non-progressing
+    behaviors, not swamp everything with the full anti-suicide
+    term_penalty (1200 in WALK_OVERRIDES' inherited base stack, if
+    set) — the dedicated 150 dose must keep the flag-leg return well
+    clear of a -1200-or-worse reading."""
+    on = _gait_gate_walk_rollout("flagleg", SEEDS[0],
+                                 WALK_LEGDUTY_TERM_OVERRIDES)
+    assert on["terminated"]
+    assert on["return"] > -600.0, (
+        f"flag-leg's terminated return looks like it paid a much "
+        f"larger penalty than the dedicated walk_leg_duty_terminate_"
+        f"penalty=150: {on['return']}")
 
 
 # --------------------------------------------------------------------------

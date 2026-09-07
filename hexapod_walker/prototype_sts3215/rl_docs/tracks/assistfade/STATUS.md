@@ -1,5 +1,46 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~12:2x (refill cycle; found the ~11:1x cycle's `rung1-mesh-noanchor-s0` canary FINISHED training + gate-evaled but not yet verdicted) — rung1-on-mesh's FIRST behavioral data point: CANARY PASS, anchor is not strictly load-bearing at 2M
+
+`cw-assistfade-rung1-mesh-noanchor-s0` (launched ~11:1x this same day:
+BC init from the proven scripted-tripod clone, then task-only PPO with
+`train.bc_anchor_coef`/`bc_anchor_walk`/`bc_anchor_walk_coef`/
+`bc_anchor_phase_lock` all forced to 0.0 from step 0 -- no anchor at
+any point) had finished its 2M canary and its gate eval had already
+completed on-pod (`hexapod-mjx-train-4`, ~11:58) but sat unverdicted
+and un-registered in `pending_evals.json` — found via the pod's own
+`ps`/checkpoint-finalizer state, not a hand-off note. **Verdict:
+CANARY PASS.** `gait_valid` 23/24 across walk+walk_startjitter det+sto
+(one `walk/sto` episode sacrifices legs [0,1,5] under an
+`over_current` term), `progress_ratio` med 0.16-0.24 in every mode
+(clearly above the static-basin floor the FAIL-MECHANISM branch would
+show, though below the mature 0.35 ignition bar), all six legs show
+nonzero `duty_cycle`/`swing_count` in every episode, video
+(`walk_det_2`) shows genuine forward translation with alternating
+tripod support, not a static pose. Slip/m (5-11) and 4/24
+`over_current` terminations are elevated but explicitly uncharged at
+this canary tier per the run's own pre-registered gate text.
+
+**This is the first exact mesh/100Hz rung-1 data point** (the ledger
+audit above had flagged this exact rung UNPROVEN on mesh — only
+primitive/25Hz evidence existed, non-transferable across model
+families) and it refutes the null hypothesis that skipping the anchor
+entirely reverts immediately to the static basin (rung2's earliest
+failure shape). It does NOT yet prove rung 1 closed: the curriculum
+doc's ignition gate needs BOTH seeds and the full bar (progress_ratio
+>= 0.35, zero falls/terminations), and this is only a 2M
+mechanism-health read on one seed. Launched the two follow-ups this
+finding licenses: `cw-assistfade-rung1-mesh-noanchor-s1` (2nd seed,
+same recipe, 2M canary, VERIFIED RUNNING train-4) and
+`cw-assistfade-rung1-mesh-noanchor-s0-acq12m` (same-seed 12M
+acquisition-depth continuation, warm-started from the s0 checkpoint,
+mirroring rung0's own canary(2M)->acquisition(12M) shape, VERIFIED
+RUNNING train-0) — both unread at cycle end. SKILLS.md +1 row.
+
+Evidence: `logs/ckpt_eval/cw_assistfade_rung1_mesh_noanchor_s0_gate/
+report.json`, `walk_det_2_sheet.png`; W&B `n6ytiz4r`; RL_LOG 09-07
+12:22.
+
 ## 09-07 ~11:1x — rung-4 handoff-schedule family CLOSES 2/2 (no-anneal also fails); launched rung-1-on-mesh, the one gap the ledger audit itself names as UNPROVEN
 
 Triaged `cw-assistfade-rung4-revhandoff-noanneal-s0` (the option-(i)

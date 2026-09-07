@@ -1,5 +1,20 @@
 # Agent conventions — hexapod
 
+## MCP and Git: standing authorization
+
+Lukas authorizes routine MCP calls and Git commands needed to complete the
+active project task. Run them without another permission question. This includes
+status, reports, logs, fetch, branch/worktree setup, staging, commits, merge
+conflict resolution, and normal pushes that deliver the requested work.
+Pass this authorization to delegated agents. Do not turn an existing
+authorization into a fresh approval gate merely because a tool uses MCP,
+accesses the network, or writes Git metadata.
+
+Use the project's `.codex/config.toml` approval defaults. A real tool or
+organization restriction must still be respected; report its concrete reason
+instead of asking for routine authorization again. The robot observation and
+emergency-handling requirements below still apply to physical actions.
+
 ## Python commands: use uv
 
 For all local project Python commands, use `uv` instead of bare

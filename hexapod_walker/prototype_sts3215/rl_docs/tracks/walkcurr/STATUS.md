@@ -43,13 +43,19 @@ checked — I independently reasoned the same 3rd-seed replication onto
 s2 was the next open gap and attempted to launch it too;
 `launch_run.py respec --now` correctly REFUSED (that same concurrent
 cycle had already claimed `s2-widenbis135` on train-1 ~1 min earlier)
-— mechanical dedup working as designed, no duplicate spend. No other
-genuinely unclaimed axis found this cycle (widen8/speedwiden/irr-timing
-realism-ladder items are all now closed or mid-replication by
-concurrent cycles; assistfade's rung1-mesh-noanchor line is also
-concurrently active). `CYCLE_WORKED` touched (4 verdicts + 2 SKILLS
-rows, zero new training spend — all launch attempts this cycle were
-either eval-only `podeval` calls or a REFUSED dedup).
+— mechanical dedup working as designed, no duplicate spend. With that
+gap already covered, found a genuinely different, still-open gap:
+`widenbis135` (heading) and `speedwiden` (speed range) have each been
+independently ACQ-PASSed on s0 but never COMBINED — launched
+`crutchoff-s0-widenbis135-speedwiden` (warm-started from s0's own
+`widenbis135` checkpoint, adding the `speedwiden` cfg on top: 6-way
+heading incl. +135 AND the 0.03-0.12 m/s dynamic speed cap together),
+VERIFIED RUNNING train-3, 40M direct ACQ (matching this campaign's own
+precedent of skipping the canary tier for a single-axis addition onto
+an already-ACQ'd checkpoint). Tests whether the two independently-safe
+axes interact when stacked. 1/4 launches used this cycle, ~40M/80M GPU
+step budget. `CYCLE_WORKED` touched (4 verdicts + 2 SKILLS rows + 1 new
+launch).
 
 Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
 medhead_dr_allaxis_nokick_crutchoff_{s0,s1,s2}_speedwiden_acq1_gate/

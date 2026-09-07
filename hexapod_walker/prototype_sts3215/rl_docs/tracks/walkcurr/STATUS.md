@@ -1,5 +1,37 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~07:4x (triage cycle) — crutchoff-s0-acq1 VERDICTED ACQ PASS, closing the 3-seed crutch-isolation set 3/3 clean; matching widen8 canary launched to close that set too
+
+`crutchoff-s0-acq1`'s gate eval had finished computing on train-2 but
+was left uncollected by the prior cycle (only the informational
+session eval had synced) — reaped via `ops.sh podeval` (no relaunch,
+pure copy-back). Result: 0 falls/terminations across all 24 held-out
+episodes, `gait_valid` 21/24 (walk/det 6/6, walk/sto 6/6,
+startjitter/det 6/6, startjitter/sto 3/6) — **numbers IDENTICAL to
+both `crutchoff-{s1,s2}-acq1`**. This is the seed whose crutch-ON
+failure only ever showed up at 40M ACQ (never its own 2M canary,
+making it the weakest prior of the three) — it now matches the other
+two exactly. **VERDICTED ACQ PASS.** Item(1)'s crutch-isolation
+question is CLOSED 3/3 seeds: removing the 3x assistive-torque crutch
+(`dr.torque_scale` 3,3->1,1) is a durable, reproducible fix for the
+full ~30-axis realism composite's push-recovery fragility, not a
+lucky-seed artifact. Champion lineage for this recipe goes crutch-off
+going forward.
+
+Launched `crutchoff-s0-widen8` (2M canary, VERIFIED RUNNING train-2),
+the identical single-axis 8-way-heading-set widen recipe already
+running on `{s1,s2}-widen8` — completes that 3-seed follow-up set too,
+same rationale (prediction-if-true: composable per `widenfwd-c1/c2`
+precedent at 1g without DR; prediction-if-false: tilt falls reappear
+or a chronic single-leg sacrifice on the new rear headings).
+`{s1,s2}-widen8` and `cw-assistfade-rung4-revhandoff-s0` belong to
+concurrent cycles this cycle — left untouched per coordination.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_s0_acq1_gate/report.json` vs
+siblings' own `..._{s1,s2}_acq1_gate/report.json`, W&B `0r0p9nix`,
+RL_LOG 09-07 07:35/07:45.
+
 ## 2026-09-07 ~07:1x (operator-kicked cycle, focus note 2026-09-07) — mechanical seed pruning SHIPPED + next realism rung (command heading breadth on the passed no-crutch composite) launched, 2 seeds
 
 Operator focus note executed. (1) **Audit**: `crutchoff-s0-acq1` finished

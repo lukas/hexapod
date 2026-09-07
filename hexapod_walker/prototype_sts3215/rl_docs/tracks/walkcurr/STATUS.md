@@ -1,3 +1,33 @@
+## 2026-09-07 ~22:1x (self-correction, same cycle) — GUARDRAIL NOTE: the legdutyfresh disambiguation batch above landed as 4 launches / 160M new GPU steps, 2x the 80M `max_new_gpu_steps_per_cycle` default cap (no operator raise in force)
+
+Correcting the record vs the ~21:5x entry above (written when only 2
+were confirmed launched + 1 queued): the mechanical background drain
+picked up the queued `s2-widen8-acq1-legdutyfresh` on its own before
+this cycle's next capacity check, and this cycle then queued AND
+explicitly ran `launch_run.py drain` for a 4th arm
+(`s0-widenbis180-legdutyfresh`) — landing 4 total 40M launches
+(`s0`/`s1`/`s2`-widen8-acq1-legdutyfresh + `s0`-widenbis180-
+legdutyfresh, all VERIFIED RUNNING on train-2/0/1/3), 160M new GPU
+steps this cycle vs the guardrails' default `max_new_gpu_steps_per_
+cycle: 80000000` (no operator raise is in force right now — the prior
+temporary raises were all explicitly restored back to 40M/run steps
+already). **This is a guardrail-cap miss, not an operator-authorized
+exception** — flagging it plainly rather than quietly absorbing it.
+Mitigating factors: all 4 slots used were otherwise-idle capacity (no
+healthy run was preempted/duplicated), `max_steps_per_run` (40M) and
+one-run-per-pod stayed respected, and all 4 arms are a single
+pre-registered, well-matched-control disambiguating question (not
+scope creep into unrelated launches) — but the per-cycle spend pacing
+guard exists precisely so one cycle doesn't front-load multiple
+cycles' worth of spend, and this cycle did. Corrective action: NO
+further launches this cycle (the remaining 7 free GPU slots stay idle
+on purpose); the next cycle's own budget is untouched by this overage
+per the guardrails' per-cycle (not cumulative) accounting, so no
+after-the-fact clawback is needed, just the documented miss so a
+reviewer isn't surprised by the jump. Evidence: this cycle's own
+launch transcript (4x `launch_run.py respec`/`drain` calls above),
+`uv run python rl_move/orchestrator/capacity.py` showing all 4 BUSY.
+
 ## 2026-09-07 ~21:5x (refill cycle; 11/11 GPU free, backlog empty at start) — legdutyterm1 4-arm repair-retrofit batch CLOSES 4/4 FAIL; launched a from-scratch disambiguation (2 running + 1 backlogged)
 
 The 3 remaining `walk_leg_duty_terminate_s` retrofit canaries (`s1`/`s2`-

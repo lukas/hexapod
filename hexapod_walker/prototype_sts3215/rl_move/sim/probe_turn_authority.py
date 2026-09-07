@@ -165,7 +165,8 @@ class _ContactAudit:
         self.prev_q_safe = None
         self.jrows: list[dict] = []
 
-    def tick(self, *, phase: float, q_prop, q_safe, q_act) -> None:
+    def tick(self, *, phase: float, q_prop, q_safe, q_act,
+             act=None, bc_target=None) -> None:
         env = self.env
         d, m = env.data, env.model
         self.mj.mj_subtreeVel(m, d)
@@ -248,6 +249,12 @@ class _ContactAudit:
                 lim = 0.98 * env.safety.max_dq
                 j["slew_sat"] = (np.abs(np.asarray(q_safe)
                                         - self.prev_q_safe) >= lim)
+            if act is not None and bc_target is not None:
+                # anchor-transmission residual (09-07 follow-up): how
+                # far the policy's ACTION sits from the BC-anchor's
+                # teacher target on this tick, in action units [-1,1]
+                j["bc_resid"] = np.abs(np.asarray(act, dtype=float)
+                                       - np.asarray(bc_target, dtype=float))
             self.jrows.append(j)
             self.prev_q_safe = np.asarray(q_safe, dtype=float).copy()
         self.prev_lz = lz
@@ -345,6 +352,21 @@ class _ContactAudit:
             cls = {"yaw": [3 * l for l in range(6)],
                    "hip": [3 * l + 1 for l in range(6)],
                    "knee": [3 * l + 2 for l in range(6)]}
+            resid_rows = [j["bc_resid"] for j in self.jrows
+                          if "bc_resid" in j]
+            if resid_rows:
+                resid = np.stack(resid_rows)
+                out["bc_anchor_resid"] = {
+                    "n_ticks_with_target": len(resid_rows),
+                    "med_all": round(float(np.median(resid)), 5),
+                    "per_class_med": {
+                        k: round(float(np.median(resid[:, idx])), 5)
+                        for k, idx in cls.items()},
+                    "per_leg_med": [
+                        round(float(np.median(
+                            resid[:, 3 * l:3 * l + 3])), 5)
+                        for l in range(6)],
+                }
             out["joints"] = {
                 k: {"clip_gap_med_rad": round(
                         float(np.median(clip[:, idx])), 5),
@@ -566,7 +588,9 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
                     q_prop=cap.get("q_prop"),
                     q_safe=env.safety._last_safe.copy(),
                     q_act=(env._state.joint_position.copy()
-                           if env._state is not None else None))
+                           if env._state is not None else None),
+                    act=np.asarray(act, dtype=float),
+                    bc_target=info.get("bc_target"))
         step += 1
         if term:
             fell = True

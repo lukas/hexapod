@@ -17,7 +17,23 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = "hexapod.hardware_walk_benchmark.v1"
 POLICY = "hardware-walk-noyaw-v2-canary"
+FROZEN_POLICY = {
+    "checkpoint_sha256": "250643a45ec5acf33004896a26af6129a4dcb5484109963ea93c4a8e97dbc72f",
+    "export_json_sha256": "58a9bbf7862dba467aeeba534225ffb450d69b4f3302fe22637cda955fee8d6d",
+    "joint_frame": "robot_abs", "joint_contract": "robot_abs_tibia_v2",
+    "obs_dim": 74, "model_source": "mesh", "policy_hz": 100,
+    "bus_write_hz": 50, "snapshot_hz": 10,
+    "phase_hz": 1.333333, "walk_obs_body_vel": 2,
+    "speed_min_m_s": .08, "speed_max_m_s": .08, "yaw_commands": False,
+    "write_speed": 400, "write_acc": 20, "max_delta_q_deg": .375,
+    "training_resolved_vel_max_counts_s": 350,
+}
+CONTROLLER_FILES = ("linux_control/rl_policy.py", "rl_move/robot_state.py",
+                    "rl_move/safety.py", "rl_move/scripts/run_rl_walk_trial.py",
+                    "linux_control/api/rl.py", "linux_control/mcu_feetech_bus.py",
+                    "linux_control/async_bus_guard.py")
 WALL_CLOCKS = ("mono_s", "wall_elapsed_s", "unix_s")
+MAX_CONTINUOUS_LOG_GAP_S = .25
 
 
 def sha256(path: Path) -> str:
@@ -47,6 +63,39 @@ def read_csv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(stream))
 
 
+def validate_target_only_protocol(protocol: dict, leg: int) -> list[int]:
+    """Check every transition, including home acquisition and segment edges.
+
+    Per-segment ranges miss a non-target joint held at a different constant
+    angle in each segment. Only the trajectory form used by these screened
+    protocols is accepted; another segment type needs a separate audit.
+    """
+    home = protocol.get("home_deg")
+    if not isinstance(home, list) or len(home) != 18 or any(number(v) is None for v in home):
+        raise ValueError("Planted protocol needs 18 finite home targets")
+    commands = [home]
+    segments = protocol.get("segments")
+    if not isinstance(segments, list) or not segments:
+        raise ValueError("Planted protocol has no trajectory segments")
+    for segment in segments:
+        if segment.get("kind") != "traj":
+            raise ValueError("Planted protocol uses an unaudited segment type")
+        rows, times = segment.get("q_deg"), segment.get("t_s")
+        if (not isinstance(rows, list) or not isinstance(times, list)
+                or len(rows) < 2 or len(rows) != len(times)
+                or any(number(t) is None for t in times)
+                or any(float(b) <= float(a) for a, b in zip(times, times[1:]))
+                or any(not isinstance(row, list) or len(row) != 18
+                       or any(number(v) is None for v in row) for row in rows)):
+            raise ValueError("Planted trajectory shape or timestamps are invalid")
+        commands.extend(rows)
+    moving = sorted(j for j in range(18)
+                    if any(abs(float(row[j]) - float(home[j])) > 1e-7 for row in commands))
+    if moving != [3 * leg + 1, 3 * leg + 2]:
+        raise ValueError(f"Unexpected moving joints across home/segments: {moving}")
+    return moving
+
+
 def row_stats(rows: list[dict], key: str) -> dict:
     return stats([v for row in rows if (v := number(row.get(key))) is not None])
 
@@ -72,14 +121,19 @@ def engaged_interval(rows: list[dict]) -> dict:
     timestamps = [float(row[clock]) for row in rows]
     if any(b <= a for a, b in zip(timestamps, timestamps[1:])):
         return {**unavailable, "reason": "Wall timestamps do not advance strictly."}
-    indices = [i for i, row in enumerate(rows) if true(row[flag])]
+    def walking(row: dict) -> bool:
+        return true(row[flag]) and row.get("phase", "walk") in {"walk", "run"}
+    indices = [i for i, row in enumerate(rows) if walking(row)]
     if len(indices) < 2:
         return {**unavailable, "reason": "Fewer than two explicitly engaged samples."}
     first, last = indices[0], indices[-1]
-    gaps = sum(not true(rows[i][flag]) for i in range(first, last + 1))
+    gaps = sum(not walking(rows[i]) for i in range(first, last + 1))
     if gaps:
         return {**unavailable, "gaps": gaps,
                 "reason": "Engagement is interrupted; separate the continuous runs before scoring."}
+    if any(b - a > MAX_CONTINUOUS_LOG_GAP_S
+           for a, b in zip(timestamps[first:last], timestamps[first + 1:last + 1])):
+        return {**unavailable, "reason": "An engaged log gap exceeds 250 ms; continuity is not established."}
     return {"seconds": timestamps[last] - timestamps[first], "clock": clock,
             "start": timestamps[first], "end": timestamps[last], "gaps": 0,
             "basis": "observed continuous engaged sample span; no extrapolated final tick"}
@@ -145,7 +199,9 @@ def analyze_trial(directory: Path) -> dict:
         trace = candidates[0] if len(candidates) == 1 else None
         rows = read_csv(trace) if trace else []
         active = [row for row in rows if row.get("phase") in {"walk", "run"}]
-        interval = engaged_interval(active)
+        # Keep hold rows so filtering cannot bridge a known pause between two
+        # walk segments. Tail rows deliberately have no engagement columns.
+        interval = engaged_interval([row for row in rows if row.get("phase") != "tail"])
         times = [float(row["t_s"]) for row in active if number(row.get("t_s")) is not None]
         clock = interval["clock"]
         wall = [float(row[clock]) for row in active] if clock else []
@@ -240,6 +296,8 @@ def build_plan(*, include_planted: bool = False) -> dict:
             "working_directory": str(ROOT),
             "runner": "rl_move/scripts/run_rl_walk_trial.py",
             "runner_sha256": sha256(ROOT / "rl_move/scripts/run_rl_walk_trial.py"),
+            "frozen_policy_contract": dict(FROZEN_POLICY),
+            "controller_sha256": {name: sha256(ROOT / name) for name in CONTROLLER_FILES},
             "argv_template": ["uv", "run", "python", "-m", "rl_move.scripts.run_rl_walk_trial", "--robot-url", "<resolved-robot-http-url>",
                               "--vision-frame-url", "<validated-live-frame-url>", "--output-dir", "<new-evidence-directory>",
                               "--phases", "forward", "--walk-transport", "drive", "--speed-m-s", "0.08", "--duration-s", "3"],
@@ -258,13 +316,7 @@ def build_plan(*, include_planted: bool = False) -> dict:
         version = 2 if leg == 4 else 1
         relative = f"sysid/protocols/l{leg}_ground_radial_shear_amplitude_ladder_v{version}.json"
         protocol = json.loads((ROOT / relative).read_text())
-        moving = set()
-        for segment in protocol["segments"]:
-            q = segment.get("q_deg", [])
-            if q:
-                moving.update(j for j in range(18) if any(abs(row[j] - q[0][j]) > 1e-7 for row in q))
-        if moving != {3 * leg + 1, 3 * leg + 2}:
-            raise ValueError(f"{relative}: unexpected moving joints {sorted(moving)}")
+        moving = validate_target_only_protocol(protocol, leg)
         loaded.append({
             "name": f"Walking recovery v1: supported L{leg} planted comparison",
             "description": "One guarded-runner-started target-only hip/knee radial-shear ladder with rigid chassis support. Compare every leg under the same load/contact setup; this is characterization, not automatic repair or walking acceptance.",

@@ -38,6 +38,26 @@ chmod +x install_autostart.sh
 
 Then: `systemctl status hexapod-web`, `journalctl -u hexapod-web -f`.
 After a power cycle the UI should answer on `:8080` / `:8443` without a manual start.
+
+The service's privileged `ExecStartPre` runs `systemd/cpu_performance.sh` to
+select the `performance` CPU governor before starting the web process as
+`arduino`. On the measured Uno Q, `/sys/devices/system/cpu/cpufreq/policy0`
+controls all four cores, with a 2.016 GHz maximum. The September 5 CPU-only
+cadence comparison showed `schedutil` dropping to 614–864 MHz during a loop
+that slept for UART I/O; the same CPU work grew from about 2.7 ms to 6.5 ms.
+Even a warmed loop downclocked again. The helper changes only the governor,
+retaining the kernel's frequency limits and thermal protection. It checks
+availability and readback, and logs `hexapod-cpu: WARNING` without blocking
+startup if CPU tuning is unsupported or fails. Both normal deploy transports
+already ship the helper and reload the updated unit.
+
+Verify with `cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor`
+and `journalctl -u hexapod-web -b --no-pager`. This setting remains active
+after the service stops. For a temporary idle comparison, write `schedutil`
+back with `echo schedutil | sudo tee /sys/devices/system/cpu/cpufreq/policy0/scaling_governor`;
+the next service start restores `performance`. Governor selection changes
+CPU scheduling capacity, not the trained policy rate or motion limits.
+
 The installer now checks both listeners:
 
 ```bash

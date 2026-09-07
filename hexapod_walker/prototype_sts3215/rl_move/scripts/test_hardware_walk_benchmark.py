@@ -7,15 +7,16 @@ import pytest
 
 from rl_move.scripts.hardware_walk_benchmark import (
     ROOT, analyze, analyze_trial, build_plan, engaged_interval, motion_metrics, sha256,
+    validate_target_only_protocol,
 )
 
 
 def test_nominal_policy_time_cannot_prove_engaged_duration():
     rows = [{"t_s": str(t), "phase": "walk"} for t in (0, 30, 60)]
     assert engaged_interval(rows)["seconds"] is None
-    for row in rows:
-        row.update(mono_s=row["t_s"], walk_engaged="1")
-    assert engaged_interval(rows)["seconds"] == 60
+    for i, row in enumerate(rows):
+        row.update(mono_s=i / 10, walk_engaged="1")
+    assert engaged_interval(rows)["seconds"] == .2
     rows[1]["walk_engaged"] = "0"
     assert engaged_interval(rows)["seconds"] is None
 
@@ -54,7 +55,8 @@ def _trial(path: Path, *, seconds: int, token: str):
     with trace.open("w") as stream:
         writer = csv.DictWriter(stream, fieldnames=["phase", "t_s", "mono_s", "walk_engaged", "token"])
         writer.writeheader()
-        for t in range(seconds + 1):
+        for tick in range(seconds * 10 + 1):
+            t = tick / 10
             writer.writerow({"phase": "walk", "t_s": t / 10, "mono_s": 100 + t,
                              "walk_engaged": 1, "token": token})
     (path / "summary.json").write_text(json.dumps({"ok": True, "duration_s": 3,
@@ -139,10 +141,48 @@ def test_plans_only_queue_supported_bounded_external_work():
 
 def test_canary_plan_needs_no_optional_protocols(tmp_path, monkeypatch):
     from rl_move.scripts import hardware_walk_benchmark as benchmark
-    runner = tmp_path / "rl_move/scripts/run_rl_walk_trial.py"
-    runner.parent.mkdir(parents=True)
-    runner.write_text("# isolated runner fixture")
+    for name in benchmark.CONTROLLER_FILES:
+        source = tmp_path / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("# isolated controller fixture: " + name)
     monkeypatch.setattr(benchmark, "ROOT", tmp_path)
     plan = benchmark.build_plan()
     assert len(plan["queue_payloads"]) == 1
     assert plan["queue_payloads"][0]["duration_seconds"] == 3
+    params = plan["queue_payloads"][0]["parameters"]
+    assert params["controller_sha256"] == {
+        name: sha256(tmp_path / name) for name in benchmark.CONTROLLER_FILES}
+    assert params["frozen_policy_contract"]["obs_dim"] == 74
+    assert "--vision-frame-url" in params["argv_template"]
+    assert "--camera-index" not in params["argv_template"]
+
+
+def test_target_only_check_includes_home_and_cross_segment_shifts():
+    home = [0.0] * 18
+    first, second = home.copy(), home.copy()
+    first[16], first[17] = 1.0, 2.0
+    second[16], second[17] = 2.0, 3.0
+    protocol = {"home_deg": home, "segments": [
+        {"kind": "traj", "t_s": [0, 1], "q_deg": [first, second]}]}
+    assert validate_target_only_protocol(protocol, 5) == [16, 17]
+    # A different constant yaw target in another segment must be rejected,
+    # even though each segment's internal yaw range is individually zero.
+    third, fourth = second.copy(), first.copy()
+    third[0] = fourth[0] = 10.0
+    protocol["segments"].append({"kind": "traj", "t_s": [0, 1], "q_deg": [third, fourth]})
+    with pytest.raises(ValueError, match="across home/segments"):
+        validate_target_only_protocol(protocol, 5)
+    protocol["segments"] = protocol["segments"][1:]
+    with pytest.raises(ValueError, match="across home/segments"):
+        validate_target_only_protocol(protocol, 5)
+
+
+def test_sparse_logging_and_known_hold_cannot_prove_continuous_walk(tmp_path):
+    assert engaged_interval([{"mono_s": t, "walk_engaged": True}
+                             for t in (0, 30, 60)])["seconds"] is None
+    path = tmp_path / "interrupted"
+    _trial(path, seconds=2, token="paused")
+    trace = path / "robot_rl_drive_test.csv"
+    trace.write_text(trace.read_text().replace("walk,0.1,101.0,1", "hold,0.1,101.0,1"))
+    report = analyze_trial(path)
+    assert report["episodes"][0]["engaged_wall"]["seconds"] is None

@@ -1,0 +1,126 @@
+{
+  "schema": "hexapod.hardware_walk_benchmark.v1",
+  "queue_payloads": [
+    {
+      "name": "Walking recovery v1: bounded forward timing canary",
+      "description": "Operator-supervised repeat of the already-tested no-yaw v2 forward canary after control timing verification. One 3-second command window; arming is included by the existing runner, so measure actual engagement separately. This is not 60-second walking acceptance.",
+      "duration_seconds": 3.0,
+      "execution_mode": "external_guarded",
+      "parameters": {
+        "schema": "hexapod.hardware_walk_benchmark.v1",
+        "plan_id": "walking-recovery-v1-timing-forward",
+        "robot_id": "hexapod-1",
+        "stage": "bounded_timing_canary",
+        "policy_run": "hardware-walk-noyaw-v2-canary",
+        "speed_m_s": 0.08,
+        "wz_rad_s": 0,
+        "command_window_s": 3,
+        "planned_repeats": 1,
+        "actual_engaged_duration_s": null,
+        "working_directory": "/private/tmp/hexapod-walking-integration/hexapod_walker/prototype_sts3215",
+        "runner": "rl_move/scripts/run_rl_walk_trial.py",
+        "runner_sha256": "d39a73260c1b7c75a26f07c45e14028dddb243b86799baa7dc1f9f505460c475",
+        "frozen_policy_contract": {
+          "checkpoint_sha256": "250643a45ec5acf33004896a26af6129a4dcb5484109963ea93c4a8e97dbc72f",
+          "export_json_sha256": "58a9bbf7862dba467aeeba534225ffb450d69b4f3302fe22637cda955fee8d6d",
+          "joint_frame": "robot_abs",
+          "joint_contract": "robot_abs_tibia_v2",
+          "obs_dim": 74,
+          "model_source": "mesh",
+          "policy_hz": 100,
+          "bus_write_hz": 50,
+          "snapshot_hz": 10,
+          "phase_hz": 1.333333,
+          "walk_obs_body_vel": 2,
+          "speed_min_m_s": 0.08,
+          "speed_max_m_s": 0.08,
+          "yaw_commands": false,
+          "write_speed": 400,
+          "write_acc": 20,
+          "max_delta_q_deg": 0.375,
+          "training_resolved_vel_max_counts_s": 350
+        },
+        "controller_sha256": {
+          "linux_control/rl_policy.py": "39ea64e16174bcb7cdfe0b8c9aea74611170c91313343e73be64be8eed2089a5",
+          "rl_move/robot_state.py": "f8689b385114f79f3159cbbf2d2f903f087fb3da3ca6a4e9619d83c2dbce2def",
+          "rl_move/safety.py": "041aecdd6734e5f6a2e0f8d34ef84ad9e919735ec994d38b191ed8e7ed89effe",
+          "rl_move/scripts/run_rl_walk_trial.py": "d39a73260c1b7c75a26f07c45e14028dddb243b86799baa7dc1f9f505460c475",
+          "linux_control/api/rl.py": "4043683cb3b3007f75cdb88bbf0f3046945b3daba6edd0468edf301b27d68553",
+          "linux_control/mcu_feetech_bus.py": "051d2eee9960ac98fe91a579fe0b19f9686e860b119e00311a27fdb3b36b6257",
+          "linux_control/async_bus_guard.py": "c625b8245eb9204ef6d76db5347d0cafc36400a68bcec160dea04d9a31afa559"
+        },
+        "argv_template": [
+          "uv",
+          "run",
+          "python",
+          "-m",
+          "rl_move.scripts.run_rl_walk_trial",
+          "--robot-url",
+          "<resolved-robot-http-url>",
+          "--camera-index",
+          "<validated-direct-camera-index>",
+          "--output-dir",
+          "<new-evidence-directory>",
+          "--phases",
+          "forward",
+          "--walk-transport",
+          "drive",
+          "--speed-m-s",
+          "0.08",
+          "--duration-s",
+          "3"
+        ],
+        "prerequisites": [
+          "Wait in Robot Lab waiting_for_operator with execution_mode=external_guarded; built-in worker must never execute physical work.",
+          "An operator must explicitly authorize this exact physical run and stay present with the abort path ready. Queueing is not motion authorization.",
+          "Do not preempt another job. Confirm idle/disarmed/limp, visually consistent logical zero, and three distinct fresh healthy scans (18/18, IMU, normal voltage/current/temperature).",
+          "Confirm live correctly identified cameras and pinned current tag layout; record exact policy/runner/protocol hashes and physical assembly configuration.",
+          "Follow EMERGENCY_HANDLING.md. Actual tip, brownout, hot motor, jam, unexpected force, support motion, or hard current ends the run without automatic retry.",
+          "Finish local runner timing checks and explicitly authorized deployment separately; verify the deployed version and sample freshness behavior before running.",
+          "Confirm walk policy robot_abs_tibia_v2, mesh, 100 Hz, fixed 0.08 m/s, phase clock metadata, and no yaw; do not rate-rescale weights or enable learned rise.",
+          "Verify the loaded policy export SHA-256 and deployed controller hashes against this manifest; mismatch blocks this exact canary.",
+          "Use a validated direct camera with capture timestamps. HTTP JPEG receipt time does not prove source-frame freshness; the existing unversioned JPEG endpoint is insufficient.",
+          "Use existing STEP walk-ready acquisition and planned STEP lower. No absolute pose is allowed when encoders disagree with camera.",
+          "Record per-tick actual monotonic time, engagement, sample ages, and write due state if supported. Missing instrumentation prevents timing acceptance, but does not justify silently extending this pilot."
+        ],
+        "evidence_required": [
+          "summary.json",
+          "events.csv",
+          "telemetry.csv",
+          "camera_raw.mp4",
+          "camera_timestamps.csv",
+          "raw robot episode CSV/debug/summary",
+          "calibrated_motion.json if calibrated progress is measured"
+        ],
+        "advance_gate": "Review camera + actual engagement/tick/sample age evidence, no fall or hard trip, and stable stop. Only then authorize separately bounded repeated direction trials; do not automatically extend duration.",
+        "retry_rule": "Only a recoverable camera/recorder/framework or feedback failure may retry the complete bounded step up to twice after camera review and three fresh healthy scans; never retry a physical hazard automatically.",
+        "excluded": [
+          "yaw commands",
+          "speed sweep",
+          "learned rise",
+          "60-second run",
+          "automatic retry after physical fault"
+        ]
+      }
+    }
+  ],
+  "execution_warning": "These are reviewable specifications only. This program never submits jobs or controls the robot.",
+  "future_acceptance_not_queued": {
+    "continuous_engaged_seconds_per_run": 60,
+    "independent_repeats": 3,
+    "blocked_on": [
+      "existing walk trial CLI accepts only3\u201320second command windows",
+      "bounded pilots, trustworthy timing and calibrated motion",
+      "a separately reviewed long-run protocol, site clearance, and explicit operator authorization"
+    ],
+    "required_metrics": [
+      "actual engaged wall duration",
+      "progress and lateral/course/yaw error",
+      "body tilt and angular-rate smoothness",
+      "foot clearance/slip",
+      "current and thermal behavior",
+      "stable stop + post-run tail"
+    ],
+    "constraints": "Current no-yaw fixed-speed canary cannot establish variable-speed or turning competence."
+  }
+}

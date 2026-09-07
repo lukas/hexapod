@@ -291,8 +291,11 @@ def test_mcu_transaction_fence_checks_under_lock_before_serial_io(
     real_require = mcu_bus_module.require_bus_available
 
     def require_under_lock(candidate) -> None:
-        assert candidate._lock.locked()
-        real_require(candidate)
+        # The fast pre-lock check is an additional protection. Let that
+        # check pass here so this test proves the fence is repeated while
+        # holding the UART lock, before any serial I/O.
+        if candidate._lock.locked():
+            real_require(candidate)
 
     monkeypatch.setattr(
         mcu_bus_module, "require_bus_available", require_under_lock)

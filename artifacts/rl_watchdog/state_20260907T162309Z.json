@@ -1,0 +1,465 @@
+{
+  "heartbeat_trigger_utc": "2026-09-07T16:23:09.954Z",
+  "checked_at_utc": "2026-09-07T17:14:00Z",
+  "capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 11,
+    "free_pods": [
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11",
+      "hexapod-mjx-train-2",
+      "hexapod-mjx-train-3",
+      "hexapod-mjx-train-0",
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {}
+  },
+  "initial_state": {
+    "ready": 11,
+    "free": 11,
+    "optimizing": 0,
+    "queue": "One REFUSED overspeedq1-cont8m specification, wrong launcher/passthrough steps; active cycle160247 correcting it."
+  },
+  "owner": {
+    "cycle": "20260907T160247",
+    "pid": 3205968,
+    "latest": "160247completed16:31:40,verifiedMCPby16:34; sourcepublished27a6263c after3ceb7ee0. Recordedcigate8mFAIL-QUALIFICATION,overspeedq1CANARY-PASSmechanismhealthwithout claimingmeasuredspeed/slipimprovement. Launched8Madaptationrun; itsactualfrozenparentrecordedseparately."
+  },
+  "scratch_run": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-overspeedq1-cont8m",
+    "created": "2026-09-07T16:25:21+00:00",
+    "status": "FINISHED",
+    "pod": "hexapod-mjx-train-0",
+    "trainer_pid": 570409,
+    "wandb_id": "403dz6fy",
+    "budget": 8000000,
+    "seed": 2,
+    "code_sha": "16b739b1386f151857f5c02528b83b8f0e06f3ac",
+    "observed_steps": [
+      524288,
+      2097152
+    ],
+    "observed_fps": [
+      9528,
+      18094
+    ],
+    "episode_len": [
+      111,
+      466
+    ],
+    "reward": [
+      -69.3,
+      -99.2
+    ],
+    "provenance": {
+      "checked_at_utc": "2026-09-07T16:28:00Z",
+      "actual_checkpoint_parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m",
+      "config_template": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-overspeedq1",
+      "interpretation": "Actual --init-from is the frozen cont40m checkpoint. This is a fresh bounded 8M adaptation experiment from that checkpoint, not 2M+8M continued optimization from overspeedq1. Keep the healthy trainer: longer exposure is still a useful test of the recorded adaptation-budget hypothesis. Compare against the same frozen parent and the independent2M arm, preserving exact metrics and gates. No automatic budget doubling or fundamental-slip-floor conclusion; any next budget needs a recorded evidence-based decision.",
+      "verified_trainer_pid": 570409,
+      "observed_steps": 2097152
+    },
+    "queue_recovery": "Owner corrected steps2M+passthrough--steps8M,phase/evidence,then restored failedqueueentry without passthroughsteps. Root didnotduplicate launch or stophealthytraining.",
+    "review": "A bounded8M adaptation-budget test is useful despite the negative2M mechanism-target result. It doesnotpromote the2Mrun to demonstratedspeed/slip improvement. Preserve thresholds and exactfresh-parent comparison; noautomaticbudgetdoubling.",
+    "final_steps": 8388608,
+    "completion": "Rootverifiedall16stepreports through8,388,608; durableW&Bsync followedGPUexitby16:34:20 andCPUfinalizer577230. NoactiveoptimizationclaimfromstalewatcherRUNNING.",
+    "eval": {
+      "checked_at_utc": "2026-09-07T16:52:00Z",
+      "state": "FINISHED, exact gate synced by17:08UTC",
+      "pod": "hexapod-mjx-train-0",
+      "pid": 577547,
+      "controller_eval_pid": 3233465,
+      "watcher_pid": 2793043,
+      "cpu_evidence": "155 CPU seconds advanced in 15 wall seconds (~958% CPU). No live trainer/finalizer. Canonical gate report not synced yet.",
+      "report": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_overspeedq1_cont8m_gate/report.json",
+      "report_checked_at_utc": "2026-09-07T17:09:00Z",
+      "summary": {
+        "q1_8m": {
+          "gait_valid": 22,
+          "n": 24,
+          "terminated": 0,
+          "cells": {
+            "walk/det": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.3359999999999999,
+              "slip": 5.8215,
+              "slip_m": 9.2975,
+              "along_m": 1.5675,
+              "speed_m_s": 0.0975,
+              "invalid": []
+            },
+            "walk/sto": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.4055,
+              "slip": 6.237500000000001,
+              "slip_m": 10.0185,
+              "along_m": 1.6335000000000002,
+              "speed_m_s": 0.1085,
+              "invalid": [
+                {
+                  "index": 4,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/det": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.411,
+              "slip": 5.7215,
+              "slip_m": 9.3005,
+              "along_m": 1.657,
+              "speed_m_s": 0.097,
+              "invalid": [
+                {
+                  "index": 1,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/sto": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.288,
+              "slip": 6.8125,
+              "slip_m": 10.03,
+              "along_m": 1.5035,
+              "speed_m_s": 0.10400000000000001,
+              "invalid": []
+            }
+          }
+        },
+        "parent": {
+          "gait_valid": 22,
+          "n": 24,
+          "terminated": 0,
+          "cells": {
+            "walk/det": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.775,
+              "slip": 4.9805,
+              "slip_m": 9.8155,
+              "along_m": 2.067,
+              "speed_m_s": 0.1175,
+              "invalid": []
+            },
+            "walk/sto": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.717,
+              "slip": 5.172499999999999,
+              "slip_m": 10.1475,
+              "along_m": 1.996,
+              "speed_m_s": 0.121,
+              "invalid": [
+                {
+                  "index": 4,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/det": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.7155,
+              "slip": 5.103,
+              "slip_m": 9.557500000000001,
+              "along_m": 1.996,
+              "speed_m_s": 0.11599999999999999,
+              "invalid": [
+                {
+                  "index": 1,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/sto": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.6015,
+              "slip": 5.4155,
+              "slip_m": 9.9885,
+              "along_m": 1.8860000000000001,
+              "speed_m_s": 0.118,
+              "invalid": []
+            }
+          }
+        },
+        "q1_2m": {
+          "gait_valid": 22,
+          "n": 24,
+          "terminated": 0,
+          "cells": {
+            "walk/det": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.7545000000000002,
+              "slip": 4.9295,
+              "slip_m": 9.8345,
+              "along_m": 2.0435,
+              "speed_m_s": 0.11499999999999999,
+              "invalid": []
+            },
+            "walk/sto": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.5975000000000001,
+              "slip": 5.324,
+              "slip_m": 10.1585,
+              "along_m": 1.8675000000000002,
+              "speed_m_s": 0.11599999999999999,
+              "invalid": [
+                {
+                  "index": 4,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/det": {
+              "n": 6,
+              "gv": 5,
+              "terms": 0,
+              "progress": 1.6815,
+              "slip": 5.0155,
+              "slip_m": 9.4715,
+              "along_m": 1.9755,
+              "speed_m_s": 0.112,
+              "invalid": [
+                {
+                  "index": 1,
+                  "sacrificed": [
+                    2
+                  ],
+                  "term": ""
+                }
+              ]
+            },
+            "walk_startjitter/sto": {
+              "n": 6,
+              "gv": 6,
+              "terms": 0,
+              "progress": 1.435,
+              "slip": 6.2355,
+              "slip_m": 10.341999999999999,
+              "along_m": 1.671,
+              "speed_m_s": 0.1105,
+              "invalid": []
+            }
+          }
+        },
+        "matched": {
+          "randomization_and_cmd_dist": true,
+          "motor_contract": true,
+          "model": [
+            "mesh_mjx",
+            "mesh_mjx"
+          ],
+          "seed": [
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "final_training_metrics": {
+      "along_m_s": 0.07425,
+      "active_ratio": 1.273,
+      "reward_per_tick": 0.1407,
+      "walkreward": 0.9716,
+      "episode_len_ticks": 1862.65,
+      "interpretation": "Training-only adaptation signal; held-out slip/gait/falls remain pending."
+    },
+    "verdict_review": "Same22/24gait0/24terms with identicalinvalidcells. Speedratio1.775->1.336 onwalk/det, butslip/m4.9805->5.8215 (+16.9%); slip/mworse12-26%allcells. Absolutefoot-sliproughlyflat whilebodydistancefalls. Slowingalone didnotcleanfootwork; gatehypothesisfalsifiedwithinrecipe, notuniversalphysicsfloor.",
+    "feedback": "fb_20260907T171006_43c9d4"
+  },
+  "yaw": {
+    "run": "cw-robotwalk-turns-20260907-yawref-cigate8m",
+    "wandb_id": "i2uvpfge",
+    "verdict": "FAIL-QUALIFICATION",
+    "arc_right": [
+      0.1162,
+      0.1149
+    ],
+    "arc_left": [
+      0.0947,
+      0.0971
+    ],
+    "tip_left": [
+      0.0885,
+      0.0825
+    ],
+    "tip_right": [
+      0.0842,
+      0.1003
+    ],
+    "course_yawref_deg": [
+      4.07,
+      3.42
+    ],
+    "joystick_falls": 0,
+    "joystick_episodes": 24,
+    "slip": [
+      2.295,
+      2.25
+    ],
+    "next": "Currentownerfinishingverdict; independentlocalagent scopingONEuntestedauthoritydiagnostic groundedincode/closedlevers. No new cloudownerdispatchedyet; no relaxedbar."
+  },
+  "actions": [
+    "ReadMCPactivity,actualcapacity,backlog,logs/processes,stepgrowth.",
+    "Trackedadvancingcycle160247 throughREFUSEDqueue repairtoactualtraining.",
+    "Filedoperatorfeedbackfb_20260907T162539_ca142b aboutsteps/initprovenance/gates.",
+    "Usedcanonical lockedlaunch_run.py update --created to record watchdog_provenance; readbackconfirmed.",
+    "Preservedhealthytrainerwhenactualinitwasfrozenparent: documentedfresh8Mtestratherthan2M+8Mcontinuation.",
+    "No replay of completedpruner/watcherdeploymentrepairs.",
+    "Independent review found three contact audit defects; recorded persistent exact-run feedback. Commissioned local isolated diagnostic repair with physics validation, no cloud source collision.",
+    "Publishedce15d32c5: correctedunvalidatedturnclaims, markedfreshseedapprovalquestionSUPERSEDED; nooperatorreplyneededfordiagnosticrepair.",
+    "Readmatched8Mscratchgate andparent/2M controls; filedexactmetricsfeedback; assignedunownednextscratchtriage/design to171148 after163413completed."
+  ],
+  "completed_repairs": "Seed-pruner16b739b13deployed,48testscontrollerPASS,PRUNE_OFFremovedandverified16:16previousvisit; no furtherrepairneeded.",
+  "next_visit": [
+    "Finishfocusedprobevalidation/reconcileandpublishrepair, deploy and rerunmatchedfrozenyawdiagnostics afterfreshownershipcheck.",
+    "Followadvancingscratchowner171148 throughgateverdict,bank/interactiondiagnosisandboundedusefulrun/stepgrowth; no duplicatekick.",
+    "Do notusepreviouscontactattributionoranchortransmissionclaims untilcorrecteddiagnostic.",
+    "Refreshactualcapacitybeforefinal:11ready/11freeat16:53; scratchgatefinishednow, no latertrainer verified.",
+    "No repeatedpruner/watcherdeploymentrepairs."
+  ],
+  "boundaries": [
+    "Existingfleetonly; no purchase/uncordon/eviction/newseed/filler.",
+    "No robotoperations,CAD,firmware,physicaltrials.",
+    "StandingMCP/continuedtrainingauthorityused; actualsandboxpermissionsrespected."
+  ],
+  "authority_owner": {
+    "cycle": "20260907T163413",
+    "pid": 3234318,
+    "dispatched": "2026-09-07T16:34:13Z",
+    "state": "COMPLETED 2026-09-07T17:02:07Z",
+    "focus": "Own the unowned todaypolicy turn-authority design gap after cycle160247 completed16:31:40. First check fresh activity/claims; coordinate or yield if another live owner holds it. Do not duplicate the running scratch overspeed8M budget test. cigate8m missed arc/tip gates despite course4.07->3.42deg,0falls,slip2.25; do not relax thresholds or repeat closed omega/yaw-amplify/duty/income knobs. Concrete next diagnostic: extend probe_turn_authority.py with per-foot contact wrenches and material slip (reuse audit_slip_frame.py contact identification). Compare frozen cont8m/cigate8m with exact mesh/100Hz configs, existing seed and both start phases: straight, tip +/-0.3, vx0.08 arcs +/-0.15,+/-0.3. Record phase-resolved (contact-COM) cross force plus contact torque, normal load, commanded/postclip/actual joints. Validate wrench signs against angular-momentum change; zero net steady-cycle impulse alone is not failure evidence. Test whether specific stance legs consistently brake rotation or tracking/placement limits explain the deficit. Contact attribution was recommended in WALKING_YAW_RESEARCH_GUIDANCE_20260906.md and is not implemented by probe_joint_tracking.py. If supported, test ONE small geometry-correct stance-center displacement chosen from measured braking/loading, holding timing,stride demand and actuator limits fixed. This is simulated gait placement, no CAD/hardware change. Require improved yaw both signs without regression in translation,pure-turn retention,falls,gait/slip; preserve original qualification gates. Implement optional mechanism only after matched diagnostic/semantics banks; then canonical snapshot/respec with correct checkpoint parent, queue/drain a bounded <=2M canary on EXISTING seed and verify trainer/stepgrowth. If initial hypothesis fails, use diagnostics to identify/test the next supported authority mechanism rather than ending at unscoped design. Existing fleet only; no spending,uncordon,filler,seeds,robot work. Record ownership/evidence.",
+    "latest": "02879606 concludedstance-radiusA/Bnotbetteractual±0.15arccellsandissued unsupportedcausalclaims; no canary. Rootcorrectedclaims andsupersededfreshseedquestion inmaince15d32c5.",
+    "reviewer": "Localpruner_safety_auditnowread-onlyMuJoCowrench-sign/COM/impulsesanityreview; no code edits.",
+    "review": {
+      "commit": "322f021e07f5aa9a7e88a32a188bf831afc00048",
+      "defects": [
+        "Contact wrenches sampled only after whole env.step then multiplied by control dt; angular impulse not integrated per physics substep. Smoke slope0.29/corr0.407 and scripted slope0.74 fail closure.",
+        "Scripted phase0/pi change env observation phase only; actual TripodGait reset_phase and control sequence unchanged.",
+        "Recursive0.5 contact averaging depends on ordering for >=3 contacts and includes inactive contacts."
+      ],
+      "correct_parts": "Frame transpose, geom sign, COM lever arm and sum of per-contact wrench moments are correct.",
+      "feedback": [
+        "fb_20260907T164440_ce2bf0",
+        "fb_20260907T165157_c83841"
+      ],
+      "feedback_delivery": "Persistent input at START of NEXT cycle; not known consumed by live163413.",
+      "repair_owner": "Local pruner_safety_audit agent preparing isolated minimal probe+tests repair. Do not deploy over active cloud edits; root coordinates merge after fresh ownership check.",
+      "additional_defect": "BC residual comparedactiona_ttoNEXTteacher targett+1; actualphaseπalsoleftinternalteacherclockphase0. Transmissionconclusionunsupported."
+    }
+  },
+  "capacity_checked_at_utc": "2026-09-07T16:53:28Z",
+  "authority_repair": {
+    "owner": "Codex root/localpruner_safety_audit",
+    "base": "ce15d32c5",
+    "state": "Implementation/focusedtests/reconciliation inprogress, notyetpushed",
+    "reviewer": "current_frontier_audit",
+    "mesh_smoke": {
+      "model_nmesh": 34,
+      "control_hz": 100,
+      "physics_dt": 0.002,
+      "phases": [
+        0,
+        3.141592653589793
+      ],
+      "vx": 0.08,
+      "wz": 0.15,
+      "relative_RMS": [
+        0.000643779,
+        0.0008344
+      ],
+      "slope": [
+        1.000103,
+        1.000308
+      ],
+      "correlation_min": 0.9999996,
+      "artifact": "/tmp/probe_repair_fullmesh_smoke.json"
+    },
+    "evidence": "True-substep wrench integration/privateendpointmomentum closesfullmesh; audit-on/off trajectoriesequal. Final focusedtests andBCresidualunavailability/source reconciliationpending."
+  },
+  "scratch_owner": {
+    "cycle": "20260907T171148",
+    "state": "ACTIVE",
+    "dispatched": "2026-09-07T17:11:48Z",
+    "focus": "Own scratch8M gate triage and next useful existing-seed experiment. First check fresh activity/claims; do not duplicate a live completion owner. Gate now synced for cont40m-overspeedq1-cont8m: exact matched audit in fb_20260907T171006_43c9d4. Same22/24gait,0falls; nominaldet progress1.775->1.336 but slip/m4.9805->5.8215; all4cells slip/m12-26%worse, absolutefoot-slip roughlyflat. This was independent8M fromfrozencont40m, not2M+8M; preserve provenance. Verdict against original gates: slowerbodywithoutcleanerfeet, not universalphysicsfloor or automaticbudgetdoubling. Concrete next design question: did overspeed removal change the tradeoff that made prior direct-slip charges ineffective? Audit the prior closed slip levers/configs before reopening anything. Compare reward/behavior components on frozenparent and new8M: active foot-contact slip cost, bodyprogress payoff, contactdwell/footvelocity; verify cost saturation or null gradients mechanically. Only if evidence supports a new interaction, build semantics banks and ONE bounded <=2M same-existing-seed2 canary combining this speed-controlled parent with an already-implemented direct-slip mechanism, solely that delta, using existing slip-only/frozen controls for attribution. Do not repeat an unchanged null or count gait retention as slip success. If interaction falsified beforelaunch, identify next specific supported prior-free mechanism from observed loaded-foot motion, then implement/test a boundedcanary; no unscoped design-blocked exit while useful work is available. No gaitteacher/BC/cyclicprior in scratch. Canonical snapshot/queue/drain, correct checkpointparent, verify trainerPID+stepgrowth. Existingfleetonly; no newseeds/spending/uncordon/filler/relaxedgates/robotwork. Codex owns turn-probe repair and tests; do not touch that source or duplicate yawdiagnostics yet. Record decisions/evidence.",
+    "latest": "17:13:52 readingexactgate,traininghistory,andclosedsliplevers. No duplicate ownerseen; notoptimizingyet."
+  }
+}

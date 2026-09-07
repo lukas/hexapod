@@ -1,6 +1,6 @@
 {
   "heartbeat_trigger_utc": "2026-09-07T07:08:07.756Z",
-  "checked_at_utc": "2026-09-07T15:52:26Z",
+  "checked_at_utc": "2026-09-07T16:16:21Z",
   "time_gaps": [
     {
       "before": "2026-09-07T07:18Z",
@@ -14,15 +14,13 @@
     }
   ],
   "capacity": {
-    "as_of": "2026-09-07T15:49:38Z",
+    "as_of": "2026-09-07T16:16:21Z",
     "configured": 12,
     "ready": 11,
-    "free": 10,
-    "optimizing": 1,
-    "busy": {
-      "hexapod-mjx-train-1": "cw-robotwalk-turns-20260907-yawref-cigate8m"
-    },
-    "pending": "train-6 unchanged"
+    "free": 11,
+    "optimizing": 0,
+    "busy": {},
+    "pending": "train-6 unchanged; evaluation/decision handoff is the current bottleneck, not occupied GPUs"
   },
   "earlier_observations": {
     "s0_acq1": {
@@ -84,7 +82,12 @@
       "cycle": "20260907T152504",
       "pid": 3163300,
       "scope": "Own the orphaned todaypolicy yawref-cont8m decision/next-mechanism gap. Fresh 15:02Z audit found no live yaw owner: old 053811/055158/070351 cycles ended; later 'DIG-IN-owned' notes name no live cycle. Check current activity/claims first; if truly claimed, follow that owner. New cycle150336 owns walkcurr slip/contact audit: coordinate shared files, do not duplicate scratch/assistfade work. cw-robotwalk-turns-20260907-yawref-cont8m (W&B pzu0hc62) is FINISHED/unverdicted. Raw corrected stress_mix course4.33->4.07deg (<5.17), zero falls; tip errors .0885/.0842 still miss .076, right-arc .0905->.1162 regresses. Newly available full retention gate is24/24 gait_valid, zero terms, det forward median .2905m, slip/m2.6885; do not keep waiting on a nonexistent retention dependency. Verify these exact reports, artifact/config parity and completed acq8-vs-cont8-vs-freshCandidateB comparisons; capture any missing right-arc/tip-right videos through existing CPU eval helpers with registered completion. Record the honest partial/failed qualification verdict with full per-cell evidence, preserving corrected course key and all original thresholds. Then design ONE dedicated tip/combined-turn mechanism from matched trajectory/reward-component diagnostics, with a deterministic semantics bank that rewards actual correct-sign turn over refusal/crabbing while preserving translating arcs and forward gait. Do not launch a third identical8M or call this qualified. After focused tests, provenance/duplicate checks and an explicit falsification gate, queue/drain the smallest justified bounded experiment on the EXISTING seed, verify trainer PID and step growth, and preserve parent checkpoints. Existing GPU fleet only; no hardware/deploy/spending/uncordon, no success-bar relaxation. Missing design is the work, not an exit reason when an evidence-backed next experiment can run.",
-      "latest": "Completed15:49:34. Default-off course-income yaw gate implemented;5newbanks,23fullcoursebanks,7overspeedbanks passed. New8Mexistingseed0 continuation cw-robotwalk-turns-20260907-yawref-cigate8m ontrain-1; rootverified1,032,192->2,064,384->3,096,576steps15:50. Puretip authority remains unresolved."
+      "latest": "152504completed15:49:34. Childcigate8m W&Bi2uvpfge finishedoptimizationby15:55:52; verifiedloggedcheckpoints1,032,192through7,225,344 then durableartifacthandoff,CPUfinalizer2597857. Newpartial-refill160247 PID3205968 owns current followup: launching yaw/cmdsuite/joygate evaluations16:14-16:15."
+    },
+    "refill": {
+      "cycle": "20260907T160247",
+      "pid": 3205968,
+      "latest": "Active16:15:37; scratch seenpending16:04, thenyaw evalfollowup. Noexplicitnew scratchtriageclaimorcontinuationverified. Rootguardnoteexplainedrepairownership;nowrepaircompleted."
     }
   },
   "historical_stale_ui": [
@@ -95,10 +98,10 @@
     "20260907T145129 all have completion markers; not live ownership"
   ],
   "next_visit": [
-    "Completeanddeploy2remainingprunerexecutorfixes; runfocusedtests,livedryrun,thenremoveonlyrootPRUNE_OFF.",
-    "Readoverspeedq1gatewhenCPUevaluationfinishes; preservefb_20260907T153242_e4cb0einterpretationlimits, noone-canaryclaimofglobalgaitfloor.",
-    "Followyawcigate8mtrainingandregisteredgate; noidenticalcont8retryorpuretipqualificationclaim.",
-    "Refreshcanonicalcapacityandactualoptimizers; heartbeatremainsactive."
+    "Do not repeat completedprunerrepair or recreatePRUNE_OFF fromhistoricalnotes; deployed16b739b13passed48tests andguardisremoved.",
+    "Readscratchoverspeedq1 exactgateandrootfb_20260907T161351_7cf387; noautomatic40Mfromtheboundednegative. Ensurewatcherassignsnextdecisionandnewcausaldesign ratherthanrepeatdose/globalfloorclaim.",
+    "Followactivepartial-refill160247 yawgate/cmdsuite/joygate completion; no duplicateevalsoroldcont8retry.",
+    "Refreshactualcapacity; all11readyGPUsidle16:16 despiteearlierverifiednewtraining. KeepheartbeatACTIVE andpursuerunnable evidence-basedfollowups withoutfiller/newspending/unplannedseeds."
   ],
   "checkin": "User-requested main check-in completed and remote verified at1f670e62f71f10121abd73c53c8ac66b642cce67; this observation record is newer and not yet published.",
   "boundaries": [
@@ -113,7 +116,10 @@
     "focus": "Repair ONLY the newly verified seed_pruner safety bugs; leave active scratch150336 and yaw152504 experiments/files/ownership alone. Root set documented PRUNE_OFF temporarily; verify it exists before work. Offline reproduction: actual2,097,152-step 2M canary assembles windows1M,2M,3M and KILL;40M run at15.1M invents17.5M last-window evidence; sparse12.5M,20M,32.5M buckets accepted as consecutive. fetch_windows uses display-name matching rather than ledger wandb_id; _kill lacks exact live-trainer/completed-budget recheck, ignores kill-command failure, and unconditionally writes KILLED without --created. Ledger contains a completed40,370,176-step run with stale pruner verdict. Fix with focused integration tests of real window assembly: retain actual observed step bounds, exclude partial/future windows, require three adjacent windows entirely beyond >=25% burn-in for slope pruning; preserve immediate-collapse evidence checks. Pin exact attempt (wandb_id,created,pod,trainerPID/start identity), exclude finished optimization/deferred CPU-only artifacts/budget-complete attempts regardless of stale W&B/ledger RUNNING, revalidate just before targeted trainer termination, confirm successful stop, and update only the exact still-matching attempt. Do not kill on missing/uncertain evidence. Preserve learning-valley veto and user-authorized pruning for qualifying live runs. Repair only misclassified historical rows proven by durable completion evidence; preserve exact checkpoint/history and correction provenance. Use canonical locked ledger APIs, no broad hand edits. Run focused tests including failed-kill/concurrent-attempt cases, commit/snapshot/push; no watcher restart needed if subprocess module is picked up per sweep. Dry-run against live board first, then remove ONLY this temporary PRUNE_OFF once tests and live checks pass; confirm periodic adoption. No launches, reward changes, hardware, capacity, unrelated edits or spending.",
     "dispatch": "Firstrepair153110 completed15:44:36,commita7a58d3fb,37focusedtestsPASS,historyreplaynowKEEP,exacthistoricalrowcorrectedFINISHED. OwnerremovedPRUNE_OFF15:43, rootindependentverificationfollowed.",
     "read_only_review": "Independentagent reproduced2remainingexecutorraces:aGONEprocesscountsasKILLEDwithoutsignal;oldattemptcanselectnewlyappendedsame-nameretrytrainer. RootrestoredPRUNE_OFF15:46andverified15:52. Priorrepairnotyetcomplete.",
-    "followup": "pruner_safety_audit implementingnarrow2racefixes+testsincleanisolatedworktreebased8437ba6ea;rootownsdeployedverificationandguardremoval. No remoteownerduplicate."
+    "followup": "Completed by root with pruner_safety_audit test support. Commit16b739b1386f151857f5c02528b83b8f0e06f3ac pushed and independently verified remote main + controllerHEAD. 48focusedtests passed locally and on deployedcontrollerLinux (0.15s). Actualshell regressions exercise GONE,appendedretry,recordedPID,wrapperrejection,starttimechanges. Dryrun: noRUNNINGwalkcurrrows. RootremovedonlyitsPRUNE_OFF; independenttest! -e succeeded16:16. WatcherUP, no restartrequired (freshsubprocessperpass).",
+    "current_guard": "ABSENT; automatic pruning restored after deployed verification. Older mitigation/dispatch entries are historical.",
+    "fix_scope": "Reject superseded ledger attempts, select only recorded trainer PID and exact Python-module/run-name argv, recheck attempt after remoteprobe, recheck /procstarttime before signal, treat GONE as aborted prune not KILLED. Conservative legacy rows without reliable trainer provenance are skipped.",
+    "edit_delay": "Agentapply_patch stalled436seconds without intermediateoutput/approvalreason and was interrupted; noeditlanded. Rootappliedsource,testagentaddedregressions. Necessarycontrollerguardnote networkretry usedenforcedescalation, then succeeded. No pendingtoolsremain."
   },
   "scratch_review": {
     "evidence": "Frozenpolicy actual material-point slip4.505/m vsgeom-center4.357/m; progressratio1.866,2.18malong/20s; steadyforward~4.6materialslip/m,mostlyloadedcontacts. Supportsreal skating.",
@@ -134,12 +140,61 @@
     "defer_final_artifacts": true,
     "verified_progress": "Root pod-log samples524288->1048576, launcherwindow524288->1572864, cachedW&B2097152. FPS9729->14360->18921; reward-59.5->-40.5 andepisode112->227 ininitialroot samples. KL early-stopping message applies to PPO update, not whole training.",
     "completion": "FINISHED ledger confirmed15:51;2,097,152steps. CPU finalizer finished15:48:46 with3done,0failed,0replayed_unconfirmed. CPU gate evaluator566375 live15:51; gate not yet published.",
-    "qualification": "Gate not yet read. One initial REFUSED wrongsteps/doubledargv attempt and secondREFUSED correctedbefore successfulcanonicalrespec. No budget-overruntraining launched.",
+    "qualification": "Exactheldoutgate arrivedby16:08:22/24gaitvalid,0/24terminations. Matchedrawparent comparison doesnotmeetmechanismspeed/slipcriteria; noautomatic40Mcontinuation.",
     "feedback": {
       "id": "fb_20260907T153242_e4cb0e",
       "text": "Review for overspeedq1 evaluation: keep this a bounded mechanism test with unchanged canonical slip/progress/gait/fall gates. The slip/frame audit supports real loaded-foot skating, but one <=2M canary with slower motion and unchanged slip does NOT establish a fundamental gait-style floor or close the entire reward/contact mechanism class. It falsifies only this dose/parent/budget prediction; inspect actual learned charge exposure and positive progress before deciding. The passing production-cap test was replaced with a lower-cap primitive fixture because its achieved speed was only0.020-0.024m/s. Include a frozen-champion replay under the actual mesh/100Hz/0.06-cap config showing charge/income and walking-over-parking ordering; preserve the original flag-OFF speed-free behavior. Explain how this freeprog-surplus path differs from existing instant/EMA/displacement overspeed paths. Record matched knee-frame/no-charge control and confirmed baseline status of the3 broad-test failures; do not attribute a frame/config change to the reward. Positivecanary may justify registeredacquisition, but rewardchange alone is notqualification. Root PRUNE_OFF is a temporaryguard while dedicatedcycle153110 repairs window/identity/completion bugs; do not interpret it as a traininghold.",
       "delivery": "Persistent runnote filed fornextdecisioncycle; not claimed consumed bycurrentowner."
     },
-    "next_owner": "Scratch150336ended;153630evalreadyexplicitlyleftnewoverspeedcanarytolatertriageandended15:49:27. Gatecompletiontriggersnormalwatcherevalready; nolivecurrentdecisionownerorqueuedcontinuationconfirmed."
+    "next_owner": "Scratch150336ended;153630evalreadyexplicitlyleftnewoverspeedcanarytolatertriageandended15:49:27. Gatecompletiontriggersnormalwatcherevalready; nolivecurrentdecisionownerorqueuedcontinuationconfirmed.",
+    "gate": {
+      "model_source": "mesh_mjx",
+      "model_variant": "mesh_mjx_twin",
+      "control_hz": 100,
+      "dr_scale": 0,
+      "eval_seed": 0,
+      "gait_valid": 22,
+      "episodes": 24,
+      "terminations": 0,
+      "modes": [
+        {
+          "mode": "walk/det",
+          "gait_valid": 6,
+          "progress_median": 1.7545,
+          "slip_median": 4.9295
+        },
+        {
+          "mode": "walk/sto",
+          "gait_valid": 5,
+          "progress_median": 1.5975,
+          "slip_median": 5.324
+        },
+        {
+          "mode": "walk_startjitter/det",
+          "gait_valid": 5,
+          "progress_median": 1.6815,
+          "slip_median": 5.0155
+        },
+        {
+          "mode": "walk_startjitter/sto",
+          "gait_valid": 6,
+          "progress_median": 1.435,
+          "slip_median": 6.2355
+        }
+      ],
+      "raw_parent": {
+        "gait_valid": 22,
+        "terminations": 0,
+        "walk_det_progress": 1.775,
+        "walk_det_slip": 4.9805,
+        "startjitter_sto_progress": 1.6015,
+        "startjitter_sto_slip": 5.4155
+      },
+      "interpretation": "Deterministicprogress-1.2%,slip-1.0%=essentiallyunchanged;stochasticstartjitter slip+15.1%. Parent1.87indesigntextwasnotexactgatecomparator. Model,motorcontract,policy noise,all24randomization/commanddistancerecordsmatch. Separatelegacy_sessionreportexcluded. Boundednegative,notglobalfloor."
+    },
+    "latest_feedback": {
+      "id": "fb_20260907T161351_7cf387",
+      "delivery": "Persistent operator-authenticated exact-gate correction filed; not claimed consumed by already-running160247."
+    }
   }
 }

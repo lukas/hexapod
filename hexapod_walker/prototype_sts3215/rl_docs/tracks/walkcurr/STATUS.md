@@ -1,5 +1,46 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~09:0x (resumed cycle: my own prior turn's assigned-run triage was already fully written but got cut off before the launch-verifier finished and before snapshotting) — ledger reconciliation + completes the irr-timing trio 3/3
+
+My assigned run (`crutchoff-s0-widen8`) had already been fully
+triaged by my own earlier (interrupted) turn: verdict CANARY PASS
+recorded, `crutchoff-s0-widen8-acq1` (40M) launched. What was missing:
+that launch's ledger entry was stuck at `INTENT` because the
+`launch_run.py` verification loop itself got killed mid-poll when the
+turn cut off — the actual GPU job on train-2 was unaffected and kept
+training the whole time (mechanically confirmed: `ps` showed a live,
+CPU-busy trainer process; W&B `qahuzut4` was `state=running` at
+3.67M/40M steps, fps~19.9k). Reconciled the ledger to match observed
+reality via the sanctioned `launch_run.py update --set status=RUNNING`
+path (never hand-edited `experiments.json`), then snapshotted.
+`capacity.py`/`launch_run.py status` now correctly reports train-2
+BUSY with this run.
+
+With that fixed, re-checked the board: the concurrent ~08:2x-08:4x
+cycle's irr-timing rung (`goal.walk_cmd_resample_jitter=0.5`, the
+other realism axis already validated composable at 1g via
+`medhead-irrfwd-c1-acq1`) had only reached 2/3 seeds
+(`{s1,s2}-irr`, both launched) before hitting its own 4-launch cycle
+cap — `s0-irr` was the one open gap. Completed the 3-seed set:
+`crutchoff-s0-irr` (`respec --init-from-source` off
+`crutchoff-s0-acq1`, same single-axis jitter cfg + gate as the s1/s2
+twins), **VERIFIED RUNNING train-3**.
+
+7 GPU pods free afterward (train-4/5/7/8/9/10/11), backlog empty.
+Re-read all 7 tracks' STATUS "Now/Next": joystick/amp DONE, cpg
+closed with no open lever, standwalk/todaypolicy blocked on design
+work or already delivered, assistfade sequential-by-doc with 3+
+in-flight evals licensing no new arm yet. No further genuinely new,
+non-duplicate, launch-ready arm found this cycle — the widen8 (3/3)
+and irr (3/3) ACQ/canary cohorts now in flight are the whole open
+question on item(1)'s realism ladder; next actionable step is reading
+their gate evals once they land.
+
+Evidence: `launch_run.py status` (train-2/3 BUSY with the right runs),
+`ops.sh wandb cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+allaxis-nokick-crutchoff-s0-widen8-acq1` (qahuzut4), ledger entry for
+`crutchoff-s0-irr`.
+
 ## 2026-09-07 ~08:3x (triage cycle, concurrent with the ~08:2x-08:4x
 entry below) — widen8 canary trio CLOSES 3/3 clean (s0, mine this
 cycle); all 3 ACQ continuations now VERIFIED RUNNING

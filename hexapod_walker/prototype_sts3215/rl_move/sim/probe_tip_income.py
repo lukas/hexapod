@@ -52,6 +52,9 @@ CELLS = {
     "tip-left":  (0.0, 0.0, +0.3),
     "tip-right": (0.0, 0.0, -0.3),
     "arc-right": (0.08, 0.0, -0.15),
+    # straight-forward control cell for the ci_yaw_gate bank tests
+    # (wz_ref=0: the gate must be bit-exact inert here)
+    "fwd": (0.08, 0.0, 0.0),
 }
 
 

@@ -1,5 +1,95 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~08:3x (triage cycle, concurrent with the ~08:2x-08:4x
+entry below) — widen8 canary trio CLOSES 3/3 clean (s0, mine this
+cycle); all 3 ACQ continuations now VERIFIED RUNNING
+
+My assigned pair (`crutchoff-{s1,s2}-widen8`) had already been
+verdicted **CANARY PASS** by the concurrent cycle below before my
+triage started (0 falls/24 eps, gait_valid 21/24 and 22/24) — nothing
+left to re-triage there. Found the real gap: `crutchoff-s2-widen8`'s
+40M ACQ continuation had never been launched (only `s1`'s existed,
+already training on train-0). Launched it
+(`crutchoff-s2-widen8-acq1`, warm-started from s2's own widen8-
+CANARY-PASS checkpoint, same single-axis 8-way-heading recipe/gate as
+the `s1` twin) — VERIFIED RUNNING train-1.
+
+Also found `crutchoff-s0-widen8`'s own gate eval had landed
+(synced, `report.json` present) but sat unverdicted with
+ledger `status=FINISHED` — triaged it: **CANARY PASS**, 0
+falls/terminations across 24 held-out episodes, gait_valid 22/24
+(walk/det 6/6, walk/sto 6/6, startjitter/det 6/6, startjitter/sto
+4/6) — numbers essentially identical to the `s1`/`s2` twins (21/24,
+22/24), same non-chronic single-leg flag confined to the hardest
+startjitter/sto cell only. Contact sheet (`walk_sto_2`) confirms a
+clean upright six-leg walk through push markers, no topple, matching
+the sibling videos. **This closes item(1)'s widen8 canary trio 3/3
+clean** — the full 8-way heading widening composes on the crutch-off
+full-DR composite at mechanism-health depth on every crutch-isolation
+seed checked. Launched its matching ACQ continuation
+(`crutchoff-s0-widen8-acq1`, 40M, same recipe/gate as the `s1`/`s2`
+twins) — VERIFIED RUNNING train-2 (backlog drain initially REFUSED on
+a missing `--evidence` field from the `respec` queue path; patched
+the queued backlog entry's `evidence` field directly with the healthy
+canary + `crutchoff-s0-acq1`'s own 40M ACQ-PASS precedent, matching
+the `--evidence` text convention used by the `s1`/`s2` launches, then
+re-drained clean).
+
+All 3 seeds' widen8 ACQ continuations are now in flight
+(`{s0,s1,s2}-widen8-acq1` on train-2/train-0/train-1) — same open
+question as every other item(1) ACQ arm: does the widening hold at
+real 40M budget, or does the composite's known late-entrenchment
+push-recovery fragility (which only ever showed up at ACQ depth on
+one crutch-isolation seed) reappear on the new rear headings.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-s0-widen8` (before/after verdict),
+ledger entries for `{s0,s2}-widen8-acq1`, contact sheet
+`logs/ckpt_eval/..._s0_widen8_gate/walk_sto_2_sheet.png`.
+
+## 2026-09-07 ~08:2x-08:4x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — item(1) widen8 canary trio CLOSES 2/3 clean (s0 closed concurrently), both ACQ continuations launched, plus a new single-axis irr-timing canary pair on the crutch-off composite (4 launches total, at the per-cycle cap)
+
+Verdicted the two widen8 canaries left unread by the ~07:5x/~08:0x
+cycles: `crutchoff-{s1,s2}-widen8` both **CANARY PASS** (0
+falls/terminations across all 24 held-out episodes; `gait_valid`
+21/24 and 22/24, matching the earlier `{s0}` PASS a concurrent cycle
+closed the same window) — the full 8-way heading widening composes
+cleanly on the crutch-off full-DR composite at mechanism-health depth
+on all 3 seeds now checked.
+
+**Launched the two licensed follow-ups, both VERIFIED RUNNING (at
+`max_new_launches_per_cycle`=4 for this cycle):**
+1. `crutchoff-{s1,s2}-widen8-acq1` (40M ACQ, warm-started from each
+   seed's own widen8-CANARY-PASS checkpoint): does the 8-way heading
+   widen hold at real acquisition budget, or does it re-open the
+   composite's known push-recovery fragility (which only ever showed
+   up at ACQ depth, not canary depth, on one of the three
+   crutch-isolation seeds)? train-0 / train-1.
+2. `crutchoff-{s1,s2}-irr` (2M canaries, warm-started from each seed's
+   own ACQ-PASSED 40M crutch-off checkpoint, NOT stacked on widen8 to
+   keep single-axis attribution clean): the other realism rung already
+   validated composable at 1g without full DR
+   (`medhead-irrfwd-c1-acq1` ACQ PASS + `cont40m` HOLDS) is irregular
+   command TIMING — `goal.walk_cmd_resample_jitter=0.5` jitters the
+   fixed 6 s heading-resample interval by +-50% instead of a clean
+   metronome. Tests whether that axis also composes on the full-DR
+   crutch-off composite. train-2 / train-3.
+
+Both are genuinely single-axis, matched-parent, pre-registered per-run
+hypothesis+gate arms — not a filler batch. Reviewed (but left
+unverdicted, another track's own cadence owns them) two other
+ready-and-orphaned evals found this cycle: `cw-assistfade-rung4-
+revhandoff-s0` (looks like a real FAIL on a skim — near-zero net
+progress every episode, slip 30+, reward flat-negative — needs a
+careful DIG-IN read, not a rushed verdict here) and
+`cw-robotwalk-turns-20260907-yawref-acq8m` (todaypolicy track, needs
+its own yaw/cmdsuite verdict files read together, out of this cycle's
+scope). `CYCLE_WORKED` touched.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-{s1,s2}-widen8`, ledger entries for
+the 4 new launches, W&B run pages linked from each ledger entry.
+
 ## 2026-09-07 ~08:0x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — re-confirms the ~07:5x no-launch read; found+fixed a 5th orphaned eval (the `s0-widen8` canary that finished mid-way through that cycle) instead of a filler launch
 
 Fresh full-board re-read (guardrails, CURRENT_TRUTHS tail, all 6 track

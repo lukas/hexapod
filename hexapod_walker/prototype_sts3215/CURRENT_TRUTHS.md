@@ -1277,6 +1277,36 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   scale durability — a matched `crutchoff-s0` canary plus
   `crutchoff-{s1,s2}-acq1` 40M continuations are in flight. Full
   writeup: `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~05:4x.
+  UPDATE 09-07 ~09:5x: the crutch-off lineage's own `widen8` heading-
+  widening extension (8-way headings incl. 3 new rear/diagonal-rear
+  directions vs the base 5-way medium set) CLOSES its ACQ trio 3/3
+  FAIL with a NEW leg-pair fingerprint that GENERALIZES this section's
+  L1/L4 diagnosis rather than repeating it. All 3 seeds develop the
+  SAME two new chronic sacrifices at the SAME held-out episode indices
+  once trained to 40M (clean/near-clean at each seed's own 2M canary):
+  `walk/det` ep0 (`sac=[5]`) and ep5 (`sac=[0,5]`), 0 falls throughout,
+  reward rising every quarter on every seed (misaligned, not
+  under-trained, per 08-21). Checked `mesh_mujoco/hexapod_mesh.xml`
+  leg-mount coords directly: legs 0 and 5 are the FRONT pair (both
+  `x=+0.087`), NOT the L1/L4 middle pair every reward-price mechanism
+  above was designed against. Reading: the "diametrically-opposite
+  pair with no fore/aft neighbor is a cheaper stable 4-leg gait"
+  theory is HEADING-DEPENDENT, not a fixed structural pair — for a
+  forward command the redundant pair is the L1/L4 middle pair; for a
+  REAR-ish command (widen8's 3 new headings are the only rear/
+  diagonal-rear ones in its 8-way set) the redundant pair becomes the
+  FRONT pair by the same logic. **Any future role-aware/support-margin
+  mechanism design must be heading-conditioned (know which pair is
+  structurally redundant for THIS episode's commanded direction, not
+  assume a fixed pair) or it will only ever cover the forward-command
+  half of this pathology.** No repair attempted this cycle (per the
+  09-07 ~04:4x recommendation directly above, this needs a proper
+  design+bank pass, not a rushed dose); do not relaunch widen8 at ACQ
+  depth without either that mechanism or a heading-bisected narrower
+  widen. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  crossgrav_medhead_dr_allaxis_nokick_crutchoff_s{0,1,2}_widen8{,
+  _acq1}_gate/report.json`, `mesh_mujoco/hexapod_mesh.xml` (`L0_yaw`/
+  `L5_yaw` body `pos`), `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~09:5x.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

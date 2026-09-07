@@ -1,5 +1,82 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~09:5x (triage cycle; assigned the 3 widen8-acq1 runs) — item(1) widen8 ACQ trio CLOSES 3/3 ACQ FAIL (identical fingerprint every seed); NEW structural finding: the sacrificed pair is heading-DEPENDENT (front pair for rear headings), not the fixed L1/L4 middle pair already exhausted by 11 reward-price mechanisms; kicked off 3 orphaned speedwiden canary evals found stalled with free capacity
+
+Triaged `crutchoff-{s0,s1,s2}-widen8-acq1` (40M, the ACQ continuations
+of the widen8-CANARY-PASS trio). Their gate evals had NOT prestaged
+correctly: `s1` synced fine, but `s0`/`s2` sat with an empty
+`/tmp/eval_*.log` and no `_gate` dir on the controller even though
+`ops.sh podeval`/`ps aux` showed the eval genuinely still computing
+(`s0`, train-2) or already finished-but-uncollected on the pod (`s2`,
+train-1, report.json present remotely since 09:41, no local copy) —
+manually `kubectl cp`'d `s2`'s artifacts and waited out `s0`'s.
+
+**All 3 seeds ACQ FAIL, identical fingerprint:** 0 falls/terminations
+across all 24 held-out episodes on every seed (matching each seed's
+own 2M canary) but `gait_valid` DROPS from clean canaries (22/24,
+21/24, 22/24) to 20/24 on all three, via TWO new chronic single-leg
+sacrifices at the SAME episode indices on every seed: `walk/det` ep0
+(`sac=[5]`) and ep5 (`sac=[0,5]`), both clean or near-clean in each
+seed's own canary. This is exactly the gate's own pre-registered FAIL
+condition ("a NEW chronic single-leg sacrifice not present in the
+canary") and exactly the hypothesis's own predicted failure branch.
+Reward rose monotonically all 4 quarters on every seed (e.g. s0:
+267->530->636->796) — per the 08-21 ruling this is reward-rising-
+while-eval-regresses, i.e. MISALIGNED, not merely under-trained: more
+budget entrenches the shortcut rather than resolving it.
+
+**NEW structural reading (checked `mesh_mujoco/hexapod_mesh.xml` leg
+coords directly):** the sacrificed legs [0,5] are the FRONT pair
+(both `x=+0.087`, the two legs nearest the nose), NOT the L1/L4
+MIDDLE pair CURRENT_TRUTHS' "Walkcurr Reward Mechanisms" section has
+already exhausted 11 reward-price mechanism arms against. widen8's 3
+newly-added headings (135, -135, 180 deg, the only rear/diagonal-rear
+directions in the 8-way set vs the base 5-way medium set) are the
+common factor across every failing episode's likely command draw.
+This generalizes the existing 09-05 diagnosis ("a hexagon's
+diametrically-opposite pair with no fore/aft neighbor is a cheaper
+stable 4-leg gait for FORWARD commands") into a HEADING-DEPENDENT
+theory: for a REAR-ish commanded heading, the FRONT pair becomes the
+analogous redundant/least-loaded pair by the same logic, and PPO
+finds the same cheap-stable-4-leg shortcut there once training has
+enough budget to discover it. **Do not relaunch widen8 at ACQ depth
+on this recipe** without either (a) the still-unbuilt role-aware/
+support-margin reward mechanism — any design now must ALSO cover this
+direction-dependent front-pair case, not just the fixed L1/L4 one —
+or (b) a narrower heading widen (e.g. exclude 180 deg specifically)
+pending a cheap bisection to confirm which of the 3 new headings is
+the actual trigger. Per RUN_INTERPRETATION_RULES, audited before
+same-recipe spend: this is a real, reproducible, cross-seed structural
+finding, not seed noise, so no further widen8 seed is worth funding
+until one of those two repairs lands.
+
+**Separately, found + fixed a stalled-not-owned gap with the freed
+capacity**: the 3 `crutchoff-{s0,s1,s2}-speedwiden` 2M canaries
+(the OTHER deferred realism axis, launched ~09:2x) had finished
+training and sat `FINISHED`/`FINISHED_BEFORE_CHECKUP` with their
+CPU-finalizer eval process dead (zombie) and no gate directory
+anywhere — the prestage never actually launched their held-out gate
+eval. Kicked all 3 off directly via `ops.sh podeval` (backgrounded)
+and registered all 3 via `evalpending` so the watcher spawns the next
+cycle the moment they land; left unread for whoever reads them next
+(do not poll/re-launch — they were still <30% through their 24-episode
+video panel as of this entry).
+
+Full board re-checked: joystick/amp/cpg closed/DONE, standwalk/
+todaypolicy/assistfade have their own actively-managed in-flight work
+(not this track, not touched). No further NEW widen8/reward-mechanism
+launch is licensed this cycle per the audit above; the campaign's
+remaining open axes for item(1) (irr timing-jitter, speedwiden) are
+both already in flight/pending, not idle.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_s{0,1,2}_widen8{,_acq1}_gate/
+report.json` (per-episode diff), `mesh_mujoco/hexapod_mesh.xml`
+(`L0_yaw`/`L5_yaw` body `pos`), W&B `qahuzut4`/`fy8zil9f`/`vh5910s4`,
+CURRENT_TRUTHS.md "Walkcurr Reward Mechanisms" section (11-arm
+exhaustion tally this generalizes), `pending_evals.json` (3 new
+speedwiden entries).
+
 ## 2026-09-07 ~09:2x (refill cycle; 11/11 GPU free, backlog empty, no completion assigned) — built + bank-proved item(1)'s deferred COMMAND SPEED-RANGE WIDENING mechanism (walk_task.py, default off, bit-exact), launched the 3-seed canary set
 
 Every other track/lever was in-flight, closed, or design-blocked (full

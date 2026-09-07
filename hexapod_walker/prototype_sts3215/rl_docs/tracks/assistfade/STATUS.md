@@ -59,29 +59,30 @@ over since (`_walk_reverse_handoff_ticks()` returns 0 whenever
 `goal.walk_reverse_handoff_gate` is unset, both the in-process and
 sharded `_choreography()` then skip every new branch and fall through
 to the pre-existing code UNCHANGED) and cannot find a way this specific
-change causes it — **but discovered, only after the run had already
-been going for several minutes, that `hexapod-mjx-train-1` was
-simultaneously running a live 8M-step GPU training job
-(`cw-robotwalk-turns-20260907-yawref-acq8m`, 88% CPU, plus ~15 old
-defunct/zombie processes, load average 25+) that `launch_run.py
-status`/`capacity.py` did NOT report as busy** (both showed it — and
-every other pod, including the one running the crutch-isolation ACQ
-runs — as FREE minutes later, which is simply wrong; ledger-derived
-capacity reporting is stale/unreliable right now, verify with `kubectl
-exec <pod> -- ps aux` before treating ANY pod as free for ad-hoc
-testing, not just for launches). A multiprocessing-heavy bit-exact
-comparison test is exactly the kind of thing CPU starvation can
-plausibly corrupt (worker spawn/pipe races) without it being a real
-code defect. I did not re-run the comparison on a verified-idle pod
-before this entry (did not want to risk a THIRD pod collision this
-cycle) — **treat the bit-exact result as an open flag, not a confirmed
-bug**: re-run `test_mjx_vec_env.py -k bitwise` plus the new
-`test_mjx_reverse_handoff.py` bank on a pod independently confirmed
-idle via `kubectl exec ps` (not just `launch_run.py status`) before
-trusting either a pass or a fail from this point forward, and before
-any rung-4 canary launch. If it fails again on a genuinely idle pod,
-that's a real regression to root-cause before launching; if it passes,
-the contention theory is confirmed and nothing else needs to change.
+change causes it — at the time, `hexapod-mjx-train-1` was ALSO
+running a live 8M-step GPU training job
+(`cw-robotwalk-turns-20260907-yawref-acq8m`, 88% CPU, load average
+25+), so my working theory was CPU-starvation-induced multiprocessing
+flakiness, not a real code defect. **CORRECTION, same cycle**: that
+theory about the TOOLING (`launch_run.py status`/`capacity.py`
+under-reporting busy pods) was wrong — re-checked minutes later and
+`pod_trainers('hexapod-mjx-train-1')` correctly read `[]` because the
+robotwalk-turns job had simply FINISHED in the interim (confirmed via
+`ops.sh review`: W&B `state=finished steps=8011776`, ledger
+`FINISHED`) — capacity reporting was accurate both times, I had just
+mentally frozen a several-minutes-old "still running" observation.
+No tooling bug; strike that part of the theory. The CONTENTION part
+may still be right (a live 88%-CPU neighbor process at the time the
+bit-exact test ran is a real, if now unverifiable after the fact,
+confound) but is UNCONFIRMED, not proven — treat the bit-exact result
+as an open flag either way: re-run `test_mjx_vec_env.py -k bitwise`
+plus the new `test_mjx_reverse_handoff.py` bank on a pod independently
+confirmed idle via `kubectl exec ps` (`launch_run.py status` is fine
+for this now that the false capacity-bug theory above is retracted)
+before trusting either a pass or a fail, and before any rung-4 canary
+launch. If it fails again on a genuinely idle pod, that's a real
+regression to root-cause before launching; if it passes, the
+contention theory is confirmed and nothing else needs to change.
 Committed via `snapshot.sh assistfade-rung4-mjx-handoff-codereview-fix`
 (code review fixes only, no new launch — the rung-4 canary itself
 still needs the bit-exact re-verification above first, per this

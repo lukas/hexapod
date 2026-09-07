@@ -1,5 +1,53 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~10:0x — rung-4's FIRST behavioral canary: CANARY FAIL - MECHANISM (handoff engages, does not sustain)
+
+`cw-assistfade-rung4-revhandoff-s0` (launched 07:4x, the mechanism's
+first real training exercise after the MJX wiring was bank-verified
+correct at 07:3x) finished its 2M-step canary and its gate eval sat
+unverdicted since 07:5x (registered via `evalpending`, not polled) —
+triaged this cycle. **Verdict: CANARY FAIL - MECHANISM.** The
+handoff itself works as designed (contact-sheet frame 0 shows a
+genuine mid-stride pose, not the static stand every prior
+phase-sv-diet arm starts from) but the policy does NOT sustain
+walking afterward: frames 1-10 of every det/sto episode show the SAME
+planted-leg static pose, `walk/det` `prog_ratio` med -0.01 (range
+-0.03..0.00 — genuinely zero net commanded-direction progress, not
+slow progress), `walk/sto` med -0.00. The 0.17-0.19m `fwd`
+displacement reported alongside is undirected wander, not gait —
+slip/m 30-35, ~10x the 2.9 teacher band. Reward is flat/declining
+(quarters -0.7/-3.7/-1.4/-1.3), so this is not an 08-21 continue case
+(that ruling needs rising reward). This is exactly the run's own
+pre-registered FAIL-MECHANISM condition ("the annealed-hard end
+reverts to the static basin with reward also flat").
+
+**Reading this correctly (not a wiring defect):** the mechanism
+computes and engages exactly as its bank proved — this is new
+behavioral information, not a bug. A momentary teacher-driven kick at
+reset (2.0s handoff, annealed 2.0->0 over the whole 2M canary) is not
+enough scaffolding for PPO to discover a policy that keeps walking on
+its own afterward; it looks like the reset-time nudge gets treated as
+a one-off perturbation to recover FROM (back to the safe static
+stand) rather than a demonstration to continue. This rhymes with
+rung 2's own early lesson (annealing scaffolding away before RL has
+anything to fall back on kills the mechanism) but is a distinct
+lever here (handoff schedule/duration, not anchor coefficient).
+
+**Two cheap single-lever retreat options for the next reader** (canary
+reruns, not a mechanism redesign): (i) push the handoff anneal-end
+schedule much later (currently anneals to 0 within the 2M canary
+itself — try holding the full 2.0s handoff for most/all of a first
+canary, no anneal, to isolate whether scaffold-removal-too-early is
+the driver); (ii) increase per-episode handoff duration (more real
+scripted seconds before handoff, so PPO sees a longer on-policy
+walking demonstration each reset before it has to take over). Try (i)
+first — it isolates the anneal-timing variable cleanly and costs
+nothing else. Do NOT relaunch this exact 2M canary unchanged.
+
+Evidence: `ops.sh review cw-assistfade-rung4-revhandoff-s0`,
+`logs/ckpt_eval/cw_assistfade_rung4_revhandoff_s0_gate/{report.json,
+walk_det_0.png}`, W&B `0p4y5k91`, RL_LOG 09-07 10:0x.
+
 ## 09-07 ~07:3x — rung-4 MJX reverse-handoff VERIFIED WORKING end-to-end (new bank 5/5 + legacy MJX suite 24/24 on idle train-9); two real bugs found+fixed by the bank, one of them a PRE-EXISTING sharded walk-task obs-frame bug affecting every sharded walk run to date
 
 Completion of the ~06:3x coordination entry below (operator focus note

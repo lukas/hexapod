@@ -292,23 +292,5 @@
   "file": "logs/ckpt_eval/cw_assistfade_rung4_revhandoff_noanneal_s0_gate/report.json",
   "label": "cw_assistfade_rung4_revhandoff_noanneal_s0_gate",
   "added": "2026-09-07T10:14:16"
- },
- {
-  "pod": "hexapod-mjx-train-2",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbis135_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbis135_gate",
-  "added": "2026-09-07T11:20:23"
- },
- {
-  "pod": "hexapod-mjx-train-0",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbism135_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbism135_gate",
-  "added": "2026-09-07T11:20:23"
- },
- {
-  "pod": "hexapod-mjx-train-1",
-  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbis180_gate/report.json",
-  "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widenbis180_gate",
-  "added": "2026-09-07T11:20:23"
  }
 ]

@@ -404,25 +404,6 @@ def _run_drive_stop_harness(monkeypatch, *, fault, hold_result):
             del want_full_feedback
             return _robot_state()
 
-    class _Sampler:
-        motion_ready = True
-        max_age_s = 0.15
-
-        def __init__(self, *_args, **_kwargs):
-            self.commanded = []
-
-        def start(self):
-            pass
-
-        def stop(self):
-            pass
-
-        def set_commanded(self, command):
-            self.commanded.append(np.asarray(command).copy())
-
-        def stats(self):
-            return {"thread_alive": False}
-
     class _SessionDebug:
         name = "stop_ordering_drive_debug.jsonl"
 
@@ -469,7 +450,7 @@ def _run_drive_stop_harness(monkeypatch, *, fault, hold_result):
     stream_targets = []
     recovery_targets = []
 
-    def stream(_bus, _sampler, _q_from, q_to, *, t_next,
+    def stream(_bus, _est, _q_from, q_to, *, t_next,
                stale_ticks, on_write_success, **_kwargs):
         target = np.asarray(q_to, dtype=float).copy()
         stream_targets.append(target)
@@ -493,10 +474,10 @@ def _run_drive_stop_harness(monkeypatch, *, fault, hold_result):
     monkeypatch.setattr(rl_policy, "NumpyPolicy", lambda _path: policy)
     monkeypatch.setattr(rl_policy, "RobotStateEstimator",
                         lambda _bus, _cfg: estimator)
-    monkeypatch.setattr(rl_policy, "_AsyncSnapshotSampler", _Sampler)
     monkeypatch.setattr(
-        rl_policy, "_await_async_sampler_ready",
-        lambda *_args, **_kwargs: (_robot_state(), {}, ""),
+        rl_policy, "_AsyncSnapshotSampler",
+        lambda *_args, **_kwargs: pytest.fail(
+            "persistent drive must use combined snapshots"),
     )
     monkeypatch.setattr(rl_policy, "_RunDebug", _SessionDebug)
     monkeypatch.setattr(rl_policy, "_EpisodeLog", _SessionLog)
@@ -519,7 +500,7 @@ def _run_drive_stop_harness(monkeypatch, *, fault, hold_result):
     )
     monkeypatch.setattr(rl_policy, "_probe_async_transport",
                         lambda _bus: {"async_capable": True})
-    monkeypatch.setattr(rl_policy, "_stream_target_async", stream)
+    monkeypatch.setattr(rl_policy, "_stream_target", stream)
     monkeypatch.setattr(rl_policy, "_hold_after_stream_loss", recover)
     monkeypatch.setattr(rl_policy, "DRIVE_WALK_ACTION_RAMP_S", 0.0)
     monkeypatch.setattr(rl_policy.time, "sleep", lambda _seconds: None)

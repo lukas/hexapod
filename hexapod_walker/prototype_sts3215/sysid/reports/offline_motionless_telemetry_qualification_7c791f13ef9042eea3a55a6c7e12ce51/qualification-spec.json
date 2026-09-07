@@ -1,0 +1,27 @@
+{
+  "assert_no_motor_commands": true,
+  "assert_no_torque_enable": true,
+  "capture_fields": [
+    "sample_sequence",
+    "sample_time",
+    "temperature_c",
+    "current_a",
+    "voltage_v",
+    "fault_status"
+  ],
+  "duration_seconds": 60,
+  "fixture_cases": [
+    "healthy_advancing_18_of_18",
+    "stale_sequence",
+    "incomplete_coverage",
+    "temperature_at_or_above_60_c",
+    "temperature_rise_at_least_10_c",
+    "hardware_fault"
+  ],
+  "hardware_access": false,
+  "require_deterministic_result": true,
+  "required_advancing_samples": 3,
+  "required_servo_coverage": "18/18",
+  "robot_motion": false,
+  "simulation_only": true
+}

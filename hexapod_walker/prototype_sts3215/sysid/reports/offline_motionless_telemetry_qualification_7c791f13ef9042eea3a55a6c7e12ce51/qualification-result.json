@@ -1,0 +1,52 @@
+{
+  "checks": {
+    "deterministic_repeat": true,
+    "expected_fixture_decisions": true,
+    "hardware_access_disabled": true,
+    "motor_commands_emitted": false,
+    "torque_enable_emitted": false
+  },
+  "execution": "offline_pure_fixture_replay",
+  "executor": "motionless_telemetry_qualification_v1",
+  "fixture_results": {
+    "hardware_fault": {
+      "decision": "reject_hardware_fault",
+      "passed": false,
+      "sample_index": 1,
+      "servo_id": 7
+    },
+    "healthy_advancing_18_of_18": {
+      "decision": "pass",
+      "passed": true,
+      "sample_count": 3,
+      "servo_coverage": "18/18"
+    },
+    "incomplete_coverage": {
+      "decision": "reject_incomplete_coverage",
+      "passed": false,
+      "sample_index": 1
+    },
+    "stale_sequence": {
+      "decision": "reject_stale_sequence",
+      "passed": false,
+      "sample_index": 2
+    },
+    "temperature_at_or_above_60_c": {
+      "decision": "reject_temperature_limit",
+      "passed": false,
+      "sample_index": 1,
+      "servo_id": 7
+    },
+    "temperature_rise_at_least_10_c": {
+      "decision": "reject_temperature_rise",
+      "passed": false,
+      "sample_index": 1,
+      "servo_id": 7
+    }
+  },
+  "fixture_results_sha256": "ff5a36b1fda81b1b095a9222056abd82bea26da06a906bb8994e55a2775d07ca",
+  "passed": true,
+  "robot_contacted": false,
+  "robot_motion": false,
+  "schema_version": 1
+}

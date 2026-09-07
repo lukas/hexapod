@@ -6,6 +6,7 @@ return before any preflight or motion worker can start.
 """
 from __future__ import annotations
 
+import hashlib
 import sys
 import threading
 import json
@@ -57,6 +58,33 @@ class FakeRlApi(RlApi):
         # the RL mixin alone and exercise refusals before any bus transaction.
         return None
 
+
+def test_policy_info_reports_hashes_of_exact_deployed_bytes():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        stance = root / "stance.json"
+        walk = root / "walk.json"
+        stance.write_bytes(b'{"meta":{"name":"stance"}}\n')
+        walk.write_bytes(b'{"meta":{"name":"Candidate A"}}\n')
+        previous = sys.modules.get("rl_policy")
+        sys.modules["rl_policy"] = types.SimpleNamespace(
+            WEIGHTS_PATH=stance,
+            WALK_WEIGHTS_PATH=walk,
+        )
+        try:
+            out = FakeRlApi().rl_policy_info()
+        finally:
+            if previous is None:
+                sys.modules.pop("rl_policy", None)
+            else:
+                sys.modules["rl_policy"] = previous
+
+        assert out["ok"] is True
+        assert out["policy_sha256"] == hashlib.sha256(
+            stance.read_bytes()).hexdigest()
+        assert out["walk"]["name"] == "Candidate A"
+        assert out["walk"]["policy_sha256"] == hashlib.sha256(
+            walk.read_bytes()).hexdigest()
 
 def test_default_composed_policy_refuses_learned_rise():
     out = FakeRlApi().rl_policy_move(mode="stand", learned=True)

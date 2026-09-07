@@ -958,6 +958,10 @@ class Trial:
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
             **duration_details,
+            "actual_engaged_duration_s": (
+                active_wall_time_s if math.isfinite(active_wall_time_s) else None
+            ),
+            "last_live_t_s": last_live_t,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
@@ -1254,6 +1258,11 @@ class Trial:
             policy = None
             policy_error = str(issue)
         execution_ok = error is None and self.completed
+        engaged_durations = [
+            float(result["actual_engaged_duration_s"])
+            for result in self.results
+            if result.get("actual_engaged_duration_s") is not None
+        ]
         summary = {
             # Compatibility field for existing Robot Lab importers.  This is
             # runner completion, not a claim that commanded chassis motion was
@@ -1289,6 +1298,9 @@ class Trial:
             "requested_phases": self.args.phases,
             "speed_m_s": self.args.speed_m_s,
             "duration_s": self.args.duration_s,
+            "actual_engaged_duration_s": (
+                sum(engaged_durations) if engaged_durations else None
+            ),
             "course_segment_s": self.args.course_segment_s,
             "yaw_commands": bool(self.args.joystick_response),
             "joystick_response": self.args.joystick_response,

@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import plistlib
 import re
 import shutil
 import signal
@@ -49,6 +50,7 @@ from .engineering_lane import (
     build_project_context,
     engineering_job_lane,
     experiment_parameters_are_offline,
+    experiment_parameters_are_nonmotion,
     engineering_prompt,
     validate_engineering_result,
     workspace_snapshot,
@@ -57,6 +59,83 @@ from .engineering_lane import (
 from .execution_progress import ExecutionProgressStore
 from .runner import ExperimentRunner
 from .robot_status import RobotStatusService
+
+
+def _codex_runner_identity(runner_path: Path) -> Dict[str, Any]:
+    """Capture enough local provenance to byte-identify an agent invocation.
+
+    This record is written before the runner starts, so even an early process
+    exit retains the executable hash and its containing app bundle version.
+    Version probing is deliberately best-effort: the SHA-256 is authoritative
+    and does not depend on successfully executing the runner.
+    """
+    configured = runner_path.expanduser()
+    if not configured.is_absolute():
+        located = shutil.which(str(configured))
+        if located:
+            configured = Path(located)
+    identity: Dict[str, Any] = {
+        "runner_path": str(configured),
+        "runner_resolved_path": None,
+        "runner_version": None,
+        "runner_sha256": None,
+        "runner_bytes": None,
+        "bundle_version": None,
+        "capture_source": "prelaunch_local_binary",
+    }
+    errors: List[str] = []
+    try:
+        resolved = configured.resolve(strict=True)
+        identity["runner_resolved_path"] = str(resolved)
+        digest = hashlib.sha256()
+        size = 0
+        with resolved.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+                size += len(chunk)
+        identity["runner_sha256"] = digest.hexdigest()
+        identity["runner_bytes"] = size
+
+        for parent in (resolved, *resolved.parents):
+            if parent.suffix != ".app":
+                continue
+            info_path = parent / "Contents" / "Info.plist"
+            try:
+                with info_path.open("rb") as source:
+                    info = plistlib.load(source)
+                identity["bundle_version"] = {
+                    "path": str(parent),
+                    "short_version": info.get("CFBundleShortVersionString"),
+                    "build_version": info.get("CFBundleVersion"),
+                }
+            except (OSError, plistlib.InvalidFileException) as exc:
+                errors.append(f"bundle metadata: {type(exc).__name__}")
+            break
+
+        try:
+            version = subprocess.run(
+                [str(resolved), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=_safe_environment(),
+            )
+            version_text = (version.stdout or version.stderr).strip()
+            if version.returncode == 0 and version_text:
+                identity["runner_version"] = version_text[:500]
+            else:
+                errors.append(f"version probe returned {version.returncode}")
+        # Provenance capture must never prevent the already-guarded launch;
+        # unusual process adapters and test doubles may raise outside the
+        # standard subprocess exception hierarchy.
+        except Exception as exc:
+            errors.append(f"version probe: {type(exc).__name__}")
+    except OSError as exc:
+        errors.append(f"binary capture: {type(exc).__name__}")
+    if errors:
+        identity["capture_errors"] = errors
+    return identity
 
 
 ANALYSIS_SCHEMA: Dict[str, Any] = {
@@ -2055,6 +2134,10 @@ class CodexOrchestrator:
         _atomic_json(schema_path, schema)
         output_tmp = run_dir / "final.tmp.json"
         output_path = run_dir / "final.json"
+        runner_identity = _codex_runner_identity(
+            self.settings.claude_bin
+            if self.provider.name == "claude" else self.settings.codex_bin
+        )
         metadata = {
             "job_id": job["id"],
             "kind": role,
@@ -2065,6 +2148,7 @@ class CodexOrchestrator:
             "reasoning_effort": self.provider.reasoning_effort,
             "experiment_id": job.get("experiment_id"),
             "evidence_manifest_sha256": job.get("evidence_manifest_sha256"),
+            "runner_identity": runner_identity,
         }
         _atomic_json(run_dir / "metadata.json", metadata)
         communication_capture: Optional[RobotCommunicationCapture] = None
@@ -2142,6 +2226,7 @@ class CodexOrchestrator:
             "deadline_seconds": timeout,
             "assigned_experiment_id": assigned_experiment_id,
             "experiment_id": job.get("experiment_id"),
+            "runner_identity": runner_identity,
         }
         # Persist intent before Popen. The independent wrapper atomically
         # adopts this same marker before it can launch Codex, closing the
@@ -2819,7 +2904,14 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
         # The built-in simulated driver is demo telemetry, not a replay engine.
         # Actual offline work goes through the existing engineering worker.
         execution_mode = "external_guarded"
-        offline = experiment_parameters_are_offline(parameters)
+        # Retiring automatic review chains is distinct from assigning an
+        # explicitly submitted job to a worker. A read-only live health gate
+        # remains eligible for the guarded hardware lane and its exact
+        # admission contract below.
+        offline = experiment_parameters_are_nonmotion(parameters) and (
+            parameters.get("runner")
+            != "rl_move/scripts/run_motionless_health_gate.py"
+        )
         if not offline and not stop_conditions:
             raise CodexRunError("A physical follow-up must name stop conditions")
         safe_parameters = dict(parameters)
@@ -2929,17 +3021,22 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             return rejection, ""
 
         readiness_reasons: List[str] = []
+        runner = parameters.get("runner")
+        motionless_health_runner = (
+            runner == "rl_move/scripts/run_motionless_health_gate.py"
+        )
         if parameters.get("robot_motion") is False:
-            if _contains_action_parameter(parameters):
+            if _contains_action_parameter(parameters) and not motionless_health_runner:
                 return (
                     "non-motion adaptive proposal may not carry executable "
                     "robot instructions",
                     "",
                 )
-            readiness_reasons.append(
-                "non-motion external proposals require a trusted deterministic "
-                "executor; use a simulation-only builtin plan when appropriate"
-            )
+            if not motionless_health_runner:
+                readiness_reasons.append(
+                    "non-motion external proposals require a trusted deterministic "
+                    "executor; use a simulation-only builtin plan when appropriate"
+                )
         compatibility = parameters.get("current_compatibility")
         if not isinstance(compatibility, dict) or compatibility.get("ready") is not True:
             readiness_reasons.append(
@@ -2950,10 +3047,12 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             readiness_reasons.append(
                 "adaptive physical proposal contains unresolved hard blockers"
             )
-        runner = parameters.get("runner")
         runner_paths = {
             "rl_move/scripts/run_rl_walk_trial.py": Path(
                 "rl_move/scripts/run_rl_walk_trial.py"
+            ),
+            "rl_move/scripts/run_motionless_health_gate.py": Path(
+                "rl_move/scripts/run_motionless_health_gate.py"
             ),
             "sysid.run_hw": Path("sysid/run_hw.py"),
         }
@@ -2999,6 +3098,10 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
             rejection = self._walk_hard_rejection(
                 parameters, duration_seconds, prototype_root
             )
+        elif runner == "rl_move/scripts/run_motionless_health_gate.py":
+            rejection = self._motionless_health_hard_rejection(
+                parameters, duration_seconds
+            )
         else:
             rejection = self._sysid_hard_rejection(
                 parameters, duration_seconds, prototype_root
@@ -3024,7 +3127,7 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
                 )
                 if rejection:
                     readiness_reasons.append(rejection)
-            else:
+            elif runner == "sysid.run_hw":
                 protocol = parameters["protocol"]
                 protocol_path = (prototype_root / protocol).resolve()
                 rejection = self._verified_file_rejection(
@@ -3039,6 +3142,90 @@ Return the required JSON receipt. For an assigned experiment, action must be `bl
                 "the protocol duration, start-pose motion, and active joints"
             )
         return "", "; ".join(dict.fromkeys(readiness_reasons))
+
+    def _motionless_health_hard_rejection(
+        self, parameters: Dict[str, Any], duration_seconds: float
+    ) -> str:
+        """Accept only the exact read-only live-health runner contract."""
+        required = {
+            "robot_motion": False,
+            "simulation_only": False,
+            "arm_motors": False,
+            "command_motion": False,
+            "live_camera_required": True,
+            "remote_abort_required": True,
+            "required_live_motor_count": 18,
+            "minimum_advancing_samples": 3,
+        }
+        if any(parameters.get(key) != value for key, value in required.items()):
+            return "motionless health gate does not preserve its read-only safety contract"
+        if not 1.0 <= duration_seconds <= 30.0:
+            return "motionless health gate duration must be between 1 and 30 seconds"
+        numeric_bounds = {
+            "max_state_age_s": (0.1, 2.0),
+            "max_camera_age_s": (0.1, 2.0),
+            "max_temperature_c": (40.0, 55.0),
+            "min_voltage_v": (10.0, 12.0),
+            "max_voltage_v": (12.0, 14.0),
+            "max_joint_current_a": (0.1, 1.0),
+            "max_bus_current_a": (0.1, 8.0),
+        }
+        values: Dict[str, float] = {}
+        for key, (minimum, maximum) in numeric_bounds.items():
+            value = self._finite_number(parameters.get(key))
+            if value is None or not minimum <= value <= maximum:
+                return f"motionless health gate {key} is missing or outside trusted bounds"
+            values[key] = value
+        if values["min_voltage_v"] >= values["max_voltage_v"]:
+            return "motionless health gate voltage bounds are invalid"
+        argv = parameters.get("argv_template")
+        if not isinstance(argv, list) or not all(isinstance(value, str) for value in argv):
+            return "motionless health gate requires a trusted argv template"
+        prefix = [
+            "uv", "run", "python", "-m",
+            "rl_move.scripts.run_motionless_health_gate",
+        ]
+        if argv[:len(prefix)] != prefix:
+            return "motionless health gate argv template has an untrusted command prefix"
+        tail = argv[len(prefix):]
+        if len(tail) % 2:
+            return "motionless health gate argv template contains a flag without a value"
+        pairs: Dict[str, str] = {}
+        allowed = {
+            "--robot-url", "--vision-frame-url", "--output-dir", "--samples",
+            "--max-state-age-s", "--max-camera-age-s", "--max-temperature-c",
+            "--min-voltage-v", "--max-voltage-v", "--max-joint-current-a",
+            "--max-bus-current-a",
+        }
+        for index in range(0, len(tail), 2):
+            flag, value = tail[index:index + 2]
+            if flag not in allowed or flag in pairs:
+                return "motionless health gate argv template has an unapproved flag"
+            pairs[flag] = value
+        placeholders = {
+            "--robot-url": "<resolved-robot-http-url>",
+            "--vision-frame-url": "<validated-live-frame-url>",
+            "--output-dir": "<new-evidence-directory>",
+            "--samples": "3",
+        }
+        if any(pairs.get(key) != value for key, value in placeholders.items()):
+            return "motionless health gate argv template does not preserve guarded placeholders"
+        for parameter, flag in {
+            "max_state_age_s": "--max-state-age-s",
+            "max_camera_age_s": "--max-camera-age-s",
+            "max_temperature_c": "--max-temperature-c",
+            "min_voltage_v": "--min-voltage-v",
+            "max_voltage_v": "--max-voltage-v",
+            "max_joint_current_a": "--max-joint-current-a",
+            "max_bus_current_a": "--max-bus-current-a",
+        }.items():
+            try:
+                argv_value = float(pairs[flag])
+            except (KeyError, TypeError, ValueError):
+                return "motionless health gate argv template lacks a numeric safety bound"
+            if abs(argv_value - values[parameter]) > 1e-9:
+                return "motionless health gate argv safety bounds do not match the plan"
+        return ""
 
     def _prototype_root(self) -> Optional[Path]:
         candidates = (

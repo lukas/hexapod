@@ -78,12 +78,11 @@ ENGINEERING_LANES = {
 def engineering_job_lane(source_context: Any) -> str:
     """Classify a durable job from its immutable source context.
 
-    A job is offline only when its source experiment explicitly disables
-    motion (or is explicitly simulation-only without a motion flag).  This
-    applies to analysis follow-through as well as queue handoffs: a physical
-    source must not be handed to an offline worker whose contract forbids
-    robot access. Missing, malformed, or conflicting motion metadata stays
-    conservative and is treated as hardware.
+    A job is offline only when its source experiment explicitly declares both
+    simulation_only=True and robot_motion=False. This applies to analysis
+    follow-through as well as queue handoffs: a physical source must stay on
+    the hardware lane, including motionless checks that read the robot.
+    Missing, malformed, or conflicting metadata stays on the hardware lane.
     """
     if not isinstance(source_context, dict):
         return ENGINEERING_LANE_HARDWARE
@@ -94,15 +93,30 @@ def engineering_job_lane(source_context: Any) -> str:
     return ENGINEERING_LANE_HARDWARE
 
 
-def experiment_parameters_are_offline(parameters: Any) -> bool:
+def experiment_parameters_are_nonmotion(parameters: Any) -> bool:
+    """Identify completed non-motion work whose review must not spawn a chain.
+
+    This is a retirement rule, not permission to run on an offline worker.
+    Live motionless checks still require the hardware lane when submitted.
+    """
     if not isinstance(parameters, dict):
         return False
-    # Explicitly disabling motion is offline. A simulation-only marker is also
-    # offline only when no motion flag was supplied; malformed or conflicting
-    # metadata stays on the conservative hardware lane.
     return parameters.get("robot_motion") is False or (
         "robot_motion" not in parameters
         and parameters.get("simulation_only") is True
+    )
+
+
+def experiment_parameters_are_offline(parameters: Any) -> bool:
+    if not isinstance(parameters, dict):
+        return False
+    # Offline replay must say both that it is simulated and that it cannot move
+    # the robot. A motionless *physical* check may still require live camera or
+    # servo telemetry, so robot_motion=False alone belongs on the hardware lane.
+    # Missing or conflicting metadata likewise stays conservative.
+    return (
+        parameters.get("simulation_only") is True
+        and parameters.get("robot_motion") is False
     )
 
 
@@ -876,7 +890,12 @@ class EngineeringJobStore:
     def _analysis_needs_no_engineering(
         analysis: Any, parameters: Any = None, experiment: Any = None
     ) -> bool:
-        if experiment_parameters_are_offline(parameters):
+        live_health_check = (
+            isinstance(parameters, dict)
+            and parameters.get("runner")
+            == "rl_move/scripts/run_motionless_health_gate.py"
+        )
+        if not live_health_check and experiment_parameters_are_nonmotion(parameters):
             return True
         # An operator-cancelled plan that never started has no physical result
         # to repair. Its analyst may correctly label the absent measurement
@@ -1217,11 +1236,9 @@ class EngineeringJobStore:
         hardware_predicate = (
             "(NOT ("
             "COALESCE(json_type(source_context_json,"
-            "'$.experiment.parameters.robot_motion')='false',0) OR "
-            "(json_type(source_context_json,"
-            "'$.experiment.parameters.robot_motion') IS NULL AND "
+            "'$.experiment.parameters.simulation_only')='true',0) AND "
             "COALESCE(json_type(source_context_json,"
-            "'$.experiment.parameters.simulation_only')='true',0))))"
+            "'$.experiment.parameters.robot_motion')='false',0)))"
         )
         lane_filter = ""
         if lane == ENGINEERING_LANE_HARDWARE:

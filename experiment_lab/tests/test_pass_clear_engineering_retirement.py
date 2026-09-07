@@ -112,6 +112,30 @@ def test_completed_no_motion_check_needs_no_second_engineer(tmp_path):
 
 
 @pytest.mark.parametrize(
+    "verdict, disposition, needs_repair",
+    [("pass", "clear", False), ("fail", "clear", True),
+     ("pass", "needs_inspection", True), ("inconclusive", "stop", True)],
+)
+def test_live_health_findings_keep_required_hardware_followthrough(
+    tmp_path, verdict, disposition, needs_repair
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    _finished_analysis(
+        store, verdict=verdict, safety_disposition=disposition,
+        parameters={
+            "runner": "rl_move/scripts/run_motionless_health_gate.py",
+            "simulation_only": False,
+            "robot_motion": False,
+        },
+    )
+    engineering = EngineeringJobStore(store)
+    assert engineering.reconcile() == int(needs_repair)
+    assert engineering.claim("offline", lease_seconds=60, lane="offline") is None
+    assert (engineering.claim("hardware", lease_seconds=60, lane="hardware")
+            is not None) is needs_repair
+
+
+@pytest.mark.parametrize(
     ("verdict", "safety_disposition"),
     [("fail", "clear"), ("pass", "needs_inspection")],
 )

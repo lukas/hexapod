@@ -2,6 +2,76 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-07 ~00:5x this cycle (refill; 11/11 GPU pods free, backlog
+  empty, no completion assigned). Executed the ~23:3x entry's own
+  named "DR-realism ablation" recommendation directly — REFUTED,
+  zero training/GPU spend.** The prior entry named the suspects
+  explicitly: `dr.friction_scale`/`dr.contact_stiff_scale`/
+  `dr.kp_scale_pct` (this composite's widest mechanical-compliance
+  DR bands: 0.6-1.4x, 0.7-2.0x, +-20%). First confirmed the mechanics
+  mechanically (`sim_env.py`/`domain_rand.py` read): cfg `dr.*`
+  overrides are applied as ABSOLUTE ranges AFTER `DomainRandomizer.
+  scaled(dr_scale)`, so setting an override to a trivial single value
+  (e.g. `friction_scale=1.0,1.0`) genuinely disables that axis'
+  variation regardless of the run's own `--dr-scale` flag (this
+  champion trained/evals at `--dr-scale 0.0` with all its real DR
+  coming from explicit `dr.*` overrides — confirmed no separate
+  "true DR-0" pass has ever existed for it; every prior gate read
+  already carries the full override stack). Ran ONE matched-seed
+  eval pass on the SAME settled champion checkpoint (`..._
+  allaxiskickhalf_nocrutch1x_c1_acq1_cont40m.zip`, zero retraining)
+  with the exact same seed/episode/DR-field stack as its own
+  already-read baseline gate, changing ONLY 4 keys to nominal:
+  `dr.friction_scale=1.0,1.0`, `dr.contact_stiff_scale=1.0,1.0`,
+  `dr.kp_scale_pct=0.0`, `dr.kv_scale_pct=0.0` (kv added alongside kp
+  as the same gain-mismatch family, not left half-ablated) — every
+  other DR field (mass_scale, kicks, pushes, sensor noise, bad_start,
+  link length, com offset, action noise, fault_prob) held byte-
+  identical, run on the controller pod (pure CPU eval, no GPU/training
+  spend, per guardrails' allowed eval-harness use). Per-episode
+  outlier alignment CONFIRMS a genuinely matched draw (same episode
+  index is the worst outlier in both arms every time: walk/det ep1
+  8.55->7.94, walk/sto ep4 8.12->7.19, startjitter/det ep1
+  13.29->9.74, startjitter/sto ep0 9.18->7.32) — this is a real
+  paired comparison, not seed noise. **Result: pooled median slip/m
+  4.809 (n=24) vs the baseline's 5.065 — a ~5% reduction, INSIDE the
+  gate's own established noise band (the 4 already-refuted reward-
+  mechanism arms landed within 0-8% of this same baseline).** 0/24
+  falls, gait_valid/roll/dir_err all read the same as baseline
+  (no behavior change). The worst-case disturbance-recovery outlier
+  episodes softened moderately (13.29->9.74, 9.18->7.32, ~25-30%
+  down) but the TYPICAL/steady episodes that set the median barely
+  moved (5.03->4.04, 4.94->4.89, 5.28->5.16) — confirming, from a
+  different angle, the ~23:3x entry's own per-episode-randomization
+  finding that steady undisturbed walking (not kick/push recovery) is
+  where the slip gap actually lives. **CONCLUSION: the DR-realism
+  hypothesis is REFUTED — this composite's friction/contact-stiffness/
+  gain-mismatch DR ranges are NOT the driver of item(4)'s steady-state
+  slip gap.** Combined with the ~23:3x finding (kicks/pushes already
+  ruled out), this rules out every DR axis anyone has named a
+  plausible driver; the slip is intrinsic to this champion's own
+  footfall pattern under this reward/architecture at this scale, not
+  an artifact of any DR band tested. **This was the one concretely-
+  scoped, agent-doable next step the board had open — it is now
+  answered (negative). Item(4)'s champion stays the settled hardening
+  boundary** (0 falls / clean six-leg gait / correct direction / fails
+  the formal contextual DONE-gate on slip magnitude alone) with no
+  further cheap diagnostic or reward-shaping lever identified; moving
+  it further needs a genuinely new mechanism idea (not examined here)
+  with its own design+bank pass before any relaunch. Full board
+  re-confirmed: joystick/amp/cpg DONE/maintenance, standwalk blocked
+  on design-thinking, todaypolicy delivered (anchor-dose axis closed,
+  next lever unscoped), assistfade's `s0-longbudget` and walkcurr's own
+  item(1) crutch-ON composite stay DIG-IN-owned. `CYCLE_WORKED`
+  touched (real zero-spend diagnostic + a decisive negative finding).
+  Evidence: `logs/ckpt_eval/walkcurr_item4_dr_ablation_
+  frictioncontactgain_nominal/report.json` (+ contact sheets/videos),
+  vs `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+  medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_gate/
+  report.json` (baseline), W&B `v6wmk0lv`, `sim_env.py`
+  lines ~610-633 / `domain_rand.py` lines ~251-253 (override-after-
+  scale mechanics), RL_LOG 09-07 00:5x.**
+
 - **09-06 ~23:4x this cycle (assigned runs: both `loadslip-windowed-
   {s0,s1}` gates — arrived ALREADY VERDICTED by a concurrent cycle
   (see the ~23:3x entry immediately below) before this cycle started,

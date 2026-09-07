@@ -102,6 +102,7 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 
 import argparse
 import json
+import math
 import sys
 from collections import Counter
 from pathlib import Path
@@ -119,6 +120,242 @@ from rl_move.robot_state import DEG2RAD  # noqa: E402
 from .servo_model import SimServoParams  # noqa: E402
 from .walk_task import SimHexapodJointWalkEnv  # noqa: E402
 from .joint_task import q_rad_to_action  # noqa: E402
+
+
+class _ContactAudit:
+    """Per-foot contact-wrench + slip + joint-tracking recorder (09-07,
+    todaypolicy turn-authority operator focus note): answers WHICH stance
+    legs generate/brake yaw about the instantaneous whole-robot COM, how
+    much of foot motion is material-point skating (audit_slip_frame.py's
+    contact-point identification + material-slip math reused verbatim),
+    and whether commanded->postclip->actual joint tracking (slew clip /
+    servo lag) explains a turn deficit. Diagnostic only: instantiated only
+    under ``--contact-audit``; the default path is bit-exact untouched.
+
+    Sign convention is SELF-VALIDATED per rollout, not assumed: the force
+    on each pad is oriented so the summed vertical contact force supports
+    the robot (median sum_fz ~ +weight), and the per-tick summed contact
+    yaw torque about the COM is regressed against d(Lz)/dt from MuJoCo's
+    own ``mj_subtreeVel``/``subtree_angmom`` (gravity exerts no torque
+    about the COM, so contacts are the only external yaw torque source —
+    slope ~1 validates both the wrench signs and the COM lever arms).
+    """
+
+    N_BINS = 12
+
+    def __init__(self, env):
+        import mujoco
+        self.mj = mujoco
+        self.env = env
+        m = env.model
+        self.pads = [m.body(f"L{i}_pad").id for i in range(6)]
+        self.pad_geoms = [
+            {g for g in range(m.ngeom) if m.geom_bodyid[g] == b}
+            for b in self.pads]
+        self.floor = {g for g in range(m.ngeom) if m.geom_bodyid[g] == 0}
+        self.weight_n = float(np.sum(m.body_mass)) * 9.81
+        self.dt = env.dt
+        # per-scored-tick histories
+        self.rows: list[dict] = []
+        self.prev_lz: float | None = None
+        self.prev_pad_x = None      # (6,3) previous tick pad centers
+        self.prev_pad_r = None      # (6,3,3)
+        self.prev_cpos = None       # list of 6 contact positions or None
+        self.prev_loaded = None     # (6,) bool
+        self.prev_q_safe = None
+        self.jrows: list[dict] = []
+
+    def tick(self, *, phase: float, q_prop, q_safe, q_act) -> None:
+        env = self.env
+        d, m = env.data, env.model
+        self.mj.mj_subtreeVel(m, d)
+        lz = float(d.subtree_angmom[0][2])
+        com = d.subtree_com[0].copy()
+        r_body = d.xmat[env._chassis_bid].reshape(3, 3)
+        fz = np.zeros(6)
+        tau_f = np.zeros(6)          # (contact - COM) x force, z component
+        tau_c = np.zeros(6)          # contact couple, z component
+        cpos: list = [None] * 6
+        f6 = np.zeros(6)
+        for ci in range(d.ncon):
+            c = d.contact[ci]
+            foot = None
+            sign = 1.0
+            for f in range(6):
+                if c.geom1 in self.pad_geoms[f] and c.geom2 in self.floor:
+                    foot, sign = f, -1.0   # wrench-on-geom2 convention;
+                    break                  # flip when the PAD is geom1
+                if c.geom2 in self.pad_geoms[f] and c.geom1 in self.floor:
+                    foot, sign = f, 1.0
+                    break
+            if foot is None:
+                continue
+            self.mj.mj_contactForce(m, d, ci, f6)
+            frame = np.asarray(c.frame, dtype=float).reshape(3, 3)
+            f_w = sign * (frame.T @ f6[:3])
+            c_w = sign * (frame.T @ f6[3:])
+            p = c.pos.copy()
+            fz[foot] += float(f_w[2])
+            tau_f[foot] += float(np.cross(p - com, f_w)[2])
+            tau_c[foot] += float(c_w[2])
+            cpos[foot] = p if cpos[foot] is None else 0.5 * (cpos[foot] + p)
+        # global sign self-validation happens in summary(); record raw
+        pad_x = np.array([d.xpos[b].copy() for b in self.pads])
+        pad_r = np.array([d.xmat[b].reshape(3, 3).copy() for b in self.pads])
+        loaded = np.array([
+            env._touch_adr[f] >= 0
+            and float(d.sensordata[env._touch_adr[f]]) > 0.5
+            for f in range(6)])
+        slip_center = np.zeros(6)
+        slip_material = np.zeros(6)
+        if self.prev_pad_x is not None and self.prev_loaded is not None:
+            for f in range(6):
+                if not self.prev_loaded[f]:
+                    continue
+                dxy = float(np.linalg.norm(
+                    pad_x[f, :2] - self.prev_pad_x[f, :2]))
+                slip_center[f] = dxy
+                pc = self.prev_cpos[f]
+                if pc is None:
+                    slip_material[f] = dxy  # untracked: count like gate
+                    continue
+                x0, x1 = self.prev_pad_x[f], pad_x[f]
+                r0, r1 = self.prev_pad_r[f], pad_r[f]
+                p_mat = x1 + r1 @ (r0.T @ (pc - x0))
+                slip_material[f] = float(np.linalg.norm((p_mat - pc)[:2]))
+        # stance-center position of each loaded foot relative to the COM,
+        # in the BODY frame (the placement-geometry read the focus note
+        # asks for; +x forward, +y left)
+        rel_body = np.full((6, 2), np.nan)
+        for f in range(6):
+            if loaded[f] and cpos[f] is not None:
+                rel_body[f] = (r_body.T @ (cpos[f] - com))[:2]
+        dlz = (None if self.prev_lz is None
+               else (lz - self.prev_lz) / self.dt)
+        self.rows.append({
+            "phase": float(phase % (2.0 * math.pi)),
+            "fz": fz, "tau_f": tau_f, "tau_c": tau_c,
+            "loaded": loaded, "rel_body": rel_body,
+            "slip_center": slip_center, "slip_material": slip_material,
+            "dlz": dlz,
+        })
+        # joint tracking: commanded (pre-clip) vs postclip (slew-limited)
+        # vs actual, all in the logical q_rad frame
+        if q_prop is not None and q_safe is not None and q_act is not None:
+            j = {"clip_gap": np.abs(np.asarray(q_prop) - np.asarray(q_safe)),
+                 "track_err": np.abs(np.asarray(q_act) - np.asarray(q_safe))}
+            if self.prev_q_safe is not None:
+                lim = 0.98 * env.safety.max_dq
+                j["slew_sat"] = (np.abs(np.asarray(q_safe)
+                                        - self.prev_q_safe) >= lim)
+            self.jrows.append(j)
+            self.prev_q_safe = np.asarray(q_safe, dtype=float).copy()
+        self.prev_lz = lz
+        self.prev_pad_x, self.prev_pad_r = pad_x, pad_r
+        self.prev_cpos, self.prev_loaded = cpos, loaded
+
+    def summary(self) -> dict:
+        if not self.rows:
+            return {"n_ticks": 0}
+        n = len(self.rows)
+        fz = np.stack([r["fz"] for r in self.rows])            # (T,6)
+        tau_f = np.stack([r["tau_f"] for r in self.rows])
+        tau_c = np.stack([r["tau_c"] for r in self.rows])
+        loaded = np.stack([r["loaded"] for r in self.rows])
+        slip_c = np.stack([r["slip_center"] for r in self.rows])
+        slip_m = np.stack([r["slip_material"] for r in self.rows])
+        phase = np.array([r["phase"] for r in self.rows])
+        # sign self-validation: force-on-pad must SUPPORT the robot
+        sum_fz_med = float(np.median(fz.sum(axis=1)))
+        sgn = 1.0 if sum_fz_med >= 0 else -1.0
+        fz, tau_f, tau_c = sgn * fz, sgn * tau_f, sgn * tau_c
+        # angular-momentum validation: sum contact yaw torque vs dLz/dt
+        tau_tot = (tau_f + tau_c).sum(axis=1)
+        dlz = np.array([r["dlz"] if r["dlz"] is not None else np.nan
+                        for r in self.rows])
+        ok = ~np.isnan(dlz)
+        angmom = {}
+        if ok.sum() > 10:
+            x, y = tau_tot[ok], dlz[ok]
+            vx = float(np.var(x))
+            slope = float(np.cov(x, y)[0, 1] / vx) if vx > 1e-12 else None
+            corr = (float(np.corrcoef(x, y)[0, 1])
+                    if vx > 1e-12 and np.var(y) > 1e-12 else None)
+            angmom = {"slope": slope, "corr": corr,
+                      "med_abs_resid": float(np.median(np.abs(y - x)))}
+        bins = np.minimum((phase / (2.0 * math.pi) * self.N_BINS).astype(int),
+                          self.N_BINS - 1)
+        phase_bins = []
+        for b in range(self.N_BINS):
+            sel = bins == b
+            if not sel.any():
+                phase_bins.append(None)
+                continue
+            phase_bins.append({
+                "n": int(sel.sum()),
+                "contact_frac": [round(float(loaded[sel, f].mean()), 3)
+                                 for f in range(6)],
+                "tau_z_mean": [round(float((tau_f + tau_c)[sel, f].mean()), 4)
+                               for f in range(6)],
+                "fz_mean": [round(float(fz[sel, f].mean()), 3)
+                            for f in range(6)],
+            })
+        rel = np.stack([r["rel_body"] for r in self.rows])     # (T,6,2)
+        stance_xy = []
+        for f in range(6):
+            good = ~np.isnan(rel[:, f, 0])
+            stance_xy.append(
+                [round(float(np.nanmean(rel[good, f, k])), 4)
+                 for k in (0, 1)] if good.any() else None)
+        out = {
+            "n_ticks": n,
+            "sign_flipped": sgn < 0,
+            "sum_fz_med_N": round(abs(sum_fz_med), 3),
+            "weight_N": round(self.weight_n, 3),
+            "angmom_check": angmom,
+            "per_foot": {
+                "duty": [round(float(loaded[:, f].mean()), 3)
+                         for f in range(6)],
+                "fz_mean_loaded_N": [
+                    round(float(fz[loaded[:, f], f].mean()), 3)
+                    if loaded[:, f].any() else None for f in range(6)],
+                "yaw_imp_force_Nms": [
+                    round(float(tau_f[:, f].sum() * self.dt), 5)
+                    for f in range(6)],
+                "yaw_imp_couple_Nms": [
+                    round(float(tau_c[:, f].sum() * self.dt), 5)
+                    for f in range(6)],
+                "slip_center_m": [round(float(slip_c[:, f].sum()), 4)
+                                  for f in range(6)],
+                "slip_material_m": [round(float(slip_m[:, f].sum()), 4)
+                                    for f in range(6)],
+                "stance_center_body_xy_m": stance_xy,
+            },
+            "yaw_imp_total_Nms": round(
+                float((tau_f + tau_c).sum() * self.dt), 5),
+            "phase_bins": phase_bins,
+        }
+        if self.jrows:
+            clip = np.stack([j["clip_gap"] for j in self.jrows])   # (T,18)
+            track = np.stack([j["track_err"] for j in self.jrows])
+            sat_rows = [j["slew_sat"] for j in self.jrows
+                        if "slew_sat" in j]
+            sat = (np.stack(sat_rows) if sat_rows
+                   else np.zeros((1, 18), dtype=bool))
+            cls = {"yaw": [3 * l for l in range(6)],
+                   "hip": [3 * l + 1 for l in range(6)],
+                   "knee": [3 * l + 2 for l in range(6)]}
+            out["joints"] = {
+                k: {"clip_gap_med_rad": round(
+                        float(np.median(clip[:, idx])), 5),
+                    "clip_gap_p95_rad": round(
+                        float(np.percentile(clip[:, idx], 95)), 5),
+                    "track_err_med_rad": round(
+                        float(np.median(track[:, idx])), 5),
+                    "slew_sat_frac": round(
+                        float(sat[:, idx].mean()), 4)}
+                for k, idx in cls.items()}
+        return out
 
 # Preserve the probe's original physical pose after the repository-wide
 # robot-absolute coordinate migration.  Its former compatibility wrapper took
@@ -169,7 +406,9 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             scripted_yaw_arm_scale: float = 1.0,
             scripted_yaw_amplify_scale: float = 1.0,
             scripted_selective_omega_boost: float = 1.0,
-            scripted_group_duty_skew: float = 0.0) -> dict:
+            scripted_group_duty_skew: float = 0.0,
+            contact_audit: bool = False,
+            phase_offset: float = 0.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
     "COMBINED walk+turn ticks specifically" branch — every prior
     anchor-coef/turn-authority probe in this lineage held vx_ref=0,
@@ -248,6 +487,24 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     obs, info = env.reset()
     if policy == "checkpoint" and hasattr(model, "reset"):
         model.reset()
+    if phase_offset != 0.0:
+        # start the walk phase clock at a different point in the tripod
+        # cycle (09-07 turn-authority audit: both start phases). The 1 s
+        # zero-command hold keeps the clock frozen (run=False) so the
+        # offset survives until the ramp starts. Applies to the env obs
+        # clock; the scripted TripodGait keeps its own time base.
+        env._phase = float(phase_offset) % (2.0 * math.pi)
+    audit = _ContactAudit(env) if contact_audit else None
+    cap: dict = {}
+    if contact_audit:
+        _orig_atq = env._act_to_q
+
+        def _atq_rec(clipped, _orig=_orig_atq, _cap=cap):
+            out = _orig(clipped)
+            _cap["q_prop"] = np.asarray(out[0], dtype=float).copy()
+            return out
+
+        env._act_to_q = _atq_rec
     traj = env._goal_traj
     n = len(traj.vx)
     hold_n = ramp_n = int(round(1.0 / env.dt))
@@ -292,6 +549,13 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
         if step >= hold_n + ramp_n and gm == "walk":
             wz_list.append(float(env._body_wz()))
             vx_list.append(float(env._body_vel_xy()[0]))
+            if audit is not None:
+                audit.tick(
+                    phase=float(getattr(env, "_phase", 0.0)),
+                    q_prop=cap.get("q_prop"),
+                    q_safe=env.safety._last_safe.copy(),
+                    q_act=(env._state.joint_position.copy()
+                           if env._state is not None else None))
         step += 1
         if term:
             fell = True
@@ -305,6 +569,8 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
     return {
         "wz_cmd": wz_cmd,
         "vx_cmd": vx_cmd,
+        "phase_offset": phase_offset,
+        "contact_audit": audit.summary() if audit is not None else None,
         "seed": seed,
         "n_walk_ticks": len(wz_arr),
         "n_total_ticks": step,
@@ -357,6 +623,24 @@ def main() -> int:
                          "extension) — default '0.0' reproduces the "
                          "original pure-turn-in-place behavior exactly")
     ap.add_argument("--seeds", default="0,1")
+    ap.add_argument("--cells", default=None,
+                    help="explicit comma-separated vx:wz cell list (e.g. "
+                         "'0.08:0,0:0.3,0.08:-0.15'); overrides the "
+                         "--wz-cmds x --vx-cmds cross product (09-07 "
+                         "turn-authority audit: probe exactly the gate's "
+                         "straight/tip/arc cells, nothing else)")
+    ap.add_argument("--contact-audit", action="store_true",
+                    help="record per-foot contact wrenches about the COM "
+                         "(force + couple z-torque), normal load, "
+                         "material-point slip, phase-resolved bins, and "
+                         "cmd/postclip/actual joint tracking per rollout "
+                         "(09-07 todaypolicy turn-authority diagnostic); "
+                         "default off is bit-exact legacy")
+    ap.add_argument("--phase-offsets", default="0.0",
+                    help="comma-separated walk-phase-clock start offsets "
+                         "in radians (e.g. '0,3.14159' = both tripod "
+                         "start phases); each cell is run at every "
+                         "offset; default 0.0 is bit-exact legacy")
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--frozen-margin", type=float, default=0.5,
                     help="PASS if median wz_err <= this fraction of "
@@ -401,19 +685,32 @@ def main() -> int:
     if args.policy == "checkpoint":
         model, model_obs_width = _load_model(args.checkpoint)
 
-    wz_cmds = [float(x) for x in args.wz_cmds.split(",") if x.strip()]
-    vx_cmds = [float(x) for x in args.vx_cmds.split(",") if x.strip()]
+    if args.cells:
+        cells = []
+        for tok in args.cells.split(","):
+            if not tok.strip():
+                continue
+            vx_s, wz_s = tok.split(":")
+            cells.append((float(vx_s), float(wz_s)))
+    else:
+        wz_cmds = [float(x) for x in args.wz_cmds.split(",") if x.strip()]
+        vx_cmds = [float(x) for x in args.vx_cmds.split(",") if x.strip()]
+        cells = [(vx, wz) for wz in wz_cmds for vx in vx_cmds]
+    phase_offsets = [float(x) for x in args.phase_offsets.split(",")
+                     if x.strip()]
     seeds = [int(x) for x in args.seeds.split(",") if x.strip()]
     env_kwargs = {"cfg_set": args.cfg_set}
     results = []
-    for wz_cmd in wz_cmds:
-        for vx_cmd in vx_cmds:
+    for vx_cmd, wz_cmd in cells:
+        for phase_offset in phase_offsets:
             for seed in seeds:
                 res = rollout(model=model, env_cls_kwargs=env_kwargs,
                               wz_cmd=wz_cmd, vx_cmd=vx_cmd, seed=seed,
                               episode_seconds=args.episode_seconds,
                               policy=args.policy,
                               model_obs_width=model_obs_width,
+                              contact_audit=args.contact_audit,
+                              phase_offset=phase_offset,
                               scripted_omega_boost=(
                                   args.scripted_omega_boost),
                               scripted_yaw_arm_scale=(
@@ -425,6 +722,17 @@ def main() -> int:
                               scripted_group_duty_skew=(
                                   args.scripted_group_duty_skew))
                 results.append(res)
+                if args.contact_audit and res.get("contact_audit"):
+                    ca = res["contact_audit"]
+                    am = ca.get("angmom_check", {})
+                    print(f"  cell vx={vx_cmd} wz={wz_cmd} "
+                          f"ph={phase_offset:.2f} seed={seed}: "
+                          f"wz_med={res['wz_med']} "
+                          f"yaw_imp_total={ca.get('yaw_imp_total_Nms')} "
+                          f"fzsum={ca.get('sum_fz_med_N')}/"
+                          f"{ca.get('weight_N')}N "
+                          f"angmom corr={am.get('corr')} "
+                          f"slope={am.get('slope')}")
 
     summary = summarize(results, frozen_margin=args.frozen_margin)
     print(f"[probe_turn_authority] policy={args.policy} "

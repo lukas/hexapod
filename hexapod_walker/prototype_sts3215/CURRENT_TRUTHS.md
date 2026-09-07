@@ -1251,6 +1251,18 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   Evidence: `logs/ckpt_eval/walkcurr_item1_pushablation_nopush/
   report.json` vs `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
   crossgrav_medhead_dr_allaxis_nokick_c1_acq1_gate/report.json`.
+  UPDATE 09-07 ~05:4x: the crutch-isolation pair above landed —
+  `crutchoff-{s1,s2}` (single-lever `dr.torque_scale` 3,3->1,1, push
+  left ON, same seeds that already fell with crutch ON) both CANARY
+  PASS, 0 falls/24 eps, `gait_valid` 20/24 each. **Crutch IS a real,
+  confirmed driver of the push-recovery fragility (2/2 seeds), not
+  seed noise** — complementary to, not competing with, the push-
+  ablation finding above (both axes independently sufficient at their
+  joint dose). One of the original 3 seeds (`s0`) only fell at 40M
+  ACQ, not its own 2M canary, so a canary PASS alone doesn't prove
+  scale durability — a matched `crutchoff-s0` canary plus
+  `crutchoff-{s1,s2}-acq1` 40M continuations are in flight. Full
+  writeup: `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~05:4x.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

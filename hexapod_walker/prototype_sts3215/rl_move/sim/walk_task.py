@@ -4720,7 +4720,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     hist = deque(maxlen=win_ticks + 1)
                     self._walk_course_disp_hist = hist
                 bxy = self.data.xpos[self._chassis_bid, :2]
-                hist.append((float(bxy[0]), float(bxy[1])))
+                # walk_course_ref_yaw (see the income/sway block below
+                # for the audit): with the flag on, rows carry (yaw,
+                # commanded-yaw integral) so the window's reference
+                # direction can follow the commanded arc instead of
+                # the raw world-frame command. Default off = 2-wide
+                # rows, bit-exact legacy.
+                refyaw_cd = float(cfg_get(
+                    self.cfg, "reward", "walk_course_ref_yaw",
+                    default=0.0)) == 1.0
+                if refyaw_cd:
+                    R_cd = self.data.xmat[self._chassis_bid].reshape(3, 3)
+                    yaw_cd = math.atan2(R_cd[1, 0], R_cd[0, 0])
+                    th_cd = (hist[-1][3] if hist else 0.0) + float(
+                        getattr(goal, "wz_ref", 0.0)) * self.dt
+                    hist.append((float(bxy[0]), float(bxy[1]),
+                                 yaw_cd, th_cd))
+                else:
+                    hist.append((float(bxy[0]), float(bxy[1])))
                 if s_ref > 1e-3 and len(hist) == hist.maxlen:
                     dx = hist[-1][0] - hist[0][0]
                     dy = hist[-1][1] - hist[0][1]
@@ -4729,9 +4746,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     v_min_cd = float(cfg_get(
                         self.cfg, "reward",
                         "walk_course_disp_min_speed_m_s", default=0.02))
+                    vx_cd_ref, vy_cd_ref = goal.vx_ref, goal.vy_ref
+                    if refyaw_cd and len(hist[0]) >= 4:
+                        # reference = command rotated to the window's
+                        # arc-chord direction: body heading at window
+                        # start plus HALF the commanded rotation over
+                        # the window (chord of a constant-wz arc).
+                        ang_cd = hist[0][2] + 0.5 * (
+                            hist[-1][3] - hist[0][3])
+                        c_cd, s_cd = math.cos(ang_cd), math.sin(ang_cd)
+                        vx_cd_ref, vy_cd_ref = (
+                            c_cd * goal.vx_ref - s_cd * goal.vy_ref,
+                            s_cd * goal.vx_ref + c_cd * goal.vy_ref)
                     if avg_v_disp >= v_min_cd:
                         cos_cd = max(-1.0, min(1.0, (
-                            dx * goal.vx_ref + dy * goal.vy_ref)
+                            dx * vx_cd_ref + dy * vy_cd_ref)
                             / (d_disp * s_ref)))
                         r_cdisp = -k_cdisp * (1.0 - cos_cd)
                         reward = float(reward) + r_cdisp
@@ -4769,8 +4798,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 self.cfg, "reward",
                                 "walk_course_disp_overspeed_along",
                                 default=0.0)) == 1.0:
-                            spd_dover = (dx * goal.vx_ref
-                                        + dy * goal.vy_ref) / (
+                            spd_dover = (dx * vx_cd_ref
+                                        + dy * vy_cd_ref) / (
                                             s_ref * win_s)
                         s_den_d = max(s_ref, float(cfg_get(
                             self.cfg, "reward",
@@ -4868,24 +4897,69 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     self._walk_course_win_hist = whist
                     self._walk_course_win_cum = [0.0, 0.0, 0]
                 cum = self._walk_course_win_cum
-                cum[0] += goal.vx_ref * self.dt
-                cum[1] += goal.vy_ref * self.dt
+                # COMMANDED-YAW-ROTATED course reference (2026-09-07
+                # combined-frame audit, probe_combined_frame.py /
+                # OPERATOR_QUESTIONS same date): the legacy reference
+                # integrates (vx_ref, vy_ref) as a FIXED world-frame
+                # chord, but the velocity kernel is BODY-frame and the
+                # policy obs (walk_obs_body_vel=2 lineages) carries no
+                # world compass — on combined vx+wz ticks the legacy
+                # course/sway terms pay REFUSING to turn (measured:
+                # wz-ignorer out-earns the faithful arc-follower
+                # 2094.5 vs 1959.8 total on the exact turns-run stack,
+                # course income +597 vs +438). With
+                # reward.walk_course_ref_yaw=1 the per-tick command
+                # displacement is rotated by the integral of wz_ref,
+                # and each window's reference is anchored at the
+                # body's OWN window-start heading — the body-frame
+                # joystick semantics (vx forward + wz = an arc): a
+                # perfect body-frame arc tracker scores zero course
+                # error at any wz. Default 0 = legacy world-chord
+                # math, bit-exact (rows stay 5-wide, no rotation).
+                ref_yaw_on = float(cfg_get(
+                    self.cfg, "reward", "walk_course_ref_yaw",
+                    default=0.0)) == 1.0
+                if ref_yaw_on:
+                    wz_ref_t = float(getattr(goal, "wz_ref", 0.0))
+                    th_prev = whist[-1][5] if whist else 0.0
+                    c_th, s_th = math.cos(th_prev), math.sin(th_prev)
+                    cum[0] += (c_th * goal.vx_ref
+                               - s_th * goal.vy_ref) * self.dt
+                    cum[1] += (s_th * goal.vx_ref
+                               + c_th * goal.vy_ref) * self.dt
+                else:
+                    cum[0] += goal.vx_ref * self.dt
+                    cum[1] += goal.vy_ref * self.dt
                 cum[2] += 1 if s_ref > 1e-3 else 0
                 bxy_w = self.data.xpos[self._chassis_bid, :2]
-                whist.append((float(bxy_w[0]), float(bxy_w[1]),
-                              cum[0], cum[1], cum[2]))
+                if ref_yaw_on:
+                    R_w = self.data.xmat[self._chassis_bid].reshape(3, 3)
+                    yaw_w = math.atan2(R_w[1, 0], R_w[0, 0])
+                    whist.append((float(bxy_w[0]), float(bxy_w[1]),
+                                  cum[0], cum[1], cum[2],
+                                  th_prev + wz_ref_t * self.dt, yaw_w))
+                else:
+                    whist.append((float(bxy_w[0]), float(bxy_w[1]),
+                                  cum[0], cum[1], cum[2]))
 
                 def _win(n_ticks):
                     """(dx, dy, dcx, dcy) if the trailing n_ticks window
-                    is complete and fully commanded, else None."""
+                    is complete and fully commanded, else None.  With
+                    walk_course_ref_yaw=1 the command displacement is
+                    re-anchored to the window-start body heading."""
                     if len(whist) <= n_ticks:
                         return None
                     p1 = whist[-1]
                     p0 = whist[-1 - n_ticks]
                     if p1[4] - p0[4] != n_ticks:
                         return None      # stop tick inside the window
-                    return (p1[0] - p0[0], p1[1] - p0[1],
-                            p1[2] - p0[2], p1[3] - p0[3])
+                    dcx, dcy = p1[2] - p0[2], p1[3] - p0[3]
+                    if ref_yaw_on and len(p0) >= 7:
+                        off = p0[6] - p0[5]      # yaw0 - theta0
+                        c_o, s_o = math.cos(off), math.sin(off)
+                        dcx, dcy = (c_o * dcx - s_o * dcy,
+                                    s_o * dcx + c_o * dcy)
+                    return (p1[0] - p0[0], p1[1] - p0[1], dcx, dcy)
 
                 if k_cinc > 0.0 and s_ref > 1e-3:
                     w = _win(n_inc)
@@ -5019,18 +5093,41 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 # when arc_aware is False).
                                 cum0x, cum0y = pts[0][2], pts[0][3]
                                 ux_i, uy_i = ux_s, uy_s
+                                # walk_course_ref_yaw: the shadow path
+                                # must curve in the SAME re-anchored
+                                # frame the _win reference uses (yaw0
+                                # - theta0 of this window's own start
+                                # row), or its samples would be
+                                # compared against an unrotated
+                                # reference.
+                                c_o2, s_o2 = 1.0, 0.0
+                                if ref_yaw_on and len(pts[0]) >= 7:
+                                    off2 = pts[0][6] - pts[0][5]
+                                    c_o2 = math.cos(off2)
+                                    s_o2 = math.sin(off2)
                                 for idx in range(1, len(pts)):
                                     px, py = pts[idx][0], pts[idx][1]
                                     cx, cy = pts[idx][2], pts[idx][3]
                                     pcx = pts[idx - 1][2]
                                     pcy = pts[idx - 1][3]
                                     dtx, dty = cx - pcx, cy - pcy
+                                    if ref_yaw_on:
+                                        dtx, dty = (c_o2 * dtx
+                                                    - s_o2 * dty,
+                                                    s_o2 * dtx
+                                                    + c_o2 * dty)
                                     dlen = math.hypot(dtx, dty)
                                     if dlen > 1e-9:
                                         ux_i, uy_i = (dtx / dlen,
                                                       dty / dlen)
-                                    rx = x0_s + (cx - cum0x)
-                                    ry = y0_s + (cy - cum0y)
+                                    scx, scy = cx - cum0x, cy - cum0y
+                                    if ref_yaw_on:
+                                        scx, scy = (c_o2 * scx
+                                                    - s_o2 * scy,
+                                                    s_o2 * scx
+                                                    + c_o2 * scy)
+                                    rx = x0_s + scx
+                                    ry = y0_s + scy
                                     ddx, ddy = px - rx, py - ry
                                     perp = ddx * uy_i - ddy * ux_i
                                     acc += perp * perp

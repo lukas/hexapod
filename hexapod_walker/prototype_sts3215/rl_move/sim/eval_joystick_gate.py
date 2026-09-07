@@ -249,12 +249,23 @@ def aggregate_gate(reports: dict[str, dict], *,
              if "direction_err_mean_deg" in e]
         c1 = [e["course_err_1s_med_deg"] for e in eps
               if e.get("course_err_1s_med_deg") is not None]
+        # commanded-yaw-rotated course read (2026-09-07 combined-frame
+        # audit): report-only alongside the legacy chord key — the
+        # legacy reference scores turn-refusal BETTER than faithful
+        # arc-following on combined vx+wz cells (probe_combined_frame
+        # measured 0.90 vs 12.33 deg); gates that assert course on
+        # yaw-capable candidates should read this key with a matched
+        # comparator. Does not affect `pass`.
+        cy1 = [e["course_yawref_err_1s_med_deg"] for e in eps
+               if e.get("course_yawref_err_1s_med_deg") is not None]
         per_pass_summary[label] = {
             "n": len(eps),
             "falls": len(pf),
             "slip_med": round(statistics.median(s), 3) if s else None,
             "dir_err_med": round(statistics.median(d), 2) if d else None,
             "course_err_1s_med": round(statistics.median(c1), 2) if c1 else None,
+            "course_yawref_err_1s_med": round(
+                statistics.median(cy1), 2) if cy1 else None,
         }
 
     # Per-leg gait metrics (08-22 follow-up): eval_checkpoint already

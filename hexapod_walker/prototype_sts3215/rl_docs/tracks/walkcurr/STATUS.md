@@ -1,5 +1,69 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~17:2x (operator-requested cycle, focus note + fb_20260907T171006_43c9d4) — scratch8M gate FALSIFIES overspeed-financed slip; audit of the 4 closed direct-slip arms finds the mechanical escape they all shared (speed up, grow the ratio denominator); combined-mechanism bank built 4/4 green; ONE interaction canary launched
+
+**Verdict `...-cont40m-overspeedq1-cont8m` = FAIL (hypothesis
+falsified per its own pre-registered gate).** The 8M overspeed-charge
+adaptation (independent 8M warm from FROZEN cont40m, watchdog
+provenance — not 2M+8M) did what the mechanism promised: train
+`env/v_along_cmd_m_s` 0.083 -> 0.0742 (below the 0.075 bar), det
+prog med 1.775 -> 1.336 (<=1.35 in 2/4 matched cells), terminations
+falling, gv 22/24 on the parent's exact two leg-2 cells, 0/24 falls.
+But slip/m got 12-26% WORSE in ALL 4 matched cells (walk/det
+4.98 -> 5.82; exact matched audit fb_20260907T171006_43c9d4), far
+past the pre-registered >=4.5 falsification line. Absolute
+per-episode foot slip stayed FLAT (9.82 -> 9.30 m) while body travel
+shrank (2.07 -> 1.57 m): slower body, same feet. **Foot-cycle slip on
+this lineage is time-financed, not speed-financed.** Scope: closes
+overspeed-charge-ALONE as a slip remedy; NOT a universal physics/
+style-floor claim, NOT grounds for budget doubling.
+
+**Mechanical audit of the 4 closed direct-slip arms (operator design
+question: did overspeed freeness break them?): YES for the
+ratio-priced family, with direct evidence.** From cached
+wandb_history of every closed arm: `env/v_along_cmd_m_s` ROSE
+0.065 -> 0.085-0.087 within EVERY 2M window (loadslip-c1,
+loadslip-windowed-{s0,s1}, footslip-c1, footslip-c1-lowdose-s0), and
+the windowed arms halved their own charge (-0.80 -> -0.38, windowed
+ratio 10.8 -> 6.8) largely through the PROG-RATE DENOMINATOR of
+ratio = slip_rate/prog_rate while held-out slip/m never moved
+(4.83/5.05 vs 5.065). With overspeed free (freeprog income capped,
+surplus unpriced), "go faster" was the zero-cost descent direction of
+every ratio-priced slip charge. The overspeed charge prices exactly
+that escape — a genuine, previously-untested interaction, not a rerun
+of an unchanged null. (The tangent-charge arms also sped up but their
+charge is denominator-free; their null stands on its own.)
+
+**Bank first:** WALKCURR_OVLS combined-mechanism bank added to
+`test_task_semantics.py` (snapshot `exp/walkcurr-ovls-interaction-
+bank`, ba9ae210): off-key-inert-on-windowed-diet (bit-exact),
+escape-OPEN control (windowed loadslip alone at low cap: 1.7x-cap
+gait still matches at-cap — the training-history escape in
+miniature), escape-CLOSED claim (combined: optimum decisively at the
+cap), skate-still-worst + primary ordering + income positive. 4/4
+green; the 12 adjacent overspeed/loadslip-windowed tests still green.
+
+**Launched the ONE bounded interaction canary (operator-sanctioned):**
+`...-cont40m-overspeedq1-cont8m-lswin` — 2M, seed 2, warm from the
+cont8m checkpoint ITSELF (the speed-controlled parent, ledger
+init-from verified), single delta = bank-proven windowed loadslip
+dose (gate=1.0/ok=3.0/max=8.0/k=10.0/window_s=1.0/floor=0.01) on top
+of the inherited k_over=1.0. VERIFIED RUNNING train-0 (pid 580094,
+steps growing). Pre-registered read (no retro edits): SUPPORTED =
+walk/det slip/m med <=4.8 (>=1.0/m below the cont8m parent's 5.82)
+with v_along staying <=0.080 (numerator-driven, not a reopened speed
+escape), prog med >=0.75, gv >=18/24, 0 falls. FAIL-INTERACTION =
+slip >=5.3 or improvement only via further slowing — then next lever
+is contact/friction model fidelity or boundary-accept per the 09-06
+closure. Controls for 2x2 attribution all already exist: frozen
+cont40m (bare), loadslip-windowed-{s0,s1} (slip-only),
+overspeedq1-cont8m (speed-only).
+
+Now: read the lswin gate when the watcher lands it. Next if
+FAIL-INTERACTION: loaded-foot motion study on the speed-controlled
+checkpoint (where in the stance cycle the ~0.47 m/s loaded drift
+happens) before ANY new mechanism; do not re-dose.
+
 ## 2026-09-07 ~16:2x (refill cycle; picked up the ~16:1x overspeedq1 2M canary once its gate finished) — CANARY PASS (mechanism live+safe) but the overspeed-financed-slip hypothesis stays UNRESOLVED; launched an 8M acquisition continuation
 
 Triaged `...-cont40m-overspeedq1` (the audit's own falsification canary):

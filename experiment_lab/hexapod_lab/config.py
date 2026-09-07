@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import json
 import os
 import shlex
 from typing import Optional
@@ -32,6 +33,8 @@ class Settings:
     max_tag_photos: int = 36
     robot_status_url: str = "http://hexapod.local:8080/api/robot"
     robot_vision_url: str = "http://127.0.0.1:8898/api/vision/state"
+    observation_camera_name: str = ""
+    observation_camera_devices: tuple = ()
     codex_automation: bool = False
     codex_bin: Path = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
     codex_workdir: Path = Path(".")
@@ -105,6 +108,8 @@ class Settings:
             )),
             robot_status_url=os.getenv("HEXAPOD_ROBOT_STATUS_URL", "http://hexapod.local:8080/api/robot"),
             robot_vision_url=os.getenv("HEXAPOD_ROBOT_VISION_URL", "http://127.0.0.1:8898/api/vision/state"),
+            observation_camera_name=os.getenv("HEXAPOD_OBSERVATION_CAMERA_NAME", "").strip(),
+            observation_camera_devices=_camera_devices(),
             max_tag_photos=int(os.getenv("HEXAPOD_MAX_TAG_PHOTOS", "36")),
             codex_automation=_env_bool("HEXAPOD_CODEX_AUTOMATION", False),
             codex_bin=Path(os.getenv(
@@ -173,6 +178,13 @@ class Settings:
                 "HEXAPOD_CODEX_ENGINEERING_MAX_ATTEMPTS", "3"
             )),
         )
+
+
+def _camera_devices() -> tuple:
+    value = json.loads(os.getenv("HEXAPOD_OBSERVATION_CAMERAS", "[]"))
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError("HEXAPOD_OBSERVATION_CAMERAS must be a JSON list of camera definitions")
+    return tuple(value)
 
 
 def _optional_path(name: str) -> Optional[Path]:

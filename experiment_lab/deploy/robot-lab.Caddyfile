@@ -1,0 +1,28 @@
+# Keep this host's outage response in the cloud, independent of the Mac service.
+robot-lab.cwd1f0-new-cluster.coreweave.app {
+    reverse_proxy 127.0.0.1:8767 {
+        flush_interval -1
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 20s
+        }
+    }
+    handle_errors 502 503 504 {
+        header Cache-Control "no-store"
+        header Retry-After "15"
+        @api path /api/* /mcp /healthz
+        handle @api {
+            header Content-Type "application/json"
+            respond `{"ok":false,"error":"lab_service_unavailable","detail":"The cloud website cannot reach the Robot Lab service on the Mac. The service, Mac, or connection tunnel is unavailable. Robot condition and iMessage delivery cannot be verified.","retry_after_seconds":15}` 503
+        }
+        handle {
+            header Content-Type "text/html; charset=utf-8"
+            respond <<HTML
+                <!doctype html>
+                <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="15"><title>Robot Lab — connection unavailable</title>
+                <style>body{margin:0;background:#f4f5f7;color:#17212e;font:17px/1.6 system-ui,sans-serif}main{max-width:640px;margin:12vh auto;padding:32px;background:white;border:1px solid #dce0e5;border-radius:18px}small{color:#a34313;font-weight:700}h1{font-size:32px;line-height:1.2}p{color:#465365}a{display:inline-block;color:#1553ad;font-weight:650}aside{padding:16px;border-radius:10px;background:#fff4dd}@media(max-width:720px){main{margin:30px 16px;padding:24px}}</style></head>
+                <body><main><small>ROBOT LAB · CONNECTION UNAVAILABLE</small><h1>The website cannot reach the lab.</h1><p>The cloud website is online, but its connection to the Robot Lab service on the Mac has failed. The Mac, lab service, or connection tunnel may be offline.</p><aside><strong>Robot condition is unknown.</strong><br>Live telemetry and cameras cannot be checked. This page does not establish that the robot has stopped.</aside><p>Check that the Mac is awake and online, then check the Robot Lab service and its connection tunnel. iMessage alert delivery cannot be verified during this outage.</p><a href="/">Try again</a><p><small>This page retries automatically every 15 seconds.</small></p></main></body></html>
+                HTML 503
+        }
+    }
+}

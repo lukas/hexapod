@@ -1333,6 +1333,22 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
     workspace.mkdir()
     captured = {}
 
+    class FakeStdin:
+        """Minimal writable stdin: the orchestrator owns it from a writer thread."""
+
+        def __init__(self):
+            self.data = b""
+
+        def write(self, payload):
+            self.data += payload
+            return len(payload)
+
+        def flush(self):
+            pass
+
+        def close(self):
+            pass
+
     class FakeProcess:
         pid = 424242
         returncode = 0
@@ -1340,12 +1356,13 @@ def test_engineering_invoke_uses_real_workspace_tools_environment_and_timeout(
         def __init__(self, command, **kwargs):
             captured["command"] = command
             captured["env"] = kwargs["env"]
+            self.stdin = FakeStdin()
             output_index = command.index("-o") + 1
             Path(command[output_index]).write_text('{"ok": true}\n')
 
-        def communicate(self, _payload, timeout):
-            captured["communicate_timeout"] = timeout
-            return b"", b""
+        def wait(self, timeout=None):
+            captured["wait_timeout"] = timeout
+            return self.returncode
 
         def poll(self):
             return self.returncode

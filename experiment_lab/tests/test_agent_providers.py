@@ -426,3 +426,38 @@ def test_claude_offline_engineering_keeps_mcp_but_not_deploy_channels(
     assert "SSH_AUTH_SOCK" not in launch.environment
     assert "KUBECONFIG" not in launch.environment
     assert launch.environment["HEXAPOD_ENGINEERING_LANE"] == ENGINEERING_LANE_OFFLINE
+
+
+def test_large_prompt_is_delivered_when_the_child_reads_stdin_late(tmp_path):
+    """A prompt bigger than the OS pipe buffer must not deadlock the attempt.
+
+    macOS gives a pipe 16 KiB. Any agent that does not drain stdin the moment
+    it starts leaves the parent's write blocked partway, and `communicate()`
+    cannot be resumed once its first call has timed out.
+    """
+    import sys
+
+    from hexapod_lab.codex_orchestrator import CodexOrchestrator
+    from hexapod_lab.db import Store
+
+    fake_agent = tmp_path / "fake-agent"
+    fake_agent.write_text(
+        f"#!{sys.executable}\n"
+        "import json, pathlib, sys, time\n"
+        "time.sleep(2)\n"
+        "data = sys.stdin.buffer.read()\n"
+        "pathlib.Path(sys.argv[sys.argv.index('-o') + 1]).write_text(\n"
+        "    json.dumps({'received': len(data)}))\n"
+    )
+    fake_agent.chmod(0o700)
+    settings = configured(
+        tmp_path, codex_bin=fake_agent, codex_analysis_timeout_seconds=60
+    )
+    settings.data_dir.mkdir(parents=True, exist_ok=True)
+    orchestrator = CodexOrchestrator(Store(settings.data_dir / "lab.sqlite3"), settings)
+
+    prompt = "x" * (256 * 1024)
+    result = orchestrator._invoke(
+        "analysis", {"id": "big-prompt-job", "attempts": 1}, prompt, {"type": "object"}
+    )
+    assert result["received"] == len(prompt)

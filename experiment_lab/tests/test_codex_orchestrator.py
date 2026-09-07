@@ -168,13 +168,14 @@ def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
             self.pid = type(self).next_pid
             self.returncode = 0
             self.output = Path(command[command.index("-o") + 1])
+            self.stdin = FakeStdin()
             events.append("popen")
 
-        def communicate(self, _payload, timeout):
-            assert timeout > 0
+        def wait(self, timeout=None):
+            assert timeout is None or timeout > 0
             self.output.write_text("{}\n")
-            events.append("communicate")
-            return None, None
+            events.append("wait")
+            return self.returncode
 
         def poll(self):
             return self.returncode
@@ -199,7 +200,7 @@ def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
         engineering_lane=codex_module.ENGINEERING_LANE_HARDWARE,
     ) == {}
     assert events[:4] == [
-        "capture-created", "begin", "popen", "communicate",
+        "capture-created", "begin", "popen", "wait",
     ]
     assert events.count("finish") >= 1
 
@@ -217,7 +218,7 @@ def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
         engineering_workdir=workspace,
         engineering_lane=codex_module.ENGINEERING_LANE_OFFLINE,
     ) == {}
-    assert events == ["popen", "communicate"]
+    assert events == ["popen", "wait"]
 
 
 def test_popen_failure_closes_hardware_capture_before_finishing_intent(
@@ -465,6 +466,23 @@ def test_offline_cleanup_failure_quarantines_only_offline_worker(
     assert not orchestrator.stop_event.is_set()
     assert not orchestrator.fatal_cleanup_event.is_set()
     assert orchestrator.process_one("engineering-hardware") is False
+
+
+class FakeStdin:
+    """Minimal writable stdin: the orchestrator owns it from a writer thread."""
+
+    def __init__(self):
+        self.data = b""
+
+    def write(self, payload):
+        self.data += payload
+        return len(payload)
+
+    def flush(self):
+        pass
+
+    def close(self):
+        pass
 
 
 def complete_with_evidence(store, settings, *, name="completed", parameters=None):
@@ -1123,8 +1141,9 @@ def test_unproven_codex_cleanup_keeps_running_lease_and_stops_supervisor(
 
     class UnprovenProcess:
         pid = 424242
+        stdin = FakeStdin()
 
-        def communicate(self, _payload, timeout):
+        def wait(self, timeout=None):
             raise OSError("active invocation failure")
 
         def poll(self):
@@ -1165,9 +1184,10 @@ def test_unproven_cleanup_overrides_final_process_marker_write_failure(
     class UnprovenProcess:
         pid = 424243
         returncode = None
+        stdin = FakeStdin()
 
-        def communicate(self, _payload, timeout):
-            return (None, None)
+        def wait(self, timeout=None):
+            return None
 
         def poll(self):
             return None

@@ -1326,6 +1326,29 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   another charge/dose/window. Evidence: `rl_docs/tracks/walkcurr/
   STATUS.md` 09-07 ~20:3x, W&B `x5r1ktgp`/`vmczkhfx`/`si7rindk`/
   `o8pi2qe6`, RL_LOG 09-07 20:3x.
+- UPDATE 09-07 ~21:0x: the narrowest possible test of the widen8 fork
+  — add ONLY the single 180deg rear heading (not widen8's full 3-new-
+  heading jump) to each crutch-off seed's own ACQ-passed 40M champion,
+  2M canary — CLOSES the "incremental one-heading-at-a-time widening
+  dodges the role-aware mechanism" branch. `crutchoff-{s1,s2}-
+  widenrear180` (2/2 independently-trained seeds; `s0` owned by a
+  concurrent cycle) both `CANARY FAIL - MECHANISM` with an IDENTICAL
+  fingerprint at IDENTICAL episode indices: `walk/det` `gait_valid`
+  3/6 (below the required majority), chronic leg-0 sacrifice (duty
+  ~0.06-0.25 vs 0.4-0.8 elsewhere) at episodes 0/1/5 in both seeds,
+  same sac pattern in `walk/sto` and `walk_startjitter/sto` too. Cross-
+  seed identity at matched indices (the eval env's RNG assigns the
+  same heading to the same index regardless of training seed) rules
+  out seed noise: **this is heading-content-driven** — training even
+  ONE new rear heading, gradually, still reproduces a chronic single-
+  leg sacrifice. **No further `walk_heading_set` expansion, incremental
+  or otherwise, is licensed on this lineage until the heading-
+  conditioned role-aware mechanism (still unbuilt — see the 09-05
+  ~22:3x / 09-07 ~04:1x / ~04:4x entries) exists.** Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_
+  dr_allaxis_nokick_crutchoff_s{1,2}_widenrear180_gate/report.json`,
+  W&B `j7a0gr9b`/`692tv6qc`, `rl_docs/tracks/walkcurr/STATUS.md`
+  09-07 ~21:0x, RL_LOG 09-07 20:50.
 
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab

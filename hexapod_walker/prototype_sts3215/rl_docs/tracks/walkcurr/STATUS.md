@@ -1,3 +1,66 @@
+## 2026-09-07 ~21:0x (refill cycle; 11/11 GPU pods free, backlog empty) — verdicted the widenrear180 canary pair (s1,s2): CLOSES the "incremental one-heading-at-a-time" escape from the widen8 fork, 2/2 seeds
+
+`crutchoff-{s1,s2}-widenrear180` (launched ~20:1x: add ONLY the single
+180deg rear heading to the base 5-way set, narrowest possible step
+short of widen8's full 3-new-heading jump) both finished + gate-evaled.
+Both **CANARY FAIL - MECHANISM**, identical fingerprint:
+
+- `walk/det` `gait_valid` 3/6 (below the pre-registered >=4/6 majority
+  bar), with a CHRONIC leg-0 sacrifice at the SAME 3 episode indices
+  (0, 1, 5) in BOTH independently-trained seeds — duty ~0.06-0.25 on
+  leg0 in those episodes vs 0.4-0.8 on the other five legs. 0 falls,
+  `reward_walk` rising throughout (misaligned, not under-trained, per
+  the 08-21 ruling).
+- `walk/sto` sac[3] at the same episode index (1) in both seeds;
+  `walk_startjitter/sto` sac[5]/sac[0] at the same indices (2,3) in
+  both seeds. The eval harness's deterministic env-side RNG assigns
+  the same commanded heading to the same episode index regardless of
+  training seed, so this cross-seed identity at matched indices is
+  strong evidence the pathology is **heading-content-driven, not seed
+  noise or a training-instability fluke**.
+- Video (`contact_sheet.png`) confirms: one leg held retracted/off-
+  ground for the WHOLE 20s episode on the failing indices, other five
+  legs stepping normally — a real chronic single-leg sacrifice, not a
+  measurement artifact.
+
+Per the pre-registered fork this is the FAIL branch: **a single added
+rear heading DOES reproduce a chronic-sacrifice pathology, closing the
+"train one new heading at a time to dodge the role-aware mechanism"
+escape route** that CURRENT_TRUTHS 09-07 ~20:1x explicitly licensed as
+the cheap alternative to building that mechanism. (`s0`'s matching
+canary is owned by a concurrent cycle; 2/3 already-independent seeds
+agreeing on an identical fingerprint at identical indices makes this
+decisive without waiting on it.) The still-unbuilt heading-conditioned
+role-aware mechanism (CURRENT_TRUTHS 09-05 ~22:3x design target,
+scoped-but-not-built per 09-07 ~04:1x/~04:4x: naive rigid-template
+scoring proven INERT, a real design needs to be calibrated against a
+PASSING checkpoint's own graded, non-uniform duty spread, and touches
+shared `train_ppo_mjx.py`/`walk_task.py` policy internals — judged too
+large to build+bank-test+launch safely in one cycle by three separate
+prior attempts today) is now the ONLY legal lever left for ANY further
+`walk_heading_set` expansion on this lineage: no incremental-widen
+dose, gradual or otherwise, is licensed until it exists.
+
+This cycle did not attempt that build (same high-blast-radius/
+calibration-risk judgment as the three prior scoping attempts today —
+rushing it now would repeat the exact "naive rule becomes exploit #5"
+failure mode CURRENT_TRUTHS 09-07 ~04:4x already named and refuted
+once). Re-confirmed the rest of the board unchanged from today's
+repeated exhaustive audits: joystick/amp DONE, cpg closed (no
+adoption), standwalk/assistfade closed pending their own unscoped
+mechanism designs (contact/friction-model fidelity, per-leg-
+utilization pricing), todaypolicy DELIVERED with its turn-authority
+diagnostic exhausted and a fresh-seed question filed for the operator
+(`q_20260907T1700_turns_fresh_seed`). **IDLE: nothing runnable** — the
+only two live walkcurr threads (item(1) heading-widen, item(4) slip
+floor) both terminate at the same requirement (a real role-
+aware/structural design pass, not a reward dose or launch), and no
+other track has GPU-launchable work this cycle. Evidence:
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxis_nokick_crutchoff_s{1,2}_widenrear180_gate/report.json`, W&B
+`j7a0gr9b`/`692tv6qc`, RL_LOG 09-07 20:50. CYCLE_WORKED touched (2
+verdicts + doc updates, not a re-verify no-op).
+
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
 ## 2026-09-07 ~20:3x (refill cycle; 11/11 GPU pods free, backlog empty) — triaged the 4 orphaned transwin-c1 gate reads: CLOSES the transition-window slip-charge mechanism 4/4, and with it the WHOLE direct-slip-pricing reward class

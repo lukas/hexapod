@@ -1181,6 +1181,57 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_{fresh,fix}_
   gate/report.json` vs `..._s0c1_{,acq1_}gate/report.json`, W&B
   `f3wp5pba`/`ndjo2e2i`, RL_LOG 09-07 04:14.
+- UPDATE 09-07 ~04:4x (zero-spend diagnostic, scoping the still-unbuilt
+  role-aware mechanism before writing any code): pulled real per-leg
+  `duty_cycle` VECTORS (not just the aggregate `sacrificed_legs`/
+  `gait_valid` flags) from both a FAILING report
+  (`dbandgate-fresh_gate`, leg4 chronically sacrificed) and a PASSING
+  one (`crossgrav_medhead_abrupt_c1_acq1_gate`, `gait_valid` 23/24)
+  to check the most obvious reading of the role-aware idea — a binary
+  per-tick match to the canonical `PHASE_TRIPOD_A=(0,2,4)` vs `(1,3,5)`
+  template. Two findings, both NEGATIVE for that specific design:
+  (1) **worked the arithmetic by hand for a leg-4-always-swing twin**:
+  a per-tick `score = max(match_to_tripod_A, match_to_tripod_B)`
+  scores ~0.83-1.0 on such a twin (never collapses toward a clear
+  penalty), because dropping ONE leg from a 3-leg group still
+  coincidentally satisfies the OTHER template's expectation for that
+  leg roughly half the time — this exact "max-over-two-rigid-
+  templates" formulation would likely be a 4th INERT mechanism, no
+  better than `walk_duty_band_gate`, for the reason already proven
+  bad (rewards can't out-compete a genuinely cheaper physical basin
+  when the pricing has an escape hatch). (2) **real duty spread
+  refutes the "clean binary tripod" premise entirely, even in
+  PASSING runs**: `crossgrav_medhead_abrupt_c1_acq1`'s own 12
+  `walk`+`walk_startjitter`/det episodes show per-leg duty ranging
+  0.10-0.74 (e.g. `[0.65,0.39,0.18,0.74,0.29,0.23]`), NOT clustered
+  near 0.5 for every leg as a clean alternating-tripod would predict
+  — and leg4 is the single lowest-duty leg in 10/12 of those PASSING
+  episodes (0.18-0.30, once as low as 0.10 with that episode itself
+  flagged `sacrificed=[4]`). **Leg4 being the least-used leg is a
+  structural/kinematic fact of this gait at this commanded
+  speed/gravity, present in PASSING runs too — the pass/fail
+  boundary is a matter of DEGREE (0.10-0.30 passing vs 0.03-0.07
+  failing), not of matching or violating some crisp topological
+  pattern.** This means a rigid pattern/role-matching reward risks
+  charging genuinely-passing gaits along with failing ones (the same
+  false-positive risk that sank nothing yet, but would need very
+  careful calibration against this exact non-uniform baseline to
+  avoid). **Recommendation for whoever designs the role-aware
+  mechanism next: do NOT ship the naive max-over-binary-template
+  score describe in (1); any support-pattern reward needs to be
+  calibrated against a PASSING checkpoint's own graded duty spread
+  (this update's numbers) as its zero-charge reference band, not an
+  assumed uniform 0.5-per-leg tripod.** Given (2) also shows crossgrav
+  transfer is still the only mechanism that has ever measurably moved
+  leg4's duty in the right direction (0.03-0.07 direct-1g -> 0.10-0.30
+  crossgrav-transferred), the higher-value next step stays what
+  item(1) is already pursuing (replicate/extend crossgrav-transfer),
+  not a fresh reward class. No code changed, no launch — pure
+  read of already-synced `report.json` files, zero GPU/training spend.
+  Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_
+  dbandgate_fresh_gate/report.json`, `logs/ckpt_eval/cw_walkscratch_
+  easy0905_headset_crossgrav_medhead_abrupt_c1_acq1_gate/report.json`
+  (`episodes.duty_cycle` fields), RL_LOG 09-07 04:4x.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

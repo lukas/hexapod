@@ -1,5 +1,45 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~14:0x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — verdicted the `s2-widenbis135` orphan: heading-widen CLOSES 3/3 ACQ PASS; full-board re-audit finds no new non-duplicative launch
+
+`s2-widenbis135`'s gate had landed (13:42, after the ~13:3x entry below
+left it "pending, in flight, not duplicated") but sat unverdicted.
+Read it: **ACQ PASS**, `gait_valid` 21/24 (5/6,6/6,6/6,4/6) essentially
+matching `s2-acq1`'s own 21/24 baseline (6/6,6/6,6/6,3/6), 0 falls/
+terms in all 24 episodes both runs, same two legs (0,5) flagged, no
+new chronic sacrifice. **Closes heading-widen (base5+135) 3/3 ACQ
+PASS**, matching speed-widen's own 3/3 closure. SKILLS.md +1 row.
+
+Full board re-read after that (guardrails, capacity, `launch_run.py
+status`, all 8 track STATUS files, live `kubectl exec ps` on several
+pods): item(4)'s DR-band-narrowing is CLOSED 6/6 (all FAIL-EXONERATED,
+see ~13:4x entry); heading-widen and speed-widen are each closed 3/3
+ACQ PASS as SEPARATE axes (stacking them FAILS via a decisive
+matched-fault interaction, ~13:3x entry); every named remaining lever
+for item(4)'s persistent ~4-5/m slip gap (contact/friction model
+fidelity itself, foot geometry, or accepting the gap as this
+composite's gait-style floor) needs its own unscoped design pass, not
+a same-recipe relaunch. assistfade's ladder is now closed on all 4
+rungs (1 mesh-noanchor closed both tiers this same day, 2/3/4 closed
+09-06/09-07) with only an un-scoped "fresh reward diet" design lead
+left, matching walkcurr's own design-blocked shape. todaypolicy's
+`yawref-cont8m` stays DIG-IN-flagged (ambiguous, fork-deciding,
+correctly left for a deep-model cycle, not re-litigated here).
+standwalk closed pending fresh design thinking (09-05). joystick/amp/
+cpg DONE/closed, no reopening. `compliance-half`'s zero-spend
+allbandhalf confirmatory re-eval (frozen `cont40m` checkpoint, no
+retrain) is still computing on train-9 (video-every=1 is slow, per
+its own note) — left for the next reader, not duplicated.
+
+**No genuinely new, non-duplicative, launch-ready arm found anywhere
+in the registered tracks this cycle.** 11/11 GPU pods free at exit,
+backlog empty — this is idle-with-empty-queue (every frontier item is
+either closed, mid-flight elsewhere, or blocked on unscoped design
+work), not idle-next-to-runnable-work. `CYCLE_WORKED` touched (1 real
+verdict + SKILLS row + this synthesis, not a pure re-verify no-op).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s2_widenbis135_gate/report.json` vs `..._s2_acq1_gate/report.json`. W&B `nbcddvh2`. RL_LOG 09-07 14:05.
+
 ## 2026-09-07 ~13:3x (triage; assigned `s1-widenbis135`) — heading widen 2/3 seeds PASS; stacking widenbis135+speedwiden FAILS via a decisive matched-fault interaction; picked up 5 more orphaned DR-band canaries (item(4) 5/6, concurrent cycle closed the 6th)
 
 `crutchoff-s1-widenbis135` (assigned run): **ACQ PASS**, replicates s0

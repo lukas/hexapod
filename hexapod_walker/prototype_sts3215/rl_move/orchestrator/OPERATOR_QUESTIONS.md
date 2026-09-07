@@ -5591,7 +5591,15 @@ NOT adopting either yet; flagging for the operator, campaign
 continues on the combined-cell mechanism which is measured and
 repairable.
 
-## q_20260907T1700_turns_fresh_seed — OPEN
+## q_20260907T1700_turns_fresh_seed — SUPERSEDED (diagnostic repair proceeds)
+- correction, 2026-09-07 17:07 UTC (Codex): no operator reply is needed
+  for the next work. Independent review found substep-impulse, scripted
+  phase, contact-order and BC-target alignment defects in the evidence
+  used below. Seed-history causation and closure of every legal mechanism
+  are not established. Codex owns the isolated probe repair and validation,
+  followed by matched frozen reruns on the existing seed. The seed/fleet
+  boundaries remain intact. The original request below is retained as
+  history and does not block that authorized work; see todaypolicy STATUS.
 - cycle: turn-authority diagnostic (operator focus note 20260907T163405Z)
 - operator order: focus note "Existing fleet only; no spending, uncordon,
   filler, seeds, robot work" — executed: no seed arm launched.

@@ -1,3 +1,52 @@
+## 2026-09-07 ~21:5x (refill cycle; 11/11 GPU free, backlog empty at start) — legdutyterm1 4-arm repair-retrofit batch CLOSES 4/4 FAIL; launched a from-scratch disambiguation (2 running + 1 backlogged)
+
+The 3 remaining `walk_leg_duty_terminate_s` retrofit canaries (`s1`/`s2`-
+widen8-acq1, `s0`-widenbis180 — `s0`-widen8-acq1 already closed
+~21:3x) all landed and verdicted **CANARY FAIL - MECHANISM**, same
+shape as `s0` in every case: `gait_valid` WORSENS vs each seed's own
+pre-mechanism baseline (widen8: 20/24->12/24 (s1), 20/24->11/24 (s2);
+widenbis180: 18/24->13/24), and `walk_leg_duty_terminate` is still
+firing in the clear majority of episodes at the END of the 2M (19/24,
+20/24, 15/24) — never converging away, the run's own pre-registered
+FAIL branch. **This closes the retrofit-onto-an-already-40M-entrenched-
+checkpoint approach 4/4 FAIL**, on top of the already-closed 11-arm
+per-tick-price mechanism class: a hard per-leg duty TERMINATION raises
+the cost of an entrenched sacrifice but does not by itself unlearn a
+40M-step habit inside a 2M budget.
+
+**Not yet tested and genuinely open**: whether the SAME termination,
+present from the START of training (before the habit can entrench),
+prevents the sacrifice from forming at all — a different question than
+"can it repair an already-baked-in exploiter". Launched the cheap
+disambiguator: `respec --from <seed>-widen8-acq1` (the ORIGINAL 40M
+widen8 run, itself a from-scratch-relative-to-widen8 warm-start off
+each seed's pre-widen8 medhead champion) with ONLY the 5
+`walk_leg_duty_terminate*`/`walk_leg_duty_terminate_penalty` cfg-sets
+added from step 0 — byte-identical otherwise (same seed, same parent,
+same 40M budget) so this is a clean single-lever A/B against the
+already-known undosed widen8-acq1 ACQ-FAIL baseline. `s0`/`s1`
+-widen8-acq1-legdutyfresh VERIFIED RUNNING (train-2/train-0, 40M each
+= 80M, this cycle's default gpu-steps cap); `s2` queued to backlog (cap
+already spent) for the drain to place next free slot. Gate: PASS needs
+`gait_valid` >=18/24 (matching the pre-widen8 clean band), no chronic
+single-leg recurrence, 0 new falls, and the termination firing
+rarely/not-at-all by the end (never needed); FAIL if the same
+front-pair (0/5) chronic sacrifice still forms regardless of whether
+the termination is firing or has gone quiet (a quiet-but-still-parked
+leg means the termination got dodged, same shape as every closed
+per-tick-price mechanism). If this ALSO fails 2/2 or 3/3, the
+termination-mechanism family is closed outright (12+ price/termination
+designs, 0 wins) and the heading-conditioned role-aware mechanism named
+since 09-05 ~22:3x becomes the only untried lever.
+
+`CYCLE_WORKED` touched (3 verdicts closing the retrofit batch 4/4 +
+2 new disambiguating launches verified running + 1 backlogged).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-{s1,s2}-widen8-acq1-legdutyterm1`,
+`...-s0-widenbis180-legdutyterm1`, W&B `i66lls8h`/`5r1zed2h`/
+`dnpmd5tp`.
+
 ## 2026-09-07 ~21:3x (refill cycle; 11/11 GPU free, backlog empty) — FIRST legdutyterm1 repair-canary read lands: `s0-widen8-acq1-legdutyterm1` CANARY FAIL - MECHANISM (terminates constantly, does not converge in 2M)
 
 Only 1 of the 4 `walk_leg_duty_terminate_s` repair canaries launched at

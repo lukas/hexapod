@@ -1375,6 +1375,42 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   Evidence: `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~21:2x,
   `rl_move/tests/test_task_semantics.py` (`test_walk_legduty_
   terminate_*`), W&B `kwbx6jtk` (+3 siblings).
+  UPDATE 09-07 ~21:5x: all 4 of those retrofit-onto-entrenched-
+  checkpoint canaries landed — `s1`/`s2`-widen8-acq1-legdutyterm1 and
+  `s0`-widenbis180-legdutyterm1 all **CANARY FAIL - MECHANISM**,
+  matching `s0`-widen8-acq1-legdutyterm1's already-closed shape exactly:
+  `gait_valid` WORSENS vs each seed's own pre-mechanism baseline
+  (widen8: 20/24->12/24 s1, 20/24->11/24 s2; widenbis180: 18/24->13/24)
+  and `walk_leg_duty_terminate` is still firing in the clear majority
+  of episodes at the END of the 2M (19/24, 20/24, 15/24) — never
+  converging away, the run's own pre-registered FAIL branch, in all 4.
+  **Closes the retrofit-onto-an-already-40M-entrenched-checkpoint
+  approach 4/4 FAIL**: a hard per-leg duty TERMINATION raises the cost
+  of an already-baked-in sacrifice but does not unlearn a 40M-step
+  habit within a 2M budget — a genuinely different failure mode than
+  the 11-arm per-tick-price closure (those were gamed/saturated; this
+  one applies honest pressure that simply arrives too late). Still
+  OPEN and untested: whether the same termination, present from the
+  START of training (before the habit entrenches), prevents the
+  sacrifice from forming at all. Launched the cheap disambiguator —
+  `respec --from <seed>-widen8-acq1` (the ORIGINAL 40M widen8 run,
+  itself already a from-scratch-relative-to-widen8 warm-start off each
+  seed's pre-widen8 medhead champion) with ONLY the 5
+  `walk_leg_duty_terminate*` cfg-sets added from step 0, otherwise
+  byte-identical (same seed/parent/40M budget) — a clean single-lever
+  A/B against the already-known undosed widen8-acq1 ACQ-FAIL baseline.
+  `s0`/`s1`-widen8-acq1-legdutyfresh VERIFIED RUNNING (train-2/train-0,
+  40M each = 80M, the cycle's default gpu-steps cap); `s2` queued to
+  backlog for the next drain. If this ALSO fails (leg still parks
+  regardless of firing rate), the termination-mechanism family closes
+  outright (12+ price/termination designs, 0 wins) and the
+  heading-conditioned role-aware mechanism named since 09-05 ~22:3x
+  becomes the only untried lever — do not fund a 13th
+  price/termination dose variant before that read lands. Evidence:
+  `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+  allaxis-nokick-crutchoff-{s1,s2}-widen8-acq1-legdutyterm1`,
+  `...-s0-widenbis180-legdutyterm1`, `rl_docs/tracks/walkcurr/
+  STATUS.md` 09-07 ~21:5x, W&B `i66lls8h`/`5r1zed2h`/`dnpmd5tp`.
 
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab

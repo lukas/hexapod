@@ -1,5 +1,71 @@
 # cpg - Berkeley-style parameter gait search
 
+## 2026-09-07 ~03:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — periodmin1 joint search FINISHED (60/60): boundary-pin hypothesis REFUTED, best period re-converges to ~2.1s even with the bound widened to 1.0s
+
+**Plain English:** the prior cycle asked "was the CPG winner's ~2.0s
+stride period only picked because the search never let it try faster?"
+by widening the lower bound to 1.0s and re-running the full joint
+search (period + swing_frac + cmd_tau + lift_m together, not the naive
+one-line substitution already refuted). Answer: no — given the freedom
+to go as fast as 1.0s, the optimizer still landed on essentially the
+SAME period.
+
+`paper-cpg-periodmin1-20260907` completed all 60 iterations (found
+finished, no live process at cycle start — `logs/paper_cpg_search/
+paper-cpg-periodmin1-20260907.json`, `n_history=60`). Best point
+(iteration 14, `gp_ei_numpy`): `period=2.0994`, `cmd_tau=0.2428`,
+`lift_m=0.0312`, `swing_frac=0.3` (unchanged), `workspace_margin=0.971`
+— i.e. the joint search, with the bound removed, still converges to a
+period **slower** than the old winner's exact 2.0 (which was itself
+sitting on the OLD bound), not faster. This is a clean, decisive null:
+the boundary-pin was not hiding a faster optimum; ~2.0-2.1s is a real
+local optimum for this suite/gait/speed, not a search-space artifact.
+Closes the "faster cadence" sub-question of todaypolicy's named
+cadence-CPG-harvest lever.
+
+**In flight, not yet read:** kicked `eval_cpg_gate.py --params-from
+logs/paper_cpg_search/paper-cpg-periodmin1-20260907.json --name
+cpg-periodmin1-winner --robust --yaw-trim` (same protocol as the
+`robust120-winner-yawtrim` gate this is being compared against) in the
+background on the controller pod (PID 2349039, `/tmp/
+cpggate_periodmin1.log`, `logs/cpg_gate/cpg-periodmin1-winner/`,
+CPU-only, zero GPU/training spend) to get a real held-out comparison
+against the incumbent winner's `gate_verdict.json` (dr0 slip_per_m
+0.709, heading_progress_frac_mean 0.897, all panels PASS) before
+writing any adoption verdict — a ~2.1 vs 2.0 period difference plus
+the other re-tuned params could still be a genuine (if modest)
+improvement even though the boundary-pin theory itself is refuted.
+Still running at cycle end (video-heavy multi-panel robust suite,
+~10+ CPU-minutes in and counting via `ps aux`) — **next reader: read
+`logs/cpg_gate/cpg-periodmin1-winner/gate_verdict.json` directly, do
+not re-launch** (idempotent single run, PID 2349039 or its successor
+if it died — check `ps aux | grep eval_cpg_gate` first). If it PASSes
+AND beats the incumbent's slip/progress numbers outside noise, that's
+a same-family parameter-refresh candidate for `cpg_v1.npz`'s adoption
+process (A/B, per this track's own DONE-gate rule) and unblocks
+todaypolicy's cadence-harvest lever with a genuine (if modest) delta;
+if it merely matches or is worse, the cadence-harvest lever is CLOSED
+outright (best achievable is what `robust120-winner-yawtrim` already
+has) and todaypolicy's Next list has no further open item from this
+side.
+
+No GPU launch this cycle (CPU-only diagnostic work). Full board
+re-confirmed unchanged otherwise: joystick/amp DONE, standwalk blocked
+on fresh design thinking, assistfade `s0-longbudget` + walkcurr's
+item(1) crossgrav-composite fork stay DIG-IN-owned (not touched, model
+tiering), walkcurr just launched a fresh mechanism
+(`walk_duty_band_gate`) 2-arm canary pair (`dbandgate-{fresh,fix}`) —
+both finished training this cycle with no gate kicked yet, found
+orphaned and kicked (`ops.sh podeval`, registered via `evalpending`),
+left for the next reader per walkcurr's own STATUS. `CYCLE_WORKED`
+touched (real diagnostic finding + 3 eval kicks landed: 2 podeval + 1
+cpg gate).
+
+Evidence: `logs/paper_cpg_search/paper-cpg-periodmin1-20260907.json`
+(`best`/`history`), `logs/cpg_gate/robust120-winner-yawtrim/
+gate_verdict.json` (incumbent baseline), `ps aux` PID 2349039/2346780/
+2346781, `rl_move/orchestrator/pending_evals.json`.
+
 ## 2026-09-07 ~01:5x (this cycle, refill — no GPU launch licensed, feeds todaypolicy's own named "faster motion source / cadence-CPG harvest" next lever)
 
 **Plain English:** the robust-gate CPG winner's `period` (time per

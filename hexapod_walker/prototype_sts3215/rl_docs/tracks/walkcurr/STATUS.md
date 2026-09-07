@@ -1,5 +1,37 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~03:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — dbandgate-{fresh,fix} orphaned-eval find, no verdict yet
+
+The prior cycle's `walk_duty_band_gate` provenance-matrix pair
+(`cw-walkscratch-easy0905-headset-base-s0c1-dbandgate-fresh` train-4,
+`-dbandgate-fix` train-3) both finished their 2M mechanism-health
+canary within this cycle (`ledger` FINISHED, W&B `f3wp5pba`/`ndjo2e2i`
+state=finished, artifact handoff `phase: evaluated`, 3/3 snapshots
+delivered) but neither had its held-out gate eval kicked yet (fleet
+already back to 11/11 free, no `eval_checkpoint` process on either
+pod). Kicked `ops.sh podeval` for both (confirmed running remotely via
+`kubectl exec ps` on train-3/train-4), registered both via
+`evalpending add` (labels `cw_walkscratch_easy0905_headset_base_s0c1_
+dbandgate_{fix,fresh}_gate`) so the watcher/next reader doesn't have to
+rediscover the orphan. **Left unverdicted — do not re-run, read
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_
+{fix,fresh}_gate/report.json` once synced.** Per the pre-registered
+gate text: PASS needs measurably higher least-favored-leg duty than
+the undosed twin's landed 0.02-0.07 with det+sto staying clean/no new
+falls; FAIL closes `walk_duty_band_gate` as a repair lever too (both
+provenance points) and forces the leg-1/4 chronic-underuse question
+toward a structural (curriculum/exploration-anneal) mechanism instead
+of another reward-price gate.
+
+No new launch this cycle (item(1) crossgrav-composite fork stays
+DIG-IN-owned, untouched; every other track DONE/blocked/DIG-IN per
+`cpg`/`todaypolicy`/`standwalk`/`assistfade` STATUS docs re-read fresh
+this cycle). `CYCLE_WORKED` touched (2 eval kicks + registration).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-base-s0c1-
+dbandgate-{fix,fresh}`, `rl_move/orchestrator/pending_evals.json`,
+W&B `ndjo2e2i`/`f3wp5pba`.
+
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
 - **09-07 ~03:0x this cycle (refill; 11/11 GPU pods free, backlog

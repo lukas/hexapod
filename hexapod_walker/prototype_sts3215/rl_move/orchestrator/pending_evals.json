@@ -190,5 +190,17 @@
   "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_loadslip_windowed_s1_gate/report.json",
   "label": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_loadslip_windowed_s1_gate",
   "added": "2026-09-06T22:48:06"
+ },
+ {
+  "pod": "hexapod-mjx-train-3",
+  "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_fix_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_fix_gate",
+  "added": "2026-09-07T03:21:54"
+ },
+ {
+  "pod": "hexapod-mjx-train-4",
+  "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_fresh_gate/report.json",
+  "label": "cw_walkscratch_easy0905_headset_base_s0c1_dbandgate_fresh_gate",
+  "added": "2026-09-07T03:21:54"
  }
 ]

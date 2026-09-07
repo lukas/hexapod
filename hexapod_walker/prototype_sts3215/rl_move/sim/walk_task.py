@@ -381,6 +381,83 @@ def _wrap_goal(goal: TaskGoal | None) -> WalkGoal | None:
                     lift_legs=goal.lift_legs)
 
 
+# ---------------------------------------------------------------------------
+# TRANSITION-WINDOW slip-charge accounting (`reward.k_walk_transition_slip`,
+# 2026-09-07). Extracted to plain functions on plain (int, list[float])
+# state — no MuJoCo, no task object — so the touchdown/liftoff state
+# machine can be unit-tested directly with synthetic tick sequences
+# (`rl_move/tests/test_task_semantics.py`,
+# `test_wts_*`/`test_walkcurr_transition_touchdown_*`). Corrected per
+# accounting review fb_20260907T185803_c8af66
+# (rl_docs/tracks/walkcurr/STATUS.md 2026-09-07 19:03 UTC) against the
+# `d250ae55` version that trained the `...-transwin-c1` canary pair:
+#
+# 1. The old touchdown-tick charge measured the raw XY delta from the
+#    LAST AIRBORNE sample to the first CONTACT sample and charged the
+#    whole thing as "loaded skid" -- but that interval straddles the
+#    airborne/contact boundary, so a clean landing (foot arrives at its
+#    intended spot and then does not move again once loaded) still paid
+#    for ordinary swing-approach motion. Fixed by never charging the
+#    touchdown tick itself; the live window now starts at the first
+#    tick that is unambiguously loaded-to-loaded (this stance's tick 1
+#    vs tick 0), which is exactly what `transition_window_tick` prices
+#    below. To keep the same NUMBER of live ticks charged (not weaken
+#    the dose), the countdown is seeded at the full `td_ticks` instead
+#    of `td_ticks - 1`.
+# 2. The old continuing-contact bookkeeping advanced the touchdown
+#    countdown and trimmed the liftoff ring buffer ONLY on ticks whose
+#    force cleared `wts_contact_n` -- so a low-force contact gap (foot
+#    still "on" per the coarse 0.5 N floor, but below the stricter
+#    measurement threshold) paused the window instead of aging it,
+#    letting a stale high-excess sample or an already-exhausted
+#    countdown survive far past the configured tick count.
+#    `transition_window_tick` now advances (decrements the countdown,
+#    appends+trims the ring buffer) on EVERY on-tick, padding the ring
+#    buffer with 0.0 when the tick isn't confidently measurable so the
+#    trailing window still ages in TICK time, not "meaningful-tick"
+#    time.
+def transition_window_touchdown(td_ticks: int) -> tuple[list, int]:
+    """New stance bout: fresh (empty) liftoff ring buffer + a full
+    ``td_ticks``-tick live-window countdown. Deliberately charges
+    nothing here -- see note (1) above."""
+    return [], int(td_ticks)
+
+
+def transition_window_tick(td_count: int, lo_buf: list, *,
+                            meaningful: bool, ex_w: float,
+                            lo_ticks: int) -> tuple[int, list, float | None]:
+    """One continuing-contact (already-on, was-already-on) tick's
+    bookkeeping. ``meaningful`` = this tick's (and the previous tick's)
+    contact force both clear the mechanism's own confidence threshold;
+    ``ex_w`` = this tick's measured tangential-velocity excess (only
+    trusted when ``meaningful``). Returns
+    ``(new_td_count, new_lo_buf, live_charge_or_None)`` -- advances
+    every on-tick per note (2) above, regardless of ``meaningful``.
+    """
+    charged = None
+    if td_count > 0:
+        td_count -= 1
+        if meaningful:
+            charged = ex_w
+    lo_buf = lo_buf + [ex_w if meaningful else 0.0]
+    if len(lo_buf) > lo_ticks:
+        lo_buf = lo_buf[-lo_ticks:]
+    return td_count, lo_buf, charged
+
+
+def transition_window_liftoff(lo_buf: list) -> float | None:
+    """Retrospective liftoff charge: the mean of whatever trailing
+    on-tick samples (real or 0.0-padded) survived in the ring buffer --
+    no lookahead, everything in it already happened. Per fb_
+    20260907T185803_c8af66's third check: this is intentionally blind
+    to anything that happens AFTER liftoff (airborne motion is never
+    fed into ``lo_buf``), so two stances with identical loaded history
+    but different first-airborne motion give the same charge."""
+    if not lo_buf:
+        return None
+    return float(sum(lo_buf) / len(lo_buf))
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -5705,32 +5782,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # Touchdown: a new stance period earns a fresh
                         # slip allowance (k_drag_stance bookkeeping).
                         self._stance_slip_acc[f] = 0.0
-                        # TRANSITION-WINDOW touchdown charge: the
-                        # impact tick itself, measured the same way as
-                        # the mid-stance tangent charge below
-                        # (foot XY delta vs last tick, which for THIS
-                        # tick is the last airborne sample) but keyed
-                        # off `meaningful` alone (the previous tick
-                        # was in the air, so `prev_meaningful` is
-                        # always False here and would zero out under
-                        # k_foot_slip_tangent's own gating — this is
-                        # deliberately the one tick that mechanism can
-                        # never see). Arms the live window countdown
-                        # so the NEXT `walk_transition_td_ticks - 1`
-                        # mid-stance ticks are also charged below.
+                        # TRANSITION-WINDOW touchdown charge: does NOT
+                        # price the touchdown tick's own raw XY delta
+                        # (that measures the airborne->contact
+                        # boundary, i.e. ordinary swing-approach
+                        # motion, not loaded skid — corrected 09-07
+                        # per accounting review fb_20260907T185803_
+                        # c8af66, see the `transition_window_*` module
+                        # comment above). Arms the live window at the
+                        # FULL `walk_transition_td_ticks` (not -1, to
+                        # keep the same tick COUNT charged): the next
+                        # `wts_td_ticks` mid-stance ticks (all
+                        # unambiguously loaded-to-loaded) are priced
+                        # below via `transition_window_tick`.
                         if k_wts > 0.0 and f not in lift:
-                            self._trans_lo_buf[f] = []
-                            if wts_meaningful and self._foot_prev_xy[f] \
-                                    is not None:
-                                tv0 = float(np.linalg.norm(
-                                    xy - self._foot_prev_xy[f])) / max(
-                                        self.dt, 1e-9)
-                                ex0 = max(tv0 - wts_deadband, 0.0)
-                                if wts_cap > 0.0:
-                                    ex0 = min(ex0, wts_cap)
-                                wts_excess.append(ex0)
-                                wts_td_events += 1
-                            self._trans_td_count[f] = wts_td_ticks - 1
+                            self._trans_lo_buf[f], self._trans_td_count[f] \
+                                = transition_window_touchdown(wts_td_ticks)
                     if self._foot_on[f] and not on:
                         liftoff_flags[f] = True
                         self._liftoff_xy[f] = xy.copy()
@@ -5740,11 +5807,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # ticks` per-tick excess samples already
                         # observed during this stance (no lookahead —
                         # everything in the buffer already happened).
-                        if k_wts > 0.0 and f not in lift \
-                                and self._trans_lo_buf[f]:
-                            wts_excess.append(
-                                float(np.mean(self._trans_lo_buf[f])))
-                            wts_lo_events += 1
+                        if k_wts > 0.0 and f not in lift:
+                            lo_charge = transition_window_liftoff(
+                                self._trans_lo_buf[f])
+                            if lo_charge is not None:
+                                wts_excess.append(lo_charge)
+                                wts_lo_events += 1
                             self._trans_lo_buf[f] = []
                     elif on and not self._foot_on[f] \
                             and self._liftoff_xy[f] is not None:
@@ -5843,31 +5911,36 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             # that never lifts cannot defer payment).
                             r_ds -= k_ds * (max(acc1 - allow_m, 0.0)
                                             - max(acc0 - allow_m, 0.0))
-                        if wts_meaningful and self._foot_prev_force[f] \
-                                >= wts_contact_n:
-                            tv_w = slip / max(self.dt, 1e-9)
-                            ex_w = max(tv_w - wts_deadband, 0.0)
-                            if wts_cap > 0.0:
-                                ex_w = min(ex_w, wts_cap)
-                            # Live touchdown-window continuation: the
-                            # first `wts_td_ticks - 1` ticks AFTER the
-                            # impact tick (charged above at touchdown
-                            # itself) are priced here as they occur.
-                            if self._trans_td_count[f] > 0:
-                                wts_excess.append(ex_w)
+                        if k_wts > 0.0 and f not in lift:
+                            wts_both_meaningful = (
+                                wts_meaningful and self._foot_prev_force[f]
+                                >= wts_contact_n)
+                            ex_w = 0.0
+                            if wts_both_meaningful:
+                                tv_w = slip / max(self.dt, 1e-9)
+                                ex_w = max(tv_w - wts_deadband, 0.0)
+                                if wts_cap > 0.0:
+                                    ex_w = min(ex_w, wts_cap)
+                            # Live touchdown-window continuation +
+                            # trailing liftoff ring, both advanced on
+                            # EVERY on-tick (not gated on
+                            # wts_both_meaningful) so a low-force
+                            # contact gap ages the window/buffer in
+                            # TICK time rather than pausing it —
+                            # corrected 09-07 per accounting review
+                            # fb_20260907T185803_c8af66 (see the
+                            # `transition_window_tick` module comment
+                            # above).
+                            (self._trans_td_count[f],
+                             self._trans_lo_buf[f],
+                             wts_live_charge) = transition_window_tick(
+                                self._trans_td_count[f],
+                                self._trans_lo_buf[f],
+                                meaningful=wts_both_meaningful,
+                                ex_w=ex_w, lo_ticks=wts_lo_ticks)
+                            if wts_live_charge is not None:
+                                wts_excess.append(wts_live_charge)
                                 wts_td_events += 1
-                                self._trans_td_count[f] -= 1
-                            # Trailing ring for the retrospective
-                            # liftoff charge (always fed while planted
-                            # so whatever's in the buffer the instant
-                            # this leg lifts off IS its liftoff
-                            # window — a stance shorter than
-                            # `wts_lo_ticks` just uses everything it
-                            # has).
-                            self._trans_lo_buf[f].append(ex_w)
-                            if len(self._trans_lo_buf[f]) > wts_lo_ticks:
-                                self._trans_lo_buf[f] = \
-                                    self._trans_lo_buf[f][-wts_lo_ticks:]
                     if not on and self._liftoff_xy[f] is not None:
                         swinging_flags[f] = True
                         air_times_s[f] = (self._step_i

@@ -1,5 +1,110 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~19:2x (refill cycle; 11/11 GPU pods free, backlog empty, no
+completion assigned) — FIXED both accounting issues from the 19:03 UTC
+review (fb_20260907T185803_c8af66), extracted+unit-tested the touchdown/
+liftoff state machine, bank +6 green (13/13), snapshot pushed, 2 corrected
+canaries launched
+
+Per the review's own instruction ("proceed... under the existing
+authorization; no operator reply is needed"): fixed both concrete
+issues in `walk_task.py`, not just tested-and-documented them.
+
+**Extracted the touchdown/live-window/liftoff-buffer bookkeeping to 3
+plain functions** (`transition_window_touchdown`, `transition_window_
+tick`, `transition_window_liftoff` — module-level, no MuJoCo/task
+object, operate on plain `(int, list[float])` state) so the exact
+accounting can be unit-tested with synthetic tick sequences instead of
+only end-to-end MuJoCo rollouts. `walk_task.py`'s per-leg loop now
+calls these instead of the old inline logic; behavior is otherwise
+unchanged when `k_walk_transition_slip=0.0` (still bit-exact off).
+
+**Fix 1 (touchdown attribution):** the touchdown tick no longer
+charges anything. The old code measured the raw XY delta from the
+LAST AIRBORNE sample to the first CONTACT sample and charged the
+whole thing as "loaded skid" — exactly the review's example (a clean
+landing with zero motion once loaded still paid ~0.185*k for ordinary
+swing-approach motion, since that delta straddles the airborne/
+contact boundary and the phase study's bin 0 never validated it). Now
+`transition_window_touchdown` only resets the liftoff ring buffer and
+arms the live-window countdown; charging starts at the first tick
+that is unambiguously loaded-to-loaded (this stance's tick 1 vs tick
+0). To keep the same NUMBER of live ticks priced (not silently weaken
+the dose), the countdown is seeded at the full `walk_transition_td_
+ticks` instead of `... - 1`.
+
+**Fix 2 (window aging):** the live-window countdown and the liftoff
+ring buffer now advance on EVERY on-tick (any tick where contact is
+maintained), not only on force-qualified ("meaningful") ticks. The old
+code gated both the countdown decrement and the ring-buffer append/
+trim on `wts_meaningful`, so a low-force contact gap (foot still "on"
+per the coarse 0.5 N floor, but below the mechanism's own confidence
+threshold) PAUSED the window instead of aging it — the review's
+example: 10 on-ticks at 0.75 N could keep a countdown seeded at 3, or
+a stale high-excess ring-buffer sample, alive far past the configured
+window. `transition_window_tick` now always advances (decrementing
+the countdown, appending 0.0-padded-or-real samples and trimming to
+the last `walk_transition_lo_ticks` entries), only gating whether a
+sample counts as a chargeable/measured excess on meaningfulness. The
+third property the review named (identical loaded history with
+different first-airborne-liftoff motion gives the same LO charge) was
+already correct — confirmed, not changed.
+
+**Bank:** 6 new synthetic state-machine regressions in
+`test_task_semantics.py` (`test_wts_*`, zero MuJoCo, pure-function),
+directly pinning: touchdown charges nothing + an immediate liftoff
+after touchdown-only charges nothing; a fully-stationary-once-loaded
+stance charges exactly zero at every tick and at liftoff; the live
+window charges exactly `td_ticks` samples (not `td_ticks - 1`) then
+stops even if contact continues; a low-force gap of 10 on-ticks ages
+the countdown to 0 within the configured window (a later meaningful
+tick past the window is NOT charged); a stale spike ages OUT of the
+liftoff ring buffer after `lo_ticks` on-ticks even across a low-force
+gap; and the liftoff charge is confirmed independent of post-liftoff
+motion (the property the review said already held). All 6 new tests
+green, plus the original 7 `WALKCURR_TRANSITION_OVERRIDES` end-to-end
+tests still green (13/13 total) — bit-exact-off, deadband-gate,
+fires-on-real-gait, window-width-monotonic, more-targeted-than-
+uniform, primary-ordering, and skate-still-worst all hold under the
+corrected accounting. Snapshot: see RL_LOG.
+
+**Launched 2 corrected-mechanism canaries** (same recipe/dose as the
+19:03 UTC pair — `reward.k_walk_transition_slip=35.0`, deadband 0.015,
+cap 0.25, `td_ticks=3`, `lo_ticks=3`, `contact_n=2.0` — nothing else
+changed) so a future verdict reads the FIXED accounting, not the
+known-flawed one, without duplicating or disturbing the original
+pair's own pending held-out reads:
+- `...-transwin-c1-fix1` (warm from the frozen `cont40m` champion,
+  mirrors `...-transwin-c1`)
+- `...-overspeedq1-cont8m-transwin-c1-fix1` (warm from the speed-
+  controlled `overspeedq1-cont8m` checkpoint, mirrors `...-
+  overspeedq1-cont8m-transwin-c1`)
+Both 2M, seed 2, `--init-from-source`. Pre-registered read: same
+MECHANISM-HEALTH-CANARY-ONLY gate as the originals (no skill-
+acquisition claim at 2M); the SCIENTIFIC comparison to watch once both
+pairs land is whether the corrected accounting changes the direction
+or magnitude of `env/reward_walk_transition_slip`/`walk_transition_td_
+events`/`walk_transition_lo_events` and the held-out slip/m read vs
+the buggy pair — if they land within noise of each other the
+attribution bug was immaterial in practice; if they diverge, the
+buggy pair's read must NOT be used for any causal verdict on this
+mechanism (only the fix1 pair can be). The 19:03 UTC entry's own
+caution ("do not claim entire reward family/physics floor closed from
+a 2M result under unverified timing") applies to BOTH pairs until this
+comparison is read.
+
+Not done this cycle (correctly out of scope per the review's own
+framing — "design choices to document/test, not automatically bugs"):
+window-mean-vs-event-mean semantics and TD/LO overlap are left as the
+current design; the phase-bin edge-dominance claim (tick counts/total
+contributions, and separating physical loaded slip from transition-
+interval mixing) is a separate diagnostic-tool task, not touched here.
+
+Evidence: `rl_move/sim/walk_task.py` (`transition_window_touchdown`/
+`_tick`/`_liftoff`), `rl_move/tests/test_task_semantics.py` (`test_wts_
+*`), ledger entries for `...-transwin-c1-fix1`/`...-overspeedq1-
+cont8m-transwin-c1-fix1`.
+
 ## 2026-09-07 19:03 UTC — transition-charge accounting review for the next owner
 
 Both transition-window canaries have completed their bounded 2M training

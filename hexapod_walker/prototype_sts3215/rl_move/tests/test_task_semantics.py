@@ -51,6 +51,9 @@ from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
 from rl_move.sim.joint_task import (  # noqa: E402
     SimHexapodJointGoalEnv, q_rad_to_action)
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from rl_move.sim.walk_task import (  # noqa: E402
+    transition_window_liftoff, transition_window_tick,
+    transition_window_touchdown)
 from hexapod_core.joint_frame import (  # noqa: E402
     mujoco_rel_rad_to_robot_abs_rad as _q0_robot_abs)
 
@@ -12597,3 +12600,126 @@ def test_walkcurr_transition_skate_is_still_worst():
     assert skate < park - 300.0, (
         f"skating is not clearly the worst outcome: skate={skate:.1f} "
         f"park={park:.1f}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR_TRANSITION accounting review (09-07, fb_20260907T185803_c8af66):
+# minimal synthetic state-machine regressions on the extracted plain
+# functions (no MuJoCo, no task object) pinning the two corrected
+# behaviors named by the independent review, plus the one property it
+# confirmed already held. See the `transition_window_*` module comment
+# in walk_task.py for the full accounting.
+
+def test_wts_touchdown_never_charges_the_airborne_approach():
+    """A touchdown event must never itself contribute a charge or a
+    non-empty starting ring buffer — the old version charged the raw
+    airborne->contact XY delta here, so even a foot that never moves
+    again once loaded ('clean landing') still paid for ordinary
+    swing-approach motion. This is the state-machine regression for
+    that fix: touchdown alone, with no continuing-contact ticks
+    afterward, must charge nothing at liftoff either."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    assert lo_buf == []
+    assert td_count == 3
+    # Immediately lifting off with an empty ring buffer (the
+    # 'clean landing' case: touchdown then straight back to air with
+    # zero continuing-contact ticks) must charge nothing.
+    assert transition_window_liftoff(lo_buf) is None
+
+
+def test_wts_stationary_loaded_stance_charges_zero():
+    """Full end-to-end synthetic stance: touchdown, then several
+    continuing-contact ticks with ZERO measured excess (a foot that is
+    genuinely planted and motionless once loaded) must charge exactly
+    zero at every live tick and zero at liftoff — a clean landing is
+    never charged as loaded skid regardless of how fast the leg was
+    swinging a moment before touchdown (that swing speed never enters
+    this function at all)."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    for _ in range(5):
+        td_count, lo_buf, charge = transition_window_tick(
+            td_count, lo_buf, meaningful=True, ex_w=0.0, lo_ticks=3)
+        assert charge in (None, 0.0)
+    assert transition_window_liftoff(lo_buf) == 0.0
+
+
+def test_wts_live_window_charges_exactly_td_ticks_samples():
+    """The live window must charge exactly `td_ticks` continuing-
+    contact samples (not td_ticks-1, now that the touchdown tick
+    itself charges nothing) and then stop, even if contact continues
+    well beyond the window."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    charges = []
+    for _ in range(8):
+        td_count, lo_buf, charge = transition_window_tick(
+            td_count, lo_buf, meaningful=True, ex_w=1.0, lo_ticks=3)
+        if charge is not None:
+            charges.append(charge)
+    assert len(charges) == 3, (
+        f"expected exactly 3 live-window charges, got {len(charges)}")
+    assert td_count == 0
+
+
+def test_wts_low_force_gap_ages_the_td_window_in_tick_time():
+    """The old accounting only advanced `_trans_td_count`/`_trans_lo_
+    buf` on force-qualified ('meaningful') ticks, so a low-force
+    contact gap (foot still 'on' but below the measurement threshold)
+    paused the window instead of aging it — a countdown seeded at 3
+    could survive 10+ non-meaningful on-ticks. This regression pins
+    the fix: the countdown must exhaust within exactly `td_ticks`
+    ON-ticks regardless of meaningfulness, and a later meaningful tick
+    past the window must not be treated as part of the touchdown
+    charge."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    for _ in range(10):
+        td_count, lo_buf, charge = transition_window_tick(
+            td_count, lo_buf, meaningful=False, ex_w=0.0, lo_ticks=3)
+        assert charge is None
+    assert td_count == 0, (
+        "td_count must age out across on-ticks even when every tick "
+        "is below the meaningful-force threshold")
+    # A later high-excess MEANINGFUL tick, now that the window is
+    # exhausted, must not be charged as a live touchdown sample.
+    td_count, lo_buf, charge = transition_window_tick(
+        td_count, lo_buf, meaningful=True, ex_w=5.0, lo_ticks=3)
+    assert charge is None
+
+
+def test_wts_lo_buffer_forgets_a_stale_spike_past_the_window():
+    """Same aging property for the liftoff ring buffer: a big spike
+    sample followed by several non-meaningful (but still 'on') ticks
+    must age OUT of the trailing window once `lo_ticks` on-ticks have
+    elapsed, rather than surviving indefinitely because the
+    intervening ticks never 'touched' the buffer."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    td_count, lo_buf, _ = transition_window_tick(
+        td_count, lo_buf, meaningful=True, ex_w=9.0, lo_ticks=3)
+    for _ in range(5):
+        td_count, lo_buf, _ = transition_window_tick(
+            td_count, lo_buf, meaningful=False, ex_w=0.0, lo_ticks=3)
+    assert 9.0 not in lo_buf, (
+        f"a stale spike survived past the configured window: {lo_buf}")
+    assert lo_buf == [0.0, 0.0, 0.0]
+    assert transition_window_liftoff(lo_buf) == 0.0
+
+
+def test_wts_lo_charge_independent_of_post_liftoff_motion():
+    """fb_20260907T185803_c8af66's third check, confirmed already
+    holding (not a bug): two stances with IDENTICAL loaded (on-tick)
+    history but different first-airborne motion after liftoff must
+    give the SAME liftoff charge, because airborne motion never
+    enters `lo_buf` — only continuing-contact ticks do, and the
+    charge is read at the instant of liftoff, before any airborne
+    motion has happened."""
+    lo_buf, td_count = transition_window_touchdown(td_ticks=3)
+    td_count, lo_buf, _ = transition_window_tick(
+        td_count, lo_buf, meaningful=True, ex_w=2.0, lo_ticks=3)
+    td_count, lo_buf, _ = transition_window_tick(
+        td_count, lo_buf, meaningful=True, ex_w=4.0, lo_ticks=3)
+    charge_a = transition_window_liftoff(lo_buf)
+    # 'different first airborne liftoff motion' cannot be represented
+    # here at all -- lo_buf is untouched by anything past this point,
+    # which IS the property being asserted, not a second branch to
+    # compare against.
+    charge_b = transition_window_liftoff(list(lo_buf))
+    assert charge_a == charge_b == 3.0

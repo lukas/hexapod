@@ -1077,7 +1077,7 @@ function updateGaitSummary(extra){
   if(!el) return;
   let text = 'Selected: ' + (GAIT_LABELS[gait] || ('GAIT ' + gait)) + '.';
   if(gait === 6 && !loadedCpgName)
-    text += ' Loading the Central Pattern Generator file.';
+    text += ' ' + cpgAvailabilityMessage;
   text += ' Stop walking before switching gaits.';
   if(extra) text += ' ' + extra;
   el.textContent = text;
@@ -1093,12 +1093,13 @@ function updateGaitModePanels(){
   updateGaitTuneVisibility();
   updateGaitPickActive();
   updateGaitSummary();
+  updateCpgControls();
 }
 async function sendGait(){
   const prev = gait;
   const next = parseInt(wgaitSel.value, 10) || 0;
   if(next === 6 && !loadedCpgName){
-    const loaded = await ensureCpgLoaded(DEFAULT_CPG_CONTROLLER);
+    const loaded = await ensureCpgLoaded(wcpgSel.value || DEFAULT_CPG_CONTROLLER);
     if(!loaded){
       wgaitSel.value = String(prev);
       gait = prev;
@@ -1137,22 +1138,51 @@ const wcpgSel = document.getElementById('wcpgsel');
 const wcpgStatus = document.getElementById('wcpgstatus');
 let loadedCpgName = '';
 let cpgLoadPromise = null;
+let cpgAvailabilityMessage = 'Checking controller compatibility…';
+function availableCpgOption(name){
+  return Array.from(wcpgSel.options).find(opt =>
+    opt.value === name && opt.value && !opt.disabled);
+}
+function updateCpgControls(){
+  const hasCompatible = Array.from(wcpgSel.options).some(opt =>
+    opt.value && !opt.disabled);
+  wcpgSel.disabled = !hasCompatible;
+  $('wcpgload').disabled = !availableCpgOption(wcpgSel.value);
+  for(const opt of wgaitSel.options){
+    if(opt.value === '6') opt.disabled = !loadedCpgName && !hasCompatible;
+  }
+  document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
+    if(btn.dataset.cpg)
+      btn.disabled = !(loadedCpgName === btn.dataset.cpg
+        || availableCpgOption(btn.dataset.cpg));
+  });
+  $('wstart').disabled = gait === 6 && !loadedCpgName;
+}
+function reportCpgUnavailable(){
+  wcpgStatus.textContent = cpgAvailabilityMessage;
+  updateGaitSummary();
+  showSent(cpgAvailabilityMessage, true);
+  return false;
+}
 async function refreshCpgList(opts){
   opts = opts || {};
   wcpgSel.innerHTML = '<option value="">(loading…)</option>';
-  let preferredValue = DEFAULT_CPG_CONTROLLER;
+  cpgAvailabilityMessage = 'Checking controller compatibility…';
+  wcpgStatus.textContent = cpgAvailabilityMessage;
+  updateCpgControls();
+  updateGaitSummary();
+  let preferred = null;
   try{
     const r = await fetch('/cmd', {method:'POST', body:'CPGLIST'});
+    if(!r.ok) throw new Error('controller list failed');
     const text = await r.text();
     const rows = JSON.parse(text);
-    wcpgSel.innerHTML = '';
-    if(!rows.length){
-      wcpgSel.innerHTML = '<option value="">(none found)</option>';
-      return;
-    }
+    if(!Array.isArray(rows)) throw new Error('invalid controller list');
+    wcpgSel.innerHTML = '<option value="">(select a compatible controller)</option>';
     for(const row of rows){
       const opt = document.createElement('option');
-      opt.value = row.file || row.name;
+      opt.value = row.file || row.name || '';
+      opt.disabled = !!row.error || !opt.value;
       const gate = row.gate_pass_dr0 === true ? 'PASS'
         : row.gate_pass_dr0 === false ? 'fail' : '?';
       const slip = row.gate_slip_per_m != null
@@ -1163,27 +1193,33 @@ async function refreshCpgList(opts){
           + ', dr0 gate ' + gate + ', slip/m ' + slip + ')');
       wcpgSel.appendChild(opt);
     }
-    const preferred = Array.from(wcpgSel.options).find(opt =>
-      /robust120.*yawtrim/i.test(opt.value + ' ' + opt.textContent));
+    preferred = availableCpgOption(DEFAULT_CPG_CONTROLLER);
     if(preferred){
       wcpgSel.value = preferred.value;
-      preferredValue = preferred.value;
+      cpgAvailabilityMessage = 'Compatible CPG controller available. Load it before walking.';
+    } else if(Array.from(wcpgSel.options).some(opt => opt.value && !opt.disabled)){
+      cpgAvailabilityMessage = 'Default CPG unavailable. Select and load a compatible controller, or choose another gait.';
+    } else {
+      cpgAvailabilityMessage = rows.length
+        ? 'CPG unavailable: installed controllers are incompatible. Regenerate them for the current robot joint frame, then refresh, or choose another gait.'
+        : 'CPG unavailable: no controllers installed. Install a compatible controller and refresh, or choose another gait.';
     }
   }catch(e){
     wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
+    cpgAvailabilityMessage = 'CPG availability could not be checked. Refresh the controller list when the connection recovers.';
   }
-  if(opts.autoLoadDefault && gait === 6){
-    const ok = await ensureCpgLoaded(preferredValue || DEFAULT_CPG_CONTROLLER);
+  wcpgStatus.textContent = cpgAvailabilityMessage;
+  updateCpgControls();
+  updateGaitSummary();
+  if(opts.autoLoadDefault && gait === 6 && preferred){
+    const ok = await ensureCpgLoaded(preferred.value);
     if(ok) await sendGait();
   }
 }
 document.getElementById('wcpgrefresh').onclick = refreshCpgList;
 async function loadCpgController(name){
   name = name || wcpgSel.value;
-  if(!name){
-    wcpgStatus.textContent = 'pick a Central Pattern Generator file first.';
-    return false;
-  }
+  if(!availableCpgOption(name)) return reportCpgUnavailable();
   const line = 'CPGLOAD ' + name;
   try{
     const res = await cmd(line);
@@ -1199,6 +1235,7 @@ async function loadCpgController(name){
         }
       }
       loadedCpgName = name;
+      updateCpgControls();
       updateGaitSummary('Loaded ' + name + '.');
       forceResend();
     } else {
@@ -1221,6 +1258,7 @@ async function ensureCpgLoaded(name){
 document.getElementById('wcpgload').onclick = async ()=>{
   await loadCpgController(wcpgSel.value);
 };
+wcpgSel.onchange = updateCpgControls;
 document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
   btn.onclick = async ()=>{
     if(scriptedDriveMoving || walkTimer){
@@ -1257,6 +1295,7 @@ function stopGaitWalk(msg){
 document.getElementById('wstop').onclick = ()=> stopGaitWalk();
 document.getElementById('wstart').onclick = async ()=>{
   if(needArm()) return;
+  if(gait === 6 && !loadedCpgName){ reportCpgUnavailable(); return; }
   const vxLimit = gait === 0 ? tripodTune.maxVx : 60;
   const vyLimit = gait === 0 ? tripodTune.maxVy : 40;
   const omLimit = gait === 0 ? tripodTune.maxOmega : 0.5;
@@ -1385,6 +1424,7 @@ function streamScriptedDrive(x, y, t){
     sendScriptedDriveStop('J 0 0 0');
     return false;
   }
+  if(gait === 6 && !loadedCpgName) return reportCpgUnavailable();
   armed = true;
   scriptedDriveMoving = true;
   const now = performance.now();

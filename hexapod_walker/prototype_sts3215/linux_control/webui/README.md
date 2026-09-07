@@ -86,8 +86,14 @@ the RL tooling depend on them.
 
 - The Drive page is intentionally one cockpit, not a four-step checklist:
   gait picker on the left, laptop-friendly controls on the right.
-- The default visible gait is the Central Pattern Generator (CPG) tetrapod
-  (`CPGLOAD cpg_controller_robust120_yawtrim.json` + `GAIT 6`). The comparison
+- The Central Pattern Generator (CPG) tetrapod loads its default
+  `cpg_controller_robust120_yawtrim.json` and selects `GAIT 6` only after
+  `CPGLIST` confirms the installed file is compatible. Incompatible files
+  are disabled; missing files or a failed list request leave CPG unavailable
+  with an explanation. No alternate gait is selected automatically. Timed
+  walks and stick motion in CPG mode require a successfully loaded controller.
+  Run the no-hardware UI regression with
+  `node --test linux_control/webui/test_cpg_picker.mjs`. The comparison
   drawer exposes no-slip tripod (`GAIT 1`), no-slip ripple (`GAIT 2`),
   no-slip wave (`GAIT 3`), clamp-fit tripod (`GAIT 7`), middle-up quad crawl
   (`GAIT 8`), and the tunable high-step tripod (`GAIT 0`).

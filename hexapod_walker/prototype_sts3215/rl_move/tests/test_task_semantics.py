@@ -1785,6 +1785,104 @@ def test_walkcurr_item4_footslip_skate_clearly_worse_than_gait_and_stall(
         f"skating is not clearly worse than honest gait: {r}")
 
 
+# --------------------------------------------------------------------------
+# WALKCURR item(4) FOOT-SLIP-HEIGHT (09-06, CONTACT-INDEPENDENT
+# follow-up after the touch-sensor-gated tangent lever above closed
+# 2/2 doses -- both k=35 and k=3 left env/walk_tangent_contact_vel_
+# mean_m_s flat across full 2M canaries (RL_LOG 09-06 ~19:1x/~21:4x),
+# and the episode-cumulative + windowed-EMA loadslip-ratio levers
+# above closed 4 total independently-designed doses/accountings, all
+# landing within ~0-8% of the champion's own held-out slip/m baseline
+# (STATUS.md 09-06 ~22:4x). `reward.k_foot_slip_height` (walk_task.py)
+# was built specifically to rule out "the sensing modality itself
+# (touch-sensor-gated) is the shared blind spot" as an explanation:
+# it charges foot horizontal velocity gated on KINEMATIC ground
+# clearance against `_pad_z_ref` (the same primitive the rise/lower
+# posture gates already use), reading self.data.sensordata NEVER, with
+# its own independent prev-XY/gate latch. `test_walk_fastprof_mdp.py`
+# bank-proves the mechanism's OWN internals (bit-exact off; charges a
+# quasi-planted foot; ignores real swing clearance; still charges when
+# the SAME physics leaves the tangent lever blind via
+# foot_slip_contact_n=1e9) -- all 4 green, zero training spend.
+#
+# This bank measures the property that actually matters before any
+# GPU spend: does the kinematic gate WIDEN item(4)'s own gait-vs-skate
+# margin the way the mechanism needs to. It does NOT, at any dose
+# swept (k=3, 10, 12, 15, 18, 20, 25, 35, thresh/deadband/cap at their
+# StageA-proven defaults 0.006m/0.015 m/s/0.25 m/s): bare margin
+# (gait-skate) is 803.7 (gait=1005.7, skate=202.0); EVERY nonzero dose
+# reads a NARROWER margin than bare, monotonically shrinking with k
+# (k=3: 795.6, k=10: 776.5, k=18: 754.7, k=25: 735.5, k=35: 708.3 --
+# never once >= bare+50, the same bar the tangent/loadslip/windowed
+# levers all had to clear). ROOT CAUSE (measured directly, not
+# inferred): the scripted teacher's own HONEST stance-phase feet
+# already drift at the SAME order of magnitude the kinematic gate
+# reads for skate. Per-tick diagnostic rollouts (thresh/deadband/cap
+# at the same StageA defaults, k negligible so the charge itself
+# cannot bias the measurement) give gait's own quasi-planted-foot
+# velocity mean **0.032 m/s** (p90 0.064, max 0.181) vs skate's
+# **0.027 m/s** (p90 0.060, max 0.189) -- gait's mean is not lower than
+# skate's, it is slightly HIGHER, and streak-position analysis (first
+# <=5 ticks of a stance streak vs later) shows this is NOT a brief
+# touchdown-impact transient that a settle-window could filter: gait's
+# streaks run ~50 ticks (0.5s) each and the "late" (>5 ticks in)
+# velocity still averages 0.035 m/s, no cleaner than the streak as a
+# whole. The SAME scripted rollout under the ALREADY-PROVEN tangent
+# mechanism's own contact-gated measurement reads gait mean **0.017
+# m/s** (p90 0.024) vs skate mean **0.021 m/s** (p90 0.054) -- a real,
+# if modest, separation the touch-sensor gate captures that the pure
+# kinematic-clearance gate does not. This localizes the shared 4-lever
+# null result specifically to "sensing modality" as NOT the missing
+# ingredient (the touch-sensor path is, if anything, the CLEANER
+# signal here) -- contact-sensor gating's implicit use of measured
+# ground-reaction FORCE (a firmly loaded stance foot reads a large,
+# stable force) turns out to reject exactly the compliance/settling
+# jitter that a pure position-based clearance threshold cannot
+# distinguish from genuine skate. **CONCLUSION: this naive kinematic-
+# height-threshold design for a contact-independent slip charge is
+# REFUTED at the bank stage -- no canary launched, zero GPU spent.**
+# The mechanism code stays as tested, default-off infrastructure (the
+# bit-exactness/charge/independence properties it DOES prove are true
+# and reusable); a future contact-independent attempt would need a
+# genuinely different signal than raw current-tick ground clearance
+# (e.g. explicit swing-phase/duty-cycle context distinguishing a
+# foot that has never lifted from one merely settling after
+# touchdown) -- its own design+bank pass, not a threshold retune of
+# this same signal (three settle/streak angles already checked above
+# and none rescue it).
+WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES.update({
+    ("reward", "k_foot_slip_height"): 18.0,
+    ("reward", "foot_slip_height_thresh_m"): 0.006,
+    ("reward", "foot_slip_height_deadband_m_s"): 0.015,
+    ("reward", "foot_slip_height_max_m_s"): 0.25,
+})
+
+
+def test_walkcurr_item4_footslip_height_naive_kinematic_gate_refuted(
+        walkcurr_item4_bare_returns):
+    """MEASURED, not asserted as a requirement (mirrors
+    test_walkcurr_item4_loadslip_stall_vs_park_ordering_measured's own
+    documented-negative-finding convention): the naive kinematic-
+    ground-clearance gate does not widen the gait-vs-skate margin at
+    ANY dose in the 3-35 sweep (see the module comment immediately
+    above for the full measurement + root cause). Recorded at k=18
+    (the sweep's best-case point, still narrower than bare) purely so
+    a future reader has one concrete, re-runnable number, not to claim
+    a pass."""
+    ov = WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES
+    r = {p: float(np.mean([_walk_rollout(p, s, vx=0.06, overrides=ov)
+                            for s in SEEDS]))
+         for p in ("gait", "skate", "stall", "park")}
+    bare = walkcurr_item4_bare_returns
+    bare_margin = bare["gait"] - bare["skate"]
+    fsh_margin = r["gait"] - r["skate"]
+    assert fsh_margin < bare_margin, (
+        "if this ever flips (margin widens), the refutation above is "
+        f"STALE and this mechanism may be viable after all: bare="
+        f"{bare} fsh={r}")
+
+
 # reward.k_walk_swing on the SLIPWALK/term400 stack (08-22, AMP M2
 # freeprog dig-in continuation): every non-reward lever (term_penalty,
 # std-anneal, stage curriculum, style-weight dose 0.5x-2.0x, RSI-for-

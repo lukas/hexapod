@@ -400,6 +400,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_ls_slip_ema", "_ls_prog_ema",
+                          "_lsh_prev_xy", "_lsh_prev_planted",
                           "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_idle_low_s",
                           "_walk_stop_cmd_s",
@@ -521,6 +522,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
+        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
+        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
+        # lever — reward.k_foot_slip_height in the walk-shaping block).
+        # Deliberately its own prev-XY/gate latch, NOT shared with
+        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
+        # gating is a kinematic ground-clearance check against
+        # _pad_z_ref, never reads self.data.sensordata.
+        self._lsh_prev_xy = [None] * 6
+        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -1166,6 +1176,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
+        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
+        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
+        # lever — reward.k_foot_slip_height in the walk-shaping block).
+        # Deliberately its own prev-XY/gate latch, NOT shared with
+        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
+        # gating is a kinematic ground-clearance check against
+        # _pad_z_ref, never reads self.data.sensordata.
+        self._lsh_prev_xy = [None] * 6
+        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -3096,6 +3115,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # episode-cumulative ratio stays bit-exact when off.
         self._ls_slip_ema = 0.0
         self._ls_prog_ema = 0.0
+        # Foot-slip-height bookkeeping (walkcurr item(4), 2026-09-06,
+        # CONTACT-INDEPENDENT follow-up to the closed tangent-contact
+        # lever — reward.k_foot_slip_height in the walk-shaping block).
+        # Deliberately its own prev-XY/gate latch, NOT shared with
+        # _foot_prev_xy/_foot_on (the contact-sensor-gated mechanism):
+        # gating is a kinematic ground-clearance check against
+        # _pad_z_ref, never reads self.data.sensordata.
+        self._lsh_prev_xy = [None] * 6
+        self._lsh_prev_planted = [False] * 6
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
@@ -5190,11 +5218,61 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 default=0.015))
             tslip_cap = float(cfg_get(
                 self.cfg, "reward", "foot_slip_max_m_s", default=0.25))
+            # CONTACT-INDEPENDENT foot-slip charge (walkcurr item(4),
+            # 2026-09-06 — the tangent-contact lever above (this same
+            # sensing modality: touch-sensor-gated foot XY delta) is
+            # CLOSED 4/4 doses/accountings, all null on held-out slip/m
+            # (rl_docs/tracks/walkcurr/STATUS.md 09-06 ~19:1x..~22:4x).
+            # This charge never reads self.data.sensordata: a foot
+            # counts as "quasi-planted" purely from KINEMATIC ground
+            # clearance (xpos z vs the already-proven-safe _pad_z_ref
+            # reference the rise/lower posture gates use), independent
+            # of the touch sensor's own threshold/deadband/timing. Its
+            # own prev-XY/gate latch (_lsh_prev_xy/_lsh_prev_planted)
+            # is never shared with the tangent mechanism's
+            # _foot_prev_xy/_foot_on, so this genuinely cannot inherit
+            # the contact-sensor blind spot (e.g. a foot skimming just
+            # above the sensor's force threshold). Structurally
+            # mirrors k_foot_slip_tangent (deadband + cap on excess
+            # horizontal velocity while gated, averaged across gated
+            # feet, default-off, walk-mode only, lift legs exempt).
+            # cfg: reward.k_foot_slip_height,
+            # reward.foot_slip_height_thresh_m,
+            # reward.foot_slip_height_deadband_m_s,
+            # reward.foot_slip_height_max_m_s.
+            # BANK FINDING (09-06, test_task_semantics.py
+            # WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES — read that
+            # comment before reaching for a dose retune here): a NAIVE
+            # current-tick clearance threshold is REFUTED as an
+            # anti-slip lever — it does not widen item(4)'s gait-vs-
+            # skate margin at ANY dose 3-35, because the scripted
+            # teacher's own honest stance-phase feet drift at the SAME
+            # order of magnitude (~0.03 m/s) this gate reads for
+            # skate, unlike the tangent-contact mechanism's own
+            # measurement of the identical rollout (gait 0.017 vs
+            # skate 0.021 m/s) — the touch-sensor path's implicit use
+            # of ground-reaction FORCE turns out to reject compliance/
+            # settling jitter this pure position gate cannot. Kept as
+            # tested, default-off infrastructure; do not launch a
+            # canary on this cfg without a genuinely different signal
+            # (e.g. explicit swing-phase/duty context, not a threshold
+            # retune of current-tick clearance alone).
+            k_fsh = float(cfg_get(self.cfg, "reward",
+                                  "k_foot_slip_height", default=0.0))
+            fsh_thresh = float(cfg_get(
+                self.cfg, "reward", "foot_slip_height_thresh_m",
+                default=0.006))
+            fsh_deadband = float(cfg_get(
+                self.cfg, "reward", "foot_slip_height_deadband_m_s",
+                default=0.015))
+            fsh_cap = float(cfg_get(
+                self.cfg, "reward", "foot_slip_height_max_m_s",
+                default=0.25))
             if (k_swing > 0.0 or k_step > 0.0 or k_step_partial > 0.0
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
-                    or k_tslip > 0.0
+                    or k_tslip > 0.0 or k_fsh > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
@@ -5218,6 +5296,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 tangent_vels = [0.0] * 6
                 measured_tangent_vels = []
                 tangent_excess = []
+                fsh_quasi_planted_flags = [False] * 6
+                fsh_vels = [0.0] * 6
+                fsh_measured_vels = []
+                fsh_excess = []
                 for f in range(6):
                     adr = self._touch_adr[f]
                     force = (max(0.0, float(self.data.sensordata[adr]))
@@ -5229,6 +5311,29 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if meaningful:
                         meaningful_contacts += 1
                     xy = self.data.xpos[self._pad_bids[f], :2]
+                    if k_fsh > 0.0 and f not in lift:
+                        # Kinematic gate: ground clearance vs
+                        # _pad_z_ref, NEVER self.data.sensordata — see
+                        # the mechanism comment above this loop.
+                        z_ref = (self._pad_z_ref[f]
+                                 if self._pad_z_ref is not None else 0.0)
+                        clearance = float(
+                            self.data.xpos[self._pad_bids[f], 2]) - z_ref
+                        quasi_planted = clearance < fsh_thresh
+                        fsh_quasi_planted_flags[f] = quasi_planted
+                        if (quasi_planted and self._lsh_prev_planted[f]
+                                and self._lsh_prev_xy[f] is not None):
+                            v_h = float(np.linalg.norm(
+                                xy - self._lsh_prev_xy[f])) / max(
+                                    self.dt, 1e-9)
+                            fsh_vels[f] = v_h
+                            fsh_measured_vels.append(v_h)
+                            ex_h = max(v_h - fsh_deadband, 0.0)
+                            if fsh_cap > 0.0:
+                                ex_h = min(ex_h, fsh_cap)
+                            fsh_excess.append(ex_h)
+                        self._lsh_prev_xy[f] = xy.copy()
+                        self._lsh_prev_planted[f] = quasi_planted
                     if on and not self._foot_on[f]:
                         touchdown_flags[f] = True
                         # Touchdown: a new stance period earns a fresh
@@ -5347,6 +5452,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         r_tslip = -k_tslip * float(np.mean(tangent_excess))
                     reward += r_tslip
                     info["reward_foot_slip_tangent"] = r_tslip
+                if k_fsh > 0.0:
+                    r_fsh = 0.0
+                    if fsh_excess:
+                        r_fsh = -k_fsh * float(np.mean(fsh_excess))
+                    reward += r_fsh
+                    info["reward_foot_slip_height"] = r_fsh
+                    info["walk_height_quasi_planted_feet"] = float(
+                        sum(1 for v in fsh_quasi_planted_flags if v))
+                    if fsh_measured_vels:
+                        info["walk_height_slip_vel_mean_m_s"] = float(
+                            np.mean(fsh_measured_vels))
+                        info["walk_height_slip_vel_max_m_s"] = float(
+                            max(fsh_measured_vels))
+                    else:
+                        info["walk_height_slip_vel_mean_m_s"] = 0.0
+                        info["walk_height_slip_vel_max_m_s"] = 0.0
                 if k_tslip > 0.0 or contact_diag:
                     info["walk_contact_feet"] = float(sum(contacts))
                     info["walk_contact_meaningful_feet"] = float(
@@ -5383,6 +5504,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         info[f"walk_foot{f}_liftoff"] = (
                             1.0 if liftoff_flags[f] else 0.0)
                         info[f"walk_foot{f}_air_time_s"] = air_times_s[f]
+                        if k_fsh > 0.0:
+                            info[f"walk_foot{f}_quasi_planted"] = (
+                                1.0 if fsh_quasi_planted_flags[f] else 0.0)
+                            info[f"walk_foot{f}_height_slip_vel_m_s"] = (
+                                fsh_vels[f])
                 if r_swing:
                     reward += r_swing
                 if k_swing > 0.0:

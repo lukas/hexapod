@@ -2,6 +2,76 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-06 ~23:4x this cycle (assigned runs: both `loadslip-windowed-
+  {s0,s1}` gates — arrived ALREADY VERDICTED by a concurrent cycle
+  (see the ~23:3x entry immediately below) before this cycle started,
+  independently re-read via `ops.sh review` and confirmed matching,
+  no re-verdict written). Refill: took up item(4)'s own named option
+  (a) — design + bank a genuinely new CONTACT-INDEPENDENT slip
+  mechanism — instead of accepting option (b) unexamined, since the
+  design was concretely scoped (the FAIL note's own "floor-height-
+  based charge" suggestion) and unbuilt code is cycle work.** Built
+  `reward.k_foot_slip_height` (walk_task.py): charges foot horizontal
+  velocity gated on KINEMATIC ground clearance against `_pad_z_ref`
+  (the rise/lower posture gates' own proven reference), never reading
+  `self.data.sensordata`/`_touch_adr` — an independent prev-XY/gate
+  latch (`_lsh_prev_xy`/`_lsh_prev_planted`), default 0.0 = off,
+  bit-exact. 4 new `test_walk_fastprof_mdp.py` tests (bit-exact-off,
+  charges a quasi-planted foot, ignores real swing clearance, and the
+  key independence proof: still charges when the SAME physics/tick
+  leaves the tangent lever blind via `foot_slip_contact_n=1e9`) — all
+  4 green, zero training spend.
+  **Then bank-tested the property that actually matters BEFORE any
+  GPU spend (`test_task_semantics.py`
+  `WALKCURR_ITEM4_FOOTSLIP_HEIGHT_OVERRIDES`, swept k=3..35 at the
+  StageA-proven thresh/deadband/cap): it does NOT widen item(4)'s
+  gait-vs-skate margin at ANY dose — bare margin 803.7, every nonzero
+  dose reads NARROWER (k=3: 795.6 ... k=35: 708.3), monotonically
+  shrinking with k. ROOT CAUSE measured directly: the scripted
+  teacher's own HONEST stance-phase feet drift at the same order of
+  magnitude (mean 0.032 m/s, p90 0.064) the gate reads for the
+  degenerate `skate` twin (mean 0.027, p90 0.060) — gait is not
+  cleaner than skate under a pure kinematic-clearance gate. The
+  identical rollout under the ALREADY-CLOSED tangent-contact
+  mechanism's own measurement reads gait 0.017 vs skate 0.021 m/s — a
+  real (if modest) separation the touch-sensor path captures that
+  pure position-based clearance does not; streak-position analysis
+  ruled out "brief touchdown transient" as the confound (gait's own
+  ~50-tick stance streaks read just as noisy 5+ ticks in as at streak
+  start). **CONCLUSION: this naive kinematic-height-threshold design
+  is REFUTED at the bank stage — no canary launched, zero GPU spent.**
+  This is a genuine 5th independent data point on item(4)'s slip gap
+  (now 5/5 null: cumulative loadslip, windowed loadslip, tangent k=35,
+  tangent k=3, kinematic-height), and it specifically rules out
+  "sensing modality (contact vs kinematic)" as the missing ingredient
+  — the touch-sensor path is, if anything, the cleaner signal here.
+  Mechanism code kept as tested, default-off infrastructure (its
+  bit-exactness/independence properties are true and reusable); a
+  future contact-independent attempt needs a genuinely different
+  signal (explicit swing-phase/duty context distinguishing "never
+  lifted" from "settling after touchdown"), not a threshold retune of
+  current-tick clearance — its own design+bank pass, not scoped this
+  cycle. **Item(4)'s remaining slip gap now has only option (b) live
+  without a fresh mechanism idea: accept the ~5/m slip gap as the
+  `..._cont40m` composite's settled hardening boundary.** Snapshot
+  `exp/walkcurr-item4-footslip-height-refuted` (see RL_LOG for the
+  commit). Full board re-confirmed before/after this design pass:
+  joystick/amp/cpg DONE/maintenance, standwalk blocked on design-
+  thinking (combined walk+turn steering gap needs fresh-principles
+  work, no agent-doable next step named), todaypolicy delivered
+  (anchor-dose axis closed, next lever unscoped), assistfade's sole
+  open thread (`s0-longbudget`) stays DIG-IN-owned. No GPU launch this
+  cycle (the bank did not pass — `RESEARCH_RULES`/guardrails require
+  a passing semantics bank before any reward-mechanism launch); this
+  is a legitimate zero-training-spend cycle outcome (code + bank +
+  docs), not idle-next-to-runnable-work. `CYCLE_WORKED` touched (real
+  code + 18 new tests + a decisive negative finding, zero GPU spent).
+  Evidence: `git log` for the snapshot commit, `uv run pytest
+  rl_move/tests/test_task_semantics.py -k walkcurr_item4 -q` (14/14),
+  `uv run pytest rl_move/tests/test_walk_fastprof_mdp.py -k
+  foot_slip_height -q` (4/4), `rl_move/sim/walk_task.py`'s own
+  `k_foot_slip_height` comment block, RL_LOG 09-06 23:4x.
+
 - **09-06 ~23:3x this cycle (triaged the two `loadslip-windowed-{s0,s1}`
   canaries the ~22:1x entry launched and the ~22:4x entry registered
   for eval — VERDICTED both CANARY FAIL - MECHANISM (FAIL-STILL-STUCK),

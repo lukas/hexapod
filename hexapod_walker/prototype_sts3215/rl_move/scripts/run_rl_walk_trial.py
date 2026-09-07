@@ -929,10 +929,18 @@ class Trial:
             command_file.close()
             raise RuntimeError(f"drive start refused: {reply}")
 
+        sequence = JOYSTICK_RESPONSE_SEQUENCE
+        start_phase = getattr(self.args, "joystick_start_phase", None)
+        if start_phase:
+            start_index = next(
+                index for index, item in enumerate(sequence)
+                if item[0] == start_phase
+            )
+            sequence = sequence[start_index:]
         segment_results: list[dict[str, Any]] = []
         stop: Any = None
         try:
-            for name, duration_s, vx, vy, wz in JOYSTICK_RESPONSE_SEQUENCE:
+            for name, duration_s, vx, vy, wz in sequence:
                 self.phase = name
                 self.event("joystick_phase_start", {
                     "duration_s": duration_s, "vx": vx, "vy": vy,
@@ -1094,8 +1102,36 @@ class Trial:
         except Exception as issue:
             policy = None
             policy_error = str(issue)
+        execution_ok = error is None and self.completed
         summary = {
-            "ok": error is None and self.completed,
+            # Compatibility field for existing Robot Lab importers.  This is
+            # runner completion, not a claim that commanded chassis motion was
+            # achieved.  The explicit records below prevent a clean transport
+            # run from being mistaken for locomotion acceptance.
+            "ok": execution_ok,
+            "execution": {
+                "ok": execution_ok,
+                "scope": "guarded_runner",
+                "meaning": (
+                    "ok is true only when the bounded runner completed its "
+                    "requested control and safety sequence without a retained "
+                    "runner error."
+                ),
+            },
+            "locomotion_assessment": {
+                "status": (
+                    "requires_evidence_review" if execution_ok
+                    else "not_assessed_after_runner_error"
+                ),
+                "success": None,
+                "metric_displacement_available": False,
+                "reason": (
+                    "Runner completion verifies command delivery and safety "
+                    "handling only. Review synchronized video or a calibrated "
+                    "phase-bound chassis trajectory to decide whether the "
+                    "requested translation or turn was achieved."
+                ),
+            },
             "error": error,
             "policy": policy,
             "policy_read_error": policy_error,
@@ -1103,8 +1139,10 @@ class Trial:
             "speed_m_s": self.args.speed_m_s,
             "duration_s": self.args.duration_s,
             "course_segment_s": self.args.course_segment_s,
-            "yaw_commands": False,
+            "yaw_commands": bool(self.args.joystick_response),
             "joystick_response": self.args.joystick_response,
+            "joystick_start_phase": getattr(
+                self.args, "joystick_start_phase", None),
             "results": self.results,
             "communication_capture": getattr(self, "communication_capture", {}),
             "artifacts": {
@@ -1155,6 +1193,13 @@ def main() -> int:
               "neutral/right-arc/neutral panel in one drive session"),
     )
     parser.add_argument(
+        "--joystick-start-phase",
+        choices=[item[0] for item in JOYSTICK_RESPONSE_SEQUENCE],
+        help=("start the fixed joystick-response panel at this phase while "
+              "retaining one persistent drive session; intended for an exact "
+              "saved continuation after earlier phases completed"),
+    )
+    parser.add_argument(
         "--walk-transport", choices=("timed", "drive"), default="timed",
         help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
               "loop with its established 50 Hz bus-write cadence"),
@@ -1194,6 +1239,8 @@ def main() -> int:
         parser.error("--course-segment-s must be in [1, 5]")
     if not 5.0 <= args.learned_rise_tilt_trip_deg <= 30.0:
         parser.error("--learned-rise-tilt-trip-deg must be in [5, 30]")
+    if args.joystick_start_phase and not args.joystick_response:
+        parser.error("--joystick-start-phase requires --joystick-response")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir / f"rl_walk_trial_{stamp}"

@@ -105,6 +105,16 @@ If direct access fails, the service can use the hub's existing passive
 robot. It never changes the hub target. Simulator responses are rejected even
 if the target changes during a request.
 
+Hardware engineering attempts also bracket the robot's already-running passive
+host/MCU recorder. By default the supervisor asks the `:8898` hub for its
+validated physical target, then talks directly to that robot's `:8080`
+`/api/telemetry` endpoint; override the endpoint with
+`HEXAPOD_ROBOT_TELEMETRY_URL`. The supervisor waits for exact flushed begin/end
+marker acknowledgements and archives only the marker-bounded JSONL rows. This
+adds no bus reads and no motion. Its status records marker-bound counter deltas
+and marks the capture incomplete if bytes/events were dropped, the writer
+failed, or the service session changed during the attempt.
+
 Normal motor health requires three distinct, recent physical-robot samples.
 Missing, simulated, stale, or unreachable readings never count as healthy.
 The tilt/IMU signal is reported separately and is required only for motions
@@ -234,12 +244,21 @@ the same links. The Markdown transcript is viewer-readable. The fuller JSONL
 event stream requires an operator, admin, or automation credential. Both use
 `private, no-store` responses.
 
+Each hardware engineering attempt adds `robot-communication.json` and, when
+capture completed, `robot-communication.jsonl` to a separately integrity-checked
+companion archive. The experiment page links both beside the LLM transcript.
+The detailed status (which can contain local recorder paths) and raw robot
+communication are operator-only. MCP clients can read these files with
+`read_codex_run_file`, which returns a bounded head/tail view for large streams.
+
 Tool-enabled engineering attempts use a narrower viewer transcript: it includes
 the model's user-visible messages but omits the input project context, reasoning,
 and tool events. Those remain available in the operator-only redacted JSONL.
 The deadline wrapper enforces a kernel file-size ceiling even if the supervisor
-dies; transcript rendering also has byte and line ceilings and records an
-explicit `capture.truncated` event when a ceiling is reached.
+dies. Engineering workers use the larger of the evidence snapshot budget and
+transcript capture limit for this inherited ceiling, allowing recordings above
+the transcript limit. Archived transcripts retain their separate byte and line
+ceilings and record an explicit `capture.truncated` event when one is reached.
 
 These files intentionally remain under `data/codex-runs`, not the experiment's
 artifact directory. A later LLM analysis is provenance about already-sealed
@@ -256,10 +275,22 @@ counts as supervision when it establishes a normal pose/state. The runner clears
 stale routine/framework latches and retries a complete bounded step up to twice;
 it reports an operator action only when observations are unavailable or show a
 persistent condition that actually needs hands-on correction.
-The injected project mission and checked-in safety rules require deterministic
-preflight/interlocks, bounded motion, stop conditions, and evidence for physical
-actions. Every attempt retains the transcript, structured receipt, before/after
-git status, and a binary workspace patch. Registered-track RL `kick`/`feedback`
+The worker may commit and push its own tested fixes, preserving unrelated work.
+An unfinished guarded plan continues as the same engineering job with its prior
+receipt and remaining attempt budget. Once motion has begun, any continuation
+finishes result registration and evidence sealing without replaying the motion.
+A handoff succeeds only when its exact experiment is terminal and sealed;
+reported blockers and exhausted attempts retain their actual status.
+An unresolved blocked handoff stays saved but yields queue priority to the next
+runnable plan; a later audited resume reactivates that same job and budget.
+Operators can set an integer `parameters.queue_priority` (default `0`) when
+queueing an urgent plan. Higher values run first, retaining creation order for
+ties; this never interrupts an active job or cancels older plans.
+Routine runs reuse prior validation for unchanged code and policies. Physical
+actions retain bounded motion, current health checks, and actual fault stops.
+Every attempt retains the transcript, structured receipt, before/after commit,
+branch/upstream and git status, and a binary patch from the starting commit
+through the resulting tree, including committed fixes. Registered-track RL `kick`/`feedback`
 requests can also be written to a durable validated outbox; its dispatcher is
 disabled unless the host explicitly installs a trusted bridge.
 
@@ -288,22 +319,28 @@ network/search tool, shell, project rules, plugins, or other tools. Its structur
 result can append a plain-language learning and propose up to three bounded
 follow-ups. Robot Lab validates those recommendations, deduplicates exact specs,
 and caps recursion at four generations and twenty accepted descendants per root.
-A `builtin` follow-up is accepted only when explicitly marked
-`simulation_only`; the physical command driver independently refuses that flag.
-Real-world and ambiguous recommendations become `external_guarded` saved plans.
+Adaptive follow-ups become `external_guarded` saved plans. Robot Lab classifies
+their immutable source context into two independent engineering resources: the
+hardware worker drains robot-capable queue handoffs, while the offline/code
+worker uses a separate checkout for analysis, replay, simulation, and code work.
+Explicit `simulation_only: true` work never contacts or deploys to the robot.
+The built-in simulated driver emits demo telemetry and is not an executor for
+requested replay or MuJoCo work. Physical inspection findings do not reject
+these offline follow-ups.
 
 The small advance lane remains a token-free advisory/reconciliation lane. When
 engineering is enabled, it records a non-pausing handoff of the oldest saved plan
-to the full-access engineering runner instead of manufacturing a manual blocker.
+to the dedicated hardware runner instead of manufacturing a manual blocker.
 If engineering is deliberately disabled, it remains read-only and explains that
 deployment choice. The blocker monitor texts only on real `blocked` or `dead`
 receipts.
 
-Any non-clear analysis latches the whole advancement queue before another plan
-can move. The engineering runner may inspect the live camera, three fresh motor
-samples, and evidence, then resume the queue itself with an audited reason when
-they establish a normal state. A human can use the same dashboard control when
-hands-on correction was actually necessary. The REST equivalent is
+Only a physical analysis with `safety_disposition: stop` latches the whole
+advancement queue. `needs_inspection` parks the scoped plan, and simulation-only
+analysis cannot stop the hardware lane. The hardware runner may inspect the live
+camera, three fresh motor samples, and evidence, then resume the queue itself
+with an audited reason when they establish a normal state. A human can use the
+same dashboard control when hands-on correction was actually necessary. The REST equivalent is
 `POST /api/codex-queue/resume` with `X-Hexapod-Lab: 1`, a nonblank reason, and
 `robot_inspected: true`; MCP exposes `get_robot_status`, `get_queue_controls`,
 `resume_codex_queue`, `resume_runner_safety`, and `report_execution_progress`.
@@ -314,21 +351,22 @@ hands-on correction was actually necessary. The REST equivalent is
 | `HEXAPOD_CODEX_BIN` | ChatGPT app bundled CLI | Exact `codex` executable |
 | `HEXAPOD_CODEX_WORKDIR` | current directory | Reviewed snapshot used only for deterministic proposal/hash validation |
 | `HEXAPOD_CODEX_MODEL` | `gpt-5.6-sol` | Model for both lanes |
-| `HEXAPOD_CODEX_REASONING_EFFORT` | `high` | Reasoning effort for both lanes |
+| `HEXAPOD_CODEX_REASONING_EFFORT` | `medium` | Reasoning effort for all Codex lanes |
 | `HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS` | `2700` | Analyzer timeout |
 | `HEXAPOD_CODEX_ADVANCE_TIMEOUT_SECONDS` | `5400` | Advancer timeout |
 | `HEXAPOD_CODEX_EVIDENCE_SETTLE_SECONDS` | `60` | Legacy external-upload quiet period |
 | `HEXAPOD_CODEX_EVIDENCE_DEADLINE_SECONDS` | `1800` | Fail-closed deadline for incomplete terminal evidence |
-| `HEXAPOD_CODEX_MAX_EVIDENCE_SNAPSHOT_BYTES` | `536870912` | Maximum sealed evidence copied into one analysis snapshot |
+| `HEXAPOD_CODEX_MAX_EVIDENCE_SNAPSHOT_BYTES` | `536870912` | Maximum sealed evidence copied into one analysis snapshot; engineering per-file ceiling, at least the transcript capture limit |
 | `HEXAPOD_CODEX_MAX_ATTEMPTS` | `5` | Retry ceiling for recoverable jobs |
 | `HEXAPOD_CODEX_MAX_FOLLOWUPS_PER_ANALYSIS` | `3` | Adaptive proposals accepted from one analysis |
 | `HEXAPOD_CODEX_MAX_FOLLOWUP_DEPTH` | `4` | Maximum adaptive lineage depth |
 | `HEXAPOD_CODEX_MAX_FOLLOWUPS_PER_ROOT` | `20` | Maximum accepted descendants per root |
-| `HEXAPOD_CODEX_TRANSCRIPT_MAX_CAPTURE_BYTES` | `67108864` | Kernel per-file ceiling and archived event-stream byte limit |
+| `HEXAPOD_CODEX_TRANSCRIPT_MAX_CAPTURE_BYTES` | `67108864` | Archived event-stream byte limit; kernel per-file ceiling for analysis and advance workers |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_EVENT_LINES` | `100000` | Maximum archived JSON events before an explicit truncation marker |
 | `HEXAPOD_CODEX_TRANSCRIPT_MAX_HUMAN_BYTES` | `2097152` | Maximum rendered Markdown transcript size |
-| `HEXAPOD_CODEX_ENGINEERING` | `false` | Enable the serialized project engineering lane |
-| `HEXAPOD_CODEX_ENGINEERING_WORKDIR` | empty | Real git checkout used by engineering attempts |
+| `HEXAPOD_CODEX_ENGINEERING` | `false` | Enable project engineering workers |
+| `HEXAPOD_CODEX_ENGINEERING_WORKDIR` | empty | Real git checkout reserved for hardware queue handoffs |
+| `HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR` | empty | Separate checkout for parallel offline analysis/code work; without it, hardware stays dedicated and offline jobs remain queued |
 | `HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS` | `7200` | Engineering attempt timeout |
 | `HEXAPOD_CODEX_ENGINEERING_CONTEXT_MAX_BYTES` | `262144` | Maximum checked-in mission/workflow context injected per attempt |
 | `HEXAPOD_CODEX_ENGINEERING_MAX_PATCH_BYTES` | `16777216` | Maximum durable binary patch receipt |
@@ -336,10 +374,13 @@ hands-on correction was actually necessary. The REST equivalent is
 
 The production supervisor has its own LaunchAgent and wrapper under `deploy/`
 and `scripts/`. The analysis and fallback advance roles remain token-free and receive an
-allowlisted environment. The engineering role works in the real configured
-checkout with full project file access, network/search, normal Codex config and
-rules, Robot Lab/RL MCP servers, BuildViz, deployment helpers, and documented
-robot HTTP control. The wrapper reads only the Robot Lab and RL-orchestrator
+allowlisted environment. With both engineering workdirs configured, the
+hardware role exclusively claims robot-capable queue handoffs and the offline
+role claims analysis and explicit non-motion work concurrently in a different
+checkout. Both retain normal project/network tooling. The offline role uses a
+separate full project checkout so it can commit and push code, but does not
+inherit SSH-agent or Kubeconfig deployment channels; only the hardware role may
+deploy or issue robot motion/control commands. The wrapper reads only the Robot Lab and RL-orchestrator
 tokens from Keychain; Codex can use them for MCP authentication but filters them
 out of model-generated shell environments. The deployed checkout must be
 accessible to the background LaunchAgent.
@@ -352,6 +393,122 @@ the prompt is persisted or submitted. Keep unrelated private material out of
 experiment evidence; visual attachments cannot be reliably text-redacted.
 
 Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory for comparison and never written to the database or evidence. Environment variables remain visible to privileged local processes, so use an OS secret store in production. The Lab makes its data root owner-only (`0700`) and SQLite files owner-readable/writable (`0600`).
+
+## Choosing the agent backend: Codex or Claude
+
+All three automation lanes — `analysis`, `advance`, and `engineering` — are
+driven by one external agent CLI. `HEXAPOD_AGENT_PROVIDER` selects it:
+
+| | `codex` (default) | `claude` |
+| --- | --- | --- |
+| CLI | `codex exec --json` | `claude --print --output-format stream-json` |
+| Structured output | `--output-schema` + `-o final.json` | `--json-schema`, read from the terminal `result` event |
+| Sealed lanes | `--ephemeral --ignore-user-config --sandbox read-only` plus explicit `--disable` for every tool | `--safe-mode --tools "" --strict-mcp-config --setting-sources ""` |
+| Engineering lane | `--sandbox danger-full-access` | `--permission-mode bypassPermissions` |
+| Evidence images | `-i <path>` | base64 content blocks on a `stream-json` stdin turn |
+| MCP servers | `~/.codex/config.toml` | `HEXAPOD_CLAUDE_MCP_CONFIG` + `--strict-mcp-config` |
+
+Everything else is shared: the same prompts, schemas, result validation,
+redaction, lease fencing, deadline wrapper, process markers, and sealed
+transcript archive. Switching backends does not change what the lanes are
+allowed to do.
+
+### Installing the switch
+
+The launchd service runs a copy of this package installed into the Application
+Support venv, and reads its whole environment from the
+`run-codex-orchestrator.sh` under Application Support. Both have to be updated
+before a switch can take effect:
+
+```sh
+# 1. Install this package into the service's venv.
+uv pip install --python "$HOME/Library/Application Support/Hexapod Lab/venv/bin/python" .
+
+# 2. Add the provider block to the installed launcher and copy the switch
+#    helper and MCP config next to it. Idempotent; backs the launcher up first.
+uv run python scripts/install-agent-switch.py          # --dry-run to preview
+```
+
+The installed launcher legitimately differs from `scripts/run-codex-orchestrator.sh`
+(its own engineering checkout, its own reasoning effort), so the installer
+patches it in place rather than overwriting it. Installing changes no
+behaviour on its own: the block defaults to `codex`.
+
+### Switching
+
+```sh
+"$HOME/Library/Application Support/Hexapod Lab/switch-agent-provider.sh" claude
+launchctl kickstart -k "gui/$(id -u)/com.lbiewald.hexapod-codex-orchestrator"
+```
+
+Pass `--restart` as a second argument to do both at once, and
+`switch-agent-provider.sh codex` to go back. The provider is stored in a
+one-line `agent-provider` file next to the launcher, so the launchd plist
+never changes and the service keeps its lock — only one orchestrator ever runs.
+Reverting is `switch-agent-provider.sh codex` plus a restart; the launcher
+backups written by the installer restore the pre-switch deployment entirely.
+In-flight work is unaffected: the choice is read once at start, and each
+attempt records its `provider`, `model`, and `reasoning_effort` in
+`codex-runs/<job>/attempt-<n>/metadata.json`. The results page labels its
+automation sections with whichever backend is live.
+
+### Claude settings
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `HEXAPOD_AGENT_PROVIDER` | `codex` | `codex` or `claude`; any other value refuses to start |
+| `HEXAPOD_CLAUDE_BIN` | `claude` | Path to the CLI |
+| `HEXAPOD_CLAUDE_MODEL` | `claude-opus-5` | Passed to `--model` |
+| `HEXAPOD_CLAUDE_EFFORT` | `high` | `low`, `medium`, `high`, `xhigh`, or `max`; validated, never guessed |
+| `HEXAPOD_CLAUDE_MCP_CONFIG` | unset | MCP servers for the engineering lane; unset means no MCP servers at all |
+| `HEXAPOD_CLAUDE_ENGINEERING_SETTING_SOURCES` | `user,project,local` | Passed to `--setting-sources` |
+| `HEXAPOD_CLAUDE_MAX_BUDGET_USD` | `0` | Per-attempt spend cap; `0` disables it |
+| `HEXAPOD_CLAUDE_MAX_ATTACHMENT_BYTES` | `20971520` | Raw image budget for one analysis request |
+
+### MCP servers
+
+`deploy/claude-mcp.json` registers `rl_orchestrator`, `buildviz`, and
+`robot_lab` over HTTP. Bearer values are written as `${VAR}` and expanded by
+Claude Code from the orchestrator's environment when it connects, so no token
+is stored in the file or placed in a child's argv. The launcher loads
+`BUILDVIZ_API_KEY` from the Keychain item `BuildViz API` (account `operator`);
+the other two are the Robot Lab and RL-orchestrator tokens the service already
+reads. Because the orchestrator passes `--strict-mcp-config`, these are the
+only MCP servers reachable regardless of what `~/.claude.json` contains.
+
+The sealed `analysis` and `advance` lanes get no MCP servers at all: they run
+under `--safe-mode`, which disables MCP along with CLAUDE.md discovery,
+skills, plugins, hooks, and custom agents, and `--tools ""` leaves only the
+`StructuredOutput` channel the schema needs.
+
+**One deliberate difference from Codex.** The Codex engineering lane sets
+`shell_environment_policy.exclude` so model-generated shell commands cannot
+see `HEXAPOD_LAB_TOKEN` or `HEXAPOD_ORCHESTRATOR_TOKEN` while the MCP client
+still authenticates. Claude Code has no equivalent, and expanding `${VAR}`
+requires the values to be in its environment, so the engineering lane's Bash
+tool can read those three bearer values. The sealed lanes cannot: their
+environment carries no service token of any kind.
+
+### Verifying a switch
+
+Confirm the MCP servers actually authenticate before trusting an engineering
+run, and check `~/Library/Logs/hexapod-codex-orchestrator.log` for
+`Unknown HEXAPOD_AGENT_PROVIDER` or CLI startup errors:
+
+```sh
+BUILDVIZ_API_KEY="$(security find-generic-password -a operator -s 'BuildViz API' -w)" \
+HEXAPOD_ORCHESTRATOR_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Orchestrator MCP' -w)" \
+HEXAPOD_LAB_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Lab API' -w)" \
+claude -p --tools "" --strict-mcp-config \
+  --mcp-config "$HOME/Library/Application Support/Hexapod Lab/claude-mcp.json" \
+  --output-format json 'List every MCP server and whether it connected.'
+```
+
+Claude Code authenticates from the login Keychain. If a launchd background job
+cannot reach it, add an `ANTHROPIC_API_KEY` to the Keychain as
+`Hexapod Claude API` (account `operator`) and the launcher will pass it
+through.
+
 
 ## Robot camera gallery
 

@@ -199,6 +199,18 @@ class Store:
             );
             CREATE INDEX IF NOT EXISTS codex_transcripts_experiment
               ON codex_transcript_attempts(experiment_id,job_id,attempt);
+            CREATE TABLE IF NOT EXISTS codex_communication_attempts (
+              job_id TEXT NOT NULL,
+              attempt INTEGER NOT NULL CHECK(attempt > 0),
+              experiment_id TEXT,
+              kind TEXT NOT NULL CHECK(kind IN ('analysis','advance','engineering')),
+              manifest_sha256 TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              PRIMARY KEY(job_id,attempt),
+              FOREIGN KEY(experiment_id) REFERENCES experiments(id)
+            );
+            CREATE INDEX IF NOT EXISTS codex_communication_experiment
+              ON codex_communication_attempts(experiment_id,job_id,attempt);
             CREATE TABLE IF NOT EXISTS codex_followup_proposals (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               analysis_job_id TEXT NOT NULL,
@@ -342,6 +354,14 @@ class Store:
             CREATE TRIGGER IF NOT EXISTS codex_transcript_attempts_no_delete
               BEFORE DELETE ON codex_transcript_attempts BEGIN
                 SELECT RAISE(ABORT, 'Codex transcript receipts are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS codex_communication_attempts_no_update
+              BEFORE UPDATE ON codex_communication_attempts BEGIN
+                SELECT RAISE(ABORT, 'robot communication receipts are immutable');
+              END;
+            CREATE TRIGGER IF NOT EXISTS codex_communication_attempts_no_delete
+              BEFORE DELETE ON codex_communication_attempts BEGIN
+                SELECT RAISE(ABORT, 'robot communication receipts are immutable');
               END;
             """)
             # These columns were added while the history feature was still in
@@ -1037,6 +1057,84 @@ class Store:
             ).fetchone()
         return dict(row) if row else None
 
+    def register_codex_communication_attempt(
+        self,
+        job_id: str,
+        attempt: int,
+        manifest_sha256: str,
+        *,
+        kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Anchor one independently sealed robot-communication archive."""
+        if (
+            not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+            or attempt < 1
+            or not isinstance(manifest_sha256, str)
+            or len(manifest_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in manifest_sha256)
+        ):
+            raise ValueError("Invalid robot communication receipt")
+        now = utcnow()
+        with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            job = self._codex_transcript_source_job(con, job_id, kind=kind)
+            if job is None:
+                con.execute("ROLLBACK")
+                raise ValueError("Codex job not found")
+            if kind is not None and job["kind"] != kind:
+                con.execute("ROLLBACK")
+                raise ValueError(
+                    "Robot communication kind does not match its Codex job"
+                )
+            if attempt > int(job["attempts"]):
+                con.execute("ROLLBACK")
+                raise ValueError("Codex communication attempt was never claimed")
+            existing = con.execute(
+                "SELECT * FROM codex_communication_attempts "
+                "WHERE job_id=? AND attempt=?",
+                (job_id, attempt),
+            ).fetchone()
+            if existing is not None:
+                if existing["manifest_sha256"] != manifest_sha256:
+                    con.execute("ROLLBACK")
+                    raise ValueError(
+                        "Robot communication attempt is already sealed differently"
+                    )
+                con.execute("COMMIT")
+                return dict(existing)
+            con.execute(
+                "INSERT INTO codex_communication_attempts("
+                "job_id,attempt,experiment_id,kind,manifest_sha256,created_at"
+                ") VALUES(?,?,?,?,?,?)",
+                (
+                    job_id,
+                    attempt,
+                    job["experiment_id"],
+                    job["kind"],
+                    manifest_sha256,
+                    now,
+                ),
+            )
+            row = con.execute(
+                "SELECT * FROM codex_communication_attempts "
+                "WHERE job_id=? AND attempt=?",
+                (job_id, attempt),
+            ).fetchone()
+            con.execute("COMMIT")
+        return dict(row)
+
+    def codex_communication_attempt(
+        self, job_id: str, attempt: int
+    ) -> Optional[Dict[str, Any]]:
+        with self.connect() as con:
+            row = con.execute(
+                "SELECT * FROM codex_communication_attempts "
+                "WHERE job_id=? AND attempt=?",
+                (job_id, attempt),
+            ).fetchone()
+        return dict(row) if row else None
+
     def list_codex_jobs(self, limit: int = 100) -> list:
         with self.connect() as con:
             rows = con.execute(
@@ -1372,6 +1470,22 @@ class Store:
         lease_token = uuid.uuid4().hex
         with self.connect() as con:
             con.execute("BEGIN IMMEDIATE")
+            engineering_gate = ""
+            if kind == "analysis" and con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='codex_engineering_jobs'"
+            ).fetchone() is not None:
+                # A queue-handoff engineering run can register the terminal
+                # experiment before its own Codex process (and the associated
+                # LLM/robot communication archive) has finished. Let that
+                # attempt close first so analysis and experiment history are
+                # causally ordered and immediately complete.
+                engineering_gate = (
+                    "AND NOT EXISTS (SELECT 1 FROM codex_engineering_jobs AS "
+                    "engineering WHERE engineering.experiment_id="
+                    "job.experiment_id AND engineering.status IN "
+                    "('queued','running','retry')) "
+                )
             row = con.execute(
                 "SELECT job.id FROM codex_jobs AS job "
                 "LEFT JOIN codex_jobs AS dependency ON dependency.id=job.depends_on_job_id "
@@ -1381,18 +1495,22 @@ class Store:
                 "AND job.not_before<=? "
                 "AND (job.depends_on_job_id IS NULL "
                 "OR dependency.status IN ('succeeded','blocked','dead')) "
-                "AND (?<>'advance' OR NOT EXISTS ("
-                "SELECT 1 FROM codex_jobs AS analysis "
-                "WHERE analysis.kind='analysis' AND analysis.status IN ("
-                "'awaiting_evidence','queued','running','retry'))) "
+                + engineering_gate +
                 "AND (?<>'advance' OR control.action IS NULL "
                 "OR control.action<>'pause' OR ("
                 "job.depends_on_job_id IS NOT NULL "
                 "AND dependency.kind='analysis' "
                 "AND job.trigger_kind='experiment_terminal' "
-                "AND control.source_job_id=job.depends_on_job_id)) "
+                "AND control.source_job_id=job.depends_on_job_id) OR EXISTS ("
+                "SELECT 1 FROM experiments AS target "
+                "WHERE target.id=job.experiment_id "
+                "AND target.status='waiting_for_operator' "
+                "AND target.execution_mode='external_guarded' "
+                "AND (json_type(target.parameters_json,'$.robot_motion')='false' "
+                "OR (json_type(target.parameters_json,'$.robot_motion') IS NULL "
+                "AND json_type(target.parameters_json,'$.simulation_only')='true')))) "
                 "ORDER BY job.created_at,job.id LIMIT 1",
-                (kind, now, kind, kind),
+                (kind, now, kind),
             ).fetchone()
             if not row:
                 con.execute("COMMIT")
@@ -1750,14 +1868,75 @@ class Store:
             ).fetchone()
         return row is not None
 
-    def next_external_experiment(self) -> Optional[Dict[str, Any]]:
-        """Return the oldest saved physical plan; the agent still checks readiness."""
+    def next_external_experiment(
+        self, *, experiment_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Select the next runnable saved plan without discarding blocked work."""
         with self.connect() as con:
+            engineering_jobs_exist = con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='codex_engineering_jobs'"
+            ).fetchone()
+            blocked_filter = ""
+            if engineering_jobs_exist is not None:
+                # A blocked handoff stays attached to its exact experiment and
+                # retains its attempt budget, but it must not monopolize the
+                # rest of the queue. A newer audited queue resume makes that
+                # same handoff selectable again so ensure_queue_handoff() can
+                # atomically return it to retry.
+                blocked_filter = """
+                AND NOT EXISTS (
+                  SELECT 1 FROM codex_engineering_jobs AS engineering
+                  WHERE engineering.experiment_id=experiments.id
+                  AND json_extract(engineering.source_context_json,'$.trigger_kind')=
+                      'queue_handoff'
+                  AND engineering.status IN ('blocked','dead')
+                  AND NOT (
+                    engineering.status='blocked'
+                    AND engineering.attempts<engineering.max_attempts
+                    AND EXISTS (
+                      SELECT 1 FROM codex_queue_controls AS control
+                      JOIN codex_jobs AS control_source
+                        ON control_source.id=control.source_job_id
+                      WHERE control.sequence=(
+                        SELECT MAX(sequence) FROM codex_queue_controls
+                      )
+                      AND control.action='resume'
+                      AND control_source.experiment_id=experiments.id
+                      AND control.created_at>engineering.finished_at
+                      AND control.sequence>MAX(
+                        COALESCE(CASE WHEN json_valid(engineering.result_json)
+                          THEN json_extract(
+                            engineering.result_json,'$.blocked_control_sequence'
+                          ) END,0),
+                        COALESCE(CASE WHEN json_valid(engineering.result_json)
+                          THEN json_extract(
+                            engineering.result_json,'$.queue_resume_receipt.sequence'
+                          ) END,0)
+                      )
+                    )
+                  )
+                )
+                """
+            exact_filter = ""
+            arguments: tuple = (WAITING_FOR_OPERATOR,)
+            if experiment_id is not None:
+                exact_filter = "AND experiments.id=? "
+                arguments = (WAITING_FOR_OPERATOR, experiment_id)
             row = con.execute(
                 "SELECT * FROM experiments WHERE status=? "
                 "AND execution_mode='external_guarded' "
-                "ORDER BY created_at,id LIMIT 1",
-                (WAITING_FOR_OPERATOR,),
+                + exact_filter
+                + blocked_filter
+                + "ORDER BY CASE WHEN "
+                "json_type(parameters_json,'$.robot_motion')='false' OR "
+                "(json_type(parameters_json,'$.robot_motion') IS NULL AND "
+                "json_type(parameters_json,'$.simulation_only')='true') "
+                "THEN 1 ELSE 0 END,"
+                "CASE WHEN json_type(parameters_json,'$.queue_priority')='integer' "
+                "THEN json_extract(parameters_json,'$.queue_priority') ELSE 0 END DESC,"
+                "created_at,id LIMIT 1",
+                arguments,
             ).fetchone()
         return self.row(row) if row else None
 

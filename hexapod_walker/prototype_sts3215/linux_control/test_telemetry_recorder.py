@@ -5,13 +5,16 @@ import json
 import queue
 import sys
 import tempfile
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 if str(HERE.parent) not in sys.path:
     sys.path.insert(0, str(HERE.parent))
 
+import telemetry_recorder as telemetry_module
 from telemetry_recorder import (
     DEFAULT_MODEL_PATH,
     RollingContactObserver,
@@ -45,6 +48,17 @@ def _plant_payload(include_command: bool = False) -> dict:
     if include_command:
         payload["command_deg"] = [0.0, 20.0, 80.0] * 6
     return payload
+
+
+def _wait_for_marker(recorder: TelemetryRecorder, marker_id: str,
+                     timeout: float = 2.0) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        ack = recorder.status(marker_id=marker_id)["marker_ack"]
+        if ack is not None:
+            return ack
+        time.sleep(0.005)
+    raise AssertionError(recorder.status(marker_id=marker_id))
 
 
 def test_rolling_observer_uses_history_before_declaring_plant():
@@ -138,13 +152,21 @@ def test_raw_bytes_are_uncapped_and_flush_marker_covers_rotated_parts():
         for chunk in chunks:
             assert bus.sink("serial_rx", {"data": chunk})
         mark = recorder.mark("test-end")
-        deadline = time.monotonic() + 2
-        while recorder.status()["flushed_marker"] != mark["marker_id"]:
-            assert time.monotonic() < deadline, recorder.status()
-            time.sleep(0.005)
+        ack = _wait_for_marker(recorder, mark["marker_id"])
         status = recorder.status()
         assert status["active"] and status["rate_limited"] == 0
         assert len(status["paths"]) > 1
+        assert ack["marker_id"] == mark["marker_id"]
+        assert ack["seq"] == mark["accepted_sequence"]
+        assert ack["written"] == len(chunks) + 1
+        assert ack["path"] in ack["paths"]
+        assert ack["part"] == ack["paths"].index(ack["path"])
+        assert ack["capture_checkpoint"] == {
+            "queue_dropped": 0,
+            "communication_dropped": 0,
+            "uncaptured_bytes": 0,
+            "capture_errors": 0,
+        }
         records = [json.loads(line) for path in status["paths"]
                    for line in Path(path).read_text().splitlines()]
         wire = [r for r in records if r["record_type"] == "serial_rx"]
@@ -152,7 +174,141 @@ def test_raw_bytes_are_uncapped_and_flush_marker_covers_rotated_parts():
         assert all(r["byte_count"] == len(chunk) for r, chunk in zip(wire, chunks))
         assert all("mono_s" in r and "time_unix_ns" in r for r in wire)
         assert records[-1]["marker_id"] == mark["marker_id"]
+        marker_part = [json.loads(line) for line in
+                       Path(ack["path"]).read_text().splitlines()]
+        assert any(row.get("seq") == ack["seq"]
+                   and row.get("marker_id") == mark["marker_id"]
+                   for row in marker_part)
         assert recorder.stop()["communication_dropped"] == 0
+
+
+def test_marker_ack_checkpoints_both_loss_boundaries_and_stays_queryable():
+    class GatedRecorder(TelemetryRecorder):
+        def __init__(self, *args, **kwargs):
+            self.writer_gate = threading.Event()
+            super().__init__(*args, **kwargs)
+
+        def _writer(self) -> None:
+            self.writer_gate.wait(timeout=2.0)
+            super()._writer()
+
+    with tempfile.TemporaryDirectory() as temp:
+        recorder = GatedRecorder(Path(temp), queue_max=128)
+        bus = FakeBus()
+        assert recorder.start(bus)["ok"]
+
+        # Fill the paused writer's queue so the two enqueue-side losses are
+        # known and occur strictly before either accepted marker.
+        for _ in range(recorder.queue_max):
+            assert recorder.offer("feedback", {})
+        assert not recorder.offer("serial_rx", {"data": b"lost"})
+        assert not recorder.offer("feedback", {})
+        recorder.writer_gate.set()
+        deadline = time.monotonic() + 2.0
+        while recorder.status()["queue"]:
+            assert time.monotonic() < deadline, recorder.status()
+            time.sleep(0.005)
+
+        assert recorder.offer("serial_capture_error", {
+            "data": b"", "uncaptured_bytes": 7,
+        })
+        first = recorder.mark("first")
+        assert recorder.offer("serial_capture_error", {
+            "data": b"", "uncaptured_bytes": 11,
+        })
+        second = recorder.mark("second")
+
+        first_ack = _wait_for_marker(recorder, first["marker_id"])
+        second_ack = _wait_for_marker(recorder, second["marker_id"])
+        assert first_ack["capture_checkpoint"] == {
+            "queue_dropped": 2,
+            "communication_dropped": 1,
+            "uncaptured_bytes": 7,
+            "capture_errors": 1,
+        }
+        assert second_ack["capture_checkpoint"] == {
+            "queue_dropped": 2,
+            "communication_dropped": 1,
+            "uncaptured_bytes": 18,
+            "capture_errors": 2,
+        }
+        assert first_ack["seq"] == first["accepted_sequence"]
+        assert second_ack["seq"] == second["accepted_sequence"]
+        assert first_ack["written"] < second_ack["written"]
+        assert recorder.status()["flushed_marker"] == second["marker_id"]
+        assert recorder.status(marker_id=first["marker_id"])[
+            "marker_ack"] == first_ack
+        recorder.stop()
+
+
+def test_marker_ack_is_not_published_until_fsync_completes():
+    with tempfile.TemporaryDirectory() as temp:
+        recorder = TelemetryRecorder(Path(temp), queue_max=128)
+        assert recorder.start(FakeBus())["ok"]
+        fsync_entered = threading.Event()
+        allow_fsync = threading.Event()
+        real_fsync = telemetry_module.os.fsync
+
+        def gated_fsync(fd: int) -> None:
+            fsync_entered.set()
+            if not allow_fsync.wait(timeout=2.0):
+                raise TimeoutError("test did not release fsync")
+            real_fsync(fd)
+
+        telemetry_module.os.fsync = gated_fsync
+        try:
+            marker = recorder.mark("durability-boundary")
+            assert fsync_entered.wait(timeout=2.0)
+            assert recorder.status(marker_id=marker["marker_id"])[
+                "marker_ack"] is None
+            allow_fsync.set()
+            ack = _wait_for_marker(recorder, marker["marker_id"])
+            assert ack["seq"] == marker["accepted_sequence"]
+        finally:
+            allow_fsync.set()
+            telemetry_module.os.fsync = real_fsync
+            recorder.stop()
+
+
+def test_concurrent_markers_each_receive_their_own_acknowledgement():
+    with tempfile.TemporaryDirectory() as temp:
+        recorder = TelemetryRecorder(Path(temp), queue_max=256)
+        assert recorder.start(FakeBus())["ok"]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            markers = list(pool.map(
+                lambda index: recorder.mark(f"concurrent-{index}"),
+                range(32),
+            ))
+        assert all(marker["ok"] for marker in markers)
+        acks = [_wait_for_marker(recorder, marker["marker_id"])
+                for marker in markers]
+        assert {ack["marker_id"] for ack in acks} == {
+            marker["marker_id"] for marker in markers
+        }
+        assert {ack["seq"] for ack in acks} == {
+            marker["accepted_sequence"] for marker in markers
+        }
+        assert len({ack["written"] for ack in acks}) == len(markers)
+        recorder.stop()
+
+
+def test_marker_ack_retention_is_bounded_to_recent_markers():
+    with tempfile.TemporaryDirectory() as temp:
+        recorder = TelemetryRecorder(
+            Path(temp), marker_ack_limit=2, queue_max=128)
+        assert recorder.start(FakeBus())["ok"]
+        markers = []
+        for index in range(3):
+            marker = recorder.mark(f"bounded-{index}")
+            _wait_for_marker(recorder, marker["marker_id"])
+            markers.append(marker)
+        assert recorder.status(marker_id=markers[0]["marker_id"])[
+            "marker_ack"] is None
+        assert recorder.status(marker_id=markers[1]["marker_id"])[
+            "marker_ack"] is not None
+        assert recorder.status(marker_id=markers[2]["marker_id"])[
+            "marker_ack"] is not None
+        recorder.stop()
 
 
 def test_raw_capture_losses_are_counted_separately():

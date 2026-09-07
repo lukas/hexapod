@@ -196,6 +196,29 @@ def _http_request(path: str, *, method: str = "GET", body=None):
     return handler._code, handler._headers, handler.wfile.getvalue()
 
 
+def test_telemetry_get_forwards_decoded_marker_id(monkeypatch) -> None:
+    requested: list[str | None] = []
+
+    class _TelemetryBench:
+        def telemetry_state(self, marker_id=None):
+            requested.append(marker_id)
+            return {
+                "ok": True,
+                "active": True,
+                "marker_ack": ({"marker_id": marker_id}
+                               if marker_id is not None else None),
+            }
+
+    monkeypatch.setattr(web_drive_module, "BENCH", _TelemetryBench())
+    code, headers, body = _http_request(
+        "/api/telemetry?ignored=1&marker_id=marker%2Bexact")
+
+    assert code == 200
+    assert headers["Cache-Control"] == web_drive_module.NO_STORE
+    assert requested == ["marker+exact"]
+    assert json.loads(body)["marker_ack"] == {"marker_id": "marker+exact"}
+
+
 def test_live_quarantine_blocks_api_reads_and_motion_without_bus_touch() -> None:
     bus = _CountingBus()
     reader = _Reader(_ReaderThread(alive=True))

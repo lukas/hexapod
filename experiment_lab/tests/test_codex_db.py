@@ -74,6 +74,44 @@ def terminal_with_evidence(store: Store, *, name: str = "complete"):
     return experiment, analysis, advance
 
 
+def test_running_analysis_blocks_only_its_dependent_advance(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    _, analysis, dependent = terminal_with_evidence(store)
+    claimed_analysis = store.claim_codex_job(
+        "analysis", "analysis-worker", lease_seconds=60
+    )
+    assert claimed_analysis["id"] == analysis["id"]
+
+    independent = store.enqueue_advance(
+        "independent-queue-reconcile", "queue_reconcile"
+    )
+    claimed_independent = store.claim_codex_job(
+        "advance", "advance-worker", lease_seconds=60
+    )
+    assert claimed_independent["id"] == independent["id"]
+    assert store.get_codex_job(dependent["id"])["status"] == "queued"
+    store.finish_codex_job(
+        independent["id"],
+        "advance-worker",
+        "succeeded",
+        lease_token=claimed_independent["lease_token"],
+    )
+    assert store.claim_codex_job(
+        "advance", "other-advance-worker", lease_seconds=60
+    ) is None
+
+    store.finish_codex_job(
+        analysis["id"],
+        "analysis-worker",
+        "succeeded",
+        lease_token=claimed_analysis["lease_token"],
+    )
+    claimed_dependent = store.claim_codex_job(
+        "advance", "other-advance-worker", lease_seconds=60
+    )
+    assert claimed_dependent["id"] == dependent["id"]
+
+
 def test_store_restart_backfills_legacy_terminal_experiments_without_codex_jobs(
     tmp_path,
 ):

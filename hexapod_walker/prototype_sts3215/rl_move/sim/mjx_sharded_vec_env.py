@@ -425,7 +425,10 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     g = lo + k
                     push_output_row(env, pad_bids, outs, g)
                     seq_partial[k][fam] = {
-                        "q_nom": shm["q_nom"][g].copy(),
+                        # LOGICAL frame, like MjxVecEnv._mint_seq_frames
+                        # (same knee-frame bug class as reset_mid below).
+                        "q_nom": env._mujoco_to_logical_q(
+                            shm["q_nom"][g]),
                         "z0": float(env.data.xpos[env._chassis_bid, 2]),
                         "pad_z_ref": np.array(
                             [float(env.data.xpos[b, 2]) if b >= 0
@@ -437,7 +440,19 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
 
             elif cmd == "reset_mid":
                 for k, env in enumerate(envs):
-                    env._cmd = shm["q_nom"][lo + k].copy()
+                    # _mujoco_to_logical_q, NOT raw: shm["q_nom"] is the
+                    # device/actuator (mujoco-rel-knee) frame, but _cmd
+                    # is the LOGICAL joint contract — the C env and the
+                    # in-process MjxVecEnv both convert here. The raw
+                    # copy shifted every knee obs/safety reference by
+                    # +hip (~0.13 rad at the stand) on the SHARDED
+                    # training stack only — invisible to the balance-env
+                    # bitwise suite (its obs never read _q_nom), caught
+                    # 09-07 by test_mjx_reverse_handoff's walk-task
+                    # bitwise check (pre-existing; NOT introduced by the
+                    # reverse-handoff work, see assistfade STATUS).
+                    env._cmd = env._mujoco_to_logical_q(
+                        shm["q_nom"][lo + k])
                 conn.send(("ok", None))
 
             elif cmd == "handoff_tick":
@@ -506,7 +521,12 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                 infos = []
                 for k, env in enumerate(envs):
                     g = lo + k
-                    env._q_nom = shm["q_nom"][g].copy()
+                    # LOGICAL frame (see reset_mid's comment): build_obs
+                    # reads _q_nom directly; raw mujoco knees here made
+                    # sharded walk obs diverge from the C/in-process
+                    # reference at all 6 knee slots.
+                    env._q_nom = env._mujoco_to_logical_q(
+                        shm["q_nom"][g])
                     push_output_row(env, pad_bids, outs, g)
                     obs, info = env._reset_finalize()
                     shm["obs"][g] = obs

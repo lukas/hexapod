@@ -1,5 +1,35 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~06:5x — item(1) crutch-off fix HOLDS at full 40M ACQ budget, 2/2 seeds clean; 3rd seed (s0-acq1) still training
+
+`crutchoff-{s1,s2}-acq1` (the 40M ACQ continuations of the two CANARY
+PASSed crutch-off seeds, launched 05:4x) both synced this cycle:
+**identical numbers on both seeds** — 0 falls/terminations across all
+24 held-out episodes, `gait_valid` 21/24 each (walk/det 6/6, walk/sto
+6/6, startjitter/det 6/6, startjitter/sto 3/6), flat-or-better vs each
+seed's own 2M canary (20/24), same non-chronic startjitter/sto
+single-leg-flag softening pattern as the canary. Progress/slip both
+IMPROVED over canary depth (walk/det slip med 4.67/4.88 vs the
+canary's higher numbers). Contact sheets confirm a level, upright body
+walking through push-perturbation markers with no topple, matching the
+canary videos exactly. **VERDICTED ACQ PASS, both seeds** — the
+crutch-off fix (`dr.torque_scale` 3,3->1,1) is a real, BUDGET-DURABLE
+repair for item(1)'s push-recovery fragility, not a canary-depth
+artifact that might have re-entrenched at scale (the exact failure
+mode `s0`'s own crutch-ON canary showed: clean at 2M, fell only at
+40M). 2/3 ACQ seeds now clean; `crutchoff-s0-acq1` (warm-started from
+s0's own just-PASSed 2M crutch-off canary — the seed most at risk of
+this exact late-entrenchment pattern) is still training, launched same
+cycle as its own 2M canary landed. Once it lands, item(1)'s full
+3-seed crutch-isolation question (crutch-off holds at 2M AND 40M, all
+3 seeds) closes for good and the champion lineage can be respec'd
+crutch-off going forward.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_{s1,s2}_acq1_gate/report.json` vs
+each seed's own canary `..._crutchoff_{s1,s2}_gate/report.json`, W&B
+`0aq94iv4`/`qrpb9skj`, RL_LOG 09-07 06:49/06:50.
+
 ## 2026-09-07 ~05:4x (refill; 11/11 GPU free, backlog empty) — item(1) crutch-isolation pair BOTH CANARY PASS (2/2): crutch confirmed as a real push-recovery-fragility driver, not seed noise; 3-seed set completed + both ACQ continuations launched
 
 `crutchoff-{s1,s2}` (the single-lever `dr.torque_scale` 3,3->1,1

@@ -547,6 +547,107 @@ def _reconcile_safety_command_anchor(
     safety._last_safe = q_cmd.copy()
 
 
+def _stream_loss_reanchor_is_safe(sampled: RobotState,
+                                  last_good: RobotState) -> bool:
+    """Accept a post-loss pose only inside the last verified envelope."""
+    try:
+        pose = np.asarray(sampled.joint_position, dtype=float).reshape(N_JOINTS)
+    except (TypeError, ValueError):
+        return False
+    if not sampled.bus_ok or not np.all(np.isfinite(pose)):
+        return False
+    lo = np.array([AXIS_LIMITS_DEG[j % 3][0]
+                   for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+    hi = np.array([AXIS_LIMITS_DEG[j % 3][1]
+                   for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+    if np.any(pose < lo) or np.any(pose > hi):
+        return False
+    tilt = np.asarray([sampled.imu_roll, sampled.imu_pitch], dtype=float)
+    tilt_ref = np.asarray([last_good.imu_roll, last_good.imu_pitch], dtype=float)
+    return bool(
+        sampled.imu_ok
+        and np.all(np.isfinite(tilt))
+        and np.all(np.isfinite(tilt_ref))
+        and np.max(np.abs(tilt - tilt_ref)) <= math.radians(WALK_MAX_TILT_DEG)
+    )
+
+
+def _hold_after_stream_loss(bus, est, drive, debug,
+                            fallback_robot: np.ndarray,
+                            last_good_state: RobotState, *,
+                            write_speed: int, write_acc: int,
+                            policy_dt: float) -> bool:
+    """Write the known hold first, then optionally re-anchor to fresh state."""
+    fallback = np.asarray(fallback_robot, dtype=float).reshape(N_JOINTS).copy()
+    debug.event("hold_after_stream_loss_begin",
+                fallback_deg=[round(float(x) * RAD2DEG, 2) for x in fallback])
+    held = False
+    try:
+        est.set_commanded(fallback)
+        bus.write_all((fallback * RAD2DEG).tolist(), speed=write_speed,
+                      acc=write_acc)
+        held = True
+        debug.event("hold_after_stream_loss_fallback_written",
+                    pose_deg=[round(float(x) * RAD2DEG, 2)
+                              for x in fallback])
+    except Exception:
+        debug.event("hold_after_stream_loss_fallback_write_failed")
+
+    # An active walk is already torque-enabled. Refresh that state only after
+    # the time-critical hold write so 18 best-effort limit transactions cannot
+    # recreate the unprotected interval this recovery path is meant to close.
+    try:
+        _set_weight_bearing_torque(bus)
+        drive._torque_all(True)
+        drive.armed = True
+    except Exception:
+        pass
+
+    pose = None
+    for _ in range(5):
+        try:
+            sampled = est.update(want_full_feedback=True)
+        except Exception:
+            sampled = None
+        if sampled is not None and sampled.bus_ok:
+            debug.event("hold_after_stream_loss_sampled",
+                        state=_state_debug(sampled))
+            if _stream_loss_reanchor_is_safe(sampled, last_good_state):
+                pose = sampled.joint_position.copy()
+            else:
+                debug.event("hold_after_stream_loss_reanchor_rejected")
+            break
+        time.sleep(min(0.05, policy_dt))
+
+    if pose is not None:
+        try:
+            est.set_commanded(pose)
+            bus.write_all((pose * RAD2DEG).tolist(), speed=write_speed,
+                          acc=write_acc)
+            held = True
+            debug.event("hold_after_stream_loss_reanchored",
+                        pose_deg=[round(float(x) * RAD2DEG, 2)
+                                  for x in pose])
+        except Exception:
+            debug.event("hold_after_stream_loss_reanchor_write_failed")
+
+    if held:
+        with drive._lock:
+            drive.status = "rl drive holding after stream loss"
+        debug.event("hold_after_stream_loss_ok")
+        return True
+
+    # If the half-duplex bus is still recovering, the least bad
+    # weight-bearing choice is to leave torque enabled instead of limping.
+    try:
+        _set_weight_bearing_torque(bus)
+        drive._torque_all(True)
+    except Exception:
+        pass
+    debug.event("hold_after_stream_loss_write_failed")
+    return False
+
+
 def _state_for_async_safety(state):
     """Hide replayed servo-health values from tick-counting safety checks.
 
@@ -4091,52 +4192,10 @@ def _run_drive_session_impl(drive, cmd: DriveCommand, *, on_progress=None,
     def hold_current_pose_after_stream_loss(
             fallback_robot: np.ndarray) -> bool:
         """Keep a weight-bearing walk from turning one bus miss into a drop."""
-        debug.event("hold_after_stream_loss_begin",
-                    fallback_deg=[round(float(x) * RAD2DEG, 2)
-                                  for x in fallback_robot])
-        try:
-            _set_weight_bearing_torque(bus)
-            drive._torque_all(True)
-            drive.armed = True
-        except Exception:
-            pass
-
-        pose = None
-        for _ in range(5):
-            try:
-                sampled = est.update(want_full_feedback=True)
-            except Exception:
-                sampled = None
-            if sampled is not None and sampled.bus_ok:
-                pose = sampled.joint_position.copy()
-                debug.event("hold_after_stream_loss_sampled",
-                            state=_state_debug(sampled))
-                break
-            time.sleep(min(0.05, timing.policy_dt))
-        if pose is None:
-            pose = np.asarray(fallback_robot, dtype=float).copy()
-
-        try:
-            est.set_commanded(pose)
-            bus.write_all((pose * RAD2DEG).tolist(), speed=write_speed,
-                          acc=write_acc)
-            with drive._lock:
-                drive.status = "rl drive holding after stream loss"
-            debug.event("hold_after_stream_loss_ok",
-                        pose_deg=[round(float(x) * RAD2DEG, 2)
-                                  for x in pose])
-            return True
-        except Exception:
-            # If the half-duplex bus is still recovering, the least bad
-            # weight-bearing choice is to leave torque enabled instead of
-            # limping the whole body onto the floor.
-            try:
-                _set_weight_bearing_torque(bus)
-                drive._torque_all(True)
-            except Exception:
-                pass
-            debug.event("hold_after_stream_loss_write_failed")
-            return False
+        return _hold_after_stream_loss(
+            bus, est, drive, debug, fallback_robot, last_good_stream_state,
+            write_speed=write_speed, write_acc=write_acc,
+            policy_dt=timing.policy_dt)
 
     with drive._lock:
         drive.mode = "demo"

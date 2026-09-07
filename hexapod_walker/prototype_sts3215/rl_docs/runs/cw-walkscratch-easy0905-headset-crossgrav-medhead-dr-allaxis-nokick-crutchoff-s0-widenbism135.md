@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FINISHED
+**status**: ACQ FAIL
 
 **created**: 2026-09-07T10:37:00+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: PASS (heading exonerated) if 0 falls/24 AND gait_valid>=19/24 AND no chronic single-leg/pair sacrifice absent from s0-acq1's own clean panel. FAIL (heading implicated) if a chronic front-pair[0,5]-style (or any new persistent single-leg) sacrifice reappears, matching widen8-acq1's fingerprint.
 
-**verdict**: SEED-PRUNED (mechanical, operator rule 2026-09-07): post-burn-in stagnation: reward EMA slope -106.572789/window (negligible) and no behavioral improvement across ['v_along', 'ep_len', 'fall_rate'] (regressing: ['ep_len', 'fall_rate']). Evidence: {"budget_steps": 40000000, "last_step": 42500000, "windows_used": [37500000, 40000000, 42500000], "reward_ema_last3": [1375.9003, 1285.1957, 1162.7547], "reward_slope_per_window": -106.572789, "reward_negligible_below": 2.549234, "v_along_last3": [0.0792, 0.0795, 0.0786], "ep_len_last3": [1970.742, 1925.944, 1930.77], "fall_rate_last3": [0.0607, 0.0702, 0.0683], "behavior_improving": [], "behavior_regressing": ["ep_len", "fall_rate"], "burn_in_steps": 10000000}. Checkpoint and logs retained; only the training job was stopped.
+**verdict**: Adding ONLY -135deg (one new rear-diagonal heading, mirror of the PASSing +135 sibling) to the ACQ-passed 5-way base breaks badly at full 40M ACQ depth -- this heading is IMPLICATED alone, no interaction with the other two needed. Evidence: 2 real falls (TERM tilt_roll, walk_startjitter/det ep3 and walk_startjitter/sto ep5) plus gait_valid drops to 18/24 (vs this seed's own clean acq1 baseline 21/24) via a NEW chronic leg-0 sacrifice that spreads into walk/det (3/6, sac[0] or sac[0,3] in 3 of 6 episodes -- baseline was clean 6/6 here) and walk_startjitter/det (baseline clean 6/6, now 4/6). Video (walk_det/0 contact sheet) shows the robot barely translating across frame while the commanded-direction arrow rotates through different headings each frame -- a spin/skate-in-place pattern, not directed walking, consistent with the chronic leg-0 sacrifice. Why: this is the FAIL half of the widen8 heading bisection -- confirms the front-pair-style sacrifice is HEADING-dependent and does NOT require combining multiple new headings; -135deg alone is sufficient to trigger it (unlike its mirror +135, which passed clean). This resolves the bisection's open question decisively: it is NOT a >=2-heading interaction effect, it is a per-heading vulnerability that only the +135 arm avoided. Note: this run initially received a stale mechanical SEED-PRUNED auto-verdict written before its gate eval had landed (the run had actually already FINISHED naturally at 40,370,176 steps) -- this verdict supersedes that placeholder with the real post-eval science read. What's next: do not relaunch -135 alone or in any wider set without the still-unbuilt role-aware/support-margin reward mechanism (CURRENT_TRUTHS 'Walkcurr Reward Mechanisms' -- 4 independently-designed price-based mechanisms already exhausted on the sibling middle-pair pathology).
 

@@ -1,5 +1,84 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~11:5x (triage cycle; assigned the 3 widenbis gate reports) — widen8 heading bisection RESOLVED: +135deg alone is safe, -135deg and 180deg each independently reproduce the front-pair exploit; launched an irr-timing jitter-amplitude bisection with the freed capacity
+
+Triaged the 3 widenbis ACQ-depth arms this cycle was assigned
+(`crutchoff-s0-widenbis{135,-135,180}`, each adding exactly ONE of
+widen8's 3 new rear headings to the ACQ-passed 5-way base, per the
+~10:4x cycle's launch). Read each `report.json` per-episode
+(gait_valid/sacrificed_legs/term_reason) against the s0-acq1 baseline
+(21/24, sacrifice confined to `walk_startjitter/sto` leg0/leg5) and
+watched the gated det contact sheets:
+
+- **`widenbis135` (+135deg alone): ACQ PASS — heading exonerated.**
+  0 falls/24, gait_valid 21/24 (identical total to baseline), the one
+  new single-episode `walk/det` sac[0] is inside this campaign's own
+  noise band (1 episode, not repeating). Video (`walk_det_1`) shows
+  genuine forward translation, all legs cycling.
+- **`widenbism135` (-135deg alone): ACQ FAIL — heading implicated.**
+  2 real falls (`TERM tilt_roll`, startjitter det/sto), gait_valid
+  drops to 18/24 via a NEW chronic leg-0 sacrifice spreading into
+  `walk/det` (3/6, baseline clean 6/6) and `walk_startjitter/det`
+  (4/6, baseline clean 6/6). Video (`walk_det_0`) shows near-zero net
+  translation with the heading arrow spinning frame to frame — a
+  spin-in-place pattern, not walking. (This run had also picked up a
+  stale mechanical SEED-PRUNED auto-verdict written before its gate
+  eval landed — see the ~11:1x ledger-hygiene note below; this
+  verdict supersedes that placeholder with FORCE=1.)
+- **`widenbis180` (180deg alone): ACQ FAIL — heading implicated.**
+  0 falls but gait_valid drops to 18/24 via the same style of NEW
+  chronic leg-0 sacrifice in `walk/det` (3/6, baseline clean 6/6).
+  Video shows the identical near-stationary spin fingerprint as the
+  -135 FAIL.
+
+**This fully resolves the bisection question the ~09:5x cycle left
+open** ("does the front-pair exploit need >=2 new headings together,
+or does any one alone trigger it?"): the answer is per-heading, not
+an interaction effect — 2 of the 3 new headings (-135, 180) are each
+independently sufficient, only +135 is safe alone. The validated
+widened heading set for this composite is exactly base5+135 (6-way,
+= `widenbis135` itself, already at ACQ-passed 40M) — NOT the full
+8-way `widen8` set. Do not attempt -135 or 180 in any combination
+without the still-unbuilt role-aware/support-margin reward mechanism
+(CURRENT_TRUTHS "Walkcurr Reward Mechanisms" — 4 independently-
+designed price-based mechanisms already exhausted on the sibling
+fixed-middle-pair version of this same exploit class). SKILLS.md
+updated (1 new entry, `crutchoff-s0-widenbis`).
+
+**Refill:** re-read the full board (guardrails, CURRENT_TRUTHS,
+`launch_run.py status`) before deciding whether anything else was
+runnable. The widen8/role-aware line is closed pending an unbuilt,
+explicitly-deferred (too-large-blast-radius) mechanism — not
+relaunchable this cycle. The 3 `speedwiden-acq1` arms were this
+cycle's off-limits (another cycle's, still training per
+`launch_run.py status`'s live-process detection glitch on those 3
+pods specifically — trust the ledger's RUNNING status over the
+`status` command's kubectl-exec cmdline scan, which intermittently
+times out and misreports those pods as free). The one genuinely open,
+previously-scoped gap: the crutch-off `irr-timing` axis closed 2/2
+CANARY FAIL at full +-50% jitter amplitude with an explicit "needs a
+mitigation" note and no mitigation ever attempted. Launched a cheap,
+low-risk bisection instead of inventing a new mechanism: HALVE the
+jitter amplitude (`goal.walk_cmd_resample_jitter` 0.5->0.25) on the
+same 2 seeds that failed at full amplitude, same recipe/checkpoint/
+gate style otherwise. `crutchoff-s1-irrhalf` (train-1, VERIFIED
+RUNNING) and `crutchoff-s2-irrhalf` (train-4, VERIFIED RUNNING), both
+2M canaries. Prediction-if-true (composable at reduced dose): 0
+falls/24, gait_valid>=18/24, no new chronic sacrifice — the axis is
+usable at a smaller dose, not fully closed. Prediction-if-false: the
+same tilt_roll fall or a new chronic sacrifice still appears — dose
+is not the driver, the jitter+push interaction itself is, and the
+axis needs a structurally different mitigation (e.g. suppress
+resample jitter during an active push window) before any further
+spend. Left unread for the next reader. `CYCLE_WORKED` touched (3
+verdicts + 1 SKILLS entry + 2 new canary launches).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_s0_widenbis{135,bism135,bis180}_
+gate/report.json` vs `..._crutchoff_s0_acq1_gate/report.json`, W&B
+`wpr5ew7a`/`c3hqpdus`/`rx6wrkz3`; new ledger entries for
+`crutchoff-{s1,s2}-irrhalf`.
+
 ## 2026-09-07 ~11:1x (refill cycle; 8 free slots at start, backlog empty) — speedwiden canary trio CLOSES 3/3 CANARY PASS, ACQ trio launched; irr-timing canary pair CLOSES 2/2 CANARY FAIL (reproducible new fall); reconciled 3 mislabeled-but-actually-FINISHED widenbis ledger entries
 
 Verdicted the two orphaned item(1) realism-ladder canary cohorts left

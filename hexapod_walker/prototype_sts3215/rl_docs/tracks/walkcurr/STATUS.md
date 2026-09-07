@@ -1,3 +1,39 @@
+## 2026-09-07 ~22:5x (triage cycle) — `s1-widen8-acq1-legdutyfresh` FAILS per its own gate; 2/4 legdutyfresh seeds now match the retrofit's front-pair fingerprint
+
+`s1-widen8-acq1-legdutyfresh` (40M, from-scratch dose) reads
+**FAIL**: gait_valid 13/24 (det 2/6, sto 5/6, startjitter-det 3/6,
+startjitter-sto 3/6) — below this run's own 18/24 majority-clean bar
+— AND legs 0/5 are sacrificed in 8/24 episodes, reproducing the exact
+front-pair fingerprint the gate pre-registered as an automatic FAIL
+regardless of termination frequency. `walk_leg_duty_terminate` is
+still firing at run end (~160-185 hits per ~15-step log interval in
+the last logged rows) while `ep_rew_mean` is still rising (quarters
+193->435->508->606) — the 08-21 ruling would normally read that as
+continue-or-realign, but this gate explicitly pre-registered that
+exact combination (chronic front-pair sacrifice + reward still
+climbing) as a FAIL, so there is no re-litigating it on reward-rising
+grounds alone. Frame strips show the same mixed picture as every
+prior widen8/widenbis180 arm: some episodes travel cleanly (det
+ep3/5), most sit pinned near-stationary with 1-2 legs held aloft.
+
+`s0-widen8-acq1-legdutyfresh`'s gate artifacts are also already
+synced (12/24 gait_valid, identical legs-0/5 fingerprint) but belong
+to its own assigned triage cycle — noted here as corroborating,
+**not independently verdicted by this entry**. 2/4 legdutyfresh seeds
+now agree: from-scratch dosing of `safety.walk_leg_duty_terminate_s`
+does not repair the chronic front-pair sacrifice any better than the
+retrofit dose did. Pending `s2-widen8-acq1-legdutyfresh` and
+`s0-widenbis180-legdutyfresh`'s reads before closing the mechanism
+family outright, but the working read is: **termination-as-price is
+the wrong mechanism shape.** The remaining unbuilt structural lever is
+a role-aware/heading-conditioned per-leg utilization TARGET (reward
+shaping toward balanced duty across the gait cycle) rather than a
+safety cutoff — scope this as the next design pass once all 4 reads
+land.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s1_widen8_acq1_legdutyfresh_gate/report.json`,
+same dir's `contact_sheet.png`/`walk_det_{0,3}.png`; RL_LOG 09-07 ~22:5x.
+
 ## 2026-09-07 ~22:1x (self-correction, same cycle) — GUARDRAIL NOTE: the legdutyfresh disambiguation batch above landed as 4 launches / 160M new GPU steps, 2x the 80M `max_new_gpu_steps_per_cycle` default cap (no operator raise in force)
 
 Correcting the record vs the ~21:5x entry above (written when only 2

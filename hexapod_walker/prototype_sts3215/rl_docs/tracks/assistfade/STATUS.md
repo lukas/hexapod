@@ -1,5 +1,97 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~05:5x (refill; walkcurr crutchoff evals landed + verdicted mid-cycle, see that track's own STATUS) — rung 4's own gated prerequisite BUILT + BANKED (no launch yet): a real reverse-curriculum reset, not a pose/observation-only stand-in
+
+Rung 3 closed FULLY this cycle's earlier ~04:3x entry (below); the
+doc's own next licensed step is rung 4 ("phase/contact only"), gated
+on "a reverse curriculum + matched intermediate-state semantics bank"
+— not started as of that entry. Scoped the design BEFORE writing any
+code (per RESEARCH_RULES): the reset architecture this whole codebase
+shares (CPU `reset()` AND the MJX vec-env `_choreography()`) always
+SETTLES to a near-zero-velocity quiescent stand regardless of what
+target pose is commanded — so a POSE-only reverse curriculum (sampling
+a different static leg configuration per episode, e.g. a TripodGait
+phase snapshot with no velocity) would very likely be a 5th INERT
+mechanism, structurally similar to the already-refuted "phase
+observation alone" result the doc itself names, NOT a genuine
+distance-from-success curriculum (Florensa-style reverse curriculum
+needs real momentum/state diversity, not just a different frozen
+pose). The buildable, physically-honest version instead needs REAL
+PHYSICS: run the proven scripted TripodGait teacher for real seconds
+of simulated contact/momentum right after the ordinary settle and
+BEFORE the episode's start references are captured, then hand off to
+the policy already moving — a genuine reverse-curriculum surface via
+`goal.walk_reverse_handoff_s` (large=easy/mid-gait start, annealing to
+0=hard/original static start over training, riding the SAME existing
+generic `sched.*` engine rung 3 already uses — no new trainer callback
+needed).
+
+**Built** (`sim_env.py`, `_apply_walk_reverse_handoff()`, called from
+`reset()` right after the existing settle and before
+`_reset_finalize()` so `_z0`/`_pad_z_ref`/IK-reset all reflect the
+POST-handoff state like any other episode start): default OFF via
+`goal.walk_reverse_handoff_gate` (0 = single cheap `cfg_get` + early
+return, bit-exact, no rng draw, no extra physics tick). When armed,
+reuses `self._make_walk_bc_gait()` (the SAME teacher machinery rung
+3's residual blend and the WALK BC anchor already use), sets its
+velocity from `self._current_goal()` (the episode's own sampled walk
+command), draws a RANDOM start phase per episode (diversity, not one
+memorized pose), then drives `self._advance()` through the SAME
+command path a normal RL-action tick uses
+(`self._profile.command(...)` — latency + trapezoidal slew + deadband
+all apply, not a raw ctrl/state teleport) for
+`goal.walk_reverse_handoff_s` seconds. These ticks are NOT rollout
+transitions (no obs/reward exposed to the RL algorithm for them,
+exactly like the pre-existing settle/`_reset_history_probe` ticks it
+sits next to) — no action/reward mismatch risk. CPU single-env
+`reset()` only for now; the MJX vec-env twin
+(`mjx_vec_env.py`/`mjx_sharded_vec_env.py` `_choreography()`, needed
+for real GPU-scale training throughput) is an explicitly DEFERRED
+follow-up — concretely scoped (extend the existing per-env
+`_reset_begin`-then-settle loop with a per-env, per-tick teacher
+command array built the same way, batched via `st.tick(...)` the same
+way the settle stage already is) but not attempted this cycle to avoid
+an untested change to the hot-path batched training code.
+
+Manual smoke-check (zero-training, controller pod): gate OFF leaves
+body qvel ~1e-6 m/s after reset (unchanged); gate ON with a 2-3s
+handoff leaves real nonzero body velocity AND a measurably asymmetric
+per-pad height reference (some feet up, some down — a genuine mid-gait
+footprint, not the always-level six-feet-down default). A `park`
+(zero-action, hold-pose) rollout right after a handoff-ON reset decays
+back toward near-zero net travel within ~0.5s (50 ticks) — the
+momentum boost does NOT let a refusing policy coast to a free win, it
+has to be actively sustained.
+
+**Bank** (`test_task_semantics.py`, `ASSISTFADE_RUNG4_OVERRIDES` =
+the already-tried `WALKCURR_PHASE_SV_OVERRIDES` phase+contact diet
+[the doc's own "already failed under the prior reward stack" reward,
+UNCHANGED] plus the new reverse-handoff gate — this bank checks only
+the ONE new lever, not a new reward term), 4 new tests, all green:
+default-off bit-exact (near-zero body velocity with the gate absent),
+gate-on produces a real moving/asymmetric start (positive control that
+the mechanism does what it claims), `park`/`stall`/`belly_sit` still
+lose to `gait` by the SAME margin the gate-off phase-sv bank already
+required (refutes the free-momentum-freeride risk directly), and the
+wrong-way/falls tail (`reverse`/`sideways`/`topple`) still loses the
+same way. `uv run pytest rl_move/tests/test_task_semantics.py -k
+assistfade_rung4` — 4/4 green; broader regression sweep (rung2/rung3/
+walkcurr_phase_sv/walkcurr_sv_litrep banks, 17 tests) also green,
+confirming the shared `reset()` change is inert for every existing
+config that doesn't opt in.
+
+**Not yet launched** — the MJX-vec-env wiring above is real remaining
+work before a canary can train at GPU throughput; a CPU-only PPO
+canary would be far too slow to be worth funding. This is the
+concrete next item for whoever picks rung 4 back up, not a vague
+"unscoped design" gap anymore. `CYCLE_WORKED` touched (real
+mechanism + bank + tests + snapshot, plus this cycle's walkcurr
+crutchoff verdicts/launches — see that track's own STATUS).
+
+Evidence: `rl_move/sim/sim_env.py` (`_apply_walk_reverse_handoff`),
+`rl_move/tests/test_task_semantics.py` (`ASSISTFADE_RUNG4_OVERRIDES`
++ 4 tests), snapshot (this cycle, tag via `snapshot.sh`).
+
 ## 09-07 ~04:3x (refill; 11/11 GPU free, backlog empty) — `s0-longbudget` VERDICTED, closes rung 3's budget/schedule lever family 2/2 (6 arms total): rung 3 is now FULLY CLOSED
 
 The `s0-longbudget` DIG-IN had sat FINISHED-but-unverdicted since

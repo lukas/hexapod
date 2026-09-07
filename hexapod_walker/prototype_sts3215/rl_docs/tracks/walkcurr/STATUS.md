@@ -1,5 +1,45 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~05:4x (refill; 11/11 GPU free, backlog empty) — item(1) crutch-isolation pair BOTH CANARY PASS (2/2): crutch confirmed as a real push-recovery-fragility driver, not seed noise; 3-seed set completed + both ACQ continuations launched
+
+`crutchoff-{s1,s2}` (the single-lever `dr.torque_scale` 3,3->1,1
+ablation on the two seeds that already fell with the crutch ON, left
+FINISHED-but-uncollected by the 04:5x launch) both synced this cycle:
+**0 falls/terminations across all 24 held-out episodes on BOTH seeds**
+(`gait_valid` 20/24 each — walk/det 6/6, walk/sto 5/6, startjitter/det
+6/6, startjitter/sto 3/6, essentially identical numbers seed-to-seed),
+matching the pre-registered PASS bar (0 falls AND gait_valid majority
+>=18/24). Frame strips (`walk_det_0`, `walk_startjitter_sto_3`) confirm
+a level, upright walking body through a push-perturbation marker with
+no topple, on the exact seeds whose crutch-ON canaries fell with
+`tilt_roll`. **VERDICTED CANARY PASS, both seeds** — crutch
+(`dr.torque_scale=3,3`) is a confirmed real driver of item(1)'s
+push-recovery fragility (surprising direction: MORE assistive torque
+destabilizing fast recovery), not seed noise. This is independent,
+complementary evidence to the concurrent 05:1x push-ablation finding
+directly below (turning OFF push ALSO fixes the fall with crutch still
+ON) — both axes are independently sufficient drivers of the same
+failure at their joint dose; neither is "the" single cause alone.
+
+**Completed the 3-seed set + advanced both clean seeds to acquisition
+scale, same cycle:**
+1. `crutchoff-s0` (2M canary): the SAME single-lever ablation on the
+   one seed that PASSED its own 2M canary with crutch ON and only fell
+   at 40M ACQ (2/24 tilt_roll) — tests whether crutch-off also helps
+   the seed whose failure only showed up at scale, or whether that's a
+   different (budget-entrenchment) mechanism a 2M canary can't see
+   either way. VERIFIED RUNNING (train-2).
+2. `crutchoff-{s1,s2}-acq1` (40M ACQ, `--init-from-source` warm-started
+   from each seed's own clean 2M checkpoint): does the crutch-off fix
+   hold at real acquisition budget, or does either seed re-develop
+   push-recovery fragility once training entrenches further (the exact
+   pattern s0 showed with crutch ON)? Both VERIFIED RUNNING
+   (train-2, train-0).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_
+medhead_dr_allaxis_nokick_crutchoff_s{1,2}_gate/report.json`, W&B
+`w4ytxxft`/`a47j88gd`, RL_LOG 09-07 05:40.
+
 ## 2026-09-07 ~05:1x (concurrent cycle; assigned run cw-assistfade-rung3-residualfade-s0-longbudget already verdicted by another cycle before this one started) — corroborating push-axis ablation for item(1), matched-parent-control, zero training spend
 
 Read the same long-stalled `allaxis-nokick-c1-acq1` fork this cycle

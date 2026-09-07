@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: KILLED
+**status**: FINISHED
 
 **created**: 2026-09-07T10:37:00+00:00
 

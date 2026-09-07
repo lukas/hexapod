@@ -2,6 +2,60 @@
 
 ## PRIMARY GPU CAMPAIGN 2026-09-05 — operator full-fleet order (supersedes the bounded pilot ceiling)
 
+- **09-07 ~01:2x this cycle (refill; 11/11 GPU pods free, backlog
+  empty, no completion assigned). Fixed a stale-status bug in
+  `ops.sh status` that was making every fresh capacity read report 8+
+  ghost "RUNNING"/"INTENT" runs from as far back as 2026-08-25 (the
+  scan kept the last entry whose OWN status was RUNNING/INTENT and
+  never cleared it once a later verdict entry landed for that run —
+  fixed to use the run's genuinely-last ledger entry). Re-running it
+  surfaced two REAL orphans (finished-but-unverdicted, missed by
+  every prior cycle because the noisy old readout buried them):
+  **(1) `..._medhead_widenfwd_c2_acq1_cont40m`** — gate eval was
+  sitting synced-but-unread on its own pod (`ops.sh podeval` reaped
+  it cold); read it and VERDICTED **HARDENING PASS** (21/24 gv flat
+  vs the 40M parent, same leg0 episodes/flags reproduce not
+  consolidate, 0 falls both budgets) — closes the widenfwd
+  composition's cont40m endurance question 2/2 seeds (c1 already
+  PASSed 09-06 13:47). SKILLS.md +1 row.
+  **(2) `..._headset_crossgrav_medhead_dr_allaxis_nokick_c1_acq1`**
+  (QUEUE AIM item(1)'s composite-ACQ funding step, the run every
+  recent cycle has been citing as "item(1) stays DIG-IN-owned"
+  without anyone actually having read its landed gate) — already had
+  a synced `_gate/report.json`. Read it: gait_valid IMPROVED to
+  23/24 (vs the 2M canary's 19/24) but **2 NEW falls appeared**
+  (`walk/det` ep1, `walk_startjitter/sto` ep4, both `term_reason:
+  tilt_roll`, `roll_class: fell`, peak roll 30.8/34.2deg) where the
+  canary had 0/24 — a genuine new failure mode at ACQ scale that the
+  run's own pre-registered gate did not license as a clean PASS
+  ("0 falls/terminations" required) nor cleanly match the FAIL/
+  entrenches branch (gait_valid went UP, not down). Frame-strip of
+  the det/ep1 fall (`walk_det_1_sheet.png`) shows normal continuous
+  six-leg walking through 4 frames, then a push-perturbation marker
+  (green arrow) on frame 5, then the robot rolled onto its side on
+  frame 6 — **this looks like a push-recovery failure specific to
+  this composite's full DR draw at 40M, not a spontaneous walking
+  collapse.** This is a real gate/parent-metric disagreement (falls
+  appeared despite gait_valid improving) deciding item(1)'s open
+  axis-bisection question — **left UNVERDICTED, flagging DIG-IN**
+  per the model-tiering rule rather than snap-judging a fork-deciding
+  result on the triage pass. Whoever reads it next should watch both
+  fall videos directly and check whether `dr.walk_push_*` magnitude/
+  timing is the specific axis (not kick, already ruled out) that
+  destabilizes this composite past canary scale.
+  Full board re-confirmed otherwise unchanged: joystick/amp/cpg
+  DONE/maintenance, standwalk blocked on design-thinking, todaypolicy
+  delivered (next lever unscoped), assistfade's `s0-longbudget` stays
+  its own DIG-IN. No new GPU launch (both this cycle's finds were
+  bookkeeping/read gaps, not a fresh licensed arm). `CYCLE_WORKED`
+  touched (tool fix + 1 real verdict + 1 dig-in flag with real
+  evidence, zero GPU spend). Evidence: `git log` (ops.sh fix),
+  `logs/ckpt_eval/cw_walkscratch_easy0905_medhead_widenfwd_c2_acq1_
+  cont40m_gate/report.json` vs its parent's, `logs/ckpt_eval/
+  cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_
+  nokick_c1_acq1_gate/{report.json,walk_det_1_sheet.png}`, W&B
+  `bfwfmdmo`/`fvj0g1kr`, RL_LOG 09-07 01:2x.**
+
 - **09-07 ~00:5x this cycle (refill; 11/11 GPU pods free, backlog
   empty, no completion assigned). Executed the ~23:3x entry's own
   named "DR-realism ablation" recommendation directly — REFUTED,

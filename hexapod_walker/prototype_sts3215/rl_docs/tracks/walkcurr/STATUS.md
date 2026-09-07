@@ -1,5 +1,112 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~18:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned after the lswin verdict) — built the named "loaded-foot motion study" (phase-binned slip profile), zero-spend: slip concentrates at TOUCHDOWN and LIFTOFF, not mid-stance creep, on BOTH the champion and its speed-controlled descendant. Next mechanism scoped, not yet built.
+
+Per the lswin closure's own named next step ("a loaded-foot motion
+study on the speed-controlled checkpoint... before ANY new
+mechanism"), extended `rl_move/sim/audit_slip_frame.py` with
+`--phase-bins K` (new, default-off/opt-in flag, no change to existing
+callers/output keys): bins every loaded tick of every leg by its
+normalized position within its own stance bout (0=touchdown ..
+1=liftoff) into K equal-width phases, pooled across all 6 legs, and
+reports per-phase mean material slip (mm/tick), mean touch force, and
+mean concurrent body forward speed. Smoke-tested (3s episode, no
+crash) then run for real (6 det episodes, 20s, exact gate `--cfg-set`
+pulled via `ops.sh evalcmd`, K=6 bins) on two checkpoints, zero
+training spend, local CPU:
+
+| checkpoint | bin0 (touchdown) | bin1-4 (mid-stance) | bin5 (liftoff) | gv | slip/m med |
+|---|---|---|---|---|---|
+| frozen `cont40m` champion | 2.023 mm/tick | 1.35-1.41 mm/tick | 2.173 mm/tick | 6/6 | 5.01 |
+| `overspeedq1-cont8m` (speed-controlled) | 1.853 mm/tick | 1.26-1.34 mm/tick | 2.026 mm/tick | 6/6 | 5.90 |
+
+**Both checkpoints show the identical bathtub shape**: touchdown and
+liftoff transition ticks carry ~50-60% MORE slip per tick than
+mid-stance ticks, which are comparatively flat (within ~10% of each
+other across bins 1-4). Body forward speed stays roughly flat across
+phase within each checkpoint (0.089-0.099 m/s speed-controlled,
+0.105-0.117 m/s champion) — the phase effect is not a speed
+artifact. **This rules out "uniform mid-stance creep" as the slip
+mechanism and reframes it as two localized events: a touchdown
+impact/skid and a liftoff/toe-drag**, each plausibly needing a
+different fix (matching foot horizontal velocity to the ground at
+strike vs. a cleaner near-vertical liftoff before the swing return)
+rather than a whole-stance ratio/window reward charge — consistent
+with why all 5 direct-slip-pricing arms (which charge the WHOLE
+loaded duration uniformly) landed on the same floor regardless of
+dose or ratio-vs-window structure: none of them target the two
+phases where the slip actually concentrates.
+
+**Mechanism already has real scaffolding to build on**: `walk_task.py`
+already tracks per-leg `touchdown_flags`/`liftoff_flags`/`_liftoff_xy`/
+`_liftoff_step` every tick (used by the existing `k_step_event`/
+`k_step_partial` completed-swing bonus, ~line 5578-5730) — a new
+touchdown/liftoff-windowed slip charge could reuse this state machine
+instead of building phase detection from scratch. **Not built this
+cycle**: pricing exactly two short windows around a state transition
+correctly (bit-exact-off, no double-charging with the existing
+`k_step_event` credit, a calibrated bank case for "clean touchdown/
+liftoff" vs "skidding touchdown/dragging liftoff") is real reward-
+semantics design work per `RESEARCH_RULES.md`, not a same-cycle
+sprint after an already-completed verdict + diagnostic. Scoped
+precisely here so the next cycle can build+bank+launch directly
+instead of re-deriving this finding.
+
+Refill: capacity re-confirmed 11/11 GPU pods free, backlog empty
+throughout. No GPU launch made this cycle — the only informative next
+experiment (a touchdown/liftoff-windowed slip charge) needs its bank
+built first per the reward-mechanism launch rule, and rushing an
+unvetted new charge risks a 6th wasted arm on the same floor if the
+windowing is wrong. `CYCLE_WORKED` touched (1 real verdict + 1 new
+diagnostic-tool capability + 2 real zero-spend evidence runs + this
+scoped design lead, not a pure re-verify no-op).
+
+Evidence: `/tmp/phase_cont40m.json`, `/tmp/phase_overspeedq1_cont8m.json`
+(local CPU runs, exact gate cfg via `ops.sh evalcmd`); tool at
+`rl_move/sim/audit_slip_frame.py` (`--phase-bins`, snapshot pending).
+SKILLS.md +1 row. RL_LOG 09-07 18:2x.
+
+## 2026-09-07 ~18:0x (triage cycle; assigned the lswin interaction canary) — CANARY PASS / scientific FAIL-INTERACTION: pricing the overspeed escape does NOT unlock the windowed-loadslip charge; CLOSES the direct-slip-reward-pricing family 5/5 arms at the same ~5-6/m floor
+
+`...-cont40m-overspeedq1-cont8m-lswin` (the ~17:2x entry's sanctioned
+interaction canary, warm from the speed-controlled `overspeedq1-cont8m`
+checkpoint, single delta = the bank-proven windowed loadslip dose):
+verdicted **CANARY PASS (mechanism-health tier)** — no crash, `gv` 22/24
+(same leg-2 sacrifice cells as the parent), 0 falls, and both charges
+demonstrably fired (`env/walk_loadslip_ratio` 11.18 -> 7.68 across the
+2M window, `terminations/tilt_roll` 79 -> 7). The **scientific read is
+FAIL-INTERACTION per this run's own pre-registered rule**: held-out
+`walk/det` `slip_per_m` med landed at **5.47** — still `>=5.3`, the
+run's own "within noise of the parent" FAIL line, nowhere near the
+`<=4.8` SUPPORTED bar — while `env/v_along_cmd_m_s` stayed flat at
+`~0.073` the whole window (matches the parent's `0.0742`, never
+reopened toward the pre-charge `0.083-0.087` band, so the speed escape
+genuinely stayed shut). Combined evidence: pricing the escape did not
+give the windowed-loadslip charge the leverage it needed. **This CLOSES
+the entire direct-slip-reward-pricing family: 5/5 arms (4 solo
+mechanisms — loadslip-c1, loadslip-windowed-{s0,s1}, footslip-c1,
+footslip-c1-lowdose-s0 — plus this escape-closed interaction) now
+converge on the identical ~5-6/m steady-state floor regardless of
+pricing scheme** (flat charge, ratio charge, windowed-ratio charge, or
+windowed-ratio-with-the-escape-priced-shut). Combined with item(4)'s
+DR-band-narrowing closure (7/7 reads, band width is not the driver
+either), the composite's slip gap has now survived every reward-pricing
+and DR-band-width lever tried. SKILLS.md +1 row.
+
+**Next (per this run's own pre-registered note, not a new decision):**
+a loaded-foot MOTION study on the speed-controlled `overspeedq1-cont8m`
+checkpoint — where in the stance cycle the loaded drift actually
+happens (heel-strike transient? mid-stance creep? push-off?) — before
+any new reward mechanism is designed. Do not dose this family again at
+any k/gate/window value; the next informative move is diagnostic, not
+another canary.
+
+Capacity at close: 11/11 GPU pods free, backlog empty. No other
+walkcurr arm is in flight. The remaining lever (the motion study above)
+is a zero-spend diagnostic-tool-building task, not a launch — scoped
+here for the next cycle/dig-in to pick up; not attempted this cycle to
+avoid rushing a diagnostic design in the same pass as the verdict.
+
 ## 2026-09-07 ~17:2x (operator-requested cycle, focus note + fb_20260907T171006_43c9d4) — scratch8M gate FALSIFIES overspeed-financed slip; audit of the 4 closed direct-slip arms finds the mechanical escape they all shared (speed up, grow the ratio denominator); combined-mechanism bank built 4/4 green; ONE interaction canary launched
 
 **Verdict `...-cont40m-overspeedq1-cont8m` = FAIL (hypothesis

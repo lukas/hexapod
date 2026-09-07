@@ -3409,11 +3409,36 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                self._walk_kernel_vema[1])
                 else:
                     fv0, fv1 = float(v[0]), float(v[1])
+                _fp_cap = float(cfg_get(self.cfg, "reward",
+                                        "walk_freeprog_cap_m_s",
+                                        default=0.06))
+                # Command SPEED-range widening (walkcurr item(1),
+                # 09-07 realism ladder): with a single fixed episode
+                # speed (min==max) the cap above always equals s_ref,
+                # so this branch is a no-op and every existing lineage
+                # is bit-exact. Once goal.walk_speed_min/max_m_s are
+                # widened into a real band, a FIXED cap makes the
+                # command's SPEED MAGNITUDE reward-invisible: a slow
+                # command (e.g. 0.03 m/s) already saturates income at
+                # the old fixed cap by going no faster than before,
+                # and a fast command (e.g. 0.09 m/s) saturates at the
+                # SAME old cap too, so faster/slower commands stop
+                # differing in what they price. reward.walk_freeprog_
+                # cap_dynamic (default 0 = off, bit-exact: no new info
+                # key, no cap change) raises the effective cap to
+                # max(fixed_cap, s_ref) — commands at/below the fixed
+                # cap keep the legacy permissive behavior (still never
+                # punished for going faster than commanded, per the
+                # walkcurr_pf no-speed-band bank), commands ABOVE it
+                # get their own per-episode speed as the saturation
+                # point instead of silently under-pricing them.
+                if float(cfg_get(self.cfg, "reward",
+                                 "walk_freeprog_cap_dynamic",
+                                 default=0.0)) > 0.0:
+                    _fp_cap = max(_fp_cap, s_ref)
+                    info["walk_freeprog_cap_used_m_s"] = _fp_cap
                 f_score, f_along, f_cross = walk_freeprog_score(
-                    fv0, fv1, goal.vx_ref, goal.vy_ref,
-                    float(cfg_get(self.cfg, "reward",
-                                  "walk_freeprog_cap_m_s",
-                                  default=0.06)))
+                    fv0, fv1, goal.vx_ref, goal.vy_ref, _fp_cap)
                 along = f_along
                 r_walk = k_free * max(f_score, 0.0)
                 r_free_pen = k_free * min(f_score, 0.0)

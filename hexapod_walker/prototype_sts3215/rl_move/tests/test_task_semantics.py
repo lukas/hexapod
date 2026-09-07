@@ -1116,6 +1116,7 @@ def _slipwalk_rollout(policy: str, seed: int, *,
                       gait_scale: float = 1.0,
                       overrides: dict | None = None,
                       shuffle_half_period_s: float = 0.6,
+                      cmd_vx: float = SLIPWALK_CMD_VX,
                       ) -> tuple[float, float, int]:
     """Return (episode return, net forward body travel in m, steps).
 
@@ -1150,6 +1151,13 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     ``overrides``: cfg overrides dict, default ``SLIPWALK_OVERRIDES``
     (pass a superset to test an additional reward lever on top of the
     calibrated stack without touching the base dict).
+
+    ``cmd_vx``: the fixed forward command speed for the whole episode
+    (default ``SLIPWALK_CMD_VX``, matching every pre-existing caller's
+    bit-exact command bit-for-bit). Override to test a DIFFERENT
+    per-episode commanded speed (walkcurr item(1) speed-range
+    widening bank, 09-07) — ``gait_scale`` still scales the SCRIPTED
+    GAIT's own stepping speed, now relative to this ``cmd_vx``.
     """
     from sim_gait_compat import TripodGait
 
@@ -1160,9 +1168,9 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     n = len(traj.vx)
     hold_n = ramp_n = int(round(1.0 / env.dt))
     ramp = np.linspace(0.0, 1.0, ramp_n)
-    traj.vx[:] = SLIPWALK_CMD_VX
+    traj.vx[:] = cmd_vx
     traj.vx[:hold_n] = 0.0
-    traj.vx[hold_n:hold_n + ramp_n] = SLIPWALK_CMD_VX * ramp
+    traj.vx[hold_n:hold_n + ramp_n] = cmd_vx * ramp
     traj.vy[:] = 0.0
     if traj.wz is not None:
         traj.wz[:] = 0.0
@@ -1225,7 +1233,7 @@ def _slipwalk_rollout(policy: str, seed: int, *,
         elif policy == "shuffle":
             half_n = max(1, int(round(shuffle_half_period_s / env.dt)))
             sign = 1.0 if (step // half_n) % 2 == 0 else -1.0
-            gait.set_velocity(vx=SLIPWALK_CMD_VX * sign, vy=0.0)
+            gait.set_velocity(vx=cmd_vx * sign, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stork":
             act = q_rad_to_action(stork_rad)
@@ -1460,6 +1468,110 @@ def walkcurr_item4_loadslip_returns() -> dict[str, float]:
                 overrides=WALKCURR_ITEM4_LOADSLIP_OVERRIDES)
                 for s in SEEDS]))
             for p in ("gait", "skate", "stall", "park")}
+
+
+# ---------------------------------------------------------------------------
+# item(1) COMMAND SPEED-RANGE WIDENING bank (09-07). walkcurr STATUS.md's
+# own diagnosis: `walk_freeprog_score` prices ALONG-command velocity
+# against a single FIXED `reward.walk_freeprog_cap_m_s` scalar (0.06
+# for the entire crutchoff/widen8/irr campaign) — it uses vx_ref/vy_ref
+# for DIRECTION only, discarding their MAGNITUDE. Widening
+# `goal.walk_speed_min/max_m_s` into a real per-episode band therefore
+# changes nothing behaviorally: a policy that always produces the same
+# absolute speed regardless of what was commanded still saturates the
+# same fixed cap either way, so command speed carries zero reward
+# signal — exactly the gap that blocked launching this rung as a
+# cfg-only change. Mechanism (walk_task.py, default OFF, bit-exact):
+# reward.walk_freeprog_cap_dynamic=1 raises the effective cap to
+# max(walk_freeprog_cap_m_s, s_ref) where s_ref is THIS EPISODE's
+# commanded speed magnitude — commands at/below the fixed floor keep
+# the legacy permissive cap (going faster than a slow command is still
+# free, per the no-speed-band ruling below), commands ABOVE it get
+# their own per-episode speed as the saturation point so a policy that
+# ignores a faster command actually scores worse than one that tries
+# to match it.
+WALKCURR_ITEM4_CAPDYN_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_ITEM4_CAPDYN_OVERRIDES[
+    ("reward", "walk_freeprog_cap_dynamic")] = 1.0
+
+
+def test_walkcurr_item4_cap_dynamic_default_off_is_bit_exact():
+    """The flag defaults to 0; explicitly arming it on the campaign's
+    OWN single-speed 0.06 m/s diet (goal.walk_speed_min==max==0.06,
+    matching every crutchoff/widen8/irr launch to date) must reproduce
+    the bare-diet return BIT-FOR-BIT for both a clean gait and a
+    stationary twin — s_ref never exceeds the fixed cap under a single
+    fixed command, so max(cap, s_ref) always resolves to the same
+    float as the legacy path."""
+    for pol, scale in (("gait", 1.0), ("gait", 0.5), ("stall", 1.0)):
+        off = _slipwalk_rollout(pol, SEEDS[0], gait_scale=scale,
+                                overrides=WALKCURR_ITEM4_BARE_OVERRIDES,
+                                cmd_vx=0.06)
+        on = _slipwalk_rollout(pol, SEEDS[0], gait_scale=scale,
+                               overrides=WALKCURR_ITEM4_CAPDYN_OVERRIDES,
+                               cmd_vx=0.06)
+        assert off[0] == on[0], (
+            f"{pol}@{scale}: cap_dynamic changed the single-speed "
+            f"diet's return ({off[0]} vs {on[0]}) — must be bit-exact "
+            "when every command sits at the fixed floor")
+
+
+def test_walkcurr_item4_cap_fixed_is_command_blind():
+    """Root-cause confirmation of the STATUS.md gap under the LEGACY
+    (flag off) diet: the exact same physical gait (joint-target speed
+    pinned at 0.06 m/s either way) must earn ~the same income whether
+    the episode commands 0.06 m/s (matched) or 0.12 m/s (half-obeyed,
+    via gait_scale=0.5) — a fixed cap cannot tell the two apart, which
+    is the reward-invisibility this bank exists to close."""
+    matched = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                overrides=WALKCURR_ITEM4_BARE_OVERRIDES,
+                                cmd_vx=0.06)
+    half_obeyed = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                    overrides=WALKCURR_ITEM4_BARE_OVERRIDES,
+                                    cmd_vx=0.12)
+    assert abs(matched[0] - half_obeyed[0]) < 0.03 * abs(matched[0]), (
+        f"fixed-cap incomes differ more than command-blindness allows: "
+        f"matched={matched[0]:.1f} half_obeyed={half_obeyed[0]:.1f}")
+
+
+def test_walkcurr_item4_cap_dynamic_prices_command_magnitude(
+        walkcurr_item4_bare_returns):
+    """The fix: under reward.walk_freeprog_cap_dynamic, the SAME
+    half-obeyed gait (0.06 m/s actual against a 0.12 m/s command)
+    must score clearly WORSE than fully obeying a 0.06 m/s command —
+    command magnitude is now reward-visible. Margin is calibrated
+    against the bare diet's own gait-vs-stall gap (measured 09-07) so
+    the assertion tracks the bank's own scale, not a magic constant."""
+    matched = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                overrides=WALKCURR_ITEM4_CAPDYN_OVERRIDES,
+                                cmd_vx=0.06)
+    half_obeyed = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                    overrides=WALKCURR_ITEM4_CAPDYN_OVERRIDES,
+                                    cmd_vx=0.12)
+    gap = walkcurr_item4_bare_returns["gait"] - \
+        walkcurr_item4_bare_returns["stall"]
+    assert matched[0] - half_obeyed[0] > 0.3 * gap, (
+        f"dynamic cap did not clearly price the under-obeyed 0.12 m/s "
+        f"command: matched={matched[0]:.1f} half_obeyed={half_obeyed[0]:.1f} "
+        f"(gait-vs-stall gap={gap:.1f})")
+
+
+def test_walkcurr_item4_cap_dynamic_overspeed_still_free(
+        walkcurr_item4_bare_returns):
+    """The no-speed-band ruling must survive widening: on a SLOW
+    command (0.06 m/s, at/below the fixed floor) a policy that goes
+    TWICE as fast must still never be punished for it, dynamic cap on
+    or off — the mechanism only ever RAISES the ceiling for commands
+    above the floor, never lowers it for commands at/below it."""
+    fast = _slipwalk_rollout("gait", SEEDS[0], gait_scale=2.0,
+                             overrides=WALKCURR_ITEM4_CAPDYN_OVERRIDES,
+                             cmd_vx=0.06)
+    gait = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                             overrides=WALKCURR_ITEM4_CAPDYN_OVERRIDES,
+                             cmd_vx=0.06)
+    assert fast[0] >= gait[0] - 0.03 * abs(gait[0]), (
+        f"going faster than a slow command is now punished: "
+        f"fast={fast[0]:.1f} gait={gait[0]:.1f}")
 
 
 def test_walkcurr_item4_loadslip_gait_clearly_beats_stall(

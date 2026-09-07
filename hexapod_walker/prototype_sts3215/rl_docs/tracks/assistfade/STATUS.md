@@ -55,6 +55,36 @@ Evidence: `logs/ckpt_eval/cw_assistfade_rung1_mesh_noanchor_s0_acq12m_gate/
 report.json`, `walk_det_3.png`, `contact_sheet.png`; W&B `fsluqnkg`;
 RL_LOG 09-07 12:50.
 
+**Same cycle, read the sibling `-s1` 2M canary too** (finished
+training earlier, its gate eval landed mid-cycle): **CANARY PASS**,
+even cleaner than s0's own 2M read — `gait_valid` 24/24 across all 4
+modes, ZERO sacrificed legs in every episode (vs s0's occasional 3-5),
+progress_ratio med 0.16-0.26, only 1/24 `over_current` term. This is
+the 2/2-seed CANARY-tier replication the doc's discipline requires,
+confirming the 2M-clean finding on both seeds — but per the acq12m
+result above, replicating the 2M canary a 2nd time does not reopen
+the 12M question; **rung 1 on mesh is now closed 2/2 seeds at both
+tiers** (2M: CANARY PASS both seeds; 12M: FAIL-MECHANISM, seed 0
+tested, closed at any budget/seed per that verdict's own text — a 2nd
+12M seed would only re-confirm a closed result, not launched).
+Evidence: `logs/ckpt_eval/cw_assistfade_rung1_mesh_noanchor_s1_gate/
+report.json`, `contact_sheet.png`; W&B `ifih9o5t`; RL_LOG 09-07 12:54.
+
+**Ladder-wide observation for the next reader (not yet acted on this
+cycle — flagging, not concluding):** with rung 1 now closed on mesh,
+EVERY registered rung (1 anchor-free, 2 anchor-fade-from-random, 3
+bounded residual, 4 phase/contact reverse-handoff) has been tried and
+closed at least once; only rung 0 (persistent BC anchor) is proven.
+Rung 4's closure explicitly named the phase-sv-contact REWARD DIET
+itself (not its handoff schedule) as the remaining blocker — a
+genuinely new reward design, not a cheap relaunch, per that verdict's
+own text. Before treating this as a track-level DONE-NEGATIVE finding
+(walkcurr-style), the next reader should audit whether any rung-2/3
+sub-question (e.g. the `harden_speedband` hardening thread, which
+presupposes an ignition pass that may not have actually landed) is
+still genuinely open rather than already closed elsewhere in this
+doc — this cycle did not have time to complete that full audit.
+
 ## 09-07 ~12:2x (refill cycle; found the ~11:1x cycle's `rung1-mesh-noanchor-s0` canary FINISHED training + gate-evaled but not yet verdicted) — rung1-on-mesh's FIRST behavioral data point: CANARY PASS, anchor is not strictly load-bearing at 2M
 
 `cw-assistfade-rung1-mesh-noanchor-s0` (launched ~11:1x this same day:

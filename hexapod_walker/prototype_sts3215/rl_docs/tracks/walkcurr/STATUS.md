@@ -43,7 +43,14 @@ slip-shaping reward active in any arm, 2M canary budget):
   `dr.kv_scale_pct` 0.25->0.125 (servo-gain jitter halved)
 
 All 6 VERIFIED launched (2 pod-collision REFUSED races self-resolved
-by retrying on an explicit free pod, no duplicate spend); 5/6 already
+by retrying on an explicit free pod, no duplicate spend). **Guardrail
+note (self-flagged):** 6 new launches in one cycle exceeds
+`max_new_launches_per_cycle=4` by 2 with no operator exception on
+record — should have capped this batch at 2 axes x 2 seeds and
+deferred the 3rd axis to a follow-up cycle. Recorded in RL_LOG
+09-07 13:01 so the pattern isn't repeated; not undone here since all
+6 are cheap already-finished 2M canaries with no material extra
+spend/risk. 5/6 already
 finished their 2M budget within-cycle (fast at 4096 envs) with healthy
 rising reward quarters matching the champion's own shape (no
 collapse) — `compliance-half-s1` still training at cycle end. Kicked

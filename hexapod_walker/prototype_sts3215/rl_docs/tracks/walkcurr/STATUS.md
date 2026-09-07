@@ -1,5 +1,90 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~19:0x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — BUILT the scoped touchdown/liftoff TRANSITION-WINDOW slip charge (`reward.k_walk_transition_slip`), bank-proven 7/7 green, snapshot pushed, 2 canaries launched
+
+Per the ~18:2x entry's own named next step ("pricing exactly two short
+windows around a state transition... needs its bank built first...
+so the next cycle can build+bank+launch directly"), built the
+mechanism this cycle. `walk_task.py`: new opt-in reward lever
+`reward.k_walk_transition_slip` (default 0.0, bit-exact off) prices
+ONLY (a) the touchdown tick itself + the next
+`walk_transition_td_ticks - 1` live ticks (default 3 total,
+same tangential-velocity-excess-over-deadband/cap math as the
+closed `k_foot_slip_tangent`, just starting one tick earlier so the
+impact tick itself — which that mechanism structurally could never
+see, since its own `prev_meaningful` gate requires the PRIOR tick to
+already be a contact tick — is finally priced), and (b) a
+`walk_transition_lo_ticks`-tick (default 3) RETROSPECTIVE charge paid
+at the instant a leg lifts off, using a small per-leg trailing ring
+buffer of already-observed per-tick excess (no lookahead — everything
+charged already happened). New persistent per-leg state
+(`_trans_td_count`, `_trans_lo_buf`) added to `MJX_SNAPSHOT_EXTRA` and
+all 3 reset sites (`__init__`/`_reset_begin`/`_seq_reset_mode_state`),
+mirroring the existing `_stance_slip_acc` lifecycle. No interaction
+with `k_step_event`/`k_step_partial` (different quantity: tangential
+skid velocity in a fixed tick window vs along-command stride length
+between liftoff and touchdown) or with `k_foot_slip_tangent` when the
+latter is off (fully independent cfg keys/state).
+
+Bank (`test_task_semantics.py`, `WALKCURR_TRANSITION_OVERRIDES`, 7 new
+tests, all green): key=0.0 bit-exact vs the bare diet on all 4
+canonical behaviors; an impossible deadband (10 m/s) is bit-exact vs
+fully off (the deadband genuinely gates, doesn't just clip to ~0);
+the charge DOES fire (>5 pt) on the plain scripted "gait" policy at
+deadband 0.0 — real MuJoCo contact/impact dynamics produce measurable
+touchdown/liftoff slip even in this idealized scripted-joint-target
+env, so the mechanism isn't a structural no-op; widening both windows
+1->6 ticks monotonically increases the charge; **at the SAME dose/
+deadband/cap, the windowed charge (178.7 pts total over a 15 s
+episode) is materially SMALLER than the matched-dose uniform
+`k_foot_slip_tangent` charge (386.8 pts)** — direct confirmation the
+mechanism really is structurally narrower/targeted, not a renamed
+copy of the already-closed uniform lever; and the campaign's standard
+safety orderings hold at the bank dose (gait clearly beats stall/
+park, skate stays the clear worst outcome). Local subset re-run
+(tslip/footslip/slipwalk/item4/duty_gate/gait_gate/step_event/
+contact, 34+7 tests) shows zero new failures vs a parallel clean-
+`main` baseline run of the same file (2 pre-existing, unrelated
+`k_walk_swing`-shuffle-farm failures reproduce identically on both —
+not this change); the full-file suite was still running in the
+background at cycle end on both HEAD and a `dbedfdfe` baseline
+worktree for a complete diff — read `/tmp/full_test_task_semantics.log`
+vs `/tmp/baseline_test_task_semantics.log` before assuming any
+newly-seen failure there is caused by this change rather than
+pre-existing.
+
+Snapshot: `exp/walkcurr-transition-window-slip-charge` (commit
+`d250ae55`), pushed. Launched 2 canaries (2M each, same dose/deadband/
+cap: gain 35.0, deadband 0.015 m/s, cap 0.25 m/s, contact_n 2.0,
+td_ticks=3, lo_ticks=3 — matching the closed `footslip-c1`'s own
+historical dose for direct comparability):
+- `...-cont40m-transwin-c1` (respec `--from` the byte-identical
+  `...-cont40m-footslip-c1`, `k_foot_slip_tangent` turned back off):
+  does the phase-TARGETED charge move the frozen champion's slip/m
+  where 5 flat/uniform arms (footslip-c1, loadslip-c1,
+  loadslip-windowed x2, footslip-c1-lowdose) all failed to?
+- `...-cont40m-overspeedq1-cont8m-transwin-c1` (respec `--from` the
+  speed-controlled `overspeedq1-cont8m` descendant,
+  `--init-from-source` off its own finished 8M checkpoint, the
+  already-baked `walk_freeprog_overspeed_charge=1.0` left untouched):
+  does phase-targeting help MORE once the overspeed-financed-slip
+  escape (falsified ~18:0x this same day) is already closed on the
+  denominator side?
+Both VERIFIED RUNNING (train-0, train-1) at cycle end. Read both
+gate reports before any further transition-slip dose/window variant —
+this is the mechanism's FIRST test, not a swept family yet.
+
+`CYCLE_WORKED` touched (new reward mechanism landed + bank-proven +
+snapshotted + 2 canaries launched, not a re-verify no-op).
+
+Evidence: `rl_move/tests/test_task_semantics.py::test_walkcurr_
+transition_*` (7/7 green); `rl_move/sim/walk_task.py` (search
+`k_walk_transition_slip`); snapshot `d250ae55` / tag
+`exp/walkcurr-transition-window-slip-charge`; `ops.sh review
+cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+nocrutch1x-c1-acq1-cont40m-{transwin-c1,overspeedq1-cont8m-
+transwin-c1}`.
+
 ## 2026-09-07 ~18:2x (refill; 11/11 GPU pods free, backlog empty, no completion assigned after the lswin verdict) — built the named "loaded-foot motion study" (phase-binned slip profile), zero-spend: slip concentrates at TOUCHDOWN and LIFTOFF, not mid-stance creep, on BOTH the champion and its speed-controlled descendant. Next mechanism scoped, not yet built.
 
 Per the lswin closure's own named next step ("a loaded-foot motion

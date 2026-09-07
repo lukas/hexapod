@@ -1,11 +1,92 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~10:1x — `cw-robotwalk-turns-20260907-
-yawref-acq8m` VERDICTED **ACQ CONTINUE: frame-fix hypothesis
-DECISIVELY CONFIRMED** (joygate `course_yawref_err_1s_med` 4.33deg,
-clears the 5.17deg bar). One residual gap (tip-turn-in-place) named,
-8M continuation launched: `cw-robotwalk-turns-20260907-yawref-cont8m`.
-See the 10:1x entry below.
+Last updated: 2026-09-07 ~13:1x — `cw-robotwalk-turns-20260907-
+yawref-cont8m`'s full 4-check panel landed: genuinely AMBIGUOUS
+result (tip-turn-in-place still open, one plain-arc cell regressed,
+joygate/stop/walk-retention all hold or improve, reward still rising
+strongly) — none of the run's own three pre-registered branches
+(PASS/CONTINUE/FAIL-flag) cleanly fires. Left UNVERDICTED, flagged
+DIG-IN (this decides whether the turn-capable walk role ships as-is
+or needs a dedicated tip-in-place lever first). See the ~13:1x entry
+below for the full numeric comparison.
+
+## 09-07 ~13:1x (triage; found this FINISHED+unverdicted orphan with free capacity, ran its own pre-registered panel per the 10:1x precedent) — yawref-cont8m: AMBIGUOUS, none of the 3 pre-registered branches cleanly fires — DIG-IN flagged, not verdicted
+
+`cw-robotwalk-turns-20260907-yawref-cont8m` (the 8M same-recipe
+continuation the ~10:1x entry below licensed) had finished its full
+budget and its checkpoint had already cleared the deferred-artifacts
+finalizer (`phase: evaluated`) but sat unverdicted — this run's
+`track:todaypolicy` tag means the watcher's standard walk-retention/
+joygate auto-eval never fires for it (same gap the 10:1x entry
+named), so no report existed at all yet. Pulled the checkpoint fresh
+(`ops.sh pullckpt`, controller copy was missing, fell back to the
+training pod) and ran the exact same 3-tool panel the 10:1x entry
+used (`eval_yaw`, `eval_cmd_suite`, `eval_joystick_gate`, identical
+`--cfg-set`/`--extra-cfg-set` list pulled straight from the ledger's
+own `extra_args` so obs/command distribution matches training) on the
+run's own pod (`hexapod-mjx-train-1`, free at the time).
+
+**Reading against the run's own 5-criterion pre-registered gate:**
+- **(a) tip-turn-in-place wz_err_med <0.076 — STILL NOT CLEARED,
+  roughly flat.** cont8m: tip-left 0.0885 (improved from acq8m's
+  0.0935), tip-right 0.0842 (WORSE than acq8m's 0.0809). Net: no
+  meaningful net change, both signs still well over the 0.076 bar.
+  This is the one gap the whole continuation was launched to close,
+  and it did not close.
+- **(b) combined-cell wz_err at/better than acq8m's
+  0.0901/0.0905/0.2216/0.2251 — MIXED, one cell regressed outside
+  noise.** cont8m: arc-left 0.0947 (worse, +5%), **arc-right 0.1162
+  (worse, +28% relative — the largest single delta in either panel)**,
+  arc-left-max 0.2153 (better), arc-right-max 0.2243 (better). Same
+  seed/cfg/deterministic env both times, so this is a real policy-
+  behavior change from the extra 8M steps, not eval noise — the
+  max-arc/tip-left cells improved while plain-arc-right and tip-right
+  got worse, a genuine trade-off pattern, not a clean net win.
+- **(c) walk retention (DR-0 walk mode, 0 falls, gait valid, slip) —
+  HOLDS.** joygate `walk`-mode pass (dr=0, n=24): 0 falls,
+  `gait_valid_frac`=1.0, `slip_per_m_med`=2.295 (<=2.9 cap), all 6 legs
+  nonzero duty (0.535-0.625) — no new leg sacrifice. (Ran `--modes
+  walk` only, not the combined `walk,walk_startjitter` 4-panel the
+  original acq8m read used — a narrower but consistent-direction
+  check given the time budget; does not contradict retention.)
+- **(d) joygate stress_mix pass=true AND course_yawref_err_1s_med
+  <=5.17deg — HOLDS, IMPROVED.** cont8m: pass=true,
+  `course_yawref_err_1s_med`=**4.07deg** (better than acq8m's
+  4.33deg). The frame-fix's own target metric keeps improving with
+  more budget.
+- **(e) cmd_suite stop cell near-zero v_err (no standing-still
+  regression) — HOLDS.** `stop` row: det `v_err_med` 0.0008->0.0013,
+  sto 0.0040->0.0037 — both still ~0, no regression.
+
+**None of the run's own three pre-registered branches cleanly fires:**
+not PASS (criterion a fails outright), not the stated CONTINUE text
+("tip improves ... with (b)-(e) holding" — tip did not clearly
+improve and (b) does not fully hold), not the stated FAIL-flag text
+("tip flat-or-worse AND (b)/(d) ALSO regress with reward flat" — (d)
+improved and reward is emphatically NOT flat: quarters
+`[313.1, 1350.4, 2361.9, 2964.4]`, still climbing every quarter).
+Per the 08-21 ruling this is closer to "continue" than "stop" (reward
+rising, most criteria hold or improve), but the arc-right regression
+is a real, reproducible-by-construction anomaly (same seed/cfg/det
+env, only the checkpoint differs) that decides a real fork — ship
+this lineage's turn behavior as-is for the `todaypolicy` bundle's
+walk role, keep training the same recipe hoping consolidation
+resolves the trade-off, or design a dedicated tip-in-place income
+lever (the `-acq8m` entry's own "if false" prediction, now looking
+more likely than "if true"). Flagging DIG-IN rather than forcing a
+verdict — the next reader should watch video for both the arc-right
+and tip-right cells (none was captured this cycle, `--video` flag not
+set on either eval call) before deciding continue-vs-lever-design;
+raw numbers alone don't show WHETHER the arc-right degradation is a
+gait-quality problem (e.g. a slip/stumble under that specific turn
+rate) or just a slower-but-still-clean convergence.
+
+Evidence: `logs/ckpt_eval/cw_robotwalk_turns_20260907_yawref_cont8m_
+{yaw,joygate_freshcmp}/{yaw_verdict.json,cmdsuite_verdict.json,
+gate_verdict.json}`; comparison baseline pulled fresh from the run's
+own training pod's `..._yawref_acq8m_{yaw,joygate_freshcmp}/` dirs
+(never synced to the controller before this cycle — same `track:
+todaypolicy` sync gap). W&B `pzu0hc62`. RL_LOG 09-07 13:1x.
 
 ## 09-07 ~10:1x — yawref-acq8m VERDICTED: frame fix WORKS on its target metric; one pre-existing gap stays open; continuation launched
 

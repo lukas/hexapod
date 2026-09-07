@@ -1,5 +1,46 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~04:4x (this cycle, zero-spend scoping diagnostic, no launch) — the obvious "role-aware tripod-template" reward design would likely be a 4th INERT mechanism; do not build it as-is
+
+Before writing any code for the still-unbuilt role-aware mechanism the
+~04:1x entry below (and CURRENT_TRUTHS 09-05 ~22:3x) names as the only
+licensed next lever, worked out its most obvious reading — a per-tick
+`score = max(match to canonical tripod (0,2,4), match to (1,3,5))` —
+against real per-leg `duty_cycle` data pulled from already-synced
+`report.json` files (full arithmetic + numbers: CURRENT_TRUTHS 09-07
+~04:4x). Two negative findings: **(1)** hand-worked the leg-4-always-
+swing case: this scoring shape scores ~0.83-1.0 per tick on it (never
+collapses to a real penalty), because dropping one leg from a 3-leg
+group still coincidentally satisfies the OTHER template's expectation
+for that leg about half the time — this specific design would very
+likely be a 4th inert mechanism, not a fix. **(2)** pulled the
+PASSING `crossgrav-medhead-abrupt-c1-acq1` checkpoint's own per-leg
+duty spread (0.10-0.74 across 12 episodes, NOT clustered near 0.5)
+and found leg4 is its single lowest-duty leg in 10/12 episodes
+(0.18-0.30, once 0.10 with that episode itself flagged sacrificed) —
+**leg4 being least-used is a structural fact of this gait, present in
+PASSING runs too; the pass/fail line is a matter of degree
+(0.10-0.30 passing vs 0.03-0.07 failing), not a clean topological
+pattern**, so a rigid pattern-matching reward risks charging good
+gaits too unless calibrated against exactly this kind of graded
+baseline (not an assumed uniform tripod). **Net effect: does NOT
+open a new licensed launch this cycle** — it downgrades confidence in
+the naive tripod-template design specifically (do not build that
+exact version) while reaffirming crossgrav-transfer (item(1), already
+DIG-IN-owned/in-progress) as the only mechanism that has ever
+measurably moved leg4's duty the right direction. No code, no
+launch — full board otherwise unchanged (joystick/amp DONE, standwalk
+blocked, assistfade `s0-longbudget` + item(1) stay DIG-IN-owned,
+`cpg`/`todaypolicy` cadence lever closed this cycle — see those
+STATUS docs). `CYCLE_WORKED` touched (2 run verdicts confirmed + this
+diagnostic + cross-track doc sync, zero spend).
+
+Evidence: CURRENT_TRUTHS.md 09-07 ~04:4x (full duty tables + the
+per-tick arithmetic), `logs/ckpt_eval/cw_walkscratch_easy0905_
+headset_base_s0c1_dbandgate_fresh_gate/report.json`, `logs/ckpt_eval/
+cw_walkscratch_easy0905_headset_crossgrav_medhead_abrupt_c1_acq1_
+gate/report.json`.
+
 ## 2026-09-07 ~04:1x (refill; 11/11 GPU free, backlog empty) — item(1) dbandgate-{fresh,fix} VERDICTED, reward-price class closed 4/4 (11 arms)
 
 Both `dbandgate` arms flagged unverdicted by the 03:2x/03:4x entries

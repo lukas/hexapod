@@ -276,10 +276,15 @@ class MjxVecEnv(VecEnv):
             env._handoff_active_this_reset = True
         if not active.any():
             return out
+        # (B, 1), NOT (B,): make_command broadcasts speed/acc against
+        # (B, N_JOINTS) with numpy trailing-dim rules — a flat (B,)
+        # cannot broadcast to (B, 18) and raises at the first armed
+        # choreography (caught by test_mjx_reverse_handoff on train-9,
+        # 09-07; step_wait's own arrays are (B, 1) for the same reason).
         speed = np.array([e.write_speed_deg_s for e in self.envs],
-                         dtype=np.float32)
+                         dtype=np.float32)[:, None]
         acc = np.array([e.write_acc_units for e in self.envs],
-                       dtype=np.float32)
+                       dtype=np.float32)[:, None]
         for k in range(n):
             t = k * dt
             q_batch = np.zeros((B, N_JOINTS), dtype=np.float32)

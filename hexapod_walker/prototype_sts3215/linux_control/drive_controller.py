@@ -221,19 +221,47 @@ class DriveController:
     def _torque_all(self, on: bool) -> None:
         if not self.bus:
             return
+        bulk_error: Exception | None = None
         if hasattr(self.bus, "enable_all_torque"):
             try:
                 self.bus.enable_all_torque(on)
                 return
-            except Exception:
-                pass
-        for sid in sorted(self._live_ids(force=True) or
-                          {joint_to_servo_id(j) for j in range(N_JOINTS)}):
+            except Exception as e:
+                bulk_error = e
+        torque = getattr(self.bus, "torque", None)
+        failures: list[str] = []
+        # A failed bulk attempt leaves every configured servo's state unknown.
+        # Do not narrow the fallback to a fresh scan: the very servo omitted
+        # by a timeout is the one whose torque state cannot be certified.
+        expected_ids = {joint_to_servo_id(j) for j in range(N_JOINTS)}
+        for sid in sorted(expected_ids):
             try:
-                self.bus.pkt.write1ByteTxRx(
-                    sid, ADDR_TORQUE_ENABLE, 1 if on else 0)
-            except Exception:
-                pass
+                if callable(torque):
+                    # Both canonical transports validate their own reply.
+                    torque(sid, on)
+                else:
+                    reply = self.bus.pkt.write1ByteTxRx(
+                        sid, ADDR_TORQUE_ENABLE, 1 if on else 0)
+                    if not isinstance(reply, tuple) or len(reply) < 2:
+                        raise RuntimeError(f"unexpected reply {reply!r}")
+                    comm, error = reply[-2:]
+                    success = getattr(
+                        getattr(self.bus, "scs", None), "COMM_SUCCESS", 0)
+                    if comm != success or error:
+                        raise RuntimeError(
+                            f"comm={comm}, device_error={error}")
+            except Exception as e:
+                failures.append(f"{sid}:{e}")
+        if failures:
+            action = "enable" if on else "disable"
+            detail = "; ".join(failures[:3])
+            if len(failures) > 3:
+                detail += f"; +{len(failures) - 3} more"
+            if bulk_error is not None:
+                detail = f"bulk={bulk_error}; fallback={detail}"
+            raise RuntimeError(
+                f"torque {action} not acknowledged for "
+                f"{len(failures)} servo(s): {detail}")
 
     def _read_present_pose(self) -> list[float | None]:
         if not self.bus:
@@ -564,8 +592,12 @@ class DriveController:
             self.mode = "idle"
             self.gait.stop()
             self._vx = self._vy = self._omega = 0.0
-            self._torque_all(False)
             self.armed = False
+            try:
+                self._torque_all(False)
+            except Exception:
+                self.status = "disarm requested; torque unverified"
+                raise
             self.status = "disarmed (limp)"
             return "limp"
 

@@ -32,7 +32,7 @@ Outputs (in ``rl_move/hardware_traces/``):
   commanded distance, TAPE-MEASURED distance/drift, slip ratio, tilt
   envelope, current stats, trace filenames.
 
-Usage (bench, operator watching, robot ARMed and standing at plant):
+Usage (bench, live camera and guarded runner watching, robot ARMed and standing at plant):
 
     uv run python -m rl_move.scripts.tape_measure_walk            # dry run
     uv run python -m rl_move.scripts.tape_measure_walk --go       # default plan

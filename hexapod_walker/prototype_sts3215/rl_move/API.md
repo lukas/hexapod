@@ -51,7 +51,7 @@ the process rules below are what remain).
 | GET | `/api/rl/roles` | Role registry: which `policies/` file serves walk / hold / stand / lower |
 | POST | `/api/rl/roles` | `{"role":"hold","file":"<name>.json"}` — assign (no motion; `""` = default, `"walk"` = built-in joint hold for hold) |
 | GET | `/api/rl/drive` | Live drive-session snapshot (active, model, refs, tilt) |
-| POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; operator watching) |
+| POST | `/api/rl/drive/start` | Start persistent held-key drive session (motion-free walk preflight from current sim walk-ready pose; live camera and guarded runner supervising) |
 | POST | `/api/rl/drive/cmd` | `{"vx":0.05,"vy":0,"wz":0,"dh":0}` heartbeat ~5 Hz; stale >0.6 s ⇒ refs decay to zero (hold). `dh` ∈ [-1,1] = D-pad body-height nudge: ref integrates at 10 mm/s, clamped −45..+30 mm, tracked only while HOLDING with an obs-68 stance model in the `hold` role; a move command ramps the height back to 0 before the gait engages |
 | POST | `/api/rl/drive/stop` | Graceful end: decel to zero, HOLD pose |
 | POST | `/api/set_zero` | Present pose → logical 0° (required after hand-set) |
@@ -88,12 +88,13 @@ stationary—never an automatic sit or safe-zero. Heat requires three
 consecutive over-threshold samples from the same joint. After a thermal limp,
 the raw camera and telemetry logs remain open until three complete samples are
 below the warm threshold (or the five-minute cooldown timeout). A later
-safe-zero requires explicit operator authorization. Tilt also requires three
+safe-zero requires a normal live camera view and three recovered healthy
+samples; hands-on correction is needed only if those remain inconclusive. Tilt also requires three
 valid consecutive samples; an instantaneous near-180-degree Euler jump that
 contradicts the gyro is logged and excluded from the trip vote rather than
 being mistaken for a physical tip.
 
-The survey keeps the initial operator-approved chassis image position as its
+The survey keeps the initial guarded-preflight chassis image position as its
 centering anchor and resolves duplicate floor-tag IDs by global reprojection
 fit. A completed run contains raw/annotated video, camera timestamps,
 hardware telemetry/events, AprilTag poses, `apriltag_motion.json`, a matched
@@ -160,6 +161,32 @@ or several consecutive meaningful misses, is reported as a timing fault
 and the runner stops commanding motion.
 Every session logs `rl_drive_*.csv` like any episode.
 
+## Full-test communication recording
+
+The physical robot web service automatically starts the existing passive
+recorder before serving tests. It records all host-to-MCU serial writes and
+received bytes throughout setup, motion, stopping and recovery, including
+successful runs. It preserves partial replies, malformed packets, rejected
+per-servo reports and input-buffer discards before decoding. Raw bytes are
+stored as `data_hex` with monotonic and wall-clock timestamps; binary result
+records include timeout/checksum/framing outcomes. This is the host/MCU link,
+not a wire-level capture of the separate MCU/servo UART.
+
+Recording never substitutes a different command or polls the bus. The existing
+background writer encodes and saves raw events without the decoded telemetry's
+rate limit. Its bounded queue reports dropped communication events and capture
+errors through `GET /api/telemetry`; disk failures are reported there too.
+Files rotate at 64 MiB without deleting earlier parts. The status response's
+`paths` lists them, and `GET /api/logs/<filename>` downloads each part.
+
+`run_rl_walk_trial.py` marks the run boundaries and copies the relevant parts
+into its evidence directory after recovery, including failed runs. It records
+capture loss/error counters in `summary.json` and leaves the shared recorder
+running for the next test. A marker is acknowledged as saved only when
+`flushed_marker` matches the returned `marker_id`. `HEXAPOD_TELEMETRY_AUTO=0`
+explicitly disables automatic startup; dry-run services do not open a hardware
+recording.
+
 ## RL episode logging (2026-08-09, on-robot, automatic)
 
 Every stand / lower / walk run writes a full local trace under
@@ -214,4 +241,5 @@ uv run python -m rl_move.remote state
 curl -X POST --data 'X' http://hexapod.local:8080/cmd
 ```
 
-SSH only for deploy/restart when the operator asks — never for routine motion.
+SSH is only for necessary deploy/restart work within the active task — never
+for routine motion, which stays on the HTTP control path.

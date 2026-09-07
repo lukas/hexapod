@@ -60,7 +60,14 @@ def main() -> None:
     parser.add_argument("--profile", choices=("amplitude", "micro"), default="amplitude")
     parser.add_argument("--leg", type=int, choices=range(6), default=5)
     parser.add_argument("--clear-adjacent", action="store_true")
+    parser.add_argument("--version", type=int, default=1)
+    parser.add_argument("--strict-independent", action="store_true")
+    parser.add_argument("--created")
     args = parser.parse_args()
+    if args.version < 1:
+        parser.error("--version must be at least 1")
+    if args.clear_adjacent and args.strict_independent:
+        parser.error("--clear-adjacent conflicts with --strict-independent")
     leg = args.leg
     micro = args.profile == "micro"
     amplitudes_mm = MICRO_AMPLITUDES_MM if micro else AMPLITUDES_MM
@@ -120,7 +127,7 @@ def main() -> None:
 
     t_s = [round(index / HZ, 1) for index in range(len(samples))]
     if micro:
-        name = f"l{leg}_ground_radial_shear_micro_ladder_v1"
+        name = f"l{leg}_ground_radial_shear_micro_ladder_v{args.version}"
         output = ROOT / "protocols" / f"{name}.json"
         description = (
             f"Supported-chassis planted L{leg} micro radial-shear ladder at y=120 mm. "
@@ -137,7 +144,7 @@ def main() -> None:
         )
         label = f"L{leg}_five_cycles_at_four_micro_ground_shear_amplitudes"
     else:
-        name = f"l{leg}_ground_radial_shear_amplitude_ladder_v1"
+        name = f"l{leg}_ground_radial_shear_amplitude_ladder_v{args.version}"
         output = ROOT / "protocols" / f"{name}.json"
         description = (
             f"Supported-chassis planted L{leg} radial-shear amplitude ladder at y=120 mm. "
@@ -154,10 +161,23 @@ def main() -> None:
         )
         label = f"L{leg}_three_cycles_at_four_ground_shear_amplitudes"
 
+    if args.strict_independent:
+        description += (
+            f" Strict independent-leg variant: only L{leg} hip and knee "
+            "change; every other joint target stays at home."
+        )
+        moving = {leg * 3 + 1, leg * 3 + 2}
+        assert all(
+            value == 0.0
+            for row in samples
+            for joint, value in enumerate(row)
+            if joint not in moving
+        )
+
     protocol = {
         "sysid_protocol": 1,
         "name": name,
-        "created": "2026-09-02T17:32:00-07:00",
+        "created": args.created or "2026-09-02T17:32:00-07:00",
         "description": description,
         "hz": HZ,
         "write_speed": 180,

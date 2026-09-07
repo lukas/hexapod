@@ -1309,9 +1309,12 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   `L5_yaw` body `pos`), `rl_docs/tracks/walkcurr/STATUS.md` 09-07 ~09:5x.
 
 ## Real Robot Boundary
-- The robot is operator-owned. No physical motion without an explicit
-  current-turn operator ask.
-- For web/control code only, use HTTP/dev-loop helpers:
+- The robot remains physically owned by the operator, but the active Robot Lab
+  campaign grants guarded agents standing authority for bounded observed
+  motion, necessary deployment, and routine recovery. Live camera plus three
+  fresh healthy samples counts as supervision; reserve hands-on requests for a
+  persistent or inconclusive physical condition.
+- Prefer HTTP/dev-loop helpers:
   `make robot-check`, `robot-unit-check`, `robot-status`, `robot-deploy`.
 
 ## Startup And Status

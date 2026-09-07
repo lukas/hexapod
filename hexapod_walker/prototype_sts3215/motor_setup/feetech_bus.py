@@ -422,7 +422,15 @@ class FeetechBus:
         return [sid for sid in id_range if self.ping(sid)]
 
     def torque(self, sid: int, on: bool) -> None:
-        self.pkt.write1ByteTxRx(sid, ADDR_TORQUE_ENABLE, 1 if on else 0)
+        result, error = self.pkt.write1ByteTxRx(
+            sid, ADDR_TORQUE_ENABLE, 1 if on else 0)
+        if result != self.scs.COMM_SUCCESS:
+            raise RuntimeError(
+                f"servo {sid} torque write was not acknowledged "
+                f"(comm={result})")
+        if error:
+            raise RuntimeError(
+                f"servo {sid} rejected torque write (error={error})")
 
     def set_id(self, old_id: int, new_id: int) -> None:
         # STS: unlock EEPROM (lock reg 55 = 0), write ID (reg 5), relock.

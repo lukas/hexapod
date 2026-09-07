@@ -4,6 +4,7 @@ import threading
 from types import SimpleNamespace
 
 import pytest
+import numpy as np
 
 from rl_move.env import TaskGoal
 from rl_move.sim import web_session as sim_ws
@@ -14,10 +15,6 @@ def _bare_drive_session():
     session.lock = threading.RLock()
     session.drive_active = True
     session.last_drive_cmd_at = 100.0
-    session.drive_zero_since = None
-    session.drive_last_vx = 0.0
-    session.drive_last_vy = 0.0
-    session.drive_last_wz = 0.0
     session.traj = SimpleNamespace(
         vx=0.05,
         vy=0.0,
@@ -39,51 +36,73 @@ def _bare_drive_session():
         "vx_ref": round(float(session.traj.vx), 4),
         "vy_ref": round(float(session.traj.vy), 4),
         "wz_ref": round(float(session.om_cmd), 4),
-        "walk_zero_dwell_s": round(
-            session._drive_zero_dwell_remaining(), 2),
     }
     return session
 
 
-def test_sim_drive_neutral_dwell_keeps_last_walk_ref(monkeypatch):
+@pytest.mark.parametrize("vx,vy,wz", [(0.05, 0.0, 0.0),
+                                       (0.03, 0.04, 0.1),
+                                       (0.0, 0.0, -0.1)])
+def test_sim_drive_neutral_clears_all_refs_on_first_call(monkeypatch, vx, vy, wz):
     session = _bare_drive_session()
+    session.traj.vx, session.traj.vy, session.om_cmd = vx, vy, wz
     now = [100.0]
     monkeypatch.setattr(sim_ws.time, "monotonic", lambda: now[0])
 
     out = session.rl_drive_cmd(0.0, 0.0)
     assert out["active"] is True
-    assert session.traj.vx == pytest.approx(0.05)
-    assert session.traj.vy == pytest.approx(0.0)
-    assert session.drive_zero_since == pytest.approx(100.0)
-    assert out["live"]["walk_zero_dwell_s"] == pytest.approx(1.5)
-
-    now[0] += sim_ws._DRIVE_HOLD_SWITCH_S - 0.01
-    session.rl_drive_cmd(0.0, 0.0)
-    assert session.traj.vx == pytest.approx(0.05)
-    assert session.traj.vy == pytest.approx(0.0)
-
-    now[0] += 0.02
-    session.rl_drive_cmd(0.0, 0.0)
+    assert out["live"]["vx_ref"] == 0.0
+    assert out["live"]["vy_ref"] == 0.0
+    assert out["live"]["wz_ref"] == 0.0
     assert session.traj.vx == pytest.approx(0.0)
     assert session.traj.vy == pytest.approx(0.0)
     assert session.om_cmd == pytest.approx(0.0)
-    assert session.drive_zero_since == pytest.approx(100.0)
 
 
-def test_sim_drive_moving_command_clears_neutral_dwell(monkeypatch):
+def test_sim_drive_reengages_on_next_command_after_neutral(monkeypatch):
     session = _bare_drive_session()
-    session.drive_zero_since = 99.0
-    session.traj.vx = 0.0
-    session.traj.vy = 0.0
     now = [100.0]
     monkeypatch.setattr(sim_ws.time, "monotonic", lambda: now[0])
 
+    session.rl_drive_cmd(0.0, 0.0)
+    assert session.traj.vx == 0.0
+    now[0] += 0.01
     session.rl_drive_cmd(0.03, 0.04, wz=0.1)
 
-    assert session.drive_zero_since is None
     assert session.traj.vx == pytest.approx(0.03)
     assert session.traj.vy == pytest.approx(0.04)
     assert session.om_cmd == pytest.approx(0.1)
-    assert session.drive_last_vx == pytest.approx(0.03)
-    assert session.drive_last_vy == pytest.approx(0.04)
-    assert session.drive_last_wz == pytest.approx(0.1)
+
+
+@pytest.mark.parametrize("heartbeat_expired", [False, True])
+def test_sim_next_tick_selects_hold_after_neutral_or_stale_heartbeat(
+        monkeypatch, heartbeat_expired):
+    session = _bare_drive_session()
+    now = [100.0]
+    monkeypatch.setattr(sim_ws.time, "monotonic", lambda: now[0])
+    if heartbeat_expired:
+        now[0] += sim_ws._DRIVE_HEARTBEAT_STALE_S + 0.01
+    else:
+        session.rl_drive_cmd(0.0, 0.0)
+    session._apply_servo_regime = lambda: None
+    session._demo_running = lambda: False
+    session.timed_walk_until = None
+    session.walk = object()
+    session.push_ticks = 0
+    session.chassis_bid = 0
+    session.env = SimpleNamespace(data=SimpleNamespace(
+        xfrc_applied=np.zeros((1, 6))))
+
+    class SelectedPolicy(Exception):
+        pass
+
+    def select(role):
+        raise SelectedPolicy(role)
+
+    session._stance_action = select
+    session._walk_predict = lambda: select("walk")
+    # Stop after policy dispatch, before any physics or rendering work.
+    with pytest.raises(SelectedPolicy, match="^hold$"):
+        session._tick_locked()
+    assert session.mode == session.traj.mode == "hold"
+    assert session.traj.vx == session.traj.vy == session.om_cmd == 0.0

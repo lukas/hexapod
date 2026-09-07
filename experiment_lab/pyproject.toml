@@ -14,6 +14,7 @@ dev = ["httpx>=0.27,<1", "pytest>=8,<9"]
 [project.scripts]
 hexapod-lab = "hexapod_lab.main:run"
 hexapod-blocker-monitor = "hexapod_lab.blocker_monitor:main"
+hexapod-codex-orchestrator = "hexapod_lab.codex_orchestrator:main"
 
 [build-system]
 requires = ["hatchling"]

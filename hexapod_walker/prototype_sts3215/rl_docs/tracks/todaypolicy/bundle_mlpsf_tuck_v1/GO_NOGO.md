@@ -1,6 +1,6 @@
 # todaypolicy-mlpsf-tuck-v1 — GO/NO-GO (2026-08-30)
 
-## Verdict: GO (MuJoCo bundle delivered; hardware handoff operator-owned)
+## Verdict: GO (MuJoCo bundle delivered; hardware handoff via Robot Lab guarded runner)
 
 Named bundle: `todaypolicy-mlpsf-tuck-v1` — composed controller, not a
 single policy. Fresh full-mesh regen this cycle (controller pod, mesh

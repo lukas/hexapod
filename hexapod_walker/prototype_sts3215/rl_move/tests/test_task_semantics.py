@@ -12201,3 +12201,123 @@ def test_harden_speedband_sigma_v_narrowing_does_not_widen_command_gap():
         f"narrow {gap_nar}) — narrowing would make this pathology "
         f"WORSE, not better; do not deploy this width.")
 
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR OVERSPEED-SURPLUS bank (09-07, slip-mechanism audit follow-up;
+# operator focus note 20260907T150325Z). The frozen easy0905 champion's
+# slip audit (rl_move/sim/audit_slip_frame.py, logs/ckpt_eval/
+# slipframe_audit_cont40m) ruled out every measurement/model-mismatch
+# candidate — knee-frame train/eval shift (0.127 rad, shim delta within
+# noise), pad-center-vs-contact-point rolling artifact (material slip
+# 9.7 m ~= pad-center 9.4 m), low-force chatter (~5%), heading-change
+# transients (steady fixed-forward slip/m 4.45 ~= mixed 4.36) — leaving
+# a genuine skating strategy: the champion cruises at 1.6-2.1x the
+# commanded 0.06 m/s because walk_freeprog_score saturates at the cap
+# (overspeed free by the 08-21 ignition-era ruling) and every slip/
+# tracking charge in the bare diet is 0. reward.walk_freeprog_
+# overspeed_charge (walk_task.py, default 0 = off, bit-exact) charges
+# ONLY the along-command speed surplus above the cap; behavior at or
+# below the cap is untouched, so the ignition asymmetry (any forward
+# progress pays) survives. These tests prove that ordering before any
+# GPU spend, per the walkcurr reward-mechanism launch rule.
+WALKCURR_OVERSPEED_OVERRIDES = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+WALKCURR_OVERSPEED_OVERRIDES[
+    ("reward", "walk_freeprog_overspeed_charge")] = 1.0
+
+
+def test_walkcurr_overspeed_default_off_is_bit_exact():
+    """Explicitly arming the key at 0.0 must reproduce the bare
+    easy0905 diet's return BIT-FOR-BIT for an at-cap gait, a 2x
+    overspeeding gait, and a stall — the off state is the exact
+    legacy reward for every existing lineage."""
+    zero_ov = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+    zero_ov[("reward", "walk_freeprog_overspeed_charge")] = 0.0
+    for pol, scale in (("gait", 1.0), ("gait", 2.0), ("stall", 1.0)):
+        off = _slipwalk_rollout(pol, SEEDS[0], gait_scale=scale,
+                                overrides=WALKCURR_ITEM4_BARE_OVERRIDES,
+                                cmd_vx=0.06)
+        on = _slipwalk_rollout(pol, SEEDS[0], gait_scale=scale,
+                               overrides=zero_ov, cmd_vx=0.06)
+        assert off[0] == on[0], (
+            f"{pol}@{scale}: overspeed_charge=0.0 changed the return "
+            f"({off[0]} vs {on[0]}) — off state must be bit-exact")
+
+
+def test_walkcurr_overspeed_surplus_is_priced():
+    """The fix, in a calibrated miniature of the champion's own
+    regime. The scripted tripod on the pinned test plant tops out at
+    ~0.020 m/s achieved (gait_scale=1.0) and ~0.009 m/s at scale 0.5
+    (measured 09-07), so a cap of 0.012 m/s reproduces the champion's
+    situation exactly: the fast gait cruises at ~1.7x the cap (the
+    champion's measured 1.6-2.1x), the slow gait sits at/below it.
+    LEGACY (key off): faster earns at least as much (the
+    no-speed-band ruling). ARMED: the ordering must FLIP — the
+    at-cap gait out-earns the overspeeding one, i.e. the reward
+    optimum moved from 'as fast as possible' to 'at the cap'."""
+    bare_low = dict(WALKCURR_ITEM4_BARE_OVERRIDES)
+    bare_low[("reward", "walk_freeprog_cap_m_s")] = 0.012
+    armed_low = dict(bare_low)
+    armed_low[("reward", "walk_freeprog_overspeed_charge")] = 1.0
+    bare_slow = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                  overrides=bare_low, cmd_vx=0.06)
+    bare_fast = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                  overrides=bare_low, cmd_vx=0.06)
+    armed_slow = _slipwalk_rollout("gait", SEEDS[0], gait_scale=0.5,
+                                   overrides=armed_low, cmd_vx=0.06)
+    armed_fast = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                                   overrides=armed_low, cmd_vx=0.06)
+    assert bare_fast[0] >= bare_slow[0] - 0.03 * abs(bare_slow[0]), (
+        f"legacy control broke: bare fast={bare_fast[0]:.1f} < "
+        f"bare slow={bare_slow[0]:.1f} — the no-speed-band baseline "
+        "this test calibrates against no longer holds")
+    assert armed_fast[0] < bare_fast[0], (
+        f"the charge never fired on a 1.7x-cap cruise: "
+        f"armed={armed_fast[0]:.1f} bare={bare_fast[0]:.1f}")
+    assert armed_slow[0] - armed_fast[0] > 0.25 * abs(bare_fast[0]), (
+        f"overspeed surplus not decisively priced: armed at-cap="
+        f"{armed_slow[0]:.1f} armed overspeed={armed_fast[0]:.1f} "
+        f"(bare fast={bare_fast[0]:.1f}) — the optimum did not move "
+        "to the cap")
+
+
+def test_walkcurr_overspeed_below_cap_income_untouched():
+    """Ignition asymmetry preserved: at or below the cap the charge
+    must never fire — a HALF-speed gait's return with the key armed
+    must be bit-exact vs the bare diet (the mechanism only prices the
+    surplus, never re-introduces a speed band below the cap)."""
+    for scale in (0.5, 1.0):
+        off = _slipwalk_rollout("gait", SEEDS[0], gait_scale=scale,
+                                overrides=WALKCURR_ITEM4_BARE_OVERRIDES,
+                                cmd_vx=0.06)
+        on = _slipwalk_rollout("gait", SEEDS[0], gait_scale=scale,
+                               overrides=WALKCURR_OVERSPEED_OVERRIDES,
+                               cmd_vx=0.06)
+        assert abs(off[0] - on[0]) <= 0.02 * abs(off[0]) + 1.0, (
+            f"gait@{scale}: at/below-cap income moved more than "
+            f"stride-EMA jitter allows ({off[0]:.1f} vs {on[0]:.1f})")
+
+
+def test_walkcurr_overspeed_preserves_primary_ordering(
+        walkcurr_item4_bare_returns):
+    """The charge must not invert the diet's load-bearing ordering:
+    an honest at-cap gait still clearly beats stall and park with the
+    key armed (a mechanism that closes overspeed by making walking
+    itself uncompetitive would just re-open the static basin)."""
+    at_cap = _slipwalk_rollout("gait", SEEDS[0], gait_scale=1.0,
+                               overrides=WALKCURR_OVERSPEED_OVERRIDES,
+                               cmd_vx=0.06)
+    stall = _slipwalk_rollout("stall", SEEDS[0],
+                              overrides=WALKCURR_OVERSPEED_OVERRIDES,
+                              cmd_vx=0.06)
+    park = _slipwalk_rollout("park", SEEDS[0],
+                             overrides=WALKCURR_OVERSPEED_OVERRIDES,
+                             cmd_vx=0.06)
+    gap = walkcurr_item4_bare_returns["gait"] - \
+        walkcurr_item4_bare_returns["stall"]
+    assert at_cap[0] > stall[0] + 0.3 * gap, (
+        f"at-cap gait no longer clearly beats stall: {at_cap[0]:.1f} "
+        f"vs {stall[0]:.1f}")
+    assert at_cap[0] > park[0] + 0.3 * gap, (
+        f"at-cap gait no longer clearly beats park: {at_cap[0]:.1f} "
+        f"vs {park[0]:.1f}")

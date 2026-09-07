@@ -5550,3 +5550,24 @@ Adopted without waiting (assume-and-go); revise on operator answer:
 4. Scope default: walkcurr track only (the active realism campaign);
    other tracks opt in via --track. 2M canaries are structurally
    protected (max 2 windows < 3) — they finish in minutes anyway.
+
+## q_20260907T16xx_overspeed_charge (walkcurr) — does the 08-21 "no speed band" ruling permit an OPT-IN overspeed-surplus charge at the hardening stage?
+Context: the 08-21 operator order ("from-scratch anti-slip walking: the
+policy must travel in the COMMANDED DIRECTION; it does not have to hit
+a commanded speed") is encoded in `walk_freeprog_score` (speed above
+the cap free) and bank test `test_slipwalk_has_no_speed_band`. The
+09-07 slip-mechanism audit (operator focus note 20260907T150325Z;
+`rl_move/sim/audit_slip_frame.py`, logs/ckpt_eval/slipframe_audit_
+cont40m) proved the easy0905 no-crutch champion's ~4.5 slip/m is
+genuine contact-point skating produced by cruising at 1.6-2.1x the
+commanded 0.06 m/s — the exact optimum of the free-overspeed score
+with every slip charge at 0. Assumed answer (assume-and-go): the 08-21
+ruling was an IGNITION-stage constraint (escape the static basin); at
+hardening, charging ONLY the along-command surplus ABOVE the cap
+(reward.walk_freeprog_overspeed_charge, default 0 = bit-exact off,
+below-cap income untouched, bank-proven ordering incl. walk>stall/park
+preserved) does not re-introduce a speed band in the ruling's sense —
+slow walking is still never punished. All existing lineages/banks
+untouched (key off). If the operator disagrees, the canary
+(cw-...-cont40m-overspeedq1) is a single 2M mechanism read, cheap to
+discard, and the key stays default-off forever.

@@ -1,5 +1,84 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~16:xx (operator-requested cycle, focus note 20260907T150325Z: own the unowned slip design gap) — contact/slip mechanism AUDIT on the frozen no-crutch champion: measurement is HONEST, knee-frame mismatch and transients are NOT the cause; the champion genuinely skates because overspeed is free. New opt-in mechanism `reward.walk_freeprog_overspeed_charge` built, bank-proven, 2M canary launched
+
+Assignment: audit how loaded-foot slip is measured on
+`...nocrutch1x-c1-acq1-cont40m` before any further spend; distinguish
+measurement/model mismatch from a real skating strategy; if
+measurement is correct, ONE genuinely new causal intervention (not a
+gain/band/schedule dose) with a falsification prediction.
+
+New tool `rl_move/sim/audit_slip_frame.py` (zero-training, runs on the
+ckpt's own pod): per loaded tick decomposes the gate's pad-CENTER
+slip metric into true contact-point MATERIAL slip (pad-fixed point at
+the MuJoCo contact position), rolling/rocking artifact, and low-force
+(<2N) chatter; optional `--shim trainframe` reproduces the
+pre-dd248bd8 sharded-worker knee-frame bug (obs q_nom knee slots in
+mujoco-rel frame, measured shift 0.127 rad — the champion and every
+easy0905 run TRAINED under that frame, every CPU gate eval scores the
+corrected one). Results (6 det walk eps, exact gate cfg, train-9,
+logs/ckpt_eval/slipframe_audit_cont40m/):
+
+| arm | slip_center/m med | slip_material/m med | gv | falls |
+|---|---|---|---|---|
+| control (gate frames)         | 4.36 | 4.51 | 6/6 | 0 |
+| trainframe shim (0.127 rad)   | 4.20 | 4.34 | 6/6 | 0 |
+| steady fixed-fwd, no resample | 4.45 | 4.58 | 2/6* | 0 |
+
+(*low-duty legs under a never-changing command; no falls, side note.)
+
+FOUR candidate explanations tested, all falsified:
+1. **Knee-frame train/eval mismatch: NOT the driver** (shim delta
+   within noise; feedback absorbs the constant offset).
+2. **Pad-center vs contact-point artifact: NONE** — material slip
+   (9.7 m/ep) ≈ pad-center (9.4 m/ep); rolling/rocking ~0.
+3. **Chatter: ~5%** of the total (lowF 0.47 vs highF 8.85 m).
+4. **Heading-change transients: NOT the driver** — steady
+   fixed-forward slip/m 4.45 ≈ mixed-heading 4.36 (transients DO make
+   it worse — headingstress 5-9/m — but the steady gait itself skates).
+
+The measurement is CORRECT; the champion genuinely skates. Root cause
+(incentive level): the gate shows prog_ratio 1.4-2.1 — the policy
+cruises at ~0.10-0.11 m/s against the 0.06 m/s command, because
+`walk_freeprog_score` saturates at the cap (overspeed FREE by the
+08-21 ignition ruling, `test_slipwalk_has_no_speed_band`) and every
+slip/tracking charge in the bare diet is 0. A 1.9x-speed sloppy gait
+is the exact reward optimum; the ~4.5/m slip is its signature.
+
+INTERVENTION (one, new, causal — not a slip-price dose, that family
+is closed 4/4, and not a DR band/schedule): make the SURPLUS non-free.
+`reward.walk_freeprog_overspeed_charge` (walk_task.py, default 0 =
+bit-exact off; sharded trainer shares the CPU `_step_finish` so it
+applies on the warp stack automatically): charges
+k_free*key*(along/cap - 1) only ABOVE the cap, on the same stride-EMA
+along as the income; below-cap income untouched (ignition asymmetry
+preserved). Bank: 4 new WALKCURR_OVERSPEED tests in
+test_task_semantics.py — off-state bit-exact, below-cap untouched,
+calibrated miniature (cap 0.012 vs scripted gait's measured 0.020
+achieved = the champion's own 1.7x regime) flips the fast-vs-at-cap
+ordering decisively (+687.8 vs -1161.7 armed; 1572.3 vs 1447.3 bare),
+walk>stall/park ordering preserved. 23/23 relevant tests green; the 3
+failing tests elsewhere in the files reproduce on unmodified main
+(git-stash A/B).
+
+Falsification prediction (pre-registered): 2M canary
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-overspeedq1`
+(k_over=1.0, warm from the champion, seed 2, otherwise identical):
+- prog_ratio med must move 1.8 -> toward <=1.35 (mechanism works);
+- if slip is overspeed-financed: walk det slip/m med drops to <=3.9
+  (>=1.0/m beyond eval noise vs parent 4.98);
+- if prog drops but slip stays >=4.5: hypothesis FALSIFIED — records
+  a genuine gait-style slip floor at commanded speed (next lever is
+  contact/friction model fidelity or accepting the floor);
+- gv <12/24, new falls, or prog collapse <0.75 = MECHANISM FAIL.
+Control: the frozen parent's own existing gate (identical eval cfg).
+No retroactive gate changes; original metrics preserved.
+
+Operator-order tension recorded (OPERATOR_QUESTIONS
+q_20260907T16xx_overspeed_charge): the 08-21 no-speed-band ruling is
+treated as ignition-stage; the key is opt-in/default-off so no
+existing lineage or bank changes meaning.
+
 ## 2026-09-07 ~14:5x (triage cycle; assigned run already verdicted by a concurrent cycle — picked up an orphaned zero-spend diagnostic instead) — item(4) DR-band-narrowing gets its 7th, most decisive confirmatory read: the frozen `cont40m` checkpoint itself, re-evaluated with all 3 bands halved simultaneously, reproduces the champion's exact `gait_valid` fingerprint and within-noise slip
 
 This cycle's assigned eval (`cw-assistfade-rung3-residualfade-s1-nostdanneal`'s

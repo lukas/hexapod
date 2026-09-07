@@ -1,5 +1,97 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~13:3x (triage; assigned `s1-widenbis135`) — heading widen 2/3 seeds PASS; stacking widenbis135+speedwiden FAILS via a decisive matched-fault interaction; picked up 5 more orphaned DR-band canaries (item(4) 5/6, concurrent cycle closed the 6th)
+
+`crutchoff-s1-widenbis135` (assigned run): **ACQ PASS**, replicates s0
+— `gait_valid` 21/24, numerically identical to `s1-acq1`'s own
+baseline, 0 falls/24 in both; the one new single-episode low-duty
+leg0 flag in `walk/det` is not chronic (single occurrence, video
+clean). Heading widen (base5+135) is now 2/3 seeds PASS (s2 pending
+its own eval, in flight on train-1, not duplicated).
+
+While checking capacity, found `s0-widenbis135-speedwiden` (the
+~12:3x cycle's interaction test stacking heading-widen onto
+speed-widen) had also finished training. Read it: **FAIL** — a
+genuine interaction, decisively demonstrated via matched-fault
+control. `gait_valid` 23/24 looks fine, but `walk_startjitter/sto/2`
+shows a real `TERM tilt_roll` fall (roll_peak 30.4deg) under a
+single-leg-fault event (`leg:j[15,16,17]@0.0`) that is the IDENTICAL
+fault draw (same fixed eval seed) in all three checkpoints:
+`widenbis135`-alone survives it (roll_peak 16.6), `speedwiden`-alone
+survives it easily (roll_peak 8.7), the COMBINED arm falls (30.4).
+Two independently-safe realism axes are NOT safe stacked via
+sequential warm-start. Conclusion for the next composite-champion
+decision: adopt heading-widen and speed-widen as two SEPARATE
+candidate lineages, not one stacked checkpoint, until a
+fault-robustness mitigation is designed. SKILLS.md +2 rows (both
+findings).
+
+Also triaged 5 of the 6 item(4) DR-band-narrowing canaries left
+unread since ~13:0x (`frictionband-half-{s0,s1}`,
+`gainsband-half-{s0,s1}`, `compliance-half-s0`) — all 5 reproduce the
+frozen champion's exact episode-level fingerprint (gait_valid 22/24,
+same leg2 sacrifice at `walk/sto` ep4 + `walk_startjitter/det` ep1,
+slip_per_m within noise of the champion's own 4.98/5.17/5.10/5.42).
+Each verdicted CANARY PASS (mechanism-health tier) with a
+FAIL-EXONERATED scientific reading in the verdict text. Launched a
+zero-spend confirmatory check per the batch's own pre-registered
+confound note: pushed the frozen `cont40m` champion checkpoint (no
+retrain) to a free pod (train-9) and re-ran its DR-0 gate with all
+three bands narrowed simultaneously via `--cfg-set` only
+(`..._cont40m_zerospend_allbandhalf_gate`) — still computing at cycle
+end (video-every=1 is slow), left for the next reader, zero training
+spend either way. The 6th canary (`compliance-half-s1`) was verdicted
+by a concurrent cycle in the same window (see entry below) — CLOSES
+item(4)'s DR-band-narrowing question 6/6, all three axes
+FAIL-EXONERATED. SKILLS.md +1 row for the synthesis.
+
+Refill: full board re-read (guardrails, capacity, all track STATUS
+files). 11/11 GPU pods free at various points this cycle as evals
+landed, backlog empty. No genuinely new launch found: `s2-widenbis135`
+already in-flight (another cycle's eval), item(4)'s next lever needs
+a design pass (contact/friction model fidelity, not a band-width
+variant) before any spend, and every other track is DONE/maintenance/
+design-blocked per the ~13:2x cycle's own fresh full-board audit
+(re-confirmed, not re-litigated). The zero-spend frozen-champion
+confirmatory eval above is the only new compute started this cycle
+(a diagnostic, not a training launch, does not count against
+`max_new_launches_per_cycle`). `CYCLE_WORKED` touched (4 verdicts +
+3 SKILLS rows + STATUS update + 1 zero-spend diagnostic launched).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s1_widenbis135_gate/report.json` vs `..._s1_acq1_gate/report.json`; `..._s0_widenbis135_speedwiden_gate/report.json` vs `..._s0_widenbis135_gate/report.json` + `..._s0_speedwiden_acq1_gate/report.json` (matched fault draw, episode 2); `..._{frictionband,gainsband,compliance}_half_{s0,s1}_gate/report.json` vs `..._cont40m_gate/report.json`. W&B `duvwg4h3`/`v9a5r2xq`/`hd06097r`/`z1fix9sp`/`4wf8a0li`/`fqyap3ro`/`6yyhv3vz`. RL_LOG 09-07 13:29-13:38.
+
+## 2026-09-07 ~13:4x (triage; assigned `compliance-half-s1`'s registered on-pod eval) — item(4) DR-BAND-NARROWING CLOSES 6/6 canaries: ALL THREE axes (friction/gains/compliance) FAIL-EXONERATED 2/2 seeds each
+
+`compliance-half-s1`'s gate landed: gait_valid 6/6, 5/6, 5/6, 4/6 across
+walk/det, walk/sto, walk_startjitter/det, walk_startjitter/sto (same
+leg2-class sacrifice + 1 tilt_roll fall shape as the frozen cont40m
+champion's own 22/24), slip_per_m med 5.16/5.45/5.03/5.19 vs the
+champion's own 4.98/5.17/5.10/5.42 — within noise, no mode clears the
+>=15% drop bar. **CONFIRMS s0 (verdicted this same batch): the
+contact_stiff_scale (compliance) band-width axis closes 2/2
+FAIL-EXONERATED, matching frictionband (2/2) and gainsband (2/2)
+already closed this cycle-batch.** All three of the 09-07 ~13:0x
+6-arm DR-band-narrowing canary batch now read the identical way:
+halving any single DR axis's width around its own center does NOT
+reduce this composite's persistent 4-5/m steady-state (undisturbed-
+episode) slip gap. **Item(4)'s DR-band-narrowing question is CLOSED
+6/6** — the 09-06 ~23:2x `loadslip-windowed` recommendation this
+batch was built to test is answered NO on every axis tried. A
+concurrent cycle is independently running the batch's own pre-named
+confound corroboration (zero-spend re-eval of the frozen `cont40m`
+checkpoint at all three bands halved simultaneously,
+`..._zerospend_allbandhalf_gate`, live on train-9 at this update —
+left for that reader, do not duplicate). Working synthesis for the
+next design pass: the gap is not a DR-band-WIDTH effect on friction,
+gains, or compliance; candidate next levers are contact/friction
+MODEL fidelity itself (not just its randomization range), foot
+geometry, or accepting ~4-5/m as this composite's gait-style floor —
+none of these is a cheap same-recipe relaunch, each needs its own
+design pass before spend.
+
+Evidence: `ops.sh entry cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-{frictionband,gainsband,compliance}-half-{s0,s1}`,
+W&B `55g7y2y2` (compliance-half-s1); RL_LOG 09-07 13:38.
+
 ## 2026-09-07 ~13:0x (refill cycle; 8 free GPU slots at start, backlog empty, no completion assigned) — scoped + launched the deferred item(4) DR-BAND-NARROWING ablation (6 canaries), the one named-but-unexecuted recommendation from the 09-06 ~23:2x loadslip-windowed closure
 
 Full board re-read first (guardrails, `CURRENT_TRUTHS.md`, `capacity.py`,

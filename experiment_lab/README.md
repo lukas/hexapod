@@ -353,6 +353,63 @@ experiment evidence; visual attachments cannot be reliably text-redacted.
 
 Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory for comparison and never written to the database or evidence. Environment variables remain visible to privileged local processes, so use an OS secret store in production. The Lab makes its data root owner-only (`0700`) and SQLite files owner-readable/writable (`0600`).
 
+## Robot camera gallery
+
+Configure each robot camera independently with `HEXAPOD_OBSERVATION_CAMERAS`,
+a JSON list of objects containing `id`, `name`, `device_uid`, and `device_name`.
+Bind identically named USB cameras by their macOS device unique IDs, never by
+camera indexes. For example:
+
+```json
+[{"id":"robot-1","name":"Robot camera 1","device_uid":"<macOS unique ID>","device_name":"Arducam OV9281 USB Camera"}]
+```
+
+Each camera has its own identity, freshness checks, reconnect loop, and
+authenticated JPEG endpoint. USB robot cameras take turns acquiring snapshots
+so the gallery does not saturate their shared bus. Snapshots expire after
+20 seconds; selected vision readiness still uses its stricter freshness limit.
+Preview acquisition pauses while a physical hardware lease, hardware engineering
+job, or built-in recording is active, and never opens a camera owned by another
+application. An existing fresh vision preview remains visible during ownership.
+A per-camera `min_frame_detail` threshold (default `0`, disabled) can reject
+featureless or covered views using Laplacian variance after scaling to320 pixels
+wide; configured robot previews use20. Such views retry normally and return
+automatically when usable image detail returns. The main page's **Live cameras** gallery uses
+this complete collection, displays feeds after a current image loads, and
+hides disconnected, stale, or failed feeds until they recover. The separate
+selected vision preview still supplies motion-readiness checks; it is not
+duplicated in the gallery. Camera API reads never start capture.
+
+### Additional iPhone observation camera
+
+Set `HEXAPOD_OBSERVATION_CAMERA_NAME="<exact webcam name>"` in the Mac Lab
+service environment to add the iPhone to **Robot right now**, alongside the
+existing vision camera. This is opt-in and requires the `hexapod-tracker`
+package with its macOS AVFoundation dependencies in the Lab environment.
+The exact device name is rediscovered on reconnect; an absent iPhone never
+falls back to a different camera index. Capture starts with the Lab service,
+and authenticated HTTP reads only retrieve cached snapshots.
+
+When multiple iPhones are nearby, verify that the webcam belongs to the
+intended physical phone before enabling it. USB device detection alone does
+not establish that a simultaneously discovered Continuity Camera is that
+phone; another iPhone can be available wirelessly. Clear this setting to
+disable an unverified source. The spare USB phone identified on 2026-09-05 is
+named `lukas's iPhone work`; the previously seen `lukas's iPhone Camera` must
+not be assumed to be that spare.
+
+`GET /api/robot-status/cameras` lists these additional observation feeds;
+`GET /api/robot-status/cameras/iphone/frame` returns a current JPEG or HTTP 503
+when unavailable or older than two seconds. The same metadata appears as
+`observation_cameras` in `/api/robot-status` and MCP `get_robot_status`.
+Existing camera, pose calibration, experiment recording, and motion-readiness
+checks continue to use their configured sources. This additional view does
+not establish that the robot is visible or its pose is safe.
+
+Keep the iPhone locked, stable, connected, and its rear cameras pointed at the
+test area. If it is paused, tap Resume; if disconnected, reconnect it. Restart
+the Lab service after changing its configured device name.
+
 ## Existing remote relay
 
 [`deploy/camera-relay.yaml`](deploy/camera-relay.yaml) describes the existing camera service and reverse tunnel on port 8766. Hexapod Lab intentionally uses 8767 so it can run alongside that service. Remote exposure needs a separate authenticated tunnel or a deliberate additional route in the relay; keep TLS and application authentication enabled.
@@ -438,8 +495,57 @@ the original record and reuse with different content is rejected.
 
 ## Blocker text alerts
 
+Robot Lab shows separate explanations for expired browser sign-in, a failed
+website connection, unreachable robot telemetry, and unavailable cameras.
+Camera errors remain visible even when every preview is hidden. A separate
+iMessage banner reports whether the alert monitor is current and whether its
+latest actual message submission succeeded or was blocked by macOS.
+
+The independent monitor checks the local Lab API, physical telemetry, all
+configured observation cameras, and the public website. Three consecutive
+failed checks trigger one iMessage with the cause and a next action; a recovery
+is sent once. Polling defaults to every 30 seconds. Paused cameras that yield
+to a hardware owner do not generate an outage. Failed iMessage submissions
+remain pending, with only one failed send attempt per poll so broken Messages
+permission cannot prevent the other health checks. `--send-test` records its
+actual submission result; acceptance by Messages is not a delivery receipt.
+
+The monitor runs separately from the Lab service on the Mac. It can detect a
+Lab process failure or a broken public tunnel while that Mac is awake and
+online. It cannot send iMessages if the Mac itself is off or offline. The cloud
+relay's `deploy/robot-lab.Caddyfile` serves an explanatory HTTP 503 page and a
+JSON API error independently of the Mac; it does not claim to know the robot's
+condition or whether an alert was delivered during a complete Mac outage.
+
+macOS permissions belong to the process launching the background service.
+An interactive application's Camera or Automation grant does not establish
+permission for a standalone Python/uv LaunchAgent. Inspect the responsible
+process in macOS privacy logs, enable its required Camera/Automation permission
+through System Settings, and verify actual capture/iMessage submission. Do
+not reset privacy permissions or treat a failed background attempt as proof
+that a user revoked a previously working grant.
+
+On 2026-09-05 the user-session `tccd` privacy service exhausted its file
+descriptors: `lsof -nP -p <tccd-pid> -Ffn` showed 254 numeric descriptors,
+including 250 handles to the installed `uv` executable. Privacy logs reported
+`SecStaticCodeCreateWithPath ... 100024`; `security error 100024` decodes this
+as `UNIX[Too many open files]`. Camera authorization checks then returned
+denied, and Messages returned -1743, even though the saved grants were intact.
+Restarting that exhausted user-session process preserved the permission
+database and restored actual iMessage submission. Restarting the idle Lab
+service cleared its cached denial and restored all four USB feeds. The exact
+trigger for the descriptor leak remains unconfirmed. No changes to saved
+permissions or existing application signatures were needed. Confirm current
+process identity, descriptor pressure,
+and matching error logs before applying this diagnosis to a later outage.
+
 `hexapod-blocker-monitor` is an independent Mac LaunchAgent that polls the
-private CoreWeave `/api/blockers` feed and the local Robot Lab experiment API.
+private CoreWeave `/api/blockers` feed and the local viewer-authenticated
+`/api/monitor-status` endpoint. The latter returns experiment records, raw Codex
+job summaries, and queue control in one response without enumerating artifacts
+or validating historical transcript hashes. Use it for monitoring: the full
+`/api/experiments` listing can take longer than a health-check timeout when
+there is substantial historical evidence.
 It sends a Messages text only for a newly filed operator blocker, a new failed
 or stuck Robot Lab experiment, a succeeded Codex analysis that declares a
 physical safety stop, a Codex job that remains eligible beyond its expected
@@ -451,6 +557,91 @@ The recipient is stored in Keychain as account `recipient`, service
 `Hexapod Blocker Alerts`; the phone number is never committed. The runner is
 `scripts/run-blocker-monitor.sh`, and the LaunchAgent definition is
 `deploy/com.lbiewald.hexapod-blocker-alerts.plist`.
+
+### Bounded automatic recovery
+
+The independent monitor can repair three specific Mac-side failures: an
+unresponsive Lab service, a failed public SSH tunnel while the local Lab is
+healthy, and persistent capture failures across the configured robot cameras.
+It can also replace the current user's `tccd` process when fresh process
+identity, at least 240 open descriptors, and a matching recent EMFILE/100024
+privacy error independently establish descriptor exhaustion. A Camera denial
+alone is not this diagnosis. The repair targets are fixed: the user LaunchAgents
+`com.lbiewald.hexapod-lab` and `com.lbiewald.hexapod-camera-tunnel`, or the
+individually verified user `tccd` process. It never changes privacy grants,
+robot firmware, robot settings, experiment records, or motion commands.
+
+`HEXAPOD_AUTO_RECOVERY=1` enables repairs; direct CLI construction defaults to
+disabled, while the supplied `scripts/run-blocker-monitor.sh` defaults to
+enabled unless this variable is explicitly `0`. Setting it to `0` keeps
+ordinary monitoring and iMessage outage alerts running. Other monitor settings:
+
+| Variable | Default / purpose |
+| --- | --- |
+| `HEXAPOD_ALERT_POLL_SECONDS` | `30`; interval between monitor scans |
+| `HEXAPOD_ALERT_OUTAGE_CHECKS` | `3`; consecutive failures before ordinary outage alerts |
+| `HEXAPOD_ROBOT_LAB_MONITOR_URL` | `http://127.0.0.1:8767/api/monitor-status` |
+| `HEXAPOD_ROBOT_LAB_EXPERIMENTS_URL` | Legacy explicit override, used when the monitor URL is unset |
+| `HEXAPOD_ROBOT_LAB_STATUS_URL` | `http://127.0.0.1:8767/api/robot-status` |
+| `HEXAPOD_ROBOT_LAB_PUBLIC_URL` | `https://robot-lab.cwd1f0-new-cluster.coreweave.app`; public `/healthz` is checked without credentials |
+| `HEXAPOD_ALERT_STATE` | `data/blocker-alert-state.json`; deduplication and actual iMessage submission status |
+
+Automatic action requires three distinct failure observations no older than
+30 seconds. It independently establishes idle ownership through the local
+`data/lab.sqlite3`, even when the Lab API is down. Running or cancelling
+experiments, active hardware leases, running hardware advance jobs, and
+running hardware engineering jobs defer repair. Explicitly offline jobs do
+not claim hardware; ambiguous metadata does. Fresh, real controller readings
+must show all 18 motors, normal temperatures, an inactive disarmed controller,
+and no unverified torque or quarantined bus condition. The controller's normal
+`limp` status is accepted with its documented healthy bus state.
+
+Immediately before a repair, a short `BEGIN IMMEDIATE` reservation prevents
+the SQLite-backed scheduler from admitting a new job between the idle check
+and the action. Ownership is checked inside that transaction and physical
+telemetry is read again. The reservation changes no rows and is rolled back
+and closed after the bounded action; it is not held during subsequent HTTP
+recovery verification. This coordinates the Lab scheduler, not unrelated
+clients issuing robot commands outside the Lab.
+
+Before restarting Lab, the monitor verifies the fixed installed launcher and
+Python source files without constructing an app or acquiring cameras; the
+executor also verifies required imports before taking the ownership
+reservation. For a privacy-service repair it rechecks the exact PID, UID,
+executable, start time, and descriptor pressure before signaling. It uses
+TERM first; KILL is permitted only if that same independently reverified
+process remains. It then requires a different verified user `tccd` with low
+descriptor use before restarting Lab to clear its cached denial.
+
+Each failure type gets at most two attempts per unresolved episode, with at
+least five minutes between attempts. Attempts are durably recorded before
+executing a command, so restarting the monitor does not reset the allowance.
+A singleton lock prevents concurrent recovery monitors from performing the
+same action. Damaged recovery state fails closed rather than discarding the
+saved retry budget. Missing or stale evidence, active hardware, an invalid
+runtime, and genuine permission or robot-connectivity problems remain visible
+as waiting or needing attention instead of prompting broader repairs.
+
+Recovery requires three subsequent distinct healthy observations: local Lab,
+public website, fresh robot telemetry, and a live robot camera. A privacy
+episode additionally continues independent `tccd` checks after authorization
+errors disappear and requires its replacement PID to have fewer than 160
+descriptors. Successful command exit alone is never reported as recovery.
+Paused or externally owned cameras are not capture failures. When `robot-*`
+camera feeds are configured, optional iPhone availability does not mask or
+create an outage across those robot cameras. Disconnected cameras, covered
+views, and actual permission denials do not trigger capture-service restart.
+
+`data/recovery-state.json` stores the current episode, per-cause budgets,
+cooldown timestamps, verification progress, and a bounded history; its sibling
+`.lock` file serializes recovery. The website and the `get_robot_status` MCP
+result expose a sanitized `recovery` object with waiting, attempting,
+verifying, recovered, or needs-attention status. iMessages report changes in
+that state with the cause, next action, and website link. The separate
+`blocker-alert-state.json` records the latest scan and actual Messages
+submission outcome; it does not claim recipient delivery. A complete Mac
+power or network outage still requires external help because the recovery
+monitor and iMessage sender run on that Mac.
 
 Interactive MCP clients may register this endpoint as `robot_lab`, but do not
 publish an operator credential through the global launchd environment. Inject a

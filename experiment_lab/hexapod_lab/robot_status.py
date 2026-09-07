@@ -7,12 +7,15 @@ from ipaddress import IPv4Address, IPv4Network
 import json
 import logging
 import math
+import socket
 import threading
 import time
 from urllib.parse import urlsplit, urlunsplit
+from urllib.error import HTTPError
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .run_requirements import run_requirements
+from .macos_privacy_status import MacOSPrivacyStatus
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,10 +40,34 @@ def _dict(value):
     return value if isinstance(value, dict) else {}
 
 
+def _source_issue(error):
+    """Expose an actionable category, never a private URL or exception text."""
+    if isinstance(error, HTTPError):
+        return "http_error"
+    reason = getattr(error, "reason", error)
+    if isinstance(reason, socket.gaierror):
+        return "dns_failure"
+    if isinstance(reason, TimeoutError):
+        return "timeout"
+    if isinstance(reason, ConnectionRefusedError):
+        return "connection_refused"
+    return "source_unavailable"
+
+
+_ROBOT_SOURCE_DETAILS = {
+    "dns_failure": "The lab Mac cannot resolve the robot’s network address. Check the robot’s Wi-Fi connection and address discovery.",
+    "timeout": "The robot controller did not answer in time. Check its power, Wi-Fi connection, and web service.",
+    "connection_refused": "The robot’s web service is not accepting connections. Check or restart that service on the robot.",
+    "http_error": "The robot’s web service returned an error. Check the robot service logs.",
+    "source_unavailable": "The lab Mac cannot read the robot controller. Check the robot’s power, network connection, and web service.",
+}
+
+
 class RobotStatusService:
     def __init__(
         self, robot_url="http://hexapod.local:8080/api/robot",
         vision_url="http://127.0.0.1:8898/api/vision/state", *, cache_seconds=1.0,
+        observation_cameras=None,
     ):
         for url, path in ((robot_url, "/api/robot"), (vision_url, "/api/vision/state")):
             parsed = urlsplit(url)
@@ -50,6 +77,8 @@ class RobotStatusService:
                 raise ValueError("Robot dashboard sources must use their exact passive status endpoints")
         self.robot_url = robot_url
         self.vision_url = vision_url
+        self.observation_cameras = observation_cameras
+        self._privacy_status = MacOSPrivacyStatus()
         self.cache_seconds = max(0, cache_seconds)
         self._lock = threading.Lock()
         self._cached = None
@@ -157,7 +186,7 @@ class RobotStatusService:
             except Exception as error:
                 # A dashboard must degrade to unknown, including DNS/timeouts.
                 self._warn_source(source, error)
-                result = {}, "unavailable"
+                result = {}, _source_issue(error)
             return result, time.monotonic()
         with ThreadPoolExecutor(max_workers=2) as pool:
             robot = pool.submit(read, "robot", self.robot_url)
@@ -191,6 +220,7 @@ class RobotStatusService:
                 self._healthy_samples = 0
                 health.update(
                     state="unknown", fresh=False, healthy_samples=0,
+                    issue_code="telemetry_stale",
                     headline="Robot readings are stale or missing",
                     detail="Waiting for a current motor-health sample.",
                     live_motors=None, max_temperature_c=None,
@@ -199,7 +229,8 @@ class RobotStatusService:
                 result["readiness"]["reasons"].insert(0, health["detail"])
                 result["readiness"]["guarded_runner_ready"] = False
             if camera["fresh"] and camera["age_seconds"] > 2:
-                camera.update(fresh=False, headline="Camera unavailable or stale", pose_review_required=True)
+                camera.update(fresh=False, status="stale", issue_code="frame_stale",
+                              headline="Vision camera frame is stale", pose_review_required=True)
                 result["readiness"]["reasons"].insert(0, "A fresh camera view is needed to check the robot’s position.")
                 result["readiness"]["guarded_runner_ready"] = False
             if not result["robot"]["busy"] and (not health["fresh"] or not camera["fresh"]):
@@ -220,6 +251,36 @@ class RobotStatusService:
             "software_blocked": 0,
             "recorded_software_requirements": recorded_requirements,
         }
+        result["observation_cameras"] = (
+            self.observation_cameras.snapshots() if self.observation_cameras else []
+        )
+        # An explicit multi-camera collection is the gallery's source of truth.
+        # The selected vision preview remains separate for motion-readiness checks.
+        if getattr(self.observation_cameras, "has_robot_cameras", False):
+            result["cameras"] = list(result["observation_cameras"])
+            # While a recorder owns the cameras, show its existing vision
+            # preview if available, without opening another capture session.
+            if (any(item.get("status") in {"paused", "in_use"}
+                    for item in result["cameras"])
+                    and result["camera"].get("available")
+                    and result["camera"].get("fresh")
+                    and not any(item.get("id") == "selected-vision"
+                                for item in result["cameras"])):
+                result["cameras"].append({
+                    **result["camera"], "id": "selected-vision",
+                    "name": "Robot vision camera",
+                    "frame_url": "/api/robot-status/frame",
+                })
+        failed_permissions = [item for item in result["observation_cameras"]
+                              if item.get("permission_status") in {"denied", "restricted"}
+                              and not item.get("fresh")]
+        if failed_permissions:
+            privacy = self._privacy_status.snapshot()
+            result["macos_privacy"] = privacy
+            if privacy.get("state") == "exhausted":
+                for item in failed_permissions:
+                    item["issue_code"] = "macos_privacy_fd_exhaustion"
+                    item["error"] = "macOS privacy service exhausted its file handles; saved camera permissions may still be intact"
         return result
 
     def _assess(self, robot, vision, robot_error, vision_error):
@@ -266,7 +327,8 @@ class RobotStatusService:
         if not robot_error and not physical:
             state, headline, detail = "unknown", "Physical robot not verified", "The source did not identify real robot telemetry."
         elif robot_error:
-            state, headline, detail = "offline", "Robot connection unavailable", "Live robot health cannot be checked right now."
+            state, headline = "offline", "Robot controller unreachable"
+            detail = "Robot Lab is online. " + _ROBOT_SOURCE_DETAILS.get(robot_error, _ROBOT_SOURCE_DETAILS["source_unavailable"])
         elif not fresh:
             state, headline, detail = "unknown", "Robot readings are stale or missing", "Waiting for a current motor-health sample."
         elif robot.get("bus_quarantined") is True:
@@ -288,6 +350,8 @@ class RobotStatusService:
         # Never retain an old green metric when the feed is stale or simulated.
         health = {
             "state": state, "headline": headline, "detail": detail,
+            "issue_code": (robot_error if robot_error in _ROBOT_SOURCE_DETAILS else "source_unavailable") if robot_error else
+                          "physical_robot_unverified" if not physical else "telemetry_stale" if not fresh else None,
             "fresh": fresh, "age_seconds": round(max(0, age), 1) if age is not None else None,
             "live_motors": int(live) if fresh and live is not None and live.is_integer() else None,
             "expected_motors": 18,
@@ -327,10 +391,22 @@ class RobotStatusService:
                             and frame_age_ms is not None and 0 <= frame_age_ms <= 2000)
         safety = _dict(_dict(vision.get("pose")).get("safety"))
         pose_review = not camera_fresh or safety.get("safe_pose") is not True
+        camera_status = "streaming" if camera_fresh else (
+            "unavailable" if vision_error else "stopped" if camera_info.get("enabled") is False else
+            "stale" if frame_age_ms is not None else
+            camera_info.get("status") if camera_info.get("status") in {"connecting", "paused", "in_use", "stopped"} else "unavailable"
+        )
+        camera_headlines = {
+            "streaming": "Live camera", "stopped": "Vision camera is stopped",
+            "stale": "Vision camera frame is stale", "connecting": "Vision camera is connecting",
+            "paused": "Vision camera is paused", "in_use": "Vision camera is in use",
+        }
         camera = {
             "available": not bool(vision_error), "fresh": camera_fresh,
             "age_seconds": round(frame_age_ms / 1000, 2) if frame_age_ms is not None else None,
-            "headline": "Live camera" if camera_fresh else "Camera unavailable or stale",
+            "status": camera_status,
+            "issue_code": "vision_service_unavailable" if vision_error else None if camera_fresh else "frame_" + camera_status,
+            "headline": "Vision service unreachable" if vision_error else camera_headlines.get(camera_status, "Vision camera is not delivering frames"),
             "pose_review_required": pose_review,
         }
         reasons = []

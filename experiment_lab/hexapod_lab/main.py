@@ -49,8 +49,11 @@ from .layout_history import (
 from .layout_history_page import layout_history_page
 from .learnings import learnings_section, pending_learnings
 from .mobile import action_openapi, fetch_rl_doc_path, fetch_rl_document
+from .observation_cameras import ObservationCameraCollection
 from .runner import ExperimentRunner
 from .robot_status import RobotStatusService
+from .alert_status import alert_monitor_status
+from .recovery_status import recovery_status
 from .robot_status_page import robot_status_panel
 from .run_requirements import run_requirements, run_requirements_html
 from .tag_scan import (
@@ -168,21 +171,72 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     viewer = auth.dependency("viewer")
     operator = auth.dependency("operator")
     automation_operator = auth.dependency("automation")
+    def observation_capture_allowed():
+        # Give the serialized hardware worker and built-in recorder exclusive
+        # USB bandwidth. Preview workers check this before every snapshot.
+        now = datetime.now(timezone.utc).isoformat()
+        with store.connect() as connection:
+            owned = connection.execute(
+                "SELECT 1 FROM codex_hardware_lane WHERE lease_expires_at>=? LIMIT 1",
+                (now,),
+            ).fetchone()
+            recording = connection.execute(
+                "SELECT 1 FROM experiments WHERE execution_mode='builtin' "
+                "AND status IN ('running','cancelling') LIMIT 1"
+            ).fetchone()
+            has_engineering = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' "
+                "AND name='codex_engineering_jobs'"
+            ).fetchone()
+            engineering = connection.execute(
+                "SELECT source_context_json FROM codex_engineering_jobs "
+                "WHERE status='running' AND lease_expires_at>=?",
+                (now,),
+            ).fetchall() if has_engineering else []
+        for job in engineering:
+            source = json.loads(job["source_context_json"])
+            experiment = source.get("experiment") if isinstance(source, dict) else None
+            parameters = experiment.get("parameters") if isinstance(experiment, dict) else None
+            # Match engineering_job_lane: only explicitly offline jobs can
+            # overlap with camera previews; ambiguous metadata owns hardware.
+            offline = isinstance(parameters, dict) and (
+                parameters.get("robot_motion") is False or (
+                    "robot_motion" not in parameters
+                    and parameters.get("simulation_only") is True
+                )
+            )
+            if not offline:
+                return False
+        return owned is None and recording is None
+
+    observation_cameras = ObservationCameraCollection(
+        settings.observation_camera_devices,
+        legacy_device_name=settings.observation_camera_name,
+        capture_allowed=observation_capture_allowed,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        if settings.auto_worker:
-            runner.start()
-        yield
-        runner.stop()
+        observation_cameras.start()
+        try:
+            if settings.auto_worker:
+                runner.start()
+            yield
+        finally:
+            runner.stop()
+            observation_cameras.stop()
 
     app = FastAPI(title="Hexapod Lab", version="0.1.0", lifespan=lifespan)
     app.state.store, app.state.runner, app.state.auth = store, runner, auth
     app.state.tag_scans = tag_scans
     app.state.layout_history = layout_history
     app.state.calibrations = calibrations
-    robot_status = RobotStatusService(settings.robot_status_url, settings.robot_vision_url)
+    robot_status = RobotStatusService(
+        settings.robot_status_url, settings.robot_vision_url,
+        observation_cameras=observation_cameras,
+    )
     app.state.robot_status = robot_status
+    app.state.observation_cameras = observation_cameras
     app.state.execution_progress = execution_progress
     install_browser_auth(app, auth, settings.public_base_url)
 
@@ -591,6 +645,8 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
     def current_robot_status(_: Principal = Depends(viewer)):
         experiments = store.list()
         status = robot_status.snapshot(experiments)
+        status["alerts"] = alert_monitor_status(settings.data_dir / "blocker-alert-state.json")
+        status["recovery"] = recovery_status(settings.data_dir / "recovery-state.json")
         status["execution"] = execution_summary(status, experiments, execution_progress.latest())
         return JSONResponse(status, headers={"Cache-Control": "no-store"})
 
@@ -612,6 +668,23 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             raise HTTPException(503, "A fresh camera frame is not available") from error
         return Response(frame, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
+    @app.get("/api/robot-status/cameras")
+    def current_observation_cameras(_: Principal = Depends(viewer)):
+        return JSONResponse(
+            {"cameras": observation_cameras.snapshots()},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/api/robot-status/cameras/{camera_id}/frame")
+    def current_observation_frame(camera_id: str, _: Principal = Depends(viewer)):
+        try:
+            frame = observation_cameras.frame(camera_id)
+        except KeyError as error:
+            raise HTTPException(404, "Unknown observation camera") from error
+        except ValueError as error:
+            raise HTTPException(503, "A fresh camera frame is not available") from error
+        return Response(frame, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
     @app.get("/api/experiments")
     def list_experiments(_: Principal = Depends(viewer)):
         return [enrich(item) for item in store.list()]
@@ -629,6 +702,19 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "control": store.codex_queue_control(),
             "counts": store.queue_counts(),
         }
+
+    @app.get("/api/monitor-status")
+    def monitor_status(_: Principal = Depends(viewer)):
+        # Monitoring must not enumerate artifacts or validate transcript hashes.
+        # Those historical evidence reads can outlast a health probe's timeout.
+        experiments = [
+            {**item, "codex_jobs": store.codex_jobs_for_experiment(item["id"])}
+            for item in store.list()
+        ]
+        return JSONResponse(
+            {"experiments": experiments, "control": store.codex_queue_control()},
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/api/runner-safety")
     def runner_safety_status(_: Principal = Depends(viewer)):
@@ -1520,6 +1606,8 @@ def call_mcp_tool(
     elif name == "get_robot_status":
         experiments = store.list()
         data = robot_status.snapshot(experiments)
+        data["alerts"] = alert_monitor_status(settings.data_dir / "blocker-alert-state.json")
+        data["recovery"] = recovery_status(settings.data_dir / "recovery-state.json")
         data["execution"] = execution_summary(
             data, experiments, execution_progress.latest()
         )

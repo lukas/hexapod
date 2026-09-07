@@ -1,7 +1,9 @@
 """Passive status must distinguish fresh evidence from a successful HTTP poll."""
 
 from copy import deepcopy
+import socket
 import threading
+from urllib.error import HTTPError, URLError
 
 from fastapi.testclient import TestClient
 import pytest
@@ -108,6 +110,25 @@ def status(monkeypatch):
     return StatusHarness(monkeypatch)
 
 
+def test_privacy_service_fault_is_reported_without_changing_camera_grant(status, monkeypatch):
+    class Cameras:
+        has_robot_cameras = True
+        fresh = False
+        def snapshots(self):
+            return [{"id": "robot-1", "fresh": self.fresh, "permission_status": "denied"}]
+    cameras = Cameras()
+    status.service.observation_cameras = cameras
+    monkeypatch.setattr(status.service._privacy_status, "snapshot", lambda: {"state": "exhausted", "open_file_count": 254})
+    result = status.snapshot()
+    assert result["cameras"][0]["issue_code"] == "macos_privacy_fd_exhaustion"
+    assert result["cameras"][0]["permission_status"] == "denied"
+    assert result["observation_cameras"][0]["issue_code"] == "macos_privacy_fd_exhaustion"
+    cameras.fresh = True
+    recovered = status.snapshot()
+    assert "macos_privacy" not in recovered
+    assert "issue_code" not in recovered["cameras"][0]
+
+
 def test_health_requires_three_distinct_fresh_readings(status):
     first = status.snapshot()
     assert first["health"]["state"] == "checking"
@@ -126,6 +147,36 @@ def test_health_requires_three_distinct_fresh_readings(status):
     assert third["health"]["expected_motors"] == 18
     assert third["readiness"]["can_start_from_website"] is False
     assert set(status.calls) == {ROBOT_URL, VISION_URL}
+
+
+@pytest.mark.parametrize("error,code,detail", [
+    (URLError(socket.gaierror("private-address")), "dns_failure", "cannot resolve"),
+    (TimeoutError("private-address"), "timeout", "did not answer in time"),
+    (URLError(ConnectionRefusedError("private-address")), "connection_refused", "not accepting connections"),
+    (HTTPError("http://private-address", 503, "private body", {}, None), "http_error", "returned an error"),
+    (OSError("private-address"), "source_unavailable", "cannot read the robot controller"),
+])
+def test_unreachable_robot_reports_safe_actionable_source_issue(status, error, code, detail):
+    status.robot = error
+    result = status.snapshot()
+    assert result["health"]["state"] == "offline"
+    assert result["health"]["issue_code"] == code
+    assert result["health"]["headline"] == "Robot controller unreachable"
+    assert result["health"]["detail"].startswith("Robot Lab is online.")
+    assert detail in result["health"]["detail"]
+    assert "private-address" not in str(result)
+    assert "private body" not in str(result)
+    assert result["readiness"]["guarded_runner_ready"] is False
+
+
+def test_stale_telemetry_and_vision_service_outage_have_distinct_codes(status):
+    status.robot["servo"]["ts"] = status.now - 60
+    status.vision = TimeoutError("private-address")
+    result = status.snapshot()
+    assert result["health"]["issue_code"] == "telemetry_stale"
+    assert result["camera"]["issue_code"] == "vision_service_unavailable"
+    assert result["camera"]["headline"] == "Vision service unreachable"
+    assert result["camera"]["status"] == "unavailable"
 
 
 @pytest.mark.parametrize("offset", [-31, 3, float("nan"), float("inf")])

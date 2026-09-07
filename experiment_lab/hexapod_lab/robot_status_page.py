@@ -9,15 +9,41 @@ def robot_status_panel() -> str:
 .robot-now .rn-header{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1rem}.robot-now .rn-badge{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #53665b;border-radius:99px;padding:.25rem .6rem;color:#bac7c0;font-size:.74rem;font-weight:650;white-space:nowrap}.robot-now .rn-dot{width:7px;height:7px;background:currentColor;border-radius:50%;flex:none}
 .robot-now .rn-execution{border:1px solid #4b5b4f;border-left:4px solid #93a996;border-radius:12px;padding:1rem 1.15rem;margin-bottom:1.3rem;background:#1a251e}.robot-now .rn-execution h3{font-size:.8rem;letter-spacing:.025em;font-weight:650;color:#bac9bf}.robot-now .rn-execution-headline{font-size:1.2rem;font-weight:700;line-height:1.4;letter-spacing:-.02em;margin-top:.3rem}.robot-now .rn-execution-reason{font-size:.94rem;color:#c7d3cb;line-height:1.55;margin-top:.4rem}.robot-now .rn-next{font-size:.94rem;margin-top:.65rem;line-height:1.5}.robot-now .rn-next strong{color:#e5efe8}.robot-now .rn-task{font-size:.76rem;color:#a7b9ad;margin-top:.6rem;overflow-wrap:anywhere}.robot-now[data-execution='blocked'] .rn-execution{border-left-color:#ffd280}.robot-now[data-execution='preparing'] .rn-execution{border-left-color:#8dcaf2}.robot-now[data-execution='running'] .rn-execution{border-left-color:#b7f34a}.robot-now .rn-health-header{display:flex;justify-content:space-between;align-items:center;gap:.8rem;margin-bottom:.65rem}.robot-now .rn-health-header h3{font-size:.8rem;font-weight:650;color:#adbbb3}
 .robot-now[data-health='healthy'] .rn-badge{color:#b7f34a;border-color:#526e36}.robot-now[data-health='needs_attention'] .rn-badge{color:#ffd280;border-color:#826b3d}.robot-now[data-health='offline'] .rn-badge{color:#ffb3aa;border-color:#84534e}
-.robot-now .rn-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,30%);gap:1.5rem;align-items:start}.robot-now .rn-body.rn-no-image{grid-template-columns:1fr}.robot-now .rn-summary{font-size:1.05rem;font-weight:650}.robot-now .rn-detail{color:#adbbb3;margin-top:.25rem}.robot-now .rn-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.7rem;margin:1.1rem 0 0}.robot-now .rn-metric{min-width:0;border-top:1px solid #35463e;padding-top:.65rem}.robot-now dt{font-size:.74rem;color:#a7b6ac;margin-bottom:.2rem}.robot-now dd{margin:0;font-size:.96rem;font-weight:650;overflow-wrap:anywhere}.robot-now dd[data-tone='good']{color:#b7f34a}.robot-now dd[data-tone='warn']{color:#ffd280}.robot-now .rn-check{font-size:.8rem;font-weight:500}
-.robot-now .rn-photo{margin:0;min-width:0}.robot-now .rn-photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:contain;background:#080c0a;border:1px solid #35463e;border-radius:12px}.robot-now figcaption{color:#a7b6ac;font-size:.75rem;margin-top:.4rem}.robot-now [hidden]{display:none!important}
+.robot-now .rn-body{display:block}.robot-now .rn-summary{font-size:1.05rem;font-weight:650}.robot-now .rn-detail{color:#adbbb3;margin-top:.25rem}.robot-now .rn-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.7rem;margin:1.1rem 0 0}.robot-now .rn-metric{min-width:0;border-top:1px solid #35463e;padding-top:.65rem}.robot-now dt{font-size:.74rem;color:#a7b6ac;margin-bottom:.2rem}.robot-now dd{margin:0;font-size:.96rem;font-weight:650;overflow-wrap:anywhere}.robot-now dd[data-tone='good']{color:#b7f34a}.robot-now dd[data-tone='warn']{color:#ffd280}.robot-now .rn-check{font-size:.8rem;font-weight:500}
+.robot-now figcaption{color:#a7b6ac;font-size:.75rem;margin-top:.4rem}.robot-now [hidden]{display:none!important}
+.robot-now .rn-observation-cameras{margin-top:1.2rem;padding-top:.85rem;border-top:1px solid #35463e}.robot-now .rn-observation-cameras h3{font-size:.8rem;color:#adbbb3;margin-bottom:.65rem}.robot-now .rn-observation-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}.robot-now .rn-observation-photo{margin:0;min-width:0;max-width:560px}.robot-now .rn-observation-media{aspect-ratio:4/3;border:1px solid #35463e;border-radius:12px;background:#080c0a;overflow:hidden;display:grid;place-items:center}.robot-now .rn-observation-media img{display:block;width:100%;height:100%;min-height:0;object-fit:contain}.robot-now .rn-observation-photo figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.15rem .6rem;overflow-wrap:anywhere}.robot-now .rn-observation-name{color:#c7d3cb;font-weight:600}
 .robot-now .rn-readiness{border-top:1px solid #35463e;margin-top:1.2rem;padding-top:.85rem}.robot-now .rn-readiness summary{cursor:pointer;color:#c0cdc4;font-size:.86rem;font-weight:600}.robot-now .rn-readiness summary:focus-visible{outline:2px solid #b7f34a;outline-offset:4px}.robot-now .rn-reasons{margin:.5rem 0 .7rem;padding-left:1.2rem;color:#b7c4bc;font-size:.85rem;line-height:1.5}.robot-now .rn-reasons li+li{margin-top:.25rem}.robot-now .rn-queue{font-size:.8rem;color:#bac7c0;margin-top:.7rem}.robot-now .rn-issue{margin-top:.55rem;font-size:.85rem;color:#ffd280}.robot-now .rn-refresh{margin-top:.55rem;font-size:.75rem;color:#91a499}
-@media(max-width:820px){.robot-now .rn-body{grid-template-columns:1fr}.robot-now .rn-photo{max-width:430px}.robot-now .rn-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:480px){.robot-now{padding:1.1rem}.robot-now .rn-header{align-items:flex-start;gap:.7rem}.robot-now h2{font-size:1.2rem}.robot-now .rn-badge{font-size:.72rem;padding:.28rem .55rem}.robot-now .rn-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.robot-now .rn-metric:last-child{grid-column:1/-1}}
+.robot-now .rn-alert{border:1px solid #826b3d;border-left:4px solid #ffd280;border-radius:12px;background:#29251c;padding:1rem;margin-bottom:1rem}.robot-now .rn-alert h3{color:#ffd280}.robot-now .rn-alert p{margin-top:.35rem;color:#e0d5be}.robot-now .rn-alert a{display:inline-block;margin-top:.65rem;color:#e8f1ec;text-decoration:underline;font-weight:650}.robot-now .rn-camera-notice{margin-bottom:.8rem}.robot-now .rn-camera-notice ul{margin-bottom:0}
+.robot-now .rn-recovery[data-state='recovered']{border-color:#526e36;background:#1a251e}.robot-now .rn-recovery[data-state='recovered'] h3{color:#b7f34a}.robot-now .rn-recovery .rn-recovery-meta{font-size:.8rem;color:#bac7c0}
+@media(max-width:820px){.robot-now .rn-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:480px){.robot-now{padding:1.1rem}.robot-now .rn-header{align-items:flex-start;gap:.7rem}.robot-now h2{font-size:1.2rem}.robot-now .rn-badge{font-size:.72rem;padding:.28rem .55rem}.robot-now .rn-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.robot-now .rn-metric:last-child{grid-column:1/-1}.robot-now .rn-observation-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 <section class="robot-now" id="robot-now" data-health="unknown" data-execution="unknown" aria-labelledby="robot-now-title">
   <div class="rn-header">
-    <h2 id="robot-now-title">Robot right now</h2>
+    <h2 id="robot-now-title">Robot Lab right now</h2>
+  </div>
+  <dl class="rn-metrics" style="margin:0 0 1.3rem;grid-template-columns:repeat(auto-fit,minmax(135px,1fr))" aria-label="Lab availability">
+    <div class="rn-metric"><dt>Lab connection</dt><dd data-rn="overview_lab">Checking</dd></div>
+    <div class="rn-metric"><dt>Physical robot</dt><dd data-rn="overview_robot">Checking</dd></div>
+    <div class="rn-metric"><dt>Robot cameras</dt><dd data-rn="overview_cameras">Checking</dd></div>
+    <div class="rn-metric"><dt>Experiment report</dt><dd data-rn="overview_execution">Checking</dd></div>
+  </dl>
+  <div class="rn-alert" data-rn="service_alert" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <h3 data-rn="service_headline"></h3>
+    <p data-rn="service_detail"></p>
+    <a data-rn="sign_in" href="/login?next=%2F" hidden>Sign in to Robot Lab</a>
+  </div>
+  <div class="rn-alert" data-rn="alert_delivery" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <h3 data-rn="alert_headline"></h3>
+    <p data-rn="alert_detail"></p>
+    <p data-rn="alert_action"></p>
+  </div>
+  <div class="rn-alert rn-recovery" data-rn="recovery" role="status" aria-live="polite" aria-atomic="true" hidden>
+    <h3 data-rn="recovery_headline"></h3>
+    <p data-rn="recovery_summary"></p>
+    <p data-rn="recovery_detail"></p>
+    <p data-rn="recovery_action"></p>
+    <p class="rn-recovery-meta" data-rn="recovery_meta"></p>
   </div>
   <div class="rn-execution" role="status" aria-live="polite" aria-atomic="true">
     <h3 data-rn="execution_label">Execution status</h3>
@@ -26,10 +52,10 @@ def robot_status_panel() -> str:
     <p class="rn-next"><strong>Next:</strong> <span data-rn="execution_next">Wait for the status check.</span></p>
     <p class="rn-task" data-rn="execution_task" hidden></p>
   </div>
-  <div class="rn-body rn-no-image" data-rn="body">
+  <div class="rn-body" data-rn="body">
     <div>
       <div class="rn-health-header">
-        <h3>Motor health and camera</h3>
+        <h3>Motor health</h3>
         <span class="rn-badge"><span class="rn-dot" aria-hidden="true"></span><span data-rn="badge">Checking</span></span>
       </div>
       <div role="status" aria-live="polite" aria-atomic="true">
@@ -40,16 +66,20 @@ def robot_status_panel() -> str:
         <div class="rn-metric"><dt>State</dt><dd data-rn="activity">Unknown</dd></div>
         <div class="rn-metric"><dt>Motors responding</dt><dd data-rn="motors">Unknown</dd></div>
         <div class="rn-metric"><dt>Warmest motor</dt><dd data-rn="temperature">Unknown</dd></div>
-        <div class="rn-metric"><dt>Camera</dt><dd data-rn="camera">Checking</dd></div>
+        <div class="rn-metric"><dt>Vision camera</dt><dd data-rn="camera">Checking</dd></div>
         <div class="rn-metric"><dt>Last check</dt><dd class="rn-check" data-rn="checked">Not yet checked</dd></div>
       </dl>
       <p class="rn-issue" data-rn="issue" hidden></p>
     </div>
-    <figure class="rn-photo" data-rn="photo" hidden>
-      <img data-rn="image" alt="Latest robot camera image" decoding="async">
-      <figcaption data-rn="caption">Latest camera image</figcaption>
-    </figure>
   </div>
+  <section class="rn-observation-cameras" data-rn="observation_cameras" aria-labelledby="robot-observation-title" hidden>
+    <h3 id="robot-observation-title">Live cameras</h3>
+    <div class="rn-alert rn-camera-notice" data-rn="camera_notice" role="status" aria-live="polite" hidden>
+      <h3 data-rn="camera_headline"></h3>
+      <ul class="rn-reasons" data-rn="camera_reasons"></ul>
+    </div>
+    <div class="rn-observation-grid" data-rn="observation_grid"></div>
+  </section>
   <details class="rn-readiness" data-rn="readiness_box">
     <summary data-rn="readiness">Readiness checks</summary>
     <ul class="rn-reasons" data-rn="reasons" hidden></ul>
@@ -88,11 +118,199 @@ def robot_status_panel() -> str:
   let polling = false;
   let pollTimer = null;
   let controller = null;
-  let frameRequest = null;
-  let frameTimeout = null;
-  let frameSequence = 0;
-  let lastFrameAttempt = 0;
   let readinessAutoOpen = null;
+  let registeredCameras = [];
+  let lastSuccessfulCheck = null;
+  let alertDeliveryBlocked = false;
+  const observationFrames = new Map();
+
+  function observationFramePath(camera) {
+    if (typeof camera.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(camera.id)) return null;
+    if (camera.frame_url === '/api/robot-status/frame') return camera.frame_url;
+    const path = '/api/robot-status/cameras/' + camera.id + '/frame';
+    return camera.frame_url === path ? path : null;
+  }
+
+  function cameraProblem(camera) {
+    const frame = observationFrames.get(camera.id);
+    if (camera.available === true && camera.fresh === true) {
+      if (frame && frame.failed) return frame.failed;
+      return null;
+    }
+    if (camera.status === 'paused') return 'Preview capture is paused while a robot recording or hardware task owns the cameras. It resumes when the task releases them.';
+    if (camera.status === 'in_use') return 'The camera is in use by another application. Release that camera to restore its preview.';
+    if (camera.issue_code === 'macos_privacy_fd_exhaustion') return 'The lab Mac’s privacy service has run out of file handles and cannot authorize camera access. Restart the failed privacy service, then restart Robot Lab while the robot is idle. Saved camera permissions may still be intact.';
+    if (camera.permission_status === 'restricted') return 'macOS restricts camera access. Check the lab Mac’s camera privacy restrictions.';
+    if (camera.permission_status === 'denied') return 'macOS denied camera access to the capture service. On the lab Mac, open System Settings → Privacy & Security → Camera and allow the capture app, then restart the camera service.';
+    if (camera.permission_status === 'not_determined') return 'Camera permission has not been granted. Open the capture app on the lab Mac and allow its camera prompt.';
+    if (camera.status === 'stale') return 'The last camera frame is too old to show. Check the capture service if fresh frames do not return.';
+    if (camera.status === 'connecting') return 'The capture service is connecting to the camera.';
+    if (camera.status === 'stopped') return 'Camera capture is stopped. Start the camera service to restore its preview.';
+    if (camera.issue_code === 'vision_service_unavailable') return 'The lab Mac’s vision service is unreachable. Check or restart that service.';
+    const error = typeof camera.error === 'string' ? camera.error.toLowerCase() : '';
+    if (error.includes('disconnected') || error.includes('unavailable or ambiguous')) return 'The configured camera is disconnected or cannot be identified. Check its cable or wireless connection on the lab Mac.';
+    if (error.includes('no useful detail') || error.includes('covered')) return 'The camera view is covered or has no useful detail. Check the camera’s view.';
+    return 'No fresh frames are arriving. Check the camera connection and capture service on the lab Mac.';
+  }
+
+  function updateCameraVisibility() {
+    const visibleFrames = Array.from(observationFrames.values()).filter(state => !state.figure.hidden).length;
+    const problems = new Map();
+    registeredCameras.forEach(camera => {
+      const problem = cameraProblem(camera);
+      if (!problem) return;
+      if (!problems.has(problem)) problems.set(problem, []);
+      problems.get(problem).push(phrase(camera.name, phrase(camera.id, 'Camera')));
+    });
+    nodes.camera_reasons.replaceChildren();
+    problems.forEach((names, problem) => {
+      const item = document.createElement('li');
+      item.textContent = names.join(', ') + ': ' + problem;
+      nodes.camera_reasons.appendChild(item);
+    });
+    text('camera_headline', visibleFrames ? 'Some camera views are unavailable' : 'No live camera view is available');
+    nodes.camera_notice.hidden = problems.size === 0;
+    nodes.observation_cameras.hidden = !visibleFrames && !problems.size;
+  }
+
+  function clearObservationFrame(state, resetAttempt = true) {
+    state.sequence += 1;
+    clearTimeout(state.timeout);
+    if (state.request) state.request.abort();
+    state.request = null;
+    if (state.pending) {
+      state.pending.onload = null;
+      state.pending.onerror = null;
+      state.pending.removeAttribute('src');
+      state.pending = null;
+    }
+    state.image.removeAttribute('src');
+    state.image.hidden = true;
+    if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+    if (state.pendingUrl) URL.revokeObjectURL(state.pendingUrl);
+    state.imageUrl = null;
+    state.imageCapturedAt = null;
+    state.pendingUrl = null;
+    state.figure.hidden = true;
+    state.status.textContent = '';
+    if (resetAttempt) state.lastAttempt = 0;
+    updateCameraVisibility();
+  }
+
+  function clearObservationFrames() {
+    registeredCameras = [];
+    observationFrames.forEach(state => clearObservationFrame(state));
+    updateCameraVisibility();
+  }
+
+  function createObservationFrame() {
+    const figure = document.createElement('figure');
+    figure.className = 'rn-observation-photo';
+    figure.hidden = true;
+    const media = document.createElement('div');
+    media.className = 'rn-observation-media';
+    const image = document.createElement('img');
+    image.hidden = true;
+    image.decoding = 'async';
+    const caption = document.createElement('figcaption');
+    const name = document.createElement('span');
+    name.className = 'rn-observation-name';
+    const status = document.createElement('span');
+    media.append(image);
+    caption.append(name, status);
+    figure.append(media, caption);
+    nodes.observation_grid.appendChild(figure);
+    return {figure, image, name, status, sequence:0, request:null, pending:null, timeout:null, imageUrl:null, imageCapturedAt:null, pendingUrl:null, lastAttempt:0, failed:null};
+  }
+
+  function observationImageLabel(state) {
+    return 'Snapshot · ' + ageLabel(Math.max(0, (Date.now() - state.imageCapturedAt) / 1000));
+  }
+
+  async function refreshObservationFrame(state, camera, path) {
+    if (state.imageUrl) state.status.textContent = observationImageLabel(state);
+    if (state.request || Date.now() - state.lastAttempt < 10000) return;
+    state.lastAttempt = Date.now();
+    const imageCapturedAt = state.lastAttempt - Math.max(0, number(camera.age_seconds) || 0) * 1000;
+    const sequence = ++state.sequence;
+    const request = new AbortController();
+    state.request = request;
+    const failedFrame = (reason = 'The camera image could not be loaded. Retrying automatically.') => {
+      if (sequence !== state.sequence || stopped) return;
+      state.failed = typeof reason === 'string' ? reason : 'The camera image could not be loaded. Retrying automatically.';
+      clearObservationFrame(state, false);
+    };
+    state.timeout = setTimeout(failedFrame, 8000);
+    try {
+      const response = await fetch(path + '?refresh=' + Date.now(), {
+        cache:'no-store', credentials:'same-origin', mode:'same-origin', redirect:'error', signal:request.signal,
+        headers:{Accept:'image/jpeg'}
+      });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          failed({status:response.status});
+          return;
+        }
+        failedFrame(response.status >= 500 ? 'The camera service could not deliver this image. Retrying automatically.' : undefined);
+        return;
+      }
+      const blob = await response.blob();
+      if (sequence !== state.sequence || stopped) return;
+      const pending = new Image();
+      state.pending = pending;
+      const imageUrl = URL.createObjectURL(blob);
+      state.pendingUrl = imageUrl;
+      pending.alt = state.name.textContent + ' camera image';
+      pending.decoding = 'async';
+      pending.onload = () => {
+        if (sequence !== state.sequence || stopped) return;
+        clearTimeout(state.timeout);
+        state.request = null;
+        state.pending = null;
+        state.pendingUrl = null;
+        pending.onload = null;
+        pending.onerror = null;
+        state.image.replaceWith(pending);
+        state.image = pending;
+        if (state.imageUrl) URL.revokeObjectURL(state.imageUrl);
+        state.imageUrl = imageUrl;
+        state.imageCapturedAt = imageCapturedAt;
+        state.failed = null;
+        state.figure.hidden = false;
+        state.status.textContent = observationImageLabel(state);
+        updateCameraVisibility();
+      };
+      pending.onerror = failedFrame;
+      pending.src = imageUrl;
+    } catch (_error) {
+      failedFrame();
+    }
+  }
+
+  function renderObservationCameras(cameras) {
+    const current = new Set();
+    registeredCameras = Array.isArray(cameras) ? cameras.filter(camera => camera && typeof camera === 'object') : [];
+    registeredCameras.forEach(camera => {
+      if (camera.available !== true || camera.fresh !== true) return;
+      const path = observationFramePath(camera);
+      if (!path || current.has(camera.id)) return;
+      current.add(camera.id);
+      let state = observationFrames.get(camera.id);
+      if (!state) {
+        state = createObservationFrame();
+        observationFrames.set(camera.id, state);
+      }
+      state.name.textContent = phrase(camera.name, camera.id);
+      refreshObservationFrame(state, camera, path);
+    });
+    observationFrames.forEach((state, id) => {
+      if (current.has(id)) return;
+      clearObservationFrame(state);
+      state.figure.remove();
+      observationFrames.delete(id);
+    });
+    updateCameraVisibility();
+  }
 
   function executionUnknown(reason, nextAction) {
     panel.dataset.execution = 'unknown';
@@ -137,64 +355,6 @@ def robot_status_panel() -> str:
     readinessAutoOpen = shouldOpen;
   }
 
-  function hideFrame() {
-    frameSequence += 1;
-    clearTimeout(frameTimeout);
-    if (frameRequest) {
-      frameRequest.onload = null;
-      frameRequest.onerror = null;
-      frameRequest.removeAttribute('src');
-      frameRequest = null;
-    }
-    nodes.photo.hidden = true;
-    nodes.body.classList.add('rn-no-image');
-    nodes.image.removeAttribute('src');
-    lastFrameAttempt = 0;
-  }
-
-  function refreshFrame(camera) {
-    if (camera.available !== true || camera.fresh !== true) {
-      hideFrame();
-      return;
-    }
-    if (frameRequest || Date.now() - lastFrameAttempt < 10000) return;
-    lastFrameAttempt = Date.now();
-    const sequence = ++frameSequence;
-    const pending = new Image();
-    frameRequest = pending;
-    pending.alt = 'Latest robot camera image';
-    pending.decoding = 'async';
-    pending.dataset.rn = 'image';
-    pending.onload = () => {
-      if (sequence !== frameSequence || stopped) return;
-      clearTimeout(frameTimeout);
-      frameRequest = null;
-      pending.onload = null;
-      pending.onerror = null;
-      nodes.image.replaceWith(pending);
-      nodes.image = pending;
-      nodes.photo.hidden = false;
-      nodes.body.classList.remove('rn-no-image');
-      const age = ageLabel(camera.age_seconds);
-      text('caption', 'Robot camera' + (age ? ' · ' + age : ''));
-    };
-    pending.onerror = () => {
-      if (sequence !== frameSequence || stopped) return;
-      clearTimeout(frameTimeout);
-      frameRequest = null;
-      pending.onload = null;
-      pending.onerror = null;
-      pending.removeAttribute('src');
-      nodes.photo.hidden = true;
-      nodes.body.classList.add('rn-no-image');
-      nodes.image.removeAttribute('src');
-      text('camera', 'Image unavailable');
-      nodes.camera.removeAttribute('data-tone');
-    };
-    frameTimeout = setTimeout(() => pending.onerror && pending.onerror(), 8000);
-    pending.src = '/api/robot-status/frame?refresh=' + Date.now();
-  }
-
   function clearMetrics() {
     ['activity','motors','temperature','camera'].forEach(name => {
       text(name, 'Unknown');
@@ -215,6 +375,51 @@ def robot_status_panel() -> str:
     nodes.reasons.hidden = valid.length === 0;
   }
 
+  function serviceAlert(headline, detail, signIn = false) {
+    text('service_headline', headline);
+    text('service_detail', detail);
+    nodes.sign_in.hidden = !signIn;
+    if (signIn) nodes.sign_in.href = '/login?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+    nodes.service_alert.hidden = false;
+  }
+
+  function renderAlertDelivery(alerts) {
+    alerts = alerts && typeof alerts === 'object' ? alerts : {};
+    alertDeliveryBlocked = alerts.status === 'blocked';
+    nodes.alert_delivery.hidden = alerts.status === 'ok';
+    text('alert_headline', phrase(alerts.headline, 'iMessage alerts have not been verified'));
+    text('alert_detail', phrase(alerts.detail, 'The alert monitor’s current status is unavailable.'));
+    text('alert_action', phrase(alerts.action, ''));
+    nodes.alert_action.hidden = !nodes.alert_action.textContent;
+  }
+
+  function renderRecovery(recovery) {
+    if (!recovery || typeof recovery !== 'object') {
+      nodes.recovery.hidden = true;
+      return;
+    }
+    const state = ['waiting','attempting','verifying','recovered','needs_attention'].includes(recovery.status) ? recovery.status : 'unknown';
+    nodes.recovery.hidden = state === 'waiting' && recovery.issue_code === 'none' && !['disabled','hardware_active_or_unobserved'].includes(recovery.reason_code);
+    nodes.recovery.dataset.state = state;
+    text('recovery_headline', phrase(recovery.headline, 'Automatic recovery status is unavailable'));
+    text('recovery_summary', phrase(recovery.summary, ''));
+    nodes.recovery_summary.hidden = !nodes.recovery_summary.textContent;
+    text('recovery_detail', phrase(recovery.detail, 'Current repair activity cannot be confirmed.'));
+    const action = phrase(recovery.action, '');
+    const prefix = state === 'attempting' ? 'Repair: ' : state === 'waiting' ? 'Planned repair: ' : state === 'verifying' || state === 'recovered' ? 'Repair attempted: ' : 'Next: ';
+    text('recovery_action', action ? prefix + action : '');
+    nodes.recovery_action.hidden = !action;
+    const attempts = count(recovery.attempts);
+    const metadata = [];
+    if (attempts !== null && attempts > 0) metadata.push(attempts + (attempts === 1 ? ' repair attempt' : ' repair attempts'));
+    const attempted = typeof recovery.last_attempt_at === 'string' ? timeLabel(recovery.last_attempt_at) : null;
+    const verified = state === 'recovered' && typeof recovery.verified_at === 'string' ? timeLabel(recovery.verified_at) : null;
+    if (verified) metadata.push('Verified at ' + verified);
+    else if (attempted) metadata.push('Last attempt at ' + attempted);
+    text('recovery_meta', metadata.join(' · '));
+    nodes.recovery_meta.hidden = !metadata.length;
+  }
+
   function render(data) {
     if (!data || typeof data !== 'object' || !data.health || !data.robot || !data.camera || !data.readiness || !data.queue) {
       throw new Error('Incomplete status response');
@@ -222,6 +427,27 @@ def robot_status_panel() -> str:
     const health = data.health;
     const robot = data.robot;
     const camera = data.camera;
+    text('overview_lab', 'Online · live status received');
+    text('overview_robot', health.fresh !== true ? (health.state === 'offline' ? 'Unreachable' : 'Telemetry unavailable') :
+      robot.armed === false && robot.busy === false ? 'Stopped · motor power off' :
+      robot.busy === true ? 'Running' : robot.armed === true ? 'Stopped · motor power on' : 'Connected');
+    const overviewCameras = (Array.isArray(data.cameras) ? data.cameras : data.observation_cameras || [])
+      .filter(item => typeof item.id === 'string' && item.id.startsWith('robot-'));
+    const liveCameras = overviewCameras.filter(item => item.fresh === true).length;
+    text('overview_cameras', overviewCameras.length ? (
+      overviewCameras.every(item => item.status === 'paused') ? 'Reserved by a hardware task' :
+      liveCameras + ' / ' + overviewCameras.length + ' live' + (liveCameras < overviewCameras.length ? ' · see issue below' : '')
+    ) : 'Status unavailable');
+    const executionReport = data.execution && data.execution.report;
+    text('overview_execution', executionReport && executionReport.stale === true ? 'Stale · activity unconfirmed' :
+      data.execution && data.execution.state !== 'unknown' ? phrase(data.execution.headline, 'Activity unconfirmed') : 'Activity unconfirmed');
+    renderAlertDelivery(data.alerts);
+    renderRecovery(data.recovery);
+    lastSuccessfulCheck = Date.now();
+    nodes.service_alert.hidden = true;
+    nodes.sign_in.hidden = true;
+    if (health.state === 'offline') serviceAlert(phrase(health.headline, 'Robot controller unreachable'), phrase(health.detail, 'Robot Lab is online, but cannot reach the robot controller. Check its power, network connection, and web service.'));
+    else if (health.issue_code === 'telemetry_stale') serviceAlert('Robot telemetry is stale', 'Robot Lab can answer, but current motor readings are missing. Check the robot controller’s telemetry service.');
     renderExecution(data.execution, health.fresh === true && robot.busy === false);
     const fresh = health.fresh === true;
     let state = Object.hasOwn(labels, health.state) ? health.state : 'unknown';
@@ -264,15 +490,50 @@ def robot_status_panel() -> str:
     if (recordedCount !== null && recordedCount > 0) queue.push(recordedCount + (recordedCount === 1 ? ' plan with recorded software requirements to revalidate' : ' plans with recorded software requirements to revalidate'));
     text('queue', queue.length ? queue.join(' · ') : 'Queue status unavailable');
     text('refresh', 'Status refreshes every 5 seconds. Camera images refresh every 10 seconds.');
-    refreshFrame(camera);
+    renderObservationCameras(Array.isArray(data.cameras) ? data.cameras : [
+      {...camera, id:camera.id || 'robot', name:camera.name || 'Robot camera', frame_url:'/api/robot-status/frame'},
+      ...(Array.isArray(data.observation_cameras) ? data.observation_cameras : [])
+    ]);
   }
 
-  function failed() {
-    executionUnknown('The status check failed. No current running or idle state can be confirmed.', 'Wait for the automatic retry, or check the current task directly.');
+  function failed(error = {}) {
+    const auth = error.status === 401 || error.status === 403;
+    text('overview_lab', auth ? 'Sign-in needed' : 'Connection failed');
+    text('overview_robot', 'Current state unknown');
+    text('overview_cameras', 'Current views unavailable');
+    text('overview_execution', 'Activity unconfirmed');
+    let headline, detail;
+    if (error.status === 401) {
+      headline = 'Your Robot Lab sign-in has expired';
+      detail = 'Sign in again to load live status and camera views. The robot’s current state has not been checked.';
+    } else if (error.status === 403) {
+      headline = 'This account cannot read Robot Lab status';
+      detail = 'Sign in with an account that has permission to view Robot Lab.';
+    } else if (error.status >= 500) {
+      headline = 'Robot Lab service is unavailable';
+      detail = 'The website returned HTTP ' + error.status + '. Check the lab service and the connection from the lab Mac to this website.';
+    } else if (error.name === 'AbortError') {
+      headline = 'Robot Lab is not responding';
+      detail = 'The status request timed out after 8 seconds. Check the lab Mac, its network connection, and the lab service.';
+    } else if (error.status || error.kind === 'invalid_response') {
+      headline = 'Robot Lab status feed returned an error';
+      detail = error.status ? 'The status feed returned HTTP ' + error.status + '. Check the lab service logs.' : 'The status feed returned an unreadable or incomplete response. Check the lab service logs.';
+    } else {
+      headline = 'This browser cannot reach Robot Lab';
+      detail = 'Check this device’s connection. The lab Mac, website relay, or network connection may also be offline.';
+    }
+    serviceAlert(headline, detail + (lastSuccessfulCheck ? ' Last successful status check: ' + timeLabel(lastSuccessfulCheck) + '.' : ''), auth);
+    renderRecovery({status:'unknown', headline:'Automatic recovery status is unknown',
+      detail:'This page cannot confirm repair activity while the status feed is unavailable.'});
+    if (!alertDeliveryBlocked) renderAlertDelivery({
+      headline:'iMessage alert status is unknown',
+      detail:'This page cannot verify outage notifications while the status feed is unavailable.'
+    });
+    executionUnknown('Current execution cannot be confirmed until the status feed is available.', auth ? 'Sign in to restore live status.' : 'Check the reported connection issue; this page retries automatically.');
     panel.dataset.health = 'unknown';
-    text('badge', 'Unknown');
-    text('headline', 'Robot status is temporarily unavailable');
-    text('detail', 'The last check failed. The robot’s current condition has not been verified.');
+    text('badge', auth ? 'Sign-in needed' : 'Unknown');
+    text('headline', auth ? 'Sign in to load current robot status' : 'Current robot health is unknown');
+    text('detail', 'Fresh motor readings are unavailable while the status feed cannot be read.');
     clearMetrics();
     text('checked', 'Failed at ' + timeLabel(Date.now()));
     text('readiness', 'Wait for a fresh status check');
@@ -280,7 +541,7 @@ def robot_status_panel() -> str:
     expandReadiness(true);
     text('queue', 'Queue status unavailable');
     text('refresh', 'Retrying automatically.');
-    hideFrame();
+    clearObservationFrames();
   }
 
   async function poll() {
@@ -295,13 +556,18 @@ def robot_status_panel() -> str:
         cache:'no-store', credentials:'same-origin', signal:controller.signal,
         headers:{Accept:'application/json'}
       });
-      if (!response.ok) throw new Error('Status request failed');
-      const data = await response.json();
-      if (!stopped) render(data);
-    } catch (_error) {
+      if (!response.ok) throw Object.assign(new Error('Status request failed'), {status:response.status});
+      try {
+        const data = await response.json();
+        if (!stopped) render(data);
+      } catch (error) {
+        error.kind = 'invalid_response';
+        throw error;
+      }
+    } catch (error) {
       if (!stopped) {
         didFail = true;
-        failed();
+        failed(error);
       }
     } finally {
       clearTimeout(timeout);
@@ -319,11 +585,12 @@ def robot_status_panel() -> str:
     stopped = true;
     clearTimeout(pollTimer);
     if (controller) controller.abort();
-    hideFrame();
+    clearObservationFrames();
   });
   window.addEventListener('pageshow', event => {
     if (event.persisted) {
       stopped = false;
+      ['overview_lab', 'overview_robot', 'overview_cameras', 'overview_execution'].forEach(name => text(name, 'Checking'));
       clearMetrics();
       panel.dataset.health = 'unknown';
       text('badge', 'Checking');

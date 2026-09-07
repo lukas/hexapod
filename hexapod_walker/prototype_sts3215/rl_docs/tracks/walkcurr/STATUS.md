@@ -1,5 +1,40 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~08:0x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — re-confirms the ~07:5x no-launch read; found+fixed a 5th orphaned eval (the `s0-widen8` canary that finished mid-way through that cycle) instead of a filler launch
+
+Fresh full-board re-read (guardrails, CURRENT_TRUTHS tail, all 6 track
+STATUS docs, ledger, `launch_run.py status`/`capacity.py`) reaches the
+SAME conclusion as the ~07:5x entry directly below, one cycle later:
+every track's immediate Next item is still either in-flight (walkcurr's
+3 widen8 canaries + assistfade's rung4 canary + joystick's yawref-acq8m
+ACQ gate), blocked on real unbuilt design work that a prior cycle
+explicitly declined to rush (walkcurr's role-aware per-leg mechanism,
+standwalk's fresh-thinking gap), or CLOSED/DONE (cpg, todaypolicy, amp).
+No code changed, no launch made — inventing a filler arm here would
+violate the no-filler rule with a genuinely empty ready-queue.
+
+**One concrete gap found and fixed**: `cw-walkscratch-easy0905-headset-
+crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8` (the 3rd of
+the widen8 canary trio) finished training (`checkup` confirmed
+`FINISHED_BEFORE_CHECKUP` at 07:47, mid-way through the previous
+cycle's own run) with no harness gate kicked — its `s1`/`s2` siblings
+were already registered via `evalpending` by that cycle, but `s0` was
+not (it finished just after that cycle's board snapshot). Verified via
+`kubectl exec ps` that no `eval_checkpoint`/`pod_eval` process was
+running for it on its pod (`hexapod-mjx-train-2`), kicked
+`ops.sh podeval` (backgrounded/disowned) and registered it via
+`evalpending add` (first attempt used the wrong pod name from a
+stale guess, corrected to the ledger's actual `pod` field — always
+read the ledger, don't infer the pod). All 3 widen8 canaries plus the
+assistfade rung4 canary plus joystick's yawref-acq8m ACQ gate are now
+confirmed actively computing on their respective pods (high CPU%,
+real elapsed time) — nothing else orphaned as of this cycle.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-s0-widen8`, `kubectl exec
+hexapod-mjx-train-{0,1,2,4} -- ps aux | grep eval_checkpoint`,
+`rl_move/orchestrator/pending_evals.json`.
+
 ## 2026-09-07 ~07:5x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — no genuinely new launch-ready arm; found+kicked 4 orphaned finished-training gate evals across 3 tracks instead of a filler launch
 
 Full board re-read fresh (guardrails, CURRENT_TRUTHS, all 6 track

@@ -1,13 +1,79 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~04:2x (cross-track note only: the "faster
-motion source / cadence-CPG harvest" lever is now CLOSED — the `cpg`
-track's joint-tuned re-search PASSES its robust gate but is WORSE on
-slip/m than the incumbent in every panel, no genuinely faster/better
-CPG point exists to harvest — see below). This track's own Next list
-has no further open item.
+Last updated: 2026-09-07 ~06:1x — robotwalk-turns misalignment ROOT
+CAUSE FOUND (combined vx+wz frame confound, counterexample-proven on
+the exact reward stack); frame fix + minimal yaw dose shipped
+(bank 18/18) and ONE changed arm launched:
+`cw-robotwalk-turns-20260907-yawref-acq8m` (VERIFIED RUNNING
+train-1). See the 06:1x entry below.
 
-## 09-07 ~04:2x (cross-track note, no launch here) — cadence-CPG harvest lever CLOSED: `cpg`'s re-tuned winner is worse than the incumbent, nothing to harvest
+## 09-07 ~06:1x — combined-frame audit (operator watchdog focus note): the turns lineage's repeated course_err "worsening" was the reward AND the gate metric PAYING turn-refusal; fix shipped, one changed arm launched
+
+Did the focus note's audit (k_walk_course_income/window/deadband/
+sigma, yaw rewards, command frame/resampling, kept straight/combined
+BC anchor) with a bounded CPU replay on the REAL env + the EXACT
+`cw-robotwalk-turns-20260906` reward stack (new tool
+`rl_move/sim/probe_combined_frame.py`; combined cell vx=0.08,
+wz=+0.25, three scripted drives). **Decisive counterexample:** a
+wz-IGNORING straight walker (net body yaw −0.5° vs commanded +114.6°)
+out-earned the faithful body-frame arc-follower **2094.5 vs 1959.8
+total** (course income +597 vs +438, sway 0 vs −19.6, disp 0 vs −3.1)
+AND scored **0.90° vs 12.33°** on the joygate `course_err_1s_med`
+gate metric. Root cause: course-income/excess-sway/course-disp and
+the eval windowed course metric all integrate (vx_ref, vy_ref) as a
+FIXED WORLD CHORD never rotated by wz_ref, while the velocity kernel
+is BODY-frame and `walk_obs_body_vel=2` obs carry no world compass —
+on combined ticks the reward's optimum was REFUSING to turn, and the
+gate's 5.17° bar (Candidate B) measures turn-refusal, not steering.
+So cont8m-resume1's 8.55→10.2 and arcaware's →11.93 "worsening" was
+the policy genuinely turning MORE (tip wz_err improved exactly where
+no linear command conflicts; combined wz_err stuck 0.21/0.23 = PPO
+correctly optimizing the misaligned pricing). The bank's sweep_circle
+"arc" cases never covered this cell (they rotate the world command
+with the body never yawing — the opposite semantics), which is why
+the 09-06 17:3x audit read "near-perfect at production rates". The
+09-06 13:0x arc-vs-chord finding was the same family but only fixed
+sway's bowing, not the frame.
+
+Shipped (default-OFF, bit-exact off, snapshot
+`exp/cw-robotwalk-turns-20260907-yawref-acq8m` 5e9ccb96):
+`reward.walk_course_ref_yaw=1` — course reference rotated by the
+integrated commanded yaw, re-anchored per window at the body's own
+window-start heading (body-frame joystick semantics: vx+wz = arc;
+income + sway shadow path + course_disp); eval
+`windowed_course_stats(wz=,yaw=)` emits additive `course_yawref_*`
+keys; joygate reports `course_yawref_err_1s_med` (pass logic
+untouched). Bank: `test_course_income_semantics.py` +4 combined-frame
+clauses, 18/18 green (plus 63 course/joygate/disp + walk semantics +
+bc_anchor suites green). Replayed post-fix optimum with the minimal
+measured dose `k_yaw_prog` 1→2 (covers the honest physics cost of
+arcing, gap −42.3, dose swing +157): **faithful arc 2204.3 > refusal
+2089.2 > crab 2077.5**, and the corrected eval metric orders arc
+4.59° < refusal 7.06° (faithful arc would PASS the same 5.17° bar).
+Frame semantics decision + gate-metric policy recorded in
+`OPERATOR_QUESTIONS.md` 09-07 ~06:1x (body-frame adopted,
+assume-and-go; corrected metric gated at the SAME absolute bar —
+not a relaxation, it charges refusal where the legacy key paid it).
+
+**Launched (the focus note's ONE justified changed experiment):**
+`cw-robotwalk-turns-20260907-yawref-acq8m` — respec of
+cont8m-resume1, warm from the recovered 16M checkpoint (operator-
+named lineage; walk retention 24/24, 0 falls, best tip 0.078/0.085),
+seed 0, 8M, sole changes `walk_course_ref_yaw=1` +
+`walk_sway_arc_aware=1` + `k_yaw_prog=2`. Gates preserved absolute
+(tip <0.076 both signs; combined cells improved vs BOTH matched
+comparators on identical cells; straight ≥0.29 m/12s, slip ≤2.9,
+0 falls, six legs; joygate stress_mix pass with
+`course_yawref_err_1s_med` ≤5.17° and comparators re-read on the
+same corrected key; standing-still = FAIL). Falsification
+pre-registered: combined wz_err or course_yawref flat-or-worse at 8M
+with reward rising = frame was not the (only) bug — next suspects
+PPO convergence at the operating point / command generator; no
+same-recipe continuation. VERIFIED RUNNING hexapod-mjx-train-1.
+Scratch queue check: backlog empty, walkscratch s0/s1/s2 finished
+during this cycle (their triage belongs to the watcher's fan-out).
+
+## 09-07 ~04:2x (cross-track note, no launch here) — cadence-CPG harvest lever CLOSED: `cpg`'s re-tuned winner is worse than the incumbent, nothing to harvest (its "no further open item" claim is superseded by the 06:1x entry above)
 
 The 09-07 ~01:5x entry below left this lever open pending `cpg`'s
 background robust-gate comparison of its joint period-search winner

@@ -5475,3 +5475,55 @@ later/slower blend `t1_steps` (extending the handover) or a longer total budget 
 relative fractions — not a second log-std-frac guess. Recorded here per the "assume-and-go, log it,
 keep moving" rule; encode as a durable finding if a 3rd rung-3 schedule iteration confirms which
 lever actually matters. See `rl_docs/tracks/assistfade/STATUS.md` 09-06 ~19:3x for full evidence.
+
+## 2026-09-07 ~06:1x — combined vx+wz command semantics adopted as BODY-frame (assume-and-go); joygate course gate (d) read on the frame-corrected metric at the SAME absolute bar
+
+Q (design, from the 09-07 watchdog focus note "audit
+k_walk_course_income/window/deadband/sigma and yaw rewards against
+the measured metric, command frame/resampling and the kept
+straight/combined BC anchor"): when a walk command combines a linear
+velocity (vx_ref, vy_ref) with a yaw rate wz_ref, is the linear part
+a WORLD-frame direction (body spins while the world course stays
+straight = crab) or a BODY-frame direction (vx forward relative to
+the nose = an ARC)?
+
+Adopted answer: BODY-frame (vx+wz = arc). Grounds: (1) the velocity
+kernel already tracks (vx_ref, vy_ref) against `_body_vel_xy()` —
+body frame; (2) `goal.walk_obs_body_vel=2` lineages observe only the
+command refs + gyro/proprioception — a world course is UNOBSERVABLE
+after commanded yaw (no compass in obs); (3) the hardware joystick
+(linux_control) maps stick-forward to body-forward, and the RobotLab
+hardware truth cell drove "both arcs"; (4) the scripted tripod
+teacher executes (vx, vy) as body-frame leg strokes. The course-
+income/excess-sway/course-disp terms and the eval windowed course
+metric integrated (vx_ref, vy_ref) as a FIXED WORLD CHORD, never
+rotated by wz_ref — measured consequence (probe_combined_frame.py,
+exact cw-robotwalk-turns-20260906 stack, vx=0.08 wz=+0.25): turn
+REFUSAL out-earned faithful arcing 2094.5 vs 1959.8 total AND scored
+0.90 vs 12.33 deg on the joygate chord course_err_1s metric — the
+whole 8.55→10.2→11.93 deg "worsening" across cont8m/arcaware was the
+policy turning MORE, an eval+reward frame confound (the 09-06 ~17:3x
+"look elsewhere" candidates list named the eval-side metric first;
+this closes that thread with a mechanism). The sweep_circle "arc"
+bank cases never covered wz_ref≠0-with-linear (they rotate the
+world command with the body never yawing — the opposite cell).
+
+Consequences shipped (default-OFF, bit-exact off, bank-proven
+18/18): `reward.walk_course_ref_yaw=1` rotates the course reference
+by the integrated commanded yaw anchored per-window at the body's
+own window-start heading (income + sway shadow path + course_disp);
+eval `windowed_course_stats(wz=,yaw=)` mode emits additive
+`course_yawref_*` keys; joygate reports
+`per_pass.*.course_yawref_err_1s_med` alongside the legacy key
+(pass logic untouched). GATE POLICY for yaw-capable candidates: the
+course clause is asserted on the CORRECTED metric at the SAME
+absolute bar (5.17 deg) with comparators re-read on the same key —
+NOT a relaxation: the corrected metric also charges refusal (7.06
+deg) where the legacy chord paid it (0.90 deg), so the legacy key
+gates on refusal and is diagnostic-only for turn-capable policies.
+Launched: cw-robotwalk-turns-20260907-yawref-acq8m (frame fix +
+minimal measured dose k_yaw_prog 1→2 flipping the combined-cell
+optimum to the faithful arc: 2204.3 > 2089.2 refusal > 2077.5 crab).
+If the operator prefers WORLD-frame combined semantics (crab), say
+so and the flag flips back to 0 in the next arm — no shared-default
+was changed.

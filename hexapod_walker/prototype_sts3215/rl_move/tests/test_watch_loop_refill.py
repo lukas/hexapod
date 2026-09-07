@@ -199,3 +199,39 @@ def test_partial_idle_main_loop_obeys_grace_owner_and_no_work_backoff(
     for args, _ in calls:
         assert args[1] == {"cw-scratch-running"}
         assert "cw-unrelated-finished-run" in args[3]
+
+
+def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch):
+    """Meta 09-07: 1225 verdicted runs carried statuses outside
+    FINISHED/FAILED (PASS, CANARY FAIL - MECHANISM, ...); a watcher
+    restart could re-spawn triage for all of them."""
+    ledger = [
+        {"run": "cw-a", "status": "CANARY FAIL - MECHANISM",
+         "verdict": "refuted"},
+        {"run": "cw-b", "status": "PASS", "verdict": "clean gait"},
+        {"run": "cw-c", "status": "FINISHED"},           # legacy terminal
+        {"run": "cw-d", "status": "RUNNING"},            # live, no verdict
+        {"run": "cw-e", "status": "RUNNING", "verdict": "None"},  # stringified None
+        # relaunch after a verdicted attempt: latest entry wins
+        {"run": "cw-a", "status": "RUNNING"},
+    ]
+    (tmp_path / "experiments.json").write_text(json.dumps(ledger))
+    monkeypatch.setattr(watch, "HERE", tmp_path)
+    got = watch.ledger_verdicted()
+    assert got == {"cw-b", "cw-c"}
+
+
+def test_prestage_finished_is_idempotent(monkeypatch):
+    """Early handoff-watch fire + later W&B-finish fire must not
+    double-run pod evals."""
+    started = []
+    monkeypatch.setattr(
+        watch.threading, "Thread",
+        lambda *a, **k: SimpleNamespace(
+            start=lambda: started.append(k["target"].__name__)))
+    watch._prestage_fired.discard("cw-idem-test")
+    watch.prestage_finished("cw-idem-test")
+    watch.prestage_finished("cw-idem-test")
+    # 1st call runs the full prestage worker; 2nd only refreshes the
+    # W&B cache (never re-runs pod evals / checkpoint pull).
+    assert started == ["worker", "_refresh"]

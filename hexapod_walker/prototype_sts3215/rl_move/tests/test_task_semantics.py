@@ -9893,6 +9893,112 @@ def test_walkcurr_phase_sv_wrongway_and_falls_still_lose(
     assert r["topple"] < r["gait"] - 10.0, f"falling near walking: {r}"
 
 
+# --- ASSISTFADE_RUNG4 bank (2026-09-07, rung 4 "phase/contact only"
+# prerequisite: EASIER_WALKING_CURRICULUM.md item 4 gates any rung-4
+# relaunch on "a reverse curriculum + matched intermediate-state
+# semantics bank". Mechanism: goal.walk_reverse_handoff_gate/_s
+# (sim_env._apply_walk_reverse_handoff, default OFF/bit-exact) runs the
+# proven scripted TripodGait teacher for a few seconds of REAL physics
+# right after the ordinary settle and before the episode's start
+# references are captured -- a genuinely moving/mid-gait reset, not a
+# state teleport or an observation-only phase clock (which the doc
+# already tried and refuted). Reward stack is the SAME already-tried
+# phase+contact diet (WALKCURR_PHASE_SV_OVERRIDES) -- this bank checks
+# only the ONE new lever (the reset), not a new reward term. ---
+
+ASSISTFADE_RUNG4_OVERRIDES = dict(WALKCURR_PHASE_SV_OVERRIDES)
+ASSISTFADE_RUNG4_OVERRIDES.update({
+    ("goal", "walk_reverse_handoff_gate"): 1.0,
+    ("goal", "walk_reverse_handoff_s"): 2.0,
+})
+
+
+def test_assistfade_rung4_reverse_handoff_default_off_bitexact():
+    """gate absent (default 0) -> reset() is unaffected: near-zero body
+    velocity right after reset, identical to the pre-existing phase-sv
+    diet with no reverse-handoff keys set at all."""
+    env = _make_walk_env(0, WALKCURR_PHASE_SV_OVERRIDES)
+    env.reset()
+    v = np.asarray(env.data.qvel[0:2])
+    env.close()
+    assert np.max(np.abs(v)) < 5e-4, (
+        f"body has nonzero velocity with the gate off: {v}")
+
+
+def test_assistfade_rung4_reverse_handoff_produces_moving_start():
+    """gate on -> reset() leaves the robot with real forward momentum
+    and an asymmetric (mid-gait) footprint, not the static level stand
+    the gate-off reset always produces -- the positive control that the
+    mechanism does what it claims before trusting any reward-ordering
+    check below."""
+    env_off = _make_walk_env(0, WALKCURR_PHASE_SV_OVERRIDES)
+    env_off.reset()
+    v_off = float(np.hypot(*env_off.data.qvel[0:2]))
+    pad_spread_off = float(np.ptp(env_off._pad_z_ref))
+    env_off.close()
+
+    env_on = _make_walk_env(0, ASSISTFADE_RUNG4_OVERRIDES)
+    env_on.reset()
+    v_on = float(np.hypot(*env_on.data.qvel[0:2]))
+    pad_spread_on = float(np.ptp(env_on._pad_z_ref))
+    env_on.close()
+
+    assert v_on > v_off + 1e-4, (
+        f"reverse handoff did not add measurable body velocity: "
+        f"off={v_off} on={v_on}")
+    assert pad_spread_on > pad_spread_off + 1e-3, (
+        f"reverse handoff did not leave an asymmetric (mid-gait) "
+        f"footprint: off spread={pad_spread_off} on spread={pad_spread_on}")
+
+
+@pytest.fixture(scope="module")
+def assistfade_rung4_returns() -> dict[str, float]:
+    plan = {
+        "gait": ("gait", 1.0), "park": ("park", 1.0),
+        "stall": ("stall", 1.0), "belly_sit": ("belly_sit", 1.0),
+        "reverse": ("reverse", 1.0), "sideways": ("sideways", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=ASSISTFADE_RUNG4_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+    return out
+
+
+def test_assistfade_rung4_park_does_not_freeride_on_borrowed_momentum(
+        assistfade_rung4_returns):
+    """The whole risk this mechanism could introduce: a 'park'/'stall'
+    policy inherits real momentum from the handoff and coasts to a
+    competitive score instead of actually sustaining a gait. Refuted if
+    gait still clearly out-earns every stationary form by the same
+    margin the gate-off phase-sv bank already required."""
+    r = assistfade_rung4_returns
+    for still in ("park", "stall", "belly_sit"):
+        assert r["gait"] > r[still] + 3.0, (
+            f"stationary '{still}' freerides on borrowed momentum "
+            f"under the reverse-handoff diet: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "reference gait did not travel under the reverse-handoff diet; "
+        "bank is broken")
+
+
+def test_assistfade_rung4_wrongway_and_falls_still_lose(
+        assistfade_rung4_returns):
+    r = assistfade_rung4_returns
+    for wrong in ("reverse", "sideways"):
+        assert r["gait"] > r[wrong] + 3.0, (
+            f"wrong-way '{wrong}' competitive under the reverse-handoff "
+            f"diet: {r}")
+    assert r["topple"] < r["park"], (
+        f"falling out-earns parking under the reverse-handoff diet: {r}")
+    assert r["topple"] < r["gait"] - 10.0, (
+        f"falling too close to walking under the reverse-handoff diet: {r}")
+
+
 # --- WALKCURR_SV_TILT bank (08-29, cw-walkcurr-sac-sv-s1-budget10m FAIL
 # fork: SAC seed-1 learned real 6-leg stepping at the 0.05-0.06 cmd band
 # but the held-out rung-1 panel shows EVERY episode still ends in a

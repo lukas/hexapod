@@ -1,5 +1,40 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~05:1x (concurrent cycle; assigned run cw-assistfade-rung3-residualfade-s0-longbudget already verdicted by another cycle before this one started) — corroborating push-axis ablation for item(1), matched-parent-control, zero training spend
+
+Read the same long-stalled `allaxis-nokick-c1-acq1` fork this cycle
+(before noticing a concurrent cycle had just verdicted it ACQ FAIL -
+PUSH-RECOVERY FRAGILE and launched the crutch-isolation pair below —
+see that entry). Independently ran the matched-parent-control ablation
+its own gate report's fall videos called for: same checkpoint
+(`ppo_goal_..._allaxis_nokick_c1_acq1.zip`), same seed=0, same full
+~30-axis DR composite, same `dr.torque_scale=3,3` crutch — changed
+ONLY `dr.walk_push_prob` and `dr.ext_push_prob` from 0.3 to 0.0.
+**Result: 0/24 falls (vs the baseline gate's 2/24), gait_valid 23/24
+(same single non-gv episode as baseline, an unrelated startjitter/sto
+jitter case, not a fall), slip/m 4.09-5.24 (same range as baseline)** —
+a clean, decisive confirmation that `dr.walk_push_prob`/
+`dr.ext_push_prob` (dosed at a constant 0.3 for the entire 40M run, no
+curriculum/anneal) is *sufficient by itself* to reproduce the
+push-recovery fragility with the crutch still fully on. This is
+independent, complementary evidence to the concurrent cycle's
+crutch-isolation pair (which asks whether `dr.torque_scale` is
+ALSO/INSTEAD a driver, holding push on) — the two ablations are not
+mutually exclusive; read both once the crutch pair's gate syncs.
+Zero GPU/training spend (CPU eval on the controller pod, per
+guardrails' allowed eval-harness use). No new verdict written (the
+run already has one; this is corroborating evidence for the record,
+not a second contradicting verdict). Full board otherwise unchanged
+this cycle: joystick/amp DONE, cpg/todaypolicy closed this cycle
+already (see their own STATUS entries), standwalk blocked on design
+thinking, walkcurr item(4) closed pending new mechanism. `CYCLE_WORKED`
+touched (real diagnostic + doc updates).
+
+Evidence: `logs/ckpt_eval/walkcurr_item1_pushablation_nopush/report.json`
+(+ contact sheet/videos) vs `logs/ckpt_eval/cw_walkscratch_easy0905_
+headset_crossgrav_medhead_dr_allaxis_nokick_c1_acq1_gate/report.json`
+(baseline), W&B `fvj0g1kr` (eval-push note attached).
+
 ## 2026-09-07 ~04:5x (refill; 11/11 GPU free, backlog empty) — item(1)'s `allaxis-nokick-c1-acq1` fork (14h-stalled DIG-IN) VERDICTED ACQ FAIL - PUSH-RECOVERY FRAGILE; launched a single-lever crutch-isolation pair
 
 The `allaxis-nokick-c1-acq1` gate (crutch-ON/kick-fully-off full ~30-axis

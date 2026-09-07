@@ -1232,6 +1232,25 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   dbandgate_fresh_gate/report.json`, `logs/ckpt_eval/cw_walkscratch_
   easy0905_headset_crossgrav_medhead_abrupt_c1_acq1_gate/report.json`
   (`episodes.duty_cycle` fields), RL_LOG 09-07 04:4x.
+- UPDATE 09-07 ~05:1x: item(1)'s `allaxis-nokick-c1-acq1` fork (the
+  full ~30-axis realism composite, crutch `dr.torque_scale=3x` ON,
+  kick fully off) is VERDICTED ACQ FAIL - PUSH-RECOVERY FRAGILE
+  (2/24 falls, both tilt_roll immediately after a push marker).
+  Root cause CONFIRMED via a matched-parent-control ablation (same
+  checkpoint/seed, only `dr.walk_push_prob`/`dr.ext_push_prob`
+  0.3->0.0): 0/24 falls, gait_valid/slip unchanged otherwise — push,
+  dosed at a constant 0.3 for the whole 40M run with no curriculum/
+  anneal, is sufficient by itself to reproduce the fragility with the
+  crutch still on. A concurrent crutch-isolation pair
+  (`...-crutchoff-{s1,s2}`, `dr.torque_scale` 3->1, push left ON) was
+  launched the same window to test whether torque assist is ALSO/
+  INSTEAD a driver — the two axes are not mutually exclusive; read
+  both before generalizing. Do not assume kick-removal or crutch-
+  removal alone is a sufficient fix for this composite; push-recovery
+  under full DR is now a NAMED open axis, not an unexplained gap.
+  Evidence: `logs/ckpt_eval/walkcurr_item1_pushablation_nopush/
+  report.json` vs `logs/ckpt_eval/cw_walkscratch_easy0905_headset_
+  crossgrav_medhead_dr_allaxis_nokick_c1_acq1_gate/report.json`.
 
 ## Real Robot Boundary
 - The robot is operator-owned. No physical motion without an explicit

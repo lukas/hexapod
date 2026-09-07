@@ -2172,6 +2172,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._profile.reset(q_nom_mujoco)
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
+        self._apply_walk_reverse_handoff()
         obs, info = self._reset_finalize()
         probe_n = self._reset_history_probe_steps()
         for _ in range(probe_n):
@@ -2932,6 +2933,86 @@ class SimHexapodBalanceEnv(_GymBase):
         _g.sync_plant_stance(20.0, 100.0)
         _g.reset_phase()
         return _g
+
+    def _apply_walk_reverse_handoff(self) -> None:
+        """Rung-4 reverse-curriculum warm start (EASIER_WALKING_
+        CURRICULUM.md item 4 / assistfade track, 2026-09-07).
+
+        Default 0 = OFF, bit-exact (single cheap cfg_get + early
+        return -- no rng draw, no extra physics tick, unless the gate
+        is armed). When ``goal.walk_reverse_handoff_gate>0``: called
+        from ``reset()`` AFTER the ordinary settle (robot standing
+        quietly at ``q_nom``) and BEFORE ``_reset_finalize()`` captures
+        the episode's start references (``_z0``/``_pad_z_ref``/IK
+        reset/etc), so those references reflect the POST-handoff state
+        like any other episode start, not the pre-handoff static one.
+
+        Runs the SAME proven scripted TripodGait teacher used by the
+        WALK BC anchor / rung-3 residual blend
+        (``self._make_walk_bc_gait()``) for
+        ``goal.walk_reverse_handoff_s`` further seconds of REAL physics
+        (genuine contact forces / momentum / footfall via
+        ``self._advance()`` -- a state TELEPORT would skip the settle
+        machinery entirely and is deliberately not what this does).
+        Meant to be driven by the existing generic in-run ``sched.*``
+        engine (no new trainer callback needed, same pattern as rung
+        3's ``goal.walk_residual_blend``):
+        ``sched.key="goal.walk_reverse_handoff_s"``, v0=<a few seconds>
+        annealing to v1=0.0. A large v0 hands the policy an
+        ALREADY-MOVING, mid-gait state for the rest of the episode
+        (easy -- rung 4's own historical failure mode was always a
+        static-basin freeze from a motionless stand); as the schedule
+        anneals toward 0 over training, the handoff shrinks back to the
+        ORIGINAL zero-handoff static start (hard) -- the reverse-
+        curriculum direction the doc names ("expand the set of starts
+        backward toward the true beginning"). The handoff itself is
+        NOT a rollout transition (no reward/obs is exposed to the RL
+        algorithm for these ticks, exactly like the pre-existing
+        settle/``_reset_history_probe`` ticks it sits next to) --
+        avoids any action/reward mismatch bias.
+
+        Each episode's handoff starts at a RANDOM phase of the gait
+        cycle (not always the same point) so the policy sees a
+        diversity of already-moving states, not one memorized pose.
+
+        CPU single-env ``reset()`` only for now -- the MJX vec-env
+        twin (``mjx_vec_env.py``/``mjx_sharded_vec_env.py``
+        ``_choreography()``, needed for real GPU-scale training
+        throughput) is an explicitly deferred follow-up, named in
+        ``rl_docs/tracks/assistfade/STATUS.md``; this env's own held-
+        out gate evals and the semantics bank both exercise this CPU
+        path directly."""
+        gate = float(cfg_get(self.cfg, "goal", "walk_reverse_handoff_gate",
+                             default=0.0))
+        if gate <= 0.0:
+            return
+        handoff_s = float(cfg_get(self.cfg, "goal", "walk_reverse_handoff_s",
+                                  default=0.0))
+        if handoff_s <= 0.0:
+            return
+        goal = self._current_goal()
+        if goal is None:
+            return
+        gait = self._make_walk_bc_gait()
+        gait.set_velocity(vx=float(getattr(goal, "vx_ref", 0.0) or 0.0),
+                          vy=float(getattr(goal, "vy_ref", 0.0) or 0.0),
+                          omega=float(getattr(goal, "wz_ref", 0.0) or 0.0))
+        gait.reset_phase(phase=float(self.rng.uniform(0.0, 2 * math.pi)))
+        n = int(round(handoff_s / self.dt))
+        for k in range(n):
+            t = k * self.dt
+            q_rad = self._clip_to_joint_limits(
+                np.asarray(gait.desired_deg(t), dtype=float) * DEG2RAD)
+            # Same command path a normal RL-action tick uses (_step_finish):
+            # queue a profile write (latency + trapezoidal slew + deadband
+            # all apply, exactly like a real command), THEN advance physics
+            # -- not a raw ctrl/state teleport.
+            self._cmd = q_rad.copy()
+            self._profile.command(
+                self._logical_to_mujoco_q(q_rad),
+                speed_deg_s=self.write_speed_deg_s,
+                acc_units=self.write_acc_units)
+            self._advance()
 
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
 

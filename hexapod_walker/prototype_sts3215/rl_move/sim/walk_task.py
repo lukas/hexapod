@@ -458,6 +458,49 @@ def transition_window_liftoff(lo_buf: list) -> float | None:
     return float(sum(lo_buf) / len(lo_buf))
 
 
+# Per-LEG minimum-duty TERMINATION tick update (`safety.walk_leg_duty_
+# terminate_s`, 2026-09-07; relative-floor add-on `..._floor_rel_frac`,
+# 2026-09-07 ~22:5x). Extracted to a plain function on plain
+# (list[float], list[float]) state -- no MuJoCo, no task object -- so
+# the EMA/low-seconds state machine (and the new relative-floor
+# arithmetic) can be unit-tested directly with synthetic per-leg
+# on/off sequences instead of a physics rollout, exactly the
+# `transition_window_*` precedent above. See the design rationale
+# (heading-relative starvation an absolute floor tuned not to
+# false-positive on passing gaits cannot catch) in `sim_env.py`'s own
+# call site.
+def walk_legduty_term_tick(
+        ema: list, low_s: list, *, on: list, dt: float, tau_s: float,
+        floor: float, floor_rel_frac: float, in_grace: bool,
+) -> tuple[list, list, float]:
+    """One tick's bookkeeping for all 6 legs. ``ema``/``low_s`` are the
+    PREVIOUS tick's state (length-6 lists); ``on`` is this tick's 6
+    binary contact readings. Returns ``(new_ema, new_low_s,
+    worst_low_s)`` -- ``worst_low_s`` is the max consecutive-seconds-
+    below-floor across all 6 legs, for the caller to compare against
+    its own ``walk_leg_duty_terminate_s`` bound. ``floor_rel_frac=0.0``
+    reproduces the plain absolute-floor-only path exactly (bit-exact
+    legacy when the relative add-on is off)."""
+    new_ema = [e + (dt / tau_s) * (float(o) - e) for e, o in zip(ema, on)]
+    effective_floor = floor
+    if floor_rel_frac > 0.0:
+        team_mean = sum(new_ema) / 6.0
+        effective_floor = max(floor, floor_rel_frac * team_mean)
+    new_low_s = []
+    worst = 0.0
+    for e, prev_low in zip(new_ema, low_s):
+        if in_grace:
+            low = 0.0
+        elif e < effective_floor:
+            low = prev_low + dt
+        else:
+            low = 0.0
+        new_low_s.append(low)
+        if low > worst:
+            worst = low
+    return new_ema, new_low_s, worst
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 

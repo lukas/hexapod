@@ -3567,25 +3567,50 @@ class SimHexapodBalanceEnv(_GymBase):
             ldt_tau = max(float(cfg_get(
                 self.cfg, "safety", "walk_leg_duty_terminate_tau_s",
                 default=1.0)), self.dt)
+            # Relative (team-mean-fraction) floor add-on (2026-09-07,
+            # widen8/widenbis/widenrear180 role-aware-mechanism gap,
+            # CURRENT_TRUTHS 09-07 ~22:5x zero-spend diagnostic). Plain
+            # English: the ABSOLUTE floor above (default 0.05) was
+            # deliberately set BELOW the eval gate's own sacrifice bar
+            # (duty<0.10) to avoid false-charging genuinely-passing
+            # episodes whose lowest leg sometimes dips to ~0.10-0.30 —
+            # but the legdutyfresh/legdutyterm1 campaign (7/7 FAIL, same
+            # front-pair-or-similar fingerprint every time) showed the
+            # real failing shape is NOT "one leg near zero forever" (the
+            # already-tested flagleg cheat this mechanism already
+            # catches) but "1-2 legs starved to ~0.02-0.09 while the
+            # OTHER legs — often a DIFFERENT pair depending on the
+            # episode/heading — run at 0.4-0.95": a soft, heading-
+            # relative starvation an absolute floor tuned not to
+            # false-positive on passing gaits structurally cannot catch
+            # (it would have to sit above the passing band's own low
+            # end, which is the false-positive risk the floor was
+            # deliberately kept under). A floor stated as a FRACTION of
+            # the whole team's own current mean duty adapts to whatever
+            # relative usage pattern the gait has established that tick
+            # — no heading-conditioned role table needed, exactly the
+            # "do NOT ship a rigid role/template match, calibrate
+            # against the gait's own graded spread" guidance already on
+            # record. Default 0.0 = OFF, bit-exact legacy: the
+            # `effective_floor` reduces to plain `ldt_floor` and no new
+            # arithmetic touches the existing absolute-floor path.
+            ldt_floor_rel_frac = float(cfg_get(
+                self.cfg, "safety", "walk_leg_duty_terminate_floor_rel_frac",
+                default=0.0))
             in_grace = ((self._step_i - self._seg_entry_step) * self.dt
                         < ldt_grace_s)
-            worst_low_s = 0.0
+            on_now = []
             for f in range(6):
                 adr = self._touch_adr[f]
                 force = (max(0.0, float(self.data.sensordata[adr]))
                           if adr >= 0 else 0.0)
-                on = 1.0 if force > 0.5 else 0.0
-                self._walk_legduty_ema[f] += (self.dt / ldt_tau) * (
-                    on - self._walk_legduty_ema[f])
-                if in_grace:
-                    self._walk_legduty_low_s[f] = 0.0
-                else:
-                    if self._walk_legduty_ema[f] < ldt_floor:
-                        self._walk_legduty_low_s[f] += self.dt
-                    else:
-                        self._walk_legduty_low_s[f] = 0.0
-                if self._walk_legduty_low_s[f] > worst_low_s:
-                    worst_low_s = self._walk_legduty_low_s[f]
+                on_now.append(1.0 if force > 0.5 else 0.0)
+            from rl_move.sim.walk_task import walk_legduty_term_tick
+            (self._walk_legduty_ema, self._walk_legduty_low_s,
+             worst_low_s) = walk_legduty_term_tick(
+                self._walk_legduty_ema, self._walk_legduty_low_s,
+                on=on_now, dt=self.dt, tau_s=ldt_tau, floor=ldt_floor,
+                floor_rel_frac=ldt_floor_rel_frac, in_grace=in_grace)
             if worst_low_s >= walk_ldt_s:
                 terminated = True
                 status.ok = False

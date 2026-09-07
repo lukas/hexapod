@@ -407,6 +407,7 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             scripted_yaw_amplify_scale: float = 1.0,
             scripted_selective_omega_boost: float = 1.0,
             scripted_group_duty_skew: float = 0.0,
+            scripted_stance_radius_scale: float = 1.0,
             contact_audit: bool = False,
             phase_offset: float = 0.0) -> dict:
     """``vx_cmd`` (09-03, standwalk redesign-spec item 2 sub-step,
@@ -523,6 +524,16 @@ def rollout(*, model, env_cls_kwargs: dict, wz_cmd: float, seed: int,
             combined_yaw_amplify_scale=scripted_yaw_amplify_scale,
             combined_selective_omega_boost=scripted_selective_omega_boost,
             combined_group_duty_skew=scripted_group_duty_skew)
+        if scripted_stance_radius_scale != 1.0:
+            # 09-07 turn-authority audit: radial stance-center
+            # displacement A/B (--policy scripted only). The constructor
+            # clips to the hardware-era [0.55, 1.05] band; diagnostic
+            # doses outside it are set directly on the instance (no
+            # shared-code change) — sync_plant_stance() below recomputes
+            # _foot_radius_eff so foot POSITION and the omega stroke
+            # term move together (geometry-consistent by construction,
+            # see _yaw_frame_xy/_foot_target_in_body).
+            gait.stance_radius_scale = float(scripted_stance_radius_scale)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
     step = 0
@@ -669,6 +680,13 @@ def main() -> int:
                          "candidate) on combined ticks only, ONLY the "
                          "legs the vx cross term attenuates; default "
                          "1.0 is bit-exact")
+    ap.add_argument("--scripted-stance-radius-scale", type=float,
+                    default=1.0,
+                    help="--policy scripted only: radial stance-center "
+                         "displacement (TripodGait stance_radius_scale, "
+                         "diagnostic doses may exceed the hardware clip "
+                         "band; 09-07 turn-authority audit); default "
+                         "1.0 is bit-exact")
     ap.add_argument("--scripted-group-duty-skew", type=float, default=0.0,
                     help="--policy scripted only: TripodGait's "
                          "combined_group_duty_skew (standwalk Next "
@@ -719,6 +737,8 @@ def main() -> int:
                                   args.scripted_yaw_amplify_scale),
                               scripted_selective_omega_boost=(
                                   args.scripted_selective_omega_boost),
+                              scripted_stance_radius_scale=(
+                                  args.scripted_stance_radius_scale),
                               scripted_group_duty_skew=(
                                   args.scripted_group_duty_skew))
                 results.append(res)

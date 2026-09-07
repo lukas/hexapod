@@ -6523,6 +6523,120 @@ def test_walk_legduty_terminate_penalty_is_smaller_than_term_penalty():
 
 
 # --------------------------------------------------------------------------
+# safety.walk_leg_duty_terminate_floor_rel_frac (2026-09-07 ~22:5x,
+# widen8-acq1-legdutyfresh trio CLOSED 3/3 FAIL follow-up). Plain
+# English: the legdutyterm1/legdutyfresh campaign (7/7 arms FAIL, same
+# ~12-24 gait_valid ceiling every time) showed the real failing shape
+# is NOT "one leg fully parked forever" (the flagleg cheat above,
+# which the plain absolute floor already catches) but a SOFTER,
+# heading-relative starvation: `logs/ckpt_eval/..._legdutyfresh_gate/
+# report.json`'s own `duty_cycle` vectors show 1-2 legs settling at
+# ~0.02-0.09 (dodging the deliberately-conservative 0.05 absolute
+# floor, which was set low specifically to avoid false-charging
+# genuinely-passing episodes whose lowest leg sometimes dips to
+# 0.10-0.30) while the OTHER legs run at 0.4-0.95 -- a pattern an
+# absolute floor tuned not to false-positive on passing gaits cannot
+# structurally distinguish from a legitimately busy leg. Stating the
+# floor as a FRACTION of the whole team's own current mean EMA duty
+# adapts to whatever relative-usage pattern the gait has established
+# that tick, with no heading-conditioned per-leg role table -- exactly
+# the "calibrate against the gait's own graded spread, do not ship a
+# rigid role/template match" guidance already on record (CURRENT_TRUTHS
+# 09-07 ~04:4x). Tested directly on `walk_legduty_term_tick`'s plain
+# (list[float], list[float]) state with synthetic per-leg on/off
+# sequences (no physics rollout needed) -- same "extracted to plain
+# testable functions" pattern as `transition_window_tick` above.
+
+from rl_move.sim.walk_task import walk_legduty_term_tick  # noqa: E402
+
+
+def _run_legduty_synthetic(on_fn, n_ticks=2000, dt=0.01, tau_s=1.0,
+                            floor=0.05, floor_rel_frac=0.0):
+    """Feed a per-tick on/off generator through `walk_legduty_term_tick`
+    from the mechanism's own seeded initial state (all 6 legs EMA=1.0,
+    low_s=0.0 -- matches `SimHexapodJointWalkEnv`'s own reset seeding,
+    see its `_walk_legduty_ema` comment) and return the final
+    (ema, worst_low_s) reached."""
+    ema = [1.0] * 6
+    low_s = [0.0] * 6
+    worst = 0.0
+    for i in range(n_ticks):
+        ema, low_s, worst = walk_legduty_term_tick(
+            ema, low_s, on=on_fn(i), dt=dt, tau_s=tau_s, floor=floor,
+            floor_rel_frac=floor_rel_frac, in_grace=False)
+    return ema, worst
+
+
+def test_walk_legduty_floor_rel_frac_default_off_bit_exact():
+    """floor_rel_frac=0.0 (the default) must reduce EXACTLY to the
+    plain absolute-floor path -- same ema/worst_low_s either way the
+    key is passed (absent vs explicit 0.0), on a mixed honest+starved
+    synthetic tick sequence."""
+    def on_fn(i):
+        return [1.0 if (i % 10) == 0 else 0.0, 1.0,
+                1.0 if (i % 10) == 0 else 0.0, 1.0, 1.0,
+                1.0 if (i % 10) == 0 else 0.0]
+    ema_a, worst_a = _run_legduty_synthetic(on_fn, floor_rel_frac=0.0)
+    ema = [1.0] * 6
+    low_s = [0.0] * 6
+    worst_b = 0.0
+    for i in range(2000):
+        ema, low_s, worst_b = walk_legduty_term_tick(
+            ema, low_s, on=on_fn(i), dt=0.01, tau_s=1.0, floor=0.05,
+            floor_rel_frac=0.0, in_grace=False)
+    assert ema_a == ema, "floor_rel_frac=0.0 changed the ema trajectory"
+    assert worst_a == worst_b
+
+
+def test_walk_legduty_floor_rel_frac_lets_honest_balanced_gait_run():
+    """A balanced honest gait (alternating tripod: 3 legs on / 3 legs
+    off every 0.05s, every leg's EMA settling ~0.49-0.51, the shape a
+    real clean tripod produces) must NOT trip the relative floor at a
+    plausible dose (0.35) -- the mechanism must not false-charge a
+    passing gait just because it armed the new add-on."""
+    def on_fn(i):
+        first_half = 1.0 if (i // 5) % 2 == 0 else 0.0
+        second_half = 1.0 - first_half
+        return [first_half] * 3 + [second_half] * 3
+    ema, worst = _run_legduty_synthetic(on_fn, floor_rel_frac=0.35)
+    assert worst == 0.0, (
+        f"balanced honest gait tripped the relative floor: worst_low_s="
+        f"{worst}, ema={ema}")
+    assert all(0.35 < e < 0.65 for e in ema), (
+        f"synthetic balanced gait did not settle near 0.5 as expected: "
+        f"{ema}")
+
+
+def test_walk_legduty_floor_rel_frac_catches_soft_starvation_the_absolute_floor_misses():
+    """THE core claim: 3 legs starved to a steady ~10% duty (comfortably
+    ABOVE the 0.05 absolute floor -- confirmed to never trip it alone)
+    while the other 3 run at 100% duty (a stand-in for the widen8-
+    legdutyfresh reports' own measured shape, e.g. `s1`'s det/0 episode:
+    duty=[0.28,0.90,0.07,0.44,0.82,0.02]) must be CAUGHT once the
+    relative-floor add-on is armed, proving it closes a real gap the
+    absolute-floor-only mechanism (7/7 FAIL across legdutyterm1 +
+    legdutyfresh) left open."""
+    def on_fn(i):
+        low = 1.0 if (i % 10) == 0 else 0.0
+        return [low, 1.0, low, 1.0, 1.0, low]
+    ema_abs, worst_abs = _run_legduty_synthetic(on_fn, floor_rel_frac=0.0)
+    assert worst_abs == 0.0, (
+        f"the absolute-only floor already trips on this synthetic "
+        f"case (worst_low_s={worst_abs}) -- the test no longer "
+        f"isolates the relative-floor's marginal contribution")
+    ema_rel, worst_rel = _run_legduty_synthetic(on_fn, floor_rel_frac=0.35)
+    assert worst_rel > 3.0, (
+        f"relative floor (frac=0.35) failed to accumulate meaningful "
+        f"low-duty seconds on the 3-starved-legs synthetic case: "
+        f"worst_low_s={worst_rel}, ema={ema_rel}")
+    assert ema_abs == ema_rel, (
+        "the ema trajectory itself must be IDENTICAL with/without "
+        "floor_rel_frac (it only changes the comparison floor, never "
+        "the EMA update) -- a difference here would mean the add-on "
+        "leaked into the ema arithmetic")
+
+
+# --------------------------------------------------------------------------
 # reward.walk_swing_gate (09-05, walkcurr easy0905 legpark-skate
 # dig-in follow-up): the SIXTH structural repair attempt for the
 # marginal/chronic leg-sacrifice pathology, after `walk_gait_gate` +

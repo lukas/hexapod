@@ -1134,6 +1134,7 @@ def _legpark_rollout(policy: str, seed: int, *, overrides: dict,
     gait = TripodGait(vx=0.0, lift=0.025)
     gait.sync_plant_stance(*WALK_PLANT)
     plant_leg = np.array([0.0, *WALK_PLANT]) * DEG2RAD
+    plant_leg_all = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
 
     x0 = float(env.data.xpos[env._chassis_bid, 0])
     total, step, on4 = 0.0, 0, 0
@@ -1154,6 +1155,14 @@ def _legpark_rollout(policy: str, seed: int, *, overrides: dict,
             q[3 * PARK_LEG + 0] = plant_leg[0]
             q[3 * PARK_LEG + 1] = plant_leg[1]
             q[3 * PARK_LEG + 2] = plant_leg[2]
+        elif policy == "freeze":
+            # ALL SIX legs held dead still at the plant pose for the
+            # whole episode -- duty=1.0 on every leg, zero completed
+            # swings anywhere. The walk_duty_gate (floor-only) exploit
+            # twin: a floor price is trivially cleared by never
+            # lifting at all, which walk_duty_band_gate's ceiling half
+            # exists to close.
+            q[:] = plant_leg_all
         obs, r, done, trunc, info = env.step(_q_to_action(env, q))
         total += r
         # measure leg-4 contact from the touch sensor directly —
@@ -1348,3 +1357,215 @@ def test_duty_gate_strong_floor_prices_marginal_underuse_harder(
         f"than the inert floor=0.15 ({weak_035:.1f} vs {weak_015:.1f}) "
         f"-- would repeat the INERT-DOSE finding: "
         f"{duty_gate_strong_returns}")
+
+
+# ---------------------------------------------------------------------
+# WALK DUTY *BAND* GATE (reward.walk_duty_band_gate — 09-07 walkcurr
+# item(1)/item(4) structural follow-up): CURRENT_TRUTHS.md 09-05
+# ~22:3x/~19:2x named the shared root cause behind BOTH closed
+# per-leg-utilization mechanisms above: `walk_duty_gate` (9/9 FAIL,
+# every provenance x dose) prices a FLOOR only, so a fully-planted
+# (or high-frequency in-place-vibrating) leg at duty=1.0 always clears
+# it trivially — the freeze/vibrate exploit that closed the mechanism
+# for good; `walk_swing_gate` (5/5 FAIL) prices a swing-COUNT floor
+# only, so a leg that toe-taps with frequent real-stride swings but
+# never bears load/propels also clears it while running near-zero
+# duty the rest of the time. Neither closed mechanism could tell
+# "healthy alternating duty" apart from EITHER extreme because both
+# only ever penalized ONE direction of drift. `walk_duty_band_gate`
+# prices BOTH tails (floor AND ceiling) of the SAME trailing contact-
+# duty signal `walk_duty_gate` already used — this bank proves, on the
+# SAME `_legpark_rollout` scripted twins used above (apples-to-apples
+# with the closed mechanism's own bank): (a) default off = bit-exact;
+# (b) a healthy six-leg tripod (duty ~0.4-0.6, deep inside the band)
+# is unpriced; (c) the legpark/tokentouch low-duty twins (the
+# walk_duty_gate bank's own exploit twins) still collapse via the
+# floor half; (d) THE NEW CASE walk_duty_gate could never reach: an
+# all-six-legs-frozen twin (duty=1.0 on every leg) is priced down via
+# the ceiling half, unlike the floor-only gate which leaves it
+# essentially untouched.
+# ---------------------------------------------------------------------
+
+DBAND_GATE_G = 0.9
+EASY_DBAND = dict(EASY_BASE)
+EASY_DBAND.update({
+    ("reward", "walk_duty_band_gate"): DBAND_GATE_G,
+    ("reward", "duty_band_window_s"): 3.0,
+    ("reward", "duty_band_floor"): 0.15,
+    ("reward", "duty_band_ceil"): 0.85,
+})
+
+
+@pytest.fixture(scope="module")
+def dband_gate_returns() -> dict[str, tuple]:
+    out = {}
+    for name, pol, ov in (
+            ("gait_base", "gait", EASY_BASE),
+            ("gait_gated", "gait", EASY_DBAND),
+            ("legpark_base", "legpark", EASY_BASE),
+            ("legpark_gated", "legpark", EASY_DBAND),
+            ("tokentouch_gated", "tokentouch", EASY_DBAND),
+            ("freeze_base", "freeze", EASY_BASE),
+            ("freeze_gated", "freeze", EASY_DBAND)):
+        runs = [_legpark_rollout(pol, s, overrides=ov) for s in SEEDS]
+        out[name] = (
+            float(np.mean([r[0] for r in runs])),   # return
+            float(np.mean([r[1] for r in runs])),   # dx
+            float(np.mean([r[2] for r in runs])),   # steps
+            float(np.mean([r[3] for r in runs])),   # leg-4 duty
+        )
+    return out
+
+
+def test_dband_gate_default_off_bit_exact():
+    """walk_duty_band_gate absent and explicitly 0.0 produce the
+    identical trajectory income — the key defaults OFF and touches
+    nothing."""
+    ov = dict(EASY_BASE)
+    ov[("reward", "walk_duty_band_gate")] = 0.0
+    a = _easy_rollout("gait", 0, overrides=EASY_BASE)
+    b = _easy_rollout("gait", 0, overrides=ov)
+    assert a == b, f"walk_duty_band_gate=0.0 is not bit-exact: {a} vs {b}"
+
+
+def test_dband_gate_twins_are_honest(dband_gate_returns):
+    """Premise checks: the freeze twin actually survives and keeps
+    leg 4 planted (duty above the ceiling, the opposite extreme from
+    legpark/tokentouch), and travels ~0 net distance (a genuinely
+    static pose, not a moving gait in disguise)."""
+    tot, dx, steps, duty4 = dband_gate_returns["freeze_base"]
+    assert steps >= 900, (
+        f"freeze twin fell (steps={steps}); not a valid exploit twin: "
+        f"{dband_gate_returns}")
+    assert duty4 > 0.85, (
+        f"freeze twin leg-4 duty {duty4:.3f} not above the 0.85 "
+        f"ceiling — not a valid freeze-exploit twin: {dband_gate_returns}")
+    assert abs(dx) < 0.05, (
+        f"freeze twin net displacement {dx:.3f}m not ~0 — not a "
+        f"genuinely static pose: {dband_gate_returns}")
+    assert dband_gate_returns["gait_gated"][3] > 0.20, (
+        "six-leg twin's leg-4 duty unexpectedly low: "
+        f"{dband_gate_returns}")
+
+
+def test_dband_gate_healthy_six_leg_gait_unpriced(dband_gate_returns):
+    """A healthy tripod (duty deep inside [0.15, 0.85]) must keep
+    essentially all its income under the band gate."""
+    base = dband_gate_returns["gait_base"][0]
+    gated = dband_gate_returns["gait_gated"][0]
+    assert gated >= 0.90 * base, (
+        f"band gate taxed the honest six-leg gait: {gated:.1f} vs "
+        f"{base:.1f}: {dband_gate_returns}")
+
+
+def test_dband_gate_collapses_legpark_income(dband_gate_returns):
+    """The floor half must still remove a large, learner-visible slice
+    of the five-leg (near-zero-duty) twin's income, matching
+    walk_duty_gate's own established result on the identical twin."""
+    ungated = dband_gate_returns["legpark_base"][0]
+    gated = dband_gate_returns["legpark_gated"][0]
+    six = dband_gate_returns["gait_gated"][0]
+    removed = ungated - gated
+    assert removed > 250.0, (
+        f"band gate removed only {removed:.1f} from the legpark twin "
+        f"on an identical trajectory — floor half not pricing: "
+        f"{dband_gate_returns}")
+    assert gated < six - 500.0, (
+        f"five-leg income not decisively below six-leg income under "
+        f"the band gate: {gated:.1f} vs {six:.1f}: {dband_gate_returns}")
+
+
+def test_dband_gate_token_touch_cannot_dodge(dband_gate_returns):
+    """The floor half must resist the same walk_gait_gate-style token-
+    touchdown dodge walk_duty_gate's own bank already proved it
+    resists (both gates share the same trailing-mean-duty
+    mechanism for the low tail)."""
+    full_removed = (dband_gate_returns["legpark_base"][0]
+                    - dband_gate_returns["legpark_gated"][0])
+    token_removed = (dband_gate_returns["legpark_base"][0]
+                     - dband_gate_returns["tokentouch_gated"][0])
+    six = dband_gate_returns["gait_gated"][0]
+    assert token_removed > 0.5 * full_removed, (
+        f"token touchdowns restored most of the gated income "
+        f"(removed {token_removed:.1f} of {full_removed:.1f}): "
+        f"{dband_gate_returns}")
+    assert dband_gate_returns["tokentouch_gated"][0] < six - 500.0, (
+        f"token twin not decisively below six-leg income: "
+        f"{dband_gate_returns}")
+
+
+def _dband_score_tail(policy: str, seed: int, overrides: dict,
+                       n_steps: int = 999) -> list:
+    """Trailing `walk_duty_band_min` readings (post window-fill,
+    t > duty_band_window_s) for a `_legpark_rollout`-style scripted
+    actor. Mirrors `_swing_gate_walk_rollout`'s own smin_tail capture
+    in test_task_semantics.py -- needed because the freeze twin's
+    baseline KERNEL income is already ~0 (a genuinely static commanded
+    pose has nothing left for any gate to additionally charge, same
+    caveat the walk_swing_gate bank's own frozen test documents), so
+    the gate's structural guarantee must be asserted on its internal
+    score, not inferred from a return delta this twin cannot exhibit."""
+    from hexapod_core.tripod_gait import TripodGait
+    from rl_move.sim.probe_walk_income import WALK_PLANT
+
+    env = _make_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_leg_all = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    n = len(traj.vx)
+    win_s = float(overrides.get(("reward", "duty_band_window_s"), 3.0))
+    tail = []
+    for step in range(n_steps):
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        if policy == "freeze":
+            q = plant_leg_all.copy()
+        else:
+            q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        _obs, _r, done, trunc, info = env.step(_q_to_action(env, q))
+        if "walk_duty_band_min" in info and t > win_s:
+            tail.append(float(info["walk_duty_band_min"]))
+        if done or trunc:
+            break
+    env.close()
+    return tail
+
+
+def test_dband_gate_collapses_freeze_income_where_floor_gate_cannot(
+        dband_gate_returns):
+    """THE closing test this gate exists for: an all-six-legs-frozen
+    twin (duty=1.0 everywhere, zero completed swings anywhere) must
+    collapse the gate's internal score (walk_duty_band_min) to ~0 via
+    the ceiling half -- a floor-only gate (walk_duty_gate) structurally
+    CANNOT do this (duty=1.0 always clears any floor <1.0), which is
+    exactly the CURRENT_TRUTHS 09-05 diagnosis for why the trained
+    walk_duty_gate arms froze instead of repairing. The freeze twin's
+    baseline kernel income is already ~0 (static pose, nothing left to
+    charge -- confirmed by the fixture's own freeze_base/freeze_gated
+    near-equal returns above), so this asserts the score directly
+    rather than a return delta, matching the walk_swing_gate bank's own
+    frozen-twin test design."""
+    tail = _dband_score_tail("freeze", SEEDS[0], EASY_DBAND)
+    assert tail, "no walk_duty_band_min readings captured for the freeze twin"
+    med = float(np.median(tail))
+    assert med <= 0.15, (
+        f"frozen stance still scores walk_duty_band_min {med:.3f} in the "
+        f"tail — the freeze/vibrate exploit the ceiling half exists to "
+        f"close is NOT collapsed: {tail[-10:]}")
+    # No-regression: the gate must never PAY the frozen actor more than
+    # gate-off (factors only ever shrink income, never grow it).
+    ungated = dband_gate_returns["freeze_base"][0]
+    gated = dband_gate_returns["freeze_gated"][0]
+    assert gated <= ungated + 1e-3, (
+        f"band gate INCREASED frozen income {ungated:.4f} -> "
+        f"{gated:.4f} — a gate must never boost income")
+    # Structural proof the OLD floor-only gate cannot do this at all:
+    # a floor <1.0 is trivially cleared by duty=1.0, so its own score
+    # must read (near-)maximal on the identical twin construction (same
+    # freeze policy, same plant pose, same seed).
+    assert dband_gate_returns["freeze_base"][3] > 0.85, (
+        "freeze twin premise broken (leg-4 duty not near 1.0): "
+        f"{dband_gate_returns}")

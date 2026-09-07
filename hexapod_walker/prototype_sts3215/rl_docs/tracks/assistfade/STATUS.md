@@ -1,6 +1,55 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
-## 09-07 ~06:4x (this cycle — the implementing cycle the entry directly below refers to) — addressed both real code-review findings on the MJX reverse-handoff wiring; the bit-exact test failure I separately hit looks like pod contention, not a logic bug — flagging, not asserting
+## 09-07 ~07:3x — rung-4 MJX reverse-handoff VERIFIED WORKING end-to-end (new bank 5/5 + legacy MJX suite 24/24 on idle train-9); two real bugs found+fixed by the bank, one of them a PRE-EXISTING sharded walk-task obs-frame bug affecting every sharded walk run to date
+
+Completion of the ~06:3x coordination entry below (operator focus note
+20260907T055148Z). The implementing cycle's wiring
+(`MjxVecEnv._apply_walk_reverse_handoff` + sharded `handoff_tick`
+protocol, incl. both earlier review fixes — goal-None guard, `prof_q`
+pooled-inject pose) was verified by the new implementation-agnostic
+bank `rl_move/tests/test_mjx_reverse_handoff.py` (gate-zero bitexact,
+moving/asymmetric batched start, CPU-vs-MJX exact teacher-plan parity,
+sharded-vs-in-process BITWISE with gate ON incl. a pooled pop, pooled
+steppability) on kubectl-ps-confirmed-idle hexapod-mjx-train-9. The
+implementer's train-1 "contention" theory (entry below) is retired:
+the failures were real bugs, reproduced deterministically on an idle
+pod.
+
+**Bug 1 (new code, both vec envs)**: `make_command` got `(B,)`-shaped
+`speed_deg_s`/`acc_units` — numpy cannot broadcast `(B,)`→`(B,18)`, so
+EVERY gate-armed choreography crashed outright. Fixed with `[:, None]`
+(the same `(B,1)` shape `step_wait` already uses).
+
+**Bug 2 (PRE-EXISTING, sharded only — NOT introduced by the handoff
+work)**: workers stored raw mujoco-frame `shm["q_nom"]` into
+`_q_nom`/`_cmd`/seq frames; the C env and in-process MjxVecEnv convert
+via `_mujoco_to_logical_q` (knee_abs = knee_rel + hip). Result: every
+SHARDED walk-task run to date trained with its 6 knee-slot
+q_nom-relative obs shifted by +hip (~0.13 rad at the stand) vs the CPU
+eval env. The balance-env bitwise suite never sees it (those obs don't
+read `_q_nom`). Fixed in the worker (3 sites); sharded==in-process now
+bitwise on the walk task with the handoff armed, and the full legacy
+MJX suite (test_mjx_vec_env/parity/shm_budget/backend_pending_slots,
+24 tests) stays green. Continuity note recorded in CURRENT_TRUTHS
+(resumed pre-fix sharded walk checkpoints see a 6-dim obs-frame shift;
+post-fix training finally matches the CPU eval frame).
+
+Also measured (cfg honesty, not a code bug): the handoff teacher takes
+the episode's TICK-0 command, and default walk trajectories hold 1 s
+at zero then ramp — so without `goal.walk_cmd_hold_s=0` +
+`walk_cmd_ramp_s=0` the "reverse curriculum" degenerates to a
+step-in-place start (~4e-4 m/s body speed vs 0.018 m/s with them,
+measured). A rung-4 canary must arm hold/ramp=0 for the mechanism's
+actual mid-WALK semantics.
+
+Throughput (the ~06:1x concern): per-tick worker broadcasts at
+n_envs=4096 / 24 workers ≈ 171 envs/worker × ~200-250 ticks × ~49 µs ≈
+2 s host time per choreography/refill, amortized over ~1 mean episode
+between refills — small next to the ~200-250 extra device ticks the
+mechanism inherently costs; no TripodGait vectorization needed for a
+first canary. Canary launch recorded in the entry above/ledger.
+
+## 09-07 ~06:4x (the implementing cycle the entry directly below refers to) — addressed both real code-review findings on the MJX reverse-handoff wiring; the bit-exact test failure I separately hit looks like pod contention, not a logic bug — flagging, not asserting
 
 I am the concurrent cycle that wrote `MjxVecEnv._walk_reverse_handoff_
 ticks`/`_apply_walk_reverse_handoff` and the `mjx_sharded_vec_env.py`

@@ -43,6 +43,20 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   legacy 25 Hz. Policies output 18 raw joint targets through SafetyLayer.
 - Long PPO acquisition launches should set `--log-std-final` from the
   start; uncapped `train/std` repeatedly ruined stochastic rollouts.
+- SHARDED KNEE-FRAME FIX (2026-09-07): before commit dd248bd8/37c8e808,
+  `MjxShardedVecEnv` workers stored raw mujoco-frame `q_nom` into
+  `_q_nom`/`_cmd`/seq frames (missing `_mujoco_to_logical_q`), so every
+  SHARDED-trained walk-task run saw its 6 knee-slot q_nom-relative obs
+  shifted by +hip (~0.13 rad at the stand) vs the C/in-process
+  reference the evals use. Invisible to the balance-env bitwise suite
+  (its obs never read `_q_nom`); caught by
+  `rl_move/tests/test_mjx_reverse_handoff.py`'s walk-task bitwise
+  check. Fixed (worker now converts; sharded==in-process bitwise on
+  walk task, 24/24 legacy MJX suite green). CONTINUITY: resuming a
+  sharded walk checkpoint trained BEFORE the fix now sees a small
+  obs-frame change at those 6 dims — judge such continuations on
+  measured behavior; post-fix training finally matches the CPU eval
+  frame (evals were always the correct frame).
 
 ## Run Interpretation
 - Video and gate eval outrank reward alone.

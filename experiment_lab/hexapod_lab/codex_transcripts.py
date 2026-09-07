@@ -13,7 +13,7 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 import uuid
 
 from .communication_capture import STATUS_NAME, TRANSCRIPT_NAME
@@ -687,28 +687,11 @@ def _redact_text_file(
     _atomic_write(destination, redact_text(text).encode("utf-8"))
 
 
-def _event_text(event: Dict[str, Any]) -> Optional[Tuple[str, str]]:
-    """Extract the user-visible portions emitted by ``codex exec --json``."""
-    event_type = str(event.get("type") or "event")
-    item = event.get("item")
-    if isinstance(item, dict):
-        item_type = str(item.get("type") or "")
-        text = item.get("text")
-        if isinstance(text, str) and text.strip():
-            labels = {
-                "agent_message": "Assistant",
-                "reasoning": "Assistant reasoning summary",
-                "error": "Error",
-            }
-            return labels.get(item_type, item_type.replace("_", " ").title()), text
-    error = event.get("error")
-    if isinstance(error, dict) and isinstance(error.get("message"), str):
-        return "Error", error["message"]
-    if event_type in {"error", "turn.failed"}:
-        message = event.get("message")
-        if isinstance(message, str) and message.strip():
-            return "Error", message
-    return None
+def _default_provider() -> Any:
+    """Codex remains the default so legacy runs render exactly as before."""
+    from .agent_providers import CodexProvider
+
+    return CodexProvider(None)
 
 
 def _render_transcript(
@@ -720,10 +703,11 @@ def _render_transcript(
     kind: str,
     attempt: int,
     max_bytes: int,
+    provider: Any,
 ) -> str:
     engineering = kind == "engineering"
     chunks = ["\n".join([
-        "# Codex run transcript",
+        provider.transcript_title,
         "",
         f"- Job: `{job_id}`",
         f"- Experiment: `{experiment_id or 'none'}`",
@@ -735,8 +719,7 @@ def _render_transcript(
             "user-visible messages. Input context, reasoning, and tool events "
             "remain in the operator-only redacted JSONL record."
             if engineering
-            else "This transcript is generated from the redacted Codex JSON "
-            "event stream. The JSONL file is the complete machine-readable record."
+            else provider.transcript_note
         ),
         "",
     ])]
@@ -774,6 +757,7 @@ def _render_transcript(
         chunks.append(heading)
         used += len(heading.encode("utf-8"))
     visible = 0
+    reader = provider.transcript_reader()
     with events_path.open("r", encoding="utf-8", errors="replace") as handle:
         for line in handle:
             try:
@@ -782,19 +766,14 @@ def _render_transcript(
                 continue
             if not isinstance(event, dict):
                 continue
-            if engineering:
-                item = event.get("item")
-                if not (
-                    isinstance(item, dict)
-                    and item.get("type") == "agent_message"
-                ):
-                    continue
-            extracted = _event_text(event)
-            if extracted is None:
-                continue
-            label, text = extracted
-            complete = append_block(label, text)
-            visible += 1
+            complete = True
+            for label, text in reader.event_blocks(
+                event, agent_messages_only=engineering
+            ):
+                complete = append_block(label, text)
+                visible += 1
+                if not complete:
+                    break
             if not complete:
                 break
     if visible == 0:
@@ -824,6 +803,7 @@ def finalize_codex_transcript(
     max_capture_bytes: int = 64 * 1024 * 1024,
     max_event_lines: int = 100_000,
     max_human_bytes: int = 2 * 1024 * 1024,
+    provider: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """Sanitize and seal one completed attempt's transcript artifacts.
 
@@ -839,6 +819,8 @@ def finalize_codex_transcript(
         or attempt < 1
     ):
         raise CodexTranscriptIntegrityError("Unsafe Codex transcript identity")
+    if provider is None:
+        provider = _default_provider()
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / TRANSCRIPT_MANIFEST
     if manifest_path.exists() or manifest_path.is_symlink():
@@ -923,6 +905,7 @@ def finalize_codex_transcript(
         kind=kind,
         attempt=attempt,
         max_bytes=max_human_bytes,
+        provider=provider,
     )
     transcript_path = run_dir / "transcript.md"
     _atomic_write(transcript_path, redact_text(transcript).encode("utf-8"))

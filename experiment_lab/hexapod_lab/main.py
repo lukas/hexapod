@@ -124,8 +124,20 @@ class RunnerSafetyResumeIn(BaseModel):
     robot_inspected: bool
 
 
+# Which agent CLI the orchestrator is configured to drive. The page renderers
+# below are module-level, so create_app publishes the configured label once
+# rather than threading settings through every card.
+_AGENT_LABEL = "Codex"
+
+
+def agent_label() -> str:
+    return _AGENT_LABEL
+
+
 def create_app(settings: Optional[Settings] = None) -> FastAPI:
+    global _AGENT_LABEL
     settings = settings or Settings.from_env()
+    _AGENT_LABEL = settings.agent_label
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.data_dir.chmod(0o700)
     auth = TokenAuth(settings.api_keys)
@@ -1853,7 +1865,9 @@ def experiment_card(item):
             f"{escape(str(job['kind']))}: {escape(str(job['status']).replace('_', ' '))}"
             for job in jobs[-3:]
         )
-        automation = f"<p class='automation-inline'>Codex · {labels}</p>"
+        automation = (
+            f"<p class='automation-inline'>{escape(agent_label())} · {labels}</p>"
+        )
     return f"<article><div><span class='status {item['status']}'>{status_label}</span><h2><a href='/experiments/{item['id']}'>{escape(item['name'])}</a></h2>{waiting}<p>{escape(item['description'])}</p>{automation}</div><small>{escape(item['created_at'])} · {item['duration_seconds']}s</small></article>"
 
 
@@ -1909,7 +1923,7 @@ def automation_section(item):
         if item.get("evidence_manifest_sha256") else "waiting for final evidence seal"
     )
     return (
-        "<section class='context automation'><h2>Codex follow-through</h2>"
+        f"<section class='context automation'><h2>{escape(agent_label())} follow-through</h2>"
         f"<p>Evidence is {sealed}.</p><ul>{''.join(rows)}</ul></section>"
     )
 
@@ -1917,11 +1931,13 @@ def automation_section(item):
 def codex_queue_panel(control, can_resume):
     if not control.get("paused"):
         return (
-            "<section class='context automation'><h2>Codex experiment loop</h2>"
+            f"<section class='context automation'><h2>{escape(agent_label())} experiment loop</h2>"
             "<p>The durable queue safety latch is clear. Analysis jobs run before "
             "the serialized advance lane.</p></section>"
         )
-    reason = escape(str(control.get("reason") or "A Codex run required inspection."))
+    reason = escape(str(
+        control.get("reason") or f"A {agent_label()} run required inspection."
+    ))
     controls = ""
     if can_resume:
         controls = """
@@ -1946,7 +1962,7 @@ def codex_queue_panel(control, can_resume):
         })})();
         </script>"""
     return (
-        "<section class='context review'><h2>Codex experiment loop paused</h2>"
+        f"<section class='context review'><h2>{escape(agent_label())} experiment loop paused</h2>"
         f"<p>{reason}</p>{controls}</section>"
     )
 

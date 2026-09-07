@@ -394,6 +394,179 @@ experiment evidence; visual attachments cannot be reliably text-redacted.
 
 Generate tokens with `openssl rand -hex 32`. Credentials are hashed in memory for comparison and never written to the database or evidence. Environment variables remain visible to privileged local processes, so use an OS secret store in production. The Lab makes its data root owner-only (`0700`) and SQLite files owner-readable/writable (`0600`).
 
+## Choosing the agent backend: Codex or Claude
+
+All three automation lanes — `analysis`, `advance`, and `engineering` — are
+driven by one external agent CLI. `HEXAPOD_AGENT_PROVIDER` selects it:
+
+| | `codex` (default) | `claude` |
+| --- | --- | --- |
+| CLI | `codex exec --json` | `claude --print --output-format stream-json` |
+| Structured output | `--output-schema` + `-o final.json` | `--json-schema`, read from the terminal `result` event |
+| Sealed lanes | `--ephemeral --ignore-user-config --sandbox read-only` plus explicit `--disable` for every tool | `--safe-mode --tools "" --strict-mcp-config --setting-sources ""` |
+| Engineering lane | `--sandbox danger-full-access` | `--permission-mode bypassPermissions` |
+| Evidence images | `-i <path>` | base64 content blocks on a `stream-json` stdin turn |
+| MCP servers | `~/.codex/config.toml` | `HEXAPOD_CLAUDE_MCP_CONFIG` + `--strict-mcp-config` |
+
+Everything else is shared: the same prompts, schemas, result validation,
+redaction, lease fencing, deadline wrapper, process markers, and sealed
+transcript archive. Switching backends does not change what the lanes are
+allowed to do.
+
+### Installing the switch
+
+The launchd service runs a copy of this package installed into the Application
+Support venv, and reads its whole environment from the
+`run-codex-orchestrator.sh` under Application Support. Both have to be updated
+before a switch can take effect:
+
+```sh
+# 1. Install this package into the service's venv.
+uv pip install --python "$HOME/Library/Application Support/Hexapod Lab/venv/bin/python" .
+
+# 2. Add the provider block to the installed launcher and copy the switch
+#    helper and MCP config next to it. Idempotent; backs the launcher up first.
+python3 scripts/install-agent-switch.py          # --dry-run to preview
+```
+
+The installed launcher legitimately differs from `scripts/run-codex-orchestrator.sh`
+(its own engineering checkout, its own reasoning effort), so the installer
+patches it in place rather than overwriting it. Installing changes no
+behaviour on its own: the block defaults to `codex`.
+
+### Switching
+
+```sh
+"$HOME/Library/Application Support/Hexapod Lab/switch-agent-provider.sh" claude
+launchctl kickstart -k "gui/$(id -u)/com.lbiewald.hexapod-codex-orchestrator"
+```
+
+Pass `--restart` as a second argument to do both at once, and
+`switch-agent-provider.sh codex` to go back. The provider is stored in a
+one-line `agent-provider` file next to the launcher, so the launchd plist
+never changes and the service keeps its lock — only one orchestrator ever runs.
+Reverting is `switch-agent-provider.sh codex` plus a restart; the launcher
+backups written by the installer restore the pre-switch deployment entirely.
+In-flight work is unaffected: the choice is read once at start, and each
+attempt records its `provider`, `model`, and `reasoning_effort` in
+`codex-runs/<job>/attempt-<n>/metadata.json`. The results page labels its
+automation sections with whichever backend is live.
+
+### Claude settings
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `HEXAPOD_AGENT_PROVIDER` | `codex` | `codex` or `claude`; any other value refuses to start |
+| `HEXAPOD_CLAUDE_BIN` | `claude` | Path to the CLI |
+| `HEXAPOD_CLAUDE_MODEL` | `claude-opus-5` | Passed to `--model` |
+| `HEXAPOD_CLAUDE_EFFORT` | `high` | `low`, `medium`, `high`, `xhigh`, or `max`; validated, never guessed |
+| `HEXAPOD_CLAUDE_MCP_CONFIG` | unset | MCP servers for the engineering lane; unset means no MCP servers at all |
+| `HEXAPOD_CLAUDE_ENGINEERING_SETTING_SOURCES` | `user,project,local` | Passed to `--setting-sources` |
+| `HEXAPOD_CLAUDE_MAX_BUDGET_USD` | `0` | Per-attempt spend cap; `0` disables it |
+| `HEXAPOD_CLAUDE_MAX_ATTACHMENT_BYTES` | `20971520` | Raw image budget for one analysis request |
+
+### MCP servers
+
+`deploy/claude-mcp.json` registers `rl_orchestrator`, `buildviz`, and
+`robot_lab` over HTTP. Bearer values are written as `${VAR}` and expanded by
+Claude Code from the orchestrator's environment when it connects, so no token
+is stored in the file or placed in a child's argv. The launcher loads
+`BUILDVIZ_API_KEY` from the Keychain item `BuildViz API` (account `operator`);
+the other two are the Robot Lab and RL-orchestrator tokens the service already
+reads. Because the orchestrator passes `--strict-mcp-config`, these are the
+only MCP servers reachable regardless of what `~/.claude.json` contains.
+
+The sealed `analysis` and `advance` lanes get no MCP servers at all: they run
+under `--safe-mode`, which disables MCP along with CLAUDE.md discovery,
+skills, plugins, hooks, and custom agents, and `--tools ""` leaves only the
+`StructuredOutput` channel the schema needs.
+
+**One deliberate difference from Codex.** The Codex engineering lane sets
+`shell_environment_policy.exclude` so model-generated shell commands cannot
+see `HEXAPOD_LAB_TOKEN` or `HEXAPOD_ORCHESTRATOR_TOKEN` while the MCP client
+still authenticates. Claude Code has no equivalent, and expanding `${VAR}`
+requires the values to be in its environment, so the engineering lane's Bash
+tool can read those three bearer values. The sealed lanes cannot: their
+environment carries no service token of any kind.
+
+### Verifying a switch
+
+Confirm the MCP servers actually authenticate before trusting an engineering
+run, and check `~/Library/Logs/hexapod-codex-orchestrator.log` for
+`Unknown HEXAPOD_AGENT_PROVIDER` or CLI startup errors:
+
+```sh
+BUILDVIZ_API_KEY="$(security find-generic-password -a operator -s 'BuildViz API' -w)" \
+HEXAPOD_ORCHESTRATOR_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Orchestrator MCP' -w)" \
+HEXAPOD_LAB_TOKEN="$(security find-generic-password -a operator -s 'Hexapod Lab API' -w)" \
+claude -p --tools "" --strict-mcp-config \
+  --mcp-config "$HOME/Library/Application Support/Hexapod Lab/claude-mcp.json" \
+  --output-format json 'List every MCP server and whether it connected.'
+```
+
+Claude Code authenticates from the login Keychain. If a launchd background job
+cannot reach it, add an `ANTHROPIC_API_KEY` to the Keychain as
+`Hexapod Claude API` (account `operator`) and the launcher will pass it
+through.
+
+
+## Robot camera gallery
+
+Configure each robot camera independently with `HEXAPOD_OBSERVATION_CAMERAS`,
+a JSON list of objects containing `id`, `name`, `device_uid`, and `device_name`.
+Bind identically named USB cameras by their macOS device unique IDs, never by
+camera indexes. For example:
+
+```json
+[{"id":"robot-1","name":"Robot camera 1","device_uid":"<macOS unique ID>","device_name":"Arducam OV9281 USB Camera"}]
+```
+
+Each camera has its own identity, freshness checks, reconnect loop, and
+authenticated JPEG endpoint. USB robot cameras take turns acquiring snapshots
+so the gallery does not saturate their shared bus. Snapshots expire after
+20 seconds; selected vision readiness still uses its stricter freshness limit.
+Preview acquisition pauses while a physical hardware lease, hardware engineering
+job, or built-in recording is active, and never opens a camera owned by another
+application. An existing fresh vision preview remains visible during ownership.
+A per-camera `min_frame_detail` threshold (default `0`, disabled) can reject
+featureless or covered views using Laplacian variance after scaling to320 pixels
+wide; configured robot previews use20. Such views retry normally and return
+automatically when usable image detail returns. The main page's **Live cameras** gallery uses
+this complete collection, displays feeds after a current image loads, and
+hides disconnected, stale, or failed feeds until they recover. The separate
+selected vision preview still supplies motion-readiness checks; it is not
+duplicated in the gallery. Camera API reads never start capture.
+
+### Additional iPhone observation camera
+
+Set `HEXAPOD_OBSERVATION_CAMERA_NAME="<exact webcam name>"` in the Mac Lab
+service environment to add the iPhone to **Robot right now**, alongside the
+existing vision camera. This is opt-in and requires the `hexapod-tracker`
+package with its macOS AVFoundation dependencies in the Lab environment.
+The exact device name is rediscovered on reconnect; an absent iPhone never
+falls back to a different camera index. Capture starts with the Lab service,
+and authenticated HTTP reads only retrieve cached snapshots.
+
+When multiple iPhones are nearby, verify that the webcam belongs to the
+intended physical phone before enabling it. USB device detection alone does
+not establish that a simultaneously discovered Continuity Camera is that
+phone; another iPhone can be available wirelessly. Clear this setting to
+disable an unverified source. The spare USB phone identified on 2026-09-05 is
+named `lukas's iPhone work`; the previously seen `lukas's iPhone Camera` must
+not be assumed to be that spare.
+
+`GET /api/robot-status/cameras` lists these additional observation feeds;
+`GET /api/robot-status/cameras/iphone/frame` returns a current JPEG or HTTP 503
+when unavailable or older than two seconds. The same metadata appears as
+`observation_cameras` in `/api/robot-status` and MCP `get_robot_status`.
+Existing camera, pose calibration, experiment recording, and motion-readiness
+checks continue to use their configured sources. This additional view does
+not establish that the robot is visible or its pose is safe.
+
+Keep the iPhone locked, stable, connected, and its rear cameras pointed at the
+test area. If it is paused, tap Resume; if disconnected, reconnect it. Restart
+the Lab service after changing its configured device name.
+
 ## Existing remote relay
 
 [`deploy/camera-relay.yaml`](deploy/camera-relay.yaml) describes the existing camera service and reverse tunnel on port 8766. Hexapod Lab intentionally uses 8767 so it can run alongside that service. Remote exposure needs a separate authenticated tunnel or a deliberate additional route in the relay; keep TLS and application authentication enabled.

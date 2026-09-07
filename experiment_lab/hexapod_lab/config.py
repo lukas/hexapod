@@ -61,6 +61,36 @@ class Settings:
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
     codex_engineering_max_attempts: int = 3
+    # Which agent CLI drives the analysis, advance, and engineering lanes.
+    # "codex" keeps the historical behaviour; "claude" runs Claude Code.
+    agent_provider: str = "codex"
+    claude_bin: Path = Path("claude")
+    claude_model: str = "claude-opus-5"
+    claude_effort: str = "high"
+    # Only the servers named here are reachable from the engineering lane;
+    # the sealed lanes always run with no MCP servers at all.
+    claude_mcp_config: Optional[Path] = None
+    claude_engineering_setting_sources: str = "user,project,local"
+    claude_max_budget_usd: float = 0.0
+    claude_max_attachment_bytes: int = 20 * 1024 * 1024
+
+    @property
+    def agent_model(self) -> str:
+        return (
+            self.claude_model if self.agent_provider == "claude"
+            else self.codex_model
+        )
+
+    @property
+    def agent_reasoning_effort(self) -> str:
+        return (
+            self.claude_effort if self.agent_provider == "claude"
+            else self.codex_reasoning_effort
+        )
+
+    @property
+    def agent_label(self) -> str:
+        return "Claude" if self.agent_provider == "claude" else "Codex"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -184,7 +214,47 @@ class Settings:
             codex_engineering_max_attempts=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_MAX_ATTEMPTS", "3"
             )),
+            agent_provider=_agent_provider(),
+            claude_bin=Path(os.getenv("HEXAPOD_CLAUDE_BIN", "claude")).expanduser(),
+            claude_model=os.getenv("HEXAPOD_CLAUDE_MODEL", "claude-opus-5"),
+            claude_effort=_claude_effort(),
+            claude_mcp_config=_optional_path("HEXAPOD_CLAUDE_MCP_CONFIG"),
+            claude_engineering_setting_sources=os.getenv(
+                "HEXAPOD_CLAUDE_ENGINEERING_SETTING_SOURCES", "user,project,local"
+            ),
+            claude_max_budget_usd=float(os.getenv(
+                "HEXAPOD_CLAUDE_MAX_BUDGET_USD", "0"
+            )),
+            claude_max_attachment_bytes=int(os.getenv(
+                "HEXAPOD_CLAUDE_MAX_ATTACHMENT_BYTES", str(20 * 1024 * 1024)
+            )),
         )
+
+
+AGENT_PROVIDERS = ("codex", "claude")
+CLAUDE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+
+def _agent_provider() -> str:
+    value = os.getenv("HEXAPOD_AGENT_PROVIDER", "codex").strip().lower()
+    if value not in AGENT_PROVIDERS:
+        raise ValueError(
+            "HEXAPOD_AGENT_PROVIDER must be one of " + ", ".join(AGENT_PROVIDERS)
+        )
+    return value
+
+
+def _claude_effort() -> str:
+    """Claude names effort levels differently from Codex; do not guess.
+
+    A misspelled level would otherwise silently downgrade every analysis.
+    """
+    value = os.getenv("HEXAPOD_CLAUDE_EFFORT", "high").strip().lower()
+    if value not in CLAUDE_EFFORTS:
+        raise ValueError(
+            "HEXAPOD_CLAUDE_EFFORT must be one of " + ", ".join(CLAUDE_EFFORTS)
+        )
+    return value
 
 
 def _optional_path(name: str) -> Optional[Path]:

@@ -5072,6 +5072,61 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 "walk_course_income_support_gate",
                                 default=1.0)) == 1.0 else 1.0
                             r_cinc = k_cinc * s_gate * angle_f * speed_f
+                            # ACHIEVED-YAW gate on combined-tick course
+                            # income (2026-09-07, yawref-cont8m FAIL-
+                            # QUALIFICATION follow-up; probe_tip_income
+                            # measured the defect on the exact regressed
+                            # arc-right cell vx=0.08 wz=-0.15: with
+                            # walk_course_ref_yaw=1 this income STILL
+                            # pays turn-REFUSAL 428.0 and world-course
+                            # CRABBING 428.7 vs the faithful arc's 402.1
+                            # per 6 s -- at |wz_ref|=0.15 the commanded
+                            # yaw per 0.75 s window is 6.4 deg, i.e.
+                            # inside/at the 6-deg deadband, so the
+                            # window re-anchor forgives refusal every
+                            # window and the whole pro-turn margin rides
+                            # on k_yaw_prog alone. Fix mirrors the
+                            # proven walk_yaw_kernel_gate family, but
+                            # WINDOW-matched: multiply the income by
+                            # (1-g) + g*clip(dyaw/dtheta_ref, 0, 1)
+                            # where dyaw is the body's ACHIEVED yaw over
+                            # the SAME trailing income window and
+                            # dtheta_ref the commanded wz integral over
+                            # it (both already stored per-tick by the
+                            # walk_course_ref_yaw=1 history rows; the
+                            # gate is inert on legacy 5-wide rows, i.e.
+                            # it REQUIRES walk_course_ref_yaw=1, and on
+                            # windows with <~0.57 deg commanded yaw --
+                            # straight/stop ticks stay bit-exact). A
+                            # window-scale ratio is stride-oscillation
+                            # immune (window = teacher gait period) so
+                            # honest turning is not desensitized while
+                            # refusal/crab score ~0 and wrong-sign
+                            # clips to 0 by construction. cfg
+                            # reward.walk_course_income_yaw_gate in
+                            # [0,1], default 0.0 = bit-exact legacy.
+                            # Bank: test_course_income_semantics.py
+                            # test_ci_yaw_gate_*.
+                            g_ciy = float(cfg_get(
+                                self.cfg, "reward",
+                                "walk_course_income_yaw_gate",
+                                default=0.0))
+                            if g_ciy > 0.0:
+                                p1_g = whist[-1]
+                                p0_g = whist[-1 - n_inc]
+                                if len(p1_g) >= 7 and len(p0_g) >= 7:
+                                    dth_ref = p1_g[5] - p0_g[5]
+                                    if abs(dth_ref) > 1e-2:
+                                        dyaw = p1_g[6] - p0_g[6]
+                                        dyaw = math.atan2(
+                                            math.sin(dyaw),
+                                            math.cos(dyaw))
+                                        f_ciy = min(max(
+                                            dyaw / dth_ref, 0.0), 1.0)
+                                        r_cinc *= ((1.0 - g_ciy)
+                                                   + g_ciy * f_ciy)
+                                        info["walk_course_income_yaw_f"] \
+                                            = f_ciy
                             reward = float(reward) + r_cinc
                             info["walk_course_income_err_deg"] = err_deg
                             info["walk_course_income_angle_f"] = angle_f

@@ -698,3 +698,117 @@ def test_windowed_course_yawref_orders_arc_above_refusal():
     assert legacy_no < legacy_arc - 5.0, (legacy_no, legacy_arc)  # broken
     assert fix_arc < 1.0, fix_arc              # perfect arc reads ~0
     assert fix_no > fix_arc + 3.0, (fix_no, fix_arc)
+
+
+## ---------------------------------------------------------------------------
+## 2026-09-07 (yawref-cont8m FAIL-QUALIFICATION follow-up): achieved-yaw
+## gate on combined-tick course income.
+##
+## Measured defect (probe_tip_income.py, exact cont8m ledger stack incl.
+## walk_course_ref_yaw=1 / walk_sway_arc_aware=1 / k_yaw_prog=2, on the
+## exact eval cell that REGRESSED in the cont8m panel, arc-right
+## vx=0.08 wz=-0.15, 6 s scripted drives): the windowed course income
+## STILL pays turn-refusal 428.0 and world-course crabbing 428.7 vs the
+## faithful arc's 402.1 -- a strict inversion. At |wz_ref|=0.15 the
+## commanded yaw per 0.75 s window (6.4 deg) sits at the 6-deg income
+## deadband, so the per-window re-anchor forgives refusal completely;
+## the existing combined_bank clauses above only cover wz=0.25 where
+## the deadband cannot forgive. The linear kernel + walk_prog add
+## another ~-48 anti-turn margin, leaving k_yaw_prog as the ONLY
+## pro-turn channel on moderate arcs -- the measured mechanism behind
+## arc-right 0.0905 -> 0.1162 while everything else held.
+##
+## Fix under test: reward.walk_course_income_yaw_gate (dose in [0,1],
+## default 0.0 = bit-exact off; requires walk_course_ref_yaw=1 rows):
+## income *= (1-g) + g*clip(dyaw_achieved/dtheta_ref, 0, 1) over the
+## SAME trailing window. Required semantics: correct-sign turning
+## out-earns refusal AND crabbing on moderate combined cells; wrong-
+## sign scores the clip floor; straight-forward commands bit-exact.
+
+TIP_GATE_ON = {"reward.walk_course_income_yaw_gate": 1.0}
+
+
+def _tip_cell(cell: str, drive: str, factor: float,
+              extra: dict | None = None):
+    from rl_move.sim.probe_tip_income import _rollout as _tip_roll
+    return _tip_roll(cell, drive, factor, 6.0, extra)
+
+
+@pytest.fixture(scope="module")
+def ci_yaw_bank() -> dict:
+    return {
+        # gate OFF (cont8m stack as trained)
+        "arc_off": _tip_cell("arc-right", "scripted", 1.0),
+        "refusal_off": _tip_cell("arc-right", "scripted", 0.0),
+        "refusal_flag0": _tip_cell(
+            "arc-right", "scripted", 0.0,
+            {"reward.walk_course_income_yaw_gate": 0.0}),
+        "crab_off": _tip_cell("arc-right", "crab", 0.0),
+        # gate ON
+        "arc_on": _tip_cell("arc-right", "scripted", 1.0, dict(TIP_GATE_ON)),
+        "refusal_on": _tip_cell("arc-right", "scripted", 0.0,
+                                dict(TIP_GATE_ON)),
+        "crab_on": _tip_cell("arc-right", "crab", 0.0, dict(TIP_GATE_ON)),
+        "wrongsign_on": _tip_cell("arc-right", "scripted", -1.0,
+                                  dict(TIP_GATE_ON)),
+        # straight-forward control cell
+        "fwd_off": _tip_cell("fwd", "scripted", 0.0),
+        "fwd_on": _tip_cell("fwd", "scripted", 0.0, dict(TIP_GATE_ON)),
+    }
+
+
+def test_ci_yaw_gate_defect_exists_without_gate(ci_yaw_bank):
+    """Pin the measured defect: WITHOUT the gate, refusal and crab earn
+    at least as much course income as the faithful arc on the moderate
+    combined cell (this is what licenses the mechanism; if a future
+    change fixes the inversion upstream, this clause flags the gate as
+    possibly redundant rather than silently double-fixing)."""
+    arc = ci_yaw_bank["arc_off"]["sums"]["reward_walk_course_income"]
+    ref = ci_yaw_bank["refusal_off"]["sums"]["reward_walk_course_income"]
+    crab = ci_yaw_bank["crab_off"]["sums"]["reward_walk_course_income"]
+    assert ref >= arc - 1.0, (ref, arc)
+    assert crab >= arc - 1.0, (crab, arc)
+
+
+def test_ci_yaw_gate_default_off_bit_exact(ci_yaw_bank):
+    """Explicit 0.0 must reproduce the flag-absent reward stream
+    exactly (deterministic DR-0 scripted drive)."""
+    assert ci_yaw_bank["refusal_flag0"]["total"] == pytest.approx(
+        ci_yaw_bank["refusal_off"]["total"], abs=1e-6)
+
+
+def test_ci_yaw_gate_orders_turn_above_refusal_and_crab(ci_yaw_bank):
+    """With the gate at full dose, the faithful correct-sign turner
+    must out-earn BOTH turn-refusal and world-course crabbing on the
+    moderate combined cell -- on the course-income channel itself AND
+    on the total (reward optimum == gate behavior, 08-21)."""
+    arc_ci = ci_yaw_bank["arc_on"]["sums"]["reward_walk_course_income"]
+    ref_ci = ci_yaw_bank["refusal_on"]["sums"]["reward_walk_course_income"]
+    crab_ci = ci_yaw_bank["crab_on"]["sums"]["reward_walk_course_income"]
+    assert arc_ci > ref_ci + 25.0, (arc_ci, ref_ci)
+    assert arc_ci > crab_ci + 25.0, (arc_ci, crab_ci)
+    arc_t = ci_yaw_bank["arc_on"]["total"]
+    ref_t = ci_yaw_bank["refusal_on"]["total"]
+    crab_t = ci_yaw_bank["crab_on"]["total"]
+    assert arc_t > ref_t + 100.0, (arc_t, ref_t)
+    assert arc_t > crab_t + 100.0, (arc_t, crab_t)
+
+
+def test_ci_yaw_gate_wrong_sign_scores_floor(ci_yaw_bank):
+    """Wrong-sign rotation must clip the gate factor to ~0: its course
+    income must not exceed the refusal's (no credit for turning the
+    wrong way), and the faithful arc must dominate it on total."""
+    wrong_ci = ci_yaw_bank["wrongsign_on"]["sums"].get(
+        "reward_walk_course_income", 0.0)
+    ref_ci = ci_yaw_bank["refusal_on"]["sums"].get(
+        "reward_walk_course_income", 0.0)
+    assert wrong_ci <= ref_ci + 1.0, (wrong_ci, ref_ci)
+    assert (ci_yaw_bank["arc_on"]["total"]
+            > ci_yaw_bank["wrongsign_on"]["total"] + 100.0)
+
+
+def test_ci_yaw_gate_preserves_forward_gait(ci_yaw_bank):
+    """On straight-forward commands (wz_ref=0) the gate must be
+    bit-exact inert: totals identical with the gate on vs off."""
+    assert ci_yaw_bank["fwd_on"]["total"] == pytest.approx(
+        ci_yaw_bank["fwd_off"]["total"], abs=1e-6)

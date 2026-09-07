@@ -92,3 +92,33 @@ def test_fixed_ground_slope_is_applied_without_randomization():
     assert math.isclose(np.linalg.norm(episode.gravity_vec), G0)
     measured = math.degrees(math.acos(-episode.gravity_vec[2] / G0))
     assert math.isclose(measured, 1.5, abs_tol=1e-10)
+
+
+def test_period_bound_override_default_is_noop_copy():
+    from rl_move.sim.paper_cpg_search import _BOUNDS, apply_period_bound_override
+
+    out = apply_period_bound_override(_BOUNDS, None, None)
+    assert out == _BOUNDS
+    assert out is not _BOUNDS  # copy, not the same dict object
+    assert out["tetrapod"] is not _BOUNDS["tetrapod"]
+
+
+def test_period_bound_override_widens_lower_bound_only():
+    from rl_move.sim.paper_cpg_search import _BOUNDS, apply_period_bound_override
+
+    out = apply_period_bound_override(_BOUNDS, period_min=1.0, period_max=None)
+    assert out["tetrapod"]["period"] == (1.0, 12.0)
+    assert out["wave"]["period"] == (1.0, 24.0)
+    # untouched fields stay identical to the source bounds
+    assert out["tetrapod"]["swing_frac"] == _BOUNDS["tetrapod"]["swing_frac"]
+    # source dict is never mutated in place
+    assert _BOUNDS["tetrapod"]["period"] == (2.0, 12.0)
+
+
+def test_period_bound_override_rejects_inverted_range():
+    from rl_move.sim.paper_cpg_search import apply_period_bound_override
+    import pytest
+
+    with pytest.raises(ValueError):
+        apply_period_bound_override(
+            {"tetrapod": {"period": (2.0, 12.0)}}, period_min=5.0, period_max=3.0)

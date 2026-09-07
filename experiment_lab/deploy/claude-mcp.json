@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "MCP servers attached to the Claude engineering lane, and only that lane.",
+    "The analysis and advance lanes run with --safe-mode, which disables every",
+    "MCP server regardless of this file.",
+    "",
+    "Bearer values are written as ${VAR} and expanded by Claude Code from the",
+    "orchestrator's environment at connect time, so no token is stored in this",
+    "file or in the child's argv. The launcher loads them from the Keychain.",
+    "",
+    "The orchestrator passes --strict-mcp-config, so these are the only MCP",
+    "servers reachable no matter what ~/.claude.json contains."
+  ],
+  "mcpServers": {
+    "rl_orchestrator": {
+      "type": "http",
+      "url": "https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp",
+      "headers": {
+        "Authorization": "Bearer ${HEXAPOD_ORCHESTRATOR_TOKEN}"
+      }
+    },
+    "buildviz": {
+      "type": "http",
+      "url": "https://buildviz.cwd1f0-new-cluster.coreweave.app/mcp",
+      "headers": {
+        "Authorization": "Bearer ${BUILDVIZ_API_KEY}"
+      }
+    },
+    "robot_lab": {
+      "type": "http",
+      "url": "https://robot-lab.cwd1f0-new-cluster.coreweave.app/mcp",
+      "headers": {
+        "Authorization": "Bearer ${HEXAPOD_LAB_TOKEN}"
+      }
+    }
+  }
+}

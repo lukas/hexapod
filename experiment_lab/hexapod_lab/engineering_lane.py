@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 import uuid
 
 from .db import TERMINAL, Store, utcnow
@@ -109,8 +109,15 @@ def experiment_parameters_are_offline(parameters: Any) -> bool:
 def engineering_environment(
     workspace: Path,
     lane: str = ENGINEERING_LANE_HARDWARE,
+    extra: Iterable[str] = (),
 ) -> Dict[str, str]:
-    """Expose configured helpers without inheriting bare secret variables."""
+    """Expose configured helpers without inheriting bare secret variables.
+
+    ``extra`` lets an agent provider add the variables its own CLI needs — its
+    credentials, and the MCP bearer values it expands into request headers.
+    They survive the offline lane's narrowing below, which removes only the
+    two ambient deployment channels.
+    """
     if lane not in ENGINEERING_LANES:
         raise EngineeringLaneError(f"unknown engineering lane: {lane}")
     allowed = {
@@ -118,6 +125,7 @@ def engineering_environment(
         "LC_ALL", "LC_CTYPE", "CODEX_HOME", "SSH_AUTH_SOCK", "KUBECONFIG",
         "SSL_CERT_FILE", "SSL_CERT_DIR", "HEXAPOD_LAB_TOKEN",
         "HEXAPOD_ORCHESTRATOR_TOKEN",
+        *extra,
     }
     if lane == ENGINEERING_LANE_OFFLINE:
         # Offline work keeps normal network/MCP/BuildViz access, but does not

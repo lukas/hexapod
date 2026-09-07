@@ -22,6 +22,14 @@ import time
 from typing import Any, Callable, Dict, Iterable, List, Optional
 import uuid
 
+from .agent_providers import (
+    PROVIDERS,
+    AgentProviderError,
+    CodexProvider,
+    base_environment,
+    codex_no_tool_arguments,
+    get_provider,
+)
 from .config import DEFAULT_ROBOT_TELEMETRY_URL, Settings
 from .communication_capture import RobotCommunicationCapture, STATUS_NAME
 from .codex_transcripts import (
@@ -39,7 +47,6 @@ from .engineering_lane import (
     EngineeringJobStore,
     EngineeringLaneError,
     build_project_context,
-    engineering_environment,
     engineering_job_lane,
     experiment_parameters_are_offline,
     engineering_prompt,
@@ -483,52 +490,12 @@ def _atomic_json(path: Path, value: Any) -> None:
 
 
 def _safe_environment() -> Dict[str, str]:
-    names = {
-        "HOME",
-        "USER",
-        "LOGNAME",
-        "PATH",
-        "SHELL",
-        "TMPDIR",
-        "LANG",
-        "LC_ALL",
-        "LC_CTYPE",
-        "CODEX_HOME",
-        "SSL_CERT_FILE",
-        "SSL_CERT_DIR",
-    }
-    environment = {name: os.environ[name] for name in names if os.environ.get(name)}
-    return environment
+    """The token-free environment for sealed children and local helpers."""
+    return base_environment(("CODEX_HOME",))
 
 
-def _codex_no_tool_arguments() -> List[str]:
-    """Return the explicit strict-config shutdown for sealed-data Codex runs."""
-    arguments = [
-        "-c",
-        'web_search="disabled"',
-        "-c",
-        "tools.web_search=false",
-    ]
-    for feature in (
-        "shell_tool",
-        "unified_exec",
-        "unified_exec_zsh_fork",
-        "code_mode_host",
-        "multi_agent",
-        "view_image",
-        "apps",
-        "plugins",
-        "remote_plugin",
-        "tool_suggest",
-        "skill_search",
-        "browser_use",
-        "browser_use_full_cdp_access",
-        "browser_use_external",
-        "computer_use",
-        "image_generation",
-    ):
-        arguments.extend(["--disable", feature])
-    return arguments
+# Re-exported so the sealed-argv safety test keeps a single source of truth.
+_codex_no_tool_arguments = codex_no_tool_arguments
 
 
 def _terminate_deadline_wrapper(
@@ -662,6 +629,7 @@ class CodexOrchestrator:
         self.store = store
         self.settings = settings
         self.invoker = invoker
+        self.provider = get_provider(settings)
         self.rl_dispatcher = rl_dispatcher or DisabledRLDispatcher()
         self.engineering = EngineeringJobStore(store)
         self.stop_event = threading.Event()
@@ -2083,9 +2051,6 @@ class CodexOrchestrator:
         run_dir = self.settings.data_dir / "codex-runs" / job["id"] / f"attempt-{job['attempts']}"
         run_dir.mkdir(parents=True, exist_ok=False)
         run_dir.chmod(0o700)
-        prompt_path = run_dir / "prompt.md"
-        prompt_path.write_text(prompt, encoding="utf-8")
-        prompt_path.chmod(0o600)
         schema_path = run_dir / "output.schema.json"
         _atomic_json(schema_path, schema)
         output_tmp = run_dir / "final.tmp.json"
@@ -2095,8 +2060,9 @@ class CodexOrchestrator:
             "kind": role,
             "attempt": job["attempts"],
             "started_at": datetime.now(timezone.utc).isoformat(),
-            "model": self.settings.codex_model,
-            "reasoning_effort": self.settings.codex_reasoning_effort,
+            "provider": self.provider.name,
+            "model": self.provider.model,
+            "reasoning_effort": self.provider.reasoning_effort,
             "experiment_id": job.get("experiment_id"),
             "evidence_manifest_sha256": job.get("evidence_manifest_sha256"),
         }
@@ -2111,23 +2077,6 @@ class CodexOrchestrator:
             if workdir is None:
                 raise CodexRunError("engineering workspace is not configured")
             workdir = workdir.resolve()
-            command = [
-                str(self.settings.codex_bin),
-                "--ask-for-approval", "never", "--sandbox", "danger-full-access",
-                "--search",
-                "exec", "--ephemeral", "--strict-config", "--json", "--color", "never",
-                "-C", str(workdir), "-m", self.settings.codex_model,
-                "-c", f"model_reasoning_effort={json.dumps(self.settings.codex_reasoning_effort)}",
-                "-c", "project_doc_max_bytes=65536",
-                # The Codex MCP client needs these two Keychain-backed bearer
-                # values, but model-generated shell commands do not. Keep the
-                # values in the parent only while allowing the configured
-                # robot_lab and rl_orchestrator MCP servers to authenticate.
-                "-c", (
-                    'shell_environment_policy.exclude=['
-                    '"HEXAPOD_LAB_TOKEN","HEXAPOD_ORCHESTRATOR_TOKEN"]'
-                ),
-            ]
         else:
             # Evidence/review lanes use an empty directory with all local
             # tools disabled; repository files and AGENTS.md are not ambient.
@@ -2139,32 +2088,31 @@ class CodexOrchestrator:
             )
             workdir.mkdir(parents=True, exist_ok=False)
             workdir.chmod(0o700)
-            command = [
-                str(self.settings.codex_bin),
-                "--ask-for-approval", "never",
-                "exec", "--ephemeral", "--ignore-user-config",
-                "--strict-config", "--skip-git-repo-check", "--ignore-rules",
-                "--json", "--color", "never", "--sandbox", "read-only",
-                "-C", str(workdir), "-m", self.settings.codex_model,
-                "-c", f"model_reasoning_effort={json.dumps(self.settings.codex_reasoning_effort)}",
-                "-c", "project_doc_max_bytes=0",
-            ]
-            command.extend(_codex_no_tool_arguments())
         images: List[Path] = []
         if role == "analysis" and evidence_dir is not None:
             images.extend(self._analysis_image_paths(evidence_dir))
             contact_sheet = self._video_contact_sheet(evidence_dir, run_dir)
             if contact_sheet is not None:
                 images.append(contact_sheet)
-        for image in images:
-            command.extend(["-i", str(image)])
-        command.extend([
-            "--output-schema",
-            str(schema_path),
-            "-o",
-            str(output_tmp),
-            "-",
-        ])
+        try:
+            launch = self.provider.build(
+                role,
+                workdir=workdir,
+                prompt=prompt,
+                schema=schema,
+                schema_path=schema_path,
+                output_path=output_tmp,
+                images=images,
+                engineering_lane=engineering_lane,
+            )
+        except AgentProviderError as exc:
+            raise CodexRunError(str(exc)) from exc
+        command = launch.command
+        # Providers that cannot attach files by path fold the attachment list
+        # into the request itself, so the archived prompt is what was sent.
+        prompt_path = run_dir / "prompt.md"
+        prompt_path.write_text(launch.prompt_text or prompt, encoding="utf-8")
+        prompt_path.chmod(0o600)
         timeout = (
             self.settings.codex_analysis_timeout_seconds
             if role == "analysis"
@@ -2178,11 +2126,7 @@ class CodexOrchestrator:
         # integrity manifest outside the sealed experiment evidence tree.
         events_path = run_dir / ".events.raw.jsonl"
         stderr_path = run_dir / ".stderr.raw.log"
-        child_environment = (
-            engineering_environment(workdir, engineering_lane)
-            if role == "engineering"
-            else _safe_environment()
-        )
+        child_environment = launch.environment
         marker = uuid.uuid4().hex
         process_state_path = run_dir / "process.json"
         launch_started_unix = time.time()
@@ -2192,6 +2136,7 @@ class CodexOrchestrator:
             "role": role,
             "attempt": job["attempts"],
             "marker": marker,
+            "provider": self.provider.name,
             "started_at": datetime.now(timezone.utc).isoformat(),
             "intent_created_unix": launch_started_unix,
             "deadline_seconds": timeout,
@@ -2243,6 +2188,9 @@ class CodexOrchestrator:
                     stdout=stdout,
                     stderr=stderr,
                     env=child_environment,
+                    # Claude Code has no `-C`; the wrapper and the guarded
+                    # exec both inherit this working directory unchanged.
+                    cwd=str(launch.cwd) if launch.cwd is not None else None,
                     start_new_session=True,
                 )
             except Exception:
@@ -2266,7 +2214,7 @@ class CodexOrchestrator:
                 with self.process_lock:
                     self.processes[process.pid] = process
                     registered = True
-                payload: Optional[bytes] = prompt.encode("utf-8")
+                payload: Optional[bytes] = launch.stdin_payload
                 parent_deadline = time.monotonic() + timeout + 15
                 while True:
                     remaining = parent_deadline - time.monotonic()
@@ -2346,26 +2294,72 @@ class CodexOrchestrator:
         _atomic_json(run_dir / "metadata.json", metadata)
         if communication_capture is not None:
             self._finish_robot_communication(communication_capture)
+        # A provider that streams its answer recovers it from the raw capture
+        # here, while that capture still exists. This never raises: the
+        # transcript of a completed nondeterministic run is sealed first, and
+        # the failure is reported immediately afterwards.
+        try:
+            output_error = self.provider.materialize_output(run_dir, output_tmp)
+        except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+            output_error = (
+                f"{self.provider.label} output could not be read: "
+                f"{type(exc).__name__}: {exc}"
+            )
         self._finalize_transcript(run_dir, job, role)
         if revocation_error:
             raise CodexRunError(revocation_error)
         if process.returncode == 124:
-            raise CodexRunError(f"Codex {role} run exceeded {timeout} seconds")
+            raise CodexRunError(
+                f"{self.provider.label} {role} run exceeded {timeout} seconds"
+            )
         if process.returncode != 0:
-            raise CodexRunError(f"Codex {role} exited with status {process.returncode}")
+            raise CodexRunError(
+                f"{self.provider.label} {role} exited with status {process.returncode}"
+            )
+        if output_error:
+            raise CodexRunError(output_error)
         if not output_tmp.is_file():
-            raise CodexRunError(f"Codex {role} did not write structured output")
+            raise CodexRunError(
+                f"{self.provider.label} {role} did not write structured output"
+            )
         try:
             result = _redact_for_model(
                 json.loads(output_tmp.read_text(encoding="utf-8"))
             )
         except (OSError, json.JSONDecodeError) as exc:
-            raise CodexRunError(f"Codex {role} output is not valid JSON") from exc
+            raise CodexRunError(
+                f"{self.provider.label} {role} output is not valid JSON"
+            ) from exc
         # The raw structured-output file can echo evidence strings. Persist
         # only the recursively redacted document and remove the raw temporary.
         _atomic_json(output_path, result)
         output_tmp.unlink(missing_ok=True)
         return result
+
+    def _attempt_provider(self, run_dir: Path) -> Any:
+        """Render an attempt with the backend that actually produced it.
+
+        The reconcile lane backfills interrupted attempts long after they ran,
+        including across a provider switch. Reading the recorded name keeps a
+        Codex event stream from being rendered by a Claude reader, which would
+        silently publish an empty transcript. An attempt recorded before this
+        field existed can only have been Codex.
+        """
+        try:
+            metadata = json.loads(
+                (run_dir / "metadata.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return self.provider
+        if not isinstance(metadata, dict):
+            return self.provider
+        recorded = str(metadata.get("provider") or CodexProvider.name)
+        if recorded == self.provider.name:
+            return self.provider
+        try:
+            return PROVIDERS[recorded](self.settings)
+        except KeyError:
+            return self.provider
 
     def _finalize_transcript(
         self, run_dir: Path, job: Dict[str, Any], role: str
@@ -2389,6 +2383,7 @@ class CodexOrchestrator:
                 max_human_bytes=max(
                     1, int(self.settings.codex_transcript_max_human_bytes)
                 ),
+                provider=self._attempt_provider(run_dir),
             )
             manifest_sha256 = hashlib.sha256(
                 (run_dir / "transcript.manifest.json").read_bytes()

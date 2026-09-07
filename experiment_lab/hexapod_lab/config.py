@@ -6,6 +6,9 @@ import shlex
 from typing import Optional
 
 
+DEFAULT_ROBOT_TELEMETRY_URL = "http://127.0.0.1:8898/api/telemetry"
+
+
 @dataclass(frozen=True)
 class Settings:
     data_dir: Path
@@ -35,11 +38,12 @@ class Settings:
     robot_vision_url: str = "http://127.0.0.1:8898/api/vision/state"
     observation_camera_name: str = ""
     observation_camera_devices: tuple = ()
+    robot_telemetry_url: str = DEFAULT_ROBOT_TELEMETRY_URL
     codex_automation: bool = False
     codex_bin: Path = Path("/Applications/ChatGPT.app/Contents/Resources/codex")
     codex_workdir: Path = Path(".")
     codex_model: str = "gpt-5.6-sol"
-    codex_reasoning_effort: str = "high"
+    codex_reasoning_effort: str = "medium"
     codex_analysis_timeout_seconds: int = 2700
     codex_advance_timeout_seconds: int = 5400
     codex_poll_seconds: float = 2.0
@@ -55,10 +59,41 @@ class Settings:
     codex_transcript_max_human_bytes: int = 2 * 1024 * 1024
     codex_engineering: bool = False
     codex_engineering_workdir: Optional[Path] = None
+    codex_offline_engineering_workdir: Optional[Path] = None
     codex_engineering_timeout_seconds: int = 7200
     codex_engineering_context_max_bytes: int = 256 * 1024
     codex_engineering_max_patch_bytes: int = 16 * 1024 * 1024
     codex_engineering_max_attempts: int = 3
+    # Which agent CLI drives the analysis, advance, and engineering lanes.
+    # "codex" keeps the historical behaviour; "claude" runs Claude Code.
+    agent_provider: str = "codex"
+    claude_bin: Path = Path("claude")
+    claude_model: str = "claude-opus-5"
+    claude_effort: str = "high"
+    # Only the servers named here are reachable from the engineering lane;
+    # the sealed lanes always run with no MCP servers at all.
+    claude_mcp_config: Optional[Path] = None
+    claude_engineering_setting_sources: str = "user,project,local"
+    claude_max_budget_usd: float = 0.0
+    claude_max_attachment_bytes: int = 20 * 1024 * 1024
+
+    @property
+    def agent_model(self) -> str:
+        return (
+            self.claude_model if self.agent_provider == "claude"
+            else self.codex_model
+        )
+
+    @property
+    def agent_reasoning_effort(self) -> str:
+        return (
+            self.claude_effort if self.agent_provider == "claude"
+            else self.codex_reasoning_effort
+        )
+
+    @property
+    def agent_label(self) -> str:
+        return "Claude" if self.agent_provider == "claude" else "Codex"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -110,6 +145,10 @@ class Settings:
             robot_vision_url=os.getenv("HEXAPOD_ROBOT_VISION_URL", "http://127.0.0.1:8898/api/vision/state"),
             observation_camera_name=os.getenv("HEXAPOD_OBSERVATION_CAMERA_NAME", "").strip(),
             observation_camera_devices=_camera_devices(),
+            robot_telemetry_url=os.getenv(
+                "HEXAPOD_ROBOT_TELEMETRY_URL",
+                DEFAULT_ROBOT_TELEMETRY_URL,
+            ),
             max_tag_photos=int(os.getenv("HEXAPOD_MAX_TAG_PHOTOS", "36")),
             codex_automation=_env_bool("HEXAPOD_CODEX_AUTOMATION", False),
             codex_bin=Path(os.getenv(
@@ -121,7 +160,7 @@ class Settings:
             )).expanduser().resolve(),
             codex_model=os.getenv("HEXAPOD_CODEX_MODEL", "gpt-5.6-sol"),
             codex_reasoning_effort=os.getenv(
-                "HEXAPOD_CODEX_REASONING_EFFORT", "high"
+                "HEXAPOD_CODEX_REASONING_EFFORT", "medium"
             ),
             codex_analysis_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ANALYSIS_TIMEOUT_SECONDS", "2700"
@@ -165,6 +204,9 @@ class Settings:
             codex_engineering_workdir=_optional_path(
                 "HEXAPOD_CODEX_ENGINEERING_WORKDIR"
             ),
+            codex_offline_engineering_workdir=_optional_path(
+                "HEXAPOD_CODEX_OFFLINE_ENGINEERING_WORKDIR"
+            ),
             codex_engineering_timeout_seconds=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_TIMEOUT_SECONDS", "7200"
             )),
@@ -177,6 +219,20 @@ class Settings:
             codex_engineering_max_attempts=int(os.getenv(
                 "HEXAPOD_CODEX_ENGINEERING_MAX_ATTEMPTS", "3"
             )),
+            agent_provider=_agent_provider(),
+            claude_bin=Path(os.getenv("HEXAPOD_CLAUDE_BIN", "claude")).expanduser(),
+            claude_model=os.getenv("HEXAPOD_CLAUDE_MODEL", "claude-opus-5"),
+            claude_effort=_claude_effort(),
+            claude_mcp_config=_optional_path("HEXAPOD_CLAUDE_MCP_CONFIG"),
+            claude_engineering_setting_sources=os.getenv(
+                "HEXAPOD_CLAUDE_ENGINEERING_SETTING_SOURCES", "user,project,local"
+            ),
+            claude_max_budget_usd=float(os.getenv(
+                "HEXAPOD_CLAUDE_MAX_BUDGET_USD", "0"
+            )),
+            claude_max_attachment_bytes=int(os.getenv(
+                "HEXAPOD_CLAUDE_MAX_ATTACHMENT_BYTES", str(20 * 1024 * 1024)
+            )),
         )
 
 
@@ -185,6 +241,30 @@ def _camera_devices() -> tuple:
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise ValueError("HEXAPOD_OBSERVATION_CAMERAS must be a JSON list of camera definitions")
     return tuple(value)
+AGENT_PROVIDERS = ("codex", "claude")
+CLAUDE_EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+
+def _agent_provider() -> str:
+    value = os.getenv("HEXAPOD_AGENT_PROVIDER", "codex").strip().lower()
+    if value not in AGENT_PROVIDERS:
+        raise ValueError(
+            "HEXAPOD_AGENT_PROVIDER must be one of " + ", ".join(AGENT_PROVIDERS)
+        )
+    return value
+
+
+def _claude_effort() -> str:
+    """Claude names effort levels differently from Codex; do not guess.
+
+    A misspelled level would otherwise silently downgrade every analysis.
+    """
+    value = os.getenv("HEXAPOD_CLAUDE_EFFORT", "high").strip().lower()
+    if value not in CLAUDE_EFFORTS:
+        raise ValueError(
+            "HEXAPOD_CLAUDE_EFFORT must be one of " + ", ".join(CLAUDE_EFFORTS)
+        )
+    return value
 
 
 def _optional_path(name: str) -> Optional[Path]:

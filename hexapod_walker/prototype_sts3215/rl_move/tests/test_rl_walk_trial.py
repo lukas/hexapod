@@ -205,6 +205,7 @@ def test_joystick_response_keeps_one_session_and_records_neutral_hold(
         tmp_path, monkeypatch):
     trial = walk_trial.Trial.__new__(walk_trial.Trial)
     trial.output_dir = tmp_path
+    trial.args = SimpleNamespace(joystick_start_phase=None)
     trial.started = 100.0
     trial.results = []
     trial.recorder = SimpleNamespace(assert_live=lambda: None)
@@ -260,6 +261,56 @@ def test_joystick_response_keeps_one_session_and_records_neutral_hold(
     assert {row["model"] for row in rows} == {"walk", "hold"}
 
 
+def test_joystick_response_can_resume_at_exact_saved_phase(tmp_path, monkeypatch):
+    trial = walk_trial.Trial.__new__(walk_trial.Trial)
+    trial.output_dir = tmp_path
+    trial.args = SimpleNamespace(joystick_start_phase="reverse")
+    trial.started = 100.0
+    trial.results = []
+    trial.recorder = SimpleNamespace(assert_live=lambda: None)
+    trial.event = lambda *_args, **_kwargs: None
+    trial.wait_job = lambda *_args, **_kwargs: {"ok": True}
+    trial.pull_policy_logs = lambda *_args, **_kwargs: []
+    trial.snapshot = lambda *_args, **_kwargs: None
+    trial.three_fresh_health_samples = lambda **_kwargs: []
+
+    clock = _Clock()
+    session_t = 0.0
+    calls: list[tuple[str, dict | None]] = []
+
+    def request(path, body=None):
+        nonlocal session_t
+        calls.append((path, body))
+        if path in ("/api/rl/drive/start", "/api/rl/drive/stop"):
+            return {"ok": True}
+        if path == "/api/rl/drive/cmd":
+            session_t += 1.0
+            zero = all(float(body[key]) == 0.0 for key in ("vx", "vy", "wz"))
+            return {
+                "ok": True,
+                "live": {
+                    "t_s": session_t,
+                    "model": "hold" if zero else "walk",
+                    "vx_ref": body["vx"], "vy_ref": body["vy"],
+                    "wz_ref": body["wz"],
+                },
+            }
+        raise AssertionError(path)
+
+    trial.request = request
+    monkeypatch.setattr(walk_trial.time, "monotonic", clock.monotonic)
+    monkeypatch.setattr(walk_trial.time, "sleep", clock.sleep)
+    monkeypatch.setattr(walk_trial.time, "time", clock.monotonic)
+
+    trial.joystick_response()
+
+    assert [item["name"] for item in trial.results[0]["segments"]] == [
+        item[0] for item in walk_trial.JOYSTICK_RESPONSE_SEQUENCE[2:]
+    ]
+    assert [path for path, _ in calls].count("/api/rl/drive/start") == 1
+    assert [path for path, _ in calls].count("/api/rl/drive/stop") == 1
+
+
 def test_failure_summary_survives_unreachable_policy_endpoint(tmp_path):
     trial = walk_trial.Trial.__new__(walk_trial.Trial)
     trial.output_dir = tmp_path
@@ -277,6 +328,18 @@ def test_failure_summary_survives_unreachable_policy_endpoint(tmp_path):
 
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["error"] == "preflight failed"
+    assert summary["execution"] == {
+        "ok": False,
+        "scope": "guarded_runner",
+        "meaning": (
+            "ok is true only when the bounded runner completed its requested "
+            "control and safety sequence without a retained runner error."
+        ),
+    }
+    assert summary["locomotion_assessment"]["status"] == (
+        "not_assessed_after_runner_error"
+    )
+    assert summary["locomotion_assessment"]["success"] is None
     assert summary["policy"] is None
     assert summary["policy_read_error"] == "network unavailable"
 
@@ -422,5 +485,18 @@ def test_communication_capture_files_and_loss_status_appear_in_summary(tmp_path)
 
     summary = json.loads((tmp_path / "summary.json").read_text())
     assert summary["ok"] is True
+    assert summary["execution"]["ok"] is True
+    assert summary["execution"]["scope"] == "guarded_runner"
+    assert summary["locomotion_assessment"] == {
+        "status": "requires_evidence_review",
+        "success": None,
+        "metric_displacement_available": False,
+        "reason": (
+            "Runner completion verifies command delivery and safety handling "
+            "only. Review synchronized video or a calibrated phase-bound "
+            "chassis trajectory to decide whether the requested translation "
+            "or turn was achieved."
+        ),
+    }
     assert summary["artifacts"]["communication"] == ["robot_bus.jsonl"]
     assert summary["communication_capture"]["end"]["queue_dropped"] == 2

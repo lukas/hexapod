@@ -417,8 +417,14 @@ class CoreApi:
             self._servo_watch = None
 
     # -- passive telemetry recorder ----------------------------------------
-    def telemetry_state(self) -> dict:
-        return {"ok": True, **self._telemetry_recorder.status()}
+    def telemetry_state(self, marker_id: str | None = None) -> dict:
+        status = (self._telemetry_recorder.status()
+                  if marker_id is None
+                  else self._telemetry_recorder.status(marker_id=marker_id))
+        return {
+            "ok": True,
+            **status,
+        }
 
     def telemetry_start(self, *, label: str = "session",
                         max_hz: float | None = None) -> dict:

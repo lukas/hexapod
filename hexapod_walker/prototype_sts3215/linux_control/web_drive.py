@@ -28,6 +28,7 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 HERE = Path(__file__).resolve().parent
 # HERE for sibling modules; the bundle/prototype root for the
@@ -240,6 +241,73 @@ STATIC_FILES = {
     "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
 }
 NO_STORE = "no-store, max-age=0, must-revalidate"
+
+
+class _LogMarkerNotFound(ValueError):
+    """A requested exact marker boundary is absent from a robot log."""
+
+
+def _log_marker_id(line: bytes) -> str | None:
+    # Recorder rows are compact JSON and only marker rows carry marker_id.
+    # Avoid decoding every serial record while scanning a large rotated part.
+    if b'"marker_id"' not in line:
+        return None
+    try:
+        record = json.loads(line)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(record, dict) or record.get("record_type") != "marker":
+        return None
+    marker_id = record.get("marker_id")
+    return marker_id if isinstance(marker_id, str) else None
+
+
+def _marker_query(full_path: str) -> tuple[str | None, str | None]:
+    query = parse_qs(urlsplit(full_path).query, keep_blank_values=True)
+
+    def one(name: str) -> str | None:
+        values = query.get(name)
+        if values is None:
+            return None
+        if len(values) != 1 or not values[0]:
+            raise ValueError(f"{name} must be one non-empty marker id")
+        return values[0]
+
+    return one("from_marker"), one("through_marker")
+
+
+def _read_marker_range(
+    path: Path,
+    *,
+    from_marker: str | None,
+    through_marker: str | None,
+) -> bytes:
+    """Read an inclusive exact-marker range without loading skipped rows."""
+    started = from_marker is None
+    ended = through_marker is None
+    output = bytearray()
+    with path.open("rb") as handle:
+        for line in handle:
+            marker_id = _log_marker_id(line)
+            if not started:
+                if marker_id != from_marker:
+                    continue
+                started = True
+            output.extend(line)
+            if through_marker is not None and marker_id == through_marker:
+                ended = True
+                break
+    if not started:
+        raise _LogMarkerNotFound(
+            f"from_marker not found in {path.name}: {from_marker!r}"
+        )
+    if not ended:
+        raise _LogMarkerNotFound(
+            f"through_marker not found in {path.name}: {through_marker!r}"
+        )
+    return bytes(output)
+
+
 BUS_REQUIRED_GET = frozenset({
     "/api/rl/preflight",
     "/api/rl/timing",
@@ -492,19 +560,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {
                     "ok": True, "dir": str(d), "files": files,
                     "hint": ("GET /api/logs/<name> downloads a file; "
-                             "?tail=N returns only the last N lines")})
+                             "?tail=N returns the last N lines; exact JSONL "
+                             "ranges use from_marker/through_marker")})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
         elif path.startswith("/api/logs/"):
             try:
                 from event_log import log_dir
-                # Path().name forbids traversal / subdirs.
-                name = Path(path[len("/api/logs/"):]).name
-                fpath = log_dir() / name
-                if not name or not fpath.is_file():
+                requested_name = unquote(path[len("/api/logs/"):])
+                name = Path(requested_name).name
+                root = log_dir().resolve()
+                fpath = (root / name).resolve()
+                safe_file = bool(
+                    name
+                    and requested_name == name
+                    and fpath.parent == root
+                    and fpath.is_file()
+                )
+                if not safe_file:
                     self._json(404, {"ok": False,
-                                     "error": f"no such log: {name!r}"})
+                                     "error": f"no such log: {requested_name!r}"})
                 else:
+                    from_marker, through_marker = _marker_query(self.path)
                     tail = 0
                     qs = self.path.split("?", 1)
                     if len(qs) == 2 and "tail=" in qs[1]:
@@ -513,7 +590,18 @@ class Handler(BaseHTTPRequestHandler):
                                        .split("&")[0])
                         except ValueError:
                             tail = 0
-                    data = fpath.read_bytes()
+                    if tail > 0 and (from_marker or through_marker):
+                        raise ValueError(
+                            "tail cannot be combined with marker bounds"
+                        )
+                    if from_marker or through_marker:
+                        data = _read_marker_range(
+                            fpath,
+                            from_marker=from_marker,
+                            through_marker=through_marker,
+                        )
+                    else:
+                        data = fpath.read_bytes()
                     if tail > 0:
                         lines = data.splitlines(keepends=True)
                         data = b"".join(lines[-tail:])
@@ -523,6 +611,10 @@ class Handler(BaseHTTPRequestHandler):
                         ".jsonl": "application/x-ndjson",
                     }.get(fpath.suffix, "text/plain; charset=utf-8")
                     self._send(200, data, ctype=ctype)
+            except _LogMarkerNotFound as e:
+                self._json(416, {"ok": False, "error": str(e)})
+            except ValueError as e:
+                self._json(400, {"ok": False, "error": str(e)})
             except Exception as e:
                 self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/events":
@@ -545,8 +637,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/telemetry":
             # Pure in-memory status; never touches the servo bus.
-            self._json(200, BENCH.telemetry_state() if BENCH
-                       else {"ok": False, "error": "no bench"})
+            marker_id = (parse_qs(
+                urlsplit(self.path).query, keep_blank_values=True
+            ).get("marker_id") or [None])[0]
+            marker_id = marker_id or None
+            if BENCH:
+                result = (BENCH.telemetry_state()
+                          if marker_id is None else
+                          BENCH.telemetry_state(marker_id=marker_id))
+            else:
+                result = {"ok": False, "error": "no bench"}
+            self._json(200, result, cache=NO_STORE)
         elif path == "/api/errors":
             try:
                 from event_log import errors_path, recent
@@ -1377,9 +1478,13 @@ def _main_after_bus(args) -> None:
     finally:
         if BENCH:
             BENCH.stop_status_display()
-            BENCH.telemetry_stop()
-        srv.server_close()
-        DRIVE.close()
+        try:
+            srv.server_close()
+            DRIVE.close()
+        finally:
+            # Retain the final torque/STREAM commands during shutdown too.
+            if BENCH:
+                BENCH.telemetry_stop()
 
 
 if __name__ == "__main__":

@@ -38,7 +38,7 @@ the process rules below are what remain).
 | POST | `/api/measure/discard` | Drop the pending record |
 | POST | `/api/measure/note` | Standalone record; `kind:"rl_walk_tape"` attaches newest RL episode CSV |
 | GET | `/api/logs` | List `logs/` files (name, bytes, mtime; newest first) |
-| GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only |
+| GET | `/api/logs/<name>` | Download one log file; `?tail=N` = last N lines only; JSONL recorder parts also accept inclusive exact bounds `?from_marker=<id>&through_marker=<id>` |
 | GET | `/api/rl/preflight?mode=` | Read-only readiness (`stand`/`lower`/`walk`) |
 | POST | `/api/rl/stand` | Default = STEP stand-up, then settle to the sim walk-ready stance. `{"learned":true}` = learned stance-policy rise (the `stand` role weights; preflight requires belly-down legs-straight, refuses otherwise). Optional `tilt_trip_deg`, `extra_hold_s` (learned only) |
 | POST | `/api/rl/lower` | Default = STEP lower (safe-zero recovery if not standing). `{"learned":true}` = learned stance-policy lower (the `lower` role weights; preflight requires the sim walk-ready stand). Optional `tilt_trip_deg`, `extra_hold_s` (learned only) |
@@ -177,15 +177,24 @@ background writer encodes and saves raw events without the decoded telemetry's
 rate limit. Its bounded queue reports dropped communication events and capture
 errors through `GET /api/telemetry`; disk failures are reported there too.
 Files rotate at 64 MiB without deleting earlier parts. The status response's
-`paths` lists them, and `GET /api/logs/<filename>` downloads each part.
+`paths` lists them. `GET /api/logs/<filename>` downloads a part, while
+`from_marker` and `through_marker` select an inclusive exact-marker span so a
+consumer does not need to transfer skipped rows. Either bound may be supplied
+alone for the first or last part of a range that crosses rotated files. Marker
+bounds cannot be combined with `tail`; an absent exact boundary returns HTTP
+416 rather than a plausible-looking partial span.
 
 `run_rl_walk_trial.py` marks the run boundaries and copies the relevant parts
 into its evidence directory after recovery, including failed runs. It records
 capture loss/error counters in `summary.json` and leaves the shared recorder
-running for the next test. A marker is acknowledged as saved only when
-`flushed_marker` matches the returned `marker_id`. `HEXAPOD_TELEMETRY_AUTO=0`
-explicitly disables automatic startup; dry-run services do not open a hardware
-recording.
+running for the next test. Poll
+`GET /api/telemetry?marker_id=<marker_id>` until `marker_ack` is non-null; the
+acknowledgement is published only after flush plus `fsync`, and identifies the
+exact `path` and `seq`, the writer count at that marker, and enqueue-/writer-bound
+capture-loss counters. A bounded per-session map keeps earlier acknowledgements
+queryable when concurrent clients write later markers; `flushed_marker` remains
+only a latest-marker compatibility field. `HEXAPOD_TELEMETRY_AUTO=0` explicitly
+disables automatic startup; dry-run services do not open a hardware recording.
 
 ## RL episode logging (2026-08-09, on-robot, automatic)
 

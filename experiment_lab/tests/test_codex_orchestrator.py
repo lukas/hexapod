@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import signal
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import pytest
 from hexapod_lab import deadline_exec
 import hexapod_lab.codex_orchestrator as codex_module
 from hexapod_lab.codex_orchestrator import (
+    CodexCleanupError,
     CodexOrchestrator,
     CodexRunError,
     _codex_no_tool_arguments,
@@ -46,6 +48,423 @@ def configured(tmp_path, **overrides):
     )
     values.update(overrides)
     return Settings(**values)
+
+
+def test_analysis_prompt_keeps_floor_clear_leg_tests_off_a_chassis_stand(tmp_path):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+
+    prompt = orchestrator._analysis_prompt(
+        {"id": "analysis-job"},
+        {
+            "id": "experiment",
+            "name": "Independent leg hysteresis",
+            "evidence_manifest_sha256": "0" * 64,
+        },
+        tmp_path,
+        {"artifacts": []},
+    )
+
+    assert "l2_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
+    assert "l5_belly_rest_radial_shear_hysteresis_repeat6_v1" in prompt
+    assert "require no chassis stand" in prompt
+    assert "do not turn them back into supported-air plans" in prompt
+    assert "not automatically proof of a physical fall" in prompt
+    assert "robot tags stayed stationary relative to floor tags" in prompt
+
+
+def test_hardware_capture_uses_local_proxy_after_validating_physical_target(
+    tmp_path, monkeypatch
+):
+    resolved = []
+
+    class FakeRobotStatus:
+        def __init__(self, robot_url, vision_url):
+            assert robot_url == "http://hexapod.local:8080/api/robot"
+            assert vision_url == "http://127.0.0.1:8898/api/vision/state"
+
+        def resolved_robot_url(self):
+            resolved.append(True)
+            return "http://192.168.4.39:8080/api/robot"
+
+    monkeypatch.setattr(codex_module, "RobotStatusService", FakeRobotStatus)
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+
+    assert (
+        orchestrator._robot_telemetry_url()
+        == "http://127.0.0.1:8898/api/telemetry"
+    )
+    assert resolved == [True]
+
+
+def test_explicit_hardware_capture_endpoint_is_not_re_resolved(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        codex_module,
+        "RobotStatusService",
+        lambda *_: pytest.fail("explicit telemetry URL should be used directly"),
+    )
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(
+            tmp_path,
+            robot_telemetry_url="http://10.0.0.9:8080/api/telemetry",
+        ),
+        invoker=lambda *_: {},
+    )
+
+    assert (
+        orchestrator._robot_telemetry_url()
+        == "http://10.0.0.9:8080/api/telemetry"
+    )
+
+
+def test_hardware_invoke_brackets_process_but_offline_invoke_does_not(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    settings = configured(
+        tmp_path,
+        codex_engineering_workdir=workspace,
+        codex_transcript_max_capture_bytes=128 * 1024,
+    )
+    orchestrator = CodexOrchestrator(Store(tmp_path / "lab.sqlite3"), settings)
+    monkeypatch.setattr(
+        orchestrator,
+        "_robot_telemetry_url",
+        lambda: "http://robot.test:8080/api/telemetry",
+    )
+    events = []
+
+    class FakeCapture:
+        def __init__(self, _url, run_dir, **identity):
+            self.run_dir = run_dir
+            self.identity = identity
+            events.append("capture-created")
+
+        def begin(self):
+            state = json.loads((self.run_dir / "process.json").read_text())
+            assert "finished_at" not in state
+            events.append("begin")
+            return {"complete": False}
+
+        def finish(self):
+            state = json.loads((self.run_dir / "process.json").read_text())
+            if "finish" not in events:
+                assert "finished_at" not in state
+            events.append("finish")
+            return {"complete": True}
+
+    class FakeProcess:
+        next_pid = 900_000
+
+        def __init__(self, command, **_kwargs):
+            type(self).next_pid += 1
+            self.pid = type(self).next_pid
+            self.returncode = 0
+            self.output = Path(command[command.index("-o") + 1])
+            events.append("popen")
+
+        def communicate(self, _payload, timeout):
+            assert timeout > 0
+            self.output.write_text("{}\n")
+            events.append("communicate")
+            return None, None
+
+        def poll(self):
+            return self.returncode
+
+    monkeypatch.setattr(codex_module, "RobotCommunicationCapture", FakeCapture)
+    monkeypatch.setattr(subprocess, "Popen", FakeProcess)
+    monkeypatch.setattr(
+        codex_module, "_terminate_deadline_wrapper", lambda *_a, **_k: True
+    )
+    hardware_job = {
+        "id": "hardware-job",
+        "attempts": 1,
+        "experiment_id": "experiment-hardware",
+    }
+
+    assert orchestrator._invoke(
+        "engineering",
+        hardware_job,
+        "hardware prompt",
+        {"type": "object"},
+        engineering_workdir=workspace,
+        engineering_lane=codex_module.ENGINEERING_LANE_HARDWARE,
+    ) == {}
+    assert events[:4] == [
+        "capture-created", "begin", "popen", "communicate",
+    ]
+    assert events.count("finish") >= 1
+
+    events.clear()
+    offline_job = {
+        "id": "offline-job",
+        "attempts": 1,
+        "experiment_id": "experiment-offline",
+    }
+    assert orchestrator._invoke(
+        "engineering",
+        offline_job,
+        "offline prompt",
+        {"type": "object"},
+        engineering_workdir=workspace,
+        engineering_lane=codex_module.ENGINEERING_LANE_OFFLINE,
+    ) == {}
+    assert events == ["popen", "communicate"]
+
+
+def test_popen_failure_closes_hardware_capture_before_finishing_intent(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path, codex_engineering_workdir=workspace),
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "_robot_telemetry_url",
+        lambda: "http://robot.test:8080/api/telemetry",
+    )
+    run_dir = tmp_path / "codex-runs" / "launch-failure" / "attempt-1"
+    finished = []
+
+    class FakeCapture:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def begin(self):
+            return {"complete": False}
+
+        def finish(self):
+            state = json.loads((run_dir / "process.json").read_text())
+            assert "finished_at" not in state
+            finished.append(True)
+            raise OSError("capture receipt unavailable")
+
+    monkeypatch.setattr(codex_module, "RobotCommunicationCapture", FakeCapture)
+    monkeypatch.setattr(
+        subprocess,
+        "Popen",
+        lambda *_a, **_k: (_ for _ in ()).throw(OSError("launch failed")),
+    )
+    with pytest.raises(OSError, match="launch failed"):
+        orchestrator._invoke(
+            "engineering",
+            {"id": "launch-failure", "attempts": 1, "experiment_id": "exp"},
+            "hardware prompt",
+            {"type": "object"},
+            engineering_workdir=workspace,
+            engineering_lane=codex_module.ENGINEERING_LANE_HARDWARE,
+        )
+
+    assert finished == [True]
+    state = json.loads((run_dir / "process.json").read_text())
+    assert state["launch_failed"] is True
+    assert state["finished_at"]
+
+
+def test_engineering_child_artifact_can_exceed_bounded_transcript_archive(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    transcript_limit = 64 * 1024
+    artifact_limit = 256 * 1024
+    artifact_bytes = 128 * 1024
+    fake_codex = tmp_path / "fake-codex"
+    fake_codex.write_text(
+        f"#!{sys.executable}\n"
+        "import json, pathlib, resource, subprocess, sys\n"
+        "workspace = pathlib.Path(sys.argv[sys.argv.index('-C') + 1])\n"
+        "artifact = workspace / 'camera.bin'\n"
+        "subprocess.run([sys.executable, '-c', "
+        f"'import pathlib, sys; pathlib.Path(sys.argv[1]).write_bytes(bytes({artifact_bytes}))', "
+        "str(artifact)], check=True)\n"
+        "event = json.dumps({'type': 'item.completed', 'item': "
+        "{'id': 'probe', 'type': 'agent_message', 'text': 'x' * 1024}}) + '\\n'\n"
+        "sys.stdout.write(event * 128)\n"
+        "sys.stderr.write('diagnostic\\n' * 9000)\n"
+        "result = {'artifact_bytes': artifact.stat().st_size, "
+        "'file_limit': resource.getrlimit(resource.RLIMIT_FSIZE)[0]}\n"
+        "pathlib.Path(sys.argv[sys.argv.index('-o') + 1]).write_text(json.dumps(result))\n"
+    )
+    fake_codex.chmod(0o700)
+    settings = configured(
+        tmp_path,
+        codex_bin=fake_codex,
+        codex_engineering_workdir=workspace,
+        codex_engineering_timeout_seconds=10,
+        codex_transcript_max_capture_bytes=transcript_limit,
+        codex_max_evidence_snapshot_bytes=artifact_limit,
+        codex_transcript_max_human_bytes=16 * 1024,
+    )
+    store = Store(tmp_path / "lab.sqlite3")
+    receipts = []
+    monkeypatch.setattr(
+        store, "register_codex_transcript_attempt",
+        lambda *args, **kwargs: receipts.append((args, kwargs)),
+    )
+    orchestrator = CodexOrchestrator(store, settings)
+    result = orchestrator._invoke(
+        "engineering",
+        {"id": "artifact-limit-job", "attempts": 1},
+        "Record the experiment.",
+        {"type": "object"},
+        engineering_lane=codex_module.ENGINEERING_LANE_OFFLINE,
+    )
+
+    assert result == {"artifact_bytes": artifact_bytes, "file_limit": artifact_limit}
+    assert (workspace / "camera.bin").stat().st_size > transcript_limit
+    run_dir = tmp_path / "codex-runs" / "artifact-limit-job" / "attempt-1"
+    assert not (run_dir / ".events.raw.jsonl").exists()
+    assert not (run_dir / ".stderr.raw.log").exists()
+    assert (run_dir / "events.jsonl").stat().st_size <= transcript_limit
+    # Text archives append a small explicit truncation notice to the cap.
+    assert (run_dir / "stderr.log").stat().st_size <= transcript_limit + 128
+    assert "TRANSCRIPT CAPTURE TRUNCATED" in (run_dir / "stderr.log").read_text()
+    assert (run_dir / "transcript.md").stat().st_size <= 16 * 1024
+    events = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    assert events[-1]["type"] == "capture.truncated"
+    assert receipts
+
+
+def test_missing_offline_checkout_never_restores_shared_engineering_lane(
+    tmp_path, monkeypatch
+):
+    settings = configured(
+        tmp_path,
+        codex_engineering=True,
+        codex_engineering_workdir=tmp_path,
+        codex_offline_engineering_workdir=None,
+    )
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"), settings, invoker=lambda *_: {}
+    )
+    started = []
+
+    class FakeThread:
+        def __init__(self, *, target, args=(), name, daemon):
+            self.name = name
+
+        def is_alive(self):
+            return False
+
+        def start(self):
+            started.append(self.name)
+
+    monkeypatch.setattr(codex_module, "build_project_context", lambda *_: {})
+    monkeypatch.setattr(codex_module.threading, "Thread", FakeThread)
+
+    orchestrator.start()
+
+    assert "codex-engineering-hardware" in started
+    assert "codex-engineering" not in started
+    assert "codex-engineering-offline" not in started
+
+
+def test_start_does_not_block_workers_on_historical_transcript_backfill(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    backfills = []
+    started = []
+
+    class FakeThread:
+        def __init__(self, *, target, args=(), name, daemon):
+            self.name = name
+
+        def is_alive(self):
+            return False
+
+        def start(self):
+            started.append(self.name)
+
+    monkeypatch.setattr(
+        orchestrator,
+        "_finalize_all_transcripts",
+        lambda: backfills.append(True),
+    )
+    monkeypatch.setattr(codex_module.threading, "Thread", FakeThread)
+
+    orchestrator.start()
+
+    assert backfills == []
+    assert "codex-analysis-1" in started
+    assert "codex-advance" in started
+    assert "codex-reconcile" in started
+
+
+def test_hardware_worker_never_dispatches_offline_rl_outbox(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    dispatches = []
+    monkeypatch.setattr(orchestrator.engineering, "claim", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        orchestrator.engineering,
+        "dispatch_one",
+        lambda *_args, **_kwargs: dispatches.append(True) or True,
+    )
+
+    assert orchestrator.process_one("engineering-hardware") is False
+    assert dispatches == []
+    assert orchestrator.process_one("engineering-offline") is True
+    assert dispatches == [True]
+
+
+def test_offline_cleanup_failure_quarantines_only_offline_worker(
+    tmp_path, monkeypatch
+):
+    orchestrator = CodexOrchestrator(
+        Store(tmp_path / "lab.sqlite3"),
+        configured(tmp_path),
+        invoker=lambda *_: {},
+    )
+    offline_job = {
+        "id": "offline-job",
+        "attempts": 1,
+        "max_attempts": 2,
+        "source_context": {"trigger_kind": "experiment_analysis"},
+    }
+    monkeypatch.setattr(
+        orchestrator.engineering,
+        "claim",
+        lambda *_args, **kwargs: (
+            offline_job
+            if kwargs.get("lane") == codex_module.ENGINEERING_LANE_OFFLINE
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        orchestrator,
+        "_process_engineering",
+        lambda _job: (_ for _ in ()).throw(
+            CodexCleanupError("offline child could not be reaped")
+        ),
+    )
+
+    assert orchestrator.process_one("engineering-offline") is True
+    assert orchestrator.offline_stop_event.is_set()
+    assert not orchestrator.stop_event.is_set()
+    assert not orchestrator.fatal_cleanup_event.is_set()
+    assert orchestrator.process_one("engineering-hardware") is False
 
 
 def complete_with_evidence(store, settings, *, name="completed", parameters=None):
@@ -96,7 +515,7 @@ def test_codex_output_schemas_are_strict_for_every_object():
     assert_strict(codex_module.ADVANCE_SCHEMA)
 
 
-def test_followup_accepts_schema_encoded_parameters_json(tmp_path):
+def test_offline_followup_decodes_parameters_and_records_rejection(tmp_path):
     orchestrator = CodexOrchestrator(
         Store(tmp_path / "lab.sqlite3"), configured(tmp_path), invoker=lambda *_: {}
     )
@@ -112,7 +531,54 @@ def test_followup_accepts_schema_encoded_parameters_json(tmp_path):
         "stop_conditions": [],
     })
     assert normalized["spec"]["parameters"]["simulation_only"] is True
-    assert normalized["spec"]["execution_mode"] == "builtin"
+    assert normalized["spec"]["execution_mode"] == "external_guarded"
+    assert normalized["spec"]["parameters"]["robot_motion"] is False
+    assert normalized["rejection_reason"]
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"robot_motion": False},
+        {"simulation_only": True},
+        {"simulation_only": True, "robot_motion": False},
+    ],
+)
+def test_analysis_seals_offline_recommendation_receipt_without_creating_child(
+    tmp_path, parameters
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings)
+    recommendation = {
+        "recommendation_key": "repeat-software-review",
+        "name": "Repeat runtime qualification",
+        "description": "Review the recorded software check again.",
+        "duration_seconds": 1,
+        "parameters": json.dumps(parameters),
+        "execution_mode": "external_guarded",
+        "rationale": "Recheck an existing replay result.",
+        "dependencies": [],
+        "stop_conditions": [],
+    }
+    calls = []
+
+    def invoke(role, _job, _request):
+        calls.append(role)
+        return analysis_result(source, followups=[recommendation])
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    job = next(job for job in store.codex_jobs_for_experiment(source["id"])
+               if job["kind"] == "analysis")
+    assert job["status"] == "succeeded"
+    assert calls == ["analysis"]
+    receipts = job["result"]["followup_receipts"]
+    assert receipts["accepted"] == []
+    assert len(receipts["rejected"]) == 1
+    assert receipts["rejected"][0]["child_experiment_id"] is None
+    assert receipts["rejected"][0]["disposition_reason"]
+    assert [item["id"] for item in store.list()] == [source["id"]]
 
 
 def test_analysis_accepts_only_its_own_generated_video_contact_sheet(tmp_path):
@@ -538,6 +1004,92 @@ def test_startup_recovers_adopted_codex_group_after_wrapper_sigkill(tmp_path):
                 pass
 
 
+def test_startup_closes_saved_hardware_capture_before_finishing_state(
+    tmp_path, monkeypatch
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    orchestrator = CodexOrchestrator(store, settings, invoker=lambda *_: {})
+    run_dir = tmp_path / "codex-runs" / "engineering-job" / "attempt-2"
+    run_dir.mkdir(parents=True)
+    state_path = run_dir / "process.json"
+    state = {
+        "schema_version": 1,
+        "job_id": "engineering-job",
+        "role": "engineering",
+        "attempt": 2,
+        "experiment_id": "experiment-1",
+        "pid": 1_073_741_823,
+        "pgid": 1_073_741_823,
+        "marker": uuid.uuid4().hex,
+        "started_at": "2026-09-05T00:00:00+00:00",
+    }
+    state_path.write_text(json.dumps(state))
+    (run_dir / codex_module.STATUS_NAME).write_text("{}\n")
+    calls = []
+
+    class FakeCapture:
+        def finish(self):
+            # Recovery must leave the process intent unfinished until this
+            # range has been closed (or explicitly terminalized).
+            current = json.loads(state_path.read_text())
+            assert "finished_at" not in current
+            calls.append("finish")
+            return {"complete": True}
+
+    def resume(path, **expected):
+        assert path == run_dir
+        assert expected == {
+            "expected_experiment_id": "experiment-1",
+            "expected_job_id": "engineering-job",
+            "expected_attempt": 2,
+        }
+        calls.append("resume")
+        return FakeCapture()
+
+    monkeypatch.setattr(
+        codex_module.RobotCommunicationCapture,
+        "resume",
+        staticmethod(resume),
+    )
+
+    assert orchestrator._recover_orphaned_processes() == 1
+    assert calls == ["resume", "finish"]
+    recovered = json.loads(state_path.read_text())
+    assert recovered["finished_at"] == recovered["recovered_at"]
+
+
+def test_malformed_communication_manifest_never_gets_a_db_receipt(tmp_path):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    experiment = store.create(
+        {"name": "malformed communication receipt", "duration_seconds": 1},
+        "test",
+    )
+    store.finish(experiment["id"], "succeeded")
+    job = next(
+        item for item in store.codex_jobs_for_experiment(experiment["id"])
+        if item["kind"] == "analysis"
+    )
+    with store.connect() as connection:
+        connection.execute(
+            "UPDATE codex_jobs SET attempts=1 WHERE id=?", (job["id"],)
+        )
+    job = {**job, "attempts": 1}
+    run_dir = tmp_path / "codex-runs" / job["id"] / "attempt-1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "prompt.md").write_text("Analyze the retained evidence.\n")
+    (run_dir / ".events.raw.jsonl").write_text("")
+    (run_dir / ".stderr.raw.log").write_text("")
+    (run_dir / codex_module.ROBOT_COMMUNICATION_MANIFEST).write_text("{}\n")
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=lambda *_: {})
+    orchestrator._finalize_transcript(run_dir, job, "analysis")
+
+    assert store.codex_transcript_attempt(job["id"], 1) is not None
+    assert store.codex_communication_attempt(job["id"], 1) is None
+
+
 def test_terminal_transition_writes_two_jobs_and_seal_releases_them(tmp_path):
     store = Store(tmp_path / "lab.sqlite3")
     item = store.create({"name": "x", "duration_seconds": 1}, "test")
@@ -674,10 +1226,9 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
         "duration_seconds": 2,
         "parameters": {
             "load_kg": 0.1,
-            "simulation_only": True,
-            "robot_motion": False,
+            "robot_motion": True,
         },
-        "execution_mode": "builtin",
+        "execution_mode": "external_guarded",
         "rationale": "This separates load sensitivity from trial noise.",
         "dependencies": ["Use the same fixture."],
         "stop_conditions": ["unexpected force", "hot motor"],
@@ -700,8 +1251,8 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
     children = [item for item in store.list() if item["id"] != source["id"]]
     assert len(children) == 1
     child = children[0]
-    assert child["execution_mode"] == "builtin"
-    assert child["status"] == "queued"
+    assert child["execution_mode"] == "external_guarded"
+    assert child["status"] == "waiting_for_operator"
     assert child["parameters"]["_automation"]["parent_experiment_id"] == source["id"]
 
     receipts = store.apply_analysis_followups(
@@ -714,6 +1265,169 @@ def test_analysis_records_learning_and_queues_bounded_deduplicated_followup(tmp_
     assert receipts["accepted"][0]["child_experiment_id"] == child["id"]
     assert len([item for item in store.list() if item["id"] != source["id"]]) == 1
     assert len([job for job in store.list_codex_jobs() if job["kind"] == "advance"]) == 1
+
+
+def test_cancelled_analysis_cannot_recreate_the_cancelled_plan(tmp_path):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = store.create(
+        {
+            "name": "obsolete physical plan",
+            "duration_seconds": 1,
+            "execution_mode": "external_guarded",
+            "parameters": {"robot_motion": True},
+        },
+        "test",
+    )
+    source = store.cancel(source["id"])
+    run_dir = settings.data_dir / "experiments" / source["id"]
+    run_dir.mkdir(parents=True)
+    (run_dir / "experiment.json").write_text(json.dumps(source) + "\n")
+    (run_dir / "summary.md").write_text("# Cancelled\n\nSuperseded by the operator.\n")
+    digest = ExperimentRunner._write_manifest(run_dir)
+    store.seal_evidence(source["id"], digest)
+    source = store.get(source["id"])
+    recommendation = {
+        "recommendation_key": "retry-obsolete-plan",
+        "name": "Retry obsolete physical plan",
+        "description": "Recreate the plan the operator cancelled.",
+        "duration_seconds": 1,
+        "parameters": {"robot_motion": True},
+        "execution_mode": "external_guarded",
+        "rationale": "The cancelled plan produced no measurement.",
+        "dependencies": [],
+        "stop_conditions": ["unexpected force"],
+    }
+
+    orchestrator = CodexOrchestrator(
+        store,
+        settings,
+        invoker=lambda role, _job, _request: analysis_result(
+            source, followups=[recommendation]
+        ),
+    )
+    assert orchestrator.process_one("analysis") is True
+
+    job = next(
+        job
+        for job in store.codex_jobs_for_experiment(source["id"])
+        if job["kind"] == "analysis"
+    )
+    assert job["status"] == "succeeded"
+    assert [item for item in store.list() if item["id"] != source["id"]] == []
+    assert job["result"]["followup_receipts"]["accepted"] == []
+    assert job["result"]["followup_receipts"]["rejected"][0][
+        "disposition_reason"
+    ] == "source experiment was cancelled by the operator"
+
+
+@pytest.mark.parametrize("disposition", ["needs_inspection", "stop"])
+@pytest.mark.parametrize(
+    "driver, requested_mode, simulation_only",
+    [
+        ("simulated", "builtin", True),
+        ("simulated", "builtin", 1),
+        ("simulated", "builtin", "true"),
+        ("simulated", "builtin", False),
+        ("simulated", "external_guarded", True),
+        ("command", "builtin", True),
+    ],
+)
+def test_uncleared_analysis_preserves_hardware_but_rejects_offline_followups(
+    tmp_path, disposition, driver, requested_mode, simulation_only
+):
+    settings = configured(tmp_path, driver=driver)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings)
+    recommendation = {
+        "recommendation_key": "bounded-check",
+        "name": "Bounded follow-up",
+        "description": "Separate a recorded anomaly from a repeatable effect.",
+        "duration_seconds": 1,
+        "parameters": json.dumps({"simulation_only": simulation_only}),
+        "execution_mode": requested_mode,
+        "rationale": "Reduce uncertainty without assuming current robot health.",
+        "dependencies": [],
+        "stop_conditions": ["unexpected force"],
+    }
+
+    def invoke(role, _job, _request):
+        assert role == "analysis"
+        result = analysis_result(source, followups=[recommendation])
+        result["safety_disposition"] = disposition
+        return result
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    job = next(job for job in store.codex_jobs_for_experiment(source["id"])
+               if job["kind"] == "analysis")
+    assert job["status"] == "succeeded"
+    assert store.codex_queue_control()["paused"] is (disposition == "stop")
+    receipts = job["result"]["followup_receipts"]
+    children = [item for item in store.list() if item["id"] != source["id"]]
+    if simulation_only is True:
+        assert receipts["accepted"] == children == []
+        assert len(receipts["rejected"]) == 1
+        assert receipts["rejected"][0]["disposition_reason"]
+        assert store.next_external_experiment() is None
+        return
+    assert len(receipts["accepted"]) == len(children) == 1
+    assert receipts["rejected"] == []
+    child = children[0]
+    assert child["execution_mode"] == "external_guarded"
+    assert child["parameters"]["simulation_only"] == simulation_only
+    assert child["parameters"].get("robot_motion") is not False
+    assert child["status"] == "waiting_for_operator"
+    assert store.claim_next() is None
+    assert store.next_external_experiment()["id"] == child["id"]
+
+
+@pytest.mark.parametrize(
+    "parameters, disposition, paused",
+    [
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": False, "robot_motion": True},
+            "needs_inspection",
+            False,
+        ),
+        (
+            {"simulation_only": True, "robot_motion": False},
+            "stop",
+            False,
+        ),
+        (
+            {"simulation_only": False, "robot_motion": True},
+            "stop",
+            True,
+        ),
+        (
+            {"simulation_only": True, "robot_motion": True},
+            "stop",
+            True,
+        ),
+    ],
+)
+def test_analysis_pause_policy_only_stops_queue_for_stop(
+    tmp_path, parameters, disposition, paused
+):
+    settings = configured(tmp_path)
+    store = Store(tmp_path / "lab.sqlite3")
+    source = complete_with_evidence(store, settings, parameters=parameters)
+
+    def invoke(role, _job, _request):
+        assert role == "analysis"
+        result = analysis_result(source)
+        result["safety_disposition"] = disposition
+        return result
+
+    orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
+    assert orchestrator.process_one("analysis") is True
+    assert store.codex_queue_control()["paused"] is paused
 
 
 def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(
@@ -774,95 +1488,62 @@ def test_clear_analysis_saves_nonready_external_plan_but_rejects_forbidden_plan(
     assert "forbidden" in receipts["rejected"][0]["disposition_reason"]
 
 
-def test_simulated_adaptive_pipeline_drains_experiments_and_codex_jobs(tmp_path):
-    settings = configured(tmp_path)
-    store = Store(tmp_path / "lab.sqlite3")
-    root = complete_with_evidence(
-        store,
-        settings,
-        name="root simulation",
-        parameters={"simulation_only": True},
-    )
-    recommendation = {
-        "recommendation_key": "bounded-simulation-repeat",
-        "name": "Bounded simulation repeat",
-        "description": "Repeat the simulated measurement once.",
-        "duration_seconds": 0.01,
-        "parameters": {
-            "simulation_only": True,
-            "robot_motion": False,
-        },
-        "execution_mode": "builtin",
-        "rationale": "A second simulated sample checks repeatability.",
-        "dependencies": [],
-        "stop_conditions": ["unexpected result"],
-    }
-    invocations = []
+def test_explicit_offline_work_executes_real_command_and_seals_output(tmp_path, monkeypatch):
+    from test_engineering_lane import engineering_receipt
 
-    def invoke(role, job, _request):
-        invocations.append((role, job["id"], job.get("experiment_id")))
-        if role == "analysis":
-            experiment = store.get(job["experiment_id"])
-            followups = [recommendation] if experiment["id"] == root["id"] else []
-            return analysis_result(experiment, followups=followups)
-        assert store.next_external_experiment() is None
-        return {
-            "schema_version": 1,
-            "trigger_job_id": job["id"],
-            "selected_experiment_id": None,
-            "action": "queue_empty",
-            "summary": "No external guarded experiment is waiting.",
-            "blocker": "",
-            "safety_disposition": "clear",
-            "motion_started": False,
-            "retryable": False,
-            "retry_after_seconds": 0,
-        }
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    settings = configured(tmp_path, codex_engineering=True,
+                          codex_engineering_workdir=workspace)
+    store = Store(tmp_path / "lab.sqlite3")
+    target = store.create(
+        {
+            "name": "Explicit offline replay",
+            "description": "Run the fixture command and retain its actual output.",
+            "duration_seconds": 1,
+            "parameters": {"simulation_only": True, "robot_motion": False},
+            "execution_mode": "external_guarded",
+        },
+        "operator",
+    )
+    monkeypatch.setattr(codex_module, "build_project_context", lambda *_: {"sha256": "a" * 64})
+    monkeypatch.setattr(codex_module, "workspace_snapshot", lambda *_: {"head": "b" * 40})
+    calls = []
+
+    def invoke(role, job, request):
+        calls.append(role)
+        assert role == "engineering"
+        assert 'simulation_only' in request["prompt"]
+        assert 'Do not contact, move, or deploy to the robot' in request["prompt"]
+        item = store.get(job["experiment_id"])
+        directory = settings.data_dir / "experiments" / item["id"]
+        directory.mkdir(parents=True)
+        # A real command produces the retained output; the demo runner is never claimed.
+        command = ["/bin/sh", "-c", "printf 'injected_delay_ms=50\\n' > replay.txt"]
+        subprocess.run(command, cwd=directory, check=True)
+        (directory / "experiment.json").write_text(json.dumps(item))
+        (directory / "summary.md").write_text("Offline fixture completed.")
+        store.finish(item["id"], "succeeded")
+        store.seal_evidence(item["id"], ExperimentRunner._write_manifest(directory))
+        receipt = engineering_receipt(job, "a" * 64)
+        receipt["commands_run"] = [{"command": "fixture replay", "purpose": "Offline regression",
+                                     "outcome": "passed", "summary": "Wrote replay.txt"}]
+        receipt["artifacts"] = ["replay.txt"]
+        return receipt
 
     orchestrator = CodexOrchestrator(store, settings, invoker=invoke)
-
-    # The paired advance cannot overtake its root analysis.
-    assert orchestrator.process_one("advance") is False
-    assert orchestrator.process_one("analysis") is True
-    children = [item for item in store.list() if item["id"] != root["id"]]
-    assert len(children) == 1
-    child = children[0]
-    assert child["status"] == "queued"
-    assert child["execution_mode"] == "builtin"
-
-    # The root's separate advisory run completes without creating a redundant
-    # follow-up-specific advance job, while the built-in simulation runner
-    # executes and seals the accepted child.
-    assert orchestrator.process_one("advance") is True
-    runner = ExperimentRunner(store, settings)
-    claimed = store.claim_next()
-    assert claimed and claimed["id"] == child["id"]
-    runner._execute(claimed)
-    child = store.get(child["id"])
-    assert child["status"] == "succeeded"
-    assert child["evidence_sealed_at"]
-
-    # The child's advance also waits for its own analysis, then both durable
-    # lanes and the experiment queue reach a terminal empty state.
-    assert orchestrator.process_one("advance") is False
-    assert orchestrator.process_one("analysis") is True
-    assert orchestrator.process_one("advance") is True
-    assert orchestrator.process_one("analysis") is False
-    assert orchestrator.process_one("advance") is False
-
-    experiments = list(store.list())
-    assert {item["status"] for item in experiments} == {"succeeded"}
-    assert not any(store.queue_counts().values())
-    jobs = store.list_codex_jobs(20)
-    assert len(jobs) == 4
-    assert {job["status"] for job in jobs} == {"succeeded"}
-    assert [role for role, _job_id, _experiment_id in invocations] == [
-        "analysis",
-        "advance",
-        "analysis",
-        "advance",
-    ]
-    assert len({job_id for _role, job_id, _experiment_id in invocations}) == 4
+    assert store.claim_next() is None
+    assert orchestrator.process_one("advance")
+    assert orchestrator.process_one("engineering")
+    finished = store.get(target["id"])
+    assert finished["status"] == "succeeded"
+    assert finished["evidence_sealed_at"]
+    output = settings.data_dir / "experiments" / target["id"] / "replay.txt"
+    assert output.read_text().strip() == "injected_delay_ms=50"
+    assert calls == ["engineering"]
+    engineering = next(job for job in orchestrator.engineering.list_jobs()
+                       if job["experiment_id"] == target["id"])
+    assert engineering["result"]["commands_run"][0]["outcome"] == "passed"
 
 
 def test_analysis_retry_reuses_checkpoint_instead_of_invoking_analyzer_twice(
@@ -915,6 +1596,47 @@ def test_analysis_retry_reuses_checkpoint_instead_of_invoking_analyzer_twice(
             (source["id"],),
         ).fetchone()[0]
     assert learning_count == 1
+
+
+@pytest.mark.parametrize("engineering_enabled", [False, True])
+def test_empty_queue_finishes_without_model_or_robot_admission(
+    tmp_path, monkeypatch, engineering_enabled
+):
+    store = Store(tmp_path / "lab.sqlite3")
+    job = store.enqueue_advance("empty-queue-check", "operator_resume")
+    calls = []
+
+    def unexpected_call(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("an empty queue must not invoke a model or robot admission")
+
+    orchestrator = CodexOrchestrator(
+        store, configured(tmp_path, codex_engineering=engineering_enabled),
+        invoker=unexpected_call,
+    )
+    monkeypatch.setattr(orchestrator, "_execution_admission_rejection", unexpected_call)
+    monkeypatch.setattr(orchestrator.engineering, "ensure_queue_handoff", unexpected_call)
+
+    assert orchestrator.process_one("advance") is True
+
+    finished = store.get_codex_job(job["id"])
+    assert calls == []
+    assert finished["status"] == "succeeded"
+    assert finished["result"] == {
+        "schema_version": 1,
+        "trigger_job_id": job["id"],
+        "selected_experiment_id": None,
+        "action": "queue_empty",
+        "summary": "No external guarded experiment is waiting.",
+        "blocker": "",
+        "safety_disposition": "clear",
+        "motion_started": False,
+        "retryable": False,
+        "retry_after_seconds": 0,
+    }
+    assert not store.codex_queue_control()["paused"]
+    assert orchestrator.process_one("advance") is False
+    assert not (tmp_path / "codex-runs").exists()
 
 
 def test_empty_queue_advance_receipt_requires_read_only_semantics(tmp_path):

@@ -274,7 +274,51 @@ class RawRecorder:
 
     def stop(self) -> None:
         self.stop_event.set()
+        if self.thread.ident is None:
+            self.error = self.error or "raw camera recorder did not start"
+            return
         self.thread.join(timeout=8.0)
+        if self.thread.is_alive():
+            self.error = self.error or "raw camera recorder did not finish within 8 s"
+            return
+        if not self.error:
+            try:
+                self._validate_output()
+            except Exception as error:
+                self.error = f"raw camera recording is incomplete: {error}"
+
+    def _validate_output(self) -> None:
+        """Check the closed MP4, since VideoWriter.write can fail silently."""
+        if not self.output.is_file() or self.output.stat().st_size == 0:
+            raise RuntimeError("video file is missing or empty")
+        with self.timestamps.open(newline="") as handle:
+            timestamp_frames = sum(1 for _ in csv.DictReader(handle))
+        if self.frames == 0 or timestamp_frames != self.frames:
+            raise RuntimeError(
+                f"timestamp count {timestamp_frames} does not match "
+                f"{self.frames} attempted frames"
+            )
+        video = cv2.VideoCapture(str(self.output))
+        try:
+            if not video.isOpened():
+                raise RuntimeError("finalized video cannot be opened")
+            stored_frames = video.get(cv2.CAP_PROP_FRAME_COUNT)
+            if not math.isfinite(stored_frames) or stored_frames != self.frames:
+                raise RuntimeError(
+                    f"video contains {stored_frames} frames; "
+                    f"expected {self.frames}"
+                )
+            ok, frame = video.read()
+            if not ok or frame is None:
+                raise RuntimeError("first video frame cannot be decoded")
+            if self.frames > 1:
+                if not video.set(cv2.CAP_PROP_POS_FRAMES, self.frames - 1):
+                    raise RuntimeError("last video frame cannot be located")
+                ok, frame = video.read()
+                if not ok or frame is None:
+                    raise RuntimeError("last video frame cannot be decoded")
+        finally:
+            video.release()
 
     def snapshot(self) -> tuple[Any, float]:
         """Return one clean camera frame without interrupting recording."""
@@ -375,11 +419,16 @@ class RawRecorder:
             self.error = str(error)
             self.ready.set()
         finally:
-            if writer is not None:
-                writer.release()
-            if csv_file is not None:
-                csv_file.close()
-            capture.release()
+            for name, close in (
+                ("video writer", writer.release if writer is not None else None),
+                ("timestamps", csv_file.close if csv_file is not None else None),
+                ("camera", capture.release),
+            ):
+                if close is not None:
+                    try:
+                        close()
+                    except Exception as error:
+                        self.error = self.error or f"could not close {name}: {error}"
 
 
 def _due_video_frame_times(

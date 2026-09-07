@@ -43,8 +43,12 @@ robot** — nothing here touches the robot until the guarded runner invokes
 
 ## Safety (non-negotiable, same rules as everywhere)
 
-- Standard protocols assume: **robot on a stand, feet OFF the ground,
-  with live camera and a guarded runner watching.** The runner
+- The older `*_air_*` protocols assume: **robot suspended, feet OFF the
+  ground, with live camera and a guarded runner watching.** The reviewed
+  `l2_belly_rest_*` and `l5_belly_rest_*` protocols are the low-effort
+  exception: leave the chassis resting normally on its belly and only clear
+  the named moving leg's swept area. They do not require a chassis stand or
+  every stationary foot to be airborne. The runner
   positions the legs itself: a slow (12 °/s), eased, trip-protected
   glide to the protocol's `home_deg` (bench zero for the standard
   batteries) or a champion trajectory's first row, verified to 3°
@@ -53,9 +57,11 @@ robot** — nothing here touches the robot until the guarded runner invokes
   if `set_zero` is stale/wrong, the glide's tracking/current trips are
   the backstop (they limp and say so), but confirm zero after any
   hand-posing or reassembly.
-- `run_hw.py` is a dry-run unless `--go`. Whole-body `traj` protocols
-  additionally need `--force`; a traj that is discontinuous with the
-  pose mid-protocol trips instead of yanking joints.
+- `run_hw.py` is a dry-run unless `--go`. Physical runs require
+  `--capture-vision`: three distinct frames admit motion, and a stream that
+  stops advancing remotely stops the run. Whole-body `traj` protocols
+  additionally need `--force`; a traj that is discontinuous with the pose
+  mid-protocol trips instead of yanking joints.
 - The runner uses soft torque, per-joint current/temp trips, and a
   tracking-error trip (unexpected force = limp + descriptive error,
   suggesting a `set_zero` re-check). It always limps at the end.
@@ -74,11 +80,22 @@ uv run python -m sysid.protocols build
 uv run python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
     --servo-params loaded --plot
 
-# Phase 1+2 — guarded bench session (robot suspended):
-uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
-uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json --go
+# Low-effort L2/L5 repeatability check (normal belly rest; no stand):
+uv run python -m sysid.run_hw \
+  --protocol sysid/protocols/l2_belly_rest_radial_shear_hysteresis_repeat6_v1.json \
+  --capture-vision --go --force
+uv run python -m sysid.run_hw \
+  --protocol sysid/protocols/l5_belly_rest_radial_shear_hysteresis_repeat6_v1.json \
+  --capture-vision --go --force
+
+# Phase 1+2 — older guarded bench battery (robot suspended):
+uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json \
+  --capture-vision --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json \
+  --capture-vision --go
 # Phase 6 — every servo, reduced battery:
-uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json \
+  --capture-vision --go
 
 # First overlay + gap numbers (also covers Phase 2: latency/jitter
 # DISTRIBUTIONS from the per-tick t_send/t_recv and step onsets)
@@ -96,7 +113,7 @@ uv run python -m sysid.fit --csv sysid/datasets/<run>/*.csv \
 # Phase 8 — suspended champion replay (Test A):
 uv run python -m sysid.protocols champion --csv <rl_*.csv or sim eval csv>
 uv run python -m sysid.run_hw --protocol sysid/protocols/champion_*.json \
-    --go --force
+    --capture-vision --go --force
 uv run python -m sysid.report --csv sysid/datasets/champion_*/*.csv \
     --servo-params sim_model_sysid.json
 ```

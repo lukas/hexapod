@@ -1,5 +1,75 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~06:3x — OWNERSHIP: rung-4 MJX reverse-handoff wiring CLAIMED (operator focus note 20260907T055148Z, this cycle)
+
+This cycle owns the explicitly-deferred MJX `_choreography()` wiring for
+`goal.walk_reverse_handoff_gate/_s` (both `mjx_vec_env.py` and
+`mjx_sharded_vec_env.py`), per the operator-lane focus note. Scope:
+per-env teacher command batches via `st.tick(...)` after the settle,
+real momentum/contact preserved, random per-env teacher phase, flag-OFF
+bit-exact, phase/contact rewards untouched; then CPU/MJX parity +
+boundary banks; then ONE bounded rung-4 mechanism-health canary
+(<=2M, existing planned seed, canonical launcher). Throughput answer to
+the ~06:1x cost concern (below): the TRAINING path is
+`MjxShardedVecEnv` (`host_workers: 24` per guardrails), where the
+open-loop teacher plans are precomputed IN THE WORKERS (parallel, one
+round-trip) — measured numbers in the completion entry below, no
+`TripodGait` numerics port required for a first canary. Do not
+duplicate; result entry will land in this file this cycle.
+
+## 09-07 ~06:1x (refill; 9/11 GPU pods free, walkcurr's crutch-isolation set is the only live GPU work, its own gate still computing) — scoped the STILL-DEFERRED MJX-vec-env wiring for rung 4's reverse-handoff BEFORE writing it: naive per-env TripodGait looping is too slow for real training throughput, not just "untested"
+
+The previous entry (below) left the MJX-vec-env wiring for
+`_apply_walk_reverse_handoff()` as "concrete remaining work, not a vague
+unscoped gap" — read that as an invitation to just port the CPU loop
+(per-env `env._make_walk_bc_gait()` + `gait.desired_deg(t)` inside the
+existing per-env `for i, env in enumerate(self.envs)` pattern
+`_choreography()` already uses for placement) into
+`mjx_vec_env.py`. Measured the actual cost FIRST, zero code changed:
+`TripodGait.desired_deg(t)` (pure Python, 6-leg loop + per-leg IK) costs
+**~49us/call** (2000-call microbenchmark, this cycle). A real rung-4
+canary at the fleet's standard `--n-envs 4096` needs this called once
+per env per handoff tick; a 2-3s handoff at 100Hz is 200-300 ticks, so
+one full-batch choreography event (a real reset OR any `_refill_pools()`
+call once a single env's pool empties) would cost **~50-75s of blocking
+Python wall-clock** if implemented as a naive per-env loop — and
+`_refill_pools()` fires routinely during training (any env's pool
+running dry), not just at the one-time initial reset. This would very
+likely dominate or badly regress training throughput on the exact
+hot-path the whole MJX rewrite exists to keep fast (the exact "untested
+change to the hot-path batched training code" risk the prior entry
+flagged, now with a concrete number instead of a hunch). **Sharpens the
+remaining work**: this is not "wire the existing scalar loop into the
+batched choreography" (that would ship a mechanism that's either too
+slow to run or, if throttled/rate-limited, silently non-representative
+of the doc's own reverse-curriculum semantics every episode). It needs
+a genuinely VECTORIZED batch form of `TripodGait.desired_deg`
+(`_foot_target_in_body`/`_yaw_frame_xy`/`_leg_ik`/`atan2`/`hypot`
+re-expressed over a `(B,)`-shaped phase/velocity array, output
+`(B, 18)` per tick) — a real numerics port, not a wiring task, and one
+that should special-case away (assert-default, matching the existing
+"if _combined and knob!=1.0" branches, all default-1.0/inert for a
+rung-4 launch) the rarely-used yaw-arm-scale/selective-omega-boost/
+amplify-scale knobs rather than vectorizing their branches too, to keep
+the first version tractable. Did NOT attempt this port this cycle (a
+half-finished vectorization is worse than the current honestly-deferred
+state — no code changed, no launch, no snapshot). No GPU/training spend
+(pure Python microbenchmark on the controller pod). Full board
+re-checked fresh: walkcurr's only live GPU work (the crutchoff-{s1,s2}
+40M ACQ continuations + the crutchoff-s0 2M canary gate) is already
+running/computing (verified via `kubectl exec ps` on train-0/train-2 —
+genuine progress, not stalled), joystick/amp/cpg/todaypolicy stay
+DONE/closed, standwalk stays blocked on fresh design thinking. 9/11
+reachable GPU pods are free with nothing else launch-ready on any
+track — this vectorization is the concrete next item for whoever picks
+rung 4 back up, with a real cost number now attached so nobody
+re-discovers "it's slow" the hard way mid-launch.
+
+Evidence: zero-spend microbenchmark (`TripodGait.desired_deg`, this
+cycle, not committed as a script — trivial to reproduce inline), prior
+entry's own wiring description below, `kubectl exec hexapod-mjx-train-
+{0,2} -- ps aux` (live trainer/eval confirmation).
+
 ## 09-07 ~05:5x (refill; walkcurr crutchoff evals landed + verdicted mid-cycle, see that track's own STATUS) — rung 4's own gated prerequisite BUILT + BANKED (no launch yet): a real reverse-curriculum reset, not a pose/observation-only stand-in
 
 Rung 3 closed FULLY this cycle's earlier ~04:3x entry (below); the

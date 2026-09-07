@@ -26,6 +26,7 @@ The campaign's active tracks live in
 | `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |
 | `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, gotchas; § "Operator status page" = dashboard runbook | Every cycle, before running commands |
 | `HYBRID_DEMO.md` | How to compose stand/walk/lower controllers with explicit states and compare transfer-shaped MuJoCo demos | When judging policy+state bundles for robot transfer |
+| `DEPLOYABLE_POLICY_EXPORT.md` | W&B/SB3 checkpoint to portable MLP or persistent dual-GRU JSON; exact obs-75/81 layouts and parity checks | Exporting or reviewing a model for MuJoCo/robot runtime |
 | `HARDWARE.md` | Real-robot evidence, sim2real findings | When a decision hinges on real-world data |
 | `SIM.md` | What the physics sim models, actuator numbers, DR coverage | Before touching sim params/DR or judging sim-vs-real gaps |
 | `REWARD.md` | Every reward term: cfg key, default, what it pays/charges, income-gate design rules | Before adding/changing any reward term |

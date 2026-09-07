@@ -78,9 +78,10 @@ def test_recorder_attaches_without_reading_and_persists_session():
         started = recorder.start(bus, label="floor test", max_hz=50)
         assert started["ok"] and started["active"]
         assert started["adds_bus_reads"] is False
-        assert started["piggyback_snapshots"] is True
+        assert started["piggyback_snapshots"] is False
+        assert started["communication_capture"] is True
         assert bus.reads == 0 and callable(bus.sink)
-        assert bus.sink.wants_snapshot()
+        assert not hasattr(bus.sink, "wants_snapshot")
 
         for sample in range(7):
             assert bus.sink("feedback", _plant_payload(
@@ -125,6 +126,43 @@ def test_high_rate_records_are_capped_but_feedback_is_not():
     assert not recorder.offer("step", {})
     assert recorder.offer("feedback", {})
     assert recorder._rate_limited == 1
+    recorder._active = False
+
+
+def test_raw_bytes_are_uncapped_and_flush_marker_covers_rotated_parts():
+    with tempfile.TemporaryDirectory() as temp:
+        recorder = TelemetryRecorder(Path(temp), segment_bytes=1024)
+        bus = FakeBus()
+        recorder.start(bus, max_hz=1)
+        chunks = [bytes(range(256)), b"\x00\xffERR\r\n"] * 10
+        for chunk in chunks:
+            assert bus.sink("serial_rx", {"data": chunk})
+        mark = recorder.mark("test-end")
+        deadline = time.monotonic() + 2
+        while recorder.status()["flushed_marker"] != mark["marker_id"]:
+            assert time.monotonic() < deadline, recorder.status()
+            time.sleep(0.005)
+        status = recorder.status()
+        assert status["active"] and status["rate_limited"] == 0
+        assert len(status["paths"]) > 1
+        records = [json.loads(line) for path in status["paths"]
+                   for line in Path(path).read_text().splitlines()]
+        wire = [r for r in records if r["record_type"] == "serial_rx"]
+        assert [bytes.fromhex(r["data_hex"]) for r in wire] == chunks
+        assert all(r["byte_count"] == len(chunk) for r, chunk in zip(wire, chunks))
+        assert all("mono_s" in r and "time_unix_ns" in r for r in wire)
+        assert records[-1]["marker_id"] == mark["marker_id"]
+        assert recorder.stop()["communication_dropped"] == 0
+
+
+def test_raw_capture_losses_are_counted_separately():
+    recorder = TelemetryRecorder()
+    recorder._active = True
+    recorder._queue = queue.Queue(maxsize=1)
+    assert recorder.offer("serial_tx", {"data": b"x"})
+    assert not recorder.offer("serial_rx", {"data": b"y"})
+    assert recorder.status()["communication_dropped"] == 1
+    assert recorder.status()["queue_dropped"] == 1
     recorder._active = False
 
 

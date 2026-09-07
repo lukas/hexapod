@@ -1,0 +1,18 @@
+{
+  "rl-campaign-outcome.md": {
+    "source": "/Users/lukas/Library/Application Support/Hexapod Lab/data/campaigns/robotwalk-smooth-20260906/final-outcome.md",
+    "sha256": "633bdfb04562116771c6cd89473cf6a0304ad0a79d7158bdfb5b8fcd0229e455"
+  },
+  "programmed-alpha-speed-findings.md": {
+    "source": "/Users/lukas/Library/Application Support/Hexapod Lab/data/campaigns/programmed-gait-shake-20260906/241e-physical-alpha-speed-findings.md",
+    "sha256": "825a21ff210c83a800559451a346679f1dadef5fa82868ec48b1de4c5a973da7"
+  },
+  "alpha-health-cadence-audit.json": {
+    "source": "/Users/lukas/Library/Application Support/Hexapod Lab/data/experiments/241e625b2c354f3db2a86b3c046b5dbd/alpha_health_cadence_audit.json",
+    "sha256": "35499e32877080e2e2daa58ca435c1bbd6b2a8c2b06b703ba4316e2fd14ac20b"
+  },
+  "host-command-gap-detail.json": {
+    "source": "/tmp/hexapod-241e-host-command-gap-detail.json",
+    "sha256": "ac729d74b5e8aebbf1db7a8a24190bd9965919e8727b7a305a6844b7dc23de9a"
+  }
+}

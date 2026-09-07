@@ -1,0 +1,94 @@
+{
+  "cameras": [
+    {
+      "id": "robot-1",
+      "name": "Robot camera 1",
+      "device_name": "Arducam OV9281 USB Camera",
+      "device_uid": "0x41100000c456366",
+      "available": true,
+      "fresh": true,
+      "age_seconds": 12.531,
+      "status": "streaming",
+      "frame_sequence": 68,
+      "error": null,
+      "permission_status": "authorized",
+      "width": 1280,
+      "height": 800,
+      "frame_url": "/api/robot-status/cameras/robot-1/frame"
+    },
+    {
+      "id": "robot-2",
+      "name": "Robot camera 2",
+      "device_name": "Arducam OV9281 USB Camera",
+      "device_uid": "0x41200000c456366",
+      "available": true,
+      "fresh": true,
+      "age_seconds": 2.728,
+      "status": "streaming",
+      "frame_sequence": 60,
+      "error": null,
+      "permission_status": "authorized",
+      "width": 1280,
+      "height": 800,
+      "frame_url": "/api/robot-status/cameras/robot-2/frame"
+    },
+    {
+      "id": "robot-3",
+      "name": "Robot camera 3",
+      "device_name": "Arducam OV9281 USB Camera",
+      "device_uid": "0x41300000c456366",
+      "available": true,
+      "fresh": true,
+      "age_seconds": 4.949,
+      "status": "streaming",
+      "frame_sequence": 56,
+      "error": null,
+      "permission_status": "authorized",
+      "width": 1280,
+      "height": 800,
+      "frame_url": "/api/robot-status/cameras/robot-3/frame"
+    },
+    {
+      "id": "robot-4",
+      "name": "Robot camera 4",
+      "device_name": "Arducam OV9281 USB Camera",
+      "device_uid": "0x41400000c456366",
+      "available": true,
+      "fresh": true,
+      "age_seconds": 1.228,
+      "status": "streaming",
+      "frame_sequence": 66,
+      "error": null,
+      "permission_status": "authorized",
+      "width": 1280,
+      "height": 800,
+      "frame_url": "/api/robot-status/cameras/robot-4/frame"
+    }
+  ],
+  "frames": [
+    {
+      "id": "robot-1",
+      "sequence": 68,
+      "jpeg_bytes": 102161,
+      "path": "/tmp/robotlab-recovered-robot-1.jpg"
+    },
+    {
+      "id": "robot-2",
+      "sequence": 60,
+      "jpeg_bytes": 25812,
+      "path": "/tmp/robotlab-recovered-robot-2.jpg"
+    },
+    {
+      "id": "robot-3",
+      "sequence": 56,
+      "jpeg_bytes": 158852,
+      "path": "/tmp/robotlab-recovered-robot-3.jpg"
+    },
+    {
+      "id": "robot-4",
+      "sequence": 66,
+      "jpeg_bytes": 195244,
+      "path": "/tmp/robotlab-recovered-robot-4.jpg"
+    }
+  ]
+}

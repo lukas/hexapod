@@ -1,0 +1,13 @@
+{
+  "public_page": "verified",
+  "public_camera_ids": [
+    "robot-1",
+    "robot-2",
+    "robot-3",
+    "robot-4",
+    "iphone"
+  ],
+  "robot_captures": "paused for active engineering owner, zero device opens",
+  "robot_armed": false,
+  "robot_busy": false
+}

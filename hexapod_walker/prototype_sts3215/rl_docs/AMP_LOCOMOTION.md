@@ -23,15 +23,16 @@ The brief below is binding, with exactly these adaptations:
 - **MuJoCo cross-engine role (§9.2):** the validator is the plain
   CPU MuJoCo eval harness (`rl_move/sim/eval_checkpoint.py` path),
   which is a genuinely independent contact/integration path from MJX.
-- **Milestone M6 (hardware)** is operator-owned: the track is DONE at
-  M5 (MuJoCo transfer). No physical-robot action without an explicit
-  operator ask.
+- **Milestone M6 (hardware)** is delegated to Robot Lab's serialized guarded
+  runner: the cloud RL track is DONE at M5 (MuJoCo transfer) and never controls
+  the physical robot directly. Robot Lab uses standing campaign authority,
+  live camera, fresh telemetry, and a remote abort path.
 - **Status output (§18):** write to `rl_docs/tracks/amp/STATUS.md`
   (this repo's track-doc path) instead of
   `rl_docs/tracks/amp_locomotion/STATUS.md`.
 - **Do not pause on operator input.** Design questions get
-  assume-and-go with a recorded assumption; only physical-robot access
-  and spend approvals may wait.
+  assume-and-go with a recorded assumption; only irreducible hands-on work
+  and spend approvals may wait. Guarded hardware work is handed to Robot Lab.
 
 ## Directive to Cursor
 

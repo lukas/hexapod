@@ -106,3 +106,86 @@ def test_set_nominal_rereads_cfg_schedule():
     cfg["safety"]["entry_slew_ramp_s"] = 0.0
     deltas3 = _run_deltas(layer, 3)
     assert all(abs(d - 1.5) < 1e-9 for d in deltas3)
+
+
+def test_health_sample_rate_sets_physical_current_dwell():
+    layer = SafetyLayer({
+        "control": {"hz": 100},
+        "safety": {"over_current_trip_s": 2.0},
+    })
+
+    ticks = layer.set_health_sample_hz(10.0)
+
+    assert ticks == 20
+    assert layer._over_current_trip_ticks == 20  # noqa: SLF001
+
+
+def test_legacy_safe_current_clears_prior_streak():
+    q = np.zeros(N_JOINTS)
+    layer = SafetyLayer(_cfg(over_current_trip_s=0.12,
+                             max_current_a=2.5))
+    layer.set_nominal(q)
+
+    high = _state(q)
+    high.servo_current = np.full(N_JOINTS, 4.0)
+    safe = _state(q)
+    safe.servo_current = np.full(N_JOINTS, 0.4)
+
+    _q, status = layer.filter(q, high)
+    assert not status.terminate
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+    _q, status = layer.filter(q, safe)
+    assert not status.terminate
+    assert layer._over_current_ticks == 0  # noqa: SLF001
+    _q, status = layer.filter(q, high)
+    assert not status.terminate
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+
+
+def test_explicit_partial_safe_current_does_not_clear_prior_streak():
+    q = np.zeros(N_JOINTS)
+    layer = SafetyLayer(_cfg(over_current_trip_s=1.0,
+                             max_current_a=2.5))
+    layer.set_nominal(q)
+
+    def state(current: float, seq: int, ids: list[int]):
+        sample = _state(q)
+        sample.servo_current = np.full(N_JOINTS, current)
+        sample.timing = {
+            "feedback_sample_seq": seq,
+            "feedback_complete": len(ids) == N_JOINTS,
+            "feedback_valid_ids": ids,
+        }
+        return sample
+
+    all_ids = list(range(N_JOINTS))
+    partial_ids = list(range(N_JOINTS - 1))
+    layer.filter(q, state(4.0, 1, all_ids))
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+    layer.filter(q, state(0.4, 2, partial_ids))
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+    layer.filter(q, state(0.4, 3, all_ids))
+    assert layer._over_current_ticks == 0  # noqa: SLF001
+
+
+def test_boolean_only_explicit_partial_does_not_clear_prior_streak():
+    q = np.zeros(N_JOINTS)
+    layer = SafetyLayer(_cfg(over_current_trip_s=1.0,
+                             max_current_a=2.5))
+    layer.set_nominal(q)
+
+    high = _state(q)
+    high.servo_current = np.full(N_JOINTS, 4.0)
+    layer.filter(q, high)
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+
+    partial = _state(q)
+    partial.servo_current = np.full(N_JOINTS, 0.4)
+    partial.timing = {
+        "feedback_sample_fresh": True,
+        "feedback_complete": False,
+    }
+    layer.filter(q, partial)
+
+    assert layer._over_current_ticks == 1  # noqa: SLF001
+    assert layer._incomplete_feedback_ticks == 1  # noqa: SLF001

@@ -1,0 +1,20 @@
+{
+  "python_tests_passed": 136,
+  "dom_tests_passed": 20,
+  "native_probe": "Four device IDs produced distinct fresh frames concurrently at320x240. Larger simultaneous captures saturated shared USB; deployed implementation uses serialized full-resolution snapshots. Final native rotation validation awaits active recording completion.",
+  "covered_camera": "0x41200000c456366",
+  "device_uids": [
+    "0x41100000c456366",
+    "0x41200000c456366",
+    "0x41300000c456366",
+    "0x41400000c456366"
+  ],
+  "source_hashes": {
+    "config.py": "9374f4f9f6818e244cbf184f0760f194c02e4e3f02b92036dc5453acf23ac46b",
+    "main.py": "54a60ef804c8685d4b208fc61bd106813194a9683a2d1947f9c2bce81ad04205",
+    "robot_status.py": "009c2c65fda2340ee0f4d1e63b31bc45a0650ad749fab5323ba354f7852afb31",
+    "robot_status_page.py": "ac8690616bbf310aa62dc617f4d6085c12120a4b21dd3d2e709d66b23be99857",
+    "observation_cameras.py": "078b0399fc1cde16e47bb609053fdae278d37e6f5b89c3a65ac55b7ca252f9e6"
+  },
+  "live_result": "Four configured robot cameras remain unavailable because macOS explicitly denies capture to the background service. Permission diagnostic and explanatory page notice are deployed and publicly verified. User asked to identify the exact Camera settings app entry; no privacy changes made."
+}

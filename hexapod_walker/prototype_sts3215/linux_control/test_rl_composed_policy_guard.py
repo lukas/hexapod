@@ -52,6 +52,11 @@ class FakeRlApi(RlApi):
             return Path("/tmp/fake_explicit_policy.json")
         return None
 
+    def _bus_admission_error(self) -> dict | None:
+        # Production BenchAPI supplies this through CoreApi.  These tests use
+        # the RL mixin alone and exercise refusals before any bus transaction.
+        return None
+
 
 def test_default_composed_policy_refuses_learned_rise():
     out = FakeRlApi().rl_policy_move(mode="stand", learned=True)

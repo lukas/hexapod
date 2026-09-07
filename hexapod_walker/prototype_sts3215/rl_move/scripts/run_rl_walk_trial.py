@@ -12,14 +12,18 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
+import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 import cv2
+import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -27,7 +31,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
-from rl_move.scripts.run_scripted_gait_suite import RawRecorder, _request
+from rl_move.deployed_policy import WALK_OBS_DIMS, WALK_PHASE_OBS_DIMS
+from rl_move.np_policy import ARCH_DUAL_GRU, MODE_ONEHOT_ORDER
 
 
 DIRECTIONS = {
@@ -37,6 +42,196 @@ DIRECTIONS = {
     "right": (0.0, -1.0),
 }
 COURSE = ("forward", "left", "backward", "right")
+DRIVE_STARTUP_ALLOWANCE_S = 3.0
+JOYSTICK_RESPONSE_SEQUENCE = (
+    ("forward", 3.0, 0.08, 0.0, 0.0),
+    ("release_after_forward", 2.0, 0.0, 0.0, 0.0),
+    ("reverse", 3.0, -0.08, 0.0, 0.0),
+    ("release_after_reverse", 2.0, 0.0, 0.0, 0.0),
+    ("gentle_left_arc", 3.0, 0.08, 0.0, 0.2),
+    ("release_after_left_arc", 2.0, 0.0, 0.0, 0.0),
+    ("gentle_right_arc", 3.0, 0.08, 0.0, -0.2),
+    ("release_after_right_arc", 2.0, 0.0, 0.0, 0.0),
+)
+
+
+def _request(
+    base: str,
+    path: str,
+    *,
+    json_body: dict[str, Any] | None = None,
+    text_body: str | None = None,
+    timeout: float = 5.0,
+) -> Any:
+    """Issue one bounded robot HTTP request without shell interpolation."""
+    data = None
+    headers: dict[str, str] = {}
+    method = "GET"
+    if json_body is not None:
+        data = json.dumps(json_body).encode()
+        headers["Content-Type"] = "application/json"
+        method = "POST"
+    elif text_body is not None:
+        data = text_body.encode()
+        headers["Content-Type"] = "text/plain; charset=utf-8"
+        method = "POST"
+    request = urllib.request.Request(
+        base.rstrip("/") + path, data=data, headers=headers, method=method,
+    )
+    # This endpoint is always the robot's direct LAN address.  Inherited
+    # HTTP(S)_PROXY settings can otherwise route RFC1918 traffic off-host and
+    # produce a misleading "No route to host" before motion.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            raw = response.read()
+            content_type = response.headers.get("Content-Type", "")
+    except urllib.error.HTTPError as error:
+        raw = error.read()
+        raise RuntimeError(
+            f"{method} {path} -> HTTP {error.code}: "
+            f"{raw.decode('utf-8', 'replace')[:500]}"
+        ) from error
+    if "json" in content_type:
+        return json.loads(raw)
+    text = raw.decode("utf-8", "replace").strip()
+    try:
+        return json.loads(text)
+    except (ValueError, TypeError):
+        return text
+
+
+class HttpFrameRecorder:
+    """Record the already-running local Vision JPEG stream.
+
+    This is the fallback for app/uv processes that cannot import PyObjC's
+    native AVFoundation bindings. It intentionally has the same small
+    interface as ``RawRecorder`` so motion still fails closed on a stale or
+    unavailable camera.
+    """
+
+    OUTPUT_FPS = 10.0
+    MAX_CAPTURE_AGE_S = 2.0
+
+    def __init__(self, output: Path, timestamps: Path, frame_url: str) -> None:
+        self.output = output
+        self.timestamps = timestamps
+        self.frame_url = frame_url
+        self.stop_event = threading.Event()
+        self.ready = threading.Event()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.error: str | None = None
+        self.frames = 0
+        self.latest_lock = threading.Lock()
+        self.latest_frame: Any | None = None
+        self.latest_frame_unix_s: float | None = None
+
+    def start(self) -> None:
+        self.thread.start()
+        if not self.ready.wait(10.0):
+            raise RuntimeError("HTTP camera recorder did not become ready")
+        if self.error:
+            raise RuntimeError(self.error)
+
+    def stop(self) -> None:
+        self.stop_event.set()
+        self.thread.join(timeout=8.0)
+
+    def snapshot(self) -> tuple[Any, float]:
+        with self.latest_lock:
+            if self.latest_frame is None or self.latest_frame_unix_s is None:
+                raise RuntimeError("camera has not produced a frame")
+            return self.latest_frame.copy(), self.latest_frame_unix_s
+
+    def assert_live(self, max_age_s: float = 2.0) -> None:
+        if self.error:
+            raise RuntimeError(f"recorder failed: {self.error}")
+        with self.latest_lock:
+            latest_unix_s = self.latest_frame_unix_s
+        if latest_unix_s is None:
+            raise RuntimeError("recorder has not produced its first frame")
+        age_s = time.time() - latest_unix_s
+        if age_s > max_age_s:
+            raise RuntimeError(f"recorder frame is stale by {age_s:.2f} s")
+
+    def _read_frame(self) -> tuple[Any, float]:
+        with urllib.request.urlopen(self.frame_url, timeout=3.0) as response:
+            payload = response.read()
+            raw_capture_time = response.headers.get("X-Capture-Unix-S")
+        try:
+            capture_unix_s = float(raw_capture_time)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                "HTTP camera lacks X-Capture-Unix-S; receipt time cannot "
+                "prove the camera is live") from exc
+        age_s = time.time() - capture_unix_s
+        if (not math.isfinite(capture_unix_s)
+                or not -0.25 <= age_s <= self.MAX_CAPTURE_AGE_S):
+            raise RuntimeError("HTTP camera capture timestamp is stale or invalid")
+        frame = cv2.imdecode(np.frombuffer(payload, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if frame is None:
+            raise RuntimeError("Vision frame endpoint returned an invalid JPEG")
+        return frame, capture_unix_s
+
+    def _run(self) -> None:
+        writer: cv2.VideoWriter | None = None
+        csv_file = None
+        try:
+            frame, frame_unix_s = self._read_frame()
+            height, width = frame.shape[:2]
+            for codec in ("avc1", "mp4v"):
+                candidate = cv2.VideoWriter(
+                    str(self.output), cv2.VideoWriter_fourcc(*codec),
+                    self.OUTPUT_FPS, (width, height),
+                )
+                if candidate.isOpened():
+                    writer = candidate
+                    break
+                candidate.release()
+            if writer is None:
+                raise RuntimeError("could not open an H.264/mp4v video writer")
+            csv_file = self.timestamps.open("w", newline="")
+            rows = csv.writer(csv_file)
+            rows.writerow([
+                "frame", "elapsed_s", "unix_s", "capture_unix_s",
+                "width", "height",
+            ])
+            started_monotonic = time.monotonic()
+            with self.latest_lock:
+                self.latest_frame = frame
+                self.latest_frame_unix_s = frame_unix_s
+            self.ready.set()
+            next_frame = started_monotonic
+            while not self.stop_event.is_set():
+                now = time.monotonic()
+                if now < next_frame:
+                    self.stop_event.wait(next_frame - now)
+                    continue
+                frame, frame_unix_s = self._read_frame()
+                with self.latest_lock:
+                    self.latest_frame = frame
+                    self.latest_frame_unix_s = frame_unix_s
+                writer.write(frame)
+                rows.writerow([
+                    self.frames,
+                    round(time.monotonic() - started_monotonic, 6),
+                    round(time.time(), 6),
+                    round(frame_unix_s, 6),
+                    width,
+                    height,
+                ])
+                self.frames += 1
+                if self.frames % int(self.OUTPUT_FPS) == 0:
+                    csv_file.flush()
+                next_frame += 1.0 / self.OUTPUT_FPS
+        except Exception as error:
+            self.error = str(error)
+            self.ready.set()
+        finally:
+            if writer is not None:
+                writer.release()
+            if csv_file is not None:
+                csv_file.close()
 
 
 class ConfirmedHealthTrip(RuntimeError):
@@ -53,11 +248,23 @@ class Trial:
         self.motion_started = False
         self.completed = False
         self.results: list[dict[str, Any]] = []
-        self.recorder = RawRecorder(
-            output_dir / "camera_raw.mp4",
-            output_dir / "camera_timestamps.csv",
-            args.camera_index,
-        )
+        self.communication_capture: dict[str, Any] = {
+            "artifacts": [], "errors": [], "markers": {},
+        }
+        if args.vision_frame_url:
+            self.recorder = HttpFrameRecorder(
+                output_dir / "camera_raw.mp4",
+                output_dir / "camera_timestamps.csv",
+                args.vision_frame_url,
+            )
+        else:
+            from rl_move.scripts.run_scripted_gait_suite import RawRecorder
+
+            self.recorder = RawRecorder(
+                output_dir / "camera_raw.mp4",
+                output_dir / "camera_timestamps.csv",
+                args.camera_index,
+            )
         self.events_file = (output_dir / "events.csv").open("w", newline="")
         self.events = csv.writer(self.events_file)
         self.events.writerow(["unix_s", "elapsed_s", "phase", "event", "detail"])
@@ -88,6 +295,84 @@ class Trial:
             self.base, path, json_body=body,
             timeout=8.0 if body is not None else 5.0,
         )
+
+    def communication_mark(self, label: str) -> dict[str, Any]:
+        """Annotate the existing passive recorder without touching the bus."""
+        try:
+            reply = self.request("/api/telemetry", {
+                "action": "mark", "label": label,
+                "data": {"trial": self.output_dir.name, "phase": self.phase},
+            })
+            if not isinstance(reply, dict) or not reply.get("ok"):
+                raise RuntimeError(f"marker refused: {reply}")
+            self.communication_capture["markers"][label] = reply
+            return reply
+        except Exception as error:
+            self.communication_capture["errors"].append(f"{label}: {error}")
+            return {}
+
+    def start_communication_capture(self) -> None:
+        """Reuse the service recording, including setup and later recovery."""
+        try:
+            state = self.request("/api/telemetry")
+            self.communication_capture["start"] = state
+            if not isinstance(state, dict) or not state.get("communication_capture"):
+                raise RuntimeError("robot runtime does not capture raw communication")
+            if not state.get("active"):
+                state = self.request("/api/telemetry", {
+                    "action": "start", "label": self.output_dir.name,
+                })
+                self.communication_capture["start"] = state
+            if not isinstance(state, dict) or not state.get("active"):
+                raise RuntimeError(f"recording unavailable: {state}")
+            self.communication_mark("run_begin")
+        except Exception as error:
+            self.communication_capture["errors"].append(str(error))
+        self.event("communication_capture_started", self.communication_capture)
+
+    def collect_communication_capture(self) -> None:
+        """Copy evidence after motion; leave service-wide recording active."""
+        marker = self.communication_mark("run_end")
+        try:
+            state = self.request("/api/telemetry")
+            marker_id = marker.get("marker_id")
+            deadline = time.monotonic() + 2.0
+            while (marker_id is not None
+                   and state.get("flushed_marker") != marker_id
+                   and time.monotonic() < deadline):
+                time.sleep(0.05)
+                state = self.request("/api/telemetry")
+            self.communication_capture["end"] = state
+            self.communication_capture["end_marker_flushed"] = bool(
+                marker_id is not None
+                and state.get("flushed_marker") == marker_id)
+            if not self.communication_capture["end_marker_flushed"]:
+                self.communication_capture["errors"].append(
+                    "end marker was not confirmed flushed; capture may be incomplete")
+            # Keep the part active at run start and any parts created during
+            # the run, preserving the shared service session.
+            start = self.communication_capture.get("start") or {}
+            paths = [start["path"]] if start.get("path") else []
+            earlier_parts = set(start.get("paths") or []) - set(paths)
+            paths.extend(path for path in state.get("paths", [])
+                         if path not in earlier_parts)
+            if state.get("path"):
+                paths.append(state["path"])
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            for name in dict.fromkeys(Path(path).name for path in paths):
+                try:
+                    url = f"{self.base}/api/logs/{urllib.parse.quote(name)}"
+                    with opener.open(url, timeout=15.0) as response:
+                        destination = self.output_dir / f"robot_{name}"
+                        with destination.open("wb") as output:
+                            while chunk := response.read(1024 * 1024):
+                                output.write(chunk)
+                    self.communication_capture["artifacts"].append(destination.name)
+                except Exception as error:
+                    self.communication_capture["errors"].append(f"{name}: {error}")
+        except Exception as error:
+            self.communication_capture["errors"].append(f"collect: {error}")
+        self.event("communication_capture_collected", self.communication_capture)
 
     def snapshot(self, label: str) -> Path:
         frame, frame_unix_s = self.recorder.snapshot()
@@ -251,7 +536,10 @@ class Trial:
         for item in selected:
             name = str(item["name"])
             url = f"{self.base}/api/logs/{urllib.parse.quote(name)}"
-            with urllib.request.urlopen(url, timeout=15.0) as response:
+            opener = urllib.request.build_opener(
+                urllib.request.ProxyHandler({})
+            )
+            with opener.open(url, timeout=15.0) as response:
                 payload = response.read()
             destination = self.output_dir / f"robot_{name}"
             destination.write_bytes(payload)
@@ -276,7 +564,8 @@ class Trial:
                 f"joint_contract={walk.get('joint_contract')!r}, expected "
                 f"{JOINT_CONTRACT!r}"
             )
-        if walk.get("obs_dim") not in (72, 74, 93):
+        obs_dim = walk.get("obs_dim")
+        if obs_dim not in WALK_OBS_DIMS:
             problems.append(f"unsupported walk obs_dim={walk.get('obs_dim')!r}")
         try:
             training_hz = float(walk["training_hz"])
@@ -296,8 +585,26 @@ class Trial:
                     f"requested {self.args.speed_m_s} m/s is outside trained "
                     f"band [{speed_min}, {speed_max}]"
                 )
-        if walk.get("obs_dim") in (74, 93) and not walk.get("phase_hz"):
-            problems.append("phase-clock policy has no phase_hz")
+        if obs_dim in WALK_PHASE_OBS_DIMS:
+            try:
+                phase_hz = float(walk["phase_hz"])
+            except (KeyError, TypeError, ValueError):
+                problems.append("phase-clock policy has no valid phase_hz")
+            else:
+                if not math.isfinite(phase_hz) or phase_hz <= 0.0:
+                    problems.append("phase-clock policy phase_hz is not positive")
+        if obs_dim in (75, 81):
+            if walk.get("walk_yaw_cmd") is not True:
+                problems.append(f"obs-{obs_dim} policy has no yaw-command stamp")
+            if not isinstance(walk.get("walk_phase_run_on_yaw"), bool):
+                problems.append(
+                    f"obs-{obs_dim} policy has no explicit yaw-clock stamp")
+        if obs_dim == 81:
+            if walk.get("architecture") != ARCH_DUAL_GRU:
+                problems.append("obs-81 policy is not a dual_gru export")
+            if list(walk.get("mode_onehot_order") or []) != list(
+                    MODE_ONEHOT_ORDER):
+                problems.append("obs-81 policy has the wrong mode-onehot order")
         self.event("walk_policy_contract", {"walk": walk, "problems": problems})
         if problems:
             raise RuntimeError("walk policy contract refused: " + "; ".join(problems))
@@ -359,7 +666,13 @@ class Trial:
                 if not result.get("ok"):
                     raise RuntimeError(f"tuck recovery failed: {result}")
                 self.snapshot("after_tuck_recovery")
-            reply = self.request("/api/rl/stand", {})
+            stand_body: dict[str, Any] = {}
+            if self.args.learned_rise:
+                stand_body = {
+                    "learned": True,
+                    "tilt_trip_deg": self.args.learned_rise_tilt_trip_deg,
+                }
+            reply = self.request("/api/rl/stand", stand_body)
             self.event("stand_start", reply)
             if not isinstance(reply, dict) or not reply.get("ok"):
                 raise RuntimeError(f"stand refused: {reply}")
@@ -387,6 +700,10 @@ class Trial:
                     })
                 else:
                     raise RuntimeError(f"stand failed: {result}")
+            if self.args.learned_rise and result.get("stood") is not True:
+                raise RuntimeError(
+                    f"learned rise did not finish standing: {result}"
+                )
         preflight = self.request("/api/rl/preflight?mode=walk")
         self.event("walk_preflight", preflight)
         if not isinstance(preflight, dict) or not preflight.get("ok"):
@@ -436,23 +753,57 @@ class Trial:
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
         samples = 0
+        last_live_t_s: float | None = None
         stop: Any = None
         try:
-            deadline = time.monotonic() + self.args.duration_s
+            deadline = (
+                time.monotonic()
+                + self.args.duration_s
+                + DRIVE_STARTUP_ALLOWANCE_S
+            )
             self.event("walk_request", {
                 "vx_m_s": vx, "vy_m_s": vy,
                 "duration_s": self.args.duration_s,
                 "yaw_command": 0.0, "transport": "drive",
             })
+            reached_active_duration = False
             while time.monotonic() < deadline:
                 response = self.request("/api/rl/drive/cmd", {
                     "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
                 })
                 if not isinstance(response, dict) or not response.get("ok"):
                     raise RuntimeError(f"drive command refused: {response}")
-                self.sample()
+                live = response.get("live") or {}
+                try:
+                    candidate_t_s = float(live.get("t_s"))
+                except (TypeError, ValueError):
+                    candidate_t_s = math.nan
+                if math.isfinite(candidate_t_s):
+                    last_live_t_s = candidate_t_s
+                # The robot records every control tick already.  Keep this
+                # heartbeat lightweight instead of competing for the UART
+                # with a redundant /api/feedback transaction during motion.
+                self.recorder.assert_live()
                 samples += 1
+                if (
+                    last_live_t_s is not None
+                    and last_live_t_s >= self.args.duration_s
+                ):
+                    reached_active_duration = True
+                    break
                 time.sleep(0.05)
+            if not reached_active_duration:
+                shown_t_s = (
+                    "unavailable"
+                    if last_live_t_s is None
+                    else f"{last_live_t_s:.3f}s"
+                )
+                raise RuntimeError(
+                    f"drive {name} did not reach {self.args.duration_s:.1f}s "
+                    f"active within "
+                    f"{self.args.duration_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
+                    f"wall time (last live.t_s={shown_t_s})"
+                )
         finally:
             stop = self.request("/api/rl/drive/stop", {})
             self.event("drive_stop", stop)
@@ -463,6 +814,7 @@ class Trial:
             "transport": "drive_100hz_policy_50hz_bus",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
+            "command_active_s": last_live_t_s,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
@@ -491,17 +843,56 @@ class Trial:
                     "name": name, "vx_m_s": vx, "vy_m_s": vy,
                     "seconds": self.args.course_segment_s, "wz": 0.0,
                 })
-                deadline = time.monotonic() + self.args.course_segment_s
+                deadline = (
+                    time.monotonic()
+                    + self.args.course_segment_s
+                    + DRIVE_STARTUP_ALLOWANCE_S
+                )
                 metrics: list[dict[str, Any]] = []
+                segment_start_t_s: float | None = None
+                segment_end_t_s: float | None = None
+                reached_active_duration = False
                 while time.monotonic() < deadline:
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")
-                    metrics.append(self.sample())
+                    self.recorder.assert_live()
+                    live = response.get("live") or {}
+                    metrics.append(live)
+                    try:
+                        candidate_t_s = float(live.get("t_s"))
+                    except (TypeError, ValueError):
+                        candidate_t_s = math.nan
+                    if math.isfinite(candidate_t_s):
+                        if segment_start_t_s is None:
+                            segment_start_t_s = candidate_t_s
+                        segment_end_t_s = candidate_t_s
+                        if (
+                            segment_end_t_s - segment_start_t_s
+                            >= self.args.course_segment_s
+                        ):
+                            reached_active_duration = True
+                            break
                     time.sleep(0.05)
-                segment_results.append({"name": name, "samples": len(metrics)})
+                if not reached_active_duration:
+                    active_s = (
+                        None
+                        if segment_start_t_s is None or segment_end_t_s is None
+                        else segment_end_t_s - segment_start_t_s
+                    )
+                    raise RuntimeError(
+                        f"course segment {name} did not reach "
+                        f"{self.args.course_segment_s:.1f}s active within "
+                        f"{self.args.course_segment_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
+                        f"wall time (active={active_s!r})"
+                    )
+                segment_results.append({
+                    "name": name,
+                    "samples": len(metrics),
+                    "active_s": segment_end_t_s - segment_start_t_s,
+                })
         finally:
             stop = self.request("/api/rl/drive/stop", {})
             self.event("course_stop", stop)
@@ -514,6 +905,129 @@ class Trial:
         self.snapshot("after_course")
         if not result.get("ok"):
             raise RuntimeError(f"direction course failed: {result}")
+        self.three_fresh_health_samples(require_armed=True)
+
+    def joystick_response(self) -> None:
+        """Run the fixed 20 s joystick-response panel in one drive session."""
+        self.phase = "joystick_response"
+        started_unix_s = time.time()
+        command_path = self.output_dir / "joystick_commands.csv"
+        command_file = command_path.open("w", newline="")
+        commands = csv.writer(command_file)
+        commands.writerow([
+            "unix_s", "elapsed_s", "phase", "phase_elapsed_s",
+            "vx_cmd", "vy_cmd", "wz_cmd", "model", "vx_ref",
+            "vy_ref", "wz_ref", "roll_deg", "pitch_deg",
+            "max_current_a", "learned_policy_active", "walk_has_engaged",
+            "stopping", "live_t_s",
+        ])
+        reply = self.request("/api/rl/drive/start", {
+            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
+        })
+        self.event("joystick_response_start", reply)
+        if not isinstance(reply, dict) or not reply.get("ok"):
+            command_file.close()
+            raise RuntimeError(f"drive start refused: {reply}")
+
+        segment_results: list[dict[str, Any]] = []
+        stop: Any = None
+        try:
+            for name, duration_s, vx, vy, wz in JOYSTICK_RESPONSE_SEQUENCE:
+                self.phase = name
+                self.event("joystick_phase_start", {
+                    "duration_s": duration_s, "vx": vx, "vy": vy,
+                    "wz": wz,
+                })
+                segment_wall_start = time.monotonic()
+                segment_live_start: float | None = None
+                segment_live_end: float | None = None
+                first_hold_wall_s: float | None = None
+                samples = 0
+                deadline = (
+                    segment_wall_start + duration_s
+                    + (DRIVE_STARTUP_ALLOWANCE_S if not segment_results else 1.0)
+                )
+                while time.monotonic() < deadline:
+                    sent_monotonic = time.monotonic()
+                    response = self.request("/api/rl/drive/cmd", {
+                        "vx": vx, "vy": vy, "wz": wz, "dh": 0.0,
+                    })
+                    if not isinstance(response, dict) or not response.get("ok"):
+                        raise RuntimeError(f"drive command refused: {response}")
+                    self.recorder.assert_live()
+                    live = response.get("live") or {}
+                    try:
+                        live_t_s = float(live.get("t_s"))
+                    except (TypeError, ValueError):
+                        live_t_s = math.nan
+                    if math.isfinite(live_t_s):
+                        if segment_live_start is None:
+                            segment_live_start = live_t_s
+                        segment_live_end = live_t_s
+                    phase_elapsed_s = (
+                        0.0 if segment_live_start is None or segment_live_end is None
+                        else segment_live_end - segment_live_start
+                    )
+                    commands.writerow([
+                        round(time.time(), 6),
+                        round(time.monotonic() - self.started, 6), name,
+                        round(phase_elapsed_s, 6), vx, vy, wz,
+                        live.get("model"), live.get("vx_ref"),
+                        live.get("vy_ref"), live.get("wz_ref"),
+                        live.get("roll_deg"), live.get("pitch_deg"),
+                        live.get("max_current_a"),
+                        live.get("learned_policy_active"),
+                        live.get("walk_has_engaged"), live.get("stopping"),
+                        live.get("t_s"),
+                    ])
+                    command_file.flush()
+                    samples += 1
+                    if (
+                        vx == 0.0 and vy == 0.0 and wz == 0.0
+                        and first_hold_wall_s is None
+                        and live.get("model") == "hold"
+                    ):
+                        first_hold_wall_s = sent_monotonic - segment_wall_start
+                    if phase_elapsed_s >= duration_s:
+                        break
+                    time.sleep(max(0.0, 0.1 - (time.monotonic() - sent_monotonic)))
+                active_s = (
+                    None if segment_live_start is None or segment_live_end is None
+                    else segment_live_end - segment_live_start
+                )
+                if active_s is None or active_s < duration_s:
+                    raise RuntimeError(
+                        f"joystick phase {name} did not reach {duration_s:.1f}s "
+                        f"active time (active={active_s!r})"
+                    )
+                result = {
+                    "name": name, "duration_s": duration_s,
+                    "active_s": active_s, "samples": samples,
+                    "vx": vx, "vy": vy, "wz": wz,
+                    "neutral_to_hold_observed_s": first_hold_wall_s,
+                }
+                segment_results.append(result)
+                self.event("joystick_phase_complete", result)
+        finally:
+            command_file.close()
+            stop = self.request("/api/rl/drive/stop", {})
+            self.event("joystick_response_stop", stop)
+
+        result = self.wait_job("joystick_response", 25.0)
+        logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+        self.results.append({
+            "phase": "joystick_response",
+            "transport": "drive_100hz_policy_50hz_bus",
+            "heartbeat_hz": 10.0,
+            "segments": segment_results,
+            "stop": stop,
+            "result": result,
+            "robot_logs": logs,
+            "command_log": command_path.name,
+        })
+        self.snapshot("after_joystick_response")
+        if not result.get("ok"):
+            raise RuntimeError(f"joystick response failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
 
     def planned_lower(self) -> None:
@@ -574,22 +1088,32 @@ class Trial:
         self.completed = True
 
     def write_summary(self, *, error: str | None = None) -> None:
-        policy = self.request("/api/rl/policy")
+        policy_error: str | None = None
+        try:
+            policy = self.request("/api/rl/policy")
+        except Exception as issue:
+            policy = None
+            policy_error = str(issue)
         summary = {
             "ok": error is None and self.completed,
             "error": error,
             "policy": policy,
+            "policy_read_error": policy_error,
             "requested_phases": self.args.phases,
             "speed_m_s": self.args.speed_m_s,
             "duration_s": self.args.duration_s,
             "course_segment_s": self.args.course_segment_s,
             "yaw_commands": False,
+            "joystick_response": self.args.joystick_response,
             "results": self.results,
+            "communication_capture": getattr(self, "communication_capture", {}),
             "artifacts": {
                 "video": "camera_raw.mp4",
                 "camera_timestamps": "camera_timestamps.csv",
                 "telemetry": "telemetry.csv",
                 "events": "events.csv",
+                "communication": getattr(self, "communication_capture", {}).get(
+                    "artifacts", []),
             },
         }
         (self.output_dir / "summary.json").write_text(
@@ -601,6 +1125,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--robot-url", default="http://192.168.4.39:8080")
     parser.add_argument("--camera-index", type=int, default=1)
+    parser.add_argument(
+        "--vision-frame-url",
+        help=("record a JPEG stream with a trustworthy X-Capture-Unix-S "
+              "header instead of opening AVFoundation directly; streams "
+              "without capture timestamps are refused before motion"),
+    )
+    parser.add_argument(
+        "--learned-rise", action="store_true",
+        help=("opt in to the explicit stand-role RL rise instead of the "
+              "known STEP rise; requires a runnable stand role"),
+    )
+    parser.add_argument(
+        "--learned-rise-tilt-trip-deg", type=float, default=8.0,
+        help="roll/pitch trip for --learned-rise (robot clamps to 5..30 deg)",
+    )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--phases", nargs="+", choices=(*DIRECTIONS, "course"),
@@ -610,6 +1149,11 @@ def main() -> int:
     parser.add_argument("--duration-s", type=float, default=3.0)
     parser.add_argument("--course-segment-s", type=float, default=2.0)
     parser.add_argument("--temp-trip-c", type=float, default=55.0)
+    parser.add_argument(
+        "--joystick-response", action="store_true",
+        help=("run the fixed forward/neutral/reverse/neutral/left-arc/"
+              "neutral/right-arc/neutral panel in one drive session"),
+    )
     parser.add_argument(
         "--walk-transport", choices=("timed", "drive"), default="timed",
         help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
@@ -648,6 +1192,8 @@ def main() -> int:
         parser.error("--duration-s must be in [3, 20]")
     if not 1.0 <= args.course_segment_s <= 5.0:
         parser.error("--course-segment-s must be in [1, 5]")
+    if not 5.0 <= args.learned_rise_tilt_trip_deg <= 30.0:
+        parser.error("--learned-rise-tilt-trip-deg must be in [5, 30]")
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     output_dir = args.output_dir / f"rl_walk_trial_{stamp}"
@@ -660,16 +1206,23 @@ def main() -> int:
     trial = Trial(args, output_dir)
     error: str | None = None
     try:
+        trial.start_communication_capture()
         trial.recorder.start()
         trial.event("recorder_ready")
+        trial.communication_mark("setup_begin")
         trial.stand_walk_ready()
-        for phase in args.phases:
-            if phase == "course":
-                trial.direction_course()
-            elif args.walk_transport == "drive":
-                trial.drive_leg(phase)
-            else:
-                trial.timed_leg(phase)
+        trial.communication_mark("setup_complete")
+        if args.joystick_response:
+            trial.joystick_response()
+        else:
+            for phase in args.phases:
+                if phase == "course":
+                    trial.direction_course()
+                elif args.walk_transport == "drive":
+                    trial.drive_leg(phase)
+                else:
+                    trial.timed_leg(phase)
+        trial.communication_mark("planned_lower_begin")
         trial.planned_lower()
         trial.event("trial_complete")
         return 0
@@ -692,6 +1245,7 @@ def main() -> int:
                 trial.event("failure_pause", stopped)
             except Exception as stop_error:
                 trial.event("failure_pause_error", str(stop_error))
+        trial.communication_mark("recovery_begin")
         try:
             trial.snapshot("failure")
         except Exception as camera_error:
@@ -721,6 +1275,7 @@ def main() -> int:
         trial.event("recorder_stopped", {
             "frames": trial.recorder.frames, "error": trial.recorder.error,
         })
+        trial.collect_communication_capture()
         try:
             trial.write_summary(error=error)
         finally:

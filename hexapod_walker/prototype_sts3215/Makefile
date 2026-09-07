@@ -351,22 +351,22 @@ robot-video:
 		"$(VIDEO)" $(if $(TIMES),--times "$(TIMES)",) $(if $(CROP),--crop "$(CROP)",)
 
 robot-check:
-	bash $(CURDIR)/linux_control/dev_loop.sh check
+	bash "$(CURDIR)/linux_control/dev_loop.sh" check
 
 robot-unit-check:
-	bash $(CURDIR)/linux_control/dev_loop.sh unit-check
+	bash "$(CURDIR)/linux_control/dev_loop.sh" unit-check
 
 robot-resolve:
-	bash $(CURDIR)/linux_control/dev_loop.sh resolve
+	bash "$(CURDIR)/linux_control/dev_loop.sh" resolve
 
 robot-status:
-	bash $(CURDIR)/linux_control/dev_loop.sh status
+	bash "$(CURDIR)/linux_control/dev_loop.sh" status
 
 robot-deploy:
-	bash $(CURDIR)/linux_control/dev_loop.sh deploy
+	bash "$(CURDIR)/linux_control/dev_loop.sh" deploy
 
 robot-deploy-fast:
-	bash $(CURDIR)/linux_control/dev_loop.sh deploy-fast
+	bash "$(CURDIR)/linux_control/dev_loop.sh" deploy-fast
 
 web-8898 web-8898-start:
 	bash "$(CURDIR)/sim_viewer/hexapod_web_8898.sh" start

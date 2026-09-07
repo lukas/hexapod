@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-09-06T06:11:07.562005+00:00",
+  "camera_authorization": "authorized",
+  "native_capture": "Fresh1280x800JPEGs verified from all4 stableUSBidentities; three usable views, camera2covered.",
+  "usable_cameras": [
+    "robot-1",
+    "robot-3",
+    "robot-4"
+  ],
+  "covered_camera": "robot-2",
+  "min_frame_detail": 20,
+  "capture_ownership": "All4 previews confirmedpaused after hardwareengineeringleaseclaimed; no additionalcaptureopened byvalidation.",
+  "settings_changed_during_validation": false,
+  "robot_moved_during_validation": false,
+  "evidence": [
+    "recovery-verification.json",
+    "public-recovered-gallery.json"
+  ]
+}

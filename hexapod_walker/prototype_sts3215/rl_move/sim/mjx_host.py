@@ -312,6 +312,10 @@ def make_shim_class(task_cls):
 
     class _Shim(task_cls):
         def __init__(self, shared_model, **kwargs):
+            if ((kwargs.get("cfg") or {}).get("transport") or {}).get("enabled"):
+                raise ValueError(
+                    "transport.enabled is a CPU-only deployed-contract replay; "
+                    "MJX bypasses the CPU servo-write cadence")
             super().__init__(model=shared_model, **kwargs)
             # Replace the MjData super() built with the batched-tick
             # mirror; placement temporarily lends a real scratch MjData.

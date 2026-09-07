@@ -33,6 +33,7 @@ import threading
 import time
 from pathlib import Path
 
+from async_bus_guard import require_bus_available
 from feetech_bus import (  # noqa: E402
     ADDR_PRESENT_CURRENT,
     ADDR_PRESENT_LOAD,
@@ -424,7 +425,7 @@ class McuFeetechBus:
                     write_timeout=1.0)
                 self.baud = baud
                 time.sleep(0.12)
-                self._ser.reset_input_buffer()
+                self._serial_reset_input()
                 # TFT bitbang init can briefly stall the MCU after reset.
                 hello = self._transact("HELLO", timeout=2.0)
                 last_hello = hello
@@ -491,15 +492,50 @@ class McuFeetechBus:
             # Observability must never be able to fail a bus operation.
             pass
 
-    def _telemetry_wants_snapshot(self) -> bool:
-        sink = getattr(self, "_telemetry_sink", None)
-        probe = getattr(sink, "wants_snapshot", None)
-        if not getattr(self, "has_stream", False) or not callable(probe):
-            return False
+    def _serial_read(self, size: int = 1) -> bytes:
+        """Observe bytes before parsing, including partial/rejected replies."""
         try:
-            return bool(probe())
-        except Exception:
-            return False
+            data = self._ser.read(size)
+        except Exception as exc:
+            self._emit_telemetry("serial_read_error", {
+                "requested_bytes": size, "error": repr(exc),
+            })
+            raise
+        if data and getattr(self, "_telemetry_sink", None) is not None:
+            self._emit_telemetry("serial_rx", {"data": bytes(data)})
+        return data
+
+    def _serial_write(self, data: bytes):
+        try:
+            written = self._ser.write(data)
+        except Exception as exc:
+            self._emit_telemetry("serial_write_error", {
+                "data": bytes(data), "error": repr(exc),
+            })
+            raise
+        if getattr(self, "_telemetry_sink", None) is not None:
+            self._emit_telemetry("serial_tx", {
+                "data": bytes(data), "written_bytes": written,
+            })
+        return written
+
+    def _serial_reset_input(self) -> None:
+        # Retain bytes the existing transaction would discard. Reading only
+        # the bytes already buffered does not send a request or wait for a
+        # new reply. The cap bounds a pathological unsolicited-data burst.
+        if getattr(self, "_telemetry_sink", None) is not None:
+            try:
+                pending = int(getattr(self._ser, "in_waiting", 0))
+                data = self._ser.read(min(pending, 65536)) if pending else b""
+                self._emit_telemetry("serial_input_reset", {
+                    "data": bytes(data), "buffered_bytes": pending,
+                    "uncaptured_bytes": max(0, pending - len(data)),
+                })
+            except Exception as exc:
+                self._emit_telemetry("serial_capture_error", {
+                    "stage": "input_reset", "error": repr(exc),
+                })
+        self._ser.reset_input_buffer()
 
     def _command_from_items(
             self, items: list[tuple[int, int, int, int]]) -> tuple[
@@ -546,6 +582,9 @@ class McuFeetechBus:
             "imu_age_ms": snapshot.get("imu_age_ms"),
             "position_deg": [positions.get(j) for j in range(N_JOINTS)],
             "speed_deg_s": [speeds.get(j) for j in range(N_JOINTS)],
+            "servo_reports": snapshot.get("servo_reports", []),
+            "missing_servo_ids": [j + 2 for j in range(N_JOINTS)
+                                  if j not in positions],
             "imu": dict(snapshot["imu"])
             if isinstance(snapshot.get("imu"), dict) else None,
         }
@@ -588,7 +627,7 @@ class McuFeetechBus:
         deadline = time.monotonic() + timeout
         buf = bytearray()
         while time.monotonic() < deadline:
-            chunk = self._ser.read(1)
+            chunk = self._serial_read(1)
             if not chunk:
                 continue
             if chunk == b"\n":
@@ -608,8 +647,9 @@ class McuFeetechBus:
     def _transact(self, cmd: str, *, timeout: float = 0.8) -> str | None:
         t0 = time.monotonic()
         with self._lock:
-            self._ser.reset_input_buffer()
-            self._ser.write((cmd.strip() + "\n").encode("ascii"))
+            require_bus_available(self)
+            self._serial_reset_input()
+            self._serial_write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
             reply = None
             for _ in range(8):
@@ -633,8 +673,9 @@ class McuFeetechBus:
             return None
         t0 = time.monotonic()
         try:
-            self._ser.reset_input_buffer()
-            self._ser.write((cmd.strip() + "\n").encode("ascii"))
+            require_bus_available(self)
+            self._serial_reset_input()
+            self._serial_write((cmd.strip() + "\n").encode("ascii"))
             self._ser.flush()
             reply = None
             for _ in range(8):
@@ -700,10 +741,20 @@ class McuFeetechBus:
         return [s for s in found if s in id_range]
 
     def torque(self, sid: int, on: bool) -> None:
-        self._transact(f"T {int(sid)} {1 if on else 0}", timeout=0.4)
+        cmd = f"T {int(sid)} {1 if on else 0}"
+        line = self._transact(cmd, timeout=0.4)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def enable_all_torque(self, on: bool = True) -> None:
-        self._transact(f"TA {1 if on else 0}", timeout=1.0)
+        cmd = f"TA {1 if on else 0}"
+        line = self._transact(cmd, timeout=1.0)
+        if line is None:
+            raise TimeoutError(f"{cmd}: no MCU acknowledgement")
+        if not line.startswith("OK"):
+            raise RuntimeError(f"{cmd}: MCU rejected torque command: {line}")
 
     def set_id(self, old_id: int, new_id: int) -> None:
         self.pkt.unLockEprom(old_id)
@@ -715,7 +766,7 @@ class McuFeetechBus:
         deadline = time.monotonic() + timeout
         buf = bytearray()
         while len(buf) < n and time.monotonic() < deadline:
-            chunk = self._ser.read(n - len(buf))
+            chunk = self._serial_read(n - len(buf))
             if chunk:
                 buf.extend(chunk)
             else:
@@ -789,14 +840,18 @@ class McuFeetechBus:
         def finish(result, *, ok: bool, reason: str | None = None):
             trace["elapsed_ms"] = round((time.monotonic() - t_start) * 1000.0, 3)
             self._record_bin_trace(trace, ok=ok, reason=reason)
+            self._emit_telemetry("serial_result", {
+                "protocol": "binary", "ok": ok, "reason": reason, **trace,
+            })
             return result
 
         with self._lock:
             t_locked = time.monotonic()
             trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
+            require_bus_available(self)
             t0 = time.monotonic()
-            self._ser.reset_input_buffer()
-            self._ser.write(frame)
+            self._serial_reset_input()
+            self._serial_write(frame)
             self._ser.flush()
             trace["write_flush_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             # Skip any ASCII chatter (HELLO) until A5 arrives.
@@ -806,7 +861,7 @@ class McuFeetechBus:
             pre_a5 = bytearray()
             pre_a5_lines: list[str] = []
             while time.monotonic() < deadline:
-                b = self._ser.read(1)
+                b = self._serial_read(1)
                 if not b:
                     continue
                 if b[0] == 0xA5:
@@ -1152,6 +1207,9 @@ class McuFeetechBus:
             "pos_deg": pos_deg,
             "speed_deg_s": speed_deg_s,
             "imu": imu,
+            # Keep rejected per-servo records instead of losing their IDs
+            # when the position dictionary filters an MCU ok=false entry.
+            "servo_reports": snap["servos"],
         }
 
     def _flush_sync(self) -> None:
@@ -1159,32 +1217,16 @@ class McuFeetechBus:
         self._pending.clear()
         if not items:
             return
-        # When recording is due, replace this W write with the already-tested
-        # S combined write+snapshot transaction. It applies the identical
-        # SyncWrite and returns cached encoder/speed/IMU in the SAME round
-        # trip, so the observer works for ordinary scripted gaits without a
-        # competing polling thread. Other ticks and recorder-off behavior stay
-        # on the original W path byte-for-byte.
-        if self._telemetry_wants_snapshot():
-            snapshot = self._snapshot_txn(items, apply_calib=True)
-            if snapshot is not None:
-                command, speeds, accelerations = self._command_from_items(items)
-                payload = self._snapshot_payload(snapshot)
-                payload.update({
-                    "command_deg": command,
-                    "speed_counts_s": speeds,
-                    "acc_units": accelerations,
-                    "transport": "combined_write_snapshot",
-                })
-                self._emit_telemetry("step", payload)
-                return
+        # Recording observes this exact W transaction; it must never change
+        # command selection or ask the MCU to acquire additional feedback.
         self._emit_goal_items(items, kind="sync_write")
         binary_replies: list[str | None] = []
         frame = encode_sync_frame(ord("W"), items)
         for attempt in range(2):
             with self._lock:
-                self._ser.reset_input_buffer()
-                self._ser.write(frame)
+                require_bus_available(self)
+                self._serial_reset_input()
+                self._serial_write(frame)
                 self._ser.flush()
                 line = self._readline(0.8)
             binary_replies.append(line)

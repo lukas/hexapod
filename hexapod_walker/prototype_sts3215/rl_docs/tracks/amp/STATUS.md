@@ -30,14 +30,14 @@ level, six legs cycling, no flag leg). With seed-7 (base) and s17
 luck. **M5 champion: `ppo_goal_..._phasehz11_s29.zip`** (best prog
 AND tips of the four passers; champions append-only; SKILLS.md row
 added). Per `rl_docs/AMP_LOCOMOTION.md` the track is DONE at M5; M6
-(hardware transfer) is operator-owned.
+(hardware transfer) is delegated to Robot Lab's serialized guarded runner.
 
 ## WAITING-ON
 
-- `[operator]` M6 hardware transfer of the M5 champion
+- `[robot-lab]` M6 guarded hardware transfer of the M5 champion
   (`..._phasehz11_s29.zip`, dialect: walk_phase_obs 1.1 Hz,
-  obs_body_vel=2, fault_health obs) — physical-robot step, out of
-  agent scope. Sim-side amp work is COMPLETE unless the operator
+  obs_body_vel=2, fault_health obs) — physical-robot step, out of this cloud
+  cycle's scope and in the Robot Lab engineering lane. Sim-side amp work is COMPLETE unless the operator
   re-opens (e.g. orders an M5 margin-hardening pass or a
   cross-engine robustness sweep). Secondary read CLOSED 08-23 ~22:0x:
   `-phasehz05-cont2` VERDICTED **FAIL on its pre-registered line** —

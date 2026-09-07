@@ -1,0 +1,153 @@
+{
+  "experiment_id": "241e625b2c354f3db2a86b3c046b5dbd",
+  "method": "Raw serial_tx W-to-W intervals within the existing four 8-second windows; interleaved commands count serial_tx records strictly between the two W events. These are host write timestamps, not per-servo arrival times.",
+  "conditions": [
+    {
+      "condition": "low_alpha_30",
+      "intervals": 778,
+      "over15ms": 21,
+      "over20ms": 2,
+      "over20ms_with_reads": 1,
+      "gaps_over20ms": [
+        {
+          "gap_ms": 20.928858,
+          "from_seq": 446161,
+          "to_seq": 446168,
+          "interleaved_commands": []
+        },
+        {
+          "gap_ms": 20.70542,
+          "from_seq": 449942,
+          "to_seq": 449956,
+          "interleaved_commands": [
+            "F"
+          ]
+        }
+      ]
+    },
+    {
+      "condition": "high_alpha_30",
+      "intervals": 766,
+      "over15ms": 21,
+      "over20ms": 3,
+      "over20ms_with_reads": 1,
+      "gaps_over20ms": [
+        {
+          "gap_ms": 21.126153,
+          "from_seq": 457856,
+          "to_seq": 457863,
+          "interleaved_commands": []
+        },
+        {
+          "gap_ms": 21.493548,
+          "from_seq": 458489,
+          "to_seq": 458504,
+          "interleaved_commands": [
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 20.105794,
+          "from_seq": 458648,
+          "to_seq": 458655,
+          "interleaved_commands": []
+        }
+      ]
+    },
+    {
+      "condition": "high_alpha_40",
+      "intervals": 770,
+      "over15ms": 25,
+      "over20ms": 4,
+      "over20ms_with_reads": 2,
+      "gaps_over20ms": [
+        {
+          "gap_ms": 23.344748,
+          "from_seq": 465534,
+          "to_seq": 465556,
+          "interleaved_commands": [
+            "S",
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 20.861061,
+          "from_seq": 466918,
+          "to_seq": 466925,
+          "interleaved_commands": []
+        },
+        {
+          "gap_ms": 20.400334,
+          "from_seq": 467126,
+          "to_seq": 467141,
+          "interleaved_commands": [
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 20.12169,
+          "from_seq": 467207,
+          "to_seq": 467214,
+          "interleaved_commands": []
+        }
+      ]
+    },
+    {
+      "condition": "low_alpha_40",
+      "intervals": 762,
+      "over15ms": 26,
+      "over20ms": 6,
+      "over20ms_with_reads": 5,
+      "gaps_over20ms": [
+        {
+          "gap_ms": 21.161121,
+          "from_seq": 473930,
+          "to_seq": 473944,
+          "interleaved_commands": [
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 20.614197,
+          "from_seq": 474290,
+          "to_seq": 474304,
+          "interleaved_commands": [
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 20.475135,
+          "from_seq": 474558,
+          "to_seq": 474565,
+          "interleaved_commands": []
+        },
+        {
+          "gap_ms": 28.242815,
+          "from_seq": 474701,
+          "to_seq": 474723,
+          "interleaved_commands": [
+            "F",
+            "S"
+          ]
+        },
+        {
+          "gap_ms": 20.340553,
+          "from_seq": 475102,
+          "to_seq": 475117,
+          "interleaved_commands": [
+            "F"
+          ]
+        },
+        {
+          "gap_ms": 22.922576,
+          "from_seq": 477004,
+          "to_seq": 477026,
+          "interleaved_commands": [
+            "F",
+            "S"
+          ]
+        }
+      ]
+    }
+  ]
+}

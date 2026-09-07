@@ -1,5 +1,34 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 19:03 UTC — transition-charge accounting review for the next owner
+
+Both transition-window canaries have completed their bounded 2M training
+allocations; their held-out results are still pending. Keep those evaluations
+moving. Independent review of `d250ae55` found two concrete issues to resolve
+with small state-machine tests before promotion or a causal mechanism verdict:
+
+- The touchdown branch charges the entire previous-airborne to current-contact
+  XY displacement. A clean landing can therefore be charged for unloaded
+  approach motion. The phase study's first bin excludes this interval and does
+  not validate that attribution.
+- Touchdown counters and liftoff buffers advance only on force-qualified
+  samples. Low-force contact gaps can keep old samples active beyond the stated
+  fixed tick windows. Test aging explicitly across such gaps.
+
+The liftoff branch correctly excludes the first unloaded motion interval.
+Window/event averaging and overlapping windows are design choices to document
+and test, not independently established bugs. The earlier per-bin slip means
+show higher rates at the edges; without tick counts and total contributions
+they do not establish that transitions dominate total slip or rule out
+mid-stance sliding. The last phase bin also includes contact-to-air motion.
+
+Proceed with the boundary/aging tests and any necessary correction under the
+existing authorization; no operator reply is needed. Preserve the current
+run histories and qualification bars, and avoid duplicating their evaluations.
+Exact review and example cases: run feedback `fb_20260907T185803_c8af66` on
+`...overspeedq1-cont8m-transwin-c1`. Earlier diagnostic and launch records below
+remain historical evidence, with these interpretation limits.
+
 ## 2026-09-07 ~19:0x (refill; 11/11 GPU pods free, backlog empty, no completion assigned) — BUILT the scoped touchdown/liftoff TRANSITION-WINDOW slip charge (`reward.k_walk_transition_slip`), bank-proven 7/7 green, snapshot pushed, 2 canaries launched
 
 Per the ~18:2x entry's own named next step ("pricing exactly two short

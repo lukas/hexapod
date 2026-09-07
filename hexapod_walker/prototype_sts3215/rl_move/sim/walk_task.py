@@ -3445,6 +3445,38 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_prog = 0.0
                 info["walk_freeprog_score"] = f_score
                 info["walk_freeprog_cross"] = f_cross
+                # Overspeed SURPLUS charge (2026-09-07, walkcurr
+                # slip-mechanism audit, operator focus note
+                # 20260907T150325Z): the audit's frozen-champion
+                # decomposition (logs/ckpt_eval/slipframe_audit_
+                # cont40m) proved the easy0905 champion's ~4.5 slip/m
+                # is genuine contact-point sliding (material-point
+                # slip == pad-center slip, rolling/chatter/knee-frame
+                # artifacts all ruled out) produced by a gait running
+                # at 1.6-2.1x the commanded 0.06 m/s — an exact
+                # optimum of this saturating score, where speed above
+                # the cap is free (test_slipwalk_has_no_speed_band)
+                # and every slip/tracking charge is 0. This opt-in key
+                # makes the SURPLUS non-free without re-introducing a
+                # speed band below the cap: income below/at cap is
+                # untouched (ignition asymmetry preserved), along-
+                # command speed ABOVE the cap is charged linearly at
+                # k_free * this_key * (along/cap - 1), so the reward
+                # optimum sits exactly AT the cap instead of at "as
+                # fast as the sloppiest gait allows". Uses the same
+                # stride-EMA along (f_along) as the income so the
+                # charge cannot fire on within-stride oscillation the
+                # income itself smooths away. Default 0.0 = off,
+                # bit-exact legacy (no new info key). Bank:
+                # test_task_semantics.py WALKCURR_OVERSPEED_* tests.
+                k_over = float(cfg_get(
+                    self.cfg, "reward",
+                    "walk_freeprog_overspeed_charge", default=0.0))
+                if k_over > 0.0:
+                    _over = max(f_along / _fp_cap - 1.0, 0.0)
+                    if _over > 0.0:
+                        r_free_pen -= k_free * k_over * _over
+                        info["walk_freeprog_overspeed"] = round(_over, 4)
             # Simple physical joystick objective (default off). Unlike the
             # historical Gaussian/proxy stack, this is negative for parking,
             # cross-track travel, and wrong-way travel by construction.

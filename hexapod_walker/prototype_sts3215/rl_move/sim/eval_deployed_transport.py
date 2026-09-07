@@ -142,6 +142,9 @@ def run_comparison(actor_json, out, *, seconds=10., headings_deg=(0., 90.),
             "settings use the checked-out config unless --config is supplied.",
             "Transport events are quantized to policy ticks; sub-tick wire "
             "latency, corruption and robot mechanics are not reproduced.",
+            "This cadence/filter diagnostic does not reproduce the live "
+            "150ms freshness stop, readiness or controller transitions; "
+            "custom long-gap traces are not guarded-runner parity tests.",
             "Simulated current remains an uncalibrated torque proxy.",
             "Return values are not comparable training rewards under an "
             "incompletely reconstructed training cfg.",

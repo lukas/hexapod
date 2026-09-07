@@ -142,17 +142,53 @@ def test_frozen_actor_uses_hardware_forward_pass(tmp_path):
     from rl_move.sim.eval_deployed_transport import FrozenActor
     path = tmp_path / "actor.json"
     path.write_text(json.dumps({
-        "meta": {"joint_frame": "robot_abs",
+        "meta": {"obs_dim": 68, "act_dim": 18,
+                 "training_hz": 100.0, "joint_frame": "robot_abs",
                  "joint_contract": "robot_abs_tibia_v2"},
-        "W1": [[1., 0.], [0., 1.]], "b1": [0., 0.],
+        "W1": [[1., 0.] + [0.] * 66,
+               [0., 1.] + [0.] * 66], "b1": [0., 0.],
         "W2": [[1., 0.], [0., 1.]], "b2": [0., 0.],
         "Wout": [[1., 0.]] * 18, "bout": [0.] * 18,
     }))
     actor = FrozenActor(path)
-    out, _ = actor.predict(np.array([.5, -.2]))
+    obs = np.zeros(68)
+    obs[:2] = [.5, -.2]
+    out, _ = actor.predict(obs)
     np.testing.assert_allclose(out, np.full(18, np.tanh(np.tanh(.5))))
     with pytest.raises(ValueError):
-        actor.predict(np.zeros(2), deterministic=False)
+        actor.predict(np.zeros(68), deterministic=False)
+
+
+def test_hybrid_demo_loads_exported_walk_policy(tmp_path):
+    from rl_move.sim.hybrid_demo import _load_any_policy
+
+    path = tmp_path / "walk.json"
+    path.write_text(json.dumps({
+        "meta": {
+            "obs_dim": 75,
+            "act_dim": 18,
+            "activation": "tanh",
+            "architecture": "mlp",
+            "training_hz": 100.0,
+            "phase_hz": 1.333333,
+            "walk_yaw_cmd": True,
+            "walk_phase_run_on_yaw": True,
+            "joint_frame": "robot_abs",
+            "joint_contract": "robot_abs_tibia_v2",
+        },
+        "W1": [[0.0] * 75],
+        "b1": [0.0],
+        "W2": [[0.0]],
+        "b2": [0.0],
+        "Wout": [[0.0]] * 18,
+        "bout": [0.0] * 18,
+    }))
+
+    actor = _load_any_policy(path)
+    assert actor.observation_space.shape == (75,)
+    action, state = actor.predict(np.zeros(75), deterministic=True)
+    np.testing.assert_array_equal(action, np.zeros(18))
+    assert state is None
 
 
 def test_mjx_refuses_transport_before_building_any_model():

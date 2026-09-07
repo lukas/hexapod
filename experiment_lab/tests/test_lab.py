@@ -1,9 +1,11 @@
 import json
+import threading
 import time
 
 from fastapi.testclient import TestClient
 
 from hexapod_lab.config import Settings
+from hexapod_lab.db import Store
 from hexapod_lab.main import create_app
 
 
@@ -340,3 +342,77 @@ def test_register_completed_result_and_stream_artifacts(tmp_path):
             f"/api/experiments/{experiment_id}/artifacts/manifest.json", headers=viewer
         ).json()
         assert any(item["name"] == "video.mp4" for item in manifest["artifacts"])
+
+
+def test_worker_never_claims_external_mode_even_with_queued_status(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    external = store.create({"name": "External", "duration_seconds": .1,
+                             "execution_mode": "external_guarded"}, "operator")
+    # Defensive invariant for a legacy/manual state repair: mode itself
+    # excludes physical work, even if status has accidentally been queued.
+    with store.connect() as con:
+        con.execute("UPDATE experiments SET status='queued' WHERE id=?", (external["id"],))
+    builtin = store.create({"name": "Builtin", "duration_seconds": .1}, "operator")
+    assert store.claim_next()["id"] == builtin["id"]
+    assert store.claim_next() is None
+    assert store.get(external["id"])["status"] == "queued"
+
+
+def test_cancel_and_external_completion_are_serialized(tmp_path, monkeypatch):
+    import hexapod_lab.db as db_module
+    store = Store(tmp_path / "lab.sqlite3")
+    spec = {"name": "Concurrent external", "duration_seconds": .1,
+            "execution_mode": "external_guarded"}
+    item = store.create(spec, "operator")
+    selected = threading.Event()
+    release = threading.Event()
+    completion_done = threading.Event()
+    real_clock = db_module.utcnow
+    failures = []
+
+    def pause_after_cancel_select():
+        if threading.current_thread().name == "cancel-test":
+            selected.set()
+            assert release.wait(5)
+        return real_clock()
+
+    def complete():
+        try:
+            store.import_result(spec, "operator", "succeeded",
+                                experiment_id=item["id"], completion_sha256="receipt")
+        except ValueError as error:
+            failures.append(str(error))
+        finally:
+            completion_done.set()
+
+    monkeypatch.setattr(db_module, "utcnow", pause_after_cancel_select)
+    cancelling = threading.Thread(name="cancel-test", target=lambda: store.cancel(item["id"]))
+    completing = threading.Thread(target=complete)
+    cancelling.start()
+    assert selected.wait(5)
+    completing.start()
+    try:
+        # Completion must wait for the cancellation transaction, not create
+        # a successful receipt that an older unconditional UPDATE overwrites.
+        assert not completion_done.wait(.1)
+    finally:
+        release.set()
+        cancelling.join(5)
+        completing.join(5)
+    assert not cancelling.is_alive() and not completing.is_alive()
+    assert failures == ["experiment already has a different terminal result"]
+    final = store.get(item["id"])
+    assert final["status"] == "cancelled"
+    assert final["completion_sha256"] is None
+
+
+def test_cancellation_preserves_a_completed_receipt(tmp_path):
+    store = Store(tmp_path / "lab.sqlite3")
+    spec = {"name": "Completed external", "duration_seconds": .1,
+            "execution_mode": "external_guarded"}
+    item = store.create(spec, "operator")
+    store.import_result(spec, "operator", "succeeded", experiment_id=item["id"],
+                        completion_sha256="receipt")
+    assert store.cancel(item["id"])["status"] == "succeeded"
+    assert store.import_result(spec, "operator", "succeeded", experiment_id=item["id"],
+                               completion_sha256="receipt")["status"] == "succeeded"

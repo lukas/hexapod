@@ -613,14 +613,14 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             if str(linux_control) not in sys.path:
                 sys.path.insert(0, str(linux_control))
             from vision_server import (  # noqa: PLC0415
-                DEFAULT_CONFIG,
                 DEFAULT_REPORT_DIR,
                 DEFAULT_UI_DIR,
                 VisionRuntime,
+                materialize_default_config,
                 wrap_handler_with_vision,
             )
             vision_runtime = VisionRuntime(
-                DEFAULT_CONFIG,
+                materialize_default_config(),
                 camera_index=args.vision_camera,
                 camera_cycle=args.vision_camera_cycle,
                 processing_width=args.vision_processing_width,

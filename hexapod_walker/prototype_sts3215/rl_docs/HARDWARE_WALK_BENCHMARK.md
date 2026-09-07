@@ -27,12 +27,23 @@ normal state. Hands-on help is needed only for a persistent or inconclusive
 physical condition. Resolve the current robot address and camera identity at
 execution; the command placeholders deliberately contain no stale IP address.
 
+The canary records the known checkpoint/export hashes, observation and motor
+contract, and controller source hashes for interpreting results. Record the actual
+versions used; a reviewed source change is not itself a reason to block an experiment.
+Tag-layout calibration, additional timing reports, and long-duration acceptance
+are not prerequisites for a walking comparison. Missing measurements limit what
+we can conclude from a run, rather than making the run worthless.
+Use a validated direct camera with source capture timestamps. The legacy HTTP
+JPEG endpoint does not prove frame freshness from receipt time alone and is not
+the camera source for this plan.
+
 The planted jobs reuse the exact versioned 174-second radial-shear protocols.
-Generation checks that only the selected hip/knee targets vary and records the
+Generation checks that only the selected hip/knee targets vary across home
+acquisition and every segment boundary, rejects unaudited segment types, and records the
 file SHA-256. L4 uses version 2, without the older adjacent-leg yaw movement.
 These are supported characterization jobs, not walking or repair acceptance.
-`sysid.run_hw` alone does not enforce all support/camera gates: the serialized
-guarded supervisor must do so. Coordinated hip/knee current trips do not use the
+`sysid.run_hw` alone does not enforce all support/camera gates: the serialized guarded
+supervisor must do so. Coordinated hip/knee current trips do not use the
 single-joint automatic current-retry exception. The canonical stop rules remain
 in `EMERGENCY_HANDLING.md`.
 
@@ -48,8 +59,9 @@ The report separates requested command duration, host command wall window,
 scheduled policy `t_s`, and actual continuous engaged wall time. Only advancing
 per-tick `mono_s`, `wall_elapsed_s`, or `unix_s` plus explicit `walk_engaged` or
 `learned_policy_active` can establish actual engagement. The sampled span is a
-lower bound; no final tick is extrapolated. Interrupted engagement is rejected
-until split into separate runs. Legacy traces remain useful for service/write
+lower bound; no final tick is extrapolated. Interrupted engagement (including
+hold rows between walking segments) or logging gaps over 250 ms cannot establish
+continuity. Split interrupted runs before scoring. Legacy traces remain useful for service/write
 time, overruns, attitude and repeated feedback, but their nominal clock never
 proves actual cadence or active duration. Repeated joint values may mean cached
 feedback or stillness; they are not an independent sensor-age or stall measure.
@@ -100,7 +112,13 @@ behavior, reliable start/stop and the chosen acceptance thresholds still require
 review. This fixed-speed no-yaw policy cannot demonstrate steering or
 variable-speed competence.
 
-Before extending the pilot, finish the pending transport/deployment verification
-and compare against gait 9 under matched floor, load, start and camera conditions.
-Keep the measured six-leg air finding: L5 is not uniquely abnormal unloaded.
-Compare all six under planted load before selecting a mechanical intervention.
+The runner accepts `--walk-transport drive --velocity-filter-alpha 0.8`;
+use `0.3` for a matched baseline. The robot drive API accepts
+`velocity_filter_alpha` on `/api/rl/drive/start`. The override lasts only for
+that session and the actual value is recorded in the episode result; omission
+preserves `rl_move/config.yaml`. Keep the policy, gait, speed, transport and
+observation cadence fixed within a comparison. The original alpha comparison
+was proposed for the historical 100/50/10 Hz transport; it does not establish
+the best filter for the restored 100 Hz path. Record the actual controller
+and cadence, then judge repeated physical walks under matched floor and
+starting-pose conditions.

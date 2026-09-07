@@ -32,8 +32,8 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-
 from async_bus_guard import require_bus_available
+
 from feetech_bus import (  # noqa: E402
     ADDR_PRESENT_CURRENT,
     ADDR_PRESENT_LOAD,
@@ -645,6 +645,7 @@ class McuFeetechBus:
         return line.decode("ascii", errors="replace").strip()
 
     def _transact(self, cmd: str, *, timeout: float = 0.8) -> str | None:
+        require_bus_available(self)
         t0 = time.monotonic()
         with self._lock:
             require_bus_available(self)
@@ -669,6 +670,7 @@ class McuFeetechBus:
 
     def _transact_try(self, cmd: str, *, timeout: float = 0.8) -> str | None:
         """Best-effort transaction: return immediately if the MCU link is busy."""
+        require_bus_available(self)
         if not self._lock.acquire(blocking=False):
             return None
         t0 = time.monotonic()
@@ -827,6 +829,7 @@ class McuFeetechBus:
         ``payload`` is ``head_len`` fixed bytes + n × ``rec_size`` records
         (checksum verified, framing stripped).
         """
+        require_bus_available(self)
         cmd = chr(frame[2]) if len(frame) > 2 and 32 <= frame[2] <= 126 else frame[2]
         trace: dict = {
             "cmd": cmd,
@@ -846,13 +849,20 @@ class McuFeetechBus:
             return result
 
         with self._lock:
+            require_bus_available(self)
             t_locked = time.monotonic()
             trace["lock_wait_ms"] = round((t_locked - t_lock_req) * 1000.0, 3)
-            require_bus_available(self)
             t0 = time.monotonic()
             self._serial_reset_input()
+            trace["reset_input_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
+            t_write = time.monotonic()
             self._serial_write(frame)
+            trace["serial_write_ms"] = round(
+                (time.monotonic() - t_write) * 1000.0, 3)
+            t_flush = time.monotonic()
             self._ser.flush()
+            trace["serial_flush_ms"] = round(
+                (time.monotonic() - t_flush) * 1000.0, 3)
             trace["write_flush_ms"] = round((time.monotonic() - t0) * 1000.0, 3)
             # Skip any ASCII chatter (HELLO) until A5 arrives.
             deadline = time.monotonic() + timeout
@@ -1114,6 +1124,7 @@ class McuFeetechBus:
 
     def write_all(self, degrees, speed: int = 1500, acc: int = 30, *,
                   allow_max_speed: bool = False) -> None:
+        require_bus_available(self)
         speed = normalize_speed(speed, allow_max=allow_max_speed)
         acc = normalize_acc(acc)
         for joint, deg in enumerate(degrees):
@@ -1215,6 +1226,7 @@ class McuFeetechBus:
     def _flush_sync(self) -> None:
         items = list(self._pending)
         self._pending.clear()
+        require_bus_available(self)
         if not items:
             return
         # Recording observes this exact W transaction; it must never change
@@ -1223,12 +1235,47 @@ class McuFeetechBus:
         binary_replies: list[str | None] = []
         frame = encode_sync_frame(ord("W"), items)
         for attempt in range(2):
-            with self._lock:
-                require_bus_available(self)
-                self._serial_reset_input()
-                self._serial_write(frame)
-                self._ser.flush()
-                line = self._readline(0.8)
+            trace = {"cmd": "W", "want": "OK", "n": len(items),
+                     "attempt": attempt + 1, "timeout_ms": 800.0}
+            t_start = time.monotonic()
+            line = None
+            reason = None
+            try:
+                with self._lock:
+                    require_bus_available(self)
+                    trace["lock_wait_ms"] = round(
+                        (time.monotonic() - t_start) * 1000.0, 3)
+                    t0 = time.monotonic()
+                    self._serial_reset_input()
+                    trace["reset_input_ms"] = round(
+                        (time.monotonic() - t0) * 1000.0, 3)
+                    t_write = time.monotonic()
+                    self._serial_write(frame)
+                    trace["serial_write_ms"] = round(
+                        (time.monotonic() - t_write) * 1000.0, 3)
+                    t_flush = time.monotonic()
+                    self._ser.flush()
+                    trace["serial_flush_ms"] = round(
+                        (time.monotonic() - t_flush) * 1000.0, 3)
+                    trace["write_flush_ms"] = round(
+                        (time.monotonic() - t0) * 1000.0, 3)
+                    t_ack = time.monotonic()
+                    line = self._readline(0.8)
+                    trace["ack_wait_ms"] = round(
+                        (time.monotonic() - t_ack) * 1000.0, 3)
+                    trace["reply"] = line[:128] if line is not None else None
+                    if not line or not line.startswith("OK"):
+                        reason = "ack_missing" if line is None else "ack_rejected"
+            except Exception as exc:
+                reason = "transaction_exception"
+                trace["exception"] = repr(exc)
+                raise
+            finally:
+                trace["elapsed_ms"] = round(
+                    (time.monotonic() - t_start) * 1000.0, 3)
+                self._record_bin_trace(
+                    trace, ok=bool(line and line.startswith("OK")),
+                    reason=reason)
             binary_replies.append(line)
             if line and line.startswith("OK"):
                 return

@@ -3175,12 +3175,19 @@ class Store:
                 if gate["analysis_pending"] or gate["latest_control"] == "pause":
                     con.execute("COMMIT")
                     return None
-            row = con.execute("SELECT id FROM experiments WHERE status='queued' ORDER BY created_at LIMIT 1").fetchone()
+            row = con.execute(
+                "SELECT id FROM experiments WHERE status='queued' "
+                "AND execution_mode='builtin' ORDER BY created_at LIMIT 1"
+            ).fetchone()
             if not row:
                 con.execute("COMMIT")
                 return None
             now = utcnow()
-            con.execute("UPDATE experiments SET status='running',started_at=? WHERE id=? AND status='queued'", (now, row["id"]))
+            con.execute(
+                "UPDATE experiments SET status='running',started_at=? "
+                "WHERE id=? AND status='queued' AND execution_mode='builtin'",
+                (now, row["id"]),
+            )
             con.execute("INSERT INTO events(experiment_id,timestamp,kind,message) VALUES(?,?,?,?)",
                         (row["id"], now, "started", "Worker claimed experiment"))
             con.execute("COMMIT")

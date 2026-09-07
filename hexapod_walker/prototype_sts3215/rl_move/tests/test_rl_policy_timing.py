@@ -22,6 +22,57 @@ def _policy(meta):
     return SimpleNamespace(meta=dict(meta))
 
 
+@pytest.mark.parametrize("alpha", [float("nan"), float("inf"), -0.01, 1.01, "bad", []])
+def test_drive_velocity_alpha_rejected_before_bus_access(alpha):
+    # None drive would fail immediately if the runner reached its bus access.
+    result = rl_policy.run_drive_session(None, None, velocity_filter_alpha=alpha)
+    assert result["ok"] is False
+    assert "velocity_filter_alpha" in result["error"]
+
+
+@pytest.mark.parametrize("alpha", [None, 0.0, 0.8, 1.0])
+def test_drive_velocity_alpha_is_local_and_reaches_real_estimator(alpha):
+    cfg = {"velocity_filter": {"alpha": 0.3, "max_jump_rad": 0.5}}
+    local_cfg = rl_policy._drive_filter_config(cfg, alpha)
+    est = RobotStateEstimator(None, local_cfg)
+    est._qd_filter.update(np.zeros(18), 1.0)
+    velocity = est._qd_filter.update(np.full(18, 0.1), 1.1)
+    expected = 0.3 if alpha is None else alpha
+    assert np.allclose(velocity, expected)
+    assert cfg["velocity_filter"] == {"alpha": 0.3, "max_jump_rad": 0.5}
+    assert local_cfg["velocity_filter"]["max_jump_rad"] == 0.5
+
+
+def test_drive_velocity_alpha_wrapper_forwards_override(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rl_policy, "_run_drive_session_impl",
+                        lambda *a, **kw: calls.append(kw) or {"ok": True})
+    assert rl_policy.run_drive_session(None, None, velocity_filter_alpha=0.8)["ok"]
+    assert calls[0]["velocity_filter_alpha"] == 0.8
+
+
+@pytest.mark.parametrize("duration", [float("nan"), float("inf"), 0.0, 20.01, "bad", []])
+def test_drive_active_duration_rejected_before_bus_access(duration):
+    result = rl_policy.run_drive_session(None, None, active_duration_s=duration)
+    assert result["ok"] is False
+    assert "active_duration_s" in result["error"]
+
+
+def test_drive_active_duration_wrapper_forwards_limit(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rl_policy, "_run_drive_session_impl",
+                        lambda *a, **kw: calls.append(kw) or {"ok": True})
+    assert rl_policy.run_drive_session(
+        None, None, active_duration_s=3.0)["ok"]
+    assert calls[0]["active_duration_s"] == 3.0
+
+
+def test_drive_active_duration_reason_uses_wall_clock():
+    assert rl_policy._drive_active_duration_reason(3.0, 10.0, 12.999) is None
+    assert rl_policy._drive_active_duration_reason(3.0, 10.0, 13.0) == (
+        "active walk cap 3s reached")
+
+
 def _state(*, bus_ok=True, timestamp=0.0, health=False, timing=None,
            load=12.0, current=0.4, temperature=31.0):
     z = np.zeros(rl_policy.N_JOINTS, dtype=float)
@@ -135,6 +186,201 @@ class _FakeStepBus(_FakeBus):
                 "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
             },
         }
+
+
+@pytest.mark.parametrize(("persistent_missing", "stale_duplicates"), [
+    (False, 0),
+    (True, 0),
+    (False, 2),
+    (False, 3),
+])
+def test_persistent_drive_uses_combined_snapshot_every_policy_tick(
+        monkeypatch, persistent_missing, stale_duplicates):
+    clock = [10.0]
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(rl_policy.time, "sleep",
+                        lambda dt: clock.__setitem__(0, clock[0] + dt))
+
+    class Bus(_AsyncHealthBus):
+        def __init__(self):
+            super().__init__()
+            self.steps = 0
+            self.frozen_seq = None
+            self.targets = []
+
+        def step_all(self, _degrees, **_kwargs):
+            self.steps += 1
+            self.targets.append(np.asarray(_degrees).copy())
+            previous_seq = self.last_seq
+            snap = self.read_snapshot()
+            if self.steps <= stale_duplicates:
+                if self.frozen_seq is None:
+                    self.frozen_seq = previous_seq
+                snap["seq"] = self.frozen_seq
+            return snap
+
+        def read_snapshot(self):
+            snap = super().read_snapshot()
+            if persistent_missing and self.steps:
+                del snap["pos_deg"][4]
+            return snap
+
+    bus = Bus()
+    torque_calls = []
+    drive = SimpleNamespace(bus=bus, dry_run=False, _lock=threading.Lock(),
+                            gait=SimpleNamespace(stop=lambda: None),
+                            _torque_all=torque_calls.append)
+    cfg = {"control": {"hz": 100, "inner_hz": 100, "drive_write_hz": 50},
+           "sensing": {"full_feedback_hz": 10}}
+    policy = SimpleNamespace(meta={
+        "obs_dim": 74, "phase_hz": 1.333333, "training_hz": 100,
+        "control_hz": 100, "joint_frame": "robot_abs",
+        "joint_contract": rl_policy.JOINT_CONTRACT,
+        "walk_speed_min_m_s": 0.08, "walk_speed_max_m_s": 0.08,
+    }, act=lambda _obs: np.zeros(18), reset=lambda: None)
+    monkeypatch.setattr(rl_policy, "load_config", lambda _path: cfg)
+    monkeypatch.setattr(rl_policy, "NumpyPolicy", lambda _path: policy)
+    monkeypatch.setattr(rl_policy, "preflight", lambda *_a, **_kw: (
+        True, "", {"start_pose": "sim_walk_start"}))
+    monkeypatch.setattr(rl_policy, "_preflight_start_target_deg",
+                        lambda *_a, **_kw: (np.zeros(18), ""))
+    monkeypatch.setattr(rl_policy, "_probe_async_transport",
+                        lambda _bus: {"async_capable": True})
+    monkeypatch.setattr(rl_policy, "_set_weight_bearing_torque", lambda _bus: None)
+    monkeypatch.setattr(rl_policy, "_refresh_verified_start_pose",
+                        lambda _bus, est, *_a, **_kw: (
+                            est.update(want_full_feedback=True), {}, ""))
+    debug = SimpleNamespace(name="fake", event=lambda *_a, **_kw: None,
+                            attach=lambda _result: None, close=lambda *_a: None)
+    monkeypatch.setattr(rl_policy, "_RunDebug", lambda *_a, **_kw: debug)
+    ticks, params = [], []
+
+    def episode_log(*_a, **kw):
+        params.append(kw["params"])
+        return SimpleNamespace(obs_dim=74,
+                               tick=lambda *a, **kw: ticks.append((a[0], kw)),
+                               close=lambda _result: "fake.csv")
+
+    monkeypatch.setattr(rl_policy, "_EpisodeLog", episode_log)
+    monkeypatch.setattr(rl_policy, "_AsyncSnapshotSampler",
+                        lambda *_a, **_kw: pytest.fail("drive started async sampler"))
+    command = SimpleNamespace(get=lambda: (0.08, 0.0, 0.0, 0.0, 0.0, False),
+                              publish=lambda _state: None)
+    result = rl_policy.run_drive_session(
+        drive, command, abort_check=lambda: bus.steps >= 5,
+        velocity_filter_alpha=0.8)
+
+    if persistent_missing:
+        assert result["error"] == "persistent missing servo positions: [4]"
+        assert result["limped"] is True
+        assert torque_calls[-1] is False
+        assert bus.steps == 1
+        return
+    if stale_duplicates == 3:
+        assert result["error"] == (
+            "feedback stale during stream; held last written target")
+        assert result["held_pose"] is True
+        assert result["limped"] is False
+        assert result["stale_stream_samples"] == 3
+        assert result["stale_stream_ticks"] == 3
+        assert result["max_stale_stream_ticks_seen"] == 3
+        assert result["max_stale_stream_ticks"] == 2
+        assert bus.steps == 3
+        return
+    assert result["error"] == "aborted"
+    assert result["transport"] == "step_all"
+    assert result["velocity_filter_alpha"] == 0.8
+    assert result["drive_write_hz"] == 100.0
+    assert result["drive_write_every_ticks"] == 1
+    assert params[0]["drive_snapshot"]["mode"] == "step_all"
+    active = [(t, kw) for t, kw in ticks if kw.get("walk_engaged")]
+    assert bus.steps == 5
+    # Repeated feedback holds the exact first target inside one policy tick;
+    # it must not cause two additional actor evaluations or phase advances.
+    assert len(active) == 5 - stale_duplicates
+    assert np.diff([t for t, _ in active]) == pytest.approx(
+        [0.01] * (len(active) - 1))
+    if stale_duplicates:
+        assert np.asarray(bus.targets[:3]) == pytest.approx(
+            np.repeat(bus.targets[0][None, :], 3, axis=0))
+    assert all(kw["bus_write_due"] for _, kw in active)
+    assert result["max_stale_stream_ticks"] == 2
+    if stale_duplicates == 2:
+        assert result["stale_stream_samples"] == 2
+        assert result["stale_stream_ticks"] == 0
+        assert result["stale_stream_bursts"] == 1
+        assert result["max_stale_stream_ticks_seen"] == 2
+
+
+@pytest.mark.parametrize("bad_snapshot", [
+    _snapshot(8), _snapshot(7), _snapshot(9, pos_age_ms=151),
+    _snapshot(9, imu_age_ms=float("nan")),
+])
+def test_direct_drive_rejects_bad_snapshot_before_filtering(bad_snapshot):
+    bus = _FakeStepBus([bad_snapshot])
+    est = _FakeEstimator([])
+    state = _state(timestamp=time.monotonic(), timing={
+        "snapshot_seq": 8, "pos_age_ms": 1, "imu_age_ms": 1})
+    result = rl_policy._stream_target(
+        bus, est, np.zeros(18), np.zeros(18),
+        t_next=time.monotonic(), inner_steps=1, inner_dt=0.001,
+        write_speed=400, write_acc=20, abort_check=lambda: False,
+        last_good_state=state, max_state_age_s=0.15)
+    assert result[3] == "feedback stale during stream"
+    assert est.snapshots == []
+    assert bus.steps == 1 and bus.writes == 0
+
+
+def test_direct_drive_stale_previous_state_prevents_next_write():
+    bus = _FakeStepBus()
+    state = _state(timestamp=time.monotonic() - 0.16, timing={
+        "snapshot_seq": 8, "pos_age_ms": 1, "imu_age_ms": 1})
+    result = rl_policy._stream_target(
+        bus, _FakeEstimator([]), np.zeros(18), np.zeros(18),
+        t_next=time.monotonic(), inner_steps=1, inner_dt=0.001,
+        write_speed=400, write_acc=20, abort_check=lambda: False,
+        last_good_state=state, max_state_age_s=0.15)
+    assert result[3] == "feedback stale during stream"
+    assert bus.steps == bus.writes == 0
+
+
+@pytest.mark.parametrize("missing_reads, rotating", [(1, False), (2, False),
+                                                   (3, False), (3, True)])
+def test_direct_drive_retries_missing_positions_without_new_targets(
+        monkeypatch, missing_reads, rotating):
+    clock = [10.0]
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(rl_policy.time, "sleep",
+                        lambda dt: clock.__setitem__(0, clock[0] + dt))
+    snaps = [_snapshot(seq) for seq in (9, 10, 11)]
+    for index, snap in enumerate(snaps[:missing_reads]):
+        del snap["pos_deg"][4 + index if rotating else 4]
+    bus = _FakeStepBus(snaps)
+    retries = []
+
+    def read_only():
+        retries.append(1)
+        return bus.snaps.pop(0)
+
+    bus.read_snapshot = read_only
+    est = _FakeEstimator([_state(timestamp=clock[0])])
+    state = _state(timestamp=clock[0], timing={
+        "snapshot_seq": 8, "pos_age_ms": 1, "imu_age_ms": 1})
+    result = rl_policy._stream_target(
+        bus, est, np.zeros(18), np.zeros(18),
+        t_next=clock[0], inner_steps=1, inner_dt=0.01,
+        write_speed=400, write_acc=20, abort_check=lambda: False,
+        last_good_state=state, max_state_age_s=0.15)
+    assert bus.steps == 1 and bus.writes == 0
+    assert len(retries) == min(2, missing_reads)
+    if missing_reads < 3:
+        assert result[3] == ""
+        assert len(est.snapshots) == 1
+        assert len(est.snapshots[0]["pos_deg"]) == 18
+    else:
+        assert result[3] == ("feedback stale during stream" if rotating else
+                             "persistent missing servo positions: [4]")
+        assert est.snapshots == []
 
 
 class _PreflightBus:
@@ -528,6 +774,93 @@ def test_async_ready_requires_advancing_samples_and_fresh_health():
     assert details["good_sequences"] >= 3
     assert details["fresh_health"] is True
     assert details["sampler"]["motion_ready"] is True
+
+
+@pytest.mark.parametrize("valid_count", [0, 17])
+def test_async_sampler_partial_health_reaches_three_fresh_scan_debounce(
+        monkeypatch, valid_count):
+    # Reproduce the real 10 Hz failure: a new partial health frame, fresh
+    # position/IMU, but the previous complete health frame is >150 ms old.
+    clock = {"now": 10.0}
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock["now"])
+
+    class PartialHealthBus(_AsyncHealthBus):
+        def read_all_feedback(self):
+            records = super().read_all_feedback()
+            if self.feedback_reads == 1:
+                return records
+            return {j: records[j] for j in range(valid_count)}
+
+    bus = PartialHealthBus()
+    sampler = rl_policy._AsyncSnapshotSampler(bus, {}, hz=10.0)
+    safety = rl_policy.SafetyLayer({})
+    safety.set_nominal(np.zeros(rl_policy.N_JOINTS))
+    frames, statuses = [], []
+
+    class FourAcquisitions:
+        def is_set(self):
+            return len(frames) >= 4
+
+        def wait(self, seconds):
+            clock["now"] += seconds
+            frame, age, stats = sampler.latest()
+            frames.append((frame, age, stats))
+            statuses.append(safety.check_servo_health(
+                rl_policy._state_for_async_safety(frame)))
+            # Repeated 100 Hz policy reads of the same 10 Hz frame do not
+            # count as additional missing samples or repeat current checks.
+            if len(frames) < 4:
+                held, _, _ = sampler.latest()
+                assert held.timing["async_feedback_fresh"] is False
+                assert safety.check_servo_health(
+                    rl_policy._state_for_async_safety(held)) is None
+            return self.is_set()
+
+    sampler._stop = FourAcquisitions()
+    sampler._run(0.0)
+
+    assert bus.feedback_reads == 4
+    for frame, age, stats in frames:
+        assert age < sampler.max_age_s
+        assert frame.timing["async_health_ok"] is True
+        assert frame.timing["async_feedback_fresh"] is True
+        assert stats["feedback_age_ms"] == pytest.approx(100.0)
+    assert frames[1][2]["health_age_ms"] == pytest.approx(200.0)
+    assert frames[1][2]["feedback_valid_count"] == valid_count
+    assert frames[1][2]["feedback_missing_ids"] == list(range(valid_count, 18))
+    assert statuses[:3] == [None, None, None]
+    assert statuses[3].terminate is True
+    assert statuses[3].reason == "incomplete_feedback"
+
+
+def test_async_sampler_recent_positions_do_not_refresh_health_acquisition(
+        monkeypatch):
+    clock = {"now": 10.0}
+    monkeypatch.setattr(rl_policy.time, "monotonic", lambda: clock["now"])
+    bus = _FakeBus()
+    sampler = rl_policy._AsyncSnapshotSampler(
+        bus, {}, initial_state=_state(
+            timestamp=10.0, health=True, timing=_complete_health_timing()))
+    sampler.mark_motion_ready()
+    clock["now"] = 10.16
+    # A producer publishing new position/IMU without acquiring health must
+    # not extend the health clock using its newer state timestamp.
+    sampler._latest_good = _state(timestamp=10.15, health=True, timing={
+        "async_sample_seq": 1,
+        "feedback_sample_fresh": False,
+        "full_feedback_attempted": False,
+    })
+    state, age, stats = sampler.latest()
+    assert age == pytest.approx(0.01)
+    assert stats["feedback_age_ms"] == pytest.approx(160.0)
+    assert state.timing["async_health_ok"] is False
+    result = rl_policy._stream_target_async(
+        bus, sampler, np.zeros(18), np.zeros(18),
+        t_next=clock["now"], inner_steps=1, inner_dt=0.01,
+        write_speed=0, write_acc=0, abort_check=lambda: False,
+        last_good_state=state)
+    assert "stale" in result[3]
+    assert bus.writes == 0
 
 
 def test_async_sampler_requires_advancing_wrap_aware_mcu_sequence_and_age():
@@ -1032,6 +1365,40 @@ def test_episode_log_records_actual_time_activity_and_sensor_age(tmp_path, monke
     assert rows[0]["snapshot_seq"] == "42"
     assert rows[1]["walk_engaged"] == rows[1]["learned_policy_active"] == "0"
     assert rows[1]["bus_write_due"] == "0"
+
+
+def test_episode_log_keeps_array_columns_precision_and_tail_blanks(tmp_path, monkeypatch):
+    monkeypatch.setattr(rl_policy, "_HERE", tmp_path)
+    monkeypatch.setitem(sys.modules, "event_log", SimpleNamespace(emit=lambda *a, **k: None))
+    log = rl_policy._EpisodeLog("drive", {}, obs_dim=74)
+    state = _state(timestamp=time.monotonic(), health=True)
+    state.joint_position = np.linspace(-0.234567, 0.345678, 18)
+    action = np.linspace(-0.876543, 0.987654, 18, dtype=np.float32)
+    command = state.joint_position + 0.021345
+    obs = np.linspace(-3.456789, 2.345678, 74, dtype=np.float32)
+    # Multiple rows exercise the unchanged periodic flush as well as ordering.
+    for tick in range(26):
+        log.tick(tick * 0.01, state, action, command, None, 0.08, 0.0,
+                 0.4, obs=obs, walk_engaged=True)
+    state.servo_current = None
+    log.tick(0.26, state, None, None, None, 0.0, 0.0, 0.0, phase="tail")
+    log.close({"ok": True})
+    with log.csv_path.open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 27
+    assert all(None not in row and None not in row.values() for row in rows)
+    first = rows[0]
+    for j in range(18):
+        assert float(first[f"q{j}_deg"]) == round(float(state.joint_position[j]) * rl_policy.RAD2DEG, 2)
+        assert float(first[f"cmd{j}_deg"]) == round(float(command[j]) * rl_policy.RAD2DEG, 2)
+        assert float(first[f"act{j}"]) == round(float(action[j]), 4)
+        assert float(first[f"cur{j}_a"]) == 0.4
+        assert rows[-1][f"cmd{j}_deg"] == rows[-1][f"act{j}"] == rows[-1][f"cur{j}_a"] == ""
+    for j in range(74):
+        assert float(first[f"obs{j}"]) == round(float(obs[j]), 4)
+        assert rows[-1][f"obs{j}"] == ""
+    assert rows[25]["t_s"] == "0.25"
+    assert rows[-1]["phase"] == "tail"
 
 
 @pytest.mark.parametrize("capture", [None, "nan", "97.0", "101.0"])

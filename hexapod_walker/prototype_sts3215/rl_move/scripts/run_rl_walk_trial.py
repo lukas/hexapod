@@ -2,7 +2,7 @@
 """Record short hardware walks for a deployed RL policy.
 
 The timed legs use ``/api/rl/walk``. The optional course uses the persistent
-drive API with 5 Hz heartbeats and translation only; it never sends yaw. A
+drive API with translation-only heartbeats; it never sends yaw. A
 normal trial starts from verified logical zero, runs the known STEP transition
 to the simulator walk-ready pose, records each policy episode, then performs a
 planned STEP lower and limps. Robot-side policy guards remain authoritative.
@@ -19,6 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -99,6 +100,9 @@ def _request(
         return json.loads(text)
     except (ValueError, TypeError):
         return text
+
+# Saved guarded canaries allow at most 100 ms beyond the requested wall clock.
+DRIVE_ACTIVE_OVERRUN_TOLERANCE_S = 0.1
 
 
 class HttpFrameRecorder:
@@ -739,87 +743,233 @@ class Trial:
             raise RuntimeError(f"walk {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
 
+    def drive_start_payload(
+            self, *, active_duration_s: float | None = None) -> dict[str, Any]:
+        self._drive_command_owner = uuid.uuid4().hex
+        payload = {"vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
+                   "command_owner": self._drive_command_owner}
+        if active_duration_s is not None:
+            # Enforced by the board from first learned-walk engagement;
+            # host polling remains supervision/evidence.
+            payload["active_duration_s"] = active_duration_s
+        alpha = getattr(self.args, "velocity_filter_alpha", None)
+        if alpha is not None:
+            payload["velocity_filter_alpha"] = alpha
+        return payload
+
     def drive_leg(self, name: str) -> None:
-        """Run one cardinal leg through the 100 Hz/50 Hz live-drive path."""
+        """Run one cardinal leg through the 100 Hz combined-snapshot drive path."""
         unit_x, unit_y = DIRECTIONS[name]
         vx = unit_x * self.args.speed_m_s
         vy = unit_y * self.args.speed_m_s
         self.phase = f"drive_{name}"
         started_unix_s = time.time()
-        reply = self.request("/api/rl/drive/start", {
-            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
-        })
+        started_monotonic_s = time.monotonic()
+        reply = self.request(
+            "/api/rl/drive/start",
+            self.drive_start_payload(active_duration_s=self.args.duration_s),
+        )
         self.event("drive_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
         samples = 0
-        last_live_t_s: float | None = None
         stop: Any = None
+        command_started_s = time.monotonic()
+        activation_s: float | None = None
+        activation_unix_s: float | None = None
+        last_live_t: float | None = None
+        last_live_advanced_s: float | None = None
+        duration_details: dict[str, Any] = {}
+        loop_error: Exception | None = None
+        server_cap_candidate: dict[str, Any] | None = None
         try:
-            deadline = (
-                time.monotonic()
-                + self.args.duration_s
-                + DRIVE_STARTUP_ALLOWANCE_S
-            )
+            startup_deadline = command_started_s + 8.0
             self.event("walk_request", {
                 "vx_m_s": vx, "vy_m_s": vy,
                 "duration_s": self.args.duration_s,
                 "yaw_command": 0.0, "transport": "drive",
+                "duration_basis": "confirmed_active_walk_wall_time",
+                "startup_timeout_s": 8.0,
             })
-            reached_active_duration = False
-            while time.monotonic() < deadline:
+            while (activation_s is None
+                   or time.monotonic() - activation_s < self.args.duration_s):
+                self.recorder.assert_live()
+                if activation_s is None and time.monotonic() >= startup_deadline:
+                    raise RuntimeError("drive did not engage within 8 seconds")
                 response = self.request("/api/rl/drive/cmd", {
                     "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                    "command_owner": self._drive_command_owner,
                 })
-                if not isinstance(response, dict) or not response.get("ok"):
-                    raise RuntimeError(f"drive command refused: {response}")
-                live = response.get("live") or {}
-                try:
-                    candidate_t_s = float(live.get("t_s"))
-                except (TypeError, ValueError):
-                    candidate_t_s = math.nan
-                if math.isfinite(candidate_t_s):
-                    last_live_t_s = candidate_t_s
-                # The robot records every control tick already.  Keep this
-                # heartbeat lightweight instead of competing for the UART
-                # with a redundant /api/feedback transaction during motion.
-                self.recorder.assert_live()
-                samples += 1
-                if (
-                    last_live_t_s is not None
-                    and last_live_t_s >= self.args.duration_s
-                ):
-                    reached_active_duration = True
+                now = time.monotonic()
+                elapsed_active_s = (now - activation_s
+                                    if activation_s is not None else None)
+                server_cap_complete = (
+                    activation_s is not None
+                    and response.get("active") is False
+                    and elapsed_active_s is not None
+                    and elapsed_active_s >= self.args.duration_s - 0.25
+                ) if isinstance(response, dict) else False
+                if server_cap_complete:
+                    server_cap_candidate = {
+                        "host_elapsed_active_s": elapsed_active_s,
+                        "response": response,
+                    }
                     break
+                if (not isinstance(response, dict) or not response.get("ok")
+                        or response.get("active") is not True):
+                    raise RuntimeError(f"drive command refused or session ended: {response}")
+                if activation_s is None and now >= startup_deadline:
+                    raise RuntimeError("drive did not engage within 8 seconds")
+                if (activation_s is not None and last_live_advanced_s is not None
+                        and now - last_live_advanced_s > 0.6):
+                    raise RuntimeError("drive live progress stopped advancing")
+                live = response.get("live") or {}
+                if isinstance(response.get("live"), dict):
+                    self.event("drive_live", response["live"])
+                if live.get("stopping"):
+                    raise RuntimeError(f"controller stopped during drive: {live}")
+                try:
+                    live_t = float(live.get("t_s"))
+                except (TypeError, ValueError):
+                    live_t = float("nan")
+                advanced = (math.isfinite(live_t)
+                            and (last_live_t is None or live_t > last_live_t))
+                if advanced:
+                    last_live_t = live_t
+                    last_live_advanced_s = now
+                # live.t_s is a rounded policy clock, used only as a progress
+                # marker. The duration itself uses this host's monotonic clock.
+                engaged = (live.get("model") == "walk"
+                           and live.get("walk_has_engaged") is True
+                           and live.get("learned_policy_active") is True
+                           and live.get("walk_arming") is False)
+                try:
+                    command_matches = all(
+                        abs(float(live[key]) - expected) <= 0.00051
+                        for key, expected in (("vx_cmd", vx), ("vy_cmd", vy),
+                                              ("wz_cmd", 0.0)))
+                except (KeyError, TypeError, ValueError):
+                    command_matches = False
+                if activation_s is None:
+                    if advanced and engaged and command_matches:
+                        activation_s = now
+                        activation_unix_s = time.time()
+                        self.event("drive_walk_activated", {
+                            "activation_unix_s": activation_unix_s,
+                            "activation_monotonic_s": activation_s,
+                            "startup_duration_s": now - started_monotonic_s,
+                            "live": live,
+                        })
+                elif not engaged or not command_matches:
+                    raise RuntimeError(f"drive activation or command changed: {live}")
+                elif (last_live_advanced_s is None
+                      or now - last_live_advanced_s > 0.6):
+                    raise RuntimeError("drive live progress stopped advancing")
+                samples += 1
                 time.sleep(0.05)
-            if not reached_active_duration:
-                shown_t_s = (
-                    "unavailable"
-                    if last_live_t_s is None
-                    else f"{last_live_t_s:.3f}s"
-                )
-                raise RuntimeError(
-                    f"drive {name} did not reach {self.args.duration_s:.1f}s "
-                    f"active within "
-                    f"{self.args.duration_s + DRIVE_STARTUP_ALLOWANCE_S:.1f}s "
-                    f"wall time (last live.t_s={shown_t_s})"
-                )
+        except Exception as error:
+            loop_error = error
+            self.event("drive_command_error", str(error))
         finally:
-            stop = self.request("/api/rl/drive/stop", {})
-            self.event("drive_stop", stop)
-        result = self.wait_job(name, 25.0)
-        logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+            stop_requested_s = time.monotonic()
+            duration_details = {
+                "requested_active_duration_s": self.args.duration_s,
+                "activation_unix_s": activation_unix_s,
+                "activation_monotonic_s": activation_s,
+                "startup_duration_s": (activation_s - started_monotonic_s
+                                       if activation_s is not None else None),
+                "command_duration_s": stop_requested_s - command_started_s,
+                "confirmed_active_window_s": (stop_requested_s - activation_s
+                                              if activation_s is not None else 0.0),
+                "duration_basis": "host_wall_time_since_confirmed_walk",
+            }
+            self.event("drive_duration", duration_details)
+            try:
+                stop = self.request("/api/rl/drive/stop", {})
+                self.event("drive_stop", stop)
+            except Exception as error:
+                self.event("drive_stop_error", str(error))
+                if loop_error is None:
+                    loop_error = error
+        try:
+            terminal_result = stop.get("result") if isinstance(stop, dict) else None
+            if (isinstance(terminal_result, dict)
+                    and not stop.get("active")):
+                result = terminal_result
+            else:
+                result = self.wait_job(name, 25.0)
+        except Exception as error:
+            self.event("drive_terminal_error", str(error))
+            result = {"ok": False, "error": f"terminal result unavailable: {error}"}
+            if loop_error is None:
+                loop_error = error
+        expected_cap_end = (
+            f"active walk cap {self.args.duration_s:g}s reached")
+        try:
+            duration_limit_matches = math.isclose(
+                float(result.get("active_duration_limit_s")),
+                float(self.args.duration_s), rel_tol=0.0, abs_tol=1e-9)
+            active_wall_time_s = float(result.get("active_wall_time_s"))
+        except (AttributeError, TypeError, ValueError):
+            duration_limit_matches = False
+            active_wall_time_s = float("nan")
+        duration_evidence_matches = (
+            isinstance(result, dict)
+            and result.get("ok") is True
+            and result.get("ended") in (expected_cap_end, "stopped")
+            and duration_limit_matches
+            and math.isfinite(active_wall_time_s)
+            and active_wall_time_s >= self.args.duration_s
+            and active_wall_time_s <= (
+                self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S)
+        )
+        duration_detail = {
+            **(server_cap_candidate or {}),
+            "accepted_active_duration_range_s": [
+                self.args.duration_s,
+                self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S,
+            ],
+            "result": result,
+        }
+        if duration_evidence_matches and result.get("ended") == expected_cap_end:
+            self.event("drive_server_duration_limit_observed", duration_detail)
+        elif duration_evidence_matches:
+            self.event("drive_host_duration_stop_confirmed", duration_detail)
+        else:
+            error = RuntimeError(
+                "drive ended without matching controller-side active-duration "
+                "evidence inside the accepted wall-clock range "
+                f"[{self.args.duration_s:g}, "
+                f"{self.args.duration_s + DRIVE_ACTIVE_OVERRUN_TOLERANCE_S:g}] "
+                f"seconds: {result}")
+            self.event("drive_server_duration_limit_mismatch", duration_detail)
+            if loop_error is None:
+                loop_error = error
+        try:
+            logs = self.pull_policy_logs(started_unix_s, "rl_drive_")
+        except Exception as error:
+            self.event("drive_log_pull_error", str(error))
+            logs = []
+            if loop_error is None:
+                loop_error = error
         self.results.append({
             "phase": name,
-            "transport": "drive_100hz_policy_50hz_bus",
+            "transport": "drive_100hz_combined_snapshot",
             "request": {"vx": vx, "vy": vy},
             "command_samples": samples,
-            "command_active_s": last_live_t_s,
+            **duration_details,
             "stop": stop,
             "result": result,
             "robot_logs": logs,
+            "trial_error": str(loop_error) if loop_error is not None else None,
         })
-        self.snapshot(f"after_{name}")
+        try:
+            self.snapshot(f"after_{name}")
+        except Exception:
+            if loop_error is None:
+                raise
+        if loop_error is not None:
+            raise loop_error
         if not result.get("ok"):
             raise RuntimeError(f"drive {name} failed: {result}")
         self.three_fresh_health_samples(require_armed=True)
@@ -827,9 +977,7 @@ class Trial:
     def direction_course(self) -> None:
         self.phase = "direction_course"
         started_unix_s = time.time()
-        reply = self.request("/api/rl/drive/start", {
-            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
-        })
+        reply = self.request("/api/rl/drive/start", self.drive_start_payload())
         self.event("course_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             raise RuntimeError(f"drive start refused: {reply}")
@@ -853,13 +1001,16 @@ class Trial:
                 segment_end_t_s: float | None = None
                 reached_active_duration = False
                 while time.monotonic() < deadline:
+                    self.recorder.assert_live()
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": 0.0, "dh": 0.0,
+                        "command_owner": self._drive_command_owner,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")
-                    self.recorder.assert_live()
                     live = response.get("live") or {}
+                    if isinstance(response.get("live"), dict):
+                        self.event("drive_live", response["live"])
                     metrics.append(live)
                     try:
                         candidate_t_s = float(live.get("t_s"))
@@ -891,6 +1042,7 @@ class Trial:
                 segment_results.append({
                     "name": name,
                     "samples": len(metrics),
+                    "command_samples": len(metrics),
                     "active_s": segment_end_t_s - segment_start_t_s,
                 })
         finally:
@@ -921,9 +1073,7 @@ class Trial:
             "max_current_a", "learned_policy_active", "walk_has_engaged",
             "stopping", "live_t_s",
         ])
-        reply = self.request("/api/rl/drive/start", {
-            "vx": 0.0, "vy": 0.0, "wz": 0.0, "dh": 0.0,
-        })
+        reply = self.request("/api/rl/drive/start", self.drive_start_payload())
         self.event("joystick_response_start", reply)
         if not isinstance(reply, dict) or not reply.get("ok"):
             command_file.close()
@@ -959,6 +1109,7 @@ class Trial:
                     sent_monotonic = time.monotonic()
                     response = self.request("/api/rl/drive/cmd", {
                         "vx": vx, "vy": vy, "wz": wz, "dh": 0.0,
+                        "command_owner": self._drive_command_owner,
                     })
                     if not isinstance(response, dict) or not response.get("ok"):
                         raise RuntimeError(f"drive command refused: {response}")
@@ -1200,9 +1351,13 @@ def main() -> int:
               "saved continuation after earlier phases completed"),
     )
     parser.add_argument(
+        "--velocity-filter-alpha", type=float, default=None,
+        help="per-session joint-velocity filter alpha in [0, 1]; drive path only",
+    )
+    parser.add_argument(
         "--walk-transport", choices=("timed", "drive"), default="timed",
         help=("timed uses /api/rl/walk; drive uses the live 100 Hz policy "
-              "loop with its established 50 Hz bus-write cadence"),
+              "loop with a combined motor-command/snapshot transaction each tick"),
     )
     parser.add_argument(
         "--resume-walk-ready", action="store_true",
@@ -1231,6 +1386,12 @@ def main() -> int:
               "transition during a recoverable retry"),
     )
     args = parser.parse_args()
+    if args.velocity_filter_alpha is not None:
+        if (not math.isfinite(args.velocity_filter_alpha)
+                or not 0.0 <= args.velocity_filter_alpha <= 1.0):
+            parser.error("--velocity-filter-alpha must be finite and in [0, 1]")
+        if args.walk_transport != "drive":
+            parser.error("--velocity-filter-alpha requires --walk-transport drive")
     if not 0.0 < args.speed_m_s <= 0.08:
         parser.error("--speed-m-s must be in (0, 0.08]")
     if not 3.0 <= args.duration_s <= 20.0:

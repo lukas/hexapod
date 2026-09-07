@@ -1,5 +1,63 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
+## 2026-09-07 ~07:5x (refill cycle; 11/11 GPU pods free, backlog empty, no completion assigned) — no genuinely new launch-ready arm; found+kicked 4 orphaned finished-training gate evals across 3 tracks instead of a filler launch
+
+Full board re-read fresh (guardrails, CURRENT_TRUTHS, all 6 track
+STATUS docs, ledger tail, `launch_run.py status`). Every open frontier
+item is either already accounted for by an in-flight eval or a
+concurrent cycle: item(1)'s crutch-isolation set is closed 3/3 (see
+entry above) and its widen8 follow-up is fully launched (`{s0,s1,s2}
+-widen8`, s0 owned by the concurrent cycle above, `{s1,s2}` mine to
+watch); item(4) (slip gap) and the base(1g) leg-1/4 reward-price class
+are both closed pending an unbuilt, explicitly high-blast-radius
+structural mechanism (role-aware/per-leg-exploration-floor — a prior
+cycle scoped it this same day and declined to force it in one sitting,
+citing shared `train_ppo_mjx.py`/`walk_task.py` policy-internals risk;
+I concur rather than rush a policy-architecture change with no
+dedicated design pass). Command SPEED-range widening (the other named
+deferred realism axis) needs `walk_freeprog_score` to price against
+the PER-EPISODE commanded speed instead of the fixed `walk_freeprog_
+cap_m_s` scalar (confirmed by reading the function: today it only
+ever uses `vx_ref`/`vy_ref` for DIRECTION, discarding their magnitude
+except to detect a stop command) — a real new reward-semantics design
++ bank pass, not a cfg-only launch; not started this cycle for the
+same reason (needs its own careful pass, not a rushed one at cycle
+end). standwalk stays blocked on fresh design thinking (unchanged
+since 09-05 ~06:3x), cpg's cadence-CPG lever is closed (09-07 04:2x),
+joystick/amp stay green/maintenance, assistfade's rung-4 canary is a
+brand-new single-seed mechanism-health test (no 2nd seed until it
+reads).
+
+**Instead of inventing a filler GPU launch, found real follow-up work**:
+4 runs across 3 tracks had FINISHED training with `phase: evaluated`
+(checkpoint/video/W&B-score artifact handoff complete) but no held-out
+gate-harness eval kicked or registered — `ops.sh review` showed
+"(no harness report yet)" on all 4 and no `eval_checkpoint`/`pod_eval`
+process alive on any of their pods (one, the todaypolicy `yawref-acq8m`
+run, had sat this way over an hour). Kicked `ops.sh podeval`
+(backgrounded, `disown`) for all 4 and registered each via
+`evalpending add` so the watcher/next reader doesn't have to
+re-discover the orphan:
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-{s1,s2}-widen8` (train-0/train-1, mine to read once synced —
+belong to this track's own widen8 follow-up, not the concurrent
+cycle's `s0` sibling), `cw-assistfade-rung4-revhandoff-s0` (train-2,
+assistfade's own rung-4 mechanism-health canary — see that track's
+STATUS), and `cw-robotwalk-turns-20260907-yawref-acq8m` (train-1,
+todaypolicy's frame-fix ACQ arm — its full gate needs `eval_yaw`/
+`eval_cmd_suite` too per the `arcaware` precedent; only the standard
+DR-0/own-DR/joygate trio was kicked here, the other two clauses are
+this run's own next reader's job). Zero GPU/training spend (CPU eval
+on each run's own already-idle pod, per guardrails). No verdict
+written for any of the 4 — genuinely unread, left for the next cycle.
+`CYCLE_WORKED` touched (4 real eval kicks + registration + board
+re-verification, not a re-verify no-op).
+
+Evidence: `ops.sh review` on all 4 run names above (before/after),
+`rl_move/orchestrator/pending_evals.json` (4 new entries), `/tmp/
+podeval_{crutchoff_s1_widen8,crutchoff_s2_widen8,assistfade_rung4_s0,
+robotwalk_turns_yawref_acq8m}.log`.
+
 ## 2026-09-07 ~07:4x (triage cycle) — crutchoff-s0-acq1 VERDICTED ACQ PASS, closing the 3-seed crutch-isolation set 3/3 clean; matching widen8 canary launched to close that set too
 
 `crutchoff-s0-acq1`'s gate eval had finished computing on train-2 but

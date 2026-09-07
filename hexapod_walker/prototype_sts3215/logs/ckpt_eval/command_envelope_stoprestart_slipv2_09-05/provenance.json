@@ -1,0 +1,19 @@
+{
+  "note": "Corrected stop_restart slip rerun executed on the EXACT mesh model of the published 09-05 command_envelope artifacts (controller 08-30 mesh regen), verified by bit-identical progress_ratio vs logs/ckpt_eval/command_envelope_v1_09-05/summary.json.",
+  "mesh_xml_sha256": "47081bf16f72e3e4c649a8be7d92e53d2e0278359dea34e41fa443e7b01ffb48",
+  "mesh_mass_kg": 3.494226,
+  "seeds": [
+    0
+  ],
+  "seed_note": "DR-0 scripted-gait cells are deterministic; the published seed 0/1 rows were identical, so one seed is the complete correction.",
+  "published_v1_values": {
+    "baseline": 1.3841654926866065,
+    "env_shared": 1.5589929118721908,
+    "env_yawpri": 1.5589929118721908
+  },
+  "corrected_v2_values": {
+    "baseline": 1.3138,
+    "env_shared": 1.365,
+    "env_yawpri": 1.365
+  }
+}

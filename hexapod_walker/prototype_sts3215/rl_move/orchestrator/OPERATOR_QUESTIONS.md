@@ -5527,3 +5527,26 @@ optimum to the faithful arc: 2204.3 > 2089.2 refusal > 2077.5 crab).
 If the operator prefers WORLD-frame combined semantics (crab), say
 so and the flag flips back to 0 in the next arm — no shared-default
 was changed.
+
+## 2026-09-07 ~07:1x — seed-pruner design assumptions (operator focus note: "implement and enable mechanical seed pruning")
+Adopted without waiting (assume-and-go); revise on operator answer:
+1. "Controller-visible evaluation/report windows" = live W&B history
+   bucketed into max(1M, budget/16)-step windows (rollout reward/ep-len,
+   terminations/* per-window counts, env/v_along_cmd_m_s, sparse
+   eval/walk/* rows). The trainer's own held-out gate evals are too
+   sparse (~4/run) to give 3 post-burn-in windows before run end.
+2. Sacrificed-leg immediate-kill is NOT mechanized: per-leg duty/gait
+   validity is not in the per-window telemetry, only in the harness gate
+   reports that land after training. Collapse class covers rising
+   terminations + persistent wrong-direction velocity mechanically;
+   leg-sacrifice kills stay with triage cycles reading gate/videos.
+   If the operator wants it mechanical, the trainer must first log a
+   per-window per-leg duty summary (small trainer change, default-on
+   telemetry only — happy to add on request).
+3. Negligible reward slope threshold: <=0.2% of |reward EMA| per window
+   over the last 3 windows (least-squares). Noise epsilons: v_along
+   0.002 m/s, ep_len 2% rel, fall_rate 0.005, fracs 0.01; collapse needs
+   fall_rate >=0.08 AND >=2x over 3 windows AND non-positive reward slope.
+4. Scope default: walkcurr track only (the active realism campaign);
+   other tracks opt in via --track. 2M canaries are structurally
+   protected (max 2 windows < 3) — they finish in minutes anyway.

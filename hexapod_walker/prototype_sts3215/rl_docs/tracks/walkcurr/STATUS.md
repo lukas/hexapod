@@ -1,6 +1,48 @@
 # walkcurr — prior-free walking curriculum (Kawawa-2022 lineage)
 
-## 2026-09-07 ~06:5x — item(1) crutch-off fix HOLDS at full 40M ACQ budget, 2/2 seeds clean; 3rd seed (s0-acq1) still training
+## 2026-09-07 ~07:1x (operator-kicked cycle, focus note 2026-09-07) — mechanical seed pruning SHIPPED + next realism rung (command heading breadth on the passed no-crutch composite) launched, 2 seeds
+
+Operator focus note executed. (1) **Audit**: `crutchoff-s0-acq1` finished
+training (40.37M, reward quarters 467.9→1342.9 still rising) and its
+watcher-owned gate eval is genuinely mid-flight on train-2 (started
+06:59, video-every=1, confirmed live via `kubectl exec ps`) — left to
+reach its normal evaluation boundary per the note; it is the last data
+point of item(1)'s 3-seed crutch-isolation set (s1/s2 both ACQ PASS).
+No pruning-rule condition applies to it (training already complete).
+(2) **Mechanical seed pruning built + ENABLED**:
+`rl_move/orchestrator/seed_pruner.py` — pure, unit-tested decision rule
+(`rl_move/tests/test_seed_pruner.py`, 15/15 green) implementing the
+operator's exact spec: burn-in protection ≥25% of planned budget, ≥3
+consecutive controller-visible report windows (live W&B history bucketed
+into max(1M, budget/16)-step windows), kill only when reward EMA slope is
+non-positive/negligible AND no behavioral axis (v-along-command, episode
+length, fall/termination rate, eval speed/survival, wrong-dir frac) is
+improving; immediate-kill class (no burn-in protection, still 3 windows
+of evidence) for rising terminations and persistently wrong-direction
+velocity; learning-valley veto (ANY reward/behavior improvement → KEEP);
+never prunes on reward alone. On kill: `ops.sh killrun` (training procs
+only, checkpoint+logs retained) + ledger `status=KILLED` with exact
+metric evidence. Enabled fleet-wide via a new watcher `pruner_worker`
+thread (`--all --execute` every 15 min, subprocess-isolated;
+`PRUNE_OFF` file is the off-switch; `ops.sh prune` is the manual audit).
+Scope: walkcurr-track RUNNING entries with a live W&B state (a
+finished-training/mid-eval run is mechanically skipped — verified live
+against s0-acq1). Per-window sacrificed-leg detection is NOT
+controller-visible in W&B history (gait_valid comes only from the
+held-out harness), so the sacrificed-leg immediate-kill stays with the
+gate evals/cycles — recorded in OPERATOR_QUESTIONS.md.
+(3) **Next realism rung launched** (first genuinely unmet frontier after
+the passed no-crutch composite seeds = command breadth; single-axis,
+matched parent/budget, two-seed canaries):
+`...-crutchoff-{s1,s2}-widen8` — 2M canaries init from each seed's own
+ACQ-passed 40M checkpoint, changing ONLY `goal.walk_heading_set` from
+the 5-heading medium set to the full 8-way set (adds ±135°, 180°), the
+exact widening already proven composable at 1g WITHOUT DR
+(`widenfwd-c1/c2` PASS + cont40m PASS). Question: does full composite
+DR + pushes interact with rear/backward headings to re-open falls?
+Speed-range widening deliberately deferred: it requires reward
+realignment (`walk_freeprog_cap_m_s` is pinned to the fixed 0.06
+command), i.e. a semantics-bank rung, not a pure env-axis extension.
 
 `crutchoff-{s1,s2}-acq1` (the 40M ACQ continuations of the two CANARY
 PASSed crutch-off seeds, launched 05:4x) both synced this cycle:

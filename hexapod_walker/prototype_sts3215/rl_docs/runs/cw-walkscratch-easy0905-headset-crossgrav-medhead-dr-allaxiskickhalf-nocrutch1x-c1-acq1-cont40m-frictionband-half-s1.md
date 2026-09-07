@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-07T12:49:54+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m
+
+**wandb_id**: z1fix9sp
 
 **hypothesis**: Plain English: is this composite's persistent ~5/m steady-state slip gap (present even in undisturbed episodes, all 4 reward-shaping fixes closed) caused by this DR axis's WIDTH, not the reward? Single lever vs the plain cont40m champion: friction_scale (0.6,1.4 -> 0.8,1.2, same center 1.0, half-width halved). Seed 1 of a 2-seed pair (s0 companion). Prediction-if-true: held-out slip_per_m drops materially in undisturbed episodes with gait/falls holding. Prediction-if-false: slip stays flat -- axis exonerated, move to the next candidate (contact_stiff/gains) or accept the gap as this composite's hardening boundary.
 

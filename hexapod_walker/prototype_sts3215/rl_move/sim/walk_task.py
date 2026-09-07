@@ -394,7 +394,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
                           "_foot_prev_xy", "_foot_prev_force",
                           "_foot_tan_slip_m", "_duty_hist",
-                          "_dgate_hist", "_swing_gate_hist", "_phase",
+                          "_dgate_hist", "_swing_gate_hist",
+                          "_dbandgate_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
@@ -485,6 +486,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # kept SEPARATE from _dgate_hist/_duty_hist so the three
         # mechanisms cannot perturb each other's windows.
         self._swing_gate_hist: list = []
+        # Per-leg contact-duty TWO-SIDED BAND income gate history
+        # (09-07, reward.walk_duty_band_gate): trailing window of six
+        # contact booleans per commanded tick, own state so this gate
+        # never shares a window with the (closed) floor-only
+        # walk_duty_gate or walk_swing_gate. See the gate's own
+        # comment block near its cfg reads for the design rationale.
+        self._dbandgate_hist: list = []
         # Anchored-stance income gate bookkeeping (cycle 30): per-foot
         # world XY at touchdown ("anchor point") and its own prev-contact
         # state, kept SEPARATE from the step-event vars above so the two
@@ -1162,6 +1170,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._duty_hist = []
         self._dgate_hist = []
         self._swing_gate_hist = []
+        self._dbandgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -3099,6 +3108,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._duty_hist = []
         self._dgate_hist = []
         self._swing_gate_hist = []
+        self._dbandgate_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
@@ -4105,6 +4115,72 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_cmd_track *= dg_factor
                 info["walk_duty_min"] = d_score
                 info["walk_duty_gate_factor"] = dg_factor
+            # Per-leg contact-DUTY TWO-SIDED BAND income gate (09-07,
+            # walkcurr item(1)/item(4) structural diagnostic follow-up
+            # -- CURRENT_TRUTHS.md 09-05 ~22:3x named the shared root
+            # cause behind BOTH the walk_duty_gate closure (9/9 FAIL,
+            # a fully-planted/vibrating leg trivially clears any
+            # FLOOR-only duty price since duty=1.0 always beats a
+            # floor <1.0) and the walk_swing_gate closure (5/5 FAIL,
+            # a leg that toe-taps with frequent real-stride swings but
+            # never bears load/propels clears a swing-COUNT floor
+            # while running near-zero duty the rest of the time): both
+            # closed mechanisms only ever priced ONE side of duty
+            # (more is better, or more swings is better). A genuine
+            # tripod gait's per-leg duty sits in a MIDDLE band
+            # (~0.4-0.6, alternating stance/swing); this gate scores
+            # BOTH tails as violations -- MIN over support legs of a
+            # trapezoid membership: score=duty/floor below the floor
+            # (closes the skate/toe-tap exploit, same slope as
+            # walk_duty_gate), score=(1-duty)/(1-ceil) above the
+            # ceiling (closes the freeze/vibrate exploit walk_duty_gate
+            # could never reach), score=1.0 inside [floor, ceil]. A
+            # healthy tripod leg (duty ~0.4-0.6) sits deep inside the
+            # band and scores 1.0 regardless of dose; only a leg that
+            # has drifted to EITHER extreme is charged. Own trailing
+            # window/history (_dbandgate_hist), independent of the two
+            # closed gates' state so this arm's dose can be swept
+            # without perturbing them (both default 0 = inert).
+            # Default 0 = off: no state writes, no info keys, legacy
+            # bit-exact. cfg: reward.walk_duty_band_gate in [0,1],
+            # reward.duty_band_window_s (3.0), reward.duty_band_floor
+            # (0.15, matches walk_duty_gate's own floor),
+            # reward.duty_band_ceil (0.85).
+            g_dband = float(cfg_get(self.cfg, "reward",
+                                    "walk_duty_band_gate", default=0.0))
+            if g_dband > 0.0 and s_ref > 1e-3:
+                n_dbwin = max(1, int(round(float(cfg_get(
+                    self.cfg, "reward", "duty_band_window_s",
+                    default=3.0)) / self.dt)))
+                db_score = 1.0
+                if len(self._dbandgate_hist) >= n_dbwin:
+                    db_floor = float(cfg_get(self.cfg, "reward",
+                                              "duty_band_floor",
+                                              default=0.15))
+                    db_ceil = float(cfg_get(self.cfg, "reward",
+                                             "duty_band_ceil",
+                                             default=0.85))
+                    duty_b = np.mean(self._dbandgate_hist, axis=0)
+                    for f in range(6):
+                        if f in lift:
+                            continue
+                        du = float(duty_b[f])
+                        if du < db_floor:
+                            sc = du / max(db_floor, 1e-6)
+                        elif du > db_ceil:
+                            sc = (1.0 - du) / max(1.0 - db_ceil, 1e-6)
+                        else:
+                            sc = 1.0
+                        db_score = min(db_score, min(max(sc, 0.0), 1.0))
+                dbg_factor = (1.0 - g_dband) + g_dband * db_score
+                r_walk *= dbg_factor
+                support_gate *= dbg_factor
+                if r_prog > 0.0:
+                    r_prog *= dbg_factor
+                if r_cmd_track > 0.0:
+                    r_cmd_track *= dbg_factor
+                info["walk_duty_band_min"] = db_score
+                info["walk_duty_band_gate_factor"] = dbg_factor
             # Per-leg swing-RATE income gate (09-05, closing two prior
             # anti-park exploits together after both were confirmed
             # gameable end-to-end, 6/6 and 9/9 FAIL respectively --
@@ -5272,6 +5348,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
+                    or g_dband > 0.0
                     or k_tslip > 0.0 or k_fsh > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
@@ -5549,6 +5626,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if len(self._swing_gate_hist) > n_swin:
                         self._swing_gate_hist = (
                             self._swing_gate_hist[-n_swin:])
+                if g_dband > 0.0:
+                    # walk_duty_band_gate bookkeeping (09-07): own
+                    # trailing contact-duty window, independent of
+                    # walk_duty_gate's _dgate_hist so this arm's dose
+                    # sweep can run standalone (both default-off).
+                    self._dbandgate_hist.append(
+                        [1.0 if c else 0.0 for c in contacts])
+                    n_dbwin = max(1, int(round(float(cfg_get(
+                        self.cfg, "reward", "duty_band_window_s",
+                        default=3.0)) / self.dt)))
+                    if len(self._dbandgate_hist) > n_dbwin:
+                        self._dbandgate_hist = (
+                            self._dbandgate_hist[-n_dbwin:])
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

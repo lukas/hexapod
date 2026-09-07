@@ -5590,3 +5590,26 @@ tip bar be measured at an envelope the plant mechanism can express.
 NOT adopting either yet; flagging for the operator, campaign
 continues on the combined-cell mechanism which is measured and
 repairable.
+
+## q_20260907T1700_turns_fresh_seed — OPEN
+- cycle: turn-authority diagnostic (operator focus note 20260907T163405Z)
+- operator order: focus note "Existing fleet only; no spending, uncordon,
+  filler, seeds, robot work" — executed: no seed arm launched.
+- question: the completed contact-wrench diagnostic (todaypolicy STATUS
+  09-07 ~17:0x, logs/ckpt_eval/turnauth_0907/) closed every legal
+  mechanism for the arc-right/tip deficit on the robotwalk-turns lineage
+  (pricing 3/3, anchor dose/skip/multiteacher, teacher geometry incl.
+  the focus note's own stance-center displacement — refuted at the gate
+  cells zero-training). The ONE remaining evidence-backed lever is a
+  fresh-seed rerun of the turns recipe: the deficit is a seed-history
+  closed-loop divergence (policy actions sit at teacher targets within
+  0.012 action units yet duty asymmetry L3 0.44-0.49 vs L2 0.62-0.71
+  halves right-turn rate; the recipe has only ever trained seed 0
+  through 3 continuations; the teacher itself meets the arc bars on
+  this exact plant). Request: unbar ONE 8M fresh-seed arm
+  (cw-robotwalk-turns respec, seed != 0, warm from Candidate B, same
+  cfg as cont8m) — or say "composition": route tip/arc segments to the
+  scripted gait in the session controller (zero training) and keep the
+  single-policy turn question parked.
+- assumed answer while open: neither launched (explicit bar); turns
+  lineage marked design-blocked in STATUS with both options named.

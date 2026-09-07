@@ -1,6 +1,95 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~16:2x — cigate8m VERDICTED
+Last updated: 2026-09-07 ~17:0x — TURN-AUTHORITY CONTACT DIAGNOSTIC
+(operator focus note 16:34Z, owned by this cycle; no live claimant).
+Plain English: we instrumented every foot's ground forces and measured
+exactly why the robot under-turns on forward+turn commands. The walk
+policy already copies its teacher's commanded joint targets almost
+perfectly, and the teacher itself turns well enough on this exact
+simulated robot to pass the arc gate — but the policy's own step
+TIMING has drifted (the rear-right leg spends far less time on the
+ground than its mirror), and that costs it half its right-turn rate.
+The focus note's stance-center-displacement candidate was tested at
+zero training cost and REFUTED at the gate cells; every other legal
+training lever for this specific failure is already closed, leaving a
+fresh-seed rerun (barred by today's note) or composition fallback.
+
+New instrument: `probe_turn_authority.py --contact-audit` (+
+`--cells`, `--phase-offsets`, `--scripted-stance-radius-scale`,
+BC-anchor residual) — per-foot contact wrench about the instantaneous
+COM (force-term + couple-term z-torques), normal load, material-point
+slip (audit_slip_frame.py contact identification reused), 12-bin
+phase-resolved stats, commanded/postclip/actual joint tracking.
+Sign/lever-arm SELF-validation per rollout: summed contact fz ~= +
+weight (46.2/47.1 N) and summed contact yaw torque vs d(Lz)/dt
+(mj_subtreeVel) corr 0.70-0.90, slope 0.62-0.90 (tick-end force
+sampling vs substep-averaged momentum explains slope<1 — relative
+per-leg attribution valid, absolute impulses conservative).
+Artifacts: `logs/ckpt_eval/turnauth_0907/` (frozen cont8m + cigate8m
++ scripted teacher, exact training cfg, seed 0, both start phases;
+cells straight / tip +-0.3 / arcs 0.08:+-0.15 and +-0.3; stance-radius
+doses 0.9/1.05/1.10/1.15; anchor-residual pass). Snapshots
+322f021e/f6e6e225/cb29759 (tests 15/15 green each).
+
+Findings (per-cell numbers in the artifacts):
+1. Steady turning is COUPLE-driven: on every turn cell the net linear
+   contact forces BRAKE the turn while the contact couples drive it,
+   summing to ~0 net yaw impulse at steady wz (as required — zero net
+   cycle impulse is not failure evidence). Both start phases identical
+   (deterministic limit cycle; start phase is not a factor).
+2. The outside-of-turn MID leg is the single largest anti-turn force
+   contributor on every combined cell, for scripted AND policy
+   (arc-left: L4 -4.8..-6.1 N*m*s; arc-right mirror L1 +2.8..+3.8) —
+   rate-limit-induced foot lag, not a friction failure (material slip
+   modest 0.10-0.19 m/ep, loads uniform 13-14.5 N, no falls).
+3. Tracking limits are pervasive and EQUAL for teacher and policy:
+   hip slew saturation 0.74-0.85 (even straight walking), yaw up to
+   0.97 on tips; commanded targets run 0.14-0.21 rad (p95) ahead of
+   the rate-limited plant. This sets the universal ceiling (tip
+   ~0.23/0.3, arcs ~0.066/0.15, vx ~0.04/0.08) but NOT the policy's
+   differential deficit vs its teacher.
+4. Placement is NOT the deficit: policy stance centers match the
+   teacher's to <=5 mm at every cell.
+5. Stance-center displacement (focus-note candidate) REFUTED at gate
+   cells, zero training: radial displacement via stance_radius_scale
+   (a true geometry-consistent stance-center shift — position and
+   omega stroke term move together) at 0.9/1.05/1.10/1.15, scripted
+   A/B: arc +-0.15 flat-to-worse (-0.066 -> -0.050..-0.064), tips
+   slightly worse (0.239 -> 0.230-0.237), straight vx slightly better;
+   only the NON-gate +-0.3 arcs gain (~16%, both signs, no falls). Its
+   own pre-condition (gate-cell improvement both signs without
+   regression) failed -> no canary licensed, no training spend.
+6. Anchor transmission is already complete: with the anchor cfg
+   replayed, the policy's per-tick actions sit at the teacher's
+   bc_target within median 0.012-0.013 action units (~0.6% of range,
+   per-leg uniform) INCLUDING the failing arc-right cell — no headroom
+   for anchor-weight/dose arms (consistent with standwalk closures:
+   static dose/skip/geometry 4/4, phase-scheduled multiteacher 4/4).
+7. The differential deficit is CLOSED-LOOP DIVERGENCE: cont8m achieves
+   -0.035 at arc-right vs the scripted teacher's -0.066 on the same
+   plant (arc-left ~teacher: 0.059-0.072), with a stable learned duty
+   asymmetry (rear-right L3 0.44-0.49 vs rear-left L2 0.62-0.71 on
+   every cell incl. straight; teacher balanced 0.54-0.61; reproduces
+   on cigate8m). On the probe protocol the teacher reads err
+   0.084/0.084 on the +-0.15 arc bars (0.0905/0.0947) and ~0.061-0.076
+   on tips — the bars are physically attainable on this exact plant
+   (eval_yaw protocol may differ by a few %); no threshold relaxation
+   proposed or warranted.
+
+Consequence: income pricing (3/3 checkpoints), anchor levers
+(dose/skip/multiteacher), and teacher geometry (omega boosts /
+yaw-amplify / duty skew closed previously; displacement today) are ALL
+closed for this deficit; actuator limits are pinned by contract. The
+one supported untested lever is a FRESH-SEED rerun of the turns recipe
+(the L3 duty asymmetry is seed-history, not mechanism — the recipe has
+only ever run seed 0 through 3 continuations), which today's operator
+note bars ("no seeds"); filed in OPERATOR_QUESTIONS.md
+(q_20260907T17xx_turns_fresh_seed). Delivery fallback needing NO
+training: the session controller can route tip/arc segments to the
+scripted gait (which meets those bars here) — available if the bundle
+should go green on turn cells before the seed question resolves.
+
+Previous update 2026-09-07 ~16:2x — cigate8m VERDICTED
 FAIL-QUALIFICATION: the `walk_course_income_yaw_gate` mechanism
 (cont8m's own follow-up) closes per its PRE-REGISTERED FAIL-flag rule
 (arc cells flat-or-worse at 8M with reward rising). Fresh `eval_yaw`/

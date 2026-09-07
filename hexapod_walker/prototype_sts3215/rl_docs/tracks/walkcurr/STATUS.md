@@ -1,3 +1,33 @@
+## 2026-09-07 ~21:3x (refill cycle; 11/11 GPU free, backlog empty) — FIRST legdutyterm1 repair-canary read lands: `s0-widen8-acq1-legdutyterm1` CANARY FAIL - MECHANISM (terminates constantly, does not converge in 2M)
+
+Only 1 of the 4 `walk_leg_duty_terminate_s` repair canaries launched at
+~21:2x has a gate report so far (the other 3 — `s1`/`s2`-widen8-acq1,
+`s0`-widenbis180 — were confirmed actively still gate-evaling on their
+own pods via live `ps`, correctly left untouched). `s0-widen8-acq1-
+legdutyterm1` reads **CANARY FAIL - MECHANISM** against its own
+pre-registered rubric: `walk/det` `gait_valid` WORSENED vs the
+pre-mechanism `widen8-acq1` baseline (4/6 -> 0/6), with
+`walk_leg_duty_terminate` firing in 6/6 det episodes (baseline: 0
+terminations) and a sacrificed leg flagged in every det episode
+(varying set: [2,5]/[0]/[0]/[0]/[0]/[5], vs 2/6 baseline). Video
+(`walk_det_0.png`/`walk_det_1.png`) shows the robot barely translating
+with legs jittering before an early cutoff, not a repaired six-leg
+gait. This exactly matches the run's own pre-registered FAIL branch
+("terminations still frequent at the end = never converges") — but
+reward is still rising (quarters 57.8/110.4/169.0/178.8), so per the
+08-21 ruling this reads as **2M-too-short**, not proof the termination
+itself is unsound: a brand-new hard termination the policy has never
+been penalized by cannot be unlearned-around inside 2M when the
+sacrifice habit was entrenched over 40M. **Do not generalize from n=1**
+— read the 3 sibling canaries first; if they show the same
+never-converges shape, the next move is a longer acquisition
+continuation on the mechanism (08-21-style, reward still rising), not
+a redesign or an early close of the mechanism itself. No new launch
+this cycle (waiting on siblings + the 08-21 continuation call is a
+batched decision, not a piecemeal single-seed relaunch). Evidence:
+`ops.sh review cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-
+allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyterm1`, W&B `kwbx6jtk`.
+
 ## 2026-09-07 ~21:2x (triage+build cycle; assigned `crutchoff-s0-widenrear180`) — verdicted s0 (CLOSES the widenrear180 trio 3/3, matches s1/s2 exactly), then BUILT + bank-proved + launched the role-aware repair candidate itself: a heading-UNIFORM per-leg minimum-duty TERMINATION (`safety.walk_leg_duty_terminate_s`)
 
 **s0 verdict:** `crutchoff-s0-widenrear180` **CANARY FAIL - MECHANISM**,

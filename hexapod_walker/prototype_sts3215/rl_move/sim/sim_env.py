@@ -3508,6 +3508,89 @@ class SimHexapodBalanceEnv(_GymBase):
                     status.ok = False
                     status.terminate = True
                     status.reason = "walk_idle_terminate"
+        # Per-LEG minimum-duty termination (safety.walk_leg_duty_
+        # terminate_s, 2026-09-07 -- walkcurr role-aware-mechanism gap).
+        # CURRENT_TRUTHS 09-05 ~22:3x / 09-07 ~04:4x-~09:5x/~11:5x
+        # established that a heading-dependent leg PAIR (the L1/L4
+        # middle pair for forward commands, the L0/L5 front pair for
+        # rear-ish commands -- the hexagon's one diametrically-opposite
+        # pair with no fore/aft neighbor, whichever pair that is for
+        # THIS commanded heading) is a genuinely CHEAPER STABLE 4-leg
+        # gait: 11 independently-designed PER-TICK PRICE mechanisms
+        # (walk_duty_gate x9 dose/threshold variants, walk_swing_gate
+        # x5, walk_duty_band_gate x2, walk_gait_gate+k_step_event x6)
+        # all failed against it, because a price is just amortized
+        # against the cheap gait's income for the whole episode -- see
+        # each mechanism's own closure note. Per the op ruling already
+        # validated on hold_min_load_terminate/walk_idle_terminate
+        # above ("absorbing states beat prices; must come WITH a
+        # termination, never instead of one"), this is the per-LEG
+        # analogue, deliberately UNIFORM across all 6 legs (no
+        # heading-conditioned role table needed): track a slow EMA of
+        # each leg's own ground-contact duty (own sensor, same
+        # on=force>0.5 convention as the rest of this file); if ANY
+        # leg's EMA duty stays below safety.walk_leg_duty_terminate_
+        # floor for safety.walk_leg_duty_terminate_s consecutive
+        # seconds (after a grace window), the episode ends -- exactly
+        # like a fall, denying ALL further reward, which a per-tick
+        # price structurally cannot do regardless of dose. The EMA
+        # (not an event/count) is deliberate: a brief one-or-two-tick
+        # "token" touch barely moves it (same chatter-smoothing
+        # reasoning as hold_min_load's own EMA), so a leg must
+        # accumulate REAL sustained ground time to clear the floor --
+        # unlike the already-closed walk_gait_gate/walk_swing_gate
+        # event-based designs, which a rare periodic swing could
+        # satisfy without ever loading the leg (the exact dodge
+        # measured on the sde-family idle-terminate/gait-gate levers,
+        # CURRENT_TRUTHS 09-05 ~13:1x/~14:3x). Floor default 0.05 sits
+        # below the passing-checkpoint low-duty band the 09-07 ~04:4x
+        # diagnostic measured (0.10-0.30 on PASSING episodes, one as
+        # low as 0.10) so a genuinely-passing graded gait is not
+        # charged; tau default 1.0s (roughly one stride period at this
+        # campaign's commanded speeds) smooths a single swing's
+        # transient dip without hiding a truly chronic near-zero-duty
+        # leg over walk_leg_duty_terminate_s (default off) seconds.
+        # Default walk_leg_duty_terminate_s=0.0 = off, bit-exact legacy
+        # (no new state read beyond the always-initialized EMA seed,
+        # no behavior change) for every existing task/cfg.
+        walk_ldt_s = float(cfg_get(
+            self.cfg, "safety", "walk_leg_duty_terminate_s", default=0.0))
+        if (not terminated and walk_ldt_s > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "walk"):
+            ldt_grace_s = float(cfg_get(
+                self.cfg, "safety", "walk_leg_duty_terminate_grace_s",
+                default=0.0))
+            ldt_floor = float(cfg_get(
+                self.cfg, "safety", "walk_leg_duty_terminate_floor",
+                default=0.05))
+            ldt_tau = max(float(cfg_get(
+                self.cfg, "safety", "walk_leg_duty_terminate_tau_s",
+                default=1.0)), self.dt)
+            in_grace = ((self._step_i - self._seg_entry_step) * self.dt
+                        < ldt_grace_s)
+            worst_low_s = 0.0
+            for f in range(6):
+                adr = self._touch_adr[f]
+                force = (max(0.0, float(self.data.sensordata[adr]))
+                          if adr >= 0 else 0.0)
+                on = 1.0 if force > 0.5 else 0.0
+                self._walk_legduty_ema[f] += (self.dt / ldt_tau) * (
+                    on - self._walk_legduty_ema[f])
+                if in_grace:
+                    self._walk_legduty_low_s[f] = 0.0
+                else:
+                    if self._walk_legduty_ema[f] < ldt_floor:
+                        self._walk_legduty_low_s[f] += self.dt
+                    else:
+                        self._walk_legduty_low_s[f] = 0.0
+                if self._walk_legduty_low_s[f] > worst_low_s:
+                    worst_low_s = self._walk_legduty_low_s[f]
+            if worst_low_s >= walk_ldt_s:
+                terminated = True
+                status.ok = False
+                status.terminate = True
+                status.reason = "walk_leg_duty_terminate"
         unload_f = None
         if goal is not None:
             # GETUP mode has no height reference at all: its staged

@@ -1,5 +1,60 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-07 ~12:5x — rung1-mesh-noanchor CLOSES at acquisition depth: FAIL - MECHANISM, the anchor IS load-bearing over a full budget even from a BC-walking init
+
+`cw-assistfade-rung1-mesh-noanchor-s0-acq12m` (the 12M continuation
+the ~12:2x entry below licensed, warm-started from the 2M
+CANARY-PASSed `rung1-mesh-noanchor-s0` checkpoint, same recipe, no
+anchor introduced at any point) finished its full 12M budget and its
+gate eval landed this cycle. **Verdict: FAIL - MECHANISM** — this is
+exactly the run's own pre-registered false branch ("degrades from the
+2M canary's clean read ... despite more budget"), not a new failure
+mode. `gait_valid` fell from 23/24 (2M) to **0/24** at 12M across
+walk+walk_startjitter det+sto; `progress_ratio` med collapsed from
+0.16-0.24 to **0.02-0.05** in every mode (nowhere near the 0.35
+ignition bar); every one of the 24 held-out episodes now sacrifices
+3-6 legs (up from an occasional 3); `over_current` terminations hit
+14/24 episodes (up from 4/24). Contact sheet / frame strips
+(`walk_det_3.png`, `contact_sheet.png`) show the SAME static
+splayed-leg pose held for the whole 20 s episode in every strip — not
+degrading motion, a frozen non-gait. Training reward corroborates
+(not the 08-21 rising-reward case): `ep_rew_mean` crashed from +10
+(step 49k) to a -1253 nadir (step 7.1M) and never recovered, settling
+-400..-570 for the back half (quarters
+`[-62.0, -368.0, -685.4, -503.3]`). Root cause read directly from
+`wandb_history.csv`: `env/walk_loadslip_ratio` sits chronically at
+4.5-5.0 (above `loadslip_ok=3.0`, near `loadslip_max=6.0`) through the
+whole back half, and `env/reward_park_duty` grows steadily more
+negative (-0.30 early -> -0.64 by step 10M) — with zero ongoing
+anchor pulling the policy back, PPO drifts away from the retained
+2M gait into a higher-slip, higher-current, more-leg-sacrificing
+regime that the bare task reward does not prevent.
+
+**This closes the exact gap the 09-06 ledger audit flagged
+("Rung 1 on MESH/100 Hz: UNPROVEN"):** the full two-tier read is now
+2M CANARY PASS (anchor not needed for short-horizon retention) / 12M
+FAIL-MECHANISM (anchor IS load-bearing at acquisition depth). Do not
+relaunch this exact zero-anchor recipe at any budget or seed — it is
+closed. The second-seed 2M canary (`cw-assistfade-rung1-mesh-
+noanchor-s1`) finished training and its gate eval is still running
+on-pod as of this update; it can only add another 2M-tier data point
+(same non-decision as s0's own 2M read) and does not reopen this
+12M-depth verdict either way — read it when ready but do not treat a
+2M PASS there as contradicting this closure. Per the ladder's own
+"advance on pass / retreat one rung on aligned failure" rule, and
+since rungs 2-4 (anchor fade, bounded residual, phase/contact-only)
+have each already been extensively worked and closed or left
+open-per-their-own-threads elsewhere in this doc, the productive next
+step is NOT a rung-1 variant (dose/schedule of the anchor coefficient
+itself was never rung 1's design — rung 2 already owns that lever)
+but resuming whichever rung-2/3 thread is the ladder's actual current
+frontier (see `## Now` below for the currently in-flight items before
+launching anything new here).
+
+Evidence: `logs/ckpt_eval/cw_assistfade_rung1_mesh_noanchor_s0_acq12m_gate/
+report.json`, `walk_det_3.png`, `contact_sheet.png`; W&B `fsluqnkg`;
+RL_LOG 09-07 12:50.
+
 ## 09-07 ~12:2x (refill cycle; found the ~11:1x cycle's `rung1-mesh-noanchor-s0` canary FINISHED training + gate-evaled but not yet verdicted) — rung1-on-mesh's FIRST behavioral data point: CANARY PASS, anchor is not strictly load-bearing at 2M
 
 `cw-assistfade-rung1-mesh-noanchor-s0` (launched ~11:1x this same day:
@@ -952,12 +1007,16 @@ changes/stops, yaw, then DR/pushes).
   0.08 m/s, DR-0, 2M — both PASS (gait_valid 6/6 det+sto, real net
   travel, no crouch collapse). Families do not transfer; this
   motivates but does not prove rung 1 on mesh.
-- **Rung 1 on MESH/100 Hz: UNPROVEN as of 2026-09-06.** Ledger swept:
-  every mesh-era walk run that inits from a BC clone carries an
-  ongoing `train.bc_anchor_*` stack (rung 0); the anchor-free mesh
-  init-from runs (joyfullcurr13/15/16 lineage) are a different scope
-  (full-DR joystick curriculum, hist/tf obs) and FAILED for reasons
-  already verdicted there. No exact rung-1 equivalent exists.
+- **Rung 1 on MESH/100 Hz: CLOSED 2026-09-07 (both tiers read).**
+  `cw-assistfade-rung1-mesh-noanchor-s0` 2M canary: CANARY PASS
+  (gait_valid 23/24, prog_ratio med 0.16-0.24 — anchor not needed for
+  short-horizon retention from a BC-walking init). Its 12M acquisition
+  continuation `-s0-acq12m`: **FAIL - MECHANISM** (gait_valid collapsed
+  to 0/24, prog_ratio med 0.02-0.05, reward crashed and never
+  recovered — anchor IS load-bearing over a full budget). Net: rung 1
+  (anchor-free from a BC-walking init) is not a viable path to the
+  ignition gate at depth; do not relaunch this recipe. See the
+  ~12:5x entry above for full evidence.
 - easy0905 (`walkcurr` current campaign) is teacher-free on EASY
   physics — different question, different track; no overlap.
 

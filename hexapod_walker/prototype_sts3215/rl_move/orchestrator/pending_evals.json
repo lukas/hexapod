@@ -328,11 +328,5 @@
   "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_gainsband_half_s1_gate/report.json",
   "label": "cw_walkscratch_easy0905_..._gainsband_half_s1_gate",
   "added": "2026-09-07T12:59:46"
- },
- {
-  "pod": "hexapod-sweep-friction",
-  "file": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_robotwalk_turns_20260907_yawref_cont8m_turnvideo/summary.json",
-  "label": "cw_robotwalk_turns_20260907_yawref_cont8m_turnvideo",
-  "added": "2026-09-07T15:31:17"
  }
 ]

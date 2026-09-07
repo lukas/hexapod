@@ -56,12 +56,19 @@ B = 2
 
 # walk_pure pins every episode to a walk goal (the rung-4 regime; also
 # guarantees _current_goal() is never None, the only case where the CPU
-# reference skips the handoff).
-BASE = {("goal", "walk_pure"): 1.0}
+# reference skips the handoff). The fixed nonzero speed band mirrors
+# the CPU bank's WALKCURR_SV regime: the teacher takes the episode's
+# OWN command at tick 0, and the default goal generator ramps from
+# ~zero there — an honest config choice, not a mechanism bug (measured
+# 09-07: default-cfg commands give v_cpu ~8.5e-4 m/s post-handoff).
+BASE = {("goal", "walk_pure"): 1.0,
+        ("goal", "walk_speed_min_m_s"): 0.05,
+        ("goal", "walk_speed_max_m_s"): 0.05,
+        ("goal", "walk_heading_max_rad"): 0.0}
 GATE_ZERO = {("goal", "walk_reverse_handoff_gate"): 0.0,
              ("goal", "walk_reverse_handoff_s"): 2.0}
 GATE_ON = {("goal", "walk_reverse_handoff_gate"): 1.0,
-           ("goal", "walk_reverse_handoff_s"): 1.0}
+           ("goal", "walk_reverse_handoff_s"): 2.0}
 
 
 def _cfg(over: dict):

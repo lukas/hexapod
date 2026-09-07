@@ -1,14 +1,83 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 ~13:1x — `cw-robotwalk-turns-20260907-
-yawref-cont8m`'s full 4-check panel landed: genuinely AMBIGUOUS
-result (tip-turn-in-place still open, one plain-arc cell regressed,
-joygate/stop/walk-retention all hold or improve, reward still rising
-strongly) — none of the run's own three pre-registered branches
-(PASS/CONTINUE/FAIL-flag) cleanly fires. Left UNVERDICTED, flagged
-DIG-IN (this decides whether the turn-capable walk role ships as-is
-or needs a dedicated tip-in-place lever first). See the ~13:1x entry
-below for the full numeric comparison.
+Last updated: 2026-09-07 ~15:4x — yawref-cont8m VERDICTED
+FAIL-QUALIFICATION (partial): tip missed <0.076 a 2nd time
+(pre-registered if-false branch), arc-right regressed +28%; walk
+retention/joygate(course_yawref 4.07)/stop all HOLD. Root-caused via
+new `probe_tip_income.py`: tip reward is ALIGNED+steep but the gait
+mechanism saturates (scripted teacher itself caps at wz_med ~0.224 on
+a 0.3 tip command, even 33% overdriven; the policy's 0.21-0.22 is AT
+the teacher ceiling); on moderate combined cells (the exact regressed
+arc-right cell) the windowed course income STILL pays turn-refusal
+428.0 / crabbing 428.7 vs faithful arc 402.1 (deadband forgives
+6.4deg/window at wz=0.15) — a strict measured inversion. ONE
+dedicated mechanism shipped default-off + bank-proved
+(`reward.walk_course_income_yaw_gate`, window-matched achieved/
+commanded yaw ratio on course income; test_ci_yaw_gate_* 5/5) and the
+smallest bounded arm queued on the EXISTING seed. See ~15:4x entry.
+
+## 09-07 ~15:4x — cont8m FAIL-QUALIFICATION recorded; tip/combined-turn mechanism designed from matched diagnostics; ci_yaw_gate arm launched
+
+Verdict (full per-cell evidence in the ledger/W&B pzu0hc62 note; all
+original thresholds preserved, corrected course_yawref key retained):
+(a) tip 0.0885/0.0842 vs <0.076 — MISSED again, flat vs acq8m
+0.0935/0.0809 (2nd budget increment, band 0.08-0.095 = the run's own
+prediction-if-false); (b) arc-left 0.0947 (+5%), arc-right 0.1162
+(+28% real regression), arc-maxes 0.2153/0.2243 (better) — MIXED;
+(c) retention HOLDS 24/24 gv, 0 terms, fwd med 0.2905, slip 2.6885;
+(d) joygate pass, course_yawref 4.33->4.07 (<5.17), 0/24 falls, slip
+2.295; (e) stop v_err 0.0013/0.0037. Reward rising (quarters
+313/1350/2362/2964) => informative-negative on tip/arc-right, not a
+lineage kill. No export, no 3rd identical continuation.
+
+Missing videos captured (drive_video --script turn, full mesh, exact
+training cfg, `..._cont8m_turnvideo/`): tip-left/right at 0.3 +
+arc-left/right at 0.15 — clean upright six-leg stepping, COM trace
+curling smoothly, no falls/stumble => the arc-right regression is
+UNDER-ROTATION (tracking), not a gait/stability pathology.
+
+Diagnostics (new `rl_move/sim/probe_tip_income.py`, exact cont8m
+stack, scripted omega sweep at the failing cells):
+- tip cells: reward strictly monotone toward correct-sign full-rate
+  (wrong-sign 24 < refusal 516 < half 1198 < faithful 1836 <
+  overdrive 1868) => tip pricing ALIGNED; but achieved wz saturates
+  at ~0.147 mean / 0.224 med even scripted at f1.33 => tip deficit is
+  AUTHORITY-bound (teacher-mechanism ceiling; the tip bar 0.076
+  requires achieved med >=0.224 = exactly that ceiling). Teacher-side
+  authority levers are closed on the standwalk track (uniform/
+  selective omega boost, yaw_amplify, duty skew — see
+  tripod_gait.py docstrings); no reward knob can create authority.
+- arc-right cell (vx=0.08, wz=-0.15): course income INVERTED
+  (refusal 428.0, crab 428.7 > faithful 402.1) because 0.75s-window
+  commanded yaw = 6.4deg ~= the 6deg deadband — the per-window
+  re-anchor forgives refusal; linear kernel+walk_prog add ~-48
+  anti-turn; k_yaw_prog is the ONLY pro-turn channel. This is the
+  measured mechanism behind the arc-right 0.0905->0.1162 regression
+  and the thin combined-turn margin generally.
+
+Mechanism shipped (default-off, bit-exact off, bank-proved):
+`reward.walk_course_income_yaw_gate` in [0,1] — course income *=
+(1-g) + g*clip(dyaw_achieved/dtheta_ref, 0, 1) over the SAME trailing
+income window (yaw history already stored by walk_course_ref_yaw=1
+rows; inert on legacy rows and on straight/stop ticks by
+construction). Refusal/crab score ~0, wrong-sign clips to 0, faithful
+arc keeps its income in proportion to achieved rotation — adds the
+missing combined-tick gradient toward actually turning. Bank:
+`test_course_income_semantics.py::test_ci_yaw_gate_*` (defect pinned
+without gate; ordering fixed with gate; wrong-sign floor; forward
+bit-exact; explicit-0.0 bit-exact) 5/5 green + full module green.
+
+Launched: `cw-robotwalk-turns-20260907-yawref-cigate8m` — respec of
+cont8m, EXISTING seed 0, warm from the cont8m checkpoint (parents
+preserved append-only), sole change walk_course_income_yaw_gate=1.0,
+8M. Falsification pre-registered: arc cells (esp. arc-right <=0.0905)
+must improve with (c)/(d)/(e) holding; combined wz_err flat-or-worse
+at 8M with reward rising => the course-income inversion was NOT the
+binding combined-cell misalignment, next suspect is pure gait
+authority — no further income-knob arms on this lineage. Tip is
+secondary here (authority-bound); if tip moves it licenses an
+authority-focused follow-up, if not the tip bar needs an
+authority-level answer, not budget.
 
 ## 09-07 ~13:1x (triage; found this FINISHED+unverdicted orphan with free capacity, ran its own pre-registered panel per the 10:1x precedent) — yawref-cont8m: AMBIGUOUS, none of the 3 pre-registered branches cleanly fires — DIG-IN flagged, not verdicted
 

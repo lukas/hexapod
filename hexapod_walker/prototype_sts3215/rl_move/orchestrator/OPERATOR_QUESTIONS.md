@@ -5571,3 +5571,22 @@ slow walking is still never punished. All existing lineages/banks
 untouched (key off). If the operator disagrees, the canary
 (cw-...-cont40m-overspeedq1) is a single 2M mechanism read, cheap to
 discard, and the key stays default-off forever.
+
+## 2026-09-07 ~15:4x — [todaypolicy] ci_yaw_gate dose + tip-authority question (assume-and-go)
+Q1: dose for the new `reward.walk_course_income_yaw_gate` on the
+yawref lineage's first arm? ADOPTED: 1.0 (full) — the measured defect
+is a strict ordering inversion (refusal course income > faithful arc
+at wz=0.15); a partial dose leaves refusal paid a large fraction of
+faithful's income and the bank's ordering margin is proven at 1.0.
+Fallback if retention/course_yawref regress in a starvation-shaped
+way: one arm at 0.5, nothing else.
+Q2: the tip-in-place bar (<0.076 => achieved med >=0.224 rad/s)
+equals the scripted teacher mechanism's own measured authority
+ceiling (probe_tip_income: scripted f1.33 still ~0.215-0.224 med).
+If cigate8m does not move tip, the honest choices are (a) an
+authority-level lever on the POLICY side (e.g. faster phase clock on
+turn ticks — new, untested axis), or (b) an operator ruling that the
+tip bar be measured at an envelope the plant mechanism can express.
+NOT adopting either yet; flagging for the operator, campaign
+continues on the combined-cell mechanism which is measured and
+repairable.

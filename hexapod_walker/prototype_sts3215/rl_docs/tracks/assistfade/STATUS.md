@@ -1,5 +1,64 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-08 ~02:2x (refill cycle; 9-11 GPU pods free, backlog empty, no completion assigned) — reopened the track with its own named design lead: `reward.walk_leg_duty_ratio_charge` (bank-proved + 3/3 fresh-init CANARY PASS on walkcurr/easy0905) launched for the first time on real mesh/100Hz rung 3
+
+Full board check found the walkcurr `crutchoff-s{0,1}-widen8-legdutyratio-
+{on10m,offctrl10m}` pair root-owned (per fb_20260908T014602/015125/
+021004) with no further budget until matched evidence lands — not a
+line for this cycle to touch or extend. cadence/lift-lead/stance-arm
+turn-authority levers are CLOSED per CURRENT_TRUTHS' 09-08 turn-pipeline
+review. joystick/amp/cpg are DONE/closed (cpg's own 09-07 ~04:2x entry:
+cadence-CPG-harvest search space exhausted), standwalk is blocked on
+fresh design-thinking, todaypolicy is delivered with only a DIG-IN-owned
+open item. That left this track's own TRACK-LEVEL FINDING (09-07
+~14:5x) as the one genuinely open, launch-ready lead: "a genuinely new
+reward mechanism pricing per-leg utilization/load-slip directly" —
+which is now exactly what `walk_leg_duty_ratio_charge` is (built +
+bank-proved 09-08 on the walkcurr track, 16/16 bank tests green
+including the sparse-activation-guard regression, 3/3 real-training
+fresh-init CANARY PASS on a different task diet). Composing an
+already-banked, already-real-training-validated mechanism onto this
+track's own closed rung is a single-lever, non-duplicative experiment,
+not a relaunch of any closed rung-3 recipe.
+
+Launched a matched 2-seed pair, single lever vs the already-FAIL bare
+`cw-assistfade-rung3-residualfade-{s0,s1}` baseline (byte-identical
+otherwise — same residual-blend schedule `t1_steps=1.4M`, same log-std
+anneal, random-weight init): `cw-assistfade-rung3-legdutyratio-{s0,s1}`,
+2M MECHANISM-HEALTH canaries, adding `reward.walk_leg_duty_ratio_charge=
+150.0` / `_target=0.30` / `_grace_s=3.0` / `_tau_s=1.0` (the exact
+calibrated dose from the walkcurr guardfix1 canaries). Bare rung3 FAILed
+with a schedule-collision drift-into-high-slip signature PLUS chronic
+single/double-leg sacrifice (legs [0,3] s0 / [0,5] s1, per the
+nostdanneal read) — precisely the pathology this additive, non-
+multiplicative charge is designed to price without disturbing an honest
+gait. Both VERIFIED RUNNING (`train-0`, `train-2`; both had already
+finished their tiny 2M/10s-episode/3072-env training budget and moved
+into CPU gate-eval within ~2 minutes of launch, per this recipe's own
+established fast-canary pattern). Gate text (full, per-run): mechanism-
+health only, no ignition-gate claim from 2M alone; PASS-if the charge
+telemetrically engages AND per-leg duty on the previously-chronic
+leg(s) measurably improves over the undosed baseline's own report.json
+without new falls/regression; FAIL-INFRASTRUCTURE if the charge never
+engages; FAIL-MECHANISM if engaged but statistically indistinguishable
+from baseline (checked via the same episode-by-episode diff the
+walkcurr retrofit arm's own self-correction used) or worse. A longer
+acquisition continuation (mirroring the already-run `longbudget` 6M
+lever) is the natural follow-up only if this canary shows real
+per-leg engagement — not decided this cycle. Left UNVERDICTED for the
+next reader (gate reports not ready at cycle end).
+
+No other GPU launch this cycle: the remaining free pods have no other
+non-duplicate, launch-ready arm on any registered track (see board
+check above); did not manufacture filler. `CYCLE_WORKED` touched (2
+new launches + this doc entry).
+
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-{s0,s1}`,
+`logs/experiments/cw-assistfade-rung3-legdutyratio-{s0,s1}/`, W&B
+`fhzonqmd` (s0)/`d9bpmm0s` (s1), `rl_move/tests/
+test_task_semantics.py -k "leg_duty_ratio or assistfade_rung3"` (21/21
+green, re-confirmed this cycle before launch).
+
 ## 09-07 ~14:5x (triage; assigned the ~14:3x cycle's registered on-pod eval pair) — `rung3-residualfade-{s0,s1}-nostdanneal` BOTH FAIL: closes the std-anneal axis 2/2 seeds, and with it the LAST untried lever anywhere in rungs 2-4 — TRACK-LEVEL FINDING: only rung 0 (persistent BC anchor) reaches ignition on mesh/100Hz
 
 Read both gate evals the ~14:3x cycle registered (do not re-run).

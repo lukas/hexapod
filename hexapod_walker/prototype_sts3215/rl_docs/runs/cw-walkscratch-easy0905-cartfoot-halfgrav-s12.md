@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:26:13+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-s7
+
+**wandb_id**: g8d825dk
 
 **hypothesis**: Plain English: 4th-seed replicate of the halfgrav cart_foot ON canary, breaking the tie in the closed n=3 (seed7/10/11) cohort where cart_foot's gait_valid advantage over joint-space held for 2/3 seeds (s7 22/24 vs 10/24, s10 17/24 vs 7/24) but vanished for s11 (11/24 vs 10/24, near-parity). Byte-identical to cartfoot-halfgrav-s7 with only seed changed to 12.
 

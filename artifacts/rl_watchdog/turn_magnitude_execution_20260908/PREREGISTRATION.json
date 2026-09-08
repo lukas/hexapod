@@ -1,0 +1,32 @@
+{
+  "status": "PREREGISTERED_BEFORE_EXECUTION",
+  "registered_utc": "2026-09-08T09:45:19.857558+00:00",
+  "owner": "Root and fresh_cartesian_frontier; root assigned exact design implementation and independent review before execution.",
+  "protocol_sha256": "283a63bb3b2512d42fe14b6c85cfdcb34fbfc781d64d3c7222ef7b05866178b7",
+  "frozen_vectors_sha256": "a16f9ccbb60f00164deee12649a061c84ad8729a61765b1cea423d2648acd23f",
+  "reference_baselines_sha256": "af7af16e940b7cbc4e05792d2243af4c53dd80f79ca74cc3a6c79302822b351f",
+  "pins_sha256": "9d39dc5fe7207a74458221524cb6500302d487ea9954ffbb345c859ef1028adc",
+  "original_cfg_sha256": "aabf4cc25f78ebf3b28ff7b4a46fba85c109f4061becaf4212e8842b5c550e40",
+  "reviewed_bank_sha256": "c922b54761c3e2969540c8f6c57b16a502fff45db2e6fd5a5c4da5beea98766b",
+  "frozen_helper_sha256": "436b0eee695094f94d68346548e12efed147f087b1447ea2349b0f4feb67cd54",
+  "branch_states": 8,
+  "continuous_baselines": 4,
+  "branch_slots": 40,
+  "straight_cells": 2,
+  "straight_rollouts": 6,
+  "total_rollout_ceiling": 50,
+  "seed": 0,
+  "requested_common_l2": 0.10606601717798213,
+  "coordinate_cap": 0.05,
+  "pulse_ticks": 5,
+  "followup_ticks": 75,
+  "status_override": "The exact design-source copy retains its historical DESIGN ONLY wording. This record freezes it for the root-assigned implementation. No simulation may execute before root's independent implementation review; methods, state mapping, 50-rollout ceiling, and gates are unchanged.",
+  "pre_freeze_clarifications": [
+    "Matched +b comparison requires a complete finite 80-tick window.",
+    "Straight zero-off explicitly requires original retention bars on the post-ramp [2,15] second window, plus trace/full-state parity."
+  ],
+  "execution_status": "NOT_STARTED",
+  "no_new_simulator_response_yet": true,
+  "no_PPO": true,
+  "no_physical_action": true
+}

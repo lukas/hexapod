@@ -1,0 +1,447 @@
+{
+  "status": "DESIGN_ONLY_NOT_PREREGISTERED_OR_TRIAL_READY",
+  "purpose": "Deterministic offline allocation calculation from existing discovery measurements; no simulation or new response data.",
+  "source_file_sha256": {
+    "artifacts/rl_watchdog/turn_actionbank_review_20260908/full/bank.json": "c922b54761c3e2969540c8f6c57b16a502fff45db2e6fd5a5c4da5beea98766b",
+    "artifacts/rl_watchdog/turn_actionbank_review_20260908/owner_prereg_spec.json": "847db884d21b74b6452704d86ae13f30f7e59892ee3245df81d7475813cebdba",
+    "artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py": "436b0eee695094f94d68346548e12efed147f087b1447ea2349b0f4feb67cd54",
+    "artifacts/rl_watchdog/turn_coordinated_guidance_20260908/frozen_templates.json": "7014cf633de1e9d22996525ff0465a86819c5865dcb3e0e464996846d1027214",
+    "artifacts/rl_watchdog/turn_coordinated_guidance_20260908/derivation_details.json": "d62b13850c185fb7a3fbfa5439e53098abdc39bb9f36f9b9953163e679630d61",
+    "artifacts/rl_watchdog/turn_coordinated_guidance_20260908/single_joint_inputs.json": "299a36b9946b6900a6f3ddbdcd7cb370538abb39dbf73530a875cb0aab2a0c71",
+    "artifacts/rl_watchdog/turn_coordinated_guidance_20260908/screen_proposal.json": "a840fe0cdc4955490e18cc1f84896abc865205c2ae4d0febb0b3c61c9f5cfa50",
+    "artifacts/rl_watchdog/turn_coordinated_execution_review_20260908/independent_recheck.json": "338a06d751844ab3fb213a51d674af4a737113591e9b650852147f85b5b508b2",
+    "artifacts/rl_watchdog/turn_support_yaw_execution_20260908/full_recovered/summary.json": "dfc7c6a7f4bd9967a96a211884f67212e8019f7440b0f2e54b591f51017c0428",
+    "artifacts/rl_watchdog/twistfit_review_20260908/TIME_MULTIPLEX_REVIEW.md": "1531194355dac2ff7f51f8e9e684353603ce7f192840c6d1c69e0f17e8f95526"
+  },
+  "fixed_parent": {
+    "frozen_checkpoint_sha256": "61f9c20f0f72d89217a22b47037e33c8dad2f50bfaca0a3d5517f714dd0eeb10",
+    "frozen_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+    "cfg_json_sha256": "aabf4cc25f78ebf3b28ff7b4a46fba85c109f4061becaf4212e8842b5c550e40",
+    "prereg_spec_sha256": "847db884d21b74b6452704d86ae13f30f7e59892ee3245df81d7475813cebdba"
+  },
+  "frozen_mapping": {
+    "command_domain": "vx=.08, wz=+.15 or-.15 only; exact wz=0 gives all-zero vector",
+    "phase_rule": "wrap actual observed env._phase into[0,2pi); among the two centers for sign(wz), select minimum circular distance; if distances differ by<=1e-12rad, choose lower phase_index",
+    "pulse_rule": "Choose template once at burst start and hold that vector for exactly5controlticks; then75unchanged policyticks. Do not reselect inside a burst.",
+    "out_of_domain": "No assertion or deployment outside tested commands; no start-label/tick-index lookup in vector selection."
+  },
+  "shared_l2": 0.10606601717798213,
+  "coordinate_cap": 0.05,
+  "numeric_rule": "Float64: low=0; high=.05/min(nonzero abs(g)); 100 bisection iterations comparing sum_j min(.05,mid*abs(g_j))**2 against rho**2; lambda=(low+high)/2; u_j=sign(g_j)*min(.05,lambda*abs(g_j)).",
+  "templates": [
+    {
+      "template_id": "wz_neg_phase0",
+      "wz_sign": -1,
+      "phase_index": 0,
+      "phase_center_rad": 1.0681306323098982,
+      "mean_central_secant": [
+        -0.00016221634941943064,
+        -0.013647752828213205,
+        -0.002078827681011447,
+        0.002965872747269921,
+        -0.00032380461544453953,
+        0.004384977943250878,
+        0.0009408542587104052,
+        0.0035962639330631985,
+        0.0002517243984286044,
+        0.029279061690388603,
+        0.038572142002357146,
+        0.0038094844617933554,
+        -0.0005805485654029885,
+        -0.010387401883280856,
+        0.022423804794099028,
+        0.016689185007322388,
+        0.018804595121359735,
+        -0.03341599828848782
+      ],
+      "lambda_value": 1.6316537681274328,
+      "candidate_vector": [
+        -0.0002646809177820903,
+        -0.022268407328625905,
+        -0.00339192701900994,
+        0.004839277443869428,
+        -0.0005283370209271372,
+        0.007154765784260976,
+        0.0015351483964835752,
+        0.005867857597563349,
+        0.0004107270632256436,
+        0.04777329133435813,
+        0.05,
+        0.006215759676708034,
+        -0.0009472542543207615,
+        -0.0169486434239092,
+        0.03658788558804567,
+        0.02723097160417343,
+        0.03068258848787735,
+        -0.05
+      ],
+      "comparator_vector": [
+        -0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        0.025,
+        0.025,
+        -0.025
+      ],
+      "candidate_l1": 0.3126475229411406,
+      "candidate_l2": 0.10606601717798213,
+      "candidate_linf": 0.05,
+      "capped_coordinates": [
+        10,
+        17
+      ],
+      "naive_normalization_peak_at_rho025": 0.05813772190546176,
+      "naive_normalization_peak_at_rho050": 0.11627544381092351,
+      "source_mean_linear_candidate_mrad": 7.429876518604258,
+      "source_mean_linear_comparator_mrad": 5.057862914232588,
+      "source_members": [
+        {
+          "start_phase": 0.0,
+          "original_tick": 638,
+          "original_phase": 1.0890741853987607,
+          "heldout_target_phase": 2.659870512193657,
+          "heldout_selection_ticks_inclusive": [
+            648,
+            663
+          ],
+          "source_linear_candidate_mrad": 6.583511543256603,
+          "source_linear_comparator_mrad": 4.5857420060383545
+        },
+        {
+          "start_phase": 3.141592653589793,
+          "original_tick": 600,
+          "original_phase": 1.0471870792210356,
+          "heldout_target_phase": 2.617983406015932,
+          "heldout_selection_ticks_inclusive": [
+            610,
+            625
+          ],
+          "source_linear_candidate_mrad": 8.276241493951915,
+          "source_linear_comparator_mrad": 5.529983822426823
+        }
+      ]
+    },
+    {
+      "template_id": "wz_neg_phase1",
+      "wz_sign": -1,
+      "phase_index": 1,
+      "phase_center_rad": 4.209723285899695,
+      "mean_central_secant": [
+        -0.0018875130275546048,
+        -0.005555330539731146,
+        0.005180071426526406,
+        0.0037613469255555476,
+        -0.007283521315579744,
+        -0.014787548463549016,
+        0.00563592379873426,
+        0.0013739927640141203,
+        0.002927551015955432,
+        -0.015843845403367973,
+        -0.0037188384873507174,
+        0.01497868898639787,
+        0.004253005566687701,
+        -0.003097371757760786,
+        0.0012856000348601682,
+        -0.010737459400899652,
+        -0.012401306949893637,
+        0.00781903627598099
+      ],
+      "lambda_value": 3.014353282858517,
+      "candidate_vector": [
+        -0.005689631091047441,
+        -0.016745728849802757,
+        0.015614565309991472,
+        0.011338028453018154,
+        -0.021955106388387786,
+        -0.04457489525652839,
+        0.01698866540465506,
+        0.004141699598829811,
+        0.008824673015681043,
+        -0.047758947404745074,
+        -0.011209893002766235,
+        0.04515106031906513,
+        0.012820061291960618,
+        -0.009336572726239481,
+        0.0038752526855237715,
+        -0.03236649599466191,
+        -0.03738192031614802,
+        0.02356933766729313
+      ],
+      "comparator_vector": [
+        -0.025,
+        -0.025,
+        0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        0.025
+      ],
+      "candidate_l1": 0.36934253477634527,
+      "candidate_l2": 0.10606601717798211,
+      "candidate_linf": 0.047758947404745074,
+      "capped_coordinates": [],
+      "naive_normalization_peak_at_rho025": 0.047758947404745074,
+      "naive_normalization_peak_at_rho050": 0.09551789480949015,
+      "source_mean_linear_candidate_mrad": 3.732143827989399,
+      "source_mean_linear_comparator_mrad": 3.0631988035099944,
+      "source_members": [
+        {
+          "start_phase": 0.0,
+          "original_tick": 600,
+          "original_phase": 4.188779732810837,
+          "heldout_target_phase": 5.759576059605734,
+          "heldout_selection_ticks_inclusive": [
+            610,
+            625
+          ],
+          "source_linear_candidate_mrad": 4.3562404354048905,
+          "source_linear_comparator_mrad": 2.623491064377301
+        },
+        {
+          "start_phase": 3.141592653589793,
+          "original_tick": 638,
+          "original_phase": 4.2306668389885544,
+          "heldout_target_phase": 5.801463165783451,
+          "heldout_selection_ticks_inclusive": [
+            648,
+            663
+          ],
+          "source_linear_candidate_mrad": 3.1080472205739067,
+          "source_linear_comparator_mrad": 3.502906542642688
+        }
+      ]
+    },
+    {
+      "template_id": "wz_pos_phase0",
+      "wz_sign": 1,
+      "phase_index": 0,
+      "phase_center_rad": 1.0681306323098982,
+      "mean_central_secant": [
+        -0.015301117500321898,
+        -0.021534589932323267,
+        0.0016424030167151715,
+        -0.005716222029815005,
+        0.014960103403062336,
+        0.012787306214539357,
+        -0.004931971696084392,
+        -0.009204253862803019,
+        0.00039897651164189085,
+        0.006645817791846587,
+        -0.011337468463973738,
+        0.007325657082714043,
+        -0.005209989566787587,
+        -0.014730751744692905,
+        -0.001171225396245923,
+        -0.005064445297867648,
+        -0.022894373103830856,
+        -0.008006550545659463
+      ],
+      "lambda_value": 2.210083799328184,
+      "candidate_vector": [
+        -0.03381675189907839,
+        -0.04759324833460347,
+        0.0036298482992099374,
+        -0.01263332970145701,
+        0.033063082167382504,
+        0.02826101830180204,
+        -0.010900070744261262,
+        -0.02034217234708481,
+        0.0008817715246922156,
+        0.014687814235047147,
+        -0.02505675537762255,
+        0.016190316037940074,
+        -0.011514513536226111,
+        -0.032556195782871174,
+        -0.002588506273604847,
+        -0.011192848505401089,
+        -0.05,
+        -0.017695147649464213
+      ],
+      "comparator_vector": [
+        -0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        -0.025,
+        -0.025,
+        -0.025,
+        -0.025
+      ],
+      "candidate_l1": 0.37260339071774884,
+      "candidate_l2": 0.10606601717798214,
+      "candidate_linf": 0.05,
+      "capped_coordinates": [
+        16
+      ],
+      "naive_normalization_peak_at_rho025": 0.05046363046845126,
+      "naive_normalization_peak_at_rho050": 0.10092726093690252,
+      "source_mean_linear_candidate_mrad": 5.1038445501733545,
+      "source_mean_linear_comparator_mrad": 4.2215805790231276,
+      "source_members": [
+        {
+          "start_phase": 0.0,
+          "original_tick": 638,
+          "original_phase": 1.0890741853987607,
+          "heldout_target_phase": 2.659870512193657,
+          "heldout_selection_ticks_inclusive": [
+            648,
+            663
+          ],
+          "source_linear_candidate_mrad": 4.832814692768204,
+          "source_linear_comparator_mrad": 3.3365494979265344
+        },
+        {
+          "start_phase": 3.141592653589793,
+          "original_tick": 600,
+          "original_phase": 1.0471870792210356,
+          "heldout_target_phase": 2.617983406015932,
+          "heldout_selection_ticks_inclusive": [
+            610,
+            625
+          ],
+          "source_linear_candidate_mrad": 5.374874407578506,
+          "source_linear_comparator_mrad": 5.10661166011972
+        }
+      ]
+    },
+    {
+      "template_id": "wz_pos_phase1",
+      "wz_sign": 1,
+      "phase_index": 1,
+      "phase_center_rad": 4.209723285899695,
+      "mean_central_secant": [
+        -0.015558058034954442,
+        0.020374832364163237,
+        -0.009212421119396685,
+        -0.0032287208696168967,
+        -0.023161539388981828,
+        0.01138716357449443,
+        -0.035301008388811395,
+        0.038317087517947546,
+        0.01816355326561575,
+        0.0030495454989436233,
+        0.0007717988073824289,
+        0.0033604672472475894,
+        -0.001312179371774358,
+        0.021857270175369425,
+        -0.021303679804323128,
+        -0.0010284510589210483,
+        -0.0021890909107860623,
+        0.008322638346026923
+      ],
+      "lambda_value": 1.4999042337058688,
+      "candidate_vector": [
+        -0.023335597114869776,
+        0.030560297324055793,
+        -0.013817749439664448,
+        -0.0048427721017928775,
+        -0.034740090988679084,
+        0.01707965485528545,
+        -0.05,
+        0.05,
+        0.027243590442239122,
+        0.0045740262047442165,
+        0.0011576242987620454,
+        0.0050403790513765655,
+        -0.0019681433951058667,
+        0.03278381207328962,
+        -0.03195347953201847,
+        -0.0015425780974349641,
+        -0.003283426725055051,
+        0.01248316049080859
+      ],
+      "comparator_vector": [
+        -0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        0.025,
+        -0.025,
+        0.025,
+        -0.025,
+        -0.025,
+        -0.025,
+        0.025
+      ],
+      "candidate_l1": 0.34640638213518193,
+      "candidate_l2": 0.10606601717798211,
+      "candidate_linf": 0.05,
+      "capped_coordinates": [
+        6,
+        7
+      ],
+      "naive_normalization_peak_at_rho025": 0.05483830218795586,
+      "naive_normalization_peak_at_rho050": 0.10967660437591172,
+      "source_mean_linear_candidate_mrad": 7.8478374964730655,
+      "source_mean_linear_comparator_mrad": 5.94748764361892,
+      "source_members": [
+        {
+          "start_phase": 0.0,
+          "original_tick": 600,
+          "original_phase": 4.188779732810837,
+          "heldout_target_phase": 5.759576059605734,
+          "heldout_selection_ticks_inclusive": [
+            610,
+            625
+          ],
+          "source_linear_candidate_mrad": 7.432542447902729,
+          "source_linear_comparator_mrad": 5.681272617168435
+        },
+        {
+          "start_phase": 3.141592653589793,
+          "original_tick": 638,
+          "original_phase": 4.2306668389885544,
+          "heldout_target_phase": 5.801463165783451,
+          "heldout_selection_ticks_inclusive": [
+            648,
+            663
+          ],
+          "source_linear_candidate_mrad": 8.263132545043405,
+          "source_linear_comparator_mrad": 6.213702670069404
+        }
+      ]
+    }
+  ],
+  "no_new_simulation": true,
+  "no_training": true
+}

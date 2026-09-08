@@ -76,6 +76,34 @@ widen8-legdutyratio-loadslip-target6` (W&B `ex55c410`); `ops.sh
 review cw-assistfade-rung3-legdutyratio-loadslip-s0-target6` (W&B
 `uey1ws97`).
 
+**Refill, same cycle:** took the "narrow the DR composite" branch
+named above — launched a matched uniform-magnitude dose ladder off
+the SAME offctrl joint-space baseline: `...-halfdr2m` (every dr.*
+axis's magnitude/probability x0.5, ranges compressed toward their
+center/identity) and `...-quarterdr2m` (x0.25), both `--now` on free
+capacity, both FINISHED training within the cycle (fast 2M canaries,
+~18k fps). Their own `ep_rew_mean` quarters (halfdr2m: -90/-230/
+-351/-475; quarterdr2m: -91/-228/-347/-466) already look like a
+near-exact repeat of the failed-knockout fingerprint (parent offctrl
+and all 3 knockout arms: -458 to -472 final) — a bad sign, but eval
+(gait_valid/slip/fwd-speed) had not landed as of this entry; DO NOT
+verdict off reward alone, read the gate report first (08-21 ruling:
+reward trend informs, evals decide). **Noticed but did NOT touch**: a
+concurrent cycle launched a complementary group-axis split in the
+same window (`...-nodiscrete2m` — zeros bad_start+fault+push together
+while leaving ALL continuous jitter/sensor-noise axes at full
+strength; a `...-nocontinuous2m` companion is implied but not yet
+ledger-visible) — different split (discrete-event group vs continuous-
+jitter group) from this entry's uniform-magnitude ladder, no overlap,
+left fully alone. Next reader: triage `halfdr2m`/`quarterdr2m` gate
+reports first (this entry's own launches), then check whether the
+concurrent nodiscrete2m/nocontinuous2m pair has landed before queuing
+any further dose/split variant — avoid duplicating either axis of
+this now-2-cycle-wide investigation.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-
+freshinit-{halfdr2m,quarterdr2m}` (W&B `5w1uwrd1`/`x3lq37jw`).
+
 ## 2026-09-08 ~14:1x (refill; 11/11 GPU free, empty backlog, no completion assigned) — launched a 3-arm DR-axis-knockout ablation to bisect WHICH axis blocks fresh-init ignition on the widen8 full-DR composite
 
 One plain sentence: the widen8 staged-vs-immediate-DR 2x2 factorial (closed 4/4 FAIL immediately above) named its own two licensed next moves -- narrow the DR composite, or a genuinely new per-leg mechanism -- and every per-leg-mechanism branch (loadslip-ratio, swing-count-floor, duty-ratio, target-calibration) is currently concurrent-cycle-owned on the warm-started-champion leg-sacrifice lineage, so this cycle took the other licensed branch, which nobody has touched yet on the FRESH-INIT ignition question specifically (item(4)'s 09-07 DR-band-NARROWING ablation tested magnitude on an already-walking warm-started champion's steady-state slip gap -- a different question from whether fresh-init ignites at all).

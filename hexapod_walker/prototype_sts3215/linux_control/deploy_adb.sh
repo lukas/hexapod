@@ -48,6 +48,7 @@ STAGE="$(mktemp -d /tmp/hexapod_deploy.XXXXXX)"
 trap 'rm -rf "$STAGE"; deploy_lock_release' EXIT
 stage_deploy_tree "$STAGE" "$SRC"
 
+
 echo ">> pushing code + vendored SDK → $REMOTE"
 # rm -rf clears the retired urt2_setup bundles (push does not delete
 # stale remote files).
@@ -85,7 +86,7 @@ paint_deploy_screen() {
 }
 
 echo ">> ensuring uv on Uno Q"
-adb shell "set -e; if [ ! -x '$REMOTE_UV' ]; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi; '$REMOTE_UV' --version"
+adb shell "set -e; if [ ! -x '$REMOTE_UV' ]; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi; '$REMOTE_UV' --version; if [ ! -x '$REMOTE/.venv/bin/python' ]; then '$REMOTE_UV' venv --system-site-packages '$REMOTE/.venv'; fi; '$REMOTE_UV' pip install --python '$REMOTE/.venv/bin/python' -r '$REMOTE/linux_control/requirements-robot.txt'"
 
 echo ">> restarting web_drive.py"
 # Prefer the boot-enabled systemd unit when present.

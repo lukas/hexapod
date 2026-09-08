@@ -98,7 +98,7 @@ PY
 }
 
 build_ssh() {
-  SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 \
+  SSH=(ssh ${HEXAPOD_SSH_CONTROL_PATH:+-S "$HEXAPOD_SSH_CONTROL_PATH"} -o BatchMode=yes -o ConnectTimeout=10 \
     -o StrictHostKeyChecking=accept-new \
     -o HostKeyAlias="${HEXAPOD_SSH_HOSTKEY_ALIAS:-hexapod.local}" \
     "$HOST")
@@ -179,7 +179,9 @@ ensure_remote_uv() {
     if [ ! -x '$REMOTE_UV' ]; then \
       curl -LsSf https://astral.sh/uv/install.sh | sh; \
     fi; \
-    '$REMOTE_UV' --version"
+    '$REMOTE_UV' --version; \
+    if [ ! -x '$REMOTE/.venv/bin/python' ]; then '$REMOTE_UV' venv --system-site-packages '$REMOTE/.venv'; fi; \
+    '$REMOTE_UV' pip install --python '$REMOTE/.venv/bin/python' -r '$REMOTE/linux_control/requirements-robot.txt'"
 }
 
 # Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,

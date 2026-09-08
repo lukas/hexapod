@@ -26,22 +26,13 @@ from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[2]
-WEBUI_DIR = ROOT / "linux_control" / "webui"
+from linux_control.webui_config import WEBUI_DIR, PAGE_PATHS, STATIC_FILES
 DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
 DEFAULT_STANCE_POLICY: Path | None = None
 DEFAULT_WALK_POLICY = Path("scripted:tripod_highstep_demo_gait")
 DEFAULT_TLS_CERT = Path("~/.hexapod_sts_cert.pem").expanduser()
 DEFAULT_TLS_KEY = Path("~/.hexapod_sts_key.pem").expanduser()
 
-PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
-              "/quad", "/debug", "/rl", "/experiments", "/measure",
-              "/calibrate"}
-STATIC_FILES = {
-    "/style.css": ("style.css", "text/css; charset=utf-8", "no-cache"),
-    "/app.js": ("app.js", "application/javascript; charset=utf-8",
-                "no-cache"),
-    "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
-}
 
 
 def _add_unique(values: list[str], value: str) -> None:

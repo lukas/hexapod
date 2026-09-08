@@ -1,0 +1,122 @@
+{
+  "gate_summary": {
+    "dr0": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.9095,
+      "pass": true,
+      "slip_per_m": 1.1083,
+      "turn_yaw_along": [
+        1.0161,
+        1.0194
+      ]
+    },
+    "dr0_script2": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.916,
+      "pass": true,
+      "slip_per_m": 1.0881,
+      "turn_yaw_along": [
+        1.0194,
+        1.0143
+      ]
+    },
+    "loaded": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.9222,
+      "pass": true,
+      "slip_per_m": 1.098,
+      "turn_yaw_along": [
+        1.0177,
+        1.0141
+      ]
+    },
+    "mu08": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.8998,
+      "pass": true,
+      "slip_per_m": 1.5312,
+      "turn_yaw_along": [
+        1.0804,
+        1.0761
+      ]
+    },
+    "mu12": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.91,
+      "pass": true,
+      "slip_per_m": 1.2184,
+      "turn_yaw_along": [
+        1.0466,
+        1.046
+      ]
+    }
+  },
+  "joint_contract": "robot_abs_tibia_v2",
+  "joint_frame": "robot_abs",
+  "kind": "cpg_se2_controller",
+  "knee_convention": "absolute_tibia",
+  "name": "robust120-yawtrim-v2",
+  "params": {
+    "cmd_tau": 0.12640227327966688,
+    "gait": "tetrapod",
+    "lift_m": 0.030411220269556817,
+    "period": 2.0,
+    "swing_frac": 0.3,
+    "workspace_margin": 0.9416262600938416
+  },
+  "plant_stance_deg": {
+    "hip": 20.0,
+    "knee": 100.0
+  },
+  "provenance": {
+    "created_unix": 1788825151.198463,
+    "gate_verdict": "/Users/lbiewald/Documents/Codex/2026-09-03/can-you-push-on-the-rl/project/hexapod_walker/prototype_sts3215/logs/cpg_gate/robust120-yawtrim-v2/gate_verdict.json",
+    "git_sha": "17647aacd",
+    "params_source": "inline"
+  }
+}

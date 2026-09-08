@@ -524,7 +524,9 @@ class DriveController:
             self._noslip_alpha = max(0.0, min(1.0, float(alpha)))
             if gait_id == 1 and self._gait_id == 1:
                 self.gait.set_alpha(self._noslip_alpha)
-        if gait_id == self._gait_id:
+        if gait_id == self._gait_id and not (
+                gait_id == 6 and getattr(self, '_active_cpg_loaded', None)
+                is not self._cpg_loaded):
             return f"gait {self._gait_desc()}"
         moving = abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
         if self.mode == "walk" or moving:
@@ -566,6 +568,8 @@ class DriveController:
             self.gait.set_lift_mm(self._lift_mm)
         self.gait.reset_phase(t=time.monotonic())
         self._gait_id = gait_id
+        if gait_id == 6:
+            self._active_cpg_loaded = self._cpg_loaded
         self.status = f"gait -> {self._gait_desc()}"
         return f"gait {self._gait_desc()}"
 

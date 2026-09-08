@@ -239,3 +239,34 @@ individual `linux_control` files **plus this whole `webui/` directory** to
 `hexapod-web.service` (or a nohup fallback). Because the server re-reads
 these files per request, a robot-side edit during bring-up shows up on the
 next browser reload — no service restart needed.
+
+
+## Shared robot / central hub UI
+
+The physical server and Mac hub (`rl_move.sim.web_server` on :8898) serve
+this exact directory. `linux_control/webui_config.py` is the shared source
+for deep-link routes, asset names, and cache policy. Keep the sidebar,
+page markup, styles, and browser code here; do not maintain a robot-only
+copy. Deploy with `make robot-deploy` to ship these same files and their
+matching backend modules. `make web-8898-start` starts the hub from this
+checkout. The shared `hexapod_core` package supplies robot/sim joint,
+kinematic, and control contracts; target adapters stay in their respective
+backends.
+
+Motor setup (`/setup`) works on the physical robot, directly or through the
+hub. The hub explicitly routes `/api/setup` and its scan/assign endpoints
+to the robot even when sim/both is selected. It never simulates ID writes.
+Only one motor may be physically connected. Setup leaves torque off,
+verifies the new ID before saving, and saves only this robot’s assignments in
+`~/.local/share/hexapod/motor_setup_registry.json`. The web UI, CLI setup
+wizard, and motor names all use that one robot-local registry. Deployment
+never includes a registry, and the hub reads the selected robot’s registry
+through its API. Old registry files in the code bundle are not imported. Mechanical zero and motion tests are separate controls.
+
+
+Before all 18 motors are assigned, robot control views show setup guidance
+instead of controls. The persistent banner links to Motor setup. The robot
+API rejects control POSTs until setup is complete; setup, TFT maintenance,
+and stop operations remain available. MuJoCo-only use is independent. On
+the robot, `/vision` explains that the camera service runs on the central
+hub; the hub continues serving the actual Vision application at `/vision`.

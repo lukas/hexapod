@@ -219,6 +219,9 @@ class Link:
 LINK = None   # set in main()
 DRIVE = None
 BENCH = None
+SETUP = None
+POST_LOCK = threading.Lock()
+POST_STATE = {"active": 0, "setup": False}
 HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443)
 
 
@@ -227,19 +230,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # __file__, never the CWD, because systemd starts us from an arbitrary
 # directory. Files are read fresh per request so robot-side edits show up
 # on a browser reload without restarting the server.
-WEBUI_DIR = HERE / "webui"
-PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/dance", "/rock", "/quad", "/rl", "/experiments", "/measure",
-              "/calibrate", "/touchdown")
-# Exact whitelisted names only -- no generic static-dir handler, so nothing
-# else on disk is reachable (path-traversal safety).
-STATIC_FILES = {
-    "/style.css": ("style.css", "text/css; charset=utf-8",
-                   "no-store, max-age=0, must-revalidate"),
-    "/app.js": ("app.js", "text/javascript; charset=utf-8",
-                "no-store, max-age=0, must-revalidate"),
-    "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
-}
+from webui_config import WEBUI_DIR, PAGE_PATHS, STATIC_FILES
 NO_STORE = "no-store, max-age=0, must-revalidate"
 
 
@@ -480,6 +471,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, f"webui file missing: expected {fpath} ({e})")
                 return
             self._send(200, data, ctype, cache=cache)
+        elif path == "/api/setup":
+            try:
+                self._json(200, SETUP.status())
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
         elif path == "/cal":
             self._json(200, {"stand_z": CAL.get("stand_z"),
                              "tuck_r": CAL.get("tuck_r")})
@@ -755,10 +751,44 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found")
 
     def do_POST(self):
+        # Prevent setup from racing a request that launches a motion worker.
+        # Ordinary requests retain their existing concurrency.
+        setup = self.path.split("?", 1)[0].startswith("/api/setup/")
+        with POST_LOCK:
+            busy = (POST_STATE["setup"] or (setup and POST_STATE["active"] > 0)) and self.path.split("?", 1)[0] != "/cmd"
+            if not busy:
+                POST_STATE["active"] += 1
+                if setup:
+                    POST_STATE["setup"] = True
+        if busy:
+            self.close_connection = True  # request body has not been consumed
+            self._json(409, {"ok": False, "error": "Motor setup or another operation is busy; retry shortly."})
+            return
+        try:
+            self._do_POST()
+        finally:
+            with POST_LOCK:
+                POST_STATE["active"] -= 1
+                if setup:
+                    POST_STATE["setup"] = False
+
+    def _do_POST(self):
         n = int(self.headers.get("Content-Length", 0) or 0)
         raw = self.rfile.read(n) if n else b""
         body = raw.decode("utf-8", "ignore") if raw else ""
         path = self.path.split("?", 1)[0]
+        if path == '/cmd' and body.strip().upper() not in ('X', 'DISARM', 'RELAX', 'HOLD'):
+            with POST_LOCK:
+                setup_busy = POST_STATE['setup']
+            if setup_busy:
+                self._json(409, {'ok': False, 'error': 'Motor setup is busy.'})
+                return
+        if SETUP is not None:
+            try:
+                SETUP.require_setup_for(path, body)
+            except ValueError as e:
+                self._json(409, {"ok": False, "error": str(e), "setup_required": True})
+                return
         body_obj = None
         if body:
             try:
@@ -777,7 +807,16 @@ class Handler(BaseHTTPRequestHandler):
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return
-        if path == "/cmd":
+        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"):
+            try:
+                data = json.loads(body or "{}")
+                if not isinstance(data, dict):
+                    raise ValueError("Expected a JSON object")
+                result = SETUP.scan() if path.endswith("/scan") else (SETUP.wiggle(data) if path.endswith("/wiggle") else SETUP.assign(data))
+                self._json(200, result)
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/cmd":
             line = body.strip()
             bus_state = self._bus_quarantine_state(recover=True) or {}
             if bus_state.get("bus_quarantined"):
@@ -1426,8 +1465,11 @@ def _show_fatal_on_tft(exc: BaseException) -> None:
 
 
 def _main_after_bus(args) -> None:
-    global LINK, BENCH, HTTPS_PORT
+    global LINK, BENCH, HTTPS_PORT, SETUP
     BENCH = BenchAPI(DRIVE)
+    from motor_setup_api import MotorSetup
+    from motor_setup.registry import REGISTRY_PATH
+    SETUP = MotorSetup(DRIVE, BENCH, REGISTRY_PATH)
     DRIVE.bench = BENCH
     telemetry_auto = os.environ.get(
         "HEXAPOD_TELEMETRY_AUTO", "1").strip().lower()

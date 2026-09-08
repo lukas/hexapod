@@ -5718,3 +5718,18 @@ simulation diagnostics or mechanisms under the original contract.
   campaign settles, or (d) be re-registered as superseded? Until
   answered, cycles keep the 09-05 walkcurr priority and no joystick
   launches happen (assume-and-go default = (c), lowest-priority).
+
+## q_20260908T115xZ — realized-DR-exposure telemetry: deferred to pre-wave tooling, not mid-flight (assume-and-go)
+The 09-08 focus note asked for realized episode/reset telemetry "if
+feasible without perturbing draws". Decision: NOT added mid-flight.
+Reasons: (1) the four staged/control 40M arms are matched pairs already
+training — landing trainer/env telemetry now would make the pairs run
+on different code; (2) a per-world mint-frac attribute must join the
+pool-snapshot SNAP_ATTRS restore path or pooled resets revive stale
+values (the commit-65edba7 bug class) — not a rush-safe change; (3) the
+bounded on-device diagnostic (rl_move/sim/diag_dr_stage_device.py,
+PASS 09-08) plus conservative conditional calculations cover exposure
+judgment for the running arms, and all gates are on the UNCHANGED
+full-DR held-out panel regardless. Standing item: build mint-frac
+realized-exposure telemetry (default OFF, bit-exact off, SNAP_ATTRS-
+aware, unit-banked) BEFORE the next staged-DR wave is pre-registered.

@@ -1,3 +1,78 @@
+## 2026-09-08 ~11:5x (operator-kicked cycle; staged-DR device/exposure verification + joint-space 2x2 completion) — Warp endpoint/reset-pool delivery PROVEN on device; joint-space equal-40M pair launched; exposure-claim corrections recorded additively
+
+One plain sentence: we proved on the actual GPU/Warp device that the
+new staged-DR mechanism delivers per-world DR into physics exactly as
+designed (and ONLY at episode resets), corrected the overstated
+"full-DR tail" exposure language on the running staged pair's records,
+recorded the 82M-vs-80M budget overrun honestly, and launched the
+missing JOINT-SPACE half of the action-space x DR-schedule comparison.
+
+**Device/exposure proof (new tool `rl_move/sim/diag_dr_stage_device.py`,
+report `artifacts/diag/diag_dr_stage_device_20260908T11Z.json`, PASS,
+83 s on idle train-0, no optimizer)**: on the exact joint-space staged
+recipe cfg (78 keys), n=32 worlds, warp impl: (A) armed-but-unbroadcast
+sits at the FULL post-override ranges (object identity + realized
+startup draws mass 0.862-1.195 / friction 0.617-1.396, pinned
+torque/latency/deadband exactly 1.0); (B) per-world device rows
+(MODEL_DR_FIELDS + TickParams) are BIT-EXACT vs an out-of-band host
+recomputation from each world's own mint-time `_ep_rand` draw, on both
+the startup choreography AND the pooled-injection reset path; (C) an
+`apply_dr_stage_frac` broadcast + pool flush leaves every live world's
+device rows bit-identical (reset-only semantics) — flushed 64/26/24
+stale entries across the frac 0/0.5/1 broadcasts; (D) realized reset
+draws are EXACTLY nominal at frac 0 (all scales 1.0, zero bad starts,
+zero tilt), inside the scaled ranges at frac 0.5 (mass 0.929-1.099 vs
+requested 0.925-1.10, bad starts 4/32 vs prob 0.125), and span the
+full matrix at frac 1.0 with the exact captured full-ranges object
+restored (bad starts 5/32 vs prob 0.25). Caveat recorded: the
+"never-reset worlds keep old rows across a whole window" sub-check was
+vacuous at these window lengths (every world reset within each
+500-tick window); the reset-only claim rests on (C)+(B), which are
+sufficient.
+
+**Exposure-claim corrections (fb_20260908T104404_58b3a5, additive,
+gates/verdicts untouched)**: `stagedr2m`'s "0.5M full-DR tail" phrase
+overstated exposure — frac=1.0 first broadcast at 1,572,864 steps; the
+remaining 524,288 global steps are 128 control ticks/world (1.28 s),
+and live episodes keep their reset-time draw, so a conditional
+no-early-falls calculation leaves ~3,296/4,096 worlds still on
+breadth-0 draws at run end (~0.78% full-breadth transitions). The
+running `stagedr20m-b40m`'s "20M full-DR tail" must be read as
+optimizer steps at REQUESTED frac 1.0, not per-world full-DR episode
+exposure. `exposure_correction`/`exposure_note` ledger fields added;
+never infer realized exposure from `dr_stage_ramp/frac` or target-range
+logs.
+
+**Honest budget record**: the 09-08 cycle that pre-registered the
+staged-DR test launched 2M + 40M + 40M = 82M new GPU steps against the
+80M per-cycle guardrail (routing the third arm through the backlog is
+not an exemption). Recorded on the `stagedr20m-b40m` ledger entry
+(`budget_note`); nothing killed — the pair is healthy and
+pre-registered, and stopping a live arm would not recover spent budget.
+
+**Launched (both VERIFIED RUNNING, equal 40M, seed 40, fresh init,
+phase acquisition — this cycle's total = 80M, at the cap, 2 launches)**:
+- `cw-walkscratch-easy0905-widen8-jointspace-freshinit-b40m-ctrl`
+  (train-3): exact offctrl joint-space recipe, full DR from step 0.
+- `cw-walkscratch-easy0905-widen8-jointspace-freshinit-stagedr20m-b40m`
+  (train-0): ONE change, `env.dr_stage_ramp_steps=20000000`; log shows
+  `[dr-stage-ramp] armed` at nominal step-0 ranges; control log has no
+  ramp line.
+Together with the running cart-foot pair (same seed/budgets) this
+completes a one-seed 2x2 action-space x DR-schedule factorial: does any
+staging benefit depend on the action representation? DESCRIPTIVE read
+only (one seed per cell) — pre-registered 4-outcome joint reading per
+pair, identical UNCHANGED full-DR held-out gates, fixed 40M budgets, no
+early 2M closure, no unplanned seeds/extensions.
+
+**Deferred (assume-and-go, recorded in OPERATOR_QUESTIONS.md)**:
+trainer-side realized-episode-breadth telemetry is NOT being added
+mid-flight — it would land asymmetrically across the already-running
+matched pair and touches the pool-snapshot restore path (the
+commit-65edba7 stale-state bug class). Exposure judgment for these
+arms uses the device diagnostic + conservative conditional
+calculations; build the telemetry BEFORE any future staged-DR wave.
+
 ## 2026-09-08 ~11:2x (triage cycle; assigned `cartfoot-halfgrav-offctrl-s11-acq1`) — seed11's ON/OFF pair closes as slip-parity but ALSO gait_valid-parity, so the seed7 22-vs-10 gait_valid gap does NOT generalize
 
 One plain sentence: the joint-space (OFF) matched control for seed11

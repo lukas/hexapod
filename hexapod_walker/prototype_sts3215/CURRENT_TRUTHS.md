@@ -1506,6 +1506,31 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   another charge/dose/window. Evidence: `rl_docs/tracks/walkcurr/
   STATUS.md` 09-07 ~20:3x, W&B `x5r1ktgp`/`vmczkhfx`/`si7rindk`/
   `o8pi2qe6`, RL_LOG 09-07 20:3x.
+- UPDATE 09-08 ~03:5x: measured the walkcurr-specific structural-lever
+  candidate the 09-07 20:3x closure (above) demanded and the
+  todaypolicy turn-traction diagnostic separately nominated
+  (`artifacts/rl_watchdog/turn_traction_20260908/`, mesh-family foot
+  torsional mu_t=0.1 m ~20x a physical boot estimate): re-evaluated
+  the SAME `crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_
+  cont40m` checkpoint/panel/seed with ONLY `env.foot_friction_torsion`
+  overridden 0.1->0.005 (new probe-local cfg key, default 0 = bit-
+  exact off, `sim_env.set_foot_ground_torsion_friction`, tested).
+  Result: slip/m is FLAT-TO-SLIGHTLY-WORSE in every one of the 4
+  groups (det 4.98->5.19 +4%, sto 5.17->5.41 +5%, sj/det 5.10->5.14
+  +1%, sj/sto 5.42->5.93 +9%), `gait_valid` identical 22/24 (same 2
+  sacrificed episodes, sto/4 leg2 + sj/det/1 leg2), 0 falls/
+  terminations both. **Unlike the turning case (where the same dose
+  measurably reduced yaw authority deficit), the torsional-friction
+  fidelity gap does NOT explain walkcurr's straight-walk slip floor
+  — it is refuted as the structural lever for THIS floor.** The 9-arm
+  reward-pricing family's own escalation stands unanswered by this
+  candidate; the remaining structural options (foot-pad geometry,
+  genuine foot-placement policy change) are still unbuilt/unscoped.
+  No canary funded (negative diagnostic result, not a lever). Evidence:
+  `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_
+  dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_{gate,
+  torsion005_probe}/report.json`, W&B `v6wmk0lv`, `rl_docs/tracks/
+  walkcurr/STATUS.md` 09-08 ~03:5x.
 - UPDATE 09-07 ~21:0x: the narrowest possible test of the widen8 fork
   — add ONLY the single 180deg rear heading (not widen8's full 3-new-
   heading jump) to each crutch-off seed's own ACQ-passed 40M champion,

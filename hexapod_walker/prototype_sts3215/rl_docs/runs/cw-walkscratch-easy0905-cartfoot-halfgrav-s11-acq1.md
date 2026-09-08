@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T10:21:05+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-s11
+
+**wandb_id**: 6ldf24zk
 
 **hypothesis**: Own-checkpoint 40M continuation of the CANARY-PASSed cart_foot (ON) halfgrav+seed11 arm: does the Cartesian foot-target action decode learn real six-leg walking at 0.5g over a full budget at a 3rd seed, completing the n=3 (seed7/10/11) halfgrav acquisition cohort the 1g cell already has; slip/m vs the matched joint-space sibling offctrl-s11-acq1 at the same depth is the headline comparison.
 

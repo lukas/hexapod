@@ -1,3 +1,52 @@
+## 2026-09-08 ~11:1x (triage cycle; assigned `cartfoot-halfgrav-offctrl-s10-acq1`) — closes the seed10 ON/OFF pair: OFF clears its own floor but with much weaker gait health and higher slip than ON, replicating seed7's direction on a second seed
+
+One plain sentence: the joint-space (OFF) control for halfgrav seed10
+walks forward cleanly with zero falls (clearing its own acquisition
+gate) but its six-leg gait health is much worse and its slip is
+higher than the cart_foot (ON) sibling already verdicted this same
+window, matching the direction (though not the exact magnitude) of
+the seed7 pair.
+
+**`cartfoot-halfgrav-offctrl-s10-acq1` -> ACQ PASS.** 0 falls/
+terminations in 24/24 gate episodes across walk/det,sto +
+startjitter/det,sto; fwd med 3.07/2.87/2.96/3.04m over the 20s
+episode (~0.14-0.15 m/s), reward quarters rising monotonically
+[-665.8, 209.6, 1025.6, 1340.3], completed naturally at 40,370,176
+steps. gait_valid is 0/6, 4/6, 0/6, 3/6 = **7/24**, well below ON's
+17/24 (6/5/3/3) -- driven by a SYSTEMATIC leg1 near-park in every one
+of the 6 walk/det episodes (duty 0.04 vs 0.11-0.52 on the other five
+legs, identical across all 6 since start conditions are fixed) plus
+2/6 startjitter/det episodes flagging the same leg. slip/m med is
+1.98/2.06/2.07/2.07 vs ON's 1.77/1.70/1.73/1.73 -- ON/OFF ratio
+0.89/0.83/0.84/0.84, i.e. ON has LOWER slip in all four groups, same
+direction as seed7's pair (0.82-0.93) though seed10's OFF gait-health
+gap (7/24 vs 17/24) is proportionally wider than seed7's (10/24 vs
+22/24). **Do not pool gait_valid or slip ratios across seeds** --
+this is a second-seed replicate of the qualitative direction, not a
+magnitude match.
+
+**Refill: no new launch.** Board re-checked (`launch_run.py status`):
+9 GPU pods free (train-0,1,2,3,7,8,9,10,11; train-6 unreachable). The
+seed10 pair is now fully closed both arms; seed11's OFF sibling
+(`offctrl-s11-acq1`) is still training under a concurrent cycle, and
+the pre-registered staged-DR-vs-control 40M pair
+(`widen8-cartfoot-freshinit-c1-{b40m-ctrl,stagedr20m-b40m}`) is also
+mid-flight under concurrent ownership -- both left untouched.
+Backlog is empty. No other track has launch-ready work this read:
+joystick/amp/cpg are DONE/closed; standwalk/assistfade are blocked on
+their own unbuilt per-leg-utilization pricing mechanism (the same
+gap `walk_leg_duty_ratio_charge`'s dose-sweep closure just confirmed
+needs a genuinely new design, not another dose/continuation);
+todaypolicy's live thread is the turn-authority diagnostic chain
+(Codex-owned, sim-only). Idle-within-cap, not idle-next-to-runnable-
+work. CYCLE_WORKED touched (verdict + SKILLS.md row recorded).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s10_acq1_gate/report.json`
+vs `..._s10_acq1_gate/report.json`; W&B `ghd2vc41` (OFF) / `chxamgkj`
+(ON). RL_LOG 09-08 ~11:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~11:1x (triage cycle; assigned `cartfoot-halfgrav-{s10,s11}-acq1`) — both ON arms clear ACQUISITION on their own numbers, but seed7's 22/24 gait-health count does NOT generalize (per-seed 17/24, 11/24 with a new systematic seed11 leg1 dropout)
 
 One plain sentence: forward-acquisition PASS and six-leg gait retention

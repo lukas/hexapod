@@ -1,0 +1,107 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger": "2026-09-08T07:03:13.305Z",
+  "updated_at": "2026-09-08T07:16:06.539234+00:00",
+  "status": "in_progress",
+  "capacity_initial": {
+    "sample_at": "2026-09-08T07:04:37Z",
+    "ready": 11,
+    "optimizing": 3,
+    "free": 8,
+    "pending": [
+      6
+    ],
+    "backlog": []
+  },
+  "initial_optimizers": {
+    "seed7ON": {
+      "steps_from": 19398656,
+      "steps_to": 21495808,
+      "fps": 23062,
+      "pod": 1
+    },
+    "seed7OFF": {
+      "steps_from": 15728640,
+      "steps_to": 17301504,
+      "fps": 24571,
+      "pod": 3
+    },
+    "seed10ONc1b": {
+      "steps_from": 18874368,
+      "steps_to": 20447232,
+      "fps": 19812,
+      "pod": 7
+    }
+  },
+  "completed_pair": {
+    "current1x_ON_steps": 10485760,
+    "current1x_OFF_steps": 10485760,
+    "GPUs_released_for_CPU_finalization": true,
+    "exact_final_gates_ready": true,
+    "on_gait": 20,
+    "off_gait": 22,
+    "episodes_each": 24,
+    "on_tilt_roll_terms": 3,
+    "off_terms": 0,
+    "slip_mean_ratios": [
+      2.0658,
+      1.8879,
+      1.4461,
+      2.1104
+    ],
+    "interpretation": "No promotion/furtherautomaticextension: healthloss and exhaustedfinalintermediateclause. Not universalCartesianclassclosure.",
+    "realized_pairing": "Onlyfirst2/24randomizationdrawsmatch;firstONfallinmatchedsecondepisode then sharedRNGconsumptiondiverges. Subsequentmeanimprovementsdescriptive,notexactpairedlearningdeltas.",
+    "owner": "20260908T070845",
+    "formal_decision": "OwnerrecordedfinalACQFAIL(MISALIGNED),forkaCLOSED;controlPASSat07:10\u201307:11."
+  },
+  "refill": {
+    "owner": "20260908T070331",
+    "scope": "AlreadyplannedEASYseed11ON/OFFacquisitionpair,owncanarycheckpoints,40Meach,80Mcycle;no newseed",
+    "on": {
+      "pod": 2,
+      "pid": 3827596,
+      "steps_from": 6291456,
+      "steps_to": 7864320,
+      "fps": 21057
+    },
+    "off": {
+      "pod": 8,
+      "pid": 1005665,
+      "wandb_id": "ilmolyis",
+      "steps_from": 524288,
+      "steps_to": 1572864,
+      "fps": 16600
+    },
+    "measured_at": "2026-09-08T07:14:50Z",
+    "actual_repeated_PPO_verified": true
+  },
+  "display_repair": {
+    "commit": "311dec333",
+    "scope": "MCP/dashboardselectcurrentexecutedattemptinsteadlaterunexecutedduplicaterefusal;preserveallhistoryandlaterfailures.",
+    "tests_local": 46,
+    "tests_controller": 46,
+    "controller_test_seconds": 0.3,
+    "deployed": true,
+    "service_restart": "Onlydocumentedstatuswebsessionrestarted;watcher/trainersunchanged. Existinglauncherwasnotarestartloop;preservedorchestrator.envsource.",
+    "native_verification_at": "2026-09-08T07:14:00Z",
+    "native_status": "RUNNING",
+    "native_wandb_id": "d9xbrnil",
+    "history_present": true
+  },
+  "steering_next": {
+    "evidence": "turn_coordinated_guidance_20260908/",
+    "status": "Frozenproposal;no new simulationyet",
+    "scope": "New40branchcoordinatedjointcausalscreen,4phasetemplates,2globaldoses,oppositecontrols,unchanged5mradandcorrectedretention. Largercombineddoseexplicit;finite-secantpredictionsnotbounds.",
+    "PPO": "NoPPOlicensedbyin-samplescreen;requiresheldoutandfullydefinedrecurringcontrolleroriginal15sbothyawsigns/straightvalidation."
+  },
+  "automation": "Keepactive;walking/yawgoalsremainunmet.",
+  "pending": [
+    "Dispatchunownedassistedcoordinatedscreenandverifyexecution.",
+    "Publishfinalreceiptandcurrentcapacity."
+  ],
+  "evidence": [
+    "fleet_20260908T070313Z/",
+    "cartfoot_final_read_20260908/",
+    "turn_coordinated_guidance_20260908/"
+  ]
+}

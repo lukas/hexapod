@@ -1,0 +1,44 @@
+{
+  "rl_move/sim/eval_checkpoint.py": {
+    "sha256": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+    "local_source_read": "/tmp/hexapod-turn-audit-status-20260907/hexapod_walker/prototype_sts3215/rl_move/sim/eval_checkpoint.py",
+    "excerpts": [
+      {
+        "line_start": 520,
+        "line_end": 533,
+        "text": "    ``dump_rollout_trace.py``).\n    \"\"\"\n    # Omission keeps historical every-control-tick video capture. Pacing\n    # never skips policy/RNG/physics/metric ticks or changes panel order.\n    video_clock = (_VideoClock(video_fps, env.dt)\n                   if video_fps is not None else None)\n    video_ticks = 0\n    capture_times = []\n    obs, info0 = env.reset()\n    if hasattr(model, \"reset\"):\n        model.reset()   # rot60 sector state is per-episode\n    _maybe_reset_gsde_noise(model)\n    mode = info0.get(\"goal_mode\", \"?\")\n    kind = _start_kind(env._goal_traj) if env._goal_traj else \"plant\""
+      },
+      {
+        "line_start": 1500,
+        "line_end": 1523,
+        "text": "    _has_dr_ov = bool(cfg_kw.get(\"cfg\", {}).get(\"dr\"))\n\n    def make_env(mode_onehot: bool = False) -> object:\n        # Fresh env per evaluated policy, same seed: child and baseline\n        # must face IDENTICAL goal/DR draws or the comparison is noise.\n        kw = cfg_kw\n        if mode_onehot:\n            # Dual-core GRU checkpoints (gru_policy.DualGruActorCritic-\n            # Policy) train with obs.mode_onehot=1; canonical gate\n            # configs predate the flag, so it is auto-enabled from the\n            # checkpoint's stored obs width (see evaluate()).\n            import copy as _copy\n            from rl_move.config import load_config\n            cfg = (_copy.deepcopy(cfg_kw[\"cfg\"]) if \"cfg\" in cfg_kw\n                   else load_config())\n            cfg.setdefault(\"obs\", {})[\"mode_onehot\"] = 1.0\n            kw = {**cfg_kw, \"cfg\": cfg}\n        return env_cls(params=SimServoParams.from_cfg(kw.get(\"cfg\")),\n                       randomize=(args.dr_scale > 0 or _has_dr_ov),\n                       dr_scale=args.dr_scale,\n                       episode_seconds=args.episode_seconds, seed=args.seed,\n                       render_mode=None if args.no_video else \"rgb_array\",\n                       **kw)\n"
+      },
+      {
+        "line_start": 1617,
+        "line_end": 1627,
+        "text": "                if mode == \"recover\":\n                    recover_kinds = [\n                        kind\n                        for bucket in range(len(env.RECOVER_FAMILIES))\n                        for kind in env._recover_family_kinds(bucket)]\n                mode_episodes = (max(args.per_mode, len(recover_kinds))\n                                 if recover_kinds else args.per_mode)\n                for k in range(mode_episodes):\n                    if mode == \"recover\":\n                        # Fixed all-bucket assay: every available kind is\n                        # represented at least once, independent of the"
+      },
+      {
+        "line_start": 1649,
+        "line_end": 1660,
+        "text": "                        and (args.rollout_trace_index < 0\n                             or k == args.rollout_trace_index))\n                    _trace_sink = [] if _want_trace else None\n                    video_timing = {} if args.video_fps is not None else None\n                    ep, frames = run_episode(\n                        env, model, deterministic=det, video=video,\n                        annotate=_annotate_frame,\n                        end_posture_gate=args.end_posture_gate,\n                        valid_plant_gate=args.valid_plant_gate,\n                        course_trace=course_trace_fh,\n                        trace_sink=_trace_sink, video_fps=args.video_fps,\n                        video_timing=video_timing)"
+      }
+    ]
+  },
+  "rl_move/sim/sim_env.py": {
+    "sha256": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+    "local_source_read": "/tmp/hexapod-turn-audit-status-20260907/hexapod_walker/prototype_sts3215/rl_move/sim/sim_env.py",
+    "excerpts": [
+      {
+        "line_start": 857,
+        "line_end": 877,
+        "text": "        if self._gyro_n > 0:\n            gyro = self._gyro_accum / self._gyro_n\n        else:\n            gyro = self.data.sensordata[\n                self._gyro_adr:self._gyro_adr + 3].copy()\n        self._gyro_accum[:] = 0.0\n        self._gyro_n = 0\n\n        if er is not None:\n            q = q + er.joint_zero_bias_rad\n            q = q + self.rng.normal(0.0, er.encoder_noise_rad, N_JOINTS)\n            roll_acc += (er.imu_bias_rad[0]\n                         + self.rng.normal(0.0, er.tilt_noise_rad))\n            pitch_acc += (er.imu_bias_rad[1]\n                          + self.rng.normal(0.0, er.tilt_noise_rad))\n            gyro = er.imu_mount_rot.T @ gyro  # gyro axes rotate with mount\n            gyro = (gyro + er.gyro_bias_rad_s\n                    + self.rng.normal(0.0, er.gyro_noise_rad_s, 3))\n\n        # Complementary filter, same as the hardware estimator\n        # (ComplementaryAttitude alpha=0.98): integrate gyro, drift-correct"
+      },
+      {
+        "line_start": 1527,
+        "line_end": 1549,
+        "text": "        shim env and run the settle choreography itself. Returns\n        q_start (rad, 18). RNG draw order (DR sample, then goal) is\n        identical to the historical inline code.\n        \"\"\"\n        if seed is not None:\n            self.rng = np.random.default_rng(seed)\n        self._episode += 1\n        self._step_i = 0\n        self._prev_action[:] = 0.0\n        self.safety.clear_estop()\n        self._tipped_applied = False\n        self._rise_bank_zstand_pending = None\n        self._flip_spawn_pending = None\n\n        self._ep_rand = (self.randomizer.sample(self.rng)\n                         if self.randomizer is not None else None)\n        self._reset_start_offset_rad = self._sample_reset_start_offset_rad()\n        if self._struct_comp is not None:\n            dr = (getattr(self.randomizer, \"scale\", 1.0)\n                  if self.randomizer is not None else 0.0)\n            self._struct_comp_k = self._struct_comp.sample(\n                self.rng, scale=dr)\n        else:"
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "files_sha256": {
+    "README.md": "0aba60292ec60ff6a1dddde9d0a3c8c8dbc6f59d4629f9ad16664edb7cf71b7c",
+    "derivation_details.json": "d62b13850c185fb7a3fbfa5439e53098abdc39bb9f36f9b9953163e679630d61",
+    "derive_templates.py": "f089a4e75ef0c85a3f09b93e7fdac99376f06972f6ef4a48a46b78dbac031df6",
+    "frozen_templates.json": "7014cf633de1e9d22996525ff0465a86819c5865dcb3e0e464996846d1027214",
+    "screen_proposal.json": "a840fe0cdc4955490e18cc1f84896abc865205c2ae4d0febb0b3c61c9f5cfa50",
+    "single_joint_inputs.json": "299a36b9946b6900a6f3ddbdcd7cb370538abb39dbf73530a875cb0aab2a0c71"
+  },
+  "simulations_run": 0,
+  "source_edits": 0
+}

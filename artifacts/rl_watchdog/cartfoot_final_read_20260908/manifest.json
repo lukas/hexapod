@@ -1,0 +1,22 @@
+{
+  "files_sha256": {
+    "README.md": "eb06aa2abfb0d982b7f737ce6226b816dc9a0a2789f5c5a2baac5a9df0052eef",
+    "activity.txt": "ff8d92c7c22ace3875396056919c7b4cc138fef8faf70a137c22ca1245b42ee2",
+    "cpu_read.txt": "961e241101aac17779cdbefd56fd60d736d47cbcafee1d20fd196c63c52f8f15",
+    "cycle.txt": "efa7286b9faeddb5ed5cb141fe535f30bff6b3e1a07decda36af5c8ca6327ab0",
+    "off_report.json": "5bf7c4ae6334420853ce48d50e71afb627367aff4503549d9b545919c1b70371",
+    "off_report.txt": "aaf76eec13a1462e1a2d1eeb34233bec5aae7175a5a8e3ce838a7a87d04451cf",
+    "off_run.txt": "709abe04914c733b7a8948a22f4b75a9f8e312bc09d1104126255f20704ebbf6",
+    "on_report.json": "9e89bc7501f4ba4a5f5e2e70740c8a7800959fca99597ae73b1ab6732dd3bc39",
+    "on_report.txt": "0a86401aa2126ed5566c96127dad2b1bec368cb9a99159565d47e72ab9f6e9a1",
+    "on_run.txt": "cffcec110cc351f7c48827168613d80b323c962c08366f4ff1ad9f935f9cb281",
+    "prior_off.json": "4085923e37349f4bafbae0dbc9f2e389b9bc6ab87d3d0f496f001bd95267e402",
+    "prior_off.txt": "77e03f4fd3b0540771391474dcf00928fc69f9d566d747a2d8879e58a7f327b3",
+    "prior_on.json": "068fd8ba75625e662a7381319c398f41e52f5108dc57c4931a3a4623c64d9889",
+    "prior_on.txt": "d72c1980f3beab29cb760c269f2799f545b127883b31db69fb73173ee1bbd559",
+    "prior_run.txt": "7944bc4aceb795e7d9add1e1f388681fd8cadbaa89dda422ba3a3eff026cd1b2",
+    "rng_source_excerpts.json": "7b5d26dc073e8f4de9ac803a1bc29bd5b1202b68f1234725565de00790bb1a8b",
+    "summary.json": "4db9077e115bbb3d61d57737305ffc929eea86d5a794c1dc25a523dda553ce1e"
+  },
+  "scope": "read-only native exact final24-episode gates and prior12M comparison; no mutations"
+}

@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "phase": "artifacts_pending",
+  "jobs": {
+    "video_8015872_periodic_003": {
+      "status": "logged_pending_flush",
+      "attempts": 1
+    },
+    "eval_10035200_periodic_004": {
+      "status": "logged_pending_flush",
+      "attempts": 1
+    },
+    "video_10485760_final_005": {
+      "status": "in_flight",
+      "attempts": 1
+    }
+  },
+  "note": "3 eval/video job(s) handed to the CPU finalizer",
+  "updated_at": 1788850959.3383417
+}[finalizer] pid 737467 run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m: 3 job(s), CUDA_VISIBLE_DEVICES='', provenance commit=? dirty=?
+[finalizer] provenance check: runtime fingerprint verified (457 files, 9063b50421e26898…)
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: l2k2 to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.28.1
+wandb: Run data is saved locally in /workspace/prototype_sts3215/wandb/run-20260908_065513-h2y5r9w0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Resuming run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m
+wandb: ⭐️ View project at https://wandb.ai/l2k2/hexapod-balance
+wandb: 🚀 View run at https://wandb.ai/l2k2/hexapod-balance/runs/h2y5r9w0
+[finalizer] video @8,015,872 logged (8,015,872 steps | walk:ok walk:ok walk:ok walk:ok)
+[finalizer] eval @10,035,200: hold 7.51°, track 5.78°, unload 4.16°, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.044 m/s, dir 30.5deg, startjit 2/2, tipped 0/2, rolltrap 2/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1

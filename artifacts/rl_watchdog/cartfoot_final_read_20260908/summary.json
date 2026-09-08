@@ -1,0 +1,639 @@
+{
+  "read_utc": "2026-09-08T07:07:41.102229+00:00",
+  "sources": {
+    "on_report": {
+      "exact_report_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont20m_gate/report.json",
+      "native_text_sha256": "0a86401aa2126ed5566c96127dad2b1bec368cb9a99159565d47e72ab9f6e9a1",
+      "episode_count": 24
+    },
+    "off_report": {
+      "exact_report_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont20m_gate/report.json",
+      "native_text_sha256": "aaf76eec13a1462e1a2d1eeb34233bec5aae7175a5a8e3ce838a7a87d04451cf",
+      "episode_count": 24
+    },
+    "prior_on": {
+      "exact_report_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m_gate/report.json",
+      "native_text_sha256": "d72c1980f3beab29cb760c269f2799f545b127883b31db69fb73173ee1bbd559",
+      "episode_count": 24
+    },
+    "prior_off": {
+      "exact_report_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m_gate/report.json",
+      "native_text_sha256": "77e03f4fd3b0540771391474dcf00928fc69f9d566d747a2d8879e58a7f327b3",
+      "episode_count": 24
+    }
+  },
+  "owner_063721": "FINISHED rc0; active cycle070331 partial-refill at initial read; no ownership mutation",
+  "original_12M_gate": "24-ep walk/walk_startjitter det+sto gate at 12M cumulative vs offctrl-cont10m: PROMISING if gait_valid >= 18/24, 0 falls, and mean slip_per_m within 1.5x the control band in >=3/4 groups (clear convergence); FAIL-MECHANISM (close the retrofit form; remaining option is the fresh-init equal-footing test) if slip stays >3x the control in >=3/4 groups or gait_valid degrades below 18/24; in-between = one more read only if reward is RISING per the 08-21 ruling. Also report whether train reward reversed its decline.",
+  "final_ON_gate": "FINAL one-extra-read (clause exhausted after this \u2014 no further automatic extensions): 24-ep walk/walk_startjitter det+sto exact gate at 22M cumulative vs matched cartfoot-offctrl-cont20m at equal depth, arithmetic MEAN slip_per_m per group. PROMISING = mean slip <=1.5x control in >=3/4 groups AND gait_valid >=18/24 AND 0 falls. FALSIFIES the retrofit = >3x control in >=3/4 groups OR gait_valid <18/24; any new fall or protected-behavior loss also blocks promotion and further continuation. Any remaining intermediate result = record unresolved-retrofit outcome and STOP automatic extensions \u2014 NOT a universal Cartesian class closure. If per-tick reward rises but held-out slip/progress stalls or worsens, route to the MISALIGNED audit branch instead of more same-recipe training. No new seeds, doses, torque, or reward changes.",
+  "final_OFF_gate": "24-ep walk/walk_startjitter det+sto retention gate at 22M cumulative: PASS = retention of the source band (0 falls, gait_valid >=18/24, group mean slip in the ~5-6/m band, no new chronic single-leg sacrifice) \u2014 then it IS the comparison band for cartfoot-c1-cont20m's final read. If this control itself drifts, read the continuation pair as INCONCLUSIVE rather than crediting/blaming the Cartesian mechanism. No new seeds, doses, torque, or reward changes.",
+  "training_pair": {
+    "ON_parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m",
+    "OFF_parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m",
+    "ON_init_from": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip",
+    "OFF_init_from": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip",
+    "ON_seed": "2",
+    "OFF_seed": "2",
+    "ON_new_steps": 10000000,
+    "OFF_new_steps": 10000000,
+    "episode_seconds": "20",
+    "ON_code_sha": "3edbc02eae1f72bfe48d8ed0aa9d6de7a50948a6",
+    "OFF_code_sha": "9c9fe9dc14a17f8f09ffcea67b792a24343a629f",
+    "effective_cfg_difference": {
+      "goal.walk_cart_foot_box_x_m": {
+        "ON": "0.06",
+        "OFF": null
+      },
+      "goal.walk_cart_foot_box_y_m": {
+        "ON": "0.035",
+        "OFF": null
+      },
+      "goal.walk_cart_foot_box_z_m": {
+        "ON": "0.04",
+        "OFF": null
+      }
+    },
+    "activation_argument_caveat": "ON carries explicit empty --activation-fn; OFF omits it after launcher warm-start inheritance fix. Config-key equality alone does not inspect checkpoint activation internals."
+  },
+  "groups": {
+    "walk/det": {
+      "on_report": {
+        "mean_slip_per_m": 11.179666666666666,
+        "mean_progress_ratio": 0.7345,
+        "gait_valid": 4,
+        "terminations": 1,
+        "sacrificed_legs": [
+          2,
+          4
+        ]
+      },
+      "off_report": {
+        "mean_slip_per_m": 5.411833333333333,
+        "mean_progress_ratio": 1.7213333333333334,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "prior_on": {
+        "mean_slip_per_m": 13.326333333333332,
+        "mean_progress_ratio": 0.7095,
+        "gait_valid": 5,
+        "terminations": 0,
+        "sacrificed_legs": [
+          4
+        ]
+      },
+      "prior_off": {
+        "mean_slip_per_m": 5.5115,
+        "mean_progress_ratio": 1.7091666666666667,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "prior_ON_OFF_mean_slip_ratio": 2.417914058483776,
+      "final_ON_OFF_mean_slip_ratio": 2.065781774506483
+    },
+    "walk/sto": {
+      "on_report": {
+        "mean_slip_per_m": 10.213833333333334,
+        "mean_progress_ratio": 0.8281666666666667,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "off_report": {
+        "mean_slip_per_m": 5.410166666666667,
+        "mean_progress_ratio": 1.6208333333333333,
+        "gait_valid": 5,
+        "terminations": 0,
+        "sacrificed_legs": [
+          2
+        ]
+      },
+      "prior_on": {
+        "mean_slip_per_m": 17.485166666666668,
+        "mean_progress_ratio": 0.5348333333333334,
+        "gait_valid": 4,
+        "terminations": 0,
+        "sacrificed_legs": [
+          2,
+          5
+        ]
+      },
+      "prior_off": {
+        "mean_slip_per_m": 5.669666666666667,
+        "mean_progress_ratio": 1.5673333333333335,
+        "gait_valid": 5,
+        "terminations": 0,
+        "sacrificed_legs": [
+          2
+        ]
+      },
+      "prior_ON_OFF_mean_slip_ratio": 3.0839849491445706,
+      "final_ON_OFF_mean_slip_ratio": 1.8878962447244385
+    },
+    "walk_startjitter/det": {
+      "on_report": {
+        "mean_slip_per_m": 8.903,
+        "mean_progress_ratio": 1.018,
+        "gait_valid": 4,
+        "terminations": 2,
+        "sacrificed_legs": [
+          0,
+          5
+        ]
+      },
+      "off_report": {
+        "mean_slip_per_m": 6.156666666666666,
+        "mean_progress_ratio": 1.5588333333333333,
+        "gait_valid": 5,
+        "terminations": 0,
+        "sacrificed_legs": [
+          0,
+          2
+        ]
+      },
+      "prior_on": {
+        "mean_slip_per_m": 16.377666666666666,
+        "mean_progress_ratio": 0.6363333333333333,
+        "gait_valid": 4,
+        "terminations": 0,
+        "sacrificed_legs": [
+          2,
+          5
+        ]
+      },
+      "prior_off": {
+        "mean_slip_per_m": 6.493833333333333,
+        "mean_progress_ratio": 1.544,
+        "gait_valid": 5,
+        "terminations": 0,
+        "sacrificed_legs": [
+          0,
+          2
+        ]
+      },
+      "prior_ON_OFF_mean_slip_ratio": 2.5220337243025437,
+      "final_ON_OFF_mean_slip_ratio": 1.446074715755279
+    },
+    "walk_startjitter/sto": {
+      "on_report": {
+        "mean_slip_per_m": 11.914166666666667,
+        "mean_progress_ratio": 0.782,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "off_report": {
+        "mean_slip_per_m": 5.6455,
+        "mean_progress_ratio": 1.5825,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "prior_on": {
+        "mean_slip_per_m": 18.624666666666666,
+        "mean_progress_ratio": 0.5053333333333333,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "prior_off": {
+        "mean_slip_per_m": 6.014166666666666,
+        "mean_progress_ratio": 1.5493333333333332,
+        "gait_valid": 6,
+        "terminations": 0,
+        "sacrificed_legs": []
+      },
+      "prior_ON_OFF_mean_slip_ratio": 3.0967992240543163,
+      "final_ON_OFF_mean_slip_ratio": 2.1103829008354738
+    }
+  },
+  "per_episode_draw_matches": {
+    "walk/det": {
+      "final_ON_OFF": [
+        true,
+        true,
+        false,
+        false,
+        false,
+        false
+      ],
+      "prior_ON_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "final_OFF_prior_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "walk/sto": {
+      "final_ON_OFF": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "prior_ON_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "final_OFF_prior_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "walk_startjitter/det": {
+      "final_ON_OFF": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "prior_ON_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "final_OFF_prior_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "walk_startjitter/sto": {
+      "final_ON_OFF": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "prior_ON_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "final_OFF_prior_OFF": [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    }
+  },
+  "new_termination_episodes": [
+    {
+      "group": "walk/det",
+      "index_zero_based": 1,
+      "term_reason": "tilt_roll",
+      "safety_flags": 1,
+      "gait_valid": false,
+      "roll_peak_deg": 30.6,
+      "roll_tail_deg": 9.6,
+      "progress_ratio": 0.384,
+      "slip_per_m": 6.909,
+      "along_dist_m": 0.017,
+      "cmd_dist_m": 0.043,
+      "randomization": {
+        "mass_scale": 1.098,
+        "com_offset_mm": [
+          1.6,
+          3.9,
+          0.0
+        ],
+        "link_scale_range": [
+          0.994,
+          1.018
+        ],
+        "friction_scale": 1.173,
+        "ground_tilt_deg": 0.78,
+        "kp_scale_mean": 1.002,
+        "torque_scale": 1.0,
+        "latency_scale": 1.0,
+        "deadband_scale": 1.0,
+        "cmd_drop_prob": 0.008,
+        "imu_pos_mm": [
+          7.9,
+          15.0,
+          43.8
+        ],
+        "zero_bias_max_deg": 0.96,
+        "zero_drift_cmd_frame": false,
+        "bad_start_joints": [],
+        "start_offset_max_deg": 1.9,
+        "tipped_roll_deg": 0.0,
+        "rise_rock_roll_deg": 0.0,
+        "walk_kick_roll_deg": -17.5,
+        "walk_kick_dur_s": 0.85,
+        "walk_push_peak_nm": 0.0,
+        "walk_push_dur_s": 0.0,
+        "fault": "weak:j[1]@0.2"
+      },
+      "OFF_same_index": {
+        "terminated": false,
+        "term_reason": "",
+        "gait_valid": true,
+        "progress_ratio": 0.843,
+        "slip_per_m": 8.235,
+        "randomization": {
+          "mass_scale": 1.098,
+          "com_offset_mm": [
+            1.6,
+            3.9,
+            0.0
+          ],
+          "link_scale_range": [
+            0.994,
+            1.018
+          ],
+          "friction_scale": 1.173,
+          "ground_tilt_deg": 0.78,
+          "kp_scale_mean": 1.002,
+          "torque_scale": 1.0,
+          "latency_scale": 1.0,
+          "deadband_scale": 1.0,
+          "cmd_drop_prob": 0.008,
+          "imu_pos_mm": [
+            7.9,
+            15.0,
+            43.8
+          ],
+          "zero_bias_max_deg": 0.96,
+          "zero_drift_cmd_frame": false,
+          "bad_start_joints": [],
+          "start_offset_max_deg": 1.9,
+          "tipped_roll_deg": 0.0,
+          "rise_rock_roll_deg": 0.0,
+          "walk_kick_roll_deg": -17.5,
+          "walk_kick_dur_s": 0.85,
+          "walk_push_peak_nm": 0.0,
+          "walk_push_dur_s": 0.0,
+          "fault": "weak:j[1]@0.2"
+        }
+      },
+      "randomization_same_as_OFF": true
+    },
+    {
+      "group": "walk_startjitter/det",
+      "index_zero_based": 1,
+      "term_reason": "tilt_roll",
+      "safety_flags": 1,
+      "gait_valid": true,
+      "roll_peak_deg": 30.4,
+      "roll_tail_deg": 13.9,
+      "progress_ratio": 2.397,
+      "slip_per_m": 2.969,
+      "along_dist_m": 0.083,
+      "cmd_dist_m": 0.035,
+      "randomization": {
+        "mass_scale": 0.987,
+        "com_offset_mm": [
+          -0.7,
+          -6.3,
+          0.0
+        ],
+        "link_scale_range": [
+          1.006,
+          1.027
+        ],
+        "friction_scale": 1.062,
+        "ground_tilt_deg": 0.12,
+        "kp_scale_mean": 0.996,
+        "torque_scale": 1.0,
+        "latency_scale": 1.0,
+        "deadband_scale": 1.0,
+        "cmd_drop_prob": 0.0,
+        "imu_pos_mm": [
+          -56.7,
+          -57.7,
+          20.5
+        ],
+        "zero_bias_max_deg": 0.98,
+        "zero_drift_cmd_frame": false,
+        "bad_start_joints": [
+          12
+        ],
+        "start_offset_max_deg": 16.4,
+        "tipped_roll_deg": 0.0,
+        "rise_rock_roll_deg": 0.0,
+        "walk_kick_roll_deg": -12.5,
+        "walk_kick_dur_s": 0.82,
+        "walk_push_peak_nm": -2.96,
+        "walk_push_dur_s": 0.96,
+        "fault": "none"
+      },
+      "OFF_same_index": {
+        "terminated": false,
+        "term_reason": "",
+        "gait_valid": false,
+        "progress_ratio": 0.648,
+        "slip_per_m": 11.642,
+        "randomization": {
+          "mass_scale": 0.979,
+          "com_offset_mm": [
+            -8.2,
+            -8.5,
+            0.0
+          ],
+          "link_scale_range": [
+            1.013,
+            1.03
+          ],
+          "friction_scale": 1.37,
+          "ground_tilt_deg": 0.78,
+          "kp_scale_mean": 0.961,
+          "torque_scale": 1.0,
+          "latency_scale": 1.0,
+          "deadband_scale": 1.0,
+          "cmd_drop_prob": 0.045,
+          "imu_pos_mm": [
+            3.3,
+            -27.6,
+            48.0
+          ],
+          "zero_bias_max_deg": 0.92,
+          "zero_drift_cmd_frame": false,
+          "bad_start_joints": [],
+          "start_offset_max_deg": 2.0,
+          "tipped_roll_deg": 0.0,
+          "rise_rock_roll_deg": 0.0,
+          "walk_kick_roll_deg": 0.0,
+          "walk_kick_dur_s": 0.0,
+          "walk_push_peak_nm": 0.0,
+          "walk_push_dur_s": 0.0,
+          "fault": "leg:j[6, 7, 8]@0.0"
+        }
+      },
+      "randomization_same_as_OFF": false
+    },
+    {
+      "group": "walk_startjitter/det",
+      "index_zero_based": 3,
+      "term_reason": "tilt_roll",
+      "safety_flags": 1,
+      "gait_valid": true,
+      "roll_peak_deg": 32.1,
+      "roll_tail_deg": 11.5,
+      "progress_ratio": 0.695,
+      "slip_per_m": 7.37,
+      "along_dist_m": 0.033,
+      "cmd_dist_m": 0.048,
+      "randomization": {
+        "mass_scale": 1.097,
+        "com_offset_mm": [
+          2.7,
+          11.0,
+          0.0
+        ],
+        "link_scale_range": [
+          0.996,
+          1.017
+        ],
+        "friction_scale": 1.041,
+        "ground_tilt_deg": 0.6,
+        "kp_scale_mean": 0.985,
+        "torque_scale": 1.0,
+        "latency_scale": 1.0,
+        "deadband_scale": 1.0,
+        "cmd_drop_prob": 0.04,
+        "imu_pos_mm": [
+          63.4,
+          -37.3,
+          83.4
+        ],
+        "zero_bias_max_deg": 0.95,
+        "zero_drift_cmd_frame": false,
+        "bad_start_joints": [],
+        "start_offset_max_deg": 1.9,
+        "tipped_roll_deg": 0.0,
+        "rise_rock_roll_deg": 0.0,
+        "walk_kick_roll_deg": 8.8,
+        "walk_kick_dur_s": 1.2,
+        "walk_push_peak_nm": 2.94,
+        "walk_push_dur_s": 1.03,
+        "fault": "none"
+      },
+      "OFF_same_index": {
+        "terminated": false,
+        "term_reason": "",
+        "gait_valid": true,
+        "progress_ratio": 1.714,
+        "slip_per_m": 5.547,
+        "randomization": {
+          "mass_scale": 0.88,
+          "com_offset_mm": [
+            -2.0,
+            -7.0,
+            0.0
+          ],
+          "link_scale_range": [
+            0.995,
+            1.018
+          ],
+          "friction_scale": 1.083,
+          "ground_tilt_deg": 1.46,
+          "kp_scale_mean": 0.971,
+          "torque_scale": 1.0,
+          "latency_scale": 1.0,
+          "deadband_scale": 1.0,
+          "cmd_drop_prob": 0.026,
+          "imu_pos_mm": [
+            58.3,
+            3.5,
+            35.8
+          ],
+          "zero_bias_max_deg": 1.0,
+          "zero_drift_cmd_frame": false,
+          "bad_start_joints": [],
+          "start_offset_max_deg": 1.9,
+          "tipped_roll_deg": 0.0,
+          "rise_rock_roll_deg": 0.0,
+          "walk_kick_roll_deg": 0.0,
+          "walk_kick_dur_s": 0.0,
+          "walk_push_peak_nm": 0.0,
+          "walk_push_dur_s": 0.0,
+          "fault": "none"
+        }
+      },
+      "randomization_same_as_OFF": false
+    }
+  ],
+  "report_metadata_all_equal": true,
+  "metadata": {
+    "task": "joint_walk",
+    "dr_scale": 0.0,
+    "seed": 0,
+    "model_source": "mesh_mjx",
+    "model_variant": "mesh_mjx_twin",
+    "model_nmesh": 0,
+    "model_ngeom": 91,
+    "model_mass_kg": 4.80573,
+    "motor_contract": {
+      "bus.write_speed": 4096.0,
+      "bus.write_acc": 1000.0,
+      "bus.servo_vel_max_counts_s": "write_speed",
+      "bus.servo_params": "",
+      "resolved_vel_max_deg_s_min": 360.0,
+      "resolved_vel_max_deg_s_max": 360.0,
+      "resolved_vel_max_counts_s_max": 4096.0,
+      "safety.max_delta_q_deg": 3.6,
+      "control.hz": 100.0,
+      "slew_limit_deg_s": 360.0,
+      "bus.profile_ramp_steps": 0.0,
+      "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+      "backend_profile": "servo_profile_np"
+    },
+    "policy_std": 0.135,
+    "start_jitter_panel": {
+      "start_jitter_deg": 3.0,
+      "start_bad_prob": 0.25,
+      "start_bad_max_joints": 1,
+      "start_bad_deg_min": 8.0,
+      "start_bad_deg_max": 16.0
+    }
+  },
+  "final_screen": {
+    "groups_le_1p5x": 1,
+    "groups_gt_3x": 0,
+    "ON_gait_valid": 20,
+    "OFF_gait_valid": 22,
+    "ON_terminations": 3,
+    "OFF_terminations": 0,
+    "prior_ON_terminations": 0,
+    "interpretation": "No PROMISING gate: only1/4 slip groups <=1.5x plus3 new tilt_roll safety terminations. Neither >3x-in3/4 nor gait<18 closure line is crossed; new health loss blocks promotion/continuation, and final intermediate clause ends automatic extensions regardless. Do not close broader Cartesian classes."
+  },
+  "pairing_caveat": "Final ON/OFF actual randomization payloads agree only first2/24 episodes, then diverge immediately after first ON early termination. Prior12M ON/OFF and finalOFF/priorOFF agree24/24. Fresh eval env is seeded once per checkpoint; repeated run_episode calls reset without a seed, while sensor noise and next reset randomization share env.rng. Early termination changes draw consumption. Final mean-slip/progress improvements are descriptive, not paired same-draw learning deltas. The first ON tilt_roll failure is within the still-matched second episode."
+}

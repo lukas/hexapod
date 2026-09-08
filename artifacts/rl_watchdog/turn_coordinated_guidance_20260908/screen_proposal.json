@@ -1,0 +1,60 @@
+{
+  "status": "PROPOSED_BEFORE_ANY_NEW_SIMULATION",
+  "prepared_utc": "2026-09-08T07:13:50.953101+00:00",
+  "frozen_templates_sha256": "7014cf633de1e9d22996525ff0465a86819c5865dcb3e0e464996846d1027214",
+  "source_bank_sha256": "c922b54761c3e2969540c8f6c57b16a502fff45db2e6fd5a5c4da5beea98766b",
+  "purpose": "Measure a NEW coordinated18 joint finite-perturbation class; preserve original0/288 single-joint negative. This is CPU causal discovery, not GPU training.",
+  "inputs": "Same frozen checkpoint/XML/cfg and original ramp, commands, seed 0, DR 0, and starts 0/\u03c0 as reviewed bank. Copy assets; never regenerate. Same safety and motor and deterministic prefix.",
+  "screen": {
+    "states": "Original eight states: wz \u00b1.15 \u00d7 starts 0/\u03c0 \u00d7 original P1=600/P2=638 selected by actual phase",
+    "variants_per_state": [
+      "zero",
+      "+0.025v",
+      "-0.025v",
+      "+0.05v",
+      "-0.05v"
+    ],
+    "branches": 40,
+    "continuous_baseline_cells": 4,
+    "timing": "5 control ticks fixedvector then75 unchanged policy ticks;80 tick scoring,100 Hz",
+    "mapping": {
+      "command_domain": "vx=.08, wz=+.15 or-.15 only; exact wz=0 gives all-zero vector",
+      "phase_rule": "wrap actual observed env._phase into[0,2pi); among the two centers for sign(wz), select minimum circular distance; if distances differ by<=1e-12rad, choose lower phase_index",
+      "pulse_rule": "Choose template once at burst start and hold that vector for exactly5 control ticks; then75 unchanged policy ticks. Do not reselect inside a burst.",
+      "out_of_domain": "No assertion or deployment outside tested commands; no start-label/tick-index lookup in vector selection."
+    },
+    "pulse_layer": "After SB3 predict clipping: add vector, clip all coordinates to action-space bounds, then normal environment safety/servo/physics. Record actual per-coordinate dose and all clip hits.",
+    "exactness": "All zero controls must pass full integration/controller prefix and endpoint state and trace parity against continuous baseline BEFORE nonzero branches. Every pulse prefix must match. Fail closed on missing metrics; preserve original last-solve yaw plus trueendpoint diagnostic."
+  },
+  "measurements": {
+    "G_plus": "sign(wz)*(yaw(+a*v)-yaw0)",
+    "G_minus": "sign(wz)*(yaw(-a*v)-yaw0)",
+    "odd": "(G_plus-G_minus)/2",
+    "even": "(G_plus+G_minus)/2",
+    "retention": "Each branch: complete 80 ticks; positive baseline body forward; branch body forward>=.9baseline; loaded material contact distance<=1.25baseline; relative roll/pitch maxima<=baseline +3 degrees; no termination; all walking ticks. Report loaded foot-seconds and material slip speed separately.",
+    "linear_prediction": "Descriptive heuristic only. Sum of absolute even-axis residues, 6.23\u201311.66 mrad, is NOT signed even response and neither quantity is superposable."
+  },
+  "screen_decision": {
+    "primary": "Same actual positive-vector gain>=.005rad and corrected retention. Opposite vector is a paired causal control, never redefined after results.",
+    "direction_support": "At every qualifying member, odd>0 must hold; otherwise classify benefit as even/nondirectional facilitation, not support for the gradient-sign direction. Report stronger5 mrad reversal separately: Gplus>=.005 AND Gminus<=-.005. Do not silently substitute that stronger criterion for primary.",
+    "repeatability": "Preserve prior matched phase rule: at a SINGLE GLOBAL amplitude, for EACH yaw command sign at least one phase-neighborhood template must meetprimary+direction support in BOTH starts. A qualifying template also requires retention on its opposite-vector branches. No one-state bestcase qualifies.",
+    "dose_selection": "Choose .025 if it qualifies globally, otherwise .05 if it qualifies globally, otherwise STOP this proposal. No per-state or per-joint dose fitting, new amplitudes, new seeds, or retuned templates.",
+    "scope": "Screen pass licenses only the prespecified heldout diagnostic. No PPO directly from these eight discovery states; no sustained steering or whole-class closure."
+  },
+  "conditional_holdouts": {
+    "freeze": "Keep ALL four templates, nearest phase rule/tie handling and chosen global dose unchanged. No refit on heldout results.",
+    "quarterphase_states": "For each originalcell/start, target phases phase(P1)+pi/2 and phase(P2)+pi/2. Select nearest actual phase among ticks[P+10,P+25] independently of response; use earliest tick on an exact distance tie. Freeze selectedticks from continuous baseline before branches. Baseline length>=755 ticks supports full 80 tick windows. Eight new states;three variants each (zero,+chosen,-chosen)=24 branches.",
+    "boundary_warning": "Quarter-phase targets lie near boundaries between two centers. The JSON lowest phase index tie rule is fixed. Two closely matched starts may straddle the boundary and selectdifferent templates; this is a genuine test of this piecewise mapping, never grounds for post-hoc reassignment.",
+    "gate": "Same5 mrad primary, odd direction and corrected retention; require support across BOTHstarts and BOTHyaw command signs by the same prespecified matched phase pairing rule. Report eachquarter neighborhood separately; no swapping state pairs after observing outcomes. A failure means no validated generalization for this frozen mapping.",
+    "straight": "Exact wz = 0 maps tozero regardless of phase. Check two starts on original 15-second vx=.08,wz=0 protocol versus untouched policy: full state and trace parity and original straight retention bars. Label this a zero-off behavior check, not learned straight walking evidence.",
+    "before_any_2M_canary": "The discovery and holdout results alone do not define a recurring closed-loop deployment. A fully specified state/phase trigger and burst schedule must be frozen and evaluated on original 15-second both continuous yaw signs and straight panel under unchanged qualification/retention bars. No invented PPO arm or canary is included in this proposal."
+  },
+  "norm_accounting": {
+    "singleaxis_L2_at_0p05": 0.05,
+    "coordinated_L2_at_0p025": 0.10606601717798213,
+    "coordinated_L2_at_0p05": 0.21213203435596426,
+    "coordinated_L1_at_0p05": 0.9,
+    "squared_norm_multiple_at_equal_percoordinate_dose": 18,
+    "interpretation": "Larger total norm and energy and potentially greater realized motion; new perturbation class, not overturning single-dimension result or matched total dose claim."
+  }
+}

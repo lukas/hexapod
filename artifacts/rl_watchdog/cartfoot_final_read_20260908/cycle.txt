@@ -1,0 +1,109 @@
+# cycle_20260908T063721_operator-kick [FINISHED]
+
+(showing newest 18 kB of 22 kB — raise tail_kb for more)
+…[06:38:10] $ rl_move/orchestrator/ops.sh entry cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m 2>/dev/null | grep -nE '"(status|verdict|created|verified|triage|phase|assessment_scope|evidence|wandb_id|checkpoint)"' | head -30   # Grep status/verdict fields of cont10m entry
+[06:38:10]   -> 16 lines: 217: "created": "2026-09-08T05:52:55+00:00", 218: "status": "REFUSED", 222: "phase": "acquisition", 223: "assessment_scope": "full_budget_skill_acquisition", 442: "created": "2026-09-08T05:53:34+00:0…
+[06:38:44] $ rl_move/orchestrator/ops.sh entry cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m 2>/dev/null | sed -n '442,500p' | grep -nE 'init-from|init_from|--seed|cfg-set|--steps' | head -40   # Find init-from and cfg keys in cont10m entry args
+[06:38:44]   -> 2 lines: 13: "init_from_on_pod": true, 34: "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratc…
+[06:38:48] $ ls logs/experiments/ | grep -i cont10m; echo ----; for r in cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m; do f=logs/experiments/$r/wandb_history.csv; test -f $f && python3 - "$f" <<'EOF' import csv,sys rows=list(csv.DictReader(o…   # Spot-check per-tick reward trend in cached W&B history
+[06:38:48]   -> 14 lines: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-…
+[06:38:49] $ cat /workspace/hexapod/artifacts/rl_watchdog/cartfoot_acquisition_read_20260908/weight_movement.json | head -40; echo ----; python3 -c " import json d=json.load(open('/workspace/hexapod/artifacts/rl_watchdog/cartfoot_acquisition_read_20260908/optimization_curve.json')) print(json.dumps(d,indent=1)[…   # Read weight movement and optimization curve artifacts
+[06:38:49]   -> 71 lines: { "source_checkpoints": [ "ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1.zip", "ppo_goal_cw_walkscratch_easy0905_headset_crossgr…
+[06:39:22] $ rl_move/orchestrator/ops.sh 2>&1 | head -40; echo ====; uv run python rl_move/orchestrator/launch_run.py respec --help 2>&1 | head -50   # Show ops.sh usage and respec help
+[06:39:22]   -> 71 lines: # ops.sh — one-stop helpers for orchestrator cycles (2026-08-09). # Born from transcript mining: cycles kept re-deriving these (pods have # no ps; eval_checkpoint must run as a module; ledger holds p…
+[06:39:23] $ uv run python rl_move/orchestrator/launch_run.py status 2>&1 | tail -30; test -f rl_move/orchestrator/WRAPUP && echo WRAPUP_EXISTS || echo NO_WRAPUP   # Check launcher status and WRAPUP flag
+[06:39:41]   -> 17 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. POD NODE CPU FREE TRAINERS (wandb global_step) hexapod-sweep-friction g142d86 30 30 - hexapod-mjx-train-0 g142d86 …
+[06:39:55] agent:
+All GPU pods currently show free — ample capacity for the bounded pair. Now, step 1: correct the premature closure scope, preserving the original verdict history.
+[06:39:56] $ uv run python rl_move/orchestrator/launch_run.py update --help 2>&1 | head -20   # Show launcher update help
+[06:39:56]   -> 12 lines: usage: launch_run.py update [-h] --run RUN [--set KEY=VALUE] [--create] [--created TIMESTAMP] options: -h, --help show this help message and exit --run RUN --set KEY=VALUE field to set; VALUE parsed …
+[06:39:56] $ grep -n -i -A4 'cartfoot' rl_docs/tracks/walkcurr/STATUS.md | head -60   # Find cartfoot section in walkcurr STATUS
+[06:39:57]   -> 60 lines: 1:## 2026-09-08 ~06:3x (triage cycle) — cartfoot-c1-s3 verdicted (seed3 reproduces the seed2 VIABLE-but-slippy fingerprint almost exactly); fork (b) DESIGNED and LAUNCHED as a matched n=2 fresh-init …
+[06:40:01] agent:
+Now I'll apply the correction. First, build the corrected verdict text (original preserved + correction appended) and update the ledger.
+[06:40:06] $ RUN=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m rl_move/orchestrator/ops.sh entry $RUN 2>/dev/null | python3 -c " import json,sys raw=sys.stdin.read() dec=json.JSONDecoder() objs=[];i=0 while i<len(raw): raw2=raw[i:].lstrip() i…   # Extract original ACQ FAIL verdict text to file
+[06:40:06]   -> 1 line: 1395
+[06:40:23] $ RUN=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m python3 - <<'EOF' orig=open('/tmp/orig_verdict.txt').read() corr = (" || SCOPE CORRECTION (2026-09-08, operator-directed audit, fb_20260908T061840_eb16f8 + " "artifacts/rl_watchdo…   # Reclassify cont10m ACQ FAIL to ACQ PARTIAL with appended correction
+[06:40:29]   -> 5 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. wandb: WARNING Using a boolean value for 'reinit' is deprecated. Use 'return_previous' or 'finish_previous' instea…
+[06:41:01] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m uv run python rl_move/orchestrator/launch_run.py respec \ --from $BASE-cartfoot-c1-cont10m \ --run $BASE-cartfoot-c1-cont20m \ --init-from-source --steps 10000000 --phase acquisition --track walkcur…   # Launch cartfoot-c1-cont20m continuation from own checkpoint
+[06:41:31] ... (Bash still running)
+[06:42:01] ... (Bash still running)
+[06:42:31] ... (Bash still running)
+[06:43:01] ... (Bash still running)
+[06:43:31] ... (Bash still running)
+[06:44:01] ... (Bash still running)
+[06:44:19]   -> 6 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. respec cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1…
+[06:44:29] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m uv run python rl_move/orchestrator/launch_run.py respec \ --from $BASE-cartfoot-offctrl-cont10m \ --run $BASE-cartfoot-offctrl-cont20m \ --init-from-source --steps 10000000 --phase acquisition --tra…   # Launch matched offctrl-cont20m control from own checkpoint
+[06:44:59] ... (Bash still running)
+[06:45:09]   -> 3 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. respec cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-of…
+[06:45:15] agent:
+The first launch is RUNNING-verified on train-4. The control launch was REFUSED: train-0 has a stale code marker. Syncing it, then retrying.
+[06:45:16] $ ls rl_move/orchestrator/snapshot.sh 2>/dev/null; bash rl_move/orchestrator/snapshot.sh --sync hexapod-mjx-train-0 2>&1 | tail -6   # Sync code snapshot to train-0 pod
+[06:45:25]   -> 2 lines: rl_move/orchestrator/snapshot.sh synced -> hexapod-mjx-train-0 (code_sha e74e248751ab7584b50d04c8b80dbc17cc28de41)
+[06:45:37] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m uv run python rl_move/orchestrator/launch_run.py respec \ --from $BASE-cartfoot-offctrl-cont10m \ --run $BASE-cartfoot-offctrl-cont20m \ --init-from-source --steps 10000000 --phase acquisition --tra…   # Retry launch of offctrl-cont20m control
+[06:46:07] ... (Bash still running)
+[06:46:37] ... (Bash still running)
+[06:47:07] ... (Bash still running)
+[06:47:37] ... (Bash still running)
+[06:48:07] ... (Bash still running)
+[06:48:37] ... (Bash still running)
+[06:48:52]   -> 7 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. respec: removed inherited --activation-fn; plain warm start preserves checkpoint activation respec cw-walkscratch-…
+[06:49:04] agent:
+Both arms are RUNNING-verified. Now verifying actual PPO step progression as ordered, after letting them spin up briefly.
+[06:49:06] $ sleep 90; uv run python rl_move/orchestrator/launch_run.py status 2>&1 | grep -E 'train-0|train-4|cont20m' | head   # Check global_step progression on both new runs after 90s
+[06:49:06]   ! ERROR: <tool_use_error>Blocked: sleep 90 followed by: uv run python rl_move/orchestrator/launch_run.py status grep -E 'train-0|train-4|cont20m' head. To wait for a condition, use Monitor with an until-loop (e.g. `until <check>; do sleep 2; done`). To wait for a command you started, use run_in_background: true. Do not chain shorter sleeps to work around this block.</tool_use_error>
+[06:49:13] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m for r in $BASE-cartfoot-c1-cont20m $BASE-cartfoot-offctrl-cont20m; do echo "== $r"; rl_move/orchestrator/ops.sh trainlog $r 6 2>/dev/null | grep -E 'global_step|steps|fps|it/s|ep_rew' | tail -4; done   # Tail training logs of both cont20m runs for step progress
+[06:49:14]   -> 2 lines: == cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m == cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch…
+[06:49:20] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m rl_move/orchestrator/ops.sh trainlog $BASE-cartfoot-c1-cont20m 25 2>&1 | tail -12; echo =====; rl_move/orchestrator/ops.sh trainlog $BASE-cartfoot-offctrl-cont20m 25 2>&1 | tail -12   # Tail raw training logs of both new runs
+[06:49:21]   -> 25 lines: | approx_kl | 0.008538961 | | clip_fraction | 0.0923 | | clip_range | 0.2 | | entropy_loss | 10.5 | | explained_variance | 0.777 | | learning_rate | 0.0003 | | loss | 148 | | n_updates | 2890 | | pol…
+[06:49:25] agent:
+PPO update tables are flowing on both. Let me confirm timestep progression explicitly.
+[06:49:29] $ BASE=cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m for r in $BASE-cartfoot-c1-cont20m $BASE-cartfoot-offctrl-cont20m; do echo "== $r"; rl_move/orchestrator/ops.sh trainlog $r 400 2>&1 | grep -E 'total_timesteps|iterations' | tail -4; done   # Extract total_timesteps progression from both logs
+[06:49:30]   -> 10 lines: == cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m | iterations | 14 | | total_timesteps | 7340032 | | iterations | 15 | | total_ti…
+[06:49:40] agent:
+Both runs show real PPO step progression (ON arm at 7.86M/10M — GPU speed; control at 2.6M/10M). Now recording the story: STATUS.md update, RL_LOG line, and a snapshot commit.
+[06:49:41] $ head -1 rl_docs/tracks/walkcurr/STATUS.md; grep -n 'prior entry below' rl_docs/tracks/walkcurr/STATUS.md | head -2   # Check STATUS.md top format
+[06:49:41]   -> 3 lines: ## 2026-09-08 ~06:4x (triage cycle) — seed3 pair CLOSES (matched control lands in-band, formally confirming the 4-6x slip loss); fork (b) offctrl-s7 mechanism-health canary CANARY PASSes, matching th…
+[06:50:04] $ cat > /tmp/status_entry.md <<'EOF' ## 2026-09-08 ~07:0x (operator-kick cycle) — fork (a) closure CORRECTED to intermediate/PARTIAL (gate misread: medians-for-means + duration-confounded reward quarters); the gate's own one-extra-read clause EXECUTED as a final matched +10M pair (cont20m) One plain …   # Prepend correction entry to walkcurr STATUS.md
+[06:50:04]   -> 1 line: prepended 2898
+[06:50:12] $ rl_move/orchestrator/ops.sh logline "07:0x operator-kick (focus note + fb_20260908T061840_eb16f8): corrected cartfoot-c1-cont10m ACQ FAIL -> ACQ PARTIAL (gate misread: median-for-mean slip, 2/4 not 3/4 groups >3x; per-tick reward RISING -0.44->-0.17 vs duration-confounded raw quarters); executed th…   # Record RL_LOG line and mark cycle worked
+[06:50:12]   -> 1 line: - 09-08 06:50 07:0x operator-kick (focus note + fb_20260908T061840_eb16f8): corrected cartfoot-c1-cont10m ACQ FAIL -> ACQ PARTIAL (gate misread: median-for-mean slip, 2/4 not 3/4 groups >3x; per-tick…
+[06:50:16] $ bash rl_move/orchestrator/snapshot.sh cartfoot-cont20m-scope-correction 2>&1 | tail -4   # Commit and push docs/ledger snapshot
+[06:50:22]   -> 4 lines: To https://github.com/lukas/hexapod.git 7f5fdd97..01a70735 HEAD -> main * [new tag] exp/cartfoot-cont20m-scope-correction -> exp/cartfoot-cont20m-scope-correction 01a707350023ddf8467e62b7853cc15bdd33…
+[06:50:41] agent:
+Snapshot pushed (`01a70735`, tag `exp/cartfoot-cont20m-scope-correction`). The narrow task is complete.
+
+## Cycle summary
+
+**1. Verified the disputed closure independently** (not just trusting the watchdog artifacts):
+- The pre-registered gate on `cartfoot-c1-cont10m` specifies **mean** slip; the ACQ FAIL verdict used medians. True ON/OFF mean ratios: 2.418 / 3.084 / 2.522 / 3.097 — only **2/4** groups exceed 3×, so the FAIL-MECHANISM line (>3× in ≥3/4) was never crossed; ≤1.5× promising unmet either → the explicitly registered **intermediate band**.
+- "Reward never reverses its decline" used raw episode-return quarters while ep_len ramped 980→1962 ticks. Re-read from the cached W&B history: duration-normalized `optimization/reward_per_tick` rises near-monotonically **−0.441 → −0.167** across the whole continuation → the gate's "one more read only if reward is RISING" clause **does** apply.
+- Health checks hold: all 4 held-out ON groups improved slip and progress 2M→12M, 19/24 gait-valid, 0 falls, all 8 actor tensors moved (rel L2 0.0114), video strip shows immature-but-upright walking, no stable exploit.
+
+**2. Corrected the ledger** — `cartfoot-c1-cont10m` status ACQ FAIL → **ACQ PARTIAL**, original verdict text preserved verbatim with the scope correction appended; mirrored to W&B `qay6bggy`. This is a measurement correction, not a promotion — the arm is still 2.4–3.1× worse than the control and visibly slippy.
+
+**3. Executed the one-extra-read clause** (bounded gates pre-registered in each ledger entry before launch):
+- `...cartfoot-c1-cont20m` — +10M from its OWN 12M checkpoint, RNG2, identical recipe, 3 cart keys. RUNNING-verified on train-4; step progression confirmed (7.86M/10M at check).
+- `...cartfoot-offctrl-cont20m` — matched control, +10M from its OWN checkpoint, no cart keys. Train-0 needed a code sync (stale marker → `snapshot.sh --sync`, clean retry); RUNNING-verified, progression confirmed (2.6M/10M).
+- Gate: PROMISING = mean slip ≤1.5× control in ≥3/4 groups + gait_valid ≥18/24 + 0 falls; >3× in ≥3/4 or gait_valid <18/24 falsifies the retrofit; any fall blocks promotion; **any remaining intermediate ends automatic extensions** (unresolved-retrofit record, not universal class closure); rising reward + stalled held-out metrics routes to the MISALIGNED audit branch.
+
+**4. Recorded**: walkcurr STATUS.md top entry, RL_LOG line citing fb_20260908T061840_eb16f8, `CYCLE_WORKED` touched, snapshot committed and pushed. Fresh-init cohorts s7/s10/s11 and the concurrent cycles' runs were not touched. The watcher's standard evals will read the cont20m pair when it finishes.
+[06:50:41] === RESULT: success (33 turns, 13m19s, $3.35) ===
+Snapshot pushed (`01a70735`, tag `exp/cartfoot-cont20m-scope-correction`). The narrow task is complete.
+
+## Cycle summary
+
+**1. Verified the disputed closure independently** (not just trusting the watchdog artifacts):
+- The pre-registered gate on `cartfoot-c1-cont10m` specifies **mean** slip; the ACQ FAIL verdict used medians. True ON/OFF mean ratios: 2.418 / 3.084 / 2.522 / 3.097 — only **2/4** groups exceed 3×, so the FAIL-MECHANISM line (>3× in ≥3/4) was never crossed; ≤1.5× promising unmet either → the explicitly registered **intermediate band**.
+- "Reward never reverses its decline" used raw episode-return quarters while ep_len ramped 980→1962 ticks. Re-read from the cached W&B history: duration-normalized `optimization/reward_per_tick` rises near-monotonically **−0.441 → −0.167** across the whole continuation → the gate's "one more read only if reward is RISING" clause **does** apply.
+- Health checks hold: all 4 held-out ON groups improved slip and progress 2M→12M, 19/24 gait-valid, 0 falls, all 8 actor tensors moved (rel L2 0.0114), video strip shows immature-but-upright walking, no stable exploit.
+
+**2. Corrected the ledger** — `cartfoot-c1-cont10m` status ACQ FAIL → **ACQ PARTIAL**, original verdict text preserved verbatim with the scope correction appended; mirrored to W&B `qay6bggy`. This is a measurement correction, not a promotion — the arm is still 2.4–3.1× worse than the control and visibly slippy.
+
+**3. Executed the one-extra-read clause** (bounded gates pre-registered in each ledger entry before launch):
+- `...cartfoot-c1-cont20m` — +10M from its OWN 12M checkpoint, RNG2, identical recipe, 3 cart keys. RUNNING-verified on train-4; step progression confirmed (7.86M/10M at check).
+- `...cartfoot-offctrl-cont20m` — matched control, +10M from its OWN checkpoint, no cart keys. Train-0 needed a code sync (stale marker → `snapshot.sh --sync`, clean retry); RUNNING-verified, progression confirmed (2.6M/10M).
+- Gate: PROMISING = mean slip ≤1.5× control in ≥3/4 groups + gait_valid ≥18/24 + 0 falls; >3× in ≥3/4 or gait_valid <18/24 falsifies the retrofit; any fall blocks promotion; **any remaining intermediate ends automatic extensions** (unresolved-retrofit record, not universal class closure); rising reward + stalled held-out metrics routes to the MISALIGNED audit branch.
+
+**4. Recorded**: walkcurr STATUS.md top entry, RL_LOG line citing fb_20260908T061840_eb16f8, `CYCLE_WORKED` touched, snapshot committed and pushed. Fresh-init cohorts s7/s10/s11 and the concurrent cycles' runs were not touched. The watcher's standard evals will read the cont20m pair when it finishes.
+=== CYCLE END: success ===

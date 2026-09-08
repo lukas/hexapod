@@ -1,0 +1,481 @@
+{
+  "provenance": {
+    "created_utc": "2026-09-08T07:11:25.152071+00:00",
+    "collector": "/tmp/hexapod_s11_monitor_20260908.py",
+    "method": "Read-only kubectl exec, canonical capacity.py, exact Python module process scan, live log steps and NVIDIA; no environment/process changes",
+    "collector_sha256": "1c3e5fc7d62297c2a160771948fee1fec9c469b3152a659d88f511b404d1509b"
+  },
+  "samples": [
+    {
+      "utc": "2026-09-08T07:11:26.114257+00:00",
+      "pods": {
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:11:26.074545+00:00",
+          "processes": [
+            {
+              "pid": 3827596,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788851481.256992,
+              "last_steps": 2621440,
+              "last_fps": 17741,
+              "recent_steps": [
+                1572864,
+                2097152,
+                2621440
+              ],
+              "signals": [],
+              "tail": [
+                "|    n_updates            | 40           |",
+                "|    policy_gradient_loss | -0.0014      |",
+                "|    std                  | 0.166        |",
+                "|    value_loss           | 477          |",
+                "------------------------------------------",
+                "[periodic-eval] previous eval still running; skipping this round"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 8, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:11:26.064800+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 0, 0",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 0.9621009826660156
+    },
+    {
+      "utc": "2026-09-08T07:12:42.287833+00:00",
+      "pods": {
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:12:42.249486+00:00",
+          "processes": [
+            {
+              "pid": 3827596,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788851556.1516297,
+              "last_steps": 4718592,
+              "last_fps": 19486,
+              "recent_steps": [
+                3670016,
+                4194304,
+                4718592
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 197         |",
+                "|    n_updates            | 60          |",
+                "|    policy_gradient_loss | 0.00317     |",
+                "|    std                  | 0.164       |",
+                "|    value_loss           | 397         |",
+                "-----------------------------------------"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 10, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:12:42.172386+00:00",
+          "processes": [
+            {
+              "pid": 1005665,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1.log",
+              "mtime": 1788851548.7329447,
+              "last_steps": null,
+              "last_fps": null,
+              "recent_steps": [],
+              "signals": [],
+              "tail": [
+                "[wandb] logging to https://wandb.ai/l2k2/hexapod-balance/runs/ilmolyis",
+                "[wandb] lineage: consumes ckpt-ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11",
+                "/usr/local/lib/python3.11/site-packages/stable_baselines3/common/on_policy_algorithm.py:150: UserWarning: You are trying to run PPO on the GPU, but it is primarily intended to run on the CPU when not using a CNN policy (you are using ActorCriticPolicy which should be a MlpPolicy). See https://github.com/DLR-RM/stable-baselines3/issues/1245 for more info. You can pass `device='cpu'` or `export CUDA_VISIBLE_DEVICES=` to force using the CPU.Note: The model will train, but the GPU utilization will be poor and the training might take longer than on CPU.",
+                "  warnings.warn(",
+                "[mjx-train] --net-arch [256, 256, 128] matches the warm-start checkpoint; proceeding",
+                "[mjx-train] warm start from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11.zip"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 4, 43703",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 1.0490849018096924
+    },
+    {
+      "utc": "2026-09-08T07:13:47.977525+00:00",
+      "pods": {
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:13:47.917712+00:00",
+          "processes": [
+            {
+              "pid": 3827596,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788851624.241391,
+              "last_steps": 6291456,
+              "last_fps": 20279,
+              "recent_steps": [
+                5242880,
+                5767168,
+                6291456
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 185          |",
+                "|    n_updates            | 75           |",
+                "|    policy_gradient_loss | -0.00182     |",
+                "|    std                  | 0.163        |",
+                "|    value_loss           | 372          |",
+                "------------------------------------------"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 9, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:13:47.953550+00:00",
+          "processes": [
+            {
+              "pid": 1005665,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1.log",
+              "mtime": 1788851625.9995065,
+              "last_steps": 524288,
+              "last_fps": 11026,
+              "recent_steps": [
+                524288
+              ],
+              "signals": [],
+              "tail": [
+                "| time/              |          |",
+                "|    fps             | 11026    |",
+                "|    iterations      | 1        |",
+                "|    time_elapsed    | 47       |",
+                "|    total_timesteps | 524288   |",
+                "---------------------------------"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 9, 45811",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 0.9038641452789307
+    },
+    {
+      "utc": "2026-09-08T07:14:50.451201+00:00",
+      "pods": {
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:14:50.409893+00:00",
+          "processes": [
+            {
+              "pid": 3827596,
+              "kind": "train_ppo_mjx",
+              "state": "S",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788851687.4742408,
+              "last_steps": 7864320,
+              "last_fps": 21057,
+              "recent_steps": [
+                6815744,
+                7340032,
+                7864320
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 165         |",
+                "|    n_updates            | 90          |",
+                "|    policy_gradient_loss | 1.01e-06    |",
+                "|    std                  | 0.161       |",
+                "|    value_loss           | 347         |",
+                "-----------------------------------------"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 9, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:14:50.388937+00:00",
+          "processes": [
+            {
+              "pid": 1005665,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+              "steps": "40000000"
+            }
+          ],
+          "logs": [
+            {
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1.log",
+              "mtime": 1788851673.1996279,
+              "last_steps": 1572864,
+              "last_fps": 16600,
+              "recent_steps": [
+                524288,
+                1048576,
+                1572864
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 200         |",
+                "|    n_updates            | 30          |",
+                "|    policy_gradient_loss | -0.00124    |",
+                "|    std                  | 0.167       |",
+                "|    value_loss           | 439         |",
+                "-----------------------------------------"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 12, 45811",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 0.9348859786987305
+    }
+  ],
+  "canonical": {
+    "utc": "2026-09-08T07:13:59.512548+00:00",
+    "head": "26502be48c24958701e16d0c3fcce7088c2cd11d",
+    "capacity": {
+      "nodes": {
+        "g129004": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-1",
+            "hexapod-mjx-train-8",
+            "hexapod-mjx-train-9",
+            "hexapod-mjx-train-10",
+            "hexapod-mjx-train-11"
+          ]
+        },
+        "g12ba48": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": []
+        },
+        "g131eec": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-2",
+            "hexapod-mjx-train-3"
+          ]
+        },
+        "g142d86": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-0",
+            "hexapod-mjx-train-4",
+            "hexapod-mjx-train-5",
+            "hexapod-mjx-train-7"
+          ]
+        }
+      },
+      "slots_total": 12,
+      "slots_ready": 11,
+      "slots_free": 6,
+      "free_pods": [
+        "hexapod-mjx-train-0",
+        "hexapod-mjx-train-4",
+        "hexapod-mjx-train-5",
+        "hexapod-mjx-train-9",
+        "hexapod-mjx-train-10",
+        "hexapod-mjx-train-11"
+      ],
+      "pending_pods": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ],
+      "busy": {
+        "hexapod-mjx-train-1": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1"
+        ],
+        "hexapod-mjx-train-2": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1"
+        ],
+        "hexapod-mjx-train-3": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1"
+        ],
+        "hexapod-mjx-train-7": [
+          "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b"
+        ],
+        "hexapod-mjx-train-8": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1"
+        ]
+      }
+    },
+    "ledger": [
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11",
+        "created": "2026-09-08T06:29:51+00:00",
+        "status": "CANARY PASS",
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-2",
+        "wandb_id": "b3piakh6",
+        "refused_reason": null,
+        "parent": "",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11",
+        "created": "2026-09-08T06:31:10+00:00",
+        "status": "CANARY PASS",
+        "steps": 2000000,
+        "pod": "hexapod-mjx-train-3",
+        "wandb_id": "c2vthugj",
+        "refused_reason": null,
+        "parent": "",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+        "created": "2026-09-08T07:07:33+00:00",
+        "status": "RUNNING",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-2",
+        "wandb_id": "udt4qxx3",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+        "created": "2026-09-08T07:12:00+00:00",
+        "status": "INTENT",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-8",
+        "wandb_id": null,
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      }
+    ],
+    "backlog": []
+  },
+  "owner_receipt": {
+    "tool": "mcp__rl_orchestrator__cycle_log",
+    "cycle": "20260908T070331",
+    "text": "# cycle_20260908T070331_partial-refill [IN FLIGHT \u2014 this log is streaming; poll again for new lines]\n\n(showing newest 2 kB of 14 kB \u2014 raise tail_kb for more)\n\u2026[07:09:56] ... (Bash still running)\n[07:10:26] ... (Bash still running)\n[07:10:56] ... (Bash still running)\n[07:11:26] ... (Bash still running)\n[07:11:26]   -> 1 line: Command did not complete within its 120s timeout and was moved to the background (ID: bioyiekm9). Output is being written to: /tmp/claude-0/-workspace-hexapod/15e5db2f-151c-4b4a-9feb-79169bdfaeb4/tas\u2026\n[07:11:30] $ tail -60 /tmp/claude-0/-workspace-hexapod/15e5db2f-151c-4b4a-9feb-79169bdfaeb4/tasks/bvl696051.output\n[07:11:30]   -> 7 lines: wandb: [wandb.Api()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY. respec: removed inherited --activation-fn; plain warm start preserves checkpoint activation respec cw-walkscratch-\u2026\n[07:11:33] agent:\nLaunched successfully. Now the matched OFF control:\n[07:11:40] $ uv run python rl_move/orchestrator/launch_run.py respec \\ --from cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11 \\ --run cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1 \\ --steps 40000000 \\ --init-from-source \\ --track walkcurr \\ --phase acquisition \\ --hypothesis \"Plain English:\u2026\n[07:12:10] ... (Bash still running)\n[07:12:40] ... (Bash still running)\n[07:13:10] ... (Bash still running)\n[07:13:40] ... (Bash still running)\n[07:13:40]   -> 1 line: Command did not complete within its 120s timeout and was moved to the background (ID: bigxvpt7j). Output is being written to: /tmp/claude-0/-workspace-hexapod/15e5db2f-151c-4b4a-9feb-79169bdfaeb4/tas\u2026\n[07:13:45] $ for i in $(seq 1 40); do if grep -q \"VERIFIED RUNNING\\|REFUSED\\|Traceback\" /tmp/claude-0/-workspace-hexapod/15e5db2f-151c-4b4a-9feb-79169bdfaeb4/tasks/bigxvpt7j.output 2>/dev/null; then break; fi sleep 5 done tail -60 /tmp/claude-0/-workspace-hexapod/15e5db2f-151c-4b4a-9feb-79169bdfaeb4/tasks/bigxv\u2026\n[07:14:15] ... (Bash still running)\n[07:14:45] ... (Bash still running)\n"
+  },
+  "evidence": {
+    "conclusion": "Both existing seed11 40M acquisitions are placed one per pod and show repeated real PPO step increases, with no observed activation or code-sync failure. No training or process intervention performed.",
+    "progress": [
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+        "pod": "hexapod-mjx-train-2",
+        "pid": 3827596,
+        "first_utc": "2026-09-08T07:13:47.917712+00:00",
+        "second_utc": "2026-09-08T07:14:50.409893+00:00",
+        "first_steps": 6291456,
+        "second_steps": 7864320,
+        "reported_fps": 21057,
+        "step_delta": 1572864,
+        "elapsed_seconds": 62.492181
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+        "pod": "hexapod-mjx-train-8",
+        "pid": 1005665,
+        "first_utc": "2026-09-08T07:13:47.953550+00:00",
+        "second_utc": "2026-09-08T07:14:50.388937+00:00",
+        "first_steps": 524288,
+        "second_steps": 1572864,
+        "reported_fps": 16600,
+        "step_delta": 1048576,
+        "elapsed_seconds": 62.435387
+      }
+    ],
+    "wandb_ids": {
+      "ON": "udt4qxx3",
+      "OFF": "ilmolyis"
+    },
+    "budget": "Owner 070331 launches two 40M acquisitions, 80M nominal total; do not treat earlier canaries from a different cycle as new launches here.",
+    "queue": "Empty at canonical sample 07:13:59; five fleet trainers and six ready free slots at that sample.",
+    "remaining": "Owner still waiting for launcher verification output at 07:14:45; canonical ledger snapshot 07:13:59 still marked OFF INTENT, despite actual PPO progress. This is not evidence of trainer failure.",
+    "scope": "Read-only launch-health monitoring, not gait/learning efficacy qualification; no interaction with current1x gate owner."
+  }
+}

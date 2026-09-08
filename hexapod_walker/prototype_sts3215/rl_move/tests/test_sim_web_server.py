@@ -240,10 +240,11 @@ def test_serves_shared_webui_and_sim_ping():
     assert "Hexapod STS3215" in html
     assert 'id="rlbundletab"' in html
     assert "Complete policy" in html
-    assert 'data-gait="6"' in html
-    assert 'data-gait="8"' in html
-    assert "CPG tetrapod" in html
-    assert "Middle-up quad" in html
+    assert html.count('id="wgait"') == 1
+    assert '<option value="6" disabled>' in html
+    assert '<option value="8">middle-tuck quad crawl' in html
+    assert 'id="wcpgwrap" hidden' in html
+    assert "Apply controller" in html
     assert 'id="rlstandrl" disabled' in html
     assert 'id="rllowerrl" disabled' in html
     assert "__HTTPS_PORT__" not in html

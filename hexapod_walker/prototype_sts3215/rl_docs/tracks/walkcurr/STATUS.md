@@ -1,3 +1,41 @@
+## 2026-09-08 ~01:57 (triage cycle; assigned `crutchoff-s1-widen8-legdutyratio-guardfix-acq10m`) — the +10M charge-on acquisition CANARY PASSes its own retention/duration gate; matched charge-off control (`offctrl10m`) still training, causal efficacy at 10M depth still pending
+
+`s1-widen8-acq1-legdutyratio-guardfix-acq10m` (charge=150 from the
+corrected 2M `legdutyratiofresh-guardfix1` source, RNG3, `--seed 3`,
+unchanged 8-way heading/DR/motor contract) landed: held-out 24-episode
+det+sto walk/startjitter panel `gait_valid` 22/24 (walk/det 6/6,
+walk/sto 6/6, sj/det 6/6, sj/sto 4/6), **0 falls/terminations in every
+mode** — flat-or-BETTER than the source's own 21/24 (the source's sole
+`det/0` sacrifice, leg5, flips to `gait_valid=True` here; the same 2
+`startjitter/sto` episodes — leg5 ep2, leg0 ep3 — remain the only
+fails, no NEW chronic leg). Direct per-leg peer-excluded duty-ratio
+check: both formerly-weak legs (0, 5) still clear >=0.22 in 23/24
+episodes each — same magnitude as the source's 22-23/24, no
+regression. `ep_rew_mean` -32103 at 10M (quarters monotonically more
+negative) is fully explained by `rollout/ep_len_mean` rising
+483->1638->1970->1982 (out of a 2048-step episode cap) — episodes
+surviving longer under a roughly-flat per-tick charge, exactly the
+methodological pattern flagged in the 01:5x entry below, not
+behavioral collapse. **Verdict: CANARY PASS (acquisition-duration/
+retention scope)** — the charge-on recipe survives a 5x-longer
+acquisition with zero new falls and no new chronic sacrifice.
+
+This does NOT by itself prove the charge (vs. duration alone) is the
+active ingredient of the +1-episode improvement — that needs the
+matched charge=0 control, `offctrl10m` (same 2M source, RNG3, only
+`walk_leg_duty_ratio_charge` 150->0), which is root-owned and still
+training (untouched this cycle per fb_20260908T014602/015125). Next
+reader: pull `offctrl10m`'s own gate against this identical panel
+before claiming the charge itself (not just continued training) drives
+the improvement; if `offctrl10m` matches or beats 22/24 too, the
++10M gain here is a duration effect, not a charge effect, and the
+mechanism's causal case needs a different comparison design (e.g. a
+longer charge-on run diverging from a flat/no-charge trajectory) before
+promotion. SKILLS.md row updated in place (acq10m sub-note appended).
+Evidence: `logs/ckpt_eval/cw_walkscratch_crutchoff_s1_widen8_legdutyratio_
+guardfix_acq10m_gate/report.json` vs `..._crutchoff_s1_widen8_acq1_
+legdutyratiofresh_guardfix1_gate/report.json`, W&B `xy81bl5d`.
+
 ## 2026-09-08 ~01:5x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — triaged 3 orphaned FINISHED `walk_leg_duty_ratio_charge` guardfix1 canaries no other cycle had claimed: 2 fresh-init CANARY PASS + 1 retrofit CANARY FAIL-MECHANISM (self-corrected from a wrong first read)
 
 Found 3 finished-but-unverdicted canaries with ready gate reports

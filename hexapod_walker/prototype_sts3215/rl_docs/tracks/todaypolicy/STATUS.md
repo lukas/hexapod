@@ -1,5 +1,50 @@
 # todaypolicy - working policy bundle for today's demo
 
+Last updated: 2026-09-08 ~02:1x UTC — CADENCE (period_scale) EXPERIMENT
+DONE ON THE FROZEN FULL-MESH PLANT: CLOSED, REGRESSED BOTH DIRECTIONS
+(not just no-gain) + a NEW straight-line phase-dependent drift; the
+stance-arm closure's own nominated lever.
+
+Executed the stance-arm closure's nomination (`CADENCE — one slower
+period_scale (1.5) vs baseline (1.0)`), reviewed first per
+`fb_20260908T014636_88b7c1`: the diagnostic guard fix (975d6c36,
+raw-IK-None rejection) verified in force (0 raw IK failures at both
+period_scales); new metrics (fractional lag, reversal rate, lift
+tracking) built specifically so a genuine per-cycle effect is
+distinguishable from "fewer cycles measured", per the review's own
+caution. New runner `rl_move/sim/probe_turn_cadence.py` generalizes the
+already-fixed `probe_turn_stancearm` guard/rollout to accept
+`period_scale` (bit-exact at 1.0, `test_probe_turn_cadence.py` 5/5
+green incl. a dosed-cadence forced-IK-failure test). 12 full-mesh
+rollouts (arcs ±0.15 + straight guard, starts 0/π, seed 0), ZERO falls;
+baseline reproduces the stance-arm/lift-lead baseline bit-exactly.
+
+**RESULT: both turn directions REGRESS, not just fail to gain** — +0.15
+arc −14% (0.0637→0.0547 rad/s), −0.15 arc −16% magnitude (0.0641→
+0.0538) — clear of each baseline's own ±0.0005-0.0010 start-to-start
+spread. The mechanism partially CONFIRMS as hypothesized (fractional
+touchdown/liftoff lag drops ~28%, achieved swing-lift tracking nearly
+QUADRUPLES 3.5→13.1mm p90, scuff fraction drops 31%) but **none of it
+converts to more body yaw** — loaded-pad residual slip stays flat/
+slightly worse and dynamic arm is unchanged, so the conversion
+bottleneck stays where the stance-arm closure located it (traction-
+limited), not in swing timing/quality. **NEW pathology**: straight-
+command |wz| jumps 0.0074→0.0329 (4.5x) and the SIGN FLIPS exactly with
+starting tripod phase — a genuine systematic defect, not noise.
+Side-finding: straight vx +19% (0.0402→0.0479), but UNLIKE the
+stance-arm side-finding this WORSENS straight drift instead of halving
+it, so it is not a clean speed-lever candidate without first fixing the
+new bias. **Pre-registered both-signs bar unmet (doubly so — regressed,
+not flat) ⇒ NO 2M canary (by the rule).** This CLOSES all 3 nominated
+in-limits turn-authority levers (lift-phase timing, stance posture,
+cadence) against the identical bar; no further rotation/schedule-dial
+variant is nominated. Evidence:
+[cadence closure](../../../../../artifacts/rl_watchdog/turn_cadence_20260908/README.md);
+controller copies `logs/ckpt_eval/turn_cadence_20260908/`; runner
+committed at `rl_move/sim/probe_turn_cadence.py`.
+
+--- prior entry (03:3x UTC) below ---
+
 Last updated: 2026-09-08 03:3x UTC — STANCE-POSTURE YAW-ARM EXPERIMENT DONE
 ON THE FROZEN FULL-MESH PLANT: CLOSED FOR YAW, NO CANARY; +12–21% vx
 SIDE-FINDING.

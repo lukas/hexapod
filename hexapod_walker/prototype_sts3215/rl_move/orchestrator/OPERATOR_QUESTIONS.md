@@ -5653,3 +5653,24 @@ strong physical lever — a more extended stance plant (knee 100->80 deg
 nearly doubles the tangential arm) — which changes the stand/walk plant
 contract fleet-wide; (3) whether hardware write_speed/profile changes are
 on the table (measured: +~15% alone under the pinned 37.5 deg/s slew).
+
+**UPDATE 2026-09-08 ~02:1x UTC (zero-spend, no operator wait):** the two
+follow-up SIM diagnostics scoped after this review (lift-only phase lead,
+stance-posture yaw-arm extension) both CLOSED against the pre-registered
+both-signs-gain bar
+(`artifacts/rl_watchdog/turn_liftlead_20260908/README.md`,
+`artifacts/rl_watchdog/turn_stancearm_20260908/README.md`), and this
+cycle closed the 3rd nominated lever, cadence (`period_scale`), the SAME
+way — but more decisively: BOTH turn directions REGRESS (not just fail to
+gain), and a NEW straight-line phase-dependent yaw bias appears at the
+slower cadence
+(`artifacts/rl_watchdog/turn_cadence_20260908/README.md`). All three
+scripted-gait "dial" levers (timing, geometry, cadence) are now closed
+against the identical bar; none reopens the derate assumption above —
+if anything they reinforce it (no cheap in-limits lever recovers the
+budget). This narrows your item (2) to genuinely fleet-wide-contract
+changes (stance/geometry beyond the tested knee-90 candidate, or
+hardware write_speed/profile per item (3)) — no further in-limits
+kinematic/timing dial is left to try under the current qualification
+cells. Still no launch, no robot action, no operator wait for ongoing
+sim work.

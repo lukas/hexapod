@@ -1,42 +1,3 @@
-<<<<<<< Updated upstream
-## 2026-09-08 corrected torque zero-shot closeout — retention asymmetry precedes retraining
-
-The corrected frozen-parent `*_torque1x_zeroshot_evalfix1` reports are
-complete and canonical in native `eval_report`: 24 episodes per arm,
-matched to the trained-child evaluator/source and each frozen 40M
-checkpoint. ON already retains 23/24 gait at 1x with zero terminations;
-OFF already has 12/24 with zero terminations and the same new ordinary
-walk/det leg4 sacrifice in all six episodes seen in its child. Both 2M
-children preserve those gait counts and recurring-leg patterns. Under
-the original plan, ON is HEALTH RETAINED and OFF PARTIAL both before
-and after the continuation. Existing child verdict statuses are unchanged.
-
-The completed cycle `20260908T082731` claimed that catastrophic ON
-zero-shot slip (57–185/m) proved a genuine training recovery. **That
-inference is withdrawn:** the old train5 evaluator lacked Cartesian
-decode. Its raw report and cycle history remain preserved, but are
-excluded from this comparison. The valid result is zero-shot retention
-asymmetry, with **no acquired gait recovery**.
-
-In walk/det, walk/sto, jitter/det, jitter/sto order, ON mean slip/m changes
-3.650→3.727, 5.652→5.231, 3.729→3.679, 5.489→5.184 from corrected zero-shot
-to child; OFF changes 4.403→4.439, 5.974→5.750, 4.434→4.224, 5.773→5.815.
-Trained ON/OFF ratios 0.8396/0.9098/0.8709/0.8915 satisfy the separate
-<=1.2-in-at-least-3/4 slip criterion in all four panels. These modest,
-mixed changes do not establish recovery; ON ordinary deterministic
-net-forward speed also falls 11.1% versus its zero-shot parent.
-
-Actual non-log-std weights changed in both arms, and normalized reward
-per tick rose (ON 0.986866→1.125428, OFF 1.033928→1.185338). Those facts
-confirm optimization, not an acquired gait benefit. Reported draws/reset
-summaries align; full state/RNG identity is not claimed. This finite
-2M read is closed with no automatic extension, new seed or dose grid.
-The remaining EASY motor/noise/model limitations still apply.
-
-Evidence: [sealed six-report comparison and provenance](../../../../../artifacts/rl_watchdog/torque_read_20260908T084713Z/README.md).
-Older entries below describe their observation times; the corrected
-zero-shot read here resolves their pending-baseline caveat.
-=======
 ## 2026-09-08 ~09:0x (triage cycle) — halfgrav cartfoot 2x2 cell ignites cleanly (both arms CANARY PASS, near-parity slip) + widen8 fresh-init pair CANARY FAIL - MECHANISM symmetrically (composite too hard fresh, not a cart_foot effect)
 
 One plain sentence: two fresh questions closed this cycle -- does the
@@ -108,7 +69,46 @@ Evidence: `ops.sh review` for all four runs this cycle;
 `kl4alitf`/`xpuzkq3h`. RL_LOG 09-08 ~08:5x-09:0x.
 
 --- prior entry below ---
->>>>>>> Stashed changes
+
+## 2026-09-08 corrected torque zero-shot closeout — retention asymmetry precedes retraining
+
+The corrected frozen-parent `*_torque1x_zeroshot_evalfix1` reports are
+complete and canonical in native `eval_report`: 24 episodes per arm,
+matched to the trained-child evaluator/source and each frozen 40M
+checkpoint. ON already retains 23/24 gait at 1x with zero terminations;
+OFF already has 12/24 with zero terminations and the same new ordinary
+walk/det leg4 sacrifice in all six episodes seen in its child. Both 2M
+children preserve those gait counts and recurring-leg patterns. Under
+the original plan, ON is HEALTH RETAINED and OFF PARTIAL both before
+and after the continuation. Existing child verdict statuses are unchanged.
+
+The completed cycle `20260908T082731` claimed that catastrophic ON
+zero-shot slip (57–185/m) proved a genuine training recovery. **That
+inference is withdrawn:** the old train5 evaluator lacked Cartesian
+decode. Its raw report and cycle history remain preserved, but are
+excluded from this comparison. The valid result is zero-shot retention
+asymmetry, with **no acquired gait recovery**.
+
+In walk/det, walk/sto, jitter/det, jitter/sto order, ON mean slip/m changes
+3.650→3.727, 5.652→5.231, 3.729→3.679, 5.489→5.184 from corrected zero-shot
+to child; OFF changes 4.403→4.439, 5.974→5.750, 4.434→4.224, 5.773→5.815.
+Trained ON/OFF ratios 0.8396/0.9098/0.8709/0.8915 satisfy the separate
+<=1.2-in-at-least-3/4 slip criterion in all four panels. These modest,
+mixed changes do not establish recovery; ON ordinary deterministic
+net-forward speed also falls 11.1% versus its zero-shot parent.
+
+Actual non-log-std weights changed in both arms, and normalized reward
+per tick rose (ON 0.986866→1.125428, OFF 1.033928→1.185338). Those facts
+confirm optimization, not an acquired gait benefit. Reported draws/reset
+summaries align; full state/RNG identity is not claimed. This finite
+2M read is closed with no automatic extension, new seed or dose grid.
+The remaining EASY motor/noise/model limitations still apply.
+
+Evidence: [sealed six-report comparison and provenance](../../../../../artifacts/rl_watchdog/torque_read_20260908T084713Z/README.md).
+Older entries below describe their observation times; the corrected
+zero-shot read here resolves their pending-baseline caveat.
+
+--- prior entry below ---
 
 ## 2026-09-08 ~08:3x (triage cycle) — seed7 durability HOLDS + seed11 durability HOLDS (2/3 cohort) + seed10 OFF durability HOLDS + torque1x mechanism-health canary pair lands (Cartesian robust, joint-space develops a new chronic leg)
 

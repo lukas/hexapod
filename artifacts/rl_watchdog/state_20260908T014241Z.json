@@ -1,7 +1,7 @@
 {
   "heartbeat": "keep-hexapod-rl-gpus-training",
   "trigger_utc": "2026-09-08T01:42:41.903Z",
-  "status": "Three root scratch continuations completed; matched s1 comparison ready; s0 and assisted gates progressing; video pacing integration in progress",
+  "status": "Three root scratch continuations completed; s1 control formally triaged; s0/assisted gates under active normal watcher ownership; future video pacing shipped",
   "acquisition": {
     "run": "cw-walkscratch-crutchoff-s1-widen8-legdutyratio-guardfix-acq10m",
     "wandb_id": "xy81bl5d",
@@ -83,7 +83,7 @@
       "code_off": "4e508e99255f96c73da5822d6cbd039d042f13a3",
       "code_delta": "artifact publication and diagnostics; no training semantics change found"
     },
-    "status": "training complete; canonical24-panelgate available21/24,0terminations; ordinary watcher triage",
+    "status": "CANARY PASS - matched control, no efficacy; formally triaged by cycle20260908T023245",
     "created_utc": "2026-09-08T01:47:09+00:00",
     "verified_utc": "2026-09-08T01:49:57+00:00",
     "wandb_id": "0gfv9tv8",
@@ -177,8 +177,35 @@
   "render_followup": {
     "observation": "100Hz evaluation captures all control ticks, encoder writes25fps: observed20s simulation yields80s video. Gate rendering dominated llvmpipe CPU threads.",
     "proposal": "Opt-in paced25fps capture for future gates with old-pod compatibility; preserve every simulation/action/metric/RNG tick, panels, overlays and terminal frame.",
-    "state": "implemented;44 integrated local checks pass; pending main/controller synchronization",
-    "measured_speedup": null,
+    "state": "shipped to main and controller; existing active pod evaluator source preserved",
+    "measured_speedup": {
+      "scope": "Short frozen-mesh renderer benchmark only; not full-gate wall-time guarantee",
+      "simulated_seconds_per_trial": 1.2,
+      "model_meshes": 34,
+      "model_mass_kg": 4.80573,
+      "det": {
+        "legacy_wall_s": 8.681,
+        "paced_wall_s": 2.294,
+        "legacy_cpu_s": 70.13,
+        "paced_cpu_s": 15.218
+      },
+      "sto": {
+        "legacy_wall_s": 8.468,
+        "paced_wall_s": 2.429,
+        "legacy_cpu_s": 64.07,
+        "paced_cpu_s": 17.162
+      },
+      "frames_each": {
+        "legacy": 120,
+        "paced": 30
+      },
+      "encoded_duration_each_s": {
+        "legacy": 4.8,
+        "paced": 1.2
+      },
+      "exact_metrics_and_full_trace_parity_both": true,
+      "artifacts": "artifacts/rl_watchdog/eval_video_pacing_20260908/"
+    },
     "core_commit": "7512cacdd",
     "helper_commit": "479374ff2",
     "agent_tests": {
@@ -192,7 +219,10 @@
       "command": "uv run --active --offline pytest rl_move/tests/test_eval_checkpoint_video_pacing.py rl_move/tests/test_eval_video_pacing_helpers.py rl_move/tests/test_eval_checkpoint_rollout_trace.py rl_move/tests/test_eval_checkpoint_gsde_reset_noise.py rl_move/tests/test_pod_eval_gate_idempotency.py -q"
     },
     "validation": "Exact scientific dictionaries, full traces, end RNG and reset counts agree across DR0/DR0.2 sequential24-episode banks; real encoded video duration verified. Fourfold capture reduction at100Hz/25fps. Old/missing/unreachable evaluator retains legacy flags. Active evaluator source unchanged.",
-    "environment_limits": "Two existing helper environment tests fail unchanged baseline (macOS exec-a/ps behavior; clean-worktree checkpoint absent). First controller rendering benchmark stopped before rollout because script expected4.80573kg but observed3.494226kg before reset; no timing claim."
+    "environment_limits": "Two existing helper environment tests fail unchanged baseline (macOS exec-a/ps behavior; clean-worktree checkpoint absent). First controller rendering benchmark stopped before rollout because script expected4.80573kg but observed3.494226kg before reset; no timing claim.",
+    "deployed_commit": "c79b405641f5add11aae4169d0445cf3c81dba72",
+    "controller_tests_passed": 30,
+    "benchmark_recovery": "Initial script selected current controller mesh (3.494226kg). Corrected only isolated benchmark to existing frozen34-mesh4.80573kg assets; no production changes. Both deterministic and stochastic benchmark completed successfully."
   },
   "observed_utc": "2026-09-08T02:32:00Z",
   "new_training": {
@@ -294,7 +324,8 @@
     "feedback": [
       "fb_20260908T023020_da6d46",
       "fb_20260908T023120_d2d10f"
-    ]
+    ],
+    "formal_verdict": "CANARY PASS - matched control, no efficacy"
   },
   "second_scratch_pair": {
     "init_md5": "2156daae67933cd1bc1a66accf422edb",
@@ -396,5 +427,19 @@
     "decision": "No2Mcanary for tested candidate; not a universal closure of timing or geometry mechanisms",
     "focused_tests": 12,
     "broader_tests": "existing semantic test failures reproduced on prior source"
+  },
+  "latest_cycle": {
+    "cycle": "20260908T023245",
+    "pid": 4159775,
+    "state": "active; s1 matched-control verdict delivered, also reviewing newly completed assisted canaries",
+    "observed_utc": "2026-09-08T02:36:30Z",
+    "no_duplicate_kick": true
+  },
+  "video_delivery": {
+    "clip": "walk_det_3.mp4",
+    "run": "cw-walkscratch-crutchoff-s1-widen8-legdutyratio-guardfix-acq10m",
+    "local_copy": "artifacts/rl_videos/20260908_scratch_s1_walk_det_3.mp4",
+    "bytes": 4765986,
+    "legacy_playback": "20s simulation encoded as80s at25fps"
   }
 }

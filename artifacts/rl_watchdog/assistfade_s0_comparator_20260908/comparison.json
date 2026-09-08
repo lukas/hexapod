@@ -1,0 +1,1301 @@
+{
+  "scope": "Existing exact-report and launch-argument comparison only; no new rollouts, training, verdict or statistical equivalence claim.",
+  "base_commit": "6d09c28d7",
+  "retrieval_note": "Native eval_report(run='cw-assistfade-rung3-residualfade-s0') returned the nostdanneal descendant first. Using run='cw_assistfade_rung3_residualfade_s0_gate' selected the exact bare baseline header/checkpoint; identities were then asserted.",
+  "baseline": {
+    "run": "cw-assistfade-rung3-residualfade-s0",
+    "report_path": "logs/ckpt_eval/cw_assistfade_rung3_residualfade_s0_gate/report.json",
+    "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_assistfade_rung3_residualfade_s0.zip",
+    "policy_std": 0.052,
+    "groups": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminated": 0,
+        "progress_ratio_mean": 0.119,
+        "slip_per_m_mean": 16.711,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 4,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 5,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.119,
+            "slip_per_m": 16.711,
+            "duty_cycle": [
+              0.97,
+              0.93,
+              0.53,
+              0.66,
+              0.95,
+              0.56
+            ],
+            "sacrificed_legs": []
+          }
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminated": 0,
+        "progress_ratio_mean": 0.10633333333333334,
+        "slip_per_m_mean": 15.9655,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.106,
+            "slip_per_m": 15.854,
+            "duty_cycle": [
+              0.99,
+              0.93,
+              0.45,
+              0.8,
+              0.93,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.111,
+            "slip_per_m": 15.035,
+            "duty_cycle": [
+              0.98,
+              0.9,
+              0.46,
+              0.8,
+              0.9,
+              0.6
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.101,
+            "slip_per_m": 16.818,
+            "duty_cycle": [
+              0.96,
+              0.93,
+              0.48,
+              0.79,
+              0.91,
+              0.61
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.111,
+            "slip_per_m": 15.165,
+            "duty_cycle": [
+              0.96,
+              0.91,
+              0.47,
+              0.76,
+              0.92,
+              0.58
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 4,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.1,
+            "slip_per_m": 17.171,
+            "duty_cycle": [
+              0.96,
+              0.93,
+              0.45,
+              0.79,
+              0.91,
+              0.65
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 5,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.109,
+            "slip_per_m": 15.75,
+            "duty_cycle": [
+              0.94,
+              0.91,
+              0.47,
+              0.78,
+              0.92,
+              0.58
+            ],
+            "sacrificed_legs": []
+          }
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 2,
+        "terminated": 4,
+        "progress_ratio_mean": 0.08083333333333333,
+        "slip_per_m_mean": 9.080333333333334,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.134,
+            "slip_per_m": 14.966,
+            "duty_cycle": [
+              0.97,
+              0.88,
+              0.54,
+              0.7,
+              0.87,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.046,
+            "slip_per_m": 5.15,
+            "duty_cycle": [
+              0.39,
+              0.82,
+              0.53,
+              0.82,
+              0.24,
+              1
+            ],
+            "sacrificed_legs": [
+              5
+            ]
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.102,
+            "slip_per_m": 18.601,
+            "duty_cycle": [
+              0.79,
+              0.94,
+              0.57,
+              0.67,
+              0.86,
+              0.65
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.067,
+            "slip_per_m": 5.457,
+            "duty_cycle": [
+              0.14,
+              1,
+              0.22,
+              1,
+              0.33,
+              1
+            ],
+            "sacrificed_legs": [
+              1,
+              3,
+              5
+            ]
+          },
+          {
+            "index": 4,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.109,
+            "slip_per_m": 5.645,
+            "duty_cycle": [
+              0.25,
+              1,
+              0.35,
+              0.46,
+              1,
+              0.63
+            ],
+            "sacrificed_legs": [
+              1,
+              4
+            ]
+          },
+          {
+            "index": 5,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.027,
+            "slip_per_m": 4.663,
+            "duty_cycle": [
+              0.61,
+              1,
+              0.19,
+              0.5,
+              1,
+              0.16
+            ],
+            "sacrificed_legs": [
+              1,
+              4
+            ]
+          }
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 2,
+        "terminated": 3,
+        "progress_ratio_mean": 0.152,
+        "slip_per_m_mean": 10.049,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.132,
+            "slip_per_m": 12.766,
+            "duty_cycle": [
+              0.85,
+              0.86,
+              0.67,
+              0.67,
+              0.93,
+              0.68
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.082,
+            "slip_per_m": 16.153,
+            "duty_cycle": [
+              0.99,
+              0.84,
+              0.46,
+              0.86,
+              0.86,
+              0.56
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.355,
+            "slip_per_m": 5.222,
+            "duty_cycle": [
+              1,
+              0.52,
+              0.26,
+              1,
+              0.49,
+              0.63
+            ],
+            "sacrificed_legs": [
+              0,
+              3
+            ]
+          },
+          {
+            "index": 3,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.123,
+            "slip_per_m": 6.269,
+            "duty_cycle": [
+              0.27,
+              0.79,
+              0.92,
+              0.42,
+              0.74,
+              1
+            ],
+            "sacrificed_legs": [
+              5
+            ]
+          },
+          {
+            "index": 4,
+            "gait_valid": false,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.072,
+            "slip_per_m": 15.678,
+            "duty_cycle": [
+              0.85,
+              1,
+              0.43,
+              0.63,
+              1,
+              0.48
+            ],
+            "sacrificed_legs": [
+              4
+            ]
+          },
+          {
+            "index": 5,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.148,
+            "slip_per_m": 4.206,
+            "duty_cycle": [
+              0.76,
+              0.96,
+              0.68,
+              0.1,
+              1,
+              0.4
+            ],
+            "sacrificed_legs": [
+              3,
+              4
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "candidate": {
+    "run": "cw-assistfade-rung3-legdutyratio-s0",
+    "report_path": "logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_s0_gate/report.json",
+    "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_assistfade_rung3_legdutyratio_s0.zip",
+    "policy_std": 0.052,
+    "groups": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminated": 0,
+        "progress_ratio_mean": 0.142,
+        "slip_per_m_mean": 12.674,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 4,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 5,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.142,
+            "slip_per_m": 12.674,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.61,
+              0.62,
+              0.94,
+              0.63
+            ],
+            "sacrificed_legs": []
+          }
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminated": 0,
+        "progress_ratio_mean": 0.10333333333333333,
+        "slip_per_m_mean": 16.319333333333333,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.114,
+            "slip_per_m": 14.954,
+            "duty_cycle": [
+              1,
+              0.9,
+              0.62,
+              0.72,
+              0.92,
+              0.73
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.116,
+            "slip_per_m": 14.594,
+            "duty_cycle": [
+              0.99,
+              0.87,
+              0.61,
+              0.71,
+              0.93,
+              0.73
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.099,
+            "slip_per_m": 17.025,
+            "duty_cycle": [
+              0.98,
+              0.9,
+              0.65,
+              0.67,
+              0.92,
+              0.72
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.104,
+            "slip_per_m": 16.948,
+            "duty_cycle": [
+              0.99,
+              0.91,
+              0.64,
+              0.65,
+              0.96,
+              0.78
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 4,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.077,
+            "slip_per_m": 17.922,
+            "duty_cycle": [
+              0.95,
+              0.91,
+              0.66,
+              0.68,
+              0.94,
+              0.77
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 5,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.11,
+            "slip_per_m": 16.473,
+            "duty_cycle": [
+              0.95,
+              0.96,
+              0.65,
+              0.64,
+              0.98,
+              0.73
+            ],
+            "sacrificed_legs": []
+          }
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 2,
+        "terminated": 5,
+        "progress_ratio_mean": 0.0775,
+        "slip_per_m_mean": 6.553,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.16,
+            "slip_per_m": 4.747,
+            "duty_cycle": [
+              0.6,
+              0.45,
+              0.86,
+              0.62,
+              0.31,
+              1
+            ],
+            "sacrificed_legs": [
+              5
+            ]
+          },
+          {
+            "index": 1,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.131,
+            "slip_per_m": 12.702,
+            "duty_cycle": [
+              0.72,
+              0.93,
+              0.64,
+              0.59,
+              0.82,
+              0.81
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 2,
+            "gait_valid": true,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.192,
+            "slip_per_m": 5.726,
+            "duty_cycle": [
+              0.54,
+              0.58,
+              1,
+              0.6,
+              0.43,
+              0.89
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 3,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": -0.048,
+            "slip_per_m": 5.42,
+            "duty_cycle": [
+              0.22,
+              0.95,
+              0.51,
+              0.81,
+              0.32,
+              1
+            ],
+            "sacrificed_legs": [
+              5
+            ]
+          },
+          {
+            "index": 4,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": -0.144,
+            "slip_per_m": 5.607,
+            "duty_cycle": [
+              0.4,
+              0.62,
+              1,
+              0.25,
+              0.68,
+              1
+            ],
+            "sacrificed_legs": [
+              2,
+              5
+            ]
+          },
+          {
+            "index": 5,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.174,
+            "slip_per_m": 5.116,
+            "duty_cycle": [
+              0.62,
+              1,
+              0.36,
+              0.39,
+              1,
+              0.24
+            ],
+            "sacrificed_legs": [
+              1,
+              4
+            ]
+          }
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 1,
+        "terminated": 4,
+        "progress_ratio_mean": 0.16483333333333336,
+        "slip_per_m_mean": 8.3805,
+        "per_episode": [
+          {
+            "index": 0,
+            "gait_valid": true,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.111,
+            "slip_per_m": 15.146,
+            "duty_cycle": [
+              0.86,
+              0.85,
+              0.77,
+              0.59,
+              0.92,
+              0.89
+            ],
+            "sacrificed_legs": []
+          },
+          {
+            "index": 1,
+            "gait_valid": false,
+            "terminated": false,
+            "term_reason": "",
+            "progress_ratio": 0.107,
+            "slip_per_m": 14.397,
+            "duty_cycle": [
+              1,
+              0.81,
+              0.6,
+              0.74,
+              0.85,
+              0.66
+            ],
+            "sacrificed_legs": [
+              0
+            ]
+          },
+          {
+            "index": 2,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.311,
+            "slip_per_m": 5.5,
+            "duty_cycle": [
+              1,
+              0.57,
+              0.34,
+              1,
+              0.53,
+              0.49
+            ],
+            "sacrificed_legs": [
+              0,
+              3
+            ]
+          },
+          {
+            "index": 3,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.067,
+            "slip_per_m": 5.944,
+            "duty_cycle": [
+              0.3,
+              0.77,
+              0.96,
+              0.45,
+              0.64,
+              1
+            ],
+            "sacrificed_legs": [
+              5
+            ]
+          },
+          {
+            "index": 4,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.092,
+            "slip_per_m": 4.819,
+            "duty_cycle": [
+              0.55,
+              1,
+              0.41,
+              0.39,
+              1,
+              0.26
+            ],
+            "sacrificed_legs": [
+              1,
+              4
+            ]
+          },
+          {
+            "index": 5,
+            "gait_valid": false,
+            "terminated": true,
+            "term_reason": "over_current",
+            "progress_ratio": 0.301,
+            "slip_per_m": 4.477,
+            "duty_cycle": [
+              1,
+              0.5,
+              0.97,
+              0.1,
+              1,
+              0.35
+            ],
+            "sacrificed_legs": [
+              0,
+              4
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "shared_report_identity": {
+    "task": "joint_walk",
+    "dr_scale": 0,
+    "seed": 0,
+    "model_source": "mesh",
+    "model_variant": "mesh_mjx_twin",
+    "model_nmesh": 0,
+    "model_ngeom": 91,
+    "model_mass_kg": 4.80573,
+    "motor_contract": {
+      "bus.write_speed": 400,
+      "bus.write_acc": 20,
+      "bus.servo_vel_max_counts_s": "",
+      "bus.servo_params": "",
+      "resolved_vel_max_deg_s_min": 30.76171875,
+      "resolved_vel_max_deg_s_max": 30.76171875,
+      "resolved_vel_max_counts_s_max": 350,
+      "safety.max_delta_q_deg": 0.375,
+      "control.hz": 100,
+      "slew_limit_deg_s": 37.5,
+      "bus.profile_ramp_steps": 0,
+      "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json",
+      "backend_profile": "servo_profile_np"
+    },
+    "start_jitter_panel": {
+      "start_jitter_deg": 3,
+      "start_bad_prob": 0.25,
+      "start_bad_max_joints": 1,
+      "start_bad_deg_min": 8,
+      "start_bad_deg_max": 16
+    }
+  },
+  "launch_comparison": {
+    "baseline_steps": 2000000,
+    "candidate_steps": 2000000,
+    "baseline_extra_args": [
+      "--out-name",
+      "ppo_goal_cw_assistfade_rung3_residualfade_s0",
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "10",
+      "--dr-scale",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--device",
+      "cuda",
+      "--goal-mix",
+      "walk=1.0",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--log-std-anneal-frac",
+      "1.0",
+      "--log-std-final",
+      "-3.0",
+      "--cfg-set",
+      "env.model_source=mesh",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "safety.max_delta_q_deg=0.375",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=30.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.0",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_phase_run_on_yaw=1",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "reward.walk_anchor_gate=0.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.walk_height_gate=1.0",
+      "--cfg-set",
+      "reward.walk_height_sigma_mm=30.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=1.0",
+      "--cfg-set",
+      "reward.loadslip_ok=3.0",
+      "--cfg-set",
+      "reward.loadslip_max=6.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=10.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=20.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=2.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_walk_course_income=2.0",
+      "--cfg-set",
+      "reward.walk_course_income_window_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_income_deadband_deg=6.0",
+      "--cfg-set",
+      "reward.walk_course_income_sigma_deg=20.0",
+      "--cfg-set",
+      "reward.k_walk_excess_sway=2.0",
+      "--cfg-set",
+      "reward.walk_sway_window_s=0.75",
+      "--cfg-set",
+      "reward.walk_sway_allow_mm=5.0",
+      "--cfg-set",
+      "reward.k_walk_course_disp=0.15",
+      "--cfg-set",
+      "reward.walk_course_disp_window_s=1.5",
+      "--cfg-set",
+      "reward.walk_course_disp_min_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.k_walk_course_disp_overspeed=4.0",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_tol=0.05",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_along=1.0",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_ref_floor_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_residual_gate=1.0",
+      "--cfg-set",
+      "goal.walk_residual_blend=0.05",
+      "--cfg-set",
+      "sched.key=goal.walk_residual_blend",
+      "--cfg-set",
+      "sched.v0=0.05",
+      "--cfg-set",
+      "sched.v1=1.0",
+      "--cfg-set",
+      "sched.t0_steps=0",
+      "--cfg-set",
+      "sched.t1_steps=1400000",
+      "--cfg-set",
+      "sched.n_envs=3072",
+      "--seed",
+      "0",
+      "--notes",
+      "assistfade rung 3 (residual fade from random weights), seed 0: applied=ref+blend*(raw-ref), blend annealed 0.05->1.0 over the first 1.4M/2M steps via the existing sched.* engine. First-ever exercise of this mechanism -- see rl_docs/tracks/assistfade/STATUS.md 09-06 ~19:xx for the full design/bank writeup and OPERATOR_QUESTIONS.md for the tied-single-scalar assume-and-go.",
+      "--defer-final-artifacts"
+    ],
+    "candidate_extra_args": [
+      "--out-name",
+      "ppo_goal_cw_assistfade_rung3_legdutyratio_s0",
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "10",
+      "--dr-scale",
+      "0.0",
+      "--ent-coef",
+      "0.01",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--device",
+      "cuda",
+      "--goal-mix",
+      "walk=1.0",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--log-std-anneal-frac",
+      "1.0",
+      "--log-std-final",
+      "-3.0",
+      "--cfg-set",
+      "env.model_source=mesh",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "safety.max_delta_q_deg=0.375",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=30.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.0",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_phase_run_on_yaw=1",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "reward.walk_anchor_gate=0.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.walk_height_gate=1.0",
+      "--cfg-set",
+      "reward.walk_height_sigma_mm=30.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=1.0",
+      "--cfg-set",
+      "reward.loadslip_ok=3.0",
+      "--cfg-set",
+      "reward.loadslip_max=6.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=10.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=20.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=2.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_walk_course_income=2.0",
+      "--cfg-set",
+      "reward.walk_course_income_window_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_income_deadband_deg=6.0",
+      "--cfg-set",
+      "reward.walk_course_income_sigma_deg=20.0",
+      "--cfg-set",
+      "reward.k_walk_excess_sway=2.0",
+      "--cfg-set",
+      "reward.walk_sway_window_s=0.75",
+      "--cfg-set",
+      "reward.walk_sway_allow_mm=5.0",
+      "--cfg-set",
+      "reward.k_walk_course_disp=0.15",
+      "--cfg-set",
+      "reward.walk_course_disp_window_s=1.5",
+      "--cfg-set",
+      "reward.walk_course_disp_min_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.k_walk_course_disp_overspeed=4.0",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_tol=0.05",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_along=1.0",
+      "--cfg-set",
+      "reward.walk_course_disp_overspeed_ref_floor_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_residual_gate=1.0",
+      "--cfg-set",
+      "goal.walk_residual_blend=0.05",
+      "--cfg-set",
+      "sched.key=goal.walk_residual_blend",
+      "--cfg-set",
+      "sched.v0=0.05",
+      "--cfg-set",
+      "sched.v1=1.0",
+      "--cfg-set",
+      "sched.t0_steps=0",
+      "--cfg-set",
+      "sched.t1_steps=1400000",
+      "--cfg-set",
+      "sched.n_envs=3072",
+      "--seed",
+      "0",
+      "--notes",
+      "assistfade rung3 residual-fade (seed 0), single lever vs the already-FAIL bare rung3-residualfade-0 baseline: adds reward.walk_leg_duty_ratio_charge=150 (target 0.30, grace 3s, tau 1s -- the calibrated dose from the walkcurr easy0905 guardfix1 canaries, 3/3 fresh-init CANARY PASS there). This is the track's own named next design lead (TRACK-LEVEL FINDING 09-07 ~14:5x: 'a genuinely new reward mechanism pricing per-leg utilization/load-slip directly') applied for the first time on mesh/100Hz assistfade. Bare rung3 FAILed with a schedule-collision drift-into-high-slip signature PLUS chronic single/double-leg sacrifice (leg [0,3] s0 / [0,5] s1, nostdanneal read); this charge is additive (never multiplies r_walk/r_prog) and bank-proved to leave an honest gait untouched while flipping both hard-flag-leg and soft-starvation cheats net-negative. 2M canary, byte-identical to the bare-rung3 FAIL baseline otherwise (same blend schedule t1_steps=1.4M, same log-std anneal, random-weight init).",
+      "--defer-final-artifacts",
+      "--cfg-set",
+      "reward.walk_leg_duty_ratio_charge=150.0",
+      "--cfg-set",
+      "reward.walk_leg_duty_ratio_target=0.30",
+      "--cfg-set",
+      "reward.walk_leg_duty_ratio_grace_s=3.0",
+      "--cfg-set",
+      "reward.walk_leg_duty_ratio_tau_s=1.0"
+    ],
+    "ignored_non_scientific_flags": [
+      "--out-name",
+      "--notes"
+    ],
+    "only_added_cfg": {
+      "reward.walk_leg_duty_ratio_charge": "150.0",
+      "reward.walk_leg_duty_ratio_target": "0.30",
+      "reward.walk_leg_duty_ratio_grace_s": "3.0",
+      "reward.walk_leg_duty_ratio_tau_s": "1.0"
+    },
+    "normalized_args_equal": true,
+    "random_weight_init_no_init_from": true,
+    "baseline_extra_args_sha256": "bfb068ff01eccc73c59f4fe691e5229eab94129f3a76adebca7cc3cb35a53f61",
+    "candidate_extra_args_sha256": "453ff095c04296230eb3cf34eef31f91bd826c32ead736ff67a5b582b54972d8"
+  },
+  "interpretation": [
+    "Correct gait_valid comparison is16/24\u219215/24; safety terminations7/24\u21929/24. Nominal det and sto were already6/6 in the undosed baseline.",
+    "The candidate does not establish repair of chronic nominal legs0/3; that claim used a different exploration schedule's nostdanneal descendant (policy_std0.422).",
+    "Nominal det progress/slip improve; nominal sto progress/slip do not. Jitter episodes terminate at different times, so their full-episode slip means are descriptive, not a matched-duration causal estimate.",
+    "Low peer-relative duty charge does not directly target a fully planted high-duty/no-swing leg. Vanishing shortfall alone does not establish six-leg walking.",
+    "No opposite-seed efficacy conclusion, class-wide closure, new-seed request or automatic continuation follows from this correction. Root owns formal verdict handling."
+  ]
+}

@@ -1,64 +1,85 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
-## 09-08 ~03:5x (refill cycle, no completion assigned; found this orphaned FINISHED canary unclaimed) — `s0` twin lands the OPPOSITE result from `s1`: UNVERDICTED, DIG-IN flagged — fork-deciding for whether `walk_leg_duty_ratio_charge` has ANY niche on assistfade rung3
+## 2026-09-08 comparator correction — s0's apparent opposite-seed recovery used the wrong baseline
 
-`cw-assistfade-rung3-legdutyratio-s0` finished training + gate-evaled
-with nobody claiming it (not "another cycle's" per ledger/RL_LOG — the
-`s1` verdict above never mentions `s0` being owned, and no STATUS/
-RL_LOG entry names it). Telemetry confirms the charge engages for
-real (`env/walk_leg_duty_ratio_shortfall` nonzero early, ~0.0006-0.001,
-decaying to 0.0 by the back half of the 2M budget — i.e. the policy
-learns to satisfy the duty floor rather than the charge going inert
-the way the activation-guard bug did), so this is not
-FAIL-INFRASTRUCTURE.
+This supersedes the prior cycle's s0 DIG-IN premise in commit
+`6d09c28d7` and the corresponding historical RL_LOG entry labeled
+09-08 03:5x. The recorded cycle actually ended at 02:49:55 UTC.
+The claim of 7/24 -> 15/24 gait validity and repaired nominal legs
+[0,3] compared the annealed candidate to the `nostdanneal`
+descendant. That is a different exploration schedule, not the
+candidate's single-lever control.
 
-**Held-out panel vs the matched `bare-rung3-residualfade-s0-
-nostdanneal` baseline** (same comparison convention `s1`'s verdict
-used): baseline `gait_valid` totals **7/24** (walk/det 0/6, all 6 eps
-chronic-sacrifice legs [0,3] + `TERM over_current`; walk/sto 3/6;
-sj/det 2/6; sj/sto 2/6). `s0` (dosed) totals **15/24** — walk/det
-**6/6** (sac `[]` every episode, duty `[0.99,0.91,0.61,0.62,0.94,
-0.63]`, no leg below 0.6 — the baseline's chronic [0,3] planted-leg
-sacrifice is GONE), walk/sto **6/6** (sac `[]` every episode, all legs
->=0.61), sj/det 2/6 (unchanged), sj/sto 1/6 (slightly worse, small
-sample). This is the mirror image of `s1`'s result: `s1`'s dominant
-chronic leg (leg5, duty 1.0/swing 0 in 12/12 det+sto episodes) stayed
-completely unrepaired and gait_valid REGRESSED (5/24->2/24); `s0`'s
-chronic legs (0,3) are fully resolved in the same two modes and
-gait_valid MORE THAN DOUBLES (7/24->15/24). Cost: `slip_per_m` is
-higher for the dosed run in det/sto (12.67/16.71 vs baseline's
-5.90/10.12 in the modes baseline could even measure it — but
-baseline's low-slip det numbers come from a 2-leg-sacrifice
-static-drag gait, not a clean one) and raw `forward_dist_m`/`progress`
-stay far under the 0.35 ignition bar either way (this is a 2M
-MECHANISM-HEALTH canary, not an ignition claim per its own
-pre-registered gate).
+The exact comparator is
+`logs/ckpt_eval/cw_assistfade_rung3_residualfade_s0_gate/report.json`
+for `cw-assistfade-rung3-residualfade-s0`. Candidate:
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_s0_gate/report.json`.
+Both reports have policy_std 0.052; the incorrectly selected
+`nostdanneal` report has 0.422. Both exact reports identify the same
+4.80573 kg `mesh_mjx_twin` model (0 mesh assets, 91 geoms), seed 0,
+24-episode nominal/start-jitter panel, and 100 Hz motor contract:
+write_speed 400, write_acc 20, resolved profile 350 counts/s,
+slew 0.375 deg/tick. These reports are twin-model evidence, not a
+new full-STL validation.
 
-**Why this is DIG-IN, not a snap PASS or FAIL**: the two seeds of the
-identical recipe (same charge, same dose, same byte-identical
-baseline recipe otherwise) produce opposite verdicts on the primary
-question ("does the charge repair the chronic sacrifice") — `s0`
-clearly YES in walk/det+sto, `s1` clearly NO. This is fork-deciding
-for whether `walk_leg_duty_ratio_charge` has ANY real niche on this
-track (matches the exact ambiguous-disagreement shape the walkcurr
-`widenbis180-legdutyfresh` dig-in already used this pattern for) and
-needs video review (`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_
-s0_gate/{contact_sheet.png,walk_*.mp4}`) plus a root-cause read (is
-`s0`'s chronic-leg identity/severity just an easier starting exploit
-for this charge shape to fix, or is `s1`'s leg5 pattern — duty
-pinned at the ceiling 1.0 rather than a floor violation — a
-qualitatively different pathology the charge structurally cannot
-touch?) before either (a) funding a 3rd seed / longer acquisition on
-this composition, or (b) closing it 1/2-with-caveat the way `s1`'s
-own note left open. Left UNVERDICTED. Evidence: `logs/ckpt_eval/
-cw_assistfade_rung3_legdutyratio_s0_gate/report.json` vs `..._
-residualfade_s0_nostdanneal_gate/report.json`; `logs/experiments/
-cw-assistfade-rung3-legdutyratio-s0/wandb_history.csv`. W&B
-`fhzonqmd`.
+The exact launch argv match after removing only output name, notes,
+and the candidate's four added duty-ratio cfg keys (charge 150,
+target 0.30, grace 3 s, tau 1 s). Both are random-weight seed-0
+2M canaries, with no `--init-from`, the same residual-blend schedule,
+`--log-std-anneal-frac=1.0`, and `--log-std-final=-3.0`.
+The run-name substring lookup returned the wrong descendant first;
+requesting the exact `cw_assistfade_rung3_residualfade_s0_gate`
+suffix and checking the returned path/checkpoint selects the intended
+baseline.
+
+| Panel | Baseline gait | Candidate gait | Baseline safety terms | Candidate safety terms | Mean progress, baseline -> candidate | Mean slip/m, baseline -> candidate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| walk/det | 6/6 | 6/6 | 0 | 0 | 0.119 -> 0.142 | 16.711 -> 12.674 |
+| walk/sto | 6/6 | 6/6 | 0 | 0 | 0.1063 -> 0.1033 | 15.9655 -> 16.3193 |
+| walk_startjitter/det | 2/6 | 2/6 | 4 | 5 | 0.0808 -> 0.0775 | 9.0803 -> 6.5530 |
+| walk_startjitter/sto | 2/6 | 1/6 | 3 | 4 | 0.1520 -> 0.1648 | 10.0490 -> 8.3805 |
+| Total | 16/24 | 15/24 | 7 | 9 | — | — |
+
+The undosed baseline already has no sacrificed legs in nominal
+deterministic or stochastic episodes. Thus the nominal 6/6 results
+do not demonstrate a repaired chronic-leg failure. Deterministic
+nominal progress/slip improve; stochastic nominal progress/slip do
+not. Jitter episodes terminate at different times, so their
+whole-episode slip means are descriptive rather than a matched-duration
+benefit estimate. These counts do not establish statistical equivalence
+or a universal mechanism failure.
+
+The charge penalizes **low peer-relative contact duty**. A fully
+planted leg with duty near 1.0 and no swings does not violate that
+leg's low-duty floor; a charge can still arise from a different,
+underused leg. Consequently, nonzero training shortfall proves
+activation, while shortfall later reaching zero does not by itself
+prove six-leg walking or repaired high-duty parking. The launch
+rationale below imported [0,3] from `nostdanneal`; that was not a
+matched baseline pathology for this candidate.
+
+**Disposition of the DIG-IN premise:** the asserted opposite-seed
+recovery is withdrawn. No new seed, longer acquisition, new bank,
+or class-wide closure follows from that comparison. Root owns the
+formal ledger/verdict resolution. The prior s1 entry also uses
+`nostdanneal`; its quoted deltas are not a matched estimate of the
+charge's effect and cannot substantiate a cross-seed contrast without
+its own exact-baseline audit.
+
+Evidence and per-episode values:
+[`comparison.json`](../../../../../artifacts/rl_watchdog/assistfade_s0_comparator_20260908/comparison.json).
+The previous RL_LOG entry is preserved; an appended correction records
+this replacement.
 
 --- prior entry below ---
 
 ## 09-08 ~02:35 (triage cycle; assigned a different track's completion, picked up this orphaned FINISHED canary with a ready gate) — first `walk_leg_duty_ratio_charge` read on rung3: `s1` CANARY FAIL - MECHANISM, the composition does NOT transfer from walkcurr
+
+**Comparator caveat added 2026-09-08:** this historical entry uses
+`nostdanneal` rather than the candidate's matching annealed baseline.
+Its quoted baseline deltas do not isolate the duty charge and must
+not support the withdrawn opposite-seed DIG-IN premise above. Formal
+verdict handling belongs to the coordinating root review.
 
 `cw-assistfade-rung3-legdutyratio-s1` (launched ~02:2x this same
 cycle-family, 2M mechanism-health canary) landed its gate. Charge

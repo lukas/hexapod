@@ -1,11 +1,33 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 — coordinated steering causal screen executed
-(frozen proposal 7b9d114ef): STOP by the prespecified rule, but first
-supra-threshold pulse authority observed (negative-yaw side qualifies at
-0.05; positive-yaw side fails). The yawref candidate still passes the
-translation demo bars vs the fresh incumbent; continuous-arc/tip
-qualification remains FAIL.
+Last updated: 2026-09-08 09:34 UTC — support-conditioned geometric
+steering assay completed STOP; current Next corrected after the meta
+refresh reintroduced an already-withdrawn time-multiplexing proposal.
+The yawref candidate passes the frozen translation composition bars;
+continuous-arc/tip qualification remains FAIL.
+
+## 2026-09-08 09:34 UTC — completed support-conditioned assay and current queue correction
+
+The fixed analytic support-conditioned law completed its preregistered
+16-state/48-branch held-out panel: **0/16 reach the original 5 mrad
+command-aligned gain gate** (maximum 1.4662 mrad); corrected retention
+passes 32/32 signed pulses. All zero/prefix/full-state and four 15-second
+straight zero-off pairs pass parity. No state replacement, response fit,
+criterion relaxation or PPO followed. Evidence and preserved initial
+implementation failure: repository-root
+[turn_support_yaw_execution_20260908](../../../../../artifacts/rl_watchdog/turn_support_yaw_execution_20260908/README.md)
+(commit 0129c375a; preregistration c0cb4ae02).
+
+The 09:22 meta refresh incorrectly promoted generic walk/turn time
+multiplexing as an untried queued lead and reused the superseded claim
+that the rate contract localized arc undertracking. The fixed-duty
+negative bank and matched-endpoint review already withdrew that
+proposal; the latter is a transition-free estimate, not a universal
+controller bound. The corrected twist-fit read does not uniquely
+localize body-motion loss to the slew cap. Preserve the original
+continuous requests and qualification gates. See the existing
+[time-multiplex review](../../../../../artifacts/rl_watchdog/twistfit_review_20260908/TIME_MULTIPLEX_REVIEW.md)
+and the corrected twist-fit entry below.
 
 ## 2026-09-08 ~08:0x — coordinated 40-branch causal screen: frozen predicates say STOP; one-sided (−yaw) authority is real
 
@@ -1498,12 +1520,17 @@ Minimum demo bars for a TODAY pass:
    cleanly, despite better current draw/slip and real (unused) turn
    authority. Bundle stays `todaypolicy-mlpsf-tuck-v1` unchanged. See
    the dated entry above for full numbers.
-4. (refreshed 09-08 meta) Arc/turn is the open gap; top queued lead:
-   command-level turn/walk TIME-MULTIPLEXING (09-08 04:1x slew-clip
-   localization — arc undertracking ≈ the pinned rate contract; mechanism
-   saved, unlaunched). 2nd: magnitude-weighted L2-matched template probe
-   (09-08 08:1x). Translation demo stays DELIVERED (yawref composed A/B
-   PASS 09-08 05:4x); feed clean results back to `standwalk`.
+4. Arc/turn remains open; **no executable steering experiment is
+   currently queued by this page**. Generic fixed-duty time slicing was
+   already tested and withdrawn; coordinated and analytic support-
+   conditioned pulse screens both ended STOP. Preserve their fixed gates.
+5. Existing design leads are magnitude-weighted L2-matched templates
+   (08:0x coordinated-screen question) and the knee-90 stance's scripted
+   forward-speed side-finding (03:3x), not validated learned-policy
+   interventions or launch-ready protocols. Any next efficacy assay needs
+   a distinct mechanism, frozen held-out design and coordinated ownership;
+   bounded design work remains authorized. Translation composition stays
+   delivered; feed future qualifying results back to `standwalk`.
 
 ## Boundaries
 

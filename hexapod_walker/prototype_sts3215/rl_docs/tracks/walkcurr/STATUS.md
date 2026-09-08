@@ -1,3 +1,49 @@
+## 2026-09-08 ~06:4x (triage cycle) — seed3 pair CLOSES (matched control lands in-band, formally confirming the 4-6x slip loss); fork (b) offctrl-s7 mechanism-health canary CANARY PASSes, matching the base-s0/s1 ep_len-artifact pattern
+
+One plain sentence: the two runs assigned this cycle finish the
+seed3 cross-seed replication (the control came in clean, so the ON
+arm's slip deficit is no longer "not in doubt but unstamped" — it's
+formally closed) and confirm the OFF half of the seed7 fresh-init
+fork (b) pair ignites exactly like the proven base family.
+
+**`cartfoot-offctrl-s3` verdict (CANARY PASS, matched control):** 0
+falls/terminations in 24/24 episodes, gait_valid 22/24 (6/5/5/6),
+slip/m median 4.93/4.95/4.98/5.72 — squarely inside the established
+5-6/m det band, not regressed at 40M continuation depth. This
+completes the seed3 pair: `cartfoot-c1-s3` (ON, already CANARY
+PASSed ~06:3x) measured slip/m 20.55/20.57/31.61/27.15 against this
+now-confirmed control, i.e. **4.2-6.3x slippier at matched gait_valid
+(20/24 vs 22/24)** — the same fingerprint the seed2 pair showed almost
+exactly. Cross-seed replication against a matched control is now
+**complete twice** (seed2, seed3): cart_foot-space is mechanism-viable
+but materially slippier than joint-space, not a seed-lottery artifact
+either direction.
+
+**`cartfoot-freshinit-offctrl-s7` verdict (CANARY PASS, mechanism-
+health):** rollout/ep_len_mean rises 101->223->353->488 ticks across
+the 4 quarters while per-tick `env/reward_walk` RISES 0.167->0.195->
+0.216->0.236 and `env/v_along_cmd_m_s` crosses zero (-0.0002->+0.0042
+->+0.0069->+0.0089) — the total `ep_rew_mean` decline (-140->-551) is
+the SAME ep_len-growth artifact the 09-05 ~08:5x `base-s0`/`base-s1`
+canaries showed, not reward regression. `env/walk_speed` holds
+0.11-0.14 m/s throughout and the `walk_sto_1` frame strip shows real
+leg excursion, not a statue. This is the byte-identical joint-space
+(OFF) control for fork (b) seed 7 — it ignites exactly like the
+already-proven base family, so seed 7 itself is not unlucky. The
+comparative ON-vs-OFF PARITY read for this seed still needs
+`cartfoot-freshinit-c1-s7` (still training this cycle, untouched);
+next reader pairs them once it finishes. Same open question for the
+seed-11 half of the pair (`c1-s11`/`offctrl-s11`, both still
+training).
+
+Evidence: `ops.sh review` for both runs this cycle; `logs/ckpt_eval/
+cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_
+nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3_gate/report.json`;
+`logs/experiments/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-
+s7/wandb_history.csv`; RL_LOG 09-08 ~06:4x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:3x (triage cycle) — cartfoot-c1-s3 verdicted (seed3 reproduces the seed2 VIABLE-but-slippy fingerprint almost exactly); fork (b) DESIGNED and LAUNCHED as a matched n=2 fresh-init seed pair (s7, s11), concurrent with another cycle's independent s10 replicate
 
 One plain sentence: the seed-reproducibility question from the prior

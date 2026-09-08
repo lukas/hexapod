@@ -141,6 +141,43 @@ def _material_slip(contacts, x0, r0, x1, r1):
                             weights=loads))
 
 
+def _contact_cone_usage(wrench, friction, dim, cone):
+    """Normalized full wrench in the active contact-frame friction cone.
+
+    MuJoCo order: tangent1, tangent2, spin, roll1, roll2. Elliptic
+    cones use the L2 norm; pyramidal edge combinations give the L1
+    bound. Torque friction coefficients have length units, so each
+    torque is divided by its own coefficient * normal force.
+
+    Undefined/invalid data return a reason, never a false zero usage.
+    The five returned components are zero for inactive condim axes.
+    """
+    if dim not in (1, 3, 4, 6) or cone not in (0, 1):
+        return None, None, "unknown contact dimension or cone type"
+    w = np.asarray(wrench, dtype=float)
+    if w.shape != (6,) or not np.isfinite(w[:dim]).all():
+        return None, None, "nonfinite or malformed contact wrench"
+    if w[0] <= 0:
+        return None, None, "nonpositive normal force"
+    z = np.zeros(5)
+    if dim > 1:
+        mu = np.asarray(friction, dtype=float)
+        if mu.size < dim - 1 or not np.isfinite(mu[:dim - 1]).all():
+            return None, None, "missing or nonfinite friction coefficients"
+        mu = mu[:dim - 1]
+        if np.any(mu < 0):
+            return None, None, "negative friction coefficient"
+        f = np.abs(w[1:dim])
+        if np.any((mu == 0) & (f != 0)):
+            return None, None, "nonzero force on zero friction component"
+        np.divide(f, mu * w[0], out=z[:dim - 1], where=mu > 0)
+    # mjCONE_PYRAMIDAL=0; mjCONE_ELLIPTIC=1.
+    usage = np.linalg.norm(z, ord=1 if cone == 0 else 2)
+    if not np.isfinite(usage):
+        return None, None, "nonfinite normalized contact wrench"
+    return float(usage), z, None
+
+
 class _ContactAudit:
     """Read-only, environment-local MuJoCo proxy for physics-step auditing.
 
@@ -156,8 +193,8 @@ class _ContactAudit:
     # friction-cone diagnostic). Purely additive per-substep fields;
     # every pre-existing output is byte-identical.
     SLIP_MPS = 0.02     # material slip speed that counts as "slipping"
-    NEAR_CONE = 0.90    # per-contact |ft|/(mu*fn) above this = near cone
-    LOW_CONE = 0.50     # below this while slipping = not cone-limited
+    NEAR_CONE = 0.90    # applied separately to planar and full-cone usage
+    LOW_CONE = 0.50     # low usage alone does not establish a slip cause
     RAIL_FRAC = 0.95    # |actuator_force| >= frac*rail = saturated
 
     def __init__(self, env):
@@ -176,6 +213,9 @@ class _ContactAudit:
                               * -m.opt.gravity[2])
         rail = np.abs(m.actuator_forcerange).max(axis=1)
         self.act_rail = np.where(rail > 0, rail, np.inf)
+        self.cone_type = int(m.opt.cone)
+        self.cone_dims_seen: set[int] = set()
+        self.cone_invalid_reasons: set[str] = set()
         self.scratch = self.mj.MjData(m)
         self.rows: list[dict] = []
         self.pending: list[dict] = []
@@ -239,6 +279,9 @@ class _ContactAudit:
         fn_sum, ft_sum = np.zeros(6), np.zeros(6)
         mu_min = np.full(6, np.inf)
         u_wsum, u_max = np.zeros(6), np.zeros(6)
+        full_fn, full_wsum, full_max = np.zeros(6), np.zeros(6), np.zeros(6)
+        component_wsum, component_max = np.zeros((6, 5)), np.zeros((6, 5))
+        full_invalid = np.zeros(6, dtype=int)
         f6 = np.zeros(6)
         for ci in range(d.ncon):
             c = d.contact[ci]
@@ -273,6 +316,22 @@ class _ContactAudit:
                     u = ft_c / (mu_c * fn_c)
                     u_wsum[foot] += fn_c * u
                     u_max[foot] = max(u_max[foot], u)
+                # Full condim-aware budget; preserve the legacy planar
+                # estimate above solely as a separately labelled diagnostic.
+                dim = int(getattr(c, "dim", 0))
+                self.cone_dims_seen.add(dim)
+                fu, components, reason = _contact_cone_usage(
+                    f6, _fric, dim, self.cone_type)
+                if reason is not None:
+                    full_invalid[foot] += 1
+                    self.cone_invalid_reasons.add(reason)
+                else:
+                    full_fn[foot] += fn_c
+                    full_wsum[foot] += fn_c * fu
+                    full_max[foot] = max(full_max[foot], fu)
+                    component_wsum[foot] += fn_c * components
+                    component_max[foot] = np.maximum(
+                        component_max[foot], components)
         # Applied Cartesian wrench is world force/torque at the body's COM.
         applied_tau = sum(float(np.cross(d.xipos[b] - com,
                                          d.xfrc_applied[b, :3])[2]
@@ -310,6 +369,11 @@ class _ContactAudit:
             "applied_tau": applied_tau,
             "fn": fn_sum, "ft": ft_sum, "mu": mu_min,
             "u_wmean": u_wmean, "u_max": u_max,
+            "full_fn": full_fn,
+            "full_u_wmean": full_wsum / np.maximum(full_fn, 1e-12),
+            "full_u_max": full_max,
+            "full_component_wmean": component_wsum / np.maximum(full_fn[:, None], 1e-12),
+            "full_component_max": component_max, "full_invalid": full_invalid,
             "act_sat": (np.abs(d.actuator_force) / self.act_rail
                         if getattr(d, "actuator_force", None) is not None
                         and len(self.act_rail)   # synthetic-test proxies
@@ -481,6 +545,62 @@ class _ContactAudit:
                           / max(abs(h @ net), 1e-12))),
             },
             "actuator_force_saturation_stance": sat,
+        }
+        full_fn = np.stack([r["full_fn"] for r in self.rows])
+        full_u = np.stack([r["full_u_wmean"] for r in self.rows])
+        full_max = np.stack([r["full_u_max"] for r in self.rows])
+        component_max = np.stack([r["full_component_max"] for r in self.rows])
+        invalid = np.stack([r["full_invalid"] for r in self.rows])
+        full_per_foot = {}
+        for f in range(6):
+            # Keep the original any-positive-contact mask for compatibility.
+            # Invalid samples are explicitly excluded and invalidate the
+            # full-cone result, rather than masquerading as sub-cone samples.
+            sel = loaded[:, f] & (full_fn[:, f] > 0) & (invalid[:, f] == 0)
+            sslip = sel & (slip_v[:, f] > self.SLIP_MPS)
+            us = full_max[sslip, f]
+            full_per_foot[f] = {
+                "loaded_substeps": int(loaded[:, f].sum()),
+                "valid_loaded_substeps": int(sel.sum()),
+                "invalid_contact_samples": int(invalid[:, f].sum()),
+                "usage_wmean_med": med(full_u[sel, f]),
+                "usage_max_med": med(full_max[sel, f]),
+                "usage_max_p90": (float(np.percentile(full_max[sel, f], 90))
+                                  if sel.any() else None),
+                "normalized_component_max_p90": (
+                    np.percentile(component_max[sel, f], 90, axis=0).tolist()
+                    if sel.any() else [None] * 5),
+                "frac_loaded_near_cone": (float(np.mean(
+                    full_max[sel, f] > self.NEAR_CONE)) if sel.any() else None),
+                "slip_substeps": int(sslip.sum()),
+                "usage_max_med_on_slip": med(us),
+                "frac_slip_near_cone": (float(np.mean(us > self.NEAR_CONE))
+                                        if len(us) else None),
+                "frac_slip_low_cone": (float(np.mean(us < self.LOW_CONE))
+                                       if len(us) else None),
+            }
+        out["traction"]["legacy_cone_usage_definition"] = (
+            "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); "
+            "omits anisotropy/spin/roll and cannot exclude full-cone saturation")
+        out["traction"]["loaded_definition"] = (
+            "any active compressive contact (fn>0); no 2 N load threshold")
+        out["traction"]["full_cone"] = {
+            "valid": not self.cone_invalid_reasons,
+            "invalid_contact_samples": int(invalid.sum()),
+            "invalid_reasons": sorted(self.cone_invalid_reasons),
+            "cone_type": ("pyramidal" if self.cone_type == 0 else
+                          "elliptic" if self.cone_type == 1 else "unknown"),
+            "norm": "L1" if self.cone_type == 0 else "L2",
+            "observed_condim": sorted(self.cone_dims_seen),
+            "component_order": ["tangent1", "tangent2", "spin", "roll1", "roll2"],
+            "definition": (
+                "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), "
+                "then cone norm; no averaging opposing wrenches first"),
+            "loaded_definition": out["traction"]["loaded_definition"],
+            "slip_conditioning": (
+                "per-foot normal-load-weighted material XY speed; "
+                "usage is maximum across that foot's active contacts"),
+            "per_foot": full_per_foot,
         }
         if self.jrows:
             clip = np.stack([j["clip_gap"] for j in self.jrows])   # (T,18)

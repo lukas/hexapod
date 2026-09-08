@@ -7,7 +7,7 @@
     @browser {
         not header Authorization *
         not header X-API-Key *
-        not path {args[0]}
+        not path {args[0:]}
     }
     basic_auth @browser {
         lukas {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash

@@ -152,6 +152,13 @@ class _ContactAudit:
     """
 
     N_BINS = 12
+    # traction extension (09-08 focus note: direct contact-force /
+    # friction-cone diagnostic). Purely additive per-substep fields;
+    # every pre-existing output is byte-identical.
+    SLIP_MPS = 0.02     # material slip speed that counts as "slipping"
+    NEAR_CONE = 0.90    # per-contact |ft|/(mu*fn) above this = near cone
+    LOW_CONE = 0.50     # below this while slipping = not cone-limited
+    RAIL_FRAC = 0.95    # |actuator_force| >= frac*rail = saturated
 
     def __init__(self, env):
         self.mj = env._mujoco
@@ -167,6 +174,8 @@ class _ContactAudit:
                           for g in range(m.ngeom) if m.geom_bodyid[g] == b}
         self.weight_n = float(np.sum(m.body_mass[self.robot_bodies])
                               * -m.opt.gravity[2])
+        rail = np.abs(m.actuator_forcerange).max(axis=1)
+        self.act_rail = np.where(rail > 0, rail, np.inf)
         self.scratch = self.mj.MjData(m)
         self.rows: list[dict] = []
         self.pending: list[dict] = []
@@ -224,6 +233,12 @@ class _ContactAudit:
         fz, tau_f, tau_c = np.zeros(6), np.zeros(6), np.zeros(6)
         contacts = [[] for _ in range(6)]
         external_contact_tau = 0.0
+        # traction extension: per-foot normal / tangential force sums,
+        # slide-mu, and per-contact friction-cone usage (load-weighted
+        # mean + max) at this solved physics step.
+        fn_sum, ft_sum = np.zeros(6), np.zeros(6)
+        mu_min = np.full(6, np.inf)
+        u_wsum, u_max = np.zeros(6), np.zeros(6)
         f6 = np.zeros(6)
         for ci in range(d.ncon):
             c = d.contact[ci]
@@ -248,6 +263,16 @@ class _ContactAudit:
             tau_c[foot] += float(couple[2])
             if f6[0] > 0:
                 contacts[foot].append((p, float(f6[0])))
+                fn_c, ft_c = float(f6[0]), float(np.hypot(f6[1], f6[2]))
+                _fric = getattr(c, "friction", None)  # synthetic-test proxies
+                mu_c = float(_fric[0]) if _fric is not None else 0.0
+                fn_sum[foot] += fn_c
+                ft_sum[foot] += ft_c
+                mu_min[foot] = min(mu_min[foot], mu_c)
+                if mu_c > 0:
+                    u = ft_c / (mu_c * fn_c)
+                    u_wsum[foot] += fn_c * u
+                    u_max[foot] = max(u_max[foot], u)
         # Applied Cartesian wrench is world force/torque at the body's COM.
         applied_tau = sum(float(np.cross(d.xipos[b] - com,
                                          d.xfrc_applied[b, :3])[2]
@@ -271,6 +296,10 @@ class _ContactAudit:
             slip_center[f] = np.linalg.norm((pad_x1[f] - x0)[:2])
             slip_material[f] = _material_slip(contacts[f], x0, r0,
                                                pad_x1[f], pad_r1[f])
+        with np.errstate(invalid="ignore"):
+            u_wmean = np.where(fn_sum > 0, u_wsum / np.maximum(fn_sum, 1e-12),
+                               np.nan)
+        mu_min[~np.isfinite(mu_min)] = 0.0
         self.pending.append({
             "phase": self.phase, "h": h, "fz": fz,
             "tau_f": tau_f, "tau_c": tau_c, "loaded": loaded,
@@ -279,6 +308,12 @@ class _ContactAudit:
             "external_tau": external_contact_tau + applied_tau,
             "nonfoot_tau": external_contact_tau - float((tau_f + tau_c).sum()),
             "applied_tau": applied_tau,
+            "fn": fn_sum, "ft": ft_sum, "mu": mu_min,
+            "u_wmean": u_wmean, "u_max": u_max,
+            "act_sat": (np.abs(d.actuator_force) / self.act_rail
+                        if getattr(d, "actuator_force", None) is not None
+                        and len(self.act_rail)   # synthetic-test proxies
+                        else np.zeros(0)),
         })
 
     def tick(self, *, q_prop, q_safe, q_act):
@@ -378,6 +413,74 @@ class _ContactAudit:
             "applied_yaw_imp_Nms": float(h @ np.array([r["applied_tau"] for r in self.rows])),
             "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
             "phase_bins": phase_bins,
+        }
+        # ---- traction extension (additive; 09-08 focus note) ----
+        fn = np.stack([r["fn"] for r in self.rows])
+        ft = np.stack([r["ft"] for r in self.rows])
+        mu = np.stack([r["mu"] for r in self.rows])
+        u_w = np.stack([r["u_wmean"] for r in self.rows])
+        u_mx = np.stack([r["u_max"] for r in self.rows])
+        act_sat = np.stack([r["act_sat"] for r in self.rows])
+        slip_v = np.stack([r["slip_material"] for r in self.rows]) / h[:, None]
+        tau_all = tau_f + tau_c
+        pos = np.where(tau_all > 0, tau_all, 0.0).sum(axis=1)
+        neg = np.where(tau_all < 0, tau_all, 0.0).sum(axis=1)
+        net = tau_all.sum(axis=1)
+        gross = pos - neg
+        with np.errstate(divide="ignore", invalid="ignore"):
+            cancel = np.where(gross > 1e-9, np.abs(net) / gross, np.nan)
+        med = lambda a: float(np.median(a)) if len(a) else None
+        per_foot_tr = {}
+        for f in range(6):
+            sel = loaded[:, f]
+            uw = u_w[sel, f]; uw = uw[np.isfinite(uw)]
+            sslip = sel & (slip_v[:, f] > self.SLIP_MPS)
+            us = u_mx[sslip, f]
+            per_foot_tr[f] = {
+                "loaded_substeps": int(sel.sum()),
+                "fn_med_N": med(fn[sel, f]),
+                "ft_med_N": med(ft[sel, f]),
+                "mu_med": med(mu[sel, f]),
+                "cone_usage_wmean_med": med(uw),
+                "cone_usage_max_med": med(u_mx[sel, f]),
+                "cone_usage_max_p90": (float(np.percentile(u_mx[sel, f], 90))
+                                       if sel.any() else None),
+                "frac_loaded_near_cone": (float(np.mean(
+                    u_mx[sel, f] > self.NEAR_CONE)) if sel.any() else None),
+                "slip_substeps": int(sslip.sum()),
+                "slip_speed_med_mps": med(slip_v[sslip, f]),
+                "cone_usage_max_med_on_slip": med(us),
+                "frac_slip_near_cone": (float(np.mean(us > self.NEAR_CONE))
+                                        if len(us) else None),
+                "frac_slip_low_cone": (float(np.mean(us < self.LOW_CONE))
+                                       if len(us) else None),
+                "tau_z_med_loaded_Nm": med(tau_all[sel, f]),
+            }
+        sat = {}
+        n_act = act_sat.shape[1]
+        for ax, nm in ((0, "yaw"), (1, "hip"), (2, "knee")):
+            vals = [act_sat[loaded[:, f], 3 * f + ax] for f in range(6)
+                    if 3 * f + ax < n_act and loaded[:, f].any()]
+            v = np.concatenate(vals) if vals else np.array([])
+            sat[nm] = {"force_sat_med": med(v),
+                       "frac_at_rail": (float(np.mean(v >= self.RAIL_FRAC))
+                                        if len(v) else None)}
+        out["traction"] = {
+            "thresholds": {"SLIP_MPS": self.SLIP_MPS,
+                           "NEAR_CONE": self.NEAR_CONE,
+                           "LOW_CONE": self.LOW_CONE,
+                           "RAIL_FRAC": self.RAIL_FRAC},
+            "per_foot": per_foot_tr,
+            "yaw_budget": {
+                "net_tau_z_med_Nm": med(net),
+                "pos_sum_med_Nm": med(pos),
+                "neg_sum_med_Nm": med(-neg),
+                "net_over_gross_med": med(cancel[np.isfinite(cancel)]),
+                "couple_imp_share_of_net": (
+                    float(abs(h @ tau_c.sum(axis=1))
+                          / max(abs(h @ net), 1e-12))),
+            },
+            "actuator_force_saturation_stance": sat,
         }
         if self.jrows:
             clip = np.stack([j["clip_gap"] for j in self.jrows])   # (T,18)

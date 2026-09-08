@@ -543,7 +543,8 @@ def walk_legduty_ratio_tick(ema: list, *, on: list, dt: float,
 
 def walk_legduty_ratio_charge(ema: list, target: float,
                                swing_counts: list | None = None,
-                               swing_min_count: float = 0.0
+                               swing_min_count: float = 0.0,
+                               agg: str = "min",
                                ) -> tuple[float, list]:
     """Peer-excluded-mean duty ratio per leg and the WORST (max)
     shortfall below ``target`` across all 6 legs (i.e. the shortfall
@@ -573,7 +574,32 @@ def walk_legduty_ratio_charge(ema: list, target: float,
     it must also actually swing. Bit-exact vs the original 2-arg form
     when ``swing_counts`` is None or ``swing_min_count<=0`` (the
     default): ``eff_ratios`` degenerates to plain ``ratios``, no
-    behavior change for any existing caller/dose."""
+    behavior change for any existing caller/dose.
+
+    OPTIONAL aggregation mode (2026-09-08, ``agg``, default ``"min"``
+    reproduces every prior dose/target/swing-floor arm byte-for-byte --
+    all of them, and the entire termination-class/per-tick-price class
+    before them, are now closed with no efficacy on the chronic
+    front-PAIR sacrifice fingerprint (STATUS.md 2026-09-08 ~19:1x)).
+    ``agg="sum"`` is the literal untested half of the calibration
+    finding's own actionable spec ("summed (not maxed) over legs so it
+    prices the observed multi-leg (front-PAIR) starvation shape") that
+    every closed MIN-over-legs arm never exercised: MIN charges exactly
+    the worse of two simultaneously-starved legs' shortfall, identical
+    to what a SINGLE starved leg would draw at the same charge weight --
+    it cannot structurally distinguish "one bad leg" from "two bad legs
+    together" the pathology's own name (front-PAIR) describes. SUM
+    charges every leg's own shortfall and adds them, so a genuine
+    two-leg simultaneous sacrifice draws roughly double the single-leg
+    price at the identical per-leg weight -- a different reachable
+    gradient, not just a bigger dose (a plain weight increase on MIN
+    would inflate a single-leg shortfall too; SUM only inflates when
+    MULTIPLE legs are jointly below target, which is the specific shape
+    every prior arm's own gate reports show, e.g. duty_cycle vectors
+    naming 2 simultaneously-low legs, not 1). Reduces to the MIN value
+    whenever at most one leg is below target (both aggregations agree
+    on a single-bad-leg episode), so this only changes behavior on the
+    exact multi-leg case it targets."""
     ratios = []
     for i in range(6):
         others = [e for j, e in enumerate(ema) if j != i]
@@ -588,8 +614,11 @@ def walk_legduty_ratio_charge(ema: list, target: float,
             (0.0 if float(swing_counts[i]) < swing_min_count else ratios[i])
             for i in range(6)
         ]
-    worst_shortfall = max(0.0, target - min(eff_ratios))
-    return worst_shortfall, ratios
+    if agg == "sum":
+        charge = sum(max(0.0, target - r) for r in eff_ratios)
+    else:
+        charge = max(0.0, target - min(eff_ratios))
+    return charge, ratios
 
 
 # Per-LEG load-SLIP reward CHARGE (`reward.walk_leg_loadslip_ratio_
@@ -720,7 +749,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_legduty_ratio_ema", "_legduty_ratio_ticks",
                           "_legduty_ratio_swing_hist",
                           "_legslip_ratio_ema", "_legslip_ratio_ticks",
-                          "_swing_gap_s")
+                          "_swing_gap_s", "_liftoff_was_maxload")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -917,6 +946,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the loadslip EMA's own 0-seed rationale). Independent of
         # every other slip/duty mechanism's state above.
         self._swing_gap_s = [0.0] * 6
+        # Per-leg swing-INITIATION income state (reward.walk_leg_
+        # swing_initiation_income, 2026-09-08): the OTHER concrete
+        # lead named alongside swing-gap-charge by the loadslip-ratio-
+        # charge closure ("a positive swing-initiation income for the
+        # currently-most-loaded leg" -- CURRENT_TRUTHS/STATUS.md
+        # 2026-09-08 ~19:1x). Tracks, per leg, whether THAT leg was
+        # the single most heavily loaded of all six at the instant it
+        # left the ground (set at liftoff, consumed/reset at the next
+        # touchdown once the swing either qualifies for credit or
+        # doesn't -- see the mechanism's own comment block in step()).
+        # Seeded False (no leg has swung yet at reset, so none can
+        # claim credit for the reset-pose's own trivial "liftoff").
+        self._liftoff_was_maxload = [False] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1633,6 +1675,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the loadslip EMA's own 0-seed rationale). Independent of
         # every other slip/duty mechanism's state above.
         self._swing_gap_s = [0.0] * 6
+        # Per-leg swing-INITIATION income state (reward.walk_leg_
+        # swing_initiation_income, 2026-09-08): the OTHER concrete
+        # lead named alongside swing-gap-charge by the loadslip-ratio-
+        # charge closure ("a positive swing-initiation income for the
+        # currently-most-loaded leg" -- CURRENT_TRUTHS/STATUS.md
+        # 2026-09-08 ~19:1x). Tracks, per leg, whether THAT leg was
+        # the single most heavily loaded of all six at the instant it
+        # left the ground (set at liftoff, consumed/reset at the next
+        # touchdown once the swing either qualifies for credit or
+        # doesn't -- see the mechanism's own comment block in step()).
+        # Seeded False (no leg has swung yet at reset, so none can
+        # claim credit for the reset-pose's own trivial "liftoff").
+        self._liftoff_was_maxload = [False] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3623,6 +3678,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the loadslip EMA's own 0-seed rationale). Independent of
         # every other slip/duty mechanism's state above.
         self._swing_gap_s = [0.0] * 6
+        # Per-leg swing-INITIATION income state (reward.walk_leg_
+        # swing_initiation_income, 2026-09-08): the OTHER concrete
+        # lead named alongside swing-gap-charge by the loadslip-ratio-
+        # charge closure ("a positive swing-initiation income for the
+        # currently-most-loaded leg" -- CURRENT_TRUTHS/STATUS.md
+        # 2026-09-08 ~19:1x). Tracks, per leg, whether THAT leg was
+        # the single most heavily loaded of all six at the instant it
+        # left the ground (set at liftoff, consumed/reset at the next
+        # touchdown once the swing either qualifies for credit or
+        # doesn't -- see the mechanism's own comment block in step()).
+        # Seeded False (no leg has swung yet at reset, so none can
+        # claim credit for the reset-pose's own trivial "liftoff").
+        self._liftoff_was_maxload = [False] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -4951,6 +5019,53 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_gap = -g_swinggap * priced_gap
                 info["walk_leg_swing_gap_worst_s"] = worst_gap
                 info["reward_walk_leg_swing_gap"] = r_gap
+            # Per-LEG swing-INITIATION reward INCOME
+            # (`reward.walk_leg_swing_initiation_income`, 2026-09-08 --
+            # the OTHER concrete lead the loadslip-ratio-charge closure
+            # named alongside swing-gap-charge: "a positive swing-
+            # initiation income for the currently-most-loaded leg"
+            # (CURRENT_TRUTHS/walkcurr STATUS.md 2026-09-08 ~19:1x).
+            # STRUCTURALLY DIFFERENT from every per-leg mechanism above
+            # (duty-ratio/loadslip-ratio/swing-gap): those are all
+            # CHARGES that price a STATE or PATTERN a dragging/planted
+            # leg can approach asymptotically over many ticks (which is
+            # why loadslip needed a target recalibration + an
+            # excess-cap retrofit, and swing-gap shipped pre-capped
+            # from inception) -- this is a bounded, one-shot positive
+            # INCOME paid exactly once per qualifying event (a real
+            # completed swing whose OWN liftoff instant found this leg
+            # carrying the single highest contact force of all six).
+            # There is nothing to cap: the per-event magnitude is fixed
+            # (`walk_leg_swing_initiation_income` itself) and the event
+            # can fire at most once per stride per leg, so total reward
+            # from this mechanism cannot run away regardless of policy
+            # behavior -- the exact "outbid a fatter income term" and
+            # "collapse the whole episode's reward scale" failure modes
+            # every charge-shaped sibling had to defend against here
+            # cannot arise by construction. This directly rewards the
+            # behavior the charge-shaped mechanisms could only
+            # discourage the ABSENCE of: the leg bearing the most
+            # weight right now taking its turn to actually swing,
+            # rather than staying planted because it is "needed" for
+            # support while its five teammates do the work. Uses the
+            # IDENTICAL qualifying-swing definition (liftoff -> >=2
+            # ticks airborne -> touchdown with real XY stride >=
+            # gait_gate_stride_mm, lift legs exempt) every other
+            # swing-detection gate in this file already computes at
+            # the touchdown branch below; "most loaded" is evaluated
+            # from a whole-tick PREVIOUS-tick contact-force snapshot
+            # (`_foot_prev_force`, captured before this tick's per-leg
+            # loop starts overwriting it leg-by-leg) at the exact tick
+            # the leg left the ground, stored per-leg
+            # (`_liftoff_was_maxload`) until the swing resolves at
+            # touchdown -- see the loop below for the write/read sites.
+            # Default 0.0 = off; the ONLY reward-path effect when off
+            # is skipping the snapshot copy and leaving `r_swinit`
+            # (added post-loop, mirroring `r_swing`) at its 0.0 init,
+            # legacy bit-exact.
+            g_swinit = float(cfg_get(self.cfg, "reward",
+                                     "walk_leg_swing_initiation_income",
+                                     default=0.0))
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
                 + r_free_pen + r_ratio + r_lsratio + r_gap
             if r_free_pen != 0.0:

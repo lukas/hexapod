@@ -441,3 +441,11 @@ def test_wrapper_receipt_distinguishes_requested_and_clipped_dose(probe):
     assert receipt["clip_hits"] == 18
     np.testing.assert_array_equal(receipt["requested"], box)
     np.testing.assert_array_equal(receipt["applied"], np.zeros(18))
+
+
+def test_execution_loader_keeps_exact_frozen_vectors(probe):
+    # Exercise the real preflight consumer; numerical reconstruction is only
+    # a check, never a replacement for the hash-pinned requested dose.
+    loaded = probe.frozen_templates()
+    assert loaded == TEMPLATES
+    assert probe.BASE is None

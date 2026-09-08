@@ -128,7 +128,9 @@ def frozen_templates():
     ts=read(HERE/"frozen_vectors.json")["templates"]
     for t in ts:
         u=capped_allocation(t["mean_central_secant"])
-        if not np.array_equal(u,t["candidate_vector"]):
+        # Cross-platform reconstruction differs by ~2e-17; applied vectors
+        # always come from the exact preregistered, hash-checked JSON below.
+        if not np.allclose(u,t["candidate_vector"],rtol=0,atol=2e-16):
             raise RuntimeError("derived allocation differs from frozen vector")
         b=.025*np.sign(t["mean_central_secant"])
         if not np.array_equal(b,t["comparator_vector"]):

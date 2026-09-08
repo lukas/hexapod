@@ -1,0 +1,34 @@
+{
+  "status": "PRE_RESPONSE_IMPLEMENTATION_REPAIR",
+  "simulator_responses_before_failure": 0,
+  "helper_imported": false,
+  "failed_runner_sha256": "32597f1b54d450ba18214455546c4f76c05f7a3527167fbd8c784fc14484e142",
+  "frozen_vectors_sha256": "a16f9ccbb60f00164deee12649a061c84ad8729a61765b1cea423d2648acd23f",
+  "controller_arithmetic_max_coordinate_differences": [
+    {
+      "template": "wz_neg_phase0",
+      "max_abs_diff": 0.0
+    },
+    {
+      "template": "wz_neg_phase1",
+      "max_abs_diff": 1.3877787807814457e-17
+    },
+    {
+      "template": "wz_pos_phase0",
+      "max_abs_diff": 2.0816681711721685e-17
+    },
+    {
+      "template": "wz_pos_phase1",
+      "max_abs_diff": 0.0
+    }
+  ],
+  "repair": "Use existing static-test absolute tolerance2e-16/relative0 for pure reconstruction sanity check. Apply original hash-pinned JSON vectors exactly; do not regenerate or fit them.",
+  "unchanged": [
+    "preregistration",
+    "source/checkpoint/assets",
+    "frozen_vectors",
+    "state selection",
+    "dose",
+    "all outcome and parity gates"
+  ]
+}

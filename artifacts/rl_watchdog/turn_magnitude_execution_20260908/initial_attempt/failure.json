@@ -1,0 +1,5 @@
+{
+  "status": "INFRASTRUCTURE_FAILURE",
+  "traceback": "Traceback (most recent call last):\n  File \"/workspace/hexapod_magnitude_yaw_20260908/probe_magnitude.py\", line 310, in main\n    templates=frozen_templates()\n              ^^^^^^^^^^^^^^^^^^\n  File \"/workspace/hexapod_magnitude_yaw_20260908/probe_magnitude.py\", line 132, in frozen_templates\n    raise RuntimeError(\"derived allocation differs from frozen vector\")\nRuntimeError: derived allocation differs from frozen vector\n",
+  "wall_seconds": 0.006085395812988281
+}

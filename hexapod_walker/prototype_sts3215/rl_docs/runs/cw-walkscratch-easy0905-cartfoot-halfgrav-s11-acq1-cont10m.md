@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:52:07+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-s11-acq1
+
+**wandb_id**: qnxlwcxv
 
 **hypothesis**: Does the halfgrav cart_foot (ON) seed11 arm's 40M ACQ PASS (0 falls/24, speed 0.20-0.24 m/s, gait_valid 11/24, forward-only, systematic leg1 dropout in both det panels) hold, degrade, or recover at 10M more training, extending the cont10m depth check (seed7 held its band, this is a 3rd seed and the one whose ON advantage did NOT clearly beat its own OFF sibling at 40M).
 

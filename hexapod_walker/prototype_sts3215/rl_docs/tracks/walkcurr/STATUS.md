@@ -1,3 +1,50 @@
+## 2026-09-08 ~11:5x (refill cycle; no completion assigned, 9 free GPU pods, backlog empty) — extended the seed7 cont10m retention-depth precedent to seed10/seed11 (4-way ON+OFF batch), leaving all concurrent-owned lines untouched
+
+One plain sentence: seed7 is the only cart_foot-halfgrav seed with a
++10M "does it hold or degrade at 50M" read (ON holds its 22/24 band,
+OFF's gait_valid degrades further 10/24->7/24, gap widens); seed10 and
+seed11 each have their own idle 40M ACQ-PASSed checkpoints and no such
+depth read yet, so this cycle launched the matching 4-arm batch
+instead of inventing filler.
+
+Full-board check first: the jointspace-freshinit `{b40m-ctrl,
+stagedr20m-b40m}` pair (train-0/train-3, mid-40M), the swing-floor
+mechanism-health canary pair (`crutchoff-{s0,s1}-widen8-legdutyratio-
+swingfloor`, s0 finished/s1 finalizing, gate reads pending), and the
+`cartfoot-halfgrav-{s12,offctrl-s12}` tie-break pair (finished/being
+promoted to acq1 by a concurrent cycle mid-cycle) are all already
+concurrently owned per the ledger's own `triage: in-cycle partial-
+refill` markers and RL_LOG entries within the last hour — left
+untouched, no duplicate launch or premature verdict on any of them.
+Other tracks recheck as unchanged: joystick/amp DONE-or-handed-to-
+Robot-Lab, cpg's cadence-harvest search space exhausted (09-07 ~04:2x,
+no new lever since), standwalk/assistfade/todaypolicy each explicitly
+blocked on their own new-reward-mechanism-design prerequisite (not a
+launch gap).
+
+**Launched:** `cw-walkscratch-easy0905-cartfoot-halfgrav-{s10,
+offctrl-s10,s11,offctrl-s11}-acq1-cont10m` — each a byte-identical-
+template respec of the seed7 cont10m recipe (`--init-from-source` off
+the seed's own ACQ-PASSed 40M `-acq1` checkpoint, +10M steps, no other
+lever changed), one per seed/arm. All VERIFIED RUNNING (train-2, -1,
+-4, -3 respectively; one launch-time pod race on the default slot hit
+a clean REFUSED, retried on an explicit free pod, no duplicate).
+4 launches / 40M new GPU steps, within the 4-launch/80M-step cycle
+caps. Gate per arm: RETENTION at 50M cumulative — 0 new falls/
+terminations, gait_valid at-or-above its own 40M band, slip/m within
++/-20% of its own 40M read; the ON/OFF pair reads together answer
+whether seed7's "ON holds, OFF degrades further, gap widens" pattern
+generalizes to seed10 (real 40M gap, 17/24 vs 7/24) and seed11 (near-
+parity at 40M, 11/24 vs 10/24) or is seed7-specific. Left UNVERDICTED
+for the next reader (still training at cycle end).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-
+{s10,offctrl-s10,s11,offctrl-s11}-acq1-cont10m` once finished; ledger
+entries under those run names. RL_LOG 09-08 ~11:5x. `CYCLE_WORKED`
+touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:3x-11:3x (triage cycle; assigned seed7 halfgrav cont10m pair) — both RETENTION-verdicted at 50M cumulative; built + shipped the "swing-count floor" pricing lever the 0.30/0.45-dose legduty-ratio FAILs named as the only open branch; 2 mechanism-health canaries launched
 
 One plain sentence: verdicted the two assigned seed7 halfgrav cart_foot

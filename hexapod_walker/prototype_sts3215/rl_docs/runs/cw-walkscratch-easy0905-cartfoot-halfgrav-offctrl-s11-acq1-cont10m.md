@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:51:15+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1
+
+**wandb_id**: pwphlkog
 
 **hypothesis**: Matched joint-space (OFF) control for the seed11 cont10m durability read above: does this arm's own 40M performance (0 falls/24, speed 0.17-0.21 m/s, gait_valid 10/24, near-parity with ON's 11/24) hold, degrade or diverge from ON at 10M more steps -- seed11 is the outlier pair (near-parity, not a real ON/OFF gap at 40M), so this depth read tests whether the gap opens up late like seed7's did, or the near-parity holds.
 

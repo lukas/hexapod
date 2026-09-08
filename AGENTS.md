@@ -15,6 +15,30 @@ organization restriction must still be respected; report its concrete reason
 instead of asking for routine authorization again. The robot observation and
 emergency-handling requirements below still apply to physical actions.
 
+## Losing work to a narrow fetch refspec
+
+Some checkouts under `~/Library/Application Support/Hexapod Lab` have a
+**narrow** `remote.origin.fetch` listing individual `codex/*` branches and
+never `main`. There `origin/main` silently freezes: pushes look like
+non-fast-forwards, `git pull` cannot help, and `git rebase origin/main`
+reports "up to date" against a stale ref. A finished vision-service feature
+(1595 lines, tests passing) sat unpushed this way while the session concluded
+GitHub was broken and went looking for SSH keys.
+
+- Enumerate **clones** before worktrees. `engineering-checkout-v1` and `-v2`
+  are separate clones; `-v3`, `engineering-offline-v1`, `codex-workspace` and
+  the `observer-runtime-*` trees are worktrees of them. A worktree has a
+  `.git` *file*; a clone has a `.git` *directory*. Missing that distinction is
+  how the feature got overlooked.
+- Check reachability with `git ls-remote`, not `git branch -r --contains` —
+  the latter reports everything as unpushed in exactly the narrow-refspec
+  clones that most need checking.
+
+`tools/git_unpushed_audit.sh` does both, repairs a missing `main` refspec in
+place without widening a deliberately narrow one, and pushes anything
+unreachable with `--push`. Worktrees live in `/tmp`, which macOS prunes, so a
+commit existing only there is one cleanup away from gone.
+
 ## Python commands: use uv
 
 For all local project Python commands, use `uv` instead of bare

@@ -5,9 +5,6 @@ import threading
 
 import pytest
 
-_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_ROOT / "linux_control"))
-sys.path.insert(0, str(_ROOT / "motor_setup"))
 from async_bus_guard import (AsyncSamplerCleanupError, quarantine_bus,
     bus_quarantine_status, clear_bus_quarantine, recover_bus_quarantine,
     require_bus_available)

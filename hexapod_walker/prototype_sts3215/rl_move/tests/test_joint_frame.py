@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 import zipfile
 from pathlib import Path
 
@@ -19,10 +18,8 @@ from rl_move.robot_state import RobotState
 
 ROOT = Path(__file__).resolve().parents[2]
 LINUX = ROOT / "linux_control"
-if str(LINUX) not in sys.path:
-    sys.path.insert(0, str(LINUX))
 
-import rl_policy  # noqa: E402
+import rl_policy
 
 
 def _pose_rad() -> np.ndarray:

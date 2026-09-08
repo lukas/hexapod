@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import sys
 import threading
 from http.server import ThreadingHTTPServer
 from typing import Any
@@ -18,11 +17,9 @@ import urllib.request
 import pytest
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
-import vision_service  # noqa: E402
-from vision_agent_stats import VisionAgentStats  # noqa: E402
+import vision_service
+from vision_agent_stats import VisionAgentStats
 
 
 @pytest.fixture()

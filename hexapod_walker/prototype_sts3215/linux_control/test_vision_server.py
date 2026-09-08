@@ -5,7 +5,6 @@ import copy
 import hashlib
 import json
 from pathlib import Path
-import sys
 import time
 
 import numpy as np
@@ -13,10 +12,8 @@ import pytest
 
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
-from vision_server import (  # noqa: E402
+from vision_server import (
     VisionRuntime,
     assess_visual_calibration_readiness,
     build_current_pose_config,
@@ -24,7 +21,7 @@ from vision_server import (  # noqa: E402
     materialize_default_config,
     updated_visual_bias_config,
 )
-from avfoundation_capture import AVFoundationYuvCapture  # noqa: E402
+from avfoundation_capture import AVFoundationYuvCapture
 
 
 ROBOT_TAG_IDS = set(range(13))

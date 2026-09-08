@@ -3,20 +3,15 @@ from __future__ import annotations
 
 import json
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from rl_move.np_policy import ARCH_DUAL_GRU, MODE_ONEHOT_ORDER, pack_f32
 
-_ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "linux_control") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "linux_control"))
 
-import rl_policy  # noqa: E402
-from api.rl import RlApi  # noqa: E402
+import rl_policy
+from api.rl import RlApi
 
 
 def _zeros(shape) -> dict:

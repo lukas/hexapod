@@ -29,20 +29,14 @@ Run: uv run python -m pytest rl_move/tests/test_eval_modeseq_rise_from_h.py -q
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import mujoco
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.eval_modeseq import rise_from_h_traj  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.eval_modeseq import rise_from_h_traj
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 
 def _make_env(seed: int = 0, episode_seconds: float = 12.0):

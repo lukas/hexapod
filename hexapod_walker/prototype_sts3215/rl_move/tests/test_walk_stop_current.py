@@ -24,25 +24,18 @@ Fast (~tens of seconds): short episodes, scripted actions, no PPO.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control",
-           ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import SimServoParams
+from hexapod_core.tripod_gait import TripodGait
 
 # 2026-09-02 joint-frame-v2 fix: raw hexapod_core.tripod_gait dialect
 # (robot-absolute), was the pre-migration sim-relative (20.0, 80.0);

@@ -16,23 +16,17 @@ Locks the sequence-demo collector that rides goal.mode_seq (item 1):
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.distill_gru import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.distill_gru import (
     _com_xy, _episode_split, collect_transitions, main as distill_main,
     quick_probe,
 )
-from rl_move.sim.walk_task import (  # noqa: E402
+from rl_move.sim.walk_task import (
     MODE_ONEHOT_ORDER, SimHexapodJointWalkEnv,
 )
 

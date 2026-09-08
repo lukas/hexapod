@@ -21,7 +21,6 @@ canonicalizer must reproduce the reference actions;
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -29,15 +28,13 @@ import numpy as np
 import pytest
 
 _ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "linux_control") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "linux_control"))
 
 import rl_policy  # noqa: E402  (linux_control runner)
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.env import TaskGoal, build_obs  # noqa: E402
-from rl_move.sim import rot60  # noqa: E402
-from hexapod_core.joint_frame import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.env import TaskGoal, build_obs
+from rl_move.sim import rot60
+from hexapod_core.joint_frame import (
     FRAME_ROBOT_ABS, JOINT_CONTRACT,
 )
 

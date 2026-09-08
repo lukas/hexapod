@@ -1,7 +1,6 @@
 """Off-robot regression tests for async-reader bus quarantine."""
 from __future__ import annotations
 
-import sys
 import threading
 import json
 import types
@@ -10,24 +9,20 @@ from pathlib import Path
 
 import pytest
 
-_HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import mcu_feetech_bus as mcu_bus_module  # noqa: E402
-import rl_policy  # noqa: E402
-import web_drive as web_drive_module  # noqa: E402
-from async_bus_guard import (  # noqa: E402
+import mcu_feetech_bus as mcu_bus_module
+import rl_policy
+import web_drive as web_drive_module
+from async_bus_guard import (
     AsyncSamplerCleanupError,
     bus_quarantine_status,
     quarantine_bus,
     recover_bus_quarantine,
 )
-from bench_api import BenchAPI  # noqa: E402
-from drive_controller import DriveController  # noqa: E402
-from feetech_bus import FeetechBus  # noqa: E402
-from mcu_feetech_bus import McuFeetechBus  # noqa: E402
+from bench_api import BenchAPI
+from drive_controller import DriveController
+from feetech_bus import FeetechBus
+from mcu_feetech_bus import McuFeetechBus
 
 
 class _ReaderThread:

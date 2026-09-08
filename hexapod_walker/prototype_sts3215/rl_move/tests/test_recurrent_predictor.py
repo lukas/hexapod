@@ -19,15 +19,11 @@ gru_policy as the shared canonical implementation. These tests lock:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
-import gymnasium as gym  # noqa: E402
+import gymnasium as gym
 
 
 def _tiny_env():

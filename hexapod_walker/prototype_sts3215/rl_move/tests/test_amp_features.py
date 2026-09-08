@@ -23,22 +23,16 @@ the controller does not carry jax/mjx.
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 
 os.environ.setdefault("JAX_PLATFORMS", "cpu")  # see test_mjx_vec_env.py
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import mujoco  # noqa: E402
+import mujoco
 
-from rl_move.sim.amp_features import (  # noqa: E402
+from rl_move.sim.amp_features import (
     chassis_pad_gyro_ids,
     obs_style_batch,
     obs_style_from_data,

@@ -22,15 +22,8 @@ changes and nothing else.
 """
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parents[1]
-if str(_HERE.parent) not in sys.path:
-    sys.path.insert(0, str(_HERE.parent))
-
-from rl_move.config import load_config  # noqa: E402
+from rl_move.config import load_config
 
 
 def test_unset_env_var_is_bit_exact(monkeypatch):

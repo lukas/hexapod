@@ -28,7 +28,6 @@ MJX suite (bit-exact contract is per-XLA-platform).
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 os.environ.setdefault("JAX_PLATFORMS", "cpu")
@@ -36,21 +35,18 @@ os.environ.setdefault("JAX_PLATFORMS", "cpu")
 import numpy as np
 import pytest
 
-_PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
 pytest.importorskip("mujoco")
 
-from rl_move.sim.mjx_backend import mjx_is_available  # noqa: E402
+from rl_move.sim.mjx_backend import mjx_is_available
 
 if not mjx_is_available():  # pragma: no cover
     pytest.skip("mujoco-mjx / jax not installed", allow_module_level=True)
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.mjx_vec_env import MjxVecEnv  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.mjx_vec_env import MjxVecEnv
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 B = 2
 

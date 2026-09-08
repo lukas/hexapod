@@ -1,16 +1,11 @@
-from pathlib import Path
 from types import SimpleNamespace
-import sys
 import threading
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "linux_control") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "linux_control"))
 
-import rl_policy  # noqa: E402
-from rl_move.robot_state import RobotState  # noqa: E402
+import rl_policy
+from rl_move.robot_state import RobotState
 
 
 class _Debug:

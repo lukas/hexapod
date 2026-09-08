@@ -33,28 +33,24 @@ from __future__ import annotations
 import contextlib
 import math
 import os
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
-from rl_move.sim.joint_task import (  # noqa: E402
+from rl_move.config import cfg_get, load_config
+from rl_move.robot_state import DEG2RAD, RAD2DEG
+from rl_move.sim.joint_task import (
     SimHexapodJointGoalEnv, q_rad_to_action)
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.walk_task import (  # noqa: E402
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.walk_task import (
     transition_window_liftoff, transition_window_tick,
     transition_window_touchdown)
-from hexapod_core.joint_frame import (  # noqa: E402
+from hexapod_core.joint_frame import (
     mujoco_rel_rad_to_robot_abs_rad as _q0_robot_abs)
 
 # --------------------------------------------------------------------------
@@ -3216,7 +3212,7 @@ def test_drift_rider_never_beats_honest_straight_walk(subsidy_returns):
 # park; the gate must do the work (stepping loses hard when it turns
 # on) and must NOT tax the honest quiet stand.
 
-from rl_move.sim.sim_env import PLANT_SPEC, load_rise_ref  # noqa: E402
+from rl_move.sim.sim_env import PLANT_SPEC, load_rise_ref
 
 PLANT_SPEC_FLAG_MM = float(PLANT_SPEC["flag_leg_mm"])
 HOLD_OVERRIDES = dict(SCORE_OVERRIDES)
@@ -6567,8 +6563,8 @@ def test_walk_legduty_terminate_penalty_is_smaller_than_term_penalty():
 # sequences (no physics rollout needed) -- same "extracted to plain
 # testable functions" pattern as `transition_window_tick` above.
 
-from rl_move.sim.walk_task import walk_legduty_term_tick  # noqa: E402
-from rl_move.sim.walk_task import (  # noqa: E402
+from rl_move.sim.walk_task import walk_legduty_term_tick
+from rl_move.sim.walk_task import (
     walk_legduty_ratio_charge, walk_legduty_ratio_tick)
 
 
@@ -7062,7 +7058,7 @@ def test_walk_leg_duty_ratio_swing_floor_activation_matches_plain_when_off(
 # `walk_legduty_ratio_charge`'s own bank) plus one end-to-end
 # activation-matches-plain-when-off rollout guard.
 
-from rl_move.sim.walk_task import (  # noqa: E402
+from rl_move.sim.walk_task import (
     walk_legslip_ratio_charge, walk_legslip_ratio_tick)
 
 
@@ -13102,7 +13098,6 @@ def test_harden_speedband_sigma_v_narrowing_does_not_widen_command_gap():
         f"well below the default-width reading (default {gap_def}, "
         f"narrow {gap_nar}) — narrowing would make this pathology "
         f"WORSE, not better; do not deploy this width.")
-
 
 
 # ---------------------------------------------------------------------------

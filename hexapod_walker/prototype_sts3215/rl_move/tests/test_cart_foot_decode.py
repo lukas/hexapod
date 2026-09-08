@@ -19,19 +19,15 @@ Bank for the ``goal.walk_cart_foot_box_{x,y,z}_m`` mechanism
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
 mujoco = pytest.importorskip("mujoco")
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim import servo_model as SM  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim import servo_model as SM
 
 BIAS = {"joint_action_bias_yaw_deg": 0.0,
         "joint_action_bias_hip_deg": 40.0,

@@ -19,23 +19,17 @@ implementation itself is sound:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch as th
 from torch import nn
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import gymnasium as gym  # noqa: E402
-from gymnasium import spaces  # noqa: E402
+import gymnasium as gym
+from gymnasium import spaces
 
-from rl_move.sim.gru_policy import (  # noqa: E402
+from rl_move.sim.gru_policy import (
     _N_LOCO_SLOTS,
     DualGruActorCriticPolicy,
     GruActorCriticPolicy,
@@ -985,7 +979,7 @@ def test_gru_learns_memory_task():
 #     core_a (walk/quad) + core_t (pure turn), core_b untouched.
 # ---------------------------------------------------------------------------
 
-from rl_move.sim.gru_policy import (  # noqa: E402
+from rl_move.sim.gru_policy import (
     TripleGruActorCriticPolicy,
     _TURN_SLOT,
     dual_to_triple_transplant,
@@ -1366,7 +1360,7 @@ def test_dual_to_triple_transplant_forward_matches_before_divergence():
 #    zero-init transition adapter.
 # ---------------------------------------------------------------------------
 
-from rl_move.sim.gru_policy import (  # noqa: E402
+from rl_move.sim.gru_policy import (
     EXPERTS_ORDER,
     N_EXPERTS,
     ModeExpertsGruActorCriticPolicy,

@@ -12,21 +12,15 @@ GLOBAL env steps (ticks * sched.n_envs). Contract under test:
 from __future__ import annotations
 
 import copy
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 mujoco = pytest.importorskip("mujoco")
 
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.sim.sim_env import N_ACT, SimHexapodBalanceEnv  # noqa: E402
+from rl_move.config import cfg_get, load_config
+from rl_move.sim.sim_env import N_ACT, SimHexapodBalanceEnv
 
 KEY = "reward.k_drag_stance"
 

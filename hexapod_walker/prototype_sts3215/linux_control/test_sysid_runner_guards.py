@@ -3,12 +3,7 @@ from __future__ import annotations
 
 import sys
 import types
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-for _path in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
 
 from sysid_runner import _telemetry_admission, run_sysid_protocol
 

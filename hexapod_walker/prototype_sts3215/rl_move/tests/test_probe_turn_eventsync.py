@@ -1,14 +1,11 @@
 """Event-sync screen probe: pure analysis functions and the
 pre-registered mechanical verdict (no MuJoCo needed)."""
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from rl_move.sim import probe_turn_eventsync as es  # noqa: E402
+from rl_move.sim import probe_turn_eventsync as es
 
 
 PERIOD = 75  # ticks (0.75 s @ 100 Hz)

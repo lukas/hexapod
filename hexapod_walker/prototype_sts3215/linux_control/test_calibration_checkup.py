@@ -11,13 +11,9 @@ import tempfile
 import types
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import bench_api as bench_api_module  # noqa: E402
-from bench_api import BenchAPI  # noqa: E402
+import bench_api as bench_api_module
+from bench_api import BenchAPI
 
 
 def _module(name: str, **attrs) -> types.ModuleType:

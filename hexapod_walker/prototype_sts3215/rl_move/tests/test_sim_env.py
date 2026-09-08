@@ -2,26 +2,20 @@
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 mujoco = pytest.importorskip("mujoco")
 
-from rl_move.sim.domain_rand import (  # noqa: E402
+from rl_move.sim.domain_rand import (
     DomainRandomizer, RandRanges,
 )
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.sim.servo_model import (
     N_JOINTS, ServoProfile, SimServoParams, build_model,
 )
-from rl_move.sim.sim_env import N_ACT, N_OBS, SimHexapodBalanceEnv  # noqa: E402
+from rl_move.sim.sim_env import N_ACT, N_OBS, SimHexapodBalanceEnv
 
 DEG = math.pi / 180.0
 

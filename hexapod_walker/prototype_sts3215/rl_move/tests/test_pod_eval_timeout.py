@@ -8,11 +8,8 @@ full 12-episode gate panel).
 """
 import importlib.util
 import pathlib
-import sys
 
 _ORCH_DIR = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-if str(_ORCH_DIR) not in sys.path:
-    sys.path.insert(0, str(_ORCH_DIR))  # pod_eval.py does `import tracks`
 _P = _ORCH_DIR / "pod_eval.py"
 _spec = importlib.util.spec_from_file_location("pod_eval", _P)
 pod_eval = importlib.util.module_from_spec(_spec)

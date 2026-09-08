@@ -1,15 +1,10 @@
 """Physics regressions for the opt-in sphere-radius construction path."""
-from pathlib import Path
-import sys
 import xml.etree.ElementTree as ET
 
 import mujoco
 import numpy as np
 import pytest
 
-PROTO = Path(__file__).resolve().parents[2]
-for path in (PROTO, PROTO / "linux_control"):
-    sys.path.insert(0, str(path))
 
 from rl_move.config import load_config
 from rl_move.sim.servo_model import _compile_with_foot_radius, build_model

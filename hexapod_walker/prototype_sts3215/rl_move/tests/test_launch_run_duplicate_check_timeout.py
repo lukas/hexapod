@@ -22,7 +22,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 _HERE = Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(_HERE))
 
 _spec = importlib.util.spec_from_file_location("launch_run", _HERE / "launch_run.py")
 lr = importlib.util.module_from_spec(_spec)

@@ -8,20 +8,14 @@ the contract: the knob is default-off and bit-exact at 1.0, it scales
 the gait clock as advertised, and the phase-obs coupling fails closed.
 """
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
-from rl_move.sim.bc_init_gait import _make_teacher  # noqa: E402
-from rl_move.sim.probe_walk_income import parse_policy_spec  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait
+from rl_move.sim.bc_init_gait import _make_teacher
+from rl_move.sim.probe_walk_income import parse_policy_spec
 
 
 def _mk(scale=None, vx=0.055):

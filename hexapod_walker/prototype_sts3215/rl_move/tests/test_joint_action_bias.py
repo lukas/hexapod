@@ -19,23 +19,17 @@ sweep.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim.joint_task import (  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim.joint_task import (
     _CENTER_RAD, _HALF_RAD, action_to_q_rad)
-from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES  # noqa: E402
+from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES
 
 # The fix dose used by the launched arms: shift a=0 from the hardware
 # mid-range toward the semantics bank's WALK_PLANT=(20, 80) stance

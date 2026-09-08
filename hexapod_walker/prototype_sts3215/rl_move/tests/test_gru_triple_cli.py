@@ -15,11 +15,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.sim.train_ppo_mjx import (  # noqa: E402
+from rl_move.sim.train_ppo_mjx import (
     _parse_log_std_anneal_specs,
     _validate_gru_triple,
 )

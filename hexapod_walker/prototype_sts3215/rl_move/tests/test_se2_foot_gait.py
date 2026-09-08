@@ -2,15 +2,9 @@
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from hexapod_core.se2_foot_gait import (  # noqa: E402
+from hexapod_core.se2_foot_gait import (
     SE2FootGait, evaluate_grid, se2_exp, se2_log, support_margin,
     swing_point,
 )

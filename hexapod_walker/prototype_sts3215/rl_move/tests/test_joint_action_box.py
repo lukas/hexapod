@@ -20,23 +20,17 @@ bit-exact legacy):
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.sim.joint_task import action_to_q_rad  # noqa: E402
-from test_joint_action_bias import (  # noqa: E402
+from rl_move.sim.joint_task import action_to_q_rad
+from test_joint_action_bias import (
     FIX_BIAS_OVERRIDES, _zero_action_height_drop_mm)
-from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES  # noqa: E402
+from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES
 
 # The final-wave dose (operator: Walk-in-the-Park proportions
 # yaw ~+-11 / hip ~+-23 / knee ~+-23 deg, "tune to our geometry"):

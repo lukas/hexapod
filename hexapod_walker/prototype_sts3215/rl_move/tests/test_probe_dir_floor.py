@@ -7,12 +7,10 @@ over a multi-segment rollout and reports it. Short env-integration
 smoke test (few seconds of sim), not a full 60s floor read."""
 import json
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
-import probe_dir_floor as pdf  # noqa: E402
+import probe_dir_floor as pdf
 
 
 def _run(tmp_path, extra_args, seconds=6.0, seed=0):

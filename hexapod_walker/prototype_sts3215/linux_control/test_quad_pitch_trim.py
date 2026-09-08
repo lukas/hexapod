@@ -2,19 +2,14 @@
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_ROOT = _HERE.parent
-for _p in (_ROOT / "motor_setup", _HERE):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
-from inplace_demos import QuadPitchTrim, _quad_rear_pitch_cmd_deg  # noqa: E402
-from hexapod_core import quad_walk as QW  # noqa: E402
-from hexapod_core.quad_walk import make_quad_walk_pose_fn  # noqa: E402
+from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch
+from inplace_demos import QuadPitchTrim, _quad_rear_pitch_cmd_deg
+from hexapod_core import quad_walk as QW
+from hexapod_core.quad_walk import make_quad_walk_pose_fn
 
 
 def _imu_angles(roll_deg: float, pitch_deg: float) -> dict:

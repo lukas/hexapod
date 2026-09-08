@@ -1,13 +1,11 @@
 """Unit tests for merge_motion_library.py (08-23, amp yaw fork
 surgical-splice tool): pure numpy, tiny synthetic libraries, no sim."""
 import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
-import merge_motion_library as mm  # noqa: E402
+import merge_motion_library as mm
 
 TICK_KEYS = mm.TICK_KEYS
 

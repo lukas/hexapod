@@ -14,9 +14,6 @@ import tempfile
 import types
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
 
 from api.rl import RlApi
 from rl_policy import (

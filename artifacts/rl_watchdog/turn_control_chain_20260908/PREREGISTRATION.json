@@ -1,0 +1,41 @@
+{
+  "status": "PREREGISTERED_BEFORE_EXECUTION",
+  "registered_utc": "2026-09-08T10:34:24.360480+00:00",
+  "owner": "Root and fresh_cartesian_frontier",
+  "execution_status": "NOT_STARTED",
+  "review_status": "AWAITING_ROOT_IMPLEMENTATION_REVIEW",
+  "source_result_commit": "be4e8a42381f128ead7bc86486f295de68940d89",
+  "protocol_sha256": "0dbd74c499b795718f26ca6c9448ccf044b20498905d54d4fb432e9fbdb81da5",
+  "artifact_hashes": {
+    "turn_control_chain_20260908/DESIGN.md": "0dbd74c499b795718f26ca6c9448ccf044b20498905d54d4fb432e9fbdb81da5",
+    "turn_magnitude_execution_20260908/pins.json": "9d39dc5fe7207a74458221524cb6500302d487ea9954ffbb345c859ef1028adc",
+    "turn_magnitude_execution_20260908/cfg_set.json": "aabf4cc25f78ebf3b28ff7b4a46fba85c109f4061becaf4212e8842b5c550e40",
+    "turn_magnitude_execution_20260908/reference_baselines.json": "af7af16e940b7cbc4e05792d2243af4c53dd80f79ca74cc3a6c79302822b351f",
+    "turn_magnitude_execution_20260908/full_recovered/baselines_frozen.json": "7b72ef21138bf352f0cf7159182afd33355585e4edb5a40c566d63933ab6dbf1",
+    "turn_magnitude_execution_20260908/full_recovered/straight_zero_off.json": "cb7ffca628327c3a8f184fc578cbef82de14ac3287628d7f6f92ad580aafcca4",
+    "turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py": "436b0eee695094f94d68346548e12efed147f087b1447ea2349b0f4feb67cd54",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w+0.15_ph0_baseline.npz": "cbda5e4d1ad9a82961309bbb2b77be64a2a07f28cbb45f01235b48f8ab38addc",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w+0.15_ph1_baseline.npz": "e04d96b631a07139b3d12677da772e5c3fdf919c29042b2f0edc403d3927c445",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w-0.15_ph0_baseline.npz": "bc6b7661cec7dd021c366daba4dc62157954136b988cfcb24cbcfac899dbd128",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w-0.15_ph1_baseline.npz": "c5398d258267fc64db83d428464ffbb18c6fa28d25fce305fe202461177210e0",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w+0.00_ph0_straight_baseline.npz": "2c616e6b0e9c96ef2db9ad28c945ff2b8589d14c2ee754a954a4d79a28f730aa",
+    "turn_magnitude_execution_20260908/full_recovered/traces/w+0.00_ph1_straight_baseline.npz": "5e75c6b6dfa8001f8ea75f2a30645eaf656e2a301e3f1beee41d3bcedbb9c3c5"
+  },
+  "additional_source_hashes": {
+    "rl_move/safety.py": "e64db0dc6afb409ef840cbd2e5a0254ec475b702d4483067f4f308a2638332ad",
+    "hexapod_core/joint_frame.py": "3c46e2d26d419f8afcee6c24b44f1efaeb77cf67e9e7324f2eeb132d6f164041"
+  },
+  "rollouts": 6,
+  "total_control_ticks": 6020,
+  "interventions": 0,
+  "no_PPO": true,
+  "no_robot": true,
+  "arc_new_endpoint_limit": "No old755 full-state digest exists. Require755 saved body/current arrays plus all old full-state boundaries, then label755 endpoint new.",
+  "clock_arithmetic_atol_s": 1e-10,
+  "physics_dt_atol_s": 1e-12,
+  "affine_arithmetic_atol_rad": 2e-15,
+  "reference_parity": "exact shape, dtype and bytes; no numerical tolerance",
+  "initial_runner_sha256": "761c19669895a3ac57bf3aca835cc819cadb088a446d5ba44c94f963c2693bf9",
+  "static_test_sha256": "0233ebaa2d9183501d68dd7bcf38d2d9cb08121a6986b57d2101ca8cc37afc8f",
+  "static_test_result": "60 passed locally; no simulator or frozen rollout helper import"
+}

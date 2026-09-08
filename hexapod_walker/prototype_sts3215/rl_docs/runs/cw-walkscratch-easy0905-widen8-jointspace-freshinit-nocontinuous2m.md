@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T15:06:50+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl
+
+**wandb_id**: uevepjck
 
 **hypothesis**: Plain English: companion split to nodiscrete2m (this cycle's other arm). The 3-arm single-axis DR knockout showed no ONE discrete/event axis (bad_start/fault/push) alone explains the fresh-init ignition failure. This arm tests the COMPLEMENTARY group: zero every CONTINUOUS jitter/sensor-noise axis (mass_scale, leg_mass_jitter, link length, com offset, friction, contact stiffness, ground tilt, gain scale, velocity scale, cmd-drop, placement noise, encoder/tilt/gyro noise+bias, imu bias/mount/position, action noise) down to nominal/zero, while keeping the three catastrophic discrete-event axes (bad_start_prob=0.25, fault_prob=0.3, ext_push_prob=0.3, walk_push_prob=0.3) at FULL strength. If this ignites and nodiscrete2m does not, continuous jitter (not discrete events) is the real blocker. If neither ignites, that reinforces pure DR-breadth/SUM as the blocker regardless of category, matching the concurrent uniform-magnitude dose-ladder (halfdr2m/quarterdr2m).
 

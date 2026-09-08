@@ -148,8 +148,39 @@ class SimHexapodJointGoalEnv(SimHexapodGoalEnv):
                 self._joint_action_bias)
             self._joint_action_box_axis_lo = _CENTER_RAD - _HALF_RAD
             self._joint_action_box_axis_hi = _CENTER_RAD + _HALF_RAD
+        # Cartesian FOOT-PLACEMENT action decode (2026-09-08, walkcurr
+        # foot-placement mechanism — operator focus note 20260908T0403;
+        # the named remaining structural lever after the slip-pricing
+        # family, DR-band, torsional-friction and clip-controllability
+        # closures). With any goal.walk_cart_foot_box_{x,y,z}_m > 0 the
+        # SAME 18 actions are reinterpreted per leg as a Cartesian foot
+        # target around the a=0 stance-foot point (identical to the
+        # bias/box decode's a=0 pose) and turned into logical joint
+        # targets by analytic per-leg IK derived from THIS env's loaded
+        # model; SafetyLayer/servo/reward untouched. All keys default
+        # 0.0 = OFF = bit-exact legacy (_act_to_q never enters the
+        # branch). See rl_move/sim/cart_foot_decode.py.
+        cart_box_m = np.array([
+            float(cfg_get(self.cfg, "goal", "walk_cart_foot_box_x_m",
+                          default=0.0)),
+            float(cfg_get(self.cfg, "goal", "walk_cart_foot_box_y_m",
+                          default=0.0)),
+            float(cfg_get(self.cfg, "goal", "walk_cart_foot_box_z_m",
+                          default=0.0)),
+        ])
+        self._cart_foot_active = bool(np.any(cart_box_m > 0.0))
+        if self._cart_foot_active:
+            from .cart_foot_decode import CartFootDecoder
+            center_q = (self._joint_action_box_center
+                        if self._joint_action_box_active
+                        else action_to_q_rad(self._joint_action_bias))
+            self._cart_foot = CartFootDecoder(
+                self.model, center_q, cart_box_m)
 
     def _act_to_q(self, clipped: np.ndarray):
+        if self._cart_foot_active:
+            return self._cart_foot.decode(
+                np.asarray(clipped, dtype=float)), True, ""
         if self._joint_action_box_active:
             q = np.clip(
                 self._joint_action_box_center

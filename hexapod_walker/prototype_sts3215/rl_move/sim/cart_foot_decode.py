@@ -1,0 +1,245 @@
+"""Cartesian foot-target action decode for the raw-joint walk envs.
+
+walkcurr foot-placement mechanism (2026-09-08 operator focus note;
+follows the closed 9-arm slip-pricing family, the DR-band/torsion
+exonerations and the clip-probe controllability closure, all of which
+left "a genuine foot-placement policy change" as the named remaining
+structural lever for the ~5-6 slip/m floor).
+
+MECHANISM: with any ``goal.walk_cart_foot_box_{x,y,z}_m`` > 0 the 18
+policy actions are reinterpreted PER LEG as a Cartesian foot-position
+target in that leg's root (yaw-anchor) frame::
+
+    p_target(leg) = p_center(leg) + a[leg] * box_half_widths_m
+
+where ``p_center`` is the forward kinematics of the SAME a=0 stance
+pose the lineage's joint-box decode uses (``goal.joint_action_bias_*``
+through ``action_to_q_rad``), so the zero-action pose is IDENTICAL to
+the source decode.  An analytic yaw + planar-2R inverse kinematics
+(constants derived from the env's OWN loaded MuJoCo model at init, so
+the map is mesh-exact, not the legacy 12.5 mm-coxa `_leg_ik`) turns the
+target into absolute logical joint angles, clipped to the hardware axis
+limits.  Everything downstream — SafetyLayer slew/limit clip, servo
+profile, motor model, reward — is untouched.
+
+PRIOR-FREE: no gait clock, no scripted trajectory, no teacher — pure
+kinematic reparameterization of the action space, exactly like the
+2026-08-30 action box, only in foot space instead of joint space.
+All keys default 0.0 = OFF = bit-exact legacy (`_act_to_q` never
+reaches this module).
+
+Unreachable targets are projected to the closest reachable annulus
+point (never a failure): the decode is total, deterministic and pure
+host-side numpy, therefore identical on the CPU-MuJoCo and Warp/MJX
+stacks (both call ``_step_begin`` -> ``_act_to_q`` on the host).
+Per-episode link-length DR is ignored, matching the affine
+joint decode, which is equally nominal.
+"""
+from __future__ import annotations
+
+import math
+
+import numpy as np
+
+from rl_move.robot_state import DEG2RAD, N_JOINTS
+from rl_move.safety import AXIS_LIMITS_DEG
+from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
+
+_YAW_LO, _YAW_HI = (AXIS_LIMITS_DEG[0][0] * DEG2RAD,
+                    AXIS_LIMITS_DEG[0][1] * DEG2RAD)
+_HIP_LO, _HIP_HI = (AXIS_LIMITS_DEG[1][0] * DEG2RAD,
+                    AXIS_LIMITS_DEG[1][1] * DEG2RAD)
+_KNEE_LO, _KNEE_HI = (AXIS_LIMITS_DEG[2][0] * DEG2RAD,
+                      AXIS_LIMITS_DEG[2][1] * DEG2RAD)
+
+
+def _wrap_pi(a):
+    return (a + math.pi) % (2.0 * math.pi) - math.pi
+
+
+class CartFootDecoder:
+    """action[-1,1]^18 -> logical joint targets via per-leg foot IK.
+
+    ``model``      the env's loaded MjModel (any family; constants are
+                   derived from it, and ``verify_fk`` must pass for the
+                   family before training on it — see the test bank).
+    ``center_q``   (18,) logical rad — the a=0 pose (the lineage's
+                   joint-box center); its FK is the Cartesian center.
+    ``box_m``      (3,) half-widths (x radial, y tangential, z up) in
+                   the leg-root frame, meters.
+    """
+
+    def __init__(self, model, center_q_rad, box_m):
+        import mujoco
+        self.box = np.asarray(box_m, dtype=float).reshape(3)
+        if np.any(self.box < 0.0):
+            raise ValueError("cart foot box half-widths must be >= 0")
+        center_q_rad = np.asarray(center_q_rad, dtype=float).reshape(N_JOINTS)
+
+        data = mujoco.MjData(model)          # throwaway: zero live-state risk
+        mujoco.mj_resetData(model, data)
+
+        jids = np.array([mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_JOINT,
+            f"L{j // 3}_{('yaw', 'pitch', 'knee')[j % 3]}")
+            for j in range(N_JOINTS)], dtype=int)
+        sids = np.array([mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_SITE, f"L{i}_foot_site")
+            for i in range(6)], dtype=int)
+        if np.any(jids < 0) or np.any(sids < 0):
+            raise ValueError(
+                "cart foot decode: model is missing L*_yaw/pitch/knee "
+                "joints or L*_foot_site sites — unsupported model family")
+        self._jids, self._sids = jids, sids
+        qadr = model.jnt_qposadr[jids]
+
+        # measure the chain at the logical zero pose
+        data.qpos[qadr] = robot_abs_rad_to_mujoco_rel_rad(
+            np.zeros(N_JOINTS))
+        mujoco.mj_kinematics(model, data)
+
+        self._R = np.zeros((6, 3, 3))        # leg-root frame axes (rows)
+        self._org = np.zeros((6, 3))         # yaw anchor (world/base frame)
+        self._hx = np.zeros(6); self._hz = np.zeros(6)
+        self._F = np.zeros(6); self._T = np.zeros(6)
+        self._phiF = np.zeros(6); self._phiT = np.zeros(6)
+        self._yf = np.zeros(6)
+        self._s = np.zeros(6)                # pitch-axis sign vs +ey
+
+        for leg in range(6):
+            jy, jp, jk = jids[leg * 3: leg * 3 + 3]
+            org = data.xanchor[jy].copy()
+            ez = data.xaxis[jy] / np.linalg.norm(data.xaxis[jy])
+            foot = data.site_xpos[sids[leg]].copy()
+            x0 = foot - org
+            x0 = x0 - np.dot(x0, ez) * ez
+            n = np.linalg.norm(x0)
+            if n < 1e-9:
+                raise ValueError(f"leg {leg}: foot on the yaw axis at zero")
+            # Use the pitch plane, not the laterally offset foot vector.
+            ey = data.xaxis[jp].copy()
+            ey -= np.dot(ey, ez) * ez
+            pitch_norm = np.linalg.norm(ey)
+            if pitch_norm < 1e-9:
+                raise ValueError(f"leg {leg}: pitch axis parallel to yaw axis")
+            ey /= pitch_norm
+            ex = np.cross(ey, ez)
+            if np.dot(ex, x0) < 0.0:
+                ex, ey = -ex, -ey
+            R = np.stack([ex, ey, ez])       # world -> leg frame rows
+            self._R[leg], self._org[leg] = R, org
+
+            h = R @ (data.xanchor[jp] - org)
+            k = R @ (data.xanchor[jk] - org)
+            f = R @ (foot - org)
+            ax_p = R @ data.xaxis[jp]
+            ax_k = R @ data.xaxis[jk]
+            s_h = math.copysign(1.0, ax_p[1])
+            s_k = math.copysign(1.0, ax_k[1])
+            if abs(ax_p[1]) < 0.999 or abs(ax_k[1]) < 0.999 or s_h != s_k:
+                raise ValueError(
+                    f"leg {leg}: hip/knee axes are not a parallel pitch "
+                    f"pair in the yaw frame (|ay|={ax_p[1]:.4f},"
+                    f"{ax_k[1]:.4f}) — planar decode unsupported")
+            vF = k - h
+            vT = f - k
+            self._hx[leg], self._hz[leg] = h[0], h[2]
+            self._F[leg] = math.hypot(vF[0], vF[2])
+            self._T[leg] = math.hypot(vT[0], vT[2])
+            # plane angle convention: dir(a) = (cos a, -sin a) in (x, z)
+            self._phiF[leg] = math.atan2(-vF[2], vF[0])
+            self._phiT[leg] = math.atan2(-vT[2], vT[0])
+            self._yf[leg] = f[1]
+            self._s[leg] = s_h
+
+        self.center_q = center_q_rad.copy()
+        self.center_p = self.fk(center_q_rad)
+
+    # ------------------------------------------------------------------
+    def fk(self, q_logical_rad) -> np.ndarray:
+        """(18,) logical rad -> (6,3) foot positions, leg-root frames."""
+        q = np.asarray(q_logical_rad, dtype=float).reshape(6, 3)
+        yaw, hip, knee = q[:, 0], q[:, 1], q[:, 2]
+        aF = self._phiF + self._s * hip
+        aT = self._phiT + self._s * knee
+        x = self._hx + self._F * np.cos(aF) + self._T * np.cos(aT)
+        z = self._hz - self._F * np.sin(aF) - self._T * np.sin(aT)
+        y = self._yf
+        c, s = np.cos(yaw), np.sin(yaw)
+        return np.stack([c * x - s * y, s * x + c * y, z], axis=1)
+
+    # ------------------------------------------------------------------
+    def decode(self, action) -> np.ndarray:
+        """(18,) action in [-1,1] -> (18,) logical joint targets (rad)."""
+        a = np.asarray(action, dtype=float).reshape(6, 3)
+        p = self.center_p + a * self.box[None, :]
+        px, py, pz = p[:, 0], p[:, 1], p[:, 2]
+
+        # yaw so the (fixed-|y|) foot line passes through the target
+        r = np.hypot(px, py)
+        xf = np.sqrt(np.maximum(r * r - self._yf * self._yf, 1e-12))
+        yaw = _wrap_pi(np.arctan2(py, px) - np.arctan2(self._yf, xf))
+        yaw = np.clip(yaw, _YAW_LO, _YAW_HI)
+
+        # target in the yaw frame -> planar 2R problem
+        c, s = np.cos(yaw), np.sin(yaw)
+        u = (c * px + s * py) - self._hx
+        w = -(pz - self._hz)
+        L = np.hypot(u, w)
+        lo = np.abs(self._F - self._T) * 1.001 + 1e-9
+        hi = (self._F + self._T) * 0.999
+        Lc = np.clip(L, lo, hi)
+        scale = Lc / np.maximum(L, 1e-12)
+        u, w, L = u * scale, w * scale, Lc
+
+        gamma = np.arctan2(w, u)
+        cos_a = np.clip((L * L + self._F ** 2 - self._T ** 2)
+                        / (2.0 * L * self._F), -1.0, 1.0)
+        alpha = np.arccos(cos_a)
+
+        best_hip = np.zeros(6); best_knee = np.zeros(6)
+        best_score = np.full(6, np.inf)
+        for branch in (-1.0, 1.0):
+            aF = gamma + branch * alpha
+            aT = np.arctan2(w - self._F * np.sin(aF),
+                            u - self._F * np.cos(aF))
+            hip = _wrap_pi(self._s * _wrap_pi(aF - self._phiF))
+            knee = _wrap_pi(self._s * _wrap_pi(aT - self._phiT))
+            score = np.zeros(6)
+            score += 1000.0 * ((hip < _HIP_LO - 1e-6) | (hip > _HIP_HI + 1e-6))
+            score += 1000.0 * ((knee < _KNEE_LO - 1e-6)
+                               | (knee > _KNEE_HI + 1e-6))
+            score += 10.0 * (knee < hip)     # normal stance: tibia steeper
+            score += 0.01 * np.abs(knee - hip) / DEG2RAD
+            better = score < best_score
+            best_hip = np.where(better, hip, best_hip)
+            best_knee = np.where(better, knee, best_knee)
+            best_score = np.where(better, score, best_score)
+
+        q = np.empty((6, 3))
+        q[:, 0] = yaw
+        q[:, 1] = np.clip(best_hip, _HIP_LO, _HIP_HI)
+        q[:, 2] = np.clip(best_knee, _KNEE_LO, _KNEE_HI)
+        return q.reshape(N_JOINTS)
+
+    # ------------------------------------------------------------------
+    def verify_fk(self, model, n: int = 200, seed: int = 0) -> float:
+        """Max |analytic FK - MuJoCo site FK| (m) over random poses."""
+        import mujoco
+        data = mujoco.MjData(model)
+        mujoco.mj_resetData(model, data)
+        qadr = model.jnt_qposadr[self._jids]
+        rng = np.random.default_rng(seed)
+        lo = np.array([_YAW_LO, _HIP_LO, _KNEE_LO] * 6)
+        hi = np.array([_YAW_HI, _HIP_HI, _KNEE_HI] * 6)
+        worst = 0.0
+        for _ in range(n):
+            q = rng.uniform(lo, hi)
+            data.qpos[qadr] = robot_abs_rad_to_mujoco_rel_rad(q)
+            mujoco.mj_kinematics(model, data)
+            pred = self.fk(q)
+            for leg in range(6):
+                ref = self._R[leg] @ (data.site_xpos[self._sids[leg]]
+                                      - self._org[leg])
+                worst = max(worst, float(np.linalg.norm(pred[leg] - ref)))
+        return worst

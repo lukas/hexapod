@@ -9,18 +9,18 @@
   per corrected root audit). Crutch-removal map extended: halfgrav cell
   ignites; torque1x retention asymmetry closed (fb_20260908T090149);
   widen8 composite fresh-init FAILS n=2 in BOTH action spaces ->
-  torqueretain bisection pair completed and both failed their own rising-
-  signal gate (093002 triage). The apparent 15–26% radius improvement
-  was invalid physics. Repair d54506ef and the corrected frozen-parent
-  probe are complete: slip worsens 8.2–16.6% in all four groups, so no
-  replacement PPO follows. Widen8 ignition and slip remain open gaps.
-- **todaypolicy: translation composition passes; arc qualification fails.**
-  Generic turn/walk time-multiplexing was already withdrawn after the
-  fixed-duty negative bank and matched-endpoint review. The nightly
-  queue refresh incorrectly revived it. The later support-conditioned
-  analytic assay also completed STOP (0129c375): 0/16 states meet 5 mrad,
-  32/32 pulses retain walking. Magnitude-weighted and stance-speed
-  observations remain design leads, not an executable experiment queue.
+  torqueretain bisection pair running now. First consistent structural
+  slip lever found (env.foot_geom_radius_m, 15-26% zero-shot), first
+  canary INVALID_PHYSICS (size-only compile bug, repaired d54506ef, root
+  owns rerun). Ladder aim (widen8 ignition + slip floor) = the track's
+  two real gaps. Correctly aimed.
+- **todaypolicy: one real lead, queue was stale.** yawref candidate PASSES
+  the full composed stand->joystick->lower A/B vs fresh incumbent
+  (translation); arc undertracking localized to the slew-clip rate
+  contract; 4 frozen causal screens (twistfit, eventsync, actionbank,
+  coordinated) = 3 NULL + 1 one-sided authority. The measured next
+  mechanism (turn/walk time-multiplexing) was saved-not-queued — FIXED
+  tonight (Next refreshed, net 0 lines).
 - **joystick: STALE 2 weeks, gate unmet, zero spend.** Filed
   q_20260908T0940Z (pursue via yawref/rung-0 lineage vs own frontier vs
   re-register). amp/cpg: DONE/closed, zero spend — correct.
@@ -61,9 +61,8 @@
   file +9,134 (verbatim). Cuts the primary track's per-cycle read cost.
 - rl_move/orchestrator/ops.sh: +46 net (`quarters` helper; truncation fix;
   help line). bash -n green; live-tested on s41 cached history + edge cases.
-- rl_docs/tracks/todaypolicy/STATUS.md: 1,515 -> 1,515 in the nightly edit.
-  Its time-multiplex queue promotion was incorrect and is withdrawn.
-  Watchdog correction evidence: artifacts/rl_watchdog/guidance_correction_20260908T093214Z/ (repository root).
+- rl_docs/tracks/todaypolicy/STATUS.md: 1,515 -> 1,515 (net 0). Stale
+  "nothing queued" replaced with the measured time-multiplex lead.
 - OPERATOR_QUESTIONS.md +17 (joystick q). No watcher change/restart; no launches.
 
 ## Recommended, NOT made

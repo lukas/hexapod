@@ -1,3 +1,41 @@
+## 2026-09-08 ~10:0x (refill cycle, no completion assigned) — launched the `walk_leg_duty_ratio_charge` "different dose/target" pair the 03:3x closure named as the only untried branch
+
+One plain sentence: the 03:3x closure below found continuing the
+existing 0.30-target/150-charge legduty-ratio charge past its shared
+2M exposure buys no real quality (a lone gait_valid flip that comes
+with worse slip/progress in every replication), and explicitly named
+"a different dose/target" as the one still-open branch (not more
+continuation) — that branch had sat unclaimed for ~6h while the
+narrowhead/torqueretain thread ran, so this cycle launched it.
+
+Recipe: respec each seed's own already-PASSED
+`-legdutyratiofresh-guardfix1` 2M canary (fresh-init widen8, charge
+150, byte-identical `--init-from`/heading-set/DR/motor cfg) with
+ONLY `reward.walk_leg_duty_ratio_target` raised 0.30 -> 0.45 (the
+09-07 ~23:4x calibration's passing-population MEDIAN worst-leg ratio
+instead of its p10) — one lever, same mechanism (bank already 9/9
+green, no new mechanism so no new bank pass owed).
+`cw-walkscratch-crutchoff-{s0,s1}-widen8-legdutyratio-target045`,
+both VERIFIED RUNNING (train-4/train-5 at launch; s0 already
+finished its 2M GPU steps and hair-triggered the CPU finalizer within
+the same cycle). Gate requires a JOINT improvement vs each seed's own
+matched 0.30-dose sibling (gait_valid AND slip/progress
+equal-or-better in >=3/4 groups) — a bare gait_valid uptick alone
+does not count, per the 03:3x lesson. Read those before funding a
+3rd dose step or a longer continuation.
+
+Capacity: 10-11/11 GPU pods free, backlog empty. Other in-flight
+walkcurr lines (halfgrav cartfoot acq1 pair, footgeom, narrowhead
+pair) are concurrent-cycle-owned and untouched. Other tracks stay
+non-launchable this cycle: cpg/amp are DONE-or-maintenance,
+standwalk/assistfade/todaypolicy are each blocked pending a
+genuinely new mechanism design (not a launchable queue item).
+Evidence: `ops.sh review cw-walkscratch-crutchoff-{s0,s1}-widen8-legdutyratio-target045`
+once gates land; source closure `logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_{on10m,offctrl10m}_gate/report.json`.
+RL_LOG 09-08 10:0x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~09:3x (triage cycle) — offctrl-s41 confirms OFF-arm n=2; torqueretain bisection pair BOTH FAIL (torque crutch is NOT the widen8 blocker); launched the narrowhead heading-breadth bisection
 
 One plain sentence: closed out the widen8-cartfoot-freshinit seed41

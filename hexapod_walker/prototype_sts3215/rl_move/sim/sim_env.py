@@ -704,6 +704,48 @@ class SimHexapodBalanceEnv(_GymBase):
                     _parts = tuple(float(x) for x in _v.split(","))
                     _v = _parts[0] if len(_parts) == 1 else _parts
                 setattr(self.randomizer.ranges, _k, _v)
+        # DR-STAGE RAMP (2026-09-08, staged-DR-breadth fresh-acquisition
+        # design): env.dr_stage_ramp_steps > 0 arms a trainer-driven
+        # curriculum that moves the EPISODE-RESET DR distribution from
+        # the calibrated nominal sim (frac 0 — sensor-noise floors kept,
+        # RandRanges.scaled semantics: probabilities ramp, per-event
+        # doses do not) up to this run's FULL post-override ranges
+        # (frac 1). Why it must exist: the --cfg-set dr.* overrides
+        # above are ABSOLUTE, applied AFTER --dr-scale scaling, so
+        # neither --dr-scale nor the walkcurr bucket ladder (which
+        # re-applies the same absolute overrides per bucket) can ramp a
+        # recipe that carries its DR matrix as explicit overrides.
+        #   - Default (key absent/0) = OFF: no state, no new code path,
+        #     bit-exact legacy behavior.
+        #   - Armed but never applied = FULL ranges: construction never
+        #     touches the randomizer, so eval_checkpoint / play / the
+        #     periodic C-env evals judge checkpoints at the run's full
+        #     DR even when the training cfg carries the ramp key. Only
+        #     an explicit apply_dr_stage_frac() broadcast
+        #     (train_ppo_mjx, per rollout) moves the resets below full.
+        #   - Fail-closed: incompatible with goal.walk_curriculum (the
+        #     bucket ladder rebuilds the randomizer per episode and owns
+        #     the DR schedule) and with randomize=False (nothing to
+        #     stage) — raise at construction, never silently no-op.
+        self._dr_stage_full = None
+        self._dr_stage_cache: dict = {}
+        self._dr_stage_frac: float | None = None
+        _drs_steps = int(float(cfg_get(
+            self.cfg, "env", "dr_stage_ramp_steps", default=0) or 0))
+        if _drs_steps > 0:
+            if self.randomizer is None:
+                raise ValueError(
+                    "env.dr_stage_ramp_steps > 0 needs an active "
+                    "DomainRandomizer (randomize=True); with DR off "
+                    "there is nothing to stage")
+            if float(cfg_get(self.cfg, "goal", "walk_curriculum",
+                             default=0) or 0) > 0:
+                raise ValueError(
+                    "env.dr_stage_ramp_steps is incompatible with "
+                    "goal.walk_curriculum — the bucket ladder rebuilds "
+                    "the randomizer per episode and owns the DR "
+                    "schedule; use the bucket dr fields instead")
+            self._dr_stage_full = self.randomizer.ranges
         self._ep_rand: EpisodeRandomization | None = None
         self._reset_start_offset_rad: np.ndarray | None = None
         self._reset_start_bad_joints: list[int] = []
@@ -2714,6 +2756,45 @@ class SimHexapodBalanceEnv(_GymBase):
         self._profile_ramp["frac"] = f
         return {"frac": f, "write_speed_counts_s": ws,
                 "write_acc": float(acc), "max_delta_q_deg": dq}
+
+    def apply_dr_stage_frac(self, frac: float) -> dict:
+        """Move the episode-reset DR distribution to ``frac`` of the
+        staged-DR ramp (0 = calibrated nominal sim with sensor-noise
+        floors kept, 1 = this run's full post-override ranges);
+        trainer-driven — see the ``env.dr_stage_ramp_steps`` block in
+        ``__init__``. Returns a summary of the live ranges so the
+        trainer can print/log the active stage. Raises when the ramp
+        is not armed: a broadcast that silently no-ops is the
+        dropped-cfg failure class (gotcha 3), never fall back quietly.
+        Affects only FUTURE episode resets (the sample() draw at
+        reset); the trainer flushes pooled resets on each change so
+        pre-minted pool entries never leak a stale stage.
+        """
+        if self._dr_stage_full is None:
+            raise RuntimeError(
+                "apply_dr_stage_frac called but env.dr_stage_ramp_"
+                "steps is not set (>0) in this env's cfg — the "
+                "DR-stage ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        key = round(f, 6)
+        ranges = self._dr_stage_cache.get(key)
+        if ranges is None:
+            # f >= 1 restores the EXACT captured full-ranges object:
+            # the endpoint is bit-identical to the un-staged recipe,
+            # not a float-rounded reconstruction of it.
+            ranges = (self._dr_stage_full if f >= 1.0
+                      else self._dr_stage_full.scaled(f))
+            self._dr_stage_cache[key] = ranges
+        self.randomizer.ranges = ranges
+        self._dr_stage_frac = f
+        return {"frac": f,
+                "mass_scale_lo": float(ranges.mass_scale[0]),
+                "mass_scale_hi": float(ranges.mass_scale[1]),
+                "friction_lo": float(ranges.friction_scale[0]),
+                "friction_hi": float(ranges.friction_scale[1]),
+                "ground_tilt_deg": float(ranges.ground_tilt_deg),
+                "bad_start_prob": float(ranges.bad_start_prob),
+                "fault_prob": float(ranges.fault_prob)}
 
     def _step_begin(self, action):
         """Pre-physics half of step: action validation, IK, safety

@@ -1,3 +1,100 @@
+## 2026-09-08 ~10:2x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-target045`) — dose-escalation branch CLOSES negative; reaped 2 orphaned 09-06 DR-restore ACQ evals that never made it back to the controller; exhaustive board check finds no further unclaimed GPU lever this window
+
+One plain sentence: the 0.30->0.45 legduty-ratio dose the 03:3x closure
+named as the one open branch also fails its own gate (only 2/4 groups
+clear gait_valid-AND-slip/progress vs the matched 0.30-dose sibling,
+needed >=3/4), reproducing the SAME single-episode "gait_valid
+recovers, that episode's slip gets worse" trade already flagged at
+0.30 -- two independent doses now show the identical artifact, which
+looks like a property of the mechanism's form (rebalancing duty
+without pricing the slip that rebalancing costs), not a dose-tuning
+gap.
+
+**`cw-walkscratch-crutchoff-s0-widen8-legdutyratio-target045` ->
+CANARY FAIL - MECHANISM:** vs the exact matched 0.30-dose
+`legdutyratiofresh-guardfix1` sibling (same seed/init-from/panel,
+only target differs): `walk/sto` and `walk_startjitter/det` both
+improve (mean slip -2.7%/-0.7%, gait_valid held 6/6 both).
+`walk/det` reproduces the 03:3x-flagged pattern exactly: gait_valid
+ticks 5/6->6/6 (ep0's sacrifice flips to gv=True) but that same
+episode's own slip jumps 21.4->27.3, worsening the group MEAN slip
++8.4% despite the gait_valid gain -- "a bare gait_valid uptick
+alongside worse slip... does not count" per the pre-registered gate
+text, and this is that exact shape. `walk_startjitter/sto` regresses
+outright on both axes (slip +6.9%, progress -3.8%, same 2 chronic
+legs [0,5] unchanged). Net 2/4 groups clear both bars, short of the
+required >=3/4 majority. Video (contact sheet + `walk_det_0` frame
+strip) matches the numbers -- no dig-in trigger. Reward quarters fall
+hard `[33,65,-1894,-6678]`, the family's already-documented
+ep_len-growth artifact (episodes surviving longer under a
+non-decaying charge), not a fresh red flag. Per gate text, no further
+dose step or continuation follows from a FAIL. **This closes the
+"different dose/target" branch pending s1** (byte-identical replicate,
+still training under this window's board, not touched here) -- with
+0.30 and 0.45 now showing the identical within-episode trade, the
+practical read is that this charge form does not buy a real net
+quality gain at either tested dose.
+
+**Reaped 2 orphaned 09-06 single-axis DR-restore ACQ evals that never
+synced back to the controller** (found via a live-capacity discrepancy:
+ledger said RUNNING, W&B said `finished` 2 days ago on 2026-09-06,
+their pods showed FREE in `capacity.py` -- classic prestage gap, not
+active training):
+- **`tiltnoise1x-c1-acq1` -> CANARY PASS**: PERFECT 24/24 gait_valid,
+  0 falls/terms, slip/m med 3.88-4.80 (in-band), reward rising every
+  quarter `[789,1393,1464,1560]`, still climbing at 40M.
+- **`gyronoise1x-c1-acq1` -> CANARY PASS**: 23/24 (1 non-chronic
+  singleton leg-0 flag, walk_startjitter/sto), 0 falls/terms, slip/m
+  med 3.88-4.55, reward rising every quarter `[791,1386,1449,1531]`.
+
+Both `ops.sh podeval`-reaped (copy-back only, no relaunch needed --
+the gate harness had already finished on-pod). Both close pending
+reads inside the single-axis DR-restore sweep that 09-06 ~10:1x-10:24
+already declared exhaustively closed ("every RandRanges field
+covered") -- this is mop-up of stale unverdicted evidence, not new
+frontier information; no launch follows from either.
+
+**No new GPU launch this cycle despite 10-11/11 pods free at read
+time.** Exhaustive board check before concluding: (1) the widen8
+crossgrav-DR composite fresh-init line is CLOSED this same window by
+a concurrent cycle's narrowhead bisection (both action spaces fail
+identically regardless of heading-set width; the only remaining path
+is a genuinely new staged-DR-breadth-curriculum mechanism, which is
+design work, not a same-recipe relaunch -- explicitly deferred, not
+mine to rush this cycle); (2) the halfgrav/1g cart_foot fork(b) cohort
+is at n=3 replicated + a fresh cont10m depth-read just launched by a
+concurrent cycle on the one seed (halfgrav-s7) that lacked one -- the
+1g cont10m depth cohort (s7/s10/s11) was already complete
+(SKILLS.md, cart_foot fork(b) n=3 COMPLETE); halfgrav's s10/s11
+canaries have not yet reached their own 40M ACQ read, so a cont10m
+depth-read there would be premature (skipping the ACQ step) -- not a
+line for this cycle to jump ahead of; (3) the legduty-ratio charge
+mechanism now has 2/2 doses (0.30, 0.45) showing the identical
+non-improving trade -- no further dose step is licensed by either
+gate, and the "retrofit-onto-entrenched" question is ALREADY verdicted
+CANARY FAIL - MECHANISM (01:5x below, telemetry-confirmed: charge
+firing but shortfall RISING not declining, reward flat -- does not
+meet its own pre-registered CONTINUE bar); (4) joystick/amp/cpg are
+DONE/closed, standwalk/assistfade/todaypolicy are each blocked on
+their own genuinely-new-mechanism-design prerequisite (assistfade's
+09-08 comparator correction explicitly hands formal resolution to
+root; todaypolicy's turn-authority thread is fully closed per
+CURRENT_TRUTHS pending an operator-owned fleet-contract decision).
+Every live thread is either in-flight under a concurrent cycle or
+closed pending design work nobody has built yet -- inventing a filler
+run here would duplicate or jump ahead of that work, not add a real
+question. CYCLE_WORKED touched (3 verdicts recorded + 2 stale evals
+reaped is real completed work, even with no new launch).
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_target045_gate/report.json`
+vs `..._legdutyratiofresh_guardfix1_gate/report.json`; `logs/ckpt_eval/
+cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_{tiltnoise1x,
+gyronoise1x}_c1_acq1_gate/report.json`; W&B `s52ddexm`/`7ejprgld`/
+`mfxo6gt4`. SKILLS.md updated (legduty-ratio row appended, 1 new
+DR-restore mop-up row). RL_LOG 09-08 ~10:2x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:0x (triage cycle) — halfgrav cartfoot seed7 pair CLOSES as PARITY (both arms ACQ PASS); widen8-narrowhead bisection CLOSES the fresh-init line (DR breadth, not heading count, is the blocker); launched matched cont10m durability pair on the halfgrav PASS
 
 One plain sentence: three runs closed this cycle -- the halfgrav OFF

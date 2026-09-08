@@ -1967,3 +1967,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 10:17 walkcurr: cartfoot-halfgrav-offctrl-s10 (OFF) CANARY PASS -- matched control healthy, completes seed10 pair 
 - 09-08 10:17 walkcurr: gyronoise1x-c1-acq1 CANARY PASS (23/24 gait_valid, 0 falls, reward still rising at 40M) -- orphaned 09-06 eval reaped via podeval, closes the pending DR-restore axis read 
 - 09-08 10:18 walkcurr: cartfoot-halfgrav-offctrl-s11 (OFF) CANARY PASS -- matched control healthy, completes seed11 pair 
+- 09-08 10:20 walkcurr: crutchoff-s0-widen8-legdutyratio-target045 CANARY FAIL - MECHANISM (2nd dose confirms same non-improving trade), reaped 2 orphaned 09-06 DR-restore ACQ PASSes (tiltnoise1x/gyronoise1x), exhaustive board check finds no unclaimed launchable lever (all live threads concurrent-owned or design-blocked) -- no new GPU launch this cycle 

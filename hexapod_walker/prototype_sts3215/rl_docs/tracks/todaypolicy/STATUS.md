@@ -1,6 +1,49 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 03:31 UTC — traction interpretation corrected.
+Last updated: 2026-09-08 ~04:1x UTC — stance-path twist-consistency
+measured on the frozen plant; command-side stance-sweep correction
+CLOSED (pre-registered support bar cleanly unmet), no preflight/canary.
+
+## Latest update (2026-09-08 ~04:1x UTC) — STANCE-PATH TWIST-CONSISTENCY
+MEASURED: the COMMANDED stance paths are already consistent with the
+single commanded rigid twist; the collapse is at the slew-clip stage.
+
+`rl_move/sim/probe_turn_twistfit.py` (snapshot 046c708a; 9-test unit
+bank) ran the focus-note measurement in the frozen worktree: same-phase
+commanded vs actual stance XY paths, per-tick single-twist LSQ fits at
+four pipeline stages (des/safe/act/pads), frozen fullmesh34/4.80573 kg,
+exact `cfg_frozen_audit.json`, seed 0, arcs +/-0.15 + straight at
+starts 0/pi, 15 s, zero falls, zero IK failures, behavior parity
+bit-exact vs root_fullcone scripted medians on all 6 cells.
+
+- Pre-registered support bar (S1 wz gain outside [0.9,1.1] / S2
+  exact-twist residual >0.10 / S3 per-foot implied-wz spread
+  >0.20*|wz|) breached on 0/4 arc cells: des-stage gain 0.9998,
+  residual 0.015-0.018, spread ~1.5e-4 rad/s. The stance-sweep
+  correction candidate from 025505 is CLOSED without a canary.
+- NEW localization: the post-SafetyLayer command (safe stage) already
+  collapses wz 0.150->0.039 (-74%) vs vx -24%, and is twist-INCOHERENT
+  across legs (per-foot implied-wz spread 0.208 rad/s). Executed
+  contact is ~anti-phased with commanded windows (P(contact|cmd
+  stance) ~0.44 vs ~0.70 in cmd swing; segment amp_ratio ~0.21).
+- Achieved gains (wz 0.428, vx 0.465) match the analytic slew-cap
+  amplitude ratio 37.5*T/4 / 15.39 deg = 0.457: the combined-arc
+  undertracking is ~fully the pinned rate contract at this
+  cadence/amplitude; cone saturation is the secondary sink. Achieved
+  CURVATURE is nearly right (1.73 vs 1.875): the deficit is arc
+  speed, not steering direction.
+- Saved next in-limits mechanism (designed, NOT launched):
+  command-level turn/walk TIME-MULTIPLEXING (pure-turn tracks ~0.88
+  gain vs ~0.43 combined because the tangential servo budget is not
+  shared with vx); gate = 60 s averaged-course tracking A/B vs the
+  simultaneous baseline at equal average vx, both signs beyond start
+  scatter, straight health, slip, zero IK failures. Recorded negative
+  prediction: a per-tick slew-feasibility twist governor (uniform
+  rescale) is argued against by the omega-discount and cadence-1.5
+  closures — do not spend a canary on it without contrary evidence.
+
+Evidence: `artifacts/rl_watchdog/turn_twistfit_20260908/`
+(README + twistfit_fm.json + probe copy + log).
 
 Contact-wrench accounting passed the substep angular-momentum closure check.
 Opposing yaw moments and contact-couple contributions are measured, but do not
@@ -22,8 +65,10 @@ Continue authorized simulation diagnostics without waiting for an operator
 reply on the separate fleet-calibration question.
 See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
 
-Next: require same-phase commanded/actual path
-evidence for any stance-path mechanism and unchanged original-plant preflight.
+Next: DONE 2026-09-08 ~04:1x — the same-phase commanded/actual path
+evidence was measured (see Latest update above): commanded paths are
+twist-consistent, so no stance-path correction/preflight follows; the
+saved next mechanism is command-level turn/walk time-multiplexing.
 
 ## Previous update (2026-09-08 ~02:1x UTC) — CADENCE (period_scale)
 EXPERIMENT DONE ON THE FROZEN FULL-MESH PLANT: CLOSED, REGRESSED BOTH

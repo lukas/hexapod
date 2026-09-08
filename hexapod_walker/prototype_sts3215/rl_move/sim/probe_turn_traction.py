@@ -1,63 +1,24 @@
-"""probe_turn_traction.py — DIRECT contact-force / traction-budget
-diagnostic on the frozen full-mesh plant (todaypolicy steering,
-2026-09-08, operator focus note 20260908T025454Z).
+"""Contact-wrench and traction diagnostics on the frozen steering plant.
 
-Plain English: three in-limits scripted-gait dials (lift-phase lead,
-stance-posture yaw arm, cadence) each closed against the identical
-both-signs-gain bar, and each closure INFERRED (but never measured)
-that the leftover yaw deficit is a traction-limited conversion of the
-executed foot sweep into body rotation.  That inference rested on
-finite-difference pad speeds and LSQ twist residuals — indirect
-evidence the pipeline review explicitly disclaimed as not proving a
-unique traction limit.  This probe measures the actual quantity in
-question for the first time: per-contact normal/tangential forces from
-the constraint solver (``mj_contactForce``), friction-cone usage
-|F_t|/(mu*N) per loaded pad, per-leg yaw moments about the body COM
-(sign-resolved, world frame), torsional-friction contributions,
-loaded-pad slip velocities, and actuator force-rail saturation — all
-on the SAME pinned plant/cells/seed as the three closures.
+The tick engine is a legacy endpoint sampler with static weight/touch checks.
+Its tangential ratio is a planar projection, not full friction-cone usage.
+The audit engine calls probe_turn_authority.rollout(contact_audit=True):
+it integrates solved contact wrenches at each physics substep, checks
+angular-momentum closure with private endpoint data, and reports both the
+legacy planar projection and condim-aware full-cone utilization.
 
-The two competing mechanisms it must distinguish (focus note):
-  A. FRICTION-CONE SATURATION — loaded pads slip while their tangential
-     force sits near mu*N (cone usage ~1).  Then the budget itself is
-     the wall and only levers that change the budget (normal-force
-     redistribution, foot material/geometry contract changes) can help.
-  B. OPPOSING-STANCE CANCELLATION — pads slip at LOW cone usage because
-     simultaneous stance legs command mutually inconsistent foot paths
-     (not a rigid twist), so internal forces fight each other and the
-     net yaw moment is a small difference of large opposing terms.
-     Then an in-limits gait/policy lever (arc-consistent stance paths,
-     per-leg load shaping) is still on the table — distinct from the
-     three closed dials.
+Opposing yaw moments are measured properties, not unique evidence that
+commanded stance paths are inconsistent. Such a causal claim needs
+same-phase commanded/actual path evidence. Full-cone saturation must be
+evaluated with the complete wrench and active cone shape.
 
-Coordinate/sign validation is built in and fail-closed (focus note:
-"validate coordinate/sign math"):
-  1. STATIC CHECK — during the 1 s zero-command hold, the summed
-     world-frame vertical contact force on the six feet must equal the
-     pinned model weight (4.80573 kg * g) within 10%; the global force
-     sign convention is CALIBRATED there (not assumed from geom order)
-     and recorded.
-  2. TOUCH CROSS-CHECK — per-pad solver normal-force sums must agree
-     with the independent MuJoCo touch sensors (L{i}_foot_t) the whole
-     eval stack already trusts.
-  3. ANGULAR-MOMENTUM CHECK — d(L_z)/dt of the whole robot about its
-     COM (mj_subtreeVel) is regressed against the net contact yaw
-     moment (gravity has no z-moment about the COM, so contact is the
-     only external z-torque): a sign error flips the slope.
+The optional probe-local torsional coefficient is sensitivity analysis.
+An assumed contact-patch estimate is not hardware calibration; modified
+contact parameters remain separate from frozen-plant qualification.
+No physical robot work or shared model-default change is performed.
 
-Zero training, zero robot work, no shared-code changes.  Instrumenting
-reads happen strictly AFTER env.step() (pure reads + mj_subtreeVel's
-diagnostic-only fields), so the executed trajectory is bit-identical
-to probe_turn_stancearm's baseline — asserted by test and by
-reproducing the pinned baseline wz/vx medians.
-
-Pre-registered decision rule (unchanged bar): only if the measured
-mechanism nominates an in-limits lever DISTINCT from the closed
-phase/posture/cadence dials does a trajectory-bank + single bounded 2M
-existing-seed canary follow, and only after the unchanged
-both-signs-gain / straight-health preflight passes; otherwise record
-the concrete measured next experiment.  No universal class closure
-either way.
+A new in-limits mechanism needs the unchanged original-plant both-signs
+gain and straight-health preflight before one bounded existing-seed canary.
 """
 from __future__ import annotations
 
@@ -482,10 +443,10 @@ def main() -> int:
                          "foot+terrain geoms' TORSIONAL friction "
                          "coefficient (meters; MuJoCo pairs combine by "
                          "elementwise max, so both sides are set). The "
-                         "pinned plant ships mu_t=0.1 m, ~20x a physical "
-                         "estimate for the 9 mm boot ((2/3)*a*mu_slide "
-                         "~= 0.005 m); this flag measures how much of "
-                         "the yaw budget rides on that phantom torsion. "
+                         "pinned plant uses mu_t=0.1 m. A lower assumed "
+                         "contact-patch coefficient is a sensitivity test, "
+                         "not measured hardware calibration or an original-"
+                         "plant qualification result. "
                          "Applied post-construction to the probe env "
                          "models only — no shared default changes, no "
                          "training, nothing deployed.")

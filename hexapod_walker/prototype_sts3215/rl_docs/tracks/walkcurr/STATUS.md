@@ -1,3 +1,54 @@
+## 2026-09-08 ~06:5x (triage cycle) — fork (b) seed-7/seed-11 quad all CANARY PASS - HEALTHY-PARITY (4/4); matched 40M acquisition pair launched for seed 7 fresh-init (ON+OFF, own-checkpoint)
+
+One plain sentence: every arm of the fork (b) fresh-init ignition
+question now reads clean (cart_foot cold-starts exactly like
+joint-space, both seeds), so the next honest question — does a
+FRESH-init cart_foot lineage actually learn to walk, and how slippy
+is it vs a FRESH-init (not warm-started-onto-mature) joint-space
+sibling at the same budget — is now running.
+
+**Quad verdicts (all this cycle):** `cartfoot-freshinit-offctrl-s7`,
+`cartfoot-freshinit-c1-s11`, `cartfoot-freshinit-offctrl-s11` CANARY
+PASS - HEALTHY-PARITY (`c1-s7` was independently verdicted, near-
+identical text, by a concurrent cycle before I reached it). All four
+share the same fingerprint: `rollout/ep_len_mean` rises ~100->~490
+ticks over 4 quarters, per-tick `env/reward_walk` RISES the whole
+time, `env/v_along_cmd_m_s` crosses zero upward, `env/walk_speed`
+holds 0.11-0.15 m/s — identical to the `base-s0`/`base-s1` reference
+canaries that established this bar. Frame strips (`walk_sto_2`/
+`walk_sto_1`) show real leg lift/place pose change, not statues. No
+walking-quality claim at 2M (gate scope): all four still show 0/6
+`gait_valid` on `walk/det` with 2-3 sacrificed legs, expected/
+non-blocking.
+
+**Refill:** launched the matched 40M acquisition pair off the seed-7
+canaries' own checkpoints (`--init-from-source`, VERIFIED RUNNING):
+`cartfoot-freshinit-c1-s7-acq1` (train-1, ON) +
+`cartfoot-freshinit-offctrl-s7-acq1` (train-3, OFF) — 2 launches/80M
+steps, at this cycle's normal cap. This is a same-fresh-init-depth
+slip/gait_valid comparison, distinct from the existing mature
+`cartfoot-c1-s3`/`offctrl-s3` comparison (which reached maturity via
+a long continuation chain, not fresh-init).
+
+**Same-window launch race, self-resolved:** a concurrent cycle
+independently launched `cartfoot-freshinit-c1-s7-c1` (train-2) ~3 min
+after my `-acq1` launch — same source checkpoint, same steps, same
+warm start (framed as a cross-seed replicate against `s10-c1b`
+rather than an ON/OFF comparison, but the actual training job was
+identical). That cycle detected the collision on its own next status
+check and killed its duplicate, keeping my `-acq1` pair as the
+surviving arm (RL_LOG 09-08 ~06:5x: "killed the duplicate on
+detection ... s7-acq1 is the surviving arm") — confirmed via
+`launch_run.py status`: train-2 free, train-1/train-3 running the
+`-acq1` pair. No action needed from this entry; noted for the
+record.
+
+Evidence: `ops.sh review`/`ops.sh report` for all 4 quad runs;
+`logs/experiments/cw-walkscratch-easy0905-cartfoot-freshinit-{c1,
+offctrl}-s{7,11}/wandb_history.csv`; RL_LOG 09-08 ~06:4x/~06:5x/~06:6x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~07:0x (operator-kick cycle) — fork (a) closure CORRECTED to intermediate/PARTIAL (gate misread: medians-for-means + duration-confounded reward quarters); the gate's own one-extra-read clause EXECUTED as a final matched +10M pair (cont20m)
 
 One plain sentence: the "ACQ FAIL" that closed the Cartesian
@@ -46,6 +97,61 @@ No new seeds/doses/torque/reward. Fork-(b) fresh-init cohorts
 (s7/s10/s11, owners 061618/061641) untouched per operator focus note.
 Evidence: corrected ledger entry + W&B `qay6bggy` mirror; launch
 verifications this cycle; RL_LOG 09-08 ~07:0x.
+
+--- prior entry below ---
+
+## 2026-09-08 ~06:5x (triage cycle) — s7 ON arm CANARY PASSes (completes the seed7 HEALTHY-PARITY pair); s10 continuation crash root-caused and relaunched; a self-caused duplicate launch caught and killed same cycle
+
+One plain sentence: this cycle's two assigned finished runs were the ON
+arm of the seed-7 fresh-init pair (now verdicted, matching its already-
+passed OFF control) and a continuation launch that had actually crashed
+in under a second on a known tooling gotcha — both are now cleanly
+resolved, plus a self-inflicted duplicate launch was caught and killed
+before it wasted a training budget.
+
+**`cartfoot-freshinit-c1-s7` verdict (CANARY PASS, HEALTHY-PARITY):**
+same ep_len-growth/reward-rising ignition shape as its own OFF control
+(`cartfoot-freshinit-offctrl-s7`, already CANARY PASS) — `rollout/
+ep_len_mean` 101->488, `env/reward_walk` 0.171->0.248 rising every
+quarter, `env/v_along_cmd_m_s` crossing zero upward. Gate: det stuck
+(0/6 gait_valid, 3 legs sacrificed, matching the OFF control's own
+settled-pose det table) but sto shows real progress at high slip
+(same shape as OFF). No cold-start inductive-bias handicap for the
+Cartesian foot-target decode; too early for any slip/quality claim.
+This completes the seed-7 HEALTHY-PARITY pair (seed-11 pair already
+completed ~06:45/06:46 per the entries below).
+
+**`cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1` verdict (SKIP,
+launch-mechanics crash, not a research result):** pod log on
+`hexapod-mjx-train-7` shows it died in <1s printing the documented
+`--activation-fn only applies to from-scratch/transplant builds`
+`SystemExit` (CURRENT_TRUTHS.md: any non-blank `--activation-fn` on a
+plain `--init-from` continuation trips this guard) — confirmed via
+W&B (`1fk8b959`, state=finished, `_runtime`=1s, zero logged steps).
+The parent's own args carry `--activation-fn elu` (correct for its
+from-scratch launch) and the continuation cloned it verbatim without
+blanking. Relaunched immediately as `-c1b` with `--activation-fn=`
+blanked, otherwise identical (40M budget, same PASS-BAND gate) —
+VERIFIED RUNNING `hexapod-mjx-train-7`.
+
+**Self-caught duplicate:** also launched a 40M continuation of the
+`cartfoot-freshinit-c1-s7` ON arm (`-c1`) to pair with the s10-c1b
+relaunch, but a re-check of `launch_run.py status` after the fact
+showed the concurrent cycle handling `cartfoot-freshinit-offctrl-s7`
+had independently launched `cartfoot-freshinit-c1-s7-acq1` (same
+parent, same question) 34s before my respec finished — a race, not a
+duplicate name the launcher could catch. Killed my copy immediately
+on detection (`hexapod-mjx-train-2` freed, ledger marked KILLED with
+the duplicate explanation); `cartfoot-freshinit-c1-s7-acq1` (train-1)
+and its own matched `cartfoot-freshinit-offctrl-s7-acq1` (train-3) are
+the surviving 40M pair — no information lost, no wasted GPU spend
+beyond the ~2s kill latency. Lesson: re-check `launch_run.py status`
+between EACH sequential launch in a cycle, not just once at the start.
+
+Evidence: `ops.sh review` both assigned runs; pod log
+`/tmp/train_cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1.log`
+on `hexapod-mjx-train-7`; `launch_run.py status` before/after the
+kill; RL_LOG 09-08 ~06:5x.
 
 --- prior entry below ---
 

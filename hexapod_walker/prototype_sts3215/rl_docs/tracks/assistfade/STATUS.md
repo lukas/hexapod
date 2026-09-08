@@ -1,5 +1,69 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 2026-09-08 ~13:1x (refill cycle; no completion assigned, 11 free GPU pods, backlog empty) — built + bank-tested a genuinely NEW per-leg mechanism (load-slip, not utilization) and launched it cross-track onto rung3's already-closed swing-floor comparator
+
+One plain sentence: the swing-count-floor add-on (binary "has this leg
+swung enough times") is closed FAIL on both rung3 seeds, so this cycle
+built the OTHER half of the track's own named concrete lead --
+`reward.walk_leg_loadslip_ratio_charge`, pricing per-leg peer-relative
+load-SLIP (a continuous physical measurement of foot-drag speed while
+loaded) instead of a duty/swing-count proxy -- and launched it on the
+same matched base the swing-floor arms used, for a direct apples-to-
+apples read.
+
+**Built** (`rl_move/sim/walk_task.py`): `walk_legslip_ratio_tick`/
+`walk_legslip_ratio_charge`, same additive/no-cutoff/one-tick-lag
+shape as `walk_leg_duty_ratio_charge`, own independent EMA state
+(`_legslip_ratio_ema`), default 0/off/bit-exact. Deliberately
+peer-excluded MEDIAN, not mean: a real-physics bank probe this cycle
+caught a first mean-based draft FALSE-POSITIVE-charging honest legs
+whenever one leg was genuinely near-zero-slip (e.g. raised, correctly
+duty-ratio's job not this one) -- a low outlier drags a MEAN down,
+inflating everyone else's ratio (this charge's bad direction is HIGH,
+the opposite polarity from duty-ratio's LOW-is-bad, so the same
+"outlier drags the peer figure" effect that is harmless for duty-ratio
+is dangerous here). Median is immune to a single outlier; verified via
+both a synthetic regression test and a real rollout (drag-leg cheat:
+excess/charge fires correctly, return flips from +2550 undosed to
+-17171 dosed, well below the honest gait's own +3191 dosed return;
+flagleg cheat, which has near-zero measured slip since it's raised off
+the ground: near-zero false charge with median vs meaningfully
+inflated with the rejected mean draft).
+
+**Tests**: 9 new plain-function + rollout unit tests (EMA formula,
+balanced/all-zero/worst-leg/no-charge-below-target synthetics, the
+mean-vs-median false-positive regression, default-off bit-exact,
+end-to-end activation). All green; 26 neighboring-mechanism-family
+tests (duty-ratio, tangent-slip, transition-window) + 8 gait/duty/
+swing-gate-family tests green; full file collects clean (408 tests,
+no errors). 2 unrelated pre-existing `loadslip_bootstrap_min` failures
+confirmed pre-existing via `git stash` isolation (unrelated mechanism,
+not touched by this change) -- not this cycle's to fix.
+
+**Launched** `cw-assistfade-rung3-legdutyratio-loadslip-{s0,s1}`
+(both VERIFIED RUNNING, train-0/train-2, 2M mechanism-health
+canaries): respec of the matched `legdutyratio-{s0,s1}` siblings
+(which already have the duty-ratio charge on), adding ONLY the new
+load-slip charge on top -- byte-identical otherwise, directly
+comparable to the already-CLOSED `swingfloor-{s0,s1}` siblings using
+the identical base, so this reads as "does a different per-leg
+add-on succeed where swing-floor failed" rather than a fresh,
+unanchored question. Gate criteria mirror the swing-floor arms' own
+(telemetry engages, zero new falls, per-leg slip/duty narrows without
+regression vs BOTH the bare and swingfloor siblings). Cross-track
+note: a concurrent walkcurr cycle independently found/read this same
+new mechanism in-flight and already launched its own 3-seed test on
+crutchoff (`cw-walkscratch-crutchoff-{s0,s1,s2}-widen8-legdutyratio-
+loadslip`, all RUNNING/BUSY at read time) -- left entirely to that
+cycle, not duplicated here; this cycle's own launches are assistfade-
+only.
+
+Evidence: `rl_move/sim/walk_task.py` (search `walk_legslip_ratio`);
+`rl_move/tests/test_task_semantics.py` (search `legslip_ratio`/
+`loadslip_ratio`); ledger entries for both new launches. RL_LOG
+09-08 ~13:1x. `CYCLE_WORKED` touched (code built+tested+snapshotted,
+2 new launches).
+
 ## 2026-09-08 ~12:4x (triage; assigned) — swing-count-floor s1 canary CLOSES the same way as s0: CANARY FAIL - MECHANISM, both seeds of this lever now shut
 
 One plain sentence: seed1 of the swing-count-floor lever fails the

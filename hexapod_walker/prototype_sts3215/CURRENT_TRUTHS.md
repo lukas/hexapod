@@ -71,6 +71,39 @@ offctrl-{s10,s11}-acq1`; `logs/ckpt_eval/cw_walkscratch_easy0905_
 cartfoot_halfgrav_offctrl_{s10,s11}_acq1_gate/report.json`; W&B
 `ghd2vc41` (s10 OFF) / `i593jcsf` (s11 OFF).
 
+**Seed12 (4th ON/OFF pair, 2026-09-08 ~13:4x) REVERSES the gait_valid
+direction and seed10's own cont10m retention read FAILS.** Both s12
+arms clear ACQ (0 falls/24, ~0.15-0.20 m/s): ON `gait_valid` 9/24 (det
+0/6, sac leg4 every ep), OFF `gait_valid` 11/24 (det 0/6, sac legs
+[1,4] every ep) -- OFF is slightly HEALTHIER than ON on this seed,
+opposite the s7/s10 direction and past even s11's near-parity. The
+slip edge still reproduces (ON/OFF ratio 0.79-0.88, 4th seed in a row
+ON lower). Updated seed tally: 2-of-4 clear ON gait_valid advantage
+(s7 gap 12, s10 gap 10), 1-of-4 near-parity favoring ON (s11, gap 1),
+1-of-4 favoring OFF (s12, gap -2) -- do not claim a universal
+cart_foot gait-health advantage; only the slip edge is 4/4 seed-robust.
+Separately, seed10's own cont10m retention read (50M cumulative) is
+RETENTION FAIL, not a hold: ON `gait_valid` 17/24 -> 14/24, with
+walk/det (the primary gated mode) collapsing from a CLEAN 6/6 at 40M
+to 0/6 at 50M, now sacrificing BOTH legs [1,4] every det episode
+(was zero-sacrifice at 40M); slip/m held/improved and 0 new falls.
+Matched OFF sibling degrades further as its own gate text anticipated
+(7/24 -> 4/24). The ON/OFF gap is UNCHANGED at 10 points at both
+budgets (17-7=10, 14-4=10) -- more training erodes six-leg health on
+both action spaces by a similar amount rather than closing or growing
+the cart_foot advantage; reward kept climbing on both arms while
+gait_valid fell (08-21 misaligned-reward shape). Do not fund a further
+continuation on this exact seed/recipe expecting self-healing; the
+per-leg-utilization/load-slip pricing mechanism already in progress on
+the walkcurr/assistfade tracks (`walk_leg_loadslip_ratio_charge`) is
+the open repair lead, not more raw steps. Evidence: `ops.sh review
+cw-walkscratch-easy0905-cartfoot-halfgrav-{s12,offctrl-s12}-acq1`;
+`ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-{,offctrl-}
+s10-acq1-cont10m`; `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_
+halfgrav_{s12,offctrl_s12}_acq1_gate/`, `..._{s10,offctrl_s10}_acq1_
+cont10m_gate/report.json`; W&B `hijwfdoc`/`t2r5n3mz`/`s5f2imns`/
+`83az85kk`.
+
 The narrowhead/torqueretain fresh-init failures are finite recipe/seed/
 budget results. They neither uniquely isolate DR breadth nor exclude
 interactions. The completed magnitude-allocation yaw assay is STOP

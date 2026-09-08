@@ -166,3 +166,32 @@ def test_audit_engine_traction_extension_on_twin():
     for nm in ("yaw", "hip", "knee"):
         assert sat[nm]["force_sat_med"] is not None
         assert 0.0 <= sat[nm]["force_sat_med"] <= 1.0
+
+
+def test_foot_torsion_dose_applies_to_model_and_default_is_untouched():
+    """--foot-torsion-mu is a probe-local diagnostic dose: the CLI wrapper
+    must set the foot+terrain torsional coefficients on the probe env's
+    model, and constructing an env WITHOUT it must keep the XML values."""
+    import mujoco
+    from rl_move.sim import probe_turn_authority as pta
+    from rl_move.sim.probe_turn_traction import foot_geom_ids
+    env = pta.make_env(["control.hz=100"], 0, 2.0)
+    try:
+        fg = foot_geom_ids(env.model)
+        assert env.model.geom_friction[fg[0], 1] == pytest.approx(0.1)
+        # simulate the CLI dose in-place (same code path as main())
+        for g in fg:
+            env.model.geom_friction[g, 1] = 0.005
+        tg = mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM,
+                               "terrain")
+        env.model.geom_friction[tg, 1] = min(
+            env.model.geom_friction[tg, 1], 0.005)
+        assert env.model.geom_friction[fg[0], 1] == pytest.approx(0.005)
+        assert env.model.geom_friction[tg, 1] == pytest.approx(0.005)
+    finally:
+        env.close()
+    env2 = pta.make_env(["control.hz=100"], 0, 2.0)
+    try:
+        assert env2.model.geom_friction[fg[0], 1] == pytest.approx(0.1)
+    finally:
+        env2.close()

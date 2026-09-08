@@ -4895,10 +4895,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 >= ratio_swing_win:
                             ratio_swing_counts = np.sum(
                                 self._legduty_ratio_swing_hist, axis=0)
+                    ratio_agg = str(cfg_get(
+                        self.cfg, "reward", "walk_leg_duty_ratio_agg",
+                        default="min"))
                     worst_shortfall, _ratios = walk_legduty_ratio_charge(
                         self._legduty_ratio_ema, ratio_target,
                         swing_counts=ratio_swing_counts,
-                        swing_min_count=g_ratio_swingfloor)
+                        swing_min_count=g_ratio_swingfloor,
+                        agg=ratio_agg)
                     r_ratio = -g_ratio * worst_shortfall
                     info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
                     info["reward_walk_leg_duty_ratio"] = r_ratio

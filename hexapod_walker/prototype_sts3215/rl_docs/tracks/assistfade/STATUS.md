@@ -1,5 +1,50 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-08 ~02:35 (triage cycle; assigned a different track's completion, picked up this orphaned FINISHED canary with a ready gate) — first `walk_leg_duty_ratio_charge` read on rung3: `s1` CANARY FAIL - MECHANISM, the composition does NOT transfer from walkcurr
+
+`cw-assistfade-rung3-legdutyratio-s1` (launched ~02:2x this same
+cycle-family, 2M mechanism-health canary) landed its gate. Charge
+engages for real (`env/reward_walk_leg_duty_ratio`/
+`walk_leg_duty_ratio_shortfall` genuinely nonzero from step ~396,
+rising through training — not the activation-guard bug), so this is
+not FAIL-INFRASTRUCTURE. But the held-out 24-episode panel is WORSE
+than the undosed `bare-rung3-s1-nostdanneal` baseline, not improved:
+`gait_valid` totals **2/24** (det 0/6, sto 0/6, sj/det 0/6, sj/sto 2/6)
+vs baseline **5/24** (0/6, 1/6, 0/6, 4/6) — net regression, losing
+passes in `walk/sto` (1->0) and `walk_startjitter/sto` (4->2).
+Per-leg: leg5, the dominant chronic-sacrifice leg in the baseline, is
+**unchanged** — `duty_cycle`=1.0, `swing_count`=0 in every single
+`walk/det`+`walk/sto` episode (12/12), i.e. still fully planted, never
+lifts. Leg0 partially recovers (duty 0.1->0.45-0.6) but that alone
+can't clear six-leg validity while leg5 still fails every episode.
+Where episodes now survive (the charge trades the baseline's 24/24
+over_current terminations for 9/24), `slip_per_m` is WORSE, not
+better (`walk/det` 17.02 vs baseline 10.68) — survival comes from a
+static near-zero-progress stall (prog med 0.05), not from walking.
+`ep_rew_mean` quarters `[101.4, 161.0, 196.9, 95.4]` peak then decline
+late, matching this track's already-diagnosed drift-into-high-slip
+fingerprint.
+
+**Read**: the same charge that CANARY PASSed 3/3 on walkcurr's
+different task diet (no residual-fade schedule / BC-anchor
+interaction) does NOT generalize to assistfade rung3 as composed here
+— it neither resolves the chronic single-leg-sacrifice pathology it
+was designed to price nor improves net gait validity; it swaps one
+failure mode (over-current termination) for another (planted-leg
+static stall with higher slip). 1/2 seeds now FAIL-MECHANISM; `s0`
+twin's own eval is still running on its pod (`hexapod-mjx-train-0`,
+verified in-progress this cycle, not re-launched/duplicated) — read
+it before drawing a track-level conclusion on this composition. If
+`s0` also fails, the design lead narrows to "the mechanism needs a
+materially different dose/target or a genuinely different lever" for
+this track, not a relaunch of this exact recipe. Evidence:
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_s1_gate/report.json`
+vs `..._residualfade_s1_nostdanneal_gate/report.json`; `logs/
+experiments/cw-assistfade-rung3-legdutyratio-s1/wandb_history.csv`.
+W&B `d9bpmm0s`. RL_LOG 09-08 02:38.
+
+--- prior entry below ---
+
 ## 09-08 ~02:2x (refill cycle; 9-11 GPU pods free, backlog empty, no completion assigned) — reopened the track with its own named design lead: `reward.walk_leg_duty_ratio_charge` (bank-proved + 3/3 fresh-init CANARY PASS on walkcurr/easy0905) launched for the first time on real mesh/100Hz rung 3
 
 Full board check found the walkcurr `crutchoff-s{0,1}-widen8-legdutyratio-

@@ -1,3 +1,44 @@
+## 2026-09-08 ~02:35 (triage cycle; assigned `crutchoff-s1-widen8-legdutyratio-offctrl10m`) — matched charge-off control lands: CLOSES the s1/RNG3 continued-charge study, NO demonstrated efficacy for `walk_leg_duty_ratio_charge` past the shared 2M exposure
+
+`offctrl10m` (same corrected 2M s1 source, RNG3, only
+`walk_leg_duty_ratio_charge` 150->0) landed its own 24-episode
+det+sto walk/startjitter gate: `gait_valid` 21/24 (det 5/6, sto 6/6,
+sj/det 6/6, sj/sto 4/6), 0 falls/terminations — the EXACT SAME 3
+failing episodes/chronic legs as the pre-continuation 2M source
+(det/0 leg5, sj/sto ep2 leg5, sj/sto ep3 leg0): flat retention, no
+new chronic sacrifice, no regression from withdrawing the charge.
+
+Comparative read against the matched charge-on sibling
+(`guardfix-acq10m`, same source/RNG3/panel, only the charge differs):
+ON is `gait_valid` 22/24 (+1, exactly the det/0 episode that stays
+failed here) but that is not a clean win. Mean `slip_per_m` is HIGHER
+for ON in **all 4** groups (nominal-det 11.34 vs 10.02, nominal-sto
+7.60 vs 6.89, jitter-det 9.04 vs 8.65, jitter-sto 12.79 vs 12.18) and
+mean `progress_ratio` is LOWER for ON in 3/4 groups (nominal-sto 1.159
+vs 1.248, jitter-det 1.064 vs 1.099, jitter-sto 0.691 vs 0.725; only
+nominal-det ticks up marginally, 0.898 vs 0.888). The pre-registered
+gate credits the continued-charge hypothesis "only if on beats off ...
+without command/slip regression" — ON fails that bar (broad slip
+regression, mixed progress for a single gait-valid flag). **Verdict:
+CANARY PASS (matched-control, health scope) but NO demonstrated
+efficacy for continuing the charge past 2M at this 10M depth** — the
+21->22 flip reads as noise, not a charge-causal recovery.
+
+**Net for this pair**: the s1/RNG3 continued-charge-vs-withdrawal
+study is CLOSED with a negative efficacy result. No further budget
+funded from this arm. The independent s0/RNG2 pair (`on10m`/
+`offctrl10m`, root-registered per fb_20260908T021004/021655) is the
+cross-lineage replication check — both FINISHED training but neither
+has synced gate artifacts yet (no `logs/ckpt_eval/..._s0_widen8_
+legdutyratio_*` dirs as of this cycle); next reader picks those up
+once the watcher stages them, not a fresh launch. Evidence:
+`logs/ckpt_eval/cw_walkscratch_crutchoff_s1_widen8_legdutyratio_
+offctrl10m_gate/report.json` vs `..._guardfix_acq10m_gate/report.json`
+vs `..._legdutyratiofresh_guardfix1_gate/report.json` (2M source).
+W&B `0gfv9tv8`. RL_LOG 09-08 02:35.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~01:57 (triage cycle; assigned `crutchoff-s1-widen8-legdutyratio-guardfix-acq10m`) — the +10M charge-on acquisition CANARY PASSes its own retention/duration gate; matched charge-off control (`offctrl10m`) evaluating, causal efficacy at 10M depth still pending
 
 `s1-widen8-acq1-legdutyratio-guardfix-acq10m` (charge=150 from the

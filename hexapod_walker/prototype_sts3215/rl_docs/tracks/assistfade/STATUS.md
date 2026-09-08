@@ -1,5 +1,63 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 09-08 ~03:5x (refill cycle, no completion assigned; found this orphaned FINISHED canary unclaimed) — `s0` twin lands the OPPOSITE result from `s1`: UNVERDICTED, DIG-IN flagged — fork-deciding for whether `walk_leg_duty_ratio_charge` has ANY niche on assistfade rung3
+
+`cw-assistfade-rung3-legdutyratio-s0` finished training + gate-evaled
+with nobody claiming it (not "another cycle's" per ledger/RL_LOG — the
+`s1` verdict above never mentions `s0` being owned, and no STATUS/
+RL_LOG entry names it). Telemetry confirms the charge engages for
+real (`env/walk_leg_duty_ratio_shortfall` nonzero early, ~0.0006-0.001,
+decaying to 0.0 by the back half of the 2M budget — i.e. the policy
+learns to satisfy the duty floor rather than the charge going inert
+the way the activation-guard bug did), so this is not
+FAIL-INFRASTRUCTURE.
+
+**Held-out panel vs the matched `bare-rung3-residualfade-s0-
+nostdanneal` baseline** (same comparison convention `s1`'s verdict
+used): baseline `gait_valid` totals **7/24** (walk/det 0/6, all 6 eps
+chronic-sacrifice legs [0,3] + `TERM over_current`; walk/sto 3/6;
+sj/det 2/6; sj/sto 2/6). `s0` (dosed) totals **15/24** — walk/det
+**6/6** (sac `[]` every episode, duty `[0.99,0.91,0.61,0.62,0.94,
+0.63]`, no leg below 0.6 — the baseline's chronic [0,3] planted-leg
+sacrifice is GONE), walk/sto **6/6** (sac `[]` every episode, all legs
+>=0.61), sj/det 2/6 (unchanged), sj/sto 1/6 (slightly worse, small
+sample). This is the mirror image of `s1`'s result: `s1`'s dominant
+chronic leg (leg5, duty 1.0/swing 0 in 12/12 det+sto episodes) stayed
+completely unrepaired and gait_valid REGRESSED (5/24->2/24); `s0`'s
+chronic legs (0,3) are fully resolved in the same two modes and
+gait_valid MORE THAN DOUBLES (7/24->15/24). Cost: `slip_per_m` is
+higher for the dosed run in det/sto (12.67/16.71 vs baseline's
+5.90/10.12 in the modes baseline could even measure it — but
+baseline's low-slip det numbers come from a 2-leg-sacrifice
+static-drag gait, not a clean one) and raw `forward_dist_m`/`progress`
+stay far under the 0.35 ignition bar either way (this is a 2M
+MECHANISM-HEALTH canary, not an ignition claim per its own
+pre-registered gate).
+
+**Why this is DIG-IN, not a snap PASS or FAIL**: the two seeds of the
+identical recipe (same charge, same dose, same byte-identical
+baseline recipe otherwise) produce opposite verdicts on the primary
+question ("does the charge repair the chronic sacrifice") — `s0`
+clearly YES in walk/det+sto, `s1` clearly NO. This is fork-deciding
+for whether `walk_leg_duty_ratio_charge` has ANY real niche on this
+track (matches the exact ambiguous-disagreement shape the walkcurr
+`widenbis180-legdutyfresh` dig-in already used this pattern for) and
+needs video review (`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_
+s0_gate/{contact_sheet.png,walk_*.mp4}`) plus a root-cause read (is
+`s0`'s chronic-leg identity/severity just an easier starting exploit
+for this charge shape to fix, or is `s1`'s leg5 pattern — duty
+pinned at the ceiling 1.0 rather than a floor violation — a
+qualitatively different pathology the charge structurally cannot
+touch?) before either (a) funding a 3rd seed / longer acquisition on
+this composition, or (b) closing it 1/2-with-caveat the way `s1`'s
+own note left open. Left UNVERDICTED. Evidence: `logs/ckpt_eval/
+cw_assistfade_rung3_legdutyratio_s0_gate/report.json` vs `..._
+residualfade_s0_nostdanneal_gate/report.json`; `logs/experiments/
+cw-assistfade-rung3-legdutyratio-s0/wandb_history.csv`. W&B
+`fhzonqmd`.
+
+--- prior entry below ---
+
 ## 09-08 ~02:35 (triage cycle; assigned a different track's completion, picked up this orphaned FINISHED canary with a ready gate) — first `walk_leg_duty_ratio_charge` read on rung3: `s1` CANARY FAIL - MECHANISM, the composition does NOT transfer from walkcurr
 
 `cw-assistfade-rung3-legdutyratio-s1` (launched ~02:2x this same

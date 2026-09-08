@@ -1,5 +1,47 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 2026-09-08 ~13:5x (refill; concurrent with the s1 close above) — built a target-calibration diagnostic (cross-track with walkcurr) and launched a corrected-target retry before fully abandoning the lever
+
+One plain sentence: before treating "2/2 FAIL-MECHANISM at
+target=1.5" as the mechanism's final word, checked whether 1.5 was
+ever a plausible number for this lineage's own physics using real
+data instead of another guess -- it wasn't.
+
+**Built** `rl_move/sim/calibrate_loadslip_target.py` (full description
+in the walkcurr STATUS entry this cycle; zero-training, reads the
+existing default-off `goal.walk_contact_diagnostics=1` telemetry
+through the mechanism's own pure ratio functions, touches no reward/
+env code). Read on this rung3 lineage's own `legdutyratio-s0` bare-
+duty checkpoint (blend=1.0 post-anneal, matching its trained end
+state): only 2/6 episodes registered walk ticks on this residual-
+gated recipe (noisier corpus, n=2000 ticks) but the worst-leg
+peer-ratio came back **p10=1.0, p25=1.20, p50=1.40, p75=1.79,
+p90=5.60, p95=8.09** -- the assumed `target=1.5` sits at roughly this
+population's own p25-p50, not a tail threshold, so the charge fires
+on the *majority* of ticks for a normal-ish gait rather than
+singling out a genuinely bad leg. Same direction and similar
+magnitude as the walkcurr crutchoff read (p10=1.47/p50=2.19/p90=6.57),
+despite a completely different lineage (mesh/residual-fade vs
+mesh_mjx/from-scratch) -- some evidence this is a property of the
+QUANTITY (peer-relative tangential slip while loaded), not a
+lineage-specific artifact.
+
+**Launched** `cw-assistfade-rung3-legdutyratio-loadslip-s0-target6`
+(train-0, VERIFIED RUNNING): single-lever respec of the closed
+loadslip-s0 sibling, `target=1.5->6.0` (~p90) only, `charge=150`
+unchanged. **Read this one with the s1 finding directly above in
+hand**: `gait_valid` alone is not sufficient evidence of repair on
+this lineage -- s1 showed a load-slip charge can flip `gait_valid`
+True while the robot settles into a near-static crouch (net progress
+NEGATIVE). This target6 canary's own gate must check displacement/
+progress alongside gait_valid and duty/slip, not gait_valid alone,
+before reading any apparent improvement as real walking.
+
+Evidence: `rl_move/sim/calibrate_loadslip_target.py`;
+`artifacts/loadslip_calibration_assistfade_rung3_s0_20260908.json`;
+`ops.sh review cw-assistfade-rung3-legdutyratio-loadslip-s0-target6`.
+RL_LOG 09-08 ~13:5x.
+
 ## 2026-09-08 ~13:4x (triage) rung3-legdutyratio-loadslip-s1 -> CANARY FAIL - MECHANISM, closes the lever 2/2 on rung3
 
 One plain sentence: the second seed of the load-slip charge fails the

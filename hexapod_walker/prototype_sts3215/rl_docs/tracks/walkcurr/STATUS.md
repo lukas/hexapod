@@ -143,6 +143,62 @@ wandb_history.csv`. W&B `c53162rm`/`2ypexwbn`. RL_LOG 09-08 ~13:3x-13:4x.
 
 --- prior entry below ---
 
+## 2026-09-08 ~13:5x (refill, same triage cycle) — built a target-calibration diagnostic and launched a corrected-target retry instead of closing the load-slip lever on a guessed number
+
+One plain sentence: the n=3 load-slip-charge batch (closed 0/3 just
+above, all three seeds showing a "saturated excess, no repair
+gradient" shape) named its own likely cause -- `target=1.5` may be
+below what ANY gait on this lineage achieves -- so before treating
+that as a dead end, built the tool to check it against real data
+instead of guessing again.
+
+**Built** `rl_move/sim/calibrate_loadslip_target.py`: a zero-training,
+read-only diagnostic that loads an already-trained checkpoint, replays
+its own deterministic walk rollouts with `goal.walk_contact_
+diagnostics=1` (existing, default-off, ZERO effect on reward/action --
+the per-foot tangential-velocity telemetry the mechanism itself would
+read, just not wired to any charge), and computes the SAME peer-
+excluded-median ratio the charge uses (`walk_legslip_ratio_tick`/
+`_charge`, imported verbatim, no reimplementation). No reward.*/dr.*
+cfg is replayed (irrelevant to a frozen policy's actions; skipped to
+match the gate suite's own DR-0 read).
+
+**Result on the ALREADY-PASSED `...-legdutyratiofresh-guardfix1-s0`
+champion** (6 episodes, 7110 walk ticks): worst-leg peer-ratio
+**p10=1.47, p25=1.73, p50=2.19, p75=2.76, p90=6.57, p95=12.83**. The
+assumed `target=1.5` sits almost exactly at this population's own
+**p10** -- the closed batch's own duty-ratio charge picked its target
+(0.30) at the passing population's p10 too, but duty-ratio's bad
+direction is LOW (shortfall-below-target), so p10 is correctly a rare
+tail there. Load-slip's bad direction is HIGH (excess-above-target):
+calibrating at p10 means the charge fires on **~90% of ticks for an
+already-good gait**, exactly the "excess stuck 0.86-1.04 the whole
+run" saturation the closed batch measured. The correct analogous
+calibration point for an excess-is-bad charge is the population's own
+UPPER tail (~p90), not p10. (Same tool cross-checked on assistfade's
+own rung3 `legdutyratio-s0` checkpoint, noisier n=2000/2-of-6
+episodes but the same direction: p10=1.0/p50=1.40/p90=5.60 -- full
+numbers/artifacts in the assistfade STATUS entry.)
+
+**Launched** `cw-walkscratch-crutchoff-s0-widen8-legdutyratio-loadslip-
+target6` (train-2, VERIFIED RUNNING): single-lever respec of the
+just-closed loadslip-s0 sibling, `target=1.5->6.0` only (~p90),
+`charge=150` unchanged. Gate: telemetry NOT saturated near a fixed
+ceiling this time (the specific failure signature this fixes) + zero
+new falls + the same >=3/4-groups read, reported as one more seed's
+data point, not an automatic reopening of the closed 0/3 majority
+unless this lever changes the picture.
+
+Refill: all pods free, backlog empty; no other track-topmost item
+uniquely mine beyond this. CYCLE_WORKED touched (new tool, bank-clean
+by construction -- it changes no reward/env code path, only reads an
+existing default-off diagnostic -- 2 real launches).
+
+Evidence: `rl_move/sim/calibrate_loadslip_target.py`;
+`artifacts/loadslip_calibration_guardfix1_s0_20260908.json`;
+`ops.sh review cw-walkscratch-crutchoff-s0-widen8-legdutyratio-
+loadslip-target6`. RL_LOG 09-08 ~13:5x.
+
 ## 2026-09-08 ~13:3x (triage) crutchoff-s0-widen8-legdutyratio-loadslip -> CANARY PASS, short of the CONTINUE bar (2/4 groups)
 
 One plain sentence: the first of the n=3 load-slip-charge canary seeds

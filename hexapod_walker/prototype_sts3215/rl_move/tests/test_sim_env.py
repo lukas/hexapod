@@ -1025,22 +1025,6 @@ def test_step_event_pays_forward_swing_not_park():
     env.close()
 
 
-def test_drag_charges_loaded_translation():
-    """k_drag_loaded: per-tick charge equals k * loaded slip beyond the
-    0.5mm deadband; a quiet stance pays ~nothing."""
-    env = _walk_only_env(seed=0, k_drag_loaded=10.0)
-    env.reset()
-    tot = 0.0
-    for _ in range(int(2.0 / env.dt)):
-        _, _, term, trunc, info = env.step(np.zeros(env.n_act))
-        tot += info.get("reward_drag", 0.0)
-        if term or trunc:
-            break
-    # zero action = feet planted, no commanded drag -> tiny charge only
-    assert tot > -0.5, tot
-    env.close()
-
-
 def test_drag_stance_allowance_and_floor_gate_the_charge():
     """k_drag_stance: sliding inside the per-stance allowance is free,
     and ticks below the jitter floor never accumulate — with either

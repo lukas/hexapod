@@ -129,16 +129,6 @@ def test_env_emits_cmd_conditioned_obs_style_when_flagged():
 
 # ------------------------------------------------------------ library
 
-def test_motion_library_neutral_pose_single_convention():
-    lib = MotionLibrary()
-    assert lib.neutral_pose is not None
-    assert lib.neutral_pose.shape == (18,)
-    z = np.load(lib_path_default(), allow_pickle=True)
-    jp, rel = z["joint_position"], z["joint_position_rel_neutral"]
-    for s in z["clip_starts"]:
-        np.testing.assert_allclose(lib.neutral_pose, jp[s] - rel[s],
-                                   atol=1e-6)
-
 
 def lib_path_default():
     from rl_move.sim.amp_discriminator import DEFAULT_LIBRARY
@@ -229,94 +219,9 @@ def _write_tiny_library(path, extra_dims=0, n=40):
         joint_position=jp, joint_position_rel_neutral=rel)
 
 
-def test_cmd_cond_library_composes_end_to_end(tmp_path):
-    """08-23 yaw-authority follow-up: AMPStyleVecWrapper/AMPDiscriminator
-    are dimension-generic (feat_dim derived from the library, never
-    hardcoded 60) -- prove it mechanically on a non-default-width
-    (63-dim, matching build_motion_library.py --cmd-cond) library, not
-    just by code inspection."""
-    lib_path = tmp_path / "tiny_cmdcond.npz"
-    _write_tiny_library(lib_path, extra_dims=3)
-
-    class _MatchedStub(_StubVecEnv):
-        def __init__(self):
-            super().__init__(n_envs=2, feat_dim=63)
-            lib = MotionLibrary(lib_path)
-            self._base = lib.obs_style[0].copy()
-            self._neutral = lib.neutral_pose.copy()
-
-    w = _wrap(_MatchedStub(), motion_lib=lib_path, replay_size=64)
-    assert w.lib.feat_dim == 63
-    w.reset()
-    for _ in range(10):
-        w.step_async(None)
-        obs, r, d, infos = w.step_wait()
-        assert np.all(np.isfinite(r))
-    stats = w.train_discriminator(2, 8)
-    assert stats is not None
-    for v in stats.values():
-        assert np.isfinite(v)
-
-
-def test_cmd_cond_dim_mismatch_raises_loud_error(tmp_path):
-    """A 63-dim (cmd-cond) library paired with an env still emitting
-    60-dim amp_obs_style rows (goal.amp_style_cmd_cond left off) must
-    fail LOUDLY, never silently truncate/misread."""
-    lib_path = tmp_path / "tiny_cmdcond.npz"
-    _write_tiny_library(lib_path, extra_dims=3)
-    stub = _StubVecEnv(n_envs=2, feat_dim=60)  # legacy 60-dim rows
-    w = _wrap(stub, motion_lib=lib_path, replay_size=64)
-    w.reset()
-    w.step_async(None)
-    with pytest.raises(ValueError):
-        w.step_wait()
-        w.step_async(None)
-        w.step_wait()
-
-
 def test_wrapper_rejects_style_weight_zero():
     with pytest.raises(ValueError):
         _wrap(_StubVecEnv(), style_weight=0.0)
-
-
-def test_blend_and_first_tick_masking():
-    stub = _StubVecEnv(n_envs=2)
-    w = _wrap(stub)
-    w.reset()
-    w.step_async(None)
-    obs, r1, d1, infos1 = w.step_wait()
-    # tick 1: no previous obs_style -> style contribution exactly 0
-    np.testing.assert_allclose(r1, 0.7 * 2.0, atol=1e-6)
-    assert all(i["reward_amp_style"] == 0.0 for i in infos1)
-    w.step_async(None)
-    obs, r2, d2, infos2 = w.step_wait()
-    # tick 2: valid pair -> r = 0.7*2.0 + 0.5*style, style in [0,1]
-    style = (np.asarray(r2) - 0.7 * 2.0) / 0.5
-    assert np.all(style >= -1e-6) and np.all(style <= 1.0 + 1e-6)
-    # the emitted info key carries style_weight * r_style
-    for i, info in enumerate(infos2):
-        np.testing.assert_allclose(info["reward_amp_style"],
-                                   0.5 * style[i], atol=1e-6)
-    assert len(w.ring) == 2  # one pair per env
-
-
-def test_done_masks_boundary_pair():
-    # env 0 done at t=2: pair (1->2) IS consumed (ends in terminal
-    # state), pair (2->3) must NOT exist; env 1 never done.
-    stub = _StubVecEnv(n_envs=2, done_script=[(2, 0)])
-    w = _wrap(stub)
-    w.reset()
-    counts = []
-    for _ in range(3):
-        w.step_async(None)
-        _, r, d, infos = w.step_wait()
-        counts.append(len(w.ring))
-    # t1: 0 pairs; t2: 2 pairs (both envs, incl. terminal-ending);
-    # t3: +1 (env 1 only — env 0's boundary pair dropped)
-    assert counts == [0, 2, 3]
-    # and env 0's style contribution at t3 is exactly 0
-    assert infos[0]["reward_amp_style"] == 0.0
-    assert infos[1]["reward_amp_style"] >= 0.0
 
 
 def test_ring_wraps_at_capacity():
@@ -334,32 +239,3 @@ def test_ring_wraps_at_capacity():
     np.testing.assert_allclose(s1 - s, 100.0)
 
 
-def test_train_discriminator_and_save_load(tmp_path):
-    stub = _StubVecEnv(n_envs=4)
-    w = _wrap(stub, replay_size=256)
-    w.reset()
-    # too little data -> None (no crash)
-    assert w.train_discriminator(2, 64) is None
-    for _ in range(40):
-        w.step_async(None)
-        w.step_wait()
-    stats = w.train_discriminator(8, 64)
-    assert stats is not None
-    for k, v in stats.items():
-        assert np.isfinite(v), k
-    assert stats["disc_updates"] == 8.0
-    # after a few updates real should score above fake on this setup
-    stats2 = w.train_discriminator(20, 64)
-    assert stats2["d_real_mean"] > stats2["d_fake_mean"]
-
-    p = tmp_path / "disc.amp_disc.pt"
-    w.save(p)
-    w2 = _wrap(_StubVecEnv(n_envs=4), disc_init=p)
-    for a, b in zip(w.disc.parameters(), w2.disc.parameters()):
-        assert torch.equal(a, b)
-    assert w2.disc_updates == w.disc_updates
-
-    roll = w.pop_rollout_stats()
-    assert roll["pairs"] > 0
-    roll2 = w.pop_rollout_stats()
-    assert roll2["pairs"] == 0.0

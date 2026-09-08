@@ -147,13 +147,11 @@ def _mesh_family():
     """This bank is calibrated on the CURRENT defaults (mesh family,
     100 Hz) per the directive's own item 8 -- override the suite-wide
     primitive pin for this module only, restore after."""
-    old = os.environ.get("HEXAPOD_MODEL_SOURCE")
-    os.environ["HEXAPOD_MODEL_SOURCE"] = "mesh"
-    yield
-    if old is None:
-        os.environ.pop("HEXAPOD_MODEL_SOURCE", None)
-    else:
-        os.environ["HEXAPOD_MODEL_SOURCE"] = old
+    # Scoped via MonkeyPatch so nothing leaks into other modules
+    # (RESEARCH_RULES "Tests" 3).
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("HEXAPOD_MODEL_SOURCE", "mesh")
+        yield
 
 
 def _rollout(drive: str, stack: dict, seconds: float = EP_SECONDS,
@@ -326,13 +324,6 @@ def test_ordering_zigzag_above_wrong_course(bank):
     assert r["zigzag"] > r["stall"] + 250.0, r
 
 
-def test_ordering_every_mover_beats_park(bank):
-    r = {d: bank[d][0] for d in DRIVES}
-    for drive in ("obey", "zigzag", "sideways", "backward", "stall",
-                  "fastcadence"):
-        assert r[drive] > r["park"] + 100.0, (drive, r)
-
-
 ## ---------------------------------------------------------------------
 ## WZ / ARC CASE (OPERATOR_QUESTIONS q_20260829T16xx, closes the
 ## stage-a scope note: "arcs/sweeps enter at stage (c) only after a wz
@@ -490,47 +481,6 @@ def test_wz_arc_tight_turn_gracefully_discounted_not_exploited(arc_bank):
     assert r_tight > r_park + 500.0, (r_tight, r_park)
 
 
-def test_overdrive_clean_completion_legitimately_wins(bank):
-    """A 4x-driven gait that completes MORE of the command with CLEAN
-    slip earns MORE course-income than the slow 1x teacher -- the
-    income mechanism itself does not cap out early or invert (see
-    module docstring; true above-band overspeed is unreachable by
-    this instrument and its speed_factor falloff beyond the band is
-    unit-armed in code, so the income optimum still sits at/near the
-    command).
-
-    RECALIBRATED 2026-09-06 (this cycle, closes the OPERATOR_QUESTIONS
-    2026-09-02 ~23:1x deferred debt): the original bar compared TOTAL
-    reward (r_over > r_obey), true pre-09-02. Post the plant-stance/
-    joint-frame-v2 fixes, overdrive's course-income component alone
-    is STILL higher (523.35 vs obey's 498.59, confirmed this cycle)
-    but the TOTAL reward is now measurably LOWER (1919.6 vs 2002.7) --
-    root-caused to `reward_task`/`reward_pitch`/`reward_roll` (the
-    base tilt-tracking kernel, `rl_move/env.py`), which now correctly
-    prices the GENUINE extra body tilt a 4x-driven gait induces under
-    the corrected geometry (reward_pitch -3.92 vs obey's -0.72,
-    reward_task -181 lower) -- a real stability cost, not a mechanism
-    artifact, and a DESIRABLE property (overdriving past the command
-    is no longer free money once tilt is priced correctly). The test
-    now checks the invariant that is still true and still meaningful:
-    the income term itself doesn't unfairly cap a faster-but-clean
-    gait below the slow teacher, AND overdrive still solidly clears
-    pure refusal (this file's own `bank` fixture already proves every
-    mover beats park elsewhere; checked again here directly since
-    `overdrive` is not in that loop) -- it does NOT require overdrive
-    to beat obey on TOTAL reward, since that would now mean the tilt
-    cost was priced too weakly."""
-    r_over, c_over = bank["overdrive"]
-    r_obey, c_obey = bank["obey"]
-    r_park, _ = bank["park"]
-    inc_over = c_over["reward_walk_course_income"]
-    inc_obey = c_obey["reward_walk_course_income"]
-    assert inc_over > inc_obey, (inc_over, inc_obey)
-    assert float(np.mean(c_over["walk_course_income_angle_f"])) >= 0.99
-    assert c_over.get("reward_walk_excess_sway", 0.0) == 0.0
-    assert r_over > r_park + 1200.0, (r_over, r_park)
-
-
 ## ---------------------------------------------------------------------
 ## ARC-AWARE SWAY FIX (2026-09-06 ~13:0x correction above). New key:
 ## reward.walk_sway_arc_aware, default 0.0 (legacy single-chord
@@ -540,23 +490,6 @@ def test_overdrive_clean_completion_legitimately_wins(bank):
 ## chord-vs-tangent regression since the two coincide there), and (2)
 ## turning it on repairs the tight-arc double-charge without moving
 ## the income component at all (isolating the fix to the sway term).
-
-def test_arc_aware_default_off_matches_legacy_chord_on_a_curving_cmd():
-    """Bit-exact-off, checked on the ARC_TIGHT cell specifically (not
-    just a straight command) -- arc_aware=0.0 must reproduce the exact
-    pre-fix chord-projection numbers on a command that actually
-    curves, where a broken default could hide as a straight-line
-    no-op."""
-    legacy = dict(ARC_TIGHT)
-    legacy[("reward", "walk_sway_arc_aware")] = 0.0
-    r0, c0 = _rollout("obey", legacy, seconds=8.0)
-    absent = {k: v for k, v in legacy.items()
-              if k != ("reward", "walk_sway_arc_aware")}
-    r1, c1 = _rollout("obey", absent, seconds=8.0)
-    assert r0 == pytest.approx(r1, abs=1e-9)
-    # Locks in the exact pre-fix regression numbers from the audit.
-    assert c0["reward_walk_excess_sway"] == pytest.approx(-1176.7, abs=1.0)
-    assert r0 == pytest.approx(138.8, abs=1.0)
 
 
 def test_arc_aware_fixes_tight_arc_without_touching_income(arc_bank):

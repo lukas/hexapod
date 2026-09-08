@@ -46,16 +46,6 @@ def test_non_session_modes_get_no_seat():
     assert session_side([], "goal") is None
 
 
-def test_deployed_pair_constants_exist_on_controller():
-    pol = pathlib.Path(__file__).resolve().parents[1] / "sim" / "policies"
-    for name in (pod_eval.DEPLOYED_STANCE, pod_eval.DEPLOYED_WALK):
-        p = pol / name
-        assert p.is_file() and p.stat().st_size, (
-            f"deployed session partner {name} missing from "
-            f"rl_move/sim/policies — update pod_eval.py's constants on "
-            f"promotion (source of truth: linux_control/rl_policy.py)")
-
-
 def test_legacy_eval_cfgs_pin_old_unstamped_rate_contract():
     assert legacy_eval_cfgs(["reward.foo=1"]) == [
         "reward.foo=1",

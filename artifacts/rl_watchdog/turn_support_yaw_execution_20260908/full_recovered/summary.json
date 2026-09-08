@@ -1,0 +1,24 @@
+{
+  "status": "COMPLETE",
+  "decision": "STOP",
+  "sign_target_qualification": {
+    "0.15": {
+      "0": false,
+      "1": false
+    },
+    "-0.15": {
+      "0": false,
+      "1": false
+    }
+  },
+  "branch_slots": 48,
+  "executed_branches": 48,
+  "states": 16,
+  "available_states": 16,
+  "qualifying_states": 0,
+  "zero_parity": true,
+  "all_pulse_prefix_vector_parity": true,
+  "straight_parity": true,
+  "wall_seconds": 26.651867866516113,
+  "no_PPO": true
+}

@@ -1,0 +1,1201 @@
+{
+  "status": "COMPLETE",
+  "decision": "STOP",
+  "protocol_sha256": "93d328352ef4fe3dc5d323a86f22110ba7b2bb0aa49fd1b1744fe27964d20abc",
+  "fixed_state_matrix_verified": true,
+  "immutable_baselines_and_selections_verified": true,
+  "runner_hash_matches_execution": true,
+  "baseline_count": 8,
+  "branch_slots": 48,
+  "branch_count": 48,
+  "straight_rollouts": 8,
+  "available_states": 16,
+  "unavailable_states": 0,
+  "qualifying_states": 0,
+  "positive_gain_mrad": {
+    "min": -0.7464784485171072,
+    "max": 1.4662044326740342,
+    "mean": 0.3350704614104201,
+    "median": 0.39327858638615876
+  },
+  "negative_gain_mrad": {
+    "min": -5.579156149098235,
+    "max": 0.7852739351700833,
+    "mean": -1.4198037676743709,
+    "median": -0.6215404144511577
+  },
+  "odd_mrad": {
+    "min": -0.6421625221544047,
+    "max": 2.8051255313314147,
+    "mean": 0.8774371145423955,
+    "median": 0.6309905219774592
+  },
+  "even_mrad": {
+    "min": -2.806435229336726,
+    "max": 0.9099396612115562,
+    "mean": -0.5423666531319755,
+    "median": -0.44947031866995196
+  },
+  "positive_odd_count": 13,
+  "corrected_retention_count": 32,
+  "clipping_count": 0,
+  "maximum_requested_coordinate_dose": 0.05000000000000001,
+  "maximum_float32_applied_coordinate_dose": 0.05000000447034836,
+  "per_state_l1": {
+    "min": 0.14037026208275385,
+    "max": 0.150092433213228,
+    "mean": 0.14653561803700255,
+    "median": 0.1468591416384039
+  },
+  "per_state_l2": {
+    "min": 0.08064676863996126,
+    "max": 0.08602553822082856,
+    "mean": 0.08404924431104938,
+    "median": 0.08422440809144796
+  },
+  "forward_ratio": {
+    "min": 0.9873417813747049,
+    "max": 1.0337342180084965,
+    "mean": 1.0024207992762317,
+    "median": 1.0000503199764716
+  },
+  "loaded_slip_ratio": {
+    "min": 0.9706789596362598,
+    "max": 1.0194485038648446,
+    "mean": 0.9945407454497266,
+    "median": 0.9931857938007502
+  },
+  "roll_increase_deg": {
+    "min": -0.0658537041015399,
+    "max": 0.0704381170525421,
+    "mean": 0.0024277931791611106,
+    "median": 0.0028640698534718734
+  },
+  "pitch_increase_deg": {
+    "min": -0.06632490810847314,
+    "max": 0.07138149807517014,
+    "mean": -0.0013387373287369816,
+    "median": -0.0009503281270660802
+  },
+  "loaded_per_foot_seconds_min_by_leg": [
+    0.41799999999995396,
+    0.37999999999995815,
+    0.3939999999999566,
+    0.38799999999995727,
+    0.3839999999999577,
+    0.3339999999999632
+  ],
+  "loaded_per_foot_seconds_max_by_leg": [
+    0.554000000000106,
+    0.48999999999994603,
+    0.5020000000000939,
+    0.4919999999999458,
+    0.5579999999999385,
+    0.5380000000001068
+  ],
+  "support_mask_counts": {
+    "(0, 2, 4)": 8,
+    "(1, 3, 5)": 8
+  },
+  "private_observation_live_parity_count": 48,
+  "zero_parity_count": 16,
+  "pulse_prefix_vector_parity_count": 32,
+  "straight_fulltrace_endpoint_parity_count": 4,
+  "pulse_termination_count": 0,
+  "all_rollout_termination_count": 0,
+  "baseline_trace_files": 8,
+  "total_trace_files": 64,
+  "motor_current_trace_status": "UNAVAILABLE: frozen helper did not export current time series; no current-health inference or response rerun.",
+  "branch_retention": [
+    {
+      "id": "r1_ph0_w+0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.997044125882233,
+      "loaded_slip_ratio": 0.9894986372972314,
+      "roll_increase_deg": 0.02838409981375456,
+      "pitch_increase_deg": -0.00998405392977153,
+      "loaded_per_foot_seconds": [
+        0.42799999999999105,
+        0.48800000000009813,
+        0.4099999999999966,
+        0.486000000000093,
+        0.40799999999999237,
+        0.4780000000001028
+      ],
+      "loaded_material_per_foot_m": [
+        0.006394829465245913,
+        0.005689462195690389,
+        0.007165272744506391,
+        0.007937293324614358,
+        0.006467827224565703,
+        0.0069664992218376205
+      ]
+    },
+    {
+      "id": "r1_ph0_w+0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0009579422389765,
+      "loaded_slip_ratio": 0.9814673224553145,
+      "roll_increase_deg": -0.0011704521173011573,
+      "pitch_increase_deg": -0.04143337092119226,
+      "loaded_per_foot_seconds": [
+        0.42799999999999105,
+        0.48600000000009747,
+        0.4099999999999966,
+        0.4880000000000937,
+        0.40399999999999103,
+        0.48000000000010346
+      ],
+      "loaded_material_per_foot_m": [
+        0.0063672911197537605,
+        0.005357953925725577,
+        0.0071030159072464185,
+        0.007973666070402473,
+        0.006331600379301758,
+        0.0071579529148479626
+      ]
+    },
+    {
+      "id": "r1_ph0_w+0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0108409468026092,
+      "loaded_slip_ratio": 0.9842018549388784,
+      "roll_increase_deg": 0.009609735065569502,
+      "pitch_increase_deg": -0.029881783079824364,
+      "loaded_per_foot_seconds": [
+        0.4659999999999487,
+        0.4459999999999509,
+        0.44799999999995066,
+        0.43999999999995154,
+        0.4639999999999489,
+        0.4239999999999533
+      ],
+      "loaded_material_per_foot_m": [
+        0.006702388369764971,
+        0.005321830407212362,
+        0.008221441982868703,
+        0.006897249909994792,
+        0.007191981814952197,
+        0.006378048305440683
+      ]
+    },
+    {
+      "id": "r1_ph0_w+0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9873417813747049,
+      "loaded_slip_ratio": 0.9917825912416769,
+      "roll_increase_deg": -0.015573928195295128,
+      "pitch_increase_deg": -0.018732654838303997,
+      "loaded_per_foot_seconds": [
+        0.47999999999994714,
+        0.4439999999999511,
+        0.4519999999999502,
+        0.43799999999995176,
+        0.4659999999999487,
+        0.4219999999999535
+      ],
+      "loaded_material_per_foot_m": [
+        0.006779803260729223,
+        0.005075141466831571,
+        0.008290083519250606,
+        0.007226592422975419,
+        0.007499054719775711,
+        0.006155853580467258
+      ]
+    },
+    {
+      "id": "r1_ph0_w-0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0245370148295072,
+      "loaded_slip_ratio": 0.9899031420653643,
+      "roll_increase_deg": 0.04227582661144291,
+      "pitch_increase_deg": -0.03496953883514364,
+      "loaded_per_foot_seconds": [
+        0.4259999999999877,
+        0.4540000000001019,
+        0.4439999999999955,
+        0.4860000000000957,
+        0.38999999999999346,
+        0.5380000000001068
+      ],
+      "loaded_material_per_foot_m": [
+        0.006775507030099167,
+        0.006414827453557672,
+        0.009379437143228881,
+        0.006982418508333109,
+        0.006767893661729335,
+        0.007172013800379225
+      ]
+    },
+    {
+      "id": "r1_ph0_w-0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9927764942483999,
+      "loaded_slip_ratio": 0.9983709072531729,
+      "roll_increase_deg": -0.002208593456042518,
+      "pitch_increase_deg": 0.0005000667823538141,
+      "loaded_per_foot_seconds": [
+        0.4219999999999864,
+        0.45600000000010166,
+        0.44199999999999484,
+        0.48200000000009435,
+        0.39599999999999547,
+        0.5380000000001051
+      ],
+      "loaded_material_per_foot_m": [
+        0.006576048205559254,
+        0.007055719126614082,
+        0.009305349922323312,
+        0.006935594852932038,
+        0.0065455938331121285,
+        0.007445828934303468
+      ]
+    },
+    {
+      "id": "r1_ph0_w-0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0003743224663892,
+      "loaded_slip_ratio": 0.9923368044533204,
+      "roll_increase_deg": 0.0,
+      "pitch_increase_deg": 0.00881967471679701,
+      "loaded_per_foot_seconds": [
+        0.4759999999999476,
+        0.4039999999999555,
+        0.48799999999994625,
+        0.43799999999995176,
+        0.43999999999995154,
+        0.4839999999999467
+      ],
+      "loaded_material_per_foot_m": [
+        0.007095940932232191,
+        0.0063675100082929105,
+        0.010393047060801788,
+        0.006889360850920741,
+        0.006857433080737566,
+        0.007243102075516633
+      ]
+    },
+    {
+      "id": "r1_ph0_w-0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0037326612297763,
+      "loaded_slip_ratio": 0.9706789596362598,
+      "roll_increase_deg": 0.0,
+      "pitch_increase_deg": -0.025867845059008188,
+      "loaded_per_foot_seconds": [
+        0.46999999999994824,
+        0.4059999999999553,
+        0.4859999999999465,
+        0.4339999999999522,
+        0.435999999999952,
+        0.4859999999999465
+      ],
+      "loaded_material_per_foot_m": [
+        0.00704431935688499,
+        0.005802744321421214,
+        0.010363938984623471,
+        0.006578479861917374,
+        0.006754614973736611,
+        0.0073235197098619
+      ]
+    },
+    {
+      "id": "r1_ph1_w+0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9935921571361187,
+      "loaded_slip_ratio": 0.990579089149999,
+      "roll_increase_deg": 0.011390054252307102,
+      "pitch_increase_deg": -0.0029318279382746226,
+      "loaded_per_foot_seconds": [
+        0.4239999999999533,
+        0.48999999999994603,
+        0.3939999999999566,
+        0.4839999999999467,
+        0.4059999999999553,
+        0.471999999999948
+      ],
+      "loaded_material_per_foot_m": [
+        0.00705699560044132,
+        0.006681946958164756,
+        0.00696456380306409,
+        0.007041724699682037,
+        0.006404810642260025,
+        0.006288774124170968
+      ]
+    },
+    {
+      "id": "r1_ph1_w+0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9969656234275431,
+      "loaded_slip_ratio": 0.9793614583094616,
+      "roll_increase_deg": -0.02993047056368292,
+      "pitch_increase_deg": -0.004628561343209547,
+      "loaded_per_foot_seconds": [
+        0.4259999999999531,
+        0.48999999999994603,
+        0.3939999999999566,
+        0.4839999999999467,
+        0.4059999999999553,
+        0.471999999999948
+      ],
+      "loaded_material_per_foot_m": [
+        0.006935561157037115,
+        0.006221933912470732,
+        0.007005850659018767,
+        0.007428584168528534,
+        0.006291993345890502,
+        0.006096950647082939
+      ]
+    },
+    {
+      "id": "r1_ph1_w+0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0337342180084965,
+      "loaded_slip_ratio": 0.9811308311900848,
+      "roll_increase_deg": 0.026374077607856705,
+      "pitch_increase_deg": -0.003976557926134383,
+      "loaded_per_foot_seconds": [
+        0.4640000000000999,
+        0.43999999999999506,
+        0.4440000000000932,
+        0.43199999999999594,
+        0.46400000000009456,
+        0.4199999999999928
+      ],
+      "loaded_material_per_foot_m": [
+        0.0060132651136010325,
+        0.006324333585514841,
+        0.008314602068099386,
+        0.006474750544638435,
+        0.007126591347591181,
+        0.006049764258214856
+      ]
+    },
+    {
+      "id": "r1_ph1_w+0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0010199521677545,
+      "loaded_slip_ratio": 0.9897241503049994,
+      "roll_increase_deg": 0.010764362991456666,
+      "pitch_increase_deg": 0.01332884531604095,
+      "loaded_per_foot_seconds": [
+        0.4740000000000997,
+        0.44599999999999707,
+        0.44200000000009254,
+        0.4339999999999966,
+        0.4680000000000959,
+        0.4139999999999908
+      ],
+      "loaded_material_per_foot_m": [
+        0.006267522121707994,
+        0.006235051448899967,
+        0.008219578503424717,
+        0.006542890943158227,
+        0.0074287400423975174,
+        0.005962523852281758
+      ]
+    },
+    {
+      "id": "r1_ph1_w-0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0131846925952,
+      "loaded_slip_ratio": 0.9834332403393226,
+      "roll_increase_deg": -0.0263194047837636,
+      "pitch_increase_deg": -0.06422128767191859,
+      "loaded_per_foot_seconds": [
+        0.4219999999999535,
+        0.45799999999994956,
+        0.435999999999952,
+        0.48999999999994603,
+        0.3859999999999575,
+        0.5319999999999414
+      ],
+      "loaded_material_per_foot_m": [
+        0.006843506188400941,
+        0.006523736246836796,
+        0.008888795536056442,
+        0.007095312718974217,
+        0.006415227931105788,
+        0.0070450391896916785
+      ]
+    },
+    {
+      "id": "r1_ph1_w-0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9967303394500974,
+      "loaded_slip_ratio": 1.0058629812285313,
+      "roll_increase_deg": 0.004021991241998535,
+      "pitch_increase_deg": 0.00026612952626492437,
+      "loaded_per_foot_seconds": [
+        0.41799999999995396,
+        0.4619999999999491,
+        0.4339999999999522,
+        0.4919999999999458,
+        0.3839999999999577,
+        0.5379999999999407
+      ],
+      "loaded_material_per_foot_m": [
+        0.006619577553228332,
+        0.007104854991568005,
+        0.009101743410732947,
+        0.007390065655403591,
+        0.006337130853729202,
+        0.007234675118310541
+      ]
+    },
+    {
+      "id": "r1_ph1_w-0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9993280776691392,
+      "loaded_slip_ratio": 0.99403478314818,
+      "roll_increase_deg": -0.004034191385618113,
+      "pitch_increase_deg": 0.005262401464707578,
+      "loaded_per_foot_seconds": [
+        0.4580000000000979,
+        0.4159999999999897,
+        0.4900000000000997,
+        0.4339999999999966,
+        0.42200000000008675,
+        0.4960000000000031
+      ],
+      "loaded_material_per_foot_m": [
+        0.006689659093989575,
+        0.00647170876952732,
+        0.010644697735384989,
+        0.006591026138816489,
+        0.00730722520728883,
+        0.0064045853922871905
+      ]
+    },
+    {
+      "id": "r1_ph1_w-0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.999726317486554,
+      "loaded_slip_ratio": 1.0007216833760633,
+      "roll_increase_deg": 0.011675270798703119,
+      "pitch_increase_deg": -0.0013918573259521505,
+      "loaded_per_foot_seconds": [
+        0.4580000000000979,
+        0.4179999999999904,
+        0.4900000000000997,
+        0.4359999999999973,
+        0.42200000000008675,
+        0.5000000000000044
+      ],
+      "loaded_material_per_foot_m": [
+        0.006801357081783587,
+        0.006554532485294932,
+        0.010639677680957815,
+        0.006662756883856182,
+        0.007007452110915739,
+        0.006739847933692619
+      ]
+    },
+    {
+      "id": "r2_ph0_w+0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9907915352735218,
+      "loaded_slip_ratio": 1.0017619775449862,
+      "roll_increase_deg": -0.007299227460525692,
+      "pitch_increase_deg": 0.01866849507435342,
+      "loaded_per_foot_seconds": [
+        0.5120000000000058,
+        0.44400000000008966,
+        0.44000000000000217,
+        0.42800000000008254,
+        0.5100000000000096,
+        0.3820000000000858
+      ],
+      "loaded_material_per_foot_m": [
+        0.00865519451217102,
+        0.006262248489880969,
+        0.007249296884812509,
+        0.006326991581957531,
+        0.008714952245052263,
+        0.0050084173068215485
+      ]
+    },
+    {
+      "id": "r2_ph0_w+0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0026141699919322,
+      "loaded_slip_ratio": 0.9755334444666792,
+      "roll_increase_deg": -0.019012596109940105,
+      "pitch_increase_deg": -0.0005087989281800098,
+      "loaded_per_foot_seconds": [
+        0.5020000000000024,
+        0.44400000000008966,
+        0.44000000000000217,
+        0.42800000000008254,
+        0.5040000000000076,
+        0.3900000000000885
+      ],
+      "loaded_material_per_foot_m": [
+        0.008214869835203698,
+        0.0058698854632654165,
+        0.007165082682267713,
+        0.0065046669058845,
+        0.008777736031831337,
+        0.004579515064787084
+      ]
+    },
+    {
+      "id": "r2_ph0_w+0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0223195053866785,
+      "loaded_slip_ratio": 0.9922259941426962,
+      "roll_increase_deg": 0.010775087204524247,
+      "pitch_increase_deg": 0.026000485815120822,
+      "loaded_per_foot_seconds": [
+        0.5439999999999401,
+        0.4039999999999555,
+        0.4819999999999469,
+        0.38799999999995727,
+        0.5499999999999394,
+        0.335999999999963
+      ],
+      "loaded_material_per_foot_m": [
+        0.008565368939266555,
+        0.006245713184167537,
+        0.009074847569557376,
+        0.005845214409156165,
+        0.009115398288970625,
+        0.004768889352104188
+      ]
+    },
+    {
+      "id": "r2_ph0_w+0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9955477743031202,
+      "loaded_slip_ratio": 1.0194485038648446,
+      "roll_increase_deg": 0.031390156314746065,
+      "pitch_increase_deg": 0.02513246508411493,
+      "loaded_per_foot_seconds": [
+        0.5479999999999396,
+        0.39999999999995595,
+        0.48799999999994625,
+        0.38999999999995705,
+        0.5579999999999385,
+        0.3339999999999632
+      ],
+      "loaded_material_per_foot_m": [
+        0.008406194510115197,
+        0.00676226205216598,
+        0.009214751318931957,
+        0.006385257471710645,
+        0.009438584587777164,
+        0.004605005879772626
+      ]
+    },
+    {
+      "id": "r2_ph0_w-0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0087975406721017,
+      "loaded_slip_ratio": 0.9866568528631324,
+      "roll_increase_deg": -0.004590560788612308,
+      "pitch_increase_deg": -0.04828141720458046,
+      "loaded_per_foot_seconds": [
+        0.4839999999999973,
+        0.43200000000009364,
+        0.45000000000000195,
+        0.4500000000000881,
+        0.4460000000000024,
+        0.43800000000009387
+      ],
+      "loaded_material_per_foot_m": [
+        0.008698547149275773,
+        0.006542505407691429,
+        0.008163705700014848,
+        0.008176348359220556,
+        0.0070514077300757655,
+        0.00772186354868466
+      ]
+    },
+    {
+      "id": "r2_ph0_w-0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9946195342810576,
+      "loaded_slip_ratio": 1.0094192978466896,
+      "roll_increase_deg": 0.015529254558182881,
+      "pitch_increase_deg": 0.01782142489385663,
+      "loaded_per_foot_seconds": [
+        0.48799999999999866,
+        0.4300000000000921,
+        0.45000000000000195,
+        0.4540000000000868,
+        0.45000000000000373,
+        0.43200000000009187
+      ],
+      "loaded_material_per_foot_m": [
+        0.008943715246226551,
+        0.006685001868228821,
+        0.008752073511088426,
+        0.008221567406418594,
+        0.007330492017732604,
+        0.007490936093454088
+      ]
+    },
+    {
+      "id": "r2_ph0_w-0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9875696410748698,
+      "loaded_slip_ratio": 0.99019141530085,
+      "roll_increase_deg": 0.006761059224464461,
+      "pitch_increase_deg": -0.06632490810847314,
+      "loaded_per_foot_seconds": [
+        0.535999999999941,
+        0.38199999999995793,
+        0.48799999999994625,
+        0.39999999999995595,
+        0.5059999999999443,
+        0.38799999999995727
+      ],
+      "loaded_material_per_foot_m": [
+        0.009313306910374448,
+        0.005889325811500352,
+        0.009241962930683668,
+        0.007308439681159731,
+        0.007974810044074465,
+        0.006615761965384857
+      ]
+    },
+    {
+      "id": "r2_ph0_w-0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9942543890705774,
+      "loaded_slip_ratio": 1.0028335153836756,
+      "roll_increase_deg": 0.0017061484649452119,
+      "pitch_increase_deg": -0.0173252435363751,
+      "loaded_per_foot_seconds": [
+        0.5319999999999414,
+        0.37999999999995815,
+        0.4939999999999456,
+        0.40799999999995507,
+        0.5019999999999447,
+        0.3859999999999575
+      ],
+      "loaded_material_per_foot_m": [
+        0.009267960908820335,
+        0.0060887485910637055,
+        0.00957775646268851,
+        0.007606599599873349,
+        0.007828467599373706,
+        0.006565758287257386
+      ]
+    },
+    {
+      "id": "r2_ph1_w+0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9980225214869706,
+      "loaded_slip_ratio": 1.000823151268201,
+      "roll_increase_deg": -0.006121226807636937,
+      "pitch_increase_deg": 0.012828491800691566,
+      "loaded_per_foot_seconds": [
+        0.49999999999994493,
+        0.44999999999995044,
+        0.4339999999999522,
+        0.435999999999952,
+        0.49999999999994493,
+        0.3859999999999575
+      ],
+      "loaded_material_per_foot_m": [
+        0.0087660218100647,
+        0.006119800766266274,
+        0.007171984700255558,
+        0.006529401133298755,
+        0.00878327343901535,
+        0.004965135236296274
+      ]
+    },
+    {
+      "id": "r2_ph1_w+0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0088354365333019,
+      "loaded_slip_ratio": 1.0021921816060066,
+      "roll_increase_deg": -0.016708023383472437,
+      "pitch_increase_deg": -0.0018034265877009403,
+      "loaded_per_foot_seconds": [
+        0.49999999999994493,
+        0.44999999999995044,
+        0.4339999999999522,
+        0.435999999999952,
+        0.49999999999994493,
+        0.3859999999999575
+      ],
+      "loaded_material_per_foot_m": [
+        0.008849872955690157,
+        0.0060431849246561295,
+        0.0072229368149115845,
+        0.006553701218068255,
+        0.008942568955118349,
+        0.004781263291337298
+      ]
+    },
+    {
+      "id": "r2_ph1_w+0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0054991276032343,
+      "loaded_slip_ratio": 0.9975154866492504,
+      "roll_increase_deg": 0.0704381170525421,
+      "pitch_increase_deg": 0.016954227824094392,
+      "loaded_per_foot_seconds": [
+        0.554000000000106,
+        0.4100000000000028,
+        0.4760000000000879,
+        0.3940000000000037,
+        0.5500000000000993,
+        0.3359999999999861
+      ],
+      "loaded_material_per_foot_m": [
+        0.008581369815527479,
+        0.005438534845847925,
+        0.008502014283412553,
+        0.005833941730293806,
+        0.009545679186842924,
+        0.0042689181429665145
+      ]
+    },
+    {
+      "id": "r2_ph1_w+0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0027283743527882,
+      "loaded_slip_ratio": 0.9995006837550823,
+      "roll_increase_deg": 0.03445992529711894,
+      "pitch_increase_deg": -0.015150211791949975,
+      "loaded_per_foot_seconds": [
+        0.5520000000001062,
+        0.40800000000000214,
+        0.47400000000008724,
+        0.3940000000000037,
+        0.5440000000000982,
+        0.33799999999998676
+      ],
+      "loaded_material_per_foot_m": [
+        0.008407935970766741,
+        0.005549367790275416,
+        0.008698694890103489,
+        0.00587757160822643,
+        0.009296817588154243,
+        0.004423995341788966
+      ]
+    },
+    {
+      "id": "r2_ph1_w-0.15_t0_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.022269444618216,
+      "loaded_slip_ratio": 0.9979915040563555,
+      "roll_increase_deg": -0.05527715835352209,
+      "pitch_increase_deg": 0.07138149807517014,
+      "loaded_per_foot_seconds": [
+        0.46999999999994824,
+        0.42799999999995286,
+        0.45399999999995,
+        0.4459999999999509,
+        0.4559999999999498,
+        0.4319999999999524
+      ],
+      "loaded_material_per_foot_m": [
+        0.008136739001822527,
+        0.006465596355121507,
+        0.007838724472557996,
+        0.008078300696818582,
+        0.0071222266175287275,
+        0.007331713401702286
+      ]
+    },
+    {
+      "id": "r2_ph1_w-0.15_t0_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 1.0035565866773737,
+      "loaded_slip_ratio": 1.0020902656301054,
+      "roll_increase_deg": -0.0658537041015399,
+      "pitch_increase_deg": 0.001982029376610406,
+      "loaded_per_foot_seconds": [
+        0.46999999999994824,
+        0.42799999999995286,
+        0.45399999999995,
+        0.45399999999995,
+        0.4619999999999491,
+        0.4319999999999524
+      ],
+      "loaded_material_per_foot_m": [
+        0.007997854486190979,
+        0.006623526356078972,
+        0.007970836712958914,
+        0.008440644258482252,
+        0.006785224812264619,
+        0.007339919736580924
+      ]
+    },
+    {
+      "id": "r2_ph1_w-0.15_t1_negative",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.9921864893959667,
+      "loaded_slip_ratio": 1.0148119504899773,
+      "roll_increase_deg": 0.010762649028354776,
+      "pitch_increase_deg": 0.06595313505557998,
+      "loaded_per_foot_seconds": [
+        0.5200000000001079,
+        0.381999999999989,
+        0.5000000000000941,
+        0.4080000000000048,
+        0.5080000000000924,
+        0.3899999999999899
+      ],
+      "loaded_material_per_foot_m": [
+        0.009252796572898512,
+        0.006112936747012889,
+        0.009360352616101807,
+        0.0074425525997171725,
+        0.0075237981872080945,
+        0.0068212284794126185
+      ]
+    },
+    {
+      "id": "r2_ph1_w-0.15_t1_positive",
+      "checks": {
+        "full_window": true,
+        "positive_baseline_forward": true,
+        "forward": true,
+        "slip": true,
+        "roll": true,
+        "pitch": true,
+        "all_walking": true,
+        "no_termination": true
+      },
+      "retention": true,
+      "forward_ratio": 0.995966839104206,
+      "loaded_slip_ratio": 1.0092191931348589,
+      "roll_increase_deg": 0.005471103712140657,
+      "pitch_increase_deg": 0.059674379700652924,
+      "loaded_per_foot_seconds": [
+        0.5200000000001079,
+        0.381999999999989,
+        0.5020000000000939,
+        0.4080000000000048,
+        0.5060000000000926,
+        0.3899999999999899
+      ],
+      "loaded_material_per_foot_m": [
+        0.009471530778067672,
+        0.0057293067762869115,
+        0.009386578342646498,
+        0.007503257618719961,
+        0.007604650279513703,
+        0.006561998699436992
+      ]
+    }
+  ],
+  "no_response_fit": true,
+  "no_PPO": true
+}

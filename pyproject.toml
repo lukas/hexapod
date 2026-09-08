@@ -71,6 +71,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-xdist>=3.6",      # `uv run pytest -n auto` parallel runs
 ]
 # MJX / JAX physics backend (rl_move.sim.mjx_backend, bench_mjx, MJX parity
 # tests). CPU JAX here; CUDA pods install jax[cuda12] + mujoco-warp themselves.

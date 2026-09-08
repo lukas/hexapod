@@ -1,3 +1,70 @@
+## 2026-09-08 ~10:5x (operator-kick cycle, focus note + fb_20260908T102625_4b9148) — built the missing staged-DR mechanism, mechanism canary PASS, launched the pre-registered staged-vs-control 40M fresh-acquisition pair
+
+One plain sentence: the reason no prior knob could test "gradual DR
+exposure enables fresh acquisition" is a wiring fact — the easy0905
+fresh-init recipes carry their entire DR matrix as ABSOLUTE
+`--cfg-set dr.*` overrides (applied AFTER `--dr-scale` scaling,
+`sim_env.__init__`; the walkcurr bucket ladder re-applies the same
+absolute overrides per bucket), so every failed fresh-init arm
+(widen8 seed40/41, torqueretain pair, narrowhead) trained at the FULL
+DR matrix from step 0 with no possible ramp — this cycle built the
+smallest mechanism that can ramp them and launched the pre-registered
+test.
+
+**Mechanism (commit bc8643f2, default-OFF, endpoint-exact):**
+`env.dr_stage_ramp_steps > 0` arms a trainer-driven per-rollout ramp
+of the episode-reset DR distribution from the calibrated nominal sim
+(frac 0; sensor-noise floors kept, probabilities ramp / per-event
+doses don't — `RandRanges.scaled` semantics) to the run's full
+post-override ranges (frac 1 restores the EXACT captured ranges
+object). Key contracts: key absent/0 = bit-exact legacy; armed-but-
+unbroadcast env sits at FULL ranges (so eval_checkpoint / the
+standard gate judge at unchanged full DR by construction); every
+applied stage change flushes pooled resets (mint-time-DR staleness
+rule walkcurr admission changes already obey); fail-closed vs
+`goal.walk_curriculum` and `randomize=False`. Unit bank
+`rl_move/tests/test_dr_stage_ramp.py` (8/8): default-off bit-
+exactness, full-ranges-until-broadcast, exact endpoint, midpoint
+interpolation incl. pinned pairs (torque 1,1 stays 1,1) and noise
+floors, and actual reset-DRAW distribution verification at frac 0/1.
+
+**`cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-stagedr2m`
+-> CANARY PASS - MECHANISM** (2M, compressed 1.5M ramp): armed at
+nominal (log: mass [1,1], friction [1,1], bad_start 0, fault 0),
+bit-exact full ranges restored @1,572,864 (first rollout boundary
+>=1.5M — correct cadence; broadcasts are fail-loud so completion
+proves each stage + flush applied), zero NaN, full 2,097,152 steps,
+fps 14513 (~17% pool-flush cost, above the >=half bar). No behavior
+claim taken (reward quarters declining-not-exploding = this family's
+documented healthy canary shape).
+
+**Pre-registered 2-arm test now in flight (ONE changed recipe + its
+matched control, seed 40 both, fresh init, full gravity, 1x torque,
+source motor limits, equal 40M budgets, UNCHANGED full-DR held-out
+gate):**
+- `...-freshinit-c1-b40m-ctrl` (full DR from step 0, 40M) — VERIFIED
+  RUNNING train-4. Controls the "just needs budget" alternative.
+- `...-freshinit-c1-stagedr20m-b40m` (linear DR ramp over first 20M,
+  then 20M at full DR, 40M) — queued to backlog post-canary-PASS
+  (drain places it; 6 pods free).
+Joint reading pre-registered in both ledger entries: staged-ignites+
+control-flat => staging enables fresh acquisition (one seed, no
+generalization); both-flat => this schedule doesn't rescue ignition;
+both-ignite => budget was the blocker, staging unnecessary; control-
+only => staging harmful. Honest-exposure note: the staged arm's first
+20M sees milder-than-full DR by design — that differing exposure IS
+the intervention; gates are identical full-DR. No unplanned seeds, no
+automatic extension (08-21 continuation only by explicit future-cycle
+decision).
+
+Capacity: 42M launched directly (2M canary + 40M control) within the
+80M/cycle cap; the 40M staged arm rides the backlog drain. Halfgrav
+acq cohort (4 pods) untouched — concurrent cycles' work. Evidence:
+ledger entries + W&B yyywkp49 notes; on-pod train log [dr-stage-ramp]
+lines; RL_LOG 09-08 ~10:4x-10:5x. CYCLE_WORKED touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:3x (refill cycle, no completion assigned) — closes the legduty-ratio-target045 s1 half a concurrent cycle deferred; completes the seed10/seed11 halfgrav acquisition cohort's two missing OFF/ON halves alongside that same concurrent cycle
 
 One plain sentence: two loose ends the concurrent cycle's own entries

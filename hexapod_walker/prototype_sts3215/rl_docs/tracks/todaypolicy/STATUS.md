@@ -1,5 +1,35 @@
 # todaypolicy - working policy bundle for today's demo
 
+Last updated: 2026-09-08 03:3x UTC — STANCE-POSTURE YAW-ARM EXPERIMENT DONE
+ON THE FROZEN FULL-MESH PLANT: CLOSED FOR YAW, NO CANARY; +12–21% vx
+SIDE-FINDING.
+
+Operator-scoped follow-up (focus note 20260908T011913Z) after the
+lift-lead closure: Jacobian reach analysis selected knee 100°→90° (hip 20°
+fixed) — reach 71→97 mm, slew-limited yaw arm gain 0.415→0.493 (+19%),
+verified inside ALL limits (yaw amplitude shrinks ±15.4→±11.8°, ≥19.6°
+margin on every joint, body height +2.3 mm, contract untouched) by a
+fail-closed feasibility guard. 12 full-mesh rollouts (arcs ±0.15 + straight
+guard, starts 0/π, seed 0), ZERO falls, baseline bit-exactly reproduces the
+lift-lead baseline. RESULT: realized moment arm rose as planned (loaded-pad
+173→198 mm) and executed FK sweep twist +15%, but body wz gains are inside
+start-to-start noise in BOTH directions (+2.1%/+0.7%; deficit stays ~57%) —
+the sweep increment sheds into loaded-pad residual slip (+16%). Yaw
+bottleneck at these amplitudes is TRACTION-LIMITED conversion, not
+arm/rate/timing. Pre-registered both-signs bar unmet ⇒ **no 2M canary (by
+the rule)**. SIDE-FINDING: vx +12% arcs / +21% straight (0.040→0.0487)
+with straight yaw drift halved and gait/slip retained — candidate
+training/eval speed lever for the speed-soft walk stack (deployed stance
+defaults untouched). NEXT nominated in-limits mechanism (measured
+justification, distinct from closed levers): CADENCE — one slower
+period_scale (e.g. 1.5, inside SCALE_PERIOD 0.40..2.00) vs baseline, same
+cells/bar. Evidence:
+[stance-arm closure](../../../../../artifacts/rl_watchdog/turn_stancearm_20260908/README.md);
+controller copies `logs/ckpt_eval/turn_stancearm_20260908/`; runner
+`rl_move/sim/probe_turn_stancearm.py`.
+
+--- prior entry (02:4x UTC) below ---
+
 Last updated: 2026-09-08 02:4x UTC — LIFT-PHASE-LEAD EXPERIMENT DONE ON THE
 FROZEN FULL-MESH PLANT: CLOSED, NO CANARY.
 

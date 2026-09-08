@@ -1,0 +1,55 @@
+{
+  "source_revision": "1d96c2bfe",
+  "files": [
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/probe_action_clip.py",
+      "bytes": 17190,
+      "sha256": "4c1642fbf49b1072132d9cc9dbbf01c74537e9cda3510b24918ea2b451960995"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/mesh_mujoco/hexapod_mesh_mjx.xml",
+      "bytes": 27852,
+      "sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m.zip",
+      "bytes": 4469270,
+      "sha256": "e92377d6e133cb68051b71738845ce2c6419fc308fe19836df8466f338696ca0"
+    },
+    {
+      "path": "/workspace/rl-watchdog-clipreview-20260908/probe_summary.json",
+      "bytes": 9785,
+      "sha256": "676f3b036dfa0784c58889ddbcc09c3abe10844182669365c0e8a9121f0da682"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep0.npz",
+      "bytes": 2736650,
+      "sha256": "375a27eb123482212ae0ded461b33dd5362928607865ee3d69ef36056891bd36"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep1.npz",
+      "bytes": 2736686,
+      "sha256": "3d6d2545dd5603813e972d244c6d953d66bd5267a861e31476f40c828923efa6"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep2.npz",
+      "bytes": 2736594,
+      "sha256": "28af43d18e3ef6707995bdab47cbb88902b17f41e44602498df671e35468cffd"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep3.npz",
+      "bytes": 2736614,
+      "sha256": "1b066f627ea3b21869b69fc5716d952d32d3c61002e0c14aebc89e09d0e320e5"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep4.npz",
+      "bytes": 2736626,
+      "sha256": "37ca45148dd2b9736bf071be67671f2c82a2803f3f80590a89b04d6f3c3d5dd7"
+    },
+    {
+      "path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_clipprobe/trace_ep5.npz",
+      "bytes": 2736618,
+      "sha256": "f8725291edbd327e0794e11df92fde6f0c9b9209387a5c7154f7b6f883bc2196"
+    }
+  ]
+}

@@ -47,7 +47,7 @@ The probe previously applied relative-hinge Jacobian columns to absolute
 increments and directly subtracted those incompatible knee coordinates.
 The corrected probe differentiates in absolute target coordinates and converts
 measured positions before computing target error. Its output carries
-`analysis_contract.version = 2`; the retained JSON has not been recomputed.
+`analysis_contract.version = 2`; the original JSON remains preserved; corrected output is probe_summary_reviewed.json.
 
 Even corrected foot output is a nominal kinematic projection-support proxy,
 not loaded dynamic response or independently reachable displacement vectors.
@@ -72,3 +72,18 @@ Jacobian at three poses and a mixed-frame target-error regression:
 Original cloud records `0b86eece` contain STATUS/RL_LOG only; they did not
 commit the advertised artifact directory. This reviewed README accompanies the
 recovered original summary and preserves that provenance distinction.
+
+
+## Corrected offline reanalysis completed
+
+Root reran the repaired analyzer over the same six saved traces; no new gate
+or physics rollout was needed. The reviewed output has analysis_contract
+version2. All original pooled target-space fields are exactly unchanged,
+and decoder/safety/chain reconstruction errors remain zero. The corrected
+nominal kinematic lost-support fraction is about1.8–2.1% at action budget0.05;
+this remains a projection-support proxy rather than loaded foot authority.
+comparison.json contains the field-by-field check and corrected target
+errors. manifest.json records the source, model, currently retained
+checkpoint and all six input trace SHA256 hashes; the checkpoint hash was
+measured at reanalysis time, not retroactively recorded during the gate.
+Eight focused tests passed both locally and on the controller.

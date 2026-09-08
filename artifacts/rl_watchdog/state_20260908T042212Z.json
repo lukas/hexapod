@@ -1,0 +1,100 @@
+{
+  "schema": "rl-watchdog/2",
+  "trigger": "2026-09-08T04:22:12.606Z",
+  "last_updated": "2026-09-08T04:35:00Z",
+  "prior_record": "artifacts/rl_watchdog/state_20260908T024642Z.json",
+  "scope": "Simulation RL fleet only; no physical robot action, capacity purchase or limit changes.",
+  "capacity": {
+    "measured_utc": [
+      "2026-09-08T04:24:03Z",
+      "2026-09-08T04:24:30Z"
+    ],
+    "slots_ready": 11,
+    "slots_free": 11,
+    "optimizing": 0,
+    "compiling": 0,
+    "evaluating": 0,
+    "ready_pods": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "nvidia_util_percent": 0,
+    "nvidia_memory_mib": 0,
+    "trainer_processes": 0,
+    "current_step_fps_stream": null,
+    "pending": "train-6: CPU/affinity/unschedulable-node constraints",
+    "backlog": [],
+    "watcher_pid": 15352,
+    "watcher_healthy": true,
+    "pause": false,
+    "wrapup": false
+  },
+  "idle": {
+    "latest_training_completed_approx_utc": "2026-09-08T02:20:00Z",
+    "reason": "Previous bounded budgets completed; no runnable backlog. Subsequent diagnostic prerequisites did not support their conditional training arms.",
+    "repair_or_capacity_change_needed": false
+  },
+  "completed": [
+    {
+      "cycle": "20260908T034254",
+      "outcome": "Six-cell steering commanded-path support bar unmet; no canary.",
+      "source": "046c708a4",
+      "result_record": "1e8a6df68"
+    },
+    {
+      "cycle": "20260908T040325",
+      "outcome": "Six exact scratch deterministic gate cells: broad safe-target sensitivity. Conditional clipping-correction pair not justified. Dynamic foot response untested; whole-class refutation withdrawn.",
+      "source": "f07e14d745253c6c153bb2c31261bb005d771313",
+      "result_record": "0b86eecebe02b8ec73c8945d8e91081cdedff556"
+    }
+  ],
+  "repairs": [
+    {
+      "commit": "7ca821fb1",
+      "deployed": true,
+      "change": "Twist-fit endpoint/contact timing, complete reference validation and distinction between common wrong twist and inconsistent paths.",
+      "tests": "46 passed locally, including fullmesh action/physics trajectory parity; reviewed six-cell frozen rerun valid, all body medians/count/fall states exact, support remains false.",
+      "evidence": "artifacts/rl_watchdog/twistfit_review_20260908/"
+    },
+    {
+      "commit": "1d96c2bfe",
+      "deployed": true,
+      "change": "Scratch diagnostic absolute/relative knee Jacobian and target error; recovered original untracked artifacts; narrowed causal/parity claims and rejected duplicate generic time slicing.",
+      "tests": "8 focused tests pass locally and on controller; offline six-trace version2 reanalysis complete; all pooled target-space fields exact and reconstruction errors0.",
+      "evidence": "artifacts/rl_watchdog/walkcurr_clipprobe_20260908/"
+    }
+  ],
+  "deployment": {
+    "method": "Locked ff-only Git pull; no stash/autostash, no watcher restart.",
+    "original_untracked_artifacts_preserved_at": "/workspace/rl-watchdog-originals-20260908T0430/"
+  },
+  "active_owners": [
+    {
+      "cycle": "20260908T042639",
+      "pid": 59960,
+      "track": "prior-free scratch",
+      "task": "Distinct learned foot-placement design/bank; one matched2M-on/2M-off acquisition pair conditional on justified mechanism and passing implementation bank. Existing RNG2, same lineage/reward/plant/motor/limits.",
+      "status": "advancing design; no training launched at last observation"
+    },
+    {
+      "cycle": "20260908T043311",
+      "pid": 65058,
+      "track": "assisted continuous walking/steering",
+      "task": "Event-conditioned coordination screening, then smallest justified frozenplant both-signs/straight preflight; \u22642M canary only if original gates pass. No generic time_slice revival.",
+      "status": "started; no training launched at last observation"
+    }
+  ],
+  "feedback": [
+    "fb_20260908T043135_664da2"
+  ],
+  "followup": "Follow existing advancing cycle owners through actual placement/steps or measured prerequisite results; do not duplicate kicks. Keep original joystick gates, prior-free scratch, source checkpoints and budgets."
+}

@@ -1,0 +1,126 @@
+{
+  "target_space_pooled_fields_exact": [
+    "action_pin_frac_by_axis",
+    "all_joint_sat_frac",
+    "any_joint_sat_frac",
+    "hist_joints_sat_per_tick",
+    "margin_action_units_quartiles",
+    "margin_exceeds_budget_frac",
+    "mean_joints_sat_per_tick",
+    "per_joint_sat_frac",
+    "sat_frac_by_axis",
+    "sat_frac_stance_joints",
+    "sat_frac_swing_joints",
+    "transmission"
+  ],
+  "target_space_pooled_equal": true,
+  "source": "1d96c2bfe",
+  "episode_target_error_deg_original": [
+    3.267202331421841,
+    2.6481050832409596,
+    3.4292966439119916,
+    3.298448784884516,
+    3.136118172699668,
+    3.472511479671603
+  ],
+  "episode_target_error_deg_reviewed": [
+    2.1304599670333415,
+    1.589733973068603,
+    2.128666572899673,
+    2.080099104188925,
+    1.9352940249690078,
+    2.229668402222383
+  ],
+  "safe_decoder_chain_max_error_rad": 0.0,
+  "reviewed_foot_proxy": {
+    "b0.05_stance": {
+      "n": 97214,
+      "ratio_quartiles": [
+        0.9826847743015448,
+        0.999999999999999,
+        0.9999999999999997
+      ],
+      "lost_frac_ratio_lt_0.2": 0.020727467237229204,
+      "kept_frac_ratio_gt_0.8": 0.8434690476680313,
+      "up_z_mm_med": 1.8807285547698225
+    },
+    "b0.05_swing": {
+      "n": 89986,
+      "ratio_quartiles": [
+        0.9758301089491082,
+        0.999999999999999,
+        0.9999999999999996
+      ],
+      "lost_frac_ratio_lt_0.2": 0.017969461916298092,
+      "kept_frac_ratio_gt_0.8": 0.8501655813126486,
+      "up_z_mm_med": 1.8874327960153459
+    },
+    "b0.1_stance": {
+      "n": 97214,
+      "ratio_quartiles": [
+        0.8301308860275151,
+        0.9999999999999987,
+        0.9999999999999993
+      ],
+      "lost_frac_ratio_lt_0.2": 0.020388009957413543,
+      "kept_frac_ratio_gt_0.8": 0.7728825066348468,
+      "up_z_mm_med": 3.5729683893565354
+    },
+    "b0.1_swing": {
+      "n": 89986,
+      "ratio_quartiles": [
+        0.842360881408068,
+        0.9999999999999987,
+        0.9999999999999994
+      ],
+      "lost_frac_ratio_lt_0.2": 0.017380481408219055,
+      "kept_frac_ratio_gt_0.8": 0.7827328695574867,
+      "up_z_mm_med": 3.640278608180512
+    },
+    "b0.25_stance": {
+      "n": 97214,
+      "ratio_quartiles": [
+        0.7422560755523208,
+        0.9589188468253744,
+        1.147209466047602
+      ],
+      "lost_frac_ratio_lt_0.2": 0.016839138395704323,
+      "kept_frac_ratio_gt_0.8": 0.6933672104840867,
+      "up_z_mm_med": 6.5488295102979865
+    },
+    "b0.25_swing": {
+      "n": 89986,
+      "ratio_quartiles": [
+        0.7490674845246102,
+        0.9622680993166306,
+        1.1505154414898504
+      ],
+      "lost_frac_ratio_lt_0.2": 0.014135532193896828,
+      "kept_frac_ratio_gt_0.8": 0.6988420420954371,
+      "up_z_mm_med": 6.906515594116171
+    },
+    "b0.5_stance": {
+      "n": 97214,
+      "ratio_quartiles": [
+        0.7683852688613627,
+        0.995204174463947,
+        1.2188860978762437
+      ],
+      "lost_frac_ratio_lt_0.2": 0.014565803279363054,
+      "kept_frac_ratio_gt_0.8": 0.7213672927767606,
+      "up_z_mm_med": 6.633094492016342
+    },
+    "b0.5_swing": {
+      "n": 89986,
+      "ratio_quartiles": [
+        0.7773570807404468,
+        1.0048443939768983,
+        1.2331885814420689
+      ],
+      "lost_frac_ratio_lt_0.2": 0.012646411664036628,
+      "kept_frac_ratio_gt_0.8": 0.7285577756539906,
+      "up_z_mm_med": 7.062832621247996
+    }
+  },
+  "interpretation": "Nominal post-step kinematic projection support; not dynamic foot response or latency."
+}

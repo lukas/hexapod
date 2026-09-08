@@ -66,6 +66,7 @@ def win_returns() -> dict[str, float]:
     return out
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 @pytest.mark.parametrize("window_s", WINDOWS_S)
 @pytest.mark.parametrize("bin_name", list(HEADING_BINS))
 def test_win_obey_beats_offcourse_skew(win_returns, window_s, bin_name):

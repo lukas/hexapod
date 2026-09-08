@@ -153,6 +153,7 @@ def test_course_disp_default_off_is_inert():
     assert collect_on0.get("walk_course_disp_active_ticks", 0) == 0
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 @pytest.mark.parametrize("bin_name", list(HEADING_BINS))
 def test_disp_obey_beats_offcourse_skew(disp_returns, bin_name):
     """Same invariant as test_phasedir_semantics'
@@ -190,6 +191,7 @@ def test_disp_obey_beats_command_ignoring_wrongway(disp_returns, bin_name):
         k: v for k, v in r.items() if k.startswith(bin_name)}
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 @pytest.mark.parametrize("bin_name", list(HEADING_BINS))
 def test_disp_matches_ema_pricing_of_every_scripted_class(bin_name):
     """The mechanism swap (EMA -> net displacement) must not change

@@ -73,7 +73,10 @@ def test_resolver_cfg_and_default(monkeypatch):
 def test_mesh_mjx_twin_builds_and_plants(monkeypatch):
     model = SM.build_model(source="mesh_mjx")
     # the as-built mass correction rides with the mesh family
-    assert 3.2 < _total_mass(model) < 3.8, _total_mass(model)
+    # as-built mass rides with the mesh family (legacy primitive is 2.1 kg);
+    # the exact value moves with CAD/BOM updates (3.5 kg Aug, 4.8 kg Sep), so
+    # only pin the family-level bound.
+    assert 3.0 < _total_mass(model) < 6.0, _total_mass(model)
     data = mujoco.MjData(model)
     key = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, "plant")
     assert key >= 0, "plant keyframe missing from mesh_mjx twin"

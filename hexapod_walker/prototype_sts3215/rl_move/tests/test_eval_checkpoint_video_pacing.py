@@ -143,6 +143,7 @@ def _bank(*, fps, randomize):
         env.close()
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 @pytest.mark.parametrize("randomize", [False, True], ids=["dr0", "dr02"])
 def test_pacing_preserves_sequential_24_episode_bank(randomize):
     original = _rng()

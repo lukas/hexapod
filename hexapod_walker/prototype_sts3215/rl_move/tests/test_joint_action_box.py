@@ -30,7 +30,7 @@ pytest.importorskip("mujoco")
 from rl_move.sim.joint_task import action_to_q_rad
 from test_joint_action_bias import (
     FIX_BIAS_OVERRIDES, _zero_action_height_drop_mm)
-from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES
+from walk_env_helpers import _make_walk_env, SLIPWALK_OVERRIDES
 
 # The final-wave dose (operator: Walk-in-the-Park proportions
 # yaw ~+-11 / hip ~+-23 / knee ~+-23 deg, "tune to our geometry"):

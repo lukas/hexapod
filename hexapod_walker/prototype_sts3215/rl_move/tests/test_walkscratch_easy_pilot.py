@@ -433,6 +433,7 @@ def easy_returns() -> dict[str, float]:
     return out
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_easy_travel_beats_every_stationary_form(easy_returns):
     gait = easy_returns["gait"]
     for still in ("park", "stall", "belly_sit"):
@@ -780,6 +781,7 @@ def test_easy_heading_command_actually_varies():
         "— walk_heading_set/walk_cmd_resample_s not wired as expected")
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_easy_heading_track_beats_fixed_after_resample(easy_heading_returns):
     """Re-aiming at the live command must decisively out-earn holding
     the stale tick-0 heading through later resamples — the exact
@@ -915,6 +917,7 @@ def test_easy_heading_wide_command_covers_reversal():
         "across any seed — walk_heading_set not wired to the wider list")
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_easy_heading_wide_track_beats_fixed_after_resample(
         easy_heading_wide_returns):
     """Same 'directions actually followed' bar as the 3-way bank, now
@@ -1034,6 +1037,7 @@ def test_easy_heading_med_command_covers_quarter_turn():
         "across any seed — walk_heading_set not wired to the 5-way list")
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_easy_heading_med_track_beats_fixed_after_resample(
         easy_heading_med_returns):
     """Same 'directions actually followed' bar as the 3-way/8-way
@@ -1207,6 +1211,7 @@ def test_duty_gate_default_off_bit_exact():
     assert a == b, f"walk_duty_gate=0.0 is not bit-exact: {a} vs {b}"
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_duty_gate_twins_are_honest(duty_gate_returns):
     """Premise checks so the pricing assertions below mean something:
     the five-leg twin actually keeps leg 4 off the ground (below the
@@ -1428,6 +1433,7 @@ def test_dband_gate_default_off_bit_exact():
     assert a == b, f"walk_duty_band_gate=0.0 is not bit-exact: {a} vs {b}"
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_dband_gate_twins_are_honest(dband_gate_returns):
     """Premise checks: the freeze twin actually survives and keeps
     leg 4 planted (duty above the ceiling, the opposite extreme from

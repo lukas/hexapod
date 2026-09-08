@@ -1,0 +1,229 @@
+# Ledger entry (latest)
+{
+ "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+ "steps": 40000000,
+ "smoke": false,
+ "hypothesis": "Plain English: matched joint-space control for cartfoot-freshinit-c1-s7-acq1 -- same fresh-init recipe, seed, and 40M budget, no cart_foot keys. Own-checkpoint 40M continuation of the HEALTHY-PARITY CANARY-PASSed OFF arm, giving a same-depth same-seed slip/m and gait_valid comparator for the ON arm launched this cycle (avoids reusing the mature cont40m offctrl-s3 comparator, which reached maturity via a long continuation chain, not fresh-init).",
+ "gate": "ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det). Read together with cartfoot-freshinit-c1-s7-acq1: this is the joint-space baseline, expected to reach the campaign's established 5-6/m slip band.",
+ "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7",
+ "track": "walkcurr",
+ "extra_args": [
+  "--task",
+  "joint_walk",
+  "--episode-seconds",
+  "20",
+  "--n-steps",
+  "128",
+  "--batch-size",
+  "131072",
+  "--gamma",
+  "0.995",
+  "--gae-lambda",
+  "0.97",
+  "--net-arch",
+  "256,256,128",
+  "--log-std-init",
+  "-1.0",
+  "--log-std-final",
+  "-2.0",
+  "--dr-scale",
+  "0.0",
+  "--require-gpu-physics",
+  "--eval-every",
+  "1000000",
+  "--video-every",
+  "2000000",
+  "--best-ckpt",
+  "--n-envs",
+  "4096",
+  "--impl",
+  "warp",
+  "--host-workers",
+  "24",
+  "--seed",
+  "7",
+  "--out-name",
+  "ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1",
+  "--cfg-set",
+  "env.model_source=mesh_mjx",
+  "--cfg-set",
+  "control.hz=100",
+  "--cfg-set",
+  "goal.walk_pure=1",
+  "--cfg-set",
+  "goal.walk_speed_min_m_s=0.06",
+  "--cfg-set",
+  "goal.walk_speed_max_m_s=0.06",
+  "--cfg-set",
+  "goal.walk_heading_max_rad=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_resample_s=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_metrics=1",
+  "--cfg-set",
+  "goal.walk_cmd_hold_s=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_ramp_s=0.0",
+  "--cfg-set",
+  "goal.joint_action_bias_hip_deg=40.0",
+  "--cfg-set",
+  "goal.joint_action_bias_knee_deg=35.0",
+  "--cfg-set",
+  "goal.joint_action_box_yaw_deg=15.0",
+  "--cfg-set",
+  "goal.joint_action_box_hip_deg=20.0",
+  "--cfg-set",
+  "goal.joint_action_box_knee_deg=25.0",
+  "--cfg-set",
+  "reward.k_walk_freeprog=2.0",
+  "--cfg-set",
+  "reward.walk_freeprog_cap_m_s=0.06",
+  "--cfg-set",
+  "reward.walk_kernel_vel_ema=1.0",
+  "--cfg-set",
+  "reward.walk_kernel_vel_tau_s=0.1",
+  "--cfg-set",
+  "reward.term_penalty=24",
+  "--cfg-set",
+  "reward.safety_termination_penalty=24",
+  "--cfg-set",
+  "reward.k_track=0.0",
+  "--cfg-set",
+  "reward.k_roll=0.0",
+  "--cfg-set",
+  "reward.k_pitch=0.0",
+  "--cfg-set",
+  "reward.k_height=0.0",
+  "--cfg-set",
+  "reward.k_gyro=0.0",
+  "--cfg-set",
+  "reward.k_action=0.0",
+  "--cfg-set",
+  "reward.k_action_delta=0.01",
+  "--cfg-set",
+  "reward.k_current=0.0",
+  "--cfg-set",
+  "reward.k_walk_heading=0.0",
+  "--cfg-set",
+  "reward.k_step_event=0.0",
+  "--cfg-set",
+  "reward.k_park_duty=0.0",
+  "--cfg-set",
+  "reward.k_walk_idle_charge=0.0",
+  "--cfg-set",
+  "reward.k_loadslip_excess=0.0",
+  "--cfg-set",
+  "bus.write_speed=4096",
+  "--cfg-set",
+  "bus.servo_vel_max_counts_s=write_speed",
+  "--cfg-set",
+  "bus.write_acc=1000",
+  "--cfg-set",
+  "safety.max_delta_q_deg=3.6",
+  "--cfg-set",
+  "safety.max_current_a=100",
+  "--cfg-set",
+  "safety.max_roll_deg=30",
+  "--cfg-set",
+  "safety.max_pitch_deg=30",
+  "--cfg-set",
+  "struct_comp.enabled=0",
+  "--cfg-set",
+  "dr.latency_scale=0,0",
+  "--cfg-set",
+  "dr.deadband_scale=0,0",
+  "--cfg-set",
+  "dr.torque_scale=3,3",
+  "--cfg-set",
+  "dr.encoder_noise_deg=0",
+  "--cfg-set",
+  "dr.tilt_noise_deg=0",
+  "--cfg-set",
+  "dr.gyro_noise_deg_s=0",
+  "--notes",
+  "respec of cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7: Plain English: matched joint-space control for cartfoot-freshinit-c1-s7-acq1 -- same fresh-init recipe, seed, and 40M budget, no cart_foot keys. Own-checkpoint 40M continuation of the HEALTHY-PARITY CANARY-PASSed OFF arm, giving a same-depth same-seed slip/m and gait_valid comparator for the ON arm launched this cycle (avoids reusing the mature cont40m offctrl-s3 comparator, which reached maturity via a long continuation chain, not fresh-init).",
+  "--defer-final-artifacts",
+  "--init-from",
+  "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7.zip"
+ ],
+ "created": "2026-09-08T06:52:55+00:00",
+ "status": "PASS",
+ "checks": {
+  "control_hz_defaulted": "explicit",
+  "model_source_lineage": "mesh-matched",
+  "cpu_limit": 28,
+  "existing_trainers": [],
+  "uv_python": "/usr/local/bin/python",
+  "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+  "running_experiments_before": 5,
+  "code_sha_local": "3302b86482f8fceeb4fbddfe680cc7071891bf6d",
+  "code_sha_pod": "3302b86482f8fceeb4fbddfe680cc7071891bf6d",
+  "init_from_on_pod": true,
+  "wandb_env_on_pod": true,
+  "defer_final_artifacts": "explicit",
+  "pid": "2833738",
+  "log_growth_bytes": [
+   6277,
+   7722
+  ],
+  "wandb_id": "0mribzhl",
+  "trainer_pid": "2833738",
+  "global_step_window": [
+   524288,
+   1572864
+  ],
+  "fps_estimate": 34952.5
+ },
+ "trainer": "ppo",
+ "stack": "gpu-mjx",
+ "phase": "acquisition",
+ "assessment_scope": "full_budget_skill_acquisition",
+ "evidence": "cartfoot-freshinit-offctrl-s7 CANARY PASS - HEALTHY-PARITY this cycle; comparable full-budget precedent: base-s0-c1/base-s1-c1 (identical recipe minus seed) both ACQ PASS at 40M with fwd_dist_m 3.2-4.8m/20s and slip/m 2.6-3.4 from an identical 2M canary starting point",
+ "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 7 --out-name ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7: Plain English: matched joint-space control for cartfoot-freshinit-c1-s7-acq1 -- same fresh-init recipe, seed, and 40M budget, no cart_foot keys. Own-checkpoint 40M continuation of the HEALTHY-PARITY CANARY-PASSed OFF arm, giving a same-depth same-seed slip/m and gait_valid comparator for the ON arm launched this cycle (avoids reusing the mature cont40m offctrl-s3 comparator, which reached maturity via a long continuation chain, not fresh-init).' --defer-final-artifacts --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7.zip > /tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1.log 2>&1 < /dev/null & echo $!",
+ "wandb_id": "0mribzhl",
+ "verified": "2026-09-08T06:55:48+00:00",
+ "checkups": [
+  {
+   "time": "2026-09-08T07:00:56+00:00",
+   "process_alive": true,
+   "tracebacks_in_tail": 0,
+   "log_growth_bytes": 2117,
+   "fps": 34952.5,
+   "placement": "solo on GPU-MJX pod",
+   "verdict": "HEALTHY",
+   "problems": []
+  }
+ ],
+ "triage": "done",
+ "verdict": "Matched fresh-init joint-space control finishes the full 40M fork(b) acquisition budget clean, confirming this cycle's paired ON read is valid. 0 falls/terminations in 24/24 episodes across all 4 groups; gait_valid 6/6 in walk/det, walk/sto, walk_startjitter/sto, but a genuine weak point under walk_startjitter/det: only 1/6 gait_valid, leg 4 sacrificed in 5/6 episodes (one ep also sacrifices leg 1). Mean slip/m by group 2.83/3.41/2.85/3.26, speed_mean_m_s 0.195/0.175/0.191/0.183 -- all comfortably above the >=0.03 m/s gate floor. Reward quarters rise monotonically -376.8->835.0->1580.9->1888.3, consistent with real learning, not a plateau. This confirms the joint-space control itself is healthy at this fresh-init depth (not the source of any ON/OFF gap) and flags the startjitter/det leg-4 fragility as a real, track-relevant weak point independent of the cart-foot question. Read together with cartfoot-freshinit-c1-s7-acq1 (verdicted same cycle)."
+}
+
+# Run story (rl_docs/runs/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1.md)
+# cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: PASS
+
+**created**: 2026-09-08T06:52:55+00:00
+
+**pod**: hexapod-mjx-train-3
+
+**steps**: 40000000
+
+**parent**: cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7
+
+**wandb_id**: 0mribzhl
+
+**hypothesis**: Plain English: matched joint-space control for cartfoot-freshinit-c1-s7-acq1 -- same fresh-init recipe, seed, and 40M budget, no cart_foot keys. Own-checkpoint 40M continuation of the HEALTHY-PARITY CANARY-PASSed OFF arm, giving a same-depth same-seed slip/m and gait_valid comparator for the ON arm launched this cycle (avoids reusing the mature cont40m offctrl-s3 comparator, which reached maturity via a long continuation chain, not fresh-init).
+
+**gate**: ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det). Read together with cartfoot-freshinit-c1-s7-acq1: this is the joint-space baseline, expected to reach the campaign's established 5-6/m slip band.
+
+**verdict**: Matched fresh-init joint-space control finishes the full 40M fork(b) acquisition budget clean, confirming this cycle's paired ON read is valid. 0 falls/terminations in 24/24 episodes across all 4 groups; gait_valid 6/6 in walk/det, walk/sto, walk_startjitter/sto, but a genuine weak point under walk_startjitter/det: only 1/6 gait_valid, leg 4 sacrificed in 5/6 episodes (one ep also sacrifices leg 1). Mean slip/m by group 2.83/3.41/2.85/3.26, speed_mean_m_s 0.195/0.175/0.191/0.183 -- all comfortably above the >=0.03 m/s gate floor. Reward quarters rise monotonically -376.8->835.0->1580.9->1888.3, consistent with real learning, not a plateau. This confirms the joint-space control itself is healthy at this fresh-init depth (not the source of any ON/OFF gap) and flags the startjitter/det leg-4 fragility as a real, track-relevant weak point independent of the cart-foot question. Read together with cartfoot-freshinit-c1-s7-acq1 (verdicted same cycle).
+
+
+
+# Saved run feedback
+No feedback is attached yet. Use submit_run_feedback to add observations or requested follow-ups.
+
+(run_metrics gives cached W&B curves; eval_report the gate-eval numbers, when present on this host.)

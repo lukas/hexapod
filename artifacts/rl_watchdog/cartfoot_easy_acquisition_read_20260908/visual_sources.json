@@ -1,0 +1,14 @@
+{
+  "on": {
+    "source_path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_gate/walk_det_0.png",
+    "sha256": "9be2a8bf8798bb1ba6983b6a3de25446676eb37067250eb080d7b8e9ff8c3d20",
+    "existing_gate_image": true,
+    "rendered_new": false
+  },
+  "off": {
+    "source_path": "/workspace/hexapod/hexapod_walker/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_gate/walk_det_0.png",
+    "sha256": "954ab856ce385adddb7caa934ff6c5eb397cb7611b3fcbe8be213368e1cc33cc",
+    "existing_gate_image": true,
+    "rendered_new": false
+  }
+}

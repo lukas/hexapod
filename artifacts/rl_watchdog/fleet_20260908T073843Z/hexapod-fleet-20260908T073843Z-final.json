@@ -1,0 +1,1334 @@
+{
+  "provenance": {
+    "created_utc": "2026-09-08T07:50:25.161784+00:00",
+    "collector": "/tmp/hexapod_fleet_monitor_20260908T073843Z_final.py",
+    "method": "Read-only kubectl exec, canonical capacity.py, exact Python module process scan, live log steps and NVIDIA; no environment/process changes",
+    "collector_sha256": "6cd57b81fc484650f3664d112ba15f4a72ff9af966e2505db744f83e84b182f9"
+  },
+  "samples": [
+    {
+      "utc": "2026-09-08T07:50:27.206903+00:00",
+      "pods": {
+        "hexapod-mjx-train-0": {
+          "utc": "2026-09-08T07:50:26.145073+00:00",
+          "processes": [
+            {
+              "pid": 748099,
+              "kind": "artifact_finalizer",
+              "state": "S",
+              "cpu_ticks": 327
+            },
+            {
+              "pid": 748921,
+              "kind": "eval_checkpoint",
+              "state": "R",
+              "cpu_ticks": 178500,
+              "out": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 12,
+                "gate_latest_file_mtime": 1788853821.6419506
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1.log",
+              "mtime": 1788853482.5160615,
+              "last_steps": 40370176,
+              "last_fps": 23933,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1 at: https://wandb.ai/l2k2/hexapod-balance/runs/2vfmkuv4",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_071601-2vfmkuv4/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1; CPU finalizer pid 748099 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont20m_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788851121.749987,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788851121.749987
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m.log",
+              "mtime": 1788850512.4903302,
+              "last_steps": 10485760,
+              "last_fps": 21647,
+              "recent_steps": [
+                9437184,
+                9961472,
+                10485760
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont20m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m at: https://wandb.ai/l2k2/hexapod-balance/runs/h2y5r9w0",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 1 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064627-h2y5r9w0/logs",
+                "[defer-final-artifacts] retired 2 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m; CPU finalizer pid 737467 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-c7c481c8-b38e-d350-964a-7156462b21c8, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-1": {
+          "utc": "2026-09-08T07:50:26.159661+00:00",
+          "processes": [
+            {
+              "pid": 2741048,
+              "kind": "train_ppo_mjx",
+              "state": "S",
+              "cpu_ticks": 36612,
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+              "steps": "10000000"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_cont10m_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 0,
+                "gate_latest_file_mtime": null
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m.log",
+              "mtime": 1788853820.7753904,
+              "last_steps": 7864320,
+              "last_fps": 19799,
+              "recent_steps": [
+                6815744,
+                7340032,
+                7864320
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 42.9        |",
+                "|    n_updates            | 433         |",
+                "|    policy_gradient_loss | 0.00408     |",
+                "|    std                  | 0.135       |",
+                "|    value_loss           | 86.3        |",
+                "-----------------------------------------"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788852559.0552287,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788852559.0552287
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1.log",
+              "mtime": 1788851973.8760376,
+              "last_steps": 40370176,
+              "last_fps": 23083,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/qnrtrce1",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064948-qnrtrce1/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1; CPU finalizer pid 2738552 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-8a09e5e2-ac38-1131-dd00-a0cd1c3165ec, 8, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:50:26.148010+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788853712.8394732,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788853712.8394732
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788853091.1327288,
+              "last_steps": 40370176,
+              "last_fps": 22756,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/udt4qxx3",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_070759-udt4qxx3/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1; CPU finalizer pid 3837593 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-3": {
+          "utc": "2026-09-08T07:50:26.139247+00:00",
+          "processes": [
+            {
+              "pid": 2844964,
+              "kind": "train_ppo_mjx",
+              "state": "S",
+              "cpu_ticks": 22718,
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+              "steps": "10000000"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_cont10m_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 0,
+                "gate_latest_file_mtime": null
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m.log",
+              "mtime": 1788853825.06544,
+              "last_steps": 4194304,
+              "last_fps": 21117,
+              "recent_steps": [
+                3145728,
+                3670016,
+                4194304
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 39.7        |",
+                "|    n_updates            | 414         |",
+                "|    policy_gradient_loss | -0.00106    |",
+                "|    std                  | 0.135       |",
+                "|    value_loss           | 79.5        |",
+                "-----------------------------------------"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788852632.8710501,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788852632.8710501
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1.log",
+              "mtime": 1788852046.3277152,
+              "last_steps": 40370176,
+              "last_fps": 25078,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/0mribzhl",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_065323-0mribzhl/logs",
+                "[defer-final-artifacts] retired 7 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1; CPU finalizer pid 2842078 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f, 24, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-4": {
+          "utc": "2026-09-08T07:50:26.144258+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont20m_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788850949.3351064,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788850949.3351064
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m.log",
+              "mtime": 1788850302.7323017,
+              "last_steps": 10485760,
+              "last_fps": 19323,
+              "recent_steps": [
+                9437184,
+                9961472,
+                10485760
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont20m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m at: https://wandb.ai/l2k2/hexapod-balance/runs/xcn1obp9",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 1 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064155-xcn1obp9/logs",
+                "[defer-final-artifacts] retired 2 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m; CPU finalizer pid 526382 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-091fd187-5ef1-8187-1927-20faf428512c, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-5": {
+          "utc": "2026-09-08T07:50:26.144845+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-df802228-4aad-6a1a-fc20-a818f6961215, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-7": {
+          "utc": "2026-09-08T07:50:26.911593+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788853664.3927946,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788853664.3927946
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b.log",
+              "mtime": 1788852066.802511,
+              "last_steps": 40370176,
+              "last_fps": 20722,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b at: https://wandb.ai/l2k2/hexapod-balance/runs/d9xbrnil",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064800-d9xbrnil/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b; CPU finalizer pid 2948490 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:50:26.908753+00:00",
+          "processes": [
+            {
+              "pid": 1012877,
+              "kind": "eval_checkpoint",
+              "state": "R",
+              "cpu_ticks": 405002,
+              "out": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 22,
+                "gate_latest_file_mtime": 1788853826.9032793
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1.log",
+              "mtime": 1788853204.5275047,
+              "last_steps": 40370176,
+              "last_fps": 24875,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/ilmolyis",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_071226-ilmolyis/logs",
+                "[defer-final-artifacts] retired 7 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1; CPU finalizer pid 1012348 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-9": {
+          "utc": "2026-09-08T07:50:26.908788+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-12d45224-745e-3c94-0817-b7685322bad4, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-10": {
+          "utc": "2026-09-08T07:50:26.928102+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-570e6615-ff09-beeb-779f-b2da29edf3bb, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-11": {
+          "utc": "2026-09-08T07:50:27.198015+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-a384d26d-b4f2-0e4c-b522-645acbc2b872, 0, 0",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 2.045037031173706
+    },
+    {
+      "utc": "2026-09-08T07:51:43.885468+00:00",
+      "pods": {
+        "hexapod-mjx-train-0": {
+          "utc": "2026-09-08T07:51:42.865145+00:00",
+          "processes": [
+            {
+              "pid": 748099,
+              "kind": "artifact_finalizer",
+              "state": "S",
+              "cpu_ticks": 327
+            },
+            {
+              "pid": 748921,
+              "kind": "eval_checkpoint",
+              "state": "S",
+              "cpu_ticks": 235584,
+              "out": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 15,
+                "gate_latest_file_mtime": 1788853884.840807
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1.log",
+              "mtime": 1788853482.5160615,
+              "last_steps": 40370176,
+              "last_fps": 23933,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1 at: https://wandb.ai/l2k2/hexapod-balance/runs/2vfmkuv4",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_071601-2vfmkuv4/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1; CPU finalizer pid 748099 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont20m_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788851121.749987,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788851121.749987
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m.log",
+              "mtime": 1788850512.4903302,
+              "last_steps": 10485760,
+              "last_fps": 21647,
+              "recent_steps": [
+                9437184,
+                9961472,
+                10485760
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont20m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m at: https://wandb.ai/l2k2/hexapod-balance/runs/h2y5r9w0",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 1 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064627-h2y5r9w0/logs",
+                "[defer-final-artifacts] retired 2 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m; CPU finalizer pid 737467 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-c7c481c8-b38e-d350-964a-7156462b21c8, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-1": {
+          "utc": "2026-09-08T07:51:42.839911+00:00",
+          "processes": [
+            {
+              "pid": 2741048,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "cpu_ticks": 42010,
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+              "steps": "10000000"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_cont10m_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 0,
+                "gate_latest_file_mtime": null
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m.log",
+              "mtime": 1788853889.604141,
+              "last_steps": 9437184,
+              "last_fps": 20250,
+              "recent_steps": [
+                8388608,
+                8912896,
+                9437184
+              ],
+              "signals": [],
+              "tail": [
+                "|    loss                 | 42.8         |",
+                "|    n_updates            | 448          |",
+                "|    policy_gradient_loss | -0.000774    |",
+                "|    std                  | 0.135        |",
+                "|    value_loss           | 85.4         |",
+                "------------------------------------------"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788852559.0552287,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788852559.0552287
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1.log",
+              "mtime": 1788851973.8760376,
+              "last_steps": 40370176,
+              "last_fps": 23083,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/qnrtrce1",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064948-qnrtrce1/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1; CPU finalizer pid 2738552 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-8a09e5e2-ac38-1131-dd00-a0cd1c3165ec, 8, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T07:51:42.850428+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788853712.8394732,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788853712.8394732
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1.log",
+              "mtime": 1788853091.1327288,
+              "last_steps": 40370176,
+              "last_fps": 22756,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/udt4qxx3",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_070759-udt4qxx3/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1; CPU finalizer pid 3837593 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-b29b4867-ac22-4270-8fa9-5d854396da05, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-3": {
+          "utc": "2026-09-08T07:51:42.850701+00:00",
+          "processes": [
+            {
+              "pid": 2844964,
+              "kind": "train_ppo_mjx",
+              "state": "R",
+              "cpu_ticks": 28902,
+              "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+              "steps": "10000000"
+            }
+          ],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_cont10m_gate",
+                "gate_report_exists": false,
+                "gate_report_mtime": null,
+                "gate_mp4_count": 0,
+                "gate_latest_file_mtime": null
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m.log",
+              "mtime": 1788853894.935174,
+              "last_steps": 5767168,
+              "last_fps": 22328,
+              "recent_steps": [
+                4718592,
+                5242880,
+                5767168
+              ],
+              "signals": [],
+              "tail": [
+                "|    std                  | 0.135       |",
+                "|    value_loss           | 79.8        |",
+                "-----------------------------------------",
+                "Early stopping at step 3 due to reaching max kl: 0.04",
+                "[video] previous reel still rendering; skipping this round",
+                "[periodic-eval] previous eval still running; skipping this round"
+              ]
+            },
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788852632.8710501,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788852632.8710501
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1.log",
+              "mtime": 1788852046.3277152,
+              "last_steps": 40370176,
+              "last_fps": 25078,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/0mribzhl",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_065323-0mribzhl/logs",
+                "[defer-final-artifacts] retired 7 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1; CPU finalizer pid 2842078 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f, 3, 45811",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-4": {
+          "utc": "2026-09-08T07:51:42.867058+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont20m_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788850949.3351064,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788850949.3351064
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m.log",
+              "mtime": 1788850302.7323017,
+              "last_steps": 10485760,
+              "last_fps": 19323,
+              "recent_steps": [
+                9437184,
+                9961472,
+                10485760
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont20m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m at: https://wandb.ai/l2k2/hexapod-balance/runs/xcn1obp9",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 1 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064155-xcn1obp9/logs",
+                "[defer-final-artifacts] retired 2 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m; CPU finalizer pid 526382 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-091fd187-5ef1-8187-1927-20faf428512c, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-5": {
+          "utc": "2026-09-08T07:51:42.865023+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-df802228-4aad-6a1a-fc20-a818f6961215, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-7": {
+          "utc": "2026-09-08T07:51:43.771998+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788853664.3927946,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788853664.3927946
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b.log",
+              "mtime": 1788852066.802511,
+              "last_steps": 40370176,
+              "last_fps": 20722,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b at: https://wandb.ai/l2k2/hexapod-balance/runs/d9xbrnil",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_064800-d9xbrnil/logs",
+                "[defer-final-artifacts] retired 8 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b; CPU finalizer pid 2948490 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T07:51:43.774536+00:00",
+          "processes": [],
+          "logs": [
+            {
+              "artifacts": {
+                "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate",
+                "gate_report_exists": true,
+                "gate_report_mtime": 1788853873.8694267,
+                "gate_mp4_count": 24,
+                "gate_latest_file_mtime": 1788853873.8694267
+              },
+              "path": "/tmp/train_cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1.log",
+              "mtime": 1788853204.5275047,
+              "last_steps": 40370176,
+              "last_fps": 24875,
+              "recent_steps": [
+                39321600,
+                39845888,
+                40370176
+              ],
+              "signals": [
+                "[defer-final-artifacts] optimization complete (40,370,176 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)"
+              ],
+              "tail": [
+                "wandb: \ud83d\ude80 View run cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/ilmolyis",
+                "wandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance",
+                "wandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)",
+                "wandb: Find logs at: ./wandb/run-20260908_071226-ilmolyis/logs",
+                "[defer-final-artifacts] retired 7 training-time-delivered snapshot(s) after durable W&B finish",
+                "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1; CPU finalizer pid 1012348 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+              ]
+            }
+          ],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-ac821317-c75c-9d4b-94db-69607eac7849, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-9": {
+          "utc": "2026-09-08T07:51:43.533453+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-12d45224-745e-3c94-0817-b7685322bad4, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-10": {
+          "utc": "2026-09-08T07:51:43.539289+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-570e6615-ff09-beeb-779f-b2da29edf3bb, 0, 0",
+            "stderr": ""
+          }
+        },
+        "hexapod-mjx-train-11": {
+          "utc": "2026-09-08T07:51:43.532880+00:00",
+          "processes": [],
+          "logs": [],
+          "nvidia": {
+            "rc": 0,
+            "stdout": "GPU-a384d26d-b4f2-0e4c-b522-645acbc2b872, 0, 0",
+            "stderr": ""
+          }
+        }
+      },
+      "collection_seconds": 1.8775370121002197
+    }
+  ],
+  "canonical": {
+    "utc": "2026-09-08T07:50:38.323839+00:00",
+    "head": "328a08ed38404bf40e055b94e0d3a4da2b2ae5ac",
+    "capacity": {
+      "nodes": {
+        "g129004": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-1",
+            "hexapod-mjx-train-8",
+            "hexapod-mjx-train-9",
+            "hexapod-mjx-train-10",
+            "hexapod-mjx-train-11"
+          ]
+        },
+        "g12ba48": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": []
+        },
+        "g131eec": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-2",
+            "hexapod-mjx-train-3"
+          ]
+        },
+        "g142d86": {
+          "cpus": "127960m",
+          "gpus": 8,
+          "train_pods": [
+            "hexapod-mjx-train-0",
+            "hexapod-mjx-train-4",
+            "hexapod-mjx-train-5",
+            "hexapod-mjx-train-7"
+          ]
+        }
+      },
+      "slots_total": 12,
+      "slots_ready": 11,
+      "slots_free": 9,
+      "free_pods": [
+        "hexapod-mjx-train-0",
+        "hexapod-mjx-train-2",
+        "hexapod-mjx-train-4",
+        "hexapod-mjx-train-5",
+        "hexapod-mjx-train-7",
+        "hexapod-mjx-train-8",
+        "hexapod-mjx-train-9",
+        "hexapod-mjx-train-10",
+        "hexapod-mjx-train-11"
+      ],
+      "pending_pods": [
+        "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+      ],
+      "busy": {
+        "hexapod-mjx-train-1": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m"
+        ],
+        "hexapod-mjx-train-3": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m"
+        ]
+      }
+    },
+    "ledger": [
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1",
+        "created": "2026-09-08T06:35:22+00:00",
+        "status": "REFUSED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-7",
+        "wandb_id": null,
+        "refused_reason": "acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.",
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1",
+        "created": "2026-09-08T06:35:58+00:00",
+        "status": "FAILED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-7",
+        "wandb_id": "1fk8b959",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1",
+        "created": "2026-09-08T06:47:18+00:00",
+        "status": "REFUSED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-7",
+        "wandb_id": null,
+        "refused_reason": "W&B already has a run named cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1 (names are append-only; pick a new one)",
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b",
+        "created": "2026-09-08T06:47:32+00:00",
+        "status": "RUNNING",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-7",
+        "wandb_id": "d9xbrnil",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1",
+        "created": "2026-09-08T06:48:49+00:00",
+        "status": "REFUSED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-1",
+        "wandb_id": null,
+        "refused_reason": "acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.",
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b",
+        "created": "2026-09-08T06:48:50+00:00",
+        "status": "REFUSED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-1",
+        "wandb_id": null,
+        "refused_reason": "a process for cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b already exists on hexapod-mjx-train-7",
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1",
+        "created": "2026-09-08T06:49:23+00:00",
+        "status": "ACQ PASS - PARITY",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-1",
+        "wandb_id": "qnrtrce1",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+        "created": "2026-09-08T06:52:55+00:00",
+        "status": "PASS",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-3",
+        "wandb_id": "0mribzhl",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+        "created": "2026-09-08T07:07:33+00:00",
+        "status": "RUNNING",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-2",
+        "wandb_id": "udt4qxx3",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+        "created": "2026-09-08T07:12:00+00:00",
+        "status": "RUNNING",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-8",
+        "wandb_id": "ilmolyis",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1",
+        "created": "2026-09-08T07:15:03+00:00",
+        "status": "REFUSED",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-0",
+        "wandb_id": null,
+        "refused_reason": "acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.",
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1",
+        "created": "2026-09-08T07:15:35+00:00",
+        "status": "RUNNING",
+        "steps": 40000000,
+        "pod": "hexapod-mjx-train-0",
+        "wandb_id": "2vfmkuv4",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+        "created": "2026-09-08T07:42:38+00:00",
+        "status": "RUNNING",
+        "steps": 10000000,
+        "pod": "hexapod-mjx-train-1",
+        "wandb_id": "suh2oldf",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+        "created": "2026-09-08T07:46:06+00:00",
+        "status": "RUNNING",
+        "steps": 10000000,
+        "pod": "hexapod-mjx-train-3",
+        "wandb_id": "irimsdt7",
+        "refused_reason": null,
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+        "created": "2026-09-08T07:47:23+00:00",
+        "status": "REFUSED",
+        "steps": 10000000,
+        "pod": "hexapod-mjx-train-3",
+        "wandb_id": null,
+        "refused_reason": "hexapod-mjx-train-3 already runs cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+        "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+        "cycle_id": null,
+        "started": null,
+        "finished": null
+      }
+    ],
+    "backlog": []
+  },
+  "evidence": {
+    "utc": "2026-09-08T07:51:43.885468+00:00",
+    "pair_progress": [
+      {
+        "pod": "hexapod-mjx-train-1",
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+        "first_steps": 7864320,
+        "second_steps": 9437184,
+        "first_fps": 19799,
+        "second_fps": 20250,
+        "elapsed_seconds": 76.68025,
+        "trainer_processes": [
+          {
+            "pid": 2741048,
+            "kind": "train_ppo_mjx",
+            "state": "R",
+            "cpu_ticks": 42010,
+            "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+            "steps": "10000000"
+          }
+        ],
+        "nvidia": {
+          "rc": 0,
+          "stdout": "GPU-8a09e5e2-ac38-1131-dd00-a0cd1c3165ec, 8, 45811",
+          "stderr": ""
+        },
+        "completion_signals": []
+      },
+      {
+        "pod": "hexapod-mjx-train-3",
+        "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+        "first_steps": 4194304,
+        "second_steps": 5767168,
+        "first_fps": 21117,
+        "second_fps": 22328,
+        "elapsed_seconds": 76.711454,
+        "trainer_processes": [
+          {
+            "pid": 2844964,
+            "kind": "train_ppo_mjx",
+            "state": "R",
+            "cpu_ticks": 28902,
+            "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+            "steps": "10000000"
+          }
+        ],
+        "nvidia": {
+          "rc": 0,
+          "stdout": "GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f, 3, 45811",
+          "stderr": ""
+        },
+        "completion_signals": []
+      }
+    ],
+    "active_trainers": [
+      {
+        "pod": "hexapod-mjx-train-1",
+        "pid": 2741048,
+        "kind": "train_ppo_mjx",
+        "state": "R",
+        "cpu_ticks": 42010,
+        "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+        "steps": "10000000"
+      },
+      {
+        "pod": "hexapod-mjx-train-3",
+        "pid": 2844964,
+        "kind": "train_ppo_mjx",
+        "state": "R",
+        "cpu_ticks": 28902,
+        "run-name": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+        "steps": "10000000"
+      }
+    ],
+    "actual_trainer_count": 2,
+    "ready_slots": 11,
+    "free_slots_canonical": 9,
+    "backlog": [],
+    "cpu_artifact_progress": [
+      {
+        "pod": "hexapod-mjx-train-0",
+        "before": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate",
+          "gate_report_exists": false,
+          "gate_report_mtime": null,
+          "gate_mp4_count": 12,
+          "gate_latest_file_mtime": 1788853821.6419506
+        },
+        "after": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate",
+          "gate_report_exists": false,
+          "gate_report_mtime": null,
+          "gate_mp4_count": 15,
+          "gate_latest_file_mtime": 1788853884.840807
+        },
+        "processes_after": [
+          {
+            "pid": 748099,
+            "kind": "artifact_finalizer",
+            "state": "S",
+            "cpu_ticks": 327
+          },
+          {
+            "pid": 748921,
+            "kind": "eval_checkpoint",
+            "state": "S",
+            "cpu_ticks": 235584,
+            "out": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1_gate"
+          }
+        ]
+      },
+      {
+        "pod": "hexapod-mjx-train-2",
+        "before": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_gate",
+          "gate_report_exists": true,
+          "gate_report_mtime": 1788853712.8394732,
+          "gate_mp4_count": 24,
+          "gate_latest_file_mtime": 1788853712.8394732
+        },
+        "after": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_gate",
+          "gate_report_exists": true,
+          "gate_report_mtime": 1788853712.8394732,
+          "gate_mp4_count": 24,
+          "gate_latest_file_mtime": 1788853712.8394732
+        },
+        "processes_after": []
+      },
+      {
+        "pod": "hexapod-mjx-train-7",
+        "before": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b_gate",
+          "gate_report_exists": true,
+          "gate_report_mtime": 1788853664.3927946,
+          "gate_mp4_count": 24,
+          "gate_latest_file_mtime": 1788853664.3927946
+        },
+        "after": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b_gate",
+          "gate_report_exists": true,
+          "gate_report_mtime": 1788853664.3927946,
+          "gate_mp4_count": 24,
+          "gate_latest_file_mtime": 1788853664.3927946
+        },
+        "processes_after": []
+      },
+      {
+        "pod": "hexapod-mjx-train-8",
+        "before": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate",
+          "gate_report_exists": false,
+          "gate_report_mtime": null,
+          "gate_mp4_count": 22,
+          "gate_latest_file_mtime": 1788853826.9032793
+        },
+        "after": {
+          "gate_path": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate",
+          "gate_report_exists": true,
+          "gate_report_mtime": 1788853873.8694267,
+          "gate_mp4_count": 24,
+          "gate_latest_file_mtime": 1788853873.8694267
+        },
+        "processes_after": []
+      }
+    ],
+    "conclusion": "Existing seed7 matched cont10m ON/OFF runs show successive real PPO step increases on their own pods. Seed10 OFF completed naturally at40370176 and CPU evaluation is active. Other acquisition completions remain CPU work or have finished artifacts. No compile/stall inferred from temporary process state or utilization.",
+    "scope": "Read-only placement verification; no launch, kick, stop, source/ledger mutation, or wait for gates."
+  }
+}

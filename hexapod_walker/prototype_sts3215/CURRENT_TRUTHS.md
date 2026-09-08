@@ -4,6 +4,32 @@ Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
 Accepted facts, not narrative. If old prose disagrees, this file wins.
 
+## Assisted s0 comparator correction (2026-09-08)
+
+The claim that `cw-assistfade-rung3-legdutyratio-s0` repaired
+nominal legs [0,3] and improved gait 7/24 -> 15/24 used the wrong
+`residualfade-s0-nostdanneal` descendant (policy_std 0.422).
+The exact annealed `cw_assistfade_rung3_residualfade_s0_gate`
+baseline and candidate both have policy_std 0.052 and the same
+4.80573 kg `mesh_mjx_twin`/100 Hz motor contract. Launch argv
+match except name, notes and four duty-charge cfg keys. Correct
+gait counts are 16/24 -> 15/24; safety terminations 7/24 -> 9/24.
+Nominal det and sto are already 6/6 in the baseline; there is no
+demonstrated recovery of nominal gait passes. Nominal det progress
+and slip improve, while nominal sto does not. No statistical
+equivalence or mechanism-class conclusion follows from these counts.
+
+The asserted opposite-seed DIG-IN premise is withdrawn; it does not
+license a new seed or automatic continuation. Low-relative-duty
+penalties do not directly target fully planted high-duty/no-swing
+legs, and zero shortfall is not proof of six-leg walking. The prior
+s1 narrative also used a nostdanneal comparator and needs its own
+matched audit before causal cross-seed comparison. Full evidence:
+`artifacts/rl_watchdog/assistfade_s0_comparator_20260908/comparison.json`
+at repository root; corrected interpretation in
+`rl_docs/tracks/assistfade/STATUS.md`. This correction does not
+change walkcurr's separate prior-free evidence or the formal ledger.
+
 ## Mission
 Six registered tracks live in `rl_move/orchestrator/tracks.json`:
 - `joystick`: RL from scripted gait to joystick control.

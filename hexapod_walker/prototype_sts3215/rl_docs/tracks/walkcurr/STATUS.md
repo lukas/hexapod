@@ -38,6 +38,31 @@ step()/bookkeeping comment blocks), `rl_move/tests/test_task_semantics.py`
 (`test_walk_leg_swing_gap_charge_*`), `ops.sh entry cw-walkscratch-
 crutchoff-{s0,s1}-widen8-swinggap-target150-alone`.
 
+**EARLY RED FLAG (same cycle, before the harness gate synced -- NOT a
+verdict, flagging for whoever triages these next):** both 2M canaries
+already finished training within this cycle's own window (the pipeline
+trains 2M steps in single-digit minutes) and their raw W&B reward
+quarters show the SAME order-of-magnitude collapse shape the UNCAPPED
+loadslip charge showed before its own cap: s0 `[52.3,121.6,-819.1,
+-7624.5]`, s1 `[47.9,128.4,-784.5,-8771.3]` (W&B `9ewjhp2n`/`fxjvjr3o`).
+Likely root cause, computed but not yet confirmed against per-tick
+telemetry: this dose (`charge=150`, `cap_s=4.0`) bounds the per-tick
+price at `-150*4.0=-600`, TWENTY TIMES the loadslip cap's own working
+per-tick ceiling (`-150*0.2=-30`) -- shipping a cap KEY from inception
+(the design claim above) does not by itself pick a SAFE per-tick
+MAGNITUDE; `cap_s` needs its own dose-calibration pass (try `cap_s` in
+the ~0.03-0.2s range, i.e. a per-tick ceiling comparable to the
+loadslip family's own working ~-30, before trusting any efficacy read
+here). Do not conclude the swing-gap DESIGN itself is refuted from
+this alone -- the harness eval (gait_valid/falls/per-leg duty) is not
+synced yet, and this reads as a dose-calibration miss (analogous to
+the loadslip charge's own target=1.5 recalibration), not a mechanism-
+shape problem, until proven otherwise. Next cycle: read the harness
+gate report once synced (falls/gait_valid/efficacy); if the reward-
+collapse read holds, launch a `cap_s` dose-recalibration pair (e.g.
+0.05/0.15) off the SAME clean widen8-acq1 init before drawing any
+efficacy conclusion on this mechanism.
+
 ## 2026-09-08 ~19:1x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the entire `walk_leg_loadslip_ratio_charge` investigation line (dose/target/isolation/cap all tried, 2/2 seeds on the final cap arm confirm) + separately CLOSES the widen8-jointspace-freshinit DR-breadth investigation (true zero-DR still fails to ignite)
 
 One plain sentence: the two runs that finished this window each close out a

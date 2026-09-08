@@ -749,7 +749,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_legduty_ratio_ema", "_legduty_ratio_ticks",
                           "_legduty_ratio_swing_hist",
                           "_legslip_ratio_ema", "_legslip_ratio_ticks",
-                          "_swing_gap_s", "_liftoff_was_maxload")
+                          "_swing_gap_s", "_liftoff_was_maxload",
+                          "_swinit_load_ema")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -959,6 +960,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Seeded False (no leg has swung yet at reset, so none can
         # claim credit for the reset-pose's own trivial "liftoff").
         self._liftoff_was_maxload = [False] * 6
+        # Trailing EMA of per-leg raw contact force (own state,
+        # own units -- N, not a peer-ratio -- so the mechanism
+        # can rank legs by ARGMAX directly), used instead of the
+        # single-instant `_foot_prev_force` to decide "most
+        # loaded" at liftoff: a raw last-tick snapshot is
+        # dominated by the natural pre-liftoff UNLOADING
+        # transient every smooth gait already does (a leg sheds
+        # load in the ticks just before it lifts, by ordinary
+        # weight-transfer kinematics, not misbehavior) -- an
+        # empirical check during this mechanism's own bank-test
+        # development found the raw-instant version NEVER fires
+        # on the honest scripted gait for exactly this reason.
+        # The EMA (tau `walk_leg_swing_initiation_load_tau_s`)
+        # instead reflects how loaded this leg has BEEN over its
+        # current/recent stance, which the brief pre-liftoff dip
+        # cannot erase. Seeded 0.0 (no leg has been loaded yet
+        # at reset).
+        self._swinit_load_ema = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1688,6 +1707,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Seeded False (no leg has swung yet at reset, so none can
         # claim credit for the reset-pose's own trivial "liftoff").
         self._liftoff_was_maxload = [False] * 6
+        # Trailing EMA of per-leg raw contact force (own state,
+        # own units -- N, not a peer-ratio -- so the mechanism
+        # can rank legs by ARGMAX directly), used instead of the
+        # single-instant `_foot_prev_force` to decide "most
+        # loaded" at liftoff: a raw last-tick snapshot is
+        # dominated by the natural pre-liftoff UNLOADING
+        # transient every smooth gait already does (a leg sheds
+        # load in the ticks just before it lifts, by ordinary
+        # weight-transfer kinematics, not misbehavior) -- an
+        # empirical check during this mechanism's own bank-test
+        # development found the raw-instant version NEVER fires
+        # on the honest scripted gait for exactly this reason.
+        # The EMA (tau `walk_leg_swing_initiation_load_tau_s`)
+        # instead reflects how loaded this leg has BEEN over its
+        # current/recent stance, which the brief pre-liftoff dip
+        # cannot erase. Seeded 0.0 (no leg has been loaded yet
+        # at reset).
+        self._swinit_load_ema = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3691,6 +3728,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Seeded False (no leg has swung yet at reset, so none can
         # claim credit for the reset-pose's own trivial "liftoff").
         self._liftoff_was_maxload = [False] * 6
+        # Trailing EMA of per-leg raw contact force (own state,
+        # own units -- N, not a peer-ratio -- so the mechanism
+        # can rank legs by ARGMAX directly), used instead of the
+        # single-instant `_foot_prev_force` to decide "most
+        # loaded" at liftoff: a raw last-tick snapshot is
+        # dominated by the natural pre-liftoff UNLOADING
+        # transient every smooth gait already does (a leg sheds
+        # load in the ticks just before it lifts, by ordinary
+        # weight-transfer kinematics, not misbehavior) -- an
+        # empirical check during this mechanism's own bank-test
+        # development found the raw-instant version NEVER fires
+        # on the honest scripted gait for exactly this reason.
+        # The EMA (tau `walk_leg_swing_initiation_load_tau_s`)
+        # instead reflects how loaded this leg has BEEN over its
+        # current/recent stance, which the brief pre-liftoff dip
+        # cannot erase. Seeded 0.0 (no leg has been loaded yet
+        # at reset).
+        self._swinit_load_ema = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -5038,7 +5093,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # from inception) -- this is a bounded, one-shot positive
             # INCOME paid exactly once per qualifying event (a real
             # completed swing whose OWN liftoff instant found this leg
-            # carrying the single highest contact force of all six).
+            # carrying the single highest TRAILING LOAD EMA of all
+            # six -- see `_swinit_load_ema`'s own __init__ comment for
+            # why a raw single-tick force snapshot cannot be used: an
+            # empirical check while building this mechanism found the
+            # honest scripted gait naturally UNLOADS a leg in the
+            # ticks just before it lifts (ordinary weight-transfer
+            # kinematics), so the raw-instant version never fires on
+            # good gaits at all; the EMA reflects how loaded the leg
+            # has BEEN over its current stance instead).
             # There is nothing to cap: the per-event magnitude is fixed
             # (`walk_leg_swing_initiation_income` itself) and the event
             # can fire at most once per stride per leg, so total reward
@@ -5057,14 +5120,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # gait_gate_stride_mm, lift legs exempt) every other
             # swing-detection gate in this file already computes at
             # the touchdown branch below; "most loaded" is evaluated
-            # from a whole-tick PREVIOUS-tick contact-force snapshot
-            # (`_foot_prev_force`, captured before this tick's per-leg
-            # loop starts overwriting it leg-by-leg) at the exact tick
-            # the leg left the ground, stored per-leg
-            # (`_liftoff_was_maxload`) until the swing resolves at
-            # touchdown -- see the loop below for the write/read sites.
-            # Default 0.0 = off; the ONLY reward-path effect when off
-            # is skipping the snapshot copy and leaving `r_swinit`
+            # from a whole-tick PREVIOUS-tick trailing-load-EMA
+            # snapshot (`_swinit_load_ema`, own state/tau
+            # `walk_leg_swing_initiation_load_tau_s` default 0.3s,
+            # captured before this tick's per-leg loop starts
+            # overwriting it leg-by-leg) at the exact tick the leg
+            # left the ground, stored per-leg (`_liftoff_was_maxload`)
+            # until the swing resolves at touchdown -- see the loop
+            # below for the write/read sites. Default 0.0 = off; the
+            # ONLY reward-path effect when off is skipping the
+            # snapshot copy and the EMA update, leaving `r_swinit`
             # (added post-loop, mirroring `r_swing`) at its 0.0 init,
             # legacy bit-exact.
             g_swinit = float(cfg_get(self.cfg, "reward",
@@ -6400,15 +6465,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_wts = 0.0
                 r_swinit = 0.0
                 # walk_leg_swing_initiation_income: whole-tick snapshot
-                # of last tick's per-leg contact force, taken BEFORE
-                # this tick's per-leg loop starts overwriting
-                # `_foot_prev_force` leg-by-leg (that array is only
-                # safe to compare across all six legs as a single
-                # consistent instant right here; mid-loop it is a mix
-                # of this-tick-updated and still-previous-tick values).
-                # None (never indexed) when the mechanism is off.
-                prev_force_snapshot = (
-                    list(self._foot_prev_force) if g_swinit > 0.0 else None)
+                # of the per-leg trailing LOAD EMA (`_swinit_load_ema`,
+                # NOT the raw instantaneous `_foot_prev_force` -- see
+                # that state's own __init__ comment for why the raw
+                # single-tick value cannot be used), taken BEFORE this
+                # tick's per-leg loop starts overwriting the EMA
+                # leg-by-leg (only safe to compare across all six legs
+                # as a single consistent instant right here; mid-loop
+                # it would be a mix of this-tick-updated and
+                # still-previous-tick values, the same hazard
+                # `_foot_prev_force` has). None (never indexed) when
+                # the mechanism is off.
+                prev_load_ema_snapshot = (
+                    list(self._swinit_load_ema) if g_swinit > 0.0 else None)
                 wts_excess = []
                 wts_td_events = 0
                 wts_lo_events = 0
@@ -6492,20 +6561,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         self._liftoff_step[f] = self._step_i
                         # walk_leg_swing_initiation_income bookkeeping:
                         # was THIS leg carrying the single highest
-                        # contact force of all six, one tick ago, at
-                        # the exact instant it left the ground? Read
-                        # from the whole-tick snapshot taken before
-                        # this loop started (never the live, mid-loop
-                        # `_foot_prev_force`, which is only half-
-                        # updated at this point in the iteration).
-                        # Strict > 0 guards the degenerate all-zero
-                        # tick (nobody loaded, e.g. a mid-air recovery)
-                        # from awarding a spurious "most loaded" claim.
-                        if prev_force_snapshot is not None:
+                        # TRAILING LOAD EMA of all six at the point it
+                        # left the ground? Read from the whole-tick EMA
+                        # snapshot taken before this loop started
+                        # (never the live, mid-loop `_swinit_load_ema`,
+                        # which is only half-updated at this point in
+                        # the iteration -- same hazard as
+                        # `_foot_prev_force`). Strict > 0 guards the
+                        # degenerate all-zero tick (nobody loaded yet,
+                        # e.g. right at episode reset) from awarding a
+                        # spurious "most loaded" claim.
+                        if prev_load_ema_snapshot is not None:
                             self._liftoff_was_maxload[f] = (
-                                prev_force_snapshot[f] > 1e-6
-                                and prev_force_snapshot[f]
-                                >= max(prev_force_snapshot))
+                                prev_load_ema_snapshot[f] > 1e-6
+                                and prev_load_ema_snapshot[f]
+                                >= max(prev_load_ema_snapshot))
                         # TRANSITION-WINDOW liftoff charge: retrospective
                         # lump over the trailing `walk_transition_lo_
                         # ticks` per-tick excess samples already
@@ -6690,6 +6760,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                           - self._liftoff_step[f]) * self.dt
                     self._foot_prev_xy[f] = xy.copy()
                     self._foot_prev_force[f] = force
+                    if g_swinit > 0.0:
+                        swinit_tau_s = float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_leg_swing_initiation_load_tau_s",
+                            default=0.3))
+                        self._swinit_load_ema[f] = (
+                            self._swinit_load_ema[f]
+                            + (self.dt / max(swinit_tau_s, 1e-6))
+                            * (force - self._swinit_load_ema[f]))
                     self._foot_on[f] = on
                 if k_tslip > 0.0:
                     if tangent_excess:

@@ -6172,7 +6172,8 @@ GG_TUCK_RAD = (0.0, -1.10, 1.30)
 def _gait_gate_walk_rollout(policy: str, seed: int,
                             overrides: dict, *, record_ratio=False,
                             record_lsratio=False,
-                            record_swinggap=False) -> dict:
+                            record_swinggap=False,
+                            record_swinit=False) -> dict:
     """Walk-mode rollout: 'gait' = the honest six-leg scripted tripod;
     'flagleg' = the same gait with mid leg 1 blended to a raised flag
     pose (the one-leg-sacrifice cheat class). Returns the episode
@@ -6203,6 +6204,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
     ratio_trace = []
     lsratio_trace = []
     swinggap_trace = []
+    swinit_trace = []
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -6228,6 +6230,9 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
             swinggap_trace.append(
                 (info.get("walk_leg_swing_gap_worst_s"),
                  info.get("reward_walk_leg_swing_gap")))
+        if record_swinit:
+            swinit_trace.append(
+                info.get("reward_walk_leg_swing_initiation"))
         total += float(r)
         kernel += float(info.get("reward_walk", 0.0))
         prog += float(info.get("reward_walk_prog", 0.0))
@@ -6246,6 +6251,8 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
         result.update(lsratio_trace=lsratio_trace, dt=env.dt)
     if record_swinggap:
         result.update(swinggap_trace=swinggap_trace, dt=env.dt)
+    if record_swinit:
+        result.update(swinit_trace=swinit_trace, dt=env.dt)
     return result
 
 
@@ -7573,6 +7580,133 @@ def test_walk_leg_swing_gap_charge_cap_bounds_extreme_gap():
     assert tightly_capped["return"] >= loosely_capped["return"], (
         "a tighter cap must never produce a MORE negative return than "
         "a looser one against the identical cheat actor")
+
+
+# --------------------------------------------------------------------------
+# reward.walk_leg_swing_initiation_income (2026-09-08): the OTHER
+# concrete lead named alongside walk_leg_swing_gap_charge by the
+# loadslip-ratio-charge closure -- "a positive swing-initiation income
+# for the currently-most-loaded leg" (CURRENT_TRUTHS/walkcurr
+# STATUS.md 2026-09-08 ~19:1x). A flat, per-event POSITIVE payment
+# (never a charge) paid once, at the touchdown that resolves a
+# qualifying swing whose own liftoff instant found this leg carrying
+# the single highest contact force of all six -- structurally bounded
+# (fixed magnitude, at most one event per leg per stride) unlike every
+# charge-shaped sibling above, which all needed a target recalibration
+# and/or an excess-cap retrofit against unbounded per-tick blowups.
+
+def test_walk_leg_swing_initiation_income_default_off_bit_exact():
+    """walk_leg_swing_initiation_income=0.0 (explicit) must equal the
+    key entirely absent -- legacy bit-exact off."""
+    off = dict(WALK_OVERRIDES)
+    off[("reward", "walk_leg_swing_initiation_income")] = 0.0
+    baseline = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    explicit_off = _gait_gate_walk_rollout("gait", SEEDS[0], off)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_swing_initiation_activation_matches_plain_when_off(policy):
+    """End-to-end rollout guard mirroring the duty-ratio/loadslip/
+    swing-gap charges' own bank entries: adding
+    reward.walk_leg_swing_initiation_income=0.0 (explicit) to the
+    already-launched sparse duty-ratio/loadslip activation config must
+    not change either policy's return by even one bit -- the new
+    mechanism's cfg key is additive and must not perturb any existing
+    dose's behavior when off (the default)."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    for key in ("k_walk_swing", "k_step_event", "k_step_partial",
+                "k_drag_loaded", "k_park_duty", "k_drag_stance",
+                "walk_gait_gate", "walk_duty_gate", "walk_swing_gate",
+                "walk_duty_band_gate", "k_foot_slip_tangent",
+                "k_foot_slip_height", "k_walk_transition_slip",
+                "walk_leg_duty_ratio_charge",
+                "walk_leg_loadslip_ratio_charge",
+                "walk_leg_swing_gap_charge"):
+        overrides[("reward", key)] = 0.0
+    overrides[("goal", "walk_contact_diagnostics")] = 0.0
+    baseline = _gait_gate_walk_rollout(policy, SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_swing_initiation_income")] = 0.0
+    explicit_off = _gait_gate_walk_rollout(policy, SEEDS[0], with_key)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+def test_walk_leg_swing_initiation_income_honest_gait_earns_positive_credit():
+    """THE core positive claim: unlike every per-leg CHARGE in this
+    file (all priced at exactly 0.0 against a good gait), this INCOME
+    must go strictly POSITIVE over a full episode of the honest
+    six-leg scripted tripod -- legs take turns bearing the most load
+    and swinging, so the mechanism must actually engage and reward
+    that rotation, not merely stay silent like a well-behaved charge."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_initiation_income")] = 1.0
+    # Same qualifying-swing stride filter override the swing-gap
+    # charge's own "honest gait" test uses -- the default 10mm bar is
+    # calibrated for progress credit, not this slow scripted actor's
+    # own real per-stride XY displacement at this test's WALK_CMD_VX.
+    overrides[("reward", "gait_gate_stride_mm")] = 7.0
+    result = _gait_gate_walk_rollout("gait", SEEDS[0], overrides,
+                                     record_swinit=True)
+    incomes = [v for v in result["swinit_trace"] if v is not None]
+    assert incomes, "mechanism never activated on any commanded tick"
+    assert all(v >= 0.0 for v in incomes), "income must never be negative"
+    assert sum(incomes) > 0.0, (
+        "an honest six-leg gait earned zero swing-initiation income")
+
+
+def test_walk_leg_swing_initiation_income_event_magnitude_is_exact():
+    """Every nonzero tick's income must equal an exact positive
+    integer multiple of the configured per-event dose (exactly 1x in
+    the overwhelmingly common case of one qualifying event per tick;
+    a rare tick where two legs both resolve a qualifying swing at once
+    is a legitimate 2x) -- never some other scaled/accumulated value.
+    This is the structural property that makes the mechanism
+    incapable of the unbounded per-tick blowups its charge-shaped
+    siblings needed caps for: there is no continuous quantity here to
+    escalate, only a flat payment per discrete real event."""
+    dose = 3.0
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_initiation_income")] = dose
+    overrides[("reward", "gait_gate_stride_mm")] = 7.0
+    result = _gait_gate_walk_rollout("gait", SEEDS[0], overrides,
+                                     record_swinit=True)
+    nonzero = [v for v in result["swinit_trace"] if v]
+    assert nonzero, "mechanism never fired"
+    for v in nonzero:
+        ratio = v / dose
+        assert ratio > 0.0
+        assert abs(ratio - round(ratio)) < 1e-6, (
+            f"non-integer-multiple income {v} (dose {dose})")
+
+
+def test_walk_leg_swing_initiation_income_flagleg_cheat_earns_less_than_honest():
+    """The one-leg-sacrifice cheat (leg 1 blended into a permanently
+    raised pose after t~1.5s, never completing another qualifying
+    swing for the rest of the episode) must earn LESS total
+    swing-initiation income than the honest six-leg gait at the
+    identical dose -- one leg permanently opting out of the swing
+    rotation can only ever reduce the number of qualifying
+    most-loaded-leg swing events, never increase it. This is the
+    mechanism's own version of every other gate's 'honest gait beats
+    the flag-leg cheat' claim, expressed as an income comparison
+    instead of a charge comparison."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_initiation_income")] = 1.0
+    overrides[("reward", "gait_gate_stride_mm")] = 7.0
+    honest = _gait_gate_walk_rollout("gait", SEEDS[0], overrides,
+                                     record_swinit=True)
+    flagleg = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides,
+                                      record_swinit=True)
+    honest_total = sum(v for v in honest["swinit_trace"] if v is not None)
+    flag_total = sum(v for v in flagleg["swinit_trace"] if v is not None)
+    assert flag_total < honest_total, (
+        f"flagleg cheat ({flag_total}) did not earn less swing-"
+        f"initiation income than the honest gait ({honest_total})")
 
 
 # --------------------------------------------------------------------------

@@ -5928,7 +5928,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
-                    or g_dband > 0.0
+                    or g_dband > 0.0 or g_ratio > 0.0
                     or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:

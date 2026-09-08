@@ -6,7 +6,8 @@ slew clip (safety.max_delta_q_deg, 3.6 deg @ 100 Hz) and its gate
 telemetry shows slew_sat_frac ~0.87 (ANY-joint definition). Do small
 actor corrections DISAPPEAR in the absolute-target -> safety-clip
 stage, i.e. is local foot-motion controllability lost to one-sided
-slew saturation?
+slew saturation? This probe measures target sensitivity and a nominal
+kinematic support proxy; it does not measure dynamic foot response.
 
 INPUTS: per-tick rollout traces (.npz) written by
 ``eval_checkpoint --rollout-trace-out ... --rollout-trace-index -1``
@@ -29,10 +30,12 @@ WHAT IT DOES (all on COPIED state, zero live-env mutation):
    (transmission) and by how much.
 4. Foot-space directions: per leg, maps the per-joint transmitted
    intervals through the leg's foot Jacobian (nominal mesh-twin FK;
-   per-episode link DR <=1.6% is ignored) and compares achievable
+   per-episode link DR is ignored) and compares achievable
    displacement along sampled unit directions against an ideal
    unsaturated channel of the same budget -> "lost" (ratio<0.2) /
-   "kept" (ratio>0.8) direction fractions, stance vs swing.
+   "kept" (ratio>0.8) support fractions, stance vs swing. These are
+   projection maxima, not independently reachable displacement vectors;
+   motor dynamics, loaded contacts and transition timing are untested.
 
 Pure diagnostic: no training, no shared-behavior change.
 """
@@ -44,6 +47,9 @@ import math
 from pathlib import Path
 
 import numpy as np
+
+from hexapod_core.joint_frame import (
+    mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad)
 
 DEG2RAD = math.pi / 180.0
 AXIS_LIMITS_DEG = {0: (-35.0, 35.0), 1: (-80.0, 40.0), 2: (-20.0, 150.0)}
@@ -79,7 +85,9 @@ def safe_filter(last, prop, max_dq):
 
 class LegJac:
     """(6,3,3) foot-site Jacobian columns for each leg's 3 joints,
-    chassis frame (free joint pinned to identity), finite differences.
+    chassis frame (free joint pinned to identity), finite differences
+    with respect to ROBOT ABSOLUTE targets. Input positions remain in
+    MuJoCo relative-hinge coordinates, as stored by rollout traces.
     One model load per process; one MjData reused."""
 
     def __init__(self, model_xml: Path):
@@ -100,14 +108,30 @@ class LegJac:
 
     def __call__(self, qpos_joints: np.ndarray):
         eps = 1e-5
+        q_logical = mujoco_rel_rad_to_robot_abs_rad(qpos_joints)
         J = np.zeros((6, 3, 3))
         for leg in range(6):
             for k in range(3):
                 j = leg * 3 + k
-                qp = qpos_joints.copy(); qp[j] += eps
-                qm = qpos_joints.copy(); qm[j] -= eps
-                J[leg, :, k] = (self._fk(qp)[leg] - self._fk(qm)[leg]) / (2 * eps)
+                qp = q_logical.copy(); qp[j] += eps
+                qm = q_logical.copy(); qm[j] -= eps
+                # knee_rel = knee_abs - hip_abs: changing an absolute
+                # hip target also changes the relative knee hinge.
+                fp = self._fk(robot_abs_rad_to_mujoco_rel_rad(qp))[leg]
+                fm = self._fk(robot_abs_rad_to_mujoco_rel_rad(qm))[leg]
+                J[leg, :, k] = (fp - fm) / (2 * eps)
         return J
+
+
+def tracking_lag_med_deg(qpos: np.ndarray, commanded_position: np.ndarray) -> float:
+    """Median post-step target error in the shared robot-absolute frame.
+
+    The historical output key says lag; this is a position-error summary,
+    not a measurement of latency or counterfactual dynamic response.
+    """
+    measured = np.stack([
+        mujoco_rel_rad_to_robot_abs_rad(q) for q in qpos[:, 7:25]])
+    return float(np.median(np.abs(measured - commanded_position)) / DEG2RAD)
 
 
 def unit_dirs(n_rand=20, seed=0):
@@ -141,7 +165,15 @@ def main():
     summary = {"traces": [str(t) for t in args.traces],
                "max_delta_q_deg": args.max_delta_q_deg,
                "budgets": args.budgets, "episodes": [],
-               "n_dirs": int(len(dirs))}
+               "n_dirs": int(len(dirs)),
+               "analysis_contract": {
+                   "version": 2,
+                   "joint_target_frame": "robot_abs_tibia_v2",
+                   "jacobian_columns": "robot_abs",
+                   "foot_response": "nominal_kinematic_support_only",
+                   "trace_state_timing": "post-step qpos/contact; pre-filter safety state",
+                   "margin_exceeds_budget_denominator": "all joint/tick samples",
+               }}
 
     # pooled accumulators
     pool = {
@@ -266,8 +298,7 @@ def main():
             "slew_sat_frac_reported": ep_meta.get("slew_sat_frac"),
             "any_joint_sat_frac": float(sat.any(axis=1).mean()),
             "mean_joints_sat_per_tick": float(sat.sum(axis=1).mean()),
-            "tracking_lag_med_deg": float(np.median(
-                np.abs(qpos[:, 7:25] - cmd)) / DEG2RAD),
+            "tracking_lag_med_deg": tracking_lag_med_deg(qpos, cmd),
         })
         print(f"[probe] {tp.name}: T={T} parity ok "
               f"(dec {errA:.1e}, safe {errB:.1e}, chain {errC:.1e}, "

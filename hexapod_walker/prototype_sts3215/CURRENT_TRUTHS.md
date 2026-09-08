@@ -881,6 +881,45 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   that has nothing to do with the recipe being tested.
 
 ## Walkcurr Reward Mechanisms (per-leg utilization)
+- `reward.walk_leg_duty_ratio_charge` (2026-09-08, built + bank-proved
+  this cycle, `test_walk_leg_duty_ratio_charge_*` in
+  `test_task_semantics.py`, 9 new tests + 5 adjacent legduty tests
+  reconfirmed, 14/14 green, default 0 = off/bit-exact): the mechanism
+  scoped since 09-07 ~23:2x/~23:4x as the "duty-balance reward TARGET"
+  once BOTH the per-tick-price class (11 arms: `walk_duty_gate`,
+  `walk_swing_gate`, `walk_duty_band_gate`, `walk_gait_gate`+
+  `k_step_event` — every one an income-MULTIPLYING factor) and the
+  termination class (`safety.walk_leg_duty_terminate_s`, 8/8) both
+  closed FAIL against the chronic front-pair/middle-pair leg
+  sacrifice. Different SHAPE from both: an independent ADDITIVE
+  per-tick charge (never multiplies `r_walk`/`r_prog`/`r_cmd_track`,
+  so it cannot be "simply outbid" the way every closed multiplicative
+  gate could be) with NO episode cutoff (nothing to pay off as
+  ambient cost the way the termination class was), keyed on the
+  09-07 ~23:4x calibrated peer-excluded-mean duty ratio (target 0.30
+  = the passing population's own p10 worst-leg ratio). Answers the
+  open question every one of the 19 prior mechanisms' own closure
+  notes flagged as never demonstrated — **can a per-tick mechanism
+  flip a leg-sacrifice cheat's FULL episode return below the honest
+  gait's own return, not just shrink it toward zero** — empirically,
+  YES: bank-proved (scripted rollouts, no training) that at a modest
+  dose (150.0) the honest six-leg gait's return is BIT-EXACT
+  untouched (3113.8, unchanged across a 50x-3000x dose sweep) while
+  BOTH the hard flag-leg cheat (1323.9 undosed -> -14785.3 dosed) AND
+  a NEW soft/marginal ~10%-duty starvation actor built this cycle
+  (`_gait_gate_walk_rollout_softleg`, mimicking the ~0.02-0.11 duty
+  real 40M-trained checkpoints actually show, not just the hard
+  synthetic every prior bank tested) flip net NEGATIVE, decisively
+  below the honest gait's own dosed return. First real-training test:
+  4 canaries launched (2M each, phase=canary) — `s0`/`s1`-widen8-acq1-
+  legdutyratiofresh (fresh provenance, 2 seeds), `s0`-widen8-acq1-
+  legdutyratio1 (`--init-from-source` RETROFIT onto the actual
+  entrenched 40M checkpoint), `s0`-widenbis180-legdutyratiofresh
+  (fresh, milder 6-way lineage) — all VERIFIED RUNNING/FINISHED
+  09-08 ~00:2x. UNVERDICTED as of this entry; read the gate reports
+  before funding any further dose/lineage variant. Evidence:
+  `rl_move/sim/walk_task.py` (search `walk_leg_duty_ratio`), STATUS.md
+  2026-09-08 ~00:2x, snapshot `e24a2ab6`.
 - `reward.walk_swing_gate` (09-05, built + bank-proved this cycle,
   `test_walk_swing_gate_*` in `test_task_semantics.py`, 4/4 green,
   default 0 = off/bit-exact): the 6th structural repair attempt for

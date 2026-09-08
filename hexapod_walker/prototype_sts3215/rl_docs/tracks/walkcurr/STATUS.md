@@ -1,3 +1,93 @@
+## 2026-09-08 ~00:2x (refill cycle; 11/11 GPU free, backlog empty) — BUILT + BANK-PROVED `reward.walk_leg_duty_ratio_charge`, the "duty-balance reward TARGET" scoped since 09-07 ~23:2x, and launched the first 4-canary test batch
+
+**Plain English**: a brand-new per-leg reward charge that ADDS a
+penalty (never multiplies existing walking income, and never ends
+the episode) whenever one leg's ground-contact time falls too far
+below its five teammates' own average. Built to answer the exact
+question every one of the 19 prior mechanisms in this file (11
+income-multiplying price gates + 8 hard safety-terminations, all
+CLOSED FAIL against the chronic front-pair/middle-pair leg sacrifice)
+left open in its own closure note: **can ANY per-tick mechanism flip
+a leg-sacrifice cheat's full-episode return below the honest gait's
+own return, not just shrink it toward zero?** Answered empirically
+this cycle, decisively YES for this design.
+
+**Design**: per-leg EMA of ground-contact duty (own independent
+state, `_legduty_ratio_ema`, does not touch the termination feature's
+own `_walk_legduty_ema`); each tick, `ratio_i = duty_ema_i /
+peer-excluded-mean(other 5 legs)`; charge = `-walk_leg_duty_ratio_
+charge * max(0, target - min_i(ratio_i))`, added directly to reward
+(never multiplies `r_walk`/`r_prog`/`r_cmd_track`, so it cannot be
+"simply outbid" by a fatter income term the way every closed
+multiplicative gate could be) with no episode cutoff (so there is
+nothing to "pay off as ambient cost" the way the termination class
+was). Default `target=0.30` is the 09-07 ~23:4x calibration's own
+passing-population p10 worst-leg ratio. Default 0 = off, bit-exact
+(verified: the ONLY reward-path change when off is adding a `r_ratio`
+local initialized to `0.0`, which is a numerically exact no-op).
+
+**Bank proof** (`test_task_semantics.py`, 9 new tests + the 5 adjacent
+legduty tests re-confirmed green, 14/14 total): using the SAME
+scripted honest-six-leg/flag-leg actors every prior mechanism in this
+file was validated against, PLUS a new SOFT/MARGINAL starvation actor
+(`_gait_gate_walk_rollout_softleg`, periodic ~10% duty taps instead of
+a permanent 0%-duty raise — the shape real 40M-trained checkpoints
+actually show, not just the hard synthetic cheat every prior bank only
+ever tested). At a modest dose (150.0): the honest gait's return is
+BIT-EXACT untouched (its own worst-leg ratio never dips below 0.30);
+the hard flag-leg cheat's return flips from 1323.9 (undosed, already
+below the honest gait's 3113.8) to -14785.3 (dosed) — net NEGATIVE,
+decisively below the honest gait's own dosed return (3113.8,
+unchanged); the soft 10%-duty starvation cheat does the same
+(1261.1 -> -47064.4). Confirmed the ordering-flip holds across a
+50x-3000x dose sweep (return scales roughly linearly with dose, sign
+never flips back). Direct calibration check: a leg at the flagged-
+sacrifice population's own p90 ratio (0.179) reads a real shortfall;
+a leg at the passing population's own p10 (0.302) reads ~zero — the
+shipped default sits exactly where the data says it should.
+
+**Launched** (all VERIFIED RUNNING, 2M canaries, phase=canary, single
+new lever vs each source's own already-FAIL baseline):
+1. `s0-widen8-acq1-legdutyratiofresh` (train-2, FINISHED already —
+   fresh provenance, same recipe as the undosed `widen8-acq1` FAIL,
+   charge from step 0)
+2. `s1-widen8-acq1-legdutyratiofresh` (train-0, RUNNING — 2nd-seed
+   replication)
+3. `s0-widen8-acq1-legdutyratio1` (train-2, RUNNING —
+   `--init-from-source` RETROFIT onto the actual entrenched 40M
+   widen8-acq1 checkpoint, tests repair-of-baked-in-habit)
+4. `s0-widenbis180-legdutyratiofresh` (train-1 — fresh provenance on
+   the milder 6-way-heading lineage)
+
+Pre-registered gate (all 4): PASS if the chronic leg's held-out
+duty_cycle recovers to a genuinely-used level (peer-relative ratio
+>=0.22) in the majority of episodes and `gait_valid` materially
+improves (>=18/24, the pre-widen8 clean band) with 0 new falls;
+CONTINUE per the 08-21 ruling if reward+gait_valid are both trending
+up but short at 2M (fund a longer acquisition, not a new variant);
+FAIL if the same sacrifice persists regardless of whether the charge
+is measurably firing. Read these before funding any further
+`walk_leg_duty_ratio_charge` dose/lineage variant.
+
+Full board re-confirmed unchanged otherwise: joystick/amp DONE, cpg
+closed, standwalk/assistfade closed pending their own unscoped
+mechanism designs (this IS that design, for walkcurr's instance of
+the same shared per-leg-utilization gap), todaypolicy delivered/
+Codex-owned turn-authority repair in progress. Snapshot `e24a2ab6`
+pushed (`rl_move/sim/walk_task.py`, `rl_move/tests/
+test_task_semantics.py`). `CYCLE_WORKED` touched (new mechanism
+built+bank-proved+snapshotted, 4 canaries launched — not a re-verify
+no-op).
+
+Evidence: `rl_move/sim/walk_task.py` (search
+`walk_leg_duty_ratio`), `rl_move/tests/test_task_semantics.py`
+(`test_walk_leg_duty_ratio_charge_*`, `test_walk_leg_duty_ratio_
+charge_matches_calibration_threshold`), `ops.sh review
+cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-{s0,s1}-widen8-acq1-legdutyratiofresh` /
+`...-s0-widen8-acq1-legdutyratio1` /
+`...-s0-widenbis180-legdutyratiofresh`, W&B `x6d04iaz`/`xvrxw7t3`.
+
 ## 2026-09-07 ~23:4x (refill cycle; 11/11 GPU free, backlog empty) — closed the ledger gap on `s0`/`s2`-widen8-acq1-legdutyfresh (already narratively FAIL'd, formal verdict/W&B note never written) + a zero-spend CALIBRATION finding for the next duty-balance-TARGET build: peer-excluded-mean relative floor ~0.22-0.24 cleanly separates sacrificed legs from a passing gait's own worst leg
 
 **Ledger housekeeping**: `s0`/`s2`-widen8-acq1-legdutyfresh both had

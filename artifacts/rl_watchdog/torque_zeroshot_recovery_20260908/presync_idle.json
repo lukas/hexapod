@@ -1,0 +1,26 @@
+{
+  "hexapod-mjx-train-5": {
+    "utc": "2026-09-08T08:32:17.046705+00:00",
+    "live_python": [
+      "  84903       1 1784964  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      "  88574       1 1784946  0.0 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=205) --multiprocessing-fork",
+      " 727769       1  250299  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      " 732247       1  250266  0.0 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=209) --multiprocessing-fork",
+      " 887298       1  186141  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(5)",
+      " 890982       1  186131  1.9 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=6, pipe_handle=209) --multiprocessing-fork"
+    ],
+    "unexpected_healthy_work": []
+  },
+  "hexapod-mjx-train-9": {
+    "utc": "2026-09-08T08:32:17.907039+00:00",
+    "live_python": [
+      "3298681       1  242353  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      "3302841       1  242346  1.1 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=209) --multiprocessing-fork",
+      "3305180       1  242198  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      "3309338       1  242190  1.4 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=209) --multiprocessing-fork",
+      "3425966       1  180522  0.0 S python          /usr/local/bin/python -c from multiprocessing.resource_tracker import main;main(18)",
+      "3430556       1  180463  1.5 S python          /usr/local/bin/python -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=19, pipe_handle=209) --multiprocessing-fork"
+    ],
+    "unexpected_healthy_work": []
+  }
+}

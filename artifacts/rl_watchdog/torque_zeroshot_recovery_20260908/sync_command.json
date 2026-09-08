@@ -1,0 +1,10 @@
+[
+  "kubectl",
+  "--kubeconfig=/Users/lukas/.kube/coreweave.yaml",
+  "exec",
+  "hexapod-sweep-friction",
+  "--",
+  "bash",
+  "-lc",
+  "cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && bash rl_move/orchestrator/snapshot.sh --sync hexapod-mjx-train-5 && bash rl_move/orchestrator/snapshot.sh --sync hexapod-mjx-train-9"
+]

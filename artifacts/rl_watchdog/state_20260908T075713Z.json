@@ -1,0 +1,119 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger": "2026-09-08T07:57:13.543Z",
+  "status": "completed_visit_heartbeat_remains_active",
+  "completed_at_utc": "2026-09-08T08:39:31.081024+00:00",
+  "completed_training": {
+    "jobs": 6,
+    "actual_steps_total": 46137344,
+    "arms": [
+      {
+        "family": "seed11 depth matched pair",
+        "runs": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m",
+          "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1-cont10m"
+        ],
+        "actual_steps_each": 10485760
+      },
+      {
+        "family": "seed10 repaired depth matched pair",
+        "runs": [
+          "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b-cont10m",
+          "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1-cont10m"
+        ],
+        "actual_steps_each": 10485760
+      },
+      {
+        "family": "seed7 fixed1x matched canaries",
+        "runs": [
+          "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-torque1x-c1",
+          "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-torque1x-c1"
+        ],
+        "actual_steps_each": 2097152
+      }
+    ],
+    "verification": "Exact own-parent checkpoint hashes, unchanged cfg except planned torque change, repeated PPO steps, and natural CPU artifact handoffs recorded in fleet receipts."
+  },
+  "repairs": {
+    "passthrough_steps_guard": {
+      "commit": "835b1b127",
+      "published_with": "6fa369f25",
+      "deployed_as_ancestor_of": "66a341cad",
+      "tests_local": 38,
+      "tests_controller": 38,
+      "controller_seconds": 0.11,
+      "scope": "Failfastbeforequeue/snapshot if --steps incorrectlypassed as trainerarg; actionabletop-levelsteps/explicitwarmstartguidance. Noautomaticinitinference.",
+      "deployment": "Firstffpullhitconcurrentcloudsnapshotdivergence; owner'ssanctionedsnapshotrebasecompletedandpublishedourcommit. Verifiedancestry andcontroller38tests; nomanualstash/forcepush/restart."
+    },
+    "background_shell_fd": {
+      "commit": "8b6e38ca9919f904f3b943e54e23c8813f5c586f",
+      "tests_local": 17,
+      "tests_controller": 17,
+      "scope": "Foreground cd then detached trainer; waiting bash no longer retains kubectl capture streams. Deployed, no watcher restart."
+    },
+    "seed10_queue": {
+      "reason": "Guard refused malformed passthrough steps before PPO; root corrected original queue entries under lock to own40M parents/top-level10M and preserved REFUSED history.",
+      "receipt": "seed10_depth_queue_repair_20260908/repair.json"
+    }
+  },
+  "scientific_correction": {
+    "seed7_off_depth": "FAIL - GAIT RETENTION",
+    "seed7_on_depth": "INCONCLUSIVE - CONTROL DRIFT",
+    "basis": "OFF ordinary deterministic gait6\u21920/6 and jitter deterministic1\u21920/6 violates its registered retention gate; ON gait23\u219211/24, OFF19\u219212/24. Narrow arithmetic-mean slip parity and zero falls remain supported, but do not establish healthy overall durability. No criterion relaxation or automatic extension.",
+    "receipts": "cartfoot_depth_read_20260908/verdicts_{before,after}_correction.json"
+  },
+  "zero_shot_recovery": {
+    "original_on": "Completed using pre-Cartesian decoder on train5; noncomparable, original report preserved.",
+    "original_off": "Failed before rollout on old train9 parser: unsupported --video-fps25; original log preserved.",
+    "recovered": "Both frozen40M parents restarted on idle5/9 using source matching trained-child evaluators; same own cfg and checkpoint SHA, only planned torque1x. No PPO/newseed.",
+    "code_sha": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
+    "pids": {
+      "on_train5": 1155623,
+      "off_train9": 4143559
+    },
+    "progress": "Both1\u21923completed clips08:33:36\u219208:34:30; each60s simulated/1500frames. Both still active at08:37:34. Final24episode reports pending.",
+    "output_suffix": "_torque1x_zeroshot_evalfix1",
+    "receipt": "torque_zeroshot_recovery_20260908/",
+    "comparison_owner": "Existing torque triage20260908T082731, or next watcher completion owner if it wraps: compare each corrected exact24episode frozen baseline with its own2M child; verify model/motor/draw alignment. Do not replay healthy baselines."
+  },
+  "latest_capacity": {
+    "sample_at": "2026-09-08T08:37:38.521364+00:00",
+    "ready": 11,
+    "ppo_processes": 1,
+    "free_gpu_slots": 10,
+    "pending_pods": [
+      "hexapod-mjx-train-6"
+    ],
+    "backlog": [],
+    "active_training": [
+      {
+        "pod": "hexapod-mjx-train-2",
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7",
+        "pid": 3856539
+      }
+    ],
+    "scope": "Timestamped capacity; CPU evaluators/finalizers use nominally free GPU pods. New owner-launched half-gravity and curriculum canaries are distinct from the six completed jobs counted above; this receipt does not newly authorize or qualify them.",
+    "receipt": "fleet_20260908T075713Z/publication.json"
+  },
+  "ownership": {
+    "watcher": "UP",
+    "pending_kicks": 0,
+    "active_cycles_at_0837": [
+      "20260908T081150",
+      "20260908T082216",
+      "20260908T082731"
+    ],
+    "action": "Existing owners advancing; no duplicate kick or training launch from publication task."
+  },
+  "feedback": [
+    "fb_20260908T080520_7fa8dd",
+    "fb_20260908T082116_1b0c12",
+    "fb_20260908T083233_3a41e3",
+    "fb_20260908T083838_2aafe1"
+  ],
+  "remaining": [
+    "Corrected frozen-parent CPU reports and owned comparisons.",
+    "Current continuous joystick walking/yaw qualification remains unmet; heartbeat stays active."
+  ],
+  "publication": "Artifact-only closeout; sanitized URLs/credentials. No training code change."
+}

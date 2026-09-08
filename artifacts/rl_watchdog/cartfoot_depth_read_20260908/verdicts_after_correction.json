@@ -1,0 +1,20 @@
+[
+  {
+    "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+    "status": "FAIL - GAIT RETENTION",
+    "created": "2026-09-08T07:46:06+00:00",
+    "steps": 10000000,
+    "wandb_id": "irimsdt7",
+    "gate": "24-ep walk/walk_startjitter det+sto retention gate at 50M cumulative: PASS/HOLDS = 0 new falls/terminations vs this run's own 40M read, gait_valid staying in-or-above its established 6/6 (det)/1-6 (startjitter/det) band, mean slip/m staying in the 2.6-3.4/m band already measured at 40M (no unexplained drift). This band is what the ON cont10m's slip ratio is read against -- if this control itself drifts, read the ON/OFF cont10m pair as inconclusive rather than crediting/blaming the Cartesian mechanism.",
+    "verdict": "CORRECTED RETENTION READ (root watchdog, 2026-09-08): the exact frozen OFF control gate requires gait_valid in-or-above 6/6 ordinary det and 1-6/6 start-jitter det. The 40M->cont10m report changes are 6->0/6 and1->0/6, aggregate19->12/24, so this control fails its registered gait-retention condition. Zero terminations and mean-slip retention remain supported: means2.8130/3.3687/2.8615/3.3070 per four panels. Shared deterministic leg-use decline in both arms is informative about recipe/depth, but does not waive the preregistered control-health condition. Its explicit control-drift proviso makes the overall paired depth conclusion inconclusive; narrow slip/fall parity is still descriptive. No new physics/reward/evaluator threshold, no universalCartesian closure, and no automatic extension. Original PASS text and exact gate retained in artifacts/rl_watchdog/cartfoot_depth_read_20260908/verdicts_before_correction.json and Git history; exact eight reports and mean-based audit in that directory. This does not alter the separate torque1x canaries, which start from frozen40M parents."
+  },
+  {
+    "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+    "status": "INCONCLUSIVE - CONTROL DRIFT",
+    "created": "2026-09-08T07:42:38+00:00",
+    "steps": 10000000,
+    "wandb_id": "suh2oldf",
+    "gate": "ACQUISITION CONTINUATION: read together with the matched offctrl-s7-acq1-cont10m at the same budget. PROMISING/HOLDS = mean slip/m ratio (ON/OFF) <=1.2x in >=3/4 groups AND 0 new falls/terminations vs this run's own 40M read. DEGRADES = ratio >1.5x in >=2/4 groups OR any new fall/termination not present at 40M -- names this a late-onset-degradation replicate of fork(a), not a parity closure. Per 08-21 ruling, continue further only if reward is still rising and evals are ambiguous; a clean DEGRADES or a clean HOLDS both close this specific depth question without further automatic extension.",
+    "verdict": "CORRECTED PAIRED DEPTH READ (root watchdog, 2026-09-08): ON meets the narrow mean-slip/fall predicate: ON/OFF arithmetic-mean slip ratios0.9936/0.9692/0.9715/0.9348, zero terminations in both24-episode gates. However, matched OFF violates its registered gait-retention condition (ordinary det6->0/6 and jitterdet1->0/6; aggregate19->12/24). That control gate explicitly requires an inconclusive paired read on drift. Thus no clean overall healthy durability HOLDS claim; retain the narrower observed slip parity without crediting/blaming the Cartesian mechanism from a nonretained control. ON gait also declines23->11/24, including one stochastic-jitter failure, so decline is not exactly symmetric in every episode. No class closure, no relaxed gate, no automatic further extension. Prior verdict/gate preserved in artifacts/rl_watchdog/cartfoot_depth_read_20260908/verdicts_before_correction.json and Git history, with exact reports/means in that directory. Separate fixed1x experiment uses frozen40M sources and is unaffected."
+  }
+]

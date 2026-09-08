@@ -1975,3 +1975,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 10:49 staged-DR mechanism canary PASS (machinery): ramp armed nominal -> full override ranges on schedule, no NaN, fps cost ~17%; 40M staged-vs-control pair proceeds 
 - 09-08 11:11 [walkcurr] cartfoot-halfgrav-s10-acq1 -> ACQ PASS: 0 falls/24, speed 0.20-0.23 m/s, gait_valid 17/24 (weaker under startjitter); OFF sibling eval not yet staged, no parity claim yet 
 - 09-08 11:12 [walkcurr] cartfoot-halfgrav-s11-acq1 -> ACQ PASS (forward-only): 0 falls/24, speed 0.20-0.24 m/s, but det gait_valid 0/6 both det groups (systematic leg1 sacrifice) -- gait_valid 11/24 total, seed7's 22/24 does not generalize 
+- 09-08 11:16 walkcurr: offctrl-s10-acq1 ACQ PASS, closes seed10 ON/OFF pair -- OFF gait_valid 7/24 (ON 17/24), slip ON/OFF ratio 0.83-0.89 (ON lower), same direction as seed7 

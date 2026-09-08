@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T15:01:14+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl
+
+**wandb_id**: x3lq37jw
 
 **hypothesis**: Plain English: companion dose-ladder rung to this cycle's halfdr2m arm -- if halving every DR axis together (not removing any single one) still fails to ignite fresh-init walking on the widen8 composite, does quartering it (x0.25 magnitude/probability on every axis simultaneously, same structure as halfdr2m) ignite instead? Single-lever dose vs the SAME offctrl baseline halfdr2m used, not vs halfdr2m itself (independent rung, same ladder).
 

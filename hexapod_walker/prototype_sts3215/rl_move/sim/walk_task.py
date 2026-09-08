@@ -6383,7 +6383,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
                     or g_dband > 0.0 or g_ratio > 0.0 or g_lsratio > 0.0
-                    or g_swinggap > 0.0
+                    or g_swinggap > 0.0 or g_swinit > 0.0
                     or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
@@ -6398,6 +6398,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_ds = 0.0
                 r_tslip = 0.0
                 r_wts = 0.0
+                r_swinit = 0.0
+                # walk_leg_swing_initiation_income: whole-tick snapshot
+                # of last tick's per-leg contact force, taken BEFORE
+                # this tick's per-leg loop starts overwriting
+                # `_foot_prev_force` leg-by-leg (that array is only
+                # safe to compare across all six legs as a single
+                # consistent instant right here; mid-loop it is a mix
+                # of this-tick-updated and still-previous-tick values).
+                # None (never indexed) when the mechanism is off.
+                prev_force_snapshot = (
+                    list(self._foot_prev_force) if g_swinit > 0.0 else None)
                 wts_excess = []
                 wts_td_events = 0
                 wts_lo_events = 0
@@ -6479,6 +6490,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         liftoff_flags[f] = True
                         self._liftoff_xy[f] = xy.copy()
                         self._liftoff_step[f] = self._step_i
+                        # walk_leg_swing_initiation_income bookkeeping:
+                        # was THIS leg carrying the single highest
+                        # contact force of all six, one tick ago, at
+                        # the exact instant it left the ground? Read
+                        # from the whole-tick snapshot taken before
+                        # this loop started (never the live, mid-loop
+                        # `_foot_prev_force`, which is only half-
+                        # updated at this point in the iteration).
+                        # Strict > 0 guards the degenerate all-zero
+                        # tick (nobody loaded, e.g. a mid-air recovery)
+                        # from awarding a spurious "most loaded" claim.
+                        if prev_force_snapshot is not None:
+                            self._liftoff_was_maxload[f] = (
+                                prev_force_snapshot[f] > 1e-6
+                                and prev_force_snapshot[f]
+                                >= max(prev_force_snapshot))
                         # TRANSITION-WINDOW liftoff charge: retrospective
                         # lump over the trailing `walk_transition_lo_
                         # ticks` per-tick excess samples already
@@ -6543,6 +6570,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 and stride >= gait_stride_m \
                                 and f not in lift:
                             swinggap_flags[f] = True
+                        # walk_leg_swing_initiation_income: pay the
+                        # fixed per-event income exactly once, at the
+                        # touchdown that resolves a qualifying swing
+                        # (identical filter to every sibling gate
+                        # immediately above) whose OWN liftoff instant
+                        # was flagged as "this leg was the single most
+                        # loaded of all six" by the bookkeeping at the
+                        # liftoff branch above. A leg that swings while
+                        # NOT the most loaded, or that never completes
+                        # a real swing at all, earns nothing here --
+                        # this cannot be gamed by holding still (no
+                        # event = no income) or by swinging cheaply
+                        # while lightly loaded (fails the maxload
+                        # check at liftoff).
+                        if g_swinit > 0.0 and air >= 2 \
+                                and stride >= gait_stride_m \
+                                and f not in lift \
+                                and self._liftoff_was_maxload[f]:
+                            r_swinit += g_swinit
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
@@ -6720,6 +6766,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     reward += r_swing
                 if k_swing > 0.0:
                     info["reward_swing"] = r_swing
+                if r_swinit:
+                    reward += r_swinit
+                if g_swinit > 0.0:
+                    info["reward_walk_leg_swing_initiation"] = r_swinit
                 if k_step > 0.0 or k_step_partial > 0.0:
                     reward += r_step
                     info["reward_step_event"] = r_step

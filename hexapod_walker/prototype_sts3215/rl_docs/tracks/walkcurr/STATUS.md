@@ -1,3 +1,54 @@
+## 2026-09-08 ~07:0x (operator-kick cycle) — fork (a) closure CORRECTED to intermediate/PARTIAL (gate misread: medians-for-means + duration-confounded reward quarters); the gate's own one-extra-read clause EXECUTED as a final matched +10M pair (cont20m)
+
+One plain sentence: the "ACQ FAIL" that closed the Cartesian
+foot-decode continuation at 12M used the wrong statistics — by the
+run's own pre-registered gate the result is INTERMEDIATE, and its
+"one more read only if reward is RISING" clause applies, so exactly
+one final matched +10M pair is now training; whatever it says is
+final (no further automatic extensions).
+
+**Scope correction on `cartfoot-c1-cont10m`** (status ACQ FAIL ->
+ACQ PARTIAL, original verdict text preserved; operator-directed audit,
+fb_20260908T061840_eb16f8 +
+`artifacts/rl_watchdog/cartfoot_acquisition_read_20260908/`):
+1. The registered gate statistic is MEAN slip, not median. ON/OFF
+   mean ratios: 2.418/3.084/2.522/3.097 (walk-det/sto/sj-det/sj-sto)
+   — only 2/4 groups exceed 3x, so the FAIL-MECHANISM line (>3x in
+   >=3/4) was never crossed; <=1.5x promising unmet either =
+   registered in-between band.
+2. "Reward never reverses" read raw episode-return quarters while
+   ep_len ramped 980->1962 ticks. Duration-normalized
+   `optimization/reward_per_tick` RISES near-monotonically
+   -0.4413 -> -0.1667 (EMA -0.409 -> -0.274; re-verified from cached
+   W&B history this cycle), so the rising-reward escape clause DOES
+   apply.
+Supporting health: all 4 held-out ON groups improved slip AND
+progress 2M->12M (progress .505/.370/.308/.322 -> .710/.535/.636/.505),
+19/24 gait-valid, 0 falls; all 8 actor tensors moved (rel L2 .0114);
+video strip upright, varied legs, no stable exploit — still visibly
+slippy, nobody is calling this good walking yet.
+
+**Final one-extra-read pair (LAUNCHED, both RUNNING-verified with
+real step progression):**
+- `...cont40m-cartfoot-c1-cont20m` (train-4, from cont10m's OWN 12M
+  ckpt, RNG2, identical recipe, 3 cart keys)
+- `...cont40m-cartfoot-offctrl-cont20m` (train-0, from offctrl-cont10m's
+  OWN ckpt, RNG2, no cart keys)
+Pre-registered bounded gate (in both ledger entries): PROMISING =
+mean slip <=1.5x control in >=3/4 groups + gait_valid >=18/24 + 0
+falls; retrofit FALSIFIED = >3x in >=3/4 or gait_valid <18/24; any
+fall/protected-behavior loss blocks promotion; any remaining
+intermediate = unresolved-retrofit record and END of automatic
+extensions (clause exhausted) — explicitly NOT a universal Cartesian
+class closure. Rising reward + stalled held-out slip/progress routes
+to the MISALIGNED audit branch, not more same-recipe training.
+No new seeds/doses/torque/reward. Fork-(b) fresh-init cohorts
+(s7/s10/s11, owners 061618/061641) untouched per operator focus note.
+Evidence: corrected ledger entry + W&B `qay6bggy` mirror; launch
+verifications this cycle; RL_LOG 09-08 ~07:0x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:4x (triage cycle) — seed3 pair CLOSES (matched control lands in-band, formally confirming the 4-6x slip loss); fork (b) offctrl-s7 mechanism-health canary CANARY PASSes, matching the base-s0/s1 ep_len-artifact pattern
 
 One plain sentence: the two runs assigned this cycle finish the

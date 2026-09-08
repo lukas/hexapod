@@ -70,6 +70,8 @@ from hexapod_core.tripod_gait import TripodGait  # noqa: E402
 PIN = {
     # frozen corrected-audit manifest values
     # (logs/ckpt_eval/turnauth_repaired_20260907_*/manifest.json)
+    "mesh_xml_sha256":
+        "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
     "mesh_mjx_xml_sha256":
         "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
     "sim_model_json_sha256":
@@ -93,13 +95,17 @@ def _sha(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def pin_manifest() -> dict:
+def pin_manifest(plant: str) -> dict:
     m = {
         "mesh_mjx_xml_sha256": _sha(_PROTO / "mesh_mujoco/hexapod_mesh_mjx.xml"),
         "sim_model_json_sha256": _sha(_PROTO / "rl_move/sim/sim_model.json"),
         "sim_model_loaded_json_sha256":
             _sha(_PROTO / "rl_move/sim/sim_model_loaded.json"),
     }
+    if plant == "fullmesh":
+        # frozen full-STL plant (root-supplied assets.tar.gz, review
+        # addendum 00:58 UTC) — must be extracted into THIS tree
+        m["mesh_xml_sha256"] = _sha(_PROTO / "mesh_mujoco/hexapod_mesh.xml")
     for k, v in m.items():
         if PIN[k] != v:
             raise SystemExit(f"PIN FAIL {k}: {v} != frozen {PIN[k]}")
@@ -164,7 +170,7 @@ def xcorr_lag_ticks(x: np.ndarray, y: np.ndarray, max_lag: int) -> int:
 
 def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
             seed, episode_seconds, phase_offset=0.0,
-            lift_lead_s=0.0) -> dict:
+            lift_lead_s=0.0, plant: str = "twin") -> dict:
     env = pta.make_env(cfg_set, seed, episode_seconds)
     if model_obs_width is not None:
         n_env = int(env.observation_space.shape[0])
@@ -173,8 +179,11 @@ def rollout(*, policy: str, model, model_obs_width, cfg_set, vx_cmd, wz_cmd,
     identity = model_identity(env)
     contract = motor_contract(env.cfg)
     # hard plant/contract pin (review correction #1)
-    if identity["model_variant"] != "mesh_mjx_twin":
-        raise RuntimeError(f"pin fail: variant {identity}")
+    want = "full_mesh" if plant == "fullmesh" else "mesh_mjx_twin"
+    if identity["model_variant"] != want:
+        raise RuntimeError(f"pin fail: variant {identity} != {want}")
+    if plant == "fullmesh" and identity["model_nmesh"] != 34:
+        raise RuntimeError(f"pin fail: nmesh {identity['model_nmesh']}")
     if abs(identity["model_mass_kg"] - PIN["model_mass_kg"]) > 1e-6:
         raise RuntimeError(f"pin fail: mass {identity['model_mass_kg']}")
     if abs(env.dt - 0.01) > 1e-12:
@@ -360,16 +369,21 @@ def main() -> int:
     ap.add_argument("--cells", required=True, help="vx:wz,...")
     ap.add_argument("--phase-offsets", default="0.0")
     ap.add_argument("--lift-lead-s", type=float, default=0.0)
+    ap.add_argument("--plant", choices=("twin", "fullmesh"), default="twin",
+                    help="twin: checked-in hexapod_mesh_mjx.xml (the pod "
+                         "training plant); fullmesh: the frozen 7efb8e8a "
+                         "full-STL XML (must be present in this tree)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--label", default="")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
 
-    pins = pin_manifest()
+    pins = pin_manifest(args.plant)
     cfg_set = json.loads(args.cfg_json.read_text())
     cfg_set = [c for c in cfg_set if not c.startswith("env.model_source=")]
-    cfg_set.append("env.model_source=mesh_mjx")
+    cfg_set.append("env.model_source="
+                   + ("mesh" if args.plant == "fullmesh" else "mesh_mjx"))
 
     model = width = None
     ckpt_sha = None
@@ -387,7 +401,8 @@ def main() -> int:
                         model_obs_width=width, cfg_set=cfg_set,
                         vx_cmd=vx, wz_cmd=wz, seed=args.seed,
                         episode_seconds=args.episode_seconds,
-                        phase_offset=po, lift_lead_s=args.lift_lead_s)
+                        phase_offset=po, lift_lead_s=args.lift_lead_s,
+                        plant=args.plant)
             results.append(r)
             print(json.dumps({"cell": [vx, wz], "start": po,
                               "fell": r["fell"], "body": r.get("body"),
@@ -396,6 +411,7 @@ def main() -> int:
     args.out.write_text(json.dumps(
         {"schema": "hexapod.turn_liftlead_probe.v1", "label": args.label,
          "policy": args.policy, "lift_lead_s": args.lift_lead_s,
+         "plant": args.plant,
          "checkpoint": str(args.checkpoint) if args.checkpoint else None,
          "checkpoint_sha256": ckpt_sha, "pin_manifest": pins,
          "pin_expect": PIN, "cfg_set": cfg_set, "seed": args.seed,

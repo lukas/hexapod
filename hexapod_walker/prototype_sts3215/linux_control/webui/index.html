@@ -18,8 +18,9 @@
     <button id="tab-drive" class="tab on">Drive</button>
     <span class="tabsep"></span>
     <button id="tab-calibrate" class="tab">Calibrate</button>
-    <a class="tab tab-link" href="/vision">Vision</a>
+    <a id="nav-vision" class="tab tab-link" href="/vision">Vision</a>
     <button id="tab-touchdown" class="tab">Touchdown</button>
+    <button id="tab-setup" class="tab">Motor setup</button>
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
@@ -98,6 +99,24 @@
   </div>
 </header>
 <div class="wrap">
+  <div id="setup-notice" class="setup-notice" role="status">
+    <strong id="setup-notice-title">Checking motor setup…</strong>
+    <span id="setup-notice-detail">Robot controls stay unavailable until motor setup is complete.</span>
+    <button id="setup-notice-open">Set up motors</button>
+  </div>
+  <section id="setup-required-page" class="pad" hidden>
+    <h2>Motor setup required</h2>
+    <p id="setup-required-detail">Set up this robot’s 18 motors before using this page.</p>
+    <p>Assign each motor to its leg and joint in Motor setup. Calibration, driving, demos and RL become available after all 18 assignments are saved.</p>
+    <button id="setup-required-open">Go to Motor setup</button>
+  </section>
+  <div id="view-vision" class="view"><div class="pad">
+    <h2>Vision runs on the central server</h2>
+    <p>The robot does not host the camera and Vision service. Open Vision from the central server on your computer.</p>
+    <a href="http://localhost:8898/vision">Open Vision on this computer’s central server</a>
+    <p>If the central server runs on a different computer, open its address and choose Vision there.</p>
+  </div></div>
+
   <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
   <div id="errbar" style="display:none">
     <span id="errbar-text"></span>
@@ -105,6 +124,31 @@
     <a id="errbar-log" href="/api/errors?n=50" target="_blank"
        title="Recent errors as JSON (also: /api/events, /api/logs)">history</a>
     <button id="errbar-close" title="Dismiss">✕</button>
+  </div>
+  <div id="view-setup" class="view">
+    <div class="pad">
+      <h2>Set up motors one by one</h2>
+      <p>Keep the robot supported and disarmed. This tab configures the physical robot, including when accessed through the central hub. Add <b>one new STS3215 motor at a time</b> to the powered servo bus. Leave assigned motors connected. Assignment does not move a motor; click an assigned motor below for a small identification wiggle.</p>
+      <div class="row">
+        <div class="pad"><h2>1 · Detect</h2>
+          <p>Unplug the previous motor before connecting the next. Scans check IDs 1–30 at the current bus baud rate.</p>
+          <button id="setup-scan">Scan connected motor</button>
+          <p id="setup-detected" role="status">No scan yet.</p>
+        </div>
+        <div class="pad"><h2>2 · Assign</h2>
+          <label class="field">Leg and joint<select id="setup-joint"></select></label>
+          <p><label><input type="checkbox" id="setup-replace"> Replace this robot’s assignment for this joint</label></p>
+          <button id="setup-assign" disabled>Assign ID and verify</button>
+        </div>
+        <div class="pad"><h2>3 · Label and repeat</h2>
+          <p id="setup-result" role="status" aria-live="polite">After assignment, label the motor with its leg, joint and ID. Leave it connected, add the next motor, then scan again.</p>
+          <p>Factory ID 1 is reserved. Robot joints use IDs 2–19. Mechanical zero and motion testing remain in the Calibrate and Motors tabs.</p>
+        </div>
+      </div>
+      <h2 id="setup-progress">Setup progress</h2>
+      <p>Assignments are saved on this robot and stay with it across code updates.</p>
+      <div id="setup-slots" class="btns"></div>
+    </div>
   </div>
   <div id="view-drive" class="view active">
   <div class="pad telem">
@@ -126,112 +170,42 @@
       <div class="gait-walk-layout drive-layout">
         <section class="gait-pane" aria-label="Gait selection">
           <h3 class="pane-title">Gait</h3>
-          <div class="gait-default">
-            <button type="button" class="gait-pick gait-primary" disabled
-              data-gait-pick data-gait="6"
-              data-cpg="cpg_controller_robust120_yawtrim.json"
-              title="Loads cpg_controller_robust120_yawtrim.json, then selects GAIT 6 when the installed controller is compatible.">
-              <span>Controller required</span><b>Central Pattern Generator</b>
-              <small>CPG tetrapod · availability checked on refresh</small>
-            </button>
-            <div class="gait-selected" id="wgaitsummary">
-              Selected: Central Pattern Generator (CPG) tetrapod. Stop walking
-              before switching gaits.
-            </div>
-          </div>
-          <details class="gait-details" id="wgaitcompare">
-            <summary>Compare other gaits</summary>
-            <div id="wgaitpicks" class="gait-picks compact">
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="1"
-                title="Selects GAIT 1. Classic no-slip tripod: three legs swing, three legs support.">
-                <span>Classic</span><b>No-slip tripod</b>
-                <small>3 feet down · faster</small>
-              </button>
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="2"
-                title="Selects GAIT 2. Opposite pairs swing, with 4 feet down.">
-                <span>Safer demo</span><b>No-slip ripple</b>
-                <small>4 feet down · slower</small>
-              </button>
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="3"
-                title="Selects GAIT 3. One leg swings at a time, with 5 feet down.">
-                <span>Steadiest</span><b>No-slip wave</b>
-                <small>5 feet down · slowest</small>
-              </button>
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="7"
-                title="Selects GAIT 7. Smooth no-slip tripod preset tuned for the measured servo speed clamp.">
-                <span>Smooth tripod</span><b>No-slip clampfit</b>
-                <small>servo-speed tuned</small>
-              </button>
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="9"
-                title="Selects GAIT 9. Continuous no-slip tripod with almost no all-feet-down shift or touchdown dwell.">
-                <span>Fluid tripod</span><b>No-slip continuous</b>
-                <small>18 mm lift · minimal pause</small>
-              </button>
-              <button type="button" class="gait-pick experimental"
-                data-gait-pick data-gait="10"
-                title="Selects GAIT 10. Faster 2.4-second fluid tripod with 14 mm lift.">
-                <span>Fluid fast</span><b>No-slip continuous</b>
-                <small>2.4 s · 14 mm lift</small>
-              </button>
-              <button type="button" class="gait-pick experimental"
-                data-gait-pick data-gait="8"
-                title="Selects GAIT 8. Experimental level crawl: middle legs tuck up, front/rear legs step one at a time.">
-                <span>Diagnostic</span><b>Middle-up quad</b>
-                <small>front/rear crawl · slow</small>
-              </button>
-              <button type="button" class="gait-pick"
-                data-gait-pick data-gait="0"
-                title="Selects GAIT 0. Current high-step tripod baseline; tune the parameters in Advanced.">
-                <span>Editable</span><b>High-step tripod</b>
-                <small>3 feet down · tunable</small>
-              </button>
-            </div>
-          </details>
-          <details class="gait-details" id="wgaitadvanced">
-            <summary>Advanced gait setup</summary>
-            <div class="btns" style="margin-top:8px">
-              <label class="hint">exact gait
-                <select id="wgait" title="Which gait runs the J commands. Swaps are
-refused while walking — stop first. tripod = the legacy body-frame drag gait
-(known-good but loses ~50% of its stride to slip); the no-slip gaits pin
-planted feet to fixed world anchors (zero commanded scrub) and differ only
-in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
-(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).
-The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
-with Bézier swings, and auto-scale a too-fast command down to what the
-legs can reach instead of clipping it.">
+          <label class="gait-selector">Walking pattern
+            <select id="wgait" title="Select a walking pattern while stopped.">
             <option value="0">tripod high-step demo</option>
-            <option value="1">no-slip tripod (world-pinned feet)</option>
+            <option value="1" selected>no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
             <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
             <option value="5">SE2 wave (auto-scaled · 5 down)</option>
-            <option value="6" selected disabled>Central Pattern Generator (CPG) tetrapod</option>
+            <option value="6" disabled>Central Pattern Generator (CPG) tetrapod</option>
             <option value="7">no-slip clampfit tripod (smooth)</option>
             <option value="8">middle-tuck quad crawl (front/rear only)</option>
             <option value="9">no-slip fluid tripod (continuous)</option>
             <option value="10">no-slip fluid-fast tripod (2.4 s)</option>
-            </select></label>
-            </div>
+            </select>
+          </label>
+          <div class="gait-selected" id="wgaitsummary">Selected: No-slip tripod.</div>
+          <details class="gait-details" id="wgaitadvanced">
+            <summary>Advanced settings</summary>
+            <p id="wgaitnooptions" class="hint" hidden>This pattern uses a fixed preset; there are no additional settings.</p>
+            <div id="wcpgwrap" hidden>
             <div class="btns" style="margin-top:8px; align-items:center">
-              <label class="hint">Central Pattern Generator file
-                <select id="wcpgsel" disabled title="Central Pattern Generator controllers. Incompatible files cannot be loaded. The default loads automatically only when compatibility is confirmed.">
+              <label class="hint">Controller
+                <select id="wcpgsel" title="Choose a compatible controller installed on this target.">
                   <option value="">(refreshing…)</option>
                 </select></label>
-              <button id="wcpgrefresh" type="button">↻ refresh</button>
-              <button id="wcpgload" type="button" disabled>Load</button>
+              <button id="wcpgrefresh" type="button">Refresh list</button>
+              <button id="wcpgload" type="button">Apply controller</button>
             </div>
-            <div class="hint" id="wcpgstatus">Checking CPG controller compatibility…</div>
+            <div class="hint" id="wcpgstatus">Checking installed controllers…</div>
+            <details class="controller-tests"><summary>Simulation test details</summary><div id="wcpgtests" class="hint"></div></details>
+            </div>
             <div id="walphawrap" style="display:none">
-              <label class="slab">No-slip α — body-motion overlap:
+              <label class="slab">Body movement overlap:
                 <span id="walab">0.00</span></label>
               <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
-              <div class="hint">α 0 = step-then-shift. α 1 = continuous body
+              <div class="hint">0 = move legs, then shift body. 1 = continuous body
                 motion. Applies at the next phase boundary.</div>
             </div>
             <div id="wtripodwrap" class="gait-tune">

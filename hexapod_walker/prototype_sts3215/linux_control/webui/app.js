@@ -1,8 +1,10 @@
+var motorSetupCount = null, motorSetupError = "", motorSetupRefreshing = false;
+var motorSetupSupported = null;
 const conn = document.getElementById('conn');
 const sentEl = document.getElementById('sent');
 const gpEl = document.getElementById('gp');
 const $ = id => document.getElementById(id);
-let gait = 6, armed = false, dancePaused = false, lastInput = 0;
+let gait = 1, armed = false, dancePaused = false, lastInput = 0;
 let activeView = 'drive';  // drive | motors | demos | rl | calibrate | touchdown | debug
 let calAxis = 'all';
 let calTimer = null;
@@ -37,7 +39,7 @@ let simFrameLastAt = 0;
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
 let maxVx = 30, maxVy = 18, maxOmega = 0.35;
-const DEFAULT_CPG_CONTROLLER = 'cpg_controller_robust120_yawtrim.json';
+const DEFAULT_CPG_CONTROLLER = 'cpg_controller_robust120_yawtrim_v2.json';
 
 function savedRobotUrl(){
   try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
@@ -125,6 +127,7 @@ function responseHomeLabel(d){
 }
 function applyBackendMeta(meta){
   if(!meta) return;
+  const prevRobotUrl = robotTargetUrl;
   const prevBackendKind = backendKind;
   const prevHubMode = hubMode;
   const prevHubTarget = hubTarget;
@@ -156,6 +159,11 @@ function applyBackendMeta(meta){
     robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
+  if(robotTargetUrl !== prevRobotUrl){
+    motorSetupSupported = null;
+    motorSetupCount = null;
+    motorSetupError = '';
+  }
   const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
   const frames = meta.frames !== false;
   const nativeViewer = !!meta.viewer;
@@ -167,6 +175,7 @@ function applyBackendMeta(meta){
   backendKind = kind;
   simFrames = frames;
   simNativeViewer = nativeViewer;
+  updateSetupGate();
   document.body.classList.toggle('hub-backend', hubMode);
   document.body.classList.toggle('target-both', hubTarget === 'both');
   document.body.classList.toggle('robot-active', targetHasRobot);
@@ -612,6 +621,10 @@ function makeStick(canvas, horizontalOnly){
   function release(){ active=false; nx=0; ny=0; draw(); }
   canvas.addEventListener('pointerup',release);
   canvas.addEventListener('pointercancel',release);
+  // The Drive panel can be hidden at startup or by the setup gate. Observe
+  // its actual canvas size so showing the panel also initializes the drawing.
+  const sizeObserver = new ResizeObserver(resize);
+  sizeObserver.observe(canvas);
   window.addEventListener('resize',resize); resize();
   return { get x(){return nx;}, get y(){return ny;}, release };
 }
@@ -1072,12 +1085,13 @@ const GAIT_LABELS = Object.freeze({
 function commandTextFailed(text){
   return /^(failed|bad|refused)/i.test(String(text || ''));
 }
+function reportCpgUnavailable(){ showSent('Select and apply a compatible CPG controller before walking.', true); return false; }
 function updateGaitSummary(extra){
   const el = $('wgaitsummary');
   if(!el) return;
   let text = 'Selected: ' + (GAIT_LABELS[gait] || ('GAIT ' + gait)) + '.';
   if(gait === 6 && !loadedCpgName)
-    text += ' ' + cpgAvailabilityMessage;
+    text += ' Loading the Central Pattern Generator file.';
   text += ' Stop walking before switching gaits.';
   if(extra) text += ' ' + extra;
   el.textContent = text;
@@ -1088,18 +1102,27 @@ function updateGaitPickActive(){
   });
 }
 function updateGaitModePanels(){
+  $('wcpgwrap').hidden = gait !== 6;
+  $('wgaitnooptions').hidden = [0, 1, 6].includes(gait);
   document.getElementById('walphawrap').style.display =
     gait === 1 ? '' : 'none';
   updateGaitTuneVisibility();
   updateGaitPickActive();
   updateGaitSummary();
-  updateCpgControls();
 }
 async function sendGait(){
   const prev = gait;
+  if(scriptedDriveMoving || walkTimer){
+    wgaitSel.value = String(prev);
+    showSent('Stop walking before changing gait.', true);
+    return false;
+  }
   const next = parseInt(wgaitSel.value, 10) || 0;
-  if(next === 6 && !loadedCpgName){
-    const loaded = await ensureCpgLoaded(wcpgSel.value || DEFAULT_CPG_CONTROLLER);
+  if(next === 6){
+    const chosen = wcpgSel.value;
+    await refreshCpgList();
+    if(cpgAvailableFiles.has(chosen)) wcpgSel.value = chosen;
+    const loaded = await ensureCpgLoaded(wcpgSel.value);
     if(!loaded){
       wgaitSel.value = String(prev);
       gait = prev;
@@ -1122,6 +1145,7 @@ async function sendGait(){
     return false;
   }
   gait = next;
+  if(gait === 6) wcpgStatus.textContent = 'Active: ' + controllerLabel(wcpgSel.value);
   updateGaitModePanels();
   forceResend();
   if(gait === 0) await sendTripodTune();
@@ -1138,95 +1162,104 @@ const wcpgSel = document.getElementById('wcpgsel');
 const wcpgStatus = document.getElementById('wcpgstatus');
 let loadedCpgName = '';
 let cpgLoadPromise = null;
-let cpgAvailabilityMessage = 'Checking controller compatibility…';
-function availableCpgOption(name){
-  return Array.from(wcpgSel.options).find(opt =>
-    opt.value === name && opt.value && !opt.disabled);
+let cpgAvailableFiles = new Set();
+let cpgRows = new Map();
+function controllerLabel(file){
+  return (cpgRows.get(file) || {}).name || file;
 }
-function updateCpgControls(){
-  const hasCompatible = Array.from(wcpgSel.options).some(opt =>
-    opt.value && !opt.disabled);
-  wcpgSel.disabled = !hasCompatible;
-  $('wcpgload').disabled = !availableCpgOption(wcpgSel.value);
-  for(const opt of wgaitSel.options){
-    if(opt.value === '6') opt.disabled = !loadedCpgName && !hasCompatible;
+function paintControllerDetails(){
+  const row = cpgRows.get(wcpgSel.value);
+  $('wcpgtests').textContent = !row || row.error ? 'No current test results.' :
+    'Simulation baseline: ' + (row.gate_pass_dr0 === true ? 'passed' : 'not passed') +
+    (row.gate_slip_per_m != null ? '. Foot slip per metre of travel: ' + Number(row.gate_slip_per_m).toFixed(2) : '') +
+    '. Simulation results do not establish performance on this robot.';
+}
+function updateCpgAvailability(reason){
+  const available = cpgAvailableFiles.size > 0;
+  const option = Array.from(wgaitSel.options).find(o=>o.value === '6');
+  if(option){
+    option.disabled = !available;
+    option.textContent = available ? 'Central Pattern Generator (CPG) tetrapod' : 'CPG tetrapod — unavailable';
   }
-  document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
-    if(btn.dataset.cpg)
-      btn.disabled = !(loadedCpgName === btn.dataset.cpg
-        || availableCpgOption(btn.dataset.cpg));
+  document.querySelectorAll('[data-gait-pick][data-cpg]').forEach(btn=>{
+    const ready = cpgAvailableFiles.has(btn.dataset.cpg);
+    btn.disabled = !ready;
+    btn.title = ready ? 'Load this controller and select its gait.' : reason;
+    const small = btn.querySelector('small');
+    if(small) small.textContent = ready ? 'Controller available' : reason;
   });
-  $('wstart').disabled = gait === 6 && !loadedCpgName;
+  $('wcpgload').disabled = !available;
+  if(!available) wcpgStatus.textContent = reason;
+  else wcpgStatus.textContent = 'Available: ' + controllerLabel(wcpgSel.value) + '. Apply to use this controller.';
 }
-function reportCpgUnavailable(){
-  wcpgStatus.textContent = cpgAvailabilityMessage;
-  updateGaitSummary();
-  showSent(cpgAvailabilityMessage, true);
-  return false;
-}
+
 async function refreshCpgList(opts){
   opts = opts || {};
+  const previous = wcpgSel.value;
+  cpgRows.clear();
+  cpgAvailableFiles.clear();
+  updateCpgAvailability('Checking controller availability…');
   wcpgSel.innerHTML = '<option value="">(loading…)</option>';
-  cpgAvailabilityMessage = 'Checking controller compatibility…';
-  wcpgStatus.textContent = cpgAvailabilityMessage;
-  updateCpgControls();
-  updateGaitSummary();
-  let preferred = null;
+  let preferredValue = DEFAULT_CPG_CONTROLLER;
   try{
     const r = await fetch('/cmd', {method:'POST', body:'CPGLIST'});
-    if(!r.ok) throw new Error('controller list failed');
     const text = await r.text();
+    if(!r.ok) throw new Error('Controller list unavailable');
     const rows = JSON.parse(text);
-    if(!Array.isArray(rows)) throw new Error('invalid controller list');
-    wcpgSel.innerHTML = '<option value="">(select a compatible controller)</option>';
+    if(!Array.isArray(rows)) throw new Error('Invalid controller list');
+    wcpgSel.innerHTML = '';
+    if(!rows.length){
+      wcpgSel.innerHTML = '<option value="">No controllers installed</option>';
+      updateCpgAvailability('Unavailable: no controller installed on this target.');
+      return;
+    }
     for(const row of rows){
+      cpgRows.set(row.file || row.name, row);
       const opt = document.createElement('option');
-      opt.value = row.file || row.name || '';
-      opt.disabled = !!row.error || !opt.value;
+      opt.value = row.file || row.name;
+      opt.disabled = !!row.error;
+      if(!row.error) cpgAvailableFiles.add(opt.value);
       const gate = row.gate_pass_dr0 === true ? 'PASS'
         : row.gate_pass_dr0 === false ? 'fail' : '?';
       const slip = row.gate_slip_per_m != null
         ? row.gate_slip_per_m.toFixed(2) : '?';
       opt.textContent = (row.error
-        ? row.file + ' — ' + row.error
-        : (row.name || row.file) + ' (' + (row.gait||'?')
-          + ', dr0 gate ' + gate + ', slip/m ' + slip + ')');
+        ? row.file + ' — incompatible controller'
+        : (row.name || row.file));
       wcpgSel.appendChild(opt);
     }
-    preferred = availableCpgOption(DEFAULT_CPG_CONTROLLER);
+    const preferred = Array.from(wcpgSel.options).find(opt =>
+      !opt.disabled && opt.value === previous) || Array.from(wcpgSel.options).find(opt =>
+      !opt.disabled && /robust120.*yawtrim/i.test(opt.value + ' ' + opt.textContent))
+      || Array.from(wcpgSel.options).find(opt=>!opt.disabled);
     if(preferred){
       wcpgSel.value = preferred.value;
-      cpgAvailabilityMessage = 'Compatible CPG controller available. Load it before walking.';
-    } else if(Array.from(wcpgSel.options).some(opt => opt.value && !opt.disabled)){
-      cpgAvailabilityMessage = 'Default CPG unavailable. Select and load a compatible controller, or choose another gait.';
-    } else {
-      cpgAvailabilityMessage = rows.length
-        ? 'CPG unavailable: installed controllers are incompatible. Regenerate them for the current robot joint frame, then refresh, or choose another gait.'
-        : 'CPG unavailable: no controllers installed. Install a compatible controller and refresh, or choose another gait.';
+      preferredValue = preferred.value;
     }
+    updateCpgAvailability('Unavailable: installed controller uses an incompatible joint format.');
+    paintControllerDetails();
   }catch(e){
-    wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
-    cpgAvailabilityMessage = 'CPG availability could not be checked. Refresh the controller list when the connection recovers.';
+    wcpgSel.innerHTML = '<option value="">Controller list unavailable</option>';
+    updateCpgAvailability('Unavailable: could not check this target’s controllers.');
   }
-  wcpgStatus.textContent = cpgAvailabilityMessage;
-  updateCpgControls();
-  updateGaitSummary();
-  if(opts.autoLoadDefault && gait === 6 && preferred){
-    const ok = await ensureCpgLoaded(preferred.value);
+  if(opts.autoLoadDefault && gait === 6 && cpgAvailableFiles.size){
+    const ok = await ensureCpgLoaded(preferredValue || DEFAULT_CPG_CONTROLLER);
     if(ok) await sendGait();
   }
 }
 document.getElementById('wcpgrefresh').onclick = refreshCpgList;
 async function loadCpgController(name){
   name = name || wcpgSel.value;
-  if(!availableCpgOption(name)) return reportCpgUnavailable();
+  if(!name || !cpgAvailableFiles.has(name)){
+    wcpgStatus.textContent = 'Select a compatible installed controller first.';
+    return false;
+  }
   const line = 'CPGLOAD ' + name;
   try{
     const res = await cmd(line);
     const failed = !res.ok || commandTextFailed(res.text);
-    wcpgStatus.textContent = res.text || (failed ? 'load failed' : 'loaded');
-    showSent(res.text && res.text !== 'ok' ? line + ' → ' + res.text : line,
-             failed);
+    wcpgStatus.textContent = failed ? 'Failed to load controller: ' + res.text : 'Loaded: ' + controllerLabel(name);
+    if(failed) showSent(wcpgStatus.textContent, true);
     if(!failed){
       for(const opt of wcpgSel.options){
         if(opt.value === name || opt.textContent.includes(name)){
@@ -1235,7 +1268,6 @@ async function loadCpgController(name){
         }
       }
       loadedCpgName = name;
-      updateCpgControls();
       updateGaitSummary('Loaded ' + name + '.');
       forceResend();
     } else {
@@ -1250,15 +1282,23 @@ async function loadCpgController(name){
 }
 async function ensureCpgLoaded(name){
   name = name || DEFAULT_CPG_CONTROLLER;
-  if(loadedCpgName === name) return true;
+  // Reload on selection: a robot restart or target change invalidates browser state.
+  if(!cpgAvailableFiles.has(name)){
+    showSent('This gait is unavailable: no compatible controller is installed on this target.', true);
+    return false;
+  }
   if(cpgLoadPromise) return cpgLoadPromise;
   cpgLoadPromise = loadCpgController(name).finally(()=>{ cpgLoadPromise = null; });
   return cpgLoadPromise;
 }
 document.getElementById('wcpgload').onclick = async ()=>{
-  await loadCpgController(wcpgSel.value);
+  wgaitSel.value = '6';
+  await sendGait();
 };
-wcpgSel.onchange = updateCpgControls;
+wcpgSel.onchange = ()=>{
+  wcpgStatus.textContent = 'Available: ' + controllerLabel(wcpgSel.value) + '. Apply to use this controller.';
+  paintControllerDetails();
+};
 document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
   btn.onclick = async ()=>{
     if(scriptedDriveMoving || walkTimer){
@@ -1266,14 +1306,19 @@ document.querySelectorAll('[data-gait-pick]').forEach(btn=>{
       return;
     }
     const cpg = btn.dataset.cpg || '';
-    if(cpg && !(await ensureCpgLoaded(cpg))) return;
+    if(cpg){
+      await refreshCpgList();
+      if(!cpgAvailableFiles.has(cpg)) return;
+      wcpgSel.value = cpg;
+    }
     wgaitSel.value = String(parseInt(btn.dataset.gait, 10) || 0);
     await sendGait();
   };
 });
 updateGaitPickActive();
 updateGaitSummary();
-refreshCpgList({autoLoadDefault:true});
+updateGaitModePanels();
+refreshCpgList();
 
 walphaEl.oninput = ()=>{
   document.getElementById('walab').textContent =
@@ -1310,7 +1355,13 @@ document.getElementById('wstart').onclick = async ()=>{
   if(walkTimer) clearTimeout(walkTimer);
   if(walkTick) clearInterval(walkTick);
   walkLine = 'J '+vx.toFixed(1)+' '+vy.toFixed(1)+' '+om.toFixed(3)+' '+gait;
-  await cmd(walkLine); showSent(walkLine); forceResend();
+  const result = await cmd(walkLine);
+  if(!result.ok || commandTextFailed(result.text)){
+    $('wstatus').textContent = 'Walk did not start: '+result.text;
+    showSent($('wstatus').textContent, true);
+    return;
+  }
+  showSent(walkLine); forceResend();
   walkEndT = performance.now() + dur*1000;
   walkTick = setInterval(()=>{
     const left = Math.max(0, (walkEndT - performance.now())/1000);
@@ -1746,10 +1797,100 @@ async function dbgTestAll(){
 $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
+// --- Incremental motor setup and identification -----------------------------
+var setupSource = null, setupBusy = false;
+async function setupRequest(path, data){
+  const response = await fetch(path, data === undefined ? {cache:'no-store'} :
+    {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  // Older robot servers have no commissioning API. Preserve that distinction
+  // from an unreachable server or an incomplete assignment registry.
+  if(path === '/api/setup' && data === undefined && response.status === 404)
+    return {ok:true, supported:false};
+  const result = await response.json().catch(()=>({}));
+  if(!response.ok || !result.ok)
+    throw new Error(result.error || 'Setup request failed (HTTP '+response.status+')');
+  return result;
+}
+function setupButtons(){
+  $('setup-scan').disabled = setupBusy || motorSetupSupported === false;
+  $('setup-assign').disabled = setupBusy || motorSetupSupported === false || setupSource === null;
+  $('setup-joint').disabled = setupBusy || motorSetupSupported === false;
+}
+async function setupLoad(){
+  try {
+    const data = await setupRequest('/api/setup');
+    motorSetupSupported = data.supported !== false;
+    motorSetupCount = motorSetupSupported ? data.assigned : null;
+    motorSetupError = ''; updateSetupGate(); setupButtons();
+    if(!motorSetupSupported){
+      $('setup-slots').replaceChildren();
+      $('setup-joint').replaceChildren();
+      $('setup-progress').textContent = 'Motor setup API unavailable';
+      $('setup-result').textContent = 'This robot uses the older control server. Use its existing motor configuration; assignment tools require a server update.';
+      return;
+    }
+    const select = $('setup-joint'), previous = select.value;
+    select.replaceChildren(); $('setup-slots').replaceChildren();
+    for(const slot of data.slots){
+      const state = slot.saved ? 'Assigned' : 'Unassigned';
+      select.add(new Option(slot.name+' · ID '+slot.id+' · '+state, slot.joint));
+      const button = document.createElement('button');
+      button.textContent = slot.name+' · '+slot.id+' · '+state;
+      button.title = slot.saved ? 'Click to wiggle this motor ±3°' : 'Select this joint';
+      button.onclick = async ()=> {
+        if(setupBusy) return;
+        select.value = slot.joint; $('setup-replace').checked = false;
+        if(!slot.saved) return;
+        setupBusy = true; setupButtons();
+        $('setup-result').textContent = 'Wiggling '+slot.name+'…';
+        try {
+          const result = await setupRequest('/api/setup/wiggle', {joint:slot.joint});
+          $('setup-result').textContent = result.message;
+        } catch(e){ $('setup-result').textContent = e.message; }
+        finally { setupBusy = false; setupButtons(); }
+      };
+      $('setup-slots').append(button);
+    }
+    if(previous) select.value = previous;
+    $('setup-progress').textContent = data.slots.filter(s=>s.saved).length+' / 18 motors assigned';
+  } catch(e){ motorSetupCount = null; motorSetupError = e.message; updateSetupGate(); $('setup-result').textContent = e.message; }
+}
+$('setup-joint').onchange = ()=> { $('setup-replace').checked = false; };
+$('setup-scan').onclick = async ()=>{
+  setupBusy = true; setupSource = null; setupButtons();
+  $('setup-detected').textContent = 'Scanning…';
+  try {
+    const data = await setupRequest('/api/setup/scan', {});
+    setupSource = data.single ? data.new_ids[0] : null;
+    $('setup-detected').textContent = data.single ? 'New motor detected: ID '+setupSource+' ('+(data.ids.length-1)+' assigned motors connected)' :
+      data.new_ids.length > 1 ? 'Multiple new motors detected ('+data.new_ids.join(', ')+'). Add one new motor at a time; assigned motors can stay connected.' :
+      data.ids.length ? 'All connected motors are assigned. Add the next motor and scan again.' :
+      'No motor answered. Check motor power, data cable and bus connection, then rescan.';
+  } catch(e){ $('setup-detected').textContent = e.message; }
+  finally {setupBusy = false; setupButtons();}
+};
+$('setup-assign').onclick = async ()=>{
+  setupBusy = true; setupButtons();
+  $('setup-result').textContent = 'Assigning and checking the ID…';
+  try {
+    const joint = Number($('setup-joint').value);
+    const data = await setupRequest('/api/setup/assign', {source_id:setupSource, joint,
+      replace:$('setup-replace').checked});
+    $('setup-result').textContent = data.message;
+    $('setup-replace').checked = false;
+    await setupLoad();
+    $('setup-joint').value = Math.min(joint+1,17);
+  } catch(e){ $('setup-result').textContent = e.message; }
+  finally {
+    setupSource = null; setupBusy = false; setupButtons();
+    $('setup-detected').textContent = 'Scan again before the next assignment.';
+  }
+};
+
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','dance','rock','quad','rl',
+const VIEWS = ['vision','setup','drive','motors','demos','dance','rock','quad','rl',
                'experiments','measure','calibrate','touchdown','debug'];
-const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
+const TAB_TITLES = {vision:'Vision', setup:'Motor setup', drive:'Drive', motors:'Motors', demos:'Demos',
                     dance:'Dance', rock:'Rock', quad:'Quad', rl:'RL',
                     experiments:'Experiments', measure:'Measure',
                     calibrate:'Calibrate', touchdown:'Touchdown',
@@ -1770,6 +1911,8 @@ function showView(which){
   if(which !== 'rl' && drvKeys.size){
     drvKeys.clear(); drvSend();          // leaving RL = keys released
   }
+  if(which === 'setup') setupLoad();
+  updateSetupGate();
   if(which === 'drive') startTelem();
   else stopTelem();
   if(which === 'motors'){
@@ -1803,6 +1946,7 @@ function showView(which){
   else stopSimPoll();
   if(which === 'measure'){ muRefresh(); muPollMaybe(); }
 }
+$('tab-setup').onclick = ()=> showView('setup');
 $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
@@ -5123,8 +5267,9 @@ function updateArmUI(){
     +'goes limp NOW and will drop. Use only in an emergency. For normal '
     +'power-off use STEP lower via Disarm / Sit & power off.';
 }
-function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
+function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); updateSetupGate(); }
 function armServos(){
+  if(motorSetupBlocked()){ showView('setup'); return; }
   if(targetHasSim && !targetHasRobot){
     simPost('/api/sim/reset', {start:'plant'});
     showSent('SIM — reset to stand');
@@ -5194,6 +5339,7 @@ function disarmServos(){
 }
 // Returns true (and warns) when disarmed; every servo-driving action calls it.
 function needArm(){
+  if(motorSetupBlocked()){ showSent('Motor setup required — assign all 18 motors first'); return true; }
   if(targetHasSim && !targetHasRobot) return false;
   if(servosArmed) return false;
   showSent('⚠ Servos disarmed — press Enable first');
@@ -5211,3 +5357,74 @@ $('estop').onclick  = disarmServos;
 // any stale ARMED state from a prior session so the page's OFF state is real.
 setArmed(false);
 cmd('X');
+
+
+// Shared onboarding state. MuJoCo alone does not need physical motor IDs.
+function motorSetupBlocked(){
+  return !(targetHasSim && !targetHasRobot)
+    && motorSetupSupported !== false && motorSetupCount !== 18;
+}
+function updateSetupGate(){
+  const blocked = motorSetupBlocked();
+  const notice = $('setup-notice');
+  if(!notice) return;
+  const detail = motorSetupError ? 'Unable to read this robot’s assignments. Retry in Motor setup.' :
+    motorSetupCount === null ? 'Checking this robot’s motor assignments…' :
+    motorSetupCount+' of 18 motors assigned on this robot.';
+  notice.hidden = !blocked;
+  const label = motorSetupError ? 'Setup check unavailable' : motorSetupCount === null ? 'Checking setup' : 'Motor setup required';
+  $('setup-notice-title').textContent = label;
+  $('setup-notice-detail').textContent = detail+' Robot control pages are unavailable until setup is complete.';
+  const pageBlocked = blocked && !['setup','vision'].includes(activeView);
+  $('setup-required-page').hidden = !pageBlocked;
+  $('setup-required-detail').textContent = detail;
+  document.querySelectorAll('.view').forEach(view=>{
+    const gated = blocked && !['view-setup','view-vision'].includes(view.id);
+    view.classList.toggle('setup-locked', gated);
+    view.inert = gated;
+  });
+  document.querySelectorAll('button.tab').forEach(button=>{
+    const locked = blocked && button.id !== 'tab-setup';
+    button.classList.toggle('needs-setup', locked);
+    button.dataset.setupLabel = motorSetupError ? 'setup unavailable' : motorSetupCount === null ? 'checking setup' : 'setup required';
+    button.title = locked ? label+' — '+detail : '';
+  });
+  for(const id of ['armbtn','armzero','topsetzero']){
+    const el = $(id);
+    if(el){
+      if(blocked){el.dataset.setupDisabled = 'yes'; el.disabled = true;}
+      else if(el.dataset.setupDisabled){el.disabled = false; delete el.dataset.setupDisabled;}
+    }
+  }
+  const vision = $('nav-vision');
+  if(vision) vision.title = hubMode ? 'Open the central Vision service' : 'Vision is available on the central server';
+}
+async function refreshSetupReadiness(){
+  if(motorSetupRefreshing) return;
+  motorSetupRefreshing = true;
+  const requestedRobot = robotTargetUrl;
+  try{
+    const data = await setupRequest('/api/setup');
+    if(requestedRobot !== robotTargetUrl) return;
+    motorSetupSupported = data.supported !== false;
+    motorSetupCount = motorSetupSupported ? data.assigned : null;
+    motorSetupError = '';
+  } catch(e){
+    if(requestedRobot !== robotTargetUrl) return;
+    motorSetupSupported = null; motorSetupCount = null; motorSetupError = e.message;
+  }
+  finally {motorSetupRefreshing = false; updateSetupGate();}
+}
+$('setup-notice-open').onclick = $('setup-required-open').onclick = ()=> showView('setup');
+$('nav-vision').onclick = event=>{
+  if(!hubMode){event.preventDefault(); showView('vision');}
+};
+// Capture prevents controls being re-enabled by unrelated telemetry updates.
+document.addEventListener('click', event=>{
+  if(motorSetupBlocked() && event.target.closest('#armbtn,#armzero,#topsetzero')){
+    event.preventDefault(); event.stopImmediatePropagation(); showView('setup');
+  }
+}, true);
+updateSetupGate();
+refreshSetupReadiness();
+setInterval(refreshSetupReadiness, 4000);

@@ -66,6 +66,8 @@ import sys
 root = Path(sys.argv[1])
 files = [
     "linux_control/web_drive.py",
+    "linux_control/webui_config.py",
+    "linux_control/motor_setup_api.py",
     "hexapod_core/demo_tripod.py",
     "hexapod_core/middle_tuck_quad_gait.py",
     "linux_control/bench_api.py",
@@ -386,7 +388,7 @@ hex_remote_compile() {
   local ssh_target
   ssh_target="$(hex_preferred_ssh_target "$HEXAPOD_SSH")"
   hex_note "remote syntax check (read-only except pycache)"
-  ssh -o BatchMode=yes \
+  ssh ${HEXAPOD_SSH_CONTROL_PATH:+-S "$HEXAPOD_SSH_CONTROL_PATH"} -o BatchMode=yes \
     -o ConnectTimeout="${HEXAPOD_SSH_TIMEOUT:-10}" \
     -o StrictHostKeyChecking=accept-new \
     -o HostKeyAlias="$HEXAPOD_SSH_HOSTKEY_ALIAS" \

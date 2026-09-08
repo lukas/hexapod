@@ -75,7 +75,10 @@ AXIS_ALIASES = {
     "knee": "knee", "k": "knee", "2": "knee",
 }
 
-REGISTRY_PATH = Path(__file__).resolve().parent / "motor_setup_registry.json"
+try:
+    from .registry import REGISTRY_PATH
+except ImportError:
+    from registry import REGISTRY_PATH
 
 
 def joint_of(leg: int, axis: str) -> int:
@@ -129,6 +132,7 @@ def load_registry() -> dict:
 def save_registry(reg: dict) -> None:
     reg["updated"] = datetime.now(timezone.utc).isoformat()
     reg["scheme"] = "ids_2_to_19"
+    REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
     REGISTRY_PATH.write_text(json.dumps(reg, indent=2) + "\n")
 
 

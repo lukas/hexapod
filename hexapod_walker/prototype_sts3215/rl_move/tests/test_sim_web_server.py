@@ -701,3 +701,28 @@ def test_hub_uses_long_robot_timeout_for_set_zero():
               body={"joint": 1, "amp": 4})
     assert robot.calls[-1][1] == "/api/wiggle"
     assert robot.timeouts[-1] == ROBOT_DEFAULT_TIMEOUT_S
+
+
+def test_robot_and_sim_share_ui_asset_contract():
+    from linux_control import webui_config
+    assert WEBUI_DIR == webui_config.WEBUI_DIR
+    assert PAGE_PATHS is webui_config.PAGE_PATHS
+    assert STATIC_FILES is webui_config.STATIC_FILES
+    assert "/setup" in PAGE_PATHS
+    assert "/touchdown" in PAGE_PATHS
+    html = (WEBUI_DIR / "index.html").read_text()
+    assert '<aside id="sidebar">' in html
+    assert 'id="tab-setup"' in html
+
+
+def test_setup_always_targets_physical_robot():
+    for selected in ("sim", "robot", "both"):
+        robot, sim = FakeTarget("robot"), FakeTarget("sim")
+        hub = HubController(sim=sim, robot=robot, target=selected)
+        hub.handle_get("/api/setup")
+        hub.handle_post("/api/setup/scan", b"{}")
+        hub.handle_post("/api/setup/assign", b'{"joint": 0}')
+        hub.handle_post("/api/setup/wiggle", b'{"joint": 0}')
+        assert [call[1] for call in robot.calls] == [
+            "/api/setup", "/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"]
+        assert not sim.calls

@@ -33,11 +33,8 @@ if TYPE_CHECKING:
     from drive_controller import DriveController
 
 AXIS = ("yaw", "hip", "knee")
-REGISTRY_CANDIDATES = (
-    Path(__file__).resolve().parents[2] / "motor_setup" / "motor_setup_registry.json",
-    Path(__file__).resolve().parents[1] / "motor_setup_registry.json",
-    Path.home() / "hexapod_sts" / "motor_setup" / "motor_setup_registry.json",
-)
+from motor_setup.registry import REGISTRY_PATH
+REGISTRY_CANDIDATES = (REGISTRY_PATH,)
 
 # Air demos must start near logical 0°. Planted/rise demos start from a stand.
 AIR_DEMO_NAMES = frozenset({

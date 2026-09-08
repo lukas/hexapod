@@ -31,6 +31,9 @@ ROBOT_SET_ZERO_TIMEOUT_S = 20.0
 ROBOT_MOTION_START_TIMEOUT_S = 12.0
 
 ROBOT_ROUTE_TIMEOUTS_S = {
+    "/api/setup/scan": 10.0,
+    "/api/setup/assign": 15.0,
+    "/api/setup/wiggle": 20.0,
     # Feetech middle-calibrate touches every live servo. It is non-motion, but
     # routinely takes longer than a generic proxy request; timing out here is
     # especially confusing because the robot may still finish and redefine
@@ -654,6 +657,8 @@ class HubController:
             return RouteResponse.json(self.ping(), 200)
         if path == "/api/hub":
             return RouteResponse.json(self.ping(), 200)
+        if path == "/api/setup":
+            return self._send("robot", "GET", full_path, b"", headers)
         if path == "/api/demos":
             return self._demo_catalog(headers)
         if path.startswith("/api/sim/"):
@@ -682,6 +687,9 @@ class HubController:
             except Exception as e:
                 return RouteResponse.json({"ok": False, "error": str(e)}, 400)
             return RouteResponse.json({"ok": True, **self.ping()})
+        if path in ("/api/setup/scan", "/api/setup/assign", "/api/setup/wiggle"):
+            # Commissioning changes physical servo IDs, never simulation state.
+            return self._send("robot", "POST", full_path, body, headers)
         if path == "/api/sim/sync_robot_pose":
             return self._sync_sim_from_robot_pose(headers)
         if path.startswith("/api/sim/"):

@@ -17,6 +17,7 @@
 LC_FILES=(
   drive_controller.py cpg_controller_loader.py
   mcu_feetech_bus.py async_bus_guard.py bench_api.py web_drive.py xbox_drive.py
+  motor_setup_api.py webui_config.py requirements-robot.txt
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py async_bus_guard.py
   status_display.py deploy_status_display.py servo_watch.py
@@ -35,7 +36,7 @@ LC_DIRS=(api webui vendor systemd)
 MOTOR_FILES=(
   __init__.py feetech_bus.py urt2_bench.py inplace_demos.py
   motion_telemetry.py
-  motor_setup_registry.json urt2_motor_setup.py run.sh README.md
+  registry.py urt2_motor_setup.py run.sh README.md
 )
 
 # rl_move numpy-only core subset (imported by rl_policy.py).

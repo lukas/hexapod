@@ -3323,9 +3323,10 @@ def main(argv: list[str] | None = None) -> int:
     # this feature have no artifact, and that must never block a run.
     if run is not None and args.init_from is not None:
         try:
-            import wandb
-            run.use_artifact(f"ckpt-{args.init_from.stem}:latest")
-            print(f"[wandb] lineage: consumes ckpt-{args.init_from.stem}")
+            from ..orchestrator.artifact_names import checkpoint_artifact_name
+            parent_artifact = checkpoint_artifact_name(args.init_from.stem)
+            run.use_artifact(f"{parent_artifact}:latest")
+            print(f"[wandb] lineage: consumes {parent_artifact}")
         except Exception:
             print(f"[wandb] no artifact for parent {args.init_from.stem} "
                   "(pre-artifact lineage) — continuing")
@@ -6140,18 +6141,13 @@ def main(argv: list[str] | None = None) -> int:
         # Publish the final checkpoint as a W&B artifact so every future
         # warm start (use_artifact above) links into the lineage DAG.
         try:
-            import hashlib
-            import wandb
-            md5 = hashlib.md5(out_path.read_bytes()).hexdigest()[:8]
-            art = wandb.Artifact(
-                f"ckpt-{out_name}", type="policy-checkpoint",
-                metadata={"run": args.run_name, "md5": md5,
-                          "steps": args.steps, "task": args.task,
-                          "parent_ckpt": (args.init_from.stem
-                                          if args.init_from else None)})
-            art.add_file(str(out_path))
-            run.log_artifact(art, aliases=["latest", args.run_name])
-            print(f"[wandb] checkpoint artifact ckpt-{out_name} (md5 {md5})")
+            from ..orchestrator.artifact_names import publish_checkpoint
+            art = publish_checkpoint(
+                run, out_path, run_name=args.run_name, steps=args.steps,
+                task=args.task,
+                parent_ckpt=args.init_from.stem if args.init_from else None)
+            print(f"[wandb] checkpoint artifact {art.name} "
+                  f"(md5 {art.metadata['md5']})")
         except Exception as ex:
             print(f"[wandb] artifact publish failed (non-fatal): {ex}")
         run.finish()

@@ -1,3 +1,42 @@
+## 2026-09-08 ~09:2x (triage cycle) — widen8-cartfoot-freshinit-c1-s41 CONFIRMS seed40 pair: 2nd seed closes the n=2 agreement bar, no DIG-IN
+
+One plain sentence: the seed-41 replicate of the widen8-cartfoot-
+freshinit ON canary (below) reproduces the seed40 pair's fingerprint
+almost exactly, so the "composite too hard to ignite from fresh init"
+mechanism read is now confirmed on 2 independent seeds, not just 1.
+
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-s41`
+-> **CANARY FAIL - MECHANISM** (matches seed40's `...-c1` verdict).
+Machinery healthy (loss 498->378, value_loss 1057->810, std anneals
+0.368->0.218 on schedule). 0 falls in all 24 gate episodes (2 safety
+terms, both in walk_startjitter/sto only), gait_valid majority every
+mode (6/6,6/6,6/6,4/6), no chronic single-leg-sacrifice (duty spread
+0.54-0.99 across all six legs, leg0 does the most swinging -- same
+identity as seed40). Anticipated PASS signal absent: `env/reward_walk`
+flat/noisy across all 4 quarters (0.181/0.197/0.186/0.171), `env/
+v_along_cmd_m_s` near zero all run and ends NEGATIVE (-0.00066),
+`env/walk_speed` DECLINES (0.102->0.105->0.099->0.091) -- opposite of
+the halfgrav/1g canaries' rising signal at this budget. `ep_rew_mean`'s
+apparent collapse (-115->-528) is fully explained by `ep_len_mean`
+growing 105->488 (surviving longer just accumulates more of the same
+near-zero/negative per-tick total). Gate: slip/m med 94.07 det /
+156.51 sto (3-10x the easy-rung cart_foot band), stride_m_mean
+~0.001; the `walk_startjitter/sto` contact sheet shows the body
+essentially stationary while legs buzz -- video matches the eval, no
+DIG-IN trigger. Per this pair's own pre-registered gate text, two
+seeds agreeing is sufficient for a canary-level mechanism verdict:
+this closes the ON-arm read at n=2. The matched `...-offctrl-s41`
+(OFF) sibling was still training at read time and is left for its
+own reader/cycle to close the pair. Unchanged from the seed40 entry:
+do not relaunch this exact fresh-init widen8 recipe at either action
+space without a milder fresh-init entry point first.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_s41_gate/report.json`,
+`logs/experiments/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-s41/wandb_history.csv`,
+W&B `gafez8n2`.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~09:1x (refill cycle; no completion assigned, canonical capacity found 9-11 GPU pods free across the cycle, backlog empty) -- built + wired the foot-pad-contact-radius structural lever named unbuilt at 03:5x; zero-shot probe shows the FIRST consistent slip improvement in this whole investigation, with a new-fall caveat; no training launched (train-side wiring didn't exist yet, so dosing it blind would have been a silent train/eval physics mismatch)
 
 One plain sentence: the 03:5x torsional-friction closure named "foot-pad

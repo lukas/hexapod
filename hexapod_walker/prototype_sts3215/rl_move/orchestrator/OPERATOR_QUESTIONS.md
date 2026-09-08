@@ -5623,6 +5623,18 @@ repairable.
   lineage marked design-blocked in STATUS with both options named.
 
 ## q_20260908T0050Z [todaypolicy/joystick] turn-authority envelope vs motor-contract fork
+
+**2026-09-08 00:52 UTC review correction — no operator wait for current
+work.** The universal impossibility premise is unsupported; the pipeline
+model also differs from the corrected frozen audit. The assumed command
+derating and universal training stop below are superseded. Original
+qualification and motor limits remain in force. Standing authorization
+covers the bounded simulation/training follow-up owned by cycle
+20260908T005017. No physical contract change or robot action is requested
+or performed by this watchdog. Evidence:
+[turn-pipeline review](../../../../artifacts/rl_watchdog/turnpipeline_review_20260908.md).
+Historical proposal follows; it is not an applied qualification change.
+
 Plain English: we measured WHY the robot cannot follow "walk forward and
 turn" commands at the qualification magnitudes — it is a physical actuator
 budget, not a learning or reward problem, and no software setting fixes it.

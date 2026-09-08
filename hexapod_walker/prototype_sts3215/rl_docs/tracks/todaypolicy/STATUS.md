@@ -1,50 +1,34 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 00:5x UTC — TURN-UNDERTRACKING MECHANISM MEASURED
-AND BANKED (pipeline stage decomposition complete).
+Last updated: 2026-09-08 00:52 UTC — PIPELINE INTERPRETATION CORRECTED.
 
-2026-09-08 00:5x: the corrected audit's named next step is DONE. An
-isolated stage-decomposition probe (`rl_move/sim/probe_turn_pipeline.py`,
-run from a pristine 99bb5c01 worktree, frozen seed-0 cont8m + scripted,
-full STL mesh verified, zero training, 43 rollouts incl. lever arms) fit
-the implied planar body twist at every pipeline stage (desired foot
-trajectory -> IK -> post-SafetyLayer command -> measured joints -> true
-pad motion -> body). Full evidence:
-[pipeline diagnostic](../../../../../artifacts/rl_watchdog/turnpipeline_20260908/README.md);
-controller copies `logs/ckpt_eval/turn_pipeline_20260908/`.
+The 43-rollout pipeline probe establishes undertracking for its two frozen
+controllers and tested settings. It does not establish an ANY-controller
+impossibility bound. Original qualification criteria and physical limits
+remain unchanged; q_20260908T0050Z's assumed command derating and universal
+training stop are superseded for this task.
 
-THE MECHANISM (supported at every cell, both controllers): the loss is at
-the JOINT-RESPONSE stage. Plan+IK carry the command exactly (des twist =
-command to 4 decimals; the 09-04 "foot-target formula" hypothesis is
-refuted) and ground slip is negligible (pads twist ~= body twist). All
-tangential foot motion flows through the yaw servo alone (hip/knee are
-radial/vertical in this leg geometry); its usable speed (~0.54-0.65 rad/s
-under the current contract; <=~0.8 rad/s even with ALL software limits
-removed) times the small 0.0711 m yaw-frame arm caps per-leg tangential
-foot speed at ~0.04 m/s. vx and wz*r_foot SHARE that budget: every probed
-cell (straight/in-place/arcs) lands on the same ~0.040 m/s executed line
-— including straight walking (the fleet-wide "speed-soft" ~50% progress
-at vx=0.08 is this same ceiling). A 6-config software lever matrix (slew
-raise / vel-ceiling raise / both / full fast profile write_speed=1500 +/-
-slew raise) recovers NOTHING at the (0.08, +/-0.15) arc cells — they
-demand ~2.3x the physical budget; several raised configs are WORSE (the
-pinned 0.375 deg/tick slew is a near-optimal trajectory shaper for this
-actuator, not the villain). Within-envelope derated commands improve
-tracking (scripted (0.03, +/-0.08): wz 88%/76%) but a second-order
-periodic-small-stroke loss (deadband/latency/accel + 25mm->3-5mm lift
-collapse => 65-69% swing-scuff) keeps everything below ~90%.
+Independent review found that all pipeline rollouts used a 3.494226 kg
+model, versus 4.80573 kg in the corrected frozen audit. Both have 34 meshes;
+mesh count alone did not preserve model identity. Its nominal-stance arm
+is not a workspace-wide bound, and its arc arithmetic does not support a
+common 0.040 m/s ceiling. The stage narrative changes planned/actual-contact
+selectors; fitted pad/body twist agreement discards per-foot residuals and
+does not establish negligible slip. The reported 65–69% contact during
+planned swing is a useful contact/actuator timing lead.
+[Review and bounded next experiment](../../../../../artifacts/rl_watchdog/turnpipeline_review_20260908.md).
+[Original probe and measurements](../../../../../artifacts/rl_watchdog/turnpipeline_20260908/README.md).
 
-STEERING (recorded, assume-and-go): (1) no further reward/curriculum/seed
-GPU spend on turn authority at the current arc cells — infeasible for any
-controller under any software config; this explains all 8+ refuted
-turn-authority candidates since 09-03. (2) Demo sessions should command
-inside the envelope: |vx| + 0.171*|wz| <~ 0.04 m/s (turn-in-place <=0.23
-rad/s; arcs e.g. 0.03/0.08). (3) Physical recovery = operator/contract
-decisions: strongest untested lever is a more extended stance (knee
-100->80 deg nearly doubles the tangential arm); fast profile alone
-measured +~15% at the pinned slew. Operator question filed
-(q_20260908T0050Z). No training continuation launched: the measured
-mechanism says none is justified at these cells.
+Cycle 20260908T005017 owns the next simulation-only experiment: pin the
+corrected XML/STL/config hashes, mass, 100 Hz and motor model, then compare
+baseline against one lift-only phase lead selected from measured per-foot
+lag. Preserve XY foot path, cadence, swing duration, neutral stance,
+write_speed 400, write_acc 20 and slew 0.375 degrees/tick. Original arc
+commands and starts 0/pi remain the evaluation cells. Measure phase-aligned
+per-foot motion, fit residuals, material-contact slip, yaw/progress/gait/falls.
+Only a gain in both turn directions with retained behavior justifies one
+bounded same-seed training canary. No robot work or operator reply is needed
+for this already-authorized simulation/training scope.
 
 --- prior entry (00:03 UTC) below ---
 

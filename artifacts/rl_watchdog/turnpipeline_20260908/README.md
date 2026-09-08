@@ -1,5 +1,14 @@
 # Turn-pipeline stage decomposition — where combined-command motion is lost
 
+> Review correction, 2026-09-08 00:52 UTC: the universal impossibility,
+> common 0.040 m/s bound, negligible-slip and assumed-derating conclusions
+> below are superseded. These are internally matched measurements on a
+> 3.494226 kg model, not the prior frozen 4.80573 kg plant.
+> Original qualification and physical limits remain unchanged.
+> See [independent review and next experiment](../turnpipeline_review_20260908.md).
+> The original measurements and interpretation are retained below for provenance.
+
+
 Completed 2026-09-08 ~00:4x UTC. Bounded follow-up to the corrected frozen
 turn audit (`../turnauth_corrected_20260907/`), executing its named next
 step: locate the loss of commanded motion along desired foot trajectory ->

@@ -1,3 +1,78 @@
+## 2026-09-08 ~15:4x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the DR group-axis split 2/2 FAIL (nodiscrete2m + nocontinuous2m), verdicted w15 (w45 landed by a concurrent cycle), and found a CONFOUND in every `walk_leg_loadslip_ratio_charge` read to date: launched 2 clean isolation canaries to re-test it
+
+One plain sentence: every `walk_leg_loadslip_ratio_charge` arm scored
+so far (target=1.5 closed, target=6.0 w150/w45/w15 all closed
+immediately above) was trained with `walk_leg_duty_ratio_charge=150`
+ALSO active, warm-started from a checkpoint that already had
+duty-ratio-charge training baked in — and duty-ratio-charge ALONE
+(its own 2M canary, no loadslip) already produces the identical
+"healthy-then-3-orders-of-magnitude-collapse" reward shape, verdicted
+CANARY PASS there as "fully explained by ep_len growth, not
+behavioral collapse". None of the loadslip weight-reduction reads
+(w150/w45/w15) can distinguish loadslip's own contribution from this
+already-accepted confound.
+
+**Group-axis DR split CLOSES 2/2 FAIL** (this cycle's own triage):
+`nodiscrete2m` (zero bad_start+fault+push together, continuous jitter
+full-strength) — walk/det fwd med 0.02m (~0.001 m/s, ~30x under the
+0.03 floor), slip med 65-181/m across all 4 modes, contact sheet
+stationary/thrashing. `nocontinuous2m` (complementary: zero all
+continuous jitter/sensor-noise axes, discrete events full-strength) —
+different texture (walk/det + sj/det collapse to gait_valid 0/6 with
+5-6/6 legs "sacrificed" per episode, fwd med 0.00-0.01m, robot frozen
+standing on video; walk/sto + sj/sto thrash at slip 166-203/m) but
+same bottom line, no net locomotion. Neither the discrete-event group
+alone nor the continuous-jitter group alone ignites fresh-init
+walking — consistent with (not proof of) DR breadth/SUM as the
+blocker regardless of category, matching the concurrent uniform-
+dose ladder's own closure (halfdr2m/quarterdr2m/w15/w45, see entry
+above) and the 3 single-axis knockouts.
+
+**New finding — the loadslip-ratio-charge confound, and the fix:**
+spot-checked `.../s0-widen8-acq1-legdutyratiofresh-guardfix1`
+(duty-ratio-charge ALONE, no loadslip)'s own reward quarters: `[31.1,
+63.4, -903.4, -3589.9]` — the SAME qualitative shape already blamed
+on loadslip's "own uncapped weight=150 dominating" in the target6/w15/
+w45 closure notes above. Since ALL loadslip arms inherit this same
+active duty-ratio-charge (unchanged at weight=150 throughout every
+loadslip dose point tested), the w15/w45 "reward still collapses"
+finding cannot be attributed to loadslip specifically — and worse,
+every loadslip arm's INIT checkpoint already had duty-ratio-charge
+training baked in, so the efficacy comparison itself was never a
+clean loadslip-alone read. Launched 2 canaries to fix this: `s0-
+widen8-loadslip-target6-alone` / `s1-widen8-loadslip-target6-alone`
+(`launch_run.py respec --from` the target6/loadslip lineage, `--cfg
+reward.walk_leg_duty_ratio_charge=0.0` and `--arg='--init-from=...'`
+pointed at the TRUE pre-duty-charge `widen8-acq1` checkpoint for each
+seed — the matched undosed baseline, `gait_valid` 20/24 for s0).
+`s0` FINISHED training fast (reward quarters `[53.1, 109.8, -628.2,
+-9865.8]` — collapses even MORE than the confounded reads, an
+unexpected direction worth flagging, not yet explained); its held-out
+gate eval and `s1`'s training are still in flight, left for the next
+reader (do not re-launch — `ops.sh podeval` already kicked for s0,
+`s1` still VERIFIED RUNNING train-0). Pre-registered gate: PASS-worth-
+CONTINUE if >=3/4 of the 4 held-out groups jointly improve slip+
+progress vs the plain `widen8-acq1` baseline with 0 new falls and no
+duty-ratio-charge-matching reward collapse; FAIL closes loadslip-
+ratio-charge as a standalone lever too, leaving only a genuinely new
+per-leg mechanism design. Evidence: `ops.sh review cw-walkscratch-
+easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-
+widen8-acq1-legdutyratiofresh-guardfix1`; `ops.sh review cw-
+walkscratch-crutchoff-{s0,s1}-widen8-loadslip-target6-alone`; W&B
+`gwoifvs7` (s0 alone).
+
+Also verdicted `nodiscrete2m` FAIL and `nocontinuous2m` FAIL myself
+this cycle (`w45` had already landed under a concurrent cycle's own
+triage by the time this entry was written — see immediately below,
+left untouched/unduplicated). CYCLE_WORKED touched (5 verdicts + 2
+new launches this window).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-
+freshinit-{nodiscrete2m,nocontinuous2m}`; W&B `g9j2lv97` (nodiscrete2m)
+/ `uevepjck` (nocontinuous2m).
+
+--- prior entry below ---
+
 ## 2026-09-08 ~15:3x (idle-kick triage/refill; 11/11 GPU free, empty backlog) — CLOSES the `walk_leg_loadslip_ratio_charge` weight-reduction branch (w15/w45 bracket both FAIL) and the fixed-fraction DR dose-ladder (quarterdr2m FAIL, 3/3 rungs closed); refilled the DR curriculum-staging follow-up
 
 One plain sentence: two prestaged canaries both close their own branch rather than opening a new one — cutting `walk_leg_loadslip_ratio_charge` weight either 10x down (w15, already FAIL) or to 1/3 (w45, this read) never fixes the reward-collapse or efficacy bar, and running the widen8-jointspace fresh-init composite at even 1/4 of full DR strength (`quarterdr2m`) still produces a stationary robot with declining reward, closing the last dose-ladder rung.

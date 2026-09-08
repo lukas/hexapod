@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T06:46:02+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m
+
+**wandb_id**: h2y5r9w0
 
 **hypothesis**: Plain English: matched control for cartfoot-c1-cont20m — the same exact +10M continuation of the joint-decode (no Cartesian keys) arm from its OWN 12M checkpoint, RNG2, identical recipe, so the FINAL one-extra-read of the Cartesian retrofit compares both parameterizations at equal 22M cumulative depth and the verdict is causal to the 3 cart keys, not a training-depth artifact.
 

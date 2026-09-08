@@ -1,0 +1,350 @@
+{
+  "scope": "Read-only source audit for the staged DR-breadth design; no source changes, simulations, tests, launches or kicks performed.",
+  "base_commit": "5b83bd458507cb01c7991a611ba2602dc8bd3126",
+  "owner": {
+    "cycle": "20260908T102828",
+    "pid": 789489,
+    "status": "Active; kick consumed. Through 10:30:13 it is reading the correct constructor and walk-curriculum override paths; no concrete launch observed yet."
+  },
+  "findings": [
+    {
+      "id": "absolute_overrides",
+      "severity": "Must account for",
+      "source": "hexapod_walker/prototype_sts3215/rl_move/sim/sim_env.py",
+      "lines": [
+        686,
+        706,
+        1577,
+        1578
+      ],
+      "finding": "The constructor scales default ranges via from_params(dr_scale), then applies cfg dr.* values as absolute overrides. Episodes sample the already-built randomizer.ranges. Lowering dr_scale does not narrow explicit source ranges, even when dr_scale is0."
+    },
+    {
+      "id": "generic_cfg_scheduler_is_not_dr_scheduler",
+      "severity": "Must account for",
+      "source": "hexapod_walker/prototype_sts3215/rl_move/sim/sim_env.py",
+      "lines": [
+        430,
+        433,
+        449,
+        453,
+        2731,
+        2746
+      ],
+      "finding": "sched.* only writes one numeric cfg leaf per tick. It neither rebuilds the randomizer nor updates ranges already copied at construction. A scheduled dr.* leaf can visibly log a changing value while actual samples stay unchanged. Initial pools are minted before the first scheduled step, so a new DR hook must explicitly apply its starting breadth before the first reset."
+    },
+    {
+      "id": "existing_walkcurr_is_not_isolated_breadth",
+      "severity": "Confound",
+      "sources": [
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/walk_task.py",
+          "lines": [
+            1513,
+            1756,
+            1777,
+            1810,
+            1827
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/walk_curriculum.py",
+          "lines": [
+            22,
+            101
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/train_ppo_mjx.py",
+          "lines": [
+            2457,
+            2531,
+            3282,
+            3311
+          ]
+        }
+      ],
+      "finding": "The existing curriculum owns command/heading distribution and certification admission, not only DR breadth. It rebuilds randomizers per bucket but reapplies the same absolute overrides. Its cache key is only scale rounded to6 decimals; changing cfg after a scale has been cached does not invalidate that cached range object. The trainer's printed bucket dr values alone cannot prove explicit ranges changed."
+    },
+    {
+      "id": "true_device_path",
+      "severity": "Verification target",
+      "sources": [
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_host.py",
+          "lines": [
+            254,
+            283,
+            286,
+            301
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_vec_env.py",
+          "lines": [
+            119,
+            141,
+            362,
+            399,
+            524,
+            550
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_sharded_vec_env.py",
+          "lines": [
+            314,
+            379,
+            721,
+            724,
+            1040,
+            1047,
+            1159,
+            1161
+          ]
+        }
+      ],
+      "finding": "Per-world _ep_rand feeds ModelDrScratch.rows_for for model mass/geometry/friction/gravity/actuator parameters and tp_rows for latency/deadband/velocity. The device receives these rows during reset. Trainer-side cfg changes or inspecting only the controller's config cannot establish delivery to all host workers and device worlds. Keep randomize=True/model DR enabled; --no-dr disables this path even if explicit range config remains."
+    },
+    {
+      "id": "reset_pool_staleness",
+      "severity": "Must account for",
+      "sources": [
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_vec_env.py",
+          "lines": [
+            470,
+            487,
+            489,
+            550,
+            554,
+            566
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_sharded_vec_env.py",
+          "lines": [
+            1051,
+            1057,
+            1062,
+            1065
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_host.py",
+          "lines": [
+            33,
+            106,
+            109
+          ]
+        }
+      ],
+      "finding": "Pooled entries embed host _ep_rand plus model and TickParams rows at mint time. A changed breadth can lag until cached entries are consumed. Existing flush_reset_pools APIs discard parent and worker entries; a sharp stage transition should use them or explicitly measure and declare residual mixed exposure. Clearing pools does not retroactively alter live episodes. An in-run scalar must report realized episode breadth as distinct from current schedule value."
+    },
+    {
+      "id": "scaling_is_not_all_fields",
+      "severity": "Define endpoints",
+      "source": "hexapod_walker/prototype_sts3215/rl_move/sim/domain_rand.py",
+      "lines": [
+        252,
+        330,
+        533,
+        536,
+        553,
+        570,
+        591,
+        605
+      ],
+      "finding": "RandRanges.scaled shrinks multiplicative ranges toward1 and selected additive/probability terms toward0; encoder/tilt/gyro noise floors stay unchanged, and several event-dose menus are not scaled. Ground tilt changes gravity direction while the sampled magnitude remains G0. Define the exact narrow and full endpoint ranges from the chosen source; generic nominal endpoints may differ from recipe-specific choices such as disabled latency/deadband. Never repeatedly scale an already-scaled mutable range object."
+    },
+    {
+      "id": "fixed_endpoint_evaluation",
+      "severity": "Must account for",
+      "source": "hexapod_walker/prototype_sts3215/rl_move/sim/eval_checkpoint.py",
+      "lines": [
+        1489,
+        1522,
+        813,
+        814
+      ],
+      "finding": "Evaluation honors explicit dr.* overrides even at dr_scale0. It constructs a fresh environment rather than restoring the training scheduler's elapsed clock. Final held-out evaluation must explicitly use the same full endpoint ranges in both arms, disable any training breadth schedule or pin it to its full endpoint, and compare recorded randomization payloads rather than trusting labels."
+    },
+    {
+      "id": "restart_and_budget_confound",
+      "severity": "If using phased launches",
+      "sources": [
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/sim_env.py",
+          "lines": [
+            432,
+            453
+          ]
+        },
+        {
+          "path": "hexapod_walker/prototype_sts3215/rl_move/sim/train_ppo_mjx.py",
+          "lines": [
+            3576,
+            3584,
+            6094,
+            6095
+          ]
+        }
+      ],
+      "finding": "Phased checkpoint continuations preserve learned weights but rebuild environments and reset per-environment schedule clocks; trainer load supplies optimizer/schedule settings and learn is called with the normal run-local timestep behavior. Give a static full-DR control the same segmentation and relevant optimizer/std schedules, or implement one in-run schedule for both arms. Match actual optimizer updates/transitions including rollout rounding, not just nominal summed --steps."
+    }
+  ],
+  "valid_approaches": [
+    {
+      "approach": "Explicit finite stages with existing launch machinery",
+      "conditions": "Pre-register exact endpoint range dictionaries and stage budgets. Start both arms from random initialization at the existing seed40. Continue each only from its own checkpoint. At each new process, build the intended explicit stage ranges at construction; use the same stage boundaries and optimizer/std treatment for the full-DR control. Final assessment is the identical full-DR panel. This avoids claiming an unimplemented dynamic scheduler."
+    },
+    {
+      "approach": "Narrow default-off in-run breadth mechanism",
+      "conditions": "Reconstruct effective ranges from immutable declared narrow/full endpoint dictionaries before each episode sample; initialize breadth before the first pool mint. Broadcast any stage changes to every worker, invalidate cached randomizers/pools as appropriate, preserve live-episode semantics, and verify the resulting _ep_rand, model rows and TickParams on the actual Warp path. Keep the full-DR control on the same code path with constant breadth1. This is a possible implementation strategy, not evidence that such a mechanism currently exists."
+    }
+  ],
+  "required_scope": "Keep gravity magnitude at full gravity, torque_scale at1,1, seed40 and random policy initialization. Keep commands, reward, motor limits, architecture, BC-off and gait-clock-off semantics unchanged except the preregistered DR breadth intervention. No new seed, relaxed success threshold or blanket closure follows a finite null.",
+  "minimal_prelaunch_evidence": "For the exact recipe, inspect effective ranges and seeded samples at start/mid/end breadth. Verify at least one enabled physical field and the varying velocity TickParams change as intended; source-fixed latency/deadband multipliers stay1,1 and baseline torque_scale stays1,1, with full gravity norm. Account separately for the declared actuator-fault axis. Check a real vector/sharded reset and pool transition, including the first reset, then the identical full-endpoint evaluation config. These are suggested checks; this read-only audit ran no tests.",
+  "limitations": "Source reasoning is grounded in the recorded local commit and stated line references. The active owner's subsequent implementation or launch still requires inspection; no claim is made about an unobserved patch.",
+  "source_sha256": {
+    "hexapod_walker/prototype_sts3215/rl_move/sim/domain_rand.py": "8fe3abf594900d37b57268f70d8219fdbdcf7da5d6f862ce6b0fe95db7819e73",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/eval_checkpoint.py": "c03bcf64fe58b454a484a4690756985b309e65c9d94abda0a7e97aa02c164eeb",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_host.py": "467de522d262b49c8f478380b2727dd358d3cd748e191dcc43b0c46be06d040f",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_sharded_vec_env.py": "5d7975944e8701913c452dd34f6eab487485bf6580c32d98b209f81f86ad8bd2",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/mjx_vec_env.py": "5e7d6e466bac66c75234b6b60a4b638cee9e775fc928179445a427f4459772b3",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/sim_env.py": "d376209749ead24edd0387193b7da836d7abe5a8dbad3e3eafac2c94e957fd99",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/train_ppo_mjx.py": "ef8fdc5acb11839b8d4b0ae6b6f985b38c23fe6d2eca7ea1ecbcf0e0e3209fc2",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/walk_curriculum.py": "79bbf0311f7d58bc9f62f20286f87a868748ae8e6f3008f3e95f79def8c59af2",
+    "hexapod_walker/prototype_sts3215/rl_move/sim/walk_task.py": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc"
+  },
+  "written_utc": "2026-09-08T10:38:09.290106+00:00",
+  "exact_source_recipe": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1",
+    "status": "CANARY FAIL - MECHANISM",
+    "dr": {
+      "dr.latency_scale": "1,1",
+      "dr.deadband_scale": "1,1",
+      "dr.torque_scale": "1.0,1.0",
+      "dr.encoder_noise_deg": "0.09",
+      "dr.tilt_noise_deg": "0.3",
+      "dr.gyro_noise_deg_s": "0.5",
+      "dr.mass_scale": "0.85,1.20",
+      "dr.leg_mass_jitter_pct": "0.10",
+      "dr.link_len_scale_pct": "0.02",
+      "dr.link_len_leg_pct": "0.012",
+      "dr.com_offset_m": "0.012",
+      "dr.friction_scale": "0.6,1.4",
+      "dr.contact_stiff_scale": "0.7,2.0",
+      "dr.ground_tilt_deg": "2.0",
+      "dr.kp_scale_pct": "0.20",
+      "dr.kv_scale_pct": "0.25",
+      "dr.vel_scale": "0.85,1.10",
+      "dr.cmd_drop_prob_max": "0.05",
+      "dr.placement_noise_deg": "2.0",
+      "dr.bad_start_prob": "0.25",
+      "dr.bad_start_max_joints": "3",
+      "dr.bad_start_deg": "8.0,35.0",
+      "dr.joint_zero_bias_deg": "1.0",
+      "dr.gyro_bias_deg_s": "0.5",
+      "dr.imu_bias_deg": "1.0",
+      "dr.imu_mount_deg": "10.0",
+      "dr.imu_pos_xy_m": "0.07",
+      "dr.imu_pos_z_m": "-0.02,0.10",
+      "dr.action_noise": "0.02",
+      "dr.fault_prob": "0.3",
+      "dr.ext_push_prob": "0.3",
+      "dr.walk_kick_prob": "0.0",
+      "dr.walk_push_prob": "0.3"
+    },
+    "critical": {
+      "bus.write_speed": "4096",
+      "bus.servo_vel_max_counts_s": "write_speed",
+      "bus.write_acc": "1000",
+      "safety.max_delta_q_deg": "3.6",
+      "safety.max_current_a": "100",
+      "safety.max_roll_deg": "30",
+      "safety.max_pitch_deg": "30",
+      "struct_comp.enabled": "0",
+      "ease.gravity_scale": "1.0"
+    },
+    "flags": {
+      "--activation-fn": "",
+      "--log-std-final": "-2.0",
+      "--dr-scale": "0.0",
+      "--seed": "40",
+      "--n-envs": "4096"
+    }
+  },
+  "source_specific_cautions": [
+    "The exact seed40 source fixes latency_scale=1,1 and deadband_scale=1,1. A breadth test should keep those fixed; vel_scale=0.85,1.10 is the source TickParams axis that can narrow.",
+    "Sensor noise floors are explicitly encoder0.09deg, tilt0.3deg and gyro0.5deg/s; generic RandRanges.scaled keeps them at full strength. A zero breadth stage should not be labeled noise-free.",
+    "Source fault_prob=0.3 can deliberately weaken individual actuators when faults are drawn. Fixed1x here refers to baseline dr.torque_scale=1,1, not a promise that every faulted actuator retains nominal strength. Preserve the original fault distribution at the full endpoint.",
+    "The source has no fresh --init-from and seed40. The blank inherited activation flag is a fresh-run setting, not justification for using a mature checkpoint."
+  ],
+  "implementation_review": {
+    "reviewed_utc": "2026-09-08T10:44:06.312022+00:00",
+    "controller_observed_head": "cfb7e3649e2322ceaaa0bcf40d8ef62bc1b863a2",
+    "implementation_snapshot": "bc8643f2",
+    "reviewed_files": [
+      "rl_move/sim/sim_env.py",
+      "rl_move/sim/train_ppo_mjx.py",
+      "rl_move/tests/test_dr_stage_ramp.py"
+    ],
+    "good_paths": [
+      "sim_env.py:707-748 captures the recipe DR ranges after all explicit overrides. Constructor arms but does not narrow, preserving fresh held-out evaluator full-target semantics.",
+      "train_ppo_mjx.py:3147-3195 broadcasts breadth0 and flushes pools before model.learn. Controller-installed SB3 BaseAlgorithm._setup_learn resets the vector environment when reset_num_timesteps (default true) or _last_obs absent. First usable PPO observations therefore come from the initial breadth0 reset.",
+      "Both vector env_method implementations broadcast across all target envs. mjx_sharded_vec_env.py:1051-1057 clears parent device pools and broadcasts worker pool_flush; model rows and TickParams are minted from reset _ep_rand before settle physics and installed at reset-pop.",
+      "Live episodes are intentionally preserved across range changes. This is consistent with reset-only randomization but differs from instantaneous fleet-wide delivery.",
+      "Default-off source path adds only dormant state, with no extra random draws. Eight new tests cover CPU ranges/reset distributions and default/full endpoint; fourteen sibling ramp tests and three env-step tests passed per owner log. The bit_exact-named test checks dormant attributes, not a complete trace parity comparison."
+    ],
+    "concrete_limitations": [
+      "train_ppo_mjx.py:4485 completion log says training at full DR from here on, but callback only changes future reset ranges. Live worlds retain _ep_rand and model fields until their own reset.",
+      "The registered 2M health hypothesis incorrectly describes a 0.5M full-DR tail. Full target is first requested after 1,572,864 transitions and only 524,288 transitions remain; not all of those transitions use full-target draws.",
+      "Logged stage fraction and returned ranges come from the target randomizer on env0, not observed per-world active episode draw distribution or device fields. They do not by themselves prove delivery through Warp and reset pools.",
+      "No new test observed exercises actual trainer callback timing, every worker, stale-pool invalidation, or Warp/device model and TickParams delivery. A bounded staged device/pool smoke with active per-episode draw receipts would directly address this before a mechanism-health claim."
+    ],
+    "registered_run": {
+      "run": "cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-stagedr2m",
+      "created": "2026-09-08T10:42:16+00:00",
+      "status_at_read": "INTENT",
+      "pod": "hexapod-mjx-train-4",
+      "scope": "mechanism_health",
+      "steps": 2000000,
+      "seed": 40,
+      "n_envs": 4096,
+      "n_steps": 128,
+      "episode_seconds": 20,
+      "control_hz": 100,
+      "ramp_steps": 1500000,
+      "no_init_from": true,
+      "gate_scope": "Machinery health only; explicitly excludes skill acquisition and class closure. Logged interpolation/losses/std/FPS are checked. Follow-up proposes matched fresh40M staged20M versus full-DR40M control with full-target held-out eval.",
+      "budget_caution": "The same cycle cannot consume2M plus two40M acquisitions under its normal80M cap. Preserve equal40M comparison budgets and allocate eligible ownership before a second arm rather than silently changing the experiment."
+    },
+    "conditional_no_fall_exposure": {
+      "not_measured": "Reproducible source-based calculation conditional on no early terminations, no extra resets, default initial desynchronization, fixed2000-tick episodes. Actual falls can increase resets and must be measured.",
+      "formula": "D = np.random.default_rng(40 ^ 0xD35C).integers(1, 2001, size=4096). Callback boundaries at128/256/384 ticks set future-reset fractions .3495/.6991/1.0. A reset after tickD first supplies a transition atD+1. Full transitions sum((512-D) for384<D<=512).",
+      "actual_budget_rounded": 2097152,
+      "ticks_per_world": 512,
+      "first_full_target_tick": 384,
+      "first_full_target_step": 1572864,
+      "initial_desync_by_end": 1045,
+      "no_initial_reset_by_end": 3051,
+      "active_fraction_counts_at_end": {
+        "0.0": 3296,
+        "0.3495": 246,
+        "0.6991": 283,
+        "1.0": 271
+      },
+      "full_dr_transitions": 16368,
+      "full_dr_transition_fraction": 0.00780487060546875
+    },
+    "longer_registered_pair_interpretation": {
+      "steps_requested_per_arm": 40000000,
+      "ramp_steps": 20000000,
+      "first_full_target_step": 20447232,
+      "worst_case_all_live_episodes_full_by_step": 28639232,
+      "reason": "With the fixed20s episode horizon and correctly flushed pools, a40M run permits all live worlds to age into full-target resets within about8.192M transitions after the first full-target callback. This does not require forcing resets; actual active-draw exposure should still be recorded.",
+      "do_not_change": "No forced resets, gravity/torque/motor/action limits, reward, full-target evaluator, new seed, or healthy job intervention proposed."
+    }
+  }
+}

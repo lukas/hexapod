@@ -1,0 +1,252 @@
+{
+  "read_confirmed_at_utc": "2026-09-08 10:29:38 UTC",
+  "exact_report_selectors": [
+    "cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1_cont10m_gate",
+    "cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_acq1_cont10m_gate"
+  ],
+  "conditions": {
+    "gravity_scale": 0.5,
+    "torque_scale": 3,
+    "training_seed": 7,
+    "seconds_per_episode": 20
+  },
+  "arms": {
+    "on": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_forward_m_s": 0.21789999999999998,
+        "median_command_aligned_m_s": 0.22244999999999998,
+        "median_slip_per_m": 1.596,
+        "mean_slip_per_m": 1.596,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_forward_m_s": 0.157475,
+        "median_command_aligned_m_s": 0.16805,
+        "median_slip_per_m": 1.897,
+        "mean_slip_per_m": 1.9103333333333332,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 4,
+        "terminations": 0,
+        "median_forward_m_s": 0.202125,
+        "median_command_aligned_m_s": 0.211975,
+        "median_slip_per_m": 1.7005,
+        "mean_slip_per_m": 1.6816666666666666,
+        "sacrificed_legs": [
+          [],
+          [
+            4
+          ],
+          [],
+          [
+            4
+          ],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_forward_m_s": 0.171775,
+        "median_command_aligned_m_s": 0.176175,
+        "median_slip_per_m": 1.862,
+        "mean_slip_per_m": 1.8311666666666664,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "off": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 0,
+        "terminations": 0,
+        "median_forward_m_s": 0.186,
+        "median_command_aligned_m_s": 0.19135,
+        "median_slip_per_m": 1.759,
+        "mean_slip_per_m": 1.7590000000000001,
+        "sacrificed_legs": [
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 4,
+        "terminations": 0,
+        "median_forward_m_s": 0.15385,
+        "median_command_aligned_m_s": 0.1601,
+        "median_slip_per_m": 1.973,
+        "mean_slip_per_m": 1.9821666666666669,
+        "sacrificed_legs": [
+          [],
+          [],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 0,
+        "terminations": 0,
+        "median_forward_m_s": 0.184875,
+        "median_command_aligned_m_s": 0.18975,
+        "median_slip_per_m": 1.7770000000000001,
+        "mean_slip_per_m": 1.7891666666666666,
+        "sacrificed_legs": [
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 3,
+        "terminations": 0,
+        "median_forward_m_s": 0.14732499999999998,
+        "median_command_aligned_m_s": 0.16335,
+        "median_slip_per_m": 1.9805000000000001,
+        "mean_slip_per_m": 1.9685,
+        "sacrificed_legs": [
+          [
+            1
+          ],
+          [],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [],
+          []
+        ]
+      }
+    }
+  },
+  "randomization_pairs_match": true,
+  "source_40m_comparison": {
+    "on": {
+      "walk/det": {
+        "gait_40m": 6,
+        "gait_50m": 6,
+        "median_slip_change_pct": 2.570694087403602
+      },
+      "walk/sto": {
+        "gait_40m": 6,
+        "gait_50m": 6,
+        "median_slip_change_pct": 10.194597734533861
+      },
+      "walk_startjitter/det": {
+        "gait_40m": 4,
+        "gait_50m": 4,
+        "median_slip_change_pct": 2.2242260294559557
+      },
+      "walk_startjitter/sto": {
+        "gait_40m": 6,
+        "gait_50m": 6,
+        "median_slip_change_pct": 3.790412486064665
+      }
+    },
+    "off": {
+      "walk/det": {
+        "gait_40m": 0,
+        "gait_50m": 0,
+        "median_slip_change_pct": -7.32349841938883
+      },
+      "walk/sto": {
+        "gait_40m": 5,
+        "gait_50m": 4,
+        "median_slip_change_pct": 3.3796175006549634
+      },
+      "walk_startjitter/det": {
+        "gait_40m": 0,
+        "gait_50m": 0,
+        "median_slip_change_pct": -3.1343690378849764
+      },
+      "walk_startjitter/sto": {
+        "gait_40m": 5,
+        "gait_50m": 3,
+        "median_slip_change_pct": 2.5634386328327263
+      }
+    }
+  },
+  "interpretation": "Exact reports only; the formal video-reviewed verdict belongs to the cloud result owner. ON retains 22/24 gait-valid episodes; OFF falls from 10/24 to 7/24. Both have zero terminations. Median slip for both arms remains within 20% of their own 40M baseline. Original gates are unchanged: ON explicitly gates gait-band retention, while OFF explicitly gates new falls/slip. Do not invent an OFF gait clause, call gait symmetric, or attribute paired-ratio changes entirely to ON. One training seed 7 only."
+}

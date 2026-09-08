@@ -1,0 +1,192 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger_utc": "2026-09-08T10:21:14.316Z",
+  "status": "visit_complete",
+  "last_capacity_receipt": "artifacts/rl_watchdog/stagedr_placement_20260908T102114Z.json",
+  "last_verified_capacity": {
+    "at_utc": "2026-09-08T10:49:12.788721Z",
+    "ready": 11,
+    "optimizing": 5,
+    "compiling": 0,
+    "free": 6,
+    "backlog": 0,
+    "cpu_finalizers": 1,
+    "cpu_gate_evaluators": 1,
+    "note": "Time-stamped verification, not a live capacity guarantee. CPU artifact work is separate from PPO."
+  },
+  "completed_this_visit": {
+    "seed7_depth_pair_actual_steps_each": 10485760,
+    "gate_comparison": "artifacts/rl_watchdog/halfgrav_depth_20260908T102114Z.json",
+    "seed7_depth_pair_actual_steps_total": 20971520,
+    "staged_dr_mechanism_canary": {
+      "run": "cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-stagedr2m",
+      "actual_steps": 2097152,
+      "natural_completion": true,
+      "checkpoint_sha256": "2f3c0e3b90701efd9237a3d2b4b853ac0c76e5344872f6fda54bb35409d729fa",
+      "checkpoint_md5_matches_marker": true,
+      "cpu_artifacts": "Finalizer and held-out gate advancing; optimizer completion is not an efficacy verdict."
+    },
+    "steering_control_chain": {
+      "status": "VALID_OBSERVATION",
+      "completed": true,
+      "independently_audited": true,
+      "commit": "f31a9f688dd466f0224150832ae235be7fe508ec",
+      "rollouts": 6,
+      "control_ticks": 6020,
+      "physics_calls": 30100,
+      "reference_arrays_exact": 78,
+      "historical_full_states_exact": 34,
+      "receipt": "artifacts/rl_watchdog/turn_control_chain_20260908/full/summary.json",
+      "independent_audit": "artifacts/rl_watchdog/turn_control_chain_20260908/INDEPENDENT_AUDIT.md",
+      "scope": "Untouched baseline observations with exact preserved state/body/current parity. No steering efficacy claim, new control law or PPO. Four arc endpoints at 755 are explicitly new captures."
+    }
+  },
+  "publication": {
+    "guidance_commit": "5b83bd458507cb01c7991a611ba2602dc8bd3126",
+    "controller_ff_only_pull": "succeeded",
+    "corrected_docs": [
+      "CURRENT_TRUTHS.md",
+      "rl_docs/tracks/walkcurr/STATUS.md",
+      "rl_docs/SKILLS.md"
+    ],
+    "preserved": "Original gates, ledger statuses, checkpoints and training recipes.",
+    "control_chain_commit": "f31a9f688dd466f0224150832ae235be7fe508ec",
+    "final_receipts": "The commit containing this state publishes the five watchdog JSON records; controller adoption is verified by the publishing agent and final feedback.",
+    "receipt_files": [
+      "artifacts/rl_watchdog/dr_curriculum_source_audit_20260908T102114Z.json",
+      "artifacts/rl_watchdog/fleet_20260908T102114Z.json",
+      "artifacts/rl_watchdog/halfgrav_depth_20260908T102114Z.json",
+      "artifacts/rl_watchdog/stagedr_placement_20260908T102114Z.json",
+      "artifacts/rl_watchdog/state_20260908T102114Z.json"
+    ]
+  },
+  "owners": {
+    "20260908T101152": {
+      "status": "completed",
+      "launched": [
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-s10-acq1",
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1"
+      ]
+    },
+    "20260908T101710": {
+      "status": "completed",
+      "launched": [
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s10-acq1"
+      ]
+    },
+    "20260908T101711": {
+      "status": "completed",
+      "launched": [
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-s11-acq1"
+      ]
+    },
+    "20260908T102828": {
+      "status": "advancing_at_last_read",
+      "task": "Staged-DR mechanism canary assessment and full-DR 40M control; owns the conditional changed 40M follow-up design. No duplicate dispatch.",
+      "canary": "Naturally completed 2,097,152 steps; source-range telemetry alone does not prove active per-world breadth delivery.",
+      "conditional_changed_arm": {
+        "run": "cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-stagedr20m-b40m",
+        "status_at_capacity_sample": "Not placed; conditional work remains owned by 102828.",
+        "requirements": "Verify actual Warp reset/pool/device delivery and realized episode-breadth exposure before the changed arm. Keep unchanged full-target evaluation and matched 40M budget.",
+        "cycle_budget": "Existing 2M canary plus 40M control uses 42M requested steps; adding 40M in the same cycle would total 82M and exceed 80M. Use eligible ownership for the conditional arm, without shrinking or mismatching the comparator."
+      }
+    },
+    "root": {
+      "task": "Six untouched baseline control-chain replays completed and independently audited. Publication only at visit close.",
+      "status": "VALID_OBSERVATION",
+      "control_ticks": 6020,
+      "physics_calls": 30100,
+      "qualification_or_ppo": false
+    },
+    "20260908T103342": {
+      "status": "separate_active_owner_at_handoff",
+      "task": "Separate swing-floor investigation/implementation. Its work is independent of owner 102828 and was not launched, interrupted or duplicated by this watchdog."
+    }
+  },
+  "feedback": [
+    "fb_20260908T102625_4b9148",
+    "fb_20260908T103028_2eaaf6",
+    "fb_20260908T104404_58b3a5"
+  ],
+  "repairs_this_visit": [
+    "Corrected gait-parity and causal-scope summaries; clarified existing authorization for bounded steering design."
+  ],
+  "restrictions_preserved": [
+    "No physical robot work",
+    "No capacity purchase or uncordon",
+    "No healthy trainer stopped",
+    "No watcher restart",
+    "No duplicate kick of an advancing owner"
+  ],
+  "heartbeat_remains_active": true,
+  "sealed_utc": "2026-09-08T10:52:55.963180+00:00",
+  "new_training": {
+    "four_halfgravity_acquisitions": [
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s11-acq1",
+        "pod": "hexapod-mjx-train-0",
+        "trainer_pid": 805887,
+        "requested_steps": 40000000,
+        "actual_steps_at_capacity_sample": 35127296,
+        "fps": 21662.0,
+        "status_at_sample": "OPTIMIZING"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s10-acq1",
+        "pod": "hexapod-mjx-train-1",
+        "trainer_pid": 2813845,
+        "requested_steps": 40000000,
+        "actual_steps_at_capacity_sample": 37748736,
+        "fps": 23860.0,
+        "status_at_sample": "OPTIMIZING"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s10-acq1",
+        "pod": "hexapod-mjx-train-2",
+        "trainer_pid": 3905740,
+        "requested_steps": 40000000,
+        "actual_steps_at_capacity_sample": 35127296,
+        "fps": 20145.0,
+        "status_at_sample": "OPTIMIZING"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1",
+        "pod": "hexapod-mjx-train-3",
+        "trainer_pid": 2912895,
+        "requested_steps": 40000000,
+        "actual_steps_at_capacity_sample": 34078720,
+        "fps": 23867.0,
+        "status_at_sample": "OPTIMIZING"
+      }
+    ],
+    "requested_budget_each": 40000000,
+    "requested_budget_total": 160000000,
+    "prior_placement_receipt": "artifacts/rl_watchdog/fleet_20260908T102114Z.json",
+    "full_dr_control": {
+      "run": "cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-b40m-ctrl",
+      "pod": "hexapod-mjx-train-4",
+      "trainer_pid": 582111,
+      "requested_steps": 40000000,
+      "seed": 40,
+      "fresh_initialization": true,
+      "source_cfg_unchanged": true,
+      "step_window": [
+        524288,
+        1572864
+      ],
+      "sample_gap_seconds": 79.981195,
+      "fps_window": [
+        7177,
+        10489
+      ],
+      "status_at_sample": "OPTIMIZING"
+    },
+    "note": "Requested budgets describe launched work, not completed steps. The staged 2M canary is recorded separately under completed_this_visit."
+  },
+  "dr_exposure_caveat": {
+    "audit": "artifacts/rl_watchdog/dr_curriculum_source_audit_20260908T102114Z.json",
+    "meaning": "A reset-only schedule changes future reset ranges. Live episodes retain their existing randomization. Target fraction 1 at 1,572,864 steps is not a 0.5M fleet-wide full-DR tail.",
+    "conditional_source_calculation": "With no early terminations and exact seed 40 initial desynchronization, only 16,368 of 2,097,152 transitions (0.7805%) use full-breadth draws. This is a conditional calculation, not measured training exposure.",
+    "final_evaluation": "New unbroadcast evaluation envs retain the full target; original gates remain unchanged."
+  }
+}

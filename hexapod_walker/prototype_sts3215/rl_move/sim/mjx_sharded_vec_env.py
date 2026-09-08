@@ -287,7 +287,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
     faulthandler.enable(all_threads=True)
     try:
         from .mjx_host import (
-            CommandStub, ModelDrScratch, foot_mu_from_cfg,
+            CommandStub, ModelDrScratch, foot_geom_radius_from_cfg,
+            foot_mu_from_cfg,
             leg_chassis_from_cfg, make_shim_class,
             place_env, prepare_shared_model, push_output_row, restore_env,
             snap_attrs_for, snapshot_env, terrain_from_cfg, tp_rows,
@@ -302,6 +303,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                                      ls_iterations=mjx_ls_iterations,
                                      terrain_amp=t_amp, terrain_seed=t_seed,
                                      foot_mu=foot_mu_from_cfg(
+                                         env_kwargs.get("cfg")),
+                                     foot_geom_radius=foot_geom_radius_from_cfg(
                                          env_kwargs.get("cfg")),
                                      leg_chassis=leg_chassis_from_cfg(
                                          env_kwargs.get("cfg")),
@@ -697,7 +700,8 @@ class MjxShardedVecEnv(VecEnv):
                 "mujoco-mjx / jax not installed — "
                 "pip install -r rl_move/sim/requirements-mjx.txt")
         import jax
-        from .mjx_host import (foot_mu_from_cfg, leg_chassis_from_cfg,
+        from .mjx_host import (foot_geom_radius_from_cfg, foot_mu_from_cfg,
+                               leg_chassis_from_cfg,
                                prepare_shared_model, terrain_from_cfg)
         self._jax = jax
 
@@ -710,6 +714,7 @@ class MjxShardedVecEnv(VecEnv):
             ls_iterations=mjx_ls_iterations,
             terrain_amp=t_amp, terrain_seed=t_seed,
             foot_mu=foot_mu_from_cfg(env_kwargs.get("cfg")),
+            foot_geom_radius=foot_geom_radius_from_cfg(env_kwargs.get("cfg")),
             leg_chassis=leg_chassis_from_cfg(env_kwargs.get("cfg")),
             cfg=env_kwargs.get("cfg"))
         # Model-field DR — same default rule as MjxVecEnv.

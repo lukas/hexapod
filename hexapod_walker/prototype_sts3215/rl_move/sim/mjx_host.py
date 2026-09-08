@@ -18,7 +18,8 @@ from .servo_model import (
     position_actuator_ids, resolve_model_source,
 )
 from .sim_env import (leg_chassis_collision_from_cfg,
-                      set_foot_ground_friction, soften_contacts)
+                      set_foot_geom_radius, set_foot_ground_friction,
+                      soften_contacts)
 from .struct_compliance import StructCompliance
 
 DEG2RAD = np.pi / 180.0
@@ -162,6 +163,21 @@ def leg_chassis_from_cfg(cfg) -> bool:
     return leg_chassis_collision_from_cfg(cfg)
 
 
+def foot_geom_radius_from_cfg(cfg) -> float:
+    """cfg env.foot_geom_radius_m (0 = XML default 4.5mm sphere; see
+    sim_env.set_foot_geom_radius). Built 2026-09-08 alongside the
+    diagnostic setter so a promising zero-shot eval-time probe result
+    can be trained FROM, not just evaluated against — until this
+    function's call sites (prepare_shared_model + its 3 callers) were
+    wired, this cfg key had NO effect on the GPU/warp training stack
+    (only the C eval env applied it), which would have made any
+    training launch dosing it a silent train/eval physics mismatch."""
+    from rl_move.config import cfg_get, load_config
+    if cfg is None:
+        cfg = load_config()
+    return float(cfg_get(cfg, "env", "foot_geom_radius_m", default=0.0))
+
+
 def _apply_nominal_struct_compliance(model, cfg) -> None:
     if cfg is None:
         from rl_move.config import load_config
@@ -175,6 +191,7 @@ def _apply_nominal_struct_compliance(model, cfg) -> None:
 def prepare_shared_model(params: SimServoParams, *, iterations: int,
                          ls_iterations: int, terrain_amp: float = 0.0,
                          terrain_seed: int = 0, foot_mu: float = 0.0,
+                         foot_geom_radius: float = 0.0,
                          leg_chassis: bool = False, cfg=None):
     """The ONE model every shim (and the device stepper) uses: MJX-compat
     terrain, the C env's contact softening, fitted servo params, reduced
@@ -184,7 +201,11 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     ``terrain_amp > 0`` keeps and populates the hfield (rough-terrain
     experiments; Warp impl only — see build_model). ``foot_mu > 0``
     applies the calibrated foot–ground slide friction, mirroring the C
-    env's cfg env.foot_friction_slide hook."""
+    env's cfg env.foot_friction_slide hook. ``foot_geom_radius > 0``
+    (built 2026-09-08) overrides the foot contact-sphere radius,
+    mirroring cfg env.foot_geom_radius_m / sim_env.set_foot_geom_radius
+    — 0 leaves the model's default 4.5mm sphere untouched (bit-exact
+    off)."""
     # leg_chassis: cfg env.leg_chassis_collision — belly knife-edge
     # contact axis (SIM.md gap 4). Must be an XML/compile-time rewrite
     # (build_model kwarg) so put_model's device pair set includes the
@@ -197,6 +218,8 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     soften_contacts(model)
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)
+    if foot_geom_radius > 0.0:
+        set_foot_geom_radius(model, foot_geom_radius)
     apply_params_to_model(model, params)
     _apply_nominal_struct_compliance(model, cfg)
     model.opt.iterations = int(iterations)

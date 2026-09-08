@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import json
 import math
-import sys
 import tomllib
 from pathlib import Path
 
@@ -39,12 +38,10 @@ import trimesh
 
 
 HERE = Path(__file__).resolve().parent
-PROTO_DIR = HERE.parents[1]
 STL_DIR = HERE / "stl"
 
-sys.path.insert(0, str(PROTO_DIR))
-import hexapod_prototype as hp  # noqa: E402
-from scripts.print_orientation import _lay_flat, _reorient_coxa_link  # noqa: E402
+import hexapod_prototype as hp
+from scripts.print_orientation import _lay_flat, _reorient_coxa_link
 
 
 BUILD_ID = "prototype_sts3215/horn-compression-limiters"

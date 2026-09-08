@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import math
 import os
-import sys
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -28,10 +27,8 @@ from trimesh.transformations import rotation_matrix
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(SCRIPT_DIR)
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 
-import hexapod_prototype as HP  # noqa: E402
+import hexapod_prototype as HP
 
 OUT_DIR = os.path.join(PROTO_DIR, "renders")
 os.makedirs(OUT_DIR, exist_ok=True)

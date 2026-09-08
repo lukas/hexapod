@@ -52,12 +52,9 @@ import trimesh
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(THIS_DIR)
-REPO_ROOT = os.path.dirname(os.path.dirname(PROTO_DIR))
 
 # Make hexapod_walker/prototype importable so we can re-use
 # _verify_prototype's helpers.
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 
 STL_DIR = os.path.join(PROTO_DIR, "stl_prototype")
 SPEC_PATH = os.path.join(PROTO_DIR, "design_spec.yaml")

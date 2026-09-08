@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 
 import numpy as np
 import trimesh
@@ -49,7 +48,6 @@ import trimesh
 HERE = os.path.abspath(os.path.dirname(__file__))
 PROTO_DIR = os.path.abspath(os.path.join(HERE, "..", ".."))
 STL_DIR = os.path.join(HERE, "stl")
-sys.path.insert(0, PROTO_DIR)
 
 # ---------------------------------------------------------------------------
 # Frames.  The exported femur_link.stl is in the ASSEMBLED-LINK frame:

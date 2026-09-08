@@ -28,7 +28,6 @@ STEP_DIR = OUT_DIR / "step"
 STL_DIR = OUT_DIR / "stl"
 
 sys.path.insert(0, str(THIS_DIR))
-sys.path.insert(0, str(PROTO_DIR))
 
 import build_step_first_test as step  # noqa: E402
 import hexapod_prototype as hp  # noqa: E402

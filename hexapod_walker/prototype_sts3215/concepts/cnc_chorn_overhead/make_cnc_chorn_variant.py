@@ -121,7 +121,6 @@ HERE = os.path.abspath(os.path.dirname(__file__))
 PROTO_DIR = os.path.abspath(os.path.join(HERE, "..", ".."))
 RIGID_DIR = os.path.join(PROTO_DIR, "concepts", "rigid_hip")
 STL_DIR = os.path.join(HERE, "stl")
-sys.path.insert(0, PROTO_DIR)
 sys.path.insert(0, RIGID_DIR)
 
 import hexapod_prototype as hp  # noqa: E402  (read-only input)

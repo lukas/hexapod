@@ -40,7 +40,6 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "cad_step_test"))
-sys.path.insert(0, HERE)
 
 import numpy as np  # noqa: E402
 import trimesh  # noqa: E402

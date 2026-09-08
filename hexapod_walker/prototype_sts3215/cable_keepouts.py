@@ -39,8 +39,6 @@ tolerance absorbs the 1-3 mm of slop this introduces.
 
 from __future__ import annotations
 
-import os
-import sys
 from dataclasses import dataclass
 from typing import Callable
 
@@ -48,11 +46,8 @@ import numpy as np
 import trimesh
 from trimesh.creation import box as _box_mesh
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-if _HERE not in sys.path:
-    sys.path.insert(0, _HERE)
 
-import hexapod_prototype as hp  # noqa: E402
+import hexapod_prototype as hp
 
 
 # ---------------------------------------------------------------------------

@@ -47,14 +47,12 @@ Usage
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
 
 # Reuse the proven manifold-friendly boolean helpers from the main model.
 _HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(_HERE.parent))
 
 import hexapod_prototype as HP  # noqa: E402  (_box/_cyl/_union/_diff)
 

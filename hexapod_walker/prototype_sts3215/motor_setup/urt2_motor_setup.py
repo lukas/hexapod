@@ -24,14 +24,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, COUNTS_PER_DEG, FACTORY_SERVO_ID,
     FeetechBus, SERVO_ID_OFFSET, STS_CENTRE_COUNT, STS_COUNTS_PER_REV,

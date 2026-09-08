@@ -10,14 +10,10 @@ from __future__ import annotations
 import argparse
 import copy
 import json
-import sys
 from pathlib import Path
 
-LINUX_CONTROL = Path(__file__).resolve().parents[1] / "linux_control"
-if str(LINUX_CONTROL) not in sys.path:
-    sys.path.insert(0, str(LINUX_CONTROL))
 
-from sysid_protocol import N_JOINTS, protocol_hash, validate  # noqa: E402
+from sysid_protocol import N_JOINTS, protocol_hash, validate
 
 
 def scale_protocol(

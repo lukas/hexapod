@@ -53,8 +53,6 @@ sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 # hexapod_prototype imports sibling modules (cable_keepouts, ...) by bare
 # name, so the project dir itself must be importable too.
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")))
 
 import hexapod_walker.prototype_sts3215.hexapod_prototype as hp  # noqa: E402
 

@@ -46,13 +46,10 @@ from __future__ import annotations
 import importlib.util
 import os
 import subprocess
-import sys
 import tempfile
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")))
 
 import hexapod_prototype as hp_now  # noqa: E402  (today's feature constants)
 

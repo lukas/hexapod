@@ -43,8 +43,6 @@ from trimesh.transformations import rotation_matrix
 
 sys.path.insert(0, os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..")))
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")))
 
 import hexapod_walker.prototype_sts3215.hexapod_prototype as hp  # noqa: E402
 from hexapod_walker.prototype_sts3215.tools.make_xtool_chassis_hex import (  # noqa: E402

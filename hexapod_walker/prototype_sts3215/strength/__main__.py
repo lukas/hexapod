@@ -29,17 +29,15 @@ import trimesh
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTO_DIR = os.path.dirname(THIS_DIR)
-if PROTO_DIR not in sys.path:
-    sys.path.insert(0, PROTO_DIR)
 
-import hexapod_prototype as hp  # noqa: E402
+import hexapod_prototype as hp
 
-from strength import materials   # noqa: E402
-from strength import load_cases  # noqa: E402
-from strength import beam_check  # noqa: E402
-from strength import mesh_part   # noqa: E402
-from strength import run_calculix  # noqa: E402
-from strength import report as report_mod  # noqa: E402
+from strength import materials
+from strength import load_cases
+from strength import beam_check
+from strength import mesh_part
+from strength import run_calculix
+from strength import report as report_mod
 
 ARTIFACT_DIR = os.path.join(PROTO_DIR, "artifacts", "strength")
 os.makedirs(ARTIFACT_DIR, exist_ok=True)

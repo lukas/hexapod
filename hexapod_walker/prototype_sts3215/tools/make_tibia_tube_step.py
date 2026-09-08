@@ -43,14 +43,11 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 
-sys.path.insert(0, os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..")))
 
-import hexapod_prototype as hp  # noqa: E402
+import hexapod_prototype as hp
 
-from build123d import Cylinder, Pos, export_step, export_stl  # noqa: E402
+from build123d import Cylinder, Pos, export_step, export_stl
 
 OUT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "extra_stl"))

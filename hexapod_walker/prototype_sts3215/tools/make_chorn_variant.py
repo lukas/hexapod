@@ -42,13 +42,11 @@ Run:  .venv/bin/python tools/make_chorn_variant.py
 from __future__ import annotations
 
 import os
-import sys
 
 import numpy as np
 import trimesh
 from trimesh.transformations import rotation_matrix
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import hexapod_prototype as hp
 from hexapod_prototype import (_box, _cyl, _diff, _union,
                                _disc_horn_bolt_centres)

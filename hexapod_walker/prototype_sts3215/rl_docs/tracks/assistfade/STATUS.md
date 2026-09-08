@@ -1,5 +1,42 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 2026-09-08 ~12:2x (refill cycle; no completion assigned) — launched the swing-count-floor mechanism (walkcurr's own new lever) onto rung3, the first genuinely new mechanism tried here since the 09-07 track-level finding
+
+One plain sentence: the bare `reward.walk_leg_duty_ratio_charge` rung3
+canaries (s0/s1) both FAILed because a fully-planted, no-swing leg can
+inflate its own peer-relative duty ratio without completing a real
+step (the comparator-correction above already names this: "low-
+relative-duty penalties do not directly target fully planted high-
+duty/no-swing legs"), so this cycle applied the exact fix a concurrent
+walkcurr cycle built and bank-proved for the identical symptom on a
+different lineage the same day: `reward.walk_leg_duty_ratio_swing_
+min_count`/`_swing_window_s` (>=2 qualifying stride-filtered swings in
+a trailing 4s window — the same definition `walk_swing_gate` already
+uses — zeroes a leg's ratio credit if it hasn't actually swung enough,
+regardless of duty). Default 0.0/off, bit-exact when unset; 6 new + 9
+existing `test_task_semantics.py` bank tests already green (built and
+proved by the walkcurr line this same day, not new work here).
+
+Launched `cw-assistfade-rung3-legdutyratio-swingfloor-{s0,s1}` (2M
+mechanism-health canaries, VERIFIED RUNNING train-0/train-3): single
+lever vs each seed's own matched bare-charge `legdutyratio-{s0,s1}`
+sibling (both CANARY FAIL - MECHANISM) — only the swing-floor keys
+added (min_count=2.0, window_s=4.0), everything else byte-identical
+(same dose 150/target 0.30/grace 3s/tau 1s, same residual-blend
+schedule, random-weight init). This is the track's own named "genuinely
+new reward mechanism pricing per-leg utilization/load-slip directly"
+lead (09-07 ~14:5x finding), not a relaunch of a closed rung/dose.
+Gate: telemetry activation check, zero new falls vs each seed's own
+bare-charge sibling, and per-leg duty for the sacrificed leg(s)
+([0,3] s0 / [0,5] s1) measurably narrowing (>=0.10 where the sibling
+showed <0.05) in >=1 held-out mode without a new slip/current
+regression to CONTINUE; statistically-indistinguishable duty is
+FAIL-MECHANISM, matching the walkcurr retrofit self-check discipline.
+Read both together (n=2) before drawing a track-level conclusion —
+walkcurr's own swingfloor read on a different lineage split 1-of-2
+seeds efficacy/1-of-2 no-effect, so do not treat a single-seed PASS
+here as closing the mechanism question either way.
+
 ## 2026-09-08 comparator correction — s0's apparent opposite-seed recovery used the wrong baseline
 
 This supersedes the prior cycle's s0 DIG-IN premise in commit

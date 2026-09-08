@@ -1,3 +1,59 @@
+## 2026-09-08 ~12:2x (refill cycle; no completion assigned, capacity re-check found 9 free GPU pods/empty backlog) — extended the swing-count-floor mechanism's generalization test to a 2nd heading-lineage (widenbis180); self-caught and killed a duplicate launch of the SAME lineage under a stale second name (widenrear180) before it wasted meaningful GPU time
+
+One plain sentence: the board was already fully claimed by concurrent
+cycles (s2 widen8-swingfloor tie-break, cartfoot-halfgrav-s12 pair,
+jointspace-freshinit pair, footgeom0135-fix1 all in flight/just
+finished elsewhere), so this cycle's own attempted duplicate of the s2
+swingfloor arm got a clean REFUSED (harmless, expected traffic); the
+one genuinely new, unclaimed question was whether the swing-floor
+lever's mixed widen8 seed read (s0 3/4 CONTINUE, s1 0/4 null)
+generalizes across heading-widening LINEAGES, not just seeds.
+
+**Launched `cw-walkscratch-crutchoff-s0-widenbis180-legdutyratio-
+swingfloor`** (VERIFIED RUNNING train-1, FINISHED within-cycle):
+one-lever respec of the already-CANARY-PASSED widenbis180 0.30-dose
+guardfix1 baseline (same seed2/init-from `crutchoff_s0_acq1.zip`/
+6-way heading-set/DR/motor cfg), adding only the swing-floor keys.
+Gate/read left for the next reader per its own registered text; read
+together with the widen8 s0/s1/s2 trio, not in isolation.
+
+**Self-corrected mistake, same cycle**: attempted a further "3rd
+lineage" arm on `widenrear180`, reasoning it was an independent
+single-180-heading lineage distinct from widenbis180. Launched its
+matched 0.30-dose guardfix1 baseline (train-2) before the FOLLOW-ON
+swingfloor respec was refused by the launcher's own config-twin check
+("identical train args+steps" vs the widenbis180 swingfloor arm just
+launched) -- a full 207-arg diff confirmed `widenrear180` and
+`widenbis180` are the byte-identical recipe (same seed/init-from/
+heading_set/DR/reward cfg) under two different historical run-name
+labels from earlier cycles, not two lineages. Killed the redundant
+guardfix1-baseline process immediately (pid 3955713/3955718 on
+train-2, ~2 min GPU cost, no new evidence), ledger entry set to
+`KILLED_DUPLICATE` with the full explanation so no future cycle
+re-launches this pairing believing it is a 3rd lineage. **Correction
+for future reads: `widenrear180` == `widenbis180`** (identical config);
+treat any mention of either name as the same single 6-way-heading
+(base 5-way + 180deg) lineage, not two.
+
+Other tracks rechecked, unchanged: joystick/amp DONE-or-handed-off,
+cpg search space exhausted, standwalk/assistfade/todaypolicy each
+blocked on their own new-mechanism-design prerequisite (todaypolicy's
+latest capped-magnitude assay is itself a completed STOP, no PPO
+follows). No backlog items; all other in-flight walkcurr lines
+(s2 widen8-swingfloor, cartfoot-halfgrav-s12 pair, jointspace-
+freshinit pair, footgeom0135-fix1) concurrent-cycle-owned, left
+untouched.
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-s0-widenbis180-
+legdutyratio-swingfloor`; ledger entries for
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-s0-widenrear180-legdutyratiofresh-guardfix1` (status
+`KILLED_DUPLICATE`) and `-s0-widenbis180-legdutyratiofresh-guardfix1`
+(the byte-identical original, already CANARY PASS); W&B `0yn9ntzv`
+(killed dup). RL_LOG 09-08 ~12:2x. `CYCLE_WORKED` touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~12:2x (triage cycle; assigned `cartfoot-halfgrav-s11-acq1-cont10m`) — seed11's +10M continuation is the FIRST cont10m in this cohort to FAIL its own registered retention bar: gait_valid drops below the required floor and the chronic det-mode leg1 dropout spreads into previously-clean stochastic episodes
 
 One plain sentence: unlike seed7 (whose cont10m HOLDS its 22/24 band
@@ -47,6 +103,51 @@ halfgrav_s11_acq1_cont10m_gate/report.json` vs `..._s11_acq1_gate/
 report.json`; W&B `qnxlwcxv`. RL_LOG 09-08 ~12:2x.
 
 --- prior entry below ---
+
+## 2026-09-08 ~12:2x (triage cycle; assigned `cartfoot-halfgrav-offctrl-s11-acq1-cont10m`) — OFF arm's own 50M retention is PARTIAL: slip/falls hold, gait_valid regresses hard; refill applied the swingfloor mechanism cross-track to assistfade
+
+One plain sentence: the seed11 OFF (joint-space) control's +10M
+continuation keeps its slip and zero-fall record inside the 40M
+read's own noise band, but its six-leg gait quality got MUCH worse,
+not better, with more training — the opposite of "holds."
+
+`cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1-cont10m`
+(50M cumulative) verdicted **PARTIAL**: slip/m 1.76/1.93/1.77/1.74
+(det/sto/startjitter-det/startjitter-sto) is within the gate's own
++/-20% noise band of the 40M read (1.82/1.89/1.83/1.94), and 0 new
+falls/terminations across all 24 episodes. But `gait_valid` collapsed
+from the 40M read's 10/24 to **3/24** at 50M — det-mode now sacrifices
+TWO legs ([1,4]) in every single one of the 6 episodes, where 40M
+showed single-leg (leg4) sacrifice. `ep_rew_mean` is still climbing
+steeply (quarters 292->820->1360->1698) while forward distance/speed
+held or slightly improved (det fwd 3.68m, identical across all 6
+draws) — the 08-21 rising-reward/bad-eval shape: the freeprog/speed
+reward keeps paying for distance from a leaner 4-leg gait, not pricing
+lost six-leg validity, so more budget widened the sacrifice instead of
+repairing it. This closes only the OFF arm's OWN retention question
+(slip/safety: HOLDS; gait-quality: DOES NOT HOLD, degrades further at
+depth) — the paired ON arm's own cont10m is still training under
+another cycle's line; the ON/OFF gap-at-depth comparison this pair was
+launched to answer stays open until it lands. Do not read this OFF
+regression as resolving that comparison either way yet.
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_
+offctrl_s11_acq1_cont10m_gate/report.json`, W&B `pwphlkog`.
+
+Refill (8 free GPU pods, backlog empty; every live walkcratch/cartfoot/
+swingfloor/jointspace-freshinit line already concurrent-owned per the
+ledger — no duplicate walkcurr launch available): took the swing-
+count-floor mechanism this campaign built+bank-proved earlier today
+(`reward.walk_leg_duty_ratio_swing_min_count`/`_swing_window_s`,
+default off/bit-exact) cross-track onto `assistfade`'s rung3 lineage,
+which named the identical "genuinely new per-leg-utilization
+mechanism" need in its own 09-07 track-level finding and whose bare
+`walk_leg_duty_ratio_charge` canaries (s0/s1) both FAILed for the same
+reason this mechanism targets (a planted/no-swing leg inflating its
+own duty ratio without a real step). Launched `cw-assistfade-rung3-
+legdutyratio-swingfloor-{s0,s1}` (2M canaries, VERIFIED RUNNING
+train-0/train-3) — see that track's own STATUS.md for the full
+hypothesis/gate; this is bookkeeping cross-reference only, not a
+walkcurr line.
 
 ## 2026-09-08 ~12:1x (triage cycle; assigned `widen8-jointspace-freshinit-b40m-ctrl`, left unverdicted -- joint sibling still training; refill launched the swing-floor 3rd-seed tie-break) 
 

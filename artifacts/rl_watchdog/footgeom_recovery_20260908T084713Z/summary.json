@@ -1,0 +1,339 @@
+{
+  "group_statistics": {
+    "parent": {
+      "identity": {
+        "task": "joint_walk",
+        "dr_scale": 0,
+        "seed": 0,
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573,
+        "policy_std": 0.135,
+        "motor_contract": {
+          "bus.write_speed": 4096,
+          "bus.write_acc": 1000,
+          "bus.servo_vel_max_counts_s": "write_speed",
+          "bus.servo_params": "",
+          "resolved_vel_max_deg_s_min": 360,
+          "resolved_vel_max_deg_s_max": 360,
+          "resolved_vel_max_counts_s_max": 4096,
+          "safety.max_delta_q_deg": 3.6,
+          "control.hz": 100,
+          "slew_limit_deg_s": 360,
+          "bus.profile_ramp_steps": 0,
+          "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+          "backend_profile": "servo_profile_np"
+        },
+        "start_jitter_panel": {
+          "start_jitter_deg": 3,
+          "start_bad_prob": 0.25,
+          "start_bad_max_joints": 1,
+          "start_bad_deg_min": 8,
+          "start_bad_deg_max": 16
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 6,
+          "slip_mean": 5.485833333333335,
+          "slip_median": 4.9805,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 5.383166666666667,
+          "slip_median": 5.172499999999999,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 6.2379999999999995,
+          "slip_median": 5.103,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 6,
+          "slip_mean": 5.779333333333334,
+          "slip_median": 5.4155,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        }
+      }
+    },
+    "invalid": {
+      "identity": {
+        "task": "joint_walk",
+        "dr_scale": 0,
+        "seed": 0,
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573,
+        "policy_std": 0.135,
+        "motor_contract": {
+          "bus.write_speed": 4096,
+          "bus.write_acc": 1000,
+          "bus.servo_vel_max_counts_s": "write_speed",
+          "bus.servo_params": "",
+          "resolved_vel_max_deg_s_min": 360,
+          "resolved_vel_max_deg_s_max": 360,
+          "resolved_vel_max_counts_s_max": 4096,
+          "safety.max_delta_q_deg": 3.6,
+          "control.hz": 100,
+          "slew_limit_deg_s": 360,
+          "bus.profile_ramp_steps": 0,
+          "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+          "backend_profile": "servo_profile_np"
+        },
+        "start_jitter_panel": {
+          "start_jitter_deg": 3,
+          "start_bad_prob": 0.25,
+          "start_bad_max_joints": 1,
+          "start_bad_deg_min": 8,
+          "start_bad_deg_max": 16
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 4.012833333333333,
+          "slip_median": 4.0504999999999995,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 4.221166666666666,
+          "slip_median": 4.0925,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 3.9011666666666667,
+          "slip_median": 3.766,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "terminated": 1,
+          "gait_valid": 6,
+          "slip_mean": 4.805666666666666,
+          "slip_median": 4.619,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        }
+      }
+    },
+    "corrected": {
+      "identity": {
+        "task": "joint_walk",
+        "dr_scale": 0,
+        "seed": 0,
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573,
+        "policy_std": 0.135,
+        "motor_contract": {
+          "bus.write_speed": 4096,
+          "bus.write_acc": 1000,
+          "bus.servo_vel_max_counts_s": "write_speed",
+          "bus.servo_params": "",
+          "resolved_vel_max_deg_s_min": 360,
+          "resolved_vel_max_deg_s_max": 360,
+          "resolved_vel_max_counts_s_max": 4096,
+          "safety.max_delta_q_deg": 3.6,
+          "control.hz": 100,
+          "slew_limit_deg_s": 360,
+          "bus.profile_ramp_steps": 0,
+          "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+          "backend_profile": "servo_profile_np"
+        },
+        "start_jitter_panel": {
+          "start_jitter_deg": 3,
+          "start_bad_prob": 0.25,
+          "start_bad_max_joints": 1,
+          "start_bad_deg_min": 8,
+          "start_bad_deg_max": 16
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 6,
+          "slip_mean": 6.135666666666666,
+          "slip_median": 5.6690000000000005,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 6.433166666666666,
+          "slip_median": 6.032,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 5,
+          "slip_mean": 6.4928333333333335,
+          "slip_median": 5.537,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "terminated": 0,
+          "gait_valid": 6,
+          "slip_mean": 6.067833333333334,
+          "slip_median": 5.859500000000001,
+          "episode_keys": [
+            "sacrificed_legs",
+            "gait_valid"
+          ]
+        }
+      }
+    }
+  },
+  "comparison": {
+    "walk/det": {
+      "median_slip_change_pct": 13.823913261720723,
+      "randomization_mismatch_episode_indices": [],
+      "parent_sacrifices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "corrected_sacrifices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "walk/sto": {
+      "median_slip_change_pct": 16.61672305461577,
+      "randomization_mismatch_episode_indices": [],
+      "parent_sacrifices": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "corrected_sacrifices": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    "walk_startjitter/det": {
+      "median_slip_change_pct": 8.504801097393688,
+      "randomization_mismatch_episode_indices": [],
+      "parent_sacrifices": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "corrected_sacrifices": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ]
+    },
+    "walk_startjitter/sto": {
+      "median_slip_change_pct": 8.19868894838891,
+      "randomization_mismatch_episode_indices": [],
+      "parent_sacrifices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "corrected_sacrifices": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "decision": {
+    "original_criterion": "Median slip per metre improves at least 10% in at least 3 of 4 groups, falls <=1 and no new chronic sacrifice (same leg in >=4/6 within a group); finite directional mechanism-health screen, not class closure.",
+    "improving_at_least_10pct_groups": 0,
+    "flat_or_worse_groups": 4,
+    "terminations": 0,
+    "gait_valid": 22,
+    "new_chronic_sacrifice": false,
+    "proceed_to_replacement_2M": false,
+    "scope": "Corrected frozen-policy 13.5mm geometry dose fails to support the original training decision. No evidence of universal geometry-class failure."
+  }
+}

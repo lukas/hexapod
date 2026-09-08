@@ -1,0 +1,57 @@
+{
+  "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-footgeom0135-c1",
+  "fresh_check_utc": "2026-09-08T09:10:26Z",
+  "trainer_pid": 552282,
+  "trainer_alive": false,
+  "actual_completed_steps": 2097152,
+  "finalizer_pid": 558458,
+  "kill_issued": false,
+  "status_recorded": "INVALID_PHYSICS",
+  "verdict_prefix": "CANARY FAIL - INFRASTRUCTURE",
+  "recording": "Existing ops verdict updated ledger, mirrored W&B notes/analysis artifact, and appended RL_LOG. Initial incompatible verdict prefix was safely rejected before mutation, then corrected.",
+  "artifacts_preserved": true,
+  "original_parent_sha256": "e92377d6e133cb68051b71738845ce2c6419fc308fe19836df8466f338696ca0",
+  "probe_recovery": "Exact original saved command; output suffix _compilefix1; repaired source only; no video, no PPO",
+  "probe_pid": 654288,
+  "probe_uv_pid": 654283,
+  "observed_progress": "At 09:13:07, actual evaluator alive, 205% CPU, det walk 6/6 episodes reported.",
+  "replacement_PPO_launched": false,
+  "decision_dependency": null,
+  "probe_completed_utc": "2026-09-08T09:13:56.635034150Z",
+  "probe_report_native_MCP_read": true,
+  "probe_actual_episode_count": 24,
+  "actual_progress_samples": [
+    {
+      "utc": "2026-09-08T09:13:07Z",
+      "pid": 654288,
+      "elapsed_seconds": 16,
+      "cpu_percent": 205,
+      "completed_groups": [
+        "walk/det"
+      ],
+      "completed_episodes": 6
+    },
+    {
+      "utc": "2026-09-08T09:13:45Z",
+      "pid": 654288,
+      "elapsed_seconds": 55,
+      "cpu_percent": 197,
+      "cpu_seconds": 108,
+      "completed_groups": [
+        "walk/det",
+        "walk/sto",
+        "walk_startjitter/det"
+      ],
+      "completed_episodes": 18
+    },
+    {
+      "utc": "2026-09-08T09:14:30Z",
+      "pid_alive": false,
+      "completed_episodes": 24,
+      "report_bytes": 90710
+    }
+  ],
+  "decision": "Original improvement premise failed in corrected finite probe: all four median slip values worsened; do not recover the 2M canary. No broad mechanism-class closure.",
+  "unrelated_halfgrav_jobs_touched": false,
+  "report_staging": "Probe ran in the canonical controller logs/ckpt_eval path; no copy-back needed. Three exact input reports were read through native eval_report and saved locally from those responses."
+}

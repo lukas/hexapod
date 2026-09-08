@@ -1,0 +1,51 @@
+# Orchestrator activity (live)
+watcher: UP
+pending kicks: none — every filed kick has been consumed by a cycle
+
+active cycles (1):
+## meta-analysis (model claude-fable-5, started 2026-09-08T09:14:30, pid 655618)
+   trigger: No run just finished — this is the once-nightly META-ANALYSIS session (operator directive 08-22). The watcher drained/held all other cycles; you run ALONE until you exit. Your task is the meta-analysi
+   live narration (last write 36 s ago; full log: cycle_log('20260908T091430')):
+     [09:16:51] $ sed -n 486,620p watch_loop.py   # Read watcher run-assignment logic around verdict checks
+     [09:16:51]   -> 135 lines: def load_processed() -> set[str] | None: if not STATE.exists(): return None return set(json.loads(STATE.read_text())["processed"]) def _finished_before_checkup(entry: dict) -> bool: """A mechanical t…
+     [09:17:13] $ ls /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_docs/meta/ && tail -40 /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_docs/meta/META_2026-09-07.md 2>/dev/null   # List meta reports and read latest
+     [09:17:13]   -> 49 lines: META_2026-08-30.md META_2026-08-31.md META_2026-09-01.md META_2026-09-02.md META_2026-09-03.md META_2026-09-04.md META_2026-09-05.md META_2026-09-06.md META_2026-09-07.md unevaluated 1h+. Cost: ~$25 …
+     [09:17:13] $ sed -n 405,460p /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator/watch_loop.py   # Read refill trigger and idle-kick backoff logic
+     [09:17:13]   -> 56 lines: def has_refill_owner(active: list[dict]) -> bool: """A focused owner already checks capacity; ordinary triage may coexist.""" return any(c.get("label") in { "refill", "partial-refill", "idle-kick", "…
+     [09:17:40] $ grep -n "review" ops.sh | head && sed -n "$(grep -n '^ review' ops.sh | head -1 | cut -d: -f1),+45p" ops.sh   # Find review subcommand in ops.sh
+     [09:17:40]   ! ERROR: Exit code 1 701:review) # review <run> — THE standard triage read in one command: 1380: # handoff; review, then --allow-fingerprint-mismatch to override). 1427: echo "subcommands: review <run> (START HERE for triage) | report <run|json> |" sed: -e expression #1, char 1: unknown command: `,'
+     [09:17:42] $ cd /workspace/cycle_logs && for f in cycle_20260908T0[89]*[!md].log; do echo "== $f"; grep -c "is not recognized\|No such file\|Traceback\|command not found\|REFUSED\|error" "$f" 2>/dev/null; done 2>/dev/null | head -30   # Count error patterns in recent cycle logs
+     [09:17:42]   -> 17 lines: == cycle_20260908T080122_operator-kick.log 6 == cycle_20260908T082216_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m-cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-ac.log 12 =…
+     [09:17:47] $ cd /workspace/hexapod/hexapod_walker/prototype_sts3215/rl_move/orchestrator && sed -n '701,770p' ops.sh   # Read ops.sh review subcommand
+     [09:17:47]   -> 70 lines: review) # review <run> — THE standard triage read in one command: # ledger status+gate, W&B state/steps/reward-quarters, newest eval # report table, video/contact-sheet paths, OUTCOME-note check. # I…
+
+recently finished cycles (full narration via cycle_log('<stamp>')):
+- 20260908T082731_cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-torque1x-c1: done rc=0 in 15m25s
+- 20260908T083756_partial-refill: done rc=0 in 31m42s
+- 20260908T084823_cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1: done rc=0 in 21m16s
+- 20260908T085337_cw-walkscratch-easy0905-cartfoot-halfgrav-s7-cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl: done rc=0 in 16m01s
+- 20260908T085853_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-s41: done rc=0 in 15m26s
+
+newest ledger rows (INTENT = launch in progress, flips to RUNNING once the process + W&B id are verified):
+- cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain: FINISHED (created 2026-09-08T09:11)
+- cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-torqueretain: FINISHED (created 2026-09-08T09:08)
+- cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-footgeom0135-c1: INVALID_PHYSICS (created 2026-09-08T09:05)
+- cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1: RUNNING (created 2026-09-08T09:04)
+- cw-walkscratch-easy0905-cartfoot-halfgrav-c1-s7-acq1: REFUSED (created 2026-09-08T09:03)
+- cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1: RUNNING (created 2026-09-08T09:02)
+
+watcher log tail:
+  wandb: Find logs at: ./wandb/run-20260908_090921-lqeww3mi/logs
+  [defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-torqueretain; CPU finalizer pid 780666 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now
+  [2026-09-08T09:18:06] checkup cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain: rc=0
+  within_1deg 0.01892
+  wandb:   env/pitch_ref_deg 0
+  wandb:                 +70 ...
+  wandb:
+  wandb: 🚀 View run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain at: https://wandb.ai/l2k2/hexapod-balance/runs/ammkxcg3
+  wandb: ⭐️ View project at: https://wandb.ai/l2k2/hexapod-balance
+  wandb: Synced 5 W&B file(s), 0 media file(s), 2 artifact file(s) and 1 other file(s)
+  wandb: Find logs at: ./wandb/run-20260908_091128-ammkxcg3/logs
+  [defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain; CPU finalizer pid 2885776 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now
+
+HOW TO WAIT ON A KICK: your kick's cycle streams everything it does into its narration log — the tail above updates live, and cycle_log('<stamp>') returns as much of it as you want. A cycle whose narration is advancing is working; do NOT re-kick (a duplicate cycle just burns budget rediscovering the first one's work). Re-kick only if the cycle finished (=== CYCLE END) without addressing your item.

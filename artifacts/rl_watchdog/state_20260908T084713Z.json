@@ -1,0 +1,168 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger": "2026-09-08T08:47:13.841Z",
+  "status": "completed_visit_heartbeat_remains_active",
+  "capacity": {
+    "sample_at_utc": "2026-09-08T09:15:30Z",
+    "ready_gpu_slots": 11,
+    "actual_ppo_processes": 2,
+    "free_gpu_slots": 9,
+    "pending_pods": [
+      "hexapod-mjx-train-6"
+    ],
+    "backlog": [],
+    "receipt": "fleet_20260908T084713Z/close.json",
+    "idle_observation": "Two process/capacity snapshots 56 seconds apart showed zero PPO and 11 free slots around 08:48; first subsequent verified refill process started at 09:02:52.30. Existing owners were triaging completed canaries; no duplicate kick was sent."
+  },
+  "training": {
+    "active": [
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+        "owner": "20260908T084823",
+        "pod": "hexapod-mjx-train-2",
+        "pid": 3868795,
+        "requested_steps": 40000000,
+        "observed_steps": 15204352,
+        "fps": 21257,
+        "seed": 7,
+        "parent_sha256": "92fbbb0975614bb1c3c387cc308d6e29d217f37ac80b0d2213f963da8cfc2562"
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1",
+        "owner": "20260908T085337",
+        "pod": "hexapod-mjx-train-1",
+        "pid": 2777761,
+        "requested_steps": 40000000,
+        "observed_steps": 17301504,
+        "fps": 27791,
+        "seed": 7,
+        "parent_sha256": "f2e0578525aa261aeec06e69a11a6c1eedee59013e75b80a4b74a6293deef2f8"
+      }
+    ],
+    "placement_validation": "Each resumes its own 2,097,152-step checkpoint, has one top-level 40M budget and seed7, unchanged own-parent cfg, matching relevant code/model identity; the pair differs only in three Cartesian action-box keys. Repeated same-PID CPU/log/PPO progression verified. No physics radius override is enabled.",
+    "duplicate_resolution": "Alternate exact-equivalent ON name cw-walkscratch-easy0905-cartfoot-halfgrav-c1-s7-acq1 remained REFUSED because canonical ON occupied train2; no duplicate PPO or kill occurred. The other owner placed the same intended OFF name.",
+    "six_completed_canaries": {
+      "actual_steps_each": 2097152,
+      "actual_steps_total": 12582912,
+      "groups": [
+        "half-gravity seed7 ON/OFF",
+        "eight-direction hard-DR fresh seed40 ON/OFF",
+        "eight-direction hard-DR fresh seed41 ON/OFF"
+      ],
+      "receipt": "fleet_20260908T084713Z/initial.json"
+    },
+    "additional_torque_retention_canaries": {
+      "owner": "20260908T085853",
+      "runs": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-torqueretain",
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain"
+      ],
+      "requested_steps_each": 2000000,
+      "actual_steps_each": 2097152,
+      "seed": 40,
+      "init_from": null,
+      "only_cfg_change_from_own_source": "dr.torque_scale 1,1 -> 3,3",
+      "phase": "Both PPO processes exited naturally; CPU artifact_finalizer PIDs 780666/2885776 are active on train0/train3. Gate/video results pending; RUNNING ledger labels do not imply GPU training."
+    }
+  },
+  "normal_torque_comparison": {
+    "complete": true,
+    "receipt": "torque_read_20260908T084713Z/",
+    "publication": "79647698380501741b1e07b6fbb921de743f6090",
+    "zero_shot_to_child_gait": {
+      "on": [
+        23,
+        23
+      ],
+      "off": [
+        12,
+        12
+      ]
+    },
+    "episodes_per_gate": 24,
+    "terminations": 0,
+    "child_mean_slip_on_off_ratios": [
+      0.8396,
+      0.9098,
+      0.8709,
+      0.8915
+    ],
+    "conclusion": "The retention asymmetry exists before the 2M continuation. Weights and normalized rewards changed, but no acquired gait recovery was demonstrated. Wrong-decoder catastrophic-recovery inference withdrawn; current STATUS/SKILLS corrected. Finite comparison closes with no automatic extension."
+  },
+  "steering": {
+    "receipt": "turn_support_yaw_execution_20260908/",
+    "preregistration_commit": "c0cb4ae02",
+    "result_commit": "0129c375a9bd7449c29a9af8b9cd44110fb0abfe",
+    "status": "COMPLETE - STOP",
+    "states": 16,
+    "branches": 48,
+    "qualifying_states": 0,
+    "max_command_aligned_yaw_gain_mrad": 1.4662,
+    "required_mrad": 5,
+    "retained_pulses": 32,
+    "total_pulses": 32,
+    "clipped_or_terminated_pulses": 0,
+    "parity": "All 16 zero-control state/window checks, 32 pulse prefix/vector checks, and four 15-second straight zero-off pairs pass.",
+    "recovery": "Initial zero-control stage failed closed on an incorrect diagonal coordinate-conversion assertion. Corrected to actual within-leg hip/knee map with seven tests; reused original eight baseline trajectories and 16 selections by hash before any pulse. No response rerun or gate change.",
+    "limitation": "Per-tick measured motor-current trace unavailable; current configuration was fixed.",
+    "followup": "No PPO, extra dose, law variant, or physical trial follows this failed finite assay."
+  },
+  "radius_repair": {
+    "commit": "d54506ef2ad2dfc19dfc52929fa3e90aa696771b",
+    "deployed": true,
+    "local_tests": {
+      "passed": 28,
+      "deselected": 49,
+      "seconds": 1.07,
+      "mujoco": "3.12.0"
+    },
+    "controller_tests": {
+      "passed": 28,
+      "deselected": 49,
+      "seconds": 1.77,
+      "mujoco": "3.11.0"
+    },
+    "change": "Compile positive sphere radii through MjSpec before private/shared model use, rebuilding collision structures while preserving original inertials/friction. Default-off arrays and rollout traces match. Reject unsafe size-only resizing and stale shared models.",
+    "receipt": "foot_radius_repair_20260908/"
+  },
+  "radius_recovery": {
+    "receipt": "footgeom_recovery_20260908T084713Z/",
+    "invalid_run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-footgeom0135-c1",
+    "invalid_actual_steps": 2097152,
+    "status": "INVALID_PHYSICS",
+    "process_action": "Finished naturally before stop check; no kill issued. Invalid child, old probe and healthy CPU artifact collection preserved.",
+    "corrected_probe": "cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_footgeom0135_probe_compilefix1",
+    "original_parent_sha256": "e92377d6e133cb68051b71738845ce2c6419fc308fe19836df8466f338696ca0",
+    "completed_at_utc": "2026-09-08T09:13:56Z",
+    "episodes": 24,
+    "median_slip_change_pct": [
+      13.82,
+      16.62,
+      8.5,
+      8.2
+    ],
+    "groups_improving_at_least_ten_percent": 0,
+    "required_groups": 3,
+    "gait_valid": 22,
+    "terminations": 0,
+    "identity": "4.80573 kg mesh_mjx twin, 91 geoms/0 meshes, 500Hz physics/100Hz control; original cfg/seed/motor/jitter unchanged, only intended radius .0135. All 24 reported randomization dictionaries match baseline.",
+    "conclusion": "Corrected dose fails original improvement premise; no replacement PPO was launched. This does not close the entire geometry class."
+  },
+  "orchestrator": {
+    "watcher": "UP",
+    "pending_kicks": 0,
+    "active_cycle": "20260908T091430 meta-analysis",
+    "note": "Scheduled meta-analysis has sole cycle ownership; training continues independently. No watcher restart, provider/node changes, new capacity purchase, or physical robot action."
+  },
+  "feedback": [
+    "fb_20260908T085139_d4f4a1",
+    "fb_20260908T090149_5d0e57",
+    "fb_20260908T091236_7dde42"
+  ],
+  "remaining": [
+    "Continue the two bounded 40M half-gravity acquisitions and inspect their own gates when complete.",
+    "Existing watcher should triage the two completed torque-retention canaries after CPU artifacts and scheduled meta-analysis finish; prepare justified next work under existing budgets.",
+    "Continuous walking/yaw and hardware/joystick qualification remain unmet; heartbeat stays active."
+  ],
+  "recorded_at_utc": "2026-09-08T09:20:54.291080+00:00"
+}

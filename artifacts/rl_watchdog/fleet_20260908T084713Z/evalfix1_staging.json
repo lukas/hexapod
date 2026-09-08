@@ -1,0 +1,18 @@
+{
+  "started_utc": "2026-09-08T08:50:01.614174+00:00",
+  "method": "Existing resume_orphaned_eval.wait_and_sync; exact completed paths; no evaluator launched.",
+  "command": [
+    "kubectl",
+    "--kubeconfig=/Users/lukas/.kube/coreweave.yaml",
+    "exec",
+    "hexapod-sweep-friction",
+    "--",
+    "bash",
+    "-lc",
+    "cd /workspace/hexapod/hexapod_walker/prototype_sts3215 && uv run python -c 'import pathlib,sys,json,hashlib\nsys.path.insert(0,str(pathlib.Path('\"'\"'rl_move/orchestrator'\"'\"').resolve()))\nimport resume_orphaned_eval as recovery\nrows=[]\nfor pod,run in [('\"'\"'hexapod-mjx-train-5'\"'\"','\"'\"'cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1'\"'\"'),('\"'\"'hexapod-mjx-train-9'\"'\"','\"'\"'cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1'\"'\"')]:\n out='\"'\"'logs/ckpt_eval/'\"'\"'+run.replace('\"'\"'-'\"'\"','\"'\"'_'\"'\"')+'\"'\"'_torque1x_zeroshot_evalfix1'\"'\"'\n rc=recovery.wait_and_sync(pod,out,'\"'\"'torque1x_zeroshot_evalfix1'\"'\"',run,timeout_s=10,poll_s=2)\n p=pathlib.Path(out)/'\"'\"'report.json'\"'\"';r=json.loads(p.read_text()) if p.is_file() else None\n assert rc==0 and r is not None,(pod,rc)\n assert set(r['\"'\"'episodes'\"'\"'])=={'\"'\"'walk/det'\"'\"','\"'\"'walk/sto'\"'\"','\"'\"'walk_startjitter/det'\"'\"','\"'\"'walk_startjitter/sto'\"'\"'}\n assert all(len(v)==6 for v in r['\"'\"'episodes'\"'\"'].values())\n rows.append({'\"'\"'pod'\"'\"':pod,'\"'\"'out'\"'\"':out,'\"'\"'rc'\"'\"':rc,'\"'\"'report_sha256'\"'\"':hashlib.sha256(p.read_bytes()).hexdigest(),'\"'\"'episode_count'\"'\"':sum(map(len,r['\"'\"'episodes'\"'\"'].values())),'\"'\"'clip_count'\"'\"':len(list(p.parent.glob('\"'\"'*.mp4'\"'\"'))),'\"'\"'checkpoint'\"'\"':r['\"'\"'checkpoint'\"'\"']})\nprint(json.dumps(rows))\n'"
+  ],
+  "rc": 0,
+  "stdout": "torque1x_zeroshot_evalfix1: rc=0 synced -> logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_zeroshot_evalfix1 (waited 1s)\ntorque1x_zeroshot_evalfix1: rc=0 synced -> logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_zeroshot_evalfix1 (waited 1s)\n[{\"pod\": \"hexapod-mjx-train-5\", \"out\": \"logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_torque1x_zeroshot_evalfix1\", \"rc\": 0, \"report_sha256\": \"81d857a78aac391aac81ebc06dfbf4a3736695eff8b3bf81f64d7095ee1c68d2\", \"episode_count\": 24, \"clip_count\": 24, \"checkpoint\": \"rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1.zip\"}, {\"pod\": \"hexapod-mjx-train-9\", \"out\": \"logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_torque1x_zeroshot_evalfix1\", \"rc\": 0, \"report_sha256\": \"ba2db68449dbc6097e64a72f9898c0abfc8e70bce2aa95268e756edcfa43be8e\", \"episode_count\": 24, \"clip_count\": 24, \"checkpoint\": \"rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1.zip\"}]\n",
+  "stderr": "",
+  "finished_utc": "2026-09-08T08:50:03.696336+00:00"
+}

@@ -1,0 +1,80 @@
+{
+  "source_commit": "e56e535f48ea53a096b7ddfed525839880d948ec",
+  "feedback": "fb_20260908T085139_d4f4a1",
+  "result": {
+    "version": "3.12.0",
+    "old": {
+      "radius": 0.0045,
+      "rbound": 0.0045,
+      "aabb": [
+        0,
+        0,
+        0,
+        0.0045,
+        0.0045,
+        0.0045
+      ],
+      "ncon": 0,
+      "contacts": []
+    },
+    "mutated": {
+      "radius": 0.012,
+      "rbound": 0.0045,
+      "aabb": [
+        0,
+        0,
+        0,
+        0.0045,
+        0.0045,
+        0.0045
+      ],
+      "ncon": 0,
+      "contacts": []
+    },
+    "mutated_setConst": {
+      "radius": 0.012,
+      "rbound": 0.0045,
+      "aabb": [
+        0,
+        0,
+        0,
+        0.0045,
+        0.0045,
+        0.0045
+      ],
+      "ncon": 0,
+      "contacts": []
+    },
+    "recompiled": {
+      "radius": 0.012,
+      "rbound": 0.012,
+      "aabb": [
+        0,
+        0,
+        0,
+        0.012,
+        0.012,
+        0.012
+      ],
+      "ncon": 1,
+      "contacts": [
+        {
+          "dist": -0.002,
+          "dim": 6,
+          "friction": [
+            1,
+            1,
+            0.1,
+            0.001,
+            0.001
+          ]
+        }
+      ]
+    }
+  },
+  "status": "Collision defect reproduced before feedback08:51:39; repaired/deployed as d54506ef2, with 28 focused tests passing locally and on the controller.",
+  "references": [
+    "https://mujoco.readthedocs.io/en/stable/computation/index.html#contact"
+  ],
+  "recorded_at_utc": "2026-09-08T08:53:57Z"
+}

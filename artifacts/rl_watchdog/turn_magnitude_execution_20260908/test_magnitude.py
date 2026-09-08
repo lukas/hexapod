@@ -449,3 +449,11 @@ def test_execution_loader_keeps_exact_frozen_vectors(probe):
     loaded = probe.frozen_templates()
     assert loaded == TEMPLATES
     assert probe.BASE is None
+
+
+def test_execution_loader_rejects_larger_reconstruction_error(probe, monkeypatch):
+    changed = copy.deepcopy(FROZEN)
+    changed["templates"][0]["candidate_vector"][0] += 1e-15
+    monkeypatch.setattr(probe, "read", lambda path: changed)
+    with pytest.raises(RuntimeError, match="derived allocation differs"):
+        probe.frozen_templates()

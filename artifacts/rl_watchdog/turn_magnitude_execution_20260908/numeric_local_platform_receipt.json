@@ -1,0 +1,8 @@
+{
+  "python": "3.12.14 (main, Sep  1 2026, 14:09:38) [Clang 22.1.3 ]",
+  "numpy": "2.5.2",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "sqrt18_hex": "0x1.0f876ccdf6cd9p+2",
+  "rho_hex": "0x1.b27247aff148fp-4",
+  "rho_squared_hex": "0x1.70a3d70a3d70ap-7"
+}

@@ -1,0 +1,4727 @@
+{
+ "schema": "hexapod.turn_traction_probe.v1",
+ "label": "root_fullcone_checkpoint_fm",
+ "engine": "audit",
+ "foot_torsion_mu": null,
+ "policy": "checkpoint",
+ "feasibility": {
+  "stance": {
+   "hip_deg": 20.0,
+   "knee_deg": 100.0,
+   "reach_mm": 71.0251092206922,
+   "foot_z_mm": -178.50297585114137,
+   "foot_radius_mm": 171.0251092206922,
+   "yaw_arm_gain": 0.4152905356665542
+  },
+  "joint_margins": {
+   "yaw": {
+    "cmd_min_deg": -15.386781747838915,
+    "cmd_max_deg": 15.386781748161678,
+    "limit": [
+     -35.0,
+     35.0
+    ],
+    "margin_deg": 19.613218251838322
+   },
+   "hip": {
+    "cmd_min_deg": 4.288357206351391,
+    "cmd_max_deg": 21.75005624790962,
+    "limit": [
+     -80.0,
+     40.0
+    ],
+    "margin_deg": 18.24994375209038
+   },
+   "knee": {
+    "cmd_min_deg": 94.95672187465173,
+    "cmd_max_deg": 104.73175003399103,
+    "limit": [
+     -20.0,
+     150.0
+    ],
+    "margin_deg": 45.268249966008966
+   }
+  },
+  "raw_ik_calls": 7200,
+  "raw_ik_failures": 0,
+  "period_scale": 1.0,
+  "n_ticks_per_cell": 400
+ },
+ "plant": "fullmesh",
+ "checkpoint": "rl_move/sim/policies/ppo_goal_cw_robotwalk_turns_20260907_yawref_cont8m.zip",
+ "checkpoint_sha256": "4a902839912837168a52e7248eed983ee29e57e5db4d22eeaa827f0a5c1428a0",
+ "pin_manifest": {
+  "mesh_mjx_xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+  "sim_model_json_sha256": "6968268e879eb95603d0801ddd25a59f37a3964eef6839e3b63be3df91fe412d",
+  "sim_model_loaded_json_sha256": "144d43fa5dd3bae4eebf1cce47f2f6a8c6f70b3763b36f824d195ca9450273e1",
+  "mesh_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837"
+ },
+ "pin_expect": {
+  "mesh_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+  "mesh_mjx_xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+  "sim_model_json_sha256": "6968268e879eb95603d0801ddd25a59f37a3964eef6839e3b63be3df91fe412d",
+  "sim_model_loaded_json_sha256": "144d43fa5dd3bae4eebf1cce47f2f6a8c6f70b3763b36f824d195ca9450273e1",
+  "cont8m_ckpt_sha256": "4a902839912837168a52e7248eed983ee29e57e5db4d22eeaa827f0a5c1428a0",
+  "model_mass_kg": 4.80573,
+  "control_hz": 100.0,
+  "bus.write_speed": 400.0,
+  "bus.write_acc": 20.0,
+  "safety.max_delta_q_deg": 0.375,
+  "slew_limit_deg_s": 37.5,
+  "resolved_vel_max_counts_s_max": 350.0
+ },
+ "cfg_set": [
+  "control.hz=100",
+  "safety.max_delta_q_deg=0.375",
+  "safety.max_roll_deg=25",
+  "safety.max_pitch_deg=25",
+  "goal.walk_speed_min_m_s=0.08",
+  "goal.walk_speed_max_m_s=0.08",
+  "goal.walk_heading_max_rad=3.1415927",
+  "goal.walk_stop_frac=0.15",
+  "goal.walk_cmd_resample_s=6.0",
+  "goal.walk_cmd_resample_jitter=0.2",
+  "goal.walk_park_start_frac=0.25",
+  "goal.walk_obs_body_vel=2",
+  "goal.walk_phase_obs=1",
+  "goal.walk_phase_hz=1.333333",
+  "goal.walk_yaw_cmd=1",
+  "goal.walk_phase_run_on_yaw=1",
+  "goal.walk_yaw_zero_frac=0.5",
+  "reward.walk_kernel_prog_gate=1.0",
+  "reward.walk_anchor_gate=1.0",
+  "reward.anchor_tol_mm=10.0",
+  "reward.walk_height_gate=1.0",
+  "reward.walk_height_sigma_mm=30.0",
+  "reward.walk_loadslip_gate=1.0",
+  "reward.loadslip_ok=3.0",
+  "reward.loadslip_max=6.0",
+  "reward.k_loadslip_excess=10.0",
+  "reward.k_walk_idle_charge=20.0",
+  "reward.walk_idle_speed_m_s=0.02",
+  "reward.k_park_duty=2.0",
+  "reward.k_drag_loaded=10.0",
+  "reward.k_walk_course_income=2.0",
+  "reward.walk_course_income_window_s=0.75",
+  "reward.walk_course_income_deadband_deg=6.0",
+  "reward.walk_course_income_sigma_deg=20.0",
+  "reward.k_walk_excess_sway=2.0",
+  "reward.walk_sway_window_s=0.75",
+  "reward.walk_sway_allow_mm=5.0",
+  "reward.k_walk_course_disp=0.15",
+  "reward.walk_course_disp_window_s=1.5",
+  "reward.walk_course_disp_min_speed_m_s=0.02",
+  "reward.k_walk_course_disp_overspeed=4.0",
+  "reward.walk_course_disp_overspeed_tol=0.05",
+  "reward.walk_course_disp_overspeed_along=1.0",
+  "reward.walk_course_disp_overspeed_ref_floor_m_s=0.06",
+  "train.bc_anchor_coef=3.0",
+  "train.bc_anchor_walk=1.0",
+  "train.bc_anchor_walk_coef=1.0",
+  "train.bc_anchor_phase_lock=1.0",
+  "train.bc_anchor_isolate_update=1",
+  "goal.walk_turn_in_place_frac=0.30",
+  "reward.k_walk_yaw=1.0",
+  "reward.walk_yaw_kernel_gate=1.0",
+  "reward.walk_kernel_yaw_gate=1.0",
+  "reward.k_yaw_prog=2.0",
+  "reward.k_yaw_still=50.0",
+  "reward.walk_yaw_hold_prog_gate=1.0",
+  "reward.yaw_still_avg_s=1.0",
+  "reward.yaw_prog_overshoot_decay=1.0",
+  "reward.yaw_prog_avg_s=1.0",
+  "train.bc_anchor_walk_turn_skip=1",
+  "reward.walk_course_ref_yaw=1.0",
+  "reward.walk_sway_arc_aware=1.0",
+  "env.model_source=mesh"
+ ],
+ "seed": 0,
+ "episode_seconds": 15.0,
+ "thresholds": {
+  "SLIP_MPS": 0.02,
+  "NEAR_CONE": 0.9,
+  "LOW_CONE": 0.5,
+  "LOAD_N": 2.0,
+  "RAIL_FRAC": 0.95
+ },
+ "results": [
+  {
+   "wz_cmd": 0.15,
+   "vx_cmd": 0.08,
+   "phase_offset": 0.0,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.05469673582022,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.000185636446517,
+     "corr": 0.999999611609517,
+     "relative_rms_residual": 0.0009006639847295705,
+     "rms_impulse_residual_Nms": 1.7381592937773226e-07,
+     "net_external_impulse_Nms": -0.008236514338889637,
+     "delta_lz_Nms": -0.008234885503900578,
+     "med_abs_resid": 2.2781604500988418e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.528769230769233,
+      0.594461538461534,
+      0.5747692307692336,
+      0.5349230769230724,
+      0.5875384615384633,
+      0.5998461538461503
+     ],
+     "fz_mean_loaded_N": [
+      13.69638308189978,
+      14.023901208368773,
+      14.116213391151653,
+      14.108320829253895,
+      13.175679912303432,
+      13.617198371234608
+     ],
+     "yaw_imp_force_Nms": [
+      1.501828135367215,
+      1.2772634113655383,
+      1.4175880495095452,
+      -3.0865320162781305,
+      -3.771459981308172,
+      -0.0912682237822559
+     ],
+     "yaw_imp_couple_Nms": [
+      -1.211888368149005,
+      -3.77758009378769,
+      -0.8154995860929457,
+      2.9475649125440575,
+      2.9770373146815694,
+      2.6247099315913696
+     ],
+     "slip_center_m": [
+      0.09791928408491549,
+      0.13373185682809266,
+      0.11442869625467122,
+      0.13109198662320587,
+      0.1216446464401562,
+      0.1345381492050632
+     ],
+     "slip_material_m": [
+      0.09680834351484068,
+      0.1388714256278204,
+      0.12425718425819779,
+      0.13958223912864715,
+      0.1259378043693495,
+      0.1323675539035065
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.14689917152089638,
+       0.0850789146822272
+      ],
+      [
+       0.000807861848563618,
+       0.16821362556625874
+      ],
+      [
+       -0.14710246487511422,
+       0.08598984074955379
+      ],
+      [
+       -0.14744333389898434,
+       -0.08374197403489547
+      ],
+      [
+       -0.0019828039150028313,
+       -0.16922466299379843
+      ],
+      [
+       0.1445169638123401,
+       -0.08629500413196574
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": -0.008236514338889634,
+    "nonfoot_yaw_imp_Nms": 1.6167622796095151e-18,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.9921568627450977,
+       0.6372549019607849,
+       1.0,
+       0.15098039215686201,
+       1.0,
+       0.8470588235294104
+      ],
+      "tau_z_mean": [
+       0.5810528785450539,
+       0.0857133526582774,
+       0.1782846682789422,
+       -0.01433645199438668,
+       -0.5472939567374225,
+       -0.37117658236171513
+      ],
+      "fz_mean": [
+       10.32282760619499,
+       6.035229315815626,
+       13.879890083346373,
+       0.5559560434917263,
+       10.557876262281745,
+       10.466911825537947
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.017647058823529564,
+       1.0,
+       0.513725490196077,
+       1.0,
+       0.4725490196078423,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.004251509042073492,
+       -0.7334393368133031,
+       0.22975692098092948,
+       -0.04675963519379591,
+       -0.034696807442735164,
+       0.5748662101698899
+      ],
+      "fz_mean": [
+       0.015842192283523352,
+       14.652485199122621,
+       2.1933165217148702,
+       18.48003915755055,
+       0.5521839625357704,
+       13.29162400615393
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.7940034199938399,
+       0.0,
+       0.14183801361818218,
+       0.0,
+       0.7436206620956307
+      ],
+      "fz_mean": [
+       0.0,
+       14.860040084478094,
+       0.0,
+       16.09838865488611,
+       0.0,
+       13.650052734618695
+      ]
+     },
+     {
+      "n": 600,
+      "duration_s": 1.2000000000002098,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.7180306893343527,
+       0.0,
+       0.05892380150030723,
+       0.0,
+       0.6690337295090034
+      ],
+      "fz_mean": [
+       0.0,
+       16.070837184637057,
+       0.0,
+       15.962973355904301,
+       0.0,
+       13.69212949257159
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.080000000000155,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.5782758870856121,
+       0.0,
+       0.0635165627964513,
+       0.0,
+       0.5400798220519546
+      ],
+      "fz_mean": [
+       0.0,
+       15.719630166788559,
+       0.0,
+       14.42758385710732,
+       0.0,
+       15.661583862906264
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.06554601168217643,
+       0.0,
+       -0.11194275068780152,
+       0.0,
+       0.11202019052997106
+      ],
+      "fz_mean": [
+       0.0,
+       15.739405480075433,
+       0.0,
+       13.21240878079958,
+       0.0,
+       16.91209159271841
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.3185185185185177,
+       1.0,
+       0.3962962962962979,
+       1.0,
+       0.5888888888888865,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.01048150254456174,
+       0.20978582628868422,
+       -0.09572144351104452,
+       -0.21304156792937287,
+       -0.014725974188281784,
+       0.05468511852021234
+      ],
+      "fz_mean": [
+       1.5059370975057813,
+       14.998302548841508,
+       2.384517813832113,
+       11.925163373045573,
+       5.427067198918979,
+       14.369242879827546
+      ]
+     },
+     {
+      "n": 625,
+      "duration_s": 1.2500000000001465,
+      "contact_frac": [
+       1.0,
+       0.4783999999999964,
+       1.0,
+       0.2559999999999958,
+       1.0,
+       0.3631999999999984
+      ],
+      "tau_z_mean": [
+       -0.25586050874417543,
+       0.24051447623103472,
+       -0.11253668033397288,
+       -0.007717803365326669,
+       0.11446799998525453,
+       0.0008134360845640379
+      ],
+      "fz_mean": [
+       14.213974376820323,
+       2.127255179154094,
+       16.038401302742788,
+       0.30900399573624615,
+       15.727960644846238,
+       0.7209962943011131
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.020000000000163,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.3043378184627789,
+       0.0,
+       0.08688364466024891,
+       0.0,
+       0.2558218840917597,
+       0.0
+      ],
+      "fz_mean": [
+       14.812928086264154,
+       0.0,
+       16.762462416806823,
+       0.0,
+       14.176037097642467,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.21444021845947922,
+       0.0,
+       0.02011222722784503,
+       0.0,
+       0.24985325718342086,
+       0.0
+      ],
+      "fz_mean": [
+       13.599738710470785,
+       0.0,
+       17.266507158298413,
+       0.0,
+       14.768807726056577,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.2966032804938282,
+       0.0,
+       0.09673479278847362,
+       0.0,
+       -0.34978999077107054,
+       0.0
+      ],
+      "fz_mean": [
+       15.650291520821467,
+       0.0,
+       14.08787807347607,
+       0.0,
+       15.80015617894661,
+       0.0
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.19164130808265326,
+       0.0,
+       0.18666451580731536,
+       0.0,
+       -0.4092234357437728,
+       0.0
+      ],
+      "fz_mean": [
+       16.189408899404768,
+       0.0,
+       14.604378363531573,
+       0.0,
+       15.245796081740243,
+       0.0
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3437,
+       "fn_med_N": 15.061514093256042,
+       "ft_med_N": 4.816681471703751,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.1637719499148423,
+       "cone_usage_max_med": 0.6255358505731126,
+       "cone_usage_max_p90": 0.8834392053301274,
+       "frac_loaded_near_cone": 0.0741926098341577,
+       "slip_substeps": 935,
+       "slip_speed_med_mps": 0.02990244463843149,
+       "cone_usage_max_med_on_slip": 0.46395346476370863,
+       "frac_slip_near_cone": 0.08021390374331551,
+       "frac_slip_low_cone": 0.5475935828877005,
+       "tau_z_med_loaded_Nm": 0.05363273341936983
+      },
+      "1": {
+       "loaded_substeps": 3864,
+       "fn_med_N": 15.535767630836268,
+       "ft_med_N": 2.3059653532838267,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.08009525081919729,
+       "cone_usage_max_med": 0.18055745405599866,
+       "cone_usage_max_p90": 0.7548991861502898,
+       "frac_loaded_near_cone": 0.034420289855072464,
+       "slip_substeps": 1012,
+       "slip_speed_med_mps": 0.03327661808424863,
+       "cone_usage_max_med_on_slip": 0.20020134013671165,
+       "frac_slip_near_cone": 0.038537549407114624,
+       "frac_slip_low_cone": 0.7075098814229249,
+       "tau_z_med_loaded_Nm": -0.47346134012575863
+      },
+      "2": {
+       "loaded_substeps": 3736,
+       "fn_med_N": 14.963973440166953,
+       "ft_med_N": 3.170159439238689,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.11235654488296945,
+       "cone_usage_max_med": 0.4483303126689101,
+       "cone_usage_max_p90": 0.9179679908360117,
+       "frac_loaded_near_cone": 0.12071734475374732,
+       "slip_substeps": 1229,
+       "slip_speed_med_mps": 0.026255596334042095,
+       "cone_usage_max_med_on_slip": 0.6993763885449327,
+       "frac_slip_near_cone": 0.11228641171684296,
+       "frac_slip_low_cone": 0.37347436940602113,
+       "tau_z_med_loaded_Nm": 0.0904362074453586
+      },
+      "3": {
+       "loaded_substeps": 3477,
+       "fn_med_N": 14.385962300515164,
+       "ft_med_N": 3.2435069172227444,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.11351427308641976,
+       "cone_usage_max_med": 0.2773130031265222,
+       "cone_usage_max_p90": 0.7998449078203544,
+       "frac_loaded_near_cone": 0.05378199597354041,
+       "slip_substeps": 1463,
+       "slip_speed_med_mps": 0.024958556284350102,
+       "cone_usage_max_med_on_slip": 0.30654202070225095,
+       "frac_slip_near_cone": 0.05331510594668489,
+       "frac_slip_low_cone": 0.7580314422419686,
+       "tau_z_med_loaded_Nm": -7.420168979532793e-05
+      },
+      "4": {
+       "loaded_substeps": 3819,
+       "fn_med_N": 15.087285050006919,
+       "ft_med_N": 3.8729421335176046,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.16081024131892538,
+       "cone_usage_max_med": 0.37141167024328336,
+       "cone_usage_max_p90": 0.7498682505581664,
+       "frac_loaded_near_cone": 0.05001309243257397,
+       "slip_substeps": 905,
+       "slip_speed_med_mps": 0.029344875608908874,
+       "cone_usage_max_med_on_slip": 0.20662325735838902,
+       "frac_slip_near_cone": 0.09281767955801105,
+       "frac_slip_low_cone": 0.8453038674033149,
+       "tau_z_med_loaded_Nm": -0.07724896681050576
+      },
+      "5": {
+       "loaded_substeps": 3899,
+       "fn_med_N": 14.639255684990186,
+       "ft_med_N": 3.7189795385486946,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.14368360514479442,
+       "cone_usage_max_med": 0.31156186968431804,
+       "cone_usage_max_p90": 0.7670758695056867,
+       "frac_loaded_near_cone": 0.07155680943831752,
+       "slip_substeps": 1110,
+       "slip_speed_med_mps": 0.03935783300036522,
+       "cone_usage_max_med_on_slip": 0.3144811031469942,
+       "frac_slip_near_cone": 0.0891891891891892,
+       "frac_slip_low_cone": 0.7378378378378379,
+       "tau_z_med_loaded_Nm": 0.45417822884666115
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": 0.011786819555677633,
+      "pos_sum_med_Nm": 0.4659046178597814,
+      "neg_sum_med_Nm": 0.45759818976400657,
+      "net_over_gross_med": 0.052915868639338795,
+      "couple_imp_share_of_net": 333.1924158535888
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3437,
+        "valid_loaded_substeps": 3437,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.21083851535470335,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.8296604424789338,
+         0.546073894128359,
+         0.88317977353021,
+         0.01263589554961589,
+         0.013084709455622338
+        ],
+        "frac_loaded_near_cone": 0.5737561827174862,
+        "slip_substeps": 935,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.520855614973262,
+        "frac_slip_low_cone": 0.4128342245989305
+       },
+       "1": {
+        "loaded_substeps": 3864,
+        "valid_loaded_substeps": 3864,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3994119553043387,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.4712348754619306,
+         0.4898391968691896,
+         0.9951039576845394,
+         0.007818227752079337,
+         0.00813585532162685
+        ],
+        "frac_loaded_near_cone": 0.6513975155279503,
+        "slip_substeps": 1012,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5444664031620553,
+        "frac_slip_low_cone": 0.35375494071146246
+       },
+       "2": {
+        "loaded_substeps": 3736,
+        "valid_loaded_substeps": 3736,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.14556600132932446,
+        "usage_max_med": 0.8489947022877009,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6839454527182136,
+         0.7350201789264832,
+         0.7607040995850889,
+         0.017686931006352942,
+         0.00654632239493486
+        ],
+        "frac_loaded_near_cone": 0.4866167023554604,
+        "slip_substeps": 1229,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.628152969894223,
+        "frac_slip_low_cone": 0.2994304312449146
+       },
+       "3": {
+        "loaded_substeps": 3477,
+        "valid_loaded_substeps": 3477,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.35840615826551553,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.7093304000553121,
+         0.34529872344218504,
+         0.9755051281804555,
+         0.006382182815401042,
+         0.0063813979617855145
+        ],
+        "frac_loaded_near_cone": 0.630140926085706,
+        "slip_substeps": 1463,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5399863294600137,
+        "frac_slip_low_cone": 0.32946001367054
+       },
+       "4": {
+        "loaded_substeps": 3819,
+        "valid_loaded_substeps": 3819,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4291885755158468,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.36103919167756915,
+         0.6112810114265719,
+         0.9679916085459483,
+         0.0067485179103681766,
+         0.007590012815890001
+        ],
+        "frac_loaded_near_cone": 0.6980885048442,
+        "slip_substeps": 905,
+        "usage_max_med_on_slip": 0.32693260144784414,
+        "frac_slip_near_cone": 0.40552486187845305,
+        "frac_slip_low_cone": 0.5524861878453039
+       },
+       "5": {
+        "loaded_substeps": 3899,
+        "valid_loaded_substeps": 3899,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3747755319344341,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.5461401585530701,
+         0.5114776300406821,
+         0.9746059034072204,
+         0.013639363956113525,
+         0.005423122392357445
+        ],
+        "frac_loaded_near_cone": 0.6093870223134137,
+        "slip_substeps": 1110,
+        "usage_max_med_on_slip": 0.5102221806733663,
+        "frac_slip_near_cone": 0.43963963963963965,
+        "frac_slip_low_cone": 0.4936936936936937
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.014,
+      "clip_gap_p95_rad": 0.15423,
+      "track_err_med_rad": 0.04663,
+      "slew_sat_frac": 0.6549
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.06471,
+      "clip_gap_p95_rad": 0.15752,
+      "track_err_med_rad": 0.05862,
+      "slew_sat_frac": 0.812
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.02845,
+      "track_err_med_rad": 0.05146,
+      "slew_sat_frac": 0.4171
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": 0.05795220312062012,
+   "wz_p90_abs": 0.09504632969577502,
+   "wz_err_med": 0.09204779687937988,
+   "frozen_body_wz_err_pred": 0.15,
+   "vx_med": 0.03238316191673185,
+   "vx_err_med": 0.04761683808326815,
+   "fell": false,
+   "cell": [
+    0.08,
+    0.15
+   ]
+  },
+  {
+   "wz_cmd": 0.15,
+   "vx_cmd": 0.08,
+   "phase_offset": 3.14159265,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.16227372928159,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.0001977024602287,
+     "corr": 0.9999995516505432,
+     "relative_rms_residual": 0.0009673406446582833,
+     "rms_impulse_residual_Nms": 1.8358955636332438e-07,
+     "net_external_impulse_Nms": -0.00593652295538359,
+     "delta_lz_Nms": -0.0059361322161063795,
+     "med_abs_resid": 2.392707723925593e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.5361538461538431,
+      0.5841538461538484,
+      0.5890769230769192,
+      0.5130769230769262,
+      0.6063076923076882,
+      0.5904615384615397
+     ],
+     "fz_mean_loaded_N": [
+      13.748766659221236,
+      14.02593295312089,
+      14.007182490700131,
+      14.382182564151476,
+      13.195122161018405,
+      13.488773450635907
+     ],
+     "yaw_imp_force_Nms": [
+      1.6259011160944263,
+      1.422925868497018,
+      1.3438943738678835,
+      -3.2998272437166998,
+      -3.911585764439058,
+      0.20305257580574665
+     ],
+     "yaw_imp_couple_Nms": [
+      -1.2924036165093669,
+      -3.827640068842514,
+      -0.9096709475281537,
+      2.8901744768397926,
+      3.1384647690144813,
+      2.610777937961064
+     ],
+     "slip_center_m": [
+      0.09959782095980853,
+      0.13414292288352278,
+      0.11294834257930318,
+      0.13502102514914338,
+      0.12755103830891007,
+      0.1347711688152391
+     ],
+     "slip_material_m": [
+      0.09827995672623212,
+      0.13932310582853083,
+      0.12323302102300362,
+      0.14315757696176137,
+      0.13211923999355452,
+      0.134870998620871
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.14659481176696268,
+       0.08482691737505126
+      ],
+      [
+       0.0010406448467271366,
+       0.1683872292048272
+      ],
+      [
+       -0.14702448876013424,
+       0.08595778363872437
+      ],
+      [
+       -0.14735192367372374,
+       -0.08388698252018084
+      ],
+      [
+       -0.002154031894318751,
+       -0.169213641186773
+      ],
+      [
+       0.1447103677505146,
+       -0.08614157334745004
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": -0.0059365229553835774,
+    "nonfoot_yaw_imp_Nms": -9.111635057567451e-18,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       1.0,
+       0.5814814814814848,
+       1.0,
+       0.024074074074070372,
+       1.0,
+       0.7629629629629671
+      ],
+      "tau_z_mean": [
+       0.47632937152416766,
+       0.12096791747478493,
+       0.17628549964880283,
+       -0.0024283381181584227,
+       -0.5322674431444673,
+       -0.2990365180174961
+      ],
+      "fz_mean": [
+       11.420363450672951,
+       5.2303115789880845,
+       13.770469138733162,
+       0.06556581018518333,
+       11.836786799554591,
+       8.593172942769838
+      ]
+     },
+     {
+      "n": 625,
+      "duration_s": 1.2500000000001465,
+      "contact_frac": [
+       0.0719999999999957,
+       1.0,
+       0.5024000000000002,
+       0.983999999999998,
+       0.5360000000000004,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.024977950969630087,
+       -0.7021529582628578,
+       0.2177532187620293,
+       -0.020585388809886376,
+       -0.08328034318836573,
+       0.552968961105818
+      ],
+      "fz_mean": [
+       0.08402339922869834,
+       15.045727092739018,
+       2.2601411397324016,
+       17.71934526723577,
+       1.1400263674294828,
+       13.301917386903666
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.020000000000163,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.8088529410337847,
+       0.0,
+       0.07002989798454883,
+       0.0,
+       0.8112695963125883
+      ],
+      "fz_mean": [
+       0.0,
+       14.619697260729112,
+       0.0,
+       15.933146589774063,
+       0.0,
+       13.937700210665918
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.7679166063832513,
+       0.0,
+       0.06286403375539719,
+       0.0,
+       0.7227828979840676
+      ],
+      "fz_mean": [
+       0.0,
+       16.213881089935295,
+       0.0,
+       16.292230163283985,
+       0.0,
+       13.184042036228549
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.5301022509429113,
+       0.0,
+       -0.03590365635546203,
+       0.0,
+       0.5797893355334518
+      ],
+      "fz_mean": [
+       0.0,
+       15.720417432329423,
+       0.0,
+       14.43388657146322,
+       0.0,
+       15.720023688029112
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.0378777468860111,
+       0.0,
+       -0.2270343615690836,
+       0.0,
+       0.14402601259141096
+      ],
+      "fz_mean": [
+       0.0,
+       15.73830345118239,
+       0.0,
+       13.209746230482317,
+       0.0,
+       17.161744664004967
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.39215686274510203,
+       1.0,
+       0.5392156862745151,
+       0.9960784313725484,
+       0.7176470588235295,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.00036049743994498484,
+       0.19756549372873866,
+       -0.19349258099770203,
+       -0.20267399404701075,
+       0.01918428315107894,
+       0.12177674807694695
+      ],
+      "fz_mean": [
+       2.244423732729474,
+       14.099185296229264,
+       4.579157067222624,
+       10.147964224802417,
+       8.239606149139073,
+       12.83570297139171
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.4372549019607832,
+       1.0,
+       0.14509803921568726,
+       1.0,
+       0.32549019607842755
+      ],
+      "tau_z_mean": [
+       -0.2404258523792949,
+       0.23995054758839388,
+       -0.07396992786266617,
+       -0.0032648454842019894,
+       0.0698001914407221,
+       -0.006022698633333533
+      ],
+      "fz_mean": [
+       15.003139329425064,
+       1.4335428108377248,
+       15.82461698038951,
+       0.045289146335006886,
+       15.176198448953356,
+       0.4101049614241348
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.2758308762780011,
+       0.0,
+       0.050718621351341316,
+       0.0,
+       0.2610570115895439,
+       0.0
+      ],
+      "fz_mean": [
+       14.770931893334255,
+       0.0,
+       17.006762412196423,
+       0.0,
+       14.30085044609787,
+       0.0
+      ]
+     },
+     {
+      "n": 600,
+      "duration_s": 1.2000000000002098,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.17165292871935764,
+       0.0,
+       -0.01901330913731739,
+       0.0,
+       0.24393236975895846,
+       0.0
+      ],
+      "fz_mean": [
+       13.7016634769978,
+       0.0,
+       17.15961110217178,
+       0.0,
+       14.705852677857639,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.080000000000155,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.29664800429602045,
+       0.0,
+       0.046224785967027636,
+       0.0,
+       -0.30531827183104093,
+       0.0
+      ],
+      "fz_mean": [
+       15.544900906166836,
+       0.0,
+       14.147173443654964,
+       0.0,
+       15.841993326931561,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.18486774564087635,
+       0.0,
+       0.15334771356115792,
+       0.0,
+       -0.3835084758159668,
+       0.0
+      ],
+      "fz_mean": [
+       16.204192438290008,
+       0.0,
+       14.389344989375786,
+       0.0,
+       15.340579646992275,
+       0.0
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3485,
+       "fn_med_N": 15.099393430831583,
+       "ft_med_N": 4.5462392538787935,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.15447741003992987,
+       "cone_usage_max_med": 0.5916750331584707,
+       "cone_usage_max_p90": 0.8799258678930227,
+       "frac_loaded_near_cone": 0.0806312769010043,
+       "slip_substeps": 942,
+       "slip_speed_med_mps": 0.029646194984630794,
+       "cone_usage_max_med_on_slip": 0.4375925534106913,
+       "frac_slip_near_cone": 0.10828025477707007,
+       "frac_slip_low_cone": 0.6019108280254777,
+       "tau_z_med_loaded_Nm": 0.07664910265657046
+      },
+      "1": {
+       "loaded_substeps": 3797,
+       "fn_med_N": 15.465097359867991,
+       "ft_med_N": 2.597843729489524,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.0898320590498612,
+       "cone_usage_max_med": 0.19542993727073085,
+       "cone_usage_max_p90": 0.7088494922156049,
+       "frac_loaded_near_cone": 0.029496971293126152,
+       "slip_substeps": 1145,
+       "slip_speed_med_mps": 0.03352055111188634,
+       "cone_usage_max_med_on_slip": 0.19950638969663417,
+       "frac_slip_near_cone": 0.04104803493449782,
+       "frac_slip_low_cone": 0.7510917030567685,
+       "tau_z_med_loaded_Nm": -0.41841160635239705
+      },
+      "2": {
+       "loaded_substeps": 3829,
+       "fn_med_N": 14.906471518736208,
+       "ft_med_N": 3.312490511909539,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.11545209837148626,
+       "cone_usage_max_med": 0.3862892872720631,
+       "cone_usage_max_p90": 0.8901007484487742,
+       "frac_loaded_near_cone": 0.09193000783494384,
+       "slip_substeps": 1238,
+       "slip_speed_med_mps": 0.02650336008586817,
+       "cone_usage_max_med_on_slip": 0.669773706558543,
+       "frac_slip_near_cone": 0.07350565428109855,
+       "frac_slip_low_cone": 0.40064620355411956,
+       "tau_z_med_loaded_Nm": 0.0704411478331048
+      },
+      "3": {
+       "loaded_substeps": 3335,
+       "fn_med_N": 14.565318967217404,
+       "ft_med_N": 3.5980839062597547,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.12308812663795353,
+       "cone_usage_max_med": 0.3117429044967873,
+       "cone_usage_max_p90": 0.7631219478850668,
+       "frac_loaded_near_cone": 0.05247376311844078,
+       "slip_substeps": 1541,
+       "slip_speed_med_mps": 0.02534403832326172,
+       "cone_usage_max_med_on_slip": 0.3368747642921968,
+       "frac_slip_near_cone": 0.04477611940298507,
+       "frac_slip_low_cone": 0.7293964957819598,
+       "tau_z_med_loaded_Nm": -0.041303700083160755
+      },
+      "4": {
+       "loaded_substeps": 3941,
+       "fn_med_N": 15.08330843417546,
+       "ft_med_N": 4.017910377947229,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.16114957412856,
+       "cone_usage_max_med": 0.34645681902919767,
+       "cone_usage_max_p90": 0.7318499684440081,
+       "frac_loaded_near_cone": 0.04313625983252981,
+       "slip_substeps": 892,
+       "slip_speed_med_mps": 0.03266065305472164,
+       "cone_usage_max_med_on_slip": 0.15812309018942527,
+       "frac_slip_near_cone": 0.0952914798206278,
+       "frac_slip_low_cone": 0.8598654708520179,
+       "tau_z_med_loaded_Nm": -0.06915845179766629
+      },
+      "5": {
+       "loaded_substeps": 3838,
+       "fn_med_N": 14.464049650029418,
+       "ft_med_N": 4.046541295325607,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.1542781074119033,
+       "cone_usage_max_med": 0.3260928790329033,
+       "cone_usage_max_p90": 0.7675957956117714,
+       "frac_loaded_near_cone": 0.05680041688379364,
+       "slip_substeps": 1135,
+       "slip_speed_med_mps": 0.03932427618447237,
+       "cone_usage_max_med_on_slip": 0.32280311459629707,
+       "frac_slip_near_cone": 0.08370044052863436,
+       "frac_slip_low_cone": 0.7400881057268722,
+       "tau_z_med_loaded_Nm": 0.48351072569581777
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": 0.010666148616393312,
+      "pos_sum_med_Nm": 0.4648419570272291,
+      "neg_sum_med_Nm": 0.4704385925565226,
+      "net_over_gross_med": 0.05408975500048625,
+      "couple_imp_share_of_net": 439.60118920599484
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0025196850393700786
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3485,
+        "valid_loaded_substeps": 3485,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2032502997587816,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.8057414726302543,
+         0.5777466975224679,
+         0.8832710191091223,
+         0.01146142102746614,
+         0.012550373258502221
+        ],
+        "frac_loaded_near_cone": 0.5781922525107605,
+        "slip_substeps": 942,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.559447983014862,
+        "frac_slip_low_cone": 0.4012738853503185
+       },
+       "1": {
+        "loaded_substeps": 3797,
+        "valid_loaded_substeps": 3797,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4147046646092822,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.4603633118905555,
+         0.5044601974535319,
+         0.9958801090696846,
+         0.008217477722892544,
+         0.007664289606652582
+        ],
+        "frac_loaded_near_cone": 0.6518303924150646,
+        "slip_substeps": 1145,
+        "usage_max_med_on_slip": 0.9999999999999997,
+        "frac_slip_near_cone": 0.519650655021834,
+        "frac_slip_low_cone": 0.3921397379912664
+       },
+       "2": {
+        "loaded_substeps": 3829,
+        "valid_loaded_substeps": 3829,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.1520359187528282,
+        "usage_max_med": 0.6624331369195381,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.591871342438082,
+         0.7653852669174182,
+         0.8220093398765798,
+         0.01746912419311791,
+         0.007341813540833189
+        ],
+        "frac_loaded_near_cone": 0.4309219117262993,
+        "slip_substeps": 1238,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.6155088852988692,
+        "frac_slip_low_cone": 0.34168012924071084
+       },
+       "3": {
+        "loaded_substeps": 3335,
+        "valid_loaded_substeps": 3335,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.37119750895053016,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6851562343044125,
+         0.3755319763775185,
+         0.971324220880947,
+         0.006641312725213837,
+         0.008161139589844392
+        ],
+        "frac_loaded_near_cone": 0.7109445277361319,
+        "slip_substeps": 1541,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.6171317326411421,
+        "frac_slip_low_cone": 0.3017521090201168
+       },
+       "4": {
+        "loaded_substeps": 3941,
+        "valid_loaded_substeps": 3941,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4242196353462168,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.35397020845828076,
+         0.5843814777786654,
+         0.958988975416016,
+         0.005716052876004087,
+         0.007471714277321771
+        ],
+        "frac_loaded_near_cone": 0.6239533113422989,
+        "slip_substeps": 892,
+        "usage_max_med_on_slip": 0.28182982531693973,
+        "frac_slip_near_cone": 0.34641255605381166,
+        "frac_slip_low_cone": 0.5616591928251121
+       },
+       "5": {
+        "loaded_substeps": 3838,
+        "valid_loaded_substeps": 3838,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3761287926364792,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.5005301588201537,
+         0.47917384867137797,
+         0.9533282672342837,
+         0.01117722848238553,
+         0.006995852410583459
+        ],
+        "frac_loaded_near_cone": 0.530745179781136,
+        "slip_substeps": 1135,
+        "usage_max_med_on_slip": 0.5823975851292538,
+        "frac_slip_near_cone": 0.4123348017621145,
+        "frac_slip_low_cone": 0.46255506607929514
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.01409,
+      "clip_gap_p95_rad": 0.15518,
+      "track_err_med_rad": 0.04781,
+      "slew_sat_frac": 0.652
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.06338,
+      "clip_gap_p95_rad": 0.15689,
+      "track_err_med_rad": 0.05803,
+      "slew_sat_frac": 0.8013
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.02982,
+      "track_err_med_rad": 0.05045,
+      "slew_sat_frac": 0.4219
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": 0.0580230253600695,
+   "wz_p90_abs": 0.09694348855303275,
+   "wz_err_med": 0.09197697463993049,
+   "frozen_body_wz_err_pred": 0.15,
+   "vx_med": 0.03314617303113719,
+   "vx_err_med": 0.04685382696886281,
+   "fell": false,
+   "cell": [
+    0.08,
+    0.15
+   ]
+  },
+  {
+   "wz_cmd": -0.15,
+   "vx_cmd": 0.08,
+   "phase_offset": 0.0,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.25597899901298,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.0001626149000926,
+     "corr": 0.9999996724880525,
+     "relative_rms_residual": 0.00082550648004843,
+     "rms_impulse_residual_Nms": 1.5265635384635315e-07,
+     "net_external_impulse_Nms": 0.0032540894115805994,
+     "delta_lz_Nms": 0.0032508740596353535,
+     "med_abs_resid": 2.3331826796270402e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.5269230769230795,
+      0.5678461538461506,
+      0.6103076923076945,
+      0.5321538461538422,
+      0.551384615384619,
+      0.6443076923076883
+     ],
+     "fz_mean_loaded_N": [
+      13.547938431405097,
+      13.486574352468088,
+      14.294320593222977,
+      14.21722062839118,
+      12.664311982927439,
+      14.093253450249977
+     ],
+     "yaw_imp_force_Nms": [
+      1.8181824224163685,
+      4.46100400425597,
+      1.5517989291222858,
+      -4.057695983290576,
+      -0.7568918090554444,
+      0.07786542003279141
+     ],
+     "yaw_imp_couple_Nms": [
+      -2.853583362589824,
+      -3.445255737220255,
+      -2.9217286355080274,
+      1.5021106229168923,
+      3.6830423780663804,
+      0.9444058402650184
+     ],
+     "slip_center_m": [
+      0.11356629116158676,
+      0.13257359047072395,
+      0.13660002237052982,
+      0.128290552495955,
+      0.10052147238984473,
+      0.14200975340944572
+     ],
+     "slip_material_m": [
+      0.11158830699355725,
+      0.1370298721503135,
+      0.14598541849479094,
+      0.1361918495563121,
+      0.10446323958412723,
+      0.1471980483209136
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.142982103953958,
+       0.08215032439414166
+      ],
+      [
+       0.0018206615581586923,
+       0.16985343459005575
+      ],
+      [
+       -0.1470087580522608,
+       0.08701816889203312
+      ],
+      [
+       -0.14611044163400286,
+       -0.08196894812492153
+      ],
+      [
+       -0.0023756203814843647,
+       -0.16713617846095222
+      ],
+      [
+       0.14472620963541818,
+       -0.08623278915954082
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": 0.0032540894115805916,
+    "nonfoot_yaw_imp_Nms": 2.470246229791829e-18,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.9431372549019589,
+       0.5745098039215768,
+       1.0,
+       0.06470588235294261,
+       1.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.23646561706901542,
+       0.10229271544572605,
+       0.19310718075791178,
+       0.011125521288649732,
+       -0.3198606535012759,
+       -0.17871166642726546
+      ],
+      "fz_mean": [
+       7.412564047598207,
+       4.6695872057391945,
+       16.942784694910753,
+       0.1929068560140958,
+       6.256579234133978,
+       15.494047120245023
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.00588235294117478,
+       1.0,
+       0.6843137254901936,
+       1.0,
+       0.3235294117647174,
+       1.0
+      ],
+      "tau_z_mean": [
+       4.9704779047218385e-06,
+       -0.20691429649601656,
+       0.06694813723218808,
+       -0.04265389351393811,
+       -0.10210094285347625,
+       0.34996403605907234
+      ],
+      "fz_mean": [
+       0.0008364513528013409,
+       13.52806263000027,
+       3.7972472489075098,
+       17.385927279888662,
+       0.3191519845424756,
+       14.856540754016628
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.15886464944185866,
+       0.0,
+       -0.05418099579828141,
+       0.0,
+       0.10764303226255169
+      ],
+      "fz_mean": [
+       0.0,
+       15.177517772816003,
+       0.0,
+       15.828323919868033,
+       0.0,
+       13.265678469333444
+      ]
+     },
+     {
+      "n": 600,
+      "duration_s": 1.2000000000002098,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.04344231457299017,
+       0.0,
+       -0.4035711465900334,
+       0.0,
+       0.3469710969570533
+      ],
+      "fz_mean": [
+       0.0,
+       15.413476432535772,
+       0.0,
+       16.87919983494085,
+       0.0,
+       13.251963625183162
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.080000000000155,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.40004776624331045,
+       0.0,
+       -0.5554527001175773,
+       0.0,
+       0.11969363825854275
+      ],
+      "fz_mean": [
+       0.0,
+       15.97307890345442,
+       0.0,
+       14.520913545964296,
+       0.0,
+       15.752440190353074
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.40776983526260235,
+       0.0,
+       -0.5335358049746957,
+       0.0,
+       0.14789968353911406
+      ],
+      "fz_mean": [
+       0.0,
+       15.426591541242168,
+       0.0,
+       14.396618198134602,
+       0.0,
+       15.9871074699362
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.35370370370371396,
+       1.0,
+       0.6629629629629671,
+       1.0,
+       0.29444444444444323,
+       1.0
+      ],
+      "tau_z_mean": [
+       -0.018099413743141744,
+       0.32589397007002485,
+       0.14539019993855032,
+       -0.5770608736599058,
+       0.0781874871992531,
+       0.09874695330225637
+      ],
+      "fz_mean": [
+       1.6553175284405561,
+       11.853313575432278,
+       6.924830120116032,
+       11.20241318532329,
+       1.139285555347205,
+       17.94951751092582
+      ]
+     },
+     {
+      "n": 625,
+      "duration_s": 1.2500000000001465,
+      "contact_frac": [
+       1.0,
+       0.2527999999999937,
+       1.0,
+       0.2976000000000041,
+       1.0,
+       0.5487999999999924
+      ],
+      "tau_z_mean": [
+       -0.26350872479554693,
+       0.006371957878394129,
+       -0.13630967464537663,
+       -0.14763448002312676,
+       0.5932338278987994,
+       -0.04371486258136856
+      ],
+      "fz_mean": [
+       13.72758203581509,
+       0.24466115872850072,
+       17.098584822336566,
+       0.5558806116949264,
+       14.728711182660941,
+       2.6294809615603194
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.020000000000163,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.5911476386680634,
+       0.0,
+       -0.36411985116577633,
+       0.0,
+       0.9032170552165555,
+       0.0
+      ],
+      "fz_mean": [
+       14.344938582581346,
+       0.0,
+       16.324925310101243,
+       0.0,
+       15.388809492874424,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.3782858555234221,
+       0.0,
+       -0.4500146130478233,
+       0.0,
+       0.8138404947661512,
+       0.0
+      ],
+      "fz_mean": [
+       14.51743899537146,
+       0.0,
+       16.04374930501773,
+       0.0,
+       14.698757814192003,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.15817323727558852,
+       0.0,
+       -0.5438835121962754,
+       0.0,
+       0.6788443831609275,
+       0.0
+      ],
+      "fz_mean": [
+       15.90036455531505,
+       0.0,
+       14.35462657667548,
+       0.0,
+       15.412095996852587,
+       0.0
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.15966386554621964
+      ],
+      "tau_z_mean": [
+       0.1869673945061172,
+       0.0,
+       -0.19885892220524953,
+       0.0,
+       0.07289634826649734,
+       -0.01644645786912453
+      ],
+      "fz_mean": [
+       17.341590163678113,
+       0.0,
+       13.232346412319474,
+       0.0,
+       15.142494539895331,
+       0.5908414216338539
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3425,
+       "fn_med_N": 15.004476572995484,
+       "ft_med_N": 3.3488286944215666,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.11714951471298718,
+       "cone_usage_max_med": 0.294189462052275,
+       "cone_usage_max_p90": 0.6665036788633663,
+       "frac_loaded_near_cone": 0.027153284671532846,
+       "slip_substeps": 999,
+       "slip_speed_med_mps": 0.031238965766786333,
+       "cone_usage_max_med_on_slip": 0.2455479758725915,
+       "frac_slip_near_cone": 0.06606606606606606,
+       "frac_slip_low_cone": 0.8128128128128128,
+       "tau_z_med_loaded_Nm": -0.14446962020747559
+      },
+      "1": {
+       "loaded_substeps": 3691,
+       "fn_med_N": 15.261023364682757,
+       "ft_med_N": 4.192226011011939,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.16464096340335407,
+       "cone_usage_max_med": 0.319810942421438,
+       "cone_usage_max_p90": 0.6400328571186332,
+       "frac_loaded_near_cone": 0.04659983744242752,
+       "slip_substeps": 1248,
+       "slip_speed_med_mps": 0.028777691791064916,
+       "cone_usage_max_med_on_slip": 0.2808216082171216,
+       "frac_slip_near_cone": 0.08253205128205128,
+       "frac_slip_low_cone": 0.8453525641025641,
+       "tau_z_med_loaded_Nm": 0.15181141179875435
+      },
+      "2": {
+       "loaded_substeps": 3967,
+       "fn_med_N": 15.242045847100703,
+       "ft_med_N": 2.5893122502958903,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.09256759008715235,
+       "cone_usage_max_med": 0.19506731590957538,
+       "cone_usage_max_p90": 0.672415392676782,
+       "frac_loaded_near_cone": 0.035039072346861606,
+       "slip_substeps": 1595,
+       "slip_speed_med_mps": 0.025299071021023464,
+       "cone_usage_max_med_on_slip": 0.19939220918150286,
+       "frac_slip_near_cone": 0.050156739811912224,
+       "frac_slip_low_cone": 0.8031347962382445,
+       "tau_z_med_loaded_Nm": -0.22707318361508277
+      },
+      "3": {
+       "loaded_substeps": 3459,
+       "fn_med_N": 14.812123920289698,
+       "ft_med_N": 4.4157532662592285,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.16073319061397634,
+       "cone_usage_max_med": 0.4940360540069107,
+       "cone_usage_max_p90": 0.8661145750893706,
+       "frac_loaded_near_cone": 0.0745880312228968,
+       "slip_substeps": 1520,
+       "slip_speed_med_mps": 0.024710185244255747,
+       "cone_usage_max_med_on_slip": 0.4785589357484045,
+       "frac_slip_near_cone": 0.04671052631578947,
+       "frac_slip_low_cone": 0.5131578947368421,
+       "tau_z_med_loaded_Nm": -0.4721938681734167
+      },
+      "4": {
+       "loaded_substeps": 3584,
+       "fn_med_N": 14.975493926457041,
+       "ft_med_N": 2.3368040549155635,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.09076711882236646,
+       "cone_usage_max_med": 0.1864098699777704,
+       "cone_usage_max_p90": 0.756953356348085,
+       "frac_loaded_near_cone": 0.03208705357142857,
+       "slip_substeps": 1011,
+       "slip_speed_med_mps": 0.027825665317759745,
+       "cone_usage_max_med_on_slip": 0.2360571722885187,
+       "frac_slip_near_cone": 0.08506429277942631,
+       "frac_slip_low_cone": 0.7359050445103857,
+       "tau_z_med_loaded_Nm": 0.5610571070425678
+      },
+      "5": {
+       "loaded_substeps": 4188,
+       "fn_med_N": 14.684866052874758,
+       "ft_med_N": 6.050192759114271,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.22266463030759967,
+       "cone_usage_max_med": 0.7280970647269216,
+       "cone_usage_max_p90": 0.9821277592733958,
+       "frac_loaded_near_cone": 0.29512893982808025,
+       "slip_substeps": 1184,
+       "slip_speed_med_mps": 0.03482337583844289,
+       "cone_usage_max_med_on_slip": 0.20826364480177711,
+       "frac_slip_near_cone": 0.17314189189189189,
+       "frac_slip_low_cone": 0.6925675675675675,
+       "tau_z_med_loaded_Nm": 0.11083064524469678
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": -0.006052064650717198,
+      "pos_sum_med_Nm": 0.5920201992479253,
+      "neg_sum_med_Nm": 0.5876252814987935,
+      "net_over_gross_med": 0.044986431535020036,
+      "couple_imp_share_of_net": 949.8844386603472
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3425,
+        "valid_loaded_substeps": 3425,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.36639693455896294,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.528919919911188,
+         0.34939485885715144,
+         0.9717373583003991,
+         0.010100193943983574,
+         0.00860310956398635
+        ],
+        "frac_loaded_near_cone": 0.6300729927007299,
+        "slip_substeps": 999,
+        "usage_max_med_on_slip": 0.42024563607442095,
+        "frac_slip_near_cone": 0.45345345345345345,
+        "frac_slip_low_cone": 0.5125125125125125
+       },
+       "1": {
+        "loaded_substeps": 3691,
+        "valid_loaded_substeps": 3691,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.42654068320427874,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.29277278828485964,
+         0.5183180552737081,
+         0.9688426619869472,
+         0.007727158366565076,
+         0.0066338560091514865
+        ],
+        "frac_loaded_near_cone": 0.6383094012462748,
+        "slip_substeps": 1248,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5480769230769231,
+        "frac_slip_low_cone": 0.38461538461538464
+       },
+       "2": {
+        "loaded_substeps": 3967,
+        "valid_loaded_substeps": 3967,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3091275982050321,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.5533389731459565,
+         0.29561997884539704,
+         0.9926962456771027,
+         0.011035554874970401,
+         0.00754817745577214
+        ],
+        "frac_loaded_near_cone": 0.5238215276027225,
+        "slip_substeps": 1595,
+        "usage_max_med_on_slip": 0.6798464409991656,
+        "frac_slip_near_cone": 0.45830721003134794,
+        "frac_slip_low_cone": 0.43197492163009404
+       },
+       "3": {
+        "loaded_substeps": 3459,
+        "valid_loaded_substeps": 3459,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2540782496900472,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.8169538215310442,
+         0.41223083919947145,
+         0.9134382458005771,
+         0.01072241680758955,
+         0.0047428115085439435
+        ],
+        "frac_loaded_near_cone": 0.6105810928013877,
+        "slip_substeps": 1520,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.5953947368421053,
+        "frac_slip_low_cone": 0.2868421052631579
+       },
+       "4": {
+        "loaded_substeps": 3584,
+        "valid_loaded_substeps": 3584,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4199410913357483,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.3842768174420818,
+         0.5989332670501619,
+         0.9930985790587838,
+         0.007152960445259748,
+         0.0060331680410050876
+        ],
+        "frac_loaded_near_cone": 0.7410714285714286,
+        "slip_substeps": 1011,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5410484668644906,
+        "frac_slip_low_cone": 0.3669634025717112
+       },
+       "5": {
+        "loaded_substeps": 4188,
+        "valid_loaded_substeps": 4188,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.25126723507257986,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.748966460193937,
+         0.7833533063879887,
+         0.6832358158604208,
+         0.011049667024412574,
+         0.010962031508690379
+        ],
+        "frac_loaded_near_cone": 0.5465616045845272,
+        "slip_substeps": 1184,
+        "usage_max_med_on_slip": 0.2638299857831123,
+        "frac_slip_near_cone": 0.26013513513513514,
+        "frac_slip_low_cone": 0.6579391891891891
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.01683,
+      "clip_gap_p95_rad": 0.15154,
+      "track_err_med_rad": 0.04408,
+      "slew_sat_frac": 0.6515
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.06409,
+      "clip_gap_p95_rad": 0.15098,
+      "track_err_med_rad": 0.05854,
+      "slew_sat_frac": 0.8119
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.02686,
+      "track_err_med_rad": 0.04959,
+      "slew_sat_frac": 0.4695
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": -0.04871222742502326,
+   "wz_p90_abs": 0.09432384695717541,
+   "wz_err_med": 0.10128777257497673,
+   "frozen_body_wz_err_pred": 0.15,
+   "vx_med": 0.03378578776116111,
+   "vx_err_med": 0.04621421223883889,
+   "fell": false,
+   "cell": [
+    0.08,
+    -0.15
+   ]
+  },
+  {
+   "wz_cmd": -0.15,
+   "vx_cmd": 0.08,
+   "phase_offset": 3.14159265,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.3206134338067,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.0001991900709186,
+     "corr": 0.99999971739593,
+     "relative_rms_residual": 0.0007777145252735729,
+     "rms_impulse_residual_Nms": 1.4519952412400422e-07,
+     "net_external_impulse_Nms": 0.008608470812823924,
+     "delta_lz_Nms": 0.008607040779686152,
+     "med_abs_resid": 2.4170886779064494e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.5321538461538431,
+      0.5680000000000025,
+      0.6150769230769182,
+      0.5253846153846193,
+      0.5652307692307649,
+      0.6318461538461548
+     ],
+     "fz_mean_loaded_N": [
+      13.746402156513742,
+      13.444367464322994,
+      14.05794523798921,
+      14.303668618483147,
+      12.79145574585423,
+      13.95622095697225
+     ],
+     "yaw_imp_force_Nms": [
+      1.7643824985101926,
+      4.465921620525793,
+      1.6147165299806066,
+      -3.95746140588209,
+      -0.9089468902805382,
+      -0.033983352048875974
+     ],
+     "yaw_imp_couple_Nms": [
+      -2.9943494660347256,
+      -3.256907012498791,
+      -2.8439598620290556,
+      1.4154369191068081,
+      3.7806925498137556,
+      0.9630663416497544
+     ],
+     "slip_center_m": [
+      0.11955632994333801,
+      0.1345854230765328,
+      0.14274687157983432,
+      0.12615714365010075,
+      0.10156833944333309,
+      0.14047764548874245
+     ],
+     "slip_material_m": [
+      0.11744679293810872,
+      0.1391309318369566,
+      0.15248377308841674,
+      0.13361042634632406,
+      0.10579278411477397,
+      0.14555247220666406
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.14297718742571822,
+       0.08239471764248264
+      ],
+      [
+       0.002252716113961994,
+       0.1699331783447132
+      ],
+      [
+       -0.14764684081024415,
+       0.08708762638691185
+      ],
+      [
+       -0.1462246972557642,
+       -0.0820329900932573
+      ],
+      [
+       -0.0024754649397032355,
+       -0.16666201182409973
+      ],
+      [
+       0.14498863920552954,
+       -0.08641428947458339
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": 0.008608470812823914,
+    "nonfoot_yaw_imp_Nms": 1.0429157537576146e-17,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.9962962962962963,
+       0.5129629629629642,
+       1.0,
+       0.09629629629629712,
+       1.0,
+       0.9907407407407404
+      ],
+      "tau_z_mean": [
+       0.26496746652169356,
+       0.11601253195298333,
+       0.17879757309865488,
+       0.007908506837372856,
+       -0.3764323126709658,
+       -0.14373760825626722
+      ],
+      "fz_mean": [
+       9.501476288743964,
+       3.8037560407368876,
+       16.285253475021538,
+       0.24273150524892034,
+       8.096206256843633,
+       13.479321245849437
+      ]
+     },
+     {
+      "n": 625,
+      "duration_s": 1.2500000000001465,
+      "contact_frac": [
+       0.05120000000000044,
+       1.0,
+       0.6191999999999978,
+       1.0,
+       0.3503999999999992,
+       1.0
+      ],
+      "tau_z_mean": [
+       -0.00016871755329562942,
+       -0.19570649431486034,
+       0.0746053074811142,
+       -0.006348585032060722,
+       -0.1132061356904916,
+       0.2838110289709775
+      ],
+      "fz_mean": [
+       0.011675354919677606,
+       14.365267790088442,
+       3.413066449078767,
+       16.45622325996158,
+       0.5069372180583833,
+       14.48253558874564
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.020000000000163,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.10143624080237305,
+       0.0,
+       -0.09443709397474945,
+       0.0,
+       0.10640518748509593
+      ],
+      "fz_mean": [
+       0.0,
+       15.104717385724744,
+       0.0,
+       16.065236262503348,
+       0.0,
+       13.312398597457058
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.06886976399422978,
+       0.0,
+       -0.43966907991315346,
+       0.0,
+       0.35840630841964205
+      ],
+      "fz_mean": [
+       0.0,
+       15.329807044412872,
+       0.0,
+       17.048618188236773,
+       0.0,
+       13.142212294010202
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.43408944506884634,
+       0.0,
+       -0.5757100348797446,
+       0.0,
+       0.10586361636277096
+      ],
+      "fz_mean": [
+       0.0,
+       15.934191842940198,
+       0.0,
+       14.68372263332884,
+       0.0,
+       15.60130738614242
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.4788137111229314,
+       0.0,
+       -0.561167113603018,
+       0.0,
+       0.09004091769762573
+      ],
+      "fz_mean": [
+       0.0,
+       15.359268597552209,
+       0.0,
+       14.488882662453271,
+       0.0,
+       15.900247258227296
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.37058823529411566,
+       1.0,
+       0.7274509803921542,
+       1.0,
+       0.4215686274509777,
+       1.0
+      ],
+      "tau_z_mean": [
+       -0.028104800678375348,
+       0.3305704554396206,
+       0.15707427990587702,
+       -0.6386725449558355,
+       0.14202420481213124,
+       0.1018604682740382
+      ],
+      "fz_mean": [
+       1.801605336812687,
+       11.124320677901636,
+       8.107000871525365,
+       10.36993661503975,
+       2.315392103771477,
+       17.734476871233156
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.30392156862745506,
+       1.0,
+       0.2019607843137319,
+       1.0,
+       0.5529411764705905
+      ],
+      "tau_z_mean": [
+       -0.28050563675662377,
+       0.011598610784809059,
+       -0.0749310582968883,
+       -0.0895907341995856,
+       0.4967338683549938,
+       -0.05728803182824993
+      ],
+      "fz_mean": [
+       14.780412842091847,
+       0.2824909547728893,
+       16.70826731483737,
+       0.28332668844016823,
+       14.787845728757326,
+       1.8555895286965387
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.636010205843023,
+       0.0,
+       -0.36207876615398793,
+       0.0,
+       0.9390306471037826,
+       0.0
+      ],
+      "fz_mean": [
+       14.183314538084444,
+       0.0,
+       16.80244811722508,
+       0.0,
+       15.691362263476849,
+       0.0
+      ]
+     },
+     {
+      "n": 600,
+      "duration_s": 1.2000000000002098,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.4246410853823377,
+       0.0,
+       -0.41944989555212636,
+       0.0,
+       0.8325618752210361,
+       0.0
+      ],
+      "fz_mean": [
+       14.495533418774302,
+       0.0,
+       15.571015469367795,
+       0.0,
+       14.930467767767242,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.080000000000155,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.2009998193293072,
+       0.0,
+       -0.5053734202431801,
+       0.0,
+       0.6800782896129209,
+       0.0
+      ],
+      "fz_mean": [
+       15.939526091134317,
+       0.0,
+       14.208974042435685,
+       0.0,
+       15.393443681124891,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.05555555555555967
+      ],
+      "tau_z_mean": [
+       0.16133447134438358,
+       0.0,
+       -0.1675221494306467,
+       0.0,
+       0.07120086028420643,
+       -0.004764232818486907
+      ],
+      "fz_mean": [
+       17.436531371283348,
+       0.0,
+       13.029576064683502,
+       0.0,
+       15.390805505287988,
+       0.1623739821666724
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3459,
+       "fn_med_N": 15.261723155650508,
+       "ft_med_N": 3.4600195541623484,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.12037811061382185,
+       "cone_usage_max_med": 0.2907681189221476,
+       "cone_usage_max_p90": 0.7533332271442459,
+       "frac_loaded_near_cone": 0.040763226366001735,
+       "slip_substeps": 1056,
+       "slip_speed_med_mps": 0.030940616659464064,
+       "cone_usage_max_med_on_slip": 0.24552474749770128,
+       "frac_slip_near_cone": 0.09564393939393939,
+       "frac_slip_low_cone": 0.7793560606060606,
+       "tau_z_med_loaded_Nm": -0.16878478777612205
+      },
+      "1": {
+       "loaded_substeps": 3692,
+       "fn_med_N": 15.161062138493815,
+       "ft_med_N": 4.287313268605775,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.169191948655668,
+       "cone_usage_max_med": 0.325714762017197,
+       "cone_usage_max_p90": 0.6307859211831369,
+       "frac_loaded_near_cone": 0.04685807150595883,
+       "slip_substeps": 1253,
+       "slip_speed_med_mps": 0.02885175121719906,
+       "cone_usage_max_med_on_slip": 0.27885806926935186,
+       "frac_slip_near_cone": 0.08060654429369513,
+       "frac_slip_low_cone": 0.8587390263367917,
+       "tau_z_med_loaded_Nm": 0.1455767743422472
+      },
+      "2": {
+       "loaded_substeps": 3998,
+       "fn_med_N": 15.013071731151172,
+       "ft_med_N": 2.411951024486536,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.08628111121009255,
+       "cone_usage_max_med": 0.19903370030250755,
+       "cone_usage_max_p90": 0.7335459749891056,
+       "frac_loaded_near_cone": 0.03376688344172086,
+       "slip_substeps": 1734,
+       "slip_speed_med_mps": 0.02529071331028912,
+       "cone_usage_max_med_on_slip": 0.2356266343236274,
+       "frac_slip_near_cone": 0.05363321799307959,
+       "frac_slip_low_cone": 0.7520184544405998,
+       "tau_z_med_loaded_Nm": -0.17531200389741491
+      },
+      "3": {
+       "loaded_substeps": 3415,
+       "fn_med_N": 14.839222897787495,
+       "ft_med_N": 4.487074395052277,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.15889195318733737,
+       "cone_usage_max_med": 0.5904128823181882,
+       "cone_usage_max_p90": 0.8923309797808189,
+       "frac_loaded_near_cone": 0.09194729136163983,
+       "slip_substeps": 1567,
+       "slip_speed_med_mps": 0.02447869772725889,
+       "cone_usage_max_med_on_slip": 0.6422072121087935,
+       "frac_slip_near_cone": 0.04403318442884493,
+       "frac_slip_low_cone": 0.4639438417358009,
+       "tau_z_med_loaded_Nm": -0.4841016335013358
+      },
+      "4": {
+       "loaded_substeps": 3674,
+       "fn_med_N": 14.98800825854358,
+       "ft_med_N": 2.2719405844811513,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.08420834171987458,
+       "cone_usage_max_med": 0.1620663990914719,
+       "cone_usage_max_p90": 0.7525841148036,
+       "frac_loaded_near_cone": 0.023952095808383235,
+       "slip_substeps": 975,
+       "slip_speed_med_mps": 0.028968512831689296,
+       "cone_usage_max_med_on_slip": 0.20950775643300046,
+       "frac_slip_near_cone": 0.05435897435897436,
+       "frac_slip_low_cone": 0.7743589743589744,
+       "tau_z_med_loaded_Nm": 0.5521124338876402
+      },
+      "5": {
+       "loaded_substeps": 4107,
+       "fn_med_N": 14.472577749332356,
+       "ft_med_N": 5.9279257067714175,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.22698440781285828,
+       "cone_usage_max_med": 0.785103306609215,
+       "cone_usage_max_p90": 0.991447458349819,
+       "frac_loaded_near_cone": 0.3540297053810567,
+       "slip_substeps": 1137,
+       "slip_speed_med_mps": 0.037368875497863475,
+       "cone_usage_max_med_on_slip": 0.24771759027759094,
+       "frac_slip_near_cone": 0.2022867194371152,
+       "frac_slip_low_cone": 0.6473175021987687,
+       "tau_z_med_loaded_Nm": 0.09583826971881411
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": -0.009561018417129395,
+      "pos_sum_med_Nm": 0.5984783349690319,
+      "neg_sum_med_Nm": 0.5941475946804821,
+      "net_over_gross_med": 0.043688649805950976,
+      "couple_imp_share_of_net": 341.0617975980716
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3459,
+        "valid_loaded_substeps": 3459,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3826419394431268,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.5151171341644607,
+         0.3837775017619322,
+         0.9759692296445834,
+         0.013174978666151188,
+         0.008612652789443235
+        ],
+        "frac_loaded_near_cone": 0.6169413125180688,
+        "slip_substeps": 1056,
+        "usage_max_med_on_slip": 0.7188008949917193,
+        "frac_slip_near_cone": 0.4744318181818182,
+        "frac_slip_low_cone": 0.45928030303030304
+       },
+       "1": {
+        "loaded_substeps": 3692,
+        "valid_loaded_substeps": 3692,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4157442541800461,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.2617839141145079,
+         0.5329021011835737,
+         0.9633782429166996,
+         0.006337672611651513,
+         0.005384997086253908
+        ],
+        "frac_loaded_near_cone": 0.611863488624052,
+        "slip_substeps": 1253,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5235434956105347,
+        "frac_slip_low_cone": 0.39664804469273746
+       },
+       "2": {
+        "loaded_substeps": 3998,
+        "valid_loaded_substeps": 3998,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2999364428375991,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6260399981818814,
+         0.2890695875833111,
+         0.9908053125309401,
+         0.010618676993440376,
+         0.007772844006164928
+        ],
+        "frac_loaded_near_cone": 0.5202601300650325,
+        "slip_substeps": 1734,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5132641291810842,
+        "frac_slip_low_cone": 0.35697808535178777
+       },
+       "3": {
+        "loaded_substeps": 3415,
+        "valid_loaded_substeps": 3415,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.24787358286910435,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.8440501157810004,
+         0.352260750666745,
+         0.9066883008387331,
+         0.010759795329263428,
+         0.004390220412916548
+        ],
+        "frac_loaded_near_cone": 0.627818448023426,
+        "slip_substeps": 1567,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.6317804722399489,
+        "frac_slip_low_cone": 0.20804084237396298
+       },
+       "4": {
+        "loaded_substeps": 3674,
+        "valid_loaded_substeps": 3674,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.41486825791282045,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.3835436867450752,
+         0.563702438314009,
+         0.9940179393791942,
+         0.006875140924476842,
+         0.00457530567563547
+        ],
+        "frac_loaded_near_cone": 0.6641262928688079,
+        "slip_substeps": 975,
+        "usage_max_med_on_slip": 0.9242326215894097,
+        "frac_slip_near_cone": 0.5076923076923077,
+        "frac_slip_low_cone": 0.39384615384615385
+       },
+       "5": {
+        "loaded_substeps": 4107,
+        "valid_loaded_substeps": 4107,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.25082050159257757,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.772819385889018,
+         0.8420740231688241,
+         0.6849045860170943,
+         0.012670381006609688,
+         0.010940269462142466
+        ],
+        "frac_loaded_near_cone": 0.6092037983929875,
+        "slip_substeps": 1137,
+        "usage_max_med_on_slip": 0.31182852024406643,
+        "frac_slip_near_cone": 0.30255057167985927,
+        "frac_slip_low_cone": 0.6059806508355321
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.01745,
+      "clip_gap_p95_rad": 0.15099,
+      "track_err_med_rad": 0.04457,
+      "slew_sat_frac": 0.6536
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.06581,
+      "clip_gap_p95_rad": 0.14959,
+      "track_err_med_rad": 0.05917,
+      "slew_sat_frac": 0.8291
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.02789,
+      "track_err_med_rad": 0.04934,
+      "slew_sat_frac": 0.4855
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": -0.0469251257203279,
+   "wz_p90_abs": 0.09892982660621247,
+   "wz_err_med": 0.1030748742796721,
+   "frozen_body_wz_err_pred": 0.15,
+   "vx_med": 0.03411718429326013,
+   "vx_err_med": 0.04588281570673987,
+   "fell": false,
+   "cell": [
+    0.08,
+    -0.15
+   ]
+  },
+  {
+   "wz_cmd": 0.0,
+   "vx_cmd": 0.08,
+   "phase_offset": 0.0,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.07787939532787,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.0003244581697286,
+     "corr": 0.9999989376351394,
+     "relative_rms_residual": 0.0014932870488735413,
+     "rms_impulse_residual_Nms": 2.1223256760198617e-07,
+     "net_external_impulse_Nms": -0.003238572173439514,
+     "delta_lz_Nms": -0.0032391802208321125,
+     "med_abs_resid": 1.778028728637077e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.5418461538461565,
+      0.5803076923076874,
+      0.5887692307692338,
+      0.5373846153846104,
+      0.5801538461538487,
+      0.6046153846153806
+     ],
+     "fz_mean_loaded_N": [
+      13.783769675869218,
+      13.628318069041303,
+      14.123067411641275,
+      14.083681813732888,
+      12.975532118951095,
+      13.819246309030925
+     ],
+     "yaw_imp_force_Nms": [
+      1.6570231937636675,
+      2.7690284428315994,
+      1.1317122556418484,
+      -4.411242113313662,
+      -1.3665164429170613,
+      0.47090380400942494
+     ],
+     "yaw_imp_couple_Nms": [
+      -2.602690347590084,
+      -3.917852788066643,
+      -2.347866414531765,
+      2.5085594300344147,
+      3.7548067615387217,
+      2.3508956464260904
+     ],
+     "slip_center_m": [
+      0.11423603470252625,
+      0.13181715602318989,
+      0.13020779443308123,
+      0.12530686901265467,
+      0.10714994186056194,
+      0.12829182209569695
+     ],
+     "slip_material_m": [
+      0.1113313704369263,
+      0.13670360553194305,
+      0.14059014301467035,
+      0.13329568127600727,
+      0.11254944786160488,
+      0.13126591417828193
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.14407478361205656,
+       0.08407262075168136
+      ],
+      [
+       0.0014407902582356954,
+       0.16871987395644392
+      ],
+      [
+       -0.14733298751458537,
+       0.08556295494760499
+      ],
+      [
+       -0.14798159979926595,
+       -0.08220635859675228
+      ],
+      [
+       -0.0018839579641654813,
+       -0.16826626172275766
+      ],
+      [
+       0.1437110693267473,
+       -0.08633643902456685
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": -0.003238572173439514,
+    "nonfoot_yaw_imp_Nms": 4.074865445065952e-18,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.9960784313725493,
+       0.627450980392156,
+       1.0,
+       0.15882352941176522,
+       1.0,
+       0.9411764705882356
+      ],
+      "tau_z_mean": [
+       0.4051080193713938,
+       0.059894023419147076,
+       0.1896886424519945,
+       0.008223871360625298,
+       -0.5440280490974284,
+       -0.13353715447227407
+      ],
+      "fz_mean": [
+       9.886357463886707,
+       5.781973064401325,
+       14.334904416316553,
+       0.6307450662726203,
+       9.41236797545856,
+       11.781976064615556
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.009803921568626375,
+       1.0,
+       0.5705882352941156,
+       1.0,
+       0.4450980392156829,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0011929072275486247,
+       -0.710082923890358,
+       0.2207216050144648,
+       -0.05804591805275305,
+       -0.1735614301075165,
+       0.7484279199045845
+      ],
+      "fz_mean": [
+       0.0046457124007903685,
+       13.578758922554556,
+       2.9117942562861217,
+       18.331203636725064,
+       0.6757716830235677,
+       13.632303841377952
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.7461112086674644,
+       0.0,
+       0.0946861723665504,
+       0.0,
+       0.63478539052863
+      ],
+      "fz_mean": [
+       0.0,
+       15.121165856493013,
+       0.0,
+       16.359243170678248,
+       0.0,
+       13.242108512776172
+      ]
+     },
+     {
+      "n": 605,
+      "duration_s": 1.2100000000002087,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.4863701953921208,
+       0.0,
+       -0.12360282891209992,
+       0.0,
+       0.6099910480101871
+      ],
+      "fz_mean": [
+       0.0,
+       16.04268213143117,
+       0.0,
+       16.052003926672846,
+       0.0,
+       13.375546594151443
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001462,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.06598736331939785,
+       0.0,
+       -0.45248923534991004,
+       0.0,
+       0.45866341320134135
+      ],
+      "fz_mean": [
+       0.0,
+       15.576355090828725,
+       0.0,
+       14.229908942776863,
+       0.0,
+       16.095624062080176
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.28957450508149807,
+       0.0,
+       -0.45065395311737505,
+       0.0,
+       0.16939236405517077
+      ],
+      "fz_mean": [
+       0.0,
+       15.546333633998026,
+       0.0,
+       13.474333482707463,
+       0.0,
+       17.056039044459883
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       0.48888888888889137,
+       1.0,
+       0.5203703703703692,
+       1.0,
+       0.5351851851851814,
+       1.0
+      ],
+      "tau_z_mean": [
+       -0.08703345094589171,
+       0.4110041219792332,
+       -0.02748722077148556,
+       -0.5918699777013471,
+       0.13232908010729533,
+       0.14135553186756528
+      ],
+      "fz_mean": [
+       3.3116733677633974,
+       12.732869370610507,
+       4.221094777446772,
+       11.447589483581071,
+       4.277310696189812,
+       15.113680453376581
+      ]
+     },
+     {
+      "n": 620,
+      "duration_s": 1.240000000000152,
+      "contact_frac": [
+       1.0,
+       0.33387096774192937,
+       1.0,
+       0.26935483870967486,
+       1.0,
+       0.3290322580645126
+      ],
+      "tau_z_mean": [
+       -0.5056494695968482,
+       0.14399285296007025,
+       -0.24296956127258407,
+       -0.14860520082351678,
+       0.7760412341528932,
+       -0.017453655327853597
+      ],
+      "fz_mean": [
+       13.867062620044162,
+       0.6974577342141965,
+       17.754707699588614,
+       0.5274856665510143,
+       15.38687168593062,
+       0.7040297854424176
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001674,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.5157670783426986,
+       0.0,
+       -0.32738667563332763,
+       0.0,
+       0.8483694131100963,
+       0.0
+      ],
+      "fz_mean": [
+       14.545417559176816,
+       0.0,
+       16.26413982094014,
+       0.0,
+       14.856346760892215,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.26986996680127745,
+       0.0,
+       -0.524291302924312,
+       0.0,
+       0.7931172765437335,
+       0.0
+      ],
+      "fz_mean": [
+       14.226456243022119,
+       0.0,
+       16.208877453100495,
+       0.0,
+       14.886331438572467,
+       0.0
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.030803618512819965,
+       0.0,
+       -0.4053419978490606,
+       0.0,
+       0.43713300861149273,
+       0.0
+      ],
+      "fz_mean": [
+       16.106185403444538,
+       0.0,
+       13.998122530685603,
+       0.0,
+       15.548363455547108,
+       0.0
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0016806722689078264
+      ],
+      "tau_z_mean": [
+       0.10994745002371027,
+       0.0,
+       -0.018188051226446064,
+       0.0,
+       -0.0883756652821272,
+       -0.00023619998730270062
+      ],
+      "fz_mean": [
+       17.190474858162812,
+       0.0,
+       13.891716651003751,
+       0.0,
+       14.853346099938069,
+       0.004857516181748637
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3522,
+       "fn_med_N": 15.159420353211608,
+       "ft_med_N": 2.950340229744659,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.10541733080861251,
+       "cone_usage_max_med": 0.2886505548622983,
+       "cone_usage_max_p90": 0.6524604370979501,
+       "frac_loaded_near_cone": 0.02668938103350369,
+       "slip_substeps": 1058,
+       "slip_speed_med_mps": 0.031426501040047766,
+       "cone_usage_max_med_on_slip": 0.2642997550463598,
+       "frac_slip_near_cone": 0.054820415879017016,
+       "frac_slip_low_cone": 0.7448015122873346,
+       "tau_z_med_loaded_Nm": -0.13912997170309643
+      },
+      "1": {
+       "loaded_substeps": 3772,
+       "fn_med_N": 15.234106111567208,
+       "ft_med_N": 3.784078185587734,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.14300826459913973,
+       "cone_usage_max_med": 0.2575446295965713,
+       "cone_usage_max_p90": 0.789877333357629,
+       "frac_loaded_near_cone": 0.04772004241781548,
+       "slip_substeps": 1013,
+       "slip_speed_med_mps": 0.03079745148676107,
+       "cone_usage_max_med_on_slip": 0.19023375843278506,
+       "frac_slip_near_cone": 0.13524185587364265,
+       "frac_slip_low_cone": 0.7630799605133267,
+       "tau_z_med_loaded_Nm": -0.08958665653377956
+      },
+      "2": {
+       "loaded_substeps": 3827,
+       "fn_med_N": 14.732185115355607,
+       "ft_med_N": 2.2929294624362826,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.08016062107747542,
+       "cone_usage_max_med": 0.21144326734859853,
+       "cone_usage_max_p90": 0.8411900357187219,
+       "frac_loaded_near_cone": 0.065847922654821,
+       "slip_substeps": 1584,
+       "slip_speed_med_mps": 0.02329544539320244,
+       "cone_usage_max_med_on_slip": 0.32740266240605337,
+       "frac_slip_near_cone": 0.059343434343434344,
+       "frac_slip_low_cone": 0.6136363636363636,
+       "tau_z_med_loaded_Nm": -0.16344353153445024
+      },
+      "3": {
+       "loaded_substeps": 3493,
+       "fn_med_N": 14.530066976010945,
+       "ft_med_N": 4.059625375163713,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.1421845129183738,
+       "cone_usage_max_med": 0.37310485739603677,
+       "cone_usage_max_p90": 0.7463919017658894,
+       "frac_loaded_near_cone": 0.04380188949327226,
+       "slip_substeps": 1462,
+       "slip_speed_med_mps": 0.022760588195034834,
+       "cone_usage_max_med_on_slip": 0.4369040072283348,
+       "frac_slip_near_cone": 0.06703146374829001,
+       "frac_slip_low_cone": 0.551983584131327,
+       "tau_z_med_loaded_Nm": -0.3140794879871772
+      },
+      "4": {
+       "loaded_substeps": 3771,
+       "fn_med_N": 14.798151709400209,
+       "ft_med_N": 3.577828267698679,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.1300446791278628,
+       "cone_usage_max_med": 0.25484811372084437,
+       "cone_usage_max_p90": 0.7532629316464777,
+       "frac_loaded_near_cone": 0.01935826040837974,
+       "slip_substeps": 755,
+       "slip_speed_med_mps": 0.030488569200765335,
+       "cone_usage_max_med_on_slip": 0.2823514011201196,
+       "frac_slip_near_cone": 0.05827814569536424,
+       "frac_slip_low_cone": 0.6278145695364239,
+       "tau_z_med_loaded_Nm": 0.4405159514226846
+      },
+      "5": {
+       "loaded_substeps": 3930,
+       "fn_med_N": 14.487494542904507,
+       "ft_med_N": 5.245170716211566,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.18588301720235362,
+       "cone_usage_max_med": 0.46753551131819543,
+       "cone_usage_max_p90": 0.8572803611978179,
+       "frac_loaded_near_cone": 0.07506361323155217,
+       "slip_substeps": 1142,
+       "slip_speed_med_mps": 0.03400610354991394,
+       "cone_usage_max_med_on_slip": 0.3524541571881469,
+       "frac_slip_near_cone": 0.10595446584938704,
+       "frac_slip_low_cone": 0.6015761821366025,
+       "tau_z_med_loaded_Nm": 0.3620723521761217
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": -0.0016363435258768266,
+      "pos_sum_med_Nm": 0.648682205183039,
+      "neg_sum_med_Nm": 0.6608085292125838,
+      "net_over_gross_med": 0.023456878469384726,
+      "couple_imp_share_of_net": 78.47523494260876
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3522,
+        "valid_loaded_substeps": 3522,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.31750718318756577,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.4976826120249912,
+         0.37349778142800066,
+         0.9747580555662877,
+         0.01237319556061429,
+         0.008192880814194668
+        ],
+        "frac_loaded_near_cone": 0.5462805224304372,
+        "slip_substeps": 1058,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5179584120982986,
+        "frac_slip_low_cone": 0.3686200378071834
+       },
+       "1": {
+        "loaded_substeps": 3772,
+        "valid_loaded_substeps": 3772,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4491468059263178,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.28059030300521765,
+         0.7147463420515656,
+         0.990056381174089,
+         0.005233477805275101,
+         0.0060582608658449125
+        ],
+        "frac_loaded_near_cone": 0.7404559915164369,
+        "slip_substeps": 1013,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5133267522211253,
+        "frac_slip_low_cone": 0.4076999012833169
+       },
+       "2": {
+        "loaded_substeps": 3827,
+        "valid_loaded_substeps": 3827,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2473572443320435,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6502247300671322,
+         0.5394127134072749,
+         0.9892976250133495,
+         0.011513953703389661,
+         0.005785906633409766
+        ],
+        "frac_loaded_near_cone": 0.5858374706036059,
+        "slip_substeps": 1584,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.5820707070707071,
+        "frac_slip_low_cone": 0.2556818181818182
+       },
+       "3": {
+        "loaded_substeps": 3493,
+        "valid_loaded_substeps": 3493,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3187059720040707,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6787960152992824,
+         0.3414706340065431,
+         0.9691485829486908,
+         0.008258269954157627,
+         0.004161339417176637
+        ],
+        "frac_loaded_near_cone": 0.7497852848554252,
+        "slip_substeps": 1462,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.673734610123119,
+        "frac_slip_low_cone": 0.1689466484268126
+       },
+       "4": {
+        "loaded_substeps": 3771,
+        "valid_loaded_substeps": 3771,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.49982593726849545,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.2380410161951609,
+         0.7393998005163533,
+         0.9886727306458427,
+         0.007280148982841038,
+         0.006509461225218665
+        ],
+        "frac_loaded_near_cone": 0.7647838769557147,
+        "slip_substeps": 755,
+        "usage_max_med_on_slip": 0.49954990413372735,
+        "frac_slip_near_cone": 0.40264900662251657,
+        "frac_slip_low_cone": 0.5019867549668874
+       },
+       "5": {
+        "loaded_substeps": 3930,
+        "valid_loaded_substeps": 3930,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2950856677995978,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.39201989448406405,
+         0.7299809017101604,
+         0.912718106682348,
+         0.013487643881185294,
+         0.007749793527828292
+        ],
+        "frac_loaded_near_cone": 0.5290076335877862,
+        "slip_substeps": 1142,
+        "usage_max_med_on_slip": 0.7820298754908573,
+        "frac_slip_near_cone": 0.4711033274956217,
+        "frac_slip_low_cone": 0.37478108581436076
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.00429,
+      "clip_gap_p95_rad": 0.11593,
+      "track_err_med_rad": 0.07756,
+      "slew_sat_frac": 0.6827
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.0643,
+      "clip_gap_p95_rad": 0.15683,
+      "track_err_med_rad": 0.05664,
+      "slew_sat_frac": 0.8131
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.02883,
+      "track_err_med_rad": 0.04793,
+      "slew_sat_frac": 0.4679
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": -0.006822114865442832,
+   "wz_p90_abs": 0.11790233708632653,
+   "wz_err_med": 0.08015912138298739,
+   "frozen_body_wz_err_pred": 0.0,
+   "vx_med": 0.03847251388494943,
+   "vx_err_med": 0.04152748611505057,
+   "fell": false,
+   "cell": [
+    0.08,
+    0.0
+   ]
+  },
+  {
+   "wz_cmd": 0.0,
+   "vx_cmd": 0.08,
+   "phase_offset": 3.14159265,
+   "scripted_start_phase": null,
+   "scripted_stance_radius_scale": null,
+   "scripted_foot_radius_m": null,
+   "contact_audit": {
+    "audit_version": 2,
+    "n_ticks": 1300,
+    "n_substeps": 6500,
+    "duration_s": 13.00000000000203,
+    "physics_timestep_s": 0.002,
+    "control_timestep_s": 0.01,
+    "integrator": 0,
+    "model_nmesh": 34,
+    "sign_flipped": false,
+    "support_force_sign_valid": true,
+    "sum_fz_med_N": 46.12603714856732,
+    "weight_N": 47.14421130000001,
+    "angmom_check": {
+     "valid": true,
+     "unaccounted": [],
+     "slope": 1.000405851624762,
+     "corr": 0.9999993040147047,
+     "relative_rms_residual": 0.0012476090079803993,
+     "rms_impulse_residual_Nms": 2.0856279496651172e-07,
+     "net_external_impulse_Nms": 0.004497762705390975,
+     "delta_lz_Nms": 0.004495854469630324,
+     "med_abs_resid": 1.905006677967145e-05
+    },
+    "bc_anchor_resid": {
+     "available": false,
+     "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+    },
+    "per_foot": {
+     "duty": [
+      0.5455384615384573,
+      0.5732307692307722,
+      0.6041538461538404,
+      0.5180000000000048,
+      0.59415384615384,
+      0.5989230769230787
+     ],
+     "fz_mean_loaded_N": [
+      13.819311581592535,
+      13.616456770622282,
+      14.20099849782952,
+      14.092698531713943,
+      12.910182287894187,
+      13.799370076849584
+     ],
+     "yaw_imp_force_Nms": [
+      1.7188414941810894,
+      2.706000318595546,
+      1.1648978923084623,
+      -4.593345320779281,
+      -1.6893288408757794,
+      0.5089983523872275
+     ],
+     "yaw_imp_couple_Nms": [
+      -2.455405790780709,
+      -3.7158183888249443,
+      -2.357540718899339,
+      2.536386121959971,
+      3.846252101913485,
+      2.334560541519676
+     ],
+     "slip_center_m": [
+      0.11264479879268996,
+      0.12916055318509123,
+      0.1335456018346928,
+      0.12217355576903427,
+      0.1124286766804159,
+      0.13016673264392822
+     ],
+     "slip_material_m": [
+      0.1095874168053486,
+      0.13409277668739192,
+      0.14496652166761864,
+      0.12940980732163668,
+      0.11770667996255688,
+      0.1330953832642843
+     ],
+     "stance_center_body_xy_m": [
+      [
+       0.1440559220821704,
+       0.08433529820104686
+      ],
+      [
+       0.0016644803356612766,
+       0.1687207512331483
+      ],
+      [
+       -0.14713243347871743,
+       0.08526691154411083
+      ],
+      [
+       -0.1481208953279975,
+       -0.08234476360773804
+      ],
+      [
+       -0.0019458009085621911,
+       -0.16884600621109444
+      ],
+      [
+       0.1442107063472113,
+       -0.086482021802362
+      ]
+     ]
+    },
+    "yaw_imp_total_Nms": 0.004497762705390978,
+    "nonfoot_yaw_imp_Nms": -4.990799440382518e-18,
+    "applied_yaw_imp_Nms": 0.0,
+    "slip_definition": "normal-load-weighted mean pad material-point XY distance per physics step",
+    "phase_bins": [
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       1.0,
+       0.5148148148148148,
+       1.0,
+       0.057407407407411105,
+       1.0,
+       0.8740740740740732
+      ],
+      "tau_z_mean": [
+       0.4310704927473466,
+       0.051478130624895715,
+       0.14185207460928773,
+       0.0018311844722397868,
+       -0.517001052026358,
+       -0.13053765619480984
+      ],
+      "fz_mean": [
+       11.393240262807515,
+       3.815986954562812,
+       14.918651106941274,
+       0.17697970915144837,
+       10.248355184428334,
+       10.397970149396071
+      ]
+     },
+     {
+      "n": 620,
+      "duration_s": 1.240000000000152,
+      "contact_frac": [
+       0.09999999999999677,
+       1.0,
+       0.6080645161290239,
+       0.9983870967741939,
+       0.46774193548386095,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0243761042794254,
+       -0.6588232624150457,
+       0.2849558130827206,
+       -0.06831108154727505,
+       -0.1981113808514197,
+       0.6311068983732522
+      ],
+      "fz_mean": [
+       0.08387481560499342,
+       13.802467771790297,
+       3.9448708355599034,
+       16.75246479595334,
+       0.8534686387598124,
+       14.122316108427924
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001674,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.6853414342814012,
+       0.0,
+       0.04895112350808298,
+       0.0,
+       0.6255306638091445
+      ],
+      "fz_mean": [
+       0.0,
+       15.3631659101068,
+       0.0,
+       16.20814192467405,
+       0.0,
+       13.206317391719871
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.4401660627300891,
+       0.0,
+       -0.16136289408909196,
+       0.0,
+       0.600163584040227
+      ],
+      "fz_mean": [
+       0.0,
+       16.322422450527156,
+       0.0,
+       16.045415636635113,
+       0.0,
+       13.088182872695988
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       -0.024855744076699708,
+       0.0,
+       -0.4997338995066652,
+       0.0,
+       0.4723419293390867
+      ],
+      "fz_mean": [
+       0.0,
+       15.757235401845385,
+       0.0,
+       14.18146851003383,
+       0.0,
+       16.027127230684087
+      ]
+     },
+     {
+      "n": 595,
+      "duration_s": 1.190000000000211,
+      "contact_frac": [
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0
+      ],
+      "tau_z_mean": [
+       0.0,
+       0.2954770530691896,
+       0.0,
+       -0.5162656972822419,
+       0.0,
+       0.2101605828822106
+      ],
+      "fz_mean": [
+       0.0,
+       15.430198960774238,
+       0.0,
+       13.516254910755583,
+       0.0,
+       17.134240157535054
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       0.4686274509803907,
+       1.0,
+       0.5980392156862777,
+       1.0,
+       0.6411764705882296,
+       1.0
+      ],
+      "tau_z_mean": [
+       -0.10906036623114108,
+       0.3800802680791474,
+       -0.06027595956870358,
+       -0.6444600496707276,
+       0.2077210358922664,
+       0.21796680321770012
+      ],
+      "fz_mean": [
+       3.0273606600286294,
+       12.437363721927166,
+       5.837817464858931,
+       10.050446490718528,
+       6.511663754177528,
+       14.284462725928915
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.3784313725490188,
+       1.0,
+       0.16078431372549187,
+       1.0,
+       0.3254901960784336
+      ],
+      "tau_z_mean": [
+       -0.5396176141377546,
+       0.18195817000724368,
+       -0.20958322207352909,
+       -0.07660502255971496,
+       0.638438606115166,
+       -0.0023991421863888565
+      ],
+      "fz_mean": [
+       14.442208286500323,
+       0.7782175581502555,
+       17.25961030707374,
+       0.23187462999443373,
+       14.660059647868554,
+       0.5612332055257133
+      ]
+     },
+     {
+      "n": 510,
+      "duration_s": 1.0200000000001808,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.5227189469094424,
+       0.0,
+       -0.3378384928955477,
+       0.0,
+       0.8771391857619255,
+       0.0
+      ],
+      "fz_mean": [
+       14.423886085254509,
+       0.0,
+       16.920623944284106,
+       0.0,
+       14.842387480019429,
+       0.0
+      ]
+     },
+     {
+      "n": 605,
+      "duration_s": 1.2100000000002087,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       -0.2235573627294549,
+       0.0,
+       -0.5556249426946024,
+       0.0,
+       0.7811097680895408,
+       0.0
+      ],
+      "fz_mean": [
+       14.015335493155929,
+       0.0,
+       16.257924129660022,
+       0.0,
+       14.936648403203266,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001462,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.10422267671955576,
+       0.0,
+       -0.35721771036010763,
+       0.0,
+       0.32570929360747564,
+       0.0
+      ],
+      "fz_mean": [
+       16.315928801071106,
+       0.0,
+       13.893560962353975,
+       0.0,
+       15.486292681948417,
+       0.0
+      ]
+     },
+     {
+      "n": 540,
+      "duration_s": 1.0800000000001209,
+      "contact_frac": [
+       1.0,
+       0.0,
+       1.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      "tau_z_mean": [
+       0.11150183870032754,
+       0.0,
+       -0.019662351401241188,
+       0.0,
+       -0.08678810308115935,
+       0.0
+      ],
+      "fz_mean": [
+       17.117379904793843,
+       0.0,
+       13.921585540360917,
+       0.0,
+       14.86924955218741,
+       0.0
+      ]
+     }
+    ],
+    "traction": {
+     "thresholds": {
+      "SLIP_MPS": 0.02,
+      "NEAR_CONE": 0.9,
+      "LOW_CONE": 0.5,
+      "RAIL_FRAC": 0.95
+     },
+     "per_foot": {
+      "0": {
+       "loaded_substeps": 3546,
+       "fn_med_N": 15.11537352902164,
+       "ft_med_N": 3.034694777255091,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.11048639304381193,
+       "cone_usage_max_med": 0.3163409677031765,
+       "cone_usage_max_p90": 0.6521760992376049,
+       "frac_loaded_near_cone": 0.03440496333897349,
+       "slip_substeps": 1046,
+       "slip_speed_med_mps": 0.03220151803913891,
+       "cone_usage_max_med_on_slip": 0.3062883490686156,
+       "frac_slip_near_cone": 0.058317399617590825,
+       "frac_slip_low_cone": 0.737093690248566,
+       "tau_z_med_loaded_Nm": -0.10784297000426135
+      },
+      "1": {
+       "loaded_substeps": 3726,
+       "fn_med_N": 15.201504573628227,
+       "ft_med_N": 3.6992683596048863,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.1446735522343517,
+       "cone_usage_max_med": 0.2553827111454004,
+       "cone_usage_max_p90": 0.7528496765326202,
+       "frac_loaded_near_cone": 0.05636070853462158,
+       "slip_substeps": 1037,
+       "slip_speed_med_mps": 0.030661928912973414,
+       "cone_usage_max_med_on_slip": 0.20115155650718577,
+       "frac_slip_near_cone": 0.13886210221793635,
+       "frac_slip_low_cone": 0.7801350048216008,
+       "tau_z_med_loaded_Nm": -0.06625344294449514
+      },
+      "2": {
+       "loaded_substeps": 3927,
+       "fn_med_N": 14.852608348569127,
+       "ft_med_N": 2.4472557444179053,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.08501973737740569,
+       "cone_usage_max_med": 0.2451371352885308,
+       "cone_usage_max_p90": 0.8349017224708606,
+       "frac_loaded_near_cone": 0.04940157881334352,
+       "slip_substeps": 1654,
+       "slip_speed_med_mps": 0.023687983146249918,
+       "cone_usage_max_med_on_slip": 0.47670484882662134,
+       "frac_slip_near_cone": 0.0562273276904474,
+       "frac_slip_low_cone": 0.5235792019347038,
+       "tau_z_med_loaded_Nm": -0.1720076928231342
+      },
+      "3": {
+       "loaded_substeps": 3367,
+       "fn_med_N": 14.450646449732467,
+       "ft_med_N": 4.3375147209290015,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.15375947276533036,
+       "cone_usage_max_med": 0.35505883490952556,
+       "cone_usage_max_p90": 0.7210319187358055,
+       "frac_loaded_near_cone": 0.03861003861003861,
+       "slip_substeps": 1366,
+       "slip_speed_med_mps": 0.023640195865708848,
+       "cone_usage_max_med_on_slip": 0.39340201220584886,
+       "frac_slip_near_cone": 0.03733528550512445,
+       "frac_slip_low_cone": 0.6142020497803806,
+       "tau_z_med_loaded_Nm": -0.36125502291973355
+      },
+      "4": {
+       "loaded_substeps": 3862,
+       "fn_med_N": 14.77595071359747,
+       "ft_med_N": 3.690212926539253,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.13412138988755637,
+       "cone_usage_max_med": 0.284796017391751,
+       "cone_usage_max_p90": 0.7591400112441686,
+       "frac_loaded_near_cone": 0.02278612118073537,
+       "slip_substeps": 731,
+       "slip_speed_med_mps": 0.032986686266288825,
+       "cone_usage_max_med_on_slip": 0.3207010550017781,
+       "frac_slip_near_cone": 0.058823529411764705,
+       "frac_slip_low_cone": 0.5882352941176471,
+       "tau_z_med_loaded_Nm": 0.33938779137057506
+      },
+      "5": {
+       "loaded_substeps": 3893,
+       "fn_med_N": 14.268862900218108,
+       "ft_med_N": 5.572181115706825,
+       "mu_med": 2.0,
+       "cone_usage_wmean_med": 0.20306005909009603,
+       "cone_usage_max_med": 0.46933865031915895,
+       "cone_usage_max_p90": 0.883949167915303,
+       "frac_loaded_near_cone": 0.08990495761623427,
+       "slip_substeps": 1027,
+       "slip_speed_med_mps": 0.03860165509399322,
+       "cone_usage_max_med_on_slip": 0.2818734863498332,
+       "frac_slip_near_cone": 0.09444985394352483,
+       "frac_slip_low_cone": 0.6806231742940604,
+       "tau_z_med_loaded_Nm": 0.3884324099679558
+      }
+     },
+     "yaw_budget": {
+      "net_tau_z_med_Nm": 0.0028389959305088336,
+      "pos_sum_med_Nm": 0.6434897392710502,
+      "neg_sum_med_Nm": 0.6589563695082521,
+      "net_over_gross_med": 0.02852786273038718,
+      "couple_imp_share_of_net": 41.895021865485795
+     },
+     "actuator_force_saturation_stance": {
+      "yaw": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "hip": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      },
+      "knee": {
+       "force_sat_med": 0.0,
+       "frac_at_rail": 0.0
+      }
+     },
+     "legacy_cone_usage_definition": "planar slide only: hypot(tangent1,tangent2)/(friction[0]*fn); omits anisotropy/spin/roll and cannot exclude full-cone saturation",
+     "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+     "full_cone": {
+      "valid": true,
+      "invalid_contact_samples": 0,
+      "invalid_reasons": [],
+      "cone_type": "elliptic",
+      "norm": "L2",
+      "observed_condim": [
+       6
+      ],
+      "component_order": [
+       "tangent1",
+       "tangent2",
+       "spin",
+       "roll1",
+       "roll2"
+      ],
+      "definition": "per-contact abs(wrench[1:condim])/(friction[:condim-1]*fn), then cone norm; no averaging opposing wrenches first",
+      "loaded_definition": "any active compressive contact (fn>0); no 2 N load threshold",
+      "slip_conditioning": "per-foot normal-load-weighted material XY speed; usage is maximum across that foot's active contacts",
+      "per_foot": {
+       "0": {
+        "loaded_substeps": 3546,
+        "valid_loaded_substeps": 3546,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3044807529092195,
+        "usage_max_med": 0.9999999999999998,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.5563366318314477,
+         0.33718137049964636,
+         0.9650525651257238,
+         0.011829792845467358,
+         0.008385797528544292
+        ],
+        "frac_loaded_near_cone": 0.5637337845459673,
+        "slip_substeps": 1046,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.5812619502868069,
+        "frac_slip_low_cone": 0.3326959847036329
+       },
+       "1": {
+        "loaded_substeps": 3726,
+        "valid_loaded_substeps": 3726,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.4337061675750743,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.25192175023857366,
+         0.7047991964871176,
+         0.9895470252295686,
+         0.006664924655856652,
+         0.007259447181674057
+        ],
+        "frac_loaded_near_cone": 0.7359098228663447,
+        "slip_substeps": 1037,
+        "usage_max_med_on_slip": 0.9831447734672123,
+        "frac_slip_near_cone": 0.5081967213114754,
+        "frac_slip_low_cone": 0.4455159112825458
+       },
+       "2": {
+        "loaded_substeps": 3927,
+        "valid_loaded_substeps": 3927,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.2531372254555097,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6117734793235877,
+         0.5747469926143788,
+         0.9890732322908403,
+         0.01190644693706376,
+         0.006577318328669001
+        ],
+        "frac_loaded_near_cone": 0.6050420168067226,
+        "slip_substeps": 1654,
+        "usage_max_med_on_slip": 0.9999999999999998,
+        "frac_slip_near_cone": 0.6021765417170496,
+        "frac_slip_low_cone": 0.21039903264812576
+       },
+       "3": {
+        "loaded_substeps": 3367,
+        "valid_loaded_substeps": 3367,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.3219999019529675,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.6407454226008884,
+         0.3625761283225387,
+         0.9591805076634036,
+         0.007707970496365242,
+         0.004258378731987519
+        ],
+        "frac_loaded_near_cone": 0.6528066528066528,
+        "slip_substeps": 1366,
+        "usage_max_med_on_slip": 0.9999999999999999,
+        "frac_slip_near_cone": 0.6266471449487555,
+        "frac_slip_low_cone": 0.1910688140556369
+       },
+       "4": {
+        "loaded_substeps": 3862,
+        "valid_loaded_substeps": 3862,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.5076607353854234,
+        "usage_max_med": 0.9999999999999999,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.2597020255242696,
+         0.7432542407673641,
+         0.9879959390513137,
+         0.007973788896066095,
+         0.006248093908022692
+        ],
+        "frac_loaded_near_cone": 0.7410668047643708,
+        "slip_substeps": 731,
+        "usage_max_med_on_slip": 0.5397418832479203,
+        "frac_slip_near_cone": 0.387140902872777,
+        "frac_slip_low_cone": 0.4774281805745554
+       },
+       "5": {
+        "loaded_substeps": 3893,
+        "valid_loaded_substeps": 3893,
+        "invalid_contact_samples": 0,
+        "usage_wmean_med": 0.288705925141214,
+        "usage_max_med": 0.9915907924489133,
+        "usage_max_p90": 1.0,
+        "normalized_component_max_p90": [
+         0.40266361287154967,
+         0.7712141549346984,
+         0.9002353160313898,
+         0.01385119159312222,
+         0.00784192594153202
+        ],
+        "frac_loaded_near_cone": 0.5227331107115335,
+        "slip_substeps": 1027,
+        "usage_max_med_on_slip": 0.5415173439863621,
+        "frac_slip_near_cone": 0.3602726387536514,
+        "frac_slip_low_cone": 0.48685491723466406
+       }
+      }
+     }
+    },
+    "joints": {
+     "yaw": {
+      "clip_gap_med_rad": 0.0039,
+      "clip_gap_p95_rad": 0.11674,
+      "track_err_med_rad": 0.0778,
+      "slew_sat_frac": 0.6895
+     },
+     "hip": {
+      "clip_gap_med_rad": 0.0655,
+      "clip_gap_p95_rad": 0.15385,
+      "track_err_med_rad": 0.05747,
+      "slew_sat_frac": 0.8134
+     },
+     "knee": {
+      "clip_gap_med_rad": 0.0,
+      "clip_gap_p95_rad": 0.0296,
+      "track_err_med_rad": 0.04846,
+      "slew_sat_frac": 0.4687
+     }
+    }
+   },
+   "seed": 0,
+   "n_walk_ticks": 1300,
+   "n_total_ticks": 1500,
+   "modes": {
+    "walk": 1500
+   },
+   "wz_med": 0.0071195328813516935,
+   "wz_p90_abs": 0.11968153641262105,
+   "wz_err_med": 0.08126509592904888,
+   "frozen_body_wz_err_pred": 0.0,
+   "vx_med": 0.03871149583789804,
+   "vx_err_med": 0.04128850416210196,
+   "fell": false,
+   "cell": [
+    0.08,
+    0.0
+   ]
+  }
+ ]
+}

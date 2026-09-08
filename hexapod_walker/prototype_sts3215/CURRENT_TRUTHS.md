@@ -4,6 +4,48 @@ Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
 Accepted facts, not narrative. If old prose disagrees, this file wins.
 
+## `walk_leg_loadslip_ratio_charge` family CLOSED (2026-09-08 ~19:1x)
+
+The excess-cap repair (`reward.walk_leg_loadslip_ratio_excess_cap=0.2`,
+tested on the clean confound-isolated `crutchoff-{s0,s1}-widen8-
+loadslip-target6-cap02-alone` pair) is CANARY PASS-MECHANISM on both
+seeds (reward quarters stay near the healthy scale end-to-end, no
+order-of-magnitude collapse) but neither seed clears the pre-
+registered >=3/4-held-out-groups efficacy bar (0-1/4 groups clearly
+improve). Combined with the already-closed dose (150/45/15), target
+recalibration (1.5->6.0), and confound-isolation reads, the ENTIRE
+`walk_leg_loadslip_ratio_charge` charge family is closed as a repair
+for the widen8 lineage's leg-sacrifice/slip pathology on every
+constant (dose/target/cap) tested. Do not relaunch a dose/target/cap
+variant of this exact charge shape. The open lead (matches assistfade's
+own 09-07 finding) is a structurally different per-leg mechanism -- a
+positive swing-initiation income for the most-loaded leg, or a charge
+on the fully-planted/no-swing PATTERN/duration directly, not another
+scalar-ratio-vs-target charge. Evidence: `ops.sh review cw-walkscratch-
+crutchoff-{s0,s1}-widen8-loadslip-target6-cap02-alone`; `rl_docs/
+tracks/walkcurr/STATUS.md` 2026-09-08 ~19:1x entry.
+
+## widen8-jointspace-freshinit DR-breadth investigation CLOSED (2026-09-08 ~19:0x)
+
+True zero-DR (`env.dr_stage_ramp_steps=5e10`, `nodrall2m`) still fails
+to ignite fresh-init walking on the widen8 8-way-heading composite
+(fwd med 0.01m, slip med 73.82, stationary on video) -- the floor
+below every previously-tested DR dose/schedule/grouping (1.0x/0.5x/
+0.25x fixed, 0->1 staged, 3 single-axis knockouts, discrete/continuous
+group split), all of which already failed identically. Combined with
+the sister crossgrav-medhead-DR cartfoot-freshinit family's own closed
+heading-width and torque bisections, DR magnitude/schedule/breadth is
+conclusively ruled out as the fresh-init blocker on this hardened
+composite family at ANY setting, on both action spaces, at 2M and 40M
+budgets. No further fresh-init launch on this composite family (any
+heading width, torque, or DR setting) is licensed without a
+structurally different mechanism (e.g. a composite-HARDNESS
+curriculum from the already-solved base-acquisition recipe). The
+proven ignition path stays warm-start (`crutchoff-s{0,1,2}-widen8-
+acq1`). Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-
+jointspace-freshinit-nodrall2m`; `rl_docs/tracks/walkcurr/STATUS.md`
+2026-09-08 ~19:0x/~19:1x entries.
+
 ## `walk_leg_loadslip_ratio_charge` confound correction (2026-09-08 ~15:4x)
 
 Every prior `walk_leg_loadslip_ratio_charge` verdict (target=1.5

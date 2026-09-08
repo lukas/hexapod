@@ -29,7 +29,7 @@ pytest.importorskip("mujoco")
 from rl_move.robot_state import DEG2RAD
 from rl_move.sim.joint_task import (
     _CENTER_RAD, _HALF_RAD, action_to_q_rad)
-from test_task_semantics import _make_walk_env, SLIPWALK_OVERRIDES
+from walk_env_helpers import _make_walk_env, SLIPWALK_OVERRIDES
 
 # The fix dose used by the launched arms: shift a=0 from the hardware
 # mid-range toward the semantics bank's WALK_PLANT=(20, 80) stance

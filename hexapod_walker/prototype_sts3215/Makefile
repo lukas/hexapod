@@ -18,7 +18,7 @@ else
 MJ_PY  := uv run python
 endif
 
-.PHONY: state check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement buildviz-horn-compression-limiters buildviz-premade-chorn-56 validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
+.PHONY: test test-fast state check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement buildviz-horn-compression-limiters buildviz-premade-chorn-56 validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -29,6 +29,15 @@ BUILDVIZ_ROOT ?= $(HOME)/buildviz
 # rl_move/orchestrator/state_dir.py. Read-only here; the controller writes.
 state:
 	bash $(CURDIR)/rl_move/orchestrator/state_sync.sh
+
+# Tests. The default developer loop skips @pytest.mark.slow rollouts and
+# runs in parallel (pytest-xdist is in the dev group). `make test` is the
+# whole suite. Rules for adding tests: RESEARCH_RULES.md "Tests".
+test-fast:
+	cd $(CURDIR) && uv run pytest -q -n auto -m "not slow" rl_move/tests linux_control robots
+
+test:
+	cd $(CURDIR) && uv run pytest -q -n auto rl_move/tests linux_control robots
 
 help:
 	@echo "Hexapod prototype CAD targets:"

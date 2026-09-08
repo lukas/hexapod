@@ -18,13 +18,11 @@ def _mesh_family_model_source():
     calibrated behavior suite; this probe is mesh-family by
     construction. Scoped set/restore so nothing leaks to other test
     modules in a full-suite run."""
-    prev = os.environ.get("HEXAPOD_MODEL_SOURCE")
-    os.environ["HEXAPOD_MODEL_SOURCE"] = "mesh_mjx"
-    yield
-    if prev is None:
-        os.environ.pop("HEXAPOD_MODEL_SOURCE", None)
-    else:
-        os.environ["HEXAPOD_MODEL_SOURCE"] = prev
+    # Scoped via MonkeyPatch so nothing leaks into other modules
+    # (RESEARCH_RULES "Tests" 3).
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("HEXAPOD_MODEL_SOURCE", "mesh_mjx")
+        yield
 from rl_move.sim import probe_turn_stancearm as stance
 from rl_move.sim import probe_turn_traction as tr
 

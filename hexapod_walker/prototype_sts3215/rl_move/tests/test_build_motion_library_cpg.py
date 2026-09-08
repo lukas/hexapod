@@ -1,3 +1,4 @@
+import pytest
 """Tests for build_motion_library.py's --controller se2cpg addition
 (cpg track, 08-23, rl_docs/tracks/cpg/STATUS.md Next item 3).
 
@@ -33,6 +34,7 @@ def test_default_controller_unaffected(tmp_path):
     assert manifest["cpg_params"] is None
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_se2cpg_controller_produces_clips(tmp_path):
     artifact = tmp_path / "cpg_controller_test_v2.json"
     artifact.write_text(json.dumps({

@@ -1,3 +1,4 @@
+import pytest
 """Duplicate-eval guard for pod_eval.py.
 
 2026-08-27 (standwalk anchor14-rescue-acq8m idle-kick): pod_eval's old
@@ -13,6 +14,7 @@ mocked — no real pod) so the guard can't silently regress.
 import importlib.util
 import pathlib
 import subprocess
+import sys
 import time
 import types
 
@@ -100,6 +102,8 @@ def test_self_match_regression_no_real_process_running(monkeypatch):
         "unused-pod", made_up, "rl_move.sim.eval_session") is False
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
+@pytest.mark.skipif(sys.platform != "linux", reason="exec -a argv rewriting + pgrep semantics differ on macOS; the guard runs on the Linux controller")
 def test_self_match_regression_still_detects_a_real_match(monkeypatch):
     """Companion to the self-match regression above: the `grep -v
     grep` self-defense must not blind the guard to an actual running

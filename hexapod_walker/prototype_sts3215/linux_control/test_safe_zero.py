@@ -6,6 +6,8 @@ converging on their targets (or one stalled joint fighting a force).
 """
 from __future__ import annotations
 
+import pytest
+
 import math
 import sys
 import types
@@ -357,6 +359,7 @@ class FakeBus:
         return out
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_executor_reaches_zero():
     start = _pose(hip=10.0, knee=25.0)
     plan = plan_safe_zero(start)

@@ -1,0 +1,20 @@
+# cw-walkscratch-easy0905-widen8-jointspace-freshinit-stagedr20m-b40m
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-09-08T11:23:34+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 40000000
+
+**parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl
+
+**wandb_id**: hozmahto
+
+**hypothesis**: Plain English: the ONE changed treatment of the joint-space staged-DR pair — does ramping DR exposure from the nominal sim to the full explicit dr.* override matrix over the first 20M steps (env.dr_stage_ramp_steps=20000000, machinery canary-PASSed as stagedr2m; on-device Warp ModelDR/TickParams/reset-pool endpoint delivery and reset-only live-episode semantics PROVEN this cycle by diag_dr_stage_device, artifacts/diag/diag_dr_stage_device_20260908T11Z.json) let the exact seed40 JOINT-SPACE widen8 crutch-off fresh-init recipe (offctrl clone: fresh random init, no BC/teacher/gait clock, full gravity, 1x torque, source motor limits) ignite forward progress where full-DR-from-step-0 failed at 2M? Read TOGETHER with the equal-budget matched control cw-walkscratch-easy0905-widen8-jointspace-freshinit-b40m-ctrl (full DR from step 0, 40M, same seed 40, launched same cycle) on the UNCHANGED full-DR held-out evaluation, and alongside the already-running cart-foot pair (same seed/budgets) as a one-seed 2x2 action-space x DR-schedule factorial: does any staging benefit depend on the action representation? Exposure honesty (fb_20260908T104404_58b3a5): this arm trains its first ~20M under milder-than-full REQUESTED DR by design, and realized per-world exposure lags the requested fraction further under reset-only semantics (live episodes keep their reset draw; frac=1.0 first broadcasts at the first rollout boundary >= 20M; the post-ramp tail is optimizer steps at requested-full, NOT per-world full-DR episode exposure) — judge exposure from realized/conservative-conditional numbers, never dr_stage_ramp/frac or target-range logs alone. Both arms get identical full-DR gates. Pre-registered joint reading: staged-ignites+control-flat => gradual DR exposure enables joint-space fresh acquisition (one seed, this recipe, no generalization claim); both-flat => this linear-20M schedule does not rescue joint-space ignition and DR-breadth-at-start is not confirmed as the blocker at 40M; both-ignite => budget, not schedule, was the blocker; control-ignites+staged-flat => staging harmful. Prediction-if-true: env/reward_walk rising and env/v_along_cmd_m_s sustained >=+0.01 emerging during the low-DR phase and SURVIVING the ramp. Prediction-if-false: progress appears early then collapses as the ramp passes ~0.5, or never appears. Strongest alternative: any ignition is explained by budget alone — controlled by the jointspace b40m-ctrl. One-seed factorial comparison, NOT a robustness proof. No unplanned seeds/grid/extensions; continuation only by an explicit future-cycle 08-21 decision.
+
+**gate**: ACQ movement gate on the UNCHANGED full-DR held-out panel (identical to the cart-foot pair; the armed-but-unbroadcast eval env sits at FULL override ranges by construction — unit-tested AND device-verified this cycle): PASS if >=0.03 m/s median net forward in >=1 of walk/{det,sto} with 0 falls in det and gait_valid majority (>=4/6) in the passing mode; chronic single-leg/front-pair sacrifice majority in det = FAIL regardless of speed. FIXED 40M acquisition budget — no early 2M skill closure. MUST be verdicted jointly with the matched equal-budget control jointspace-freshinit-b40m-ctrl per the pre-registered 4-outcome reading (a staged PASS with a control PASS is credited to budget, not staging) and reported alongside the cart-foot pair as the one-seed 2x2 table (descriptive only). dr_stage_ramp/frac telemetry must show the 0->1 ramp over the first 20M (machinery regression check only; frac is REQUESTED, not realized exposure). No continuation or extension without an explicit future-cycle decision.
+

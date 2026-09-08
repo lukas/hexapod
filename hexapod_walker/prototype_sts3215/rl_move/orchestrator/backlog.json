@@ -1,7 +1,7 @@
 [
   {
     "run": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1-cont10m",
-    "steps": 40000000,
+    "steps": 10000000,
     "parent": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1",
     "hypothesis": "Matched joint-space control for the seed10 cont10m durability read above: does the OFF arm's own 40M performance (slip 3.05/3.34/2.93/3.31, gv 0/6/6/6/0/6/6, 0 falls) hold steady at 10M more steps, so the paired ON/OFF ratio at 50M is a valid comparison and not confounded by drift in the control itself? Byte-identical continuation recipe to the ON sibling except no cart_foot keys (joint-space action decode).",
     "gate": "MATCHED CONTROL: read together with base-cartfoot-fresh-s10-c1b-cont10m at the same budget. Retention = 0 new falls and slip/m within noise (+/-15%) of this arm's own 40M read; any regression here means the ON/OFF ratio comparison at 50M needs re-basing on the control's own drift, not just read as an ON-side effect.",
@@ -149,9 +149,7 @@
       "respec of cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1: Matched joint-space control for the seed10 cont10m durability read above: does the OFF arm's own 40M performance (slip 3.05/3.34/2.93/3.31, gv 0/6/6/6/0/6/6, 0 falls) hold steady at 10M more steps, so the paired ON/OFF ratio at 50M is a valid comparison and not confounded by drift in the control itself? Byte-identical continuation recipe to the ON sibling except no cart_foot keys (joint-space action decode).",
       "--defer-final-artifacts",
       "--init-from",
-      "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10.zip",
-      "--steps",
-      "10000000"
+      "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1.zip"
     ],
     "attempts": 1,
     "added": "2026-09-08T08:01:29+00:00",
@@ -159,7 +157,7 @@
   },
   {
     "run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b-cont10m",
-    "steps": 40000000,
+    "steps": 10000000,
     "parent": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b",
     "hypothesis": "Does the fresh-init cart_foot ON seed10 arm's band-match parity (measured this cycle at 40M: ON/OFF slip ratio 0.857/0.983/0.911/0.969x across the 4 groups, 0 falls) HOLD or DEGRADE at 10M more steps (50M cumulative)? Same durability design as the already-running seed7 cont10m pair, mirroring fork(a)'s late-onset degradation (fine at 12M cumulative, then 2-6x slip + new falls by 22M).",
     "gate": "ACQUISITION CONTINUATION: read together with the matched offctrl-s10-c1-cont10m at the same budget. HOLDS = mean slip/m ratio (ON/OFF) <=1.2x in >=3/4 groups AND 0 new falls/terminations vs this run's own 40M read. DEGRADES = ratio >1.5x in >=2/4 groups OR any new fall/termination not present at 40M. Per 08-21 ruling, continue further only if reward is still rising and evals are ambiguous.",
@@ -313,9 +311,7 @@
       "goal.walk_cart_foot_box_z_m=0.04",
       "--defer-final-artifacts",
       "--init-from",
-      "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_fresh_s10.zip",
-      "--steps",
-      "10000000"
+      "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_fresh_s10_c1b.zip"
     ],
     "attempts": 1,
     "added": "2026-09-08T08:01:24+00:00",

@@ -1,3 +1,66 @@
+## 2026-09-08 ~11:1x (triage cycle; assigned `cartfoot-halfgrav-{s10,s11}-acq1`) — both ON arms clear ACQUISITION on their own numbers, but seed7's 22/24 gait-health count does NOT generalize (per-seed 17/24, 11/24 with a new systematic seed11 leg1 dropout)
+
+One plain sentence: forward-acquisition PASS and six-leg gait retention
+are separate axes for this recipe and must be reported per seed, not
+pooled -- seed10 and seed11 both walk forward cleanly with zero falls,
+but their gait_valid totals (17/24, 11/24) are well below seed7's
+22/24, and seed11 shows a NEW, systematic (not noise-level) single-leg
+dropout.
+
+**`cartfoot-halfgrav-s10-acq1` -> ACQ PASS.** 0 falls/terminations in
+24/24 gate episodes across all 4 groups, speed_mean_m_s 0.20-0.23 in
+every episode (>>0.03 m/s floor). gait_valid 6/6 walk/det, 5/6
+walk/sto (1 ep sacrifices leg4), 3/6 both startjitter groups (legs
+1/4 sacrificed under jitter) = 17/24 total. slip/m med 1.77/1.70/
+1.73/1.73 across the 4 groups, close to seed7's low-slip band. Reward
+quarters rise monotonically [-768.5, 21.1, 884.5, 1156.8], completed
+naturally at 40,370,176 steps.
+
+**`cartfoot-halfgrav-s11-acq1` -> ACQ PASS (forward-only, det-mode
+gait pathology).** Same clean forward-movement/zero-falls read (speed
+0.20-0.24 m/s, 0/24 terminations), but gait_valid is 0/6 in BOTH
+deterministic groups (walk/det, walk_startjitter/det) -- leg1 is
+sacrificed in EVERY single det episode across both panels (12/12),
+with leg4 added in 2 startjitter episodes. This is qualitatively
+different from the family's usual benign det-quirk (1-2 episodes out
+of 6): it is a full-panel, deterministic-policy dropout. walk/sto is
+clean (6/6), startjitter/sto 5/6. gait_valid total 11/24. slip/m
+1.61/1.58/1.50/1.69, similar magnitude to seed7/seed10. Reward
+quarters rise monotonically [-721.1, 109.1, 922.6, 1177.3], completed
+naturally at 40,370,176 steps.
+
+**Do not pool gait_valid across seeds of this recipe.** seed7 22/24,
+seed10 17/24, seed11 11/24 is real seed-to-seed spread on the SAME
+recipe/budget/gravity/torque -- the earlier seed7-only "22/24" number
+must not stand in for the cohort. Matched OFF siblings
+(`offctrl-s10-acq1`, `offctrl-s11-acq1`) finished training this
+window (W&B state=finished) but their gate evals were not staged at
+read time -- both ON verdicts above are ON-only reads; no ON/OFF
+slip-ratio or parity claim for seed10/seed11 yet (unlike seed7, which
+already has a completed ratio). Whichever cycle finds those OFF
+evals staged should close the seed10/seed11 pairs the way seed7's
+pair was closed, and should read the OFF gait_valid numbers before
+concluding anything about a Cartesian-vs-joint-space asymmetry --
+seed11's leg1 dropout could be seed-basin-specific noise, an
+action-space effect, or a halfgrav-depth effect; nothing here
+distinguishes those yet.
+
+Refill: board checked (`launch_run.py status`) -- 9 GPU pods free
+(train-0,1,2,3,7,8,9,10,11; train-6 unreachable). The two
+still-training widen8/stagedr20m runs are untouched (another cycle's).
+No new seed/continuation/dose-step is licensed by this read alone (no
+recorded hypothesis for one); the next actionable item is reading the
+offctrl-s10/s11 evals once staged, which is not yet possible. No
+other track has unblocked launch-ready work this read (see prior
+entries' capacity notes, unchanged since ~10:3x). CYCLE_WORKED touched
+(verdicts recorded, SKILLS.md/STATUS.md/CURRENT_TRUTHS updated).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-{s10,s11}-acq1`;
+`logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_{s10,s11}_acq1_gate/report.json`;
+W&B `chxamgkj` (s10) / `6ldf24zk` (s11). RL_LOG 09-08 ~11:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:5x (operator-kick cycle, focus note + fb_20260908T102625_4b9148) — built the missing staged-DR mechanism, mechanism canary PASS, launched the pre-registered staged-vs-control 40M fresh-acquisition pair
 
 One plain sentence: the reason no prior knob could test "gradual DR

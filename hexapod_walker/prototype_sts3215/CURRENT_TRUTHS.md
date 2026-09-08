@@ -24,6 +24,20 @@ is one seed, 0.5g/3x torque, not general equivalence or qualification.
 Evidence: repository-root
 `artifacts/rl_watchdog/fleet_20260908T093214Z/halfgrav_comparison.json`.
 
+Seed10/seed11's own 40M ON reads (2026-09-08 ~11:1x) both clear the
+ACQUISITION gate outright (0 falls/24 each, speed 0.20-0.24 m/s, well
+above the 0.03 m/s floor) but their gait_valid totals do NOT repeat
+seed7's 22/24: seed10 is 17/24, seed11 is 11/24 with a NEW systematic
+(not noise-level) leg1 dropout in 100% of BOTH deterministic-mode
+panels (12/12 episodes). Do not pool gait_valid across seeds of this
+recipe -- 22/24 (s7) / 17/24 (s10) / 11/24 (s11) is real spread on the
+identical recipe/budget/gravity/torque. Matched OFF siblings for s10/
+s11 finished training but their gate evals were not staged at this
+read; both verdicts above are ON-only, no ON/OFF ratio yet for these
+two seeds. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_
+halfgrav_{s10,s11}_acq1_gate/report.json`; `rl_docs/tracks/walkcurr/
+STATUS.md` 2026-09-08 ~11:1x entry.
+
 The narrowhead/torqueretain fresh-init failures are finite recipe/seed/
 budget results. They neither uniquely isolate DR breadth nor exclude
 interactions. The completed magnitude-allocation yaw assay is STOP

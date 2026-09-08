@@ -1973,3 +1973,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 10:35 cont10m ON RETENTION PASS: 22/24 gait_valid holds, slip/m in-band vs 40M, 0 falls -- extends seed7 halfgrav ACQ PASS to 50M cumulative 
 - 09-08 10:35 cont10m OFF retention: falls/slip in-band (technical PASS) but gait_valid degrades further (10/24->7/24) -- ON/OFF gap widens at 50M 
 - 09-08 10:49 staged-DR mechanism canary PASS (machinery): ramp armed nominal -> full override ranges on schedule, no NaN, fps cost ~17%; 40M staged-vs-control pair proceeds 
+- 09-08 11:11 [walkcurr] cartfoot-halfgrav-s10-acq1 -> ACQ PASS: 0 falls/24, speed 0.20-0.23 m/s, gait_valid 17/24 (weaker under startjitter); OFF sibling eval not yet staged, no parity claim yet 
+- 09-08 11:12 [walkcurr] cartfoot-halfgrav-s11-acq1 -> ACQ PASS (forward-only): 0 falls/24, speed 0.20-0.24 m/s, but det gait_valid 0/6 both det groups (systematic leg1 sacrifice) -- gait_valid 11/24 total, seed7's 22/24 does not generalize 

@@ -411,9 +411,65 @@ def _make_fixed_base_xml(xml: str) -> str:
     return xml
 
 
+def _compile_with_foot_radius(xml: str, assets=None, radius_m: float = 0.0):
+    """Compile a sphere-radius diagnostic with fresh collision bounds.
+
+    Zero keeps the original compile path. Positive doses retain the original
+    bodies' inertial properties: this changes contact geometry, not mass,
+    inertia, or friction calibration. MuJoCo friction torque coefficients
+    have length units already; a fixed rolling coefficient does not acquire
+    an additional radius multiplier.
+    """
+    import mujoco
+    radius = float(radius_m)
+    if not np.isfinite(radius) or radius < 0.0:
+        raise ValueError("env.foot_geom_radius_m must be finite and >= 0")
+    if radius == 0.0:
+        return (mujoco.MjModel.from_xml_string(xml, assets=assets)
+                if assets else mujoco.MjModel.from_xml_string(xml))
+
+    spec = mujoco.MjSpec.from_string(xml, assets=assets or {})
+    if spec.compiler.fusestatic:
+        raise ValueError("foot radius diagnostic does not support fusestatic")
+    targets = [g for g in spec.geoms if g.name in {
+        f"L{i}_{part}" for i in range(6) for part in ("foot", "pad_col")}]
+    if not targets:
+        raise ValueError("foot radius diagnostic found no named foot spheres")
+    if any(g.type != mujoco.mjtGeom.mjGEOM_SPHERE for g in targets):
+        raise ValueError("foot radius diagnostic supports sphere geoms only")
+
+    reference = spec.compile()
+    # Freeze compiled inertial values before geometry changes. In particular,
+    # inferred sphere mass/inertia must not grow with the diagnostic radius.
+    spec.compiler.inertiafromgeom = 0
+    spec.compiler.settotalmass = -1.0
+    for body in spec.bodies:
+        if body.id == 0:
+            continue
+        bid = body.id
+        if not 0 < bid < reference.nbody:
+            raise ValueError("foot radius diagnostic requires stable body IDs")
+        body.explicitinertial = True
+        body.mass = reference.body_mass[bid]
+        body.ipos = reference.body_ipos[bid]
+        body.iquat = reference.body_iquat[bid]
+        body.ialt.type = mujoco.mjtOrientation.mjORIENTATION_QUAT
+        body.fullinertia = np.full(6, np.nan)
+        body.inertia = reference.body_inertia[bid]
+    for geom in targets:
+        geom.size[0] = radius
+    model = spec.compile()
+    for field in ("body_mass", "body_inertia", "body_ipos", "body_iquat"):
+        if not np.allclose(getattr(model, field), getattr(reference, field),
+                           rtol=1e-13, atol=1e-15):
+            raise RuntimeError(f"foot radius compilation changed {field}")
+    return model
+
+
 def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
                       mjx_compat: bool, terrain_amp: float,
-                      terrain_seed: int, leg_chassis_collision: bool):
+                      terrain_seed: int, leg_chassis_collision: bool,
+                      foot_geom_radius_m: float = 0.0):
     """build_model backend for the mesh family (source mesh / mesh_mjx)."""
     import mujoco
     want_full = source == "mesh" and not mjx_compat
@@ -443,8 +499,7 @@ def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
                      'group="1" condim="3" friction="1.0 0.02 0.0001"/>')
         else:
             xml = _apply_leg_chassis_rewrites(xml, path.name)
-    model = (mujoco.MjModel.from_xml_string(xml, assets=assets)
-             if assets else mujoco.MjModel.from_xml_string(xml))
+    model = _compile_with_foot_radius(xml, assets, foot_geom_radius_m)
     _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
     return model
 
@@ -490,7 +545,7 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
                 mesh_visuals: bool = True, mjx_compat: bool = False,
                 terrain_amp: float = 1.0, terrain_seed: int = 0,
                 leg_chassis_collision: bool = False,
-                source: str | None = None):
+                source: str | None = None, foot_geom_radius_m: float = 0.0):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
 
@@ -518,6 +573,11 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     impl still has no hfield collisions. Either way the backup floor
     plane is removed (redundant contact work on GPU).
 
+    ``foot_geom_radius_m > 0`` compiles named foot spheres at the supplied
+    radius while retaining the original body inertial values and friction.
+    Zero follows the original compile path. This is a simulation geometry
+    diagnostic, not a calibrated change to the physical robot.
+
     ``source`` (default: cfg ``env.model_source``, see
     ``resolve_model_source``) selects the MJCF family: ``mesh`` /
     ``mesh_mjx`` load the mesh-accurate kinematics from ``mesh_mujoco/``
@@ -533,7 +593,8 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
             source=source, fixed_base=fixed_base, flat_terrain=flat_terrain,
             mjx_compat=mjx_compat, terrain_amp=terrain_amp,
             terrain_seed=terrain_seed,
-            leg_chassis_collision=leg_chassis_collision)
+            leg_chassis_collision=leg_chassis_collision,
+            foot_geom_radius_m=foot_geom_radius_m)
     import mujoco_prototype as MP
     saved = (MP.USE_PART_MESHES, MP.USE_SERVO_MESHES)
     try:
@@ -590,7 +651,7 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         if n != 1:
             raise RuntimeError("mjx_compat floor removal failed — "
                                "mujoco_prototype floor XML changed?")
-    model = mujoco.MjModel.from_xml_string(xml)
+    model = _compile_with_foot_radius(xml, radius_m=foot_geom_radius_m)
     _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
     return model
 

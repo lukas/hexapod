@@ -461,3 +461,26 @@ def test_large_prompt_is_delivered_when_the_child_reads_stdin_late(tmp_path):
         "analysis", {"id": "big-prompt-job", "attempts": 1}, prompt, {"type": "object"}
     )
     assert result["received"] == len(prompt)
+
+
+def test_claude_usage_is_read_from_the_result_event(tmp_path):
+    provider = get_provider(configured(tmp_path, agent_provider="claude"))
+    run_dir = tmp_path / "attempt-1"
+    run_dir.mkdir()
+    (run_dir / ".events.raw.jsonl").write_text(
+        json.dumps({
+            "type": "result", "subtype": "success", "is_error": False,
+            "structured_output": {"summary": "ok"},
+            "total_cost_usd": 0.42, "duration_ms": 1234, "num_turns": 3,
+            "usage": {"input_tokens": 10, "output_tokens": 20,
+                      "cache_read_input_tokens": 5},
+        }) + "\n",
+        encoding="utf-8",
+    )
+    usage = provider.usage(run_dir)
+    assert usage["cost_usd"] == 0.42
+    assert usage["output_tokens"] == 20
+    assert usage["cache_read_tokens"] == 5
+    assert usage["turns"] == 3
+    # Codex reports nothing here; absence must not be an error.
+    assert get_provider(configured(tmp_path)).usage(run_dir) == {}

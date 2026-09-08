@@ -38,6 +38,7 @@ from .codex_transcripts import (
 )
 from .communication_capture import STATUS_NAME, TRANSCRIPT_NAME
 from .db import Store
+from . import lab_stats
 from .execution_progress import ExecutionProgressIn, ExecutionProgressStore, execution_summary
 from .layout_history import (
     LayoutHistoryConflict,
@@ -115,6 +116,10 @@ class TagLayoutActivationIn(BaseModel):
 class LearningsIn(BaseModel):
     text: str = Field(min_length=1, max_length=6000)
     sources: list[str] = Field(default_factory=list, max_length=20)
+
+
+class CodexQueuePauseIn(BaseModel):
+    reason: str
 
 
 class CodexQueueResumeIn(BaseModel):
@@ -773,6 +778,35 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
             "worker_active": bool(runner.thread and runner.thread.is_alive()),
         }
 
+    @app.post("/api/codex-queue/pause", status_code=202)
+    def pause_codex_queue(
+        spec: CodexQueuePauseIn,
+        request: Request,
+        principal: Principal = Depends(operator),
+    ):
+        """Stop the automation lanes claiming new work.
+
+        The orchestrator already latches this when a run needs inspection;
+        exposing it to an operator means spend can be halted without stopping
+        the service or losing queued work.
+        """
+        require_same_origin_action(
+            request, header="x-hexapod-lab", label="Codex queue pause"
+        )
+        reason = spec.reason.strip()
+        if not reason:
+            raise HTTPException(422, "Give a reason for pausing the queue")
+        try:
+            return store.pause_codex_queue_for_operator(
+                reason, created_by=principal.name
+            )
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+
+    @app.get("/api/stats")
+    def lab_stats_api(principal: Principal = Depends(viewer)):
+        return lab_stats.collect(store, settings)
+
     @app.post("/api/codex-queue/resume", status_code=202)
     def resume_codex_queue(
         spec: CodexQueueResumeIn,
@@ -1356,6 +1390,99 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         return JSONResponse(status_code=400, content={"jsonrpc": "2.0", "id": rpc_id,
                             "error": {"code": -32601, "message": "Method not found"}})
 
+    @app.get("/stats", response_class=HTMLResponse)
+    def stats_page(request: Request, principal: Principal = Depends(viewer)):
+        data = lab_stats.collect(store, settings)
+        agent = data["agent"]
+        totals, day = data["totals"], data["last_24h"]
+
+        def money(value):
+            return f"${value:,.2f}" if value else "$0.00"
+
+        def tiles(bucket, label):
+            return (
+                f"<div class='stat-tile'><small>{escape(label)} attempts</small>"
+                f"<strong>{bucket['attempts']:,}</strong></div>"
+                f"<div class='stat-tile'><small>{escape(label)} cost</small>"
+                f"<strong>{money(bucket['cost_usd'])}</strong></div>"
+                f"<div class='stat-tile'><small>{escape(label)} failed</small>"
+                f"<strong>{bucket['failed']:,}</strong></div>"
+                f"<div class='stat-tile'><small>{escape(label)} tokens out</small>"
+                f"<strong>{bucket['output_tokens']:,}</strong></div>"
+            )
+
+        def table(title, mapping, key_label):
+            if not mapping:
+                return ""
+            rows = "".join(
+                f"<tr><td>{escape(str(name))}</td><td>{b['attempts']:,}</td>"
+                f"<td>{money(b['cost_usd'])}</td><td>{b['failed']:,}</td>"
+                f"<td>{b['input_tokens']:,}</td><td>{b['output_tokens']:,}</td></tr>"
+                for name, b in sorted(
+                    mapping.items(), key=lambda kv: -kv[1]["cost_usd"]
+                )
+            )
+            return (
+                f"<h2>{escape(title)}</h2><div class='table-wrap'><table><tr>"
+                f"<th>{escape(key_label)}</th><th>Attempts</th><th>Cost</th>"
+                "<th>Failed</th><th>Tokens in</th><th>Tokens out</th></tr>"
+                f"{rows}</table></div>"
+            )
+
+        experiments = "".join(
+            f"<tr><td>{escape(str(k))}</td><td>{v:,}</td></tr>"
+            for k, v in sorted(data["experiments"].items())
+        ) or "<tr><td colspan='2'>No experiments yet.</td></tr>"
+
+        recent = "".join(
+            "<tr>"
+            f"<td>{escape(str(item.get('started_at') or ''))[:19]}</td>"
+            f"<td>{escape(str(item.get('kind')))}</td>"
+            f"<td>{escape(str(item.get('provider')))}</td>"
+            f"<td>{escape(str(item.get('model')))}</td>"
+            f"<td>{money((item.get('usage') or {}).get('cost_usd') or 0)}</td>"
+            f"<td>{'ok' if item.get('returncode') == 0 else escape(str(item.get('returncode')))}</td>"
+            "</tr>"
+            for item in data["recent_attempts"]
+        ) or "<tr><td colspan='6'>No attempts recorded yet.</td></tr>"
+
+        note = (
+            "<p class='lede'>Cost is what the agent CLI reported for each "
+            "attempt. Attempts run before cost reporting existed contribute "
+            "0, so totals are a floor, not a bill.</p>"
+        )
+        truncated = (
+            "<p class='lede'>Scan truncated at "
+            f"{data['attempts_scanned']:,} attempts.</p>"
+            if data.get("scan_truncated") else ""
+        )
+        body = (
+            "<div class='dashboard-head'><div>"
+            "<h1>Lab stats</h1>"
+            f"<p class='lede'>Backend <strong>{escape(agent['label'])}</strong> · "
+            f"{escape(agent['model'])} · effort {escape(agent['effort'])}</p>"
+            f"<p class='lede'>Generated {escape(data['generated_at'])}</p>"
+            "</div><div class='tool-links'>"
+            "<a class='tool-link' href='/'>Dashboard <span>→</span></a>"
+            "</div></div>"
+            + note + truncated
+            + "<section class='context'><h2>Totals</h2><div class='stat-grid'>"
+            + tiles(totals, "All-time") + tiles(day, "24h")
+            + "</div></section>"
+            + "<section class='context'>"
+            + table("By backend", data["by_provider"], "Provider")
+            + table("By lane", data["by_role"], "Lane")
+            + table("By model", data["by_model"], "Model")
+            + "</section>"
+            + "<section class='context'><h2>Experiments</h2><div class='table-wrap'>"
+            f"<table><tr><th>Status</th><th>Count</th></tr>{experiments}</table>"
+            f"</div><p class='lede'>{data['experiments_total']:,} total.</p></section>"
+            + "<section class='context'><h2>Recent attempts</h2><div class='table-wrap'>"
+            "<table><tr><th>Started</th><th>Lane</th><th>Backend</th><th>Model</th>"
+            f"<th>Cost</th><th>Result</th></tr>{recent}</table></div></section>"
+        )
+        return HTMLResponse(page("Lab stats", body))
+
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request, principal: Principal = Depends(viewer)):
         cards = "".join(experiment_card(item) for item in store.list()) or "<p>No experiments yet.</p>"
@@ -1365,6 +1492,7 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         )
         tools = (
             "<div class='tool-links'>"
+            "<a class='tool-link' href='/stats'>Lab stats &amp; cost <span>→</span></a>"
             "<a class='tool-link' href='/tag-scan'>Scan AprilTags <span>→</span></a>"
             "<a class='tool-link' href='/tag-layout-history'>Tag history <span>→</span></a>"
             + sign_out +
@@ -2016,12 +2144,37 @@ def automation_section(item):
     )
 
 
+def pause_controls():
+    """Operator pause: stop the lanes claiming new work without stopping the service."""
+    return """
+        <div class='activation'>
+          <label for='codex-pause-note'>Pause the queue — why?</label>
+          <input id='codex-pause-note' maxlength='2000' placeholder='e.g. watching spend'>
+          <button id='codex-pause' type='button'>Pause experiment queue</button>
+          <p id='codex-pause-result' role='status'></p>
+        </div>
+        <script>
+        (()=>{const button=document.getElementById('codex-pause');button.addEventListener('click',async()=>{
+          const result=document.getElementById('codex-pause-result');
+          const reason=document.getElementById('codex-pause-note').value.trim();
+          if(!reason){result.textContent='Give a reason so the pause is auditable.';return}
+          button.disabled=true;result.textContent='Pausing…';
+          try{const response=await fetch('/api/codex-queue/pause',{method:'POST',headers:{'Content-Type':'application/json','X-Hexapod-Lab':'1'},body:JSON.stringify({reason})});
+          const payload=await response.json();if(!response.ok)throw new Error(payload.detail||'Pause failed');
+          result.textContent='Queue paused.';setTimeout(()=>location.reload(),700)
+          }catch(error){result.textContent=error.message;button.disabled=false}
+        })})();
+        </script>"""
+
+
 def codex_queue_panel(control, can_resume):
     if not control.get("paused"):
         return (
             f"<section class='context automation'><h2>{escape(agent_label())} experiment loop</h2>"
             "<p>The durable queue safety latch is clear. Analysis jobs run before "
-            "the serialized advance lane.</p></section>"
+            "the serialized advance lane.</p>"
+            + (pause_controls() if can_resume else "")
+            + "</section>"
         )
     reason = escape(str(
         control.get("reason") or f"A {agent_label()} run required inspection."
@@ -2090,7 +2243,7 @@ def runner_safety_panel(control, can_resume):
 
 def page(title, body):
     return """<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'><title>%s</title><style>
-    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(2rem,7vw,4.8rem);letter-spacing:-.06em;line-height:.95;margin:.5em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:end;justify-content:space-between;gap:2rem;margin-bottom:3rem}.tool-links{display:grid;gap:.6rem}.tool-link{display:flex;align-items:center;justify-content:space-between;gap:.8rem;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:.75rem 1rem;background:var(--panel);white-space:nowrap}.tool-link span{font-size:1.4rem}a{color:var(--lime)}article{display:flex;align-items:start;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}.waiting_for_operator{color:#e6a8ff;border-color:#70477f}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
+    :root{color-scheme:dark;--bg:#0c1110;--panel:#141c19;--ink:#e8f1ec;--muted:#94a69d;--lime:#b7f34a;--line:#2a3932}*{box-sizing:border-box}body{max-width:980px;margin:0 auto;padding:48px 24px;background:var(--bg);color:var(--ink);font:16px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}h1{font-size:clamp(2rem,7vw,4.8rem);letter-spacing:-.06em;line-height:.95;margin:.5em 0}.lede{color:var(--muted);font-size:1.1rem;margin:0}.dashboard-head{display:flex;align-items:end;justify-content:space-between;gap:2rem;margin-bottom:3rem}.tool-links{display:grid;gap:.6rem}.tool-link{display:flex;align-items:center;justify-content:space-between;gap:.8rem;text-decoration:none;border:1px solid var(--line);border-radius:14px;padding:.75rem 1rem;background:var(--panel);white-space:nowrap}.tool-link span{font-size:1.4rem}a{color:var(--lime)}article{display:flex;align-items:start;justify-content:space-between;gap:2rem;border-top:1px solid var(--line);padding:1.5rem 0}article h2{margin:.4rem 0;font-size:1.25rem}article p,small{color:var(--muted)}.status{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.15rem .55rem;font-size:.72rem;text-transform:uppercase}.succeeded{color:var(--lime)}.failed{color:#ff756b}.running{color:#71caff}.queued{color:#ffd56a}.waiting_for_operator{color:#e6a8ff;border-color:#70477f}video{display:block;width:100%%;margin:2rem 0;border:1px solid var(--line);background:#000}pre{white-space:pre-wrap;background:var(--panel);padding:1.2rem;border:1px solid var(--line);overflow:auto}ul{line-height:2}.context,.review{margin:2rem 0;padding:1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.context h2,.review h2{margin-top:0}.table-wrap{overflow:auto}table{width:100%%;border-collapse:collapse;font-size:.76rem}th,td{padding:.65rem;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}td code{white-space:normal}.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin-top:1rem}.stat-tile{border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;background:var(--bg)}.stat-tile small{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}.stat-tile strong{font-size:1.35rem;letter-spacing:-.02em}.activation{display:grid;gap:.7rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}textarea{min-height:76px;padding:.7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}button{padding:.8rem 1rem;border:0;border-radius:10px;background:var(--lime);color:#142006;font:inherit;font-weight:800;cursor:pointer}button:disabled{opacity:.55}@media(max-width:650px){article{display:block}small{display:block;margin-top:1rem}.dashboard-head{display:block}.tool-links{margin-top:1.5rem}.tool-link{justify-content:space-between}}
     .experiment-title{font-size:clamp(1.8rem,5vw,3rem);line-height:1.12;letter-spacing:-.045em;margin:.7em 0}.learnings{margin:1.5rem 0 2rem;padding:1.5rem 1.65rem;background:#17221b;border:1px solid #405638;border-left:4px solid var(--lime);border-radius:14px;font:1.08rem/1.7 system-ui,-apple-system,sans-serif}.learnings h2{font-size:1.3rem;letter-spacing:-.02em;line-height:1.3;margin:0 0 .85rem;color:var(--lime)}.learnings p{margin:.75rem 0}.learnings .learnings-sources{font-size:.8rem;margin-top:1rem;color:var(--muted)}@media(max-width:650px){.learnings{padding:1.2rem;font-size:1rem}}
     </style></head><body>%s</body></html>""" % (escape(title), body)
 

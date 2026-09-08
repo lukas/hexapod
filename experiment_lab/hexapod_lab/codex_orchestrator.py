@@ -2411,6 +2411,15 @@ class CodexOrchestrator:
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "returncode": process.returncode,
         })
+        # Capture spend while the raw event stream still exists, so the stats
+        # view aggregates small metadata files instead of rescanning every
+        # transcript. A provider that reports nothing simply omits it.
+        try:
+            usage = self.provider.usage(run_dir)
+        except Exception:
+            usage = {}
+        if usage:
+            metadata["usage"] = usage
         _atomic_json(run_dir / "metadata.json", metadata)
         if communication_capture is not None:
             self._finish_robot_communication(communication_capture)

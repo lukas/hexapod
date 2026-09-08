@@ -129,16 +129,46 @@ def feasibility_guard(hip_deg: float, knee_deg: float,
     g = TripodGait(vx=0.0)
     g.sync_plant_stance(hip_deg, knee_deg)
     qs = []
-    for vx, wz in cells:
-        g.reset_phase(phase=0.0)
-        g.set_velocity(vx=vx, omega=wz)
-        for i in range(400):
-            q = g.desired_deg(i * 0.01)
-            if q is None or not all(math.isfinite(v) for v in q):
-                raise SystemExit(
-                    f"FEASIBILITY FAIL: IK/NaN at stance "
-                    f"({hip_deg},{knee_deg}) cell ({vx},{wz}) tick {i}")
-            qs.append(q)
+    # desired_deg silently substitutes a finite neutral pose when _leg_ik
+    # returns None. Observe the actual module global used by TripodGait,
+    # only during this single-threaded diagnostic sweep; never change its
+    # production fallback behavior or leave instrumentation installed.
+    gait_module = sys.modules[TripodGait.__module__]
+    raw_ik = gait_module._leg_ik
+    ik_calls = ik_failures = 0
+    failed_target = None
+
+    def observed_ik(target):
+        nonlocal ik_calls, ik_failures, failed_target
+        ik_calls += 1
+        result = raw_ik(target)
+        if result is None:
+            ik_failures += 1
+            if failed_target is None:
+                failed_target = target
+        return result
+
+    try:
+        gait_module._leg_ik = observed_ik
+        for vx, wz in cells:
+            g.reset_phase(phase=0.0)
+            g.set_velocity(vx=vx, omega=wz)
+            for i in range(400):
+                q = g.desired_deg(i * 0.01)
+                if ik_failures:
+                    raise SystemExit(
+                        f"FEASIBILITY FAIL: raw IK failed {ik_failures} "
+                        f"time(s) at stance ({hip_deg},{knee_deg}) "
+                        f"cell ({vx},{wz}) tick {i}; target={failed_target}")
+                if q is None or not all(math.isfinite(v) for v in q):
+                    raise SystemExit(
+                        f"FEASIBILITY FAIL: IK/NaN at stance "
+                        f"({hip_deg},{knee_deg}) cell ({vx},{wz}) tick {i}")
+                qs.append(q)
+    finally:
+        gait_module._leg_ik = raw_ik
+    if not ik_calls:
+        raise SystemExit("FEASIBILITY FAIL: no raw IK calls observed")
     q = np.asarray(qs).reshape(-1, 6, 3)
     margins = {}
     for ax, nm in ((0, "yaw"), (1, "hip"), (2, "knee")):
@@ -152,7 +182,8 @@ def feasibility_guard(hip_deg: float, knee_deg: float,
             raise SystemExit(f"FEASIBILITY FAIL: {nm} margin "
                              f"{margins[nm]} at stance ({hip_deg},{knee_deg})")
     return {"stance": stance_geometry(hip_deg, knee_deg),
-            "joint_margins": margins}
+            "joint_margins": margins,
+            "raw_ik_calls": ik_calls, "raw_ik_failures": ik_failures}
 
 
 def fit_twist_resid(pos: np.ndarray, vel: np.ndarray, sel: np.ndarray):

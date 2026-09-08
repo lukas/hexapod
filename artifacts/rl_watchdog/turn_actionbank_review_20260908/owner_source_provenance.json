@@ -1,0 +1,22 @@
+{
+  "owner_runner_sha256": "0b94ca3f3c19549173caf5cbdb989943e4c5136cafe791246f80e46702ac2240",
+  "owner_path": "/workspace/hexapod-turnphase-wt/hexapod_walker/prototype_sts3215/rl_move/sim/probe_action_response_bank.py",
+  "observed_utc": "2026-09-08T06:27:00Z",
+  "helper_callpaths_identical_to_current": [
+    "_build_cfg",
+    "make_env",
+    "_load_model",
+    "rollout",
+    "_ContactAudit"
+  ],
+  "old_sim_env_has_pitch_rel_deg": false,
+  "old_sim_env_has_pitch_deg": true,
+  "completed_owner_sources_sha256": {
+    "cfg_set.json": "aabf4cc25f78ebf3b28ff7b4a46fba85c109f4061becaf4212e8842b5c550e40",
+    "owner_prereg_spec.json": "847db884d21b74b6452704d86ae13f30f7e59892ee3245df81d7475813cebdba",
+    "owner_completed_runner.py": "ed15d1c609381f954e239577d13879d633791e221db88df5df4d064abe82a15a"
+  },
+  "correction": "06:27:38 owner changed missing pitch_rel_deg fallback to pitch_deg before full bank. Initial 06:27 snapshot did not include this; completed bank pitch was absolute, not zero. Max absolute pitch relative to reset still requires explicit reference handling.",
+  "completed_owner_qpos_correction": "Completed ed15d1c6 runner stores qpos_all for baseline and tests final qpos at P+80 against zero branch. The earlier snapshot did not; withdraw missing-qpos criticism for completed full bank.",
+  "review_status": "Completed reviewed bank, original trajectory parity PASS; see RESULT.md. No core/owner source edits."
+}

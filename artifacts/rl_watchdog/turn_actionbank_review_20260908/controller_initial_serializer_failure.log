@@ -1,0 +1,30 @@
+Traceback (most recent call last):
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 594, in <module>
+    main()
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 477, in main
+    tr = _rollout(spec, **cell,
+         ^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 349, in _rollout
+    out["states"][count] = _capture_state(env, model, obs)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 187, in _capture_state
+    "complete_state_sha256": _digest({
+                             ^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 164, in _digest
+    raw = json.dumps(_frozen_value(value), separators=(",", ":")).encode()
+                     ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 149, in _frozen_value
+    return ["dict", [[str(k), _frozen_value(v)]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 149, in <listcomp>
+    return ["dict", [[str(k), _frozen_value(v)]
+                              ^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 149, in _frozen_value
+    return ["dict", [[str(k), _frozen_value(v)]
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 149, in <listcomp>
+    return ["dict", [[str(k), _frozen_value(v)]
+                              ^^^^^^^^^^^^^^^^
+  File "/workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/reviewed_probe_action_response_bank.py", line 160, in _frozen_value
+    raise TypeError(f"unsupported state fingerprint value: {type(value)}")
+TypeError: unsupported state fingerprint value: <class 'collections.deque'>

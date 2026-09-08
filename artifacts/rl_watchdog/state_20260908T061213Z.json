@@ -1,18 +1,19 @@
 {
   "heartbeat": "keep-hexapod-rl-gpus-training",
   "trigger": "2026-09-08T06:12:13.113Z",
-  "updated_at": "2026-09-08T06:30:38.358237+00:00",
-  "status": "in_progress",
+  "updated_at": "2026-09-08T06:54:58.610281+00:00",
+  "status": "visit_complete",
   "capacity": {
     "sampled_at": [
-      "2026-09-08T06:12:52Z",
-      "2026-09-08T06:14:05Z"
+      "2026-09-08T06:51:16Z"
     ],
     "ready": 11,
-    "busy_training": 0,
-    "free": 11,
-    "backlog": [],
-    "nvidia": "All eleven 0% utilization,0MiB,no compute applications on repeated samples."
+    "busy_gpu_pods": 4,
+    "free": 7,
+    "pending_pods": [
+      6
+    ],
+    "scope": "Two corrected1x PPO jobs and two EASY3x jobs occupy GPUs; both corrected arms and seed10 EASY have recorded rollouts, seed7 EASY was at kernel startup in this snapshot. See raw NVIDIA and processes in corrected_refill.json."
   },
   "completed_optimization": {
     "cartfoot_c1_cont10m": {
@@ -43,34 +44,34 @@
     }
   },
   "ownership": {
-    "20260908T042639": "Original scratch implementation owner; four launch cap reached; historical CPU bank integrity comparison still running. Do not duplicate or kill.",
-    "20260908T061641": "Watcher-assigned +10M paired triage/refill owner.",
-    "20260908T061618": "Watcher-assigned seed3 paired triage owner.",
-    "20260908T061640": "Root-requested currently unowned assisted steering dynamic-response bank and conditional supported canary."
+    "20260908T042639": "Finished historical CPU bank comparison; same35failure names in both source heads,353pass4skip1xfail.",
+    "20260908T061641": "Separate EASY seed10 acquisition/recovery owner; zero-step activation crash repaired, fresh-name retry has actual PPO.",
+    "20260908T061618": "Fresh EASY seed7/11 canary owner; all canaries complete.",
+    "20260908T061640": "Completed original assisted action-response bank; no branch meets5mrad, no conditional PPO.",
+    "20260908T063721": "Corrected current1x ACQ PARTIAL; sole owner one final matched+10M seed2 ON/OFF pair, both advancing.",
+    "20260908T063725": "Separate EASY seed7 matched40M acquisitions owner; preserve its budget and allocation."
   },
   "observations": [
     "CPU finalizers advanced while GPUs were reusable; RUNNING labels are not active optimization. No GPU retention recurrence.",
     "Both +10M gate reports and s3 gate reports ready; exact gate selected independently of concatenated mixed-session reports.",
     "12M ratio panel 2.418/3.084/2.522/3.097 lies between preregistered promising and closure thresholds; only two groups exceed 3x.",
     "Per-tick reward improved while episodes lengthened; noisy late length-matched episode-return improvement warrants existing continuation-clause review.",
-    "Fresh-init suggestion reverting to historical 3x-torque easy assay is not adopted here; current physical limits retained."
+    "Cloud owners independently executed historical EASY3x zero-noise fresh-init assays. Keep their scope distinct from the current1x noisy continuation pair; root did not request new seeds or relaxed qualification."
   ],
   "feedback": [
     "fb_20260908T061840_eb16f8"
   ],
   "evidence": "artifacts/rl_watchdog/cartfoot_acquisition_read_20260908/",
   "prior_evidence_publication": "89c2399a7",
-  "pending": [
-    "Verify +10M triage/refill decision executes scientifically justified work without duplicate ownership.",
-    "Review causal steering-bank implementation and any conditional canary.",
-    "Publish final receipt and correct full-mesh versus twin track summary."
-  ],
+  "pending": [],
   "decision_review": {
     "formal_verdict_at_0620": "ACQ FAIL issued by061641; preserved history, under review",
     "reason": "Uses medians in a mean-based gate and raw episode-return quarters despite episode-length ramp and improving normalized/task metrics.",
     "recommendation": "One additional matched +10M existingRNG2 on current1x/noisy recipe; retain original success thresholds and stop automatic extensions after next intermediate read.",
     "evidence": "cartfoot_acquisition_read_20260908/review.md",
-    "non_log_std_weights_moved": true
+    "non_log_std_weights_moved": true,
+    "formal_verdict_corrected": "ACQ PARTIAL at06:40:23/29 UTC by063721; previous verdict preserved in history.",
+    "executed": "Both final matched+10M seed2 arms placed and repeatedly advancing, unchanged1x/noisy config except three Cartesian keys; no further automatic extension after intermediate read."
   },
   "fresh_easy_assay": {
     "owners": [
@@ -83,20 +84,120 @@
       11
     ],
     "steps_per_arm": 2000000,
-    "scope": "Historical base-s0 EASY3x-torque,zero-noise matched random-init Cartesian/joint assay; no current1x plant qualification.",
-    "last_observed_at": "2026-09-08T06:29:26Z",
+    "scope": "Separate historical EASY3x-torque,zero-noise matched random-init Cartesian/joint assay; not current1x qualification.",
+    "last_observed_at": "2026-09-08T06:50:56Z",
     "completed": [
       "seed7ON",
       "seed7OFF",
-      "seed10ON"
-    ],
-    "optimizing_or_starting": [
-      "seed10OFF"
-    ],
-    "queued": [
+      "seed10ON",
+      "seed10OFF",
       "seed11ON",
       "seed11OFF"
     ],
-    "authority": "Cloud triage planned these; root did not add seeds or request a physical limit change."
-  }
+    "optimizing_or_starting": [
+      "seed10ON40M-c1b",
+      "seed7ON40M-acq1"
+    ],
+    "queued": [],
+    "authority": "Cloud triage planned these; root did not add seeds or request a physical limit change.",
+    "steps_completed_per_arm": 2097152,
+    "budget_read": {
+      "owner061641_requested_so_far": 44000000,
+      "owner061641_max_per_cycle": 80000000,
+      "owner061641_second40M_would_be": 84000000,
+      "separate_owner063725_matched_acquisition_request": 80000000,
+      "note": "Seed10 note says+38M but configured continuation is40M. No budget alteration or additional launch by reviewer."
+    }
+  },
+  "capacity_initial": {
+    "sampled_at": [
+      "2026-09-08T06:12:52Z",
+      "2026-09-08T06:14:05Z"
+    ],
+    "ready": 11,
+    "busy_training": 0,
+    "free": 11,
+    "backlog": [],
+    "nvidia": "All eleven 0% utilization,0MiB,no compute applications on repeated samples."
+  },
+  "refill": {
+    "corrective_owner": "20260908T063721",
+    "original_verdict_corrected": "ACQ PARTIAL, previous text preserved plus scope correction",
+    "on": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont20m",
+      "pod": "hexapod-mjx-train-4",
+      "wandb_id": "xcn1obp9",
+      "pid": 517373,
+      "steps_064849": 6815744,
+      "steps_065014": 8388608,
+      "fps_065014": 19355,
+      "torque_scale": "1.0,1.0",
+      "action_noise": 0.02
+    },
+    "off": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont20m",
+      "pod": "hexapod-mjx-train-0",
+      "wandb_id": "h2y5r9w0",
+      "pid": 728382,
+      "steps_064849": 1572864,
+      "steps_065014": 3145728,
+      "fps_065014": 18663,
+      "torque_scale": "1.0,1.0",
+      "action_noise": 0.02
+    },
+    "both_actual_PPO_advancement_verified": true,
+    "eval_results_not_yet_available": true,
+    "ready_pods": 11,
+    "busy_gpu_pods": 4,
+    "actual_idle_gpu_pods": 7,
+    "allocation_utc": "2026-09-08T06:51:16Z",
+    "busy_1x_corrected": 2,
+    "busy_EASY_3x": 2,
+    "idle_pods": [
+      2,
+      3,
+      5,
+      8,
+      9,
+      10,
+      11
+    ],
+    "pending_pods": [
+      6
+    ],
+    "EASY_budget_concern_handed_to_root_pruner": true,
+    "stop_reason": "Parent confirmed repeated advancement fulfills requirement; final fleet snapshot and evidence complete",
+    "mutations_performed": []
+  },
+  "launcher_repair": {
+    "commit": "e74e24875",
+    "scope": "Plain checkpoint warm start drops inherited activation-fn; explicit incompatible override rejected before queue/snapshot. No trainer/physics changes.",
+    "tests": "37focused tests passed locally;37passed on controller in0.84s.",
+    "deployed": true,
+    "recovery": "EASY seed10 c1b actual4,718,592steps/17,744FPS; saved4,194,304checkpoint; HEALTHY checkup06:52:32.",
+    "evidence": "cartfoot_acquisition_read_20260908/launcher_recovery.json"
+  },
+  "automation": "Keep heartbeat active; walking/yaw goals remain unmet.",
+  "steering_review": {
+    "branches": 296,
+    "pulse_branches": 288,
+    "zero_state_parity": true,
+    "all_pulse_prefix_parity": true,
+    "all_original_yaw_trace_qpos_exact": true,
+    "primary_successes": 0,
+    "primary_threshold_rad": 0.005,
+    "max_primary_gain_rad": 0.0040968585769,
+    "max_true_endpoint_gain_rad": 0.0041121956115,
+    "post_review_retention_passes": 288,
+    "runtime_s": 71.42,
+    "focused_tests": 6,
+    "conclusion": "No conditional PPO arm; finite single-joint dose/state/horizon result, not closure of other steering classes.",
+    "provenance_correction": "Original completed owner fixed missing pitch lookup and baseline finalqpos before its fullbank; early draft criticisms withdrawn.",
+    "evidence": "artifacts/rl_watchdog/turn_actionbank_review_20260908/"
+  },
+  "ongoing_cloud_work": [
+    "063721 owns paired final current1x acquisition assessment; do not duplicate or automatically extend another intermediate read.",
+    "061641 and063725 own distinct EASY acquisitions; keep per-cycle budgets and physics scope explicit.",
+    "Read-only get_run duplicate REFUSED row can shadow a healthy placement; actual process/checkpoint evidence remains authoritative."
+  ]
 }

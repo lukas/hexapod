@@ -13,9 +13,11 @@ checkpoint (`61f9c20f…`) and frozen 4.80573 kg full-mesh XML (`7efb8e8a…`),
 original 400/20/0.375/350/100 Hz motor contract, cells (0.08, ±0.15) ×
 starts 0/π, seed 0, two settled states per cell separated by the nearest control tick to half a cycle,
 296 branches (±0.05 normalized single-joint 5-tick pulses + zero
-controls), identical reset/prefix replay. The original zero branches match the recorded baseline observables. The
-original runner does not record baseline endpoint qpos, so its claimed
-final-qpos equality is unverified; full-state parity is under review.
+controls), identical reset/prefix replay. The original zero branches match
+the recorded baseline observables and endpoint qpos. The completed owner
+runner fixed baseline qpos capture before the full bank; the earlier root
+criticism came from a draft snapshot and is withdrawn. The separate
+reviewed replay now passes stronger full-state zero/prefix parity.
 
 Result against the PREREGISTERED criteria (spec hashed before data,
 sha `847db884…`): **0/288 branches reach the +0.005 rad commanded-
@@ -29,13 +31,30 @@ this frozen policy/plant); multi-joint/closed-loop/learned residual classes, oth
 doses/phases and gait-level mechanisms remain OPEN. Continuous-yaw
 qualification remains FAIL for this lineage — unchanged.
 
-Root review found missing pitch_rel_deg was silently recorded as zero,
-forward displacement used the initial heading rather than the rotating
-body-frame command, and loaded slip used pad-body-center motion rather
-than material contact motion. These issues require correction before
-calling retention verified. They do not by themselves change the directly
-measured yaw response or justify the conditional canary. A separate
-reviewed replay is being prepared; the original source/data stay retained.
+Source provenance correction: the completed owner runner used real
+absolute pitch_deg, having fixed the draft's missing pitch_rel_deg lookup
+before execution. The earlier claim that the completed bank recorded zero
+pitch is withdrawn. Remaining retention limitations are absolute rather
+than reset-relative pitch, initial-heading forward displacement rather than
+rotating body-frame progress, and pad-body-center motion rather than
+material-contact slip. A separate reviewed replay corrects those metrics,
+fails closed on missing/nonfinite values, and checks full-state prefix
+parity. Its retention screen is explicitly post-review; it preserves the
+original yaw threshold, source/data, observed yaw, legacy trace, and endpoint
+qpos comparisons. These measurement issues alone do not justify a canary.
+
+The reviewed replay completed all 296 branches in 71.42 seconds: all 8
+zero-state checks and 288 pulse-prefix checks pass; original observed yaw,
+legacy trace hashes, and endpoint qpos agree exactly in every branch.
+Corrected retention also passes 288/288. Body-forward ratios span
+0.9281–1.0305 and loaded material-slip distance ratios 0.9607–1.0847.
+Primary yaw gain remains below 5 mrad in all 288 pulses (maximum
+0.00409686 rad); independently read true-endpoint gain is also below the
+bar (maximum 0.00411220 rad). No pulse canary is justified by this bank.
+This finite single-joint pulse result does not close other steering classes.
+Reviewed source, pinned hashes, six focused tests, the retained baseline-only
+serializer failure and repair, raw bank, and analysis are in
+`artifacts/rl_watchdog/turn_actionbank_review_20260908/`.
 
 Evidence: `artifacts/rl_watchdog/turn_actionbank_20260908/`
 (prereg_spec.json, probe_action_response_bank.py, bank.json,

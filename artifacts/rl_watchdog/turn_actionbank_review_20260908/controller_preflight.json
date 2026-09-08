@@ -1,0 +1,26 @@
+{
+  "copy_manifest_all_match": true,
+  "helper_AST_all_three_match": true,
+  "helper_AST_sha256": {
+    "_ContactAudit": "aacbef7ff3c6250d6d72ccd6d5c40de8c600b37821eb63885af478b207de51dc",
+    "_build_cfg": "aab02a1237d34cbf232af359963db12ef41410ab54d804b4655392b8861de887",
+    "make_env": "270df891dda842c534162fc29baf47c6edb12670ea0ed8337eb064dc79f3a264",
+    "_load_model": "e6dcb1e791a03ec22919f3c81b816a78c8e26b8e23e58e460458a7aad0ce9584",
+    "rollout": "9761dccbf378aeed880a2a2308b640d12624b81465500f08692aff966484f37f"
+  },
+  "prototype": "/workspace/hexapod_hybrid_fullmesh_20260908/hexapod_walker/prototype_sts3215",
+  "checkpoint_sha256": "61f9c20f0f72d89217a22b47037e33c8dad2f50bfaca0a3d5517f714dd0eeb10",
+  "xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+  "runner_sha256": "b04823c250e011d2ec37e18c724313112ed5b7482680f90f4b18b7d373e1b920",
+  "cfg_sha256": "aabf4cc25f78ebf3b28ff7b4a46fba85c109f4061becaf4212e8842b5c550e40",
+  "spec_sha256": "847db884d21b74b6452704d86ae13f30f7e59892ee3245df81d7475813cebdba",
+  "source_hashes": {
+    "rl_move/sim/probe_turn_authority.py": "7ebed02c590a02a8dd242ef484b4193966ca637fc1c40a9176f3f68231bbbed8",
+    "rl_move/sim/sim_env.py": "24e9446b29f9e92a41ffb63d3a91842e01ce9d40b4bcf84f9409cc8b1aa01bd7",
+    "rl_move/sim/walk_task.py": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+    "rl_move/sim/joint_task.py": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+    "rl_move/sim/servo_model.py": "e2325426ede9ae566575cca0c9cff1f429190fadbf6291b705980c9d51c1fff8",
+    "rl_move/sim/mjx_host.py": "73ee49cb02ed8ed68b46c6ba41b8ae9da8c3fd06894a6bff4584d722089c73d9",
+    "rl_move/config.yaml": "ea90091f567e7efaff0c0614fa6eb1e76bb1b148c81d983bc6ea27571e9252d9"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "repair_commit": "e74e24875",
+  "controller_tests": {
+    "count": 37,
+    "passed": 37,
+    "seconds": 0.84,
+    "files": [
+      "test_launch_run_respec_activation.py",
+      "test_launch_run_acquisition_steps_footgun.py",
+      "test_launch_run_torch_gate.py"
+    ]
+  },
+  "recovered_run": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b",
+  "wandb_id": "d9xbrnil",
+  "pod": "hexapod-mjx-train-7",
+  "ppo_steps": 4718592,
+  "fps": 17744,
+  "checkpoint_steps": 4194304,
+  "healthy_checkup_at": "2026-09-08T06:52:32Z",
+  "failed_original": "cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1",
+  "original_failure": "Zero-step infrastructure failure from inherited activation-fn on a plain warm start; correctly marked FAILED.",
+  "duplicate_attempt": "Refused while recovered trainer healthy. Native get_run can select later REFUSED row and shadow actual RUNNING row; do not infer process failure from it.",
+  "budget": {
+    "owner061641_requested_so_far": 44000000,
+    "owner061641_max_per_cycle": 80000000,
+    "owner061641_second40M_would_be": 84000000,
+    "separate_owner063725_matched_acquisition_request": 80000000,
+    "note": "Seed10 note says+38M but configured continuation is40M. No budget alteration or additional launch by reviewer."
+  },
+  "reviewer": "pruner_safety_audit",
+  "mutations_this_verification": []
+}

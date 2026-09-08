@@ -1,0 +1,20 @@
+baseline {'vx': 0.08, 'wz': 0.15, 'phase_offset': 0.0}: 600/638, phases 4.188780/1.089074
+baseline {'vx': 0.08, 'wz': 0.15, 'phase_offset': 3.141592653589793}: 600/638, phases 1.047187/4.230667
+baseline {'vx': 0.08, 'wz': -0.15, 'phase_offset': 0.0}: 600/638, phases 4.188780/1.089074
+baseline {'vx': 0.08, 'wz': -0.15, 'phase_offset': 3.141592653589793}: 600/638, phases 1.047187/4.230667
+zero parity PASS; 288 pulse branches
+20/288 pulses done
+40/288 pulses done
+60/288 pulses done
+80/288 pulses done
+100/288 pulses done
+120/288 pulses done
+140/288 pulses done
+160/288 pulses done
+180/288 pulses done
+200/288 pulses done
+220/288 pulses done
+240/288 pulses done
+260/288 pulses done
+280/288 pulses done
+wrote /workspace/hexapod/artifacts/rl_watchdog/turn_actionbank_review_20260908/full/bank.json; primary threshold passes 0/288

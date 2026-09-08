@@ -271,6 +271,33 @@ def set_foot_ground_friction(model, mu_slide: float) -> None:
             model.geom_friction[gid, 0] = float(mu_slide)
 
 
+def set_foot_ground_torsion_friction(model, mu_torsion: float) -> None:
+    """Set the foot-ground TORSIONAL friction (geom_friction[:, 1]) to a
+    probe/diagnostic value. cfg ``env.foot_friction_torsion`` (0 = keep
+    the XML default, currently foot mu_t=0.1 m / floor mu_t=0.05 m).
+
+    Built 2026-09-08 for the walkcurr slip-floor structural-lever
+    question (STATUS.md cross-link from the todaypolicy traction
+    diagnostic, ``artifacts/rl_watchdog/turn_traction_20260908/``):
+    that diagnostic measured the mesh family's foot torsional mu_t=0.1
+    as ~20x a physical boot estimate (~0.005 m) and found it carries
+    the ENTIRE net turn drive at the probed cells. This setter exists
+    to test whether the same channel explains walkcurr's own
+    independently-closed ~5-6/m straight-walk slip floor (9 reward-
+    pricing arms, all converging on the same floor, all demanding a
+    structural — not reward — lever next). Same floor/feet
+    combining-rule caveat as ``set_foot_ground_friction`` applies.
+    Default 0.0 leaves the model untouched (bit-exact off)."""
+    import mujoco
+    names = ["floor", "terrain"]
+    for i in range(6):
+        names += [f"L{i}_foot", f"L{i}_pad_col"]
+    for gname in names:
+        gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
+        if gid >= 0:
+            model.geom_friction[gid, 1] = float(mu_torsion)
+
+
 def leg_chassis_collision_from_cfg(cfg) -> bool:
     """cfg ``env.leg_chassis_collision`` (0 = off, the default) — the
     belly knife-edge contact axis (SIM.md known-gap 4, added 08-12).
@@ -601,6 +628,13 @@ class SimHexapodBalanceEnv(_GymBase):
                                 default=0.0))
             if _mu > 0.0:
                 set_foot_ground_friction(self.model, _mu)
+            # Diagnostic-only torsional friction override (default 0 =
+            # keep XML default, bit-exact off) — see
+            # set_foot_ground_torsion_friction.
+            _mu_t = float(cfg_get(self.cfg, "env", "foot_friction_torsion",
+                                  default=0.0))
+            if _mu_t > 0.0:
+                set_foot_ground_torsion_friction(self.model, _mu_t)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()

@@ -1,3 +1,43 @@
+## 2026-09-08 ~03:3x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-offctrl10m`) — s0/RNG2's matched control lands: 2nd independent replication CLOSES the continued-charge study negative on BOTH tested lineages
+
+`offctrl10m` (charge=0, same corrected 2M s0/RNG2
+`legdutyratiofresh-guardfix1` source, +10M) landed `gait_valid` 21/24
+(det 5/6, sto 6/6, sj/det 6/6, sj/sto 4/6), 0 falls — the EXACT SAME 3
+failing episodes/chronic legs as the pre-continuation 2M source
+(det/0 leg5, sj/sto ep2 leg5, sj/sto ep3 leg0): flat retention, no new
+chronic sacrifice, no regression from withdrawal.
+
+Paired against the matched charge-on sibling `on10m` (same
+source/RNG2/panel, only the charge differs): ON is `gait_valid` 22/24
+(+1, exactly the det/0 episode) but mean `slip_per_m` is HIGHER for ON
+in **all 4 groups** (nominal-det 11.26 vs 10.07, nominal-sto 8.00 vs
+7.67, jitter-det 9.87 vs 9.49, jitter-sto 12.84 vs 12.78) and mean
+`progress_ratio` is LOWER for ON in 3/4 groups (nominal-det 0.817 vs
+0.863, nominal-sto 1.107 vs 1.118, jitter-det 0.995 vs 1.013; only
+jitter-sto ticks up, 0.707 vs 0.668). **This is the IDENTICAL shape
+already read on the s1/RNG3 pair** (offctrl10m PASS, 02:35 below): a
+lone gait_valid flip that is NOT a clean win once slip/progress are
+read alongside it.
+
+**Net for the mechanism, across BOTH independently-seeded
+replications (s1/RNG3, s0/RNG2)**: `walk_leg_duty_ratio_charge` is
+mechanism-HEALTHY (bank-proven, telemetrically live, zero new falls/
+chronic legs in 4/4 canaries) but has demonstrated ZERO causal
+walking-quality benefit from continuing it past a 2M shared exposure
+to 10M depth — in both cases the only apparent gain (a single
+gait_valid flip) comes with broad-group slip regression and mostly-
+lower progress. Do not fund a 3rd replication or a longer continuation
+of this exact recipe on this pretext; if the mechanism is revisited,
+it needs either a different dose/target or a different
+question (e.g. applied fresh-init instead of retrofit-onto-trained,
+already separately tracked as OPEN above) — not more of this cell.
+Evidence: `logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_
+legdutyratio_{on10m,offctrl10m}_gate/report.json` vs `..._
+legdutyratiofresh_guardfix1_gate/report.json` (2M source). W&B
+`pyrugqjw`. RL_LOG 09-08 03:33.
+
+--- prior entry below ---
+
 ## 2026-09-08 03:31 UTC — contact sensitivity is not measured calibration
 
 Contact-wrench accounting passed the substep angular-momentum closure check.

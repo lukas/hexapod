@@ -5702,3 +5702,19 @@ plant-default or randomization change. No pressure distribution, effective
 contact radius or hardware torsional friction was measured here; keep current
 defaults while gathering evidence. This question does not gate bounded
 simulation diagnostics or mechanisms under the original contract.
+
+## q_20260908T0940Z — OPEN — joystick track disposition (meta 09-08)
+- cycle: cycle_20260908T091430_meta-analysis
+- context: joystick STATUS.md untouched since 08-25 and its "Now" item
+  (hz100-r2 rate conversion) predates the fleet's pivot to walkcurr
+  (operator 09-05 hardware order) + assistfade rung-0 + todaypolicy.
+  The registered joystick DONE gate (60 s script, 0 falls, slip<=2.9)
+  is unmet by every current candidate, yet no cycle has worked the
+  track in 2 weeks and fleet notes informally call it "DONE/
+  maintenance", which tracks.json does not say.
+- question: should joystick's gate now be pursued (a) via the
+  todaypolicy/yawref composed lineage, (b) via assistfade rung-0
+  BC-anchor descendants, (c) as its own frontier again once walkcurr's
+  campaign settles, or (d) be re-registered as superseded? Until
+  answered, cycles keep the 09-05 walkcurr priority and no joystick
+  launches happen (assume-and-go default = (c), lowest-priority).

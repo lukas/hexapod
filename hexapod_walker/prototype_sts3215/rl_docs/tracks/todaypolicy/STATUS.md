@@ -1489,9 +1489,8 @@ Minimum demo bars for a TODAY pass:
 1. **DONE 08-30.** Package `todaypolicy-mlpsf-tuck-v1`: regenerate/keep
    a fresh `ops.sh hybriddemo` full-mesh video, write a short GO/NO-GO,
    and make sure the browser/controller can select the bundle.
-2. **DONE 08-30.** Compare learned tuck stand/lower vs scripted tuck in
-   the same demo harness. Scripted tuck stays the fallback (learned
-   breaches the current bar).
+2. **DONE 08-30.** Learned vs scripted tuck stand/lower in the same demo
+   harness: scripted tuck stays the fallback (learned breaches the bar).
 3. **DONE 08-30 ~19:5x — NO SWAP.** Compared
    `cw-walkteach-scripted-allhead-acq12m` as a walk-role swap on the
    identical hybriddemo harness: it MISSES the progress_ratio (0.38 <
@@ -1499,11 +1498,12 @@ Minimum demo bars for a TODAY pass:
    cleanly, despite better current draw/slip and real (unused) turn
    authority. Bundle stays `todaypolicy-mlpsf-tuck-v1` unchanged. See
    the dated entry above for full numbers.
-4. Feed any clean result back to `standwalk` as a teacher/source
-   candidate, but do not let this track block on the single-policy gate.
-   Nothing further queued for this track right now — it is DELIVERED
-   and its own Next list is closed 1-3; only a future clean
-   walk/stand/lower improvement elsewhere in the fleet would reopen it.
+4. (refreshed 09-08 meta) Arc/turn is the open gap; top queued lead:
+   command-level turn/walk TIME-MULTIPLEXING (09-08 04:1x slew-clip
+   localization — arc undertracking ≈ the pinned rate contract; mechanism
+   saved, unlaunched). 2nd: magnitude-weighted L2-matched template probe
+   (09-08 08:1x). Translation demo stays DELIVERED (yawref composed A/B
+   PASS 09-08 05:4x); feed clean results back to `standwalk`.
 
 ## Boundaries
 

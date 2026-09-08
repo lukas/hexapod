@@ -215,8 +215,10 @@ def test_ledger_verdicted_counts_full_verdict_vocabulary(tmp_path, monkeypatch):
         # relaunch after a verdicted attempt: latest entry wins
         {"run": "cw-a", "status": "RUNNING"},
     ]
-    (tmp_path / "experiments.json").write_text(json.dumps(ledger))
+    path = tmp_path / "experiments.json"
+    path.write_text(json.dumps(ledger))
     monkeypatch.setattr(watch, "HERE", tmp_path)
+    monkeypatch.setattr(watch, "LEDGER", path)
     got = watch.ledger_verdicted()
     assert got == {"cw-b", "cw-c"}
 

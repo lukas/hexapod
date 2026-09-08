@@ -1,0 +1,20 @@
+{
+  "initial_attempt_sha256": {
+    "execution_manifest.json": "87cf36a41b3e62aff515237e06a970e553e94a1df94bd068e4665b497f82c015",
+    "selected_states_frozen.json": "272e0debd96bdfefd2971a84319427f71e3c37d667b2e5f09af774b978b0d72d",
+    "baselines_frozen.json": "37a06f792e6ea6d0bea6606edfba711e899aa1efeb1e2b7e9862322a256c7941",
+    "failure.json": "43553df2e439b0aff900afdddada90f3170b42e433c77dc88314a485fa2bdd9b",
+    "traces/r1_ph0_w+0.15_baseline.npz": "0d80a48cdc01c5072cb9028952352d0ebafec5ca0b07f8f8eba905f216b27a9b",
+    "traces/r1_ph1_w+0.15_baseline.npz": "03de3b5a3b79c00b4a7b18f5366a9b6348844e644b55d475ef9e6b05e46892af",
+    "traces/r2_ph0_w+0.15_baseline.npz": "827b6950d59a41903aee29c0dafd06981274a9eca203ecdec51d026a6d606b9a",
+    "traces/r2_ph1_w+0.15_baseline.npz": "732b2c997617c19784074ff095877eba8791fe8641a850a94b91182997219e10",
+    "traces/r1_ph0_w-0.15_baseline.npz": "32a219823e57300c6c8a7ec5ce78950fecbeb71efb77858b1e6f4f4eff8e7dfe",
+    "traces/r1_ph1_w-0.15_baseline.npz": "a829cc3dd209dbd681ae80405e16371ac90d3414c648a4d52bff6efcebbd3c14",
+    "traces/r2_ph0_w-0.15_baseline.npz": "8e3e6a1ca9d5034b987cfa3cff9388583bc5ea757d0b78709250651517123b4d",
+    "traces/r2_ph1_w-0.15_baseline.npz": "f2d4a232c0f8c4b800d5bde4472ad2b51d52cf76ae759a3afc4293aecf458241"
+  },
+  "joint_frame_sha256": "3c46e2d26d419f8afcee6c24b44f1efaeb77cf67e9e7324f2eeb132d6f164041",
+  "cause": "Initial runner incorrectly required a diagonal joint-coordinate derivative. Actual robot_abs mapping has within-leg knee_rel=knee_abs-hip_abs coupling. Failure occurred in zero controls before nonzero pulses.",
+  "repair": "Assert exact six repeated3x3 blocks and use their full derivative as originally preregistered. Reuse the immutable original8baselines and16selectedstates; no replacement or response fitting.",
+  "preregistration_unchanged": true
+}

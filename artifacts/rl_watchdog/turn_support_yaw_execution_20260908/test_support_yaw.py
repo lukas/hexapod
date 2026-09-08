@@ -67,3 +67,41 @@ def test_original_retention_boundaries():
                     dict(good,max_abs_pitch_deg=5.01),dict(good,terminated_in_window=True),
                     dict(good,nonwalk_ticks=1),dict(good,window_ticks=79)]:
         assert not m.retention(changed,b)
+
+def test_real_robot_abs_conversion_and_mujoco_jacobian_chain_rule():
+    import mujoco
+    path=Path(__file__).resolve().parents[3]/"hexapod_walker/prototype_sts3215/hexapod_core/joint_frame.py"
+    spec=importlib.util.spec_from_file_location("actual_joint_frame",path)
+    frame=importlib.util.module_from_spec(spec);spec.loader.exec_module(frame)
+    class Env:
+        _logical_to_mujoco_q=staticmethod(frame.robot_abs_rad_to_mujoco_rel_rad)
+    logical=np.tile([.2,.4,1.2],6)
+    C=m.joint_conversion(Env(),logical)
+    block=np.array([[1.,0.,0.],[0.,1.,0.],[0.,-1.,1.]])
+    np.testing.assert_allclose(C,np.kron(np.eye(6),block),atol=1e-14)
+    assert abs(C[2,1])==pytest.approx(1.)
+    xml="""<mujoco><worldbody><body name="yaw">
+      <joint name="q0" axis="0 0 1"/><geom type="sphere" size=".01"/>
+      <body name="hip" pos=".08 0 0"><joint name="q1" axis="0 1 0"/>
+      <geom type="sphere" size=".01"/>
+      <body name="knee" pos=".10 0 0"><joint name="q2" axis="0 1 0"/>
+      <geom type="sphere" size=".01"/><site name="foot" pos=".12 0 0"/>
+      </body></body></body></worldbody></mujoco>"""
+    model=mujoco.MjModel.from_xml_string(xml);data=mujoco.MjData(model)
+    data.qpos[:]=frame.robot_abs_rad_to_mujoco_rel_rad(logical)[:3]
+    mujoco.mj_forward(model,data)
+    J=np.zeros((3,model.nv));Jr=np.zeros_like(J)
+    mujoco.mj_jacSite(model,data,J,Jr,model.site("foot").id)
+    scale=np.diag([.4,.7,.9]);analytic=J@C[:3,:3]@scale
+    eps=1e-7;numeric=np.zeros((3,3))
+    for j in range(3):
+        positions=[]
+        for sign in (1,-1):
+            perturbed=logical.copy();perturbed[j]+=sign*eps*scale[j,j]
+            scratch=mujoco.MjData(model)
+            scratch.qpos[:]=frame.robot_abs_rad_to_mujoco_rel_rad(perturbed)[:3]
+            mujoco.mj_kinematics(model,scratch)
+            positions.append(scratch.site_xpos[model.site("foot").id].copy())
+        numeric[:,j]=(positions[0]-positions[1])/(2*eps)
+    np.testing.assert_allclose(analytic,numeric,atol=1e-9,rtol=1e-7)
+    assert np.linalg.norm(J@scale-numeric)>1e-3

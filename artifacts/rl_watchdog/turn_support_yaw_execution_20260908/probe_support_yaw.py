@@ -101,6 +101,17 @@ def live_digest(env):
         h.update(np.ascontiguousarray(getattr(d, key)).tobytes())
     return h.hexdigest()
 
+def joint_conversion(env, logical):
+    converted = env._logical_to_mujoco_q(logical)
+    conversion = np.column_stack([
+        env._logical_to_mujoco_q(logical + np.eye(18)[j])-converted
+        for j in range(18)])
+    block = np.array([[1.,0.,0.],[0.,1.,0.],[0.,-1.,1.]])
+    expected = np.kron(np.eye(6), block)
+    if not np.allclose(conversion, expected, atol=1e-12, rtol=0):
+        raise RuntimeError("unexpected robot_abs-to-MuJoCo per-leg derivative")
+    return conversion
+
 def observe_vector(env, wz):
     """Read stored solved forces, endpoint kinematics on separate private copies."""
     if wz == 0:
@@ -148,12 +159,7 @@ def observe_vector(env, wz):
     points, jac = np.zeros((6, 3)), np.zeros((6, 3, 3))
     dofs = joint_qvel_addrs(m)
     logical = env._mujoco_to_logical_q(d.qpos[env._qadr])
-    converted = env._logical_to_mujoco_q(logical)
-    conversion = np.column_stack([
-        env._logical_to_mujoco_q(logical + np.eye(18)[j])-converted
-        for j in range(18)])
-    if not np.allclose(conversion, np.diag(np.diag(conversion)), atol=1e-12, rtol=0):
-        raise RuntimeError("unexpected coupled logical-to-MuJoCo conversion")
+    conversion = joint_conversion(env, logical)
     for foot in range(6):
         pad = pads[foot]
         local = weighted[foot]/loads[foot] if loads[foot] > 0 else np.zeros(3)
@@ -304,6 +310,7 @@ def main():
     ap.add_argument("--checkpoint",required=True)
     ap.add_argument("--out",required=True,type=Path)
     ap.add_argument("--workers",type=int,default=8)
+    ap.add_argument("--frozen-baselines",type=Path)
     args=ap.parse_args()
     out=args.out.resolve()
     out.mkdir(parents=True,exist_ok=False)
@@ -321,6 +328,9 @@ def main():
         for path, expected in {**pins["source_hashes"],**pins["asset_hashes"]}.items():
             if sha(PROTO/path) != expected:
                 raise RuntimeError("frozen source/asset mismatch: "+path)
+        recovery=json.loads((HERE/"recovery_pins.json").read_text())
+        if sha(PROTO/"hexapod_core/joint_frame.py") != recovery["joint_frame_sha256"]:
+            raise RuntimeError("frozen joint-frame source mismatch")
         spec={"checkpoint":str(Path(args.checkpoint).resolve()),
               "cfg_set":json.loads((HERE/"cfg_set.json").read_text())+RESET_CFG,
               "episode_seconds":10,
@@ -340,7 +350,23 @@ def main():
             return {"id":ident,"cell":cell,"mode":mode,"p":p,"ticks":ticks,
                     "spec":dict(spec,episode_seconds=15 if mode.startswith("straight_") else 10),
                     "out":str(out)}
-        baselines=batch([job(c,"baseline") for c in cells],args.workers,"baselines")
+        if args.frozen_baselines:
+            import shutil
+            initial=args.frozen_baselines.resolve()
+            for name, expected in recovery["initial_attempt_sha256"].items():
+                if sha(initial/name) != expected:
+                    raise RuntimeError("immutable initial baseline evidence mismatch: "+name)
+            previous=json.loads((initial/"execution_manifest.json").read_text())
+            if previous["spec"] != spec or previous["preregistration"] != reg:
+                raise RuntimeError("recovery changed frozen setup")
+            baselines=json.loads((initial/"baselines_frozen.json").read_text())
+            if len(baselines)!=8 or sorted((r["cell"] for r in baselines),key=str)!=sorted(cells,key=str):
+                raise RuntimeError("recovery baseline cell mismatch")
+            for f in (initial/"traces").glob("*.npz"):
+                shutil.copyfile(f,out/"traces"/f.name)
+            print(json.dumps({"stage":"baselines_reused_immutable","count":8}),flush=True)
+        else:
+            raise RuntimeError("recovery must reuse frozen original baseline evidence")
         dump(out/"baselines_frozen.json",baselines)
         # Confirm exact same reset offsets across phases and command signs.
         for seed in (1,2):
@@ -352,6 +378,9 @@ def main():
         for b in baselines:
             for sel in b["selections"]:
                 slots.append({"cell":b["cell"],"selection":sel,"baseline":b["id"]})
+        original_slots=json.loads((args.frozen_baselines/"selected_states_frozen.json").read_text())
+        if slots!=original_slots:
+            raise RuntimeError("recovery selected-state mismatch")
         dump(out/"selected_states_frozen.json",slots)
         active=[s for s in slots if s["selection"]["p"] is not None]
         zeros=batch([job(s["cell"],"zero",s["selection"]["p"],s["selection"]["target_index"])

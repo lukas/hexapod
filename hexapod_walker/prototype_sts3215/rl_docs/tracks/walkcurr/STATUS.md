@@ -1,3 +1,38 @@
+## 2026-09-08 ~03:0x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-on10m`) — s0/RNG2 charge-on arm CANARY PASSes its own retention gate (22/24, +1 over the 21/24 source, 0 new falls/chronic legs) — same shape as the s1 twin, causal efficacy still pending its matched control
+
+`on10m` (charge=150, same corrected 2M s0/RNG2
+`legdutyratiofresh-guardfix1` source, +10M) landed its 24-episode
+det+sto walk/startjitter gate: `gait_valid` 22/24 (det 6/6, sto 6/6,
+sj/det 6/6, sj/sto 4/6), 0 falls/terminations in every mode —
+flat-or-BETTER than the source's own 21/24 (source's sole det/0
+sacrifice [leg5] flips to `gv=True` here; the same 2 startjitter/sto
+episodes remain the only fails [leg5 ep2, leg0 ep3] — no NEW chronic
+leg). Peer-excluded duty ratio for the formerly-weak legs (0,5)
+clears >=0.22 in 23/24 episodes each, unchanged from source.
+`ep_rew_mean` falling to -32008 (quarters monotonically more
+negative) is fully explained by `rollout/ep_len_mean` rising
+108->1235->1999->2000/2048 under a persistent ~0.10-0.15 charge
+shortfall that never zeroes (unlike the `assistfade` rung3-s0 sibling,
+where the same charge DID decay to ~0) — not behavioral collapse.
+
+This is the SAME shape already read on the s1/RNG3 twin
+(`guardfix-acq10m`, PASS): a lone gait_valid flip (+1) with the charge
+mechanically engaged and no new chronic sacrifice. **The s1 pair's own
+closure (below) found that +1 flip was noise, not a causal win** — ON
+had HIGHER `slip_per_m` in all 4 groups and LOWER `progress_ratio` in
+3/4 vs its matched OFF control, despite the gait_valid edge. s0's own
+matched control (`offctrl10m`) is still mid-gate-eval on train-1
+(root-owned by another cycle, not duplicated here) — until it reads,
+treat this as RETENTION ONLY, not a second independent efficacy
+result; the s1 prior says expect the same "no demonstrated advantage,
+possibly net-worse-on-slip" outcome unless offctrl10m's own numbers
+say otherwise. Evidence: `logs/ckpt_eval/cw_walkscratch_crutchoff_s0_
+widen8_legdutyratio_on10m_gate/report.json` vs `..._legdutyratiofresh_
+guardfix1_gate/report.json` (2M source). W&B `tojgpbb4`. RL_LOG 09-08
+02:57.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~02:35 (triage cycle; assigned `crutchoff-s1-widen8-legdutyratio-offctrl10m`) — matched charge-off control lands: CLOSES the s1/RNG3 continued-charge study, NO demonstrated efficacy for `walk_leg_duty_ratio_charge` past the shared 2M exposure
 
 `offctrl10m` (same corrected 2M s1 source, RNG3, only

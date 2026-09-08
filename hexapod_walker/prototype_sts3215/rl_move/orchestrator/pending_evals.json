@@ -328,5 +328,11 @@
   "file": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_gainsband_half_s1_gate/report.json",
   "label": "cw_walkscratch_easy0905_..._gainsband_half_s1_gate",
   "added": "2026-09-07T12:59:46"
+ },
+ {
+  "pod": "hexapod-mjx-train-1",
+  "file": "/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_crutchoff_s0_widen8_legdutyratio_offctrl10m_gate/report.json",
+  "label": "cw_walkscratch_crutchoff_s0_widen8_legdutyratio_offctrl10m_gate",
+  "added": "2026-09-08T02:52:05"
  }
 ]

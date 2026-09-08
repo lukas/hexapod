@@ -19,11 +19,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 
-_TRACKER_SRC = Path(__file__).resolve().parents[2] / "hexapod-tracker" / "src"
-if str(_TRACKER_SRC) not in sys.path:
-    sys.path.insert(0, str(_TRACKER_SRC))
-
-from hexapod_tracker.gait_motion import _best_floor_homography  # noqa: E402
+from hexapod_tracker.gait_motion import _best_floor_homography
 
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -26,24 +25,20 @@ from typing import Iterable
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import mujoco  # noqa: E402
+import mujoco
 
-from hexapod_core.joint_frame import (  # noqa: E402
+from hexapod_core.joint_frame import (
     FRAME_ROBOT_ABS,
     JOINT_CONTRACT,
     mujoco_rel_rad_to_robot_abs_rad,
     robot_abs_rad_to_mujoco_rel_rad,
 )
 
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD, N_JOINTS  # noqa: E402
-from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.config import cfg_get, load_config
+from rl_move.robot_state import DEG2RAD, N_JOINTS
+from rl_move.safety import AXIS_LIMITS_DEG
+from rl_move.sim.servo_model import (
     ServoProfile,
     SimServoParams,
     apply_params_to_model,
@@ -53,7 +48,7 @@ from rl_move.sim.servo_model import (  # noqa: E402
     lowest_collidable_z,
     position_actuator_ids,
 )
-from rl_move.sim.sim_env import (  # noqa: E402
+from rl_move.sim.sim_env import (
     _default_plant_deg,
     leg_chassis_collision_from_cfg,
     set_foot_ground_friction,

@@ -25,19 +25,15 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.probe_walk_income import (  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.probe_walk_income import (
     CMD_V, STACKS, WALK_PLANT, make_env, pin_command,
 )
 

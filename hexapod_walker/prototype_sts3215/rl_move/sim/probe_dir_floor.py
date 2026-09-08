@@ -55,16 +55,10 @@ import argparse
 import json
 import math
 import os
-import sys
 from collections import deque
 from pathlib import Path
 
 import numpy as np
-
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 
 def main() -> None:

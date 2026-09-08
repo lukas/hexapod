@@ -65,16 +65,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait
 
 # Physically-pinned SafetyLayer yaw slew clip (operator order
 # fb_20260824T174619_c49b7e, NOT to be raised in production) expressed

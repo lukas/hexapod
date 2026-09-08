@@ -48,16 +48,14 @@ import argparse
 import csv
 import json
 import math
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
-sys.path.insert(0, str(_HERE.parents[2]))  # prototype_sts3215/
 
-from rl_move.remote import HexapodClient  # noqa: E402
+from rl_move.remote import HexapodClient
 
 TRACES_DIR = _HERE.parents[1] / "hardware_traces"
 N_JOINTS = 18

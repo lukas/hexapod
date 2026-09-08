@@ -4,20 +4,14 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "motor_setup"))
 
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.env import HexapodBalanceEnv, open_bus  # noqa: E402
-from rl_move.scripted_pd import ScriptedBalancePD  # noqa: E402
+from rl_move.config import cfg_get, load_config
+from rl_move.env import HexapodBalanceEnv, open_bus
+from rl_move.scripted_pd import ScriptedBalancePD
 
 
 def main() -> int:

@@ -59,15 +59,12 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.robot_state import DEG2RAD
 
-from .servo_model import SimServoParams, resolve_model_source  # noqa: E402
-from .train_ppo_sim import ENV_CLASSES  # noqa: E402
-from .extract_rise_ref import (_blend_pose_ik,  # noqa: E402
+from .servo_model import SimServoParams, resolve_model_source
+from .train_ppo_sim import ENV_CLASSES
+from .extract_rise_ref import (_blend_pose_ik,
                                _validate_open_loop_robustness)
 
 

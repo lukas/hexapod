@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import time
 from pathlib import Path
 
@@ -36,14 +35,11 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from rl_move.config import cfg_get, load_config  # noqa: E402
+from rl_move.config import cfg_get, load_config
 
-from .goal_task import SimHexapodGoalEnv  # noqa: E402
-from .servo_model import SimServoParams  # noqa: E402
+from .goal_task import SimHexapodGoalEnv
+from .servo_model import SimServoParams
 
 MODES = ("hold", "lean", "track", "unload", "rise")
 N_ACT = 6

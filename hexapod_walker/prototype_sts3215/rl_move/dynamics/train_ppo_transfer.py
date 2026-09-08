@@ -71,19 +71,15 @@ import argparse
 import csv
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config                  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams      # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.servo_model import SimServoParams
 
 MODEL_DIR = ROOT / "rl_move" / "dynamics" / "models"
 LOG_DIR = ROOT / "rl_move" / "dynamics" / "logs"
@@ -426,7 +422,7 @@ def locomotion_quality(m: dict) -> float:
 # run on the Warp/MJX GPU-physics trainer). Re-imported here so
 # every historical call site and test keeps working; behavior is
 # bit-identical to the walkcurr1/walkcurr2 originals.
-from rl_move.sim.walkcurr_cert import (  # noqa: E402
+from rl_move.sim.walkcurr_cert import (
     WALKCURR_GATE, WalkCurrController, walkcurr_bucket_pass,
 )
 

@@ -36,7 +36,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
@@ -45,15 +44,12 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from .servo_model import SimServoParams  # noqa: E402
-from .sim_env import SimHexapodBalanceEnv  # noqa: E402
-from .goal_task import SimHexapodGoalEnv  # noqa: E402
-from .joint_task import SimHexapodJointGoalEnv  # noqa: E402
-from .walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from .servo_model import SimServoParams
+from .sim_env import SimHexapodBalanceEnv
+from .goal_task import SimHexapodGoalEnv
+from .joint_task import SimHexapodJointGoalEnv
+from .walk_task import SimHexapodJointWalkEnv
 
 ENV_CLASSES = {"balance": SimHexapodBalanceEnv, "goal": SimHexapodGoalEnv,
                "joint_goal": SimHexapodJointGoalEnv,

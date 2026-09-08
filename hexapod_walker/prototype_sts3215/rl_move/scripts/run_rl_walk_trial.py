@@ -13,7 +13,6 @@ import argparse
 import csv
 import json
 import math
-import sys
 import threading
 import time
 import urllib.error
@@ -26,10 +25,6 @@ from typing import Any
 import cv2
 import numpy as np
 
-
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
 from rl_move.deployed_policy import WALK_OBS_DIMS, WALK_PHASE_OBS_DIMS

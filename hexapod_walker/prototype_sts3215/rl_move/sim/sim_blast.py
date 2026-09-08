@@ -47,7 +47,6 @@ import time
 from pathlib import Path
 
 _PROTO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(_PROTO))
 
 POLICIES = Path(__file__).resolve().parent / "policies"
 CKPTS = {

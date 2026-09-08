@@ -16,7 +16,6 @@ Usage
 from __future__ import annotations
 
 import math
-import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -33,27 +32,24 @@ from hexapod_core.joint_frame import (
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet  # noqa: E402
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.env import build_obs, compute_reward  # noqa: E402
-from rl_move.robot_state import (  # noqa: E402
+from rl_move.body_ik import FixedFootBodyIK, N_ACT, fk_all_feet
+from rl_move.config import cfg_get, load_config
+from rl_move.env import build_obs, compute_reward
+from rl_move.robot_state import (
     DEG2RAD, N_JOINTS, RAD2DEG, RobotState,
 )
-from rl_move.safety import SafetyLayer, action_to_body_offset  # noqa: E402
+from rl_move.safety import SafetyLayer, action_to_body_offset
 
-from .domain_rand import DomainRandomizer, EpisodeRandomization  # noqa: E402
-from .deployed_transport import DeployedTransport  # noqa: E402
-from .servo_model import (  # noqa: E402
+from .domain_rand import DomainRandomizer, EpisodeRandomization
+from .deployed_transport import DeployedTransport
+from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
     position_actuator_ids, resolve_model_source,
 )
-from .struct_compliance import StructCompliance  # noqa: E402
-from .command_indicator import draw_env_command_indicator  # noqa: E402
+from .struct_compliance import StructCompliance
+from .command_indicator import draw_env_command_indicator
 
 G0 = 9.80665
 N_OBS = 47

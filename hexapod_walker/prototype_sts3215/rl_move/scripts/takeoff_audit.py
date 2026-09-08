@@ -49,19 +49,14 @@ import argparse
 import csv
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
 _RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (str(_PROTO),):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from rl_move.config import cfg_get, load_config          # noqa: E402
-from rl_move.safety import AXIS_LIMITS_DEG               # noqa: E402
+from rl_move.config import cfg_get, load_config
+from rl_move.safety import AXIS_LIMITS_DEG
 
 TRACES = _RL / "hardware_traces"
 N_JOINTS = 18

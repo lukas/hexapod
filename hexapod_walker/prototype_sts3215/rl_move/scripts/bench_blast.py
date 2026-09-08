@@ -105,7 +105,6 @@ import time
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
-sys.path.insert(0, str(_HERE.parents[2]))  # prototype_sts3215/
 
 from rl_move.remote import HexapodClient  # noqa: E402
 

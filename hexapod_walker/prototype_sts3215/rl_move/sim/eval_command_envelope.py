@@ -66,19 +66,14 @@ from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from .command_envelope import CommandEnvelope, EnvelopeConfig  # noqa: E402
-from .joint_task import q_rad_to_action  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from .command_envelope import CommandEnvelope, EnvelopeConfig
+from .joint_task import q_rad_to_action
 # Reuse the exact env constructor + plant pose the existing scripted
 # probes use (probe_turn_authority / probe_joint_tracking) so numbers
 # are comparable across tools.
-from .probe_turn_authority import WALK_PLANT, make_env  # noqa: E402
+from .probe_turn_authority import WALK_PLANT, make_env
 
 RAD2DEG = 180.0 / math.pi
 DEFAULT_CFG_SET = ["env.model_source=mesh", "control.hz=100"]

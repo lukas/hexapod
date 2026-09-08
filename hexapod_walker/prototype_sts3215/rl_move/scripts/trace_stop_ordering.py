@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,11 +20,9 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT / "linux_control") not in sys.path:
-    sys.path.insert(0, str(ROOT / "linux_control"))
 
-import rl_policy  # noqa: E402
-from rl_move.robot_state import RobotState  # noqa: E402
+import rl_policy
+from rl_move.robot_state import RobotState
 
 
 CASES = (

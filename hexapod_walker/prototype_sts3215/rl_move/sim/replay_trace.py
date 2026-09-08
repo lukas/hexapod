@@ -30,22 +30,16 @@ import argparse
 import csv
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (str(_PROTO),):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from .servo_model import (  # noqa: E402
+from .servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, position_actuator_ids,
 )
-from hexapod_core.joint_frame import (  # noqa: E402
+from hexapod_core.joint_frame import (
     mujoco_rel_rad_to_robot_abs_rad, robot_abs_rad_to_mujoco_rel_rad,
 )
 

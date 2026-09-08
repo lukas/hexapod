@@ -44,10 +44,6 @@ from pathlib import Path
 # "Task policy set failed: 4" kernel spam (affinity calls are rejected).
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
 MODES = ("hold", "lean", "track", "unload", "raise", "rise", "lower")
 

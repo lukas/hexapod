@@ -29,8 +29,6 @@ from pathlib import Path
 import numpy as np
 
 _PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
 N_JOINTS = 18
 AXES = ("yaw", "hip", "knee")

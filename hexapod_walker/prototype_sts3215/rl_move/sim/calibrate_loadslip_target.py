@@ -47,19 +47,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT,):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.walk_task import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.walk_task import (
     SimHexapodJointWalkEnv,
     walk_legslip_ratio_charge,
     walk_legslip_ratio_tick,

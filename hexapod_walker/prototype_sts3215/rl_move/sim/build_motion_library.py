@@ -63,18 +63,14 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import mujoco  # noqa: E402
+import mujoco
 
-from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import SimServoParams
 
 # hip/knee deg, robot-absolute-tibia (this module's own canonical
 # frame per the docstring below). 2026-09-02 joint-frame-v2 fix: was

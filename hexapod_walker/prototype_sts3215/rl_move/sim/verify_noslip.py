@@ -27,18 +27,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD
 
 PLANT_HIP_DEG = 20.0
 # Repository-wide robot-absolute tibia convention: this is the same geometry

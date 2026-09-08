@@ -75,19 +75,12 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (str(_PROTO), str(_PROTO / "linux_control")):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD
 
 # 2026-09-02 joint-frame-v2 fix: WALK_PLANT feeds the RAW
 # hexapod_core.tripod_gait dialect (robot-absolute); was the

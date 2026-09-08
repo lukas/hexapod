@@ -55,20 +55,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.sim import probe_turn_authority as pta  # noqa: E402
-from rl_move.sim.probe_turn_stancearm import (  # noqa: E402
+from rl_move.sim import probe_turn_authority as pta
+from rl_move.sim.probe_turn_stancearm import (
     PIN, feasibility_guard, pin_manifest, rollout)
 
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait
 
 
 def main() -> int:

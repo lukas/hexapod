@@ -18,23 +18,16 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-_SIM = Path(__file__).resolve().parents[1]     # rl_move/sim/
-_PROTO = _SIM.parents[1]
-for _p in (_PROTO, _PROTO / "linux_control", _PROTO / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import mujoco  # noqa: E402
-from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
-from inplace_demos import QuadPitchTrim  # noqa: E402
-from rl_move.sim.eval_dances import up_z  # noqa: E402
-from rl_move.sim.quad_play import Player  # noqa: E402
+import mujoco
+from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch
+from inplace_demos import QuadPitchTrim
+from rl_move.sim.eval_dances import up_z
+from rl_move.sim.quad_play import Player
 
 
 def _imu_angles(roll_deg: float, pitch_deg: float) -> dict[str, float]:

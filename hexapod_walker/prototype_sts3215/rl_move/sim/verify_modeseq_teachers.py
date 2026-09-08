@@ -44,15 +44,13 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 
 import argparse
 import json
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from rl_move.sim.sim_env import SimServoParams  # noqa: E402
+from rl_move.sim.sim_env import SimServoParams
 
 
 def main(argv=None) -> int:

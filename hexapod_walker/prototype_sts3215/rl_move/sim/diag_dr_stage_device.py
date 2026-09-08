@@ -54,18 +54,14 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config                      # noqa: E402
-from rl_move.sim.mjx_backend import MODEL_DR_FIELDS         # noqa: E402
-from rl_move.sim.mjx_host import tp_rows                    # noqa: E402
-from rl_move.sim.mjx_vec_env import MjxVecEnv               # noqa: E402
-from rl_move.sim.servo_model import SimServoParams          # noqa: E402
-from rl_move.sim.train_ppo_sim import _parse_cfg_set        # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv    # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.mjx_backend import MODEL_DR_FIELDS
+from rl_move.sim.mjx_host import tp_rows
+from rl_move.sim.mjx_vec_env import MjxVecEnv
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.train_ppo_sim import _parse_cfg_set
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 TP_KEYS = ("latency_s", "deadband", "vel_max", "imu_off")
 

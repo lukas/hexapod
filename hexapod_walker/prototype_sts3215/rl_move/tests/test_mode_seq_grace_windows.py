@@ -24,19 +24,13 @@ since episode start. These tests lock:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.mjx_host import SNAP_ATTRS  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.mjx_host import SNAP_ATTRS
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 
 def test_seg_entry_step_in_snap_attrs():

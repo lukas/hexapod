@@ -21,22 +21,16 @@ against `slip_m_total` (unconditional, untouched by this fix) below.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.eval_checkpoint import run_episode  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.eval_checkpoint import run_episode
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 N_ACT = 18
 

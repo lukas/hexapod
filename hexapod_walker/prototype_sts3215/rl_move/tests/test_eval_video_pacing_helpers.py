@@ -11,7 +11,6 @@ import sys
 import pytest
 
 _ORCH = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(_ORCH))
 _spec = importlib.util.spec_from_file_location("pod_eval_video_pacing", _ORCH / "pod_eval.py")
 pod_eval = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pod_eval)

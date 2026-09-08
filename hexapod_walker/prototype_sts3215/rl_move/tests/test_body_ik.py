@@ -2,17 +2,11 @@
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.body_ik import (  # noqa: E402
+from rl_move.body_ik import (
     BodyOffset, FixedFootBodyIK, fk_all_feet, foot_world_error,
 )
 

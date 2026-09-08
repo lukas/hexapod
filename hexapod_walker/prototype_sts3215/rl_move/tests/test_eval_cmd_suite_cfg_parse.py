@@ -12,14 +12,11 @@ it instead of reimplementing it.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-from rl_move.sim.train_ppo_sim import _parse_cfg_set  # noqa: E402
+from rl_move.sim.train_ppo_sim import _parse_cfg_set
 
 
 def test_bracket_value_parses_as_a_json_list():

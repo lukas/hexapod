@@ -1,14 +1,9 @@
 """Off-robot validation checks for the Vision UI gait-survey launcher."""
 from __future__ import annotations
 
-from pathlib import Path
-import sys
 
 import pytest
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
 from gait_survey import GaitSurveyManager
 

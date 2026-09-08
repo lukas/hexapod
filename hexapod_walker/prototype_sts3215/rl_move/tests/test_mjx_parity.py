@@ -18,20 +18,15 @@ What "parity" means per test:
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-_PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
-from rl_move.sim.mjx_backend import (  # noqa: E402
+from rl_move.sim.mjx_backend import (
     MjxTickStepper, mjx_is_available,
 )
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.sim.servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
 )
 

@@ -4,15 +4,12 @@ import datetime
 import importlib.util
 import json
 import pathlib
-import sys
 from types import SimpleNamespace
 
 import pytest
 
 
 _ORCH_DIR = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-if str(_ORCH_DIR) not in sys.path:
-    sys.path.insert(0, str(_ORCH_DIR))
 _spec = importlib.util.spec_from_file_location(
     "watch_loop_refill_tests", _ORCH_DIR / "watch_loop.py")
 watch = importlib.util.module_from_spec(_spec)

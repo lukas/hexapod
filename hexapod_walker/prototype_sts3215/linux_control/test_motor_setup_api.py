@@ -1,7 +1,6 @@
 import json, sys, tempfile, threading, unittest
 from pathlib import Path
 from types import SimpleNamespace
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 from motor_setup_api import MotorSetup
 
 class Bus:

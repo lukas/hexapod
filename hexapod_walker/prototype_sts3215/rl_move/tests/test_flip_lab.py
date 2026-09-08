@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
 mujoco = pytest.importorskip("mujoco")
 
-from rl_move.sim.flip_lab import (  # noqa: E402
+from rl_move.sim.flip_lab import (
     FlipCandidate,
     FlipLab,
     RockCandidate,

@@ -1,18 +1,12 @@
 """Off-robot tests for calibration TFT progress hints."""
 from __future__ import annotations
 
-import sys
 import threading
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from bench_api import BenchAPI  # noqa: E402
-from mcu_feetech_bus import McuFeetechBus  # noqa: E402
-from status_display import format_job_screen  # noqa: E402
+from bench_api import BenchAPI
+from mcu_feetech_bus import McuFeetechBus
+from status_display import format_job_screen
 
 
 class _Drive:

@@ -9,8 +9,6 @@ ARE the same code. Skipped when mujoco-mjx / jax aren't installed.
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 
 # This suite is specified on CPU MJX (see module docstring). On GPU
 # pods bare jax picks CUDA for the in-process device ticks while the
@@ -25,18 +23,15 @@ os.environ.setdefault("JAX_PLATFORMS", "cpu")
 import numpy as np
 import pytest
 
-_PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
-from rl_move.sim.mjx_backend import mjx_is_available  # noqa: E402
+from rl_move.sim.mjx_backend import mjx_is_available
 
 if not mjx_is_available():  # pragma: no cover
     pytest.skip("mujoco-mjx / jax not installed", allow_module_level=True)
 
-from rl_move.body_ik import N_ACT  # noqa: E402
-from rl_move.sim.mjx_vec_env import MjxVecEnv  # noqa: E402
-from rl_move.sim.sim_env import SimHexapodBalanceEnv  # noqa: E402
+from rl_move.body_ik import N_ACT
+from rl_move.sim.mjx_vec_env import MjxVecEnv
+from rl_move.sim.sim_env import SimHexapodBalanceEnv
 
 B = 2
 

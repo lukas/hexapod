@@ -6,14 +6,8 @@ basic tripod gait from a low/sit pose.
 """
 from __future__ import annotations
 
-from pathlib import Path
-import sys
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
-
-from drive_controller import (  # noqa: E402
+from drive_controller import (
     DEMO_TRIPOD_LIFT_M,
     DEMO_TRIPOD_MAX_OMEGA_RAD_S,
     DEMO_TRIPOD_MAX_VX_MPS,
@@ -24,12 +18,12 @@ from drive_controller import (  # noqa: E402
     _advance_periodic_deadline,
     walk_start_pose_degrees,
 )
-from hexapod_core.scripted_walk_contract import (  # noqa: E402
+from hexapod_core.scripted_walk_contract import (
     SCRIPTED_WALK_ACC_UNITS,
     SCRIPTED_WALK_CONTROL_HZ,
     SCRIPTED_WALK_SPEED_COUNTS_S,
 )
-from hexapod_core.middle_tuck_quad_gait import TUCK_DEG  # noqa: E402
+from hexapod_core.middle_tuck_quad_gait import TUCK_DEG
 
 
 class FakeBus:

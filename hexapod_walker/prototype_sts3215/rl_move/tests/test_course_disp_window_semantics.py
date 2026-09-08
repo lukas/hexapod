@@ -23,23 +23,15 @@ EMA off, disp on at matched coefficients), windows parametrized.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control",
-           ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import test_phasedir_semantics as pd                          # noqa: E402
-from test_course_disp_semantics import DISP_STACK             # noqa: E402
+import test_phasedir_semantics as pd
+from test_course_disp_semantics import DISP_STACK
 
 HEADING_BINS = pd.HEADING_BINS
 SEEDS = pd.SEEDS

@@ -5,15 +5,12 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
-import sys
 
 import pytest
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
-import vision_agent_stats as stats  # noqa: E402
+import vision_agent_stats as stats
 
 REPO_ROOT = HERE.parents[2]
 LAB_STATS_PATH = (REPO_ROOT / "experiment_lab" / "hexapod_lab"

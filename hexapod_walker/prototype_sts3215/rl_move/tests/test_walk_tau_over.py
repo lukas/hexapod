@@ -29,25 +29,18 @@ Reuses the walk-move-current bank's env/action helpers.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control",
-           ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim.joint_task import q_rad_to_action
+from hexapod_core.tripod_gait import TripodGait
 
-from test_walk_move_current import (  # noqa: E402
+from test_walk_move_current import (
     JOYFULLCURR_STACK, PLANT_RAD, WALK_PLANT, _command_stop,
     _command_walk, _fight_action, _walk_env)
 

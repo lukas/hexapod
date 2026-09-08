@@ -13,12 +13,10 @@ mocked — no real pod) so the guard can't silently regress.
 import importlib.util
 import pathlib
 import subprocess
-import sys
 import time
 import types
 
 _ORCH = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(_ORCH))  # pod_eval imports its sibling ``tracks``
 _P = _ORCH / "pod_eval.py"
 _spec = importlib.util.spec_from_file_location("pod_eval", _P)
 pod_eval = importlib.util.module_from_spec(_spec)

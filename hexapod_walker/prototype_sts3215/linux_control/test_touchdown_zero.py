@@ -2,14 +2,9 @@
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
 
-from touchdown_zero import (  # noqa: E402
+from touchdown_zero import (
     analyze_touch_rows,
     expected_touch_angles,
     fit_zero_tip_height_from_contacts,

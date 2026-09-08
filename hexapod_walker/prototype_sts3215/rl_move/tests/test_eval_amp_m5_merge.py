@@ -9,10 +9,8 @@ aggregation math a real `main()` invocation performs.
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sim"))
-import eval_amp_m5 as m  # noqa: E402
+import eval_amp_m5 as m
 
 
 def test_prior_sections_missing_file(tmp_path):

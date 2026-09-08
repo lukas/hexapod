@@ -1,13 +1,10 @@
 """The on-robot deploy receipt and its history."""
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import deploy_record  # noqa: E402
+import deploy_record
 
 
 @pytest.fixture(autouse=True)

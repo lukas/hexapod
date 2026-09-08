@@ -3,16 +3,10 @@ from __future__ import annotations
 
 import copy
 import random
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for path in (ROOT, ROOT / "linux_control"):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
 
 pytest.importorskip("mujoco")
 torch = pytest.importorskip("torch")

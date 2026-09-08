@@ -10,7 +10,6 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
-import sys
 import threading
 import time
 from typing import Any
@@ -20,10 +19,8 @@ import urllib.request
 import pytest
 
 HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
-import vision_proxy  # noqa: E402
+import vision_proxy
 
 FRAME_COUNT = 5
 

@@ -3,23 +3,18 @@ rung-1, Schilling IROS 2020 lever — operator ruling
 fb_20260829T145710).  Fast, CPU-only, no MuJoCo."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 torch = pytest.importorskip("torch")
 gym = pytest.importorskip("gymnasium")
 
-from stable_baselines3 import PPO  # noqa: E402
-from stable_baselines3.common.vec_env import DummyVecEnv  # noqa: E402
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv
 
-from rl_move.sim.decleg_policy import (  # noqa: E402
+from rl_move.sim.decleg_policy import (
     ACT_PER_LEG, N_LEGS, DecLegActorCriticPolicy, joint_walk_leg_slices,
 )
 

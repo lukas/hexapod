@@ -11,29 +11,24 @@ snapshot notes for the on-pod pytest run this cycle).
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 
 os.environ.setdefault("JAX_PLATFORMS", "cpu")  # see test_mjx_vec_env.py
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-from rl_move.sim.mjx_backend import mjx_is_available  # noqa: E402
+from rl_move.sim.mjx_backend import mjx_is_available
 
 if not mjx_is_available():  # pragma: no cover
     pytest.skip("mujoco-mjx / jax not installed", allow_module_level=True)
 
-from rl_move.sim.amp_features import (  # noqa: E402
+from rl_move.sim.amp_features import (
     chassis_pad_gyro_ids,
     obs_style_batch,
 )
-from rl_move.sim.mjx_vec_env import MjxVecEnv  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.sim.mjx_vec_env import MjxVecEnv
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 B = 3
 

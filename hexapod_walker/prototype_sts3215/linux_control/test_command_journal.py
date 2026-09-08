@@ -1,13 +1,10 @@
 """Attribution and retention behaviour of the robot command journal."""
 import json
-import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import command_journal  # noqa: E402
+import command_journal
 
 
 class Headers:

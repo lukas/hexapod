@@ -28,25 +28,21 @@ the anchor is a trainer loss, not a reward term.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
-from rl_move.sim.joint_task import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD, RAD2DEG
+from rl_move.sim.joint_task import (
     SimHexapodJointGoalEnv, action_to_q_rad, q_rad_to_action)
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.sim_env import load_rise_ref  # noqa: E402
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.sim_env import load_rise_ref
 
 RISE_REF = "rl_move/sim/refs/rise_ref_belly2plant.npz"
 BASE_OVERRIDES = {
@@ -406,7 +402,7 @@ def test_rise_and_hold_flags_mutually_exclusive():
         assert env._is_hold_bc == (mode in ("hold", "track"))
 
 
-import gymnasium as _gym  # noqa: E402
+import gymnasium as _gym
 
 
 class _DummyEnv(_gym.Env):
@@ -1530,7 +1526,6 @@ def test_walk_yaw_arm_scale_leaves_straight_walk_untouched():
         expect = q_rad_to_action(
             np.asarray(ref.desired_deg((step_i + 1) * env.dt)) * DEG2RAD)
         assert np.allclose(info["bc_target"], expect, atol=1e-6)
-
 
 
 # train.bc_anchor_teacher_selective_omega_boost (standwalk Next item

@@ -17,18 +17,12 @@ itself:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.sim.goal_task import GoalGenerator              # noqa: E402
+from rl_move.sim.goal_task import GoalGenerator
 
 DT = 0.01
 N_STEPS = 1500

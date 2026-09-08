@@ -6,22 +6,16 @@ the over_current audit's exact lowpass deconvolution.
 """
 from __future__ import annotations
 
-import sys
 from types import SimpleNamespace
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
-from rl_move.sim.eval_cmd_stress import aggregate_stress  # noqa: E402
-from rl_move.sim.eval_checkpoint import _smoothness_fields  # noqa: E402
-from rl_move.sim.audit_over_current import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+from rl_move.sim.eval_cmd_stress import aggregate_stress
+from rl_move.sim.eval_checkpoint import _smoothness_fields
+from rl_move.sim.audit_over_current import (
     AMPS_PER_NM, CUR_CAP_A, LP_TAU_S, RAIL_A, deconvolve_torque)
 
 

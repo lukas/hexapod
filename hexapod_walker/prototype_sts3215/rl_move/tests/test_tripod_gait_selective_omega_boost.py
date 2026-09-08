@@ -21,15 +21,8 @@ legs untouched.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait
 
 
 def _make(boost=1.0):

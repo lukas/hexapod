@@ -2,25 +2,20 @@
 from __future__ import annotations
 
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
-_ROOT = _HERE.parents[1]
-for _p in (_ROOT, _ROOT / "motor_setup", _ROOT / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
-from inplace_demos import (  # noqa: E402
+from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch
+from inplace_demos import (
     LIVE_SPEED_MIN,
     QuadPitchTrim,
 )
 
 try:
-    from rl_move.sim.quad_play import Player  # noqa: E402
+    from rl_move.sim.quad_play import Player
 except ImportError as e:
     Player = None
     _IMPORT_ERROR = e

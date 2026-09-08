@@ -6,15 +6,9 @@ No hardware: these tests synthesize floor contacts from known link geometry.
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from geometry_plant import (FEMUR_MM, TIBIA_MM, fit_contact_sweep)  # noqa: E402
+from geometry_plant import (FEMUR_MM, TIBIA_MM, fit_contact_sweep)
 
 
 def _solve_knee_for_height(

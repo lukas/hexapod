@@ -3,15 +3,8 @@
 termination reason."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-
-from rl_move.sim.audit_dr_hold_correlate import correlate, load_episodes  # noqa: E402
+from rl_move.sim.audit_dr_hold_correlate import correlate, load_episodes
 
 
 def _ep(term_reason: str, friction_scale: float, fault: str = "none"):

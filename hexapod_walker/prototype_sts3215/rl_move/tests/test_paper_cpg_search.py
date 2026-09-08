@@ -1,23 +1,17 @@
 """Fast checks for the Berkeley-style CPG gait search runner."""
 from __future__ import annotations
 
-import sys
 import math
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.sim.paper_cpg_search import (  # noqa: E402
+from rl_move.sim.paper_cpg_search import (
     aggregate_reality_trials,
     score_rollouts,
 )
-from rl_move.sim.domain_rand import DomainRandomizer, G0  # noqa: E402
-from hexapod_core.se2_foot_gait import SE2FootGait  # noqa: E402
+from rl_move.sim.domain_rand import DomainRandomizer, G0
+from hexapod_core.se2_foot_gait import SE2FootGait
 
 
 def test_se2_gait_outputs_canonical_robot_absolute_knees():

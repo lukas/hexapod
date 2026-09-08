@@ -16,24 +16,19 @@ PENDING_SLOTS=40 restores >=2x margin at 100Hz (40*10ms=400ms >=
 installed (controller sandbox); runs for real on any pod (train pods
 all have jax/mjx).
 """
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-_PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
-from rl_move.sim.mjx_backend import mjx_is_available  # noqa: E402
+from rl_move.sim.mjx_backend import mjx_is_available
 
 if not mjx_is_available():  # pragma: no cover
     pytest.skip("mujoco-mjx / jax not installed", allow_module_level=True)
 
-from rl_move.sim.mjx_backend import MjxTickStepper, PENDING_SLOTS  # noqa: E402
-from rl_move.sim.servo_model import N_JOINTS, SimServoParams  # noqa: E402
-import jax.numpy as jnp  # noqa: E402
+from rl_move.sim.mjx_backend import MjxTickStepper, PENDING_SLOTS
+from rl_move.sim.servo_model import N_JOINTS, SimServoParams
+import jax.numpy as jnp
 
 
 def _fake_stepper():

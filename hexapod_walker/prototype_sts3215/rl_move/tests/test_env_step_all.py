@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
-from rl_move.env import HexapodBalanceEnv  # noqa: E402
-from rl_move.robot_state import N_JOINTS, RobotState  # noqa: E402
+from rl_move.env import HexapodBalanceEnv
+from rl_move.robot_state import N_JOINTS, RobotState
 
 
 def _state() -> RobotState:

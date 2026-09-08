@@ -9,12 +9,7 @@ from __future__ import annotations
 
 import math
 import sys
-from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-for _p in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 import pinned_tip
 from feetech_bus import N_JOINTS, joint_to_servo_id

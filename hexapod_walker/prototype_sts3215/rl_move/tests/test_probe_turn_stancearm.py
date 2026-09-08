@@ -1,11 +1,9 @@
 """Feasibility must inspect raw IK, not TripodGait's finite fallback."""
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from rl_move.sim import probe_turn_stancearm as probe  # noqa: E402
+from rl_move.sim import probe_turn_stancearm as probe
 
 
 CELLS = [(0.08, 0.15), (0.08, -0.15), (0.08, 0.0)]

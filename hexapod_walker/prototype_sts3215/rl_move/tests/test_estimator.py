@@ -11,20 +11,14 @@ from __future__ import annotations
 
 import copy
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.body_ik import (  # noqa: E402
+from rl_move.body_ik import (
     fk_all_feet, ik_leg_from_foot_body, leg_azimuths, rot_z,
 )
-from rl_move.estimator import LegOdometryVelocity, integrate_track  # noqa: E402
+from rl_move.estimator import LegOdometryVelocity, integrate_track
 
 DT = 0.04  # 25 Hz, the control rate everywhere in this stack
 DEG = math.pi / 180.0

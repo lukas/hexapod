@@ -18,22 +18,16 @@ must not change the env's own obs/reward stream (same guarantee any
 diagnostic instrument needs before its readings are trusted)."""
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.debug_seq_switch_obs_jump import (  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.debug_seq_switch_obs_jump import (
     _install_switch_probe, run_probe,
 )
-from rl_move.sim.walk_task import SimHexapodJointWalkEnv  # noqa: E402
+from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
 
 def _make_env(seed: int, episode_seconds: float, plan: str,

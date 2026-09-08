@@ -2,14 +2,12 @@
 rejects the raw-IK-None fallback at any dosed period_scale too, and the
 CLI enforces the SCALE_PERIOD bounds instead of silently clamping."""
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from rl_move.sim import probe_turn_cadence as cadence  # noqa: E402
-from rl_move.sim import probe_turn_stancearm as probe  # noqa: E402
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from rl_move.sim import probe_turn_cadence as cadence
+from rl_move.sim import probe_turn_stancearm as probe
+from hexapod_core.tripod_gait import TripodGait
 
 
 CELLS = [(0.08, 0.15), (0.08, -0.15), (0.08, 0.0)]

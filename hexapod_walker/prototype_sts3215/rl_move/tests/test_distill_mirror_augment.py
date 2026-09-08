@@ -19,21 +19,15 @@ Locks:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.sim.distill_gru import (  # noqa: E402
+from rl_move.sim.distill_gru import (
     main as distill_main, mirror_augment_episodes,
 )
-from rl_move.sim.mirror import (  # noqa: E402
+from rl_move.sim.mirror import (
     joint_perm_sign, obs_perm_sign, resolve_obs_mirror_maps,
 )
 

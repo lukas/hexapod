@@ -4,15 +4,12 @@ fail-closed static gate actually fails on a broken sign, and the
 instrumented rollout is behavior-neutral (bit-identical body medians)
 vs the stance-arm probe's rollout on the same cell/seed."""
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 import os
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -28,8 +25,8 @@ def _mesh_family_model_source():
         os.environ.pop("HEXAPOD_MODEL_SOURCE", None)
     else:
         os.environ["HEXAPOD_MODEL_SOURCE"] = prev
-from rl_move.sim import probe_turn_stancearm as stance  # noqa: E402
-from rl_move.sim import probe_turn_traction as tr  # noqa: E402
+from rl_move.sim import probe_turn_stancearm as stance
+from rl_move.sim import probe_turn_traction as tr
 
 
 CFG = json.loads(

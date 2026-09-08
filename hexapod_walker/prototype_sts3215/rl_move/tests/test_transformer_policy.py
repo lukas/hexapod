@@ -18,26 +18,20 @@ test the mechanism BEFORE blaming the recipe):
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch as th
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-import gymnasium as gym  # noqa: E402
-from gymnasium import spaces  # noqa: E402
+import gymnasium as gym
+from gymnasium import spaces
 
-from rl_move.sim.gru_policy import (  # noqa: E402
+from rl_move.sim.gru_policy import (
     is_recurrent_checkpoint,
     load_checkpoint_auto,
 )
-from rl_move.sim.transformer_policy import (  # noqa: E402
+from rl_move.sim.transformer_policy import (
     FrameStackTransformerExtractor,
     TransformerActorCriticPolicy,
 )

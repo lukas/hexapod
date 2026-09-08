@@ -1,12 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-import sys
-
-HERE = Path(__file__).resolve().parent
-for location in (HERE, HERE.parent / "motor_setup"):
-    if str(location) not in sys.path:
-        sys.path.insert(0, str(location))
 
 import servo_watch
 

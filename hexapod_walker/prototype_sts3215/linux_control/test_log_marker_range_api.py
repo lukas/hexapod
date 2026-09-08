@@ -4,16 +4,11 @@ from __future__ import annotations
 from io import BytesIO
 import json
 from pathlib import Path
-import sys
 from urllib.parse import urlencode
 
-_HERE = Path(__file__).resolve().parent
-for _path in (_HERE, _HERE.parent / "motor_setup"):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
 
-import event_log  # noqa: E402
-import web_drive as web_drive_module  # noqa: E402
+import event_log
+import web_drive as web_drive_module
 
 
 def _marker(marker_id: str) -> dict:

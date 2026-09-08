@@ -9,18 +9,12 @@ checked against code that exists independently of mirror.py
 from __future__ import annotations
 
 import math
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
-from rl_move.sim.mirror import (  # noqa: E402
+from rl_move.sim.mirror import (
     frame_perm_sign, joint_perm_sign, obs_perm_sign,
 )
 

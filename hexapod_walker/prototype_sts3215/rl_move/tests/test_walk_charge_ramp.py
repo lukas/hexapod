@@ -39,22 +39,15 @@ Contract under test:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control",
-           ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.servo_model import SimServoParams
 
 RAMP_KEYS = {
     ("reward", "walk_charge_ramp_steps"): 1_000_000,

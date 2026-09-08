@@ -24,20 +24,13 @@ Proves:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control",
-           ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.sim.rnd_vec import RNDVecWrapper, _ObsRing, _RunningMeanStd  # noqa: E402
+from rl_move.sim.rnd_vec import RNDVecWrapper, _ObsRing, _RunningMeanStd
 
 
 class _StubVecEnv:

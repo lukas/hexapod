@@ -10,10 +10,8 @@ the stance obs to be a strict prefix of the walk env obs).
 """
 import importlib.util
 import pathlib
-import sys
 
 _ORCH = pathlib.Path(__file__).resolve().parents[1] / "orchestrator"
-sys.path.insert(0, str(_ORCH))  # pod_eval imports its sibling ``tracks``
 _P = _ORCH / "pod_eval.py"
 _spec = importlib.util.spec_from_file_location("pod_eval", _P)
 pod_eval = importlib.util.module_from_spec(_spec)

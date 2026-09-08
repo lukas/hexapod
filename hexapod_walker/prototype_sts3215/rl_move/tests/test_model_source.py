@@ -8,19 +8,15 @@ correction, and a full env reset on the MJX twin.
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
 
 mujoco = pytest.importorskip("mujoco")
 
-from rl_move.sim import servo_model as SM  # noqa: E402
-from rl_move.sim import eval_checkpoint as EC  # noqa: E402
+from rl_move.sim import servo_model as SM
+from rl_move.sim import eval_checkpoint as EC
 
 
 def _total_mass(model) -> float:

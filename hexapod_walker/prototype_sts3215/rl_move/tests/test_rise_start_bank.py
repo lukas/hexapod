@@ -11,23 +11,19 @@ lower-endpoint poses (start_at="rise_bank"). Contract under test:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 pytest.importorskip("mujoco")
 
-from rl_move.config import load_config                      # noqa: E402
-from rl_move.sim.goal_task import SimHexapodGoalEnv         # noqa: E402
-from rl_move.sim.sim_env import N_JOINTS                    # noqa: E402
-from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.goal_task import SimHexapodGoalEnv
+from rl_move.sim.sim_env import N_JOINTS
+from hexapod_core.joint_frame import robot_abs_rad_to_mujoco_rel_rad
 
 RISE_REF = ROOT / "rl_move/sim/refs/rise_ref_belly2plant.npz"
 

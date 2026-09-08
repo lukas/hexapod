@@ -298,6 +298,36 @@ def set_foot_ground_torsion_friction(model, mu_torsion: float) -> None:
             model.geom_friction[gid, 1] = float(mu_torsion)
 
 
+def set_foot_geom_radius(model, radius_m: float) -> None:
+    """Set the foot contact SPHERE radius (``geom_size[:, 0]``) to a
+    probe/diagnostic value. cfg ``env.foot_geom_radius_m`` (0 = keep the
+    XML default, currently a 4.5 mm point-like sphere per foot,
+    ``mesh_mujoco/hexapod_mesh_mjx.xml`` ``L{i}_foot``).
+
+    Built 2026-09-08 as the next named-but-unbuilt structural-lever
+    candidate on the walkcurr slip-floor question, after the torsional-
+    friction lever (``set_foot_ground_torsion_friction``) was measured
+    and REFUTED for straight-line slip (flat-to-worse, see STATUS.md
+    09-08 ~03:5x). MuJoCo's sphere-plane contact is a single point
+    regardless of radius, but the radius still sets the torque arm for
+    the geom's ROLLING-friction column (``geom_friction[:, 2]``) and
+    the contact's rolling-resistance moment scales with it — a bigger
+    radius could plausibly raise the effective rolling drag without
+    inflating the SLIDING friction pair (which is already calibrated
+    against tape-measured travel, see ``set_foot_ground_friction``).
+    Only the ``L{i}_foot`` geoms are touched (``L{i}_pad_col`` matched
+    for forward-compat but does not exist in the current XML — no-op
+    there). Default 0.0 leaves the model untouched (bit-exact off);
+    this is diagnostic-only (frozen-checkpoint probes), not a trained-
+    from lever, until/unless a probe shows it moves the floor."""
+    import mujoco
+    for i in range(6):
+        for gname in (f"L{i}_foot", f"L{i}_pad_col"):
+            gid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, gname)
+            if gid >= 0:
+                model.geom_size[gid, 0] = float(radius_m)
+
+
 def leg_chassis_collision_from_cfg(cfg) -> bool:
     """cfg ``env.leg_chassis_collision`` (0 = off, the default) — the
     belly knife-edge contact axis (SIM.md known-gap 4, added 08-12).
@@ -635,6 +665,13 @@ class SimHexapodBalanceEnv(_GymBase):
                                   default=0.0))
             if _mu_t > 0.0:
                 set_foot_ground_torsion_friction(self.model, _mu_t)
+            # Diagnostic-only foot contact-sphere radius override
+            # (default 0 = keep XML default, bit-exact off) — see
+            # set_foot_geom_radius.
+            _r_foot = float(cfg_get(self.cfg, "env", "foot_geom_radius_m",
+                                     default=0.0))
+            if _r_foot > 0.0:
+                set_foot_geom_radius(self.model, _r_foot)
 
         # Pristine copies for DR restore at every reset.
         self._base_body_mass = self.model.body_mass.copy()

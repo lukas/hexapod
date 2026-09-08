@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T08:37:23+00:00
 
 **pod**: hexapod-mjx-train-3
 
 **steps**: 2000000
+
+**wandb_id**: xpuzkq3h
 
 **hypothesis**: Matched fresh-init joint-space control for the cart_foot-freshinit-c1 canary above (same run, same 2M budget, IDENTICAL seed/DR/heading recipe, only the 3 walk_cart_foot_box_* keys removed). Isolates whether ignition/gait health on the harder widen8 8-way-heading + full crutch-off DR composite depends on the action-space swap or is just ordinary fresh-init-on-hard-DR difficulty -- every existing PASS/FAIL reference point for this composite (widen8-acq1 3/3 ACQ FAIL, all 19 reward-mechanism attempts) was a WARM START off a 5-way-heading base, never a fresh-init on the full 8-way+DR composite directly, so this control also tells us whether joint-space itself can even ignite from scratch at this difficulty.
 

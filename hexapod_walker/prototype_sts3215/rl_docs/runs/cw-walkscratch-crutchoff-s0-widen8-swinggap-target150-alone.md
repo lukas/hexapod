@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T19:42:06+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-crutchoff-s0-widen8-loadslip-target6-cap02-alone
+
+**wandb_id**: 9ewjhp2n
 
 **hypothesis**: Plain English: this tests a brand-new, structurally different anti-leg-sacrifice reward mechanism -- instead of pricing a STATE a dragging/planted leg can fake (low duty-ratio recovers by holding longer, high load-slip-ratio recovers by holding stiller), it prices the PATTERN directly: seconds elapsed since a leg's last real qualifying swing, so a leg can only lower the charge by actually swinging. Both prior per-leg charges (duty-ratio, load-slip-with-cap) were mechanism-healthy (no reward collapse) but never cleared the family's 3/4-groups efficacy bar (0-1/4 groups, 2/2 seeds each) -- this is the first-ever exercise of the swing-gap design those closures named as the next open lead (CURRENT_TRUTHS/walkcurr STATUS 2026-09-08 ~19:1x). Same isolated recipe/init as every sibling in this family (duty-ratio-charge=0, loadslip-ratio-charge=0, ONLY reward.walk_leg_swing_gap_charge=150/grace_s=3.0/cap_s=4.0 live, same clean pre-any-charge widen8-acq1 init) so this seed's own result cannot be confounded by either prior charge. Ships pre-capped from inception (cap_s=4.0) per the loadslip lineage's own lesson that an unbounded per-tick excess drives orders-of-magnitude reward collapse.
 

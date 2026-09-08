@@ -1,3 +1,43 @@
+## 2026-09-08 ~19:3x (refill continuation, same triage window) — BUILT + LAUNCHED the "new mechanism" the loadslip-cap closure below named as the next open lead: `reward.walk_leg_swing_gap_charge`, a duration-since-last-swing PATTERN price (not a STATE price)
+
+Both closures below independently point at the same next step: every
+tested per-leg charge so far (duty-ratio: contact-TIME state; load-slip:
+velocity state) prices something a dragging/planted leg can satisfy
+without ever completing a real step. Built the genuinely different
+mechanism named as the open lead: `reward.walk_leg_swing_gap_charge`
+prices seconds elapsed since a leg's last qualifying swing directly (the
+identical stride-filtered liftoff->airborne->touchdown event every other
+anti-drag gate in this file already detects) -- a leg cannot lower this
+charge by planting harder or sliding less, only by actually swinging.
+Shipped PRE-CAPPED from inception (`reward.walk_leg_swing_gap_cap_s`,
+default 4.0) per the loadslip lineage's own lesson that an unbounded
+per-tick excess drives orders-of-magnitude reward collapse -- this
+mechanism never needs a second "add the cap later" pass. New semantics
+bank (`test_task_semantics.py`, 6/6 new tests green): default-off
+bit-exact (both against a bare baseline and against the sparse duty-
+ratio/loadslip activation config), an honest six-leg scripted gait is
+NEVER charged (0.0 every commanded tick, not merely small), the
+permanently-flagged-leg cheat IS charged (strictly negative, monotonic
+growth since a permanently-airborne leg can never reset its own gap),
+and the cap demonstrably bounds the price (tight cap's return is never
+more negative than a loose cap's against the identical cheat). Also
+reran the neighboring gait/swing/duty-gate + duty-ratio/loadslip-ratio
+bank slices (29 tests) green -- no regression from the shared per-foot
+loop/guard-condition edits this mechanism's wiring required. Snapshot
+`84ee4888` (tag `exp/walkcurr-legswinggap-charge-mechanism`), pushed.
+LAUNCHED the pre-registered 2-seed isolation canary (matches every
+sibling in this family: duty-ratio-charge=0, loadslip-ratio-charge=0,
+ONLY the new charge live at 150/grace_s=3.0/cap_s=4.0, same clean
+pre-any-charge widen8-acq1 init): `cw-walkscratch-crutchoff-{s0,s1}-
+widen8-swinggap-target150-alone`, VERIFIED RUNNING (train-2, train-0).
+Gate: mechanism-health only at this first read (bounded reward, 0 new
+falls); efficacy reported but not required for a PASS yet, matching how
+duty-ratio/loadslip were each first read alone. Evidence:
+`rl_move/sim/walk_task.py` (`_swing_gap_s` state + the mechanism's own
+step()/bookkeeping comment blocks), `rl_move/tests/test_task_semantics.py`
+(`test_walk_leg_swing_gap_charge_*`), `ops.sh entry cw-walkscratch-
+crutchoff-{s0,s1}-widen8-swinggap-target150-alone`.
+
 ## 2026-09-08 ~19:1x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the entire `walk_leg_loadslip_ratio_charge` investigation line (dose/target/isolation/cap all tried, 2/2 seeds on the final cap arm confirm) + separately CLOSES the widen8-jointspace-freshinit DR-breadth investigation (true zero-DR still fails to ignite)
 
 One plain sentence: the two runs that finished this window each close out a

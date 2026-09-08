@@ -1,3 +1,19 @@
+## 2026-09-08 ~04:0x (cross-track note from the todaypolicy traction diagnostic; no launch here) — a MEASURED structural-contact candidate for the closed 9-arm slip-floor demand: mesh-plant foot TORSIONAL friction is ~20x physical
+
+The direct contact-force diagnostic
+(`artifacts/rl_watchdog/turn_traction_20260908/`, frozen full-mesh
+plant, impulse-closure-validated) found the mesh family's foot geoms
+ship `friction="2.0 0.1 0.001"`: torsional mu 0.1 m caps 1.5 Nm/foot
+vs a physical boot estimate ~0.005 m (~0.07 Nm). Feet can pivot-anchor
+on a channel the hardware cannot supply; a probe-local mu_t=0.005 A/B
+moved turn equilibrium −9..−14% and vx +17..20% on the scripted gait.
+Your own 09-07 ~20:3x closure demanded exactly a STRUCTURAL
+contact/friction lever before any 10th slip-pricing design: before
+funding further policy-side slip mechanisms on the mesh/100Hz lineage,
+measure the ~5-6/m slip floor's sensitivity to mu_t (probe-local dose
+exists: `rl_move/sim/probe_turn_traction.py --foot-torsion-mu`; fleet
+default change is operator-scoped, q_20260908T0410Z).
+
 ## 2026-09-08 ~03:0x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-on10m`) — s0/RNG2 charge-on arm CANARY PASSes its own retention gate (22/24, +1 over the 21/24 source, 0 new falls/chronic legs) — same shape as the s1 twin, causal efficacy still pending its matched control
 
 `on10m` (charge=150, same corrected 2M s0/RNG2

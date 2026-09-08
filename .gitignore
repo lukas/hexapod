@@ -92,3 +92,7 @@ hexapod_walker/prototype_sts3215/sysid/datasets/
 # Generated at deploy time by deploy_manifest.sh; never committed.
 hexapod_walker/prototype_sts3215/linux_control/deploy_record.json
 hexapod_walker/prototype_sts3215/linux_control/logs/
+
+# Orchestrator runtime state: a clone of lukas/hexapod-state (see
+# hexapod_walker/prototype_sts3215/rl_move/orchestrator/state_dir.py).
+.state/

@@ -3,6 +3,30 @@
 Last updated: 2026-09-08 ~04:28 UTC — reviewed the stance-path probe;
 command correction remains unsupported. Diagnostic repair deployed7ca821fb1.
 
+## Update 2026-09-08 ~05:2x UTC — EVENT-BASED PHASE SYNC SCREEN: CLOSED
+(pre-registered bar failed; no mechanism, no canary)
+
+Operator focus note executed: screened event-based per-leg phase
+synchronization (contact-event-conditioned coordination) on the frozen
+full-mesh plant BEFORE implementing anything. New measurement probe
+`rl_move/sim/probe_turn_eventsync.py` (9-test bank, pre-registered
+S1/S2/S3 bar committed before the run, 2858d37f), 6 frozen cells,
+zero falls, parity 6/6 bit-exact vs the stance-arm baseline. RESULT:
+best-case event-sync counterfactual yaw gain only +2.2–3.4% (bar ≥+10%,
+start scatter ±1.5%) — pure-tripod support already covers ~90% of ticks
+and mixed-state yaw sits near the mean. The event feedback signal is
+common-mode (touchdown offsets 190–220 ms, spread 20–30 ms, sign-
+differential ≤20 ms) EXCEPT one genuinely anti-phased leg at π starts
+(340/330 ms spread) whose cells nonetheless yaw as well as or better
+than aligned cells — direct in-data confirmation that "a phase mismatch
+alone is not support". Event-based phase synchronization joins cadence/
+lift-lead/stance-arm/omega/governor/twist-reprojection/time-multiplex
+as CLOSED on this plant. Side observation recorded (descriptive only):
+turn conversion is tripod-asymmetric and sign-mirrored (~+0.064 vs
++0.018 over the structural ±0.036 tripod yaw oscillation); scoped as
+the only remaining measured residual, with the caveat it likely nets
+out structurally. Evidence: artifacts/rl_watchdog/turn_eventsync_20260908/.
+
 ## Latest review — timing, support validation and causal scope
 
 The original six frozen full-mesh cells (34 meshes,4.80573kg,100Hz,

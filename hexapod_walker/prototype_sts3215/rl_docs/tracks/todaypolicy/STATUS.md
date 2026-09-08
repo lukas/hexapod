@@ -1,5 +1,46 @@
 # todaypolicy - working policy bundle for today's demo
 
+Last updated: 2026-09-08 01:5x UTC — LIFT-PHASE-LEAD EXPERIMENT DONE: CLOSED, NO CANARY.
+
+Cycle 20260908T005017 executed the review-scoped experiment on a properly
+pinned plant (`mesh_mujoco/hexapod_mesh_mjx.xml` sha256 `a8a5ca8a…`,
+4.80573 kg, 100 Hz, contract asserted per rollout: write_speed 400,
+write_acc 20, slew 0.375 deg/tick; cont8m ckpt sha `4a902839…`; the frozen
+full-STL XML exists only on the operator Mac — the controller's generated
+copy is a stale 3.494226 kg build, 20/38 STL hashes mismatched, so the
+hash-matched checked-in twin = the exact pod training/qualification plant
+was used and recorded). Evidence:
+[lift-lead closure](../../../../../artifacts/rl_watchdog/turn_liftlead_20260908/README.md);
+controller copies `logs/ckpt_eval/turn_liftlead_20260908/`; runner
+committed at `rl_move/sim/probe_turn_liftlead.py`.
+
+MEASURED: baseline reproduces the corrected audit on the pinned plant
+(scripted arcs wz ±0.0656 @ vx 0.039, straight 0.0434; cont8m asymmetry
++0.059/−0.035 reproduces). New per-foot lag: contact timing lags the PLAN
+by 190–230 ms (median 210), but the executed tangential sweep lags by the
+same amount — RELATIVE lag (contact vs executed sweep) is median 0 ms.
+The executed gait is ~0.21 s delayed yet internally SELF-ALIGNED; 62–76%
+planned-swing contact is symmetric pipeline delay, not lift/sweep
+misalignment (during "scuff" the lagged foot is still propelling).
+
+COMPARED (XY path bit-exact preserved, verified; lift dz timing only):
+lead 0.21 s (plan-aligned) collapses locomotion (vx 0.039→0.003, wz SIGN
+FLIPS both arcs) — causal proof contact must align with the EXECUTED
+sweep, which it already does. Lead 0.02 s (execution-relative residual;
+honest median selection is 0 = baseline): wz WORSE in BOTH directions,
+vx −3..−6%, slip flat. Zero falls everywhere. The review's bar (gain in
+BOTH turn directions with retained behavior) is unmet at every dose —
+**lift-only phase lead CLOSED; no training canary launched (per the
+pre-registered bar, none is justified).** Undertracking at the arcs is
+amplitude attenuation of the executed sweep under the unchanged contract,
+not a timing defect. Weak residual lever: per-leg DIFFERENTIAL lift
+timing (±20–60 ms scatter, legs 1/4 early, 0/2/3/5 late) — measured
+uniform-lead sensitivity at that scale is a few % and negative, so not
+launch-worthy without a new mechanism argument. Physical
+contract/geometry levers remain operator decisions.
+
+--- prior entry (00:52 UTC) below ---
+
 Last updated: 2026-09-08 00:52 UTC — PIPELINE INTERPRETATION CORRECTED.
 
 The 43-rollout pipeline probe establishes undertracking for its two frozen

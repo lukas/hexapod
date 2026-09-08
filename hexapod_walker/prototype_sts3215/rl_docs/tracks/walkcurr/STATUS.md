@@ -1,3 +1,50 @@
+## 2026-09-08 ~07:3x (triage cycle) — fork (b) seed7 acquisition pair reads clean PARITY: fresh-init cart_foot does NOT show fork(a)'s slip inflation
+
+One plain sentence: the two runs assigned this cycle are the matched
+fresh-init 40M acquisition pair (Cartesian foot-target ON vs
+joint-space OFF, seed 7), and the ON arm comes back at slip PARITY
+with its own control — the opposite of what the just-closed fork (a)
+(warm-started retrofit) measured.
+
+**`cartfoot-freshinit-offctrl-s7-acq1` verdict (PASS, matched
+control):** 0 falls/terminations in 24/24 episodes across all 4
+groups; gait_valid 6/6 in walk/det, walk/sto, walk_startjitter/sto,
+but only 1/6 in walk_startjitter/det (leg 4 sacrificed in 5/6
+episodes) — a genuine, track-relevant jitter-start weak point,
+independent of the cart_foot question. Mean slip/m 2.83/3.41/2.85/
+3.26, speed_mean_m_s 0.195/0.175/0.191/0.183, all above the
+>=0.03 m/s floor. Reward rises monotonically the whole run
+(-376.8->1888.3).
+
+**`cartfoot-freshinit-c1-s7-acq1` verdict (ACQ PASS - PARITY):** mean
+slip/m ON vs OFF by group: 2.79/2.83 (0.99x), 3.22/3.41 (0.94x),
+2.79/2.85 (0.98x), 3.10/3.26 (0.95x) — ON is at-or-under the control
+in ALL 4 groups, not the 1.5-6x inflation fork (a) and the seed2/
+seed3 mature-retrofit reads showed. speed_mean_m_s also slightly
+HIGHER for ON in all 4 groups. gait_valid ties OFF in 3/4 groups and
+BEATS it on walk_startjitter/det (5/6 vs OFF's 1/6). 0 falls in
+24/24. Frame strips on both arms show a level body with real
+alternating leg swing, no flag-leg/drag.
+
+**Interpretation — QUALIFIES fork(a)'s closure, does not reverse
+it:** fork(a) (`cont40m-cartfoot-c1-cont20m`, ACQ FAIL (MISALIGNED),
+2-6x slippier + new tilt_roll falls) stays correctly closed for its
+exact lineage: a Cartesian head retrofitted onto weights already
+MATURE in joint-space. But this fresh-init read shows that inflation
+is not a property of the Cartesian action space itself — trained
+from a fresh random init at the same budget, it matches (mildly
+beats) joint-space. n=1 seed so far; seed-11's matched fresh-init
+pair (`cartfoot-freshinit-{c1,offctrl}-s11-acq1`, both still training
+this cycle) is the pending 2nd replicate before this becomes a
+track-level ruling reopening Cartesian-space as a live candidate for
+FROM-SCRATCH lineages specifically (never warm-started retrofits).
+
+Evidence: `ops.sh review` for both runs this cycle; `logs/ckpt_eval/
+cw_walkscratch_easy0905_cartfoot_freshinit_{c1,offctrl}_s7_acq1_gate/
+report.json`; SKILLS.md new row; RL_LOG 09-08 ~07:3x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~07:1x (triage cycle) — fork (a) FINAL read: cartfoot-c1-cont20m ACQ FAIL (MISALIGNED), fork (a) formally CLOSED; matched control confirmed retained
 
 One plain sentence: the pre-registered "one extra read, then no more

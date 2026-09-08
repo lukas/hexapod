@@ -1,0 +1,547 @@
+{
+  "trigger": "2026-09-08T06:12:13Z",
+  "gpu_sample_times": [
+    "2026-09-08T06:12:52Z",
+    "2026-09-08T06:14:05Z"
+  ],
+  "ready": 11,
+  "free": 11,
+  "optimizing": 0,
+  "compiling": 0,
+  "gpu_evaluating": 0,
+  "cpu_finalizer_pods": [
+    0,
+    1,
+    2,
+    4
+  ],
+  "queue": [],
+  "capacity1": {
+    "chunk_id": "abf058",
+    "wall_time_seconds": 2.125e-06,
+    "exit_code": 0,
+    "original_token_count": 339,
+    "output": "{\n  \"nodes\": {\n    \"g129004\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-1\",\n        \"hexapod-mjx-train-8\",\n        \"hexapod-mjx-train-9\",\n        \"hexapod-mjx-train-10\",\n        \"hexapod-mjx-train-11\"\n      ]\n    },\n    \"g12ba48\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": []\n    },\n    \"g131eec\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-2\",\n        \"hexapod-mjx-train-3\"\n      ]\n    },\n    \"g142d86\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-0\",\n        \"hexapod-mjx-train-4\",\n        \"hexapod-mjx-train-5\",\n        \"hexapod-mjx-train-7\"\n      ]\n    }\n  },\n  \"slots_total\": 12,\n  \"slots_ready\": 11,\n  \"slots_free\": 11,\n  \"free_pods\": [\n    \"hexapod-mjx-train-0\",\n    \"hexapod-mjx-train-1\",\n    \"hexapod-mjx-train-2\",\n    \"hexapod-mjx-train-3\",\n    \"hexapod-mjx-train-4\",\n    \"hexapod-mjx-train-5\",\n    \"hexapod-mjx-train-7\",\n    \"hexapod-mjx-train-8\",\n    \"hexapod-mjx-train-9\",\n    \"hexapod-mjx-train-10\",\n    \"hexapod-mjx-train-11\"\n  ],\n  \"pending_pods\": [\n    \"hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)\"\n  ],\n  \"busy\": {}\n}\n"
+  },
+  "capacity2": {
+    "chunk_id": "9c2f5c",
+    "wall_time_seconds": 3.792e-06,
+    "exit_code": 0,
+    "original_token_count": 339,
+    "output": "{\n  \"nodes\": {\n    \"g129004\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-1\",\n        \"hexapod-mjx-train-8\",\n        \"hexapod-mjx-train-9\",\n        \"hexapod-mjx-train-10\",\n        \"hexapod-mjx-train-11\"\n      ]\n    },\n    \"g12ba48\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": []\n    },\n    \"g131eec\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-2\",\n        \"hexapod-mjx-train-3\"\n      ]\n    },\n    \"g142d86\": {\n      \"cpus\": \"127960m\",\n      \"gpus\": 8,\n      \"train_pods\": [\n        \"hexapod-mjx-train-0\",\n        \"hexapod-mjx-train-4\",\n        \"hexapod-mjx-train-5\",\n        \"hexapod-mjx-train-7\"\n      ]\n    }\n  },\n  \"slots_total\": 12,\n  \"slots_ready\": 11,\n  \"slots_free\": 11,\n  \"free_pods\": [\n    \"hexapod-mjx-train-0\",\n    \"hexapod-mjx-train-1\",\n    \"hexapod-mjx-train-2\",\n    \"hexapod-mjx-train-3\",\n    \"hexapod-mjx-train-4\",\n    \"hexapod-mjx-train-5\",\n    \"hexapod-mjx-train-7\",\n    \"hexapod-mjx-train-8\",\n    \"hexapod-mjx-train-9\",\n    \"hexapod-mjx-train-10\",\n    \"hexapod-mjx-train-11\"\n  ],\n  \"pending_pods\": [\n    \"hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)\"\n  ],\n  \"busy\": {}\n}\n"
+  },
+  "initial_ledger": {
+    "status": "fulfilled",
+    "value": {
+      "chunk_id": "6ed736",
+      "wall_time_seconds": 0.896027375,
+      "exit_code": 0,
+      "original_token_count": 879,
+      "output": "[\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1\",\n    \"status\": \"CANARY PASS\",\n    \"pod\": \"hexapod-mjx-train-4\",\n    \"created\": \"2026-09-08T05:32:34+00:00\",\n    \"wandb_id\": \"gzyvhnzt\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1.log\",\n    \"steps\": 2000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl\",\n    \"status\": \"CANARY PASS\",\n    \"pod\": \"hexapod-mjx-train-0\",\n    \"created\": \"2026-09-08T05:36:00+00:00\",\n    \"wandb_id\": \"8tv5njiz\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl.log\",\n    \"steps\": 2000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m\",\n    \"status\": \"REFUSED\",\n    \"pod\": \"hexapod-mjx-train-4\",\n    \"created\": \"2026-09-08T05:52:55+00:00\",\n    \"wandb_id\": null,\n    \"log\": null,\n    \"steps\": 10000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m\",\n    \"status\": \"RUNNING\",\n    \"pod\": \"hexapod-mjx-train-4\",\n    \"created\": \"2026-09-08T05:53:34+00:00\",\n    \"wandb_id\": \"qay6bggy\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m.log\",\n    \"steps\": 10000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-acq10m\",\n    \"status\": \"REFUSED\",\n    \"pod\": \"hexapod-mjx-train-0\",\n    \"created\": \"2026-09-08T05:56:45+00:00\",\n    \"wandb_id\": null,\n    \"log\": null,\n    \"steps\": 10000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m\",\n    \"status\": \"RUNNING\",\n    \"pod\": \"hexapod-mjx-train-0\",\n    \"created\": \"2026-09-08T05:56:59+00:00\",\n    \"wandb_id\": \"x46hb1dy\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m.log\",\n    \"steps\": 10000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-acq10m\",\n    \"status\": \"REFUSED\",\n    \"pod\": \"hexapod-mjx-train-0\",\n    \"created\": \"2026-09-08T05:58:16+00:00\",\n    \"wandb_id\": null,\n    \"log\": null,\n    \"steps\": 10000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3\",\n    \"status\": \"FINISHED\",\n    \"pod\": \"hexapod-mjx-train-1\",\n    \"created\": \"2026-09-08T05:59:09+00:00\",\n    \"wandb_id\": \"axh4szza\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3.log\",\n    \"steps\": 2000000\n  },\n  {\n    \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3\",\n    \"status\": \"FINISHED\",\n    \"pod\": \"hexapod-mjx-train-2\",\n    \"created\": \"2026-09-08T06:02:34+00:00\",\n    \"wandb_id\": \"a2o71f5o\",\n    \"log\": \"/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3.log\",\n    \"steps\": 2000000\n  }\n]\n"
+    }
+  },
+  "fleet1": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-0",
+        "result": {
+          "chunk_id": "bb1dc4",
+          "wall_time_seconds": 0.475513917,
+          "exit_code": 0,
+          "original_token_count": 584,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\n/proc/711742: /usr/local/bin/python -m rl_move.sim.artifact_finalizer --handoff-dir /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m \n/proc/711809: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-core --port-filename /tmp/tmprgpg_k16/port-711742.txt --pid 711742 \n/proc/711830: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-xpu --portfile /tmp/wandb-xpu-portfile-3547159519 --parent-pid 711809 \n/proc/712235: uv run python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_\n/proc/712245: /usr/local/bin/python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_act\nold_or_current_workers=3\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-1",
+        "result": {
+          "chunk_id": "851a0d",
+          "wall_time_seconds": 0.722312375,
+          "exit_code": 0,
+          "original_token_count": 222,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\n/proc/2705907: /usr/local/bin/python -m rl_move.sim.artifact_finalizer --handoff-dir /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3 \n/proc/2705974: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-core --port-filename /tmp/tmplzueg2sb/port-2705907.txt --pid 2705907 \n/proc/2705996: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-xpu --portfile /tmp/wandb-xpu-portfile-840738628 --parent-pid 2705974 \n/proc/2707263: /usr/local/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2 -y -f rawvideo -vcodec rawvideo -s 640x480 -pix_fmt rgb24 -r 25.00 -i - -an -vcodec libx264 -pix_fmt yuv420p -v warning -movflags +faststart /tmp/reel_2706032_2097152.mp4.part.mp4 \nold_or_current_workers=5\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-2",
+        "result": {
+          "chunk_id": "ef26c4",
+          "wall_time_seconds": 0.715106625,
+          "exit_code": 0,
+          "original_token_count": 657,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\n/proc/3793108: /usr/local/bin/python -m rl_move.sim.artifact_finalizer --handoff-dir /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3 \n/proc/3793175: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-core --port-filename /tmp/tmp1f00f4kw/port-3793108.txt --pid 3793108 \n/proc/3793197: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-xpu --portfile /tmp/wandb-xpu-portfile-3744341163 --parent-pid 3793175 \n/proc/3793634: uv run python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_d\n/proc/3793654: /usr/local/bin/python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_b\n/proc/3794948: /usr/local/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2 -y -f rawvideo -vcodec rawvideo -s 640x480 -pix_fmt rgb24 -r 25.00 -i - -an -vcodec libx264 -pix_fmt yuv420p -v warning -movflags +faststart /tmp/reel_3793233_2097152.mp4.part.mp4 \nold_or_current_workers=11\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-3",
+        "result": {
+          "chunk_id": "f414c7",
+          "wall_time_seconds": 0.779564875,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\nold_or_current_workers=5\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-4",
+        "result": {
+          "chunk_id": "1171f3",
+          "wall_time_seconds": 0.690607291,
+          "exit_code": 0,
+          "original_token_count": 654,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\n/proc/512028: /usr/local/bin/python -m rl_move.sim.artifact_finalizer --handoff-dir /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m \n/proc/512095: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-core --port-filename /tmp/tmp1h4vmt19/port-512028.txt --pid 512028 \n/proc/512118: /usr/local/lib/python3.11/site-packages/wandb/bin/wandb-xpu --portfile /tmp/wandb-xpu-portfile-97144110 --parent-pid 512095 \n/proc/512504: uv run python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_d\n/proc/512524: /usr/local/bin/python -m rl_move.sim.eval_checkpoint /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip --task joint_walk --modes walk --per-mode 6 --dr-scale 0.0 --seed 0 --stochastic --episode-seconds 20 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=6.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_b\n/proc/513682: /usr/local/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v7.0.2 -y -f rawvideo -vcodec rawvideo -s 640x480 -pix_fmt rgb24 -r 25.00 -i - -an -vcodec libx264 -pix_fmt yuv420p -v warning -movflags +faststart /tmp/reel_512150_10485760.mp4.part.mp4 \nold_or_current_workers=5\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-5",
+        "result": {
+          "chunk_id": "83bcdd",
+          "wall_time_seconds": 0.90789275,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\nold_or_current_workers=7\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-7",
+        "result": {
+          "chunk_id": "d6d9e8",
+          "wall_time_seconds": 0.679591958,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:52Z\n0, 0, 0\nold_or_current_workers=5\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-8",
+        "result": {
+          "chunk_id": "251b54",
+          "wall_time_seconds": 0.821386291,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:53Z\n0, 0, 0\nold_or_current_workers=3\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-9",
+        "result": {
+          "chunk_id": "4dce2a",
+          "wall_time_seconds": 0.850135959,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:53Z\n0, 0, 0\nold_or_current_workers=7\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-10",
+        "result": {
+          "chunk_id": "46f8b1",
+          "wall_time_seconds": 0.695181083,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:53Z\n0, 0, 0\nold_or_current_workers=3\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-11",
+        "result": {
+          "chunk_id": "ebcff1",
+          "wall_time_seconds": 0.813237458,
+          "exit_code": 0,
+          "original_token_count": 14,
+          "output": "2026-09-08T06:12:53Z\n0, 0, 0\nold_or_current_workers=3\n"
+        }
+      }
+    }
+  ],
+  "fleet2": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-0",
+        "result": {
+          "chunk_id": "f0be9f",
+          "wall_time_seconds": 0.246528208,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-1",
+        "result": {
+          "chunk_id": "f92dea",
+          "wall_time_seconds": 0.276962459,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-2",
+        "result": {
+          "chunk_id": "278d11",
+          "wall_time_seconds": 0.246520042,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-3",
+        "result": {
+          "chunk_id": "a8ffe1",
+          "wall_time_seconds": 0.246460791,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-4",
+        "result": {
+          "chunk_id": "4428a5",
+          "wall_time_seconds": 0.431309208,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-5",
+        "result": {
+          "chunk_id": "279b05",
+          "wall_time_seconds": 0.43118775,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-7",
+        "result": {
+          "chunk_id": "d47d9f",
+          "wall_time_seconds": 0.504224417,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-8",
+        "result": {
+          "chunk_id": "7bbe91",
+          "wall_time_seconds": 0.783988333,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-9",
+        "result": {
+          "chunk_id": "7352bc",
+          "wall_time_seconds": 0.654883417,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-10",
+        "result": {
+          "chunk_id": "20719c",
+          "wall_time_seconds": 0.833229,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:06Z\n0, 0, 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "hexapod-mjx-train-11",
+        "result": {
+          "chunk_id": "230c9d",
+          "wall_time_seconds": 0.632912458,
+          "exit_code": 0,
+          "original_token_count": 8,
+          "output": "2026-09-08T06:14:05Z\n0, 0, 0\n"
+        }
+      }
+    }
+  ],
+  "runs": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "4",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m",
+        "result": {
+          "chunk_id": "93a30f",
+          "wall_time_seconds": 0.677182,
+          "exit_code": 0,
+          "original_token_count": 835,
+          "output": "{\n  \"utc\": \"2026-09-08T06:13:12.059410+00:00\",\n  \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m\",\n  \"manifest\": {\n    \"steps\": 10485760,\n    \"checkpoint_path\": \"/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip\",\n    \"checkpoint_md5\": \"daadcaaa06b493fb6e72a49aed82ce64\",\n    \"wandb_run_id\": \"qay6bggy\",\n    \"written_at\": 1788847419.5253763\n  },\n  \"state\": {\n    \"schema\": 1,\n    \"phase\": \"artifacts_pending\",\n    \"jobs\": {\n      \"video_8015872_periodic_003\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"eval_9031680_periodic_004\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"video_10485760_final_005\": {\n        \"status\": \"in_flight\",\n        \"attempts\": 1\n      }\n    },\n    \"note\": \"3 eval/video job(s) handed to the CPU finalizer\",\n    \"updated_at\": 1788847836.905443\n  },\n  \"finalizer_log_tail\": [\n    \"wandb: Resuming run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m\",\n    \"wandb: \\u2b50\\ufe0f View project at https://wandb.ai/l2k2/hexapod-balance\",\n    \"wandb: \\ud83d\\ude80 View run at https://wandb.ai/l2k2/hexapod-balance/runs/qay6bggy\",\n    \"[finalizer] video @8,015,872 logged (8,015,872 steps | walk:ok walk:ok walk:ok walk:ok)\",\n    \"[finalizer] eval @9,031,680: hold 6.99\\u00b0, track 5.22\\u00b0, unload 4.51\\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.046 m/s, dir 59.3deg, startjit 2/2, tipped 0/2, rolltrap 1/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1\"\n  ],\n  \"training_lines\": [\n    \"|    total_timesteps      | 9437184     |\",\n    \"|    fps                  | 19436       |\",\n    \"|    total_timesteps      | 9961472     |\",\n    \"|    fps                  | 19516      |\",\n    \"|    total_timesteps      | 10485760   |\",\n    \"[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)\",\n    \"[mjx-train] done: 10,000,000 steps in 585s (17,104 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip\",\n    \"[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m; CPU finalizer pid 512028 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now\"\n  ],\n  \"gate_report_path\": \"/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m_gate/report.json\",\n  \"gate_report_exists\": false\n}\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "0",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m",
+        "result": {
+          "chunk_id": "9ec0fe",
+          "wall_time_seconds": 0.542287334,
+          "exit_code": 0,
+          "original_token_count": 846,
+          "output": "{\n  \"utc\": \"2026-09-08T06:13:11.912510+00:00\",\n  \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m\",\n  \"manifest\": {\n    \"steps\": 10485760,\n    \"checkpoint_path\": \"/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip\",\n    \"checkpoint_md5\": \"5a255a37ec82326cc92e0030bcdd4853\",\n    \"wandb_run_id\": \"x46hb1dy\",\n    \"written_at\": 1788847565.2363641\n  },\n  \"state\": {\n    \"schema\": 1,\n    \"phase\": \"artifacts_pending\",\n    \"jobs\": {\n      \"video_10018816_periodic_003\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"eval_10035200_periodic_004\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"video_10485760_final_005\": {\n        \"status\": \"in_flight\",\n        \"attempts\": 1\n      }\n    },\n    \"note\": \"3 eval/video job(s) handed to the CPU finalizer\",\n    \"updated_at\": 1788847984.2871513\n  },\n  \"finalizer_log_tail\": [\n    \"wandb: Resuming run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m\",\n    \"wandb: \\u2b50\\ufe0f View project at https://wandb.ai/l2k2/hexapod-balance\",\n    \"wandb: \\ud83d\\ude80 View run at https://wandb.ai/l2k2/hexapod-balance/runs/x46hb1dy\",\n    \"[finalizer] video @10,018,816 logged (10,018,816 steps | walk:ok walk:ok walk:ok walk:ok)\",\n    \"[finalizer] eval @10,035,200: hold 7.79\\u00b0, track 5.92\\u00b0, unload 3.60\\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.042 m/s, dir 30.5deg, startjit 2/2, tipped 0/2, rolltrap 0/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=1 walk_fwd_b=1\"\n  ],\n  \"training_lines\": [\n    \"|    total_timesteps      | 9437184     |\",\n    \"|    fps                  | 21853       |\",\n    \"|    total_timesteps      | 9961472     |\",\n    \"|    fps                  | 21905       |\",\n    \"|    total_timesteps      | 10485760    |\",\n    \"[defer-final-artifacts] optimization complete (10,485,760 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)\",\n    \"[mjx-train] done: 10,000,000 steps in 524s (19,088 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip\",\n    \"[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m; CPU finalizer pid 711742 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now\"\n  ],\n  \"gate_report_path\": \"/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m_gate/report.json\",\n  \"gate_report_exists\": false\n}\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "1",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3",
+        "result": {
+          "chunk_id": "a8f39a",
+          "wall_time_seconds": 0.630477542,
+          "exit_code": 0,
+          "original_token_count": 842,
+          "output": "{\n  \"utc\": \"2026-09-08T06:13:12.156932+00:00\",\n  \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3\",\n  \"manifest\": {\n    \"steps\": 2097152,\n    \"checkpoint_path\": \"/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_s3.zip\",\n    \"checkpoint_md5\": \"e5af01ddbd541d8328df8924cbb73c79\",\n    \"wandb_run_id\": \"axh4szza\",\n    \"written_at\": 1788847344.5966346\n  },\n  \"state\": {\n    \"schema\": 1,\n    \"phase\": \"artifacts_pending\",\n    \"jobs\": {\n      \"video_4096_periodic_001\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"eval_1003520_periodic_002\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"video_2097152_final_003\": {\n        \"status\": \"in_flight\",\n        \"attempts\": 1\n      }\n    },\n    \"note\": \"3 eval/video job(s) handed to the CPU finalizer\",\n    \"updated_at\": 1788847674.3474214\n  },\n  \"finalizer_log_tail\": [\n    \"wandb: Resuming run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3\",\n    \"wandb: \\u2b50\\ufe0f View project at https://wandb.ai/l2k2/hexapod-balance\",\n    \"wandb: \\ud83d\\ude80 View run at https://wandb.ai/l2k2/hexapod-balance/runs/axh4szza\",\n    \"[finalizer] video @4,096 logged (4,096 steps | walk:ok walk:ok walk:TERM(tilt_roll) walk:ok)\",\n    \"[finalizer] eval @1,003,520: hold 5.90\\u00b0, track 6.06\\u00b0, unload 5.92\\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.056 m/s, dir 68.5deg, startjit 2/2, tipped 0/2, rolltrap 0/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=1 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=0 walk_fwd_b=0\"\n  ],\n  \"training_lines\": [\n    \"|    total_timesteps      | 1048576     |\",\n    \"|    fps                  | 15283       |\",\n    \"|    total_timesteps      | 1572864     |\",\n    \"|    fps                  | 16390        |\",\n    \"|    total_timesteps      | 2097152      |\",\n    \"[defer-final-artifacts] optimization complete (2,097,152 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_s3.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)\",\n    \"[mjx-train] done: 2,000,000 steps in 173s (11,553 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_s3.zip\",\n    \"[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3; CPU finalizer pid 2705907 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now\"\n  ],\n  \"gate_report_path\": \"/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_s3_gate/report.json\",\n  \"gate_report_exists\": true,\n  \"gate_report_mtime\": \"2026-09-08T06:12:39.068019+00:00\"\n}\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": "2",
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3",
+        "result": {
+          "chunk_id": "e09cd7",
+          "wall_time_seconds": 0.655161667,
+          "exit_code": 0,
+          "original_token_count": 836,
+          "output": "{\n  \"utc\": \"2026-09-08T06:13:12.109732+00:00\",\n  \"run\": \"cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3\",\n  \"manifest\": {\n    \"steps\": 2097152,\n    \"checkpoint_path\": \"/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.zip\",\n    \"checkpoint_md5\": \"9c62df33b40214fb770bf25825304aa5\",\n    \"wandb_run_id\": \"a2o71f5o\",\n    \"written_at\": 1788847536.5410993\n  },\n  \"state\": {\n    \"schema\": 1,\n    \"phase\": \"artifacts_pending\",\n    \"jobs\": {\n      \"video_4096_periodic_001\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"eval_1003520_periodic_002\": {\n        \"status\": \"logged_pending_flush\",\n        \"attempts\": 1\n      },\n      \"video_2097152_final_003\": {\n        \"status\": \"in_flight\",\n        \"attempts\": 1\n      }\n    },\n    \"note\": \"3 eval/video job(s) handed to the CPU finalizer\",\n    \"updated_at\": 1788847867.2031996\n  },\n  \"finalizer_log_tail\": [\n    \"wandb: Resuming run cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3\",\n    \"wandb: \\u2b50\\ufe0f View project at https://wandb.ai/l2k2/hexapod-balance\",\n    \"wandb: \\ud83d\\ude80 View run at https://wandb.ai/l2k2/hexapod-balance/runs/a2o71f5o\",\n    \"[finalizer] video @4,096 logged (4,096 steps | walk:ok walk:ok walk:TERM(tilt_roll) walk:ok)\",\n    \"[finalizer] eval @1,003,520: hold 4.71\\u00b0, track 5.50\\u00b0, unload 5.18\\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.057 m/s, dir 28.2deg, startjit 2/2, tipped 1/2, rolltrap 1/2 | canary rise_flat_a=0 rise_flat_b=0 rise_bridge_a=0 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=0 hold_b=0 walk_fwd_a=0 walk_fwd_b=1\"\n  ],\n  \"training_lines\": [\n    \"|    total_timesteps      | 1048576      |\",\n    \"|    fps                  | 16360       |\",\n    \"|    total_timesteps      | 1572864     |\",\n    \"|    fps                  | 17949        |\",\n    \"|    total_timesteps      | 2097152      |\",\n    \"[defer-final-artifacts] optimization complete (2,097,152 steps); marker -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.training_complete.json; outstanding eval/video jobs hand off to the CPU finalizer below (GPU exit is early)\",\n    \"[mjx-train] done: 2,000,000 steps in 160s (12,485 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.zip\",\n    \"[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3; CPU finalizer pid 3793108 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now\"\n  ],\n  \"gate_report_path\": \"/workspace/prototype_sts3215/logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3_gate/report.json\",\n  \"gate_report_exists\": false\n}\n"
+        }
+      }
+    }
+  ],
+  "cpu1": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 0,
+        "result": {
+          "chunk_id": "51b1aa",
+          "wall_time_seconds": 0.8655725,
+          "exit_code": 0,
+          "original_token_count": 99,
+          "output": "2026-09-08T06:13:24Z\n/proc/712245/cmdline\n712245 (python) S 712235 712235 712235 0 -1 4194560 19557923 574592 2 0 232667 11583 10963 636 39 19 67 0 272681099 12173996032 521143 18446744073709551615 96937701392384 96937701392725 140723402171136 0 0 0 0 16781312 2 0 0 0 17 28 0 0 0 0 0 96937701404080 96937701404696 96938053820416 140723402180251 140723402183591 140723402183591 140723402186722 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 1,
+        "result": {
+          "chunk_id": "94292d",
+          "wall_time_seconds": 0.889934125,
+          "exit_code": 0,
+          "original_token_count": 6,
+          "output": "2026-09-08T06:13:24Z\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 2,
+        "result": {
+          "chunk_id": "c2afad",
+          "wall_time_seconds": 1.003363875,
+          "session_id": 71808,
+          "original_token_count": 6,
+          "output": "2026-09-08T06:13:24Z\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 4,
+        "result": {
+          "chunk_id": "67f29f",
+          "wall_time_seconds": 0.812470833,
+          "exit_code": 0,
+          "original_token_count": 100,
+          "output": "2026-09-08T06:13:24Z\n/proc/512524/cmdline\n512524 (python) R 512504 512504 512504 0 -1 4194560 17875211 746861 0 0 334426 12028 14669 851 39 19 67 0 272669003 12153270272 511324 18446744073709551615 96578353901568 96578353901909 140735955385280 0 0 0 0 16781312 2 0 0 0 17 111 0 0 0 0 0 96578353913264 96578353913880 96579195412480 140735955392035 140735955395495 140735955395495 140735955398626 0\n"
+        }
+      }
+    }
+  ],
+  "cpu2": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 0,
+        "result": {
+          "chunk_id": "98640f",
+          "wall_time_seconds": 0.826471042,
+          "exit_code": 0,
+          "original_token_count": 100,
+          "output": "2026-09-08T06:14:22Z\n/proc/712245/cmdline\n712245 (python) R 712235 712235 712235 0 -1 4194560 23834298 645362 2 0 271252 13768 12475 719 39 19 67 0 272681099 12173996032 521143 18446744073709551615 96937701392384 96937701392725 140723402171136 0 0 0 0 16781312 2 0 0 0 17 110 0 0 0 0 0 96937701404080 96937701404696 96938053820416 140723402180251 140723402183591 140723402183591 140723402186722 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 2,
+        "result": {
+          "chunk_id": "c22c60",
+          "wall_time_seconds": 1.00286975,
+          "session_id": 10707,
+          "original_token_count": 6,
+          "output": "2026-09-08T06:14:22Z\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "pod": 4,
+        "result": {
+          "chunk_id": "0d78a2",
+          "wall_time_seconds": 1.00127475,
+          "session_id": 40707,
+          "original_token_count": 6,
+          "output": "2026-09-08T06:14:22Z\n"
+        }
+      }
+    }
+  ],
+  "summary": {
+    "on_cont10m": {
+      "steps": 10485760,
+      "fps": 19516,
+      "pod": 4,
+      "wandb_id": "qay6bggy",
+      "gpu_handoff_utc": "2026-09-08T06:03:39Z"
+    },
+    "off_cont10m": {
+      "steps": 10485760,
+      "fps": 21905,
+      "pod": 0,
+      "wandb_id": "x46hb1dy",
+      "gpu_handoff_utc": "2026-09-08T06:06:05Z"
+    },
+    "on_s3": {
+      "steps": 2097152,
+      "fps": 16390,
+      "pod": 1,
+      "wandb_id": "axh4szza",
+      "gate_ready_utc": "2026-09-08T06:12:39Z"
+    },
+    "off_s3": {
+      "steps": 2097152,
+      "fps": 17949,
+      "pod": 2,
+      "wandb_id": "a2o71f5o",
+      "gate_ready": false
+    }
+  },
+  "interpretation": "No trainers or step advancement remain during these samples because all four runs completed optimization. GPU release succeeded; detached CPU finalization/evaluation remains active. W&B/ledger RUNNING labels for cont10m do not imply GPU retention.",
+  "mutation": false,
+  "cpu2_completion": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "session_id": 10707,
+        "result": {
+          "chunk_id": "ddac89",
+          "wall_time_seconds": 8.33e-07,
+          "exit_code": 0,
+          "original_token_count": 95,
+          "output": "/proc/3793654/cmdline\n3793654 (python) R 3793634 3793634 3793634 0 -1 4194560 13263865 661766 0 0 322330 12155 11234 737 39 19 67 0 262071845 12202618880 517332 18446744073709551615 97748497874944 97748497875285 140735277391584 0 0 0 0 16781312 2 0 0 0 17 34 0 0 0 0 0 97748497886640 97748497887256 97748682543104 140735277394828 140735277398158 140735277398158 140735277400034 0\n"
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "session_id": 40707,
+        "result": {
+          "chunk_id": "25c6f0",
+          "wall_time_seconds": 2.458e-06,
+          "exit_code": 0,
+          "original_token_count": 94,
+          "output": "/proc/512524/cmdline\n512524 (python) R 512504 512504 512504 0 -1 4194560 20323344 820695 0 0 372872 13689 16216 933 39 19 67 0 272669003 12153270272 511324 18446744073709551615 96578353901568 96578353901909 140735955385280 0 0 0 0 16781312 2 0 0 0 17 57 0 0 0 0 0 96578353913264 96578353913880 96579195412480 140735955392035 140735955395495 140735955395495 140735955398626 0\n"
+        }
+      }
+    }
+  ],
+  "cpu_progress_note": "OFF cont10m PID712245 user/system ticks advanced232667/11583 at06:13:24 to271252/13768 at06:14:22. CPU eval work is active; no new GPU optimization."
+}

@@ -1,0 +1,110 @@
+{
+  "source": "native run_metrics cached W&B history, observed 2026-09-08T06:18Z",
+  "scope": "Available synchronized rows with per-tick reward; not the full original training log. Individual per-key W&B duplicate rows excluded.",
+  "rows": [
+    {
+      "global_step": "4194304",
+      "rollout/ep_len_mean": "980.26",
+      "rollout/ep_rew_mean": "-372.7795715332031",
+      "optimization/reward_per_tick": "-0.31950703845359385",
+      "optimization/reward_per_tick_ema": "-0.40903232614521745",
+      "train/v_along_ratio_active": "0.4600240874596983"
+    },
+    {
+      "global_step": "4718592",
+      "rollout/ep_len_mean": "1089.16",
+      "rollout/ep_rew_mean": "-449.68359375",
+      "optimization/reward_per_tick": "-0.30539643042720854",
+      "optimization/reward_per_tick_ema": "-0.39866873657341656",
+      "train/v_along_ratio_active": "0.41657497957376083"
+    },
+    {
+      "global_step": "5242880",
+      "rollout/ep_len_mean": "1241.06",
+      "rollout/ep_rew_mean": "-518.8079833984375",
+      "optimization/reward_per_tick": "-0.30698762997053564",
+      "optimization/reward_per_tick_ema": "-0.38950062591312845",
+      "train/v_along_ratio_active": "0.4702531185983342"
+    },
+    {
+      "global_step": "5767168",
+      "rollout/ep_len_mean": "1329.24",
+      "rollout/ep_rew_mean": "-437.3632507324219",
+      "optimization/reward_per_tick": "-0.2633044874528423",
+      "optimization/reward_per_tick_ema": "-0.37688101206709984",
+      "train/v_along_ratio_active": "0.43797093258355607"
+    },
+    {
+      "global_step": "6291456",
+      "rollout/ep_len_mean": "1425.45",
+      "rollout/ep_rew_mean": "-456.94940185546875",
+      "optimization/reward_per_tick": "-0.2619338260265067",
+      "optimization/reward_per_tick_ema": "-0.3653862934630406",
+      "train/v_along_ratio_active": "0.44870572152146493"
+    },
+    {
+      "global_step": "6815744",
+      "rollout/ep_len_mean": "1559.08",
+      "rollout/ep_rew_mean": "-562.2196044921875",
+      "optimization/reward_per_tick": "-0.25514229002874345",
+      "optimization/reward_per_tick_ema": "-0.3543618931196109",
+      "train/v_along_ratio_active": "0.4606311465807376"
+    },
+    {
+      "global_step": "7340032",
+      "rollout/ep_len_mean": "1665.2",
+      "rollout/ep_rew_mean": "-510.12554931640625",
+      "optimization/reward_per_tick": "-0.24587055121082813",
+      "optimization/reward_per_tick_ema": "-0.3435127589287327",
+      "train/v_along_ratio_active": "0.4594811147110563"
+    },
+    {
+      "global_step": "7864320",
+      "rollout/ep_len_mean": "1780.21",
+      "rollout/ep_rew_mean": "-638.57080078125",
+      "optimization/reward_per_tick": "-0.23070014920085669",
+      "optimization/reward_per_tick_ema": "-0.3322314979559451",
+      "train/v_along_ratio_active": "0.4786961811963645"
+    },
+    {
+      "global_step": "8388608",
+      "rollout/ep_len_mean": "1903.83",
+      "rollout/ep_rew_mean": "-651.5873413085938",
+      "optimization/reward_per_tick": "-0.20656280498951674",
+      "optimization/reward_per_tick_ema": "-0.3196646286593023",
+      "train/v_along_ratio_active": "0.4660852802834027"
+    },
+    {
+      "global_step": "8912896",
+      "rollout/ep_len_mean": "1846.9",
+      "rollout/ep_rew_mean": "-513.7169799804688",
+      "optimization/reward_per_tick": "-0.21041911223437637",
+      "optimization/reward_per_tick_ema": "-0.30874007701680967",
+      "train/v_along_ratio_active": "0.4603637312610208"
+    },
+    {
+      "global_step": "9437184",
+      "rollout/ep_len_mean": "1924.12",
+      "rollout/ep_rew_mean": "-614.0892333984375",
+      "optimization/reward_per_tick": "-0.21065541880670935",
+      "optimization/reward_per_tick_ema": "-0.29893161119579964",
+      "train/v_along_ratio_active": "0.4778909029633125"
+    },
+    {
+      "global_step": "9961472",
+      "rollout/ep_len_mean": "1980.56",
+      "rollout/ep_rew_mean": "-601.2052612304688",
+      "optimization/reward_per_tick": "-0.16670466458890587",
+      "optimization/reward_per_tick_ema": "-0.28570891653511027",
+      "train/v_along_ratio_active": "0.5369234765820278"
+    },
+    {
+      "global_step": "10485760",
+      "rollout/ep_len_mean": "1961.67",
+      "rollout/ep_rew_mean": "-501.097412109375",
+      "optimization/reward_per_tick": "-0.17162860749522224",
+      "optimization/reward_per_tick_ema": "-0.2743008856311215",
+      "train/v_along_ratio_active": "0.529143918130247"
+    }
+  ]
+}

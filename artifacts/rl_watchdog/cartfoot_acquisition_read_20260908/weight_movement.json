@@ -1,0 +1,31 @@
+{
+  "source_checkpoints": [
+    "ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1.zip",
+    "ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip"
+  ],
+  "method": "torch.load weights_only=True of SB3 policy.pth; CPU; compare same named tensors excluding log_std",
+  "actor": {
+    "tensor_count": 8,
+    "changed_tensors": 8,
+    "delta_l2": 0.3474881924197213,
+    "relative_l2": 0.011395575973934102,
+    "max_abs_delta": 0.0083238510414958,
+    "all_finite": true
+  },
+  "critic": {
+    "tensor_count": 8,
+    "changed_tensors": 8,
+    "delta_l2": 7.496332157965299,
+    "relative_l2": 0.1575161621925967,
+    "max_abs_delta": 0.16500815749168396,
+    "all_finite": true
+  },
+  "non_log_std": {
+    "tensor_count": 16,
+    "changed_tensors": 16,
+    "delta_l2": 7.504381644507148,
+    "relative_l2": 0.13276935051108044,
+    "max_abs_delta": 0.16500815749168396,
+    "all_finite": true
+  }
+}

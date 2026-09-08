@@ -1,0 +1,102 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger": "2026-09-08T06:12:13.113Z",
+  "updated_at": "2026-09-08T06:30:38.358237+00:00",
+  "status": "in_progress",
+  "capacity": {
+    "sampled_at": [
+      "2026-09-08T06:12:52Z",
+      "2026-09-08T06:14:05Z"
+    ],
+    "ready": 11,
+    "busy_training": 0,
+    "free": 11,
+    "backlog": [],
+    "nvidia": "All eleven 0% utilization,0MiB,no compute applications on repeated samples."
+  },
+  "completed_optimization": {
+    "cartfoot_c1_cont10m": {
+      "steps": 10485760,
+      "fps": 19516,
+      "pod": "hexapod-mjx-train-4",
+      "wandb_id": "qay6bggy",
+      "cpu_handoff_at": "2026-09-08T06:03:39Z"
+    },
+    "cartfoot_offctrl_cont10m": {
+      "steps": 10485760,
+      "fps": 21905,
+      "pod": "hexapod-mjx-train-0",
+      "wandb_id": "x46hb1dy",
+      "cpu_handoff_at": "2026-09-08T06:06:05Z"
+    },
+    "cartfoot_c1_s3": {
+      "steps": 2097152,
+      "fps": 16390,
+      "pod": "hexapod-mjx-train-1",
+      "wandb_id": "axh4szza"
+    },
+    "cartfoot_offctrl_s3": {
+      "steps": 2097152,
+      "fps": 17949,
+      "pod": "hexapod-mjx-train-2",
+      "wandb_id": "a2o71f5o"
+    }
+  },
+  "ownership": {
+    "20260908T042639": "Original scratch implementation owner; four launch cap reached; historical CPU bank integrity comparison still running. Do not duplicate or kill.",
+    "20260908T061641": "Watcher-assigned +10M paired triage/refill owner.",
+    "20260908T061618": "Watcher-assigned seed3 paired triage owner.",
+    "20260908T061640": "Root-requested currently unowned assisted steering dynamic-response bank and conditional supported canary."
+  },
+  "observations": [
+    "CPU finalizers advanced while GPUs were reusable; RUNNING labels are not active optimization. No GPU retention recurrence.",
+    "Both +10M gate reports and s3 gate reports ready; exact gate selected independently of concatenated mixed-session reports.",
+    "12M ratio panel 2.418/3.084/2.522/3.097 lies between preregistered promising and closure thresholds; only two groups exceed 3x.",
+    "Per-tick reward improved while episodes lengthened; noisy late length-matched episode-return improvement warrants existing continuation-clause review.",
+    "Fresh-init suggestion reverting to historical 3x-torque easy assay is not adopted here; current physical limits retained."
+  ],
+  "feedback": [
+    "fb_20260908T061840_eb16f8"
+  ],
+  "evidence": "artifacts/rl_watchdog/cartfoot_acquisition_read_20260908/",
+  "prior_evidence_publication": "89c2399a7",
+  "pending": [
+    "Verify +10M triage/refill decision executes scientifically justified work without duplicate ownership.",
+    "Review causal steering-bank implementation and any conditional canary.",
+    "Publish final receipt and correct full-mesh versus twin track summary."
+  ],
+  "decision_review": {
+    "formal_verdict_at_0620": "ACQ FAIL issued by061641; preserved history, under review",
+    "reason": "Uses medians in a mean-based gate and raw episode-return quarters despite episode-length ramp and improving normalized/task metrics.",
+    "recommendation": "One additional matched +10M existingRNG2 on current1x/noisy recipe; retain original success thresholds and stop automatic extensions after next intermediate read.",
+    "evidence": "cartfoot_acquisition_read_20260908/review.md",
+    "non_log_std_weights_moved": true
+  },
+  "fresh_easy_assay": {
+    "owners": [
+      "20260908T061618",
+      "20260908T061641"
+    ],
+    "seeds": [
+      7,
+      10,
+      11
+    ],
+    "steps_per_arm": 2000000,
+    "scope": "Historical base-s0 EASY3x-torque,zero-noise matched random-init Cartesian/joint assay; no current1x plant qualification.",
+    "last_observed_at": "2026-09-08T06:29:26Z",
+    "completed": [
+      "seed7ON",
+      "seed7OFF",
+      "seed10ON"
+    ],
+    "optimizing_or_starting": [
+      "seed10OFF"
+    ],
+    "queued": [
+      "seed11ON",
+      "seed11OFF"
+    ],
+    "authority": "Cloud triage planned these; root did not add seeds or request a physical limit change."
+  }
+}

@@ -1,0 +1,1142 @@
+{
+  "scope": "Exactly four 24-episode walk/walk_startjitter det+sto gates; excludes every mixed-session report. Descriptive paired results only, no formal verdict. Course aggregate means/medians are over per-episode statistics, not pooled control windows. Progress ratios above1 measure overspeed relative to commanded distance, not qualification.",
+  "reports": {
+    "c1-cont10m": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m",
+      "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_cont10m.zip",
+      "checkpoint_sha256_current": "e7aaffaf51dd592d1330a29a7bbcb11f44cfd03a616ff3a3b5ea31fc9d6de1d7",
+      "raw_gate_sha256": "068fd8ba75625e662a7381319c398f41e52f5108dc57c4931a3a4623c64d9889",
+      "model": {
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573
+      },
+      "motor_contract": {
+        "bus.write_speed": 4096.0,
+        "bus.write_acc": 1000.0,
+        "bus.servo_vel_max_counts_s": "write_speed",
+        "bus.servo_params": "",
+        "resolved_vel_max_deg_s_min": 360.0,
+        "resolved_vel_max_deg_s_max": 360.0,
+        "resolved_vel_max_counts_s_max": 4096.0,
+        "safety.max_delta_q_deg": 3.6,
+        "control.hz": 100.0,
+        "slew_limit_deg_s": 360.0,
+        "bus.profile_ramp_steps": 0.0,
+        "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+        "backend_profile": "servo_profile_np"
+      },
+      "training_seed": "2",
+      "eval_seed": 0,
+      "dr_scale_arg": 0.0,
+      "policy_std": 0.135,
+      "randomization_note": "dr_scale argument0 does not disable explicit source DR overrides; episode randomization records are retained.",
+      "overall": {
+        "episodes": 24,
+        "gait_valid_count": 19,
+        "termination_count": 0,
+        "metrics": {
+          "slip_per_m": {
+            "mean": 16.453458333333334,
+            "median": 14.8535
+          },
+          "progress_ratio": {
+            "mean": 0.5965,
+            "median": 0.5645
+          },
+          "along_dist_m": {
+            "mean": 0.6978333333333333,
+            "median": 0.6635
+          },
+          "course_err_1s_med_deg": {
+            "mean": 32.57416666666667,
+            "median": 32.865
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 76.51416666666667,
+            "median": 72.31
+          },
+          "direction_err_mean_deg": {
+            "mean": 63.555416666666666,
+            "median": 65.355
+          },
+          "return": {
+            "mean": -17.88333333333333,
+            "median": -70.425
+          }
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "gait_valid_count": 5,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 13.326333333333332,
+              "median": 13.222
+            },
+            "progress_ratio": {
+              "mean": 0.7095,
+              "median": 0.7170000000000001
+            },
+            "along_dist_m": {
+              "mean": 0.8283333333333334,
+              "median": 0.8355
+            },
+            "course_err_1s_med_deg": {
+              "mean": 32.71666666666667,
+              "median": 27.9
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 69.28333333333333,
+              "median": 66.22
+            },
+            "direction_err_mean_deg": {
+              "mean": 58.42666666666667,
+              "median": 57.230000000000004
+            },
+            "return": {
+              "mean": 209.83833333333334,
+              "median": 232.455
+            }
+          }
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "gait_valid_count": 4,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 17.485166666666668,
+              "median": 17.3485
+            },
+            "progress_ratio": {
+              "mean": 0.5348333333333334,
+              "median": 0.5415000000000001
+            },
+            "along_dist_m": {
+              "mean": 0.6275,
+              "median": 0.6345000000000001
+            },
+            "course_err_1s_med_deg": {
+              "mean": 35.81666666666667,
+              "median": 38.025000000000006
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 82.98,
+              "median": 77.055
+            },
+            "direction_err_mean_deg": {
+              "mean": 66.52833333333334,
+              "median": 65.92
+            },
+            "return": {
+              "mean": -221.09833333333333,
+              "median": -329.185
+            }
+          }
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "gait_valid_count": 4,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 16.377666666666666,
+              "median": 14.1105
+            },
+            "progress_ratio": {
+              "mean": 0.6363333333333333,
+              "median": 0.633
+            },
+            "along_dist_m": {
+              "mean": 0.7421666666666666,
+              "median": 0.7404999999999999
+            },
+            "course_err_1s_med_deg": {
+              "mean": 28.77166666666667,
+              "median": 28.575000000000003
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 63.525,
+              "median": 62.075
+            },
+            "direction_err_mean_deg": {
+              "mean": 62.24,
+              "median": 62.510000000000005
+            },
+            "return": {
+              "mean": 149.09,
+              "median": 165.765
+            }
+          }
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 18.624666666666666,
+              "median": 17.033
+            },
+            "progress_ratio": {
+              "mean": 0.5053333333333333,
+              "median": 0.46799999999999997
+            },
+            "along_dist_m": {
+              "mean": 0.5933333333333334,
+              "median": 0.555
+            },
+            "course_err_1s_med_deg": {
+              "mean": 32.99166666666667,
+              "median": 32.13
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 90.26833333333333,
+              "median": 80.305
+            },
+            "direction_err_mean_deg": {
+              "mean": 67.02666666666667,
+              "median": 68.255
+            },
+            "return": {
+              "mean": -209.36333333333334,
+              "median": -241.02
+            }
+          }
+        }
+      }
+    },
+    "offctrl-cont10m": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m",
+      "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_cont10m.zip",
+      "checkpoint_sha256_current": "3e57d28105ba424486c054379c4abdf7066334c0e88a1480d3538ff0958c7c26",
+      "raw_gate_sha256": "4085923e37349f4bafbae0dbc9f2e389b9bc6ab87d3d0f496f001bd95267e402",
+      "model": {
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573
+      },
+      "motor_contract": {
+        "bus.write_speed": 4096.0,
+        "bus.write_acc": 1000.0,
+        "bus.servo_vel_max_counts_s": "write_speed",
+        "bus.servo_params": "",
+        "resolved_vel_max_deg_s_min": 360.0,
+        "resolved_vel_max_deg_s_max": 360.0,
+        "resolved_vel_max_counts_s_max": 4096.0,
+        "safety.max_delta_q_deg": 3.6,
+        "control.hz": 100.0,
+        "slew_limit_deg_s": 360.0,
+        "bus.profile_ramp_steps": 0.0,
+        "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+        "backend_profile": "servo_profile_np"
+      },
+      "training_seed": "2",
+      "eval_seed": 0,
+      "dr_scale_arg": 0.0,
+      "policy_std": 0.135,
+      "randomization_note": "dr_scale argument0 does not disable explicit source DR overrides; episode randomization records are retained.",
+      "overall": {
+        "episodes": 24,
+        "gait_valid_count": 22,
+        "termination_count": 0,
+        "metrics": {
+          "slip_per_m": {
+            "mean": 5.922291666666666,
+            "median": 5.2945
+          },
+          "progress_ratio": {
+            "mean": 1.5924583333333333,
+            "median": 1.6275
+          },
+          "along_dist_m": {
+            "mean": 1.8612083333333334,
+            "median": 1.9184999999999999
+          },
+          "course_err_1s_med_deg": {
+            "mean": 18.419583333333332,
+            "median": 14.34
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 39.23,
+            "median": 34.095
+          },
+          "direction_err_mean_deg": {
+            "mean": 32.80875,
+            "median": 32.765
+          },
+          "return": {
+            "mean": 2070.98125,
+            "median": 2124.7650000000003
+          }
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 5.5115,
+              "median": 5.0925
+            },
+            "progress_ratio": {
+              "mean": 1.7091666666666667,
+              "median": 1.8215
+            },
+            "along_dist_m": {
+              "mean": 1.9943333333333333,
+              "median": 2.121
+            },
+            "course_err_1s_med_deg": {
+              "mean": 24.356666666666666,
+              "median": 14.6
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 50.335,
+              "median": 39.205
+            },
+            "direction_err_mean_deg": {
+              "mean": 30.673333333333332,
+              "median": 28.064999999999998
+            },
+            "return": {
+              "mean": 2210.1233333333334,
+              "median": 2263.765
+            }
+          }
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "gait_valid_count": 5,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 5.669666666666667,
+              "median": 5.3185
+            },
+            "progress_ratio": {
+              "mean": 1.5673333333333335,
+              "median": 1.597
+            },
+            "along_dist_m": {
+              "mean": 1.8351666666666666,
+              "median": 1.8675
+            },
+            "course_err_1s_med_deg": {
+              "mean": 11.898333333333333,
+              "median": 11.305
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 29.83833333333333,
+              "median": 23.25
+            },
+            "direction_err_mean_deg": {
+              "mean": 33.45166666666667,
+              "median": 33.260000000000005
+            },
+            "return": {
+              "mean": 1972.47,
+              "median": 1960.7350000000001
+            }
+          }
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "gait_valid_count": 5,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 6.493833333333333,
+              "median": 5.288
+            },
+            "progress_ratio": {
+              "mean": 1.544,
+              "median": 1.7215
+            },
+            "along_dist_m": {
+              "mean": 1.7965,
+              "median": 2.003
+            },
+            "course_err_1s_med_deg": {
+              "mean": 17.125,
+              "median": 18.25
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 35.84166666666667,
+              "median": 36.78
+            },
+            "direction_err_mean_deg": {
+              "mean": 32.843333333333334,
+              "median": 29.855
+            },
+            "return": {
+              "mean": 2057.9783333333335,
+              "median": 2263.26
+            }
+          }
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 6.014166666666666,
+              "median": 5.7655
+            },
+            "progress_ratio": {
+              "mean": 1.5493333333333332,
+              "median": 1.5545
+            },
+            "along_dist_m": {
+              "mean": 1.8188333333333333,
+              "median": 1.808
+            },
+            "course_err_1s_med_deg": {
+              "mean": 20.298333333333332,
+              "median": 16.25
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 40.905,
+              "median": 35.855000000000004
+            },
+            "direction_err_mean_deg": {
+              "mean": 34.266666666666666,
+              "median": 33.515
+            },
+            "return": {
+              "mean": 2043.3533333333332,
+              "median": 1977.475
+            }
+          }
+        }
+      }
+    },
+    "c1-s3": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-s3",
+      "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_c1_s3.zip",
+      "checkpoint_sha256_current": "5b81eeab2c65e9e3ff1d80645f4c1f4f3b414e22efeee6c2f125492401d23045",
+      "raw_gate_sha256": "cb42e84608bb5c2d4b3d917461ae67ba2bf5db0b35802ac4ad99ef4866c28d55",
+      "model": {
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573
+      },
+      "motor_contract": {
+        "bus.write_speed": 4096.0,
+        "bus.write_acc": 1000.0,
+        "bus.servo_vel_max_counts_s": "write_speed",
+        "bus.servo_params": "",
+        "resolved_vel_max_deg_s_min": 360.0,
+        "resolved_vel_max_deg_s_max": 360.0,
+        "resolved_vel_max_counts_s_max": 4096.0,
+        "safety.max_delta_q_deg": 3.6,
+        "control.hz": 100.0,
+        "slew_limit_deg_s": 360.0,
+        "bus.profile_ramp_steps": 0.0,
+        "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+        "backend_profile": "servo_profile_np"
+      },
+      "training_seed": "3",
+      "eval_seed": 0,
+      "dr_scale_arg": 0.0,
+      "policy_std": 0.135,
+      "randomization_note": "dr_scale argument0 does not disable explicit source DR overrides; episode randomization records are retained.",
+      "overall": {
+        "episodes": 24,
+        "gait_valid_count": 20,
+        "termination_count": 0,
+        "metrics": {
+          "slip_per_m": {
+            "mean": 29.370875,
+            "median": 23.2165
+          },
+          "progress_ratio": {
+            "mean": 0.3814166666666667,
+            "median": 0.3885
+          },
+          "along_dist_m": {
+            "mean": 0.44604166666666667,
+            "median": 0.4585
+          },
+          "course_err_1s_med_deg": {
+            "mean": 41.84875,
+            "median": 32.129999999999995
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 110.09708333333333,
+            "median": 115.385
+          },
+          "direction_err_mean_deg": {
+            "mean": 73.39458333333333,
+            "median": 71.745
+          },
+          "return": {
+            "mean": -718.56125,
+            "median": -623.675
+          }
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 21.204333333333334,
+              "median": 20.546
+            },
+            "progress_ratio": {
+              "mean": 0.4463333333333333,
+              "median": 0.4495
+            },
+            "along_dist_m": {
+              "mean": 0.521,
+              "median": 0.523
+            },
+            "course_err_1s_med_deg": {
+              "mean": 34.255,
+              "median": 27.265
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 109.20666666666666,
+              "median": 120.655
+            },
+            "direction_err_mean_deg": {
+              "mean": 70.34333333333333,
+              "median": 69.405
+            },
+            "return": {
+              "mean": -511.805,
+              "median": -573.085
+            }
+          }
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "gait_valid_count": 4,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 34.63,
+              "median": 20.573
+            },
+            "progress_ratio": {
+              "mean": 0.3865,
+              "median": 0.4255
+            },
+            "along_dist_m": {
+              "mean": 0.453,
+              "median": 0.497
+            },
+            "course_err_1s_med_deg": {
+              "mean": 39.541666666666664,
+              "median": 31.61
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 104.63833333333334,
+              "median": 94.67
+            },
+            "direction_err_mean_deg": {
+              "mean": 73.62833333333333,
+              "median": 73.64500000000001
+            },
+            "return": {
+              "mean": -682.0566666666667,
+              "median": -573.47
+            }
+          }
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "gait_valid_count": 4,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 33.138666666666666,
+              "median": 31.605
+            },
+            "progress_ratio": {
+              "mean": 0.3443333333333333,
+              "median": 0.3245
+            },
+            "along_dist_m": {
+              "mean": 0.4013333333333333,
+              "median": 0.3805
+            },
+            "course_err_1s_med_deg": {
+              "mean": 47.943333333333335,
+              "median": 43.83
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 120.405,
+              "median": 123.905
+            },
+            "direction_err_mean_deg": {
+              "mean": 74.97500000000001,
+              "median": 74.54
+            },
+            "return": {
+              "mean": -855.5566666666666,
+              "median": -939.645
+            }
+          }
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 28.5105,
+              "median": 27.1485
+            },
+            "progress_ratio": {
+              "mean": 0.34850000000000003,
+              "median": 0.3295
+            },
+            "along_dist_m": {
+              "mean": 0.4088333333333333,
+              "median": 0.388
+            },
+            "course_err_1s_med_deg": {
+              "mean": 45.655,
+              "median": 40.375
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 106.13833333333334,
+              "median": 110.20500000000001
+            },
+            "direction_err_mean_deg": {
+              "mean": 74.63166666666666,
+              "median": 75.11500000000001
+            },
+            "return": {
+              "mean": -824.8266666666667,
+              "median": -725.145
+            }
+          }
+        }
+      }
+    },
+    "offctrl-s3": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-s3",
+      "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_offctrl_s3.zip",
+      "checkpoint_sha256_current": "882fb6379d3e1e70a5b0087fd1eab696dd020e3620c9a1f47f194c0a9f6aa103",
+      "raw_gate_sha256": "a6e40687f60de0fbde92927c7d89f06b7d2729c659f421ed2fcb40e35fe9f49c",
+      "model": {
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "model_nmesh": 0,
+        "model_ngeom": 91,
+        "model_mass_kg": 4.80573
+      },
+      "motor_contract": {
+        "bus.write_speed": 4096.0,
+        "bus.write_acc": 1000.0,
+        "bus.servo_vel_max_counts_s": "write_speed",
+        "bus.servo_params": "",
+        "resolved_vel_max_deg_s_min": 360.0,
+        "resolved_vel_max_deg_s_max": 360.0,
+        "resolved_vel_max_counts_s_max": 4096.0,
+        "safety.max_delta_q_deg": 3.6,
+        "control.hz": 100.0,
+        "slew_limit_deg_s": 360.0,
+        "bus.profile_ramp_steps": 0.0,
+        "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+        "backend_profile": "servo_profile_np"
+      },
+      "training_seed": "3",
+      "eval_seed": 0,
+      "dr_scale_arg": 0.0,
+      "policy_std": 0.135,
+      "randomization_note": "dr_scale argument0 does not disable explicit source DR overrides; episode randomization records are retained.",
+      "overall": {
+        "episodes": 24,
+        "gait_valid_count": 22,
+        "termination_count": 0,
+        "metrics": {
+          "slip_per_m": {
+            "mean": 5.717,
+            "median": 5.0415
+          },
+          "progress_ratio": {
+            "mean": 1.6017083333333333,
+            "median": 1.645
+          },
+          "along_dist_m": {
+            "mean": 1.8719999999999999,
+            "median": 1.9075
+          },
+          "course_err_1s_med_deg": {
+            "mean": 12.55375,
+            "median": 10.815000000000001
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 27.3025,
+            "median": 23.985
+          },
+          "direction_err_mean_deg": {
+            "mean": 31.677083333333332,
+            "median": 31.340000000000003
+          },
+          "return": {
+            "mean": 2146.6425,
+            "median": 2208.46
+          }
+        }
+      },
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 5.3585,
+              "median": 4.927
+            },
+            "progress_ratio": {
+              "mean": 1.6823333333333332,
+              "median": 1.751
+            },
+            "along_dist_m": {
+              "mean": 1.9631666666666665,
+              "median": 2.0395
+            },
+            "course_err_1s_med_deg": {
+              "mean": 9.718333333333334,
+              "median": 9.219999999999999
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 25.94333333333333,
+              "median": 18.17
+            },
+            "direction_err_mean_deg": {
+              "mean": 28.916666666666668,
+              "median": 26.645
+            },
+            "return": {
+              "mean": 2343.3966666666665,
+              "median": 2407.25
+            }
+          }
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "gait_valid_count": 5,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 5.446,
+              "median": 4.9545
+            },
+            "progress_ratio": {
+              "mean": 1.6151666666666666,
+              "median": 1.6395
+            },
+            "along_dist_m": {
+              "mean": 1.8906666666666667,
+              "median": 1.904
+            },
+            "course_err_1s_med_deg": {
+              "mean": 12.71,
+              "median": 9.485
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 29.071666666666665,
+              "median": 22.54
+            },
+            "direction_err_mean_deg": {
+              "mean": 32.385,
+              "median": 32.43000000000001
+            },
+            "return": {
+              "mean": 2058.2566666666667,
+              "median": 2105.71
+            }
+          }
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "gait_valid_count": 5,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 6.249333333333333,
+              "median": 4.9795
+            },
+            "progress_ratio": {
+              "mean": 1.5514999999999999,
+              "median": 1.655
+            },
+            "along_dist_m": {
+              "mean": 1.8045,
+              "median": 1.944
+            },
+            "course_err_1s_med_deg": {
+              "mean": 13.308333333333334,
+              "median": 12.620000000000001
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 25.060000000000002,
+              "median": 24.71
+            },
+            "direction_err_mean_deg": {
+              "mean": 31.638333333333335,
+              "median": 28.355
+            },
+            "return": {
+              "mean": 2146.8166666666666,
+              "median": 2275.52
+            }
+          }
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "gait_valid_count": 6,
+          "termination_count": 0,
+          "metrics": {
+            "slip_per_m": {
+              "mean": 5.814166666666667,
+              "median": 5.725
+            },
+            "progress_ratio": {
+              "mean": 1.5578333333333334,
+              "median": 1.562
+            },
+            "along_dist_m": {
+              "mean": 1.8296666666666666,
+              "median": 1.823
+            },
+            "course_err_1s_med_deg": {
+              "mean": 14.478333333333333,
+              "median": 13.515
+            },
+            "course_err_1s_p90_deg": {
+              "mean": 29.135,
+              "median": 31.8
+            },
+            "direction_err_mean_deg": {
+              "mean": 33.76833333333333,
+              "median": 34.09
+            },
+            "return": {
+              "mean": 2038.1000000000001,
+              "median": 2026.96
+            }
+          }
+        }
+      }
+    }
+  },
+  "pairs": {
+    "cont10m": {
+      "cfg_differences": {
+        "goal.walk_cart_foot_box_y_m": [
+          "0.035",
+          null
+        ],
+        "goal.walk_cart_foot_box_z_m": [
+          "0.04",
+          null
+        ],
+        "goal.walk_cart_foot_box_x_m": [
+          "0.06",
+          null
+        ]
+      },
+      "training_seed_matches": true,
+      "motor_matches": true,
+      "start_jitter_panel_matches": true,
+      "episode_randomization_matches": {
+        "walk/det": true,
+        "walk/sto": true,
+        "walk_startjitter/det": true,
+        "walk_startjitter/sto": true
+      },
+      "group_deltas_on_minus_off": {
+        "walk/det": {
+          "slip_per_m": {
+            "mean": 7.8148333333333335,
+            "median": 8.1295
+          },
+          "progress_ratio": {
+            "mean": -0.9996666666666666,
+            "median": -1.1045
+          },
+          "along_dist_m": {
+            "mean": -1.166,
+            "median": -1.298
+          },
+          "course_err_1s_med_deg": {
+            "mean": 8.360000000000001,
+            "median": 16.625
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 18.948333333333334,
+            "median": 27.015
+          },
+          "direction_err_mean_deg": {
+            "mean": 27.753333333333334,
+            "median": 28.860000000000003
+          },
+          "return": {
+            "mean": -2000.285,
+            "median": -2120.415
+          }
+        },
+        "walk/sto": {
+          "slip_per_m": {
+            "mean": 11.8155,
+            "median": 11.807
+          },
+          "progress_ratio": {
+            "mean": -1.0325000000000002,
+            "median": -1.082
+          },
+          "along_dist_m": {
+            "mean": -1.2076666666666667,
+            "median": -1.246
+          },
+          "course_err_1s_med_deg": {
+            "mean": 23.918333333333333,
+            "median": 26.89
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 53.141666666666666,
+            "median": 50.215
+          },
+          "direction_err_mean_deg": {
+            "mean": 33.07666666666667,
+            "median": 32.135000000000005
+          },
+          "return": {
+            "mean": -2193.568333333333,
+            "median": -2014.055
+          }
+        },
+        "walk_startjitter/det": {
+          "slip_per_m": {
+            "mean": 9.883833333333333,
+            "median": 7.432500000000001
+          },
+          "progress_ratio": {
+            "mean": -0.9076666666666666,
+            "median": -1.0325
+          },
+          "along_dist_m": {
+            "mean": -1.0543333333333333,
+            "median": -1.19
+          },
+          "course_err_1s_med_deg": {
+            "mean": 11.646666666666668,
+            "median": 9.620000000000001
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 27.68333333333333,
+            "median": 20.549999999999997
+          },
+          "direction_err_mean_deg": {
+            "mean": 29.39666666666667,
+            "median": 26.615
+          },
+          "return": {
+            "mean": -1908.8883333333333,
+            "median": -1894.625
+          }
+        },
+        "walk_startjitter/sto": {
+          "slip_per_m": {
+            "mean": 12.6105,
+            "median": 11.442
+          },
+          "progress_ratio": {
+            "mean": -1.044,
+            "median": -1.061
+          },
+          "along_dist_m": {
+            "mean": -1.2255,
+            "median": -1.2355
+          },
+          "course_err_1s_med_deg": {
+            "mean": 12.693333333333333,
+            "median": 15.3
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 49.36333333333334,
+            "median": 33.72
+          },
+          "direction_err_mean_deg": {
+            "mean": 32.76,
+            "median": 32.334999999999994
+          },
+          "return": {
+            "mean": -2252.7166666666667,
+            "median": -2246.04
+          }
+        }
+      }
+    },
+    "s3": {
+      "cfg_differences": {
+        "goal.walk_cart_foot_box_y_m": [
+          "0.035",
+          null
+        ],
+        "goal.walk_cart_foot_box_z_m": [
+          "0.04",
+          null
+        ],
+        "goal.walk_cart_foot_box_x_m": [
+          "0.06",
+          null
+        ]
+      },
+      "training_seed_matches": true,
+      "motor_matches": true,
+      "start_jitter_panel_matches": true,
+      "episode_randomization_matches": {
+        "walk/det": true,
+        "walk/sto": true,
+        "walk_startjitter/det": true,
+        "walk_startjitter/sto": true
+      },
+      "group_deltas_on_minus_off": {
+        "walk/det": {
+          "slip_per_m": {
+            "mean": 15.845833333333333,
+            "median": 15.518999999999998
+          },
+          "progress_ratio": {
+            "mean": -1.236,
+            "median": -1.369
+          },
+          "along_dist_m": {
+            "mean": -1.4421666666666666,
+            "median": -1.595
+          },
+          "course_err_1s_med_deg": {
+            "mean": 24.536666666666665,
+            "median": 17.425
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 83.26333333333334,
+            "median": 97.535
+          },
+          "direction_err_mean_deg": {
+            "mean": 41.42666666666666,
+            "median": 43.325
+          },
+          "return": {
+            "mean": -2855.201666666667,
+            "median": -3019.6099999999997
+          }
+        },
+        "walk/sto": {
+          "slip_per_m": {
+            "mean": 29.184,
+            "median": 14.4105
+          },
+          "progress_ratio": {
+            "mean": -1.2286666666666668,
+            "median": -1.2705000000000002
+          },
+          "along_dist_m": {
+            "mean": -1.4376666666666666,
+            "median": -1.463
+          },
+          "course_err_1s_med_deg": {
+            "mean": 26.831666666666667,
+            "median": 22.169999999999998
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 75.56666666666666,
+            "median": 73.57
+          },
+          "direction_err_mean_deg": {
+            "mean": 41.24333333333333,
+            "median": 42.435
+          },
+          "return": {
+            "mean": -2740.3133333333335,
+            "median": -2641.925
+          }
+        },
+        "walk_startjitter/det": {
+          "slip_per_m": {
+            "mean": 26.889333333333333,
+            "median": 22.437
+          },
+          "progress_ratio": {
+            "mean": -1.2071666666666667,
+            "median": -1.371
+          },
+          "along_dist_m": {
+            "mean": -1.4031666666666667,
+            "median": -1.5964999999999998
+          },
+          "course_err_1s_med_deg": {
+            "mean": 34.635,
+            "median": 28.490000000000002
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 95.345,
+            "median": 99.92
+          },
+          "direction_err_mean_deg": {
+            "mean": 43.33666666666667,
+            "median": 44.455000000000005
+          },
+          "return": {
+            "mean": -3002.3733333333334,
+            "median": -3116.2799999999997
+          }
+        },
+        "walk_startjitter/sto": {
+          "slip_per_m": {
+            "mean": 22.696333333333335,
+            "median": 20.9185
+          },
+          "progress_ratio": {
+            "mean": -1.2093333333333334,
+            "median": -1.212
+          },
+          "along_dist_m": {
+            "mean": -1.4208333333333332,
+            "median": -1.4129999999999998
+          },
+          "course_err_1s_med_deg": {
+            "mean": 31.176666666666666,
+            "median": 25.65
+          },
+          "course_err_1s_p90_deg": {
+            "mean": 77.00333333333333,
+            "median": 78.405
+          },
+          "direction_err_mean_deg": {
+            "mean": 40.86333333333334,
+            "median": 41.925
+          },
+          "return": {
+            "mean": -2862.9266666666667,
+            "median": -2746.09
+          }
+        }
+      }
+    }
+  },
+  "provenance_limits": "Current checkpoint hashes match durable training handoff manifests. Exact gate reports name those checkpoint paths. Training resolved cfg matches across each pair except three Cartesian keys. Reports do not seal checkpoint-content hashes or effective evaluation cfg at load, so those stronger historical claims are not made."
+}

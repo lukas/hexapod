@@ -1,37 +1,88 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 ~06:4x UTC — composed-demo A/B (operator focus
-fb_20260908T052913): yawref candidate PASSES the full-sim composition
-bars and beats the fresh matched incumbent; GO as the bundle's walk piece.
+Last updated: 2026-09-08 — frozen full-mesh composed-demo replay
+published in 89c2399a7. The yawref candidate passes the listed translation
+demo bars and improves on the fresh matched incumbent. Its separate
+continuous-arc/tip qualification remains FAIL.
 
-## 2026-09-08 ~06:4x — assisted-steering action-authority bank: NO exploitable per-joint pulse handle (preregistered NULL; no canary)
+## 2026-09-08 ~06:4x — assisted-steering action bank: yaw response below the sampled effect threshold; no canary
 
 Operator focus note 20260908T061629Z (context `fb_20260908T060614_63099e`):
 bounded actual dynamic action-response bank on the frozen yawref-cigate8m
 checkpoint (`61f9c20f…`) and frozen 4.80573 kg full-mesh XML (`7efb8e8a…`),
 original 400/20/0.375/350/100 Hz motor contract, cells (0.08, ±0.15) ×
-starts 0/π, seed 0, two half-cycle-separated settled states per cell,
+starts 0/π, seed 0, two settled states per cell separated by the nearest control tick to half a cycle,
 296 branches (±0.05 normalized single-joint 5-tick pulses + zero
-controls), identical reset/prefix replay. Exactness gate PASS (all zero
-branches bit-exact vs continuous baseline, final-qpos equality).
+controls), identical reset/prefix replay. The original zero branches match the recorded baseline observables. The
+original runner does not record baseline endpoint qpos, so its claimed
+final-qpos equality is unverified; full-state parity is under review.
 
 Result against the PREREGISTERED criteria (spec hashed before data,
 sha `847db884…`): **0/288 branches reach the +0.005 rad commanded-
 direction yaw-gain threshold** (max +0.0041; mean +0.0003, sd 0.0010);
-retention 288/288 (pulses benign); zero (joint,sign) pairs with even a
+the original proxy screen labels retention 288/288; zero (joint,sign) pairs with even a
 consistent gain sign across the 8 states; both-signs qualification
 FALSE. Preregistered decision executed: no state-dependent-residual
-panel, **no 2M assisted canary**. Scope closed is ONLY this pulse class
-(single-joint ±0.05 × 5-tick open-loop at settled states, this frozen
-policy/plant); multi-joint/closed-loop/learned residual classes, other
+panel, **no 2M assisted canary**. The negative effect-threshold observation covers these eight sampled
+states and this pulse size/horizon (single-joint ±0.05 × 5-tick open-loop,
+this frozen policy/plant); multi-joint/closed-loop/learned residual classes, other
 doses/phases and gait-level mechanisms remain OPEN. Continuous-yaw
 qualification remains FAIL for this lineage — unchanged.
+
+Root review found missing pitch_rel_deg was silently recorded as zero,
+forward displacement used the initial heading rather than the rotating
+body-frame command, and loaded slip used pad-body-center motion rather
+than material contact motion. These issues require correction before
+calling retention verified. They do not by themselves change the directly
+measured yaw response or justify the conditional canary. A separate
+reviewed replay is being prepared; the original source/data stay retained.
 
 Evidence: `artifacts/rl_watchdog/turn_actionbank_20260908/`
 (prereg_spec.json, probe_action_response_bank.py, bank.json,
 ranking.json, analyze_bank.py, README.md).
 
-## Composed-demo A/B: yawref candidate vs fresh incumbent (2026-09-08, 05:3x UTC)
+## Frozen full-mesh composed-demo A/B (2026-09-08)
+
+Candidate: cw-robotwalk-turns-20260907-yawref-cigate8m, checkpoint
+sha256 61f9c20f...; incumbent:
+cw-walk-allheading-mlp-singleframe-acq1-stdanneal, sha256 bf19e02d....
+Both use scripted tuck stand/lower around learned walking. Each arm
+reuses its checkpoint/config list and the harness pinned to the preceding
+twin A/B. The replay used the required frozen full-STL model: **34 meshes, 159 geoms,
+4.80573 kg**, XML sha256 7efb8e8a... and unchanged
+400/20/0.375/350/100 Hz motor/safety contract. Resets, phase marks and all
+timestamped commands match across arms.
+
+| Metric | Candidate | Incumbent |
+| --- | ---: | ---: |
+| Walking progress ratio | 0.413 | 0.359 |
+| 1-second course median / p90 (deg) | 3.29 / 14.84 | 13.26 / 25.26 |
+| Current p95 (A) | 1.676 | 1.974 |
+| Terminations / phase errors | 0 / 0 | 0 / 0 |
+| Summary walking gait valid | true | true |
+
+One deterministic seed-0, DR-0 composition per arm: 28 seconds of walking
+within a 50.02-second stand/walk/stop/restart/lower sequence. Every actual
+yaw command is zero. The result supports the candidate's translation
+composition on this frozen plant; it does not establish continuous yaw,
+tip qualification, randomized robustness, hardware readiness or a single
+policy for the entire sequence. The candidate keeps its separate
+FAIL-QUALIFICATION lineage verdict.
+
+Reintegrating recorded command ramps and actual velocity reproduces the
+progress scores; stop labels include ramp-down demand. No measured
+candidate transition deficit emerged to justify the conditional training
+arm. No PPO or physical robot action was performed by this replay.
+
+Evidence: [full-mesh comparison](../../../../../artifacts/rl_watchdog/hybrid_fullmesh_replay_20260908/README.md),
+published in 89c2399a7, with comparison/manifest, exact argv/configs and
+both summaries/ticks. Controller videos and contact sheets:
+logs/ckpt_eval/hybridab_yawref_fullmesh_20260908/.
+
+## Prior simplified-twin composed-demo A/B (2026-09-08, 05:3x UTC)
+
+Original operator focus fb_20260908T052913. This first comparison used the
+simplified twin; the frozen full-mesh replay above is the current result.
 
 Question: does cw-robotwalk-turns-20260907-yawref-cigate8m's improved
 translation steering (course_yawref 3.42 deg, gait 1.0, 0 falls, slip 2.25
@@ -41,22 +92,26 @@ training. Harness: ops.sh hybriddemo (ledger-derived cfg per run) in an
 isolated worktree @ f9da69e7; both sides identical args (`--stand-mode
 tuck --lower-mode tuck --script human --walk-seconds 28 --speed 0.08
 --seed 0 --dr-scale 0 --policy-mode deterministic`) on the frozen
-34-mesh 4.80573 kg / 100 Hz MJX twin (sha a8a5ca8a..., forced via
---model-source mesh_mjx; the controller-built ~3.49 kg full mesh is the
+MJX twin with 0 meshes, 91 geoms, 4.80573 kg / 100 Hz (sha a8a5ca8a...,
+forced via --model-source mesh_mjx; the controller-built ~3.49 kg full mesh is the
 known stale mismatch and was NOT used) with the unchanged 400/20/0.375/350
 motor/safety contract (asserted in both summaries).
 
 - Candidate (ckpt sha256 61f9c20f..., pulled train-1, md5 138da354...):
   progress 0.425 (bar >=0.40), course med 3.26 / p90 14.65 deg (bars
-  6/15), 0 terminations, 0 phase errors, six cycling legs (swings
-  32-35/leg), cur_p95 1.70 A, stops park <=0.001 m/s, restart err 4.1 deg.
+  6/15), 0 terminations, 0 phase errors, all-phase swing counts
+  32-35/leg, cur_p95 1.70 A. Mean speed on actual zero-command stop
+  intervals was 0.0024 / 0.0014 m/s; restart err 4.1 deg.
   PASS all composed bars.
 - Fresh incumbent (cw-walk-allheading-mlp-singleframe-acq1-stdanneal,
   ckpt sha256 bf19e02d..., SAME plant/args — the original 3.494 kg
   qualification artifact is not a matched baseline): progress 0.37,
-  course med 11.55 / p90 21.09 deg. FAILS progress + both course bars;
-  uniformly worse in EVERY command segment (steady-state per-tick course
-  med 13.1 vs candidate 4.9 deg).
+  1-second course med 12.13 / p90 22.19 deg. Its separate 2-second
+  values are 11.55 / 21.09 deg; the original displayed comparison mixed
+  those windows with the candidate's 1-second values. FAILS progress and
+  both 1-second course bars. Reintegrated forward progress is effectively
+  tied (candidate/incumbent 0.3790/0.3778); candidate gains occur in
+  lateral, diagonal, reverse and restart segments.
 - Localization: NO candidate-specific handoff/transition deficit —
   command-blend transients settle fast (worst diag-left 23.1 -> 8.2 deg),
   stop/restart/lower clean on video. The gap is steady-state steering

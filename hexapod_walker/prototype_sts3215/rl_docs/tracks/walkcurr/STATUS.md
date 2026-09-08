@@ -110,11 +110,25 @@ instead, which now has two independent matched-pair confirmations
 becomes an n=3 (or n=2-of-3, if s10's OFF hasn't landed) read on
 whether seed7 or seed11 is the outlier for the gait_valid axis.
 
-Refill: board unchanged from the ~11:1x entry below (9 GPU pods free,
-widen8/stagedr20m runs untouched, no new hypothesis licensed by this
-read alone). The actionable next item is still seed10's OFF eval
-once staged. CYCLE_WORKED touched (verdict recorded, CURRENT_TRUTHS/
-STATUS updated -- not a re-verify no-op).
+Refill: with s10/s11 now fully closed, the pre-registered n=3
+(seed7/10/11) cohort is DONE, but the gait_valid question it was
+built to answer is a 2-1 split, not a clean answer -- worth a 4th
+seed to see which pattern (s7/s10's real ON advantage, or s11's
+parity) is typical before this cohort's action-space choice gets
+adopted as a campaign-wide default. Board checked (`launch_run.py
+status`): 8 GPU pods free at read time. Launched the seed12 matched
+ON/OFF canary pair (respec of the s7 pair, only seed changed):
+`cartfoot-halfgrav-s12` (ON, VERIFIED RUNNING train-2) and
+`cartfoot-halfgrav-offctrl-s12` (OFF, VERIFIED RUNNING train-5), 2M
+each. Pre-registered: on CANARY PASS, extend both to 40M acquisition
+(same respec pattern as s10/s11) and read gait_valid + slip/m against
+both ON and OFF siblings using the identical protocol. 2 launches,
+4M steps -- well inside the 4-launch/80M-step cycle cap; other free
+pods (train-4,7,8,9,10,11) left untouched, no other track has
+launch-ready work (todaypolicy/assistfade/standwalk blocked on
+design work, cpg/amp DONE/closed). CYCLE_WORKED touched (verdict
+recorded, CURRENT_TRUTHS/STATUS updated, seed12 pair launched -- not
+a re-verify no-op).
 
 Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1`;
 `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s11_acq1_gate/report.json`;

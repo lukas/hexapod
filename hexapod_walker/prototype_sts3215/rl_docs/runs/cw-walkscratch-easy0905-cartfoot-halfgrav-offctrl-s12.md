@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:28:40+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7
+
+**wandb_id**: z8u4ay72
 
 **hypothesis**: Plain English: matched joint-space control for the halfgrav cart_foot seed12 canary (ON launched same cycle) -- 4th-seed replicate breaking the tie in the closed n=3 cohort (2/3 seeds showed a cart_foot gait_valid advantage, 1/3 near-parity). Byte-identical to cartfoot-halfgrav-offctrl-s7 with only seed changed to 12.
 

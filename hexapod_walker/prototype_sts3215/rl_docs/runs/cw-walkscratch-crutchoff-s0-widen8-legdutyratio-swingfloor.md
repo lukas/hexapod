@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:26:59+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratiofresh-guardfix1
+
+**wandb_id**: z0v3vfqq
 
 **hypothesis**: A dragging/planting leg can inflate its peer-relative duty ratio above the 0.30 target without actually completing real steps, which is why both the 0.30 and 0.45 dose escalations showed the same trade (a flagged leg's gait_valid flips True while that same episode's slip gets worse): pairing the ratio charge with a swing-count floor (>=2 qualifying stride-filtered swings in a trailing 4s window, same definition walk_swing_gate already uses) zeroes a leg's ratio credit whenever it hasn't actually swung enough, regardless of duty, closing that escape hatch. New reward.walk_leg_duty_ratio_swing_min_count/_swing_window_s cfg keys, default 0.0/off (bit-exact legacy unless set); 6 new + 9 existing test_task_semantics.py bank tests green (walk_legduty_ratio_charge extended, backward-compatible signature). One lever vs the exact matched 0.30-dose guardfix1 sibling: same seed/init-from/heading-set/DR/motor cfg, only the swing floor added.
 

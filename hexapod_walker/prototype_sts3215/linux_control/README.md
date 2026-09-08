@@ -249,10 +249,21 @@ the displayed AprilTag yaw/hip angles; it never moves a motor or rewrites a
 servo zero. Knees remain visually unobservable without tibia/yoke markers.
 
 `/vision` owns one camera at a time. To see several USB cameras at once, run
-the submodule's multi-camera server instead
-(`uv run hexapod-camera-server --indices <i> ... --native-avfoundation <i> ...`,
-conventionally on `:8766`), and prefer the native AVFoundation path — the
-OpenCV backend has produced torn frames here.
+the submodule's multi-camera server instead, conventionally on `:8766`, and
+prefer the native AVFoundation path — the OpenCV backend has produced torn
+frames here. Pin each slot to a camera by its AVFoundation stable id so
+replugging cannot reassign it:
+
+```bash
+OPENCV_AVFOUNDATION_SKIP_AUTH=1 uv run hexapod-camera-server \
+  --indices 0 1 2 3 --native-avfoundation 0 1 2 3 \
+  --device-id 0:<uniqueID> --device-id 1:<uniqueID> \
+  --device-id 2:<uniqueID> --device-id 3:<uniqueID> \
+  --host 127.0.0.1 --port 8766
+```
+
+Read the ids from `/status.json`. Bare `--indices` numbers slots only, and
+AVFoundation renumbers those whenever any camera joins or leaves.
 
 Two traps when several cameras are attached, both documented with measurements
 in [`hexapod-tracker/docs/LLM_HANDOFF.md`](../hexapod-tracker/docs/LLM_HANDOFF.md):

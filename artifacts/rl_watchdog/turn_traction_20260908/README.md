@@ -110,7 +110,11 @@ The first wiped-dose attempt was invalid; the table is its reset-surviving rerun
 
 ## Next action
 
-Rerun full-cone accounting on the original scripted/checkpoint baseline.
+The corrected 12-cell original-plant rerun is complete: see
+../root_fullcone_20260908/README.md. All prior behavior matches exactly;
+full contact-cone adjacency is materially more frequent than the planar
+projection suggested (48.0-58.5% vs4.1-8.4% of slipping-foot samples).
+Mixed boundary/sub-boundary behavior remains; no unique cause follows.
 A stance-path candidate needs same-phase commanded/actual path evidence and
 the unchanged original both-signs-gain/straight-health preflight before one
 bounded existing-seed canary. Lower-torsion rows remain separate sensitivity.

@@ -76,8 +76,12 @@ legdutyratiofresh_guardfix1_gate/report.json` (2M source). W&B
 Contact-wrench accounting passed the substep angular-momentum closure check.
 Opposing yaw moments and contact-couple contributions are measured, but do not
 uniquely establish inconsistent commanded stance paths. The original cone
-statistic was a planar slide projection: full condim6 saturation is unresolved
-until the corrected diagnostic is rerun. The isolated torsion dose0.1->0.005 m
+statistic was a planar slide projection. The completed 12-cell rerun preserves
+all original behavior and uses valid condim6 elliptic full-cone accounting:
+a contact is near the boundary in 48.0-58.5% of slipping-foot samples versus
+4.1-8.4% with the planar projection. Mixed sub-boundary/boundary behavior
+remains; this does not establish a unique cause. Evidence:
+artifacts/rl_watchdog/root_fullcone_20260908/. The isolated torsion dose0.1->0.005 m
 reduced scripted arc yaw magnitude9-14%, increased forward speed about17-20%,
 and changed straight drift, with zero observed falls in its six cells.
 The lower coefficient assumes a uniform-pressure contact patch; it is not

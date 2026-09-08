@@ -112,13 +112,19 @@ CLI
 from __future__ import annotations
 
 import math
+import os
+import sys
 from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
 
+_THIS_DIR = Path(__file__).resolve().parent
+_PROTOTYPE_DIR = _THIS_DIR.parent
+if str(_PROTOTYPE_DIR) not in sys.path:
+    sys.path.insert(0, str(_PROTOTYPE_DIR))
 
-import hexapod_prototype as hp
+import hexapod_prototype as hp  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

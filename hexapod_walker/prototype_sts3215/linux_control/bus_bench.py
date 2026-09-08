@@ -24,10 +24,16 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 import time
+from pathlib import Path
 
+_HERE = Path(__file__).resolve().parent
+for _p in (_HERE, _HERE.parent / "motor_setup"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
-from mcu_feetech_bus import open_feetech_bus
+from mcu_feetech_bus import open_feetech_bus  # noqa: E402
 
 
 def print_bus_debug(bus) -> None:

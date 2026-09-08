@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-08T05:56:45+00:00
+**created**: 2026-09-08T05:58:16+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -16,5 +16,5 @@
 
 **gate**: Standard 24-ep walk/walk_startjitter det+sto gate read AGAINST the matched cartfoot-offctrl-acq10m continuation at the SAME cumulative budget. IMPROVING if slip_per_m median moves toward (or into) the offctrl band in >=3/4 groups AND gait_valid holds >=18/24 with 0 falls: fund a further continuation. PLATEAU/WORSE if slip stays >=2x the matched offctrl-acq10m in >=3/4 groups with 0 falls: reads as a structural parameterization cost, not a warm-start transient -- closes the retrofit-continuation path for this mechanism. FAIL if walking regresses (new falls, or gait_valid<12/24 with reward flat).
 
-**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+**refused_reason**: hexapod-mjx-train-0 already runs cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m — GPU pods host exactly one run; pick a free GPU pod.
 

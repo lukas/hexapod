@@ -3144,6 +3144,63 @@ def main(argv: list[str] | None = None) -> int:
                   f">= --steps ({args.steps:,}) — the policy will "
                   "NEVER train at the target allowance in this run")
 
+    # DR-STAGE RAMP (09-08, staged-DR-breadth fresh-acquisition design
+    # — see sim_env.__init__'s env.dr_stage_ramp_steps block for the
+    # mechanism/why: explicit --cfg-set dr.* overrides are ABSOLUTE, so
+    # no pre-existing knob can ramp an override-carried DR matrix).
+    # Same cfg-armed / trainer-driven / default-OFF contract as the
+    # ramps above. Pool rule: pre-settled reset-pool entries embed the
+    # DR draw made at MINT time (mjx_vec_env), so every applied stage
+    # change also flushes the reset pools — the same staleness rule
+    # walkcurr admission changes obey (flush_reset_pools docstring).
+    _drs_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_drs
+        _drs_ramp_steps = int(float(_cfg_get_drs(
+            env_kw["cfg"], "env", "dr_stage_ramp_steps",
+            default=0) or 0))
+
+    def _dr_stage_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_drs_ramp_steps))
+
+    _drs_last = {"frac": None}
+
+    def _dr_stage_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the stage frac for ``step`` to every env and flush
+        stale pooled resets. No-op when the ramp is off or the
+        quantized frac is unchanged since the last broadcast."""
+        if _drs_ramp_steps <= 0:
+            return None
+        f = round(_dr_stage_frac_at(step), 4)
+        if _drs_last["frac"] == f:
+            return None
+        vals = target_venv.env_method("apply_dr_stage_frac", f)[0]
+        _unwrap_vec(target_venv).flush_reset_pools()
+        _drs_last["frac"] = f
+        return vals
+
+    if _drs_ramp_steps > 0:
+        if args.walk_curriculum:
+            raise SystemExit(
+                "env.dr_stage_ramp_steps is incompatible with "
+                "--walk-curriculum (the bucket ladder owns the DR "
+                "schedule)")
+        s0 = _dr_stage_ramp_apply(venv, 0)
+        print(f"[dr-stage-ramp] armed: {_drs_ramp_steps:,} global env "
+              "steps from the nominal sim (sensor-noise floors kept) "
+              "to the full post-override DR ranges; step-0 "
+              f"mass_scale=[{s0['mass_scale_lo']:.3f},"
+              f"{s0['mass_scale_hi']:.3f}] "
+              f"friction=[{s0['friction_lo']:.3f},"
+              f"{s0['friction_hi']:.3f}] "
+              f"bad_start_prob={s0['bad_start_prob']:g} "
+              f"fault_prob={s0['fault_prob']:g}")
+        if _drs_ramp_steps >= args.steps:
+            print("[dr-stage-ramp] WARNING: env.dr_stage_ramp_steps "
+                  f"({_drs_ramp_steps:,}) >= --steps ({args.steps:,}) "
+                  "— the policy will NEVER train at the full DR "
+                  "ranges in this run")
+
     # Termination-penalty RAMP (08-22, freeprog-term400-stall dig-in
     # follow-up — see walk_task.py's __init__ block for the mechanism).
     # Same cfg-armed / trainer-driven / default-OFF contract.
@@ -4401,6 +4458,52 @@ def main(argv: list[str] | None = None) -> int:
                         "drag_allow_ramp/allow_mm": vals["allow_mm"]})
 
         callbacks.append(_DragAllowRampCb())
+    if _drs_ramp_steps > 0:
+        class _DrStageRampCb(BaseCallback):
+            """Advance the staged-DR ramp once per rollout (see the
+            arming block after venv construction). Broadcasts only on
+            quantized-frac change; each applied change flushes stale
+            pooled resets so the realized reset distribution tracks
+            the broadcast stage. Stops after 1.0 is applied. W&B gets
+            the live stage under dr_stage_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _dr_stage_ramp_apply(venv, self.num_timesteps)
+                if vals is None:
+                    return
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[dr-stage-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the full post-override DR ranges from "
+                          "here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "dr_stage_ramp/frac": vals["frac"],
+                        "dr_stage_ramp/mass_scale_lo":
+                            vals["mass_scale_lo"],
+                        "dr_stage_ramp/mass_scale_hi":
+                            vals["mass_scale_hi"],
+                        "dr_stage_ramp/friction_lo": vals["friction_lo"],
+                        "dr_stage_ramp/friction_hi": vals["friction_hi"],
+                        "dr_stage_ramp/ground_tilt_deg":
+                            vals["ground_tilt_deg"],
+                        "dr_stage_ramp/bad_start_prob":
+                            vals["bad_start_prob"],
+                        "dr_stage_ramp/fault_prob": vals["fault_prob"]})
+
+        callbacks.append(_DrStageRampCb())
     if _tp_ramp_steps > 0:
         class _TermPenaltyRampCb(BaseCallback):
             """Advance the termination-penalty ramp once per rollout

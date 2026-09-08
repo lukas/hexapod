@@ -541,7 +541,10 @@ def walk_legduty_ratio_tick(ema: list, *, on: list, dt: float,
     return [e + (dt / tau_s) * (float(o) - e) for e, o in zip(ema, on)]
 
 
-def walk_legduty_ratio_charge(ema: list, target: float) -> tuple[float, list]:
+def walk_legduty_ratio_charge(ema: list, target: float,
+                               swing_counts: list | None = None,
+                               swing_min_count: float = 0.0
+                               ) -> tuple[float, list]:
     """Peer-excluded-mean duty ratio per leg and the WORST (max)
     shortfall below ``target`` across all 6 legs (i.e. the shortfall
     of whichever leg has the smallest ratio -- the same MIN-over-legs
@@ -551,7 +554,26 @@ def walk_legduty_ratio_charge(ema: list, target: float) -> tuple[float, list]:
     excludes the leg itself (sharpens the cut ~2x vs an including-self
     mean, per the calibration finding); guarded against an all-zero
     team with a small epsilon (returns ratio 1.0-ish, no spurious
-    charge, rather than a division blowup)."""
+    charge, rather than a division blowup).
+
+    OPTIONAL swing-count floor (2026-09-08, the "different pricing
+    design" the 0.30/0.45-dose FAIL verdicts named as the only
+    remaining open branch): the 0.30/0.45 dose escalations showed a
+    repeatable within-episode trade -- a flagged leg's ratio recovers
+    above target (gait_valid flips True) while that SAME episode's
+    slip gets worse, consistent with the leg raising its ground-
+    contact DUTY by dragging/planting longer rather than by actually
+    picking up and placing its foot (a real step). ``swing_counts``
+    (trailing-window qualifying-swing event count per leg, same
+    stride-filtered definition every other anti-drag gate in this
+    file uses) lets the caller ZERO a leg's effective ratio credit if
+    it hasn't completed >= ``swing_min_count`` real swings recently,
+    regardless of how high its duty ratio has climbed -- a dragging
+    leg cannot buy its way to zero shortfall by raising duty alone,
+    it must also actually swing. Bit-exact vs the original 2-arg form
+    when ``swing_counts`` is None or ``swing_min_count<=0`` (the
+    default): ``eff_ratios`` degenerates to plain ``ratios``, no
+    behavior change for any existing caller/dose."""
     ratios = []
     for i in range(6):
         others = [e for j, e in enumerate(ema) if j != i]
@@ -560,7 +582,13 @@ def walk_legduty_ratio_charge(ema: list, target: float) -> tuple[float, list]:
             ratios.append(1.0)
         else:
             ratios.append(ema[i] / peer_mean)
-    worst_shortfall = max(0.0, target - min(ratios))
+    eff_ratios = ratios
+    if swing_counts is not None and swing_min_count > 0.0:
+        eff_ratios = [
+            (0.0 if float(swing_counts[i]) < swing_min_count else ratios[i])
+            for i in range(6)
+        ]
+    worst_shortfall = max(0.0, target - min(eff_ratios))
     return worst_shortfall, ratios
 
 
@@ -596,7 +624,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_gait_gate_qfactor", "_wp", "_vel_est",
                           "_trans_td_count", "_trans_lo_buf",
                           "_walk_legduty_ema", "_walk_legduty_low_s",
-                          "_legduty_ratio_ema", "_legduty_ratio_ticks")
+                          "_legduty_ratio_ema", "_legduty_ratio_ticks",
+                          "_legduty_ratio_swing_hist")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -769,6 +798,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace every other gate in this file uses).
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
+        self._legduty_ratio_swing_hist: list = []
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1461,6 +1491,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace every other gate in this file uses).
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
+        self._legduty_ratio_swing_hist: list = []
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3427,6 +3458,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace every other gate in this file uses).
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
+        self._legduty_ratio_swing_hist: list = []
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -4602,6 +4634,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             g_ratio = float(cfg_get(self.cfg, "reward",
                                     "walk_leg_duty_ratio_charge",
                                     default=0.0))
+            # Optional swing-count floor (2026-09-08, see the
+            # walk_legduty_ratio_charge docstring): read here
+            # (unconditionally, not nested under the grace check
+            # below) so both this pricing block AND the per-foot
+            # swing-event loop further down can see it this same
+            # tick. Default 0.0 = off, bit-exact legacy (no state
+            # tracked, no info keys, same as g_ratio itself when 0).
+            g_ratio_swingfloor = float(cfg_get(
+                self.cfg, "reward",
+                "walk_leg_duty_ratio_swing_min_count", default=0.0))
             r_ratio = 0.0
             if g_ratio > 0.0 and s_ref > 1e-3:
                 ratio_grace_s = float(cfg_get(
@@ -4611,8 +4653,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     ratio_target = float(cfg_get(
                         self.cfg, "reward", "walk_leg_duty_ratio_target",
                         default=0.30))
+                    ratio_swing_counts = None
+                    if g_ratio_swingfloor > 0.0:
+                        ratio_swing_win = max(1, int(round(float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_leg_duty_ratio_swing_window_s",
+                            default=4.0)) / self.dt)))
+                        if len(self._legduty_ratio_swing_hist) \
+                                >= ratio_swing_win:
+                            ratio_swing_counts = np.sum(
+                                self._legduty_ratio_swing_hist, axis=0)
                     worst_shortfall, _ratios = walk_legduty_ratio_charge(
-                        self._legduty_ratio_ema, ratio_target)
+                        self._legduty_ratio_ema, ratio_target,
+                        swing_counts=ratio_swing_counts,
+                        swing_min_count=g_ratio_swingfloor)
                     r_ratio = -g_ratio * worst_shortfall
                     info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
                     info["reward_walk_leg_duty_ratio"] = r_ratio
@@ -5947,6 +6001,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 wts_td_events = 0
                 wts_lo_events = 0
                 swing_gate_flags = [False] * 6
+                ratio_swing_flags = [False] * 6
                 contacts = [False] * 6
                 contact_forces = [0.0] * 6
                 meaningful_contacts = 0
@@ -6066,6 +6121,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 and stride >= gait_stride_m \
                                 and f not in lift:
                             swing_gate_flags[f] = True
+                        # walk_leg_duty_ratio_swing_min_count
+                        # bookkeeping: identical qualifying-swing
+                        # definition, own flag array/hist so the
+                        # ratio-charge's swing floor cannot be
+                        # perturbed by walk_swing_gate's independent
+                        # dose (both default-off, own state).
+                        if g_ratio_swingfloor > 0.0 and air >= 2 \
+                                and stride >= gait_stride_m \
+                                and f not in lift:
+                            ratio_swing_flags[f] = True
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
@@ -6308,6 +6373,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         on=[1.0 if c else 0.0 for c in contacts],
                         dt=self.dt, tau_s=ratio_tau_s)
                     self._legduty_ratio_ticks += 1
+                    if g_ratio_swingfloor > 0.0:
+                        # walk_leg_duty_ratio_swing_min_count
+                        # bookkeeping: own trailing qualifying-swing
+                        # window, independent of walk_swing_gate's
+                        # _swing_gate_hist so this axis's dose can be
+                        # sweept standalone.
+                        self._legduty_ratio_swing_hist.append(
+                            [1.0 if s else 0.0 for s in ratio_swing_flags])
+                        ratio_swing_win = max(1, int(round(float(cfg_get(
+                            self.cfg, "reward",
+                            "walk_leg_duty_ratio_swing_window_s",
+                            default=4.0)) / self.dt)))
+                        if len(self._legduty_ratio_swing_hist) \
+                                > ratio_swing_win:
+                            self._legduty_ratio_swing_hist = (
+                                self._legduty_ratio_swing_hist[
+                                    -ratio_swing_win:])
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

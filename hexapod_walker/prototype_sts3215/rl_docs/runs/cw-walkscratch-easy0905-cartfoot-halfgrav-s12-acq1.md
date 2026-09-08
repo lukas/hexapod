@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T11:53:10+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-s12
+
+**wandb_id**: hijwfdoc
 
 **hypothesis**: Plain English: 4th-seed replicate of the halfgrav cart_foot ON 40M acquisition, breaking the tie in the closed n=3 cohort where cart_foot's gait_valid advantage over joint-space held for 2/3 seeds (s7 22/24 vs 10/24, s10 17/24 vs 7/24) but vanished for s11 (11/24 vs 10/24, near-parity). Own-checkpoint continuation of the CANARY-PASSed s12 2M arm (telemetry matched s7/s10/s11 band exactly).
 

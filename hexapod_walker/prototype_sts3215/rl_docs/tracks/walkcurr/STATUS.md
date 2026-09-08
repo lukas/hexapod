@@ -1,3 +1,36 @@
+## 2026-09-08 ~03:5x (same cycle; refill) — measured the cross-track torsional-friction candidate against walkcurr's OWN closed 9-arm slip floor: REFUTED for straight walking (unlike the turning case)
+
+The 09-07 ~20:3x closure (below) demanded a STRUCTURAL (non-reward)
+lever before any 10th slip-pricing design; the top-of-file cross-
+track note nominated the todaypolicy traction diagnostic's finding
+(mesh foot torsional mu_t=0.1 m ~20x a physical boot estimate) as a
+candidate and asked walkcurr to check its own ~5-6/m floor against
+it. Built the probe-local tool (`env.foot_friction_torsion`, default
+0 = bit-exact off, `sim_env.set_foot_ground_torsion_friction` +
+regression test, snapshotted `67ebc152`) and re-ran the EXACT
+`crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m`
+gate panel/seed/checkpoint with ONLY that one cfg key dosed
+0.1->0.005 (physical estimate).
+
+Result: slip/m is FLAT-TO-SLIGHTLY-WORSE in all 4 groups (det
+4.98->5.19, sto 5.17->5.41, sj/det 5.10->5.14, sj/sto 5.42->5.93 —
++1% to +9%, none improve), `gait_valid` identical 22/24 with the SAME
+2 sacrificed episodes (sto/4 leg2, sj/det/1 leg2), 0 falls/
+terminations either way — near-identical episode-by-episode
+fingerprint. **The torsional-friction fidelity gap does NOT explain
+walkcurr's straight-walk slip floor** (unlike the turning-authority
+deficit, where the same dose measurably helped) — refuted as a
+structural lever for THIS floor specifically. No canary (negative
+diagnostic, not a lever). The 9-arm family's escalation demand still
+stands unanswered: remaining candidates (foot-pad geometry, a genuine
+foot-placement policy change) are unbuilt/unscoped. Evidence:
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_{gate,torsion005_probe}/
+report.json`, W&B `v6wmk0lv`. CURRENT_TRUTHS.md updated same cycle.
+RL_LOG 09-08 ~03:5x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~03:3x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-offctrl10m`) — s0/RNG2's matched control lands: 2nd independent replication CLOSES the continued-charge study negative on BOTH tested lineages
 
 `offctrl10m` (charge=0, same corrected 2M s0/RNG2

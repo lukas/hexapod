@@ -1,3 +1,63 @@
+## 2026-09-08 ~12:1x (triage cycle; assigned `widen8-jointspace-freshinit-b40m-ctrl`, left unverdicted -- joint sibling still training; refill launched the swing-floor 3rd-seed tie-break) 
+
+One plain sentence: the assigned run finished its 40M budget with a
+clean gate read (walk/det+sto/startjitter-det all 6/6 gait_valid, 0
+terminations) but its ledger note is explicit that it MUST be
+verdicted jointly with `...-stagedr20m-b40m`, which was still
+training at read time (`ops.sh review` confirms `wandb` state
+`finished` for `-ctrl` but the sibling's own W&B run had not synced
+finished) -- so no verdict recorded this cycle; left for whoever reads
+both. Full board re-check found every other concurrently-training line
+(`cartfoot-halfgrav-{s10,s11,s12}` ON/OFF variants incl. cont10m,
+`headset-crossgrav-...-footgeom0135-fix1`) already concurrent-owned
+per the ledger/RL_LOG, so no duplicate triage or launch on any of
+those.
+
+With 8 GPU pods live-confirmed FREE (`capacity.py`, cross-checked
+against `kubectl exec ... ps aux` on train-0/1/2/3/8/9/10/11 showing
+zero live trainer processes -- several ledger `RUNNING` rows are stale
+because `defer-final-artifacts` frees the GPU before the ledger catches
+up) and backlog empty, refilled the one open question the swing-floor
+mechanism's own closure note (above) names: **the swing-count-floor
+lever's 1-of-2-seed split (s0 CONTINUE-signal 3/4 groups improve, s1
+no-efficacy 0/4 groups) needs a 3rd-seed tie-break before any further
+budget.** Seed2 (`crutchoff-s2-widen8`) already has its own base/acq1
+checkpoints from the earlier (pre-ratio-charge) legduty sweeps, and its
+own `legdutyfresh` attempt (created 2026-09-07 22:00 UTC) predates the
+`ebad6d0d` activation-guard fix (2026-09-08 00:27 UTC) -- so it has the
+exact same silently-inert-charge invalidity the s0/s1 originals had,
+and had never been re-run on the fixed code. Launched the matched pair,
+avoiding the pods those "stale-RUNNING" ledger rows name (used
+train-8/train-9, uninvolved in any listed line):
+1. `cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-
+   nokick-crutchoff-s2-widen8-acq1-legdutyratiofresh-guardfix1`
+   (train-8, seed4, `--init-from` s2's own `_widen8.zip`, byte-
+   identical recipe to the s0/s1 guardfix1 relaunches) -- the matched
+   0.30-dose baseline this seed never had on the fixed code.
+2. `cw-walkscratch-crutchoff-s2-widen8-legdutyratio-swingfloor`
+   (train-9, seed4, same init/heading/DR/motor cfg, swing-floor keys
+   added) -- the tie-break arm itself.
+Both VERIFIED RUNNING at launch; both are cheap 2M canaries (already
+finished their GPU steps by the time capacity was re-checked minutes
+later -- fast at ~9-17k fps). Gate (both, read jointly against each
+other): PASS/CONTINUE criteria identical to the s0/s1 swing-floor gate
+text (>=3/4 groups jointly improve gait_valid AND slip/progress vs the
+matched dose sibling); read together with s0 (CONTINUE) and s1 (no
+efficacy) once both are staged -- 2-of-3 seeds improving closes the
+lever as real-but-modest, 1-of-3 confirms s1 was the outlier and the
+lever is a wash. 2 launches / 4M new GPU steps, well under the
+4-launch/80M-step cycle caps. `CYCLE_WORKED` touched (real refill
+launch, not a re-verify no-op).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-
+freshinit-b40m-ctrl`; `logs/ckpt_eval/cw_walkscratch_easy0905_widen8_
+jointspace_freshinit_b40m_ctrl_gate/report.json`; ledger entries for
+the two new launches; `git log -1 ebad6d0d` (fix timestamp) vs the s2
+`legdutyfresh` ledger `created` field (invalidity proof). RL_LOG
+09-08 ~12:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~12:0x (same cycle, addendum) — cross-seed swing-floor read now complete: s0 (below) shows 3/4-groups-improve, but the concurrently-verdicted s1 sibling (`CANARY PASS - mechanism healthy, no efficacy`, W&B/ledger note, verdicted by another cycle) shows 0/4 groups jointly improve (gait_valid IDENTICAL to its 0.30-dose sibling in all 4 groups, slip/progress a wash). Read together: 1-of-2 seeds shows the swing-floor lever helping, 1-of-2 shows no effect at all -- this is NOT a reproduced efficacy signal, it is seed-to-seed spread on a n=2 read (same pattern this file has repeatedly warned against pooling, e.g. the halfgrav cart_foot gait_valid spread). Correctly deferred (see below) rather than funding a cont10m off s0 alone; the lever needs either a 3rd-seed tie-break or a dose/window re-check before further budget, not a same-recipe repeat.
 
 One plain sentence: verdicted the swing-count-floor mechanism's own

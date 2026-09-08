@@ -108,6 +108,10 @@ class AgentProvider:
 
     # -- results ------------------------------------------------------------
 
+    def usage(self, run_dir: Path) -> Dict[str, Any]:
+        """Spend and token counts for one finished attempt, if the CLI reports them."""
+        return {}
+
     def materialize_output(self, run_dir: Path, output_path: Path) -> str:
         """Ensure ``output_path`` holds the structured result.
 
@@ -453,20 +457,10 @@ class ClaudeProvider(AgentProvider):
 
     def materialize_output(self, run_dir: Path, output_path: Path) -> str:
         """Recover the structured answer from the streamed event capture."""
-        events_path = run_dir / ".events.raw.jsonl"
-        if not events_path.is_file():
-            events_path = run_dir / "events.jsonl"
-        if not events_path.is_file():
+        if not any((run_dir / n).is_file()
+                   for n in (".events.raw.jsonl", "events.jsonl")):
             return "Claude produced no event stream to read a result from"
-        result_event: Optional[Dict[str, Any]] = None
-        with events_path.open("r", encoding="utf-8", errors="replace") as handle:
-            for line in handle:
-                try:
-                    event = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if isinstance(event, dict) and event.get("type") == "result":
-                    result_event = event
+        result_event = self._result_event(run_dir)
         if result_event is None:
             return "Claude did not emit a terminal result event"
         if result_event.get("is_error"):
@@ -490,6 +484,49 @@ class ClaudeProvider(AgentProvider):
         output_path.write_text(payload, encoding="utf-8")
         output_path.chmod(0o600)
         return ""
+
+    def usage(self, run_dir: Path) -> Dict[str, Any]:
+        event = self._result_event(run_dir)
+        if event is None:
+            return {}
+        usage = event.get("usage") or {}
+        out: Dict[str, Any] = {}
+        cost = event.get("total_cost_usd")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+            out["cost_usd"] = float(cost)
+        for source, key in (
+            ("input_tokens", "input_tokens"),
+            ("output_tokens", "output_tokens"),
+            ("cache_read_input_tokens", "cache_read_tokens"),
+            ("cache_creation_input_tokens", "cache_write_tokens"),
+        ):
+            value = usage.get(source)
+            if isinstance(value, int) and not isinstance(value, bool):
+                out[key] = value
+        for source, key in (("duration_ms", "duration_ms"), ("num_turns", "turns")):
+            value = event.get(source)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                out[key] = value
+        return out
+
+    @staticmethod
+    def _result_event(run_dir: Path) -> Optional[Dict[str, Any]]:
+        for name in (".events.raw.jsonl", "events.jsonl"):
+            path = run_dir / name
+            if not path.is_file():
+                continue
+            found = None
+            with path.open("r", encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if isinstance(event, dict) and event.get("type") == "result":
+                        found = event
+            if found is not None:
+                return found
+        return None
 
     def transcript_reader(self) -> "ClaudeTranscriptReader":
         return ClaudeTranscriptReader()

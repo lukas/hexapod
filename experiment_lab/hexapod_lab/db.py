@@ -2023,6 +2023,55 @@ class Store:
         result["paused"] = result["action"] == "pause"
         return result
 
+    def pause_codex_queue_for_operator(
+        self, reason: str, *, created_by: str
+    ) -> Dict[str, Any]:
+        """Latch the queue on an operator's request rather than a failed job.
+
+        The orchestrator's pause dedupes on the job that triggered it. An
+        operator pause has no such job, so it carries a NULL source and its
+        own key -- and is idempotent against an already-paused queue so a
+        second click cannot stack latches a single resume would not clear.
+        """
+        reason = reason.strip()
+        if not reason:
+            raise ValueError("Codex queue pause reason must not be blank")
+        now = utcnow()
+        with self.connect() as con:
+            con.execute("BEGIN IMMEDIATE")
+            previous = con.execute(
+                "SELECT * FROM codex_queue_controls ORDER BY sequence DESC LIMIT 1"
+            ).fetchone()
+            if previous is not None and previous["action"] == "pause":
+                con.execute("COMMIT")
+                already = dict(previous)
+                already["paused"] = True
+                already["already_paused"] = True
+                return already
+            con.execute(
+                "INSERT INTO codex_queue_controls("
+                "dedupe_key,action,source_job_id,reason,created_by,created_at"
+                ") VALUES(?,'pause',NULL,?,?,?)",
+                (
+                    f"pause:operator:{uuid.uuid4().hex}",
+                    reason[:6000],
+                    created_by,
+                    now,
+                ),
+            )
+            # Same teeth as a safety pause: revoke the single physical lane so
+            # an action-capable child fails its next lease poll instead of
+            # running on after the operator asked it to stop.
+            con.execute("DELETE FROM codex_hardware_lane")
+            row = con.execute(
+                "SELECT * FROM codex_queue_controls ORDER BY sequence DESC LIMIT 1"
+            ).fetchone()
+            con.execute("COMMIT")
+        result = dict(row)
+        result["paused"] = True
+        result["already_paused"] = False
+        return result
+
     def resume_codex_queue(
         self, reason: str, *, created_by: str
     ) -> Dict[str, Any]:

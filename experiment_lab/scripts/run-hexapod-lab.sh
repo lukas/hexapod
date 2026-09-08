@@ -9,6 +9,18 @@ ASSISTANTS_TOKEN="$(/usr/bin/security find-generic-password -a assistants -s 'He
 MOBILE_TOKEN="$(/usr/bin/security find-generic-password -a viewer -s 'Hexapod Research Mobile' -w)"
 export HEXAPOD_API_KEYS="operator:operator:${LAB_TOKEN},operator:assistants:${ASSISTANTS_TOKEN},viewer:iphone:${MOBILE_TOKEN}"
 unset LAB_TOKEN ASSISTANTS_TOKEN MOBILE_TOKEN
+# The Lab renders the active backend on its pages and in /api/stats, so it
+# must read the same switch the orchestrator does. Without this the UI claims
+# Codex while Claude is doing the work.
+AGENT_PROVIDER="codex"
+PROVIDER_FILE="/Users/lukas/Library/Application Support/Hexapod Lab/agent-provider"
+if [ -f "$PROVIDER_FILE" ]; then
+  AGENT_PROVIDER="$(tr -d '[:space:]' < "$PROVIDER_FILE")"
+fi
+export HEXAPOD_AGENT_PROVIDER="$AGENT_PROVIDER"
+export HEXAPOD_CLAUDE_MODEL="${HEXAPOD_CLAUDE_MODEL:-claude-opus-5}"
+export HEXAPOD_CLAUDE_EFFORT="${HEXAPOD_CLAUDE_EFFORT:-high}"
+
 export HEXAPOD_DATA_DIR="/Users/lukas/Library/Application Support/Hexapod Lab/data"
 export HEXAPOD_BIND="127.0.0.1"
 export HEXAPOD_PORT="8767"

@@ -53,7 +53,7 @@ continuation) — that branch had sat unclaimed for ~6h while the
 narrowhead/torqueretain thread ran, so this cycle launched it.
 
 Recipe: respec each seed's own already-PASSED
-`-legdutyratiofresh-guardfix1` 2M canary (fresh-init widen8, charge
+`-legdutyratiofresh-guardfix1` 2M canary (checkpoint-initialized widen8, charge
 150, byte-identical `--init-from`/heading-set/DR/motor cfg) with
 ONLY `reward.walk_leg_duty_ratio_target` raised 0.30 -> 0.45 (the
 09-07 ~23:4x calibration's passing-population MEDIAN worst-leg ratio
@@ -80,7 +80,7 @@ RL_LOG 09-08 10:0x.
 
 --- prior entry below ---
 
-## 2026-09-08 ~09:3x (triage cycle) — offctrl-s41 confirms OFF-arm n=2; torqueretain bisection pair BOTH FAIL (torque crutch is NOT the widen8 blocker); launched the narrowhead heading-breadth bisection
+## 2026-09-08 ~09:3x (triage cycle) — offctrl-s41 confirms OFF-arm n=2; torqueretain bisection pair BOTH FAIL (torque restoration alone did not ignite this recipe); launched the narrowhead heading-breadth bisection
 
 One plain sentence: closed out the widen8-cartfoot-freshinit seed41
 pair and the torque-crutch-restore bisection (both symmetric FAILs),
@@ -106,9 +106,9 @@ crutch-off arms: `env/reward_walk` flat on both (ON 0.185/0.171/
 on both (ON 0.148->0.120, OFF 0.135->0.105), `env/v_along_cmd_m_s`
 stays pinned near zero on both. 0 falls in 47/48 gate episodes (one
 tilt_roll term on OFF), gait_valid majority every mode, no chronic
-single-leg-sacrifice. **This closes the torque-crutch hypothesis**:
-restoring torque authority does not rescue ignition, so heading/DR
-breadth itself -- not torque-scale -- is the blocker.
+single-leg-sacrifice. **This finite torque-only rescue test failed**:
+restoring torque did not ignite this seed40 recipe within 2M steps.
+It does not isolate heading/DR as the unique cause or exclude interactions.
 
 **Refill: launched the next bisection.** The 5-way `medhead` heading
 set (this composite's pre-widen8 heading set) plus the same full
@@ -118,14 +118,12 @@ crutchoff-s{0,1,2}` -> acq1 lineage) but was never tried fresh-init.
 Respec'd the seed40 widen8-cartfoot-freshinit ON/OFF pair with ONLY
 `goal.walk_heading_set` shrunk from widen8's 8-way set back to the
 5-way medhead set (drops the 135/-135/180 backward headings widen8
-added) -- torque_scale stays at 1,1 (crutch off, already ruled out
-above), everything else byte-identical. If ignition appears now, the
-widen8 backward-heading extension specifically is the fresh-init
-blocker (not DR breadth in general); if it still fails with the same
-flat/declining fingerprint, full crossgrav+medhead DR alone is too
-hard for fresh init regardless of heading count, and this whole
-DR-hardened composite family's only proven ignition path is
-warm-start/curriculum. Launched: `cw-walkscratch-easy0905-headset-
+added) -- torque_scale stays at 1,1, with the remaining recipe fixed.
+A pass would support this heading reduction for the sampled recipe;
+a fail means the five-heading variant also missed this finite test.
+Neither result alone identifies a unique DR cause or closes every
+fresh-init curriculum. Keep the original gates and the scoped correction
+in feedback fb_20260908T093937_58528c. Launched: `cw-walkscratch-easy0905-headset-
 crossgrav-medhead-dr-widen8-cartfoot-freshinit-{c1,offctrl}-
 narrowhead`, both VERIFIED RUNNING (train-0/train-3), gate evals
 in-flight at cycle end (2M steps complete in ~2 min at this fps; CPU

@@ -1,10 +1,23 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 09:34 UTC — support-conditioned geometric
-steering assay completed STOP; current Next corrected after the meta
-refresh reintroduced an already-withdrawn time-multiplexing proposal.
+Last updated: 2026-09-08 — capped magnitude-allocation assay completed
+STOP. Current Next preserves the completed steering results and gates.
 The yawref candidate passes the frozen translation composition bars;
 continuous-arc/tip qualification remains FAIL.
+
+## 2026-09-08 09:56 UTC — fixed magnitude allocation completes held-out STOP
+
+The capped magnitude-weighted law and equal-L2 sign-box comparison
+completed all 50 preregistered rollouts: **0/8 states reaches 5 mrad**,
+maximum 1.778 mrad, and no fixed pair repeats a comparative advantage.
+All 32 signed branches retain walking; all source, zero, pulse-prefix
+and straight exactness checks pass. The initial reconstruction check
+failed before simulation on a ≤3-ULP platform difference; its repaired
+sanity tolerance leaves the original hashed applied vectors unchanged.
+No follow-up dose, mapping, seed, controller or PPO follows this result.
+See repository-root [turn_magnitude_execution_20260908](../../../../../artifacts/rl_watchdog/turn_magnitude_execution_20260908/README.md)
+(result be4e8a423; preregistration c70598019). Current traces are complete
+uncalibrated simulation estimates, not measured hardware qualification.
 
 ## 2026-09-08 09:34 UTC — completed support-conditioned assay and current queue correction
 
@@ -1524,10 +1537,10 @@ Minimum demo bars for a TODAY pass:
    currently queued by this page**. Generic fixed-duty time slicing was
    already tested and withdrawn; coordinated and analytic support-
    conditioned pulse screens both ended STOP. Preserve their fixed gates.
-5. Existing design leads are magnitude-weighted L2-matched templates
-   (08:0x coordinated-screen question) and the knee-90 stance's scripted
-   forward-speed side-finding (03:3x), not validated learned-policy
-   interventions or launch-ready protocols. Any next efficacy assay needs
+5. The exact capped magnitude-weighted L2-matched template proposal
+   is now closed by its held-out STOP. The knee-90 stance's scripted
+   forward-speed side-finding (03:3x) remains a design lead, not a
+   validated learned-policy intervention. Any next efficacy assay needs
    a distinct mechanism, frozen held-out design and coordinated ownership;
    bounded design work remains authorized. Translation composition stays
    delivered; feed future qualifying results back to `standwalk`.

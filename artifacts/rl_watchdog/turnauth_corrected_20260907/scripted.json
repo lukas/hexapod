@@ -1,0 +1,2216 @@
+{
+  "schema": "hexapod.corrected_frozen_turn_probe.v1",
+  "metadata": {
+    "code_sha": "dbedfdfe9f6a8efc33e46de41714d077fd97eb76",
+    "policy": "scripted",
+    "source_run": "cw-robotwalk-turns-20260907-yawref-cont8m",
+    "training_code_sha": "5cb8560dd777f44474e633ba15e3e1c2fa876eb6",
+    "wandb_id": "pzu0hc62",
+    "checkpoint": null,
+    "checkpoint_sha256": null,
+    "resolved_cfg_sha256": "8598d160dfcf33fa59a76420a35a24b9d8d099b8fd2a991a85a3b005614a0f5e",
+    "probe_sha256": "01a9709836e6c1dd078ca2fccb5f281ec306b9612e8a80bba4837c2a83b239ba",
+    "runner_sha256": "dbdfc35d8fd7fc25c4298e26631c6b51c5131cb05c16e92818cf1abb13886201",
+    "seed": 0,
+    "phases_requested": [
+      0,
+      3.141592653589793
+    ],
+    "cells": [
+      [
+        0.08,
+        0
+      ],
+      [
+        0,
+        0.3
+      ],
+      [
+        0,
+        -0.3
+      ],
+      [
+        0.08,
+        0.15
+      ],
+      [
+        0.08,
+        -0.15
+      ],
+      [
+        0.08,
+        0.3
+      ],
+      [
+        0.08,
+        -0.3
+      ]
+    ],
+    "episode_seconds": 15,
+    "training_steps_added": 0,
+    "elapsed_wall_s": 101.86759877204895,
+    "environment": {
+      "CUDA_VISIBLE_DEVICES": "",
+      "OMP_NUM_THREADS": "1"
+    },
+    "qualification": "Frozen diagnostic only; existing acceptance limits unchanged. Zero steady-state net yaw impulse alone does not imply absent turning authority."
+  },
+  "results": [
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0106172248463077,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -7.200680688946898e-05,
+        "mujoco_object_world_wz_med": -0.006849058282843658,
+        "unwrapped_yaw_change_rad": -0.016696210597490792,
+        "yaw_change_per_s": -0.0012853125941101457,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.00015796815524232432,
+      "wz_err_med": 0.08172888416089967,
+      "vx_med": 0.040065720987130155,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5823076923076923,
+          0.5507692307692308,
+          0.5846153846153846,
+          0.5576923076923077,
+          0.5853846153846154,
+          0.5476923076923077
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11321011094866298,
+          0.10838466553261562,
+          0.12497873919832746,
+          0.12214234488217451,
+          0.10886608951813183,
+          0.10495471875224288
+        ],
+        "slip_center_m_total": 0.6825366688321552,
+        "body_path_m": 0.5025450702049756,
+        "body_forward_integral_m": 0.456950014831528,
+        "slip_per_m_body_forward": 1.4936790604630976,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.000304999308115,
+        "corr": 0.9999993889299063,
+        "relative_rms_residual": 0.0011467760120423972,
+        "rms_impulse_residual_Nms": 1.7773982725380726e-07,
+        "net_external_impulse_Nms": 0.0030965412248818314,
+        "delta_lz_Nms": 0.0030962483860321305,
+        "med_abs_resid": 1.8910454173337167e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.01832571611331,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5909230769230683,
+          0.5543076923077034,
+          0.5832307692307602,
+          0.5527692307692423,
+          0.5890769230769146,
+          0.5572307692307801
+        ],
+        "fz_mean_loaded_N": [
+          13.790556425964233,
+          13.338868449402865,
+          14.0382005741978,
+          14.12290277118012,
+          13.611523401788775,
+          13.57329186034862
+        ],
+        "yaw_imp_force_Nms": [
+          1.1528387939608464,
+          2.2144163552815104,
+          2.6538035755262466,
+          -2.5889934528757137,
+          -1.9034217835668021,
+          -0.7887328006260469
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.6684503636195793,
+          -3.8627408262587686,
+          -2.435083013564857,
+          2.2116225707008,
+          3.719843794778892,
+          2.297993691488349
+        ],
+        "slip_center_m": [
+          0.11831752560026734,
+          0.1109512207770053,
+          0.12089882688085522,
+          0.11356731235500651,
+          0.11009623559350006,
+          0.11036464226408522
+        ],
+        "slip_material_m": [
+          0.11846988476672103,
+          0.11557406928391732,
+          0.13109810482234394,
+          0.12297813511587644,
+          0.11458051368729588,
+          0.11204294179928566
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14683465100240067,
+            0.08489823020765584
+          ],
+          [
+            0.0022861350513303704,
+            0.17364573152945575
+          ],
+          [
+            -0.14824899342757764,
+            0.08623461790494222
+          ],
+          [
+            -0.1498197389320134,
+            -0.08353514808735799
+          ],
+          [
+            -0.0011238983339852814,
+            -0.1733232292035046
+          ],
+          [
+            0.14560933727650197,
+            -0.08721787305539781
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.152209878436099,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.0020009656973418695,
+        "mujoco_object_world_wz_med": -0.001144492798967345,
+        "unwrapped_yaw_change_rad": 0.00028397248270036705,
+        "yaw_change_per_s": 2.1860853171698773e-05,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.007391347275148641,
+      "wz_err_med": 0.0823759090476095,
+      "vx_med": 0.04023429258659103,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5492307692307692,
+          0.5823076923076923,
+          0.5553846153846154,
+          0.5930769230769231,
+          0.5515384615384615,
+          0.5807692307692308
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.10734569591602909,
+          0.11065591028113288,
+          0.12056864464742735,
+          0.13229079452418696,
+          0.10241640517568254,
+          0.10917061019472864
+        ],
+        "slip_center_m_total": 0.6824480607391874,
+        "body_path_m": 0.5068626134300211,
+        "body_forward_integral_m": 0.4610869545600048,
+        "slip_per_m_body_forward": 1.480085380837586,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.000271637399895,
+        "corr": 0.9999993752712568,
+        "relative_rms_residual": 0.0011502969319883362,
+        "rms_impulse_residual_Nms": 1.800459267019925e-07,
+        "net_external_impulse_Nms": -0.00403696415554528,
+        "delta_lz_Nms": -0.004036730987340561,
+        "med_abs_resid": 1.8727348645638705e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.02578142527203,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5569230769230877,
+          0.5887692307692222,
+          0.5529230769230884,
+          0.5855384615384527,
+          0.5560000000000115,
+          0.5916923076922987
+        ],
+        "fz_mean_loaded_N": [
+          13.644170754908563,
+          13.463098658277088,
+          13.966916022293491,
+          14.0910088842495,
+          13.42346712542757,
+          13.785144358592337
+        ],
+        "yaw_imp_force_Nms": [
+          1.1149848520044554,
+          1.996620546859149,
+          2.5741676334808368,
+          -2.6601233938488513,
+          -1.9490462589034157,
+          -0.8983970095688374
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.438404136385418,
+          -3.714727023264304,
+          -2.315051843016584,
+          2.2990655113416825,
+          3.533879842101673,
+          2.452994315044059
+        ],
+        "slip_center_m": [
+          0.11179061664325055,
+          0.11445621325470338,
+          0.11542987196674961,
+          0.11967941217206854,
+          0.1048823172880319,
+          0.11456217656237072
+        ],
+        "slip_material_m": [
+          0.11286666671974169,
+          0.11850378087226264,
+          0.12535074528708137,
+          0.12920353114580807,
+          0.10924119805651406,
+          0.11538822218557625
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14708045617920432,
+            0.08485043836843113
+          ],
+          [
+            0.001794397535123875,
+            0.17345861821931466
+          ],
+          [
+            -0.14816483335048086,
+            0.08627152697995388
+          ],
+          [
+            -0.14999172305525707,
+            -0.0835612979905992
+          ],
+          [
+            -0.0007912100435736217,
+            -0.1734511554488575
+          ],
+          [
+            0.14527914033513487,
+            -0.08724062478679254
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0,
+      "wz_cmd": 0.3,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.0007459402328475414,
+        "mujoco_object_world_wz_med": 0.23380632401924173,
+        "unwrapped_yaw_change_rad": 2.058891287603682,
+        "yaw_change_per_s": 0.15849817456533347,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.233977456046009,
+      "wz_err_med": 0.06615534979862688,
+      "vx_med": -1.1956641554909982e-05,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5823076923076923,
+          0.5476923076923077,
+          0.583076923076923,
+          0.5484615384615384,
+          0.5853846153846154,
+          0.5476923076923077
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.1123591299318128,
+          0.11145251852657606,
+          0.11824010021205197,
+          0.11170891063278943,
+          0.1184600859317798,
+          0.11060552784202385
+        ],
+        "slip_center_m_total": 0.6828262730770339,
+        "body_path_m": 0.028424035793409838,
+        "body_forward_integral_m": -0.00031139638087497617,
+        "slip_per_m_body_forward": null,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0004093502685762,
+        "corr": 0.9999997936939744,
+        "relative_rms_residual": 0.000761620249720648,
+        "rms_impulse_residual_Nms": 4.1380062700766974e-07,
+        "net_external_impulse_Nms": -0.017820485811656243,
+        "delta_lz_Nms": -0.01779881344785744,
+        "med_abs_resid": 2.7797715046579725e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.04919254526578,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5844615384615303,
+          0.5480000000000108,
+          0.5850769230769151,
+          0.5487692307692417,
+          0.5856923076922991,
+          0.5496923076923186
+        ],
+        "fz_mean_loaded_N": [
+          13.911757406154425,
+          13.755560610994335,
+          13.909672556298984,
+          13.77420839689933,
+          13.90573970394484,
+          13.838026282502527
+        ],
+        "yaw_imp_force_Nms": [
+          -1.7962175791709218,
+          -1.719904438502137,
+          -1.8204760590019367,
+          -1.6508741602172081,
+          -1.848340383900094,
+          -1.6857840929635113
+        ],
+        "yaw_imp_couple_Nms": [
+          1.7154036394761067,
+          1.8000736020006953,
+          1.788199756890656,
+          1.7159232489161005,
+          1.7199024791187647,
+          1.764273501541831
+        ],
+        "slip_center_m": [
+          0.11304614315494564,
+          0.11228067460861674,
+          0.11629785030588498,
+          0.11172447787962529,
+          0.11594568191029515,
+          0.11206449833938259
+        ],
+        "slip_material_m": [
+          0.11754415280195292,
+          0.11682448833384043,
+          0.12080183795019754,
+          0.11598241817389852,
+          0.12042707477149177,
+          0.11669016661706982
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.15069957535765904,
+            0.0841884330521209
+          ],
+          [
+            0.0022741721393955187,
+            0.17301033429092236
+          ],
+          [
+            -0.148409383472329,
+            0.08870732366240545
+          ],
+          [
+            -0.15093341659675785,
+            -0.08413804000252177
+          ],
+          [
+            -0.0027521231451114007,
+            -0.1725770751091155
+          ],
+          [
+            0.14838116759892178,
+            -0.08833748233447569
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0,
+      "wz_cmd": 0.3,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.0005138755504467505,
+        "mujoco_object_world_wz_med": 0.2342947280125905,
+        "unwrapped_yaw_change_rad": 2.058399192790061,
+        "yaw_change_per_s": 0.15846029197767983,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.2343247371975451,
+      "wz_err_med": 0.06585814630385634,
+      "vx_med": 0.00012132960718878896,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5484615384615384,
+          0.5838461538461538,
+          0.5476923076923077,
+          0.5853846153846154,
+          0.5476923076923077,
+          0.5853846153846154
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11083208071656664,
+          0.1162544270063892,
+          0.11049176058558662,
+          0.11741848562833275,
+          0.11071283515049216,
+          0.11933376972763193
+        ],
+        "slip_center_m_total": 0.6850433588149993,
+        "body_path_m": 0.028901457395968243,
+        "body_forward_integral_m": 0.0026459791180174887,
+        "slip_per_m_body_forward": null,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.000406925786783,
+        "corr": 0.9999997938714985,
+        "relative_rms_residual": 0.0007600861579446672,
+        "rms_impulse_residual_Nms": 4.111052689373968e-07,
+        "net_external_impulse_Nms": -0.019214696538756376,
+        "delta_lz_Nms": -0.019193202089387955,
+        "med_abs_resid": 2.810008778991415e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.051529065979395,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.548153846153857,
+          0.5846153846153761,
+          0.5498461538461646,
+          0.5859999999999914,
+          0.5484615384615497,
+          0.5855384615384529
+        ],
+        "fz_mean_loaded_N": [
+          13.806911050406324,
+          13.868003211439232,
+          13.7184271060255,
+          13.883981364151255,
+          13.810478225543708,
+          13.98460610145242
+        ],
+        "yaw_imp_force_Nms": [
+          -1.6218344532839941,
+          -1.8691812431560393,
+          -1.6292271664543012,
+          -1.8545297369586475,
+          -1.6811376363301207,
+          -1.79412693366634
+        ],
+        "yaw_imp_couple_Nms": [
+          1.7425501470685922,
+          1.763816670594718,
+          1.7252832155230962,
+          1.6908795159560888,
+          1.7156412910970416,
+          1.7926516330711588
+        ],
+        "slip_center_m": [
+          0.11075508721055495,
+          0.11516397966875395,
+          0.11155874500305805,
+          0.11436929450174232,
+          0.1116517986126081,
+          0.11763641039103138
+        ],
+        "slip_material_m": [
+          0.11513591348722015,
+          0.11982122133549829,
+          0.11602254236703058,
+          0.11887309491982674,
+          0.11606765737481925,
+          0.12216584394422811
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.15072797467975316,
+            0.08446715981372559
+          ],
+          [
+            0.0023880071626985466,
+            0.17278174802865265
+          ],
+          [
+            -0.14858880043191175,
+            0.08859245930521027
+          ],
+          [
+            -0.15102509835501945,
+            -0.08398759348904752
+          ],
+          [
+            -0.0026019497265826184,
+            -0.17266343500898698
+          ],
+          [
+            0.1481500528188315,
+            -0.08846518643382933
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0,
+      "wz_cmd": -0.3,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -0.0008587052563904582,
+        "mujoco_object_world_wz_med": -0.23419959983620453,
+        "unwrapped_yaw_change_rad": -2.0551526716341306,
+        "yaw_change_per_s": -0.15821036733134183,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.23433591099061557,
+      "wz_err_med": 0.06588649519219272,
+      "vx_med": -9.233205336747343e-05,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5853846153846154,
+          0.5484615384615384,
+          0.5807692307692308,
+          0.5492307692307692,
+          0.5823076923076923,
+          0.5484615384615384
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.1189659703394784,
+          0.11163050158933319,
+          0.11345708966878892,
+          0.11254029492350695,
+          0.11441799582506772,
+          0.11299283569882551
+        ],
+        "slip_center_m_total": 0.6840046880450006,
+        "body_path_m": 0.02717151575325092,
+        "body_forward_integral_m": -0.00022859986138839164,
+        "slip_per_m_body_forward": null,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0003951291387405,
+        "corr": 0.9999997767214952,
+        "relative_rms_residual": 0.0007762629879027432,
+        "rms_impulse_residual_Nms": 4.203955333899038e-07,
+        "net_external_impulse_Nms": 0.01790642024841501,
+        "delta_lz_Nms": 0.017884391553863833,
+        "med_abs_resid": 2.8554263661783478e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.08147121634319,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.585999999999992,
+          0.5484615384615492,
+          0.5839999999999916,
+          0.5504615384615494,
+          0.583692307692299,
+          0.5487692307692419
+        ],
+        "fz_mean_loaded_N": [
+          13.885583722959705,
+          13.802823873940167,
+          13.871537519822951,
+          13.735514164977568,
+          13.970030466964875,
+          13.838540099009483
+        ],
+        "yaw_imp_force_Nms": [
+          1.8826668679724852,
+          1.702819949937039,
+          1.7873267247277884,
+          1.7330210516070186,
+          1.7909531468531017,
+          1.5993056975722726
+        ],
+        "yaw_imp_couple_Nms": [
+          -1.7656308630097657,
+          -1.7425409947418051,
+          -1.794246932167675,
+          -1.7468296671596846,
+          -1.66050414929477,
+          -1.7684344120475903
+        ],
+        "slip_center_m": [
+          0.11564348644994304,
+          0.1127636721948617,
+          0.11472828034964243,
+          0.1136187763323628,
+          0.11436416389373628,
+          0.11342639465182373
+        ],
+        "slip_material_m": [
+          0.12022895598981939,
+          0.11720070582389805,
+          0.11914132054160272,
+          0.11818565712137076,
+          0.1187605191715544,
+          0.11765792440942155
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14971089510640623,
+            0.08610553487390973
+          ],
+          [
+            0.00041352975919774535,
+            0.17290979352663874
+          ],
+          [
+            -0.14941301296930168,
+            0.08681600196713506
+          ],
+          [
+            -0.15007824545663492,
+            -0.08568493163525039
+          ],
+          [
+            -0.0005311004623109515,
+            -0.1725427450849935
+          ],
+          [
+            0.14915001623532126,
+            -0.08667154006138278
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0,
+      "wz_cmd": -0.3,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -0.0011867353428852347,
+        "mujoco_object_world_wz_med": -0.23369913817216625,
+        "unwrapped_yaw_change_rad": -2.0526635286589103,
+        "yaw_change_per_s": -0.1580187473948353,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.23428631715648868,
+      "wz_err_med": 0.06573805511917992,
+      "vx_med": -8.44908973863141e-05,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5461538461538461,
+          0.5846153846153846,
+          0.546923076923077,
+          0.5807692307692308,
+          0.5461538461538461,
+          0.5861538461538461
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.10970022143232656,
+          0.11848368614702585,
+          0.11327374730853733,
+          0.11233141430254392,
+          0.11190565471345734,
+          0.11913625805138292
+        ],
+        "slip_center_m_total": 0.684830981955274,
+        "body_path_m": 0.031832534811834554,
+        "body_forward_integral_m": -0.0022306418727122503,
+        "slip_per_m_body_forward": null,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0003942671264276,
+        "corr": 0.9999997841653122,
+        "relative_rms_residual": 0.0007661712769597837,
+        "rms_impulse_residual_Nms": 4.1482343138716564e-07,
+        "net_external_impulse_Nms": 0.017648555751029124,
+        "delta_lz_Nms": 0.017626346978314316,
+        "med_abs_resid": 2.9315813655315412e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.05889742427214,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5473846153846263,
+          0.5852307692307606,
+          0.5487692307692418,
+          0.5833846153846064,
+          0.548000000000011,
+          0.5869230769230684
+        ],
+        "fz_mean_loaded_N": [
+          13.764916680500018,
+          13.91647154364291,
+          13.774031624618265,
+          13.945456554664222,
+          13.851585966698659,
+          13.893765166504906
+        ],
+        "yaw_imp_force_Nms": [
+          1.671705826416191,
+          1.944001186931922,
+          1.699042148402389,
+          1.8947899268376391,
+          1.6038197934075118,
+          1.9231804021686663
+        ],
+        "yaw_imp_couple_Nms": [
+          -1.6469276011303862,
+          -1.8429427088968766,
+          -1.8711397998649084,
+          -1.791031248235039,
+          -1.706123512382508,
+          -1.8607258579035695
+        ],
+        "slip_center_m": [
+          0.11101066024059102,
+          0.11714197381502992,
+          0.1152911861410257,
+          0.11449972464531885,
+          0.11290075638864254,
+          0.11674206806814094
+        ],
+        "slip_material_m": [
+          0.11536893108194553,
+          0.12172642893227995,
+          0.11986997778672125,
+          0.11889665517727173,
+          0.11714955815357857,
+          0.12140257391233876
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.1497926644329638,
+            0.08608847158981767
+          ],
+          [
+            0.00041456255188515817,
+            0.1727854966195868
+          ],
+          [
+            -0.14946693160359142,
+            0.08705472235957935
+          ],
+          [
+            -0.14984025845877136,
+            -0.08579383461781263
+          ],
+          [
+            -0.0006502056624180178,
+            -0.1725601594469939
+          ],
+          [
+            0.14918808773734424,
+            -0.08668257963799005
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0.15,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.0007778272357359488,
+        "mujoco_object_world_wz_med": 0.06374611061362548,
+        "unwrapped_yaw_change_rad": 0.5039011202594166,
+        "yaw_change_per_s": 0.03879146422320374,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.06424356912738255,
+      "wz_err_med": 0.08575643087261745,
+      "vx_med": 0.03722226587463831,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5961538461538461,
+          0.56,
+          0.5769230769230769,
+          0.553076923076923,
+          0.5723076923076923,
+          0.5315384615384615
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11959813387474057,
+          0.1091835337389943,
+          0.12295210751114613,
+          0.11501000821344988,
+          0.12136435519279154,
+          0.11409330216184291
+        ],
+        "slip_center_m_total": 0.7022014406929653,
+        "body_path_m": 0.4688056757168008,
+        "body_forward_integral_m": 0.42370773561932135,
+        "slip_per_m_body_forward": 1.6572778395621637,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.000235711614698,
+        "corr": 0.9999998129324773,
+        "relative_rms_residual": 0.0006554915561797536,
+        "rms_impulse_residual_Nms": 1.4874502670619785e-07,
+        "net_external_impulse_Nms": 0.0012504756364357856,
+        "delta_lz_Nms": 0.0012517254577932434,
+        "med_abs_resid": 2.209429104415495e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.065261771008934,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.59446153846153,
+          0.5543076923077035,
+          0.5772307692307604,
+          0.5563076923077037,
+          0.5869230769230682,
+          0.5489230769230876
+        ],
+        "fz_mean_loaded_N": [
+          13.721988063126336,
+          13.464819308417198,
+          14.395513939191884,
+          13.907370326553204,
+          13.566863528490899,
+          13.642820069145642
+        ],
+        "yaw_imp_force_Nms": [
+          1.3107507688917408,
+          1.6098348458272556,
+          2.8283460289096993,
+          -2.4567520165693604,
+          -4.706602316767546,
+          -1.542347231342826
+        ],
+        "yaw_imp_couple_Nms": [
+          -1.1770039745831524,
+          -3.782794674154971,
+          -1.1460040470352035,
+          2.8749221080624925,
+          3.3822873016024526,
+          2.8066136827958585
+        ],
+        "slip_center_m": [
+          0.11675895856368021,
+          0.10277087580203902,
+          0.1210421168006057,
+          0.11480079483098804,
+          0.12799171690790773,
+          0.12663767704835244
+        ],
+        "slip_material_m": [
+          0.12064642495550913,
+          0.10666693941555194,
+          0.1302302719946841,
+          0.12498033874422332,
+          0.13231360531672082,
+          0.1262722276145365
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14817438127784094,
+            0.08508151618807036
+          ],
+          [
+            0.0010664888925354843,
+            0.17313704455974663
+          ],
+          [
+            -0.14716664028759965,
+            0.08595129064243785
+          ],
+          [
+            -0.14939288887079885,
+            -0.08502316425617039
+          ],
+          [
+            -0.0006514545437734451,
+            -0.1737748899013026
+          ],
+          [
+            0.14604820812217,
+            -0.08653638228656682
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0.15,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.0037166260440986525,
+        "mujoco_object_world_wz_med": 0.06387968129503285,
+        "unwrapped_yaw_change_rad": 0.5143507919816005,
+        "yaw_change_per_s": 0.03959590392468056,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.06322606606503198,
+      "wz_err_med": 0.08677393393496802,
+      "vx_med": 0.036275323376160386,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5646153846153846,
+          0.5876923076923077,
+          0.5453846153846154,
+          0.59,
+          0.5384615384615384,
+          0.5676923076923077
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          18,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11577724814722348,
+          0.11076815536965857,
+          0.11941679136931747,
+          0.12525250078404107,
+          0.11475655867863349,
+          0.11765206354037734
+        ],
+        "slip_center_m_total": 0.7036233178892516,
+        "body_path_m": 0.46639877230386506,
+        "body_forward_integral_m": 0.42081795089824264,
+        "slip_per_m_body_forward": 1.67203731776973,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.000240007648467,
+        "corr": 0.9999997694974875,
+        "relative_rms_residual": 0.0007201250097362572,
+        "rms_impulse_residual_Nms": 1.66902875488453e-07,
+        "net_external_impulse_Nms": -0.002276594822143483,
+        "delta_lz_Nms": -0.0022758616043436156,
+        "med_abs_resid": 2.1019691658370358e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.0320422387922,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5615384615384724,
+          0.5843076923076834,
+          0.5450769230769344,
+          0.5889230769230683,
+          0.5535384615384729,
+          0.5813846153846064
+        ],
+        "fz_mean_loaded_N": [
+          13.585745938592103,
+          13.568176401496263,
+          14.427540151922132,
+          13.924796384763841,
+          13.45760859156084,
+          13.842874596377285
+        ],
+        "yaw_imp_force_Nms": [
+          1.252194750360993,
+          1.7466515906582767,
+          2.5664571008246084,
+          -2.661178925227979,
+          -4.567623063098932,
+          -1.5169289848637961
+        ],
+        "yaw_imp_couple_Nms": [
+          -1.1281529040628255,
+          -3.86264195112332,
+          -1.0402454382625048,
+          2.9340325740740583,
+          3.4312563047761246,
+          2.8439023511231505
+        ],
+        "slip_center_m": [
+          0.10837939230804805,
+          0.10563489012288861,
+          0.11599170416082306,
+          0.11831125260403369,
+          0.12155950120956191,
+          0.1276870111437045
+        ],
+        "slip_material_m": [
+          0.11162961775465574,
+          0.10956697317222548,
+          0.12507012658406477,
+          0.128566276048375,
+          0.1257834969566286,
+          0.12795178429819917
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14843900330013585,
+            0.08521431954693778
+          ],
+          [
+            0.0009956307273906104,
+            0.17300538731295134
+          ],
+          [
+            -0.14689315131974334,
+            0.08588117040623931
+          ],
+          [
+            -0.1496021394119875,
+            -0.08492960993313142
+          ],
+          [
+            -0.0007478391449536376,
+            -0.174070047130992
+          ],
+          [
+            0.14578603711300223,
+            -0.08646524963060523
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": -0.15,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -0.001517564491813955,
+        "mujoco_object_world_wz_med": -0.06316421033169008,
+        "unwrapped_yaw_change_rad": -0.5121569835906611,
+        "yaw_change_per_s": -0.03942701952199085,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.06305192853310224,
+      "wz_err_med": 0.08694807146689776,
+      "vx_med": 0.03636890899080783,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5661538461538461,
+          0.536923076923077,
+          0.5853846153846154,
+          0.5438461538461539,
+          0.5846153846153846,
+          0.5623076923076923
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11819968447796726,
+          0.11526859416856157,
+          0.11940778241997796,
+          0.1204079326373796,
+          0.10649782137074658,
+          0.11839757513269378
+        ],
+        "slip_center_m_total": 0.6981793902073268,
+        "body_path_m": 0.46875123711150407,
+        "body_forward_integral_m": 0.4236525340299768,
+        "slip_per_m_body_forward": 1.6480000333431855,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0002325422448886,
+        "corr": 0.999999773449079,
+        "relative_rms_residual": 0.0007121471071638468,
+        "rms_impulse_residual_Nms": 1.6450710657758895e-07,
+        "net_external_impulse_Nms": 5.3892175210183864e-05,
+        "delta_lz_Nms": 5.2404092697514414e-05,
+        "med_abs_resid": 2.0642095601406176e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.07711048556069,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5803076923076833,
+          0.5529230769230886,
+          0.5906153846153763,
+          0.5436923076923188,
+          0.5823076923076832,
+          0.5607692307692425
+        ],
+        "fz_mean_loaded_N": [
+          13.864255110796682,
+          13.437074411019102,
+          13.948189688187165,
+          14.439609765226741,
+          13.5519844539537,
+          13.667542630286752
+        ],
+        "yaw_imp_force_Nms": [
+          1.7388133074061343,
+          4.353420306460601,
+          2.5479135114162648,
+          -2.7602321162364367,
+          -1.7258788225028183,
+          -1.253869763249595
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.8958974233458594,
+          -3.2289360676487675,
+          -3.0569142948938133,
+          1.1133121502500853,
+          3.904360439367761,
+          1.2639626651516411
+        ],
+        "slip_center_m": [
+          0.1282468031302371,
+          0.12282019552424031,
+          0.11886080387990172,
+          0.11638033251521542,
+          0.10298727864061226,
+          0.11311127796348873
+        ],
+        "slip_material_m": [
+          0.1280747064362046,
+          0.1267749096618618,
+          0.12884818704523035,
+          0.1256614478818846,
+          0.10706478751771561,
+          0.11543719939824348
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14727893515163662,
+            0.08408386911054133
+          ],
+          [
+            0.0021446578489286144,
+            0.1741841377071406
+          ],
+          [
+            -0.1479297343082595,
+            0.08780692121367523
+          ],
+          [
+            -0.14851207873102582,
+            -0.08301560902100474
+          ],
+          [
+            -0.002000810640698458,
+            -0.1729471782425154
+          ],
+          [
+            0.14697298330585504,
+            -0.08751184636051426
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": -0.15,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.00031103694503588987,
+        "mujoco_object_world_wz_med": -0.0652636500186311,
+        "unwrapped_yaw_change_rad": -0.4918000957815538,
+        "yaw_change_per_s": -0.03785989959827204,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.06506261172345035,
+      "wz_err_med": 0.08493738827654965,
+      "vx_med": 0.0369504033752522,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5323076923076923,
+          0.5692307692307692,
+          0.5553846153846154,
+          0.5769230769230769,
+          0.5592307692307692,
+          0.5984615384615385
+        ],
+        "swing_count": [
+          17,
+          17,
+          20,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11329232484963671,
+          0.1177100111284823,
+          0.12285663363830135,
+          0.12471821673784442,
+          0.10661924843540424,
+          0.12206548237318857
+        ],
+        "slip_center_m_total": 0.7072619171628577,
+        "body_path_m": 0.46570573585779745,
+        "body_forward_integral_m": 0.4211109082799638,
+        "slip_per_m_body_forward": 1.6795145964080664,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0002463696263533,
+        "corr": 0.9999998071987252,
+        "relative_rms_residual": 0.000668035158084298,
+        "rms_impulse_residual_Nms": 1.4990416995950703e-07,
+        "net_external_impulse_Nms": 0.0007700930109481887,
+        "delta_lz_Nms": 0.0007690499501935384,
+        "med_abs_resid": 2.1497088249268537e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.07515769514218,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5472307692307802,
+          0.5869230769230684,
+          0.5566153846153962,
+          0.5772307692307602,
+          0.5546153846153958,
+          0.5959999999999915
+        ],
+        "fz_mean_loaded_N": [
+          13.67014581468422,
+          13.495822954341598,
+          13.821057115965964,
+          14.42951214512167,
+          13.510648411716522,
+          13.759601067381933
+        ],
+        "yaw_imp_force_Nms": [
+          1.67425384291702,
+          4.850882337745818,
+          2.3871014205077974,
+          -3.008351572630436,
+          -1.5803170251661156,
+          -1.0203267235502478
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.736256485575509,
+          -3.549652797801829,
+          -2.9619940280518002,
+          1.108812919121031,
+          3.689582788743458,
+          1.1470354167517562
+        ],
+        "slip_center_m": [
+          0.12390657320873434,
+          0.12653646917684946,
+          0.11748717743267661,
+          0.12242320059325082,
+          0.10121599630405044,
+          0.1188061369211905
+        ],
+        "slip_material_m": [
+          0.123700415083552,
+          0.13097057178510932,
+          0.1276826198690859,
+          0.13182822646450124,
+          0.10529773015554429,
+          0.12259791308908813
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14744080641084784,
+            0.08423748217057513
+          ],
+          [
+            0.002384719864657306,
+            0.17392571238010374
+          ],
+          [
+            -0.14776843158800412,
+            0.087927994663669
+          ],
+          [
+            -0.1486562198209929,
+            -0.08306760124928181
+          ],
+          [
+            -0.0019382836747598893,
+            -0.1729397686969726
+          ],
+          [
+            0.14671087787845719,
+            -0.08744139060974589
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0.3,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.002910549328748651,
+        "mujoco_object_world_wz_med": 0.08040370155071179,
+        "unwrapped_yaw_change_rad": 0.9605575394457492,
+        "yaw_change_per_s": 0.07394592297503842,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.0802431954203346,
+      "wz_err_med": 0.2197568045796654,
+      "vx_med": 0.031116728853297873,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5815384615384616,
+          0.5476923076923077,
+          0.5753846153846154,
+          0.5453846153846154,
+          0.5753846153846154,
+          0.5315384615384615
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          22,
+          18,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.13260004768835373,
+          0.10205688334969325,
+          0.1356405196236938,
+          0.11710811973853474,
+          0.13163316571805356,
+          0.11091378586160067
+        ],
+        "slip_center_m_total": 0.7299525219799299,
+        "body_path_m": 0.3959782560134322,
+        "body_forward_integral_m": 0.3516592645975535,
+        "slip_per_m_body_forward": 2.075738066549458,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0000284024525665,
+        "corr": 0.9999998555156991,
+        "relative_rms_residual": 0.0005383093202510781,
+        "rms_impulse_residual_Nms": 1.1424078454700204e-07,
+        "net_external_impulse_Nms": -0.0005851056355293846,
+        "delta_lz_Nms": -0.000583284788469847,
+        "med_abs_resid": 1.916562100443152e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.15325869976128,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5981538461538376,
+          0.5481538461538572,
+          0.5723076923076831,
+          0.5546153846153963,
+          0.5910769230769142,
+          0.5443076923077028
+        ],
+        "fz_mean_loaded_N": [
+          13.613584147619468,
+          13.545921181244466,
+          14.804790497640784,
+          13.811046830684054,
+          13.472680949957802,
+          13.703338938098822
+        ],
+        "yaw_imp_force_Nms": [
+          1.259031103840471,
+          2.6893783045331383,
+          2.624103358971538,
+          -3.0792008280024743,
+          -6.266720976339037,
+          -2.033412136955419
+        ],
+        "yaw_imp_couple_Nms": [
+          -0.16073127088604358,
+          -2.553969675510269,
+          -0.43667646592848114,
+          2.7973693930499777,
+          2.677934896709774,
+          2.482309190881283
+        ],
+        "slip_center_m": [
+          0.14328615071058842,
+          0.10040069473539706,
+          0.12397646399041688,
+          0.11469851594952281,
+          0.14259524120286107,
+          0.11985894009763272
+        ],
+        "slip_material_m": [
+          0.1469007026846877,
+          0.10434363471280894,
+          0.13186003202272034,
+          0.12333514599213861,
+          0.14662876673247,
+          0.12117845226695946
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.1496348607535635,
+            0.084440038988332
+          ],
+          [
+            0.00014402429142145923,
+            0.17273196874193725
+          ],
+          [
+            -0.14553541132372158,
+            0.0858946908387356
+          ],
+          [
+            -0.14924533063322248,
+            -0.0853629414111765
+          ],
+          [
+            -0.0008849666452945261,
+            -0.17509533019343754
+          ],
+          [
+            0.14779675870235834,
+            -0.0864135075827211
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": 0.3,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": 0.003137382945418707,
+        "mujoco_object_world_wz_med": 0.08199065092181594,
+        "unwrapped_yaw_change_rad": 0.9716281063764107,
+        "yaw_change_per_s": 0.07479816061404239,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": 0.0818950725717409,
+      "wz_err_med": 0.2181049274282591,
+      "vx_med": 0.030661327174897536,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5623076923076923,
+          0.57,
+          0.5453846153846154,
+          0.5792307692307692,
+          0.5407692307692308,
+          0.5592307692307692
+        ],
+        "swing_count": [
+          17,
+          17,
+          17,
+          18,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.13168436030725417,
+          0.09980611470898434,
+          0.12791193584200097,
+          0.12476271094079343,
+          0.1271984615162994,
+          0.11277088928715455
+        ],
+        "slip_center_m_total": 0.7241344726024869,
+        "body_path_m": 0.3880055895189942,
+        "body_forward_integral_m": 0.34494093754179683,
+        "slip_per_m_body_forward": 2.099299891056691,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0000715770870254,
+        "corr": 0.9999998506280704,
+        "relative_rms_residual": 0.0005512422683147038,
+        "rms_impulse_residual_Nms": 1.1479389986378537e-07,
+        "net_external_impulse_Nms": 0.0009926706042533541,
+        "delta_lz_Nms": 0.000994496863579701,
+        "med_abs_resid": 1.953649697005692e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.12870869136306,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5640000000000113,
+          0.5718461538461446,
+          0.5423076923077033,
+          0.583846153846145,
+          0.5544615384615501,
+          0.5779999999999914
+        ],
+        "fz_mean_loaded_N": [
+          13.541633639737526,
+          13.798415673664998,
+          14.806276120179167,
+          13.922883167865814,
+          13.449494144444794,
+          13.798850048861308
+        ],
+        "yaw_imp_force_Nms": [
+          1.294580157325122,
+          2.4672075096090493,
+          2.4425749731433433,
+          -3.0378435836931055,
+          -5.96752758012619,
+          -2.230140704790773
+        ],
+        "yaw_imp_couple_Nms": [
+          -0.16663358105019377,
+          -2.7959886139651218,
+          -0.3955208678837849,
+          3.037675520556776,
+          2.5889932788681946,
+          2.763616162610948
+        ],
+        "slip_center_m": [
+          0.13098642580960665,
+          0.09950699708580425,
+          0.11601040545258542,
+          0.12273145120321145,
+          0.13514543758428782,
+          0.1267289944758698
+        ],
+        "slip_material_m": [
+          0.13472257600500648,
+          0.10316623628769546,
+          0.12327549802574524,
+          0.13179240002736756,
+          0.13885648461658281,
+          0.1277092672784472
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14993109639824106,
+            0.08461831480454099
+          ],
+          [
+            0.0002411831952885917,
+            0.17265430727545794
+          ],
+          [
+            -0.1452531849205039,
+            0.08587754033100584
+          ],
+          [
+            -0.14928031899480707,
+            -0.08548135984771865
+          ],
+          [
+            -0.0007010719410519186,
+            -0.17544592532217546
+          ],
+          [
+            0.14702406407739813,
+            -0.0860903362218502
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": -0.3,
+      "phase_offset": 0,
+      "actual_env_start_phase": 0.0,
+      "scripted_start_phase": 0.0,
+      "actual_phase_first_scored_action": {
+        "env": 2.0943930079980846,
+        "audit": 4.188790204786398,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -0.003029867796099641,
+        "mujoco_object_world_wz_med": -0.07684084414369512,
+        "unwrapped_yaw_change_rad": -0.9371941762310848,
+        "yaw_change_per_s": -0.0721473576775277,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.07689590836149707,
+      "wz_err_med": 0.22310409163850292,
+      "vx_med": 0.030798075236748504,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5561538461538461,
+          0.5453846153846154,
+          0.5723076923076923,
+          0.5461538461538461,
+          0.5715384615384616,
+          0.5607692307692308
+        ],
+        "swing_count": [
+          17,
+          17,
+          20,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.11585297586155467,
+          0.12321230285587825,
+          0.12100285877190607,
+          0.12911658156568576,
+          0.10053298512843316,
+          0.1301449930755175
+        ],
+        "slip_center_m_total": 0.7198626972589754,
+        "body_path_m": 0.38509653033883473,
+        "body_forward_integral_m": 0.34100737080457905,
+        "slip_per_m_body_forward": 2.110988673237526,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 1.0000267684425428,
+        "corr": 0.99999983516067,
+        "relative_rms_residual": 0.0005748015208291355,
+        "rms_impulse_residual_Nms": 1.1530069561631135e-07,
+        "net_external_impulse_Nms": -0.00014767111415945342,
+        "delta_lz_Nms": -0.00014934561960050453,
+        "med_abs_resid": 1.9262802360736818e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.16030106159437,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5763076923076834,
+          0.5558461538461652,
+          0.5812307692307606,
+          0.5435384615384727,
+          0.5746153846153756,
+          0.5623076923077036
+        ],
+        "fz_mean_loaded_N": [
+          13.857976876903782,
+          13.284230198504437,
+          13.954276351490972,
+          14.826026593749472,
+          13.76693533003362,
+          13.639622467555558
+        ],
+        "yaw_imp_force_Nms": [
+          2.3702507469601257,
+          6.2672019020576615,
+          2.876161658746827,
+          -2.5190472675656688,
+          -2.526563991009234,
+          -0.911088026413818
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.8782111738607425,
+          -2.977931347961889,
+          -2.8118593331917845,
+          0.3893898840975412,
+          2.651615576828106,
+          0.06993370019871807
+        ],
+        "slip_center_m": [
+          0.13098600507573488,
+          0.12891181540217755,
+          0.12007733064372435,
+          0.12045021764017907,
+          0.10024408944356204,
+          0.12905846159940393
+        ],
+        "slip_material_m": [
+          0.13125049473870143,
+          0.1331032221189065,
+          0.1291851608066365,
+          0.1277302881225898,
+          0.10403595866437321,
+          0.1329180397698388
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.1483637442172293,
+            0.08364957938455508
+          ],
+          [
+            0.0024371546021943707,
+            0.17568587331029167
+          ],
+          [
+            -0.14767810397833192,
+            0.08824174468137656
+          ],
+          [
+            -0.14676511076736395,
+            -0.0828942432415907
+          ],
+          [
+            -0.002873504776075636,
+            -0.1725655446788531
+          ],
+          [
+            0.14852596091670167,
+            -0.08694630818401725
+          ]
+        ]
+      }
+    },
+    {
+      "vx_cmd": 0.08,
+      "wz_cmd": -0.3,
+      "phase_offset": 3.141592653589793,
+      "actual_env_start_phase": 3.141592653589793,
+      "scripted_start_phase": 3.141592653589793,
+      "actual_phase_first_scored_action": {
+        "env": 5.2359856615878755,
+        "audit": 1.0471975511966058,
+        "alignment_verified": false
+      },
+      "independent_body_yaw": {
+        "mujoco_object_local_wz_med": -0.0032866084734322508,
+        "mujoco_object_world_wz_med": -0.08122777458648606,
+        "unwrapped_yaw_change_rad": -0.9609180402916545,
+        "yaw_change_per_s": -0.07397367515717125,
+        "definition": "mj_objectVelocity local/world rotational-z and unwrapped chassis Euler yaw; original historical wz metric retained separately"
+      },
+      "n_walk_ticks": 1300,
+      "fell": false,
+      "wz_med": -0.08131893274666653,
+      "wz_err_med": 0.21868106725333344,
+      "vx_med": 0.030680869492428042,
+      "scored_window_gait": {
+        "definition": "Same >CONTACT_N touch threshold and sacrifice criteria as eval_checkpoint, restricted to probe's post-2s scored walk ticks; diagnostic, not a qualification gate rerun.",
+        "n_ticks": 1300,
+        "contact_threshold_N": 0.5,
+        "duty_cycle": [
+          0.5284615384615384,
+          0.573076923076923,
+          0.5461538461538461,
+          0.57,
+          0.55,
+          0.5853846153846154
+        ],
+        "swing_count": [
+          17,
+          17,
+          21,
+          17,
+          17,
+          17
+        ],
+        "sacrificed_legs": [],
+        "gait_valid": true,
+        "slip_center_per_foot_m": [
+          0.10821198078920294,
+          0.13356939913627955,
+          0.11652162470245539,
+          0.13061098844021196,
+          0.10061638024704443,
+          0.13474933724736143
+        ],
+        "slip_center_m_total": 0.7242797105625556,
+        "body_path_m": 0.3948993896780463,
+        "body_forward_integral_m": 0.34932299893680246,
+        "slip_per_m_body_forward": 2.073381119385123,
+        "termination_reason": ""
+      },
+      "angmom_check": {
+        "valid": true,
+        "unaccounted": [],
+        "slope": 0.9999969887185948,
+        "corr": 0.9999998503025364,
+        "relative_rms_residual": 0.0005471779960158407,
+        "rms_impulse_residual_Nms": 1.1197724029031821e-07,
+        "net_external_impulse_Nms": 0.0017814284345393193,
+        "delta_lz_Nms": 0.0017795300399068674,
+        "med_abs_resid": 1.8418278850760718e-05
+      },
+      "support_force_sign_valid": true,
+      "sum_fz_med_N": 46.15252659390215,
+      "weight_N": 47.14421130000001,
+      "bc_anchor_resid": {
+        "available": false,
+        "reason": "returned bc_target belongs to the next action; teacher phase/clock alignment is unverified"
+      },
+      "per_foot": {
+        "duty": [
+          0.5426153846153954,
+          0.5901538461538375,
+          0.5566153846153966,
+          0.5696923076922984,
+          0.5500000000000119,
+          0.5970769230769147
+        ],
+        "fz_mean_loaded_N": [
+          13.746213940209799,
+          13.45678389197463,
+          13.779660572339798,
+          14.811952522136387,
+          13.597756067136247,
+          13.624839979505461
+        ],
+        "yaw_imp_force_Nms": [
+          2.1551501189344875,
+          6.318627183884888,
+          2.9448694035589154,
+          -2.673372050221497,
+          -2.8022586769382714,
+          -1.0686116854746543
+        ],
+        "yaw_imp_couple_Nms": [
+          -2.53524269736517,
+          -2.7573528459502277,
+          -2.7380020563409704,
+          0.4137702513541772,
+          2.5909081288319276,
+          0.15329635416094575
+        ],
+        "slip_center_m": [
+          0.1183034793316606,
+          0.14538351087598594,
+          0.11530686626544047,
+          0.1227716800701183,
+          0.09794215331623027,
+          0.14212436473249832
+        ],
+        "slip_material_m": [
+          0.11931155247136405,
+          0.14944482534686473,
+          0.12387503053309755,
+          0.1310707383241108,
+          0.10206226983914365,
+          0.14587466915323163
+        ],
+        "stance_center_body_xy_m": [
+          [
+            0.14920141996015585,
+            0.08402964953519015
+          ],
+          [
+            0.0021051693933723217,
+            0.17520457096740816
+          ],
+          [
+            -0.14773456409138644,
+            0.0882650529124617
+          ],
+          [
+            -0.14705819675227896,
+            -0.08309573072939147
+          ],
+          [
+            -0.00296080209466572,
+            -0.17247243499800372
+          ],
+          [
+            0.14821721947402208,
+            -0.08676133629790567
+          ]
+        ]
+      }
+    }
+  ]
+}

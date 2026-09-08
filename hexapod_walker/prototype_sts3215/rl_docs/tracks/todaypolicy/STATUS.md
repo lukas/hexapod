@@ -1,56 +1,43 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-07 17:07 UTC — CONTACT DIAGNOSTIC CORRECTION
-(Codex owns the probe repair and validation; cycle163413 has completed).
+Last updated: 2026-09-08 00:03 UTC — CORRECTED FROZEN TURN DIAGNOSTIC COMPLETE.
 
-The 17:0x turn-authority investigation produced useful frozen-rollout
-comparisons, but its new instrumentation does not yet support its causal
-conclusions. The original artifacts remain in
-`logs/ckpt_eval/turnauth_0907/` (snapshots 322f021e/f6e6e225/cb297594).
-The existing yaw qualification failures below remain unchanged.
+Codex completed the contact-audit repair (225541854) and the matched frozen
+cont8m/cigate8m/scripted matrix using code dbedfdfe9, existing seed 0,
+15-second episodes and actual tripod starts 0/pi. Measured full STL model:
+34 meshes, 159 geoms, 4.80573 kg, 100 Hz. All 42 rollouts: zero falls, valid
+scored-window gait and valid angular-impulse closure with no unaccounted
+terms. Worst relative RMS residual 0.150%. Focused physics tests: 29 passed.
 
-Independent code review found these concrete defects:
-1. Contact wrenches were sampled only after the whole control step and
-   multiplied by control dt. They were not integrated over the individual
-   physics substeps. Correlation 0.70–0.90 and slope 0.62–0.90 do not
-   establish angular-impulse closure or reliable per-leg ranking. The
-   aliasing can overestimate or underestimate impulses; it is not a
-   conservative bound.
-2. Scripted phase offsets changed only the environment observation clock.
-   Both scripted arms used the same reset gait phase and control sequence.
-   Identical results therefore do not establish phase independence.
-3. Recursive contact-point averaging was order-dependent for three or
-   more contacts and included inactive contacts. The reported support
-   geometry and material slip require an invariant active-contact read.
-4. The BC residual compared the current action with the returned NEXT
-   observation's teacher target. Nonzero environment phase offsets also
-   left the internal teacher clock unaligned. The small residual does not
-   establish complete anchor transmission.
+Results and reproducible runner/config:
+[corrected diagnostic](../../../../../artifacts/rl_watchdog/turnauth_corrected_20260907/README.md).
+Controller copies: logs/ckpt_eval/turnauth_repaired_20260907_{scripted,cont8m,cigate8m}/.
 
-The contact-frame transpose, geom-dependent sign, COM lever arm and
-per-contact force-plus-couple formula are correct. Their implementation
-still needs a true substep integral and matched whole-robot angular
-momentum endpoints. Normal-load support alone cannot validate yaw torque.
-The existing 15 tests predate these additions and do not validate them.
+Both learned policies AND the scripted control substantially undertrack
+combined forward/yaw commands. At vx=0.08, wz=+0.15, achieved median yaw
+across starts was scripted +0.063..+0.064, cont8m +0.05795..+0.05802,
+cigate8m +0.062..+0.065 rad/s. At wz=-0.15: scripted -0.065..-0.063,
+cont8m -0.049..-0.047, cigate8m -0.048..-0.045. The course-income gate
+does not consistently improve both turn directions. Qualification remains
+FAIL; this diagnostic is not a qualification rerun.
 
-What the frozen runs currently show: the learned policy and scripted
-controller have different achieved yaw rates and contact duty on this
-probe protocol. The radial stance-displacement doses 0.9/1.05/1.10/1.15
-did not improve both actual gate-command arc cells in the recorded
-single-control comparison, so no canary was launched. These observations
-do not prove a particular braking leg, exonerate placement, establish
-seed-history causation, or prove a full eval_yaw qualification pass for
-the scripted fallback.
+Next bounded work: locate motion loss along desired foot trajectory ->
+IK target -> clipped/slew-limited command -> measured joint response ->
+body motion, comparing straight, in-place and actual +/-0.15 arc cells.
+Use frozen existing policies/scripted control under current limits first.
+Only a measured mechanism justifies the next budgeted training arm. This
+work is authorized; no fresh seed or operator reply is a prerequisite.
+Coordinate around the active scratch owner editing walk_task.py/sim_env.py;
+use isolated diagnostic files and immutable snapshots.
 
-Next: finish the isolated diagnostic repair and focused physics tests,
-including audit-on/off trajectory invariance, then rerun matched frozen
-cont8m/cigate8m/scripted controls on existing seed 0 with genuinely
-different tripod starts. Require measured full-mesh 100Hz impulse closure
-and correctly aligned targets before attributing a mechanism. Preserve
-the existing actuator limits and qualification bars. The fresh-seed
-question is not an execution blocker for this authorized work; do not
-request approval or launch a new seed to substitute for diagnostic repair.
-A training arm needs a supported mechanism after the corrected comparison.
+The prior 17:0x causal claims remain superseded: no seed-history cause,
+placement exoneration or single braking-leg cause has been established.
+Use force PLUS contact-couple impulses and actual turn sign; near-zero
+net yaw impulse at steady yaw is expected. BC residual remains unavailable
+because observation/internal-teacher clocks are not proven aligned.
+Scripted/learned phase labels do not prove matched teacher transmission.
+Historical "mesh" can mean MJX twin: compare actual model variants.
+Original audit artifacts remain archived in logs/ckpt_eval/turnauth_0907/.
 
 Previous update 2026-09-07 ~16:2x — cigate8m VERDICTED
 FAIL-QUALIFICATION: the `walk_course_income_yaw_gate` mechanism

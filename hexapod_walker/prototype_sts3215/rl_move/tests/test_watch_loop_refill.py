@@ -94,18 +94,21 @@ class _StopLoop(BaseException):
 
 
 def _one_iteration(monkeypatch, tmp_path, *, active=(), cap=99, fail_spawn=False,
-                   sleep_hook=None, reaper=None, capacity=None, after_spawn=None):
+                   sleep_hook=None, reaper=None, capacity=None, after_spawn=None,
+                   run_states=None, processed=(), verdict_reader=None):
     """Exercise the dispatch wiring, with all external I/O replaced."""
     calls = []
     monkeypatch.setattr(watch, "log", lambda message: None)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "unit-test-placeholder")
     monkeypatch.setattr(watch, "spawned_cycles_last_24h", lambda: [])
     monkeypatch.setattr(watch, "daily_cycle_cap", lambda: cap)
-    monkeypatch.setattr(watch, "load_processed", lambda: set())
+    monkeypatch.setattr(watch, "load_processed", lambda: set(processed))
     monkeypatch.setattr(watch, "reap_cycles",
                         reaper or (lambda *_: (list(active), 0, 0)))
-    monkeypatch.setattr(watch, "ledger_verdicted", lambda: set())
-    monkeypatch.setattr(watch, "runs_by_state", lambda: ({"cw-scratch-running"}, set()))
+    monkeypatch.setattr(watch, "ledger_verdicted", verdict_reader or (lambda: set()))
+    monkeypatch.setattr(watch, "runs_by_state",
+                        lambda: run_states if run_states is not None
+                        else ({"cw-scratch-running"}, set()))
     monkeypatch.setattr(watch, "maybe_autorestart_on_new_code", lambda: False)
     monkeypatch.setattr(watch, "pending_mcp_kicks", lambda: [])
     monkeypatch.setattr(watch, "META_HOUR_UTC", 99)
@@ -229,9 +232,186 @@ def test_prestage_finished_is_idempotent(monkeypatch):
         watch.threading, "Thread",
         lambda *a, **k: SimpleNamespace(
             start=lambda: started.append(k["target"].__name__)))
-    watch._prestage_fired.discard("cw-idem-test")
+    monkeypatch.setattr(watch, "log", lambda message: None)
+    monkeypatch.setattr(watch, "_prestage_fired", set())
     watch.prestage_finished("cw-idem-test")
     watch.prestage_finished("cw-idem-test")
     # 1st call runs the full prestage worker; 2nd only refreshes the
     # W&B cache (never re-runs pod evals / checkpoint pull).
     assert started == ["worker", "_refresh"]
+
+
+@pytest.fixture
+def fast_finish_ledger(tmp_path, monkeypatch):
+    """The real short deferred-run shape written by cmd_checkup."""
+    entry = {
+        "run": "cw-fast-deferred", "pod": "train-1", "status": "FINISHED",
+        "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "extra_args": ["--defer-final-artifacts"],
+        "checkups": [{"verdict": "FINISHED_BEFORE_CHECKUP"}],
+    }
+    path = tmp_path / "experiments.json"
+    path.write_text(json.dumps([entry]))
+    monkeypatch.setattr(watch, "HERE", tmp_path)
+    monkeypatch.setattr(watch, "LEDGER", path)
+    monkeypatch.setattr(watch, "PAUSE", tmp_path / "PAUSE")
+    monkeypatch.setattr(watch, "log", lambda message: None)
+    monkeypatch.setattr(watch, "load_processed", lambda: set())
+    monkeypatch.setattr(watch, "_prestage_fired", set())
+    return entry, path
+
+
+def test_checkup_completion_is_not_a_scientific_verdict(fast_finish_ledger):
+    entry, path = fast_finish_ledger
+    rows = []
+    for i, verdict in enumerate((None, "", "None", "  ", "clean gait", "CANARY FAIL")):
+        rows.append({**entry, "run": f"cw-{i}", "verdict": verdict})
+    rows += [
+        {"run": "cw-legacy", "status": "FINISHED"},
+        {"run": "cw-infra-failed", "status": "FAILED"},
+        {**entry, "run": "cw-old-checkup", "checkups": [
+            {"verdict": "FINISHED_BEFORE_CHECKUP"}, {"verdict": "HEALTHY"}]},
+        # Latest-row selection must retain its original relaunch behavior.
+        {"run": "cw-relaunched", "status": "FAILED", "verdict": "old failure"},
+        {**entry, "run": "cw-relaunched"},
+    ]
+    path.write_text(json.dumps(rows))
+    assert watch.ledger_verdicted() == {
+        "cw-4", "cw-5", "cw-legacy", "cw-infra-failed", "cw-old-checkup"}
+
+
+def _handoff_polls(monkeypatch, path, polls, dispatch):
+    """Run actual worker iterations, replacing only time and remote I/O."""
+    index, probes = [0], []
+    path.write_text(json.dumps([polls[0][0]]))
+    monkeypatch.setattr(watch, "prestage_finished", dispatch)
+
+    def remote_read(args, **kwargs):
+        probes.append(args)
+        response = polls[index[0]][1]
+        if isinstance(response, BaseException):
+            raise response
+        return SimpleNamespace(
+            returncode=1 if response is None else 0,
+            stdout=json.dumps(response) if not isinstance(response, str) else response)
+
+    def next_poll(seconds):
+        assert seconds == 120
+        index[0] += 1
+        if index[0] == len(polls):
+            raise _StopLoop
+        path.write_text(json.dumps([polls[index[0]][0]]))
+
+    monkeypatch.setattr(watch.subprocess, "run", remote_read)
+    monkeypatch.setattr(watch.time, "sleep", next_poll)
+    with pytest.raises(_StopLoop):
+        watch.handoff_watch_worker()
+    return probes
+
+
+@pytest.mark.parametrize("finalizer_phase", ["artifacts_pending", "evaluated", "failed"])
+def test_running_to_finished_between_handoff_polls_fires_once(
+        fast_finish_ledger, monkeypatch, finalizer_phase):
+    entry, path = fast_finish_ledger
+    threads = []
+    monkeypatch.setattr(
+        watch.threading, "Thread",
+        lambda *a, **k: SimpleNamespace(
+            start=lambda: threads.append(k["target"].__name__)))
+    prestage = watch.prestage_finished
+    polls = [
+        ({**entry, "status": "RUNNING", "checkups": []},
+         {"phase": "training", "jobs": {"periodic_eval": {"status": "done"}}}),
+        # The checkup completes before the next 120s handoff poll.
+        (entry, {"phase": finalizer_phase, "jobs": {"final_video": {"status": "pending"}}}),
+        (entry, {"phase": finalizer_phase}),
+    ]
+    probes = _handoff_polls(monkeypatch, path, polls, prestage)
+    assert len(probes) == 2  # periodic completion is not training completion
+    assert probes[-1][-1].endswith(
+        "/artifact_handoff/cw-fast-deferred/state.json")
+    assert threads == ["worker"]
+    # The later W&B-finished main-loop event must reuse the existing prestage.
+    prestage(entry["run"])
+    assert threads == ["worker", "_refresh"]
+    assert entry["run"] not in watch.ledger_verdicted()
+
+
+@pytest.mark.parametrize("blocked", ["processed", "verdict", "missing-pod", "old", "legacy"])
+def test_handoff_preserves_handled_and_verdict_exclusions(
+        fast_finish_ledger, monkeypatch, blocked):
+    entry, path = fast_finish_ledger
+    if blocked == "processed":
+        monkeypatch.setattr(watch, "load_processed", lambda: {entry["run"]})
+    elif blocked == "verdict":
+        entry["verdict"] = "CANARY PASS"
+        entry["status"] = "RUNNING"  # explicit verdict wins over either status
+    elif blocked == "missing-pod":
+        entry.pop("pod")
+    elif blocked == "old":
+        entry["created"] = "2020-01-01T00:00:00+00:00"
+    elif blocked == "legacy":
+        entry["checkups"] = []
+
+    calls = []
+    probes = _handoff_polls(
+        monkeypatch, path, [(entry, {"phase": "evaluated"})], calls.append)
+    assert calls == []
+    assert probes == []
+
+
+@pytest.mark.parametrize("unready", [
+    None, "{unreadable JSON",
+    watch.subprocess.TimeoutExpired("handoff-state", 60),
+    {"phase": "training", "jobs": {"periodic_video": {"status": "done"}}},
+])
+def test_handoff_retries_missing_or_pending_training_state(
+        fast_finish_ledger, monkeypatch, unready):
+    entry, path = fast_finish_ledger
+    calls = []
+    probes = _handoff_polls(monkeypatch, path, [
+        (entry, unready),
+        (entry, {"phase": "artifacts_pending"}),
+        (entry, {"phase": "evaluated"}),
+    ], calls.append)
+    assert calls == [entry["run"]]
+    assert len(probes) == 2
+
+
+@pytest.mark.parametrize(
+    "wandb_finished,synced,blocked,expected_prestage,expected_cycles",
+    [(False, False, None, 0, 0),  # CPU finalizer still owns W&B
+     (True, False, None, 1, 0),   # finalizer done, independent gate not ready
+     (True, True, None, 1, 1),
+     (True, True, "processed", 0, 0),
+     (True, True, "in-flight", 0, 0),
+     (True, True, "verdict", 0, 0)],
+)
+def test_fast_finish_triage_waits_for_core_gate_and_preserves_owners(
+        fast_finish_ledger, tmp_path, monkeypatch,
+        wandb_finished, synced, blocked, expected_prestage, expected_cycles):
+    entry, path = fast_finish_ledger
+    run = entry["run"]
+    if blocked == "verdict":
+        entry["verdict"] = "PASS - scientifically reviewed"
+        path.write_text(json.dumps([entry]))
+    sentinel = tmp_path / "core.synced"
+    if synced:
+        sentinel.touch()
+    prestaged = []
+    monkeypatch.setattr(watch, "prestage_sentinel", lambda _: sentinel)
+    monkeypatch.setattr(watch, "prestage_finished", prestaged.append)
+    monkeypatch.setattr(watch, "mark_triage", lambda *a, **k: None)
+    monkeypatch.setattr(watch, "try_auto_continue", lambda _: None)
+    monkeypatch.setattr(watch, "_prestage_spawn_wait", lambda _: 3600)
+    monkeypatch.setattr(watch, "check_pending_evals", lambda: ([], 0))
+    active = [{"label": run, "runs": {run}}] if blocked == "in-flight" else []
+    calls = _one_iteration(
+        monkeypatch, tmp_path, active=active,
+        run_states=(set(), {run}) if wandb_finished else ({run}, set()),
+        processed={run} if blocked == "processed" else set(),
+        verdict_reader=watch.ledger_verdicted)
+    assert len(prestaged) == expected_prestage
+    assert len(calls) == expected_cycles
+    if calls:
+        assert calls[0][0][0] == {run}

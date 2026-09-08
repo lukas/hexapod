@@ -42,18 +42,22 @@ Seed11's matched OFF sibling (2026-09-08 ~11:2x) closes that pair: ACQ
 PASS, 0 falls/24, speed 0.17-0.21 m/s, slip/m 1.82/1.89/1.83/1.94
 (det/sto/startjitter-det/startjitter-sto) is 1.13-1.22x the ON arm's
 1.61/1.58/1.50/1.69 -- same ~1.2x parity band as seed7 (1.08-1.22x).
-BUT gait_valid is 10/24 (OFF) vs 11/24 (ON), near-PARITY, not a gap --
-seed7's headline **22/24 ON vs 10/24 OFF gait_valid gap does NOT
-generalize to seed11**: both seed11 det panels are 100% single-leg
-dropout regardless of action space (OFF sacrifices leg4 every det
-episode, ON sacrifices leg1 every det episode). Do not cite the
-seed7 22-vs-10 gait_valid gap as a general cart_foot-vs-joint-space
-effect; it is seed7-specific so far. The slip edge (~1.1-1.2x, ON
-lower) DOES reproduce across both matched pairs measured (s7, s11).
-Seed10's OFF sibling is still unstaged. Evidence: `ops.sh review
-cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1`;
-`logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_
-s11_acq1_gate/report.json`; W&B `i593jcsf`.
+BUT gait_valid is 10/24 (OFF) vs 11/24 (ON), near-PARITY, not a gap
+(both seed11 det panels are 100% single-leg dropout regardless of
+action space -- OFF sacrifices leg4 every det episode, ON sacrifices
+leg1 every det episode). All 3 ON/OFF pairs are now closed: s7 22/24
+vs 10/24 (gap 12), s10 17/24 vs 7/24 (gap 10, `offctrl-s10-acq1`
+verdict same window), s11 11/24 vs 10/24 (gap 1, near-parity). Read
+as 2-of-3 seeds showing a real cart_foot gait_valid advantage and
+seed11 as the outlier, NOT as "the gap doesn't exist" or "the gap is
+universal" -- do not pool or average gait_valid across these seeds;
+report each pair's own gap. The slip edge (~1.1-1.2x, ON lower) DOES
+reproduce in all 3 pairs (s7 0.82-0.93x, s10 0.83-0.89x, s11
+0.82-0.89x expressed as ON/OFF), the most seed-robust finding here.
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-
+offctrl-{s10,s11}-acq1`; `logs/ckpt_eval/cw_walkscratch_easy0905_
+cartfoot_halfgrav_offctrl_{s10,s11}_acq1_gate/report.json`; W&B
+`ghd2vc41` (s10 OFF) / `i593jcsf` (s11 OFF).
 
 The narrowhead/torqueretain fresh-init failures are finite recipe/seed/
 budget results. They neither uniquely isolate DR breadth nor exclude

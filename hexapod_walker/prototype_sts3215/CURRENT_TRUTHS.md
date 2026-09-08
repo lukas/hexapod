@@ -38,6 +38,18 @@ two seeds. Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_
 halfgrav_{s10,s11}_acq1_gate/report.json`; `rl_docs/tracks/walkcurr/
 STATUS.md` 2026-09-08 ~11:1x entry.
 
+Seed11's OFF (joint-space) 50M cont10m read (2026-09-08 ~12:2x) is
+PARTIAL, not a clean hold: slip/m 1.76/1.93/1.77/1.74 stays within the
+gate's +/-20% noise band of the 40M read (1.82/1.89/1.83/1.94) with 0
+new falls, but `gait_valid` collapsed 10/24 -> 3/24, now sacrificing
+TWO legs ([1,4]) in every det episode (was one leg at 40M) while
+`ep_rew_mean` kept climbing steeply (292->1698 across quarters) — the
+08-21 rising-reward/misaligned-eval shape, not a genuine hold. The
+paired ON arm's own 50M cont10m read is not in yet; do not treat this
+OFF regression as resolving the seed11 ON/OFF gap-at-depth question.
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_
+offctrl_s11_acq1_cont10m_gate/report.json`, W&B `pwphlkog`.
+
 Seed11's matched OFF sibling (2026-09-08 ~11:2x) closes that pair: ACQ
 PASS, 0 falls/24, speed 0.17-0.21 m/s, slip/m 1.82/1.89/1.83/1.94
 (det/sto/startjitter-det/startjitter-sto) is 1.13-1.22x the ON arm's

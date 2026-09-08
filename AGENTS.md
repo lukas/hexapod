@@ -122,6 +122,20 @@ style paths again. Curated prose (`STATUS.md`, `CURRENT_TRUTHS.md`,
 `RL_PLAN.md`, `rl_docs/tracks/*/STATUS.md`) and config (`tracks.json`,
 `guardrails.yaml`) stay in this repo.
 
+## Tests: fast, mechanics-only, green
+
+`hexapod_walker/prototype_sts3215/RESEARCH_RULES.md` "Tests" is binding
+for every agent, not just the orchestrator: tests finish in under 5 s
+(else `@pytest.mark.slow` with a reason), check code paths rather than
+measured reward totals or rollout orderings, set the sim model family
+explicitly via `monkeypatch.setenv("HEXAPOD_MODEL_SOURCE", ...)`, never
+depend on generated artifacts, live only under `rl_move/tests/` (or next
+to robot code in `linux_control/`), and `main` stays green. The 14k-line
+rollout-ranking bank (`test_task_semantics.py`) was retired on
+2026-09-08 and must not be recreated. Run the default loop with
+`make -C hexapod_walker/prototype_sts3215 test-fast` (parallel, skips
+slow) and the whole suite with `make ... test`.
+
 ## BuildViz: two-port convention (5183 central, 5173 dev)
 
 BuildViz uses exactly **two** fixed ports. Never start a server on any other

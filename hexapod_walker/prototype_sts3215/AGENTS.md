@@ -53,6 +53,14 @@ The script is `sim_viewer/hexapod_web_8898.sh`. It resolves the current
 robot IP for the `:8080` target unless `HEXAPOD_HOST` is set. Use this
 instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 
+## Tests
+
+`make test-fast` (parallel, skips `slow`) is the default loop; `make test`
+runs everything. Rules for adding tests are in `RESEARCH_RULES.md`
+"Tests" — under 5 s, mechanics only, mesh model via monkeypatch, no
+generated artifacts, `rl_move/tests/` only, `main` green. Do not recreate
+the retired `test_task_semantics.py` rollout bank.
+
 ## Orchestrator state is in `.state/`, not here
 
 Ledger, launch queue, run stories and `RL_LOG.md` live in the separate

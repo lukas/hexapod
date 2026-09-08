@@ -6918,6 +6918,118 @@ def test_walk_leg_duty_ratio_charge_matches_calibration_threshold():
 
 
 # --------------------------------------------------------------------------
+# reward.walk_leg_duty_ratio_swing_min_count (2026-09-08, "paired with
+# a swing-count floor" -- the exact branch the 0.30/0.45-dose FAIL
+# verdicts named as the only remaining open lever on this mechanism
+# family, see the walk_legduty_ratio_charge docstring's design
+# rationale). Both closed doses showed the identical within-episode
+# trade: a flagged leg's ratio recovers above target (gait_valid flips
+# True) while that SAME episode's slip gets worse -- consistent with
+# the leg raising ground-contact DUTY by dragging/planting longer
+# rather than by completing real qualifying swings. This optional
+# floor lets the caller zero a leg's effective ratio credit whenever
+# its recent qualifying-swing count is below a minimum, regardless of
+# how high its duty ratio has climbed, closing that specific escape
+# hatch. Plain-function unit tests only (same "extracted to plain
+# testable functions" pattern as walk_legduty_ratio_charge's own
+# bank above) -- no physics rollout needed to exercise the pricing
+# arithmetic itself; a scripted "drags without swinging" physical
+# actor is a follow-up build, not a precondition for launching this
+# lever (the mechanism is additive/off-by-default and the swing-count
+# telemetry it reads is the same stride-filtered definition already
+# proven against physical rollouts by walk_swing_gate's own bank).
+
+
+def test_walk_leg_duty_ratio_swing_floor_default_off_matches_plain():
+    """swing_min_count<=0 (the default) must be bit-exact vs calling
+    the function with no swing_counts/swing_min_count args at all --
+    no new callers get a silently different answer just by upgrading
+    to the new signature."""
+    ema = [0.15, 1.0, 1.0, 1.0, 1.0, 1.0]
+    baseline = walk_legduty_ratio_charge(ema, 0.30)
+    same_explicit_none = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=None, swing_min_count=0.0)
+    same_ignored_counts = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=[0, 0, 0, 0, 0, 0], swing_min_count=0.0)
+    assert baseline == same_explicit_none == same_ignored_counts
+
+
+def test_walk_leg_duty_ratio_swing_floor_zeroes_credit_for_low_swing_count():
+    """THE core claim: a leg that has raised its peer-relative duty
+    ratio comfortably above target (would read ZERO shortfall under
+    the plain ratio-only mechanism) must instead be charged the FULL
+    target shortfall once its own recent qualifying-swing count is
+    below the floor -- high duty bought by dragging/planting, not by
+    actually stepping, no longer escapes the charge."""
+    ema = [1.0] * 6  # every leg's ratio is exactly 1.0 -- all pass alone
+    plain_shortfall, ratios = walk_legduty_ratio_charge(ema, 0.30)
+    assert plain_shortfall == 0.0
+    assert all(r == pytest.approx(1.0) for r in ratios)
+    # Leg 0 has plenty of duty (ratio 1.0) but zero real swings in the
+    # trailing window -- e.g. it never lifted its foot high/long
+    # enough to clear the stride-filtered qualifying-swing definition.
+    swing_counts = [0, 5, 5, 5, 5, 5]
+    floored_shortfall, floored_ratios = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=swing_counts, swing_min_count=2.0)
+    assert floored_ratios == ratios, (
+        "the RAW per-leg ratios (used for telemetry) must be "
+        "unaffected by the swing floor -- only the charge changes")
+    assert floored_shortfall == pytest.approx(0.30), (
+        f"expected the full target charged once leg 0's swing count "
+        f"(0) misses the floor (2.0), got {floored_shortfall}")
+
+
+def test_walk_leg_duty_ratio_swing_floor_no_effect_when_counts_clear_floor():
+    """The mirror case: every leg both clears the duty-ratio target
+    AND clears the swing-count floor -- the floor must not manufacture
+    a spurious charge on a genuinely-cycling gait."""
+    ema = [1.0] * 6
+    swing_counts = [2, 3, 4, 2, 5, 2]  # all >= the floor below
+    shortfall, _ = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=swing_counts, swing_min_count=2.0)
+    assert shortfall == 0.0
+
+
+def test_walk_leg_duty_ratio_swing_floor_still_charges_low_ratio_legs():
+    """A leg that is ALSO below the plain duty-ratio target must still
+    be charged at least the plain (non-floored) shortfall -- the floor
+    only ever adds charge (by zeroing otherwise-passing legs' credit),
+    it never reduces the charge a low-ratio leg would already pay."""
+    ema = [0.15, 1.0, 1.0, 1.0, 1.0, 1.0]
+    plain_shortfall, _ = walk_legduty_ratio_charge(ema, 0.30)
+    swing_counts = [5, 5, 5, 5, 5, 5]  # every leg clears the floor
+    floored_shortfall, _ = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=swing_counts, swing_min_count=2.0)
+    assert floored_shortfall == pytest.approx(plain_shortfall)
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_duty_ratio_swing_floor_activation_matches_plain_when_off(
+        policy):
+    """End-to-end rollout guard: adding
+    reward.walk_leg_duty_ratio_swing_min_count=0.0 (explicit) to the
+    already-launched sparse activation config must not change the
+    honest gait's zero-charge return or the flag-leg cheat's flipped-
+    negative return by even one bit -- the new cfg key is additive
+    and must not perturb any existing dose's behavior."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    for key in ("k_walk_swing", "k_step_event", "k_step_partial",
+                "k_drag_loaded", "k_park_duty", "k_drag_stance",
+                "walk_gait_gate", "walk_duty_gate", "walk_swing_gate",
+                "walk_duty_band_gate", "k_foot_slip_tangent",
+                "k_foot_slip_height", "k_walk_transition_slip"):
+        overrides[("reward", key)] = 0.0
+    overrides[("goal", "walk_contact_diagnostics")] = 0.0
+    baseline = _gait_gate_walk_rollout(policy, SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_duty_ratio_swing_min_count")] = 0.0
+    explicit_off = _gait_gate_walk_rollout(policy, SEEDS[0], with_key)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+# --------------------------------------------------------------------------
 # reward.walk_swing_gate (09-05, walkcurr easy0905 legpark-skate
 # dig-in follow-up): the SIXTH structural repair attempt for the
 # marginal/chronic leg-sacrifice pathology, after `walk_gait_gate` +

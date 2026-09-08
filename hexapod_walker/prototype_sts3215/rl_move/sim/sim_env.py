@@ -2812,6 +2812,19 @@ class SimHexapodBalanceEnv(_GymBase):
                                           self.n_act), -1.0, 1.0)
 
         q_prop, q_ok, q_reason = self._act_to_q(clipped)
+        if getattr(self, "debug_pipeline_record", False):
+            # Action-pipeline probe hook (2026-09-08 walkcurr action-
+            # clipping/controllability preflight): stash the exact
+            # per-tick decoder inputs/outputs so eval traces can audit
+            # actor -> proposed-target -> SafetyLayer transmission
+            # offline. Copies only, attribute unset by default => zero
+            # behavior change and zero cost on every existing path.
+            self._dbg_applied_action = np.asarray(
+                clipped, dtype=np.float64).copy()
+            self._dbg_proposed_q = np.asarray(
+                q_prop, dtype=np.float64).copy()
+            self._dbg_presafe_last = self.safety._last_safe.copy()
+            self._dbg_max_dq_rad = float(self.safety.max_dq)
         if self._profile_ramp_dq_rad is not None:
             # Profile ramp armed: pool-restores revive a deep-copied
             # SafetyLayer minted under an older ramp value — re-assert

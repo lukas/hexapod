@@ -626,6 +626,23 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                     np.asarray(st.commanded_position,
                                dtype=np.float64).copy()
                     if st.commanded_position is not None else None),
+                # Action-pipeline probe fields (2026-09-08 clip-
+                # controllability preflight): only present when the
+                # env has debug_pipeline_record set (see sim_env.
+                # _step_begin); None columns are dropped by
+                # _save_rollout_trace, so legacy traces are unchanged.
+                "applied_action": (
+                    np.asarray(env._dbg_applied_action).copy()
+                    if getattr(env, "_dbg_applied_action", None)
+                    is not None else None),
+                "proposed_position": (
+                    np.asarray(env._dbg_proposed_q).copy()
+                    if getattr(env, "_dbg_proposed_q", None)
+                    is not None else None),
+                "presafe_last_position": (
+                    np.asarray(env._dbg_presafe_last).copy()
+                    if getattr(env, "_dbg_presafe_last", None)
+                    is not None else None),
                 "contact": np.asarray(
                     [float(env.data.sensordata[adr]) > CONTACT_N
                      for adr in env._touch_adr], dtype=np.float64),
@@ -1088,7 +1105,8 @@ def _save_rollout_trace(trace: list[dict], out_path: Path,
         "ep_json": _json.dumps(ep),
     }
     for key in ("action", "qpos", "qvel", "servo_current",
-               "commanded_position", "contact",
+               "commanded_position", "applied_action",
+               "proposed_position", "presafe_last_position", "contact",
                "height_mm", "height_ref_mm"):
         col = _col(key)
         if col is not None:
@@ -1443,7 +1461,9 @@ def main() -> None:
                     default="det")
     ap.add_argument("--rollout-trace-index", type=int, default=0,
                     help="episode index (0-based) within that mode/"
-                         "tag's per-mode loop to trace")
+                         "tag's per-mode loop to trace; -1 = trace "
+                         "EVERY episode of the mode/tag, one "
+                         "<stem>_ep<k>.npz per episode")
     args = ap.parse_args()
     if args.video_fps is not None and (not math.isfinite(args.video_fps)
                                        or args.video_fps <= 0):
@@ -1522,6 +1542,12 @@ def main() -> None:
                 raise SystemExit(
                     f"checkpoint obs width {n_model} does not fit the "
                     f"eval env ({n_env}); wrong --task or --cfg-set?")
+        if args.rollout_trace_out is not None:
+            # Expose decoder/safety internals to the trace sink
+            # (sim_env._step_begin debug_pipeline_record hook,
+            # 2026-09-08 clip-controllability preflight). Trace-only:
+            # no report/reward effect.
+            env.debug_pipeline_record = True
         std = policy_action_std(model)
         if getattr(model.policy, "lstm_actor", None) is not None:
             if args.rot60:
@@ -1620,7 +1646,8 @@ def main() -> None:
                         args.rollout_trace_out is not None
                         and tag == args.rollout_trace_tag
                         and mode == (args.rollout_trace_mode or modes[0])
-                        and k == args.rollout_trace_index)
+                        and (args.rollout_trace_index < 0
+                             or k == args.rollout_trace_index))
                     _trace_sink = [] if _want_trace else None
                     video_timing = {} if args.video_fps is not None else None
                     ep, frames = run_episode(
@@ -1632,8 +1659,14 @@ def main() -> None:
                         trace_sink=_trace_sink, video_fps=args.video_fps,
                         video_timing=video_timing)
                     if _want_trace:
-                        _save_rollout_trace(
-                            _trace_sink, args.rollout_trace_out, ep)
+                        _tr_out = args.rollout_trace_out
+                        if args.rollout_trace_index < 0:
+                            # -1 = trace EVERY episode of the mode/tag
+                            # (2026-09-08 clip-controllability
+                            # preflight): one .npz per episode index.
+                            _tr_out = _tr_out.with_name(
+                                f"{_tr_out.stem}_ep{k}{_tr_out.suffix}")
+                        _save_rollout_trace(_trace_sink, _tr_out, ep)
                     # A forced mode MUST be the mode that actually ran
                     # (see ALL_MODES note): a silent sampler fallback
                     # voids the whole report, so die loudly instead.

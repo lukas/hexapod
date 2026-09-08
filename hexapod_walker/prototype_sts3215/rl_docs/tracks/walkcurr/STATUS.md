@@ -103,11 +103,14 @@ net INCREASE in fall count vs the champion's own baseline; FAIL if
 slip is flat/worse (closes the lever, joining torsional friction) or a
 policy trained with the bigger pad falls MORE than this zero-shot
 read's +1 (would mean the geometry change destabilizes training
-itself, not just this frozen policy's zero-shot response). Not
-launched this cycle -- the tool landed late in a cycle already busy
-reconciling a merge conflict (below) and the guardrails' "launch grids
-as batches" spirit argues for registering this as one clean canary
-next cycle rather than rushing it in the last few minutes.
+itself, not just this frozen policy's zero-shot response). **Launched
+this cycle** (after the housekeeping below):
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-
+nocrutch1x-c1-footgeom0135-c1` (respec of the champion `..._cont40m`,
+`--init-from-source`, only `env.foot_geom_radius_m=0.0135` added, 2M
+canary, VERIFIED RUNNING train-4, gate pre-registered as above). Read
+its gate report next cycle before any further foot-geometry spend
+either direction.
 
 **Housekeeping this cycle**: two of my own `git stash`/`git stash pop`
 round-trips (used only to isolate pre-existing test failures from my

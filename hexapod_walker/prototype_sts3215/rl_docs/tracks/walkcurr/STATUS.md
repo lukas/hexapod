@@ -40,7 +40,47 @@ Evidence: `ops.sh review cw-walkscratch-crutchoff-{s0,s1}-widen8-loadslip-target
 **widen8-jointspace-freshinit true-zero-DR (`nodrall2m`, `env.dr_stage_ramp_steps=5e10`) -- CANARY FAIL - MECHANISM, CLOSES the entire DR-breadth investigation on this composite:** pinning the DR ramp so it never leaves ~0 for the full 2M-step budget (the true floor below every prior dose tested: 1.0x/0.5x/0.25x fixed, 0->1 staged, single-axis knockout x3, discrete/continuous group split) still produces the same closed fingerprint -- walk/det fwd med 0.01m (~60x under the 0.03 m/s floor), slip med 73.82 (25x the healthy band), contact sheet confirms the body stationary across all 10 frames while legs cycle. Reward quarters decline monotonically ([-95.3,-236.1,-324.7,-436.0], not the 08-21 rising-reward shape). Combined with the sister `headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit` family's own already-closed heading-width (`narrowhead`, both action spaces FAIL) and torque (`torqueretain`, both action spaces FAIL) bisections, **DR magnitude/schedule/breadth is now conclusively ruled out as the fresh-init blocker at ANY setting from 0 to 1.0x, on both action spaces, at both 2M and 40M budgets** -- the composite's own reward/action-box/8-way-heading design (or simply "fresh random-weight init cannot bootstrap this hardened composite at all, only a warm start can") is the real story. The proven ignition path for this exact DR matrix remains warm-start (the `crutchoff-s{0,1,2}-widen8-acq1` lineage, which trains fine from the simpler easy0905 base-acquisition checkpoint). **No further fresh-init launch is licensed on this composite family at any heading width, torque setting, or DR dose/schedule/grouping without a genuinely different mechanism** (e.g. a curriculum that ramps composite HARDNESS itself -- heading count, DR breadth, and reward complexity together -- starting from the already-solved base-acquisition recipe, rather than any more zero-training DR knob on the hardened composite in isolation).
 Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-freshinit-nodrall2m`; W&B `p5bj0esp`.
 
-CYCLE_WORKED touched (3 verdicts recorded incl. a stale housekeeping close-out, 2 of which close long-running investigation lines; 1 OPERATOR_QUESTIONS entry for the canary-enum/PARTIAL-gate conflict). No new GPU launch this cycle: every remaining live thread on this board is either (a) a just-closed investigation with no licensed follow-up per its own gate text, or (b) blocked on the same "needs a genuinely new mechanism design" prerequisite already named by standwalk/assistfade/todaypolicy -- see DIG-IN flag below rather than a hasty low-confidence dose variant.
+CYCLE_WORKED touched (3 verdicts recorded incl. a stale housekeeping close-out, 2 of which close long-running investigation lines; 1 OPERATOR_QUESTIONS entry for the canary-enum/PARTIAL-gate conflict; 2 new arms queued to backlog, see below).
+
+**Refill, same cycle (~19:2x):** before declaring the per-leg-mechanism
+board exhausted, re-read this exact eval's own per-leg telemetry
+(`duty_cycle`/`swing_count` in the cap-02 gate reports) instead of just
+the pooled slip/progress medians -- the dominant visible pathology in
+`walk/det` is leg5 (occasionally leg0) at duty 0.04-0.09 with the
+episode otherwise clean, the LOW-duty "flag leg" (airborne) type. That
+is exactly what `walk_leg_duty_ratio_charge` (the shortfall-on-MIN-
+ratio charge) targets -- but this isolation lineage deliberately runs
+with `walk_leg_duty_ratio_charge=0.0` (turned off to isolate loadslip
+cleanly), so the one charge built to fix the pathology actually
+present in these episodes was never active in the arm being scored
+for efficacy. **Queued** (via `backlog add`, not `respec --now` --
+the tree currently carries a concurrent cycle's own in-progress,
+not-yet-green `walk_leg_swing_gap_charge` mechanism in `walk_task.py`/
+`test_task_semantics.py`; discovered mid-cycle via `git status`,
+left completely untouched, did not snapshot over it) a 2-seed batch
+restoring `reward.walk_leg_duty_ratio_charge=150.0` (target=0.30,
+the already mechanism-proven dose) ALONGSIDE the excess-capped
+loadslip charge on the same clean widen8-acq1 init the isolation
+canaries used: `cw-walkscratch-crutchoff-{s0,s1}-widen8-loadslip-
+target6-cap02-plusduty`. This is the first time both charge types run
+together WITH the collapse-fixing cap present (every prior combined-
+charge run predates the cap). Gate adds one arm-specific clause over
+the family's generic >=3/4-groups bar: walk/det's leg5 sacrifice must
+clear (duty_cycle[5] out of the <0.10 band in the majority of
+episodes) -- the concrete mechanism claim this arm makes. Both items
+sit in `backlog.json` (2 items), will drain automatically once a free
+GPU slot and a clean/synced tree coincide (does not require me to
+force a snapshot of someone else's WIP). **Note for future cycles:**
+`walk_leg_swing_gap_charge` (prices seconds-since-last-qualifying-
+swing directly, pre-capped, in progress on `hexapod-mjx-train-2` at
+this read) is EXACTLY the "structurally different, PATTERN-not-ratio"
+mechanism this file's own ~19:1x entry above named as the needed next
+lever -- do not re-propose or re-build it, a concurrent cycle already
+has it ~90% done (5/6 bank tests green, 1 failing:
+`test_walk_leg_swing_gap_charge_honest_gait_never_charged`, a spurious
+charge on an honest scripted gait). Whoever picks that lineage back up
+should fix that test before launching, not restart the mechanism.
+
 
 ## 2026-09-08 ~15:4x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the DR group-axis split 2/2 FAIL (nodiscrete2m + nocontinuous2m), verdicted w15 (w45 landed by a concurrent cycle), and found a CONFOUND in every `walk_leg_loadslip_ratio_charge` read to date: launched 2 clean isolation canaries to re-test it
 

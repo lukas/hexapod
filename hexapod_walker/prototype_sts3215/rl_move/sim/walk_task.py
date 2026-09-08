@@ -719,7 +719,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_legduty_ema", "_walk_legduty_low_s",
                           "_legduty_ratio_ema", "_legduty_ratio_ticks",
                           "_legduty_ratio_swing_hist",
-                          "_legslip_ratio_ema", "_legslip_ratio_ticks")
+                          "_legslip_ratio_ema", "_legslip_ratio_ticks",
+                          "_swing_gap_s")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

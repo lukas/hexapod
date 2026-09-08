@@ -6171,7 +6171,8 @@ GG_TUCK_RAD = (0.0, -1.10, 1.30)
 
 def _gait_gate_walk_rollout(policy: str, seed: int,
                             overrides: dict, *, record_ratio=False,
-                            record_lsratio=False) -> dict:
+                            record_lsratio=False,
+                            record_swinggap=False) -> dict:
     """Walk-mode rollout: 'gait' = the honest six-leg scripted tripod;
     'flagleg' = the same gait with mid leg 1 blended to a raised flag
     pose (the one-leg-sacrifice cheat class). Returns the episode
@@ -6201,6 +6202,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
     gmin_tail: list[float] = []
     ratio_trace = []
     lsratio_trace = []
+    swinggap_trace = []
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -6222,6 +6224,10 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
                 (lsratio_ticks_before, env._legslip_ratio_ticks,
                  info.get("walk_leg_loadslip_ratio_excess"),
                  info.get("reward_walk_leg_loadslip_ratio")))
+        if record_swinggap:
+            swinggap_trace.append(
+                (info.get("walk_leg_swing_gap_worst_s"),
+                 info.get("reward_walk_leg_swing_gap")))
         total += float(r)
         kernel += float(info.get("reward_walk", 0.0))
         prog += float(info.get("reward_walk_prog", 0.0))
@@ -6238,6 +6244,8 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
         result.update(ratio_trace=ratio_trace, dt=env.dt)
     if record_lsratio:
         result.update(lsratio_trace=lsratio_trace, dt=env.dt)
+    if record_swinggap:
+        result.update(swinggap_trace=swinggap_trace, dt=env.dt)
     return result
 
 
@@ -7298,6 +7306,148 @@ def test_walk_leg_loadslip_ratio_excess_cap_never_worsens_honest_gait():
     capped_overrides[("reward", "walk_leg_loadslip_ratio_excess_cap")] = 0.2
     capped = _gait_gate_walk_rollout("gait", SEEDS[0], capped_overrides)
     assert capped["return"] >= uncapped["return"]
+
+
+# reward.walk_leg_swing_gap_charge (2026-09-08 -- the "duration-since-
+# last-swing PATTERN price" concrete lead the loadslip-ratio-charge
+# closure named, CURRENT_TRUTHS/rl_docs/tracks/walkcurr/STATUS.md
+# 2026-09-08 ~19:1x entry): both the duty-ratio charge (contact-TIME
+# based, 3/3 walkcurr + 2/2 assistfade seeds CLOSED null/regressive)
+# and the loadslip charge (velocity based, 2/2 seeds CANARY PASS-
+# MECHANISM but 0-1/4 groups efficacy) price a STATE a dragging/
+# planted leg can satisfy without ever completing a real step. This
+# charges the PATTERN directly instead: seconds elapsed since a leg's
+# last qualifying swing (identical stride-filtered liftoff->airborne->
+# touchdown-with-real-XY-stride definition every other anti-drag gate
+# in this file already uses). A leg cannot reduce this charge by
+# planting harder or sliding less -- only by actually swinging. Ships
+# pre-capped (reward.walk_leg_swing_gap_cap_s, default 4.0) from the
+# START, per the loadslip lineage's own lesson that an unbounded
+# per-tick excess drives orders-of-magnitude reward collapse -- this
+# bank never needs a separate "add the cap later" pass the way
+# loadslip's own excess_cap key did.
+def test_walk_leg_swing_gap_charge_default_off_bit_exact():
+    """walk_leg_swing_gap_charge=0.0 (explicit) must equal the key
+    entirely absent -- legacy bit-exact off."""
+    off = dict(WALK_OVERRIDES)
+    off[("reward", "walk_leg_swing_gap_charge")] = 0.0
+    baseline = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    explicit_off = _gait_gate_walk_rollout("gait", SEEDS[0], off)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_swing_gap_activation_matches_plain_when_off(policy):
+    """End-to-end rollout guard mirroring the duty-ratio/loadslip
+    charges' own bank entries: adding
+    reward.walk_leg_swing_gap_charge=0.0 (explicit) to the
+    already-launched sparse duty-ratio/loadslip activation config
+    must not change either policy's return by even one bit -- the new
+    mechanism's cfg key is additive and must not perturb any existing
+    dose's behavior when off (the default)."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    for key in ("k_walk_swing", "k_step_event", "k_step_partial",
+                "k_drag_loaded", "k_park_duty", "k_drag_stance",
+                "walk_gait_gate", "walk_duty_gate", "walk_swing_gate",
+                "walk_duty_band_gate", "k_foot_slip_tangent",
+                "k_foot_slip_height", "k_walk_transition_slip",
+                "walk_leg_duty_ratio_charge",
+                "walk_leg_loadslip_ratio_charge"):
+        overrides[("reward", key)] = 0.0
+    overrides[("goal", "walk_contact_diagnostics")] = 0.0
+    baseline = _gait_gate_walk_rollout(policy, SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_swing_gap_charge")] = 0.0
+    explicit_off = _gait_gate_walk_rollout(policy, SEEDS[0], with_key)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+def test_walk_leg_swing_gap_charge_honest_gait_never_charged():
+    """A genuinely six-leg-cycling scripted gait (TripodGait, ~0.75s
+    stride period) must never accumulate a since-last-swing gap
+    longer than the default grace (3.0s, several full strides) on any
+    leg -- the charge must read exactly 0.0 for every commanded tick
+    of an honestly-walking gait, not merely 'small'."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_gap_charge")] = 150.0
+    overrides[("reward", "walk_leg_swing_gap_grace_s")] = 3.0
+    overrides[("reward", "walk_leg_swing_gap_cap_s")] = 4.0
+    # Same qualifying-swing stride filter every other swing-detection
+    # gate's own "honest gait clears the bar" test uses (SWING_GATE_ON
+    # below) -- the default 10mm bar is calibrated for progress
+    # credit, not this slow scripted actor's own real per-stride XY
+    # displacement at this test's WALK_CMD_VX.
+    overrides[("reward", "gait_gate_stride_mm")] = 7.0
+    result = _gait_gate_walk_rollout("gait", SEEDS[0], overrides,
+                                     record_swinggap=True)
+    charges = [c for _, c in result["swinggap_trace"] if c is not None]
+    assert charges, "mechanism never activated on any commanded tick"
+    assert all(c == 0.0 for c in charges), (
+        f"honest six-leg gait was spuriously charged: "
+        f"{[c for c in charges if c != 0.0][:5]}")
+
+
+def test_walk_leg_swing_gap_charge_fires_and_prices_flagleg_cheat():
+    """THE core claim: against the flag-leg cheat (leg 1 blended into
+    a permanently-raised pose that never touches down again after
+    t=1.5s, so it never completes another qualifying swing), the
+    charge must go strictly positive (a real, non-crashing, finite
+    non-positive-reward price) once the leg's own gap clears the
+    grace -- and the worst-leg gap must keep growing (monotonic
+    non-decrease once past t=1.5s) since a permanently-airborne leg
+    can never reset it."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_gap_charge")] = 150.0
+    overrides[("reward", "walk_leg_swing_gap_grace_s")] = 1.0
+    overrides[("reward", "walk_leg_swing_gap_cap_s")] = 4.0
+    result = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides,
+                                     record_swinggap=True)
+    assert math.isfinite(result["return"])
+    assert result["steps"] > 0
+    gaps = [g for g, _ in result["swinggap_trace"] if g is not None]
+    charges = [c for _, c in result["swinggap_trace"] if c is not None]
+    assert gaps and max(gaps) > 1.0, (
+        "expected the permanently-flagged leg to build a real gap")
+    assert any(c < 0.0 for c in charges), (
+        "expected a strictly negative (priced) charge once the "
+        "flagged leg's gap cleared its grace period")
+    assert all(c <= 0.0 for c in charges), "charge must never be a bonus"
+
+
+def test_walk_leg_swing_gap_charge_cap_bounds_extreme_gap():
+    """With the cap ARMED well below the flag-leg cheat's own eventual
+    uncapped gap (an all-episode-long permanently-airborne leg easily
+    clears tens of seconds), the capped return must be LESS NEGATIVE
+    (a smaller total penalty) than a much-larger-cap run, and no
+    single tick's charge may exceed -charge*cap in magnitude --
+    proving the cap actually bounds the price rather than being a
+    silent no-op, exactly the property the loadslip lineage had to
+    retrofit and this mechanism ships with from the start."""
+    charge = 150.0
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_swing_gap_charge")] = charge
+    overrides[("reward", "walk_leg_swing_gap_grace_s")] = 1.0
+    overrides[("reward", "walk_leg_swing_gap_cap_s")] = 4.0
+    tightly_capped = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides,
+                                             record_swinggap=True)
+    loose_overrides = dict(overrides)
+    loose_overrides[("reward", "walk_leg_swing_gap_cap_s")] = 100.0
+    loosely_capped = _gait_gate_walk_rollout("flagleg", SEEDS[0],
+                                             loose_overrides,
+                                             record_swinggap=True)
+    charges = [c for _, c in tightly_capped["swinggap_trace"]
+               if c is not None]
+    assert charges
+    for c in charges:
+        assert c >= -charge * 4.0 - 1e-6, (
+            f"a single tick's charge {c} exceeded the cap bound")
+    assert tightly_capped["return"] >= loosely_capped["return"], (
+        "a tighter cap must never produce a MORE negative return than "
+        "a looser one against the identical cheat actor")
 
 
 # --------------------------------------------------------------------------

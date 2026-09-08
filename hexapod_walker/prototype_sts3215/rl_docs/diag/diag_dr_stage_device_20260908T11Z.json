@@ -1,0 +1,421 @@
+{
+ "verdict": "PASS",
+ "failed_checks": [],
+ "checks": {
+  "A_armed_unbroadcast_full": {
+   "ok": true,
+   "detail": {
+    "ranges_is_full_object": true,
+    "startup_draws": {
+     "n": 32,
+     "mass_scale": {
+      "min": 0.8622972746253718,
+      "max": 1.1953210407235126,
+      "mean": 1.021883182253106
+     },
+     "friction_scale": {
+      "min": 0.617066329823999,
+      "max": 1.3964375785833374,
+      "mean": 1.018079210918201
+     },
+     "torque_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "latency_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "deadband_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "vel_scale": {
+      "min": 0.8543025135712645,
+      "max": 1.0868909423548485,
+      "mean": 0.9604179767838705
+     },
+     "contact_stiff_scale": {
+      "min": 0.731418307201738,
+      "max": 1.7930661614738257,
+      "mean": 1.2419456205784263
+     },
+     "bad_start_worlds": 10,
+     "gravity_z": {
+      "min": 9.800725353326323,
+      "max": 9.806641845267958
+     },
+     "gravity_tilt_xy": {
+      "min": 0.012646783759762184,
+      "max": 0.34083246788801175
+     }
+    },
+    "requested_mass": [
+     0.85,
+     1.2
+    ],
+    "requested_friction": [
+     0.6,
+     1.4
+    ]
+   }
+  },
+  "B_device_delivery_startup": {
+   "ok": true,
+   "detail": {
+    "host_mirror_equals_device": true,
+    "recompute_mismatches": {},
+    "sampled_worlds": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ]
+   }
+  },
+  "stage_frac_0": {
+   "ok": true,
+   "detail": {
+    "frac": 0.0,
+    "flushed_pool_entries": 64,
+    "requested": {
+     "frac": 0.0,
+     "mass_scale_lo": 1.0,
+     "mass_scale_hi": 1.0,
+     "friction_lo": 1.0,
+     "friction_hi": 1.0,
+     "ground_tilt_deg": 0.0,
+     "bad_start_prob": 0.0,
+     "fault_prob": 0.0
+    },
+    "worlds_reset": 32,
+    "worlds_live_on_older_stage": 0,
+    "realized_share_at_stage": 1.0,
+    "reset_draw_stats": {
+     "n": 32,
+     "mass_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "friction_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "torque_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "latency_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "deadband_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "vel_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "contact_stiff_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "bad_start_worlds": 0,
+     "gravity_z": {
+      "min": 9.80665,
+      "max": 9.80665
+     },
+     "gravity_tilt_xy": {
+      "min": 0.0,
+      "max": 0.0
+     }
+    },
+    "broadcast_left_live_rows_untouched": true,
+    "live_world_rows_changed_fields": [],
+    "pop_delivery_mismatches": {},
+    "n_pop_delivery_checked": 8,
+    "out_of_range": {},
+    "nominal_violations": {},
+    "endpoint_object_identity": true
+   }
+  },
+  "stage_frac_0.5": {
+   "ok": true,
+   "detail": {
+    "frac": 0.5,
+    "flushed_pool_entries": 26,
+    "requested": {
+     "frac": 0.5,
+     "mass_scale_lo": 0.925,
+     "mass_scale_hi": 1.1,
+     "friction_lo": 0.8,
+     "friction_hi": 1.2,
+     "ground_tilt_deg": 1.0,
+     "bad_start_prob": 0.125,
+     "fault_prob": 0.15
+    },
+    "worlds_reset": 32,
+    "worlds_live_on_older_stage": 0,
+    "realized_share_at_stage": 1.0,
+    "reset_draw_stats": {
+     "n": 32,
+     "mass_scale": {
+      "min": 0.9291458753505577,
+      "max": 1.0989867829237019,
+      "mean": 1.0182364278174898
+     },
+     "friction_scale": {
+      "min": 0.8033450761128778,
+      "max": 1.1813956890817265,
+      "mean": 1.0149054809753761
+     },
+     "torque_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "latency_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "deadband_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "vel_scale": {
+      "min": 0.9267950870996446,
+      "max": 1.0483017574196094,
+      "mean": 0.9900243358186597
+     },
+     "contact_stiff_scale": {
+      "min": 0.8530671973423511,
+      "max": 1.4860974437306043,
+      "mean": 1.094349146926386
+     },
+     "bad_start_worlds": 4,
+     "gravity_z": {
+      "min": 9.805363771522847,
+      "max": 9.806629260473704
+     },
+     "gravity_tilt_xy": {
+      "min": 0.020168542856417254,
+      "max": 0.15882547216122095
+     }
+    },
+    "broadcast_left_live_rows_untouched": true,
+    "live_world_rows_changed_fields": [],
+    "pop_delivery_mismatches": {},
+    "n_pop_delivery_checked": 8,
+    "out_of_range": {},
+    "nominal_violations": {},
+    "endpoint_object_identity": true
+   }
+  },
+  "stage_frac_1": {
+   "ok": true,
+   "detail": {
+    "frac": 1.0,
+    "flushed_pool_entries": 24,
+    "requested": {
+     "frac": 1.0,
+     "mass_scale_lo": 0.85,
+     "mass_scale_hi": 1.2,
+     "friction_lo": 0.6,
+     "friction_hi": 1.4,
+     "ground_tilt_deg": 2.0,
+     "bad_start_prob": 0.25,
+     "fault_prob": 0.3
+    },
+    "worlds_reset": 32,
+    "worlds_live_on_older_stage": 0,
+    "realized_share_at_stage": 1.0,
+    "reset_draw_stats": {
+     "n": 32,
+     "mass_scale": {
+      "min": 0.8561701100573549,
+      "max": 1.1691213793554782,
+      "mean": 1.0184310862685568
+     },
+     "friction_scale": {
+      "min": 0.6129220341817766,
+      "max": 1.3520533447193788,
+      "mean": 0.9919695769775488
+     },
+     "torque_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "latency_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "deadband_scale": {
+      "min": 1.0,
+      "max": 1.0,
+      "mean": 1.0
+     },
+     "vel_scale": {
+      "min": 0.8513809690529495,
+      "max": 1.0872873467906061,
+      "mean": 0.9655607527113829
+     },
+     "contact_stiff_scale": {
+      "min": 0.7166124966335579,
+      "max": 1.9874391046021433,
+      "mean": 1.3498107141842122
+     },
+     "bad_start_worlds": 5,
+     "gravity_z": {
+      "min": 9.800713467295715,
+      "max": 9.806635407990154
+     },
+     "gravity_tilt_xy": {
+      "min": 0.01691736545062714,
+      "max": 0.3411740823514736
+     }
+    },
+    "broadcast_left_live_rows_untouched": true,
+    "live_world_rows_changed_fields": [],
+    "pop_delivery_mismatches": {},
+    "n_pop_delivery_checked": 8,
+    "out_of_range": {},
+    "nominal_violations": {},
+    "endpoint_object_identity": true
+   }
+  },
+  "E_full_stage_breadth_realized": {
+   "ok": true,
+   "detail": {
+    "mass": {
+     "min": 0.8561701100573549,
+     "max": 1.1691213793554782,
+     "mean": 1.0184310862685568
+    },
+    "friction": {
+     "min": 0.6129220341817766,
+     "max": 1.3520533447193788,
+     "mean": 0.9919695769775488
+    },
+    "requested_mass": [
+     0.85,
+     1.2
+    ],
+    "requested_friction": [
+     0.6,
+     1.4
+    ]
+   }
+  }
+ },
+ "n_envs": 32,
+ "episode_seconds": 4.0,
+ "ticks_per_stage": 500,
+ "impl": "warp",
+ "seed": 40,
+ "fracs": [
+  0.0,
+  0.5,
+  1.0
+ ],
+ "wall_s": 82.5748939672485,
+ "cfg_set": [
+  "env.model_source=mesh_mjx",
+  "control.hz=100",
+  "goal.walk_pure=1",
+  "goal.walk_speed_min_m_s=0.06",
+  "goal.walk_speed_max_m_s=0.06",
+  "goal.walk_heading_max_rad=0.0",
+  "goal.walk_cmd_resample_s=6.0",
+  "goal.walk_cmd_metrics=1",
+  "goal.walk_cmd_hold_s=0.0",
+  "goal.walk_cmd_ramp_s=0.0",
+  "goal.joint_action_bias_hip_deg=40.0",
+  "goal.joint_action_bias_knee_deg=35.0",
+  "goal.joint_action_box_yaw_deg=15.0",
+  "goal.joint_action_box_hip_deg=20.0",
+  "goal.joint_action_box_knee_deg=25.0",
+  "reward.k_walk_freeprog=2.0",
+  "reward.walk_freeprog_cap_m_s=0.06",
+  "reward.walk_kernel_vel_ema=1.0",
+  "reward.walk_kernel_vel_tau_s=0.1",
+  "reward.term_penalty=24",
+  "reward.safety_termination_penalty=24",
+  "reward.k_track=0.0",
+  "reward.k_roll=0.0",
+  "reward.k_pitch=0.0",
+  "reward.k_height=0.0",
+  "reward.k_gyro=0.0",
+  "reward.k_action=0.0",
+  "reward.k_action_delta=0.01",
+  "reward.k_current=0.0",
+  "reward.k_walk_heading=0.0",
+  "reward.k_step_event=0.0",
+  "reward.k_park_duty=0.0",
+  "reward.k_walk_idle_charge=0.0",
+  "reward.k_loadslip_excess=0.0",
+  "bus.write_speed=4096",
+  "bus.servo_vel_max_counts_s=write_speed",
+  "bus.write_acc=1000",
+  "safety.max_delta_q_deg=3.6",
+  "safety.max_current_a=100",
+  "safety.max_roll_deg=30",
+  "safety.max_pitch_deg=30",
+  "struct_comp.enabled=0",
+  "dr.latency_scale=1,1",
+  "dr.deadband_scale=1,1",
+  "dr.torque_scale=1.0,1.0",
+  "dr.encoder_noise_deg=0.09",
+  "dr.tilt_noise_deg=0.3",
+  "dr.gyro_noise_deg_s=0.5",
+  "ease.gravity_scale=1.0",
+  "goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]",
+  "goal.walk_stop_frac=0.0",
+  "dr.mass_scale=0.85,1.20",
+  "dr.leg_mass_jitter_pct=0.10",
+  "dr.link_len_scale_pct=0.02",
+  "dr.link_len_leg_pct=0.012",
+  "dr.com_offset_m=0.012",
+  "dr.friction_scale=0.6,1.4",
+  "dr.contact_stiff_scale=0.7,2.0",
+  "dr.ground_tilt_deg=2.0",
+  "dr.kp_scale_pct=0.20",
+  "dr.kv_scale_pct=0.25",
+  "dr.vel_scale=0.85,1.10",
+  "dr.cmd_drop_prob_max=0.05",
+  "dr.placement_noise_deg=2.0",
+  "dr.bad_start_prob=0.25",
+  "dr.bad_start_max_joints=3",
+  "dr.bad_start_deg=8.0,35.0",
+  "dr.joint_zero_bias_deg=1.0",
+  "dr.gyro_bias_deg_s=0.5",
+  "dr.imu_bias_deg=1.0",
+  "dr.imu_mount_deg=10.0",
+  "dr.imu_pos_xy_m=0.07",
+  "dr.imu_pos_z_m=-0.02,0.10",
+  "dr.action_noise=0.02",
+  "dr.fault_prob=0.3",
+  "dr.ext_push_prob=0.3",
+  "dr.walk_kick_prob=0.0",
+  "dr.walk_push_prob=0.3",
+  "env.dr_stage_ramp_steps=20000000"
+ ]
+}

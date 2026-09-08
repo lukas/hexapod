@@ -8,7 +8,9 @@ recorded the 82M-vs-80M budget overrun honestly, and launched the
 missing JOINT-SPACE half of the action-space x DR-schedule comparison.
 
 **Device/exposure proof (new tool `rl_move/sim/diag_dr_stage_device.py`,
-report `artifacts/diag/diag_dr_stage_device_20260908T11Z.json`, PASS,
+report `artifacts/diag/diag_dr_stage_device_20260908T11Z.json`
+(git-tracked copy: `rl_docs/diag/diag_dr_stage_device_20260908T11Z.json`
+— `artifacts/` is gitignored), PASS,
 83 s on idle train-0, no optimizer)**: on the exact joint-space staged
 recipe cfg (78 keys), n=32 worlds, warp impl: (A) armed-but-unbroadcast
 sits at the FULL post-override ranges (object identity + realized

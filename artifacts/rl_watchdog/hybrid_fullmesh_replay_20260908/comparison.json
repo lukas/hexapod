@@ -1,0 +1,75 @@
+{
+  "scope": "Paired full-mesh composed translation delivery test: one deterministic DR0 seed per arm, 28s human walking script; no continuous yaw qualification or physical robot action.",
+  "model": {
+    "source": "mesh",
+    "variant": "full_mesh",
+    "nmesh": 34,
+    "ngeom": 159,
+    "mass_kg": 4.80573
+  },
+  "pairing": {
+    "commands": true,
+    "resets": true,
+    "phase_marks": true,
+    "motor_contract": true
+  },
+  "arms": {
+    "candidate": {
+      "scores": {
+        "walk_progress_ratio": 0.413,
+        "course_err_1s_med_deg": 3.29,
+        "course_err_1s_p90_deg": 14.84,
+        "course_err_2s_med_deg": 3.53,
+        "course_err_2s_p90_deg": 14.14,
+        "cur_max_a": 2.64,
+        "cur_p95_a": 1.676,
+        "walk_gait_valid": true,
+        "terminated": false,
+        "phase_errors": []
+      },
+      "checks": {
+        "progress_ge_0.40": true,
+        "course_1s_median_le_6": true,
+        "course_1s_p90_le_15": true,
+        "no_terminations": true,
+        "no_phase_errors": true,
+        "gait_valid": true
+      },
+      "all_listed_bars_pass": true,
+      "integrated_command_m": 1.6460046660709196,
+      "integrated_along_m": 0.680541838636934,
+      "integrated_progress_ratio": 0.41345073477915173,
+      "walk_ticks": 2800,
+      "all_actual_yaw_commands_zero": true
+    },
+    "incumbent": {
+      "scores": {
+        "walk_progress_ratio": 0.359,
+        "course_err_1s_med_deg": 13.26,
+        "course_err_1s_p90_deg": 25.26,
+        "course_err_2s_med_deg": 12.89,
+        "course_err_2s_p90_deg": 25.01,
+        "cur_max_a": 2.64,
+        "cur_p95_a": 1.974,
+        "walk_gait_valid": true,
+        "terminated": false,
+        "phase_errors": []
+      },
+      "checks": {
+        "progress_ge_0.40": false,
+        "course_1s_median_le_6": false,
+        "course_1s_p90_le_15": false,
+        "no_terminations": true,
+        "no_phase_errors": true,
+        "gait_valid": true
+      },
+      "all_listed_bars_pass": false,
+      "integrated_command_m": 1.6460046660709196,
+      "integrated_along_m": 0.5916046556826211,
+      "integrated_progress_ratio": 0.3594185775273685,
+      "walk_ticks": 2800,
+      "all_actual_yaw_commands_zero": true
+    }
+  },
+  "interpretation": "Candidate passes listed composition bars in this single paired full-mesh test; incumbent misses progress/course. No localized transition-deficit PPO is justified by this evidence; continuous-arc/tip qualification remains separate and failed in prior lineage evidence. Current p95 improves; no altered current limit."
+}

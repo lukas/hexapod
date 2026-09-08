@@ -1,0 +1,197 @@
+{
+  "schema": "rl-watchdog/2",
+  "trigger": "2026-09-08T05:20:42.876Z",
+  "prior_record": "artifacts/rl_watchdog/state_20260908T042212Z.json",
+  "measured_utc": [
+    "2026-09-08T05:21:35Z",
+    "2026-09-08T05:22:08Z"
+  ],
+  "capacity": {
+    "ready": 11,
+    "free": 11,
+    "optimizing": 0,
+    "compiling": 0,
+    "evaluating": 0,
+    "queue": [],
+    "nvidia_util_percent": 0,
+    "nvidia_memory_mib": 0,
+    "trainer_processes": 0,
+    "step_fps_streams": null,
+    "pending": "train6: CPU/affinity/two unschedulable nodes"
+  },
+  "watcher": {
+    "pid": 15352,
+    "healthy": true,
+    "pause": false,
+    "wrapup": false,
+    "pending_kicks": 0,
+    "classification_note": "watch_loop runs_by_state counts W&B running sessions, including resumed CPUfinalizers; its '2training' was not GPUretention. Canonicalcapacity correctly11free."
+  },
+  "active_owners": [
+    {
+      "cycle": "20260908T042639",
+      "track": "prior-free scratch",
+      "status": "Completed matched 2M pair and verdict; launched the justified same-RNG2 +10M acquisition/control pair. Both have independently verified advancing PPO steps. No duplicate launch or new seed.",
+      "cpu_sample": {
+        "pid": 72473,
+        "sampled_about_utc": "2026-09-08T05:21:47Z",
+        "elapsed": "38:44",
+        "cpu_time": "38:53",
+        "state": "Rl",
+        "command": "pytest rl_move/tests/test_task_semantics.py -q"
+      }
+    },
+    {
+      "cycle": "20260908T052923",
+      "pid": 112763,
+      "track": "assisted walking/steering",
+      "task": "Fresh composed 28s human-script transfer A/B, yawref-cigate8m vs incumbent stdanneal, exact frozen fullmesh and unchanged motor/safety. PPO conditional on measured specific learnable deficit.",
+      "status": "Completed twincomparison; root completedmissingfullmeshcomparison and corrected1s/2sfieldscoping."
+    }
+  ],
+  "idle_since_approx_utc": "2026-09-08T02:20:00Z",
+  "work_completed": [
+    {
+      "commit": "f9da69e7d",
+      "pushed_main": true,
+      "deployed_controller": true,
+      "result": "Published passing Cartesian Warp runtime/decode/reset bank; no optimizer run created."
+    }
+  ],
+  "followup": "Follow the existing scratch acquisition/control pair through completion and matched evaluation, preserving checkpoint lineage and the recorded budget. Preserve assisted continuous-yaw ownership and unmet qualification; the single full-mesh translation demo does not establish yaw steering. No duplicate kick or unplanned seed.",
+  "last_updated": "2026-09-08T06:05:08.874529+00:00",
+  "feedback": [
+    "fb_20260908T052537_b170aa",
+    "fb_20260908T053355_505afc",
+    "fb_20260908T053920_578b30"
+  ],
+  "preflight": {
+    "scope": "New Cartesian MODE requires exact source78cfg recipe coverage; whole historical test_task_semantics bank has keys off and cannot establish it.",
+    "pending": null,
+    "broad_bank_failures": "One retained idle-ranking test independently has historical clean-baseline failure; all35 not individually attributed.117lastfailedcache IDs contaminated across historical/unrelated suites.",
+    "result": {
+      "status": "NOT_PASS: partial comparator coverage, no failed available ranking",
+      "episodes": 24,
+      "control_ticks": 48000,
+      "elapsed_seconds": 88.54427716974169,
+      "pairing_pass": true,
+      "coverage_gaps": "Seed0 stall above fixed stationarity threshold; topple never terminates under unchanged30deg in either arm.",
+      "evidence": "artifacts/rl_watchdog/cart_foot_mode_bank_20260908/",
+      "retroactive_prelaunch_pass": false
+    }
+  },
+  "completed_canary_pair": {
+    "source_commit": "b24c2ffa83850d365e76ca08bb1457086cb57292",
+    "steps_each": 2097152,
+    "on": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1",
+      "pod": "hexapod-mjx-train-4",
+      "wandb_id": "gzyvhnzt",
+      "fps_final": 16011,
+      "gait_valid": 19,
+      "episodes": 24,
+      "terminations": 0,
+      "outcome": "CANARY PASS mechanism-viable, not promising: slip worse than matchedcontrol"
+    },
+    "off": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl",
+      "pod": "hexapod-mjx-train-0",
+      "wandb_id": "8tv5njiz",
+      "fps_final": 16607,
+      "gait_valid": 22,
+      "episodes": 24,
+      "terminations": 0,
+      "outcome": "CANARY PASS matched retention"
+    },
+    "gpu_release_verified": "05:46:17UTC all11GPU0%/0MiB/noGPUapps; deferredCPUartifacts run separately"
+  },
+  "fullmesh_comparison": {
+    "status": "Completed and independentlypaired",
+    "candidate_progress": 0.413,
+    "incumbent_progress": 0.359,
+    "candidate_course_1s_med_p90_deg": [
+      3.29,
+      14.84
+    ],
+    "incumbent_course_1s_med_p90_deg": [
+      13.26,
+      25.26
+    ],
+    "candidate_listed_demo_bars_pass": true,
+    "all_actual_yaw_commands_zero": true,
+    "single_seed_dr0": true,
+    "evidence": "artifacts/rl_watchdog/hybrid_fullmesh_replay_20260908/"
+  },
+  "capacity_latest": {
+    "measured_utc": "2026-09-08T06:00:29Z",
+    "capacity_samples_utc": [
+      "2026-09-08T05:57:41Z",
+      "2026-09-08T05:58:22Z"
+    ],
+    "ready": 11,
+    "busy": 2,
+    "free": 9,
+    "optimizing_verified": 2,
+    "on_steps": 6291456,
+    "on_fps": 18893,
+    "off_steps": 2097152,
+    "off_fps": 16431,
+    "on_gpu_util_percent": 9,
+    "off_gpu_util_percent": 9,
+    "on_gpu_memory_mib": 45815,
+    "off_gpu_memory_mib": 45811,
+    "note": "Steps and PPO updates advanced across repeated observations; capacity reads are separately timestamped. Nine slots remain free; no filler or additional seed launched."
+  },
+  "continued_acquisition_pair": {
+    "source_commit": "e6da1a31",
+    "requested_steps_each": 10000000,
+    "training_seed": 2,
+    "evidence": "artifacts/rl_watchdog/cart_foot_mode_bank_20260908/fleet_cont10m_placement.json",
+    "on": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1-cont10m",
+      "pod": "hexapod-mjx-train-4",
+      "pid": 503967,
+      "wandb_id": "qay6bggy",
+      "observed_steps": [
+        3145728,
+        3670016,
+        4718592,
+        6291456
+      ],
+      "latest_steps": 6291456,
+      "latest_fps": 18893,
+      "latest_n_updates": 2801
+    },
+    "off": {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-offctrl-cont10m",
+      "pod": "hexapod-mjx-train-0",
+      "pid": 704060,
+      "wandb_id": "x46hb1dy",
+      "observed_steps": [
+        524288,
+        1048576,
+        2097152
+      ],
+      "latest_steps": 2097152,
+      "latest_fps": 16431,
+      "latest_n_updates": 2764
+    },
+    "measured_utc": "2026-09-08T06:00:29Z",
+    "scope": "PPO execution and step progression verified, not acquisition success or policy qualification. ON PPO epoch KL stopping messages do not indicate run termination."
+  },
+  "publication_validation": {
+    "json_files_before_state_update": 16,
+    "mode_raw_sha256": "b4c2308accc3ba3681fd7502048b00655848b9c909893da1b3f5f13db8aea419",
+    "mode_rows": 24,
+    "mode_control_ticks": 48000,
+    "mode_status": "NOT_PASS",
+    "mode_script_recipe_and_expected_source_hashes_match": true,
+    "mode_summary_matches_compressed_raw_result": true,
+    "fullmesh_ticks_per_arm": 5003,
+    "fullmesh_commands_resets_phase_marks_motor_pairing": true,
+    "fullmesh_reintegrated_progress_matches": true,
+    "fullmesh_listed_bars_recomputed": true,
+    "script_syntax_valid": true,
+    "largest_packaged_file_bytes": 5023384
+  }
+}

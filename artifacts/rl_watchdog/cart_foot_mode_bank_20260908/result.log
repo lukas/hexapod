@@ -1,0 +1,49 @@
+2026-09-08T05:34:47Z START OFF track seed=0
+2026-09-08T05:34:50Z END OFF track seed=0 status=COMPLETE ticks=2000 return=2752.0768438071677 realized=True exact_targets=True
+2026-09-08T05:34:50Z START ON track seed=0
+2026-09-08T05:34:52Z END ON track seed=0 status=COMPLETE ticks=2000 return=2799.190693429731 realized=True exact_targets=True
+2026-09-08T05:34:52Z START OFF fixedhead seed=0
+2026-09-08T05:34:54Z END OFF fixedhead seed=0 status=COMPLETE ticks=2000 return=-1552.3700428186153 realized=True exact_targets=True
+2026-09-08T05:34:55Z START ON fixedhead seed=0
+2026-09-08T05:34:57Z END ON fixedhead seed=0 status=COMPLETE ticks=2000 return=-1401.0233368373445 realized=True exact_targets=True
+2026-09-08T05:34:57Z START OFF wronghead seed=0
+2026-09-08T05:34:59Z END OFF wronghead seed=0 status=COMPLETE ticks=2000 return=-4078.4872523169875 realized=True exact_targets=True
+2026-09-08T05:35:00Z START ON wronghead seed=0
+2026-09-08T05:35:02Z END ON wronghead seed=0 status=COMPLETE ticks=2000 return=-4078.8127735928074 realized=True exact_targets=True
+2026-09-08T05:35:03Z START OFF park seed=0
+2026-09-08T05:35:05Z END OFF park seed=0 status=COMPLETE ticks=2000 return=-194.5989687238063 realized=True exact_targets=True
+2026-09-08T05:35:06Z START ON park seed=0
+2026-09-08T05:35:08Z END ON park seed=0 status=COMPLETE ticks=2000 return=-266.52714668209273 realized=True exact_targets=True
+2026-09-08T05:35:09Z START OFF stall seed=0
+2026-09-08T05:35:11Z END OFF stall seed=0 status=COMPLETE ticks=2000 return=-458.41546793796056 realized=False exact_targets=True
+2026-09-08T05:35:12Z START ON stall seed=0
+2026-09-08T05:35:15Z END ON stall seed=0 status=COMPLETE ticks=2000 return=-500.3066695431916 realized=False exact_targets=True
+2026-09-08T05:35:16Z START OFF topple seed=0
+2026-09-08T05:35:18Z END OFF topple seed=0 status=COMPLETE ticks=2000 return=-650.6825472293757 realized=False exact_targets=False
+2026-09-08T05:35:19Z START ON topple seed=0
+2026-09-08T05:35:21Z END ON topple seed=0 status=COMPLETE ticks=2000 return=-648.1707326098912 realized=False exact_targets=False
+2026-09-08T05:35:23Z START OFF track seed=1
+2026-09-08T05:35:25Z END OFF track seed=1 status=COMPLETE ticks=2000 return=2958.441292778079 realized=True exact_targets=True
+2026-09-08T05:35:26Z START ON track seed=1
+2026-09-08T05:35:29Z END ON track seed=1 status=COMPLETE ticks=2000 return=2987.0096984921615 realized=True exact_targets=True
+2026-09-08T05:35:30Z START OFF fixedhead seed=1
+2026-09-08T05:35:33Z END OFF fixedhead seed=1 status=COMPLETE ticks=2000 return=-2081.122578121207 realized=True exact_targets=True
+2026-09-08T05:35:34Z START ON fixedhead seed=1
+2026-09-08T05:35:37Z END ON fixedhead seed=1 status=COMPLETE ticks=2000 return=-2050.484252825535 realized=True exact_targets=True
+2026-09-08T05:35:38Z START OFF wronghead seed=1
+2026-09-08T05:35:40Z END OFF wronghead seed=1 status=COMPLETE ticks=2000 return=-3920.853165729566 realized=True exact_targets=True
+2026-09-08T05:35:43Z START ON wronghead seed=1
+2026-09-08T05:35:45Z END ON wronghead seed=1 status=COMPLETE ticks=2000 return=-4045.1611524287655 realized=True exact_targets=True
+2026-09-08T05:35:47Z START OFF park seed=1
+2026-09-08T05:35:49Z END OFF park seed=1 status=COMPLETE ticks=2000 return=-195.23940658837765 realized=True exact_targets=True
+2026-09-08T05:35:51Z START ON park seed=1
+2026-09-08T05:35:54Z END ON park seed=1 status=COMPLETE ticks=2000 return=-318.04172023293756 realized=True exact_targets=True
+2026-09-08T05:35:56Z START OFF stall seed=1
+2026-09-08T05:35:58Z END OFF stall seed=1 status=COMPLETE ticks=2000 return=-382.9615899378019 realized=True exact_targets=True
+2026-09-08T05:36:01Z START ON stall seed=1
+2026-09-08T05:36:03Z END ON stall seed=1 status=COMPLETE ticks=2000 return=-387.1372384216687 realized=True exact_targets=True
+2026-09-08T05:36:06Z START OFF topple seed=1
+2026-09-08T05:36:08Z END OFF topple seed=1 status=COMPLETE ticks=2000 return=-296.3119007289746 realized=False exact_targets=False
+2026-09-08T05:36:10Z START ON topple seed=1
+2026-09-08T05:36:13Z END ON topple seed=1 status=COMPLETE ticks=2000 return=-403.0540071545404 realized=False exact_targets=False
+2026-09-08T05:36:18Z FINAL NOT_PASS

@@ -1,0 +1,398 @@
+{
+  "composition": {
+    "schema": "hexapod.hybrid_demo.v1",
+    "name": "cw-walk-allheading-mlp-singleframe-acq1-stdanneal hybrid",
+    "model_source": "mesh",
+    "states": {
+      "belly_zero": {
+        "bookkeeping_start_at": "zero",
+        "pose_family": "logical_zero_belly_down"
+      },
+      "step_stand": {
+        "pose_family": "standup_modes.tuck.final"
+      },
+      "walk_ready": {
+        "pose_family": "sim_walk_start",
+        "q_deg": [
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0,
+          0.0,
+          20.0,
+          80.0
+        ]
+      },
+      "walk_done": {
+        "pose_family": "post_policy_runtime_state"
+      },
+      "grounded": {
+        "pose_family": "scripted_lower_limp_settled"
+      }
+    },
+    "controllers": {
+      "align_walk_ready": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "bookkeeping_walk_frame": {
+        "type": "bookkeeping_reanchor",
+        "start_at": "plant",
+        "mode": "hold"
+      },
+      "rl_walk": {
+        "type": "sb3_walk_policy",
+        "checkpoint": "rl_move/sim/policies/ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip",
+        "policy_mode": "deterministic",
+        "script": "human",
+        "seconds": 28.0,
+        "speed_m_s": 0.08,
+        "wz_max_rad_s": 0.3,
+        "blend_s": 0.5
+      },
+      "align_before_lower": {
+        "type": "pose_blend",
+        "target": "sim_walk_start",
+        "seconds": 0.75
+      },
+      "limp_settle": {
+        "type": "limp_settle",
+        "seconds": 2.0
+      },
+      "scripted_stand": {
+        "type": "standup_mode",
+        "mode": "tuck",
+        "direction": "forward",
+        "time_scale": 1.0
+      },
+      "scripted_lower": {
+        "type": "standup_mode",
+        "mode": "tuck",
+        "direction": "reverse",
+        "time_scale": 1.0
+      }
+    },
+    "sequence": [
+      {
+        "phase": "stand",
+        "controller": "scripted_stand",
+        "from_state": "belly_zero",
+        "to_state": "step_stand"
+      },
+      {
+        "phase": "walk_ready_align",
+        "controller": "align_walk_ready",
+        "from_state": "step_stand",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk_reanchor",
+        "controller": "bookkeeping_walk_frame",
+        "from_state": "walk_ready",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "walk",
+        "controller": "rl_walk",
+        "from_state": "walk_ready",
+        "to_state": "walk_done"
+      },
+      {
+        "phase": "pre_lower_align",
+        "controller": "align_before_lower",
+        "from_state": "walk_done",
+        "to_state": "walk_ready"
+      },
+      {
+        "phase": "lower",
+        "controller": "scripted_lower",
+        "from_state": "walk_ready",
+        "to_state": "grounded"
+      },
+      {
+        "phase": "limp",
+        "controller": "limp_settle",
+        "from_state": "grounded",
+        "to_state": "grounded"
+      }
+    ]
+  },
+  "model_source": "mesh",
+  "model_variant": "full_mesh",
+  "model_nmesh": 34,
+  "model_ngeom": 159,
+  "model_mass_kg": 4.80573,
+  "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 30.76171875,
+    "resolved_vel_max_deg_s_max": 30.76171875,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "safety.max_delta_q_deg": 0.375,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 37.5,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json",
+    "backend_profile": "servo_profile_np"
+  },
+  "reset_info": {
+    "zero_reset": {
+      "episode": 2,
+      "q_nominal_deg": [
+        9.669276875911178e-05,
+        14.51187509551255,
+        15.007684986373013,
+        0.00010019667168002501,
+        14.511875175334012,
+        15.007687520150657,
+        0.00011473323856579803,
+        14.511875250424875,
+        15.007688481074997,
+        0.00012576569174501962,
+        14.511875245632247,
+        15.007686937838828,
+        0.0001222615677181534,
+        14.511875165736994,
+        15.007684438339584,
+        0.00010772518252203998,
+        14.511875090709868,
+        15.007683447843743
+      ],
+      "roll_deg": 1.6938495455599338e-07,
+      "pitch_deg": 2.1091622760987924e-07,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "rise"
+    },
+    "plant_reset": {
+      "episode": 1,
+      "q_nominal_deg": [
+        -0.0808681310704431,
+        7.450003465321807,
+        100.85489725459922,
+        -0.08082402170120458,
+        7.497706889094477,
+        100.87769055033051,
+        -0.08239148103814921,
+        7.743568051103999,
+        101.62830847598072,
+        -0.08071467093750159,
+        7.453708441535211,
+        100.86189258268793,
+        -0.08075502360009705,
+        7.4255026620947575,
+        100.87798777907742,
+        -0.08276919384100426,
+        7.672932539918193,
+        101.6332331985976
+      ],
+      "roll_deg": 0.019304909560344034,
+      "pitch_deg": 0.011499181163511757,
+      "roll_rel_deg": 0.0,
+      "randomization": null,
+      "struct_compliance": {
+        "yaw": {
+          "nominal_nm_rad": 300.0,
+          "episode_nm_rad": 300.0
+        },
+        "hip": {
+          "nominal_nm_rad": 180.0,
+          "episode_nm_rad": 180.0
+        },
+        "knee": {
+          "nominal_nm_rad": 120.0,
+          "episode_nm_rad": 120.0
+        }
+      },
+      "goal_mode": "hold"
+    },
+    "plant_z_m": 0.10362030478614251
+  },
+  "terminated": false,
+  "termination_reason": "",
+  "truncated": false,
+  "sim_seconds": 50.02,
+  "phase_marks": [
+    {
+      "t": 0.0,
+      "phase": "stand",
+      "event": "start",
+      "from_state": "belly_zero",
+      "to_state": "step_stand",
+      "controller": "scripted_stand"
+    },
+    {
+      "t": 9.26,
+      "phase": "stand",
+      "event": "end",
+      "ok": true,
+      "rows": 926
+    },
+    {
+      "t": 9.26,
+      "phase": "walk_ready_align",
+      "event": "start",
+      "from_state": "step_stand",
+      "to_state": "walk_ready",
+      "controller": "align_walk_ready"
+    },
+    {
+      "t": 10.01,
+      "phase": "walk_ready_align",
+      "event": "end",
+      "ok": true,
+      "rows": 1001
+    },
+    {
+      "t": 10.01,
+      "phase": "walk_reanchor",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_ready",
+      "controller": "bookkeeping_walk_frame"
+    },
+    {
+      "t": 10.02,
+      "phase": "walk_reanchor",
+      "event": "end",
+      "ok": true,
+      "rows": 1002
+    },
+    {
+      "t": 10.02,
+      "phase": "walk",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "walk_done",
+      "controller": "rl_walk"
+    },
+    {
+      "t": 38.02,
+      "phase": "walk",
+      "event": "end",
+      "ok": true,
+      "rows": 3802
+    },
+    {
+      "t": 38.02,
+      "phase": "pre_lower_align",
+      "event": "start",
+      "from_state": "walk_done",
+      "to_state": "walk_ready",
+      "controller": "align_before_lower"
+    },
+    {
+      "t": 38.77,
+      "phase": "pre_lower_align",
+      "event": "end",
+      "ok": true,
+      "rows": 3877
+    },
+    {
+      "t": 38.77,
+      "phase": "lower",
+      "event": "start",
+      "from_state": "walk_ready",
+      "to_state": "grounded",
+      "controller": "scripted_lower"
+    },
+    {
+      "t": 48.03,
+      "phase": "lower",
+      "event": "end",
+      "ok": true,
+      "rows": 4803
+    },
+    {
+      "t": 48.03,
+      "phase": "limp",
+      "event": "start",
+      "from_state": "grounded",
+      "to_state": "grounded",
+      "controller": "limp_settle"
+    },
+    {
+      "t": 50.03,
+      "phase": "limp",
+      "event": "end",
+      "ok": true,
+      "rows": 5003
+    }
+  ],
+  "phase_errors": [],
+  "roll_peak_abs_deg": 6.859,
+  "pitch_peak_abs_deg": 0.0,
+  "z_min_m": 0.0399,
+  "z_max_m": 0.1275,
+  "walk_cmd_dist_m": 1.646,
+  "walk_along_dist_m": 0.592,
+  "walk_progress_ratio": 0.359,
+  "slip_m_total_all_phases": 2.894,
+  "slip_per_walk_m_all_phases": 4.892,
+  "duty_cycle_all_phases": [
+    0.674,
+    0.53,
+    0.623,
+    0.459,
+    0.774,
+    0.403
+  ],
+  "swing_count_all_phases": [
+    40,
+    36,
+    46,
+    37,
+    39,
+    41
+  ],
+  "sacrificed_legs_all_phases": [],
+  "cur_max_a": 2.64,
+  "cur_p95_a": 1.974,
+  "walk_wz_cmd_abs_max_rad_s": 0.0,
+  "walk_turn_wz_err_med_rad_s": null,
+  "walk_hold_wz_med_rad_s": 0.0203,
+  "course_windows_1s": 206,
+  "course_motion_valid_frac_1s": 0.947,
+  "course_speed_ratio_1s_med": 0.368,
+  "course_err_1s_mean_deg": 13.81,
+  "course_err_1s_med_deg": 13.26,
+  "course_err_1s_p90_deg": 25.26,
+  "wrong_course_frac_1s": 0.0,
+  "course_windows_2s": 183,
+  "course_motion_valid_frac_2s": 0.995,
+  "course_speed_ratio_2s_med": 0.365,
+  "course_err_2s_mean_deg": 12.98,
+  "course_err_2s_med_deg": 12.89,
+  "course_err_2s_p90_deg": 25.01,
+  "wrong_course_frac_2s": 0.0,
+  "walk_gait_valid": true
+}
+[hybrid_demo] artifacts -> /workspace/hexapod_hybrid_fullmesh_20260908/hexapod_walker/prototype_sts3215/logs/ab_hybrid_fullmesh_20260908/incumbent

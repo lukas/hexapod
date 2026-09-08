@@ -14,9 +14,15 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Iterable
 
+_HERE = Path(__file__).resolve().parent
+for _p in (_HERE.parent, _HERE, _HERE.parent / "motor_setup"):
+    if _p.is_dir() and str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 try:
     from feetech_bus import AXIS_LIMITS_DEG

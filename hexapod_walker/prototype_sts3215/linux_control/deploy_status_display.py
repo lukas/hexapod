@@ -8,9 +8,14 @@ process. It uses the MCU ``DJ`` job screen only; no servo reads or motion.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
+import sys
 
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 
-from mcu_feetech_bus import MCU_PORT_DEFAULT, McuFeetechBus
+from mcu_feetech_bus import MCU_PORT_DEFAULT, McuFeetechBus  # noqa: E402
 
 
 def main() -> int:

@@ -27,14 +27,17 @@ import json
 import os
 import select
 import struct
+import sys
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 
-from drive_controller import DriveController
+from drive_controller import DriveController  # noqa: E402
 
 _EV_FMT = "llHHi"
 _EV_SIZE = struct.calcsize(_EV_FMT)

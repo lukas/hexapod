@@ -24,6 +24,7 @@ import re
 import socket
 import ssl
 import subprocess
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -32,9 +33,12 @@ from urllib.parse import parse_qs, unquote, urlsplit
 HERE = Path(__file__).resolve().parent
 # HERE for sibling modules; the bundle/prototype root for the
 # hexapod_core / motor_setup / rl_move packages.
+for _p in (HERE, HERE.parent):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
-from bench_api import BenchAPI
-from drive_controller import DriveController
+from bench_api import BenchAPI  # noqa: E402
+from drive_controller import DriveController  # noqa: E402
 
 # TLS material for the HTTPS listener. By default this server generates a
 # self-signed cert; set both env vars to point at a trusted/mkcert pair.

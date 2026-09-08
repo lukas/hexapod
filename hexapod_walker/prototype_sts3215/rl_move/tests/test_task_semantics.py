@@ -6174,7 +6174,7 @@ GG_TUCK_RAD = (0.0, -1.10, 1.30)
 
 
 def _gait_gate_walk_rollout(policy: str, seed: int,
-                            overrides: dict) -> dict:
+                            overrides: dict, *, record_ratio=False) -> dict:
     """Walk-mode rollout: 'gait' = the honest six-leg scripted tripod;
     'flagleg' = the same gait with mid leg 1 blended to a raised flag
     pose (the one-leg-sacrifice cheat class). Returns the episode
@@ -6202,6 +6202,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
     total, step = 0.0, 0
     kernel = prog = 0.0
     gmin_tail: list[float] = []
+    ratio_trace = []
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -6210,7 +6211,12 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
         if policy == "flagleg":
             a = min(t / 1.5, 1.0)
             q[3:6] = (1 - a) * plant_rad[3:6] + a * flag
+        ratio_ticks_before = env._legduty_ratio_ticks if record_ratio else 0
         _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        if record_ratio:
+            ratio_trace.append((ratio_ticks_before, env._legduty_ratio_ticks,
+                                info.get("walk_leg_duty_ratio_shortfall"),
+                                info.get("reward_walk_leg_duty_ratio")))
         total += float(r)
         kernel += float(info.get("reward_walk", 0.0))
         prog += float(info.get("reward_walk_prog", 0.0))
@@ -6220,9 +6226,12 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
         if term or trunc:
             break
     env.close()
-    return {"return": total, "terminated": bool(term), "kernel": kernel,
-            "prog": prog, "steps": step,
-            "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
+    result = {"return": total, "terminated": bool(term), "kernel": kernel,
+              "prog": prog, "steps": step,
+              "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
+    if record_ratio:
+        result.update(ratio_trace=ratio_trace, dt=env.dt)
+    return result
 
 
 def _gait_gate_midpin_rollout(seed: int, overrides: dict) -> dict:
@@ -6675,6 +6684,57 @@ WALK_LEGDUTY_RATIO_OVERRIDES.update({
     ("reward", "walk_leg_duty_ratio_grace_s"): 3.0,
     ("reward", "walk_leg_duty_ratio_tau_s"): 1.0,
 })
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_duty_ratio_charge_sparse_launch_activation(policy):
+    """Match the launched ratio-only contact-feature configuration.
+
+    The original bank inherits step/drag/park terms from WALK_OVERRIDES;
+    they accidentally open contact bookkeeping even when the ratio charge
+    itself is missing from that block's activation predicate. The real
+    sparse launches disable ALL those alternatives. Keep the established
+    physical gait/flag-leg actors, but reproduce that exact activation
+    configuration and exercise the counter, grace, info and total reward.
+    """
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    for key in ("k_walk_swing", "k_step_event", "k_step_partial",
+                "k_drag_loaded", "k_park_duty", "k_drag_stance",
+                "walk_gait_gate", "walk_duty_gate", "walk_swing_gate",
+                "walk_duty_band_gate", "k_foot_slip_tangent",
+                "k_foot_slip_height", "k_walk_transition_slip"):
+        overrides[("reward", key)] = 0.0
+    overrides[("goal", "walk_contact_diagnostics")] = 0.0
+    off = dict(overrides)
+    off[("reward", "walk_leg_duty_ratio_charge")] = 0.0
+    undosed = _gait_gate_walk_rollout(policy, SEEDS[0], off,
+                                     record_ratio=True)
+    dosed = _gait_gate_walk_rollout(policy, SEEDS[0], overrides,
+                                   record_ratio=True)
+    assert not dosed["terminated"]
+    assert dosed["steps"] == undosed["steps"]
+    trace = dosed["ratio_trace"]
+    assert max(after for _, after, _, _ in trace) > 3.0 / dosed["dt"]
+    assert any(after == before + 1 for before, after, _, _ in trace)
+    assert all(after == 0 and charge is None
+               for _, after, _, charge in undosed["ratio_trace"])
+    before_grace = [r for r in trace if r[0] * dosed["dt"] < 3.0]
+    assert before_grace and all(r[2] is None and r[3] is None
+                                for r in before_grace)
+    charged_rows = [(shortfall, charge) for _, _, shortfall, charge in trace
+                    if charge is not None]
+    assert charged_rows  # zero shortfall must still produce telemetry
+    for shortfall, charge in charged_rows:
+        assert charge == pytest.approx(-150.0 * shortfall)
+    charge_sum = sum(charge for _, charge in charged_rows)
+    assert dosed["return"] - undosed["return"] == pytest.approx(charge_sum)
+    if policy == "gait":
+        assert charge_sum == 0.0
+        assert dosed["return"] == undosed["return"]
+    else:
+        assert any(shortfall > 0 and charge < 0
+                   for shortfall, charge in charged_rows)
+        assert dosed["return"] < undosed["return"]
 
 
 def _gait_gate_walk_rollout_softleg(seed: int, overrides: dict,

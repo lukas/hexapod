@@ -7045,6 +7045,131 @@ def test_walk_leg_duty_ratio_swing_floor_activation_matches_plain_when_off(
 
 
 # --------------------------------------------------------------------------
+# reward.walk_leg_duty_ratio_agg (2026-09-08, "sum" mode -- the literal
+# untested half of the 2026-09-07 ~23:4x calibration finding's own
+# actionable spec ("summed (not maxed) over legs so it prices the
+# observed multi-leg (front-PAIR) starvation shape"). Every dose/
+# target/swing-floor arm launched against this mechanism so far used
+# the default MIN-over-legs aggregation and is now closed with no
+# efficacy on the chronic front-PAIR sacrifice fingerprint (STATUS.md
+# 2026-09-08 ~19:1x) -- MIN structurally cannot distinguish "one bad
+# leg" from "two bad legs together" because it only ever reads the
+# single worst leg's own shortfall. "sum" is a genuinely different
+# reachable gradient (roughly doubles the price on a true two-leg
+# simultaneous violation, at the identical per-leg weight/target/
+# grace already tested) rather than just a bigger dose on the same
+# shape. Plain-function unit tests only, same pattern as the rest of
+# this mechanism's bank, plus one end-to-end activation guard.
+
+
+def test_walk_leg_duty_ratio_agg_default_is_min_bit_exact():
+    """Omitting ``agg`` entirely must match ``agg="min"`` explicitly,
+    and both must match the pre-``agg`` 2-arg call exactly -- adding
+    the new parameter must not perturb any already-launched dose."""
+    ema = [0.15, 0.5, 1.0, 1.0, 1.0, 1.0]
+    no_arg = walk_legduty_ratio_charge(ema, 0.30)
+    explicit_min = walk_legduty_ratio_charge(ema, 0.30, agg="min")
+    assert no_arg == explicit_min
+
+
+def test_walk_leg_duty_ratio_agg_sum_matches_min_for_single_bad_leg():
+    """When at most one leg is below target, "sum" and "min" must
+    agree exactly (both aggregations reduce to that one leg's own
+    shortfall) -- "sum" only changes behavior on the multi-leg case it
+    targets, not on the single-flag-leg case every existing dose was
+    already tested against."""
+    ema = [0.15, 1.0, 1.0, 1.0, 1.0, 1.0]
+    min_shortfall, min_ratios = walk_legduty_ratio_charge(ema, 0.30, agg="min")
+    sum_shortfall, sum_ratios = walk_legduty_ratio_charge(ema, 0.30, agg="sum")
+    assert sum_ratios == min_ratios, "raw per-leg ratios never depend on agg"
+    assert sum_shortfall == pytest.approx(min_shortfall)
+    assert sum_shortfall > 0.0
+
+
+def test_walk_leg_duty_ratio_agg_sum_roughly_doubles_for_two_bad_legs():
+    """THE core claim: two legs simultaneously below target (the
+    named front-PAIR pathology shape) must draw roughly DOUBLE the
+    charge under "sum" vs "min" AT THE IDENTICAL ema/target -- "min"
+    reads only the worse of the two (both are equal here, so it reads
+    exactly one leg's own shortfall), "sum" adds both legs' own
+    shortfall. (Peer-excluded contamination means this two-bad-leg
+    ema's own ratio is NOT numerically the same as a single-bad-leg
+    ema's ratio -- the other bad leg dilutes each leg's peer mean --
+    so this test deliberately compares sum vs min on the SAME ema
+    rather than across two different emas.)"""
+    ema = [0.15, 0.15, 1.0, 1.0, 1.0, 1.0]
+    min_shortfall, ratios = walk_legduty_ratio_charge(ema, 0.30, agg="min")
+    sum_shortfall, _ = walk_legduty_ratio_charge(ema, 0.30, agg="sum")
+    assert ratios[0] == pytest.approx(ratios[1]), (
+        "symmetric setup: both bad legs must read the identical ratio")
+    assert min_shortfall == pytest.approx(0.30 - ratios[0])
+    assert sum_shortfall == pytest.approx(2 * (0.30 - ratios[0])), (
+        f"expected sum to charge double min's single-leg shortfall "
+        f"when both bad legs are equally bad, got sum={sum_shortfall} "
+        f"vs min={min_shortfall}")
+
+
+def test_walk_leg_duty_ratio_agg_sum_zero_on_balanced_gait():
+    """A perfectly balanced (all legs at or above target) gait must
+    read zero under "sum" too -- summing zeros is still zero, no
+    spurious charge on a genuinely healthy gait."""
+    for duty in (0.30, 0.5, 0.9, 1.0):
+        ema = [duty] * 6
+        shortfall, _ = walk_legduty_ratio_charge(ema, 0.30, agg="sum")
+        assert shortfall == pytest.approx(0.0, abs=1e-9)
+
+
+def test_walk_leg_duty_ratio_agg_sum_composes_with_swing_floor():
+    """"sum" and the swing-count floor are independent add-ons to the
+    same effective-ratio pipeline -- a leg zeroed by the swing floor
+    must still be summed alongside a genuinely low-ratio leg, not
+    silently dropped or double-counted."""
+    ema = [1.0] * 6
+    swing_counts = [0, 5, 5, 5, 5, 5]  # leg 0: high duty, no real swings
+    floor_only, _ = walk_legduty_ratio_charge(
+        ema, 0.30, swing_counts=swing_counts, swing_min_count=2.0, agg="sum")
+    assert floor_only == pytest.approx(0.30), (
+        "with every OTHER leg at ratio 1.0, sum over a single "
+        "floor-zeroed leg must equal that leg's own full-target charge")
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_duty_ratio_agg_activation_matches_plain_when_default(
+        policy):
+    """End-to-end rollout guard: adding
+    reward.walk_leg_duty_ratio_agg="min" (the default, explicit) to
+    the already-launched sparse activation config must not change the
+    honest gait's zero-charge return or the flag-leg cheat's flipped-
+    negative return by even one bit."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    baseline = _gait_gate_walk_rollout(policy, SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_duty_ratio_agg")] = "min"
+    explicit_min = _gait_gate_walk_rollout(policy, SEEDS[0], with_key)
+    assert baseline["return"] == explicit_min["return"]
+    assert baseline["steps"] == explicit_min["steps"]
+    assert baseline["terminated"] == explicit_min["terminated"]
+
+
+def test_walk_leg_duty_ratio_agg_sum_charges_flagleg_cheat_more_than_min():
+    """Sanity check on the real rollout (not just synthetic EMAs): at
+    the identical dose, the "sum" cheat return must be <= the "min"
+    cheat return on the scripted flag-leg twin (>=1 leg permanently
+    airborne the whole episode reads the same shortfall as "min"
+    unless a SECOND leg is also flagged -- this repo's scripted
+    flag-leg fixture only drops one leg, so this is an equality-or-
+    stricter check, not a strict-inequality one)."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    min_result = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides)
+    sum_overrides = dict(overrides)
+    sum_overrides[("reward", "walk_leg_duty_ratio_agg")] = "sum"
+    sum_result = _gait_gate_walk_rollout("flagleg", SEEDS[0], sum_overrides)
+    assert sum_result["return"] <= min_result["return"] + 1e-6, (
+        "the sum-mode cheat return must never be HIGHER (cheaper) than "
+        "the min-mode return at the identical dose")
+
+
+# --------------------------------------------------------------------------
 # reward.walk_leg_loadslip_ratio_charge (2026-09-08, the "load-slip"
 # half of the "price per-leg utilization/load-slip directly" concrete
 # lead the assistfade TRACK-LEVEL FINDING (09-07 ~14:5x) and

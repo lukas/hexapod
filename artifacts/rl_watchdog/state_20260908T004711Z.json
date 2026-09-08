@@ -1,0 +1,167 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger_utc": "2026-09-08T00:47:11.659Z",
+  "updated_utc": "2026-09-08T00:59:27Z",
+  "capacity_at_visit": {
+    "ready": 11,
+    "free": 11,
+    "total": 12,
+    "pending_pod": "hexapod-mjx-train-6",
+    "pending_reason": "Insufficient CPU/affinity plus two unschedulable nodes",
+    "backlog": [],
+    "optimizing": 0,
+    "compiling": 0,
+    "nvidia_sample": {
+      "pods": [
+        0,
+        1,
+        2
+      ],
+      "utilization_percent": 0,
+      "memory_mib": 0
+    },
+    "constraints_changed": false
+  },
+  "scratch": {
+    "activation_fix_commit": "ebad6d0df28887877dabced80be306764f5a0e15",
+    "invalid_original_attempts": [
+      [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratiofresh",
+        "2026-09-08T00:13:29+00:00"
+      ],
+      [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1-legdutyratiofresh",
+        "2026-09-08T00:16:54+00:00"
+      ],
+      [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratio1",
+        "2026-09-08T00:19:21+00:00"
+      ],
+      [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widenbis180-legdutyratiofresh",
+        "2026-09-08T00:22:13+00:00"
+      ]
+    ],
+    "recoveries": [
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratiofresh-guardfix1",
+        "created": "2026-09-08T00:30:24+00:00",
+        "pod": "hexapod-mjx-train-2",
+        "wandb_id": "iwhaciad",
+        "seed": 2,
+        "initial_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_acq1.zip",
+        "code_sha": "387ccac2cfd1fcc2bbf4d579ac19dcca762844d0",
+        "steps": 2097152,
+        "logged_fps": 11575,
+        "ratio_shortfall": 0.15201348811093307,
+        "ratio_charge": -22.802023216640073,
+        "activation_identity_error": -1.1368683772161603e-13,
+        "optimizer": "completed, exited",
+        "cached_wandb_state": "running",
+        "held_out_report": "pending at 00:56:54",
+        "completed_eval_clips": 7
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1-legdutyratiofresh-guardfix1",
+        "created": "2026-09-08T00:33:43+00:00",
+        "pod": "hexapod-mjx-train-0",
+        "wandb_id": "tdpmyt9z",
+        "seed": 3,
+        "initial_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s1_widen8.zip",
+        "code_sha": "38132612e737dd7f113ed089ac2718fbe11cf4ba",
+        "steps": 2097152,
+        "logged_fps": 17274,
+        "ratio_shortfall": 0.1515727987186086,
+        "ratio_charge": -22.73591980779163,
+        "activation_identity_error": -3.375077994860476e-13,
+        "optimizer": "completed, exited",
+        "cached_wandb_state": "running",
+        "held_out_report": "pending at 00:56:54",
+        "completed_eval_clips": 14
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratio1-guardfix1",
+        "created": "2026-09-08T00:35:55+00:00",
+        "pod": "hexapod-mjx-train-2",
+        "wandb_id": "nh3lt3o3",
+        "seed": 2,
+        "initial_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_widen8_acq1.zip",
+        "code_sha": "6b733b7610bc88666fcecd09361db9f9b29032b4",
+        "steps": 2097152,
+        "logged_fps": 8302,
+        "ratio_shortfall": 0.17482545765125182,
+        "ratio_charge": -26.22381864768763,
+        "activation_identity_error": 1.4210854715202004e-13,
+        "optimizer": "completed, exited",
+        "cached_wandb_state": "running",
+        "held_out_report": "pending at 00:56:54",
+        "completed_eval_clips": 5
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widenbis180-legdutyratiofresh-guardfix1",
+        "created": "2026-09-08T00:38:04+00:00",
+        "pod": "hexapod-mjx-train-1",
+        "wandb_id": "w6y5uai5",
+        "seed": 2,
+        "initial_checkpoint": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_acq1.zip",
+        "code_sha": "e387ee28bddd3bdc7a39984940cc2a07469cad69",
+        "steps": 2097152,
+        "logged_fps": 17604,
+        "ratio_shortfall": 0.11018414317255652,
+        "ratio_charge": -16.527621475883475,
+        "activation_identity_error": 3.552713678800501e-15,
+        "optimizer": "completed, exited",
+        "cached_wandb_state": "running",
+        "held_out_report": "pending at 00:56:54",
+        "completed_eval_clips": 11
+      }
+    ],
+    "continuation_dependency": "Original preregistered held-out gait/leg-use and no-new-falls gates; active charge alone is insufficient.",
+    "eval_pipeline": "All four watcher supervisors/evaluators advancing. train2 also has two old invalid-run gates and finalizer workers. No lost handoff, no duplicate evals."
+  },
+  "steering": {
+    "completed_cycle": "20260908T000347",
+    "new_owner_cycle": "20260908T005017",
+    "new_owner_pid": 4069062,
+    "review_commit": "860f498c806f5fe8807cc6f9d4ad648ec5570105",
+    "review_artifact": "artifacts/rl_watchdog/turnpipeline_review_20260908.md",
+    "status": "Active owner preparing lift-only phase bank; no training canary yet.",
+    "qualification": "Original criteria retained; universal-impossibility claim and assumed derating superseded.",
+    "frozen_assets": {
+      "archive": "/workspace/turnphase_frozen_20260908/assets.tar.gz",
+      "bytes": 211672,
+      "verified_files": 38,
+      "mismatches": [],
+      "mass_kg": 4.80573,
+      "old_pipeline_mass_kg": 3.494226,
+      "xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837"
+    }
+  },
+  "watcher": {
+    "pid": 2793043,
+    "healthy": true,
+    "stale_zombie_pids": [
+      4091963,
+      829466,
+      2504114,
+      2605604
+    ],
+    "stale_rows_blocked_scheduling": false,
+    "automatic_refill_earliest_utc": "2026-09-08T00:55:20Z",
+    "restarted": false
+  },
+  "status_repair": {
+    "commit": "bfcd6bc47",
+    "scope": "Read-only zombie/missing-process classification, no registry/scheduler mutations",
+    "tests": "32 focused tests pass locally and on Linux controller; four new regressions failed before fix",
+    "deployment": "statusweb-only restart at approximately00:59Z; nativeMCP verifies1 genuinely active cycle and watcherUP"
+  },
+  "feedback": [
+    "fb_20260908T005032_0078a6",
+    "fb_20260908T005811_d3e2a7"
+  ],
+  "no_new_capacity": true,
+  "no_physical_actions": true,
+  "no_new_seeds": true,
+  "qualification_relaxed": false
+}

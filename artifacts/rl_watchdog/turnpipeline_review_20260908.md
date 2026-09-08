@@ -44,3 +44,16 @@ Question q_20260908T0050Z's assumed derating and universal training stop
 are superseded for this task. Lukas already authorized bounded simulation,
 training and routine recovery; this review needs no new permission gate.
 The 00:50 operator kick owns the experiment; root owns this correction.
+
+## Frozen assets supplied at 00:58 UTC
+
+The controller now has `/workspace/turnphase_frozen_20260908/assets.tar.gz`
+(211,672 bytes). Root verified all 38 archived XML/STL/motor files against
+the corrected audit's manifest, both locally and after upload: zero
+mismatches. The full-mesh XML SHA256 is
+`7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837`.
+Extract these into the isolated experiment workspace. There is no missing
+full-mesh dependency requiring a reply or a substitute MJX-twin result.
+Any exploratory twin runs must remain separately labelled and cannot
+replace the requested full-mesh comparison. Feedback receipt:
+`fb_20260908T005811_d3e2a7`.

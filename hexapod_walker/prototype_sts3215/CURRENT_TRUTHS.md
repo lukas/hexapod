@@ -101,6 +101,33 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   the next lever (if pursued) needs a genuinely new mechanism (direct
   traction/force-budget diagnostic) or a fleet-wide plant/hardware
   contract change, both operator-scoped per q_20260908T0050Z.
+  FOLLOW-UP 2 (2026-09-08 ~04:0x, operator focus note 025454Z): the
+  direct traction/force-budget diagnostic RAN (24 fullmesh rollouts,
+  zero training, `artifacts/rl_watchdog/turn_traction_20260908/`) and
+  CORRECTS the closures' inference: the yaw deficit is NOT
+  friction-cone saturation (slipping pads sit near the cone only
+  3-15% of slip time; mu=2.0, ~15N normals mostly unused) and NOT
+  actuator force-rail (yaw rail fraction 0.000). It is
+  OPPOSING-STANCE CANCELLATION (gross ±0.5 Nm per-leg moments cancel
+  ~20:1; phase-locked middle-leg braking) — and the net turn drive in
+  the CURRENT mesh plant is carried ENTIRELY by torsional pad couples
+  from an unphysical foot mu_torsion=0.1 m (~20x a physical boot
+  estimate ~0.005 m; measured sustained couples exceed the physical
+  cap 2-4x; linear forces net-BRAKE the turn −3.0 Nms vs couples
+  +3.0). A probe-local mu_t->0.005 A/B (dose-wipe bug found+fixed,
+  regression-tested): wz REGRESSES −9..−14% BOTH signs (sim turn
+  authority drops to ~38% of command), vx +17-20%, straight drift
+  worsens to phase-dependent ±0.011. Same fingerprint on the scripted
+  teacher AND the retained-turns cont8m checkpoint. Sign/coordinate
+  math validated 3 ways (static weight 0.969, touch-sensor relerr
+  0.7%, impulse closure slope 1.000/relRMS<=0.0012). NO 2M canary (no
+  passed preflight; pre-registered rule held). Fleet plant torsional
+  friction is now an OPERATOR QUESTION (q_20260908T0410Z); in-limits
+  next design candidate: stance-path twist-consistency derate
+  (stance sweep only, swing targets untouched), preflight under BOTH
+  mu_t values. walkcurr's slip floor should test mu_t sensitivity
+  before any further policy-side slip mechanism (their own closures
+  demanded a structural contact lever).
 - SHARDED KNEE-FRAME FIX (2026-09-07): before commit dd248bd8/37c8e808,
   `MjxShardedVecEnv` workers stored raw mujoco-frame `q_nom` into
   `_q_nom`/`_cmd`/seq frames (missing `_mujoco_to_logical_q`), so every

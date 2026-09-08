@@ -18,7 +18,7 @@ from .servo_model import (
     position_actuator_ids, resolve_model_source,
 )
 from .sim_env import (leg_chassis_collision_from_cfg,
-                      set_foot_geom_radius, set_foot_ground_friction,
+                      set_foot_ground_friction,
                       soften_contacts)
 from .struct_compliance import StructCompliance
 
@@ -165,7 +165,7 @@ def leg_chassis_from_cfg(cfg) -> bool:
 
 def foot_geom_radius_from_cfg(cfg) -> float:
     """cfg env.foot_geom_radius_m (0 = XML default 4.5mm sphere; see
-    sim_env.set_foot_geom_radius). Built 2026-09-08 alongside the
+    servo_model.build_model). Built 2026-09-08 alongside the
     diagnostic setter so a promising zero-shot eval-time probe result
     can be trained FROM, not just evaluated against — until this
     function's call sites (prepare_shared_model + its 3 callers) were
@@ -203,7 +203,8 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     applies the calibrated foot–ground slide friction, mirroring the C
     env's cfg env.foot_friction_slide hook. ``foot_geom_radius > 0``
     (built 2026-09-08) overrides the foot contact-sphere radius,
-    mirroring cfg env.foot_geom_radius_m / sim_env.set_foot_geom_radius
+    compiled before device conversion, matching the private env cfg
+    env.foot_geom_radius_m. Body inertia and friction remain unchanged
     — 0 leaves the model's default 4.5mm sphere untouched (bit-exact
     off)."""
     # leg_chassis: cfg env.leg_chassis_collision — belly knife-edge
@@ -214,12 +215,11 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
                         terrain_amp=terrain_amp, terrain_seed=terrain_seed,
                         mesh_visuals=False, mjx_compat=True,
                         leg_chassis_collision=leg_chassis,
-                        source=resolve_model_source(cfg))
+                        source=resolve_model_source(cfg),
+                        foot_geom_radius_m=foot_geom_radius)
     soften_contacts(model)
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)
-    if foot_geom_radius > 0.0:
-        set_foot_geom_radius(model, foot_geom_radius)
     apply_params_to_model(model, params)
     _apply_nominal_struct_compliance(model, cfg)
     model.opt.iterations = int(iterations)

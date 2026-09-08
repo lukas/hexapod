@@ -1,0 +1,32 @@
+{
+  "mujoco": "3.12.0",
+  "base": "e56e535f48ea53a096b7ddfed525839880d948ec",
+  "exact_old_helper": {
+    "radius": 0.012,
+    "rbound": 0.0045,
+    "aabb": [
+      0.0,
+      0.0,
+      0.0,
+      0.0045,
+      0.0045,
+      0.0045
+    ],
+    "contact_count": 0,
+    "after_setConst_contact_count": 0
+  },
+  "repaired": {
+    "radius": 0.012,
+    "rbound": 0.012,
+    "aabb": [
+      0.0,
+      0.0,
+      0.0,
+      0.012,
+      0.012,
+      0.012
+    ],
+    "contact_count": 1,
+    "contact_distance": -0.002
+  }
+}

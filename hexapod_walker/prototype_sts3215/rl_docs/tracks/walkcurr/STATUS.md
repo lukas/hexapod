@@ -43,6 +43,23 @@ Evidence: `ops.sh review` for both runs this cycle; `logs/ckpt_eval/
 cw_walkscratch_easy0905_cartfoot_freshinit_{c1,offctrl}_s7_acq1_gate/
 report.json`; SKILLS.md new row; RL_LOG 09-08 ~07:3x.
 
+**Refill (same cycle):** launched a matched `cont10m` durability pair
+for seed7 (+10M, 50M cumulative) to test whether this PARITY holds or
+late-onset-degrades the way fork(a) did (fine at 12M cumulative, then
+2-6x slip + new falls by 22M): `cartfoot-freshinit-c1-s7-acq1-cont10m`
+(train-1, launched this cycle, VERIFIED RUNNING) +
+`...-offctrl-s7-acq1-cont10m` (train-3, independently launched by a
+concurrent cycle ~seconds earlier — my own attempt REFUSED as a clean
+duplicate, no wasted spend; pair now running together). Gate:
+HOLDS = slip ratio <=1.2x in >=3/4 groups + 0 new falls vs the 40M
+read; DEGRADES = ratio >1.5x in >=2/4 groups or any new fall. Did not
+touch the mid-finalizer seed10/seed11 pairs (GPU trainer processes
+gone, ledger still RUNNING — normal deferred-artifact window, another
+cycle's to triage once prestaged). Other tracks checked, all
+genuinely blocked (amp DONE/Robot-Lab-only, cpg search-space
+exhausted, standwalk/assistfade/todaypolicy need unbuilt reward-
+mechanism design before their next launch) — no filler.
+
 --- prior entry below ---
 
 ## 2026-09-08 ~07:1x (triage cycle) — fork (a) FINAL read: cartfoot-c1-cont20m ACQ FAIL (MISALIGNED), fork (a) formally CLOSED; matched control confirmed retained

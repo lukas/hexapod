@@ -45,6 +45,44 @@ cont20m_gate/report.json`; `walk_det_1.png` (ON fall) vs
 
 --- prior entry below ---
 
+## 2026-09-08 ~07:1x (refill cycle; no completion assigned, canonical capacity read 8 free slots, backlog empty) — completed the fork (b) n>=3 fresh-init seed cohort: launched the missing matched 40M acquisition pair for seed 11
+
+One plain sentence: seed 7 already had its ON/OFF acquisition pair
+running and seed 10 already had its own continuation running, but
+seed 11 — the third leg of the fresh-init reproducibility cohort —
+still only had its 2M canary, so this cycle closed that gap instead
+of inventing new work.
+
+**Capacity double-check (worth recording):** the canonical capacity
+read listed `hexapod-mjx-train-0`/`hexapod-mjx-train-4` as free, but
+`kubectl exec` + `nvidia-smi` showed both still running the
+`artifact_finalizer`/`eval_checkpoint` CPU-side tail (0% GPU
+utilization) for the fork (a) `cont20m` ON/OFF pair from the prior
+entry — genuinely idle GPU, but a live CPU process mid-publish. Left
+both alone (per the "still training" list); treated only
+`train-2/5/8/9/10/11` as truly free.
+
+**Launched (both `--init-from-source` off their own CANARY PASS 2M
+checkpoints, byte-identical to the already-running `s7-acq1` pair —
+same recipe, same gate, only the seed differs):**
+- `cartfoot-freshinit-c1-s11-acq1` (train-2, ON — 3 cart_foot box keys)
+- `cartfoot-freshinit-offctrl-s11-acq1` (train-8, OFF — matched control)
+
+Both VERIFIED RUNNING with real step progression (7.9M/2.1M at verify
+time). Gate: ACQUISITION, >=0.03 m/s median net forward in >=1 of
+walk/det,sto with 0 falls in det, read together with the sibling at
+the same budget; slip/m vs the matched OFF control is the headline
+comparison per the fork (b) design, not a hardening bar. 2
+launches/80M steps — this cycle's normal cap. 4 pods (5/9/10/11)
+remain genuinely idle; backlog stays empty — no further
+non-duplicative walkcurr arm identified beyond the fork (a)/(b) lines
+already in flight.
+
+Evidence: `launch_run.py status` before/after; ledger entries for both
+new runs; RL_LOG 09-08 ~07:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:5x (triage cycle) — fork (b) seed-7/seed-11 quad all CANARY PASS - HEALTHY-PARITY (4/4); matched 40M acquisition pair launched for seed 7 fresh-init (ON+OFF, own-checkpoint)
 
 One plain sentence: every arm of the fork (b) fresh-init ignition

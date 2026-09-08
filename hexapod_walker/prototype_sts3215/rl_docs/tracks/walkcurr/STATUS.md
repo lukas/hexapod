@@ -1,3 +1,57 @@
+## 2026-09-08 ~08:1x (triage cycle) — fork (b) seed7 cont10m durability pair lands: PARITY HOLDS at +10M, first durability replicate closed clean
+
+One plain sentence: the assigned finished run this cycle is the
+seed7 ON cont10m durability continuation (does the 40M PARITY hold or
+degrade fork(a)-style at 50M cumulative?), and both it and its
+matched OFF control (evaluated by hand this cycle since the OFF side
+wasn't in the watcher's prestage) land HOLDS -- no late-onset
+degradation.
+
+**`cartfoot-freshinit-c1-s7-acq1-cont10m` verdict (PASS, durability
+HOLDS):** slip/m ratio ON/OFF at 50M cumulative: walk/det 0.99x,
+walk/sto 0.97x, startjitter/det 0.97x, startjitter/sto 0.94x -- 4/4
+groups comfortably under the 1.2x HOLDS bar (nowhere near fork(a)'s
+1.5-6x DEGRADES range), 0 new falls/terminations on either arm,
+reward still rising both sides, no plateau.
+
+**Matched OFF control (`...-offctrl-s7-acq1-cont10m`) ran and
+verdicted by another concurrent cycle in parallel with this one** --
+same conclusion (slip in-band, 0 new falls). I independently ran the
+same OFF eval via `ops.sh podeval` before noticing the other verdict
+landed first; artifacts are on the controller either way.
+
+**One shared, non-blocking finding on both arms:** `walk/det`
+`gait_valid` dropped from the 40M read's 6/6 to 0/6 on BOTH ON and
+OFF (leg 4 duty 0.06-0.11 vs siblings' 0.52-0.59, swing_count 65-107
+vs 200+ -- still cycling, not frozen). This is the SAME family-wide
+det-only leg-underuse quirk already precedented non-blocking for
+`halfgrav-s0-c1`, and was already present in `walk_startjitter/det`
+for both these arms at 40M -- it widened to plain `walk/det` at +10M
+symmetrically on both arms, so it reads as a shared recipe-depth
+characteristic, not a cart_foot-specific or ON-specific regression.
+Sto modes stay clean throughout (6/6, 5/6 gait_valid). Does not gate
+this run (gate is slip-ratio + falls only).
+
+**Durability scoreboard so far:** seed7 (this entry) HOLDS. Seed10 and
+seed11 durability pairs are still training/pending triage elsewhere;
+once all 3 land this becomes a durability-level track ruling
+mirroring the acquisition-level one above.
+
+**No refill this cycle:** the durability cohort for all 3 seeds is
+already fully in flight (seed7 closed, seed10/11 running on other
+pods per concurrency list); no other non-duplicative walkcurr arm
+identified. Free capacity checked (7 free GPU pods: train-4/5/7/8/9/
+10/11); other tracks all genuinely blocked (amp Robot-Lab-only, cpg
+search-exhausted, standwalk/assistfade/todaypolicy need unbuilt
+reward-mechanism design) -- no filler launched.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-freshinit-c1-
+s7-acq1-cont10m`; `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_
+freshinit_{c1,offctrl}_s7_acq1_cont10m_gate/report.json` (both pulled
+this cycle); SKILLS.md new row; RL_LOG 09-08 ~08:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~08:0x (triage cycle) — fork (b) seed11 acquisition pair lands: COMPLETES the n=3 fresh-init cohort (seed7/10/11) at ratio-matched PARITY -- track-level ruling; matched cont10m durability pair launched
 
 One plain sentence: the two runs assigned this cycle are the seed11

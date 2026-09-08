@@ -1,3 +1,47 @@
+## 2026-09-08 ~09:5x (triage cycle) — halfgrav cartfoot seed7 ON arm ACQ PASS on its own read; extended the halfgrav cohort to seed10/seed11 canaries to match the 1g n=3 practice
+
+One plain sentence: the seed7 halfgrav cart_foot 40M acquisition ON
+arm clears its gate cleanly by itself (0 falls, gait_valid majority
+every mode, speed >>0.03 m/s floor, slip/m actually LOWER than the 1g
+cohort), and since the matched OFF sibling was still mid-prestage
+under a concurrent cycle, this cycle used the free fleet capacity to
+launch the seed10/seed11 halfgrav ON+OFF canary pairs the 1g cell
+already has, rather than wait idle.
+
+**`cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1` (ON) -> ACQ
+PASS (own read):** 0 falls/terminations in 24/24 gate episodes across
+all 4 groups; speed_mean_m_s 0.189-0.238 in every episode; gait_valid
+6/6 in walk/det, walk/sto, walk_startjitter/sto, 4/6 in
+walk_startjitter/det (2 episodes sacrifice one leg -- same startjitter/
+det fragility already precedented on the 1g OFF control). slip/m med
+1.56 (det) / 1.72 (sto), well under the 1g cartfoot pair's 2.79-3.41
+band. Reward quarters rise monotonically [-710.9, 106.6, 888.5,
+1143.1], still climbing at 40M. Contact-sheet frames show a level
+body translating with real alternating leg swing, no flag-leg/skate.
+The matched `cartfoot-halfgrav-offctrl-s7-acq1` control (launched the
+same cycle by a different cycle) finished training (wandb
+state=finished, 40370176 steps) but its gate eval was still
+mid-prestage at read time ("holding triage until prestage evals
+sync" in orchestrator.log) -- this is an ON-ONLY read, NOT a closed
+ON/OFF PARITY pair; whichever cycle reads the OFF control closes that.
+
+**Refill: launched the seed10/seed11 halfgrav canary cohort.** With
+10/12 GPU pods free and the OFF-s7 read pending elsewhere, respec'd
+the proven `cartfoot-halfgrav-s7`/`-offctrl-s7` 2M-canary recipe onto
+seed 10 and seed 11 (byte-identical except seed), mirroring exactly
+how the 1g fork(b) cell built its n=3 (seed7/10/11) cohort. All 4
+VERIFIED RUNNING/FINISHED: `cw-walkscratch-easy0905-cartfoot-halfgrav-
+{s10,s11}` (ON, train-2/train-0) and `...-offctrl-{s10,s11}` (OFF,
+train-1/train-3). At ~17-35k fps a 2M canary finishes in ~1-2 min, so
+by cycle end several had already handed off to their CPU finalizers;
+leave their gate evals for the next reader.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1_gate/report.json`;
+`logs/experiments/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/wandb_history.csv`;
+W&B `traypy7y`. RL_LOG 09-08 ~09:5x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:0x (refill cycle, no completion assigned) — launched the `walk_leg_duty_ratio_charge` "different dose/target" pair the 03:3x closure named as the only untried branch
 
 One plain sentence: the 03:3x closure below found continuing the

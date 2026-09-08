@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 ## 2026-09-08 corrected torque zero-shot closeout — retention asymmetry precedes retraining
 
 The corrected frozen-parent `*_torque1x_zeroshot_evalfix1` reports are
@@ -35,6 +36,79 @@ The remaining EASY motor/noise/model limitations still apply.
 Evidence: [sealed six-report comparison and provenance](../../../../../artifacts/rl_watchdog/torque_read_20260908T084713Z/README.md).
 Older entries below describe their observation times; the corrected
 zero-shot read here resolves their pending-baseline caveat.
+=======
+## 2026-09-08 ~09:0x (triage cycle) — halfgrav cartfoot 2x2 cell ignites cleanly (both arms CANARY PASS, near-parity slip) + widen8 fresh-init pair CANARY FAIL - MECHANISM symmetrically (composite too hard fresh, not a cart_foot effect)
+
+One plain sentence: two fresh questions closed this cycle -- does the
+Cartesian-foot-target action space ignite at half gravity the way it
+already did at 1g (yes, cleanly, both arms), and does it explain why a
+much harder heading+DR composite can't bootstrap from a fresh random
+init (no -- the joint-space control fails identically, so the
+composite's difficulty is the driver, not the action space).
+
+**`cartfoot-halfgrav-offctrl-s7` (OFF, my assigned run) + `cartfoot-
+halfgrav-s7` (ON, its sibling, found already finished mid-cycle and
+untouched by anyone else -- verdicted together) -- both CANARY PASS:**
+finite/decreasing losses, std anneals on schedule, 0 falls in all 24
+episodes both arms. `ep_rew_mean` falls (the usual ep_len-growth
+artifact) but per-tick `env/reward_walk` clearly RISES across all 4
+quarters on both arms (OFF 0.178->0.218, ON 0.164->0.229) and
+`env/v_along_cmd_m_s` turns positive by the last quarter (OFF +0.011,
+ON +0.010) -- the same healthy shape already proven at 1g
+(`cartfoot-freshinit-offctrl-s7`). Slip is near-parity at this early
+stage (det 0.83 OFF / 1.03 ON, sto 28.16 OFF / 21.79 ON) -- the 1g
+cohort's eventual 3-10x cart_foot slip gap only emerged after a long
+continuation chain (`cartfoot-c1-cont10m`), so a 2M canary can't see
+that divergence yet either way. The 0.5g cell of the base/halfgrav x
+joint/cartfoot 2x2 matrix now ignites for BOTH action spaces, same as
+the 1g cell -- **funding a matched 40M acquisition pair this cycle**
+(`cw-walkscratch-easy0905-cartfoot-halfgrav-{c1,offctrl}-s7-acq1`).
+
+**`headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1` (ON, my
+assigned run) + its matched `...-offctrl` sibling (OFF, found already
+finished mid-cycle, unowned -- verdicted together) -- both CANARY FAIL
+- MECHANISM:** this pair tested whether a fresh (never warm-started)
+cart_foot init can bootstrap real progress on the much harder widen8
+8-way-heading + crossgrav + medhead-DR composite, isolating the
+action-space question from the "only ever reached via a long
+continuation chain" confound the ~06:2x/~06:3x entries below flagged.
+Machinery is healthy on both arms (finite/decreasing losses, std
+anneal on schedule, no blowup) and both clear the no-fall / no-
+chronic-single-leg-sacrifice floor (0/24 falls, gait_valid majority
+every mode, duty spread 0.29-1.0 across all six legs -- no leg parked
+at duty~1.0 with near-zero swings). But neither shows the anticipated
+PASS signal: per-tick `env/reward_walk` stays flat/noisy (~0.17-0.21,
+no trend) on BOTH arms, `env/v_along_cmd_m_s` hovers near zero and
+ends slightly negative on the ON arm, and `env/walk_speed` actively
+DECLINES across the run on both (ON 0.101->0.092, OFF 0.093->0.082) --
+the opposite of the clearly-rising signal the halfgrav/1g pairs above
+show at the identical budget. Video/eval instead shows an
+unproductive high-frequency limb buzz (swing counts up to 268/20s per
+leg, stride_m_mean 0.001, forward_dist 0.01-0.04m, slip/m 61-108 det /
+93-306 sto -- 3-10x even the slippy easy-rung cart_foot band).
+Critically, **the OFF (joint-space) control shows the identical
+fingerprint at nearly identical magnitude** (same slip range, same
+leg0-does-the-buzzing duty pattern, same flat reward_walk, same
+declining walk_speed) -- this closes the isolation question this pair
+was designed for: it is NOT a cart_foot-specific failure, the
+composite's fresh-init difficulty is the driver for both
+parameterizations. Per this pair's own pre-registered gate text, a
+milder fresh-init entry point is needed on this composite before
+either action space is retested on it -- do not relaunch this exact
+fresh-init widen8 pair at either action space without one. Two more
+seed-41 replicates of this same pair (`...-freshinit-c1-s41`,
+`...-freshinit-offctrl-s41`) also finished this cycle but their gate
+evals were not yet synced at read time -- left unverdicted for the
+next reader to confirm/contest with a 2nd seed.
+
+Evidence: `ops.sh review` for all four runs this cycle;
+`logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_{s7,offctrl_s7}_gate/report.json`;
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_{c1,offctrl}_gate/report.json`;
+`wandb_history.csv` for all four; W&B `2ck5m8dj`/`4fubbj7g`/
+`kl4alitf`/`xpuzkq3h`. RL_LOG 09-08 ~08:5x-09:0x.
+
+--- prior entry below ---
+>>>>>>> Stashed changes
 
 ## 2026-09-08 ~08:3x (triage cycle) — seed7 durability HOLDS + seed11 durability HOLDS (2/3 cohort) + seed10 OFF durability HOLDS + torque1x mechanism-health canary pair lands (Cartesian robust, joint-space develops a new chronic leg)
 

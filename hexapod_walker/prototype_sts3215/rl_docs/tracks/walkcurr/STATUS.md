@@ -1,3 +1,102 @@
+## 2026-09-08 ~05:5x (same cycle; pair triage) — cartfoot pair read: ON re-acquires 0-fall walking through fully reinterpreted actions (VIABLE) but slip is 3-10x the matched control in 4/4 groups — foot-space inductive bias UNSUPPORTED at 2M retrofit depth
+
+Gates landed within the cycle (2M trains in ~2 min at 14.5-17.5k fps).
+- `cartfoot-c1` (ON): 19/24 gait_valid (5/4/4/6 across det/sto/sjdet/
+  sjsto), ZERO falls/terms in 24/24, upright six-leg stepping on the
+  contact sheet — clears its pre-registered MECHANISM-VIABLE bar.
+  slip/m 19.1/25.0/68.4/32.8 and progress 0.31-0.51. train
+  ep_rew_mean fell monotonically (-61 -> -224) while eval improved to
+  0-fall — divergence unresolved at this depth.
+- `cartfoot-offctrl` (OFF): 22/24 gv, 0 falls, slip 5.34/5.18/6.27/
+  5.90, progress 1.54-1.71 — clean source-band retention, valid
+  causal baseline (and live source-lineage reproduction under the new
+  default-off code).
+PAIRED READ per the pre-registered bars: VIABLE yes, PROMISING no
+(slip must beat OFF in >=3/4 groups; it loses 4/4 by 3-10x). The
+"Cartesian action space makes low-slip placement easier to learn"
+hypothesis is UNSUPPORTED at 2M retrofit depth — but 2M after action-
+semantics scramble mostly measures re-acquisition, so this is NOT a
+class closure. OPEN FORK for the next owner (not pre-licensed, pick
+ONE): (a) +10M ON continuation (duty-charge 10M protocol shape) to
+separate re-acquisition transient from asymptotic slip — the 08-21
+reward-rising clause does NOT apply (reward was falling), fund only
+with an explicit new gate; (b) close the retrofit form and run the
+parameterization FRESH-INIT vs a matched fresh-init joint-decode
+control at equal budget, where neither arm carries a scramble
+handicap. Verdicts on both runs (W&B gzyvhnzt / 8tv5njiz). Reports:
+train-4/train-0 `logs/ckpt_eval/..._cartfoot_{c1,offctrl}_gate/`.
+RL_LOG 09-08 05:5x.
+
+--- prior entry below ---
+
+## 2026-09-08 ~05:4x (operator-kick cycle; focus note 20260908T042629Z) — BUILT + banked + launched the foot-placement mechanism itself: Cartesian foot-target action decode, matched 2M on/off pair on the exact cont40m lineage/RNG2
+
+One plain sentence: the one structural lever left standing after the
+9-arm slip-pricing closure, the DR-band/torsion exonerations and the
+clip-controllability falsification — "a genuine foot-placement policy
+change" — is now a real, banked, default-off mechanism, and its first
+matched 2M on/off pair has already finished training and is awaiting
+its gate reads.
+
+MECHANISM (`goal.walk_cart_foot_box_{x,y,z}_m`, all default 0.0 = OFF,
+bit-exact legacy): with any key > 0 the SAME 18 actions are decoded
+per leg as a Cartesian foot target in the leg-root frame (box around
+the source decode's exact a=0 stance-foot point (0.0718, -0.0015,
+-0.1357) m) through exact model-derived analytic yaw+planar-2R IK
+(FK parity 1.8e-16 m vs MuJoCo sites), then the UNCHANGED SafetyLayer/
+servo/reward. Prior-free: kinematic reparameterization only, no
+clock/teacher/prior. Code `rl_move/sim/cart_foot_decode.py` +
+`joint_task.py` branch; snapshot `b24c2ffa`
+(exp/walkcurr-cartfoot-pair-20260908).
+
+CORRECTION CREDIT: my first frame derivation used the zero-pose foot
+direction (which carries a 1.5 mm lateral offset) and misread the
+resulting 2.08 mm FK error as an "irreducible CAD axis tilt"; root's
+copy-only review (`artifacts/rl_watchdog/cart_foot_frame_review_20260908/`)
+found the bug, applied the pitch-plane frame fix, tightened the FK bar
+to 1e-9 m and replaced my false primitive-family geometric rejection
+with a genuine nonparallel-axis guard. Root's GPU/Warp environment
+bank (`artifacts/rl_watchdog/cart_foot_gpu_bank_20260908/`, PASS,
+cuda:0, real worker `_act_to_q`, exact cont40m recipe + the 3 box
+keys, decode parity 0.0 rad under model DR/pool restore, source hashes
+== this snapshot) closed the CPU-Warp/runtime item without a training
+spend.
+
+BANKS/TESTS: 12/12 mechanism bank (test_cart_foot_decode.py 8 +
+root's test_cart_foot_frame.py 4: FK exactness, zero-action parity
+~4e-16 rad with the source stance, totality/axis limits, IK
+self-consistency <1e-9 m, default-off bit-exactness, runtime/reset +
+SafetyLayer slew contract with mechanism ON, determinism, fail-closed
+guards). Full walk semantics bank: 353 passed / 35 failed — failure
+set verified PRE-EXISTING on clean HEAD (4/4 tail-named failures
+reproduce identically on a clean worktree; full two-tree comparison
+recorded this cycle), all in retired-mechanism semantics families
+untouched by this diff.
+
+BOX SIZING (zero-spend measurement): launch box (0.06, 0.035, 0.04) m
+= rounded joint-box foot-space image (x [-0.071,+0.068], y [±0.034],
+z [-0.029,+0.052] m) so exploration scale matches the source's own
+action box. Corners beyond the yaw cone/annulus project to the
+closest reachable point (decode is total).
+
+LAUNCHED (both VERIFIED RUNNING then FINISHED full 2,097,152 steps):
+- `...cont40m-cartfoot-c1` (ON, W&B gzyvhnzt, fps 14.5-16k — the ~10%
+  host-IK cost): warm-start from the cont40m champion with the new
+  action semantics; ep_rew starts scrambled and DECLINES
+  (-61 -> -224 over 2M) — mechanism engaged beyond doubt; whether
+  this is failure-to-reacquire or length/penalty confounds is the
+  GATE's question, not answerable from reward alone (08-21 ruling).
+- `...cont40m-cartfoot-offctrl` (OFF control, W&B 8tv5njiz): byte-
+  identical, no cart keys; ep_rew 34 -> 388 (normal retention shape).
+Gate evals pre-staged by the watcher; read the pair TOGETHER per the
+pre-registered gates (viable >= 18/24 gv 0 falls; promising = slip
+beats OFF in >=3/4 groups; FAIL-MECHANISM = no re-acquisition with
+reward flat). A 2M read is mechanism evidence, not class closure.
+Evidence: artifacts/rl_watchdog/walkcurr_cartfoot_20260908/.
+RL_LOG 09-08 ~05:4x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~04:30 — action-clip review: target sensitivity measured; dynamic authority remains untested
 
 The six deterministic20s cells of nocrutch1x-c1-acq1-cont40m retain broad

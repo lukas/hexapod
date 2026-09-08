@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T08:06:55+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-base-cartfoot-fresh-s10-c1b
+
+**wandb_id**: fy57bm9a
 
 **hypothesis**: Does the fresh-init cart_foot ON seed10 arm's band-match parity (measured this cycle at 40M: ON/OFF slip ratio 0.857/0.983/0.911/0.969x across the 4 groups, 0 falls) HOLD or DEGRADE at 10M more steps (50M cumulative)? Same durability design as the already-running seed7 cont10m pair, mirroring fork(a)'s late-onset degradation (fine at 12M cumulative, then 2-6x slip + new falls by 22M).
 

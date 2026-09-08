@@ -477,9 +477,39 @@ def main() -> int:
                          "fields to it)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--episode-seconds", type=float, default=15.0)
+    ap.add_argument("--foot-torsion-mu", type=float, default=None,
+                    help="DIAGNOSTIC-ONLY sensitivity dose: override the "
+                         "foot+terrain geoms' TORSIONAL friction "
+                         "coefficient (meters; MuJoCo pairs combine by "
+                         "elementwise max, so both sides are set). The "
+                         "pinned plant ships mu_t=0.1 m, ~20x a physical "
+                         "estimate for the 9 mm boot ((2/3)*a*mu_slide "
+                         "~= 0.005 m); this flag measures how much of "
+                         "the yaw budget rides on that phantom torsion. "
+                         "Applied post-construction to the probe env "
+                         "models only — no shared default changes, no "
+                         "training, nothing deployed.")
     ap.add_argument("--label", default="")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
+
+    if args.foot_torsion_mu is not None:
+        _orig_make_env = pta.make_env
+
+        def _dosed_make_env(cfg_set_, seed_, episode_seconds_,
+                            mode_onehot=False):
+            env = _orig_make_env(cfg_set_, seed_, episode_seconds_,
+                                 mode_onehot=mode_onehot)
+            gf = env.model.geom_friction
+            for g in foot_geom_ids(env.model):
+                gf[g, 1] = args.foot_torsion_mu
+            tg = mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM,
+                                   "terrain")
+            if tg >= 0:
+                gf[tg, 1] = min(gf[tg, 1], args.foot_torsion_mu)
+            return env
+
+        pta.make_env = _dosed_make_env
 
     pins = pin_manifest(args.plant)
     cfg_set = json.loads(args.cfg_json.read_text())
@@ -538,7 +568,7 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(
         {"schema": "hexapod.turn_traction_probe.v1", "label": args.label,
-         "engine": args.engine,
+         "engine": args.engine, "foot_torsion_mu": args.foot_torsion_mu,
          "policy": args.policy, "feasibility": feas, "plant": args.plant,
          "checkpoint": str(args.checkpoint) if args.checkpoint else None,
          "checkpoint_sha256": ckpt_sha, "pin_manifest": pins,

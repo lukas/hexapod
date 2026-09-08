@@ -1,3 +1,15 @@
+# Review notice
+
+The original owner record below is historical. Its global-modulo event
+matching reused events across cycles; its “counterfactual upper bound” was
+an observational conditional mean. Those timing and causal conclusions are
+superseded by ../eventsync_review_20260908/README.md and repairb4f82791a.
+The original body-summary parity remains distinct from recorded trajectory
+parity. No intervention efficacy or class-wide closure follows, and original
+continuous joystick gates remain in force.
+
+--- Original owner record ---
+
 # Event-based phase-synchronization SCREEN on the frozen full-mesh plant
 # (todaypolicy steering, 2026-09-08) — PRE-REGISTRATION
 

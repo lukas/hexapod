@@ -508,6 +508,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--vision-capture-width", type=int, default=1920)
     ap.add_argument("--vision-capture-height", type=int, default=1440)
     ap.add_argument("--vision-capture-fps", type=float, default=30.0)
+    ap.add_argument(
+        "--vision-proxy", default=None, metavar="URL",
+        help="serve /vision and /api/vision/* by proxying the standalone "
+             "vision service (see sim_viewer/hexapod_vision_8766.sh) instead "
+             "of opening the camera in this process; the --vision-* capture "
+             "flags then belong to that service, not here",
+    )
     return ap
 
 
@@ -599,7 +606,19 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
     vision_runtime = None
     try:
         handler = handler_factory()
-        if not args.no_vision:
+        if args.vision_proxy and not args.no_vision:
+            # The camera lives in its own process now.  Keep the same URLs
+            # working here, but never open a capture device in the process
+            # that also bridges the robot.
+            linux_control = ROOT / "linux_control"
+            if str(linux_control) not in sys.path:
+                sys.path.insert(0, str(linux_control))
+            from vision_proxy import (  # noqa: PLC0415
+                wrap_handler_with_vision_proxy,
+            )
+            handler = wrap_handler_with_vision_proxy(
+                handler, args.vision_proxy)
+        elif not args.no_vision:
             linux_control = ROOT / "linux_control"
             if str(linux_control) not in sys.path:
                 sys.path.insert(0, str(linux_control))
@@ -651,6 +670,12 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             print(
                 f"vision UI: https://{args.bind}:{args.https_port}/vision "
                 "(read-only)",
+                flush=True,
+            )
+        elif args.vision_proxy and not args.no_vision:
+            print(
+                f"vision UI: https://{args.bind}:{args.https_port}/vision "
+                f"(proxied to {args.vision_proxy}; no camera in this process)",
                 flush=True,
             )
         if use_hub:

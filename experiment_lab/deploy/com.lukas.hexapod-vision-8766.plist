@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Standalone camera and pose service on :8766.
+
+  Unlike the :8898 hub, which has historically been submitted ad hoc with
+  `launchctl submit` and therefore does not survive a reboot, this ships as a
+  real plist so the cameras come back on their own.
+
+  The runtime path below points at the checkout the service should run from;
+  update it if the runtime worktree is replaced, the way e71 replaced v2.
+
+  Copy to ~/Library/LaunchAgents/, then:
+    launchctl enable gui/$(id -u)/com.lukas.hexapod-vision-8766
+    launchctl bootstrap gui/$(id -u) \
+      ~/Library/LaunchAgents/com.lukas.hexapod-vision-8766.plist
+
+  This job cannot move the robot: the service reads GET /api/feedback for the
+  joint overlay and has no motor, arm or deploy path.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.lukas.hexapod-vision-8766</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/lukas/Library/Application Support/Hexapod Lab/observer-runtime-e72/hexapod_walker/prototype_sts3215/sim_viewer/hexapod_vision_8766.sh</string>
+    <string>foreground</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key>
+  <dict><key>SuccessfulExit</key><false/></dict>
+  <key>ProcessType</key><string>Background</string>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>ExitTimeOut</key><integer>30</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StandardOutPath</key><string>/Users/lukas/Library/Logs/hexapod-vision-8766.log</string>
+  <key>StandardErrorPath</key><string>/Users/lukas/Library/Logs/hexapod-vision-8766.log</string>
+</dict>
+</plist>

@@ -4,6 +4,33 @@ Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
 Accepted facts, not narrative. If old prose disagrees, this file wins.
 
+## Active training and interpretation (2026-09-08 10:21 heartbeat)
+
+Lukas's keep-training instruction authorizes bounded, justified scratch
+learning and assisted walking/yaw design, simulation, training and routine
+recovery on the existing fleet. No operator reply or fleet-contract
+change is required to design the next experiment within the existing
+physical limits. A failed finite assay closes its tested candidate, not
+all steering or all fresh learning. Do not relaunch closed recipes or
+fill slots without a recorded hypothesis and gate.
+
+The half-gravity seed7 40M comparison is movement-gate PASS for both
+arms, with gait **22/24 ON versus 10/24 OFF**, zero terminations and
+lower ON median slip in all four groups. The 2M source counts were
+23/24 and 24/24, but their forward movement was negligible. It is
+incorrect to call the 40M gait patterns symmetric or both stochastic
+panels clean. Preserve original gates and ledger statuses; the result
+is one seed, 0.5g/3x torque, not general equivalence or qualification.
+Evidence: repository-root
+`artifacts/rl_watchdog/fleet_20260908T093214Z/halfgrav_comparison.json`.
+
+The narrowhead/torqueretain fresh-init failures are finite recipe/seed/
+budget results. They neither uniquely isolate DR breadth nor exclude
+interactions. The completed magnitude-allocation yaw assay is STOP
+(0/8 candidates, 0/8 matched box controls pass 5mrad; 32/32 signed
+branches retain walking). Preserve its closed outcome and unchanged
+limits. New steering design/diagnostics remain agent work.
+
 ## Assisted s0 comparator correction (2026-09-08)
 
 The claim that `cw-assistfade-rung3-legdutyratio-s0` repaired

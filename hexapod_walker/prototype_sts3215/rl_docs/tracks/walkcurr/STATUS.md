@@ -1,3 +1,64 @@
+## 2026-09-08 ~10:3x (refill cycle, no completion assigned) — closes the legduty-ratio-target045 s1 half a concurrent cycle deferred; completes the seed10/seed11 halfgrav acquisition cohort's two missing OFF/ON halves alongside that same concurrent cycle
+
+One plain sentence: two loose ends the concurrent cycle's own entries
+explicitly named as "pending elsewhere" both got closed this cycle —
+seed1's half of the `walk_leg_duty_ratio_charge` 0.45-dose canary
+(matching seed0's already-closed FAIL), and the seed10 ON +
+seed11 OFF halves of the halfgrav cart_foot acquisition cohort (the
+concurrent cycle independently took seed10 OFF + seed11 ON at almost
+the same moment — no duplication, verified via live `launch_run.py
+status`).
+
+**`cw-walkscratch-crutchoff-s1-widen8-legdutyratio-target045` ->
+CANARY FAIL - MECHANISM:** vs its own matched 0.30-dose
+`legdutyratiofresh-guardfix1` sibling, gait_valid is identical in all
+4 groups (5/6, 6/6, 6/6, 4/6) but slip_per_m/progress_ratio only
+jointly improve in 2/4 groups (walk_startjitter/det and /sto: slip
+-8%/-18%, progress +8%/+6%) while both ordinary walk/{det,sto} groups
+get WORSE on both metrics (slip +7%/+7%, progress -3%/-12%) — needs
+>=3/4, clears only 2/4. Same shape as s0's independently-closed FAIL
+(2/4 groups also). **Both seeds now agree: the 0.45-dose escalation
+of `walk_leg_duty_ratio_charge` does not buy a real net quality gain,
+matching the 0.30-dose result exactly** — do not fund a further dose
+step or continuation of this exact mechanism without a genuinely new
+pricing design (e.g. charge against absolute duty deficit, or paired
+with a swing-count floor).
+
+**Halfgrav cart_foot seed10/seed11 40M acquisition cohort — all 4
+CANARY->ACQ launches now in flight, none duplicated:** verdicted all
+4 seed10/seed11 2M canaries CANARY PASS first (healthy machinery,
+same near-zero-det/real-sto-progress shape as seed7's canary; 0
+falls/24 episodes each, gait_valid 6/6 every group). Launched
+`cartfoot-halfgrav-s10-acq1` (ON, respec of `s7-acq1`, `--init-from`
+the seed10 canary ckpt) on train-2 before discovering the concurrent
+cycle had simultaneously launched `offctrl-s10-acq1` (train-1) and
+`s11-acq1` ON (train-0) — so this cycle's second launch instead
+filled the one remaining gap, `offctrl-s11-acq1` (OFF, train-3),
+completing all 4 arms of the n=3 (seed7/10/11) cohort with zero
+duplicate spend. All 4 VERIFIED RUNNING at cycle end. Gate for both
+new pairs: >=0.03 m/s median net forward in >=1 of walk/det,sto (0
+falls in det), read together with its ON/OFF sibling at the same
+budget; slip/m ratio is the headline comparison, 08-21 ruling applies
+if reward is still rising at cutoff.
+
+Capacity: this cycle's 2 launches (`s10-acq1` ON 40M +
+`offctrl-s11-acq1` OFF 40M) use exactly the 80M-step/cycle cap; no
+further GPU launches this cycle. 7 pods remained free at cycle end
+(train-4,5,7,8,9,10,11) — idle-within-cap, not idle-next-to-runnable-
+work: no other track has a launch-ready item (todaypolicy/assistfade/
+standwalk are each blocked on unbuilt reward-mechanism/design work,
+cpg/amp are DONE-or-maintenance), and the walkcurr fresh-init/
+narrowhead/torqueretain bisection lines are already closed pending a
+genuinely new DR-curriculum mechanism.
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-s1-widen8-legdutyratio-target045`;
+`logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_{s10,s11,offctrl_s10,offctrl_s11}_gate/report.json`;
+W&B notes on all 5 verdicted runs; `launch_run.py status` confirming
+all 4 acq1 pods RUNNING with advancing step counts. RL_LOG 09-08
+~10:1x-10:3x. CYCLE_WORKED touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:2x (triage cycle; assigned `cartfoot-halfgrav-s11` canary) — assigned canary was already CANARY PASSed (a concurrent cycle triaged the whole seed10/seed11 cohort together while this cycle was reading it); launched the seed11 40M acquisition continuation the PASS calls for
 
 One plain sentence: the seed11 halfgrav cart_foot (ON) canary this

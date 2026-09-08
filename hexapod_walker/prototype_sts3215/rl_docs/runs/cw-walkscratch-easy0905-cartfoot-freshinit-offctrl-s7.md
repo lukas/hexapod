@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T06:22:39+00:00
 
 **pod**: hexapod-mjx-train-1
 
 **steps**: 2000000
+
+**wandb_id**: xlzhnck1
 
 **hypothesis**: Matched joint-space fresh-init control for cartfoot-freshinit-c1-s7 (same seed 7, byte-identical base-pilot recipe, no cart_foot keys) -- isolates whether any ignition-health difference is caused by the action decode rather than seed/recipe drift; also serves as an independent-seed replicate of the already-proven base-s0/s1 fresh-init arms.
 

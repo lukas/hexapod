@@ -1,9 +1,49 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 — frozen full-mesh composed-demo replay
-published in 89c2399a7. The yawref candidate passes the listed translation
-demo bars and improves on the fresh matched incumbent. Its separate
-continuous-arc/tip qualification remains FAIL.
+Last updated: 2026-09-08 — coordinated steering causal screen executed
+(frozen proposal 7b9d114ef): STOP by the prespecified rule, but first
+supra-threshold pulse authority observed (negative-yaw side qualifies at
+0.05; positive-yaw side fails). The yawref candidate still passes the
+translation demo bars vs the fresh incumbent; continuous-arc/tip
+qualification remains FAIL.
+
+## 2026-09-08 ~08:0x — coordinated 40-branch causal screen: frozen predicates say STOP; one-sided (−yaw) authority is real
+
+Operator focus note 20260908T071713Z: executed the FROZEN coordinated
+proposal `artifacts/rl_watchdog/turn_coordinated_guidance_20260908/`
+(templates sha `7014cf63…`, re-derived bit-exactly before use; never refit)
+on the same frozen checkpoint `61f9c20f…` / full-mesh XML `7efb8e8a…`
+(34 meshes, 4.80573 kg) / 64-key cfg / seed 0 / DR 0 / 400/20/0.375/350/
+100 Hz stack in the validated worktree (helper + asset hashes verified vs
+the reviewed bank; no regeneration). 4 continuous baselines reproduced the
+reviewed single-joint bank EXACTLY (window hashes + full prefix/endpoint
+state digests); 8/8 zero controls and 32/32 pulse prefixes passed full
+state parity; 0 action-bound clip hits (full intended dose delivered).
+
+Result against the prespecified predicates: **STOP — no globally
+qualifying amplitude.** At 0.05 the `wz_neg_phase0` template FULLY
+qualifies in BOTH starts (G+ 7.066 / 5.666 mrad ≥ 5 mrad actual bar, with
+corrected retention, odd>0, opposite-vector retention) — the first
+supra-threshold, retention-compatible pulse authority of any class (single-
+joint bank: 0/288, max 4.10 mrad) — but NO wz-positive template qualifies
+at either dose, and the frozen rule requires both yaw signs at one global
+amplitude. +wz fails two distinct ways: matched-start repeatability at
+0.025 (start-0 member 5.271 mrad PASS, π-start member −0.497 mrad — the
+only odd<0 point of 16) and forward retention at 0.05 (5.558/3.253 mrad
+members with forward ratios 0.854/0.891 < 0.9 — positive-yaw pulses tax
+forward progress). Odd range −0.53..+4.30 mrad vs even −0.37..+3.27 mrad
+(even facilitation comparable, as the freeze warned); stronger ±5 mrad
+reversal 0/16. Holdouts NOT licensed and not run; templates not refit;
+**no PPO canary** (per the frozen scope, one-sided same-state success does
+not license training). Recorded next mechanism question (not executed): is
+the +wz failure a sign-box derivation artifact (magnitude-weighted,
+L2-matched templates would recover it) or a plant/gait asymmetry (positive
+yaw costs forward progress — consistent with the traction-limited
+conversion finding)? A recurring burst/feedback schedule + original 15 s
+both-yaw-signs+straight validation remain prerequisites before any 2M
+canary. Evidence: `artifacts/rl_watchdog/turn_coordinated_screen_20260908/`
+(runner, frozen-predicate analysis, raw bank with per-coordinate doses,
+screen_summary.json, manifest).
 
 ## 2026-09-08 ~06:4x — assisted-steering action bank: yaw response below the sampled effect threshold; no canary
 

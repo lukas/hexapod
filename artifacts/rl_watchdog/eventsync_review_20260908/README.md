@@ -73,3 +73,16 @@ module, the missing-straight and failed-parity cases both fail their regression
 assertion because old `main()` returns0. Two failures in0.06seconds; the repaired
 cases pass. Nine old pure tests did not exercise the actual CLI or event jitter.
 No extra simulation, gate rerun, or training was performed.
+
+
+## Root frozen-matrix verification
+
+Root deployedb4f82791a/f44d9be5f and reran all six original fullmesh15s
+cells in the isolated steering worktree. The reviewed result is
+eventsync_fm.json. Strict validation passes; body medians/count/fall status
+match the pinned originals. Correct local matching gives20ms inter-leg
+spread in all four arcs and10/0ms sign differences, so historicalS2 now
+fails. The previously claimed330/340ms anti-phased leg was a matching/wrap
+artifact. S1observational gain remains2.2–3.4%, below its descriptive10%bar.
+Both observational_screen_passed and supported arefalse. This is a
+diagnostic correction, not an intervention efficacy test or class closure.

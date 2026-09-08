@@ -1,7 +1,7 @@
 {
   "schema": "rl-watchdog/2",
   "trigger": "2026-09-08T04:22:12.606Z",
-  "last_updated": "2026-09-08T04:35:00Z",
+  "last_updated": "2026-09-08T04:57:00Z",
   "prior_record": "artifacts/rl_watchdog/state_20260908T024642Z.json",
   "scope": "Simulation RL fleet only; no physical robot action, capacity purchase or limit changes.",
   "capacity": {
@@ -55,6 +55,12 @@
       "outcome": "Six exact scratch deterministic gate cells: broad safe-target sensitivity. Conditional clipping-correction pair not justified. Dynamic foot response untested; whole-class refutation withdrawn.",
       "source": "f07e14d745253c6c153bb2c31261bb005d771313",
       "result_record": "0b86eecebe02b8ec73c8945d8e91081cdedff556"
+    },
+    {
+      "cycle": "20260908T043311",
+      "source": "2858d37fa",
+      "result_record": "a12b50bba",
+      "outcome": "Six-cell observational event-sync screen; no canary. Original global-modulo matcher and causal upper-bound/class-closure interpretation repaired."
     }
   ],
   "repairs": [
@@ -71,6 +77,23 @@
       "change": "Scratch diagnostic absolute/relative knee Jacobian and target error; recovered original untracked artifacts; narrowed causal/parity claims and rejected duplicate generic time slicing.",
       "tests": "8 focused tests pass locally and on controller; offline six-trace version2 reanalysis complete; all pooled target-space fields exact and reconstruction errors0.",
       "evidence": "artifacts/rl_watchdog/walkcurr_clipprobe_20260908/"
+    },
+    {
+      "commit": "b4f82791a",
+      "scope_commit": "f44d9be5f",
+      "deployed": true,
+      "change": "Chronological one-to-one event matching, strict six-cell validation, observational causal scope.",
+      "tests": "57 pass. Reviewed six-cell frozen rerun validates exact body summary parity. Inter-leg spread20ms allfourarcs; historicalS2false, original330/340msclaims were artifacts.",
+      "evidence": "artifacts/rl_watchdog/eventsync_review_20260908/"
+    },
+    {
+      "commit": null,
+      "source_owner": "20260908T042639",
+      "deployed": true,
+      "change": "Guarded live Cartesian pitch-frame correction and real malformed-axis bank; owner retains final source snapshot.",
+      "helper_sha256": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+      "tests": "12 focused owner+independent checks pass on controller; nominal FK numerical precision.",
+      "evidence": "artifacts/rl_watchdog/cart_foot_frame_review_20260908/"
     }
   ],
   "deployment": {
@@ -83,18 +106,15 @@
       "pid": 59960,
       "track": "prior-free scratch",
       "task": "Distinct learned foot-placement design/bank; one matched2M-on/2M-off acquisition pair conditional on justified mechanism and passing implementation bank. Existing RNG2, same lineage/reward/plant/motor/limits.",
-      "status": "advancing design; no training launched at last observation"
-    },
-    {
-      "cycle": "20260908T043311",
-      "pid": 65058,
-      "track": "assisted continuous walking/steering",
-      "task": "Event-conditioned coordination screening, then smallest justified frozenplant both-signs/straight preflight; \u22642M canary only if original gates pass. No generic time_slice revival.",
-      "status": "started; no training launched at last observation"
+      "status": "Runtime decoder implemented;12focusedchecks pass. Waiting on CPU352-test semantics suite started04:43; pytest72473healthyCPUactive. No GPUtraining launch yet."
     }
   ],
   "feedback": [
-    "fb_20260908T043135_664da2"
+    "fb_20260908T043135_664da2",
+    "fb_20260908T043625_ab998c",
+    "fb_20260908T044321_d3041d",
+    "fb_20260908T044859_ed5d0d",
+    "fb_20260908T045638_79ad89"
   ],
   "followup": "Follow existing advancing cycle owners through actual placement/steps or measured prerequisite results; do not duplicate kicks. Keep original joystick gates, prior-free scratch, source checkpoints and budgets."
 }

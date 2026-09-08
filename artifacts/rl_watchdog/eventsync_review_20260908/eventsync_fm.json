@@ -1,0 +1,6819 @@
+{
+ "schema": "hexapod.turn_eventsync_probe.v2",
+ "label": "reviewed-b4f82791a",
+ "policy": "scripted",
+ "plant": "fullmesh",
+ "cfg_set": [
+  "control.hz=100",
+  "safety.max_delta_q_deg=0.375",
+  "safety.max_roll_deg=25",
+  "safety.max_pitch_deg=25",
+  "goal.walk_speed_min_m_s=0.08",
+  "goal.walk_speed_max_m_s=0.08",
+  "goal.walk_heading_max_rad=3.1415927",
+  "goal.walk_stop_frac=0.15",
+  "goal.walk_cmd_resample_s=6.0",
+  "goal.walk_cmd_resample_jitter=0.2",
+  "goal.walk_park_start_frac=0.25",
+  "goal.walk_obs_body_vel=2",
+  "goal.walk_phase_obs=1",
+  "goal.walk_phase_hz=1.333333",
+  "goal.walk_yaw_cmd=1",
+  "goal.walk_phase_run_on_yaw=1",
+  "goal.walk_yaw_zero_frac=0.5",
+  "reward.walk_kernel_prog_gate=1.0",
+  "reward.walk_anchor_gate=1.0",
+  "reward.anchor_tol_mm=10.0",
+  "reward.walk_height_gate=1.0",
+  "reward.walk_height_sigma_mm=30.0",
+  "reward.walk_loadslip_gate=1.0",
+  "reward.loadslip_ok=3.0",
+  "reward.loadslip_max=6.0",
+  "reward.k_loadslip_excess=10.0",
+  "reward.k_walk_idle_charge=20.0",
+  "reward.walk_idle_speed_m_s=0.02",
+  "reward.k_park_duty=2.0",
+  "reward.k_drag_loaded=10.0",
+  "reward.k_walk_course_income=2.0",
+  "reward.walk_course_income_window_s=0.75",
+  "reward.walk_course_income_deadband_deg=6.0",
+  "reward.walk_course_income_sigma_deg=20.0",
+  "reward.k_walk_excess_sway=2.0",
+  "reward.walk_sway_window_s=0.75",
+  "reward.walk_sway_allow_mm=5.0",
+  "reward.k_walk_course_disp=0.15",
+  "reward.walk_course_disp_window_s=1.5",
+  "reward.walk_course_disp_min_speed_m_s=0.02",
+  "reward.k_walk_course_disp_overspeed=4.0",
+  "reward.walk_course_disp_overspeed_tol=0.05",
+  "reward.walk_course_disp_overspeed_along=1.0",
+  "reward.walk_course_disp_overspeed_ref_floor_m_s=0.06",
+  "train.bc_anchor_coef=3.0",
+  "train.bc_anchor_walk=1.0",
+  "train.bc_anchor_walk_coef=1.0",
+  "train.bc_anchor_phase_lock=1.0",
+  "train.bc_anchor_isolate_update=1",
+  "goal.walk_turn_in_place_frac=0.30",
+  "reward.k_walk_yaw=1.0",
+  "reward.walk_yaw_kernel_gate=1.0",
+  "reward.walk_kernel_yaw_gate=1.0",
+  "reward.k_yaw_prog=2.0",
+  "reward.k_yaw_still=50.0",
+  "reward.walk_yaw_hold_prog_gate=1.0",
+  "reward.yaw_still_avg_s=1.0",
+  "reward.yaw_prog_overshoot_decay=1.0",
+  "reward.yaw_prog_avg_s=1.0",
+  "train.bc_anchor_walk_turn_skip=1",
+  "reward.walk_course_ref_yaw=1.0",
+  "reward.walk_sway_arc_aware=1.0",
+  "env.model_source=mesh"
+ ],
+ "seed": 0,
+ "episode_seconds": 15.0,
+ "stance_hip_deg": 20.0,
+ "stance_knee_deg": 100.0,
+ "feasibility": {
+  "stance": {
+   "hip_deg": 20.0,
+   "knee_deg": 100.0,
+   "reach_mm": 71.0251092206922,
+   "foot_z_mm": -178.50297585114137,
+   "foot_radius_mm": 171.0251092206922,
+   "yaw_arm_gain": 0.4152905356665542
+  },
+  "joint_margins": {
+   "yaw": {
+    "cmd_min_deg": -15.386781747838915,
+    "cmd_max_deg": 15.386781748161678,
+    "limit": [
+     -35.0,
+     35.0
+    ],
+    "margin_deg": 19.613218251838322
+   },
+   "hip": {
+    "cmd_min_deg": 4.288357206351391,
+    "cmd_max_deg": 21.75005624790962,
+    "limit": [
+     -80.0,
+     40.0
+    ],
+    "margin_deg": 18.24994375209038
+   },
+   "knee": {
+    "cmd_min_deg": 94.95672187465173,
+    "cmd_max_deg": 104.73175003399103,
+    "limit": [
+     -20.0,
+     150.0
+    ],
+    "margin_deg": 45.268249966008966
+   }
+  },
+  "raw_ik_calls": 7200,
+  "raw_ik_failures": 0,
+  "period_scale": 1.0,
+  "n_ticks_per_cell": 400
+ },
+ "pin_manifest": {
+  "mesh_mjx_xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+  "sim_model_json_sha256": "6968268e879eb95603d0801ddd25a59f37a3964eef6839e3b63be3df91fe412d",
+  "sim_model_loaded_json_sha256": "144d43fa5dd3bae4eebf1cce47f2f6a8c6f70b3763b36f824d195ca9450273e1",
+  "mesh_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837"
+ },
+ "pin_expect": {
+  "mesh_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+  "mesh_mjx_xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+  "sim_model_json_sha256": "6968268e879eb95603d0801ddd25a59f37a3964eef6839e3b63be3df91fe412d",
+  "sim_model_loaded_json_sha256": "144d43fa5dd3bae4eebf1cce47f2f6a8c6f70b3763b36f824d195ca9450273e1",
+  "cont8m_ckpt_sha256": "4a902839912837168a52e7248eed983ee29e57e5db4d22eeaa827f0a5c1428a0",
+  "model_mass_kg": 4.80573,
+  "control_hz": 100.0,
+  "bus.write_speed": 400.0,
+  "bus.write_acc": 20.0,
+  "safety.max_delta_q_deg": 0.375,
+  "slew_limit_deg_s": 37.5,
+  "resolved_vel_max_counts_s_max": 350.0
+ },
+ "validation": {
+  "valid": true,
+  "reasons": []
+ },
+ "support_verdict": {
+  "bar": {
+   "s1_min_gain_frac": 0.1,
+   "s2_min_interleg_spread_ms": 50.0,
+   "s2_min_sign_differential_ms": 30.0,
+   "s3_straight_wz_cap": 0.0074
+  },
+  "checks": {
+   "s1_gains": {
+    "(+0.15,0.00)": 0.02826587793606405,
+    "(+0.15,3.14)": 0.03447094425036661,
+    "(-0.15,0.00)": 0.027703037798391023,
+    "(-0.15,3.14)": 0.022001674848849972
+   },
+   "s1_pass": false,
+   "s2_interleg_spread_ms": [
+    20.0,
+    20.0,
+    20.0,
+    20.0
+   ],
+   "s2_sign_differential_ms": [
+    10.0,
+    0.0
+   ],
+   "s2_pass": false,
+   "s3_straight_cf_wz": [
+    0.0018625529427277613,
+    0.00036651566785217264
+   ],
+   "s3_pass": true,
+   "zero_falls": true,
+   "parity_ok": true
+  },
+  "historical_bar_supported": false,
+  "observational_screen_passed": false,
+  "supported": false,
+  "scope": "historical observational reweighting bar only; no causal upper bound, efficacy support, class closure or qualification claim"
+ },
+ "results": [
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.15,
+   "seed": 0,
+   "phase_offset": 0.0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.03722226587463831,
+    "wz_med": 0.06424356912738255
+   },
+   "parity": {
+    "ref_wz_med": 0.06424356912738255,
+    "ref_vx_med": 0.03722226587463831,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         64
+        ],
+        [
+         119,
+         138
+        ],
+        [
+         194,
+         214
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         364
+        ],
+        [
+         419,
+         438
+        ],
+        [
+         494,
+         514
+        ],
+        [
+         569,
+         589
+        ],
+        [
+         644,
+         664
+        ],
+        [
+         719,
+         739
+        ],
+        [
+         794,
+         814
+        ],
+        [
+         869,
+         888
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1113
+        ],
+        [
+         1169,
+         1189
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         108
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         258
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         408
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         558
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         708
+        ],
+        [
+         757,
+         783
+        ],
+        [
+         832,
+         858
+        ],
+        [
+         907,
+         933
+        ],
+        [
+         982,
+         1008
+        ],
+        [
+         1057,
+         1083
+        ],
+        [
+         1132,
+         1158
+        ],
+        [
+         1207,
+         1233
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1228
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         221
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         446
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         596
+        ],
+        [
+         644,
+         671
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         821
+        ],
+        [
+         869,
+         896
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1045
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         67
+        ],
+        [
+         119,
+         142
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         367
+        ],
+        [
+         419,
+         442
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         817
+        ],
+        [
+         869,
+         891
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1041
+        ],
+        [
+         1094,
+         1117
+        ],
+        [
+         1169,
+         1191
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         184
+        ],
+        [
+         232,
+         259
+        ],
+        [
+         307,
+         334
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         484
+        ],
+        [
+         532,
+         559
+        ],
+        [
+         607,
+         634
+        ],
+        [
+         682,
+         709
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         934
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1234
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         104
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         254
+        ],
+        [
+         307,
+         329
+        ],
+        [
+         382,
+         404
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         629
+        ],
+        [
+         682,
+         704
+        ],
+        [
+         757,
+         779
+        ],
+        [
+         832,
+         854
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1004
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         221
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         372
+        ],
+        [
+         419,
+         446
+        ],
+        [
+         494,
+         522
+        ],
+        [
+         569,
+         597
+        ],
+        [
+         644,
+         672
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         821
+        ],
+        [
+         869,
+         897
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1045
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1197
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         365
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         965
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1115
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1265
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         257
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         407
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         557
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         707
+        ],
+        [
+         757,
+         782
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         932
+        ],
+        [
+         982,
+         1007
+        ],
+        [
+         1057,
+         1082
+        ],
+        [
+         1132,
+         1158
+        ],
+        [
+         1207,
+         1232
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         177
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         327
+        ],
+        [
+         382,
+         402
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         852
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1077
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1227
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 240.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         68
+        ],
+        [
+         119,
+         143
+        ],
+        [
+         194,
+         218
+        ],
+        [
+         269,
+         293
+        ],
+        [
+         344,
+         368
+        ],
+        [
+         419,
+         443
+        ],
+        [
+         494,
+         518
+        ],
+        [
+         569,
+         593
+        ],
+        [
+         644,
+         668
+        ],
+        [
+         719,
+         743
+        ],
+        [
+         794,
+         818
+        ],
+        [
+         869,
+         893
+        ],
+        [
+         944,
+         968
+        ],
+        [
+         1019,
+         1043
+        ],
+        [
+         1094,
+         1118
+        ],
+        [
+         1169,
+         1193
+        ],
+        [
+         1244,
+         1268
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     -10.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5962,
+    0.56,
+    0.5769,
+    0.5531,
+    0.5723,
+    0.5315
+   ],
+   "duty_loaded": [
+    0.5731,
+    0.5354,
+    0.5631,
+    0.5362,
+    0.5685,
+    0.5315
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.4646153846153846,
+      "n": 604,
+      "wz_mean": 0.026722945308123133,
+      "wz_med": 0.033785429808432,
+      "vx_mean": 0.031846005378702885
+     },
+     "pureB": {
+      "frac": 0.43153846153846154,
+      "n": 561,
+      "wz_mean": 0.05406153929493093,
+      "wz_med": 0.07181283390109329,
+      "vx_mean": 0.04182750186765544
+     },
+     "mixed": {
+      "frac": 0.10384615384615385,
+      "n": 135,
+      "wz_mean": 0.0293291246979797,
+      "wz_med": 0.008155394423495183,
+      "vx_mean": -0.002440312848585579
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": 0.038791241803684526,
+    "wz_med_overall": 0.06424356912738255,
+    "wz_pure_avg": 0.03988771030949582,
+    "wz_counterfactual_mean": 0.03988771030949582,
+    "wz_observational_reweighted_mean": 0.03988771030949582,
+    "pure_frac": 0.8961538461538462
+   }
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.15,
+   "seed": 0,
+   "phase_offset": 3.141592653589793,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.036275323376160386,
+    "wz_med": 0.06322606606503198
+   },
+   "parity": {
+    "ref_wz_med": 0.06322606606503198,
+    "ref_vx_med": 0.036275323376160386,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         27
+        ],
+        [
+         82,
+         102
+        ],
+        [
+         157,
+         177
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         327
+        ],
+        [
+         382,
+         402
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         627
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         777
+        ],
+        [
+         832,
+         852
+        ],
+        [
+         907,
+         926
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1076
+        ],
+        [
+         1132,
+         1152
+        ],
+        [
+         1207,
+         1226
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         145
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         295
+        ],
+        [
+         344,
+         370
+        ],
+        [
+         419,
+         445
+        ],
+        [
+         494,
+         520
+        ],
+        [
+         569,
+         595
+        ],
+        [
+         644,
+         670
+        ],
+        [
+         719,
+         745
+        ],
+        [
+         794,
+         820
+        ],
+        [
+         869,
+         895
+        ],
+        [
+         944,
+         970
+        ],
+        [
+         1019,
+         1045
+        ],
+        [
+         1094,
+         1120
+        ],
+        [
+         1169,
+         1195
+        ],
+        [
+         1244,
+         1270
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         366
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1265
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         184
+        ],
+        [
+         232,
+         259
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         484
+        ],
+        [
+         532,
+         559
+        ],
+        [
+         607,
+         634
+        ],
+        [
+         682,
+         709
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         858
+        ],
+        [
+         907,
+         933
+        ],
+        [
+         982,
+         1008
+        ],
+        [
+         1057,
+         1083
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1234
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         105
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         255
+        ],
+        [
+         307,
+         329
+        ],
+        [
+         382,
+         404
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         630
+        ],
+        [
+         682,
+         705
+        ],
+        [
+         757,
+         779
+        ],
+        [
+         832,
+         855
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1004
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         221
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         446
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         596
+        ],
+        [
+         644,
+         671
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         821
+        ],
+        [
+         869,
+         896
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1046
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         66
+        ],
+        [
+         119,
+         141
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         366
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         816
+        ],
+        [
+         869,
+         891
+        ],
+        [
+         944,
+         967
+        ],
+        [
+         1019,
+         1041
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1191
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 280.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         185
+        ],
+        [
+         232,
+         260
+        ],
+        [
+         307,
+         335
+        ],
+        [
+         382,
+         410
+        ],
+        [
+         457,
+         485
+        ],
+        [
+         532,
+         560
+        ],
+        [
+         607,
+         635
+        ],
+        [
+         682,
+         710
+        ],
+        [
+         757,
+         785
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         935
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1085
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1235
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1195
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [
+        1228
+       ],
+       "planned_n": 18,
+       "actual_n": 18,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         144
+        ],
+        [
+         194,
+         219
+        ],
+        [
+         269,
+         294
+        ],
+        [
+         344,
+         369
+        ],
+        [
+         419,
+         444
+        ],
+        [
+         494,
+         520
+        ],
+        [
+         569,
+         594
+        ],
+        [
+         644,
+         669
+        ],
+        [
+         719,
+         744
+        ],
+        [
+         794,
+         819
+        ],
+        [
+         869,
+         894
+        ],
+        [
+         944,
+         969
+        ],
+        [
+         1019,
+         1044
+        ],
+        [
+         1094,
+         1119
+        ],
+        [
+         1169,
+         1194
+        ],
+        [
+         1244,
+         1269
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [
+        1196
+       ],
+       "planned_n": 17,
+       "actual_n": 18,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         139
+        ],
+        [
+         194,
+         214
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         364
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         589
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         739
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         889
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1114
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 240.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         32
+        ],
+        [
+         82,
+         106
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         256
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         406
+        ],
+        [
+         457,
+         481
+        ],
+        [
+         532,
+         556
+        ],
+        [
+         607,
+         631
+        ],
+        [
+         682,
+         707
+        ],
+        [
+         757,
+         781
+        ],
+        [
+         832,
+         856
+        ],
+        [
+         907,
+         931
+        ],
+        [
+         982,
+         1006
+        ],
+        [
+         1057,
+         1081
+        ],
+        [
+         1132,
+         1157
+        ],
+        [
+         1207,
+         1231
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     -10.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5646,
+    0.5877,
+    0.5454,
+    0.59,
+    0.5385,
+    0.5677
+   ],
+   "duty_loaded": [
+    0.5385,
+    0.5654,
+    0.5315,
+    0.5685,
+    0.5362,
+    0.5638
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.4346153846153846,
+      "n": 565,
+      "wz_mean": 0.027056246941546108,
+      "wz_med": 0.030552266039184258,
+      "vx_mean": 0.03095028950041588
+     },
+     "pureB": {
+      "frac": 0.46384615384615385,
+      "n": 603,
+      "wz_mean": 0.05403508100153815,
+      "wz_med": 0.07118099499948331,
+      "vx_mean": 0.04116780412844329
+     },
+     "mixed": {
+      "frac": 0.10153846153846154,
+      "n": 132,
+      "wz_mean": 0.027534470049285442,
+      "wz_med": 0.006665954448606069,
+      "vx_mean": -0.001737154298197018
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": 0.039618833394159024,
+    "wz_med_overall": 0.06322606606503198,
+    "wz_pure_avg": 0.04098453199135364,
+    "wz_counterfactual_mean": 0.04098453199135364,
+    "wz_observational_reweighted_mean": 0.04098453199135364,
+    "pure_frac": 0.8984615384615384
+   }
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": -0.15,
+   "seed": 0,
+   "phase_offset": 0.0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.03636890899080783,
+    "wz_med": -0.06305192853310224
+   },
+   "parity": {
+    "ref_wz_med": -0.06305192853310224,
+    "ref_vx_med": 0.03636890899080783,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         139
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         364
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         889
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1115
+        ],
+        [
+         1169,
+         1189
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 240.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         32
+        ],
+        [
+         82,
+         106
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         257
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         406
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         556
+        ],
+        [
+         607,
+         631
+        ],
+        [
+         682,
+         706
+        ],
+        [
+         757,
+         781
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         931
+        ],
+        [
+         982,
+         1006
+        ],
+        [
+         1057,
+         1081
+        ],
+        [
+         1132,
+         1156
+        ],
+        [
+         1207,
+         1231
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1228
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         69
+        ],
+        [
+         119,
+         144
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         294
+        ],
+        [
+         344,
+         369
+        ],
+        [
+         419,
+         444
+        ],
+        [
+         494,
+         519
+        ],
+        [
+         569,
+         594
+        ],
+        [
+         644,
+         669
+        ],
+        [
+         719,
+         745
+        ],
+        [
+         794,
+         819
+        ],
+        [
+         869,
+         894
+        ],
+        [
+         944,
+         969
+        ],
+        [
+         1019,
+         1044
+        ],
+        [
+         1094,
+         1119
+        ],
+        [
+         1169,
+         1194
+        ],
+        [
+         1244,
+         1269
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         66
+        ],
+        [
+         119,
+         141
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         366
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         816
+        ],
+        [
+         869,
+         891
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1041
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1191
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         108
+        ],
+        [
+         157,
+         185
+        ],
+        [
+         232,
+         260
+        ],
+        [
+         307,
+         335
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         484
+        ],
+        [
+         532,
+         559
+        ],
+        [
+         607,
+         635
+        ],
+        [
+         682,
+         709
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         934
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1160
+        ],
+        [
+         1207,
+         1235
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         104
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         255
+        ],
+        [
+         307,
+         329
+        ],
+        [
+         382,
+         405
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         629
+        ],
+        [
+         682,
+         705
+        ],
+        [
+         757,
+         780
+        ],
+        [
+         832,
+         854
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1005
+        ],
+        [
+         1057,
+         1080
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1230
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         221
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         446
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         596
+        ],
+        [
+         644,
+         671
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         821
+        ],
+        [
+         869,
+         896
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1046
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         365
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         183
+        ],
+        [
+         232,
+         259
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         483
+        ],
+        [
+         532,
+         558
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         708
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         934
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1234
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         27
+        ],
+        [
+         82,
+         102
+        ],
+        [
+         157,
+         177
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         327
+        ],
+        [
+         382,
+         402
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         627
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         777
+        ],
+        [
+         832,
+         852
+        ],
+        [
+         907,
+         927
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1076
+        ],
+        [
+         1132,
+         1152
+        ],
+        [
+         1207,
+         1226
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         145
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         294
+        ],
+        [
+         344,
+         370
+        ],
+        [
+         419,
+         444
+        ],
+        [
+         494,
+         520
+        ],
+        [
+         569,
+         595
+        ],
+        [
+         644,
+         670
+        ],
+        [
+         719,
+         745
+        ],
+        [
+         794,
+         820
+        ],
+        [
+         869,
+         895
+        ],
+        [
+         944,
+         970
+        ],
+        [
+         1019,
+         1045
+        ],
+        [
+         1094,
+         1120
+        ],
+        [
+         1169,
+         1195
+        ],
+        [
+         1244,
+         1270
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     0.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5662,
+    0.5369,
+    0.5854,
+    0.5438,
+    0.5846,
+    0.5623
+   ],
+   "duty_loaded": [
+    0.5615,
+    0.5354,
+    0.5692,
+    0.53,
+    0.5608,
+    0.5377
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.4646153846153846,
+      "n": 604,
+      "wz_mean": -0.05304285657190125,
+      "wz_med": -0.07030695108846546,
+      "vx_mean": 0.0412679283830425
+     },
+     "pureB": {
+      "frac": 0.43923076923076926,
+      "n": 571,
+      "wz_mean": -0.027337948703129843,
+      "wz_med": -0.03284047675617228,
+      "vx_mean": 0.03097976220488285
+     },
+     "mixed": {
+      "frac": 0.09615384615384616,
+      "n": 125,
+      "wz_mean": -0.029182985405308667,
+      "wz_med": -0.010589632531254367,
+      "vx_mean": -0.0020001564747850454
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": -0.0394582517342916,
+    "wz_med_overall": -0.06305192853310224,
+    "wz_pure_avg": -0.04055136517354511,
+    "wz_counterfactual_mean": -0.04055136517354511,
+    "wz_observational_reweighted_mean": -0.04055136517354511,
+    "pure_frac": 0.9038461538461539
+   }
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": -0.15,
+   "seed": 0,
+   "phase_offset": 3.141592653589793,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.0369504033752522,
+    "wz_med": -0.06506261172345035
+   },
+   "parity": {
+    "ref_wz_med": -0.06506261172345035,
+    "ref_vx_med": 0.0369504033752522,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         627
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         777
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         927
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1077
+        ],
+        [
+         1132,
+         1152
+        ],
+        [
+         1207,
+         1228
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 240.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         69
+        ],
+        [
+         119,
+         143
+        ],
+        [
+         194,
+         219
+        ],
+        [
+         269,
+         293
+        ],
+        [
+         344,
+         368
+        ],
+        [
+         419,
+         443
+        ],
+        [
+         494,
+         518
+        ],
+        [
+         569,
+         593
+        ],
+        [
+         644,
+         668
+        ],
+        [
+         719,
+         743
+        ],
+        [
+         794,
+         818
+        ],
+        [
+         869,
+         893
+        ],
+        [
+         944,
+         968
+        ],
+        [
+         1019,
+         1043
+        ],
+        [
+         1094,
+         1118
+        ],
+        [
+         1169,
+         1193
+        ],
+        [
+         1244,
+         1268
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         365
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         965
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1115
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1265
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         107
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         257
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         407
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         557
+        ],
+        [
+         607,
+         632
+        ],
+        [
+         682,
+         707
+        ],
+        [
+         757,
+         782
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         932
+        ],
+        [
+         982,
+         1007
+        ],
+        [
+         1057,
+         1082
+        ],
+        [
+         1132,
+         1157
+        ],
+        [
+         1207,
+         1232
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         71
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         254
+        ],
+        [
+         307,
+         296
+        ],
+        [
+         382,
+         404
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         629
+        ],
+        [
+         682,
+         671
+        ],
+        [
+         757,
+         779
+        ],
+        [
+         832,
+         854
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1004
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [
+        104,
+        329,
+        704
+       ],
+       "planned_n": 18,
+       "actual_n": 20,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         222
+        ],
+        [
+         269,
+         295
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         447
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         597
+        ],
+        [
+         644,
+         670
+        ],
+        [
+         719,
+         747
+        ],
+        [
+         794,
+         822
+        ],
+        [
+         869,
+         896
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1047
+        ],
+        [
+         1094,
+         1122
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1272
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [
+        72,
+        297,
+        672
+       ],
+       "planned_n": 17,
+       "actual_n": 20,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         66
+        ],
+        [
+         119,
+         142
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         367
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         592
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         816
+        ],
+        [
+         869,
+         892
+        ],
+        [
+         944,
+         967
+        ],
+        [
+         1019,
+         1041
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1192
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         109
+        ],
+        [
+         157,
+         184
+        ],
+        [
+         232,
+         259
+        ],
+        [
+         307,
+         334
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         484
+        ],
+        [
+         532,
+         559
+        ],
+        [
+         607,
+         634
+        ],
+        [
+         682,
+         709
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         934
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1234
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         104
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         146
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         446
+        ],
+        [
+         494,
+         520
+        ],
+        [
+         569,
+         596
+        ],
+        [
+         644,
+         671
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         821
+        ],
+        [
+         869,
+         896
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1046
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 10.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         64
+        ],
+        [
+         119,
+         138
+        ],
+        [
+         194,
+         214
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         363
+        ],
+        [
+         419,
+         439
+        ],
+        [
+         494,
+         514
+        ],
+        [
+         569,
+         588
+        ],
+        [
+         644,
+         663
+        ],
+        [
+         719,
+         739
+        ],
+        [
+         794,
+         814
+        ],
+        [
+         869,
+         889
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1113
+        ],
+        [
+         1169,
+         1188
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         108
+        ],
+        [
+         157,
+         183
+        ],
+        [
+         232,
+         258
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         408
+        ],
+        [
+         457,
+         483
+        ],
+        [
+         532,
+         558
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         708
+        ],
+        [
+         757,
+         783
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         933
+        ],
+        [
+         982,
+         1008
+        ],
+        [
+         1057,
+         1083
+        ],
+        [
+         1132,
+         1158
+        ],
+        [
+         1207,
+         1233
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     -10.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5323,
+    0.5692,
+    0.5554,
+    0.5769,
+    0.5592,
+    0.5985
+   ],
+   "duty_loaded": [
+    0.5308,
+    0.5685,
+    0.5362,
+    0.5638,
+    0.5346,
+    0.5731
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.43153846153846154,
+      "n": 561,
+      "wz_mean": -0.054448528397668984,
+      "wz_med": -0.07081628424973231,
+      "vx_mean": 0.04171411900787381
+     },
+     "pureB": {
+      "frac": 0.4653846153846154,
+      "n": 605,
+      "wz_mean": -0.024132988033961997,
+      "wz_med": -0.04435452175808942,
+      "vx_mean": 0.031518334752534696
+     },
+     "mixed": {
+      "frac": 0.10307692307692308,
+      "n": 134,
+      "wz_mean": -0.03063219957328266,
+      "wz_med": -0.011654115820808098,
+      "vx_mean": -0.0026800183634647597
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": -0.03788522841112245,
+    "wz_med_overall": -0.06506261172345035,
+    "wz_pure_avg": -0.03871876688819838,
+    "wz_counterfactual_mean": -0.03871876688819838,
+    "wz_observational_reweighted_mean": -0.03871876688819838,
+    "pure_frac": 0.8969230769230769
+   }
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.0,
+   "seed": 0,
+   "phase_offset": 0.0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.040065720987130155,
+    "wz_med": -0.00015796815524232432
+   },
+   "parity": {
+    "ref_wz_med": -0.00015796815524232432,
+    "ref_vx_med": 0.040065720987130155,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         64
+        ],
+        [
+         119,
+         139
+        ],
+        [
+         194,
+         214
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         364
+        ],
+        [
+         419,
+         439
+        ],
+        [
+         494,
+         514
+        ],
+        [
+         569,
+         589
+        ],
+        [
+         644,
+         664
+        ],
+        [
+         719,
+         739
+        ],
+        [
+         794,
+         814
+        ],
+        [
+         869,
+         889
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1114
+        ],
+        [
+         1169,
+         1189
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         107
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         257
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         407
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         557
+        ],
+        [
+         607,
+         632
+        ],
+        [
+         682,
+         707
+        ],
+        [
+         757,
+         782
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         932
+        ],
+        [
+         982,
+         1007
+        ],
+        [
+         1057,
+         1082
+        ],
+        [
+         1132,
+         1157
+        ],
+        [
+         1207,
+         1232
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         28
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1228
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         145
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         295
+        ],
+        [
+         344,
+         370
+        ],
+        [
+         419,
+         445
+        ],
+        [
+         494,
+         520
+        ],
+        [
+         569,
+         595
+        ],
+        [
+         644,
+         670
+        ],
+        [
+         719,
+         745
+        ],
+        [
+         794,
+         820
+        ],
+        [
+         869,
+         895
+        ],
+        [
+         944,
+         970
+        ],
+        [
+         1019,
+         1046
+        ],
+        [
+         1094,
+         1120
+        ],
+        [
+         1169,
+         1195
+        ],
+        [
+         1244,
+         1271
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         66
+        ],
+        [
+         119,
+         141
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         367
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         816
+        ],
+        [
+         869,
+         891
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1042
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1191
+        ],
+        [
+         1244,
+         1267
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         35
+        ],
+        [
+         82,
+         110
+        ],
+        [
+         157,
+         184
+        ],
+        [
+         232,
+         260
+        ],
+        [
+         307,
+         335
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         485
+        ],
+        [
+         532,
+         560
+        ],
+        [
+         607,
+         634
+        ],
+        [
+         682,
+         710
+        ],
+        [
+         757,
+         784
+        ],
+        [
+         832,
+         859
+        ],
+        [
+         907,
+         934
+        ],
+        [
+         982,
+         1009
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1234
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         104
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         254
+        ],
+        [
+         307,
+         329
+        ],
+        [
+         382,
+         404
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         629
+        ],
+        [
+         682,
+         704
+        ],
+        [
+         757,
+         779
+        ],
+        [
+         832,
+         854
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1004
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 280.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         147
+        ],
+        [
+         194,
+         222
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         372
+        ],
+        [
+         419,
+         447
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         597
+        ],
+        [
+         644,
+         672
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         822
+        ],
+        [
+         869,
+         897
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1047
+        ],
+        [
+         1094,
+         1122
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1272
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         365
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         965
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1115
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1265
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         108
+        ],
+        [
+         157,
+         184
+        ],
+        [
+         232,
+         258
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         409
+        ],
+        [
+         457,
+         483
+        ],
+        [
+         532,
+         558
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         708
+        ],
+        [
+         757,
+         783
+        ],
+        [
+         832,
+         858
+        ],
+        [
+         907,
+         933
+        ],
+        [
+         982,
+         1008
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1159
+        ],
+        [
+         1207,
+         1233
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         27
+        ],
+        [
+         82,
+         102
+        ],
+        [
+         157,
+         177
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         327
+        ],
+        [
+         382,
+         402
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         627
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         777
+        ],
+        [
+         832,
+         852
+        ],
+        [
+         907,
+         927
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1152
+        ],
+        [
+         1207,
+         1227
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         69
+        ],
+        [
+         119,
+         144
+        ],
+        [
+         194,
+         219
+        ],
+        [
+         269,
+         294
+        ],
+        [
+         344,
+         369
+        ],
+        [
+         419,
+         444
+        ],
+        [
+         494,
+         519
+        ],
+        [
+         569,
+         594
+        ],
+        [
+         644,
+         669
+        ],
+        [
+         719,
+         744
+        ],
+        [
+         794,
+         819
+        ],
+        [
+         869,
+         894
+        ],
+        [
+         944,
+         969
+        ],
+        [
+         1019,
+         1043
+        ],
+        [
+         1094,
+         1119
+        ],
+        [
+         1169,
+         1194
+        ],
+        [
+         1244,
+         1269
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     -10.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5823,
+    0.5508,
+    0.5846,
+    0.5577,
+    0.5854,
+    0.5477
+   ],
+   "duty_loaded": [
+    0.5715,
+    0.5362,
+    0.5669,
+    0.5362,
+    0.5692,
+    0.5354
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.46384615384615385,
+      "n": 603,
+      "wz_mean": -0.036795880253784774,
+      "wz_med": -0.07017990599303188,
+      "vx_mean": 0.0395300366231122
+     },
+     "pureB": {
+      "frac": 0.4307692307692308,
+      "n": 560,
+      "wz_mean": 0.03575315485828542,
+      "wz_med": 0.06941061116327327,
+      "vx_mean": 0.040270485037100255
+     },
+     "mixed": {
+      "frac": 0.10538461538461538,
+      "n": 137,
+      "wz_mean": 0.003853321411788787,
+      "wz_med": 0.011058688226881054,
+      "vx_mean": -0.005058994316496251
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": -0.0012601877222902479,
+    "wz_med_overall": -0.00015796815524232432,
+    "wz_pure_avg": -0.001862552942727761,
+    "wz_counterfactual_mean": -0.0018625529427277613,
+    "wz_observational_reweighted_mean": -0.0018625529427277613,
+    "pure_frac": 0.8946153846153846
+   }
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.0,
+   "seed": 0,
+   "phase_offset": 3.141592653589793,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 4.80573
+   },
+   "period_eff_s": 0.75,
+   "sampling": {
+    "control_dt_s": 0.01,
+    "physics_dt_s": 0.002,
+    "contact_threshold_N": 0.5,
+    "loaded_threshold_N": 2.0,
+    "contact_time": "last physics solve at post-step data.time minus physics_dt_s",
+    "plan_time": "gait phase used to command the completed control interval",
+    "velocity_scope": "legacy body velocity helpers preserved for parity; not endpoint course integration",
+    "joint_lag_measured": false
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "safety.max_delta_q_deg": 0.375,
+    "slew_limit_deg_s": 37.5,
+    "resolved_vel_max_counts_s_max": 350.0,
+    "control.hz": 100.0
+   },
+   "body": {
+    "vx_med": 0.04023429258659103,
+    "wz_med": -0.007391347275148641
+   },
+   "parity": {
+    "ref_wz_med": -0.007391347275148641,
+    "ref_vx_med": 0.04023429258659103,
+    "ref_n_scored_ticks": 1300,
+    "ok": true,
+    "scope": "body medians + scored tick count vs the stance-arm baseline (summary parity, not trajectory parity)"
+   },
+   "events": {
+    "per_leg": {
+     "0": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         27
+        ],
+        [
+         82,
+         102
+        ],
+        [
+         157,
+         177
+        ],
+        [
+         232,
+         252
+        ],
+        [
+         307,
+         327
+        ],
+        [
+         382,
+         402
+        ],
+        [
+         457,
+         477
+        ],
+        [
+         532,
+         552
+        ],
+        [
+         607,
+         627
+        ],
+        [
+         682,
+         702
+        ],
+        [
+         757,
+         777
+        ],
+        [
+         832,
+         852
+        ],
+        [
+         907,
+         927
+        ],
+        [
+         982,
+         1002
+        ],
+        [
+         1057,
+         1077
+        ],
+        [
+         1132,
+         1152
+        ],
+        [
+         1207,
+         1227
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         69
+        ],
+        [
+         119,
+         144
+        ],
+        [
+         194,
+         219
+        ],
+        [
+         269,
+         294
+        ],
+        [
+         344,
+         369
+        ],
+        [
+         419,
+         444
+        ],
+        [
+         494,
+         519
+        ],
+        [
+         569,
+         594
+        ],
+        [
+         644,
+         669
+        ],
+        [
+         719,
+         744
+        ],
+        [
+         794,
+         819
+        ],
+        [
+         869,
+         894
+        ],
+        [
+         944,
+         969
+        ],
+        [
+         1019,
+         1044
+        ],
+        [
+         1094,
+         1119
+        ],
+        [
+         1169,
+         1194
+        ],
+        [
+         1244,
+         1269
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "1": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         65
+        ],
+        [
+         119,
+         140
+        ],
+        [
+         194,
+         215
+        ],
+        [
+         269,
+         290
+        ],
+        [
+         344,
+         365
+        ],
+        [
+         419,
+         440
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         590
+        ],
+        [
+         644,
+         665
+        ],
+        [
+         719,
+         740
+        ],
+        [
+         794,
+         815
+        ],
+        [
+         869,
+         890
+        ],
+        [
+         944,
+         965
+        ],
+        [
+         1019,
+         1040
+        ],
+        [
+         1094,
+         1115
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1265
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         34
+        ],
+        [
+         82,
+         108
+        ],
+        [
+         157,
+         183
+        ],
+        [
+         232,
+         258
+        ],
+        [
+         307,
+         333
+        ],
+        [
+         382,
+         408
+        ],
+        [
+         457,
+         483
+        ],
+        [
+         532,
+         558
+        ],
+        [
+         607,
+         633
+        ],
+        [
+         682,
+         708
+        ],
+        [
+         757,
+         783
+        ],
+        [
+         832,
+         858
+        ],
+        [
+         907,
+         933
+        ],
+        [
+         982,
+         1008
+        ],
+        [
+         1057,
+         1083
+        ],
+        [
+         1132,
+         1158
+        ],
+        [
+         1207,
+         1233
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "2": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         104
+        ],
+        [
+         157,
+         179
+        ],
+        [
+         232,
+         254
+        ],
+        [
+         307,
+         329
+        ],
+        [
+         382,
+         404
+        ],
+        [
+         457,
+         479
+        ],
+        [
+         532,
+         554
+        ],
+        [
+         607,
+         629
+        ],
+        [
+         682,
+         704
+        ],
+        [
+         757,
+         779
+        ],
+        [
+         832,
+         854
+        ],
+        [
+         907,
+         929
+        ],
+        [
+         982,
+         1004
+        ],
+        [
+         1057,
+         1079
+        ],
+        [
+         1132,
+         1154
+        ],
+        [
+         1207,
+         1229
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 270.0,
+      "liftoff_iqr_ms": 10.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         71
+        ],
+        [
+         119,
+         147
+        ],
+        [
+         194,
+         222
+        ],
+        [
+         269,
+         296
+        ],
+        [
+         344,
+         371
+        ],
+        [
+         419,
+         447
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         596
+        ],
+        [
+         644,
+         672
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         822
+        ],
+        [
+         869,
+         897
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1047
+        ],
+        [
+         1094,
+         1121
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1272
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "3": {
+      "touchdown_med_ms": 220.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         66
+        ],
+        [
+         119,
+         141
+        ],
+        [
+         194,
+         216
+        ],
+        [
+         269,
+         291
+        ],
+        [
+         344,
+         366
+        ],
+        [
+         419,
+         441
+        ],
+        [
+         494,
+         516
+        ],
+        [
+         569,
+         591
+        ],
+        [
+         644,
+         666
+        ],
+        [
+         719,
+         741
+        ],
+        [
+         794,
+         816
+        ],
+        [
+         869,
+         891
+        ],
+        [
+         944,
+         966
+        ],
+        [
+         1019,
+         1041
+        ],
+        [
+         1094,
+         1116
+        ],
+        [
+         1169,
+         1191
+        ],
+        [
+         1244,
+         1266
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 280.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         35
+        ],
+        [
+         82,
+         110
+        ],
+        [
+         157,
+         185
+        ],
+        [
+         232,
+         260
+        ],
+        [
+         307,
+         335
+        ],
+        [
+         382,
+         410
+        ],
+        [
+         457,
+         485
+        ],
+        [
+         532,
+         560
+        ],
+        [
+         607,
+         634
+        ],
+        [
+         682,
+         710
+        ],
+        [
+         757,
+         785
+        ],
+        [
+         832,
+         860
+        ],
+        [
+         907,
+         935
+        ],
+        [
+         982,
+         1010
+        ],
+        [
+         1057,
+         1084
+        ],
+        [
+         1132,
+         1160
+        ],
+        [
+         1207,
+         1235
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "4": {
+      "touchdown_med_ms": 210.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         7,
+         29
+        ],
+        [
+         82,
+         103
+        ],
+        [
+         157,
+         178
+        ],
+        [
+         232,
+         253
+        ],
+        [
+         307,
+         328
+        ],
+        [
+         382,
+         403
+        ],
+        [
+         457,
+         478
+        ],
+        [
+         532,
+         553
+        ],
+        [
+         607,
+         628
+        ],
+        [
+         682,
+         703
+        ],
+        [
+         757,
+         778
+        ],
+        [
+         832,
+         853
+        ],
+        [
+         907,
+         928
+        ],
+        [
+         982,
+         1003
+        ],
+        [
+         1057,
+         1078
+        ],
+        [
+         1132,
+         1153
+        ],
+        [
+         1207,
+         1228
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 260.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         44,
+         70
+        ],
+        [
+         119,
+         145
+        ],
+        [
+         194,
+         220
+        ],
+        [
+         269,
+         295
+        ],
+        [
+         344,
+         370
+        ],
+        [
+         419,
+         445
+        ],
+        [
+         494,
+         521
+        ],
+        [
+         569,
+         595
+        ],
+        [
+         644,
+         670
+        ],
+        [
+         719,
+         746
+        ],
+        [
+         794,
+         820
+        ],
+        [
+         869,
+         895
+        ],
+        [
+         944,
+         971
+        ],
+        [
+         1019,
+         1045
+        ],
+        [
+         1094,
+         1120
+        ],
+        [
+         1169,
+         1196
+        ],
+        [
+         1244,
+         1270
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     },
+     "5": {
+      "touchdown_med_ms": 200.0,
+      "touchdown_iqr_ms": 0.0,
+      "touchdown_n": 17,
+      "touchdown_matching": {
+       "matched_pairs": [
+        [
+         44,
+         64
+        ],
+        [
+         119,
+         139
+        ],
+        [
+         194,
+         214
+        ],
+        [
+         269,
+         289
+        ],
+        [
+         344,
+         364
+        ],
+        [
+         419,
+         439
+        ],
+        [
+         494,
+         515
+        ],
+        [
+         569,
+         589
+        ],
+        [
+         644,
+         664
+        ],
+        [
+         719,
+         739
+        ],
+        [
+         794,
+         814
+        ],
+        [
+         869,
+         889
+        ],
+        [
+         944,
+         964
+        ],
+        [
+         1019,
+         1039
+        ],
+        [
+         1094,
+         1114
+        ],
+        [
+         1169,
+         1190
+        ],
+        [
+         1244,
+         1264
+        ]
+       ],
+       "missing_planned_idx": [],
+       "unmatched_actual_idx": [],
+       "planned_n": 17,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      },
+      "liftoff_med_ms": 250.0,
+      "liftoff_iqr_ms": 0.0,
+      "liftoff_n": 17,
+      "liftoff_matching": {
+       "matched_pairs": [
+        [
+         7,
+         33
+        ],
+        [
+         82,
+         107
+        ],
+        [
+         157,
+         182
+        ],
+        [
+         232,
+         257
+        ],
+        [
+         307,
+         332
+        ],
+        [
+         382,
+         407
+        ],
+        [
+         457,
+         482
+        ],
+        [
+         532,
+         557
+        ],
+        [
+         607,
+         632
+        ],
+        [
+         682,
+         707
+        ],
+        [
+         757,
+         782
+        ],
+        [
+         832,
+         857
+        ],
+        [
+         907,
+         932
+        ],
+        [
+         982,
+         1007
+        ],
+        [
+         1057,
+         1082
+        ],
+        [
+         1132,
+         1157
+        ],
+        [
+         1207,
+         1232
+        ]
+       ],
+       "missing_planned_idx": [
+        1282
+       ],
+       "unmatched_actual_idx": [],
+       "planned_n": 18,
+       "actual_n": 17,
+       "max_abs_offset_ticks_exclusive": 37.5
+      }
+     }
+    },
+    "touchdown_common_ms": 210.0,
+    "touchdown_differential_ms": [
+     -10.0,
+     0.0,
+     10.0,
+     10.0,
+     0.0,
+     -10.0
+    ],
+    "interleg_spread_ms": 20.0,
+    "period_ms": 750.0,
+    "matching_definition": "chronological one-to-one, abs time difference < half period; unmatched events explicit",
+    "observation_definition": "last-solve touch threshold edges sampled at control rate; not endpoint contact or measured joint lag"
+   },
+   "duty_contact": [
+    0.5492,
+    0.5823,
+    0.5554,
+    0.5931,
+    0.5515,
+    0.5808
+   ],
+   "duty_loaded": [
+    0.5362,
+    0.5692,
+    0.5362,
+    0.5692,
+    0.5354,
+    0.5677
+   ],
+   "support_states": {
+    "states": {
+     "pureA": {
+      "frac": 0.4307692307692308,
+      "n": 560,
+      "wz_mean": -0.037295512887512254,
+      "wz_med": -0.07502398396002977,
+      "vx_mean": 0.040285700122968594
+     },
+     "pureB": {
+      "frac": 0.4646153846153846,
+      "n": 604,
+      "wz_mean": 0.035284952739050975,
+      "wz_med": 0.0703852513568205,
+      "vx_mean": 0.04019389952558532
+     },
+     "mixed": {
+      "frac": 0.10461538461538461,
+      "n": 136,
+      "wz_mean": -0.0027730582690347404,
+      "wz_med": 0.0013806683361393636,
+      "vx_mean": -0.005355970046436888
+     },
+     "degenerate": {
+      "frac": 0.0,
+      "n": 0,
+      "wz_mean": null,
+      "wz_med": null,
+      "vx_mean": null
+     }
+    },
+    "population_definition": "pureA/B legacy labels: >=2 loaded feet of one tripod, <=1 of other; includes two-foot support",
+    "reweighting_scope": "observed majority-tripod population mean; association only, not a causal upper bound",
+    "n_total": 1300,
+    "wz_mean_overall": 3.80679329163113e-05,
+    "wz_med_overall": -0.007391347275148641,
+    "wz_pure_avg": 0.00036651566785217264,
+    "wz_counterfactual_mean": 0.00036651566785217264,
+    "wz_observational_reweighted_mean": 0.00036651566785217264,
+    "pure_frac": 0.8953846153846153
+   }
+  }
+ ]
+}

@@ -48,3 +48,29 @@ rejection is replaced by a genuine nonparallel-pitch-axis guard.
 - Pre-existing clean-HEAD test failures, unrelated (worktree-verified):
   `test_joint_frame.py::test_joint_policy_surface_...` (plant knee
   100 vs 80) and the recorded `test_sim_env.py::test_drag_charges_...`.
+
+## Bank-integrity record (post-launch, same cycle)
+
+Full `test_task_semantics.py` run on BOTH the mechanism tree and a
+clean-HEAD worktree: 35 failed / 353 passed each, with IDENTICAL
+35-name failure sets (diff empty) — the mechanism diff introduces
+ZERO bank regressions; all 35 are pre-existing (retired-mechanism
+walkcurr/sv/assistfade semantics families plus the two already-known
+clean-HEAD failures).
+
+## Outcome record (same cycle)
+
+- cartfoot-c1 (2M retrofit): CANARY PASS mechanism-viable (19/24 gv,
+  0 falls through fully reinterpreted actions) but NOT promising —
+  slip 3-10x the matched off control in 4/4 groups.
+- cartfoot-offctrl (+2M control): CANARY PASS, source band retained.
+- cartfoot-c1-cont10m (fork a): ACQ FAIL per its pre-registered rule —
+  slip converges (worst group 68->16/m) but plateaus at 2.6-3.3x the
+  matched control at 10M more steps with reward never rising; RETROFIT
+  form CLOSED (verdicted by the concurrent triage cycle, consistent
+  with this cycle's read).
+- cartfoot-offctrl-cont10m: PASS, band stable (5.1-5.8/m).
+- Scoped next candidate (not launched, per-cycle cap reached and it
+  needs its own pre-registration): FRESH-INIT equal-footing test —
+  cartfoot vs joint decode from init, matched budgets/seeds, so
+  neither arm carries the semantics-scramble handicap.

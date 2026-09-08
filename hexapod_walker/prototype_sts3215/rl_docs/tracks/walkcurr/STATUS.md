@@ -1,3 +1,58 @@
+## 2026-09-08 ~06:2x (triage cycle) — fork (a), the cartfoot-c1 10M continuation, verdicted CLOSED: slip stays 2.6-3.3x the matched control after 10M more steps, reward never reverses its decline
+
+Triaged the pair the ~06:1x entry below found already RUNNING
+(launched by a different cycle) but left unverdicted: both hit
+`state=finished` on W&B while the ledger still said RUNNING (pods had
+gone fully idle — `launch_run.py status` showed all 12 GPU pods
+free); `checkup --run` on each mechanically reconciled the ledger to
+FINISHED (no manual status edit) and completed the deferred-artifact
+finalize/sync.
+
+- `cartfoot-offctrl-cont10m` (matched control, W&B `x46hb1dy`):
+  **PASS**, retains the source band at 10M — gait_valid 22/24 (6/5/5/6
+  across walk-det/sto/startjitter-det/sto), 0 falls/terms in 24/24,
+  slip/m median 5.09/5.32/5.29/5.77 (the ~5-6/m source band), reward
+  rising the whole continuation (quarters 288→847→1503→1771). Valid,
+  undrifted comparator.
+- `cartfoot-c1-cont10m` (ON, fork (a), W&B `qay6bggy`): **ACQ FAIL**
+  against its own pre-registered gate. gait_valid 19/24 (5/4/4/6),
+  0 falls/terms in 24/24 — clears the gait/no-fall floor — but
+  slip/m median 13.22/17.35/14.11/17.03 is 2.6-3.3x the matched
+  control in ALL 4/4 groups (PROMISING needed <=1.5x in >=3/4 groups;
+  0/4 clear it). Train reward fell the ENTIRE continuation (quarters
+  -150.6 → -397.1 → -521.0 → -576.3): decelerating but never
+  reversing, so the gate's own "one more read only if reward is
+  RISING" clause (08-21 ruling) does not license a further read. It
+  does not literally cross the numeric FAIL-MECHANISM line either
+  (only 1/4 groups, not >=3/4, exceed 3x slip; gait_valid stays above
+  18/24) — an honest in-between reading, not a clean threshold hit —
+  but with no rising-reward escape and slip still 2.6-3.3x worse than
+  the matched control after 10M extra steps of the identical retrofit
+  recipe, further spend on this exact form is not justified.
+
+**Fork (a) is now CLOSED: the Cartesian-foot-target retrofit recovers
+0-fall six-leg walking after action-semantics scramble (mechanism
+"works" in the narrow re-acquisition sense) but does not close the
+slip gap to the matched joint-decode control even after 10M
+additional steps, and the reward signal that would license patience
+(08-21) is absent — it degrades throughout.** Per the pre-registered
+OPEN FORK, the remaining option is fork (b): a genuinely fresh-init
+cart-foot arm vs a fresh-init joint-decode control at equal budget,
+so neither parameterization carries this retrofit's warm-start/
+scramble handicap. That still needs its own design pass first (the
+`cont40m` recipe was itself only ever reached via a long continuation
+chain, never trained from scratch directly, so a naive fresh pair at
+this exact recipe risks conflating "neither parameterization can
+learn this hard task from scratch" with a mechanism-specific result)
+— not pre-licensed here, flagged for whichever cycle takes it up next.
+The concurrent seed3 replicate pair (`cartfoot-c1-s3`/
+`cartfoot-offctrl-s3`) is a different cycle's line; not read or
+verdicted here.
+Evidence: `ops.sh review` output for both runs this cycle; W&B notes
+`qay6bggy`/`x46hb1dy`. RL_LOG 09-08 ~06:2x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:1x (triage cycle) — cartfoot pair verdicts confirmed already recorded (no re-triage); launched a second-seed replicate pair (seed3) to test reproducibility, concurrent with another cycle's own fork-(a) 10M continuation
 
 Read `ops.sh review` on both `cartfoot-c1`/`cartfoot-offctrl`: both

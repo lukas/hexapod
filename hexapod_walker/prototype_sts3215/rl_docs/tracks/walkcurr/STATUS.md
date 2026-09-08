@@ -1,3 +1,49 @@
+## 2026-09-08 ~04:2x (operator-kick cycle; focus note 20260908T040314Z) — action-clipping/controllability preflight on the exact scratch gate cells: FALSIFIED, small actor corrections do NOT disappear in the safety clip; no correction-mechanism pair launched
+
+One plain sentence: we asked whether the walk champion's tiny steering
+corrections get eaten by the 3.6°/tick safety rate limiter (its gate
+telemetry shows ~87% of ticks with SOME joint at that cap), and the
+measured answer is no — the cap barely touches per-joint
+controllability, so that whole mechanism class is closed without
+spending any training budget.
+
+Method: additive default-off trace hooks (snapshot `f07e14d7`,
+`exp/walkcurr-clipprobe-20260908`) + a pure decoder/SafetyLayer replica
+probe (`rl_move/sim/probe_action_clip.py`). Replayed the 6
+deterministic 20 s walk gate cells of
+`crossgrav_medhead_dr_allaxiskickhalf_nocrutch1x_c1_acq1_cont40m`
+BIT-EXACTLY (all 6 episodes' return/slip/slew_sat/forward_dist equal
+to the recorded gate report; replica parity 0.0 rad on all 12,000
+ticks), then perturbed every action dim on copied decoder/safety state
+and mapped transmitted intervals through per-leg foot Jacobians.
+
+Findings (pooled, 6 cells): per-joint slew saturation is only
+yaw 0.6% / hip 6.4% / knee 11.3% (mean 1.09 of 18 joints/tick, never
+all 18; stance 5.7% ≈ swing 6.5%); a ±0.05 action tweak moves the safe
+target in 95.7% of channels per sign (97.6% either sign; dead-both
+2.4%→0.15% at ±0.25); saturated channels' median deadband is 0.036
+action units; foot-space achievable/ideal ratio median ~1.0 with only
+~1% lost directions at every budget, stance == swing; ~3 mm/tick
+median vertical authority at ±0.1; zero action pinning. The det gate
+itself already runs with action noise up to ~0.09 — perturbations of
+the tested size are the policy's daily weather and they transmit.
+
+Consequence: the pre-registered 18D reachable-target correction
+(zero-residual-parity design) is NOT justified — its premise is
+measured-false; per the focus note the 2M on/off pair is NOT launched.
+"slew_sat_frac ~0.87" is an ANY-joint statistic and does not indicate
+lost controllability. The 9-arm slip-floor escalation demand still
+stands with the candidate list now: foot-pad contact geometry (twin
+foot = 4.5 mm sphere) and a genuine foot-placement policy change —
+action-clip controllability joins torsional friction as REFUTED.
+Evidence: `artifacts/rl_watchdog/walkcurr_clipprobe_20260908/`
+(+ raw traces `logs/ckpt_eval/..._cont40m_clipprobe/`). Note:
+`test_sim_env.py::test_drag_charges_loaded_translation` fails
+PRE-EXISTING on clean HEAD (-0.573 vs -0.5 threshold), unrelated to the
+probe hooks (verified by stash). RL_LOG 09-08 ~04:2x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~03:5x (same cycle; refill) — measured the cross-track torsional-friction candidate against walkcurr's OWN closed 9-arm slip floor: REFUTED for straight walking (unlike the turning case)
 
 The 09-07 ~20:3x closure (below) demanded a STRUCTURAL (non-reward)

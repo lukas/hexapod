@@ -1,8 +1,35 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 ~05:40 UTC — composed-demo A/B (operator focus
+Last updated: 2026-09-08 ~06:4x UTC — composed-demo A/B (operator focus
 fb_20260908T052913): yawref candidate PASSES the full-sim composition
 bars and beats the fresh matched incumbent; GO as the bundle's walk piece.
+
+## 2026-09-08 ~06:4x — assisted-steering action-authority bank: NO exploitable per-joint pulse handle (preregistered NULL; no canary)
+
+Operator focus note 20260908T061629Z (context `fb_20260908T060614_63099e`):
+bounded actual dynamic action-response bank on the frozen yawref-cigate8m
+checkpoint (`61f9c20f…`) and frozen 4.80573 kg full-mesh XML (`7efb8e8a…`),
+original 400/20/0.375/350/100 Hz motor contract, cells (0.08, ±0.15) ×
+starts 0/π, seed 0, two half-cycle-separated settled states per cell,
+296 branches (±0.05 normalized single-joint 5-tick pulses + zero
+controls), identical reset/prefix replay. Exactness gate PASS (all zero
+branches bit-exact vs continuous baseline, final-qpos equality).
+
+Result against the PREREGISTERED criteria (spec hashed before data,
+sha `847db884…`): **0/288 branches reach the +0.005 rad commanded-
+direction yaw-gain threshold** (max +0.0041; mean +0.0003, sd 0.0010);
+retention 288/288 (pulses benign); zero (joint,sign) pairs with even a
+consistent gain sign across the 8 states; both-signs qualification
+FALSE. Preregistered decision executed: no state-dependent-residual
+panel, **no 2M assisted canary**. Scope closed is ONLY this pulse class
+(single-joint ±0.05 × 5-tick open-loop at settled states, this frozen
+policy/plant); multi-joint/closed-loop/learned residual classes, other
+doses/phases and gait-level mechanisms remain OPEN. Continuous-yaw
+qualification remains FAIL for this lineage — unchanged.
+
+Evidence: `artifacts/rl_watchdog/turn_actionbank_20260908/`
+(prereg_spec.json, probe_action_response_bank.py, bank.json,
+ranking.json, analyze_bank.py, README.md).
 
 ## Composed-demo A/B: yawref candidate vs fresh incumbent (2026-09-08, 05:3x UTC)
 

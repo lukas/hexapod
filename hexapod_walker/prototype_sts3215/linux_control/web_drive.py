@@ -449,6 +449,29 @@ class Handler(BaseHTTPRequestHandler):
             emit_http("GET", self.path, peer=self._peer())
         except Exception:
             pass
+        if path == "/api/commands":
+            # Served before the bus gate on purpose: the command log is most
+            # needed when the bus is quarantined and nothing else responds.
+            from urllib.parse import parse_qs, urlparse
+            query = parse_qs(urlparse(self.path).query)
+
+            def _int(name, default):
+                try:
+                    return int(query.get(name, [default])[0])
+                except (TypeError, ValueError):
+                    return default
+
+            try:
+                from command_journal import recent
+                payload = recent(
+                    limit=_int("limit", 50),
+                    since=_int("since", 0),
+                    controller=(query.get("controller") or [None])[0],
+                )
+            except Exception as exc:
+                payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            self._send(200, json.dumps(payload), "application/json")
+            return
         if self._request_requires_bus() and self._reject_quarantined_bus():
             return
         if path in PAGE_PATHS:
@@ -804,6 +827,17 @@ class Handler(BaseHTTPRequestHandler):
                           peer=self._peer())
             except Exception:
                 pass
+        # The attributed command journal keeps its own longer ring, so a
+        # burst of polling cannot evict the record of who commanded what.
+        # Journalled before the quarantine gate: a command that is about to be
+        # rejected is still a command someone issued.
+        # Heartbeats are counted rather than stored (see command_journal).
+        try:
+            from command_journal import record as _journal_record
+            _journal_record("POST", self.path, body=body_obj,
+                            peer=self._peer(), headers=self.headers)
+        except Exception:
+            pass
         if (path != "/cmd" and self._request_requires_bus()
                 and self._reject_quarantined_bus()):
             return

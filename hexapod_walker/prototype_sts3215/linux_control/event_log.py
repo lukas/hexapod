@@ -559,6 +559,10 @@ def emit_http(method: str, path: str, *, body: Any = None,
         "/api/ping", "/api/demo/status", "/api/robot", "/api/status",
         "/api/pose", "/api/calibrate", "/api/plant", "/api/imu",
         "/api/events", "/api/errors", "/", "/index.html",
+        # These are polled continuously by the Mac hub. Left in the stream
+        # they evict the whole ring within seconds, which is exactly how the
+        # record of a real stop event gets lost.
+        "/api/feedback", "/api/setup", "/api/rl/drive", "/api/commands",
     ):
         return
     data: dict[str, Any] = {"method": method, "path": path}

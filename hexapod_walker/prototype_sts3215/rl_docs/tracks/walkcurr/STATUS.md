@@ -1,3 +1,52 @@
+## 2026-09-08 ~08:0x (triage cycle) — fork (b) seed10 OFF control lands: completes the seed10 pair at true ON/OFF slip PARITY (2nd replicate matching seed7); durability cont10m pair queued
+
+One plain sentence: this cycle's assigned finished run is the matched
+OFF (joint-space) control for the fork(b) fresh-init cart_foot
+seed10 arm verdicted PASS-PARITY last cycle, and computing the exact
+ON/OFF ratio confirms genuine parity (not just absolute-band match)
+-- the 2nd of 3 planned seed replicates to clear this bar.
+
+**`base-cartfoot-freshoffctrl-s10-c1` verdict (PASS, matched
+control):** 0/24 falls; gait_valid 12/12 sto, 0/12 det (same
+family-wide det-only leg[1]/[4] duty-underuse quirk seen in the ON
+arm and already precedented non-blocking for `halfgrav-s0-c1`);
+reward rising every quarter (-402.0->797.8->1630.7->1925.9), no
+plateau. Frame strips (`walk_det_0.png`, `walk_sto_0.png`) show a
+level body, steady forward translation, alternating leg swing, no
+drag/flag-leg.
+
+**Exact ON/OFF slip ratio (computed from both report.json files,
+matched by scenario/mode):** walk/det 0.857x (ON 2.611 vs OFF 3.046),
+walk/sto 0.983x (3.287 vs 3.345), walk_startjitter/det 0.911x (2.671
+vs 2.933), walk_startjitter/sto 0.969x (3.21 vs 3.314) -- ON
+at-or-under OFF in ALL 4 groups, matching seed7's 0.94-0.99x shape
+and the opposite of fork(a)'s 1.5-6x inflation. This resolves the
+prior entry's open caveat ("do not cite this as a 2nd independent
+ratio replicate ... until that control lands") -- it is now a valid
+2nd replicate. Seed11's pair is still training (owned by a
+concurrent cycle); once it lands this becomes a 3/3 cohort ruling.
+
+**Refill (same cycle):** queued a matched cont10m durability pair for
+seed10, mirroring the already-running seed7 design (does 40M parity
+HOLD or DEGRADE at 50M cumulative, the way fork(a) looked fine at
+12M then degraded by 22M): `base-cartfoot-fresh-s10-c1b-cont10m` (ON)
++ `base-cartfoot-freshoffctrl-s10-c1-cont10m` (OFF), both backlog-
+queued (9 pods free at capacity check: train-1/3/4/5/7/8/9/10/11;
+train-6 unreachable/node down). Gate: HOLDS = slip ratio <=1.2x in
+>=3/4 groups + 0 new falls vs the 40M read; DEGRADES = ratio >1.5x in
+>=2/4 groups or any new fall. No other non-duplicative walkcurr arm
+identified; other tracks all genuinely blocked (amp Robot-Lab-only,
+cpg search-exhausted, standwalk/assistfade/todaypolicy need unbuilt
+reward-mechanism design) -- no filler.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-base-cartfoot-
+freshoffctrl-s10-c1`; `logs/ckpt_eval/cw_walkscratch_easy0905_base_
+cartfoot_freshoffctrl_s10_c1_gate/report.json` vs the ON run's
+report.json (ratio computed this cycle); SKILLS.md new row; RL_LOG
+09-08 ~08:0x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~07:5x (triage cycle) — fork (b) seed10 40M continuation lands ACQ PASS - PARITY (band-match): matches base family band, with the SAME benign det-only leg-underuse quirk already precedented in halfgrav-s0-c1
 
 One plain sentence: the assigned finished run this cycle is the

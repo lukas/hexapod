@@ -1836,6 +1836,44 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   report.json` (`duty_cycle`/`sacrificed_legs`/`gait_valid` fields);
   RL_LOG 09-07 23:4x.
 
+- **2026-09-08 ~14:5x: two closures land together.** (1) The 3-arm
+  DR-axis-knockout ablation (bisecting WHICH single DR axis blocks
+  fresh-init ignition on the widen8 full-DR composite) closes 3/3
+  FAIL: removing `dr.bad_start_prob`, `dr.fault_prob`, or
+  `dr.ext_push_prob`+`dr.walk_push_prob` ALONE each still leaves the
+  policy thrashing in place (fwd med 0.01-0.02m/20s episode, i.e.
+  ~0.0005-0.001 m/s, ~30-60x under the 0.03 m/s PASS floor; slip med
+  69-74/m, matching the closed-4/4 fingerprint; contact sheets show
+  zero body translation across all 10 frames). No single named DR
+  axis explains the fresh-init ignition failure — confirms DR breadth
+  itself (the sum of many small-disruption axes) as the blocker.
+  Single-axis knockout is now closed as a productive lever on this
+  composite; the two remaining licensed moves are narrowing the DR
+  composite itself, or a genuinely new per-leg mechanism (below).
+  (2) The `walk_leg_loadslip_ratio_charge` recalibration (target
+  1.5->6.0, moving from the wrong side/p10 to the correct side/p90 of
+  the passing population's own worst-leg load-slip-ratio distribution)
+  fixes the SATURATION diagnosis (excess reads 0.02-0.025, not stuck
+  at a fixed 0.86-1.0 ceiling like the closed target=1.5 batch) on
+  both tested lineages, but still does not clear the efficacy bar:
+  `crutchoff-s0-widen8` (n=1) reads only 2/4 groups improved (short of
+  the >=3/4 CONTINUE bar) with its own training reward collapsing
+  hugely in the back half (quarters 34/56/-1058/-6806, same
+  charge-dominates-raw-PPO-scale shape as the closed target=1.5
+  sibling, not a new anomaly — the exported best-checkpoint's held-out
+  behavior is roughly parity with its parent); `assistfade-rung3-s0`
+  reads a clean FAIL-MECHANISM per its own gate text (slip WORSE on
+  det: 12.67->15.80, +25%; indistinguishable on sto: 16.71->17.17) with
+  no new falls. Recalibration alone does not rescue this lever;
+  further loadslip-charge spend on either lineage needs either a much
+  lower charge weight (so it stops dominating the PPO reward scale) or
+  should be abandoned in favor of a genuinely different per-leg
+  mechanism. Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-
+  jointspace-freshinit-{nobadstart2m,nofault2m,nopush2m}`; `ops.sh
+  review cw-walkscratch-crutchoff-s0-widen8-legdutyratio-loadslip-
+  target6`; `ops.sh review cw-assistfade-rung3-legdutyratio-loadslip-
+  s0-target6`; `rl_docs/tracks/walkcurr/STATUS.md` 2026-09-08 ~14:5x.
+
 ## Real Robot Boundary
 - The robot remains physically owned by the operator, but the active Robot Lab
   campaign grants guarded agents standing authority for bounded observed

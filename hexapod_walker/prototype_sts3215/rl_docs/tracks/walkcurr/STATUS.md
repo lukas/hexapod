@@ -1,3 +1,81 @@
+## 2026-09-08 ~14:5x (idle-kick triage; 11/11 GPU free, empty backlog) — CLOSES the 3-arm DR-knockout ablation 3/3 FAIL (DR breadth confirmed the blocker, not one axis) + closes both `walk_leg_loadslip_ratio_charge` target6-recalibration canaries FAIL-MECHANISM (calibration fixed saturation, did not clear efficacy)
+
+One plain sentence: drained 5 orphaned FINISHED-but-unverdicted runs
+(no run was training anywhere, all 11 pods free) — the 3-arm DR-axis
+knockout this file launched at ~14:1x, plus two `walk_leg_loadslip_
+ratio_charge` target=6.0 recalibration canaries a different concurrent
+cycle had claimed (`triage: in-cycle partial-refill since ~14:01`/
+`~14:28`) but never verdicted (stale >20-50 min with nothing training).
+
+**DR-knockout ablation, 3/3 FAIL:** `nobadstart2m` (removes
+`dr.bad_start_prob` 0.25->0.0), `nofault2m` (removes `dr.fault_prob`
+0.3->0.0), `nopush2m` (removes both push probs 0.3,0.3->0.0,0.0) each
+still thrash in place on the widen8 full-DR composite: walk/det fwd
+med 0.01-0.02m over a 20s episode (~0.0005-0.001 m/s, ~30-60x under
+the 0.03 m/s PASS floor), slip med 69-74/m (matches the closed-4/4
+fingerprint, not the healthy <=2.9 band). gait_valid reads
+superficially high (5-6/6 det) because legs cycle in a stepping
+pattern without net translation — contact sheets for all 3 confirm
+the robot stationary across all 10 frames, zero body displacement.
+**No single named DR axis explains the fresh-init ignition failure —
+confirms DR breadth itself (the SUM of many small-disruption axes)
+as the blocker**, independent of action space (cart_foot already
+failed identically) and independent of staging (staged-DR 2x2 already
+closed 4/4 FAIL). Single-axis knockout is now CLOSED as a productive
+lever on this exact composite. The two remaining licensed moves:
+narrow the DR composite itself for a fresh-init-specific ladder, or
+land a genuinely new per-leg mechanism (see below — still short of
+the efficacy bar itself).
+
+**`walk_leg_loadslip_ratio_charge` target=6.0 recalibration, 2/2 FAIL
+(mechanism confirmed healthy, efficacy not established):** the closed
+0/3 majority (target=1.5, wrong side of the passing population's own
+p10/p50/p90=1.47/2.19/6.57 worst-leg load-slip-ratio distribution) was
+diagnosed as an always-on/saturated tax (excess stuck 0.86-1.0 the
+whole post-grace window). Moving the target to p90=6.0 (correct side
+for an excess-is-bad charge) DOES fix the saturation diagnosis on both
+retested lineages — sparse-but-present telemetry reads excess
+0.02-0.025, nowhere near a ceiling — but efficacy still misses the
+bar:
+- `crutchoff-s0-widen8-legdutyratio-loadslip-target6` (n=1, fresh
+  recalibration on the widen8 lineage): only 2/4 held-out groups
+  clearly improve vs the matched guardfix1-s0 parent (walk/det slip
+  10.09->9.55 + fwd 0.36->0.61m + gait_valid 5/6->6/6; walk/sto slip
+  8.13->7.37, flat elsewhere) — short of the pre-registered
+  >=3/4-groups bar, so no cont10m funded. Training `ep_rew_mean`
+  collapsed hugely in the back half (quarters 34/56/-1058/-6806) —
+  same shape as the closed target=1.5 sibling's own -9858/-34057
+  collapse (the charge's own uncapped weight=150 dominating raw PPO
+  reward scale without moving the exported best-checkpoint's actual
+  behavior), not a new anomaly needing a fresh dig-in.
+- `assistfade-rung3-legdutyratio-loadslip-s0-target6`: a clean
+  FAIL-MECHANISM per the gate's own explicit text — vs the matched
+  bare-duty-charge sibling (slip 12.67 det/16.71 sto), target6 makes
+  det WORSE (15.80, +25%) and leaves sto indistinguishable (17.17,
+  +2.8%, within noise). No new falls (walk_startjitter/det actually
+  improves 2/6->5/6 gait_valid, 5->1 over_current terms) so this is
+  not a safety regression, just no slip benefit on this lineage.
+  Reward stayed healthy (quarters 102/174/222/128, no collapse) —
+  confirming the widen8 sibling's collapse is reward-SCALE/lineage
+  specific, not inherent to the mechanism.
+
+**Net:** recalibration alone does not rescue `walk_leg_loadslip_
+ratio_charge`. Any further spend on this exact charge needs either a
+much lower weight (today's 150 dominates the PPO objective regardless
+of target placement) or should yield to a genuinely different per-leg
+mechanism — the same open lead this file has named since the
+duty-ratio charge's own closure.
+
+CYCLE_WORKED touched (5 real verdicts recorded + CURRENT_TRUTHS/
+STATUS updated — not a re-verify no-op).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-
+freshinit-{nobadstart2m,nofault2m,nopush2m}` (W&B `ap9nlkj0`/
+`v06yxt9u`/`btx1r1u3`); `ops.sh review cw-walkscratch-crutchoff-s0-
+widen8-legdutyratio-loadslip-target6` (W&B `ex55c410`); `ops.sh
+review cw-assistfade-rung3-legdutyratio-loadslip-s0-target6` (W&B
+`uey1ws97`).
+
 ## 2026-09-08 ~14:1x (refill; 11/11 GPU free, empty backlog, no completion assigned) — launched a 3-arm DR-axis-knockout ablation to bisect WHICH axis blocks fresh-init ignition on the widen8 full-DR composite
 
 One plain sentence: the widen8 staged-vs-immediate-DR 2x2 factorial (closed 4/4 FAIL immediately above) named its own two licensed next moves -- narrow the DR composite, or a genuinely new per-leg mechanism -- and every per-leg-mechanism branch (loadslip-ratio, swing-count-floor, duty-ratio, target-calibration) is currently concurrent-cycle-owned on the warm-started-champion leg-sacrifice lineage, so this cycle took the other licensed branch, which nobody has touched yet on the FRESH-INIT ignition question specifically (item(4)'s 09-07 DR-band-NARROWING ablation tested magnitude on an already-walking warm-started champion's steady-state slip gap -- a different question from whether fresh-init ignites at all).

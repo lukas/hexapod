@@ -1,0 +1,400 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger_utc": "2026-09-08T01:42:41.903Z",
+  "status": "Three root scratch continuations completed; matched s1 comparison ready; s0 and assisted gates progressing; video pacing integration in progress",
+  "acquisition": {
+    "run": "cw-walkscratch-crutchoff-s1-widen8-legdutyratio-guardfix-acq10m",
+    "wandb_id": "xy81bl5d",
+    "steps_completed": 10485760,
+    "training_complete_utc": "2026-09-08T01:23:42.805861Z",
+    "checkpoint_md5": "fb3faa76e582e7c065569384b5939f4d",
+    "checkpoint_bytes": 4469269,
+    "cpu_finalizer": {
+      "pid": 666418,
+      "completed_utc": "2026-09-08T01:36:26.282Z",
+      "phase": "evaluated",
+      "jobs_done": 3,
+      "jobs_failed": 0,
+      "publication_flush_confirmed": true
+    },
+    "gate": {
+      "report_written_utc": "2026-09-08T01:54:06.443Z",
+      "videos": 24,
+      "gait_valid": 22,
+      "episodes": 24,
+      "terminations": 0,
+      "source_gait_valid": 21,
+      "interpretation": "22/24 gait,0terminations; matching control21/24,0terminations. One gait flag gained with higher mean slip/m across all groups; no final joystick qualification or clean efficacy win.",
+      "triage_owner": "20260908T015550"
+    }
+  },
+  "idle_observations": [
+    {
+      "utc": "2026-09-08T01:44:00Z",
+      "ready": 11,
+      "free": 11,
+      "optimizing": 0,
+      "compiling": 0,
+      "backlog": 0,
+      "train0_gpu_percent": 0,
+      "train0_gpu_mib": 0
+    },
+    {
+      "utc": "2026-09-08T01:55:13Z",
+      "ready": 11,
+      "free": 10,
+      "optimizing": 1,
+      "steps": 9961472,
+      "fps": 23932,
+      "gpu_percent": 11,
+      "gpu_mib": 45815
+    },
+    {
+      "utc": "2026-09-08T01:57:41Z",
+      "ready": 11,
+      "free": 11,
+      "optimizing": 0,
+      "control_gpu_percent": 0,
+      "control_gpu_mib": 0
+    },
+    {
+      "utc": "2026-09-08T02:29:00Z",
+      "ready": 11,
+      "free": 11,
+      "optimizing": 0,
+      "compiling": 0,
+      "backlog": 0
+    }
+  ],
+  "control": {
+    "run": "cw-walkscratch-crutchoff-s1-widen8-legdutyratio-offctrl10m",
+    "owner": "normal watcher/checkup/eval after verification",
+    "hypothesis": "Matched charge-off control for the completed +10M active leg-duty-ratio acquisition. The 2M corrected s1 canary is healthy (21/24 gait,0 falls) but did not improve over its actual init, and comparison to an older40M undosed run confounds dose and duration. This new bounded +10M control starts from the EXACT SAME corrected2M checkpoint MD5edfa283302954b40103334227eb3db1c, RNG3, schedule/8wayheading/DR/motor limits and all other args as cw-walkscratch-crutchoff-s1-widen8-legdutyratio-guardfix-acq10m; ONLY reward.walk_leg_duty_ratio_charge changes150 to0. It tests continued-charge benefit versus removal after a shared2M exposure, not never-exposed training or seed robustness. This is one planned comparison arm, not a new seed or a duplicate charge-on continuation. Prior-free/noBC/no gait clock retained. Reward-scale values across arms are not evidence of behavioral improvement.",
+    "gate": "Matched +10M control comparison only. Use exact same24episode walk/startjitter det+sto panel, evalseed0 and normal cadence. Require0newfalls, gait_valid>=21/24 and noNEWchronic single-leg sacrifice relative to shared corrected2M source; report per-leg relative duty, command progress, slip bygroup and paired episode changes for charge-on/off. If health regresses, preserve checkpoint and follow existing pruner rules; do not accept worsening gait because return rises. Credit the continued-charge hypothesis only if on beats off on held-out leg usage/gait without newfalls or command/slip regression; equality means no demonstrated benefit at this duration. No automatic additional budget or final walking/joystick qualification.",
+    "budget": 10000000,
+    "pod": "hexapod-mjx-train-8",
+    "init_md5": "edfa283302954b40103334227eb3db1c",
+    "seed": 3,
+    "config_comparison": {
+      "keys": 82,
+      "only_delta": "reward.walk_leg_duty_ratio_charge:150->0",
+      "other_args": "match apart from out-name/notes",
+      "code_on": "ee76daaadd7cf9df20891425084c7845c412bc90",
+      "code_off": "4e508e99255f96c73da5822d6cbd039d042f13a3",
+      "code_delta": "artifact publication and diagnostics; no training semantics change found"
+    },
+    "status": "training complete; canonical24-panelgate available21/24,0terminations; ordinary watcher triage",
+    "created_utc": "2026-09-08T01:47:09+00:00",
+    "verified_utc": "2026-09-08T01:49:57+00:00",
+    "wandb_id": "0gfv9tv8",
+    "pid": 987038,
+    "steps_verified": [
+      524288,
+      1572864,
+      4718592,
+      9961472,
+      10485760
+    ],
+    "training_complete_utc": "2026-09-08T01:55:25.687228Z",
+    "final_checkpoint_md5": "b2a77b25535c8af6652968935305826f",
+    "final_checkpoint_bytes": 4469269,
+    "cpu_finalizer_pid": 993312
+  },
+  "refill": {
+    "cycle": "20260908T014524",
+    "pid": 4107374,
+    "trigger": "automatic partial-refill",
+    "root_kicks": 0,
+    "latest_observed_utc": "2026-09-08T01:49:14Z",
+    "state": "finished; twoformalverdicts andonemissedmilderverdict correctedbyroot",
+    "finish_utc": "2026-09-08T01:59:27Z",
+    "commit": "5fa2eb67"
+  },
+  "feedback": [
+    "fb_20260908T014602_d77aac",
+    "fb_20260908T014636_88b7c1",
+    "fb_20260908T015125_67501c",
+    "fb_20260908T015625_ff3d29",
+    "fb_20260908T020317_69c176"
+  ],
+  "steering_review": {
+    "prior_direct_tripod_period_scales": [
+      0.9,
+      0.75,
+      0.6
+    ],
+    "candidate": 1.5,
+    "interpretation": "Slower candidate is distinct from prior faster doses; it changes reversal frequency and vertical tracking, not ideal stance XY velocity. Older AMP0.9Hz adverse evidence is a different lineage/model.",
+    "guard_defect": "TripodGait.desired_deg silently falls back on raw IK failure; finite returned-angle check alone is insufficient.",
+    "original_stance_bank_raw_ik_audit": {
+      "knee100": {
+        "calls": 7200,
+        "failures": 0
+      },
+      "knee90": {
+        "calls": 7200,
+        "failures": 0
+      }
+    },
+    "repair": {
+      "commit": "975d6c36957736c5d4dd60319236e3f25712b267",
+      "deployed_to": "controller main",
+      "tests": {
+        "local": 5,
+        "controller": 5,
+        "pre_fix_failure_regressions": 2
+      }
+    }
+  },
+  "restrictions_preserved": [
+    "no new seed",
+    "no additional capacity",
+    "no node uncordon or eviction",
+    "no physical robot action",
+    "no qualification or motor-limit relaxation"
+  ],
+  "steering_owner": {
+    "cycle": "20260908T015550",
+    "pid": 4118489,
+    "state": "finished; candidateperiod1.5 regressed yaw inbothdirections; noGPUcanary",
+    "duplicate_dispatch": {
+      "cycle": "20260908T020124",
+      "pid": 4127237,
+      "cancelled_by_root_signal": "SIGTERM",
+      "reason": "Raced acquisition triage owner's independent cadence adoption; cancelled while narration read-only",
+      "all_other_processes_preserved": true
+    }
+  },
+  "git_sync_recovery": {
+    "reason": "Plain controller pull with configured autostash raced an index lock; code advanced but active launch row stayed in autostash.",
+    "stash_sha": "28aae301c35fe035cd061a9fa1d466eeccda21aa",
+    "backup_ref": "refs/rl-watchdog/recovered-autostash-20260908T0154Z",
+    "restored": "Only absent offctrl10m launch row via existing atomic ledger writer under ledger+snapshot locks",
+    "other_rows_preserved": 2716,
+    "verified": "Native MCP sees RUNNING W&B0gfv9tv8 again; autostash stack entry removed after backup and verification",
+    "future_sync": "Use snapshot lock and disable automatic stashing; preserve concurrent ledger updates."
+  },
+  "render_followup": {
+    "observation": "100Hz evaluation captures all control ticks, encoder writes25fps: observed20s simulation yields80s video. Gate rendering dominated llvmpipe CPU threads.",
+    "proposal": "Opt-in paced25fps capture for future gates with old-pod compatibility; preserve every simulation/action/metric/RNG tick, panels, overlays and terminal frame.",
+    "state": "implemented;44 integrated local checks pass; pending main/controller synchronization",
+    "measured_speedup": null,
+    "core_commit": "7512cacdd",
+    "helper_commit": "479374ff2",
+    "agent_tests": {
+      "core_new": 16,
+      "core_existing": 13,
+      "helper_new": 14,
+      "helper_existing_applicable": 32
+    },
+    "integration_tests": {
+      "passed": 44,
+      "command": "uv run --active --offline pytest rl_move/tests/test_eval_checkpoint_video_pacing.py rl_move/tests/test_eval_video_pacing_helpers.py rl_move/tests/test_eval_checkpoint_rollout_trace.py rl_move/tests/test_eval_checkpoint_gsde_reset_noise.py rl_move/tests/test_pod_eval_gate_idempotency.py -q"
+    },
+    "validation": "Exact scientific dictionaries, full traces, end RNG and reset counts agree across DR0/DR0.2 sequential24-episode banks; real encoded video duration verified. Fourfold capture reduction at100Hz/25fps. Old/missing/unreachable evaluator retains legacy flags. Active evaluator source unchanged.",
+    "environment_limits": "Two existing helper environment tests fail unchanged baseline (macOS exec-a/ps behavior; clean-worktree checkpoint absent). First controller rendering benchmark stopped before rollout because script expected4.80573kg but observed3.494226kg before reset; no timing claim."
+  },
+  "observed_utc": "2026-09-08T02:32:00Z",
+  "new_training": {
+    "root_requested_steps": 30000000,
+    "root_completed_steps": 31457280,
+    "root_launches": 3,
+    "remaining_capacity_is_not_claimed_busy": true
+  },
+  "matched_s1_comparison": {
+    "groups": {
+      "walk/det": {
+        "on_gait": 6,
+        "off_gait": 5,
+        "progress_ratio": {
+          "on": 0.8978333333333334,
+          "off": 0.8878333333333335
+        },
+        "slip_per_m": {
+          "on": 11.34366666666667,
+          "off": 10.024833333333333
+        },
+        "along_dist_m": {
+          "on": 1.0435,
+          "off": 1.0321666666666667
+        },
+        "slip_m_total": {
+          "on": 8.710333333333333,
+          "off": 8.533333333333333
+        }
+      },
+      "walk/sto": {
+        "on_gait": 6,
+        "off_gait": 6,
+        "progress_ratio": {
+          "on": 1.159,
+          "off": 1.2476666666666665
+        },
+        "slip_per_m": {
+          "on": 7.6035,
+          "off": 6.888333333333333
+        },
+        "along_dist_m": {
+          "on": 1.3463333333333336,
+          "off": 1.4486666666666668
+        },
+        "slip_m_total": {
+          "on": 9.518,
+          "off": 9.5015
+        }
+      },
+      "walk_startjitter/det": {
+        "on_gait": 6,
+        "off_gait": 6,
+        "progress_ratio": {
+          "on": 1.0635000000000001,
+          "off": 1.099
+        },
+        "slip_per_m": {
+          "on": 9.042666666666667,
+          "off": 8.650333333333334
+        },
+        "along_dist_m": {
+          "on": 1.2276666666666667,
+          "off": 1.2685000000000002
+        },
+        "slip_m_total": {
+          "on": 10.567,
+          "off": 10.445333333333332
+        }
+      },
+      "walk_startjitter/sto": {
+        "on_gait": 4,
+        "off_gait": 4,
+        "progress_ratio": {
+          "on": 0.6913333333333335,
+          "off": 0.7250000000000001
+        },
+        "slip_per_m": {
+          "on": 12.785666666666666,
+          "off": 12.1815
+        },
+        "along_dist_m": {
+          "on": 0.7978333333333333,
+          "off": 0.8370000000000001
+        },
+        "slip_m_total": {
+          "on": 9.921833333333334,
+          "off": 9.7525
+        }
+      }
+    },
+    "on_gait_valid": 22,
+    "off_gait_valid": 21,
+    "episodes": 24,
+    "terminations_both": 0,
+    "changed_gait_flag": "walk/det episode0 leg5 improves with on; jitter/sto episode2 leg5 and episode3 leg0 fail both",
+    "interpretation": "One gait flag gain with worse mean slip/m in all four groups and lower mean progress in three groups. No clean efficacy win without command/slip regression. Same post-exposure init, not naive random weights.",
+    "triage_owner": "normal watcher; no exclusive root ownership",
+    "feedback": [
+      "fb_20260908T023020_da6d46",
+      "fb_20260908T023120_d2d10f"
+    ]
+  },
+  "second_scratch_pair": {
+    "init_md5": "2156daae67933cd1bc1a66accf422edb",
+    "existing_rng": 2,
+    "config_keys": 82,
+    "only_delta": "reward.walk_leg_duty_ratio_charge:150 vs0",
+    "code_sha": "78e18bb1408fc061bc817917bcd2a3f43001da86",
+    "owner": "normal watcher/checkup/eval",
+    "runs": [
+      {
+        "run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-on10m",
+        "charge": 150,
+        "pod": "hexapod-mjx-train-0",
+        "created": "2026-09-08T02:10:38Z",
+        "wandb_id": "tojgpbb4",
+        "steps": 10485760,
+        "training_complete": "2026-09-08T02:19:20.109733Z",
+        "checkpoint_md5": "5c6b4932a0ff5ecd7559fab0d91394e7",
+        "cpu_finalizer_pid": 676549,
+        "gate": "pending"
+      },
+      {
+        "run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-offctrl10m",
+        "charge": 0,
+        "pod": "hexapod-mjx-train-1",
+        "created": "2026-09-08T02:11:53Z",
+        "wandb_id": "pyrugqjw",
+        "steps": 10485760,
+        "training_complete": "2026-09-08T02:20:47.534Z",
+        "checkpoint_md5": "ce8e200539e0e67d22b0fe3b22757f69",
+        "cpu_finalizer_pid": 2683352,
+        "gate": "pending",
+        "finalizer_observed": "final video in flight, periodic video and eval logged pending flush; no failed jobs"
+      }
+    ]
+  },
+  "assisted_refill": {
+    "cycle": "20260908T021147",
+    "commit": "eb095e34d",
+    "finished": "2026-09-08T02:29:32Z",
+    "bank_tests": 21,
+    "mechanism": "new additive per-leg duty charge composed with prior rung3 residual-fade recipe",
+    "runs": [
+      {
+        "run": "cw-assistfade-rung3-legdutyratio-s0",
+        "wandb_id": "fhzonqmd",
+        "status": "FINISHED",
+        "requested_steps": 2000000,
+        "created": "2026-09-08T02:21:09+00:00",
+        "verified": "2026-09-08T02:24:00+00:00",
+        "gate": "pending normal watcher triage"
+      },
+      {
+        "run": "cw-assistfade-rung3-legdutyratio-s1",
+        "wandb_id": "d9bpmm0s",
+        "status": "FINISHED",
+        "requested_steps": 2000000,
+        "created": "2026-09-08T02:19:52+00:00",
+        "verified": "2026-09-08T02:22:42+00:00",
+        "gate": "pending normal watcher triage"
+      }
+    ],
+    "capacity_at_finish": {
+      "ready": 11,
+      "free": 11,
+      "optimizing": 0,
+      "backlog": 0
+    },
+    "reason_for_free_capacity": "All five new run budgets completed; CPU gates pending. No additional distinct launch-ready arm identified in the active refill cycle. No filler or new seed added."
+  },
+  "milder_canary_triage": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widenbis180-legdutyratiofresh-guardfix1",
+    "status": "CANARY PASS",
+    "formal_action_by": "root at02:14UTC because prior owner narration had not written the ledger verdict",
+    "gate_valid": 18,
+    "episodes": 24,
+    "terminations": 0,
+    "interpretation": "Same18/24as matching inert predecessor; health only, no causal gait recovery",
+    "publication": "W&B notes and54-file analysis artifact completed"
+  },
+  "scientific_claim_correction": {
+    "commit": "9bbbfe312c87ce7028a97806ea4c85bbae35a852",
+    "deployed": "main and controller",
+    "interpretation": "Three arms use two already-trained inits/RNGs. Corrected guards prove charge health, not naive acquisition recovery. No bit-identical policy claim from matching threshold flags."
+  },
+  "steering_result": {
+    "cycle": "20260908T015550",
+    "commit": "78e18bb1408fc061bc817917bcd2a3f43001da86",
+    "candidate_period_scale": 1.5,
+    "baseline_period_scale": 1,
+    "full_mesh": true,
+    "sim_seconds_per_cell": 15,
+    "cells_per_arm": 6,
+    "falls": 0,
+    "yaw_regression_approx_percent": [
+      14,
+      16
+    ],
+    "decision": "No2Mcanary for tested candidate; not a universal closure of timing or geometry mechanisms",
+    "focused_tests": 12,
+    "broader_tests": "existing semantic test failures reproduced on prior source"
+  }
+}

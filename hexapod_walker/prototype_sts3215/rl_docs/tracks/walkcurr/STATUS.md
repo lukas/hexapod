@@ -1,3 +1,68 @@
+## 2026-09-08 ~13:0x (refill; found + finished a concurrent cycle's in-flight `walk_leg_loadslip_ratio_charge` mechanism build, bank-tested it, launched the n=3 canary batch) — the genuinely-new "price load-slip directly" mechanism the assistfade rung1-4 closure and today's swing-floor closures both named as the only remaining open branch is now CODE-COMPLETE, BANK-GREEN, and TRAINING
+
+One plain sentence: with all 11 GPU pods free and the swing-floor/
+dose-escalation branches of `walk_leg_duty_ratio_charge` both closed
+null this window (above), discovered that `walk_task.py` already had
+an UNCOMMITTED, in-progress sibling mechanism
+(`walk_legslip_ratio_tick`/`walk_legslip_ratio_charge`, cfg
+`reward.walk_leg_loadslip_ratio_charge`) being actively built live by
+a concurrent cycle -- a per-leg peer-excluded ratio charge on
+TANGENTIAL SLIP VELOCITY (not contact duty), directly pricing the
+physical symptom every prior lever (dose escalation, swing-count
+floor) only proxied.
+
+**Collision handled, not duplicated:** wrote 8 plain-function unit
+tests + 1 end-to-end activation-matches-plain-when-off rollout guard
+for the new function pair, then discovered mid-write that the SAME
+concurrent cycle had ALSO just landed a real bug fix (peer-excluded
+MEAN aggregation false-positive-charged the honest legs whenever one
+leg was genuinely near-zero-slip/raised -- caught by their own
+"real-physics bank probe", fixed to peer-excluded MEDIAN) and their
+own regression test for it, live, mid-edit, on the same file. Did NOT
+fight the collision: re-ran my tests against their corrected median
+semantics (all still pass, the symmetric-case math is unaffected by
+mean-vs-median), left their superior fix and its own regression test
+untouched, and moved straight to verification rather than re-deriving
+their already-more-thorough work. **9/9 new mechanism tests green,
+42/42 relevant duty+gait+slip-family tests green** (2 pre-existing,
+unrelated `walkcurr_pf_loadslip_bootstrap_min_*` failures confirmed
+PRE-EXISTING via `git stash` isolation on just the test file -- same
+failure, same numbers, with my/their new tests entirely absent).
+`snapshot.sh` committed everything together (`8b21ccd5`, 14 files --
+shared-workspace mechanics, both contributions land as one commit,
+same pattern this file has repeatedly normalized today).
+
+**Launched the pre-registered n=3 seed canary batch** (learning
+directly from today's own swing-floor lesson: n=2 needed a 3rd-seed
+tie-break TWICE this cycle-window -- go straight to n=3 for a brand-
+new mechanism's first read instead of dribbling):
+`cw-walkscratch-crutchoff-{s0,s1,s2}-widen8-legdutyratio-loadslip`,
+each a one-lever respec of its own already-PASSED 0.30-dose
+`...-legdutyratiofresh-guardfix1` sibling (byte-identical seed/init-
+from/heading-set/DR/motor cfg, only `reward.walk_leg_loadslip_ratio_
+charge=150.0` / `_target=1.5` / `_grace_s=3.0` / `_tau_s=1.0` added
+on top of the existing duty-ratio charge). All 3 VERIFIED RUNNING
+(train-2/train-0/train-8). Gate (all 3, read jointly): mechanism-
+health telemetry present/finite + 0 new falls vs the matched sibling
++ >=3/4 groups jointly improve gait_valid AND slip/progress for a
+CONTINUE signal, reporting whether the gait_valid-recovers/slip-
+worsens trade persists; majority (>=2/3 seeds hitting >=3/4) funds a
+cont10m depth read, minority does not. 3 launches/6M new GPU steps,
+well under the cycle caps.
+
+Refill/capacity: all 11 pods free at launch time, backlog empty; the
+seed10 halfgrav cont10m pair and seed12 tie-break remain owned by
+concurrent cycles, untouched. CYCLE_WORKED touched (real code+test+
+launch work, not a re-verify no-op).
+
+Evidence: `rl_move/sim/walk_task.py` (`walk_legslip_ratio_tick`/
+`walk_legslip_ratio_charge`, MEDIAN-based); `rl_move/tests/
+test_task_semantics.py` (9 new tests near the swing-floor bank);
+commit `8b21ccd5`; ledger entries for the 3 new launches. RL_LOG
+09-08 ~13:0x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~12:5x (refill-cycle triage; picked up the just-finished widen8 jointspace-freshinit 40M pair) — the staged-DR-vs-immediate-DR 2x2 factorial CLOSES all 4 cells FAIL: joint-space fresh-init does not ignite the widen8 full-DR composite at full 40M budget either, and staging the DR ramp makes it WORSE not better
 
 One plain sentence: `jointspace-freshinit-b40m-ctrl` (full DR from

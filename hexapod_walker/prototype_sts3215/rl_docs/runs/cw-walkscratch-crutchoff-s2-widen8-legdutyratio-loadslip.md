@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T13:13:37+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-widen8-acq1-legdutyratiofresh-guardfix1
+
+**wandb_id**: 2ypexwbn
 
 **hypothesis**: Seed2 twin of the s0/s1 load-slip-charge canaries launched this same window (the pre-registered n=3 batch, learning from today's own lesson that n=2 swing-floor reads needed a 3rd tie-break twice): does the peer-excluded-MEDIAN load-slip ratio charge (target 1.5, charge 150), on top of the existing 0.30-dose duty-ratio charge, fix the gait_valid-recovers-via-worse-slip trade. Same seed2/init-from/heading-set/DR/motor cfg as the matched 0.30-dose s2 guardfix1 sibling, only the new load-slip charge added.
 

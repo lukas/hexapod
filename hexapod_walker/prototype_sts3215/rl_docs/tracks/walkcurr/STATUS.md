@@ -1,3 +1,97 @@
+## 2026-09-08 ~08:3x (triage cycle) — seed7 durability HOLDS + seed11 durability HOLDS (2/3 cohort) + seed10 OFF durability HOLDS + torque1x mechanism-health canary pair lands (Cartesian robust, joint-space develops a new chronic leg)
+
+One plain sentence: this cycle's one assigned run was seed7's matched
+OFF durability control, but a wave of concurrent runs finished
+mid-cycle (freeing all but one GPU pod) so this cycle also triaged
+the 4 additional finished walkcurr runs that had no owner yet
+(seed11 ON+OFF durability, seed10 OFF durability, and the seed7
+torque1x mechanism-health pair), verdict-collision-safe since
+`ops.sh verdict` refuses a second write.
+
+**`cartfoot-freshinit-offctrl-s7-acq1-cont10m` verdict (PASS,
+seed7 OFF durability, MY assigned run):** 0/24 falls, slip/m flat
+vs 40M in all 4 groups (2.81/3.41/2.83/3.30). ON/OFF ratio at 50M
+cumulative: 0.99/0.97/0.97/0.94x -- unchanged from the 40M ratio
+(0.94-0.99x). Det-mode gait_valid flips 6/6->0/6 (walk/det) and
+1/6->0/6 (startjitter/det) on BOTH the ON and OFF arms
+SYMMETRICALLY (the ON sibling, gate report already landed, verdict
+owned by a concurrent cycle, shows the identical flip) -- confirms
+this is a shared recipe-wide det-mode artifact affecting both arms
+equally, not an ON-vs-OFF asymmetry; sto (noise-robust) stays 6/6
+both arms both budgets. **First of 3 seeds to complete its
+durability read: PARITY HOLDS at 50M cumulative, in direct contrast
+to fork(a)'s own late-onset degradation between 12-22M cumulative
+(fork(b) is already 2.3x past that point).**
+
+**`cartfoot-freshinit-c1-s11-acq1-cont10m` / `...-offctrl-s11-acq1-
+cont10m` verdicts (ACQ PASS / PASS, seed11 durability pair,
+triaged this cycle, unowned):** 0/24 falls both arms. ON/OFF ratio
+at 50M: 0.90/1.02/0.92/1.00x -- 3/4 groups at-or-under, 1 group
+(`walk/sto`) essentially breakeven (+2.2%, inside noise), matching
+this seed's own 40M shape (0.96/0.94/0.97/1.00x). Det-mode quirk
+patterns are UNCHANGED from each arm's own 40M state (OFF already
+had it at 40M; ON's `walk/det` stays clean 6/6, only
+`startjitter/det` softens 5/6->1/6) -- no new pathology either
+side. **2nd of 3 seeds: PARITY HOLDS at 50M cumulative.**
+
+**`base-cartfoot-freshoffctrl-s10-c1-cont10m` verdict (PASS, seed10
+OFF durability, triaged this cycle, unowned):** 0/24 falls, slip/m
+flat-to-slightly-improved vs 40M in all 4 groups, gait_valid pattern
+identical to 40M (this arm already had the det-only quirk at 40M).
+ON sibling (`base-cartfoot-fresh-s10-c1b-cont10m`) still training --
+seed10's ratio is not yet available; **1 of 3 durability pairs still
+open** (ON side).
+
+**`cartfoot-freshinit-{c1,offctrl}-s7-acq1-torque1x-c1` verdicts
+(CANARY PASS / CANARY PASS - PARTIAL RETENTION, torque-removal
+mechanism-health pair, triaged this cycle, unowned):** frozen 2M
+canary per `artifacts/rl_watchdog/cartfoot_fresh_torque_guidance_
+20260908/PLAN.md`, dr.torque_scale 3,3->1,1 off each arm's frozen
+40M checkpoint. 0/24 terminations both arms. ON (Cartesian) ties its
+own 3x source's gait_valid count exactly (23/24) with zero new
+pattern. OFF (joint-space) DROPS 19/24->12/24 -- `walk/det` newly
+100%-sacrifices leg4 (was fully clean, 6/6, at the 3x source), a
+genuinely NEW recurring pattern per the plan's own definition. This
+is the OPPOSITE of the plan's hypothesized differential-Cartesian-
+sensitivity direction: here the JOINT-SPACE control is the one that
+degrades under torque removal, not the Cartesian arm. Slip rises
+1.3-1.8x on both arms vs their own 3x sources (expected); ON/OFF
+ratio at 1x (0.84-0.91x) still favors Cartesian, reinforcing PARITY
+under a harder condition. Neither arm falls -- gait-quality effect,
+not instability. Per the frozen plan: 2M read now closed, no
+automatic 40M continuation/dose grid without a new recorded
+hypothesis. The plan's called-for zero-shot (untrained) 1x baseline
+was NOT run this cycle -- do not yet call the OFF-arm asymmetry
+"acquired" vs inherent-zero-shot without it.
+
+**Refill:** capacity opened to ALL GPU pods free (11/11 reachable)
+mid-cycle as this wave of runs finished. Checked for genuinely
+non-duplicative next work before launching anything new: (1) the
+fork(b) durability cohort's remaining gap (seed10 ON) is still
+training, not a launch decision; (2) the ON side of every pair
+triaged this cycle is either already-landed-verdict-owned-elsewhere
+or, for torque1x, explicitly barred from automatic continuation by
+its own frozen plan; (3) the campaign's other flagged mechanism
+candidates (gSDE frozen-leg fix, foot-pad geometry) are explicitly
+scoped as needing a bank/design pass first, not launch-ready,
+per this file's own 09-05 entries; (4) other tracks remain blocked
+per today's repeated cross-cycle findings (amp Robot-Lab-only, cpg
+search-exhausted, standwalk/assistfade/todaypolicy blocked on
+unbuilt reward-mechanism design). No non-duplicative, launch-ready
+arm identified this cycle beyond what's already in flight -- no
+filler launched. Once seed10's ON durability lands (another cycle's
+to triage), the n=3 durability cohort will be complete and the
+"port cart_foot into the primary DR-hardening campaign" decision
+becomes ripe.
+
+Evidence: `ops.sh review` for all 5 runs this cycle;
+`logs/ckpt_eval/cw_walkscratch_easy0905_{cartfoot_freshinit,base_
+cartfoot_fresh,base_cartfoot_freshoffctrl}_{c1,offctrl}_s{7,10,11}*
+_cont10m_gate/report.json`; `..._torque1x_c1_gate/report.json` (2);
+SKILLS.md 2 new rows; RL_LOG 09-08 ~08:2x-08:3x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~08:1x (triage cycle) — fork (b) seed7 cont10m durability pair lands: PARITY HOLDS at +10M, first durability replicate closed clean
 
 One plain sentence: the assigned finished run this cycle is the

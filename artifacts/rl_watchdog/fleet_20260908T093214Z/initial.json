@@ -1,0 +1,549 @@
+{
+  "heartbeat_utc": "2026-09-08T09:32:14Z",
+  "scope": "Read-only canonical capacity/queue, exact /proc trainer and CPU finalizer inventory, repeated progress, NVIDIA confirmation; no launches, kills, restarts or infrastructure changes.",
+  "samples": [
+    {
+      "started_utc": "2026-09-08T09:33:28.431858+00:00",
+      "finished_utc": "2026-09-08T09:33:32.449925+00:00",
+      "capacity": {
+        "nodes": {
+          "g129004": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-1",
+              "hexapod-mjx-train-8",
+              "hexapod-mjx-train-9",
+              "hexapod-mjx-train-10",
+              "hexapod-mjx-train-11"
+            ]
+          },
+          "g12ba48": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": []
+          },
+          "g131eec": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-2",
+              "hexapod-mjx-train-3"
+            ]
+          },
+          "g142d86": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-0",
+              "hexapod-mjx-train-4",
+              "hexapod-mjx-train-5",
+              "hexapod-mjx-train-7"
+            ]
+          }
+        },
+        "slots_total": 12,
+        "slots_ready": 11,
+        "slots_free": 10,
+        "free_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-3",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ],
+        "pending_pods": [
+          "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+        ],
+        "busy": {
+          "hexapod-mjx-train-2": [
+            "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1"
+          ]
+        }
+      },
+      "queue": {
+        "backlog": [],
+        "failed_count": 52
+      },
+      "pods": {
+        "hexapod-mjx-train-0": {
+          "utc": "2026-09-08T09:33:29.758363+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-1": {
+          "utc": "2026-09-08T09:33:29.505798+00:00",
+          "processes": [
+            {
+              "pid": 2785877,
+              "module": "rl_move.sim.artifact_finalizer",
+              "state": "S",
+              "cpu_ticks": 269,
+              "start_ticks": 290904119,
+              "options": {
+                "--handoff-dir": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1"
+              },
+              "state.json": {
+                "phase": "artifacts_pending",
+                "jobs": {
+                  "video_32051200_periodic_007": {
+                    "status": "in_flight",
+                    "attempts": 1
+                  },
+                  "eval_33116160_periodic_008": {
+                    "status": "pending",
+                    "attempts": 0
+                  },
+                  "video_40370176_final_009": {
+                    "status": "pending",
+                    "attempts": 0
+                  }
+                },
+                "updated_at": 1788859735.33118
+              },
+              "manifest.json": {
+                "steps": 40370176,
+                "jobs": [
+                  {
+                    "job_id": "video_32051200_periodic_007",
+                    "kind": "video",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_32051200_periodic_007.zip",
+                    "step": 32051200,
+                    "tag": null,
+                    "snapshot_md5": "cff105e8dd8492183cbcccaa3b19d53a"
+                  },
+                  {
+                    "job_id": "eval_33116160_periodic_008",
+                    "kind": "eval",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/eval_33116160_periodic_008.zip",
+                    "step": 33116160,
+                    "tag": null,
+                    "snapshot_md5": "9083c397b4cc9e49461fe3af97a008e3"
+                  },
+                  {
+                    "job_id": "video_40370176_final_009",
+                    "kind": "video",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_40370176_final_009.zip",
+                    "step": 40370176,
+                    "tag": "final",
+                    "snapshot_md5": "c906f75cc9ba41af730866cc1c889bca"
+                  }
+                ]
+              },
+              "finalizer_log": {
+                "bytes": 851,
+                "mtime": 1788859735.2904608
+              }
+            }
+          ],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-10": {
+          "utc": "2026-09-08T09:33:29.495211+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-11": {
+          "utc": "2026-09-08T09:33:29.738035+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T09:33:29.760966+00:00",
+          "processes": [
+            {
+              "pid": 3868795,
+              "module": "rl_move.sim.train_ppo_mjx",
+              "state": "S",
+              "cpu_ticks": 135939,
+              "start_ticks": 263123130,
+              "options": {
+                "--run-name": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+                "--steps": "40000000",
+                "--seed": "7",
+                "--init-from": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s7.zip",
+                "--n-envs": "4096",
+                "--impl": "warp"
+              },
+              "last_steps": 38273024,
+              "last_fps": 21465.0,
+              "log": "/tmp/train_cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1.log",
+              "log_bytes": 84904,
+              "log_mtime": 1788859997.6293516,
+              "optimization_complete": false
+            }
+          ],
+          "nvidia": {
+            "gpu": "3, 45815",
+            "compute": "3868795, 45806"
+          }
+        },
+        "hexapod-mjx-train-3": {
+          "utc": "2026-09-08T09:33:29.757616+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-4": {
+          "utc": "2026-09-08T09:33:29.749637+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-5": {
+          "utc": "2026-09-08T09:33:29.760260+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-7": {
+          "utc": "2026-09-08T09:33:29.754911+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T09:33:29.741791+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-9": {
+          "utc": "2026-09-08T09:33:29.743142+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        }
+      }
+    },
+    {
+      "started_utc": "2026-09-08T09:34:22.468991+00:00",
+      "finished_utc": "2026-09-08T09:34:26.487445+00:00",
+      "capacity": {
+        "nodes": {
+          "g129004": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-1",
+              "hexapod-mjx-train-8",
+              "hexapod-mjx-train-9",
+              "hexapod-mjx-train-10",
+              "hexapod-mjx-train-11"
+            ]
+          },
+          "g12ba48": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": []
+          },
+          "g131eec": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-2",
+              "hexapod-mjx-train-3"
+            ]
+          },
+          "g142d86": {
+            "cpus": "127960m",
+            "gpus": 8,
+            "train_pods": [
+              "hexapod-mjx-train-0",
+              "hexapod-mjx-train-4",
+              "hexapod-mjx-train-5",
+              "hexapod-mjx-train-7"
+            ]
+          }
+        },
+        "slots_total": 12,
+        "slots_ready": 11,
+        "slots_free": 10,
+        "free_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-3",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ],
+        "pending_pods": [
+          "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+        ],
+        "busy": {
+          "hexapod-mjx-train-2": [
+            "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1"
+          ]
+        }
+      },
+      "queue": {
+        "backlog": [],
+        "failed_count": 52
+      },
+      "pods": {
+        "hexapod-mjx-train-0": {
+          "utc": "2026-09-08T09:34:23.721969+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-1": {
+          "utc": "2026-09-08T09:34:23.659733+00:00",
+          "processes": [
+            {
+              "pid": 2785877,
+              "module": "rl_move.sim.artifact_finalizer",
+              "state": "S",
+              "cpu_ticks": 272,
+              "start_ticks": 290904119,
+              "options": {
+                "--handoff-dir": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1"
+              },
+              "state.json": {
+                "phase": "artifacts_pending",
+                "jobs": {
+                  "video_32051200_periodic_007": {
+                    "status": "logged_pending_flush",
+                    "attempts": 1
+                  },
+                  "eval_33116160_periodic_008": {
+                    "status": "in_flight",
+                    "attempts": 1
+                  },
+                  "video_40370176_final_009": {
+                    "status": "pending",
+                    "attempts": 0
+                  }
+                },
+                "updated_at": 1788860051.741503
+              },
+              "manifest.json": {
+                "steps": 40370176,
+                "jobs": [
+                  {
+                    "job_id": "video_32051200_periodic_007",
+                    "kind": "video",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_32051200_periodic_007.zip",
+                    "step": 32051200,
+                    "tag": null,
+                    "snapshot_md5": "cff105e8dd8492183cbcccaa3b19d53a"
+                  },
+                  {
+                    "job_id": "eval_33116160_periodic_008",
+                    "kind": "eval",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/eval_33116160_periodic_008.zip",
+                    "step": 33116160,
+                    "tag": null,
+                    "snapshot_md5": "9083c397b4cc9e49461fe3af97a008e3"
+                  },
+                  {
+                    "job_id": "video_40370176_final_009",
+                    "kind": "video",
+                    "snapshot_path": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_40370176_final_009.zip",
+                    "step": 40370176,
+                    "tag": "final",
+                    "snapshot_md5": "c906f75cc9ba41af730866cc1c889bca"
+                  }
+                ]
+              },
+              "finalizer_log": {
+                "bytes": 941,
+                "mtime": 1788860051.732618
+              }
+            }
+          ],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-10": {
+          "utc": "2026-09-08T09:34:23.650828+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-11": {
+          "utc": "2026-09-08T09:34:23.720057+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-2": {
+          "utc": "2026-09-08T09:34:23.677920+00:00",
+          "processes": [
+            {
+              "pid": 3868795,
+              "module": "rl_move.sim.train_ppo_mjx",
+              "state": "R",
+              "cpu_ticks": 139874,
+              "start_ticks": 263123130,
+              "options": {
+                "--run-name": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+                "--steps": "40000000",
+                "--seed": "7",
+                "--init-from": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s7.zip",
+                "--n-envs": "4096",
+                "--impl": "warp"
+              },
+              "last_steps": 39321600,
+              "last_fps": 21494.0,
+              "log": "/tmp/train_cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1.log",
+              "log_bytes": 87034,
+              "log_mtime": 1788860044.0225239,
+              "optimization_complete": false
+            }
+          ],
+          "nvidia": {
+            "gpu": "2, 45815",
+            "compute": "3868795, 45806"
+          }
+        },
+        "hexapod-mjx-train-3": {
+          "utc": "2026-09-08T09:34:23.727983+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-4": {
+          "utc": "2026-09-08T09:34:23.719408+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-5": {
+          "utc": "2026-09-08T09:34:23.649389+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-7": {
+          "utc": "2026-09-08T09:34:23.647633+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-8": {
+          "utc": "2026-09-08T09:34:23.654413+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        },
+        "hexapod-mjx-train-9": {
+          "utc": "2026-09-08T09:34:23.656315+00:00",
+          "processes": [],
+          "nvidia": {
+            "gpu": "0, 0",
+            "compute": ""
+          }
+        }
+      }
+    }
+  ],
+  "verified_progress": {
+    "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+    "pod": "hexapod-mjx-train-2",
+    "pid": 3868795,
+    "sample_interval_seconds": 53.916954,
+    "steps": [
+      38273024,
+      39321600
+    ],
+    "step_delta": 1048576,
+    "interval_steps_per_second": 19447.982910904055,
+    "logged_fps": [
+      21465.0,
+      21494.0
+    ],
+    "cpu_tick_delta": 3935,
+    "classification": "optimizing PPO; already past compile"
+  },
+  "completed_CPU_handoff": {
+    "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1",
+    "pod": "hexapod-mjx-train-1",
+    "actual_steps": 40370176,
+    "finalizer_pid": 2785877,
+    "progress": "First sample video_32051200 in_flight; second sample logged_pending_flush and eval_33116160 in_flight. Finalizer log grew 851->941 bytes.",
+    "worker_observed_utc": "2026-09-08T09:34:38Z",
+    "worker_pid": 2786002,
+    "worker_cpu_time_seconds": 2869,
+    "worker_cpu_percent": 836,
+    "GPU_compute_processes": []
+  },
+  "conclusion": {
+    "PPO_trainers": 1,
+    "compiling_trainers": 0,
+    "CPU_finalizer_supervisors": 1,
+    "slots_ready": 11,
+    "slots_free": 10,
+    "backlog_count": 0,
+    "historical_failed_backlog_count": 52,
+    "pending": "train6 remains unscheduled: CPU/affinity and cordoned-node constraints from canonical scheduler reason.",
+    "new_unowned_failure": null
+  },
+  "ownership": {
+    "watcher": "UP per native orchestrator_activity",
+    "active_cycle": "20260908T093002",
+    "activity": "Reviewing completed torque-retain controls and seed41; no duplicate intervention by this audit.",
+    "meta_20260908T091430": "completed",
+    "root": "Owns scientific decisions and refill."
+  },
+  "raw_sample_files": [
+    "/tmp/hexapod-fleet-20260908T093214Z-first.json",
+    "/tmp/hexapod-fleet-20260908T093214Z-second.json"
+  ],
+  "raw_sample_sha256": {
+    "hexapod-fleet-20260908T093214Z-first.json": "47bd8bcf30d62a75ceb285c2b82b6613a34d92a21de9505970151241aa26e1bf",
+    "hexapod-fleet-20260908T093214Z-second.json": "5fdfcf7c4b96c34aad7d5682e7e90859c41b6f787a085badd14608dbcfba602c"
+  },
+  "probe_script": "/tmp/hexapod-fleet-sample-20260908T093214Z.py"
+}

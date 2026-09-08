@@ -1,0 +1,7 @@
+{
+  "read_at_utc": "2026-09-08T09:56:10Z",
+  "method": "existing ops.sh quarters",
+  "on": "env/reward_walk: n=4 quarters=[0.1681, 0.1938, 0.1806, 0.1844] last=0.1844\nenv/v_along_cmd_m_s: n=4 quarters=[-0.0018, -0.0008, 0.0012, 0.0014] last=0.0014\nenv/walk_speed: n=4 quarters=[0.1004, 0.1042, 0.0962, 0.0906] last=0.0906\n",
+  "off": "env/reward_walk: n=4 quarters=[0.1619, 0.2012, 0.1835, 0.1817] last=0.1817\nenv/v_along_cmd_m_s: n=4 quarters=[-0.0019, 0.0013, 0.0015, 0.0033] last=0.0033\nenv/walk_speed: n=4 quarters=[0.0925, 0.096, 0.0884, 0.0823] last=0.0823\n",
+  "scope": "Both move command-aligned velocity slightly positive, but walking speed declines. Preserve original conjunctive rising-signal gate; these finite seed40 results do not identify DR as the sole cause or close every fresh-init curriculum."
+}

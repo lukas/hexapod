@@ -1,0 +1,77 @@
+{
+  "read_at_utc": "2026-09-08T09:53:15Z",
+  "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+  "report": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1_gate/report.json",
+  "groups": {
+    "walk/det": {
+      "episodes": 6,
+      "gait_valid": 6,
+      "terms": 0,
+      "median_command_aligned_m_s": 0.22405,
+      "median_slip_per_m": 1.556,
+      "mean_slip_per_m": 1.556,
+      "sacrificed_legs": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "walk/sto": {
+      "episodes": 6,
+      "gait_valid": 6,
+      "terms": 0,
+      "median_command_aligned_m_s": 0.1867,
+      "median_slip_per_m": 1.7214999999999998,
+      "mean_slip_per_m": 1.7258333333333333,
+      "sacrificed_legs": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "walk_startjitter/det": {
+      "episodes": 6,
+      "gait_valid": 4,
+      "terms": 0,
+      "median_command_aligned_m_s": 0.21662499999999998,
+      "median_slip_per_m": 1.6635,
+      "mean_slip_per_m": 1.6740000000000002,
+      "sacrificed_legs": [
+        [
+          1
+        ],
+        [
+          4
+        ],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "walk_startjitter/sto": {
+      "episodes": 6,
+      "gait_valid": 6,
+      "terms": 0,
+      "median_command_aligned_m_s": 0.179225,
+      "median_slip_per_m": 1.794,
+      "mean_slip_per_m": 1.7829999999999997,
+      "sacrificed_legs": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    }
+  },
+  "registered_gate": "ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det), read together with offctrl-s7-acq1 at the SAME budget. PASS/CONTINUE per the 08-21 ruling if reward is still rising; slip/m vs the matched OFF sibling is the headline comparison, not a hardening bar.",
+  "scope": "Only the exact gate report is used; the separate composed-session report from the MCP response is not substituted. 0.5 gravity, torque_scale3; fixed 20-second episodes. OFF counterpart was not yet staged at this read; no paired-slip conclusion."
+}

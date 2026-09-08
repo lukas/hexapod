@@ -1,0 +1,1400 @@
+{
+  "conclusion": "Both torque3x2M seed40 canaries miss their registered earlyignition gate. They do not establish maturetask failure, close torqueeffects atlongerbudgets, or uniquely identifyheading/DRbreadth as the cause. OFF has1fall. Both lack chronicnewlegs; isolatedsacrificed-leg flags coincide with sampledlegfaults.",
+  "finite_next_step": "Finish exact halfgrav40M gate reads when canonical; no automaticextension pendingthat evidence. Torqueretain preregistration names heading-only or DR-only bisection as a possible distinctnextquestion, not authorization for another torquevariant or a newseed. A finitebisection would require a separatelyfrozen recipe and diagnosticprediction; no launchrequestedbythisaudit.",
+  "halfgrav": {
+    "off": {
+      "cached_metrics_status": "not available yet",
+      "checkpoint_metadata": {
+        "bytes": 4469273,
+        "mtime": 1788859731.4375322,
+        "num_timesteps": 40370176,
+        "policy_kwargs_repr": "{':type:': \"<class 'dict'>\", ':serialized:': 'gAWVagAAAAAAAAB9lCiMCG5ldF9hcmNolF2UKE0AAU0AAUuAZYwMbG9nX3N0ZF9pbml0lEe/8AAAAAAAAIwNYWN0aXZhdGlvbl9mbpSMG3RvcmNoLm5uLm1vZHVsZXMuYWN0aXZhdGlvbpSMA0VMVZSTlHUu', 'net_arch': [256, 256, 128], 'log_std_init': -1.0, 'activation_fn': \"<class 'torch.nn.modules.activation.ELU'>\"}",
+        "seed": 7
+      },
+      "controller_checkpoint_status": {
+        "exists": false
+      },
+      "decision": "Pending exact24episode gate; keep completed/healthy training and CPU finalization ownership. No verdict or extension justified before results.",
+      "exact_gate_status": "not available on canonical native MCP at initial09:32read",
+      "fps": 28239,
+      "log_tail": [
+        "[wandb] checkpoint artifact ckpt-ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_acq1 (md5 c906f75c)",
+        "wandb: uploading artifact ckpt-ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_acq1; updating run metadata",
+        "wandb: uploading artifact ckpt-ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_acq1",
+        "wandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)",
+        "[defer-final-artifacts] retired 6 training-time-delivered snapshot(s) after durable W&B finish",
+        "[defer-final-artifacts] manifest + state (artifacts_pending) written -> /workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1; CPU finalizer pid 2785877 detached (CUDA_VISIBLE_DEVICES=''); GPU process exiting now"
+      ],
+      "logged_steps": 40370176,
+      "native_ledger_status": "RUNNING",
+      "prior_launch_provenance_receipt": "/tmp/hexapod-halfgrav-placement-20260908T084713Z.json",
+      "processes": [],
+      "registered_gate": "ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det), read together with cartfoot-halfgrav-s7-acq1 (ON) at the SAME budget. PASS/CONTINUE per the 08-21 ruling if reward is still rising; slip/m vs the matched ON sibling is the headline comparison, not a hardening bar.",
+      "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1",
+      "sample_utc": "2026-09-08T09:33:14.593846+00:00"
+    },
+    "on": {
+      "cached_metrics_status": "not available yet",
+      "checkpoint_metadata": {
+        "bytes": 4469271,
+        "mtime": 1788859973.61678,
+        "num_timesteps": 37748736,
+        "policy_kwargs_repr": "{':type:': \"<class 'dict'>\", ':serialized:': 'gAWVagAAAAAAAAB9lCiMCG5ldF9hcmNolF2UKE0AAU0AAUuAZYwMbG9nX3N0ZF9pbml0lEe/8AAAAAAAAIwNYWN0aXZhdGlvbl9mbpSMG3RvcmNoLm5uLm1vZHVsZXMuYWN0aXZhdGlvbpSMA0VMVZSTlHUu', 'net_arch': [256, 256, 128], 'log_std_init': -1.0, 'activation_fn': \"<class 'torch.nn.modules.activation.ELU'>\"}",
+        "seed": 7
+      },
+      "controller_checkpoint_status": {
+        "exists": false
+      },
+      "decision": "Pending exact24episode gate; keep completed/healthy training and CPU finalization ownership. No verdict or extension justified before results.",
+      "exact_gate_status": "not available on canonical native MCP at initial09:32read",
+      "fps": 21460,
+      "log_tail": [
+        "|    total_timesteps      | 37224448     |",
+        "|    std                  | 0.138        |",
+        "[mjx-train] checkpoint @ 37,748,736 -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1.zip (21,090 env-steps/s)",
+        "|    fps                  | 21460       |",
+        "|    total_timesteps      | 37748736    |",
+        "|    std                  | 0.138       |"
+      ],
+      "logged_steps": 37748736,
+      "native_ledger_status": "RUNNING",
+      "prior_launch_provenance_receipt": "/tmp/hexapod-halfgrav-placement-20260908T084713Z.json",
+      "processes": [
+        {
+          "cpu_ticks": 134858,
+          "exe": "/usr/local/bin/python",
+          "name": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+          "pid": 3868795,
+          "state": "S"
+        }
+      ],
+      "registered_gate": "ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det), read together with offctrl-s7-acq1 at the SAME budget. PASS/CONTINUE per the 08-21 ruling if reward is still rising; slip/m vs the matched OFF sibling is the headline comparison, not a hardening bar.",
+      "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+      "sample_utc": "2026-09-08T09:33:14.702242+00:00"
+    }
+  },
+  "not_revisited": [
+    "Closed normal1x parent/child comparison",
+    "INVALID_PHYSICS oldradiuschild",
+    "Negativecorrectedradiusprobe"
+  ],
+  "pairing_scope": "Same recipe/eval seed/model/motor/std and fixedtrainingbudget, but only first11/24 reportedreset draws match. OFF walk/sto index4 terminates; draw divergence starts next episode and persists through alljitterepisodes, consistent with earlytermination changing RNG consumption. This is not fullstate/RNGproof; no pairedslipsuperiority inference.",
+  "read_utc": "2026-09-08T09:35:33.685755+00:00",
+  "reported_draw_alignment": {
+    "walk/det": {
+      "differences": [],
+      "equal": 6,
+      "total": 6
+    },
+    "walk/sto": {
+      "differences": [
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.029,
+              0.023
+            ],
+            "com_offset_mm": [
+              [
+                9.2,
+                11,
+                0
+              ],
+              [
+                11.4,
+                7.7,
+                0
+              ]
+            ],
+            "fault": [
+              "none",
+              "weak:j[16]@0.2"
+            ],
+            "friction_scale": [
+              1.074,
+              1.113
+            ],
+            "ground_tilt_deg": [
+              0.67,
+              0.81
+            ],
+            "imu_pos_mm": [
+              [
+                -25.5,
+                -66.4,
+                -7
+              ],
+              [
+                15.9,
+                25.6,
+                26.2
+              ]
+            ],
+            "kp_scale_mean": [
+              1.059,
+              0.968
+            ],
+            "link_scale_range": [
+              [
+                0.992,
+                1.015
+              ],
+              [
+                0.998,
+                1.019
+              ]
+            ],
+            "mass_scale": [
+              0.894,
+              1.184
+            ],
+            "walk_push_dur_s": [
+              0,
+              0.85
+            ],
+            "walk_push_peak_nm": [
+              0,
+              2.31
+            ]
+          },
+          "index": 5
+        }
+      ],
+      "equal": 5,
+      "total": 6
+    },
+    "walk_startjitter/det": {
+      "differences": [
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.027,
+              0.037
+            ],
+            "com_offset_mm": [
+              [
+                -3.4,
+                3.5,
+                0
+              ],
+              [
+                3.6,
+                -3.6,
+                0
+              ]
+            ],
+            "friction_scale": [
+              0.759,
+              1.033
+            ],
+            "ground_tilt_deg": [
+              0.05,
+              1.82
+            ],
+            "imu_pos_mm": [
+              [
+                -6.1,
+                15,
+                -4
+              ],
+              [
+                -14.2,
+                -19.1,
+                95.8
+              ]
+            ],
+            "kp_scale_mean": [
+              1.039,
+              1.051
+            ],
+            "link_scale_range": [
+              [
+                0.993,
+                1.014
+              ],
+              [
+                1.006,
+                1.029
+              ]
+            ],
+            "mass_scale": [
+              0.899,
+              1.066
+            ],
+            "start_offset_max_deg": [
+              1.9,
+              2
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.21
+            ],
+            "walk_push_peak_nm": [
+              0,
+              -2.83
+            ],
+            "zero_bias_max_deg": [
+              0.95,
+              1
+            ]
+          },
+          "index": 0
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.037,
+              0.044
+            ],
+            "com_offset_mm": [
+              [
+                -11.9,
+                -6.4,
+                0
+              ],
+              [
+                4.3,
+                3.1,
+                0
+              ]
+            ],
+            "friction_scale": [
+              1.084,
+              1.116
+            ],
+            "ground_tilt_deg": [
+              1.43,
+              1.82
+            ],
+            "imu_pos_mm": [
+              [
+                42.4,
+                -31.7,
+                18.3
+              ],
+              [
+                -69.2,
+                -57.6,
+                29.1
+              ]
+            ],
+            "kp_scale_mean": [
+              1.016,
+              1.029
+            ],
+            "link_scale_range": [
+              [
+                0.99,
+                1.014
+              ],
+              [
+                0.983,
+                1.006
+              ]
+            ],
+            "mass_scale": [
+              1.145,
+              0.922
+            ],
+            "start_offset_max_deg": [
+              2,
+              1.9
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.05
+            ],
+            "walk_push_peak_nm": [
+              0,
+              -2.81
+            ],
+            "zero_bias_max_deg": [
+              0.93,
+              0.89
+            ]
+          },
+          "index": 1
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.01,
+              0.009
+            ],
+            "com_offset_mm": [
+              [
+                -5.9,
+                8.7,
+                0
+              ],
+              [
+                7.2,
+                -6.1,
+                0
+              ]
+            ],
+            "fault": [
+              "none",
+              "leg:j[9, 10, 11]@0.0"
+            ],
+            "friction_scale": [
+              1.369,
+              1.253
+            ],
+            "ground_tilt_deg": [
+              1.29,
+              0.75
+            ],
+            "imu_pos_mm": [
+              [
+                30,
+                28.8,
+                82
+              ],
+              [
+                67.7,
+                17.5,
+                94.6
+              ]
+            ],
+            "kp_scale_mean": [
+              1.006,
+              0.976
+            ],
+            "link_scale_range": [
+              [
+                0.998,
+                1.018
+              ],
+              [
+                0.975,
+                0.996
+              ]
+            ],
+            "mass_scale": [
+              1.043,
+              1.102
+            ],
+            "zero_bias_max_deg": [
+              0.97,
+              0.86
+            ]
+          },
+          "index": 2
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.044,
+              0.009
+            ],
+            "com_offset_mm": [
+              [
+                11.8,
+                10.8,
+                0
+              ],
+              [
+                -6.9,
+                1.4,
+                0
+              ]
+            ],
+            "friction_scale": [
+              1.259,
+              1.124
+            ],
+            "ground_tilt_deg": [
+              1.48,
+              0.54
+            ],
+            "imu_pos_mm": [
+              [
+                -4.4,
+                -20.8,
+                88.1
+              ],
+              [
+                28.4,
+                -62.7,
+                49.1
+              ]
+            ],
+            "kp_scale_mean": [
+              1.01,
+              1.029
+            ],
+            "link_scale_range": [
+              [
+                0.988,
+                1.01
+              ],
+              [
+                0.994,
+                1.018
+              ]
+            ],
+            "mass_scale": [
+              1.196,
+              0.928
+            ],
+            "start_offset_max_deg": [
+              1.9,
+              2
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.25
+            ],
+            "walk_push_peak_nm": [
+              0,
+              2.88
+            ],
+            "zero_bias_max_deg": [
+              0.91,
+              0.98
+            ]
+          },
+          "index": 3
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.019,
+              0.005
+            ],
+            "com_offset_mm": [
+              [
+                11,
+                -11.5,
+                0
+              ],
+              [
+                -11.6,
+                1.3,
+                0
+              ]
+            ],
+            "fault": [
+              "none",
+              "weak:j[9]@0.7"
+            ],
+            "friction_scale": [
+              0.845,
+              1.214
+            ],
+            "ground_tilt_deg": [
+              1.03,
+              1.24
+            ],
+            "imu_pos_mm": [
+              [
+                -19.1,
+                -48.4,
+                74.5
+              ],
+              [
+                -4.8,
+                36.9,
+                -0.8
+              ]
+            ],
+            "kp_scale_mean": [
+              1.025,
+              1.027
+            ],
+            "link_scale_range": [
+              [
+                1.004,
+                1.025
+              ],
+              [
+                0.998,
+                1.021
+              ]
+            ],
+            "mass_scale": [
+              0.918,
+              1.194
+            ],
+            "walk_push_dur_s": [
+              0.96,
+              0
+            ],
+            "walk_push_peak_nm": [
+              2.99,
+              0
+            ]
+          },
+          "index": 4
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.035,
+              0.044
+            ],
+            "com_offset_mm": [
+              [
+                -5.1,
+                4.1,
+                0
+              ],
+              [
+                -3.4,
+                -8.5,
+                0
+              ]
+            ],
+            "friction_scale": [
+              1.391,
+              1.241
+            ],
+            "ground_tilt_deg": [
+              0.63,
+              1.3
+            ],
+            "imu_pos_mm": [
+              [
+                -44.6,
+                47.7,
+                52.9
+              ],
+              [
+                51,
+                63.9,
+                3.3
+              ]
+            ],
+            "kp_scale_mean": [
+              0.996,
+              0.994
+            ],
+            "link_scale_range": [
+              [
+                1.004,
+                1.024
+              ],
+              [
+                0.989,
+                1.01
+              ]
+            ],
+            "mass_scale": [
+              0.859,
+              1.183
+            ],
+            "start_offset_max_deg": [
+              1.8,
+              1.9
+            ],
+            "zero_bias_max_deg": [
+              0.92,
+              0.96
+            ]
+          },
+          "index": 5
+        }
+      ],
+      "equal": 0,
+      "total": 6
+    },
+    "walk_startjitter/sto": {
+      "differences": [
+        {
+          "different_fields": {
+            "bad_start_joints": [
+              [
+                4
+              ],
+              []
+            ],
+            "cmd_drop_prob": [
+              0.039,
+              0.003
+            ],
+            "com_offset_mm": [
+              [
+                10,
+                0.9,
+                0
+              ],
+              [
+                -8.7,
+                3.7,
+                0
+              ]
+            ],
+            "fault": [
+              "weak:j[14]@0.2",
+              "none"
+            ],
+            "friction_scale": [
+              1.107,
+              0.702
+            ],
+            "ground_tilt_deg": [
+              1.99,
+              1.2
+            ],
+            "imu_pos_mm": [
+              [
+                -31.2,
+                -54.9,
+                -19.6
+              ],
+              [
+                14.1,
+                -32.9,
+                86.2
+              ]
+            ],
+            "kp_scale_mean": [
+              1.01,
+              0.992
+            ],
+            "link_scale_range": [
+              [
+                0.977,
+                1
+              ],
+              [
+                0.988,
+                1.009
+              ]
+            ],
+            "mass_scale": [
+              1.126,
+              1.142
+            ],
+            "start_offset_max_deg": [
+              11.4,
+              1.9
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.43
+            ],
+            "walk_push_peak_nm": [
+              0,
+              -2.11
+            ],
+            "zero_bias_max_deg": [
+              0.97,
+              0.96
+            ]
+          },
+          "index": 0
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.04,
+              0.001
+            ],
+            "com_offset_mm": [
+              [
+                -3.5,
+                7.6,
+                0
+              ],
+              [
+                0.1,
+                5.4,
+                0
+              ]
+            ],
+            "friction_scale": [
+              1.146,
+              0.707
+            ],
+            "ground_tilt_deg": [
+              1.8,
+              0.81
+            ],
+            "imu_pos_mm": [
+              [
+                -13,
+                -1,
+                19.6
+              ],
+              [
+                -10.2,
+                37.9,
+                77.9
+              ]
+            ],
+            "kp_scale_mean": [
+              0.971,
+              1
+            ],
+            "link_scale_range": [
+              [
+                0.993,
+                1.016
+              ],
+              [
+                0.991,
+                1.01
+              ]
+            ],
+            "mass_scale": [
+              1.079,
+              1.099
+            ],
+            "zero_bias_max_deg": [
+              1,
+              0.97
+            ]
+          },
+          "index": 1
+        },
+        {
+          "different_fields": {
+            "cmd_drop_prob": [
+              0.004,
+              0.001
+            ],
+            "com_offset_mm": [
+              [
+                10.5,
+                7.5,
+                0
+              ],
+              [
+                4.6,
+                -11.8,
+                0
+              ]
+            ],
+            "fault": [
+              "leg:j[15, 16, 17]@0.0",
+              "frozen:j[17]@1.0"
+            ],
+            "friction_scale": [
+              0.851,
+              1.387
+            ],
+            "ground_tilt_deg": [
+              1.05,
+              0.25
+            ],
+            "imu_pos_mm": [
+              [
+                -57.2,
+                -7.7,
+                35.1
+              ],
+              [
+                -56.6,
+                28.9,
+                28.4
+              ]
+            ],
+            "kp_scale_mean": [
+              0.998,
+              0.974
+            ],
+            "link_scale_range": [
+              [
+                1.004,
+                1.027
+              ],
+              [
+                0.98,
+                0.998
+              ]
+            ],
+            "mass_scale": [
+              1.033,
+              0.929
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.13
+            ],
+            "walk_push_peak_nm": [
+              0,
+              -2.9
+            ],
+            "zero_bias_max_deg": [
+              0.94,
+              0.88
+            ]
+          },
+          "index": 2
+        },
+        {
+          "different_fields": {
+            "bad_start_joints": [
+              [
+                3,
+                16
+              ],
+              []
+            ],
+            "cmd_drop_prob": [
+              0.041,
+              0
+            ],
+            "com_offset_mm": [
+              [
+                -3.3,
+                -0.5,
+                0
+              ],
+              [
+                7,
+                1.4,
+                0
+              ]
+            ],
+            "fault": [
+              "weak:j[2]@0.0",
+              "none"
+            ],
+            "friction_scale": [
+              0.714,
+              0.941
+            ],
+            "ground_tilt_deg": [
+              1.48,
+              0.78
+            ],
+            "imu_pos_mm": [
+              [
+                51.4,
+                41.4,
+                -3.8
+              ],
+              [
+                -31.9,
+                -15.2,
+                93.3
+              ]
+            ],
+            "kp_scale_mean": [
+              1.017,
+              0.961
+            ],
+            "link_scale_range": [
+              [
+                0.999,
+                1.021
+              ],
+              [
+                0.971,
+                0.994
+              ]
+            ],
+            "mass_scale": [
+              1.034,
+              0.913
+            ],
+            "start_offset_max_deg": [
+              12.9,
+              2
+            ],
+            "walk_push_dur_s": [
+              0,
+              1.3
+            ],
+            "walk_push_peak_nm": [
+              0,
+              2.26
+            ],
+            "zero_bias_max_deg": [
+              0.9,
+              0.99
+            ]
+          },
+          "index": 3
+        },
+        {
+          "different_fields": {
+            "bad_start_joints": [
+              [],
+              [
+                14
+              ]
+            ],
+            "cmd_drop_prob": [
+              0.042,
+              0.006
+            ],
+            "com_offset_mm": [
+              [
+                3.5,
+                -4.2,
+                0
+              ],
+              [
+                4.9,
+                6.3,
+                0
+              ]
+            ],
+            "fault": [
+              "none",
+              "leg:j[3, 4, 5]@0.0"
+            ],
+            "friction_scale": [
+              1.302,
+              1.224
+            ],
+            "ground_tilt_deg": [
+              0.7,
+              1.94
+            ],
+            "imu_pos_mm": [
+              [
+                60.3,
+                45.7,
+                83.9
+              ],
+              [
+                -38.4,
+                64.1,
+                58.4
+              ]
+            ],
+            "kp_scale_mean": [
+              1.028,
+              0.985
+            ],
+            "link_scale_range": [
+              [
+                0.978,
+                0.996
+              ],
+              [
+                0.989,
+                1.008
+              ]
+            ],
+            "mass_scale": [
+              1.016,
+              1.117
+            ],
+            "start_offset_max_deg": [
+              1.8,
+              28.9
+            ],
+            "zero_bias_max_deg": [
+              0.93,
+              0.99
+            ]
+          },
+          "index": 4
+        },
+        {
+          "different_fields": {
+            "bad_start_joints": [
+              [
+                3
+              ],
+              []
+            ],
+            "cmd_drop_prob": [
+              0.036,
+              0.046
+            ],
+            "com_offset_mm": [
+              [
+                0.6,
+                7,
+                0
+              ],
+              [
+                -1.2,
+                3.9,
+                0
+              ]
+            ],
+            "fault": [
+              "frozen:j[7]@1.0",
+              "none"
+            ],
+            "friction_scale": [
+              0.981,
+              0.698
+            ],
+            "ground_tilt_deg": [
+              1.24,
+              0.48
+            ],
+            "imu_pos_mm": [
+              [
+                -61.2,
+                -69.8,
+                39.7
+              ],
+              [
+                48,
+                35.2,
+                8.4
+              ]
+            ],
+            "kp_scale_mean": [
+              0.999,
+              0.981
+            ],
+            "link_scale_range": [
+              [
+                1.006,
+                1.027
+              ],
+              [
+                0.972,
+                0.993
+              ]
+            ],
+            "mass_scale": [
+              1.169,
+              1.081
+            ],
+            "start_offset_max_deg": [
+              14,
+              1.9
+            ],
+            "walk_push_dur_s": [
+              1.14,
+              0
+            ],
+            "walk_push_peak_nm": [
+              2.26,
+              0
+            ],
+            "zero_bias_max_deg": [
+              0.92,
+              1
+            ]
+          },
+          "index": 5
+        }
+      ],
+      "equal": 0,
+      "total": 6
+    }
+  },
+  "schema": 1,
+  "scope": "Bounded read-only result audit: exact gate reports only, no launch/eval/queue/verdict mutation.",
+  "torqueretain": {
+    "off": {
+      "checkpoint": {
+        "bytes": 4468720,
+        "num_timesteps": 2097152,
+        "path": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_offctrl_torqueretain.zip",
+        "seed": 40,
+        "sha256": "d982a258a1adb1731d5828d473365a9da6270690c4acc97c20d2e4adb05ff902"
+      },
+      "fresh_init": true,
+      "gate_read": "Does not meet its own2M rising-ignition gate: walk speed declines and command-along progress does not rise. OFF additionally has one fall vs0-fall requirement. Gait counts mostlyvalid but do not by themselves demonstrate locomotion. Keep conclusion at finitecanary scope.",
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "flagged_episodes": [],
+          "gait_valid": 6,
+          "mean_slip_per_m": 76.321,
+          "median_along_dist_m": -0.0045,
+          "median_forward_dist_m": 0.0305,
+          "median_progress_ratio": -0.0035,
+          "median_slip_per_m": 77.0145,
+          "terminations": 0
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "flagged_episodes": [
+            {
+              "index": 4,
+              "sacrificed_legs": [],
+              "sampled_fault": "none",
+              "term_reason": "tilt_roll"
+            }
+          ],
+          "gait_valid": 6,
+          "mean_slip_per_m": 133.0028333333333,
+          "median_along_dist_m": -0.0014999999999999996,
+          "median_forward_dist_m": 0.091,
+          "median_progress_ratio": 0.017,
+          "median_slip_per_m": 139.466,
+          "terminations": 1
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "flagged_episodes": [
+            {
+              "index": 2,
+              "sacrificed_legs": [
+                3
+              ],
+              "sampled_fault": "leg:j[9, 10, 11]@0.0",
+              "term_reason": ""
+            }
+          ],
+          "gait_valid": 5,
+          "mean_slip_per_m": 73.81516666666667,
+          "median_along_dist_m": 0.0,
+          "median_forward_dist_m": 0.0305,
+          "median_progress_ratio": 0.0,
+          "median_slip_per_m": 72.975,
+          "terminations": 0
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "flagged_episodes": [
+            {
+              "index": 4,
+              "sacrificed_legs": [
+                1
+              ],
+              "sampled_fault": "leg:j[3, 4, 5]@0.0",
+              "term_reason": ""
+            }
+          ],
+          "gait_valid": 5,
+          "mean_slip_per_m": 164.18866666666668,
+          "median_along_dist_m": 0.0075,
+          "median_forward_dist_m": 0.2545,
+          "median_progress_ratio": 0.006,
+          "median_slip_per_m": 168.414,
+          "terminations": 0
+        }
+      },
+      "ledger_cfg_matches_cached_run_config": true,
+      "model_and_eval": {
+        "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_offctrl_torqueretain.zip",
+        "dr_scale": 0,
+        "model_mass_kg": 4.80573,
+        "model_ngeom": 91,
+        "model_nmesh": 0,
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "motor_contract": {
+          "backend_profile": "servo_profile_np",
+          "bus.profile_ramp_steps": 0,
+          "bus.servo_params": "",
+          "bus.servo_vel_max_counts_s": "write_speed",
+          "bus.write_acc": 1000,
+          "bus.write_speed": 4096,
+          "control.hz": 100,
+          "resolved_vel_max_counts_s_max": 4096,
+          "resolved_vel_max_deg_s_max": 360,
+          "resolved_vel_max_deg_s_min": 360,
+          "safety.max_delta_q_deg": 3.6,
+          "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+          "slew_limit_deg_s": 360
+        },
+        "policy_std": 0.168,
+        "seed": 0,
+        "start_jitter_panel": {
+          "start_bad_deg_max": 16,
+          "start_bad_deg_min": 8,
+          "start_bad_max_joints": 1,
+          "start_bad_prob": 0.25,
+          "start_jitter_deg": 3
+        },
+        "task": "joint_walk"
+      },
+      "native_ledger_status": "FAIL",
+      "native_metrics_text_sha256": "28583b77b6486329f29bf71752005da724ea1cb87f6b0d27f934dabe843bce53",
+      "native_report_checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_offctrl_torqueretain.zip",
+      "native_report_json_normalized_sha256": "7a826d3d2e2034d58acd9aa832eae88f04b0989fcdd2681f907e42abcb808286",
+      "parent_cfg_difference_verified_at_launch": {
+        "dr.torque_scale": [
+          "1.0,1.0",
+          "3,3"
+        ]
+      },
+      "recorded_verdict": "CANARY FAIL - MECHANISM, matched joint-space (OFF) sibling of c1-torqueretain, same read: restoring the 3x torque crutch does not ignite this composite either. Machinery healthy (finite/decreasing loss, std anneal on schedule, gait_valid majority every mode 6/6,6/6,5/6,5/6, no chronic single-leg-sacrifice majority; 1 safety termination out of 24 episodes, tilt_roll in walk/sto/4). env/reward_walk flat/noisy (0.177/0.191/0.188/0.192), env/v_along_cmd_m_s pinned near zero (0.0032->0.0004, no clear positive trend), env/walk_speed DECLINES (0.135->0.131->0.120->0.105) -- same shape as the crutch-off seed40/41 pair and its ON torqueretain sibling. Gate: slip/m med 73-168, fwd progress near-zero. Two arms agreeing (this + c1-torqueretain) is sufficient per the pre-registered gate: torque-crutch restoration does not rescue ignition on the widen8 8-way-heading+full-DR fresh-init composite at either action space. This closes the torque-crutch hypothesis; do not relaunch a torque-scale variant of this exact composite. Next candidate bisection (heading-only or DR-only) is a genuinely new question, not a filler retry.",
+      "registered_gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY, 2M, same bar as the seed40/41 pair: PASS if gait_valid majority + 0 falls + reward RISING (env/reward_walk trending up, env/v_along_cmd_m_s turning positive, env/walk_speed rising); chronic single-leg-sacrifice majority = FAIL regardless of reward. Read together with its matched c1-torqueretain sibling -- two arms agreeing is sufficient for a canary-level mechanism verdict, disagreement flags DIG-IN.",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain",
+      "source_refs": {
+        "code_sha_local": "9370228d0b888e28ea719fa707d8898d3d3084ab",
+        "code_sha_pod": "9370228d0b888e28ea719fa707d8898d3d3084ab"
+      },
+      "train_seed": 40,
+      "train_steps": 2000000,
+      "training_quarter_curves": [
+        {
+          "env/reward_walk": 0.1768938095771829,
+          "env/v_along_cmd_m_s": 0.0032329648135166825,
+          "env/walk_speed": 0.13486118752452925,
+          "global_step": 524288.0,
+          "optimization/reward_per_tick": -1.296501850883942
+        },
+        {
+          "env/reward_walk": 0.19087625391470053,
+          "env/v_along_cmd_m_s": 0.0003431872731695768,
+          "env/walk_speed": 0.13092453811679913,
+          "global_step": 1048576.0,
+          "optimization/reward_per_tick": -1.3379703154787421
+        },
+        {
+          "env/reward_walk": 0.18806343452622076,
+          "env/v_along_cmd_m_s": -5.1836369298744996e-05,
+          "env/walk_speed": 0.11948635614710937,
+          "global_step": 1572864.0,
+          "optimization/reward_per_tick": -1.2576103517785668
+        },
+        {
+          "env/reward_walk": 0.1917411549530019,
+          "env/v_along_cmd_m_s": 0.000443888271135933,
+          "env/walk_speed": 0.10531325603463576,
+          "global_step": 2097152.0,
+          "optimization/reward_per_tick": -1.1134746856987476
+        }
+      ]
+    },
+    "on": {
+      "checkpoint": {
+        "bytes": 4468720,
+        "num_timesteps": 2097152,
+        "path": "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_torqueretain.zip",
+        "seed": 40,
+        "sha256": "22cebf646a517c3ff300a8306fbd001d1cc5c22308973efd6c0ba81c9fa10967"
+      },
+      "fresh_init": true,
+      "gate_read": "Does not meet its own2M rising-ignition gate: walk speed declines and command-along progress does not rise. OFF additionally has one fall vs0-fall requirement. Gait counts mostlyvalid but do not by themselves demonstrate locomotion. Keep conclusion at finitecanary scope.",
+      "groups": {
+        "walk/det": {
+          "episodes": 6,
+          "flagged_episodes": [],
+          "gait_valid": 6,
+          "mean_slip_per_m": 97.4265,
+          "median_along_dist_m": -0.014499999999999999,
+          "median_forward_dist_m": 0.056,
+          "median_progress_ratio": -0.0125,
+          "median_slip_per_m": 97.374,
+          "terminations": 0
+        },
+        "walk/sto": {
+          "episodes": 6,
+          "flagged_episodes": [],
+          "gait_valid": 6,
+          "mean_slip_per_m": 167.557,
+          "median_along_dist_m": -0.06,
+          "median_forward_dist_m": 0.1475,
+          "median_progress_ratio": -0.0515,
+          "median_slip_per_m": 159.78050000000002,
+          "terminations": 0
+        },
+        "walk_startjitter/det": {
+          "episodes": 6,
+          "flagged_episodes": [],
+          "gait_valid": 6,
+          "mean_slip_per_m": 101.64716666666666,
+          "median_along_dist_m": 0.016,
+          "median_forward_dist_m": 0.04,
+          "median_progress_ratio": 0.014,
+          "median_slip_per_m": 104.4385,
+          "terminations": 0
+        },
+        "walk_startjitter/sto": {
+          "episodes": 6,
+          "flagged_episodes": [
+            {
+              "index": 2,
+              "sacrificed_legs": [
+                5
+              ],
+              "sampled_fault": "leg:j[15, 16, 17]@0.0",
+              "term_reason": ""
+            }
+          ],
+          "gait_valid": 5,
+          "mean_slip_per_m": 135.19766666666666,
+          "median_along_dist_m": 0.051500000000000004,
+          "median_forward_dist_m": 0.375,
+          "median_progress_ratio": 0.0455,
+          "median_slip_per_m": 131.708,
+          "terminations": 0
+        }
+      },
+      "ledger_cfg_matches_cached_run_config": true,
+      "model_and_eval": {
+        "checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_torqueretain.zip",
+        "dr_scale": 0,
+        "model_mass_kg": 4.80573,
+        "model_ngeom": 91,
+        "model_nmesh": 0,
+        "model_source": "mesh_mjx",
+        "model_variant": "mesh_mjx_twin",
+        "motor_contract": {
+          "backend_profile": "servo_profile_np",
+          "bus.profile_ramp_steps": 0,
+          "bus.servo_params": "",
+          "bus.servo_vel_max_counts_s": "write_speed",
+          "bus.write_acc": 1000,
+          "bus.write_speed": 4096,
+          "control.hz": 100,
+          "resolved_vel_max_counts_s_max": 4096,
+          "resolved_vel_max_deg_s_max": 360,
+          "resolved_vel_max_deg_s_min": 360,
+          "safety.max_delta_q_deg": 3.6,
+          "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+          "slew_limit_deg_s": 360
+        },
+        "policy_std": 0.168,
+        "seed": 0,
+        "start_jitter_panel": {
+          "start_bad_deg_max": 16,
+          "start_bad_deg_min": 8,
+          "start_bad_max_joints": 1,
+          "start_bad_prob": 0.25,
+          "start_jitter_deg": 3
+        },
+        "task": "joint_walk"
+      },
+      "native_ledger_status": "FAIL",
+      "native_metrics_text_sha256": "000ddf9ed8af78860e1a3be5f40353b51e4b907ac275b50214fee2100e672e22",
+      "native_report_checkpoint": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_torqueretain.zip",
+      "native_report_json_normalized_sha256": "50b7177e36b9c1e759675649ff78565a6351c879fc587b8f0c986ef5d1795a8b",
+      "parent_cfg_difference_verified_at_launch": {
+        "dr.torque_scale": [
+          "1.0,1.0",
+          "3,3"
+        ]
+      },
+      "recorded_verdict": "CANARY FAIL - MECHANISM per the pre-registered bisection gate: restoring the 3x torque training-wheels crutch (dr.torque_scale 1,1->3,3, byte-identical seed40 widen8-cartfoot-freshinit ON recipe otherwise) does NOT ignite forward progress. Machinery healthy (finite/decreasing loss, std anneal on schedule, 0 falls in all 24 gate episodes, gait_valid majority every mode 6/6,6/6,6/6,5/6, no chronic single-leg sacrifice). But env/reward_walk stays flat/noisy across quarters (0.185/0.171/0.173/0.179), env/v_along_cmd_m_s stays pinned near zero and ends slightly negative (0.0036->-0.0002), env/walk_speed actively DECLINES (0.148->0.145->0.130->0.120) -- the same flat/declining fingerprint as the crutch-off seed40/41 pair, not the rising signal that would indicate the torque crutch was the blocker. Gate: slip/m med 97-160 (3-10x the easy-rung band), fwd progress near-zero per 20s episode, contact-sheet strip shows the body essentially stationary. Read together with the matched offctrl-torqueretain sibling (also FAIL, same cycle) -- two arms agreeing closes this rung: torque-crutch removal is NOT the ignition blocker for this composite. The blocker is heading/DR breadth itself; the next rung (if pursued) is a heading-only or DR-only bisection of the widen8 composite, not another torque-scale variant.",
+      "registered_gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY, 2M, same bar as the seed40/41 pair: PASS if gait_valid majority + 0 falls + reward RISING (env/reward_walk trending up across quarters, env/v_along_cmd_m_s turning positive, env/walk_speed rising, not the flat/declining shape both failed arms showed); chronic single-leg-sacrifice majority = FAIL regardless of reward. Read together with its matched offctrl-torqueretain sibling (launched together) -- two arms agreeing is sufficient for a canary-level mechanism verdict, disagreement flags DIG-IN.",
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-torqueretain",
+      "source_refs": {
+        "code_sha_local": "99cca34f680d7eae7af27c185930d906b693abda",
+        "code_sha_pod": "99cca34f680d7eae7af27c185930d906b693abda"
+      },
+      "train_seed": 40,
+      "train_steps": 2000000,
+      "training_quarter_curves": [
+        {
+          "env/reward_walk": 0.1845003941074391,
+          "env/v_along_cmd_m_s": 0.0035771301770461455,
+          "env/walk_speed": 0.14792365908715613,
+          "global_step": 524288.0,
+          "optimization/reward_per_tick": -1.3571780070924433
+        },
+        {
+          "env/reward_walk": 0.17123219103277765,
+          "env/v_along_cmd_m_s": -0.0011311882821807176,
+          "env/walk_speed": 0.14539453189932347,
+          "global_step": 1048576.0,
+          "optimization/reward_per_tick": -1.3979288954287767
+        },
+        {
+          "env/reward_walk": 0.17298545958429543,
+          "env/v_along_cmd_m_s": 0.00020750950165026127,
+          "env/walk_speed": 0.1295622257821185,
+          "global_step": 1572864.0,
+          "optimization/reward_per_tick": -1.3213860802352428
+        },
+        {
+          "env/reward_walk": 0.17926836136672356,
+          "env/v_along_cmd_m_s": -0.00023592919589615087,
+          "env/walk_speed": 0.12008897137969905,
+          "global_step": 2097152.0,
+          "optimization/reward_per_tick": -1.2209862731397152
+        }
+      ]
+    }
+  }
+}

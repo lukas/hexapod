@@ -1,0 +1,1041 @@
+{
+  "heartbeat_utc": "2026-09-08T09:32:14Z",
+  "scope": "Read-only follow-through of owner093002 narrow-heading matched seed40 pair. No duplicate launch, kill, restart, queue mutation or scientific verdict by this audit.",
+  "progress": [
+    {
+      "arm": "on",
+      "pod": "hexapod-mjx-train-0",
+      "pid": 783449,
+      "sample_interval_seconds": 46.86074,
+      "samples": [
+        {
+          "utc": "2026-09-08T09:38:18.672731+00:00",
+          "pid": 783449,
+          "module": "rl_move.sim.train_ppo_mjx",
+          "state": "R",
+          "cpu_ticks": 10059,
+          "start_ticks": 273936375,
+          "options": {
+            "--run-name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+            "--steps": "2000000",
+            "--seed": "40",
+            "--n-envs": "4096",
+            "--impl": "warp"
+          },
+          "last_steps": 1048576,
+          "last_fps": 13972.0,
+          "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead.log",
+          "log_bytes": 7335,
+          "log_mtime": 1788860297.3677716,
+          "optimization_complete": false
+        },
+        {
+          "utc": "2026-09-08T09:39:05.533471+00:00",
+          "pid": 783449,
+          "module": "rl_move.sim.train_ppo_mjx",
+          "state": "S",
+          "cpu_ticks": 13463,
+          "start_ticks": 273936375,
+          "options": {
+            "--run-name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+            "--steps": "2000000",
+            "--seed": "40",
+            "--n-envs": "4096",
+            "--impl": "warp"
+          },
+          "last_steps": 2097152,
+          "last_fps": 17306.0,
+          "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead.log",
+          "log_bytes": 10718,
+          "log_mtime": 1788860345.4739077,
+          "optimization_complete": true
+        }
+      ],
+      "step_delta": 1048576,
+      "note": "Logged FPS and observed step counters; step-counter interval is quantized by rollout reporting."
+    },
+    {
+      "arm": "off",
+      "pod": "hexapod-mjx-train-3",
+      "pid": 2889144,
+      "sample_interval_seconds": 46.070041,
+      "samples": [
+        {
+          "utc": "2026-09-08T09:40:21.856043+00:00",
+          "pid": 2889144,
+          "module": "rl_move.sim.train_ppo_mjx",
+          "state": "R",
+          "cpu_ticks": 10053,
+          "start_ticks": 263339291,
+          "options": {
+            "--run-name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+            "--steps": "2000000",
+            "--seed": "40",
+            "--n-envs": "4096",
+            "--impl": "warp"
+          },
+          "last_steps": 524288,
+          "last_fps": 9624.0,
+          "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead.log",
+          "log_bytes": 6184,
+          "log_mtime": 1788860399.401241,
+          "optimization_complete": false
+        },
+        {
+          "utc": "2026-09-08T09:41:07.926084+00:00",
+          "pid": 2889144,
+          "module": "rl_move.sim.train_ppo_mjx",
+          "state": "S",
+          "cpu_ticks": 13535,
+          "start_ticks": 263339291,
+          "options": {
+            "--run-name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+            "--steps": "2000000",
+            "--seed": "40",
+            "--n-envs": "4096",
+            "--impl": "warp"
+          },
+          "last_steps": 2097152,
+          "last_fps": 17215.0,
+          "log": "/tmp/train_cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead.log",
+          "log_bytes": 10265,
+          "log_mtime": 1788860467.702043,
+          "optimization_complete": true
+        }
+      ],
+      "step_delta": 1572864,
+      "note": "Logged FPS and observed step counters; step-counter interval is quantized by rollout reporting."
+    }
+  ],
+  "completed_markers": {
+    "on": {
+      "run_name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+      "steps": 2097152,
+      "written_at": 1788860344.2766206,
+      "checkpoint_md5": "b93ce79b64d8f463ad81dcc3ca5e75bd",
+      "wandb_run_id": "pr966vo3"
+    },
+    "off": {
+      "run_name": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+      "steps": 2097152,
+      "written_at": 1788860467.6608262,
+      "checkpoint_md5": "3ad9b1ceeb30b6de293bbf5fedcd9d86",
+      "wandb_run_id": "cihv6dse"
+    }
+  },
+  "new_pair_actual_completed_steps": 4194304,
+  "source_and_argument_audit": {
+    "entries": [
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+        "parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1",
+        "track": "joystick",
+        "status": "INTENT",
+        "steps": 2000000,
+        "created": "2026-09-08T09:36:37+00:00",
+        "checks": {
+          "control_hz_defaulted": "explicit",
+          "model_source_lineage": "mesh-matched",
+          "cpu_limit": 28,
+          "existing_trainers": [],
+          "uv_python": "/usr/local/bin/python",
+          "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+          "running_experiments_before": 2,
+          "code_sha_local": "84aca14c6b235c4b579d1d8886ce98fe0b117090",
+          "code_sha_pod": "d50112534fca88ed4a83f650b17c2950bc327842",
+          "code_sha_stale_benign_delta": [
+            "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/README.md",
+            "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/meta_before_correction.md",
+            "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/superseded_radius_status.md",
+            "hexapod_walker/prototype_sts3215/rl_docs/meta/META_2026-09-08.md",
+            "hexapod_walker/prototype_sts3215/rl_docs/tracks/walkcurr/STATUS.md"
+          ],
+          "wandb_env_on_pod": true,
+          "defer_final_artifacts": "explicit"
+        }
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+        "parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl",
+        "track": "joystick",
+        "status": "INTENT",
+        "steps": 2000000,
+        "created": "2026-09-08T09:38:38+00:00",
+        "checks": {
+          "control_hz_defaulted": "explicit",
+          "model_source_lineage": "mesh-matched",
+          "cpu_limit": 28,
+          "existing_trainers": [],
+          "uv_python": "/usr/local/bin/python",
+          "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+          "running_experiments_before": 3,
+          "code_sha_local": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+          "code_sha_pod": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+          "wandb_env_on_pod": true,
+          "defer_final_artifacts": "explicit"
+        }
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1",
+        "parent": "",
+        "track": "joystick",
+        "status": "CANARY FAIL - MECHANISM",
+        "steps": 2000000,
+        "created": "2026-09-08T08:33:15+00:00",
+        "verified": "2026-09-08T08:35:04+00:00",
+        "checks": {
+          "control_hz_defaulted": "explicit",
+          "cpu_limit": 28,
+          "existing_trainers": [],
+          "uv_python": "/usr/local/bin/python",
+          "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+          "running_experiments_before": 0,
+          "code_sha_local": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
+          "code_sha_pod": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
+          "wandb_env_on_pod": true,
+          "defer_final_artifacts": "injected",
+          "pid": "762278",
+          "log_growth_bytes": [
+            5741,
+            5812
+          ],
+          "wandb_id": "kl4alitf",
+          "trainer_pid": "762283",
+          "global_step_window": [
+            0,
+            524288
+          ],
+          "fps_estimate": 17476.3
+        }
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl",
+        "parent": "",
+        "track": "joystick",
+        "status": "CANARY FAIL - MECHANISM",
+        "steps": 2000000,
+        "created": "2026-09-08T08:37:23+00:00",
+        "verified": "2026-09-08T08:39:13+00:00",
+        "checks": {
+          "control_hz_defaulted": "explicit",
+          "cpu_limit": 28,
+          "existing_trainers": [],
+          "uv_python": "/usr/local/bin/python",
+          "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+          "running_experiments_before": 3,
+          "code_sha_local": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
+          "code_sha_pod": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
+          "wandb_env_on_pod": true,
+          "defer_final_artifacts": "injected",
+          "pid": "2867560",
+          "log_growth_bytes": [
+            5751,
+            5822
+          ],
+          "wandb_id": "xpuzkq3h",
+          "trainer_pid": "2867565",
+          "global_step_window": [
+            0,
+            524288
+          ],
+          "fps_estimate": 17476.3
+        }
+      }
+    ],
+    "cfg_audits": [
+      {
+        "cfg_delta": {
+          "goal.walk_heading_set": {
+            "source": "[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]",
+            "child": "[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]"
+          }
+        },
+        "flag_delta": {},
+        "source_seed": "40",
+        "child_seed": "40",
+        "child_init_from": null,
+        "source_track": "joystick",
+        "child_track": "joystick"
+      },
+      {
+        "cfg_delta": {
+          "goal.walk_heading_set": {
+            "source": "[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966,2.356194490192345,-2.356194490192345,3.141592653589793]",
+            "child": "[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]"
+          }
+        },
+        "flag_delta": {},
+        "source_seed": "40",
+        "child_seed": "40",
+        "child_init_from": null,
+        "source_track": "joystick",
+        "child_track": "joystick"
+      }
+    ],
+    "actual_arguments": [
+      {
+        "utc": "2026-09-08T09:38:54.217747+00:00",
+        "pid": 783449,
+        "argv_without_notes": [
+          "/usr/local/bin/python",
+          "-m",
+          "rl_move.sim.train_ppo_mjx",
+          "--run-name",
+          "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+          "--steps",
+          "2000000",
+          "--task",
+          "joint_walk",
+          "--episode-seconds",
+          "20",
+          "--n-steps",
+          "128",
+          "--batch-size",
+          "131072",
+          "--gamma",
+          "0.995",
+          "--gae-lambda",
+          "0.97",
+          "--net-arch",
+          "256,256,128",
+          "--activation-fn",
+          "",
+          "--log-std-init",
+          "-1.0",
+          "--log-std-final",
+          "-2.0",
+          "--dr-scale",
+          "0.0",
+          "--require-gpu-physics",
+          "--eval-every",
+          "1000000",
+          "--video-every",
+          "2000000",
+          "--best-ckpt",
+          "--impl",
+          "warp",
+          "--host-workers",
+          "24",
+          "--seed",
+          "40",
+          "--cfg-set",
+          "env.model_source=mesh_mjx",
+          "--cfg-set",
+          "control.hz=100",
+          "--cfg-set",
+          "goal.walk_pure=1",
+          "--cfg-set",
+          "goal.walk_speed_min_m_s=0.06",
+          "--cfg-set",
+          "goal.walk_speed_max_m_s=0.06",
+          "--cfg-set",
+          "goal.walk_heading_max_rad=0.0",
+          "--cfg-set",
+          "goal.walk_cmd_resample_s=6.0",
+          "--cfg-set",
+          "goal.walk_cmd_metrics=1",
+          "--cfg-set",
+          "goal.walk_cmd_hold_s=0.0",
+          "--cfg-set",
+          "goal.walk_cmd_ramp_s=0.0",
+          "--cfg-set",
+          "goal.joint_action_bias_hip_deg=40.0",
+          "--cfg-set",
+          "goal.joint_action_bias_knee_deg=35.0",
+          "--cfg-set",
+          "goal.joint_action_box_yaw_deg=15.0",
+          "--cfg-set",
+          "goal.joint_action_box_hip_deg=20.0",
+          "--cfg-set",
+          "goal.joint_action_box_knee_deg=25.0",
+          "--cfg-set",
+          "reward.k_walk_freeprog=2.0",
+          "--cfg-set",
+          "reward.walk_freeprog_cap_m_s=0.06",
+          "--cfg-set",
+          "reward.walk_kernel_vel_ema=1.0",
+          "--cfg-set",
+          "reward.walk_kernel_vel_tau_s=0.1",
+          "--cfg-set",
+          "reward.term_penalty=24",
+          "--cfg-set",
+          "reward.safety_termination_penalty=24",
+          "--cfg-set",
+          "reward.k_track=0.0",
+          "--cfg-set",
+          "reward.k_roll=0.0",
+          "--cfg-set",
+          "reward.k_pitch=0.0",
+          "--cfg-set",
+          "reward.k_height=0.0",
+          "--cfg-set",
+          "reward.k_gyro=0.0",
+          "--cfg-set",
+          "reward.k_action=0.0",
+          "--cfg-set",
+          "reward.k_action_delta=0.01",
+          "--cfg-set",
+          "reward.k_current=0.0",
+          "--cfg-set",
+          "reward.k_walk_heading=0.0",
+          "--cfg-set",
+          "reward.k_step_event=0.0",
+          "--cfg-set",
+          "reward.k_park_duty=0.0",
+          "--cfg-set",
+          "reward.k_walk_idle_charge=0.0",
+          "--cfg-set",
+          "reward.k_loadslip_excess=0.0",
+          "--cfg-set",
+          "bus.write_speed=4096",
+          "--cfg-set",
+          "bus.servo_vel_max_counts_s=write_speed",
+          "--cfg-set",
+          "bus.write_acc=1000",
+          "--cfg-set",
+          "safety.max_delta_q_deg=3.6",
+          "--cfg-set",
+          "safety.max_current_a=100",
+          "--cfg-set",
+          "safety.max_roll_deg=30",
+          "--cfg-set",
+          "safety.max_pitch_deg=30",
+          "--cfg-set",
+          "struct_comp.enabled=0",
+          "--cfg-set",
+          "dr.latency_scale=1,1",
+          "--cfg-set",
+          "dr.deadband_scale=1,1",
+          "--cfg-set",
+          "dr.torque_scale=1.0,1.0",
+          "--cfg-set",
+          "dr.encoder_noise_deg=0.09",
+          "--cfg-set",
+          "dr.tilt_noise_deg=0.3",
+          "--cfg-set",
+          "dr.gyro_noise_deg_s=0.5",
+          "--cfg-set",
+          "ease.gravity_scale=1.0",
+          "--cfg-set",
+          "goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]",
+          "--cfg-set",
+          "goal.walk_stop_frac=0.0",
+          "--cfg-set",
+          "dr.mass_scale=0.85,1.20",
+          "--cfg-set",
+          "dr.leg_mass_jitter_pct=0.10",
+          "--cfg-set",
+          "dr.link_len_scale_pct=0.02",
+          "--cfg-set",
+          "dr.link_len_leg_pct=0.012",
+          "--cfg-set",
+          "dr.com_offset_m=0.012",
+          "--cfg-set",
+          "dr.friction_scale=0.6,1.4",
+          "--cfg-set",
+          "dr.contact_stiff_scale=0.7,2.0",
+          "--cfg-set",
+          "dr.ground_tilt_deg=2.0",
+          "--cfg-set",
+          "dr.kp_scale_pct=0.20",
+          "--cfg-set",
+          "dr.kv_scale_pct=0.25",
+          "--cfg-set",
+          "dr.vel_scale=0.85,1.10",
+          "--cfg-set",
+          "dr.cmd_drop_prob_max=0.05",
+          "--cfg-set",
+          "dr.placement_noise_deg=2.0",
+          "--cfg-set",
+          "dr.bad_start_prob=0.25",
+          "--cfg-set",
+          "dr.bad_start_max_joints=3",
+          "--cfg-set",
+          "dr.bad_start_deg=8.0,35.0",
+          "--cfg-set",
+          "dr.joint_zero_bias_deg=1.0",
+          "--cfg-set",
+          "dr.gyro_bias_deg_s=0.5",
+          "--cfg-set",
+          "dr.imu_bias_deg=1.0",
+          "--cfg-set",
+          "dr.imu_mount_deg=10.0",
+          "--cfg-set",
+          "dr.imu_pos_xy_m=0.07",
+          "--cfg-set",
+          "dr.imu_pos_z_m=-0.02,0.10",
+          "--cfg-set",
+          "dr.action_noise=0.02",
+          "--cfg-set",
+          "dr.fault_prob=0.3",
+          "--cfg-set",
+          "dr.ext_push_prob=0.3",
+          "--cfg-set",
+          "dr.walk_kick_prob=0.0",
+          "--cfg-set",
+          "dr.walk_push_prob=0.3",
+          "--cfg-set",
+          "goal.walk_cart_foot_box_x_m=0.06",
+          "--cfg-set",
+          "goal.walk_cart_foot_box_y_m=0.035",
+          "--cfg-set",
+          "goal.walk_cart_foot_box_z_m=0.04",
+          "--n-envs",
+          "4096",
+          "--out-name",
+          "ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_narrowhead",
+          "--defer-final-artifacts",
+          ""
+        ],
+        "step_flag_count": 1,
+        "initialization_flags": [],
+        "wandb_tags": "track:joystick",
+        "code_sha": "d50112534fca88ed4a83f650b17c2950bc327842",
+        "source_sha256": {
+          "rl_move/sim/train_ppo_mjx.py": "ef8fdc5acb11839b8d4b0ae6b6f985b38c23fe6d2eca7ea1ecbcf0e0e3209fc2",
+          "rl_move/sim/joint_task.py": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+          "rl_move/sim/cart_foot_decode.py": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+          "rl_move/sim/walk_task.py": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+          "rl_move/sim/servo_model.py": "977fe0246d011d5cea3baa40291de1300e19a44d66f45c36537dbe71bc8f0bcc"
+        }
+      },
+      {
+        "process_started_utc": "2026-09-08T09:38:53.910000+00:00",
+        "utc": "2026-09-08T09:39:44.757617+00:00",
+        "pid": 2889144,
+        "argv_without_notes": [
+          "/usr/local/bin/python",
+          "-m",
+          "rl_move.sim.train_ppo_mjx",
+          "--run-name",
+          "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+          "--steps",
+          "2000000",
+          "--task",
+          "joint_walk",
+          "--episode-seconds",
+          "20",
+          "--n-steps",
+          "128",
+          "--batch-size",
+          "131072",
+          "--gamma",
+          "0.995",
+          "--gae-lambda",
+          "0.97",
+          "--net-arch",
+          "256,256,128",
+          "--activation-fn",
+          "",
+          "--log-std-init",
+          "-1.0",
+          "--log-std-final",
+          "-2.0",
+          "--dr-scale",
+          "0.0",
+          "--require-gpu-physics",
+          "--eval-every",
+          "1000000",
+          "--video-every",
+          "2000000",
+          "--best-ckpt",
+          "--impl",
+          "warp",
+          "--host-workers",
+          "24",
+          "--seed",
+          "40",
+          "--cfg-set",
+          "env.model_source=mesh_mjx",
+          "--cfg-set",
+          "control.hz=100",
+          "--cfg-set",
+          "goal.walk_pure=1",
+          "--cfg-set",
+          "goal.walk_speed_min_m_s=0.06",
+          "--cfg-set",
+          "goal.walk_speed_max_m_s=0.06",
+          "--cfg-set",
+          "goal.walk_heading_max_rad=0.0",
+          "--cfg-set",
+          "goal.walk_cmd_resample_s=6.0",
+          "--cfg-set",
+          "goal.walk_cmd_metrics=1",
+          "--cfg-set",
+          "goal.walk_cmd_hold_s=0.0",
+          "--cfg-set",
+          "goal.walk_cmd_ramp_s=0.0",
+          "--cfg-set",
+          "goal.joint_action_bias_hip_deg=40.0",
+          "--cfg-set",
+          "goal.joint_action_bias_knee_deg=35.0",
+          "--cfg-set",
+          "goal.joint_action_box_yaw_deg=15.0",
+          "--cfg-set",
+          "goal.joint_action_box_hip_deg=20.0",
+          "--cfg-set",
+          "goal.joint_action_box_knee_deg=25.0",
+          "--cfg-set",
+          "reward.k_walk_freeprog=2.0",
+          "--cfg-set",
+          "reward.walk_freeprog_cap_m_s=0.06",
+          "--cfg-set",
+          "reward.walk_kernel_vel_ema=1.0",
+          "--cfg-set",
+          "reward.walk_kernel_vel_tau_s=0.1",
+          "--cfg-set",
+          "reward.term_penalty=24",
+          "--cfg-set",
+          "reward.safety_termination_penalty=24",
+          "--cfg-set",
+          "reward.k_track=0.0",
+          "--cfg-set",
+          "reward.k_roll=0.0",
+          "--cfg-set",
+          "reward.k_pitch=0.0",
+          "--cfg-set",
+          "reward.k_height=0.0",
+          "--cfg-set",
+          "reward.k_gyro=0.0",
+          "--cfg-set",
+          "reward.k_action=0.0",
+          "--cfg-set",
+          "reward.k_action_delta=0.01",
+          "--cfg-set",
+          "reward.k_current=0.0",
+          "--cfg-set",
+          "reward.k_walk_heading=0.0",
+          "--cfg-set",
+          "reward.k_step_event=0.0",
+          "--cfg-set",
+          "reward.k_park_duty=0.0",
+          "--cfg-set",
+          "reward.k_walk_idle_charge=0.0",
+          "--cfg-set",
+          "reward.k_loadslip_excess=0.0",
+          "--cfg-set",
+          "bus.write_speed=4096",
+          "--cfg-set",
+          "bus.servo_vel_max_counts_s=write_speed",
+          "--cfg-set",
+          "bus.write_acc=1000",
+          "--cfg-set",
+          "safety.max_delta_q_deg=3.6",
+          "--cfg-set",
+          "safety.max_current_a=100",
+          "--cfg-set",
+          "safety.max_roll_deg=30",
+          "--cfg-set",
+          "safety.max_pitch_deg=30",
+          "--cfg-set",
+          "struct_comp.enabled=0",
+          "--cfg-set",
+          "dr.latency_scale=1,1",
+          "--cfg-set",
+          "dr.deadband_scale=1,1",
+          "--cfg-set",
+          "dr.torque_scale=1.0,1.0",
+          "--cfg-set",
+          "dr.encoder_noise_deg=0.09",
+          "--cfg-set",
+          "dr.tilt_noise_deg=0.3",
+          "--cfg-set",
+          "dr.gyro_noise_deg_s=0.5",
+          "--cfg-set",
+          "ease.gravity_scale=1.0",
+          "--cfg-set",
+          "goal.walk_heading_set=[0.0,0.7853981633974483,-0.7853981633974483,1.5707963267948966,-1.5707963267948966]",
+          "--cfg-set",
+          "goal.walk_stop_frac=0.0",
+          "--cfg-set",
+          "dr.mass_scale=0.85,1.20",
+          "--cfg-set",
+          "dr.leg_mass_jitter_pct=0.10",
+          "--cfg-set",
+          "dr.link_len_scale_pct=0.02",
+          "--cfg-set",
+          "dr.link_len_leg_pct=0.012",
+          "--cfg-set",
+          "dr.com_offset_m=0.012",
+          "--cfg-set",
+          "dr.friction_scale=0.6,1.4",
+          "--cfg-set",
+          "dr.contact_stiff_scale=0.7,2.0",
+          "--cfg-set",
+          "dr.ground_tilt_deg=2.0",
+          "--cfg-set",
+          "dr.kp_scale_pct=0.20",
+          "--cfg-set",
+          "dr.kv_scale_pct=0.25",
+          "--cfg-set",
+          "dr.vel_scale=0.85,1.10",
+          "--cfg-set",
+          "dr.cmd_drop_prob_max=0.05",
+          "--cfg-set",
+          "dr.placement_noise_deg=2.0",
+          "--cfg-set",
+          "dr.bad_start_prob=0.25",
+          "--cfg-set",
+          "dr.bad_start_max_joints=3",
+          "--cfg-set",
+          "dr.bad_start_deg=8.0,35.0",
+          "--cfg-set",
+          "dr.joint_zero_bias_deg=1.0",
+          "--cfg-set",
+          "dr.gyro_bias_deg_s=0.5",
+          "--cfg-set",
+          "dr.imu_bias_deg=1.0",
+          "--cfg-set",
+          "dr.imu_mount_deg=10.0",
+          "--cfg-set",
+          "dr.imu_pos_xy_m=0.07",
+          "--cfg-set",
+          "dr.imu_pos_z_m=-0.02,0.10",
+          "--cfg-set",
+          "dr.action_noise=0.02",
+          "--cfg-set",
+          "dr.fault_prob=0.3",
+          "--cfg-set",
+          "dr.ext_push_prob=0.3",
+          "--cfg-set",
+          "dr.walk_kick_prob=0.0",
+          "--cfg-set",
+          "dr.walk_push_prob=0.3",
+          "--n-envs",
+          "4096",
+          "--out-name",
+          "ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_offctrl_narrowhead",
+          "--defer-final-artifacts",
+          ""
+        ],
+        "step_flag_count": 1,
+        "initialization_flags": [],
+        "wandb_tags": "track:joystick",
+        "code_sha": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+        "source_sha256": {
+          "rl_move/sim/train_ppo_mjx.py": "ef8fdc5acb11839b8d4b0ae6b6f985b38c23fe6d2eca7ea1ecbcf0e0e3209fc2",
+          "rl_move/sim/joint_task.py": "bdd43cb1cb5fafefe8baa1ff7816e4ac3e8ae22f861874c64c81441d49b713d7",
+          "rl_move/sim/cart_foot_decode.py": "bb7010d8383798316316a0e6faf1176d3dd6f838c62d1458c7ee68aa866ef26b",
+          "rl_move/sim/walk_task.py": "5de8199df6794511979d126a8dd94cde066a790dd8612c4672257cf6a7c991dc",
+          "rl_move/sim/servo_model.py": "977fe0246d011d5cea3baa40291de1300e19a44d66f45c36537dbe71bc8f0bcc"
+        }
+      }
+    ],
+    "on_start": {
+      "pid": 783449,
+      "process_started_utc": "2026-09-08T09:36:51.750000+00:00"
+    },
+    "halfgrav_on_completion": {
+      "run_name": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+      "steps": 40370176,
+      "checkpoint_path": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1.zip",
+      "checkpoint_md5": "67e50248f45626e30c0f72f2caae72f2",
+      "wandb_run_id": "traypy7y",
+      "written_at": 1788860092.5620332
+    }
+  },
+  "actual_argv_vs_ledger_parity": [
+    {
+      "arm": "on",
+      "actual_vs_ledger_cfg_delta": {},
+      "actual_vs_ledger_flag_delta": {},
+      "torque": "1.0,1.0",
+      "cartesian_cfg": {
+        "goal.walk_cart_foot_box_x_m": "0.06",
+        "goal.walk_cart_foot_box_y_m": "0.035",
+        "goal.walk_cart_foot_box_z_m": "0.04"
+      },
+      "seed": "40"
+    },
+    {
+      "arm": "off",
+      "actual_vs_ledger_cfg_delta": {},
+      "actual_vs_ledger_flag_delta": {},
+      "torque": "1.0,1.0",
+      "cartesian_cfg": {},
+      "seed": "40"
+    }
+  ],
+  "latest_off_verified_entry": {
+    "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+    "parent": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl",
+    "track": "joystick",
+    "status": "RUNNING",
+    "steps": 2000000,
+    "created": "2026-09-08T09:38:38+00:00",
+    "verified": "2026-09-08T09:40:27+00:00",
+    "checks": {
+      "control_hz_defaulted": "explicit",
+      "model_source_lineage": "mesh-matched",
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "uv_python": "/usr/local/bin/python",
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 3,
+      "code_sha_local": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+      "code_sha_pod": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+      "wandb_env_on_pod": true,
+      "defer_final_artifacts": "explicit",
+      "pid": "2889139",
+      "log_growth_bytes": [
+        5773,
+        5844
+      ],
+      "wandb_id": "cihv6dse",
+      "trainer_pid": "2889144",
+      "global_step_window": [
+        0,
+        524288
+      ],
+      "fps_estimate": 17476.3
+    }
+  },
+  "halfgrav_ON_final": {
+    "run_name": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+    "steps": 40370176,
+    "checkpoint_path": "/workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1.zip",
+    "checkpoint_md5": "67e50248f45626e30c0f72f2caae72f2",
+    "wandb_run_id": "traypy7y",
+    "written_at": 1788860092.5620332
+  },
+  "halfgrav_pair_actual_completed_steps": 80740352,
+  "refill_timing": {
+    "previous_last_optimization_completed_utc": "2026-09-08T09:34:52.562033+00:00",
+    "on_INTENT_utc": "2026-09-08T09:36:37+00:00",
+    "on_process_started_utc": "2026-09-08T09:36:51.750000+00:00",
+    "off_process_started_utc": "2026-09-08T09:38:53.910000+00:00",
+    "optimization_marker_to_first_new_process_seconds": 119.18796682357788,
+    "scope": "119.188s marker-to-process interval. This is not an exact all-GPUs-idle duration: checkpoint/W&B handoff follows the marker and compilation precedes new PPO progress. No continuous utilization trace was taken."
+  },
+  "final_capacity_observation_utc": "2026-09-08T09:41:10.709358+00:00",
+  "final_canonical_capacity": {
+    "nodes": {
+      "g129004": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-1",
+          "hexapod-mjx-train-8",
+          "hexapod-mjx-train-9",
+          "hexapod-mjx-train-10",
+          "hexapod-mjx-train-11"
+        ]
+      },
+      "g12ba48": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": []
+      },
+      "g131eec": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-2",
+          "hexapod-mjx-train-3"
+        ]
+      },
+      "g142d86": {
+        "cpus": "127960m",
+        "gpus": 8,
+        "train_pods": [
+          "hexapod-mjx-train-0",
+          "hexapod-mjx-train-4",
+          "hexapod-mjx-train-5",
+          "hexapod-mjx-train-7"
+        ]
+      }
+    },
+    "slots_total": 12,
+    "slots_ready": 11,
+    "slots_free": 10,
+    "free_pods": [
+      "hexapod-mjx-train-0",
+      "hexapod-mjx-train-1",
+      "hexapod-mjx-train-2",
+      "hexapod-mjx-train-4",
+      "hexapod-mjx-train-5",
+      "hexapod-mjx-train-7",
+      "hexapod-mjx-train-8",
+      "hexapod-mjx-train-9",
+      "hexapod-mjx-train-10",
+      "hexapod-mjx-train-11"
+    ],
+    "pending_pods": [
+      "hexapod-mjx-train-6 (Pending: 0/4 nodes are available: 1 Insufficient cpu, 1 node(s) didn't match Pod's node affinity/selector, 2 node(s) were unschedulable. no new claims to deallocate, pre)"
+    ],
+    "busy": {
+      "hexapod-mjx-train-3": [
+        "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead"
+      ]
+    }
+  },
+  "final_queue": {
+    "backlog": [],
+    "failed_count": 52
+  },
+  "final_work_classification": {
+    "actively_optimizing_PPO": 0,
+    "trainer_process_draining_after_optimization": 1,
+    "CPU_artifact_finalizers": 2,
+    "CPU_gate_evaluators": 3,
+    "explanation": "At final sampling, OFF had completed 2,097,152 steps but its trainer process remained during final handoff, so canonical capacity still counted it busy. ON was already in CPU finalization."
+  },
+  "CPU_work": [
+    {
+      "pid": 790128,
+      "module": "rl_move.sim.artifact_finalizer",
+      "state": "S",
+      "cpu_ticks": 312,
+      "start_ticks": 273949837,
+      "options": {
+        "--handoff-dir": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead"
+      },
+      "state.json": {
+        "phase": "artifacts_pending",
+        "jobs": {
+          "video_4096_periodic_001": {
+            "status": "in_flight",
+            "attempts": 1
+          },
+          "eval_1003520_periodic_002": {
+            "status": "pending",
+            "attempts": 0
+          },
+          "video_2097152_final_003": {
+            "status": "pending",
+            "attempts": 0
+          }
+        },
+        "updated_at": 1788860348.8287506
+      },
+      "pod": "hexapod-mjx-train-0"
+    },
+    {
+      "pid": 790663,
+      "module": "rl_move.sim.eval_checkpoint",
+      "state": "R",
+      "cpu_ticks": 31155,
+      "start_ticks": 273957386,
+      "options": {
+        "--seed": "0",
+        "--out": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_narrowhead_gate"
+      },
+      "evaluation_artifacts": {
+        "report_ready": false,
+        "videos": 1,
+        "latest_mtime": 1788860448.3250597
+      },
+      "pod": "hexapod-mjx-train-0"
+    },
+    {
+      "pid": 790708,
+      "module": "rl_move.sim.eval_checkpoint",
+      "state": "R",
+      "cpu_ticks": 8592,
+      "start_ticks": 273957453,
+      "options": {
+        "--seed": "90000",
+        "--out": "logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_widen8_cartfoot_freshinit_c1_narrowhead_joygate/dr0"
+      },
+      "evaluation_artifacts": {
+        "report_ready": false,
+        "videos": 0,
+        "latest_mtime": null
+      },
+      "pod": "hexapod-mjx-train-0"
+    },
+    {
+      "pid": 3878537,
+      "module": "rl_move.sim.artifact_finalizer",
+      "state": "S",
+      "cpu_ticks": 330,
+      "start_ticks": 263315342,
+      "options": {
+        "--handoff-dir": "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1"
+      },
+      "state.json": {
+        "phase": "artifacts_pending",
+        "jobs": {
+          "video_36057088_periodic_009": {
+            "status": "logged_pending_flush",
+            "attempts": 1
+          },
+          "eval_36126720_periodic_010": {
+            "status": "in_flight",
+            "attempts": 1
+          },
+          "video_40370176_final_011": {
+            "status": "pending",
+            "attempts": 0
+          }
+        },
+        "updated_at": 1788860417.4175444
+      },
+      "pod": "hexapod-mjx-train-2"
+    },
+    {
+      "pid": 3879702,
+      "module": "rl_move.sim.eval_checkpoint",
+      "state": "S",
+      "cpu_ticks": 215496,
+      "start_ticks": 263324090,
+      "options": {
+        "--seed": "0",
+        "--out": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1_gate"
+      },
+      "evaluation_artifacts": {
+        "report_ready": false,
+        "videos": 12,
+        "latest_mtime": 1788860452.545309
+      },
+      "pod": "hexapod-mjx-train-2"
+    }
+  ],
+  "bookkeeping_issue": {
+    "source_on_track": "joystick",
+    "source_off_track": "joystick",
+    "child_on_track": "joystick",
+    "child_off_track": "joystick",
+    "actual_wandb_tags_both": "track:joystick",
+    "diagnosis": "Pre-existing source mislabel inherited by respec, whose precedence is explicit track then source track. Both runs belong to prior-free scratch walkcurr research. Root owns additive bookkeeping correction; healthy training was not changed.",
+    "implementation_reference": "hexapod_walker/prototype_sts3215/rl_move/orchestrator/launch_run.py:2318"
+  },
+  "scientific_scope": "Only the heading set changed from 8 to 5 headings versus each own 1x source; no init-from, seed 40, and one 2M step flag each. This is a finite mechanism-health comparison, not evidence for closure of the whole DR family. Root handles rationale and verdict.",
+  "raw_samples": {
+    "first": {
+      "path": "/tmp/hexapod-refill-20260908T093214Z-first.json",
+      "sha256": "76ac461bc61097ca18ef7db2bba303f13fc3c187970459ed28212b405cf821bb"
+    },
+    "second": {
+      "path": "/tmp/hexapod-refill-20260908T093214Z-second.json",
+      "sha256": "3a486f952998d6ff3d0b01c079297b5e3c2727db606f36ceac4584cf3d114eb8"
+    },
+    "third": {
+      "path": "/tmp/hexapod-refill-20260908T093214Z-third.json",
+      "sha256": "61a614fa880a96274db16beffa40ce97b8fcf5106b977ec826ed3a7f805d7b83"
+    },
+    "fourth": {
+      "path": "/tmp/hexapod-refill-20260908T093214Z-fourth.json",
+      "sha256": "c3e5e46a37b9b8da18333b327bb1f009ac6d750cab38ee844399a56b6a69a40c"
+    },
+    "final": {
+      "path": "/tmp/hexapod-refill-20260908T093214Z-final.json",
+      "sha256": "276318da12f7f330250e9cba1604a595dcba60eb5dff8cd6efa3730d8a2c5760"
+    }
+  },
+  "between_arm_source_commits": {
+    "on": "d50112534fca88ed4a83f650b17c2950bc327842",
+    "off": "a1b4f0a0a5ab60bfb3343c60ba02cb1358baf168",
+    "changed_files": [
+      "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/README.md",
+      "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/meta_before_correction.md",
+      "artifacts/rl_watchdog/guidance_correction_20260908T093214Z/superseded_radius_status.md",
+      "hexapod_walker/prototype_sts3215/rl_docs/meta/META_2026-09-08.md",
+      "hexapod_walker/prototype_sts3215/rl_docs/runs/cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead.md",
+      "hexapod_walker/prototype_sts3215/rl_docs/tracks/walkcurr/STATUS.md",
+      "hexapod_walker/prototype_sts3215/rl_move/orchestrator/experiments.json"
+    ],
+    "code_delta": false,
+    "method": "Controller git diff --name-only plus five actual on-pod source hashes"
+  }
+}

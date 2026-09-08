@@ -1,0 +1,90 @@
+{
+  "at_utc": "2026-09-08T09:44:06.731819+00:00",
+  "reason": "Correct six known scratch-walking source/descendant labels to walkcurr; preserve training commands and results.",
+  "runs": [
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1",
+      "created": "2026-09-08T08:33:15+00:00",
+      "wandb_id": "kl4alitf",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "138a5d62a1f6c90118cc7ec3190b623b68731af9ee8f206f6736aad02d46fda5",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    },
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-torqueretain",
+      "created": "2026-09-08T09:08:57+00:00",
+      "wandb_id": "lqeww3mi",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "3f45545e6926af1aa9bd13400010999a8e5da45fbe28596a909ed5f83fba1e57",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    },
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-c1-narrowhead",
+      "created": "2026-09-08T09:36:37+00:00",
+      "wandb_id": "pr966vo3",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "4033a0b0dc8bff2abf3390aca476fec2745e2705db6108fd18a7b7b3805a7d7a",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    },
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl",
+      "created": "2026-09-08T08:37:23+00:00",
+      "wandb_id": "xpuzkq3h",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "db04f5ad12e2d70402550439f06eac20cf9148c0818b14adfaf65b86f322355f",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    },
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-torqueretain",
+      "created": "2026-09-08T09:11:03+00:00",
+      "wandb_id": "ammkxcg3",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "73cd2ea8727df8bfd4d63ad15a4e13d51eb7f6de9aa83e0324532d511ab3cb0b",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    },
+    {
+      "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit-offctrl-narrowhead",
+      "created": "2026-09-08T09:38:38+00:00",
+      "wandb_id": "cihv6dse",
+      "track_before": "joystick",
+      "tags_before": [
+        "track:joystick"
+      ],
+      "command_sha256": "c95ef2625a8c14a82c6b14b5ca47d6bef27845352c14c326238cfe92c3e0a58e",
+      "tags_after": [
+        "track:walkcurr"
+      ],
+      "track_after": "walkcurr"
+    }
+  ]
+}

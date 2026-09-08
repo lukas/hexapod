@@ -1,0 +1,113 @@
+== state.json ==
+{
+  "schema": 1,
+  "phase": "evaluated",
+  "jobs": {
+    "video_36057088_periodic_009": {
+      "status": "done",
+      "attempts": 1
+    },
+    "eval_36126720_periodic_010": {
+      "status": "done",
+      "attempts": 1
+    },
+    "video_40370176_final_011": {
+      "status": "done",
+      "attempts": 1
+    }
+  },
+  "note": "finalizer: 3 done (publication flush confirmed), 0 already done, 0 failed",
+  "updated_at": 1788860813.3978314
+}== finalized.json ==
+{
+  "done": 3,
+  "skipped_done": 0,
+  "failed": 0,
+  "errors": {},
+  "delivered_snapshots": [
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/video_36057088_periodic_009.zip",
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/eval_36126720_periodic_010.zip",
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/video_40370176_final_011.zip"
+  ],
+  "logged_job_ids": [
+    "video_36057088_periodic_009",
+    "eval_36126720_periodic_010",
+    "video_40370176_final_011"
+  ],
+  "replayed_unconfirmed": 0,
+  "phase": "evaluated",
+  "finished_at": 1788860813.398088
+}== finalizer.log (tail) ==
+wandb:       SCORE/raise_success.last 0
+wandb:       SCORE/raise_total_reward 1231.94905
+wandb:  SCORE/raise_total_reward.last 691.23776
+wandb:      SCORE/rise_bridge_success 0
+wandb: SCORE/rise_bridge_success.last 0
+wandb:      SCORE/rise_crouch_success 0.5
+wandb: SCORE/rise_crouch_success.last 0.5
+wandb:                           +146 ...
+wandb:
+wandb: 🚀 View run cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/traypy7y
+wandb: ⭐️ View project at: https://wandb.ai/l2k2/hexapod-balance
+wandb: Synced 5 W&B file(s), 2 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260908_093455-traypy7y/logs
+[finalizer] retired 5 replayable input file(s) after durable W&B finish + confirmation
+[finalizer] {"done": 3, "skipped_done": 0, "failed": 0, "errors": {}, "delivered_snapshots": ["/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/video_36057088_periodic_009.zip", "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/eval_36126720_periodic_010.zip", "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1/snapshots/video_40370176_final_011.zip"], "logged_job_ids": ["video_36057088_periodic_009", "eval_36126720_periodic_010", "video_40370176_final_011"], "replayed_unconfirmed": 0, "phase": "evaluated"}
+== leftover snapshots ==
+
+== state.json ==
+{
+  "schema": 1,
+  "phase": "evaluated",
+  "jobs": {
+    "video_32051200_periodic_007": {
+      "status": "done",
+      "attempts": 1
+    },
+    "eval_33116160_periodic_008": {
+      "status": "done",
+      "attempts": 1
+    },
+    "video_40370176_final_009": {
+      "status": "done",
+      "attempts": 1
+    }
+  },
+  "note": "finalizer: 3 done (publication flush confirmed), 0 already done, 0 failed",
+  "updated_at": 1788860444.5235796
+}== finalized.json ==
+{
+  "done": 3,
+  "skipped_done": 0,
+  "failed": 0,
+  "errors": {},
+  "delivered_snapshots": [
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_32051200_periodic_007.zip",
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/eval_33116160_periodic_008.zip",
+    "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_40370176_final_009.zip"
+  ],
+  "logged_job_ids": [
+    "video_32051200_periodic_007",
+    "eval_33116160_periodic_008",
+    "video_40370176_final_009"
+  ],
+  "replayed_unconfirmed": 0,
+  "phase": "evaluated",
+  "finished_at": 1788860444.5238054
+}== finalizer.log (tail) ==
+wandb:       SCORE/raise_success.last 0
+wandb:       SCORE/raise_total_reward 1259.17673
+wandb:  SCORE/raise_total_reward.last 607.56584
+wandb:      SCORE/rise_bridge_success 0
+wandb: SCORE/rise_bridge_success.last 0
+wandb:      SCORE/rise_crouch_success 1
+wandb: SCORE/rise_crouch_success.last 0.5
+wandb:                           +145 ...
+wandb:
+wandb: 🚀 View run cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/1myxq3am
+wandb: ⭐️ View project at: https://wandb.ai/l2k2/hexapod-balance
+wandb: Synced 5 W&B file(s), 2 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260908_092854-1myxq3am/logs
+[finalizer] retired 5 replayable input file(s) after durable W&B finish + confirmation
+[finalizer] {"done": 3, "skipped_done": 0, "failed": 0, "errors": {}, "delivered_snapshots": ["/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_32051200_periodic_007.zip", "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/eval_33116160_periodic_008.zip", "/workspace/prototype_sts3215/rl_move/sim/policies/artifact_handoff/cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1/snapshots/video_40370176_final_009.zip"], "logged_job_ids": ["video_32051200_periodic_007", "eval_33116160_periodic_008", "video_40370176_final_009"], "replayed_unconfirmed": 0, "phase": "evaluated"}
+== leftover snapshots ==

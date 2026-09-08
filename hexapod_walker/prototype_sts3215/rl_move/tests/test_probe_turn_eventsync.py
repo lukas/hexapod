@@ -105,36 +105,37 @@ def _grid(gain, spread, diffs_pos=None, diffs_neg=None, straight_cf=0.001,
     ]
 
 
-def test_verdict_supported_only_when_all_bars_met():
+def test_historical_bar_preserved_but_is_not_causal_support():
     v = es.verdict(_grid(gain=0.15, spread=60.0))
     assert v["checks"]["s1_pass"] and v["checks"]["s2_pass"] \
-        and v["checks"]["s3_pass"] and v["supported"]
+        and v["checks"]["s3_pass"] and v["historical_bar_supported"]
+    assert not v["supported"] and not v["observational_screen_passed"]
 
 
 def test_verdict_rejects_small_or_wrong_sign_gain():
-    assert not es.verdict(_grid(gain=0.05, spread=60.0))["supported"]
+    assert not es.verdict(_grid(gain=0.05, spread=60.0))["historical_bar_supported"]
     v = es.verdict(_grid(gain=-0.15, spread=60.0))
-    assert not v["checks"]["s1_pass"] and not v["supported"]
+    assert not v["checks"]["s1_pass"] and not v["historical_bar_supported"]
 
 
 def test_verdict_rejects_common_shift_only_signal():
     # uniform offsets: tiny spread, no sign differential -> S2 fails
     # even with a large counterfactual gain (closed global-lag territory)
     v = es.verdict(_grid(gain=0.20, spread=20.0))
-    assert not v["checks"]["s2_pass"] and not v["supported"]
+    assert not v["checks"]["s2_pass"] and not v["historical_bar_supported"]
 
 
 def test_verdict_sign_differential_alone_can_pass_s2():
     dp = [0.0, 40.0, 0.0, 0.0, 0.0, 0.0]
     dn = [0.0, -40.0, 0.0, 0.0, 0.0, 0.0]  # 80 ms differential on leg 1
     v = es.verdict(_grid(gain=0.20, spread=20.0, diffs_pos=dp, diffs_neg=dn))
-    assert v["checks"]["s2_pass"] and v["supported"]
+    assert v["checks"]["s2_pass"] and v["historical_bar_supported"]
 
 
 def test_verdict_straight_drift_falls_or_parity_fail_s3():
-    assert not es.verdict(_grid(0.15, 60.0, straight_cf=0.02))["supported"]
-    assert not es.verdict(_grid(0.15, 60.0, fell=True))["supported"]
-    assert not es.verdict(_grid(0.15, 60.0, parity=False))["supported"]
+    assert not es.verdict(_grid(0.15, 60.0, straight_cf=0.02))["historical_bar_supported"]
+    assert not es.verdict(_grid(0.15, 60.0, fell=True))["historical_bar_supported"]
+    assert not es.verdict(_grid(0.15, 60.0, parity=False))["historical_bar_supported"]
 
 
 def test_parity_reference_covers_exactly_the_six_frozen_cells():

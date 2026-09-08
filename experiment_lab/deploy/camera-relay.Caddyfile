@@ -1,0 +1,31 @@
+# One shared browser login for every lab site. Requests that already carry
+# an API credential (Authorization / X-API-Key) and the agent endpoints are
+# left to each service's own gate, so scripts and MCP clients are unaffected.
+# The verified user is forwarded as X-Hexapod-User, replacing any value the
+# client sent, so the apps behind the tunnel can skip their own sign-in.
+(lab_login) {
+    @browser {
+        not header Authorization *
+        not header X-API-Key *
+        not path {args[0]}
+    }
+    basic_auth @browser {
+        lukas {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+        camera {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+    }
+    request_header X-Hexapod-User {http.auth.user.id}
+}
+
+camera.cwd1f0-new-cluster.coreweave.app {
+    import lab_login /robots.txt
+    reverse_proxy 127.0.0.1:8766 {
+        flush_interval -1
+    }
+}
+
+robot-lab.cwd1f0-new-cluster.coreweave.app {
+    import lab_login /mcp /healthz /robots.txt
+    reverse_proxy 127.0.0.1:8767 {
+        flush_interval -1
+    }
+}

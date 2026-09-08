@@ -168,26 +168,41 @@ def test_audit_engine_traction_extension_on_twin():
         assert 0.0 <= sat[nm]["force_sat_med"] <= 1.0
 
 
-def test_foot_torsion_dose_applies_to_model_and_default_is_untouched():
-    """--foot-torsion-mu is a probe-local diagnostic dose: the CLI wrapper
-    must set the foot+terrain torsional coefficients on the probe env's
-    model, and constructing an env WITHOUT it must keep the XML values."""
+def test_foot_torsion_dose_survives_reset_and_reaches_live_contacts():
+    """--foot-torsion-mu is a probe-local diagnostic dose. REGRESSION
+    (09-08): env.reset() restores the pristine `_base_geom_friction`
+    copy taken at __init__, which silently WIPED a live-model-only dose
+    (the first fullmesh torsion A/B came back BIT-IDENTICAL to
+    baseline). The dose must survive reset AND appear in the solved
+    contacts' friction[2]."""
     import mujoco
+    import numpy as np
     from rl_move.sim import probe_turn_authority as pta
     from rl_move.sim.probe_turn_traction import foot_geom_ids
-    env = pta.make_env(["control.hz=100"], 0, 2.0)
+    env = pta.make_env(["control.hz=100"], 0, 4.0)
     try:
         fg = foot_geom_ids(env.model)
         assert env.model.geom_friction[fg[0], 1] == pytest.approx(0.1)
-        # simulate the CLI dose in-place (same code path as main())
+        # the CLI dose path: live model + pristine DR copy
         for g in fg:
             env.model.geom_friction[g, 1] = 0.005
         tg = mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_GEOM,
                                "terrain")
         env.model.geom_friction[tg, 1] = min(
             env.model.geom_friction[tg, 1], 0.005)
+        env._base_geom_friction = env.model.geom_friction.copy()
+        env.reset()
         assert env.model.geom_friction[fg[0], 1] == pytest.approx(0.005)
-        assert env.model.geom_friction[tg, 1] == pytest.approx(0.005)
+        for _ in range(50):
+            env.step(np.zeros(env.action_space.shape))
+        seen = False
+        fgs = set(fg)
+        for ci in range(env.data.ncon):
+            c = env.data.contact[ci]
+            if c.geom1 in fgs or c.geom2 in fgs:
+                assert c.friction[2] == pytest.approx(0.005)
+                seen = True
+        assert seen, "no live foot contact found to verify the dose"
     finally:
         env.close()
     env2 = pta.make_env(["control.hz=100"], 0, 2.0)

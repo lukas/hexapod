@@ -507,6 +507,15 @@ def main() -> int:
                                    "terrain")
             if tg >= 0:
                 gf[tg, 1] = min(gf[tg, 1], args.foot_torsion_mu)
+            # env.reset() restores the pristine DR copies taken at
+            # __init__ (sim_env.py `geom_friction[:] = _base_geom_
+            # friction`), which would silently WIPE this dose on the
+            # very first reset (caught 09-08: the first torsion A/B
+            # came back bit-identical to baseline). Update the pristine
+            # copy too so the dose survives every reset. No extra
+            # reset here — the caller's own reset must stay the FIRST
+            # one so the episode RNG draw matches the baseline arm.
+            env._base_geom_friction = env.model.geom_friction.copy()
             return env
 
         pta.make_env = _dosed_make_env

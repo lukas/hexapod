@@ -1,3 +1,61 @@
+## 2026-09-08 ~08:0x (triage cycle) — fork (b) seed11 acquisition pair lands: COMPLETES the n=3 fresh-init cohort (seed7/10/11) at ratio-matched PARITY -- track-level ruling; matched cont10m durability pair launched
+
+One plain sentence: the two runs assigned this cycle are the seed11
+matched fresh-init 40M ON/OFF pair, and with this landing all 3
+pre-registered seeds now have their exact slip ratio computed and all
+3 land in the same PARITY shape, closing the seed-reproducibility
+question the seed7 finding opened.
+
+**`cartfoot-freshinit-c1-s11-acq1` verdict (ACQ PASS - PARITY):**
+0/24 falls; gait_valid 6/6 det, 6/6 sto, 5/6 startjitter/det (leg4 sac
+1/6), 6/6 startjitter/sto. Mean slip/m ON-vs-OFF by group: 2.89/3.02
+(0.96x), 3.32/3.53 (0.94x), 2.81/2.91 (0.97x), 3.34/3.34 (1.00x) --
+ON at-or-under OFF in all 4 groups, essentially the same shape as
+seed7 (0.94-0.99x). speed_mean above the 0.03 m/s floor everywhere.
+Reward rises every quarter (-462.7->1680.2), no plateau.
+
+**`cartfoot-freshinit-offctrl-s11-acq1` verdict (PASS, matched
+control):** 0/24 falls; gait_valid 0/6 det, 0/6 startjitter/det (legs
+[1,4] sacrificed every episode -- the same family-wide det-only quirk
+already precedented for `halfgrav-s0-c1`/`base-cartfoot-fresh-s10-c1b`,
+vanishes under sto 6/6 both sto scenarios). Reward rises every
+quarter (-363.8->1907.2), no plateau. Validates the ON/OFF pair as a
+genuine comparison, not confounded by control drift.
+
+**Cohort-complete ruling:** with seed10's OFF control landing last
+cycle (this file's prior entry, ratio 0.86-0.98x) and this seed11
+pair now landing 0.94-1.00x, ALL 3 pre-registered fresh-init seeds
+(7, 10, 11) show ratio-matched PARITY -- 12/12 arms 0 falls, 0/3
+seeds anywhere near fork(a)'s 1.5-6x inflation. **TRACK-LEVEL RULING:
+from-scratch (never warm-started-retrofit) training of the Cartesian
+foot-target action space reaches slip parity with joint-space at
+equal budget on the easy0905 base-pilot recipe, 3/3 seeds.** This
+narrows fork(a)'s closure to what it actually measured: retrofitting
+the Cartesian head onto ALREADY-MATURE joint-space weights, not an
+inherent property of the action space. Durability past 40M is still
+unproven (fork(a)'s own lineage looked fine at 12M before degrading
+at 20-22M) -- all 3 seeds now have matched cont10m (+10M) pairs
+running to test that next.
+
+**Refill (same cycle):** launched the matched seed11 cont10m
+durability pair, mirroring seed7's and seed10's design:
+`cartfoot-freshinit-c1-s11-acq1-cont10m` (ON, train-0) +
+`...-offctrl-s11-acq1-cont10m` (OFF, train-2), both VERIFIED RUNNING.
+Gate: HOLDS = slip ratio <=1.2x in >=3/4 groups + 0 new falls vs the
+40M read; DEGRADES = ratio >1.5x in >=2/4 groups or any new fall. All
+3 seeds' durability pairs are now in flight together (seed7 already
+running, seed10 queued by a concurrent cycle, seed11 launched this
+cycle). No other non-duplicative walkcurr arm identified; other
+tracks checked, all genuinely blocked (amp Robot-Lab-only, cpg
+search-exhausted, standwalk/assistfade/todaypolicy need unbuilt
+reward-mechanism design) -- no filler.
+
+Evidence: `ops.sh review` for both runs this cycle; `logs/ckpt_eval/
+cw_walkscratch_easy0905_cartfoot_freshinit_{c1,offctrl}_s11_acq1_gate/
+report.json`; SKILLS.md consolidated cohort row; RL_LOG 09-08 ~08:0x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~08:0x (triage cycle) — fork (b) seed10 OFF control lands: completes the seed10 pair at true ON/OFF slip PARITY (2nd replicate matching seed7); durability cont10m pair queued
 
 One plain sentence: this cycle's assigned finished run is the matched

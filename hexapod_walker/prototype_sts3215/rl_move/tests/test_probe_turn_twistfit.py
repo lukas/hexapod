@@ -135,9 +135,11 @@ def test_support_verdict_supported_needs_all_four_arcs():
     bad = dict(gain=0.5)
     cells = [_cell(0.15, 0.0, **bad), _cell(0.15, math.pi, **bad),
              _cell(-0.15, 0.0, **bad), _cell(-0.15, math.pi, **bad)]
-    assert support_verdict(cells)["supported"] is True
-    cells[3] = _cell(-0.15, math.pi)      # one clean arc cell
+    assert support_verdict(cells)["legacy_bar_supported"] is True
+    # Descriptive historical bar alone is no longer admissible support.
     assert support_verdict(cells)["supported"] is False
+    cells[3] = _cell(-0.15, math.pi)      # one clean arc cell
+    assert support_verdict(cells)["legacy_bar_supported"] is False
 
 
 def test_support_verdict_breach_kinds():

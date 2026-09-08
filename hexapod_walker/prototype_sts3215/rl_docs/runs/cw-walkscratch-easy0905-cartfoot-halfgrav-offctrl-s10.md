@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T09:59:21+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7
+
+**wandb_id**: p4ft2cgm
 
 **hypothesis**: Plain English: matched joint-space control for the halfgrav cart_foot seed10 canary (ON launched same cycle) -- does joint-space also bootstrap cleanly at 0.5g on seed10, completing the n=3 cross-seed cohort's matched-control side? Byte-identical to cartfoot-halfgrav-offctrl-s7 with only seed changed to 10.
 

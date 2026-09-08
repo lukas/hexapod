@@ -1,3 +1,55 @@
+## 2026-09-08 ~06:1x (triage cycle) — cartfoot pair verdicts confirmed already recorded (no re-triage); launched a second-seed replicate pair (seed3) to test reproducibility, concurrent with another cycle's own fork-(a) 10M continuation
+
+Read `ops.sh review` on both `cartfoot-c1`/`cartfoot-offctrl`: both
+ALREADY VERDICTED CANARY PASS by a concurrent cycle (verdict text
+matches the ~05:5x entry below exactly) — no new evidence, did not
+re-triage. Found a concurrent cycle had ALSO already launched fork
+(a) from the open-fork list below: `cartfoot-c1-cont10m` (ON, W&B
+`qay6bggy`, RUNNING then FINISHED train-4) + matched
+`cartfoot-offctrl-cont10m` (OFF, W&B `x46hb1dy`, train-0) — my own
+attempt at the identical experiment (`-acq10m` naming) was correctly
+REFUSED by the launcher as a pod double-book; left that pair for its
+own owner to triage, not duplicating.
+
+Instead launched the OTHER open, non-duplicate question the ~05:5x
+entry's own "OPEN FORK" flagged but left unaddressed: **is the
+cartfoot-c1 fingerprint (0-fall re-acquisition, 3-10x worse slip)
+seed-reproducible, or an n=1 seed-lottery artifact** (per this
+campaign's own n>=3 seed-pass-rate discipline used elsewhere,
+e.g. longrun/legdutyratio). Launched a byte-identical seed3 replicate
+pair, both warm-started from the SAME `cont40m` checkpoint as
+`cartfoot-c1`/`cartfoot-offctrl` (RNG3 instead of RNG2), 2M each:
+- `cartfoot-c1-s3` (ON, W&B `axh4szza`, train-1): cart_foot keys
+  identical to `cartfoot-c1` (0.06/0.035/0.04 m box).
+- `cartfoot-offctrl-s3` (OFF, W&B `a2o71f5o`, train-2): matched
+  control, no cart_foot keys.
+Both FINISHED full 2,097,152 steps within the cycle (2M trains in
+~2-3 min at 12.5-16k fps); gate evals pre-staged for the next reader.
+Gate: same MECHANISM-HEALTH CANARY bar as the original pair, read
+`cartfoot-c1-s3` against `cartfoot-offctrl-s3` — VIABLE if 0 falls/
+gait_valid>=18/24; PROMISING additionally if slip beats offctrl-s3 in
+>=3/4 groups; FAIL-MECHANISM if it cannot re-acquire. A launcher
+subprocess got SIGTERM'd by my own shell timeout mid-verification on
+`cartfoot-offctrl-s3` (`--now` snapshot/sync/verify overran a 180s
+wrapper) — training had already completed on-pod by then;
+`launch_run.py checkup --run ...` mechanically reconciled the ledger
+to FINISHED (no manual status edit), and `update --set wandb_id=...`
+backfilled the run id checkup doesn't set. Evidence: this STATUS
+entry + W&B ids above; ledger `cw-walkscratch-easy0905-headset-
+crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-
+cartfoot-{c1,offctrl}-s3`. RL_LOG 09-08 ~06:1x.
+
+Fork (b) (fresh-init competing on equal footing) is NOT launched this
+cycle — it needs its own design pass first: the mature `cont40m`
+recipe (multi-heading, full DR pack) was itself only ever REACHED via
+a long continuation chain, never trained from scratch directly, so a
+naive fresh-init pair at this exact recipe risks conflating "neither
+parameterization can learn this hard task from scratch" with a
+mechanism-specific result — flagged for the next owner, not
+pre-registered blind.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~05:5x (same cycle; pair triage) — cartfoot pair read: ON re-acquires 0-fall walking through fully reinterpreted actions (VIABLE) but slip is 3-10x the matched control in 4/4 groups — foot-space inductive bias UNSUPPORTED at 2M retrofit depth
 
 Gates landed within the cycle (2M trains in ~2 min at 14.5-17.5k fps).

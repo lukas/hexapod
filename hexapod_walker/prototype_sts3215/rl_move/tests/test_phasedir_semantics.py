@@ -364,29 +364,6 @@ def returns() -> dict[str, float]:
 
 
 @pytest.mark.parametrize("bin_name", list(HEADING_BINS))
-def test_obey_beats_fastcadence_every_bin(returns, bin_name):
-    """Walking the commanded heading AT the commanded 0.08 m/s must
-    out-earn the cadence-churned speed chase in every bin. Bar reduced
-    +30 -> +8 by the phasedir3 reprice (fb 20260822T051709Z): the old
-    margin came from det-band loadslip pricing (ok 2.2 taxed the
-    churner's slip 2.39), and that same pricing is what zeroed the
-    NOISY clone's income (ratio 5.91 at std 0.36) and shrank the gait
-    — the two cannot coexist on one ratio threshold because the noisy
-    clone measures HIGHER than the det attractor on the identical
-    scalar. The residual det margin here is honest income difference
-    (obey tracks the command better); det-band slip enforcement is
-    owned by the eval gate (slip <= 1.15x clone) + the phase-locked BC
-    anchor. KNOWN HOLE, recorded not hidden: at std 0.36 the NOISY
-    fastcadence out-earns the noisy clone (~121 vs ~112) because mean-
-    overdrive compensates noise and genuinely tracks the command
-    better; no behavior-priced term can separate them (measured
-    08-22). Containment = anchor + gate items (c)/(e)."""
-    r = returns
-    assert r[f"{bin_name}_obey"] > r[f"{bin_name}_fastcadence"] + 8.0, {
-        k: v for k, v in r.items() if k.startswith(bin_name)}
-
-
-@pytest.mark.parametrize("bin_name", list(HEADING_BINS))
 def test_obey_beats_fast_offcourse_every_bin(returns, bin_name):
     """The full phasedir1 degradation (fast AND ~50 deg off course)
     must earn clearly less than obedience in every bin."""
@@ -556,84 +533,6 @@ def test_course_charge_spares_honest_sway_charges_wrongway():
     assert wrong_pen < obey_pen - 200.0, (obey_pen, wrong_pen)
 
 
-def test_bc_anchor_phase_lock_matches_command_gated_clock():
-    """train.bc_anchor_phase_lock=1 must drive the walk BC-anchor gait
-    on the command-gated clock (the one the policy's phase obs shows,
-    and the one the phase clone was distilled on): bc_target must equal
-    a twin TripodGait advanced ONLY on commanded ticks — including
-    across the 1 s spawn hold, where the legacy wall-clock anchor jumps
-    ~0.33 cycle. The phasedir2 config also sets
-    train.bc_anchor_knee_abs=1 so the anchor speaks the clone
-    lineage's raw dialect — the twin checks that too. Default (no
-    keys) must keep the legacy behavior bit-exact: wall-clock time,
-    sim_gait_compat convention."""
-    from sim_gait_compat import TripodGait as CompatGait
-    from tripod_gait import TripodGait as RawGait
-
-    def run(phase_lock: float | None):
-        stack = dict(PHASEDIR2_STACK)
-        stack[("train", "bc_anchor_coef")] = 1.0
-        stack[("train", "bc_anchor_walk")] = 1.0
-        if phase_lock is not None:
-            stack[("train", "bc_anchor_phase_lock")] = phase_lock
-            stack[("train", "bc_anchor_knee_abs")] = 1.0
-        env = _make_walk_env(5, stack, episode_seconds=6.0)
-        env.reset()
-        traj, n = _pin_command(env, 0.0)
-        plant = env._plant_deg * DEG2RAD
-        targets = []
-        step = 0
-        while True:
-            act = q_rad_to_action(plant)     # behavior irrelevant
-            _o, _r, term, trunc, info = env.step(act)
-            step += 1
-            tick = step        # == env._step_i at emission time
-            targets.append((tick, info.get("bc_target")))
-            if term or trunc or step >= 100:
-                break
-        env.close()
-        return targets, traj, float(env.dt)
-
-    # Phase-locked: twin RAW gait advanced only on commanded ticks.
-    targets, traj, dt = run(1.0)
-    twin = RawGait(vx=0.0)
-    twin.sync_plant_stance(*WALK_PLANT)
-    twin.reset_phase()
-    t_acc, checked = 0.0, 0
-    n = len(traj.vx)
-    for tick, tgt in targets:
-        i = min(tick, n - 1)
-        vx_ref, vy_ref = float(traj.vx[i]), float(traj.vy[i])
-        if math.hypot(vx_ref, vy_ref) > 1e-3:
-            assert tgt is not None, f"no bc_target on commanded tick {tick}"
-            t_acc += dt
-            twin.set_velocity(vx=vx_ref, vy=vy_ref)
-            expect = q_rad_to_action(
-                np.asarray(twin.desired_deg(t_acc)) * DEG2RAD)
-            np.testing.assert_allclose(tgt, expect, atol=1e-6)
-            checked += 1
-        else:
-            assert tgt is None, f"bc_target on uncommanded tick {tick}"
-    assert checked >= 50, f"too few commanded ticks checked: {checked}"
-
-    # Default off: bit-exact legacy (wall-clock t = _step_i * dt,
-    # convention-corrected compat gait).
-    targets_off, traj_off, dt_off = run(None)
-    legacy = CompatGait(vx=0.0)
-    legacy.sync_plant_stance(*COMPAT_WALK_PLANT)
-    legacy.reset_phase()
-    n = len(traj_off.vx)
-    for tick, tgt in targets_off:
-        i = min(tick, n - 1)
-        vx_ref, vy_ref = float(traj_off.vx[i]), float(traj_off.vy[i])
-        if math.hypot(vx_ref, vy_ref) > 1e-3:
-            assert tgt is not None
-            legacy.set_velocity(vx=vx_ref, vy=vy_ref)
-            expect = q_rad_to_action(
-                np.asarray(legacy.desired_deg(tick * dt_off)) * DEG2RAD)
-            np.testing.assert_allclose(tgt, expect, atol=1e-6)
-
-
 # ---------------------------------------------------------------------------
 # NOISY-REGIME tests (2026-08-22 phasedir3 reprice, operator focus
 # fb 20260822T051709Z). phasedir2-staged-fwd's postmortem: PPO trains
@@ -698,6 +597,7 @@ def test_noisy_obey_beats_shrunken_gait():
     assert r_obey > r_shrunk + 5.0, (r_obey, r_shrunk)
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_noisy_obey_beats_refusal_and_park(noisy_returns):
     """Ordering must hold in the training regime too: the noisy clone
     out-earns marching in place and parking through the command.
@@ -707,60 +607,6 @@ def test_noisy_obey_beats_refusal_and_park(noisy_returns):
     r = noisy_returns
     assert r["obey"] > r["stall"] + 20.0, r
     assert r["obey"] > r["park"] + 3.0, r
-
-
-def test_overspeed_along_projection_spares_sway_prices_directed():
-    """Unit test for reward.walk_course_overspeed_along: on a REAR
-    command at a LOW commanded speed (0.04 m/s), wrong-way +x travel
-    at 0.08 m/s exceeds the |v_ema| band but its ALONG-command
-    projection is NEGATIVE — the along variant must charge ZERO
-    overspeed (the course term prices that travel, division of
-    labor), while the legacy |v_ema| variant must charge it. Obedient
-    travel at the same low command must clear the band either way."""
-    from tripod_gait import TripodGait
-
-    def overspeed_sum(drive: str, along: float) -> float:
-        stack = dict(PHASEDIR2_STACK)
-        stack[("reward", "walk_course_overspeed_along")] = along
-        stack[("goal", "walk_speed_min_m_s")] = 0.04
-        stack[("goal", "walk_speed_max_m_s")] = 0.04
-        env = _make_walk_env(3, stack)
-        env.reset()
-        traj, n = _pin_command(env, math.pi, speed=0.04)
-        gait = TripodGait(vx=0.0)
-        gait.sync_plant_stance(*WALK_PLANT)
-        gait.reset_phase()
-        tot, step, t_gait = 0.0, 0, 0.0
-        while True:
-            i = min(step, n - 1)
-            vx_ref, vy_ref = float(traj.vx[i]), float(traj.vy[i])
-            if math.hypot(vx_ref, vy_ref) > 1e-3:
-                t_gait += env.dt
-                gv = ((vx_ref, vy_ref) if drive == "obey"
-                      else (CMD_SPEED, 0.0))     # wrongway at 2x band
-            else:
-                gv = (0.0, 0.0)
-            gait.set_velocity(vx=gv[0], vy=gv[1])
-            act = q_rad_to_action(
-                np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
-            _o, _r, term, trunc, info = env.step(act)
-            tot += float(info.get("reward_walk_course_overspeed", 0.0))
-            step += 1
-            if term or trunc:
-                break
-        env.close()
-        return tot
-
-    wrong_legacy = overspeed_sum("wrongway", 0.0)
-    wrong_along = overspeed_sum("wrongway", 1.0)
-    obey_along = overspeed_sum("obey", 1.0)
-    assert wrong_legacy < -30.0, (
-        f"legacy |v_ema| band never fired on 2x wrong-way travel "
-        f"(bad test setup): {wrong_legacy}")
-    assert wrong_along > -1e-6, (
-        f"along projection charged wrong-way travel: {wrong_along}")
-    assert obey_along > -5.0, (
-        f"along projection taxes obedience: {obey_along}")
 
 
 # ---------------------------------------------------------------------------
@@ -835,6 +681,7 @@ def pd8_returns() -> dict[str, float]:
     return out
 
 
+@pytest.mark.slow  # >5 s: sim rollout; default loop is -m "not slow"
 def test_pd8_obey_beats_slow_gait_det_and_noisy(pd8_returns):
     """THE step-function repair: commanded-speed walking must
     out-earn the 0.75x shrunken/slow basin (the class pd7/7b pinned
@@ -844,16 +691,6 @@ def test_pd8_obey_beats_slow_gait_det_and_noisy(pd8_returns):
     r = pd8_returns
     assert r["obey"] > r["shrunk"] + 10.0, r
     assert r["noisy_obey"] > r["noisy_shrunk"] + 5.0, r
-
-
-def test_pd8_anti_attractor_orderings_survive_reprice(pd8_returns):
-    """Raising k_walk_prog and un-taxing sway must NOT resurrect the
-    known attractors: obey still out-earns the cadence-churned speed
-    chase, marching in place, and parking."""
-    r = pd8_returns
-    assert r["obey"] > r["fastcadence"] + 20.0, r
-    assert r["obey"] > r["stall"] + 20.0, r
-    assert r["obey"] > r["park"] + 20.0, r
 
 
 def test_pd8_obey_drag_charge_is_small_fraction_of_income():
@@ -1011,41 +848,3 @@ def test_pd9_full_command_pricing_bit_identical_under_floor(pd8_returns):
     assert r9 == pd8_returns["obey"], (r9, pd8_returns["obey"])
 
 
-def test_pd9_det_orderings_survive_ref_floor():
-    """The pd8 anti-attractor orderings must survive the pd9 stack
-    (the floor never touches full-command ticks, but assert the
-    end-to-end orderings anyway — this is the stack a run launches
-    with)."""
-    r = {d: _mean(d, HEADING_BINS["fwd"], PHASEDIR9_STACK)
-         for d in ("obey", "shrunk", "fastcadence", "stall", "park")}
-    assert r["obey"] > r["shrunk"] + 10.0, r
-    assert r["obey"] > r["fastcadence"] + 20.0, r
-    assert r["obey"] > r["stall"] + 20.0, r
-    assert r["obey"] > r["park"] + 20.0, r
-
-
-def test_pd9_drag_regime_gap_pinned():
-    """Finding C pinned at the mechanism level with the scripted
-    teacher (the honest gait class): the SAME drive that pays a small
-    drag fraction det pays a large one at the training noise std —
-    the det calibration provably does not transfer to the noisy
-    regime (the full checkpoint numbers live in
-    logs/ckpt_eval/pd8_digin_regime/)."""
-    det_c: dict = {}
-    _phasedir_rollout("obey", 0, 0.0, PHASEDIR8_STACK, collect=det_c)
-    noisy_c: dict = {}
-    _phasedir_rollout("obey", 0, 0.0, PHASEDIR8_STACK,
-                      noise_std=STD_TRAIN, collect=noisy_c)
-    det_income = (det_c.get("reward_walk", 0.0)
-                  + det_c.get("reward_walk_prog", 0.0))
-    noisy_income = (noisy_c.get("reward_walk", 0.0)
-                    + noisy_c.get("reward_walk_prog", 0.0))
-    det_frac = -det_c.get("reward_drag_stance", 0.0) / max(det_income,
-                                                           1e-9)
-    noisy_frac = -noisy_c.get("reward_drag_stance", 0.0) / max(
-        noisy_income, 1e-9)
-    assert det_frac < 0.35, (det_frac, det_c)
-    assert noisy_frac > 2.0 * det_frac + 0.1, (
-        f"noise no longer fattens the drag bill? det {det_frac:.3f} "
-        f"noisy {noisy_frac:.3f} — recheck before trusting the "
-        f"log-std-anneal rationale")

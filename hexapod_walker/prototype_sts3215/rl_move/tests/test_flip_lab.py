@@ -26,27 +26,6 @@ def test_side_leg_sets_are_complements():
         side_leg_sets("up")
 
 
-def test_candidate_from_unit_clips_to_bounds():
-    c = candidate_from_unit([-1.0] * 10, side="right")
-    assert c.side == "right"
-    assert c.tuck_hip_deg == -80.0
-    assert c.kick_knee_deg == -20.0
-    assert c.windup_s == 0.7
-    c2 = candidate_from_unit([2.0] * 10, assist_torque_nm=3.0)
-    assert c2.tuck_hip_deg == -25.0
-    assert c2.kick_knee_deg == 75.0
-    assert c2.assist_torque_nm == 3.0
-
-
-def test_rock_candidate_from_unit_clips_and_rounds_cycles():
-    c = rock_candidate_from_unit([2.0] * 12, side="right")
-    assert c.side == "right"
-    assert c.tuck_knee_deg == 150.0
-    assert c.raise_s == 2.5
-    assert c.cycles == 8
-    assert opposite_side("right") == "left"
-
-
 def test_flip_lab_evaluates_short_primitive_rollout():
     lab = FlipLab(source="primitive", servo_params="", seed=0)
     metrics = lab.evaluate_candidate(

@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-09-08T09:02:35+00:00
+**created**: 2026-09-08T09:03:07+00:00
 
 **pod**: hexapod-mjx-train-2
 
@@ -16,5 +16,5 @@
 
 **gate**: ACQUISITION: >=0.03 m/s median net forward in >=1 of walk/det,sto (0 falls in det), read together with cartfoot-halfgrav-offctrl-s7-acq1 at the SAME budget. PASS/CONTINUE per the 08-21 ruling if reward is still rising; slip/m vs the matched OFF sibling is the headline comparison, not a hardening bar.
 
-**refused_reason**: acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent.
+**refused_reason**: hexapod-mjx-train-2 already runs cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1 — GPU pods host exactly one run; pick a free GPU pod.
 

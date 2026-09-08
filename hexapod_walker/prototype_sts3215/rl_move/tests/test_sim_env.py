@@ -1491,3 +1491,46 @@ def test_foot_friction_torsion_override_default_off_and_dosed():
     assert env_on.model.geom_friction[foot0, 1] == pytest.approx(0.005)
     env_off.close()
     env_on.close()
+
+
+def test_foot_geom_radius_override_default_off_and_dosed():
+    """``env.foot_geom_radius_m`` (built 2026-09-08, the next named
+    structural-lever candidate after torsional friction was refuted):
+    default 0 leaves the foot sphere's geom_size bit-exact at the XML
+    value (4.5 mm); a positive override mutates ONLY the foot spheres'
+    radius, leaves the friction columns and every other geom's size
+    untouched, and survives a DR-off reset."""
+    from rl_move.config import load_config
+    from rl_move.sim.servo_model import build_model
+
+    raw = build_model(fixed_base=False, flat_terrain=True)
+
+    cfg_off = load_config()
+    env_off = SimHexapodBalanceEnv(cfg=cfg_off, seed=0)
+    assert np.array_equal(env_off.model.geom_size, raw.geom_size)
+
+    cfg_on = load_config()
+    cfg_on.setdefault("env", {})["foot_geom_radius_m"] = 0.012
+    env_on = SimHexapodBalanceEnv(cfg=cfg_on, seed=0)
+    foot0 = mujoco.mj_name2id(env_on.model, mujoco.mjtObj.mjOBJ_GEOM,
+                              "L0_foot")
+    assert env_on.model.geom_size[foot0, 0] == pytest.approx(0.012)
+    assert raw.geom_size[foot0, 0] == pytest.approx(0.0045)
+    # Friction untouched by this lever.
+    assert np.array_equal(env_on.model.geom_friction, raw.geom_friction)
+    # Every other geom's size is untouched (all 6 feet are dosed, not
+    # just L0 — exclude all of them from the "everything else" check).
+    foot_ids = [mujoco.mj_name2id(env_on.model, mujoco.mjtObj.mjOBJ_GEOM,
+                                   f"L{i}_foot") for i in range(6)]
+    other = np.ones(raw.geom_size.shape[0], dtype=bool)
+    other[foot_ids] = False
+    assert np.array_equal(env_on.model.geom_size[other],
+                           raw.geom_size[other])
+
+    # Survives a no-DR reset (applied before the pristine-copy restore,
+    # and geom_size is never touched by the DR/reset machinery).
+    env_on.randomizer = None
+    env_on.reset()
+    assert env_on.model.geom_size[foot0, 0] == pytest.approx(0.012)
+    env_off.close()
+    env_on.close()

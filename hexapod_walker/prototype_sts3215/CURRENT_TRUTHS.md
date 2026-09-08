@@ -941,18 +941,29 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   fresh-init arms CANARY PASS** (`s0`/`s1`-widen8-acq1-legdutyratio-
   fresh-guardfix1 both 21/24 `gait_valid`, 0 terminations;
   `s0`-widenbis180-legdutyratiofresh-guardfix1 18/24, exactly clears
-  its own bar) — first per-leg-utilization mechanism of 12+ tried to
-  show real recovery from a naive init, far above the termination
-  mechanism's 12-13/24 at 20x the budget on the identical init/task.
+  its own bar). These establish activation and mechanism health,
+  not causal recovery. Both s0 arms actually initialize from the
+  trained `s0_acq1` (21/24 on its own 5-way gate, not a matched
+  baseline for the new 8-/6-way tasks); s1 initializes from the
+  already-8-way `s1_widen8` (21/24). Matching inert 2M predecessors
+  scored 22/24, 22/24 and 18/24 versus corrected 21/24, 21/24 and
+  18/24, all with zero terminations. The corrected s0 fresh report
+  has 3/24 sacrifice episodes, not 2/24; the latter was the inert
+  predecessor. Three arms use two RNGs, and the s0 arms share an
+  initialization. Comparisons with longer termination-reward arms
+  do not isolate this charge's effect. Exact evidence:
+  `artifacts/rl_watchdog/fresh_init_claim_review_20260908.md`.
   **The RETROFIT arm (`s0`-widen8-acq1-legdutyratio1-guardfix1) is
   CANARY FAIL - MECHANISM**, self-corrected mid-cycle: an episode-by-
   episode diff against the undosed `s0-widen8-acq1` baseline shows the
-  two are BIT-IDENTICAL in all 24 episodes despite telemetry
-  confirming the charge fires correctly (shortfall 0.14-0.17) — 2M
-  steps of retrofit produced zero measurable change on an
-  already-entrenched exploiter. **Do not read this as "the mechanism
+  two share the 20/24 gait-valid and failing-episode/leg pattern;
+  identical policies or numerical rollouts are not established.
+  Telemetry confirms the charge fires correctly (shortfall
+  0.14-0.17) — 2M steps produced no improvement in those gate fields
+  on an already-entrenched exploiter. **Do not read this as "the mechanism
   doesn't work"** — it is one short-budget retrofit result, not a
-  from-scratch result; the fresh-init recipe is the validated one.
+  from-scratch result; the other three canaries establish health,
+  not efficacy.
   Methodological note for every arm: `ep_rew_mean` crashes hard
   through training on this reward shape (e.g. 31->63->-903->-3589)
   purely because `rollout/ep_len_mean` rises (episodes surviving

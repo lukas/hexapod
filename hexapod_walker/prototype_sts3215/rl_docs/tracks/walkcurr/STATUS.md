@@ -8,24 +8,27 @@ legdutyratio-guardfix-acq10m` (+matched `offctrl10m` control, both
 owned by a concurrent cycle/root per fb_20260908T013619 — left
 untouched). Verdicted all 3:
 
-- **`s0-widen8-acq1-legdutyratiofresh-guardfix1` CANARY PASS**: fresh
-  init (never trained widen8 before), `gait_valid` 21/24, sacrifice in
-  only 2/24 episodes, 0 terminations. Matches sibling `s1`'s
+- **`s0-widen8-acq1-legdutyratiofresh-guardfix1` CANARY PASS**: init
+  from the already-trained `s0_acq1`, with headings widened 5->8;
+  `gait_valid` 21/24, sacrifice in 3/24 episodes, 0 terminations.
+  The 2/24 sacrifice count belonged to the inert predecessor.
+  Matches sibling `s1`'s
   independently-recorded PASS.
-- **`s0-widenbis180-legdutyratiofresh-guardfix1` CANARY PASS**: fresh
-  init, `gait_valid` 18/24 (exactly clears its own bar), sacrifice in
-  6/24 episodes.
+- **`s0-widenbis180-legdutyratiofresh-guardfix1` CANARY PASS**: init
+  from the same `s0_acq1`, with headings widened 5->6; `gait_valid`
+  18/24 (exactly clears its own bar), sacrifice in 6/24 episodes.
 - **`s0-widen8-acq1-legdutyratio1-guardfix1` CANARY FAIL - MECHANISM**
   (self-corrected mid-cycle): this is a RETROFIT onto the already-
   entrenched 40M widen8-acq1 exploiter. First pass wrongly verdicted
   it PASS ("material improvement") without reading the undosed
   baseline first. Direct episode-by-episode diff against `s0-widen8-
-  acq1`'s own undosed gate report shows the two are BIT-IDENTICAL in
-  all 24 episodes (same `gait_valid`=20/24, same 4 failing episodes/
-  legs) despite telemetry confirming the charge fires correctly
+  acq1`'s own undosed gate report shows the same `gait_valid`=20/24
+  and the same 4 failing episodes/legs. This does not establish
+  identical policies or numerical rollouts. Telemetry confirms the
+  charge fires correctly
   (shortfall 0.14-0.17, not the earlier activation-guard bug). 2M
-  steps of retrofit produced ZERO measurable behavior change on an
-  already-entrenched checkpoint — retention, not repair. Corrected
+  steps of retrofit produced no improvement in those gate fields on
+  an already-entrenched checkpoint — retention, not repair. Corrected
   same cycle (FORCE=1), W&B `nh3lt3o3`.
 
 **Methodological finding, applies to every arm of this mechanism**:
@@ -40,10 +43,18 @@ showing `ep_rew_mean` -32103 at 10M steps is not by itself a FAIL
 signal — its own gate report (still computing) is what actually
 decides it.
 
-**Net read**: 3/3 fresh-init canaries now PASS across 2 different
-heading lineages (widen8, widenbis180) — the first per-leg-
-utilization mechanism (of 12+ tried) to show real recovery from a
-naive init. The retrofit-onto-entrenched question stays genuinely OPEN
+**Net read**: three corrected 2M canaries PASS their mechanism-health
+bars across two training RNGs and two heading envelopes. Causal gait
+recovery is not established. Both s0 arms start from `s0_acq1`, already
+21/24 on its own 5-way gate, which is not a matched baseline for the
+new 8-/6-way tasks. The s1 arm starts from `s1_widen8`, already 21/24
+on the same 8-way panel. Their matching inert 2M predecessors scored
+22/24, 22/24 and 18/24 versus the corrected 21/24, 21/24 and 18/24;
+all had zero terminations. Preserve the health verdicts, but replace
+the earlier “first real recovery from a naive init” claim with
+activation and short-budget compatibility. See
+`artifacts/rl_watchdog/fresh_init_claim_review_20260908.md`.
+The retrofit-onto-entrenched question stays OPEN
 (1 arm, 2M budget, unchanged — not proof the mechanism can never cure
 an entrenched exploiter, just that this one short dose didn't). SKILLS.md
 updated. No new GPU launch this cycle: the natural next step (longer

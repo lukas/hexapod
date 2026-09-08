@@ -18,10 +18,11 @@ run's `--cfg-set` overrides) in three places, written at launch by
    active term, mean per rollout), so you can see what each term
    actually PAID, not just what it was set to.
 
-This file documents what the keys MEAN. Semantics are enforced by
-`rl_move/tests/test_task_semantics.py` (MDP_PREFLIGHT): before a term
-change trains, the bank must show honest behavior out-earning every
-known cheat. See RESEARCH_RULES.md.
+This file documents what the keys MEAN. The former MDP_PREFLIGHT rollout
+bank (`test_task_semantics.py`) is retired (2026-09-08): alignment
+evidence comes from the reward-decomposition probe on the lineage and
+the gate eval, per RESEARCH_RULES.md "Reward<->eval alignment". Bank
+references below are historical.
 
 ## Design principles (violations caused real incidents — keep them)
 

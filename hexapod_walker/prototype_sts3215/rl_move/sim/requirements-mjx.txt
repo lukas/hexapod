@@ -1,18 +1,19 @@
 # Optional MJX (MuJoCo-XLA / JAX) physics backend — see MJX_PORT.md.
-# Nothing in the default training path imports these; install only to
-# use rl_move.sim.mjx_backend / bench_mjx / the MJX parity tests.
+#
+# This file is a pointer, not an install list: the pins live in the
+# repo-root pyproject.toml `mjx` dependency group. Install with
+#
+#     uv sync --group mjx          # from anywhere in the checkout
+#
+# Nothing in the default training path imports these; install only to use
+# rl_move.sim.mjx_backend / bench_mjx / the MJX parity tests.
 #
 # HARD RULE: mujoco-mjx must match the installed mujoco version exactly
-# (laptop venv: mujoco 3.9.0 -> mujoco-mjx==3.9.0; CoreWeave pods:
-# mujoco 3.11.0 -> mujoco-mjx==3.11.0). Keep this pin in sync with
-# requirements.txt / coreweave_pod_setup.sh.
-mujoco-mjx==3.9.0
-
-# CPU JAX (laptop / smoke tests). On a CUDA pod install instead:
-#   pip install "jax[cuda12]"
-jax>=0.11
-
-# GPU pods only: the Warp backend (impl="warp") is what actually beats
-# the CPU pods — the XLA impl is ~30x slower on this model (MJX_PORT.md).
-# Not installable on macOS; laptop runs impl default (jax).
+# (laptop and CoreWeave pods are both on mujoco 3.11.0 -> mujoco-mjx==3.11.0;
+# see bootstrap_train_pod.sh for the pod pins). Keep pyproject.toml's two
+# pins in sync when bumping either.
+#
+# GPU pods only: the Warp backend (impl="warp") is what actually beats the
+# CPU pods — the XLA impl is ~30x slower on this model (MJX_PORT.md). Not
+# installable on macOS; laptop runs impl default (jax).
 #   pip install mujoco-warp

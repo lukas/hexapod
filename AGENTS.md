@@ -48,8 +48,11 @@ For all local project Python commands, use `uv` instead of bare
   for modules.
 - Prefer `uv run pytest ...` or `uv run python -m pytest ...` for
   tests.
-- Use `uv pip ...` / `uv venv ...` for dependency and environment
-  work.
+- Environment: the repo root `pyproject.toml` + `uv.lock` define the ONE
+  venv (`<checkout>/.venv`). `uv sync` creates/updates it (per worktree —
+  see `.cursor/rules/agent-worktrees.mdc`); `uv run` uses it from any
+  directory. Add dependencies to `pyproject.toml` and run `uv lock`; do not
+  `uv pip install` ad hoc, it is lost on the next sync.
 - Do not rewrite historical logs, generated run records, vendored code,
   or shebangs just to say `uv`. Native MuJoCo GUI/viewer launches on
   macOS are the named exception: use `uv run mjpython ...` or the

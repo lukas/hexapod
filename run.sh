@@ -1,48 +1,38 @@
 #!/usr/bin/env bash
 # Unified script runner for the repo:
-#   1. Manages a single shared .venv at the repo root with uv (so every project
-#      shares one set of installed wheels).
+#   1. Keeps the single repo-root `.venv` in sync with `uv.lock` (uv sync is a
+#      fast no-op when nothing changed), so every project shares one set of
+#      installed wheels. Dependencies are declared in pyproject.toml.
 #   2. Resolves the target script either as an absolute path, a path relative
-#      to the repo root (e.g. `chandelier/all_polyhedra.py`), or a bare script
-#      name (which is searched for under the repo).
+#      to the repo root (e.g. `hexapod_walker/prototype_sts3215/build_all.py`),
+#      or a bare script name (which is searched for under the repo).
 #   3. cds into the script's own directory before running it, so relative
 #      paths used by the script (writing STLs, reading helper files) resolve
-#      next to the script — and exposes the repo root on PYTHONPATH so
-#      shared modules like `polyhedra.py` import cleanly from any subfolder.
+#      next to the script. The prototype packages are importable from any cwd
+#      via the editable install (see [tool.hatch.build.targets.wheel] in
+#      pyproject.toml); PYTHONPATH is still extended with the repo root for the
+#      archived generations that import repo-root-relative modules.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-VENV_DIR=".venv"
 if ! command -v uv >/dev/null 2>&1; then
     echo "uv is required for Python commands in this repo; install uv first." >&2
     exit 127
 fi
 
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Creating virtual environment in $VENV_DIR..."
-    uv venv "$VENV_DIR"
+# Create/update .venv from uv.lock. `--frozen` never rewrites the lock here;
+# change dependencies in pyproject.toml and run `uv lock` explicitly.
+uv sync --frozen --quiet
+
+if [ "$#" -eq 0 ]; then
+    echo "usage: ./run.sh <script.py> [args...]" >&2
+    exit 2
 fi
-
-# shellcheck disable=SC1091
-source "$VENV_DIR/bin/activate"
-
-REQ_FILE="requirements.txt"
-STAMP_FILE="$VENV_DIR/.requirements.sha"
-CURRENT_HASH="$(shasum "$REQ_FILE" | awk '{print $1}')"
-
-if [ ! -f "$STAMP_FILE" ] || [ "$(cat "$STAMP_FILE")" != "$CURRENT_HASH" ]; then
-    echo "Installing/updating dependencies..."
-    uv pip install --python "$VENV_DIR/bin/python" -r "$REQ_FILE"
-    echo "$CURRENT_HASH" > "$STAMP_FILE"
-fi
-
-TARGET="${1:-chandelier/all_polyhedra.py}"
-if [ "$#" -gt 0 ]; then
-    shift
-fi
+TARGET="$1"
+shift
 
 # Resolve target.
 if [ -f "$TARGET" ]; then
@@ -53,6 +43,7 @@ else
     # bare name → search under the repo (skip .venv etc.)
     HIT="$(find "$ROOT_DIR" -name "$(basename "$TARGET")" -type f \
                   -not -path "*/.venv/*" -not -path "*/.git/*" \
+                  -not -path "*/node_modules/*" \
                   -not -path "*/__pycache__/*" 2>/dev/null | head -1)"
     if [ -z "$HIT" ]; then
         echo "Could not find script: $TARGET" >&2
@@ -69,4 +60,5 @@ cd "$TARGET_DIR"
 # Display path relative to repo root for nicer logs.
 REL_DISPLAY="${TARGET_ABS#$ROOT_DIR/}"
 echo "Running $REL_DISPLAY $*..."
-uv run --active python "$TARGET_NAME" "$@"
+# --project pins the repo-root env even though we cd'd into the script dir.
+uv run --frozen --project "$ROOT_DIR" python "$TARGET_NAME" "$@"

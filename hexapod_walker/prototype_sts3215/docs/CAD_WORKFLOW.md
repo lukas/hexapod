@@ -71,9 +71,9 @@ committing).
 | Legacy verify only           | `make verify-prototype`| `./run.sh hexapod_walker/prototype/_verify_prototype.py`                                              |
 
 The render backend tries `pyrender` → `pyvista` → `matplotlib` in
-order; the first one that works is used.  `pyvista` ships with the
-repo's default `requirements.txt`, so the pipeline degrades gracefully
-on a fresh checkout.
+order; the first one that works is used.  `pyvista` is a declared
+dependency in the repo-root `pyproject.toml`, so the pipeline degrades
+gracefully on a fresh checkout.
 
 ## Recommended edit loop
 

@@ -9,7 +9,8 @@ development commands.
 - Scripts: `uv run python path/to/script.py`
 - Modules: `uv run python -m package.module`
 - Tests: `uv run pytest ...` or `uv run python -m pytest ...`
-- Dependencies and venvs: `uv pip ...` and `uv venv ...`
+- Dependencies: edit the repo-root `pyproject.toml`, then `uv lock` and
+  `uv sync`. The venv is `<checkout>/.venv`; never `uv pip install` into it.
 
 Exceptions are narrow: historical logs/generated run records, vendored
 code, and shebangs. Native MuJoCo GUI/viewer launches on macOS are the

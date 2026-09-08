@@ -229,13 +229,14 @@ policy while no velocity is commanded, WALK policy the moment one is,
 and back on stop. The startup `objc … SDL2 … duplicate class` warnings
 are expected (cv2 and pygame both bundle SDL2) and harmless.
 
-## Environment (repo-root `.venv`, managed with uv — NEVER recreate)
+## Environment (repo-root `.venv` from `pyproject.toml` / `uv.lock`)
 
 ```sh
-cd ~/hexapod && uv pip install ftservo-python-sdk \
-  mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
-  pygame-ce
+cd ~/hexapod && uv sync     # creates/updates .venv; idempotent, seconds when in sync
 ```
+
+Everything the viewer needs (mujoco, stable-baselines3, gymnasium, torch,
+opencv, trimesh, pygame-ce, ftservo-python-sdk) is a declared dependency.
 
 (`pygame-ce` is the gamepad reader for `sim_play.sh` — headless SDL,
 no pygame window.)

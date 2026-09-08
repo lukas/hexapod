@@ -8,37 +8,47 @@ alwaysApply: true
 AGENTS.md is for the CoreWeave orchestrator agent. THIS file is the
 local-machine knowledge: venv, sim viewer, checkpoint pulling.
 
-## Python environment — repo root `.venv` (uv). DO NOT recreate it.
+## Python environment — repo root `.venv` from `pyproject.toml` + `uv.lock`
 
-One venv at `/Users/lukas/hexapod/.venv`, managed with **uv**
-(`uv venv` / `uv pip install`, Python 3.14). direnv auto-activates it
-anywhere in the repo. It must contain BOTH stacks:
-
-- **Robot bench tools:** `ftservo-python-sdk` (provides `scservo_sdk`
-  + pyserial) — used by `motor_setup/feetech_bus.py` etc.
-- **Local MuJoCo sim:** `mujoco stable-baselines3 gymnasium pyyaml
-  opencv-python` — yes, **torch is required** (sb3 loads the PPO
-  checkpoints; there is no torch-free viewer path). One-time ~2 min
-  download; uv caches wheels after that, so reinstalls are seconds.
-
-Restore everything with:
+The repo root `pyproject.toml` declares every dependency (CAD pipeline,
+MuJoCo sim + RL, robot bench tools, vision) and `uv.lock` pins them.
+Python is **3.12** (build123d and hexapod-tracker both need it; uv
+installs it on demand). One command creates or repairs the env:
 
 ```sh
-cd ~/hexapod && uv pip install ftservo-python-sdk \
- mujoco stable-baselines3 gymnasium pyyaml opencv-python trimesh \
- manifold3d pygame-ce
+cd ~/hexapod && uv sync          # -> /Users/lukas/hexapod/.venv ; idempotent
+uv sync --group mjx              # + JAX/MJX backend (parity tests, bench_mjx)
+uv sync --group fea              # + gmsh/pygmsh/meshio for make check-strength
 ```
 
-(`trimesh` is needed by the sim's CAD geometry builder —
-`hexapod_prototype.py` — not just by CAD scripts. `manifold3d` is
-trimesh's boolean backend: without it `prototype_ak40`'s CAD refuses to
-run and the sts3215 CAD silently emits parts with NO bolt holes.
-`pygame-ce` is the gamepad reader for `sim_play.sh`, headless SDL only.)
+`uv run ...` picks that env up from ANY directory in the checkout (no
+direnv, no activation, no `VIRTUAL_ENV`). The prototype packages are
+installed editable with `hexapod_walker/prototype_sts3215`,
+`linux_control`, `motor_setup`, and `rl_move/orchestrator` on the import
+path, so `import rl_move`, `import hexapod_core`, `import hexapod_prototype`
+and the bare-module style (`import feetech_bus`, `import safe_zero`) all
+work without `sys.path` shims.
 
-**Never `rm -rf .venv` / recreate it without the user asking** — it was
-nuked once (2026-08-09) by an agent whose `ls` existence check silently
-aborted on a zsh no-match glob. Check with `ls -d ~/hexapod/.venv`
-(no globs). `.venv-py39-bak` is an old backup; leave it.
+- **Adding a dependency:** edit `pyproject.toml`, run `uv lock`, then
+  `uv sync`. Never `uv pip install` into the venv — it is not recorded and
+  disappears at the next sync.
+- **Worktrees get their OWN `.venv`** (`uv sync` in the worktree; seconds,
+  hard-linked from the uv cache). The editable install points at the
+  checkout it was synced in, so sharing the main checkout's venv would make
+  a worktree import the main checkout's code. See `agent-worktrees.mdc`.
+- The old `requirements.txt` and the ad hoc `uv pip install ...` recipes are
+  gone; `pygame-ce` (gamepad), `ftservo-python-sdk` (Feetech bus),
+  `manifold3d` (trimesh booleans — without it the CAD silently emits parts
+  with NO bolt holes) are all declared.
+- Remote runtimes do NOT use this project: pods get a tarball of
+  `prototype_sts3215/` and their own pins (`bootstrap_train_pod.sh`), the
+  Uno Q gets the staged deploy tree with `PYTHONPATH` from systemd, and the
+  controller pod runs with `UV_NO_PROJECT=1`.
+
+**Never `rm -rf .venv` without the user asking.** `uv sync` repairs a
+broken env in place; there is no reason to delete it. (It was nuked once,
+2026-08-09, by an agent whose `ls` existence check silently aborted on a
+zsh no-match glob — check with `ls -d ~/hexapod/.venv`, no globs.)
 
 ## Local MuJoCo viewer — trying RL policies on the Mac
 

@@ -12,7 +12,7 @@ Two tools that work off the bench camera (`bench_blast_*` sessions):
    traces, so this is a vision-only *independent* estimate of the state
    the robot believes it is in — useful when diagnosing tips.
 
-Everything runs in the repo `.venv` (cv2 + torch already there).
+Everything runs in the repo `.venv` (`uv sync`; cv2 + torch are declared dependencies).
 
 ## Robot-in-frame classifier
 

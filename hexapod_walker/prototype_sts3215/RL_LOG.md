@@ -1909,3 +1909,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 06:45 s10-c1 crashed on the known --activation-fn+--init-from gotcha, zero steps logged, relaunching as -c1b 
 - 09-08 06:45 cartfoot-freshoffctrl-s10: CANARY PASS, reproduces base-family 2M shape at seed 10, valid control for the fresh-init cart-foot pair. 
 - 09-08 06:45 walkcurr: cartfoot-freshinit-offctrl-s11 CANARY PASS - HEALTHY-PARITY, completes seed-11 pair 
+- 09-08 06:46 walkcurr: cartfoot-freshinit-c1-s11 CANARY PASS - HEALTHY-PARITY, n=2 fork(b) pair (s7+s11) both ignite clean 

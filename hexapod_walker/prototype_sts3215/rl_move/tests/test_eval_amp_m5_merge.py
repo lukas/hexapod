@@ -10,7 +10,7 @@ import json
 import subprocess
 import sys
 
-import eval_amp_m5 as m
+from rl_move.sim import eval_amp_m5 as m
 
 
 def test_prior_sections_missing_file(tmp_path):

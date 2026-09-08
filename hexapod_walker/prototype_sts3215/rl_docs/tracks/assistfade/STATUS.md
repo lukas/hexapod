@@ -1,5 +1,95 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 2026-09-08 ~13:4x (triage) rung3-legdutyratio-loadslip-s1 -> CANARY FAIL - MECHANISM, closes the lever 2/2 on rung3
+
+One plain sentence: the second seed of the load-slip charge fails the
+same way s0 did -- outright worse on the primary panel, not a
+narrowing -- and adds a new wrinkle worth flagging for whoever designs
+the next per-leg mechanism: `gait_valid` flipped to True in `walk/det`
+(0/6->6/6) and mostly-True in `walk/sto` (0/6->5/6) while net forward
+progress went NEGATIVE (-0.02/-0.01m) and 2 new `over_current`
+terminations appeared in `walk/sto` -- the contact sheet
+(`walk_det_0.png`) shows the robot settle into a low crouch in frame 1
+and hold that near-static pose for the rest of the 20s episode, not
+six-leg walking. **Self-correction (this entry originally
+misattributed the training-reward collapse to the new mechanism
+itself):** the NEW per-leg `env/walk_leg_loadslip_ratio_excess` stays
+in a modest, non-escalating 0.085-0.22 band the whole post-grace
+window -- health criterion (a) is clean, but this is NOT the
+metric driving `ep_rew_mean`'s collapse from a healthy +130..+210
+peak to -2293.6. That collapse tracks the OLD, pre-existing
+`env/walk_loadslip_ratio` (an unrelated episode-cumulative slip/
+progress metric already in this recipe's reward stack, climbing
+0.065->5.69) plus the existing duty-ratio charge escalating
+(-0.1->-11.5) and the eval panel's own collapsing progress reward --
+same "shared pre-existing metric, not independently diagnostic"
+caveat the matched s0 verdict already named. The eval panel (outright
+worse slip/progress, 2 new terminations, frozen-pose video) is what
+actually decides this verdict, not the training-reward shape.
+
+**Load-slip-ratio-charge now closes 2/2 FAIL-MECHANISM on assistfade
+rung3**, matching swing-count-floor's earlier 2/2 FAIL-MECHANISM close
+on the same lineage. Both named per-leg-utilization add-ons to the
+bare duty-ratio charge have now been tried and closed here. Read
+alongside the separate walkcurr/crutchoff read of the SAME mechanism
+(n=3, all 3 seeds miss the >=3/4 CONTINUE bar, no falls-regression
+there) -- different track/recipe, but both lines of evidence now agree
+the mechanism as currently dosed does not deliver a genuine repair;
+the assistfade side additionally shows it can trade a "gait_valid"
+uptick for a near-frozen pose, which is worth naming explicitly before
+anyone doses this charge lower rather than redesigning it: a
+duty/slip-balance metric alone does not distinguish "six legs cycling
+while walking" from "six legs settled into a low static stance",
+so any future per-leg mechanism's health check should include a
+displacement-conditioned check, not gait_valid alone.
+
+No further rung3 budget on either exact lever without a new mechanism
+design that also gates on net displacement.
+
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-loadslip-s1`;
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_loadslip_s1_gate/
+report.json` vs `cw_assistfade_rung3_legdutyratio_s1_gate/report.json`;
+`logs/experiments/cw-assistfade-rung3-legdutyratio-loadslip-s1/
+wandb_history.csv`. W&B `xy50u8mx`. RL_LOG 09-08 ~13:39.
+
+
+## 2026-09-08 ~13:3x (triage) rung3-legdutyratio-loadslip-s0 -> CANARY FAIL - MECHANISM
+
+One plain sentence: the load-slip charge (the OTHER half of the two
+per-leg add-ons this cycle window built, alongside the already-closed
+swing-count floor) also FAILS rung3's chronic-leg problem, and unlike
+swing-floor's "no efficacy" closures, this one is an OUTRIGHT
+REGRESSION on the gate's own primary panel.
+
+walk/det slip med 12.67m -> 17.06m and walk/sto slip med 16.71m ->
+17.30m (both WORSE, not narrowed), progress down in both, gait_valid
+unchanged at 6/6 so it isn't even a sacrifice trade -- the gate's own
+"FAIL-MECHANISM if ... outright worse" clause fires directly. The
+walk_startjitter groups do look better (gait_valid 2/6->5/6 det,
+terms 5->2) but the gate names the walk/det+sto panel as the primary
+read and that got worse. Telemetry engaged correctly (gate a) and no
+new falls (gate b); this is a clean instrument, just a losing
+mechanism-behavior combination on this seed. Training-reward collapse
+(-801 vs the baseline's own +62) is NOT independently diagnostic here
+-- both arms share the same pre-existing walk_loadslip_gate/
+k_loadslip_excess income-zeroing trend as the episode-cumulative
+slip/progress ratio climbs during training; the eval-panel comparison
+above is what actually decided this verdict.
+
+Rung3 now has TWO closed per-leg add-ons (swing-count floor: both
+seeds FAIL-MECHANISM; load-slip: s0 FAIL-MECHANISM, s1 still training
+at read time) on top of the already-chronic bare-duty-ratio-charge
+baseline. Neither named concrete lead from the 09-07 track-level
+finding has repaired the chronic-leg-plus-drift problem yet. Do not
+fund a dose/lineage variant of either exact parameterization without
+a new design (e.g. checking whether the load-slip charge's target/
+scale, not just its presence, is the problem, per the walkcurr-side
+sibling reading the same mechanism this cycle).
+
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-loadslip-s0`;
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_loadslip_s0_gate/
+report.json` vs `cw_assistfade_rung3_legdutyratio_s0_gate/report.json`.
+
 ## 2026-09-08 ~13:1x (refill cycle; no completion assigned, 11 free GPU pods, backlog empty) — built + bank-tested a genuinely NEW per-leg mechanism (load-slip, not utilization) and launched it cross-track onto rung3's already-closed swing-floor comparator
 
 One plain sentence: the swing-count-floor add-on (binary "has this leg

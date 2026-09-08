@@ -1,3 +1,171 @@
+## 2026-09-08 ~13:4x (triage, refill cycle; picked up 2 more untriaged finished runs) — the widen8 staged-vs-immediate-DR 2x2 factorial is now CLOSED 4/4 FAIL: cart_foot fails the full-DR composite exactly like joint-space did, and staging is worse than immediate DR on BOTH action spaces
+
+One plain sentence: the cart_foot half of the pre-registered
+staged-DR-vs-immediate-DR comparison (the jointspace half already
+closed FAIL both cells) landed, and it answers the open fork the
+jointspace pair's verdict left hanging -- does cart_foot escape the
+DR-breadth blocker? No.
+
+`cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-b40m-ctrl` (full
+DR from step 0) -> **ACQ FAIL**: median net forward speed misses the
+0.03 m/s floor in ALL 4 groups (0.026/0.0145/0.017/0.0245 m/s),
+slip/m 8-142/m (healthy band <=~2.9) -- the identical generic
+early-valley-thrash shape as the already-closed jointspace control.
+0 falls in det (1 isolated tilt_pitch termination in one sj/sto
+episode only). Video confirms thrash-in-place, not gaited walking.
+
+`cw-walkscratch-easy0905-widen8-cartfoot-freshinit-c1-stagedr20m-b40m`
+(DR ramped 0->1 over the first 20M) -> **ACQ FAIL, WORSE than the
+control** in every one of the 4 groups (0.0075/0.015/0.007/0.0215
+m/s vs the control's 0.026/0.0145/0.017/0.0245) -- mirrors the
+jointspace pair's own staging-makes-it-worse finding exactly.
+
+**All 4 cells of the 2x2 (jointspace x {control,staged}, cart_foot x
+{control,staged}) now FAIL, staging worse than immediate DR in BOTH
+action spaces.** DR breadth itself is confirmed the blocker,
+independent of action space and independent of staging schedule. No
+further arm on this exact composite/fresh-init combination is worth
+funding without either narrowing the DR composite or a genuinely new
+per-leg mechanism (the same open lead named throughout this file).
+CURRENT_TRUTHS updated. Videos reviewed for both (`walk_det_0.png`):
+heavy leg churn, near-zero net translation, matches the thrash
+diagnosis, not a frozen statue.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-cartfoot-
+freshinit-c1-{b40m-ctrl,stagedr20m-b40m}`; `logs/ckpt_eval/
+cw_walkscratch_easy0905_widen8_cartfoot_freshinit_c1_{b40m_ctrl,
+stagedr20m_b40m}_gate/report.json`; W&B `ncyj9w33`/`toz7pjgv`.
+
+## 2026-09-08 ~13:4x (triage, refill cycle; 4 untriaged finished cartfoot-halfgrav runs) — seed12 (4th ON/OFF pair) REVERSES the gait_valid direction; seed10's own cont10m retention read is a FAIL, not a hold
+
+One plain sentence: with all 11 GPU pods free and no launch-ready
+lever of its own outstanding on this recipe, picked up 4 finished-
+but-unverdicted cartfoot-halfgrav runs (a concurrent cycle owns the
+loadslip-charge family below, untouched) -- a 4th seed pair
+(s12/offctrl-s12, first read) and seed10's own cont10m depth pair
+(retention check).
+
+`cw-walkscratch-easy0905-cartfoot-halfgrav-s12-acq1` (ON) / `-offctrl-
+s12-acq1` (OFF) both **ACQ PASS** (0 falls/24, ~0.15-0.20 m/s, matched
+40,370,176 steps) but `gait_valid` REVERSES the established direction:
+ON 9/24 (det 0/6, sac leg4 every ep) vs OFF 11/24 (det 0/6, sac legs
+[1,4] every ep) -- OFF slightly HEALTHIER, not ON, unlike s7 (22 vs 10)
+and s10 (17 vs 7), and past even s11's near-parity (11 vs 10). The
+slip edge still reproduces 4/4 seeds (ON/OFF ratio 0.79-0.88 here).
+Updated tally: 2-of-4 clear ON advantage, 1-of-4 near-parity-favoring-
+ON, 1-of-4 favoring OFF -- no universal cart_foot gait-health claim
+survives; only the slip edge is seed-robust.
+
+`cw-walkscratch-easy0905-cartfoot-halfgrav-s10-acq1-cont10m` (ON,
+50M) -> **RETENTION FAIL**: `gait_valid` 17/24 -> 14/24, with the
+primary gated walk/det mode specifically collapsing from a CLEAN 6/6
+at 40M to 0/6 at 50M (new BOTH-legs-[1,4] sacrifice every episode, was
+zero-sacrifice at 40M). slip/m held/improved, 0 new falls. Matched
+`offctrl-s10-acq1-cont10m` (OFF) degrades further exactly as its gate
+text anticipated (7/24 -> 4/24). The ON/OFF gap is UNCHANGED at 10
+points at both budgets -- more training erodes both arms' six-leg
+health by a similar amount rather than closing the gap; reward kept
+climbing on both arms while gait_valid fell (08-21 misaligned-reward
+shape). No further continuation funded on this seed/recipe; the open
+repair lead is the per-leg load-slip pricing mechanism already being
+tested below (`walk_leg_loadslip_ratio_charge`), not more raw steps.
+CURRENT_TRUTHS updated with the full 4-seed table. Videos reviewed
+(all 4 `walk_det_0.png` strips): real forward translation every
+frame, no frozen statue, flagged legs visibly drag/trail rather than
+lift-and-place. CYCLE_WORKED touched (4 real verdicts + CURRENT_TRUTHS
+update, no launch this window -- backlog stayed empty, no new
+launch-ready lever identified for this exact recipe beyond the
+already-running loadslip-charge family below).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-
+{s12,offctrl-s12}-acq1`; `ops.sh review cw-walkscratch-easy0905-
+cartfoot-halfgrav-{,offctrl-}s10-acq1-cont10m`; W&B `hijwfdoc`/
+`t2r5n3mz`/`s5f2imns`/`83az85kk`.
+
+## 2026-09-08 ~13:4x (triage; s1+s2 of the same n=3 batch) — the loadslip-ratio-charge n=3 canary CLOSES 0/3: no seed clears the pre-registered CONTINUE bar, cont10m is not funded
+
+One plain sentence: with the s0 sibling above already in at 2/4 groups
+(short), s1 lands 0/4 and s2 lands 2/4 -- all three seeds miss the
+pre-registered >=3/4-groups-jointly-improve bar, so majority
+(>=2/3 seeds hitting >=3/4) is mathematically unreachable and this
+batch does not fund a cont10m depth read.
+
+`cw-walkscratch-crutchoff-s1-widen8-legdutyratio-loadslip` -> **CANARY
+PASS - mechanism healthy, no efficacy (0/4).** vs the matched
+0.30-dose guardfix1 s1 sibling: `walk/det` flat (slip 9.08->9.04,
+prog 0.92->0.93), `walk/sto` worse (slip 6.96->8.14 +17%, prog
+1.19->1.01 -15%), `walk_startjitter/det` worse (slip 8.86->9.44, prog
+1.06->1.01), `walk_startjitter/sto` worse (slip 13.15->13.68, prog
+0.68->0.63). 0 new falls in any group. `env/walk_leg_loadslip_ratio_
+excess` is SATURATED near 0.86-1.0 for the entire post-grace window
+(never narrows) while `ep_rew_mean` collapses to -9858/-34057 in the
+back half purely from this charge's own weight, with eval behavior
+essentially unchanged -- a saturated-penalty-no-repair-gradient shape.
+
+`cw-walkscratch-crutchoff-s2-widen8-legdutyratio-loadslip` -> **CANARY
+PASS - mechanism healthy, no efficacy (2/4).** `walk/det` and
+`walk_startjitter/det` clear both axes (slip down, prog up); `walk/sto`
+and `walk_startjitter/sto` are flat-to-worse. Same saturated-excess
+(0.86-0.90)/reward-collapse (-9839/-24190) fingerprint as s1. 0 new
+falls.
+
+**All 3 seeds (s0 2/4, s1 0/4, s2 2/4) miss the >=3/4 bar** -- this
+closes `walk_leg_loadslip_ratio_charge` (dose 150/target 1.5, on top
+of the existing duty-ratio charge) as a 2nd no-efficacy per-leg-
+utilization lever on the crutchoff/widen8 lineage, joining
+swing-count-floor (also closed 2-of-3 no-efficacy / 1-of-3 worse on
+this same lineage, see the entries below). Both named per-leg-
+utilization add-ons to `walk_leg_duty_ratio_charge` are now tried and
+closed on this recipe at their tested doses. A revisit needs either a
+materially lower load-slip dose (the excess-saturation pattern
+suggests 150/1.5 is too aggressive to leave a usable gradient) or a
+genuinely different mechanism -- not another seed at this exact dose.
+SKILLS.md's duty-ratio-charge row updated with one appended UPDATE.
+
+Refill: `launch_run.py status` shows all 11 GPU pods free, backlog
+empty at read time. This closure alone does not license a new
+hypothesis (it closes 2 branches, doesn't open one); no other
+track-topmost item is uniquely mine to pick up this window beyond
+what's already covered by concurrent cycles' in-flight lines. Flagged
+`cw-assistfade-rung3-legdutyratio-loadslip-s1` for DIG-IN (see
+`assistfade/STATUS.md` / RL_LOG) rather than verdicting it here --
+gate reads `gait_valid` True in `walk/det` (6/6) while its own
+progress is NEGATIVE (-0.02m) and the contact-sheet video shows a
+frozen/crouched non-gait, a genuine gate/video conflict on a
+first-of-its-kind mechanism reading, not a routine no-efficacy close.
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-{s1,s2}-widen8-
+legdutyratio-loadslip`; `logs/ckpt_eval/cw_walkscratch_crutchoff_{s1,
+s2}_widen8_legdutyratio_loadslip_gate/report.json` vs `..._widen8_
+acq1_legdutyratiofresh_guardfix1_gate/report.json`; `logs/experiments/
+cw-walkscratch-crutchoff-{s1,s2}-widen8-legdutyratio-loadslip/
+wandb_history.csv`. W&B `c53162rm`/`2ypexwbn`. RL_LOG 09-08 ~13:3x-13:4x.
+
+--- prior entry below ---
+
+## 2026-09-08 ~13:3x (triage) crutchoff-s0-widen8-legdutyratio-loadslip -> CANARY PASS, short of the CONTINUE bar (2/4 groups)
+
+One plain sentence: the first of the n=3 load-slip-charge canary seeds
+is in and it does NOT clear the pre-registered >=3/4-groups CONTINUE
+bar on its own -- 2/4 groups clearly improve (walk/det, walk/sto:
+gait_valid up or held, slip down, prog flat-to-up), 1/4 is flat/noise
+(walk_startjitter/det), 1/4 is mixed with slip clearly WORSE
+(walk_startjitter/sto, +8.6%). Telemetry live, zero new falls -- this
+is a real CANARY PASS on mechanism health, just a NO vote for this
+seed's contribution to the n=3 majority call. Full per-group numbers
+and the training-reward-collapse non-diagnosis (both this arm AND its
+already-PASSED 0.30-dose-only baseline crash hard from the same
+un-dt-scaled additive-charge design -- not new evidence by itself) are
+in the ledger verdict. s1/s2 siblings already FINISHED per the
+ledger at read time (owned by a concurrent cycle, not verdicted here)
+-- whoever reads them next should assemble the n=3 majority
+(>=2/3 seeds hitting >=3/4 funds a cont10m depth read on this seed's
+checkpoint; minority closes the lever the same way swing-floor closed
+at 2-of-3 no-efficacy). Evidence: `ops.sh review cw-walkscratch-
+crutchoff-s0-widen8-legdutyratio-loadslip`; `logs/ckpt_eval/
+cw_walkscratch_crutchoff_s0_widen8_legdutyratio_loadslip_gate/
+report.json` vs `..._legdutyratiofresh_guardfix1_gate/report.json`.
+
 ## 2026-09-08 ~13:0x (refill; found + finished a concurrent cycle's in-flight `walk_leg_loadslip_ratio_charge` mechanism build, bank-tested it, launched the n=3 canary batch) — the genuinely-new "price load-slip directly" mechanism the assistfade rung1-4 closure and today's swing-floor closures both named as the only remaining open branch is now CODE-COMPLETE, BANK-GREEN, and TRAINING
 
 One plain sentence: with all 11 GPU pods free and the swing-floor/

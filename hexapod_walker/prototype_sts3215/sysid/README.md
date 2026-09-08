@@ -70,7 +70,7 @@ robot** — nothing here touches the robot until the guarded runner invokes
 ## Workflow (maps to the plan's phases)
 
 ```sh
-cd hexapod_walker/prototype_sts3215      # repo .venv via direnv
+cd hexapod_walker/prototype_sts3215      # uv run finds the repo-root .venv from here
 
 # Phase 0 — build the versioned protocol files (already in git;
 # rebuild only to change repeats/amps — the hash changes with content)

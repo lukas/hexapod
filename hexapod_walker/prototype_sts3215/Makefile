@@ -1,20 +1,21 @@
 # hexapod prototype CAD pipeline.
 #
 # All targets shell out to ../../run.sh where possible, so Python
-# invocations go through uv and the shared repo-root venv.
+# invocations go through uv and the shared repo-root venv (created from the
+# repo-root pyproject.toml / uv.lock by `uv sync`).
 
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 RUN       := $(REPO_ROOT)/run.sh
 
 # ``mujoco.viewer.launch_passive`` requires ``mjpython`` on macOS (it
 # needs to own the main thread for Cocoa to spin up an NSApplication).
-# Keep the uv convention by running the repo-root venv's mjpython via
-# ``uv run --active`` on macOS; otherwise use ordinary uv Python.
+# ``uv run`` resolves the repo-root project env from any cwd in the
+# checkout; mjpython is installed into it by the mujoco wheel.
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-MJ_PY  := VIRTUAL_ENV=$(REPO_ROOT)/.venv PATH=$(REPO_ROOT)/.venv/bin:$(PATH) uv run --active mjpython
+MJ_PY  := uv run mjpython
 else
-MJ_PY  := uv run --active python
+MJ_PY  := uv run python
 endif
 
 .PHONY: check-cad check-cad-fast check-strength prepare-onshape-strength buildviz-chassis-reinforcement buildviz-tibia-yoke-reinforcement buildviz-horn-compression-limiters buildviz-premade-chorn-56 validate render build step-export verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast web-8898 web-8898-start web-8898-stop web-8898-restart web-8898-status web-8898-logs vision vision-build vision-check help
@@ -102,13 +103,11 @@ check-strength:
 
 ONSHAPE_STUDY_ARGS ?=
 prepare-onshape-strength:
-	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
-		--with mujoco --with numpy --with build123d --with trimesh \
+	cd "$$(pwd)/../.." && uv run \
 		python hexapod_walker/prototype_sts3215/strength/prepare_onshape_study.py $(ONSHAPE_STUDY_ARGS)
 
 buildviz-chassis-reinforcement:
-	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
-		--with trimesh --with numpy \
+	cd "$$(pwd)/../.." && uv run \
 		python hexapod_walker/prototype_sts3215/concepts/chassis_reinforcement/make_chassis_reinforcement_concept.py
 	cd "$$(pwd)/../.." && buildviz push \
 		--build-id prototype_sts3215/chassis-reinforcement-test \
@@ -119,8 +118,7 @@ buildviz-chassis-reinforcement:
 		--message "regenerate chassis/yaw-pocket reinforcement concept"
 
 buildviz-tibia-yoke-reinforcement:
-	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
-		--with trimesh --with numpy --with manifold3d \
+	cd "$$(pwd)/../.." && uv run \
 		python hexapod_walker/prototype_sts3215/concepts/tibia_yoke_reinforcement/make_tibia_yoke_reinforcement_concept.py
 	cd "$$(pwd)/../.." && buildviz push \
 		--build-id prototype_sts3215/tibia-yoke-reinforcement-test \
@@ -131,8 +129,7 @@ buildviz-tibia-yoke-reinforcement:
 		--message "focused tibia/yoke load-path reinforcement concept"
 
 buildviz-horn-compression-limiters:
-	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
-		--with trimesh --with numpy --with manifold3d \
+	cd "$$(pwd)/../.." && uv run \
 		python hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/make_horn_compression_limiter_concept.py
 	$(RUN) hexapod_walker/prototype_sts3215/concepts/horn_compression_limiters/verify_workspace_variant.py
 	$(RUN) hexapod_walker/prototype_sts3215/tools/buildviz_checks.py \
@@ -150,10 +147,9 @@ buildviz-horn-compression-limiters:
 		echo "    WARNING: cloud mirror failed; local compression-limiter build is unaffected"
 
 buildviz-premade-chorn-56:
-	cd $(CURDIR) && uv run --no-project --python 3.12 --with build123d \
+	cd $(CURDIR) && uv run \
 		python concepts/premade_chorn_56/build_premade_chorn_hardware_step.py
-	cd "$$(pwd)/../.." && uv run --no-project --python 3.12 \
-		--with trimesh --with numpy --with manifold3d --with rtree --with scipy \
+	cd "$$(pwd)/../.." && uv run \
 		python hexapod_walker/prototype_sts3215/concepts/premade_chorn_56/make_premade_chorn_56_variant.py
 	cd "$$(pwd)/../.." && npx buildviz check \
 		hexapod_walker/prototype_sts3215/concepts/premade_chorn_56 \
@@ -181,18 +177,14 @@ render:
 build:
 	$(RUN) hexapod_walker/prototype_sts3215/build_all.py --skip-assembly
 
-# STEP-first print set only: run the BREP exporter (uv-provisioned 3.12 --
-# build123d has no 3.14 wheels) + install the healed tessellations into
-# stl_prototype/.  `make build` includes this; use step-export when
-# iterating on a BREP builder without rebuilding the visuals.
+# STEP-first print set only: run the BREP exporter (build123d, a project
+# dependency -- the project pins Python 3.12 for it) + install the healed
+# tessellations into stl_prototype/.  `make build` includes this; use
+# step-export when iterating on a BREP builder without rebuilding the visuals.
 step-export:
-	cd $(CURDIR) && uv run --no-project --python 3.12 \
-		--with build123d --with trimesh --with numpy \
-		--with manifold3d --with rtree \
-		python build_step_prototype.py
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) uv run --active python -c \
-		"import sys; sys.path.insert(0, 'hexapod_walker/prototype_sts3215'); \
-		import step_pipeline; step_pipeline.install_printables()"
+	cd $(CURDIR) && uv run python build_step_prototype.py
+	cd $(CURDIR) && uv run python -c \
+		"import step_pipeline; step_pipeline.install_printables()"
 
 verify-prototype:
 	$(RUN) hexapod_walker/prototype_sts3215/_verify_prototype.py
@@ -221,13 +213,13 @@ verify-changed:
 # any extra CLI flag from mujoco_prototype.py, e.g.:
 #   make view ARGS="--vx 0.20 --no-terrain --obstacles 0"
 view:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py $(ARGS)
+	cd $(REPO_ROOT) && $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py $(ARGS)
 
 # Same viewer but with the gait disabled: the prototype freezes in its
 # stance-pose keyframe so you can orbit and inspect part fitment without
 # the legs cycling underneath you.
 view-static:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
+	cd $(REPO_ROOT) && $(MJ_PY) hexapod_walker/prototype_sts3215/mujoco_prototype.py --no-gait --no-terrain --obstacles 0 $(ARGS)
 
 # PyVista build inspector: every printable part placed at the assembled
 # pose, colored by part type (matching the MuJoCo viewer's palette),
@@ -236,7 +228,7 @@ view-static:
 # uv.  Forward ARGS=... for things like
 #   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
 view-build:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) uv run --active python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
+	cd $(REPO_ROOT) && uv run python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
 
 # Browser-based build inspector (https://github.com/lukas/buildviz).  To VIEW
 # the sts3215 full robot, publish it into the ONE machine-wide BuildViz hub
@@ -388,7 +380,7 @@ vision-build:
 
 vision-check:
 	$(MAKE) -C "$(CURDIR)/hexapod-tracker" check
-	cd "$(CURDIR)" && uv run --project hexapod-tracker --extra dev pytest -q \
+	cd "$(CURDIR)" && uv run pytest -q \
 		linux_control/test_vision_server.py \
 		linux_control/test_gait_survey.py
 

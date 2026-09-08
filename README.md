@@ -27,8 +27,13 @@ The current robot is
 AprilTag tracker submodule. Start with that project's `README.md` and
 `AGENTS.md`.
 
-`run.sh` and `requirements.txt` at the repository root provide the shared
-Python runner used by the hexapod Makefiles.
+`pyproject.toml` and `uv.lock` at the repository root define the ONE Python
+environment for the whole repo: `uv sync` creates `.venv`, and `uv run ...`
+uses it from any directory. The prototype packages are installed editable,
+so `import rl_move` / `import hexapod_core` / the bare-module style used by
+`linux_control/` and `motor_setup/` work without `sys.path` shims. `run.sh`
+is the script runner the Makefiles use (it syncs the env, then runs a script
+from its own directory).
 
 After a fresh clone, initialize the tracker submodule:
 

@@ -1,20 +1,23 @@
 #!/bin/sh
 # Cursor runs this in every NEW worktree it creates (wired up via
-# .cursor/worktrees.json). The repo venv, RL checkpoints, and .mcp.json are
-# machine-local (gitignored), so a fresh worktree is missing them; wire the
-# worktree to the main checkout's copies instead of rebuilding anything.
+# .cursor/worktrees.json). Also safe to run by hand in a worktree made with
+# plain `git worktree add`. It gives the worktree a working Python env and
+# the machine-local files git does not carry.
+#
+#   ROOT_WORKTREE_PATH=/Users/lukas/hexapod sh .cursor/setup-worktree-unix.sh
 set -eu
 ROOT="${ROOT_WORKTREE_PATH:?ROOT_WORKTREE_PATH not set (pass the main checkout path, e.g. /Users/lukas/hexapod)}"
 
-# direnv env: activate the MAIN checkout's .venv. Never create a per-worktree
-# venv — the repo rule is ONE uv-managed venv at $ROOT/.venv.
-cat > .envrc <<EOF
-export VIRTUAL_ENV=$ROOT/.venv
-PATH_add $ROOT/.venv/bin
-EOF
-if command -v direnv >/dev/null 2>&1; then
-  direnv allow . || true
-fi
+# The vision system is a git submodule; `git worktree add` does not
+# initialise submodules, and `uv sync` fails on the missing path otherwise.
+git submodule update --init --depth 1 hexapod_walker/prototype_sts3215/hexapod-tracker
+
+# Per-worktree venv from the shared uv.lock. uv hard-links wheels from its
+# cache, so after the first machine-wide download this takes seconds and a
+# few MB. A per-worktree env is REQUIRED (not just allowed): the editable
+# install points at THIS checkout's source tree, so agents in different
+# worktrees import their own code instead of the main checkout's.
+uv sync --frozen
 
 # Share the pulled RL checkpoints (gigabytes, pulled from CoreWeave, not in
 # git). A symlink keeps one cache for all worktrees.

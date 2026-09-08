@@ -27,12 +27,17 @@ You're in a worktree if the path is under `~/.cursor/worktrees/` or
 ## Worktree environment (set up automatically)
 
 `.cursor/worktrees.json` runs `.cursor/setup-worktree-unix.sh` in each new
-worktree. It writes an `.envrc` that activates the MAIN checkout's `.venv`
-(never create a per-worktree venv), symlinks
+worktree. It initialises the `hexapod-tracker` submodule, runs `uv sync`
+to give the worktree its OWN `.venv` from the shared `uv.lock` (seconds —
+wheels are hard-linked from the uv cache), symlinks
 `hexapod_walker/prototype_sts3215/rl_move/sim/policies` to the main
 checkout's checkpoint cache (shared — never delete zips from a worktree),
-and copies `.mcp.json`. If imports fail in a fresh worktree, run that script
-by hand with `ROOT_WORKTREE_PATH=/Users/lukas/hexapod`.
+and copies `.mcp.json`. A per-worktree venv is required, not optional: the
+editable install points at the checkout it was synced in, so a shared venv
+would make your worktree import the MAIN checkout's code. If imports fail
+in a fresh worktree (or one made with plain `git worktree add`), run the
+script by hand: `ROOT_WORKTREE_PATH=/Users/lukas/hexapod sh
+.cursor/setup-worktree-unix.sh`.
 
 ## When your session is in the main checkout
 

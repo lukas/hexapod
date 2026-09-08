@@ -1,0 +1,126 @@
+
+# Repo-wide Python project. ONE uv-managed environment at `<repo>/.venv`
+# (`uv sync` creates/updates it; `uv run ...` uses it from any directory in
+# the checkout). The importable code lives under
+# hexapod_walker/prototype_sts3215/ — see [tool.hatch.build.targets.wheel]
+# below for how that directory becomes the import root, replacing the
+# per-file sys.path shims.
+#
+# Remote runtimes deliberately do NOT use this file:
+#   * CoreWeave training pods receive a tarball of prototype_sts3215/ only
+#     (snapshot.sh --sync) and install pins from bootstrap_train_pod.sh.
+#   * The Uno Q receives the staged tree from linux_control/deploy_manifest.sh
+#     and runs with PYTHONPATH set by the systemd unit.
+#   * The controller pod runs with UV_NO_PROJECT=1 (rl_move/orchestrator/
+#     setup_controller.sh) on its system Python 3.11.
+# Keep those contracts in mind before adding anything here that a remote
+# would need at runtime.
+
+[project]
+name = "hexapod"
+version = "0.1.0"
+description = "Hexapod walker: CAD pipeline, MuJoCo sim, RL training, robot control"
+readme = "README.md"
+# 3.12: build123d (STEP export) and hexapod-tracker (<3.13) both need it;
+# uv provisions it automatically (`uv python install 3.12` if missing).
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # ---- geometry / CAD pipeline (hexapod_prototype.py, scripts/, tools/) ----
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "trimesh>=4.0",
+    "manifold3d>=2.5",           # trimesh boolean backend; without it the CAD emits parts with NO bolt holes
+    "rtree>=1.0",
+    "shapely>=2.0",
+    "mapbox-earcut>=1.0",
+    "scikit-image>=0.22",
+    "pyvista>=0.44",
+    "matplotlib>=3.8",
+    "imageio>=2.34",
+    "imageio-ffmpeg>=0.5",
+    "pillow>=10",
+    "pyyaml>=6",
+    "build123d>=0.9",            # STEP/BREP exporters (build_step_prototype.py, concepts/*, tools/*)
+    # embreex = Intel Embree ray backend for trimesh (~100x faster than the
+    # pure-Python rtree fallback the CAD verifier would otherwise use). Only
+    # on platforms that publish wheels.
+    "embreex>=4.4; sys_platform == 'darwin' or (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')",
+    # ---- vision (linux_control/vision_server.py, video_state/, sim video eval) ----
+    # contrib build: hexapod-tracker needs the aruco/apriltag module; it and
+    # opencv-python both provide `cv2` and must never be installed together.
+    "opencv-contrib-python>=4.8,<6",
+    "pyobjc-framework-AVFoundation>=12.2; sys_platform == 'darwin'",
+    "hexapod-tracker",
+    # ---- MuJoCo sim + RL (rl_move/) ----
+    # Pinned to the CoreWeave fleet (bootstrap_train_pod.sh) so local evals of
+    # pod-trained checkpoints run the same physics. mujoco-mjx (optional
+    # `mjx` group below) MUST match this version exactly.
+    "mujoco==3.11.0",
+    "gymnasium>=1.0",
+    "stable-baselines3>=2.4,<3",
+    "sb3-contrib>=2.4,<3",
+    "torch>=2.0,<3",
+    "wandb>=0.17",
+    "pygame-ce>=2.5",            # gamepad reader for sim_play.sh (headless SDL)
+    # ---- robot bench tools (motor_setup/, linux_control/ run from the Mac) ----
+    "ftservo-python-sdk",        # scservo_sdk + pyserial for the Feetech bus
+    # ---- misc ----
+    "wireviz>=0.4,<0.5",         # scripts/render_harness_diagram.py (also needs graphviz `dot` on PATH)
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+# MJX / JAX physics backend (rl_move.sim.mjx_backend, bench_mjx, MJX parity
+# tests). CPU JAX here; CUDA pods install jax[cuda12] + mujoco-warp themselves.
+#   uv sync --group mjx
+mjx = [
+    "mujoco-mjx==3.11.0",
+    "jax>=0.4.30",
+]
+# FEA strength checks (`make check-strength`): Gmsh + CalculiX front-end.
+#   uv sync --group fea
+fea = [
+    "gmsh>=4.12",
+    "pygmsh>=7.1",
+    "meshio>=5.3",
+]
+
+[tool.uv]
+# `uv sync` installs the project + `dev` by default; heavy optional stacks
+# stay opt-in.
+default-groups = ["dev"]
+
+[tool.uv.sources]
+# The vision system is its own repo, vendored as a git submodule
+# (`git submodule update --init`). Editable so edits there are live.
+hexapod-tracker = { path = "hexapod_walker/prototype_sts3215/hexapod-tracker", editable = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Import roots. In editable mode (what `uv sync` does) hatch writes these
+# directories into a .pth file in the venv, so every top-level module and
+# package under them is importable from any cwd — `import rl_move`,
+# `import hexapod_core`, `import hexapod_prototype`, and the bare-module
+# style used by linux_control/ and motor_setup/ (`import feetech_bus`).
+# This is the declarative replacement for the per-file sys.path.insert
+# shims; it mirrors the PYTHONPATH the Uno Q systemd unit sets on the robot.
+dev-mode-dirs = [
+    "hexapod_walker/prototype_sts3215",
+    "hexapod_walker/prototype_sts3215/linux_control",
+    "hexapod_walker/prototype_sts3215/motor_setup",
+    "hexapod_walker/prototype_sts3215/rl_move/orchestrator",
+]
+# Only consulted for a non-editable wheel build, which nothing does today.
+packages = [
+    "hexapod_walker/prototype_sts3215/rl_move",
+    "hexapod_walker/prototype_sts3215/hexapod_core",
+    "hexapod_walker/prototype_sts3215/motor_setup",
+    "hexapod_walker/prototype_sts3215/sysid",
+    "hexapod_walker/prototype_sts3215/strength",
+    "hexapod_walker/prototype_sts3215/fasteners",
+]

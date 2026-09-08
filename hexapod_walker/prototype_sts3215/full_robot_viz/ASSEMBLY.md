@@ -287,9 +287,9 @@ brew install gmsh
 # CalculiX solver (Intel macOS / Linux):
 brew install costerwi/homebrew-calculix/calculix-ccx
 
-# Python deps land in the repo's shared venv via run.sh; if you
-# bypass run.sh, install manually:
-uv pip install pygmsh meshio
+# Python deps (gmsh, pygmsh, meshio) are the opt-in `fea` group of the
+# repo-root pyproject.toml:
+uv sync --group fea
 ```
 
 As of May 2026 the `calculix-ccx` Homebrew formula does **not** build

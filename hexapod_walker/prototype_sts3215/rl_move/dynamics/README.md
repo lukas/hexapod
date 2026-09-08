@@ -34,7 +34,7 @@ Full design + gates: `rl_docs/DYNREP.md`.
 | `check_cohort.py` | Mechanical status for script-owned transfer cohorts: reads the manifest, live `train_ppo_transfer` processes, and done markers. Use this before believing STATUS prose. |
 | `datasets/` `models/` `logs/` | Generated (gitignored; also excluded from `snapshot.sh --sync` code tarballs) |
 
-## Quick start (from `prototype_sts3215/`, repo `.venv`)
+## Quick start (from `prototype_sts3215/`; `uv run` uses the repo-root `.venv`)
 
 ```sh
 make -C rl_move/dynamics smoke      # tiny end-to-end sanity run (~3 min)

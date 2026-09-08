@@ -1,3 +1,50 @@
+## 2026-09-08 ~07:1x (triage cycle) — fork (a) FINAL read: cartfoot-c1-cont20m ACQ FAIL (MISALIGNED), fork (a) formally CLOSED; matched control confirmed retained
+
+One plain sentence: the pre-registered "one extra read, then no more
+extensions" continuation has landed, and it closes fork (a) for good
+— the Cartesian foot-target retrofit still hasn't closed the slip gap
+to the joint-space control after 22M cumulative steps, and now it
+trades that unresolved gap for brand-new falls that weren't there at
+any earlier depth of the same lineage.
+
+**`cartfoot-offctrl-cont20m` verdict (PASS, control retention
+confirmed):** 0 falls/terminations in 24/24 episodes, gait_valid
+22/24 (6/5/5/6), mean slip/m by group 5.41/5.41/6.16/5.65 — squarely
+in the established ~5-6/m band, undrifted at extended depth. Video
+(`walk_det_0`) stays upright and level the whole clip. This makes the
+paired ON read a valid comparison, not INCONCLUSIVE.
+
+**`cartfoot-c1-cont20m` verdict (ACQ FAIL (MISALIGNED), clause
+exhausted): FORK (a) CLOSED.** Mean slip/m by group 11.18/10.21/8.90/
+11.91 — 2.07x/1.89x/1.45x/2.11x the now-confirmed control, 3/4 groups
+over the 1.5x PROMISING bar (same intermediate shape as the cont10m
+read), never crossing 3x FALSIFY-MECHANISM either. The decisive new
+fact: **3 NEW tilt_roll terminations** in 24 episodes
+(`walk/det/1`, `walk_startjitter/det/{1,3}`) — absent at every prior
+depth of this lineage (base cont40m, cartfoot-c1, cartfoot-c1-cont10m
+all reported 0/24 falls). `walk_det_1.png` shows a genuine roll-over
+on video, not a metric artifact. The run's own gate text: "any new
+fall or protected-behavior loss also blocks promotion and further
+continuation" — a hard stop independent of the slip read.
+`optimization/reward_per_tick` keeps rising the whole continuation
+(-0.214 -> -0.027, EMA -0.214 -> -0.099) while held-out slip stays
+1.5-2x the control and safety now regresses — the run's own routing
+clause names this shape MISALIGNED, not more same-recipe training.
+Per the pre-registered clause this is now a permanent unresolved-
+retrofit record, **NOT** a universal Cartesian-action-space class
+closure — fork (b) fresh-init cohorts (seed 7/11, now both
+CANARY PASS - HEALTHY-PARITY, acquisition pairs running) are a
+separate, still-open line and are unaffected by this close. No
+further continuation of this exact `cont40m-cartfoot-c1` lineage.
+
+Evidence: `ops.sh review` for both runs this cycle;
+`logs/ckpt_eval/cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_
+allaxiskickhalf_nocrutch1x_c1_acq1_cont40m_cartfoot_{c1,offctrl}_
+cont20m_gate/report.json`; `walk_det_1.png` (ON fall) vs
+`walk_det_0.png` (control, stable); RL_LOG 09-08 ~07:1x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:5x (triage cycle) — fork (b) seed-7/seed-11 quad all CANARY PASS - HEALTHY-PARITY (4/4); matched 40M acquisition pair launched for seed 7 fresh-init (ON+OFF, own-checkpoint)
 
 One plain sentence: every arm of the fork (b) fresh-init ignition

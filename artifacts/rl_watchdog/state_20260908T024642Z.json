@@ -1,0 +1,406 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger_utc": "2026-09-08T02:46:42.179Z",
+  "status": "Recovered gate formally reviewed; watcher/report/restart repairs deployed and verified; full-cone rerun complete; next steering mechanism cycle executing",
+  "capacity_observed": {
+    "utc": "2026-09-08T03:28:11Z",
+    "ready": 11,
+    "free": 11,
+    "optimizing": 0,
+    "compiling": 0,
+    "backlog": 0,
+    "pending_pod": "hexapod-mjx-train-6",
+    "added_capacity": false,
+    "utilization_all_ready_pct": 0,
+    "memory_all_ready_MiB": 0
+  },
+  "training": {
+    "new_launches_this_visit": 0,
+    "reason": "Both s0/s1 matched continued-charge studies retain walking health without a clean command/slip benefit; automatic repeated-charge budget is not justified. Steering full-cone and scratch contact-sensitivity diagnostics remain active."
+  },
+  "s0_scratch": {
+    "on_run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-on10m",
+    "off_run": "cw-walkscratch-crutchoff-s0-widen8-legdutyratio-offctrl10m",
+    "steps_each": 10485760,
+    "on_training_complete": "2026-09-08T02:19:20.109733Z",
+    "off_training_complete": "2026-09-08T02:20:47.534Z",
+    "on_md5": "5c6b4932a0ff5ecd7559fab0d91394e7",
+    "off_md5": "ce8e200539e0e67d22b0fe3b22757f69",
+    "checkpoint_bytes_each": 4469269,
+    "finalizers": {
+      "on_completed_approx": "2026-09-08T02:32:12Z",
+      "off_completed_approx": "2026-09-08T02:32:24Z",
+      "publication_confirmed": true,
+      "failed_jobs": 0
+    },
+    "on_gate": {
+      "gait_valid": 22,
+      "episodes": 24,
+      "terminations": 0,
+      "groups": [
+        6,
+        6,
+        6,
+        4
+      ],
+      "status": "PASS retention; efficacy pending matching control",
+      "triage_cycle": "20260908T025506"
+    },
+    "off_gate_recovery": {
+      "cause": "Post-launch checkup set FINISHED_BEFORE_CHECKUP before120s handoff poll. Handoff scanned onlyRUNNING; ledger_verdicted treated bareFINISHED as final review, so no prestage.",
+      "training_state_changed_utc": "2026-09-08T02:21:09Z",
+      "recovered_checkpoint_to_controller": true,
+      "verified_md5": "ce8e200539e0e67d22b0fe3b22757f69",
+      "method": "ops.sh pullckpt; ops.sh evalpending add; detached ops.sh podeval",
+      "controller_helper_pid": 4178332,
+      "controller_log": "/tmp/watchdog_podeval_s0_offctrl10m_20260908T0251.log",
+      "pod": "hexapod-mjx-train-1",
+      "evaluator_pid": 2684796,
+      "pending_registered": true,
+      "progress": [
+        {
+          "utc": "2026-09-08T02:53:00Z",
+          "clips": 1
+        },
+        {
+          "utc": "2026-09-08T03:08:00Z",
+          "clips": 12
+        },
+        {
+          "utc": "2026-09-08T03:10:36Z",
+          "clips": 14
+        },
+        {
+          "utc": "2026-09-08T03:16:20Z",
+          "clips": 18
+        },
+        {
+          "utc": "2026-09-08T03:21:54Z",
+          "clips": 22
+        },
+        {
+          "utc": "2026-09-08T03:26:30Z",
+          "clips": 24
+        }
+      ],
+      "legacy_video_source_preserved": true,
+      "completed": true,
+      "pod_report_bytes": 91219,
+      "controller_sync_verified": true,
+      "retained_checkpoint_hash_unchanged": true
+    },
+    "off_gate": {
+      "gait_valid": 21,
+      "episodes": 24,
+      "terminations": 0,
+      "groups": [
+        5,
+        6,
+        6,
+        4
+      ],
+      "formal_status": "CANARY PASS - matched control, no efficacy (2nd independent replication, s0/RNG2)",
+      "triage_cycle": "20260908T032537_evalready",
+      "owner_pid": 16269,
+      "triage": "done"
+    },
+    "matched_comparison": {
+      "commit": "795f4dff0",
+      "artifact": "artifacts/rl_watchdog/scratch_s0_matched_20260908/",
+      "original_gate_met_for_retention": true,
+      "original_clean_benefit_bar_met": false,
+      "same_reported_randomization_and_reset_rows": 24,
+      "launch_cfg_keys": 82,
+      "only_cfg_difference": "reward.walk_leg_duty_ratio_charge=150 vs 0",
+      "same_existing_rng": 2,
+      "init_already_charge_exposed": true,
+      "on_off_median_progress": [
+        [
+          0.9215,
+          0.923
+        ],
+        [
+          0.9625,
+          1.021
+        ],
+        [
+          0.989,
+          1.0165
+        ],
+        [
+          0.648,
+          0.6755
+        ]
+      ],
+      "on_off_median_slip": [
+        [
+          9.6965,
+          8.4485
+        ],
+        [
+          7.89,
+          6.8205
+        ],
+        [
+          9.6525,
+          9.094
+        ],
+        [
+          12.6555,
+          12.717
+        ]
+      ],
+      "sole_gait_flip": "walk/det episode0 leg5 duty0.11 on vs0.07 off, with worse progress/slip",
+      "automatic_further_budget": false,
+      "inference_limit": "No demonstrated clean benefit; threshold flip is not proven statistical noise or evidence of a universal mechanism failure."
+    }
+  },
+  "assisted_s0": {
+    "run": "cw-assistfade-rung3-legdutyratio-s0",
+    "false_comparator_cycle": "20260908T024310",
+    "false_claim": "7\u219215/24 and chronic legs0/3 recovered compared with nostdanneal descendant, not matching baseline",
+    "matching_baseline": "cw-assistfade-rung3-residualfade-s0",
+    "same_policy_std": 0.052,
+    "wrong_variant_policy_std": 0.422,
+    "matched_gait": {
+      "baseline": 16,
+      "new": 15,
+      "episodes": 24
+    },
+    "simulated_over_current_terminations": {
+      "baseline": 7,
+      "new": 9,
+      "physical_falls_claimed": false
+    },
+    "nominal_det": {
+      "progress": {
+        "baseline": 0.119,
+        "new": 0.142
+      },
+      "slip_per_m": {
+        "baseline": 16.711,
+        "new": 12.674
+      }
+    },
+    "nominal_sto": {
+      "progress": {
+        "baseline": 0.106333,
+        "new": 0.103333
+      },
+      "slip_per_m": {
+        "baseline": 15.9655,
+        "new": 16.3193
+      }
+    },
+    "formal_verdict": "CANARY FAIL - MECHANISM; matched health regression, not class closure or equivalence",
+    "formal_verdict_utc": "2026-09-08T03:00:00Z",
+    "witness": "Exactwalk_det_0 contact sheet reviewed",
+    "publication": "W&B notes updated;52-file analysis artifact attached",
+    "correction_commit": "ac2f4adc6",
+    "evidence": "artifacts/rl_watchdog/assistfade_s0_comparator_20260908/"
+  },
+  "repairs": [
+    {
+      "name": "finished-before-checkup eligibility",
+      "commit": "81475f606",
+      "tests": {
+        "local_focused": 39,
+        "baseline_regressions_fail": 2,
+        "controller_combined_with_report_selection": 52
+      },
+      "status": "deployed and adopted by new watcher15352; pending recovered gate triggered correctly"
+    },
+    {
+      "name": "exact-report and matching-media selection",
+      "commits": [
+        "1ba7e967e",
+        "5b6f5a95d"
+      ],
+      "tests": {
+        "agent_report_suite": 29,
+        "controller_selection_and_media": 16
+      },
+      "status": "live verified by nativeMCP and ops.sh review",
+      "old_status_server_pid": 4074088,
+      "new_status_server_pid": 4187633
+    },
+    {
+      "name": "safe watcher repository synchronization",
+      "commit": "0be5f7ca2",
+      "tests": {
+        "local": 5,
+        "controller": 5
+      },
+      "script_sha256": "293a033e0d9119b952d409c3201c64e962d63777dd4f56c77981e44eee634630",
+      "status": "repo and/workspace copies verified; executingauto restart uses it"
+    },
+    {
+      "name": "single-owner watcher restart lifetime guard",
+      "commit": "254c05d62",
+      "tests": {
+        "local": 7,
+        "controller": 7
+      },
+      "status": "future restart script atomically installed after successful existing restart",
+      "script_sha256": "0ae57fe6200792ee84e9505cba85c35fdb4af9843bb769abf264532cd5c57d65"
+    }
+  ],
+  "watcher_restart": {
+    "automatic_pid": 4189257,
+    "automatic_started_utc": "2026-09-08T03:05:31Z",
+    "manual_duplicate_pid": 4192269,
+    "manual_started_utc": "2026-09-08T03:08:13Z",
+    "manual_cancelled": "Root SIGTERM only4192269 after detecting pre-existing auto restart; no process-group signals",
+    "verified_utc": "2026-09-08T03:26:30Z",
+    "manual_state": "Z terminated",
+    "automatic_state": "Z completed",
+    "old_watcher_pid": 2793043,
+    "pause": false,
+    "wrapup": false,
+    "reason": "finish in-flight steering work before adopting watcherfix",
+    "single_owner_guard": "deployed after successful boundary; tests verified",
+    "completed_utc": "2026-09-08T03:25:28Z",
+    "cycles_ended_utc": "2026-09-08T03:25:21Z",
+    "new_watcher_pid": 15352,
+    "new_watcher_start_utc": "2026-09-08T03:25:23.34Z",
+    "new_watcher_sha256": "a034c99c31a1a3bb9cc21e193b5c74c1d6b3d0f30218cc4038a64d36e17e2398",
+    "old_watcher_state": "gone",
+    "deadline_kill": false,
+    "orphaned_evaluations": false
+  },
+  "steering": {
+    "cycle": "20260908T025505",
+    "pid": 4180127,
+    "requested": "Direct actual contact force/friction-cone/yaw-moment diagnostic on frozen34-mesh4.80573kg plant",
+    "scope": "existingseed0, original motor and qualification limits; no robot/extra capacity",
+    "code_snapshot": "b7073bf30",
+    "diagnostic_started_utc": "2026-09-08T03:10:07Z",
+    "diagnostic_pid": 4193901,
+    "rollouts": 18,
+    "preliminary_tests": 47,
+    "independent_review": {
+      "fixed": "Full condim-aware cone accounting now includes anisotropic tangents, spin and rolling; elliptic L2/pyramidal L1; invalid data fail closed. Actual CLI-used audit path regressions passed. Canonical unsupported saturation/unique-cause/hardware-cap claims corrected.",
+      "outstanding": "Same-phase commanded/actual stance evidence and original-plant preflight still required; next owner034254 is executing.",
+      "feedback": "fb_20260908T030744_9bd736"
+    },
+    "next": "Continue active034254 stance-path mechanism, no duplicate cycle.",
+    "prior_cycle_finished": true,
+    "prior_cycle_snapshot": "29b7388e1",
+    "raw_evidence_commit": "5a5ababb5",
+    "full_cone_fix_commit": "584318b22",
+    "current_interpretation_correction_commit": "fc2b884fc",
+    "full_cone_tests": {
+      "new": 16,
+      "combined_local": 64,
+      "controller": 64
+    },
+    "rerun": "completed and locally compared; all12 original outputs preserved",
+    "torsion_sensitivity": {
+      "original": 0.1,
+      "assumed_lower": 0.005,
+      "units": "m",
+      "arc_yaw_change_pct": [
+        -14,
+        -9
+      ],
+      "forward_speed_change_pct": [
+        17,
+        20
+      ],
+      "falls": 0,
+      "cells": 6,
+      "interpretation": "Modified-contact-model sensitivity using an assumed uniform-pressure patch, not calibrated hardware or original-plant qualification",
+      "first_attempt_wiped_by_reset": true,
+      "reset_survival_fixed": true
+    },
+    "full_cone_rerun": {
+      "pid": 26501,
+      "output": "/workspace/hexapod-turnphase-wt/hexapod_walker/prototype_sts3215/logs/ckpt_eval/root_fullcone_20260908",
+      "arms": "scripted6 and retained-checkpoint6, original plant",
+      "copied_sources_only": [
+        "probe_turn_authority.py",
+        "probe_turn_traction.py"
+      ],
+      "training_launches": 0,
+      "completed_utc_approx": "2026-09-08T03:36:00Z",
+      "original_rows_bit_identical": 12,
+      "full_cone_valid_rows": 12,
+      "momentum_valid_rows": 12,
+      "pooled_slipping_foot_near_fullcone_fraction_range": [
+        0.4801,
+        0.5854
+      ],
+      "pooled_slipping_foot_near_legacy_planar_fraction_range": [
+        0.0405,
+        0.0838
+      ],
+      "inference": "Full contact-maximum cone adjacency is much more frequent than planar projection suggested; mixed boundary/sub-boundary behavior remains. Does not uniquely establish stance-path inconsistency or a general hardware limit.",
+      "lower_torsion_rerun_launched": false,
+      "artifact": "artifacts/rl_watchdog/root_fullcone_20260908/",
+      "artifact_commit": "f8b092151",
+      "summary_commit": "5a0d9b8bb",
+      "cone_type": "elliptic",
+      "arc_only_pooled_near_fraction_range": [
+        0.4801,
+        0.524
+      ],
+      "pooled_full_usage_below_half_fraction_range": [
+        0.2618,
+        0.4323
+      ],
+      "momentum_relative_rms_range": [
+        0.000655,
+        0.001493
+      ],
+      "contact_selection": "Any active compressive foot contact; per-foot material slip, maximum contact utilization, pooled slipping-foot-substep counts."
+    },
+    "next_cycle": {
+      "cycle": "20260908T034254_operator-kick",
+      "pid": 32085,
+      "started_utc": "2026-09-08T03:42:54Z",
+      "verified_progress_utc": "2026-09-08T03:45:47Z",
+      "evidence": "Consumed corrected root full-cone outputs, verified validity, summarized saturation, reading same-phase stance/swing target generation for scoped stance-path mechanism.",
+      "scope": "Original frozen plant/seed0/limits; one2M canary only after unchanged both-signs/straight/slip/IK preflight; no operator wait."
+    }
+  },
+  "feedback": [
+    "fb_20260908T024919_991c80",
+    "fb_20260908T025045_a9868e",
+    "fb_20260908T030744_9bd736",
+    "fb_20260908T031704_d4979b",
+    "fb_20260908T032745_c9ad05",
+    "fb_20260908T033546_c0ea15"
+  ],
+  "restrictions_preserved": [
+    "no new seed",
+    "no extra capacity or spending",
+    "no uncordon/eviction",
+    "no physical robot action or deployment",
+    "no relaxed limits or qualification"
+  ],
+  "git_log_marker_cleanup": {
+    "cloud_commit": "29b7388e1",
+    "root_duplicate_commit_dropped_on_rebase": "40fb6280d",
+    "removed_marker_lines": 3,
+    "both_legitimate_entries_retained": true
+  },
+  "scratch_contact_sensitivity": {
+    "owner_cycle": "20260908T032537_evalready",
+    "owner_finished": true,
+    "source_commit": "67ebc1524",
+    "verdict_docs_commit": "da625dd30",
+    "evaluator_pid": 26905,
+    "comparison_audit": "No concrete comparator confound; same24 resets/randomization,20s/100Hz/model/motor/panel/std.135,78 original cfgkeys identical plus torsion.005",
+    "result": "Slip medians higher inall4groups; gait22/24,0terminations",
+    "activation_evidence": "Setter changes foot/terrain column1 before reset snapshot; DR rescales slidingcolumn0 only; reset-survival tests pass",
+    "limits": "No recorded checkpoint content hash, evaluator hash or effective-contact friction trace. Narrow frozen-checkpoint dose result, not universal contact-mechanism closure or calibrated physical limit."
+  },
+  "artifact_transfer": {
+    "delegated_route": "DNS errors; agent escalation retry hung and was interrupted",
+    "root_route": "Non-escalated kubectl exec tar transfer completed successfully; exact4-file inventory verified",
+    "new_permission_required": false,
+    "avoid_future_escalations": true
+  },
+  "record_completed_utc": "2026-09-08T03:49:30Z",
+  "remaining_active_work": "Single cloud cycle034254 designing/testing next stance-path mechanism; training still requires its unchanged original-plant preflight."
+}

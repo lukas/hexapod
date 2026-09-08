@@ -1,3 +1,65 @@
+## 2026-09-08 ~01:5x (refill cycle; 11/11 GPU free at start, backlog empty, no completion assigned) — triaged 3 orphaned FINISHED `walk_leg_duty_ratio_charge` guardfix1 canaries no other cycle had claimed: 2 fresh-init CANARY PASS + 1 retrofit CANARY FAIL-MECHANISM (self-corrected from a wrong first read)
+
+Found 3 finished-but-unverdicted canaries with ready gate reports
+(`s0-widen8-acq1-legdutyratiofresh-guardfix1`, `s0-widen8-acq1-
+legdutyratio1-guardfix1`, `s0-widenbis180-legdutyratiofresh-
+guardfix1`) alongside the already-in-flight `s1-widen8-acq1-
+legdutyratio-guardfix-acq10m` (+matched `offctrl10m` control, both
+owned by a concurrent cycle/root per fb_20260908T013619 — left
+untouched). Verdicted all 3:
+
+- **`s0-widen8-acq1-legdutyratiofresh-guardfix1` CANARY PASS**: fresh
+  init (never trained widen8 before), `gait_valid` 21/24, sacrifice in
+  only 2/24 episodes, 0 terminations. Matches sibling `s1`'s
+  independently-recorded PASS.
+- **`s0-widenbis180-legdutyratiofresh-guardfix1` CANARY PASS**: fresh
+  init, `gait_valid` 18/24 (exactly clears its own bar), sacrifice in
+  6/24 episodes.
+- **`s0-widen8-acq1-legdutyratio1-guardfix1` CANARY FAIL - MECHANISM**
+  (self-corrected mid-cycle): this is a RETROFIT onto the already-
+  entrenched 40M widen8-acq1 exploiter. First pass wrongly verdicted
+  it PASS ("material improvement") without reading the undosed
+  baseline first. Direct episode-by-episode diff against `s0-widen8-
+  acq1`'s own undosed gate report shows the two are BIT-IDENTICAL in
+  all 24 episodes (same `gait_valid`=20/24, same 4 failing episodes/
+  legs) despite telemetry confirming the charge fires correctly
+  (shortfall 0.14-0.17, not the earlier activation-guard bug). 2M
+  steps of retrofit produced ZERO measurable behavior change on an
+  already-entrenched checkpoint — retention, not repair. Corrected
+  same cycle (FORCE=1), W&B `nh3lt3o3`.
+
+**Methodological finding, applies to every arm of this mechanism**:
+all 4 guardfix1 canaries show `ep_rew_mean` crashing hard through
+training (e.g. quarters 31.1->63.4->-903.4->-3589.9). This is FULLY
+explained by `rollout/ep_len_mean` rising steadily (108.7->228->359->
+488 — episodes surviving LONGER, i.e. behavior improving) times a
+roughly-flat per-tick duty-ratio charge — NOT behavioral collapse.
+Read `ep_len_mean` before treating a declining `ep_rew_mean` under
+this reward shape as a bad sign; this is why the acq10m continuation
+showing `ep_rew_mean` -32103 at 10M steps is not by itself a FAIL
+signal — its own gate report (still computing) is what actually
+decides it.
+
+**Net read**: 3/3 fresh-init canaries now PASS across 2 different
+heading lineages (widen8, widenbis180) — the first per-leg-
+utilization mechanism (of 12+ tried) to show real recovery from a
+naive init. The retrofit-onto-entrenched question stays genuinely OPEN
+(1 arm, 2M budget, unchanged — not proof the mechanism can never cure
+an entrenched exploiter, just that this one short dose didn't). SKILLS.md
+updated. No new GPU launch this cycle: the natural next step (longer
+acquisition on the fresh-PASS recipe, matched charge-off control) is
+already running (`acq10m`/`offctrl10m`, not mine to duplicate); the
+retrofit's own next step (a longer single continuation, or preferring
+fresh-init over retrofit) is a call for whoever reads the acq10m/
+offctrl10m pair, not a fresh launch here. Evidence: `logs/ckpt_eval/
+cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_
+crutchoff_{s0,s1}_widen8_acq1_legdutyratiofresh_guardfix1_gate/
+report.json`, `..._s0_widenbis180_legdutyratiofresh_guardfix1_gate/
+report.json`, `..._s0_widen8_acq1_legdutyratio1_guardfix1_gate/
+report.json` vs `..._s0_widen8_acq1_gate/report.json`.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~00:4x (same cycle, self-correction) — CORRECTION: all 4 original `walk_leg_duty_ratio_charge` canaries below were silently INERT (activation-guard bug); operator-fixed same cycle; all 4 relaunched as `-guardfix1`
 
 **The bug**: the new `walk_leg_duty_ratio_charge` contact-bookkeeping

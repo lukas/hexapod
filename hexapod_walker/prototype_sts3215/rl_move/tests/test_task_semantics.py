@@ -6548,6 +6548,8 @@ def test_walk_legduty_terminate_penalty_is_smaller_than_term_penalty():
 # testable functions" pattern as `transition_window_tick` above.
 
 from rl_move.sim.walk_task import walk_legduty_term_tick  # noqa: E402
+from rl_move.sim.walk_task import (  # noqa: E402
+    walk_legduty_ratio_charge, walk_legduty_ratio_tick)
 
 
 def _run_legduty_synthetic(on_fn, n_ticks=2000, dt=0.01, tau_s=1.0,
@@ -6634,6 +6636,225 @@ def test_walk_legduty_floor_rel_frac_catches_soft_starvation_the_absolute_floor_
         "floor_rel_frac (it only changes the comparison floor, never "
         "the EMA update) -- a difference here would mean the add-on "
         "leaked into the ema arithmetic")
+
+
+# --------------------------------------------------------------------------
+# reward.walk_leg_duty_ratio_charge (2026-09-08, the "duty-balance
+# reward TARGET" scoped since 09-07 ~23:2x/~23:4x as the only lever
+# left after BOTH the per-tick-price CLASS (walk_duty_gate,
+# walk_swing_gate, walk_duty_band_gate, walk_gait_gate+k_step_event —
+# 11 arms, every one an income-MULTIPLYING factor in [0,1], closed
+# because a price is simply outbid/amortized against the cheap gait's
+# income) and the TERMINATION class (safety.walk_leg_duty_
+# terminate_s, 8/8 FAIL — the termination gets paid as an ambient
+# cost, firing rate RISES not falls with more training) both closed
+# FAIL against the base(1g)/crossgrav chronic front-pair-or-middle-
+# pair leg sacrifice. This mechanism is a DIFFERENT SHAPE from both:
+# an independent ADDITIVE per-tick charge (never multiplies
+# r_walk/r_prog/r_cmd_track) with no episode cutoff, keyed on the
+# CALIBRATED peer-excluded-mean duty ratio (STATUS.md 2026-09-07
+# ~23:4x: 288 real gate-report episodes, threshold 0.22-0.24 separates
+# >=299/300; target defaults to the passing population's own p10,
+# 0.30).
+#
+# The open question every prior mechanism's own scoping note flagged
+# as unanswered — "can ANY per-tick price flip a cheat's FULL
+# undocked-episode return below the honest gait's own return" — is
+# answered directly below, empirically, for BOTH the hard flag-leg
+# cheat already used against every prior mechanism in this file AND a
+# NEW soft/marginal starvation actor (a leg that still touches down
+# periodically at a low duty, ~5-20%, the shape real 40M-trained
+# checkpoints actually show — see `_gait_gate_walk_rollout_softleg`
+# below) rather than only the literal 0%-duty synthetic every prior
+# bank tested.
+
+WALK_LEGDUTY_RATIO_OVERRIDES = dict(WALK_OVERRIDES)
+WALK_LEGDUTY_RATIO_OVERRIDES.update({
+    ("reward", "walk_leg_duty_ratio_charge"): 150.0,
+    ("reward", "walk_leg_duty_ratio_target"): 0.30,
+    ("reward", "walk_leg_duty_ratio_grace_s"): 3.0,
+    ("reward", "walk_leg_duty_ratio_tau_s"): 1.0,
+})
+
+
+def _gait_gate_walk_rollout_softleg(seed: int, overrides: dict,
+                                    duty_frac: float = 0.10,
+                                    tap_period_s: float = 1.5) -> dict:
+    """Same honest six-leg scripted tripod as `_gait_gate_walk_rollout`,
+    but mid leg 1 (the same leg the hard 'flagleg' actor sacrifices)
+    spends most of its time at the raised flag pose and only taps down
+    to the plant pose for a `duty_frac` share of each `tap_period_s`
+    window — a SOFT/MARGINAL starvation actor (real periodic ground
+    contact at a low duty, not a literal 0%-duty permanent raise) that
+    stands in for the ~0.02-0.11 duty the widen8-acq1-legdutyfresh
+    campaign's own trained checkpoints actually measured on their
+    chronically-sacrificed leg (CURRENT_TRUTHS 09-05 ~19:2x onward).
+    Every prior per-tick mechanism in this file was only ever bank-
+    tested against the hard 0%-duty flagleg cheat; this actor tests
+    whether a mechanism also catches the SOFTER real failure shape."""
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * np.linspace(
+        0.0, 1.0, ramp_n)
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *RAW_PLANT] * 6) * DEG2RAD
+    flag = np.array(GG_FLAG_RAD)
+    gait.reset_phase()
+    total, step = 0.0, 0
+    tap_period_ticks = max(1, int(round(tap_period_s / env.dt)))
+    tap_on_ticks = max(1, int(round(tap_period_ticks * duty_frac)))
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        a = min(t / 1.5, 1.0)
+        phase_tick = step % tap_period_ticks
+        target = plant_rad[3:6] if phase_tick < tap_on_ticks else flag
+        q[3:6] = (1 - a) * plant_rad[3:6] + a * target
+        _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "terminated": bool(term), "steps": step}
+
+
+def test_walk_leg_duty_ratio_charge_default_off_bit_exact():
+    """walk_leg_duty_ratio_charge=0.0 (explicit) must equal the key
+    absent — no new state read/behavior change on the default path."""
+    off = dict(WALK_OVERRIDES)
+    off[("reward", "walk_leg_duty_ratio_charge")] = 0.0
+    a = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    b = _gait_gate_walk_rollout("gait", SEEDS[0], off)
+    assert a["return"] == b["return"]
+    assert a["steps"] == b["steps"]
+
+
+def test_walk_leg_duty_ratio_charge_leaves_honest_gait_untouched():
+    """The honest six-leg scripted tripod's return must be BIT-EXACT
+    once the charge arms: its own worst-leg peer-relative ratio never
+    dips below the 0.30 target (a real balanced tripod's legs all sit
+    close to equal duty), so the mechanism must apply zero charge over
+    the whole episode -- not just a small one."""
+    off = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    on = _gait_gate_walk_rollout("gait", SEEDS[0],
+                                 WALK_LEGDUTY_RATIO_OVERRIDES)
+    assert not on["terminated"]
+    assert on["steps"] == off["steps"]
+    assert on["return"] == pytest.approx(off["return"]), (
+        f"honest gait was charged once the mechanism armed: "
+        f"on={on['return']} off={off['return']}")
+
+
+def test_walk_leg_duty_ratio_charge_flips_flagleg_below_honest_gait():
+    """THE core claim, and the exact property every prior per-tick
+    price mechanism's own closure note flagged as never demonstrated:
+    once armed, the permanently-sacrificed flag-leg cheat's return
+    must fall not just below its OWN undosed return, but below the
+    HONEST GAIT's OWN DOSED return -- i.e. the price must be strong
+    enough to flip which behavior actually pays more, not merely
+    shrink the cheat's income toward (but not past) zero."""
+    gait_on = _gait_gate_walk_rollout("gait", SEEDS[0],
+                                      WALK_LEGDUTY_RATIO_OVERRIDES)
+    flag_on = _gait_gate_walk_rollout("flagleg", SEEDS[0],
+                                      WALK_LEGDUTY_RATIO_OVERRIDES)
+    assert flag_on["return"] < gait_on["return"], (
+        f"flag-leg cheat ({flag_on['return']:.1f}) still beats the "
+        f"honest gait ({gait_on['return']:.1f}) even with the charge "
+        f"armed -- the mechanism did not flip the ordering")
+    assert flag_on["return"] < 0.0, (
+        "expected the charge to make the flag-leg cheat's return go "
+        f"net NEGATIVE, not just smaller: {flag_on['return']:.1f}")
+
+
+def test_walk_leg_duty_ratio_charge_flips_soft_starvation_below_honest_gait():
+    """Same claim as above, but against the SOFTER/more realistic
+    starvation actor (periodic low-duty taps, not a permanent 0%-duty
+    raise) at a duty (10%) matching real trained-checkpoint reports.
+    Every prior per-tick mechanism in this file was only ever proven
+    against the hard flagleg cheat; this is the missing soft-cheat
+    proof."""
+    gait_on = _gait_gate_walk_rollout("gait", SEEDS[0],
+                                      WALK_LEGDUTY_RATIO_OVERRIDES)
+    soft_on = _gait_gate_walk_rollout_softleg(
+        SEEDS[0], WALK_LEGDUTY_RATIO_OVERRIDES, duty_frac=0.10)
+    assert soft_on["return"] < gait_on["return"], (
+        f"soft (10%-duty) starvation cheat ({soft_on['return']:.1f}) "
+        f"still beats the honest gait ({gait_on['return']:.1f}) with "
+        "the charge armed")
+    assert soft_on["return"] < 0.0, (
+        f"expected the soft-starvation cheat's return to go net "
+        f"negative too: {soft_on['return']:.1f}")
+
+
+def test_walk_leg_duty_ratio_charge_no_charge_before_grace_elapses():
+    """Synthetic proof (no physics rollout needed) that the grace
+    window genuinely gates the charge: feeding a fully-parked leg (on=0
+    forever) through `walk_legduty_ratio_charge` using the EMA reached
+    at exactly the grace boundary must read a real shortfall (the
+    mechanism DOES fire once armed), but the pricing block itself must
+    not have been consulted before that tick -- proven indirectly via
+    the tick-count gate in the reward code (see
+    walk_leg_duty_ratio_grace_s in the step() call site); this test
+    pins the plain-function half of that contract: the EMA for an
+    always-off leg genuinely reaches a low value well before a
+    plausible 3.0s/tau_s=1.0 grace elapses, so the grace is doing real
+    gating work rather than being unreachable."""
+    from rl_move.sim.walk_task import walk_legduty_ratio_tick
+    ema = [1.0] * 6
+    dt = 0.01
+    for _ in range(int(round(3.0 / dt))):
+        ema = walk_legduty_ratio_tick(
+            ema, on=[0.0, 1.0, 1.0, 1.0, 1.0, 1.0], dt=dt, tau_s=1.0)
+    worst_shortfall, ratios = walk_legduty_ratio_charge(ema, 0.30)
+    assert worst_shortfall > 0.0, (
+        f"a leg parked for the full grace window should already read "
+        f"a real shortfall by the grace boundary: ema={ema}, "
+        f"ratios={ratios}")
+
+
+def test_walk_leg_duty_ratio_charge_balanced_synthetic_has_zero_shortfall():
+    """Plain-function unit proof: 6 legs at equal EMA duty must read
+    ratio=1.0 for every leg (peer-excluded mean of 5 equal values
+    equals that same value) and zero shortfall against any target
+    <=1.0 -- the mechanism must not manufacture a charge out of a
+    perfectly balanced (if low-duty) gait."""
+    for duty in (0.15, 0.35, 0.5, 0.9):
+        ema = [duty] * 6
+        worst_shortfall, ratios = walk_legduty_ratio_charge(ema, 0.30)
+        assert all(r == pytest.approx(1.0) for r in ratios), ratios
+        assert worst_shortfall == 0.0
+
+
+def test_walk_leg_duty_ratio_charge_matches_calibration_threshold():
+    """Direct check against the 2026-09-07 ~23:4x calibration numbers
+    (288 real gate-report episodes): a leg at the flagged-sacrifice
+    population's own p90 ratio (0.179, peer mean ~1.0) must read a
+    positive shortfall against the default 0.30 target, and a leg at
+    the passing population's own p10 worst-leg ratio (0.302) must read
+    (approximately) zero -- confirms the shipped default target sits
+    exactly where the calibration data says it should."""
+    sac_ema = [0.179, 1.0, 1.0, 1.0, 1.0, 1.0]
+    worst_sac, _ = walk_legduty_ratio_charge(sac_ema, 0.30)
+    assert worst_sac > 0.10, f"expected a real charge, got {worst_sac}"
+    pass_ema = [0.302, 1.0, 1.0, 1.0, 1.0, 1.0]
+    worst_pass, _ = walk_legduty_ratio_charge(pass_ema, 0.30)
+    assert worst_pass == pytest.approx(0.0, abs=0.01), (
+        f"expected ~zero charge at the passing population's own p10 "
+        f"ratio, got {worst_pass}")
 
 
 # --------------------------------------------------------------------------

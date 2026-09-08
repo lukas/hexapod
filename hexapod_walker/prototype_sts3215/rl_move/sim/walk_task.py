@@ -501,6 +501,69 @@ def walk_legduty_term_tick(
     return new_ema, new_low_s, worst
 
 
+# Per-LEG duty-RATIO reward CHARGE (`reward.walk_leg_duty_ratio_charge`,
+# 2026-09-08 -- the "duty-balance reward TARGET" scoped since 09-07
+# ~23:2x/~23:4x as the only lever left after BOTH the per-tick-price
+# class (11 mechanisms: walk_duty_gate, walk_swing_gate,
+# walk_duty_band_gate, walk_gait_gate+k_step_event -- every one an
+# INCOME-MULTIPLYING factor in [0,1]) and the termination class
+# (safety.walk_leg_duty_terminate_s, 8/8) closed FAIL against the
+# base(1g)/crossgrav chronic front-pair-or-middle-pair leg sacrifice.
+# Deliberately a DIFFERENT SHAPE from both closed classes: an
+# independent ADDITIVE per-tick penalty (never multiplies r_walk/
+# r_prog/r_cmd_track, so it cannot be "simply outbid" by a fatter
+# income term the way every closed *_gate factor could be, per each
+# of their own closure notes) and no episode cutoff (so it cannot be
+# "paid as ambient cost then move on" the way the termination's own
+# firing-rate-rises-not-falls signature showed). Uses the CALIBRATED
+# peer-excluded-mean ratio (STATUS.md 2026-09-07 ~23:4x zero-spend
+# finding, 288 real gate-report episodes, 12 arms across the whole
+# front-pair-pathology campaign + one clean baseline): ratio_i =
+# duty_ema_i / mean(the OTHER five legs' duty_ema) -- a threshold in
+# 0.22-0.24 separates >=299/300 episodes (87 flagged-sacrifice
+# episodes' own worst ratio: p90 0.179; 213 passing episodes' own
+# worst-leg ratio: min 0.222, p10 0.302). Default target 0.30 sits at
+# that passing-population's own p10 (a genuinely-walking gait's
+# worst leg should clear it; a sacrificed leg should not). Adapts to
+# whatever relative activity level the gait has established that
+# tick -- no heading-conditioned per-leg role table needed, same
+# rationale as the (already-closed, termination-only)
+# `walk_leg_duty_terminate_floor_rel_frac` add-on, but here wired as
+# the reward-shaping TARGET that add-on's own commit message named as
+# the still-open next build. Own EMA state (`_legduty_ratio_ema`),
+# NOT shared with the termination feature's `_walk_legduty_ema`
+# (sim_env.py) so this arm's dose can be swept without perturbing it.
+def walk_legduty_ratio_tick(ema: list, *, on: list, dt: float,
+                            tau_s: float) -> list:
+    """One tick's EMA update for all 6 legs' own ground-contact duty.
+    Same exponential form as `walk_legduty_term_tick`'s EMA (kept as
+    an independent state copy). ``ema``/``on`` are length-6."""
+    return [e + (dt / tau_s) * (float(o) - e) for e, o in zip(ema, on)]
+
+
+def walk_legduty_ratio_charge(ema: list, target: float) -> tuple[float, list]:
+    """Peer-excluded-mean duty ratio per leg and the WORST (max)
+    shortfall below ``target`` across all 6 legs (i.e. the shortfall
+    of whichever leg has the smallest ratio -- the same MIN-over-legs
+    "one bad leg drags the whole score" convention every other
+    anti-sacrifice mechanism in this file uses, expressed as a
+    shortfall instead of a multiplicative factor). ``peer_mean``
+    excludes the leg itself (sharpens the cut ~2x vs an including-self
+    mean, per the calibration finding); guarded against an all-zero
+    team with a small epsilon (returns ratio 1.0-ish, no spurious
+    charge, rather than a division blowup)."""
+    ratios = []
+    for i in range(6):
+        others = [e for j, e in enumerate(ema) if j != i]
+        peer_mean = sum(others) / len(others)
+        if peer_mean < 1e-6:
+            ratios.append(1.0)
+        else:
+            ratios.append(ema[i] / peer_mean)
+    worst_shortfall = max(0.0, target - min(ratios))
+    return worst_shortfall, ratios
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -532,7 +595,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est",
                           "_trans_td_count", "_trans_lo_buf",
-                          "_walk_legduty_ema", "_walk_legduty_low_s")
+                          "_walk_legduty_ema", "_walk_legduty_low_s",
+                          "_legduty_ratio_ema", "_legduty_ratio_ticks")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -696,6 +760,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 09-07 ~04:4x).
         self._walk_legduty_ema = [1.0] * 6
         self._walk_legduty_low_s = [0.0] * 6
+        # Per-leg duty-RATIO reward-charge EMA (reward.walk_leg_duty_
+        # ratio_charge, 2026-09-08); own state, independent of the
+        # termination feature's _walk_legduty_ema above. Seeded at 1.0
+        # for the same "begins loaded at the plant" reason. Tick
+        # counter gates the charge off until the EMA has had a chance
+        # to reflect real contact data (mirrors the window-must-fill
+        # grace every other gate in this file uses).
+        self._legduty_ratio_ema = [1.0] * 6
+        self._legduty_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1379,6 +1452,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 09-07 ~04:4x).
         self._walk_legduty_ema = [1.0] * 6
         self._walk_legduty_low_s = [0.0] * 6
+        # Per-leg duty-RATIO reward-charge EMA (reward.walk_leg_duty_
+        # ratio_charge, 2026-09-08); own state, independent of the
+        # termination feature's _walk_legduty_ema above. Seeded at 1.0
+        # for the same "begins loaded at the plant" reason. Tick
+        # counter gates the charge off until the EMA has had a chance
+        # to reflect real contact data (mirrors the window-must-fill
+        # grace every other gate in this file uses).
+        self._legduty_ratio_ema = [1.0] * 6
+        self._legduty_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3336,6 +3418,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 09-07 ~04:4x).
         self._walk_legduty_ema = [1.0] * 6
         self._walk_legduty_low_s = [0.0] * 6
+        # Per-leg duty-RATIO reward-charge EMA (reward.walk_leg_duty_
+        # ratio_charge, 2026-09-08); own state, independent of the
+        # termination feature's _walk_legduty_ema above. Seeded at 1.0
+        # for the same "begins loaded at the plant" reason. Tick
+        # counter gates the charge off until the EMA has had a chance
+        # to reflect real contact data (mirrors the window-must-fill
+        # grace every other gate in this file uses).
+        self._legduty_ratio_ema = [1.0] * 6
+        self._legduty_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -4485,8 +4576,48 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_cmd_track *= swg_factor
                 info["walk_swing_gate_min"] = sw_score
                 info["walk_swing_gate_factor"] = swg_factor
+            # Per-LEG duty-RATIO reward CHARGE (reward.walk_leg_duty_
+            # ratio_charge, 2026-09-08 -- design rationale on
+            # walk_legduty_ratio_tick/_charge above, near
+            # walk_legduty_term_tick). Deliberately ADDITIVE, not
+            # multiplicative: never touches r_walk/r_prog/r_cmd_track,
+            # so it cannot be "simply outbid" by a fatter income term
+            # the way every walk_duty_gate-class *_factor could be
+            # (each of their own closures named this as the failure
+            # shape); no episode cutoff, so there is nothing to pay
+            # off as an ambient one-time cost either (the termination
+            # class's own closure signature). Uses the PREVIOUS tick's
+            # EMA (one-tick lag, same convention as every other gate in
+            # this file); this tick's contacts update the EMA in the
+            # bookkeeping block below for NEXT tick's price. Grace: no
+            # charge until walk_leg_duty_ratio_grace_s worth of ticks
+            # have updated the EMA (the EMA has no natural "window
+            # full" signal, so a plain tick counter stands in for the
+            # window-must-fill grace every other gate uses). Default
+            # 0 = off: no charge, no info keys, legacy bit-exact. cfg:
+            # reward.walk_leg_duty_ratio_charge (0.0),
+            # reward.walk_leg_duty_ratio_target (0.30, the calibrated
+            # passing-population's own p10 worst-leg ratio),
+            # reward.walk_leg_duty_ratio_grace_s (3.0).
+            g_ratio = float(cfg_get(self.cfg, "reward",
+                                    "walk_leg_duty_ratio_charge",
+                                    default=0.0))
+            r_ratio = 0.0
+            if g_ratio > 0.0 and s_ref > 1e-3:
+                ratio_grace_s = float(cfg_get(
+                    self.cfg, "reward", "walk_leg_duty_ratio_grace_s",
+                    default=3.0))
+                if self._legduty_ratio_ticks * self.dt >= ratio_grace_s:
+                    ratio_target = float(cfg_get(
+                        self.cfg, "reward", "walk_leg_duty_ratio_target",
+                        default=0.30))
+                    worst_shortfall, _ratios = walk_legduty_ratio_charge(
+                        self._legduty_ratio_ema, ratio_target)
+                    r_ratio = -g_ratio * worst_shortfall
+                    info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
+                    info["reward_walk_leg_duty_ratio"] = r_ratio
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
-                + r_free_pen
+                + r_free_pen + r_ratio
             if r_free_pen != 0.0:
                 info["reward_walk_freeprog_pen"] = r_free_pen
             info["reward_walk"] = r_walk
@@ -6161,6 +6292,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if len(self._dbandgate_hist) > n_dbwin:
                         self._dbandgate_hist = (
                             self._dbandgate_hist[-n_dbwin:])
+                if g_ratio > 0.0:
+                    # walk_leg_duty_ratio_charge bookkeeping (09-08):
+                    # own EMA, independent of every other gate's
+                    # window/EMA state above. Updates with THIS tick's
+                    # contacts so the price block (which ran earlier
+                    # this same step()) always reads last tick's value
+                    # -- the same one-tick lag every other gate here
+                    # uses.
+                    ratio_tau_s = max(float(cfg_get(
+                        self.cfg, "reward", "walk_leg_duty_ratio_tau_s",
+                        default=1.0)), self.dt)
+                    self._legduty_ratio_ema = walk_legduty_ratio_tick(
+                        self._legduty_ratio_ema,
+                        on=[1.0 if c else 0.0 for c in contacts],
+                        dt=self.dt, tau_s=ratio_tau_s)
+                    self._legduty_ratio_ticks += 1
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

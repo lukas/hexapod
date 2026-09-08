@@ -592,6 +592,99 @@ def walk_legduty_ratio_charge(ema: list, target: float,
     return worst_shortfall, ratios
 
 
+# Per-LEG load-SLIP reward CHARGE (`reward.walk_leg_loadslip_ratio_
+# charge`, 2026-09-08 -- the "load-slip" half of the "price per-leg
+# utilization/load-slip directly" concrete lead the assistfade
+# TRACK-LEVEL FINDING (09-07 ~14:5x) and walkcurr's own duty-ratio-
+# charge closure name. The utilization half (walk_leg_duty_ratio_
+# charge, contact-TIME based) and its swing-count-floor add-on are
+# both now CLOSED (walkcurr: 3/3 dose/lineage reproductions null;
+# assistfade: 2/2 seeds FAIL -- a chronically-planted leg's duty
+# ratio recovers without it ever actually cycling). This is a
+# DIFFERENT physical quantity: not how LONG a leg stays in contact,
+# but how FAST its foot slides while it IS in contact (the existing
+# per-tick `tangent_vels` measurement every k_foot_slip_tangent/
+# k_walk_transition_slip mechanism already uses, mean-aggregated and
+# REFUTED for general slip reduction 09-06/09-07 -- see the k_tslip/
+# k_wts comments above). A chronically-planted, non-swinging leg
+# that the body is still translating past MUST be sliding under
+# load every tick that translation happens (it cannot "hold" a fixed
+# ground point while the body moves out from under it without
+# swinging) -- so this prices exactly the drag symptom the swing-
+# floor's binary swing-count gate tried and failed to fix, using a
+# continuous, physically-direct measurement instead of a count
+# threshold. Same peer-excluded-mean-ratio shape as the duty-ratio
+# charge (own EMA/own state, not shared), but INVERTED: high
+# relative slip is bad (duty-ratio charges a shortfall BELOW target;
+# this charges an excess ABOVE target, i.e. the WORST -- max, not
+# min -- leg's ratio is what pays). Default target 1.5 (a leg
+# sliding 50% faster than the mean of its five peers while loaded)
+# is a fresh assume-and-go pick, NOT a population-calibrated
+# threshold like duty-ratio's 0.30 (no equivalent 200+-episode
+# calibration corpus exists yet for this quantity) -- record as such
+# in any launch note; refine empirically if a canary's own telemetry
+# shows the target too loose/tight. Default 0.0 = off, no state
+# read, legacy bit-exact.
+def walk_legslip_ratio_tick(ema: list, *, tv: list, dt: float,
+                            tau_s: float) -> list:
+    """One tick's EMA update for all 6 legs' own tangential (skid)
+    velocity while loaded. ``tv`` is this tick's per-leg measured
+    tangential velocity (m/s), 0.0 for any leg not in a measured
+    stance contact this tick (same "off ticks decay the EMA toward
+    the off value" convention as `walk_legduty_ratio_tick`, here 0
+    instead of 0/1 contact). Same exponential form, independent
+    state (`ema`/`tv` length-6, never shared with the duty-ratio
+    charge's own EMA)."""
+    return [e + (dt / tau_s) * (float(v) - e) for e, v in zip(ema, tv)]
+
+
+def walk_legslip_ratio_charge(ema: list, target: float
+                               ) -> tuple[float, list]:
+    """Peer-excluded-MEDIAN slip-velocity ratio per leg and the WORST
+    (max) excess above ``target`` across all 6 legs -- the leg
+    sliding fastest relative to its peers is the one that pays,
+    mirroring `walk_legduty_ratio_charge`'s worst-leg convention but
+    on the opposite side (excess, not shortfall, since high relative
+    slip is the bad direction here). Deliberately MEDIAN, not MEAN,
+    of the other five legs (unlike the duty-ratio charge's own
+    peer-excluded MEAN) -- a real-physics bank probe (2026-09-08)
+    caught the mean version FALSE-POSITIVE-charging the honest
+    walking legs whenever one leg was genuinely near-zero-slip (e.g.
+    raised off the ground, not touching): a single near-zero outlier
+    drags the MEAN of the other five down, which INFLATES every one
+    of THOSE legs' own ratio (their ema is now divided by an
+    artificially small peer figure) even though they are walking
+    honestly -- exactly backwards from the duty-ratio charge, where
+    a low-duty outlier deflating its peers' mean makes their (already
+    healthy) ratios look even healthier, never triggers a false
+    charge, because duty-ratio charges the MIN not the MAX. Because
+    this charge is worst-is-MAX, the same "peer mean dragged down by
+    one outlier" effect is dangerous rather than harmless here, and a
+    median is robust to exactly the single-outlier case this
+    mechanism must tolerate (a raised/unloaded leg is correctly
+    NOT this mechanism's job -- that is `walk_leg_duty_ratio_charge`'s
+    -- and must not spuriously blame a different, honestly-loaded
+    leg). Guarded against an all-near-zero team (every leg quietly
+    planted with no slip) with a small epsilon -- returns ratio 1.0
+    (neutral, no spurious charge against a genuinely clean stance)
+    rather than a division blowup or a false-positive charge."""
+    ratios = []
+    for i in range(6):
+        others = [e for j, e in enumerate(ema) if j != i]
+        others_sorted = sorted(others)
+        mid = len(others_sorted) // 2
+        if len(others_sorted) % 2 == 1:
+            peer_med = others_sorted[mid]
+        else:
+            peer_med = 0.5 * (others_sorted[mid - 1] + others_sorted[mid])
+        if peer_med < 1e-6:
+            ratios.append(1.0)
+        else:
+            ratios.append(ema[i] / peer_med)
+    worst_excess = max(0.0, max(ratios) - target)
+    return worst_excess, ratios
+
+
 class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     """Joint-action goal env + walk mode (obs 59 + 11 + 2 vel feedback)."""
 
@@ -625,7 +718,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_trans_td_count", "_trans_lo_buf",
                           "_walk_legduty_ema", "_walk_legduty_low_s",
                           "_legduty_ratio_ema", "_legduty_ratio_ticks",
-                          "_legduty_ratio_swing_hist")
+                          "_legduty_ratio_swing_hist",
+                          "_legslip_ratio_ema", "_legslip_ratio_ticks")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -799,6 +893,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
         self._legduty_ratio_swing_hist: list = []
+        # Per-leg load-SLIP reward-charge EMA (reward.walk_leg_
+        # loadslip_ratio_charge, 2026-09-08); own state, independent
+        # of every other slip/duty mechanism's EMA/history above.
+        # Seeded at 0.0 (assume no slip until measured), unlike the
+        # duty-ratio EMA's 1.0 seed, since "no slip yet observed" is
+        # the correct neutral starting assumption for a velocity
+        # quantity (0 contact-time exists trivially at reset; 0 slip
+        # is also the trivially-true value before any foot has
+        # touched down). Tick counter gates the charge off until the
+        # EMA has had a chance to reflect real contact data (same
+        # grace convention as every other gate in this file).
+        self._legslip_ratio_ema = [0.0] * 6
+        self._legslip_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1492,6 +1599,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
         self._legduty_ratio_swing_hist: list = []
+        # Per-leg load-SLIP reward-charge EMA (reward.walk_leg_
+        # loadslip_ratio_charge, 2026-09-08); own state, independent
+        # of every other slip/duty mechanism's EMA/history above.
+        # Seeded at 0.0 (assume no slip until measured), unlike the
+        # duty-ratio EMA's 1.0 seed, since "no slip yet observed" is
+        # the correct neutral starting assumption for a velocity
+        # quantity (0 contact-time exists trivially at reset; 0 slip
+        # is also the trivially-true value before any foot has
+        # touched down). Tick counter gates the charge off until the
+        # EMA has had a chance to reflect real contact data (same
+        # grace convention as every other gate in this file).
+        self._legslip_ratio_ema = [0.0] * 6
+        self._legslip_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3459,6 +3579,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._legduty_ratio_ema = [1.0] * 6
         self._legduty_ratio_ticks = 0
         self._legduty_ratio_swing_hist: list = []
+        # Per-leg load-SLIP reward-charge EMA (reward.walk_leg_
+        # loadslip_ratio_charge, 2026-09-08); own state, independent
+        # of every other slip/duty mechanism's EMA/history above.
+        # Seeded at 0.0 (assume no slip until measured), unlike the
+        # duty-ratio EMA's 1.0 seed, since "no slip yet observed" is
+        # the correct neutral starting assumption for a velocity
+        # quantity (0 contact-time exists trivially at reset; 0 slip
+        # is also the trivially-true value before any foot has
+        # touched down). Tick counter gates the charge off until the
+        # EMA has had a chance to reflect real contact data (same
+        # grace convention as every other gate in this file).
+        self._legslip_ratio_ema = [0.0] * 6
+        self._legslip_ratio_ticks = 0
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -4670,8 +4803,41 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_ratio = -g_ratio * worst_shortfall
                     info["walk_leg_duty_ratio_shortfall"] = worst_shortfall
                     info["reward_walk_leg_duty_ratio"] = r_ratio
+            # Per-LEG load-SLIP reward CHARGE (reward.walk_leg_
+            # loadslip_ratio_charge, 2026-09-08 -- design rationale on
+            # walk_legslip_ratio_tick/_charge above, near
+            # walk_legduty_ratio_tick/_charge). Same additive/no-
+            # cutoff/one-tick-lag shape as the duty-ratio charge
+            # (this tick's per-foot tangent-slip measurements update
+            # the EMA in the bookkeeping block below for NEXT tick's
+            # price). Grace: no charge until walk_leg_loadslip_ratio_
+            # grace_s worth of ticks have updated the EMA. Default
+            # 0 = off: no charge, no info keys, legacy bit-exact,
+            # independent of every other slip/duty mechanism's state.
+            # cfg: reward.walk_leg_loadslip_ratio_charge (0.0),
+            # reward.walk_leg_loadslip_ratio_target (1.5, assume-and-
+            # go -- see the function-level comment above),
+            # reward.walk_leg_loadslip_ratio_grace_s (3.0),
+            # reward.walk_leg_loadslip_ratio_tau_s (1.0).
+            g_lsratio = float(cfg_get(self.cfg, "reward",
+                                      "walk_leg_loadslip_ratio_charge",
+                                      default=0.0))
+            r_lsratio = 0.0
+            if g_lsratio > 0.0 and s_ref > 1e-3:
+                lsratio_grace_s = float(cfg_get(
+                    self.cfg, "reward", "walk_leg_loadslip_ratio_grace_s",
+                    default=3.0))
+                if self._legslip_ratio_ticks * self.dt >= lsratio_grace_s:
+                    lsratio_target = float(cfg_get(
+                        self.cfg, "reward", "walk_leg_loadslip_ratio_target",
+                        default=1.5))
+                    worst_excess, _ls_ratios = walk_legslip_ratio_charge(
+                        self._legslip_ratio_ema, lsratio_target)
+                    r_lsratio = -g_lsratio * worst_excess
+                    info["walk_leg_loadslip_ratio_excess"] = worst_excess
+                    info["reward_walk_leg_loadslip_ratio"] = r_lsratio
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
-                + r_free_pen + r_ratio
+                + r_free_pen + r_ratio + r_lsratio
             if r_free_pen != 0.0:
                 info["reward_walk_freeprog_pen"] = r_free_pen
             info["reward_walk"] = r_walk
@@ -5982,7 +6148,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
-                    or g_dband > 0.0 or g_ratio > 0.0
+                    or g_dband > 0.0 or g_ratio > 0.0 or g_lsratio > 0.0
                     or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
@@ -6390,6 +6556,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             self._legduty_ratio_swing_hist = (
                                 self._legduty_ratio_swing_hist[
                                     -ratio_swing_win:])
+                if g_lsratio > 0.0:
+                    # walk_leg_loadslip_ratio_charge bookkeeping
+                    # (09-08): own EMA, independent of every other
+                    # gate's window/EMA state above (including the
+                    # duty-ratio charge's own EMA just above -- both
+                    # can run simultaneously without perturbing each
+                    # other). Updates with THIS tick's per-foot
+                    # tangential velocity (`tangent_vels`, already
+                    # computed by the per-foot loop above whenever
+                    # this gate's own OR-clause enabled it) so the
+                    # price block (which ran earlier this same
+                    # step()) always reads last tick's value -- same
+                    # one-tick lag every other gate here uses.
+                    lsratio_tau_s = max(float(cfg_get(
+                        self.cfg, "reward", "walk_leg_loadslip_ratio_tau_s",
+                        default=1.0)), self.dt)
+                    self._legslip_ratio_ema = walk_legslip_ratio_tick(
+                        self._legslip_ratio_ema, tv=tangent_vels,
+                        dt=self.dt, tau_s=lsratio_tau_s)
+                    self._legslip_ratio_ticks += 1
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

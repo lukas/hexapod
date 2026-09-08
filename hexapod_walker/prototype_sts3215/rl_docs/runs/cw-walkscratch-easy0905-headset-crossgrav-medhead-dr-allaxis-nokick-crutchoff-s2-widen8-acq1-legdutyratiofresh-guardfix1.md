@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: CANARY PASS
 
 **created**: 2026-09-08T12:12:47+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: 3rd-seed (s2) BUG-FIX RELAUNCH matching the s0/s1 guardfix1 pattern: s2's own legdutyratiofresh attempt (2026-09-07 22:00) predates the ebad6d0d activation-guard fix (2026-09-08 00:27 UTC), so its charge=150 was silently inert like the original s0/s1 attempts -- this is INVALID, not evidence either way. Fresh 2M rerun on the fixed code, same seed4/init-from-s2_widen8/heading/DR/motor cfg as the s0(seed2)/s1(seed3) guardfix1 relaunches, tests whether the 0.30-target duty-ratio charge stops the chronic front-pair/leg sacrifice on this 3rd seed.
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. Same as the s0/s1 guardfix1 gate: PASS if the chronic leg's duty recovers (peer-relative ratio >=0.22 majority of episodes) and gait_valid >=18/24 with 0 new falls; CONTINUE if reward+gait_valid both trending up but short; FAIL if the same sacrifice persists regardless. This run ALSO doubles as the matched 0.30-dose baseline for the s2 swing-floor tie-break launched alongside it.
+
+**verdict**: CANARY PASS: mechanism-health scope, 3rd-of-3 fresh-init seed for reward.walk_leg_duty_ratio_charge (dose150/target0.30, same widen8/crossgrav/medhead/allaxis/nokick/crutchoff recipe as the s0/s1 guardfix1 siblings, only seed2). Per-episode duty_cycle arrays from the gate report.json: gait_valid 22/24 (walk/det 6/6, walk/sto 6/6, walk_startjitter/det 6/6, walk_startjitter/sto 4/6), 0/24 terminated=true across every episode. Chronic-leg peer-relative duty ratio (min-duty-leg / mean of other 5) clears >=0.22 in 22/24 episodes; the 2 episodes below floor (walk_startjitter/sto ep2 leg5 ratio 0.09, ep3 leg0 ratio 0.09) are exactly the 2 gait_valid=False episodes, no others. Matches the gate's own PASS bar (gait_valid>=18/24, chronic-leg ratio>=0.22 in a majority of episodes, 0 new falls) and reproduces the s0/s1 pattern (21/24, 21/24) almost exactly -- 3/3 fresh seeds now clean. This run also serves as the matched 0.30-dose baseline for the concurrently-training cw-walkscratch-crutchoff-s2-widen8-legdutyratio-swingfloor tie-break arm (not verdicted here, another cycle's read).
 

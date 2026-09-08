@@ -1,3 +1,205 @@
+## 2026-09-08 ~12:5x (refill-cycle triage; picked up the just-finished widen8 jointspace-freshinit 40M pair) — the staged-DR-vs-immediate-DR 2x2 factorial CLOSES all 4 cells FAIL: joint-space fresh-init does not ignite the widen8 full-DR composite at full 40M budget either, and staging the DR ramp makes it WORSE not better
+
+One plain sentence: `jointspace-freshinit-b40m-ctrl` (full DR from
+step 0) and `-stagedr20m-b40m` (DR ramped 0->1 over the first 20M)
+both miss the forward-speed floor by ~10-20x at the full 40M budget,
+and staging is materially worse (more slip, near-zero/negative
+stochastic-mode progress) rather than a rescue.
+
+**`cw-walkscratch-easy0905-widen8-jointspace-freshinit-b40m-ctrl` ->
+ACQ FAIL.** Gate needs >=0.03 m/s median net forward in >=1 of
+walk/det or walk/sto with a gait_valid majority. Median speed: 0.009
+m/s (walk/det, fwd 0.18m/20s), 0.016 (walk/sto), 0.021 (sj/det),
+0.0165 (sj/sto) -- all far under floor. `gait_valid` nominally reads
+22/24 (6/6,6/6,6/6,4/6) but slip/m is 16-44/m median per group (base-
+family healthy band <=~2.9) -- the "generic early-valley thrash"
+shape, not walking. 0 falls/terminations in 24/24. Reward dips then
+partially recovers (-1256.5/-1684.1/-914.4/-691.9) but stays deeply
+negative -- not a flat-reward stop, but 40M is already 20x the
+already-CANARY-FAILed 2M budget, and the earlier narrowhead/
+torqueretain bisections already root-caused the blocker as DR
+BREADTH itself (not action space, torque, or heading count), so "go
+longer" was already effectively tried via those bisections' own
+logic. Confirms joint-space fails to ignite this composite fresh
+exactly like cart_foot's already-closed fresh-init pair (symmetric,
+composite-not-action-space blocker), now at full rather than canary
+budget.
+
+**`cw-walkscratch-easy0905-widen8-jointspace-freshinit-stagedr20m-
+b40m` -> ACQ FAIL - WORSE than the control.** Same gate, same miss
+(median speed 0.0125/0.016/0.0065/0.0115 m/s, all under floor).
+`gait_valid` reads even HIGHER (24/24) than the control but for the
+wrong reason: slip/m is 40-194/m median per group (control: 16-44),
+`walk/sto` alone has 3/6 episodes at slip 172-339/m with NEGATIVE or
+near-zero net progress (-0.03/0.03/0.06m) -- thrashing in place, not
+walking -- plus 1 new termination (tilt_pitch) vs the control's 0/24.
+The staged-DR-schedule hypothesis for THIS composite is closed: a
+slower initial DR ramp does not soften the DR-breadth ignition
+blocker, and if anything lets the policy settle into a worse
+(higher-slip, near-stationary) local behavior before full breadth
+arrives.
+
+**Completes the one-seed 2x2 action-space x DR-schedule factorial
+for widen8 fresh-init as ALL FOUR CELLS FAIL** (cart_foot-immediate,
+cart_foot-staged not run/moot given symmetric joint result,
+joint-immediate, joint-staged). No further budget on any widen8
+fresh-init variant without a genuinely new mechanism; warm-start
+stays the only proven ignition path for this composite (already the
+source of every other running widen8 line in this file).
+
+Refill: board re-checked -- with the swing-floor closure (above) and
+this factorial closure, no new hypothesis is licensed by either
+result alone (both close branches, neither opens one). All 11 GPU
+pods free at read time, backlog empty; the seed10 halfgrav cont10m
+pair and seed12 tie-break remain owned by concurrent cycles.
+CYCLE_WORKED touched (2 verdicts + doc updates this window).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-
+freshinit-{b40m-ctrl,stagedr20m-b40m}`; `logs/ckpt_eval/cw_
+walkscratch_easy0905_widen8_jointspace_freshinit_{b40m_ctrl,
+stagedr20m_b40m}_gate/report.json`; W&B `xr8rlhfh` (ctrl) /
+`hozmahto` (staged). RL_LOG 09-08 12:47-12:48.
+
+--- prior entry below ---
+
+## 2026-09-08 ~12:4x (refill-cycle triage; picked up the just-finished `crutchoff-s2-widen8-...-legdutyratio-swingfloor` tie-break arm) — the PRE-REGISTERED 3rd-seed tie-break lands 1-of-3, agreeing with the concurrent widenbis180-dose read that the swing-count-floor lever is closed
+
+One plain sentence: the exact seed2 tie-break this file's own 12:1x
+entry pre-registered ("2-of-3 seeds improving closes this as a real
+lever; 1-of-3 confirms s1 was the outlier and the lever is a wash")
+came in at 0/4 groups improving — same "no efficacy" shape as s1,
+plus a NEW single-episode regression not seen at either prior dose.
+
+`cw-walkscratch-crutchoff-s2-widen8-legdutyratio-swingfloor` ->
+**CANARY PASS - mechanism healthy, no efficacy.** Telemetry clause
+clears (`env/reward_walk_leg_duty_ratio` -15.7/-20.2, `env/walk_leg_
+duty_ratio_shortfall` 0.105/0.134, finite/nonzero); 0 new falls/
+terminations vs the matched 0.30-dose `...-guardfix1` s2 baseline
+(22/24 gv, 0 terms, verdicted separately this window). Per-group vs
+that baseline: `walk/det` gv 6/6->5/6 (WORSENS -- ep0 newly
+sacrifices leg5, and that SAME episode's own prog/slip also worsen,
+0.34->0.28m / 17.61->22.13 slip/m -- a straight regression, not the
+previously-named "gv recovers via worse slip" trade); `walk/sto`
+flat 6/6->6/6 with slip/prog both mildly worse (+2%/-5%);
+`walk_startjitter/det` flat 6/6->6/6 with progress down 23%
+(1.02->0.79); `walk_startjitter/sto` flat 4/6->4/6, slip/prog both
+mildly worse (+2%/-9%). **0/4 groups jointly improve** -- the same
+null as s1, not s0's 3/4.
+
+**Cross-seed tally now closes 1-of-3 improving, 2-of-3 no-efficacy**
+(s0 CONTINUE 3/4; s1 no-efficacy 0/4; s2 no-efficacy-plus-regression
+0/4), matching this run's own pre-registered "1-of-3 = wash" clause.
+Independently, a concurrent cycle's widenbis180-dose read (below,
+12:4x) reached the identical closure on a 3rd variant. Both lines of
+evidence agree: **the swing-count-floor lever
+(`reward.walk_leg_duty_ratio_swing_min_count`/`_swing_window_s`)
+CLOSES as not a reproducible fix for the legduty-ratio-charge
+slip-for-gait_valid trade.** Do not fund a cont10m off s0 alone or
+spin a 4th seed on this exact mechanism; the code stays in the tree
+(default off, bit-exact, bank-tested) as a proven-inert-at-this-dose
+option, not a champion lever. The open branch, if pursued, needs a
+genuinely new pricing design for `walk_leg_duty_ratio_charge`, not
+another seed/dose of this shape.
+
+Refill: full board checked (`launch_run.py status`) — ALL 11 GPU pods
+free at read time (every previously-busy line this window, incl.
+`cw-assistfade-rung3-legdutyratio-swingfloor-{s0,s1}`, `cartfoot-
+halfgrav-{s12,offctrl-s12}-acq1`, the jointspace-freshinit pair, and
+the `footgeom0135-fix1` canary, had finished/deferred-exited by the
+time this cycle re-checked), backlog empty. No new hypothesis is
+licensed by this closure alone (it closes a branch, it doesn't open
+one); the seed10 halfgrav cont10m pair (the other open cross-seed
+question this window) is owned by a concurrent cycle. CYCLE_WORKED
+touched (verdict + doc updates, real triage work).
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-s2-widen8-
+legdutyratio-swingfloor`; `logs/ckpt_eval/cw_walkscratch_crutchoff_
+s2_widen8_legdutyratio_swingfloor_gate/report.json` vs `..._s2_
+widen8_acq1_legdutyratiofresh_guardfix1_gate/report.json`; W&B
+`ffsh89cc`. RL_LOG 09-08 12:44.
+
+--- prior entry below ---
+
+## 2026-09-08 ~12:4x (triage; assigned `crutchoff-s0-widenbis180-...-legdutyratio-swingfloor`) — 3rd independent read closes the swing-count-floor lever on this recipe: mechanism healthy, no efficacy, at a 3rd (wider) dose too
+
+One plain sentence: growing the leg-utilization "swing count floor"
+onto the widenbis180 dose of the duty-ratio charge changes nothing —
+same gait_valid, same wash on slip/progress, same persisting leg-0
+sacrifice as its undosed sibling.
+
+`cw-walkscratch-crutchoff-s0-widenbis180-legdutyratio-swingfloor` ->
+**CANARY PASS - mechanism healthy, no efficacy**, vs its matched
+0.30-dose sibling `...-widenbis180-legdutyratiofresh-guardfix1`.
+Health checks clear: `walk_leg_duty_ratio_shortfall`/`reward_walk_leg_
+duty_ratio` telemetry present and rising post-grace (0.088->0.125),
+0 new terminations in any of the 4 held-out groups (0/6 each side,
+both runs). Efficacy fails exactly like the widen8 s0/s1 pair:
+`gait_valid` is IDENTICAL to the sibling in all 4 groups (`walk/det`
+3/6, `walk/sto` 5/6, `walk_startjitter/det` 6/6, `walk_startjitter/
+sto` 4/6, same both sides), slip/m is a wash (2 groups better, 2
+worse, all within a few percent), progress_ratio is lower on 3/4
+groups. 0/4 groups jointly clear the gate's own >=3/4 CONTINUE bar.
+The leg-0 sacrifice trade persists in the identical episodes
+(`walk/det` ep0/1/5) on both sides. This is the 3rd independent read
+of this exact lever (after s0/s1-widen8) and all three agree: the
+swing-count floor moves nothing on the crutchoff recipe's held-out
+walking at 2M, at either dose tested. SKILLS.md's duty-ratio-charge
+cell updated (one appended sentence).
+
+No further budget on this lever without a new idea — three
+reproductions of a null is a closed cell, not an underpowered one.
+Read alongside the swing-floor mechanism's separate CANARY FAIL on
+the unrelated `assistfade`/rung3 lineage (both its seeds now closed,
+see that track's STATUS.md) — different track/recipe, the lever is
+now closed (null or regressive) everywhere it has been tried.
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-s0-widenbis180-
+legdutyratio-swingfloor`; `logs/ckpt_eval/cw_walkscratch_crutchoff_s0_
+widenbis180_legdutyratio_swingfloor_gate/report.json` vs
+`..._widenbis180_legdutyratiofresh_guardfix1_gate/report.json`. W&B
+`zhzgirlp`. RL_LOG 09-08 12:41.
+
+## 2026-09-08 ~12:3x (triage; assigned `crutchoff-s2-widen8-...-legdutyratiofresh-guardfix1`) — 3rd-of-3 fresh-init seed CANARY PASSes, matching s0/s1; its swing-floor tie-break sibling stays a separate cycle's read
+
+One plain sentence: the s2 fresh-init 0.30-dose duty-ratio-charge
+canary (launched 12:1x below, alongside its own swing-floor
+tie-break arm) reproduces the s0/s1 mechanism-health PASS pattern a
+3rd time.
+
+`cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-
+crutchoff-s2-widen8-acq1-legdutyratiofresh-guardfix1` -> **CANARY
+PASS**. From the gate report's per-episode `duty_cycle` arrays:
+`gait_valid` 22/24 (`walk/det` 6/6, `walk/sto` 6/6, `walk_startjitter/
+det` 6/6, `walk_startjitter/sto` 4/6), 0/24 `terminated=true` anywhere.
+Chronic-leg peer-relative duty ratio (min-duty leg / mean of the
+other 5) clears >=0.22 in 22/24 episodes; the 2 sub-floor episodes
+(`walk_startjitter/sto` ep2 leg5 ratio 0.09, ep3 leg0 ratio 0.09) are
+exactly the 2 `gait_valid=False` episodes, no others — matches the
+gate's own PASS bar (gait_valid>=18/24, chronic-leg ratio>=0.22
+majority, 0 new falls) and lands almost exactly on the s0/s1 band
+(21/24, 21/24). SKILLS.md's duty-ratio-charge row updated (one
+appended sentence, 3rd-of-3 seed).
+
+This run doubles as the matched 0.30-dose baseline for the
+concurrently-training `cw-walkscratch-crutchoff-s2-widen8-
+legdutyratio-swingfloor` tie-break arm (per its own gate text) — that
+arm finished training this cycle too but was NOT assigned here; leave
+its swing-floor tie-break verdict (3rd seed of the s0-CONTINUE/
+s1-no-efficacy split) to whichever cycle owns it, using THIS report
+as its matched baseline.
+
+Separately, the byte-shared swing-floor keys were also tried this
+cycle on the UNRELATED `assistfade`/rung3 lineage
+(`cw-assistfade-rung3-legdutyratio-swingfloor-s0`) and closed CANARY
+FAIL - MECHANISM there (gait_valid regression, slip worse in both
+clean modes, reward collapse) — different track/recipe, not evidence
+either way about this walkcurr crutchoff swing-floor question.
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-headset-crossgrav-
+medhead-dr-allaxis-nokick-crutchoff-s2-widen8-acq1-legdutyratiofresh-
+guardfix1`; `logs/ckpt_eval/..._s2_widen8_acq1_legdutyratiofresh_
+guardfix1_gate/report.json`. W&B `qp8ae93g`. RL_LOG 09-08 12:38.
+
 ## 2026-09-08 ~12:3x (triage cycle; assigned `footgeom0135-fix1`) — the VALID retry of the foot-radius geometry lever closes CANARY FAIL - MECHANISM: bigger foot contact sphere is worse, not better, once the champion adapts to it; no new refill licensed, board already fully claimed
 
 One plain sentence: growing the foot contact sphere from 4.5mm to

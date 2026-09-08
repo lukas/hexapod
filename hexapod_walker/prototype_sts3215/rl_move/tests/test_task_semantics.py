@@ -6174,7 +6174,8 @@ GG_TUCK_RAD = (0.0, -1.10, 1.30)
 
 
 def _gait_gate_walk_rollout(policy: str, seed: int,
-                            overrides: dict, *, record_ratio=False) -> dict:
+                            overrides: dict, *, record_ratio=False,
+                            record_lsratio=False) -> dict:
     """Walk-mode rollout: 'gait' = the honest six-leg scripted tripod;
     'flagleg' = the same gait with mid leg 1 blended to a raised flag
     pose (the one-leg-sacrifice cheat class). Returns the episode
@@ -6203,6 +6204,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
     kernel = prog = 0.0
     gmin_tail: list[float] = []
     ratio_trace = []
+    lsratio_trace = []
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -6212,11 +6214,18 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
             a = min(t / 1.5, 1.0)
             q[3:6] = (1 - a) * plant_rad[3:6] + a * flag
         ratio_ticks_before = env._legduty_ratio_ticks if record_ratio else 0
+        lsratio_ticks_before = (
+            env._legslip_ratio_ticks if record_lsratio else 0)
         _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
         if record_ratio:
             ratio_trace.append((ratio_ticks_before, env._legduty_ratio_ticks,
                                 info.get("walk_leg_duty_ratio_shortfall"),
                                 info.get("reward_walk_leg_duty_ratio")))
+        if record_lsratio:
+            lsratio_trace.append(
+                (lsratio_ticks_before, env._legslip_ratio_ticks,
+                 info.get("walk_leg_loadslip_ratio_excess"),
+                 info.get("reward_walk_leg_loadslip_ratio")))
         total += float(r)
         kernel += float(info.get("reward_walk", 0.0))
         prog += float(info.get("reward_walk_prog", 0.0))
@@ -6231,6 +6240,8 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
               "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
     if record_ratio:
         result.update(ratio_trace=ratio_trace, dt=env.dt)
+    if record_lsratio:
+        result.update(lsratio_trace=lsratio_trace, dt=env.dt)
     return result
 
 
@@ -7027,6 +7038,184 @@ def test_walk_leg_duty_ratio_swing_floor_activation_matches_plain_when_off(
     assert baseline["return"] == explicit_off["return"]
     assert baseline["steps"] == explicit_off["steps"]
     assert baseline["terminated"] == explicit_off["terminated"]
+
+
+# --------------------------------------------------------------------------
+# reward.walk_leg_loadslip_ratio_charge (2026-09-08, the "load-slip"
+# half of the "price per-leg utilization/load-slip directly" concrete
+# lead the assistfade TRACK-LEVEL FINDING (09-07 ~14:5x) and
+# walkcurr's own duty-ratio-charge closure named -- see
+# `walk_legslip_ratio_tick`/`walk_legslip_ratio_charge`'s own
+# module-level comment above for the physical rationale (a
+# chronically-planted, non-swinging leg the body is still translating
+# past MUST be sliding under load every tick that happens; this
+# prices exactly the drag symptom the duty-ratio charge's own
+# swing-count-floor add-on tried and failed to fix -- 3/3 walkcurr +
+# 2/2 assistfade seeds CLOSED that lever null/regressive). Same
+# peer-excluded-mean-ratio shape as the duty-ratio charge, own/
+# independent EMA state, but on the OPPOSITE side (excess above
+# target, not shortfall below -- high relative slip is the bad
+# direction here). Default target 1.5 is a fresh assume-and-go pick
+# (no calibration corpus exists yet for this quantity, unlike
+# duty-ratio's 288-episode-calibrated 0.30). Plain-function unit
+# tests only (same "extracted to plain testable functions" pattern as
+# `walk_legduty_ratio_charge`'s own bank) plus one end-to-end
+# activation-matches-plain-when-off rollout guard.
+
+from rl_move.sim.walk_task import (  # noqa: E402
+    walk_legslip_ratio_charge, walk_legslip_ratio_tick)
+
+
+def test_walk_legslip_ratio_tick_matches_plain_ema_formula():
+    """Plain-function unit proof: one tick's update is the standard
+    exponential-decay-toward-current-value form, independent state
+    from every other EMA in this file."""
+    ema = [0.2, 0.5, 1.0, 0.0, 0.3, 0.8]
+    tv = [1.0, 0.0, 2.0, 0.5, 0.3, 0.1]
+    dt, tau_s = 0.01, 1.0
+    got = walk_legslip_ratio_tick(ema, tv=tv, dt=dt, tau_s=tau_s)
+    expected = [e + (dt / tau_s) * (v - e) for e, v in zip(ema, tv)]
+    assert got == pytest.approx(expected)
+
+
+def test_walk_legslip_ratio_charge_balanced_synthetic_has_zero_excess():
+    """A perfectly balanced team (every leg sliding at the same rate,
+    including all-zero -- a genuinely clean stationary/loaded stance)
+    must read ratio 1.0 for every leg (peer-excluded mean of 5 equal
+    values equals that same value) and zero excess against the
+    default target -- the mechanism must not manufacture a charge out
+    of a symmetric gait, fast or slow, slipping or not."""
+    for tv in (0.0, 0.05, 0.30, 1.0):
+        ema = [tv] * 6
+        worst_excess, ratios = walk_legslip_ratio_charge(ema, 1.5)
+        assert all(r == pytest.approx(1.0) for r in ratios), ratios
+        assert worst_excess == 0.0
+
+
+def test_walk_legslip_ratio_charge_flags_the_worst_slipping_leg():
+    """THE core claim: a leg sliding much faster than its five peers'
+    own median must drive a positive excess once its ratio clears the
+    target, and the excess must equal exactly ratio-target (max, not
+    sum, over legs) -- one runaway-slipping leg pays. Median (not
+    mean) peer aggregation means legs 0-4 are UNAFFECTED by the single
+    outlier: leg 5's own "others" are the plain [0.1]*5 (median 0.1,
+    full 30x ratio), while each of legs 0-4's own "others" is
+    [0.1,0.1,0.1,0.1,3.0] whose median is STILL 0.1 (one outlier
+    cannot move a 5-value median off its 4-vote majority) -- see the
+    module-level design comment on `walk_legslip_ratio_charge` for why
+    MEAN aggregation was rejected (it lets a single low outlier
+    falsely inflate its innocent peers' ratio, the opposite failure
+    from this dilution-immunity)."""
+    ema = [0.1, 0.1, 0.1, 0.1, 0.1, 3.0]  # leg 5 slides 30x its peers
+    worst_excess, ratios = walk_legslip_ratio_charge(ema, 1.5)
+    expected_ratio_5 = 3.0 / 0.1  # leg 5's own "others" are all 0.1
+    expected_ratio_015 = 1.0  # median([0.1,0.1,0.1,0.1,3.0]) == 0.1
+    assert ratios[5] == pytest.approx(expected_ratio_5)
+    assert all(r == pytest.approx(expected_ratio_015) for r in ratios[:5])
+    assert max(ratios) == ratios[5]
+    assert worst_excess == pytest.approx(expected_ratio_5 - 1.5)
+
+
+def test_walk_legslip_ratio_charge_no_charge_below_target():
+    """A leg sliding somewhat faster than its peers but still under
+    the target ratio must NOT be charged -- the mechanism only prices
+    excess above target, never any nonzero relative slip at all."""
+    ema = [0.1, 0.1, 0.1, 0.1, 0.1, 0.13]  # leg 5 ratio 1.3, target 1.5
+    worst_excess, ratios = walk_legslip_ratio_charge(ema, 1.5)
+    assert ratios[5] == pytest.approx(1.3)
+    assert worst_excess == 0.0
+
+
+def test_walk_legslip_ratio_charge_all_near_zero_guard():
+    """Every leg at (near-)zero slip -- the peer_mean epsilon guard
+    must return the neutral ratio 1.0 for every leg (no spurious
+    charge from a division-by-near-zero blowup on a genuinely quiet
+    stance)."""
+    ema = [0.0] * 6
+    worst_excess, ratios = walk_legslip_ratio_charge(ema, 1.5)
+    assert all(r == pytest.approx(1.0) for r in ratios)
+    assert worst_excess == 0.0
+
+
+def test_walk_legslip_ratio_charge_one_near_zero_leg_does_not_falsely_blame_peers():
+    """REGRESSION test for the exact bug a real-physics bank probe
+    (2026-09-08) found in a first mean-based draft of this mechanism,
+    reproduced here with a MEAN-based re-implementation for direct
+    comparison: with five legs at a normal, mutually-close slip level
+    (0.018-0.022) and one leg genuinely near-zero (0.0005, e.g. raised
+    off the ground -- correctly `walk_leg_duty_ratio_charge`'s job,
+    not this one), a MEAN peer aggregation drags the denominator for
+    each of the five normal legs down (since it includes the ~0 leg),
+    inflating them to ratio ~1.30 (see the mean-based comparison
+    below) -- comfortably closer to a false charge than this
+    mechanism's actual MEDIAN aggregation, which stays well clear of
+    the default 1.5 target (ratios <=1.16, worst_excess exactly 0.0)
+    because a single outlier cannot move a 5-value median off its
+    4-vote majority. Pins the real shipped function's own numbers as
+    the regression guard, plus the mean-based delta as evidence for
+    why median was chosen."""
+    ema = [0.02, 0.0005, 0.021, 0.019, 0.022, 0.018]  # leg 1 near-zero
+    worst_excess, ratios = walk_legslip_ratio_charge(ema, 1.5)
+    normal_legs = [ratios[i] for i in range(6) if i != 1]
+    assert all(r < 1.2 for r in normal_legs), (
+        f"a near-zero outlier leg spuriously inflated its honest peers "
+        f"past the intended safety margin: {ratios}")
+    assert worst_excess == 0.0
+
+    def _mean_based_ratio(ema, i):
+        others = [e for j, e in enumerate(ema) if j != i]
+        peer_mean = sum(others) / len(others)
+        return ema[i] / peer_mean if peer_mean >= 1e-6 else 1.0
+
+    mean_ratios = [_mean_based_ratio(ema, i) for i in range(6) if i != 1]
+    assert max(mean_ratios) > max(normal_legs), (
+        "expected the rejected mean-based aggregation to inflate the "
+        f"honest peers MORE than the shipped median version: "
+        f"mean={mean_ratios} median={normal_legs}")
+
+
+@pytest.mark.parametrize("policy", ["gait", "flagleg"])
+def test_walk_leg_loadslip_ratio_activation_matches_plain_when_off(policy):
+    """End-to-end rollout guard: adding
+    reward.walk_leg_loadslip_ratio_charge=0.0 (explicit) to the
+    already-launched sparse duty-ratio activation config must not
+    change the honest gait's zero-charge return or the flag-leg
+    cheat's flipped-negative return by even one bit -- the new
+    mechanism's cfg key is additive and must not perturb any existing
+    dose's behavior when off (the default)."""
+    overrides = dict(WALK_LEGDUTY_RATIO_OVERRIDES)
+    for key in ("k_walk_swing", "k_step_event", "k_step_partial",
+                "k_drag_loaded", "k_park_duty", "k_drag_stance",
+                "walk_gait_gate", "walk_duty_gate", "walk_swing_gate",
+                "walk_duty_band_gate", "k_foot_slip_tangent",
+                "k_foot_slip_height", "k_walk_transition_slip"):
+        overrides[("reward", key)] = 0.0
+    overrides[("goal", "walk_contact_diagnostics")] = 0.0
+    baseline = _gait_gate_walk_rollout(policy, SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_loadslip_ratio_charge")] = 0.0
+    explicit_off = _gait_gate_walk_rollout(policy, SEEDS[0], with_key)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+    assert baseline["terminated"] == explicit_off["terminated"]
+
+
+def test_walk_leg_loadslip_ratio_charge_fires_and_prices_flagleg_cheat():
+    """The mechanism's own end-to-end activation: turning ONLY
+    `walk_leg_loadslip_ratio_charge` on (duty-ratio charge left OFF,
+    unlike the sparse-launch fixture above) against the flag-leg cheat
+    actor must produce a FINITE, non-crashing rollout with the new
+    info keys present and the charge strictly non-positive (a pricing
+    charge, never a bonus) whenever it fires -- a basic wiring/sanity
+    proof before trusting any canary's own telemetry read."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_loadslip_ratio_charge")] = 150.0
+    overrides[("reward", "walk_leg_loadslip_ratio_target")] = 1.5
+    overrides[("reward", "walk_leg_loadslip_ratio_grace_s")] = 3.0
+    overrides[("reward", "walk_leg_loadslip_ratio_tau_s")] = 1.0
+    result = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides)
+    assert math.isfinite(result["return"])
+    assert result["steps"] > 0
 
 
 # --------------------------------------------------------------------------

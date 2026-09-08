@@ -1,5 +1,93 @@
 # assistfade — pragmatic assistance-removal walking curriculum
 
+## 2026-09-08 ~12:4x (triage; assigned) — swing-count-floor s1 canary CLOSES the same way as s0: CANARY FAIL - MECHANISM, both seeds of this lever now shut
+
+One plain sentence: seed1 of the swing-count-floor lever fails the
+same way seed0 did — the chronically-planted leg stays planted, the
+partially-working leg gets worse, and training reward collapses hard
+late.
+
+`cw-assistfade-rung3-legdutyratio-swingfloor-s1` -> **CANARY FAIL -
+MECHANISM**, vs its matched bare-charge sibling
+`cw-assistfade-rung3-legdutyratio-s1`. Telemetry engages post-grace
+(`walk_leg_duty_ratio_shortfall`/`reward_walk_leg_duty_ratio` finite
+from step ~396), so this is not an infrastructure miss. Per-leg duty
+shows NO narrowing on the gate's own target legs [0,5]: leg5 stays
+fully planted (`duty_cycle`=1.0, `swing_count`=0) in every `walk/det`
+AND `walk/sto` episode (6/6 each), identical to the bare sibling;
+leg0's duty actually FALLS (walk/det 0.32 vs sibling's 0.45; walk/sto
+0.40 vs sibling's 0.48) instead of narrowing toward the peer band.
+`gait_valid` moves only 2/24 (sibling) -> 3/24 (this run) — noise,
+not repair — while `walk/sto` picks up a NEW over_current
+termination (0->1) and `walk/det` slip worsens (17.02->18.31 med).
+`ep_rew_mean` tracks the bare sibling closely through 3 quarters
+(101.6/160.3/184.7 vs 101.4/161.0/196.9) then collapses far harder in
+the settling window (final quarter -943.8 vs sibling's +95.4) — the
+same genuine-regression fingerprint s0's twin already showed, not an
+08-21 rising-reward case.
+
+Both seeds of this lever on this lineage are now **CANARY FAIL -
+MECHANISM**: the swing-count floor does not repair rung3's chronic
+leg5 sacrifice and makes leg0 worse, not better, in both. No further
+rung3+swing-floor budget without a new mechanism idea. SKILLS.md's
+duty-ratio-charge cell updated (one appended sentence). Read alongside
+the SAME swing-floor mechanism's separate CANARY PASS-no-efficacy
+result on the unrelated `walkcurr`/crutchoff lineage (3 independent
+reads there, see that track's STATUS.md) — different track/recipe;
+that track's null is not evidence for or against this track's
+regression, or vice versa.
+
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-swingfloor-s1`;
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_swingfloor_s1_gate/
+report.json` vs `cw_assistfade_rung3_legdutyratio_s1_gate/report.json`.
+W&B `e02k5rqc`. RL_LOG 09-08 12:41.
+
+## 2026-09-08 ~12:3x (triage; assigned) — swing-count-floor s0 canary CLOSES: CANARY FAIL - MECHANISM, does not repair rung3
+
+One plain sentence: the swing-count-floor lever launched below made
+rung3 seed0 WORSE, not better, against its own matched bare-charge
+sibling.
+
+`cw-assistfade-rung3-legdutyratio-swingfloor-s0` -> **CANARY FAIL -
+MECHANISM**. Telemetry engages exactly like the sibling
+(`env/walk_leg_duty_ratio_shortfall` 0.245, `env/reward_walk_leg_duty_
+ratio` -36.8, non-zero/finite), so this is not an infrastructure miss.
+But the gate's own regression trigger fires: `gait_valid` groups
+`[6,6,2,1]`=15/24 (bare `legdutyratio-s0`) -> `[6,3,2,2]`=13/24
+(swingfloor) -- `walk/sto` regresses outright 6/6 -> 3/6, a new
+gait_valid regression in a nominal (non-jitter) held-out mode. Slip
+also worsens in BOTH clean modes: `walk/det` +25% (12.67->15.90),
+`walk/sto` +6% (16.71->17.68). Only `walk_startjitter/sto` improves
+(gv 1/6->2/6, slip -10%) -- 1/4 groups, short of any no-regression
+bar. Training reward corroborates a genuine regression rather than
+the 08-21 rising-reward case: `ep_rew_mean` tracks the bare sibling
+almost exactly through 3 quarters (102/178/230 vs 103/175/221) then
+collapses monotonically through the settling window to a final
+-2163.5 (bare sibling holds +61.6; last logged points fall every
+step: -277->-646->-971->-1441->-1570->-1963->-1975->-2164).
+
+Read together with the launch note below: this is the SAME
+swing-floor mechanism (byte-identical keys) that a concurrent
+walkcurr cycle built and bank-proved the same day for a legduty-ratio
+escape hatch on a different lineage/track (crutchoff). On THIS
+lineage/track it does not transfer -- do not read this FAIL as
+evidence against the walkcurr crutchoff swing-floor reads (1-of-2
+CONTINUE there, separately tie-breaking) or vice versa; shared reward
+keys, unrelated recipes. `s1` (same lever, seed1) is still training
+under another cycle's line -- read it on its own before drawing any
+n=2 track conclusion. SKILLS.md updated (existing duty-ratio-charge
+row, one appended sentence). No further rung3 budget from this arm;
+the track's still-open item remains an unscoped new mechanism design
+(this swing-floor borrow is now a tried-and-closed lever on this
+lineage, one seed).
+
+Evidence: `ops.sh review cw-assistfade-rung3-legdutyratio-swingfloor-s0`;
+`logs/ckpt_eval/cw_assistfade_rung3_legdutyratio_swingfloor_s0_gate/
+report.json` vs `..._legdutyratio_s0_gate/report.json` (matched
+bare-charge sibling); `logs/experiments/cw-assistfade-rung3-
+legdutyratio-swingfloor-s0/wandb_history.csv` (settling-window
+collapse). W&B `56x7tjo1`. RL_LOG 09-08 12:37.
+
 ## 2026-09-08 ~12:2x (refill cycle; no completion assigned) — launched the swing-count-floor mechanism (walkcurr's own new lever) onto rung3, the first genuinely new mechanism tried here since the 09-07 track-level finding
 
 One plain sentence: the bare `reward.walk_leg_duty_ratio_charge` rung3

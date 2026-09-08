@@ -1,6 +1,54 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 ~04:28 UTC — reviewed the stance-path probe;
+Last updated: 2026-09-08 ~05:40 UTC — composed-demo A/B (operator focus
+fb_20260908T052913): yawref candidate PASSES the full-sim composition
+bars and beats the fresh matched incumbent; GO as the bundle's walk piece.
+
+## Composed-demo A/B: yawref candidate vs fresh incumbent (2026-09-08, 05:3x UTC)
+
+Question: does cw-robotwalk-turns-20260907-yawref-cigate8m's improved
+translation steering (course_yawref 3.42 deg, gait 1.0, 0 falls, slip 2.25
+in qualification) survive ACTUAL stand -> walk -> direction changes ->
+stop -> restart -> lower composition? Bounded CPU transfer eval, no
+training. Harness: ops.sh hybriddemo (ledger-derived cfg per run) in an
+isolated worktree @ f9da69e7; both sides identical args (`--stand-mode
+tuck --lower-mode tuck --script human --walk-seconds 28 --speed 0.08
+--seed 0 --dr-scale 0 --policy-mode deterministic`) on the frozen
+34-mesh 4.80573 kg / 100 Hz MJX twin (sha a8a5ca8a..., forced via
+--model-source mesh_mjx; the controller-built ~3.49 kg full mesh is the
+known stale mismatch and was NOT used) with the unchanged 400/20/0.375/350
+motor/safety contract (asserted in both summaries).
+
+- Candidate (ckpt sha256 61f9c20f..., pulled train-1, md5 138da354...):
+  progress 0.425 (bar >=0.40), course med 3.26 / p90 14.65 deg (bars
+  6/15), 0 terminations, 0 phase errors, six cycling legs (swings
+  32-35/leg), cur_p95 1.70 A, stops park <=0.001 m/s, restart err 4.1 deg.
+  PASS all composed bars.
+- Fresh incumbent (cw-walk-allheading-mlp-singleframe-acq1-stdanneal,
+  ckpt sha256 bf19e02d..., SAME plant/args — the original 3.494 kg
+  qualification artifact is not a matched baseline): progress 0.37,
+  course med 11.55 / p90 21.09 deg. FAILS progress + both course bars;
+  uniformly worse in EVERY command segment (steady-state per-tick course
+  med 13.1 vs candidate 4.9 deg).
+- Localization: NO candidate-specific handoff/transition deficit —
+  command-blend transients settle fast (worst diag-left 23.1 -> 8.2 deg),
+  stop/restart/lower clean on video. The gap is steady-state steering
+  quality, not composition glue, so no precise learnable handoff
+  intervention emerged and NO new training arm is justified by this eval.
+- Scope: translation-only script (cmd_wz=0 throughout); continuous
+  arcs/tip remain FAILED for this lineage (cigate8m qualification
+  verdict; income-knob arms closed, next suspect gait-authority). n=1
+  composition per side, det/seed0/DR-0; twin uses fitted-primitive
+  contacts.
+
+Evidence: repo-root logs/ckpt_eval/hybridab_yawref_vs_incumbent_20260908/
+(ab_report.json + both summaries, committed) and the full artifact set
+(drive.mp4, contact/drive sheets, ticks.json, composition.json,
+transfer_manifest.json per side) at prototype
+logs/ckpt_eval/hybridab_yawref_vs_incumbent_20260908/ on the controller.
+Ledger: hybrid_ab_20260908 field on the candidate run.
+
+Prior status: 2026-09-08 ~04:28 UTC — reviewed the stance-path probe;
 command correction remains unsupported. Diagnostic repair deployed7ca821fb1.
 
 ## Event-sync screen review (2026-09-08,04:52 UTC)

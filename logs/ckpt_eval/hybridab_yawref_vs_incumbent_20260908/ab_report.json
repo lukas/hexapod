@@ -1,0 +1,63 @@
+{
+  "question": "Does the yawref candidate's improved translation steering survive full composed stand->walk->direction-changes->stop->restart->lower (operator focus note fb 20260908T052913Z)?",
+  "date": "2026-09-08",
+  "harness": "ops.sh hybriddemo (worktree copy) -> rl_move.sim.hybrid_demo, ledger-derived cfg per run",
+  "isolation": {
+    "worktree": "/workspace/hexapod_ab_20260908 @ f9da69e7 (clean; 042639's uncommitted joint_task.py Cartesian work excluded by construction)",
+    "note": "fresh-build side effect reproduced and corrected: build_mesh_model.py --no-render regenerated a 3.490 kg twin over the committed one; restored committed twin via git checkout before any rollout"
+  },
+  "plant": {
+    "model_source": "mesh_mjx (forced via --model-source mesh_mjx; controller full-mesh build is the stale 3.494/3.490 kg artifact and is NOT the matched baseline)",
+    "model_xml": "mesh_mujoco/hexapod_mesh_mjx.xml",
+    "model_xml_sha256": "a8a5ca8ada47621eb1396c841a593983df27b761f5b55cc2c36269c6e54dbe9e",
+    "model_mass_kg": 4.80573,
+    "control_hz": 100,
+    "motor_contract": {"bus.write_speed": 400.0, "bus.write_acc": 20.0, "safety.max_delta_q_deg": 0.375, "resolved_vel_max_counts_s_max": 350.0}
+  },
+  "shared_args": "--stand-mode tuck --lower-mode tuck --script human --walk-seconds 28 --speed 0.08 --seed 0 --dr-scale 0 --policy-mode deterministic",
+  "checkpoints": {
+    "candidate": {
+      "run": "cw-robotwalk-turns-20260907-yawref-cigate8m",
+      "file": "ppo_goal_cw_robotwalk_turns_20260907_yawref_cigate8m.zip",
+      "pulled_from": "hexapod-mjx-train-1 via ops.sh pullckpt",
+      "md5": "138da354a9ac15cfc23f4f9643b297cc",
+      "sha256": "61f9c20f0f72d89217a22b47037e33c8dad2f50bfaca0a3d5517f714dd0eeb10",
+      "bytes": 1932346
+    },
+    "incumbent": {
+      "run": "cw-walk-allheading-mlp-singleframe-acq1-stdanneal",
+      "file": "ppo_goal_cw_walk_allheading_mlp_singleframe_acq1_stdanneal.zip",
+      "source": "durable controller copy",
+      "sha256": "bf19e02d569ba41bf41b3ec92f636dfbd575f3831527a6965bf6e8f7be6972a2"
+    }
+  },
+  "bars": {"walk_progress_ratio": ">=0.40", "course_err_med_deg": "<=6", "course_err_p90_deg": "<=15", "terminations": 0, "six_cycling_legs": true, "motor_safety_limits": "unchanged 400/20/0.375/350"},
+  "results": {
+    "candidate": {
+      "walk_progress_ratio": 0.425, "course_err_1s_med_deg": 3.26, "course_err_1s_p90_deg": 14.65,
+      "course_err_2s_med_deg": 3.70, "course_err_2s_p90_deg": 14.62, "wrong_course_frac_2s": 0.0,
+      "terminated": false, "phase_errors": 0, "walk_gait_valid": true, "sacrificed_legs": [],
+      "swing_counts": [32,35,32,35,32,35], "slip_per_walk_m_all_phases": 3.993,
+      "cur_max_a": 2.64, "cur_p95_a": 1.701, "roll_peak_deg": 10.385,
+      "stop_speed_med_m_s": 0.001, "final_stop_speed_med_m_s": 0.000,
+      "per_segment_course_err_med_first2s_then_after": {
+        "forward": [4.6, 5.5], "crab-right": [7.2, 2.4], "diag-left": [23.1, 8.2],
+        "reverse": [10.1, 6.7], "restart": [4.1, 4.7]},
+      "verdict_per_bars": "PASS all composed bars"
+    },
+    "incumbent_fresh": {
+      "walk_progress_ratio": 0.37, "course_err_1s_med_deg": 12.13, "course_err_1s_p90_deg": 22.19,
+      "course_err_2s_med_deg": 11.55, "course_err_2s_p90_deg": 21.09, "wrong_course_frac_2s": 0.0,
+      "terminated": false, "phase_errors": 0, "walk_gait_valid": true, "sacrificed_legs": [],
+      "swing_counts": [41,38,40,37,40,38], "slip_per_walk_m_all_phases": 5.077,
+      "cur_max_a": 2.64, "cur_p95_a": 1.94, "roll_peak_deg": 10.385,
+      "per_segment_course_err_med_first2s_then_after": {
+        "forward": [10.4, 14.3], "crab-right": [14.9, 14.7], "diag-left": [20.5, 13.0],
+        "reverse": [12.8, 11.9], "restart": [16.3, 12.6]},
+      "verdict_per_bars": "FAIL progress (0.37<0.40), FAIL course med (11.55>6) and p90 (21.09>15)"
+    }
+  },
+  "localization": "No candidate-specific handoff/transition deficit: per-tick course error steady-state med 4.9 deg vs 9.1 deg in the first 2 s of each command blend (worst diag-left 23.1 settling to 8.2); stop/final-stop park at <=0.001 m/s and restart is clean (4.1 deg). The incumbent is uniformly worse in EVERY segment (steady 13.1 med, p90 ~126) -- the gap is steady-state steering quality, not composition glue.",
+  "scope_limits": "Translation-only script (human: cmd_wz=0 throughout); says NOTHING about continuous arcs/tip, which remain FAILED for this lineage per the cigate8m qualification verdict. Deterministic, seed 0, DR-0, n=1 composition per side. Contact geometry is the twin's fitted primitives, not STL hulls.",
+  "conclusion": "GO for the yawref candidate as the composed-demo walk piece: improved translation steering SURVIVES full stand/walk/direction/stop/restart/lower composition on the frozen 4.80573 kg plant and beats the fresh matched incumbent on every steering bar. No localized learnable handoff deficit emerged, so no new training arm is justified by this eval; the binding remaining gap is continuous-arc yaw authority (already root-caused separately; next suspect gait-authority, income-knob arms closed)."
+}

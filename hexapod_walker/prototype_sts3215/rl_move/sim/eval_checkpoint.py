@@ -454,11 +454,38 @@ def _maybe_reset_gsde_noise(model, *, _depth: int = 0) -> None:
         _maybe_reset_gsde_noise(inner, _depth=_depth + 1)
 
 
+# Capability marker for launch helpers inspecting retained evaluator source.
+VIDEO_PACING_API_VERSION = 1
+
+
+class _VideoClock:
+    """Capture deadlines in simulation time; never changes control timing."""
+
+    def __init__(self, fps: float, dt: float):
+        if not math.isfinite(fps) or fps <= 0:
+            raise ValueError("video fps must be finite and positive")
+        if not math.isfinite(dt) or dt <= 0:
+            raise ValueError("control dt must be finite and positive")
+        if fps > 1.0 / dt + 1e-9:
+            raise ValueError("video fps must not exceed control Hz")
+        self.fps = float(fps)
+        self._next_frame = 1
+
+    def due(self, elapsed: float, done: bool = False) -> bool:
+        frame = int(math.floor(elapsed * self.fps + 1e-9))
+        if frame >= self._next_frame or done:
+            self._next_frame = frame + 1
+            return True
+        return False
+
+
 def run_episode(env, model, *, deterministic: bool, video: bool,
                 annotate, end_posture_gate: bool = False,
                 valid_plant_gate: bool = False,
                 course_trace=None,
-                trace_sink: list | None = None) -> tuple[dict, list]:
+                trace_sink: list | None = None,
+                video_fps: float | None = None,
+                video_timing: dict | None = None) -> tuple[dict, list]:
     """``course_trace``: an open, writable file handle (CSV, no
     header) -- when given, every commanded walk tick appends
     ``step,vx,vy,bx,by,vx_ref,vy_ref,walk_course_cos,
@@ -492,6 +519,12 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     hand-building a scripted twin from aggregate metrics alone (see
     ``dump_rollout_trace.py``).
     """
+    # Omission keeps historical every-control-tick video capture. Pacing
+    # never skips policy/RNG/physics/metric ticks or changes panel order.
+    video_clock = (_VideoClock(video_fps, env.dt)
+                   if video_fps is not None else None)
+    video_ticks = 0
+    capture_times = []
     obs, info0 = env.reset()
     if hasattr(model, "reset"):
         model.reset()   # rot60 sector state is per-episode
@@ -549,6 +582,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         live_mode_hist.append(cur_mode)
         ret += float(r)
         done = term or trunc
+        video_ticks += 1
 
         if course_trace is not None and cur_mode in ("walk", "quadwalk"):
             g = env._current_goal()
@@ -653,7 +687,9 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                                       + v[1] * g.vy_ref)
                                      / s_ref) * env.dt
 
-        if video:
+        video_elapsed = video_ticks * env.dt
+        if video and (video_clock is None
+                      or video_clock.due(video_elapsed, done)):
             frame = env.render()
             if frame is not None:
                 cur = cur_hist[-1] if cur_hist else np.zeros(18)
@@ -679,6 +715,8 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
                     lines.append(
                         f"TERMINATED: {info.get('termination_reason')}")
                 frames.append(annotate(frame, lines))
+                if video_timing is not None:
+                    capture_times.append(video_elapsed)
 
     cur = np.asarray(cur_hist) if cur_hist else np.zeros((1, 18))
     leg_mean = cur.reshape(len(cur), 6, 3).mean(axis=(0, 2))  # per leg
@@ -979,6 +1017,13 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
             ep["plant_margin_mm"] = det["com_margin_mm"]
     ep["success"] = _success(mode, term, ep, end_posture_gate,
                              valid_plant_gate)
+    if video_timing is not None:
+        fps = video_clock.fps if video_clock is not None else FPS
+        video_timing.update(
+            requested_fps=video_fps, fps=fps, control_dt_s=env.dt,
+            simulated_seconds=video_ticks * env.dt,
+            frame_count=len(frames), encoded_seconds=len(frames) / fps,
+            capture_times_s=capture_times)
     return ep, frames
 
 
@@ -988,12 +1033,15 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
 STRIP_FRAMES = 10
 
 
-def _save_video(frames: list, path: Path) -> None:
+def _save_video(frames: list, path: Path, *, timing: dict | None = None) -> None:
     if not frames:
         return
     import imageio
-    imageio.mimsave(path.with_suffix(".mp4"), frames, fps=FPS,
+    fps = timing["fps"] if timing is not None else FPS
+    imageio.mimsave(path.with_suffix(".mp4"), frames, fps=fps,
                     macro_block_size=1)
+    if timing is not None:
+        path.with_suffix(".video.json").write_text(json.dumps(timing, indent=2))
     # Film strip for quick embedding in reports/chat.
     idx = np.linspace(0, len(frames) - 1, STRIP_FRAMES).astype(int)
     strip = np.concatenate([frames[i] for i in idx], axis=1)
@@ -1336,6 +1384,10 @@ def main() -> None:
                     help="bad-joint magnitude range for the start-jitter "
                          "panel")
     ap.add_argument("--no-video", action="store_true")
+    ap.add_argument("--video-fps", type=float, default=None,
+                    help="opt-in capture/encoding fps in simulation time, "
+                         "at most control Hz; omission keeps every-tick "
+                         "capture and legacy 25fps encoding")
     ap.add_argument("--video-every", type=int, default=3,
                     help="record every Nth episode per mode (1st always)")
     ap.add_argument("--out", type=Path, default=None)
@@ -1393,6 +1445,9 @@ def main() -> None:
                     help="episode index (0-based) within that mode/"
                          "tag's per-mode loop to trace")
     args = ap.parse_args()
+    if args.video_fps is not None and (not math.isfinite(args.video_fps)
+                                       or args.video_fps <= 0):
+        ap.error("--video-fps must be finite and positive")
     course_trace_fh = (open(args.course_trace, "a")
                        if args.course_trace else None)
 
@@ -1567,13 +1622,15 @@ def main() -> None:
                         and mode == (args.rollout_trace_mode or modes[0])
                         and k == args.rollout_trace_index)
                     _trace_sink = [] if _want_trace else None
+                    video_timing = {} if args.video_fps is not None else None
                     ep, frames = run_episode(
                         env, model, deterministic=det, video=video,
                         annotate=_annotate_frame,
                         end_posture_gate=args.end_posture_gate,
                         valid_plant_gate=args.valid_plant_gate,
                         course_trace=course_trace_fh,
-                        trace_sink=_trace_sink)
+                        trace_sink=_trace_sink, video_fps=args.video_fps,
+                        video_timing=video_timing)
                     if _want_trace:
                         _save_rollout_trace(
                             _trace_sink, args.rollout_trace_out, ep)
@@ -1593,7 +1650,8 @@ def main() -> None:
                     eps.append(ep)
                     if frames and (scheduled
                                    or not ep.get("gait_valid", True)):
-                        _save_video(frames, out / f"{mode}_{tag}_{k}")
+                        _save_video(frames, out / f"{mode}_{tag}_{k}",
+                                    timing=video_timing)
                         if det and k == 0:
                             sheet_strips.append(
                                 (out / f"{mode}_{tag}_{k}")
@@ -1709,12 +1767,15 @@ def main() -> None:
                         for k in range(args.per_mode):
                             scheduled = (k == 0
                                          or k % args.video_every == 0)
+                            video_timing = {} if args.video_fps is not None else None
                             ep, frames = run_episode(
                                 env, model, deterministic=det,
                                 video=not args.no_video,
                                 annotate=_annotate_frame,
                                 end_posture_gate=args.end_posture_gate,
-                                valid_plant_gate=args.valid_plant_gate)
+                                valid_plant_gate=args.valid_plant_gate,
+                                video_fps=args.video_fps,
+                                video_timing=video_timing)
                             if ep.get("mode", mode) != mode:
                                 raise SystemExit(
                                     f"[eval_checkpoint] start-jitter row "
@@ -1726,7 +1787,8 @@ def main() -> None:
                                            or not ep.get("gait_valid",
                                                          True)):
                                 _save_video(
-                                    frames, out / f"{label}_{tag}_{k}")
+                                    frames, out / f"{label}_{tag}_{k}",
+                                    timing=video_timing)
                         report["episodes"][f"{label}/{tag}"] = eps
                         n_ok = sum(e["success"] for e in eps)
                         n_valid = sum(bool(e.get("gait_valid"))
@@ -1778,12 +1840,15 @@ def main() -> None:
                         for k in range(args.per_mode):
                             scheduled = (k == 0
                                          or k % args.video_every == 0)
+                            video_timing = {} if args.video_fps is not None else None
                             ep, frames = run_episode(
                                 env, model, deterministic=det,
                                 video=not args.no_video,
                                 annotate=_annotate_frame,
                                 end_posture_gate=args.end_posture_gate,
-                                valid_plant_gate=args.valid_plant_gate)
+                                valid_plant_gate=args.valid_plant_gate,
+                                video_fps=args.video_fps,
+                                video_timing=video_timing)
                             if ep.get("mode", "walk") != "walk":
                                 raise SystemExit(
                                     f"[eval_checkpoint] pinned-speed "
@@ -1795,7 +1860,8 @@ def main() -> None:
                                            or not ep.get("gait_valid",
                                                          True)):
                                 _save_video(
-                                    frames, out / f"{label}_{tag}_{k}")
+                                    frames, out / f"{label}_{tag}_{k}",
+                                    timing=video_timing)
                         report["episodes"][f"{label}/{tag}"] = eps
                         n_ok = sum(e["success"] for e in eps)
                         sp = [e["speed_mean_m_s"] for e in eps

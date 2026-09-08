@@ -1,3 +1,51 @@
+## 2026-09-08 ~11:2x (triage cycle; assigned `cartfoot-halfgrav-offctrl-s11-acq1`) — seed11's ON/OFF pair closes as slip-parity but ALSO gait_valid-parity, so the seed7 22-vs-10 gait_valid gap does NOT generalize
+
+One plain sentence: the joint-space (OFF) matched control for seed11
+finished, and unlike seed7 (where cart_foot/ON showed a big gait_valid
+advantage, 22/24 vs 10/24), seed11's ON (11/24) and OFF (10/24) arms
+are gait_valid near-parity -- both det panels are 100% single-leg
+dropout either way, just a different leg (OFF drops leg4, ON drops
+leg1).
+
+**`cartfoot-halfgrav-offctrl-s11-acq1` -> ACQ PASS (near-parity, not
+an OFF disadvantage in gait_valid).** 0 falls/terminations in 24/24
+gate episodes, speed 0.17-0.21 m/s every episode (>>0.03 m/s floor),
+reward quarters rise monotonically [-647.4, 285.0, 1066.6, 1372.1],
+completed naturally at 40,370,176 steps. gait_valid 0/6 walk/det (leg4
+sacrificed all 6 episodes), 6/6 walk/sto (clean), 0/6
+walk_startjitter/det (leg4 in 5/6, leg1+4 in the other), 4/6
+walk_startjitter/sto (leg4 in 2/6) = 10/24 total -- essentially the
+SAME pattern and magnitude as ON's 11/24 (0/6, 6/6, 0/6, 5/6; leg1
+instead of leg4). Slip/m 1.82/1.89/1.83/1.94 (det/sto/startjitter-det/
+startjitter-sto) is 1.13x/1.20x/1.22x/1.15x the ON arm's
+1.61/1.58/1.50/1.69 -- inside the same ~1.1-1.2x parity band seed7's
+pair already established (1.08-1.22x). No dig-in trigger: numbers are
+internally consistent with the family-wide det-only single-leg
+dropout quirk already precedented across this cohort.
+
+**Correction to the 22-vs-10 narrative:** seed7's headline cart_foot
+gait_valid advantage was ONE seed's result, not a mechanism-general
+effect. Seed11 shows the slip edge (~1.1-1.2x, ON lower) reproducing,
+but NOT the gait_valid gap. Do not cite "cart_foot roughly doubles
+gait_valid" going forward without naming the seed; cite the slip edge
+instead, which now has two independent matched-pair confirmations
+(s7, s11). Seed10's OFF sibling remains unstaged; when it lands, this
+becomes an n=3 (or n=2-of-3, if s10's OFF hasn't landed) read on
+whether seed7 or seed11 is the outlier for the gait_valid axis.
+
+Refill: board unchanged from the ~11:1x entry below (9 GPU pods free,
+widen8/stagedr20m runs untouched, no new hypothesis licensed by this
+read alone). The actionable next item is still seed10's OFF eval
+once staged. CYCLE_WORKED touched (verdict recorded, CURRENT_TRUTHS/
+STATUS updated -- not a re-verify no-op).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s11-acq1`;
+`logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s11_acq1_gate/report.json`;
+W&B `i593jcsf`. RL_LOG 09-08 ~11:2x.
+
+
+--- prior entry below ---
+
 ## 2026-09-08 ~11:1x (triage cycle; assigned `cartfoot-halfgrav-offctrl-s10-acq1`) — closes the seed10 ON/OFF pair: OFF clears its own floor but with much weaker gait health and higher slip than ON, replicating seed7's direction on a second seed
 
 One plain sentence: the joint-space (OFF) control for halfgrav seed10
@@ -44,6 +92,7 @@ work. CYCLE_WORKED touched (verdict + SKILLS.md row recorded).
 Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s10_acq1_gate/report.json`
 vs `..._s10_acq1_gate/report.json`; W&B `ghd2vc41` (OFF) / `chxamgkj`
 (ON). RL_LOG 09-08 ~11:1x.
+
 
 --- prior entry below ---
 

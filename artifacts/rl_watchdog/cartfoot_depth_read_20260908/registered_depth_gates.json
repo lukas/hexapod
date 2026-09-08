@@ -1,0 +1,34 @@
+{
+  "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m": {
+    "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1",
+    "status_at_read": "RUNNING",
+    "phase": "acquisition",
+    "steps": 10000000,
+    "gate": "ACQUISITION CONTINUATION: read together with the matched offctrl-s7-acq1-cont10m at the same budget. PROMISING/HOLDS = mean slip/m ratio (ON/OFF) <=1.2x in >=3/4 groups AND 0 new falls/terminations vs this run's own 40M read. DEGRADES = ratio >1.5x in >=2/4 groups OR any new fall/termination not present at 40M -- names this a late-onset-degradation replicate of fork(a), not a parity closure. Per 08-21 ruling, continue further only if reward is still rising and evals are ambiguous; a clean DEGRADES or a clean HOLDS both close this specific depth question without further automatic extension.",
+    "hypothesis": "Does the fresh-init cart_foot ON arm's slip PARITY with its matched joint-space control (measured this cycle at 40M: ON/OFF slip ratio 0.94-0.99x across all 4 groups, 0 falls) HOLD or DEGRADE at 10M more steps (50M cumulative)? This mirrors fork(a)'s own design: that mature/warm-started cart_foot lineage looked fine at 12M cumulative then developed 3 NEW tilt_roll falls and 2-6x slip inflation only after +10-20M more steps. If TRUE (parity holds): slip ratio stays <=1.2x in >=3/4 groups and 0 NEW falls -- the fresh-init mechanism is durable, not just early-luck. If FALSE (parity degrades): slip ratio climbs toward or past fork(a)'s 1.5-2x range and/or new falls appear -- fresh-init only delays, does not avoid, the same late-onset degradation fork(a) found. Strongest alternative: reward keeps rising with no degradation at all (the cleanest possible outcome, matching this run's own un-plateaued reward curve at 40M)."
+  },
+  "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m": {
+    "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+    "status_at_read": "RUNNING",
+    "phase": "acquisition",
+    "steps": 10000000,
+    "gate": "24-ep walk/walk_startjitter det+sto retention gate at 50M cumulative: PASS/HOLDS = 0 new falls/terminations vs this run's own 40M read, gait_valid staying in-or-above its established 6/6 (det)/1-6 (startjitter/det) band, mean slip/m staying in the 2.6-3.4/m band already measured at 40M (no unexplained drift). This band is what the ON cont10m's slip ratio is read against -- if this control itself drifts, read the ON/OFF cont10m pair as inconclusive rather than crediting/blaming the Cartesian mechanism.",
+    "hypothesis": "This cycle's ON cont10m (cartfoot-freshinit-c1-s7-acq1-cont10m, already running) tests whether the fresh-init cart_foot ON arm's 40M slip PARITY (0.94-0.99x vs OFF) holds or degrades at 50M cumulative, mirroring fork(a)'s late-onset-degradation shape. That comparison is only valid against a matched OFF continuation at the SAME depth -- this run is that missing matched control, warm-started from the OFF arm's own PASSed 40M acquisition checkpoint, same +10M budget as its ON sibling."
+  },
+  "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m": {
+    "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+    "status_at_read": "RUNNING",
+    "phase": "acquisition",
+    "steps": 10000000,
+    "gate": "ACQUISITION CONTINUATION: read together with the matched offctrl-s11-acq1-cont10m at the same budget. HOLDS = mean slip/m ratio (ON/OFF) <=1.2x in >=3/4 groups AND 0 new falls/terminations vs this run's own 40M read. DEGRADES = ratio >1.5x in >=2/4 groups OR any new fall/termination not present at 40M. Per 08-21 ruling, continue further only if reward is still rising and evals are ambiguous.",
+    "hypothesis": "Does the fresh-init cart_foot ON arm's seed11 slip PARITY with its matched joint-space control (measured this cycle at 40M: ON/OFF ratio 0.94-1.00x across all 4 groups, 0 falls) HOLD or DEGRADE at 10M more steps (50M cumulative)? This is the 2nd seed to run this exact durability check (seed7's cont10m pair already in flight) -- mirrors fork(a)'s own design, which looked fine at 12M cumulative then developed new falls + 2-6x slip only after +10-20M more steps."
+  },
+  "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1-cont10m": {
+    "parent": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+    "status_at_read": "FINISHED",
+    "phase": "acquisition",
+    "steps": 10000000,
+    "gate": "MATCHED CONTROL: read together with cartfoot-freshinit-c1-s11-acq1-cont10m at the same budget. Retention = 0 new falls and slip/m within noise (+/-15%) of this arm's own 40M read; any regression here means the ON/OFF ratio comparison at 50M needs re-basing on the control's own drift, not just read as an ON-side effect.",
+    "hypothesis": "Matched joint-space control for the seed11 cont10m durability read above: does the OFF arm's own performance (slip 3.02/3.53/2.91/3.34, gait_valid 0/6 det (leg1,4 precedented benign quirk)/6/6/6, 0 falls at 40M) hold steady at 10M more steps, so the paired ON/OFF ratio at 50M is a valid comparison and not confounded by drift in the control itself? Byte-identical continuation recipe to the ON sibling except no cart_foot keys."
+  }
+}

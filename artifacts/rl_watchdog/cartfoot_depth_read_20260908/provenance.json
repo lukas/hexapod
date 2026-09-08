@@ -1,0 +1,16 @@
+{
+  "read_utc": "2026-09-08 08:18:19 UTC",
+  "access": "Authenticated native RL MCP eval_report/get_run; exact _gate only",
+  "report_sources": {
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s7_acq1_cont10m_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s7_acq1_cont10m_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_c1_s11_acq1_cont10m_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate/report.json",
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1-cont10m": "logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_cont10m_gate/report.json"
+  },
+  "selection": "Exactly four groups, six episodes per group (24); exclude mixed-session/historical variants",
+  "ownership": "Read only. Formal triage belongs to active seed7 owners080637/081150 and seed11 automatic owner. No verdict, launch or mutation performed."
+}

@@ -1,0 +1,1342 @@
+{
+  "prepared_utc": "2026-09-08 08:18:19 UTC",
+  "panel_order": [
+    "walk/det",
+    "walk/sto",
+    "walk_startjitter/det",
+    "walk_startjitter/sto"
+  ],
+  "summaries": {
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 23,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 2.791,
+          "slip_median": 2.791,
+          "forward_median": 3.69,
+          "speed_mean": 0.20199999999999999,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.2196666666666665,
+          "slip_median": 3.2329999999999997,
+          "forward_median": 3.1595,
+          "speed_mean": 0.18733333333333332,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 5,
+          "terms": 0,
+          "slip_mean": 2.789333333333333,
+          "slip_median": 2.7685,
+          "forward_median": 3.8415,
+          "speed_mean": 0.2066666666666667,
+          "flagged_episodes": [
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.0950000000000006,
+          "slip_median": 3.0620000000000003,
+          "forward_median": 3.2005,
+          "speed_mean": 0.19350000000000003,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 11,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          1,
+          0,
+          0,
+          13,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.795,
+          "slip_median": 2.795,
+          "forward_median": 3.373,
+          "speed_mean": 0.19100000000000003,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            6,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.265,
+          "slip_median": 3.3,
+          "forward_median": 3.0455,
+          "speed_mean": 0.18366666666666667,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.78,
+          "slip_median": 2.7439999999999998,
+          "forward_median": 3.702,
+          "speed_mean": 0.19833333333333333,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            1,
+            0,
+            0,
+            6,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 5,
+          "terms": 0,
+          "slip_mean": 3.0915,
+          "slip_median": 3.1065,
+          "forward_median": 3.1905,
+          "speed_mean": 0.18983333333333333,
+          "flagged_episodes": [
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 19,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          1,
+          0,
+          0,
+          5,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 2.826,
+          "slip_median": 2.826,
+          "forward_median": 3.758,
+          "speed_mean": 0.19500000000000003,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.4115,
+          "slip_median": 3.412,
+          "forward_median": 3.045,
+          "speed_mean": 0.17533333333333334,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 1,
+          "terms": 0,
+          "slip_mean": 2.849833333333333,
+          "slip_median": 2.839,
+          "forward_median": 3.6875,
+          "speed_mean": 0.19116666666666668,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            1,
+            0,
+            0,
+            5,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.2566666666666664,
+          "slip_median": 3.2245,
+          "forward_median": 3.159,
+          "speed_mean": 0.18299999999999997,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 12,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          3,
+          0,
+          0,
+          11,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.813,
+          "slip_median": 2.813,
+          "forward_median": 3.593,
+          "speed_mean": 0.19300000000000003,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            6,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.3686666666666665,
+          "slip_median": 3.407,
+          "forward_median": 3.154,
+          "speed_mean": 0.17616666666666667,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.8614999999999995,
+          "slip_median": 2.8345000000000002,
+          "forward_median": 3.6725000000000003,
+          "speed_mean": 0.19266666666666668,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            3,
+            0,
+            0,
+            5,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.3070000000000004,
+          "slip_median": 3.3025,
+          "forward_median": 3.0805,
+          "speed_mean": 0.17916666666666667,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 23,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 2.894,
+          "slip_median": 2.894,
+          "forward_median": 3.335,
+          "speed_mean": 0.18599999999999997,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.3560000000000003,
+          "slip_median": 3.3200000000000003,
+          "forward_median": 3.0060000000000002,
+          "speed_mean": 0.1771666666666666,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 5,
+          "terms": 0,
+          "slip_mean": 2.811833333333333,
+          "slip_median": 2.8129999999999997,
+          "forward_median": 3.5875000000000004,
+          "speed_mean": 0.19183333333333333,
+          "flagged_episodes": [
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.3846666666666665,
+          "slip_median": 3.3434999999999997,
+          "forward_median": 3.0759999999999996,
+          "speed_mean": 0.17900000000000002,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 19,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          1,
+          0,
+          0,
+          4,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 2.626,
+          "slip_median": 2.626,
+          "forward_median": 3.828,
+          "speed_mean": 0.19999999999999998,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.390333333333334,
+          "slip_median": 3.2655000000000003,
+          "forward_median": 3.051,
+          "speed_mean": 0.17316666666666666,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 1,
+          "terms": 0,
+          "slip_mean": 2.6658333333333335,
+          "slip_median": 2.6485000000000003,
+          "forward_median": 3.7504999999999997,
+          "speed_mean": 0.1965,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            1,
+            0,
+            0,
+            4,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.208,
+          "slip_median": 3.1915,
+          "forward_median": 3.104,
+          "speed_mean": 0.18083333333333332,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 12,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          12,
+          0,
+          0,
+          11,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 3.025,
+          "slip_median": 3.025,
+          "forward_median": 3.228,
+          "speed_mean": 0.167,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            6,
+            0,
+            0,
+            6,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.541166666666667,
+          "slip_median": 3.5255,
+          "forward_median": 2.8775,
+          "speed_mean": 0.16633333333333336,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.9271666666666665,
+          "slip_median": 2.9145000000000003,
+          "forward_median": 3.3899999999999997,
+          "speed_mean": 0.17300000000000001,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            6,
+            0,
+            0,
+            5,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.3255,
+          "slip_median": 3.3435,
+          "forward_median": 3.0445,
+          "speed_mean": 0.1728333333333333,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1-cont10m": {
+      "aggregate": {
+        "n": 24,
+        "gait_valid": 12,
+        "terms": 0,
+        "sacrifices": [
+          0,
+          12,
+          0,
+          0,
+          11,
+          0
+        ]
+      },
+      "panels": {
+        "walk/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.926,
+          "slip_median": 2.926,
+          "forward_median": 3.463,
+          "speed_mean": 0.17900000000000002,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            6,
+            0,
+            0,
+            6,
+            0
+          ]
+        },
+        "walk/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.2691666666666666,
+          "slip_median": 3.1965000000000003,
+          "forward_median": 3.2475,
+          "speed_mean": 0.1781666666666667,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "walk_startjitter/det": {
+          "n": 6,
+          "gait_valid": 0,
+          "terms": 0,
+          "slip_mean": 2.880333333333333,
+          "slip_median": 2.8834999999999997,
+          "forward_median": 3.4965,
+          "speed_mean": 0.1845,
+          "flagged_episodes": [
+            {
+              "episode": 0,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 1,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 2,
+              "legs": [
+                1
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 3,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 4,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            },
+            {
+              "episode": 5,
+              "legs": [
+                1,
+                4
+              ],
+              "terminated": false,
+              "reason": ""
+            }
+          ],
+          "sacrifices": [
+            0,
+            6,
+            0,
+            0,
+            5,
+            0
+          ]
+        },
+        "walk_startjitter/sto": {
+          "n": 6,
+          "gait_valid": 6,
+          "terms": 0,
+          "slip_mean": 3.2265,
+          "slip_median": 3.2039999999999997,
+          "forward_median": 3.1085000000000003,
+          "speed_mean": 0.18083333333333337,
+          "flagged_episodes": [],
+          "sacrifices": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    }
+  },
+  "comparisons": {
+    "7": {
+      "source_ratios": [
+        0.9876150035385703,
+        0.9437686257267086,
+        0.9787706883443476,
+        0.9503582395087004
+      ],
+      "child_ratios": [
+        0.993601137575542,
+        0.9692262022560856,
+        0.971518434387559,
+        0.934835198064711
+      ],
+      "child_ratio_le_1p2": 4,
+      "child_ratio_gt_1p5": 0,
+      "within_arm": {
+        "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1": {
+          "source_gv": 23,
+          "child_gv": 11,
+          "source_terms": 0,
+          "child_terms": 0,
+          "slip_mean_child_over_source": [
+            1.0014331780723755,
+            1.0140801325188944,
+            0.9966539196940727,
+            0.9988691437802906
+          ],
+          "randomization_differences": []
+        },
+        "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1": {
+          "source_gv": 19,
+          "child_gv": 12,
+          "source_terms": 0,
+          "child_terms": 0,
+          "slip_mean_child_over_source": [
+            0.9953998584571834,
+            0.9874444281596559,
+            1.0040938066553597,
+            1.015455475946776
+          ],
+          "randomization_differences": []
+        }
+      },
+      "on_off_randomization_differences": []
+    },
+    "11": {
+      "source_ratios": [
+        0.9566942148760331,
+        0.9477102649785852,
+        0.9605989865057222,
+        1.0177918107552748
+      ],
+      "child_ratios": [
+        0.897470950102529,
+        1.0370634718327811,
+        0.9255294526096518,
+        0.9942662327599566
+      ],
+      "child_ratio_le_1p2": 4,
+      "child_ratio_gt_1p5": 0,
+      "within_arm": {
+        "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1": {
+          "source_gv": 23,
+          "child_gv": 19,
+          "source_terms": 0,
+          "child_terms": 0,
+          "slip_mean_child_over_source": [
+            0.9073946095369729,
+            1.0102304330552245,
+            0.9480765811155238,
+            0.947803821154225
+          ],
+          "randomization_differences": []
+        },
+        "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1": {
+          "source_gv": 12,
+          "child_gv": 12,
+          "source_terms": 0,
+          "child_terms": 0,
+          "slip_mean_child_over_source": [
+            0.9672727272727274,
+            0.9231891561161575,
+            0.9840004555030462,
+            0.9702300405953993
+          ],
+          "randomization_differences": []
+        }
+      },
+      "on_off_randomization_differences": []
+    }
+  }
+}

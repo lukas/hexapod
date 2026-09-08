@@ -1,0 +1,69 @@
+{
+  "all_reported_identity_equal": true,
+  "identity": {
+    "task": "joint_walk",
+    "dr_scale": 0,
+    "seed": 0,
+    "model_source": "mesh_mjx",
+    "model_variant": "mesh_mjx_twin",
+    "model_nmesh": 0,
+    "model_ngeom": 91,
+    "model_mass_kg": 4.80573,
+    "motor_contract": {
+      "bus.write_speed": 4096,
+      "bus.write_acc": 1000,
+      "bus.servo_vel_max_counts_s": "write_speed",
+      "bus.servo_params": "",
+      "resolved_vel_max_deg_s_min": 360,
+      "resolved_vel_max_deg_s_max": 360,
+      "resolved_vel_max_counts_s_max": 4096,
+      "safety.max_delta_q_deg": 3.6,
+      "control.hz": 100,
+      "slew_limit_deg_s": 360,
+      "bus.profile_ramp_steps": 0,
+      "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=4096cps",
+      "backend_profile": "servo_profile_np"
+    },
+    "start_jitter_panel": {
+      "start_jitter_deg": 3,
+      "start_bad_prob": 0.25,
+      "start_bad_max_joints": 1,
+      "start_bad_deg_min": 8,
+      "start_bad_deg_max": 16
+    }
+  },
+  "policy_std_by_run": [
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s7-acq1-cont10m",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s7-acq1-cont10m",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-c1-s11-acq1-cont10m",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+      "std": 0.135
+    },
+    {
+      "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1-cont10m",
+      "std": 0.135
+    }
+  ]
+}

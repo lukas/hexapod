@@ -1906,3 +1906,6 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 06:41 walkcurr: cartfoot-offctrl-s3 CANARY PASS (matched control, 22/24 gv, slip 4.9-5.7/m in-band) -- completes seed3 pair, cart_foot 4-6x slippier than joint-space confirmed 2/2 seeds 
 - 09-08 06:45 cartfoot fork(b) fresh-init canary (s10): CANARY PASS HEALTHY-PARITY vs matched OFF control at 2M cold start (no mechanism handicap), same shape as concurrent s7 pair -- too early for slip claim, +38M continuation launched to reach the base family's own PASS-band depth. 
 - 09-08 06:45 fork(b) seed7 ON: CANARY PASS HEALTHY-PARITY, matches OFF control shape, no slip claim yet at 2M 
+- 09-08 06:45 s10-c1 crashed on the known --activation-fn+--init-from gotcha, zero steps logged, relaunching as -c1b 
+- 09-08 06:45 cartfoot-freshoffctrl-s10: CANARY PASS, reproduces base-family 2M shape at seed 10, valid control for the fresh-init cart-foot pair. 
+- 09-08 06:45 walkcurr: cartfoot-freshinit-offctrl-s11 CANARY PASS - HEALTHY-PARITY, completes seed-11 pair 

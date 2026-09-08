@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: CANARY PASS
 
 **created**: 2026-09-08T06:31:10+00:00
 
@@ -15,4 +15,6 @@
 **hypothesis**: Matched joint-space fresh-init control for cartfoot-freshinit-c1-s11 (same seed 11, no cart_foot keys) -- isolates the decode effect from seed/recipe drift; 3rd independent-seed replicate of the base-s0..s4 fresh-init family.
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. 2M MECHANISM-HEALTH CANARY ONLY (same bar as base-s0/s1/s7 used, NOT a walking gate): finite losses; weights changing; real joint/foot excursion beyond settled stance on eval video/telemetry; motor contract sane; reward agrees with the WALKSCRATCH_EASY semantics bank. Read the seed7/seed10/seed11 ON arms TOGETHER for an n=3 ignition-health seed-pass-rate read, each against its own matched OFF control where available (s7, s11): HEALTHY-PARITY if all/most ON arms show finite losses + real excursion + bank agreement matching their OFF controls/base-s0..s4; HEALTHY-BUT-INCONCLUSIVE if none show excursion (matches base-s0 itself at 2M); FAIL-MECHANISM-SPECIFIC if ON arms systematically stay statue/degenerate while OFF controls ignite normally. No walking-quality claim at this depth.
+
+**verdict**: CANARY PASS - HEALTHY-PARITY (mechanism-health tier): joint-space (OFF) control for fork (b) seed 11 ignites like the base family. rollout/ep_len_mean rises 104->236->357->493 ticks while per-tick env/reward_walk RISES 0.168->0.204->0.218->0.266 and env/v_along_cmd_m_s crosses zero (-0.0010->+0.0051->+0.0066->+0.0130). env/walk_speed holds 0.11-0.14 m/s throughout. Total ep_rew_mean decline (-127->-562) is the same ep_len-growth artifact seen on every healthy arm this campaign, not regression. Serves as the matched control for cartfoot-freshinit-c1-s11 (verdicted this cycle, same read): HEALTHY-PARITY confirmed for the seed-11 half of fork (b). No walking-quality claim at 2M.
 

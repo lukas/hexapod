@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T12:16:01+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s2-widen8-acq1-legdutyratiofresh-guardfix1
+
+**wandb_id**: ffsh89cc
 
 **hypothesis**: 3rd-seed (s2) tie-break for the swing-count-floor lever: s0 showed 3/4 groups jointly improve (CONTINUE signal), s1 showed 0/4 (mechanism-healthy, no efficacy) -- a 1-of-2 split that cannot be pooled. This seed decides whether the swing-floor pairing (>=2 qualifying swings/4s window zeroing a leg's ratio credit if it hasn't actually stepped) is a real 2-of-3 majority effect or a wash, before funding any cont10m off the swingfloor lineage. Same seed4/init-from-s2_widen8/heading/DR/motor cfg as the matched s2 0.30-dose guardfix1 baseline launched alongside it; only the swing-floor keys added.
 

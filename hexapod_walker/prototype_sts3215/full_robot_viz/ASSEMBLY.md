@@ -216,7 +216,7 @@ iteration:
 | `--fast` | Run only the 5 ESSENTIAL checks (watertightness, self-collision standing, fastener engagement, mating-face contact, cable clearance). ~5-15 s vs ~95-270 s for the full suite. Use between every edit. |
 | `--all` | Explicit full-suite mode (same as no mode flag). |
 | `--changed` | SMART SELECT: only run checks whose static input deps intersect what `git diff origin/main` changed. Rebuilds STLs in-memory to detect which printed parts actually changed bytes; consults the `CHECK_INPUTS` map. Compose with `--fast` to intersect with the essential set. Pass `--base-ref REF` to diff against a different ref. |
-| `--no-cache` | Bypass the persistent per-check cache (`hexapod_walker/prototype/.verify_cache.sqlite`). Lookups are skipped; writes still happen. Use when you've edited a verifier helper that the cache key intentionally doesn't track. |
+| `--no-cache` | Bypass the persistent per-check cache (`hexapod_walker/prototype_sts3215/.verify_cache.sqlite`). Lookups are skipped; writes still happen. Use when you've edited a verifier helper that the cache key intentionally doesn't track. |
 | `--serial` | Skip the process pool entirely; run every check in the main process in declaration order. Use this when a worker traceback is mangled through pickle and you need a clean stack. |
 | `--workers N` | Override the default worker count (default `min(8, os.cpu_count())`). |
 | `--profile PATH` | Dump a cProfile snapshot of the parent process to `PATH` when the run finishes (combine with `--serial` to profile the entire suite in one process). |
@@ -261,7 +261,7 @@ at exec time.
 
 ### Opt-in strength / failure-point check
 
-A SEPARATE pipeline lives under `hexapod_walker/prototype/strength/`
+A SEPARATE pipeline lives under `hexapod_walker/prototype_sts3215/strength/`
 that runs a closed-form Euler-Bernoulli beam-bending sanity check on
 the slender links plus -- when the toolchain is available -- a
 CalculiX linear-static FEA pass on every load-bearing printed part.
@@ -352,7 +352,7 @@ exact dispatch logic.
 Run the one-command prototype builder to generate every print/export bundle:
 
 ```bash
-./run.sh hexapod_walker/prototype/build_all.py
+./run.sh hexapod_walker/prototype_sts3215/build_all.py
 ```
 
 The printables land in `stl_prototype/` as healed BREP tessellations
@@ -360,7 +360,7 @@ The printables land in `stl_prototype/` as healed BREP tessellations
 `build_step_prototype.py` (which also writes the per-part `.step` CAD
 files into `step_prototype/` and enforces the twin-equivalence gates)
 and installs its output.  Running
-`./run.sh hexapod_walker/prototype/hexapod_prototype.py` alone only
+`./run.sh hexapod_walker/prototype_sts3215/hexapod_prototype.py` alone only
 regenerates the trimesh twins + `stl_reference/` visuals — the verifier
 will flag the print set as stale until `make build` re-installs the BREP
 tessellations.  All dimensions are in millimetres. All individual STLs

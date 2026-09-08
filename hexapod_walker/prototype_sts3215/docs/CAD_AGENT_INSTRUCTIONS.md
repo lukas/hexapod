@@ -1,7 +1,7 @@
 # CAD agent instructions — hexapod prototype
 
 These rules apply to any LLM coding agent editing the parametric CAD
-in `hexapod_walker/prototype/`.  Read them in full before touching
+in `hexapod_walker/prototype_sts3215/`.  Read them in full before touching
 geometry; paste them into context for any helper / sub-agent you spawn
 to make a change.
 
@@ -135,7 +135,7 @@ The pipeline they refer to is documented in `CAD_WORKFLOW.md`.
 ```
 $ make -C hexapod_walker/prototype check-cad-fast    # inner-loop ~30 s
 $ make -C hexapod_walker/prototype check-cad         # full check ~2 min
-$ open hexapod_walker/prototype/artifacts/cad_report.md
+$ open hexapod_walker/prototype_sts3215/artifacts/cad_report.md
 ```
 
 If a single failure dominates: drop into the matching

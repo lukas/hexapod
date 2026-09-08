@@ -937,6 +937,38 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   before funding any further dose/lineage variant. Evidence:
   `rl_move/sim/walk_task.py` (search `walk_leg_duty_ratio`), STATUS.md
   2026-09-08 ~00:2x, snapshot `e24a2ab6`.
+  UPDATE 09-08 ~01:5x: all 4 guardfix1 canaries now read. **3/3
+  fresh-init arms CANARY PASS** (`s0`/`s1`-widen8-acq1-legdutyratio-
+  fresh-guardfix1 both 21/24 `gait_valid`, 0 terminations;
+  `s0`-widenbis180-legdutyratiofresh-guardfix1 18/24, exactly clears
+  its own bar) — first per-leg-utilization mechanism of 12+ tried to
+  show real recovery from a naive init, far above the termination
+  mechanism's 12-13/24 at 20x the budget on the identical init/task.
+  **The RETROFIT arm (`s0`-widen8-acq1-legdutyratio1-guardfix1) is
+  CANARY FAIL - MECHANISM**, self-corrected mid-cycle: an episode-by-
+  episode diff against the undosed `s0-widen8-acq1` baseline shows the
+  two are BIT-IDENTICAL in all 24 episodes despite telemetry
+  confirming the charge fires correctly (shortfall 0.14-0.17) — 2M
+  steps of retrofit produced zero measurable change on an
+  already-entrenched exploiter. **Do not read this as "the mechanism
+  doesn't work"** — it is one short-budget retrofit result, not a
+  from-scratch result; the fresh-init recipe is the validated one.
+  Methodological note for every arm: `ep_rew_mean` crashes hard
+  through training on this reward shape (e.g. 31->63->-903->-3589)
+  purely because `rollout/ep_len_mean` rises (episodes surviving
+  LONGER) times a roughly-flat per-tick charge — not behavioral
+  collapse; check `ep_len_mean` before reading a declining reward
+  curve under this mechanism as bad. A +10M acquisition continuation
+  of the fresh-PASS `s1` checkpoint plus a matched charge=0 control
+  (`...-acq10m`/`...-offctrl10m`) are in flight (concurrent
+  cycle/root) — read those before any further dose/lineage spend;
+  the retrofit-onto-entrenched question stays open (1 short-budget
+  arm only). Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_
+  headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_{s0,s1}_
+  widen8_acq1_legdutyratiofresh_guardfix1_gate/report.json`,
+  `..._s0_widenbis180_legdutyratiofresh_guardfix1_gate/report.json`,
+  `..._s0_widen8_acq1_legdutyratio1_guardfix1_gate/report.json` vs
+  `..._s0_widen8_acq1_gate/report.json`.
 - `reward.walk_swing_gate` (09-05, built + bank-proved this cycle,
   `test_walk_swing_gate_*` in `test_task_semantics.py`, 4/4 green,
   default 0 = off/bit-exact): the 6th structural repair attempt for

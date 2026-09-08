@@ -4,6 +4,29 @@ Last compacted: 2026-08-30 for the `todaypolicy` sixth-track update.
 Archive copy: `archive/CURRENT_TRUTHS_2026-08-30_pre_todaypolicy_compaction.md`.
 Accepted facts, not narrative. If old prose disagrees, this file wins.
 
+## `walk_leg_loadslip_ratio_charge` confound correction (2026-09-08 ~15:4x)
+
+Every prior `walk_leg_loadslip_ratio_charge` verdict (target=1.5
+closed 0/3; target=6.0 recalibration FAIL; the w15/w45 weight-
+reduction bracket both CLOSED FAIL) was trained with
+`walk_leg_duty_ratio_charge=150` ALSO active, warm-started from a
+checkpoint that already had duty-ratio-charge training baked in.
+Duty-ratio-charge ALONE (its own clean 2M canary, no loadslip)
+already produces the identical "healthy-then-3-orders-of-magnitude
+reward collapse" shape, previously verdicted CANARY PASS there
+("fully explained by ep_len growth, not behavioral collapse"). None
+of the closed loadslip reads can cleanly separate loadslip's own
+contribution to that collapse or to any efficacy gap from this
+already-accepted confound — the FAIL verdicts on efficacy grounds
+(0/4 groups jointly improving vs the matched parent) still stand
+(that comparison is unaffected by the confound), but do not treat the
+"reward collapses" half of any of those verdicts as evidence specific
+to loadslip. Two isolation canaries (`cw-walkscratch-crutchoff-{s0,
+s1}-widen8-loadslip-target6-alone`, duty-ratio-charge=0, init from the
+TRUE pre-duty-charge `widen8-acq1` checkpoints) are in flight to give
+loadslip-ratio-charge its first clean, unconfounded read. Evidence:
+`rl_docs/tracks/walkcurr/STATUS.md` 2026-09-08 ~15:4x entry.
+
 ## Active training and interpretation (2026-09-08 10:21 heartbeat)
 
 Lukas's keep-training instruction authorizes bounded, justified scratch

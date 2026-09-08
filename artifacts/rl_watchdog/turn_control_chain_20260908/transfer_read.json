@@ -1,0 +1,608 @@
+{
+  "status": "DESCRIPTIVE_POST_EXECUTION_READ",
+  "registered_window": "control ticks[200,N)",
+  "axis_summary": "Unweighted mean over the six corresponding joints in each cell; full per-joint arrays and aggregates retained.",
+  "causal_limit": "Requested slew exceedance is requested delta beyond nominal/entry-ramped cap. It is not a causal attribution of yaw loss. No new intervention or fitted rule follows.",
+  "rows": [
+    {
+      "id": "w+0.00_ph0_straight_baseline",
+      "post_ramp_seconds": 13.0,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 1500
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.6725641025641025,
+        0.8128205128205127,
+        0.43089743589743595
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        1.3872164751392868,
+        3.8847080518190684,
+        0.3173111739907442
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        1.726071486313984,
+        4.2167329117885,
+        0.5774959605702925
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.33885501117469463,
+        0.33202485996943415,
+        0.2601847865795482
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.818314988119472,
+        2.660055087032955,
+        3.8170166518634647
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.3861070515204803,
+        0.330888924778781,
+        0.4347052735240631
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.774970299187652,
+        0.5610500392558684,
+        0.9853258279422524
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.0623212365189893,
+        0.17457197329661042,
+        0.20478262292281077
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        3.1153846153846154,
+        9.5,
+        11.26923076923077
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.6794871794871797,
+        2.628205128205128,
+        2.628205128205128
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        4.615384615384615,
+        11.294871794871796,
+        3.923076923076923
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    },
+    {
+      "id": "w+0.00_ph1_straight_baseline",
+      "post_ramp_seconds": 13.0,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 1500
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.6803846153846155,
+        0.8033333333333333,
+        0.44294871794871793
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        1.3923302436468312,
+        3.8903141974485878,
+        0.32919483759081597
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        1.7307362833782653,
+        4.220612543362841,
+        0.5930258059654414
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.33840603973143407,
+        0.3302983459142554,
+        0.2638309683746258
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.8216306169405883,
+        2.6865764282766516,
+        3.8162074634332206
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.3856819132630364,
+        0.330910548701385,
+        0.43561389938470163
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.7761033942358405,
+        0.5624862611921201,
+        0.9779229560272585
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.06255421418679614,
+        0.17571914226305071,
+        0.20430329277647297
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        3.3589743589743586,
+        9.076923076923077,
+        11.448717948717949
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.6923076923076925,
+        2.6153846153846154,
+        2.628205128205128
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        4.8076923076923075,
+        10.846153846153847,
+        4.0256410256410255
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    },
+    {
+      "id": "w+0.15_ph0_baseline",
+      "post_ramp_seconds": 5.55,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 755
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.6618618618618619,
+        0.7894894894894895,
+        0.4357357357357357
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        1.942865335667791,
+        3.867269766008534,
+        0.32778964426602764
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        2.234307899817757,
+        4.192513966989949,
+        0.5861873021354848
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.2914425641499672,
+        0.32524420098141654,
+        0.25839765786945695
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.3098374589287496,
+        2.7262246652447097,
+        3.903159040348028
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.37966359956101275,
+        0.32781109435554057,
+        0.438378059115577
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.6872107395389201,
+        0.5541151426072486,
+        0.9684777602459959
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.0492925664198697,
+        0.17231539284788952,
+        0.20202896425963165
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        7.087087087087088,
+        9.78978978978979,
+        11.861861861861861
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.672672672672673,
+        2.5525525525525525,
+        2.6126126126126126
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        5.705705705705706,
+        10.81081081081081,
+        4.114114114114114
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    },
+    {
+      "id": "w+0.15_ph1_baseline",
+      "post_ramp_seconds": 5.55,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 755
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.66006006006006,
+        0.8036036036036035,
+        0.45075075075075083
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        1.948154594552862,
+        3.8509138488554764,
+        0.35541130739288634
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        2.240518403483408,
+        4.179348059065707,
+        0.6151766545600649
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.2923638089305478,
+        0.3284342102102346,
+        0.25976534716717864
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.3156731237778936,
+        2.7375792175550604,
+        3.9012314648343858
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.37885810235510414,
+        0.3234784224794036,
+        0.44282491890959114
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.6913911714769676,
+        0.5434071192082003,
+        0.988837632588781
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.05007216108529738,
+        0.16899231886465238,
+        0.20207941881632827
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        6.996996996996998,
+        10.21021021021021,
+        12.162162162162163
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.672672672672673,
+        2.5225225225225225,
+        2.5825825825825826
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        6.066066066066066,
+        10.84084084084084,
+        4.054054054054054
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    },
+    {
+      "id": "w-0.15_ph0_baseline",
+      "post_ramp_seconds": 5.55,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 755
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.6444444444444445,
+        0.8165165165165166,
+        0.4042042042042042
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        2.088604809203733,
+        3.750775858196052,
+        0.26956052994942276
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        2.378965649573803,
+        4.085266294887477,
+        0.5272917324268727
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.2903608403700714,
+        0.334490436691423,
+        0.25773120247744985
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.3057905035863233,
+        2.712044888779984,
+        3.9335402568918894
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.3753312720382567,
+        0.3295800383359739,
+        0.4459966030283953
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.6663053437540123,
+        0.5688338756224286,
+        1.0462334146830263
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.04688409237550853,
+        0.17399683979092054,
+        0.19856148819892372
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        6.606606606606606,
+        9.45945945945946,
+        12.072072072072073
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.672672672672673,
+        2.5525525525525525,
+        2.6126126126126126
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        7.027027027027027,
+        11.08108108108108,
+        3.543543543543544
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    },
+    {
+      "id": "w-0.15_ph1_baseline",
+      "post_ramp_seconds": 5.55,
+      "axis_order": [
+        "yaw",
+        "hip",
+        "knee"
+      ],
+      "held_ticks": 0,
+      "safety_bad_ticks": 0,
+      "safety_termination_ticks": 0,
+      "reasons": {
+        "": 755
+      },
+      "all_control_ticks_have_one_actual_write": true,
+      "safety_output_minus_rate_clipped_target_maxabs_rad": 0.0,
+      "latched_logical_to_actual_write_maxabs_rad": 0.0,
+      "commanded_speed_deg_s": [
+        35.15625
+      ],
+      "commanded_acc_units": [
+        20.0
+      ],
+      "realized_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "realized_profile_acceleration_caps_deg_s2_range": [
+        131.8359375,
+        175.78125
+      ],
+      "profile_queue_length_range": [
+        1,
+        3
+      ],
+      "requested_slew_exceed_fraction_axis_mean": [
+        0.6366366366366366,
+        0.8216216216216216,
+        0.4198198198198198
+      ],
+      "decoded_safe_mean_abs_deg_axis_mean": [
+        2.1108424721433408,
+        3.782420931206095,
+        0.2930375411524721
+      ],
+      "requested_increment_mean_abs_deg_axis_mean": [
+        2.4024496931212638,
+        4.118848629040763,
+        0.552963370550138
+      ],
+      "safe_increment_mean_abs_deg_axis_mean": [
+        0.29160722097792485,
+        0.33642769783466936,
+        0.2599258293976659
+      ],
+      "profile_goal_target_mean_abs_deg_axis_mean": [
+        2.317486486563434,
+        2.7254602050670456,
+        3.946535630546793
+      ],
+      "effective_profile_mean_abs_deg_axis_mean": [
+        0.3768817917990733,
+        0.3295548181472046,
+        0.4469060977850135
+      ],
+      "profile_actual_post_mean_abs_deg_axis_mean": [
+        0.6651138642426755,
+        0.5597895560246551,
+        1.0667648427662038
+      ],
+      "sensed_actual_mean_abs_deg_axis_mean": [
+        0.046500151528715034,
+        0.16862292531771003,
+        0.19763362874895465
+      ],
+      "safe_increment_reversals_per_s_axis_mean": [
+        6.726726726726727,
+        9.03903903903904,
+        12.102102102102103
+      ],
+      "profile_velocity_reversals_per_s_axis_mean": [
+        2.7027027027027026,
+        2.5525525525525525,
+        2.6126126126126126
+      ],
+      "actual_velocity_reversals_per_s_axis_mean": [
+        6.516516516516516,
+        11.08108108108108,
+        4.084084084084084
+      ],
+      "post_ramp_profile_acceleration_caps_deg_s2_range": [
+        175.78125,
+        175.78125
+      ],
+      "post_ramp_profile_velocity_caps_deg_s_range": [
+        30.761718750000004,
+        30.761718750000004
+      ],
+      "initial_profile_queue_length": 0
+    }
+  ]
+}

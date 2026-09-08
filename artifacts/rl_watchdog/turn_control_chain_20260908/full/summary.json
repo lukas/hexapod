@@ -1,0 +1,17 @@
+{
+  "status": "VALID_OBSERVATION",
+  "rollouts": 6,
+  "ticks": 6020,
+  "wall_seconds": 37.11666941642761,
+  "ids": [
+    "w+0.15_ph0_baseline",
+    "w+0.15_ph1_baseline",
+    "w-0.15_ph0_baseline",
+    "w-0.15_ph1_baseline",
+    "w+0.00_ph0_straight_baseline",
+    "w+0.00_ph1_straight_baseline"
+  ],
+  "no_intervention": true,
+  "no_PPO": true,
+  "endpoint_limit": "Arc755 full states are new captures; existing755 body/current and all earlier saved full states match exactly. Straight1500 endpoints match existing states."
+}

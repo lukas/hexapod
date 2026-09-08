@@ -1,30 +1,34 @@
-# One shared browser login for every lab site. Requests that already carry
-# an API credential (Authorization / X-API-Key) and the agent endpoints are
-# left to each service's own gate, so scripts and MCP clients are unaffected.
-# The verified user is forwarded as X-Hexapod-User, replacing any value the
-# client sent, so the apps behind the tunnel can skip their own sign-in.
-(lab_login) {
+# Single sign-on shared with hexapod.cwd1f0-new-cluster.coreweave.app: browsers
+# without the hexapod_sso cookie are redirected to its sign-in form. Requests
+# carrying an API credential and the agent endpoints keep each app's own gate.
+(lab_sso) {
     @browser {
         not header Authorization *
         not header X-API-Key *
         not path {args[0:]}
     }
-    basic_auth @browser {
-        lukas {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
-        camera {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+    forward_auth @browser https://hexapod.cwd1f0-new-cluster.coreweave.app {
+        uri /auth
+        copy_headers X-Hexapod-User
+        header_up Host hexapod.cwd1f0-new-cluster.coreweave.app
     }
-    request_header X-Hexapod-User {http.auth.user.id}
 }
 
 camera.cwd1f0-new-cluster.coreweave.app {
-    import lab_login /robots.txt
+    # Existing HTTP Basic clients keep working alongside the browser SSO.
+    @basic header Authorization "Basic *"
+    basic_auth @basic {
+        lukas {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+        camera {env.LAB_LOGIN_HASH}  # bcrypt hash injected at deploy; source of truth ~/.hexapod/web-login.hash
+    }
+    import lab_sso /robots.txt
     reverse_proxy 127.0.0.1:8766 {
         flush_interval -1
     }
 }
 
 robot-lab.cwd1f0-new-cluster.coreweave.app {
-    import lab_login /mcp /healthz /robots.txt
+    import lab_sso /mcp /healthz /robots.txt
     reverse_proxy 127.0.0.1:8767 {
         flush_interval -1
     }

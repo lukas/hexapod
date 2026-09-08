@@ -1,8 +1,8 @@
 {
   "heartbeat": "keep-hexapod-rl-gpus-training",
   "trigger": "2026-09-08T07:03:13.305Z",
-  "updated_at": "2026-09-08T07:16:06.539234+00:00",
-  "status": "in_progress",
+  "updated_at": "2026-09-08T07:31:33.230932+00:00",
+  "status": "visit_complete",
   "capacity_initial": {
     "sample_at": "2026-09-08T07:04:37Z",
     "ready": 11,
@@ -90,18 +90,90 @@
   },
   "steering_next": {
     "evidence": "turn_coordinated_guidance_20260908/",
-    "status": "Frozenproposal;no new simulationyet",
+    "status": "Full40branchscreenexecutedandindependentlyreviewed:STOP",
     "scope": "New40branchcoordinatedjointcausalscreen,4phasetemplates,2globaldoses,oppositecontrols,unchanged5mradandcorrectedretention. Largercombineddoseexplicit;finite-secantpredictionsnotbounds.",
-    "PPO": "NoPPOlicensedbyin-samplescreen;requiresheldoutandfullydefinedrecurringcontrolleroriginal15sbothyawsigns/straightvalidation."
+    "PPO": "NoPPOlicensedbyin-samplescreen;requiresheldoutandfullydefinedrecurringcontrolleroriginal15sbothyawsigns/straightvalidation.",
+    "owner": "20260908T071722",
+    "pid": 431230,
+    "guidance_publication": "7b9d114ef",
+    "cycle_request_at": "2026-09-08T07:17:22Z",
+    "branches": 40,
+    "zero_controls": 8,
+    "pulse_branches": 32,
+    "runtime_s": 21.19,
+    "all_state_parity": true,
+    "primary_positive_cases": 4,
+    "positive_cases": 16,
+    "odd_positive_cases": 15,
+    "retention_passes": 30,
+    "action_clips": 0,
+    "qualifying_templates": "Onlynegative-yawphase0at.05qualifiesbothstarts(7.066/5.666mrad);neitherdosequalifiesbothyaw signs.",
+    "no_global_dose": true,
+    "holdouts_launched": false,
+    "PPO_launched": false,
+    "review_evidence": "turn_coordinated_execution_review_20260908/",
+    "bank_sha256": "cacf55dc524d60cf85a3c8ca3bb74074d09ce15e31789b3b63d36d764bf7acdc"
   },
   "automation": "Keepactive;walking/yawgoalsremainunmet.",
-  "pending": [
-    "Dispatchunownedassistedcoordinatedscreenandverifyexecution.",
-    "Publishfinalreceiptandcurrentcapacity."
-  ],
+  "pending": [],
   "evidence": [
     "fleet_20260908T070313Z/",
     "cartfoot_final_read_20260908/",
-    "turn_coordinated_guidance_20260908/"
+    "turn_coordinated_guidance_20260908/",
+    "turn_coordinated_execution_review_20260908/"
+  ],
+  "capacity_latest": {
+    "sample_at": "2026-09-08T07:29:00Z",
+    "ready": 11,
+    "optimizing": 3,
+    "free": 8,
+    "pending": [
+      6
+    ],
+    "backlog": [],
+    "active": [
+      {
+        "run": "seed10OFF",
+        "pod": 0,
+        "pid": 740711,
+        "steps": 17825792,
+        "fps": 23381
+      },
+      {
+        "run": "seed11ON",
+        "pod": 2,
+        "pid": 3827596,
+        "steps": 27787264,
+        "fps": 22267
+      },
+      {
+        "run": "seed11OFF",
+        "pod": 8,
+        "pid": 1005665,
+        "steps": 23068672,
+        "fps": 23783
+      }
+    ],
+    "completed": "Seed7ON/OFF andseed10ONeach40,370,176steps,naturalCPUhandoffandGPUreleased.",
+    "idle_context": "Three new acquisition arms placed and repeatedly verified this visit. Subsequent ready-gate triage and steering mechanism evidence determine further justified work; no unplanned seeds, filler, physics relaxation or capacity purchases."
+  },
+  "additional_refill": {
+    "owner": "20260908T070845",
+    "run": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1",
+    "pod": 0,
+    "pid": 740711,
+    "wandb_id": "2vfmkuv4",
+    "steps_from": 1572864,
+    "steps_to": 3670016,
+    "sample_separation_s": 70,
+    "fps": 19967,
+    "actual_repeated_PPO_verified": true,
+    "budget": "Owner07084540M;initialowner061641remains44M. Independentlytriagedmatchedcontrolplacement,no guardrailoverride."
+  },
+  "ongoing_cloud_work": [
+    "WatcherisUP;070331and070845completedrefill/triage;071722finishingcoordinatedSTOPpublication.",
+    "NewEASYseed7ONfinalgatebecameready~07:29,otherCPUfinalizersadvance;watcherownstheirnexttriage.",
+    "Remaining3acquisitionsstilltraining. Do notduplicateorcountCPUfinalizersasoptimizers.",
+    "Keepheartbeatactive;walking/yawgoalsremainunmet."
   ]
 }

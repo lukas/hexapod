@@ -1,0 +1,138 @@
+{
+  "cycle": "20260908T071722_operator-kick",
+  "scope": "Read-only review; no simulation, edits to owner/core, launches, or kicks.",
+  "expected_templates_sha256": "7014cf633de1e9d22996525ff0465a86819c5865dcb3e0e464996846d1027214",
+  "source_versions": [
+    {
+      "path": "/workspace/hexapod/artifacts/rl_watchdog/turn_coordinated_screen_20260908/coordinated_screen_bank.py",
+      "observed_utc": "2026-09-08T07:23:47.981300+00:00",
+      "sha256": "84456d88ee86aff69bea835148bd512b0d8a58450c7702dce456418b84505c03",
+      "status": "Intermediate assembly only; no completed-run criticism inferred."
+    },
+    {
+      "path": "/workspace/hexapod/artifacts/rl_watchdog/turn_coordinated_screen_20260908/coordinated_screen_bank.py",
+      "observed_utc": "2026-09-08T07:25:31.457621+00:00",
+      "sha256": "af61c11a55d0cb0361d6d712e348b69e98b0e59c24959ea3bf92d08ad9401ebd",
+      "status": "Complete runner source reviewed; no concrete blocker."
+    },
+    {
+      "path": "/workspace/hexapod/artifacts/rl_watchdog/turn_coordinated_screen_20260908/analyze_coordinated_screen.py",
+      "observed_utc": "2026-09-08T07:26:56.981839+00:00",
+      "sha256": "cf00013d238521466324799c715bb623785acd3c7aed733e30ad216a94335b77",
+      "status": "Frozen decision predicates reviewed; no concrete blocker."
+    }
+  ],
+  "verified_source_properties": [
+    "Four templates were hash-pinned and independently reproduced exactly by the owner.",
+    "Selection uses actual phase, nearest center, a 1e-12 rad tie tolerance and lower phase index on ties. Exact zero yaw gives zero action; no start-label lookup selects the action.",
+    "The vector stays fixed for five ticks. Both signs at amplitudes 0.025 and 0.05 are applied after policy-action clipping; actual coordinate doses and clipping are recorded.",
+    "Four continuous baselines match the reviewed source bank in full state, trace and observed yaw before any branches.",
+    "Eight zero branches pass complete state and trace parity before 32 pulse branches. Every pulse prefix is checked.",
+    "Decision uses 5 mrad actual positive-vector gain plus unchanged corrected retention, positive odd response, both starts, opposite-vector retention and each yaw sign.",
+    "One global dose is selected, preferring 0.025. Stronger bidirectional reversal is reported separately. Discovery results do not authorize PPO."
+  ],
+  "findings": [
+    {
+      "kind": "supported_execution",
+      "detail": "No concrete implementation or gate defect found. Frozen templates, action timing, exact prefix/zero state checks and global-dose predicates agree with guidance. Independently recomputed raw yaw/retention/template qualification agrees with owner analysis."
+    },
+    {
+      "kind": "scientific_result",
+      "detail": "At amplitude 0.05, only negative-yaw phase 0 qualifies across both starts, with gains 7.0659 and 5.6659 mrad. No positive-yaw template qualifies. At 0.025, no template qualifies. Four of 16 positive-vector cases pass 5 mrad plus retention; 15/16 have the expected odd direction; 30/32 pulse branches retain. The two retention failures are positive-yaw phase 1 at 0.05: forward ratios 0.85424 and 0.89082, below 0.9. No clipping occurred. The stronger bidirectional 5 mrad reversal count is 0/16."
+    },
+    {
+      "kind": "scope",
+      "detail": "The coordinated response is measurable but fails the frozen both-signs/global-dose criterion. Conditional quarter-phase and straight tests are not licensed; neither is PPO. Preserve the original 0/288 single-joint negative and avoid universal closure of coordinated, longer or closed-loop steering classes."
+    }
+  ],
+  "status": "First full 40-branch execution and decision independently verified. STOP; no global dose qualifies.",
+  "completed_read_utc": "2026-09-08T07:29:32.488934+00:00",
+  "executed_source_matches_preexecution_review": true,
+  "result": {
+    "observed_utc": "2026-09-08T07:28:27.510371+00:00",
+    "source_runner_sha256": "af61c11a55d0cb0361d6d712e348b69e98b0e59c24959ea3bf92d08ad9401ebd",
+    "source_analysis_sha256": "cf00013d238521466324799c715bb623785acd3c7aed733e30ad216a94335b77",
+    "bank_sha256": "cacf55dc524d60cf85a3c8ca3bb74074d09ce15e31789b3b63d36d764bf7acdc",
+    "branch_counts": {
+      "zero": 8,
+      "pulse": 32
+    },
+    "raw_fullstate_parity_verified": true,
+    "runner_source_equals_preexecution_review": true,
+    "analysis_source_equals_preexecution_review": true,
+    "chosen_global_dose": null,
+    "decision": "STOP",
+    "all_analysis_agrees": true,
+    "positive_primary_passes": 4,
+    "direction_support": 15,
+    "retention_passes": 30,
+    "clip_hits": 0,
+    "wall_s": 21.19,
+    "qualified_templates_by_dose": {
+      "0.025": {
+        "templates": {
+          "wz_neg_phase0": false,
+          "wz_neg_phase1": false,
+          "wz_pos_phase0": false,
+          "wz_pos_phase1": false
+        },
+        "global": false
+      },
+      "0.05": {
+        "templates": {
+          "wz_neg_phase0": true,
+          "wz_neg_phase1": false,
+          "wz_pos_phase0": false,
+          "wz_pos_phase1": false
+        },
+        "global": false
+      }
+    },
+    "controller_artifact_directory": "/workspace/hexapod/artifacts/rl_watchdog/turn_coordinated_screen_20260908",
+    "positive_primary_denominator": 16,
+    "retention_denominator": 32,
+    "stronger_reversal_count": 0,
+    "G_plus_range_mrad": [
+      -0.4969,
+      7.0659
+    ],
+    "max_endpoint_positive_gain_mrad": 7.132842810708029,
+    "forward_retention_failures": [
+      {
+        "wz": 0.15,
+        "start_phase": 0.0,
+        "branch_tick": 600,
+        "amplitude": 0.05,
+        "gain_mrad": 5.5576735992808874,
+        "forward_ratio": 0.8542409688697106,
+        "failed_checks": [
+          "forward"
+        ]
+      },
+      {
+        "wz": 0.15,
+        "start_phase": 3.141592653589793,
+        "branch_tick": 638,
+        "amplitude": 0.05,
+        "gain_mrad": 3.25279624363517,
+        "forward_ratio": 0.890821246169973,
+        "failed_checks": [
+          "forward"
+        ]
+      }
+    ]
+  },
+  "owner_observation": "Native cycle log through 07:28:42 shows completed full screen, frozen analysis, then result/document preparation. No holdout, recurring-controller design or PPO launch observed. Owner remains active while publishing.",
+  "draft_discipline": "Earlier 07:23 source was incomplete assembly and was not labeled an executed defect. Executed runner af61c11a and analysis cf00013d exactly match versions reviewed before full run.",
+  "artifact_provenance": {
+    "local_supporting_directory": "/tmp/coordinated-execution-audit-20260908T070313Z",
+    "files_sha256": {
+      "screen_summary.json": "c3fc87d9574e191bc182af2249c94e7f5b5a7dd07ec73206ddff9e63d5ecc99d",
+      "observed_cycle_tail.txt": "7d3be6e0c3ef7883e051985d753862b5e68aaaaeedaba80b0d7c2f5fe89d39df",
+      "independent_recheck.json": "338a06d751844ab3fb213a51d674af4a737113591e9b650852147f85b5b508b2",
+      "coordinated_screen_bank.py": "af61c11a55d0cb0361d6d712e348b69e98b0e59c24959ea3bf92d08ad9401ebd",
+      "analyze_coordinated_screen.py": "cf00013d238521466324799c715bb623785acd3c7aed733e30ad216a94335b77",
+      "full/bank.json": "cacf55dc524d60cf85a3c8ca3bb74074d09ce15e31789b3b63d36d764bf7acdc"
+    }
+  }
+}

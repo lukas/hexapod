@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Unified script runner for the repo:
-#   1. Keeps the single repo-root `.venv` in sync with `uv.lock` (uv sync is a
-#      fast no-op when nothing changed), so every project shares one set of
-#      installed wheels. Dependencies are declared in pyproject.toml.
+#   1. Keeps the single repo-root `.venv` in sync with `uv.lock` (a fast no-op
+#      when nothing changed), so every project shares one set of installed
+#      wheels. Dependencies are declared in pyproject.toml.
 #   2. Resolves the target script either as an absolute path, a path relative
 #      to the repo root (e.g. `hexapod_walker/prototype_sts3215/build_all.py`),
 #      or a bare script name (which is searched for under the repo).
@@ -23,9 +23,10 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 127
 fi
 
-# Create/update .venv from uv.lock. `--frozen` never rewrites the lock here;
-# change dependencies in pyproject.toml and run `uv lock` explicitly.
-uv sync --frozen --quiet
+# The `uv run --frozen` below creates/updates .venv from uv.lock on demand
+# WITHOUT pruning opt-in groups someone synced by hand (`uv sync --group mjx`);
+# a plain `uv sync` here would uninstall them. `--frozen` never rewrites the
+# lock; change dependencies in pyproject.toml and run `uv lock` explicitly.
 
 if [ "$#" -eq 0 ]; then
     echo "usage: ./run.sh <script.py> [args...]" >&2

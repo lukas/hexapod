@@ -1,7 +1,7 @@
 {
   "heartbeat": "keep-hexapod-rl-gpus-training",
   "trigger_utc": "2026-09-08T00:47:11.659Z",
-  "updated_utc": "2026-09-08T00:59:27Z",
+  "updated_utc": "2026-09-08T01:36:26.840102+00:00",
   "capacity_at_visit": {
     "ready": 11,
     "free": 11,
@@ -76,8 +76,8 @@
         "activation_identity_error": -3.375077994860476e-13,
         "optimizer": "completed, exited",
         "cached_wandb_state": "running",
-        "held_out_report": "pending at 00:56:54",
-        "completed_eval_clips": 14
+        "held_out_report": "complete:21/24gait_valid,0terminations",
+        "completed_eval_clips": 24
       },
       {
         "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratio1-guardfix1",
@@ -112,20 +112,28 @@
         "activation_identity_error": 3.552713678800501e-15,
         "optimizer": "completed, exited",
         "cached_wandb_state": "running",
-        "held_out_report": "pending at 00:56:54",
-        "completed_eval_clips": 11
+        "held_out_report": "complete:18/24gait_valid,0terminations,leg0ratio>=.22in21/24",
+        "completed_eval_clips": 24
       }
     ],
     "continuation_dependency": "Original preregistered held-out gait/leg-use and no-new-falls gates; active charge alone is insufficient.",
-    "eval_pipeline": "All four watcher supervisors/evaluators advancing. train2 also has two old invalid-run gates and finalizer workers. No lost handoff, no duplicate evals."
+    "eval_pipeline": "Earlier four-canary evaluation handoffs were preserved. Acquisition xy81bl5d fired early prestage at 01:23:52Z and controller checkpoint pull completed at 01:23:55Z; CPU finalizer remained alive at 01:35:28Z. No duplicate evaluations launched by this watchdog.",
+    "s1_comparison": {
+      "actual_initial_checkpoint": "s1_widen8",
+      "initial_gait_valid": 21,
+      "undosed_same_budget_gait_valid": 22,
+      "corrected_gait_valid": 21,
+      "all_terminated": 0,
+      "mechanism_efficacy_demonstrated": false
+    }
   },
   "steering": {
     "completed_cycle": "20260908T000347",
-    "new_owner_cycle": "20260908T005017",
-    "new_owner_pid": 4069062,
+    "new_owner_cycle": "20260908T011923",
+    "new_owner_pid": 4089116,
     "review_commit": "860f498c806f5fe8807cc6f9d4ad648ec5570105",
     "review_artifact": "artifacts/rl_watchdog/turnpipeline_review_20260908.md",
-    "status": "Active owner preparing lift-only phase bank; no training canary yet.",
+    "status": "Cycle 20260908T011923 completed its bounded knee-stance bank. The pre-registered both-sign yaw gain bar was unmet, so no training canary was launched. A slower-cadence comparison is nominated for the next cycle.",
     "qualification": "Original criteria retained; universal-impossibility claim and assumed derating superseded.",
     "frozen_assets": {
       "archive": "/workspace/turnphase_frozen_20260908/assets.tar.gz",
@@ -135,6 +143,50 @@
       "mass_kg": 4.80573,
       "old_pipeline_mass_kg": 3.494226,
       "xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837"
+    },
+    "phase_bank": {
+      "commit": "01fe9730633e25e8d83b3df2b55c06478c583c87",
+      "full_mesh_rollouts": 24,
+      "falls": 0,
+      "lead_021": "Both arc signs reversed; rejected",
+      "lead_002": "Yaw tracking worsened bothsigns; rejected",
+      "no_universal_timing_closure": true
+    },
+    "next_scope": "Nominated, not launched: baseline versus one slower cadence near period_scale=1.5 within existing SCALE_PERIOD bounds on the same original both-sign arc and straight-guard cells. Preserve frozen assets, motor limits and qualification; no new seed or physical actions.",
+    "new_owner_status": "completed successfully; no active owner at latest observation",
+    "active_owner_cycle": null,
+    "new_owner_finished_utc": "2026-09-08T01:32:32Z",
+    "new_owner_reaped_utc": "2026-09-08T01:34:47Z",
+    "new_owner_pid_exists": false,
+    "stance_bank": {
+      "commit": "a88155cc",
+      "artifact": "artifacts/rl_watchdog/turn_stancearm_20260908/README.md",
+      "full_mesh_rollouts": 12,
+      "falls": 0,
+      "knee_deg": [
+        100,
+        90
+      ],
+      "hip_deg": 20,
+      "starts_rad": [
+        0,
+        3.141592653589793
+      ],
+      "plant_mass_kg": 4.80573,
+      "asset_hashes_verified": 38,
+      "loaded_pad_arm_mm": [
+        173,
+        198
+      ],
+      "executed_fk_sweep_twist_gain_percent": 15,
+      "body_yaw_gain_by_sign_percent": [
+        2.1,
+        0.7
+      ],
+      "loaded_pad_residual_slip_increase_percent": 16,
+      "both_sign_training_bar_met": false,
+      "training_canary_launched": false,
+      "interpretation": "The tested stance change did not produce a reliable yaw improvement; finite probes do not establish universal controller impossibility."
     }
   },
   "watcher": {
@@ -147,21 +199,154 @@
       2605604
     ],
     "stale_rows_blocked_scheduling": false,
-    "automatic_refill_earliest_utc": "2026-09-08T00:55:20Z",
-    "restarted": false
+    "automatic_refill_earliest_utc": "2026-09-08T01:44:59Z",
+    "restarted": false,
+    "active_cycles_at_latest": 0,
+    "latest_poll_utc": "2026-09-08T01:34:59Z",
+    "pause": false,
+    "cycle_worked_consumed": true,
+    "automatic_refill_time_qualification": "Approximate: 600-second grace after the first owner-free capacity check; polling/check latency can delay it and newly ready evaluations can trigger earlier.",
+    "latest_owner_reaped": true
   },
   "status_repair": {
     "commit": "bfcd6bc47",
     "scope": "Read-only zombie/missing-process classification, no registry/scheduler mutations",
     "tests": "32 focused tests pass locally and on Linux controller; four new regressions failed before fix",
-    "deployment": "statusweb-only restart at approximately00:59Z; nativeMCP verifies1 genuinely active cycle and watcherUP"
+    "deployment": "statusweb-only restart at approximately00:59Z; nativeMCP verifies1 genuinely active cycle and watcherUP",
+    "deployment_verified": true
   },
   "feedback": [
     "fb_20260908T005032_0078a6",
-    "fb_20260908T005811_d3e2a7"
+    "fb_20260908T005811_d3e2a7",
+    "fb_20260908T010327_eaaee6",
+    "fb_20260908T010823_7334df",
+    "fb_20260908T011306_89cdac"
   ],
   "no_new_capacity": true,
   "no_physical_actions": true,
   "no_new_seeds": true,
-  "qualification_relaxed": false
+  "qualification_relaxed": false,
+  "capacity_latest": {
+    "observed_utc": "2026-09-08T01:35:28Z",
+    "source": "canonical capacity.py --json, direct trainer/finalizer process inspection, train-0 NVIDIA sample",
+    "ready": 11,
+    "free": 11,
+    "optimizing": 0,
+    "compiling": 0,
+    "pending": 1,
+    "backlog": [],
+    "nvidia_sample": {
+      "pod": "hexapod-mjx-train-0",
+      "utilization_percent": 0,
+      "memory_mib": 0
+    },
+    "cpu_artifacts_in_progress": true
+  },
+  "acquisition": {
+    "run": "cw-walkscratch-crutchoff-s1-widen8-legdutyratio-guardfix-acq10m",
+    "created": "2026-09-08T01:14:58+00:00",
+    "trainer_pid": "659667",
+    "wandb_id": "xy81bl5d",
+    "code_sha": "ee76daaadd7cf9df20891425084c7845c412bc90",
+    "steps_planned": 10000000,
+    "seed": 3,
+    "initial_checkpoint": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1-legdutyratiofresh-guardfix1",
+    "initial_checkpoint_md5": "edfa283302954b40103334227eb3db1c",
+    "step_samples": [
+      {
+        "steps": 524288
+      },
+      {
+        "steps": 1572864
+      },
+      {
+        "steps": 2621440,
+        "logged_fps": 18968
+      },
+      {
+        "utc": "2026-09-08T01:21:10Z",
+        "steps": 6291456,
+        "logged_fps": 21440
+      },
+      {
+        "utc": "2026-09-08T01:23:42.805861Z",
+        "steps": 10485760,
+        "logged_fps": 22702,
+        "source": "training_complete marker and final PPO log table"
+      }
+    ],
+    "rationale": "Bounded +10M acquisition after the corrected 2M additive leg-duty-ratio canary passed its pre-registered mechanism-health gate: 21/24 gait_valid,0/24 terminations; every leg's episode-aggregate peer-relative duty exceeds0.22 in at least22/24 episodes. Actual activation is verified in W&B tdpmyt9z,charge=-150*shortfall. This is an emerging-underuse prevention/duration test, NOT proof that the charge repaired an entrenched gait: the ACTUAL initial checkpoint s1_widen8 itself scored21/24, and the same-budget undosed infrastructure-invalid arm scored22/24. Continuation tests whether learning on the active additive reward preserves six-leg use over acquisition where prior undosed long training entrenched sacrifice. Initialize from EXACT corrected guardfix1 output (MD5edfa283302954b40103334227eb3db1c), RNG3 (s1 is lineage label), same8-way headings, pure prior-free/noBC/no gait clock, unchanged reward150/target.30/grace3/tau1 and source motor/DR contract. Single planned seed, no additional arm, no relaxed qualification.",
+    "gate": "ACQUISITION duration read, +10M only. Compare the exact24episode det/sto walk/startjitter panel to corrected2M source and actual undosed initialization, reporting per-leg duty ratios, gait_valid, progress and slip by group. Retain original health bar:0 new falls/terminations, gait_valid>=21/24 (flat-or-better than this corrected source), no NEW chronic single-leg sacrifice versus the source panel and formerly weak leg relative duty>=0.22 in a majority of episodes. A claimed mechanism improvement additionally needs behavioral improvement over source, not reward alone; an unchanged21/24 is retention, not efficacy proof. If new falls or persistent gait/command regression emerge, inspect and stop per existing pruner rules, preserving checkpoints. Rising charge/reward cannot excuse worsening behavior. Read intermediate behavior at normal existing eval cadence; any further budget needs a fresh measured justification. Original final walking/joystick qualification remains unmet and unchanged.",
+    "evidence": "Healthy canary cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1-legdutyratiofresh-guardfix1 (2,097,152steps, activecharge,21/24gait,0terminations, eachlegpeer-ratio>=.22 in>=22/24episodes). Comparable full-budget prior-free learning precedent cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-acq1:40M ACQ PASS,21/24gait,0falls withsame no-crutch/motor/DR lineage. Crucial harder-heading duration precedent cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1:40M ACQ FAIL,21->20/24 andnewchronic leg5sacrificeatwalk/det5 despite risingreward. This new additive reward is active and healthy at2M; +10M tests prevention of that documented entrenchment while retaining the source gait; no efficacy is yet established.",
+    "initial_refusal": "First attempt lacked required acquisition evidence; retainedREFUSED row, supplied healthycanary and40Mprecedents, relaunchednormallywithoutoverride.",
+    "optimizer": "completed, exited",
+    "training_complete_utc": "2026-09-08T01:23:42.805861Z",
+    "steps_completed": 10485760,
+    "optimizer_exit_verified_utc": "2026-09-08T01:35:28Z",
+    "trainer_pid_exists": false,
+    "finalizer_pid": 666418,
+    "finalizer_state": "S, PPID 1; artifact_finalizer, CUDA_VISIBLE_DEVICES empty per handoff log",
+    "checkpoint_bytes": 4469269,
+    "checkpoint_md5": "fb3faa76e582e7c065569384b5939f4d",
+    "checkpoint_marker_md5_verified": true,
+    "controller_pull_verified_utc": "2026-09-08T01:23:55Z",
+    "checkpoint_wandb_publication": "Normal short-name checkpoint artifact published successfully; W&B finish logged",
+    "artifacts": "3 eval/video jobs handed to CPU finalizer; held-out decision pending",
+    "cached_ledger_status_at_observation": "RUNNING (stale with respect to optimization)",
+    "reported_elapsed_including_setup_s": 505,
+    "reported_env_steps_per_s_including_setup": 19784
+  },
+  "checkpoint_integrity": {
+    "all_four_bytes": 4469267,
+    "zip_checks": "CRCclean",
+    "pod_controller_md5_match": true,
+    "training_complete_markers": "present onpods,2097152steps; notbesidecontrollercopies",
+    "md5": [
+      "2156daae67933cd1bc1a66accf422edb",
+      "edfa283302954b40103334227eb3db1c",
+      "929b8b83964e776b2c399fdc501cc5bb",
+      "ef7998a6bfda7f8a390a20c1168dce19"
+    ],
+    "publisher_issue": "RESOLVED: bounded W&B names retain original run identity and checkpoint lineage; all four lost checkpoint publications restored and remote-verified.",
+    "publisher_fix_commit": "1c3f600d3a7fac56cd5a02dc0f64827e51493f7b",
+    "publisher_tests": "16 focused tests passed; standalone artifact-names suite passed 5 tests after import-path fix.",
+    "publication_recovery_receipt": "/tmp/checkpoint_publication_recovery_20260908.json",
+    "restored_checkpoint_artifacts": [
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratiofresh-guardfix1",
+        "wandb_id": "iwhaciad",
+        "artifact": "l2k2/hexapod-balance/ckpt-ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_-089e4dc27e22247d590f5c0726ebfade:v0",
+        "md5": "2156daae67933cd1bc1a66accf422edb",
+        "bytes": 4469267
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen8-acq1-legdutyratiofresh-guardfix1",
+        "wandb_id": "tdpmyt9z",
+        "artifact": "l2k2/hexapod-balance/ckpt-ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s1_-0a7ac3badb3be492eb8cf936d9061bdd:v0",
+        "md5": "edfa283302954b40103334227eb3db1c",
+        "bytes": 4469267
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widen8-acq1-legdutyratio1-guardfix1",
+        "wandb_id": "nh3lt3o3",
+        "artifact": "l2k2/hexapod-balance/ckpt-ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_-7767f562c9a5e4ec202fffa180674fb8:v0",
+        "md5": "929b8b83964e776b2c399fdc501cc5bb",
+        "bytes": 4469267
+      },
+      {
+        "run": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s0-widenbis180-legdutyratiofresh-guardfix1",
+        "wandb_id": "w6y5uai5",
+        "artifact": "l2k2/hexapod-balance/ckpt-ppo_goal_cw_walkscratch_easy0905_headset_crossgrav_medhead_dr_allaxis_nokick_crutchoff_s0_-43c5e7b96738603e9da4b95b2ba1642f:v0",
+        "md5": "ef7998a6bfda7f8a390a20c1168dce19",
+        "bytes": 4469267
+      }
+    ],
+    "remote_checkpoint_verification": "All four restored artifacts verified remotely by root against original bytes/MD5.",
+    "analysis_restoration": {
+      "wandb_id": "tdpmyt9z",
+      "artifact": "analysis-cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxis-nokick-crutchoff-s1-widen-329a0bd6c49fc48ffed97115f5293074",
+      "eval_files": 54,
+      "status": "Restored to original run; root verified command exit 0."
+    }
+  }
 }

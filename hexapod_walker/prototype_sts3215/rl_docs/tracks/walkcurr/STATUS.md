@@ -1,3 +1,53 @@
+## 2026-09-08 ~12:2x (triage cycle; assigned `cartfoot-halfgrav-s11-acq1-cont10m`) — seed11's +10M continuation is the FIRST cont10m in this cohort to FAIL its own registered retention bar: gait_valid drops below the required floor and the chronic det-mode leg1 dropout spreads into previously-clean stochastic episodes
+
+One plain sentence: unlike seed7 (whose cont10m HOLDS its 22/24 band
+exactly), seed11's cont10m drops gait_valid 11/24 -> 8/24 -- below
+this run's own pre-registered "stay in-or-above 11/24" bar -- even
+though the falls and slip clauses both clear cleanly.
+
+**`cw-walkscratch-easy0905-cartfoot-halfgrav-s11-acq1-cont10m` ->
+RETENTION FAIL.** Ledger showed stale RUNNING (GPU freed before sync,
+the now-familiar `defer-final-artifacts` lag); W&B `qnxlwcxv` state
+`finished`, 10,485,760 steps. 0 new falls/terminations in all 24 gate
+episodes; slip/m 1.63/1.79/1.74/1.85 vs the 40M read's
+1.61/1.58/1.50/1.69, all within +/-20% (both clauses PASS on their
+own). gait_valid: walk/det 0/6 (unchanged), walk/sto 6/6 -> 4/6,
+walk_startjitter/det 0/6 (unchanged), walk_startjitter/sto 5/6 -> 4/6
+= 8/24 total, below the required 11/24 floor. The chronic leg1
+det-mode dropout (12/12 det episodes, identical trajectories both
+budgets since det mode is deterministic) does NOT clear as the gate
+asked to check -- it SPREADS: leg1 is now also sacrificed in 2/6
+walk/sto and 1/6 walk_startjitter/sto episodes that were clean at
+40M. ep_rew_mean keeps rising every quarter (257.6/696.3/1156.2/
+1419.0, final 1425.76) with no plateau. Per the 08-21 ruling this is
+reward/gait misalignment to note (reward keeps optimizing forward
+progress while six-leg validity narrows), not grounds to kill the
+seed11 lineage -- its 40M ACQ-PASS checkpoint stays champion for this
+seed; do not warm-start or evaluate this cont10m checkpoint as an
+improvement over its own parent. Do NOT pool this with seed7's HOLD
+(22/24 unchanged) -- report per-seed as this file has repeatedly
+required; the cohort cont10m read is now 1 HOLD (s7) / 1 narrow-HOLD-
+with-gait-worsening (offctrl-s7) / 1 FAIL (s11 ON), with seed10's
+matched cont10m pair still owned by a concurrent cycle.
+
+Refill: full board re-checked (`launch_run.py status`) -- every
+currently-training line this prompt names as concurrently-owned
+(`crutchoff-{s0,s2}-widen8-legdutyratio-swingfloor`, `cartfoot-
+halfgrav-{offctrl-s12,s12}-acq1`, `headset-crossgrav-...-
+{guardfix1,footgeom0135-fix1}`) is untouched. No new hypothesis is
+licensed by this single result alone -- the open cohort question
+(does seed10's own cont10m land HOLD or FAIL) belongs to whichever
+cycle finds it staged; nothing else is genuinely runnable this read
+without inventing filler. CYCLE_WORKED touched (verdict + SKILLS.md/
+STATUS.md update).
+
+Evidence: `ops.sh review cw-walkscratch-easy0905-cartfoot-halfgrav-
+s11-acq1-cont10m`; `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_
+halfgrav_s11_acq1_cont10m_gate/report.json` vs `..._s11_acq1_gate/
+report.json`; W&B `qnxlwcxv`. RL_LOG 09-08 ~12:2x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~12:1x (triage cycle; assigned `widen8-jointspace-freshinit-b40m-ctrl`, left unverdicted -- joint sibling still training; refill launched the swing-floor 3rd-seed tie-break) 
 
 One plain sentence: the assigned run finished its 40M budget with a

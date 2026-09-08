@@ -1,3 +1,47 @@
+## 2026-09-08 ~19:1x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the entire `walk_leg_loadslip_ratio_charge` investigation line (dose/target/isolation/cap all tried, 2/2 seeds on the final cap arm confirm) + separately CLOSES the widen8-jointspace-freshinit DR-breadth investigation (true zero-DR still fails to ignite)
+
+One plain sentence: the two runs that finished this window each close out a
+long-running investigation rather than opening a new question -- the
+capped-excess repair for `walk_leg_loadslip_ratio_charge` is
+MECHANISM-HEALTHY on both tested seeds but never clears the efficacy bar,
+and the fresh-init widen8 composite still cannot walk even with domain
+randomization removed entirely.
+
+**`walk_leg_loadslip_ratio_charge` excess-cap (`reward.walk_leg_loadslip_ratio_excess_cap=0.2`), 2/2 seeds CANARY PASS-MECHANISM / no efficacy -- CLOSES the capped-excess repair and, with it, the whole loadslip-ratio-charge lineage:**
+`crutchoff-s0-widen8-loadslip-target6-cap02-alone` (reward quarters
+[58.1,110.9,89.4,-157.9]) and its seed1 twin `crutchoff-s1-...-cap02-alone`
+([47.8,129.6,119.4,-160.4]) both replicate: no order-of-magnitude reward
+collapse (the pathology this cap was built to fix, confirmed FIXED on both
+seeds) but efficacy vs each seed's own matched `widen8-acq1` baseline stays
+at 0-1/4 groups clearly jointly improving slip+progress (far short of the
+pre-registered >=3/4 bar) -- s0 and s1 each show one group clearly better,
+one mixed-or-worse, two noise-level. 0 new falls either seed, contact
+sheets confirm real (if modest) forward translation, not a stationary
+artifact. Per this campaign's own repeated "two seeds agreeing is
+sufficient for a canary-level mechanism verdict" practice: **the entire
+`walk_leg_loadslip_ratio_charge` charge family is now closed as a repair
+for the widen8 lineage's leg-sacrifice/slip pathology** -- every dose (150/
+45/15), the target recalibration (1.5->6.0), the duty-ratio confound
+isolation, and now the excess-cap have all been tried and none clears
+efficacy on any of the 2-3 seeds tested per variant. Do not launch another
+dose/target/cap variant of this same charge shape. **Open lead (unchanged
+from assistfade's own 09-07 finding, now doubly confirmed on walkcurr):**
+the next repair attempt needs a STRUCTURALLY different per-leg mechanism --
+e.g. a positive swing-initiation income for the currently-most-loaded leg
+(reward FOR acting, not a charge for a bad state) or a mechanism that
+prices the fully-planted/no-swing PATTERN directly (a duration-since-last-
+swing signal) rather than a scalar per-tick ratio-vs-target charge, which
+this whole family has now shown is mechanism-safe but not behavior-moving
+regardless of dose/target/cap. This is design work (a redesign of the
+charge's functional form, not its constants) -- flagging for a dig-in
+session before further training spend on this lineage.
+Evidence: `ops.sh review cw-walkscratch-crutchoff-{s0,s1}-widen8-loadslip-target6-cap02-alone`; W&B `5mq94993`/`fdlnjsga`.
+
+**widen8-jointspace-freshinit true-zero-DR (`nodrall2m`, `env.dr_stage_ramp_steps=5e10`) -- CANARY FAIL - MECHANISM, CLOSES the entire DR-breadth investigation on this composite:** pinning the DR ramp so it never leaves ~0 for the full 2M-step budget (the true floor below every prior dose tested: 1.0x/0.5x/0.25x fixed, 0->1 staged, single-axis knockout x3, discrete/continuous group split) still produces the same closed fingerprint -- walk/det fwd med 0.01m (~60x under the 0.03 m/s floor), slip med 73.82 (25x the healthy band), contact sheet confirms the body stationary across all 10 frames while legs cycle. Reward quarters decline monotonically ([-95.3,-236.1,-324.7,-436.0], not the 08-21 rising-reward shape). Combined with the sister `headset-crossgrav-medhead-dr-widen8-cartfoot-freshinit` family's own already-closed heading-width (`narrowhead`, both action spaces FAIL) and torque (`torqueretain`, both action spaces FAIL) bisections, **DR magnitude/schedule/breadth is now conclusively ruled out as the fresh-init blocker at ANY setting from 0 to 1.0x, on both action spaces, at both 2M and 40M budgets** -- the composite's own reward/action-box/8-way-heading design (or simply "fresh random-weight init cannot bootstrap this hardened composite at all, only a warm start can") is the real story. The proven ignition path for this exact DR matrix remains warm-start (the `crutchoff-s{0,1,2}-widen8-acq1` lineage, which trains fine from the simpler easy0905 base-acquisition checkpoint). **No further fresh-init launch is licensed on this composite family at any heading width, torque setting, or DR dose/schedule/grouping without a genuinely different mechanism** (e.g. a curriculum that ramps composite HARDNESS itself -- heading count, DR breadth, and reward complexity together -- starting from the already-solved base-acquisition recipe, rather than any more zero-training DR knob on the hardened composite in isolation).
+Evidence: `ops.sh review cw-walkscratch-easy0905-widen8-jointspace-freshinit-nodrall2m`; W&B `p5bj0esp`.
+
+CYCLE_WORKED touched (3 verdicts recorded incl. a stale housekeeping close-out, 2 of which close long-running investigation lines; 1 OPERATOR_QUESTIONS entry for the canary-enum/PARTIAL-gate conflict). No new GPU launch this cycle: every remaining live thread on this board is either (a) a just-closed investigation with no licensed follow-up per its own gate text, or (b) blocked on the same "needs a genuinely new mechanism design" prerequisite already named by standwalk/assistfade/todaypolicy -- see DIG-IN flag below rather than a hasty low-confidence dose variant.
+
 ## 2026-09-08 ~15:4x (triage/refill; 11/11 GPU free at read, empty backlog) — CLOSES the DR group-axis split 2/2 FAIL (nodiscrete2m + nocontinuous2m), verdicted w15 (w45 landed by a concurrent cycle), and found a CONFOUND in every `walk_leg_loadslip_ratio_charge` read to date: launched 2 clean isolation canaries to re-test it
 
 One plain sentence: every `walk_leg_loadslip_ratio_charge` arm scored

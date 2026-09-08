@@ -5733,3 +5733,26 @@ judgment for the running arms, and all gates are on the UNCHANGED
 full-DR held-out panel regardless. Standing item: build mint-frac
 realized-exposure telemetry (default OFF, bit-exact off, SNAP_ATTRS-
 aware, unit-banked) BEFORE the next staged-DR wave is pre-registered.
+
+## 2026-09-08 ~19:0x — canary status enum (PASS/FAIL-INFRA/FAIL-MECHANISM) vs a pre-registered PARTIAL gate branch
+`cw-walkscratch-crutchoff-s0-widen8-loadslip-target6-cap02-alone`'s own
+pre-registered gate text (written before `canary_update_error` locked
+canary verdicts to `CANARY PASS` / `CANARY FAIL - INFRASTRUCTURE` /
+`CANARY FAIL - MECHANISM`) explicitly names a third outcome: "PARTIAL
+(reward healthier but still <3/4 groups, or vice versa) = report both
+halves, do not force a verdict either way." `ops.sh verdict` refuses
+any canary-phase verdict text not starting with one of the three
+allowed prefixes, so a literal PARTIAL cannot be recorded. Assumed
+resolution: canary scope's own charter ("do not judge skill
+acquisition, close a behavior/reward class, or require mature gait at
+this checkpoint") means the canary's real question is mechanism
+health (did the collapse get fixed), not the efficacy bar bundled
+into the same gate text -- efficacy is an acquisition-scope question.
+Recorded `CANARY PASS - MECHANISM HEALTHY (efficacy still open)` for
+that run: the reward-collapse repair worked (quarters [58.1,110.9,
+89.4,-157.9], no order-of-magnitude collapse) even though the >=3/4
+held-out-groups efficacy bar was not cleared. Going forward: pre-
+registered canary gates should stick to the ternary vocabulary
+(PASS/FAIL-INFRASTRUCTURE/FAIL-MECHANISM) instead of writing a
+PARTIAL branch the tooling cannot record; text nuance belongs in the
+verdict body, not the enum.

@@ -906,6 +906,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace convention as every other gate in this file).
         self._legslip_ratio_ema = [0.0] * 6
         self._legslip_ratio_ticks = 0
+        # Per-leg swing-GAP reward-charge state (reward.walk_leg_
+        # swing_gap_charge, 2026-09-08): seconds elapsed since each
+        # leg's last qualifying swing event -- see the mechanism's
+        # own comment block in step() for the full design rationale
+        # (the "duration-since-last-swing PATTERN price" lead named
+        # by the loadslip-ratio-charge closure). Seeded at 0.0 (a leg
+        # is trivially "just swung" at the plant-start reset, mirroring
+        # the loadslip EMA's own 0-seed rationale). Independent of
+        # every other slip/duty mechanism's state above.
+        self._swing_gap_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -1612,6 +1622,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace convention as every other gate in this file).
         self._legslip_ratio_ema = [0.0] * 6
         self._legslip_ratio_ticks = 0
+        # Per-leg swing-GAP reward-charge state (reward.walk_leg_
+        # swing_gap_charge, 2026-09-08): seconds elapsed since each
+        # leg's last qualifying swing event -- see the mechanism's
+        # own comment block in step() for the full design rationale
+        # (the "duration-since-last-swing PATTERN price" lead named
+        # by the loadslip-ratio-charge closure). Seeded at 0.0 (a leg
+        # is trivially "just swung" at the plant-start reset, mirroring
+        # the loadslip EMA's own 0-seed rationale). Independent of
+        # every other slip/duty mechanism's state above.
+        self._swing_gap_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -3592,6 +3612,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # grace convention as every other gate in this file).
         self._legslip_ratio_ema = [0.0] * 6
         self._legslip_ratio_ticks = 0
+        # Per-leg swing-GAP reward-charge state (reward.walk_leg_
+        # swing_gap_charge, 2026-09-08): seconds elapsed since each
+        # leg's last qualifying swing event -- see the mechanism's
+        # own comment block in step() for the full design rationale
+        # (the "duration-since-last-swing PATTERN price" lead named
+        # by the loadslip-ratio-charge closure). Seeded at 0.0 (a leg
+        # is trivially "just swung" at the plant-start reset, mirroring
+        # the loadslip EMA's own 0-seed rationale). Independent of
+        # every other slip/duty mechanism's state above.
+        self._swing_gap_s = [0.0] * 6
         # Seconds since the current commanded-stop segment began
         # (reward.walk_stop_grace_s); 0 whenever s_ref > 1e-3
         # (walking commanded), increments by dt each stop tick.
@@ -4865,8 +4895,63 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_lsratio = -g_lsratio * priced_excess
                     info["walk_leg_loadslip_ratio_excess"] = worst_excess
                     info["reward_walk_leg_loadslip_ratio"] = r_lsratio
+            # Per-LEG swing-GAP reward CHARGE (reward.walk_leg_swing_
+            # gap_charge, 2026-09-08 -- the "duration-since-last-swing
+            # PATTERN price" concrete lead named by the loadslip-
+            # ratio-charge closure (this cycle's own CURRENT_TRUTHS/
+            # STATUS.md entry): both the duty-ratio charge (contact-
+            # TIME based) and the loadslip charge (velocity based)
+            # price a STATE a dragging/planted leg can satisfy without
+            # ever completing a real step (duty recovers by holding
+            # longer, slip recovers by holding stiller -- both closed
+            # 2-4/2-4 seeds with 0-1/4 held-out groups clearing
+            # efficacy). This charges the PATTERN directly: seconds
+            # elapsed since this leg's last qualifying swing (the
+            # IDENTICAL stride-filtered liftoff->airborne->touchdown-
+            # with-real-XY-stride event walk_gait_gate/walk_swing_gate/
+            # the duty-ratio swing-floor add-on already detect via
+            # their own `*_flags` arrays below -- same physical
+            # definition, own flag array/state so this dose sweeps
+            # standalone). A leg cannot reduce this charge by planting
+            # harder or sliding less; only by actually swinging.
+            # Additive (never multiplies r_walk/r_prog/r_cmd_track),
+            # no episode cutoff, one-tick lag -- same shape as every
+            # other per-leg charge in this file. CAPPED FROM THE START
+            # (reward.walk_leg_swing_gap_cap_s, default 4.0): unlike
+            # the loadslip charge's initial uncapped design (whose own
+            # isolation canary drove an orders-of-magnitude reward
+            # collapse before the excess-cap retrofit), a duration-
+            # since-last-swing signal is exactly as unbounded (a leg
+            # could go the whole episode without swinging) so this
+            # mechanism ships pre-capped per the 08-21 "encode the
+            # lesson in the mechanism" practice. Default 0.0 = off, no
+            # state read beyond the always-present `_swing_gap_s`
+            # counter (itself inert -- 0 charge -- while off), legacy
+            # bit-exact. cfg: reward.walk_leg_swing_gap_charge (0.0),
+            # reward.walk_leg_swing_gap_grace_s (3.0, seconds of gap
+            # tolerated before it counts -- a leg mid-stance for a
+            # normal stride period is not yet "stuck"),
+            # reward.walk_leg_swing_gap_cap_s (4.0).
+            g_swinggap = float(cfg_get(self.cfg, "reward",
+                                       "walk_leg_swing_gap_charge",
+                                       default=0.0))
+            r_gap = 0.0
+            if g_swinggap > 0.0 and s_ref > 1e-3:
+                gap_grace_s = float(cfg_get(
+                    self.cfg, "reward", "walk_leg_swing_gap_grace_s",
+                    default=3.0))
+                worst_gap = max(self._swing_gap_s)
+                excess = max(0.0, worst_gap - gap_grace_s)
+                gap_cap_s = float(cfg_get(
+                    self.cfg, "reward", "walk_leg_swing_gap_cap_s",
+                    default=4.0))
+                priced_gap = (min(excess, gap_cap_s)
+                              if gap_cap_s > 0.0 else excess)
+                r_gap = -g_swinggap * priced_gap
+                info["walk_leg_swing_gap_worst_s"] = worst_gap
+                info["reward_walk_leg_swing_gap"] = r_gap
             reward = float(reward) + r_walk + r_prog + r_cmd_track \
-                + r_free_pen + r_ratio + r_lsratio
+                + r_free_pen + r_ratio + r_lsratio + r_gap
             if r_free_pen != 0.0:
                 info["reward_walk_freeprog_pen"] = r_free_pen
             info["reward_walk"] = r_walk
@@ -6178,6 +6263,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     or k_park > 0.0 or k_ds > 0.0
                     or g_gait > 0.0 or g_duty > 0.0 or g_swing > 0.0
                     or g_dband > 0.0 or g_ratio > 0.0 or g_lsratio > 0.0
+                    or g_swinggap > 0.0
                     or k_tslip > 0.0 or k_fsh > 0.0 or k_wts > 0.0
                     or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
@@ -6197,6 +6283,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 wts_lo_events = 0
                 swing_gate_flags = [False] * 6
                 ratio_swing_flags = [False] * 6
+                swinggap_flags = [False] * 6
                 contacts = [False] * 6
                 contact_forces = [0.0] * 6
                 meaningful_contacts = 0
@@ -6326,6 +6413,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                 and stride >= gait_stride_m \
                                 and f not in lift:
                             ratio_swing_flags[f] = True
+                        # walk_leg_swing_gap_charge bookkeeping:
+                        # identical qualifying-swing definition, own
+                        # flag array so this charge's dose can be
+                        # swept standalone (never perturbs
+                        # walk_swing_gate/the duty-ratio swing floor's
+                        # own arrays).
+                        if g_swinggap > 0.0 and air >= 2 \
+                                and stride >= gait_stride_m \
+                                and f not in lift:
+                            swinggap_flags[f] = True
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
@@ -6605,6 +6702,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         self._legslip_ratio_ema, tv=tangent_vels,
                         dt=self.dt, tau_s=lsratio_tau_s)
                     self._legslip_ratio_ticks += 1
+                if g_swinggap > 0.0:
+                    # walk_leg_swing_gap_charge bookkeeping (09-08):
+                    # per-leg seconds-since-last-qualifying-swing --
+                    # reset to 0 on a leg that completed a qualifying
+                    # swing THIS tick (`swinggap_flags`), otherwise
+                    # incremented by dt. Own state (`_swing_gap_s`),
+                    # independent of every other gate's window/EMA/
+                    # hist above; updates with THIS tick's swing
+                    # events so the price block (which ran earlier
+                    # this same step()) always reads last tick's
+                    # value -- same one-tick lag every other gate uses.
+                    self._swing_gap_s = [
+                        0.0 if swinggap_flags[f]
+                        else (self._swing_gap_s[f] + self.dt)
+                        for f in range(6)
+                    ]
                 if k_park > 0.0:
                     self._duty_hist.append(
                         [1.0 if c else 0.0 for c in contacts])

@@ -1,3 +1,71 @@
+## 2026-09-08 ~12:0x (same cycle, addendum) — cross-seed swing-floor read now complete: s0 (below) shows 3/4-groups-improve, but the concurrently-verdicted s1 sibling (`CANARY PASS - mechanism healthy, no efficacy`, W&B/ledger note, verdicted by another cycle) shows 0/4 groups jointly improve (gait_valid IDENTICAL to its 0.30-dose sibling in all 4 groups, slip/progress a wash). Read together: 1-of-2 seeds shows the swing-floor lever helping, 1-of-2 shows no effect at all -- this is NOT a reproduced efficacy signal, it is seed-to-seed spread on a n=2 read (same pattern this file has repeatedly warned against pooling, e.g. the halfgrav cart_foot gait_valid spread). Correctly deferred (see below) rather than funding a cont10m off s0 alone; the lever needs either a 3rd-seed tie-break or a dose/window re-check before further budget, not a same-recipe repeat.
+
+One plain sentence: verdicted the swing-count-floor mechanism's own
+first 2M read on seed0 (3 of its 4 eval groups genuinely improve
+together vs the matched 0.30-dose sibling, the 4th neither improves
+nor shows the old trade) and the 4th-seed (s12) halfgrav cart_foot
+ON+OFF 2M canaries (both telemetry-clean, matching the s7/s10/s11
+band exactly), then launched the s12/offctrl-s12 40M acquisition
+pair -- the direct next question both gates name.
+
+**`cw-walkscratch-crutchoff-s0-widen8-legdutyratio-swingfloor` ->
+CANARY PASS (own scope) - joint pending -s1:** telemetry live
+(`env/reward_walk_leg_duty_ratio` -18.5/-23.8, `env/walk_leg_duty_
+ratio_shortfall` 0.123/0.158, both finite/nonzero, same activation
+check as the 0.30-dose canary), 0 new falls/terminations vs the
+matched 0.30-dose `...-legdutyratiofresh-guardfix1` sibling (0/24
+both). Per-group joint gv/slip/prog vs that sibling: walk/det 5/6->
+6/6, slip 10.09->9.64, prog 0.865->0.928 (improves); walk/sto 6/6->
+6/6, slip 8.13->6.89, prog 0.953->1.007 (improves); walk_startjitter/
+det 6/6->6/6, slip 9.42->9.01, prog 1.005->1.048 (improves) -- 3/4
+groups jointly improve, meeting the gate's own bar for a CONTINUE
+signal, and none of the three shows the old "gv recovers via worse
+slip" trade the 0.30/0.45-dose FAILs named. The 4th group,
+walk_startjitter/sto, does not recover: gv holds 4/6->4/6 with the
+identical two sacrificed legs at the identical episode indices
+(leg5 idx2, leg0 idx3) as the sibling, and slip there worsens
+(12.32->14.34) -- no help in this one group, but also not the named
+trade (gv never flipped). `-s1` sibling still training under another
+cycle's line; left untouched. Deferred the +10M continuation
+decision (the family's `on10m`/`offctrl10m` precedent) to the joint
+s0+s1 read rather than launching it on s0 alone.
+
+**`cw-walkscratch-easy0905-cartfoot-halfgrav-s12` (ON) and
+`-offctrl-s12` (OFF) -> both 2M canaries telemetry-clean, matching
+the s7/s10/s11 band:** `ep_rew_mean` -611.6 (ON) / -643.6 (OFF)
+vs siblings' -619/-625/-644; `env/reward_walk` +0.24 both, small
+positive as expected pre-gait; no hidden limiter; terminations
+sparse (tilt_roll 1 ON / 3 OFF across the whole 2M). gait_valid 6/6
+in all 4 harness groups for the ON checkpoint already (trivial
+park-in-place at 2M, real motion only in the two stochastic groups).
+OFF sibling's harness report was not prestaged this cycle (no
+`_gate` artifact dir yet) -- verdicted ON on its own synced harness
+read, OFF on telemetry alone (matches the gate's own CANARY
+criteria, which is telemetry/mechanism-only and does not require a
+harness report at 2M); OFF's own eval-harness verdict is left for
+whoever finds its artifacts staged.
+
+**Launched `cw-walkscratch-easy0905-cartfoot-halfgrav-{s12,offctrl-
+s12}-acq1`** (both VERIFIED RUNNING, train-7/train-5, 40M each,
+own-checkpoint respec of the just-verdicted 2M canaries): this is
+the seed12 tiebreaker the cohort has been building toward (s7/s10
+show a real cart_foot gait_valid advantage, s11 near-parity; s12
+decides whether the majority pattern is 2/3->3/4 or the split
+widens to 2/4). Capacity: 2 GPU launches this cycle (80M total new
+GPU steps, at the 80M/cycle cap) -- deferred the swingfloor-s0
+cont10m launch to stay under cap and because the joint s0+s1 read
+is the better science anyway.
+
+Evidence: `ops.sh review cw-walkscratch-crutchoff-s0-widen8-
+legdutyratio-swingfloor`; `logs/ckpt_eval/cw_walkscratch_crutchoff_
+s0_widen8_legdutyratio_swingfloor_gate/report.json` vs
+`..._legdutyratiofresh_guardfix1_gate/report.json`; `ops.sh review
+cw-walkscratch-easy0905-cartfoot-halfgrav-{s12,offctrl-s12}`; W&B
+`z0v3vfqq` (swingfloor-s0), `g8d825dk` (s12), `z8u4ay72`
+(offctrl-s12). RL_LOG 09-08 ~11:5x-12:0x. CYCLE_WORKED touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~11:5x (refill cycle; no completion assigned, 9 free GPU pods, backlog empty) — extended the seed7 cont10m retention-depth precedent to seed10/seed11 (4-way ON+OFF batch), leaving all concurrent-owned lines untouched
 
 One plain sentence: seed7 is the only cart_foot-halfgrav seed with a

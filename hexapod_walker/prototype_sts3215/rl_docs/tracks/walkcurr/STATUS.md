@@ -1,3 +1,59 @@
+## 2026-09-08 ~06:3x (triage cycle) — cartfoot-c1-s3 verdicted (seed3 reproduces the seed2 VIABLE-but-slippy fingerprint almost exactly); fork (b) DESIGNED and LAUNCHED as a matched n=2 fresh-init seed pair (s7, s11), concurrent with another cycle's independent s10 replicate
+
+One plain sentence: the seed-reproducibility question from the prior
+entry is answered (this is a real mechanism property, not a seed-
+lottery fluke), and fork (b) — the fresh-init test the ~06:2x entry
+below flagged as needing a design pass before anyone could launch it
+— is now designed, banked and running.
+
+**cartfoot-c1-s3 verdict (CANARY PASS):** 0 falls/terminations across
+all 24 episodes, `gait_valid` 20/24 (6/4/4/6 det/sto/sjdet/sjsto) —
+clears MECHANISM-VIABLE. slip/m by group 20.55/20.57/31.61/27.15,
+essentially the SAME 20-30/m range seed2's `cartfoot-c1` showed
+(19.1/25.0/68.4/32.8), both far above the matched joint-space
+control's established 5-6/m band. Contact sheet + walk_det frame
+strip: all six legs upright, cycling stance/swing, no flag leg. The
+matched `offctrl-s3` control was still finalizing on another cycle's
+pod at read time (not touched, per this cycle's own "still training"
+list) so PROMISING/not isn't formally stamped, but given offctrl
+consistently lands at 5-6/m regardless of seed, the 4-6x loss is not
+in doubt. Cross-seed replication closes the reproducibility question:
+**VIABLE-but-3-10x-slippier is a genuine property of the mechanism,
+not an n=1 seed-lottery artifact.**
+
+**Fork (b) design + launch:** the blocker flagged below (naive fresh
+pair at the mature `cont40m` multi-axis recipe would conflate "neither
+parameterization learns this from scratch" with a mechanism-specific
+result, since `cont40m` was itself only ever reached via a long
+continuation chain) is resolved by using the ONE recipe in this
+campaign actually PROVEN to learn walking from a random policy: the
+`easy0905` base pilot (`base-s0..s4`, fixed 0.06 m/s, no heading, no
+DR, gamma .995/lam .97, 256,256,128 ELU). Built two byte-identical-
+except-seed matched pairs (ON = 3 cart_foot box keys 0.06/0.035/
+0.04 m added to the SAME bank-proven decode; OFF = no keys) at
+seeds 7 and 11, queued via `backlog add` (new configs, not a respec)
+and drained onto free GPU pods (9/11 were idle at read time). All 4
+runs (`cartfoot-freshinit-{c1,offctrl}-s{7,11}`) finished their full
+2,097,152-step canary within the cycle (~2-3 min each at GPU speed);
+ledger reconciled via `checkup --run` + `update --set wandb_id=...`
+for each (mechanical status only, no manual edits). W&B:
+`7poujbfm`/`xlzhnck1` (s7 on/off), `b3piakh6`/`c2vthugj` (s11 on/off).
+Gate (2M MECHANISM-HEALTH CANARY, same bar `base-s0` itself used —
+NOT a walking gate): finite losses, real joint/foot excursion beyond
+settled stance, reward agrees with the WALKSCRATCH_EASY bank;
+no-walk-at-2M is not a failure for either arm (base-s0 itself needed
+continuation past 2M to actually walk). Gate evals not yet read this
+cycle (just finished; next reader's to triage). A CONCURRENT cycle
+independently designed and launched the same question as a single
+ON-only arm, different seed (`cw-walkscratch-easy0905-base-cartfoot-
+fresh-s10`, W&B pending) — not a duplicate to undo, a welcome 3rd
+seed for the same n>=3 discipline this campaign uses elsewhere; left
+unverdicted (its owner's line).
+Evidence: `ops.sh review` for `cartfoot-c1-s3`; ledger entries for
+all 4 new fork-(b) runs; RL_LOG 09-08 ~06:3x.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~06:2x (triage cycle) — fork (a), the cartfoot-c1 10M continuation, verdicted CLOSED: slip stays 2.6-3.3x the matched control after 10M more steps, reward never reverses its decline
 
 Triaged the pair the ~06:1x entry below found already RUNNING

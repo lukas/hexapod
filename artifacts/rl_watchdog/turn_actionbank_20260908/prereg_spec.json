@@ -1,0 +1,53 @@
+{
+  "schema": "hexapod.action_response_bank.v1",
+  "registered_utc": "2026-09-08T06:30:00Z",
+  "status": "preregistered_before_data",
+  "purpose": "Bounded per-joint action-impulse authority bank on the frozen yawref-cigate8m checkpoint and frozen full-mesh plant: measure whether small single-joint normalized-action pulses causally change real integrated yaw while retaining forward progress, loaded-foot slip and safety, after actual servo/contact dynamics.",
+  "frozen_assets": {
+    "checkpoint": "rl_move/sim/policies/ppo_goal_cw_robotwalk_turns_20260907_yawref_cigate8m.zip",
+    "checkpoint_sha256": "61f9c20f0f72d89217a22b47037e33c8dad2f50bfaca0a3d5517f714dd0eeb10",
+    "full_mesh_xml": "mesh_mujoco/hexapod_mesh.xml (worktree /workspace/hexapod-turnphase-wt)",
+    "full_mesh_xml_sha256": "7efb8e8a0cb014c0b4bac27c41e7a85e683553168b87d85aac0d52d6a8e5a837",
+    "required_identity": {"model_variant": "full_mesh", "model_nmesh": 34, "model_ngeom": 159, "model_mass_kg": 4.80573},
+    "motor_contract": {"control_hz": 100, "write_speed": 400, "write_acc": 20, "slew_deg_per_tick": 0.375, "profile_counts_s": 350},
+    "no_regeneration": "The stale 3.49 kg XML must not be regenerated or substituted; abort if identity check fails."
+  },
+  "design": {
+    "cells": [{"vx": 0.08, "wz": 0.15}, {"vx": 0.08, "wz": -0.15}],
+    "starts_phase_offset": [0.0, 3.141592653589793],
+    "seed": 0,
+    "episode_seconds": 10,
+    "command_shape": "1 s zero hold + 1 s linear ramp to (vx, wz), then constant (identical to turnauth_corrected_20260907 protocol)",
+    "settled_states_per_cell": "P1 = first tick index >= 600 (t=6.0 s) whose goal_mode is walk; P2 = tick in [P1+25, P1+50] whose post-prefix walk-phase is circularly closest to phase(P1)+pi (half gait cycle at goal.walk_phase_hz=1.333333 is 37.5 ticks).",
+    "variants_per_state": "1 zero-delta control + 18 joints x {+0.05, -0.05} normalized-action pulses = 37",
+    "branch_count": "4 cells x 2 states x 37 = 296 branches",
+    "pulse": "delta added to the deterministic policy action on exactly one action dim for 5 consecutive ticks starting at the branch tick, clipped to the action space; then the unchanged policy runs for 0.75 s (75 ticks). Scoring window = 80 ticks from pulse start.",
+    "reconstruction": "Every branch is reconstructed by an identical fresh env construction (same seed/cfg), identical reset, identical phase offset, and deterministic prefix replay of the full controller (GRU/hidden-state reset + replay preserves complete controller history). No state teleporting, no population reweighting, no nominal FK.",
+    "exactness_gate": "The zero-delta branch of every state must match the continuous baseline bit-exactly: final qpos array equality at tick P+80 and identical window trace hash. Any mismatch invalidates the entire bank (infrastructure failure); no rankings may be reported as evidence."
+  },
+  "measures": [
+    "d_yaw_rad: real integrated signed body yaw (unwrapped chassis xmat yaw) over the 80-tick window",
+    "fwd_disp_m: chassis XY displacement over the window projected on the body heading at pulse start",
+    "loaded_slip_m: sum over window ticks and feet in contact (touch > 0.5 N) of per-tick pad XY displacement",
+    "safety: termination flag/reason, max |roll_rel_deg|, max |pitch_rel_deg|, non-walk goal-mode ticks in window",
+    "clip_frac: fraction of pulse ticks where the pulsed dim was clipped by the action-space bound"
+  ],
+  "preregistered_criteria": {
+    "effect_threshold": "baseline-relative commanded-direction yaw gain sign(wz)*(d_yaw_branch - d_yaw_baseline) >= 0.005 rad over the 80-tick window",
+    "retention": {
+      "forward": "fwd_disp_branch >= 0.9 * fwd_disp_baseline (baseline must be > 0)",
+      "slip": "loaded_slip_branch <= 1.25 * loaded_slip_baseline",
+      "health": "no termination in window; max|roll| and max|pitch| <= baseline max + 3.0 deg; all window ticks in walk mode"
+    },
+    "repeatability": "States are matched ACROSS starts by circular walk-phase distance < 0.6 rad. A (joint, pulse-sign) pair qualifies for a wz sign if it meets effect+retention in BOTH members of at least one matched-phase pair (start 0 vs start pi).",
+    "both_signs_qualification": "A steering direction qualifies only if a qualifying (joint, sign) pair exists for wz=+0.15 toward +yaw AND for wz=-0.15 toward -yaw (mirrored joints allowed; mirror structure is reported, not required).",
+    "primary_ranking": "branches ranked by baseline-relative commanded-direction yaw gain, reported with full retention metrics per (cell, state); retention screens are pass/fail, not re-rankable after data."
+  },
+  "explicit_non_claims": [
+    "A single 5-tick open-loop impulse response does NOT establish or predict sustained closed-loop steering control; no such claim will be made from this bank.",
+    "A qualifying result authorizes ONLY the next validation: an explicit bounded state-dependent residual evaluated on the original 15 s both-signs/straight panel (turnauth_corrected_20260907 protocol cells (0.08,0), (0.08,+0.15), (0.08,-0.15), starts 0/pi, seed 0). Only if THAT panel supports it is one 2M assisted canary placed via launch_run.py.",
+    "A non-qualifying bank records unsupported scope for THIS pulse class only; it does not close broader gait or action classes.",
+    "No generic time-slicing, pricing, cadence, torsion or BC-dose retry is licensed by any outcome.",
+    "Physical limits and the continuous-joystick qualification criteria are unchanged; no physical robot involvement."
+  ]
+}

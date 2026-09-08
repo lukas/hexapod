@@ -1982,3 +1982,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 09-08 ~11:1x walkcurr: built + bank-tested reward.walk_leg_duty_ratio_swing_min_count/_swing_window_s (default off, bit-exact) -- the "swing-count floor" pricing lever the 0.30/0.45-dose legduty-ratio FAILs named as the only open branch; 6 new + 9 existing tests green
 - 09-08 ~11:2x walkcurr: launched crutchoff-s0/s1-widen8-legdutyratio-swingfloor (2M mechanism-health canaries, batched n=2 seeds), one-lever respec of each seed's own 0.30-dose guardfix1 sibling -- both trained to 2M steps within the cycle, gate eval pending next reader
 - 09-08 11:51 s12/offctrl-s12 2M canaries: telemetry-clean, matches s7/s10/s11 band; launched both -acq1 40M respecs for the real seed12 read 
+- 09-08 11:52 swingfloor-s0: CONTINUE signal, 3/4 groups jointly improve vs the 0.30-dose sibling with no new falls; -s1 still training, defer the cont10m decision to the joint read 

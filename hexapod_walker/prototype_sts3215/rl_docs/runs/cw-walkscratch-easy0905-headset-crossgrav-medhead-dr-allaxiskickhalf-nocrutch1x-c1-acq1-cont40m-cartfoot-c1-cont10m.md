@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T05:53:34+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m-cartfoot-c1
+
+**wandb_id**: qay6bggy
 
 **hypothesis**: Plain English: the Cartesian foot-decode arm re-acquired 0-fall walking in 2M but with 3-10x the matched control's slip -- was that the re-acquisition TRANSIENT (slip converges as training completes the semantics switch) or the parameterization's asymptote? +10M continuation of cartfoot-c1 (same cfg/RNG2, keys ride along), read against the matched offctrl-cont10m at equal 12M cumulative depth. Also resolves the unexplained monotone ep_rew decline (-61 -> -224) seen during the 2M re-acquisition.
 

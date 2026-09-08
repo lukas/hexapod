@@ -1,0 +1,114 @@
+{
+  "heartbeat_trigger_utc": "2026-09-07T23:54:41.456Z",
+  "checked_at_utc": "2026-09-08T00:06:43Z",
+  "supersedes_followthrough_from": "state_20260907T162309Z.json",
+  "capacity": {
+    "checked_at_utc": "2026-09-08T00:06:12Z",
+    "slots_ready": 11,
+    "slots_free": 11,
+    "optimizing": 0,
+    "pending": "hexapod-mjx-train-6; unchanged CPU/affinity constraints",
+    "watcher": "UP",
+    "runnable_backlog": "Empty; direct backlog.json read confirmed. Both decision cycles advancing; no new optimizer yet."
+  },
+  "completed": {
+    "pruner": "16b739b13 already deployed and verified; no repeat repair.",
+    "watcher": "3342c146 restart verified in prior visits; no repeat repair.",
+    "turn_probe": {
+      "commit": "99bb5c0193fe234c1a12fbb49fae73a28a94c7b9",
+      "source_sha": "dbedfdfe9f6a8efc33e46de41714d077fd97eb76",
+      "repair_commit": "22554185432e1ea896aa6740085052fe30a76274",
+      "focused_tests_passed": 29,
+      "rollouts": 42,
+      "falls": 0,
+      "impulse_checks_passed": 42,
+      "max_relative_rms_residual": 0.0014932870488735413,
+      "model_variant": "full_mesh",
+      "meshes": 34,
+      "control_hz": 100,
+      "artifact": "turnauth_corrected_20260907/README.md",
+      "training_steps_added": 0,
+      "status": "Complete; qualification remains failed. Scripted and learned combined arcs undertrack. No BC residual or seed-history causal claim."
+    }
+  },
+  "scratch": {
+    "stable_lineage": "cw-walkscratch-easy0905-headset-crossgrav-medhead-dr-allaxiskickhalf-nocrutch1x-c1-acq1-cont40m",
+    "fix1_runs": [
+      {
+        "suffix": "-transwin-c1-fix1",
+        "wandb": "vmczkhfx",
+        "status": "FAIL",
+        "gait_valid": 22,
+        "episodes": 24,
+        "terminations": 0,
+        "slip_per_m_medians": [
+          5.173,
+          5.414,
+          4.588,
+          5.9435
+        ]
+      },
+      {
+        "suffix": "-overspeedq1-cont8m-transwin-c1-fix1",
+        "wandb": "o8pi2qe6",
+        "status": "FAIL",
+        "gait_valid": 22,
+        "episodes": 24,
+        "terminations": 0,
+        "slip_per_m_medians": [
+          6.08,
+          5.7015,
+          6.005,
+          6.3345
+        ]
+      }
+    ],
+    "cell_order": [
+      "walk/det",
+      "walk/sto",
+      "walk_startjitter/det",
+      "walk_startjitter/sto"
+    ],
+    "provenance": "Both fix1 runs initialized from their own buggy transwin-c1 checkpoint. They are corrected-accounting 2M continuations, not independent matched-parent A/B trials. Ledger already records this correction.",
+    "interpretation": "Stable gait retained, no convincing slip improvement. These small continuations do not establish a universal physical/reward-class floor.",
+    "broader_heading_frontier": "Front-leg underuse persists. Latest legdutyfresh widening s0/s1/s2 gates 12/24,13/24,13/24; separate lineage from the stable composite. Episode-termination mechanism closed 0/8.",
+    "next_owner": {
+      "cycle": "20260907T234849",
+      "pid": 4000212,
+      "state": "Advancing",
+      "mechanism": "Continuous peer-excluded relative leg-duty charge; tracking independent of termination.",
+      "evidence": "14 focused tests passed at 00:01:49 UTC; broader suite running. No new optimizer yet verified.",
+      "owned_files": [
+        "rl_move/sim/walk_task.py",
+        "rl_move/sim/sim_env.py",
+        "rl_move/tests/test_task_semantics.py"
+      ]
+    }
+  },
+  "steering_followthrough": {
+    "cycle": "20260908T000347",
+    "pid": 4010077,
+    "state": "Advancing; read committed corrected reports",
+    "focus": "Locate desired-foot/IK/command-limit/joint-response/body-motion loss using frozen existing seed0 controls. Separate diagnostic files from scratch owner; one measured mechanism before a budgeted continuation.",
+    "kick_receipt": "/tmp/hexapod-yaw-followthrough-0004.json",
+    "cycle_budget_at_kick": "67/196 in rolling 24h",
+    "duplicate_kicks": 0
+  },
+  "access": {
+    "current": "User replacement AGENTS and live developer settings now permit routine MCP/Git and network work with approval policy never. No sandbox override provided after that update.",
+    "observation_gaps": "Earlier upload and remote setup approval requests delayed root observation, including approximately 19:51\u201323:49 UTC. No claim that root observed GPU optimization during those gaps. Fresh MCP/capacity reads supersede stale status.",
+    "diagnostic_setup": "Two isolated dependency import failures occurred before rollouts. Runtime dependencies supplied and full-mesh environment preflight passed; all final matrices completed. Controller artifact publication used its configured CoreWeave credentials after a default service-account read was forbidden."
+  },
+  "boundaries": [
+    "No robot motion or deployment.",
+    "No CAD or firmware changes.",
+    "No added infrastructure, uncordoning, eviction, or new seed.",
+    "Do not confuse allocated GPU memory or stale RUNNING rows with optimization."
+  ],
+  "next_visit": [
+    "Follow scratch owner 20260907T234849 through focused/full-suite result and bounded launch; verify actual PID, steps and FPS.",
+    "Follow steering owner 20260908T000347; no repeated kick while narration advances.",
+    "Preserve corrected turn artifacts; do not repeat the completed probe/pruner/watcher repairs.",
+    "Refresh capacity and runnable queue; place useful justified work under existing budgets."
+  ]
+}

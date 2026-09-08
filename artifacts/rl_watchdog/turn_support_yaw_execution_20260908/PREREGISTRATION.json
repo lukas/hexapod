@@ -1,0 +1,18 @@
+{
+  "status": "PREREGISTERED_BEFORE_EXECUTION",
+  "registered_utc": "2026-09-08T08:54:05.233368+00:00",
+  "owner": "Codex root-assigned fresh_cartesian_frontier; task Check RL training progress",
+  "assignment": "Root authorized this unowned exact finite simulation assay after live ownership audit; no human confirmation required.",
+  "protocol_sha256": "93d328352ef4fe3dc5d323a86f22110ba7b2bb0aa49fd1b1744fe27964d20abc",
+  "protocol_status_override": "PROPOSAL_SOURCE.md is an exact copy of the previously prepared proposal. This registration supersedes its prepared/not-preregistered status only; all methods, fixed doses, state count, gates, unavailable-state rules and non-claims are unchanged.",
+  "source_pins": "pins.json",
+  "branch_states": 16,
+  "continuous_baselines": 8,
+  "branch_slots": 48,
+  "straight_cells": 4,
+  "straight_rollouts": 8,
+  "execution_status": "NOT_STARTED",
+  "no_response_data_used_for_fit": true,
+  "no_PPO": true,
+  "frozen_helper_sha256": "436b0eee695094f94d68346548e12efed147f087b1447ea2349b0f4feb67cd54"
+}

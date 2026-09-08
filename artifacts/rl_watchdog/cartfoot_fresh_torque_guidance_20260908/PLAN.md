@@ -1,4 +1,4 @@
-# Fresh scratch seed7 fixed1x torque canary — frozen plan, 2026-09-08 08:02 UTC
+# Fresh scratch seed7 fixed1x torque canary — frozen plan, 2026-09-08 (published before 08:01 UTC)
 
 ## Question and allocation
 Does the fresh-learning Cartesian policy retain acquired walking when the EASY torque multiplier is removed, and how does it compare with the matched joint-space control? Run one matched seed7 canary pair, 2,000,000 additional requested steps per arm (normal rollout rounding recorded). This is an independent 4M-step hypothesis, not a refill of an old cycle's exhausted budget.

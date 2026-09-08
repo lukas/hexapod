@@ -1,0 +1,19 @@
+{
+  "run": "cw-walkscratch-easy0905-cartfoot-freshinit-offctrl-s11-acq1",
+  "videos": [
+    {
+      "name": "walk_det_0.mp4",
+      "path": "cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate/walk_det_0.mp4",
+      "size": 1302536,
+      "mimeType": "video/mp4"
+    },
+    {
+      "name": "walk_det_1.mp4",
+      "path": "cw_walkscratch_easy0905_cartfoot_freshinit_offctrl_s11_acq1_gate/walk_det_1.mp4",
+      "size": 1302536,
+      "mimeType": "video/mp4"
+    }
+  ],
+  "expires_at": 1788857969,
+  "note": "Original evaluation recordings; playback time may differ from simulated time. Read the on-screen clock or eval_report. Links authorize only the named clip for one hour."
+}

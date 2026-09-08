@@ -1,0 +1,240 @@
+# Ledger entry (latest)
+{
+ "run": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1",
+ "steps": 40000000,
+ "smoke": false,
+ "hypothesis": "Plain English: matched joint-space (no Cartesian-foot-target) control for base-cartfoot-fresh-s10-c1b -- same own-checkpoint +38M continuation of the fresh-init OFF canary, seed 10, so the fork(b) n=3 fresh-init seed cohort (s7 pair running, s11 pair running) gets its third seed's matched control at the same 40M budget instead of only an ON arm running alone.",
+ "gate": "PASS-BAND if it reaches gait_valid/no-falls/slip comparable to the established base-family PASS band (base-s0..s4) on the fixed-forward walk panel. Read paired against base-cartfoot-fresh-s10-c1b at the same cumulative depth: this completes the seed-10 half of the n>=3 fresh-init ON/OFF cohort. FAIL if it cannot reach walking at all by 40M despite sibling base-family seeds all reaching it. Per the 08-21 ruling, judge on reward trend + eval together.",
+ "parent": "cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10",
+ "track": "walkcurr",
+ "extra_args": [
+  "--task",
+  "joint_walk",
+  "--episode-seconds",
+  "20",
+  "--n-steps",
+  "128",
+  "--batch-size",
+  "131072",
+  "--gamma",
+  "0.995",
+  "--gae-lambda",
+  "0.97",
+  "--net-arch",
+  "256,256,128",
+  "--log-std-init",
+  "-1.0",
+  "--log-std-final",
+  "-2.0",
+  "--dr-scale",
+  "0.0",
+  "--require-gpu-physics",
+  "--eval-every",
+  "1000000",
+  "--video-every",
+  "2000000",
+  "--best-ckpt",
+  "--n-envs",
+  "4096",
+  "--impl",
+  "warp",
+  "--host-workers",
+  "24",
+  "--seed",
+  "10",
+  "--out-name",
+  "ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1",
+  "--cfg-set",
+  "env.model_source=mesh_mjx",
+  "--cfg-set",
+  "control.hz=100",
+  "--cfg-set",
+  "goal.walk_pure=1",
+  "--cfg-set",
+  "goal.walk_speed_min_m_s=0.06",
+  "--cfg-set",
+  "goal.walk_speed_max_m_s=0.06",
+  "--cfg-set",
+  "goal.walk_heading_max_rad=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_resample_s=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_metrics=1",
+  "--cfg-set",
+  "goal.walk_cmd_hold_s=0.0",
+  "--cfg-set",
+  "goal.walk_cmd_ramp_s=0.0",
+  "--cfg-set",
+  "goal.joint_action_bias_hip_deg=40.0",
+  "--cfg-set",
+  "goal.joint_action_bias_knee_deg=35.0",
+  "--cfg-set",
+  "goal.joint_action_box_yaw_deg=15.0",
+  "--cfg-set",
+  "goal.joint_action_box_hip_deg=20.0",
+  "--cfg-set",
+  "goal.joint_action_box_knee_deg=25.0",
+  "--cfg-set",
+  "reward.k_walk_freeprog=2.0",
+  "--cfg-set",
+  "reward.walk_freeprog_cap_m_s=0.06",
+  "--cfg-set",
+  "reward.walk_kernel_vel_ema=1.0",
+  "--cfg-set",
+  "reward.walk_kernel_vel_tau_s=0.1",
+  "--cfg-set",
+  "reward.term_penalty=24",
+  "--cfg-set",
+  "reward.safety_termination_penalty=24",
+  "--cfg-set",
+  "reward.k_track=0.0",
+  "--cfg-set",
+  "reward.k_roll=0.0",
+  "--cfg-set",
+  "reward.k_pitch=0.0",
+  "--cfg-set",
+  "reward.k_height=0.0",
+  "--cfg-set",
+  "reward.k_gyro=0.0",
+  "--cfg-set",
+  "reward.k_action=0.0",
+  "--cfg-set",
+  "reward.k_action_delta=0.01",
+  "--cfg-set",
+  "reward.k_current=0.0",
+  "--cfg-set",
+  "reward.k_walk_heading=0.0",
+  "--cfg-set",
+  "reward.k_step_event=0.0",
+  "--cfg-set",
+  "reward.k_park_duty=0.0",
+  "--cfg-set",
+  "reward.k_walk_idle_charge=0.0",
+  "--cfg-set",
+  "reward.k_loadslip_excess=0.0",
+  "--cfg-set",
+  "bus.write_speed=4096",
+  "--cfg-set",
+  "bus.servo_vel_max_counts_s=write_speed",
+  "--cfg-set",
+  "bus.write_acc=1000",
+  "--cfg-set",
+  "safety.max_delta_q_deg=3.6",
+  "--cfg-set",
+  "safety.max_current_a=100",
+  "--cfg-set",
+  "safety.max_roll_deg=30",
+  "--cfg-set",
+  "safety.max_pitch_deg=30",
+  "--cfg-set",
+  "struct_comp.enabled=0",
+  "--cfg-set",
+  "dr.latency_scale=0,0",
+  "--cfg-set",
+  "dr.deadband_scale=0,0",
+  "--cfg-set",
+  "dr.torque_scale=3,3",
+  "--cfg-set",
+  "dr.encoder_noise_deg=0",
+  "--cfg-set",
+  "dr.tilt_noise_deg=0",
+  "--cfg-set",
+  "dr.gyro_noise_deg_s=0",
+  "--notes",
+  "respec of cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10: Plain English: matched joint-space (no Cartesian-foot-target) control for base-cartfoot-fresh-s10-c1b -- same own-checkpoint +38M continuation of the fresh-init OFF canary, seed 10, so the fork(b) n=3 fresh-init seed cohort (s7 pair running, s11 pair running) gets its third seed's matched control at the same 40M budget instead of only an ON arm running alone.",
+  "--defer-final-artifacts",
+  "--init-from",
+  "rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10.zip"
+ ],
+ "created": "2026-09-08T07:15:35+00:00",
+ "status": "RUNNING",
+ "checks": {
+  "control_hz_defaulted": "explicit",
+  "model_source_lineage": "mesh-matched",
+  "cpu_limit": 28,
+  "existing_trainers": [],
+  "uv_python": "/usr/local/bin/python",
+  "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+  "running_experiments_before": 5,
+  "code_sha_local": "a6b184567ee8f085c6f18d18374cc008e6f8181e",
+  "code_sha_pod": "a6b184567ee8f085c6f18d18374cc008e6f8181e",
+  "init_from_on_pod": true,
+  "wandb_env_on_pod": true,
+  "defer_final_artifacts": "explicit",
+  "pid": "740711",
+  "log_growth_bytes": [
+   6277,
+   7743
+  ],
+  "wandb_id": "2vfmkuv4",
+  "trainer_pid": "740711",
+  "global_step_window": [
+   524288,
+   1572864
+  ],
+  "fps_estimate": 34952.5
+ },
+ "trainer": "ppo",
+ "stack": "gpu-mjx",
+ "phase": "acquisition",
+ "assessment_scope": "full_budget_skill_acquisition",
+ "evidence": "Healthy canary: cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10 (2M, CANARY PASS HEALTHY-PARITY vs matched c1 ON canary). Comparable full-budget learning precedent: cw-walkscratch-easy0905-base-s0/s1/s2/s3/s4, the byte-identical recipe (minus cart_foot keys, which this OFF arm also lacks) that went 2M cold-start canary -> 40M continuation -> established PASS band (six-leg walking, zero falls) 4-5/5 seeds; also mirrors the sibling offctrl-s7-acq1/offctrl-s11-acq1 continuations already RUNNING at the same budget.",
+ "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup uv run python -m rl_move.sim.train_ppo_mjx --run-name cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1 --steps 40000000 --task joint_walk --episode-seconds 20 --n-steps 128 --batch-size 131072 --gamma 0.995 --gae-lambda 0.97 --net-arch 256,256,128 --log-std-init -1.0 --log-std-final -2.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --n-envs 4096 --impl warp --host-workers 24 --seed 10 --out-name ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10_c1 --cfg-set env.model_source=mesh_mjx --cfg-set control.hz=100 --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set goal.walk_cmd_hold_s=0.0 --cfg-set goal.walk_cmd_ramp_s=0.0 --cfg-set goal.joint_action_bias_hip_deg=40.0 --cfg-set goal.joint_action_bias_knee_deg=35.0 --cfg-set goal.joint_action_box_yaw_deg=15.0 --cfg-set goal.joint_action_box_hip_deg=20.0 --cfg-set goal.joint_action_box_knee_deg=25.0 --cfg-set reward.k_walk_freeprog=2.0 --cfg-set reward.walk_freeprog_cap_m_s=0.06 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.1 --cfg-set reward.term_penalty=24 --cfg-set reward.safety_termination_penalty=24 --cfg-set reward.k_track=0.0 --cfg-set reward.k_roll=0.0 --cfg-set reward.k_pitch=0.0 --cfg-set reward.k_height=0.0 --cfg-set reward.k_gyro=0.0 --cfg-set reward.k_action=0.0 --cfg-set reward.k_action_delta=0.01 --cfg-set reward.k_current=0.0 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set bus.write_speed=4096 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set bus.write_acc=1000 --cfg-set safety.max_delta_q_deg=3.6 --cfg-set safety.max_current_a=100 --cfg-set safety.max_roll_deg=30 --cfg-set safety.max_pitch_deg=30 --cfg-set struct_comp.enabled=0 --cfg-set dr.latency_scale=0,0 --cfg-set dr.deadband_scale=0,0 --cfg-set dr.torque_scale=3,3 --cfg-set dr.encoder_noise_deg=0 --cfg-set dr.tilt_noise_deg=0 --cfg-set dr.gyro_noise_deg_s=0 --notes 'respec of cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10: Plain English: matched joint-space (no Cartesian-foot-target) control for base-cartfoot-fresh-s10-c1b -- same own-checkpoint +38M continuation of the fresh-init OFF canary, seed 10, so the fork(b) n=3 fresh-init seed cohort (s7 pair running, s11 pair running) gets its third seed'\"'\"'s matched control at the same 40M budget instead of only an ON arm running alone.' --defer-final-artifacts --init-from rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_base_cartfoot_freshoffctrl_s10.zip > /tmp/train_cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1.log 2>&1 < /dev/null & echo $!",
+ "wandb_id": "2vfmkuv4",
+ "verified": "2026-09-08T07:18:26+00:00",
+ "checkups": [
+  {
+   "time": "2026-09-08T07:23:28+00:00",
+   "process_alive": true,
+   "tracebacks_in_tail": 0,
+   "log_growth_bytes": 3655,
+   "fps": 34952.5,
+   "placement": "solo on GPU-MJX pod",
+   "verdict": "HEALTHY",
+   "problems": []
+  }
+ ]
+}
+
+# Ledger attempt history (oldest first)
+The entry above selects the current launch attempt; an unexecuted duplicate refusal does not change its status.
+[
+ {
+  "created": "2026-09-08T07:15:03+00:00",
+  "status": "REFUSED",
+  "refused_reason": "acquisition runs require --evidence: name the healthy canary and a comparable full-budget learning precedent."
+ },
+ {
+  "created": "2026-09-08T07:15:35+00:00",
+  "status": "RUNNING",
+  "wandb_id": "2vfmkuv4"
+ }
+]
+
+# Run story (rl_docs/runs/cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1.md)
+# cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10-c1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-09-08T07:15:35+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 40000000
+
+**parent**: cw-walkscratch-easy0905-base-cartfoot-freshoffctrl-s10
+
+**wandb_id**: 2vfmkuv4
+
+**hypothesis**: Plain English: matched joint-space (no Cartesian-foot-target) control for base-cartfoot-fresh-s10-c1b -- same own-checkpoint +38M continuation of the fresh-init OFF canary, seed 10, so the fork(b) n=3 fresh-init seed cohort (s7 pair running, s11 pair running) gets its third seed's matched control at the same 40M budget instead of only an ON arm running alone.
+
+**gate**: PASS-BAND if it reaches gait_valid/no-falls/slip comparable to the established base-family PASS band (base-s0..s4) on the fixed-forward walk panel. Read paired against base-cartfoot-fresh-s10-c1b at the same cumulative depth: this completes the seed-10 half of the n>=3 fresh-init ON/OFF cohort. FAIL if it cannot reach walking at all by 40M despite sibling base-family seeds all reaching it. Per the 08-21 ruling, judge on reward trend + eval together.
+
+
+
+# Saved run feedback
+No feedback is attached yet. Use submit_run_feedback to add observations or requested follow-ups.
+
+(run_metrics gives cached W&B curves; eval_report the gate-eval numbers, when present on this host.)

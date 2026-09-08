@@ -53,6 +53,14 @@ The script is `sim_viewer/hexapod_web_8898.sh`. It resolves the current
 robot IP for the `:8080` target unless `HEXAPOD_HOST` is set. Use this
 instead of direct `.venv/bin/python`, ad hoc `nohup`, or a random worktree.
 
+## Orchestrator state is in `.state/`, not here
+
+Ledger, launch queue, run stories and `RL_LOG.md` live in the separate
+`lukas/hexapod-state` repo, cloned at `<checkout>/.state` (`make state`
+here refreshes it). `rl_docs/runs` and `RL_LOG.md` in this directory are
+symlinks into it. Details: `rl_move/orchestrator/state_dir.py` and the
+repo-root `AGENTS.md`.
+
 ## MuJoCo robot simulation
 
 When asked to run or show the STS3215 robot in MuJoCo, start with

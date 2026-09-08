@@ -26,6 +26,13 @@ if [ -d "$ROOT/$POL" ] && [ ! -e "$POL" ]; then
   ln -s "$ROOT/$POL" "$POL"
 fi
 
+# Orchestrator runtime state (.state = clone of lukas/hexapod-state) is
+# read-only on laptops; share the main checkout's clone instead of
+# re-cloning. `make -C hexapod_walker/prototype_sts3215 state` refreshes it.
+if [ -d "$ROOT/.state" ] && [ ! -e .state ]; then
+  ln -s "$ROOT/.state" .state
+fi
+
 # MCP config is gitignored; copy it so worktree agents get the same servers.
 if [ -f "$ROOT/.mcp.json" ] && [ ! -e .mcp.json ]; then
   cp "$ROOT/.mcp.json" .mcp.json

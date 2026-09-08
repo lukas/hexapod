@@ -96,6 +96,32 @@ controller pod, proxying to `status_server.py` on `:8090`. This is distinct
 from the local Mac robot/sim web UI at `http://localhost:8898/rl` and from
 BuildViz on `:5183`.
 
+## Where orchestrator STATE lives (vs. code)
+
+The RL orchestrator's runtime state is NOT in this repo. It is its own
+repo, written by exactly one process (the controller pod's `snapshot.sh`)
+and read by everyone else:
+
+- Repo: `https://github.com/lukas/hexapod-state` (private).
+- On disk: `<checkout>/.state/` — a clone of that repo. Refresh with
+  `make -C hexapod_walker/prototype_sts3215 state` (clones if missing).
+  Worktrees symlink `.state` to the main checkout's clone. Override with
+  `HEXAPOD_STATE_DIR`; the controller sets it in `/root/orchestrator.env`.
+- On the web: the status URLs above (`/now`, `/llms.txt`), served from
+  these same files by `status_server.py`.
+
+What is there: `experiments.json` (the ledger — one entry per launched run,
+the source of truth), `backlog.json` / `backlog_failed.json` (launch queue),
+`pending_evals.json`, `rl_docs/runs/<run>.md` (per-run stories, GENERATED
+from the ledger — never edit), `RL_LOG.md` (one-line-per-cycle log, append
+only via `ops.sh logline`). `hexapod_walker/prototype_sts3215/rl_docs/runs`
+and `RL_LOG.md` in this repo are symlinks into `.state`, so existing paths
+keep working once `.state` exists. Code resolves the real paths through
+`rl_move/orchestrator/state_dir.py`; do not add `HERE / "experiments.json"`
+style paths again. Curated prose (`STATUS.md`, `CURRENT_TRUTHS.md`,
+`RL_PLAN.md`, `rl_docs/tracks/*/STATUS.md`) and config (`tracks.json`,
+`guardrails.yaml`) stay in this repo.
+
 ## BuildViz: two-port convention (5183 central, 5173 dev)
 
 BuildViz uses exactly **two** fixed ports. Never start a server on any other

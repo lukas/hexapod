@@ -35,6 +35,10 @@ so `import rl_move` / `import hexapod_core` / the bare-module style used by
 is the script runner the Makefiles use (it syncs the env, then runs a script
 from its own directory).
 
+The RL orchestrator's runtime state (ledger, run stories, cycle log) is a
+separate repo, `lukas/hexapod-state`, cloned at `.state/` by
+`make -C hexapod_walker/prototype_sts3215 state`. See `AGENTS.md`.
+
 After a fresh clone, initialize the tracker submodule:
 
 ```sh

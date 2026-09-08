@@ -563,6 +563,7 @@ def emit_http(method: str, path: str, *, body: Any = None,
         # they evict the whole ring within seconds, which is exactly how the
         # record of a real stop event gets lost.
         "/api/feedback", "/api/setup", "/api/rl/drive", "/api/commands",
+        "/api/deploy", "/api/deploys",
     ):
         return
     data: dict[str, Any] = {"method": method, "path": path}

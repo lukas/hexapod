@@ -88,3 +88,7 @@ hexapod_walker/prototype_sts3215/sysid/datasets/
 # Local experiment-lab credentials and recorded run evidence.
 /experiment_lab/.env
 /experiment_lab/lab-data/
+
+# Generated at deploy time by deploy_manifest.sh; never committed.
+hexapod_walker/prototype_sts3215/linux_control/deploy_record.json
+hexapod_walker/prototype_sts3215/linux_control/logs/

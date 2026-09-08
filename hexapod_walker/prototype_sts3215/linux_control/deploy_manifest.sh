@@ -20,6 +20,7 @@ LC_FILES=(
   motor_setup_api.py webui_config.py requirements-robot.txt
   joint_calibrate.py plant_calibrate.py geometry_plant.py imu_calibrate.py
   event_log.py telemetry_recorder.py async_bus_guard.py
+  command_journal.py deploy_record.py
   status_display.py deploy_status_display.py servo_watch.py
   mpu_probe.py rl_policy.py safe_zero.py pinned_tip.py
   sysid_protocol.py sysid_runner.py
@@ -51,6 +52,41 @@ RLMOVE_SIM_FILES=(__init__.py rot60.py mirror.py)
 
 # stage_deploy_tree <stage_dir> <linux_control_src_dir>
 # Builds the EXACT remote bundle layout under <stage_dir>.
+write_deploy_record() {
+  local stage="$1" src="$2" rev branch dirty deployer host now tree_hash
+  rev="$(git -C "$src" rev-parse HEAD 2>/dev/null || echo unknown)"
+  branch="$(git -C "$src" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  if [ -n "$(git -C "$src" status --porcelain 2>/dev/null)" ]; then
+    dirty=true
+  else
+    dirty=false
+  fi
+  deployer="${HEXAPOD_DEPLOYER:-${USER:-unknown}}"
+  host="$(hostname -s 2>/dev/null || echo unknown)"
+  now="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+  # Hash of the staged tree itself: the deterministic identity of what ships,
+  # independent of whether the source checkout was clean.
+  tree_hash="$(cd "$stage" && find . -type f ! -name deploy_record.json -print0 \
+    | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null \
+    | shasum -a 256 | cut -d' ' -f1)"
+  mkdir -p "$stage/linux_control"
+  cat > "$stage/linux_control/deploy_record.json" <<EOF
+{
+  "schema_version": 1,
+  "deploy_id": "${tree_hash:0:16}-$now",
+  "deployed_at": "$now",
+  "deployer": "$deployer",
+  "deployed_from_host": "$host",
+  "source_path": "$src",
+  "git_revision": "$rev",
+  "git_branch": "$branch",
+  "source_dirty": $dirty,
+  "staged_tree_sha256": "$tree_hash",
+  "transport": "${HEXAPOD_DEPLOY_TRANSPORT:-unknown}"
+}
+EOF
+}
+
 stage_deploy_tree() {
   local stage="$1" src="$2" proto f
   proto="$(cd "$src/.." && pwd)"
@@ -81,9 +117,14 @@ stage_deploy_tree() {
 
   touch "$stage/linux_control/__init__.py"
 
+
   # Never ship caches or macOS junk.
   find "$stage" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
   find "$stage" -name '.DS_Store' -delete 2>/dev/null || true
+
+  # Last, so the receipt hashes the tree that actually ships: after caches
+  # and macOS junk are removed, and excluding the receipt itself.
+  write_deploy_record "$stage" "$src"
 }
 
 # PYTHONPATH used when launching on-board tools from linux_control/

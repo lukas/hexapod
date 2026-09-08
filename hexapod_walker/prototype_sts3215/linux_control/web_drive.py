@@ -449,11 +449,22 @@ class Handler(BaseHTTPRequestHandler):
             emit_http("GET", self.path, peer=self._peer())
         except Exception:
             pass
+        if path in ("/api/deploy", "/api/deploys"):
+            try:
+                from deploy_record import current, history
+                payload = current()
+                if path == "/api/deploys":
+                    payload["deploys"] = history(limit=50)
+            except Exception as exc:
+                payload = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            self._send(200, json.dumps(payload), "application/json")
+            return
         if path == "/api/commands":
             # Served before the bus gate on purpose: the command log is most
             # needed when the bus is quarantined and nothing else responds.
-            from urllib.parse import parse_qs, urlparse
-            query = parse_qs(urlparse(self.path).query)
+            # NB: use the module-level parse_qs/urlsplit. A function-local
+            # import here would shadow them for the whole of do_GET.
+            query = parse_qs(urlsplit(self.path).query)
 
             def _int(name, default):
                 try:
@@ -1471,6 +1482,18 @@ def main():
               f"beacon:{cfg.get('beacon_port')}")
     except Exception as e:
         print(f"[log] event_log unavailable: {e}")
+
+    # Record which deploy this boot is running, so any process can ask the
+    # robot over HTTP instead of trusting a workstation-local log.
+    try:
+        from deploy_record import register_current
+        record = register_current()
+        if record:
+            print(f"[deploy] running {record.get('deploy_id')} "
+                  f"by {record.get('deployer')} "
+                  f"rev {str(record.get('git_revision'))[:12]}")
+    except Exception as e:
+        print(f"[deploy] deploy record unavailable: {e}")
 
     DRIVE = DriveController(port=args.port, baud=args.baud, dry_run=args.dry_run)
     DRIVE.start()

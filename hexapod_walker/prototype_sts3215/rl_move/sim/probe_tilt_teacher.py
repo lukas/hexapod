@@ -62,16 +62,10 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (_PROTO, _PROTO / "linux_control"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
 RAD2DEG = 180.0 / np.pi
 CONTACT_N = 0.5

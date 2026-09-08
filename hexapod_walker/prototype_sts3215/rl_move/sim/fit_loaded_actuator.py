@@ -49,19 +49,14 @@ import csv
 import json
 import math
 import statistics
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
 _RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (str(_PROTO),):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from .servo_model import (  # noqa: E402
+from .servo_model import (
     AXES, SIM_MODEL_PATH, AxisParams, ServoProfile, SimServoParams,
     apply_params_to_model, build_model, joint_qpos_addrs, joint_qvel_addrs,
     position_actuator_ids,

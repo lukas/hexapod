@@ -23,9 +23,6 @@ from pathlib import Path
 import numpy as np
 
 _SIM = Path(__file__).resolve().parents[1]     # rl_move/sim/
-_PROTO = _SIM.parents[1]                       # prototype root
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
 # eval_dances bootstraps sys.path for the motor_setup imports it needs.
 from rl_move.sim.eval_dances import (  # noqa: E402

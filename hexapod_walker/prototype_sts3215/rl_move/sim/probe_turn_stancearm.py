@@ -52,20 +52,17 @@ import numpy as np
 
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim import probe_turn_authority as pta  # noqa: E402
-from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.servo_model import motor_contract  # noqa: E402
-from rl_move.sim.probe_turn_pipeline import fk_body_xy  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim import probe_turn_authority as pta
+from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import motor_contract
+from rl_move.sim.probe_turn_pipeline import fk_body_xy
 
-from hexapod_core.tripod_gait import (  # noqa: E402
+from hexapod_core.tripod_gait import (
     LEG_RADIAL, TripodGait, foot_rz_from_hip_knee)
-from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
+from rl_move.safety import AXIS_LIMITS_DEG
 
 PIN = {
     # frozen corrected-audit manifest values

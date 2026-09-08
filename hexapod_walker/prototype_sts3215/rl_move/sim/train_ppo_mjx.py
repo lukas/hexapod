@@ -35,7 +35,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
@@ -44,13 +43,10 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from .mjx_backend import mjx_is_available  # noqa: E402
-from .servo_model import SimServoParams  # noqa: E402
-from .train_ppo_sim import (  # noqa: E402
+from .mjx_backend import mjx_is_available
+from .servo_model import SimServoParams
+from .train_ppo_sim import (
     ENV_CLASSES, POLICY_DIR, WANDB_ENTITY_DEFAULT, WANDB_PROJECT_DEFAULT,
     _learning_line, _load_wandb_env, _parse_cfg_set, _parse_goal_mix,
     _resolved_reward_cfg, _reward_notes, _warn_if_defaults,

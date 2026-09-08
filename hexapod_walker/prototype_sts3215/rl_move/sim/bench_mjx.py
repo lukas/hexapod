@@ -20,20 +20,15 @@ throughput on a 48-core pod.
 from __future__ import annotations
 
 import argparse
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 
-_PROTO = Path(__file__).resolve().parents[2]
-if str(_PROTO) not in sys.path:
-    sys.path.insert(0, str(_PROTO))
 
-from rl_move.sim.mjx_backend import (  # noqa: E402
+from rl_move.sim.mjx_backend import (
     MjxTickStepper, mjx_is_available, tune_for_mjx,
 )
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.sim.servo_model import (
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, position_actuator_ids,
 )

@@ -12,21 +12,15 @@ from __future__ import annotations
 
 import argparse
 import math
-import sys
 import time
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "linux_control"))
-sys.path.insert(0, str(ROOT / "motor_setup"))
 
-from feetech_bus import load_plant_pose, standing_pose_degrees  # noqa: E402
-from rl_move.config import cfg_get, load_config  # noqa: E402
-from rl_move.env import open_bus  # noqa: E402
-from rl_move.robot_state import DEG2RAD, RAD2DEG, RobotStateEstimator  # noqa: E402
+from feetech_bus import load_plant_pose, standing_pose_degrees
+from rl_move.config import cfg_get, load_config
+from rl_move.env import open_bus
+from rl_move.robot_state import DEG2RAD, RAD2DEG, RobotStateEstimator
 
 
 def main() -> int:

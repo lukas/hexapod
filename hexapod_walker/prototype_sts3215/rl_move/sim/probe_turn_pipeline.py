@@ -54,19 +54,14 @@ from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim import probe_turn_authority as pta  # noqa: E402
-from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.servo_model import motor_contract  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim import probe_turn_authority as pta
+from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import motor_contract
 
-from hexapod_core.tripod_gait import (  # noqa: E402
+from hexapod_core.tripod_gait import (
     COXA, FEMUR, TIBIA, LEG_RADIAL, TripodGait)
 
 RAD2DEG = 1.0 / DEG2RAD

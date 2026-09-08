@@ -18,19 +18,15 @@ import argparse
 import csv
 import re
 import statistics
-import sys
 from collections import defaultdict
 from pathlib import Path
 
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from .fit_motor_model import _StepSim  # noqa: E402
-from .servo_model import AXES, SimServoParams  # noqa: E402
+from .fit_motor_model import _StepSim
+from .servo_model import AXES, SimServoParams
 
 METRICS = ("delay_ms", "rise_ms", "settle_ms", "overshoot_deg")
 # |sim − hw| tolerance to call a metric matched. A metric also passes on

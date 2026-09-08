@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,23 +22,20 @@ from types import SimpleNamespace
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config                       # noqa: E402
-from rl_move.dynamics import data as dd                      # noqa: E402
-from rl_move.dynamics import frames as fr                    # noqa: E402
-from rl_move.dynamics.collect import (                       # noqa: E402
+from rl_move.config import load_config
+from rl_move.dynamics import data as dd
+from rl_move.dynamics import frames as fr
+from rl_move.dynamics.collect import (
     ACTOR_PROFILE, DEFAULT_MIX, DEFAULT_STANCE_CKPT, DEFAULT_WALK_CKPT,
     DR_CHOICES, DR_PROBS, _GaitActor, _next_shard_idx,
 )
-from rl_move.dynamics.collector_env import (                 # noqa: E402
+from rl_move.dynamics.collector_env import (
     DynrepCollectWalkEnv,
 )
-from rl_move.dynamics.memutil import mem_checkpoint           # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action           # noqa: E402
-from rl_move.sim.servo_model import SimServoParams           # noqa: E402
+from rl_move.dynamics.memutil import mem_checkpoint
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import SimServoParams
 
 WANDB_ENV_FILE = ROOT / "rl_move" / "sim" / "wandb.env"
 

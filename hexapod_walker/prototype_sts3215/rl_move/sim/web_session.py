@@ -4,8 +4,6 @@ from __future__ import annotations
 import csv
 import json
 import math
-import os
-import sys
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -15,8 +13,6 @@ from typing import Any
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from rl_move.env import TaskGoal, build_obs
 from rl_move.safety import SafetyLayer
@@ -24,7 +20,7 @@ from hexapod_core.demo_tripod import (
     DEFAULT_DEMO_TRIPOD, DemoTripodPreset, format_demo_tripod,
     parse_demo_tripod_tune_tokens, tune_demo_tripod,
 )
-from linux_control.cpg_controller_loader import (  # noqa: E402
+from linux_control.cpg_controller_loader import (
     list_cpg_controllers as _list_cpg_controllers,
     load_cpg_controller as _load_cpg_controller,
 )

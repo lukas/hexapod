@@ -67,25 +67,19 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for _p in (_PROTO, _PROTO / "linux_control"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.sim import probe_turn_authority as pta  # noqa: E402
-from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.servo_model import motor_contract  # noqa: E402
-from rl_move.sim.probe_turn_pipeline import fk_body_xy  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.sim import probe_turn_authority as pta
+from rl_move.sim.eval_checkpoint import CONTACT_N, model_identity
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.servo_model import motor_contract
+from rl_move.sim.probe_turn_pipeline import fk_body_xy
 
-from hexapod_core.tripod_gait import TripodGait  # noqa: E402
+from hexapod_core.tripod_gait import TripodGait
 
 PIN = {
     "model_mass_kg": 4.80573,

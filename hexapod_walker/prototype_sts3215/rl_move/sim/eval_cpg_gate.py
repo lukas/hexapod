@@ -42,7 +42,6 @@ import argparse
 import json
 import math
 import subprocess
-import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -50,18 +49,15 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
-from rl_move.sim.joint_task import q_rad_to_action  # noqa: E402
-from rl_move.sim.paper_cpg_search import GaitParams, _clip_params  # noqa: E402
-from rl_move.sim.verify_noslip import (  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from rl_move.sim.joint_task import q_rad_to_action
+from rl_move.sim.paper_cpg_search import GaitParams, _clip_params
+from rl_move.sim.verify_noslip import (
     HOLD_S, PLANT_HIP_DEG, PLANT_KNEE_DEG, _make_env,
 )
-from rl_move.sim.yaw_trim import update_trim  # noqa: E402
+from rl_move.sim.yaw_trim import update_trim
 
 # Closed-loop yaw trim (cpg track, 08-23): default OFF, opt in via
 # --yaw-trim. See yaw_trim.py for why (mu0.8 turn overshoot is a gain

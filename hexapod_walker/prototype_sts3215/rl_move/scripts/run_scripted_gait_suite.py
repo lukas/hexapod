@@ -18,7 +18,6 @@ import itertools
 import json
 import math
 import signal
-import sys
 import threading
 import time
 import urllib.error
@@ -32,14 +31,10 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 LINUX_CONTROL = ROOT / "linux_control"
-if str(LINUX_CONTROL) not in sys.path:
-    sys.path.insert(0, str(LINUX_CONTROL))
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-from avfoundation_capture import AVFoundationYuvCapture  # noqa: E402
-from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT  # noqa: E402
-from hexapod_core.scripted_walk_contract import (  # noqa: E402
+from avfoundation_capture import AVFoundationYuvCapture
+from hexapod_core.joint_frame import FRAME_ROBOT_ABS, JOINT_CONTRACT
+from hexapod_core.scripted_walk_contract import (
     SCRIPTED_WALK_ACC_UNITS,
     SCRIPTED_WALK_CONTROL_HZ,
     SCRIPTED_WALK_SPEED_COUNTS_S,

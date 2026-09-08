@@ -32,31 +32,25 @@ import argparse
 import itertools
 import json
 import math
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (str(_PROTO),):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-import mujoco  # noqa: E402
-import mujoco_prototype as MP  # noqa: E402
+import mujoco
+import mujoco_prototype as MP
 
-from rl_move.body_ik import (  # noqa: E402
+from rl_move.body_ik import (
     N_JOINTS, fk_all_feet, ik_leg_from_foot_body, leg_azimuths,
 )
-from rl_move.robot_state import DEG2RAD  # noqa: E402
-from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.robot_state import DEG2RAD
+from rl_move.safety import AXIS_LIMITS_DEG
+from rl_move.sim.servo_model import (
     SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, position_actuator_ids,
 )
-from rl_move.sim.sim_env import (  # noqa: E402
+from rl_move.sim.sim_env import (
     _default_plant_deg, soften_contacts, support_margin_m,
 )
 

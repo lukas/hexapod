@@ -6,20 +6,17 @@ import copy
 import csv
 import math
 import os
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
-from rl_move.dynamics import data as dd          # noqa: E402
-from rl_move.dynamics import frames as fr        # noqa: E402
-from rl_move.dynamics.memutil import mem_checkpoint  # noqa: E402
-from rl_move.dynamics.model import (             # noqa: E402
+from rl_move.dynamics import data as dd
+from rl_move.dynamics import frames as fr
+from rl_move.dynamics.memutil import mem_checkpoint
+from rl_move.dynamics.model import (
     STATE_GROUPS, DynamicsModel, dynamics_loss,
 )
 

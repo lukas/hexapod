@@ -35,18 +35,12 @@ params change.
 from __future__ import annotations
 
 import argparse
-import sys
-from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.config import load_config
+from rl_move.robot_state import DEG2RAD
 
 # Hardware truth (tape_20260810_summary.json).
 HW_RATIO = (0.50, 0.51)

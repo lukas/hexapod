@@ -44,15 +44,12 @@ from pathlib import Path
 import numpy as np
 
 _PROTO = Path(__file__).resolve().parents[2]
-for p in (_PROTO, _PROTO / "linux_control"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from rl_move.config import load_config  # noqa: E402
-from rl_move.sim.eval_checkpoint import ENV_CLASSES  # noqa: E402
-from rl_move.sim.gru_policy import load_checkpoint_auto  # noqa: E402
-from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.train_ppo_sim import _parse_cfg_set  # noqa: E402
+from rl_move.config import load_config
+from rl_move.sim.eval_checkpoint import ENV_CLASSES
+from rl_move.sim.gru_policy import load_checkpoint_auto
+from rl_move.sim.servo_model import SimServoParams
+from rl_move.sim.train_ppo_sim import _parse_cfg_set
 
 RAD2DEG = 180.0 / np.pi
 

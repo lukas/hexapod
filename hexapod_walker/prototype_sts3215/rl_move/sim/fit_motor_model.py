@@ -25,7 +25,6 @@ import argparse
 import json
 import math
 import statistics
-import sys
 import time
 from pathlib import Path
 
@@ -34,11 +33,8 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from .servo_model import (  # noqa: E402
+from .servo_model import (
     AXES, SIM_MODEL_PATH, AxisParams, ServoProfile, SimServoParams,
     apply_params_to_model, build_model, joint_qpos_addrs, joint_qvel_addrs,
     position_actuator_ids,

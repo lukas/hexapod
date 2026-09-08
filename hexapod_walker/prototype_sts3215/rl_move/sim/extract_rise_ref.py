@@ -39,14 +39,11 @@ import numpy as np
 _RL = Path(__file__).resolve().parents[1]
 _PROTO = _RL.parent
 _LINUX = _PROTO / "linux_control"
-for p in (_PROTO, _LINUX, _LINUX / "urt2_setup"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.robot_state import DEG2RAD
 
-from .servo_model import SimServoParams  # noqa: E402
-from .train_ppo_sim import ENV_CLASSES  # noqa: E402
+from .servo_model import SimServoParams
+from .train_ppo_sim import ENV_CLASSES
 
 
 def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,

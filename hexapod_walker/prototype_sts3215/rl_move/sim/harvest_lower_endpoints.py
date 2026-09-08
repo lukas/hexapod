@@ -28,20 +28,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import sys
 import time
 from pathlib import Path
 
 import numpy as np
 
-_RL = Path(__file__).resolve().parents[1]
-_PROTO = _RL.parent
-for p in (_PROTO, _PROTO / "linux_control"):
-    if str(p) not in sys.path:
-        sys.path.insert(0, str(p))
 
-from .servo_model import SimServoParams   # noqa: E402
-from .joint_task import SimHexapodJointGoalEnv  # noqa: E402
+from .servo_model import SimServoParams
+from .joint_task import SimHexapodJointGoalEnv
 
 
 def main() -> None:

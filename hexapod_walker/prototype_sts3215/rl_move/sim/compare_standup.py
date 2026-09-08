@@ -33,7 +33,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -41,13 +40,9 @@ import numpy as np
 from .sim_env import SimHexapodBalanceEnv, set_foot_ground_friction
 from .servo_model import ServoProfile
 
-_RL = Path(__file__).resolve().parents[1]
-for p in (str(_RL.parent), str(_RL.parent / "linux_control")):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from rl_move.robot_state import RAD2DEG, N_JOINTS  # noqa: E402
-import mujoco_prototype as MP  # noqa: E402
+from rl_move.robot_state import RAD2DEG, N_JOINTS
+import mujoco_prototype as MP
 
 PRESS = 0.003                      # drag strategy: press feet into ground (m)
 SPEED_DEG_S = 90.0                 # scripted SyncWrite profile speed (all arms)

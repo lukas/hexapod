@@ -19,23 +19,18 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
-    if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
 
-from rl_move.sim.servo_model import (  # noqa: E402
+from rl_move.sim.servo_model import (
     ACC_UNIT_DEG_S2, COUNTS_PER_DEG, N_JOINTS, ServoProfile,
     SimServoParams, apply_params_to_model, build_model, joint_qpos_addrs,
     position_actuator_ids,
 )
-from rl_move.sim.sim_env import set_foot_ground_friction  # noqa: E402
-from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad  # noqa: E402
+from rl_move.sim.sim_env import set_foot_ground_friction
+from hexapod_core.joint_frame import robot_abs_deg_to_mujoco_rel_rad
 
 DEG2RAD = math.pi / 180.0
 RAD2DEG = 180.0 / math.pi

@@ -1,31 +1,70 @@
-# Direct contact-force / traction-budget diagnostic on the frozen full-mesh plant — the yaw deficit is OPPOSING-STANCE CANCELLATION at LOW friction-cone usage, with the net turn drive carried by (unphysically grippy) torsional pad couples; NOT cone saturation, NOT actuator rail
+# Contact-wrench measurements and torsional-friction sensitivity
 
-Executed 2026-09-08 (operator focus note 20260908T025454Z) after the
-lift-lead / stance-arm / cadence closures each *inferred* — from
-finite-difference pad speeds and LSQ residuals the pipeline review
-explicitly disclaimed — that the remaining yaw deficit was
-"traction-limited conversion". This probe measures the actual forces
-for the first time. Zero training, zero robot work, nothing deployed.
+Review corrected2026-09-08 03:31 UTC; replaces the initial interpretation.
+Raw measurement JSON is retained unchanged. The archived probe_turn_traction.py
+is a historical source copy from before the reset-survival fix; reproduce with
+the current repository runner instead.
 
-## Instruments (all committed, all tested)
+The audited force/couple decomposition passes the existing substep
+angular-momentum closure check. Opposing per-leg yaw moments and large
+contact-couple contributions are measured properties of these rollouts.
+They do not uniquely establish inconsistent commanded stance paths:
+small net torque also accompanies approximately steady angular
+momentum. Same-phase commanded/actual path evidence is needed for that
+causal attribution.
 
-- `rl_move/sim/probe_turn_traction.py` (copy here) — two engines:
-  - `tick`: per-control-tick sampler with fail-closed STATIC
-    validation (1 s zero-command hold: Σ vertical contact force vs the
-    pinned 4.80573 kg weight; solver normals vs the independent
-    L{i}_foot_t touch sensors; empirical sign calibration).
-  - `audit`: `probe_turn_authority._ContactAudit` per-substep wrench
-    integration (impulse-closure validity gate), EXTENDED this cycle
-    (additive fields only, 47/47 probe tests green) with per-contact
-    friction-cone usage |Ft|/(mu*N), slip-conditioned cone stats,
-    pos/neg yaw-moment cancellation, and actuator force-rail
-    saturation.
-  - `--foot-torsion-mu`: probe-local torsional-friction sensitivity
-    dose (see below; the first attempt was silently WIPED by the env's
-    DR pristine-copy restore at reset — caught because the results
-    came back bit-identical, fixed + regression-tested
-    `test_foot_torsion_dose_survives_reset_and_reaches_live_contacts`).
-- `summarize_traction.py` — the comparison tables.
+The original statistics called "cone usage" measured only
+`hypot(tangent1,tangent2)/(slide_mu_1*normal_force)`. They omit the
+second tangent's own coefficient, torsion, rolling, and the distinction
+between elliptic and pyramidal constraints. They therefore cannot rule
+out saturation of the full condim=6 contact cone. Existing JSON values
+remain valid as **planar slide projections**; saturation conclusions
+must use newly computed full-cone fields. Angular-momentum closure
+validates wrench accounting, not the completeness of a friction-budget
+projection.
+
+In the corrected probe-local sensitivity test, changing torsional
+friction from 0.1 to 0.005 m changed scripted arc yaw magnitude by
+approximately -9% to -14%, increased forward speed by roughly 17–20%,
+and changed straight yaw drift, with no observed falls in these
+six cells. This establishes sensitivity to the assumed contact
+coefficient. These are modified-contact-model rollouts, separate from
+qualification under the frozen plant contract.
+
+The 0.005 m value is an **assumed contact-patch estimate, not measured
+calibration**. For a uniformly pressured circular patch of radius
+a=3.5 mm and sliding coefficient 2, integrating Coulomb friction gives
+`torsional_mu = (2/3)*a*sliding_mu ~= 0.0047 m`. Neither that pressure
+profile nor that effective contact radius was measured here. The
+experiment does not establish an absolute physical torque cap, prove
+the real boot cannot supply the measured couples, or qualify the
+existing 0.1 m coefficient as unphysical. It identifies a consequential
+parameter for future calibration.
+
+No controller canary or qualification improvement follows from this
+sensitivity alone. The original command targets, qualification
+criteria, and physical/motor limits remain unchanged.
+
+## Exact smaller wording changes
+
+- Replace "NOT cone saturation", "NOT a friction-budget wall", and
+  "low cone usage proves opposing-stance cancellation" with:
+  **"The original planar usage statistic does not decide full-cone
+  saturation; opposing moments are observed, while their causal origin
+  remains unresolved."**
+- Replace "physical torsion", "phantom torsion", "20x too grippy", and
+  "hardware cannot supply" with:
+  **"the lower assumed torsional coefficient used for sensitivity."**
+- Label the audit's load selection accurately:
+  **"any active positive-normal-force foot contact; no 2 N threshold."**
+  The legacy `LOAD_N=2` tick-engine threshold does not describe the
+  audit engine's mask.
+- Treat net/gross and couple/net ratios carefully when the net impulse
+  is close to zero. Report signed force/couple contributions directly;
+  large ratios are not evidence of a dominant energy source.
+- Preserve the earlier wiped-dose experiment as invalid activation
+  evidence. Only the reset-surviving rerun tests coefficient sensitivity.
+
 
 ## Pinning
 
@@ -54,47 +93,11 @@ torsion-dose rollouts. ZERO falls anywhere.
   baseline wz/vx medians bit-for-bit (wz +0.0642/vx 0.0372 first
   cell; test-asserted vs `probe_turn_stancearm.rollout`).
 
-## Findings (scripted baseline; the RL checkpoint shows the SAME fingerprint)
 
-1. **NOT friction-cone saturation.** Slipping loaded pads sit near the
-   cone only 3–15% of slip substeps; P(usage<0.5 | slip) is 0.32–0.86.
-   Median per-leg cone usage 0.17–0.73 with mu=2.0 and ~15 N normals —
-   most of the tangential budget is never used. Actuators are nowhere
-   near the force rail (yaw rail fraction 0.000 in every cell;
-   medians ~0.00–0.03 of the 2.2 N·m rail).
-2. **Opposing-stance cancellation is the operative structure.** Median
-   net yaw moment ≈ 0 (steady state) but GROSS opposing moments are
-   ±0.45–0.53 N·m — net/gross ≈ 0.05. Per-leg medians while loaded:
-   during a +0.15 turn the +y middle leg (L1) BRAKES at −0.42 N·m
-   (largest single term), mirrored by L4 at −0.15; for −0.15 the
-   mirror pair flips (L4 +0.43, L1 +0.15). Phase-resolved: each middle
-   leg brakes hardest in a phase-locked HALF of its own stance
-   (L1 early stance −0.77…−0.40, flipping positive late; L4 the
-   mirror), i.e. the commanded stance paths are mutually inconsistent
-   with any single rigid twist — internal forces fight, pads drift
-   BELOW the cone.
-3. **The net turn drive is carried by TORSIONAL pad couples, and the
-   linear forces net-BRAKE the turn.** Per-cell impulse decomposition
-   (13 s scored): force-moment impulse **−2.96 to −3.30 Nms** (opposing
-   the commanded turn) vs couple impulse **+2.90 to +3.30 Nms**
-   (driving it), balancing at wz ≈ 0.063 = 43% of command; identical
-   mirrored numbers for the − direction, and same structure for the
-   RL checkpoint (−2.6/−3.1 vs +2.6/+3.1 at wz 0.047–0.058). Gross
-   couple magnitude (15–17 Nms) exceeds gross force moments (11–14).
-4. **The plant's torsional friction is unphysical.** Foot geom
-   friction = `2.0 0.1 0.001`: mu_torsion = 0.1 m ⇒ torsion cap
-   0.1×15 N = **1.5 N·m per foot**. A physical estimate for the 9 mm
-   boot ((2/3)·a·mu_slide with a ≈ 3.5 mm) is **~0.005 m ⇒ ~0.07 N·m**
-   — the plant is ~20x too grippy in torsion, and the measured
-   sustained couples (0.1–0.3 N·m/foot) exceed the physical cap 2–4x.
-   The sim's turning equilibrium rests on a torsion channel the real
-   robot cannot have.
+## Corrected probe-local sensitivity measurements
 
-## Torsional sensitivity A/B (mu_t 0.1 -> 0.005, both signs + straight)
-
-Probe-local dose (foot+terrain mu_t -> 0.005 m, the physical
-estimate; nothing fleet-wide changed), same 6 cells, impulse closure
-still valid (slope 1.000, relRMS 0.0007–0.0011), ZERO falls:
+These modified-parameter rollouts are separate from frozen-plant qualification.
+The first wiped-dose attempt was invalid; the table is its reset-surviving rerun.
 
 | cell | wz base -> mu_t 0.005 | vx base -> dosed | force imp -> | couple imp -> |
 |---|---|---|---|---|
@@ -105,64 +108,10 @@ still valid (slope 1.000, relRMS 0.0007–0.0011), ZERO falls:
 | straight @0 | −0.0002 -> −0.0109 | 0.0401 -> 0.0470 (+17%) | +0.74 -> +0.01 | −0.74 -> −0.00 |
 | straight @π | −0.0074 -> +0.0124 | 0.0402 -> 0.0469 | +0.18 -> −0.00 | −0.18 -> +0.00 |
 
-- With physical torsion the phantom channel disappears as predicted
-  (couple impulses 3.0 -> 0.1 Nms) and the linear-force moments
-  reorganize from net-braking (−3.0) to near-zero — the equilibrium
-  moves DOWN ~9–14% in BOTH turn directions (well outside the ±0.001
-  start-to-start spread): sim turn authority at these cells is ~38% of
-  command instead of 43%, i.e. the current plant OVERSTATES what the
-  real boot can do.
-- Side-findings: straight/arc vx +17–20% (torsional anchoring was
-  costing forward progress), but straight-line yaw drift WORSENS to a
-  phase-dependent ±0.011–0.012 (sign flips with start phase, the same
-  defect class the cadence closure saw) — the dose is NOT a behavior
-  lever, it is a fidelity question.
-- Slip becomes more honestly cone-adjacent (P(near-cone|slip) rises to
-  0.15–0.49) but still mostly sub-cone; the per-leg moment pattern
-  becomes the left/right propulsion dipole (left legs +, right legs −,
-  nearly identical across commands), i.e. the turn signal is a small
-  residual on top of large canceling propulsion moments.
+## Next action
 
-## Verdict
-
-**The three closures' "traction-limited conversion" inference is
-CORRECTED, not confirmed: the deficit is NOT a friction-budget wall.**
-Measured, on both controllers, both directions, both starts:
-(1) friction-cone usage stays low even while slipping (no saturation),
-(2) actuators never touch the force rail,
-(3) gross opposing stance moments cancel ~20:1 (commanded stance paths
-    mutually inconsistent with the achievable twist), and
-(4) the net turn drive in the CURRENT plant is carried by a torsional
-    contact channel ~20x stronger than the physical boot allows; with
-    a physical mu_t the equilibrium drops another ~12%.
-
-By the pre-registered rule: NO 2M canary — no in-limits corrective
-dose exists yet with a passed both-signs preflight (the torsion dose
-itself regresses wz in both directions, and it is a fidelity change,
-not a lever). The concrete measured next steps, in order:
-
-1. OPERATOR-SCOPED (fleet plant contract, filed in
-   OPERATOR_QUESTIONS.md): decide foot torsional friction for the
-   mesh-family plants. Evidence here: mu_t=0.1 m is ~20x a physical
-   boot estimate, carries the ENTIRE net sim turn drive at these
-   cells, and its removal changes wz −12%/vx +20% — i.e. today's sim
-   turn behavior (and anything trained on it) leans on a channel the
-   hardware cannot supply. Transfer-risk for every turn gate.
-2. In-limits gait-side design candidate (NOT one of the closed
-   phase/posture/cadence dials): a stance-path twist-consistency dose
-   — derate the commanded STANCE sweep twist toward the achievable
-   equilibrium (swing/touchdown targets untouched) so simultaneous
-   stance legs stop fighting; preflight it on the identical
-   both-signs-gain + straight-health bar under BOTH mu_t values
-   before any canary.
-3. walkcurr cross-link (their 9-arm slip-floor closure demanded a
-   structural contact lever): measure the ~5–6/m slip floor's
-   sensitivity to mu_t 0.1 vs 0.005 before funding any policy-side
-   slip mechanism on the mesh lineage.
-
-## Limits
-
-Single seed (0), starts 0/π, 15 s episodes, one plant family
-(frozen full mesh; twin used for tests), scripted + one checkpoint;
-LOAD_N=2 N, SLIP=0.02 m/s, NEAR_CONE=0.9 thresholds (reported, not
-tuned); physical mu_t estimate is analytic (no bench measurement).
+Rerun full-cone accounting on the original scripted/checkpoint baseline.
+A stance-path candidate needs same-phase commanded/actual path evidence and
+the unchanged original both-signs-gain/straight-health preflight before one
+bounded existing-seed canary. Lower-torsion rows remain separate sensitivity.
+No operator reply is required for these authorized simulation diagnostics.

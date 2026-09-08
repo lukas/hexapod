@@ -5675,26 +5675,26 @@ kinematic/timing dial is left to try under the current qualification
 cells. Still no launch, no robot action, no operator wait for ongoing
 sim work.
 
-## q_20260908T0410Z — mesh-family foot TORSIONAL friction is ~20x physical and carries the entire net sim turn drive; fleet plant decision needed
-Filed by the traction-diagnostic cycle (operator focus note 025454Z).
-MEASURED (artifacts/rl_watchdog/turn_traction_20260908/): the mesh
-plants ship foot geom friction "2.0 0.1 0.001" — torsional mu 0.1 m
-caps 1.5 Nm/foot vs a physical boot estimate ~0.005 m => ~0.07 Nm
-((2/3)*a*mu_slide, a≈3.5 mm). On the frozen full-mesh plant the
-sustained torsional couples (0.1-0.3 Nm/foot) exceed the physical cap
-2-4x, and per-cell impulse decomposition shows the couples provide the
-ENTIRE net turn drive (+3.0 Nms) while linear forces net-brake (−3.0).
-A probe-local mu_t=0.005 A/B moves the turn equilibrium −9..−14%
-(both signs) and vx +17..20%. IMPLICATION: turn behavior trained/
-evaluated on the current mesh plants leans on a contact channel the
-hardware cannot supply (transfer risk for joystick/todaypolicy/
-standwalk turn gates); walking slip metrics may also be affected
-(walkcurr slip-floor sensitivity untested). DECISION NEEDED
-(fleet plant contract, operator-scoped per q_20260908T0050Z): adopt a
-physical mu_t (~0.005) in the mesh XMLs (a DR-able cfg key defaulting
-to current value is the non-breaking option: e.g.
-env.foot_friction_torsion, OFF=0.1 bit-exact), or keep 0.1 and accept
-the documented transfer risk + derated demo turn cells. ASSUME-AND-GO
-POSTURE while unanswered: no fleet default change; diagnostics may
-dose it probe-locally (--foot-torsion-mu); turn-authority claims must
-state which mu_t they used.
+## q_20260908T0410Z — future contact calibration (review corrected 03:31 UTC)
+
+Contact-wrench accounting passed the substep angular-momentum closure check.
+Opposing yaw moments and contact-couple contributions are measured, but do not
+uniquely establish inconsistent commanded stance paths. The original cone
+statistic was a planar slide projection: full condim6 saturation is unresolved
+until the corrected diagnostic is rerun. The isolated torsion dose0.1->0.005 m
+reduced scripted arc yaw magnitude9-14%, increased forward speed about17-20%,
+and changed straight drift, with zero observed falls in its six cells.
+The lower coefficient assumes a uniform-pressure contact patch; it is not
+measured calibration, an established physical cap, or proof that the original
+coefficient is unphysical. Modified-contact sensitivity is separate from
+frozen-plant qualification. No original both-signs/straight-health preflight
+passed, so no canary or fleet-model change follows from this evidence.
+Continue authorized simulation diagnostics without waiting for an operator
+reply on the separate fleet-calibration question.
+See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
+
+The future fleet decision is whether calibrated contact evidence warrants a
+plant-default or randomization change. No pressure distribution, effective
+contact radius or hardware torsional friction was measured here; keep current
+defaults while gathering evidence. This question does not gate bounded
+simulation diagnostics or mechanisms under the original contract.

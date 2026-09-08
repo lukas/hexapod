@@ -1,25 +1,25 @@
 # todaypolicy - working policy bundle for today's demo
 
-Last updated: 2026-09-08 ~04:0x UTC — DIRECT TRACTION/FORCE-BUDGET
-DIAGNOSTIC DONE (operator focus note 025454Z): the three closures'
-"traction-limited conversion" inference is CORRECTED. Measured on the
-frozen full-mesh plant (24 rollouts, scripted + retained-turns cont8m,
-both arc signs + straight, starts 0/π, zero falls, zero training):
-NOT friction-cone saturation (P(near-cone|slip) 3-15%, mu=2.0 budget
-mostly unused), NOT actuator rail (yaw 0.000) — it is OPPOSING-STANCE
-CANCELLATION (gross ±0.5 Nm per-leg moments cancel ~20:1, phase-locked
-middle-leg braking), and the net sim turn drive is carried ENTIRELY by
-an unphysical torsional contact channel (foot mu_t=0.1 m, ~20x a
-physical boot; linear forces net-BRAKE the turn). mu_t->0.005 A/B: wz
-−9..−14% BOTH signs (real-boot turn authority ≈38% of command, i.e.
-today's demo turn cells are OVERSTATED by the plant), vx +17-20%.
-Sign math validated (static weight, touch sensors, impulse closure
-slope 1.000). NO canary (pre-registered rule: no passed preflight).
-Evidence + next steps: `artifacts/rl_watchdog/turn_traction_20260908/`;
-fleet mu_t decision filed as q_20260908T0410Z (operator-scoped);
-in-limits design candidate: stance-path twist-consistency derate,
-preflight under BOTH mu_t values. Demo scoping should keep the derated
-turn cells until the mu_t question is answered.
+Last updated: 2026-09-08 03:31 UTC — traction interpretation corrected.
+
+Contact-wrench accounting passed the substep angular-momentum closure check.
+Opposing yaw moments and contact-couple contributions are measured, but do not
+uniquely establish inconsistent commanded stance paths. The original cone
+statistic was a planar slide projection: full condim6 saturation is unresolved
+until the corrected diagnostic is rerun. The isolated torsion dose0.1->0.005 m
+reduced scripted arc yaw magnitude9-14%, increased forward speed about17-20%,
+and changed straight drift, with zero observed falls in its six cells.
+The lower coefficient assumes a uniform-pressure contact patch; it is not
+measured calibration, an established physical cap, or proof that the original
+coefficient is unphysical. Modified-contact sensitivity is separate from
+frozen-plant qualification. No original both-signs/straight-health preflight
+passed, so no canary or fleet-model change follows from this evidence.
+Continue authorized simulation diagnostics without waiting for an operator
+reply on the separate fleet-calibration question.
+See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
+
+Next: complete full-cone rerun, then require same-phase commanded/actual path
+evidence for any stance-path mechanism and unchanged original-plant preflight.
 
 ## Previous update (2026-09-08 ~02:1x UTC) — CADENCE (period_scale)
 EXPERIMENT DONE ON THE FROZEN FULL-MESH PLANT: CLOSED, REGRESSED BOTH

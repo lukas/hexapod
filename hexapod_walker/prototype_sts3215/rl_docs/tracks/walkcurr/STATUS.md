@@ -1,18 +1,23 @@
-## 2026-09-08 ~04:0x (cross-track note from the todaypolicy traction diagnostic; no launch here) — a MEASURED structural-contact candidate for the closed 9-arm slip-floor demand: mesh-plant foot TORSIONAL friction is ~20x physical
+## 2026-09-08 03:31 UTC — contact sensitivity is not measured calibration
 
-The direct contact-force diagnostic
-(`artifacts/rl_watchdog/turn_traction_20260908/`, frozen full-mesh
-plant, impulse-closure-validated) found the mesh family's foot geoms
-ship `friction="2.0 0.1 0.001"`: torsional mu 0.1 m caps 1.5 Nm/foot
-vs a physical boot estimate ~0.005 m (~0.07 Nm). Feet can pivot-anchor
-on a channel the hardware cannot supply; a probe-local mu_t=0.005 A/B
-moved turn equilibrium −9..−14% and vx +17..20% on the scripted gait.
-Your own 09-07 ~20:3x closure demanded exactly a STRUCTURAL
-contact/friction lever before any 10th slip-pricing design: before
-funding further policy-side slip mechanisms on the mesh/100Hz lineage,
-measure the ~5-6/m slip floor's sensitivity to mu_t (probe-local dose
-exists: `rl_move/sim/probe_turn_traction.py --foot-torsion-mu`; fleet
-default change is operator-scoped, q_20260908T0410Z).
+Contact-wrench accounting passed the substep angular-momentum closure check.
+Opposing yaw moments and contact-couple contributions are measured, but do not
+uniquely establish inconsistent commanded stance paths. The original cone
+statistic was a planar slide projection: full condim6 saturation is unresolved
+until the corrected diagnostic is rerun. The isolated torsion dose0.1->0.005 m
+reduced scripted arc yaw magnitude9-14%, increased forward speed about17-20%,
+and changed straight drift, with zero observed falls in its six cells.
+The lower coefficient assumes a uniform-pressure contact patch; it is not
+measured calibration, an established physical cap, or proof that the original
+coefficient is unphysical. Modified-contact sensitivity is separate from
+frozen-plant qualification. No original both-signs/straight-health preflight
+passed, so no canary or fleet-model change follows from this evidence.
+Continue authorized simulation diagnostics without waiting for an operator
+reply on the separate fleet-calibration question.
+See artifacts/rl_watchdog/full_cone_review_20260908/CORRECTION.md.
+
+A bounded frozen-checkpoint slip-sensitivity probe can inform contact
+calibration; it cannot satisfy qualification under the original plant.
 
 ## 2026-09-08 ~03:0x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-on10m`) — s0/RNG2 charge-on arm CANARY PASSes its own retention gate (22/24, +1 over the 21/24 source, 0 new falls/chronic legs) — same shape as the s1 twin, causal efficacy still pending its matched control
 

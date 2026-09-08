@@ -43,21 +43,17 @@ Out-of-scope operator runs get honest triage but no agent follow-ups.
   legacy 25 Hz. Policies output 18 raw joint targets through SafetyLayer.
 - Long PPO acquisition launches should set `--log-std-final` from the
   start; uncapped `train/std` repeatedly ruined stochastic rollouts.
-- TANGENTIAL FOOT-SPEED BUDGET (measured 2026-09-08,
-  artifacts/rl_watchdog/turnpipeline_20260908): under the current motor
-  contract the yaw servo's usable speed (~0.54-0.65 rad/s; <=~0.8 with
-  all software limits removed) times its ~0.071 m yaw-frame arm caps
-  per-leg tangential foot speed at ~0.04 m/s, and vx + wz*r_foot SHARE
-  it (this leg geometry routes all tangential motion through the yaw
-  servo). Consequences: straight walking saturates ~0.04 m/s at any
-  command (the fleet-wide "speed-soft" ~50% progress at vx=0.08),
-  turn-in-place caps ~0.23 rad/s, and the (0.08, +/-0.15) combined arc
-  cells are infeasible for ANY controller under EVERY tested software
-  config (slew/profile/both raised — several regress; the pinned 0.375
-  deg/tick slew is a near-optimal shaper, not the bottleneck). Do not
-  fund reward/curriculum/seed arms to "fix" tracking beyond this budget;
-  command inside |vx| + 0.171*|wz| <= ~0.04 m/s or raise the physical
-  contract (operator fork q_20260908T0050Z).
+- TURN PIPELINE REVIEW (2026-09-08 00:52 UTC): the 43-rollout probe
+  establishes undertracking for the tested controllers/settings, not a
+  universal physical ceiling. Its model was 3.494226 kg versus the frozen
+  audit's 4.80573 kg despite both having 34 meshes. Nominal-stance yaw arm,
+  inconsistent scalar budget arithmetic, mixed planned/actual-contact
+  selectors and discarded fit residuals do not establish impossibility
+  or negligible slip. Preserve original qualification and physical limits;
+  q_20260908T0050Z's assumed derating/universal training stop is superseded.
+  Cycle 20260908T005017 owns a bounded SIM-only lift-phase comparison on
+  pinned model/config hashes, existing seed and unchanged motor limits.
+  See artifacts/rl_watchdog/turnpipeline_review_20260908.md.
 - SHARDED KNEE-FRAME FIX (2026-09-07): before commit dd248bd8/37c8e808,
   `MjxShardedVecEnv` workers stored raw mujoco-frame `q_nom` into
   `_q_nom`/`_cmd`/seq frames (missing `_mujoco_to_logical_q`), so every

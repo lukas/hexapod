@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T06:29:51+00:00
 
 **pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
+
+**wandb_id**: b3piakh6
 
 **hypothesis**: 3rd-seed replicate (n=3 with s7 + the concurrent base-cartfoot-fresh-s10) of the cartfoot fresh-init fork (b) question: does the Cartesian foot-space decode bootstrap walking from a random policy as cleanly as the joint-space decode on the proven-from-scratch easy0905 base recipe? Same predictions as s7's hypothesis (this cycle, ~06:2x): TRUE = finite losses/real excursion/bank agreement matching base-s0..s4; FALSE = statue/degenerate at 2M while the matched offctrl-s11 ignites normally; alternative = neither ignites (matches base-s0's own 2M history), inconclusive for cold-start comparison.
 

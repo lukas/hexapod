@@ -2,13 +2,15 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-09-08T06:31:10+00:00
 
 **pod**: hexapod-mjx-train-3
 
 **steps**: 2000000
+
+**wandb_id**: c2vthugj
 
 **hypothesis**: Matched joint-space fresh-init control for cartfoot-freshinit-c1-s11 (same seed 11, no cart_foot keys) -- isolates the decode effect from seed/recipe drift; 3rd independent-seed replicate of the base-s0..s4 fresh-init family.
 

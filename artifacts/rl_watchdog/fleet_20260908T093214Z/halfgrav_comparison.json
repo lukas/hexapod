@@ -1,0 +1,316 @@
+{
+  "read_confirmed_at_utc": "2026-09-08T10:01:19Z",
+  "conditions": {
+    "training_seed": 7,
+    "gravity_scale": 0.5,
+    "torque_scale": 3,
+    "seconds_per_episode": 20,
+    "model": "mesh_mjx_twin",
+    "mass_kg": 4.80573
+  },
+  "parent_2m": {
+    "on": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": -0.00005,
+        "median_slip_per_m": 1.035,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.0156,
+        "median_slip_per_m": 21.7895,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 5,
+        "terminations": 0,
+        "median_command_aligned_m_s": -0.00005,
+        "median_slip_per_m": 1.6665,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [
+            0
+          ],
+          []
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.011975,
+        "median_slip_per_m": 27.1805,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "off": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0,
+        "median_slip_per_m": 0.829,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.011975,
+        "median_slip_per_m": 28.1565,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": -0.000025,
+        "median_slip_per_m": 1.463,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.014249999999999999,
+        "median_slip_per_m": 23.6485,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      }
+    }
+  },
+  "acquisition_40m": {
+    "on": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.22405,
+        "median_slip_per_m": 1.556,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.1867,
+        "median_slip_per_m": 1.7214999999999998,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 4,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.21662499999999998,
+        "median_slip_per_m": 1.6635,
+        "sacrificed_legs": [
+          [
+            1
+          ],
+          [
+            4
+          ],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 6,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.179225,
+        "median_slip_per_m": 1.794,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      }
+    },
+    "off": {
+      "walk/det": {
+        "episodes": 6,
+        "gait_valid": 0,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.17470000000000002,
+        "median_slip_per_m": 1.898,
+        "sacrificed_legs": [
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      },
+      "walk/sto": {
+        "episodes": 6,
+        "gait_valid": 5,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.164075,
+        "median_slip_per_m": 1.9085,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [],
+          [
+            1
+          ],
+          []
+        ]
+      },
+      "walk_startjitter/det": {
+        "episodes": 6,
+        "gait_valid": 0,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.18675,
+        "median_slip_per_m": 1.8345,
+        "sacrificed_legs": [
+          [
+            1,
+            4
+          ],
+          [
+            4
+          ],
+          [
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            4
+          ]
+        ]
+      },
+      "walk_startjitter/sto": {
+        "episodes": 6,
+        "gait_valid": 5,
+        "terminations": 0,
+        "median_command_aligned_m_s": 0.166425,
+        "median_slip_per_m": 1.931,
+        "sacrificed_legs": [
+          [],
+          [],
+          [],
+          [
+            4
+          ],
+          [],
+          []
+        ]
+      }
+    }
+  },
+  "acquisition_on_off_reported_randomization_equal": 24,
+  "conclusion": "At this one training seed, ON retains22/24 gait from23/24; OFF drops24/24 to10/24 with recurring legs1/4 in deterministic modes. Both have0 terminations and meet their narrow forward-acquisition threshold. Preserve gate scope; this is not broad joystick/physical qualification or seed-independent superiority.",
+  "reports": {
+    "on": "cw_walkscratch_easy0905_cartfoot_halfgrav_s7_acq1_gate",
+    "off": "cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_acq1_gate",
+    "source_on": "cw_walkscratch_easy0905_cartfoot_halfgrav_s7_gate",
+    "source_off": "cw_walkscratch_easy0905_cartfoot_halfgrav_offctrl_s7_gate"
+  },
+  "feedback": "fb_20260908T100205_1a93d1"
+}

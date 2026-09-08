@@ -1,0 +1,134 @@
+{
+  "heartbeat": "keep-hexapod-rl-gpus-training",
+  "trigger": "2026-09-08T09:32:14Z",
+  "status": "completed_visit_heartbeat_remains_active",
+  "recorded_at_utc": "2026-09-08T10:14:41.488226+00:00",
+  "capacity": {
+    "sample_at_utc": "2026-09-08T10:12:12.141664Z",
+    "ready_gpu_slots": 11,
+    "actual_ppo_processes": 2,
+    "free_gpu_slots": 9,
+    "pending_pods": [
+      "hexapod-mjx-train-6"
+    ],
+    "backlog": [],
+    "cpu_artifact_finalizers": 4,
+    "cpu_gate_evaluators": 1,
+    "receipt": "fleet_20260908T093214Z/halfgrav_cont10m_placement.json",
+    "note": "CPU artifact work is separate from GPU optimization. Historical failed backlog entries are not active queue items."
+  },
+  "completed_training": {
+    "halfgrav_acq1": {
+      "runs": [
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1",
+        "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1"
+      ],
+      "requested_steps_each": 40000000,
+      "actual_steps_each": 40370176,
+      "actual_steps_total": 80740352,
+      "completion": "Both finished naturally. These segments began during the previous visit; their full segment totals are not newly executed steps within this heartbeat.",
+      "receipt": "fleet_20260908T093214Z/initial.json",
+      "comparison": "fleet_20260908T093214Z/halfgrav_comparison.json"
+    },
+    "bounded_canaries": {
+      "count": 8,
+      "requested_steps_each": 2000000,
+      "actual_steps_each": 2097152,
+      "actual_steps_total": 16777216,
+      "completion": "All eight finished naturally; durable checkpoint and training-complete markers verified.",
+      "groups": [
+        {
+          "name": "Narrow-heading seed 40 ON/OFF",
+          "count": 2,
+          "receipt": "fleet_20260908T093214Z/narrowhead_placement.json"
+        },
+        {
+          "name": "Leg-duty target 0.45 s0/s1 lineage pair (training seeds 2/3)",
+          "count": 2,
+          "receipt": "fleet_20260908T093214Z/target045_placement.json"
+        },
+        {
+          "name": "Half-gravity fresh seed 10/11 ON/OFF panel",
+          "count": 4,
+          "receipt": "fleet_20260908T093214Z/halfgrav_seedpanel_placement.json"
+        }
+      ]
+    },
+    "full_completed_segment_steps": 97517568
+  },
+  "halfgrav_comparison": {
+    "training_seed": 7,
+    "gravity_scale": 0.5,
+    "torque_scale": 3,
+    "episodes_per_gate": 24,
+    "on_gait_valid": 22,
+    "off_gait_valid": 10,
+    "terminations_both": 0,
+    "reported_randomization_draws_equal": 24,
+    "conclusion": "The ON arm preserves substantially more six-leg gait in this finite seed 7 comparison. The OFF arm loses deterministic six-leg gait despite forward progress and zero terminations. Preserve the original acquisition verdict scope; this is not broad Cartesian superiority or joystick/hardware qualification.",
+    "receipt": "fleet_20260908T093214Z/halfgrav_comparison.json"
+  },
+  "active_training": {
+    "owner_cycle": "20260908T095611",
+    "purpose": "Matched own-checkpoint 10M durability continuation of both half-gravity acq1 arms.",
+    "requested_steps_each": 10000000,
+    "seed": 7,
+    "progress": [
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-s7-acq1-cont10m",
+        "pod": "hexapod-mjx-train-2",
+        "same_pid": true,
+        "pid": 3894429,
+        "elapsed_seconds": 50.658031,
+        "steps_before": 4718592,
+        "steps_after": 5767168,
+        "step_increase": 1048576,
+        "fps_latest": 16036.0,
+        "cpu_ticks_increase": 3163
+      },
+      {
+        "run": "cw-walkscratch-easy0905-cartfoot-halfgrav-offctrl-s7-acq1-cont10m",
+        "pod": "hexapod-mjx-train-1",
+        "same_pid": true,
+        "pid": 2802418,
+        "elapsed_seconds": 50.658031,
+        "steps_before": 524288,
+        "steps_after": 1572864,
+        "step_increase": 1048576,
+        "fps_latest": 15222.0,
+        "cpu_ticks_increase": 3751
+      }
+    ],
+    "validation": "Both actual argv match their registered recipes; each has exactly one 10M step argument, unchanged own-parent cfg, and the correct retained acq1 checkpoint with matching controller/pod SHA256. Same-PID advancement is verified across 50.66 seconds.",
+    "receipt": "fleet_20260908T093214Z/halfgrav_cont10m_placement.json",
+    "wait_recovery": "The malformed owner wait expired normally at 10:08:31; the owner then launched OFF. No process intervention or duplicate launch was needed."
+  },
+  "steering": {
+    "status": "COMPLETE - STOP",
+    "assay": "Capped magnitude allocation of unchanged stance templates against matched sign-box comparator",
+    "result_commit": "be4e8a423",
+    "receipt": "turn_magnitude_execution_20260908/full_recovered/summary.json",
+    "review": "turn_magnitude_execution_20260908/INDEPENDENT_REVIEW.md",
+    "total_rollouts": 50,
+    "candidate_qualifying_states": 0,
+    "candidate_states": 8,
+    "box_qualifying_states": 0,
+    "box_states": 8,
+    "retention_passes": 32,
+    "retention_pulses": 32,
+    "parity": "Zero-control, pulse-prefix/vector and straight checks passed.",
+    "pending_assay": false,
+    "followup": "No PPO or additional assay follows this finite STOP result. It does not establish universal impossibility."
+  },
+  "ownership": {
+    "training_completion_and_matched_depth_read": "20260908T095611",
+    "target045_triage": "20260908T100639",
+    "publication": "Root heartbeat closeout; no new launch, kick, stop or restart was performed for publication.",
+    "current_docs": "Track metadata and current scientific scope corrections were already committed before this receipt."
+  },
+  "remaining": [
+    "Owner 095611 should let both existing bounded 10M segments finish and compare exact held-out gates with their own acq1 baselines.",
+    "Owner 100639 owns target 0.45 triage; preserve finite canary evidence and original gates.",
+    "Scratch learning and steering remain active research tracks. Continuous joystick/hardware qualification remains unmet; the heartbeat remains active."
+  ]
+}

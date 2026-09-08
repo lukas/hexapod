@@ -7218,6 +7218,92 @@ def test_walk_leg_loadslip_ratio_charge_fires_and_prices_flagleg_cheat():
     assert result["steps"] > 0
 
 
+# reward.walk_leg_loadslip_ratio_excess_cap (2026-09-08, closure lever
+# named by the isolation canaries `cw-walkscratch-crutchoff-{s0,s1}-
+# widen8-loadslip-target6-alone`, both CANARY FAIL - MECHANISM): those
+# two seeds found this charge's own reward-quarters collapse gets
+# WORSE, not better, once the walk_leg_duty_ratio_charge confound is
+# removed -- pointing at the charge's own unbounded `worst_excess`
+# (unlike duty-ratio's shortfall, naturally capped at `target`) as the
+# real driver. This bank proves the new cap cfg key bounds the
+# per-tick charge without disturbing anything when off (default).
+def test_walk_leg_loadslip_ratio_excess_cap_off_matches_uncapped():
+    """Explicitly setting the new cap key to 0.0 (off) must be a
+    byte-for-byte no-op vs never setting it at all -- the cap is
+    strictly additive."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_loadslip_ratio_charge")] = 150.0
+    overrides[("reward", "walk_leg_loadslip_ratio_target")] = 1.5
+    overrides[("reward", "walk_leg_loadslip_ratio_grace_s")] = 3.0
+    overrides[("reward", "walk_leg_loadslip_ratio_tau_s")] = 1.0
+    baseline = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides)
+    with_key = dict(overrides)
+    with_key[("reward", "walk_leg_loadslip_ratio_excess_cap")] = 0.0
+    explicit_off = _gait_gate_walk_rollout("flagleg", SEEDS[0], with_key)
+    assert baseline["return"] == explicit_off["return"]
+    assert baseline["steps"] == explicit_off["steps"]
+
+
+def test_walk_leg_loadslip_ratio_excess_cap_bounds_extreme_excess():
+    """With the cap ARMED at a value below the flag-leg cheat's own
+    observed uncapped excess range (measured ~0.045-0.50 over this
+    scripted rollout), the capped return must be LESS NEGATIVE (a
+    smaller total penalty) than the uncapped run, and the per-tick
+    charge must never exceed -charge*cap in magnitude -- proving the
+    cap actually bounds the price instead of being a silent no-op."""
+    charge = 150.0
+    cap = 0.2
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_loadslip_ratio_charge")] = charge
+    overrides[("reward", "walk_leg_loadslip_ratio_target")] = 1.5
+    overrides[("reward", "walk_leg_loadslip_ratio_grace_s")] = 3.0
+    overrides[("reward", "walk_leg_loadslip_ratio_tau_s")] = 1.0
+    uncapped = _gait_gate_walk_rollout("flagleg", SEEDS[0], overrides,
+                                       record_lsratio=True)
+    excs = [row[2] for row in uncapped["lsratio_trace"] if row[2] is not None]
+    assert excs and max(excs) > cap, (
+        "test fixture assumption broken: the flag-leg cheat's own "
+        f"uncapped excess range no longer exceeds the chosen cap "
+        f"({cap}); pick a lower cap or a stronger cheat before trusting "
+        "this test's bound")
+    capped_overrides = dict(overrides)
+    capped_overrides[("reward", "walk_leg_loadslip_ratio_excess_cap")] = cap
+    capped = _gait_gate_walk_rollout("flagleg", SEEDS[0], capped_overrides,
+                                     record_lsratio=True)
+    assert capped["return"] > uncapped["return"], (
+        "capping the excess should make the total charge LESS negative "
+        f"(smaller penalty), got capped={capped['return']} vs "
+        f"uncapped={uncapped['return']}")
+    priced = [row[3] for row in capped["lsratio_trace"] if row[3] is not None]
+    assert priced, "cap arm produced no priced ticks at all"
+    worst_tick_charge = min(priced)  # most negative
+    assert worst_tick_charge >= -charge * cap - 1e-6, (
+        f"a single tick's charge ({worst_tick_charge}) exceeded the "
+        f"cap's own bound (-charge*cap={-charge * cap})")
+
+
+def test_walk_leg_loadslip_ratio_excess_cap_never_worsens_honest_gait():
+    """The honest six-leg gait's worst-leg ratio DOES occasionally
+    exceed a strict target=1.5 (transient stance events, not a
+    permanent sacrifice -- discovered empirically writing this test:
+    the uncapped honest-gait return already carries a real, nonzero
+    charge here, unlike the flag-leg cheat's bank which uses this
+    same target and treats it as clean). A cap can only clip excess
+    DOWNWARD (never invents a new charge where none existed), so the
+    capped return must never be MORE negative (worse) than the
+    uncapped one for this same honest actor."""
+    overrides = dict(WALK_OVERRIDES)
+    overrides[("reward", "walk_leg_loadslip_ratio_charge")] = 150.0
+    overrides[("reward", "walk_leg_loadslip_ratio_target")] = 1.5
+    overrides[("reward", "walk_leg_loadslip_ratio_grace_s")] = 3.0
+    overrides[("reward", "walk_leg_loadslip_ratio_tau_s")] = 1.0
+    uncapped = _gait_gate_walk_rollout("gait", SEEDS[0], overrides)
+    capped_overrides = dict(overrides)
+    capped_overrides[("reward", "walk_leg_loadslip_ratio_excess_cap")] = 0.2
+    capped = _gait_gate_walk_rollout("gait", SEEDS[0], capped_overrides)
+    assert capped["return"] >= uncapped["return"]
+
+
 # --------------------------------------------------------------------------
 # reward.walk_swing_gate (09-05, walkcurr easy0905 legpark-skate
 # dig-in follow-up): the SIXTH structural repair attempt for the

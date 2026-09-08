@@ -4818,7 +4818,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_leg_loadslip_ratio_target (1.5, assume-and-
             # go -- see the function-level comment above),
             # reward.walk_leg_loadslip_ratio_grace_s (3.0),
-            # reward.walk_leg_loadslip_ratio_tau_s (1.0).
+            # reward.walk_leg_loadslip_ratio_tau_s (1.0),
+            # reward.walk_leg_loadslip_ratio_excess_cap (0.0 = OFF,
+            # 2026-09-08 -- the isolation canaries `cw-walkscratch-
+            # crutchoff-{s0,s1}-widen8-loadslip-target6-alone` (CANARY
+            # FAIL - MECHANISM both seeds) found this charge's own
+            # reward-quarters collapse GETS WORSE, not better, once the
+            # walk_leg_duty_ratio_charge confound is removed -- unlike
+            # duty-ratio's shortfall (naturally bounded at `target`,
+            # <=0.30 by construction), this charge's `worst_excess` =
+            # max(0, max(ratio)-target) has NO upper bound: a leg
+            # transiently sliding many multiples of its peers' rate
+            # (a real, if rare, tail event under DR/faults/pushes) can
+            # spike the per-tick charge arbitrarily far past its
+            # "typical" 0.02-0.03 telemetry reading, and PPO's return
+            # normalization/advantage estimation can be dominated by a
+            # handful of such outlier ticks regardless of the charge's
+            # overall weight (already shown: 10x/3x weight cuts barely
+            # moved the collapse magnitude in the earlier w15/w45
+            # dose-bracket, both CLOSED FAIL). Capping `worst_excess`
+            # at this value (if >0) directly bounds the per-tick charge
+            # to `-charge*cap` regardless of how extreme the tail event
+            # is, isolating "price the typical excess" from "let one
+            # bad tick dominate the whole return" -- untested, next
+            # concrete lever named by the isolation closure. Default
+            # 0.0 = no cap (legacy/current behavior), bit-exact.
             g_lsratio = float(cfg_get(self.cfg, "reward",
                                       "walk_leg_loadslip_ratio_charge",
                                       default=0.0))
@@ -4833,7 +4857,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         default=1.5))
                     worst_excess, _ls_ratios = walk_legslip_ratio_charge(
                         self._legslip_ratio_ema, lsratio_target)
-                    r_lsratio = -g_lsratio * worst_excess
+                    lsratio_cap = float(cfg_get(
+                        self.cfg, "reward",
+                        "walk_leg_loadslip_ratio_excess_cap", default=0.0))
+                    priced_excess = (min(worst_excess, lsratio_cap)
+                                      if lsratio_cap > 0.0 else worst_excess)
+                    r_lsratio = -g_lsratio * priced_excess
                     info["walk_leg_loadslip_ratio_excess"] = worst_excess
                     info["reward_walk_leg_loadslip_ratio"] = r_lsratio
             reward = float(reward) + r_walk + r_prog + r_cmd_track \

@@ -7,6 +7,7 @@ import json
 import math
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -329,3 +330,114 @@ def test_decision_does_not_mutate_metric_records(probe):
     original = copy.deepcopy(state)
     probe.allocation_state_pass(*state, wz=.15)
     assert state == original
+
+
+def mock_predictor(probe, mode, p=2, action=None):
+    """An action source and phase scalar only; no robot or dynamics objects."""
+    if action is None:
+        action = np.linspace(-.2, .2, 18, dtype=np.float32)
+    model = SimpleNamespace(
+        action=action, hidden=object(), calls=[],
+        _state=object(), _episode_start=np.array([True]),
+    )
+
+    def predict(obs, deterministic=True):
+        model.calls.append((obs, deterministic))
+        return model.action, model.hidden
+
+    model.predict = predict
+    env = SimpleNamespace(
+        _phase=TEMPLATES[0]["phase_center_rad"],
+        action_space=SimpleNamespace(low=-np.ones(18), high=np.ones(18)),
+    )
+    state = dict(doses=[], zero_off_checked_ticks=0)
+    job = dict(mode=mode, p=p, cell=dict(wz=-.15 if p is not None else 0.))
+    wrapper = probe.WrappedPredictor(model, env, job, state, TEMPLATES)
+    return wrapper, model, env, state
+
+
+@pytest.mark.parametrize("mode", [
+    "candidate_plus", "candidate_minus", "comparator_plus", "comparator_minus",
+])
+def test_wrapper_pulses_exactly_five_ticks_then_preserves_all_75_actions(probe, monkeypatch, mode):
+    p = 2
+    wrapper, model, env, state = mock_predictor(probe, mode, p=p)
+    original_action = model.action.copy()
+    selected = []
+    choose = probe.choose_template
+
+    def counted_choice(templates, wz, phase):
+        selected.append((wz, phase))
+        return choose(templates, wz, phase)
+
+    monkeypatch.setattr(probe, "choose_template", counted_choice)
+    vector_key = "candidate_vector" if mode.startswith("candidate") else "comparator_vector"
+    frozen_delta = np.asarray(TEMPLATES[0][vector_key]) * (1 if mode.endswith("_plus") else -1)
+    expected_action = (original_action.astype(np.float64) + frozen_delta).astype(np.float32)
+    obs = object()
+    for tick in range(p + 5 + 75):
+        # Cross the phase boundary immediately after pulse onset. The selected
+        # vector must remain the onset vector for the remaining four ticks.
+        if tick > p:
+            env._phase = TEMPLATES[1]["phase_center_rad"]
+        action, hidden = wrapper.predict(obs, deterministic=False)
+        assert hidden is model.hidden
+        if p <= tick < p + 5:
+            np.testing.assert_array_equal(action, expected_action)
+            assert action is not model.action
+        else:
+            assert action is model.action
+    assert selected == [(-.15, TEMPLATES[0]["phase_center_rad"])]
+    assert state["mapping"]["template_id"] == TEMPLATES[0]["template_id"]
+    assert [receipt["tick"] for receipt in state["doses"]] == list(range(p, p + 5))
+    for receipt in state["doses"]:
+        np.testing.assert_array_equal(receipt["requested"], frozen_delta)
+        np.testing.assert_array_equal(receipt["applied"], expected_action - original_action)
+        assert receipt["clip_hits"] == 0
+    np.testing.assert_array_equal(model.action, original_action)
+    assert model.calls == [(obs, False)] * (p + 5 + 75)
+
+
+@pytest.mark.parametrize("mode", ["zero", "straight_candidate", "straight_comparator"])
+def test_wrapper_zero_controls_preserve_original_action_object(probe, mode):
+    straight = mode.startswith("straight_")
+    wrapper, model, env, state = mock_predictor(probe, mode, p=None if straight else 2)
+    original_action = model.action.copy()
+    if straight:
+        # Zero-off must not need a meaningful phase or a nonzero template.
+        env._phase = float("nan")
+    for _ in range(82):
+        action, hidden = wrapper.predict(None)
+        assert action is model.action
+        assert hidden is model.hidden
+    np.testing.assert_array_equal(model.action, original_action)
+    assert state["doses"] == []
+    assert state["zero_off_checked_ticks"] == (82 if straight else 0)
+
+
+def test_wrapper_forwards_current_model_recurrent_state_and_episode_start(probe):
+    wrapper, model, _, _ = mock_predictor(probe, "zero")
+    assert wrapper._state is model._state
+    assert wrapper._episode_start is model._episode_start
+    first_state = model._state
+    model._state = object()
+    model._episode_start = np.array([False])
+    assert wrapper._state is model._state
+    assert wrapper._state is not first_state
+    assert wrapper._episode_start is model._episode_start
+    assert not wrapper._episode_start[0]
+
+
+def test_wrapper_receipt_distinguishes_requested_and_clipped_dose(probe):
+    box = np.asarray(TEMPLATES[0]["comparator_vector"])
+    at_limit = np.sign(box).astype(np.float32)
+    wrapper, model, _, state = mock_predictor(probe, "comparator_plus", p=0, action=at_limit)
+    action, hidden = wrapper.predict(None)
+    assert hidden is model.hidden
+    np.testing.assert_array_equal(action, at_limit)
+    assert len(state["doses"]) == 1
+    receipt = state["doses"][0]
+    assert receipt["tick"] == 0
+    assert receipt["clip_hits"] == 18
+    np.testing.assert_array_equal(receipt["requested"], box)
+    np.testing.assert_array_equal(receipt["applied"], np.zeros(18))

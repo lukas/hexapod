@@ -1,7 +1,7 @@
 {
   "schema": "rl-watchdog/2",
   "trigger": "2026-09-08T04:22:12.606Z",
-  "last_updated": "2026-09-08T04:57:00Z",
+  "last_updated": "2026-09-08T05:08:00Z",
   "prior_record": "artifacts/rl_watchdog/state_20260908T024642Z.json",
   "scope": "Simulation RL fleet only; no physical robot action, capacity purchase or limit changes.",
   "capacity": {
@@ -106,7 +106,7 @@
       "pid": 59960,
       "track": "prior-free scratch",
       "task": "Distinct learned foot-placement design/bank; one matched2M-on/2M-off acquisition pair conditional on justified mechanism and passing implementation bank. Existing RNG2, same lineage/reward/plant/motor/limits.",
-      "status": "Runtime decoder implemented;12focusedchecks pass. Waiting on CPU352-test semantics suite started04:43; pytest72473healthyCPUactive. No GPUtraining launch yet."
+      "status": "Focused12-test decoder bank and independent realWarp runtime/decode/reset bank pass. CPU352-test semantics suite72473 still running and accumulatingCPU (~1518s measured05:08); no GPUtraining launched yet."
     }
   ],
   "feedback": [
@@ -114,7 +114,21 @@
     "fb_20260908T043625_ab998c",
     "fb_20260908T044321_d3041d",
     "fb_20260908T044859_ed5d0d",
-    "fb_20260908T045638_79ad89"
+    "fb_20260908T045638_79ad89",
+    "fb_20260908T050405_a8e60b",
+    "fb_20260908T050855_d40e85"
   ],
-  "followup": "Follow existing advancing cycle owners through actual placement/steps or measured prerequisite results; do not duplicate kicks. Keep original joystick gates, prior-free scratch, source checkpoints and budgets."
+  "followup": "Follow existing advancing cycle owners through actual placement/steps or measured prerequisite results; do not duplicate kicks. Keep original joystick gates, prior-free scratch, source checkpoints and budgets.",
+  "gpu_bank": {
+    "pod": "hexapod-mjx-train-11",
+    "status": "PASS",
+    "training": false,
+    "optimizer": false,
+    "completed_vector_ticks": 131,
+    "decode_parity_max_error_rad": 0.0,
+    "elapsed_seconds": 29.389678614679724,
+    "released_nvidia_util_percent": 0,
+    "released_nvidia_memory_mib": 0,
+    "evidence": "artifacts/rl_watchdog/cart_foot_gpu_bank_20260908/"
+  }
 }

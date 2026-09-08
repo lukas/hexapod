@@ -32,7 +32,7 @@
         "actual_steps_each": 2097152
       }
     ],
-    "verification": "Exact own-parent checkpoint hashes, unchanged cfg except planned torque change, repeated PPO steps, and natural CPU artifact handoffs recorded in fleet receipts."
+    "verification": "Exact parent checkpoint hashes, unchanged cfg except the planned torque change, repeated PPO steps, and natural handoffs to CPU artifact finalizers are recorded in the fleet receipts."
   },
   "repairs": {
     "passthrough_steps_guard": {
@@ -42,8 +42,8 @@
       "tests_local": 38,
       "tests_controller": 38,
       "controller_seconds": 0.11,
-      "scope": "Failfastbeforequeue/snapshot if --steps incorrectlypassed as trainerarg; actionabletop-levelsteps/explicitwarmstartguidance. Noautomaticinitinference.",
-      "deployment": "Firstffpullhitconcurrentcloudsnapshotdivergence; owner'ssanctionedsnapshotrebasecompletedandpublishedourcommit. Verifiedancestry andcontroller38tests; nomanualstash/forcepush/restart."
+      "scope": "Fail fast before queue or snapshot when --steps is incorrectly passed as a trainer argument. Explain top-level step budgets and explicit checkpoint warm starts; do not infer initialization automatically.",
+      "deployment": "The first fast-forward pull encountered a concurrent cloud snapshot. The owner completed its sanctioned snapshot rebase and published the repair. Commit ancestry and all 38 controller tests were verified. No manual stash, force push, or restart was used."
     },
     "background_shell_fd": {
       "commit": "8b6e38ca9919f904f3b943e54e23c8813f5c586f",
@@ -52,29 +52,29 @@
       "scope": "Foreground cd then detached trainer; waiting bash no longer retains kubectl capture streams. Deployed, no watcher restart."
     },
     "seed10_queue": {
-      "reason": "Guard refused malformed passthrough steps before PPO; root corrected original queue entries under lock to own40M parents/top-level10M and preserved REFUSED history.",
+      "reason": "The guard refused malformed passthrough step arguments before PPO. Root corrected the original queue entries under lock to each arm\u2019s own 40M parent and a top-level 10M budget, preserving REFUSED history.",
       "receipt": "seed10_depth_queue_repair_20260908/repair.json"
     }
   },
   "scientific_correction": {
     "seed7_off_depth": "FAIL - GAIT RETENTION",
     "seed7_on_depth": "INCONCLUSIVE - CONTROL DRIFT",
-    "basis": "OFF ordinary deterministic gait6\u21920/6 and jitter deterministic1\u21920/6 violates its registered retention gate; ON gait23\u219211/24, OFF19\u219212/24. Narrow arithmetic-mean slip parity and zero falls remain supported, but do not establish healthy overall durability. No criterion relaxation or automatic extension.",
+    "basis": "OFF ordinary deterministic gait fell from 6/6 to 0/6 and jitter deterministic gait from 1/6 to 0/6, violating its registered retention gate. Aggregate gait fell from 23/24 to 11/24 for ON and from 19/24 to 12/24 for OFF. Narrow arithmetic-mean slip parity and zero falls remain supported, but do not establish healthy overall durability. No criterion relaxation or automatic extension.",
     "receipts": "cartfoot_depth_read_20260908/verdicts_{before,after}_correction.json"
   },
   "zero_shot_recovery": {
-    "original_on": "Completed using pre-Cartesian decoder on train5; noncomparable, original report preserved.",
-    "original_off": "Failed before rollout on old train9 parser: unsupported --video-fps25; original log preserved.",
-    "recovered": "Both frozen40M parents restarted on idle5/9 using source matching trained-child evaluators; same own cfg and checkpoint SHA, only planned torque1x. No PPO/newseed.",
+    "original_on": "Completed using the pre-Cartesian decoder on train5; noncomparable, with the original report preserved.",
+    "original_off": "Failed before rollout because the old train9 parser rejected --video-fps 25; original log preserved.",
+    "recovered": "Both frozen 40M parents were restarted on idle train5/train9 using source matching the trained-child evaluators. Each retains its own cfg and checkpoint SHA, with only the planned torque scaling to 1x. No PPO or new seed.",
     "code_sha": "f99cb4d4d4ff414bb7e958748e3b75d950c86432",
     "pids": {
       "on_train5": 1155623,
       "off_train9": 4143559
     },
-    "progress": "Both1\u21923completed clips08:33:36\u219208:34:30; each60s simulated/1500frames. Both still active at08:37:34. Final24episode reports pending.",
+    "progress": "Both advanced from 1 to 3 completed clips between 08:33:36 and 08:34:30 UTC; each completed 60 simulated seconds and 1,500 frames. Both remained active at 08:37:34. Final 24-episode reports are pending.",
     "output_suffix": "_torque1x_zeroshot_evalfix1",
     "receipt": "torque_zeroshot_recovery_20260908/",
-    "comparison_owner": "Existing torque triage20260908T082731, or next watcher completion owner if it wraps: compare each corrected exact24episode frozen baseline with its own2M child; verify model/motor/draw alignment. Do not replay healthy baselines."
+    "comparison_owner": "Existing torque triage cycle 20260908T082731, or the next watcher completion owner if it wraps: compare each corrected exact 24-episode frozen baseline with its own 2M child; verify model, motor and realized-draw alignment. Do not replay healthy baselines."
   },
   "latest_capacity": {
     "sample_at": "2026-09-08T08:37:38.521364+00:00",

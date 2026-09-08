@@ -5621,3 +5621,23 @@ repairable.
   single-policy turn question parked.
 - assumed answer while open: neither launched (explicit bar); turns
   lineage marked design-blocked in STATUS with both options named.
+
+## q_20260908T0050Z [todaypolicy/joystick] turn-authority envelope vs motor-contract fork
+Plain English: we measured WHY the robot cannot follow "walk forward and
+turn" commands at the qualification magnitudes — it is a physical actuator
+budget, not a learning or reward problem, and no software setting fixes it.
+The yaw servo's usable speed times its small 0.071 m moment arm caps each
+leg's sideways foot speed at ~0.04 m/s, and forward speed + turn rate must
+share that budget (evidence: artifacts/rl_watchdog/turnpipeline_20260908/).
+The (vx 0.08, wz +/-0.15) arc cells demand ~2.3x the budget; a 6-config
+lever matrix (slew raise, profile raise, both, full fast profile) recovers
+nothing and often regresses. ASSUMED (and applied) pending your ruling:
+(a) demo/session guidance derates commands into the measured envelope
+(|vx| + 0.171*|wz| <= ~0.04 m/s), and (b) no further GPU spend on
+turn-authority reward/seed arms at the current cells. YOUR CALL: (1) keep
+qualification cells as-is (they will keep FAILing on any controller), or
+re-register them at feasible magnitudes; (2) whether to pursue the one
+strong physical lever — a more extended stance plant (knee 100->80 deg
+nearly doubles the tangential arm) — which changes the stand/walk plant
+contract fleet-wide; (3) whether hardware write_speed/profile changes are
+on the table (measured: +~15% alone under the pinned 37.5 deg/s slew).

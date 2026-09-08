@@ -1,0 +1,1002 @@
+{
+ "schema": "hexapod.turn_pipeline_probe.v1",
+ "label": "scripted_bothraise",
+ "policy": "scripted",
+ "checkpoint": null,
+ "cfg_set": [
+  "env.model_source=mesh",
+  "control.hz=100",
+  "safety.max_delta_q_deg=0.375",
+  "safety.max_roll_deg=25",
+  "safety.max_pitch_deg=25",
+  "goal.walk_speed_min_m_s=0.08",
+  "goal.walk_speed_max_m_s=0.08",
+  "goal.walk_heading_max_rad=3.1415927",
+  "goal.walk_stop_frac=0.15",
+  "goal.walk_cmd_resample_s=6.0",
+  "goal.walk_cmd_resample_jitter=0.2",
+  "goal.walk_park_start_frac=0.25",
+  "goal.walk_obs_body_vel=2",
+  "goal.walk_phase_obs=1",
+  "goal.walk_phase_hz=1.333333",
+  "goal.walk_yaw_cmd=1",
+  "goal.walk_phase_run_on_yaw=1",
+  "goal.walk_yaw_zero_frac=0.5",
+  "reward.walk_kernel_prog_gate=1.0",
+  "reward.walk_anchor_gate=1.0",
+  "reward.anchor_tol_mm=10.0",
+  "reward.walk_height_gate=1.0",
+  "reward.walk_height_sigma_mm=30.0",
+  "reward.walk_loadslip_gate=1.0",
+  "reward.loadslip_ok=3.0",
+  "reward.loadslip_max=6.0",
+  "reward.k_loadslip_excess=10.0",
+  "reward.k_walk_idle_charge=20.0",
+  "reward.walk_idle_speed_m_s=0.02",
+  "reward.k_park_duty=2.0",
+  "reward.k_drag_loaded=10.0",
+  "reward.k_walk_course_income=2.0",
+  "reward.walk_course_income_window_s=0.75",
+  "reward.walk_course_income_deadband_deg=6.0",
+  "reward.walk_course_income_sigma_deg=20.0",
+  "reward.k_walk_excess_sway=2.0",
+  "reward.walk_sway_window_s=0.75",
+  "reward.walk_sway_allow_mm=5.0",
+  "reward.k_walk_course_disp=0.15",
+  "reward.walk_course_disp_window_s=1.5",
+  "reward.walk_course_disp_min_speed_m_s=0.02",
+  "reward.k_walk_course_disp_overspeed=4.0",
+  "reward.walk_course_disp_overspeed_tol=0.05",
+  "reward.walk_course_disp_overspeed_along=1.0",
+  "reward.walk_course_disp_overspeed_ref_floor_m_s=0.06",
+  "train.bc_anchor_coef=3.0",
+  "train.bc_anchor_walk=1.0",
+  "train.bc_anchor_walk_coef=1.0",
+  "train.bc_anchor_phase_lock=1.0",
+  "train.bc_anchor_isolate_update=1",
+  "goal.walk_turn_in_place_frac=0.30",
+  "reward.k_walk_yaw=1.0",
+  "reward.walk_yaw_kernel_gate=1.0",
+  "reward.walk_kernel_yaw_gate=1.0",
+  "reward.k_yaw_prog=2.0",
+  "reward.k_yaw_still=50.0",
+  "reward.walk_yaw_hold_prog_gate=1.0",
+  "reward.yaw_still_avg_s=1.0",
+  "reward.yaw_prog_overshoot_decay=1.0",
+  "reward.yaw_prog_avg_s=1.0",
+  "train.bc_anchor_walk_turn_skip=1",
+  "reward.walk_course_ref_yaw=1.0",
+  "reward.walk_sway_arc_aware=1.0",
+  "safety.max_delta_q_deg=3.0",
+  "bus.servo_vel_max_counts_s=1500"
+ ],
+ "seed": 0,
+ "episode_seconds": 15.0,
+ "results": [
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.0,
+   "seed": 0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 3.494226
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "1500.0",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 131.8359375,
+    "resolved_vel_max_deg_s_max": 131.8359375,
+    "resolved_vel_max_counts_s_max": 1500.0,
+    "safety.max_delta_q_deg": 3.0,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 300.0,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps",
+    "backend_profile": "servo_profile_np"
+   },
+   "joint_rates_rad_s": {
+    "des": {
+     "yaw": {
+      "med": 0.6674575843502367,
+      "p90": 1.1212296042660643,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.1756247099911512,
+      "p90": 2.154965255599035,
+      "pinned_frac": 0.08557865024377727
+     },
+     "knee": {
+      "med": 0.41372926764039475,
+      "p90": 0.5653283374793316,
+      "pinned_frac": 0.0
+     }
+    },
+    "prop": {
+     "yaw": {
+      "med": 0.6674575843502367,
+      "p90": 1.1212296042660643,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.1756247099911512,
+      "p90": 2.154965255599035,
+      "pinned_frac": 0.08557865024377727
+     },
+     "knee": {
+      "med": 0.41372926764039475,
+      "p90": 0.5653283374793316,
+      "pinned_frac": 0.0
+     }
+    },
+    "safe": {
+     "yaw": {
+      "med": 0.6674575843502367,
+      "p90": 1.1212296042660643,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.1756247099911512,
+      "p90": 2.154965255599035,
+      "pinned_frac": 0.08557865024377727
+     },
+     "knee": {
+      "med": 0.41372926764039475,
+      "p90": 0.5653283374793316,
+      "pinned_frac": 0.0
+     }
+    },
+    "act": {
+     "yaw": {
+      "med": 0.4295579375998837,
+      "p90": 0.6355296361512566,
+      "pinned_frac": 0.00012830382345393893
+     },
+     "hip": {
+      "med": 0.2947112245394193,
+      "p90": 0.6147365941133012,
+      "pinned_frac": 0.0006415191172696946
+     },
+     "knee": {
+      "med": 0.19415453985943687,
+      "p90": 0.5540125118464622,
+      "pinned_frac": 0.0032075955863484734
+     }
+    }
+   },
+   "resolved_vel_ceiling_rad_s": 2.3009711818284617,
+   "slew_clip_rad_s": 5.235987755982989,
+   "stage_twists": {
+    "fk_des_contactsel": {
+     "vx_med": -0.041973859726547845,
+     "vy_med": 2.207111126957083e-17,
+     "wz_med": -1.662234157343494e-16,
+     "n": 1299
+    },
+    "fk_des_plansel": {
+     "vx_med": 0.07999999999999748,
+     "vy_med": -2.7733391199176196e-32,
+     "wz_med": 3.3395659488506036e-19,
+     "n": 1264
+    },
+    "fk_prop_contactsel": {
+     "vx_med": -0.041973859726547845,
+     "vy_med": 3.274048883398285e-17,
+     "wz_med": -1.692858602484326e-16,
+     "n": 1299
+    },
+    "fk_prop_plansel": {
+     "vx_med": 0.07999999999999746,
+     "vy_med": 9.283235811080326e-19,
+     "wz_med": 2.5292058901389445e-18,
+     "n": 1264
+    },
+    "fk_safe_contactsel": {
+     "vx_med": -0.041973859726547845,
+     "vy_med": 3.274048883398285e-17,
+     "wz_med": -1.692858602484326e-16,
+     "n": 1299
+    },
+    "fk_safe_plansel": {
+     "vx_med": 0.07999999999999746,
+     "vy_med": 9.283235811080326e-19,
+     "wz_med": 2.5292058901389445e-18,
+     "n": 1264
+    },
+    "fk_act_contactsel": {
+     "vx_med": 0.03167072369450955,
+     "vy_med": -0.0003190164585312738,
+     "wz_med": 0.0010258335218629653,
+     "n": 1299
+    },
+    "fk_act_plansel": {
+     "vx_med": -0.008210356125528635,
+     "vy_med": -0.004003997506002936,
+     "wz_med": 0.003492174421561358,
+     "n": 1264
+    },
+    "pads_contactsel": {
+     "vx_med": 0.030967090201065396,
+     "vy_med": 5.807454397858958e-05,
+     "wz_med": -0.00043605968204369055,
+     "n": 1299
+    },
+    "pads_plansel": {
+     "vx_med": -0.007395733417657381,
+     "vy_med": -0.0036970875910536105,
+     "wz_med": 0.004610638648085574,
+     "n": 1264
+    }
+   },
+   "body": {
+    "vx_med": 0.032656669870073915,
+    "wz_med": -0.0013105133680951712
+   },
+   "duty": [
+    0.5807692307692308,
+    0.553076923076923,
+    0.40692307692307694,
+    0.7715384615384615,
+    0.4146153846153846,
+    0.553076923076923
+   ],
+   "scuff_frac_planswing_in_contact": 0.658974358974359,
+   "achieved_swing_lift_p90_m": [
+    0.0052948970855327005,
+    0.004326585741857409,
+    0.004190160077928228,
+    0.004019600604736652,
+    0.003167560451298256,
+    0.0030583637506528464
+   ]
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.0,
+   "wz_cmd": 0.3,
+   "seed": 0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 3.494226
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "1500.0",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 131.8359375,
+    "resolved_vel_max_deg_s_max": 131.8359375,
+    "resolved_vel_max_counts_s_max": 1500.0,
+    "safety.max_delta_q_deg": 3.0,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 300.0,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps",
+    "backend_profile": "servo_profile_np"
+   },
+   "joint_rates_rad_s": {
+    "des": {
+     "yaw": {
+      "med": 0.7186326519736802,
+      "p90": 0.722231939795939,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689388,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "prop": {
+     "yaw": {
+      "med": 0.7186326519736802,
+      "p90": 0.722231939795939,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689414,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "safe": {
+     "yaw": {
+      "med": 0.7186326519736802,
+      "p90": 0.722231939795939,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689414,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "act": {
+     "yaw": {
+      "med": 0.4662556450357257,
+      "p90": 0.6275871727871669,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.3046119108735687,
+      "p90": 0.614060903726078,
+      "pinned_frac": 0.00012830382345393893
+     },
+     "knee": {
+      "med": 0.11946651173463385,
+      "p90": 0.45253386214609836,
+      "pinned_frac": 0.0024377726456248396
+     }
+    }
+   },
+   "resolved_vel_ceiling_rad_s": 2.3009711818284617,
+   "slew_clip_rad_s": 5.235987755982989,
+   "stage_twists": {
+    "fk_des_contactsel": {
+     "vx_med": 1.2018516789897277e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.17995950911047232,
+     "n": 1299
+    },
+    "fk_des_plansel": {
+     "vx_med": 0.0,
+     "vy_med": 0.0,
+     "wz_med": 0.29974816429077755,
+     "n": 1264
+    },
+    "fk_prop_contactsel": {
+     "vx_med": 2.4037033579794554e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.17995950911047232,
+     "n": 1299
+    },
+    "fk_prop_plansel": {
+     "vx_med": 0.0,
+     "vy_med": 0.0,
+     "wz_med": 0.29974816429077755,
+     "n": 1264
+    },
+    "fk_safe_contactsel": {
+     "vx_med": 2.4037033579794554e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.17995950911047232,
+     "n": 1299
+    },
+    "fk_safe_plansel": {
+     "vx_med": 0.0,
+     "vy_med": 0.0,
+     "wz_med": 0.29974816429077755,
+     "n": 1264
+    },
+    "fk_act_contactsel": {
+     "vx_med": 0.00012115454118793633,
+     "vy_med": -0.00030625977731060794,
+     "wz_med": 0.15873318553131524,
+     "n": 1299
+    },
+    "fk_act_plansel": {
+     "vx_med": -3.099584201798675e-05,
+     "vy_med": -0.0005595207344008353,
+     "wz_med": 0.003277634749138807,
+     "n": 1264
+    },
+    "pads_contactsel": {
+     "vx_med": 7.382359085799234e-05,
+     "vy_med": -0.00019199571319758902,
+     "wz_med": 0.15730842332138759,
+     "n": 1299
+    },
+    "pads_plansel": {
+     "vx_med": -4.8258121867384224e-05,
+     "vy_med": -0.0003439979705571611,
+     "wz_med": 0.007449755250028501,
+     "n": 1264
+    }
+   },
+   "body": {
+    "vx_med": 8.85215873808967e-05,
+    "wz_med": 0.16915833121545035
+   },
+   "duty": [
+    0.40307692307692305,
+    0.7053846153846154,
+    0.40692307692307694,
+    0.6961538461538461,
+    0.4115384615384615,
+    0.6915384615384615
+   ],
+   "scuff_frac_planswing_in_contact": 0.6674358974358975,
+   "achieved_swing_lift_p90_m": [
+    0.004059425875799505,
+    0.005825774619713082,
+    0.003991937865499895,
+    0.0030453105386318603,
+    0.0035592027916607977,
+    0.0036799760783664225
+   ]
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.0,
+   "wz_cmd": -0.3,
+   "seed": 0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 3.494226
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "1500.0",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 131.8359375,
+    "resolved_vel_max_deg_s_max": 131.8359375,
+    "resolved_vel_max_counts_s_max": 1500.0,
+    "safety.max_delta_q_deg": 3.0,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 300.0,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps",
+    "backend_profile": "servo_profile_np"
+   },
+   "joint_rates_rad_s": {
+    "des": {
+     "yaw": {
+      "med": 0.7186326519736816,
+      "p90": 0.7222319397959389,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689388,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "prop": {
+     "yaw": {
+      "med": 0.7186326519736816,
+      "p90": 0.7222319397959389,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689414,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "safe": {
+     "yaw": {
+      "med": 0.7186326519736816,
+      "p90": 0.7222319397959389,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.09571308803377754,
+      "p90": 2.1346689299689414,
+      "pinned_frac": 0.08083140877598152
+     },
+     "knee": {
+      "med": 0.03689718371833184,
+      "p90": 0.37444643212622974,
+      "pinned_frac": 0.0
+     }
+    },
+    "act": {
+     "yaw": {
+      "med": 0.4693152049852597,
+      "p90": 0.6267784140959806,
+      "pinned_frac": 0.00012830382345393893
+     },
+     "hip": {
+      "med": 0.3051245531231192,
+      "p90": 0.6143075378353571,
+      "pinned_frac": 0.00025660764690787786
+     },
+     "knee": {
+      "med": 0.11605453131844357,
+      "p90": 0.4544879813674352,
+      "pinned_frac": 0.001796253528355145
+     }
+    }
+   },
+   "resolved_vel_ceiling_rad_s": 2.3009711818284617,
+   "slew_clip_rad_s": 5.235987755982989,
+   "stage_twists": {
+    "fk_des_contactsel": {
+     "vx_med": 1.2018516789897277e-17,
+     "vy_med": 0.0,
+     "wz_med": 0.17995950911044822,
+     "n": 1299
+    },
+    "fk_des_plansel": {
+     "vx_med": 1.2018516789897277e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.29974816429077844,
+     "n": 1264
+    },
+    "fk_prop_contactsel": {
+     "vx_med": 2.4037033579794554e-17,
+     "vy_med": 0.0,
+     "wz_med": 0.17995950911044822,
+     "n": 1299
+    },
+    "fk_prop_plansel": {
+     "vx_med": 1.8027775184845915e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.29974816429077844,
+     "n": 1264
+    },
+    "fk_safe_contactsel": {
+     "vx_med": 2.4037033579794554e-17,
+     "vy_med": 0.0,
+     "wz_med": 0.17995950911044822,
+     "n": 1299
+    },
+    "fk_safe_plansel": {
+     "vx_med": 1.2018516789897277e-17,
+     "vy_med": 0.0,
+     "wz_med": -0.29974816429077844,
+     "n": 1264
+    },
+    "fk_act_contactsel": {
+     "vx_med": -0.0002888582970892792,
+     "vy_med": -0.00033905348429441595,
+     "wz_med": -0.15744830621365494,
+     "n": 1299
+    },
+    "fk_act_plansel": {
+     "vx_med": -8.973436718019809e-05,
+     "vy_med": -0.0009835938768144037,
+     "wz_med": -0.004376965774023373,
+     "n": 1264
+    },
+    "pads_contactsel": {
+     "vx_med": -0.00022161700136047766,
+     "vy_med": -0.00028118016828509746,
+     "wz_med": -0.1579133176280396,
+     "n": 1299
+    },
+    "pads_plansel": {
+     "vx_med": -0.0001515461005171402,
+     "vy_med": -0.0006838064440575151,
+     "wz_med": -0.005199990247208985,
+     "n": 1264
+    }
+   },
+   "body": {
+    "vx_med": -7.590314476820878e-05,
+    "wz_med": -0.17486706768131766
+   },
+   "duty": [
+    0.4076923076923077,
+    0.7053846153846154,
+    0.3984615384615385,
+    0.6876923076923077,
+    0.41,
+    0.6961538461538461
+   ],
+   "scuff_frac_planswing_in_contact": 0.6653846153846154,
+   "achieved_swing_lift_p90_m": [
+    0.004064249274929642,
+    0.005900966019053213,
+    0.003997330970941326,
+    0.003525420606544916,
+    0.003555646127283978,
+    0.0031585015646796795
+   ]
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": 0.15,
+   "seed": 0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 3.494226
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "1500.0",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 131.8359375,
+    "resolved_vel_max_deg_s_max": 131.8359375,
+    "resolved_vel_max_counts_s_max": 1500.0,
+    "safety.max_delta_q_deg": 3.0,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 300.0,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps",
+    "backend_profile": "servo_profile_np"
+   },
+   "joint_rates_rad_s": {
+    "des": {
+     "yaw": {
+      "med": 0.7607118354943321,
+      "p90": 1.4452373049125637,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18609310765898557,
+      "p90": 2.1619025760876753,
+      "pinned_frac": 0.08532204259686939
+     },
+     "knee": {
+      "med": 0.4202362584016073,
+      "p90": 0.5710939089560663,
+      "pinned_frac": 0.0
+     }
+    },
+    "prop": {
+     "yaw": {
+      "med": 0.7607118354943321,
+      "p90": 1.4452373049125657,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18609310765898557,
+      "p90": 2.1619025760876753,
+      "pinned_frac": 0.08532204259686939
+     },
+     "knee": {
+      "med": 0.4202362584016073,
+      "p90": 0.5710939089560663,
+      "pinned_frac": 0.0
+     }
+    },
+    "safe": {
+     "yaw": {
+      "med": 0.7607118354943321,
+      "p90": 1.4452373049125657,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18609310765898557,
+      "p90": 2.1619025760876753,
+      "pinned_frac": 0.08532204259686939
+     },
+     "knee": {
+      "med": 0.4202362584016073,
+      "p90": 0.5710939089560663,
+      "pinned_frac": 0.0
+     }
+    },
+    "act": {
+     "yaw": {
+      "med": 0.2573393252034598,
+      "p90": 0.6250810288324864,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.2899878419926491,
+      "p90": 0.61187826383334,
+      "pinned_frac": 0.0010264305876315114
+     },
+     "knee": {
+      "med": 0.19049823868478866,
+      "p90": 0.5494382859476699,
+      "pinned_frac": 0.0028226841159866563
+     }
+    }
+   },
+   "resolved_vel_ceiling_rad_s": 2.3009711818284617,
+   "slew_clip_rad_s": 5.235987755982989,
+   "stage_twists": {
+    "fk_des_contactsel": {
+     "vx_med": -0.036860178952509814,
+     "vy_med": -0.0005399753973708565,
+     "wz_med": -0.14318391481459475,
+     "n": 1299
+    },
+    "fk_des_plansel": {
+     "vx_med": 0.07999999999999774,
+     "vy_med": -5.999996625040416e-05,
+     "wz_med": 0.14996625759204812,
+     "n": 1264
+    },
+    "fk_prop_contactsel": {
+     "vx_med": -0.036860178952509814,
+     "vy_med": -0.0005399753973708565,
+     "wz_med": -0.14318391481459475,
+     "n": 1299
+    },
+    "fk_prop_plansel": {
+     "vx_med": 0.07999999999999771,
+     "vy_med": -5.9999966250190665e-05,
+     "wz_med": 0.14996625759204768,
+     "n": 1264
+    },
+    "fk_safe_contactsel": {
+     "vx_med": -0.036860178952509814,
+     "vy_med": -0.0005399753973708565,
+     "wz_med": -0.14318391481459475,
+     "n": 1299
+    },
+    "fk_safe_plansel": {
+     "vx_med": 0.07999999999999771,
+     "vy_med": -5.9999966250190665e-05,
+     "wz_med": 0.14996625759204768,
+     "n": 1264
+    },
+    "fk_act_contactsel": {
+     "vx_med": 0.02836034883066968,
+     "vy_med": -0.0010030052341914036,
+     "wz_med": 0.03621468456751087,
+     "n": 1299
+    },
+    "fk_act_plansel": {
+     "vx_med": -0.007799048813684777,
+     "vy_med": -0.0029788425750779633,
+     "wz_med": -0.03613036490879275,
+     "n": 1264
+    },
+    "pads_contactsel": {
+     "vx_med": 0.02806632126391234,
+     "vy_med": -0.0003916799971411117,
+     "wz_med": 0.03498915125288714,
+     "n": 1299
+    },
+    "pads_plansel": {
+     "vx_med": -0.0077192120211275785,
+     "vy_med": -0.003042153441280431,
+     "wz_med": -0.03559987548219073,
+     "n": 1264
+    }
+   },
+   "body": {
+    "vx_med": 0.03047664084500767,
+    "wz_med": 0.04303156235218603
+   },
+   "duty": [
+    0.5961538461538461,
+    0.5430769230769231,
+    0.41,
+    0.7646153846153846,
+    0.4115384615384615,
+    0.5176923076923077
+   ],
+   "scuff_frac_planswing_in_contact": 0.648974358974359,
+   "achieved_swing_lift_p90_m": [
+    0.005543677020323601,
+    0.0046770589768165925,
+    0.003924687236118323,
+    0.004956443422800728,
+    0.0031261539634966453,
+    0.002491460641984996
+   ]
+  },
+  {
+   "policy": "scripted",
+   "vx_cmd": 0.08,
+   "wz_cmd": -0.15,
+   "seed": 0,
+   "fell": false,
+   "n_scored_ticks": 1300,
+   "model_identity": {
+    "model_source": "mesh",
+    "model_variant": "full_mesh",
+    "model_nmesh": 34,
+    "model_ngeom": 159,
+    "model_mass_kg": 3.494226
+   },
+   "motor_contract": {
+    "bus.write_speed": 400.0,
+    "bus.write_acc": 20.0,
+    "bus.servo_vel_max_counts_s": "1500.0",
+    "bus.servo_params": "",
+    "resolved_vel_max_deg_s_min": 131.8359375,
+    "resolved_vel_max_deg_s_max": 131.8359375,
+    "resolved_vel_max_counts_s_max": 1500.0,
+    "safety.max_delta_q_deg": 3.0,
+    "control.hz": 100.0,
+    "slew_limit_deg_s": 300.0,
+    "bus.profile_ramp_steps": 0.0,
+    "servo_params_source": "/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps",
+    "backend_profile": "servo_profile_np"
+   },
+   "joint_rates_rad_s": {
+    "des": {
+     "yaw": {
+      "med": 0.7607118354943334,
+      "p90": 1.445237304912561,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18458103010300375,
+      "p90": 2.149644745602038,
+      "pinned_frac": 0.09840903258917116
+     },
+     "knee": {
+      "med": 0.41105858304397724,
+      "p90": 0.5839719875469829,
+      "pinned_frac": 0.0
+     }
+    },
+    "prop": {
+     "yaw": {
+      "med": 0.7607118354943334,
+      "p90": 1.445237304912561,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18458103010299265,
+      "p90": 2.1496447456020418,
+      "pinned_frac": 0.09840903258917116
+     },
+     "knee": {
+      "med": 0.41105858304397724,
+      "p90": 0.5839719875469829,
+      "pinned_frac": 0.0
+     }
+    },
+    "safe": {
+     "yaw": {
+      "med": 0.7607118354943334,
+      "p90": 1.445237304912561,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.18458103010299265,
+      "p90": 2.1496447456020418,
+      "pinned_frac": 0.09840903258917116
+     },
+     "knee": {
+      "med": 0.41105858304397724,
+      "p90": 0.5839719875469829,
+      "pinned_frac": 0.0
+     }
+    },
+    "act": {
+     "yaw": {
+      "med": 0.25429228548640226,
+      "p90": 0.6233431290724493,
+      "pinned_frac": 0.0
+     },
+     "hip": {
+      "med": 0.2792652643679061,
+      "p90": 0.6051982728380267,
+      "pinned_frac": 0.0011547344110854503
+     },
+     "knee": {
+      "med": 0.19474907054374269,
+      "p90": 0.5280747241468295,
+      "pinned_frac": 0.008083140877598153
+     }
+    }
+   },
+   "resolved_vel_ceiling_rad_s": 2.3009711818284617,
+   "slew_clip_rad_s": 5.235987755982989,
+   "stage_twists": {
+    "fk_des_contactsel": {
+     "vx_med": -0.047116616917648034,
+     "vy_med": 0.0004450977801446765,
+     "wz_med": 0.1495290903063765,
+     "n": 1299
+    },
+    "fk_des_plansel": {
+     "vx_med": 0.07999999999999757,
+     "vy_med": 5.99999662506696e-05,
+     "wz_med": -0.1499662575920488,
+     "n": 1264
+    },
+    "fk_prop_contactsel": {
+     "vx_med": -0.04711661691764806,
+     "vy_med": 0.0004450977801446765,
+     "wz_med": 0.1495290903063765,
+     "n": 1299
+    },
+    "fk_prop_plansel": {
+     "vx_med": 0.07999999999999755,
+     "vy_med": 5.9999966250424087e-05,
+     "wz_med": -0.14996625759204593,
+     "n": 1264
+    },
+    "fk_safe_contactsel": {
+     "vx_med": -0.04711661691764806,
+     "vy_med": 0.0004450977801446765,
+     "wz_med": 0.1495290903063765,
+     "n": 1299
+    },
+    "fk_safe_plansel": {
+     "vx_med": 0.07999999999999755,
+     "vy_med": 5.9999966250424087e-05,
+     "wz_med": -0.14996625759204593,
+     "n": 1264
+    },
+    "fk_act_contactsel": {
+     "vx_med": 0.029042489951453355,
+     "vy_med": -0.0002477762641551057,
+     "wz_med": -0.0379318936709141,
+     "n": 1299
+    },
+    "fk_act_plansel": {
+     "vx_med": -0.014211726888631782,
+     "vy_med": 0.00016923785469223282,
+     "wz_med": 0.030367594275814445,
+     "n": 1264
+    },
+    "pads_contactsel": {
+     "vx_med": 0.02835968448642587,
+     "vy_med": -0.0003880150075363004,
+     "wz_med": -0.040803102979821516,
+     "n": 1299
+    },
+    "pads_plansel": {
+     "vx_med": -0.012861111132851849,
+     "vy_med": -0.0002884433715952973,
+     "wz_med": 0.03253908102507042,
+     "n": 1264
+    }
+   },
+   "body": {
+    "vx_med": 0.03253701128163837,
+    "wz_med": -0.049113175094519124
+   },
+   "duty": [
+    0.5230769230769231,
+    0.6184615384615385,
+    0.48384615384615387,
+    0.6884615384615385,
+    0.4338461538461538,
+    0.65
+   ],
+   "scuff_frac_planswing_in_contact": 0.6920512820512821,
+   "achieved_swing_lift_p90_m": [
+    0.003496064962972919,
+    0.00317042471921581,
+    0.005343997131070255,
+    0.004401449209556615,
+    0.0035118724089136908,
+    0.0050927531067338095
+   ]
+  }
+ ]
+}

@@ -1,3 +1,40 @@
+## 2026-09-08 ~10:2x (triage cycle; assigned `cartfoot-halfgrav-s11` canary) — assigned canary was already CANARY PASSed (a concurrent cycle triaged the whole seed10/seed11 cohort together while this cycle was reading it); launched the seed11 40M acquisition continuation the PASS calls for
+
+One plain sentence: the seed11 halfgrav cart_foot (ON) canary this
+cycle was assigned to triage already had its CANARY PASS verdict
+recorded (`0 falls/24, gait_valid 6/6 every group, reward quarters
+-133/-338/-483/-645 monotonic-not-exploding, same shape as seed7/
+seed10`) — a concurrent cycle triaged the full seed10/seed11 ON+OFF
+cohort together and had already moved on to launching `s10-acq1` and
+`offctrl-s10-acq1` by the time this cycle's triage started (mechanical
+state confirmed via `experiments.json` timestamps and the git snapshot
+log) — so rather than duplicate the verdict, this cycle read/confirmed
+it independently (matches) and did the one thing the PASS still
+called for that nobody had launched: the seed11 ON acquisition
+continuation, mirroring the seed10 respec exactly (same `s7-acq1`
+config template, own seed11 canary checkpoint as `--init-from`, seed
+11).
+
+**Launched: `cw-walkscratch-easy0905-cartfoot-halfgrav-s11-acq1`**
+(respec of `cartfoot-halfgrav-s7-acq1`, `--init-from
+rl_move/sim/policies/ppo_goal_cw_walkscratch_easy0905_cartfoot_halfgrav_s11.zip`,
+`--seed 11`), VERIFIED RUNNING on `hexapod-mjx-train-0`. Completes the
+n=3 (seed7/10/11) halfgrav acquisition-continuation cohort matching
+the 1g fork(b) cell's practice. Gate: `>=0.03 m/s` median net forward
+in `>=1` of walk/det,sto (0 falls in det), read together with the
+matched `offctrl-s11-acq1` (concurrent cycle's to launch/read) at the
+same budget; 08-21 ruling applies if reward is still rising at cutoff.
+The matching `offctrl-s11` canary and `s10-acq1`/`offctrl-s10-acq1`
+launches are the concurrent cycle's own work and are not re-verdicted
+or re-launched here.
+
+Evidence: `logs/ckpt_eval/cw_walkscratch_easy0905_cartfoot_halfgrav_s11_gate/report.json`;
+`experiments.json` entries for `cartfoot-halfgrav-{s10,s11,offctrl-s10,offctrl-s11}`
+(all CANARY PASS, timestamps 09:56-10:01 UTC) and `cartfoot-halfgrav-s10-acq1`
+(concurrent launch, 10:19 UTC). RL_LOG 09-08 ~10:2x. CYCLE_WORKED touched.
+
+--- prior entry below ---
+
 ## 2026-09-08 ~10:2x (triage cycle; assigned `crutchoff-s0-widen8-legdutyratio-target045`) — dose-escalation branch CLOSES negative; reaped 2 orphaned 09-06 DR-restore ACQ evals that never made it back to the controller; exhaustive board check finds no further unclaimed GPU lever this window
 
 One plain sentence: the 0.30->0.45 legduty-ratio dose the 03:3x closure
